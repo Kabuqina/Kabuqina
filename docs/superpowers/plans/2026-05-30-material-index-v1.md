@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a lightweight Material Index layer that turns already-read student materials into a stable, reusable JSON evidence package for the three PPT workflows.
+**Goal:** Add a lightweight, format-agnostic Material Index layer that turns already-read student materials into a stable, reusable JSON evidence package for downstream file generation workflows.
 
-**Architecture:** Material Index v1 lives in `hermes_core` as a documents tool because it is agent/PPT planning semantics, not desktop shell glue. It does not read files directly; it consumes content returned by the Read基础层 (`document_read_precise`, `pdf_read_precise`, file tools, or attachment extraction) and produces bounded structured metadata for PPT planning. The PPT writer remains independent and consumes final slide objects, not the index directly.
+**Architecture:** Material Index v1 lives in `hermes_core` as a documents tool because it is agent/document-generation semantics, not desktop shell glue. It does not read files directly; it consumes content returned by the Read基础层 (`document_read_precise`, `pdf_read_precise`, file tools, or attachment extraction) and produces bounded structured metadata for planners and writers. PPT is the first consumer, but the index must also be suitable for future Word reports, summaries, study notes, project documentation, and other generated files. Writers remain independent and consume planner-specific outputs, not the index directly.
 
 **Tech Stack:** Python 3.11, stdlib `re`/`json`/dataclasses, pytest, existing Hermes tool registry, React/TypeScript prompt tests.
 
@@ -15,7 +15,7 @@
 - `hermes_core/tools/material_index_tools.py`
   - New core tool module.
   - Defines the Material Index v1 contract.
-  - Normalizes read outputs into `source_files`, `sections`, `key_points`, `tables`, `figures`, `screenshots`, `code_files`, `evidence`, `citations`, `uncertain_parts`, and `ppt_hints`.
+  - Normalizes read outputs into `source_files`, `sections`, `key_points`, `tables`, `figures`, `screenshots`, `code_files`, `evidence`, `citations`, `uncertain_parts`, and `generation_hints`.
   - Registers `material_index_build`.
 
 - `hermes_core/tools/document_tools.py`
@@ -29,10 +29,10 @@
   - New focused tests for schema, extraction, truncation, source references, and profile-specific hints.
 
 - `web/src/chat/WorkspacePanel.tsx`
-  - Update the three PPT quick-action prompts to add a Material Index step after reading and before outline generation.
+  - Update the three PPT quick-action prompts to add a Material Index step after reading and before outline generation. This is the first consumer of the general index, not the reason the index exists.
 
 - `web/src/chat/chatUx.test.mjs`
-  - Lock in the prompt contract: read materials, build material index, draft outline, review, write PPT.
+  - Lock in the PPT prompt contract: read materials, build material index, draft outline, review, write PPT.
 
 ## Contract
 
@@ -74,10 +74,15 @@ Output:
   "evidence": [],
   "citations": [],
   "uncertain_parts": [],
-  "ppt_hints": {
-    "recommended_slide_types": [],
+  "generation_hints": {
     "missing_assets": [],
-    "quality_warnings": []
+    "quality_warnings": [],
+    "ppt": {
+      "recommended_slide_types": []
+    },
+    "report": {
+      "recommended_sections": []
+    }
   }
 }
 ```
@@ -91,6 +96,7 @@ Each extracted item must include a stable `id`, `source_id`, and short `text`/`t
 - v1 is allowed to be imperfect, but it must preserve source references and uncertainty.
 - v1 should produce helpful placeholders when assets are implied but missing.
 - v1 must not invent real figures, screenshots, citations, or test results.
+- v1 is format-agnostic. PPT-specific hints live under `generation_hints.ppt`; future document types must add their own hint namespace instead of changing the core index into a PPT schema.
 
 ## Task 1: Write Material Index Tests First
 
@@ -99,7 +105,7 @@ Each extracted item must include a stable `id`, `source_id`, and short `text`/`t
 
 - [ ] **Step 1: Test minimal index shape**
   - Build an index from one markdown material with a title and paragraphs.
-  - Assert `ok`, `version`, `profile`, `source_files`, `sections`, `key_points`, and `ppt_hints` exist.
+  - Assert `ok`, `version`, `profile`, `source_files`, `sections`, `key_points`, and `generation_hints` exist.
 
 - [ ] **Step 2: Test markdown heading extraction**
   - Input markdown with `#`, `##`, and paragraph content.
@@ -115,7 +121,7 @@ Each extracted item must include a stable `id`, `source_id`, and short `text`/`t
 
 - [ ] **Step 5: Test code profile cues**
   - Input materials with names like `src/main/java/App.java`, `README.md`, and `pom.xml`.
-  - Assert `code_files`, architecture-related evidence, and code-defense slide hints exist.
+  - Assert `code_files`, architecture-related evidence, and code-defense hints exist under `generation_hints.ppt`.
 
 - [ ] **Step 6: Test truncation and uncertainty**
   - Input very long content plus phrases like `识别不清` or `OCR uncertain`.
@@ -154,7 +160,7 @@ Each extracted item must include a stable `id`, `source_id`, and short `text`/`t
 - [ ] **Step 5: Extract markdown tables**
   - Detect simple pipe tables.
   - Normalize headers and up to a readable number of rows.
-  - Store as editable planning data, not rendered PPT.
+  - Store as editable planning data, not rendered output for any specific file type.
 
 - [ ] **Step 6: Extract figure/screenshot cues**
   - Detect markdown images, `图 N`, `Figure N`, `截图`, `界面`, `dashboard`, `运行结果`.
@@ -169,10 +175,13 @@ Each extracted item must include a stable `id`, `source_id`, and short `text`/`t
   - Capture page markers like `<!-- page:3 -->`, `[1]`, DOI-like text, and bibliography headings.
   - Capture uncertainty phrases from OCR/read fallbacks.
 
-- [ ] **Step 9: Generate `ppt_hints`**
-  - `paper_report`: recommend `diagram`, `table`, `chart_placeholder`, `qa_backup` based on available evidence.
-  - `course_report`: recommend `diagram`, `table`, `claim_bullets`, `qa_backup`.
-  - `code_defense`: recommend `diagram`, `screenshot_placeholder`, `table`, `qa_backup`.
+- [ ] **Step 9: Generate `generation_hints`**
+  - Add shared `missing_assets` and `quality_warnings`.
+  - Add `generation_hints.ppt` for the current PPT workflows:
+    - `paper_report`: recommend `diagram`, `table`, `chart_placeholder`, `qa_backup` based on available evidence.
+    - `course_report`: recommend `diagram`, `table`, `claim_bullets`, `qa_backup`.
+    - `code_defense`: recommend `diagram`, `screenshot_placeholder`, `table`, `qa_backup`.
+  - Add a small `generation_hints.report.recommended_sections` list so the v1 contract demonstrates that the layer is not PPT-only.
 
 - [ ] **Step 10: Return JSON**
   - Add `material_index_build(profile, materials)` returning `json.dumps(..., ensure_ascii=False)`.
@@ -185,7 +194,7 @@ Each extracted item must include a stable `id`, `source_id`, and short `text`/`t
 - Modify: `hermes_core/toolsets.py`
 
 - [ ] **Step 1: Add `MATERIAL_INDEX_BUILD_SCHEMA`**
-  - Describe that it consumes already-read material and creates a planning index.
+  - Describe that it consumes already-read material and creates a general planning index for downstream file generation.
   - Include `profile` and `materials`.
 
 - [ ] **Step 2: Register `material_index_build`**
@@ -231,6 +240,7 @@ Each extracted item must include a stable `id`, `source_id`, and short `text`/`t
     - "根据素材索引再生成大纲"
   - Keep current high-quality slide type rules.
   - Make clear that missing screenshots/charts become placeholders.
+  - Make clear that the PPT workflows are consuming the general Material Index, not defining its full scope.
 
 - [ ] **Step 4: Run frontend test**
   - Command:
@@ -246,15 +256,16 @@ Each extracted item must include a stable `id`, `source_id`, and short `text`/`t
 
 - [ ] **Step 1: Document the layer boundary**
   - Read基础层 reads files.
-  - Material Index organizes read results.
-  - PPT Planner chooses story and slide types.
-  - PPT Writer renders slides.
+  - Material Index organizes read results into reusable evidence.
+  - Planners choose story, format, and output structure.
+  - Writers render specific file formats such as PPTX today and future document types later.
 
 - [ ] **Step 2: Document v1 limitations**
   - No file reading.
   - No OCR.
   - No LLM inside the tool.
   - No automatic asset embedding yet.
+  - PPT is the first consumer, not the only target.
 
 - [ ] **Step 3: Link from docs index if appropriate**
   - Add to `docs/README.md` only if that file already lists related docs.
@@ -296,7 +307,7 @@ Each extracted item must include a stable `id`, `source_id`, and short `text`/`t
 - `material_index_build` exists in the `documents` toolset.
 - It consumes already-read materials and returns a bounded Material Index v1 JSON object.
 - It preserves source references for sections, tables, figures/screenshots, evidence, and uncertainty.
-- It produces profile-aware PPT hints for `paper_report`, `course_report`, and `code_defense`.
+- It produces generic `generation_hints` plus PPT-specific hints for `paper_report`, `course_report`, and `code_defense`.
 - The three PPT quick actions require a material-index step before outline review.
 - Focused core and frontend tests pass.
 
@@ -304,5 +315,5 @@ Each extracted item must include a stable `id`, `source_id`, and short `text`/`t
 
 - Feed real image paths from Read基础层 into `figures`/`screenshots`.
 - Let `pptx_write` embed real assets when slide objects reference verified workspace image paths.
-- Add a richer planner that converts Material Index directly into draft slides.
+- Add richer planners that convert Material Index into PPT slides, Word reports, study notes, project documentation, or other generated files.
 - Add UI preview of the material index before outline generation if students need more control.
