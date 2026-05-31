@@ -21,6 +21,8 @@
 
 ## 简体中文
 
+> **当前分支：`codex/student-deliverables`** — 这是用于学生交付与演示验收的分支 README，重点说明桌面体验、可分发产物与材料索引。正式产品主页以 `main` 分支为准。
+
 ### 一句话
 
 **卡布奇娜**是在 **Windows** 上用的 **桌面版 AI 助手**：像普通软件一样安装打开，自带引导配置 **自己的大模型 API Key**，底层跑开源的 **[Hermes Agent](https://github.com/NousResearch/hermes-agent)**。
@@ -50,6 +52,14 @@
 - `Kabuqina_0.1.0_x64_en-US.msi`
 
 内含 Tauri 壳、前端资源、内嵌 Python / Hermes 运行时。尚未代码签名时，SmartScreen 可能提示未知发布者 → [代码签名](./docs/code-signing.md)。
+
+### 本分支交付内容
+
+此分支用于展示和验收 **student deliverables**，README 比 `main` 更偏向可演示成果：
+
+- **桌面体验**：Windows 安装、托盘、壳内 `/chat`、Hermes 控制台入口、设置与网关控制。
+- **可分发产物**：MSI 安装包、便携 ZIP 打包脚本、内嵌 Python / Hermes 运行时构建路径。
+- **材料索引**：界面截图、架构说明、排障文档、代码签名与构建说明，方便演示和评审快速定位。
 
 ### 能力与边界
 
@@ -172,6 +182,8 @@ Set-Location tauri; cargo tauri dev
 
 ## English
 
+> **Current branch: `codex/student-deliverables`** — this README is tailored for student deliverables, demo review, and handoff materials. The general product README remains on `main`.
+
 **A friendly Windows desktop AI assistant** — double-click install, guided setup, your own API key.
 Powered by the open-source **[Hermes Agent](https://github.com/NousResearch/hermes-agent)**.
 
@@ -181,6 +193,14 @@ Powered by the open-source **[Hermes Agent](https://github.com/NousResearch/herm
 
 Grab the latest **`.msi`** from **GitHub Releases** (exact filename follows the release), e.g. `Kabuqina_0.1.0_x64_en-US.msi`.
 Unsigned builds may trigger SmartScreen — see [code-signing.md](./docs/code-signing.md).
+
+### Student Deliverables
+
+This branch highlights the deliverables intended for demonstration and review, so it is more handoff-oriented than `main`:
+
+- **Desktop experience**: Windows install, tray/window behavior, in-shell `/chat`, Hermes console entry, settings, and gateway controls.
+- **Distributable outputs**: MSI installer, portable ZIP packaging script, and the embedded Python / Hermes runtime build path.
+- **Review materials**: screenshots, architecture notes, troubleshooting, code-signing notes, and build references for quick inspection.
 
 ### Screenshots
 
