@@ -2,7 +2,7 @@
 
 # 卡布奇娜 · Kabuqina
 
-**Windows 上好安装的桌面 AI 助手** · 向导配置 · BYO API Key · 基于 [Hermes Agent](https://github.com/NousResearch/hermes-agent)
+**Windows 上好安装的桌面 AI 助手** · 向导配置 · BYO API Key · 基于 [Hermes Agent](https://github.com/NousResearch/hermes-agent) 并独立开发
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Windows](https://img.shields.io/badge/platform-Windows%2010%2F11-%230078D6?style=flat-square&logo=windows&logoColor=white)](https://github.com/Kabuqina/Kabuqina)
@@ -23,11 +23,11 @@
 
 ### 一句话
 
-**卡布奇娜**是在 **Windows** 上用的 **桌面版 AI 助手**：像普通软件一样安装打开，自带引导配置 **自己的大模型 API Key**，底层跑开源的 **[Hermes Agent](https://github.com/NousResearch/hermes-agent)**。
+**卡布奇娜**是在 **Windows** 上用的 **桌面版 AI 助手**：像普通软件一样安装打开，自带引导配置 **自己的大模型 API Key**，以开源 **[Hermes Agent](https://github.com/NousResearch/hermes-agent)** 为基础，并在桌面壳、策略层与网关体验上做了独立开发。
 
 ### 适合你吗
 
-|          |                                                                                                                               |
+| 项目       | 说明                                                                                                                            |
 | -------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | **目标用户** | 想要 **本机窗口 + 托盘**，不想折腾终端、也不想长期挂在浏览器标签里                                                                                         |
 | **费用**   | **自备 Key（BYO）** — 向导里可配 OpenRouter、OpenAI、Anthropic 或自定义 Base URL                                                             |
@@ -173,7 +173,7 @@ Set-Location tauri; cargo tauri dev
 ## English
 
 **A friendly Windows desktop AI assistant** — double-click install, guided setup, your own API key.
-Powered by the open-source **[Hermes Agent](https://github.com/NousResearch/hermes-agent)**.
+Built on the open-source **[Hermes Agent](https://github.com/NousResearch/hermes-agent)**, with independent Kabuqina development for the desktop shell, policy layer, and gateway experience.
 
 **Packaged version:** `0.1.0` (`tauri/tauri.conf.json`, `web/package.json`).
 
@@ -191,7 +191,7 @@ Unsigned builds may trigger SmartScreen — see [code-signing.md](./docs/code-si
 
 ### At a glance
 
-|           |                                                                                                                 |
+| Item      | Details                                                                                                         |
 | --------- | --------------------------------------------------------------------------------------------------------------- |
 | **Who**   | People who want a **native Windows app**, not a terminal or a browser tab                                       |
 | **Cost**  | **BYO key** — OpenRouter, OpenAI, Anthropic, or custom base URL                                                 |
