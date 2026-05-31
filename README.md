@@ -191,7 +191,7 @@ Unsigned builds may trigger SmartScreen — see [code-signing.md](./docs/code-si
 
 ### At a glance
 
-|           |                                                                                                                 |
+| Item      | Details                                                                                                         |
 | --------- | --------------------------------------------------------------------------------------------------------------- |
 | **Who**   | People who want a **native Windows app**, not a terminal or a browser tab                                       |
 | **Cost**  | **BYO key** — OpenRouter, OpenAI, Anthropic, or custom base URL                                                 |
