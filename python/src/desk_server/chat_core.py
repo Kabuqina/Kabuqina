@@ -4,6 +4,7 @@ import base64, io, json, logging, os, re, threading, time, uuid, zipfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 from xml.etree import ElementTree as ET
+from desk_server.interactions import interaction_manager
 log = logging.getLogger(__name__)
 _desk_active_agents: Dict[str, Any] = {}
 _desk_active_lock = threading.Lock()
@@ -111,6 +112,30 @@ def _desk_prepare_active_agent(
     _desk_attach_progress_events(agent, progress_event_callback)
     if stream_delta_callback is not None:
         agent.stream_delta_callback = stream_delta_callback
+
+    def _clarify_callback(
+        question: str,
+        choices: Optional[List[str]] = None,
+        kind: Optional[str] = None,
+        artifact: Optional[Dict[str, Any]] = None,
+    ) -> Any:
+        result = interaction_manager.request(
+            session_id=session_id,
+            kind=kind or ("choice" if choices else "text"),
+            question=str(question or ""),
+            choices=list(choices or []),
+            artifact=artifact,
+            emit=progress_event_callback or (lambda payload: None),
+        )
+        if kind:
+            return result
+        action = str(result.get("action") or "")
+        text = str(result.get("text") or "").strip()
+        if action == "timeout":
+            return text
+        return text or action
+
+    agent.clarify_callback = _clarify_callback
     agent._desk_prepared_session_id = session_id
     _desk_register_active(session_id, agent)
 

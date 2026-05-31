@@ -25,10 +25,11 @@ import { ScheduledTasksPage } from "./advanced/pages/ScheduledTasks";
 import { OverlayWindow } from "./capture/OverlayWindow";
 import { CompanionWindow } from "./companion/CompanionWindow";
 import { BrandSvgPreview } from "./components/brand/BrandSvgPreview";
-import { applyFontSize } from "./lib/ui-prefs";
+import { applyFontSize, applyTheme } from "./lib/ui-prefs";
 import "./index.css";
 
 applyFontSize();
+applyTheme();
 
 // --- Capture-overlay window: render the bare overlay, no shell chrome ---
 const windowLabel = (() => {

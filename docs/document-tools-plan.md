@@ -1,6 +1,9 @@
 # Document read/write tools — implementation plan
 
-> Status: **Planned** (not yet implemented)
+> Status: **Historical v1 plan**. Read-layer implementation has since evolved
+> into the common `document_read_precise` / `pdf_read_precise` pipeline with
+> Docling routing, local fallbacks, Read cache, and `read_id` handoff. See
+> `docs/read-layer-plan.md` for the current Read-layer plan.
 > Decided: 2026-05-06
 
 ## Summary

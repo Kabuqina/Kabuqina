@@ -9,7 +9,7 @@ from unittest.mock import patch
 _root = Path(__file__).resolve().parent.parent
 _overlays = _root / "overlays"
 _hermes = _root.parent / "hermes_core"
-for p in (_overlays, _hermes):
+for p in (_root, _overlays, _hermes):
     s = str(p)
     if p.is_dir() and s not in sys.path:
         sys.path.insert(0, s)

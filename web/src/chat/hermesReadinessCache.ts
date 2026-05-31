@@ -51,3 +51,18 @@ export function updateHermesReadinessCache(
   }
   return snapshotFromBootState(state);
 }
+
+export function updateHermesReadinessCacheFromSnapshot(
+  snapshot: HermesReadinessSnapshot,
+): HermesReadinessSnapshot {
+  if (snapshot.bootErr) {
+    cachedBootErr = snapshot.bootErr;
+    cachedBootState = null;
+    return snapshot;
+  }
+  cachedBootErr = null;
+  cachedBootState = snapshot.hermesReady
+    ? { port: 1, warming: snapshot.hermesWarming }
+    : null;
+  return snapshot;
+}

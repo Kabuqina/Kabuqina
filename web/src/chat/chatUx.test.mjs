@@ -129,6 +129,17 @@ assert.equal(
   "这个步骤我没成功。你可以换个说法，或把要处理的文件拖进来再试。",
 );
 
+assert.equal(
+  friendlyChatError('{"error":"run_failed","detail":"terminal can read json files"}', "zh"),
+  "这个步骤我没成功。你可以换个说法，或把要处理的文件拖进来再试。",
+  "Generic JSON-shaped errors should not map to the bundle/json copy.",
+);
+
+assert.equal(
+  friendlyChatError("JSONDecodeError: Expecting value", "zh"),
+  "本机助手返回的内容我没读懂。请重启应用，或重新构建 Python bundle 后再试。",
+);
+
 assert.doesNotMatch(
   sidebarSource,
   /data-action-priority="low"[\s\S]*t\("chat\.exportButton"\)|nav\("\/export"\)/,
@@ -329,6 +340,12 @@ assert.match(
 );
 
 assert.match(
+  indexCssSource,
+  /\[data-theme="dark"\][\s\S]*--kq-color-ink:\s*#e2dde8/,
+  "Dark theme should override Kabuqina semantic tokens via data-theme.",
+);
+
+assert.match(
   appScaffoldSource,
   /kq-chat-shell/,
   "The chat scaffold should use the Kabuqina soft lavender shell.",
@@ -434,6 +451,36 @@ assert.match(
 );
 
 assert.match(
+  chatApiSource,
+  /AgentInteractionRequest[\s\S]*cmdInteractionResponse/,
+  "Chat API should expose reusable agent interaction request/response types.",
+);
+
+assert.match(
+  sendMessageSource,
+  /interaction\.request[\s\S]*setPendingInteraction/,
+  "Streaming chat should capture agent interaction requests for the UI.",
+);
+
+assert.match(
+  sendMessageSource,
+  /deferredStreamError[\s\S]*chat stream error \(deferred\)/,
+  "Stream error SSE events should be deferred until the stream command finishes.",
+);
+
+assert.match(
+  sendMessageSource,
+  /parsed\.ok[\s\S]*setSendErr\(null\)/,
+  "Successful stream completion should clear any stale sendErr banner.",
+);
+
+assert.match(
+  messageListSource,
+  /AgentInteractionCard[\s\S]*通过[\s\S]*补充要求[\s\S]*自行编辑/s,
+  "Chat should render reusable interaction cards with the PPT outline review actions.",
+);
+
+assert.match(
   chatMessageSource,
   /attachments\?: DeskAttachmentPayload\[\][\s\S]*UserImageAttachments[\s\S]*<img[\s\S]*data:\$\{att\.mime\};base64,\$\{att\.data\}/,
   "User bubbles should render image attachments as visible screenshots.",
@@ -497,10 +544,38 @@ assert.match(
   "Workspace quick actions should include Export Chat.",
 );
 
+const exportPageSource = fs.readFileSync(new URL("../advanced/Export.tsx", import.meta.url), "utf8");
+const chatExportSource = fs.readFileSync(new URL("./chatExport.ts", import.meta.url), "utf8");
+assert.match(
+  exportPageSource,
+  /buildExportJson[\s\S]*buildExportMarkdown[\s\S]*exportLabelsForLocale/,
+  "Export page should build branded dialogue exports via chatExport helpers.",
+);
+assert.match(chatExportSource, /parseDeskUserContent[\s\S]*speaker: labels\.productName/);
+assert.doesNotMatch(chatExportSource, /Hermes|hermesdesk-export/i);
+
 assert.match(
   workspacePanelSource,
   /nav\("\/settings\/cron"[\s\S]*kq-color-icon-alarm[\s\S]*cron\.title[\s\S]*kq-color-icon-folder[\s\S]*workspaceOrganizeDesktop[\s\S]*kq-color-icon-download[\s\S]*chat\.exportButton/,
   "Workspace quick actions should use colorful icons with scheduled tasks first.",
+);
+
+assert.match(
+  workspacePanelSource,
+  /workspaceCourseToPpt[\s\S]*course_report[\s\S]*workspacePaperToPpt[\s\S]*workspaceCodeToPpt[\s\S]*workspacePrecisePdf[\s\S]*review_outline[\s\S]*pptx_write[\s\S]*pdf_read_precise|review_outline[\s\S]*pptx_write[\s\S]*pdf_read_precise[\s\S]*workspaceCourseToPpt[\s\S]*workspacePaperToPpt[\s\S]*workspaceCodeToPpt[\s\S]*workspacePrecisePdf/,
+  "Workspace quick actions should expose student PPT and precise PDF workflows.",
+);
+
+assert.match(
+  workspacePanelSource,
+  /高质量可交付[\s\S]*slide_type[\s\S]*screenshot_placeholder[\s\S]*chart_placeholder[\s\S]*qa_backup[\s\S]*review_outline[\s\S]*pptx_write/,
+  "Student PPT quick actions should request structured high-quality deliverables with placeholders and backup slides.",
+);
+
+assert.match(
+  workspacePanelSource,
+  /material_index_build[\s\S]*素材索引[\s\S]*review_outline[\s\S]*pptx_write/,
+  "Student PPT quick actions should build a general material index before outline review and PPT writing.",
 );
 
 assert.doesNotMatch(

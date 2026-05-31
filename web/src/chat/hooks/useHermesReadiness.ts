@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import { getCachedHermesReadiness } from "../hermesReadinessCache";
+import {
+  getCachedHermesReadiness,
+  updateHermesReadinessCacheFromSnapshot,
+} from "../hermesReadinessCache";
 import { waitForHermesReadiness } from "../hermesReadinessPoll";
 import { useI18n } from "../../lib/i18n";
 
@@ -18,9 +21,10 @@ export function useHermesReadiness() {
       if (cancel) {
         return;
       }
-      setHermesReady(snap.hermesReady);
-      setHermesWarming(snap.hermesWarming);
-      setBootErr(snap.bootErr);
+      const cachedSnap = updateHermesReadinessCacheFromSnapshot(snap);
+      setHermesReady(cachedSnap.hermesReady);
+      setHermesWarming(cachedSnap.hermesWarming);
+      setBootErr(cachedSnap.bootErr);
       if (import.meta.env.DEV && bootT0 > 0 && snap.hermesReady && !snap.hermesWarming) {
         console.info(`[kabuqina] hermes_ready_ms=${Math.round(performance.now() - bootT0)}`);
       }

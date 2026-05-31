@@ -7,9 +7,12 @@ import {
   cmdChatSend,
   cmdChatSendStream,
   cmdDeskStop,
+  cmdGetSessionMessages,
+  cmdInteractionResponse,
   fileToDeskAttachment,
   isRecord,
   parseChatSend,
+  type PendingAgentInteraction,
   type ChatStreamEnvelope,
   type ChatStreamEvent,
   type DeskAttachmentPayload,
@@ -22,6 +25,8 @@ import {
 } from "./useAgentProgress";
 import type { Locale } from "../../lib/i18n-core";
 import { friendlyChatError } from "../friendlyError";
+import { latestAssistantText } from "../inFlightTurnUtils";
+import type { InFlightTurn, InFlightTurnsController } from "../inFlightTurns";
 
 const POLL_INTERVAL_MS = 300;
 
@@ -35,6 +40,7 @@ export function useSendMessage({
   setApiRequiredOpen,
   setSendErr,
   locale,
+  inFlightTurns,
 }: {
   activeSessionId: string | null;
   setActiveSessionId: (id: string | null) => void;
@@ -45,10 +51,12 @@ export function useSendMessage({
   setApiRequiredOpen: (open: boolean) => void;
   setSendErr: (err: string | null) => void;
   locale: Locale;
+  inFlightTurns?: InFlightTurnsController;
 }) {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [progress, setProgress] = useState<AgentProgressState | null>(null);
+  const [pendingInteraction, setPendingInteraction] = useState<PendingAgentInteraction | null>(null);
   const [pendingAttachments, setPendingAttachments] = useState<DeskAttachmentPayload[]>([]);
   const stopTurnRef = useRef(false);
   const inFlightSessionIdRef = useRef<string | null>(null);
@@ -125,10 +133,18 @@ export function useSendMessage({
           : prev.nextSeq,
     };
     progressRef.current = merged;
+    inFlightTurns?.upsertTurn(visibleSessionId, (prev) =>
+      prev
+        ? {
+            ...prev,
+            progress: merged,
+          }
+        : null,
+    );
     if (activeSessionIdRef.current === visibleSessionId) {
       setProgress(merged);
     }
-  }, []);
+  }, [inFlightTurns]);
 
   const onStopAgent = useCallback(async () => {
     const sid = inFlightSessionIdRef.current || activeSessionId;
@@ -138,14 +154,16 @@ export function useSendMessage({
     stopTurnRef.current = true;
     stopProgressPoll();
     setProgress(null);
+    setPendingInteraction(null);
     progressRef.current = null;
     setSending(false);
     setMessages((m) => m.filter((x) => x.id !== "pending-assistant"));
-      setSendErr(null);
-      try {
-        await cmdDeskStop(sid);
-      } catch (e) {
-        console.error(e);
+    inFlightTurns?.clearTurn(sid);
+    setSendErr(null);
+    try {
+      await cmdDeskStop(sid);
+    } catch (e) {
+      console.error(e);
       const msg =
         typeof e === "string"
           ? e
@@ -154,7 +172,7 @@ export function useSendMessage({
             : String(e);
       setSendErr(friendlyChatError(msg, locale));
     }
-  }, [activeSessionId, locale, setMessages, setSendErr, stopProgressPoll]);
+  }, [activeSessionId, inFlightTurns, locale, setMessages, setSendErr, stopProgressPoll]);
 
   const onSend = useCallback(async () => {
     const text = input.trim();
@@ -177,6 +195,7 @@ export function useSendMessage({
     setSendErr(null);
     setInput("");
     setPendingAttachments([]);
+    setPendingInteraction(null);
 
     let sessionForSend = activeSessionId;
     if (!sessionForSend) {
@@ -218,23 +237,57 @@ export function useSendMessage({
       model: threadModel || undefined,
       timestamp: nowSec,
     };
-    setMessages((m) => [...m, userMsg, placeholder]);
-
-    const isVisible = () => activeSessionIdRef.current === sessionForSend;
     const requestId =
       typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
         ? crypto.randomUUID()
         : `stream-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    setMessages((m) => [...m, userMsg, placeholder]);
+    inFlightTurns?.upsertTurn(sessionForSend, {
+      sessionId: sessionForSend,
+      requestId,
+      startedAt: Date.now(),
+      userMsg,
+      pendingAssistant: placeholder,
+      streamedText: "",
+      status: "running",
+      progress: initial,
+    });
+
+    const isVisible = () => activeSessionIdRef.current === sessionForSend;
     let streamedText = "";
     let animationFrame: number | null = null;
     let sawStreamEvent = false;
+    /** SSE error events are deferred until the stream command finishes — final may still succeed. */
+    let deferredStreamError: string | null = null;
     let unlistenStream: UnlistenFn | null = null;
 
+    const patchInFlightTurn = (patch: Partial<InFlightTurn>) => {
+      inFlightTurns?.upsertTurn(sessionForSend, (prev) =>
+        prev
+          ? {
+              ...prev,
+              ...patch,
+              pendingAssistant: patch.pendingAssistant ?? prev.pendingAssistant,
+              progress: "progress" in patch ? patch.progress ?? null : prev.progress,
+            }
+          : null,
+      );
+    };
+
     const upsertPendingAssistant = (nextText: string, finalModel?: string, finalize = false) => {
+      const ts = Math.floor(Date.now() / 1000);
+      patchInFlightTurn({
+        streamedText: nextText,
+        pendingAssistant: {
+          ...placeholder,
+          text: nextText || "…",
+          model: finalModel || placeholder.model,
+          timestamp: finalize ? ts : placeholder.timestamp,
+        },
+      });
       if (!isVisible()) {
         return;
       }
-      const ts = Math.floor(Date.now() / 1000);
       setMessages((m) => {
         let found = false;
         const next = m.map((x) => {
@@ -304,6 +357,43 @@ export function useSendMessage({
       progressTimerRef.current = setInterval(pollProgress, POLL_INTERVAL_MS);
     };
 
+    const recoverDetachedStreamFinal = async (): Promise<unknown | null> => {
+      patchInFlightTurn({ status: "reconnecting" });
+      const deadline = Date.now() + 10 * 60 * 1000;
+      let inactivePolls = 0;
+      while (!stopTurnRef.current && Date.now() < deadline) {
+        try {
+          const since = progressRef.current?.nextSeq ?? 0;
+          const p = await cmdChatPreview(sessionForSend, since);
+          mergeProgress(p, sessionForSend);
+          if (!p.running) {
+            const rows = await cmdGetSessionMessages(sessionForSend);
+            const finalText = latestAssistantText(rows.messages ?? []);
+            if (finalText) {
+              patchInFlightTurn({ status: "finalizing" });
+              return {
+                ok: true,
+                session_id: sessionForSend,
+                final_response: finalText,
+                model: threadModel,
+              };
+            }
+            if (p.status === "inactive") {
+              inactivePolls += 1;
+              if (inactivePolls >= 4) {
+                return null;
+              }
+            }
+          }
+        } catch {
+          // The stream already failed; keep polling briefly so a completed DB
+          // write can still win over a transient transport error.
+        }
+        await new Promise((resolve) => window.setTimeout(resolve, 1000));
+      }
+      return null;
+    };
+
     const handleStreamEvent = (event: ChatStreamEvent) => {
       sawStreamEvent = true;
       if (event.session_id && event.session_id !== sessionForSend) {
@@ -312,13 +402,18 @@ export function useSendMessage({
       if (event.progress) {
         mergeProgress(event.progress, sessionForSend);
       }
+      if (event.type === "interaction.request" && event.interaction && !stopTurnRef.current) {
+        setPendingInteraction({
+          ...event.interaction,
+          sessionId: event.session_id || sessionForSend,
+        });
+      }
       if (event.type === "delta" && typeof event.text === "string" && !stopTurnRef.current) {
         queueDelta(event.text);
       }
-      if (event.type === "error" && !stopTurnRef.current && isVisible()) {
-        console.error("chat stream error:", event);
-        setMessages((m) => m.filter((x) => x.id !== "pending-assistant"));
-        setSendErr(friendlyChatError(event.detail || event.error || "Stream failed", locale));
+      if (event.type === "error" && !stopTurnRef.current) {
+        console.error("chat stream error (deferred):", event);
+        deferredStreamError = event.detail || event.error || "Stream failed";
       }
     };
 
@@ -336,21 +431,34 @@ export function useSendMessage({
         unlistenStream?.();
         unlistenStream = null;
         if (sawStreamEvent) {
-          throw streamErr;
+          const recovered = await recoverDetachedStreamFinal();
+          if (recovered) {
+            raw = recovered;
+          } else {
+            throw streamErr;
+          }
+        } else {
+          startFallbackProgressPoll();
+          raw = await cmdChatSend(text, sessionForSend, atts.length ? atts : null);
         }
-        startFallbackProgressPoll();
-        raw = await cmdChatSend(text, sessionForSend, atts.length ? atts : null);
       }
       const parsed = parseChatSend(raw);
       if (stopTurnRef.current) {
         setMessages((m) => m.filter((x) => x.id !== "pending-assistant"));
+        inFlightTurns?.clearTurn(sessionForSend);
         return;
       }
       if (!parsed.ok) {
         console.error("chat send failed:", parsed.err);
+        patchInFlightTurn({ status: "failed" });
         setMessages((m) => m.filter((x) => x.id !== "pending-assistant"));
-        setSendErr(friendlyChatError(parsed.err, locale));
+        if (isVisible()) {
+          setSendErr(friendlyChatError(deferredStreamError || parsed.err, locale));
+        }
         return;
+      }
+      if (isVisible()) {
+        setSendErr(null);
       }
       const resolvedModel = (parsed.model || "").trim() || threadModel;
       if (isVisible()) {
@@ -361,6 +469,7 @@ export function useSendMessage({
       }
       if (stopTurnRef.current) {
         setMessages((m) => m.filter((x) => x.id !== "pending-assistant"));
+        inFlightTurns?.clearTurn(sessionForSend);
         return;
       }
       if (animationFrame != null) {
@@ -369,9 +478,11 @@ export function useSendMessage({
       }
       streamedText = parsed.text || streamedText;
       upsertPendingAssistant(streamedText, resolvedModel || undefined, true);
+      inFlightTurns?.clearTurn(sessionForSend);
       void loadSessions({ silent: true });
     } catch (e) {
       if (!stopTurnRef.current) {
+        patchInFlightTurn({ status: "failed" });
         setMessages((m) => m.filter((x) => x.id !== "pending-assistant"));
         const msg =
           typeof e === "string"
@@ -379,7 +490,9 @@ export function useSendMessage({
             : e && isRecord(e) && typeof e.message === "string"
               ? e.message
               : String(e);
-        setSendErr(friendlyChatError(msg, locale));
+        if (isVisible()) {
+          setSendErr(friendlyChatError(msg, locale));
+        }
       }
     } finally {
       unlistenStream?.();
@@ -388,6 +501,7 @@ export function useSendMessage({
       }
       stopProgressPoll();
       setProgress(null);
+      setPendingInteraction(null);
       progressRef.current = null;
       setSending(false);
       stopTurnRef.current = false;
@@ -406,20 +520,30 @@ export function useSendMessage({
     loadSessions,
     setApiRequiredOpen,
     setSendErr,
+    inFlightTurns,
     mergeProgress,
     stopProgressPoll,
   ]);
+
+  const onRespondInteraction = useCallback(async (action: string, text?: string, data?: Record<string, unknown>) => {
+    const interaction = pendingInteraction;
+    if (!interaction) return;
+    await cmdInteractionResponse(interaction.sessionId, interaction.id, action, text ?? "", data ?? {});
+    setPendingInteraction(null);
+  }, [pendingInteraction]);
 
   return {
     input,
     setInput,
     sending,
     progress,
+    pendingInteraction,
     pendingAttachments,
     onAddFiles,
     onAddCaptureAttachment,
     onRemoveAttachment,
     onSend,
     onStopAgent,
+    onRespondInteraction,
   } as const;
 }

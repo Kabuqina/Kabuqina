@@ -55,19 +55,19 @@ export function ChatSidebar({
   return (
     <aside
       className={cn(
-        "kq-sidebar flex shrink-0 flex-col border-r transition-[width] duration-200 ease-out dark:border-zinc-700 dark:bg-zinc-900/30",
+        "kq-sidebar flex shrink-0 flex-col border-r transition-[width] duration-200 ease-out",
         collapsed ? "w-14" : "w-56",
       )}
     >
       <div className={cn(
-        "flex items-center gap-2 border-b border-zinc-200/80 p-3 dark:border-zinc-700/80",
+        "flex items-center gap-2 border-b p-3",
         collapsed && "justify-center",
       )}>
         {!collapsed && (
           <button
             type="button"
             onClick={() => onNewChat()}
-            className="kq-new-chat inline-flex min-w-0 flex-1 items-center justify-start gap-2 px-3 py-2.5 text-[15px] font-bold leading-snug transition hover:brightness-[1.03] active:scale-[0.99] dark:text-white"
+            className="kq-new-chat inline-flex min-w-0 flex-1 items-center justify-start gap-2 px-3 py-2.5 text-[15px] font-bold leading-snug transition hover:brightness-[1.03] active:scale-[0.99]"
           >
             <span className="truncate">{t("chat.newChat")}</span>
             <Plus className="h-4 w-4 shrink-0 stroke-[2.75]" aria-hidden />
@@ -76,7 +76,7 @@ export function ChatSidebar({
         <button
           type="button"
           onClick={onToggleCollapsed}
-          className="kq-soft-icon-btn inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+          className="kq-soft-icon-btn inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition"
           aria-label={collapsed ? t("chat.leftRailExpand") : t("chat.leftRailCollapse")}
           title={collapsed ? t("chat.leftRailExpand") : t("chat.leftRailCollapse")}
         >
@@ -85,7 +85,7 @@ export function ChatSidebar({
       </div>
       <div className={cn("min-h-0 flex-1 space-y-0.5 overflow-y-auto pb-4 pt-2", collapsed ? "px-2" : "px-3")}>
         {loading && (
-          <p className={cn("kq-sidebar-meta px-1.5 py-2 dark:text-zinc-500", collapsed && "text-center")}>
+          <p className={cn("kq-sidebar-meta px-1.5 py-2", collapsed && "text-center")}>
             {collapsed ? "..." : t("chat.loadingSessions")}
           </p>
         )}
@@ -102,7 +102,7 @@ export function ChatSidebar({
             className={cn("kq-sidebar-group pt-1", groupIndex > 0 && "kq-sidebar-group-divided")}
           >
             {!collapsed && (
-              <p className="kq-sidebar-group-label px-1.5 pb-1 pt-2 dark:text-zinc-400">
+              <p className="kq-sidebar-group-label px-1.5 pb-1 pt-2">
                 {group.group}
               </p>
             )}
@@ -113,13 +113,13 @@ export function ChatSidebar({
                 <div
                   key={s.id}
                   className={cn(
-                    "group relative flex items-stretch overflow-hidden rounded-lg",
-                    active && "bg-[#f0e6f2]/80 dark:bg-zinc-800/60",
+                    "kq-sidebar-session group relative flex items-stretch overflow-hidden",
+                    active && "kq-sidebar-session-active",
                   )}
                 >
                   {/* Active indicator bar */}
                   {active && (
-                    <div className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full bg-[var(--kq-color-primary)] dark:bg-sky-400" />
+                    <div className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full bg-[var(--kq-color-primary)]" />
                   )}
                   <button
                     type="button"
@@ -138,8 +138,8 @@ export function ChatSidebar({
                         s.id === REMINDER_SESSION_ID
                           ? "kq-color-icon-alarm"
                           : active
-                            ? "text-[var(--kq-color-ink)] dark:text-sky-400"
-                            : "text-[var(--kq-color-muted)] dark:text-zinc-500",
+                            ? "text-[var(--kq-color-ink)]"
+                            : "text-[var(--kq-color-muted)]",
                       )}
                       strokeWidth={2.2}
                       aria-hidden
@@ -149,8 +149,8 @@ export function ChatSidebar({
                         className={cn(
                           "kq-sidebar-session-label truncate",
                           active
-                            ? "font-semibold text-[var(--kq-color-ink)] dark:text-zinc-100"
-                            : "text-[var(--kq-color-ink)]/78 group-hover:text-[var(--kq-color-ink)] dark:text-zinc-300 dark:group-hover:text-zinc-100",
+                            ? "font-semibold text-[var(--kq-color-ink)]"
+                            : "text-[var(--kq-color-ink)]/78 group-hover:text-[var(--kq-color-ink)]",
                         )}
                       >
                         {label}
@@ -162,7 +162,7 @@ export function ChatSidebar({
                       type="button"
                       title={t("chat.delete")}
                       onClick={(e) => onDeleteSession(s.id, e)}
-                      className="shrink-0 px-1.5 text-zinc-300 opacity-0 transition hover:text-red-500 group-hover:opacity-100 dark:text-zinc-600 dark:hover:text-red-400"
+                      className="kq-sidebar-delete shrink-0 px-1.5 opacity-0 transition group-hover:opacity-100"
                     >
                       <Trash2 className="h-3 w-3" strokeWidth={2.5} />
                     </button>

@@ -90,6 +90,17 @@ class TestPathPolicy(unittest.TestCase):
             result = self.policy.enforce(self.root / _HOST_PREFS_FILENAME, write=False)
             self.assertEqual(result, self.root / _HOST_PREFS_FILENAME)
 
+    @unittest.skipUnless(os.name == "nt", "Windows device paths")
+    def test_allows_windows_nul_device(self):
+        for spec in (r"\\.\nul", r"\\.\nul\\", r"\\.\NUL", r"\\.\NUL:", "NUL", "NUL:", b"NUL"):
+            self.policy.enforce(spec, write=False)
+            self.policy.enforce(spec, write=True)
+
+    @unittest.skipUnless(os.name == "nt", "Windows device paths")
+    def test_still_blocks_other_windows_devices(self):
+        with self.assertRaises(PathPolicyError):
+            self.policy.enforce(r"\\.\C:\Windows\System32\drivers\etc\hosts", write=False)
+
 
 class TestNetworkPolicy(unittest.TestCase):
     def setUp(self):
@@ -132,15 +143,18 @@ class TestNetworkPolicy(unittest.TestCase):
 class TestToolPolicy(unittest.TestCase):
     def test_default_mode_tools(self):
         tools = ToolPolicy.resolve(power_user=False)
-        self.assertEqual(len(tools), 11)
+        self.assertEqual(len(tools), 13)
         self.assertEqual(
             tools,
-            ["web", "file", "vision", "image_gen", "tts", "skills", "clock", "todo", "browser", "cronjob", "messaging"],
+            [
+                "web", "file", "vision", "image_gen", "tts", "skills", "clock", "todo", "browser",
+                "clarify", "documents", "cronjob", "messaging",
+            ],
         )
 
     def test_power_user_mode_tools(self):
         tools = ToolPolicy.resolve(power_user=True)
-        self.assertEqual(len(tools), 14)
+        self.assertEqual(len(tools), 16)
         self.assertTrue("terminal" in tools)
         self.assertTrue("browser" in tools)
         self.assertTrue("cronjob" in tools)
@@ -157,7 +171,10 @@ class TestToolPolicy(unittest.TestCase):
         tools = ToolPolicy.gateway_keep_list()
         self.assertEqual(
             tools,
-            ["web", "file", "vision", "image_gen", "tts", "skills", "clock", "todo", "browser", "cronjob", "messaging"],
+            [
+                "web", "file", "vision", "image_gen", "tts", "skills", "clock", "todo", "browser",
+                "clarify", "documents", "cronjob", "messaging",
+            ],
         )
 
     def test_is_power_user_from_env(self):
@@ -333,6 +350,43 @@ class TestApprovalBackendPolicy(unittest.TestCase):
                 _auto_approve_workspace_read(
                     'python -c "import subprocess; subprocess.run([\'cmd\', \'/c\', \'type\', \'notes.txt\'])"'
                 )
+            )
+
+
+    def test_auto_approves_copy_into_workspace(self):
+        dest = self.workspace / "imported.pdf"
+        outside = Path(tempfile.gettempdir()).parent / "outside.pdf"
+        with patch.dict(os.environ, {"HERMESDESK_WORKSPACE": str(self.workspace)}):
+            self.assertTrue(
+                _auto_approve_workspace_read(f'cp "{outside}" "{dest}"')
+            )
+            self.assertTrue(
+                _auto_approve_workspace_read(f'copy "{outside}" "{dest}"')
+            )
+            self.assertTrue(
+                _auto_approve_workspace_read(
+                    f'Copy-Item -Path "{outside}" -Destination "{dest}"'
+                )
+            )
+
+    def test_auto_approves_git_bash_copy_into_workspace(self):
+        dest = self.workspace / "report.pdf"
+        with patch.dict(os.environ, {"HERMESDESK_WORKSPACE": str(self.workspace)}):
+            self.assertTrue(
+                _auto_approve_workspace_read(
+                    f'cp "/d/tmp/report.pdf" "/c{str(dest)[2:].replace(chr(92), "/")}"'
+                )
+            )
+
+    def test_blocks_copy_outside_workspace(self):
+        outside_dest = Path(tempfile.gettempdir()).parent / "leak.pdf"
+        src = self.workspace / "notes.txt"
+        with patch.dict(os.environ, {"HERMESDESK_WORKSPACE": str(self.workspace)}):
+            self.assertFalse(
+                _auto_approve_workspace_read(f'cp "{src}" "{outside_dest}"')
+            )
+            self.assertFalse(
+                _auto_approve_workspace_read('cp "/d/tmp/report.pdf" "/d/tmp/report-copy.pdf"')
             )
 
 

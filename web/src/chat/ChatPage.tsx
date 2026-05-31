@@ -30,6 +30,7 @@ import { useSessions } from "./hooks/useSessions";
 import { useChatState } from "./hooks/useChatState";
 import { useSendMessage } from "./hooks/useSendMessage";
 import { useWorkbenchLayout } from "./hooks/useWorkbenchLayout";
+import { useInFlightTurns } from "./inFlightTurns";
 import { type CaptureDonePayload } from "../capture/capture-api";
 import type { AgentProgressState } from "./hooks/useAgentProgress";
 import type { DeskAttachmentPayload, UiMsg } from "./chat-api";
@@ -167,6 +168,7 @@ export function ChatPage() {
   const workbench = useWorkbenchLayout();
 
   const { hermesReady, hermesWarming, bootErr } = useHermesReadiness();
+  const inFlightTurns = useInFlightTurns();
   const { sessions, listLoading, loadSessions, deleteSession } = useSessions({
     hermesReady: hermesReady && !hermesWarming,
   });
@@ -186,18 +188,20 @@ export function ChatPage() {
     onDeleteSession,
     openReminderSession,
     refreshActiveThread,
-  } = useChatState({ loadSessions });
+  } = useChatState({ loadSessions, inFlightTurns });
   const {
     input,
     setInput,
     sending,
     progress,
+    pendingInteraction,
     pendingAttachments,
     onAddFiles,
     onAddCaptureAttachment,
     onRemoveAttachment,
     onSend,
     onStopAgent,
+    onRespondInteraction,
   } = useSendMessage({
     activeSessionId,
     setActiveSessionId,
@@ -208,6 +212,7 @@ export function ChatPage() {
     setApiRequiredOpen,
     setSendErr,
     locale,
+    inFlightTurns,
   });
   const workspace = useMemo(
     () => buildWorkspaceState(messages, pendingAttachments, progress),
@@ -422,14 +427,14 @@ export function ChatPage() {
         <div className="mt-6 flex flex-wrap justify-end gap-2">
           <button
             type="button"
-            className="rounded-[var(--radius-shell-lg)] border border-zinc-300/90 px-4 py-2 text-sm dark:border-zinc-600"
+            className="kq-btn-secondary rounded-[var(--radius-shell-lg)] px-4 py-2 text-sm"
             onClick={() => setApiRequiredOpen(false)}
           >
             {t("chat.apiRequiredClose")}
           </button>
           <button
             type="button"
-            className="rounded-lg bg-zinc-900 px-4 py-2 text-sm text-white dark:bg-zinc-100 dark:text-zinc-900"
+            className="kq-btn-primary rounded-lg px-4 py-2 text-sm"
             onClick={() => {
               setApiRequiredOpen(false);
               nav("/onboarding/welcome", { replace: true });
@@ -453,7 +458,7 @@ export function ChatPage() {
           />
         )}
         <main className="flex min-w-0 flex-1 flex-col">
-          <div className="kq-chat-topbar flex h-11 shrink-0 items-center justify-between border-b px-3 dark:border-zinc-800 dark:bg-[#0F172A]">
+          <div className="kq-chat-topbar flex h-11 shrink-0 items-center justify-between border-b px-3">
             <div className="flex min-w-0 items-center gap-2">
               {!workbench.showLeftRail && (
                 <button
@@ -492,11 +497,13 @@ export function ChatPage() {
           </div>
           <ChatMessageList
             messages={messages}
-            sending={sending}
-            sendErr={sendErr}
-            progress={progress}
-            onPickSuggestion={setInput}
-          />
+          sending={sending}
+          sendErr={sendErr}
+          progress={progress}
+          pendingInteraction={pendingInteraction}
+          onRespondInteraction={onRespondInteraction}
+          onPickSuggestion={setInput}
+        />
           <ChatInput
             value={input}
             onChange={setInput}
@@ -512,6 +519,7 @@ export function ChatPage() {
           <WorkspacePanel
             onCollapse={workbench.toggleRight}
             onOrganizeDesktop={handleOrganizeDesktop}
+            onStartPrompt={setInput}
             goal={workspace.goal}
             materials={workspace.materials}
             outputs={workspace.outputs}

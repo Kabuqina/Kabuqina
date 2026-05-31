@@ -78,7 +78,9 @@ def _safe_open(file, mode="r", *args, **kwargs):
     is_write = any(c in mode for c in write_modes)
     # Only check string/Path arguments; ints (file descriptors) bypass.
     if isinstance(file, (str, bytes, os.PathLike)):
-        _check(file, write=is_write)
+        checked = _check(file, write=is_write)
+        if str(checked).upper() == "NUL":
+            file = checked
     return _orig_open(file, mode, *args, **kwargs)
 
 

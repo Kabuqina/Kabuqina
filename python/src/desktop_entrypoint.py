@@ -39,6 +39,32 @@ import sys
 import threading
 import time
 from pathlib import Path
+from typing import Optional
+
+_docling_warm_thread: Optional[threading.Thread] = None
+
+
+def _prime_torch_main_thread(log: logging.Logger) -> bool:
+    """Import torch fully on the main thread before Docling warmup can race it."""
+    if os.environ.get("HERMESDESK_TORCH_PRIME", "1").strip().lower() in ("0", "false", "no", "off"):
+        log.info("Docling torch prime disabled by HERMESDESK_TORCH_PRIME")
+        return False
+    t0 = time.monotonic()
+    try:
+        import torch
+        import torch.library  # noqa: F401
+        if not hasattr(torch, "library"):
+            raise AttributeError("torch imported without torch.library")
+        log.info(
+            "Docling torch primed on main thread in %.0fms version=%s path=%s",
+            (time.monotonic() - t0) * 1000,
+            getattr(torch, "__version__", "?"),
+            getattr(torch, "__file__", "?"),
+        )
+        return True
+    except Exception as exc:
+        log.warning("Docling torch prime failed after %.0fms: %s", (time.monotonic() - t0) * 1000, exc)
+        return False
 
 
 def _setup_logging() -> None:
@@ -116,6 +142,50 @@ def _wire_tts_voice(log: logging.Logger) -> None:
             )
     except Exception as e:
         log.warning("failed to auto-configure TTS voice: %s", e)
+
+
+def _warm_docling_async(log: logging.Logger) -> None:
+    """Optionally warm Docling in the background.
+
+    Disabled by default because Docling/PyTorch initialization can leave global
+    dispatcher state behind after failed imports; user-triggered reads run on the
+    serialized Docling thread instead.
+    """
+    global _docling_warm_thread
+    if os.environ.get("HERMESDESK_DOCLING_WARMUP", "0").strip().lower() not in ("1", "true", "yes", "on"):
+        log.info("Docling warmup disabled; set HERMESDESK_DOCLING_WARMUP=1 to enable")
+        return
+
+    def _worker() -> None:
+        t0 = time.monotonic()
+        try:
+            from tools.document_tools import warm_docling_converter
+
+            info = warm_docling_converter()
+            log.info(
+                "Docling warmup ok in %.0fms artifacts=%s converter=%s",
+                (time.monotonic() - t0) * 1000,
+                info.get("artifacts_path") or "(default)",
+                info.get("converter") or "?",
+            )
+        except Exception as exc:
+            log.warning("Docling warmup failed after %.0fms: %s", (time.monotonic() - t0) * 1000, exc)
+
+    _docling_warm_thread = threading.Thread(target=_worker, name="docling-warmup", daemon=True)
+    _docling_warm_thread.start()
+
+
+def _wait_for_docling_warmup(log: logging.Logger, timeout_seconds: float = 120.0) -> None:
+    """Avoid concurrent torch imports from Docling warmup and desk tool discovery."""
+    if _docling_warm_thread is None or not _docling_warm_thread.is_alive():
+        return
+    log.info("waiting for Docling warmup before desk tool discovery")
+    _docling_warm_thread.join(timeout=timeout_seconds)
+    if _docling_warm_thread.is_alive():
+        log.warning(
+            "Docling warmup still running after %.0fs; starting desk warm anyway",
+            timeout_seconds,
+        )
 
 
 def _wire_local_stt(log: logging.Logger) -> None:
@@ -311,6 +381,7 @@ def main() -> int:
     _wire_sys_path()
     t_deps = time.monotonic()
     _verify_bundle_deps(log)
+    _prime_torch_main_thread(log)
     hermes_home = _redirect_hermes_home()
     log.info("HERMES_HOME -> %s", hermes_home)
     try:
@@ -361,6 +432,7 @@ def main() -> int:
         from overlays import apply_all  # type: ignore[no-redef]
     apply_all()
     log.info("boot timing overlays_ms=%.0f", (time.monotonic() - t_overlays) * 1000)
+    _warm_docling_async(log)
 
     # 1b. Eager-load real ``gateway.session_context`` so ``tools/approval`` + terminal
     #     use ContextVar state (not a stale stub left in sys.modules).
@@ -466,6 +538,7 @@ def main() -> int:
     log.info("bound port %d, handshake written (boot timing port_write_ms=%.0f)", port, (time.monotonic() - boot_t0) * 1000)
 
     if cfg.desk_minimal:
+        _wait_for_docling_warmup(log)
         desk_server.start_desk_warm_background()
 
     # 3b. Start the cron scheduler ticker in a daemon thread so scheduled

@@ -249,7 +249,7 @@ should re-confirm every dangerous command).
 **Symptom**
 
 * Smoke test logs `Failed to load permanent allowlist: …` alongside
-  **`HermesDesk path policy blocked`** messages when Hermes tries to write
+  **`Kabuqina path policy blocked`** messages when Hermes tries to write
   under legacy paths such as `C:\Users\X13\.hermes`.
 * Hermes silently falls back to defaults; user-configured allowlist
   doesn't persist.
@@ -631,6 +631,33 @@ Windows 上任何 `os.kill(pid, 0)` 调用都需要 catch `OSError`，不可仅�
 
 > Windows toast attribution is about **AUMID + install shortcut**, not about
 > whether the reminder HTTP POST succeeded.
+
+---
+
+## 17. Docling 读取失败：`torch has no attribute 'library'` / `Inconsistent number of pages`
+
+**Symptom**
+
+* `pdf_read_precise` / `document_read_precise` 仍返回内容，但带 `engine: "pypdf"`（或其它纯文本 fallback）+ `warning` + `docling_error`。
+* `docling_error` 含 `AttributeError: partially initialized module 'torch' has no attribute 'library'`，或 Docling 后续报 `Inconsistent number of pages: 73!=-1`（pdfium 后端无法解析）。
+* 纯文本能读出，但 `precise` 模式失效；Material Index 的 `tables` / `figures` / `screenshots` 抽取大面积变空（因为 fallback 丢了 markdown 表格管道符与 `![]()` 图片标记）。
+
+**Root cause**
+
+**环境问题，不是坏文档，也不是 Docling 代码的 bug。** Kabuqina 受支持的运行时是 **CPython 3.11**（`python/build_bundle.ps1` 写死 `3.11.15`，并用 `pip --only-binary=:all: --python-version 3.11` 解析出一套互相兼容的 torch + pdfium 预编译 wheel）。在更新的解释器（如 **Python 3.14**）上临时 `pip install`，pip 会抓到尚未适配该 ABI 的 torch（如 2.12）/ pdfium，触发 torch 部分初始化的 `AttributeError`，或 pdfium 解析失败。`requirements-desktop.txt` 不 pin torch（由 Docling 传递引入），所以裸环境下版本完全由 pip 即时解析决定。
+
+**Fix**
+
+1. **首选**：用 bundle 自带的 3.11 跑（`.\python\build_bundle.ps1` → `desktop_entrypoint.py`）。开发想要 venv 就 `py -3.11 -m venv .venv`，在里面装 `requirements-desktop.txt`。Docling 在 3.11 上正常，"Read 层 bug" 随之消失。
+2. 不必改产品代码——Docling → pypdf/python-docx/openpyxl/... 的自动 fallback 是设计内的降级，保证读取不被整体卡死。
+
+**Permanent guards**
+
+* `hermes_core/tools/document_tools.py` — `_format_docling_error()` 现在通过 `_is_unsupported_runtime_error()` 识别这类 torch/pdfium 环境性失败，返回明确指向"请用受支持的 CPython 3.11 运行时"的提示，而不是泛化的 `Docling failed (...)`。测试见 `hermes_core/tests/tools/test_document_tools.py::test_format_docling_error_flags_unsupported_torch_runtime` 与 `..._flags_pdfium_page_count_failure`。
+
+**Lesson**
+
+> ML 栈（torch / pdfium 这类有原生扩展和 ABI 约束的库）只在**钉死的 Python 版本**上可复现。遇到"某 ML 库突然坏了"，先核对解释器版本是否在受支持范围内，再怀疑代码——绝大多数情况是跑在了未验证的新解释器上。
 
 ---
 

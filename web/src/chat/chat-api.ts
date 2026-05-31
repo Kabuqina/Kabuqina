@@ -114,6 +114,7 @@ export type ChatStreamEvent = {
   session_id?: string;
   text?: string;
   progress?: ChatPreviewResponse;
+  interaction?: AgentInteractionRequest;
   ok?: boolean;
   error?: string;
   detail?: string;
@@ -142,6 +143,39 @@ export async function cmdChatSendStream(
 
 export function cmdDeskStop(sessionId: string): Promise<unknown> {
   return invoke("cmd_desk_stop", { sessionId });
+}
+
+export type AgentInteractionRequest = {
+  id: string;
+  kind: "choice" | "text" | "outline_review" | string;
+  question: string;
+  choices: string[];
+  artifact?: {
+    type?: string;
+    content?: string;
+    [key: string]: unknown;
+  } | null;
+  created_at?: number;
+};
+
+export type PendingAgentInteraction = AgentInteractionRequest & {
+  sessionId: string;
+};
+
+export async function cmdInteractionResponse(
+  sessionId: string,
+  interactionId: string,
+  action: string,
+  text?: string,
+  data?: Record<string, unknown>,
+): Promise<unknown> {
+  return invoke("cmd_interaction_response", {
+    sessionId,
+    interactionId,
+    action,
+    text: text ?? "",
+    data: data ?? {},
+  });
 }
 
 export type ProgressEvent = {

@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
+import { cn } from "../lib/cn";
 import { usePrefersDark } from "../lib/usePrefersDark";
 
 type Props = {
@@ -62,22 +63,31 @@ export default function ChatMarkdown({ text, className = "" }: Props) {
             ) as React.ReactElement<{ className?: string }> | undefined;
             const lang = (codeEl?.props?.className ?? "").replace("language-", "");
             return (
-              <div className={isDark
-                ? "my-3 rounded-xl overflow-hidden border border-zinc-700/50 shadow-sm"
-                : "my-3 rounded-xl overflow-hidden border border-zinc-200/80 shadow-sm"
-              }>
+              <div className={cn(
+                "my-3 rounded-xl overflow-hidden border shadow-sm",
+                isDark
+                  ? "border-[var(--kq-glass-border)]"
+                  : "border-zinc-200/80"
+              )}
+                style={{ background: isDark ? "var(--kq-glass-bg)" : "rgba(255,255,255,0.5)" }}
+              >
                 {lang && (
-                  <div className={isDark
-                    ? "flex items-center justify-between px-3 py-1.5 bg-zinc-800 text-zinc-400 text-[11px] font-mono uppercase tracking-wide"
-                    : "flex items-center justify-between px-3 py-1.5 bg-zinc-100 text-zinc-500 text-[11px] font-mono uppercase tracking-wide"
-                  }>
+                  <div className="flex items-center justify-between px-3 py-1.5 text-[11px] font-mono uppercase tracking-wide"
+                    style={{
+                      background: isDark ? "var(--kq-glass-bg-subtle)" : "rgba(245,240,247,0.7)",
+                      color: isDark ? "var(--kq-color-muted)" : "rgba(90,74,106,0.7)",
+                      borderBottom: isDark ? "1px solid var(--kq-glass-border)" : "1px solid rgba(232,224,237,0.5)",
+                    }}
+                  >
                     <span>{lang}</span>
                   </div>
                 )}
-                <pre className={isDark
-                  ? "p-4 overflow-x-auto bg-zinc-900 font-mono text-zinc-100 text-xs leading-relaxed"
-                  : "p-4 overflow-x-auto bg-zinc-50 font-mono text-zinc-800 text-xs leading-relaxed"
-                }>
+                <pre className={cn(
+                  "p-4 overflow-x-auto font-mono text-xs leading-relaxed",
+                  isDark
+                    ? "bg-[var(--kq-color-surface)] text-[var(--kq-color-ink)]"
+                    : "bg-zinc-50 text-zinc-800"
+                )}>
                   {children}
                 </pre>
               </div>

@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import sys
 import types
+from importlib.machinery import ModuleSpec
 from typing import Any, Dict
 
 
@@ -45,9 +46,6 @@ _STRIPPED = (
     "batch_runner",
     "mini_swe_runner",
     "tinker_atropos",
-    "atroposlib",
-    "tinker",
-    "wandb",
 )
 
 
@@ -92,8 +90,13 @@ class _Stripped(types.ModuleType):
     def __init__(self, name: str) -> None:
         super().__init__(name)
         self.__hermesdesk_stripped__ = True
+        self.__file__ = f"<hermesdesk-stripped:{name}>"
+        self.__package__ = name.rpartition(".")[0]
+        self.__spec__ = ModuleSpec(name, loader=None)
 
     def __getattr__(self, attr: str):  # noqa: D401
+        if attr.startswith("__") and attr.endswith("__"):
+            raise AttributeError(attr)
         raise ImportError(
             f"'{self.__name__}.{attr}' is not available in HermesDesk. "
             f"This feature was removed for the desktop build. "
@@ -107,10 +110,15 @@ class _StubModule(types.ModuleType):
     def __init__(self, name: str, attrs: Dict[str, Any]) -> None:
         super().__init__(name)
         self.__hermesdesk_stubbed__ = True
+        self.__file__ = f"<hermesdesk-stub:{name}>"
+        self.__package__ = name.rpartition(".")[0]
+        self.__spec__ = ModuleSpec(name, loader=None)
         for k, v in attrs.items():
             setattr(self, k, v)
 
     def __getattr__(self, attr: str):  # noqa: D401
+        if attr.startswith("__") and attr.endswith("__"):
+            raise AttributeError(attr)
         # Unknown attribute: return a no-op callable so .foo() doesn't crash.
         return _noop
 

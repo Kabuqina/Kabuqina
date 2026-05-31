@@ -185,7 +185,13 @@ TOOLSETS = {
     
     "clarify": {
         "description": "Ask the user clarifying questions (multiple-choice or open-ended)",
-        "tools": ["clarify"],
+        "tools": ["clarify", "review_outline"],
+        "includes": []
+    },
+
+    "documents": {
+        "description": "Student document read/write tools for precise PDFs and PowerPoint decks",
+        "tools": ["document_read_precise", "pdf_read_precise", "material_index_build", "pptx_write"],
         "includes": []
     },
     

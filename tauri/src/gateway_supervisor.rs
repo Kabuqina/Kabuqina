@@ -37,10 +37,8 @@ const PLATFORM_CREDENTIAL_KEYS: &[(&str, &[&str])] = &[
     ("weixin", &["WEIXIN_ACCOUNT_ID", "WEIXIN_TOKEN"]),
     ("feishu", &["FEISHU_APP_ID", "FEISHU_APP_SECRET"]),
     ("qqbot", &["QQ_APP_ID", "QQ_CLIENT_SECRET"]),
-    (
-        "dingtalk",
-        &["DINGTALK_CLIENT_ID", "DINGTALK_CLIENT_SECRET"],
-    ),
+    // DingTalk is temporarily not spawned in the student-focused runtime.
+    // Its SDK requires legacy websockets<13, which conflicts with Browser/CDP.
     ("wecom", &["WECOM_BOT_ID", "WECOM_SECRET"]),
     ("discord", &["DISCORD_BOT_TOKEN"]),
     ("slack", &["SLACK_BOT_TOKEN"]),
@@ -71,7 +69,6 @@ const PLATFORM_EXTRA_KEYS: &[(&str, &[&str])] = &[
     ("weixin", &[]),
     ("feishu", &[]),
     ("qqbot", &[]),
-    ("dingtalk", &[]),
     ("wecom", &["WECOM_SETUP_METHOD"]),
     ("discord", &[]),
     ("slack", &[]),
@@ -982,7 +979,6 @@ fn platform_env_prefixes(platform: &str) -> &'static [&'static str] {
         "weixin" => &["WEIXIN_"],
         "feishu" => &["FEISHU_"],
         "qqbot" => &["QQ_", "QQBOT_"],
-        "dingtalk" => &["DINGTALK_"],
         "wecom" => &["WECOM_"],
         "discord" => &["DISCORD_"],
         "slack" => &["SLACK_"],

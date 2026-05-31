@@ -9,39 +9,10 @@ import {
 } from "../chat-api";
 import { REMINDER_SESSION_ID } from "../reminderSession";
 import type { LoadSessionsOptions } from "./useSessions";
+import { mergeInFlightMessages, messageContentToString } from "../inFlightTurnUtils";
+import type { InFlightTurnsController } from "../inFlightTurns";
 
 const LAST_SESSION_KEY = "hermesdesk.shell.chat.lastSessionId";
-
-function contentToString(content: unknown): string {
-  if (content == null) {
-    return "";
-  }
-  if (typeof content === "string") {
-    return content;
-  }
-  if (Array.isArray(content)) {
-    return content
-      .map((c) => {
-        if (typeof c === "string") {
-          return c;
-        }
-        if (c && typeof c === "object" && "text" in c) {
-          return String((c as { text?: unknown }).text ?? "");
-        }
-        return "";
-      })
-      .filter(Boolean)
-      .join("\n");
-  }
-  if (typeof content === "object" && "text" in (content as object)) {
-    return String((content as { text?: unknown }).text);
-  }
-  try {
-    return JSON.stringify(content);
-  } catch {
-    return String(content);
-  }
-}
 
 function rowsToUiMessages(rows: MessageRow[], sessionModel: string): UiMsg[] {
   const out: UiMsg[] = [];
@@ -65,7 +36,7 @@ function rowsToUiMessages(rows: MessageRow[], sessionModel: string): UiMsg[] {
         continue;
       }
     } else {
-      text = contentToString(m.content).trim();
+      text = messageContentToString(m.content).trim();
       if (!text) {
         continue;
       }
@@ -105,8 +76,10 @@ function persistSession(id: string | null) {
 
 export function useChatState({
   loadSessions,
+  inFlightTurns,
 }: {
   loadSessions: (options?: LoadSessionsOptions) => Promise<void>;
+  inFlightTurns?: InFlightTurnsController;
 }) {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [threadModel, setThreadModel] = useState("");
@@ -131,9 +104,14 @@ export function useChatState({
         }
         const row = (list.sessions ?? []).find((s: SessionRow) => s.id === sid);
         const m = (row?.model ?? "").trim();
+        const baseMessages = rowsToUiMessages(r.messages ?? [], m);
+        const merged = mergeInFlightMessages(baseMessages, inFlightTurns?.getTurn(sid));
+        if (merged.clearTurn) {
+          inFlightTurns?.clearTurn(sid);
+        }
         startTransition(() => {
           setThreadModel(m);
-          setMessages(rowsToUiMessages(r.messages ?? [], m));
+          setMessages(merged.messages);
         });
         void loadSessions({ silent: true });
       } catch (e) {
@@ -147,7 +125,7 @@ export function useChatState({
         persistSession(null);
       }
     },
-    [loadSessions]
+    [inFlightTurns, loadSessions]
   );
 
   const onNewChat = useCallback(() => {

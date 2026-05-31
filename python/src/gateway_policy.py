@@ -28,12 +28,12 @@ class GatewayPolicy:
     enabled: bool = False              # True when gateway child is spawned
     weixin_enabled: bool = True        # product feature flag
     feishu_enabled: bool = True        # product feature flag
+    dingtalk_enabled: bool = False     # student runtime: disabled until SDK supports modern websockets
 
     platforms: dict[str, PlatformConfig] = field(default_factory=lambda: {
         "weixin": PlatformConfig(owner_default="open"),
         "feishu": PlatformConfig(owner_default="open"),
         "qqbot": PlatformConfig(owner_default="open"),
         "telegram": PlatformConfig(require_mention=False),
-        "dingtalk": PlatformConfig(require_mention=True),
         "wecom": PlatformConfig(owner_default="open"),
     })

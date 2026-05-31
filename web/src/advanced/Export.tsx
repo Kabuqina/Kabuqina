@@ -7,6 +7,12 @@ import { AppScaffold } from "../components/AppScaffold";
 import { BackButton } from "../components/ui/BackButton";
 import { useI18n } from "../lib/i18n";
 import {
+  buildExportJson,
+  buildExportMarkdown,
+  defaultExportFilename,
+  exportLabelsForLocale,
+} from "../chat/chatExport";
+import {
   cmdGetSessionMessages,
   cmdGetSessions,
   type MessageRow,
@@ -15,100 +21,8 @@ import {
 
 type ExportFormat = "json" | "markdown";
 
-function contentToText(content: unknown): string {
-  if (content == null) return "";
-  if (typeof content === "string") return content;
-  if (Array.isArray(content)) {
-    return content
-      .map((c) => {
-        if (typeof c === "string") return c;
-        if (c && typeof c === "object" && "text" in c)
-          return String((c as { text?: unknown }).text ?? "");
-        return "";
-      })
-      .filter(Boolean)
-      .join("\n");
-  }
-  if (typeof content === "object" && "text" in (content as object)) {
-    return String((content as { text?: unknown }).text);
-  }
-  try {
-    return JSON.stringify(content);
-  } catch {
-    return String(content);
-  }
-}
-
-function tsToLocale(ts?: number): string {
-  if (ts == null) return "";
-  const ms = ts > 1e12 ? ts : ts * 1000;
-  return new Date(ms).toLocaleString();
-}
-
-/** Format a single session's messages as a timeline-style Markdown document. */
-function sessionToMarkdown(session: SessionRow, messages: MessageRow[]): string {
-  const title = session.title || session.id.slice(0, 8);
-  const lines: string[] = [];
-  lines.push(`# 💬 ${title}`);
-  lines.push("");
-  lines.push(
-    `> **Session:** \`${session.id}\`  ` +
-    `| **Model:** ${session.model || "—"}  ` +
-    `| **Messages:** ${messages.length}`,
-  );
-  lines.push("");
-
-  for (const m of messages) {
-    const role = m.role;
-    if (role === "session_meta" || role === "tool") continue;
-    if (role !== "user" && role !== "assistant" && role !== "system") continue;
-
-    const text = contentToText(m.content).trim();
-    if (!text) continue;
-
-    const timeLabel = tsToLocale(m.timestamp);
-    const tsStr = timeLabel ? ` · ${timeLabel}` : "";
-
-    if (role === "user") {
-      // User messages: compact blockquote style with a timestamp marker
-      lines.push(`> 🧑 ${tsStr}`);
-      lines.push(">");
-      for (const line of text.split("\n")) {
-        lines.push(`> ${line}`);
-      }
-      lines.push(">");
-      lines.push("");
-    } else {
-      // Assistant messages: heading style with full text
-      const badge = role === "system" ? "⚙️ System" : "🤖 Hermes";
-      lines.push(`### ${badge} ${tsStr}`);
-      lines.push("");
-      lines.push(text);
-      lines.push("");
-    }
-  }
-
-  lines.push("---");
-  lines.push("");
-  return lines.join("\n");
-}
-
-/**
- * Build the full Markdown document containing all selected sessions.
- * Sessions are separated by a page-break marker.
- */
-function buildMarkdown(sessions: SessionRow[], messagesBySession: Map<string, MessageRow[]>): string {
-  const parts: string[] = [];
-  for (const s of sessions) {
-    const msgs = messagesBySession.get(s.id) ?? [];
-    if (msgs.length === 0) continue;
-    parts.push(sessionToMarkdown(s, msgs));
-  }
-  return parts.join("\n\n<div style=\"page-break-after: always;\"></div>\n\n");
-}
-
 export function Export() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const nav = useNavigate();
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -161,36 +75,35 @@ export function Export() {
     try {
       const selectedIds = [...selected];
       const sortedSessions = sessions.filter((s) => selectedIds.includes(s.id));
+      const labels = exportLabelsForLocale(locale);
 
-      // Fetch all selected session messages in parallel
       const entries = await Promise.all(
         selectedIds.map(async (id) => {
           try {
             const r = await cmdGetSessionMessages(id);
-            return { session_id: id, messages: r.messages ?? [] as MessageRow[] };
+            return { session_id: id, messages: r.messages ?? ([] as MessageRow[]) };
           } catch {
             return { session_id: id, messages: [] as MessageRow[] };
           }
         }),
       );
 
-      // Build file content
+      const msgsBySession = new Map(entries.map((e) => [e.session_id, e.messages]));
+
       let content: string;
       let defaultName: string;
       let filters: { name: string; extensions: string[] }[];
 
       if (format === "json") {
-        content = JSON.stringify(entries, null, 2);
-        defaultName = `hermesdesk-export.json`;
+        content = buildExportJson(sortedSessions, msgsBySession, labels, locale);
+        defaultName = defaultExportFilename("json");
         filters = [{ name: "JSON", extensions: ["json"] }];
       } else {
-        const msgsBySession = new Map(entries.map((e) => [e.session_id, e.messages]));
-        content = buildMarkdown(sortedSessions, msgsBySession);
-        defaultName = `hermesdesk-export.md`;
+        content = buildExportMarkdown(sortedSessions, msgsBySession, labels, locale);
+        defaultName = defaultExportFilename("markdown");
         filters = [{ name: "Markdown", extensions: ["md"] }];
       }
 
-      // Use the native save dialog
       const filePath = await save({
         title: t("export.exportBtn"),
         defaultPath: defaultName,
@@ -198,7 +111,7 @@ export function Export() {
       });
       if (!filePath) {
         setExporting(false);
-        return; // user cancelled
+        return;
       }
 
       await invoke("cmd_write_text_file", {
@@ -210,7 +123,7 @@ export function Export() {
     } finally {
       setExporting(false);
     }
-  }, [selected, format, sessions, t]);
+  }, [selected, format, sessions, locale, t]);
 
   return (
     <AppScaffold className="h-full overflow-y-auto" ref={scrollRef}>
@@ -225,7 +138,6 @@ export function Export() {
           </p>
         </div>
 
-        {/* Format selector */}
         <div className="rounded-[var(--radius-shell-lg)] border border-zinc-200/90 bg-white/70 p-4 dark:border-zinc-700 dark:bg-zinc-800/60">
           <label className="block text-sm font-medium text-zinc-800 dark:text-zinc-200">
             {t("export.formatLabel")}
@@ -252,7 +164,6 @@ export function Export() {
           </div>
         </div>
 
-        {/* Select controls */}
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -273,7 +184,6 @@ export function Export() {
           </span>
         </div>
 
-        {/* Session list */}
         {loading && (
           <p className="text-sm text-zinc-400 dark:text-zinc-500 py-8 text-center">
             {t("export.loading")}
@@ -321,7 +231,6 @@ export function Export() {
           </div>
         )}
 
-        {/* Export button */}
         <div className="pt-4">
           <button
             type="button"
@@ -334,7 +243,6 @@ export function Export() {
         </div>
       </div>
 
-      {/* Floating scroll buttons */}
       <div className="pointer-events-none fixed bottom-6 right-6 z-50 flex flex-col gap-2">
         <button
           type="button"

@@ -1,7 +1,7 @@
-import { useEffect, useRef } from "react";
-import { AlarmClock, BookOpen, FolderOpen, PenLine } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { AlarmClock, BookOpen, Check, FolderOpen, PenLine, Pencil, RefreshCw } from "lucide-react";
 import { useI18n } from "../lib/i18n";
-import type { UiMsg } from "./chat-api";
+import type { PendingAgentInteraction, UiMsg } from "./chat-api";
 import { AgentProgress } from "./AgentProgress";
 import { ChatMessage } from "./ChatMessage";
 import { AssistantAvatar } from "../components/AssistantAvatar";
@@ -13,6 +13,8 @@ interface ChatMessageListProps {
   sending?: boolean;
   sendErr?: string | null;
   progress?: AgentProgressState | null;
+  pendingInteraction?: PendingAgentInteraction | null;
+  onRespondInteraction?: (action: string, text?: string, data?: Record<string, unknown>) => Promise<void>;
   onPickSuggestion?: (prompt: string) => void;
 }
 
@@ -40,6 +42,87 @@ function TypingIndicator() {
         </div>
       </div>
     </AssistantStreamShell>
+  );
+}
+
+function AgentInteractionCard({
+  interaction,
+  onRespond,
+}: {
+  interaction: PendingAgentInteraction;
+  onRespond?: (action: string, text?: string, data?: Record<string, unknown>) => Promise<void>;
+}) {
+  const [refineOpen, setRefineOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [draft, setDraft] = useState(interaction.artifact?.content || "");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (action: string, text = draft, data?: Record<string, unknown>) => {
+    if (!onRespond || busy) return;
+    setBusy(true);
+    try {
+      await onRespond(action, text, data);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <AssistantStreamShell>
+        <div className="kq-chat-bubble-assistant rounded-2xl rounded-tl-sm px-4 py-3 dark:border-zinc-700/80 dark:bg-zinc-800/90">
+          <div className="text-sm font-semibold text-[var(--kq-color-strong)] dark:text-zinc-100">
+            {interaction.question || "请确认"}
+          </div>
+          {interaction.artifact?.content ? (
+            <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap rounded-lg border border-[#e8e0ed] bg-white/70 p-3 text-sm leading-relaxed text-zinc-800 dark:border-zinc-700 dark:bg-zinc-950/40 dark:text-zinc-100">
+              {interaction.artifact.content}
+            </pre>
+          ) : null}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="button" disabled={busy} onClick={() => submit("approve", draft)} className="kq-quick-action inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm">
+              <Check className="h-4 w-4" aria-hidden />
+              通过
+            </button>
+            <button type="button" disabled={busy} onClick={() => setRefineOpen(true)} className="kq-quick-action inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm">
+              <RefreshCw className="h-4 w-4" aria-hidden />
+              补充要求
+            </button>
+            <button type="button" disabled={busy} onClick={() => setEditOpen(true)} className="kq-quick-action inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm">
+              <Pencil className="h-4 w-4" aria-hidden />
+              自行编辑
+            </button>
+          </div>
+        </div>
+      </AssistantStreamShell>
+
+      {refineOpen ? (
+        <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/30 p-4 sm:items-center" role="presentation">
+          <div className="w-full max-w-lg rounded-xl bg-white p-4 shadow-xl dark:bg-zinc-900">
+            <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">补充要求</h3>
+            <textarea value={note} onChange={(e) => setNote(e.target.value)} className="mt-3 h-32 w-full rounded-lg border border-zinc-300 p-3 text-sm dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100" autoFocus />
+            <div className="mt-3 flex justify-end gap-2">
+              <button type="button" onClick={() => setRefineOpen(false)} className="rounded-lg px-3 py-2 text-sm text-zinc-600 dark:text-zinc-300">取消</button>
+              <button type="button" onClick={() => submit("refine", note, { outline: draft })} className="kq-quick-action rounded-lg px-3 py-2 text-sm">重新生成</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {editOpen ? (
+        <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/30 p-4 sm:items-center" role="presentation">
+          <div className="w-full max-w-2xl rounded-xl bg-white p-4 shadow-xl dark:bg-zinc-900">
+            <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">自行编辑</h3>
+            <textarea value={draft} onChange={(e) => setDraft(e.target.value)} className="mt-3 h-80 w-full rounded-lg border border-zinc-300 p-3 font-mono text-sm dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100" autoFocus />
+            <div className="mt-3 flex justify-end gap-2">
+              <button type="button" onClick={() => setEditOpen(false)} className="rounded-lg px-3 py-2 text-sm text-zinc-600 dark:text-zinc-300">取消</button>
+              <button type="button" onClick={() => submit("edit", draft)} className="kq-quick-action rounded-lg px-3 py-2 text-sm">保存并生成</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }
 
@@ -136,6 +219,8 @@ export function ChatMessageList({
   sending = false,
   sendErr,
   progress,
+  pendingInteraction,
+  onRespondInteraction,
   onPickSuggestion,
 }: ChatMessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -144,7 +229,7 @@ export function ChatMessageList({
     requestAnimationFrame(() => {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     });
-  }, [messages, sending, progress?.nextSeq, progress?.status]);
+  }, [messages, sending, progress?.nextSeq, progress?.status, pendingInteraction?.id]);
 
   const isEmpty = messages.length === 0 && !sendErr;
   const pendingAssistant = messages.find((m) => m.id === "pending-assistant");
@@ -178,6 +263,9 @@ export function ChatMessageList({
               <AgentProgress progress={progress} />
             </AssistantStreamShell>
           )}
+          {pendingInteraction ? (
+            <AgentInteractionCard interaction={pendingInteraction} onRespond={onRespondInteraction} />
+          ) : null}
           {pendingAssistant && (
             <ChatMessage
               key={pendingAssistant.id}

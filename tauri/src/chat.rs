@@ -333,7 +333,16 @@ pub async fn cmd_chat_send_stream(
             if data.is_empty() {
                 continue;
             }
-            let event: Value = serde_json::from_str(data).map_err(|e| e.to_string())?;
+            let event: Value = match serde_json::from_str(data) {
+                Ok(v) => v,
+                Err(e) => {
+                    if final_event.is_some() {
+                        log::warn!("desk stream: ignoring malformed SSE after final: {e}");
+                        continue;
+                    }
+                    return Err(e.to_string());
+                }
+            };
             let _ = app.emit(
                 "chat-stream-event",
                 ChatStreamEnvelope {
@@ -398,6 +407,42 @@ pub async fn cmd_desk_stop(app: AppHandle, session_id: String) -> Result<Value, 
     let client = http_client();
     let mut req = client
         .post(format!("{base}/api/desk/stop"))
+        .header("X-HermesDesk-Auth", &token)
+        .header("Content-Type", "application/json");
+    if let Some(b) = hermes_bearer_resolved(&app).await {
+        req = req.header("Authorization", format!("Bearer {b}"));
+    }
+    let res = req.json(&body).send().await.map_err(|e| e.to_string())?;
+    let status = res.status();
+    let v: Value = res.json().await.map_err(|e| e.to_string())?;
+    if !status.is_success() {
+        return Err(v.to_string());
+    }
+    Ok(v)
+}
+
+/// POST /api/desk/interaction-response — resume a blocked agent interaction.
+#[tauri::command]
+pub async fn cmd_interaction_response(
+    app: AppHandle,
+    session_id: String,
+    interaction_id: String,
+    action: String,
+    text: Option<String>,
+    data: Option<Value>,
+) -> Result<Value, String> {
+    let base = hermes_base(&app).await?;
+    let token = desk_auth_header(&app).await?;
+    let body = serde_json::json!({
+        "session_id": session_id,
+        "interaction_id": interaction_id,
+        "action": action,
+        "text": text.unwrap_or_default(),
+        "data": data.unwrap_or_else(|| serde_json::json!({})),
+    });
+    let client = http_client();
+    let mut req = client
+        .post(format!("{base}/api/desk/interaction-response"))
         .header("X-HermesDesk-Auth", &token)
         .header("Content-Type", "application/json");
     if let Some(b) = hermes_bearer_resolved(&app).await {

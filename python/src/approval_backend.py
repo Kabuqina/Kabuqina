@@ -20,6 +20,8 @@ from pathlib import Path
 log = logging.getLogger("hermesdesk.approval")
 
 _READ_COMMANDS = {"cat", "type", "more", "gc", "get-content"}
+_COPY_COMMANDS = {"cp", "copy", "copy-item"}
+_GIT_BASH_PATH = re.compile(r"^/([a-zA-Z])/(.*)$")
 _SHELL_METACHARS = ("|", ";", "&", ">", "<", "`", "$(")
 _PYTHON_RE = re.compile(
     r"^\s*(?:python|python3|py)(?:\.exe)?\s+(?:-[^\s]+\s+)*-c\s+([\"'])(?P<code>.*)\1\s*$",
@@ -117,6 +119,64 @@ def _unwrap_powershell_command(command: str) -> str:
             idx = lowered.index(flag)
             return " ".join(tokens[idx + 1:]).strip().strip("\"'")
     return command
+
+
+def _normalize_git_bash_path(raw: str) -> str:
+    s = raw.strip().strip("\"'")
+    m = _GIT_BASH_PATH.match(s)
+    if not m:
+        return s
+    return f"{m.group(1).upper()}:\\{m.group(2).replace('/', chr(92))}"
+
+
+def _path_args_after_command(tokens: list[str]) -> list[str]:
+    if not tokens:
+        return []
+    return [token for token in tokens[1:] if token and not token.startswith("-")]
+
+
+def _copy_dest_paths(tokens: list[str]) -> list[str] | None:
+    if len(tokens) < 2:
+        return None
+    cmd = Path(tokens[0]).name.lower()
+    if cmd not in _COPY_COMMANDS:
+        return None
+
+    if cmd == "copy-item":
+        lowered = [t.lower() for t in tokens]
+        dests: list[str] = []
+        idx = 0
+        while idx < len(lowered):
+            if lowered[idx] in {"-destination", "-dest"} and idx + 1 < len(tokens):
+                dests.append(tokens[idx + 1])
+                idx += 2
+                continue
+            idx += 1
+        if dests:
+            return dests
+
+    path_args = _path_args_after_command(tokens)
+    if len(path_args) < 2:
+        return None
+    return [path_args[-1]]
+
+
+def _is_safe_workspace_import_command(command: str, workspace: Path) -> bool:
+    """Auto-approve simple copy commands whose destination stays inside workspace."""
+    inner = _unwrap_powershell_command(command).strip()
+    if any(ch in inner for ch in _SHELL_METACHARS):
+        return False
+
+    tokens = _split_command(inner)
+    dests = _copy_dest_paths(tokens)
+    if not dests:
+        return False
+
+    for dest_raw in dests:
+        dest = _resolve_workspace_path(_normalize_git_bash_path(dest_raw), workspace)
+        if dest is None or not _is_under(dest, workspace):
+            return False
+    return True
 
 
 def _is_simple_workspace_read_command(command: str, workspace: Path) -> bool:
@@ -275,6 +335,7 @@ def _auto_approve_workspace_read(command: str) -> bool:
     return (
         _is_simple_workspace_read_command(command, workspace)
         or _is_python_workspace_read_command(command, workspace)
+        or _is_safe_workspace_import_command(command, workspace)
     )
 
 
@@ -284,7 +345,7 @@ class ApprovalBackend:
     def ask(self, command: str, description: str = "") -> str:
         """Return 'once' if allowed, 'deny' otherwise."""
         if _auto_approve_workspace_read(command):
-            log.info("auto-approved workspace read command: %s", command[:200])
+            log.info("auto-approved safe shell command: %s", command[:200])
             return "once"
 
         return self._post({

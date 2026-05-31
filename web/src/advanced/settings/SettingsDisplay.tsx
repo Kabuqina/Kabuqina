@@ -2,6 +2,7 @@ import { useI18n } from "../../lib/i18n";
 import {
   FolderOpen,
   Languages,
+  Moon,
   Shield,
   Type,
 } from "lucide-react";
@@ -11,6 +12,7 @@ import { Button } from "../../components/ui/Button";
 import { Toggle } from "../../components/ui/Toggle";
 import { cn } from "../../lib/cn";
 import { LanguageToggle } from "../../components/LanguageToggle";
+import type { ThemeMode } from "../../lib/ui-prefs";
 import type { Status } from "../Settings";
 
 interface Props {
@@ -19,6 +21,8 @@ interface Props {
   onTogglePowerUser: (next: boolean) => void;
   fontSize: "small" | "medium" | "large";
   onSetFontSize: (size: "small" | "medium" | "large") => void;
+  themeMode: ThemeMode;
+  onSetThemeMode: (mode: ThemeMode) => void;
 }
 
 export function SettingsDisplay({
@@ -27,6 +31,8 @@ export function SettingsDisplay({
   onTogglePowerUser,
   fontSize,
   onSetFontSize,
+  themeMode,
+  onSetThemeMode,
 }: Props) {
   const { t } = useI18n();
 
@@ -51,6 +57,35 @@ export function SettingsDisplay({
                 "min-h-[2.25rem] flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition sm:flex-initial",
                 "active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50",
                 fontSize === id
+                  ? "hd-btn-segment-active shadow-sm"
+                  : "hd-btn-segment-idle"
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </Section>
+
+      <Section icon={Moon} title={t("settings.themeTitle")} desc={t("settings.themeDesc")}>
+        <div className="inline-flex w-full max-w-md rounded-[var(--radius-shell-lg)] border border-[var(--kq-color-border)] bg-[var(--kq-color-primary-pale)]/45 p-0.5 dark:border-zinc-700 dark:bg-zinc-800/50 sm:w-auto">
+          {(
+            [
+              { id: "system" as const, label: t("settings.themeSystem") },
+              { id: "light" as const, label: t("settings.themeLight") },
+              { id: "dark" as const, label: t("settings.themeDark") },
+            ] as const
+          ).map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => {
+                onSetThemeMode(id);
+              }}
+              className={cn(
+                "min-h-[2.25rem] flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition sm:flex-initial",
+                "active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50",
+                themeMode === id
                   ? "hd-btn-segment-active shadow-sm"
                   : "hd-btn-segment-idle"
               )}

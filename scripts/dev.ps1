@@ -16,6 +16,8 @@ try {
         ./python/build_bundle.ps1
     } else {
         Write-Host "Python bundle present (use -Rebuild to force)." -ForegroundColor DarkGray
+        Write-Host "Syncing runtime sources for dev..." -ForegroundColor DarkGray
+        ./scripts/sync-runtime-sources.ps1
     }
 
     if (-not (Test-Path "web\node_modules")) {

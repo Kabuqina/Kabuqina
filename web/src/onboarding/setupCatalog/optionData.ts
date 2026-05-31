@@ -270,15 +270,6 @@ export const CATALOG_GATEWAY: SetupCatalogOption[] = [
     configUi: "qqbot_route_c",
   },
   {
-    id: "ding",
-    name: L("钉钉", "DingTalk"),
-    defaultHint: L("DINGTALK_CLIENT_ID + SECRET", "DINGTALK_CLIENT_ID + SECRET"),
-    configFields: [
-      F("DINGTALK_CLIENT_ID", L("DINGTALK_CLIENT_ID", "DINGTALK_CLIENT_ID"), L("Client ID", "Client ID"), "text"),
-      F("DINGTALK_CLIENT_SECRET", L("DINGTALK_CLIENT_SECRET", "DINGTALK_CLIENT_SECRET"), L("Client Secret", "Client Secret"), "password"),
-    ],
-  },
-  {
     id: "wecom",
     name: L("企业微信", "WeCom"),
     defaultHint: L("扫码创建或手动填写", "Scan to create or enter manually"),

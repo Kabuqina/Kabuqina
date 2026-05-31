@@ -17,6 +17,7 @@
 #   .\python\build_bundle.ps1 -Verify        # build + smoke-test (+ STT binary checks)
 #   .\python\build_bundle.ps1 -Clean         # wipe and rebuild
 #   .\python\build_bundle.ps1 -SkipWebBuild  # faster: reuse existing hermes_cli/web_dist (risk: stale UI)
+#   .\python\build_bundle.ps1 -SkipDoclingModels  # faster: skip Docling model download when already bundled
 #   .\python\build_bundle.ps1 -BuildHermesDashboard  # opt-in: build upstream Hermes dashboard SPA
 #
 # NOTE (PowerShell): named parameters conventionally use ONE dash (`-Verify`), unlike many
@@ -30,6 +31,7 @@ param(
     [switch]$Clean,
     [switch]$Verify,
     [switch]$SkipWebBuild,
+    [switch]$SkipDoclingModels,
     [switch]$BuildHermesDashboard
 )
 
@@ -55,6 +57,12 @@ if ($PythonVersion -match '^-{2,}(.+)$') {
             Write-Warning "Interpreting '$PythonVersion' as -SkipWebBuild."
             $PythonVersion = $defaultPy
             $SkipWebBuild = $true
+            break
+        }
+        'skipdoclingmodels' {
+            Write-Warning "Interpreting '$PythonVersion' as -SkipDoclingModels."
+            $PythonVersion = $defaultPy
+            $SkipDoclingModels = $true
             break
         }
         default {
@@ -329,6 +337,46 @@ $verifyScript = Join-Path $PSScriptRoot "tools\verify_bundle_site_packages.py"
 if ($LASTEXITCODE -ne 0) {
     Write-Error "pip verification failed (exit $LASTEXITCODE). Fix errors above, or delete python/dist/runtime and rebuild."
     exit 11
+}
+
+# ------------------------------------------------------------------ 5b. Bundle Docling models (offline PDF parsing)
+#
+# Docling lazily downloads layout/table/OCR weights from HuggingFace on first
+# PDF parse. Ship them under runtime/docling-models/ so pdf_read_precise works
+# without reaching huggingface.co at runtime. Build uses hf-mirror.com by default
+# (override with HF_ENDPOINT); see python/tools/bundle_docling_models.py.
+if ($SkipDoclingModels) {
+    Write-Host "Skipping Docling model bundling (-SkipDoclingModels)." -ForegroundColor DarkGray
+} else {
+Write-Host "Bundling Docling models (layout + table + OCR)..." -ForegroundColor DarkGray
+$bundleModelsScript = Join-Path $PSScriptRoot "tools\bundle_docling_models.py"
+$prevHfEndpoint = $env:HF_ENDPOINT
+if (-not $env:HF_ENDPOINT) {
+    $env:HF_ENDPOINT = "https://hf-mirror.com"
+}
+$env:PYTHONPATH = "$siteDir"
+& $Py $bundleModelsScript $Dist
+$modelExit = $LASTEXITCODE
+if ($prevHfEndpoint) {
+    $env:HF_ENDPOINT = $prevHfEndpoint
+} else {
+    Remove-Item Env:HF_ENDPOINT -ErrorAction SilentlyContinue
+}
+Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue
+if ($modelExit -ne 0) {
+    Write-Error @"
+Docling model bundling failed (exit $modelExit).
+Layout/table weights use HuggingFace (default mirror: hf-mirror.com via HF_ENDPOINT).
+EasyOCR weights download from GitHub Releases — if that step failed, retry with:
+  `$env:GITHUB_MIRROR='https://ghfast.top'
+  .\python\build_bundle.ps1
+Or skip bundling OCR (scanned PDF OCR may fail offline):
+  `$env:DOCLING_BUNDLE_EASYOCR='0'
+Or skip model bundling entirely when already present:
+  .\python\build_bundle.ps1 -SkipDoclingModels
+"@
+    exit 14
+}
 }
 
 # ------------------------------------------------------------------ 6. Copy overlays + entrypoint

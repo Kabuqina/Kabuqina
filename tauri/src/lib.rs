@@ -175,6 +175,7 @@ pub fn run() {
             chat::cmd_chat_send_stream,
             chat::cmd_chat_preview,
             chat::cmd_desk_stop,
+            chat::cmd_interaction_response,
             chat::cmd_get_sessions,
             chat::cmd_get_session_messages,
             chat::cmd_delete_session,

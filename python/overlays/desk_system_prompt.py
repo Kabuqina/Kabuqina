@@ -29,6 +29,44 @@ def _has_power_user_style_tools(names: Set[str]) -> bool:
     return False
 
 
+def _workspace_hint() -> str:
+    raw = (
+        os.environ.get("HERMESDESK_WORKSPACE")
+        or os.environ.get("HERMES_WORKSPACE")
+        or ""
+    ).strip()
+    if raw:
+        return f" Current workspace folder: `{raw}`."
+    return " Default workspace: the user's Documents/KabuqinaWork folder."
+
+
+def _block_workspace_files(*, has_terminal: bool) -> str:
+    ws = _workspace_hint()
+    base = (
+        "### Workspace file access\n\n"
+        "Kabuqina confines **file tools** (`read_file`, `pdf_read_precise`, `write_file`, "
+        "`search_files`, attachments processing, etc.) to the user's **workspace** folder."
+        f"{ws} Paths on other drives or folders (e.g. `D:\\...`) are **not readable** "
+        "by those tools.\n\n"
+    )
+    if has_terminal:
+        return base + (
+            "**When the user references a file outside the workspace:** do **not** ask them "
+            "to copy or move it manually as your first step. **Proactively use `terminal`** "
+            "to copy the file into the workspace, then use file/document tools on the "
+            "workspace copy. Git Bash example: "
+            "`cp \"/d/path/to/report.pdf\" \"./report.pdf\"` (or a subfolder under workspace). "
+            "Only ask the user to intervene if the copy fails or they must choose a "
+            "specific destination name.\n"
+        )
+    return base + (
+        "You do **not** have `terminal` in this session. When a path is outside the "
+        "workspace, ask the user to attach the file in chat, move/copy it into the "
+        "workspace folder, or enable **Power user mode** in Settings so you can copy "
+        "it for them.\n"
+    )
+
+
 def _block_power_off() -> str:
     return (
         "## Kabuqina (desktop app)\n\n"
@@ -42,7 +80,8 @@ def _block_power_off() -> str:
         "open **Kabuqina** (this app) → **Settings** (设置) → turn on **Power user mode** "
         "(高级用户模式), accept the dialog, and wait a few seconds for the helper to restart, "
         "then try again. Repeat this when the same class of request comes up. "
-        "If part of the work is still possible with the tools you do have (e.g. files, web, todo), do that and state the limit."
+        "If part of the work is still possible with the tools you do have (e.g. files, web, todo), do that and state the limit.\n\n"
+        + _block_workspace_files(has_terminal=False)
     )
 
 
@@ -56,7 +95,8 @@ def _block_power_on() -> str:
         "That is still local — not a remote server — unless the user explicitly configured a remote terminal backend.\n\n"
         "**Power user mode is on** for this session: terminal, code, and/or mixture-of-agents tools "
         "may appear in your tool list. The user or system can still require confirmation for risky steps — "
-        "only claim such actions were taken when you have a real successful tool result."
+        "only claim such actions were taken when you have a real successful tool result.\n\n"
+        + _block_workspace_files(has_terminal=True)
     )
 
 

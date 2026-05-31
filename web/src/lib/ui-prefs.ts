@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 /**
  * UI preferences persisted in localStorage (shell webview).
@@ -6,6 +6,10 @@ import { useCallback, useState } from "react";
  */
 
 const FONT_SIZE_KEY = "hermesdesk.ui.fontSize";
+export const THEME_MODE_KEY = "hermesdesk.ui.themeMode";
+
+export type ThemeMode = "system" | "light" | "dark";
+export type ResolvedTheme = "light" | "dark";
 
 export type FontSizeOption = "small" | "medium" | "large";
 
@@ -49,4 +53,76 @@ export function useFontSize() {
     setSizeState(opt);
   }, []);
   return { size, setSize };
+}
+
+export function getStoredThemeMode(): ThemeMode {
+  if (typeof window === "undefined" || !window.localStorage) {
+    return "system";
+  }
+  const v = window.localStorage.getItem(THEME_MODE_KEY);
+  if (v === "system" || v === "light" || v === "dark") {
+    return v;
+  }
+  return "system";
+}
+
+export function systemPrefersDark(): boolean {
+  if (typeof window === "undefined" || !window.matchMedia) {
+    return false;
+  }
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+
+export function resolveTheme(mode: ThemeMode): ResolvedTheme {
+  if (mode === "dark") {
+    return "dark";
+  }
+  if (mode === "light") {
+    return "light";
+  }
+  return systemPrefersDark() ? "dark" : "light";
+}
+
+export function applyTheme(mode?: ThemeMode): ResolvedTheme {
+  if (typeof document === "undefined") {
+    return "light";
+  }
+  const stored = mode ?? getStoredThemeMode();
+  const resolved = resolveTheme(stored);
+  document.documentElement.dataset.themeMode = stored;
+  document.documentElement.dataset.theme = resolved;
+  document.documentElement.style.colorScheme = resolved;
+  return resolved;
+}
+
+export function setThemeMode(mode: ThemeMode): ResolvedTheme {
+  if (typeof window !== "undefined" && window.localStorage) {
+    window.localStorage.setItem(THEME_MODE_KEY, mode);
+  }
+  return applyTheme(mode);
+}
+
+export function useThemeMode() {
+  const [mode, setModeState] = useState<ThemeMode>(getStoredThemeMode);
+  const [resolved, setResolved] = useState<ResolvedTheme>(() => resolveTheme(getStoredThemeMode()));
+
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const sync = () => {
+      const current = getStoredThemeMode();
+      setModeState(current);
+      setResolved(applyTheme(current));
+    };
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  const setMode = useCallback((next: ThemeMode) => {
+    setThemeMode(next);
+    setModeState(next);
+    setResolved(resolveTheme(next));
+  }, []);
+
+  return { mode, setMode, resolved };
 }

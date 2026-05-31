@@ -13,6 +13,22 @@
       rel="stylesheet"
     />
     <title>Nana</title>
+    <script>
+      (function () {
+        var key = "hermesdesk.ui.themeMode";
+        var mode = localStorage.getItem(key) || "system";
+        if (mode !== "system" && mode !== "light" && mode !== "dark") {
+          mode = "system";
+        }
+        var dark =
+          mode === "dark" ||
+          (mode === "system" &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.dataset.themeMode = mode;
+        document.documentElement.dataset.theme = dark ? "dark" : "light";
+        document.documentElement.style.colorScheme = dark ? "dark" : "light";
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

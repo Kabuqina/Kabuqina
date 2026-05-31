@@ -24,7 +24,7 @@ The "Kabuqina" name is provisional. Trademark check is pending — see
 |----------|----------|
 | Product relationship | **Independent.** Kabuqina is a standalone monorepo. The upstream `NousResearch/hermes-agent` is frozen at `hermes_core/`. |
 | Upstream sync | **Cherry-pick only.** Security advisories, CVEs, and provider API breaking changes are manually cherry-picked and logged in this file. No batch merges. |
-| Gateway platforms | All 6 (Weixin, QQ Bot, Feishu/Lark, Telegram, DingTalk, WeCom) stay in the onboarding UI. Weixin and Feishu are feature-flagged at the `GatewayPolicy` level. |
+| Gateway platforms | Student runtime keeps Weixin, QQ Bot, Feishu/Lark, Telegram, and WeCom. DingTalk is temporarily disabled because `dingtalk-stream` requires legacy `websockets<13`, which conflicts with Browser/CDP; revisit for the office-oriented edition or after the SDK supports modern websockets. Weixin and Feishu remain feature-flagged at the `GatewayPolicy` level. |
 | Architecture | `agent_core` (frozen Hermes) + `desktop_policy` (6 injected policy objects). Overlays are transitional and tagged `# DEPRECATED`. |
 
 ## Desk-minimal runtime (2026-05-21)

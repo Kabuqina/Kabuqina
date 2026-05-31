@@ -63,8 +63,10 @@ export function friendlyChatError(raw: string, locale: Locale): string {
   }
   if (
     lower.includes("non-json") ||
-    lower.includes("json") ||
-    lower.includes("error decoding response body")
+    lower.includes("error decoding response body") ||
+    lower.includes("jsondecodeerror") ||
+    /\bjson\s*(decode|parse|syntax)\b/.test(lower) ||
+    /\binvalid\s+json\b/.test(lower)
   ) {
     return copy.json;
   }

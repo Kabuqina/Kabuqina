@@ -9226,6 +9226,14 @@ class AIAgent:
                 choices=function_args.get("choices"),
                 callback=self.clarify_callback,
             )
+        elif function_name == "review_outline":
+            from tools.user_interaction_tool import review_outline_tool as _review_outline_tool
+            return _review_outline_tool(
+                question=function_args.get("question", ""),
+                outline=function_args.get("outline", ""),
+                choices=function_args.get("choices"),
+                callback=self.clarify_callback,
+            )
         elif function_name == "delegate_task":
             return self._dispatch_delegate_task(function_args)
         else:
@@ -9771,6 +9779,17 @@ class AIAgent:
                 tool_duration = time.time() - tool_start_time
                 if self._should_emit_quiet_tool_messages():
                     self._vprint(f"  {_get_cute_tool_message_impl('clarify', function_args, tool_duration, result=function_result)}")
+            elif function_name == "review_outline":
+                from tools.user_interaction_tool import review_outline_tool as _review_outline_tool
+                function_result = _review_outline_tool(
+                    question=function_args.get("question", ""),
+                    outline=function_args.get("outline", ""),
+                    choices=function_args.get("choices"),
+                    callback=self.clarify_callback,
+                )
+                tool_duration = time.time() - tool_start_time
+                if self._should_emit_quiet_tool_messages():
+                    self._vprint(f"  {_get_cute_tool_message_impl('review_outline', function_args, tool_duration, result=function_result)}")
             elif function_name == "delegate_task":
                 tasks_arg = function_args.get("tasks")
                 if tasks_arg and isinstance(tasks_arg, list):

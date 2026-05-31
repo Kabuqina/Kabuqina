@@ -18,7 +18,7 @@ export const AppScaffold = forwardRef<HTMLDivElement, Props>(
       <div
         ref={ref}
         className={cn(
-          "min-h-full w-full kq-chat-shell text-[var(--kq-color-ink)] dark:bg-[#0F172A] dark:text-zinc-100",
+          "min-h-full w-full kq-chat-shell text-[var(--kq-color-ink)]",
           variant === "narrow" && "flex flex-col",
           className
         )}

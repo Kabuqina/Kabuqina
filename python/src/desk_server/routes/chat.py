@@ -18,9 +18,50 @@ from desk_server.chat_core import (
     _desk_slash_response,
     _desk_text_from_assistant_messages,
 )
+from desk_server.interactions import interaction_manager
 from desk_server.warm import warming_http_response
 log = logging.getLogger(__name__)
 router = APIRouter()
+
+
+@router.post("/api/desk/interaction-response")
+async def desk_interaction_response(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+    if not isinstance(body, dict):
+        return JSONResponse({"ok": False, "error": "invalid_body"}, status_code=400)
+
+    session_id = str(body.get("session_id") or "").strip()
+    interaction_id = str(body.get("interaction_id") or "").strip()
+    action = str(body.get("action") or "").strip()
+    text = str(body.get("text") or "")
+    data = body.get("data")
+    if not isinstance(data, dict):
+        data = {}
+    if not session_id or not interaction_id or not action:
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": "invalid_body",
+                "detail": "session_id, interaction_id, and action are required",
+            },
+            status_code=400,
+        )
+
+    ok = interaction_manager.respond(
+        session_id=session_id,
+        interaction_id=interaction_id,
+        action=action,
+        text=text,
+        data=data,
+    )
+    if not ok:
+        return JSONResponse({"ok": False, "error": "interaction_not_found"}, status_code=404)
+    return JSONResponse({"ok": True})
+
+
 @router.post("/api/desk/stop")
 async def desk_stop(request: Request):
     """Interrupt the agent for a desk chat session (best-effort)."""

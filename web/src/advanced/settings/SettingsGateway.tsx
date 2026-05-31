@@ -8,7 +8,6 @@ import {
   MessageCircle,
   QrCode,
   Send,
-  Store,
 } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { Section } from "../../components/ui/Section";
@@ -30,7 +29,6 @@ function platformLabel(key: string): string {
     feishu: "飞书",
     qqbot: "QQ",
     weixin: "微信",
-    dingtalk: "钉钉",
     wecom: "企微",
   };
   return map[key] ?? key;
@@ -41,8 +39,7 @@ const platformItems = [
   { key: "feishu", label: "飞书", icon: Building2, path: "/settings/feishu" },
   { key: "qq", label: "QQ", icon: Bot, path: "/settings/qq" },
   { key: "weixin", label: "微信", icon: QrCode, path: "/settings/weixin" },
-  { key: "dingtalk", label: "钉钉", icon: Store, path: "/settings/dingtalk" },
-  { key: "wecom", label: "企微", icon: Store, path: "/settings/wecom" },
+  { key: "wecom", label: "企微", icon: Building2, path: "/settings/wecom" },
   { key: "email", label: "Email", icon: Mail, path: "/settings/email" },
 ];
 

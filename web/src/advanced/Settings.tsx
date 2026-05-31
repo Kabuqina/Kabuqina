@@ -7,7 +7,7 @@ import { BackButton } from "../components/ui/BackButton";
 import { Section } from "../components/ui/Section";
 import { useI18n } from "../lib/i18n";
 import { useTogglePowerUser } from "../lib/useTogglePowerUser";
-import { useFontSize } from "../lib/ui-prefs";
+import { useFontSize, useThemeMode } from "../lib/ui-prefs";
 import { useGatewayStatus } from "../features/gateway/useGatewayStatus";
 import { SettingsLLM } from "./settings/SettingsLLM";
 import { SettingsGateway } from "./settings/SettingsGateway";
@@ -33,6 +33,7 @@ export function Settings() {
   const [status, setStatus] = useState<Status | null>(null);
   const { powerUser, togglePowerUser } = useTogglePowerUser();
   const { size: fontSize, setSize: setFontSize } = useFontSize();
+  const { mode: themeMode, setMode: setThemeMode } = useThemeMode();
   const [autoStartGateway, setAutoStartGateway] = useState(true);
   const gatewayStatus = useGatewayStatus();
 
@@ -152,6 +153,8 @@ export function Settings() {
           onTogglePowerUser={togglePowerUser}
           fontSize={fontSize}
           onSetFontSize={setFontSize}
+          themeMode={themeMode}
+          onSetThemeMode={setThemeMode}
         />
 
         <SettingsLLM
