@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Background tool/plugin warm for desk server startup."""
 from __future__ import annotations
 

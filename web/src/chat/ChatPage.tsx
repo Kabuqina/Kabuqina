@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 import { useCallback, useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Maximize2, PanelLeftOpen, PanelRightOpen } from "lucide-react";

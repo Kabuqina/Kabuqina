@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 import type { PostPassSectionId } from "./setupCatalog/optionTypes";
 import type { SetupCatalogOption } from "./setupCatalog/optionTypes";
 import { CATALOG_BY_SECTION } from "./setupCatalog/optionData";

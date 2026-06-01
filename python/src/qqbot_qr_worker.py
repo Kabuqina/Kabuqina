@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """
 HermesDesk: run QQ Bot scan-to-configure in a short-lived child process.
 

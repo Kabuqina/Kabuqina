@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Unit tests for policy objects (no Hermes import chain needed)."""
 
 import os

@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Windows ``TimeZoneKeyName`` → IANA mapping for HermesDesk.
 
 Vendored from tzlocal ``windows_tz.win_tz`` (MIT, https://github.com/regebro/tzlocal).

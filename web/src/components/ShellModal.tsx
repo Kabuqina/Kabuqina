@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 import { ReactNode, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "../lib/cn";

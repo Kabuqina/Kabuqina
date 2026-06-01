@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 import { Routes, Route, Navigate } from "react-router-dom";
 import { CHAT_FROM_ONBOARDING_STATE } from "../lib/chatLocationState";
 import { SetupMode } from "./steps/SetupMode";

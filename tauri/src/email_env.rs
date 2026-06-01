@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 //! Read / write EMAIL_* env vars in ``hermes-home/.env``.
 
 use std::collections::HashSet;

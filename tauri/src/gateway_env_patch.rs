@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 //! Read/write arbitrary gateway-related keys in the host ``hermes-home/.env``.
 //! Used by Settings UI for per-channel behavior (connection mode, DM policy, …).
 

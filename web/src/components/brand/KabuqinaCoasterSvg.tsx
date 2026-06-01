@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 import { useId } from "react";
 import type { SVGProps } from "react";
 import { kabuqinaBrandTokens } from "./kabuqinaBrandTokens";

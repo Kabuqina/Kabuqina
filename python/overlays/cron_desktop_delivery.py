@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Route cron job output to the desktop instead of dropping it on the floor.
 
 Upstream behavior:

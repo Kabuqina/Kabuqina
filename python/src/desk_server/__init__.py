@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Kabuqina desk HTTP server — product API decoupled from Hermes dashboard web_server."""
 from __future__ import annotations
 

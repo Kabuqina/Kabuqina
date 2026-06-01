@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 import type { Locale } from "./i18n-core";
 
 const ISO_PREFIX = /^\d{4}-\d{2}-\d{2}[T ]/;

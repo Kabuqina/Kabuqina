@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Workspace-folder jail (m4).
 
 # DEPRECATED: path_policy.remove_when=Phase4

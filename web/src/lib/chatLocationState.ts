@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * When navigating to `/chat` right after the setup wizard completed saving the key,
  * pass this state so `ChatPage` can skip the immediate `cmd_has_secret` gate (avoids

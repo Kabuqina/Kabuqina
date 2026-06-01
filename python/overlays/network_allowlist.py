@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Network egress allowlist (m4).
 
 # DEPRECATED: network_policy.remove_when=Phase4

@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Default locale: zh. Keys are dot paths (e.g. splash.waking).
  * Use {{name}} in strings for replace from translate().

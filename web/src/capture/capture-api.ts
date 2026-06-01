@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 import { invoke } from "@tauri-apps/api/core";
 
 /** Payload emitted by the Rust backend via `capture-done` event. */

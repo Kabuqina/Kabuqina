@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Load host ``hermes-home/.env`` and wire web-child cron/messaging egress.
 
 ``gateway.run`` loads dotenv at import time. The **web child** (cron ticker,

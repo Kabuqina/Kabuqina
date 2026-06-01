@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Tests for the desktop QQ Bot QR worker helpers."""
 
 import unittest

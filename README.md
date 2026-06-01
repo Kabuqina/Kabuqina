@@ -4,7 +4,7 @@
 
 **Windows 上好安装的桌面 AI 助手** · 向导配置 · BYO API Key · 基于 [Hermes Agent](https://github.com/NousResearch/hermes-agent) 并独立开发
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg?style=flat-square)](LICENSE)
 [![Windows](https://img.shields.io/badge/platform-Windows%2010%2F11-%230078D6?style=flat-square&logo=windows&logoColor=white)](https://github.com/Kabuqina/Kabuqina)
 [![Tauri](https://img.shields.io/badge/Tauri-2-ffc131?style=flat-square&logo=tauri&logoColor=white)](https://tauri.app)
 [![App](https://img.shields.io/badge/app-0.1.0-6c757d?style=flat-square)](./tauri/tauri.conf.json)
@@ -13,8 +13,8 @@
 
 </div>
 
-> **License notice:** Source code is [MIT](./LICENSE). The **Kabuqina / 卡布奇娜 name,
-> logos, mascot, and icons** are **proprietary** and **not** included under MIT.
+> **License notice:** Source code is licensed under [Apache-2.0](./LICENSE). The **Kabuqina / 卡布奇娜 name,
+> logos, mascot, and icons** are **proprietary** and **not** included under Apache-2.0.
 > See [BRAND.md](./BRAND.md) and [assets/brand/LICENSE](./assets/brand/LICENSE).
 
 ---
@@ -160,7 +160,7 @@ Set-Location tauri; cargo tauri dev
 
 ### 协议
 
-[**MIT**](LICENSE)（**仅源代码**）。品牌视觉资产（logo、mascot、图标）与 README 截图 **不在 MIT 范围内**，见 [BRAND.md](./BRAND.md)。Hermes 亦为 MIT，见其 [hermes_core/LICENSE](./hermes_core/LICENSE)。致谢 [Nous Research](https://nousresearch.com)。
+[**Apache-2.0**](LICENSE)（**仅 Kabuqina 自有源代码**）。品牌视觉资产（logo、mascot、图标）与 README 截图 **不在 Apache-2.0 范围内**，见 [BRAND.md](./BRAND.md)。Hermes core 仍为 MIT，见其 [hermes_core/LICENSE](./hermes_core/LICENSE)。致谢 [Nous Research](https://nousresearch.com)。
 
 ---
 
@@ -289,4 +289,4 @@ Set-Location tauri; cargo tauri dev
 
 ### License
 
-**MIT** for **source code** only — [LICENSE](LICENSE). **Brand assets** (name, logos, mascot, icons) and README screenshots are **proprietary** — [BRAND.md](BRAND.md). Hermes: [hermes_core/LICENSE](hermes_core/LICENSE). Thanks to **[Nous Research](https://nousresearch.com)**.
+**Apache-2.0** for **Kabuqina source code** only — [LICENSE](LICENSE). **Brand assets** (name, logos, mascot, icons) and README screenshots are **proprietary** — [BRAND.md](BRAND.md). Hermes core remains **MIT** — [hermes_core/LICENSE](hermes_core/LICENSE). Thanks to **[Nous Research](https://nousresearch.com)**.

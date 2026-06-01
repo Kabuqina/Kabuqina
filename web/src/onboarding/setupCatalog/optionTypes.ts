@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 export type PostPassSectionId = "tts" | "stt" | "terminal" | "gateway" | "tools" | "agent";
 
 export type LocaleKey = "zh" | "en";

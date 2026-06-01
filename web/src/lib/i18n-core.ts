@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 import { MESSAGES } from "../locales/strings";
 
 export type Locale = "zh" | "en";

@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 import { useEffect, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle } from "lucide-react";

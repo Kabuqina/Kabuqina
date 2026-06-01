@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Tests for Kabuqina desk_server (product HTTP API)."""
 
 from __future__ import annotations

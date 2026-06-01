@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 //! Cron job management — read/write the upstream ``cron/jobs.json`` file.
 //!
 //! The frontend Settings → Scheduled Tasks page uses these commands to

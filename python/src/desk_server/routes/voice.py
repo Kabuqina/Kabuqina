@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Desk voice/STT/TTS routes."""
 from __future__ import annotations
 import asyncio, base64, json, logging, os, tempfile, traceback

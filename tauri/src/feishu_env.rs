@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 //! Read-only view of Feishu / Lark app credentials in ``hermes-home/.env``.
 
 use std::path::PathBuf;

@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Lightweight plugin discovery for desk capability catalog."""
 from __future__ import annotations
 import json, logging, os

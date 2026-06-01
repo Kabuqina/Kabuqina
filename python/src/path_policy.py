@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """PathPolicy — confine file operations to allowed directories.
 
 Extracted from ``overlays/workspace_jail.py`` and ``overlays/path_guard.py``.

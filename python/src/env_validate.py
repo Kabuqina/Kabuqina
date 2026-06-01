@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Shared validation helpers for security-sensitive inputs.
 
 Used by QR workers to reject control characters in platform credentials

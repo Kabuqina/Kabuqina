@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Registry of gateway channel settings shown in Kabuqina Settings (not Wizard).
  * Keys must match Hermes `load_gateway_config` / adapters — see hermes_cli/gateway.py.

@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 import type { ButtonHTMLAttributes } from "react";
 import { cn } from "../../lib/cn";
 

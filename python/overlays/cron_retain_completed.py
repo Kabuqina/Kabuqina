@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Keep one-shot cron jobs around after they fire instead of deleting them.
 
 Upstream (`cron.jobs.mark_job_run`) deletes a job from ``jobs.json`` the moment

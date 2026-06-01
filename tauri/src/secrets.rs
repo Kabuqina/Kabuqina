@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 //! API key storage backed by Windows Credential Manager (DPAPI).
 //!
 //! We use the cross-platform `keyring` crate directly. On Windows this

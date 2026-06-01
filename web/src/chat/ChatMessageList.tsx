@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 import { useEffect, useRef } from "react";
 import { AlarmClock, BookOpen, FolderOpen, PenLine } from "lucide-react";
 import { useI18n } from "../lib/i18n";

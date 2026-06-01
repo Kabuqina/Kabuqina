@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 import { ReactNode, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import { AppScaffold } from "../components/AppScaffold";

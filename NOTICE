@@ -1,0 +1,27 @@
+Kabuqina
+Copyright 2026 Kabuqina Contributors
+
+This product is licensed under the Apache License, Version 2.0.
+See LICENSE for the full license text.
+
+---
+
+Third-Party Components
+
+This repository bundles and patches the Hermes Agent
+(https://github.com/NousResearch/hermes-agent), which is licensed under the
+MIT License. See hermes_core/LICENSE for its full license text.
+Copyright (c) 2025 Nous Research
+
+Portions of hermes_core/ have been modified by Kabuqina Contributors for
+desktop integration and academic-use features. See
+hermes_core/KABUQINA_MODIFICATIONS.md for a high-level summary.
+Modified files are traceable via git history.
+
+---
+
+Brand Assets
+
+The Kabuqina / 卡布奇娜 name, logos, mascot, icons, wordmarks,
+and marketing screenshots are proprietary and are NOT licensed under
+Apache-2.0. See BRAND.md and assets/brand/LICENSE for terms.

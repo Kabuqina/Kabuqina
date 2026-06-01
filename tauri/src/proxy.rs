@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 //! System proxy detection and user-managed proxy settings for the messaging gateway.
 //!
 //! Design principles:

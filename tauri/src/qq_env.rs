@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 //! Read-only view of QQ Bot credentials in ``hermes-home/.env`` (no secrets in IPC payloads).
 
 use std::path::PathBuf;

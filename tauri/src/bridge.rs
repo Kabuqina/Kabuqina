@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 //! Loopback HTTP/1.1 bridge for the Python child.
 //!
 //! Endpoints, all protected by per-launch random tokens in the path:

@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 //! Read / write Telegram bot env in ``hermes-home/.env`` (bot token never returned in full).
 
 use std::path::PathBuf;

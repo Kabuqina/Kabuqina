@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Tests for MemoryStore group-chat downgrade and _host_prefs.md loading.
 
 Requires adding hermes_core/ to sys.path (no full Hermes import chain).

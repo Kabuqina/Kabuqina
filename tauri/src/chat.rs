@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 //! Shell → Hermes HTTP proxy (Tauri `invoke` → reqwest to 127.0.0.1).
 //!
 //! The webview cannot `fetch` Hermes directly (origin + session token). We use

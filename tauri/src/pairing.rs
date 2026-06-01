@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 //! DM pairing management — read / approve / revoke pairing codes from the desktop UI.
 //!
 //! Pairing data lives in ``hermes-home/pairing/`` as JSON files:

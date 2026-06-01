@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """HermesDesk Python entrypoint.
 
 Spawned by the Tauri shell. Responsibilities:

@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 import { AlarmClock, CheckCircle2, Download, FileText, FolderKanban, PanelRightClose, Wrench } from "lucide-react";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";

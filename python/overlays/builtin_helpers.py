@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """L1 built-in helpers: whitelist ``run_builtin_helper`` (no generic code_execution).
 
 HermesDesk ships a fixed set of Python modules under ``helpers/``. The LLM

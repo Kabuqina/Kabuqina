@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 import { useCallback, useLayoutEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useI18n } from "../../lib/i18n";

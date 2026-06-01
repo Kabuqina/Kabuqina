@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 import type { LocaleKey, Localized } from "./setupCatalog/optionTypes";
 
 const ROUTE_C_UIS = new Set([

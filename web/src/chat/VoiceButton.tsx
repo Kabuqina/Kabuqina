@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 import { Loader2, Mic } from "lucide-react";
 import { cn } from "../lib/cn";
 import { useI18n } from "../lib/i18n";

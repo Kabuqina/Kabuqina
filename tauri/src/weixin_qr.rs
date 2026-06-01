@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 //! Route C: short-lived bundled Python process for Weixin iLink QR login (`weixin_qr_worker.py`).
 
 use serde_json::{json, Value};

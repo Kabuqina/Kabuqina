@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 import type { Locale } from "../lib/i18n-core";
 import { useI18n } from "../lib/i18n";
 import { cn } from "../lib/cn";

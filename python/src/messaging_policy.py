@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """MessagingPolicy — decide whether a send_message or cronjob call needs approval.
 
 Decisions match the product spec (``docs/定时任务开发方案.md``):

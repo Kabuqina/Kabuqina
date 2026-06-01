@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """HermesDesk local STT wrapper: bridges Hermes' ``local_command`` template to whisper.cpp.
 
 Hermes' ``transcribe_audio`` invokes ``HERMES_LOCAL_STT_COMMAND`` after

@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 //! Screenshot capture — xcap wrapper + overlay window lifecycle.
 //!
 //! Provides Tauri commands for region/fullscreen/window capture and

@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Path safety for HermesDesk builtin helpers (no full agent runtime)."""
 
 from __future__ import annotations

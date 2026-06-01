@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Bundled gateway platform plugins are skipped in desk-minimal mode."""
 
 import os

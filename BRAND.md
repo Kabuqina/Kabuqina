@@ -4,14 +4,14 @@ Kabuqina uses a **dual license** model:
 
 | What | License | Where |
 | ---- | ------- | ----- |
-| **Source code** (Rust, Python policy layer, web app, scripts, docs as text) | [MIT](./LICENSE) | Repository root |
+| **Kabuqina source code** (Rust, Python policy layer, web app, scripts, docs as text) | [Apache-2.0](./LICENSE) | Repository root |
 | **Brand assets** (name, logos, mascot, scene/coaster SVGs, icons, `Na_logo/` generator scripts) | [All Rights Reserved](./assets/brand/LICENSE) | [assets/brand/](./assets/brand/) |
 | **UI screenshots / promo images** | [All Rights Reserved](./assets/ui/LICENSE) | [assets/ui/](./assets/ui/) |
-| **Hermes Agent snapshot** | MIT (upstream) | [hermes_core/LICENSE](./hermes_core/LICENSE) |
+| **Hermes Agent snapshot** | MIT (upstream, unchanged) | [hermes_core/LICENSE](./hermes_core/LICENSE) |
 
 ## Quick rules
 
-- You **may** fork and modify the **code** under MIT terms (include copyright notice).
+- You **may** fork and modify the **Kabuqina code** under Apache-2.0 terms (include copyright notice and NOTICE).
 - You **may not** rebrand a fork using Kabuqina logos, the 卡布奇娜 / Kabuqina name as
   your product identity, or the coffee-cup mascot without **written permission**.
 - Running an **official, unmodified** build from us does not grant rights to extract

@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Desktop delivery — POST messages to the Tauri shell for local display.
 
 This is HermesDesk's "desktop" virtual messaging platform.  When a user

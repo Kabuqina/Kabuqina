@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 //! In-app approval dialogs (shell / messaging / cron) via webview events.
 
 use std::collections::HashMap;

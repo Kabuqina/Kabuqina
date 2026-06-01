@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Regression: gateway.platforms must not be a leaf stub (cron weixin delivery)."""
 
 from __future__ import annotations
