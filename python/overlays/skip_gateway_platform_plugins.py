@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Skip bundled gateway platform plugins in the desk-minimal web child.
 
 Upstream Hermes auto-loads ``kind: platform`` bundled plugins (IRC, Teams)

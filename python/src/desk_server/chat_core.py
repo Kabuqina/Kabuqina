@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Desk chat helpers."""
 from __future__ import annotations
 import base64, io, json, logging, os, re, threading, time, uuid, zipfile
@@ -687,4 +690,3 @@ def _desk_extract_reply_text(conv_result: Any) -> str:
     if conv_result.get("failed") and conv_result.get("error"):
         return str(conv_result.get("error")).strip()
     return ""
-

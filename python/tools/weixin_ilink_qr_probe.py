@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """
 One-shot probe: call iLink ``get_bot_qrcode`` once (no polling, no login).
 

@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Teach the main agent about Kabuqina (desktop) power-user mode and permission UX.
 
 `default_toolset.py` removes `terminal` / `code_execution` / `moa` from

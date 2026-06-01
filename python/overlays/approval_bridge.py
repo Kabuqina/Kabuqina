@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Route Hermes' shell-command / messaging / cron-approval to Tauri-native modals.
 
 # DEPRECATED: approval_backend.remove_when=Phase4

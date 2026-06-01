@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """HermesDesk capability catalog."""
 from __future__ import annotations
 import json, logging, os, sys, time
@@ -196,4 +199,3 @@ def _desk_skill_detail_sync(skill_name: str) -> Dict[str, Any]:
     detail["can_edit"] = visibility["can_edit"]
     detail["action_mode"] = visibility["action_mode"]
     return detail
-

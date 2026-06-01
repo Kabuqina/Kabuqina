@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Seed Hermes' tool config to the HermesDesk keep-list.
 
 # DEPRECATED: tool_policy.remove_when=Phase4

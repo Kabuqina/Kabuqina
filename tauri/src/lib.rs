@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 //! Kabuqina Tauri shell.
 //!
 //! Responsibilities:
@@ -183,6 +186,9 @@ pub fn run() {
             chat::cmd_save_voice_setup,
             chat::cmd_stt_model_status,
             chat::cmd_stt_model_download,
+            chat::cmd_load_packages,
+            chat::cmd_load_package_download,
+            chat::cmd_load_package_delete,
             chat::cmd_tts_speak,
             weixin_qr::cmd_weixin_qr_start,
             weixin_qr::cmd_weixin_qr_status,

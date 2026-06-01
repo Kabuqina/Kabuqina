@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Slim /api/status for Kabuqina shell boot readiness."""
 from __future__ import annotations
 

@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 //! Shell → Hermes HTTP proxy (Tauri `invoke` → reqwest to 127.0.0.1).
 //!
 //! The webview cannot `fetch` Hermes directly (origin + session token). We use
@@ -7,8 +10,8 @@
 //! `GET /` (``__HERMES_SESSION_TOKEN__`` in ``index.html``) — no bundle step
 //! required for the token to exist.
 
-use crate::paths;
 use crate::AppState;
+use crate::paths;
 use base64::Engine;
 use futures_util::StreamExt;
 use once_cell::sync::OnceCell;
@@ -39,6 +42,42 @@ pub(crate) fn http_client() -> reqwest::Client {
         .timeout(HERMES_HTTP_TIMEOUT)
         .build()
         .expect("reqwest client")
+}
+
+async fn desk_json_request(
+    app: &AppHandle,
+    method: reqwest::Method,
+    path: &str,
+    body: Option<Value>,
+) -> Result<Value, String> {
+    let base = hermes_base(app).await?;
+    let token = desk_auth_header(app).await?;
+    let client = http_client();
+    let mut req = client
+        .request(method, format!("{base}{path}"))
+        .header("X-HermesDesk-Auth", &token);
+    if let Some(b) = hermes_bearer_resolved(app).await {
+        req = req.header("Authorization", format!("Bearer {b}"));
+    }
+    if let Some(body) = body {
+        req = req.header("Content-Type", "application/json").json(&body);
+    }
+    let res = req.send().await.map_err(|e| e.to_string())?;
+    let status = res.status();
+    let v = desk_response_json(res).await?;
+    if !status.is_success() {
+        let err = v
+            .get("error")
+            .and_then(Value::as_str)
+            .unwrap_or("request_failed");
+        let detail = v.get("detail").and_then(Value::as_str).unwrap_or("");
+        return Err(if detail.is_empty() {
+            err.to_string()
+        } else {
+            format!("{err}: {detail}")
+        });
+    }
+    Ok(v)
 }
 
 /// Same bearer string the embedded Hermes web UI uses (`web_server._SESSION_TOKEN`).
@@ -228,11 +267,7 @@ fn prepare_desk_chat_body(
                 }));
             }
         }
-        if out.is_empty() {
-            None
-        } else {
-            Some(out)
-        }
+        if out.is_empty() { None } else { Some(out) }
     } else {
         None
     };
@@ -695,6 +730,35 @@ pub async fn cmd_stt_model_download(app: AppHandle) -> Result<Value, String> {
         });
     }
     Ok(v)
+}
+
+/// GET /api/desk/load-packages — list optional large assets managed on demand.
+#[tauri::command]
+pub async fn cmd_load_packages(app: AppHandle) -> Result<Value, String> {
+    desk_json_request(&app, reqwest::Method::GET, "/api/desk/load-packages", None).await
+}
+
+/// POST /api/desk/load-packages/{id}/download — download one optional package.
+#[tauri::command]
+pub async fn cmd_load_package_download(
+    app: AppHandle,
+    package_id: String,
+) -> Result<Value, String> {
+    let path = format!("/api/desk/load-packages/{package_id}/download");
+    desk_json_request(
+        &app,
+        reqwest::Method::POST,
+        &path,
+        Some(serde_json::json!({})),
+    )
+    .await
+}
+
+/// DELETE /api/desk/load-packages/{id} — remove one optional package.
+#[tauri::command]
+pub async fn cmd_load_package_delete(app: AppHandle, package_id: String) -> Result<Value, String> {
+    let path = format!("/api/desk/load-packages/{package_id}");
+    desk_json_request(&app, reqwest::Method::DELETE, &path, None).await
 }
 
 /// DELETE /api/sessions/{id}

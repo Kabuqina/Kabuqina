@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """CronSchedulerRunner — run the upstream cron ticker inside the web child.
 
 The gateway process normally hosts a 60-second ticker thread, but many

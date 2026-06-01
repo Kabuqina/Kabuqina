@@ -343,12 +343,17 @@ if ($LASTEXITCODE -ne 0) {
 #
 # Docling lazily downloads layout/table/OCR weights from HuggingFace on first
 # PDF parse. Ship them under runtime/docling-models/ so pdf_read_precise works
-# without reaching huggingface.co at runtime. Build uses hf-mirror.com by default
-# (override with HF_ENDPOINT); see python/tools/bundle_docling_models.py.
+# without reaching huggingface.co at runtime.
+#
+# Includes: layout + table (precise reads) and optional EasyOCR (scanned PDFs).
+# Does NOT include ds4sd/CodeFormula (~500 MB) — that is on-demand via
+# Settings → Load packages (see load_packages.py / docling_math_models.py).
+# Dev-only override: DOCLING_BUNDLE_CODE_FORMULA=1 before build_bundle.ps1.
+# (override HF mirror with HF_ENDPOINT); see python/tools/bundle_docling_models.py.
 if ($SkipDoclingModels) {
     Write-Host "Skipping Docling model bundling (-SkipDoclingModels)." -ForegroundColor DarkGray
 } else {
-Write-Host "Bundling Docling models (layout + table + OCR)..." -ForegroundColor DarkGray
+Write-Host "Bundling Docling models (layout + table + EasyOCR; CodeFormula excluded)..." -ForegroundColor DarkGray
 $bundleModelsScript = Join-Path $PSScriptRoot "tools\bundle_docling_models.py"
 $prevHfEndpoint = $env:HF_ENDPOINT
 if (-not $env:HF_ENDPOINT) {
@@ -393,6 +398,8 @@ Copy-Item -Force (Join-Path $PSScriptRoot "src\desk_voice_paths.py") (Join-Path 
 Copy-Item -Force (Join-Path $PSScriptRoot "src\path_policy.py") (Join-Path $Dist "path_policy.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\secret_store.py") (Join-Path $Dist "secret_store.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\approval_backend.py") (Join-Path $Dist "approval_backend.py")
+Copy-Item -Force (Join-Path $PSScriptRoot "src\docling_math_models.py") (Join-Path $Dist "docling_math_models.py")
+Copy-Item -Force (Join-Path $PSScriptRoot "src\load_packages.py") (Join-Path $Dist "load_packages.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\messaging_policy.py") (Join-Path $Dist "messaging_policy.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\cron_scheduler_runner.py") (Join-Path $Dist "cron_scheduler_runner.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\gateway_env_loader.py") (Join-Path $Dist "gateway_env_loader.py")
@@ -403,6 +410,12 @@ Copy-Item -Force (Join-Path $PSScriptRoot "src\network_policy.py") (Join-Path $D
 Copy-Item -Force (Join-Path $PSScriptRoot "src\tool_policy.py") (Join-Path $Dist "tool_policy.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\capability_policy.py") (Join-Path $Dist "capability_policy.py")
 Copy-Item -Recurse -Force (Join-Path $PSScriptRoot "src\desk_server") (Join-Path $Dist "desk_server")
+foreach ($copiedTree in @($overlaysDest, $helpersDest, (Join-Path $Dist "desk_server"))) {
+    if (Test-Path $copiedTree) {
+        Get-ChildItem -Path $copiedTree -Directory -Filter "__pycache__" -Recurse -ErrorAction SilentlyContinue |
+            Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
 Copy-Item -Force (Join-Path $PSScriptRoot "src\gateway_policy.py") (Join-Path $Dist "gateway_policy.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\weixin_qr_worker.py") (Join-Path $Dist "weixin_qr_worker.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\qqbot_qr_worker.py") (Join-Path $Dist "qqbot_qr_worker.py")

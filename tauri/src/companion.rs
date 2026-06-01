@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 //! Compact pill companion window (always-on-top mascot).
 
 use serde::Deserialize;

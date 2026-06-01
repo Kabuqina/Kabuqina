@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 //! Windows toast identity for cron / desktop delivery.
 //!
 //! `tauri-plugin-notification` skips `app_id` when the exe lives under

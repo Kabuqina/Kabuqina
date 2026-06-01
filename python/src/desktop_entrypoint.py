@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """HermesDesk Python entrypoint.
 
 Spawned by the Tauri shell. Responsibilities:
@@ -45,8 +48,14 @@ _docling_warm_thread: Optional[threading.Thread] = None
 
 
 def _prime_torch_main_thread(log: logging.Logger) -> bool:
-    """Import torch fully on the main thread before Docling warmup can race it."""
-    if os.environ.get("HERMESDESK_TORCH_PRIME", "1").strip().lower() in ("0", "false", "no", "off"):
+    """Optionally import torch fully before Docling can touch it.
+
+    This used to run by default to avoid a PyTorch circular-import edge case, but
+    on cold Windows starts it can block the desktop handshake for 50s+.
+    Docling reads already run on a serialized worker thread, so startup keeps
+    this opt-in for diagnostics instead of making every user pay the torch cost.
+    """
+    if os.environ.get("HERMESDESK_TORCH_PRIME", "0").strip().lower() not in ("1", "true", "yes", "on"):
         log.info("Docling torch prime disabled by HERMESDESK_TORCH_PRIME")
         return False
     t0 = time.monotonic()

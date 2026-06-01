@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 //! Edge browser lifecycle — launch a headless Edge instance with CDP for
 //! browser automation.  Edge is pre-installed on Windows; no Node.js/Playwright
 //! needed.  The child uses ``BROWSER_CDP_URL`` to connect via CDP protocol.

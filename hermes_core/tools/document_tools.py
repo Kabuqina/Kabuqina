@@ -211,8 +211,19 @@ def _finalize_read_payload(payload: Dict[str, Any], document_path: Path, *, incl
     return enriched
 
 
-def _resolve_docling_artifacts_path() -> Optional[Path]:
+def _resolve_docling_artifacts_path(profile: str = "fast") -> Optional[Path]:
     """Return bundled/offline Docling model dir when present."""
+    try:
+        from docling_math_models import resolve_docling_artifacts_path
+
+        resolved = resolve_docling_artifacts_path(profile=profile)
+        if resolved is not None:
+            return resolved
+        if profile == "math":
+            return None
+    except ImportError:
+        pass
+
     explicit = os.environ.get("DOCLING_ARTIFACTS_PATH", "").strip()
     if explicit:
         path = Path(explicit).expanduser()
@@ -225,6 +236,43 @@ def _resolve_docling_artifacts_path() -> Optional[Path]:
         if path.is_dir():
             return path
     return None
+
+
+def _code_formula_bundle_present(artifacts_path: Optional[Path]) -> bool:
+    if artifacts_path is None:
+        return False
+    formula_dir = artifacts_path / "ds4sd--CodeFormula"
+    if not formula_dir.is_dir():
+        return False
+    return any(formula_dir.rglob("*.safetensors")) or any(formula_dir.rglob("*.bin"))
+
+
+def _require_math_artifacts_bundled() -> None:
+    """Non-desktop fallback when docling_math_models is unavailable."""
+    artifacts_path = _resolve_docling_artifacts_path("fast")
+    if not _code_formula_bundle_present(artifacts_path):
+        target = (
+            str(artifacts_path / "ds4sd--CodeFormula")
+            if artifacts_path is not None
+            else "<bundle>/docling-models/ds4sd--CodeFormula"
+        )
+        raise ValueError(
+            "mode=math requires offline CodeFormula weights at "
+            f"{target}. Re-run .\\python\\build_bundle.ps1 to bundle ds4sd/CodeFormula, "
+            "or set DOCLING_ARTIFACTS_PATH to a directory that contains ds4sd--CodeFormula/."
+        )
+
+
+def _ensure_math_artifacts() -> None:
+    """Ensure CodeFormula weights exist; fail with settings hint when missing."""
+    try:
+        from docling_math_models import ensure_code_formula_available_for_math
+
+        ensure_code_formula_available_for_math()
+        return
+    except ImportError:
+        pass
+    _require_math_artifacts_bundled()
 
 
 def _docling_profile_for_mode(mode: str) -> str:
@@ -276,6 +324,8 @@ def _configure_pdf_pipeline_options(pipeline_options: Any, profile: str) -> None
 
 
 def _create_docling_converter(profile: str = "fast"):
+    if profile == "math":
+        _ensure_math_artifacts()
     _prime_torch_for_docling()
 
     from docling.datamodel.base_models import InputFormat  # type: ignore
@@ -283,7 +333,7 @@ def _create_docling_converter(profile: str = "fast"):
     from docling.document_converter import DocumentConverter, PdfFormatOption  # type: ignore
 
     pipeline_options = PdfPipelineOptions()
-    artifacts_path = _resolve_docling_artifacts_path()
+    artifacts_path = _resolve_docling_artifacts_path(profile)
     if artifacts_path is not None:
         pipeline_options.artifacts_path = artifacts_path
         easyocr_dir = artifacts_path / "EasyOcr"
@@ -423,6 +473,26 @@ def _format_docling_error(exc: BaseException) -> str:
         )
     if isinstance(exc, ImportError):
         return f"Docling is not installed: {msg}"
+    try:
+        from docling_math_models import CodeFormulaMissingError
+
+        if isinstance(exc, CodeFormulaMissingError):
+            return msg
+    except ImportError:
+        pass
+    if "code_formula_model_missing" in lowered:
+        return msg
+    if isinstance(exc, PermissionError) or "declined the formula model download" in lowered:
+        return (
+            f"Docling formula model unavailable ({type(exc).__name__}): {msg}. "
+            "Open Kabuqina Settings → Load packages to download (~500 MB), then retry mode=math."
+        )
+    if "codeformula" in lowered and ("mode=math requires" in lowered or "hfvalidationerror" in lowered):
+        return (
+            f"Docling formula model unavailable ({type(exc).__name__}): {msg}. "
+            "Open Kabuqina Settings → Load packages to download ds4sd/CodeFormula (~500 MB), "
+            "then retry mode=math."
+        )
     return f"Docling failed ({type(exc).__name__}): {msg}"
 
 
@@ -596,6 +666,27 @@ def _attach_docling_error(payload: Dict[str, Any], docling_error: Optional[str])
     return payload
 
 
+def _should_avoid_docling_fallback(mode: str, exc: Optional[BaseException] = None) -> bool:
+    if _docling_profile_for_mode(mode) == "math":
+        return True
+    if exc is not None:
+        lowered = str(exc).lower()
+        if "code_formula_model_missing" in lowered:
+            return True
+    try:
+        from docling_math_models import CodeFormulaMissingError
+
+        if isinstance(exc, CodeFormulaMissingError):
+            return True
+    except ImportError:
+        pass
+    if isinstance(exc, PermissionError):
+        return True
+    if exc is not None and "declined the formula model download" in str(exc).lower():
+        return True
+    return False
+
+
 def _read_document_precise_payload(document_path: Path, *, mode: str, include_content: bool = True) -> Dict[str, Any]:
     suffix = document_path.suffix.lower()
     docling_error: Optional[str] = None
@@ -629,6 +720,13 @@ def _read_document_precise_payload(document_path: Path, *, mode: str, include_co
             return _finalize_read_payload(_read_with_docling(document_path, mode), document_path, include_content=include_content)
         except Exception as exc:
             docling_error = _format_docling_error(exc)
+            if _should_avoid_docling_fallback(mode, exc):
+                return _error_payload(
+                    docling_error or "Docling read failed.",
+                    ok=False,
+                    code="docling_math_unavailable",
+                    docling_error=docling_error,
+                )
 
     try:
         fallback = _read_with_fallback(document_path)

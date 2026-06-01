@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Check, Copy, Volume2 } from "lucide-react";
 import { useI18n } from "../lib/i18n";

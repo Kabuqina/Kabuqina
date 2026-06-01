@@ -21,6 +21,8 @@ $pyFiles = @(
     "path_policy.py",
     "secret_store.py",
     "approval_backend.py",
+    "docling_math_models.py",
+    "load_packages.py",
     "messaging_policy.py",
     "cron_scheduler_runner.py",
     "gateway_env_loader.py",
@@ -45,9 +47,18 @@ foreach ($name in $pyFiles) {
     }
 }
 
-Copy-Item -Recurse -Force (Join-Path $srcRoot "desk_server") (Join-Path $dist "desk_server")
-Copy-Item -Recurse -Force (Join-Path $root "python\overlays") (Join-Path $dist "overlays")
-Copy-Item -Recurse -Force (Join-Path $root "python\helpers") (Join-Path $dist "helpers")
+function Sync-Directory($src, $dest) {
+    if (Test-Path $dest) {
+        Remove-Item -Recurse -Force $dest
+    }
+    Copy-Item -Recurse -Force $src $dest
+    Get-ChildItem -Path $dest -Directory -Filter "__pycache__" -Recurse -ErrorAction SilentlyContinue |
+        Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+Sync-Directory (Join-Path $srcRoot "desk_server") (Join-Path $dist "desk_server")
+Sync-Directory (Join-Path $root "python\overlays") (Join-Path $dist "overlays")
+Sync-Directory (Join-Path $root "python\helpers") (Join-Path $dist "helpers")
 
 $hermesCore = Join-Path $root "hermes_core"
 $hermesDest = Join-Path $dist "hermes"

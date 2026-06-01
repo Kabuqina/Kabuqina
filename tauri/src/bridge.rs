@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 //! Loopback HTTP/1.1 bridge for the Python child.
 //!
 //! Endpoints, all protected by per-launch random tokens in the path:
@@ -293,6 +296,30 @@ async fn handle_approval(
             )
             .await
         }
+        "model_download" => {
+            let model_id = payload
+                .get("model_id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("ds4sd/CodeFormula")
+                .to_string();
+            let size_mb = payload
+                .get("size_mb")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(500) as u32;
+            let reason = payload
+                .get("description")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            ask_user_to_approve_model_download(
+                &st.app,
+                &st.approval_store,
+                &model_id,
+                size_mb,
+                &reason,
+            )
+            .await
+        }
         _ => {
             // Legacy shell command approval (and any unknown type defaults to shell)
             let cmd = payload
@@ -527,4 +554,14 @@ async fn ask_user_to_approve_cron(
     delivery_target: &str,
 ) -> bool {
     crate::approval::ask_cron(app, store, schedule, description, delivery_target).await
+}
+
+async fn ask_user_to_approve_model_download(
+    app: &AppHandle,
+    store: &crate::approval::ApprovalStore,
+    model_id: &str,
+    size_mb: u32,
+    reason: &str,
+) -> bool {
+    crate::approval::ask_model_download(app, store, model_id, size_mb, reason).await
 }

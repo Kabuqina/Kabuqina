@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Reusable agent-to-user interaction bridge for the desk chat surface."""
 
 from __future__ import annotations

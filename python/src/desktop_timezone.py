@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Desktop timezone bootstrap for HermesDesk web + gateway children.
 
 Hermes resolves wall clock via ``HERMES_TIMEZONE`` env, then ``config.yaml``

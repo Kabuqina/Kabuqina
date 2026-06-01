@@ -3,7 +3,7 @@ name = "kabuqina"
 version = "0.1.0"
 edition = "2021"
 description = "Kabuqina — friendly Windows AI assistant powered by Hermes Agent"
-license = "MIT"
+license = "Apache-2.0"
 publish = false
 rust-version = "1.80"
 

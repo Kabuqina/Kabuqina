@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """
 HermesDesk Route C: run Weixin iLink ``qr_login`` in a short-lived child process.
 

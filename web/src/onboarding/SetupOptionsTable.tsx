@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 import { useState } from "react";
 import { ShellModal } from "../components/ShellModal";
 import { useI18n } from "../lib/i18n";

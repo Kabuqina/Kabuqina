@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """FastAPI application factory for Kabuqina desk server."""
 from __future__ import annotations
 
@@ -5,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from desk_server.auth import install_middleware
-from desk_server.routes import capabilities_routes, chat, sessions, status, voice
+from desk_server.routes import capabilities_routes, chat, load_packages, sessions, status, voice
 from hermes_cli import __version__
 
 
@@ -21,7 +24,7 @@ def create_app() -> FastAPI:
 
     install_middleware(app)
 
-    for mod in (status, chat, sessions, voice, capabilities_routes):
+    for mod in (status, chat, sessions, voice, load_packages, capabilities_routes):
         app.include_router(mod.router)
 
     return app

@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """
 HermesDesk Route C: run Feishu / Lark scan-to-create QR flow in a short-lived child process.
 

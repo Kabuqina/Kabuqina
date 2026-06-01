@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Session list/detail routes for Kabuqina shell."""
 from __future__ import annotations
 import logging, time

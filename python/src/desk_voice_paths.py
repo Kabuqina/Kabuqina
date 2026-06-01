@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """HermesDesk: shared paths for local STT model + desk voice scratch files.
 
 Keeps GGML downloads and ephemeral audio under ``HERMESDESK_WORKSPACE`` so they

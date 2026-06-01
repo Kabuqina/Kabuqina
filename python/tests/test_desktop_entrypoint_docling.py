@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 from __future__ import annotations
 
 import logging
@@ -21,3 +24,15 @@ def test_docling_warmup_is_disabled_by_default(monkeypatch, caplog):
 
     assert desktop_entrypoint._docling_warm_thread is None
     assert "Docling warmup disabled" in caplog.text
+
+
+def test_torch_prime_is_opt_in_by_default(monkeypatch, caplog):
+    import desktop_entrypoint
+
+    monkeypatch.delenv("HERMESDESK_TORCH_PRIME", raising=False)
+
+    with caplog.at_level(logging.INFO):
+        did_prime = desktop_entrypoint._prime_torch_main_thread(logging.getLogger("test"))
+
+    assert did_prime is False
+    assert "Docling torch prime disabled" in caplog.text

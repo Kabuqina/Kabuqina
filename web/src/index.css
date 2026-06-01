@@ -392,6 +392,50 @@
     max-width: 100%;
     overflow-wrap: anywhere;
   }
+  .chat-md .katex-display {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0.35rem 0.1rem;
+  }
+  .chat-md .kq-math-copy-card {
+    max-width: 100%;
+    margin: 0.75rem 0;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--kq-color-line) 72%, transparent);
+    border-radius: 0.75rem;
+    background: color-mix(in srgb, var(--kq-color-surface) 88%, transparent);
+  }
+  .chat-md .kq-math-copy-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0.35rem 0.5rem 0;
+  }
+  .chat-md .kq-math-copy-button {
+    min-height: 1.5rem;
+    border-radius: 0.375rem;
+    padding: 0.15rem 0.45rem;
+    color: var(--kq-color-muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.6875rem;
+    line-height: 1.1;
+    transition: background-color 120ms ease, color 120ms ease;
+  }
+  .chat-md .kq-math-copy-button:hover {
+    background: color-mix(in srgb, var(--kq-color-line) 45%, transparent);
+    color: var(--kq-color-strong);
+  }
+  .chat-md .kq-math-copy-card .katex-display {
+    margin: 0;
+    padding: 0.35rem 0.75rem 0.8rem;
+  }
+  .chat-md .katex {
+    color: var(--kq-color-strong);
+    font-size: 1.02em;
+  }
+  [data-theme="dark"] .chat-md .katex {
+    color: var(--kq-color-ink);
+  }
   .kq-input-footer {
     color: var(--kq-color-muted);
     letter-spacing: 0.02em;
@@ -1218,9 +1262,15 @@
 
 html, body, #root { height: 100%; margin: 0; }
 
-/* Override highlight.js background in dark mode so code blocks use theme surface */
-[data-theme="dark"] pre code.hljs {
+/* highlight.js theme neutralisation — background always transparent, text follows theme */
+.hljs {
   background: transparent !important;
+}
+[data-theme="light"] .hljs {
+  color: #333;
+}
+[data-theme="dark"] .hljs {
+  color: #c9d1d9;
 }
 
 /* Companion pill: fully transparent webview (no rectangular window chrome). */

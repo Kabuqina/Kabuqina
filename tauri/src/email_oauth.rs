@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 //! Email OAuth helper flows.
 
 use serde::{Deserialize, Serialize};

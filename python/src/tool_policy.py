@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """ToolPolicy — resolve active toolset list from runtime mode.
 
 Extracted from ``overlays/default_toolset.py``.

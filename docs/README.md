@@ -19,6 +19,8 @@ Quick map of **`docs/`** (repo root). Prefer **`architecture.md`** + **`README.m
 | [skills-l2-frontend.md](skills-l2-frontend.md) | L2 Recipe Book IA notes |
 | [embedded-python-bundled.md](embedded-python-bundled.md) | `build_bundle.ps1`, runtime layout, MSVC note |
 | [read-layer-plan.md](read-layer-plan.md) | Read Layer generalization/performance plan: Docling routing, local fallbacks, read cache, `read_id` |
+| [chat-display-layer.md](chat-display-layer.md) | Chat Display Layer: Markdown, LaTeX/math rendering, source refs, warnings, live answer presentation |
+| [learning-layer.md](learning-layer.md) | Learning Layer proposal: explain, hint, quiz, derivation, formula-code bridge, student state |
 | [file-generation-pipeline.md](file-generation-pipeline.md) | General Read → Material Index → Planner → Writer pipeline for generated files |
 | [material-index.md](material-index.md) | Material Index contract and `read_id` handoff from Read layer |
 | [auto-update.md](auto-update.md) | Updater behaviour |

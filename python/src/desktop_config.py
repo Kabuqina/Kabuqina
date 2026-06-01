@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """HermesDesk typed bootstrap configuration.
 
 Reads from Tauri-provided env vars. No behavior dependencies — pure data.

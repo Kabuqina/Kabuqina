@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Tests for Docling bundle download helpers."""
 
 from __future__ import annotations
@@ -14,6 +17,7 @@ TOOLS_DIR = Path(__file__).resolve().parents[1] / "tools"
 sys.path.insert(0, str(TOOLS_DIR))
 
 from bundle_docling_models import (  # noqa: E402
+    _code_formula_models_present,
     _hf_models_present,
     github_download_candidates,
     robust_download_url,
@@ -74,6 +78,24 @@ class BundlePresenceTests(unittest.TestCase):
         self.assertFalse(_hf_models_present(root))
         table.write_bytes(b"y")
         self.assertTrue(_hf_models_present(root))
+
+    def test_code_formula_models_present_detects_formula_weights(self):
+        root = Path(self._get_temp_dir())
+        formula = root / "ds4sd--CodeFormula"
+        formula.mkdir(parents=True)
+        self.assertFalse(_code_formula_models_present(root))
+        (formula / "model.safetensors").write_bytes(b"x")
+        self.assertTrue(_code_formula_models_present(root))
+
+    def test_prune_removes_bundled_code_formula(self):
+        from bundle_docling_models import _prune_bundled_code_formula
+
+        root = Path(self._get_temp_dir())
+        formula = root / "ds4sd--CodeFormula"
+        formula.mkdir(parents=True)
+        (formula / "model.safetensors").write_bytes(b"x")
+        _prune_bundled_code_formula(root)
+        self.assertFalse(formula.exists())
 
     def _get_temp_dir(self):
         import tempfile

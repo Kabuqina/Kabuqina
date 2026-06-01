@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """GatewayPolicy — platform feature flags and defaults.
 
 Extracted from scattered gateway-patch behavior and

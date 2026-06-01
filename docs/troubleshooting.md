@@ -654,10 +654,56 @@ Windows 上任何 `os.kill(pid, 0)` 调用都需要 catch `OSError`，不可仅�
 **Permanent guards**
 
 * `hermes_core/tools/document_tools.py` — `_format_docling_error()` 现在通过 `_is_unsupported_runtime_error()` 识别这类 torch/pdfium 环境性失败，返回明确指向"请用受支持的 CPython 3.11 运行时"的提示，而不是泛化的 `Docling failed (...)`。测试见 `hermes_core/tests/tools/test_document_tools.py::test_format_docling_error_flags_unsupported_torch_runtime` 与 `..._flags_pdfium_page_count_failure`。
+* `python/src/desktop_entrypoint.py` — startup no longer imports torch by default before the port handshake. If a debugging session needs the old behavior, set `HERMESDESK_TORCH_PRIME=1`; otherwise Docling/torch initialization happens lazily on the serialized Read-layer worker so the desktop can become usable first.
 
 **Lesson**
 
 > ML 栈（torch / pdfium 这类有原生扩展和 ABI 约束的库）只在**钉死的 Python 版本**上可复现。遇到"某 ML 库突然坏了"，先核对解释器版本是否在受支持范围内，再怀疑代码——绝大多数情况是跑在了未验证的新解释器上。
+
+---
+
+## 18. `mode=math` 失败：`HFValidationError` / `CodeFormula` / 降级为 `pypdf`
+
+**Symptom**
+
+* 调用 `pdf_read_precise(..., mode="math")` 或 `document_read_precise(..., mode="math")` 时，返回 `engine: "pypdf"` + `docling_error`。
+* `docling_error` 含 `HFValidationError: Repo id must use alphanumeric chars...` 且路径指向 `...\docling-models\ds4sd--CodeFormula`。
+* 或更早版本直接报 torch dispatcher / `wait_tensor` 一类错误（那是进程内 torch 初始化竞态，与 math 缺模型是不同问题）。
+
+**Root cause**
+
+`mode=math` 会打开 Docling 的 **公式 enrichment**（`do_formula_enrichment=True`），需要 HuggingFace 上的 **ds4sd/CodeFormula** 权重（约 500 MB）。安装包内只含 layout/table；CodeFormula **按需下载**到用户目录：
+
+```text
+%LOCALAPPDATA%\com.kabuqina.app\docling-models\ds4sd--CodeFormula\
+```
+
+首次使用 `mode=math` 时，若 CodeFormula 未安装，Read 层会返回明确的 `docling_error`（`code_formula_model_missing`），**不会**静默降级为 `pypdf`。请在 **设置 → 公式提取模型 (~500MB)** 手动下载。
+
+**Fix**
+
+1. 打开 Kabuqina **设置** → **公式提取模型 (~500MB)** → 点击 **下载**（需能访问 HuggingFace 或 `HF_ENDPOINT` 镜像）。
+
+2. 同步 dev runtime 并重启 App：
+
+   ```powershell
+   .\scripts\sync-runtime-sources.ps1
+   # 完全退出 Kabuqina 后
+   .\scripts\dev.ps1
+   ```
+
+3. 验证：对含公式的 PDF 调用 `mode=math`，返回里 `engine` 应为 `docling`，`profile` 应为 `math`，且 `docling_error` 为空。
+
+**Permanent guards**
+
+* `docling_math_models.py` — 按需下载/删除 CodeFormula；合并 bundle layout + 用户 formula 到 `docling-artifacts/` junction。
+* `SettingsFormulaModel` — 设置页手动下载/删除。
+* `document_tools.py` — `mode=math` 缺模型时 fail-fast + 明确 `docling_error`，禁止 silent pypdf fallback。
+* `bundle_docling_models.py` — 默认 **不** 打包 CodeFormula；旧 bundle 重建时会自动剔除 `ds4sd--CodeFormula/`（`DOCLING_BUNDLE_CODE_FORMULA=0`）。
+
+**Lesson**
+
+> `mode=precise` 与 `mode=math` 不是同一套模型。precise 只需 layout/table（随安装包）；math 额外需要 CodeFormula（首次使用时按需下载）。
 
 ---
 

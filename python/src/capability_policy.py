@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """CapabilityPolicy — visibility and action labels for desktop catalogs.
 
 The catalog is user-facing, so hiding entries only in React is not enough.

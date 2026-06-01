@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """ApprovalBackend — POST shell-command approval requests to Tauri bridge.
 
 Extracted from ``overlays/approval_bridge.py``.
@@ -379,6 +382,21 @@ class ApprovalBackend:
             "schedule": schedule,
             "description": description[:500],
             "delivery_target": delivery_target,
+        })
+
+    def ask_model_download(
+        self,
+        *,
+        model_id: str,
+        size_mb: int,
+        reason: str = "",
+    ) -> str:
+        """Ask before downloading a large optional ML model to the user profile."""
+        return self._post({
+            "type": "model_download",
+            "model_id": model_id,
+            "size_mb": int(size_mb),
+            "description": reason[:500],
         })
 
     def _post(self, payload: dict) -> str:

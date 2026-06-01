@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Desk chat HTTP routes."""
 from __future__ import annotations
 import asyncio, json, logging, queue, threading, uuid
@@ -427,4 +430,3 @@ async def desk_chat_proto(request: Request):
             db.close()
         except Exception:
             pass
-

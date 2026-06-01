@@ -1,8 +1,11 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { CalendarClock, MessageSquare, Terminal } from "lucide-react";
+import { CalendarClock, Download, MessageSquare, Terminal } from "lucide-react";
 import { cn } from "../lib/cn";
 import { useI18n } from "../lib/i18n";
 
@@ -19,6 +22,8 @@ export type ApprovalRequest = {
   schedule?: string | null;
   description?: string | null;
   deliveryTarget?: string | null;
+  modelId?: string | null;
+  sizeMb?: number | null;
 };
 
 function kindMeta(kind: string) {
@@ -27,6 +32,8 @@ function kindMeta(kind: string) {
       return { icon: MessageSquare, accent: "text-sky-600 dark:text-sky-400" };
     case "cron":
       return { icon: CalendarClock, accent: "text-violet-600 dark:text-violet-400" };
+    case "model_download":
+      return { icon: Download, accent: "text-sky-600 dark:text-sky-400" };
     default:
       return { icon: Terminal, accent: "text-amber-600 dark:text-amber-400" };
   }
@@ -43,28 +50,41 @@ function ApprovalCard({
   const { icon: Icon, accent } = kindMeta(request.kind);
 
   const title =
-    request.kind === "messaging"
-      ? t("approval.messagingTitle")
-      : request.kind === "cron"
-        ? t("approval.cronTitle")
-        : t("approval.shellTitle");
+    request.kind === "model_download"
+      ? t("approval.modelDownloadTitle")
+      : request.kind === "messaging"
+        ? t("approval.messagingTitle")
+        : request.kind === "cron"
+          ? t("approval.cronTitle")
+          : t("approval.shellTitle");
 
   const hint =
-    request.kind === "cron"
-      ? t("approval.cronHint")
-      : request.kind === "messaging"
-        ? t("approval.messagingHint")
-        : t("approval.shellHint");
+    request.kind === "model_download"
+      ? t("approval.modelDownloadHint", { size: String(request.sizeMb ?? 500) })
+      : request.kind === "cron"
+        ? t("approval.cronHint")
+        : request.kind === "messaging"
+          ? t("approval.messagingHint")
+          : t("approval.shellHint");
 
   const allowLabel =
-    request.kind === "cron" ? t("approval.allow") : t("approval.allowOnce");
+    request.kind === "model_download"
+      ? t("approval.modelDownloadAllow")
+      : request.kind === "cron"
+        ? t("approval.allow")
+        : t("approval.allowOnce");
+
+  const isModelDownload = request.kind === "model_download";
 
   return (
     <div
       role="dialog"
       aria-modal
       aria-labelledby={`approval-title-${request.id}`}
-      className="relative z-10 flex w-full max-w-lg flex-col overflow-hidden rounded-[var(--radius-shell-lg)] border border-[var(--kq-color-border)] bg-white/95 shadow-[var(--kq-shadow-soft)] backdrop-blur-md dark:border-zinc-700 dark:bg-zinc-950"
+      className={cn(
+        "relative z-10 flex w-full flex-col overflow-hidden rounded-[var(--radius-shell-lg)] border border-[var(--kq-color-border)] bg-white/95 shadow-[var(--kq-shadow-soft)] backdrop-blur-md dark:border-zinc-700 dark:bg-zinc-950",
+        isModelDownload ? "max-w-md" : "max-w-lg",
+      )}
       onClick={(e) => e.stopPropagation()}
     >
       <div className="flex items-start gap-3 border-b border-[var(--kq-color-border)] px-5 py-4 dark:border-zinc-800">
@@ -84,6 +104,28 @@ function ApprovalCard({
           <p className="rounded-[var(--radius-shell-lg)] border border-amber-200/80 bg-amber-50/70 px-3 py-2 text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">
             {request.reason}
           </p>
+        ) : null}
+
+        {request.modelId ? (
+          <div>
+            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-[var(--kq-color-muted)] dark:text-zinc-500">
+              {t("approval.modelId")}
+            </p>
+            <p className="break-all rounded-[var(--radius-shell-lg)] border border-zinc-200/80 bg-zinc-50 px-3 py-2 font-mono text-[12px] text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+              {request.modelId}
+            </p>
+          </div>
+        ) : null}
+
+        {request.sizeMb ? (
+          <div>
+            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-[var(--kq-color-muted)] dark:text-zinc-500">
+              {t("approval.modelSize")}
+            </p>
+            <p className="rounded-[var(--radius-shell-lg)] border border-zinc-200/80 bg-zinc-50 px-3 py-2 text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+              {t("approval.modelDownloadSize", { size: String(request.sizeMb) })}
+            </p>
+          </div>
         ) : null}
 
         {request.command ? (

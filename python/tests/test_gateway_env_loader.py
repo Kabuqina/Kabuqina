@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Tests for gateway_env_loader (cron weixin delivery prerequisites)."""
 
 from __future__ import annotations

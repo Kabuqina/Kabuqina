@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 import { useEffect, useRef, useState } from "react";
 import { AlarmClock, BookOpen, Check, FolderOpen, PenLine, Pencil, RefreshCw } from "lucide-react";
 import { useI18n } from "../lib/i18n";
@@ -169,12 +172,13 @@ function EmptyState({
             <span className="kq-hero-line" aria-hidden />
           </p>
           <img
-            src="/kabuqina_hero_scene.svg"
+            src="/kabuqina_boot.svg"
             alt="Kabuqina chat hero — cup on gingham coaster"
-            className="kq-companion-hero-scene"
-            width={775}
-            height={685}
+            className="w-64 h-auto select-none"
+            width={1280}
+            height={640}
             decoding="async"
+            draggable={false}
           />
         </div>
         <div

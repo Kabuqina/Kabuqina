@@ -83,12 +83,17 @@ assert.match(
   "Title bar star should shrink the app into the compact pill.",
 );
 
-assert.match(bootPillSource, /CompanionPillScene/, "Boot pill should reuse the companion pill scene.");
+assert.match(bootPillSource, /kabuqina_boot\.svg/, "Boot pill should show the Kabuqina boot mascot SVG.");
 assert.match(bootPillSource, /boot\.starting/, "Boot pill should show a unified starting label.");
 assert.match(
   fs.readFileSync(new URL("../components/ApprovalDialogHost.tsx", import.meta.url), "utf8"),
   /hermes-approval-request[\s\S]*cmd_respond_approval/,
   "Approval dialog should listen for bridge events and respond via Tauri command.",
+);
+assert.match(
+  fs.readFileSync(new URL("../components/ApprovalDialogHost.tsx", import.meta.url), "utf8"),
+  /model_download[\s\S]*modelDownloadTitle/,
+  "Approval dialog should handle optional model download confirmations.",
 );
 assert.match(splashSource, /BootPill/, "Splash should use the boot pill instead of staged splash copy.");
 assert.match(splashSource, /waitForHermesReadiness/, "Splash should wait for Hermes before entering chat.");

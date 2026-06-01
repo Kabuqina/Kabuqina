@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Session token and HTTP auth middleware for the Kabuqina desk server."""
 from __future__ import annotations
 

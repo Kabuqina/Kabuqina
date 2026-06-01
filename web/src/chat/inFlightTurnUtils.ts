@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 import type { MessageRow, UiMsg } from "./chat-api";
 import type { AgentProgressState } from "./hooks/useAgentProgress";
 

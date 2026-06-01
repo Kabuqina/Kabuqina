@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Integration tests for bootstrap modes (no Hermes import chain needed)."""
 
 import os

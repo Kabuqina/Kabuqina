@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 //! Messaging gateway child processes — one per platform with per-profile HERMES_HOME.
 //!
 //! Each gateway platform (Telegram, Weixin, …) runs in its own OS child with

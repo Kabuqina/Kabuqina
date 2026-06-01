@@ -1,4 +1,8 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { isWorkbenchNarrow } from "./workbenchLayoutLogic";
 
 export const WORKBENCH_LAYOUT_KEY = "kabuqina.workbench.layout";
 
@@ -47,7 +51,7 @@ export function useWorkbenchLayout(): WorkbenchLayout {
   const [isNarrow, setIsNarrow] = useState(false);
 
   useEffect(() => {
-    const update = () => setIsNarrow(window.innerWidth < 768);
+    const update = () => setIsNarrow(isWorkbenchNarrow(window.innerWidth));
     update();
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);

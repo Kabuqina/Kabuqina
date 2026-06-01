@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Versioned Tauri <-> Python contract.
 
 The Tauri shell sets ``HERMESDESK_CONTRACT_VERSION`` before spawning the

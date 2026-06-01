@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 /**
  * Default locale: zh. Keys are dot paths (e.g. splash.waking).
  * Use {{name}} in strings for replace from translate().
@@ -49,6 +52,12 @@ export const MESSAGES = {
       task: "任务说明",
       delivery: "投递方式",
       deliveryDesktop: "本机通知",
+      modelDownloadTitle: "需要下载公式识别模型",
+      modelDownloadHint:
+        "首次使用公式识别（mode=math）需要下载约 {{size}} MB 的模型到本机，不会包含在安装包内。下载完成后可离线使用。",
+      modelDownloadAllow: "下载",
+      modelDownloadSize: "约 {{size}} MB",
+      modelId: "模型",
     },
     splash: {
       waking: "正在唤醒…",
@@ -118,6 +127,8 @@ export const MESSAGES = {
       typingStatus: "正在回复",
       copy: "复制",
       copied: "已复制",
+      copyLatex: "复制 LaTeX",
+      copiedLatex: "已复制 LaTeX",
       prompt1: "帮我写一段代码",
       prompt2: "解释一下这个概念",
       prompt3: "总结一下文档内容",
@@ -368,6 +379,32 @@ export const MESSAGES = {
       proxySaving: "保存中…",
       proxyClear: "清除",
       proxyRestartHint: "修改后重启网关生效。",
+      loadPackagesTitle: "加载包下载管理",
+      loadPackagesDesc: "管理不会随安装包附带、只在首次使用相关能力时下载的大型模型或资源。",
+      loadPackagesChecking: "检查中…",
+      loadPackagesDesktopOnly: "加载包管理需要 Kabuqina 桌面桥接。请在桌面应用内打开设置页。",
+      loadPackageInstalled: "已安装",
+      loadPackageNotInstalled: "未安装",
+      loadPackageSize: "占用 {{size}}",
+      loadPackageExpectedSize: "约 {{size}} MB",
+      loadPackageDownload: "下载",
+      loadPackageRedownload: "重新下载",
+      loadPackageWorking: "处理中…",
+      loadPackageDelete: "删除",
+      loadPackageDeleteTitle: "删除 {{name}}",
+      loadPackageDeleteAsk: "删除后相关功能会在下次使用时重新请求下载。继续删除 {{name}}？",
+      loadPackageDownloadFailed: "下载失败：{{msg}}",
+      loadPackageDeleteFailed: "删除失败：{{msg}}",
+      loadPackage: {
+        "docling-codeformula": {
+          title: "公式提取模型 (~500MB)",
+          desc: "用于 pdf_read_precise / document_read_precise 的 mode=math 公式识别。不包含在安装包内，首次需要时也会弹窗请求下载。",
+        },
+        "local-stt-base-q5_1": {
+          title: "本地语音识别模型 (~57MB)",
+          desc: "用于离线语音转文字的 whisper.cpp GGML 模型。不配置云端语音识别时会用到。",
+        },
+      },
       gatewayTitle: "消息网关",
       platformTitle: "消息平台",
       gatewayLead: "连接微信、Telegram、飞书等平台收发消息。",
@@ -874,6 +911,12 @@ export const MESSAGES = {
       task: "Task",
       delivery: "Delivery",
       deliveryDesktop: "Desktop notification",
+      modelDownloadTitle: "Formula model download",
+      modelDownloadHint:
+        "The first time you use formula extraction (mode=math), Kabuqina needs to download about {{size}} MB to your profile. It is not bundled in the installer. After download, it works offline.",
+      modelDownloadAllow: "Download",
+      modelDownloadSize: "About {{size}} MB",
+      modelId: "Model",
     },
     splash: {
       waking: "Waking your assistant…",
@@ -943,6 +986,8 @@ export const MESSAGES = {
       typingStatus: "Replying",
       copy: "Copy",
       copied: "Copied",
+      copyLatex: "Copy LaTeX",
+      copiedLatex: "LaTeX copied",
       prompt1: "Write some code for me",
       prompt2: "Explain this concept",
       prompt3: "Summarize the document",
@@ -1195,6 +1240,32 @@ export const MESSAGES = {
       proxySaving: "Saving…",
       proxyClear: "Clear",
       proxyRestartHint: "Restart the gateway to apply changes.",
+      loadPackagesTitle: "Load package downloads",
+      loadPackagesDesc: "Manage large optional models and resources that are downloaded only when a feature needs them.",
+      loadPackagesChecking: "Checking…",
+      loadPackagesDesktopOnly: "Load package management needs the Kabuqina desktop bridge. Open Settings inside the desktop app.",
+      loadPackageInstalled: "Installed",
+      loadPackageNotInstalled: "Not installed",
+      loadPackageSize: "Using {{size}}",
+      loadPackageExpectedSize: "About {{size}} MB",
+      loadPackageDownload: "Download",
+      loadPackageRedownload: "Re-download",
+      loadPackageWorking: "Working…",
+      loadPackageDelete: "Delete",
+      loadPackageDeleteTitle: "Delete {{name}}",
+      loadPackageDeleteAsk: "The related feature will request this download again next time. Delete {{name}}?",
+      loadPackageDownloadFailed: "Download failed: {{msg}}",
+      loadPackageDeleteFailed: "Delete failed: {{msg}}",
+      loadPackage: {
+        "docling-codeformula": {
+          title: "Formula extraction model (~500MB)",
+          desc: "Required for mode=math in pdf_read_precise / document_read_precise. Not bundled in the installer; first use can also prompt for download.",
+        },
+        "local-stt-base-q5_1": {
+          title: "Local speech recognition model (~57MB)",
+          desc: "Whisper.cpp GGML model for offline speech-to-text when cloud STT is not configured.",
+        },
+      },
       gatewayTitle: "Messaging gateway",
       platformTitle: "Messaging platforms",
       gatewayLead: "Connect WeChat, Telegram, Feishu, and more to send and receive messages.",

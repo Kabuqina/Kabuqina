@@ -15,6 +15,17 @@ Read Layer
 
 Each layer owns a different responsibility. Keeping these boundaries clear prevents every output type from inventing its own file-reading and material-selection logic.
 
+This pipeline covers **generated deliverables**. Live chat presentation is a
+separate surface: `Read Layer / Agent Output -> Chat Display Layer`. Chat Display
+owns Markdown, LaTeX/math rendering, source references, warnings, and interactive
+copy/inspection affordances in the conversation UI. See
+`docs/chat-display-layer.md`.
+
+Learning interactions are another surface above chat display:
+`Read Layer / Agent Output / Student State -> Chat Display Layer -> Learning
+Interaction Layer`. That layer owns explanation, hinting, quiz, derivation, and
+formula-code learning workflows. See `docs/learning-layer.md`.
+
 ### What exists today vs. what is prompt-orchestrated
 
 Not every layer is a code module. Be precise about this when reasoning about guarantees:

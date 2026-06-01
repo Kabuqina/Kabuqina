@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Pin default model / provider for HermesDesk from Tauri-provided env.
 
 Hermes reads ``config.yaml`` ``model`` (string or dict). The shell passes:

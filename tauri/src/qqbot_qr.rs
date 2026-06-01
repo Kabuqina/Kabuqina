@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 //! Short-lived bundled Python process for QQ Bot scan-to-configure QR login (`qqbot_qr_worker.py`).
 
 use serde_json::{json, Value};

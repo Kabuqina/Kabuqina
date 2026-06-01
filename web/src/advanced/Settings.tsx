@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
@@ -13,6 +16,7 @@ import { SettingsLLM } from "./settings/SettingsLLM";
 import { SettingsGateway } from "./settings/SettingsGateway";
 import { SettingsDisplay } from "./settings/SettingsDisplay";
 import { SettingsSharedPrefs } from "./settings/SettingsSharedPrefs";
+import { SettingsLoadPackages } from "./settings/SettingsLoadPackages";
 
 type ProxyStatusResponse = {
   system: { url: string | null; enabled: boolean };
@@ -156,6 +160,8 @@ export function Settings() {
           themeMode={themeMode}
           onSetThemeMode={setThemeMode}
         />
+
+        <SettingsLoadPackages />
 
         <SettingsLLM
           proxyDetected={proxyDetected}

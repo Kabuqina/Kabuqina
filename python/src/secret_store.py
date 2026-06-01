@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """SecretStore — fetch the LLM API key from the Tauri loopback bridge.
 
 Extracted from ``overlays/secret_loader.py``.

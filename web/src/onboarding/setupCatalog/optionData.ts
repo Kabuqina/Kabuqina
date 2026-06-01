@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 import { PROVIDERS } from "../../lib/providers";
 import type { Localized, OptionConfigField, PostPassSectionId, SetupCatalogOption } from "./optionTypes";
 

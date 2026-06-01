@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Integration test: network allowlist overlay + httpx permits STT model hosts.
 
 Verifies that after ``overlays.network_allowlist.install()`` patches httpx,

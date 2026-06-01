@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 //! In-app approval dialogs (shell / messaging / cron) via webview events.
 
 use std::collections::HashMap;
@@ -22,6 +25,8 @@ pub struct ApprovalRequestEvent {
     pub schedule: Option<String>,
     pub description: Option<String>,
     pub delivery_target: Option<String>,
+    pub model_id: Option<String>,
+    pub size_mb: Option<u32>,
 }
 
 pub struct ApprovalStore {
@@ -92,6 +97,8 @@ pub async fn ask_shell(
                 schedule: None,
                 description: None,
                 delivery_target: None,
+                model_id: None,
+                size_mb: None,
             },
         )
         .await
@@ -122,6 +129,8 @@ pub async fn ask_messaging(
                 schedule: None,
                 description: None,
                 delivery_target: None,
+                model_id: None,
+                size_mb: None,
             },
         )
         .await
@@ -156,6 +165,40 @@ pub async fn ask_cron(
                 } else {
                     Some(delivery_target.to_string())
                 },
+                model_id: None,
+                size_mb: None,
+            },
+        )
+        .await
+}
+
+pub async fn ask_model_download(
+    app: &AppHandle,
+    store: &ApprovalStore,
+    model_id: &str,
+    size_mb: u32,
+    reason: &str,
+) -> bool {
+    store
+        .request(
+            app,
+            ApprovalRequestEvent {
+                id: String::new(),
+                kind: "model_download".into(),
+                reason: if reason.is_empty() {
+                    None
+                } else {
+                    Some(reason.to_string())
+                },
+                command: None,
+                cwd: None,
+                target: None,
+                content_preview: None,
+                schedule: None,
+                description: None,
+                delivery_target: None,
+                model_id: Some(model_id.to_string()),
+                size_mb: Some(size_mb),
             },
         )
         .await

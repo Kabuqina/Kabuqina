@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { FileText } from "lucide-react";

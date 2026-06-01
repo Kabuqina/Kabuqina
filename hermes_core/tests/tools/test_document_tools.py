@@ -349,6 +349,80 @@ def test_configure_pdf_pipeline_options_enables_formula_for_math():
     assert math.do_code_enrichment is False
 
 
+def test_require_math_artifacts_raises_without_codeformula(tmp_path, monkeypatch):
+    import tools.document_tools as document_tools
+
+    bundle = tmp_path / "bundle"
+    (bundle / "docling-models").mkdir(parents=True)
+    monkeypatch.setenv("HERMESDESK_BUNDLE_DIR", str(bundle))
+    monkeypatch.delenv("DOCLING_ARTIFACTS_PATH", raising=False)
+
+    with pytest.raises(ValueError, match="mode=math requires offline CodeFormula"):
+        document_tools._require_math_artifacts_bundled()
+
+
+def test_ensure_math_artifacts_uses_desktop_first_use_download(monkeypatch):
+    import docling_math_models
+    import tools.document_tools as document_tools
+
+    calls = []
+
+    def fake_ensure():
+        calls.append("ensure")
+
+    monkeypatch.setattr(docling_math_models, "ensure_code_formula_available_for_math", fake_ensure)
+
+    document_tools._ensure_math_artifacts()
+
+    assert calls == ["ensure"]
+
+
+def test_format_docling_error_surfaces_settings_hint_for_missing_model():
+    from tools.document_tools import _format_docling_error
+
+    try:
+        from docling_math_models import CodeFormulaMissingError
+    except ImportError:
+        pytest.skip("docling_math_models not on path")
+
+    msg = _format_docling_error(
+        CodeFormulaMissingError(
+            "code_formula_model_missing: mode=math requires ds4sd/CodeFormula (~500 MB). "
+            "Download in Settings."
+        )
+    )
+    assert "code_formula_model_missing" in msg
+    assert "Settings" in msg
+
+
+def test_read_document_precise_math_mode_does_not_fallback_on_missing_model(tmp_path, monkeypatch):
+    import tools.document_tools as document_tools
+
+    source = tmp_path / "formula.pdf"
+    source.write_bytes(b"%PDF-1.4 fake")
+    monkeypatch.setenv("HERMESDESK_WORKSPACE", str(tmp_path))
+
+    try:
+        from docling_math_models import CodeFormulaMissingError
+    except ImportError:
+        pytest.skip("docling_math_models not on path")
+
+    def fake_read(_path: Path, _mode: str):
+        raise CodeFormulaMissingError(
+            "code_formula_model_missing: mode=math requires ds4sd/CodeFormula (~500 MB). "
+            "Download in Settings."
+        )
+
+    monkeypatch.setattr(document_tools, "_read_with_docling", fake_read)
+
+    result = json.loads(document_tools.document_read_precise(path=str(source), mode="math"))
+
+    assert result["ok"] is False
+    assert result["code"] == "docling_math_unavailable"
+    assert "code_formula_model_missing" in result["docling_error"]
+    assert "Settings" in result["docling_error"]
+
+
 def test_prime_torch_keeps_existing_modules_on_failure(monkeypatch):
     import sys
     import types
@@ -408,6 +482,13 @@ def test_document_read_precise_math_mode_uses_docling_even_for_lightweight_suffi
 
     source = tmp_path / "formula.md"
     source.write_text("Euler: $e^{i\\pi}+1=0$", encoding="utf-8")
+    bundle = tmp_path / "bundle"
+    formula = bundle / "docling-models" / "ds4sd--CodeFormula"
+    formula.mkdir(parents=True)
+    (formula / "model.safetensors").write_bytes(b"x")
+    monkeypatch.setenv("HERMESDESK_BUNDLE_DIR", str(bundle))
+    monkeypatch.setenv("HERMESDESK_WORKSPACE", str(tmp_path))
+    monkeypatch.delenv("DOCLING_ARTIFACTS_PATH", raising=False)
 
     def fake_read(path: Path, mode: str):
         return {

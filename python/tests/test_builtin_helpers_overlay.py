@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Whitelist dispatch for ``run_builtin_helper`` (needs ``hermes_core/`` on sys.path)."""
 
 from __future__ import annotations

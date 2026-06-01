@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Make stripped Hermes subpackages importable as harmless no-ops.
 
 # DEPRECATED: gateway_policy.remove_when=Phase4

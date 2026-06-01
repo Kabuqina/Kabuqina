@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 import { invoke } from "@tauri-apps/api/core";
 
 export type SessionRow = {
@@ -247,6 +250,58 @@ export type SttModelDownloadResult = {
  */
 export async function cmdSttModelDownload(): Promise<SttModelDownloadResult> {
   return invoke<SttModelDownloadResult>("cmd_stt_model_download");
+}
+
+export type LoadPackageStatus = {
+  id: string;
+  title: string;
+  description: string;
+  feature: string;
+  modelId: string;
+  sizeMb: number;
+  downloaded: boolean;
+  size: number;
+  path: string;
+};
+
+export type LoadPackagesResponse = {
+  packages: LoadPackageStatus[];
+};
+
+export type LoadPackageDownloadResult = {
+  ok: boolean;
+  size?: number;
+  path?: string;
+  source?: string;
+  already?: boolean;
+};
+
+function hasTauriInvoke(): boolean {
+  const internals = typeof window === "undefined"
+    ? undefined
+    : (window as unknown as { __TAURI_INTERNALS__?: { invoke?: unknown } }).__TAURI_INTERNALS__;
+  return typeof internals?.invoke === "function";
+}
+
+function ensureLoadPackageBridge(): void {
+  if (!hasTauriInvoke()) {
+    throw new Error("desktop_bridge_unavailable");
+  }
+}
+
+export async function cmdLoadPackages(): Promise<LoadPackagesResponse> {
+  ensureLoadPackageBridge();
+  return invoke<LoadPackagesResponse>("cmd_load_packages");
+}
+
+export async function cmdLoadPackageDownload(packageId: string): Promise<LoadPackageDownloadResult> {
+  ensureLoadPackageBridge();
+  return invoke<LoadPackageDownloadResult>("cmd_load_package_download", { packageId });
+}
+
+export async function cmdLoadPackageDelete(packageId: string): Promise<{ ok: boolean; removed?: boolean; path?: string }> {
+  ensureLoadPackageBridge();
+  return invoke("cmd_load_package_delete", { packageId });
 }
 
 export function cmdChatPreview(

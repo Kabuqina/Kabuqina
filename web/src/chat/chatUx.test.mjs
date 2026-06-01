@@ -31,6 +31,7 @@ async function importTs(relativePath) {
 const { deriveSessionPresentation } = await importTs("./sessionPresentation.ts");
 const { friendlyChatError } = await importTs("./friendlyError.ts");
 const { parseDeskUserContent, DESK_UI_PERSIST_PREFIX } = await importTs("./deskUserContent.ts");
+const { isWorkbenchNarrow } = await importTs("./hooks/workbenchLayoutLogic.ts");
 const useChatStateSource = fs.readFileSync(new URL("./hooks/useChatState.ts", import.meta.url), "utf8");
 const sidebarSource = fs.readFileSync(new URL("./ChatSidebar.tsx", import.meta.url), "utf8");
 const messageListSource = fs.readFileSync(new URL("./ChatMessageList.tsx", import.meta.url), "utf8");
@@ -289,6 +290,18 @@ assert.match(
   workbenchLayoutSource,
   /isNarrow/,
   "Workbench layout hook should track narrow-window behavior.",
+);
+
+assert.equal(
+  isWorkbenchNarrow(706),
+  false,
+  "Windows right-snap width at 125% scaling should still allow expanding workbench sidebars.",
+);
+
+assert.equal(
+  isWorkbenchNarrow(560),
+  true,
+  "Very small windows should still collapse workbench sidebars.",
 );
 
 assert.match(

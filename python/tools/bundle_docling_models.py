@@ -1,3 +1,6 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
 """Download Docling ML artifacts into the HermesDesk runtime bundle.
 
 Called from ``build_bundle.ps1`` after pip installs docling. Uses
@@ -9,11 +12,16 @@ those downloads and can fall back to ``GITHUB_MIRROR`` / built-in GitHub mirrors
 
 Incremental builds skip work when ``runtime/docling-models/`` already contains
 the bundled layout/table/OCR files.
+
+CodeFormula (``mode=math``) is **not** bundled by default (~500 MB). Users
+download it from Kabuqina Settings; set ``DOCLING_BUNDLE_CODE_FORMULA=1`` only
+for dev/offline experiments.
 """
 
 from __future__ import annotations
 
 import os
+import shutil
 import sys
 import time
 import zipfile
@@ -25,6 +33,11 @@ from urllib.parse import urlparse
 DEFAULT_GITHUB_MIRRORS = (
     "https://ghfast.top",
     "https://mirror.ghproxy.com",
+)
+
+DEFAULT_HF_ENDPOINTS = (
+    "https://hf-mirror.com",
+    "https://huggingface.co",
 )
 
 
@@ -134,6 +147,78 @@ def robust_download_url(
     raise last_err
 
 
+def _hf_endpoint_candidates() -> list[str]:
+    """HF mirrors first; optional direct huggingface.co when mirrors reset connections."""
+    ordered: list[str] = []
+    custom = os.environ.get("HF_ENDPOINT", "").strip().rstrip("/")
+    if custom:
+        ordered.append(custom)
+    for endpoint in DEFAULT_HF_ENDPOINTS:
+        if endpoint not in ordered:
+            ordered.append(endpoint)
+    if not _truthy("DOCLING_HF_DIRECT_FALLBACK", "1"):
+        direct = "https://huggingface.co"
+        if direct in ordered and (not custom or custom != direct):
+            ordered = [e for e in ordered if e != direct]
+    return ordered
+
+
+def _robust_hf_snapshot_download(
+    *,
+    repo_id: str,
+    local_dir: Path,
+    revision: str,
+    progress: bool,
+) -> Path:
+    """Resume-capable snapshot_download with endpoint rotation and retries."""
+    from huggingface_hub import snapshot_download
+    from huggingface_hub.utils import disable_progress_bars
+
+    if not progress:
+        disable_progress_bars()
+
+    retries = max(1, int(os.environ.get("DOCLING_HF_RETRIES", "5")))
+    max_workers = max(1, int(os.environ.get("DOCLING_HF_MAX_WORKERS", "1")))
+    local_dir.mkdir(parents=True, exist_ok=True)
+
+    last_err: Optional[BaseException] = None
+    prev_endpoint = os.environ.get("HF_ENDPOINT")
+    endpoints = _hf_endpoint_candidates()
+
+    for endpoint in endpoints:
+        os.environ["HF_ENDPOINT"] = endpoint
+        host = urlparse(endpoint).netloc or endpoint
+        print(f"Trying HuggingFace endpoint: {host}")
+        for attempt in range(1, retries + 1):
+            try:
+                if attempt > 1:
+                    print(f"  snapshot_download {repo_id} attempt {attempt}/{retries} (resume enabled)")
+                path = snapshot_download(
+                    repo_id=repo_id,
+                    local_dir=str(local_dir),
+                    revision=revision,
+                    resume_download=True,
+                    max_workers=max_workers,
+                )
+                return Path(path)
+            except Exception as exc:
+                last_err = exc
+                if attempt < retries:
+                    delay = min(2.0 * attempt, 30.0)
+                    print(f"  failed ({type(exc).__name__}): {exc}")
+                    print(f"  retrying in {delay:.0f}s...")
+                    time.sleep(delay)
+        print(f"  exhausted {retries} attempts on {host}")
+
+    if prev_endpoint is not None:
+        os.environ["HF_ENDPOINT"] = prev_endpoint
+    elif "HF_ENDPOINT" in os.environ and not prev_endpoint:
+        pass
+
+    assert last_err is not None
+    raise last_err
+
+
 def _patch_docling_downloader() -> None:
     import docling.utils.utils as docling_utils
 
@@ -145,6 +230,14 @@ def _hf_models_present(out: Path) -> bool:
     layout = base / "layout" / "model.safetensors"
     table_fast = base / "tableformer" / "fast" / "tableformer_fast.safetensors"
     return layout.is_file() and table_fast.is_file()
+
+
+def _code_formula_models_present(out: Path) -> bool:
+    """``mode=math`` needs ds4sd/CodeFormula under the bundled artifacts root."""
+    formula_dir = out / "ds4sd--CodeFormula"
+    if not formula_dir.is_dir():
+        return False
+    return any(formula_dir.rglob("*.safetensors")) or any(formula_dir.rglob("*.bin"))
 
 
 def _easyocr_models_present(local_dir: Path) -> bool:
@@ -176,6 +269,16 @@ def _download_hf_models(out: Path, *, progress: bool) -> None:
         raise RuntimeError(f"layout model missing after download: {layout_marker}")
 
 
+def _download_code_formula_models(out: Path, *, progress: bool) -> None:
+    from docling.models.code_formula_model import CodeFormulaModel
+
+    formula_dir = out / CodeFormulaModel._model_repo_folder
+    formula_dir.mkdir(parents=True, exist_ok=True)
+    CodeFormulaModel.download_models(local_dir=formula_dir, force=False, progress=progress)
+    if not _code_formula_models_present(out):
+        raise RuntimeError(f"CodeFormula model missing after download: {formula_dir}")
+
+
 def _download_easyocr_models(local_dir: Path, *, progress: bool) -> None:
     from docling.models.easyocr_model import EasyOcrModel
 
@@ -188,6 +291,17 @@ def _download_easyocr_models(local_dir: Path, *, progress: bool) -> None:
             if not (local_dir / name).is_file()
         ]
         raise RuntimeError(f"EasyOCR download finished but files are missing: {', '.join(missing)}")
+
+
+def _prune_bundled_code_formula(out: Path) -> None:
+    """Remove CodeFormula from the MSI bundle unless explicitly opted in."""
+    formula_dir = out / "ds4sd--CodeFormula"
+    if formula_dir.is_dir():
+        shutil.rmtree(formula_dir)
+        print(
+            f"Removed bundled CodeFormula from {formula_dir} "
+            "(on-demand via Settings; set DOCLING_BUNDLE_CODE_FORMULA=1 to keep)."
+        )
 
 
 def main() -> int:
@@ -211,9 +325,14 @@ def main() -> int:
     easyocr_dir = out / "EasyOcr"
 
     need_hf = not _hf_models_present(out)
+    bundle_formula = _truthy("DOCLING_BUNDLE_CODE_FORMULA", "0")
+    need_formula = bundle_formula and not _code_formula_models_present(out)
     need_easyocr = (not skip_easyocr) and not _easyocr_models_present(easyocr_dir)
 
-    if not need_hf and not need_easyocr:
+    if not bundle_formula:
+        _prune_bundled_code_formula(out)
+
+    if not need_hf and not need_formula and not need_easyocr:
         print(f"docling models already bundled — skipping download ({out})")
         return 0
 
@@ -228,6 +347,18 @@ def main() -> int:
             return 1
     else:
         print("layout/table models already present — skipping HuggingFace download")
+
+    if need_formula:
+        print("Downloading Docling CodeFormula model (DOCLING_BUNDLE_CODE_FORMULA=1)...")
+        try:
+            _download_code_formula_models(out, progress=progress)
+        except Exception as exc:
+            print(f"Docling CodeFormula bundling failed: {exc}", file=sys.stderr)
+            return 1
+    elif bundle_formula:
+        print("CodeFormula model already present — skipping")
+    else:
+        print("CodeFormula not bundled (mode=math uses Settings on-demand download).")
 
     if skip_easyocr:
         print("Skipping EasyOCR bundle (DOCLING_BUNDLE_EASYOCR=0).")

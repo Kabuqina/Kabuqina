@@ -1,3 +1,6 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
 export type DeskAttachmentPayload = { name: string; mime: string; data: string };
 
 export const DESK_UI_PERSIST_PREFIX = "__hermesdesk_ui__:";
