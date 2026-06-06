@@ -69,9 +69,21 @@ const wizardSource = fs.readFileSync(new URL("./Wizard.tsx", import.meta.url), "
 const welcomeSource = fs.readFileSync(new URL("./steps/Welcome.tsx", import.meta.url), "utf8");
 const flowConfigSource = fs.readFileSync(new URL("./flowConfig.ts", import.meta.url), "utf8");
 const stringsSource = fs.readFileSync(new URL("../locales/strings.ts", import.meta.url), "utf8");
+const optionDataSource = fs.readFileSync(new URL("./setupCatalog/optionData.ts", import.meta.url), "utf8");
 
 assert.doesNotMatch(wizardSource, /SetupMode|path="mode"/);
 assert.match(welcomeSource, /updateDraft\(\{\s*setupMode:\s*"quick"[\s\S]*useRecommendedDefaults:\s*true/);
 assert.match(welcomeSource, /nav\("\/onboarding\/brain"\)/);
 assert.doesNotMatch(flowConfigSource, /FULL_STEPS|setupMode === "full"|stepToPath\("tts"\)/);
 assert.doesNotMatch(stringsSource, /setupMode:|Full setup|设置方式|仔细一点/);
+assert.match(stringsSource, /skipTitle:\s*"跳过"/);
+assert.match(stringsSource, /skipTitle:\s*"Skip"/);
+
+const settingsGatewaySource = fs.readFileSync(new URL("../advanced/settings/SettingsGateway.tsx", import.meta.url), "utf8");
+const expectedGatewayLabels = ["飞书", "QQ", "微信", "企微"];
+for (const label of expectedGatewayLabels) {
+  assert.match(settingsGatewaySource, new RegExp(`label:\\s*"${label}"`));
+}
+const gatewayCatalogSource = optionDataSource.match(/export const CATALOG_GATEWAY[\s\S]*?export const CATALOG_TOOLS/)?.[0] ?? "";
+const gatewayLabels = [...gatewayCatalogSource.matchAll(/name:\s*L\("([^"]+)"/g)].map((match) => match[1]);
+assert.deepEqual(gatewayLabels, expectedGatewayLabels);

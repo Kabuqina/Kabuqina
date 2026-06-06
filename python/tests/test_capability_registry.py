@@ -29,6 +29,33 @@ class CapabilityRegistryTests(unittest.TestCase):
         self.assertIn("desktop-organizer", ids)
         self.assertIn("student-ppt", ids)
 
+    def test_math_expression_capabilities_are_registered_as_available_v1(self):
+        from capability_registry import get_capability_def, list_capability_defs
+
+        ids = {item["id"] for item in list_capability_defs()}
+
+        self.assertIn("math-expression-cleanup", ids)
+        self.assertIn("math-formula-to-code", ids)
+        self.assertIn("code-to-math-formula", ids)
+        for capability_id in [
+            "math-expression-cleanup",
+            "math-formula-to-code",
+            "code-to-math-formula",
+        ]:
+            capability = get_capability_def(capability_id)
+            self.assertEqual(capability["family"], "math-expression-engineering")
+            self.assertEqual(capability.get("lifecycle", "available"), "available")
+            self.assertEqual(capability["required_toolsets"], ["math"])
+            self.assertTrue(capability["pipelines"])
+
+        cleanup = get_capability_def("math-expression-cleanup")
+        formula_to_code = get_capability_def("math-formula-to-code")
+        code_to_formula = get_capability_def("code-to-math-formula")
+
+        self.assertIn("math_expression_cleanup", cleanup["tools"])
+        self.assertIn("math_formula_to_code", formula_to_code["tools"])
+        self.assertIn("code_to_math_formula", code_to_formula["tools"])
+
     def test_load_package_dependencies_are_declared_on_capabilities(self):
         from capability_registry import get_capability_def
 
@@ -223,6 +250,65 @@ class CapabilityRegistryTests(unittest.TestCase):
         self.assertEqual(result["status"], "available")
         self.assertTrue(result["pipelines"][0]["ready"])
 
+    def test_candidate_capability_is_not_marked_available(self):
+        from capability_status import build_capability_status
+
+        definition = {
+            "id": "roadmap-math-capability",
+            "title": "Roadmap math capability",
+            "description": "Future math capability",
+            "category": "math",
+            "agent_hint": "Candidate only.",
+            "family": "math-expression-engineering",
+            "lifecycle": "candidate",
+            "required_toolsets": ["math"],
+            "required_load_packages": [],
+            "optional_load_packages": [],
+            "roles": ["default"],
+            "pipelines": [
+                {
+                    "id": "roadmap-math-pipeline",
+                    "title": "Roadmap math pipeline",
+                    "stages": ["writer"],
+                    "steps": [
+                        {
+                            "id": "roadmap-step",
+                            "stage": "writer",
+                            "kind": "candidate_writer",
+                            "outputs": ["result"],
+                        }
+                    ],
+                }
+            ],
+        }
+        status = build_capability_status(
+            definition,
+            load_packages={},
+            enabled_toolsets={"math"},
+        )
+
+        self.assertEqual(status["status"], "candidate")
+        self.assertFalse(status["pipelines"][0]["ready"])
+        self.assertEqual(status["lifecycle"], "candidate")
+
+    def test_math_expression_capability_ready_when_math_toolset_enabled(self):
+        from capability_registry import get_capability_def
+        from capability_prompt import build_capability_prompt_summary
+        from capability_status import build_capability_status
+
+        status = build_capability_status(
+            get_capability_def("math-formula-to-code"),
+            load_packages={},
+            enabled_toolsets={"math"},
+        )
+
+        self.assertEqual(status["status"], "available")
+        self.assertTrue(status["pipelines"][0]["ready"])
+        summary = build_capability_prompt_summary([status])
+        self.assertIn("Formula to code: available", summary)
+        self.assertIn("math_formula_to_code", summary)
+        self.assertIn("outputs: code, language, variable_table, assumptions, example_inputs", summary)
+
     def test_disabled_required_toolset_marks_capability_disabled_after_packages_satisfied(self):
         from capability_registry import get_capability_def
         from capability_status import build_capability_status
@@ -336,6 +422,23 @@ class CapabilityRegistryTests(unittest.TestCase):
         self.assertIn("docling-math-document-read", summary)
         self.assertIn("document_read_precise(mode=math)", summary)
         self.assertIn("outputs: read_id, markdown, formulas", summary)
+
+    def test_agent_summary_warns_candidate_capabilities_are_not_executable(self):
+        from capability_prompt import build_capability_prompt_summary
+
+        summary = build_capability_prompt_summary([
+            {
+                "id": "math-expression-cleanup",
+                "title": "Math expression cleanup",
+                "status": "candidate",
+                "agentHint": "Candidate only.",
+                "requiredLoadPackages": [],
+                "pipelines": [],
+            }
+        ])
+
+        self.assertIn("Math expression cleanup: candidate", summary)
+        self.assertIn("not yet executable", summary)
 
 
 if __name__ == "__main__":

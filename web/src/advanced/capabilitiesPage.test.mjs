@@ -37,7 +37,7 @@ assert.match(
 );
 assert.match(
   pageSource,
-  /available[\s\S]*missing_package[\s\S]*downloading[\s\S]*package_error[\s\S]*disabled_toolset[\s\S]*requires_power_user[\s\S]*unsupported_platform[\s\S]*error/,
+  /candidate[\s\S]*available[\s\S]*missing_package[\s\S]*downloading[\s\S]*package_error[\s\S]*disabled_toolset[\s\S]*requires_power_user[\s\S]*unsupported_platform[\s\S]*error/,
   "Product capability rows should cover all backend status badges.",
 );
 assert.match(
@@ -83,6 +83,8 @@ assert.match(
 assert.match(stringsSource, /product: "产品能力"/);
 assert.match(stringsSource, /product: "Product capabilities"/);
 assert.match(stringsSource, /statusReason/);
+assert.match(stringsSource, /candidate: "候选"/);
+assert.match(stringsSource, /candidate: "candidate"/);
 assert.match(stringsSource, /requires_power_user/);
 assert.match(stringsSource, /unsupported_platform/);
 assert.match(stringsSource, /requiredLoadPackages/);

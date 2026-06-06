@@ -2,311 +2,375 @@
 
 # 卡布奇娜 · Kabuqina
 
-**Windows 上好安装的桌面 AI 助手** · 向导配置 · BYO API Key · 基于 [Hermes Agent](https://github.com/NousResearch/hermes-agent)
+**面向学生场景的 Windows 学术助手 Agent**
+Reader -> Material Index -> Planner -> Writer 四层框架 · 自带桌面壳 · BYO API Key · 本地凭据与工作区安全
 
-[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg?style=flat-square)](LICENSE)
-[![Windows](https://img.shields.io/badge/platform-Windows%2010%2F11-%230078D6?style=flat-square&logo=windows&logoColor=white)](https://github.com/Kabuqina/Kabuqina)
-[![Tauri](https://img.shields.io/badge/Tauri-2-ffc131?style=flat-square&logo=tauri&logoColor=white)](https://tauri.app)
-[![App](https://img.shields.io/badge/app-0.1.0-6c757d?style=flat-square)](./tauri/tauri.conf.json)
-
-[**简体中文**](#简体中文) · [**English**](#english) · [文档索引](./docs/README.md) · [排障](./docs/troubleshooting.md)
+[![Windows](https://img.shields.io/badge/platform-Windows-0078D4.svg)](#安装与运行)
+[![Tauri 2](https://img.shields.io/badge/Tauri-2.x-24C8DB.svg)](https://tauri.app/)
+[![React](https://img.shields.io/badge/React-18-61DAFB.svg)](https://react.dev/)
+[![Python](https://img.shields.io/badge/Python-3.11-3776AB.svg)](https://www.python.org/)
 
 </div>
-
-> **License notice:** Source code is licensed under [Apache-2.0](./LICENSE). The **Kabuqina / 卡布奇娜 name,
-> logos, mascot, and icons** are **proprietary** and **not** included under Apache-2.0.
-> See [BRAND.md](./BRAND.md) and [assets/brand/LICENSE](./assets/brand/LICENSE).
 
 ---
 
 ## 简体中文
 
-> **当前分支：`codex/student-deliverables`** — 这是用于学生交付与演示验收的分支 README，重点说明桌面体验、可分发产物与材料索引。正式产品主页以 `main` 分支为准。
+> 当前分支：`codex/student-deliverables`。这个分支不是通用聊天壳展示，而是把卡布奇娜收束成**学生可交付物导向的学术助手 Agent**：帮助学生读懂资料、整理证据、规划作业/汇报结构，并产出可以继续修改和提交的文件。
 
 ### 一句话
 
-**卡布奇娜**是在 **Windows** 上用的 **桌面版 AI 助手**：像普通软件一样安装打开，自带引导配置 **自己的大模型 API Key**，底层跑开源的 **[Hermes Agent](https://github.com/NousResearch/hermes-agent)**。
+卡布奇娜在这个分支中的核心目标是：**把论文、课件、代码、公式、语音笔记等学习材料，转化为课程报告、文献汇报、答辩 PPT、公式说明和代码解释等学生交付物。**
 
-### 适合你吗
+它仍然是 Windows 桌面应用，但产品主线已经从“连接一个 agent”升级为“为学生搭一条从阅读到写作的学术工作流”。
 
-| 项目       | 说明                                                                                                                            |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| **目标用户** | 想要 **本机窗口 + 托盘**，不想折腾终端、也不想长期挂在浏览器标签里                                                                                         |
-| **费用**   | **自备 Key（BYO）** — 向导里可配 OpenRouter、OpenAI、Anthropic 或自定义 Base URL                                                             |
-| **文件**   | 默认围绕 **一个工作区文件夹**，降低误操作面                                                                                                      |
-| **技术形态** | **Tauri 2**（引导、`/chat`、设置、消息网关控制）+ **内嵌 Python**：`desktop_entrypoint` 与 **`gateway.run`**；**WebView2** 中可开完整 Hermes React 控制台 |
+### 这个分支面向的学生场景
 
-> **阶段：内测 / 0.1+** — 引导 → 保存 key → 壳内对话 与/或 Hermes 全界面 · 可选多通道网关 · 工作区与 **超级用户** 分权。安装包可用，体验会持续迭代。详见 [架构](./docs/architecture.md) · [路线图](./docs/ROADMAP.md)。
+- **课程报告与作业**：读取 PDF、DOCX、PPTX、Markdown、代码片段等材料，整理成报告提纲、要点、引用依据和可写入内容。
+- **文献阅读与论文汇报**：抽取论文结构、公式、图表和关键结论，生成汇报大纲或课堂展示 PPT。
+- **课程/项目答辩 PPT**：围绕材料建立索引，先审阅提纲，再写出 `.pptx`，适配课程汇报、论文精读、代码答辩。
+- **数学公式与表达式处理**：从公式密集文档中提取 LaTeX；候选能力覆盖公式清洗、公式转代码、代码转数学表达说明。
+- **编程课与实验报告**：面向 Python、NumPy、C++17 等常见学生代码任务，辅助解释实现思路、整理算法表达与报告材料。
+- **学习输入通道**：支持本地文件、语音转写能力包、消息平台入口与桌面工作区，让学生从自己的材料开始，而不是从空白对话开始。
 
-### 界面截图
+### 产品能力地图
 
-<p align="center">
-  <img src="Na_logo/chat_Chinese.png" alt="壳内对话界面（中文）" width="860" /><br/>
-  <sub>壳内对话（<code>/chat</code>）</sub>
-</p>
+| 能力 | 学生能拿它做什么 | 当前状态 | 所在层 |
+| --- | --- | --- | --- |
+| 精确文档读取 | 读取 PDF、DOCX、PPTX、XLSX、HTML、Markdown、CSV、图片和文本，保留更可靠的结构信息 | 已接入能力注册 | Reader |
+| 公式抽取与 LaTeX | 从公式密集材料中抽取数学表达，整理为 LaTeX/Markdown 可用内容 | 需要 `docling-codeformula` 能力包 | Reader |
+| 本地语音识别 | 把课堂录音、口述笔记或讨论内容转成文本材料 | 需要 `local-stt-base-q5_1` 能力包 | Reader |
+| 学生 PPT 工作流 | 从课程/论文/代码材料生成汇报 PPT：读材料、建索引、审提纲、写 `.pptx` | 已作为学生交付物工作流登记 | Reader -> Writer |
+| 材料索引 | 把原始材料拆成可引用、可追踪的事实、公式、表格、代码和论点 | 产品主线能力 | Material Index |
+| 提纲审阅 | 在写文件前先给出结构、假设和待确认点，降低“直接胡写”的风险 | 产品主线能力 | Planner |
+| 文件写出 | 输出 PPTX、Markdown、LaTeX、报告草稿或代码说明等可继续编辑的文件 | 产品主线能力 | Writer |
+| 数学表达工程 | 公式清洗、公式转 Python/NumPy/C++17、代码转公式说明和报告 | Candidate，仅作分支方向声明 | Reader -> Writer |
+| 桌面安全与凭据 | API Key 进 Windows Credential Manager，工作区隔离，loopback 通信 | 已落地 | Desktop Shell |
+| 消息平台入口 | 飞书、QQ、微信、企微、Email 等平台配置入口，用于后续提醒和消息投递 | 桌面入口已接入 | Integration |
 
-### 安装（最终用户）
+### Reader 到 Writer 的四层框架
 
-从 **GitHub Releases** 获取最新 Windows 安装包（名称以发布页为准），例如：
+这个分支最重要的产品骨架是四层学术交付框架。每一层都对应学生从“资料很多”到“能交一个东西”的一步。
 
-- `Kabuqina_0.1.0_x64_en-US.msi`
+```mermaid
+flowchart LR
+  A[Reader<br/>读入材料] --> B[Material Index<br/>建立材料索引]
+  B --> C[Planner<br/>规划结构与审阅提纲]
+  C --> D[Writer<br/>写出可编辑交付物]
+```
 
-内含 Tauri 壳、前端资源、内嵌 Python / Hermes 运行时。尚未代码签名时，SmartScreen 可能提示未知发布者 → [代码签名](./docs/code-signing.md)。
+| 层级 | 责任 | 典型输入 | 典型输出 |
+| --- | --- | --- | --- |
+| **Reader** | 精读文件、公式、语音、图片和代码，尽量保留结构与来源 | 论文 PDF、课件、Word、表格、截图、录音、代码 | 文本块、公式、表格、章节、转写文本 |
+| **Material Index** | 把材料整理成可检索、可引用、可追踪的索引 | Reader 输出的原始结构 | 证据地图、公式表、术语表、源位置、主题分组 |
+| **Planner** | 决定交付物结构，暴露假设和待确认点，让学生先审阅再生成 | 材料索引、作业要求、汇报场景 | 报告大纲、PPT 章节、论证路径、待补充清单 |
+| **Writer** | 生成可继续修改的文件，而不是只停留在聊天回复 | 已确认提纲、模板、材料引用 | `.pptx`、Markdown、LaTeX、报告草稿、代码说明 |
+
+这个框架让卡布奇娜不只是“回答问题”，而是能围绕学生交付物组织工作：先读清楚，再建索引，再规划，最后写出文件。
+
+### 已突出能力与候选能力
+
+**已作为分支主线突出的能力**
+
+- 学生学术助手定位：课程报告、论文阅读、PPT 汇报、代码答辩和公式材料处理。
+- 学生 PPT 交付流：`reader -> material_index -> planner -> writer`。
+- 能力包机制：较重的公式识别、本地语音等能力以 load package 方式开启，避免默认包过重。
+- 桌面安全模型：Windows Credential Manager 保存 API Key，Python 子进程只通过 loopback 与 Tauri 通信。
+- Onboarding 简化：直接 Quick Start，降低学生首次启动成本。
+- 消息平台名称统一：设置和 onboarding 中使用一致的平台命名。
+
+**Candidate / 方向性能力**
+
+- 公式清洗：把 OCR、文档、LaTeX、代码中的混乱数学表达整理成干净 LaTeX/Markdown。
+- 公式转代码：把数学公式或文档公式转成 Python、NumPy 或 C++17 实现草稿。
+- 代码转公式：把 Python/NumPy/C++17 实现解释成数学表达、LaTeX、Markdown 或报告片段。
+
+Candidate 能力代表这个 branch 的产品方向；只有当执行管线、状态上报、测试和 prompt contract 都补齐后，才应在 UI 中标为可用能力。
 
 ### 本分支交付内容
 
-此分支用于展示和验收 **student deliverables**，README 比 `main` 更偏向可演示成果：
+- **学生化 README 与产品定位**：明确这是学生学术助手 agent 分支，而不是抽象桌面包装。
+- **简化 onboarding**：移除 Full Setup 路线和模式选择，首次启动直接进入 Quick Start。
+- **设置与 onboarding 文案统一**：消息平台名称统一为面向用户的中文平台名，跳过入口更明确。
+- **能力页与能力注册表**：以 capability registry 描述 Reader、Material Index、Planner、Writer 层能力。
+- **桌面运行骨架**：Tauri 2 + React/Vite + Python child + Hermes core。
+- **凭据与安全**：BYO API Key，密钥进入 Windows Credential Manager，不写入普通配置文件。
 
-- **桌面体验**：Windows 安装、托盘、壳内 `/chat`、Hermes 控制台入口、设置与网关控制。
-- **可分发产物**：MSI 安装包、便携 ZIP 打包脚本、内嵌 Python / Hermes 运行时构建路径。
-- **材料索引**：界面截图、架构说明、排障文档、代码签名与构建说明，方便演示和评审快速定位。
+### 截图
+
+> 如果仓库中没有截图文件，可以先运行应用并补充 `docs/screenshots/`。
+
+<p align="center">
+  <img src="docs/screenshots/onboarding.png" alt="Kabuqina onboarding" width="720">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/settings.png" alt="Kabuqina settings" width="720">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/chat.png" alt="Kabuqina chat" width="720">
+</p>
+
+### 安装与运行
+
+#### 从源码运行
+
+前置要求：
+
+- Windows 10/11
+- Rust 1.80+
+- Node.js 20+
+- PowerShell 7+
+
+```powershell
+# 1. 构建 Python bundle
+.\python\build_bundle.ps1
+
+# 2. 构建 Web shell
+cd web
+npm ci
+npm run build
+cd ..
+
+# 3. 启动开发环境
+.\scripts\dev.ps1
+```
+
+#### Release 构建
+
+```powershell
+.\python\build_bundle.ps1 -Verify
+cd web
+npm ci
+npm run build
+cd ..
+cd tauri
+cargo tauri build
+```
+
+生成的安装包通常位于：
+
+```text
+tauri/target/release/bundle/msi/
+```
+
+### 配置
+
+首次启动时，Quick Start 会引导学生完成最少必要配置：
+
+1. 选择或确认工作区。
+2. 配置 LLM Provider 和 API Key。
+3. 按需进入设置页启用能力包或消息平台。
+
+密钥存储方式：
+
+- API Key 存入 Windows Credential Manager。
+- 明文 key 不写入仓库、配置文件或日志。
+- Python 子进程启动时通过 Tauri loopback bridge 获取密钥。
+
+### 消息平台与提醒
+
+消息平台配置入口面向后续的提醒、投递和学习工作流通知。当前桌面主线使用的用户可见平台名称包括：
+
+- 飞书
+- QQ
+- 微信
+- 企微
+- Email
 
 ### 能力与边界
 
-<details>
-<summary><strong>能做什么 · 网关与 0.1.x 摘要</strong>（点击展开）</summary>
+卡布奇娜适合：
 
-**消息网关（已落地）：** 本地 **`python -m gateway.run`** 独立子进程。引导/设置中已走通五条渠道：
+- 课程论文、课程设计、实验报告和课堂汇报。
+- 论文精读、文献综述和公式解释。
+- 从材料生成 PPT、提纲、Markdown 草稿和代码说明。
+- 在本地 Windows 桌面中管理工作区、凭据、能力包和消息入口。
 
-- **Telegram** — `@BotFather` token → `TELEGRAM_BOT_TOKEN`
-- **邮件（IMAP/SMTP）** — 写入 `EMAIL_*` 至 `hermes-home/.env`
-- **微信（个微）** — 扫码；`WEIXIN_*` · 配对策略见应用内文案
-- **QQ 机器人** — 扫码绑定；`QQ_*`
-- **飞书 / Lark** — 扫码自建应用；`FEISHU_*`
+卡布奇娜不适合：
 
-控制入口：**设置 → 消息网关**。LLM Key 与各机器人共用 Windows 凭据。设计沿革：[gateway-desk-weixin-strategy](./docs/gateway-desk-weixin-strategy.md) · [route-c-validation](./docs/gateway-route-c-weixin-validation.md)。
+- 自动代替学生完成学术判断、实验真实性或最终署名责任。
+- 绕过课程、学校或期刊的学术诚信要求。
+- 在没有材料依据时伪造引用、实验数据或结论。
 
-**0.1.x 能力摘要：** 壳内 `/chat`、设置（含超级用户 **重启 Python 子进程**）、`desk_system_prompt` 约束、托盘与品牌资源、`hermes/web` 控制台复制；网关同上。
+建议把它当成“能读材料、能整理、能起草、能生成文件的学习协作者”，而不是无需审阅的自动交付机器。
 
-详细对比仍见下文「不做」条目。
+### 技术结构
 
-</details>
-
-| ✓ 能做的                                    | ✗ 不承诺的                                                                                                             |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| **`.msi`** 桌面分发 · 托盘、窗口 · **DPAPI** 密钥逻辑 | **不是** 上游 Hermes **每一个**能力与适配器的 1:1 镜像（深度 RL、完整 MCP 等请用 [上游 Hermes](https://github.com/NousResearch/hermes-agent)） |
-| 短引导 · 壳内 **/chat** 或 **Hermes** 控制台      | **不是** 我们托管的云服务 — **推理账单在你选的供应商**                                                                                  |
-| 可选 **网关** · 默认安全工作区与高敏工具 **`超级用户`** 开关   | 「未在 Desk 测试中列明的适配器」不保证开箱即用                                                                                         |
-
----
-
-### 架构一览
-
-```mermaid
-flowchart TB
-    subgraph Tauri["Tauri 2 · WebView2"]
-        A["托盘 · 窗口 · DPAPI"]
-        B["网关监管 · loopback"]
-    end
-    subgraph Py["内嵌 Python ×2"]
-        C["Hermes · desktop_entrypoint"]
-        D["gateway.run"]
-    end
-    subgraph UI["界面"]
-        E["Shell：Vite + /chat"]
-        F["Hermes React 控制台"]
-    end
-    Tauri --> Py
-    Py --> UI
+```text
+Tauri 2 shell (Rust)
+ ├─ Web shell (React/Vite, web/)          onboarding, chat, settings, capability UI
+ ├─ Python child: desktop_entrypoint.py   Hermes web_server on loopback
+ └─ Python child: gateway.run             optional messaging adapters
 ```
 
-与 English 小节中的图为同一结构。
+重要目录：
 
-<details>
-<summary><strong>目录结构</strong></summary>
+| 路径 | 作用 |
+| --- | --- |
+| `web/` | 学生面向的桌面 Web shell、onboarding、chat、settings |
+| `python/src/` | 桌面服务、能力状态、policy layer、loopback API |
+| `python/overlays/` | Hermes 集成胶水、工具策略、审批桥、桌面行为 |
+| `hermes_core/` | 自有 agent core、工具、cron、gateway、provider |
+| `tauri/` | Windows 桌面壳、子进程监督、凭据与系统集成 |
+| `docs/` | 架构、决策、用户研究、开发计划 |
 
-```
-Kabuqina/
-├── tauri/        桌面壳（Rust + Tauri 2）
-├── python/       打包、overlay、policy、测试
-├── web/          壳引导与设置（Hermes SPA 源码在 hermes_core/web）
-├── hermes_core/  冻结的上游 Hermes 快照
-└── docs/         架构、安全、Skills、排障
-```
-
-</details>
-
-### 从源码构建（Windows）
-
-**环境：** Rust **1.80+**、Node **20+**、PowerShell **7+**。Release 建议使用 **Developer PowerShell**（MSVC）；说明见 [embedded-python-bundled](./docs/embedded-python-bundled.md)。
+### 常用开发命令
 
 ```powershell
-git clone https://github.com/Kabuqina/Kabuqina.git
-cd Kabuqina
+# Web lint / build
+cd web
+npm run lint
+npm run build
+cd ..
 
-# Python 运行时（首次会下载独立 CPython）；可选：验证加 -Verify
-.\python\build_bundle.ps1
+# Python tests
+cd python
+python -m unittest discover -s tests -p "test_*.py" -v
+cd ..
 
-# 可选：刷新托盘/应用图标 → `cd tauri` 后
-# cargo tauri icon ..\web\public\kabuqina_na_blue_256.png
-
-# 可选单元测试（L1）
-Set-Location python; python -m unittest discover -s tests -p "test_*.py" -v; Set-Location ..
-
-# Shell 前端（`npm run build` 使用 tsc --noEmit，避免 Windows 锁 tsbuildinfo）
-Set-Location web; npm ci; npm run build; Set-Location ..
-
-# 二选一：
-# （A）开发预览 —— 会持续占用终端，CTRL+C 结束后再执行其它命令
-Set-Location tauri; cargo tauri dev
-
-# （B）打安装包 MSI
-# Set-Location tauri; cargo tauri build; Set-Location ..
+# Tauri dev
+.\scripts\dev.ps1
 ```
 
-| 产出     | 路径                                                                                                                         |
-| ------ | -------------------------------------------------------------------------------------------------------------------------- |
-| 安装包    | `tauri\target\release\bundle\msi\Kabuqina_0.1.0_x64_en-US.msi`                                                             |
-| 本体 exe | `tauri\target\release\kabuqina.exe`（对外分发优先 **MSI**）                                                                        |
-| 便携 ZIP | **`.\scripts\package-portable-windows.ps1`** → `portable-dist\Kabuqina-<ver>-win64-portable.zip`（解压后运行 **`kabuqina.exe`**） |
+### 参考文档
 
-- **便携 ZIP 写在哪儿：** 默认在仓库根下的 **`portable-dist\`**；打包前的展开草稿在 **`_staging_portable\`**（可用 **`.\scripts\package-portable-windows.ps1 -OutDir <路径>`** 改 ZIP 目录）。
-
-- **`portable-dist` 为什么会出现不了：** 这个目录只在 **打包脚本执行成功之后**才有；单靠 `cargo build` / MSI 不会产生。在仓库根执行 **`.\scripts\package-portable-windows.ps1`** 前请先具备 **`tauri\target\release\kabuqina.exe`**（release 已过链接）以及 **`python\dist\runtime`**（先跑 **`.\python\build_bundle.ps1`**）。
-
-- **常见问题**：[troubleshooting.md](./docs/troubleshooting.md)（代理与 loopback、WebView、网关 exit 1 等）
-
-- **Skills**： [skills-security](./docs/skills-security.md) · [skills-design-decision](./docs/skills-design-decision.md)
-
-### 协议
-
-[**Apache-2.0**](LICENSE)（**仅 Kabuqina 自有源代码**）。品牌视觉资产（logo、mascot、图标）与 README 截图 **不在 Apache-2.0 范围内**，见 [BRAND.md](./BRAND.md)。Hermes core 仍为 MIT，见其 [hermes_core/LICENSE](./hermes_core/LICENSE)。致谢 [Nous Research](https://nousresearch.com)。
+- `AGENTS.md`：仓库开发指南
+- `hermes_core/AGENTS.md`：agent core 内部说明
+- `docs/architecture.md`：总体架构
+- `docs/safety.md`：安全模型
+- `docs/troubleshooting.md`：排障
+- `docs/user-research/`：学生场景反馈与产品依据
 
 ---
-
-<div align="center">
-
-**──────────────── English ────────────────**
-
-</div>
 
 ## English
 
-> **Current branch: `codex/student-deliverables`** — this README is tailored for student deliverables, demo review, and handoff materials. The general product README remains on `main`.
+> Current branch: `codex/student-deliverables`. This branch positions Kabuqina as a **student academic assistant agent**, focused on turning learning material into reviewable student deliverables.
 
-**A friendly Windows desktop AI assistant** — double-click install, guided setup, your own API key.
-Powered by the open-source **[Hermes Agent](https://github.com/NousResearch/hermes-agent)**.
+### What This Branch Is About
 
-**Packaged version:** `0.1.0` (`tauri/tauri.conf.json`, `web/package.json`).
+Kabuqina is a Windows desktop agent for students who need help moving from raw material to finished academic work:
 
-### Install
+- reading papers, slides, documents, tables, images, formulas, audio notes, and code;
+- building a structured material index with facts, formulas, evidence, and source positions;
+- planning a report, presentation, literature review, or code-defense narrative before generation;
+- writing editable deliverables such as `.pptx`, Markdown, LaTeX, report drafts, and code explanations.
 
-Grab the latest **`.msi`** from **GitHub Releases** (exact filename follows the release), e.g. `Kabuqina_0.1.0_x64_en-US.msi`.
-Unsigned builds may trigger SmartScreen — see [code-signing.md](./docs/code-signing.md).
+The branch is not just a generic desktop wrapper. Its product thesis is: **a student agent should read, organize, plan, and write with a visible chain from source material to deliverable.**
 
-### Student Deliverables
+### Student Use Cases
 
-This branch highlights the deliverables intended for demonstration and review, so it is more handoff-oriented than `main`:
+- Course reports and assignments.
+- Literature reading and paper presentations.
+- Course, project, and code-defense PPTs.
+- Formula-heavy PDFs and LaTeX cleanup.
+- Programming coursework explanations for Python, NumPy, and C++17.
+- Local study workflows using desktop files, optional speech recognition, and messaging entry points.
 
-- **Desktop experience**: Windows install, tray/window behavior, in-shell `/chat`, Hermes console entry, settings, and gateway controls.
-- **Distributable outputs**: MSI installer, portable ZIP packaging script, and the embedded Python / Hermes runtime build path.
-- **Review materials**: screenshots, architecture notes, troubleshooting, code-signing notes, and build references for quick inspection.
-
-### Screenshots
-
-<p align="center">
-  <img src="Na_logo/chat_English.png" alt="In-shell chat (English)" width="860" /><br/>
-  <sub>In-shell chat (<code>/chat</code>)</sub>
-</p>
-
-### At a glance
-
-| Item      | Details                                                                                                         |
-| --------- | --------------------------------------------------------------------------------------------------------------- |
-| **Who**   | People who want a **native Windows app**, not a terminal or a browser tab                                       |
-| **Cost**  | **BYO key** — OpenRouter, OpenAI, Anthropic, or custom base URL                                                 |
-| **Files** | A **single workspace folder** (safe-by-default)                                                                 |
-| **Stack** | **Tauri 2** + **embedded Python** (`desktop_entrypoint` + **`gateway.run`**) + **Hermes React** in **WebView2** |
-
-> **Alpha (0.1+)** — onboarding → key → shell chat and/or full Hermes UI, optional **messaging gateway**, workspace + **power user** gating. Polishing continues. [Architecture](./docs/architecture.md) · [Roadmap](./docs/ROADMAP.md).
-
-<details>
-<summary><strong>Messaging gateway & 0.1.x highlights</strong> (expand)</summary>
-
-Five desk-tested adapters: **Telegram** (BotFather token), **Email** (IMAP/SMTP → `hermes-home/.env`), **Weixin** (QR / iLink), **QQ Bot**, **Feishu / Lark**. Second Python process; same Windows Credential Manager for LLM keys. Controls: **Settings → Messaging Gateway**. Design notes: [gateway-desk-weixin-strategy](./docs/gateway-desk-weixin-strategy.md), [gateway-route-c-weixin-validation](./docs/gateway-route-c-weixin-validation.md).
-
-Highlights: in-shell **`/chat`**, settings (**power user** toggles restart the Python child), `desk_system_prompt` overlay for honest capability limits, branding under `web/public/`, Hermes desk chat copy affordance; gateway as above.
-
-</details>
-
-| ✓ Does                                                               | ✗ Does not claim to be                                                                                                                       |
-| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`.msi`** distribution, tray/window **DPAPI** secrets               | Drop-in parity with **every** upstream Hermes feature on day one (see upstream [Hermes Agent](https://github.com/NousResearch/hermes-agent)) |
-| Onboarding, **shell chat**, Hermes console in-webview                | A hosted inference SaaS — **you** pay the provider                                                                                           |
-| Optional **gateway**; safe defaults + **power user** for risky tools | Every third-party adapter beyond the five bundled channels                                                                                   |
-
-### Architecture
+### Four-Layer Framework
 
 ```mermaid
-flowchart TB
-    subgraph Tauri["Tauri 2 · WebView2"]
-        A["Tray · window · DPAPI"]
-        B["Gateway supervisor · loopback"]
-    end
-    subgraph Py["Embedded Python ×2"]
-        C["Hermes · desktop_entrypoint"]
-        D["gateway.run"]
-    end
-    subgraph UI["UI"]
-        E["Shell: Vite + /chat"]
-        F["Hermes React console"]
-    end
-    Tauri --> Py
-    Py --> UI
+flowchart LR
+  A[Reader<br/>Read source material] --> B[Material Index<br/>Organize evidence]
+  B --> C[Planner<br/>Review structure]
+  C --> D[Writer<br/>Generate editable deliverables]
 ```
 
-<details>
-<summary><strong>Repo layout</strong></summary>
+| Layer | Responsibility | Typical Output |
+| --- | --- | --- |
+| **Reader** | Parse documents, formulas, images, audio, and code while preserving structure | text blocks, formulas, tables, sections, transcripts |
+| **Material Index** | Turn raw material into searchable and citeable evidence | evidence maps, symbol tables, source positions, topic groups |
+| **Planner** | Create a reviewable outline before writing | report outlines, PPT sections, assumptions, missing-information lists |
+| **Writer** | Produce editable files instead of stopping at chat answers | PPTX, Markdown, LaTeX, report drafts, code explanations |
 
-```
-Kabuqina/
-├── tauri/        Tauri 2 shell
-├── python/       Bundle scripts, overlays, policy, tests
-├── web/          Shell UI (Hermes SPA under hermes_core/web)
-├── hermes_core/  Frozen upstream snapshot
-└── docs/         Architecture, safety, troubleshooting
-```
+### Capability Map
 
-</details>
+| Capability | Student Value | Status | Layer |
+| --- | --- | --- | --- |
+| Precise document reading | Read PDFs, DOCX, PPTX, spreadsheets, Markdown, HTML, CSV, images, and text | Registered capability | Reader |
+| Formula extraction and LaTeX | Extract math expressions from formula-heavy material | Requires `docling-codeformula` load package | Reader |
+| Local speech recognition | Convert lectures or spoken notes into text material | Requires `local-stt-base-q5_1` load package | Reader |
+| Student PPT workflow | Read material, build an index, review an outline, and write `.pptx` | Student deliverable workflow | Reader -> Writer |
+| Material indexing | Build traceable facts, formulas, terms, and evidence maps | Product-line capability | Material Index |
+| Outline review | Confirm structure and assumptions before generation | Product-line capability | Planner |
+| File writing | Generate editable academic artifacts | Product-line capability | Writer |
+| Math expression engineering | Cleanup formulas, convert formulas to code, and explain code as math | Candidate direction | Reader -> Writer |
+| Desktop safety | Store API keys in Windows Credential Manager and isolate workspace access | Implemented | Desktop Shell |
+| Messaging entry points | Configure Feishu, QQ, WeChat, WeCom, and Email for later delivery workflows | Desktop entry points | Integration |
 
-### Build from source
+Candidate capabilities describe the branch direction. They should only be marked available in UI after executable pipelines, status reporting, tests, and prompt contracts are in place.
 
-**Needs:** Rust **1.80+**, Node **20+**, PowerShell **7+**. Prefer **Developer PowerShell** for release builds — [embedded-python-bundled.md](./docs/embedded-python-bundled.md).
+### Install And Run
+
+Prerequisites:
+
+- Windows 10/11
+- Rust 1.80+
+- Node.js 20+
+- PowerShell 7+
 
 ```powershell
-git clone https://github.com/Kabuqina/Kabuqina.git
-cd Kabuqina
-
+# 1. Build Python bundle
 .\python\build_bundle.ps1
 
-# Optional: refresh icons → from `tauri/`:
-# cargo tauri icon ..\web\public\kabuqina_na_blue_256.png
+# 2. Build Web shell
+cd web
+npm ci
+npm run build
+cd ..
 
-Set-Location python; python -m unittest discover -s tests -p "test_*.py" -v; Set-Location ..
-
-Set-Location web; npm ci; npm run build; Set-Location ..
-
-# (A) Dev — blocks until CTRL+C
-Set-Location tauri; cargo tauri dev
-
-# (B) Release MSI
-# Set-Location tauri; cargo tauri build; Set-Location ..
+# 3. Start dev environment
+.\scripts\dev.ps1
 ```
 
-| Output       | Path                                                                                                                               |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Installer    | `tauri\target\release\bundle\msi\Kabuqina_0.1.0_x64_en-US.msi`                                                                     |
-| Binary       | `tauri\target\release\kabuqina.exe` — **ship the MSI** for end users                                                               |
-| Portable ZIP | **`.\scripts\package-portable-windows.ps1`** → `portable-dist\Kabuqina-<ver>-win64-portable.zip` (extract, run **`kabuqina.exe`**) |
+Release build:
 
-- **Where the ZIP lands:** Repo root **`portable-dist/`** by default; expanded staging **`_staging_portable/`**. Override ZIP output with **`.\scripts\package-portable-windows.ps1 -OutDir <path>`**.
+```powershell
+.\python\build_bundle.ps1 -Verify
+cd web
+npm ci
+npm run build
+cd ..
+cd tauri
+cargo tauri build
+```
 
-- **If those folders don't exist:** they are created **only after** **`.\scripts\package-portable-windows.ps1`** finishes successfully (`cargo`/MSI won't create them). Prerequisites: **`tauri/target/release/kabuqina.exe`** and **`python/dist/runtime`** (from **`.\python\build_bundle.ps1`**).
+The installer is usually generated under:
 
-- **Troubleshooting:** [docs/troubleshooting.md](./docs/troubleshooting.md)
+```text
+tauri/target/release/bundle/msi/
+```
 
-- **Skills:** [skills-security.md](./docs/skills-security.md) · [skills-design-decision.md](./docs/skills-design-decision.md)
+### Configuration
+
+Quick Start guides students through the minimum required setup:
+
+1. Choose or confirm a workspace.
+2. Configure an LLM provider and API key.
+3. Open Settings when optional capability packages or messaging platforms are needed.
+
+API keys are stored in Windows Credential Manager and are fetched by the Python child process through the Tauri loopback bridge. Plaintext keys are not written to normal config files or logs.
+
+### Project Structure
+
+```text
+Tauri 2 shell (Rust)
+ ├─ Web shell (React/Vite, web/)          onboarding, chat, settings, capability UI
+ ├─ Python child: desktop_entrypoint.py   Hermes web_server on loopback
+ └─ Python child: gateway.run             optional messaging adapters
+```
+
+| Path | Purpose |
+| --- | --- |
+| `web/` | Student-facing desktop web shell, onboarding, chat, settings |
+| `python/src/` | Desktop services, capability status, policy layer, loopback APIs |
+| `python/overlays/` | Hermes integration glue, tool policy, approval bridge, desktop behavior |
+| `hermes_core/` | Owned agent core, tools, cron, gateway, providers |
+| `tauri/` | Windows shell, child supervision, credentials, system integration |
+| `docs/` | Architecture, decisions, user research, development plans |
 
 ### License
 
-**Apache-2.0** for **Kabuqina source code** only — [LICENSE](LICENSE). **Brand assets** (name, logos, mascot, icons) and README screenshots are **proprietary** — [BRAND.md](BRAND.md). Hermes core remains **MIT** — [hermes_core/LICENSE](hermes_core/LICENSE). Thanks to **[Nous Research](https://nousresearch.com)**.
+See `LICENSE`.

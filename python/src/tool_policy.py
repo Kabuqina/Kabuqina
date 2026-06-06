@@ -18,6 +18,7 @@ KEEP_LIST = [
     "web", "file", "vision", "image_gen", "tts", "skills", "clock", "todo", "browser",
     "clarify",
     "documents",
+    "math",
     "cronjob",    # scheduled tasks (create-once-approve, then auto-run)
     "messaging",  # cross-channel message delivery (cron delivery + proactive send)
 ]
@@ -26,6 +27,7 @@ GATEWAY_KEEP_LIST = [
     "web", "file", "vision", "image_gen", "tts", "skills", "clock", "todo", "browser",
     "clarify",
     "documents",
+    "math",
     "cronjob",
     "messaging",
 ]

@@ -21,6 +21,8 @@ def build_capability_prompt_summary(capabilities: list[dict[str, Any]]) -> str:
         ]
         missing_packages = [pkg for pkg in missing_packages if pkg]
         suffix = f" Missing package(s): {', '.join(missing_packages)}." if missing_packages else ""
+        if status == "candidate":
+            suffix += " Candidate only; not yet executable."
         hint_suffix = f" {hint}" if hint else ""
         pipeline_suffix = _format_ready_pipelines(item)
         lines.append(f"- {title}: {status}.{suffix}{hint_suffix}{pipeline_suffix}")

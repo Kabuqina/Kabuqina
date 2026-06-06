@@ -122,6 +122,8 @@ export function SetupOptionsTable({
 
   const hasChoiceUi = selectionMode === "single" || selectionMode === "multi";
   const showSkip = showSkipRow && hasChoiceUi;
+  const skipTitle = section === "gateway" ? t("setupOptions.skipTitle") : t("setupOptions.skipKeepTitle");
+  const skipBody = section === "gateway" ? t("setupOptions.skipBody") : t("setupOptions.skipKeepBody");
 
   return (
     <div className={cn("space-y-3", className)}>
@@ -146,9 +148,9 @@ export function SetupOptionsTable({
               }}
             />
             <span>
-              <span className="font-medium">{t("setupOptions.skipKeepTitle")}</span>
+              <span className="font-medium">{skipTitle}</span>
               <span className="hd-wizard-hint mt-1 block font-normal">
-                {t("setupOptions.skipKeepBody")}
+                {skipBody}
               </span>
             </span>
           </label>

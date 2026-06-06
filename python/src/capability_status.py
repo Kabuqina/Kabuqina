@@ -99,6 +99,10 @@ def _camel_shortcut(shortcut: dict[str, Any]) -> dict[str, Any]:
     return item
 
 
+def _is_candidate(definition: dict[str, Any]) -> bool:
+    return str(definition.get("lifecycle") or "").strip().lower() == "candidate"
+
+
 def _evaluate_pipeline(
     pipeline: dict[str, Any],
     packages_by_id: dict[str, dict[str, Any]],
@@ -108,9 +112,13 @@ def _evaluate_pipeline(
     required = _resolve_packages(_pipeline_package_ids(pipeline, "required_load_packages"), packages_by_id)
     optional = _resolve_packages(_pipeline_package_ids(pipeline, "optional_load_packages"), packages_by_id)
 
-    status, reason = _status_for_required_packages(required)
-    if status == "available":
-        status, reason = _status_for_required_toolsets(definition, enabled_toolsets)
+    if _is_candidate(definition):
+        status = "candidate"
+        reason = "Candidate capability; executable pipeline is not implemented yet"
+    else:
+        status, reason = _status_for_required_packages(required)
+        if status == "available":
+            status, reason = _status_for_required_toolsets(definition, enabled_toolsets)
 
     evaluated = deepcopy(pipeline)
     evaluated["ready"] = status == "available"
@@ -146,9 +154,13 @@ def build_capability_status(
         for pipeline in definition.get("pipelines") or []
     ]
 
-    status, reason = _status_for_required_packages(required)
-    if status == "available":
-        status, reason = _status_for_required_toolsets(definition, enabled_toolsets)
+    if _is_candidate(definition):
+        status = "candidate"
+        reason = "Candidate capability; executable pipeline is not implemented yet"
+    else:
+        status, reason = _status_for_required_packages(required)
+        if status == "available":
+            status, reason = _status_for_required_toolsets(definition, enabled_toolsets)
 
     return {
         "id": definition["id"],
@@ -158,6 +170,8 @@ def build_capability_status(
         "status": status,
         "statusReason": reason,
         "agentHint": definition["agent_hint"],
+        "family": str(definition.get("family") or ""),
+        "lifecycle": str(definition.get("lifecycle") or "available"),
         "stages": list(definition.get("stages") or []),
         "tools": list(definition.get("tools") or []),
         "requiredToolsets": list(definition.get("required_toolsets") or []),

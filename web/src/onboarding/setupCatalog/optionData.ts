@@ -204,25 +204,25 @@ export const CATALOG_TERMINAL: SetupCatalogOption[] = [
 export const CATALOG_GATEWAY: SetupCatalogOption[] = [
   {
     id: "feishu",
-    name: L("飞书 / Lark", "Feishu / Lark"),
+    name: L("飞书", "飞书"),
     defaultHint: L("扫码一键创建并绑定", "Scan to create & bind"),
     configUi: "feishu_route_c",
   },
   {
-    id: "weixin",
-    name: L("个人微信", "WeChat personal"),
-    defaultHint: L("本机路线 C：扫码登录", "Route C: QR login in this app"),
-    configUi: "weixin_route_c",
-  },
-  {
     id: "qq",
-    name: L("QQ Bot", "QQ Bot"),
+    name: L("QQ", "QQ"),
     defaultHint: L("扫码绑定机器人", "Scan to bind bot"),
     configUi: "qqbot_route_c",
   },
   {
+    id: "weixin",
+    name: L("微信", "微信"),
+    defaultHint: L("本机路线 C：扫码登录", "Route C: QR login in this app"),
+    configUi: "weixin_route_c",
+  },
+  {
     id: "wecom",
-    name: L("企业微信", "WeCom"),
+    name: L("企微", "企微"),
     defaultHint: L("扫码创建或手动填写", "Scan to create or enter manually"),
     configUi: "wecom_route_c",
   },

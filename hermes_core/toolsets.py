@@ -194,6 +194,12 @@ TOOLSETS = {
         "tools": ["document_read_precise", "pdf_read_precise", "material_index_build", "pptx_write"],
         "includes": []
     },
+
+    "math": {
+        "description": "Math expression engineering: formula cleanup, formula-to-code, and code-to-formula reports",
+        "tools": ["math_expression_cleanup", "math_formula_to_code", "code_to_math_formula"],
+        "includes": []
+    },
     
     "code_execution": {
         "description": "Run Python scripts that call tools programmatically (reduces LLM round trips)",

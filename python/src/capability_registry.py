@@ -9,6 +9,7 @@ from copy import deepcopy
 from typing import Any
 
 VALID_CAPABILITY_STATUSES = (
+    "candidate",
     "available",
     "missing_package",
     "downloading",
@@ -340,6 +341,145 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
                 "entry_pipeline": "student-ppt-from-documents",
                 "requires_input": ["document"],
                 "visible_when": "pipeline_ready_or_downloadable",
+            }
+        ],
+    },
+    {
+        "id": "math-expression-cleanup",
+        "title": "Math expression cleanup",
+        "description": "Normalize messy OCR, document, LaTeX, and code math expressions into clean LaTeX and Markdown.",
+        "category": "math",
+        "family": "math-expression-engineering",
+        "agent_hint": (
+            "Use for normalizing messy OCR, LaTeX, document math, or code-like math expressions. "
+            "This is cleanup/normalization, not document extraction or proof checking."
+        ),
+        "tools": ["math_expression_cleanup"],
+        "required_toolsets": ["math"],
+        "required_load_packages": [],
+        "optional_load_packages": [],
+        "roles": ["default", "advanced", "power"],
+        "risk": "low",
+        "source": "builtin",
+        "trust": "official",
+        "pipelines": [
+            {
+                "id": "math-expression-cleanup-v1",
+                "title": "Math expression cleanup V1",
+                "primary": True,
+                "stages": ["reader", "material_index", "writer"],
+                "inputs": ["ocr_formula", "latex", "document_math", "code_expression"],
+                "steps": [
+                    {
+                        "id": "cleanup-math-expression",
+                        "stage": "writer",
+                        "tool": "math_expression_cleanup",
+                        "outputs": ["clean_latex", "markdown", "variable_table", "warnings"],
+                    },
+                ],
+            }
+        ],
+        "shortcuts": [
+            {
+                "id": "cleanup-math-expression",
+                "surface": "context_menu",
+                "label": "Clean formula",
+                "entry_pipeline": "math-expression-cleanup-v1",
+                "requires_input": ["formula"],
+                "visible_when": "pipeline_ready",
+            }
+        ],
+    },
+    {
+        "id": "math-formula-to-code",
+        "title": "Formula to code",
+        "description": "Convert formulas, LaTeX, and document math into readable Python, NumPy, or C++17 code.",
+        "category": "math",
+        "family": "math-expression-engineering",
+        "agent_hint": (
+            "Use for converting a simple formula or LaTeX expression into Python, NumPy, or C++17 code. "
+            "V1 is deterministic and does not prove algebraic equivalence."
+        ),
+        "tools": ["math_formula_to_code"],
+        "required_toolsets": ["math"],
+        "required_load_packages": [],
+        "optional_load_packages": [],
+        "roles": ["default", "advanced", "power"],
+        "risk": "low",
+        "source": "builtin",
+        "trust": "official",
+        "pipelines": [
+            {
+                "id": "math-formula-to-code-v1",
+                "title": "Formula to code V1",
+                "primary": True,
+                "stages": ["reader", "material_index", "planner", "writer"],
+                "inputs": ["latex", "markdown_formula", "document_math", "extracted_formula"],
+                "writer_targets": ["python", "numpy", "cpp17"],
+                "steps": [
+                    {
+                        "id": "convert-formula-to-code",
+                        "stage": "writer",
+                        "tool": "math_formula_to_code",
+                        "outputs": ["code", "language", "variable_table", "assumptions", "example_inputs"],
+                    },
+                ],
+            }
+        ],
+        "shortcuts": [
+            {
+                "id": "formula-to-code",
+                "surface": "context_menu",
+                "label": "Formula to code",
+                "entry_pipeline": "math-formula-to-code-v1",
+                "requires_input": ["formula"],
+                "visible_when": "pipeline_ready",
+            }
+        ],
+    },
+    {
+        "id": "code-to-math-formula",
+        "title": "Code to math formula",
+        "description": "Convert Python, NumPy, or C++17 code into formulas, LaTeX, Markdown, HTML, and PDF reports.",
+        "category": "math",
+        "family": "math-expression-engineering",
+        "agent_hint": (
+            "Use for converting simple Python, NumPy, or C++17 expressions into LaTeX, Markdown, "
+            "and an HTML report. PDF is exported from the same HTML report when a backend is available."
+        ),
+        "tools": ["code_to_math_formula"],
+        "required_toolsets": ["math"],
+        "required_load_packages": [],
+        "optional_load_packages": [],
+        "roles": ["default", "advanced", "power"],
+        "risk": "low",
+        "source": "builtin",
+        "trust": "official",
+        "pipelines": [
+            {
+                "id": "code-to-math-formula-v1",
+                "title": "Code to math formula V1",
+                "primary": True,
+                "stages": ["reader", "material_index", "planner", "writer"],
+                "inputs": ["python", "numpy", "cpp17"],
+                "steps": [
+                    {
+                        "id": "convert-code-to-math-report",
+                        "stage": "writer",
+                        "tool": "code_to_math_formula",
+                        "outputs": ["formulas", "latex", "markdown", "html_path", "pdf_path", "variable_table"],
+                    },
+                ],
+            }
+        ],
+        "shortcuts": [
+            {
+                "id": "code-to-formula-report",
+                "surface": "context_menu",
+                "label": "Code to formula",
+                "entry_pipeline": "code-to-math-formula-v1",
+                "requires_input": ["code"],
+                "visible_when": "pipeline_ready",
             }
         ],
     },

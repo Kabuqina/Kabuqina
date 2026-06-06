@@ -213,6 +213,8 @@ export const MESSAGES = {
       colConfigure: "填写",
       defaultBadge: "默认",
       recommendedBadge: "推荐",
+      skipTitle: "跳过",
+      skipBody: "现在不设置消息平台。",
       skipKeepTitle: "先用推荐设置",
       skipKeepBody: "以后想改，我再陪你调。",
       mustChoose: "勾选「跳过」，或在表格里选一项。",
@@ -781,6 +783,7 @@ export const MESSAGES = {
       noShortcutCandidates: "暂无快捷入口候选。",
       pipelineReady: "可执行",
       productStatus: {
+        candidate: "候选",
         available: "可用",
         missing_package: "缺少加载包",
         downloading: "下载中",
@@ -1059,6 +1062,8 @@ export const MESSAGES = {
       colConfigure: "Fill in",
       defaultBadge: "default",
       recommendedBadge: "Recommended",
+      skipTitle: "Skip",
+      skipBody: "Do not set up messaging now.",
       skipKeepTitle: "Skip this step — keep defaults",
       skipKeepBody: "Leave this page as-is. Uncheck to pick rows in the table below.",
       mustChoose: "Turn on “Skip,” or pick at least one row in the table.",
@@ -1631,6 +1636,7 @@ export const MESSAGES = {
       noShortcutCandidates: "No shortcut candidates.",
       pipelineReady: "ready",
       productStatus: {
+        candidate: "candidate",
         available: "available",
         missing_package: "missing package",
         downloading: "downloading",

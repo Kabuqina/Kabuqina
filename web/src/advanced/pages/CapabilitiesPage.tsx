@@ -17,6 +17,7 @@ import { loadPackageError } from "../settings/loadPackageUi";
 type Tab = "product" | "skills" | "tools" | "plugins";
 type Role = "default" | "advanced" | "power";
 type ProductStatus =
+  | "candidate"
   | "available"
   | "missing_package"
   | "downloading"
@@ -1100,7 +1101,7 @@ function productStatusLabel(status: ProductStatus, t: (p: string) => string): st
 function productStatusTone(status: ProductStatus): "green" | "amber" | "red" | "blue" | "zinc" {
   const key = normTokenKey(status);
   if (key === "available") return "green";
-  if (key === "downloading") return "blue";
+  if (key === "candidate" || key === "downloading") return "blue";
   if (key === "package_error" || key === "error") return "red";
   if (
     key === "missing_package" ||
