@@ -6,8 +6,8 @@ import type { ProviderId } from "./providers";
 
 export type Personality = "helpful" | "friendly" | "concise";
 
-/** Mirrors `hermes setup` first-time: quick vs full orchestration (shell UI will grow into each section). */
-export type SetupMode = "quick" | "full";
+/** First-time setup now follows the Quick Start path. */
+export type SetupMode = "quick";
 
 /**
  * Wizard-only optional config: `section` (e.g. `gateway`, `tts`) → option id → field id → value.
@@ -27,7 +27,7 @@ export type SectionSelection =
 export type WizardSectionSelections = Record<string, SectionSelection | undefined>;
 
 export interface OnboardingDraft {
-  /** Chosen on `/onboarding/mode` — drives which steps and defaults to apply. */
+  /** Quick Start marker used to resume an in-progress onboarding draft. */
   setupMode: SetupMode | null;
   /**
    * When true (typical for Quick), we copy Hermes-style behavior: apply recommended defaults
@@ -66,10 +66,11 @@ let state: OnboardingDraft = (() => {
     const raw = sessionStorage.getItem(KEY);
     if (raw) {
       const p = JSON.parse(raw) as Partial<OnboardingDraft>;
+      const rawSetupMode = (p as { setupMode?: unknown }).setupMode;
       return {
         ...initial,
         ...p,
-        setupMode: p.setupMode ?? null,
+        setupMode: rawSetupMode === "quick" || rawSetupMode === "full" ? "quick" : null,
         useRecommendedDefaults: p.useRecommendedDefaults ?? true,
         wizardConfig: p.wizardConfig && typeof p.wizardConfig === "object" ? p.wizardConfig : {},
         wizardSelection: p.wizardSelection && typeof p.wizardSelection === "object" ? p.wizardSelection : {},

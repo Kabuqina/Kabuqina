@@ -30,15 +30,15 @@ export function PickBrain() {
   });
 
   useEffect(() => {
-    if (!draft.setupMode) nav("/onboarding/mode", { replace: true });
-  }, [draft.setupMode, nav]);
+    if (draft.setupMode !== "quick" || !draft.useRecommendedDefaults) {
+      updateDraft({ setupMode: "quick", useRecommendedDefaults: true });
+    }
+  }, [draft.setupMode, draft.useRecommendedDefaults]);
 
   useEffect(() => {
     if (draft.providerId === "deepseek") setChoice("deepseek");
     else if (draft.providerId === "custom") setChoice("custom");
   }, [draft.providerId]);
-
-  if (!draft.setupMode) return null;
 
   function applyAndGo(providerId: ProviderId, customBaseUrl: string) {
     updateDraft({ providerId, customBaseUrl, customModel: "" });
@@ -86,7 +86,7 @@ export function PickBrain() {
 
       <WizardFooter>
         <WizardFooterActions className="w-full sm:justify-between">
-          <WizardSecondaryButton onClick={() => nav(getBackPath("brain", draft.setupMode!)!)}>
+          <WizardSecondaryButton onClick={() => nav(getBackPath("brain", draft.setupMode)!)}>
             {t("onboarding.back")}
           </WizardSecondaryButton>
           <WizardPrimaryButton disabled={choice == null} onClick={onNext}>

@@ -64,3 +64,14 @@ assert.match(shellFrameSource, /onboarding\.progress/);
 assert.match(shellFrameSource, /hd-wizard-progress/);
 assert.match(indexCssSource, /\.hd-wizard-title/);
 assert.match(indexCssSource, /\.hd-wizard-lead/);
+
+const wizardSource = fs.readFileSync(new URL("./Wizard.tsx", import.meta.url), "utf8");
+const welcomeSource = fs.readFileSync(new URL("./steps/Welcome.tsx", import.meta.url), "utf8");
+const flowConfigSource = fs.readFileSync(new URL("./flowConfig.ts", import.meta.url), "utf8");
+const stringsSource = fs.readFileSync(new URL("../locales/strings.ts", import.meta.url), "utf8");
+
+assert.doesNotMatch(wizardSource, /SetupMode|path="mode"/);
+assert.match(welcomeSource, /updateDraft\(\{\s*setupMode:\s*"quick"[\s\S]*useRecommendedDefaults:\s*true/);
+assert.match(welcomeSource, /nav\("\/onboarding\/brain"\)/);
+assert.doesNotMatch(flowConfigSource, /FULL_STEPS|setupMode === "full"|stepToPath\("tts"\)/);
+assert.doesNotMatch(stringsSource, /setupMode:|Full setup|设置方式|仔细一点/);

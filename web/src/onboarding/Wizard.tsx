@@ -3,7 +3,6 @@
 
 import { Routes, Route, Navigate } from "react-router-dom";
 import { CHAT_FROM_ONBOARDING_STATE } from "../lib/chatLocationState";
-import { SetupMode } from "./steps/SetupMode";
 import { Welcome } from "./steps/Welcome";
 import { PickBrain } from "./steps/PickBrain";
 import { GetAccessPass } from "./steps/GetAccessPass";
@@ -11,14 +10,12 @@ import { SectionPlaceholderStep } from "./steps/SectionPlaceholderStep";
 import { ShellFrame } from "./ShellFrame";
 
 /**
- * Shell setup wizard. Step order and quick vs full branch match
- * `hermes/hermes_cli/setup.py` (preamble + tts, terminal, gateway, tools, agent); forms can stay minimal until wired.
+ * Shell setup wizard. First-run setup now follows the Quick Start path directly.
  */
 export function Wizard() {
   return (
     <ShellFrame>
       <Routes>
-        <Route path="mode" element={<SetupMode />} />
         <Route path="welcome" element={<Welcome />} />
         <Route path="brain" element={<PickBrain />} />
         <Route path="pass" element={<GetAccessPass />} />

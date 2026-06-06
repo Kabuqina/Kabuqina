@@ -3,11 +3,17 @@
 
 import { useNavigate } from "react-router-dom";
 import { useI18n } from "../../lib/i18n";
+import { updateDraft } from "../../lib/store";
 import { WizardFooter, WizardPrimaryButton } from "../wizard-ui";
 
 export function Welcome() {
   const { t } = useI18n();
   const nav = useNavigate();
+
+  function startQuickSetup() {
+    updateDraft({ setupMode: "quick", useRecommendedDefaults: true });
+    nav("/onboarding/brain");
+  }
 
   return (
     <div className="space-y-10">
@@ -33,7 +39,7 @@ export function Welcome() {
 
       <WizardFooter>
         <div className="flex justify-end">
-          <WizardPrimaryButton onClick={() => nav("/onboarding/mode")}>
+          <WizardPrimaryButton onClick={startQuickSetup}>
             {t("welcome.cta")}
           </WizardPrimaryButton>
         </div>

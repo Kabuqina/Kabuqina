@@ -160,12 +160,14 @@ export function GetAccessPass() {
   }, [key, baseUrl, draft.providerId, effectiveProvider, preview?.hasSecret, t]);
 
   useEffect(() => {
-    if (!draft.setupMode) nav("/onboarding/mode", { replace: true });
-  }, [draft.setupMode, nav]);
+    if (draft.setupMode !== "quick" || !draft.useRecommendedDefaults) {
+      updateDraft({ setupMode: "quick", useRecommendedDefaults: true });
+    }
+  }, [draft.setupMode, draft.useRecommendedDefaults]);
 
   useEffect(() => {
-    if (draft.setupMode && !draft.providerId) nav("/onboarding/brain", { replace: true });
-  }, [draft.providerId, draft.setupMode, nav]);
+    if (!draft.providerId) nav("/onboarding/brain", { replace: true });
+  }, [draft.providerId, nav]);
 
   // Pre-fill from saved preview
   useEffect(() => {
@@ -174,7 +176,7 @@ export function GetAccessPass() {
     setModelId((m) => (m.trim() ? m : preview.model?.trim() ?? ""));
   }, [preview, isCustom]);
 
-  if (!draft.setupMode || !provider) return null;
+  if (!provider) return null;
 
   async function openSignup() {
     if (!effectiveProvider?.signupUrl) return;
@@ -182,7 +184,7 @@ export function GetAccessPass() {
   }
 
   async function onSave() {
-    const mode = draft.setupMode; if (!mode || !provider) return;
+    const mode = "quick"; if (!provider) return;
     setBusy(true); setError(null);
     try {
       if (preview?.hasSecret && !key.trim()) {
@@ -333,7 +335,7 @@ export function GetAccessPass() {
 
     <WizardFooter>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <WizardPrimaryButton onClick={() => nav(getBackPath("pass", draft.setupMode!)!)}>
+        <WizardPrimaryButton onClick={() => nav(getBackPath("pass", draft.setupMode)!)}>
           {t("onboarding.back")}
         </WizardPrimaryButton>
         <WizardFooterActions>

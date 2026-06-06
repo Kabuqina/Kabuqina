@@ -1,7 +1,7 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCallback, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useI18n } from "../../lib/i18n";
 import { getDraftSnapshot, updateDraft, useDraft } from "../../lib/store";
@@ -9,7 +9,7 @@ import { CHAT_FROM_ONBOARDING_STATE } from "../../lib/chatLocationState";
 import { cmdSaveVoiceSetup, type VoiceSetupSection } from "../../lib/voice-setup-api";
 import { CATALOG_BY_SECTION } from "../setupCatalog/optionData";
 import { SetupOptionsTable } from "../SetupOptionsTable";
-import { getBackPath, getNextPath, getRedirectForInvalidUrlStep, isLastStep, stepToPath } from "../flowConfig";
+import { getBackPath, getNextPath, getRedirectForInvalidUrlStep, isLastStep } from "../flowConfig";
 import type { PostPassSectionId } from "../setupCatalog/optionTypes";
 import {
   getInitialSectionSelection,
@@ -87,6 +87,12 @@ export function SectionPlaceholderStep({ id }: { id: PostPassSectionId }) {
   const [saveErr, setSaveErr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    if (draft.setupMode !== "quick" || !draft.useRecommendedDefaults) {
+      updateDraft({ setupMode: "quick", useRecommendedDefaults: true });
+    }
+  }, [draft.setupMode, draft.useRecommendedDefaults]);
+
   const persistVoiceSection = useCallback(async (): Promise<boolean> => {
     if (!isVoiceSection) return true;
     const draftNow = getDraftSnapshot();
@@ -115,9 +121,6 @@ export function SectionPlaceholderStep({ id }: { id: PostPassSectionId }) {
     }
   }, [id, isVoiceSection]);
 
-  if (!mode) {
-    return <Navigate to={stepToPath("mode")} replace />;
-  }
   if (redirect) {
     return <Navigate to={redirect} replace />;
   }

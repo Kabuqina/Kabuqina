@@ -41,7 +41,7 @@ export function Splash() {
         nav("/onboarding/welcome", { replace: true });
       } catch {
         if (!cancelled) {
-          nav("/onboarding/mode", { replace: true });
+          nav("/onboarding/welcome", { replace: true });
         }
       }
     })();
