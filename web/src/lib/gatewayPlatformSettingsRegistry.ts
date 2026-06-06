@@ -38,7 +38,6 @@ export const HOST_ENV_PREFIXES: Record<string, string[]> = {
   weixin: ["WEIXIN_"],
   wecom: ["WECOM_"],
   dingtalk: ["DINGTALK_"],
-  telegram: ["TELEGRAM_"],
   email: ["EMAIL_", "SMS_"],
 };
 
@@ -346,54 +345,6 @@ export const GATEWAY_PLATFORM_REGISTRY: GatewayPlatformRegistryEntry[] = [
             envKey: "DINGTALK_HOME_CHANNEL",
             labelKey: `${GW}.dingHome`,
             type: "string",
-          },
-        ],
-      },
-    ],
-  },
-  {
-    platform: "telegram",
-    sections: [
-      {
-        id: "dm",
-        titleKey: `${GW}.sectionDm`,
-        fields: [
-          {
-            envKey: "GATEWAY_ALLOW_ALL_USERS",
-            labelKey: `${GW}.tgGatewayAllowAll`,
-            descriptionKey: `${GW}.tgGatewayAllowAllDesc`,
-            type: "bool",
-            advanced: true,
-          },
-          {
-            envKey: "TELEGRAM_ALLOWED_USERS",
-            labelKey: `${GW}.tgAllowedUsers`,
-            type: "string",
-          },
-        ],
-      },
-      {
-        id: "home",
-        titleKey: `${GW}.sectionHome`,
-        fields: [
-          {
-            envKey: "TELEGRAM_HOME_CHANNEL",
-            labelKey: `${GW}.tgHome`,
-            type: "string",
-          },
-        ],
-      },
-      {
-        id: "advanced",
-        titleKey: `${GW}.sectionAdvanced`,
-        fields: [
-          {
-            envKey: "TELEGRAM_REPLY_TO_MODE",
-            labelKey: `${GW}.tgReplyMode`,
-            descriptionKey: `${GW}.tgReplyModeDesc`,
-            type: "enum",
-            enumValues: ["off", "first", "all"],
-            recommended: "first",
           },
         ],
       },

@@ -32,7 +32,6 @@ mod gateway_env_patch;
 mod gateway_supervisor;
 mod pairing;
 mod paths;
-mod proxy;
 mod python_supervisor;
 mod qq_env;
 mod qqbot_qr;
@@ -216,8 +215,6 @@ pub fn run() {
             wecom_qr::cmd_wecom_qr_start,
             wecom_qr::cmd_wecom_qr_status,
             wecom_qr::cmd_wecom_qr_cancel,
-            proxy::cmd_proxy_status,
-            proxy::cmd_proxy_save,
             weixin_qr::cmd_weixin_qr_cancel,
             weixin_qr::cmd_restart_embedded_hermes,
             qqbot_qr::cmd_qqbot_qr_start,
@@ -805,7 +802,7 @@ async fn cmd_get_hermes_port(app: tauri::AppHandle) -> Result<Option<u16>, Strin
     Ok(port)
 }
 
-/// Why embedded Python did not become ready (proxy, missing runtime, overlay crash, …).
+/// Why embedded Python did not become ready (missing runtime, overlay crash, …).
 #[tauri::command]
 async fn cmd_get_hermes_bootstrap_error(app: tauri::AppHandle) -> Result<Option<String>, String> {
     let state: tauri::State<AppState> = app.state();

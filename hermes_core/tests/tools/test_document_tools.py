@@ -648,6 +648,28 @@ def test_document_read_precise_include_content_false_returns_cache_handle(tmp_pa
     assert Path(result["cache_path"]).exists()
 
 
+def test_document_read_precise_large_output_surfaces_cache_hint_before_content(tmp_path, monkeypatch):
+    import tools.document_tools as document_tools
+
+    monkeypatch.setenv("HERMESDESK_DATA_DIR", str(tmp_path / "data"))
+    source = tmp_path / "formula.pdf"
+    source.write_bytes(b"%PDF-1.4\n")
+    payload = {
+        "ok": True,
+        "engine": "docling",
+        "mode": "math",
+        "content": "x" * 120_000,
+    }
+
+    result = document_tools._finalize_read_payload(payload, source, include_content=True)
+    serialized = document_tools._json(result)
+
+    assert result["content_hint"]
+    assert "read_file" in result["content_hint"]
+    assert "vision_analyze" in result["content_hint"]
+    assert serialized.index('"content_hint"') < serialized.index('"content"')
+
+
 def test_pdf_read_precise_uses_common_read_pipeline_for_pdf(tmp_path, monkeypatch):
     import tools.document_tools as document_tools
 

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { Check, Copy, Volume2 } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Copy, Volume2 } from "lucide-react";
 import { useI18n } from "../lib/i18n";
 import { cn } from "../lib/cn";
 import { AssistantAvatar } from "../components/AssistantAvatar";
@@ -351,8 +351,15 @@ function UserImageAttachments({ attachments = [] }: { attachments?: DeskAttachme
 }
 
 export function ChatMessage({ role, text, attachments, model, timestamp, streaming = false }: ChatMessageProps) {
-  const { locale } = useI18n();
+  const { t, locale } = useI18n();
+  const [collapsed, setCollapsed] = useState(false);
   const isUser = role === "user";
+
+  useEffect(() => {
+    if (!streaming) {
+      setCollapsed(false);
+    }
+  }, [streaming]);
   const hasTime = timestamp != null && Number.isFinite(timestamp);
   const timeStr = hasTime ? formatChatTime(timestamp, locale) : null;
 
@@ -384,9 +391,34 @@ export function ChatMessage({ role, text, attachments, model, timestamp, streami
         ) : (
           <>
             {streaming ? (
-              <p className="whitespace-pre-wrap break-words text-sm leading-[1.6] text-zinc-800 [overflow-wrap:anywhere] dark:text-zinc-200">
-                {text}
-              </p>
+              <div className="relative min-w-0">
+                {collapsed ? (
+                  <button
+                    type="button"
+                    onClick={() => setCollapsed(false)}
+                    className="flex w-full items-center gap-2 rounded-lg py-1 text-sm text-zinc-500 transition hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-800/60"
+                  >
+                    <span className="text-base">✨</span>
+                    <span className="truncate">{t("chat.streamingWorking")}…</span>
+                    <ChevronDown className="ml-auto h-4 w-4 shrink-0" strokeWidth={2.25} />
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setCollapsed(true)}
+                      className="absolute -right-1.5 -top-1.5 z-10 inline-flex items-center rounded-md p-1 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-700 dark:hover:text-zinc-300"
+                      aria-label={t("chat.collapse")}
+                      title={t("chat.collapse")}
+                    >
+                      <ChevronUp className="h-3.5 w-3.5" strokeWidth={2.5} />
+                    </button>
+                    <p className="whitespace-pre-wrap break-words pr-5 text-sm leading-[1.6] text-zinc-800 [overflow-wrap:anywhere] dark:text-zinc-200">
+                      {text}
+                    </p>
+                  </>
+                )}
+              </div>
             ) : (
               <Suspense fallback={<div className="text-sm text-zinc-400 italic">...</div>}>
                 <ChatMarkdown text={text} />

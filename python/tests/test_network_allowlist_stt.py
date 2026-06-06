@@ -4,8 +4,8 @@
 """Integration test: network allowlist overlay + httpx permits STT model hosts.
 
 Verifies that after ``overlays.network_allowlist.install()`` patches httpx,
-requests to ``huggingface.co`` and ``hf-mirror.com`` are NOT blocked — which
-is required for the lazy-download of the whisper.cpp GGML model.
+requests to Kabuqina's package host, ``huggingface.co``, and ``hf-mirror.com``
+are NOT blocked — which is required for lazy model downloads.
 """
 
 from __future__ import annotations
@@ -42,13 +42,17 @@ class TestNetworkAllowlistOverlayWithHttpx(unittest.TestCase):
         cls._policy = network_allowlist._policy
 
     def test_policy_includes_stt_hosts(self) -> None:
-        """DEFAULT_ALLOW must include both STT model hosts."""
+        """DEFAULT_ALLOW must include official and fallback model hosts."""
         hosts = self._policy.allowed_hosts
+        self.assertIn("kabuqina.com", hosts, "kabuqina.com missing from allowlist")
         self.assertIn("huggingface.co", hosts, "huggingface.co missing from allowlist")
         self.assertIn("hf-mirror.com", hosts, "hf-mirror.com missing from allowlist")
 
     def test_check_url_permits_huggingface(self) -> None:
         """NetworkPolicy.check_url must NOT raise for STT URLs."""
+        self._policy.check_url(
+            "https://kabuqina.com/packages/stt/ggml-base-q5_1.bin"
+        )
         self._policy.check_url(
             "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin"
         )

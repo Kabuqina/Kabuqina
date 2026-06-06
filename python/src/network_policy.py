@@ -26,6 +26,7 @@ DEFAULT_ALLOW: set[str] = {
     "api.github.com",
     "huggingface.co",
     "hf-mirror.com",
+    "kabuqina.com",
 }
 
 

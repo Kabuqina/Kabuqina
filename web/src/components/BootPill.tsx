@@ -12,7 +12,7 @@ export function BootPill() {
       <img
         src="/kabuqina_boot.svg"
         alt=""
-        className="w-56 h-auto select-none"
+        className="w-72 h-auto select-none"
         draggable={false}
       />
       <p className="kq-boot-pill-label mt-6 text-sm font-medium tracking-wide text-[var(--kq-color-muted)]">

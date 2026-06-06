@@ -32,6 +32,7 @@ import { useHermesReadiness } from "./hooks/useHermesReadiness";
 import { useSessions } from "./hooks/useSessions";
 import { useChatState } from "./hooks/useChatState";
 import { useSendMessage } from "./hooks/useSendMessage";
+import { useLoadPackageDownloads } from "./hooks/useLoadPackageDownloads";
 import { useWorkbenchLayout } from "./hooks/useWorkbenchLayout";
 import { useInFlightTurns } from "./inFlightTurns";
 import { type CaptureDonePayload } from "../capture/capture-api";
@@ -217,6 +218,7 @@ export function ChatPage() {
     locale,
     inFlightTurns,
   });
+  const loadPackageDownloads = useLoadPackageDownloads(hermesReady && !hermesWarming);
   const workspace = useMemo(
     () => buildWorkspaceState(messages, pendingAttachments, progress),
     [messages, pendingAttachments, progress],
@@ -503,6 +505,7 @@ export function ChatPage() {
           sending={sending}
           sendErr={sendErr}
           progress={progress}
+          loadPackageDownloads={loadPackageDownloads}
           pendingInteraction={pendingInteraction}
           onRespondInteraction={onRespondInteraction}
           onPickSuggestion={setInput}

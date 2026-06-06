@@ -121,13 +121,14 @@ pub fn is_show_recipe_market(app: &AppHandle) -> bool {
     )
 }
 
-/// When true (default), **first app launch** starts ``hermes gateway run`` if ``hermes-home/.env`` looks configured.
+/// When true, **first app launch** starts ``hermes gateway run`` if ``hermes-home/.env`` looks configured.
 /// Restarting embedded Hermes (e.g. after Weixin login) always starts the gateway when configured, regardless of this flag.
 pub fn is_auto_start_gateway(app: &AppHandle) -> bool {
-    match read_setting(app, SETTING_AUTO_GATEWAY).as_deref() {
-        Some("0" | "false" | "no") => false,
-        _ => true,
-    }
+    parse_auto_start_gateway_setting(read_setting(app, SETTING_AUTO_GATEWAY).as_deref())
+}
+
+fn parse_auto_start_gateway_setting(value: Option<&str>) -> bool {
+    matches!(value, Some("1" | "true" | "yes"))
 }
 
 pub fn set_auto_start_gateway_enabled(app: &AppHandle, enabled: bool) -> Result<(), String> {
@@ -342,7 +343,7 @@ pub fn cmd_save_shared_prefs(app: AppHandle, content: String) -> Result<(), Stri
 
 #[cfg(test)]
 mod tests {
-    use super::cmd_write_text_file;
+    use super::{cmd_write_text_file, parse_auto_start_gateway_setting};
 
     fn unique_temp_path(name: &str) -> std::path::PathBuf {
         std::env::temp_dir().join(format!("kabuqina-path-test-{}-{name}", std::process::id()))
@@ -368,5 +369,10 @@ mod tests {
 
         assert!(result.is_err());
         assert!(!path.exists());
+    }
+
+    #[test]
+    fn auto_start_gateway_defaults_to_manual_start() {
+        assert!(!parse_auto_start_gateway_setting(None));
     }
 }

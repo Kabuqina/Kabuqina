@@ -7,6 +7,8 @@ import base64, io, json, logging, os, re, threading, time, uuid, zipfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 from xml.etree import ElementTree as ET
+from capability_prompt import build_capability_prompt_summary
+from desk_server.capabilities import get_desk_catalog_payload_cached
 from desk_server.interactions import interaction_manager
 log = logging.getLogger(__name__)
 _desk_active_agents: Dict[str, Any] = {}
@@ -495,6 +497,25 @@ def _desk_slash_response(message: str, session_id: str) -> Optional[Dict[str, An
     }
 
 
+def current_capability_prompt_summary() -> str:
+    try:
+        payload = get_desk_catalog_payload_cached()
+    except Exception as exc:
+        log.warning("desk chat: capability summary temporarily unavailable: %s", exc)
+        return "Current Kabuqina product capabilities:\n- Capability status temporarily unavailable."
+    return build_capability_prompt_summary(list(payload.get("capabilities") or []))
+
+
+def _desk_ephemeral_system_prompt(agent_section: Dict[str, Any]) -> Optional[str]:
+    configured_prompt = (
+        os.environ.get("HERMES_EPHEMERAL_SYSTEM_PROMPT")
+        or str((agent_section or {}).get("system_prompt") or "")
+    ).strip()
+    capability_prompt = current_capability_prompt_summary().strip()
+    combined = "\n\n".join(part for part in (configured_prompt, capability_prompt) if part)
+    return combined or None
+
+
 def _desk_chat_build_agent(session_id: str, db: Any) -> Any:
     """Construct AIAgent using the same config + credentials as the CLI."""
     from run_agent import AIAgent
@@ -558,6 +579,7 @@ def _desk_chat_build_agent(session_id: str, db: Any) -> Any:
         "command": runtime.get("command"),
         "args": list(runtime.get("args") or []),
         "credential_pool": runtime.get("credential_pool"),
+        "ephemeral_system_prompt": _desk_ephemeral_system_prompt(agent_section),
     }
     if isinstance(model_cfg, dict):
         if model_cfg.get("reasoning_config") is not None:

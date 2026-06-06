@@ -15,6 +15,7 @@
     "test:chat-display": "node src/chat/chatDisplay.test.mjs",
     "test:ui-prefs": "node src/lib/ui-prefs.test.mjs",
     "test:gateway-ux": "node src/advanced/gatewayUx.test.mjs",
+    "test:capabilities-page": "node src/advanced/capabilitiesPage.test.mjs",
     "test:settings-load-packages": "node src/advanced/settingsLoadPackages.test.mjs",
     "test:onboarding-providers": "node src/onboarding/providerUx.test.mjs",
     "test:companion-ux": "node src/companion/companionUx.test.mjs",

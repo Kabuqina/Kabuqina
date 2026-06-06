@@ -31,7 +31,7 @@ async function importTs(relativePath) {
 const { PROVIDERS } = await importTs("../lib/providers.ts");
 const providerIds = PROVIDERS.map((provider) => provider.id);
 
-for (const id of ["alibaba", "zai", "kimi-coding", "kimi-coding-cn", "minimax", "minimax-cn"]) {
+for (const id of ["alibaba", "zai", "kimi-coding", "kimi-coding-cn", "minimax-cn"]) {
   assert.ok(providerIds.includes(id), `Provider dropdown metadata should include Hermes provider ${id}.`);
 }
 

@@ -17,11 +17,6 @@ const F = (
 
 export const CATALOG_TTS: SetupCatalogOption[] = [
   {
-    id: "nous_openai_tts",
-    name: L("Nous 订阅：托管 OpenAI TTS", "Nous subscription: managed OpenAI TTS"),
-    defaultHint: L("与订阅联动；可空置", "Tied to subscription; can leave empty"),
-  },
-  {
     id: "edge",
     name: L("Edge TTS", "Edge TTS"),
     defaultHint: L("default：无额外 key", "Default: no extra key"),
@@ -36,19 +31,6 @@ export const CATALOG_TTS: SetupCatalogOption[] = [
         "ELEVENLABS_API_KEY",
         L("ELEVENLABS_API_KEY", "ELEVENLABS_API_KEY"),
         L("在厂商控制台创建后粘贴", "From ElevenLabs console"),
-        "password"
-      ),
-    ],
-  },
-  {
-    id: "openai_tts",
-    name: L("OpenAI TTS", "OpenAI TTS"),
-    defaultHint: L("VOICE_TOOLS_OPENAI_KEY 或 OPENAI_API_KEY", "VOICE_TOOLS_OPENAI_KEY or OPENAI_API_KEY"),
-    configFields: [
-      F(
-        "VOICE_TOOLS_OPENAI_KEY",
-        L("VOICE_TOOLS_OPENAI_KEY（TTS 专用，可空则用 OPENAI_API_KEY）", "VOICE_TOOLS_OPENAI_KEY (optional if OPENAI_API_KEY set)"),
-        L("选填", "optional"),
         "password"
       ),
     ],
@@ -70,12 +52,6 @@ export const CATALOG_TTS: SetupCatalogOption[] = [
     name: L("Mistral Voxtral TTS", "Mistral Voxtral TTS"),
     defaultHint: L("MISTRAL_API_KEY", "MISTRAL_API_KEY"),
     configFields: [F("MISTRAL_API_KEY", L("MISTRAL_API_KEY", "MISTRAL_API_KEY"), L("选填", "optional"), "password")],
-  },
-  {
-    id: "gemini_tts",
-    name: L("Google Gemini TTS", "Google Gemini TTS"),
-    defaultHint: L("GEMINI_API_KEY / GOOGLE_API_KEY", "GEMINI_API_KEY or GOOGLE_API_KEY"),
-    configFields: [F("GEMINI_API_KEY", L("GEMINI_API_KEY", "GEMINI_API_KEY"), L("AI Studio 等", "e.g. AI Studio"), "password")],
   },
   {
     id: "neutts",
@@ -111,25 +87,6 @@ export const CATALOG_STT: SetupCatalogOption[] = [
         "GROQ_API_KEY",
         L("GROQ_API_KEY", "GROQ_API_KEY"),
         L("https://console.groq.com 免费创建", "Create at https://console.groq.com"),
-        "password"
-      ),
-    ],
-  },
-  {
-    id: "openai",
-    name: L("OpenAI Whisper", "OpenAI Whisper"),
-    defaultHint: L("VOICE_TOOLS_OPENAI_KEY 或 OPENAI_API_KEY", "VOICE_TOOLS_OPENAI_KEY or OPENAI_API_KEY"),
-    configFields: [
-      F(
-        "VOICE_TOOLS_OPENAI_KEY",
-        L("VOICE_TOOLS_OPENAI_KEY（STT 专用，留空则用 OPENAI_API_KEY）", "VOICE_TOOLS_OPENAI_KEY (optional if OPENAI_API_KEY set)"),
-        L("选填", "optional"),
-        "password"
-      ),
-      F(
-        "OPENAI_API_KEY",
-        L("OPENAI_API_KEY（共享聊天/TTS/STT 时填这个）", "OPENAI_API_KEY (shared with chat/TTS)"),
-        L("选填", "optional"),
         "password"
       ),
     ],
@@ -245,15 +202,6 @@ export const CATALOG_TERMINAL: SetupCatalogOption[] = [
 ];
 
 export const CATALOG_GATEWAY: SetupCatalogOption[] = [
-  {
-    id: "tg",
-    name: L("Telegram", "Telegram"),
-    defaultHint: L("主 Token + 可选 home 频道", "bot token + optional home channel"),
-    configFields: [
-      F("TELEGRAM_BOT_TOKEN", L("TELEGRAM_BOT_TOKEN", "TELEGRAM_BOT_TOKEN"), L("@BotFather", "@BotFather"), "password"),
-      F("TELEGRAM_HOME_CHANNEL", L("TELEGRAM_HOME_CHANNEL（可空）", "TELEGRAM_HOME_CHANNEL (optional)"), L("频道 id", "channel id"), "text"),
-    ],
-  },
   {
     id: "feishu",
     name: L("飞书 / Lark", "Feishu / Lark"),
@@ -374,7 +322,7 @@ export const CATALOG_API_KEY: SetupCatalogOption[] = [
   },
   {
     id: "other_sections",
-    name: L("Telegram / 其它 TTS 等", "Telegram, other TTS, …"),
+    name: L("其它 TTS 等", "Other TTS, …"),
     defaultHint: L("在对应向导页的「配置」里填（可全空）", "Use per-section “Configure” tables (all optional)"),
   },
 ];

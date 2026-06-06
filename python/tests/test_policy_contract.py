@@ -61,7 +61,7 @@ class TestPathPolicy(unittest.TestCase):
 
     def test_gateway_child_cannot_write_host_prefs(self):
         """HERMESDESK_GATEWAY_PLATFORM set → write to _host_prefs.md blocked."""
-        with patch.dict(os.environ, {"HERMESDESK_GATEWAY_PLATFORM": "telegram"}, clear=True):
+        with patch.dict(os.environ, {"HERMESDESK_GATEWAY_PLATFORM": "weixin"}, clear=True):
             # Reset class-level cache
             PathPolicy._is_gateway_child = None
             self.addCleanup(lambda: setattr(PathPolicy, "_is_gateway_child", None))
@@ -87,7 +87,7 @@ class TestPathPolicy(unittest.TestCase):
 
     def test_gateway_child_can_read_host_prefs(self):
         """Reading _host_prefs.md is NOT blocked (only writes are)."""
-        with patch.dict(os.environ, {"HERMESDESK_GATEWAY_PLATFORM": "telegram"}, clear=True):
+        with patch.dict(os.environ, {"HERMESDESK_GATEWAY_PLATFORM": "weixin"}, clear=True):
             PathPolicy._is_gateway_child = None
             self.addCleanup(lambda: setattr(PathPolicy, "_is_gateway_child", None))
             result = self.policy.enforce(self.root / _HOST_PREFS_FILENAME, write=False)
@@ -139,6 +139,7 @@ class TestNetworkPolicy(unittest.TestCase):
     def test_allows_stt_model_hosts(self):
         """STT model download URLs must be reachable."""
         policy = NetworkPolicy()
+        policy.check_url("https://kabuqina.com/packages/stt/ggml-base-q5_1.bin")
         policy.check_url("https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin")
         policy.check_url("https://hf-mirror.com/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin")
 

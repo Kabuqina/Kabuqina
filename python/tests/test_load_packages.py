@@ -6,8 +6,10 @@
 from __future__ import annotations
 
 import os
+import json
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -46,6 +48,89 @@ class LoadPackageRegistryTests(unittest.TestCase):
         formula = next(item for item in packages if item["id"] == "docling-codeformula")
         self.assertEqual(formula["modelId"], "ds4sd/CodeFormula")
         self.assertEqual(formula["sizeMb"], 500)
+        self.assertEqual(formula["sources"][0]["url"], "https://kabuqina.com/packages/codeformula/")
+
+        stt = next(item for item in packages if item["id"] == "local-stt-base-q5_1")
+        self.assertEqual(stt["sources"][0]["url"], "https://kabuqina.com/packages/stt/ggml-base-q5_1.bin")
+
+    def test_load_packages_report_product_capability_usage(self):
+        import load_packages
+
+        with patch.dict(
+            os.environ,
+            {
+                "HERMESDESK_DATA_DIR": str(self.data_dir),
+                "HERMESDESK_WORKSPACE": str(self.workspace),
+            },
+            clear=False,
+        ):
+            packages = load_packages.list_load_packages()
+
+        formula = next(item for item in packages if item["id"] == "docling-codeformula")
+        stt = next(item for item in packages if item["id"] == "local-stt-base-q5_1")
+        formula_usage = {item["id"] for item in formula["usedByCapabilities"]}
+        stt_usage = {item["id"] for item in stt["usedByCapabilities"]}
+
+        self.assertIn("document-math", formula_usage)
+        self.assertIn("document-precise-read", formula_usage)
+        self.assertIn("voice-local-stt", stt_usage)
+
+    def test_package_status_prefers_user_path_over_bundled_path(self):
+        import load_packages
+
+        user_payload = self.data_dir / "load-packages" / "docling-codeformula" / "ds4sd--CodeFormula"
+        bundled_payload = self.data_dir / "runtime" / "load-packages" / "docling-codeformula" / "ds4sd--CodeFormula"
+        user_payload.mkdir(parents=True)
+        bundled_payload.mkdir(parents=True)
+        (user_payload / "model.safetensors").write_bytes(b"user")
+        (bundled_payload / "model.safetensors").write_bytes(b"bundle")
+
+        with patch.dict(
+            os.environ,
+            {
+                "HERMESDESK_DATA_DIR": str(self.data_dir),
+                "HERMESDESK_BUNDLE_DIR": str(self.data_dir / "runtime"),
+                "HERMESDESK_WORKSPACE": str(self.workspace),
+            },
+            clear=False,
+        ):
+            status = load_packages.package_status("docling-codeformula")
+
+        self.assertEqual(status["realPath"], str(user_payload))
+        self.assertEqual(status["source"], "downloaded")
+        self.assertEqual(status["path"], status["realPath"])
+        self.assertEqual(status["agentPath"], ".hermesdesk/load-packages/docling-codeformula")
+
+    def test_workspace_index_writes_manifests(self):
+        import load_packages
+
+        payload = self.data_dir / "load-packages" / "docling-codeformula" / "ds4sd--CodeFormula"
+        payload.mkdir(parents=True)
+        (payload / "model.safetensors").write_bytes(b"x")
+
+        with patch.dict(
+            os.environ,
+            {
+                "HERMESDESK_DATA_DIR": str(self.data_dir),
+                "HERMESDESK_WORKSPACE": str(self.workspace),
+            },
+            clear=False,
+        ):
+            result = load_packages.refresh_workspace_package_index()
+
+        root = self.workspace / ".hermesdesk" / "load-packages"
+        index = root / "packages.json"
+        per_package = root / "docling-codeformula.json"
+        real_path = root / "docling-codeformula" / "real-path.txt"
+
+        self.assertTrue(result["ok"])
+        self.assertTrue(index.exists())
+        self.assertTrue(per_package.exists())
+        self.assertEqual(real_path.read_text(encoding="utf-8"), str(payload))
+        data = json.loads(index.read_text(encoding="utf-8"))
+        self.assertEqual(data["version"], 1)
+        formula = next(item for item in data["packages"] if item["id"] == "docling-codeformula")
+        self.assertEqual(formula["agentPath"], ".hermesdesk/load-packages/docling-codeformula")
 
     def test_stt_package_delete_removes_downloaded_model(self):
         import load_packages
@@ -95,6 +180,48 @@ class LoadPackageRegistryTests(unittest.TestCase):
         self.assertIn("local-stt-base-q5_1", ids)
         self.assertEqual(old_resp.status_code, 404)
 
+    def test_download_route_starts_background_job_with_progress(self):
+        import load_packages
+
+        calls = []
+
+        def fake_download(progress=None):
+            calls.append("started")
+            if progress:
+                progress({"phase": "downloading", "downloadedBytes": 10, "totalBytes": 100})
+            time.sleep(0.05)
+            if progress:
+                progress({"phase": "installing", "downloadedBytes": 100, "totalBytes": 100})
+            return {"ok": True, "size": 100, "path": str(self.data_dir / "pkg")}
+
+        with patch.dict(
+            os.environ,
+            {
+                "HERMESDESK_DATA_DIR": str(self.data_dir),
+                "HERMESDESK_WORKSPACE": str(self.workspace),
+            },
+            clear=False,
+        ):
+            with patch.object(load_packages, "_formula_download", side_effect=fake_download):
+                started = load_packages.start_download_package("docling-codeformula")
+                self.assertEqual(started["job"]["status"], "running")
+                self.assertIn(started["job"]["phase"], {"queued", "downloading", "installing"})
+
+                deadline = time.time() + 2
+                final = started
+                while time.time() < deadline:
+                    final = load_packages.package_status("docling-codeformula")
+                    if final["job"] and final["job"]["status"] == "done":
+                        break
+                    time.sleep(0.02)
+
+        self.assertEqual(calls, ["started"])
+        self.assertEqual(final["job"]["status"], "done")
+        self.assertEqual(final["job"]["phase"], "done")
+        self.assertEqual(final["job"]["downloadedBytes"], 100)
+        self.assertEqual(final["job"]["totalBytes"], 100)
+        self.assertEqual(final["job"]["percent"], 100)
+
 
 class CodeFormulaFirstUseTests(unittest.TestCase):
     def setUp(self):
@@ -134,7 +261,11 @@ class CodeFormulaFirstUseTests(unittest.TestCase):
         def fake_snapshot_download(**_kwargs):
             calls.append(os.environ.get("HF_ENDPOINT"))
 
-        with patch.dict(os.environ, {"HF_ENDPOINT": "https://original.example"}, clear=False):
+        with patch.dict(
+            os.environ,
+            {"HF_ENDPOINT": "https://original.example", "DOCLING_CODEFORMULA_OFFICIAL_FIRST": "0"},
+            clear=False,
+        ):
             with patch("huggingface_hub.snapshot_download", side_effect=fake_snapshot_download):
                 with patch.object(dmm, "code_formula_present", return_value=True):
                     dmm._download_code_formula(self.data_dir / "formula", progress=True)
@@ -151,6 +282,7 @@ class CodeFormulaFirstUseTests(unittest.TestCase):
             {
                 "DOCLING_HF_RETRIES": "1",
                 "DOCLING_HF_DIRECT_FALLBACK": "0",
+                "DOCLING_CODEFORMULA_OFFICIAL_FIRST": "0",
             },
             clear=False,
         ):

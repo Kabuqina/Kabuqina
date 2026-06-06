@@ -10,7 +10,6 @@ import {
   Mail,
   MessageCircle,
   QrCode,
-  Send,
 } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { Section } from "../../components/ui/Section";
@@ -28,7 +27,6 @@ interface Props {
 
 function platformLabel(key: string): string {
   const map: Record<string, string> = {
-    telegram: "Telegram",
     feishu: "飞书",
     qqbot: "QQ",
     weixin: "微信",
@@ -38,7 +36,6 @@ function platformLabel(key: string): string {
 }
 
 const platformItems = [
-  { key: "telegram", label: "Telegram", icon: Send, path: "/settings/telegram" },
   { key: "feishu", label: "飞书", icon: Building2, path: "/settings/feishu" },
   { key: "qq", label: "QQ", icon: Bot, path: "/settings/qq" },
   { key: "weixin", label: "微信", icon: QrCode, path: "/settings/weixin" },

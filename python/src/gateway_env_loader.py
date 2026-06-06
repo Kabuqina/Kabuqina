@@ -33,7 +33,8 @@ _URL_ENV_SUFFIXES = (
 
 # When credentials are present, allow known API hosts (httpx-based send paths).
 _CREDENTIAL_API_HOSTS: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
-    (("TELEGRAM_BOT_TOKEN",), ("api.telegram.org",)),
+    # Telegram disabled — removed from Kabuqina product scope (codex/student-deliverables)
+    # (("TELEGRAM_BOT_TOKEN",), ("api.telegram.org",)),
     (("DISCORD_BOT_TOKEN",), ("discord.com", "discordapp.com", "cdn.discordapp.com", "gateway.discord.gg")),
     (("SLACK_BOT_TOKEN",), ("slack.com", "slack-edge.com", "files.slack.com")),
     (("FEISHU_APP_ID", "FEISHU_APP_SECRET"), ("open.feishu.cn", "open.larkoffice.com")),

@@ -108,7 +108,7 @@ export function DingTalkSettingsBlock({ className }: { className?: string }) {
             {t("settings.dingtalkReconfigure")}
           </PlatformButton>
           <PlatformButton variant="danger" onClick={() => void handleRemove()} disabled={removing}>
-            {removing ? "…" : t("settings.telegramRemoveConfig")}
+            {removing ? "…" : t("settings.removePlatformConfig")}
           </PlatformButton>
         </div>
       ) : null}

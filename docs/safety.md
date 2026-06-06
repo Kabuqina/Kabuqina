@@ -90,6 +90,12 @@ permission-level notice listing their available and unavailable tools,
 and instructing them to be transparent with users who ask about
 capabilities. See ``_build_system_prompt()`` in ``run_agent.py``.
 
+## Capability dependencies
+
+Desktop chat prompts may summarize available and missing product capabilities, but tool execution must still enforce dependency checks server-side. A missing load package must produce a stable error and a user-facing download path; the model must not infer availability from the prompt alone.
+
+The Capability page and prompt summary are disclosure surfaces. The authoritative state is the backend capability status computed from enabled toolsets and the load-package registry.
+
 ## L5 — Cross-platform memory filtering
 
 [`tools/memory_tool.py`](../hermes_core/tools/memory_tool.py) tags every

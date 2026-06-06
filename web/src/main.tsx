@@ -16,9 +16,9 @@ import { Settings } from "./advanced/Settings";
 import { Export } from "./advanced/Export";
 import { Splash } from "./Splash";
 import { ChatPage } from "./chat/ChatPage";
-import { TelegramPage } from "./advanced/pages/TelegramPage";
 import { FeishuPage } from "./advanced/pages/FeishuPage";
 import { CapabilitiesPage } from "./advanced/pages/CapabilitiesPage";
+import { LoadPackagesPage } from "./advanced/pages/LoadPackagesPage";
 import { QqPage } from "./advanced/pages/QqPage";
 import { WeixinPage } from "./advanced/pages/WeixinPage";
 import { DingTalkPage } from "./advanced/pages/DingTalkPage";
@@ -80,9 +80,9 @@ if (windowLabel === "capture-overlay") {
                 <Route path="/" element={<Splash />} />
                 <Route path="/onboarding/*" element={<Wizard />} />
                 <Route path="/settings" element={<Settings />} />
+                <Route path="/settings/load-packages" element={<LoadPackagesPage />} />
                 <Route path="/capabilities" element={<CapabilitiesPage />} />
                 <Route path="/export" element={<Export />} />
-                <Route path="/settings/telegram" element={<TelegramPage />} />
                 <Route path="/settings/feishu" element={<FeishuPage />} />
                 <Route path="/settings/qq" element={<QqPage />} />
                 <Route path="/settings/weixin" element={<WeixinPage />} />

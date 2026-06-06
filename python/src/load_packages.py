@@ -6,16 +6,31 @@
 from __future__ import annotations
 
 import importlib.util
+import json
+import logging
+import os
 import sys
+import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 import docling_math_models as dmm
 
+log = logging.getLogger("hermesdesk.load_packages")
+
 StatusFn = Callable[[], dict[str, Any]]
-DownloadFn = Callable[[], dict[str, Any]]
+ProgressFn = Callable[[dict[str, Any]], None]
+DownloadFn = Callable[[Optional[ProgressFn]], dict[str, Any]]
 DeleteFn = Callable[[], dict[str, Any]]
+
+
+@dataclass(frozen=True)
+class LoadPackageSource:
+    id: str
+    label: str
+    url: str
 
 
 @dataclass(frozen=True)
@@ -26,12 +41,15 @@ class LoadPackage:
     model_id: str
     size_mb: int
     feature: str
+    sources: tuple[LoadPackageSource, ...]
     status_fn: StatusFn
     download_fn: DownloadFn
     delete_fn: DeleteFn
+    payload_folder: str = ""
 
     def status(self) -> dict[str, Any]:
         raw = self.status_fn()
+        path_info = _status_path_info(self.id, raw, self.payload_folder)
         return {
             "id": self.id,
             "title": self.title,
@@ -39,10 +57,281 @@ class LoadPackage:
             "feature": self.feature,
             "modelId": self.model_id,
             "sizeMb": self.size_mb,
-            "downloaded": bool(raw.get("downloaded")),
-            "size": int(raw.get("size") or 0),
-            "path": str(raw.get("path") or ""),
+            "downloaded": bool(path_info["downloaded"]),
+            "size": int(path_info.get("size") or raw.get("size") or 0),
+            "path": str(path_info.get("realPath") or ""),
+            "realPath": str(path_info.get("realPath") or ""),
+            "agentPath": str(path_info.get("agentPath") or ""),
+            "workspaceIndexPath": str(path_info.get("workspaceIndexPath") or ""),
+            "source": str(path_info.get("source") or "missing"),
+            "sources": [
+                {"id": source.id, "label": source.label, "url": source.url}
+                for source in self.sources
+            ],
+            "usedByCapabilities": _package_capability_usage().get(self.id, []),
+            "job": package_job_status(self.id),
         }
+
+
+_JOB_LOCK = threading.Lock()
+_JOBS: dict[str, dict[str, Any]] = {}
+
+
+def _data_dir() -> Path:
+    raw = os.environ.get("HERMESDESK_DATA_DIR", "").strip()
+    if raw:
+        return Path(raw).expanduser()
+    local = os.environ.get("LOCALAPPDATA", "").strip()
+    if local:
+        return Path(local) / "com.kabuqina.app"
+    return Path.home() / ".kabuqina"
+
+
+def _bundle_dir() -> Path | None:
+    raw = os.environ.get("HERMESDESK_BUNDLE_DIR", "").strip()
+    return Path(raw).expanduser() if raw else None
+
+
+def _workspace_root() -> Path | None:
+    raw = (os.environ.get("HERMESDESK_WORKSPACE") or os.environ.get("HERMES_WORKSPACE") or "").strip()
+    return Path(raw).expanduser() if raw else None
+
+
+def _workspace_index_root() -> Path | None:
+    workspace = _workspace_root()
+    if workspace is None:
+        return None
+    return workspace / ".hermesdesk" / "load-packages"
+
+
+def _agent_package_path(package_id: str) -> str:
+    if _workspace_root() is None:
+        return ""
+    return f".hermesdesk/load-packages/{package_id}"
+
+
+def user_package_root(package_id: str) -> Path:
+    return _data_dir() / "load-packages" / package_id
+
+
+def bundled_package_root(package_id: str) -> Path | None:
+    bundle = _bundle_dir()
+    if bundle is None:
+        return None
+    return bundle / "load-packages" / package_id
+
+
+def _payload_present(path: Path) -> bool:
+    if path.is_file():
+        return True
+    if not path.is_dir():
+        return False
+    return any(item.is_file() for item in path.rglob("*"))
+
+
+def _path_size(path: Path) -> int:
+    if path.is_file():
+        return _file_size(path)
+    if not path.is_dir():
+        return 0
+    total = 0
+    for item in path.rglob("*"):
+        if item.is_file():
+            total += _file_size(item)
+    return total
+
+
+def resolve_package_payload(
+    package_id: str,
+    payload_folder: str,
+    *,
+    fallback: Path | None = None,
+) -> dict[str, Any]:
+    candidates: list[tuple[str, Path]] = [
+        ("downloaded", user_package_root(package_id) / payload_folder),
+    ]
+    bundled = bundled_package_root(package_id)
+    if bundled is not None:
+        candidates.append(("bundled", bundled / payload_folder))
+    if fallback is not None:
+        candidates.append(("fallback", fallback))
+
+    for source, path in candidates:
+        if _payload_present(path):
+            return {
+                "source": source,
+                "realPath": str(path),
+                "downloaded": True,
+                "size": _path_size(path),
+            }
+
+    missing = user_package_root(package_id) / payload_folder
+    return {
+        "source": "missing",
+        "realPath": str(missing),
+        "downloaded": False,
+        "size": 0,
+    }
+
+
+def _status_path_info(
+    package_id: str,
+    raw: dict[str, Any],
+    payload_folder: str,
+) -> dict[str, Any]:
+    raw_path = str(raw.get("path") or "").strip()
+    if payload_folder:
+        fallback = Path(raw_path) if raw_path else None
+        resolved = resolve_package_payload(package_id, payload_folder, fallback=fallback)
+    else:
+        downloaded = bool(raw.get("downloaded"))
+        resolved = {
+            "downloaded": downloaded,
+            "realPath": raw_path,
+            "source": "downloaded" if downloaded else "missing",
+            "size": int(raw.get("size") or 0),
+        }
+
+    index_root = _workspace_index_root()
+    resolved["agentPath"] = _agent_package_path(package_id)
+    resolved["workspaceIndexPath"] = str(index_root / package_id) if index_root is not None else ""
+    return resolved
+
+
+def _package_capability_usage() -> dict[str, list[dict[str, str]]]:
+    try:
+        from capability_registry import list_capability_defs
+    except Exception:
+        return {}
+
+    usage: dict[str, list[dict[str, str]]] = {}
+    for capability in list_capability_defs():
+        refs = list(capability.get("required_load_packages") or [])
+        refs.extend(list(capability.get("optional_load_packages") or []))
+        for package_id in refs:
+            usage.setdefault(str(package_id), []).append({
+                "id": str(capability["id"]),
+                "title": str(capability["title"]),
+            })
+    return {
+        package_id: sorted(items, key=lambda item: item["title"])
+        for package_id, items in usage.items()
+    }
+
+
+def _now() -> float:
+    return time.time()
+
+
+def _percent(downloaded: int, total: int) -> int | None:
+    if total <= 0:
+        return None
+    return max(0, min(100, int(downloaded * 100 / total)))
+
+
+def _base_job(package_id: str, *, status: str, phase: str) -> dict[str, Any]:
+    ts = _now()
+    return {
+        "packageId": package_id,
+        "status": status,
+        "phase": phase,
+        "downloadedBytes": 0,
+        "totalBytes": 0,
+        "percent": None,
+        "source": "",
+        "error": "",
+        "startedAt": ts,
+        "updatedAt": ts,
+    }
+
+
+def _update_job(package_id: str, patch: dict[str, Any]) -> dict[str, Any]:
+    with _JOB_LOCK:
+        job = dict(_JOBS.get(package_id) or _base_job(package_id, status="running", phase="queued"))
+        job.update(patch)
+        downloaded = int(job.get("downloadedBytes") or 0)
+        total = int(job.get("totalBytes") or 0)
+        job["downloadedBytes"] = downloaded
+        job["totalBytes"] = total
+        job["percent"] = _percent(downloaded, total)
+        job["updatedAt"] = _now()
+        _JOBS[package_id] = job
+        return dict(job)
+
+
+def package_job_status(package_id: str) -> dict[str, Any] | None:
+    with _JOB_LOCK:
+        job = _JOBS.get(package_id)
+        return dict(job) if job else None
+
+
+def _run_download(package: LoadPackage) -> dict[str, Any]:
+    expected_total = int(package.size_mb) * 1024 * 1024
+    _update_job(
+        package.id,
+        {
+            "status": "running",
+            "phase": "downloading",
+            "totalBytes": expected_total,
+            "error": "",
+        },
+    )
+
+    def progress(patch: dict[str, Any]) -> None:
+        _update_job(package.id, patch)
+
+    try:
+        result = package.download_fn(progress)
+        final_size = int(result.get("size") or expected_total)
+        _refresh_workspace_package_index_best_effort()
+        _update_job(
+            package.id,
+            {
+                "status": "done",
+                "phase": "done",
+                "downloadedBytes": final_size,
+                "totalBytes": final_size,
+                "error": "",
+            },
+        )
+        return result
+    except Exception as exc:
+        _update_job(
+            package.id,
+            {
+                "status": "error",
+                "phase": "error",
+                "error": str(exc),
+            },
+        )
+        raise
+
+
+def start_download_package(package_id: str) -> dict[str, Any]:
+    package = _get_package(package_id)
+    status = package.status()
+    if status["downloaded"]:
+        _update_job(
+            package.id,
+            {
+                "status": "done",
+                "phase": "done",
+                "downloadedBytes": int(status.get("size") or 0),
+                "totalBytes": int(status.get("size") or 0),
+                "error": "",
+            },
+        )
+        return package.status()
+
+    with _JOB_LOCK:
+        current = _JOBS.get(package.id)
+        if current and current.get("status") == "running":
+            return package.status()
+        _JOBS[package.id] = _base_job(package.id, status="running", phase="queued")
+
+    thread = threading.Thread(target=_run_download, args=(package,), daemon=True, name=f"load-package-{package.id}")
+    thread.start()
+    return package.status()
 
 
 def _file_size(path: Path) -> int:
@@ -78,7 +367,7 @@ def _stt_status() -> dict[str, Any]:
     }
 
 
-def _stt_download() -> dict[str, Any]:
+def _stt_download(progress: Optional[ProgressFn] = None) -> dict[str, Any]:
     voice_helpers = _voice_helpers()
     path, downloaded = voice_helpers.desk_stt_model_resolved()
     if downloaded:
@@ -90,10 +379,14 @@ def _stt_download() -> dict[str, Any]:
         }
 
     dest = voice_helpers.desk_stt_model_path()
+    if progress:
+        progress({"phase": "downloading", "source": "kabuqina.com"})
     ok, info = voice_helpers.download_stt_model_blocking(dest)
     if not ok:
         detail = info.get("detail") or info.get("error") or "unknown"
         raise RuntimeError(str(detail))
+    if progress:
+        progress({"phase": "installing", "downloadedBytes": int(info.get("size") or 0)})
     return {"ok": True, **info}
 
 
@@ -117,8 +410,8 @@ def _formula_status() -> dict[str, Any]:
     return dmm.code_formula_status()
 
 
-def _formula_download() -> dict[str, Any]:
-    return dmm.download_code_formula_blocking()
+def _formula_download(progress: Optional[ProgressFn] = None) -> dict[str, Any]:
+    return dmm.download_code_formula_blocking(progress=progress)
 
 
 def _formula_delete() -> dict[str, Any]:
@@ -134,9 +427,19 @@ def _packages() -> dict[str, LoadPackage]:
             feature="document-math",
             model_id=dmm.CODE_FORMULA_REPO,
             size_mb=dmm.CODE_FORMULA_SIZE_MB,
+            sources=(
+                LoadPackageSource(
+                    id="kabuqina-official",
+                    label="Kabuqina official",
+                    url=dmm.KABUQINA_CODE_FORMULA_BASE_URL,
+                ),
+                LoadPackageSource(id="hf-mirror", label="HF mirror", url="https://hf-mirror.com/ds4sd/CodeFormula"),
+                LoadPackageSource(id="huggingface", label="HuggingFace", url="https://huggingface.co/ds4sd/CodeFormula"),
+            ),
             status_fn=_formula_status,
             download_fn=_formula_download,
             delete_fn=_formula_delete,
+            payload_folder=dmm.CODE_FORMULA_FOLDER,
         ),
         "local-stt-base-q5_1": LoadPackage(
             id="local-stt-base-q5_1",
@@ -145,6 +448,23 @@ def _packages() -> dict[str, LoadPackage]:
             feature="voice-stt",
             model_id="ggerganov/whisper.cpp/ggml-base-q5_1.bin",
             size_mb=57,
+            sources=(
+                LoadPackageSource(
+                    id="kabuqina-official",
+                    label="Kabuqina official",
+                    url="https://kabuqina.com/packages/stt/ggml-base-q5_1.bin",
+                ),
+                LoadPackageSource(
+                    id="hf-mirror",
+                    label="HF mirror",
+                    url="https://hf-mirror.com/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin",
+                ),
+                LoadPackageSource(
+                    id="huggingface",
+                    label="HuggingFace",
+                    url="https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin",
+                ),
+            ),
             status_fn=_stt_status,
             download_fn=_stt_download,
             delete_fn=_stt_delete,
@@ -169,11 +489,46 @@ def package_status(package_id: str) -> dict[str, Any]:
 
 
 def download_package(package_id: str) -> dict[str, Any]:
-    return _get_package(package_id).download_fn()
+    return _run_download(_get_package(package_id))
 
 
 def delete_package(package_id: str) -> dict[str, Any]:
-    return _get_package(package_id).delete_fn()
+    result = _get_package(package_id).delete_fn()
+    _refresh_workspace_package_index_best_effort()
+    return result
+
+
+def refresh_workspace_package_index() -> dict[str, Any]:
+    root = _workspace_index_root()
+    if root is None:
+        return {"ok": False, "reason": "workspace_unavailable"}
+
+    root.mkdir(parents=True, exist_ok=True)
+    packages = list_load_packages()
+    for package in packages:
+        package_id = str(package["id"])
+        package_dir = root / package_id
+        package_dir.mkdir(parents=True, exist_ok=True)
+        (package_dir / "real-path.txt").write_text(
+            str(package.get("realPath") or package.get("path") or ""),
+            encoding="utf-8",
+        )
+        (root / f"{package_id}.json").write_text(
+            json.dumps(package, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+    (root / "packages.json").write_text(
+        json.dumps({"version": 1, "packages": packages}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    return {"ok": True, "path": str(root)}
+
+
+def _refresh_workspace_package_index_best_effort() -> None:
+    try:
+        refresh_workspace_package_index()
+    except Exception as exc:
+        log.warning("Failed to refresh workspace load-package index: %s", exc)
 
 
 def ensure_package_available_with_approval(package_id: str, *, reason: str = "") -> dict[str, Any]:
@@ -192,5 +547,5 @@ def ensure_package_available_with_approval(package_id: str, *, reason: str = "")
     if result != "once":
         raise PermissionError(f"User declined the {package.title} download.")
 
-    downloaded = package.download_fn()
+    downloaded = download_package(package_id)
     return {"ok": True, **downloaded}

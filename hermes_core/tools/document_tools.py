@@ -200,14 +200,24 @@ def _finalize_read_payload(payload: Dict[str, Any], document_path: Path, *, incl
     enriched = _with_read_metadata(payload, document_path)
     content = str(enriched.get("content") or "")
     read_id, cache_path = _persist_read_result(enriched)
+    content_value = enriched.pop("content", "")
     enriched["read_id"] = read_id
     enriched["cache_path"] = cache_path
     enriched["content_chars"] = len(content)
     enriched["metadata"]["read_id"] = read_id
+    enriched["content_hint"] = (
+        "Full extracted content is stored in read-cache. Use read_file on cache_path "
+        "with offset/limit to inspect the cached JSON content, or pass read_id to "
+        "material_index_build. For extracting formulas from PDFs, use pdf_read_precise "
+        "or document_read_precise with mode=math and read the extracted Markdown; do "
+        "not use vision_analyze unless the PDF reader failed or the user explicitly "
+        "asked for visual image description."
+    )
     if not include_content:
         enriched["content"] = ""
         enriched["content_omitted"] = True
-        enriched["content_hint"] = "Content is stored in read-cache; pass read_id to material_index_build."
+    else:
+        enriched["content"] = content_value
     return enriched
 
 
@@ -1323,7 +1333,10 @@ PDF_READ_PRECISE_SCHEMA = {
         "Precisely read a PDF for student work. Path must be inside the Kabuqina "
         "workspace (file tools cannot read D: or other folders directly). "
         "If the PDF is elsewhere, copy it into the workspace with terminal first. "
-        "Uses Docling when available, with pypdf fallback."
+        "Uses Docling when available, with pypdf fallback. For math/formula "
+        "extraction, call with mode=math and inspect the extracted Markdown/read-cache; "
+        "do not use vision_analyze for a normal PDF unless this reader fails or the "
+        "user explicitly asks for visual image description."
     ),
     "parameters": {
         "type": "object",

@@ -409,6 +409,9 @@ Copy-Item -Force (Join-Path $PSScriptRoot "src\desktop_delivery.py") (Join-Path 
 Copy-Item -Force (Join-Path $PSScriptRoot "src\network_policy.py") (Join-Path $Dist "network_policy.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\tool_policy.py") (Join-Path $Dist "tool_policy.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\capability_policy.py") (Join-Path $Dist "capability_policy.py")
+Copy-Item -Force (Join-Path $PSScriptRoot "src\capability_registry.py") (Join-Path $Dist "capability_registry.py")
+Copy-Item -Force (Join-Path $PSScriptRoot "src\capability_status.py") (Join-Path $Dist "capability_status.py")
+Copy-Item -Force (Join-Path $PSScriptRoot "src\capability_prompt.py") (Join-Path $Dist "capability_prompt.py")
 Copy-Item -Recurse -Force (Join-Path $PSScriptRoot "src\desk_server") (Join-Path $Dist "desk_server")
 foreach ($copiedTree in @($overlaysDest, $helpersDest, (Join-Path $Dist "desk_server"))) {
     if (Test-Path $copiedTree) {

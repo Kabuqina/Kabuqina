@@ -11,7 +11,7 @@ import logging
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
-from load_packages import delete_package, download_package, list_load_packages, package_status
+from load_packages import delete_package, list_load_packages, package_status, start_download_package
 
 router = APIRouter()
 log = logging.getLogger("hermesdesk.load_packages")
@@ -44,9 +44,7 @@ async def desk_load_package_status(package_id: str):
 @router.post("/api/desk/load-packages/{package_id}/download")
 async def desk_load_package_download(package_id: str):
     try:
-        loop = asyncio.get_running_loop()
-        result = await loop.run_in_executor(None, download_package, package_id)
-        return JSONResponse(result)
+        return JSONResponse(start_download_package(package_id))
     except Exception as exc:
         log.exception("load-package download failed: %s", package_id)
         return _error_response("load_package_download_failed", exc)

@@ -4,18 +4,20 @@
 import { useEffect, useRef, useState } from "react";
 import { AlarmClock, BookOpen, Check, FolderOpen, PenLine, Pencil, RefreshCw } from "lucide-react";
 import { useI18n } from "../lib/i18n";
-import type { PendingAgentInteraction, UiMsg } from "./chat-api";
+import type { LoadPackageStatus, PendingAgentInteraction, UiMsg } from "./chat-api";
 import { AgentProgress } from "./AgentProgress";
 import { ChatMessage } from "./ChatMessage";
 import { AssistantAvatar } from "../components/AssistantAvatar";
 import { cn } from "../lib/cn";
 import type { AgentProgressState } from "./hooks/useAgentProgress";
+import { formatBytes, packageTitle } from "../advanced/settings/loadPackageUi";
 
 interface ChatMessageListProps {
   messages: UiMsg[];
   sending?: boolean;
   sendErr?: string | null;
   progress?: AgentProgressState | null;
+  loadPackageDownloads?: LoadPackageStatus[];
   pendingInteraction?: PendingAgentInteraction | null;
   onRespondInteraction?: (action: string, text?: string, data?: Record<string, unknown>) => Promise<void>;
   onPickSuggestion?: (prompt: string) => void;
@@ -42,6 +44,45 @@ function TypingIndicator() {
           <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--kq-color-primary)] dark:bg-zinc-600" style={{ animationDelay: "0ms" }} />
           <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--kq-color-primary)] dark:bg-zinc-600" style={{ animationDelay: "150ms" }} />
           <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--kq-color-primary)] dark:bg-zinc-600" style={{ animationDelay: "300ms" }} />
+        </div>
+      </div>
+    </AssistantStreamShell>
+  );
+}
+
+function LoadPackageDownloadProgress({ packages }: { packages: LoadPackageStatus[] }) {
+  const { t } = useI18n();
+  if (packages.length === 0) return null;
+  return (
+    <AssistantStreamShell>
+      <div className="kq-chat-bubble-assistant rounded-2xl rounded-tl-sm px-4 py-3 dark:border-zinc-700/80 dark:bg-zinc-800/90">
+        <p className="mb-3 text-xs font-medium text-[var(--kq-color-strong)] dark:text-zinc-100">
+          {t("settings.loadPackageChatTitle")}
+        </p>
+        <div className="space-y-3">
+          {packages.map((pkg) => {
+            const job = pkg.job;
+            const total = job?.totalBytes || pkg.sizeMb * 1024 * 1024;
+            const downloaded = job?.downloadedBytes || 0;
+            const percent = job?.percent ?? (total ? Math.floor(downloaded * 100 / total) : 0);
+            return (
+              <div key={pkg.id}>
+                <div className="flex items-center justify-between gap-3 text-xs text-[var(--kq-color-muted)] dark:text-zinc-400">
+                  <span className="truncate">{packageTitle(pkg, t)}</span>
+                  <span>{percent}%</span>
+                </div>
+                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+                  <div
+                    className="h-full rounded-full bg-[var(--kq-color-primary)] transition-[width]"
+                    style={{ width: `${Math.max(4, Math.min(100, percent))}%` }}
+                  />
+                </div>
+                <p className="mt-1 text-xs text-[var(--kq-color-muted)] dark:text-zinc-500">
+                  {formatBytes(downloaded)} / {formatBytes(total)}
+                </p>
+              </div>
+            );
+          })}
         </div>
       </div>
     </AssistantStreamShell>
@@ -174,7 +215,7 @@ function EmptyState({
           <img
             src="/kabuqina_boot.svg"
             alt="Kabuqina chat hero — cup on gingham coaster"
-            className="w-64 h-auto select-none"
+            className="w-48 h-auto select-none"
             width={1280}
             height={640}
             decoding="async"
@@ -223,6 +264,7 @@ export function ChatMessageList({
   sending = false,
   sendErr,
   progress,
+  loadPackageDownloads = [],
   pendingInteraction,
   onRespondInteraction,
   onPickSuggestion,
@@ -267,6 +309,7 @@ export function ChatMessageList({
               <AgentProgress progress={progress} />
             </AssistantStreamShell>
           )}
+          <LoadPackageDownloadProgress packages={loadPackageDownloads} />
           {pendingInteraction ? (
             <AgentInteractionCard interaction={pendingInteraction} onRespond={onRespondInteraction} />
           ) : null}

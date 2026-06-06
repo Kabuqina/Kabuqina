@@ -4,19 +4,33 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useNavigate } from "react-router-dom";
-import { Bot, Boxes, Package, Plug, Search, Shield, Wrench, X } from "lucide-react";
+import { Bot, Boxes, Download, ExternalLink, Layers3, Package, Plug, RefreshCw, Search, Shield, Wrench, X } from "lucide-react";
 import { AppScaffold } from "../../components/AppScaffold";
 import { BackButton } from "../../components/ui/BackButton";
 import { Button } from "../../components/ui/Button";
 import { Toggle } from "../../components/ui/Toggle";
 import { cn } from "../../lib/cn";
 import { useI18n } from "../../lib/i18n";
+import { cmdLoadPackageDownload } from "../../chat/chat-api";
+import { loadPackageError } from "../settings/loadPackageUi";
 
-type Tab = "skills" | "tools" | "plugins";
+type Tab = "product" | "skills" | "tools" | "plugins";
 type Role = "default" | "advanced" | "power";
+type ProductStatus =
+  | "available"
+  | "missing_package"
+  | "downloading"
+  | "package_error"
+  | "disabled_toolset"
+  | "requires_power_user"
+  | "unsupported_platform"
+  | "error"
+  | string;
 
 type CapabilityBase = {
-  name: string;
+  id?: string;
+  name?: string;
+  title?: string;
   label?: string;
   description?: string;
   roles?: Role[];
@@ -26,15 +40,76 @@ type CapabilityBase = {
   recommended?: boolean;
   can_edit?: boolean;
   action_mode?: string;
+  actionMode?: string;
+};
+
+type ProductLoadPackage = {
+  id: string;
+  title?: string;
+  downloaded?: boolean;
+  sizeMb?: number;
+  job?: { status?: string; phase?: string; percent?: number | null; error?: string } | null;
+};
+
+type ProductPipelineStep = {
+  id?: string;
+  stage?: string;
+  tool?: string;
+  tools?: string[];
+  kind?: string;
+  defaultArgs?: Record<string, unknown>;
+  default_args?: Record<string, unknown>;
+  inputs?: string[];
+  outputs?: string[];
+};
+
+type ProductPipeline = {
+  id: string;
+  title?: string;
+  primary?: boolean;
+  ready?: boolean;
+  status?: ProductStatus;
+  statusReason?: string;
+  stages: string[];
+  inputs: string[];
+  steps: ProductPipelineStep[];
+};
+
+type ProductShortcut = {
+  id: string;
+  label?: string;
+  surface?: string;
+  entryPipeline?: string;
+  entry_pipeline?: string;
+  requiresInput?: string[];
+  visibleWhen?: string;
+};
+
+type ProductCapabilityItem = CapabilityBase & {
+  id: string;
+  title: string;
+  category?: string;
+  status: ProductStatus;
+  statusReason?: string;
+  agentHint?: string;
+  stages: string[];
+  tools: string[];
+  pipelines: ProductPipeline[];
+  shortcuts: ProductShortcut[];
+  requiredToolsets: string[];
+  requiredLoadPackages: ProductLoadPackage[];
+  optionalLoadPackages: ProductLoadPackage[];
 };
 
 type SkillItem = CapabilityBase & {
+  name: string;
   category?: string | null;
   enabled?: boolean;
   tags?: string[];
 };
 
 type ToolsetItem = CapabilityBase & {
+  name: string;
   enabled: boolean;
   configured: boolean;
   locked?: boolean;
@@ -42,6 +117,7 @@ type ToolsetItem = CapabilityBase & {
 };
 
 type PluginItem = CapabilityBase & {
+  name: string;
   version?: string;
   icon?: string;
   has_api?: boolean;
@@ -49,6 +125,7 @@ type PluginItem = CapabilityBase & {
 
 type CapabilityCatalog = {
   role: Role;
+  capabilities: ProductCapabilityItem[];
   skills: SkillItem[];
   toolsets: ToolsetItem[];
   plugins: PluginItem[];
@@ -61,6 +138,7 @@ type SkillDetail = SkillItem & {
 };
 
 type Selected =
+  | { tab: "product"; item: ProductCapabilityItem }
   | { tab: "skills"; item: SkillItem; detail?: SkillDetail }
   | { tab: "tools"; item: ToolsetItem }
   | { tab: "plugins"; item: PluginItem };
@@ -72,16 +150,144 @@ const ROLE_RANK: Record<Role, number> = {
 };
 
 const TABS: Array<{ id: Tab; icon: typeof Package }> = [
+  { id: "product", icon: Layers3 },
   { id: "skills", icon: Package },
   { id: "tools", icon: Wrench },
   { id: "plugins", icon: Plug },
 ];
 
+function normalizeCapabilityCatalog(raw: unknown): CapabilityCatalog {
+  const record = asRecord(raw);
+  return {
+    role: isRole(record.role) ? record.role : "default",
+    capabilities: asArray(record.capabilities).map(normalizeProductCapability),
+    skills: asArray(record.skills).map((item) => normalizeCapabilityItem<SkillItem>(item)),
+    toolsets: asArray(record.toolsets).map(normalizeToolsetItem),
+    plugins: asArray(record.plugins).map((item) => normalizeCapabilityItem<PluginItem>(item)),
+  };
+}
+
+function normalizeProductCapability(raw: unknown): ProductCapabilityItem {
+  const item = normalizeCapabilityItem<ProductCapabilityItem>(raw);
+  return {
+    ...item,
+    id: item.id || item.name || item.title || "",
+    title: item.title || item.label || item.name || item.id || "",
+    status: item.status || "error",
+    stages: asStringArray(item.stages),
+    tools: asStringArray(item.tools),
+    pipelines: asArray(item.pipelines).map(normalizeProductPipeline),
+    shortcuts: asArray(item.shortcuts).map(normalizeProductShortcut),
+    requiredToolsets: asStringArray(item.requiredToolsets),
+    requiredLoadPackages: asArray(item.requiredLoadPackages).map(normalizeProductLoadPackage),
+    optionalLoadPackages: asArray(item.optionalLoadPackages).map(normalizeProductLoadPackage),
+  };
+}
+
+function normalizeProductPipeline(raw: unknown): ProductPipeline {
+  const record = asRecord(raw);
+  return {
+    ...record,
+    id: String(record.id || ""),
+    title: typeof record.title === "string" ? record.title : undefined,
+    primary: Boolean(record.primary),
+    ready: Boolean(record.ready),
+    status: typeof record.status === "string" ? record.status : undefined,
+    statusReason: typeof record.statusReason === "string" ? record.statusReason : undefined,
+    stages: asStringArray(record.stages),
+    inputs: asStringArray(record.inputs),
+    steps: asArray(record.steps).map(normalizeProductPipelineStep),
+  };
+}
+
+function normalizeProductPipelineStep(raw: unknown): ProductPipelineStep {
+  const record = asRecord(raw);
+  const defaultArgs = asRecord(record.defaultArgs ?? record.default_args);
+  return {
+    ...record,
+    id: typeof record.id === "string" ? record.id : undefined,
+    stage: typeof record.stage === "string" ? record.stage : undefined,
+    tool: typeof record.tool === "string" ? record.tool : undefined,
+    tools: asStringArray(record.tools),
+    kind: typeof record.kind === "string" ? record.kind : undefined,
+    defaultArgs,
+    default_args: defaultArgs,
+    inputs: asStringArray(record.inputs),
+    outputs: asStringArray(record.outputs),
+  };
+}
+
+function normalizeProductShortcut(raw: unknown): ProductShortcut {
+  const record = asRecord(raw);
+  return {
+    ...record,
+    id: String(record.id || ""),
+    label: typeof record.label === "string" ? record.label : undefined,
+    surface: typeof record.surface === "string" ? record.surface : undefined,
+    entryPipeline: String(record.entryPipeline || record.entry_pipeline || ""),
+    entry_pipeline: String(record.entryPipeline || record.entry_pipeline || ""),
+    requiresInput: asStringArray(record.requiresInput ?? record.requires_input),
+    visibleWhen: typeof (record.visibleWhen ?? record.visible_when) === "string"
+      ? String(record.visibleWhen ?? record.visible_when)
+      : undefined,
+  };
+}
+
+function normalizeToolsetItem(raw: unknown): ToolsetItem {
+  const item = normalizeCapabilityItem<ToolsetItem>(raw);
+  return {
+    ...item,
+    tools: asStringArray(item.tools),
+    enabled: Boolean(item.enabled),
+    configured: Boolean(item.configured),
+  };
+}
+
+function normalizeProductLoadPackage(raw: unknown): ProductLoadPackage {
+  const record = asRecord(raw);
+  return {
+    ...record,
+    id: String(record.id || ""),
+    title: typeof record.title === "string" ? record.title : undefined,
+    downloaded: Boolean(record.downloaded),
+    sizeMb: typeof record.sizeMb === "number" ? record.sizeMb : undefined,
+    job: record.job && typeof record.job === "object" && !Array.isArray(record.job) ? record.job as ProductLoadPackage["job"] : null,
+  };
+}
+
+function normalizeCapabilityItem<T extends CapabilityBase>(raw: unknown): T {
+  const record = asRecord(raw);
+  return {
+    ...record,
+    roles: asRoles(record.roles),
+  } as T;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function asArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function asStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.map((item) => String(item)).filter(Boolean) : [];
+}
+
+function asRoles(value: unknown): Role[] {
+  return asStringArray(value).filter(isRole);
+}
+
+function isRole(value: unknown): value is Role {
+  return value === "default" || value === "advanced" || value === "power";
+}
+
 export function CapabilitiesPage() {
   const { t } = useI18n();
   const nav = useNavigate();
   const [catalog, setCatalog] = useState<CapabilityCatalog | null>(null);
-  const [activeTab, setActiveTab] = useState<Tab>("skills");
+  const [activeTab, setActiveTab] = useState<Tab>("product");
   const [search, setSearch] = useState("");
   const [recommendedOnly, setRecommendedOnly] = useState(false);
   const [selected, setSelected] = useState<Selected | null>(null);
@@ -90,10 +296,13 @@ export function CapabilitiesPage() {
   const [error, setError] = useState<string | null>(null);
   const [showCapabilityHint, setShowCapabilityHint] = useState(false);
   const [hintSaving, setHintSaving] = useState(false);
+  const [busyLoadPackageId, setBusyLoadPackageId] = useState<string | null>(null);
 
   const loadCatalog = useCallback(async () => {
-    const result = await invoke<CapabilityCatalog>("cmd_capabilities_catalog");
-    setCatalog(result);
+    const result = await invoke<unknown>("cmd_capabilities_catalog");
+    const normalized = normalizeCapabilityCatalog(result);
+    setCatalog(normalized);
+    return normalized;
   }, []);
 
   useEffect(() => {
@@ -133,7 +342,9 @@ export function CapabilitiesPage() {
   const items = useMemo(() => {
     if (!catalog) return [];
     const pool =
-      activeTab === "skills"
+      activeTab === "product"
+        ? catalog.capabilities
+        : activeTab === "skills"
         ? catalog.skills
         : activeTab === "tools"
           ? catalog.toolsets
@@ -149,6 +360,8 @@ export function CapabilitiesPage() {
         item.description,
         item.source,
         displayTrust(item),
+        item.title,
+        productStatusSearchText(item, t),
         ...(item.roles ?? []),
         ...capabilitySearchExtras(item, t),
       ]
@@ -157,7 +370,11 @@ export function CapabilitiesPage() {
     });
   }, [activeTab, catalog, recommendedOnly, search, t]);
 
-  async function openItem(item: SkillItem | ToolsetItem | PluginItem) {
+  async function openItem(item: ProductCapabilityItem | SkillItem | ToolsetItem | PluginItem) {
+    if (activeTab === "product") {
+      setSelected({ tab: "product", item: item as ProductCapabilityItem });
+      return;
+    }
     if (activeTab === "skills") {
       const skill = item as SkillItem;
       setSelected({ tab: "skills", item: skill });
@@ -180,14 +397,34 @@ export function CapabilitiesPage() {
   }
 
   function askAgent(item: CapabilityBase, action: "edit" | "install" | "configure") {
+    const itemName = capabilityName(item);
     const prompt =
       action === "edit"
-        ? `请查看并帮我编辑 skill \`${item.name}\`。先说明你建议改什么，得到确认后再通过 skill_manage 执行。`
-        : `请帮我安装或配置推荐的 ${activeTab === "tools" ? "工具/工具集" : activeTab === "plugins" ? "插件" : "skill"} \`${item.name}\`。先检查来源、权限和风险，得到确认后再执行。`;
+        ? `请查看并帮我编辑 skill \`${itemName}\`。先说明你建议改什么，得到确认后再通过 skill_manage 执行。`
+        : `请帮我安装或配置推荐的 ${activeTab === "tools" ? "工具/工具集" : activeTab === "plugins" ? "插件" : "能力"} \`${itemName}\`。先检查来源、权限和风险，得到确认后再执行。`;
     nav("/chat", { state: { draftPrompt: prompt } });
   }
 
+  async function downloadProductLoadPackage(pkg: ProductLoadPackage) {
+    setBusyLoadPackageId(pkg.id);
+    setError(null);
+    try {
+      await cmdLoadPackageDownload(pkg.id);
+      const refreshed = await loadCatalog();
+      setSelected((current) => {
+        if (!current || current.tab !== "product") return current;
+        const nextItem = refreshed.capabilities.find((item) => item.id === current.item.id);
+        return nextItem ? { tab: "product", item: nextItem } : current;
+      });
+    } catch (err) {
+      setError(t("capabilities.loadPackageDownloadFailed", { msg: loadPackageError(err, t) }));
+    } finally {
+      setBusyLoadPackageId(null);
+    }
+  }
+
   const counts = {
+    product: catalog?.capabilities.length ?? 0,
     skills: catalog?.skills.length ?? 0,
     tools: catalog?.toolsets.length ?? 0,
     plugins: catalog?.plugins.length ?? 0,
@@ -300,9 +537,9 @@ export function CapabilitiesPage() {
                 <div className="grid gap-3">
                   {items.map((item) => (
                     <CapabilityRow
-                      key={item.name}
+                      key={capabilityKey(item)}
                       item={item}
-                      active={selected?.item.name === item.name}
+                      active={selected ? capabilityKey(selected.item) === capabilityKey(item) : false}
                       onClick={() => openItem(item)}
                     />
                   ))}
@@ -316,6 +553,9 @@ export function CapabilitiesPage() {
             loading={detailLoading}
             onClose={() => setSelected(null)}
             onAskAgent={askAgent}
+            onDownloadLoadPackage={downloadProductLoadPackage}
+            busyLoadPackageId={busyLoadPackageId}
+            onOpenLoadPackages={() => nav("/settings/load-packages")}
           />
         </div>
       </div>
@@ -328,7 +568,7 @@ function CapabilityRow({
   active,
   onClick,
 }: {
-  item: CapabilityBase & { enabled?: boolean; locked?: boolean };
+  item: CapabilityBase & { enabled?: boolean; locked?: boolean; status?: ProductStatus };
   active: boolean;
   onClick: () => void;
 }) {
@@ -348,7 +588,8 @@ function CapabilityRow({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="hd-card-title">{item.label || item.name}</span>
+            <span className="hd-card-title">{capabilityTitle(item)}</span>
+            {item.status && <Badge tone={productStatusTone(item.status)}>{productStatusLabel(item.status, t)}</Badge>}
             {item.recommended && <Badge tone="blue">{t("capabilities.badgeRecommended")}</Badge>}
             {item.enabled !== undefined && (
               <Badge tone={item.enabled ? "green" : "zinc"}>
@@ -370,11 +611,17 @@ function DetailPanel({
   loading,
   onClose,
   onAskAgent,
+  onDownloadLoadPackage,
+  busyLoadPackageId,
+  onOpenLoadPackages,
 }: {
   selected: Selected | null;
   loading: boolean;
   onClose: () => void;
   onAskAgent: (item: CapabilityBase, action: "edit" | "install" | "configure") => void;
+  onDownloadLoadPackage: (pkg: ProductLoadPackage) => void;
+  busyLoadPackageId: string | null;
+  onOpenLoadPackages: () => void;
 }) {
   const { t } = useI18n();
 
@@ -397,7 +644,7 @@ function DetailPanel({
           <div className="kq-icon-well flex size-8 shrink-0 items-center justify-center rounded-lg">
             <Boxes className="h-4 w-4" />
           </div>
-          <span className="truncate font-medium text-zinc-900 dark:text-zinc-100">{item.label || item.name}</span>
+          <span className="truncate font-medium text-zinc-900 dark:text-zinc-100">{capabilityTitle(item)}</span>
         </div>
         <button
           type="button"
@@ -415,6 +662,14 @@ function DetailPanel({
           <div className="space-y-4">
             <p className="hd-body">{item.description || detail?.description || t("capabilities.noDescription")}</p>
             <CapabilityMetaBlock item={item} />
+            {selected.tab === "product" && (
+              <ProductCapabilityDetails
+                item={selected.item}
+                busyLoadPackageId={busyLoadPackageId}
+                onDownload={onDownloadLoadPackage}
+                onOpenLoadPackages={onOpenLoadPackages}
+              />
+            )}
             {selected.tab === "tools" && (
               <ToolDetails item={selected.item} />
             )}
@@ -477,6 +732,189 @@ function ToolDetails({ item }: { item: ToolsetItem }) {
   );
 }
 
+function ProductCapabilityDetails({
+  item,
+  busyLoadPackageId,
+  onDownload,
+  onOpenLoadPackages,
+}: {
+  item: ProductCapabilityItem;
+  busyLoadPackageId: string | null;
+  onDownload: (pkg: ProductLoadPackage) => void;
+  onOpenLoadPackages: () => void;
+}) {
+  const { t } = useI18n();
+  const packageBusy = busyLoadPackageId != null || [
+    ...item.requiredLoadPackages,
+    ...item.optionalLoadPackages,
+  ].some((pkg) => pkg.job?.status === "running");
+  return (
+    <div className="space-y-4">
+      <InfoRow label={t("capabilities.productStatusLabel")} value={productStatusLabel(item.status, t)} />
+      <BadgeGroup title={t("capabilities.pipelineStages")} values={item.stages} empty={t("capabilities.noPipelineStagesListed")} />
+      <PipelineGroup title={t("capabilities.pipelineEntrypoints")} pipelines={item.pipelines} />
+      <ShortcutGroup title={t("capabilities.shortcutCandidates")} shortcuts={item.shortcuts} />
+      <BadgeGroup title={t("capabilities.toolsHeading")} values={item.tools} empty={t("capabilities.noToolsListed")} />
+      <BadgeGroup title={t("capabilities.requiredToolsets")} values={item.requiredToolsets} empty={t("capabilities.noToolsetsListed")} />
+      <LoadPackageGroup
+        title={t("capabilities.requiredLoadPackages")}
+        packages={item.requiredLoadPackages}
+        busyLoadPackageId={busyLoadPackageId}
+        packageBusy={packageBusy}
+        onDownload={onDownload}
+      />
+      <LoadPackageGroup
+        title={t("capabilities.optionalLoadPackages")}
+        packages={item.optionalLoadPackages}
+        busyLoadPackageId={busyLoadPackageId}
+        packageBusy={packageBusy}
+        onDownload={onDownload}
+      />
+      {item.statusReason ? <InfoRow label={t("capabilities.statusReason")} value={item.statusReason} /> : null}
+      <Button variant="ghost" size="sm" onClick={onOpenLoadPackages}>
+        <ExternalLink className="h-3.5 w-3.5" />
+        {t("capabilities.manageLoadPackages")}
+      </Button>
+    </div>
+  );
+}
+
+function PipelineGroup({ title, pipelines }: { title: string; pipelines: ProductPipeline[] }) {
+  const { t } = useI18n();
+  return (
+    <div>
+      <h3 className="hd-section-title mb-2">{title}</h3>
+      {pipelines.length === 0 ? (
+        <span className="text-xs text-zinc-500">{t("capabilities.noPipelinesListed")}</span>
+      ) : (
+        <div className="space-y-2">
+          {pipelines.map((pipeline) => (
+            <div key={pipeline.id} className="rounded-[var(--radius-shell)] bg-zinc-100 px-3 py-2 text-xs dark:bg-zinc-800/90">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="min-w-0 break-all font-medium text-zinc-800 dark:text-zinc-100">
+                  {pipeline.title || pipeline.id}
+                </span>
+                <Badge tone={pipeline.ready ? "green" : "amber"}>
+                  {pipeline.ready ? t("capabilities.pipelineReady") : productStatusLabel(pipeline.status || "error", t)}
+                </Badge>
+              </div>
+              {pipeline.steps.length > 0 ? (
+                <div className="mt-1.5 space-y-1 text-zinc-500 dark:text-zinc-400">
+                  {pipeline.steps.map((step, index) => (
+                    <div key={step.id || `${pipeline.id}-${index}`} className="break-words">
+                      {formatPipelineStep(step)}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ShortcutGroup({ title, shortcuts }: { title: string; shortcuts: ProductShortcut[] }) {
+  const { t } = useI18n();
+  return (
+    <div>
+      <h3 className="hd-section-title mb-2">{title}</h3>
+      {shortcuts.length === 0 ? (
+        <span className="text-xs text-zinc-500">{t("capabilities.noShortcutCandidates")}</span>
+      ) : (
+        <div className="flex flex-wrap gap-1.5">
+          {shortcuts.map((shortcut) => (
+            <Badge key={shortcut.id} tone="blue">
+              {(shortcut.label || shortcut.id) + (shortcut.entryPipeline ? ` -> ${shortcut.entryPipeline}` : "")}
+            </Badge>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BadgeGroup({ title, values, empty }: { title: string; values: string[]; empty: string }) {
+  return (
+    <div>
+      <h3 className="hd-section-title mb-2">{title}</h3>
+      <div className="flex flex-wrap gap-1.5">
+        {values.map((value) => (
+          <Badge key={value} tone="zinc">{value}</Badge>
+        ))}
+        {values.length === 0 && <span className="text-xs text-zinc-500">{empty}</span>}
+      </div>
+    </div>
+  );
+}
+
+function formatPipelineStep(step: ProductPipelineStep): string {
+  const name = step.tool || (step.tools && step.tools.length ? step.tools.join("/") : "") || step.kind || step.stage || "";
+  const args = step.defaultArgs || step.default_args || {};
+  const argText = Object.keys(args).length
+    ? `(${Object.keys(args).sort().map((key) => `${key}=${String(args[key])}`).join(", ")})`
+    : "";
+  const outputs = step.outputs?.length ? ` -> ${step.outputs.join(", ")}` : "";
+  return `${name}${argText}${outputs}`;
+}
+
+function LoadPackageGroup({
+  title,
+  packages,
+  busyLoadPackageId,
+  packageBusy,
+  onDownload,
+}: {
+  title: string;
+  packages: ProductLoadPackage[];
+  busyLoadPackageId: string | null;
+  packageBusy: boolean;
+  onDownload: (pkg: ProductLoadPackage) => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <div>
+      <h3 className="hd-section-title mb-2">{title}</h3>
+      {packages.length === 0 ? (
+        <span className="text-xs text-zinc-500">{t("capabilities.noLoadPackagesListed")}</span>
+      ) : (
+        <div className="space-y-1.5">
+          {packages.map((pkg) => (
+            <div key={pkg.id} className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-shell)] bg-zinc-100 px-3 py-2 text-xs dark:bg-zinc-800/90">
+              <span className="min-w-0 break-all font-medium text-zinc-800 dark:text-zinc-100">{pkg.title || pkg.id}</span>
+              <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                <Badge tone={pkg.job?.status === "error" ? "red" : pkg.job?.status === "running" ? "blue" : pkg.downloaded ? "green" : "amber"}>
+                  {pkg.job?.status === "running"
+                    ? productStatusLabel("downloading", t)
+                    : pkg.job?.status === "error"
+                      ? productStatusLabel("package_error", t)
+                      : pkg.downloaded
+                        ? t("settings.loadPackageInstalled")
+                        : t("settings.loadPackageNotInstalled")}
+                </Badge>
+                <Button
+                  size="sm"
+                  variant={pkg.downloaded ? "ghost" : "primary"}
+                  disabled={packageBusy}
+                  onClick={() => onDownload(pkg)}
+                >
+                  {pkg.downloaded ? <RefreshCw className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
+                  {busyLoadPackageId === pkg.id || pkg.job?.status === "running"
+                    ? t("settings.loadPackageWorking")
+                    : pkg.downloaded
+                      ? t("settings.loadPackageRedownload")
+                      : t("settings.loadPackageDownload")}
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PluginDetails({ item }: { item: PluginItem }) {
   const { t } = useI18n();
   return (
@@ -491,7 +929,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-3 rounded-[var(--radius-shell)] bg-zinc-100 px-3 py-2 dark:bg-zinc-800/90">
       <span className="text-zinc-500">{label}</span>
-      <span className="font-medium">{value}</span>
+      <span className="min-w-0 break-words text-right font-medium">{value}</span>
     </div>
   );
 }
@@ -626,6 +1064,18 @@ function displayTrust(item: CapabilityBase): string {
   return raw || "unknown";
 }
 
+function capabilityKey(item: CapabilityBase): string {
+  return item.name || item.id || item.label || item.title || "";
+}
+
+function capabilityName(item: CapabilityBase): string {
+  return item.name || item.id || item.title || item.label || "";
+}
+
+function capabilityTitle(item: CapabilityBase): string {
+  return item.label || item.title || item.name || item.id || "";
+}
+
 function displaySource(item: CapabilityBase): string {
   const s = (item.source || "").trim();
   return s || "installed";
@@ -638,6 +1088,32 @@ function normTokenKey(raw: string): string {
 function formatCapabilityToken(path: string, fallback: string, t: (p: string) => string): string {
   const out = t(path);
   return out === path ? fallback : out;
+}
+
+function productStatusLabel(status: ProductStatus, t: (p: string) => string): string {
+  const key = normTokenKey(status);
+  const path = `capabilities.productStatus.${key}`;
+  const out = t(path);
+  return out === path ? status : out;
+}
+
+function productStatusTone(status: ProductStatus): "green" | "amber" | "red" | "blue" | "zinc" {
+  const key = normTokenKey(status);
+  if (key === "available") return "green";
+  if (key === "downloading") return "blue";
+  if (key === "package_error" || key === "error") return "red";
+  if (
+    key === "missing_package" ||
+    key === "disabled_toolset" ||
+    key === "requires_power_user" ||
+    key === "unsupported_platform"
+  ) return "amber";
+  return "zinc";
+}
+
+function productStatusSearchText(item: CapabilityBase, t: (p: string) => string): string {
+  const maybeStatus = (item as { status?: ProductStatus }).status;
+  return maybeStatus ? productStatusLabel(maybeStatus, t) : "";
 }
 
 function capabilitySearchExtras(item: CapabilityBase, t: (p: string) => string): string[] {

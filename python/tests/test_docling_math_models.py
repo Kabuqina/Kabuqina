@@ -27,6 +27,14 @@ class CodeFormulaPresenceTests(unittest.TestCase):
             (root / "model.safetensors").write_bytes(b"x")
             self.assertTrue(dmm.code_formula_present(root))
 
+    def test_user_formula_dir_uses_load_package_root(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            data = Path(tmp) / "data"
+            expected = data / "load-packages" / "docling-codeformula" / dmm.CODE_FORMULA_FOLDER
+
+            with patch.dict(os.environ, {"HERMESDESK_DATA_DIR": str(data)}, clear=False):
+                self.assertEqual(dmm.user_formula_dir(), expected)
+
 
 class RequireCodeFormulaTests(unittest.TestCase):
     def setUp(self):
@@ -77,8 +85,8 @@ class DownloadDeleteTests(unittest.TestCase):
         with patch.dict(os.environ, {"HERMESDESK_DATA_DIR": str(self.data_dir)}, clear=False):
             with patch.object(dmm, "invalidate_docling_converter_cache") as mock_cache:
                 result = dmm.delete_code_formula()
+            self.assertFalse(dmm.code_formula_present())
         self.assertTrue(result["removed"])
-        self.assertFalse(dmm.code_formula_present())
         mock_cache.assert_called_once()
 
     def test_download_uses_app_data_huggingface_cache(self):
@@ -93,6 +101,7 @@ class DownloadDeleteTests(unittest.TestCase):
                 "HERMESDESK_DATA_DIR": str(self.data_dir),
                 "DOCLING_HF_RETRIES": "1",
                 "DOCLING_HF_DIRECT_FALLBACK": "0",
+                "DOCLING_CODEFORMULA_OFFICIAL_FIRST": "0",
             },
             clear=False,
         ):
@@ -105,6 +114,51 @@ class DownloadDeleteTests(unittest.TestCase):
         self.assertEqual(
             Path(calls[0]["cache_dir"]),
             self.data_dir / "huggingface-cache",
+        )
+
+    def test_download_tries_kabuqina_static_source_before_hf(self):
+        calls = []
+
+        def fake_official(local_dir, *, progress_cb=None):
+            calls.append(("official", local_dir))
+
+        def fake_snapshot_download(**kwargs):
+            calls.append(("hf", kwargs))
+
+        with patch.dict(
+            os.environ,
+            {
+                "HERMESDESK_DATA_DIR": str(self.data_dir),
+                "DOCLING_HF_RETRIES": "1",
+            },
+            clear=False,
+        ):
+            with patch.object(dmm, "_download_static_code_formula", side_effect=fake_official):
+                with patch("huggingface_hub.snapshot_download", side_effect=fake_snapshot_download):
+                    with patch.object(dmm, "code_formula_present", return_value=True):
+                        dmm._download_code_formula(self.data_dir / "formula", progress=False)
+
+        self.assertEqual(calls, [("official", self.data_dir / "formula")])
+
+    def test_static_directory_entries_ignore_parent_links(self):
+        class FakeResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self):
+                return b'<a href="../">Parent</a><a href="config.json">config</a>'
+
+        with patch.object(dmm, "urlopen", return_value=FakeResponse()):
+            entries = dmm._static_directory_entries(
+                "https://kabuqina.com/packages/codeformula/ds4sd--CodeFormula/"
+            )
+
+        self.assertEqual(
+            entries,
+            [("config.json", "https://kabuqina.com/packages/codeformula/ds4sd--CodeFormula/config.json", False)],
         )
 
 

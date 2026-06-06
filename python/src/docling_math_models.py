@@ -15,17 +15,24 @@ import os
 import shutil
 import subprocess
 import sys
+import threading
 import time
+from html.parser import HTMLParser
 from pathlib import Path
-from typing import Any, Optional
-from urllib.parse import urlparse
+from typing import Any, Callable, Optional
+from urllib.parse import unquote, urljoin, urlparse
+from urllib.request import Request, urlopen
 
 log = logging.getLogger("hermesdesk.docling_math")
+
+ProgressFn = Callable[[dict[str, Any]], None]
 
 CODE_FORMULA_REPO = "ds4sd/CodeFormula"
 CODE_FORMULA_FOLDER = "ds4sd--CodeFormula"
 CODE_FORMULA_REVISION = "v1.0.2"
 CODE_FORMULA_SIZE_MB = 500
+KABUQINA_CODE_FORMULA_BASE_URL = "https://kabuqina.com/packages/codeformula/"
+KABUQINA_CODE_FORMULA_URL = urljoin(KABUQINA_CODE_FORMULA_BASE_URL, f"{CODE_FORMULA_FOLDER}/")
 
 CODE_FORMULA_SETTINGS_HINT = (
     "Download the optional CodeFormula pack (~500 MB) in Kabuqina Settings "
@@ -36,6 +43,8 @@ DEFAULT_HF_ENDPOINTS = (
     "https://hf-mirror.com",
     "https://huggingface.co",
 )
+
+STATIC_DOWNLOAD_CHUNK_SIZE = 1024 * 1024
 
 
 class CodeFormulaMissingError(RuntimeError):
@@ -71,6 +80,15 @@ def bundle_docling_models_dir() -> Optional[Path]:
 
 
 def user_formula_dir() -> Path:
+    try:
+        from load_packages import user_package_root
+
+        return user_package_root("docling-codeformula") / CODE_FORMULA_FOLDER
+    except Exception:
+        return desktop_data_dir() / "load-packages" / "docling-codeformula" / CODE_FORMULA_FOLDER
+
+
+def _legacy_formula_dir() -> Path:
     return desktop_data_dir() / "docling-models" / CODE_FORMULA_FOLDER
 
 
@@ -83,10 +101,26 @@ def merged_artifacts_dir() -> Path:
 
 
 def code_formula_present(formula_dir: Optional[Path] = None) -> bool:
+    if formula_dir is None:
+        return _code_formula_present_at(user_formula_dir()) or _code_formula_present_at(_legacy_formula_dir())
+    return _code_formula_present_at(formula_dir)
+
+
+def _code_formula_present_at(formula_dir: Path) -> bool:
     target = formula_dir or user_formula_dir()
     if not target.is_dir():
         return False
     return any(target.rglob("*.safetensors")) or any(target.rglob("*.bin"))
+
+
+def _active_formula_dir() -> Path:
+    primary = user_formula_dir()
+    if _code_formula_present_at(primary):
+        return primary
+    legacy = _legacy_formula_dir()
+    if _code_formula_present_at(legacy):
+        return legacy
+    return primary
 
 
 def _dir_size_bytes(path: Path) -> int:
@@ -103,7 +137,7 @@ def _dir_size_bytes(path: Path) -> int:
 
 
 def code_formula_status() -> dict[str, Any]:
-    path = user_formula_dir()
+    path = _active_formula_dir()
     downloaded = code_formula_present(path)
     return {
         "downloaded": downloaded,
@@ -213,9 +247,13 @@ def _materialize_merged_artifacts() -> Optional[Path]:
     if code_formula_present(formula_src):
         _ensure_dir_junction(merged / CODE_FORMULA_FOLDER, formula_src)
     else:
-        bundled_formula = bundle / CODE_FORMULA_FOLDER
-        if code_formula_present(bundled_formula):
-            _ensure_dir_junction(merged / CODE_FORMULA_FOLDER, bundled_formula)
+        legacy_formula = _legacy_formula_dir()
+        if code_formula_present(legacy_formula):
+            _ensure_dir_junction(merged / CODE_FORMULA_FOLDER, legacy_formula)
+        else:
+            bundled_formula = bundle / CODE_FORMULA_FOLDER
+            if code_formula_present(bundled_formula):
+                _ensure_dir_junction(merged / CODE_FORMULA_FOLDER, bundled_formula)
 
     return merged
 
@@ -251,7 +289,116 @@ def _hf_endpoint_candidates() -> list[str]:
     return ordered
 
 
-def _download_code_formula(local_dir: Path, *, progress: bool = True) -> None:
+class _HrefParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.hrefs: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, Optional[str]]]) -> None:
+        if tag.lower() != "a":
+            return
+        for name, value in attrs:
+            if name.lower() == "href" and value:
+                self.hrefs.append(value)
+
+
+def _static_directory_entries(index_url: str) -> list[tuple[str, str, bool]]:
+    request = Request(index_url, headers={"User-Agent": "Kabuqina/1.0"})
+    with urlopen(request, timeout=30) as response:
+        html = response.read().decode("utf-8", errors="replace")
+
+    parser = _HrefParser()
+    parser.feed(html)
+    base = urlparse(index_url)
+    entries: list[tuple[str, str, bool]] = []
+    seen: set[tuple[str, str]] = set()
+
+    for href in parser.hrefs:
+        href = href.strip()
+        if not href or href.startswith("#") or href.startswith("?"):
+            continue
+        full_url = urljoin(index_url, href)
+        parsed = urlparse(full_url)
+        if parsed.scheme != base.scheme or parsed.netloc != base.netloc:
+            continue
+        if not parsed.path.startswith(base.path):
+            continue
+        if parsed.query or parsed.fragment:
+            continue
+        is_dir = parsed.path.endswith("/")
+        name = unquote(parsed.path.rstrip("/").rsplit("/", 1)[-1])
+        if name in ("", ".", ".."):
+            continue
+        key = (full_url, name)
+        if key in seen:
+            continue
+        seen.add(key)
+        entries.append((name, full_url, is_dir))
+    return entries
+
+
+def _download_static_file(url: str, dest: Path, *, root: Path, progress_cb: Optional[ProgressFn], source: str) -> None:
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    tmp = dest.with_suffix(dest.suffix + ".tmp")
+    request = Request(url, headers={"User-Agent": "Kabuqina/1.0"})
+    try:
+        with urlopen(request, timeout=600) as response:
+            with open(tmp, "wb") as handle:
+                while True:
+                    chunk = response.read(STATIC_DOWNLOAD_CHUNK_SIZE)
+                    if not chunk:
+                        break
+                    handle.write(chunk)
+                    if progress_cb:
+                        progress_cb({
+                            "phase": "downloading",
+                            "source": source,
+                            "totalBytes": CODE_FORMULA_SIZE_MB * 1024 * 1024,
+                            "downloadedBytes": _dir_size_bytes(root),
+                        })
+                handle.flush()
+                try:
+                    os.fsync(handle.fileno())
+                except OSError:
+                    pass
+        os.replace(tmp, dest)
+    except Exception:
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
+        raise
+
+
+def _download_static_tree(index_url: str, local_dir: Path, *, root: Path, progress_cb: Optional[ProgressFn], source: str) -> None:
+    local_dir.mkdir(parents=True, exist_ok=True)
+    entries = _static_directory_entries(index_url)
+    if not entries:
+        raise RuntimeError(f"no downloadable entries found at {index_url}")
+
+    for name, full_url, is_dir in entries:
+        target = local_dir / name
+        if is_dir:
+            _download_static_tree(full_url, target, root=root, progress_cb=progress_cb, source=source)
+        else:
+            _download_static_file(full_url, target, root=root, progress_cb=progress_cb, source=source)
+
+
+def _download_static_code_formula(local_dir: Path, *, progress_cb: Optional[ProgressFn] = None) -> None:
+    source = urlparse(KABUQINA_CODE_FORMULA_BASE_URL).netloc or "kabuqina.com"
+    if progress_cb:
+        progress_cb({
+            "phase": "downloading",
+            "source": source,
+            "totalBytes": CODE_FORMULA_SIZE_MB * 1024 * 1024,
+            "downloadedBytes": _dir_size_bytes(local_dir),
+        })
+    _download_static_tree(KABUQINA_CODE_FORMULA_URL, local_dir, root=local_dir, progress_cb=progress_cb, source=source)
+    if not code_formula_present(local_dir):
+        raise RuntimeError(f"download finished but weights missing under {local_dir}")
+
+
+def _download_code_formula(local_dir: Path, *, progress: bool = True, progress_cb: Optional[ProgressFn] = None) -> None:
     from huggingface_hub import snapshot_download
     from huggingface_hub.utils import disable_progress_bars
 
@@ -268,21 +415,69 @@ def _download_code_formula(local_dir: Path, *, progress: bool = True) -> None:
     prev_endpoint = os.environ.get("HF_ENDPOINT")
 
     try:
+        if _truthy("DOCLING_CODEFORMULA_OFFICIAL_FIRST", "1"):
+            try:
+                log.info("CodeFormula download via %s", urlparse(KABUQINA_CODE_FORMULA_BASE_URL).netloc)
+                _download_static_code_formula(local_dir, progress_cb=progress_cb)
+                if code_formula_present(local_dir):
+                    if progress_cb:
+                        progress_cb({
+                            "phase": "checking",
+                            "source": urlparse(KABUQINA_CODE_FORMULA_BASE_URL).netloc,
+                            "downloadedBytes": _dir_size_bytes(local_dir),
+                        })
+                    return
+            except Exception as exc:
+                last_err = exc
+                log.warning("CodeFormula official source failed, falling back to HF: %s", exc)
+
         for endpoint in _hf_endpoint_candidates():
             os.environ["HF_ENDPOINT"] = endpoint
             host = urlparse(endpoint).netloc or endpoint
             log.info("CodeFormula download via %s", host)
+            if progress_cb:
+                progress_cb({
+                    "phase": "downloading",
+                    "source": host,
+                    "totalBytes": CODE_FORMULA_SIZE_MB * 1024 * 1024,
+                    "downloadedBytes": _dir_size_bytes(local_dir),
+                })
             for attempt in range(1, retries + 1):
                 try:
-                    snapshot_download(
-                        repo_id=CODE_FORMULA_REPO,
-                        revision=CODE_FORMULA_REVISION,
-                        local_dir=str(local_dir),
-                        cache_dir=str(cache_dir),
-                        resume_download=True,
-                        max_workers=max_workers,
-                    )
+                    stop_monitor = threading.Event()
+                    monitor: Optional[threading.Thread] = None
+                    if progress_cb:
+                        def _monitor_download_dir() -> None:
+                            while not stop_monitor.wait(1.0):
+                                progress_cb({
+                                    "phase": "downloading",
+                                    "source": host,
+                                    "totalBytes": CODE_FORMULA_SIZE_MB * 1024 * 1024,
+                                    "downloadedBytes": _dir_size_bytes(local_dir),
+                                })
+
+                        monitor = threading.Thread(target=_monitor_download_dir, daemon=True)
+                        monitor.start()
+                    try:
+                        snapshot_download(
+                            repo_id=CODE_FORMULA_REPO,
+                            revision=CODE_FORMULA_REVISION,
+                            local_dir=str(local_dir),
+                            cache_dir=str(cache_dir),
+                            resume_download=True,
+                            max_workers=max_workers,
+                        )
+                    finally:
+                        stop_monitor.set()
+                        if monitor is not None:
+                            monitor.join(timeout=1.0)
                     if code_formula_present(local_dir):
+                        if progress_cb:
+                            progress_cb({
+                                "phase": "checking",
+                                "source": host,
+                                "downloadedBytes": _dir_size_bytes(local_dir),
+                            })
                         return
                     raise RuntimeError(f"download finished but weights missing under {local_dir}")
                 except Exception as exc:
@@ -306,22 +501,25 @@ def _download_code_formula(local_dir: Path, *, progress: bool = True) -> None:
     raise last_err
 
 
-def download_code_formula_blocking() -> dict[str, Any]:
+def download_code_formula_blocking(progress: Optional[ProgressFn] = None) -> dict[str, Any]:
     """Download CodeFormula to the user profile (Settings action)."""
     dest = user_formula_dir()
-    if code_formula_present(dest):
+    active = _active_formula_dir()
+    if code_formula_present(active):
         return {
             "ok": True,
             "already": True,
-            "size": _dir_size_bytes(dest),
-            "path": str(dest),
+            "size": _dir_size_bytes(active),
+            "path": str(active),
         }
 
     log.info("Downloading CodeFormula to %s", dest)
-    _download_code_formula(dest, progress=True)
+    _download_code_formula(dest, progress=True, progress_cb=progress)
     if not code_formula_present(dest):
         raise RuntimeError(f"CodeFormula download finished but weights are missing under {dest}")
 
+    if progress:
+        progress({"phase": "installing", "downloadedBytes": _dir_size_bytes(dest)})
     _refresh_formula_junction()
     invalidate_docling_converter_cache()
     return {
@@ -335,9 +533,10 @@ def delete_code_formula() -> dict[str, Any]:
     """Remove downloaded CodeFormula weights and refresh Docling junctions."""
     dest = user_formula_dir()
     removed = False
-    if dest.is_dir():
-        shutil.rmtree(dest, ignore_errors=False)
-        removed = True
+    for target in {dest, _legacy_formula_dir()}:
+        if target.is_dir():
+            shutil.rmtree(target, ignore_errors=False)
+            removed = True
 
     formula_link = merged_artifacts_dir() / CODE_FORMULA_FOLDER
     _remove_junction(formula_link)

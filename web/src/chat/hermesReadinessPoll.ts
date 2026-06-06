@@ -8,16 +8,6 @@ import {
 } from "./hermesReadinessCache";
 
 function formatBootError(detail: string, t: (key: string) => string): string {
-  const lower = detail.toLowerCase();
-  const proxyish =
-    lower.includes("timeout") ||
-    lower.includes("timed out") ||
-    lower.includes("proxy") ||
-    lower.includes("30s") ||
-    lower.includes("180s");
-  if (proxyish) {
-    return `${t("chat.errHermesBootFailed")}\n\n${detail}\n\n${t("chat.errHermesProxyHint")}`;
-  }
   return `${t("chat.errHermesBootFailed")}\n\n${detail}`;
 }
 

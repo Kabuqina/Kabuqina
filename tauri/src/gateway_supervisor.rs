@@ -36,7 +36,8 @@ use crate::python_supervisor::SpawnConfig;
 /// Known platforms and the minimum credential keys that must be present
 /// (non-empty) in `.env` for the platform to be considered "configured".
 const PLATFORM_CREDENTIAL_KEYS: &[(&str, &[&str])] = &[
-    ("telegram", &["TELEGRAM_BOT_TOKEN"]),
+    // Telegram disabled — removed from Kabuqina product scope (codex/student-deliverables)
+    // ("telegram", &["TELEGRAM_BOT_TOKEN"]),
     ("weixin", &["WEIXIN_ACCOUNT_ID", "WEIXIN_TOKEN"]),
     ("feishu", &["FEISHU_APP_ID", "FEISHU_APP_SECRET"]),
     ("qqbot", &["QQ_APP_ID", "QQ_CLIENT_SECRET"]),
@@ -61,14 +62,15 @@ const PLATFORM_CREDENTIAL_KEYS: &[(&str, &[&str])] = &[
 /// Additional per-platform env keys to carry into the profile `.env` (not required
 /// for "configured" detection, but needed for full operation).
 const PLATFORM_EXTRA_KEYS: &[(&str, &[&str])] = &[
-    (
-        "telegram",
-        &[
-            "TELEGRAM_ALLOWED_USERS",
-            "TELEGRAM_HOME_CHANNEL",
-            "TELEGRAM_BOT_USERNAME",
-        ],
-    ),
+    // Telegram disabled — removed from Kabuqina product scope (codex/student-deliverables)
+    // (
+    //     "telegram",
+    //     &[
+    //         "TELEGRAM_ALLOWED_USERS",
+    //         "TELEGRAM_HOME_CHANNEL",
+    //         "TELEGRAM_BOT_USERNAME",
+    //     ],
+    // ),
     ("weixin", &[]),
     ("feishu", &[]),
     ("qqbot", &[]),
@@ -222,8 +224,7 @@ fn dotenv_suggests_non_email_messaging_gateway(keys: &HashMap<String, String>) -
     if nonempty("WEIXIN_ACCOUNT_ID") && nonempty("WEIXIN_TOKEN") {
         return true;
     }
-    if nonempty("TELEGRAM_BOT_TOKEN")
-        || nonempty("DISCORD_BOT_TOKEN")
+    if nonempty("DISCORD_BOT_TOKEN")
         || nonempty("SLACK_BOT_TOKEN")
         || nonempty("SIGNAL_HTTP_URL")
     {
@@ -830,15 +831,6 @@ impl GatewaySupervisor {
             if let Some(val) = profile_keys.get(key) {
                 cmd.env(key, val);
             }
-        }
-
-        // Inject proxy config from the HOST (proxy is a system-level setting).
-        if let Some(proxy_url) =
-            crate::proxy::read_effective_proxy_for_hermes_home(&hermes_home_path(&cfg.data_dir))
-        {
-            cmd.env("HERMESDESK_PROXY_URL", &proxy_url);
-            cmd.env("HTTP_PROXY", &proxy_url);
-            cmd.env("HTTPS_PROXY", &proxy_url);
         }
 
         cmd.stdin(Stdio::null())

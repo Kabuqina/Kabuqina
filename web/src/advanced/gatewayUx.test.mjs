@@ -35,8 +35,8 @@ assert.match(
 
 assert.match(
   settingsGatewaySource,
-  /platformItems\s*=\s*\[[\s\S]*telegram[\s\S]*email[\s\S]*\]/,
-  "Messaging platform settings should still expose the seven platform entries.",
+  /platformItems\s*=\s*\[[\s\S]*feishu[\s\S]*email[\s\S]*\]/,
+  "Messaging platform settings should expose the platform entries (without Telegram).",
 );
 
 assert.match(

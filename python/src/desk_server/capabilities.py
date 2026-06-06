@@ -29,6 +29,18 @@ def _capability_policy():
     return _load_capability_policy()()
 
 
+def _load_product_capability_modules():
+    try:
+        from capability_registry import list_capability_defs
+        from capability_status import build_all_capability_statuses
+    except ImportError:
+        if _DESK_SRC.exists() and str(_DESK_SRC) not in sys.path:
+            sys.path.insert(0, str(_DESK_SRC))
+        from capability_registry import list_capability_defs
+        from capability_status import build_all_capability_statuses
+    return list_capability_defs, build_all_capability_statuses
+
+
 def _strip_internal_plugin_fields(plugin: Dict[str, Any]) -> Dict[str, Any]:
     return {k: v for k, v in plugin.items() if not k.startswith("_")}
 
@@ -131,6 +143,76 @@ def _desk_catalog_plugins(policy) -> List[Dict[str, Any]]:
     return sorted(out, key=lambda p: (p.get("label") or p.get("name") or ""))
 
 
+def _fallback_load_packages_for_capabilities(exc: Exception) -> List[Dict[str, Any]]:
+    list_capability_defs, _ = _load_product_capability_modules()
+    definitions = list_capability_defs()
+    package_ids = sorted({
+        package_id
+        for definition in definitions
+        for package_id in (
+            list(definition.get("required_load_packages") or [])
+            + list(definition.get("optional_load_packages") or [])
+        )
+    })
+    usage: Dict[str, List[Dict[str, str]]] = {}
+    for definition in definitions:
+        refs = list(definition.get("required_load_packages") or [])
+        refs.extend(list(definition.get("optional_load_packages") or []))
+        for package_id in refs:
+            usage.setdefault(str(package_id), []).append({
+                "id": str(definition["id"]),
+                "title": str(definition["title"]),
+            })
+    return [
+        {
+            "id": package_id,
+            "title": package_id,
+            "downloaded": False,
+            "sizeMb": 0,
+            "usedByCapabilities": sorted(usage.get(package_id, []), key=lambda item: item["title"]),
+            "job": {"status": "error", "phase": "error", "error": str(exc)},
+        }
+        for package_id in package_ids
+    ]
+
+
+def _fresh_load_packages_for_capabilities() -> List[Dict[str, Any]]:
+    from load_packages import list_load_packages
+
+    try:
+        return list_load_packages()
+    except Exception as exc:
+        log.warning(
+            "load-package status unavailable while building product capabilities: %s",
+            exc,
+        )
+        return _fallback_load_packages_for_capabilities(exc)
+
+
+def _desk_product_capabilities(toolsets: List[Dict[str, Any]], packages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Build product capabilities from fresh load-package state."""
+    list_capability_defs, build_all_capability_statuses = _load_product_capability_modules()
+    enabled_toolsets = {
+        str(item.get("name") or "")
+        for item in toolsets
+        if item.get("enabled")
+    }
+    return build_all_capability_statuses(
+        list_capability_defs(),
+        packages,
+        enabled_toolsets=enabled_toolsets,
+    )
+
+
+def _with_fresh_product_capabilities(payload: Dict[str, Any]) -> Dict[str, Any]:
+    next_payload = dict(payload)
+    toolsets = list(next_payload.get("toolsets") or [])
+    packages = _fresh_load_packages_for_capabilities()
+    next_payload["loadPackages"] = packages
+    next_payload["capabilities"] = _desk_product_capabilities(toolsets, packages)
+    return next_payload
+
+
 _DESK_CATALOG_TTL_SEC = 20.0
 _desk_catalog_cache_payload: Optional[Dict[str, Any]] = None
 _desk_catalog_cache_role: Optional[str] = None
@@ -148,10 +230,11 @@ def invalidate_desk_catalog_cache() -> None:
 
 def _build_desk_catalog_payload_unlocked() -> Dict[str, Any]:
     policy = _capability_policy()
+    toolsets = _desk_catalog_toolsets(policy)
     return {
         "role": policy.role,
         "skills": _desk_catalog_skills(policy),
-        "toolsets": _desk_catalog_toolsets(policy),
+        "toolsets": toolsets,
         "plugins": _desk_catalog_plugins(policy),
     }
 
@@ -166,12 +249,12 @@ def get_desk_catalog_payload_cached() -> Dict[str, Any]:
         and _desk_catalog_cache_role == policy.role
         and now < _desk_catalog_cache_expires
     ):
-        return _desk_catalog_cache_payload
+        return _with_fresh_product_capabilities(_desk_catalog_cache_payload)
     payload = _build_desk_catalog_payload_unlocked()
     _desk_catalog_cache_payload = payload
     _desk_catalog_cache_role = policy.role
     _desk_catalog_cache_expires = now + _DESK_CATALOG_TTL_SEC
-    return payload
+    return _with_fresh_product_capabilities(payload)
 
 
 def _desk_skill_detail_sync(skill_name: str) -> Dict[str, Any]:

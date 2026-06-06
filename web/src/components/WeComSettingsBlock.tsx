@@ -217,7 +217,7 @@ export function WeComSettingsBlock({ className }: { className?: string }) {
               {t("settings.wecomReconfigure")}
             </PlatformButton>
             <PlatformButton variant="danger" onClick={() => void handleRemove()} disabled={removing}>
-              {removing ? "…" : t("settings.telegramRemoveConfig")}
+              {removing ? "…" : t("settings.removePlatformConfig")}
             </PlatformButton>
           </div>
         </>

@@ -54,6 +54,18 @@ The "Kabuqina" name is provisional. Trademark check is pending — see
 | vs `wakeAgent: false` | Script gate skips LLM and returns `[SILENT]` (**no delivery**). Notify is for user-visible reminders only. |
 | Desktop delivery | Still `python/overlays/cron_desktop_delivery.py` for `deliver=desktop` / `local`. |
 
+## Product capabilities vs load packages (2026-06-01)
+
+| Question | Decision |
+|----------|----------|
+| Product model | First-party features such as formula extraction, local STT, CodeT5-style code intelligence, and Latexify-style conversion are modeled as **product capabilities**. |
+| Large local assets | Model weights and heavyweight runtime assets are modeled as **load packages**. |
+| Relationship | Capabilities reference required/optional load packages; load packages do not encode product semantics. |
+| User surface | Capability page is the feature readiness view. Settings load-package management is the storage/download/cache view. |
+| Agent self-knowledge | Desktop chat receives a compact capability summary via `ephemeral_system_prompt`, generated from the same backend catalog as the UI. |
+
+Future first-party additions follow this order: add a load package in `python/src/load_packages.py` when large local assets are needed; add the product capability in `python/src/capability_registry.py`; add or expose shared agent tools in `hermes_core/` when web and gateway children should share semantics; keep Windows-only cache/path/download wiring in `python/src/`.
+
 **Cherry-pick log:**
 
 | Date | Commit | Origin | Reason |

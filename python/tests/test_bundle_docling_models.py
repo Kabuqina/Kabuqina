@@ -68,6 +68,18 @@ class GitHubDownloadCandidatesTests(unittest.TestCase):
 
 
 class BundlePresenceTests(unittest.TestCase):
+    def test_bundle_script_copies_capability_modules(self):
+        root = Path(__file__).resolve().parents[1]
+        script = (root / "build_bundle.ps1").read_text(encoding="utf-8")
+        sync_script = (root.parent / "scripts" / "sync-runtime-sources.ps1").read_text(encoding="utf-8")
+
+        self.assertIn("src\\capability_registry.py", script)
+        self.assertIn("src\\capability_status.py", script)
+        self.assertIn("src\\capability_prompt.py", script)
+        self.assertIn('"capability_registry.py"', sync_script)
+        self.assertIn('"capability_status.py"', sync_script)
+        self.assertIn('"capability_prompt.py"', sync_script)
+
     def test_hf_models_present_detects_layout_and_table(self):
         root = Path(self._get_temp_dir())
         layout = root / "ds4sd--docling-models/model_artifacts/layout/model.safetensors"

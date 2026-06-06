@@ -262,6 +262,32 @@ export type LoadPackageStatus = {
   downloaded: boolean;
   size: number;
   path: string;
+  realPath?: string;
+  agentPath?: string;
+  workspaceIndexPath?: string;
+  source?: string;
+  sources?: LoadPackageSource[];
+  usedByCapabilities?: Array<{ id: string; title: string }>;
+  job?: LoadPackageJob | null;
+};
+
+export type LoadPackageSource = {
+  id: string;
+  label: string;
+  url: string;
+};
+
+export type LoadPackageJob = {
+  packageId: string;
+  status: "running" | "done" | "error" | string;
+  phase: "queued" | "downloading" | "checking" | "installing" | "done" | "error" | string;
+  downloadedBytes: number;
+  totalBytes: number;
+  percent: number | null;
+  source?: string;
+  error?: string;
+  startedAt?: number;
+  updatedAt?: number;
 };
 
 export type LoadPackagesResponse = {
@@ -294,9 +320,9 @@ export async function cmdLoadPackages(): Promise<LoadPackagesResponse> {
   return invoke<LoadPackagesResponse>("cmd_load_packages");
 }
 
-export async function cmdLoadPackageDownload(packageId: string): Promise<LoadPackageDownloadResult> {
+export async function cmdLoadPackageDownload(packageId: string): Promise<LoadPackageStatus> {
   ensureLoadPackageBridge();
-  return invoke<LoadPackageDownloadResult>("cmd_load_package_download", { packageId });
+  return invoke<LoadPackageStatus>("cmd_load_package_download", { packageId });
 }
 
 export async function cmdLoadPackageDelete(packageId: string): Promise<{ ok: boolean; removed?: boolean; path?: string }> {

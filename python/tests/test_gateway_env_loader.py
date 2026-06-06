@@ -41,7 +41,7 @@ class TestGatewayEnvLoader(unittest.TestCase):
                 self.assertEqual(os.environ.get("WEIXIN_TOKEN"), "test-token-abc")
                 self.assertEqual(os.environ.get("WEIXIN_ACCOUNT_ID"), "acct-1")
 
-    def test_collect_messaging_hosts_includes_weixin_and_telegram(self):
+    def test_collect_messaging_hosts_includes_weixin(self):
         import gateway_env_loader as gel
 
         with patch.dict(
@@ -49,13 +49,13 @@ class TestGatewayEnvLoader(unittest.TestCase):
             {
                 "WEIXIN_TOKEN": "t",
                 "WEIXIN_BASE_URL": "https://ilink.example.com",
-                "TELEGRAM_BOT_TOKEN": "tg",
             },
             clear=False,
         ):
             hosts = gel.collect_messaging_hosts_from_environ()
         self.assertIn("ilink.example.com", hosts)
-        self.assertIn("api.telegram.org", hosts)
+        # Telegram disabled — removed from Kabuqina product scope (codex/student-deliverables)
+        # self.assertIn("api.telegram.org", hosts)
 
     def test_refresh_extends_network_policy(self):
         import gateway_env_loader as gel
@@ -64,9 +64,9 @@ class TestGatewayEnvLoader(unittest.TestCase):
 
         na._policy = NetworkPolicy(llm_host="")
         na._net_open = False
-        with patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "x"}, clear=False):
+        with patch.dict(os.environ, {"FEISHU_APP_ID": "x", "FEISHU_APP_SECRET": "y"}, clear=False):
             gel.refresh_messaging_network_allowlist()
-        self.assertIn("api.telegram.org", na._policy.allowed_hosts)
+        self.assertIn("open.feishu.cn", na._policy.allowed_hosts)
 
 
 if __name__ == "__main__":

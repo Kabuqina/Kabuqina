@@ -7,8 +7,15 @@ const loadPackagesSource = fs.readFileSync(
   new URL("./settings/SettingsLoadPackages.tsx", import.meta.url),
   "utf8",
 );
+const loadPackageUiSource = fs.readFileSync(new URL("./settings/loadPackageUi.ts", import.meta.url), "utf8");
 const chatApiSource = fs.readFileSync(new URL("../chat/chat-api.ts", import.meta.url), "utf8");
 const stringsSource = fs.readFileSync(new URL("../locales/strings.ts", import.meta.url), "utf8");
+const mainSource = fs.readFileSync(new URL("../main.tsx", import.meta.url), "utf8");
+const loadPackagesPageSource = fs.readFileSync(
+  new URL("./pages/LoadPackagesPage.tsx", import.meta.url),
+  "utf8",
+);
+const chatMessageListSource = fs.readFileSync(new URL("../chat/ChatMessageList.tsx", import.meta.url), "utf8");
 
 assert.match(
   settingsSource,
@@ -22,8 +29,43 @@ assert.doesNotMatch(
 );
 assert.match(
   loadPackagesSource,
-  /cmdLoadPackages[\s\S]*packages\.map/,
-  "The load-package manager should render packages returned by the generic API.",
+  /settings\.loadPackagesOpen/,
+  "Settings should show a compact entry point for the dedicated load-package page.",
+);
+assert.match(
+  mainSource,
+  /\/settings\/load-packages[\s\S]*LoadPackagesPage/,
+  "The app router should expose a dedicated load-package settings page.",
+);
+assert.match(
+  loadPackagesPageSource,
+  /cmdLoadPackages[\s\S]*packages\.map[\s\S]*job/,
+  "The dedicated load-package page should render packages and job progress returned by the generic API.",
+);
+assert.match(
+  chatApiSource,
+  /usedByCapabilities\?: Array<\{ id: string; title: string \}>/,
+  "The web load-package type should expose product capabilities that use each package.",
+);
+assert.match(
+  chatApiSource,
+  /realPath\?: string[\s\S]*agentPath\?: string[\s\S]*workspaceIndexPath\?: string[\s\S]*source\?: string/,
+  "The web load-package type should expose real, agent-visible, workspace index, and source path metadata.",
+);
+assert.match(
+  loadPackagesPageSource,
+  /usedByCapabilities[\s\S]*settings\.loadPackageUsedBy/,
+  "The load-package page should show which product capabilities use each package.",
+);
+assert.doesNotMatch(
+  loadPackagesPageSource,
+  /settings\.loadPackageRealPath|settings\.loadPackageAgentPath|settings\.loadPackageWorkspaceIndexPath/,
+  "The dedicated load-package page should NOT expose raw filesystem paths to users.",
+);
+assert.match(
+  chatMessageListSource,
+  /loadPackageDownloads[\s\S]*LoadPackageDownloadProgress/,
+  "The chat transcript should surface active load-package downloads.",
 );
 assert.match(
   chatApiSource,
@@ -41,7 +83,7 @@ assert.match(
   "The load-package API should check for the actual Tauri invoke bridge.",
 );
 assert.match(
-  loadPackagesSource,
+  loadPackageUiSource,
   /loadPackagesDesktopOnly/,
   "The Settings UI should show a friendly desktop-only message instead of raw invoke errors.",
 );
@@ -52,5 +94,9 @@ assert.doesNotMatch(
 );
 assert.match(stringsSource, /loadPackagesTitle/);
 assert.match(stringsSource, /loadPackagesDesktopOnly/);
+assert.match(stringsSource, /loadPackagesOpen/);
+assert.match(stringsSource, /loadPackageProgress/);
+assert.match(stringsSource, /loadPackageUsedBy/);
+
 assert.match(stringsSource, /docling-codeformula/);
 assert.match(stringsSource, /local-stt-base-q5_1/);

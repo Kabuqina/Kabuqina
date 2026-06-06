@@ -30,14 +30,11 @@ export type { PostPassSectionId };
  */
 const TTS_UI_TO_PROVIDER: Record<string, string | null> = {
   edge: "edge",
-  openai_tts: "openai",
   elevenlabs: "elevenlabs",
   minimax: "minimax",
   mistral_tts: "mistral",
-  gemini_tts: "gemini",
   xai: "xai",
   neutts: "neutts",
-  nous_openai_tts: null,
 };
 
 /**

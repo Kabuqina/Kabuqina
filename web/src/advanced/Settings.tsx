@@ -1,7 +1,7 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { Activity, ArrowDown, ArrowUp } from "lucide-react";
@@ -12,17 +12,10 @@ import { useI18n } from "../lib/i18n";
 import { useTogglePowerUser } from "../lib/useTogglePowerUser";
 import { useFontSize, useThemeMode } from "../lib/ui-prefs";
 import { useGatewayStatus } from "../features/gateway/useGatewayStatus";
-import { SettingsLLM } from "./settings/SettingsLLM";
 import { SettingsGateway } from "./settings/SettingsGateway";
 import { SettingsDisplay } from "./settings/SettingsDisplay";
 import { SettingsSharedPrefs } from "./settings/SettingsSharedPrefs";
 import { SettingsLoadPackages } from "./settings/SettingsLoadPackages";
-
-type ProxyStatusResponse = {
-  system: { url: string | null; enabled: boolean };
-  settings: { useSystem: boolean; customUrl: string | null };
-  effectiveUrl: string | null;
-};
 
 export interface Status {
   workspace: string;
@@ -38,14 +31,8 @@ export function Settings() {
   const { powerUser, togglePowerUser } = useTogglePowerUser();
   const { size: fontSize, setSize: setFontSize } = useFontSize();
   const { mode: themeMode, setMode: setThemeMode } = useThemeMode();
-  const [autoStartGateway, setAutoStartGateway] = useState(true);
+  const [autoStartGateway, setAutoStartGateway] = useState(false);
   const gatewayStatus = useGatewayStatus();
-
-  // Proxy settings
-  const [proxyDetected, setProxyDetected] = useState<string | null>(null);
-  const [proxyUseSystem, setProxyUseSystem] = useState(false);
-  const [proxyCustom, setProxyCustom] = useState("");
-  const [proxySaving, setProxySaving] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -61,14 +48,6 @@ export function Settings() {
       } catch {
         /* optional */
       }
-      try {
-        const ps = await invoke<ProxyStatusResponse>("cmd_proxy_status");
-        setProxyDetected(ps.system.url);
-        setProxyUseSystem(!!ps.settings.useSystem);
-        setProxyCustom(ps.settings.customUrl ?? "");
-      } catch {
-        /* optional */
-      }
     })().catch(console.error);
   }, []);
 
@@ -80,27 +59,6 @@ export function Settings() {
       console.error(e);
     }
   }
-
-  const saveProxy = useCallback(async () => {
-    setProxySaving(true);
-    try {
-      const custom = proxyCustom.trim();
-      await invoke("cmd_proxy_save", {
-        useSystem: proxyUseSystem,
-        customUrl: custom || null,
-      });
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setProxySaving(false);
-    }
-  }, [proxyUseSystem, proxyCustom]);
-
-  const clearProxy = useCallback(() => {
-    setProxyUseSystem(false);
-    setProxyCustom("");
-    void saveProxy();
-  }, [saveProxy]);
 
   return (
     <AppScaffold className="h-full overflow-y-auto" ref={scrollRef}>
@@ -162,17 +120,6 @@ export function Settings() {
         />
 
         <SettingsLoadPackages />
-
-        <SettingsLLM
-          proxyDetected={proxyDetected}
-          proxyUseSystem={proxyUseSystem}
-          setProxyUseSystem={setProxyUseSystem}
-          proxyCustom={proxyCustom}
-          setProxyCustom={setProxyCustom}
-          proxySaving={proxySaving}
-          onSaveProxy={saveProxy}
-          onClearProxy={clearProxy}
-        />
 
         <SettingsSharedPrefs />
       </div>

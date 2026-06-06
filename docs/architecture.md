@@ -59,6 +59,19 @@ The shell chat page calls Tauri **`invoke`** commands implemented in [tauri/src/
 
 Further product notes: [gateway-desk-weixin-strategy.md](gateway-desk-weixin-strategy.md), [gateway-route-c-weixin-validation.md](gateway-route-c-weixin-validation.md).
 
+## Product capability map
+
+Kabuqina separates product capabilities from their implementation resources:
+
+- Capability: user- and agent-facing description of what Nana can do.
+- Tool/toolset: executable implementation path used by the agent.
+- Load package: large local resource required by one or more capabilities.
+- Skill/plugin: extension source that can contribute capability implementations.
+
+First-party capabilities live in [python/src/capability_registry.py](../python/src/capability_registry.py), and runtime state is computed by [python/src/capability_status.py](../python/src/capability_status.py). Capabilities declare required and optional load packages. The load-package registry owns download, delete, progress, paths, and source URLs. Capability status is recomputed from that registry at runtime, then exposed through `/api/hermesdesk/capabilities` and summarized for the desktop chat prompt by [python/src/capability_prompt.py](../python/src/capability_prompt.py).
+
+Settings load-package management remains the storage/cache view. The Capability page is the product view: it shows what a feature does, whether its toolsets and packages are ready, and links back to the full load-package manager for bulk maintenance.
+
 
 ## Key files
 
@@ -131,4 +144,3 @@ accident.
 - They don't have a Python they want to "share" with our tool.
 - They don't read READMEs.
 - A `.msi` is the one install pattern Windows users universally know.
-
