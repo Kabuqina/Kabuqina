@@ -96,21 +96,6 @@ Candidate 能力代表这个 branch 的产品方向；只有当执行管线、�
 - **桌面运行骨架**：Tauri 2 + React/Vite + Python child + Hermes core。
 - **凭据与安全**：BYO API Key，密钥进入 Windows Credential Manager，不写入普通配置文件。
 
-### 截图
-
-> 如果仓库中没有截图文件，可以先运行应用并补充 `docs/screenshots/`。
-
-<p align="center">
-  <img src="docs/screenshots/onboarding.png" alt="Kabuqina onboarding" width="720">
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/settings.png" alt="Kabuqina settings" width="720">
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/chat.png" alt="Kabuqina chat" width="720">
-</p>
 
 ### 安装与运行
 
