@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "visual_master": "editorial_forest",
+  "implementation_level": "html_background_editable_overlay",
+  "source": {
+    "html_template_dir": "assets\\ppt\\visual-masters\\editorial-forest\\editorial-forest__html",
+    "current_pptx": "template.pptx",
+    "background_dir": "backgrounds",
+    "text_layer_file": "text-layer.json"
+  },
+  "tokens": {
+    "forest_green": "#2E4A2A",
+    "pink": "#E89CB1",
+    "cream": "#EFE7D4",
+    "ink": "#1A1A17"
+  },
+  "rules": [
+    "Use forest green, dusty pink, and warm cream as a quiet tri-tone system.",
+    "Keep hierarchy editorial and unhurried; avoid aggressive contrast and neon accents.",
+    "Use Source Serif 4 for the visual voice and JetBrains Mono only for labels.",
+    "Prefer reflective report rhythm over sales or keynote energy.",
+    "Reserve dark green slides for statement, data, stats, and summary emphasis."
+  ],
+  "frames": [
+    {
+      "role": "cover",
+      "source_html_layout": "cover",
+      "current_slide": 1,
+      "writer_slide_types": ["cover", "title"],
+      "purpose": "Warm editorial title slide with top label, large serif title, and footer metadata.",
+      "content_slots": ["title", "label", "presenter", "organization"]
+    },
+    {
+      "role": "agenda",
+      "source_html_layout": "agenda",
+      "current_slide": 2,
+      "writer_slide_types": ["agenda"],
+      "purpose": "Five-topic agenda tile grid.",
+      "content_slots": ["headline", "items"]
+    },
+    {
+      "role": "statement",
+      "source_html_layout": "statement",
+      "current_slide": 3,
+      "writer_slide_types": ["thesis", "claim", "quote"],
+      "purpose": "Large pink statement slide for thesis or key framing idea.",
+      "content_slots": ["label", "statement", "attribution"]
+    },
+    {
+      "role": "two_col",
+      "source_html_layout": "two-col",
+      "current_slide": 4,
+      "writer_slide_types": ["two_col", "image_text", "evidence"],
+      "purpose": "Image placeholder plus explanatory narrative and metadata.",
+      "content_slots": ["image", "headline", "body", "metadata"]
+    },
+    {
+      "role": "data",
+      "source_html_layout": "data",
+      "current_slide": 5,
+      "writer_slide_types": ["chart_placeholder", "bar_chart"],
+      "purpose": "Dark green data chart slide with year-over-year bars.",
+      "content_slots": ["headline", "chart", "legend", "source"]
+    },
+    {
+      "role": "framework",
+      "source_html_layout": "framework",
+      "current_slide": 6,
+      "writer_slide_types": ["process", "framework"],
+      "purpose": "Four-step plan or framework on cream canvas.",
+      "content_slots": ["headline", "steps"]
+    },
+    {
+      "role": "stats",
+      "source_html_layout": "stats",
+      "current_slide": 7,
+      "writer_slide_types": ["stats", "key_findings"],
+      "purpose": "Three KPI callouts on forest green background.",
+      "content_slots": ["headline", "kpis"]
+    },
+    {
+      "role": "summary",
+      "source_html_layout": "summary",
+      "current_slide": 8,
+      "writer_slide_types": ["summary", "closing"],
+      "purpose": "Closing summary with three takeaways.",
+      "content_slots": ["headline", "takeaways"]
+    }
+  ],
+  "known_gaps": [
+    "The current PPTX uses screenshot backgrounds, so decorative elements and baked text are not directly editable.",
+    "Editable text boxes are transparent overlays for selection and replacement.",
+    "A future native rebuild should preserve these frame roles and avoid reintroducing visible text-box outlines."
+  ]
+}

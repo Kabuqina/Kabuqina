@@ -382,8 +382,8 @@ for (const className of ["kq-titlebar-brand", "kq-titlebar-link", "kq-titlebar-l
 
 assert.match(
   messageListSource,
-  /productName[\s\S]*kq-empty-title[\s\S]*\u6162\u6162\u6765\uff0c\u5c0f\u5a1c\u966a\u4f60\u6574\u7406\u601d\u8def[\s\S]*kabuqina_hero_scene\.svg[\s\S]*kq-companion-hero-scene/,
-  "The empty chat state should show Kabuqina and render the exported hero scene SVG.",
+  /wordmarkBase[\s\S]*kq-empty-title[\s\S]*\u6162\u6162\u6765\uff0c\u5c0f\u5a1c\u966a\u4f60\u6574\u7406\u601d\u8def[\s\S]*kabuqina_boot\.svg/,
+  "The empty chat state should show Kabuqina with the current wordmark and hero asset.",
 );
 
 assert.match(
@@ -589,6 +589,19 @@ assert.match(
   workspacePanelSource,
   /material_index_build[\s\S]*素材索引[\s\S]*review_outline[\s\S]*pptx_write/,
   "Student PPT quick actions should build a general material index before outline review and PPT writing.",
+);
+
+assert.match(
+  workspacePanelSource,
+  /PPT_VISUAL_MASTERS[\s\S]*soft_editorial[\s\S]*blue_professional[\s\S]*signal[\s\S]*neo_grid_bold[\s\S]*editorial_forest/,
+  "Student PPT quick actions should expose the generated visual masters.",
+);
+
+assert.match(workspacePanelSource, /workspacePptVisualMaster/, "Student PPT quick actions should label the visual master selector.");
+assert.match(
+  workspacePanelSource,
+  /visual_master[\s\S]*pptx_write[\s\S]*selectedPptVisualMaster\.id/,
+  "Student PPT prompts should carry the selected visual_master into pptx_write.",
 );
 
 assert.doesNotMatch(

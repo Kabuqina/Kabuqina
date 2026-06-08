@@ -1,0 +1,138 @@
+{
+  "version": 1,
+  "visual_master": "soft_editorial",
+  "implementation_level": "html_background_editable_overlay",
+  "source": {
+    "html_template_dir": "assets\\ppt\\visual-masters\\soft-editorial\\soft-editorial_html",
+    "current_pptx": "template.pptx",
+    "background_dir": "backgrounds",
+    "text_layer_file": "text-layer.json"
+  },
+  "tokens": {
+    "paper": "#F2EEDF",
+    "paper_alt": "#ECE6D2",
+    "ink": "#2A241B",
+    "ink_soft": "#5C5345",
+    "pink": "#E1A4C2",
+    "lemon": "#D6DD63",
+    "blush": "#E8C9B6",
+    "sage": "#B7C7A8",
+    "lilac": "#C9BEDC",
+    "card_fill": "rgba(255,255,255,0.55)"
+  },
+  "rules": [
+    "Use the warm cream paper background (#F2EEDF) on every standard slide.",
+    "Use Cormorant Garamond at weight 500 for every headline; italic <em> phrases drop to weight 400.",
+    "Use Work Sans only for body, eyebrows, card sub-labels, and attributions.",
+    "Default cards to translucent white (rgba(255,255,255,0.55)) at 24–36px border-radius.",
+    "Pastel fills (pink, lemon, blush, sage, lilac) are interchangeable card accents with no fixed semantic meaning.",
+    "Text stays ink (#2A241B) on every surface, including all pastel cards. Never invert to white.",
+    "Use italic serif (Cormorant Garamond italic) for kickers, markers, page numerals, footers, step numerals, and sign-offs.",
+    "Use lowercase Roman numerals (i., ii., iii.) for step ordinals.",
+    "No drop shadows. Depth comes from translucency and rounded form only.",
+    "No square corners. Minimum acceptable radius is 14px; cards live at 22–36px."
+  ],
+  "frames": [
+    {
+      "role": "cover",
+      "source_html_layout": "s-cover",
+      "current_slide": 1,
+      "writer_slide_types": ["cover", "title"],
+      "purpose": "Opening title slide with large serif headline, kicker, lede, and cover swatch row.",
+      "content_slots": ["title", "kicker", "lede", "meta"]
+    },
+    {
+      "role": "foreword",
+      "source_html_layout": "s-foreword",
+      "current_slide": 2,
+      "writer_slide_types": ["foreword", "intro", "two_col"],
+      "purpose": "Two-column foreword with drop-cap opener and narrative body.",
+      "content_slots": ["opener", "body", "signoff"]
+    },
+    {
+      "role": "method",
+      "source_html_layout": "s-method",
+      "current_slide": 3,
+      "writer_slide_types": ["method", "process", "steps"],
+      "purpose": "Four-step method grid with pastel step cards and Roman numerals.",
+      "content_slots": ["headline", "steps"]
+    },
+    {
+      "role": "insights",
+      "source_html_layout": "s-insights",
+      "current_slide": 4,
+      "writer_slide_types": ["insights", "three_cards", "findings"],
+      "purpose": "Three insight cards with serif headlines and sub-labels.",
+      "content_slots": ["headline", "cards"]
+    },
+    {
+      "role": "closer",
+      "source_html_layout": "s-closer",
+      "current_slide": 5,
+      "writer_slide_types": ["closer", "statement", "highlight"],
+      "purpose": "Full-bleed pink statement slide for a key insight or moment.",
+      "content_slots": ["marker", "statement", "context"]
+    },
+    {
+      "role": "numbers",
+      "source_html_layout": "s-numbers",
+      "current_slide": 6,
+      "writer_slide_types": ["stats", "numbers", "metrics"],
+      "purpose": "Statistical summary with oversized numerals on pastel cards.",
+      "content_slots": ["headline", "metrics"]
+    },
+    {
+      "role": "quote",
+      "source_html_layout": "s-quote",
+      "current_slide": 7,
+      "writer_slide_types": ["quote", "testimonial", "insight"],
+      "purpose": "Centered pull-quote with large blush quote mark and attribution.",
+      "content_slots": ["quote", "source", "role"]
+    },
+    {
+      "role": "next",
+      "source_html_layout": "s-next",
+      "current_slide": 8,
+      "writer_slide_types": ["next", "action", "recommendations"],
+      "purpose": "Next-steps slide with headline panel and three action items.",
+      "content_slots": ["headline", "items"]
+    },
+    {
+      "role": "consult",
+      "source_html_layout": "s-consult",
+      "current_slide": 9,
+      "writer_slide_types": ["consult", "detail", "analysis"],
+      "purpose": "Dense consulting-style finding page with three evidence columns and action bar.",
+      "content_slots": ["action_title", "action_statement", "columns"]
+    },
+    {
+      "role": "chart",
+      "source_html_layout": "s-chart",
+      "current_slide": 10,
+      "writer_slide_types": ["chart", "data", "retention"],
+      "purpose": "Chart slide with narrative left panel and rendered chart right panel.",
+      "content_slots": ["headline", "body", "legend", "chart"]
+    },
+    {
+      "role": "process",
+      "source_html_layout": "s-process",
+      "current_slide": 11,
+      "writer_slide_types": ["process", "roadmap", "timeline"],
+      "purpose": "Five-step process diagram with pastel nodes and timeline bar.",
+      "content_slots": ["headline", "steps", "timeline"]
+    },
+    {
+      "role": "matrix",
+      "source_html_layout": "s-matrix",
+      "current_slide": 12,
+      "writer_slide_types": ["matrix", "comparison", "evaluation"],
+      "purpose": "Comparison matrix with row labels, column headers, and status pills.",
+      "content_slots": ["headline", "matrix", "criteria"]
+    }
+  ],
+  "known_gaps": [
+    "The current PPTX uses screenshot backgrounds, so decorative elements and baked text in the background are not directly editable.",
+    "Editable text boxes are overlaid from DOM text-node coordinates, but PowerPoint font availability may differ from browser-rendered web fonts.",
+    "Generated production decks should eventually render slide-specific backgrounds from generated content or hide baked text before overlaying visible editable text."
+  ]
+}

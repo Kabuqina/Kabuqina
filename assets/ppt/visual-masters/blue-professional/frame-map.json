@@ -1,0 +1,118 @@
+{
+  "version": 1,
+  "visual_master": "blue_professional",
+  "implementation_level": "html_background_editable_overlay",
+  "source": {
+    "html_template_dir": "D:\\PPT\\beautiful-html-templates-main\\templates\\blue-professional",
+    "current_pptx": "template.pptx",
+    "background_dir": "backgrounds",
+    "text_layer_file": "text-layer.json"
+  },
+  "tokens": {
+    "background": "#FDFAE7",
+    "primary": "#1E2BFA",
+    "text": "#111111",
+    "text_muted": "#6B6B6B",
+    "text_light": "#9A9A9A",
+    "card_fill": "rgba(30, 43, 250, 0.04)",
+    "card_border": "rgba(30, 43, 250, 0.20)",
+    "positive": "#059669",
+    "negative": "#DC2626"
+  },
+  "rules": [
+    "Use the cream background on every slide.",
+    "Use cobalt only for eyebrows, numerals, chart fills, progress, accent rules, and CTA elements.",
+    "Do not set main headlines in cobalt.",
+    "Use soft cobalt-tinted cards with translucent cobalt borders.",
+    "Do not add a second accent color for categories.",
+    "Use no drop shadows on content cards.",
+    "Every content slide should carry an eyebrow/tag header rhythm unless the frame is cover, quote, or closing."
+  ],
+  "frames": [
+    {
+      "role": "title",
+      "source_html_layout": "layout-cover",
+      "current_slide": 1,
+      "writer_slide_types": ["cover", "title"],
+      "purpose": "Opening title slide with left-aligned title, short subtitle, meta line, cobalt accent rule, and diagonal right-side panel.",
+      "content_slots": ["title", "subtitle", "meta"]
+    },
+    {
+      "role": "agenda",
+      "source_html_layout": "layout-agenda",
+      "current_slide": 2,
+      "writer_slide_types": ["agenda"],
+      "purpose": "Table of contents using a two-column agenda grid.",
+      "content_slots": ["items"]
+    },
+    {
+      "role": "stats",
+      "source_html_layout": "layout-metrics",
+      "current_slide": 3,
+      "writer_slide_types": ["claim_bullets", "stats"],
+      "purpose": "Three large metric cards plus supporting context.",
+      "content_slots": ["headline", "metric_cards", "supporting_bullets"]
+    },
+    {
+      "role": "dashboard",
+      "source_html_layout": "layout-dashboard",
+      "current_slide": 4,
+      "writer_slide_types": ["table", "matrix"],
+      "purpose": "Dense 3-column or 2-row stat grid for data overview.",
+      "content_slots": ["headline", "stat_cells"]
+    },
+    {
+      "role": "two_col",
+      "source_html_layout": "layout-split",
+      "current_slide": 5,
+      "writer_slide_types": ["claim_bullets", "diagram"],
+      "purpose": "Narrative split slide with body on one side and detail blocks or highlighted callout on the other.",
+      "content_slots": ["headline", "left_body", "right_blocks", "highlight"]
+    },
+    {
+      "role": "chart",
+      "source_html_layout": "layout-bars",
+      "current_slide": 6,
+      "writer_slide_types": ["chart_placeholder", "table"],
+      "purpose": "Horizontal ranking/bar chart with cobalt fills and grey tracks.",
+      "content_slots": ["headline", "bar_rows", "caption"]
+    },
+    {
+      "role": "quote",
+      "source_html_layout": "layout-quote",
+      "current_slide": 7,
+      "writer_slide_types": ["quote", "claim_bullets"],
+      "purpose": "Large quote or thesis slide, used sparingly for a major insight.",
+      "content_slots": ["quote", "cite", "section_label"]
+    },
+    {
+      "role": "timeline",
+      "source_html_layout": "layout-timeline",
+      "current_slide": 8,
+      "writer_slide_types": ["diagram", "process"],
+      "purpose": "Four-step horizontal process/timeline with cobalt numbered circles.",
+      "content_slots": ["headline", "steps"]
+    },
+    {
+      "role": "detail",
+      "source_html_layout": "layout-detail",
+      "current_slide": 9,
+      "writer_slide_types": ["claim_bullets", "table"],
+      "purpose": "Detail analysis page with multi-block explanations.",
+      "content_slots": ["headline", "detail_blocks"]
+    },
+    {
+      "role": "closing",
+      "source_html_layout": "layout-closing",
+      "current_slide": 10,
+      "writer_slide_types": ["closing"],
+      "purpose": "Final thanks and optional CTA/contact information.",
+      "content_slots": ["title", "message", "cta", "meta"]
+    }
+  ],
+  "known_gaps": [
+    "The current PPTX uses screenshot backgrounds, so decorative elements and baked text in the background are not directly editable.",
+    "Editable text boxes are overlaid from DOM text-node coordinates, but PowerPoint font availability may differ from browser-rendered web fonts.",
+    "Generated production decks should render backgrounds from generated content or hide baked text before overlaying visible editable text."
+  ]
+}

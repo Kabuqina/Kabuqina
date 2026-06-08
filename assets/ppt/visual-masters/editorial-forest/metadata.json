@@ -1,0 +1,57 @@
+{
+  "id": "editorial_forest",
+  "name": "Editorial Forest",
+  "description": "Quiet editorial presentation master with forest green, dusty pink, and warm cream for reflective student reports, research recaps, and course presentations.",
+  "template_file": "template.pptx",
+  "preview_file": "preview.png",
+  "status": "available",
+  "implementation_level": "html_background_editable_overlay",
+  "compatible_structures": [
+    "course_report",
+    "paper_report",
+    "code_defense"
+  ],
+  "layout_hints": [
+    "cover",
+    "agenda",
+    "statement",
+    "two_col",
+    "data",
+    "framework",
+    "stats",
+    "summary"
+  ],
+  "source": {
+    "kind": "html_template",
+    "path": "assets\\ppt\\visual-masters\\editorial-forest\\editorial-forest__html",
+    "original_family": "D:\\PPT\\beautiful-html-templates-main\\templates\\editorial-forest"
+  },
+  "tokens": {
+    "forest_green": "#2E4A2A",
+    "forest_green_deep": "#243A21",
+    "forest_green_light": "#3A5A36",
+    "pink": "#E89CB1",
+    "pink_deep": "#D27E96",
+    "cream": "#EFE7D4",
+    "cream_alt": "#E6DCC4",
+    "ink": "#1A1A17"
+  },
+  "font_strategy": {
+    "latin_serif": "Source Serif 4",
+    "latin_mono": "JetBrains Mono",
+    "cjk_fallback": "Noto Serif SC or Microsoft YaHei"
+  },
+  "render_strategy": {
+    "kind": "html_background_with_editable_text_overlay",
+    "background_dir": "backgrounds",
+    "text_layer_file": "text-layer.json",
+    "build_script": "build-html-background-master.mjs",
+    "readability_scale": {
+      "minimum_extracted_font_px": 16,
+      "body_floor_px": 19,
+      "target": "classroom projection readable at approximately 3 meters"
+    },
+    "notes": "Rendered through the deck-stage API. Navigation chrome is hidden before screenshot capture. Text box outlines are rewritten to DrawingML noFill for LibreOffice and WPS compatibility."
+  },
+  "rescue_notes": "Rebuilt as an HTML-background hybrid master following the corrected noFill text-box standard. Frontend and Writer consume visual_master=editorial_forest."
+}

@@ -179,6 +179,8 @@ def build_capability_status(
         "optionalLoadPackages": optional,
         "pipelines": pipelines,
         "shortcuts": [_camel_shortcut(item) for item in definition.get("shortcuts") or []],
+        "structureTemplates": deepcopy(definition.get("structure_templates") or []),
+        "visualMasters": deepcopy(definition.get("visual_masters") or []),
         "roles": list(definition.get("roles") or []),
         "risk": definition.get("risk", "low"),
         "source": definition.get("source", "builtin"),

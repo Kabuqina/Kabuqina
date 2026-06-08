@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "visual_masters": [
+    {
+      "id": "soft_editorial",
+      "dir": "soft-editorial",
+      "status": "available"
+    },
+    {
+      "id": "blue_professional",
+      "dir": "blue-professional",
+      "status": "available"
+    },
+    {
+      "id": "neo_grid_bold",
+      "dir": "neo-grid-bold",
+      "status": "available"
+    },
+    {
+      "id": "editorial_forest",
+      "dir": "editorial-forest",
+      "status": "available"
+    },
+    {
+      "id": "signal",
+      "dir": "signal",
+      "status": "available"
+    }
+  ]
+}

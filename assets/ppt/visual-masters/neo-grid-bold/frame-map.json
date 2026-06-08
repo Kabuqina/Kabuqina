@@ -1,0 +1,128 @@
+{
+  "version": 1,
+  "visual_master": "neo_grid_bold",
+  "implementation_level": "html_background_editable_overlay",
+  "source": {
+    "html_template_dir": "assets\\ppt\\visual-masters\\neo-grid-bold\\neo-grid-bold_html",
+    "current_pptx": "template.pptx",
+    "background_dir": "backgrounds",
+    "text_layer_file": "text-layer.json"
+  },
+  "tokens": {
+    "background": "#ECECE8",
+    "paper": "#F5F4EF",
+    "ink": "#0A0A0A",
+    "accent": "#E6FF3D",
+    "muted": "#8A8A85"
+  },
+  "rules": [
+    "Use neon yellow only as the signature accent for highlighted panels, labels, metric emphasis, and key blocks.",
+    "Keep the palette high-contrast: off-white paper, black ink, neon yellow.",
+    "Prefer uppercase, geometric, graphic hierarchy.",
+    "Avoid extra accent colors, shadows, soft gradients, or warm editorial decoration.",
+    "Reserve dense matrix and consulting frames for evidence-heavy student reports and project defense analysis."
+  ],
+  "frames": [
+    {
+      "role": "cover",
+      "source_html_layout": "s-cover",
+      "current_slide": 1,
+      "writer_slide_types": ["cover", "title"],
+      "purpose": "Graphic title slide with image blocks, neon title tile, and compact metadata.",
+      "content_slots": ["title", "metadata", "visual_blocks"]
+    },
+    {
+      "role": "toc",
+      "source_html_layout": "s-toc",
+      "current_slide": 2,
+      "writer_slide_types": ["agenda", "toc"],
+      "purpose": "Six-item contents grid with alternating paper, neon, and ink cells.",
+      "content_slots": ["items"]
+    },
+    {
+      "role": "stats",
+      "source_html_layout": "s-stats",
+      "current_slide": 3,
+      "writer_slide_types": ["stats", "key_findings"],
+      "purpose": "Large metric statement with supporting stats and oversized result block.",
+      "content_slots": ["headline", "metrics", "summary"]
+    },
+    {
+      "role": "features",
+      "source_html_layout": "s-features",
+      "current_slide": 4,
+      "writer_slide_types": ["three_cards", "features"],
+      "purpose": "Three-card feature or finding summary.",
+      "content_slots": ["headline", "cards"]
+    },
+    {
+      "role": "chart",
+      "source_html_layout": "s-chart",
+      "current_slide": 5,
+      "writer_slide_types": ["chart_placeholder", "bar_chart"],
+      "purpose": "Split black narrative panel plus bar chart.",
+      "content_slots": ["headline", "body", "bars", "legend"]
+    },
+    {
+      "role": "section",
+      "source_html_layout": "s-section",
+      "current_slide": 6,
+      "writer_slide_types": ["section"],
+      "purpose": "Bold section divider with oversized number and black title pane.",
+      "content_slots": ["section_number", "headline", "body"]
+    },
+    {
+      "role": "quote",
+      "source_html_layout": "s-quote",
+      "current_slide": 7,
+      "writer_slide_types": ["quote", "insight"],
+      "purpose": "Quote slide with image panel, statement, and speaker attribution.",
+      "content_slots": ["quote", "source", "context"]
+    },
+    {
+      "role": "cta",
+      "source_html_layout": "s-cta",
+      "current_slide": 8,
+      "writer_slide_types": ["process", "recommendations", "closing"],
+      "purpose": "Next-step slide with three action blocks.",
+      "content_slots": ["headline", "steps"]
+    },
+    {
+      "role": "consult",
+      "source_html_layout": "s-consult",
+      "current_slide": 9,
+      "writer_slide_types": ["analysis", "consulting_findings"],
+      "purpose": "Dense consulting-style finding page with three evidence columns.",
+      "content_slots": ["headline", "columns", "sources"]
+    },
+    {
+      "role": "chart2",
+      "source_html_layout": "s-chart2",
+      "current_slide": 10,
+      "writer_slide_types": ["line_chart", "chart_placeholder"],
+      "purpose": "Retention or cohort curve slide with narrative panel and chart.",
+      "content_slots": ["headline", "body", "chart", "legend"]
+    },
+    {
+      "role": "process2",
+      "source_html_layout": "s-process2",
+      "current_slide": 11,
+      "writer_slide_types": ["process", "roadmap"],
+      "purpose": "Five-step process or implementation timeline.",
+      "content_slots": ["headline", "steps", "timeline"]
+    },
+    {
+      "role": "matrix2",
+      "source_html_layout": "s-matrix2",
+      "current_slide": 12,
+      "writer_slide_types": ["matrix", "comparison"],
+      "purpose": "Decision matrix for comparing pilots, options, or evaluation criteria.",
+      "content_slots": ["headline", "matrix", "notes"]
+    }
+  ],
+  "known_gaps": [
+    "The current PPTX uses screenshot backgrounds, so decorative elements and baked text are not directly editable.",
+    "Editable text boxes are transparent overlays for selection and replacement.",
+    "A future native rebuild should preserve these frame roles and avoid reintroducing visible text-box outlines."
+  ]
+}

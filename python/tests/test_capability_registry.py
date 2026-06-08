@@ -112,10 +112,43 @@ class CapabilityRegistryTests(unittest.TestCase):
         from capability_registry import get_capability_def
 
         ppt = get_capability_def("student-ppt")
-        pipeline = next(item for item in ppt["pipelines"] if item["id"] == "student-ppt-from-documents")
+        pipeline = next(item for item in ppt["pipelines"] if item["id"] == "student-course-report-ppt")
         stages = [step["stage"] for step in pipeline["steps"]]
 
-        self.assertEqual(stages, ["reader", "material_index", "planner", "writer"])
+        self.assertEqual(stages, ["reader", "material_index", "planner", "planner", "writer"])
+
+    def test_student_ppt_declares_structure_templates_and_visual_masters(self):
+        from capability_registry import get_capability_def
+        from capability_status import build_capability_status
+
+        ppt = get_capability_def("student-ppt")
+
+        self.assertEqual(ppt["family"], "student-report-generation")
+        self.assertEqual(
+            {item["id"] for item in ppt["structure_templates"]},
+            {"course_report", "paper_report", "code_defense"},
+        )
+        self.assertEqual(
+            {item["id"] for item in ppt["visual_masters"]},
+            {"soft_editorial", "blue_professional", "signal", "neo_grid_bold", "editorial_forest"},
+        )
+        self.assertEqual(
+            {pipeline["id"] for pipeline in ppt["pipelines"]},
+            {"student-course-report-ppt", "student-paper-report-ppt", "student-code-defense-ppt"},
+        )
+        for pipeline in ppt["pipelines"]:
+            self.assertTrue(pipeline["visual_master_required"])
+            self.assertIn("visual_master", pipeline["steps"][-1]["default_args"])
+
+        status = build_capability_status(
+            ppt,
+            load_packages={},
+            enabled_toolsets={"documents", "clarify"},
+        )
+        self.assertEqual(status["status"], "available")
+        self.assertEqual(len(status["structureTemplates"]), 3)
+        self.assertEqual(len(status["visualMasters"]), 5)
+        self.assertTrue(all(pipeline["ready"] for pipeline in status["pipelines"]))
 
     def test_shortcuts_reference_existing_pipelines(self):
         from capability_registry import list_capability_defs

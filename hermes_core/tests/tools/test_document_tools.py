@@ -60,6 +60,7 @@ def test_pptx_write_creates_openable_deck(tmp_path):
                 {"title": "实现方案", "bullets": ["Docling 解析", "大纲确认后生成"]},
             ],
             template="code_defense",
+            visual_master="neo_grid_bold",
         )
     )
 
@@ -67,6 +68,8 @@ def test_pptx_write_creates_openable_deck(tmp_path):
     assert result["slide_count"] == 3
     assert result["template"] == "code_defense"
     assert result["theme"] == "项目答辩"
+    assert result["visual_master"] == "neo_grid_bold"
+    assert result["visual_master_renderer"] in {"html_background_master_v1", "native_v1"}
     assert out.exists()
 
     from pptx import Presentation
@@ -269,6 +272,26 @@ def test_pptx_write_unknown_template_falls_back_to_course_report(tmp_path):
         )
     )
     assert result["template"] == "course_report"
+
+
+def test_pptx_write_unknown_visual_master_falls_back_to_default_native(tmp_path):
+    _require_pptx()
+    from tools.document_tools import pptx_write
+
+    out = tmp_path / "fallback-visual-master.pptx"
+    result = json.loads(
+        pptx_write(
+            path=str(out),
+            title="测试",
+            slides=[{"title": "页", "bullets": ["内容"]}],
+            template="course_report",
+            visual_master="unknown-master",
+        )
+    )
+
+    assert result["ok"] is True
+    assert result["visual_master"] == "default_native"
+    assert result["visual_master_name"] == "Default native renderer"
 
 
 def test_pdf_read_precise_falls_back_to_pypdf(tmp_path):

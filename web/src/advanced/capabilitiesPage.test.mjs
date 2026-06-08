@@ -7,8 +7,8 @@ const stringsSource = fs.readFileSync(new URL("../locales/strings.ts", import.me
 
 assert.match(
   pageSource,
-  /type ProductCapabilityItem[\s\S]*requiredLoadPackages[\s\S]*optionalLoadPackages/,
-  "Capabilities page should type the backend product capabilities payload, including load packages.",
+  /type ProductCapabilityItem[\s\S]*structureTemplates[\s\S]*visualMasters[\s\S]*requiredLoadPackages[\s\S]*optionalLoadPackages/,
+  "Capabilities page should type the backend product capabilities payload, including visual master options and load packages.",
 );
 assert.match(
   pageSource,
@@ -42,8 +42,8 @@ assert.match(
 );
 assert.match(
   pageSource,
-  /ProductCapabilityDetails[\s\S]*stages[\s\S]*pipelines[\s\S]*shortcuts[\s\S]*requiredToolsets[\s\S]*requiredLoadPackages[\s\S]*optionalLoadPackages[\s\S]*statusReason/,
-  "The detail panel should show stages, pipelines, shortcut candidates, product tools, toolsets, load packages, and status reason.",
+  /ProductCapabilityDetails[\s\S]*stages[\s\S]*pipelines[\s\S]*shortcuts[\s\S]*structureTemplates[\s\S]*visualMasters[\s\S]*requiredToolsets[\s\S]*requiredLoadPackages[\s\S]*optionalLoadPackages[\s\S]*statusReason/,
+  "The detail panel should show stages, pipelines, shortcut candidates, structure templates, visual masters, product tools, toolsets, load packages, and status reason.",
 );
 assert.match(
   pageSource,
@@ -92,3 +92,5 @@ assert.match(stringsSource, /optionalLoadPackages/);
 assert.match(stringsSource, /pipelineStages/);
 assert.match(stringsSource, /pipelineEntrypoints/);
 assert.match(stringsSource, /shortcutCandidates/);
+assert.match(stringsSource, /structureTemplates/);
+assert.match(stringsSource, /visualMasters/);

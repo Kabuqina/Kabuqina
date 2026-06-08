@@ -1,0 +1,181 @@
+{
+  "version": 1,
+  "visual_master": "signal",
+  "implementation_level": "html_background_editable_overlay",
+  "source": {
+    "html_template_dir": "assets\\ppt\\visual-masters\\signal\\signal_html",
+    "current_pptx": "template.pptx",
+    "background_dir": "backgrounds",
+    "text_layer_file": "text-layer.json"
+  },
+  "tokens": {
+    "background": "#1C2644",
+    "background_light": "#F0ECE3",
+    "text_on_dark": "#E2DCD0",
+    "text_on_dark_muted": "#8A96A8",
+    "text_on_light": "#1A2030",
+    "accent": "#C8A870",
+    "border_dark": "#2E3D5C",
+    "border_light": "#CAC4B4"
+  },
+  "rules": [
+    "Use deep navy as the dominant canvas and warm bone paper only for selected contrast frames.",
+    "Use muted gold sparingly for numerals, key emphasis, rules, chart highlights, and serif italic emphasis.",
+    "Do not introduce extra category colors unless generated chart semantics require it.",
+    "Keep the institutional editorial voice: serif headlines, clean sans body, mono chrome.",
+    "Prefer generous hierarchy over decorative effects; no shadows, glossy gradients, or playful ornament.",
+    "For student reports, reserve dense frames for evidence, literature review, data, and project analysis."
+  ],
+  "frames": [
+    {
+      "role": "cover",
+      "source_html_layout": "slide--cover",
+      "current_slide": 1,
+      "writer_slide_types": ["cover", "title"],
+      "purpose": "Opening title with meta labels, large editorial serif title, subtitle, and author/status line.",
+      "content_slots": ["title", "subtitle", "meta", "author"]
+    },
+    {
+      "role": "chapter",
+      "source_html_layout": "slide--chapter",
+      "current_slide": 2,
+      "writer_slide_types": ["section"],
+      "purpose": "Section divider with numeric label, section heading, and short setup sentence.",
+      "content_slots": ["section_number", "section_title", "summary"]
+    },
+    {
+      "role": "statement",
+      "source_html_layout": "slide--statement",
+      "current_slide": 3,
+      "writer_slide_types": ["thesis", "claim"],
+      "purpose": "Single memorable argument or thesis statement.",
+      "content_slots": ["kicker", "statement", "footer"]
+    },
+    {
+      "role": "split",
+      "source_html_layout": "slide--split",
+      "current_slide": 4,
+      "writer_slide_types": ["claim_bullets", "two_col", "evidence"],
+      "purpose": "Light-background split explanation with narrative and supporting bullets or figure area.",
+      "content_slots": ["headline", "body", "bullets", "figure_caption"]
+    },
+    {
+      "role": "stats",
+      "source_html_layout": "slide--stats",
+      "current_slide": 5,
+      "writer_slide_types": ["stats", "key_findings"],
+      "purpose": "Three metric summary cards with short interpretations.",
+      "content_slots": ["headline", "metrics", "sources"]
+    },
+    {
+      "role": "quote",
+      "source_html_layout": "slide--quote",
+      "current_slide": 6,
+      "writer_slide_types": ["quote", "insight"],
+      "purpose": "Sparse quotation or highlighted observation slide.",
+      "content_slots": ["quote", "source", "context"]
+    },
+    {
+      "role": "list",
+      "source_html_layout": "slide--list",
+      "current_slide": 7,
+      "writer_slide_types": ["agenda", "principles", "bullets"],
+      "purpose": "Five-part principle, agenda, or recommendation list on a light canvas.",
+      "content_slots": ["headline", "intro", "items"]
+    },
+    {
+      "role": "compare",
+      "source_html_layout": "slide--compare",
+      "current_slide": 8,
+      "writer_slide_types": ["comparison", "before_after"],
+      "purpose": "Two-column current-state versus proposed-state comparison.",
+      "content_slots": ["left_title", "left_body", "left_bullets", "right_title", "right_body", "right_bullets"]
+    },
+    {
+      "role": "editorial",
+      "source_html_layout": "slide--editorial",
+      "current_slide": 9,
+      "writer_slide_types": ["case_study", "literature_review", "timeline_summary"],
+      "purpose": "Magazine-like dense evidence frame with headline, event log, and compact stats.",
+      "content_slots": ["headline", "events", "metrics", "sources"]
+    },
+    {
+      "role": "dense",
+      "source_html_layout": "slide--dense",
+      "current_slide": 10,
+      "writer_slide_types": ["analysis", "two_col", "evidence"],
+      "purpose": "Long-form two-column analytical explanation.",
+      "content_slots": ["headline", "left_argument", "right_argument", "footer"]
+    },
+    {
+      "role": "statement_alt",
+      "source_html_layout": "slide--statement",
+      "current_slide": 11,
+      "writer_slide_types": ["thesis", "transition", "claim"],
+      "purpose": "Second statement frame for a sharper conclusion or transition.",
+      "content_slots": ["kicker", "statement", "footer"]
+    },
+    {
+      "role": "closing",
+      "source_html_layout": "slide--end",
+      "current_slide": 12,
+      "writer_slide_types": ["closing"],
+      "purpose": "Closing title with organization and contact information.",
+      "content_slots": ["organization", "headline", "contact"]
+    },
+    {
+      "role": "chart",
+      "source_html_layout": "slide--chart",
+      "current_slide": 13,
+      "writer_slide_types": ["chart_placeholder", "bar_chart"],
+      "purpose": "Vertical bar chart or quantitative comparison frame.",
+      "content_slots": ["headline", "axis_labels", "bars", "source"]
+    },
+    {
+      "role": "diagram",
+      "source_html_layout": "slide--diagram",
+      "current_slide": 14,
+      "writer_slide_types": ["process", "diagram"],
+      "purpose": "Four-step process diagram on a light canvas.",
+      "content_slots": ["headline", "steps"]
+    },
+    {
+      "role": "pie",
+      "source_html_layout": "slide--pie",
+      "current_slide": 15,
+      "writer_slide_types": ["chart_placeholder", "donut_chart"],
+      "purpose": "Donut/pie breakdown with category legend and short notes.",
+      "content_slots": ["headline", "donut", "legend", "notes"]
+    },
+    {
+      "role": "pyramid",
+      "source_html_layout": "slide--pyramid",
+      "current_slide": 16,
+      "writer_slide_types": ["hierarchy", "framework"],
+      "purpose": "Priority hierarchy or layered framework.",
+      "content_slots": ["headline", "levels"]
+    },
+    {
+      "role": "vtimeline",
+      "source_html_layout": "slide--vtimeline",
+      "current_slide": 17,
+      "writer_slide_types": ["timeline", "roadmap"],
+      "purpose": "Vertical timeline for milestones, literature chronology, or project progress.",
+      "content_slots": ["headline", "milestones"]
+    },
+    {
+      "role": "cycle",
+      "source_html_layout": "slide--cycle",
+      "current_slide": 18,
+      "writer_slide_types": ["cycle", "process"],
+      "purpose": "Four-step operating cycle or iterative workflow.",
+      "content_slots": ["headline", "steps", "arrows"]
+    }
+  ],
+  "known_gaps": [
+    "The current PPTX uses screenshot backgrounds, so decorative elements and baked text in the background are not directly editable.",
+    "Editable text boxes are overlaid from DOM text-node coordinates, but PowerPoint font availability may differ from browser-rendered web fonts.",
+    "Generated production decks should eventually render slide-specific backgrounds from generated content or hide baked text before overlaying visible editable text.",
+    "The current frame map is an interface contract for Writer selection, not a native PowerPoint master-layout implementation."
+  ]
+}

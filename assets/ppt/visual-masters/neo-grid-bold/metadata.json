@@ -1,0 +1,60 @@
+{
+  "id": "neo_grid_bold",
+  "name": "Neo Grid Bold",
+  "description": "Editorial neo-brutalist presentation master with off-white paper, black ink blocks, and a single neon-yellow accent for punchy student reports and design-led defenses.",
+  "template_file": "template.pptx",
+  "preview_file": "preview.png",
+  "status": "available",
+  "implementation_level": "html_background_editable_overlay",
+  "compatible_structures": [
+    "course_report",
+    "paper_report",
+    "code_defense"
+  ],
+  "layout_hints": [
+    "title",
+    "toc",
+    "stats",
+    "features",
+    "chart",
+    "section",
+    "quote",
+    "cta",
+    "consult",
+    "chart2",
+    "process2",
+    "matrix2"
+  ],
+  "source": {
+    "kind": "html_template",
+    "path": "assets\\ppt\\visual-masters\\neo-grid-bold\\neo-grid-bold_html",
+    "original_family": "D:\\PPT\\beautiful-html-templates-main\\templates\\neo-grid-bold",
+    "source_slide_count_note": "template.json says 13, but the copied template.html contains 12 deck-stage sections; generated assets follow the HTML source."
+  },
+  "tokens": {
+    "background": "#ECECE8",
+    "paper": "#F5F4EF",
+    "ink": "#0A0A0A",
+    "accent": "#E6FF3D",
+    "muted": "#8A8A85"
+  },
+  "font_strategy": {
+    "latin_display": "Space Grotesk",
+    "latin_body": "Space Grotesk",
+    "latin_mono": "JetBrains Mono",
+    "cjk_fallback": "Microsoft YaHei or Noto Sans SC"
+  },
+  "render_strategy": {
+    "kind": "html_background_with_editable_text_overlay",
+    "background_dir": "backgrounds",
+    "text_layer_file": "text-layer.json",
+    "build_script": "build-html-background-master.mjs",
+    "readability_scale": {
+      "minimum_extracted_font_px": 16,
+      "body_floor_px": 19,
+      "target": "classroom projection readable at approximately 3 meters"
+    },
+    "notes": "Rendered through the deck-stage API. Navigation chrome is hidden before screenshot capture. Text box outlines are rewritten to DrawingML noFill for LibreOffice and WPS compatibility."
+  },
+  "rescue_notes": "Rebuilt as an HTML-background hybrid master following the corrected noFill text-box standard. Frontend and Writer consume visual_master=neo_grid_bold."
+}

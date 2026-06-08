@@ -86,6 +86,15 @@ type ProductShortcut = {
   visibleWhen?: string;
 };
 
+type ProductNamedOption = {
+  id: string;
+  title?: string;
+  name?: string;
+  description?: string;
+  status?: string;
+  dir?: string;
+};
+
 type ProductCapabilityItem = CapabilityBase & {
   id: string;
   title: string;
@@ -97,6 +106,8 @@ type ProductCapabilityItem = CapabilityBase & {
   tools: string[];
   pipelines: ProductPipeline[];
   shortcuts: ProductShortcut[];
+  structureTemplates: ProductNamedOption[];
+  visualMasters: ProductNamedOption[];
   requiredToolsets: string[];
   requiredLoadPackages: ProductLoadPackage[];
   optionalLoadPackages: ProductLoadPackage[];
@@ -179,9 +190,24 @@ function normalizeProductCapability(raw: unknown): ProductCapabilityItem {
     tools: asStringArray(item.tools),
     pipelines: asArray(item.pipelines).map(normalizeProductPipeline),
     shortcuts: asArray(item.shortcuts).map(normalizeProductShortcut),
+    structureTemplates: asArray(item.structureTemplates).map(normalizeProductNamedOption),
+    visualMasters: asArray(item.visualMasters).map(normalizeProductNamedOption),
     requiredToolsets: asStringArray(item.requiredToolsets),
     requiredLoadPackages: asArray(item.requiredLoadPackages).map(normalizeProductLoadPackage),
     optionalLoadPackages: asArray(item.optionalLoadPackages).map(normalizeProductLoadPackage),
+  };
+}
+
+function normalizeProductNamedOption(raw: unknown): ProductNamedOption {
+  const record = asRecord(raw);
+  return {
+    ...record,
+    id: String(record.id || ""),
+    title: typeof record.title === "string" ? record.title : undefined,
+    name: typeof record.name === "string" ? record.name : undefined,
+    description: typeof record.description === "string" ? record.description : undefined,
+    status: typeof record.status === "string" ? record.status : undefined,
+    dir: typeof record.dir === "string" ? record.dir : undefined,
   };
 }
 
@@ -755,6 +781,8 @@ function ProductCapabilityDetails({
       <BadgeGroup title={t("capabilities.pipelineStages")} values={item.stages} empty={t("capabilities.noPipelineStagesListed")} />
       <PipelineGroup title={t("capabilities.pipelineEntrypoints")} pipelines={item.pipelines} />
       <ShortcutGroup title={t("capabilities.shortcutCandidates")} shortcuts={item.shortcuts} />
+      <NamedOptionGroup title={t("capabilities.structureTemplates")} options={item.structureTemplates} />
+      <NamedOptionGroup title={t("capabilities.visualMasters")} options={item.visualMasters} />
       <BadgeGroup title={t("capabilities.toolsHeading")} values={item.tools} empty={t("capabilities.noToolsListed")} />
       <BadgeGroup title={t("capabilities.requiredToolsets")} values={item.requiredToolsets} empty={t("capabilities.noToolsetsListed")} />
       <LoadPackageGroup
@@ -776,6 +804,27 @@ function ProductCapabilityDetails({
         <ExternalLink className="h-3.5 w-3.5" />
         {t("capabilities.manageLoadPackages")}
       </Button>
+    </div>
+  );
+}
+
+function NamedOptionGroup({ title, options }: { title: string; options: ProductNamedOption[] }) {
+  const { t } = useI18n();
+  return (
+    <div>
+      <h3 className="hd-section-title mb-2">{title}</h3>
+      {options.length === 0 ? (
+        <span className="text-xs text-zinc-500">{t("capabilities.noOptionsListed")}</span>
+      ) : (
+        <div className="flex flex-wrap gap-1.5">
+          {options.map((option) => (
+            <Badge key={option.id} tone="zinc">
+              {option.title || option.name || option.id}
+              {option.status ? ` · ${option.status}` : ""}
+            </Badge>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

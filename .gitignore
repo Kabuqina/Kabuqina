@@ -53,6 +53,7 @@ windows-port-report.txt
 # Generated review/export outputs and test scratch homes
 /outputs/
 /python/tests/_tmp_hermes_home/
+/assets/ppt/visual-masters/*/outputs/
 
 # Local brainstorming/mockup companion files
 .superpowers/
