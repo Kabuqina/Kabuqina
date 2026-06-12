@@ -592,27 +592,31 @@ assert.match(
   "Sidebar common actions should use colorful icons with scheduled tasks and workspace opening first.",
 );
 
-assert.match(
-  workspacePanelSource,
-  /workspaceCourseToPpt[\s\S]*course_report[\s\S]*workspacePaperToPpt[\s\S]*workspaceCodeToPpt[\s\S]*review_outline[\s\S]*pptx_write[\s\S]*pdf_read_precise|review_outline[\s\S]*pptx_write[\s\S]*pdf_read_precise[\s\S]*workspaceCourseToPpt[\s\S]*workspacePaperToPpt[\s\S]*workspaceCodeToPpt/,
-  "Workspace quick actions should expose student PPT workflows while letting PDF uploads naturally use precise reading.",
-);
+for (const structureId of ["course_report", "paper_report", "code_defense"]) {
+  assert.ok(
+    workspacePanelSource.includes(structureId),
+    `Workspace quick actions should target the ${structureId} PPT structure by id.`,
+  );
+}
 assert.doesNotMatch(
   workspacePanelSource,
   /workspacePrecisePdf|precisePdfPrompt/,
   "Workspace quick actions should not expose a standalone Precise PDF shortcut.",
 );
 
+// The canonical planner rules (slide_type / layout vocabulary, placeholder
+// discipline, per-structure must-cover outlines) now live in the agent system
+// prompt (hermes_core build_deliverable_planner_prompt), shared by the desk and
+// gateway children. The thin web prompt only defers to that four-layer flow.
 assert.match(
   workspacePanelSource,
-  /高质量可交付[\s\S]*slide_type[\s\S]*screenshot_placeholder[\s\S]*chart_placeholder[\s\S]*qa_backup[\s\S]*review_outline[\s\S]*pptx_write/,
-  "Student PPT quick actions should request structured high-quality deliverables with placeholders and backup slides.",
+  /pptFlowReminder[\s\S]*material_index_build[\s\S]*review_outline[\s\S]*pptx_write/,
+  "Student PPT quick actions should defer to the four-layer flow (material index → review → write).",
 );
-
-assert.match(
+assert.doesNotMatch(
   workspacePanelSource,
-  /material_index_build[\s\S]*素材索引[\s\S]*review_outline[\s\S]*pptx_write/,
-  "Student PPT quick actions should build a general material index before outline review and PPT writing.",
+  /screenshot_placeholder|chart_placeholder|comparison_cards|section_divider/,
+  "Planner slide_type/layout vocabulary should be sunk into the system prompt, not duplicated in WorkspacePanel.",
 );
 
 assert.match(
@@ -660,11 +664,6 @@ for (const layoutId of [
 }
 assert.match(
   workspacePanelSource,
-  /comparison_cards[\s\S]*section_divider/,
-  "Student PPT prompt should tell the planner the optional per-slide layout choices.",
-);
-assert.match(
-  workspacePanelSource,
   /pptMasterPreviewStyle[\s\S]*--kq-ppt-bg[\s\S]*--kq-ppt-accent[\s\S]*style=\{pptMasterPreviewStyle\(master\)\}/,
   "Student PPT visual master previews should render from per-master palette data instead of stale CSS-only color classes.",
 );
@@ -677,12 +676,12 @@ assert.match(
 );
 assert.match(
   workspacePanelSource,
-  /join\("\\n\\n"\)[\s\S]*studentPptQualityRules[\s\S]*pptVisualMasterRule/,
-  "Student PPT prompts should use paragraph breaks instead of one dense block.",
+  /join\("\\n\\n"\)[\s\S]*pptFlowReminder[\s\S]*pptVisualMasterRule/,
+  "Student PPT prompts should use paragraph breaks (intent + flow reminder + visual master).",
 );
 assert.match(
   workspacePanelSource,
-  /visual_master[\s\S]*pptx_write[\s\S]*selectedPptVisualMaster\.id/,
+  /pptx_write[\s\S]*visual_master[\s\S]*selectedPptVisualMaster\.id/,
   "Student PPT prompts should carry the selected visual_master into pptx_write.",
 );
 

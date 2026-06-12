@@ -28,9 +28,12 @@ def build_capability_prompt_summary(capabilities: list[dict[str, Any]]) -> str:
         visual_master_suffix = _format_visual_masters(item)
         ppt_rule_suffix = _format_ppt_visual_master_rule(item)
         pdf_rule_suffix = _format_pdf_writer_rule(item)
+        html_rule_suffix = _format_html_writer_rule(item)
+        docx_rule_suffix = _format_docx_writer_rule(item)
         lines.append(
             f"- {title}: {status}.{suffix}{hint_suffix}"
             f"{pipeline_suffix}{visual_master_suffix}{ppt_rule_suffix}{pdf_rule_suffix}"
+            f"{html_rule_suffix}{docx_rule_suffix}"
         )
     return "\n".join(lines)
 
@@ -80,12 +83,13 @@ def _format_ppt_visual_master_rule(capability: dict[str, Any]) -> str:
     if "pptx_write" not in tools and "pptx_write" not in pipeline_tools:
         return ""
     return (
-        " For PPT generation, pass template and visual_master to pptx_write from the "
-        "user's selection or the ready pipeline default. The deck is rendered by "
-        "PptxGenJS in the Kabuqina desktop UI; on success visual_master_renderer is "
-        "pptxgenjs_v1 and path points at the saved .pptx. If pptx_write returns an "
-        "error (e.g. code pptx_render_unavailable), tell the user PPT generation "
-        "requires the Kabuqina app window instead of claiming a file was created."
+        " For PPT generation, ALWAYS call pptx_write (passing template and visual_master "
+        "from the user's selection or the ready pipeline default) — never refuse or claim "
+        "the renderer is unavailable before calling it. The deck is rendered by PptxGenJS "
+        "in the Kabuqina desktop UI; on success visual_master_renderer is pptxgenjs_v1 and "
+        "path points at the saved .pptx. Only if the pptx_write call itself returns an error "
+        "(e.g. code pptx_render_unavailable) should you report that, instead of claiming a "
+        "file was created."
     )
 
 
@@ -105,6 +109,44 @@ def _format_pdf_writer_rule(capability: dict[str, Any]) -> str:
         "on success renderer is reportlab_pdf_v1 and html_path points at the source. "
         "If pdf_write returns an error such as pdf_render_unavailable, say the PDF "
         "backend is unavailable instead of claiming a file was created."
+    )
+
+
+def _format_html_writer_rule(capability: dict[str, Any]) -> str:
+    tools = {str(item) for item in capability.get("tools") or []}
+    pipeline_tools = {
+        str(step.get("tool") or "")
+        for pipeline in capability.get("pipelines") or []
+        for step in pipeline.get("steps") or []
+        if isinstance(step, dict)
+    }
+    if "html_write" not in tools and "html_write" not in pipeline_tools:
+        return ""
+    return (
+        " For HTML generation, call html_write with a structured document containing "
+        "sections or blocks. It writes one self-contained responsive .html file; on "
+        "success renderer is standalone_html_v1 and path points at the file. If "
+        "html_write returns an error such as html_write_failed or outside_workspace, "
+        "say so instead of claiming a file was created."
+    )
+
+
+def _format_docx_writer_rule(capability: dict[str, Any]) -> str:
+    tools = {str(item) for item in capability.get("tools") or []}
+    pipeline_tools = {
+        str(step.get("tool") or "")
+        for pipeline in capability.get("pipelines") or []
+        for step in pipeline.get("steps") or []
+        if isinstance(step, dict)
+    }
+    if "docx_write" not in tools and "docx_write" not in pipeline_tools:
+        return ""
+    return (
+        " For Word generation, call docx_write with a structured document containing "
+        "sections or blocks. It writes an editable .docx; on success renderer is "
+        "python_docx_v1 and path points at the file. If docx_write returns an error "
+        "such as docx_render_unavailable or outside_workspace, say so instead of "
+        "claiming a file was created."
     )
 
 

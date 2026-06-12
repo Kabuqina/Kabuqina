@@ -34,10 +34,44 @@ Not every layer is a code module. Be precise about this when reasoning about gua
 |-------|-----------|--------------------------------|
 | Read | Tools in `hermes_core` (`pdf_read_precise`, `document_read_precise`, attachment extraction) | N/A (reports uncertainty) |
 | Material Index | Tool `material_index_build` (deterministic, regex/heuristic, **no LLM**) | **Code-enforced** — it physically cannot invent facts |
-| Planner | **Not a module.** The LLM agent, steered by prompts (today in `web/src/chat/WorkspacePanel.tsx`) | **Prompt-only** — no code guardrail; this is where fabrication risk lives |
-| Writer | Tool `pptx_write` in `hermes_core/tools/document_tools.py` | Renders placeholders instead of inventing assets |
+| Planner | The LLM agent, steered by a **shared prompt sunk into the core**: `build_deliverable_planner_prompt` in `hermes_core/agent/prompt_builder.py`, injected by `run_agent._build_system_prompt` for **both** the desk and gateway children. Web quick-actions (`WorkspacePanel.tsx`) are now thin (intent + structure + visual master). | **Prompt-only** — no code guardrail; this is where fabrication risk lives. But the slide vocabulary is single-sourced from `tools/deliverable_contract.py`, so the planner cannot be told to emit a slide type the writer would silently rewrite. |
+| Writer | Tools in `hermes_core/tools/document_tools.py` (`pptx_write`, `pdf_write`, `html_write`, `docx_write`) | Renders placeholders instead of inventing assets |
 
 The guarantee is **asymmetric**: Material Index's "does not invent screenshots/charts/citations" is enforced by code (it only extracts what the Read layer produced). The Planner's identical-sounding non-responsibilities are enforced only by prompt. The strongest factual guardrail is at Material Index; the Planner is the open risk surface. Do not read the two as equally hard guarantees.
+
+### Which output covers which layer (do not hand-maintain this)
+
+The authoritative "output x layer" matrix is **generated from the capability
+registry**, not written by hand. Each capability in
+[python/src/capability_registry.py](../python/src/capability_registry.py)
+declares `pipelines[].steps[].stage`, and:
+
+- `validate_capability_definitions()` enforces that a pipeline's declared
+  `stages` are **exactly** the stages with a real step — no "phantom" layer can
+  be labelled on a pipeline that no step implements. Guarded by
+  `test_no_phantom_pipeline_stages` in
+  [python/tests/test_capability_registry.py](../python/tests/test_capability_registry.py).
+- `build_framework_coverage()` / `render_framework_coverage_table()` emit the
+  current matrix (Markdown) straight from those steps.
+
+As of the Phase C pass, the real coverage is: **PPTX**, **PDF**
+(`document-report-pdf`), **HTML** (`document-report-html`), and **DOCX**
+(`document-report-docx`) are each wired through all four layers; PDF, HTML, and
+DOCX also keep a non-primary writer-only direct path (`document-pdf-writer-v1`,
+`document-html-writer-v1`, `document-docx-writer-v1`). The **math/code** outputs
+remain writer-only (their reader/material-index inputs come from *other*
+capabilities, not from steps these pipelines own). Treat any claim that an output
+"covers Material Index / Planner" as false unless the generated matrix shows a
+step for it.
+
+PDF, HTML, and DOCX share the same structured document contract
+(sections/blocks). `pdf_write` and `html_write` share the per-block renderer
+(`_block_to_html`); `docx_write` renders the same normalized blocks via
+python-docx. So one reviewed planner outline can be emitted as `.pdf`, `.html`,
+or `.docx`. `html_write` produces a self-contained responsive page
+(`standalone_html_v1`); `docx_write` produces an editable Word file
+(`python_docx_v1`); the `.html` that `pdf_write` emits stays a print-oriented
+inspection sidecar, not the first-class HTML deliverable.
 
 ## 1. Read Layer
 
@@ -106,7 +140,9 @@ Current v1 tool:
 
 The Planner decides how to turn indexed material into a specific generated artifact.
 
-> **The Planner is not a code module today — it is the LLM agent steered by prompts.** The PPT planner's rules currently live in `web/src/chat/WorkspacePanel.tsx` quick-action prompts, which are **web child only**. That conflicts with this pipeline's "one general pipeline" goal and with the AGENTS.md rule "same behavior in web child and gateway child → prefer `hermes_core`": a gateway child generating files would not have these prompts. Direction: as planner guidance stabilizes, sink the canonical rules into `hermes_core` (a skill or shared prompt) so both children plan identically; keep web prompts thin. Until then, remember the Planner's "non-responsibilities" below are prompt conventions, not enforced contracts.
+> **The Planner is the LLM agent steered by a shared prompt sunk into the core.** The canonical planner rules — four-layer flow, slide_type/layout vocabulary, placeholder discipline, and per-structure must-cover outlines — live in `build_deliverable_planner_prompt` (`hermes_core/agent/prompt_builder.py`), injected by `run_agent._build_system_prompt` and self-gated on the deliverable writer tools, so the **desk child and the gateway child plan identically** (satisfying the AGENTS.md "same behavior in both children → prefer `hermes_core`" rule). The `web/src/chat/WorkspacePanel.tsx` quick-actions are now thin: intent + structure id + the dynamic visual-master selection. The Planner's "non-responsibilities" below are still **prompt conventions, not enforced contracts** — but the slide vocabulary is single-sourced from `tools/deliverable_contract.py` (shared with the writer), so a vocabulary drift between planner guidance and writer normalization is structurally impossible.
+
+> **Source format and deliverable format are independent — the layers compose freely.** There is no pipeline *executor*; the registry pipelines are descriptive, and the agent calls the reader / `material_index_build` / `review_outline` / writer tools directly. Because the reader normalizes every input to text/markdown, the material index and outline are format-agnostic, and the PDF/HTML/DOCX writers share one sections/blocks contract, the agent can improvise any reader×writer combination (e.g. read a `.docx` and emit `.html`, or read a `.pdf` and emit `.docx`). The sunk planner prompt states this explicitly so the agent matches the writer to the requested *output*, not to the input file type. (PPTX uses a separate `slides` contract, so doc↔ppt requires the planner to emit the other shape.)
 
 For a PPT, the planner chooses the story spine, slide order, slide types, claims, evidence placement, speaker notes, backup slides, and missing-asset placeholders.
 

@@ -17,6 +17,7 @@ from agent.prompt_builder import (
     _strip_yaml_frontmatter,
     build_skills_system_prompt,
     build_nous_subscription_prompt,
+    build_deliverable_planner_prompt,
     build_context_files_prompt,
     build_environment_hints,
     CONTEXT_FILE_MAX_CHARS,
@@ -483,6 +484,62 @@ class TestBuildNousSubscriptionPrompt:
         prompt = build_nous_subscription_prompt({"web_search"})
 
         assert prompt == ""
+
+
+class TestDeliverablePlannerPrompt:
+    """The planner layer of the file-generation pipeline, sunk into the core."""
+
+    def test_silent_without_writer_tools(self):
+        assert build_deliverable_planner_prompt(set()) == ""
+        assert build_deliverable_planner_prompt(None) == ""
+        assert build_deliverable_planner_prompt({"web_search", "read_file"}) == ""
+
+    def test_ppt_block_gated_on_pptx_write(self):
+        prompt = build_deliverable_planner_prompt(
+            {"pptx_write", "material_index_build", "review_outline"}
+        )
+        # Four-layer flow is always present.
+        assert "four-layer pipeline" in prompt
+        assert "material_index_build" in prompt
+        assert "review_outline" in prompt
+        # PPT specifics present; PDF/HTML block absent.
+        assert "PPT decks (pptx_write)" in prompt
+        assert "qa_backup" in prompt
+        assert "screenshot_placeholder" in prompt
+        assert "course_report" in prompt and "paper_report" in prompt and "code_defense" in prompt
+        assert "## PDF / HTML / Word reports" not in prompt
+
+    def test_pdf_html_block_gated_on_writers(self):
+        prompt = build_deliverable_planner_prompt({"pdf_write", "html_write"})
+        assert "PDF / HTML / Word reports (pdf_write, html_write)" in prompt
+        assert "standalone_html_v1" in prompt
+        assert "PPT decks" not in prompt
+
+    def test_docx_listed_in_document_block(self):
+        prompt = build_deliverable_planner_prompt({"docx_write"})
+        assert "PDF / HTML / Word reports (docx_write)" in prompt
+        assert "python_docx_v1" in prompt
+        assert "PPT decks" not in prompt
+
+    def test_cross_format_composition_is_explicit(self):
+        """Source format and deliverable format are independent — the planner must
+        be told it can read one format and write another (ad-hoc pipelines)."""
+        prompt = build_deliverable_planner_prompt({"html_write"})
+        assert "source format and the deliverable format are independent" in prompt
+        assert "Match the writer to the requested" in prompt
+
+    def test_planner_vocab_matches_writer_contract(self):
+        """Drift guard: the slide vocabulary the planner is told to emit must be
+        exactly what the writer normalizes against."""
+        import tools.document_tools as document_tools
+        from tools.deliverable_contract import slide_layout_set, slide_type_set
+
+        assert document_tools._PPTX_SLIDE_TYPES == slide_type_set()
+        assert document_tools._PPTX_SLIDE_LAYOUTS == slide_layout_set()
+
+        prompt = build_deliverable_planner_prompt({"pptx_write"})
+        for slide_type in slide_type_set():
+            assert slide_type in prompt
 
 
 # =========================================================================

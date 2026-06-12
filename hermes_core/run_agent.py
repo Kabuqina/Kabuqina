@@ -134,6 +134,7 @@ from agent.prompt_builder import (
     MEMORY_GUIDANCE, SESSION_SEARCH_GUIDANCE, SKILLS_GUIDANCE,
     HERMES_AGENT_HELP_GUIDANCE,
     build_nous_subscription_prompt,
+    build_deliverable_planner_prompt,
 )
 from agent.model_metadata import (
     fetch_model_metadata,
@@ -305,7 +306,9 @@ class IterationBudget:
 
 # Tools that must never run concurrently (interactive / user-facing).
 # When any of these appear in a batch, we fall back to sequential execution.
-_NEVER_PARALLEL_TOOLS = frozenset({"clarify"})
+# These pause the turn on a webview round-trip via clarify_callback, so they
+# must take the sequential path (which wires that callback).
+_NEVER_PARALLEL_TOOLS = frozenset({"clarify", "review_outline", "pptx_write"})
 
 # Read-only tools with no shared mutable session state.
 _PARALLEL_SAFE_TOOLS = frozenset({
@@ -4832,6 +4835,12 @@ class AIAgent:
         nous_subscription_prompt = build_nous_subscription_prompt(self.valid_tool_names)
         if nous_subscription_prompt:
             prompt_parts.append(nous_subscription_prompt)
+        # Planner layer of the file-generation pipeline. Self-gated on the
+        # deliverable writer tools, so both the desk child and the gateway child
+        # plan PPT/PDF/HTML identically (and a vanilla session gets nothing).
+        deliverable_planner_prompt = build_deliverable_planner_prompt(self.valid_tool_names)
+        if deliverable_planner_prompt:
+            prompt_parts.append(deliverable_planner_prompt)
         # Tool-use enforcement: tells the model to actually call tools instead
         # of describing intended actions.  Controlled by config.yaml
         # agent.tool_use_enforcement:
@@ -9803,6 +9812,23 @@ class AIAgent:
                 tool_duration = time.time() - tool_start_time
                 if self._should_emit_quiet_tool_messages():
                     self._vprint(f"  {_get_cute_tool_message_impl('review_outline', function_args, tool_duration, result=function_result)}")
+            elif function_name == "pptx_write":
+                # PptxGenJS renders the deck in the desktop web layer; like
+                # review_outline this needs the clarify callback. A lone
+                # pptx_write call runs through this sequential path, so the
+                # branch must exist here too (not only in _invoke_tool).
+                from tools.document_tools import pptx_write as _pptx_write
+                function_result = _pptx_write(
+                    path=function_args.get("path", ""),
+                    title=function_args.get("title", ""),
+                    slides=function_args.get("slides") or [],
+                    template=function_args.get("template", "course_report"),
+                    visual_master=function_args.get("visual_master", "default_native"),
+                    callback=self.clarify_callback,
+                )
+                tool_duration = time.time() - tool_start_time
+                if self._should_emit_quiet_tool_messages():
+                    self._vprint(f"  {_get_cute_tool_message_impl('pptx_write', function_args, tool_duration, result=function_result)}")
             elif function_name == "delegate_task":
                 tasks_arg = function_args.get("tasks")
                 if tasks_arg and isinstance(tasks_arg, list):

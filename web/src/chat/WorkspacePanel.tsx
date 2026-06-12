@@ -159,33 +159,30 @@ export function WorkspacePanel({
   const selectedMathLanguage =
     MATH_TARGET_LANGUAGES.find((item) => item.id === mathLanguage) ?? MATH_TARGET_LANGUAGES[0];
   const buildPptPrompt = (sections: string[]) => sections.join("\n\n");
-  const studentPptQualityRules =
-    "质量要求：默认生成高质量可交付 PPT，而不是纯文字摘要。Markdown 大纲中每页必须标注 slide_type（agenda / claim_bullets / diagram / table / screenshot_placeholder / chart_placeholder / qa_backup / closing 之一）、页面标题、3-5 条要点、讲稿提示 notes、证据对象或占位说明。没有真实截图或图表时，不要假装已经插入素材，改用 screenshot_placeholder 或 chart_placeholder，并写清楚应替换成什么真实材料。至少包含 1 页 qa_backup 备用答辩页。每页会按内容自动选择版式；若某页需要特定设计，可在该 slide 上额外指定 layout（hero_statement / standard_bullets / two_column_bullets / comparison_cards / process_flow_horizontal / process_flow_vertical / data_table / media_placeholder / section_divider 之一），不指定则由渲染器根据该页内容自动挑选。";
+  // Canonical planner rules — slide_type / layout vocabulary, placeholder
+  // discipline, the four-layer flow, and the per-structure must-cover outlines —
+  // now live in the agent system prompt (hermes_core
+  // build_deliverable_planner_prompt), shared by the desk and gateway children.
+  // Keep these quick-action prompts thin: intent + structure id + the dynamic
+  // visual-master selection the system prompt cannot know at click time.
+  const pptFlowReminder =
+    "按系统提示中的“学生交付物四层流程”执行：读取材料 → material_index_build → 生成带 slide_type / notes / 证据占位的 Markdown 大纲 → review_outline 让我确认 → pptx_write 输出到 workspace 并返回路径。";
   const pptVisualMasterRule =
-    `视觉母版：用户已选择 ${selectedPptVisualMaster.name}（visual_master=${selectedPptVisualMaster.id}）。在 review_outline 通过后，调用 pptx_write 时必须传入 template 和 visual_master 两个参数；visual_master 使用 "${selectedPptVisualMaster.id}"。`;
+    `视觉母版：我已选择 ${selectedPptVisualMaster.name}。review_outline 通过后调用 pptx_write 时必须同时传入 template 和 visual_master，visual_master 使用 "${selectedPptVisualMaster.id}"。`;
   const paperToPptPrompt = buildPptPrompt([
-    "请把我上传的论文、文献 PDF 或粘贴的论文内容转换成论文/文献汇报 PPT。",
-    studentPptQualityRules,
+    "请把我上传的论文、文献 PDF 或粘贴的论文内容转换成论文/文献汇报 PPT（structure=paper_report，template=paper_report）。",
+    pptFlowReminder,
     pptVisualMasterRule,
-    "论文/文献汇报必须覆盖：研究背景/问题、研究方法或系统框架 diagram、关键实现或分析证据、结果/测试/实验汇总、创新点或贡献、局限与展望、老师可能追问 qa_backup。",
-    "流程必须是：1) 先使用 pdf_read_precise 或可用文件工具读取材料；2) 调用 material_index_build 生成通用素材索引（素材索引用于整理 sections / tables / figures / screenshots / evidence / uncertain_parts / generation_hints，不是 PPT 专属）；3) 根据素材索引生成高质量可交付 Markdown PPT 大纲，包含每页 slide_type、标题、要点、证据/占位、notes；4) 调用 review_outline 让我在前端选择“通过 / 补充要求 / 自行编辑”；5) 我确认后再调用 pptx_write 生成 .pptx 文件到 workspace，slides 使用结构化字段，并返回文件路径。",
-    `模板使用 paper_report，视觉母版使用 ${selectedPptVisualMaster.id}。`,
   ]);
   const courseToPptPrompt = buildPptPrompt([
-    "请把我提供的课程笔记、章节要点、学习材料或粘贴的内容转换成课程学习汇报 PPT。",
-    studentPptQualityRules,
+    "请把我提供的课程笔记、章节要点、学习材料或粘贴的内容转换成课程学习汇报 PPT（structure=course_report，template=course_report）。",
+    pptFlowReminder,
     pptVisualMasterRule,
-    "课程汇报必须覆盖：知识结构图 diagram、关键概念解释、案例/例题/应用场景、对比 table 或流程 diagram、学习总结/个人收获、难点或易错点 qa_backup。",
-    "流程必须是：1) 先使用可用文件工具读取材料；2) 调用 material_index_build 生成通用素材索引（素材索引用于整理 sections / tables / figures / screenshots / evidence / uncertain_parts / generation_hints，不是 PPT 专属）；3) 根据素材索引生成高质量可交付 Markdown PPT 大纲，包含每页 slide_type、标题、要点、证据/占位、notes；4) 调用 review_outline 让我在前端选择“通过 / 补充要求 / 自行编辑”；5) 我确认后再调用 pptx_write 生成 .pptx 文件到 workspace，slides 使用结构化字段，并返回文件路径。",
-    `模板使用 course_report，视觉母版使用 ${selectedPptVisualMaster.id}。`,
   ]);
   const codeToPptPrompt = buildPptPrompt([
-    "请把我提供的代码项目或课设材料转换成课设答辩 PPT。",
-    studentPptQualityRules,
+    "请把我提供的代码项目或课设材料转换成课设答辩 PPT（structure=code_defense，template=code_defense）。",
+    pptFlowReminder,
     pptVisualMasterRule,
-    "课设答辩必须覆盖：项目背景与目标、总体架构 diagram、模块调用/数据流/核心实现流程 diagram、运行结果 screenshot_placeholder 或真实截图、测试结果 table、问题与解决方案、部署运行说明或核心代码说明 qa_backup。",
-    "流程必须是：1) 阅读项目结构、README、关键代码和结果材料；2) 调用 material_index_build 生成通用素材索引（素材索引用于整理 sections / tables / figures / screenshots / code_files / evidence / uncertain_parts / generation_hints，不是 PPT 专属）；3) 根据素材索引生成高质量可交付 Markdown PPT 大纲，覆盖项目背景、目标、架构、关键实现、运行结果、问题与改进，并包含每页 slide_type、证据/占位、notes；4) 调用 review_outline 让我确认“通过 / 补充要求 / 自行编辑”；5) 我确认后再调用 pptx_write 生成 .pptx 文件到 workspace，slides 使用结构化字段，并返回文件路径。",
-    `模板使用 code_defense，视觉母版使用 ${selectedPptVisualMaster.id}。`,
   ]);
   const codeToFormulaPrompt =
     [

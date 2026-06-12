@@ -29,6 +29,8 @@ class CapabilityRegistryTests(unittest.TestCase):
         self.assertIn("desktop-organizer", ids)
         self.assertIn("student-ppt", ids)
         self.assertIn("document-pdf-generation", ids)
+        self.assertIn("document-html-generation", ids)
+        self.assertIn("document-docx-generation", ids)
 
     def test_math_expression_capabilities_are_registered_as_available_v1(self):
         from capability_registry import get_capability_def, list_capability_defs
@@ -86,7 +88,7 @@ class CapabilityRegistryTests(unittest.TestCase):
         self.assertEqual(math["required_toolsets"], ["documents"])
         self.assertEqual(voice["required_toolsets"], [])
         self.assertEqual(student_ppt["required_toolsets"], ["documents", "clarify"])
-        self.assertEqual(pdf_generation["required_toolsets"], ["documents"])
+        self.assertEqual(pdf_generation["required_toolsets"], ["documents", "clarify"])
 
     def test_every_capability_declares_pipeline_steps(self):
         from capability_registry import list_capability_defs
@@ -99,6 +101,59 @@ class CapabilityRegistryTests(unittest.TestCase):
                 for step in pipeline["steps"]:
                     self.assertIn(step.get("stage"), {"reader", "material_index", "planner", "writer"})
                     self.assertTrue(step.get("outputs"), step)
+
+    def test_no_phantom_pipeline_stages(self):
+        """Every declared pipeline stage must be backed by a real step."""
+        from capability_registry import validate_capability_definitions
+
+        errors = validate_capability_definitions()
+        self.assertEqual(errors, [], "\n".join(errors))
+
+    def test_framework_coverage_matrix_is_truthful(self):
+        from capability_registry import build_framework_coverage
+
+        coverage = build_framework_coverage()
+        self.assertEqual(
+            coverage["stages"], ["reader", "material_index", "planner", "writer"]
+        )
+        by_pipeline = {row["pipeline"]: row for row in coverage["pipelines"]}
+
+        # PPTX is the one fully-wired four-layer output.
+        ppt = by_pipeline["student-course-report-ppt"]
+        self.assertEqual(
+            ppt["covered_stages"],
+            ["reader", "material_index", "planner", "writer"],
+        )
+        self.assertIn("pptx_write", ppt["coverage"]["writer"])
+        self.assertIn("material_index_build", ppt["coverage"]["material_index"])
+
+        # PDF now has a full four-layer report pipeline (Phase B) plus a kept
+        # writer-only direct path.
+        pdf_report = by_pipeline["document-report-pdf"]
+        self.assertEqual(
+            pdf_report["covered_stages"],
+            ["reader", "material_index", "planner", "writer"],
+        )
+        self.assertIn("pdf_write", pdf_report["coverage"]["writer"])
+        self.assertIn("material_index_build", pdf_report["coverage"]["material_index"])
+        pdf_direct = by_pipeline["document-pdf-writer-v1"]
+        self.assertEqual(pdf_direct["covered_stages"], ["writer"])
+        self.assertIn("pdf_write", pdf_direct["coverage"]["writer"])
+
+        # Math/code outputs are writer-only after the Phase A truth pass.
+        for pid in (
+            "math-expression-cleanup-v1",
+            "math-formula-to-code-v1",
+            "code-to-math-formula-v1",
+        ):
+            self.assertEqual(by_pipeline[pid]["covered_stages"], ["writer"], pid)
+
+    def test_coverage_table_renders_markdown(self):
+        from capability_registry import render_framework_coverage_table
+
+        table = render_framework_coverage_table()
+        self.assertIn("| capability | pipeline | reader | material_index | planner | writer |", table)
+        self.assertIn("pptx_write", table)
 
     def test_document_math_is_cross_document_reader_pipeline(self):
         from capability_registry import get_capability_def
@@ -158,18 +213,161 @@ class CapabilityRegistryTests(unittest.TestCase):
         self.assertEqual(len(status["visualMasters"]), 5)
         self.assertTrue(all(pipeline["ready"] for pipeline in status["pipelines"]))
 
-    def test_document_pdf_generation_declares_writer_path(self):
+    def test_document_pdf_generation_declares_four_layer_and_writer_paths(self):
         from capability_registry import get_capability_def
 
         pdf = get_capability_def("document-pdf-generation")
-        pipeline = pdf["pipelines"][0]
+        pipelines = {item["id"]: item for item in pdf["pipelines"]}
 
         self.assertEqual(pdf["family"], "document-generation")
         self.assertIn("pdf_write", pdf["tools"])
-        self.assertEqual(pipeline["stages"], ["writer"])
-        self.assertEqual(pipeline["steps"][0]["tool"], "pdf_write")
-        self.assertIn("pdf_path", pipeline["steps"][0]["outputs"])
-        self.assertIn("html_path", pipeline["steps"][0]["outputs"])
+        self.assertIn("material_index_build", pdf["tools"])
+
+        # Primary path is the full four-layer report pipeline.
+        report = pipelines["document-report-pdf"]
+        self.assertTrue(report["primary"])
+        self.assertEqual(
+            [step["stage"] for step in report["steps"]],
+            ["reader", "material_index", "planner", "writer"],
+        )
+        self.assertEqual(report["steps"][1]["tool"], "material_index_build")
+        self.assertTrue(report["steps"][2]["requires_user_review"])
+        self.assertEqual(report["steps"][-1]["tool"], "pdf_write")
+        self.assertIn("pdf_path", report["steps"][-1]["outputs"])
+        self.assertIn("html_path", report["steps"][-1]["outputs"])
+
+        # Direct writer path is kept as a non-primary fallback.
+        writer = pipelines["document-pdf-writer-v1"]
+        self.assertFalse(writer["primary"])
+        self.assertEqual(writer["stages"], ["writer"])
+        self.assertEqual(writer["steps"][0]["tool"], "pdf_write")
+
+    def test_document_pdf_generation_declares_report_structure_templates(self):
+        from capability_registry import get_capability_def
+
+        pdf = get_capability_def("document-pdf-generation")
+        templates = {item["id"]: item for item in pdf["structure_templates"]}
+
+        self.assertEqual(
+            set(templates), {"academic_report", "code_report", "math_report"}
+        )
+        # Each report type binds a PDF template and a material-index profile so the
+        # planner has a concrete, traceable target.
+        for template in templates.values():
+            self.assertIn(template["pdf_template"], {"academic_report", "code_report", "math_report"})
+            self.assertIn(
+                template["material_index_profile"],
+                {"paper_report", "course_report", "code_defense"},
+            )
+            self.assertTrue(template["default_sections"])
+
+    def test_document_html_generation_declares_four_layer_and_writer_paths(self):
+        from capability_registry import get_capability_def
+
+        html = get_capability_def("document-html-generation")
+        pipelines = {item["id"]: item for item in html["pipelines"]}
+
+        self.assertEqual(html["family"], "document-generation")
+        self.assertIn("html_write", html["tools"])
+        self.assertIn("material_index_build", html["tools"])
+        self.assertEqual(html["required_toolsets"], ["documents", "clarify"])
+
+        report = pipelines["document-report-html"]
+        self.assertTrue(report["primary"])
+        self.assertEqual(
+            [step["stage"] for step in report["steps"]],
+            ["reader", "material_index", "planner", "writer"],
+        )
+        self.assertEqual(report["steps"][1]["tool"], "material_index_build")
+        self.assertTrue(report["steps"][2]["requires_user_review"])
+        self.assertEqual(report["steps"][-1]["tool"], "html_write")
+        self.assertIn("path", report["steps"][-1]["outputs"])
+
+        writer = pipelines["document-html-writer-v1"]
+        self.assertFalse(writer["primary"])
+        self.assertEqual(writer["stages"], ["writer"])
+        self.assertEqual(writer["steps"][0]["tool"], "html_write")
+
+    def test_html_capability_in_coverage_matrix(self):
+        from capability_registry import build_framework_coverage
+
+        by_pipeline = {row["pipeline"]: row for row in build_framework_coverage()["pipelines"]}
+        report = by_pipeline["document-report-html"]
+        self.assertEqual(
+            report["covered_stages"],
+            ["reader", "material_index", "planner", "writer"],
+        )
+        self.assertIn("html_write", report["coverage"]["writer"])
+
+    def test_html_writer_rule_in_agent_summary(self):
+        from capability_prompt import build_capability_prompt_summary
+        from capability_registry import get_capability_def
+        from capability_status import build_capability_status
+
+        capability = build_capability_status(
+            get_capability_def("document-html-generation"),
+            load_packages={},
+            enabled_toolsets={"documents", "clarify"},
+        )
+        summary = build_capability_prompt_summary([capability])
+
+        self.assertIn("html_write", summary)
+        self.assertIn("standalone_html_v1", summary)
+        self.assertIn("material_index_build", summary)
+
+    def test_document_docx_generation_declares_four_layer_and_writer_paths(self):
+        from capability_registry import get_capability_def
+
+        docx = get_capability_def("document-docx-generation")
+        pipelines = {item["id"]: item for item in docx["pipelines"]}
+
+        self.assertEqual(docx["family"], "document-generation")
+        self.assertIn("docx_write", docx["tools"])
+        self.assertIn("material_index_build", docx["tools"])
+        self.assertEqual(docx["required_toolsets"], ["documents", "clarify"])
+
+        report = pipelines["document-report-docx"]
+        self.assertTrue(report["primary"])
+        self.assertEqual(
+            [step["stage"] for step in report["steps"]],
+            ["reader", "material_index", "planner", "writer"],
+        )
+        self.assertEqual(report["steps"][1]["tool"], "material_index_build")
+        self.assertTrue(report["steps"][2]["requires_user_review"])
+        self.assertEqual(report["steps"][-1]["tool"], "docx_write")
+        self.assertIn("path", report["steps"][-1]["outputs"])
+
+        writer = pipelines["document-docx-writer-v1"]
+        self.assertFalse(writer["primary"])
+        self.assertEqual(writer["stages"], ["writer"])
+        self.assertEqual(writer["steps"][0]["tool"], "docx_write")
+
+    def test_docx_capability_in_coverage_matrix(self):
+        from capability_registry import build_framework_coverage
+
+        by_pipeline = {row["pipeline"]: row for row in build_framework_coverage()["pipelines"]}
+        report = by_pipeline["document-report-docx"]
+        self.assertEqual(
+            report["covered_stages"],
+            ["reader", "material_index", "planner", "writer"],
+        )
+        self.assertIn("docx_write", report["coverage"]["writer"])
+
+    def test_docx_writer_rule_in_agent_summary(self):
+        from capability_prompt import build_capability_prompt_summary
+        from capability_registry import get_capability_def
+        from capability_status import build_capability_status
+
+        capability = build_capability_status(
+            get_capability_def("document-docx-generation"),
+            load_packages={},
+            enabled_toolsets={"documents", "clarify"},
+        )
+        summary = build_capability_prompt_summary([capability])
+
+        self.assertIn("docx_write", summary)
+        self.assertIn("python_docx_v1", summary)
+        self.assertIn("material_index_build", summary)
 
     def test_shortcuts_reference_existing_pipelines(self):
         from capability_registry import list_capability_defs
@@ -497,7 +695,7 @@ class CapabilityRegistryTests(unittest.TestCase):
         self.assertIn("visual masters:", summary)
         self.assertIn("soft_editorial=Soft Editorial", summary)
         self.assertIn("neo_grid_bold=Neo Grid Bold", summary)
-        self.assertIn("visual_master to pptx_write", summary)
+        self.assertIn("ALWAYS call pptx_write", summary)
         self.assertIn("visual_master_renderer", summary)
         self.assertIn("pptxgenjs_v1", summary)
 
@@ -509,7 +707,7 @@ class CapabilityRegistryTests(unittest.TestCase):
         capability = build_capability_status(
             get_capability_def("document-pdf-generation"),
             load_packages={},
-            enabled_toolsets={"documents"},
+            enabled_toolsets={"documents", "clarify"},
         )
 
         summary = build_capability_prompt_summary([capability])
@@ -518,6 +716,7 @@ class CapabilityRegistryTests(unittest.TestCase):
         self.assertIn("HTML source", summary)
         self.assertIn("reportlab_pdf_v1", summary)
         self.assertIn("html_path", summary)
+        self.assertIn("material_index_build", summary)
 
     def test_agent_summary_warns_candidate_capabilities_are_not_executable(self):
         from capability_prompt import build_capability_prompt_summary

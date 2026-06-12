@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import sys
 import hashlib
@@ -15,7 +16,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from tools.deliverable_contract import slide_layout_set, slide_type_set
 from tools.registry import registry, tool_error
+
+logger = logging.getLogger(__name__)
 
 Rgb = Tuple[int, int, int]
 
@@ -78,31 +82,15 @@ _FALLBACK_SUFFIXES = {
     ".txt",
 }
 
-_PPTX_SLIDE_TYPES = {
-    "agenda",
-    "claim_bullets",
-    "diagram",
-    "table",
-    "chart_placeholder",
-    "screenshot_placeholder",
-    "qa_backup",
-    "closing",
-}
+# Slide-object vocabulary is owned by tools/deliverable_contract.py — the single
+# source of truth shared with the planner prompt (agent/prompt_builder.py) so the
+# writer normalizes against the exact set the planner is told to emit.
+_PPTX_SLIDE_TYPES = slide_type_set()
 
 # Optional per-slide layout hints the planner may set; the web renderer
 # (renderDeck.ts) auto-selects by content when omitted. Keep in sync with
 # SLIDE_LAYOUT_IDS in web/src/chat/pptx/renderDeck.ts.
-_PPTX_SLIDE_LAYOUTS = {
-    "hero_statement",
-    "standard_bullets",
-    "two_column_bullets",
-    "comparison_cards",
-    "process_flow_horizontal",
-    "process_flow_vertical",
-    "data_table",
-    "media_placeholder",
-    "section_divider",
-}
+_PPTX_SLIDE_LAYOUTS = slide_layout_set()
 
 _PDF_TEMPLATES: Dict[str, Dict[str, Any]] = {
     "academic_report": {
@@ -1242,6 +1230,143 @@ def _build_pdf_html(spec: Dict[str, Any]) -> str:
 """
 
 
+def _build_standalone_html(spec: Dict[str, Any]) -> str:
+    """Screen-first standalone HTML deliverable.
+
+    Reuses the same normalized blocks and per-block rendering as the PDF sidecar
+    (``_block_to_html``), but wraps them in a responsive, centered container with
+    both screen and print styling so the .html is a first-class output, not just
+    a print source.
+    """
+    accent = _PDF_TEMPLATES.get(spec["template"], _PDF_TEMPLATES["academic_report"])["accent"]
+    accent_css = f"rgb({accent[0]}, {accent[1]}, {accent[2]})"
+    body = "\n".join(_block_to_html(block) for block in spec.get("blocks") or [])
+    return f"""<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{html.escape(_text(spec.get("title")))}</title>
+  <style>
+    :root {{ --accent: {accent_css}; }}
+    * {{ box-sizing: border-box; }}
+    body {{ margin: 0; background: #f1f5f9; color: #111827;
+      font-family: "Microsoft YaHei", "Noto Sans CJK SC", Arial, sans-serif; line-height: 1.6; }}
+    main.container {{ max-width: 820px; margin: 0 auto; padding: 40px 28px 64px;
+      background: #ffffff; min-height: 100vh; box-shadow: 0 1px 24px rgba(15, 23, 42, 0.08); }}
+    h1 {{ color: var(--accent); font-size: 28px; margin: 0 0 6px; }}
+    .subtitle {{ color: #64748b; margin: 0 0 26px; border-bottom: 1px solid #e2e8f0; padding-bottom: 16px; }}
+    h2, h3, h4 {{ color: #0f172a; margin: 26px 0 8px; }}
+    p {{ margin: 10px 0; }}
+    ul {{ margin: 10px 0 14px 22px; }}
+    table {{ border-collapse: collapse; margin: 14px 0; width: 100%; }}
+    th, td {{ border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; vertical-align: top; }}
+    th {{ background: #f1f5f9; }}
+    figure {{ margin: 14px 0; }}
+    figure.code figcaption {{ color: #64748b; font-size: 13px; margin-bottom: 4px; }}
+    pre {{ background: #0f172a; color: #e2e8f0; border-radius: 8px; padding: 14px; overflow-x: auto; white-space: pre-wrap; }}
+    .formula {{ background: #f8fafc; border-left: 4px solid var(--accent); padding: 12px 14px; font-family: Cambria Math, serif; }}
+    .image-placeholder {{ border: 1px dashed #94a3b8; border-radius: 8px; padding: 20px; color: #475569; text-align: center; }}
+    .page-break {{ break-after: page; page-break-after: always; }}
+    @media (max-width: 640px) {{ main.container {{ padding: 24px 16px 48px; }} }}
+    @media print {{ body {{ background: #fff; }} main.container {{ box-shadow: none; max-width: none; }} }}
+  </style>
+</head>
+<body>
+  <main class="container">
+    <h1>{html.escape(_text(spec.get("title")))}</h1>
+    <p class="subtitle">{html.escape(_text(spec.get("template_name")))} · {html.escape(_text(spec.get("template_subtitle")))}</p>
+    {body}
+  </main>
+</body>
+</html>
+"""
+
+
+def _docx_add_block(doc: Any, block: Dict[str, Any]) -> None:
+    """Render one normalized block into a python-docx Document."""
+    from docx.shared import Pt
+
+    block_type = block.get("type")
+    if block_type == "heading":
+        level = max(1, min(4, int(block.get("level") or 2)))
+        doc.add_heading(_text(block.get("text")), level=level)
+    elif block_type == "bullets":
+        for item in block.get("items") or []:
+            doc.add_paragraph(_text(item), style="List Bullet")
+    elif block_type == "table":
+        headers = [_text(h) for h in block.get("headers") or []]
+        rows = [[_text(c) for c in row] for row in block.get("rows") or []]
+        cols = len(headers) or (len(rows[0]) if rows else 0)
+        if cols:
+            table = doc.add_table(rows=0, cols=cols)
+            table.style = "Table Grid"
+            if headers:
+                cells = table.add_row().cells
+                for idx, header in enumerate(headers[:cols]):
+                    cells[idx].text = header
+                    for paragraph in cells[idx].paragraphs:
+                        for run in paragraph.runs:
+                            run.bold = True
+            for row in rows:
+                cells = table.add_row().cells
+                for idx, value in enumerate(row[:cols]):
+                    cells[idx].text = value
+    elif block_type == "code":
+        language = _text(block.get("language"))
+        if language:
+            caption = doc.add_paragraph()
+            caption_run = caption.add_run(language)
+            caption_run.italic = True
+        paragraph = doc.add_paragraph()
+        run = paragraph.add_run(_text(block.get("text")))
+        run.font.name = "Consolas"
+        run.font.size = Pt(10)
+    elif block_type == "formula":
+        paragraph = doc.add_paragraph()
+        paragraph.add_run(_text(block.get("text"))).italic = True
+    elif block_type == "image_placeholder":
+        label = _text(block.get("label")) or "Image placeholder"
+        caption = _text(block.get("caption"))
+        source_hint = _text(block.get("source_hint"))
+        note = f"[{label}]"
+        if caption:
+            note += f" {caption}"
+        if source_hint:
+            note += f"（替换为：{source_hint}）"
+        paragraph = doc.add_paragraph()
+        paragraph.add_run(note).italic = True
+    elif block_type == "page_break":
+        doc.add_page_break()
+    else:
+        doc.add_paragraph(_text(block.get("text")))
+
+
+def _render_docx(spec: Dict[str, Any]) -> bytes:
+    """Render the normalized document spec into .docx bytes via python-docx.
+
+    Consumes the same structured blocks as the PDF and HTML writers, so a single
+    reviewed outline can target .docx, .pdf, or .html.
+    """
+    from docx import Document
+
+    doc = Document()
+    title = _text(spec.get("title"))
+    if title:
+        doc.add_heading(title, level=0)
+    subtitle = " · ".join(
+        part for part in (_text(spec.get("template_name")), _text(spec.get("template_subtitle"))) if part
+    )
+    if subtitle:
+        paragraph = doc.add_paragraph()
+        paragraph.add_run(subtitle).italic = True
+    for block in spec.get("blocks") or []:
+        _docx_add_block(doc, block)
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    return buffer.getvalue()
+
+
 def _wrap_pdf_text(text: str, *, width: int = 78) -> List[str]:
     lines: List[str] = []
     for raw_line in _text(text).splitlines() or [""]:
@@ -1407,6 +1532,106 @@ def pdf_write(
     )
 
 
+def html_write(
+    path: str,
+    title: str,
+    document: Any,
+    template: str = "academic_report",
+    visual_master: str = "default_web",
+) -> str:
+    """Create a standalone .html deliverable from a structured document spec.
+
+    This is the first-class HTML writer (not the print sidecar that pdf_write
+    emits). It consumes the same structured document/blocks contract as pdf_write
+    so the reader -> material_index -> planner layers can target either format,
+    then renders a responsive, self-contained HTML page.
+    """
+    if not _text(path):
+        return tool_error("html_write requires an output path.", code="missing_path")
+    out = Path(path).expanduser()
+    if out.suffix.lower() not in (".html", ".htm"):
+        out = out.with_suffix(".html")
+
+    validation_error = _validate_write_path(out, path)
+    if validation_error is not None:
+        return validation_error
+
+    spec = _build_pdf_spec(title, document, template, visual_master)
+    html_source = _build_standalone_html(spec)
+
+    try:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(html_source, encoding="utf-8")
+    except OSError as exc:
+        return tool_error(f"HTML write failed: {exc}", code="html_write_failed")
+
+    return _json(
+        {
+            "ok": True,
+            "path": str(out),
+            "template": spec["template"],
+            "visual_master": spec["visual_master"],
+            "renderer": "standalone_html_v1",
+            "block_count": len(spec.get("blocks") or []),
+            "bytes": len(html_source.encode("utf-8")),
+        }
+    )
+
+
+def docx_write(
+    path: str,
+    title: str,
+    document: Any,
+    template: str = "academic_report",
+    visual_master: str = "default_docx",
+) -> str:
+    """Create an editable .docx deliverable from a structured document spec.
+
+    Consumes the same structured document/blocks contract as pdf_write and
+    html_write (sections or blocks of heading, paragraph, bullets, table, code,
+    formula, image_placeholder, page_break), so the reader -> material_index ->
+    planner layers can target Word the same way they target PDF/HTML.
+    """
+    if not _text(path):
+        return tool_error("docx_write requires an output path.", code="missing_path")
+    out = Path(path).expanduser()
+    if out.suffix.lower() != ".docx":
+        out = out.with_suffix(".docx")
+
+    validation_error = _validate_write_path(out, path)
+    if validation_error is not None:
+        return validation_error
+
+    spec = _build_pdf_spec(title, document, template, visual_master)
+    try:
+        docx_bytes = _render_docx(spec)
+    except ImportError as exc:
+        return tool_error(
+            f"DOCX rendering requires python-docx in the desktop Python bundle: {exc}",
+            code="docx_render_unavailable",
+        )
+    except Exception as exc:
+        return tool_error(f"DOCX rendering failed: {exc}", code="docx_render_failed")
+
+    try:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(docx_bytes)
+    except OSError as exc:
+        return tool_error(f"DOCX write failed: {exc}", code="docx_write_failed")
+
+    return _json(
+        {
+            "ok": True,
+            "path": str(out),
+            "template": spec["template"],
+            "visual_master": spec["visual_master"],
+            "renderer": "python_docx_v1",
+            "block_count": len(spec.get("blocks") or []),
+            "bytes": len(docx_bytes),
+        }
+    )
+
+
 def pptx_write(
     path: str,
     title: str,
@@ -1424,6 +1649,13 @@ def pptx_write(
     we decode and write to the (workspace-validated) output path. There is no
     python-pptx writer anymore — Python only persists the bytes.
     """
+    logger.info(
+        "pptx_write called: callback_present=%s slides=%d template=%s visual_master=%s",
+        callback is not None,
+        len(slides or []),
+        template,
+        visual_master,
+    )
     theme = _get_pptx_theme(template)
     selected_visual_master = _normalize_pptx_visual_master(visual_master)
     out = Path(path).expanduser()
@@ -1620,6 +1852,155 @@ PDF_WRITE_SCHEMA = {
     },
 }
 
+HTML_WRITE_SCHEMA = {
+    "name": "html_write",
+    "description": (
+        "Create a standalone, responsive .html file from structured report content. "
+        "Use this as the writer-layer HTML path for web reports, study notes, "
+        "summaries, and shareable documents. Consumes the same structured "
+        "document/blocks contract as pdf_write (sections or blocks of heading, "
+        "paragraph, bullets, table, code, formula, image_placeholder, page_break), "
+        "so the same outline can be rendered to PDF or HTML."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "path": {"type": "string", "description": "Output HTML path. The .html suffix is added when omitted."},
+            "title": {"type": "string"},
+            "template": {
+                "type": "string",
+                "description": "academic_report, code_report, math_report, or brief. Unknown values fall back to academic_report.",
+            },
+            "visual_master": {
+                "type": "string",
+                "description": "Optional styling label. Defaults to default_web.",
+            },
+            "document": {
+                "type": "object",
+                "description": (
+                    "Structured document spec. Prefer sections or blocks. Supported block "
+                    "types: heading, paragraph, bullets, table, code, formula, "
+                    "image_placeholder, page_break."
+                ),
+                "properties": {
+                    "sections": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "title": {"type": "string"},
+                                "paragraphs": {"type": "array", "items": {"type": "string"}},
+                                "bullets": {"type": "array", "items": {"type": "string"}},
+                                "table": {"type": "object", "description": "Use headers and rows arrays."},
+                                "code": {"type": "string"},
+                                "language": {"type": "string"},
+                                "formula": {"type": "string"},
+                                "placeholder": {"type": "object"},
+                            },
+                        },
+                    },
+                    "blocks": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "type": {"type": "string"},
+                                "text": {"type": "string"},
+                                "level": {"type": "integer"},
+                                "items": {"type": "array", "items": {"type": "string"}},
+                                "headers": {"type": "array", "items": {"type": "string"}},
+                                "rows": {"type": "array"},
+                                "code": {"type": "string"},
+                                "language": {"type": "string"},
+                                "latex": {"type": "string"},
+                                "label": {"type": "string"},
+                                "caption": {"type": "string"},
+                                "source_hint": {"type": "string"},
+                            },
+                        },
+                    },
+                },
+            },
+        },
+        "required": ["path", "title", "document"],
+    },
+}
+
+DOCX_WRITE_SCHEMA = {
+    "name": "docx_write",
+    "description": (
+        "Create an editable .docx (Word) file from structured report content. Use "
+        "this as the writer-layer Word path for reports, study notes, summaries, and "
+        "documents the user wants to keep editing in Word. Consumes the same "
+        "structured document/blocks contract as pdf_write and html_write (sections "
+        "or blocks of heading, paragraph, bullets, table, code, formula, "
+        "image_placeholder, page_break), so the same outline can target Word, PDF, "
+        "or HTML."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "path": {"type": "string", "description": "Output DOCX path. The .docx suffix is added when omitted."},
+            "title": {"type": "string"},
+            "template": {
+                "type": "string",
+                "description": "academic_report, code_report, math_report, or brief. Unknown values fall back to academic_report.",
+            },
+            "visual_master": {
+                "type": "string",
+                "description": "Optional styling label. Defaults to default_docx.",
+            },
+            "document": {
+                "type": "object",
+                "description": (
+                    "Structured document spec. Prefer sections or blocks. Supported block "
+                    "types: heading, paragraph, bullets, table, code, formula, "
+                    "image_placeholder, page_break."
+                ),
+                "properties": {
+                    "sections": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "title": {"type": "string"},
+                                "paragraphs": {"type": "array", "items": {"type": "string"}},
+                                "bullets": {"type": "array", "items": {"type": "string"}},
+                                "table": {"type": "object", "description": "Use headers and rows arrays."},
+                                "code": {"type": "string"},
+                                "language": {"type": "string"},
+                                "formula": {"type": "string"},
+                                "placeholder": {"type": "object"},
+                            },
+                        },
+                    },
+                    "blocks": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "type": {"type": "string"},
+                                "text": {"type": "string"},
+                                "level": {"type": "integer"},
+                                "items": {"type": "array", "items": {"type": "string"}},
+                                "headers": {"type": "array", "items": {"type": "string"}},
+                                "rows": {"type": "array"},
+                                "code": {"type": "string"},
+                                "language": {"type": "string"},
+                                "latex": {"type": "string"},
+                                "label": {"type": "string"},
+                                "caption": {"type": "string"},
+                                "source_hint": {"type": "string"},
+                            },
+                        },
+                    },
+                },
+            },
+        },
+        "required": ["path", "title", "document"],
+    },
+}
+
 PPTX_WRITE_SCHEMA = {
     "name": "pptx_write",
     "description": (
@@ -1629,8 +2010,9 @@ PPTX_WRITE_SCHEMA = {
         "Templates apply distinct visual themes: course_report (blue classroom), "
         "paper_report (green academic), code_defense (indigo/orange tech defense). "
         "The deck is rendered by PptxGenJS in the Kabuqina desktop UI using the selected "
-        "visual_master palette; this tool requires the interactive app (it is not available "
-        "in headless/CLI contexts)."
+        "visual_master palette. Always CALL this tool to generate the deck — do not "
+        "refuse or claim the renderer is unavailable in advance. Only if the call itself "
+        "returns an error (e.g. code pptx_render_unavailable) should you report that."
     ),
     "parameters": {
         "type": "object",
@@ -1735,6 +2117,36 @@ registry.register(
     ),
     check_fn=lambda: True,
     emoji="📝",
+)
+
+registry.register(
+    name="html_write",
+    toolset="documents",
+    schema=HTML_WRITE_SCHEMA,
+    handler=lambda args, **kw: html_write(
+        path=args.get("path", ""),
+        title=args.get("title", ""),
+        document=args.get("document") or {},
+        template=args.get("template", "academic_report"),
+        visual_master=args.get("visual_master", "default_web"),
+    ),
+    check_fn=lambda: True,
+    emoji="🌐",
+)
+
+registry.register(
+    name="docx_write",
+    toolset="documents",
+    schema=DOCX_WRITE_SCHEMA,
+    handler=lambda args, **kw: docx_write(
+        path=args.get("path", ""),
+        title=args.get("title", ""),
+        document=args.get("document") or {},
+        template=args.get("template", "academic_report"),
+        visual_master=args.get("visual_master", "default_docx"),
+    ),
+    check_fn=lambda: True,
+    emoji="📄",
 )
 
 registry.register(

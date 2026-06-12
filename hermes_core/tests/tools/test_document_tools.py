@@ -324,6 +324,127 @@ def test_pdf_write_rejects_output_outside_workspace(tmp_path, monkeypatch):
     assert not out.with_suffix(".html").exists()
 
 
+def test_html_write_generates_standalone_document(tmp_path):
+    import tools.document_tools as document_tools
+
+    out = tmp_path / "web-report"  # suffix added by the writer
+    result = json.loads(
+        document_tools.html_write(
+            path=str(out),
+            title="网页学习报告",
+            document={
+                "sections": [
+                    {
+                        "title": "知识结构",
+                        "paragraphs": ["把材料整理成可分享的网页。"],
+                        "bullets": ["响应式布局", "自带样式"],
+                    },
+                    {
+                        "title": "结果汇总",
+                        "table": {"headers": ["模块", "结果"], "rows": [["HTML writer", "通过"]]},
+                    },
+                ],
+            },
+            template="code_report",
+        )
+    )
+
+    written = tmp_path / "web-report.html"
+    assert result["ok"] is True
+    assert result["path"] == str(written)
+    assert result["renderer"] == "standalone_html_v1"
+    assert result["block_count"] > 0
+    html = written.read_text(encoding="utf-8")
+    # First-class HTML, not the print sidecar: responsive container + viewport.
+    assert "<main class=\"container\">" in html
+    assert "viewport" in html
+    assert "网页学习报告" in html
+    assert "知识结构" in html
+    assert "HTML writer" in html
+
+
+def test_html_write_rejects_output_outside_workspace(tmp_path, monkeypatch):
+    import tools.document_tools as document_tools
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    monkeypatch.setenv("HERMESDESK_WORKSPACE", str(workspace))
+
+    out = tmp_path / "outside.html"
+    result = json.loads(
+        document_tools.html_write(
+            path=str(out),
+            title="越界 HTML",
+            document={"blocks": [{"type": "paragraph", "text": "内容"}]},
+        )
+    )
+
+    assert result["code"] == "outside_workspace"
+    assert not out.exists()
+
+
+def test_docx_write_generates_editable_word_document(tmp_path):
+    import tools.document_tools as document_tools
+
+    out = tmp_path / "word-report"  # suffix added by the writer
+    result = json.loads(
+        document_tools.docx_write(
+            path=str(out),
+            title="Word 学习报告",
+            document={
+                "sections": [
+                    {
+                        "title": "知识结构",
+                        "paragraphs": ["把材料整理成可继续编辑的 Word。"],
+                        "bullets": ["保留表格", "保留要点"],
+                    },
+                    {
+                        "title": "结果汇总",
+                        "table": {"headers": ["模块", "结果"], "rows": [["DOCX writer", "通过"]]},
+                    },
+                ],
+            },
+            template="code_report",
+        )
+    )
+
+    written = tmp_path / "word-report.docx"
+    assert result["ok"] is True
+    assert result["path"] == str(written)
+    assert result["renderer"] == "python_docx_v1"
+    assert result["block_count"] > 0
+
+    # Round-trip with python-docx to prove it is a real, editable .docx.
+    from docx import Document
+
+    doc = Document(str(written))
+    texts = [p.text for p in doc.paragraphs]
+    assert any(t == "Word 学习报告" for t in texts)
+    assert any("保留表格" in t for t in texts)
+    assert len(doc.tables) == 1
+    assert len(doc.tables[0].rows) == 2  # header + one data row
+
+
+def test_docx_write_rejects_output_outside_workspace(tmp_path, monkeypatch):
+    import tools.document_tools as document_tools
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    monkeypatch.setenv("HERMESDESK_WORKSPACE", str(workspace))
+
+    out = tmp_path / "outside.docx"
+    result = json.loads(
+        document_tools.docx_write(
+            path=str(out),
+            title="越界 Word",
+            document={"blocks": [{"type": "paragraph", "text": "内容"}]},
+        )
+    )
+
+    assert result["code"] == "outside_workspace"
+    assert not out.exists()
+
+
 def test_pdf_fast_text_path_skips_docling_for_text_pdf(tmp_path, monkeypatch):
     import tools.document_tools as document_tools
 

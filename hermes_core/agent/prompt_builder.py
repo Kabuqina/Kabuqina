@@ -944,6 +944,97 @@ def build_nous_subscription_prompt(valid_tool_names: "set[str] | None" = None) -
     return "\n".join(lines)
 
 
+def build_deliverable_planner_prompt(valid_tool_names: "set[str] | None" = None) -> str:
+    """Canonical planner guidance for student deliverables (PPT / PDF / HTML).
+
+    This is the **planner layer of the file-generation pipeline**, sunk into the
+    agent core so the web (desk) child and the gateway (messaging) child plan
+    identically. It is self-gated on the presence of the writer tools, so a
+    vanilla Hermes session without these tools gets nothing.
+
+    The vocabulary (slide types, layouts, per-structure outlines) is imported
+    from ``tools/deliverable_contract.py`` — the same source the writer
+    normalizes against — so the planner can never be told to emit a slide type
+    the writer would silently rewrite.
+    """
+    try:
+        from tools.deliverable_contract import (
+            DELIVERABLE_WRITER_TOOLS,
+            PPTX_SLIDE_LAYOUTS,
+            PPTX_SLIDE_TYPES,
+            PPTX_STRUCTURES,
+        )
+    except Exception as exc:  # pragma: no cover - defensive import
+        logger.debug("Failed to import deliverable contract: %s", exc)
+        return ""
+
+    valid_names = set(valid_tool_names or set())
+    present = {tool for tool in DELIVERABLE_WRITER_TOOLS if tool in valid_names}
+    # Emit only when at least one deliverable writer is actually available — an
+    # empty or writer-free tool list means there is nothing to plan toward.
+    if not present:
+        return ""
+
+    lines: list[str] = [
+        "# Student deliverable generation (file-generation pipeline)",
+        "When the user asks for a generated file (PPT, PDF, or HTML report / notes), "
+        "plan through the four-layer pipeline and never skip a layer:",
+        "1. Read — use pdf_read_precise / document_read_precise / file tools to read the source material.",
+        "2. Material index — call material_index_build to organize already-read material into "
+        "reusable evidence (sections / tables / figures / screenshots / code_files / evidence / "
+        "uncertain_parts / generation_hints). It is a general layer, not PPT-specific.",
+        "3. Plan — turn the material index into a structured outline. Choose what evidence matters; "
+        "do not invent screenshots, charts, citations, or results that the material index did not produce.",
+        "4. Review then write — call review_outline so the user can approve / amend / edit, and only "
+        "after confirmation call the writer tool and return the saved file path.",
+        "Quality bar: produce a high-quality deliverable, not a plain-text summary. When real "
+        "screenshots or charts are missing, do not pretend material was inserted — use a placeholder "
+        "and state what real asset should replace it.",
+        "The source format and the deliverable format are independent — compose these layers freely. "
+        "Any reader can feed any writer (e.g. read a .docx or .pdf and emit .html, or read a .pdf and "
+        "emit .docx). The reader normalizes every input to text/markdown, the material index and the "
+        "outline are format-agnostic, and PDF / HTML / Word writers share one sections/blocks contract, "
+        "so the same reviewed outline can be written to whichever format the user asked for. Match the "
+        "writer to the requested *output*, not to the input file type, and do not force the output "
+        "format to match the source.",
+    ]
+
+    if "pptx_write" in present:
+        slide_types = " / ".join(PPTX_SLIDE_TYPES)
+        layouts = " / ".join(PPTX_SLIDE_LAYOUTS)
+        lines.append("")
+        lines.append("## PPT decks (pptx_write)")
+        lines.append(
+            "Every slide must declare slide_type (one of: "
+            f"{slide_types}), a title, 3-5 bullets, speaker-note `notes`, and an evidence object "
+            "or placeholder note. Use screenshot_placeholder / chart_placeholder instead of faking "
+            "assets. Include at least one qa_backup slide. Layout is auto-selected per content; to "
+            f"force one, set a slide `layout` (one of: {layouts})."
+        )
+        lines.append(
+            "After review_outline passes, call pptx_write with both template and visual_master "
+            "(the user's selection arrives in the request). Structure outlines:"
+        )
+        for structure_id, structure in PPTX_STRUCTURES.items():
+            must_cover = "；".join(str(item) for item in structure.get("must_cover") or [])
+            lines.append(f"- {structure_id} ({structure.get('title')}): {must_cover}。")
+
+    doc_writers = [name for name in ("pdf_write", "html_write", "docx_write") if name in present]
+    if doc_writers:
+        lines.append("")
+        lines.append("## PDF / HTML / Word reports (" + ", ".join(doc_writers) + ")")
+        lines.append(
+            "Build a structured document of sections or blocks (block types: heading, paragraph, "
+            "bullets, table, code, formula, image_placeholder, page_break) from the material index, "
+            "review it, then call the writer. The same reviewed outline can target any of these "
+            "formats: pdf_write renders a print-ready PDF plus an HTML inspection sidecar; html_write "
+            "produces a standalone responsive page (renderer standalone_html_v1); docx_write produces "
+            "an editable Word file (renderer python_docx_v1)."
+        )
+
+    return "\n".join(lines)
+
+
 # =========================================================================
 # Context files (SOUL.md, AGENTS.md, .cursorrules)
 # =========================================================================

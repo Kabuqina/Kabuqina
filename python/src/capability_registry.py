@@ -560,27 +560,99 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
     {
         "id": "document-pdf-generation",
         "title": "Generate document (PDF)",
-        "description": "Generate print-ready PDF documents from structured writer-layer content with an HTML source sidecar.",
+        "description": "Generate print-ready PDF reports through the full reader -> material index -> planner -> writer pipeline, or write a PDF directly from prepared blocks. Both paths emit an HTML source sidecar.",
         "category": "documents",
         "family": "document-generation",
         "agent_hint": (
-            "Use when the user asks for a PDF deliverable. Build a structured document "
-            "with sections or blocks, then call pdf_write. It saves both the PDF and "
+            "Use when the user asks for a PDF deliverable. Preferred path for source "
+            "material: read it (pdf_read_precise / document_read_precise), build a "
+            "material index (material_index_build), draft a structured outline with "
+            "sections/blocks from that index, have the user review it (review_outline), "
+            "then call pdf_write. If you already hold structured content (e.g. from "
+            "another tool), call pdf_write directly. pdf_write saves both the PDF and "
             "an inspectable HTML source file."
         ),
-        "tools": ["pdf_write"],
-        "required_toolsets": ["documents"],
+        "tools": ["material_index_build", "review_outline", "pdf_write"],
+        "required_toolsets": ["documents", "clarify"],
         "required_load_packages": [],
         "optional_load_packages": [],
+        "structure_templates": [
+            {
+                "id": "academic_report",
+                "title": "Academic report",
+                "description": "论文/课程报告：研究背景、方法框架、关键证据、结果分析、局限与展望。",
+                "pdf_template": "academic_report",
+                "material_index_profile": "paper_report",
+                "default_sections": ["研究背景", "方法框架", "关键证据", "结果分析", "局限与展望"],
+            },
+            {
+                "id": "code_report",
+                "title": "Code report",
+                "description": "项目/课设报告：项目背景、系统架构、关键实现、测试结果、问题与改进。",
+                "pdf_template": "code_report",
+                "material_index_profile": "code_defense",
+                "default_sections": ["项目背景", "系统架构", "关键实现", "测试结果", "问题与改进"],
+            },
+            {
+                "id": "math_report",
+                "title": "Math report",
+                "description": "公式/推导报告：问题定义、公式与推导、变量说明、数值验证、结论。",
+                "pdf_template": "math_report",
+                "material_index_profile": "course_report",
+                "default_sections": ["问题定义", "公式与推导", "变量说明", "数值验证", "结论"],
+            },
+        ],
         "roles": ["default", "advanced", "power"],
         "risk": "medium",
         "source": "builtin",
         "trust": "official",
         "pipelines": [
             {
-                "id": "document-pdf-writer-v1",
-                "title": "Generate PDF document",
+                "id": "document-report-pdf",
+                "title": "Generate PDF report from source material",
                 "primary": True,
+                "stages": ["reader", "material_index", "planner", "writer"],
+                "inputs": ["document"],
+                "structure_template": "academic_report",
+                "steps": [
+                    {
+                        "id": "read-report-source",
+                        "stage": "reader",
+                        "tools": ["pdf_read_precise", "document_read_precise"],
+                        "default_args": {"mode": "auto", "include_content": False},
+                        "optional_load_packages": ["docling-codeformula"],
+                        "outputs": ["read_id", "markdown", "metadata"],
+                    },
+                    {
+                        "id": "build-report-material-index",
+                        "stage": "material_index",
+                        "tool": "material_index_build",
+                        "default_args": {"profile": "paper_report"},
+                        "inputs": ["read_id"],
+                        "outputs": ["material_index"],
+                    },
+                    {
+                        "id": "review-report-outline",
+                        "stage": "planner",
+                        "kind": "agent_review",
+                        "requires_user_review": True,
+                        "inputs": ["material_index"],
+                        "outputs": ["report_blocks"],
+                    },
+                    {
+                        "id": "write-report-pdf",
+                        "stage": "writer",
+                        "tool": "pdf_write",
+                        "default_args": {"template": "academic_report", "visual_master": "default_print"},
+                        "inputs": ["report_blocks"],
+                        "outputs": ["pdf_path", "html_path", "page_count", "renderer"],
+                    },
+                ],
+            },
+            {
+                "id": "document-pdf-writer-v1",
+                "title": "Write PDF directly from prepared blocks",
+                "primary": False,
                 "stages": ["writer"],
                 "inputs": ["outline", "markdown", "material_index", "report_blocks", "html"],
                 "steps": [
@@ -592,17 +664,281 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
                         "outputs": ["pdf_path", "html_path", "page_count", "renderer"],
                     },
                 ],
-            }
+            },
         ],
         "shortcuts": [
             {
+                "id": "create-pdf-report",
+                "surface": "wizard",
+                "label": "PDF report",
+                "entry_pipeline": "document-report-pdf",
+                "requires_input": ["document"],
+                "visible_when": "pipeline_ready",
+            },
+            {
                 "id": "create-pdf-document",
                 "surface": "wizard",
-                "label": "PDF document",
+                "label": "PDF from blocks",
                 "entry_pipeline": "document-pdf-writer-v1",
                 "requires_input": ["outline"],
                 "visible_when": "pipeline_ready",
-            }
+            },
+        ],
+    },
+    {
+        "id": "document-html-generation",
+        "title": "Generate document (HTML)",
+        "description": "Generate standalone, responsive HTML reports through the full reader -> material index -> planner -> writer pipeline, or write HTML directly from prepared blocks.",
+        "category": "documents",
+        "family": "document-generation",
+        "agent_hint": (
+            "Use when the user asks for an HTML deliverable, web report, or shareable "
+            "study notes. Preferred path for source material: read it (pdf_read_precise "
+            "/ document_read_precise), build a material index (material_index_build), "
+            "draft a structured outline with sections/blocks from that index, have the "
+            "user review it (review_outline), then call html_write. If you already hold "
+            "structured content, call html_write directly. html_write produces one "
+            "self-contained .html file (renderer standalone_html_v1)."
+        ),
+        "tools": ["material_index_build", "review_outline", "html_write"],
+        "required_toolsets": ["documents", "clarify"],
+        "required_load_packages": [],
+        "optional_load_packages": [],
+        "structure_templates": [
+            {
+                "id": "web_report",
+                "title": "Web report",
+                "description": "通用网页报告：背景、要点、证据、结论。",
+                "html_template": "academic_report",
+                "material_index_profile": "paper_report",
+                "default_sections": ["背景", "关键要点", "证据与数据", "结论"],
+            },
+            {
+                "id": "study_notes",
+                "title": "Study notes",
+                "description": "学习笔记：知识结构、关键概念、案例应用、复习要点。",
+                "html_template": "academic_report",
+                "material_index_profile": "course_report",
+                "default_sections": ["知识结构", "关键概念", "案例应用", "复习要点"],
+            },
+            {
+                "id": "code_walkthrough",
+                "title": "Code walkthrough",
+                "description": "代码讲解：项目概览、关键模块、核心代码、运行说明。",
+                "html_template": "code_report",
+                "material_index_profile": "code_defense",
+                "default_sections": ["项目概览", "关键模块", "核心代码", "运行说明"],
+            },
+        ],
+        "roles": ["default", "advanced", "power"],
+        "risk": "medium",
+        "source": "builtin",
+        "trust": "official",
+        "pipelines": [
+            {
+                "id": "document-report-html",
+                "title": "Generate HTML report from source material",
+                "primary": True,
+                "stages": ["reader", "material_index", "planner", "writer"],
+                "inputs": ["document"],
+                "structure_template": "web_report",
+                "steps": [
+                    {
+                        "id": "read-html-source",
+                        "stage": "reader",
+                        "tools": ["pdf_read_precise", "document_read_precise"],
+                        "default_args": {"mode": "auto", "include_content": False},
+                        "optional_load_packages": ["docling-codeformula"],
+                        "outputs": ["read_id", "markdown", "metadata"],
+                    },
+                    {
+                        "id": "build-html-material-index",
+                        "stage": "material_index",
+                        "tool": "material_index_build",
+                        "default_args": {"profile": "paper_report"},
+                        "inputs": ["read_id"],
+                        "outputs": ["material_index"],
+                    },
+                    {
+                        "id": "review-html-outline",
+                        "stage": "planner",
+                        "kind": "agent_review",
+                        "requires_user_review": True,
+                        "inputs": ["material_index"],
+                        "outputs": ["report_blocks"],
+                    },
+                    {
+                        "id": "write-report-html",
+                        "stage": "writer",
+                        "tool": "html_write",
+                        "default_args": {"template": "academic_report", "visual_master": "default_web"},
+                        "inputs": ["report_blocks"],
+                        "outputs": ["path", "renderer", "block_count"],
+                    },
+                ],
+            },
+            {
+                "id": "document-html-writer-v1",
+                "title": "Write HTML directly from prepared blocks",
+                "primary": False,
+                "stages": ["writer"],
+                "inputs": ["outline", "markdown", "material_index", "report_blocks"],
+                "steps": [
+                    {
+                        "id": "write-html-document",
+                        "stage": "writer",
+                        "tool": "html_write",
+                        "default_args": {"template": "academic_report", "visual_master": "default_web"},
+                        "outputs": ["path", "renderer", "block_count"],
+                    },
+                ],
+            },
+        ],
+        "shortcuts": [
+            {
+                "id": "create-html-report",
+                "surface": "wizard",
+                "label": "HTML report",
+                "entry_pipeline": "document-report-html",
+                "requires_input": ["document"],
+                "visible_when": "pipeline_ready",
+            },
+            {
+                "id": "create-html-document",
+                "surface": "wizard",
+                "label": "HTML from blocks",
+                "entry_pipeline": "document-html-writer-v1",
+                "requires_input": ["outline"],
+                "visible_when": "pipeline_ready",
+            },
+        ],
+    },
+    {
+        "id": "document-docx-generation",
+        "title": "Generate document (Word)",
+        "description": "Generate editable Word (.docx) reports through the full reader -> material index -> planner -> writer pipeline, or write a Word file directly from prepared blocks.",
+        "category": "documents",
+        "family": "document-generation",
+        "agent_hint": (
+            "Use when the user asks for a Word / .docx deliverable they will keep "
+            "editing. Preferred path for source material: read it (pdf_read_precise / "
+            "document_read_precise), build a material index (material_index_build), "
+            "draft a structured outline with sections/blocks from that index, have the "
+            "user review it (review_outline), then call docx_write. If you already hold "
+            "structured content, call docx_write directly. docx_write produces an "
+            "editable .docx (renderer python_docx_v1)."
+        ),
+        "tools": ["material_index_build", "review_outline", "docx_write"],
+        "required_toolsets": ["documents", "clarify"],
+        "required_load_packages": [],
+        "optional_load_packages": [],
+        "structure_templates": [
+            {
+                "id": "word_report",
+                "title": "Word report",
+                "description": "通用 Word 报告：背景、要点、证据、结论。",
+                "docx_template": "academic_report",
+                "material_index_profile": "paper_report",
+                "default_sections": ["背景", "关键要点", "证据与数据", "结论"],
+            },
+            {
+                "id": "study_notes",
+                "title": "Study notes",
+                "description": "学习笔记：知识结构、关键概念、案例应用、复习要点。",
+                "docx_template": "academic_report",
+                "material_index_profile": "course_report",
+                "default_sections": ["知识结构", "关键概念", "案例应用", "复习要点"],
+            },
+            {
+                "id": "project_report",
+                "title": "Project report",
+                "description": "项目/课设报告：项目背景、系统设计、关键实现、测试结果、问题与改进。",
+                "docx_template": "code_report",
+                "material_index_profile": "code_defense",
+                "default_sections": ["项目背景", "系统设计", "关键实现", "测试结果", "问题与改进"],
+            },
+        ],
+        "roles": ["default", "advanced", "power"],
+        "risk": "medium",
+        "source": "builtin",
+        "trust": "official",
+        "pipelines": [
+            {
+                "id": "document-report-docx",
+                "title": "Generate Word report from source material",
+                "primary": True,
+                "stages": ["reader", "material_index", "planner", "writer"],
+                "inputs": ["document"],
+                "structure_template": "word_report",
+                "steps": [
+                    {
+                        "id": "read-docx-source",
+                        "stage": "reader",
+                        "tools": ["pdf_read_precise", "document_read_precise"],
+                        "default_args": {"mode": "auto", "include_content": False},
+                        "optional_load_packages": ["docling-codeformula"],
+                        "outputs": ["read_id", "markdown", "metadata"],
+                    },
+                    {
+                        "id": "build-docx-material-index",
+                        "stage": "material_index",
+                        "tool": "material_index_build",
+                        "default_args": {"profile": "paper_report"},
+                        "inputs": ["read_id"],
+                        "outputs": ["material_index"],
+                    },
+                    {
+                        "id": "review-docx-outline",
+                        "stage": "planner",
+                        "kind": "agent_review",
+                        "requires_user_review": True,
+                        "inputs": ["material_index"],
+                        "outputs": ["report_blocks"],
+                    },
+                    {
+                        "id": "write-report-docx",
+                        "stage": "writer",
+                        "tool": "docx_write",
+                        "default_args": {"template": "academic_report", "visual_master": "default_docx"},
+                        "inputs": ["report_blocks"],
+                        "outputs": ["path", "renderer", "block_count"],
+                    },
+                ],
+            },
+            {
+                "id": "document-docx-writer-v1",
+                "title": "Write Word directly from prepared blocks",
+                "primary": False,
+                "stages": ["writer"],
+                "inputs": ["outline", "markdown", "material_index", "report_blocks"],
+                "steps": [
+                    {
+                        "id": "write-docx-document",
+                        "stage": "writer",
+                        "tool": "docx_write",
+                        "default_args": {"template": "academic_report", "visual_master": "default_docx"},
+                        "outputs": ["path", "renderer", "block_count"],
+                    },
+                ],
+            },
+        ],
+        "shortcuts": [
+            {
+                "id": "create-docx-report",
+                "surface": "wizard",
+                "label": "Word report",
+                "entry_pipeline": "document-report-docx",
+                "requires_input": ["document"],
+                "visible_when": "pipeline_ready",
+            },
+            {
+                "id": "create-docx-document",
+                "surface": "wizard",
+                "label": "Word from blocks",
+                "entry_pipeline": "document-docx-writer-v1",
+                "requires_input": ["outline"],
+                "visible_when": "pipeline_ready",
+            },
         ],
     },
     {
@@ -628,7 +964,10 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
                 "id": "math-expression-cleanup-v1",
                 "title": "Math expression cleanup V1",
                 "primary": True,
-                "stages": ["reader", "material_index", "writer"],
+                # Writer-only by design: the tool consumes a raw formula directly.
+                # Reader / material_index inputs come from *other* capabilities
+                # (e.g. document-math), not from steps owned by this pipeline.
+                "stages": ["writer"],
                 "inputs": ["ocr_formula", "latex", "document_math", "code_expression"],
                 "steps": [
                     {
@@ -682,7 +1021,10 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
                 "id": "math-formula-to-code-v1",
                 "title": "Formula to code V1",
                 "primary": True,
-                "stages": ["reader", "material_index", "planner", "writer"],
+                # Writer-only by design: the tool transpiles a formula directly.
+                # Upstream reader / material_index inputs are produced by other
+                # capabilities, not by steps owned by this pipeline.
+                "stages": ["writer"],
                 "inputs": ["latex", "markdown_formula", "document_math", "extracted_formula"],
                 "writer_targets": ["python", "numpy", "javascript", "octave", "fortran"],
                 "steps": [
@@ -738,7 +1080,10 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
                 "id": "code-to-math-formula-v1",
                 "title": "Code to math formula V1",
                 "primary": True,
-                "stages": ["reader", "material_index", "planner", "writer"],
+                # Writer-only by design: the tool reduces code to a formula report
+                # directly. Upstream reader / material_index inputs are produced by
+                # other capabilities, not by steps owned by this pipeline.
+                "stages": ["writer"],
                 "inputs": ["python", "numpy"],
                 "steps": [
                     {
@@ -762,6 +1107,106 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
         ],
     },
 )
+
+
+def _pipeline_step_stages(pipeline: dict[str, Any]) -> list[str]:
+    """Stages that have at least one real step in the pipeline (source of truth)."""
+    return [str(step.get("stage") or "") for step in pipeline.get("steps") or [] if step.get("stage")]
+
+
+def validate_capability_definitions() -> list[str]:
+    """Check the four-layer framework contract and return human-readable errors.
+
+    The invariant: a pipeline's declared ``stages`` must be exactly the set of
+    stages that have a real step. This forbids "phantom" stages — a layer
+    labelled on a pipeline that no step actually implements — so the registry
+    can never claim a capability covers Material Index / Planner / Writer
+    without a tool or agent step backing it. Run from a test so any future
+    edit that re-introduces a phantom stage fails CI.
+    """
+    errors: list[str] = []
+    for capability in _CAPABILITIES:
+        cap_id = capability.get("id", "<unknown>")
+        for pipeline in capability.get("pipelines") or []:
+            pid = pipeline.get("id", "<unknown>")
+            declared = list(pipeline.get("stages") or [])
+            for stage in declared:
+                if stage not in VALID_FRAMEWORK_STAGES:
+                    errors.append(f"{cap_id}/{pid}: declared stage '{stage}' is not a framework stage")
+            step_stages = _pipeline_step_stages(pipeline)
+            for stage in step_stages:
+                if stage not in VALID_FRAMEWORK_STAGES:
+                    errors.append(f"{cap_id}/{pid}: step stage '{stage}' is not a framework stage")
+            declared_set = {s for s in declared if s in VALID_FRAMEWORK_STAGES}
+            step_set = set(step_stages)
+            phantom = declared_set - step_set
+            undeclared = step_set - declared_set
+            if phantom:
+                errors.append(
+                    f"{cap_id}/{pid}: declared stage(s) {sorted(phantom)} have no backing step "
+                    f"(phantom stage — add a real step or drop the stage)"
+                )
+            if undeclared:
+                errors.append(
+                    f"{cap_id}/{pid}: step stage(s) {sorted(undeclared)} are not declared in pipeline 'stages'"
+                )
+    return errors
+
+
+def _step_actors(step: dict[str, Any]) -> list[str]:
+    """What actually performs a step: tool name(s), or an agent/<kind> marker."""
+    actors: list[str] = []
+    if step.get("tool"):
+        actors.append(str(step["tool"]))
+    actors.extend([str(tool) for tool in step.get("tools") or []])
+    if not actors and step.get("kind"):
+        actors.append(f"<{step['kind']}>")
+    return actors
+
+
+def build_framework_coverage() -> dict[str, Any]:
+    """Auto-generated four-layer coverage matrix, derived only from real steps.
+
+    Truthful by construction: a stage shows up for a pipeline only when a step
+    with that stage exists, so this replaces any hand-maintained "layer x output"
+    table. Each cell lists the tool(s) / agent step(s) that implement the layer.
+    """
+    pipelines: list[dict[str, Any]] = []
+    for capability in _CAPABILITIES:
+        for pipeline in capability.get("pipelines") or []:
+            coverage: dict[str, list[str]] = {stage: [] for stage in VALID_FRAMEWORK_STAGES}
+            for step in pipeline.get("steps") or []:
+                stage = str(step.get("stage") or "")
+                if stage in coverage:
+                    coverage[stage].extend(_step_actors(step))
+            pipelines.append(
+                {
+                    "capability": capability.get("id"),
+                    "pipeline": pipeline.get("id"),
+                    "primary": bool(pipeline.get("primary")),
+                    "category": capability.get("category"),
+                    "coverage": {stage: _unique(actors) for stage, actors in coverage.items()},
+                    "covered_stages": [stage for stage in VALID_FRAMEWORK_STAGES if coverage[stage]],
+                }
+            )
+    return {"stages": list(VALID_FRAMEWORK_STAGES), "pipelines": pipelines}
+
+
+def render_framework_coverage_table() -> str:
+    """Render build_framework_coverage() as a Markdown matrix for docs / CLI."""
+    data = build_framework_coverage()
+    stages = data["stages"]
+    header = "| capability | pipeline | " + " | ".join(stages) + " |"
+    divider = "| --- | --- | " + " | ".join("---" for _ in stages) + " |"
+    lines = [header, divider]
+    for row in data["pipelines"]:
+        cells = []
+        for stage in stages:
+            actors = row["coverage"][stage]
+            cells.append(", ".join(actors) if actors else "—")
+        star = " *" if row["primary"] else ""
+        lines.append(f"| {row['capability']}{star} | {row['pipeline']} | " + " | ".join(cells) + " |")
+    return "\n".join(lines)
 
 
 def list_capability_defs() -> list[dict[str, Any]]:

@@ -908,6 +908,13 @@ class TestBuildSystemPrompt:
         prompt = agent._build_system_prompt()
         assert "NOUS SUBSCRIPTION BLOCK" in prompt
 
+    def test_includes_deliverable_planner_prompt(self, agent, monkeypatch):
+        monkeypatch.setattr(
+            run_agent, "build_deliverable_planner_prompt", lambda tool_names: "DELIVERABLE PLANNER BLOCK"
+        )
+        prompt = agent._build_system_prompt()
+        assert "DELIVERABLE PLANNER BLOCK" in prompt
+
     def test_skills_prompt_derives_available_toolsets_from_loaded_tools(self):
         tools = _make_tool_defs("web_search", "skills_list", "skill_view", "skill_manage")
         toolset_map = {
