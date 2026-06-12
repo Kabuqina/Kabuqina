@@ -66,6 +66,15 @@ The "Kabuqina" name is provisional. Trademark check is pending — see
 
 Future first-party additions follow this order: add a load package in `python/src/load_packages.py` when large local assets are needed; add the product capability in `python/src/capability_registry.py`; add or expose shared agent tools in `hermes_core/` when web and gateway children should share semantics; keep Windows-only cache/path/download wiring in `python/src/`.
 
+## PDF writer path (2026-06-12)
+
+| Question | Decision |
+|----------|----------|
+| Writer-layer PDF output | **`pdf_write` in `hermes_core/tools/document_tools.py`.** PDF generation is an agent core document writer, not an overlay. |
+| Rendering path | Structured `sections`/`blocks` → normalized PDF spec → same-name HTML source sidecar → ReportLab PDF renderer (`reportlab_pdf_v1`). |
+| Supported content blocks | `heading`, `paragraph`, `bullets`, `table`, `code`, `formula`, `image_placeholder`, `page_break`. Unknown blocks fall back to paragraphs. |
+| Capability model | Exposed as first-party `document-pdf-generation`; agents should call `pdf_write` for PDF deliverables and verify `path`, `html_path`, and `renderer` before claiming success. |
+
 **Cherry-pick log:**
 
 | Date | Commit | Origin | Reason |

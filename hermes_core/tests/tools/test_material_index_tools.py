@@ -43,6 +43,7 @@ def test_material_index_tool_is_in_documents_toolset():
     from toolsets import TOOLSETS
 
     assert "material_index_build" in TOOLSETS["documents"]["tools"]
+    assert "pdf_write" in TOOLSETS["documents"]["tools"]
 
 
 def test_material_index_extracts_markdown_sections_with_source_refs():

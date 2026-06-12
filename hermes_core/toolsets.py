@@ -191,7 +191,7 @@ TOOLSETS = {
 
     "documents": {
         "description": "Student document read/write tools for precise PDFs and PowerPoint decks",
-        "tools": ["document_read_precise", "pdf_read_precise", "material_index_build", "pptx_write"],
+        "tools": ["document_read_precise", "pdf_read_precise", "material_index_build", "pdf_write", "pptx_write"],
         "includes": []
     },
 

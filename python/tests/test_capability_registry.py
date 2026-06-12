@@ -28,6 +28,7 @@ class CapabilityRegistryTests(unittest.TestCase):
         self.assertIn("voice-local-stt", ids)
         self.assertIn("desktop-organizer", ids)
         self.assertIn("student-ppt", ids)
+        self.assertIn("document-pdf-generation", ids)
 
     def test_math_expression_capabilities_are_registered_as_available_v1(self):
         from capability_registry import get_capability_def, list_capability_defs
@@ -79,11 +80,13 @@ class CapabilityRegistryTests(unittest.TestCase):
         math = get_capability_def("document-math")
         voice = get_capability_def("voice-local-stt")
         student_ppt = get_capability_def("student-ppt")
+        pdf_generation = get_capability_def("document-pdf-generation")
 
         self.assertEqual(precise["required_toolsets"], ["documents"])
         self.assertEqual(math["required_toolsets"], ["documents"])
         self.assertEqual(voice["required_toolsets"], [])
         self.assertEqual(student_ppt["required_toolsets"], ["documents", "clarify"])
+        self.assertEqual(pdf_generation["required_toolsets"], ["documents"])
 
     def test_every_capability_declares_pipeline_steps(self):
         from capability_registry import list_capability_defs
@@ -154,6 +157,19 @@ class CapabilityRegistryTests(unittest.TestCase):
         self.assertEqual(len(status["structureTemplates"]), 3)
         self.assertEqual(len(status["visualMasters"]), 5)
         self.assertTrue(all(pipeline["ready"] for pipeline in status["pipelines"]))
+
+    def test_document_pdf_generation_declares_writer_path(self):
+        from capability_registry import get_capability_def
+
+        pdf = get_capability_def("document-pdf-generation")
+        pipeline = pdf["pipelines"][0]
+
+        self.assertEqual(pdf["family"], "document-generation")
+        self.assertIn("pdf_write", pdf["tools"])
+        self.assertEqual(pipeline["stages"], ["writer"])
+        self.assertEqual(pipeline["steps"][0]["tool"], "pdf_write")
+        self.assertIn("pdf_path", pipeline["steps"][0]["outputs"])
+        self.assertIn("html_path", pipeline["steps"][0]["outputs"])
 
     def test_shortcuts_reference_existing_pipelines(self):
         from capability_registry import list_capability_defs
@@ -484,6 +500,24 @@ class CapabilityRegistryTests(unittest.TestCase):
         self.assertIn("visual_master to pptx_write", summary)
         self.assertIn("visual_master_renderer", summary)
         self.assertIn("pptxgenjs_v1", summary)
+
+    def test_agent_summary_mentions_pdf_writer_renderer_and_html_source(self):
+        from capability_prompt import build_capability_prompt_summary
+        from capability_registry import get_capability_def
+        from capability_status import build_capability_status
+
+        capability = build_capability_status(
+            get_capability_def("document-pdf-generation"),
+            load_packages={},
+            enabled_toolsets={"documents"},
+        )
+
+        summary = build_capability_prompt_summary([capability])
+
+        self.assertIn("pdf_write", summary)
+        self.assertIn("HTML source", summary)
+        self.assertIn("reportlab_pdf_v1", summary)
+        self.assertIn("html_path", summary)
 
     def test_agent_summary_warns_candidate_capabilities_are_not_executable(self):
         from capability_prompt import build_capability_prompt_summary

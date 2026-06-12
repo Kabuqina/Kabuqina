@@ -558,6 +558,54 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
         ],
     },
     {
+        "id": "document-pdf-generation",
+        "title": "Generate document (PDF)",
+        "description": "Generate print-ready PDF documents from structured writer-layer content with an HTML source sidecar.",
+        "category": "documents",
+        "family": "document-generation",
+        "agent_hint": (
+            "Use when the user asks for a PDF deliverable. Build a structured document "
+            "with sections or blocks, then call pdf_write. It saves both the PDF and "
+            "an inspectable HTML source file."
+        ),
+        "tools": ["pdf_write"],
+        "required_toolsets": ["documents"],
+        "required_load_packages": [],
+        "optional_load_packages": [],
+        "roles": ["default", "advanced", "power"],
+        "risk": "medium",
+        "source": "builtin",
+        "trust": "official",
+        "pipelines": [
+            {
+                "id": "document-pdf-writer-v1",
+                "title": "Generate PDF document",
+                "primary": True,
+                "stages": ["writer"],
+                "inputs": ["outline", "markdown", "material_index", "report_blocks", "html"],
+                "steps": [
+                    {
+                        "id": "write-pdf-document",
+                        "stage": "writer",
+                        "tool": "pdf_write",
+                        "default_args": {"template": "academic_report", "visual_master": "default_print"},
+                        "outputs": ["pdf_path", "html_path", "page_count", "renderer"],
+                    },
+                ],
+            }
+        ],
+        "shortcuts": [
+            {
+                "id": "create-pdf-document",
+                "surface": "wizard",
+                "label": "PDF document",
+                "entry_pipeline": "document-pdf-writer-v1",
+                "requires_input": ["outline"],
+                "visible_when": "pipeline_ready",
+            }
+        ],
+    },
+    {
         "id": "math-expression-cleanup",
         "title": "Math expression cleanup",
         "description": "Normalize messy OCR, document, LaTeX, and code math into clean LaTeX/Markdown via the SymPy core (regex fallback).",
@@ -674,7 +722,8 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
         "agent_hint": (
             "Use for converting simple Python or NumPy expressions into LaTeX, Markdown, and an HTML "
             "report (sympy.latex over the canonical expression). Other source languages are a future "
-            "follow-up; PDF export needs an HTML-to-PDF backend."
+            "follow-up. For a PDF deliverable, pass the structured report content to pdf_write through "
+            "the document-pdf-generation capability."
         ),
         "tools": ["code_to_math_formula"],
         "required_toolsets": ["math"],

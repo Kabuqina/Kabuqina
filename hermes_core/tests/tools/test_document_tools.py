@@ -248,6 +248,82 @@ def test_pptx_write_rejects_output_outside_workspace(tmp_path, monkeypatch):
     assert not out.exists()
 
 
+def test_pdf_write_generates_pdf_and_html_sidecar(tmp_path, monkeypatch):
+    import tools.document_tools as document_tools
+
+    rendered_specs = []
+
+    def fake_render(spec):
+        rendered_specs.append(spec)
+        return b"%PDF-1.4\nfake pdf\n%%EOF", 2, "reportlab_pdf_v1"
+
+    monkeypatch.setattr(document_tools, "_render_pdf_with_reportlab", fake_render)
+
+    out = tmp_path / "course-report.pdf"
+    result = json.loads(
+        document_tools.pdf_write(
+            path=str(out),
+            title="课程总结报告",
+            document={
+                "sections": [
+                    {
+                        "title": "研究目标",
+                        "paragraphs": ["把材料整理成可提交 PDF。"],
+                        "bullets": ["保留表格", "保留公式"],
+                    },
+                    {
+                        "title": "结果汇总",
+                        "table": {
+                            "headers": ["模块", "结果"],
+                            "rows": [["PDF writer", "通过"]],
+                        },
+                    },
+                ],
+            },
+            template="academic_report",
+        )
+    )
+
+    assert result["ok"] is True
+    assert result["path"] == str(out)
+    assert result["html_path"] == str(out.with_suffix(".html"))
+    assert result["page_count"] == 2
+    assert result["renderer"] == "reportlab_pdf_v1"
+    assert out.read_bytes().startswith(b"%PDF-1.4")
+    html = out.with_suffix(".html").read_text(encoding="utf-8")
+    assert "课程总结报告" in html
+    assert "研究目标" in html
+    assert "PDF writer" in html
+    assert rendered_specs[0]["template"] == "academic_report"
+    assert rendered_specs[0]["blocks"][0]["type"] == "heading"
+
+
+def test_pdf_write_rejects_output_outside_workspace(tmp_path, monkeypatch):
+    import tools.document_tools as document_tools
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    monkeypatch.setenv("HERMESDESK_WORKSPACE", str(workspace))
+    monkeypatch.setattr(
+        document_tools,
+        "_render_pdf_with_reportlab",
+        lambda _spec: (b"%PDF-1.4\nfake\n%%EOF", 1, "reportlab_pdf_v1"),
+    )
+
+    out = tmp_path / "outside.pdf"
+    result = json.loads(
+        document_tools.pdf_write(
+            path=str(out),
+            title="越界 PDF",
+            document={"blocks": [{"type": "paragraph", "text": "内容"}]},
+        )
+    )
+
+    assert result["code"] == "outside_workspace"
+    assert not out.exists()
+    assert not out.with_suffix(".html").exists()
+
+
 def test_pdf_fast_text_path_skips_docling_for_text_pdf(tmp_path, monkeypatch):
     import tools.document_tools as document_tools
 
@@ -736,7 +812,9 @@ def test_pdf_read_precise_uses_common_read_pipeline_for_pdf(tmp_path, monkeypatc
 
 
 def test_read_tool_schemas_advertise_math_mode():
-    from tools.document_tools import DOCUMENT_READ_PRECISE_SCHEMA, PDF_READ_PRECISE_SCHEMA
+    from tools.document_tools import DOCUMENT_READ_PRECISE_SCHEMA, PDF_READ_PRECISE_SCHEMA, PDF_WRITE_SCHEMA
 
     assert "math" in PDF_READ_PRECISE_SCHEMA["parameters"]["properties"]["mode"]["description"]
     assert "math" in DOCUMENT_READ_PRECISE_SCHEMA["parameters"]["properties"]["mode"]["description"]
+    assert PDF_WRITE_SCHEMA["name"] == "pdf_write"
+    assert "HTML" in PDF_WRITE_SCHEMA["description"]

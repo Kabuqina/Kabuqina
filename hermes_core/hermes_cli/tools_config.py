@@ -68,7 +68,7 @@ CONFIGURABLE_TOOLSETS = [
     ("delegation",      "👥 Task Delegation",           "delegate_task"),
     ("cronjob",         "⏰ Cron Jobs",                 "create/list/update/pause/resume/run, with optional attached skills"),
     ("messaging",       "📨 Cross-Platform Messaging",  "send_message"),
-    ("documents",       "📄 Document Tools",             "precise PDF/document read, material index, PPT write"),
+    ("documents",       "📄 Document Tools",             "precise PDF/document read, material index, PDF/PPT write"),
     ("rl",              "🧪 RL Training",               "Tinker-Atropos training tools"),
     ("homeassistant",    "🏠 Home Assistant",           "smart home device control"),
     ("spotify",          "🎵 Spotify",                  "playback, search, playlists, library"),

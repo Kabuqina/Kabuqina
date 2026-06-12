@@ -27,9 +27,10 @@ def build_capability_prompt_summary(capabilities: list[dict[str, Any]]) -> str:
         pipeline_suffix = _format_ready_pipelines(item)
         visual_master_suffix = _format_visual_masters(item)
         ppt_rule_suffix = _format_ppt_visual_master_rule(item)
+        pdf_rule_suffix = _format_pdf_writer_rule(item)
         lines.append(
             f"- {title}: {status}.{suffix}{hint_suffix}"
-            f"{pipeline_suffix}{visual_master_suffix}{ppt_rule_suffix}"
+            f"{pipeline_suffix}{visual_master_suffix}{ppt_rule_suffix}{pdf_rule_suffix}"
         )
     return "\n".join(lines)
 
@@ -85,6 +86,25 @@ def _format_ppt_visual_master_rule(capability: dict[str, Any]) -> str:
         "pptxgenjs_v1 and path points at the saved .pptx. If pptx_write returns an "
         "error (e.g. code pptx_render_unavailable), tell the user PPT generation "
         "requires the Kabuqina app window instead of claiming a file was created."
+    )
+
+
+def _format_pdf_writer_rule(capability: dict[str, Any]) -> str:
+    tools = {str(item) for item in capability.get("tools") or []}
+    pipeline_tools = {
+        str(step.get("tool") or "")
+        for pipeline in capability.get("pipelines") or []
+        for step in pipeline.get("steps") or []
+        if isinstance(step, dict)
+    }
+    if "pdf_write" not in tools and "pdf_write" not in pipeline_tools:
+        return ""
+    return (
+        " For PDF generation, call pdf_write with a structured document containing "
+        "sections or blocks. The normal path writes a PDF plus an HTML source sidecar; "
+        "on success renderer is reportlab_pdf_v1 and html_path points at the source. "
+        "If pdf_write returns an error such as pdf_render_unavailable, say the PDF "
+        "backend is unavailable instead of claiming a file was created."
     )
 
 

@@ -6,8 +6,11 @@ import json
 import os
 import sys
 import hashlib
+import html
+import io
 import tempfile
 import threading
+import textwrap
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -99,6 +102,40 @@ _PPTX_SLIDE_LAYOUTS = {
     "data_table",
     "media_placeholder",
     "section_divider",
+}
+
+_PDF_TEMPLATES: Dict[str, Dict[str, Any]] = {
+    "academic_report": {
+        "title": "Academic report",
+        "accent": (37, 99, 235),
+        "subtitle": "print-friendly student report",
+    },
+    "code_report": {
+        "title": "Code report",
+        "accent": (79, 70, 229),
+        "subtitle": "technical report with code and tables",
+    },
+    "math_report": {
+        "title": "Math report",
+        "accent": (22, 101, 52),
+        "subtitle": "formula-oriented report",
+    },
+    "brief": {
+        "title": "Brief",
+        "accent": (71, 85, 105),
+        "subtitle": "compact document",
+    },
+}
+
+_PDF_BLOCK_TYPES = {
+    "heading",
+    "paragraph",
+    "bullets",
+    "table",
+    "code",
+    "formula",
+    "image_placeholder",
+    "page_break",
 }
 
 _LIGHTWEIGHT_FIRST_SUFFIXES = {
@@ -952,7 +989,7 @@ def _validate_write_path(out_path: Path, original_path: str) -> Optional[str]:
             f"Output path is outside the Kabuqina workspace ({workspace}): {original_path}",
             code="outside_workspace",
             workspace=str(workspace),
-            hint="Write the .pptx into the workspace (or a subfolder of it).",
+            hint="Write the output file into the workspace (or a subfolder of it).",
         )
     return None
 
@@ -1019,6 +1056,355 @@ def _build_deck_spec(
         "page_size": {"width": 13.333, "height": 7.5},
         "slides": [_deck_slide_spec(raw) for raw in (slides or [])],
     }
+
+
+def _normalize_pdf_template(template: str) -> str:
+    key = _text(template).lower()
+    return key if key in _PDF_TEMPLATES else "academic_report"
+
+
+def _pdf_block(raw: Any) -> Dict[str, Any]:
+    if isinstance(raw, str):
+        return {"type": "paragraph", "text": raw}
+    raw = _dict(raw)
+    block_type = _text(raw.get("type") or raw.get("block_type")).lower()
+    if block_type not in _PDF_BLOCK_TYPES:
+        block_type = "paragraph"
+    if block_type == "heading":
+        level = raw.get("level", 2)
+        try:
+            level = max(1, min(4, int(level)))
+        except (TypeError, ValueError):
+            level = 2
+        return {"type": "heading", "level": level, "text": _text(raw.get("text") or raw.get("title"))}
+    if block_type == "bullets":
+        return {"type": "bullets", "items": _string_list(raw.get("items") or raw.get("bullets"), limit=24)}
+    if block_type == "table":
+        table = _dict(raw.get("table")) or raw
+        headers = _string_list(table.get("headers"), limit=8)
+        rows = [_string_list(row, limit=len(headers) or 8) for row in _list(table.get("rows"))[:40]]
+        return {"type": "table", "headers": headers, "rows": rows}
+    if block_type == "code":
+        return {
+            "type": "code",
+            "language": _text(raw.get("language")),
+            "text": _text(raw.get("text") or raw.get("code")),
+        }
+    if block_type == "formula":
+        return {"type": "formula", "text": _text(raw.get("text") or raw.get("latex") or raw.get("formula"))}
+    if block_type == "image_placeholder":
+        return {
+            "type": "image_placeholder",
+            "label": _text(raw.get("label") or raw.get("title") or "Image placeholder"),
+            "caption": _text(raw.get("caption")),
+            "source_hint": _text(raw.get("source_hint")),
+        }
+    if block_type == "page_break":
+        return {"type": "page_break"}
+    return {"type": "paragraph", "text": _text(raw.get("text") or raw.get("content") or raw.get("body"))}
+
+
+def _pdf_section_blocks(section: Dict[str, Any]) -> List[Dict[str, Any]]:
+    section = _dict(section)
+    blocks: List[Dict[str, Any]] = []
+    title = _text(section.get("title") or section.get("heading"))
+    if title:
+        blocks.append({"type": "heading", "level": 2, "text": title})
+    for paragraph in _list(section.get("paragraphs")):
+        if _text(paragraph):
+            blocks.append({"type": "paragraph", "text": _text(paragraph)})
+    content = section.get("content")
+    if isinstance(content, list):
+        blocks.extend(_pdf_block(item) for item in content)
+    elif _text(content):
+        blocks.append({"type": "paragraph", "text": _text(content)})
+    bullets = _string_list(section.get("bullets"), limit=24)
+    if bullets:
+        blocks.append({"type": "bullets", "items": bullets})
+    if _dict(section.get("table")):
+        blocks.append(_pdf_block({"type": "table", "table": section.get("table")}))
+    if _text(section.get("code")):
+        blocks.append(_pdf_block({"type": "code", "code": section.get("code"), "language": section.get("language")}))
+    if _text(section.get("formula") or section.get("latex")):
+        blocks.append(_pdf_block({"type": "formula", "text": section.get("formula") or section.get("latex")}))
+    placeholder = _dict(section.get("image_placeholder") or section.get("placeholder"))
+    if placeholder:
+        blocks.append(_pdf_block({"type": "image_placeholder", **placeholder}))
+    return blocks
+
+
+def _pdf_blocks(document: Any) -> List[Dict[str, Any]]:
+    if isinstance(document, str):
+        return [{"type": "paragraph", "text": document}]
+    if isinstance(document, list):
+        return [_pdf_block(item) for item in document]
+    document = _dict(document)
+    if isinstance(document.get("blocks"), list):
+        return [_pdf_block(item) for item in document.get("blocks") or []]
+    blocks: List[Dict[str, Any]] = []
+    for section in _list(document.get("sections")):
+        blocks.extend(_pdf_section_blocks(_dict(section)))
+    if blocks:
+        return blocks
+    for key in ("summary", "abstract", "content", "body", "text"):
+        value = document.get(key)
+        if _text(value):
+            blocks.append({"type": "paragraph", "text": _text(value)})
+    return blocks or [{"type": "paragraph", "text": ""}]
+
+
+def _build_pdf_spec(
+    title: str,
+    document: Any,
+    template: str,
+    visual_master: str,
+) -> Dict[str, Any]:
+    template_key = _normalize_pdf_template(template)
+    return {
+        "title": _text(title) or "Kabuqina PDF",
+        "template": template_key,
+        "template_name": _PDF_TEMPLATES[template_key]["title"],
+        "template_subtitle": _PDF_TEMPLATES[template_key]["subtitle"],
+        "visual_master": _text(visual_master) or "default_print",
+        "page_size": "A4",
+        "blocks": _pdf_blocks(document),
+    }
+
+
+def _block_to_html(block: Dict[str, Any]) -> str:
+    block_type = block.get("type")
+    if block_type == "heading":
+        level = max(1, min(4, int(block.get("level") or 2)))
+        return f"<h{level}>{html.escape(_text(block.get('text')))}</h{level}>"
+    if block_type == "bullets":
+        items = "".join(f"<li>{html.escape(item)}</li>" for item in block.get("items") or [])
+        return f"<ul>{items}</ul>"
+    if block_type == "table":
+        headers = "".join(f"<th>{html.escape(item)}</th>" for item in block.get("headers") or [])
+        rows = []
+        for row in block.get("rows") or []:
+            rows.append("<tr>" + "".join(f"<td>{html.escape(item)}</td>" for item in row) + "</tr>")
+        head = f"<thead><tr>{headers}</tr></thead>" if headers else ""
+        return f"<table>{head}<tbody>{''.join(rows)}</tbody></table>"
+    if block_type == "code":
+        language = html.escape(_text(block.get("language")))
+        label = f"<figcaption>{language}</figcaption>" if language else ""
+        return f"<figure class=\"code\">{label}<pre>{html.escape(_text(block.get('text')))}</pre></figure>"
+    if block_type == "formula":
+        return f"<div class=\"formula\">{html.escape(_text(block.get('text')))}</div>"
+    if block_type == "image_placeholder":
+        label = html.escape(_text(block.get("label")))
+        caption = html.escape(_text(block.get("caption")))
+        source_hint = html.escape(_text(block.get("source_hint")))
+        return (
+            "<figure class=\"image-placeholder\">"
+            f"<div>{label}</div><figcaption>{caption}</figcaption><small>{source_hint}</small>"
+            "</figure>"
+        )
+    if block_type == "page_break":
+        return "<div class=\"page-break\"></div>"
+    return f"<p>{html.escape(_text(block.get('text')))}</p>"
+
+
+def _build_pdf_html(spec: Dict[str, Any]) -> str:
+    accent = _PDF_TEMPLATES.get(spec["template"], _PDF_TEMPLATES["academic_report"])["accent"]
+    accent_css = f"rgb({accent[0]}, {accent[1]}, {accent[2]})"
+    body = "\n".join(_block_to_html(block) for block in spec.get("blocks") or [])
+    return f"""<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>{html.escape(_text(spec.get("title")))}</title>
+  <style>
+    @page {{ size: A4; margin: 18mm; }}
+    body {{ color: #111827; font-family: "Microsoft YaHei", "Noto Sans CJK SC", Arial, sans-serif; line-height: 1.55; }}
+    h1 {{ color: {accent_css}; font-size: 26px; margin: 0 0 6px; }}
+    .subtitle {{ color: #64748b; margin: 0 0 22px; }}
+    h2, h3, h4 {{ color: #111827; margin: 22px 0 8px; }}
+    p {{ margin: 8px 0; }}
+    ul {{ margin: 8px 0 12px 22px; }}
+    table {{ border-collapse: collapse; margin: 12px 0; width: 100%; }}
+    th, td {{ border: 1px solid #cbd5e1; padding: 7px 9px; text-align: left; vertical-align: top; }}
+    th {{ background: #f1f5f9; }}
+    pre {{ background: #0f172a; color: #e2e8f0; border-radius: 6px; padding: 12px; white-space: pre-wrap; }}
+    figure {{ margin: 12px 0; }}
+    .formula {{ background: #f8fafc; border-left: 4px solid {accent_css}; padding: 10px 12px; font-family: Cambria Math, serif; }}
+    .image-placeholder {{ border: 1px dashed #94a3b8; border-radius: 6px; padding: 18px; color: #475569; }}
+    .page-break {{ break-after: page; page-break-after: always; }}
+  </style>
+</head>
+<body>
+  <h1>{html.escape(_text(spec.get("title")))}</h1>
+  <p class="subtitle">{html.escape(_text(spec.get("template_name")))} · {html.escape(_text(spec.get("template_subtitle")))}</p>
+  {body}
+</body>
+</html>
+"""
+
+
+def _wrap_pdf_text(text: str, *, width: int = 78) -> List[str]:
+    lines: List[str] = []
+    for raw_line in _text(text).splitlines() or [""]:
+        if not raw_line:
+            lines.append("")
+            continue
+        lines.extend(textwrap.wrap(raw_line, width=width, break_long_words=True, replace_whitespace=False) or [""])
+    return lines
+
+
+def _render_pdf_with_reportlab(spec: Dict[str, Any]) -> Tuple[bytes, int, str]:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import cm
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+    from reportlab.pdfgen import canvas
+
+    font_name = "STSong-Light"
+    try:
+        pdfmetrics.registerFont(UnicodeCIDFont(font_name))
+    except Exception:
+        font_name = "Helvetica"
+
+    template = _PDF_TEMPLATES.get(spec["template"], _PDF_TEMPLATES["academic_report"])
+    accent = template["accent"]
+    buffer = io.BytesIO()
+    page_width, page_height = A4
+    margin = 1.8 * cm
+    line_height = 14
+    page_count = 1
+    y = page_height - margin
+    c = canvas.Canvas(buffer, pagesize=A4)
+
+    def new_page() -> None:
+        nonlocal y, page_count
+        c.showPage()
+        page_count += 1
+        y = page_height - margin
+
+    def ensure(space: float = line_height) -> None:
+        if y - space < margin:
+            new_page()
+
+    def draw_text(text: str, *, size: int = 10, leading: int = line_height, indent: float = 0, font: str = font_name) -> None:
+        nonlocal y
+        for line in _wrap_pdf_text(text, width=88 if size <= 10 else 64):
+            ensure(leading)
+            c.setFont(font, size)
+            c.drawString(margin + indent, y, line)
+            y -= leading
+
+    c.setTitle(_text(spec.get("title")))
+    c.setAuthor("Kabuqina")
+    c.setFillColorRGB(accent[0] / 255, accent[1] / 255, accent[2] / 255)
+    draw_text(_text(spec.get("title")), size=18, leading=24)
+    c.setFillColorRGB(0.39, 0.45, 0.55)
+    draw_text(f"{spec.get('template_name')} · {spec.get('template_subtitle')}", size=9, leading=16)
+    c.setStrokeColorRGB(accent[0] / 255, accent[1] / 255, accent[2] / 255)
+    c.line(margin, y, page_width - margin, y)
+    y -= 18
+    c.setFillColorRGB(0.07, 0.09, 0.15)
+
+    for block in spec.get("blocks") or []:
+        block_type = block.get("type")
+        if block_type == "page_break":
+            new_page()
+            continue
+        if block_type == "heading":
+            level = int(block.get("level") or 2)
+            y -= 4
+            c.setFillColorRGB(0.07, 0.09, 0.15)
+            draw_text(_text(block.get("text")), size=15 if level <= 2 else 12, leading=20 if level <= 2 else 16)
+            continue
+        if block_type == "bullets":
+            for item in block.get("items") or []:
+                draw_text(f"• {item}", indent=10)
+            y -= 4
+            continue
+        if block_type == "table":
+            headers = block.get("headers") or []
+            rows = block.get("rows") or []
+            if headers:
+                draw_text(" | ".join(headers), size=9, leading=13)
+            for row in rows:
+                draw_text(" | ".join(row), size=9, leading=13)
+            y -= 6
+            continue
+        if block_type == "code":
+            language = _text(block.get("language"))
+            if language:
+                draw_text(language, size=8, leading=12)
+            for line in _wrap_pdf_text(_text(block.get("text")), width=90):
+                draw_text(line, size=8, leading=11, font="Courier")
+            y -= 6
+            continue
+        if block_type == "formula":
+            draw_text(_text(block.get("text")), size=11, leading=15)
+            y -= 6
+            continue
+        if block_type == "image_placeholder":
+            ensure(54)
+            c.setStrokeColorRGB(0.58, 0.64, 0.72)
+            c.rect(margin, y - 46, page_width - 2 * margin, 42, stroke=1, fill=0)
+            c.setFillColorRGB(0.29, 0.33, 0.41)
+            c.setFont(font_name, 9)
+            c.drawString(margin + 10, y - 20, _text(block.get("label")))
+            c.drawString(margin + 10, y - 34, _text(block.get("caption") or block.get("source_hint")))
+            y -= 58
+            c.setFillColorRGB(0.07, 0.09, 0.15)
+            continue
+        draw_text(_text(block.get("text")), size=10, leading=14)
+        y -= 4
+
+    c.save()
+    return buffer.getvalue(), page_count, "reportlab_pdf_v1"
+
+
+def pdf_write(
+    path: str,
+    title: str,
+    document: Any,
+    template: str = "academic_report",
+    visual_master: str = "default_print",
+) -> str:
+    """Create a PDF and adjacent HTML source from a structured document spec."""
+    if not _text(path):
+        return tool_error("pdf_write requires an output path.", code="missing_path")
+    out = Path(path).expanduser()
+    if out.suffix.lower() != ".pdf":
+        out = out.with_suffix(".pdf")
+
+    validation_error = _validate_write_path(out, path)
+    if validation_error is not None:
+        return validation_error
+
+    spec = _build_pdf_spec(title, document, template, visual_master)
+    html_source = _build_pdf_html(spec)
+    try:
+        pdf_bytes, page_count, renderer = _render_pdf_with_reportlab(spec)
+    except ImportError as exc:
+        return tool_error(
+            f"PDF rendering requires ReportLab in the desktop Python bundle: {exc}",
+            code="pdf_render_unavailable",
+        )
+    except Exception as exc:
+        return tool_error(f"PDF rendering failed: {exc}", code="pdf_render_failed")
+
+    out.parent.mkdir(parents=True, exist_ok=True)
+    html_path = out.with_suffix(".html")
+    out.write_bytes(pdf_bytes)
+    html_path.write_text(html_source, encoding="utf-8")
+    return _json(
+        {
+            "ok": True,
+            "path": str(out),
+            "html_path": str(html_path),
+            "page_count": int(page_count),
+            "template": spec["template"],
+            "visual_master": spec["visual_master"],
+            "renderer": renderer,
+            "bytes": len(pdf_bytes),
+        }
+    )
 
 
 def pptx_write(
@@ -1161,6 +1547,79 @@ DOCUMENT_READ_PRECISE_SCHEMA = {
     },
 }
 
+PDF_WRITE_SCHEMA = {
+    "name": "pdf_write",
+    "description": (
+        "Create a print-ready .pdf file from structured report content and save an "
+        "adjacent HTML source file for inspection. Use this as the normal writer-layer "
+        "PDF path for reports, math/code explanations, tables, checklists, formulas, "
+        "and visual placeholders. The v1 renderer builds normalized blocks, writes "
+        "HTML source, then renders the PDF with ReportLab in the desktop Python bundle."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "path": {"type": "string", "description": "Output PDF path. The .pdf suffix is added when omitted."},
+            "title": {"type": "string"},
+            "template": {
+                "type": "string",
+                "description": "academic_report, code_report, math_report, or brief. Unknown values fall back to academic_report.",
+            },
+            "visual_master": {
+                "type": "string",
+                "description": "Optional print styling label. Defaults to default_print.",
+            },
+            "document": {
+                "type": "object",
+                "description": (
+                    "Structured document spec. Prefer sections or blocks. Supported block "
+                    "types: heading, paragraph, bullets, table, code, formula, "
+                    "image_placeholder, page_break."
+                ),
+                "properties": {
+                    "sections": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "title": {"type": "string"},
+                                "paragraphs": {"type": "array", "items": {"type": "string"}},
+                                "bullets": {"type": "array", "items": {"type": "string"}},
+                                "table": {"type": "object", "description": "Use headers and rows arrays."},
+                                "code": {"type": "string"},
+                                "language": {"type": "string"},
+                                "formula": {"type": "string"},
+                                "placeholder": {"type": "object"},
+                            },
+                        },
+                    },
+                    "blocks": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "type": {"type": "string"},
+                                "text": {"type": "string"},
+                                "level": {"type": "integer"},
+                                "items": {"type": "array", "items": {"type": "string"}},
+                                "headers": {"type": "array", "items": {"type": "string"}},
+                                "rows": {"type": "array"},
+                                "code": {"type": "string"},
+                                "language": {"type": "string"},
+                                "latex": {"type": "string"},
+                                "label": {"type": "string"},
+                                "caption": {"type": "string"},
+                                "source_hint": {"type": "string"},
+                            },
+                        },
+                    },
+                },
+            },
+        },
+        "required": ["path", "title", "document"],
+    },
+}
+
 PPTX_WRITE_SCHEMA = {
     "name": "pptx_write",
     "description": (
@@ -1261,6 +1720,21 @@ registry.register(
     ),
     check_fn=lambda: True,
     emoji="📚",
+)
+
+registry.register(
+    name="pdf_write",
+    toolset="documents",
+    schema=PDF_WRITE_SCHEMA,
+    handler=lambda args, **kw: pdf_write(
+        path=args.get("path", ""),
+        title=args.get("title", ""),
+        document=args.get("document") or {},
+        template=args.get("template", "academic_report"),
+        visual_master=args.get("visual_master", "default_print"),
+    ),
+    check_fn=lambda: True,
+    emoji="📝",
 )
 
 registry.register(
