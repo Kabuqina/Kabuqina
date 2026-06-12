@@ -1,7 +1,7 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { Activity, ArrowDown, ArrowUp } from "lucide-react";
@@ -16,6 +16,7 @@ import { SettingsGateway } from "./settings/SettingsGateway";
 import { SettingsDisplay } from "./settings/SettingsDisplay";
 import { SettingsSharedPrefs } from "./settings/SettingsSharedPrefs";
 import { SettingsLoadPackages } from "./settings/SettingsLoadPackages";
+import { SettingsLlmConfig } from "./settings/SettingsLlmConfig";
 
 export interface Status {
   workspace: string;
@@ -34,22 +35,24 @@ export function Settings() {
   const [autoStartGateway, setAutoStartGateway] = useState(false);
   const gatewayStatus = useGatewayStatus();
 
-  useEffect(() => {
-    (async () => {
-      const [workspace, hasSecret, pyStat] = await Promise.all([
-        invoke<string>("cmd_workspace_path"),
-        invoke<boolean>("cmd_has_secret"),
-        invoke<{ running: boolean }>("cmd_python_status"),
-      ]);
-      setStatus({ workspace, hasSecret, pythonRunning: pyStat.running });
-      try {
-        const ag = await invoke<boolean>("cmd_get_auto_start_gateway");
-        setAutoStartGateway(!!ag);
-      } catch {
-        /* optional */
-      }
-    })().catch(console.error);
+  const refreshStatus = useCallback(async () => {
+    const [workspace, hasSecret, pyStat] = await Promise.all([
+      invoke<string>("cmd_workspace_path"),
+      invoke<boolean>("cmd_has_secret"),
+      invoke<{ running: boolean }>("cmd_python_status"),
+    ]);
+    setStatus({ workspace, hasSecret, pythonRunning: pyStat.running });
+    try {
+      const ag = await invoke<boolean>("cmd_get_auto_start_gateway");
+      setAutoStartGateway(!!ag);
+    } catch {
+      /* optional */
+    }
   }, []);
+
+  useEffect(() => {
+    void refreshStatus().catch(console.error);
+  }, [refreshStatus]);
 
   async function toggleAutoStartGateway(next: boolean) {
     try {
@@ -101,6 +104,8 @@ export function Settings() {
           </div>
         </Section>
 
+        <SettingsLlmConfig />
+
         <SettingsGateway
           gatewayStatus={gatewayStatus}
           autoStartGateway={autoStartGateway}
@@ -117,6 +122,7 @@ export function Settings() {
           onSetFontSize={setFontSize}
           themeMode={themeMode}
           onSetThemeMode={setThemeMode}
+          onWorkspaceChanged={refreshStatus}
         />
 
         <SettingsLoadPackages />

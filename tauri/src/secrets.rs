@@ -115,6 +115,11 @@ fn validate_provider_config_for_save(cfg: &mut ProviderConfig, secret: &str) -> 
     Ok(())
 }
 
+fn saved_api_base_for_endpoint_validation(cfg: Option<&ProviderConfig>) -> Option<&str> {
+    cfg.filter(|c| c.provider == "custom")
+        .and_then(|c| c.api_base_url.as_deref())
+}
+
 fn read_bool_setting(app: &AppHandle, key: &str) -> bool {
     let Some(f) = settings_file(app).ok() else {
         return false;
@@ -182,7 +187,10 @@ pub fn provider_api_key_env(provider: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{provider_api_key_env, validate_provider_config_for_save, ProviderConfig};
+    use super::{
+        provider_api_key_env, saved_api_base_for_endpoint_validation,
+        validate_provider_config_for_save, ProviderConfig,
+    };
 
     #[test]
     fn provider_api_key_env_covers_native_hermes_providers() {
@@ -236,6 +244,33 @@ mod tests {
         validate_provider_config_for_save(&mut cfg, "sk-test").unwrap();
 
         assert_eq!(cfg.host, "api.example.com");
+    }
+
+    #[test]
+    fn endpoint_validation_does_not_pin_to_non_custom_saved_base() {
+        let cfg = ProviderConfig {
+            provider: "deepseek".into(),
+            host: "api.deepseek.com".into(),
+            model: Some("deepseek-v4-flash".into()),
+            api_base_url: Some("https://api.deepseek.com/v1".into()),
+        };
+
+        assert_eq!(saved_api_base_for_endpoint_validation(Some(&cfg)), None);
+    }
+
+    #[test]
+    fn endpoint_validation_pins_saved_custom_base() {
+        let cfg = ProviderConfig {
+            provider: "custom".into(),
+            host: "api.example.com".into(),
+            model: Some("my-model".into()),
+            api_base_url: Some("https://api.example.com/v1".into()),
+        };
+
+        assert_eq!(
+            saved_api_base_for_endpoint_validation(Some(&cfg)),
+            Some("https://api.example.com/v1")
+        );
     }
 }
 
@@ -430,6 +465,66 @@ pub async fn cmd_save_secret(
 }
 
 #[tauri::command]
+pub async fn cmd_update_llm_config(
+    app: AppHandle,
+    mut cfg: ProviderConfig,
+    secret: Option<String>,
+) -> Result<(), String> {
+    cfg.provider = cfg.provider.trim().to_ascii_lowercase();
+    cfg.host = cfg.host.trim().to_ascii_lowercase();
+    cfg.api_base_url = cfg
+        .api_base_url
+        .as_ref()
+        .map(|s| s.trim().trim_end_matches('/').to_string())
+        .filter(|s| !s.is_empty());
+
+    if cfg.provider.is_empty() {
+        return Err("provider must be set".into());
+    }
+
+    if let Some(ref s) = secret {
+        let trimmed = s.trim();
+        if trimmed.is_empty() {
+            return Err("secret must not be empty".into());
+        }
+        crate::validation::validate_env_value(trimmed)?;
+        entry_for(&cfg.provider)?
+            .set_password(trimmed)
+            .map_err(|e| e.to_string())?;
+    }
+
+    if cfg.provider == "custom" {
+        let url = cfg.api_base_url.as_deref().ok_or_else(|| {
+            "api_base_url is required for custom OpenAI-compatible APIs".to_string()
+        })?;
+        crate::validation::validate_public_endpoint(url, None)?;
+        let base_host = host_from_api_base(url).to_ascii_lowercase();
+        if cfg.host.is_empty() {
+            cfg.host = base_host;
+        } else if cfg.host != base_host {
+            return Err("host must match api_base_url host".into());
+        }
+    } else {
+        if cfg.host.is_empty() {
+            return Err("host must be set".into());
+        }
+        crate::validation::validate_public_endpoint(&format!("https://{}/", cfg.host), None)?;
+        if let Some(ref url) = cfg.api_base_url {
+            crate::validation::validate_public_endpoint(url, None)?;
+            let base_host = host_from_api_base(url).to_ascii_lowercase();
+            if base_host != cfg.host {
+                return Err("api_base_url host must match provider host".into());
+            }
+        }
+    }
+
+    write_provider_cfg(&app, &cfg).map_err(|e| e.to_string())?;
+    let _ = write_bool_setting(&app, VENDOR_LLM_DISABLED, false);
+    crate::respawn_embedded_hermes_python(app).await?;
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn cmd_has_secret(app: AppHandle) -> Result<bool, String> {
     Ok(read_current_secret(&app).is_some())
 }
@@ -454,7 +549,7 @@ pub async fn cmd_validate_endpoint(
     log::info!("cmd_validate_endpoint called: url={}", url);
 
     let cfg = read_provider_cfg(&app);
-    let saved_base = cfg.as_ref().and_then(|c| c.api_base_url.as_deref());
+    let saved_base = saved_api_base_for_endpoint_validation(cfg.as_ref());
     crate::validation::validate_public_endpoint(&url, saved_base)?;
 
     let trimmed = api_key.trim();

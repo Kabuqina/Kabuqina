@@ -8,6 +8,7 @@ import { ArrowUp, Crop, FolderOpen, Paperclip, Square, X } from "lucide-react";
 import { useI18n } from "../lib/i18n";
 import { cn } from "../lib/cn";
 import { captureFullscreen, showCaptureOverlay } from "../capture/capture-api";
+import type { DeskAttachmentPayload } from "./chat-api";
 import { VoiceButton } from "./VoiceButton";
 import { useVoiceRecorder } from "./hooks/useVoiceRecorder";
 
@@ -17,8 +18,8 @@ export interface ChatInputProps {
   onSend: () => void;
   sending?: boolean;
   placeholder?: string;
-  /** Display names of files queued for the next message */
-  pendingAttachmentNames: string[];
+  /** Files queued for the next message (images render as thumbnails). */
+  pendingAttachments: DeskAttachmentPayload[];
   onRemoveAttachment: (index: number) => void;
   onFilesPicked: (files: FileList | null) => void;
   onStop?: () => void;
@@ -30,7 +31,7 @@ export function ChatInput({
   onSend,
   sending = false,
   placeholder,
-  pendingAttachmentNames,
+  pendingAttachments,
   onRemoveAttachment,
   onFilesPicked,
   onStop,
@@ -38,6 +39,7 @@ export function ChatInput({
   const { t } = useI18n();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
 
   const [voiceErr, setVoiceErr] = useState<string | null>(null);
   const [pathPickerErr, setPathPickerErr] = useState<string | null>(null);
@@ -48,6 +50,19 @@ export function ChatInput({
   const errTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pathErrTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const screenshotErrTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const syncTextareaHeight = useCallback(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    ta.style.height = "auto";
+    ta.style.height = `${Math.min(ta.scrollHeight, 280)}px`;
+    ta.style.overflowY = ta.scrollHeight > 280 ? "auto" : "hidden";
+  }, []);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(syncTextareaHeight);
+    return () => cancelAnimationFrame(frame);
+  }, [syncTextareaHeight, value, pendingAttachments.length]);
 
   const handleVoiceErr = useCallback(
     (err: string) => {
@@ -126,16 +141,17 @@ export function ChatInput({
   }, []);
 
   useEffect(() => {
-    if (!pathMenuOpen && !screenshotMenuOpen) return;
+    if (!pathMenuOpen && !screenshotMenuOpen && !previewSrc) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setPathMenuOpen(false);
         setScreenshotMenuOpen(false);
+        setPreviewSrc(null);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [pathMenuOpen, screenshotMenuOpen]);
+  }, [pathMenuOpen, screenshotMenuOpen, previewSrc]);
 
   const flashPathPickerErr = useCallback((msg: string) => {
     setPathPickerErr(msg);
@@ -221,17 +237,17 @@ export function ChatInput({
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         if (!sending) {
-          const canSend = value.trim() || pendingAttachmentNames.length > 0;
+          const canSend = value.trim() || pendingAttachments.length > 0;
           if (canSend) {
             onSend();
           }
         }
       }
     },
-    [onSend, sending, value, pendingAttachmentNames.length]
+    [onSend, sending, value, pendingAttachments.length]
   );
 
-  const canSend = !sending && (value.trim() || pendingAttachmentNames.length > 0);
+  const canSend = !sending && (value.trim() || pendingAttachments.length > 0);
 
   return (
     <div className="kq-input-area shrink-0 dark:bg-[#0F172A]">
@@ -242,39 +258,77 @@ export function ChatInput({
           "dark:border-zinc-700 dark:bg-zinc-800/50"
         )}
       >
-        {pendingAttachmentNames.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 border-b border-zinc-100 px-3 py-2 dark:border-zinc-800">
-            {pendingAttachmentNames.map((name, i) => (
-              <span
-                key={`${name}-${i}`}
-                className="inline-flex max-w-[min(100%,14rem)] items-center gap-1 rounded-full bg-zinc-100 pl-2.5 pr-1.5 py-0.5 text-[11px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
-              >
-                <span className="truncate" title={name}>
-                  {name}
-                </span>
-                <button
-                  type="button"
-                  disabled={sending}
-                  onClick={() => onRemoveAttachment(i)}
-                  className="shrink-0 rounded-full p-0.5 text-zinc-400 hover:text-zinc-700 disabled:opacity-40 dark:hover:text-zinc-200"
-                  aria-label={t("chat.removeAttachment")}
+        {pendingAttachments.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 border-b border-zinc-100 px-3 py-2 dark:border-zinc-800">
+            {pendingAttachments.map((att, i) => {
+              const isImage = att.mime.startsWith("image/");
+              if (isImage) {
+                const src = `data:${att.mime};base64,${att.data}`;
+                return (
+                  <div
+                    key={`${att.name}-${i}`}
+                    className="group relative h-16 w-16 overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setPreviewSrc(src)}
+                      className="block h-full w-full"
+                      title={t("chat.previewImage")}
+                      aria-label={t("chat.previewImage")}
+                    >
+                      <img
+                        src={src}
+                        alt={att.name}
+                        className="h-full w-full object-cover transition group-hover:brightness-95"
+                      />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={sending}
+                      onClick={() => onRemoveAttachment(i)}
+                      className="absolute right-0.5 top-0.5 rounded-full bg-black/55 p-0.5 text-white opacity-0 transition group-hover:opacity-100 hover:bg-black/75 disabled:opacity-40"
+                      aria-label={t("chat.removeAttachment")}
+                    >
+                      <X className="h-3 w-3" strokeWidth={2.5} />
+                    </button>
+                  </div>
+                );
+              }
+              return (
+                <span
+                  key={`${att.name}-${i}`}
+                  className="inline-flex max-w-[min(100%,14rem)] items-center gap-1 rounded-full bg-zinc-100 pl-2.5 pr-1.5 py-0.5 text-[11px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
                 >
-                  <X className="h-3 w-3" strokeWidth={2.5} />
-                </button>
-              </span>
-            ))}
+                  <span className="truncate" title={att.name}>
+                    {att.name}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={sending}
+                    onClick={() => onRemoveAttachment(i)}
+                    className="shrink-0 rounded-full p-0.5 text-zinc-400 hover:text-zinc-700 disabled:opacity-40 dark:hover:text-zinc-200"
+                    aria-label={t("chat.removeAttachment")}
+                  >
+                    <X className="h-3 w-3" strokeWidth={2.5} />
+                  </button>
+                </span>
+              );
+            })}
           </div>
         )}
 
         <textarea
           ref={textareaRef}
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => {
+            onChange(e.target.value);
+            requestAnimationFrame(syncTextareaHeight);
+          }}
           onKeyDown={handleKeyDown}
           rows={1}
           placeholder={placeholder ?? t("chat.placeholder")}
           disabled={sending}
-          className="max-h-[200px] min-h-[3.25rem] w-full resize-none bg-transparent px-4 py-3.5 text-[15px] leading-relaxed text-[var(--kq-color-ink)] placeholder:text-[var(--kq-color-muted)] outline-none transition focus:ring-2 focus:ring-[#b8a9c9]/25 focus:ring-inset disabled:opacity-50 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+          className="max-h-[280px] min-h-[3.25rem] w-full resize-none overflow-hidden bg-transparent px-4 py-3.5 text-[15px] leading-relaxed text-[var(--kq-color-ink)] placeholder:text-[var(--kq-color-muted)] outline-none transition focus:ring-2 focus:ring-[#b8a9c9]/25 focus:ring-inset disabled:opacity-50 dark:text-zinc-100 dark:placeholder:text-zinc-500"
         />
 
         <div className="flex items-center justify-between gap-2 border-t border-zinc-100 px-2.5 pb-2.5 pt-1 dark:border-zinc-800">
@@ -484,6 +538,29 @@ export function ChatInput({
         <p className="text-xs leading-[1.5] text-[var(--kq-color-muted)] dark:text-zinc-500">{t("chat.hint")}</p>
       </div>
       </div>
+      {previewSrc && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-6 backdrop-blur-sm"
+          onClick={() => setPreviewSrc(null)}
+        >
+          <img
+            src={previewSrc}
+            alt=""
+            className="max-h-full max-w-full rounded-lg object-contain shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            type="button"
+            onClick={() => setPreviewSrc(null)}
+            className="absolute right-4 top-4 rounded-full bg-black/55 p-2 text-white transition hover:bg-black/75"
+            aria-label={t("chat.closePreview")}
+          >
+            <X className="h-5 w-5" strokeWidth={2.5} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

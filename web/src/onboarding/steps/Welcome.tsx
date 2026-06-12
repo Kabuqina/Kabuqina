@@ -19,7 +19,6 @@ export function Welcome() {
     <div className="space-y-10">
       <div className="space-y-4">
         <h1 className="hd-wizard-title">{t("welcome.title")}</h1>
-        <p className="hd-wizard-lead">{t("welcome.lead")}</p>
       </div>
 
       <ul className="hd-glass-subtle space-y-3.5 p-5">

@@ -57,7 +57,6 @@ export function PickBrain() {
         <h1 className="hd-wizard-title" id={`${groupId}-label`}>
           {t("brain.title")}
         </h1>
-        <p className="hd-wizard-lead">{t("brain.lead")}</p>
       </div>
 
       <div className="space-y-3" role="radiogroup" aria-labelledby={`${groupId}-label`}>

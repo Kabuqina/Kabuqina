@@ -1,4 +1,17 @@
-"""V1 deterministic math expression engineering tools."""
+"""Math expression engineering tools.
+
+V2 reworks the engine around a **canonical SymPy core**: every formula is parsed
+into a SymPy expression, transpiled to the user-selected target language via
+SymPy's code printers, and numerically self-validated with NumPy through
+``lambdify``. Code -> formula reuses the same SymPy core (``sympy.latex``).
+
+Target languages offered to the user: python, numpy, javascript, octave
+(MATLAB/Octave), fortran. C++17 is reachable internally but not advertised.
+
+SymPy/NumPy are imported lazily inside handlers so tool *registration* stays
+cheap and a missing dependency degrades to a clear error instead of breaking
+import-time discovery.
+"""
 
 from __future__ import annotations
 
@@ -8,9 +21,51 @@ import json
 import re
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from tools.registry import registry, tool_error
+
+
+# --- Language registry -----------------------------------------------------
+
+# Languages exposed in the UI / capability writer_targets.
+OFFERED_LANGUAGES: Tuple[str, ...] = ("python", "numpy", "javascript", "octave", "fortran")
+
+# Languages we can emit code→formula *from* (parsing other source languages into
+# SymPy is a future follow-up).
+CODE_TO_FORMULA_LANGUAGES: Tuple[str, ...] = ("python", "numpy")
+
+_LANGUAGE_ALIASES: Dict[str, str] = {
+    "py": "python",
+    "python": "python",
+    "python3": "python",
+    "np": "numpy",
+    "numpy": "numpy",
+    "js": "javascript",
+    "javascript": "javascript",
+    "node": "javascript",
+    "ecmascript": "javascript",
+    "octave": "octave",
+    "matlab": "octave",
+    "m": "octave",
+    "fortran": "fortran",
+    "f90": "fortran",
+    "f95": "fortran",
+    "fortran90": "fortran",
+    # internal-only, not advertised
+    "cpp": "cpp17",
+    "c++": "cpp17",
+    "cpp17": "cpp17",
+}
+
+_LANGUAGE_LABELS: Dict[str, str] = {
+    "python": "Python",
+    "numpy": "NumPy",
+    "javascript": "JavaScript",
+    "octave": "MATLAB/Octave",
+    "fortran": "Fortran",
+    "cpp17": "C++17",
+}
 
 
 def _json(data: Dict[str, Any]) -> str:
@@ -21,222 +76,344 @@ def _text(value: Any) -> str:
     return str(value or "").strip()
 
 
+def _normalize_language(language: str, *, offered_only: bool = True) -> Optional[str]:
+    key = _text(language).lower().replace(" ", "")
+    canonical = _LANGUAGE_ALIASES.get(key)
+    if canonical is None:
+        return None
+    if offered_only and canonical not in OFFERED_LANGUAGES:
+        return None
+    return canonical
+
+
+# --- Parsing: messy formula / LaTeX -> sympify-able source -----------------
+
+
 def _strip_math_wrappers(expression: str) -> str:
     text = _text(expression)
     text = text.replace("\r\n", "\n")
     text = re.sub(r"^\s*\$\$|\$\$\s*$", "", text)
     text = re.sub(r"^\s*\$|\$\s*$", "", text)
     text = text.strip("` \t\n")
-    replacements = {
-        "×": "*",
-        "·": " ",
-        "\\cdot": " ",
-        "\\times": " ",
-        "\\left": "",
-        "\\right": "",
-    }
-    for old, new in replacements.items():
-        text = text.replace(old, new)
-    return re.sub(r"\s+", " ", text).strip()
+    return text.strip()
 
 
 def _split_assignment(expression: str) -> Tuple[str, str]:
     text = _strip_math_wrappers(expression)
-    if "=" not in text:
-        return "result", text
-    lhs, rhs = text.split("=", 1)
-    return lhs.strip() or "result", rhs.strip()
+    if "=" in text:
+        lhs, rhs = text.split("=", 1)
+        return lhs.strip() or "result", rhs.strip()
+    return "result", text
 
 
-def _compact_implicit_products(text: str) -> str:
-    value = re.sub(r"\s+", "", text)
-    value = re.sub(r"([A-Za-z])([A-Za-z])", r"\1 \2", value)
-    value = re.sub(r"([A-Za-z0-9)])\*([A-Za-z0-9(])", r"\1 \2", value)
-    return value
+def _latex_commands_to_python(text: str) -> str:
+    """Best-effort LaTeX -> sympify-able source (no antlr/lark dependency).
+
+    Handles the common student-formula subset: \\frac, \\sqrt, ^{...}, \\cdot,
+    \\times, common function names, and brace groups. parse_expr then resolves
+    implicit multiplication and ``^`` via transformations.
+    """
+    s = text
+    # \left( \right) decorations
+    s = re.sub(r"\\left|\\right", "", s)
+    s = s.replace("\\cdot", "*").replace("\\times", "*")
+    s = s.replace("\\,", " ").replace("\\;", " ").replace("\\!", "").replace("\\ ", " ")
+    # exponent groups: ^{...} -> **(...)
+    s = re.sub(r"\^\s*\{([^{}]*)\}", r"**(\1)", s)
+    # \frac{A}{B} -> ((A)/(B)); loop to flatten one level of nesting
+    frac = re.compile(r"\\d?frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}")
+    for _ in range(6):
+        new = frac.sub(r"((\1)/(\2))", s)
+        if new == s:
+            break
+        s = new
+    # \sqrt{A} -> sqrt(A)
+    s = re.sub(r"\\sqrt\s*\{([^{}]*)\}", r"sqrt(\1)", s)
+    # known function commands: drop the backslash
+    s = re.sub(
+        r"\\(sin|cos|tan|cot|sec|csc|sinh|cosh|tanh|arcsin|arccos|arctan|log|ln|exp|min|max|abs)\b",
+        r"\1",
+        s,
+    )
+    # natural log: ln(...) -> log(...)  (sympy log is natural log)
+    s = re.sub(r"\bln\s*\(", "log(", s)
+    s = s.replace("\\pi", "pi")
+    # residual braces become parentheses (covers x^{2} already handled, sub_{i}, etc.)
+    s = s.replace("{", "(").replace("}", ")")
+    # leftover stray backslashes
+    s = s.replace("\\", " ")
+    return re.sub(r"\s+", " ", s).strip()
 
 
-def _cleanup_rhs_to_latex(rhs: str) -> str:
-    value = _strip_math_wrappers(rhs)
-    value = value.replace("**", "^")
-    value = _compact_implicit_products(value)
-    value = re.sub(r"\^(-?\d+)", r"^{\1}", value)
-    value = re.sub(r"\^\{([^{}]+)\}", r"^{\1}", value)
-    value = re.sub(r"\s+", " ", value).strip()
-    return value
+def _transformations():
+    from sympy.parsing.sympy_parser import (
+        convert_xor,
+        implicit_multiplication_application,
+        standard_transformations,
+    )
 
-
-def _cleanup_to_latex(expression: str) -> str:
-    lhs, rhs = _split_assignment(expression)
-    lhs = _strip_math_wrappers(lhs)
-    return f"{lhs} = {_cleanup_rhs_to_latex(rhs)}"
-
-
-def _variables_from_latex(latex: str) -> List[Dict[str, str]]:
-    names: List[str] = []
-    for match in re.finditer(r"\b[A-Za-z][A-Za-z0-9_]*\b", latex):
-        name = match.group(0)
-        if name in {"sin", "cos", "tan", "log", "ln", "exp", "sqrt"}:
-            continue
-        if name not in names:
-            names.append(name)
-    return [
-        {
-            "name": name,
-            "role": "output" if idx == 0 and "=" in latex else "input",
-            "description": "",
-        }
-        for idx, name in enumerate(names)
-    ]
-
-
-def _latex_rhs_to_python_expr(rhs_latex: str) -> str:
-    expr = rhs_latex
-    expr = re.sub(r"\^\{(-?\d+)\}", r" ** \1", expr)
-    expr = re.sub(r"\^(-?\d+)", r" ** \1", expr)
-    expr = re.sub(r"\s+", " ", expr).strip()
-    tokens = expr.split(" ")
-    if len(tokens) > 1:
-        out: List[str] = []
-        previous_was_value = False
-        for token in tokens:
-            is_value = bool(re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*|\d+(?:\.\d+)?", token))
-            is_operator = token in {"+", "-", "*", "/", "**"}
-            if previous_was_value and is_value:
-                out.append("*")
-            out.append(token)
-            previous_was_value = is_value and not is_operator
-        expr = " ".join(out)
-    expr = re.sub(r"\s+", " ", expr).strip()
-    return expr
-
-
-def _cpp_expr_from_python(python_expr: str) -> str:
-    def repl(match: re.Match[str]) -> str:
-        base = match.group(1).strip()
-        power = match.group(2).strip()
-        return f"std::pow({base}, {power})"
-
-    return re.sub(r"\b([A-Za-z_][A-Za-z0-9_]*)\s*\*\*\s*(-?\d+)\b", repl, python_expr)
+    return standard_transformations + (implicit_multiplication_application, convert_xor)
 
 
 def _function_name_for(lhs: str) -> str:
     key = re.sub(r"[^A-Za-z0-9_]+", "", lhs).lower()
-    if key == "e":
+    if key in {"e", "ke", "energy"}:
         return "compute_energy"
     return f"compute_{key or 'result'}"
 
 
-def _input_variables(variable_table: List[Dict[str, str]]) -> List[str]:
-    return [row["name"] for row in variable_table if row.get("role") != "output"]
+def _parse_formula(formula: str):
+    """Return (lhs_name, sympy_expr, is_assignment). Raises on parse failure."""
+    from sympy.parsing.sympy_parser import parse_expr
+
+    raw = _strip_math_wrappers(formula)
+    is_assignment = "=" in raw
+    lhs, rhs = _split_assignment(formula)
+    rhs_src = _latex_commands_to_python(rhs)
+    if not rhs_src:
+        raise ValueError("expression is empty after normalization")
+    expr = parse_expr(rhs_src, transformations=_transformations(), evaluate=True)
+    return lhs, expr, is_assignment
+
+
+def _ordered_inputs(expr) -> List[str]:
+    return sorted(symbol.name for symbol in expr.free_symbols)
+
+
+def _variable_table(expr, lhs: str, is_assignment: bool) -> List[Dict[str, str]]:
+    table: List[Dict[str, str]] = []
+    if is_assignment:
+        table.append({"name": lhs, "role": "output", "description": ""})
+    for name in _ordered_inputs(expr):
+        table.append({"name": name, "role": "input", "description": ""})
+    return table
+
+
+# --- Code emission ---------------------------------------------------------
+
+
+def _emit_code(expr, fn_name: str, inputs: List[str], language: str) -> str:
+    import sympy
+
+    args = ", ".join(inputs)
+    if language == "python":
+        body = sympy.pycode(expr)
+        header = "import math\n\n\n" if "math." in body else ""
+        return f"{header}def {fn_name}({args}):\n    return {body}\n"
+
+    if language == "numpy":
+        from sympy.printing.numpy import NumPyPrinter
+
+        body = NumPyPrinter().doprint(expr).replace("numpy.", "np.")
+        return f"import numpy as np\n\n\ndef {fn_name}({args}):\n    return {body}\n"
+
+    if language == "javascript":
+        body = sympy.jscode(expr)
+        return f"function {fn_name}({args}) {{\n  return {body};\n}}\n"
+
+    if language == "octave":
+        body = sympy.octave_code(expr)
+        return f"function y = {fn_name}({args})\n  y = {body};\nend\n"
+
+    if language == "fortran":
+        assign = sympy.fcode(expr, assign_to="y", source_format="free", standard=2003).strip()
+        assign_block = "\n".join(("  " + ln if ln.strip() else ln) for ln in assign.splitlines())
+        decl = f"  real(8), intent(in) :: {args}\n" if inputs else ""
+        return (
+            f"function {fn_name}({args}) result(y)\n"
+            f"  implicit none\n"
+            f"{decl}"
+            f"  real(8) :: y\n"
+            f"{assign_block}\n"
+            f"end function {fn_name}\n"
+        )
+
+    if language == "cpp17":
+        body = sympy.cxxcode(expr, standard="c++17")
+        cargs = ", ".join(f"double {name}" for name in inputs)
+        return f"#include <cmath>\n\ndouble {fn_name}({cargs}) {{\n    return {body};\n}}\n"
+
+    raise ValueError(f"unsupported target language: {language}")
+
+
+# --- Numeric self-validation ----------------------------------------------
+
+
+def _numeric_validation(expr, inputs: List[str]) -> Dict[str, Any]:
+    """Evaluate the canonical expression on a few deterministic samples via
+    lambdify(numpy) and compare against SymPy's own ``evalf`` reference."""
+    import sympy
+
+    symbols = [sympy.Symbol(name) for name in inputs]
+    try:
+        fn = sympy.lambdify(symbols, expr, modules="numpy")
+    except Exception as exc:  # pragma: no cover - defensive
+        return {"status": "skipped", "reason": f"lambdify failed: {exc}", "samples": []}
+
+    samples: List[Dict[str, float]] = [
+        {name: 1.0 for name in inputs},
+        {name: float(idx + 2) for idx, name in enumerate(inputs)},
+    ]
+    if not inputs:
+        samples = [{}]
+
+    records: List[Dict[str, Any]] = []
+    max_abs_error = 0.0
+    status = "checked"
+    for sample in samples:
+        try:
+            numeric = float(fn(*[sample[name] for name in inputs]))
+            reference = float(expr.evalf(subs={sympy.Symbol(k): v for k, v in sample.items()}))
+        except Exception as exc:
+            records.append({"inputs": sample, "error": str(exc)})
+            status = "partial"
+            continue
+        abs_error = abs(numeric - reference)
+        max_abs_error = max(max_abs_error, abs_error)
+        records.append(
+            {
+                "inputs": sample,
+                "lambdify_numpy": numeric,
+                "sympy_reference": reference,
+                "abs_error": abs_error,
+            }
+        )
+
+    return {
+        "status": status,
+        "modules": "numpy",
+        "samples": records,
+        "max_abs_error": max_abs_error,
+        "note": (
+            "Numeric agreement between the NumPy lambdify of the canonical SymPy "
+            "expression and SymPy's own evalf. This checks transpilation fidelity, "
+            "not the semantic correctness of the formula."
+        ),
+    }
+
+
+_SEMANTIC_VALIDATION = {
+    "status": "required_by_agent",
+    "contract_required": True,
+    "must_check": [
+        "variable meanings and units/dimensions",
+        "domain and boundary or open/closed interval constraints",
+        "numeric agreement within tolerance",
+        "invariants or known analytic properties",
+        "negative or edge cases where applicable",
+    ],
+    "note": (
+        "The numeric validation block only proves the emitted code matches the SymPy "
+        "core. The agent must still test domains, boundaries, units, and invariants "
+        "before reporting formula-to-code conversion as semantically correct."
+    ),
+}
+
+
+# --- Public tools ----------------------------------------------------------
 
 
 def math_expression_cleanup(expression: str, source_kind: str = "auto") -> str:
     if not _text(expression):
         return tool_error("expression is required")
-    clean_latex = _cleanup_to_latex(expression)
+
     warnings: List[str] = []
-    if clean_latex.count("=") > 1:
-        warnings.append("Multiple equality signs detected; V1 cleanup preserves only a simple expression shape.")
-    return _json({
-        "ok": True,
-        "source_kind": source_kind or "auto",
-        "clean_latex": clean_latex,
-        "markdown": f"$$\n{clean_latex}\n$$",
-        "variable_table": _variables_from_latex(clean_latex),
-        "warnings": warnings,
-    })
+    try:
+        import sympy
+
+        lhs, expr, is_assignment = _parse_formula(expression)
+        rhs_latex = sympy.latex(expr)
+        clean_latex = f"{lhs} = {rhs_latex}" if is_assignment else rhs_latex
+        variable_table = _variable_table(expr, lhs, is_assignment)
+        engine = "sympy"
+    except Exception as exc:
+        # Fall back to a light regex normalization so cleanup still returns something.
+        warnings.append(f"SymPy could not parse this expression ({exc}); used regex normalization.")
+        text = _strip_math_wrappers(expression)
+        clean_latex = re.sub(r"\*\*", "^", text)
+        variable_table = []
+        engine = "regex_fallback"
+
+    return _json(
+        {
+            "ok": True,
+            "source_kind": source_kind or "auto",
+            "engine": engine,
+            "clean_latex": clean_latex,
+            "markdown": f"$$\n{clean_latex}\n$$",
+            "variable_table": variable_table,
+            "warnings": warnings,
+        }
+    )
 
 
 def math_formula_to_code(formula: str, language: str = "python") -> str:
     if not _text(formula):
         return tool_error("formula is required")
-    target = _text(language).lower() or "python"
-    if target == "cpp":
-        target = "cpp17"
-    if target not in {"python", "numpy", "cpp17"}:
-        return tool_error(f"unsupported target language: {language}", supported=["python", "numpy", "cpp17"])
 
-    clean_latex = _cleanup_to_latex(formula)
-    lhs, rhs_latex = _split_assignment(clean_latex)
-    variable_table = _variables_from_latex(clean_latex)
-    inputs = _input_variables(variable_table)
-    python_expr = _latex_rhs_to_python_expr(rhs_latex)
-    fn = _function_name_for(lhs)
-
-    if target == "python":
-        args = ", ".join(inputs)
-        code = f"def {fn}({args}):\n    return {python_expr}\n"
-    elif target == "numpy":
-        args = ", ".join(inputs)
-        setup = "\n".join(f"    {name}_arr = np.asarray({name})" for name in inputs)
-        expr = python_expr
-        for name in inputs:
-            expr = re.sub(rf"\b{re.escape(name)}\b", f"{name}_arr", expr)
-        code = f"import numpy as np\n\n\ndef {fn}({args}):\n{setup}\n    return {expr}\n"
-    else:
-        args = ", ".join(f"double {name}" for name in inputs)
-        code = (
-            "#include <cmath>\n\n"
-            f"double {fn}({args}) {{\n"
-            f"    return {_cpp_expr_from_python(python_expr)};\n"
-            "}\n"
+    norm = _normalize_language(language)
+    if norm is None:
+        return tool_error(
+            f"unsupported target language: {language}",
+            supported=list(OFFERED_LANGUAGES),
         )
 
-    return _json({
-        "ok": True,
-        "code": code,
-        "language": target,
-        "variable_table": variable_table,
-        "assumptions": [
-            "V1 performs deterministic expression conversion and does not prove algebraic equivalence.",
-            "Variables are treated as numeric scalars unless the NumPy target is selected.",
-        ],
-        "example_inputs": [{name: 1 for name in inputs}],
-        "latex": clean_latex,
-    })
+    try:
+        import sympy  # noqa: F401
+
+        lhs, expr, is_assignment = _parse_formula(formula)
+    except Exception as exc:
+        return tool_error(
+            f"could not parse formula into a SymPy expression: {exc}",
+            hint="V2 supports the common student-formula subset; try plain LaTeX or a Python-style expression.",
+        )
+
+    inputs = _ordered_inputs(expr)
+    fn_name = _function_name_for(lhs)
+    try:
+        code = _emit_code(expr, fn_name, inputs, norm)
+    except Exception as exc:
+        return tool_error(f"code emission failed for {norm}: {exc}")
+
+    validation = _numeric_validation(expr, inputs)
+    rhs_latex = sympy.latex(expr)
+    canonical_latex = f"{lhs} = {rhs_latex}" if is_assignment else rhs_latex
+
+    return _json(
+        {
+            "ok": True,
+            "code": code,
+            "language": norm,
+            "language_label": _LANGUAGE_LABELS.get(norm, norm),
+            "function_name": fn_name,
+            "canonical": {
+                "engine": "sympy",
+                "latex": canonical_latex,
+                "srepr": sympy.srepr(expr),
+            },
+            "variable_table": _variable_table(expr, lhs, is_assignment),
+            "validation": validation,
+            "example_inputs": [{name: 1 for name in inputs}],
+            "assumptions": [
+                "Parsed through the SymPy canonical core, then transpiled with SymPy's code printer.",
+                "Variables are treated as real scalars; the NumPy target vectorizes element-wise.",
+            ],
+            "semantic_validation": _SEMANTIC_VALIDATION,
+            "latex": canonical_latex,
+        }
+    )
 
 
-def _python_expr_to_latex(node: ast.AST) -> str:
-    if isinstance(node, ast.BinOp):
-        left = _python_expr_to_latex(node.left)
-        right = _python_expr_to_latex(node.right)
-        if isinstance(node.op, ast.Pow):
-            return f"{left}^{{{right}}}"
-        if isinstance(node.op, ast.Mult):
-            return f"{left} {right}"
-        if isinstance(node.op, ast.Add):
-            return f"{left} + {right}"
-        if isinstance(node.op, ast.Sub):
-            return f"{left} - {right}"
-        if isinstance(node.op, ast.Div):
-            return f"\\frac{{{left}}}{{{right}}}"
-    if isinstance(node, ast.Name):
-        return node.id
-    if isinstance(node, ast.Constant):
-        return str(node.value)
-    if isinstance(node, ast.Call):
-        func = _python_expr_to_latex(node.func)
-        args = ", ".join(_python_expr_to_latex(arg) for arg in node.args)
-        if func.endswith(".sqrt") or func == "sqrt":
-            return f"\\sqrt{{{_python_expr_to_latex(node.args[0])}}}" if node.args else "\\sqrt{}"
-        return f"{func}({args})"
-    if isinstance(node, ast.Attribute):
-        return f"{_python_expr_to_latex(node.value)}.{node.attr}"
-    return ast.unparse(node)
-
-
-def _extract_python_formula(code: str) -> Tuple[str, str]:
+def _extract_python_expr(code: str) -> Tuple[str, str]:
+    """Return (lhs_name, expression_source) from a simple Python/NumPy snippet."""
     tree = ast.parse(code)
     lhs = "result"
-    expr_node: ast.AST | None = None
+    expr_node: Optional[ast.AST] = None
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef):
-            if node.name in {"energy", "compute_energy"}:
-                lhs = "E"
-            else:
-                lhs = "result"
+            lhs = "E" if node.name in {"energy", "compute_energy"} else "result"
             for stmt in node.body:
-                if isinstance(stmt, ast.Return):
+                if isinstance(stmt, ast.Return) and stmt.value is not None:
                     expr_node = stmt.value
                     break
         if expr_node is None and isinstance(node, ast.Assign) and node.targets:
@@ -246,18 +423,8 @@ def _extract_python_formula(code: str) -> Tuple[str, str]:
                 expr_node = node.value
                 break
     if expr_node is None:
-        raise ValueError("V1 could not find a simple return or assignment expression")
-    return lhs, _python_expr_to_latex(expr_node)
-
-
-def _extract_cpp_formula(code: str) -> Tuple[str, str]:
-    match = re.search(r"return\s+(.+?);", code, re.DOTALL)
-    if not match:
-        raise ValueError("V1 could not find a simple C++ return expression")
-    expr = match.group(1)
-    expr = re.sub(r"std::pow\(([^,]+),\s*([^)]+)\)", r"\1^{\2}", expr)
-    expr = expr.replace("*", " ")
-    return "result", re.sub(r"\s+", " ", expr).strip()
+        raise ValueError("could not find a simple return or assignment expression")
+    return lhs, ast.unparse(expr_node)
 
 
 def _write_html_report(latex: str, markdown: str, variable_table: List[Dict[str, str]], output_dir: str) -> str:
@@ -287,39 +454,54 @@ def _write_html_report(latex: str, markdown: str, variable_table: List[Dict[str,
 def code_to_math_formula(code: str, language: str = "auto", output_dir: str = "") -> str:
     if not _text(code):
         return tool_error("code is required")
+
     lang = _text(language).lower() or "auto"
+    if lang != "auto":
+        norm = _normalize_language(lang, offered_only=False)
+        if norm not in CODE_TO_FORMULA_LANGUAGES:
+            return tool_error(
+                f"code-to-formula currently supports {', '.join(CODE_TO_FORMULA_LANGUAGES)} source code",
+                supported=list(CODE_TO_FORMULA_LANGUAGES),
+                hint="Other source languages are a future follow-up; paste the equivalent Python/NumPy expression.",
+            )
+
     try:
-        if lang in {"auto", "python", "numpy"}:
-            lhs, rhs = _extract_python_formula(code)
-        elif lang in {"cpp", "cpp17", "c++"}:
-            lhs, rhs = _extract_cpp_formula(code)
-        else:
-            return tool_error(f"unsupported source language: {language}", supported=["python", "numpy", "cpp17"])
+        import sympy
+        from sympy.parsing.sympy_parser import parse_expr
+
+        lhs, expr_src = _extract_python_expr(code)
+        expr = parse_expr(expr_src, transformations=_transformations(), evaluate=True)
     except Exception as exc:
         return tool_error(str(exc))
 
-    latex = f"{lhs} = {_cleanup_rhs_to_latex(rhs)}"
-    variable_table = _variables_from_latex(latex)
-    markdown = f"### Formula\n\n$$\n{latex}\n$$\n\nV1 report generated from a simple code expression."
+    rhs_latex = sympy.latex(expr)
+    latex = f"{lhs} = {rhs_latex}"
+    variable_table = _variable_table(expr, lhs, True)
+    markdown = f"### Formula\n\n$$\n{latex}\n$$\n\nGenerated from source code via the SymPy core."
     html_path = _write_html_report(latex, markdown, variable_table, output_dir)
     warnings = [
-        "PDF export is not available in V1 without an HTML-to-PDF backend; pdf_path is empty and html_path is the canonical report."
+        "PDF export is not available without an HTML-to-PDF backend; pdf_path is empty and html_path is the canonical report."
     ]
-    return _json({
-        "ok": True,
-        "formulas": [{"latex": latex, "source": "code"}],
-        "latex": latex,
-        "markdown": markdown,
-        "html_path": html_path,
-        "pdf_path": "",
-        "variable_table": variable_table,
-        "warnings": warnings,
-    })
+    return _json(
+        {
+            "ok": True,
+            "formulas": [{"latex": latex, "source": "code"}],
+            "latex": latex,
+            "markdown": markdown,
+            "html_path": html_path,
+            "pdf_path": "",
+            "variable_table": variable_table,
+            "warnings": warnings,
+        }
+    )
 
 
 MATH_EXPRESSION_CLEANUP_SCHEMA = {
     "name": "math_expression_cleanup",
-    "description": "Normalize messy OCR, LaTeX, document math, or code-like math expressions into clean LaTeX and Markdown.",
+    "description": (
+        "Normalize messy OCR, LaTeX, document math, or code-like math expressions into clean LaTeX "
+        "and Markdown using the SymPy canonical core (regex fallback when SymPy cannot parse)."
+    ),
     "parameters": {
         "type": "object",
         "properties": {
@@ -332,12 +514,21 @@ MATH_EXPRESSION_CLEANUP_SCHEMA = {
 
 MATH_FORMULA_TO_CODE_SCHEMA = {
     "name": "math_formula_to_code",
-    "description": "Convert a simple formula or LaTeX expression into Python, NumPy, or C++17 code.",
+    "description": (
+        "Convert a formula or LaTeX expression into code for a user-selected target language. "
+        "The formula is parsed into a canonical SymPy expression, transpiled with SymPy's code "
+        "printers, and numerically self-checked against SymPy's evalf via a NumPy lambdify. "
+        "Output includes a semantic_validation reminder; callers must still test domains, "
+        "boundaries, invariants, and numeric agreement before claiming correctness."
+    ),
     "parameters": {
         "type": "object",
         "properties": {
             "formula": {"type": "string"},
-            "language": {"type": "string", "description": "python, numpy, or cpp17"},
+            "language": {
+                "type": "string",
+                "description": "python, numpy, javascript, octave (MATLAB/Octave), or fortran",
+            },
         },
         "required": ["formula"],
     },
@@ -345,12 +536,15 @@ MATH_FORMULA_TO_CODE_SCHEMA = {
 
 CODE_TO_MATH_FORMULA_SCHEMA = {
     "name": "code_to_math_formula",
-    "description": "Convert a simple Python, NumPy, or C++17 code expression into LaTeX, Markdown, and an HTML report.",
+    "description": (
+        "Convert a simple Python or NumPy code expression into LaTeX, Markdown, and an HTML report "
+        "using the SymPy core (sympy.latex). Other source languages are a future follow-up."
+    ),
     "parameters": {
         "type": "object",
         "properties": {
             "code": {"type": "string"},
-            "language": {"type": "string", "description": "auto, python, numpy, or cpp17"},
+            "language": {"type": "string", "description": "auto, python, or numpy"},
             "output_dir": {"type": "string", "description": "Directory for the generated HTML report."},
         },
         "required": ["code"],

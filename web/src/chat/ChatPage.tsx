@@ -252,9 +252,9 @@ export function ChatPage() {
     }
     const gate = async () => {
       try {
+        if (getAllowChatWithoutApi()) return;
         const ok = await invoke<boolean>("cmd_has_secret");
         if (ok) return;
-        if (getAllowChatWithoutApi()) return;
         nav("/onboarding/welcome", { replace: true });
       } catch {
         nav("/onboarding/welcome", { replace: true });
@@ -458,6 +458,10 @@ export function ChatPage() {
             collapsed={!workbench.leftOpen || workbench.isNarrow}
             onToggleCollapsed={workbench.toggleLeft}
             onNewChat={onNewChat}
+            onOpenScheduledTasks={() => nav("/settings/cron", { state: { cronBackTo: "/chat" } })}
+            onOpenWorkspace={() => void invoke("cmd_open_workspace")}
+            onOrganizeDesktop={handleOrganizeDesktop}
+            onExport={() => nav("/export")}
             onSelectSession={onPickSession}
             onDeleteSession={handleDelete}
           />
@@ -515,7 +519,7 @@ export function ChatPage() {
             onChange={setInput}
             onSend={onSend}
             sending={sending}
-            pendingAttachmentNames={pendingAttachments.map((a) => a.name)}
+            pendingAttachments={pendingAttachments}
             onRemoveAttachment={onRemoveAttachment}
             onFilesPicked={onAddFiles}
             onStop={onStopAgent}
@@ -524,7 +528,6 @@ export function ChatPage() {
         {workbench.showRightPanel && (
           <WorkspacePanel
             onCollapse={workbench.toggleRight}
-            onOrganizeDesktop={handleOrganizeDesktop}
             onStartPrompt={setInput}
             goal={workspace.goal}
             materials={workspace.materials}

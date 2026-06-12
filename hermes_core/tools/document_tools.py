@@ -8,7 +8,6 @@ import sys
 import hashlib
 import tempfile
 import threading
-from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -85,6 +84,21 @@ _PPTX_SLIDE_TYPES = {
     "screenshot_placeholder",
     "qa_backup",
     "closing",
+}
+
+# Optional per-slide layout hints the planner may set; the web renderer
+# (renderDeck.ts) auto-selects by content when omitted. Keep in sync with
+# SLIDE_LAYOUT_IDS in web/src/chat/pptx/renderDeck.ts.
+_PPTX_SLIDE_LAYOUTS = {
+    "hero_statement",
+    "standard_bullets",
+    "two_column_bullets",
+    "comparison_cards",
+    "process_flow_horizontal",
+    "process_flow_vertical",
+    "data_table",
+    "media_placeholder",
+    "section_divider",
 }
 
 _LIGHTWEIGHT_FIRST_SUFFIXES = {
@@ -671,6 +685,22 @@ def _should_try_lightweight_first(suffix: str, mode: str) -> bool:
     return _docling_profile_for_mode(mode) == "fast" and suffix in _LIGHTWEIGHT_FIRST_SUFFIXES
 
 
+def _pdf_fast_text_is_sufficient(payload: Dict[str, Any]) -> bool:
+    """Is the pypdf text good enough to skip Docling? Guards against scanned PDFs.
+
+    A text-based PDF (most papers/reports) extracts plenty of characters; a
+    scanned/image PDF yields almost nothing, in which case we fall through to
+    Docling so layout/OCR still has a chance.
+    """
+    content = str(payload.get("content") or "").strip()
+    if len(content) < 200:
+        return False
+    pages = int(payload.get("pages") or 0)
+    if pages > 0 and (len(content) / pages) < 40:
+        return False
+    return True
+
+
 def _attach_docling_error(payload: Dict[str, Any], docling_error: Optional[str]) -> Dict[str, Any]:
     if docling_error:
         payload["docling_error"] = docling_error
@@ -716,6 +746,25 @@ def _read_document_precise_payload(document_path: Path, *, mode: str, include_co
             code="unsupported_document_type",
             supported=sorted(_DOCLING_SUFFIXES | _FALLBACK_SUFFIXES),
         )
+
+    # Fast text-first for PDFs in auto/fast mode: a text-based paper/report
+    # extracts in well under a second with pypdf, versus minutes of Docling
+    # layout inference on CPU. Scanned/sparse PDFs fail the sufficiency guard
+    # and fall through to Docling. precise/math modes always use Docling.
+    if suffix == ".pdf" and _docling_profile_for_mode(mode) == "fast":
+        try:
+            fast = _read_pdf_with_pypdf(document_path)
+        except Exception:
+            fast = None
+        if fast is not None and _pdf_fast_text_is_sufficient(fast):
+            fast["mode"] = mode
+            fast["engine"] = "pypdf"
+            fast["warning"] = (
+                "Fast text-only PDF read (pypdf) — chosen for speed, not a Docling "
+                "failure. For layout, tables, or formula extraction, re-read with "
+                "mode=precise or mode=math."
+            )
+            return _finalize_read_payload(fast, document_path, include_content=include_content)
 
     if _should_try_lightweight_first(suffix, mode):
         try:
@@ -889,713 +938,86 @@ def _dict(value: Any) -> Dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
-def _set_notes(slide, raw: Dict[str, Any], extra: str = "") -> None:
-    notes = _text(raw.get("notes"))
-    if extra:
-        notes = f"{notes}\n{extra}".strip()
-    if notes:
-        slide.notes_slide.notes_text_frame.text = notes
-
-
-def _set_slide_background(slide, rgb: Rgb) -> None:
-    from pptx.dml.color import RGBColor
-
-    fill = slide.background.fill
-    fill.solid()
-    fill.fore_color.rgb = RGBColor(*rgb)
-
-
-def _add_bar(slide, *, left, top, width, height, rgb: Rgb):
-    from pptx.dml.color import RGBColor
-    from pptx.enum.shapes import MSO_SHAPE
-
-    shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, left, top, width, height)
-    shape.fill.solid()
-    shape.fill.fore_color.rgb = RGBColor(*rgb)
-    shape.line.fill.background()
-    return shape
-
-
-def _style_paragraph(paragraph, *, text: str, size: int, rgb: Rgb, bold: bool = False) -> None:
-    from pptx.dml.color import RGBColor
-    from pptx.util import Pt
-
-    paragraph.text = text
-    paragraph.font.size = Pt(size)
-    paragraph.font.bold = bold
-    paragraph.font.color.rgb = RGBColor(*rgb)
-
-
-def _style_title_shape(shape, text: str, theme: _PptxTheme, *, size: int) -> None:
-    if shape is None or not getattr(shape, "has_text_frame", False):
-        return
-    _style_paragraph(shape.text_frame.paragraphs[0], text=text, size=size, rgb=theme.title, bold=True)
-
-
-def _hide_body_placeholder(slide) -> None:
-    if len(slide.placeholders) <= 1:
-        return
-    body = slide.placeholders[1]
-    if getattr(body, "has_text_frame", False):
-        body.text_frame.clear()
-
-
-def _add_textbox(slide, *, left, top, width, height, text: str, size: int, rgb: Rgb, bold: bool = False):
-    from pptx.dml.color import RGBColor
-    from pptx.util import Pt
-
-    box = slide.shapes.add_textbox(left, top, width, height)
-    frame = box.text_frame
-    frame.word_wrap = True
-    frame.margin_left = 0
-    frame.margin_right = 0
-    paragraph = frame.paragraphs[0]
-    paragraph.text = text
-    paragraph.font.size = Pt(size)
-    paragraph.font.bold = bold
-    paragraph.font.color.rgb = RGBColor(*rgb)
-    return box
-
-
-def _add_subtitle(slide, raw: Dict[str, Any], theme: _PptxTheme) -> None:
-    from pptx.util import Inches
-
-    subtitle = _text(raw.get("subtitle"))
-    if subtitle:
-        _add_textbox(
-            slide,
-            left=Inches(0.7),
-            top=Inches(1.08),
-            width=Inches(10.8),
-            height=Inches(0.35),
-            text=subtitle,
-            size=15,
-            rgb=theme.subtitle_color,
-            bold=True,
+def _validate_write_path(out_path: Path, original_path: str) -> Optional[str]:
+    """Workspace guard for *write* targets (the file need not exist yet)."""
+    workspace = _desktop_workspace_root()
+    if workspace is None:
+        return None
+    try:
+        resolved = out_path.resolve()
+    except OSError:
+        resolved = out_path
+    if _is_outside_workspace(resolved, workspace):
+        return tool_error(
+            f"Output path is outside the Kabuqina workspace ({workspace}): {original_path}",
+            code="outside_workspace",
+            workspace=str(workspace),
+            hint="Write the .pptx into the workspace (or a subfolder of it).",
         )
-
-
-def _render_bullets(slide, raw: Dict[str, Any], theme: _PptxTheme, *, numbered: bool = False, limit: int = 7) -> None:
-    from pptx.dml.color import RGBColor
-    from pptx.util import Pt
-
-    _add_subtitle(slide, raw, theme)
-    body = slide.placeholders[1].text_frame
-    body.clear()
-    bullets = _string_list(raw.get("bullets"), limit=limit)
-    if not bullets:
-        bullets = ["请补充本页要点"]
-    for i, bullet in enumerate(bullets):
-        p = body.paragraphs[0] if i == 0 else body.add_paragraph()
-        p.text = f"{i + 1}. {bullet}" if numbered else bullet
-        p.level = 0
-        p.font.size = Pt(19 if not numbered else 20)
-        p.font.color.rgb = RGBColor(*theme.body)
-
-
-def _render_diagram(slide, raw: Dict[str, Any], theme: _PptxTheme) -> None:
-    from pptx.dml.color import RGBColor
-    from pptx.enum.shapes import MSO_SHAPE
-    from pptx.util import Inches, Pt
-
-    _hide_body_placeholder(slide)
-    _add_subtitle(slide, raw, theme)
-    payload = _dict(raw.get("diagram"))
-    nodes = _string_list(payload.get("nodes") or payload.get("steps") or raw.get("bullets"), limit=6)
-    if len(nodes) < 2:
-        _render_bullets(slide, {**raw, "bullets": nodes or raw.get("bullets")}, theme)
-        return
-
-    horizontal = len(nodes) <= 4
-    if horizontal:
-        box_w = Inches(2.35)
-        box_h = Inches(1.0)
-        gap = Inches(0.45)
-        left = Inches(0.75)
-        top = Inches(3.0)
-        for i, node in enumerate(nodes):
-            x = left + i * (box_w + gap)
-            shape = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, x, top, box_w, box_h)
-            shape.fill.solid()
-            shape.fill.fore_color.rgb = RGBColor(255, 255, 255)
-            shape.line.color.rgb = RGBColor(*theme.accent)
-            paragraph = shape.text_frame.paragraphs[0]
-            paragraph.text = node
-            paragraph.font.size = Pt(15)
-            paragraph.font.bold = True
-            paragraph.font.color.rgb = RGBColor(*theme.title)
-            if i < len(nodes) - 1:
-                _add_textbox(
-                    slide,
-                    left=x + box_w,
-                    top=top + Inches(0.32),
-                    width=gap,
-                    height=Inches(0.3),
-                    text="→",
-                    size=20,
-                    rgb=theme.accent,
-                    bold=True,
-                )
-    else:
-        left = Inches(1.0)
-        top = Inches(1.75)
-        box_w = Inches(5.8)
-        box_h = Inches(0.55)
-        step_gap = Inches(0.68)
-        for i, node in enumerate(nodes):
-            y = top + i * step_gap
-            shape = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, left, y, box_w, box_h)
-            shape.fill.solid()
-            shape.fill.fore_color.rgb = RGBColor(255, 255, 255)
-            shape.line.color.rgb = RGBColor(*theme.accent)
-            paragraph = shape.text_frame.paragraphs[0]
-            paragraph.text = node
-            paragraph.font.size = Pt(14)
-            paragraph.font.color.rgb = RGBColor(*theme.title)
-            if i < len(nodes) - 1:
-                _add_textbox(
-                    slide,
-                    left=left + Inches(6.05),
-                    top=y + Inches(0.08),
-                    width=Inches(0.35),
-                    height=Inches(0.35),
-                    text="↓",
-                    size=16,
-                    rgb=theme.accent,
-                    bold=True,
-                )
-
-
-def _render_table(slide, raw: Dict[str, Any], theme: _PptxTheme) -> None:
-    from pptx.dml.color import RGBColor
-    from pptx.util import Inches, Pt
-
-    _hide_body_placeholder(slide)
-    _add_subtitle(slide, raw, theme)
-    payload = _dict(raw.get("table"))
-    headers = _string_list(payload.get("headers"), limit=5)
-    rows = [_string_list(row, limit=len(headers) or 5) for row in _list(payload.get("rows"))[:6]]
-    rows = [row for row in rows if row]
-    if not headers or not rows:
-        _render_bullets(slide, raw, theme)
-        return
-
-    row_count = len(rows) + 1
-    col_count = len(headers)
-    table_shape = slide.shapes.add_table(
-        row_count,
-        col_count,
-        Inches(0.75),
-        Inches(1.7),
-        Inches(11.6),
-        Inches(4.45),
-    )
-    table = table_shape.table
-    for col, header in enumerate(headers):
-        cell = table.cell(0, col)
-        cell.text = header
-        cell.fill.solid()
-        cell.fill.fore_color.rgb = RGBColor(*theme.accent)
-        for paragraph in cell.text_frame.paragraphs:
-            paragraph.font.size = Pt(13)
-            paragraph.font.bold = True
-            paragraph.font.color.rgb = RGBColor(255, 255, 255)
-
-    for r_idx, row in enumerate(rows, 1):
-        for c_idx, header in enumerate(headers):
-            cell = table.cell(r_idx, c_idx)
-            cell.text = row[c_idx] if c_idx < len(row) else ""
-            for paragraph in cell.text_frame.paragraphs:
-                paragraph.font.size = Pt(12)
-                paragraph.font.color.rgb = RGBColor(*theme.body)
-
-
-def _render_placeholder(slide, raw: Dict[str, Any], theme: _PptxTheme, *, chart: bool) -> None:
-    from pptx.dml.color import RGBColor
-    from pptx.enum.shapes import MSO_SHAPE
-    from pptx.util import Inches, Pt
-
-    _hide_body_placeholder(slide)
-    _add_subtitle(slide, raw, theme)
-    payload = _dict(raw.get("placeholder"))
-    label = _text(payload.get("label"), "待补充图表" if chart else "待补充截图")
-    caption = _text(payload.get("caption"), "请替换为真实材料后再提交。")
-    source_hint = _text(payload.get("source_hint"))
-
-    frame = slide.shapes.add_shape(
-        MSO_SHAPE.ROUNDED_RECTANGLE,
-        Inches(1.15),
-        Inches(1.85),
-        Inches(10.7),
-        Inches(3.65),
-    )
-    frame.fill.solid()
-    frame.fill.fore_color.rgb = RGBColor(255, 255, 255)
-    frame.line.color.rgb = RGBColor(*theme.accent)
-
-    icon = "CHART PLACEHOLDER" if chart else "SCREENSHOT PLACEHOLDER"
-    _add_textbox(
-        slide,
-        left=Inches(1.65),
-        top=Inches(2.45),
-        width=Inches(9.7),
-        height=Inches(0.35),
-        text=icon,
-        size=11,
-        rgb=theme.subtitle_color,
-        bold=True,
-    )
-    _add_textbox(
-        slide,
-        left=Inches(1.65),
-        top=Inches(3.0),
-        width=Inches(9.7),
-        height=Inches(0.55),
-        text=label,
-        size=24,
-        rgb=theme.title,
-        bold=True,
-    )
-    _add_textbox(
-        slide,
-        left=Inches(1.65),
-        top=Inches(3.85),
-        width=Inches(9.7),
-        height=Inches(0.6),
-        text=caption,
-        size=15,
-        rgb=theme.body,
-    )
-    if source_hint:
-        _set_notes(slide, raw, f"素材提示：{source_hint}")
-
-
-def _render_backup(slide, raw: Dict[str, Any], theme: _PptxTheme) -> None:
-    from pptx.util import Inches
-
-    _add_bar(slide, left=Inches(10.65), top=Inches(0.45), width=Inches(1.5), height=Inches(0.32), rgb=theme.accent_light)
-    _add_textbox(
-        slide,
-        left=Inches(10.75),
-        top=Inches(0.47),
-        width=Inches(1.3),
-        height=Inches(0.25),
-        text="BACKUP",
-        size=10,
-        rgb=theme.title,
-        bold=True,
-    )
-    _render_bullets(slide, raw, theme, limit=6)
-
-
-def _apply_title_slide(slide, prs, theme: _PptxTheme, title: str) -> None:
-    from pptx.dml.color import RGBColor
-    from pptx.util import Inches, Pt
-
-    _set_slide_background(slide, theme.bg)
-    width = prs.slide_width
-    height = prs.slide_height
-
-    if theme.title_band is not None:
-        band_h = Inches(1.05)
-        _add_bar(slide, left=0, top=0, width=width, height=band_h, rgb=theme.title_band)
-        badge = slide.shapes.add_textbox(Inches(0.55), Inches(0.28), Inches(2.4), Inches(0.45))
-        _style_paragraph(
-            badge.text_frame.paragraphs[0],
-            text=theme.badge,
-            size=16,
-            rgb=(255, 255, 255),
-            bold=True,
-        )
-
-    if theme.footer_band is not None:
-        band_h = Inches(0.95)
-        _add_bar(
-            slide,
-            left=0,
-            top=height - band_h,
-            width=width,
-            height=band_h,
-            rgb=theme.footer_band,
-        )
-        accent_h = Inches(0.07)
-        _add_bar(
-            slide,
-            left=0,
-            top=height - band_h - accent_h,
-            width=width,
-            height=accent_h,
-            rgb=theme.accent_light,
-        )
-
-    if theme.key == "paper_report":
-        _add_bar(slide, left=0, top=0, width=Inches(0.22), height=height, rgb=theme.accent)
-        _add_bar(
-            slide,
-            left=Inches(0.95),
-            top=Inches(4.85),
-            width=Inches(4.5),
-            height=Inches(0.05),
-            rgb=theme.accent_light,
-        )
-
-    title_shape = slide.shapes.title
-    _style_title_shape(title_shape, title or "学生汇报", theme, size=40)
-
-    subtitle_shape = slide.placeholders[1]
-    subtitle_shape.text = theme.subtitle
-    sub_p = subtitle_shape.text_frame.paragraphs[0]
-    sub_p.font.size = Pt(22)
-    sub_p.font.color.rgb = RGBColor(*theme.subtitle_color)
-
-
-def _apply_content_slide(slide, prs, theme: _PptxTheme, raw: Dict[str, Any]) -> None:
-    from pptx.util import Inches
-
-    _set_slide_background(slide, theme.bg)
-    width = prs.slide_width
-    height = prs.slide_height
-
-    _add_bar(slide, left=0, top=0, width=Inches(0.16), height=height, rgb=theme.accent)
-
-    if theme.key == "course_report":
-        _add_bar(slide, left=0, top=0, width=width, height=Inches(0.08), rgb=theme.accent_light)
-    elif theme.key == "paper_report":
-        _add_bar(
-            slide,
-            left=Inches(0.55),
-            top=Inches(1.35),
-            width=Inches(2.8),
-            height=Inches(0.05),
-            rgb=theme.accent_light,
-        )
-    elif theme.key == "code_defense":
-        accent_h = Inches(0.06)
-        _add_bar(
-            slide,
-            left=0,
-            top=height - accent_h,
-            width=width,
-            height=accent_h,
-            rgb=theme.accent_light,
-        )
-
-    title_shape = slide.shapes.title
-    _style_title_shape(title_shape, str(raw.get("title") or "未命名页"), theme, size=30)
-
-    slide_type = _normalize_slide_type(raw.get("slide_type"))
-    if slide_type == "agenda":
-        _render_bullets(slide, raw, theme, numbered=True, limit=8)
-        _set_notes(slide, raw)
-    elif slide_type == "diagram":
-        _render_diagram(slide, raw, theme)
-        _set_notes(slide, raw)
-    elif slide_type == "table":
-        _render_table(slide, raw, theme)
-        _set_notes(slide, raw)
-    elif slide_type == "screenshot_placeholder":
-        _render_placeholder(slide, raw, theme, chart=False)
-        if not _text(_dict(raw.get("placeholder")).get("source_hint")):
-            _set_notes(slide, raw)
-    elif slide_type == "chart_placeholder":
-        _render_placeholder(slide, raw, theme, chart=True)
-        if not _text(_dict(raw.get("placeholder")).get("source_hint")):
-            _set_notes(slide, raw)
-    elif slide_type == "qa_backup":
-        _render_backup(slide, raw, theme)
-        _set_notes(slide, raw)
-    elif slide_type == "closing":
-        _render_bullets(slide, raw, theme, limit=5)
-        _set_notes(slide, raw)
-    else:
-        _render_bullets(slide, raw, theme)
-        _set_notes(slide, raw)
-
-
-def _repo_visual_master_root() -> Optional[Path]:
-    candidates = [Path.cwd(), Path(__file__).resolve()]
-    for start in candidates:
-        for parent in [start, *start.parents]:
-            root = parent / "assets" / "ppt" / "visual-masters"
-            if root.exists():
-                return root
     return None
 
 
-def _visual_master_asset_dir(visual_master: str) -> Optional[Path]:
-    master_dir = _PPTX_VISUAL_MASTERS[visual_master].get("dir")
-    if not master_dir:
-        return None
-    root = _repo_visual_master_root()
-    if root is None:
-        return None
-    asset_dir = root / master_dir
-    return asset_dir if (asset_dir / "template.pptx").exists() else None
+def _deck_slide_spec(raw: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize one planner slide into a renderer-friendly entry.
 
-
-def _parse_hex_rgb(value: Any, fallback: Rgb) -> Rgb:
-    text = str(value or "").strip()
-    if not text.startswith("#") or len(text) != 7:
-        return fallback
-    try:
-        return (int(text[1:3], 16), int(text[3:5], 16), int(text[5:7], 16))
-    except ValueError:
-        return fallback
-
-
-def _visual_master_tokens(asset_dir: Path, theme: _PptxTheme) -> Dict[str, Rgb]:
-    metadata_path = asset_dir / "metadata.json"
-    raw_tokens: Dict[str, Any] = {}
-    if metadata_path.exists():
-        try:
-            raw_tokens = json.loads(metadata_path.read_text(encoding="utf-8")).get("tokens") or {}
-        except Exception:
-            raw_tokens = {}
-    bg = _parse_hex_rgb(
-        raw_tokens.get("background")
-        or raw_tokens.get("paper")
-        or raw_tokens.get("cream")
-        or raw_tokens.get("forest_green")
-        or raw_tokens.get("background_light"),
-        theme.bg,
-    )
-    luminance = 0.2126 * bg[0] + 0.7152 * bg[1] + 0.0722 * bg[2]
-    default_text = (245, 245, 245) if luminance < 110 else theme.title
-    default_body = (225, 225, 225) if luminance < 110 else theme.body
-    return {
-        "background": bg,
-        "title": _parse_hex_rgb(
-            raw_tokens.get("text")
-            or raw_tokens.get("ink")
-            or raw_tokens.get("text_on_dark")
-            or raw_tokens.get("text_on_light"),
-            default_text,
-        ),
-        "body": _parse_hex_rgb(
-            raw_tokens.get("text_muted")
-            or raw_tokens.get("ink_soft")
-            or raw_tokens.get("muted")
-            or raw_tokens.get("text_on_dark_muted")
-            or raw_tokens.get("text_on_light_muted"),
-            default_body,
-        ),
-        "accent": _parse_hex_rgb(raw_tokens.get("accent") or raw_tokens.get("pink"), theme.accent),
-    }
-
-
-def _load_visual_master_slide_map(asset_dir: Path, slide_count: int) -> Dict[str, int]:
-    mapping: Dict[str, int] = {}
-    frame_map_path = asset_dir / "frame-map.json"
-    if frame_map_path.exists():
-        try:
-            frames = json.loads(frame_map_path.read_text(encoding="utf-8")).get("frames") or []
-            for frame in frames:
-                slide_no = int(frame.get("current_slide") or 0) - 1
-                if slide_no < 0 or slide_no >= slide_count:
-                    continue
-                role = str(frame.get("role") or "").strip().lower()
-                if role:
-                    mapping.setdefault(role, slide_no)
-                for slide_type in frame.get("writer_slide_types") or []:
-                    mapping.setdefault(str(slide_type).strip().lower(), slide_no)
-        except Exception:
-            mapping = {}
-    mapping.setdefault("cover", 0)
-    mapping.setdefault("title", 0)
-    mapping.setdefault("agenda", min(1, slide_count - 1))
-    mapping.setdefault("claim_bullets", min(2, slide_count - 1))
-    mapping.setdefault("diagram", min(4, slide_count - 1))
-    mapping.setdefault("table", min(3, slide_count - 1))
-    mapping.setdefault("screenshot_placeholder", min(4, slide_count - 1))
-    mapping.setdefault("chart_placeholder", min(5, slide_count - 1))
-    mapping.setdefault("qa_backup", min(max(slide_count - 2, 1), slide_count - 1))
-    mapping.setdefault("closing", max(slide_count - 1, 0))
-    return mapping
-
-
-def _clone_slide_from_master(prs, source_slide):
-    blank_index = min(6, len(prs.slide_layouts) - 1)
-    blank_layout = prs.slide_layouts[blank_index]
-    dest = prs.slides.add_slide(blank_layout)
-    for shape in source_slide.shapes:
-        dest.shapes._spTree.insert_element_before(deepcopy(shape.element), "p:extLst")
-    for rel in source_slide.part.rels.values():
-        if rel.reltype.endswith("/slideLayout") or rel.reltype.endswith("/notesSlide"):
-            continue
-        if getattr(rel, "is_external", False):
-            dest.part.rels._add_relationship(rel.reltype, rel.target_ref, is_external=True)
-        else:
-            dest.part.rels._add_relationship(rel.reltype, rel.target_part)
-    return dest
-
-
-def _delete_slide(prs, slide) -> None:
-    slide_id = slide.slide_id
-    slides = prs.slides
-    for sld_id in list(slides._sldIdLst):
-        if int(sld_id.id) == slide_id:
-            rel_id = sld_id.rId
-            slides._sldIdLst.remove(sld_id)
-            prs.part.drop_rel(rel_id)
-            return
-
-
-def _fill_shape(slide, *, left, top, width, height, rgb: Rgb):
-    from pptx.dml.color import RGBColor
-    from pptx.enum.shapes import MSO_SHAPE
-
-    shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, left, top, width, height)
-    shape.fill.solid()
-    shape.fill.fore_color.rgb = RGBColor(*rgb)
-    shape.line.fill.background()
-    return shape
-
-
-def _blank_master_baked_text(slide, bg: Rgb) -> None:
-    for shape in list(slide.shapes):
-        if getattr(shape, "has_text_frame", False) and _text(getattr(shape, "text", "")):
-            _fill_shape(slide, left=shape.left, top=shape.top, width=shape.width, height=shape.height, rgb=bg)
-            shape.text_frame.clear()
-
-
-def _content_lines(raw: Dict[str, Any], *, limit: int = 7) -> List[str]:
+    The web layer (PptxGenJS) renders from this spec, so keep it structured and
+    bounded — same field contract the old python-pptx renderer consumed.
+    """
+    raw = _dict(raw)
     slide_type = _normalize_slide_type(raw.get("slide_type"))
-    if slide_type in {"diagram", "chart_placeholder", "screenshot_placeholder"}:
-        payload = _dict(raw.get("diagram")) or _dict(raw.get("placeholder"))
-        lines = _string_list(payload.get("nodes") or payload.get("steps") or raw.get("bullets"), limit=limit)
-        label = _text(payload.get("label"))
-        caption = _text(payload.get("caption"))
-        if label:
-            lines.insert(0, label)
-        if caption:
-            lines.append(caption)
-        return lines[:limit]
-    if slide_type == "table":
-        payload = _dict(raw.get("table"))
-        headers = _string_list(payload.get("headers"), limit=5)
-        rows = [_string_list(row, limit=len(headers) or 5) for row in _list(payload.get("rows"))[:4]]
-        if headers and rows:
-            return [" | ".join(headers), *[" | ".join(row) for row in rows if row]][:limit]
-    return _string_list(raw.get("bullets"), limit=limit) or ["请补充本页要点"]
+    entry: Dict[str, Any] = {
+        "slide_type": slide_type,
+        "title": _text(raw.get("title")),
+        "subtitle": _text(raw.get("subtitle")),
+        "bullets": _string_list(raw.get("bullets"), limit=8),
+        "notes": _text(raw.get("notes")),
+        "tags": _string_list(raw.get("tags"), limit=6),
+    }
+    # Optional per-slide layout hint; the web renderer auto-selects by content
+    # when this is absent or unknown (see renderDeck.ts:chooseLayout).
+    layout = _text(raw.get("layout"))
+    if layout in _PPTX_SLIDE_LAYOUTS:
+        entry["layout"] = layout
+    diagram = _dict(raw.get("diagram"))
+    if diagram:
+        entry["diagram"] = {
+            "nodes": _string_list(diagram.get("nodes") or diagram.get("steps"), limit=8),
+        }
+    table = _dict(raw.get("table"))
+    if table:
+        headers = _string_list(table.get("headers"), limit=6)
+        entry["table"] = {
+            "headers": headers,
+            "rows": [
+                _string_list(row, limit=len(headers) or 6)
+                for row in _list(table.get("rows"))[:8]
+            ],
+        }
+    placeholder = _dict(raw.get("placeholder"))
+    if placeholder:
+        entry["placeholder"] = {
+            "label": _text(placeholder.get("label")),
+            "caption": _text(placeholder.get("caption")),
+            "source_hint": _text(placeholder.get("source_hint")),
+        }
+    return entry
 
 
-def _apply_visual_master_slide_text(slide, prs, title: str, lines: List[str], tokens: Dict[str, Rgb], *, cover: bool) -> None:
-    from pptx.util import Inches
-
-    _blank_master_baked_text(slide, tokens["background"])
-    width = prs.slide_width
-    if cover:
-        _fill_shape(slide, left=Inches(0.7), top=Inches(1.1), width=Inches(11.9), height=Inches(2.2), rgb=tokens["background"])
-        _add_textbox(
-            slide,
-            left=Inches(0.82),
-            top=Inches(1.25),
-            width=Inches(11.3),
-            height=Inches(1.0),
-            text=title or "学生汇报",
-            size=38,
-            rgb=tokens["title"],
-            bold=True,
-        )
-        _add_textbox(
-            slide,
-            left=Inches(0.86),
-            top=Inches(2.45),
-            width=Inches(10.5),
-            height=Inches(0.45),
-            text=lines[0] if lines else "课程 / 论文 / 项目答辩",
-            size=18,
-            rgb=tokens["body"],
-        )
-        return
-
-    _fill_shape(slide, left=Inches(0.55), top=Inches(0.42), width=width - Inches(1.1), height=Inches(0.82), rgb=tokens["background"])
-    _add_textbox(
-        slide,
-        left=Inches(0.7),
-        top=Inches(0.52),
-        width=Inches(11.9),
-        height=Inches(0.48),
-        text=title or "未命名页",
-        size=26,
-        rgb=tokens["title"],
-        bold=True,
-    )
-    body_text = "\n".join(f"{idx + 1}. {line}" for idx, line in enumerate(lines[:7]))
-    _fill_shape(slide, left=Inches(0.78), top=Inches(1.52), width=Inches(11.8), height=Inches(4.95), rgb=tokens["background"])
-    _add_textbox(
-        slide,
-        left=Inches(0.95),
-        top=Inches(1.72),
-        width=Inches(11.2),
-        height=Inches(4.45),
-        text=body_text,
-        size=20,
-        rgb=tokens["body"],
-    )
-
-
-def _try_write_visual_master_pptx(
-    *,
-    out: Path,
+def _build_deck_spec(
     title: str,
     slides: List[Dict[str, Any]],
-    theme: _PptxTheme,
+    theme: "_PptxTheme",
     visual_master: str,
-) -> Optional[Dict[str, Any]]:
-    asset_dir = _visual_master_asset_dir(visual_master)
-    if asset_dir is None:
-        return None
-    try:
-        from pptx import Presentation
-    except Exception:
-        return None
-
-    source_prs = Presentation(str(asset_dir / "template.pptx"))
-    original_slides = list(source_prs.slides)
-    if not original_slides:
-        return None
-    prs = Presentation()
-    prs.slide_width = source_prs.slide_width
-    prs.slide_height = source_prs.slide_height
-
-    tokens = _visual_master_tokens(asset_dir, theme)
-    slide_map = _load_visual_master_slide_map(asset_dir, len(original_slides))
-    generated_slides = []
-
-    cover_source = original_slides[slide_map.get("cover", 0)]
-    cover = _clone_slide_from_master(prs, cover_source)
-    _apply_visual_master_slide_text(cover, prs, title, [theme.subtitle], tokens, cover=True)
-    generated_slides.append(cover)
-
-    for index, raw in enumerate(slides):
-        slide_type = _normalize_slide_type(raw.get("slide_type"))
-        source_index = slide_map.get(slide_type)
-        if source_index is None:
-            source_index = slide_map.get("claim_bullets", min((index % len(original_slides)), len(original_slides) - 1))
-        cloned = _clone_slide_from_master(prs, original_slides[source_index])
-        _apply_visual_master_slide_text(
-            cloned,
-            prs,
-            _text(raw.get("title"), "未命名页"),
-            _content_lines(raw),
-            tokens,
-            cover=False,
-        )
-        _set_notes(cloned, raw)
-        generated_slides.append(cloned)
-
-    prs.save(str(out))
+) -> Dict[str, Any]:
     return {
-        "ok": True,
-        "path": str(out),
-        "slide_count": len(generated_slides),
+        "title": _text(title) or "学生汇报",
         "template": theme.key,
-        "theme": theme.badge,
+        "template_subtitle": theme.subtitle,
+        "template_badge": theme.badge,
         "visual_master": visual_master,
         "visual_master_name": _pptx_visual_master_name(visual_master),
-        "visual_master_renderer": "html_background_master_v1",
-        "visual_master_template": str(asset_dir / "template.pptx"),
+        "page_size": {"width": 13.333, "height": 7.5},
+        "slides": [_deck_slide_spec(raw) for raw in (slides or [])],
     }
 
 
@@ -1605,54 +1027,91 @@ def pptx_write(
     slides: List[Dict[str, Any]],
     template: str = "course_report",
     visual_master: str = "default_native",
+    callback=None,
 ) -> str:
-    try:
-        from pptx import Presentation
-        from pptx.util import Inches
-    except Exception as exc:
-        return tool_error(f"python-pptx is not available: {exc}")
+    """Render a student deck with PptxGenJS in the desktop web layer.
 
+    The agent loop (run_agent._invoke_tool) routes this tool with
+    ``callback=self.clarify_callback``. We emit the deck spec as a
+    ``kind="pptx_render"`` interaction; the webview builds the .pptx with
+    PptxGenJS and returns it base64-encoded in the interaction ``data``, which
+    we decode and write to the (workspace-validated) output path. There is no
+    python-pptx writer anymore — Python only persists the bytes.
+    """
     theme = _get_pptx_theme(template)
     selected_visual_master = _normalize_pptx_visual_master(visual_master)
     out = Path(path).expanduser()
     if out.suffix.lower() != ".pptx":
         out = out.with_suffix(".pptx")
-    out.parent.mkdir(parents=True, exist_ok=True)
 
-    visual_result = None
-    if selected_visual_master != "default_native":
-        visual_result = _try_write_visual_master_pptx(
-            out=out,
-            title=title,
-            slides=slides,
-            theme=theme,
-            visual_master=selected_visual_master,
+    deck_spec = _build_deck_spec(title, slides, theme, selected_visual_master)
+
+    if callback is None:
+        return tool_error(
+            "PptxGenJS rendering requires the Kabuqina desktop UI; no interactive "
+            "renderer is available in this context.",
+            code="pptx_render_unavailable",
         )
-    if visual_result is not None:
-        return _json(visual_result)
 
-    prs = Presentation()
-    prs.slide_width = Inches(13.333)
-    prs.slide_height = Inches(7.5)
+    artifact = {"type": "pptx_deck", "filename": out.name, "deck": deck_spec}
+    question = f"生成 PPT：{deck_spec['title']}（{len(deck_spec['slides'])} 页内容）"
+    try:
+        response = callback(question, [], kind="pptx_render", artifact=artifact)
+    except TypeError:
+        return tool_error(
+            "The active interaction callback does not support PptxGenJS rendering.",
+            code="pptx_render_unsupported",
+        )
 
-    title_slide = prs.slides.add_slide(prs.slide_layouts[0])
-    _apply_title_slide(title_slide, prs, theme, title)
+    data: Dict[str, Any] = {}
+    if isinstance(response, dict):
+        action = str(response.get("action") or "")
+        data = response.get("data") if isinstance(response.get("data"), dict) else {}
+        if action in {"cancel", "timeout"}:
+            return tool_error(
+                f"PPT rendering was not completed (action={action}).",
+                code="pptx_render_cancelled",
+            )
+        if action == "error":
+            return tool_error(
+                str(response.get("text") or "PptxGenJS rendering failed in the web layer."),
+                code="pptx_render_failed",
+            )
 
-    for raw in slides:
-        slide = prs.slides.add_slide(prs.slide_layouts[1])
-        _apply_content_slide(slide, prs, theme, raw)
+    b64 = str(data.get("pptx_base64") or "")
+    if not b64:
+        return tool_error(
+            "The web renderer did not return a .pptx payload.",
+            code="pptx_render_empty",
+        )
 
-    prs.save(str(out))
-    return _json({
-        "ok": True,
-        "path": str(out),
-        "slide_count": len(prs.slides),
-        "template": theme.key,
-        "theme": theme.badge,
-        "visual_master": selected_visual_master,
-        "visual_master_name": _pptx_visual_master_name(selected_visual_master),
-        "visual_master_renderer": "native_v1",
-    })
+    import base64
+
+    try:
+        raw_bytes = base64.b64decode(b64)
+    except Exception as exc:
+        return tool_error(f"Could not decode rendered .pptx: {exc}", code="pptx_render_decode_error")
+
+    validation_error = _validate_write_path(out, path)
+    if validation_error is not None:
+        return validation_error
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_bytes(raw_bytes)
+
+    slide_count = int(data.get("slide_count") or (len(deck_spec["slides"]) + 1))
+    return _json(
+        {
+            "ok": True,
+            "path": str(out),
+            "slide_count": slide_count,
+            "template": theme.key,
+            "theme": theme.badge,
+            "visual_master": selected_visual_master,
+            "visual_master_name": _pptx_visual_master_name(selected_visual_master),
+            "visual_master_renderer": "pptxgenjs_v1",
+            "bytes": len(raw_bytes),
+        }
+    )
 
 
 PDF_READ_PRECISE_SCHEMA = {
@@ -1710,8 +1169,9 @@ PPTX_WRITE_SCHEMA = {
         "diagram, table, screenshot_placeholder, chart_placeholder, qa_backup, and closing. "
         "Templates apply distinct visual themes: course_report (blue classroom), "
         "paper_report (green academic), code_defense (indigo/orange tech defense). "
-        "visual_master selects the prepared visual master when assets are available; "
-        "otherwise pptx_write falls back to the editable native renderer."
+        "The deck is rendered by PptxGenJS in the Kabuqina desktop UI using the selected "
+        "visual_master palette; this tool requires the interactive app (it is not available "
+        "in headless/CLI contexts)."
     ),
     "parameters": {
         "type": "object",
@@ -1740,6 +1200,15 @@ PPTX_WRITE_SCHEMA = {
                         },
                         "title": {"type": "string"},
                         "subtitle": {"type": "string"},
+                        "layout": {
+                            "type": "string",
+                            "description": (
+                                "Optional per-slide layout: hero_statement, standard_bullets, "
+                                "two_column_bullets, comparison_cards, process_flow_horizontal, "
+                                "process_flow_vertical, data_table, media_placeholder, section_divider. "
+                                "Omit to let the renderer auto-select by this page's content."
+                            ),
+                        },
                         "bullets": {"type": "array", "items": {"type": "string"}},
                         "notes": {"type": "string"},
                         "diagram": {
@@ -1804,6 +1273,7 @@ registry.register(
         slides=args.get("slides") or [],
         template=args.get("template", "course_report"),
         visual_master=args.get("visual_master", "default_native"),
+        callback=kw.get("callback"),
     ),
     check_fn=lambda: True,
     emoji="📊",

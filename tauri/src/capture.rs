@@ -8,9 +8,46 @@
 
 use base64::Engine;
 use std::path::PathBuf;
+use std::sync::Mutex;
 use tauri::{Emitter, Manager};
 
 type ImageBuf = image::ImageBuffer<image::Rgba<u8>, Vec<u8>>;
+
+/// A frozen screenshot of one monitor, taken the moment the overlay opens.
+struct CapturedFrame {
+    /// Monitor origin in virtual-desktop coordinates.
+    x: i32,
+    y: i32,
+    image: ImageBuf,
+}
+
+/// Holds the frozen frames captured when the selection overlay is shown, so
+/// region capture crops from them instead of grabbing the screen live (which
+/// would include the overlay's dark mask — the "gray layer" bug).
+#[derive(Default)]
+pub struct CaptureState {
+    frames: Mutex<Vec<CapturedFrame>>,
+}
+
+/// Grab every monitor into memory.
+fn capture_all_monitors() -> Result<Vec<CapturedFrame>, String> {
+    let monitors = xcap::Monitor::all().map_err(|e| format!("enumerate monitors: {e}"))?;
+    if monitors.is_empty() {
+        return Err("no monitors found".into());
+    }
+    let mut frames = Vec::with_capacity(monitors.len());
+    for m in &monitors {
+        let image: ImageBuf = m
+            .capture_image()
+            .map_err(|e| format!("capture screen: {e}"))?;
+        frames.push(CapturedFrame {
+            x: m.x(),
+            y: m.y(),
+            image,
+        });
+    }
+    Ok(frames)
+}
 
 /// Payload emitted to the main window when capture is done.
 #[derive(Clone, serde::Serialize)]
@@ -70,6 +107,11 @@ fn finish_capture(app: &tauri::AppHandle, img: &ImageBuf) -> Result<String, Stri
         let _ = w.hide();
     }
 
+    // Release the frozen frames now that we're done with them.
+    if let Ok(mut guard) = app.state::<CaptureState>().frames.lock() {
+        guard.clear();
+    }
+
     Ok(path_str)
 }
 
@@ -81,33 +123,32 @@ pub async fn cmd_capture_region(
     w: u32,
     h: u32,
 ) -> Result<String, String> {
-    let monitors = xcap::Monitor::all().map_err(|e| format!("enumerate monitors: {e}"))?;
-    if monitors.is_empty() {
-        return Err("no monitors found".into());
+    // Crop from the frame frozen when the overlay opened, so the overlay's
+    // dark selection mask is never part of the screenshot.
+    let frames = app.state::<CaptureState>();
+    let guard = frames.frames.lock().map_err(|_| "capture state poisoned")?;
+    if guard.is_empty() {
+        return Err("no frozen frame available".into());
     }
 
     // Find the monitor containing the selection rectangle centre point.
     let cx = x + (w as i32) / 2;
     let cy = y + (h as i32) / 2;
-    let monitor = monitors
+    let frame = guard
         .iter()
-        .find(|m| {
-            let mx = m.x();
-            let my = m.y();
-            cx >= mx && cy >= my && cx < mx + (m.width() as i32) && cy < my + (m.height() as i32)
+        .find(|f| {
+            cx >= f.x
+                && cy >= f.y
+                && cx < f.x + (f.image.width() as i32)
+                && cy < f.y + (f.image.height() as i32)
         })
-        .unwrap_or(&monitors[0]);
+        .unwrap_or(&guard[0]);
 
-    let full: ImageBuf = monitor
-        .capture_image()
-        .map_err(|e| format!("capture screen: {e}"))?;
-
+    let full = &frame.image;
     let img_w = full.width();
     let img_h = full.height();
-    let mon_x = monitor.x();
-    let mon_y = monitor.y();
-    let crop_x = ((x - mon_x).max(0) as u32).min(img_w.saturating_sub(1));
-    let crop_y = ((y - mon_y).max(0) as u32).min(img_h.saturating_sub(1));
+    let crop_x = ((x - frame.x).max(0) as u32).min(img_w.saturating_sub(1));
+    let crop_y = ((y - frame.y).max(0) as u32).min(img_h.saturating_sub(1));
     let crop_w = w.min(img_w.saturating_sub(crop_x));
     let crop_h = h.min(img_h.saturating_sub(crop_y));
 
@@ -115,7 +156,8 @@ pub async fn cmd_capture_region(
         return Err("selection is outside visible area".into());
     }
 
-    let cropped = image::imageops::crop_imm(&full, crop_x, crop_y, crop_w, crop_h).to_image();
+    let cropped = image::imageops::crop_imm(full, crop_x, crop_y, crop_w, crop_h).to_image();
+    drop(guard);
     finish_capture(&app, &cropped)
 }
 
@@ -139,6 +181,21 @@ pub async fn cmd_capture_fullscreen(app: tauri::AppHandle) -> Result<String, Str
 pub async fn cmd_show_capture_overlay(app: tauri::AppHandle) -> Result<(), String> {
     let workspace = crate::paths::ensure_workspace(&app).map_err(|e| e.to_string())?;
     let _ = std::fs::create_dir_all(workspace.join("captures"));
+
+    // Make sure a previously-shown overlay isn't on screen, then freeze every
+    // monitor into memory *before* the dark selection mask is displayed.
+    if let Some(w) = app.get_webview_window("capture-overlay") {
+        if w.is_visible().unwrap_or(false) {
+            let _ = w.hide();
+            std::thread::sleep(std::time::Duration::from_millis(80));
+        }
+    }
+    let frames = capture_all_monitors()?;
+    {
+        let state = app.state::<CaptureState>();
+        let mut guard = state.frames.lock().map_err(|_| "capture state poisoned")?;
+        *guard = frames;
+    }
 
     if let Some(w) = app.get_webview_window("capture-overlay") {
         let _ = w.show();
@@ -169,6 +226,9 @@ pub async fn cmd_show_capture_overlay(app: tauri::AppHandle) -> Result<(), Strin
 pub async fn cmd_hide_capture_overlay(app: tauri::AppHandle) -> Result<(), String> {
     if let Some(w) = app.get_webview_window("capture-overlay") {
         let _ = w.hide();
+    }
+    if let Ok(mut guard) = app.state::<CaptureState>().frames.lock() {
+        guard.clear();
     }
     Ok(())
 }

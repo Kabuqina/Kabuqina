@@ -37,13 +37,7 @@ pub fn install(app: &mut App) -> Result<()> {
         true,
         None::<&str>,
     )?;
-    let companion = MenuItem::with_id(
-        &handle,
-        "companion",
-        "Show Nana pill",
-        true,
-        None::<&str>,
-    )?;
+    let companion = MenuItem::with_id(&handle, "companion", "Show Nana pill", true, None::<&str>)?;
     let updates = MenuItem::with_id(&handle, "updates", "Check for updates", true, None::<&str>)?;
     let sep = PredefinedMenuItem::separator(&handle)?;
     let quit = MenuItem::with_id(&handle, "quit", "Quit", true, None::<&str>)?;

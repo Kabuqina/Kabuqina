@@ -11,23 +11,23 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 
-def _require_pptx() -> None:
-    try:
-        from pptx import Presentation  # noqa: F401
-    except Exception as exc:
-        pytest.skip(f"python-pptx unavailable: {exc}")
+def _fake_render_callback(captured: dict, *, slide_count: int = 0):
+    """Stand in for the desk clarify callback that drives PptxGenJS in the webview."""
+    import base64
 
+    def _cb(question, choices, kind=None, artifact=None):
+        captured["question"] = question
+        captured["kind"] = kind
+        captured["artifact"] = artifact
+        payload = base64.b64encode(b"PK\x03\x04 fake pptx bytes").decode()
+        deck_slides = ((artifact or {}).get("deck") or {}).get("slides") or []
+        return {
+            "action": "rendered",
+            "text": "",
+            "data": {"pptx_base64": payload, "slide_count": slide_count or (len(deck_slides) + 1)},
+        }
 
-def _slide_text(slide) -> str:
-    parts = []
-    for shape in slide.shapes:
-        if getattr(shape, "has_text_frame", False):
-            parts.append(shape.text)
-        if getattr(shape, "has_table", False):
-            for row in shape.table.rows:
-                for cell in row.cells:
-                    parts.append(cell.text)
-    return "\n".join(part for part in parts if part)
+    return _cb
 
 
 def test_pdf_read_precise_rejects_paths_outside_workspace(tmp_path, monkeypatch):
@@ -46,11 +46,11 @@ def test_pdf_read_precise_rejects_paths_outside_workspace(tmp_path, monkeypatch)
     assert "terminal" in result.get("hint", "").lower()
 
 
-def test_pptx_write_creates_openable_deck(tmp_path):
-    _require_pptx()
+def test_pptx_write_emits_deck_spec_and_writes_bytes(tmp_path):
     from tools.document_tools import pptx_write
 
     out = tmp_path / "student-report.pptx"
+    captured: dict = {}
     result = json.loads(
         pptx_write(
             path=str(out),
@@ -61,91 +61,52 @@ def test_pptx_write_creates_openable_deck(tmp_path):
             ],
             template="code_defense",
             visual_master="neo_grid_bold",
+            callback=_fake_render_callback(captured),
         )
     )
 
+    # The tool hands the deck to the webview as a pptx_render interaction.
+    assert captured["kind"] == "pptx_render"
+    deck = captured["artifact"]["deck"]
+    assert deck["title"] == "课设答辩"
+    assert deck["template"] == "code_defense"
+    assert deck["visual_master"] == "neo_grid_bold"
+    assert [s["title"] for s in deck["slides"]] == ["项目目标", "实现方案"]
+    assert deck["slides"][0]["bullets"] == ["完成 PDF 精确识别", "生成可提交 PPT"]
+
+    # The returned base64 is decoded and persisted by Python.
     assert result["ok"] is True
     assert result["slide_count"] == 3
     assert result["template"] == "code_defense"
     assert result["theme"] == "项目答辩"
     assert result["visual_master"] == "neo_grid_bold"
-    assert result["visual_master_renderer"] in {"html_background_master_v1", "native_v1"}
+    assert result["visual_master_renderer"] == "pptxgenjs_v1"
     assert out.exists()
-
-    from pptx import Presentation
-
-    prs = Presentation(str(out))
-    assert len(prs.slides) == 3
-    assert "课设答辩" in prs.slides[0].shapes.title.text
-    assert len(prs.slides[0].shapes) >= 4
+    assert out.read_bytes().startswith(b"PK")
 
 
-def test_pptx_write_preserves_simple_slide_schema_with_notes(tmp_path):
-    _require_pptx()
-    from tools.document_tools import pptx_write
-
-    out = tmp_path / "simple-schema.pptx"
-    result = json.loads(
-        pptx_write(
-            path=str(out),
-            title="简单格式",
-            slides=[
-                {
-                    "title": "研究背景",
-                    "bullets": ["校园能耗管理需要集中展示", "传统表格统计滞后"],
-                    "notes": "讲稿：解释为什么需要系统。",
-                }
-            ],
-            template="paper_report",
-        )
-    )
-
-    assert result["ok"] is True
-    assert out.exists()
-
-    from pptx import Presentation
-
-    prs = Presentation(str(out))
-    assert len(prs.slides) == 2
-    assert "研究背景" in _slide_text(prs.slides[1])
-    assert "校园能耗管理需要集中展示" in _slide_text(prs.slides[1])
-    assert "讲稿：解释为什么需要系统。" in prs.slides[1].notes_slide.notes_text_frame.text
-
-
-def test_pptx_write_renders_structured_student_slide_types(tmp_path):
-    _require_pptx()
+def test_pptx_write_deck_spec_carries_structured_slide_types(tmp_path):
     from tools.document_tools import pptx_write
 
     out = tmp_path / "structured-student.pptx"
+    captured: dict = {}
     result = json.loads(
         pptx_write(
             path=str(out),
             title="高质量可交付 PPT",
             slides=[
-                {
-                    "slide_type": "agenda",
-                    "title": "汇报提纲",
-                    "bullets": ["研究背景", "系统设计", "测试结果"],
-                },
-                {
-                    "slide_type": "claim_bullets",
-                    "title": "系统解决能耗数据分散问题",
-                    "subtitle": "核心价值",
-                    "bullets": ["统一采集口径", "可视化分析", "异常阈值预警"],
-                },
+                {"slide_type": "agenda", "title": "汇报提纲", "bullets": ["研究背景", "系统设计"]},
                 {
                     "slide_type": "diagram",
                     "title": "系统架构",
-                    "diagram": {
-                        "nodes": ["Vue 前端", "Spring Boot API", "MySQL 数据库"],
-                    },
+                    "diagram": {"nodes": ["Vue 前端", "Spring Boot API", "MySQL 数据库"]},
                 },
                 {
                     "slide_type": "table",
                     "title": "测试用例汇总",
                     "table": {
                         "headers": ["模块", "用例", "结果"],
-                        "rows": [["仪表盘", "时间筛选", "通过"], ["预警", "阈值触发", "通过"]],
+                        "rows": [["仪表盘", "时间筛选", "通过"]],
                     },
                 },
                 {
@@ -153,145 +114,205 @@ def test_pptx_write_renders_structured_student_slide_types(tmp_path):
                     "title": "系统运行截图",
                     "placeholder": {
                         "label": "待放入仪表盘截图",
-                        "caption": "展示电、水、气总览与趋势图",
+                        "caption": "展示电、水、气总览",
                         "source_hint": "从系统首页截取真实运行画面。",
                     },
-                },
-                {
-                    "slide_type": "chart_placeholder",
-                    "title": "能耗趋势图",
-                    "placeholder": {
-                        "label": "待放入 ECharts 趋势图",
-                        "caption": "对比不同建筑的月度电耗变化",
-                    },
-                },
-                {
-                    "slide_type": "qa_backup",
-                    "title": "备用：老师可能追问",
-                    "bullets": ["为什么使用规则阈值", "如何保证权限边界"],
                     "notes": "备用讲稿。",
-                },
-                {
-                    "slide_type": "closing",
-                    "title": "总结",
-                    "bullets": ["系统流程完整", "后续可接入真实采集设备"],
                 },
             ],
             template="paper_report",
+            callback=_fake_render_callback(captured),
         )
     )
 
     assert result["ok"] is True
-
-    from pptx import Presentation
-
-    prs = Presentation(str(out))
-    assert len(prs.slides) == 9
-    deck_text = "\n".join(_slide_text(slide) for slide in prs.slides)
-    for expected in [
-        "1. 研究背景",
-        "核心价值",
-        "Vue 前端",
-        "Spring Boot API",
-        "测试用例汇总",
-        "待放入仪表盘截图",
-        "展示电、水、气总览与趋势图",
-        "待放入 ECharts 趋势图",
-        "备用",
-        "系统流程完整",
-    ]:
-        assert expected in deck_text
-    assert "从系统首页截取真实运行画面。" in prs.slides[5].notes_slide.notes_text_frame.text
+    slides = captured["artifact"]["deck"]["slides"]
+    assert slides[0]["slide_type"] == "agenda"
+    assert slides[1]["diagram"]["nodes"] == ["Vue 前端", "Spring Boot API", "MySQL 数据库"]
+    assert slides[2]["table"]["headers"] == ["模块", "用例", "结果"]
+    assert slides[2]["table"]["rows"] == [["仪表盘", "时间筛选", "通过"]]
+    assert slides[3]["placeholder"]["source_hint"] == "从系统首页截取真实运行画面。"
+    assert slides[3]["notes"] == "备用讲稿。"
 
 
-def test_pptx_write_unknown_slide_type_falls_back_to_bullets(tmp_path):
-    _require_pptx()
+def test_pptx_write_passes_valid_layout_hint_and_drops_unknown(tmp_path):
     from tools.document_tools import pptx_write
 
-    out = tmp_path / "unknown-slide-type.pptx"
-    result = json.loads(
+    captured: dict = {}
+    json.loads(
         pptx_write(
-            path=str(out),
-            title="未知类型",
+            path=str(tmp_path / "layout.pptx"),
+            title="版式提示",
             slides=[
-                {
-                    "slide_type": "mystery",
-                    "title": "仍然生成",
-                    "bullets": ["未知类型应回退到普通要点页"],
-                }
+                {"title": "对比", "bullets": ["A", "B"], "layout": "comparison_cards"},
+                {"title": "乱填", "bullets": ["x"], "layout": "not_a_layout"},
             ],
             template="course_report",
+            callback=_fake_render_callback(captured),
         )
     )
-
-    assert result["ok"] is True
-
-    from pptx import Presentation
-
-    prs = Presentation(str(out))
-    assert "未知类型应回退到普通要点页" in _slide_text(prs.slides[1])
+    slides = captured["artifact"]["deck"]["slides"]
+    assert slides[0]["layout"] == "comparison_cards"
+    # Unknown layout hints are dropped so the renderer auto-selects.
+    assert "layout" not in slides[1]
 
 
-def test_pptx_write_templates_apply_distinct_backgrounds(tmp_path):
-    _require_pptx()
-    from tools.document_tools import _PPTX_THEMES, pptx_write
-
-    slides = [{"title": "章节", "bullets": ["要点 A"]}]
-    backgrounds = {}
-    for key, theme in _PPTX_THEMES.items():
-        out = tmp_path / f"{key}.pptx"
-        result = json.loads(
-            pptx_write(path=str(out), title="演示标题", slides=slides, template=key)
-        )
-        assert result["template"] == key
-        assert result["theme"] == theme.badge
-
-        from pptx import Presentation
-
-        prs = Presentation(str(out))
-        fill = prs.slides[1].background.fill
-        assert fill.type is not None
-        rgb = fill.fore_color.rgb
-        backgrounds[key] = tuple(rgb)
-        assert backgrounds[key] == theme.bg
-
-    assert len(set(backgrounds.values())) == 3
-
-
-def test_pptx_write_unknown_template_falls_back_to_course_report(tmp_path):
-    _require_pptx()
+def test_pptx_write_unknown_slide_type_normalizes_to_claim_bullets(tmp_path):
     from tools.document_tools import pptx_write
 
-    out = tmp_path / "fallback.pptx"
+    captured: dict = {}
+    json.loads(
+        pptx_write(
+            path=str(tmp_path / "unknown.pptx"),
+            title="未知类型",
+            slides=[{"slide_type": "mystery", "title": "仍然生成", "bullets": ["回退"]}],
+            template="course_report",
+            callback=_fake_render_callback(captured),
+        )
+    )
+    assert captured["artifact"]["deck"]["slides"][0]["slide_type"] == "claim_bullets"
+
+
+def test_pptx_write_normalizes_unknown_template_and_visual_master(tmp_path):
+    from tools.document_tools import pptx_write
+
+    captured: dict = {}
     result = json.loads(
         pptx_write(
-            path=str(out),
+            path=str(tmp_path / "fallback.pptx"),
             title="测试",
             slides=[{"title": "页", "bullets": ["内容"]}],
             template="unknown_style",
+            visual_master="unknown-master",
+            callback=_fake_render_callback(captured),
         )
     )
     assert result["template"] == "course_report"
+    assert result["visual_master"] == "default_native"
+    assert result["visual_master_name"] == "Default native renderer"
+    assert captured["artifact"]["deck"]["template"] == "course_report"
+    assert captured["artifact"]["deck"]["visual_master"] == "default_native"
 
 
-def test_pptx_write_unknown_visual_master_falls_back_to_default_native(tmp_path):
-    _require_pptx()
+def test_pptx_write_requires_interactive_callback():
     from tools.document_tools import pptx_write
 
-    out = tmp_path / "fallback-visual-master.pptx"
+    result = json.loads(
+        pptx_write(
+            path="deck.pptx",
+            title="无 UI",
+            slides=[{"title": "页", "bullets": ["内容"]}],
+            callback=None,
+        )
+    )
+    assert result["error"]
+    assert result["code"] == "pptx_render_unavailable"
+
+
+def test_pptx_write_propagates_webview_render_error(tmp_path):
+    from tools.document_tools import pptx_write
+
+    def err_cb(question, choices, kind=None, artifact=None):
+        return {"action": "error", "text": "PptxGenJS boom", "data": {}}
+
+    result = json.loads(
+        pptx_write(
+            path=str(tmp_path / "deck.pptx"),
+            title="出错",
+            slides=[{"title": "页", "bullets": ["内容"]}],
+            callback=err_cb,
+        )
+    )
+    assert result["error"] == "PptxGenJS boom"
+    assert result["code"] == "pptx_render_failed"
+
+
+def test_pptx_write_rejects_output_outside_workspace(tmp_path, monkeypatch):
+    from tools.document_tools import pptx_write
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    monkeypatch.setenv("HERMESDESK_WORKSPACE", str(workspace))
+
+    out = tmp_path / "outside.pptx"
+    captured: dict = {}
     result = json.loads(
         pptx_write(
             path=str(out),
-            title="测试",
+            title="越界",
             slides=[{"title": "页", "bullets": ["内容"]}],
-            template="course_report",
-            visual_master="unknown-master",
+            callback=_fake_render_callback(captured),
         )
     )
+    assert result["code"] == "outside_workspace"
+    assert not out.exists()
+
+
+def test_pdf_fast_text_path_skips_docling_for_text_pdf(tmp_path, monkeypatch):
+    import tools.document_tools as document_tools
+
+    pdf = tmp_path / "thesis.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    monkeypatch.setattr(
+        document_tools,
+        "_read_pdf_with_pypdf",
+        lambda p: {"ok": True, "engine": "pypdf", "mode": "fallback", "path": str(p), "pages": 3, "content": "正文内容 " * 400},
+    )
+
+    def _no_docling(_p, _mode):
+        raise AssertionError("Docling must not run for a text-rich PDF in auto mode")
+
+    monkeypatch.setattr(document_tools, "_read_with_docling", _no_docling)
+
+    result = json.loads(document_tools.document_read_precise(path=str(pdf), mode="auto"))
 
     assert result["ok"] is True
-    assert result["visual_master"] == "default_native"
-    assert result["visual_master_name"] == "Default native renderer"
+    assert result["engine"] == "pypdf"
+    assert "Fast text-only PDF read" in result["warning"]
+
+
+def test_pdf_fast_text_path_falls_through_to_docling_for_scanned_pdf(tmp_path, monkeypatch):
+    import tools.document_tools as document_tools
+
+    pdf = tmp_path / "scan.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    monkeypatch.setattr(
+        document_tools,
+        "_read_pdf_with_pypdf",
+        lambda p: {"ok": True, "engine": "pypdf", "pages": 5, "content": "   "},
+    )
+    monkeypatch.setattr(
+        document_tools,
+        "_read_with_docling",
+        lambda p, mode: {"ok": True, "engine": "docling", "mode": mode, "path": str(p), "pages": 5, "content": "Docling layout text"},
+    )
+
+    result = json.loads(document_tools.document_read_precise(path=str(pdf), mode="auto"))
+
+    assert result["ok"] is True
+    assert result["engine"] == "docling"
+
+
+def test_pdf_precise_mode_still_uses_docling(tmp_path, monkeypatch):
+    import tools.document_tools as document_tools
+
+    pdf = tmp_path / "precise.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+
+    def _no_pypdf(_p):
+        raise AssertionError("precise mode should not take the fast pypdf path")
+
+    monkeypatch.setattr(document_tools, "_read_pdf_with_pypdf", _no_pypdf)
+    monkeypatch.setattr(
+        document_tools,
+        "_read_with_docling",
+        lambda p, mode: {"ok": True, "engine": "docling", "mode": mode, "path": str(p), "pages": 2, "content": "precise"},
+    )
+
+    result = json.loads(document_tools.document_read_precise(path=str(pdf), mode="precise"))
+
+    assert result["ok"] is True
+    assert result["engine"] == "docling"
 
 
 def test_pdf_read_precise_falls_back_to_pypdf(tmp_path):

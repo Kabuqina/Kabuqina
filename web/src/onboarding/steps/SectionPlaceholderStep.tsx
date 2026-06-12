@@ -126,7 +126,6 @@ export function SectionPlaceholderStep({ id }: { id: PostPassSectionId }) {
     <div className="space-y-8">
       <div className="space-y-3">
         <h1 className="hd-wizard-title">{t(`setupSection.${id}.title`)}</h1>
-        <p className="hd-wizard-lead">{t(`setupSection.${id}.lead`)}</p>
       </div>
       <div className="space-y-2">
         <SetupOptionsTable

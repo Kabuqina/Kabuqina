@@ -89,6 +89,70 @@ function LoadPackageDownloadProgress({ packages }: { packages: LoadPackageStatus
   );
 }
 
+function PptxRenderCard({
+  interaction,
+  onRespond,
+}: {
+  interaction: PendingAgentInteraction;
+  onRespond?: (action: string, text?: string, data?: Record<string, unknown>) => Promise<void>;
+}) {
+  const [status, setStatus] = useState<"rendering" | "done" | "error">("rendering");
+  const [errMsg, setErrMsg] = useState("");
+  const startedRef = useRef(false);
+
+  useEffect(() => {
+    // Render exactly once per interaction; the agent turn is blocked waiting.
+    if (startedRef.current || !onRespond) return;
+    startedRef.current = true;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { renderDeckToBase64 } = await import("./pptx/renderDeck");
+        const deck = (interaction.artifact?.deck ?? {}) as import("./pptx/renderDeck").DeckSpec;
+        const { base64, slideCount } = await renderDeckToBase64(deck);
+        if (cancelled) return;
+        await onRespond("rendered", "", { pptx_base64: base64, slide_count: slideCount });
+        if (!cancelled) setStatus("done");
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (cancelled) return;
+        setErrMsg(msg);
+        setStatus("error");
+        try {
+          await onRespond("error", `PptxGenJS 渲染失败：${msg}`, {});
+        } catch {
+          /* ignore secondary failure */
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [interaction.id, interaction.artifact, onRespond]);
+
+  return (
+    <AssistantStreamShell>
+      <div className="kq-chat-bubble-assistant rounded-2xl rounded-tl-sm px-4 py-3 dark:border-zinc-700/80 dark:bg-zinc-800/90">
+        <div className="flex items-center gap-2 text-sm font-semibold text-[var(--kq-color-strong)] dark:text-zinc-100">
+          <BookOpen className="h-4 w-4" aria-hidden />
+          {interaction.question || "正在生成 PPT…"}
+        </div>
+        {status === "rendering" ? (
+          <p className="mt-2 text-xs text-[var(--kq-color-muted)] dark:text-zinc-400">
+            正在用 PptxGenJS 渲染演示文稿，请稍候…
+          </p>
+        ) : null}
+        {status === "done" ? (
+          <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-400">演示文稿已生成，正在保存到工作区。</p>
+        ) : null}
+        {status === "error" ? (
+          <p className="mt-2 text-xs text-red-600 dark:text-red-400">PptxGenJS 渲染失败：{errMsg}</p>
+        ) : null}
+      </div>
+    </AssistantStreamShell>
+  );
+}
+
 function AgentInteractionCard({
   interaction,
   onRespond,
@@ -311,7 +375,11 @@ export function ChatMessageList({
           )}
           <LoadPackageDownloadProgress packages={loadPackageDownloads} />
           {pendingInteraction ? (
-            <AgentInteractionCard interaction={pendingInteraction} onRespond={onRespondInteraction} />
+            pendingInteraction.kind === "pptx_render" ? (
+              <PptxRenderCard interaction={pendingInteraction} onRespond={onRespondInteraction} />
+            ) : (
+              <AgentInteractionCard interaction={pendingInteraction} onRespond={onRespondInteraction} />
+            )
           ) : null}
           {pendingAssistant && (
             <ChatMessage

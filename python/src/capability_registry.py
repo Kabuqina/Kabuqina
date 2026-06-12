@@ -560,7 +560,7 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
     {
         "id": "math-expression-cleanup",
         "title": "Math expression cleanup",
-        "description": "Normalize messy OCR, document, LaTeX, and code math expressions into clean LaTeX and Markdown.",
+        "description": "Normalize messy OCR, document, LaTeX, and code math into clean LaTeX/Markdown via the SymPy core (regex fallback).",
         "category": "math",
         "family": "math-expression-engineering",
         "agent_hint": (
@@ -606,12 +606,20 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
     {
         "id": "math-formula-to-code",
         "title": "Formula to code",
-        "description": "Convert formulas, LaTeX, and document math into readable Python, NumPy, or C++17 code.",
+        "description": (
+            "Convert formulas, LaTeX, and document math into code for a user-selected target "
+            "language (Python, NumPy, JavaScript, MATLAB/Octave, or Fortran) via a canonical "
+            "SymPy core with NumPy numeric self-validation."
+        ),
         "category": "math",
         "family": "math-expression-engineering",
         "agent_hint": (
-            "Use for converting a simple formula or LaTeX expression into Python, NumPy, or C++17 code. "
-            "V1 is deterministic and does not prove algebraic equivalence."
+            "Use for converting a formula or LaTeX expression into code. Pass the user's chosen "
+            "language (python, numpy, javascript, octave, fortran). The tool parses into a canonical "
+            "SymPy expression, transpiles with SymPy's code printers, and reports a NumPy lambdify "
+            "vs evalf numeric check. Still extract a semantic_contract (variables, dimensions, domains, "
+            "boundary/open-closed intervals, invariants, expected outputs) and run executable tests "
+            "covering both numeric error and every clause before claiming success."
         ),
         "tools": ["math_formula_to_code"],
         "required_toolsets": ["math"],
@@ -628,13 +636,20 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
                 "primary": True,
                 "stages": ["reader", "material_index", "planner", "writer"],
                 "inputs": ["latex", "markdown_formula", "document_math", "extracted_formula"],
-                "writer_targets": ["python", "numpy", "cpp17"],
+                "writer_targets": ["python", "numpy", "javascript", "octave", "fortran"],
                 "steps": [
                     {
                         "id": "convert-formula-to-code",
                         "stage": "writer",
                         "tool": "math_formula_to_code",
-                        "outputs": ["code", "language", "variable_table", "assumptions", "example_inputs"],
+                        "outputs": [
+                            "code",
+                            "language",
+                            "variable_table",
+                            "assumptions",
+                            "example_inputs",
+                            "semantic_validation",
+                        ],
                     },
                 ],
             }
@@ -653,12 +668,13 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
     {
         "id": "code-to-math-formula",
         "title": "Code to math formula",
-        "description": "Convert Python, NumPy, or C++17 code into formulas, LaTeX, Markdown, HTML, and PDF reports.",
+        "description": "Convert Python or NumPy code into formulas, LaTeX, Markdown, and HTML reports via the SymPy core.",
         "category": "math",
         "family": "math-expression-engineering",
         "agent_hint": (
-            "Use for converting simple Python, NumPy, or C++17 expressions into LaTeX, Markdown, "
-            "and an HTML report. PDF is exported from the same HTML report when a backend is available."
+            "Use for converting simple Python or NumPy expressions into LaTeX, Markdown, and an HTML "
+            "report (sympy.latex over the canonical expression). Other source languages are a future "
+            "follow-up; PDF export needs an HTML-to-PDF backend."
         ),
         "tools": ["code_to_math_formula"],
         "required_toolsets": ["math"],
@@ -674,7 +690,7 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
                 "title": "Code to math formula V1",
                 "primary": True,
                 "stages": ["reader", "material_index", "planner", "writer"],
-                "inputs": ["python", "numpy", "cpp17"],
+                "inputs": ["python", "numpy"],
                 "steps": [
                     {
                         "id": "convert-code-to-math-report",

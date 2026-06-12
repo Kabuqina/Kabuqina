@@ -224,10 +224,7 @@ fn dotenv_suggests_non_email_messaging_gateway(keys: &HashMap<String, String>) -
     if nonempty("WEIXIN_ACCOUNT_ID") && nonempty("WEIXIN_TOKEN") {
         return true;
     }
-    if nonempty("DISCORD_BOT_TOKEN")
-        || nonempty("SLACK_BOT_TOKEN")
-        || nonempty("SIGNAL_HTTP_URL")
-    {
+    if nonempty("DISCORD_BOT_TOKEN") || nonempty("SLACK_BOT_TOKEN") || nonempty("SIGNAL_HTTP_URL") {
         return true;
     }
     if nonempty("FEISHU_APP_ID") && nonempty("FEISHU_APP_SECRET") {

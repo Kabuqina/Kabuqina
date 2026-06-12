@@ -51,6 +51,18 @@ assert.match(
 
 assert.match(
   getAccessPassSource,
+  /savedProviderMatchesSelection[\s\S]*preview\.provider === provider\.id[\s\S]*preview\.provider === dropdownProvider[\s\S]*preview\.provider === \(customProviderId\.trim\(\) \|\| "custom"\)/,
+  "Saved access-pass state should only be reused when it matches the selected provider.",
+);
+
+assert.match(
+  getAccessPassSource,
+  /if \(!savedProviderMatchesSelection \|\| !isCustom \|\| !saved\) return;/,
+  "Custom onboarding should not prefill DeepSeek or other saved provider details.",
+);
+
+assert.match(
+  getAccessPassSource,
   /"kimi-coding-cn":\s*\{\s*host:\s*"https:\/\/api\.kimi\.com\/coding\/v1"/,
   "Kimi / Moonshot (China) should use the current Kimi Coding base URL.",
 );

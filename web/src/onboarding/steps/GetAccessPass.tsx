@@ -9,7 +9,7 @@ import { findProvider, type Provider, type ProviderId } from "../../lib/provider
 import { useI18n } from "../../lib/i18n";
 import { validateKey, validateCustomEndpoint, normalizeOpenAiBaseUrl } from "../../lib/validate";
 import { updateDraft, useDraft } from "../../lib/store";
-import { clearAllowChatWithoutApi, setAllowChatWithoutApi } from "../../lib/apiKeyGate";
+import { clearAllowChatWithoutApi } from "../../lib/apiKeyGate";
 import { getBackPath, getNextPathAfterPass } from "../flowConfig";
 import { cn } from "../../lib/cn";
 import { Check, Loader2 } from "lucide-react";
@@ -97,6 +97,12 @@ export function GetAccessPass() {
     if (dropdownProvider && dropdownProvider !== "custom") return findProvider(dropdownProvider);
     return null;
   }, [isCustom, provider, dropdownProvider]);
+  const savedProviderMatchesSelection = useMemo(() => {
+    if (!preview?.hasSecret || !provider || !preview.provider) return false;
+    if (!isCustom) return preview.provider === provider.id;
+    if (dropdownProvider && dropdownProvider !== "custom") return preview.provider === dropdownProvider;
+    return preview.provider === (customProviderId.trim() || "custom");
+  }, [customProviderId, dropdownProvider, isCustom, preview, provider]);
 
   useEffect(() => {
     invoke<LlmConfigPreview>("cmd_llm_config_preview").then(setPreview)
@@ -145,10 +151,11 @@ export function GetAccessPass() {
 
   // Pre-fill from saved preview
   useEffect(() => {
-    if (!preview?.hasSecret || !isCustom) return;
-    setBaseUrl((u) => (u.trim() ? u : preview.apiBaseUrl?.trim() ?? ""));
-    setModelId((m) => (m.trim() ? m : preview.model?.trim() ?? ""));
-  }, [preview, isCustom]);
+    const saved = preview;
+    if (!savedProviderMatchesSelection || !isCustom || !saved) return;
+    setBaseUrl((u) => (u.trim() ? u : saved.apiBaseUrl?.trim() ?? ""));
+    setModelId((m) => (m.trim() ? m : saved.model?.trim() ?? ""));
+  }, [preview, isCustom, savedProviderMatchesSelection]);
 
   if (!provider) return null;
 
@@ -161,7 +168,23 @@ export function GetAccessPass() {
     const mode = "quick"; if (!provider) return;
     setBusy(true); setError(null);
     try {
-      if (preview?.hasSecret && !key.trim()) {
+      if (savedProviderMatchesSelection && !key.trim()) {
+        const configChanged = isCustom && (
+          baseUrl.trim() !== (preview?.apiBaseUrl ?? "") ||
+          modelId.trim() !== (preview?.model ?? "")
+        );
+        if (configChanged) {
+          const dp = dropdownProvider && dropdownProvider !== "custom" ? dropdownProvider : "custom";
+          const providerForSave = dp !== "custom" ? dp : customProviderId.trim() || "custom";
+          const mid = dp !== "custom" ? (PROVIDER_PRESETS[dp]?.model ?? modelId.trim()) : modelId.trim();
+          if (!mid) { setError(t("pass.errModel")); setBusy(false); return; }
+          const url = baseUrl.trim();
+          await invoke("cmd_update_llm_config", {
+            cfg: { provider: providerForSave, host: effectiveProvider?.host || hostFromBaseUrl(url), model: mid, api_base_url: normalizeOpenAiBaseUrl(url) },
+            secret: null,
+          });
+          updateDraft({ apiKey: "", customBaseUrl: url, customModel: mid, customProviderId: providerForSave });
+        }
         try { await invoke("cmd_set_personality", { name: draft.personality }); } catch {
           /* optional */
         }
@@ -207,20 +230,13 @@ export function GetAccessPass() {
     } finally { setBusy(false); }
   }
 
-  const continuingWithSaved = Boolean(preview?.hasSecret && !key.trim());
+  const continuingWithSaved = Boolean(savedProviderMatchesSelection && !key.trim());
   const canSubmit = continuingWithSaved ? true : isCustom ? Boolean(key.trim() && baseUrl.trim() && modelId.trim()) : Boolean(key.trim());
   const f = "w-full rounded-[var(--radius-shell)] border border-zinc-300/90 bg-white/90 px-4 py-3 font-mono text-sm dark:border-zinc-700 dark:bg-zinc-900/90";
-
-  const leadText = isCustom
-    ? t("pass.customLead1")
-    : effectiveProvider
-      ? t("pass.providerLead", { label: effectiveProvider.label })
-      : t("pass.lead");
 
   return (<div className="space-y-8">
     <div className="space-y-3">
       <h1 className="hd-wizard-title">{t("pass.title")}</h1>
-      <p className="hd-wizard-lead">{leadText}</p>
     </div>
 
     {!isCustom && (<ol className="hd-glass-subtle list-decimal space-y-2.5 pl-6 pr-4 py-4 hd-wizard-body">
@@ -279,7 +295,7 @@ export function GetAccessPass() {
       <label className="hd-wizard-label">{isCustom ? t("pass.labelKeyCustom") : t("pass.labelKey")}</label>
       <div className="relative">
         <input type="password" autoComplete="off" spellCheck={false} value={key} onChange={(e) => setKey(e.target.value)}
-          placeholder={preview?.hasSecret ? t("pass.keyPlaceholderSaved") : effectiveProvider?.keyPrefixHint ? `${effectiveProvider.keyPrefixHint}\u2026` : t("pass.phKey")}
+          placeholder={savedProviderMatchesSelection ? t("pass.keyPlaceholderSaved") : effectiveProvider?.keyPrefixHint ? `${effectiveProvider.keyPrefixHint}\u2026` : t("pass.phKey")}
           className={cn(
             f,
             "pr-10",
@@ -313,18 +329,8 @@ export function GetAccessPass() {
           {t("onboarding.back")}
         </WizardPrimaryButton>
         <WizardFooterActions>
-          <button
-            type="button"
-            className="hd-wizard-hint rounded-[var(--radius-shell-lg)] px-4 py-2.5 underline-offset-2 hover:underline"
-            onClick={() => {
-              setAllowChatWithoutApi();
-              nav("/chat", { replace: true });
-            }}
-          >
-            {t("pass.skipCta")}
-          </button>
           <WizardPrimaryButton onClick={() => void onSave()} disabled={busy || !canSubmit}>
-            {busy ? t("pass.checkWait") : preview?.hasSecret && !key.trim() ? t("pass.continueCta") : t("pass.cta")}
+            {busy ? t("pass.checkWait") : savedProviderMatchesSelection && !key.trim() ? t("pass.continueCta") : t("pass.cta")}
           </WizardPrimaryButton>
         </WizardFooterActions>
       </div>

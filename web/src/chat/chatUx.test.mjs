@@ -36,6 +36,7 @@ const useChatStateSource = fs.readFileSync(new URL("./hooks/useChatState.ts", im
 const sidebarSource = fs.readFileSync(new URL("./ChatSidebar.tsx", import.meta.url), "utf8");
 const messageListSource = fs.readFileSync(new URL("./ChatMessageList.tsx", import.meta.url), "utf8");
 const chatMessageSource = fs.readFileSync(new URL("./ChatMessage.tsx", import.meta.url), "utf8");
+const agentProgressSource = fs.readFileSync(new URL("./AgentProgress.tsx", import.meta.url), "utf8");
 
 const now = new Date("2026-05-13T10:00:00+08:00");
 
@@ -206,10 +207,17 @@ const workspacePanelSource = fs.readFileSync(
   new URL("./WorkspacePanel.tsx", import.meta.url),
   "utf8",
 );
+// Visual-master palettes were extracted into a shared module so the PptxGenJS
+// renderer (renderDeck.ts) and the WorkspacePanel selector use one source.
+const visualMastersSource = fs.readFileSync(
+  new URL("./pptx/visualMasters.ts", import.meta.url),
+  "utf8",
+);
 const chatInputSource = fs.readFileSync(new URL("./ChatInput.tsx", import.meta.url), "utf8");
 const appScaffoldSource = fs.readFileSync(new URL("../components/AppScaffold.tsx", import.meta.url), "utf8");
 const titleBarSource = fs.readFileSync(new URL("../components/WindowTitleBar.tsx", import.meta.url), "utf8");
 const indexCssSource = fs.readFileSync(new URL("../index.css", import.meta.url), "utf8");
+const stringsSource = fs.readFileSync(new URL("../locales/strings.ts", import.meta.url), "utf8");
 
 assert.match(indexCssSource, /kq-assistant-avatar-image[\s\S]*object-fit:\s*contain/);
 assert.match(indexCssSource, /kq-assistant-avatar-image[\s\S]*drop-shadow/);
@@ -230,6 +238,12 @@ assert.match(
   chatPageSource,
   /WorkspacePanel/,
   "ChatPage should render the workspace panel.",
+);
+
+assert.match(
+  stringsSource,
+  /workspaceTitle:\s*"ACADEMY"/,
+  "Chat workspace panel title should use ACADEMY.",
 );
 
 assert.match(
@@ -306,44 +320,43 @@ assert.equal(
 
 assert.match(
   workspacePanelSource,
-  /workspace\.currentGoal/,
-  "Workspace panel should render a Current Goal section.",
+  /workspace\.reportPpt[\s\S]*workspaceCourseToPpt[\s\S]*workspacePaperToPpt[\s\S]*workspaceCodeToPpt/,
+  "Workspace panel should group the three report PPT workflows under Generate Report PPT.",
 );
 
 assert.match(
   workspacePanelSource,
-  /workspace\.materials/,
-  "Workspace panel should render a Materials section.",
+  /workspace\.mathAbility[\s\S]*workspaceCodeToFormula[\s\S]*workspaceFormulaToCode[\s\S]*workspaceMathFormulaExtract/,
+  "Workspace panel should group code/formula conversion and formula extraction under Math Ability.",
 );
-
 assert.match(
   workspacePanelSource,
-  /workspace\.outputs/,
-  "Workspace panel should render an Outputs section.",
+  /semantic_contract[\s\S]*定义域\/取值范围[\s\S]*a < c < b[\s\S]*needs_human_check/,
+  "Formula-to-code prompt should require semantic contract checks, including open interval constraints.",
 );
 
-assert.match(
+assert.doesNotMatch(
   workspacePanelSource,
-  /materials\.length[\s\S]*items=\{materials\}/,
-  "Workspace panel should render dynamic materials.",
+  /workspace\.otherCommon|cron\.title|workspaceOpenWorkspace|workspaceOrganizeDesktop|chat\.exportButton/,
+  "Academy panel should not keep non-academy common actions.",
 );
 
 assert.match(
+  sidebarSource,
+  /workspaceOtherCommon[\s\S]*cron\.title[\s\S]*workspaceOpenWorkspace[\s\S]*workspaceOrganizeDesktop[\s\S]*chat\.exportButton/,
+  "Chat sidebar should move non-academy common actions below chat history.",
+);
+
+assert.doesNotMatch(
   workspacePanelSource,
-  /outputs\.length[\s\S]*items=\{outputs\}/,
-  "Workspace panel should render dynamic outputs.",
+  /workspace\.currentGoal|workspace\.materials|workspace\.outputs|materials\.length|outputs\.length|activeTool[\s\S]*activity\.map/,
+  "Workspace panel should hide current work, materials, and outputs for now.",
 );
 
-assert.match(
-  workspacePanelSource,
-  /activeTool[\s\S]*activity\.map/,
-  "Workspace panel should render current work and recent activity.",
-);
-
-assert.match(
+assert.doesNotMatch(
   workspacePanelSource,
   /workspace\.quickActions/,
-  "Workspace panel should render a Quick Actions section.",
+  "Workspace panel should replace the generic Quick Actions heading with explicit groups.",
 );
 
 assert.match(
@@ -402,6 +415,12 @@ assert.match(
   chatInputSource,
   /kq-input-footer[\s\S]*justify-center[\s\S]*chat\.hint/,
   "The input hint should stay centered below the composer.",
+);
+
+assert.match(
+  chatInputSource,
+  /syncTextareaHeight[\s\S]*scrollHeight[\s\S]*requestAnimationFrame/,
+  "The chat composer should auto-grow so long prompts remain visible while typing.",
 );
 
 assert.doesNotMatch(
@@ -552,9 +571,9 @@ assert.match(
 );
 
 assert.match(
-  workspacePanelSource,
-  /nav\("\/export"\)[\s\S]*chat\.exportButton/,
-  "Workspace quick actions should include Export Chat.",
+  sidebarSource,
+  /onExport[\s\S]*chat\.exportButton/,
+  "Sidebar common actions should include Export Chat.",
 );
 
 const exportPageSource = fs.readFileSync(new URL("../advanced/Export.tsx", import.meta.url), "utf8");
@@ -568,15 +587,20 @@ assert.match(chatExportSource, /parseDeskUserContent[\s\S]*speaker: labels\.prod
 assert.doesNotMatch(chatExportSource, /Hermes|hermesdesk-export/i);
 
 assert.match(
-  workspacePanelSource,
-  /nav\("\/settings\/cron"[\s\S]*kq-color-icon-alarm[\s\S]*cron\.title[\s\S]*kq-color-icon-folder[\s\S]*workspaceOrganizeDesktop[\s\S]*kq-color-icon-download[\s\S]*chat\.exportButton/,
-  "Workspace quick actions should use colorful icons with scheduled tasks first.",
+  sidebarSource,
+  /onOpenScheduledTasks[\s\S]*kq-color-icon-alarm[\s\S]*cron\.title[\s\S]*onOpenWorkspace[\s\S]*workspaceOpenWorkspace[\s\S]*kq-color-icon-folder[\s\S]*workspaceOrganizeDesktop[\s\S]*kq-color-icon-download[\s\S]*chat\.exportButton/,
+  "Sidebar common actions should use colorful icons with scheduled tasks and workspace opening first.",
 );
 
 assert.match(
   workspacePanelSource,
-  /workspaceCourseToPpt[\s\S]*course_report[\s\S]*workspacePaperToPpt[\s\S]*workspaceCodeToPpt[\s\S]*workspacePrecisePdf[\s\S]*review_outline[\s\S]*pptx_write[\s\S]*pdf_read_precise|review_outline[\s\S]*pptx_write[\s\S]*pdf_read_precise[\s\S]*workspaceCourseToPpt[\s\S]*workspacePaperToPpt[\s\S]*workspaceCodeToPpt[\s\S]*workspacePrecisePdf/,
-  "Workspace quick actions should expose student PPT and precise PDF workflows.",
+  /workspaceCourseToPpt[\s\S]*course_report[\s\S]*workspacePaperToPpt[\s\S]*workspaceCodeToPpt[\s\S]*review_outline[\s\S]*pptx_write[\s\S]*pdf_read_precise|review_outline[\s\S]*pptx_write[\s\S]*pdf_read_precise[\s\S]*workspaceCourseToPpt[\s\S]*workspacePaperToPpt[\s\S]*workspaceCodeToPpt/,
+  "Workspace quick actions should expose student PPT workflows while letting PDF uploads naturally use precise reading.",
+);
+assert.doesNotMatch(
+  workspacePanelSource,
+  /workspacePrecisePdf|precisePdfPrompt/,
+  "Workspace quick actions should not expose a standalone Precise PDF shortcut.",
 );
 
 assert.match(
@@ -592,16 +616,80 @@ assert.match(
 );
 
 assert.match(
-  workspacePanelSource,
+  visualMastersSource,
   /PPT_VISUAL_MASTERS[\s\S]*soft_editorial[\s\S]*blue_professional[\s\S]*signal[\s\S]*neo_grid_bold[\s\S]*editorial_forest/,
-  "Student PPT quick actions should expose the generated visual masters.",
+  "Shared visual masters module should expose the generated visual masters.",
+);
+assert.match(
+  visualMastersSource,
+  /blue_professional[\s\S]*#FDFAE7[\s\S]*#1E2BFA[\s\S]*neo_grid_bold[\s\S]*#E6FF3D[\s\S]*editorial_forest[\s\S]*#2E4A2A/,
+  "Student PPT visual master cards should use palette tokens from the actual visual master metadata.",
+);
+assert.match(
+  workspacePanelSource,
+  /import \{ PPT_VISUAL_MASTERS[\s\S]*from "\.\/pptx\/visualMasters"/,
+  "WorkspacePanel should consume the shared visual masters module.",
+);
+
+// Per-slide layout engine: each page is designed via a reusable layout
+// registry + content-driven chooseLayout (with optional planner hint).
+const renderDeckSource = fs.readFileSync(
+  new URL("./pptx/renderDeck.ts", import.meta.url),
+  "utf8",
+);
+assert.match(
+  renderDeckSource,
+  /export function chooseLayout[\s\S]*LAYOUTS\[chooseLayout\(spec\)\]\(ctx\)/,
+  "renderDeck should pick a per-slide layout via chooseLayout and a layout registry.",
+);
+for (const layoutId of [
+  "hero_statement",
+  "standard_bullets",
+  "two_column_bullets",
+  "comparison_cards",
+  "process_flow_horizontal",
+  "process_flow_vertical",
+  "data_table",
+  "media_placeholder",
+  "section_divider",
+]) {
+  assert.ok(
+    renderDeckSource.includes(layoutId),
+    `renderDeck layout registry should define ${layoutId}.`,
+  );
+}
+assert.match(
+  workspacePanelSource,
+  /comparison_cards[\s\S]*section_divider/,
+  "Student PPT prompt should tell the planner the optional per-slide layout choices.",
+);
+assert.match(
+  workspacePanelSource,
+  /pptMasterPreviewStyle[\s\S]*--kq-ppt-bg[\s\S]*--kq-ppt-accent[\s\S]*style=\{pptMasterPreviewStyle\(master\)\}/,
+  "Student PPT visual master previews should render from per-master palette data instead of stale CSS-only color classes.",
 );
 
 assert.match(workspacePanelSource, /workspacePptVisualMaster/, "Student PPT quick actions should label the visual master selector.");
 assert.match(
   workspacePanelSource,
+  /PptVisualMasterPreview[\s\S]*kq-ppt-master-preview[\s\S]*master=\{selectedPptVisualMaster\}/,
+  "Student PPT visual master selection should include an immediate visual preview.",
+);
+assert.match(
+  workspacePanelSource,
+  /join\("\\n\\n"\)[\s\S]*studentPptQualityRules[\s\S]*pptVisualMasterRule/,
+  "Student PPT prompts should use paragraph breaks instead of one dense block.",
+);
+assert.match(
+  workspacePanelSource,
   /visual_master[\s\S]*pptx_write[\s\S]*selectedPptVisualMaster\.id/,
   "Student PPT prompts should carry the selected visual_master into pptx_write.",
+);
+
+assert.match(
+  agentProgressSource,
+  /useState[\s\S]*collapsed[\s\S]*chat\.streamingWorking[\s\S]*progress\.steps\.length[\s\S]*ChevronDown/,
+  "Agent progress should collapse dense streaming tool rows into a one-line working status.",
 );
 
 assert.doesNotMatch(
@@ -624,8 +712,8 @@ assert.match(
 
 assert.doesNotMatch(
   sidebarSource,
-  /kq-reminder-card|cron\.title/,
-  "Scheduled tasks entry should not live in the sidebar footer.",
+  /kq-reminder-card/,
+  "Scheduled tasks entry should not regress to the old sidebar reminder card.",
 );
 
 assert.match(
@@ -690,4 +778,4 @@ const reminderSessionSource = fs.readFileSync(new URL("./reminderSession.ts", im
 const chatPageReminderSource = fs.readFileSync(new URL("./ChatPage.tsx", import.meta.url), "utf8");
 assert.match(reminderSessionSource, /hermesdesk-reminders/);
 assert.match(chatPageReminderSource, /openReminderSession[\s\S]*REMINDER_SESSION_ID/);
-assert.match(workspacePanelSource, /\/settings\/cron/);
+assert.match(chatPageReminderSource, /\/settings\/cron/);

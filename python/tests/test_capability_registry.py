@@ -55,6 +55,11 @@ class CapabilityRegistryTests(unittest.TestCase):
         self.assertIn("math_expression_cleanup", cleanup["tools"])
         self.assertIn("math_formula_to_code", formula_to_code["tools"])
         self.assertIn("code_to_math_formula", code_to_formula["tools"])
+        self.assertIn("semantic_contract", formula_to_code["agent_hint"])
+        self.assertIn(
+            "semantic_validation",
+            formula_to_code["pipelines"][0]["steps"][0]["outputs"],
+        )
 
     def test_load_package_dependencies_are_declared_on_capabilities(self):
         from capability_registry import get_capability_def
@@ -340,7 +345,11 @@ class CapabilityRegistryTests(unittest.TestCase):
         summary = build_capability_prompt_summary([status])
         self.assertIn("Formula to code: available", summary)
         self.assertIn("math_formula_to_code", summary)
-        self.assertIn("outputs: code, language, variable_table, assumptions, example_inputs", summary)
+        self.assertIn(
+            "outputs: code, language, variable_table, assumptions, example_inputs, semantic_validation",
+            summary,
+        )
+        self.assertIn("semantic_contract", summary)
 
     def test_disabled_required_toolset_marks_capability_disabled_after_packages_satisfied(self):
         from capability_registry import get_capability_def
@@ -455,6 +464,26 @@ class CapabilityRegistryTests(unittest.TestCase):
         self.assertIn("docling-math-document-read", summary)
         self.assertIn("document_read_precise(mode=math)", summary)
         self.assertIn("outputs: read_id, markdown, formulas", summary)
+
+    def test_agent_summary_mentions_ppt_visual_masters_and_renderer_check(self):
+        from capability_prompt import build_capability_prompt_summary
+        from capability_registry import get_capability_def
+        from capability_status import build_capability_status
+
+        capability = build_capability_status(
+            get_capability_def("student-ppt"),
+            load_packages={},
+            enabled_toolsets={"documents", "clarify"},
+        )
+
+        summary = build_capability_prompt_summary([capability])
+
+        self.assertIn("visual masters:", summary)
+        self.assertIn("soft_editorial=Soft Editorial", summary)
+        self.assertIn("neo_grid_bold=Neo Grid Bold", summary)
+        self.assertIn("visual_master to pptx_write", summary)
+        self.assertIn("visual_master_renderer", summary)
+        self.assertIn("pptxgenjs_v1", summary)
 
     def test_agent_summary_warns_candidate_capabilities_are_not_executable(self):
         from capability_prompt import build_capability_prompt_summary

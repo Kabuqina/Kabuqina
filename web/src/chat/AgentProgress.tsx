@@ -1,9 +1,12 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import { useState } from "react";
 import {
   AlertCircle,
   Check,
+  ChevronDown,
+  ChevronUp,
   FileText,
   Folder,
   Globe,
@@ -13,6 +16,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { cn } from "../lib/cn";
+import { useI18n } from "../lib/i18n";
 import type { AgentProgressState, AgentStep } from "./hooks/useAgentProgress";
 
 const TOOL_ICON_MAP: Record<string, typeof Wrench> = {
@@ -122,19 +126,60 @@ function StatusRow({ progress }: { progress: AgentProgressState }) {
 }
 
 export function AgentProgress({ progress }: { progress: AgentProgressState | null }) {
+  const { t } = useI18n();
+  const [collapsed, setCollapsed] = useState(false);
+
   if (!progress || (!progress.running && progress.steps.length === 0)) {
     return null;
+  }
+
+  const currentTool = progress.current_tool?.replace(/_/g, " ");
+  if (collapsed) {
+    return (
+      <button
+        type="button"
+        className={cn(
+          "inline-flex max-w-full items-center gap-2 rounded-2xl rounded-tl-sm border border-zinc-200/80 bg-white/85 px-3 py-2 text-left shadow-sm transition",
+          "hover:border-violet-200 hover:bg-white dark:border-zinc-700/70 dark:bg-zinc-900/70 dark:hover:border-zinc-600"
+        )}
+        onClick={() => setCollapsed(false)}
+        aria-label={t("chat.expand")}
+      >
+        <span aria-hidden className="text-base">
+          ✨
+        </span>
+        <span className="min-w-0 truncate text-sm font-medium text-zinc-600 dark:text-zinc-300">
+          {t("chat.streamingWorking")}
+          {currentTool ? ` · ${currentTool}` : ""}
+        </span>
+        {progress.steps.length > 0 && (
+          <span className="shrink-0 rounded-full bg-zinc-100 px-1.5 py-0.5 font-mono text-[11px] text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+            {progress.steps.length}
+          </span>
+        )}
+        <ChevronDown className="h-4 w-4 shrink-0 text-zinc-400" strokeWidth={2.25} />
+      </button>
+    );
   }
 
   return (
     <div
       className={cn(
-        "w-fit max-w-full rounded-2xl rounded-tl-sm border border-zinc-200/80 bg-white/85 px-3 py-2 shadow-sm",
+        "relative w-fit max-w-full rounded-2xl rounded-tl-sm border border-zinc-200/80 bg-white/85 px-3 py-2 shadow-sm",
         "dark:border-zinc-700/70 dark:bg-zinc-900/70"
       )}
       role="status"
       aria-label="Agent progress"
     >
+      <button
+        type="button"
+        className="absolute -right-1.5 -top-1.5 inline-flex h-6 w-6 items-center justify-center rounded-md bg-white/90 text-zinc-400 shadow-sm ring-1 ring-zinc-200/80 transition hover:bg-zinc-50 hover:text-zinc-700 dark:bg-zinc-900/90 dark:ring-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+        onClick={() => setCollapsed(true)}
+        aria-label={t("chat.collapse")}
+        title={t("chat.collapse")}
+      >
+        <ChevronUp className="h-3.5 w-3.5" strokeWidth={2.5} />
+      </button>
       <div className="space-y-0.5">
         {progress.steps.map((s) => (
           <StepRow key={s.seq} step={s} />

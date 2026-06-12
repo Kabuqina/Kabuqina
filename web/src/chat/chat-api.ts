@@ -150,12 +150,15 @@ export function cmdDeskStop(sessionId: string): Promise<unknown> {
 
 export type AgentInteractionRequest = {
   id: string;
-  kind: "choice" | "text" | "outline_review" | string;
+  kind: "choice" | "text" | "outline_review" | "pptx_render" | string;
   question: string;
   choices: string[];
   artifact?: {
     type?: string;
     content?: string;
+    /** For kind="pptx_render": the structured deck spec built by pptx_write. */
+    deck?: unknown;
+    filename?: string;
     [key: string]: unknown;
   } | null;
   created_at?: number;

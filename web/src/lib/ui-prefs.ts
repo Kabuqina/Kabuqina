@@ -10,11 +10,20 @@ import { useCallback, useEffect, useState } from "react";
 
 const FONT_SIZE_KEY = "hermesdesk.ui.fontSize";
 export const THEME_MODE_KEY = "hermesdesk.ui.themeMode";
+export const CUSTOM_COMPANION_IMAGE_KEY = "hermesdesk.ui.customCompanionImage";
+export const MAX_CUSTOM_COMPANION_IMAGE_BYTES = 1024 * 1024;
+
+const CUSTOM_COMPANION_IMAGE_EVENT = "kabuqina-custom-companion-image";
+const CUSTOM_COMPANION_IMAGE_TYPES = new Set(["image/png", "image/webp", "image/svg+xml"]);
 
 export type ThemeMode = "system" | "light" | "dark";
 export type ResolvedTheme = "light" | "dark";
 
 export type FontSizeOption = "small" | "medium" | "large";
+
+export type CustomCompanionImageValidation =
+  | { ok: true }
+  | { ok: false; reason: "type" | "size" };
 
 const ROOT_PX: Record<FontSizeOption, string> = {
   small: "14px",
@@ -128,4 +137,59 @@ export function useThemeMode() {
   }, []);
 
   return { mode, setMode, resolved };
+}
+
+export function validateCustomCompanionImageFile(file: File): CustomCompanionImageValidation {
+  if (!CUSTOM_COMPANION_IMAGE_TYPES.has(file.type)) {
+    return { ok: false, reason: "type" };
+  }
+  if (file.size > MAX_CUSTOM_COMPANION_IMAGE_BYTES) {
+    return { ok: false, reason: "size" };
+  }
+  return { ok: true };
+}
+
+export function getCustomCompanionImage(): string | null {
+  if (typeof window === "undefined" || !window.localStorage) {
+    return null;
+  }
+  const value = window.localStorage.getItem(CUSTOM_COMPANION_IMAGE_KEY);
+  return value?.startsWith("data:image/") ? value : null;
+}
+
+function emitCustomCompanionImageChanged() {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.dispatchEvent(new Event(CUSTOM_COMPANION_IMAGE_EVENT));
+}
+
+export function setCustomCompanionImage(dataUrl: string): void {
+  if (typeof window !== "undefined" && window.localStorage) {
+    window.localStorage.setItem(CUSTOM_COMPANION_IMAGE_KEY, dataUrl);
+  }
+  emitCustomCompanionImageChanged();
+}
+
+export function clearCustomCompanionImage(): void {
+  if (typeof window !== "undefined" && window.localStorage) {
+    window.localStorage.removeItem(CUSTOM_COMPANION_IMAGE_KEY);
+  }
+  emitCustomCompanionImageChanged();
+}
+
+export function useCustomCompanionImage() {
+  const [image, setImage] = useState<string | null>(getCustomCompanionImage);
+
+  useEffect(() => {
+    const sync = () => setImage(getCustomCompanionImage());
+    window.addEventListener("storage", sync);
+    window.addEventListener(CUSTOM_COMPANION_IMAGE_EVENT, sync);
+    return () => {
+      window.removeEventListener("storage", sync);
+      window.removeEventListener(CUSTOM_COMPANION_IMAGE_EVENT, sync);
+    };
+  }, []);
+
+  return image;
 }

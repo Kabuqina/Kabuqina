@@ -1,21 +1,32 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import { useRef, useState } from "react";
 import { useI18n } from "../../lib/i18n";
 import {
   FolderOpen,
+  ImageIcon,
   Languages,
   Moon,
+  RotateCcw,
   Shield,
   Type,
+  Upload,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 import { Section } from "../../components/ui/Section";
 import { Button } from "../../components/ui/Button";
 import { Toggle } from "../../components/ui/Toggle";
 import { cn } from "../../lib/cn";
 import { LanguageToggle } from "../../components/LanguageToggle";
-import type { ThemeMode } from "../../lib/ui-prefs";
+import {
+  clearCustomCompanionImage,
+  getCustomCompanionImage,
+  setCustomCompanionImage,
+  validateCustomCompanionImageFile,
+  type ThemeMode,
+} from "../../lib/ui-prefs";
 import type { Status } from "../Settings";
 
 interface Props {
@@ -26,6 +37,20 @@ interface Props {
   onSetFontSize: (size: "small" | "medium" | "large") => void;
   themeMode: ThemeMode;
   onSetThemeMode: (mode: ThemeMode) => void;
+  onWorkspaceChanged: () => void | Promise<void>;
+}
+
+type WorkspaceUpdateResult = {
+  workspace: string;
+  migrated: boolean;
+  copiedFiles: number;
+  copiedDirs: number;
+  conflicts: number;
+  skippedEntries: number;
+};
+
+function ipcErr(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
 }
 
 export function SettingsDisplay({
@@ -36,8 +61,94 @@ export function SettingsDisplay({
   onSetFontSize,
   themeMode,
   onSetThemeMode,
+  onWorkspaceChanged,
 }: Props) {
   const { t } = useI18n();
+  const companionImageInputRef = useRef<HTMLInputElement>(null);
+  const [customCompanionImage, setCustomCompanionImageState] = useState<string | null>(
+    getCustomCompanionImage
+  );
+  const [companionImageError, setCompanionImageError] = useState<string | null>(null);
+  const [workspaceMigrateFiles, setWorkspaceMigrateFiles] = useState(true);
+  const [workspaceBusy, setWorkspaceBusy] = useState(false);
+  const [workspaceNotice, setWorkspaceNotice] = useState<string | null>(null);
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
+
+  const handleCompanionImagePicked = (file: File | undefined) => {
+    if (!file) return;
+    const validation = validateCustomCompanionImageFile(file);
+    if (!validation.ok) {
+      setCompanionImageError(
+        validation.reason === "size"
+          ? t("settings.companionImageErrSize")
+          : t("settings.companionImageErrType")
+      );
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = typeof reader.result === "string" ? reader.result : "";
+      if (!dataUrl.startsWith("data:image/")) {
+        setCompanionImageError(t("settings.companionImageErrType"));
+        return;
+      }
+      setCustomCompanionImage(dataUrl);
+      setCustomCompanionImageState(dataUrl);
+      setCompanionImageError(null);
+    };
+    reader.onerror = () => {
+      setCompanionImageError(t("settings.companionImageErrRead"));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const resetCompanionImage = () => {
+    clearCustomCompanionImage();
+    setCustomCompanionImageState(null);
+    setCompanionImageError(null);
+    if (companionImageInputRef.current) {
+      companionImageInputRef.current.value = "";
+    }
+  };
+
+  const applyWorkspace = async (path: string) => {
+    setWorkspaceBusy(true);
+    setWorkspaceNotice(null);
+    setWorkspaceError(null);
+    try {
+      const result = await invoke<WorkspaceUpdateResult>("cmd_set_workspace", {
+        path,
+        migrateFiles: workspaceMigrateFiles,
+      });
+      setWorkspaceNotice(
+        result.migrated
+          ? t("settings.workspaceChangedMigrated", {
+              files: result.copiedFiles,
+              conflicts: result.conflicts,
+            })
+          : t("settings.workspaceChanged")
+      );
+      await onWorkspaceChanged();
+    } catch (e) {
+      setWorkspaceError(t("settings.workspaceChangeFailed", { msg: ipcErr(e) }));
+    } finally {
+      setWorkspaceBusy(false);
+    }
+  };
+
+  const chooseWorkspace = async () => {
+    const selected = await open({
+      directory: true,
+      multiple: false,
+      title: t("settings.workspaceChooseTitle"),
+    });
+    if (!selected || Array.isArray(selected)) return;
+    await applyWorkspace(selected);
+  };
+
+  const resetWorkspace = async () => {
+    await applyWorkspace("");
+  };
 
   return (
     <>
@@ -102,17 +213,91 @@ export function SettingsDisplay({
       <Section icon={Languages} title={t("settings.langTitle")} desc={t("settings.langDesc")} action={<LanguageToggle />} />
 
       <Section
+        icon={ImageIcon}
+        title={t("settings.companionImageTitle")}
+        desc={t("settings.companionImageDesc")}
+      >
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <div className="grid h-28 w-28 shrink-0 place-items-center rounded-[var(--radius-shell-lg)] border border-[var(--kq-color-border)] bg-[var(--kq-color-primary-pale)]/35 p-2 dark:border-zinc-700 dark:bg-zinc-800/50">
+            <img
+              src={customCompanionImage ?? "/kabuqina_pill_scene.svg"}
+              alt=""
+              className="max-h-full max-w-full object-contain"
+              draggable={false}
+            />
+          </div>
+          <div className="min-w-0 flex-1 space-y-3">
+            <p className="text-sm leading-relaxed text-[var(--kq-color-ink)] dark:text-zinc-300">
+              {t("settings.companionImageSpec")}
+            </p>
+            {companionImageError ? (
+              <p className="text-sm leading-relaxed text-red-600 dark:text-red-400">
+                {companionImageError}
+              </p>
+            ) : null}
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                ref={companionImageInputRef}
+                type="file"
+                accept="image/png,image/webp,image/svg+xml"
+                className="hidden"
+                onChange={(event) => handleCompanionImagePicked(event.currentTarget.files?.[0])}
+              />
+              <Button onClick={() => companionImageInputRef.current?.click()}>
+                <Upload className="mr-2 h-4 w-4" aria-hidden />
+                {t("settings.companionImageUpload")}
+              </Button>
+              <Button variant="secondary" onClick={resetCompanionImage} disabled={!customCompanionImage}>
+                {t("settings.companionImageReset")}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Section>
+
+      <Section
         icon={FolderOpen}
         title={t("settings.secWorkspace")}
         desc={powerUser ? t("settings.secWorkspaceDescPower") : t("settings.secWorkspaceDescSimple")}
         action={powerUser ? <Button onClick={() => invoke("cmd_open_workspace")}>{t("settings.openFolder")}</Button> : undefined}
       >
         {powerUser ? (
-          <p className="w-full break-all font-mono text-xs leading-relaxed text-zinc-800 dark:text-zinc-200">
-            <span className="inline-block max-w-full rounded-md bg-zinc-100 px-2 py-1.5 dark:bg-zinc-800/90">
-              {status?.workspace ?? "…"}
-            </span>
-          </p>
+          <div className="space-y-3">
+            <p className="w-full break-all font-mono text-xs leading-relaxed text-zinc-800 dark:text-zinc-200">
+              <span className="inline-block max-w-full rounded-md bg-zinc-100 px-2 py-1.5 dark:bg-zinc-800/90">
+                {status?.workspace ?? "…"}
+              </span>
+            </p>
+            <label className="flex flex-wrap items-center gap-3 text-sm text-[var(--kq-color-ink)] dark:text-zinc-300">
+              <Toggle
+                value={workspaceMigrateFiles}
+                onChange={setWorkspaceMigrateFiles}
+                disabled={workspaceBusy}
+                aria-label={t("settings.workspaceMigrateFiles")}
+              />
+              <span>{t("settings.workspaceMigrateFiles")}</span>
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => void chooseWorkspace()} disabled={workspaceBusy}>
+                <FolderOpen className="h-4 w-4" aria-hidden />
+                {workspaceBusy ? t("settings.workspaceChanging") : t("settings.workspaceChoose")}
+              </Button>
+              <Button variant="secondary" onClick={() => void resetWorkspace()} disabled={workspaceBusy}>
+                <RotateCcw className="h-4 w-4" aria-hidden />
+                {t("settings.workspaceResetDefault")}
+              </Button>
+            </div>
+            {workspaceNotice ? (
+              <p className="text-sm leading-relaxed text-emerald-700 dark:text-emerald-300">
+                {workspaceNotice}
+              </p>
+            ) : null}
+            {workspaceError ? (
+              <p className="text-sm leading-relaxed text-red-600 dark:text-red-400">
+                {workspaceError}
+              </p>
+            ) : null}
+          </div>
         ) : null}
       </Section>
 

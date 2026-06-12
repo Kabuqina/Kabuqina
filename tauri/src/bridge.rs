@@ -263,7 +263,8 @@ async fn handle_approval(
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
-            ask_user_to_approve_messaging(&st.app, &st.approval_store, &target, &content_preview).await
+            ask_user_to_approve_messaging(&st.app, &st.approval_store, &target, &content_preview)
+                .await
         }
         "cron" => {
             let action = payload

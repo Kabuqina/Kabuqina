@@ -4,6 +4,7 @@
 //! Path helpers + workspace setup.
 
 use anyhow::{Context, Result};
+use serde::Serialize;
 use std::path::{Component, Path, PathBuf};
 use tauri::{AppHandle, Manager};
 
@@ -11,6 +12,26 @@ const SETTING_POWER_USER: &str = "hermesdesk.power_user";
 const SETTING_WORKSPACE: &str = "hermesdesk.workspace";
 const SETTING_SHOW_RECIPE_MARKET: &str = "hermesdesk.show_recipe_market";
 const SETTING_AUTO_GATEWAY: &str = "hermesdesk.auto_start_gateway";
+
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceMigrationSummary {
+    pub copied_files: u64,
+    pub copied_dirs: u64,
+    pub conflicts: u64,
+    pub skipped_entries: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceUpdateResult {
+    pub workspace: String,
+    pub migrated: bool,
+    pub copied_files: u64,
+    pub copied_dirs: u64,
+    pub conflicts: u64,
+    pub skipped_entries: u64,
+}
 
 /// Resolve `%USERPROFILE%\Documents\KabuqinaWork`, creating it if missing.
 pub fn ensure_workspace(app: &AppHandle) -> Result<PathBuf> {
@@ -177,6 +198,112 @@ pub fn cmd_open_workspace(app: AppHandle) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+pub fn set_workspace_path(
+    app: &AppHandle,
+    path_str: String,
+    migrate_files: bool,
+) -> Result<WorkspaceUpdateResult, String> {
+    let previous = ensure_workspace(app).map_err(|e| e.to_string())?;
+    let trimmed = path_str.trim();
+    let target = if trimmed.is_empty() {
+        default_workspace(app).map_err(|e| e.to_string())?
+    } else {
+        PathBuf::from(trimmed)
+    };
+    if !target.is_absolute() {
+        return Err("Workspace path must be absolute.".into());
+    }
+
+    let normalized_target = normalize_path_lexically(&target);
+    let normalized_previous = normalize_path_lexically(&previous);
+    let same_path = normalized_paths_equal(&normalized_previous, &normalized_target);
+    let mut summary = WorkspaceMigrationSummary::default();
+    if migrate_files && !same_path {
+        summary = migrate_workspace_contents(&normalized_previous, &normalized_target)
+            .map_err(|e| e.to_string())?;
+    } else {
+        std::fs::create_dir_all(&normalized_target)
+            .map_err(|e| format!("creating workspace {}: {e}", normalized_target.display()))?;
+    }
+
+    write_setting(app, SETTING_WORKSPACE, trimmed).map_err(|e| e.to_string())?;
+    Ok(WorkspaceUpdateResult {
+        workspace: normalized_target.display().to_string(),
+        migrated: migrate_files && !same_path,
+        copied_files: summary.copied_files,
+        copied_dirs: summary.copied_dirs,
+        conflicts: summary.conflicts,
+        skipped_entries: summary.skipped_entries,
+    })
+}
+
+pub fn migrate_workspace_contents(
+    source: &Path,
+    destination: &Path,
+) -> Result<WorkspaceMigrationSummary> {
+    let source = normalize_path_lexically(source);
+    let destination = normalize_path_lexically(destination);
+    if normalized_path_is_within(&destination, &source) {
+        anyhow::bail!("new workspace cannot be inside the current workspace");
+    }
+    if !source.exists() {
+        std::fs::create_dir_all(&destination)
+            .with_context(|| format!("creating workspace {}", destination.display()))?;
+        return Ok(WorkspaceMigrationSummary::default());
+    }
+
+    std::fs::create_dir_all(&destination)
+        .with_context(|| format!("creating workspace {}", destination.display()))?;
+    let mut summary = WorkspaceMigrationSummary::default();
+    copy_workspace_dir(&source, &destination, &mut summary)?;
+    Ok(summary)
+}
+
+fn copy_workspace_dir(
+    source: &Path,
+    destination: &Path,
+    summary: &mut WorkspaceMigrationSummary,
+) -> Result<()> {
+    for entry in std::fs::read_dir(source)
+        .with_context(|| format!("reading workspace {}", source.display()))?
+    {
+        let entry = entry?;
+        let from = entry.path();
+        let rel = from.strip_prefix(source).unwrap_or(&from);
+        let to = destination.join(rel);
+        let meta = std::fs::symlink_metadata(&from)
+            .with_context(|| format!("reading metadata {}", from.display()))?;
+        let file_type = meta.file_type();
+        if file_type.is_symlink() {
+            summary.skipped_entries += 1;
+            continue;
+        }
+        if meta.is_dir() {
+            if !to.exists() {
+                std::fs::create_dir_all(&to)
+                    .with_context(|| format!("creating directory {}", to.display()))?;
+                summary.copied_dirs += 1;
+            }
+            copy_workspace_dir(&from, &to, summary)?;
+        } else if meta.is_file() {
+            if to.exists() {
+                summary.conflicts += 1;
+                continue;
+            }
+            if let Some(parent) = to.parent() {
+                std::fs::create_dir_all(parent)
+                    .with_context(|| format!("creating directory {}", parent.display()))?;
+            }
+            std::fs::copy(&from, &to)
+                .with_context(|| format!("copying {} to {}", from.display(), to.display()))?;
+            summary.copied_files += 1;
+        } else {
+            summary.skipped_entries += 1;
+        }
+    }
+    Ok(())
+}
+
 fn write_setting(app: &AppHandle, key: &str, value: &str) -> Result<()> {
     let dir = app.path().app_local_data_dir().context("local data dir")?;
     std::fs::create_dir_all(&dir)?;
@@ -310,6 +437,23 @@ fn path_is_within(path: &Path, root: &Path) -> bool {
     path == root || path.starts_with(root)
 }
 
+fn normalized_paths_equal(left: &Path, right: &Path) -> bool {
+    normalized_components_lower(left) == normalized_components_lower(right)
+}
+
+fn normalized_path_is_within(path: &Path, root: &Path) -> bool {
+    let path_components = normalized_components_lower(path);
+    let root_components = normalized_components_lower(root);
+    path_components == root_components || path_components.starts_with(&root_components)
+}
+
+fn normalized_components_lower(path: &Path) -> Vec<String> {
+    normalize_path_lexically(path)
+        .components()
+        .map(|component| component.as_os_str().to_string_lossy().to_ascii_lowercase())
+        .collect()
+}
+
 fn normalize_path_lexically(path: &Path) -> PathBuf {
     let mut out = PathBuf::new();
     for component in path.components() {
@@ -343,7 +487,9 @@ pub fn cmd_save_shared_prefs(app: AppHandle, content: String) -> Result<(), Stri
 
 #[cfg(test)]
 mod tests {
-    use super::{cmd_write_text_file, parse_auto_start_gateway_setting};
+    use super::{
+        cmd_write_text_file, migrate_workspace_contents, parse_auto_start_gateway_setting,
+    };
 
     fn unique_temp_path(name: &str) -> std::path::PathBuf {
         std::env::temp_dir().join(format!("kabuqina-path-test-{}-{name}", std::process::id()))
@@ -374,5 +520,71 @@ mod tests {
     #[test]
     fn auto_start_gateway_defaults_to_manual_start() {
         assert!(!parse_auto_start_gateway_setting(None));
+    }
+
+    #[test]
+    fn migrate_workspace_copies_nested_and_hidden_files() {
+        let root = unique_temp_path("workspace-copy");
+        let old = root.join("old");
+        let new = root.join("new");
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(old.join(".hermesdesk")).unwrap();
+        std::fs::create_dir_all(old.join("notes")).unwrap();
+        std::fs::write(old.join(".hermesdesk").join("state.json"), "{}").unwrap();
+        std::fs::write(old.join("notes").join("draft.md"), "hello").unwrap();
+
+        let summary = migrate_workspace_contents(&old, &new).unwrap();
+
+        assert_eq!(summary.copied_files, 2);
+        assert_eq!(summary.conflicts, 0);
+        assert_eq!(
+            std::fs::read_to_string(new.join(".hermesdesk").join("state.json")).unwrap(),
+            "{}"
+        );
+        assert_eq!(
+            std::fs::read_to_string(new.join("notes").join("draft.md")).unwrap(),
+            "hello"
+        );
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn migrate_workspace_keeps_existing_destination_files() {
+        let root = unique_temp_path("workspace-conflict");
+        let old = root.join("old");
+        let new = root.join("new");
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&old).unwrap();
+        std::fs::create_dir_all(&new).unwrap();
+        std::fs::write(old.join("draft.md"), "old").unwrap();
+        std::fs::write(new.join("draft.md"), "new").unwrap();
+
+        let summary = migrate_workspace_contents(&old, &new).unwrap();
+
+        assert_eq!(summary.copied_files, 0);
+        assert_eq!(summary.conflicts, 1);
+        assert_eq!(
+            std::fs::read_to_string(new.join("draft.md")).unwrap(),
+            "new"
+        );
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn migrate_workspace_rejects_destination_inside_source() {
+        let root = unique_temp_path("workspace-nested");
+        let old = root.join("old");
+        let new = old.join("child");
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&old).unwrap();
+
+        let result = migrate_workspace_contents(&old, &new);
+
+        assert!(result.is_err());
+        assert!(!new.exists());
+
+        let _ = std::fs::remove_dir_all(&root);
     }
 }

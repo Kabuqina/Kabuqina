@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use rand::RngCore;
 use tauri::{AppHandle, Emitter};
-use tokio::sync::{Mutex, oneshot};
+use tokio::sync::{oneshot, Mutex};
 
 pub const EVENT_NAME: &str = "hermes-approval-request";
 

@@ -9234,6 +9234,19 @@ class AIAgent:
                 choices=function_args.get("choices"),
                 callback=self.clarify_callback,
             )
+        elif function_name == "pptx_write":
+            # PptxGenJS renders the deck in the desktop web layer; the writer
+            # emits a kind="pptx_render" interaction and persists the returned
+            # bytes. Route the clarify callback like review_outline.
+            from tools.document_tools import pptx_write as _pptx_write
+            return _pptx_write(
+                path=function_args.get("path", ""),
+                title=function_args.get("title", ""),
+                slides=function_args.get("slides") or [],
+                template=function_args.get("template", "course_report"),
+                visual_master=function_args.get("visual_master", "default_native"),
+                callback=self.clarify_callback,
+            )
         elif function_name == "delegate_task":
             return self._dispatch_delegate_task(function_args)
         else:

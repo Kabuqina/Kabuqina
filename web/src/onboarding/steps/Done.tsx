@@ -33,7 +33,6 @@ export function Done() {
     <div className="space-y-8">
       <div className="space-y-3">
         <h1 className="hd-wizard-title">{t("done.title")}</h1>
-        <p className="hd-wizard-lead">{t("done.lead")}</p>
       </div>
 
       <div className="hd-glass-subtle space-y-2 p-5">

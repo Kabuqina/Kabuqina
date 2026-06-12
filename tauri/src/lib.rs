@@ -137,15 +137,18 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_notification::init())
         .manage(state)
+        .manage(capture::CaptureState::default())
         .invoke_handler(tauri::generate_handler![
             secrets::cmd_save_secret,
             secrets::cmd_has_secret,
             secrets::cmd_llm_config_preview,
+            secrets::cmd_update_llm_config,
             secrets::cmd_clear_secret,
             secrets::cmd_validate_endpoint,
             python_supervisor::cmd_python_status,
             paths::cmd_workspace_path,
             paths::cmd_open_workspace,
+            cmd_set_workspace,
             paths::cmd_get_power_user,
             cmd_set_power_user,
             paths::cmd_get_show_recipe_market,
@@ -643,10 +646,7 @@ async fn bootstrap(app: tauri::AppHandle) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    log::info!(
-        "bootstrap setup_ms={}",
-        boot_t0.elapsed().as_millis()
-    );
+    log::info!("bootstrap setup_ms={}", boot_t0.elapsed().as_millis());
 
     // 2. Stand up the loopback bridge (secret handshake + shell approval + desktop delivery).
     let (desktop_q, approval_store) = {
@@ -792,6 +792,19 @@ pub(crate) async fn respawn_embedded_hermes_python(app: tauri::AppHandle) -> Res
 async fn cmd_set_power_user(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
     paths::set_power_user_enabled(&app, enabled)?;
     respawn_embedded_hermes_python(app).await.map(|_| ())
+}
+
+/// Persist a custom workspace path and restart embedded Python so the workspace
+/// environment variables used by Hermes and gateway children are refreshed.
+#[tauri::command]
+async fn cmd_set_workspace(
+    app: tauri::AppHandle,
+    path: String,
+    migrate_files: bool,
+) -> Result<paths::WorkspaceUpdateResult, String> {
+    let result = paths::set_workspace_path(&app, path, migrate_files)?;
+    respawn_embedded_hermes_python(app).await?;
+    Ok(result)
 }
 
 /// Get the Hermes Python backend port (for diagnostics and fallbacks).

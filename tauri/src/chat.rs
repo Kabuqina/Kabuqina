@@ -10,8 +10,8 @@
 //! `GET /` (``__HERMES_SESSION_TOKEN__`` in ``index.html``) — no bundle step
 //! required for the token to exist.
 
-use crate::AppState;
 use crate::paths;
+use crate::AppState;
 use base64::Engine;
 use futures_util::StreamExt;
 use once_cell::sync::OnceCell;
@@ -26,6 +26,14 @@ use tauri::Manager;
 use tokio::sync::Mutex as AsyncMutex;
 
 const HERMES_HTTP_TIMEOUT: Duration = Duration::from_secs(600);
+/// Idle (between-chunks) timeout for the long-lived chat SSE stream. A chat turn
+/// can legitimately run for many minutes — slow document reads, plus
+/// human-in-the-loop steps (review_outline, pptx_render). The Python side emits
+/// ``: keepalive`` ~4x/sec, so the connection is never truly idle while alive.
+/// We therefore must NOT put a *total* request timeout on the stream (that would
+/// abort a healthy long turn and drop the session); an idle read timeout still
+/// catches a genuinely dead connection.
+const HERMES_STREAM_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
 /// Cached ``(port, bearer)`` for the in-process Hermes process.
 type BearerEntry = (u16, String);
 static HERMES_BEARER_CACHE: OnceCell<AsyncMutex<Option<BearerEntry>>> = OnceCell::new();
@@ -42,6 +50,18 @@ pub(crate) fn http_client() -> reqwest::Client {
         .timeout(HERMES_HTTP_TIMEOUT)
         .build()
         .expect("reqwest client")
+}
+
+/// HTTP client for the chat SSE stream: no *total* timeout (turns may run for
+/// many minutes incl. human review), only an idle ``read_timeout`` so a dead
+/// connection is still detected. See ``HERMES_STREAM_IDLE_TIMEOUT``.
+pub(crate) fn streaming_http_client() -> reqwest::Client {
+    reqwest::Client::builder()
+        .no_proxy()
+        .connect_timeout(Duration::from_secs(30))
+        .read_timeout(HERMES_STREAM_IDLE_TIMEOUT)
+        .build()
+        .expect("reqwest streaming client")
 }
 
 async fn desk_json_request(
@@ -267,7 +287,11 @@ fn prepare_desk_chat_body(
                 }));
             }
         }
-        if out.is_empty() { None } else { Some(out) }
+        if out.is_empty() {
+            None
+        } else {
+            Some(out)
+        }
     } else {
         None
     };
@@ -324,7 +348,7 @@ pub async fn cmd_chat_send_stream(
     let base = hermes_base(&app).await?;
     let token = desk_auth_header(&app).await?;
     let body = prepare_desk_chat_body(&app, &message, session_id.as_ref(), attachments.as_ref())?;
-    let client = http_client();
+    let client = streaming_http_client();
     let mut req = client
         .post(format!("{base}/api/desk/chat-stream"))
         .header("X-HermesDesk-Auth", &token)

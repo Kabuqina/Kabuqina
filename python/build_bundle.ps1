@@ -426,10 +426,26 @@ Copy-Item -Force (Join-Path $PSScriptRoot "src\env_validate.py") (Join-Path $Dis
 Copy-Item -Force (Join-Path $PSScriptRoot "src\feishu_qr_worker.py") (Join-Path $Dist "feishu_qr_worker.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\stt_wrapper.py") (Join-Path $Dist "stt_wrapper.py")
 
+# PPT visual masters are loaded at runtime by hermes/tools/document_tools.py.
+# Keep this path at runtime/assets/ppt/visual-masters so source and bundled layouts match.
+$visualMastersSrc = Join-Path (Join-Path (Join-Path $Root "assets") "ppt") "visual-masters"
+$visualMastersDest = Join-Path (Join-Path (Join-Path $Dist "assets") "ppt") "visual-masters"
+if (-not (Test-Path $visualMastersSrc)) {
+    throw "PPT visual masters missing at $visualMastersSrc"
+}
+Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $visualMastersDest
+New-Item -ItemType Directory -Force -Path (Split-Path $visualMastersDest -Parent) | Out-Null
+Copy-Item -Recurse -Force $visualMastersSrc $visualMastersDest
+
 # A pth file so the bundled hermes/ + site-packages are on sys.path
 $pthBody = @(
-    "..\hermes",
-    "..\site-packages"
+    "..\..\..",
+    "..\..\..\hermes",
+    "..\..\..\site-packages",
+    "..\..\..\site-packages\win32",
+    "..\..\..\site-packages\win32\lib",
+    "..\..\..\site-packages\pythonwin",
+    "import pywin32_bootstrap"
 ) -join "`n"
 Set-Content -Path (Join-Path $pyDir "Lib\site-packages\hermesdesk.pth") -Value $pthBody -Encoding ASCII
 

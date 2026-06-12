@@ -1,19 +1,26 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { LogicalSize } from "@tauri-apps/api/dpi";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { CompanionPillScene } from "../components/CompanionPillScene";
 import { cn } from "../lib/cn";
 import { useI18n } from "../lib/i18n";
+import {
+  clearCustomCompanionImage,
+  setCustomCompanionImage,
+  validateCustomCompanionImageFile,
+} from "../lib/ui-prefs";
 
 /** Pixels²: move more than sqrt(this) before we call `startDragging`, so plain double‑clicks open main. */
 const COMPACT_DRAG_SQ_THRESHOLD = 7 * 7;
 /** Match `.kq-companion-pill-scene` (6.2rem × 6.15rem). */
 const PILL_REM_W = 6.2;
 const PILL_REM_H = 6.15;
+const MENU_REM_W = 20.25;
+const MENU_REM_H = 8.75;
 
 function rootFontPx(): number {
   const px = parseFloat(getComputedStyle(document.documentElement).fontSize);
@@ -25,6 +32,14 @@ function pillLogicalSize(): { w: number; h: number } {
   return {
     w: Math.ceil(PILL_REM_W * rootPx),
     h: Math.ceil(PILL_REM_H * rootPx),
+  };
+}
+
+function menuLogicalSize(): { w: number; h: number } {
+  const rootPx = rootFontPx();
+  return {
+    w: Math.ceil(MENU_REM_W * rootPx),
+    h: Math.ceil(MENU_REM_H * rootPx),
   };
 }
 
@@ -50,7 +65,10 @@ async function placeCompanionWindow(): Promise<void> {
 }
 
 export function CompanionWindow() {
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
   const compactDragRef = useRef<{
     down: boolean;
     startX: number;
@@ -66,14 +84,14 @@ export function CompanionWindow() {
 
   useEffect(() => {
     const sync = () => {
-      const { w, h } = pillLogicalSize();
+      const { w, h } = menuOpen ? menuLogicalSize() : pillLogicalSize();
       void resizeCompanionWindow(w, h).then(() => placeCompanionWindow());
     };
     sync();
     const observer = new ResizeObserver(sync);
     observer.observe(document.documentElement);
     return () => observer.disconnect();
-  }, []);
+  }, [menuOpen]);
 
   useEffect(() => {
     const root = document.getElementById("root");
@@ -100,6 +118,60 @@ export function CompanionWindow() {
 
   const openMain = () => {
     void invoke("cmd_focus_main_window");
+  };
+
+  const openCompanionMenu = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    compactDragRef.current = {
+      down: false,
+      startX: 0,
+      startY: 0,
+      started: false,
+    };
+    setImageError(null);
+    setMenuOpen(true);
+  };
+
+  const closeCompanionMenu = () => {
+    setMenuOpen(false);
+    setImageError(null);
+  };
+
+  const handleCompanionImagePicked = (file: File | undefined) => {
+    if (!file) return;
+    const validation = validateCustomCompanionImageFile(file);
+    if (!validation.ok) {
+      setImageError(
+        validation.reason === "size"
+          ? t("settings.companionImageErrSize")
+          : t("settings.companionImageErrType")
+      );
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = typeof reader.result === "string" ? reader.result : "";
+      if (!dataUrl.startsWith("data:image/")) {
+        setImageError(t("settings.companionImageErrType"));
+        return;
+      }
+      setCustomCompanionImage(dataUrl);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      closeCompanionMenu();
+    };
+    reader.onerror = () => setImageError(t("settings.companionImageErrRead"));
+    reader.readAsDataURL(file);
+  };
+
+  const resetCompanionImage = () => {
+    clearCustomCompanionImage();
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+    closeCompanionMenu();
   };
 
   const onCompactPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -164,6 +236,7 @@ export function CompanionWindow() {
       className={cn(
         "hermes-titlebar-nodrag flex h-screen w-screen cursor-pointer touch-manipulation select-none items-center justify-center overflow-visible",
         "rounded-none border-0 bg-transparent shadow-none outline-none focus:outline-none focus-visible:outline-none",
+        menuOpen && "items-end justify-start px-3 pb-2",
       )}
       aria-label={
         locale === "zh"
@@ -179,6 +252,7 @@ export function CompanionWindow() {
       onPointerMove={onCompactPointerMove}
       onPointerUp={onCompactPointerUp}
       onPointerCancel={onCompactPointerCancel}
+      onContextMenu={openCompanionMenu}
       onLostPointerCapture={() => {
         compactDragRef.current = {
           down: false,
@@ -196,6 +270,51 @@ export function CompanionWindow() {
       onDoubleClick={openMain}
     >
       <CompanionPillScene className="pointer-events-none" />
+      {menuOpen ? (
+        <div
+          className="kq-companion-context-menu hermes-titlebar-nodrag"
+          role="menu"
+          onClick={(event) => event.stopPropagation()}
+          onPointerDown={(event) => event.stopPropagation()}
+          onPointerMove={(event) => event.stopPropagation()}
+          onPointerUp={(event) => event.stopPropagation()}
+          onContextMenu={(event) => event.preventDefault()}
+        >
+          <p className="kq-companion-context-spec">{t("settings.companionImageSpec")}</p>
+          {imageError ? <p className="kq-companion-context-error">{imageError}</p> : null}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/webp,image/svg+xml"
+            className="hidden"
+            onChange={(event) => handleCompanionImagePicked(event.currentTarget.files?.[0])}
+          />
+          <div className="kq-companion-context-actions">
+            <button
+              type="button"
+              className="kq-companion-context-primary"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {t("settings.companionImageReplace")}
+            </button>
+            <button
+              type="button"
+              className="kq-companion-context-secondary"
+              onClick={resetCompanionImage}
+            >
+              {t("settings.companionImageReset")}
+            </button>
+            <button
+              type="button"
+              className="kq-companion-context-ghost"
+              onClick={closeCompanionMenu}
+              aria-label={locale === "zh" ? "关闭" : "Close"}
+            >
+              {locale === "zh" ? "关闭" : "Close"}
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

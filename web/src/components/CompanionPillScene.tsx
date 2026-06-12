@@ -1,18 +1,21 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { CompanionCup } from "./CompanionCup";
 import { cn } from "../lib/cn";
+import { useCustomCompanionImage } from "../lib/ui-prefs";
 
 /** Floating cup-on-coaster pill used in companion window and boot screen. */
 export function CompanionPillScene({ className }: { className?: string }) {
+  const customImage = useCustomCompanionImage();
+
   return (
     <div className={cn("kq-companion-pill-scene", className)}>
-      <div className="kq-companion-pill-mat">
-        <div className="kq-companion-pill-cup">
-          <CompanionCup variant="brand" steam />
-        </div>
-      </div>
+      <img
+        src={customImage ?? "/kabuqina_pill_scene.svg"}
+        alt=""
+        className="kq-companion-pill-svg"
+        draggable={false}
+      />
     </div>
   );
 }

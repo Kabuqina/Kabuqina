@@ -71,10 +71,7 @@ fn read_setting(app: &AppHandle, key: &str) -> Option<String> {
 }
 
 fn write_setting(app: &AppHandle, key: &str, value: &str) -> Result<(), String> {
-    let dir = app
-        .path()
-        .app_local_data_dir()
-        .map_err(|e| e.to_string())?;
+    let dir = app.path().app_local_data_dir().map_err(|e| e.to_string())?;
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let f = dir.join("settings.json");
     let mut v: serde_json::Value = std::fs::read_to_string(&f)
@@ -82,8 +79,11 @@ fn write_setting(app: &AppHandle, key: &str, value: &str) -> Result<(), String> 
         .and_then(|s| serde_json::from_str(&s).ok())
         .unwrap_or(serde_json::json!({}));
     v[key] = serde_json::Value::String(value.to_string());
-    std::fs::write(&f, serde_json::to_vec_pretty(&v).map_err(|e| e.to_string())?)
-        .map_err(|e| e.to_string())
+    std::fs::write(
+        &f,
+        serde_json::to_vec_pretty(&v).map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| e.to_string())
 }
 
 fn read_companion_saved_position(app: &AppHandle) -> Option<(f64, f64)> {
@@ -93,7 +93,8 @@ fn read_companion_saved_position(app: &AppHandle) -> Option<(f64, f64)> {
         return None;
     }
     let user_placed = read_setting(app, SETTING_COMPANION_USER_PLACED).as_deref() == Some("1");
-    let away_from_origin = x >= COMPANION_ORIGIN_GUARD_LOGICAL || y >= COMPANION_ORIGIN_GUARD_LOGICAL;
+    let away_from_origin =
+        x >= COMPANION_ORIGIN_GUARD_LOGICAL || y >= COMPANION_ORIGIN_GUARD_LOGICAL;
     if user_placed || away_from_origin {
         Some((x, y))
     } else {

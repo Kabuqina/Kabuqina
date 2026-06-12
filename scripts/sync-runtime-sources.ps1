@@ -54,6 +54,10 @@ function Sync-Directory($src, $dest) {
     if (Test-Path $dest) {
         Remove-Item -Recurse -Force $dest
     }
+    $destParent = Split-Path $dest -Parent
+    if (-not (Test-Path $destParent)) {
+        New-Item -ItemType Directory -Force -Path $destParent | Out-Null
+    }
     Copy-Item -Recurse -Force $src $dest
     Get-ChildItem -Path $dest -Directory -Filter "__pycache__" -Recurse -ErrorAction SilentlyContinue |
         Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
@@ -62,6 +66,7 @@ function Sync-Directory($src, $dest) {
 Sync-Directory (Join-Path $srcRoot "desk_server") (Join-Path $dist "desk_server")
 Sync-Directory (Join-Path $root "python\overlays") (Join-Path $dist "overlays")
 Sync-Directory (Join-Path $root "python\helpers") (Join-Path $dist "helpers")
+Sync-Directory ([IO.Path]::Combine([string]$root, "assets", "ppt", "visual-masters")) ([IO.Path]::Combine([string]$dist, "assets", "ppt", "visual-masters"))
 
 $hermesCore = Join-Path $root "hermes_core"
 $hermesDest = Join-Path $dist "hermes"

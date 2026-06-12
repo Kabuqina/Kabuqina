@@ -411,6 +411,10 @@ DEFAULT_CONFIG = {
         # provider hiccups on a single provider.
         "api_max_retries": 3,
         "service_tier": "",
+        # Reasoning effort for the main agent. First-run desktop onboarding
+        # should start at high so cheaper/weaker models get stronger reasoning
+        # on coding and math tasks. Users can lower this with /reasoning.
+        "reasoning_effort": "high",
         # Tool-use enforcement: injects system prompt guidance that tells the
         # model to actually call tools instead of describing intended actions.
         # Values: "auto" (default — applies to gpt/codex models), true/false
@@ -904,7 +908,7 @@ DEFAULT_CONFIG = {
                                        # (e.g. gpt-5.5 xhigh, opus-4.6) need generous budgets;
                                        # raise if children time out before producing output.
         "reasoning_effort": "",  # reasoning effort for subagents: "xhigh", "high", "medium",
-                                 # "low", "minimal", "none" (empty = inherit parent's level)
+                                  # "low", "minimal", "none" (empty = inherit parent's level)
         "max_concurrent_children": 3,  # max parallel children per batch; floor of 1 enforced, no ceiling
         # Orchestrator role controls (see tools/delegate_tool.py:_get_max_spawn_depth
         # and _get_orchestrator_enabled).  Values are clamped to [1, 3] with a

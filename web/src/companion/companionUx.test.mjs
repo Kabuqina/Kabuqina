@@ -14,19 +14,19 @@ const titleBarSource = fs.readFileSync(new URL("../components/WindowTitleBar.tsx
 assert.doesNotMatch(
   companionSource,
   /companion_compact\.png|intrinsicLogicalDimsForAsset|<img/,
-  "Compact pill should render the CSS scene, not a PNG mascot.",
+  "Compact pill should not regress to the old PNG mascot path.",
 );
 
 assert.match(companionSource, /CompanionPillScene/, "Companion window should reuse the shared pill scene.");
 assert.match(
   pillSceneSource,
-  /kq-companion-pill-mat[\s\S]*CompanionCup[\s\S]*variant="brand"[\s\S]*steam/,
-  "Pill scene should render the original CSS mat and brand cup.",
+  /kabuqina_pill_scene\.svg[\s\S]*kq-companion-pill-svg/,
+  "Pill scene should render the exported SVG pill asset.",
 );
 assert.doesNotMatch(
   pillSceneSource,
-  /KabuqinaSceneSvg/,
-  "Pill scene should not use the SVG pill scene.",
+  /CompanionCup|kq-companion-pill-mat|kq-companion-pill-cup/,
+  "Pill scene should not rebuild the asset from CSS cup pieces.",
 );
 
 assert.match(
@@ -34,11 +34,56 @@ assert.match(
   /PILL_REM_W = 6\.2[\s\S]*PILL_REM_H = 6\.15/,
   "Pill window size should track the pill scene (cup + compact mat).",
 );
+assert.match(
+  companionSource,
+  /MENU_REM_W[\s\S]*MENU_REM_H[\s\S]*menuOpen[\s\S]*resizeCompanionWindow/,
+  "Right-click replacement menu should temporarily resize the compact window.",
+);
+assert.match(
+  companionSource,
+  /menuOpen && "items-end justify-start px-3 pb-2"/,
+  "Right-click replacement menu should move the pill away from the menu instead of covering it.",
+);
+assert.match(
+  companionSource,
+  /onContextMenu=\{openCompanionMenu\}/,
+  "Right-clicking the pill should open the companion replacement menu.",
+);
+assert.match(
+  companionSource,
+  /type="file"[\s\S]*accept="image\/png,image\/webp,image\/svg\+xml"/,
+  "Companion menu should open a constrained image file picker.",
+);
+assert.match(
+  companionSource,
+  /settings\.companionImageSpec/,
+  "Companion menu should explain image specs.",
+);
+assert.doesNotMatch(
+  companionSource,
+  /kq-companion-context-title/,
+  "Companion menu should stay concise and not add a separate title line.",
+);
+assert.match(
+  companionSource,
+  /settings\.companionImageReplace/,
+  "Companion menu should use replacement wording for the primary action.",
+);
+assert.match(
+  companionSource,
+  /validateCustomCompanionImageFile[\s\S]*setCustomCompanionImage/,
+  "Companion menu should explain image specs and validate before saving.",
+);
 
 assert.match(
   indexCssSource,
   /kq-companion-pill-float/,
   "Pill scene should use a gentle floating animation.",
+);
+assert.match(
+  indexCssSource,
+  /kq-companion-context-menu/,
+  "Companion right-click menu should have dedicated styling.",
 );
 
 assert.match(
