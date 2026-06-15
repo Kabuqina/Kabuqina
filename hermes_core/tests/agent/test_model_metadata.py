@@ -734,6 +734,17 @@ class TestFetchModelMetadata:
         mm._model_metadata_cache_time = 0
 
     @patch("agent.model_metadata.requests.get")
+    def test_hermesdesk_non_openrouter_provider_skips_openrouter_fetch(self, mock_get, monkeypatch):
+        self._reset_cache()
+        monkeypatch.setenv("HERMESDESK_PROVIDER", "deepseek")
+        monkeypatch.delenv("HERMESDESK_GATEWAY_PLATFORM", raising=False)
+
+        result = fetch_model_metadata(force_refresh=True)
+
+        assert result == {}
+        mock_get.assert_not_called()
+
+    @patch("agent.model_metadata.requests.get")
     def test_caches_result(self, mock_get):
         self._reset_cache()
         mock_response = MagicMock()

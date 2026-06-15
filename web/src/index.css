@@ -118,6 +118,16 @@
   --kq-inline-code-bg: rgba(155, 139, 181, 0.1);
 }
 
+/* Branded text selection — default browser blue looks off-theme, especially in dark. */
+::selection {
+  background: var(--kq-color-primary-pale);
+  color: var(--kq-color-strong);
+}
+[data-theme="dark"] ::selection {
+  background: rgba(155, 139, 181, 0.35);
+  color: var(--kq-color-strong);
+}
+
 @layer components {
   .kq-chat-shell {
     background: var(--kq-chat-pane-bg);

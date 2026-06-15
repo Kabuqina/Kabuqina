@@ -754,8 +754,9 @@ async fn bootstrap(app: tauri::AppHandle) -> anyhow::Result<()> {
     // 4. Register global screenshot shortcut (Ctrl+Alt+A).
     capture::register_global_shortcut(&app);
 
-    // Show the main window even if the webview's own show() hook fails (blank window).
-    reveal_main();
+    // On success the frontend reveals the window via showMainWindowWhenReady()
+    // after its first render (avoids a blank webview flash). Rust only force-shows
+    // the window as a bootstrap-failure fallback (see the error paths above).
 
     log::info!("bootstrap total_ms={}", boot_t0.elapsed().as_millis());
     Ok(())

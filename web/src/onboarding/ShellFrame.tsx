@@ -6,7 +6,6 @@ import { useLocation } from "react-router-dom";
 import { AppScaffold } from "../components/AppScaffold";
 import { useI18n } from "../lib/i18n";
 import { useDraft } from "../lib/store";
-import { cn } from "../lib/cn";
 import { getIndexInFlow, getStepsForMode, slugFromPathname, type ShellWizardStepId } from "./flowConfig";
 
 export function ShellFrame({ children }: { children: ReactNode }) {
@@ -26,13 +25,12 @@ export function ShellFrame({ children }: { children: ReactNode }) {
 
   return (
     <AppScaffold className="flex h-full w-full flex-col">
-      <header
-        className={cn(
-          "kq-chat-topbar shrink-0 border-b px-[var(--hd-page-pad-x)] py-3.5",
-          "dark:border-zinc-800/60 dark:bg-[#0F172A]/95"
-        )}
-      >
-        <div className="mx-auto flex max-w-[var(--hd-content-max)] items-center justify-end gap-3">
+      <header className="kq-chat-topbar shrink-0 border-b px-[var(--hd-page-pad-x)] py-3.5">
+        <div className="mx-auto flex max-w-[var(--hd-content-max)] items-center justify-between gap-3">
+          <div className="flex shrink-0 items-center gap-2">
+            <img src="/kabuqina_mascot.svg" alt="" className="h-7 w-7 shrink-0" draggable={false} />
+            <span className="hd-wizard-card-title">{t("productName")}</span>
+          </div>
           <div className="flex min-w-0 flex-col items-end gap-1.5 sm:flex-row sm:items-center sm:gap-3">
             <p className="hd-wizard-progress truncate" aria-live="polite">
               {progressText}
@@ -59,8 +57,8 @@ function ProgressDots({ index, total }: { index: number; total: number }) {
           className={
             "h-1.5 rounded-full transition-all " +
             (i <= index
-              ? "w-6 bg-[var(--kq-color-primary)] dark:bg-[#D4C5E2]"
-              : "w-1.5 bg-[#d9cde3] dark:bg-zinc-700")
+              ? "w-6 bg-[var(--kq-color-primary)]"
+              : "w-1.5 bg-[var(--kq-color-primary)]/30")
           }
         />
       ))}

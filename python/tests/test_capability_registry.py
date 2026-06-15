@@ -714,6 +714,7 @@ class CapabilityRegistryTests(unittest.TestCase):
 
         self.assertIn("pdf_write", summary)
         self.assertIn("HTML source", summary)
+        self.assertIn("chromium_print_v1", summary)
         self.assertIn("reportlab_pdf_v1", summary)
         self.assertIn("html_path", summary)
         self.assertIn("material_index_build", summary)

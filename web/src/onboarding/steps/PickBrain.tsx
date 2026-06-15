@@ -123,8 +123,8 @@ function BrainOption({
             ? "border-amber-400/90 bg-amber-50/70 ring-2 ring-amber-400/35 dark:border-amber-700/70 dark:bg-amber-950/35 dark:ring-amber-600/35"
             : "hover:border-amber-300/80 hover:bg-amber-50/40 dark:hover:border-amber-700/50 dark:hover:bg-amber-950/20"
           : selected
-            ? "border-[var(--kq-color-primary)]/70 bg-[var(--kq-color-primary-pale)]/60 ring-2 ring-[var(--kq-color-primary)]/30 dark:border-[#D4C5E2]/30 dark:bg-[#D4C5E2]/10 dark:ring-[#D4C5E2]/35"
-            : "hover:border-zinc-300/90 dark:hover:border-zinc-600",
+            ? "border-[var(--kq-color-primary)]/70 bg-[var(--kq-color-primary-pale)]/60 ring-2 ring-[var(--kq-color-primary)]/30"
+            : "hover:border-[var(--kq-color-primary)]/40",
         "active:scale-[0.99]"
       )}
     >
@@ -134,8 +134,8 @@ function BrainOption({
           selected
             ? recommendedHover
               ? "border-amber-600 dark:border-amber-400"
-              : "border-[var(--kq-color-primary)] dark:border-[#D4C5E2]"
-            : "border-zinc-300 dark:border-zinc-600"
+              : "border-[var(--kq-color-primary)]"
+            : "border-[var(--kq-color-muted)]/50"
         )}
         aria-hidden
       >
@@ -143,7 +143,7 @@ function BrainOption({
           <span
             className={cn(
               "h-2.5 w-2.5 rounded-full",
-              recommendedHover ? "bg-amber-600 dark:bg-amber-400" : "bg-[var(--kq-color-primary)] dark:bg-[#D4C5E2]"
+              recommendedHover ? "bg-amber-600 dark:bg-amber-400" : "bg-[var(--kq-color-primary)]"
             )}
           />
         ) : null}

@@ -60,6 +60,31 @@ export interface VisualMasterLayoutRecipe {
   media?: VisualMasterLayoutBox;
 }
 
+export interface VisualMasterComponentRecipe {
+  flow: {
+    nodeFill: PaletteSlot;
+    nodeLine: PaletteSlot;
+    nodeText: PaletteSlot;
+    connector: PaletteSlot;
+    nodeStyle: "outline" | "filled" | "banded";
+    connectorStyle: "arrow" | "bar" | "dot";
+  };
+  table: {
+    headerFill: PaletteSlot;
+    headerText: PaletteSlot;
+    bodyFill: PaletteSlot;
+    bodyText: PaletteSlot;
+    border: PaletteSlot;
+    zebra: boolean;
+  };
+  media: {
+    fill: PaletteSlot;
+    border: PaletteSlot;
+    label: PaletteSlot;
+    borderStyle: "solid" | "dash";
+  };
+}
+
 export interface VisualMasterV2 {
   id: string;
   name: string;
@@ -85,6 +110,7 @@ export interface VisualMasterV2 {
     footer: "brand" | "page_number" | "none";
     cardStyle: "outline" | "filled" | "minimal";
   };
+  components: VisualMasterComponentRecipe;
   layouts: Record<MasterLayoutId, VisualMasterLayoutRecipe>;
 }
 
@@ -150,6 +176,31 @@ const DEFAULT_LAYOUTS: Record<MasterLayoutId, VisualMasterLayoutRecipe> = {
   },
 };
 
+const DEFAULT_COMPONENTS: VisualMasterComponentRecipe = {
+  flow: {
+    nodeFill: "background",
+    nodeLine: "accent",
+    nodeText: "title",
+    connector: "accent2",
+    nodeStyle: "outline",
+    connectorStyle: "arrow",
+  },
+  table: {
+    headerFill: "accent",
+    headerText: "background",
+    bodyFill: "background",
+    bodyText: "body",
+    border: "accent2",
+    zebra: true,
+  },
+  media: {
+    fill: "background",
+    border: "accent",
+    label: "accent",
+    borderStyle: "dash",
+  },
+};
+
 function withLayouts(overrides: Partial<Record<MasterLayoutId, Partial<VisualMasterLayoutRecipe>>> = {}): Record<MasterLayoutId, VisualMasterLayoutRecipe> {
   return Object.fromEntries(
     (Object.keys(DEFAULT_LAYOUTS) as MasterLayoutId[]).map((id) => [
@@ -157,6 +208,18 @@ function withLayouts(overrides: Partial<Record<MasterLayoutId, Partial<VisualMas
       { ...DEFAULT_LAYOUTS[id], ...(overrides[id] ?? {}) },
     ]),
   ) as Record<MasterLayoutId, VisualMasterLayoutRecipe>;
+}
+
+function withComponents(overrides: {
+  flow?: Partial<VisualMasterComponentRecipe["flow"]>;
+  table?: Partial<VisualMasterComponentRecipe["table"]>;
+  media?: Partial<VisualMasterComponentRecipe["media"]>;
+} = {}): VisualMasterComponentRecipe {
+  return {
+    flow: { ...DEFAULT_COMPONENTS.flow, ...(overrides.flow ?? {}) },
+    table: { ...DEFAULT_COMPONENTS.table, ...(overrides.table ?? {}) },
+    media: { ...DEFAULT_COMPONENTS.media, ...(overrides.media ?? {}) },
+  };
 }
 
 export const PPT_VISUAL_MASTERS = [
@@ -185,6 +248,11 @@ export const PPT_VISUAL_MASTERS = [
     },
     spacing: { marginX: 0.7, headerY: 0.64, bodyTop: 1.74, gutter: 0.35 },
     decorations: { rail: "left", underline: "short", footer: "brand", cardStyle: "outline" },
+    components: withComponents({
+      flow: { nodeFill: "background", nodeLine: "accent", nodeText: "title", connector: "accent2", nodeStyle: "outline", connectorStyle: "arrow" },
+      table: { headerFill: "accent", headerText: "background", bodyFill: "background", bodyText: "body", border: "accent2", zebra: true },
+      media: { fill: "background", border: "accent", label: "accent", borderStyle: "dash" },
+    }),
     layouts: withLayouts({
       cover: {
         title: { x: 0.7, y: 2.25, w: 11.6, h: 1.5 },
@@ -221,6 +289,11 @@ export const PPT_VISUAL_MASTERS = [
     },
     spacing: { marginX: 0.62, headerY: 0.46, bodyTop: 1.52, gutter: 0.3 },
     decorations: { rail: "top", underline: "wide", footer: "page_number", cardStyle: "minimal" },
+    components: withComponents({
+      flow: { nodeFill: "accent", nodeLine: "accent", nodeText: "background", connector: "accent2", nodeStyle: "filled", connectorStyle: "bar" },
+      table: { headerFill: "accent", headerText: "background", bodyFill: "background", bodyText: "body", border: "accent2", zebra: false },
+      media: { fill: "background", border: "accent", label: "accent2", borderStyle: "solid" },
+    }),
     layouts: withLayouts({
       cover: {
         title: { x: 0.72, y: 2.0, w: 11.8, h: 1.35 },
@@ -260,6 +333,11 @@ export const PPT_VISUAL_MASTERS = [
     },
     spacing: { marginX: 0.82, headerY: 0.72, bodyTop: 1.95, gutter: 0.42 },
     decorations: { rail: "left", underline: "short", footer: "brand", cardStyle: "filled" },
+    components: withComponents({
+      flow: { nodeFill: "accent", nodeLine: "accent2", nodeText: "title", connector: "accent2", nodeStyle: "filled", connectorStyle: "dot" },
+      table: { headerFill: "accent", headerText: "title", bodyFill: "background", bodyText: "body", border: "accent", zebra: true },
+      media: { fill: "background", border: "accent", label: "accent", borderStyle: "solid" },
+    }),
     layouts: withLayouts({
       cover: {
         title: { x: 0.86, y: 2.35, w: 11.4, h: 1.45 },
@@ -296,6 +374,11 @@ export const PPT_VISUAL_MASTERS = [
     },
     spacing: { marginX: 0.56, headerY: 0.48, bodyTop: 1.45, gutter: 0.24 },
     decorations: { rail: "top", underline: "wide", footer: "page_number", cardStyle: "outline" },
+    components: withComponents({
+      flow: { nodeFill: "accent", nodeLine: "title", nodeText: "title", connector: "title", nodeStyle: "banded", connectorStyle: "bar" },
+      table: { headerFill: "title", headerText: "accent", bodyFill: "background", bodyText: "title", border: "title", zebra: false },
+      media: { fill: "background", border: "title", label: "title", borderStyle: "solid" },
+    }),
     layouts: withLayouts({
       standard_bullets: {
         body: { x: 0.72, y: 1.46, w: 12.0, h: 5.25 },
@@ -330,6 +413,11 @@ export const PPT_VISUAL_MASTERS = [
     },
     spacing: { marginX: 0.78, headerY: 0.62, bodyTop: 1.82, gutter: 0.38 },
     decorations: { rail: "left", underline: "short", footer: "brand", cardStyle: "filled" },
+    components: withComponents({
+      flow: { nodeFill: "accent2", nodeLine: "accent2", nodeText: "background", connector: "accent", nodeStyle: "filled", connectorStyle: "arrow" },
+      table: { headerFill: "accent2", headerText: "background", bodyFill: "background", bodyText: "body", border: "accent", zebra: true },
+      media: { fill: "background", border: "accent2", label: "accent2", borderStyle: "dash" },
+    }),
     layouts: withLayouts({
       cover: {
         title: { x: 0.78, y: 2.18, w: 11.2, h: 1.55 },

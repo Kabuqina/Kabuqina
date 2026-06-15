@@ -560,7 +560,7 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
     {
         "id": "document-pdf-generation",
         "title": "Generate document (PDF)",
-        "description": "Generate print-ready PDF reports through the full reader -> material index -> planner -> writer pipeline, or write a PDF directly from prepared blocks. Both paths emit an HTML source sidecar.",
+        "description": "Generate print-ready PDF reports through the full reader -> material index -> planner -> writer pipeline, or write a PDF directly from prepared blocks. Both paths emit and print from an HTML source sidecar.",
         "category": "documents",
         "family": "document-generation",
         "agent_hint": (
@@ -570,7 +570,7 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
             "sections/blocks from that index, have the user review it (review_outline), "
             "then call pdf_write. If you already hold structured content (e.g. from "
             "another tool), call pdf_write directly. pdf_write saves both the PDF and "
-            "an inspectable HTML source file."
+            "an inspectable HTML print source file."
         ),
         "tools": ["material_index_build", "review_outline", "pdf_write"],
         "required_toolsets": ["documents", "clarify"],

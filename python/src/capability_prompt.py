@@ -105,8 +105,10 @@ def _format_pdf_writer_rule(capability: dict[str, Any]) -> str:
         return ""
     return (
         " For PDF generation, call pdf_write with a structured document containing "
-        "sections or blocks. The normal path writes a PDF plus an HTML source sidecar; "
-        "on success renderer is reportlab_pdf_v1 and html_path points at the source. "
+        "sections or blocks. The normal path writes an HTML source sidecar and prints "
+        "that same source to PDF; on success renderer is normally chromium_print_v1 "
+        "and html_path points at the source. reportlab_pdf_v1 means the fallback "
+        "renderer was used. "
         "If pdf_write returns an error such as pdf_render_unavailable, say the PDF "
         "backend is unavailable instead of claiming a file was created."
     )

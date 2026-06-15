@@ -255,7 +255,7 @@ function MarkdownCallout({ children }: { children: React.ReactNode }) {
   const callout = parseMarkdownCallout(children);
   if (!callout) {
     return (
-      <blockquote className="border-l-2 border-zinc-300 dark:border-zinc-600 pl-3 my-2 text-zinc-600 dark:text-zinc-400">
+      <blockquote className="border-l-2 border-[var(--kq-color-primary)]/40 pl-3 my-2 text-[var(--kq-color-muted)]">
         {children}
       </blockquote>
     );
@@ -333,7 +333,7 @@ export default function ChatMarkdown({ text, className = "" }: Props) {
 
   return (
     <div
-      className={`chat-md min-w-0 max-w-full text-sm leading-[1.6] text-zinc-800 [overflow-wrap:anywhere] dark:text-zinc-200 ${className}`}
+      className={`chat-md min-w-0 max-w-full text-sm leading-[1.6] text-[var(--kq-color-ink)] [overflow-wrap:anywhere] ${className}`}
       onClick={handleMarkdownClick}
     >
       <ReactMarkdown
@@ -402,23 +402,23 @@ export default function ChatMarkdown({ text, className = "" }: Props) {
             );
           },
           table: ({ children }) => (
-            <div className="overflow-x-auto my-3 rounded-xl border border-zinc-200/80 dark:border-zinc-700/60">
+            <div className="overflow-x-auto my-3 rounded-xl border border-[var(--kq-glass-border)]">
               <table className="w-full text-left border-collapse text-sm">
                 {children}
               </table>
             </div>
           ),
           thead: ({ children }) => (
-            <thead className="bg-zinc-100/80 dark:bg-zinc-800/60">{children}</thead>
+            <thead className="bg-[var(--kq-hover-bg)]">{children}</thead>
           ),
           tr: ({ children }) => (
-            <tr className="border-b border-zinc-200/60 dark:border-zinc-700/40 last:border-b-0">{children}</tr>
+            <tr className="border-b border-[var(--kq-glass-border)] last:border-b-0">{children}</tr>
           ),
           th: ({ children }) => (
-            <th className="px-3 py-2 font-semibold whitespace-nowrap text-zinc-700 dark:text-zinc-200">{children}</th>
+            <th className="px-3 py-2 font-semibold whitespace-nowrap text-[var(--kq-color-strong)]">{children}</th>
           ),
           td: ({ children }) => (
-            <td className="px-3 py-2 whitespace-pre-wrap break-words text-zinc-600 dark:text-zinc-300">{children}</td>
+            <td className="px-3 py-2 whitespace-pre-wrap break-words text-[var(--kq-color-ink)]">{children}</td>
           ),
           blockquote: ({ children }) => <MarkdownCallout>{children}</MarkdownCallout>,
         }}

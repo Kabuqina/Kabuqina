@@ -28,9 +28,11 @@ The first version supports print-friendly blocks:
 
 ## Rendering path
 
-`document spec -> normalized blocks -> HTML source -> ReportLab PDF`
+`document spec -> normalized blocks -> canonical HTML print source -> Chromium print PDF`
 
-ReportLab is the concrete PDF backend for v1 because it is deterministic in Python, works without a browser subprocess, and fits the owned core writer layer. The HTML source is still generated as a sidecar for inspectability and future HTML-to-PDF backend swaps.
+Chromium printing is the concrete primary PDF backend because it preserves the
+same HTML/CSS layout that humans inspect in the sidecar. ReportLab remains as a
+degraded fallback for environments where the HTML print backend is unavailable.
 
 ## Verification
 

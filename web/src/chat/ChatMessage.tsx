@@ -114,10 +114,10 @@ function MessageCopyButton({ text }: { text: string }) {
         title={!canCopy ? t("chat.copy") : done ? t("chat.copied") : t("chat.copy")}
         className={cn(
           "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[12px] font-medium",
-          "text-zinc-600",
+          "text-[var(--kq-color-muted)]",
           "transition",
           canCopy
-            ? "hover:bg-zinc-100 hover:text-zinc-900 active:scale-[0.98] dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+            ? "hover:bg-[var(--kq-hover-bg)] hover:text-[var(--kq-color-strong)] active:scale-[0.98]"
             : "cursor-not-allowed opacity-40"
         )}
         aria-label={done ? t("chat.copied") : t("chat.copy")}
@@ -263,10 +263,10 @@ function SpeakButton({ text }: { text: string }) {
         title={speaking ? t("chat.speaking") : t("chat.speak")}
         className={cn(
           "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[12px] font-medium",
-          "text-zinc-600",
+          "text-[var(--kq-color-muted)]",
           "transition",
           canSpeak
-            ? "hover:bg-zinc-100 hover:text-zinc-900 active:scale-[0.98] dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+            ? "hover:bg-[var(--kq-hover-bg)] hover:text-[var(--kq-color-strong)] active:scale-[0.98]"
             : "cursor-not-allowed opacity-40"
         )}
         aria-label={speaking ? t("chat.speaking") : t("chat.speak")}
@@ -300,24 +300,24 @@ function AssistantMessageFooter({
   return (
     <div
       className={cn(
-        "mt-2 flex w-full min-w-0 flex-wrap items-center gap-2 border-t border-zinc-200/80 pt-1.5 text-[11px] dark:border-zinc-600/60",
+        "mt-2 flex w-full min-w-0 flex-wrap items-center gap-2 border-t border-[var(--kq-glass-border)] pt-1.5 text-[11px]",
         timeStr ? "justify-between" : "justify-end"
       )}
     >
       {timeStr ? (
-        <span className="shrink-0 font-mono text-[11px] tabular-nums text-zinc-400 dark:text-zinc-500">
+        <span className="shrink-0 font-mono text-[11px] tabular-nums text-[var(--kq-color-muted)]">
           {timeStr}
         </span>
       ) : null}
-      <div className="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-x-1 gap-y-1 font-mono text-zinc-500 sm:gap-x-1.5 dark:text-zinc-400">
+      <div className="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-x-1 gap-y-1 font-mono text-[var(--kq-color-muted)] sm:gap-x-1.5">
         <span className="shrink-0 min-w-0 break-all sm:break-normal">
           {model?.trim() ? `${name}(${model.trim()})` : name}
         </span>
-        <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+        <span className="text-[var(--kq-color-muted)]/50" aria-hidden>
           ·
         </span>
         <SpeakButton text={text} />
-        <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+        <span className="text-[var(--kq-color-muted)]/50" aria-hidden>
           ·
         </span>
         <MessageCopyButton text={text} />
@@ -370,8 +370,8 @@ export function ChatMessage({ role, text, attachments, model, timestamp, streami
         className={cn(
           "kq-chat-assistant-column min-w-0 rounded-2xl px-4 py-2.5",
           isUser
-            ? "max-w-[min(100%,var(--kq-chat-column-max))] kq-chat-bubble-user rounded-tr-sm dark:bg-[#3B5BC7] dark:text-white"
-            : "kq-chat-bubble-assistant rounded-tl-sm dark:border-zinc-700/80 dark:bg-zinc-800/90"
+            ? "max-w-[min(100%,var(--kq-chat-column-max))] kq-chat-bubble-user rounded-tr-sm"
+            : "kq-chat-bubble-assistant rounded-tl-sm"
         )}
       >
         {isUser ? (
@@ -396,7 +396,7 @@ export function ChatMessage({ role, text, attachments, model, timestamp, streami
                   <button
                     type="button"
                     onClick={() => setCollapsed(false)}
-                    className="flex w-full items-center gap-2 rounded-lg py-1 text-sm text-zinc-500 transition hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-800/60"
+                    className="flex w-full items-center gap-2 rounded-lg py-1 text-sm text-[var(--kq-color-muted)] transition hover:bg-[var(--kq-hover-bg)]"
                   >
                     <span className="text-base">✨</span>
                     <span className="truncate">{t("chat.streamingWorking")}…</span>
@@ -407,20 +407,20 @@ export function ChatMessage({ role, text, attachments, model, timestamp, streami
                     <button
                       type="button"
                       onClick={() => setCollapsed(true)}
-                      className="absolute -right-1.5 -top-1.5 z-10 inline-flex items-center rounded-md p-1 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-700 dark:hover:text-zinc-300"
+                      className="absolute -right-1.5 -top-1.5 z-10 inline-flex items-center rounded-md p-1 text-[var(--kq-color-muted)] transition hover:bg-[var(--kq-hover-bg)] hover:text-[var(--kq-color-strong)]"
                       aria-label={t("chat.collapse")}
                       title={t("chat.collapse")}
                     >
                       <ChevronUp className="h-3.5 w-3.5" strokeWidth={2.5} />
                     </button>
-                    <p className="whitespace-pre-wrap break-words pr-5 text-sm leading-[1.6] text-zinc-800 [overflow-wrap:anywhere] dark:text-zinc-200">
+                    <p className="whitespace-pre-wrap break-words pr-5 text-sm leading-[1.6] text-[var(--kq-color-ink)] [overflow-wrap:anywhere]">
                       {text}
                     </p>
                   </>
                 )}
               </div>
             ) : (
-              <Suspense fallback={<div className="text-sm text-zinc-400 italic">...</div>}>
+              <Suspense fallback={<div className="text-sm text-[var(--kq-color-muted)] italic">...</div>}>
                 <ChatMarkdown text={text} />
               </Suspense>
             )}

@@ -68,10 +68,12 @@ PDF, HTML, and DOCX share the same structured document contract
 (sections/blocks). `pdf_write` and `html_write` share the per-block renderer
 (`_block_to_html`); `docx_write` renders the same normalized blocks via
 python-docx. So one reviewed planner outline can be emitted as `.pdf`, `.html`,
-or `.docx`. `html_write` produces a self-contained responsive page
+or `.docx`. For PDF, `pdf_write` treats its print-oriented `.html` sidecar as
+the canonical source and prints that source with Chromium (`chromium_print_v1`),
+falling back to ReportLab (`reportlab_pdf_v1`) only when the HTML print backend
+is unavailable. `html_write` produces a separate self-contained responsive page
 (`standalone_html_v1`); `docx_write` produces an editable Word file
-(`python_docx_v1`); the `.html` that `pdf_write` emits stays a print-oriented
-inspection sidecar, not the first-class HTML deliverable.
+(`python_docx_v1`).
 
 ## 1. Read Layer
 

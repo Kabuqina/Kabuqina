@@ -407,6 +407,11 @@ def test_pdf_write_generates_pdf_and_html_sidecar(tmp_path, monkeypatch):
         return b"%PDF-1.4\nfake pdf\n%%EOF", 2, "reportlab_pdf_v1"
 
     monkeypatch.setattr(document_tools, "_render_pdf_with_reportlab", fake_render)
+    monkeypatch.setattr(
+        document_tools,
+        "_render_pdf_from_html",
+        lambda _html_source: (_ for _ in ()).throw(ImportError("chromium missing")),
+    )
 
     out = tmp_path / "course-report.pdf"
     result = json.loads(
@@ -438,6 +443,7 @@ def test_pdf_write_generates_pdf_and_html_sidecar(tmp_path, monkeypatch):
     assert result["html_path"] == str(out.with_suffix(".html"))
     assert result["page_count"] == 2
     assert result["renderer"] == "reportlab_pdf_v1"
+    assert result["warnings"]
     assert out.read_bytes().startswith(b"%PDF-1.4")
     html = out.with_suffix(".html").read_text(encoding="utf-8")
     assert "课程总结报告" in html
@@ -445,6 +451,40 @@ def test_pdf_write_generates_pdf_and_html_sidecar(tmp_path, monkeypatch):
     assert "PDF writer" in html
     assert rendered_specs[0]["template"] == "academic_report"
     assert rendered_specs[0]["blocks"][0]["type"] == "heading"
+
+
+def test_pdf_write_uses_html_source_as_pdf_input(tmp_path, monkeypatch):
+    import tools.document_tools as document_tools
+
+    rendered_html = []
+
+    def fake_html_render(html_source):
+        rendered_html.append(html_source)
+        return b"%PDF-1.4\nhtml print pdf\n%%EOF", 3, "chromium_print_v1"
+
+    monkeypatch.setattr(document_tools, "_render_pdf_from_html", fake_html_render, raising=False)
+    monkeypatch.setattr(
+        document_tools,
+        "_render_pdf_with_reportlab",
+        lambda _spec: pytest.fail("pdf_write should prefer the HTML print renderer"),
+    )
+
+    out = tmp_path / "html-print.pdf"
+    result = json.loads(
+        document_tools.pdf_write(
+            path=str(out),
+            title="HTML 打印报告",
+            document={"blocks": [{"type": "paragraph", "text": "来自 HTML 源文件"}]},
+        )
+    )
+
+    assert result["ok"] is True
+    assert result["renderer"] == "chromium_print_v1"
+    assert result["page_count"] == 3
+    assert out.read_bytes().startswith(b"%PDF-1.4")
+    html = out.with_suffix(".html").read_text(encoding="utf-8")
+    assert rendered_html == [html]
+    assert "来自 HTML 源文件" in html
 
 
 def test_pdf_write_rejects_output_outside_workspace(tmp_path, monkeypatch):

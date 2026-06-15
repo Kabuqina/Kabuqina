@@ -1479,6 +1479,64 @@ def _build_pdf_html(spec: Dict[str, Any]) -> str:
 """
 
 
+def _count_pdf_pages(pdf_bytes: bytes) -> int:
+    try:
+        from pypdf import PdfReader
+
+        return len(PdfReader(io.BytesIO(pdf_bytes)).pages)
+    except Exception:
+        return 0
+
+
+def _render_pdf_from_html(html_source: str) -> Tuple[bytes, int, str]:
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError as exc:
+        raise ImportError(
+            "HTML print PDF rendering requires the Python Playwright package."
+        ) from exc
+
+    launch_attempts: List[str] = []
+    with sync_playwright() as pw:
+        launch_options: List[Dict[str, Any]] = []
+        browser_path = _text(os.getenv("HERMESDESK_PDF_BROWSER_PATH"))
+        if browser_path:
+            launch_options.append({"executable_path": browser_path, "headless": True})
+
+        channel = _text(os.getenv("HERMESDESK_PDF_BROWSER_CHANNEL"))
+        if channel:
+            launch_options.append({"channel": channel, "headless": True})
+        elif sys.platform.startswith("win"):
+            launch_options.append({"channel": "msedge", "headless": True})
+
+        launch_options.append({"headless": True})
+
+        browser = None
+        for options in launch_options:
+            try:
+                browser = pw.chromium.launch(**options)
+                break
+            except Exception as exc:
+                launch_attempts.append(f"{options}: {exc}")
+        if browser is None:
+            detail = "; ".join(launch_attempts) or "no launch attempts"
+            raise RuntimeError(f"Could not launch Chromium for PDF printing: {detail}")
+
+        try:
+            page = browser.new_page(viewport={"width": 794, "height": 1123})
+            page.set_content(html_source, wait_until="load")
+            page.emulate_media(media="print")
+            pdf_bytes = page.pdf(
+                format="A4",
+                print_background=True,
+                prefer_css_page_size=True,
+            )
+        finally:
+            browser.close()
+
+    return pdf_bytes, _count_pdf_pages(pdf_bytes), "chromium_print_v1"
+
+
 def _build_standalone_html(spec: Dict[str, Any]) -> str:
     """Screen-first standalone HTML deliverable.
 
@@ -1753,32 +1811,45 @@ def pdf_write(
 
     spec = _build_pdf_spec(title, document, template, visual_master)
     html_source = _build_pdf_html(spec)
+    warnings: List[str] = []
     try:
-        pdf_bytes, page_count, renderer = _render_pdf_with_reportlab(spec)
-    except ImportError as exc:
-        return tool_error(
-            f"PDF rendering requires ReportLab in the desktop Python bundle: {exc}",
-            code="pdf_render_unavailable",
-        )
-    except Exception as exc:
-        return tool_error(f"PDF rendering failed: {exc}", code="pdf_render_failed")
+        pdf_bytes, page_count, renderer = _render_pdf_from_html(html_source)
+    except Exception as html_exc:
+        warnings.append(f"HTML print renderer unavailable; fell back to ReportLab: {html_exc}")
+        try:
+            pdf_bytes, page_count, renderer = _render_pdf_with_reportlab(spec)
+        except ImportError as exc:
+            return tool_error(
+                (
+                    "PDF rendering requires either Chromium/Playwright or ReportLab "
+                    f"in the desktop Python bundle. HTML print error: {html_exc}; "
+                    f"ReportLab error: {exc}"
+                ),
+                code="pdf_render_unavailable",
+            )
+        except Exception as exc:
+            return tool_error(
+                f"PDF rendering failed. HTML print error: {html_exc}; ReportLab error: {exc}",
+                code="pdf_render_failed",
+            )
 
     out.parent.mkdir(parents=True, exist_ok=True)
     html_path = out.with_suffix(".html")
     out.write_bytes(pdf_bytes)
     html_path.write_text(html_source, encoding="utf-8")
-    return _json(
-        {
-            "ok": True,
-            "path": str(out),
-            "html_path": str(html_path),
-            "page_count": int(page_count),
-            "template": spec["template"],
-            "visual_master": spec["visual_master"],
-            "renderer": renderer,
-            "bytes": len(pdf_bytes),
-        }
-    )
+    payload = {
+        "ok": True,
+        "path": str(out),
+        "html_path": str(html_path),
+        "page_count": int(page_count),
+        "template": spec["template"],
+        "visual_master": spec["visual_master"],
+        "renderer": renderer,
+        "bytes": len(pdf_bytes),
+    }
+    if warnings:
+        payload["warnings"] = warnings
+    return _json(payload)
 
 
 def html_write(
@@ -2055,8 +2126,10 @@ PDF_WRITE_SCHEMA = {
         "Create a print-ready .pdf file from structured report content and save an "
         "adjacent HTML source file for inspection. Use this as the normal writer-layer "
         "PDF path for reports, math/code explanations, tables, checklists, formulas, "
-        "and visual placeholders. The v1 renderer builds normalized blocks, writes "
-        "HTML source, then renders the PDF with ReportLab in the desktop Python bundle."
+        "and visual placeholders. The v1 renderer builds normalized blocks, treats "
+        "the HTML source as the canonical print input, renders it with Chromium "
+        "(renderer chromium_print_v1), and falls back to ReportLab only when the "
+        "HTML print backend is unavailable."
     ),
     "parameters": {
         "type": "object",

@@ -248,7 +248,7 @@ export function LlmConfigEditor({
   const showProviderPicker = mode === "settings" || initialProviderId === "custom";
   const showApiUrl = isManualCustom;
   const fieldClass =
-    "w-full rounded-[var(--radius-shell)] border border-zinc-300/90 bg-white/90 px-4 py-3 font-mono text-sm dark:border-zinc-700 dark:bg-zinc-900/90";
+    "w-full rounded-[var(--radius-shell)] border border-[var(--kq-color-border)] bg-[var(--kq-input-surface)] px-4 py-3 font-mono text-sm";
   const actionLabel = busy
     ? mode === "settings" ? t("settings.llmConfigSaving") : t("pass.checkWait")
     : mode === "settings" ? t("settings.llmConfigSave")
@@ -264,7 +264,7 @@ export function LlmConfigEditor({
           <select
             value={selectedProvider}
             onChange={(e) => applyProvider(e.target.value as ProviderId | "custom" | "")}
-            className="w-full rounded-[var(--radius-shell)] border border-zinc-300/90 bg-white/90 px-4 py-3 text-sm dark:border-zinc-700 dark:bg-zinc-900/90"
+            className="w-full rounded-[var(--radius-shell)] border border-[var(--kq-color-border)] bg-[var(--kq-input-surface)] px-4 py-3 text-sm"
           >
             <option value="">{t("pass.selectProvider")}</option>
             {SELECTABLE_LLM_PROVIDERS.filter((pid) => pid !== "custom").map((pid) => (
@@ -279,7 +279,7 @@ export function LlmConfigEditor({
       {!showProviderPicker && selectedKnownProvider ? (
         <div className="space-y-1.5">
           <label className="hd-wizard-label">{t("settings.llmConfigProvider")}</label>
-          <p className="text-sm text-[var(--kq-color-ink)] dark:text-zinc-300">{selectedKnownProvider.label}</p>
+          <p className="text-sm text-[var(--kq-color-ink)]">{selectedKnownProvider.label}</p>
         </div>
       ) : null}
 
@@ -357,7 +357,7 @@ export function LlmConfigEditor({
           />
           {validationStatus === "validating" ? (
             <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
-              <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
+              <Loader2 className="h-4 w-4 animate-spin text-[var(--kq-color-muted)]" />
             </span>
           ) : null}
           {validationStatus === "valid" ? (
@@ -377,7 +377,7 @@ export function LlmConfigEditor({
         <button
           type="button"
           onClick={openSignup}
-          className="w-full rounded-[var(--radius-shell-lg)] border border-zinc-300/90 px-4 py-3 transition hover:bg-zinc-100/80 dark:border-zinc-700 dark:hover:bg-zinc-900/80"
+          className="w-full rounded-[var(--radius-shell-lg)] border border-[var(--kq-color-border)] px-4 py-3 transition hover:bg-[var(--kq-hover-bg)]"
         >
           {t("pass.openVendor", { label: selectedKnownProvider.label })}
         </button>

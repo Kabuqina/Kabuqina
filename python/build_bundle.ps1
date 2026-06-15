@@ -132,6 +132,13 @@ if (-not (Test-Path $Py)) {
 
 Write-Host "Using Python: " (& $Py --version)
 
+# Remove the .pth from any prior build before invoking pip.  Python processes
+# hermesdesk.pth on every startup; after Clear-BundleSitePackages wipes the
+# external site-packages, the "import pywin32_bootstrap" line in the .pth fails
+# with a noisy-but-non-fatal ModuleNotFoundError on every pip call.  The file
+# is rewritten unconditionally later in this script, so deleting it here is safe.
+Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $pyDir "Lib\site-packages\hermesdesk.pth")
+
 # ------------------------------------------------------------------ 2. pip
 & $Py -m pip install --upgrade pip wheel | Out-Null
 

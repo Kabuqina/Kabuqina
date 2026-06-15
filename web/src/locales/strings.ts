@@ -277,9 +277,9 @@ export const MESSAGES = {
     welcome: {
       title: "欢迎，我是小娜",
       lead: "我陪你把必要的事配好，很快就能开始。",
-      li1: "不用在我们这里注册账号",
-      li2: "我们不收订阅费（模型费用由你选的服务商决定）",
-      li3: "对话与配置保存在你电脑上的工作区",
+      li1: "不用注册账号",
+      li2: "不收订阅费，按服务商计费",
+      li3: "数据都留在你电脑上",
       cta: "开始吧",
     },
     brain: {
@@ -289,10 +289,10 @@ export const MESSAGES = {
       recommended: "推荐",
       showAll: "更多提供商 — DeepSeek、Mistral、Groq、OpenRouter、自定义…",
       customTitle: "我有自己的 API",
-      customBody: "下一步填写地址、模型名和密钥。",
+      customBody: "下一步填地址、模型和密钥",
       selected: "已选：{{name}}",
       starter: {
-        title: "国内常用，注册后创建密钥即可使用。",
+        title: "国内常用，注册即可用",
       },
     },
     pass: {
@@ -307,9 +307,9 @@ export const MESSAGES = {
       phCustomProviderId: "例如 custom 或 my-provider",
       customProviderHint: "高级选项。仅在服务商要求固定标识时填写，不确定可留空。",
       steps: {
-        s1: "点击下面按钮，在浏览器打开 {{label}}。",
-        s2: "登录账号，新建 API 密钥（或同类凭证）。",
-        s3: "复制整段密钥，回到这里粘贴。",
+        s1: "在浏览器打开 {{label}}",
+        s2: "登录后新建 API 密钥",
+        s3: "复制密钥，粘贴到下方",
       },
       customHint: "地址一般在服务商文档里，常见格式为 https://…/v1。",
       openVendor: "在浏览器打开 {{label}}",
@@ -1183,7 +1183,7 @@ export const MESSAGES = {
       lead: "Your Nana — a few steps and you're ready.",
       li1: "No account with us.",
       li2: "No subscription or fee from us.",
-      li3: "Stays on your PC. Files only in a folder you pick.",
+      li3: "Everything stays on your PC.",
       cta: "Let's get started",
     },
     brain: {
@@ -1193,7 +1193,7 @@ export const MESSAGES = {
       recommended: "Recommended",
       showAll: "More providers — DeepSeek, Mistral, Groq, OpenRouter, custom…",
       customTitle: "Custom OpenAI-compatible API",
-      customBody: "Any compatible endpoint — enter your own base URL, model, and API key.",
+      customBody: "Enter your own base URL, model, and key.",
       selected: "Selected: {{name}}",
       starter: {
         title: "Official route — quick to get started.",
@@ -1213,9 +1213,9 @@ export const MESSAGES = {
       providerLead:
         "{{label}} gives you a long secret so Nana can connect. It stays in Windows’ secure storage—not a normal file.",
       steps: {
-        s1: "Tap below to open {{label}} in your browser.",
-        s2: "Sign in and create a key (or similar).",
-        s3: "Copy the whole secret and paste it here.",
+        s1: "Open {{label}} in your browser.",
+        s2: "Sign in and create a key.",
+        s3: "Copy the key and paste it below.",
       },
       customHint: "The address often looks like https://…/v1—copy it from your provider’s help page if unsure.",
       openVendor: "Open {{label}} in browser",

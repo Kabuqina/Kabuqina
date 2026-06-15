@@ -587,6 +587,11 @@ assert.match(
   /respondedRef[\s\S]*renderDeckToBase64[\s\S]*onRespond\("rendered"/,
   "PptxRenderCard must reply via a respondedRef that survives StrictMode effect cleanup.",
 );
+assert.match(
+  messageListSource,
+  /const \{ base64, slideCount, audit \} = await renderDeckToBase64\(deck\)[\s\S]*pptx_render_audit: audit/,
+  "PptxRenderCard should return render audit metadata so the agent can report the actual visual master and palette source.",
+);
 assert.doesNotMatch(
   messageListSource,
   /let cancelled = false;[\s\S]*onRespond\("rendered"/,
@@ -720,6 +725,16 @@ assert.match(
   /export interface VisualMasterV2[\s\S]*typography[\s\S]*spacing[\s\S]*decorations[\s\S]*layouts/,
   "Visual masters should expose typography, spacing, decorations, and per-layout recipes.",
 );
+assert.match(
+  visualMastersSource,
+  /export interface VisualMasterV2[\s\S]*components[\s\S]*flow[\s\S]*table[\s\S]*media/,
+  "Visual masters should expose component-level recipes for flows, tables, and media placeholders.",
+);
+assert.match(
+  visualMastersSource,
+  /soft_editorial[\s\S]*components[\s\S]*flow[\s\S]*nodeFill[\s\S]*blue_professional[\s\S]*components[\s\S]*flow[\s\S]*nodeFill/,
+  "Soft Editorial and Blue Professional should define their own flow component language, not share a generic white-box diagram.",
+);
 for (const layoutId of [
   "cover",
   "hero_statement",
@@ -755,10 +770,25 @@ assert.match(
   /master\.typography[\s\S]*master\.layouts\[layoutId\][\s\S]*layoutRecipe/,
   "renderDeck should consume VisualMasterV2 typography, spacing, decorations, and layout recipes.",
 );
+assert.match(
+  renderDeckSource,
+  /export interface RenderAudit[\s\S]*visualMasterId[\s\S]*paletteSource[\s\S]*slideLayouts[\s\S]*audit: RenderAudit/,
+  "renderDeck should return an audit trail with the selected visual master, palette source, and per-slide layouts.",
+);
+assert.match(
+  renderDeckSource,
+  /master\.components\.flow[\s\S]*master\.components\.table[\s\S]*master\.components\.media/s,
+  "Flow, table, and media layouts should be styled from the selected visual master's component recipes.",
+);
 assert.doesNotMatch(
   renderDeckSource,
   /const boxW = 2\.7, boxH = 1\.15, gap = 0\.4, top = 3\.2/,
   "Process layout geometry should come from the selected visual master, not a single hardcoded recipe.",
+);
+assert.doesNotMatch(
+  renderDeckSource,
+  /renderProcessFlow(?:Horizontal|Vertical)[\s\S]*fill: \{ color: "FFFFFF" \}[\s\S]*line: \{ color: p\.accent/,
+  "Process layouts should not regress to a generic white-box flow style.",
 );
 for (const layoutId of [
   "hero_statement",

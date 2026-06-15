@@ -14,7 +14,13 @@
 // renderer draws that page. Adding a new design = registering one entry.
 
 import pptxgen from "pptxgenjs";
-import { getVisualMaster, type MasterLayoutId, type VisualMasterLayoutBox, type VisualMasterV2 } from "./visualMasters";
+import {
+  getVisualMaster,
+  type MasterLayoutId,
+  type PaletteSlot,
+  type VisualMasterLayoutBox,
+  type VisualMasterV2,
+} from "./visualMasters";
 
 export type DeckSlideType =
   | "agenda"
@@ -102,6 +108,21 @@ export interface DeckSpec {
 export interface RenderedDeck {
   base64: string;
   slideCount: number;
+  audit: RenderAudit;
+}
+
+export interface RenderAudit {
+  visualMasterId: string;
+  visualMasterName: string;
+  paletteSource: "visual_master" | "uploaded_template";
+  effectivePalette: {
+    background: string;
+    title: string;
+    body: string;
+    accent: string;
+    accent2: string;
+  };
+  slideLayouts: { slide: number; title: string; slideType: string; layout: SlideLayoutId }[];
 }
 
 interface Palette {
@@ -129,7 +150,7 @@ function hex(color: string): string {
   return (color || "").replace(/^#/, "").toUpperCase() || "000000";
 }
 
-function colorFor(p: Palette, slot: VisualMasterV2["typography"][keyof VisualMasterV2["typography"]]["color"], fallback: keyof Palette): string {
+function colorFor(p: Palette, slot: PaletteSlot | undefined, fallback: keyof Palette): string {
   const key = slot === "background" ? "bg" : slot;
   return key ? p[key as keyof Palette] ?? p[fallback] : p[fallback];
 }
@@ -152,6 +173,10 @@ function textStyle(ctx: SlideCtx, role: keyof VisualMasterV2["typography"], fall
 
 function currentRecipe(ctx: SlideCtx): VisualMasterV2["layouts"][MasterLayoutId] {
   return ctx.layoutRecipe;
+}
+
+function slotColor(ctx: Pick<SlideCtx, "p">, slot: PaletteSlot, fallback: keyof Palette): string {
+  return colorFor(ctx.p, slot, fallback);
 }
 
 const PLACEHOLDER_LABELS: Record<string, string> = {
@@ -387,6 +412,7 @@ function diagramNodes(spec: DeckSlideSpec): string[] {
 function renderProcessFlowHorizontal(ctx: SlideCtx): void {
   drawHeader(ctx);
   const { pptx, slide, p, master } = ctx;
+  const flow = master.components.flow;
   const items = diagramNodes(ctx.spec);
   if (items.length < 2) {
     renderStandardBullets(ctx);
@@ -400,12 +426,23 @@ function renderProcessFlowHorizontal(ctx: SlideCtx): void {
   let x = body.x + Math.max(0, (body.w - totalW) / 2);
   const top = body.y;
   items.forEach((node, i) => {
+    const nodeFill = slotColor(ctx, flow.nodeFill, "bg");
+    const nodeLine = slotColor(ctx, flow.nodeLine, "accent");
+    const nodeText = slotColor(ctx, flow.nodeText, "title");
     slide.addShape(pptx.ShapeType.roundRect, {
-      x, y: top, w: boxW, h: boxH, rectRadius: 0.08, fill: { color: "FFFFFF" }, line: { color: p.accent, width: 1.5 },
+      x, y: top, w: boxW, h: boxH, rectRadius: 0.08, fill: { color: nodeFill }, line: { color: nodeLine, width: flow.nodeStyle === "filled" ? 0.5 : 1.5 },
     });
-    slide.addText(node, { x, y: top, w: boxW, h: boxH, fontSize: Math.max(12, master.typography.body.fontSize - 3), bold: true, color: p.title, align: "center", valign: "middle" });
+    if (flow.nodeStyle === "banded") {
+      slide.addShape(pptx.ShapeType.rect, { x, y: top, w: boxW, h: 0.15, fill: { color: p.title } });
+    }
+    slide.addText(node, { x, y: top, w: boxW, h: boxH, fontSize: Math.max(12, master.typography.body.fontSize - 3), bold: true, color: nodeText, align: "center", valign: "middle" });
     if (i < items.length - 1) {
-      slide.addText("→", { x: x + boxW, y: top, w: gap, h: boxH, fontSize: 20, bold: true, color: p.accent2, align: "center", valign: "middle" });
+      const connector = slotColor(ctx, flow.connector, "accent2");
+      if (flow.connectorStyle === "bar") {
+        slide.addShape(pptx.ShapeType.rect, { x: x + boxW + 0.04, y: top + boxH / 2 - 0.02, w: Math.max(0.05, gap - 0.08), h: 0.04, fill: { color: connector } });
+      } else {
+        slide.addText(flow.connectorStyle === "dot" ? "•" : "→", { x: x + boxW, y: top, w: gap, h: boxH, fontSize: flow.connectorStyle === "dot" ? 24 : 20, bold: true, color: connector, align: "center", valign: "middle" });
+      }
     }
     x += boxW + gap;
   });
@@ -414,6 +451,7 @@ function renderProcessFlowHorizontal(ctx: SlideCtx): void {
 function renderProcessFlowVertical(ctx: SlideCtx): void {
   drawHeader(ctx);
   const { pptx, slide, p, master } = ctx;
+  const flow = master.components.flow;
   const items = diagramNodes(ctx.spec);
   if (items.length < 2) {
     renderStandardBullets(ctx);
@@ -426,12 +464,23 @@ function renderProcessFlowVertical(ctx: SlideCtx): void {
   const left = body.x;
   let y = body.y;
   items.forEach((node, i) => {
+    const nodeFill = slotColor(ctx, flow.nodeFill, "bg");
+    const nodeLine = slotColor(ctx, flow.nodeLine, "accent");
+    const nodeText = slotColor(ctx, flow.nodeText, "title");
     slide.addShape(pptx.ShapeType.roundRect, {
-      x: left, y, w: boxW, h: boxH, rectRadius: 0.06, fill: { color: "FFFFFF" }, line: { color: p.accent, width: 1.25 },
+      x: left, y, w: boxW, h: boxH, rectRadius: 0.06, fill: { color: nodeFill }, line: { color: nodeLine, width: flow.nodeStyle === "filled" ? 0.5 : 1.25 },
     });
-    slide.addText(node, { x: left, y, w: boxW, h: boxH, fontSize: Math.max(12, master.typography.body.fontSize - 3), color: p.title, align: "center", valign: "middle" });
+    if (flow.nodeStyle === "banded") {
+      slide.addShape(pptx.ShapeType.rect, { x: left, y, w: 0.12, h: boxH, fill: { color: p.title } });
+    }
+    slide.addText(node, { x: left, y, w: boxW, h: boxH, fontSize: Math.max(12, master.typography.body.fontSize - 3), color: nodeText, align: "center", valign: "middle" });
     if (i < items.length - 1) {
-      slide.addText("↓", { x: left + boxW / 2 - 0.2, y: y + boxH, w: 0.4, h: gap, fontSize: 15, bold: true, color: p.accent2, align: "center", valign: "middle" });
+      const connector = slotColor(ctx, flow.connector, "accent2");
+      if (flow.connectorStyle === "bar") {
+        slide.addShape(pptx.ShapeType.rect, { x: left + boxW / 2 - 0.02, y: y + boxH + 0.04, w: 0.04, h: Math.max(0.05, gap - 0.08), fill: { color: connector } });
+      } else {
+        slide.addText(flow.connectorStyle === "dot" ? "•" : "↓", { x: left + boxW / 2 - 0.2, y: y + boxH, w: 0.4, h: gap, fontSize: flow.connectorStyle === "dot" ? 18 : 15, bold: true, color: connector, align: "center", valign: "middle" });
+      }
     }
     y += boxH + gap;
   });
@@ -445,37 +494,54 @@ function renderDataTable(ctx: SlideCtx): void {
     renderStandardBullets(ctx);
     return;
   }
-  const { slide, p } = ctx;
+  const { slide, master } = ctx;
+  const table = master.components.table;
   const tableBox = currentRecipe(ctx).table ?? currentRecipe(ctx).body;
   const headerRow: pptxgen.TableRow = headers.map((h) => ({
     text: h,
-    options: { bold: true, color: "FFFFFF", fill: { color: p.accent }, fontSize: 13, align: "center", valign: "middle" },
+    options: {
+      bold: true,
+      color: slotColor(ctx, table.headerText, "bg"),
+      fill: { color: slotColor(ctx, table.headerFill, "accent") },
+      fontSize: 13,
+      align: "center",
+      valign: "middle",
+    },
   }));
-  const bodyRows: pptxgen.TableRow[] = rows.map((row) =>
-    headers.map((_, c) => ({ text: row[c] ?? "", options: { color: p.body, fontSize: 12, valign: "middle" } })),
+  const bodyRows: pptxgen.TableRow[] = rows.map((row, r) =>
+    headers.map((_, c) => ({
+      text: row[c] ?? "",
+      options: {
+        color: slotColor(ctx, table.bodyText, "body"),
+        fill: table.zebra && r % 2 === 1 ? { color: slotColor(ctx, table.border, "accent2"), transparency: 88 } : { color: slotColor(ctx, table.bodyFill, "bg") },
+        fontSize: 12,
+        valign: "middle",
+      },
+    })),
   );
   slide.addTable([headerRow, ...bodyRows], {
     ...tableBox,
-    border: { type: "solid", color: "D9D9D9", pt: 0.5 },
+    border: { type: "solid", color: slotColor(ctx, table.border, "accent2"), pt: 0.5 },
     autoPage: false,
   });
 }
 
 function renderMediaPlaceholder(ctx: SlideCtx): void {
   drawHeader(ctx);
-  const { pptx, slide, spec, p } = ctx;
+  const { pptx, slide, spec, master } = ctx;
+  const mediaRecipe = master.components.media;
   const ph = spec.placeholder || {};
   const kind = PLACEHOLDER_LABELS[spec.slide_type] || "PLACEHOLDER";
   const media = currentRecipe(ctx).media ?? currentRecipe(ctx).body;
   slide.addShape(pptx.ShapeType.roundRect, {
     ...media,
     rectRadius: 0.1,
-    fill: { color: "FFFFFF" },
-    line: { color: p.accent, width: 1.5, dashType: "dash" },
+    fill: { color: slotColor(ctx, mediaRecipe.fill, "bg") },
+    line: { color: slotColor(ctx, mediaRecipe.border, "accent"), width: 1.5, dashType: mediaRecipe.borderStyle === "dash" ? "dash" : "solid" },
   });
-  slide.addText(kind, { x: media.x + 0.4, y: media.y + 0.45, w: media.w - 0.8, h: 0.4, ...textStyle(ctx, "kicker", "accent") });
+  slide.addText(kind, { x: media.x + 0.4, y: media.y + 0.45, w: media.w - 0.8, h: 0.4, ...textStyle(ctx, "kicker", "accent"), color: slotColor(ctx, mediaRecipe.label, "accent") });
   slide.addText(ph.label || (spec.slide_type === "chart_placeholder" ? "待补充图表" : "待补充截图"), {
-    x: media.x + 0.4, y: media.y + 1.05, w: media.w - 0.8, h: 0.7, fontSize: Math.max(21, ctx.master.typography.title.fontSize - 3), bold: true, color: p.title,
+    x: media.x + 0.4, y: media.y + 1.05, w: media.w - 0.8, h: 0.7, fontSize: Math.max(21, ctx.master.typography.title.fontSize - 3), bold: true, color: slotColor(ctx, mediaRecipe.label, "title"),
   });
   slide.addText(ph.caption || "请替换为真实材料后再提交。", { x: media.x + 0.4, y: media.y + 1.95, w: media.w - 0.8, h: 0.7, ...textStyle(ctx, "body", "body") });
 }
@@ -606,15 +672,35 @@ export async function renderDeckToBase64(deck: DeckSpec): Promise<RenderedDeck> 
 
   addCover(pptx, deck, p, master);
 
+  const audit: RenderAudit = {
+    visualMasterId: master.id,
+    visualMasterName: master.name,
+    paletteSource: override ? "uploaded_template" : "visual_master",
+    effectivePalette: {
+      background: p.bg,
+      title: p.title,
+      body: p.body,
+      accent: p.accent,
+      accent2: p.accent2,
+    },
+    slideLayouts: [],
+  };
+
   for (const spec of deck.slides ?? []) {
     const slide = pptx.addSlide();
     const layoutId = chooseLayout(spec);
     const layoutRecipe = master.layouts[layoutId];
+    audit.slideLayouts.push({
+      slide: audit.slideLayouts.length + 2,
+      title: spec.title ?? "",
+      slideType: spec.slide_type,
+      layout: layoutId,
+    });
     const ctx: SlideCtx = { pptx, slide, spec, p, master, layoutId, layoutRecipe, pageW, pageH };
     LAYOUTS[layoutId](ctx);
     if (spec.notes) slide.addNotes(spec.notes);
   }
 
   const base64 = (await pptx.write({ outputType: "base64" })) as string;
-  return { base64, slideCount: (deck.slides?.length ?? 0) + 1 };
+  return { base64, slideCount: (deck.slides?.length ?? 0) + 1, audit };
 }

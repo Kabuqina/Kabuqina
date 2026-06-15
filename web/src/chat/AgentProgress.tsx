@@ -53,7 +53,7 @@ function StepRow({ step }: { step: AgentStep }) {
     <div
       className={cn(
         "flex items-center gap-2 py-0.5 font-mono text-[12.5px] leading-snug",
-        step.isError ? "text-rose-600 dark:text-rose-400" : "text-zinc-600 dark:text-zinc-400"
+        step.isError ? "text-rose-600 dark:text-rose-400" : "text-[var(--kq-color-muted)]"
       )}
     >
       <span
@@ -75,14 +75,14 @@ function StepRow({ step }: { step: AgentStep }) {
           <Check className="h-3.5 w-3.5" strokeWidth={3} />
         )}
       </span>
-      <Icon className="h-3.5 w-3.5 shrink-0 text-zinc-400 dark:text-zinc-500" aria-hidden />
-      <span className="shrink-0 font-semibold text-zinc-700 dark:text-zinc-300">{toolLabel}</span>
+      <Icon className="h-3.5 w-3.5 shrink-0 text-[var(--kq-color-muted)]" aria-hidden />
+      <span className="shrink-0 font-semibold text-[var(--kq-color-ink)]">{toolLabel}</span>
       {display && (
-        <span className="min-w-0 flex-1 truncate text-zinc-500 dark:text-zinc-500" title={display}>
+        <span className="min-w-0 flex-1 truncate text-[var(--kq-color-muted)]" title={display}>
           {display}
         </span>
       )}
-      <span className="ml-auto shrink-0 tabular-nums text-zinc-400 dark:text-zinc-500">
+      <span className="ml-auto shrink-0 tabular-nums text-[var(--kq-color-muted)]">
         {step.running ? "…" : formatDuration(step.duration)}
       </span>
     </div>
@@ -111,13 +111,13 @@ function StatusRow({ progress }: { progress: AgentProgressState }) {
   }
 
   return (
-    <div className="mt-1.5 flex items-center gap-2 border-t border-zinc-200/70 pt-1.5 font-mono text-[12.5px] text-zinc-500 dark:border-zinc-700/60 dark:text-zinc-500">
+    <div className="mt-1.5 flex items-center gap-2 border-t border-[var(--kq-glass-border)] pt-1.5 font-mono text-[12.5px] text-[var(--kq-color-muted)]">
       <span aria-hidden className="select-none text-amber-500/90 dark:text-amber-400/90">
         {frame}
       </span>
       <span className="italic">{label}</span>
       {iteration > 0 && max_iterations > 0 && (
-        <span className="ml-auto shrink-0 tabular-nums text-zinc-400 dark:text-zinc-500">
+        <span className="ml-auto shrink-0 tabular-nums text-[var(--kq-color-muted)]">
           {iteration}/{max_iterations}
         </span>
       )}
@@ -139,8 +139,8 @@ export function AgentProgress({ progress }: { progress: AgentProgressState | nul
       <button
         type="button"
         className={cn(
-          "inline-flex max-w-full items-center gap-2 rounded-2xl rounded-tl-sm border border-zinc-200/80 bg-white/85 px-3 py-2 text-left shadow-sm transition",
-          "hover:border-violet-200 hover:bg-white dark:border-zinc-700/70 dark:bg-zinc-900/70 dark:hover:border-zinc-600"
+          "inline-flex max-w-full items-center gap-2 rounded-2xl rounded-tl-sm border border-[var(--kq-glass-border)] bg-[var(--kq-glass-bg)] px-3 py-2 text-left shadow-sm transition",
+          "hover:bg-[var(--kq-hover-bg-strong)]"
         )}
         onClick={() => setCollapsed(false)}
         aria-label={t("chat.expand")}
@@ -148,16 +148,16 @@ export function AgentProgress({ progress }: { progress: AgentProgressState | nul
         <span aria-hidden className="text-base">
           ✨
         </span>
-        <span className="min-w-0 truncate text-sm font-medium text-zinc-600 dark:text-zinc-300">
+        <span className="min-w-0 truncate text-sm font-medium text-[var(--kq-color-ink)]">
           {t("chat.streamingWorking")}
           {currentTool ? ` · ${currentTool}` : ""}
         </span>
         {progress.steps.length > 0 && (
-          <span className="shrink-0 rounded-full bg-zinc-100 px-1.5 py-0.5 font-mono text-[11px] text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+          <span className="shrink-0 rounded-full bg-[var(--kq-hover-bg)] px-1.5 py-0.5 font-mono text-[11px] text-[var(--kq-color-muted)]">
             {progress.steps.length}
           </span>
         )}
-        <ChevronDown className="h-4 w-4 shrink-0 text-zinc-400" strokeWidth={2.25} />
+        <ChevronDown className="h-4 w-4 shrink-0 text-[var(--kq-color-muted)]" strokeWidth={2.25} />
       </button>
     );
   }
@@ -165,15 +165,14 @@ export function AgentProgress({ progress }: { progress: AgentProgressState | nul
   return (
     <div
       className={cn(
-        "relative w-fit max-w-full rounded-2xl rounded-tl-sm border border-zinc-200/80 bg-white/85 px-3 py-2 shadow-sm",
-        "dark:border-zinc-700/70 dark:bg-zinc-900/70"
+        "relative w-fit max-w-full rounded-2xl rounded-tl-sm border border-[var(--kq-glass-border)] bg-[var(--kq-glass-bg)] px-3 py-2 shadow-sm backdrop-blur-[14px]"
       )}
       role="status"
       aria-label="Agent progress"
     >
       <button
         type="button"
-        className="absolute -right-1.5 -top-1.5 inline-flex h-6 w-6 items-center justify-center rounded-md bg-white/90 text-zinc-400 shadow-sm ring-1 ring-zinc-200/80 transition hover:bg-zinc-50 hover:text-zinc-700 dark:bg-zinc-900/90 dark:ring-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+        className="absolute -right-1.5 -top-1.5 inline-flex h-6 w-6 items-center justify-center rounded-md bg-[var(--kq-color-surface)] text-[var(--kq-color-muted)] shadow-sm ring-1 ring-[var(--kq-glass-border)] transition hover:bg-[var(--kq-hover-bg)] hover:text-[var(--kq-color-strong)]"
         onClick={() => setCollapsed(true)}
         aria-label={t("chat.collapse")}
         title={t("chat.collapse")}

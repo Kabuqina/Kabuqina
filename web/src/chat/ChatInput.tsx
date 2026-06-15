@@ -250,7 +250,7 @@ export function ChatInput({
   const canSend = !sending && (value.trim() || pendingAttachments.length > 0);
 
   return (
-    <div className="kq-input-area shrink-0 dark:bg-[#0F172A]">
+    <div className="kq-input-area shrink-0">
       <div className="kq-input-container">
       <div
         className={cn(
@@ -489,7 +489,7 @@ export function ChatInput({
               type="button"
               onClick={() => void onSend()}
               disabled={!canSend}
-              className="kq-send-button flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-white transition hover:brightness-[1.04] active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-400 disabled:shadow-none dark:bg-[#3B5BC7] dark:text-white dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
+              className="kq-send-button flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-white transition hover:brightness-[1.04] active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-400 disabled:shadow-none dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
               title={sending ? t("chat.sending") : t("chat.send")}
               aria-label={sending ? t("chat.sending") : t("chat.send")}
             >

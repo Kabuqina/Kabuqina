@@ -132,7 +132,7 @@ export function SetupOptionsTable({
           <label className="flex cursor-pointer items-start gap-3 hd-wizard-body">
             <input
               type="checkbox"
-              className="mt-1 h-4 w-4 rounded border-zinc-400"
+              className="mt-1 h-4 w-4 rounded border-[var(--kq-color-muted)]/50"
               checked={isSkip}
               onChange={(e) => {
                 if (e.target.checked) {
@@ -165,17 +165,17 @@ export function SetupOptionsTable({
       >
         <table className="w-full min-w-[min(100%,480px)] border-collapse text-left text-sm">
           <thead>
-            <tr className="border-b border-zinc-200/80 dark:border-zinc-700/80">
+            <tr className="border-b border-[var(--kq-color-border)]">
               {hasChoiceUi && !isSkip ? (
-                <th className="w-10 px-2 py-2.5 text-center font-medium text-zinc-800 dark:text-zinc-200">
+                <th className="w-10 px-2 py-2.5 text-center font-medium text-[var(--kq-color-strong)]">
                   {t("setupOptions.colPick")}
                 </th>
               ) : null}
-              <th className="px-4 py-2.5 font-medium text-zinc-800 dark:text-zinc-200">{t("setupOptions.colOption")}</th>
-              <th className="px-4 py-2.5 font-medium text-zinc-800 dark:text-zinc-200">
+              <th className="px-4 py-2.5 font-medium text-[var(--kq-color-strong)]">{t("setupOptions.colOption")}</th>
+              <th className="px-4 py-2.5 font-medium text-[var(--kq-color-strong)]">
                 {t("setupOptions.colDefault")}
               </th>
-              <th className="w-0 whitespace-nowrap px-4 py-2.5 text-right font-medium text-zinc-800 dark:text-zinc-200">
+              <th className="w-0 whitespace-nowrap px-4 py-2.5 text-right font-medium text-[var(--kq-color-strong)]">
                 {t("setupOptions.colConfigure")}
               </th>
             </tr>
@@ -187,7 +187,7 @@ export function SetupOptionsTable({
               return (
                 <tr
                   key={row.id}
-                  className="border-b border-zinc-100/90 last:border-0 dark:border-zinc-800/80"
+                  className="border-b border-[var(--kq-color-border)] last:border-0"
                 >
                   {hasChoiceUi && !isSkip ? (
                     <td className="px-2 py-2.5 text-center align-top">
@@ -217,7 +217,7 @@ export function SetupOptionsTable({
                       )}
                     </td>
                   ) : null}
-                  <td className="px-4 py-2.5 align-top text-zinc-800 dark:text-zinc-200">
+                  <td className="px-4 py-2.5 align-top text-[var(--kq-color-strong)]">
                     <div className="flex flex-wrap items-baseline gap-2">
                       <span>{pick(row.name, loc)}</span>
                       {row.isDefault ? (
@@ -226,7 +226,7 @@ export function SetupOptionsTable({
                         </span>
                       ) : null}
                       {hasAnyValue(row.id) ? (
-                        <span className="text-[0.7rem] text-[var(--kq-color-strong)] dark:text-[#D4C5E2]">{t("setupOptions.hasPrefill")}</span>
+                        <span className="text-[0.7rem] text-[var(--kq-color-strong)]">{t("setupOptions.hasPrefill")}</span>
                       ) : null}
                       {envOk ? (
                         <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[0.7rem] font-medium text-emerald-800 dark:text-emerald-200">
@@ -235,7 +235,7 @@ export function SetupOptionsTable({
                       ) : null}
                     </div>
                   </td>
-                  <td className="px-4 py-2.5 align-top text-zinc-600 dark:text-zinc-400">
+                  <td className="px-4 py-2.5 align-top text-[var(--kq-color-muted)]">
                     {pick(row.defaultHint, loc)}
                   </td>
                   <td className="px-4 py-2.5 align-top text-right">
@@ -247,14 +247,14 @@ export function SetupOptionsTable({
                         className={cn(
                           "whitespace-nowrap",
                           rowAllowsConfig(row)
-                            ? "text-[var(--kq-color-strong)] underline-offset-2 hover:underline dark:text-[#D4C5E2]"
-                            : "cursor-not-allowed text-zinc-300 dark:text-zinc-600"
+                            ? "text-[var(--kq-color-strong)] underline-offset-2 hover:underline"
+                            : "cursor-not-allowed text-[var(--kq-color-muted)]/50"
                         )}
                       >
                         {t("setupOptions.configure")}
                       </button>
                     ) : (
-                      <span className="text-zinc-300 dark:text-zinc-600">—</span>
+                      <span className="text-[var(--kq-color-muted)]/50">—</span>
                     )}
                   </td>
                 </tr>

@@ -18,6 +18,12 @@ export function Welcome() {
   return (
     <div className="space-y-10">
       <div className="space-y-4">
+        <img
+          src="/kabuqina_mascot.svg"
+          alt=""
+          className="h-24 w-24 drop-shadow-[0_8px_24px_rgba(90,74,106,0.18)]"
+          draggable={false}
+        />
         <h1 className="hd-wizard-title">{t("welcome.title")}</h1>
       </div>
 
@@ -51,7 +57,7 @@ function Bullet() {
   return (
     <span
       aria-hidden
-      className="mt-1.5 inline-block h-2 w-2 shrink-0 rounded-full bg-[var(--kq-color-primary)] dark:bg-[#D4C5E2]"
+      className="mt-1.5 inline-block h-2 w-2 shrink-0 rounded-full bg-[var(--kq-color-primary)]"
     />
   );
 }

@@ -12,7 +12,7 @@ export function WizardFooter({ children, className }: { children: ReactNode; cla
   return (
     <div
       className={cn(
-        "sticky bottom-0 z-20 -mx-[var(--hd-page-pad-x)] border-t border-[var(--kq-color-border)]/80 bg-[var(--kq-color-surface)]/95 px-[var(--hd-page-pad-x)] pt-4 dark:border-zinc-800/70 dark:bg-[#0F172A]/95 sm:mx-0",
+        "sticky bottom-0 z-20 -mx-[var(--hd-page-pad-x)] border-t border-[var(--kq-color-border)]/80 bg-[var(--kq-color-surface)]/95 px-[var(--hd-page-pad-x)] pt-4 sm:mx-0",
         "pb-[max(1rem,env(safe-area-inset-bottom,0px))]",
         className
       )}
@@ -58,7 +58,7 @@ export function WizardSecondaryButton({
       type="button"
       className={cn(
         secondaryBase,
-        "kq-btn-secondary text-[var(--kq-color-ink)] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800/80",
+        "kq-btn-secondary text-[var(--kq-color-ink)] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50",
         className
       )}
       {...props}

@@ -117,10 +117,10 @@ function PptxRenderCard({
       try {
         const { renderDeckToBase64 } = await import("./pptx/renderDeck");
         const deck = (interaction.artifact?.deck ?? {}) as import("./pptx/renderDeck").DeckSpec;
-        const { base64, slideCount } = await renderDeckToBase64(deck);
+        const { base64, slideCount, audit } = await renderDeckToBase64(deck);
         if (respondedRef.current) return;
         respondedRef.current = true;
-        await onRespond("rendered", "", { pptx_base64: base64, slide_count: slideCount });
+        await onRespond("rendered", "", { pptx_base64: base64, slide_count: slideCount, pptx_render_audit: audit });
         setStatus("done");
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
