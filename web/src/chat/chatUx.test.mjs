@@ -326,6 +326,17 @@ assert.match(
 
 assert.match(
   workspacePanelSource,
+  /workspace\.learningResources[\s\S]*workspaceBuildResourcePack/,
+  "Workspace panel should expose a learning-resource pack quick action.",
+);
+assert.match(
+  workspacePanelSource,
+  /个性化学习资源包[\s\S]*如果信息不足，请先追问 3 到 5 个关键问题[\s\S]*至少 5 类学习资源[\s\S]*知识点讲解文档[\s\S]*知识点思维导图大纲[\s\S]*分层练习题[\s\S]*拓展阅读材料[\s\S]*代码\/实验实操案例[\s\S]*基础、进阶、应用三档[\s\S]*预期输出和检查点[\s\S]*请不要使用 emoji/,
+  "Learning-resource prompt should require five resource types, tiered practice, practical checks, and no emoji.",
+);
+
+assert.match(
+  workspacePanelSource,
   /workspace\.mathAbility[\s\S]*workspaceFormulaToCode[\s\S]*workspaceCodeToFormula[\s\S]*workspaceMathFormulaExtract/,
   "Workspace panel should group code/formula conversion and formula extraction under Math Ability, formula-to-code first.",
 );

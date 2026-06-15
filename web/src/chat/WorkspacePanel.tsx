@@ -10,6 +10,7 @@ import {
   FolderOpen,
   GraduationCap,
   Languages,
+  Layers3,
   Loader2,
   Palette,
   PanelRightClose,
@@ -262,6 +263,15 @@ export function WorkspacePanel({
   const selectedMathLanguage =
     MATH_TARGET_LANGUAGES.find((item) => item.id === mathLanguage) ?? MATH_TARGET_LANGUAGES[0];
   const buildPptPrompt = (sections: string[]) => sections.join("\n\n");
+  const learningResourcePackPrompt = [
+    "请帮我生成一份个性化学习资源包。优先基于我已有的学习画像、学习路径、课程材料或聊天上下文；如果信息不足，请先追问 3 到 5 个关键问题，不要直接编造课程内容或资源。",
+    "资源包需要围绕一个明确课程主题或知识点展开。如果我没有说明主题，请先确认主题、目标水平、学习时长、薄弱点和希望的资源形式。",
+    "当信息足够后，请生成至少 5 类学习资源：知识点讲解文档、知识点思维导图大纲、分层练习题、拓展阅读材料、代码/实验实操案例。可以按需要额外加入复习卡片、答疑卡片或小测评。",
+    "每类资源都要说明：适合的画像维度或学习需求、使用方式、预计耗时、产出格式、完成标准和需要人工确认的事实。",
+    "练习题请分基础、进阶、应用三档；代码/实验案例请包含目标、数据或输入、关键步骤、预期输出和检查点。",
+    "输出格式请固定为：1. 资源包摘要；2. 资源清单总览；3. 各类资源正文；4. 使用顺序建议；5. 质量检查与不确定信息；6. 后续可扩展资源。",
+    "请不要使用 emoji，保持清晰、克制、学术助手风格。",
+  ].join("\n\n");
   // Canonical planner rules — slide_type / layout vocabulary, placeholder
   // discipline, the four-layer flow, and the per-structure must-cover outlines —
   // now live in the agent system prompt (hermes_core
@@ -449,6 +459,16 @@ export function WorkspacePanel({
         </>
         ) : (
         <>
+        <WorkspaceSection sectionId="workspace.learningResources" title={t("chat.workspaceLearningResources")}>
+          <div className="mt-3 grid gap-2">
+            <WorkspaceActionButton
+              onClick={() => onStartPrompt?.(learningResourcePackPrompt)}
+              icon={<Layers3 className="kq-color-icon-course mr-2 inline h-4 w-4" aria-hidden />}
+              label={t("chat.workspaceBuildResourcePack")}
+            />
+          </div>
+        </WorkspaceSection>
+
         <WorkspaceSection sectionId="workspace.reportPpt" title={t("chat.workspaceReportPpt")}>
           <div className="mt-3 grid gap-2">
             <WorkspaceActionButton
