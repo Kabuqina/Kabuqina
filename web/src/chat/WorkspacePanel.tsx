@@ -17,6 +17,7 @@ import {
   RotateCcw,
   Sigma,
   SquareArrowOutUpRight,
+  UserRoundCog,
 } from "lucide-react";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
@@ -262,6 +263,14 @@ export function WorkspacePanel({
   const selectedMathLanguage =
     MATH_TARGET_LANGUAGES.find((item) => item.id === mathLanguage) ?? MATH_TARGET_LANGUAGES[0];
   const buildPptPrompt = (sections: string[]) => sections.join("\n\n");
+  const learningProfilePrompt = [
+    "请用对话式方式帮我构建一份“个性化学习画像”。这是一个学习规划前置步骤，不要替我编造未知信息。",
+    "如果我还没有提供足够信息，请先追问 3 到 5 个最关键的问题；问题要覆盖专业/课程、学习目标、当前基础、薄弱点、学习偏好和可投入时间。",
+    "当信息足够后，请输出结构化画像，至少包含 6 个维度：专业与课程背景、当前知识基础、学习目标、认知风格/学习偏好、易错点与知识短板、可投入时间与学习节奏、资源偏好、实践/代码基础。",
+    "输出格式请固定为：1. 学习画像摘要；2. 画像维度表；3. 当前不确定信息；4. 下一步推荐资源类型；5. 后续可更新字段。",
+    "请把每个维度标注为“已确认 / 待确认 / 推断”，推断内容必须说明依据；如果依据不足，放到“当前不确定信息”里，不要写成事实。",
+    "请不要使用 emoji，保持清晰、克制、学术助手风格。",
+  ].join("\n\n");
   // Canonical planner rules — slide_type / layout vocabulary, placeholder
   // discipline, the four-layer flow, and the per-structure must-cover outlines —
   // now live in the agent system prompt (hermes_core
@@ -449,6 +458,16 @@ export function WorkspacePanel({
         </>
         ) : (
         <>
+        <WorkspaceSection sectionId="workspace.learningProfile" title={t("chat.workspaceLearningProfile")}>
+          <div className="mt-3 grid gap-2">
+            <WorkspaceActionButton
+              onClick={() => onStartPrompt?.(learningProfilePrompt)}
+              icon={<UserRoundCog className="kq-color-icon-course mr-2 inline h-4 w-4" aria-hidden />}
+              label={t("chat.workspaceBuildLearningProfile")}
+            />
+          </div>
+        </WorkspaceSection>
+
         <WorkspaceSection sectionId="workspace.reportPpt" title={t("chat.workspaceReportPpt")}>
           <div className="mt-3 grid gap-2">
             <WorkspaceActionButton

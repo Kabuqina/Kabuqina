@@ -326,6 +326,17 @@ assert.match(
 
 assert.match(
   workspacePanelSource,
+  /workspace\.learningProfile[\s\S]*workspaceBuildLearningProfile/,
+  "Workspace panel should expose a bounded conversational learning-profile builder.",
+);
+assert.match(
+  workspacePanelSource,
+  /个性化学习画像[\s\S]*不要替我编造未知信息[\s\S]*至少包含 6 个维度[\s\S]*已确认 \/ 待确认 \/ 推断[\s\S]*请不要使用 emoji/,
+  "Learning-profile prompt should require bounded dimensions and uncertainty labels.",
+);
+
+assert.match(
+  workspacePanelSource,
   /workspace\.mathAbility[\s\S]*workspaceFormulaToCode[\s\S]*workspaceCodeToFormula[\s\S]*workspaceMathFormulaExtract/,
   "Workspace panel should group code/formula conversion and formula extraction under Math Ability, formula-to-code first.",
 );
