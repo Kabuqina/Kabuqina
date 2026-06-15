@@ -509,6 +509,20 @@ class TestDeliverablePlannerPrompt:
         assert "course_report" in prompt and "paper_report" in prompt and "code_defense" in prompt
         assert "## PDF / HTML / Word reports" not in prompt
 
+    def test_ppt_slide_content_quality_guidance(self):
+        """Decks must be judged on substance, not slide count: the planner is told
+        to avoid definitional padding, redundant agendas, and empty placeholder
+        slides, and to keep section depth even."""
+        prompt = build_deliverable_planner_prompt({"pptx_write"})
+        assert "Slide content quality" in prompt
+        assert "Substance over definitions" in prompt
+        assert "exactly one agenda slide" in prompt
+        assert "never be ONLY a placeholder" in prompt
+        # Thin sources (surveys/reviews) must not be padded to hit a count.
+        assert "Do not inflate length to hit a slide count" in prompt
+        # Uploaded school templates flow through template_path (route A).
+        assert "template_path" in prompt
+
     def test_pdf_html_block_gated_on_writers(self):
         prompt = build_deliverable_planner_prompt({"pdf_write", "html_write"})
         assert "PDF / HTML / Word reports (pdf_write, html_write)" in prompt

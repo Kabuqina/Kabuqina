@@ -320,14 +320,14 @@ assert.equal(
 
 assert.match(
   workspacePanelSource,
-  /workspace\.reportPpt[\s\S]*workspaceCourseToPpt[\s\S]*workspacePaperToPpt[\s\S]*workspaceCodeToPpt/,
-  "Workspace panel should group the three report PPT workflows under Generate Report PPT.",
+  /workspace\.reportPpt[\s\S]*workspacePaperToPpt[\s\S]*workspaceCourseToPpt[\s\S]*workspaceCodeToPpt/,
+  "Workspace panel should group the three report PPT workflows under Generate Report PPT, paper first.",
 );
 
 assert.match(
   workspacePanelSource,
-  /workspace\.mathAbility[\s\S]*workspaceCodeToFormula[\s\S]*workspaceFormulaToCode[\s\S]*workspaceMathFormulaExtract/,
-  "Workspace panel should group code/formula conversion and formula extraction under Math Ability.",
+  /workspace\.mathAbility[\s\S]*workspaceFormulaToCode[\s\S]*workspaceCodeToFormula[\s\S]*workspaceMathFormulaExtract/,
+  "Workspace panel should group code/formula conversion and formula extraction under Math Ability, formula-to-code first.",
 );
 assert.match(
   workspacePanelSource,
@@ -343,14 +343,75 @@ assert.doesNotMatch(
 
 assert.match(
   sidebarSource,
-  /workspaceOtherCommon[\s\S]*cron\.title[\s\S]*workspaceOpenWorkspace[\s\S]*workspaceOrganizeDesktop[\s\S]*chat\.exportButton/,
-  "Chat sidebar should move non-academy common actions below chat history.",
+  /workspaceOtherCommon[\s\S]*workspaceOpenWorkspace[\s\S]*cron\.title[\s\S]*workspaceOrganizeDesktop[\s\S]*chat\.exportButton/,
+  "Chat sidebar should move non-academy common actions below chat history, open workspace first.",
 );
 
+assert.match(
+  sidebarSource,
+  /kq-sidebar-history-scroll[\s\S]*grouped\.map/,
+  "Sidebar chat history should live in its own scroll region.",
+);
+assert.match(
+  sidebarSource,
+  /kq-sidebar-history-scroll[\s\S]*<\/div>\s*<div[\s\S]*kq-sidebar-common-actions[\s\S]*workspaceOtherCommon/,
+  "Sidebar common actions should be outside the scrollable history region so history cannot push them down.",
+);
+
+assert.match(
+  workspacePanelSource,
+  /workspace\.deliverables[\s\S]*DeliverableCard/,
+  "Workspace panel should render generated outputs as actionable deliverable cards.",
+);
+assert.match(
+  workspacePanelSource,
+  /cmd_open_path[\s\S]*cmd_reveal_path/,
+  "Deliverable cards should open and reveal files via the workspace-scoped Tauri commands.",
+);
+assert.match(
+  workspacePanelSource,
+  /latestDeliverables/,
+  "Deliverables should collapse repeated regenerations to the latest version per filename.",
+);
+assert.match(
+  workspacePanelSource,
+  /disabled=\{disabled\}/,
+  "Deliverable actions should stay disabled while a turn is still in flight.",
+);
+assert.match(
+  chatPageSource,
+  /busy=\{sending\}/,
+  "ChatPage should gate deliverable actions on whether 小娜 is still replying.",
+);
+assert.match(
+  chatPageSource,
+  /const pending = sending && idx === lastAssistantIdx[\s\S]*pending: sending/,
+  "Only the in-flight turn's deliverable should be marked pending; finished files stay ready.",
+);
+assert.match(
+  workspacePanelSource,
+  /disabled=\{busy && Boolean\(item\.pending\)\}/,
+  "Deliverable cards should only disable the file still being produced, not finished ones.",
+);
+assert.match(
+  workspacePanelSource,
+  /setMode\("work"\)[\s\S]*setMode\("academy"\)/,
+  "Right rail should offer a WORK / ACADEMY mode switch instead of nesting work inside academy.",
+);
+assert.match(
+  workspacePanelSource,
+  /mode === "work" \? \([\s\S]*workspace\.deliverables[\s\S]*\) : \([\s\S]*workspace\.reportPpt/,
+  "WORK mode should show deliverables; ACADEMY mode should show the PPT/math launchpad.",
+);
+assert.match(
+  workspacePanelSource,
+  /kq-workspace-panel flex w-72 shrink-0/,
+  "The right rail keeps a stable width so widening can never push it off a narrow window.",
+);
 assert.doesNotMatch(
   workspacePanelSource,
-  /workspace\.currentGoal|workspace\.materials|workspace\.outputs|materials\.length|outputs\.length|activeTool[\s\S]*activity\.map/,
-  "Workspace panel should hide current work, materials, and outputs for now.",
+  /activity\.map/,
+  "Workspace panel should not re-display the agent activity feed that already lives in AgentProgress.",
 );
 
 assert.doesNotMatch(
@@ -512,6 +573,21 @@ assert.match(
   "Chat should render reusable interaction cards with the PPT outline review actions.",
 );
 
+// Regression: under StrictMode the render effect runs mount->cleanup->mount.
+// The pptx_render reply must be guarded by a respondedRef that survives cleanup,
+// never by a per-effect `cancelled` flag — otherwise the only reply is suppressed
+// and the agent hits the 300s interaction timeout (pptx_render_cancelled).
+assert.match(
+  messageListSource,
+  /respondedRef[\s\S]*renderDeckToBase64[\s\S]*onRespond\("rendered"/,
+  "PptxRenderCard must reply via a respondedRef that survives StrictMode effect cleanup.",
+);
+assert.doesNotMatch(
+  messageListSource,
+  /let cancelled = false;[\s\S]*onRespond\("rendered"/,
+  "PptxRenderCard must not gate its render reply on a per-effect cancelled flag.",
+);
+
 assert.match(
   chatMessageSource,
   /attachments\?: DeskAttachmentPayload\[\][\s\S]*UserImageAttachments[\s\S]*<img[\s\S]*data:\$\{att\.mime\};base64,\$\{att\.data\}/,
@@ -588,8 +664,8 @@ assert.doesNotMatch(chatExportSource, /Hermes|hermesdesk-export/i);
 
 assert.match(
   sidebarSource,
-  /onOpenScheduledTasks[\s\S]*kq-color-icon-alarm[\s\S]*cron\.title[\s\S]*onOpenWorkspace[\s\S]*workspaceOpenWorkspace[\s\S]*kq-color-icon-folder[\s\S]*workspaceOrganizeDesktop[\s\S]*kq-color-icon-download[\s\S]*chat\.exportButton/,
-  "Sidebar common actions should use colorful icons with scheduled tasks and workspace opening first.",
+  /onOpenWorkspace[\s\S]*kq-color-icon-folder[\s\S]*workspaceOpenWorkspace[\s\S]*onOpenScheduledTasks[\s\S]*kq-color-icon-alarm[\s\S]*cron\.title[\s\S]*onOrganizeDesktop[\s\S]*workspaceOrganizeDesktop[\s\S]*onExport[\s\S]*kq-color-icon-download[\s\S]*chat\.exportButton/,
+  "Sidebar common actions should use colorful icons with open workspace first.",
 );
 
 for (const structureId of ["course_report", "paper_report", "code_defense"]) {
@@ -662,6 +738,20 @@ for (const layoutId of [
     `renderDeck layout registry should define ${layoutId}.`,
   );
 }
+// Cover must give deck-level metadata (author/affiliation/date/citation) a home,
+// so the planner never crams a byline into an agenda or content slide.
+assert.match(
+  renderDeckSource,
+  /const meta = deck\.meta[\s\S]*meta\.author[\s\S]*meta\.affiliation[\s\S]*meta\.date[\s\S]*meta\.citation/,
+  "addCover should render deck.meta byline + citation on the cover.",
+);
+// Route A: an uploaded school template supplies an inline palette/fonts override
+// that takes precedence over the built-in visual master, per field.
+assert.match(
+  renderDeckSource,
+  /const override = deck\.visual_master_palette[\s\S]*override\?\.background \?\? master\.palette\.background[\s\S]*pptx\.theme = \{ headFontFace/,
+  "renderDeck should let an uploaded template's palette/fonts override the built-in master.",
+);
 assert.match(
   workspacePanelSource,
   /pptMasterPreviewStyle[\s\S]*--kq-ppt-bg[\s\S]*--kq-ppt-accent[\s\S]*style=\{pptMasterPreviewStyle\(master\)\}/,

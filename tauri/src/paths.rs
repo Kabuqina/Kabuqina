@@ -198,6 +198,41 @@ pub fn cmd_open_workspace(app: AppHandle) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+/// Resolve `path` and confirm it lives inside the workspace before handing it to
+/// the OS opener. Deliverable paths shown in the workspace panel are extracted
+/// from agent messages via regex, so we never open an arbitrary location a
+/// crafted message could point at.
+fn resolve_workspace_child(app: &AppHandle, path: &str) -> Result<PathBuf, String> {
+    let workspace = ensure_workspace(app).map_err(|e| e.to_string())?;
+    let ws_canon = std::fs::canonicalize(&workspace).unwrap_or(workspace);
+    let canon = std::fs::canonicalize(PathBuf::from(path))
+        .map_err(|e| format!("path not found: {}", e))?;
+    if !canon.starts_with(&ws_canon) {
+        return Err("path is outside the workspace".into());
+    }
+    Ok(canon)
+}
+
+/// Open a workspace file with the OS default application.
+#[tauri::command]
+pub fn cmd_open_path(app: AppHandle, path: String) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    let target = resolve_workspace_child(&app, &path)?;
+    app.opener()
+        .open_path(target.to_string_lossy(), None::<&str>)
+        .map_err(|e| e.to_string())
+}
+
+/// Reveal a workspace file in the system file manager (Explorer / Finder).
+#[tauri::command]
+pub fn cmd_reveal_path(app: AppHandle, path: String) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    let target = resolve_workspace_child(&app, &path)?;
+    app.opener()
+        .reveal_item_in_dir(&target)
+        .map_err(|e| e.to_string())
+}
+
 pub fn set_workspace_path(
     app: &AppHandle,
     path_str: String,

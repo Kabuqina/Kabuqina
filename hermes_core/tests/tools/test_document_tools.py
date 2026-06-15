@@ -85,6 +85,155 @@ def test_pptx_write_emits_deck_spec_and_writes_bytes(tmp_path):
     assert out.read_bytes().startswith(b"PK")
 
 
+def test_deck_meta_normalized_onto_deck_spec():
+    from tools.document_tools import _build_deck_spec, _get_pptx_theme
+
+    deck = _build_deck_spec(
+        "基于大数据的社交媒体分析",
+        [{"title": "研究背景", "bullets": ["信息爆炸"]}],
+        _get_pptx_theme("paper_report"),
+        "soft_editorial",
+        meta={
+            "author": "刘志红",
+            "affiliation": "河北东方学院",
+            "date": "2024",
+            "citation": "刘志红.基于大数据的社交媒体分析[J].软件,2024,45(03):183-186",
+            "junk": "ignored",  # unknown keys are dropped
+        },
+    )
+    assert deck["meta"] == {
+        "author": "刘志红",
+        "affiliation": "河北东方学院",
+        "date": "2024",
+        "citation": "刘志红.基于大数据的社交媒体分析[J].软件,2024,45(03):183-186",
+    }
+
+
+def test_deck_meta_defaults_to_empty_when_absent():
+    from tools.document_tools import _build_deck_spec, _get_pptx_theme
+
+    deck = _build_deck_spec("课设答辩", [], _get_pptx_theme("code_defense"), "neo_grid_bold")
+    assert deck["meta"] == {}
+
+
+def _write_theme_pptx(path: Path) -> None:
+    """Minimal .pptx-shaped zip carrying just the theme part the extractor reads."""
+    import zipfile
+
+    theme_xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="School">'
+        '<a:themeElements><a:clrScheme name="School">'
+        '<a:dk1><a:sysClr val="windowText" lastClr="111111"/></a:dk1>'
+        '<a:lt1><a:srgbClr val="FDFAE7"/></a:lt1>'
+        '<a:dk2><a:srgbClr val="1E2BFA"/></a:dk2>'
+        '<a:lt2><a:srgbClr val="EEEEEE"/></a:lt2>'
+        '<a:accent1><a:srgbClr val="E6FF3D"/></a:accent1>'
+        '<a:accent2><a:srgbClr val="059669"/></a:accent2>'
+        "</a:clrScheme>"
+        '<a:fontScheme name="School">'
+        '<a:majorFont><a:latin typeface="Source Han Sans"/></a:majorFont>'
+        '<a:minorFont><a:latin typeface="Calibri"/></a:minorFont>'
+        "</a:fontScheme>"
+        "<a:fmtScheme/></a:themeElements></a:theme>"
+    )
+    with zipfile.ZipFile(path, "w") as zf:
+        zf.writestr("ppt/theme/theme1.xml", theme_xml)
+
+
+def test_extract_pptx_theme_maps_colors_and_fonts(tmp_path):
+    from tools.document_tools import _extract_pptx_theme
+
+    tpl = tmp_path / "school.pptx"
+    _write_theme_pptx(tpl)
+    palette = _extract_pptx_theme(tpl)
+    assert palette == {
+        "background": "FDFAE7",  # lt1
+        "title": "1E2BFA",       # dk2 (brand dark)
+        "body": "111111",        # dk1 sysClr lastClr
+        "accent": "E6FF3D",      # accent1
+        "accent2": "059669",     # accent2
+        "fonts": {"major": "Source Han Sans", "minor": "Calibri"},
+    }
+
+
+def test_extract_pptx_theme_returns_none_on_bad_file(tmp_path):
+    from tools.document_tools import _extract_pptx_theme
+
+    bad = tmp_path / "not-a-deck.pptx"
+    bad.write_bytes(b"this is not a zip")
+    assert _extract_pptx_theme(bad) is None
+
+
+def test_pptx_write_applies_uploaded_template_theme(tmp_path, monkeypatch):
+    from tools.document_tools import pptx_write
+
+    monkeypatch.setenv("HERMESDESK_WORKSPACE", str(tmp_path))
+    tpl = tmp_path / "校规模板.pptx"
+    _write_theme_pptx(tpl)
+    out = tmp_path / "deck.pptx"
+    captured: dict = {}
+    result = json.loads(
+        pptx_write(
+            path=str(out),
+            title="按校模板生成",
+            slides=[{"title": "研究背景", "bullets": ["信息爆炸"]}],
+            template="paper_report",
+            visual_master="signal",
+            template_path=str(tpl),
+            callback=_fake_render_callback(captured),
+        )
+    )
+    assert result["ok"] is True
+    deck = captured["artifact"]["deck"]
+    # The uploaded template's theme overrides the selected built-in master.
+    assert deck["visual_master_palette"]["accent"] == "E6FF3D"
+    assert deck["visual_master_palette"]["fonts"]["major"] == "Source Han Sans"
+    assert deck["visual_master_name"] == "校规模板"
+    # The built-in selection is still carried for fallback fields.
+    assert deck["visual_master"] == "signal"
+
+
+def test_normalize_deck_slides_keeps_single_richest_agenda():
+    from tools.document_tools import _normalize_deck_slides
+
+    slides = _normalize_deck_slides([
+        {"slide_type": "agenda", "title": "封面信息", "bullets": ["作者：某某"]},
+        {"slide_type": "agenda", "title": "汇报提纲", "bullets": ["背景", "方法", "总结"]},
+        {"slide_type": "claim_bullets", "title": "研究背景", "bullets": ["信息爆炸"]},
+    ])
+    agendas = [s for s in slides if s["slide_type"] == "agenda"]
+    assert len(agendas) == 1, "exactly one agenda must survive"
+    # The richer agenda (more bullets) is the one kept.
+    assert agendas[0]["title"] == "汇报提纲"
+    assert [s["title"] for s in slides] == ["汇报提纲", "研究背景"]
+
+
+def test_normalize_deck_slides_drops_empty_and_exact_duplicates():
+    from tools.document_tools import _normalize_deck_slides
+
+    slides = _normalize_deck_slides([
+        {"slide_type": "claim_bullets", "title": "", "bullets": []},  # structurally empty -> drop
+        {"slide_type": "claim_bullets", "title": "应用场景", "bullets": ["舆情监测", "品牌营销"]},
+        {"slide_type": "claim_bullets", "title": "应用场景", "bullets": ["舆情监测", "品牌营销"]},  # exact dup -> drop
+    ])
+    assert [s["title"] for s in slides] == ["应用场景"]
+
+
+def test_normalize_deck_slides_preserves_distinct_placeholders():
+    from tools.document_tools import _normalize_deck_slides
+
+    # Two screenshot placeholders with no bullets must both survive — a repeated
+    # "insert result here" cue is legitimate and must not be deduped away.
+    slides = _normalize_deck_slides([
+        {"slide_type": "screenshot_placeholder", "title": "运行结果", "bullets": [],
+         "placeholder": {"label": "运行结果", "caption": "请插入截图"}},
+        {"slide_type": "screenshot_placeholder", "title": "测试结果", "bullets": [],
+         "placeholder": {"label": "测试结果", "caption": "请插入截图"}},
+    ])
+    assert len(slides) == 2
+
+
 def test_pptx_write_deck_spec_carries_structured_slide_types(tmp_path):
     from tools.document_tools import pptx_write
 
@@ -361,6 +510,82 @@ def test_html_write_generates_standalone_document(tmp_path):
     assert "网页学习报告" in html
     assert "知识结构" in html
     assert "HTML writer" in html
+
+
+def test_html_write_coerces_json_string_document(tmp_path):
+    """LLM tool-calls often stringify the document arg; it must still render DOM.
+
+    Regression: a JSON-string ``document`` was dumped verbatim into one paragraph
+    (raw JSON on the page), and a dict whose ``blocks`` was a JSON string fell
+    through to an empty document (block_count 1, only the title).
+    """
+    import tools.document_tools as document_tools
+
+    document = {
+        "blocks": [
+            {"type": "heading", "text": "结构标题"},
+            {"type": "bullets", "items": ["第一点", "第二点"]},
+            {"type": "table", "headers": ["列"], "rows": [["值"]]},
+        ]
+    }
+
+    # Whole document passed as a JSON string.
+    out = tmp_path / "stringified"
+    result = json.loads(
+        document_tools.html_write(
+            path=str(out),
+            title="字符串文档",
+            document=json.dumps(document, ensure_ascii=False),
+        )
+    )
+    html = (tmp_path / "stringified.html").read_text(encoding="utf-8")
+    assert result["block_count"] == 3
+    assert "<h2>结构标题</h2>" in html
+    assert "<li>第一点</li>" in html
+    assert "<table>" in html
+    assert '"type": "heading"' not in html  # raw JSON must not leak into the page
+
+    # Dict whose blocks value is itself a JSON string.
+    out2 = tmp_path / "nested-string"
+    result2 = json.loads(
+        document_tools.html_write(
+            path=str(out2),
+            title="嵌套字符串",
+            document={"blocks": json.dumps(document["blocks"], ensure_ascii=False)},
+        )
+    )
+    assert result2["block_count"] == 3
+
+
+def test_html_write_repairs_unescaped_quotes_in_json_string(tmp_path):
+    """PDF-sourced content carries content quotes the model forgets to escape.
+
+    Regression: the model stringifies ``document`` and embeds raw ``"`` inside a
+    value (e.g. 信息"大爆炸"时代), so strict json.loads aborts and the whole
+    malformed JSON was dumped onto the page as one paragraph. The writer must
+    repair the unescaped quotes and still render real DOM.
+    """
+    import tools.document_tools as document_tools
+
+    malformed = (
+        '{"sections": [{"title": "研究背景", '
+        '"paragraphs": ["信息时代进入"信息大爆炸"阶段，数据持续增长。"], '
+        '"bullets": ["第一点", "第二点"]}]}'
+    )
+    # Sanity: the payload really is invalid JSON as written.
+    with pytest.raises(json.JSONDecodeError):
+        json.loads(malformed)
+
+    out = tmp_path / "pdf-sourced"
+    result = json.loads(
+        document_tools.html_write(path=str(out), title="PDF 报告", document=malformed)
+    )
+    html = (tmp_path / "pdf-sourced.html").read_text(encoding="utf-8")
+    assert result["block_count"] >= 3
+    assert "<h2>研究背景</h2>" in html
+    assert "<li>第一点</li>" in html
+    assert "信息大爆炸" in html  # content quote text survives
+    assert '"sections":' not in html  # raw JSON must not leak
 
 
 def test_html_write_rejects_output_outside_workspace(tmp_path, monkeypatch):

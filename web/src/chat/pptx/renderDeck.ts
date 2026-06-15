@@ -63,6 +63,28 @@ export interface DeckSlideSpec {
   placeholder?: { label?: string; caption?: string; source_hint?: string };
 }
 
+export interface DeckMeta {
+  author?: string;
+  affiliation?: string;
+  date?: string;
+  citation?: string;
+}
+
+/**
+ * Inline visual master derived from a student-uploaded .pptx template (route A:
+ * theme extraction). When present it overrides the built-in `visual_master`
+ * palette, so the generated deck matches the school's colours and fonts while
+ * keeping our rich layouts. Built in Python by document_tools._extract_pptx_theme.
+ */
+export interface DeckThemeOverride {
+  background?: string;
+  title?: string;
+  body?: string;
+  accent?: string;
+  accent2?: string;
+  fonts?: { major?: string; minor?: string };
+}
+
 export interface DeckSpec {
   title?: string;
   template?: string;
@@ -70,7 +92,10 @@ export interface DeckSpec {
   template_badge?: string;
   visual_master?: string;
   visual_master_name?: string;
+  /** Inline palette/fonts from an uploaded school template; overrides visual_master. */
+  visual_master_palette?: DeckThemeOverride;
   page_size?: { width?: number; height?: number };
+  meta?: DeckMeta;
   slides?: DeckSlideSpec[];
 }
 
@@ -401,6 +426,20 @@ function addCover(pptx: pptxgen, deck: DeckSpec, p: Palette): void {
   slide.addText(deck.template_subtitle || deck.visual_master_name || "课程 / 论文 / 项目答辩", {
     x: 0.62, y: 4.2, w: 11, h: 0.6, fontSize: 18, color: p.body,
   });
+
+  // Cover metadata: byline (author · affiliation · date) and an optional source
+  // citation footer. Gives presenter/source info a structural home so it never
+  // has to be crammed into an agenda or content slide.
+  const meta = deck.meta ?? {};
+  const byline = [meta.author, meta.affiliation, meta.date].filter(Boolean).join("   ·   ");
+  if (byline) {
+    slide.addText(byline, { x: 0.62, y: 5.0, w: 11.5, h: 0.45, fontSize: 14, bold: true, color: p.accent });
+  }
+  if (meta.citation) {
+    slide.addText(meta.citation, {
+      x: 0.62, y: 6.45, w: 11.5, h: 0.4, fontSize: 10, italic: true, color: p.body, valign: "bottom",
+    });
+  }
   slide.addText("Kabuqina", { x: 0.6, y: 6.9, w: 3, h: 0.3, fontSize: 10, color: p.body });
 }
 
@@ -411,14 +450,22 @@ export async function renderDeckToBase64(deck: DeckSpec): Promise<RenderedDeck> 
   pptx.defineLayout({ name: "KQ_WIDE", width: pageW, height: pageH });
   pptx.layout = "KQ_WIDE";
 
+  // An uploaded school template contributes an inline palette/fonts override
+  // (route A); fall back to the selected built-in visual master per field.
+  const override = deck.visual_master_palette;
   const master = getVisualMaster(deck.visual_master);
   const p: Palette = {
-    bg: hex(master.palette.background),
-    title: hex(master.palette.title),
-    body: hex(master.palette.body),
-    accent: hex(master.palette.accent),
-    accent2: hex(master.palette.accent2),
+    bg: hex(override?.background ?? master.palette.background),
+    title: hex(override?.title ?? master.palette.title),
+    body: hex(override?.body ?? master.palette.body),
+    accent: hex(override?.accent ?? master.palette.accent),
+    accent2: hex(override?.accent2 ?? master.palette.accent2),
   };
+  const head = override?.fonts?.major || override?.fonts?.minor;
+  const body = override?.fonts?.minor || override?.fonts?.major;
+  if (head || body) {
+    pptx.theme = { headFontFace: head, bodyFontFace: body };
+  }
 
   addCover(pptx, deck, p);
 

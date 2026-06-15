@@ -99,25 +99,35 @@ function PptxRenderCard({
   const [status, setStatus] = useState<"rendering" | "done" | "error">("rendering");
   const [errMsg, setErrMsg] = useState("");
   const startedRef = useRef(false);
+  const respondedRef = useRef(false);
 
   useEffect(() => {
-    // Render exactly once per interaction; the agent turn is blocked waiting.
+    // Render exactly once per interaction; the agent turn is blocked waiting on
+    // a response and will hit the 300s interaction timeout if we never reply.
+    //
+    // We MUST NOT abort the reply on effect cleanup: under React StrictMode the
+    // effect runs mount -> cleanup -> mount, and `startedRef` (preserved across
+    // the simulated remount) makes the second mount a no-op. A `cancelled` flag
+    // set by the first cleanup would then suppress the only reply, leaving the
+    // agent to time out (`pptx_render_cancelled`). So once a render starts we
+    // always report its outcome exactly once, guarded by `respondedRef`.
     if (startedRef.current || !onRespond) return;
     startedRef.current = true;
-    let cancelled = false;
     (async () => {
       try {
         const { renderDeckToBase64 } = await import("./pptx/renderDeck");
         const deck = (interaction.artifact?.deck ?? {}) as import("./pptx/renderDeck").DeckSpec;
         const { base64, slideCount } = await renderDeckToBase64(deck);
-        if (cancelled) return;
+        if (respondedRef.current) return;
+        respondedRef.current = true;
         await onRespond("rendered", "", { pptx_base64: base64, slide_count: slideCount });
-        if (!cancelled) setStatus("done");
+        setStatus("done");
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        if (cancelled) return;
         setErrMsg(msg);
         setStatus("error");
+        if (respondedRef.current) return;
+        respondedRef.current = true;
         try {
           await onRespond("error", `PptxGenJS 渲染失败：${msg}`, {});
         } catch {
@@ -125,9 +135,6 @@ function PptxRenderCard({
         }
       }
     })();
-    return () => {
-      cancelled = true;
-    };
   }, [interaction.id, interaction.artifact, onRespond]);
 
   return (
@@ -376,7 +383,7 @@ export function ChatMessageList({
           <LoadPackageDownloadProgress packages={loadPackageDownloads} />
           {pendingInteraction ? (
             pendingInteraction.kind === "pptx_render" ? (
-              <PptxRenderCard interaction={pendingInteraction} onRespond={onRespondInteraction} />
+              <PptxRenderCard key={pendingInteraction.id} interaction={pendingInteraction} onRespond={onRespondInteraction} />
             ) : (
               <AgentInteractionCard interaction={pendingInteraction} onRespond={onRespondInteraction} />
             )

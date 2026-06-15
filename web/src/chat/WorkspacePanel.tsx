@@ -1,8 +1,25 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { BookOpenText, Code2, FileSearch, FileText, GraduationCap, Palette, PanelRightClose } from "lucide-react";
-import { useState, type CSSProperties, type ReactNode } from "react";
+import {
+  BookOpenText,
+  Braces,
+  Code2,
+  FileSearch,
+  FileText,
+  FolderOpen,
+  GraduationCap,
+  Languages,
+  Loader2,
+  Palette,
+  PanelRightClose,
+  Rocket,
+  RotateCcw,
+  Sigma,
+  SquareArrowOutUpRight,
+} from "lucide-react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { useI18n } from "../lib/i18n";
 import { cn } from "../lib/cn";
 import { PPT_VISUAL_MASTERS, type PptVisualMaster } from "./pptx/visualMasters";
@@ -11,13 +28,8 @@ export type WorkspaceItem = {
   id: string;
   label: string;
   detail?: string;
-};
-
-export type WorkspaceActivity = {
-  id: string;
-  label: string;
-  detail?: string;
-  running?: boolean;
+  // True while this specific file is still being produced by the in-flight turn.
+  pending?: boolean;
 };
 
 type WorkspacePanelProps = {
@@ -28,7 +40,9 @@ type WorkspacePanelProps = {
   materials: WorkspaceItem[];
   outputs: WorkspaceItem[];
   activeTool?: string | null;
-  activity: WorkspaceActivity[];
+  // True while a turn is in flight. Deliverable files may still be mid-write, so
+  // their open/reveal/regenerate actions stay disabled until 小娜 finishes replying.
+  busy?: boolean;
 };
 
 // PPT_VISUAL_MASTERS + PptVisualMaster now live in ./pptx/visualMasters (shared with the renderer).
@@ -63,9 +77,30 @@ function pptMasterPreviewStyle(master: PptVisualMaster): PptMasterPreviewStyle {
   };
 }
 
+// File extension → short badge shown on a deliverable card.
+function deliverableBadge(label: string): string | null {
+  const ext = label.split(".").pop();
+  if (!ext || ext === label) return null;
+  return ext.toUpperCase();
+}
+
+// Keep only the latest version of each basename, most-recent first, so repeated
+// regenerations (汇报.pptx v1/v2/…) collapse into one current card.
+function latestDeliverables(outputs: WorkspaceItem[]): WorkspaceItem[] {
+  const seen = new Set<string>();
+  const result: WorkspaceItem[] = [];
+  for (const item of [...outputs].reverse()) {
+    const key = item.label.toLocaleLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(item);
+  }
+  return result;
+}
+
 function WorkspaceSectionHeading({ children }: { children: ReactNode }) {
   return (
-    <h3 className="workspace-section-heading kq-section-heading inline-flex px-3 py-1.5 text-sm font-semibold leading-snug tracking-normal dark:border-l-[#9b87b8] dark:bg-zinc-800/40 dark:text-zinc-200">
+    <h3 className="workspace-section-heading kq-section-heading inline-flex px-3 py-1.5 text-sm font-semibold leading-snug tracking-normal">
       {children}
     </h3>
   );
@@ -77,10 +112,7 @@ function WorkspaceSection({ sectionId, title, children }: {
   children?: ReactNode;
 }) {
   return (
-    <section
-      data-workspace-section={sectionId}
-      className="kq-workspace-card dark:border-zinc-800 dark:bg-zinc-900/60"
-    >
+    <section data-workspace-section={sectionId} className="kq-workspace-card">
       <WorkspaceSectionHeading>{title}</WorkspaceSectionHeading>
       {children}
     </section>
@@ -105,6 +137,68 @@ function WorkspaceActionButton({
       {icon}
       {label}
     </button>
+  );
+}
+
+function DeliverableCard({
+  item,
+  labels,
+  disabled,
+  onOpen,
+  onReveal,
+  onRegenerate,
+}: {
+  item: WorkspaceItem;
+  labels: { open: string; reveal: string; regenerate: string; pending: string };
+  disabled: boolean;
+  onOpen: (path: string) => void;
+  onReveal: (path: string) => void;
+  onRegenerate: (item: WorkspaceItem) => void;
+}) {
+  const path = item.detail ?? item.label;
+  const badge = deliverableBadge(item.label);
+  return (
+    <div className="kq-deliverable-card">
+      <div className="flex min-w-0 items-center gap-2">
+        <FileText className="kq-color-icon-book h-4 w-4 shrink-0" aria-hidden />
+        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-[var(--kq-color-strong)]" title={path}>
+          {item.label}
+        </span>
+        {badge ? <span className="kq-deliverable-badge shrink-0">{badge}</span> : null}
+      </div>
+      <div className="mt-2 flex items-center gap-1">
+        <button
+          type="button"
+          className="kq-deliverable-action"
+          onClick={() => onOpen(path)}
+          disabled={disabled}
+          title={disabled ? labels.pending : labels.open}
+        >
+          <SquareArrowOutUpRight className="h-3.5 w-3.5" aria-hidden />
+          {labels.open}
+        </button>
+        <button
+          type="button"
+          className="kq-deliverable-action ml-auto"
+          onClick={() => onReveal(path)}
+          disabled={disabled}
+          title={disabled ? labels.pending : labels.reveal}
+          aria-label={labels.reveal}
+        >
+          <FolderOpen className="h-3.5 w-3.5" aria-hidden />
+        </button>
+        <button
+          type="button"
+          className="kq-deliverable-action"
+          onClick={() => onRegenerate(item)}
+          disabled={disabled}
+          title={disabled ? labels.pending : labels.regenerate}
+          aria-label={labels.regenerate}
+        >
+          <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -150,8 +244,17 @@ export function WorkspacePanel({
   className,
   onCollapse,
   onStartPrompt,
+  goal,
+  materials,
+  outputs,
+  activeTool,
+  busy = false,
 }: WorkspacePanelProps) {
   const { t } = useI18n();
+  // The right rail is one surface with two modes: ACADEMY (the launchpad of
+  // capabilities) and WORK (this session's goal / materials / deliverables).
+  // Start on ACADEMY; morph to WORK the first time a deliverable appears.
+  const [mode, setMode] = useState<"academy" | "work">(outputs.length > 0 ? "work" : "academy");
   const [pptVisualMaster, setPptVisualMaster] = useState<(typeof PPT_VISUAL_MASTERS)[number]["id"]>("soft_editorial");
   const selectedPptVisualMaster =
     PPT_VISUAL_MASTERS.find((item) => item.id === pptVisualMaster) ?? PPT_VISUAL_MASTERS[0];
@@ -201,21 +304,70 @@ export function WorkspacePanel({
   const mathFormulaExtractPrompt =
     "请从我上传的图片、PDF 或文档中提取数学公式。优先使用可用的精确读取/公式识别工具，输出 LaTeX、公式含义和所在页码或位置；识别不确定的符号请明确标注，并给出需要人工确认的候选。";
 
+  const deliverables = latestDeliverables(outputs);
+  const trimmedGoal = goal?.trim() || null;
+  const showContext = Boolean(trimmedGoal) || materials.length > 0 || Boolean(activeTool);
+
+  // Reveal WORK automatically the moment the first deliverable lands, without
+  // overriding a later manual switch back to ACADEMY.
+  const hadDeliverables = useRef(deliverables.length > 0);
+  useEffect(() => {
+    const has = deliverables.length > 0;
+    if (has && !hadDeliverables.current) setMode("work");
+    hadDeliverables.current = has;
+  }, [deliverables.length]);
+
+  const deliverableLabels = {
+    open: t("chat.workspaceOpenFile"),
+    reveal: t("chat.workspaceRevealFile"),
+    regenerate: t("chat.workspaceRegenerate"),
+    pending: t("chat.workspaceDeliverablePending"),
+  };
+
+  const openDeliverable = (path: string) => {
+    void invoke("cmd_open_path", { path }).catch(() => undefined);
+  };
+  const revealDeliverable = (path: string) => {
+    void invoke("cmd_reveal_path", { path }).catch(() => undefined);
+  };
+  const regenerateDeliverable = (item: WorkspaceItem) => {
+    onStartPrompt?.(
+      `请基于之前的材料和要求重新生成《${item.label}》。如果它是 PPT，请沿用我当前选择的视觉母版 ${selectedPptVisualMaster.name}（visual_master="${selectedPptVisualMaster.id}"），并按系统提示中的“学生交付物四层流程”重新走一遍 review_outline → 写文件，最后返回新的文件路径。`,
+    );
+  };
+
   return (
     <aside
       className={cn(
-        "kq-workspace-panel flex w-64 shrink-0 flex-col border-l dark:border-zinc-700 dark:bg-zinc-950/40",
+        "kq-workspace-panel flex w-72 shrink-0 flex-col border-l",
         className,
       )}
     >
-      <div className="flex h-14 items-center justify-between border-b border-[#e8e0ed]/80 px-4 dark:border-zinc-800">
-        <h2 className="text-base font-semibold tracking-normal text-[var(--kq-color-strong)] dark:text-zinc-100">
-          {t("chat.workspaceTitle")}
-        </h2>
+      <div className="flex h-14 items-center justify-between gap-2 border-b border-[var(--kq-color-border)] px-3">
+        <div className="kq-workspace-tabs inline-flex rounded-lg p-0.5" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "work"}
+            className={cn("kq-workspace-tab", mode === "work" && "is-active")}
+            onClick={() => setMode("work")}
+          >
+            {t("chat.workspaceModeWork")}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "academy"}
+            className={cn("kq-workspace-tab", mode === "academy" && "is-active")}
+            onClick={() => setMode("academy")}
+          >
+            {t("chat.workspaceTitle")}
+          </button>
+        </div>
         <button
           type="button"
           onClick={onCollapse}
-          className="kq-soft-icon-btn inline-flex h-8 w-8 items-center justify-center rounded-md transition dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+          className="kq-soft-icon-btn inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition"
           aria-label={t("chat.workspaceCollapse")}
           title={t("chat.workspaceCollapse")}
         >
@@ -223,33 +375,106 @@ export function WorkspacePanel({
         </button>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overflow-x-hidden px-4 py-4">
+        {mode === "work" ? (
+        <>
+        {showContext ? (
+          <WorkspaceSection sectionId="workspace.context" title={t("chat.workspaceContext")}>
+            <div className="mt-3 grid gap-2.5">
+              {activeTool ? (
+                <div className="kq-workspace-active inline-flex items-center gap-1.5 self-start rounded-full px-2.5 py-1 text-[12px] font-medium">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                  {t("chat.workspaceGenerating")}
+                </div>
+              ) : null}
+              {trimmedGoal ? (
+                <p className="kq-workspace-body line-clamp-2 break-words text-[13px] leading-snug" title={trimmedGoal}>
+                  {trimmedGoal}
+                </p>
+              ) : null}
+              {materials.length > 0 ? (
+                <div className="grid gap-1.5">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--kq-color-muted)]">
+                    {t("chat.workspaceMaterials")}
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {materials.map((item) => (
+                      <span key={item.id} className="kq-material-chip max-w-full min-w-0 truncate" title={item.detail ?? item.label}>
+                        {item.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </WorkspaceSection>
+        ) : null}
+
+        {deliverables.length > 0 ? (
+          <WorkspaceSection sectionId="workspace.deliverables" title={t("chat.workspaceDeliverables")}>
+            <div className="mt-3 grid gap-2">
+              {busy && deliverables.some((item) => item.pending) ? (
+                <p className="text-[12px] leading-snug text-[var(--kq-color-muted)]">
+                  {t("chat.workspaceDeliverablePending")}
+                </p>
+              ) : null}
+              {deliverables.map((item) => (
+                <DeliverableCard
+                  key={item.id}
+                  item={item}
+                  labels={deliverableLabels}
+                  disabled={busy && Boolean(item.pending)}
+                  onOpen={openDeliverable}
+                  onReveal={revealDeliverable}
+                  onRegenerate={regenerateDeliverable}
+                />
+              ))}
+            </div>
+          </WorkspaceSection>
+        ) : (
+          <WorkspaceSection sectionId="workspace.deliverables" title={t("chat.workspaceDeliverables")}>
+            <p className="kq-workspace-body mt-3 text-[13px] leading-snug text-[var(--kq-color-muted)]">
+              {t("chat.workspaceWorkEmpty")}
+            </p>
+            <button
+              type="button"
+              onClick={() => setMode("academy")}
+              className="kq-quick-action mt-3 justify-start rounded-lg px-3 py-2 text-left text-[14px] leading-snug transition"
+            >
+              <Rocket className="kq-color-icon-pen mr-2 inline h-4 w-4" aria-hidden />
+              {t("chat.workspaceWorkEmptyCta")}
+            </button>
+          </WorkspaceSection>
+        )}
+        </>
+        ) : (
+        <>
         <WorkspaceSection sectionId="workspace.reportPpt" title={t("chat.workspaceReportPpt")}>
           <div className="mt-3 grid gap-2">
-            <WorkspaceActionButton
-              onClick={() => onStartPrompt?.(courseToPptPrompt)}
-              icon={<GraduationCap className="kq-color-icon-course mr-2 inline h-4 w-4" aria-hidden />}
-              label={t("chat.workspaceCourseToPpt")}
-            />
             <WorkspaceActionButton
               onClick={() => onStartPrompt?.(paperToPptPrompt)}
               icon={<BookOpenText className="kq-color-icon-book mr-2 inline h-4 w-4" aria-hidden />}
               label={t("chat.workspacePaperToPpt")}
             />
             <WorkspaceActionButton
+              onClick={() => onStartPrompt?.(courseToPptPrompt)}
+              icon={<GraduationCap className="kq-color-icon-course mr-2 inline h-4 w-4" aria-hidden />}
+              label={t("chat.workspaceCourseToPpt")}
+            />
+            <WorkspaceActionButton
               onClick={() => onStartPrompt?.(codeToPptPrompt)}
               icon={<Code2 className="kq-color-icon-pen mr-2 inline h-4 w-4" aria-hidden />}
               label={t("chat.workspaceCodeToPpt")}
             />
-            <label className="kq-workspace-body grid gap-1.5 text-[13px] leading-snug text-zinc-700 dark:text-zinc-300">
+            <label className="kq-workspace-body grid gap-1.5 text-[13px] leading-snug">
               <span className="inline-flex items-center gap-1.5 font-medium">
-                <Palette className="h-3.5 w-3.5 text-violet-600 dark:text-violet-300" aria-hidden />
+                <Palette className="h-3.5 w-3.5 text-[var(--kq-color-primary-dark)]" aria-hidden />
                 {t("chat.workspacePptVisualMaster")}
               </span>
               <select
                 value={pptVisualMaster}
                 onChange={(event) => setPptVisualMaster(event.currentTarget.value as typeof pptVisualMaster)}
-                className="rounded-md border border-[#e8e0ed] bg-white px-2 py-1.5 text-sm text-zinc-800 outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-violet-500 dark:focus:ring-violet-950/60"
+                className="kq-workspace-select rounded-md px-2 py-1.5 text-sm transition"
               >
                 {PPT_VISUAL_MASTERS.map((item) => (
                   <option key={item.id} value={item.id}>
@@ -264,15 +489,15 @@ export function WorkspacePanel({
 
         <WorkspaceSection sectionId="workspace.mathAbility" title={t("chat.workspaceMathAbility")}>
           <div className="mt-3 grid gap-2">
-            <label className="kq-workspace-body grid gap-1.5 text-[13px] leading-snug text-zinc-700 dark:text-zinc-300">
+            <label className="kq-workspace-body grid gap-1.5 text-[13px] leading-snug">
               <span className="inline-flex items-center gap-1.5 font-medium">
-                <Code2 className="h-3.5 w-3.5 text-violet-600 dark:text-violet-300" aria-hidden />
+                <Languages className="h-3.5 w-3.5 text-[var(--kq-color-primary-dark)]" aria-hidden />
                 {t("chat.workspaceMathLanguage")}
               </span>
               <select
                 value={mathLanguage}
                 onChange={(event) => setMathLanguage(event.currentTarget.value as MathLanguageId)}
-                className="rounded-md border border-[#e8e0ed] bg-white px-2 py-1.5 text-sm text-zinc-800 outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-violet-500 dark:focus:ring-violet-950/60"
+                className="kq-workspace-select rounded-md px-2 py-1.5 text-sm transition"
               >
                 {MATH_TARGET_LANGUAGES.map((item) => (
                   <option key={item.id} value={item.id}>
@@ -282,14 +507,14 @@ export function WorkspacePanel({
               </select>
             </label>
             <WorkspaceActionButton
-              onClick={() => onStartPrompt?.(codeToFormulaPrompt)}
-              icon={<Code2 className="kq-color-icon-pen mr-2 inline h-4 w-4" aria-hidden />}
-              label={t("chat.workspaceCodeToFormula")}
+              onClick={() => onStartPrompt?.(formulaToCodePrompt)}
+              icon={<Braces className="kq-color-icon-course mr-2 inline h-4 w-4" aria-hidden />}
+              label={t("chat.workspaceFormulaToCode")}
             />
             <WorkspaceActionButton
-              onClick={() => onStartPrompt?.(formulaToCodePrompt)}
-              icon={<FileText className="kq-color-icon-book mr-2 inline h-4 w-4" aria-hidden />}
-              label={t("chat.workspaceFormulaToCode")}
+              onClick={() => onStartPrompt?.(codeToFormulaPrompt)}
+              icon={<Sigma className="kq-color-icon-pen mr-2 inline h-4 w-4" aria-hidden />}
+              label={t("chat.workspaceCodeToFormula")}
             />
             <WorkspaceActionButton
               onClick={() => onStartPrompt?.(mathFormulaExtractPrompt)}
@@ -298,7 +523,8 @@ export function WorkspacePanel({
             />
           </div>
         </WorkspaceSection>
-
+        </>
+        )}
       </div>
     </aside>
   );

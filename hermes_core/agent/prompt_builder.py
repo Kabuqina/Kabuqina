@@ -1012,8 +1012,30 @@ def build_deliverable_planner_prompt(valid_tool_names: "set[str] | None" = None)
             f"force one, set a slide `layout` (one of: {layouts})."
         )
         lines.append(
+            "Slide content quality — the bar this deck is judged on:\n"
+            "- Substance over definitions: every bullet must carry THIS source's specific claim, "
+            "finding, number, named method, or result. Cut textbook definitions and generic "
+            "background that any deck on the topic could contain.\n"
+            "- Thin source: if the material lacks results/experiments (e.g. a survey or short "
+            "review), say so plainly and present the paper's organizing argument and contribution "
+            "instead of padding with 101-level background. Do not inflate length to hit a slide count.\n"
+            "- No redundancy: exactly one agenda slide. Put author / affiliation / date / citation in "
+            "the pptx_write `meta` object (it renders on the cover) — never in an agenda or content "
+            "slide. An overview slide that lists items must NOT be followed by slides that only "
+            "re-list the same items — choose overview OR per-item expansion. Each slide must add "
+            "information the previous ones did not.\n"
+            "- Placeholder discipline: a slide must never be ONLY a placeholder. Pair every "
+            "placeholder with real bullets stating what the asset shows and the takeaway; if you have "
+            "no substance for a figure, fold it into a neighbouring content slide rather than spend a "
+            "whole slide on an empty frame.\n"
+            "- Even depth: give each method / section comparable detail; never leave one listed "
+            "method or module as a bare title or placeholder while its siblings get full bullets."
+        )
+        lines.append(
             "After review_outline passes, call pptx_write with both template and visual_master "
-            "(the user's selection arrives in the request). Structure outlines:"
+            "(the user's selection arrives in the request). If the student uploaded a school / "
+            "course .pptx template, also pass its workspace path as `template_path` — its colours "
+            "and fonts are applied so the deck matches the required look. Structure outlines:"
         )
         for structure_id, structure in PPTX_STRUCTURES.items():
             must_cover = "；".join(str(item) for item in structure.get("must_cover") or [])
@@ -1026,10 +1048,13 @@ def build_deliverable_planner_prompt(valid_tool_names: "set[str] | None" = None)
         lines.append(
             "Build a structured document of sections or blocks (block types: heading, paragraph, "
             "bullets, table, code, formula, image_placeholder, page_break) from the material index, "
-            "review it, then call the writer. The same reviewed outline can target any of these "
-            "formats: pdf_write renders a print-ready PDF plus an HTML inspection sidecar; html_write "
-            "produces a standalone responsive page (renderer standalone_html_v1); docx_write produces "
-            "an editable Word file (renderer python_docx_v1)."
+            "review it, then call the writer. Pass `document` as a real JSON object — never as a "
+            "stringified / hand-escaped JSON blob; stringifying it (especially when the source text "
+            "contains quotation marks) corrupts the structure and dumps raw JSON onto the page. The "
+            "same reviewed outline can target any of these formats: pdf_write renders a print-ready "
+            "PDF plus an HTML inspection sidecar; html_write produces a standalone responsive page "
+            "(renderer standalone_html_v1); docx_write produces an editable Word file (renderer "
+            "python_docx_v1)."
         )
 
     return "\n".join(lines)

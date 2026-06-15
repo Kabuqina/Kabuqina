@@ -986,6 +986,98 @@
   [data-theme="dark"] .kq-quick-action:hover {
     background: var(--kq-hover-bg);
   }
+  /* Form controls inside the workspace panel — token-driven so dark mode tracks
+     the Kabuqina palette instead of hard-coded zinc values. */
+  .kq-workspace-select {
+    border: 1px solid var(--kq-color-border);
+    background: var(--kq-input-surface);
+    color: var(--kq-color-ink);
+    outline: none;
+  }
+  .kq-workspace-select:focus {
+    border-color: var(--kq-color-primary);
+    box-shadow: 0 0 0 2px var(--kq-color-primary-pale);
+  }
+  /* Deliverable cards: actionable file outputs (open / reveal / regenerate). */
+  .kq-deliverable-card {
+    border: 1px solid var(--kq-color-border);
+    border-radius: var(--radius-shell);
+    background: rgba(245, 240, 247, 0.6);
+    padding: 0.5rem 0.625rem;
+  }
+  [data-theme="dark"] .kq-deliverable-card {
+    border-color: var(--kq-glass-border);
+    background: var(--kq-glass-bg-subtle);
+  }
+  .kq-deliverable-badge {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    padding: 1px 6px;
+    border-radius: var(--radius-shell-sm);
+    background: var(--kq-color-primary-pale);
+    color: var(--kq-color-primary-dark);
+  }
+  .kq-deliverable-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: var(--radius-shell-sm);
+    font-size: 12px;
+    color: var(--kq-color-muted);
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .kq-deliverable-action:hover:not(:disabled) {
+    background: var(--kq-hover-bg);
+    color: var(--kq-color-strong);
+  }
+  .kq-deliverable-action:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .kq-material-chip {
+    display: block;
+    max-width: 100%;
+    padding: 2px 8px;
+    border-radius: var(--radius-shell-pill);
+    border: 1px solid var(--kq-color-border);
+    background: var(--kq-glass-bg-subtle);
+    color: var(--kq-color-ink);
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  .kq-workspace-active {
+    border: 1px solid var(--kq-color-border);
+    background: var(--kq-color-primary-pale);
+    color: var(--kq-color-primary-dark);
+  }
+  /* Segmented WORK / ACADEMY switch in the right-rail header. */
+  .kq-workspace-tabs {
+    border: 1px solid var(--kq-color-border);
+    background: var(--kq-glass-bg-subtle);
+  }
+  .kq-workspace-tab {
+    padding: 4px 12px;
+    border-radius: 0.375rem;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--kq-color-muted);
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .kq-workspace-tab:hover:not(.is-active) {
+    color: var(--kq-color-ink);
+  }
+  .kq-workspace-tab.is-active {
+    background: var(--kq-color-surface);
+    color: var(--kq-color-strong);
+    box-shadow: var(--kq-shadow-chat);
+  }
+  [data-theme="dark"] .kq-workspace-tab.is-active {
+    background: var(--kq-hover-bg-strong);
+    color: var(--kq-color-strong);
+  }
   .kq-ppt-master-preview {
     display: grid;
     grid-template-columns: 5.25rem minmax(0, 1fr);

@@ -148,6 +148,8 @@ pub fn run() {
             python_supervisor::cmd_python_status,
             paths::cmd_workspace_path,
             paths::cmd_open_workspace,
+            paths::cmd_open_path,
+            paths::cmd_reveal_path,
             cmd_set_workspace,
             paths::cmd_get_power_user,
             cmd_set_power_user,

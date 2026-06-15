@@ -132,7 +132,7 @@ export function ChatSidebar({
           {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
         </button>
       </div>
-      <div className={cn("min-h-0 flex-1 space-y-0.5 overflow-y-auto pb-4 pt-2", collapsed ? "px-2" : "px-3")}>
+      <div className={cn("kq-sidebar-history-scroll min-h-0 flex-1 space-y-0.5 overflow-y-auto pb-4 pt-2", collapsed ? "px-2" : "px-3")}>
         {loading && (
           <p className={cn("kq-sidebar-meta px-1.5 py-2", collapsed && "text-center")}>
             {collapsed ? "..." : t("chat.loadingSessions")}
@@ -221,43 +221,41 @@ export function ChatSidebar({
             })}
           </div>
         ))}
-        {!loading && (
-          <div className={cn("kq-sidebar-group pt-2", (grouped.length > 0 || sessions.length === 0) && "kq-sidebar-group-divided")}>
-            {!collapsed && (
-              <p className="kq-sidebar-group-label px-1.5 pb-1 pt-2">
-                {t("chat.workspaceOtherCommon")}
-              </p>
-            )}
-            <SidebarCommonActionButton
-              onClick={onOpenScheduledTasks}
-              icon={AlarmClock}
-              iconClassName="kq-color-icon-alarm"
-              label={t("cron.title")}
-              collapsed={collapsed}
-            />
-            <SidebarCommonActionButton
-              onClick={onOpenWorkspace}
-              icon={FolderOpen}
-              iconClassName="kq-color-icon-folder"
-              label={t("chat.workspaceOpenWorkspace")}
-              collapsed={collapsed}
-            />
-            <SidebarCommonActionButton
-              onClick={onOrganizeDesktop}
-              icon={FolderKanban}
-              iconClassName="kq-color-icon-folder"
-              label={t("chat.workspaceOrganizeDesktop")}
-              collapsed={collapsed}
-            />
-            <SidebarCommonActionButton
-              onClick={onExport}
-              icon={Download}
-              iconClassName="kq-color-icon-download"
-              label={t("chat.exportButton")}
-              collapsed={collapsed}
-            />
-          </div>
+      </div>
+      <div className={cn("kq-sidebar-common-actions shrink-0 border-t py-2", collapsed ? "px-2" : "px-3")}>
+        {!collapsed && (
+          <p className="kq-sidebar-group-label px-1.5 pb-1 pt-1">
+            {t("chat.workspaceOtherCommon")}
+          </p>
         )}
+        <SidebarCommonActionButton
+          onClick={onOpenWorkspace}
+          icon={FolderOpen}
+          iconClassName="kq-color-icon-folder"
+          label={t("chat.workspaceOpenWorkspace")}
+          collapsed={collapsed}
+        />
+        <SidebarCommonActionButton
+          onClick={onOpenScheduledTasks}
+          icon={AlarmClock}
+          iconClassName="kq-color-icon-alarm"
+          label={t("cron.title")}
+          collapsed={collapsed}
+        />
+        <SidebarCommonActionButton
+          onClick={onOrganizeDesktop}
+          icon={FolderKanban}
+          iconClassName="kq-color-icon-folder"
+          label={t("chat.workspaceOrganizeDesktop")}
+          collapsed={collapsed}
+        />
+        <SidebarCommonActionButton
+          onClick={onExport}
+          icon={Download}
+          iconClassName="kq-color-icon-download"
+          label={t("chat.exportButton")}
+          collapsed={collapsed}
+        />
       </div>
     </aside>
   );

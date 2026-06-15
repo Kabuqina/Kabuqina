@@ -1028,13 +1028,170 @@ def _deck_slide_spec(raw: Dict[str, Any]) -> Dict[str, Any]:
     return entry
 
 
+def _slide_has_body(slide: Dict[str, Any]) -> bool:
+    """A slide carries content if it has bullets, a table, a diagram, or a placeholder."""
+    return bool(
+        slide.get("bullets")
+        or slide.get("table")
+        or slide.get("diagram")
+        or slide.get("placeholder")
+    )
+
+
+def _normalize_deck_slides(slides: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Deterministic structural cleanup applied after per-slide normalization.
+
+    Model-independent guardrails that guarantee a sound deck skeleton regardless
+    of planner quality. We only *remove* clearly-broken structure — never rewrite
+    or invent content, which stays the planner/model's job. This is the hard
+    backstop paired with the soft guidance in
+    ``prompt_builder.build_deliverable_planner_prompt`` ("Slide content quality"):
+    the prompt aims the model high, this catches the misses for free.
+
+    Three high-confidence rules, each only ever a deletion:
+
+    1. Drop structurally-empty slides (no title and no body of any kind).
+    2. Exactly one agenda — keep the richest (most bullets; ties → earliest) and
+       drop the rest. Two agenda slides is never intended.
+    3. Drop exact-duplicate *content* slides (same type + title + bullets),
+       keeping the first. Placeholder slides are never deduped, since a repeated
+       "insert screenshot here" cue can be legitimate in a defense deck.
+    """
+    cleaned = [s for s in slides if s.get("title") or _slide_has_body(s)]
+
+    agenda_idx = [i for i, s in enumerate(cleaned) if s.get("slide_type") == "agenda"]
+    if len(agenda_idx) > 1:
+        keep = max(agenda_idx, key=lambda i: (len(cleaned[i].get("bullets") or []), -i))
+        cleaned = [
+            s for i, s in enumerate(cleaned)
+            if s.get("slide_type") != "agenda" or i == keep
+        ]
+
+    seen: set = set()
+    deduped: List[Dict[str, Any]] = []
+    for s in cleaned:
+        signature = (s.get("slide_type"), s.get("title"), tuple(s.get("bullets") or []))
+        if s.get("bullets") and signature in seen:
+            continue
+        seen.add(signature)
+        deduped.append(s)
+    return deduped
+
+
+def _deck_meta(raw: Any) -> Dict[str, str]:
+    """Deck-level presentation metadata that belongs on the cover, not in slides.
+
+    Giving author / affiliation / date / citation a structural home removes the
+    reason a planner would otherwise cram author info into an agenda bullet.
+    """
+    raw = _dict(raw)
+    meta: Dict[str, str] = {}
+    for key in ("author", "affiliation", "date", "citation"):
+        value = _text(raw.get(key))
+        if value:
+            meta[key] = value
+    return meta
+
+
+def _hex6(value: str) -> str:
+    """Normalize a DrawingML colour to a 6-hex string, or '' if not parseable."""
+    v = (value or "").strip().lstrip("#").upper()
+    if len(v) == 6 and all(c in "0123456789ABCDEF" for c in v):
+        return v
+    return ""
+
+
+def _theme_color(scheme_el: Any, tag: str, ns: Dict[str, str]) -> str:
+    """Read one <a:clrScheme> entry (srgbClr val=... or sysClr lastClr=...)."""
+    node = scheme_el.find(f"a:{tag}", ns)
+    if node is None:
+        return ""
+    srgb = node.find("a:srgbClr", ns)
+    if srgb is not None:
+        return _hex6(srgb.get("val", ""))
+    sysclr = node.find("a:sysClr", ns)
+    if sysclr is not None:
+        return _hex6(sysclr.get("lastClr", ""))
+    return ""
+
+
+def _extract_pptx_theme(template_path: Path) -> Optional[Dict[str, Any]]:
+    """Derive an inline visual master (palette + fonts) from an uploaded .pptx.
+
+    Route A of template support: rather than rendering *into* the school template
+    (which PptxGenJS cannot do), we read its DrawingML theme and reuse its colours
+    and fonts so the generated deck matches the school's look while keeping our
+    own rich layouts. Pure stdlib (zip + XML), deterministic, no dependency on the
+    python-pptx writer. Returns ``None`` if the theme cannot be parsed, so the
+    caller falls back to the selected built-in master.
+    """
+    import xml.etree.ElementTree as ET
+    import zipfile
+
+    ns = {"a": "http://schemas.openxmlformats.org/drawingml/2006/main"}
+    try:
+        with zipfile.ZipFile(template_path) as zf:
+            with zf.open("ppt/theme/theme1.xml") as fh:
+                root = ET.parse(fh).getroot()
+    except (KeyError, OSError, zipfile.BadZipFile, ET.ParseError):
+        return None
+
+    elements = root.find("a:themeElements", ns)
+    if elements is None:
+        return None
+    scheme = elements.find("a:clrScheme", ns)
+    fonts_el = elements.find("a:fontScheme", ns)
+    if scheme is None:
+        return None
+
+    # lt1/dk1 are usually window bg/text; dk2/accent1 carry the brand identity.
+    background = _theme_color(scheme, "lt1", ns) or _theme_color(scheme, "lt2", ns)
+    title = _theme_color(scheme, "dk2", ns) or _theme_color(scheme, "dk1", ns)
+    body = _theme_color(scheme, "dk1", ns) or title
+    accent = _theme_color(scheme, "accent1", ns)
+    accent2 = _theme_color(scheme, "accent2", ns) or accent
+
+    palette: Dict[str, Any] = {}
+    if background:
+        palette["background"] = background
+    if title:
+        palette["title"] = title
+    if body and body != background:
+        palette["body"] = body
+    if accent:
+        palette["accent"] = accent
+    if accent2:
+        palette["accent2"] = accent2
+
+    if fonts_el is not None:
+        def _typeface(role: str) -> str:
+            font = fonts_el.find(f"a:{role}", ns)
+            latin = font.find("a:latin", ns) if font is not None else None
+            face = (latin.get("typeface", "") if latin is not None else "").strip()
+            # "+mj-lt"/"+mn-lt" are theme self-references, not real font names.
+            return face if face and not face.startswith("+") else ""
+        major = _typeface("majorFont")
+        minor = _typeface("minorFont")
+        if major or minor:
+            palette["fonts"] = {"major": major or minor, "minor": minor or major}
+
+    # Require at least an accent or a usable background to consider it a theme.
+    if not (palette.get("accent") or palette.get("background")):
+        return None
+    return palette
+
+
 def _build_deck_spec(
     title: str,
     slides: List[Dict[str, Any]],
     theme: "_PptxTheme",
     visual_master: str,
+    meta: Any = None,
+    theme_override: Optional[Dict[str, Any]] = None,
+    template_name: str = "",
 ) -> Dict[str, Any]:
-    return {
+    normalized = _normalize_deck_slides([_deck_slide_spec(raw) for raw in (slides or [])])
+    spec: Dict[str, Any] = {
         "title": _text(title) or "学生汇报",
         "template": theme.key,
         "template_subtitle": theme.subtitle,
@@ -1042,8 +1199,14 @@ def _build_deck_spec(
         "visual_master": visual_master,
         "visual_master_name": _pptx_visual_master_name(visual_master),
         "page_size": {"width": 13.333, "height": 7.5},
-        "slides": [_deck_slide_spec(raw) for raw in (slides or [])],
+        "meta": _deck_meta(meta),
+        "slides": normalized,
     }
+    if theme_override:
+        spec["visual_master_palette"] = theme_override
+        if template_name:
+            spec["visual_master_name"] = template_name
+    return spec
 
 
 def _normalize_pdf_template(template: str) -> str:
@@ -1121,16 +1284,102 @@ def _pdf_section_blocks(section: Dict[str, Any]) -> List[Dict[str, Any]]:
     return blocks
 
 
+def _repair_jsonish(text: str) -> str:
+    """Best-effort repair of the JSON mistakes LLMs make when stringifying args.
+
+    Single left-to-right pass that tracks whether we are inside a string literal:
+
+    * Unescaped ``"`` inside a value — the dominant failure mode. Source text
+      lifted from a PDF often contains content quotes (e.g. 信息"大爆炸"时代);
+      when the model hand-builds the ``document`` JSON it forgets to escape them,
+      so strict ``json.loads`` aborts at the first one. A ``"`` is treated as the
+      string terminator only when the next significant char is structural
+      (``:`` ``,`` ``}`` ``]`` or end-of-input); otherwise it is content and gets
+      escaped to ``\\"``.
+    * Trailing commas before ``}`` / ``]`` are dropped.
+
+    Escape sequences are passed through verbatim so already-valid input is left
+    unchanged. This is a heuristic, not a parser: the caller still runs
+    ``json.loads`` on the result and falls back to the raw string if it fails.
+    """
+    out: List[str] = []
+    i = 0
+    n = len(text)
+    in_str = False
+    while i < n:
+        c = text[i]
+        if not in_str:
+            if c == ",":
+                j = i + 1
+                while j < n and text[j] in " \t\r\n":
+                    j += 1
+                if j < n and text[j] in "}]":
+                    i += 1  # drop trailing comma
+                    continue
+            out.append(c)
+            if c == '"':
+                in_str = True
+            i += 1
+            continue
+        if c == "\\":
+            out.append(text[i:i + 2])
+            i += 2
+            continue
+        if c == '"':
+            j = i + 1
+            while j < n and text[j] in " \t\r\n":
+                j += 1
+            nxt = text[j] if j < n else ""
+            if nxt in (":", ",", "}", "]", ""):
+                out.append('"')
+                in_str = False
+            else:
+                out.append('\\"')
+            i += 1
+            continue
+        out.append(c)
+        i += 1
+    return "".join(out)
+
+
+def _coerce_json_container(value: Any) -> Any:
+    """Decode a JSON-string into the dict/list it encodes; pass anything else through.
+
+    LLM tool-calls routinely stringify nested object/array arguments, so the
+    ``document`` (or its ``blocks`` / ``sections``) can arrive as a JSON string
+    even though the schema declares an object. Without this, ``_pdf_blocks``
+    treated the whole JSON string as a single paragraph (dumping raw JSON onto
+    the page) or fell through to an empty document. Genuine prose stays a string:
+    only text that starts with ``[``/``{`` is treated as a container candidate.
+
+    When strict parsing fails (commonly unescaped content quotes from PDF text),
+    one repair pass via ``_repair_jsonish`` is attempted before giving up.
+    """
+    if isinstance(value, str):
+        text = value.strip()
+        if text[:1] in ("[", "{"):
+            for candidate in (text, _repair_jsonish(text)):
+                try:
+                    parsed = json.loads(candidate)
+                except (ValueError, TypeError):
+                    continue
+                if isinstance(parsed, (dict, list)):
+                    return parsed
+    return value
+
+
 def _pdf_blocks(document: Any) -> List[Dict[str, Any]]:
+    document = _coerce_json_container(document)
     if isinstance(document, str):
         return [{"type": "paragraph", "text": document}]
     if isinstance(document, list):
         return [_pdf_block(item) for item in document]
     document = _dict(document)
-    if isinstance(document.get("blocks"), list):
-        return [_pdf_block(item) for item in document.get("blocks") or []]
+    blocks_value = _coerce_json_container(document.get("blocks"))
+    if isinstance(blocks_value, list):
+        return [_pdf_block(item) for item in blocks_value]
     blocks: List[Dict[str, Any]] = []
-    for section in _list(document.get("sections")):
+    for section in _list(_coerce_json_container(document.get("sections"))):
         blocks.extend(_pdf_section_blocks(_dict(section)))
     if blocks:
         return blocks
@@ -1638,6 +1887,8 @@ def pptx_write(
     slides: List[Dict[str, Any]],
     template: str = "course_report",
     visual_master: str = "default_native",
+    meta: Optional[Dict[str, Any]] = None,
+    template_path: str = "",
     callback=None,
 ) -> str:
     """Render a student deck with PptxGenJS in the desktop web layer.
@@ -1662,7 +1913,26 @@ def pptx_write(
     if out.suffix.lower() != ".pptx":
         out = out.with_suffix(".pptx")
 
-    deck_spec = _build_deck_spec(title, slides, theme, selected_visual_master)
+    # Route A: an uploaded school template contributes its colours/fonts as an
+    # inline visual master. Bad/unreadable templates degrade silently to the
+    # selected built-in master rather than failing the whole deck.
+    theme_override: Optional[Dict[str, Any]] = None
+    template_name = ""
+    if _text(template_path):
+        tpl = Path(template_path).expanduser()
+        read_error = _validate_read_path(tpl, template_path, "PPT template")
+        if read_error is not None:
+            return read_error
+        theme_override = _extract_pptx_theme(tpl)
+        if theme_override is not None:
+            template_name = tpl.stem
+            logger.info("pptx_write: applied uploaded template theme from %s", tpl.name)
+        else:
+            logger.warning("pptx_write: could not parse theme from %s; using built-in master", tpl.name)
+
+    deck_spec = _build_deck_spec(
+        title, slides, theme, selected_visual_master, meta, theme_override, template_name
+    )
 
     if callback is None:
         return tool_error(
@@ -1804,9 +2074,12 @@ PDF_WRITE_SCHEMA = {
             "document": {
                 "type": "object",
                 "description": (
-                    "Structured document spec. Prefer sections or blocks. Supported block "
-                    "types: heading, paragraph, bullets, table, code, formula, "
-                    "image_placeholder, page_break."
+                    "Structured document spec passed as a JSON OBJECT, not a JSON "
+                    "string. Do not stringify it and do not hand-build escaped JSON — "
+                    "emit a real object so quotes in the source text are handled for "
+                    "you. Prefer sections or blocks. Supported block types: heading, "
+                    "paragraph, bullets, table, code, formula, image_placeholder, "
+                    "page_break."
                 ),
                 "properties": {
                     "sections": {
@@ -1878,9 +2151,12 @@ HTML_WRITE_SCHEMA = {
             "document": {
                 "type": "object",
                 "description": (
-                    "Structured document spec. Prefer sections or blocks. Supported block "
-                    "types: heading, paragraph, bullets, table, code, formula, "
-                    "image_placeholder, page_break."
+                    "Structured document spec passed as a JSON OBJECT, not a JSON "
+                    "string. Do not stringify it and do not hand-build escaped JSON — "
+                    "emit a real object so quotes in the source text are handled for "
+                    "you. Prefer sections or blocks. Supported block types: heading, "
+                    "paragraph, bullets, table, code, formula, image_placeholder, "
+                    "page_break."
                 ),
                 "properties": {
                     "sections": {
@@ -1953,9 +2229,12 @@ DOCX_WRITE_SCHEMA = {
             "document": {
                 "type": "object",
                 "description": (
-                    "Structured document spec. Prefer sections or blocks. Supported block "
-                    "types: heading, paragraph, bullets, table, code, formula, "
-                    "image_placeholder, page_break."
+                    "Structured document spec passed as a JSON OBJECT, not a JSON "
+                    "string. Do not stringify it and do not hand-build escaped JSON — "
+                    "emit a real object so quotes in the source text are handled for "
+                    "you. Prefer sections or blocks. Supported block types: heading, "
+                    "paragraph, bullets, table, code, formula, image_placeholder, "
+                    "page_break."
                 ),
                 "properties": {
                     "sections": {
@@ -2025,6 +2304,29 @@ PPTX_WRITE_SCHEMA = {
                 "description": (
                     "default_native, soft_editorial, blue_professional, signal, "
                     "neo_grid_bold, or editorial_forest. Use the visual master selected by the user."
+                ),
+            },
+            "meta": {
+                "type": "object",
+                "description": (
+                    "Deck-level cover metadata: author, affiliation, date, citation. "
+                    "Put presenter / source info HERE so it renders on the cover — never "
+                    "cram author or citation lines into an agenda or content slide."
+                ),
+                "properties": {
+                    "author": {"type": "string"},
+                    "affiliation": {"type": "string"},
+                    "date": {"type": "string"},
+                    "citation": {"type": "string"},
+                },
+            },
+            "template_path": {
+                "type": "string",
+                "description": (
+                    "Optional path to a school/course-provided .pptx the student uploaded "
+                    "(must be inside the workspace). Its colours and fonts are extracted and "
+                    "applied so the deck matches the required look. Unreadable templates are "
+                    "ignored and the selected visual_master is used instead."
                 ),
             },
             "slides": {
@@ -2159,6 +2461,8 @@ registry.register(
         slides=args.get("slides") or [],
         template=args.get("template", "course_report"),
         visual_master=args.get("visual_master", "default_native"),
+        meta=args.get("meta"),
+        template_path=args.get("template_path", ""),
         callback=kw.get("callback"),
     ),
     check_fn=lambda: True,

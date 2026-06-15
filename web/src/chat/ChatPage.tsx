@@ -13,7 +13,7 @@ import { useI18n } from "../lib/i18n";
 import { ChatInput } from "./ChatInput";
 import { ChatMessageList } from "./ChatMessageList";
 import { ChatSidebar } from "./ChatSidebar";
-import { WorkspacePanel, type WorkspaceActivity, type WorkspaceItem } from "./WorkspacePanel";
+import { WorkspacePanel, type WorkspaceItem } from "./WorkspacePanel";
 import { runDesktopOrganize } from "./desktop-organizer-api";
 import {
   armPendingChatSecretGateBypass,
@@ -45,7 +45,6 @@ type WorkspaceState = {
   materials: WorkspaceItem[];
   outputs: WorkspaceItem[];
   activeTool: string | null;
-  activity: WorkspaceActivity[];
 };
 
 const FILE_PATH_RE = /[A-Za-z]:\\[^\r\n`"'<>|]*?\.(?:docx?|xlsx?|pptx?|pdf|md|txt|csv|png|jpe?g|gif|webp|zip|json|html?|py|ts|tsx|js|jsx)\b/gi;
@@ -60,10 +59,17 @@ function fileLabel(pathOrName: string): string {
   return pathOrName.split(/[\\/]/).pop()?.trim() || pathOrName.trim();
 }
 
-function pushUnique(items: WorkspaceItem[], seen: Set<string>, item: WorkspaceItem) {
+function pushUnique(items: WorkspaceItem[], seen: Map<string, number>, item: WorkspaceItem) {
   const key = `${item.label}\n${item.detail ?? ""}`.toLocaleLowerCase();
-  if (seen.has(key)) return;
-  seen.add(key);
+  const existing = seen.get(key);
+  if (existing !== undefined) {
+    // Same file surfaced by more than one source — if any source says it is still
+    // mid-write (pending), the merged item stays pending so we never enable Open
+    // on a half-written file.
+    if (item.pending) items[existing].pending = true;
+    return;
+  }
+  seen.set(key, items.length);
   items.push(item);
 }
 
@@ -81,11 +87,21 @@ function buildWorkspaceState(
   messages: UiMsg[],
   pendingAttachments: DeskAttachmentPayload[],
   progress: AgentProgressState | null,
+  sending: boolean,
 ): WorkspaceState {
-  const materialSeen = new Set<string>();
-  const outputSeen = new Set<string>();
+  const materialSeen = new Map<string, number>();
+  const outputSeen = new Map<string, number>();
   const materials: WorkspaceItem[] = [];
   const outputs: WorkspaceItem[] = [];
+
+  // While a turn is in flight, its file is still being written. We only gate the
+  // deliverable produced by the current turn — surfaced via live progress steps
+  // and the streaming (last) assistant message — so finished files from earlier
+  // turns stay openable.
+  let lastAssistantIdx = -1;
+  messages.forEach((message, idx) => {
+    if (message.role !== "user") lastAssistantIdx = idx;
+  });
 
   for (const att of pendingAttachments) {
     pushUnique(materials, materialSeen, {
@@ -95,7 +111,7 @@ function buildWorkspaceState(
     });
   }
 
-  for (const message of messages) {
+  messages.forEach((message, idx) => {
     if (message.role === "user") {
       for (const att of message.attachments ?? []) {
         pushUnique(materials, materialSeen, {
@@ -119,15 +135,17 @@ function buildWorkspaceState(
         });
       }
     } else {
+      const pending = sending && idx === lastAssistantIdx;
       for (const path of extractPaths(message.text)) {
         pushUnique(outputs, outputSeen, {
           id: `output-${path}`,
           label: fileLabel(path),
           detail: path,
+          pending,
         });
       }
     }
-  }
+  });
 
   for (const step of progress?.steps ?? []) {
     if (!step.preview) continue;
@@ -136,6 +154,7 @@ function buildWorkspaceState(
         id: `progress-output-${step.seq}-${path}`,
         label: fileLabel(path),
         detail: path,
+        pending: sending,
       });
     }
   }
@@ -154,15 +173,8 @@ function buildWorkspaceState(
 
   const runningStep = progress ? [...progress.steps].reverse().find((step) => step.running) : undefined;
   const activeTool = progress?.current_tool ?? runningStep?.tool ?? null;
-  const activity =
-    progress?.steps.slice(-4).map((step) => ({
-      id: `activity-${step.seq}`,
-      label: step.tool,
-      detail: step.preview ? compactText(step.preview, 56) : undefined,
-      running: step.running,
-    })) ?? [];
 
-  return { goal, materials: materials.slice(0, 8), outputs: outputs.slice(-8), activeTool, activity };
+  return { goal, materials: materials.slice(0, 8), outputs: outputs.slice(-8), activeTool };
 }
 
 export function ChatPage() {
@@ -220,8 +232,8 @@ export function ChatPage() {
   });
   const loadPackageDownloads = useLoadPackageDownloads(hermesReady && !hermesWarming);
   const workspace = useMemo(
-    () => buildWorkspaceState(messages, pendingAttachments, progress),
-    [messages, pendingAttachments, progress],
+    () => buildWorkspaceState(messages, pendingAttachments, progress, sending),
+    [messages, pendingAttachments, progress, sending],
   );
 
   useEffect(() => {
@@ -533,7 +545,7 @@ export function ChatPage() {
             materials={workspace.materials}
             outputs={workspace.outputs}
             activeTool={workspace.activeTool}
-            activity={workspace.activity}
+            busy={sending}
           />
         )}
       </div>
