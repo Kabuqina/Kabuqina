@@ -115,11 +115,6 @@ fn validate_provider_config_for_save(cfg: &mut ProviderConfig, secret: &str) -> 
     Ok(())
 }
 
-fn saved_api_base_for_endpoint_validation(cfg: Option<&ProviderConfig>) -> Option<&str> {
-    cfg.filter(|c| c.provider == "custom")
-        .and_then(|c| c.api_base_url.as_deref())
-}
-
 fn read_bool_setting(app: &AppHandle, key: &str) -> bool {
     let Some(f) = settings_file(app).ok() else {
         return false;
@@ -187,10 +182,7 @@ pub fn provider_api_key_env(provider: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        provider_api_key_env, saved_api_base_for_endpoint_validation,
-        validate_provider_config_for_save, ProviderConfig,
-    };
+    use super::{provider_api_key_env, validate_provider_config_for_save, ProviderConfig};
 
     #[test]
     fn provider_api_key_env_covers_native_hermes_providers() {
@@ -247,30 +239,16 @@ mod tests {
     }
 
     #[test]
-    fn endpoint_validation_does_not_pin_to_non_custom_saved_base() {
-        let cfg = ProviderConfig {
-            provider: "deepseek".into(),
-            host: "api.deepseek.com".into(),
-            model: Some("deepseek-v4-flash".into()),
-            api_base_url: Some("https://api.deepseek.com/v1".into()),
-        };
-
-        assert_eq!(saved_api_base_for_endpoint_validation(Some(&cfg)), None);
-    }
-
-    #[test]
-    fn endpoint_validation_pins_saved_custom_base() {
-        let cfg = ProviderConfig {
-            provider: "custom".into(),
-            host: "api.example.com".into(),
-            model: Some("my-model".into()),
-            api_base_url: Some("https://api.example.com/v1".into()),
-        };
-
-        assert_eq!(
-            saved_api_base_for_endpoint_validation(Some(&cfg)),
-            Some("https://api.example.com/v1")
-        );
+    fn endpoint_validation_allows_switching_provider_host() {
+        // Regression: previously the validator pinned to the saved custom base,
+        // so switching back to a recommended provider (e.g. DeepSeek) was rejected
+        // with "does not match your configured API base". With no saved-base pin,
+        // any public HTTPS host the user configures validates on its own merits.
+        assert!(crate::validation::validate_public_endpoint(
+            "https://api.deepseek.com/v1/models",
+            None,
+        )
+        .is_ok());
     }
 }
 
@@ -542,15 +520,20 @@ pub async fn cmd_clear_secret(app: AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 pub async fn cmd_validate_endpoint(
-    app: AppHandle,
+    _app: AppHandle,
     url: String,
     api_key: String,
 ) -> Result<(), String> {
     log::info!("cmd_validate_endpoint called: url={}", url);
 
-    let cfg = read_provider_cfg(&app);
-    let saved_base = saved_api_base_for_endpoint_validation(cfg.as_ref());
-    crate::validation::validate_public_endpoint(&url, saved_base)?;
+    // Validate the endpoint the user is configuring right now. We intentionally
+    // do NOT pin to the previously saved provider host: the user may be switching
+    // providers or editing their base URL in this very form (e.g. custom → back
+    // to the recommended DeepSeek), and pinning to stale on-disk config blocked
+    // that legitimate change. The api key is renderer-supplied in this same call,
+    // so the host pin added no real protection anyway. HTTPS + public-address
+    // checks below still apply.
+    crate::validation::validate_public_endpoint(&url, None)?;
 
     let trimmed = api_key.trim();
     let is_anthropic = url.contains("api.anthropic.com");

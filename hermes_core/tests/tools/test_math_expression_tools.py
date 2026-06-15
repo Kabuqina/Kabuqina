@@ -55,7 +55,7 @@ def test_formula_to_code_emits_each_offered_language():
         "numpy": "def compute_energy",
         "javascript": "function compute_energy",
         "octave": "function y = compute_energy",
-        "fortran": "function compute_energy",
+        "cpp17": "double compute_energy",
     }
     assert set(OFFERED_LANGUAGES) == set(expected_signature)
     for language, signature in expected_signature.items():
@@ -93,6 +93,42 @@ def test_code_to_math_formula_writes_html_via_sympy(tmp_path):
     assert result["pdf_path"] == ""
     assert any("PDF" in warning for warning in result["warnings"])
     assert any(row["name"] == "m" for row in result["variable_table"])
+
+
+def test_code_to_math_formula_rejects_non_mathematical_code():
+    from tools.math_expression_tools import code_to_math_formula
+
+    # Attribute call (I/O-ish) -> not a closed-form formula.
+    io_like = json.loads(code_to_math_formula("def f(url):\n    return requests.get(url).json()", "python"))
+    assert "error" in io_like
+    assert "closed-form" in io_like["error"] or "non-mathematical" in io_like["error"]
+
+    # String processing -> rejected.
+    string_like = json.loads(code_to_math_formula("def f(s):\n    return s.strip()", "python"))
+    assert "error" in string_like
+
+    # Subscript / data-structure access -> rejected.
+    subscript = json.loads(code_to_math_formula("def f(data, rate):\n    return data[0] * rate", "python"))
+    assert "error" in subscript
+
+    # Bare variable with no math operation -> rejected.
+    bare = json.loads(code_to_math_formula("def f(x):\n    return x", "python"))
+    assert "error" in bare
+
+
+def test_code_to_math_formula_allows_whitelisted_math_functions(tmp_path):
+    from tools.math_expression_tools import code_to_math_formula
+
+    result = json.loads(
+        code_to_math_formula(
+            "def f(t, w):\n    return math.sqrt(t) * np.sin(w)",
+            "python",
+            str(tmp_path),
+        )
+    )
+    assert result["ok"] is True
+    assert "sin" in result["latex"]
+    assert "sqrt" in result["latex"] or "\\sqrt" in result["latex"]
 
 
 def test_code_to_math_formula_rejects_unsupported_source_language():

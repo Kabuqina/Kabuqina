@@ -29,40 +29,98 @@ async function importTs(relativePath) {
 }
 
 const { PROVIDERS } = await importTs("../lib/providers.ts");
+const { PROVIDER_PRESETS, SELECTABLE_LLM_PROVIDERS } = await importTs("../lib/llm-config.ts");
 const providerIds = PROVIDERS.map((provider) => provider.id);
 
 for (const id of ["alibaba", "zai", "kimi-coding", "kimi-coding-cn", "minimax-cn"]) {
   assert.ok(providerIds.includes(id), `Provider dropdown metadata should include Hermes provider ${id}.`);
+  assert.ok(
+    SELECTABLE_LLM_PROVIDERS.includes(id),
+    `Shared LLM provider picker should expose Hermes provider ${id}.`,
+  );
 }
 
+assert.equal(PROVIDER_PRESETS["kimi-coding-cn"].host, "https://api.kimi.com/coding/v1");
+
 const getAccessPassSource = fs.readFileSync(new URL("./steps/GetAccessPass.tsx", import.meta.url), "utf8");
+const settingsLlmConfigSource = fs.readFileSync(new URL("../advanced/settings/SettingsLlmConfig.tsx", import.meta.url), "utf8");
+const llmConfigEditorSource = fs.readFileSync(new URL("../components/LlmConfigEditor.tsx", import.meta.url), "utf8");
+const llmConfigSource = fs.readFileSync(new URL("../lib/llm-config.ts", import.meta.url), "utf8");
 
 assert.match(
   getAccessPassSource,
+  /LlmConfigEditor/,
+  "Onboarding access-pass step should use the shared LLM config editor.",
+);
+
+assert.match(
+  getAccessPassSource,
+  /renderActions=\{\(\{ onSave, disabled, label \}\) =>/,
+  "Onboarding access-pass actions should be rendered in the page footer.",
+);
+
+assert.match(
+  getAccessPassSource,
+  /WizardFooter[\s\S]*WizardFooterActions[\s\S]*onClick=\{onSave\}/,
+  "Onboarding back and continue buttons should share one wizard footer.",
+);
+
+assert.match(
+  settingsLlmConfigSource,
+  /LlmConfigEditor/,
+  "Settings model tab should use the shared LLM config editor.",
+);
+
+assert.match(
+  llmConfigEditorSource,
+  /settings\.llmConfigModel[\s\S]*value=\{modelId\}[\s\S]*onChange=\{\(e\) => \{\s*setModelId/,
+  "The shared LLM config editor should expose an editable model field.",
+);
+
+assert.doesNotMatch(
+  llmConfigEditorSource,
+  /readOnly=\{!isManualCustom && hasPreset\(selectedProvider\)\}/,
+  "Preset provider model fields must remain editable.",
+);
+
+assert.doesNotMatch(
+  getAccessPassSource,
+  /const PROVIDER_PRESETS/,
+  "Provider presets should live in the shared LLM config module, not the onboarding step.",
+);
+
+assert.match(
+  llmConfigEditorSource,
   /customProviderId/,
   "Custom provider mode should expose state for a manually entered provider id.",
 );
 
 assert.match(
-  getAccessPassSource,
+  llmConfigEditorSource,
   /providerForSave[\s\S]*customProviderId\.trim\(\)\s*\|\|\s*"custom"[\s\S]*provider:\s*providerForSave/,
   "Saving the custom option should persist the user-entered provider id when provided.",
 );
 
 assert.match(
-  getAccessPassSource,
-  /savedProviderMatchesSelection[\s\S]*preview\.provider === provider\.id[\s\S]*preview\.provider === dropdownProvider[\s\S]*preview\.provider === \(customProviderId\.trim\(\) \|\| "custom"\)/,
+  llmConfigEditorSource,
+  /savedProviderMatchesSelection[\s\S]*preview\.provider === selectedProvider[\s\S]*preview\.provider === \(customProviderId\.trim\(\) \|\| "custom"\)/,
   "Saved access-pass state should only be reused when it matches the selected provider.",
 );
 
 assert.match(
-  getAccessPassSource,
-  /if \(!savedProviderMatchesSelection \|\| !isCustom \|\| !saved\) return;/,
-  "Custom onboarding should not prefill DeepSeek or other saved provider details.",
+  llmConfigEditorSource,
+  /mode === "settings"[\s\S]*setSelectedProvider/,
+  "Settings mode should hydrate provider fields from saved config.",
 );
 
 assert.match(
-  getAccessPassSource,
+  llmConfigEditorSource,
+  /mode === "onboarding" && initialProviderId === "custom"[\s\S]*setSelectedProvider/,
+  "Custom onboarding should hydrate provider fields from saved config.",
+);
+
+assert.match(
+  llmConfigSource,
   /"kimi-coding-cn":\s*\{\s*host:\s*"https:\/\/api\.kimi\.com\/coding\/v1"/,
   "Kimi / Moonshot (China) should use the current Kimi Coding base URL.",
 );

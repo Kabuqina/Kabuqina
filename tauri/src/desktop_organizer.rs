@@ -644,14 +644,6 @@ fn run_organize_internal(
     })
 }
 
-fn run_organize(
-    desktop: &Path,
-    locale: Locale,
-    arrange_icons: bool,
-) -> Result<DesktopOrganizeRunResult, String> {
-    run_organize_internal(desktop, locale, arrange_icons).map(|outcome| outcome.result)
-}
-
 fn undo_record_path(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = crate::paths::ensure_data_dir(app)
         .map_err(|e| e.to_string())?
@@ -884,7 +876,9 @@ mod tests {
         fs::write(desktop.join("notes.txt"), "x").unwrap();
         fs::write(desktop.join("app.lnk"), "x").unwrap();
 
-        let result = run_organize(&desktop, Locale::Zh, false).unwrap();
+        let result = run_organize_internal(&desktop, Locale::Zh, false)
+            .unwrap()
+            .result;
 
         assert_eq!(result.moved_count, 2);
         assert_eq!(result.skipped_count, 1);

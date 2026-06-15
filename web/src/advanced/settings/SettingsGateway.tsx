@@ -13,14 +13,11 @@ import {
 } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { Section } from "../../components/ui/Section";
-import { Toggle } from "../../components/ui/Toggle";
 import type { Status } from "../Settings";
 import type { GatewayStatus } from "../../features/gateway/useGatewayStatus";
 
 interface Props {
   gatewayStatus: GatewayStatus;
-  autoStartGateway: boolean;
-  onToggleAutoStart: (next: boolean) => void;
   onStatusChange: (status: Status | null) => void;
   status: Status | null;
 }
@@ -45,8 +42,6 @@ const platformItems = [
 
 export function SettingsGateway({
   gatewayStatus,
-  autoStartGateway,
-  onToggleAutoStart,
 }: Props) {
   const { t } = useI18n();
   const nav = useNavigate();
@@ -67,10 +62,6 @@ export function SettingsGateway({
     <>
       <Section icon={MessageCircle} title={t("settings.gatewayTitle")} desc={t("settings.gatewayLead")}>
         <div className="w-full min-w-0 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-zinc-700 dark:text-zinc-200">{t("settings.gatewayAuto")}</span>
-            <Toggle value={autoStartGateway} onChange={(v) => onToggleAutoStart(v)} />
-          </div>
           {!gatewayEligible ? (
             <p className="text-xs leading-relaxed text-amber-700/90 dark:text-amber-400/90">
               {t("settings.gatewayNotEligible")}

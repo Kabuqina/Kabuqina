@@ -14,7 +14,7 @@
 // renderer draws that page. Adding a new design = registering one entry.
 
 import pptxgen from "pptxgenjs";
-import { getVisualMaster } from "./visualMasters";
+import { getVisualMaster, type MasterLayoutId, type VisualMasterLayoutBox, type VisualMasterV2 } from "./visualMasters";
 
 export type DeckSlideType =
   | "agenda"
@@ -117,6 +117,9 @@ interface SlideCtx {
   slide: pptxgen.Slide;
   spec: DeckSlideSpec;
   p: Palette;
+  master: VisualMasterV2;
+  layoutId: SlideLayoutId;
+  layoutRecipe: VisualMasterV2["layouts"][MasterLayoutId];
   pageW: number;
   pageH: number;
 }
@@ -124,6 +127,31 @@ interface SlideCtx {
 /** pptxgenjs wants hex colors without the leading '#'. */
 function hex(color: string): string {
   return (color || "").replace(/^#/, "").toUpperCase() || "000000";
+}
+
+function colorFor(p: Palette, slot: VisualMasterV2["typography"][keyof VisualMasterV2["typography"]]["color"], fallback: keyof Palette): string {
+  const key = slot === "background" ? "bg" : slot;
+  return key ? p[key as keyof Palette] ?? p[fallback] : p[fallback];
+}
+
+function boxOr(recipeBox: VisualMasterLayoutBox | undefined, fallback: VisualMasterLayoutBox): VisualMasterLayoutBox {
+  return recipeBox ?? fallback;
+}
+
+function textStyle(ctx: SlideCtx, role: keyof VisualMasterV2["typography"], fallbackColor: keyof Palette) {
+  const style = ctx.master.typography[role];
+  return {
+    fontSize: style.fontSize,
+    bold: style.bold,
+    italic: style.italic,
+    charSpacing: style.charSpacing,
+    color: colorFor(ctx.p, style.color, fallbackColor),
+    fontFace: style.fontFace,
+  };
+}
+
+function currentRecipe(ctx: SlideCtx): VisualMasterV2["layouts"][MasterLayoutId] {
+  return ctx.layoutRecipe;
 }
 
 const PLACEHOLDER_LABELS: Record<string, string> = {
@@ -153,43 +181,82 @@ function bulletRows(bullets: string[], numbered: boolean): pptxgen.TextProps[] {
   }));
 }
 
-/** Title + accent rail + optional subtitle/kicker. Shared by most layouts. */
-function drawHeader(ctx: SlideCtx): void {
-  const { slide, spec, p, pptx } = ctx;
+function drawPageBase(ctx: Pick<SlideCtx, "pptx" | "slide" | "p" | "master">): void {
+  const { pptx, slide, p, master } = ctx;
   slide.background = { color: p.bg };
-  slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 0.16, h: "100%", fill: { color: p.accent } });
+  if (master.decorations.rail === "left") {
+    slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 0.16, h: "100%", fill: { color: p.accent } });
+    slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 0.16, h: 1.1, fill: { color: p.accent2 } });
+  }
+  if (master.decorations.rail === "top") {
+    slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: "100%", h: 0.14, fill: { color: p.accent } });
+    slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 3.2, h: 0.14, fill: { color: p.accent2 } });
+  }
+}
+
+/** Title + two-tone rail + accent2 underline + optional subtitle/kicker. */
+function drawHeader(ctx: SlideCtx): void {
+  const { slide, spec, p, pptx, master } = ctx;
+  const recipe = currentRecipe(ctx);
+  const titleBox = boxOr(recipe.title, { x: master.spacing.marginX, y: master.spacing.headerY, w: 12.1, h: 0.7 });
+  drawPageBase(ctx);
   const kicker = LAYOUT_LABELS[spec.slide_type] ?? "";
   if (kicker) {
-    slide.addText(kicker, { x: 0.6, y: 0.32, w: 6, h: 0.3, fontSize: 11, bold: true, color: p.accent, charSpacing: 2 });
+    slide.addText(kicker, {
+      x: titleBox.x,
+      y: Math.max(0.28, titleBox.y - 0.32),
+      w: 6,
+      h: 0.3,
+      ...textStyle(ctx, "kicker", "accent"),
+    });
   }
   slide.addText(spec.title || "未命名页", {
-    x: 0.6, y: kicker ? 0.64 : 0.42, w: 12.1, h: 0.7, fontSize: 26, bold: true, color: p.title,
+    ...titleBox,
+    ...textStyle(ctx, "title", "title"),
   });
-  if (spec.subtitle) {
-    slide.addText(spec.subtitle, { x: 0.62, y: 1.34, w: 12, h: 0.38, fontSize: 14, bold: true, color: p.accent });
+  if (master.decorations.underline !== "none") {
+    slide.addShape(pptx.ShapeType.rect, {
+      x: titleBox.x + 0.02,
+      y: titleBox.y + titleBox.h + 0.08,
+      w: master.decorations.underline === "wide" ? 2.4 : 1.5,
+      h: 0.06,
+      fill: { color: p.accent2 },
+    });
+  }
+  if (spec.subtitle && recipe.subtitle) {
+    slide.addText(spec.subtitle, {
+      ...recipe.subtitle,
+      ...textStyle(ctx, "subtitle", "accent"),
+    });
   }
 }
 
 function bodyTop(ctx: SlideCtx): number {
-  return ctx.spec.subtitle ? 1.85 : 1.6;
+  return currentRecipe(ctx).body.y ?? ctx.master.spacing.bodyTop;
 }
 
 function drawCard(
   ctx: SlideCtx,
-  opts: { x: number; y: number; w: number; h: number; title: string; items: string[] },
+  opts: { x: number; y: number; w: number; h: number; title: string; items: string[]; accent?: string },
 ): void {
-  const { pptx, slide, p } = ctx;
+  const { pptx, slide, p, master } = ctx;
+  const ac = opts.accent ?? p.accent;
+  const fill = master.decorations.cardStyle === "filled" ? ac : "FFFFFF";
+  const titleColor = master.decorations.cardStyle === "filled" ? p.title : "FFFFFF";
+  const bodyColor = master.decorations.cardStyle === "filled" ? p.title : p.body;
   slide.addShape(pptx.ShapeType.roundRect, {
     x: opts.x, y: opts.y, w: opts.w, h: opts.h, rectRadius: 0.08,
-    fill: { color: "FFFFFF" }, line: { color: p.accent, width: 1.25 },
+    fill: { color: fill }, line: { color: ac, width: 1.25 },
   });
-  slide.addShape(pptx.ShapeType.rect, { x: opts.x, y: opts.y, w: opts.w, h: 0.52, fill: { color: p.accent } });
+  if (master.decorations.cardStyle !== "minimal") {
+    slide.addShape(pptx.ShapeType.rect, { x: opts.x, y: opts.y, w: opts.w, h: 0.52, fill: { color: ac } });
+  }
   slide.addText(opts.title, {
-    x: opts.x + 0.15, y: opts.y, w: opts.w - 0.3, h: 0.52, fontSize: 15, bold: true, color: "FFFFFF", valign: "middle",
+    x: opts.x + 0.15, y: opts.y, w: opts.w - 0.3, h: 0.52, fontSize: 15, bold: true, color: titleColor, valign: "middle",
   });
   slide.addText(bulletRows(opts.items, false), {
     x: opts.x + 0.2, y: opts.y + 0.62, w: opts.w - 0.4, h: opts.h - 0.74,
-    fontSize: 14, color: p.body, valign: "top", lineSpacingMultiple: 1.08,
+    fontSize: Math.max(12, master.typography.body.fontSize - 3), color: bodyColor, valign: "top", lineSpacingMultiple: 1.08,
   });
 }
 
@@ -198,26 +265,46 @@ function drawCard(
 // ---------------------------------------------------------------------------
 
 function renderHeroStatement(ctx: SlideCtx): void {
-  const { slide, spec, p, pptx } = ctx;
-  slide.background = { color: p.bg };
-  slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 0.16, h: "100%", fill: { color: p.accent } });
+  const { slide, spec, p, pptx, master } = ctx;
+  const recipe = currentRecipe(ctx);
+  const titleBox = recipe.title;
+  const body = recipe.body;
+  drawPageBase(ctx);
   if (spec.title) {
-    slide.addText(spec.title, { x: 0.8, y: 0.7, w: 11.7, h: 0.4, fontSize: 14, bold: true, color: p.accent, charSpacing: 1 });
+    slide.addText(spec.title, { ...titleBox, ...textStyle(ctx, "kicker", "accent") });
+  }
+  if (master.decorations.underline !== "none") {
+    slide.addShape(pptx.ShapeType.rect, { x: body.x + 0.02, y: Math.max(1.15, body.y - 0.6), w: master.decorations.underline === "wide" ? 2.4 : 1.8, h: 0.07, fill: { color: p.accent2 } });
   }
   const statement = (spec.bullets && spec.bullets[0]) || spec.subtitle || spec.title || "请补充本页要点";
   slide.addText(statement, {
-    x: 0.8, y: 1.9, w: 11.7, h: 2.7, fontSize: 36, bold: true, color: p.title, valign: "middle", lineSpacingMultiple: 1.05,
+    ...body,
+    fontSize: Math.max(30, master.typography.coverTitle.fontSize - 4),
+    bold: true,
+    color: p.title,
+    valign: "middle",
+    lineSpacingMultiple: 1.05,
   });
   const support = (spec.bullets ?? []).slice(1);
   if (support.length) {
-    slide.addText(support.join("      ·      "), { x: 0.85, y: 5.0, w: 11.6, h: 1.2, fontSize: 18, color: p.body });
+    slide.addText(support.join("      ·      "), {
+      x: body.x + 0.05,
+      y: Math.min(5.25, body.y + body.h + 0.4),
+      w: Math.min(11.6, body.w),
+      h: 1.2,
+      ...textStyle(ctx, "body", "body"),
+    });
   }
 }
 
 function renderStandardBullets(ctx: SlideCtx): void {
   drawHeader(ctx);
+  const body = currentRecipe(ctx).body;
   ctx.slide.addText(bulletRows(ctx.spec.bullets ?? [], false), {
-    x: 0.7, y: bodyTop(ctx), w: 12, h: 5.0, fontSize: 19, color: ctx.p.body, valign: "top", lineSpacingMultiple: 1.15,
+    ...body,
+    ...textStyle(ctx, "body", "body"),
+    valign: "top",
+    lineSpacingMultiple: 1.15,
   });
 }
 
@@ -225,24 +312,38 @@ function renderTwoColumnBullets(ctx: SlideCtx): void {
   drawHeader(ctx);
   const bullets = ctx.spec.bullets ?? [];
   const mid = Math.ceil(bullets.length / 2);
-  const top = bodyTop(ctx);
+  const columns = currentRecipe(ctx).columns ?? [
+    { x: 0.7, y: bodyTop(ctx), w: 5.8, h: 5.0 },
+    { x: 6.85, y: bodyTop(ctx), w: 5.8, h: 5.0 },
+  ];
   ctx.slide.addText(bulletRows(bullets.slice(0, mid), false), {
-    x: 0.7, y: top, w: 5.8, h: 5.0, fontSize: 17, color: ctx.p.body, valign: "top", lineSpacingMultiple: 1.15,
+    ...columns[0],
+    ...textStyle(ctx, "body", "body"),
+    valign: "top",
+    lineSpacingMultiple: 1.15,
   });
   ctx.slide.addText(bulletRows(bullets.slice(mid), false), {
-    x: 6.85, y: top, w: 5.8, h: 5.0, fontSize: 17, color: ctx.p.body, valign: "top", lineSpacingMultiple: 1.15,
+    ...columns[1],
+    ...textStyle(ctx, "body", "body"),
+    valign: "top",
+    lineSpacingMultiple: 1.15,
   });
 }
 
 function renderSectionDivider(ctx: SlideCtx): void {
   drawHeader(ctx);
   const items = (ctx.spec.bullets ?? []).length ? ctx.spec.bullets! : ["请补充本页要点"];
-  const rows: pptxgen.TextProps[] = items.slice(0, 6).map((text, i) => ({
-    text: `${String(i + 1).padStart(2, "0")}   ${text}`,
-    options: { paraSpaceAfter: 14, color: ctx.p.title },
-  }));
+  // Two runs per line: the index in accent2 (bold), the item in the title colour.
+  const rows: pptxgen.TextProps[] = [];
+  items.slice(0, 6).forEach((text, i) => {
+    rows.push({ text: `${String(i + 1).padStart(2, "0")}   `, options: { color: ctx.p.accent2, bold: true } });
+    rows.push({ text, options: { color: ctx.p.title, breakLine: true, paraSpaceAfter: 14 } });
+  });
+  const body = currentRecipe(ctx).body;
   ctx.slide.addText(rows, {
-    x: 0.9, y: bodyTop(ctx) + 0.2, w: 11.6, h: 4.8, fontSize: 22, valign: "top",
+    ...body,
+    fontSize: Math.max(19, ctx.master.typography.title.fontSize - 4),
+    valign: "top",
   });
 }
 
@@ -271,10 +372,12 @@ function renderComparisonCards(ctx: SlideCtx): void {
     renderStandardBullets(ctx);
     return;
   }
-  const top = bodyTop(ctx) + 0.1;
-  const h = 6.9 - top;
-  drawCard(ctx, { x: 0.7, y: top, w: 5.85, h, title: sides.titles[0], items: sides.items[0] });
-  drawCard(ctx, { x: 6.8, y: top, w: 5.85, h, title: sides.titles[1], items: sides.items[1] });
+  const cards = currentRecipe(ctx).cards ?? [
+    { x: 0.7, y: bodyTop(ctx) + 0.1, w: 5.85, h: 6.9 - bodyTop(ctx) },
+    { x: 6.8, y: bodyTop(ctx) + 0.1, w: 5.85, h: 6.9 - bodyTop(ctx) },
+  ];
+  drawCard(ctx, { ...cards[0], title: sides.titles[0], items: sides.items[0] });
+  drawCard(ctx, { ...cards[1], title: sides.titles[1], items: sides.items[1], accent: ctx.p.accent2 });
 }
 
 function diagramNodes(spec: DeckSlideSpec): string[] {
@@ -283,22 +386,26 @@ function diagramNodes(spec: DeckSlideSpec): string[] {
 
 function renderProcessFlowHorizontal(ctx: SlideCtx): void {
   drawHeader(ctx);
-  const { pptx, slide, p, pageW } = ctx;
+  const { pptx, slide, p, master } = ctx;
   const items = diagramNodes(ctx.spec);
   if (items.length < 2) {
     renderStandardBullets(ctx);
     return;
   }
-  const boxW = 2.7, boxH = 1.15, gap = 0.4, top = 3.2;
+  const body = currentRecipe(ctx).body;
+  const gap = Math.min(0.42, master.spacing.gutter);
+  const boxW = Math.max(1.7, Math.min(2.9, body.w / Math.max(items.length, 1) - 0.25));
+  const boxH = body.h;
   const totalW = items.length * boxW + (items.length - 1) * gap;
-  let x = (pageW - totalW) / 2;
+  let x = body.x + Math.max(0, (body.w - totalW) / 2);
+  const top = body.y;
   items.forEach((node, i) => {
     slide.addShape(pptx.ShapeType.roundRect, {
       x, y: top, w: boxW, h: boxH, rectRadius: 0.08, fill: { color: "FFFFFF" }, line: { color: p.accent, width: 1.5 },
     });
-    slide.addText(node, { x, y: top, w: boxW, h: boxH, fontSize: 14, bold: true, color: p.title, align: "center", valign: "middle" });
+    slide.addText(node, { x, y: top, w: boxW, h: boxH, fontSize: Math.max(12, master.typography.body.fontSize - 3), bold: true, color: p.title, align: "center", valign: "middle" });
     if (i < items.length - 1) {
-      slide.addText("→", { x: x + boxW, y: top, w: gap, h: boxH, fontSize: 20, bold: true, color: p.accent, align: "center", valign: "middle" });
+      slide.addText("→", { x: x + boxW, y: top, w: gap, h: boxH, fontSize: 20, bold: true, color: p.accent2, align: "center", valign: "middle" });
     }
     x += boxW + gap;
   });
@@ -306,21 +413,25 @@ function renderProcessFlowHorizontal(ctx: SlideCtx): void {
 
 function renderProcessFlowVertical(ctx: SlideCtx): void {
   drawHeader(ctx);
-  const { pptx, slide, p } = ctx;
+  const { pptx, slide, p, master } = ctx;
   const items = diagramNodes(ctx.spec);
   if (items.length < 2) {
     renderStandardBullets(ctx);
     return;
   }
-  const boxW = 7.4, boxH = 0.62, gap = 0.28, left = 2.95;
-  let y = bodyTop(ctx) + 0.15;
+  const body = currentRecipe(ctx).body;
+  const boxW = body.w;
+  const boxH = Math.max(0.52, Math.min(0.72, body.h / Math.max(items.length, 1) - 0.18));
+  const gap = Math.min(0.3, master.spacing.gutter);
+  const left = body.x;
+  let y = body.y;
   items.forEach((node, i) => {
     slide.addShape(pptx.ShapeType.roundRect, {
       x: left, y, w: boxW, h: boxH, rectRadius: 0.06, fill: { color: "FFFFFF" }, line: { color: p.accent, width: 1.25 },
     });
-    slide.addText(node, { x: left, y, w: boxW, h: boxH, fontSize: 14, color: p.title, align: "center", valign: "middle" });
+    slide.addText(node, { x: left, y, w: boxW, h: boxH, fontSize: Math.max(12, master.typography.body.fontSize - 3), color: p.title, align: "center", valign: "middle" });
     if (i < items.length - 1) {
-      slide.addText("↓", { x: left + boxW / 2 - 0.2, y: y + boxH, w: 0.4, h: gap, fontSize: 15, bold: true, color: p.accent, align: "center", valign: "middle" });
+      slide.addText("↓", { x: left + boxW / 2 - 0.2, y: y + boxH, w: 0.4, h: gap, fontSize: 15, bold: true, color: p.accent2, align: "center", valign: "middle" });
     }
     y += boxH + gap;
   });
@@ -335,6 +446,7 @@ function renderDataTable(ctx: SlideCtx): void {
     return;
   }
   const { slide, p } = ctx;
+  const tableBox = currentRecipe(ctx).table ?? currentRecipe(ctx).body;
   const headerRow: pptxgen.TableRow = headers.map((h) => ({
     text: h,
     options: { bold: true, color: "FFFFFF", fill: { color: p.accent }, fontSize: 13, align: "center", valign: "middle" },
@@ -343,7 +455,9 @@ function renderDataTable(ctx: SlideCtx): void {
     headers.map((_, c) => ({ text: row[c] ?? "", options: { color: p.body, fontSize: 12, valign: "middle" } })),
   );
   slide.addTable([headerRow, ...bodyRows], {
-    x: 0.7, y: bodyTop(ctx), w: 11.9, border: { type: "solid", color: "D9D9D9", pt: 0.5 }, autoPage: false,
+    ...tableBox,
+    border: { type: "solid", color: "D9D9D9", pt: 0.5 },
+    autoPage: false,
   });
 }
 
@@ -352,15 +466,18 @@ function renderMediaPlaceholder(ctx: SlideCtx): void {
   const { pptx, slide, spec, p } = ctx;
   const ph = spec.placeholder || {};
   const kind = PLACEHOLDER_LABELS[spec.slide_type] || "PLACEHOLDER";
-  const top = bodyTop(ctx) + 0.1;
+  const media = currentRecipe(ctx).media ?? currentRecipe(ctx).body;
   slide.addShape(pptx.ShapeType.roundRect, {
-    x: 1.1, y: top, w: 11.1, h: 3.9, rectRadius: 0.1, fill: { color: "FFFFFF" }, line: { color: p.accent, width: 1.5, dashType: "dash" },
+    ...media,
+    rectRadius: 0.1,
+    fill: { color: "FFFFFF" },
+    line: { color: p.accent, width: 1.5, dashType: "dash" },
   });
-  slide.addText(kind, { x: 1.5, y: top + 0.45, w: 10.3, h: 0.4, fontSize: 11, bold: true, color: p.accent, charSpacing: 1 });
+  slide.addText(kind, { x: media.x + 0.4, y: media.y + 0.45, w: media.w - 0.8, h: 0.4, ...textStyle(ctx, "kicker", "accent") });
   slide.addText(ph.label || (spec.slide_type === "chart_placeholder" ? "待补充图表" : "待补充截图"), {
-    x: 1.5, y: top + 1.05, w: 10.3, h: 0.7, fontSize: 24, bold: true, color: p.title,
+    x: media.x + 0.4, y: media.y + 1.05, w: media.w - 0.8, h: 0.7, fontSize: Math.max(21, ctx.master.typography.title.fontSize - 3), bold: true, color: p.title,
   });
-  slide.addText(ph.caption || "请替换为真实材料后再提交。", { x: 1.5, y: top + 1.95, w: 10.3, h: 0.7, fontSize: 15, color: p.body });
+  slide.addText(ph.caption || "请替换为真实材料后再提交。", { x: media.x + 0.4, y: media.y + 1.95, w: media.w - 0.8, h: 0.7, ...textStyle(ctx, "body", "body") });
 }
 
 const LAYOUTS: Record<SlideLayoutId, (ctx: SlideCtx) => void> = {
@@ -413,18 +530,36 @@ export function chooseLayout(spec: DeckSlideSpec): SlideLayoutId {
 // Cover + deck assembly
 // ---------------------------------------------------------------------------
 
-function addCover(pptx: pptxgen, deck: DeckSpec, p: Palette): void {
+function addCover(pptx: pptxgen, deck: DeckSpec, p: Palette, master: VisualMasterV2): void {
   const slide = pptx.addSlide();
-  slide.background = { color: p.bg };
-  slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: "100%", h: 0.14, fill: { color: p.accent } });
+  const recipe = master.layouts.cover;
+  const coverCtx: Pick<SlideCtx, "pptx" | "slide" | "p" | "master"> = { pptx, slide, p, master };
+  drawPageBase(coverCtx);
   if (deck.template_badge) {
-    slide.addText(deck.template_badge, { x: 0.6, y: 0.5, w: 4, h: 0.4, fontSize: 13, bold: true, color: p.accent, charSpacing: 1 });
+    slide.addText(deck.template_badge, { x: recipe.title.x, y: 0.5, w: 4, h: 0.4, fontSize: 13, bold: true, color: p.accent, charSpacing: 1 });
   }
   slide.addText(deck.title || "学生汇报", {
-    x: 0.6, y: 2.4, w: 12.1, h: 1.6, fontSize: 40, bold: true, color: p.title, valign: "middle",
+    ...recipe.title,
+    fontSize: master.typography.coverTitle.fontSize,
+    bold: master.typography.coverTitle.bold,
+    color: colorFor(p, master.typography.coverTitle.color, "title"),
+    fontFace: master.typography.coverTitle.fontFace,
+    valign: "middle",
   });
+  if (master.decorations.underline !== "none") {
+    slide.addShape(pptx.ShapeType.rect, {
+      x: recipe.title.x + 0.02,
+      y: recipe.title.y + recipe.title.h + 0.12,
+      w: master.decorations.underline === "wide" ? 3.2 : 2.4,
+      h: 0.08,
+      fill: { color: p.accent2 },
+    });
+  }
   slide.addText(deck.template_subtitle || deck.visual_master_name || "课程 / 论文 / 项目答辩", {
-    x: 0.62, y: 4.2, w: 11, h: 0.6, fontSize: 18, color: p.body,
+    ...(recipe.subtitle ?? { x: recipe.title.x, y: recipe.title.y + recipe.title.h + 0.4, w: 11, h: 0.6 }),
+    fontSize: master.typography.body.fontSize,
+    color: colorFor(p, master.typography.subtitle.color, "body"),
+    fontFace: master.typography.subtitle.fontFace,
   });
 
   // Cover metadata: byline (author · affiliation · date) and an optional source
@@ -433,14 +568,16 @@ function addCover(pptx: pptxgen, deck: DeckSpec, p: Palette): void {
   const meta = deck.meta ?? {};
   const byline = [meta.author, meta.affiliation, meta.date].filter(Boolean).join("   ·   ");
   if (byline) {
-    slide.addText(byline, { x: 0.62, y: 5.0, w: 11.5, h: 0.45, fontSize: 14, bold: true, color: p.accent });
+    slide.addText(byline, { x: recipe.body.x, y: recipe.body.y, w: recipe.body.w, h: 0.45, fontSize: 14, bold: true, color: p.accent });
   }
   if (meta.citation) {
     slide.addText(meta.citation, {
-      x: 0.62, y: 6.45, w: 11.5, h: 0.4, fontSize: 10, italic: true, color: p.body, valign: "bottom",
+      x: recipe.body.x, y: 6.45, w: recipe.body.w, h: 0.4, ...master.typography.caption, color: colorFor(p, master.typography.caption.color, "body"), valign: "bottom",
     });
   }
-  slide.addText("Kabuqina", { x: 0.6, y: 6.9, w: 3, h: 0.3, fontSize: 10, color: p.body });
+  if (master.decorations.footer !== "none") {
+    slide.addText(master.decorations.footer === "page_number" ? "01" : "Kabuqina", { x: recipe.body.x, y: 6.9, w: 3, h: 0.3, fontSize: 10, color: p.body });
+  }
 }
 
 export async function renderDeckToBase64(deck: DeckSpec): Promise<RenderedDeck> {
@@ -461,18 +598,20 @@ export async function renderDeckToBase64(deck: DeckSpec): Promise<RenderedDeck> 
     accent: hex(override?.accent ?? master.palette.accent),
     accent2: hex(override?.accent2 ?? master.palette.accent2),
   };
-  const head = override?.fonts?.major || override?.fonts?.minor;
-  const body = override?.fonts?.minor || override?.fonts?.major;
+  const head = override?.fonts?.major || override?.fonts?.minor || master.typography.title.fontFace;
+  const body = override?.fonts?.minor || override?.fonts?.major || master.typography.body.fontFace;
   if (head || body) {
     pptx.theme = { headFontFace: head, bodyFontFace: body };
   }
 
-  addCover(pptx, deck, p);
+  addCover(pptx, deck, p, master);
 
   for (const spec of deck.slides ?? []) {
     const slide = pptx.addSlide();
-    const ctx: SlideCtx = { pptx, slide, spec, p, pageW, pageH };
-    LAYOUTS[chooseLayout(spec)](ctx);
+    const layoutId = chooseLayout(spec);
+    const layoutRecipe = master.layouts[layoutId];
+    const ctx: SlideCtx = { pptx, slide, spec, p, master, layoutId, layoutRecipe, pageW, pageH };
+    LAYOUTS[layoutId](ctx);
     if (spec.notes) slide.addNotes(spec.notes);
   }
 

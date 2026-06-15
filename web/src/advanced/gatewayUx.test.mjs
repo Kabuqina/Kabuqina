@@ -45,6 +45,12 @@ assert.match(
   "Messaging platform page buttons should use the Kabuqina navigation style.",
 );
 
+assert.doesNotMatch(
+  settingsGatewaySource,
+  /gatewayAuto|<Toggle|autoStartGateway|onToggleAutoStart/,
+  "Messaging gateway settings should stay manual-start only and not expose an auto-start toggle.",
+);
+
 assert.match(
   weixinSource,
   /<PlatformButton[\s\S]*manualRestartAssistant/,

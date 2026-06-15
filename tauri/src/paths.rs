@@ -142,14 +142,15 @@ pub fn is_show_recipe_market(app: &AppHandle) -> bool {
     )
 }
 
-/// When true, **first app launch** starts ``hermes gateway run`` if ``hermes-home/.env`` looks configured.
-/// Restarting embedded Hermes (e.g. after Weixin login) always starts the gateway when configured, regardless of this flag.
+/// Gateway startup is manual-only. Older builds may have persisted this setting,
+/// but current builds ignore it so app launch never polls messaging platforms.
 pub fn is_auto_start_gateway(app: &AppHandle) -> bool {
     parse_auto_start_gateway_setting(read_setting(app, SETTING_AUTO_GATEWAY).as_deref())
 }
 
 fn parse_auto_start_gateway_setting(value: Option<&str>) -> bool {
-    matches!(value, Some("1" | "true" | "yes"))
+    let _ = value;
+    false
 }
 
 pub fn set_auto_start_gateway_enabled(app: &AppHandle, enabled: bool) -> Result<(), String> {
@@ -555,6 +556,13 @@ mod tests {
     #[test]
     fn auto_start_gateway_defaults_to_manual_start() {
         assert!(!parse_auto_start_gateway_setting(None));
+    }
+
+    #[test]
+    fn auto_start_gateway_ignores_legacy_enabled_setting() {
+        assert!(!parse_auto_start_gateway_setting(Some("1")));
+        assert!(!parse_auto_start_gateway_setting(Some("true")));
+        assert!(!parse_auto_start_gateway_setting(Some("yes")));
     }
 
     #[test]

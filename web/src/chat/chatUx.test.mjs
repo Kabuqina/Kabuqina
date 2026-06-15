@@ -393,6 +393,11 @@ assert.match(
   /disabled=\{busy && Boolean\(item\.pending\)\}/,
   "Deliverable cards should only disable the file still being produced, not finished ones.",
 );
+assert.doesNotMatch(
+  workspacePanelSource,
+  /className="mt-3 grid gap-/,
+  "Workspace stacks must use grid-cols-1 (minmax(0,1fr)); a bare auto-column grid lets long filenames blow the card past the panel.",
+);
 assert.match(
   workspacePanelSource,
   /setMode\("work"\)[\s\S]*setMode\("academy"\)/,
@@ -710,6 +715,29 @@ assert.match(
   /import \{ PPT_VISUAL_MASTERS[\s\S]*from "\.\/pptx\/visualMasters"/,
   "WorkspacePanel should consume the shared visual masters module.",
 );
+assert.match(
+  visualMastersSource,
+  /export interface VisualMasterV2[\s\S]*typography[\s\S]*spacing[\s\S]*decorations[\s\S]*layouts/,
+  "Visual masters should expose typography, spacing, decorations, and per-layout recipes.",
+);
+for (const layoutId of [
+  "cover",
+  "hero_statement",
+  "standard_bullets",
+  "two_column_bullets",
+  "comparison_cards",
+  "process_flow_horizontal",
+  "process_flow_vertical",
+  "data_table",
+  "media_placeholder",
+  "section_divider",
+]) {
+  assert.match(
+    visualMastersSource,
+    new RegExp(`${layoutId}[\\s\\S]*x[\\s\\S]*y[\\s\\S]*w[\\s\\S]*h`),
+    `VisualMasterV2 should define a geometry recipe for ${layoutId}.`,
+  );
+}
 
 // Per-slide layout engine: each page is designed via a reusable layout
 // registry + content-driven chooseLayout (with optional planner hint).
@@ -719,8 +747,18 @@ const renderDeckSource = fs.readFileSync(
 );
 assert.match(
   renderDeckSource,
-  /export function chooseLayout[\s\S]*LAYOUTS\[chooseLayout\(spec\)\]\(ctx\)/,
+  /export function chooseLayout[\s\S]*const layoutId = chooseLayout\(spec\)[\s\S]*LAYOUTS\[layoutId\]\(ctx\)/,
   "renderDeck should pick a per-slide layout via chooseLayout and a layout registry.",
+);
+assert.match(
+  renderDeckSource,
+  /master\.typography[\s\S]*master\.layouts\[layoutId\][\s\S]*layoutRecipe/,
+  "renderDeck should consume VisualMasterV2 typography, spacing, decorations, and layout recipes.",
+);
+assert.doesNotMatch(
+  renderDeckSource,
+  /const boxW = 2\.7, boxH = 1\.15, gap = 0\.4, top = 3\.2/,
+  "Process layout geometry should come from the selected visual master, not a single hardcoded recipe.",
 );
 for (const layoutId of [
   "hero_statement",
@@ -751,6 +789,22 @@ assert.match(
   renderDeckSource,
   /const override = deck\.visual_master_palette[\s\S]*override\?\.background \?\? master\.palette\.background[\s\S]*pptx\.theme = \{ headFontFace/,
   "renderDeck should let an uploaded template's palette/fonts override the built-in master.",
+);
+assert.match(
+  renderDeckSource,
+  /const override = deck\.visual_master_palette[\s\S]*const master = getVisualMaster\(deck\.visual_master\)[\s\S]*master\.layouts\[layoutId\]/,
+  "Uploaded template themes should override palette/fonts while keeping built-in layout recipes for VisualMasterV2.",
+);
+// Regression: accent2 is the 5th palette colour and must actually be DRAWN, not
+// just extracted — every master's second signature colour should reach a slide.
+assert.match(
+  renderDeckSource,
+  /fill: \{ color: p\.accent2 \}/,
+  "renderDeck layouts must render the master's accent2 (e.g. rail cap / title underline), not drop it.",
+);
+assert.ok(
+  (renderDeckSource.match(/\.accent2/g) || []).length >= 6,
+  "accent2 should be used across multiple layouts (header, agenda, flow, comparison, hero, cover).",
 );
 assert.match(
   workspacePanelSource,

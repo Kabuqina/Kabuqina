@@ -995,14 +995,14 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
         "title": "Formula to code",
         "description": (
             "Convert formulas, LaTeX, and document math into code for a user-selected target "
-            "language (Python, NumPy, JavaScript, MATLAB/Octave, or Fortran) via a canonical "
+            "language (Python, NumPy, JavaScript, MATLAB/Octave, or C++17) via a canonical "
             "SymPy core with NumPy numeric self-validation."
         ),
         "category": "math",
         "family": "math-expression-engineering",
         "agent_hint": (
             "Use for converting a formula or LaTeX expression into code. Pass the user's chosen "
-            "language (python, numpy, javascript, octave, fortran). The tool parses into a canonical "
+            "language (python, numpy, javascript, octave, cpp17). The tool parses into a canonical "
             "SymPy expression, transpiles with SymPy's code printers, and reports a NumPy lambdify "
             "vs evalf numeric check. Still extract a semantic_contract (variables, dimensions, domains, "
             "boundary/open-closed intervals, invariants, expected outputs) and run executable tests "
@@ -1026,7 +1026,7 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
                 # capabilities, not by steps owned by this pipeline.
                 "stages": ["writer"],
                 "inputs": ["latex", "markdown_formula", "document_math", "extracted_formula"],
-                "writer_targets": ["python", "numpy", "javascript", "octave", "fortran"],
+                "writer_targets": ["python", "numpy", "javascript", "octave", "cpp17"],
                 "steps": [
                     {
                         "id": "convert-formula-to-code",
@@ -1062,10 +1062,15 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
         "category": "math",
         "family": "math-expression-engineering",
         "agent_hint": (
-            "Use for converting simple Python or NumPy expressions into LaTeX, Markdown, and an HTML "
-            "report (sympy.latex over the canonical expression). Other source languages are a future "
-            "follow-up. For a PDF deliverable, pass the structured report content to pdf_write through "
-            "the document-pdf-generation capability."
+            "Use ONLY for closed-form numeric/mathematical expressions — scientific formulas or the "
+            "analytic body of an algorithm (arithmetic plus whitelisted math functions like sin/exp/"
+            "sqrt). Do NOT use for business logic, I/O, string processing, or data-structure "
+            "manipulation; first confirm the selected code is an actual mathematical computation. The "
+            "tool rejects non-mathematical code with a clear error rather than emitting nonsense LaTeX. "
+            "Converts simple Python or NumPy expressions into LaTeX, Markdown, and an HTML report "
+            "(sympy.latex over the canonical expression). Other source languages are a future follow-up. "
+            "For a PDF deliverable, pass the structured report content to pdf_write through the "
+            "document-pdf-generation capability."
         ),
         "tools": ["code_to_math_formula"],
         "required_toolsets": ["math"],

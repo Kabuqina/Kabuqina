@@ -92,6 +92,19 @@ assert.doesNotMatch(
   /cmd_formula_model_|FormulaModelStatus|cmdFormulaModel/,
   "The web API should not expose the old formula-only commands.",
 );
+assert.match(settingsSource, /role="tablist"/, "Settings should use a tab bar to group its sections.");
+assert.match(
+  settingsSource,
+  /settings\.tabGeneral[\s\S]*settings\.tabModel[\s\S]*settings\.tabGateway[\s\S]*settings\.tabAdvanced/,
+  "Settings should group its sections into category tabs instead of one long scroll.",
+);
+assert.doesNotMatch(
+  settingsSource,
+  /scrollTop|scrollBottom|ArrowUp|ArrowDown/,
+  "The tabbed Settings layout should drop the floating scroll-to-top/bottom buttons.",
+);
+assert.match(stringsSource, /tabGeneral:\s*"常规"/);
+
 assert.match(stringsSource, /loadPackagesTitle/);
 assert.match(stringsSource, /loadPackagesDesktopOnly/);
 assert.match(stringsSource, /loadPackagesOpen/);

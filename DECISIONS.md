@@ -66,6 +66,15 @@ The "Kabuqina" name is provisional. Trademark check is pending — see
 
 Future first-party additions follow this order: add a load package in `python/src/load_packages.py` when large local assets are needed; add the product capability in `python/src/capability_registry.py`; add or expose shared agent tools in `hermes_core/` when web and gateway children should share semantics; keep Windows-only cache/path/download wiring in `python/src/`.
 
+## Math capability: language list & code→formula guard (2026-06-15)
+
+| Question | Decision |
+|----------|----------|
+| Offered target languages | **Python, NumPy, JavaScript, MATLAB/Octave, C++17.** Fortran removed — not in the undergraduate curriculum. C++17 promoted from "internal-only" (the `_emit_code` / `cxxcode` path was already written); pure C is never exposed. |
+| Frontend | `MATH_TARGET_LANGUAGES` in `WorkspacePanel.tsx` mirrors `OFFERED_LANGUAGES` in `math_expression_tools.py`. Always keep these in sync. |
+| code→formula guard | **Deterministic AST whitelist in the tool layer, not prompt-level heuristics.** `_assert_math_expression` walks the extracted expression node before it reaches SymPy and rejects anything that is not closed-form math (attribute calls, subscripts, comparisons, string constants, list/dict literals, etc.). Only arithmetic operators, whitelisted math-function calls (`sin/cos/exp/log/sqrt/…` including `math.`/`np.` prefixes via `_FlattenMathNamespaces`), numeric constants, and variable names are permitted. A bare variable with no operation is also rejected ("at least one math signal" rule). Violations return `tool_error` with a clear message; the model never sees nonsense LaTeX. |
+| Why tool-layer, not agent_hint only | Agent hints cannot guarantee the model will refuse before calling. A deterministic gate is free, always on, and cannot be talked around. Follows the "good quality, nearly free" philosophy: structure does what structure can. |
+
 ## PDF writer path (2026-06-12)
 
 | Question | Decision |

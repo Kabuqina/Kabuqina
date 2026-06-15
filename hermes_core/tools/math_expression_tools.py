@@ -6,7 +6,7 @@ SymPy's code printers, and numerically self-validated with NumPy through
 ``lambdify``. Code -> formula reuses the same SymPy core (``sympy.latex``).
 
 Target languages offered to the user: python, numpy, javascript, octave
-(MATLAB/Octave), fortran. C++17 is reachable internally but not advertised.
+(MATLAB/Octave), cpp17 (C++17). Fortran is reachable internally but not advertised.
 
 SymPy/NumPy are imported lazily inside handlers so tool *registration* stays
 cheap and a missing dependency degrades to a clear error instead of breaking
@@ -29,7 +29,7 @@ from tools.registry import registry, tool_error
 # --- Language registry -----------------------------------------------------
 
 # Languages exposed in the UI / capability writer_targets.
-OFFERED_LANGUAGES: Tuple[str, ...] = ("python", "numpy", "javascript", "octave", "fortran")
+OFFERED_LANGUAGES: Tuple[str, ...] = ("python", "numpy", "javascript", "octave", "cpp17")
 
 # Languages we can emit code→formula *from* (parsing other source languages into
 # SymPy is a future follow-up).
@@ -404,8 +404,123 @@ def math_formula_to_code(formula: str, language: str = "python") -> str:
     )
 
 
+# Math functions the code→formula guard accepts as calls (bare or math./np./numpy.
+# prefixed). Anything outside this set — string ops, I/O, attribute chains — marks
+# the expression as "not math" so we don't emit nonsense LaTeX from business logic.
+_MATH_CALL_NAMES: frozenset = frozenset(
+    {
+        "sin", "cos", "tan", "cot", "sec", "csc",
+        "asin", "acos", "atan", "atan2", "arcsin", "arccos", "arctan",
+        "sinh", "cosh", "tanh", "asinh", "acosh", "atanh",
+        "exp", "expm1", "log", "log2", "log10", "log1p", "ln",
+        "sqrt", "cbrt", "pow", "hypot", "copysign",
+        "abs", "fabs", "floor", "ceil", "trunc", "sign",
+        "factorial", "gamma", "lgamma", "erf", "erfc",
+        "degrees", "radians",
+    }
+)
+
+# Module prefixes whose attribute access we treat as a math-namespace lookup.
+_MATH_NAMESPACES: frozenset = frozenset({"math", "np", "numpy", "cmath", "sympy"})
+
+# Constants allowed to appear bare (e.g. ``pi``, ``math.pi``).
+_MATH_CONSTANTS: frozenset = frozenset({"pi", "e", "tau", "inf"})
+
+
+class _NotMathExpression(ValueError):
+    """Raised when extracted code is not a closed-form mathematical expression."""
+
+
+def _math_call_name(func: ast.AST) -> Optional[str]:
+    """Return the math-function name for a call target, or None if not math.
+
+    Accepts a bare ``Name`` (``sqrt``) or a ``math.``/``np.``/``numpy.`` style
+    ``Attribute`` whose root is a recognized math namespace.
+    """
+    if isinstance(func, ast.Name):
+        return func.id if func.id in _MATH_CALL_NAMES else None
+    if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name):
+        if func.value.id in _MATH_NAMESPACES and func.attr in _MATH_CALL_NAMES:
+            return func.attr
+    return None
+
+
+def _assert_math_expression(node: ast.AST) -> bool:
+    """Walk an expression subtree, allowing only closed-form math constructs.
+
+    Returns True if the subtree contains at least one "math signal" (an operator
+    or a math-function call); raises ``_NotMathExpression`` on any disallowed
+    construct (attribute access, subscripts, comprehensions, string literals,
+    comparisons, calls to non-math functions, etc.).
+    """
+    has_signal = False
+
+    if isinstance(node, ast.BinOp):
+        if not isinstance(node.op, (ast.Add, ast.Sub, ast.Mult, ast.Div, ast.FloorDiv, ast.Mod, ast.Pow)):
+            raise _NotMathExpression("unsupported operator for a mathematical formula")
+        _assert_math_expression(node.left)
+        _assert_math_expression(node.right)
+        return True
+
+    if isinstance(node, ast.UnaryOp):
+        if not isinstance(node.op, (ast.UAdd, ast.USub)):
+            raise _NotMathExpression("unsupported unary operator for a mathematical formula")
+        _assert_math_expression(node.operand)
+        return True
+
+    if isinstance(node, ast.Call):
+        name = _math_call_name(node.func)
+        if name is None:
+            raise _NotMathExpression(
+                "found a call to a non-mathematical function; code→formula only handles closed-form math"
+            )
+        if node.keywords:
+            raise _NotMathExpression("mathematical function calls must use positional arguments only")
+        for arg in node.args:
+            _assert_math_expression(arg)
+        return True
+
+    if isinstance(node, ast.Name):
+        return False
+
+    if isinstance(node, ast.Constant):
+        if isinstance(node.value, bool) or not isinstance(node.value, (int, float, complex)):
+            raise _NotMathExpression("only numeric constants are allowed in a mathematical formula")
+        return False
+
+    if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
+        # Bare math constant such as ``math.pi`` / ``np.e``.
+        if node.value.id in _MATH_NAMESPACES and node.attr in _MATH_CONSTANTS:
+            return False
+
+    raise _NotMathExpression(
+        f"the selected code is not a closed-form mathematical expression "
+        f"(unsupported construct: {type(node).__name__})"
+    )
+
+
+class _FlattenMathNamespaces(ast.NodeTransformer):
+    """Rewrite ``math.sqrt`` / ``np.sin`` / ``math.pi`` to bare ``sqrt`` / ``sin``
+    / ``pi`` so the unparsed source is sympify-able (SymPy doesn't read the
+    ``math.``/``np.`` prefixes)."""
+
+    def visit_Attribute(self, node: ast.Attribute):  # noqa: N802
+        if (
+            isinstance(node.value, ast.Name)
+            and node.value.id in _MATH_NAMESPACES
+            and (node.attr in _MATH_CALL_NAMES or node.attr in _MATH_CONSTANTS)
+        ):
+            return ast.copy_location(ast.Name(id=node.attr, ctx=ast.Load()), node)
+        return self.generic_visit(node)
+
+
 def _extract_python_expr(code: str) -> Tuple[str, str]:
-    """Return (lhs_name, expression_source) from a simple Python/NumPy snippet."""
+    """Return (lhs_name, expression_source) from a simple Python/NumPy snippet.
+
+    Validates that the extracted expression is closed-form math before returning,
+    so non-mathematical code (I/O, string processing, data-structure logic) is
+    rejected with a clear error instead of being transpiled into nonsense LaTeX.
+    """
     tree = ast.parse(code)
     lhs = "result"
     expr_node: Optional[ast.AST] = None
@@ -424,7 +539,14 @@ def _extract_python_expr(code: str) -> Tuple[str, str]:
                 break
     if expr_node is None:
         raise ValueError("could not find a simple return or assignment expression")
-    return lhs, ast.unparse(expr_node)
+    has_signal = _assert_math_expression(expr_node)
+    if not has_signal:
+        raise _NotMathExpression(
+            "the selected code has no mathematical operation (just a variable or constant); "
+            "code→formula expects a closed-form formula"
+        )
+    flattened = _FlattenMathNamespaces().visit(expr_node)
+    return lhs, ast.unparse(flattened)
 
 
 def _write_html_report(latex: str, markdown: str, variable_table: List[Dict[str, str]], output_dir: str) -> str:
@@ -471,6 +593,15 @@ def code_to_math_formula(code: str, language: str = "auto", output_dir: str = ""
 
         lhs, expr_src = _extract_python_expr(code)
         expr = parse_expr(expr_src, transformations=_transformations(), evaluate=True)
+    except _NotMathExpression as exc:
+        return tool_error(
+            str(exc),
+            hint=(
+                "code→formula only converts closed-form numeric/mathematical expressions "
+                "(scientific formulas, analytic algorithm bodies). It does not handle business "
+                "logic, I/O, string processing, or data-structure manipulation."
+            ),
+        )
     except Exception as exc:
         return tool_error(str(exc))
 
@@ -527,7 +658,7 @@ MATH_FORMULA_TO_CODE_SCHEMA = {
             "formula": {"type": "string"},
             "language": {
                 "type": "string",
-                "description": "python, numpy, javascript, octave (MATLAB/Octave), or fortran",
+                "description": "python, numpy, javascript, octave (MATLAB/Octave), or cpp17 (C++17)",
             },
         },
         "required": ["formula"],
@@ -538,7 +669,10 @@ CODE_TO_MATH_FORMULA_SCHEMA = {
     "name": "code_to_math_formula",
     "description": (
         "Convert a simple Python or NumPy code expression into LaTeX, Markdown, and an HTML report "
-        "using the SymPy core (sympy.latex). Other source languages are a future follow-up."
+        "using the SymPy core (sympy.latex). The selected code must be a closed-form mathematical "
+        "expression (arithmetic and whitelisted math functions); non-mathematical code — I/O, string "
+        "processing, attribute/data-structure access — is rejected with a clear error. Other source "
+        "languages are a future follow-up."
     ),
     "parameters": {
         "type": "object",

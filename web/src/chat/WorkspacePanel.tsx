@@ -54,7 +54,7 @@ const MATH_TARGET_LANGUAGES = [
   { id: "numpy", label: "NumPy" },
   { id: "javascript", label: "JavaScript" },
   { id: "octave", label: "MATLAB/Octave" },
-  { id: "fortran", label: "Fortran" },
+  { id: "cpp17", label: "C++17" },
 ] as const;
 type MathLanguageId = (typeof MATH_TARGET_LANGUAGES)[number]["id"];
 type PptMasterPreviewStyle = CSSProperties & {
@@ -158,7 +158,7 @@ function DeliverableCard({
   const path = item.detail ?? item.label;
   const badge = deliverableBadge(item.label);
   return (
-    <div className="kq-deliverable-card">
+    <div className="kq-deliverable-card min-w-0">
       <div className="flex min-w-0 items-center gap-2">
         <FileText className="kq-color-icon-book h-4 w-4 shrink-0" aria-hidden />
         <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-[var(--kq-color-strong)]" title={path}>
@@ -380,7 +380,7 @@ export function WorkspacePanel({
         <>
         {showContext ? (
           <WorkspaceSection sectionId="workspace.context" title={t("chat.workspaceContext")}>
-            <div className="mt-3 grid gap-2.5">
+            <div className="mt-3 grid grid-cols-1 gap-2.5">
               {activeTool ? (
                 <div className="kq-workspace-active inline-flex items-center gap-1.5 self-start rounded-full px-2.5 py-1 text-[12px] font-medium">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
@@ -393,7 +393,7 @@ export function WorkspacePanel({
                 </p>
               ) : null}
               {materials.length > 0 ? (
-                <div className="grid gap-1.5">
+                <div className="grid grid-cols-1 gap-1.5">
                   <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--kq-color-muted)]">
                     {t("chat.workspaceMaterials")}
                   </span>
@@ -412,7 +412,7 @@ export function WorkspacePanel({
 
         {deliverables.length > 0 ? (
           <WorkspaceSection sectionId="workspace.deliverables" title={t("chat.workspaceDeliverables")}>
-            <div className="mt-3 grid gap-2">
+            <div className="mt-3 grid grid-cols-1 gap-2">
               {busy && deliverables.some((item) => item.pending) ? (
                 <p className="text-[12px] leading-snug text-[var(--kq-color-muted)]">
                   {t("chat.workspaceDeliverablePending")}
@@ -450,7 +450,7 @@ export function WorkspacePanel({
         ) : (
         <>
         <WorkspaceSection sectionId="workspace.reportPpt" title={t("chat.workspaceReportPpt")}>
-          <div className="mt-3 grid gap-2">
+          <div className="mt-3 grid grid-cols-1 gap-2">
             <WorkspaceActionButton
               onClick={() => onStartPrompt?.(paperToPptPrompt)}
               icon={<BookOpenText className="kq-color-icon-book mr-2 inline h-4 w-4" aria-hidden />}
@@ -466,7 +466,7 @@ export function WorkspacePanel({
               icon={<Code2 className="kq-color-icon-pen mr-2 inline h-4 w-4" aria-hidden />}
               label={t("chat.workspaceCodeToPpt")}
             />
-            <label className="kq-workspace-body grid gap-1.5 text-[13px] leading-snug">
+            <label className="kq-workspace-body grid grid-cols-1 gap-1.5 text-[13px] leading-snug">
               <span className="inline-flex items-center gap-1.5 font-medium">
                 <Palette className="h-3.5 w-3.5 text-[var(--kq-color-primary-dark)]" aria-hidden />
                 {t("chat.workspacePptVisualMaster")}
@@ -488,8 +488,8 @@ export function WorkspacePanel({
         </WorkspaceSection>
 
         <WorkspaceSection sectionId="workspace.mathAbility" title={t("chat.workspaceMathAbility")}>
-          <div className="mt-3 grid gap-2">
-            <label className="kq-workspace-body grid gap-1.5 text-[13px] leading-snug">
+          <div className="mt-3 grid grid-cols-1 gap-2">
+            <label className="kq-workspace-body grid grid-cols-1 gap-1.5 text-[13px] leading-snug">
               <span className="inline-flex items-center gap-1.5 font-medium">
                 <Languages className="h-3.5 w-3.5 text-[var(--kq-color-primary-dark)]" aria-hidden />
                 {t("chat.workspaceMathLanguage")}

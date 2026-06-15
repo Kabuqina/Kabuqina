@@ -446,12 +446,20 @@ async fn maybe_auto_start_gateway_service(
     }
 }
 
-/// After embedded Hermes restarts (e.g. Weixin QR saved env), always bring the gateway up when
-/// ``.env`` looks configured — independent of ``is_auto_start_gateway`` (that toggle is cold-start only).
+fn should_start_gateway_after_hermes_respawn() -> bool {
+    false
+}
+
+/// Gateway startup is manual-only. Embedded Hermes restarts (e.g. settings
+/// changes or QR credential saves) should not start messaging platform pollers.
 async fn ensure_gateway_after_hermes_respawn(
     app: &tauri::AppHandle,
     cfg: &python_supervisor::SpawnConfig,
 ) {
+    if !should_start_gateway_after_hermes_respawn() {
+        log::info!("messaging gateway remains stopped after Hermes respawn (manual start only)");
+        return;
+    }
     let hh = gateway_supervisor::hermes_home_path(&cfg.data_dir);
     if !gateway_supervisor::dotenv_suggests_messaging_gateway(&hh) {
         return;
@@ -835,4 +843,14 @@ async fn cmd_desktop_messages(
     let mut msgs = state.desktop_messages.lock().await;
     let drained = std::mem::take(&mut *msgs);
     Ok(drained)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::should_start_gateway_after_hermes_respawn;
+
+    #[test]
+    fn hermes_respawn_keeps_gateway_manual_start_only() {
+        assert!(!should_start_gateway_after_hermes_respawn());
+    }
 }
