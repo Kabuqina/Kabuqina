@@ -326,6 +326,17 @@ assert.match(
 
 assert.match(
   workspacePanelSource,
+  /workspace\.learningPath[\s\S]*workspaceBuildLearningPath/,
+  "Workspace panel should expose a learning-path planner quick action.",
+);
+assert.match(
+  workspacePanelSource,
+  /个性化学习路径规划[\s\S]*如果信息不足，请先追问 3 到 5 个关键问题[\s\S]*目标拆解[\s\S]*阶段安排[\s\S]*预计耗时[\s\S]*前置条件[\s\S]*完成标准[\s\S]*风险提示[\s\S]*请不要使用 emoji/,
+  "Learning-path prompt should require bounded planning, task criteria, and a no-emoji academic style.",
+);
+
+assert.match(
+  workspacePanelSource,
   /workspace\.mathAbility[\s\S]*workspaceFormulaToCode[\s\S]*workspaceCodeToFormula[\s\S]*workspaceMathFormulaExtract/,
   "Workspace panel should group code/formula conversion and formula extraction under Math Ability, formula-to-code first.",
 );

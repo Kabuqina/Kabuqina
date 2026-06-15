@@ -13,6 +13,7 @@ import {
   Loader2,
   Palette,
   PanelRightClose,
+  Route,
   Rocket,
   RotateCcw,
   Sigma,
@@ -262,6 +263,14 @@ export function WorkspacePanel({
   const selectedMathLanguage =
     MATH_TARGET_LANGUAGES.find((item) => item.id === mathLanguage) ?? MATH_TARGET_LANGUAGES[0];
   const buildPptPrompt = (sections: string[]) => sections.join("\n\n");
+  const learningPathPrompt = [
+    "请帮我制定一份个性化学习路径规划。优先基于我已有的学习画像、课程材料或聊天上下文；如果信息不足，请先追问 3 到 5 个关键问题，不要直接编造学习路径。",
+    "如果我已经提供学习画像，请先提取其中的学习目标、当前基础、薄弱点、学习偏好、可投入时间和资源偏好，再规划路径；如果没有画像，请先收集这些信息。",
+    "当信息足够后，请输出结构化学习路径，至少包含：目标拆解、阶段安排、每日/每周任务、推荐资源类型、练习与项目安排、检查点/评估方式、根据薄弱点的补强任务。",
+    "请把每个任务标注预计耗时、前置条件、完成标准和风险提示；如果某项安排基于推断，请明确写出推断依据。",
+    "输出格式请固定为：1. 路径摘要；2. 阶段路线表；3. 每日/每周任务清单；4. 资源推荐与使用方式；5. 评估检查点；6. 动态调整建议。",
+    "请不要使用 emoji，保持清晰、克制、学术助手风格。",
+  ].join("\n\n");
   // Canonical planner rules — slide_type / layout vocabulary, placeholder
   // discipline, the four-layer flow, and the per-structure must-cover outlines —
   // now live in the agent system prompt (hermes_core
@@ -449,6 +458,16 @@ export function WorkspacePanel({
         </>
         ) : (
         <>
+        <WorkspaceSection sectionId="workspace.learningPath" title={t("chat.workspaceLearningPath")}>
+          <div className="mt-3 grid gap-2">
+            <WorkspaceActionButton
+              onClick={() => onStartPrompt?.(learningPathPrompt)}
+              icon={<Route className="kq-color-icon-course mr-2 inline h-4 w-4" aria-hidden />}
+              label={t("chat.workspaceBuildLearningPath")}
+            />
+          </div>
+        </WorkspaceSection>
+
         <WorkspaceSection sectionId="workspace.reportPpt" title={t("chat.workspaceReportPpt")}>
           <div className="mt-3 grid gap-2">
             <WorkspaceActionButton
