@@ -54,9 +54,10 @@ def _agent_dbg_stt(line: dict) -> None:
 _DESK_STT_MODEL_FILENAME = "ggml-base-q5_1.bin"
 # Pinned mirror of the upstream HuggingFace snapshot. The base-q5_1 model is
 # ~57 MB and Q5_1-quantised so it runs on a typical laptop CPU at ~real-time.
-# The Kabuqina-hosted copy is first so user installs do not depend on GitHub/HF
-# availability; HF and the community mirror remain fallbacks.
+# Tencent COS is first so user installs in China do not depend on GitHub/HF
+# availability; the Kabuqina-hosted copy, HF, and the community mirror remain fallbacks.
 _DESK_STT_MODEL_URLS = (
+    f"https://nanapackages-1428509047.cos.ap-guangzhou.myqcloud.com/{_DESK_STT_MODEL_FILENAME}",
     f"https://kabuqina.com/packages/stt/{_DESK_STT_MODEL_FILENAME}",
     f"https://huggingface.co/ggerganov/whisper.cpp/resolve/main/{_DESK_STT_MODEL_FILENAME}",
     f"https://hf-mirror.com/ggerganov/whisper.cpp/resolve/main/{_DESK_STT_MODEL_FILENAME}",

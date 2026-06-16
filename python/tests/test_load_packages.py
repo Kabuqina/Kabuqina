@@ -11,6 +11,7 @@ import sys
 import tempfile
 import time
 import unittest
+import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
@@ -48,10 +49,33 @@ class LoadPackageRegistryTests(unittest.TestCase):
         formula = next(item for item in packages if item["id"] == "docling-codeformula")
         self.assertEqual(formula["modelId"], "ds4sd/CodeFormula")
         self.assertEqual(formula["sizeMb"], 500)
-        self.assertEqual(formula["sources"][0]["url"], "https://kabuqina.com/packages/codeformula/")
+        self.assertEqual(
+            formula["sources"][0]["url"],
+            "https://nanapackages-1428509047.cos.ap-guangzhou.myqcloud.com/ds4sd--CodeFormula.zip",
+        )
+        self.assertEqual(formula["sources"][1]["url"], "https://kabuqina.com/packages/codeformula/")
 
         stt = next(item for item in packages if item["id"] == "local-stt-base-q5_1")
-        self.assertEqual(stt["sources"][0]["url"], "https://kabuqina.com/packages/stt/ggml-base-q5_1.bin")
+        self.assertEqual(
+            stt["sources"][0]["url"],
+            "https://nanapackages-1428509047.cos.ap-guangzhou.myqcloud.com/ggml-base-q5_1.bin",
+        )
+        self.assertEqual(stt["sources"][1]["url"], "https://kabuqina.com/packages/stt/ggml-base-q5_1.bin")
+
+    def test_download_implementations_try_cos_before_legacy_sources(self):
+        import docling_math_models as dmm
+        import load_packages
+
+        voice_helpers = load_packages._voice_helpers()
+
+        self.assertEqual(
+            dmm.KABUQINA_CODE_FORMULA_ARCHIVE_URLS[0],
+            "https://nanapackages-1428509047.cos.ap-guangzhou.myqcloud.com/ds4sd--CodeFormula.zip",
+        )
+        self.assertEqual(
+            voice_helpers.DESK_STT_MODEL_URLS[0],
+            "https://nanapackages-1428509047.cos.ap-guangzhou.myqcloud.com/ggml-base-q5_1.bin",
+        )
 
     def test_load_packages_report_product_capability_usage(self):
         import load_packages
@@ -292,6 +316,40 @@ class CodeFormulaFirstUseTests(unittest.TestCase):
                     dmm._download_code_formula(self.data_dir / "formula", progress=True)
 
             self.assertNotIn("HF_ENDPOINT", os.environ)
+
+    def test_code_formula_archive_download_extracts_payload(self):
+        import docling_math_models as dmm
+
+        source_zip = self.data_dir / "source.zip"
+        with zipfile.ZipFile(source_zip, "w") as zf:
+            zf.writestr("ds4sd--CodeFormula/model.safetensors", b"weights")
+
+        dest = self.data_dir / "load-packages" / "docling-codeformula" / "ds4sd--CodeFormula"
+        progress_events = []
+
+        dmm._download_code_formula_archive(
+            source_zip.as_uri(),
+            dest,
+            progress_cb=progress_events.append,
+        )
+
+        self.assertTrue((dest / "model.safetensors").is_file())
+        self.assertTrue(dmm.code_formula_present(dest))
+        self.assertTrue(any(event.get("source") == "" or event.get("source") for event in progress_events))
+
+    def test_code_formula_archive_rejects_unsafe_paths(self):
+        import docling_math_models as dmm
+
+        source_zip = self.data_dir / "unsafe.zip"
+        with zipfile.ZipFile(source_zip, "w") as zf:
+            zf.writestr("../escape.safetensors", b"bad")
+
+        dest = self.data_dir / "load-packages" / "docling-codeformula" / "ds4sd--CodeFormula"
+
+        with self.assertRaisesRegex(RuntimeError, "unsafe archive member path"):
+            dmm._download_code_formula_archive(source_zip.as_uri(), dest)
+
+        self.assertFalse((self.data_dir / "load-packages" / "docling-codeformula" / "escape.safetensors").exists())
 
 
 if __name__ == "__main__":

@@ -429,6 +429,11 @@ def _packages() -> dict[str, LoadPackage]:
             size_mb=dmm.CODE_FORMULA_SIZE_MB,
             sources=(
                 LoadPackageSource(
+                    id="tencent-cos",
+                    label="Tencent COS",
+                    url=dmm.KABUQINA_CODE_FORMULA_ARCHIVE_URLS[0],
+                ),
+                LoadPackageSource(
                     id="kabuqina-official",
                     label="Kabuqina official",
                     url=dmm.KABUQINA_CODE_FORMULA_BASE_URL,
@@ -449,6 +454,11 @@ def _packages() -> dict[str, LoadPackage]:
             model_id="ggerganov/whisper.cpp/ggml-base-q5_1.bin",
             size_mb=57,
             sources=(
+                LoadPackageSource(
+                    id="tencent-cos",
+                    label="Tencent COS",
+                    url="https://nanapackages-1428509047.cos.ap-guangzhou.myqcloud.com/ggml-base-q5_1.bin",
+                ),
                 LoadPackageSource(
                     id="kabuqina-official",
                     label="Kabuqina official",

@@ -17,6 +17,7 @@ import subprocess
 import sys
 import threading
 import time
+import zipfile
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, Callable, Optional
@@ -33,6 +34,9 @@ CODE_FORMULA_REVISION = "v1.0.2"
 CODE_FORMULA_SIZE_MB = 500
 KABUQINA_CODE_FORMULA_BASE_URL = "https://kabuqina.com/packages/codeformula/"
 KABUQINA_CODE_FORMULA_URL = urljoin(KABUQINA_CODE_FORMULA_BASE_URL, f"{CODE_FORMULA_FOLDER}/")
+KABUQINA_CODE_FORMULA_ARCHIVE_URLS = (
+    "https://nanapackages-1428509047.cos.ap-guangzhou.myqcloud.com/ds4sd--CodeFormula.zip",
+)
 
 CODE_FORMULA_SETTINGS_HINT = (
     "Download the optional CodeFormula pack (~500 MB) in Kabuqina Settings "
@@ -398,6 +402,75 @@ def _download_static_code_formula(local_dir: Path, *, progress_cb: Optional[Prog
         raise RuntimeError(f"download finished but weights missing under {local_dir}")
 
 
+def _download_code_formula_archive(url: str, local_dir: Path, *, progress_cb: Optional[ProgressFn] = None) -> None:
+    source = urlparse(url).netloc or url
+    local_dir.mkdir(parents=True, exist_ok=True)
+    archive = local_dir.parent / f"{CODE_FORMULA_FOLDER}.zip.tmp"
+    request = Request(url, headers={"User-Agent": "Kabuqina/1.0"})
+    downloaded = 0
+    try:
+        if progress_cb:
+            progress_cb({
+                "phase": "downloading",
+                "source": source,
+                "totalBytes": CODE_FORMULA_SIZE_MB * 1024 * 1024,
+                "downloadedBytes": _dir_size_bytes(local_dir),
+            })
+        with urlopen(request, timeout=600) as response:
+            with open(archive, "wb") as handle:
+                while True:
+                    chunk = response.read(STATIC_DOWNLOAD_CHUNK_SIZE)
+                    if not chunk:
+                        break
+                    handle.write(chunk)
+                    downloaded += len(chunk)
+                    if progress_cb:
+                        progress_cb({
+                            "phase": "downloading",
+                            "source": source,
+                            "totalBytes": CODE_FORMULA_SIZE_MB * 1024 * 1024,
+                            "downloadedBytes": downloaded,
+                        })
+                handle.flush()
+                try:
+                    os.fsync(handle.fileno())
+                except OSError:
+                    pass
+
+        extract_root = local_dir.parent / f"{CODE_FORMULA_FOLDER}.extracting"
+        if extract_root.exists():
+            shutil.rmtree(extract_root, ignore_errors=True)
+        extract_root.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(archive) as zf:
+            root_resolved = extract_root.resolve()
+            for member in zf.infolist():
+                target = (extract_root / member.filename).resolve()
+                if root_resolved != target and root_resolved not in target.parents:
+                    raise RuntimeError(f"unsafe archive member path: {member.filename}")
+                zf.extract(member, extract_root)
+
+        payload = extract_root / CODE_FORMULA_FOLDER
+        if not payload.is_dir():
+            payload = extract_root
+        if local_dir.exists():
+            shutil.rmtree(local_dir, ignore_errors=True)
+        shutil.move(str(payload), str(local_dir))
+        if extract_root.exists():
+            shutil.rmtree(extract_root, ignore_errors=True)
+
+        if not code_formula_present(local_dir):
+            raise RuntimeError(f"archive download finished but weights missing under {local_dir}")
+    finally:
+        try:
+            archive.unlink()
+        except OSError:
+            pass
+        try:
+            shutil.rmtree(local_dir.parent / f"{CODE_FORMULA_FOLDER}.extracting", ignore_errors=True)
+        except OSError:
+            pass
+
+
 def _download_code_formula(local_dir: Path, *, progress: bool = True, progress_cb: Optional[ProgressFn] = None) -> None:
     from huggingface_hub import snapshot_download
     from huggingface_hub.utils import disable_progress_bars
@@ -416,6 +489,22 @@ def _download_code_formula(local_dir: Path, *, progress: bool = True, progress_c
 
     try:
         if _truthy("DOCLING_CODEFORMULA_OFFICIAL_FIRST", "1"):
+            for archive_url in KABUQINA_CODE_FORMULA_ARCHIVE_URLS:
+                try:
+                    log.info("CodeFormula download via %s", urlparse(archive_url).netloc)
+                    _download_code_formula_archive(archive_url, local_dir, progress_cb=progress_cb)
+                    if code_formula_present(local_dir):
+                        if progress_cb:
+                            progress_cb({
+                                "phase": "checking",
+                                "source": urlparse(archive_url).netloc,
+                                "downloadedBytes": _dir_size_bytes(local_dir),
+                            })
+                        return
+                except Exception as exc:
+                    last_err = exc
+                    log.warning("CodeFormula archive source failed, falling back: %s", exc)
+
             try:
                 log.info("CodeFormula download via %s", urlparse(KABUQINA_CODE_FORMULA_BASE_URL).netloc)
                 _download_static_code_formula(local_dir, progress_cb=progress_cb)
