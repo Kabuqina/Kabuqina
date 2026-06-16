@@ -1028,6 +1028,11 @@ def build_deliverable_planner_prompt(valid_tool_names: "set[str] | None" = None)
             "placeholder with real bullets stating what the asset shows and the takeaway; if you have "
             "no substance for a figure, fold it into a neighbouring content slide rather than spend a "
             "whole slide on an empty frame.\n"
+            "- Structured visuals: chart_placeholder must include numeric clues in bullets or "
+            "placeholder.caption whenever the source gives numbers (for example `样本数: 500`, "
+            "`FMM-MR: 42`, `FMM: 68`). For experiment / evidence slides, prefer a table "
+            "or comparison_cards or table with headers/rows over plain bullets so the renderer can "
+            "turn them into designed evidence cards instead of generic text columns.\n"
             "- Even depth: give each method / section comparable detail; never leave one listed "
             "method or module as a bare title or placeholder while its siblings get full bullets."
         )

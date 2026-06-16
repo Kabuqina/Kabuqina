@@ -141,3 +141,26 @@ class TestRepairToolCallArguments:
         parsed = json.loads(result)
         assert "line" in parsed["msg"]
 
+    def test_pptx_slides_with_unescaped_content_quotes(self):
+        """PPT plans often quote paper terms inside Chinese prose.
+
+        The model may emit a tool-call argument string like
+        信息"大爆炸"阶段 without escaping the inner quotes. That is invalid
+        JSON before pptx_write is even invoked; repair should preserve the
+        content instead of replacing the whole argument object with {}.
+        """
+        raw = (
+            '{"path":"report.pptx","title":"论文汇报","slides":[{'
+            '"slide_type":"claim_bullets",'
+            '"title":"研究背景",'
+            '"bullets":["信息时代进入"信息大爆炸"阶段，数据持续增长。"]'
+            '}]}'
+        )
+        with pytest.raises(json.JSONDecodeError):
+            json.loads(raw)
+
+        result = _repair_tool_call_arguments(raw, "pptx_write")
+        parsed = json.loads(result)
+
+        assert parsed["title"] == "论文汇报"
+        assert parsed["slides"][0]["bullets"][0] == '信息时代进入"信息大爆炸"阶段，数据持续增长。'

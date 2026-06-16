@@ -602,6 +602,53 @@ def _escape_invalid_chars_in_json_strings(raw: str) -> str:
     return "".join(out)
 
 
+def _escape_unescaped_quotes_in_json_strings(raw: str) -> str:
+    """Escape likely content quotes inside JSON string values.
+
+    Some models hand-build nested tool arguments and forget to escape quotes
+    copied from source prose, e.g. ``信息"大爆炸"阶段`` inside a PPT bullet. A
+    quote only terminates the string when the next significant character is a
+    JSON structural delimiter; otherwise it is treated as content.
+    """
+    out: list[str] = []
+    in_string = False
+    changed = False
+    i = 0
+    n = len(raw)
+    while i < n:
+        ch = raw[i]
+        if not in_string:
+            out.append(ch)
+            if ch == '"':
+                in_string = True
+            i += 1
+            continue
+        if ch == "\\" and i + 1 < n:
+            out.append(ch)
+            out.append(raw[i + 1])
+            i += 2
+            continue
+        if ch == '"':
+            j = i + 1
+            while j < n and raw[j] in " \t\r\n":
+                j += 1
+            nxt = raw[j] if j < n else ""
+            if nxt in (":", ",", "}", "]", ""):
+                out.append(ch)
+                in_string = False
+            else:
+                out.append('\\"')
+                changed = True
+            i += 1
+            continue
+        out.append(ch)
+        i += 1
+
+    if in_string:
+        return raw
+    return "".join(out) if changed else raw
+
+
 def _repair_tool_call_arguments(raw_args: str, tool_name: str = "?") -> str:
     """Attempt to repair malformed tool_call argument JSON.
 
@@ -686,6 +733,22 @@ def _repair_tool_call_arguments(raw_args: str, tool_name: str = "?") -> str:
                 tool_name, raw_stripped[:80], escaped[:80],
             )
             return escaped
+    except (json.JSONDecodeError, TypeError, ValueError):
+        pass
+
+    # Repair pass 5: source prose inside nested arguments may contain raw
+    # double quotes that the model forgot to escape. This is common in PPT and
+    # document generation where bullets quote paper terms.
+    try:
+        quoted = _escape_unescaped_quotes_in_json_strings(fixed)
+        if quoted != fixed:
+            parsed = json.loads(quoted, strict=False)
+            reserialised = json.dumps(parsed, separators=(",", ":"))
+            logger.warning(
+                "Repaired unescaped content quotes in tool_call arguments for %s: %s → %s",
+                tool_name, raw_stripped[:80], quoted[:80],
+            )
+            return reserialised
     except (json.JSONDecodeError, TypeError, ValueError):
         pass
 

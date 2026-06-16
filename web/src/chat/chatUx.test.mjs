@@ -780,6 +780,26 @@ assert.match(
   /master\.components\.flow[\s\S]*master\.components\.table[\s\S]*master\.components\.media/s,
   "Flow, table, and media layouts should be styled from the selected visual master's component recipes.",
 );
+assert.match(
+  renderDeckSource,
+  /function drawMiniChart[\s\S]*function renderChartSignal[\s\S]*drawMiniChart\(ctx, media, chartItems\(spec\)\)/s,
+  "Chart-placeholder slides should render an editable signal chart instead of only a placeholder box.",
+);
+assert.match(
+  renderDeckSource,
+  /function renderEvidenceCards[\s\S]*renderTwoColumnBullets[\s\S]*renderEvidenceCards/s,
+  "Two-column evidence pages should use master-styled evidence cards instead of plain bullet text blocks.",
+);
+assert.match(
+  renderDeckSource,
+  /function masterFontFaces[\s\S]*pptx\.theme = \{ headFontFace: fonts\.head[\s\S]*bodyFontFace: fonts\.body/s,
+  "Built-in visual masters should set concrete PowerPoint theme fonts, not fall back to Office/Calibri.",
+);
+assert.match(
+  visualMastersSource,
+  /blue_professional[\s\S]*fontFace:\s*"Microsoft YaHei UI"/,
+  "Blue Professional should define Office-safe Chinese font faces for its typography roles.",
+);
 assert.doesNotMatch(
   renderDeckSource,
   /const boxW = 2\.7, boxH = 1\.15, gap = 0\.4, top = 3\.2/,

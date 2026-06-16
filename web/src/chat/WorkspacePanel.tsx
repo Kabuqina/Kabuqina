@@ -12,13 +12,13 @@ import {
   Languages,
   Loader2,
   Palette,
-  PanelRightClose,
+  PanelRight,
   Rocket,
   RotateCcw,
   Sigma,
   SquareArrowOutUpRight,
 } from "lucide-react";
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useI18n } from "../lib/i18n";
 import { cn } from "../lib/cn";
@@ -98,22 +98,27 @@ function latestDeliverables(outputs: WorkspaceItem[]): WorkspaceItem[] {
   return result;
 }
 
-function WorkspaceSectionHeading({ children }: { children: ReactNode }) {
+function WorkspaceSectionHeading({ children, dotColor = "var(--kq-color-primary-dark)" }: { children: ReactNode; dotColor?: string }) {
   return (
-    <h3 className="workspace-section-heading kq-section-heading inline-flex px-3 py-1.5 text-sm font-semibold leading-snug tracking-normal">
+    <h3 className="workspace-section-heading kq-section-heading inline-flex items-center gap-1.5 px-0 py-0 text-[12.5px] font-bold leading-snug tracking-normal">
+      <span
+        className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+        style={{ background: dotColor }}
+      />
       {children}
     </h3>
   );
 }
 
-function WorkspaceSection({ sectionId, title, children }: {
+function WorkspaceSection({ sectionId, title, dotColor, children }: {
   sectionId: string;
   title: string;
+  dotColor?: string;
   children?: ReactNode;
 }) {
   return (
     <section data-workspace-section={sectionId} className="kq-workspace-card">
-      <WorkspaceSectionHeading>{title}</WorkspaceSectionHeading>
+      <WorkspaceSectionHeading dotColor={dotColor}>{title}</WorkspaceSectionHeading>
       {children}
     </section>
   );
@@ -132,7 +137,7 @@ function WorkspaceActionButton({
     <button
       type="button"
       onClick={onClick}
-      className="kq-quick-action justify-start rounded-lg px-3 py-2.5 text-left text-[15px] leading-snug transition"
+      className="kq-quick-action justify-start rounded-[10px] px-2.5 py-2 text-left text-[13px] leading-snug transition"
     >
       {icon}
       {label}
@@ -203,39 +208,114 @@ function DeliverableCard({
 }
 
 function PptVisualMasterPreview({ master }: { master: PptVisualMaster }) {
+  const [showPopover, setShowPopover] = useState(false);
+  const [popoverPos, setPopoverPos] = useState<{ top: number; right: number } | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const updatePos = useCallback(() => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    // Position popover above the card, aligned to its right edge
+    setPopoverPos({
+      top: rect.top - 8,
+      right: window.innerWidth - rect.right,
+    });
+  }, []);
+
+  const handleEnter = useCallback(() => {
+    updatePos();
+    setShowPopover(true);
+  }, [updatePos]);
+
   return (
     <div
-      className={cn("kq-ppt-master-preview", `kq-ppt-master-preview--${master.id}`)}
-      style={pptMasterPreviewStyle(master)}
-      aria-label={`${master.name} preview`}
+      ref={cardRef}
+      className="relative"
+      onMouseEnter={handleEnter}
+      onMouseLeave={() => setShowPopover(false)}
     >
-      <div className="kq-ppt-master-slide">
-        <div className="kq-ppt-master-kicker" />
-        <div className="kq-ppt-master-title" />
-        <div className="kq-ppt-master-body">
-          <span />
-          <span />
-          <span />
+      <div
+        className={cn("kq-ppt-master-preview cursor-pointer", `kq-ppt-master-preview--${master.id}`)}
+        style={pptMasterPreviewStyle(master)}
+        aria-label={`${master.name} preview`}
+      >
+        <div className="kq-ppt-master-slide">
+          <div className="kq-ppt-master-kicker" />
+          <div className="kq-ppt-master-title" />
+          <div className="kq-ppt-master-body">
+            <span />
+            <span />
+            <span />
+          </div>
+          <div className="kq-ppt-master-visual">
+            <i />
+            <i />
+            <i />
+          </div>
         </div>
-        <div className="kq-ppt-master-visual">
-          <i />
-          <i />
-          <i />
+        <div className="min-w-0">
+          <p className="truncate text-[12px] font-semibold leading-snug text-[var(--kq-color-strong)]">
+            {master.name}
+          </p>
+          <p className="mt-0.5 text-[11px] leading-snug text-[var(--kq-color-muted)]">
+            {master.note}
+          </p>
+          <div className="kq-ppt-master-swatches" aria-hidden>
+            {master.palette.swatches.map((color) => (
+              <span key={color} style={{ background: color }} />
+            ))}
+          </div>
         </div>
       </div>
-      <div className="min-w-0">
-        <p className="truncate text-[12px] font-semibold leading-snug text-[var(--kq-color-strong)]">
-          {master.name}
-        </p>
-        <p className="mt-0.5 text-[11px] leading-snug text-[var(--kq-color-muted)]">
-          {master.note}
-        </p>
-        <div className="kq-ppt-master-swatches" aria-hidden>
-          {master.palette.swatches.map((color) => (
-            <span key={color} style={{ background: color }} />
-          ))}
+      {/* Hover popover — fixed to viewport, floats above all panels */}
+      {showPopover && popoverPos && (
+        <div
+          className="fixed z-[200] w-[280px] overflow-hidden rounded-xl border border-[var(--kq-glass-border)] bg-white/96 p-2.5 shadow-xl backdrop-blur-sm dark:bg-zinc-900/96"
+          style={{
+            top: popoverPos.top,
+            right: popoverPos.right,
+            transform: "translateY(-100%)",
+            boxShadow: "0 12px 40px rgba(90,74,106,0.18)",
+          }}
+          onMouseEnter={() => setShowPopover(true)}
+          onMouseLeave={() => setShowPopover(false)}
+        >
+          <div className="mb-2 flex items-center gap-2">
+            <span className="text-sm font-semibold text-[var(--kq-color-strong)]">{master.name}</span>
+            <span className="text-xs text-[var(--kq-color-muted)]">{master.note}</span>
+          </div>
+          {/* Enlarged slide preview */}
+          <div className="mb-2" style={pptMasterPreviewStyle(master)}>
+            <div
+              className={cn("kq-ppt-master-slide", `kq-ppt-master-preview--${master.id}`)}
+              style={{ aspectRatio: "16/10", width: "100%", height: "auto" }}
+            >
+              <div className="kq-ppt-master-kicker" />
+              <div className="kq-ppt-master-title" />
+              <div className="kq-ppt-master-body">
+                <span />
+                <span />
+                <span />
+              </div>
+              <div className="kq-ppt-master-visual">
+                <i />
+                <i />
+                <i />
+              </div>
+            </div>
+          </div>
+          {/* Color swatches */}
+          <div className="flex items-center gap-1.5">
+            {master.palette.swatches.map((color) => (
+              <div
+                key={color}
+                className="h-4 w-4 rounded-full border border-black/10"
+                style={{ background: color }}
+              />
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -339,12 +419,12 @@ export function WorkspacePanel({
   return (
     <aside
       className={cn(
-        "kq-workspace-panel flex w-72 shrink-0 flex-col border-l",
+        "kq-workspace-panel flex w-[264px] shrink-0 flex-col border-l",
         className,
       )}
     >
-      <div className="flex h-14 items-center justify-between gap-2 border-b border-[var(--kq-color-border)] px-3">
-        <div className="kq-workspace-tabs inline-flex rounded-lg p-0.5" role="tablist">
+      <div className="flex h-11 items-center justify-between gap-2 border-b border-[var(--kq-glass-border)] px-2.5">
+        <div className="kq-workspace-tabs inline-flex p-0.5" role="tablist">
           <button
             type="button"
             role="tab"
@@ -371,11 +451,11 @@ export function WorkspacePanel({
           aria-label={t("chat.workspaceCollapse")}
           title={t("chat.workspaceCollapse")}
         >
-          <PanelRightClose className="h-4 w-4" aria-hidden />
+          <PanelRight className="h-4 w-4" aria-hidden />
         </button>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overflow-x-hidden px-4 py-4">
+      <div className="min-h-0 flex-1 space-y-3.5 overflow-y-auto overflow-x-hidden px-3 py-3.5">
         {mode === "work" ? (
         <>
         {showContext ? (
@@ -433,23 +513,25 @@ export function WorkspacePanel({
           </WorkspaceSection>
         ) : (
           <WorkspaceSection sectionId="workspace.deliverables" title={t("chat.workspaceDeliverables")}>
-            <p className="kq-workspace-body mt-3 text-[13px] leading-snug text-[var(--kq-color-muted)]">
-              {t("chat.workspaceWorkEmpty")}
-            </p>
-            <button
-              type="button"
-              onClick={() => setMode("academy")}
-              className="kq-quick-action mt-3 justify-start rounded-lg px-3 py-2 text-left text-[14px] leading-snug transition"
-            >
-              <Rocket className="kq-color-icon-pen mr-2 inline h-4 w-4" aria-hidden />
-              {t("chat.workspaceWorkEmptyCta")}
-            </button>
+            <div className="mt-3">
+              <p className="text-[12.5px] leading-[1.55] text-[var(--kq-color-muted)]">
+                {t("chat.workspaceWorkEmpty")}
+              </p>
+              <button
+                type="button"
+                onClick={() => setMode("academy")}
+                className="kq-quick-action mt-3 flex w-full items-center gap-2 rounded-[10px] px-2.5 py-2 text-left text-[12.5px] leading-snug transition"
+              >
+                <Rocket className="h-3.5 w-3.5 shrink-0" style={{ color: "var(--kq-color-primary-dark)" }} aria-hidden />
+                {t("chat.workspaceWorkEmptyCta")}
+              </button>
+            </div>
           </WorkspaceSection>
         )}
         </>
         ) : (
         <>
-        <WorkspaceSection sectionId="workspace.reportPpt" title={t("chat.workspaceReportPpt")}>
+        <WorkspaceSection sectionId="workspace.reportPpt" title={t("chat.workspaceReportPpt")} dotColor="var(--kq-color-primary-dark)">
           <div className="mt-3 grid grid-cols-1 gap-2">
             <WorkspaceActionButton
               onClick={() => onStartPrompt?.(paperToPptPrompt)}
@@ -487,7 +569,7 @@ export function WorkspacePanel({
           </div>
         </WorkspaceSection>
 
-        <WorkspaceSection sectionId="workspace.mathAbility" title={t("chat.workspaceMathAbility")}>
+        <WorkspaceSection sectionId="workspace.mathAbility" title={t("chat.workspaceMathAbility")} dotColor="#4466cc">
           <div className="mt-3 grid grid-cols-1 gap-2">
             <label className="kq-workspace-body grid grid-cols-1 gap-1.5 text-[13px] leading-snug">
               <span className="inline-flex items-center gap-1.5 font-medium">

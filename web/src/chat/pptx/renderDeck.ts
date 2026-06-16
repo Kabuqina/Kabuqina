@@ -171,6 +171,12 @@ function textStyle(ctx: SlideCtx, role: keyof VisualMasterV2["typography"], fall
   };
 }
 
+function masterFontFaces(master: VisualMasterV2, override?: DeckThemeOverride): { head: string; body: string } {
+  const head = override?.fonts?.major || override?.fonts?.minor || master.typography.title.fontFace || "Microsoft YaHei UI";
+  const body = override?.fonts?.minor || override?.fonts?.major || master.typography.body.fontFace || head;
+  return { head, body };
+}
+
 function currentRecipe(ctx: SlideCtx): VisualMasterV2["layouts"][MasterLayoutId] {
   return ctx.layoutRecipe;
 }
@@ -267,7 +273,7 @@ function drawCard(
   const { pptx, slide, p, master } = ctx;
   const ac = opts.accent ?? p.accent;
   const fill = master.decorations.cardStyle === "filled" ? ac : "FFFFFF";
-  const titleColor = master.decorations.cardStyle === "filled" ? p.title : "FFFFFF";
+  const titleColor = master.decorations.cardStyle === "filled" ? p.title : master.decorations.cardStyle === "minimal" ? ac : "FFFFFF";
   const bodyColor = master.decorations.cardStyle === "filled" ? p.title : p.body;
   slide.addShape(pptx.ShapeType.roundRect, {
     x: opts.x, y: opts.y, w: opts.w, h: opts.h, rectRadius: 0.08,
@@ -333,9 +339,77 @@ function renderStandardBullets(ctx: SlideCtx): void {
   });
 }
 
-function renderTwoColumnBullets(ctx: SlideCtx): void {
+function evidenceTitle(spec: DeckSlideSpec, index: number): string {
+  const title = spec.table?.headers?.[index];
+  if (title) return title;
+  if (index === 0) return "观察维度";
+  return "关键证据";
+}
+
+function renderEvidenceCards(ctx: SlideCtx): void {
   drawHeader(ctx);
   const bullets = ctx.spec.bullets ?? [];
+  const rows = ctx.spec.table?.rows ?? [];
+  const leftItems = rows.length ? rows.map((r) => r[0] ?? "").filter(Boolean) : bullets.slice(0, Math.ceil(bullets.length / 2));
+  const rightItems = rows.length ? rows.map((r) => r[1] ?? "").filter(Boolean) : bullets.slice(Math.ceil(bullets.length / 2));
+  const columns = currentRecipe(ctx).columns ?? [
+    { x: 0.7, y: bodyTop(ctx), w: 5.8, h: 5.0 },
+    { x: 6.85, y: bodyTop(ctx), w: 5.8, h: 5.0 },
+  ];
+  const pairs: Array<{ box: VisualMasterLayoutBox; title: string; items: string[]; accent: string }> = [
+    { box: columns[0], title: evidenceTitle(ctx.spec, 0), items: leftItems, accent: ctx.p.accent },
+    { box: columns[1], title: evidenceTitle(ctx.spec, 1), items: rightItems.length ? rightItems : leftItems, accent: ctx.p.accent2 },
+  ];
+
+  pairs.forEach(({ box, title, items, accent }) => {
+    ctx.slide.addShape(ctx.pptx.ShapeType.roundRect, {
+      ...box,
+      rectRadius: 0.08,
+      fill: { color: "FFFFFF" },
+      line: { color: accent, width: 1.1 },
+    });
+    ctx.slide.addShape(ctx.pptx.ShapeType.rect, {
+      x: box.x,
+      y: box.y,
+      w: 0.08,
+      h: box.h,
+      fill: { color: accent },
+      line: { color: accent, transparency: 100 },
+    });
+    ctx.slide.addText(title, {
+      x: box.x + 0.32,
+      y: box.y + 0.28,
+      w: box.w - 0.64,
+      h: 0.34,
+      fontFace: ctx.master.typography.kicker.fontFace,
+      fontSize: 11,
+      bold: true,
+      charSpacing: 1.2,
+      color: accent,
+    });
+    const displayItems = (items.length ? items : ["请补充证据"]).slice(0, 7);
+    ctx.slide.addText(bulletRows(displayItems, false), {
+      x: box.x + 0.34,
+      y: box.y + 0.88,
+      w: box.w - 0.7,
+      h: box.h - 1.18,
+      fontFace: ctx.master.typography.body.fontFace,
+      fontSize: Math.max(13, ctx.master.typography.body.fontSize - 2),
+      color: ctx.p.body,
+      valign: "top",
+      breakLine: false,
+      lineSpacingMultiple: 1.08,
+    });
+  });
+}
+
+function renderTwoColumnBullets(ctx: SlideCtx): void {
+  const bullets = ctx.spec.bullets ?? [];
+  if (ctx.master.id === "blue_professional" || ctx.spec.table?.rows?.length) {
+    renderEvidenceCards(ctx);
+    return;
+  }
+  drawHeader(ctx);
   const mid = Math.ceil(bullets.length / 2);
   const columns = currentRecipe(ctx).columns ?? [
     { x: 0.7, y: bodyTop(ctx), w: 5.8, h: 5.0 },
@@ -526,7 +600,117 @@ function renderDataTable(ctx: SlideCtx): void {
   });
 }
 
+function chartItems(spec: DeckSlideSpec): Array<{ label: string; value: number }> {
+  const source = (spec.bullets && spec.bullets.length ? spec.bullets : [
+    spec.placeholder?.label,
+    spec.placeholder?.caption,
+  ].filter(Boolean) as string[]).slice(0, 5);
+  const fallbackValues = [38, 54, 69, 83, 92];
+  return (source.length ? source : ["基线", "方案A", "方案B", "本文方法"]).map((item, i) => {
+    const match = item.match(/(\d+(?:\.\d+)?)/);
+    return {
+      label: item.replace(/[：:]\s*\d+(?:\.\d+)?[%％]?\s*$/, "").slice(0, 18),
+      value: match ? Number(match[1]) : fallbackValues[i % fallbackValues.length],
+    };
+  });
+}
+
+function drawMiniChart(ctx: SlideCtx, box: VisualMasterLayoutBox, items: Array<{ label: string; value: number }>): void {
+  const { pptx, slide, p, master } = ctx;
+  const max = Math.max(...items.map((item) => item.value), 1);
+  const plot = { x: box.x + 0.58, y: box.y + 1.28, w: box.w - 1.16, h: box.h - 2.15 };
+  slide.addShape(pptx.ShapeType.rect, {
+    x: plot.x,
+    y: plot.y + plot.h,
+    w: plot.w,
+    h: 0.02,
+    fill: { color: p.body, transparency: 35 },
+    line: { color: p.body, transparency: 100 },
+  });
+  const gap = 0.22;
+  const barW = Math.max(0.42, (plot.w - gap * (items.length - 1)) / items.length);
+  items.forEach((item, i) => {
+    const h = Math.max(0.18, (item.value / max) * plot.h);
+    const x = plot.x + i * (barW + gap);
+    const y = plot.y + plot.h - h;
+    const color = i === items.length - 1 ? p.accent2 : p.accent;
+    slide.addShape(pptx.ShapeType.rect, {
+      x,
+      y,
+      w: barW,
+      h,
+      fill: { color },
+      line: { color, transparency: 100 },
+    });
+    slide.addText(String(item.value), {
+      x: x - 0.04,
+      y: Math.max(plot.y - 0.25, y - 0.28),
+      w: barW + 0.08,
+      h: 0.22,
+      fontFace: master.typography.caption.fontFace,
+      fontSize: 9,
+      bold: true,
+      color,
+      align: "center",
+    });
+    slide.addText(item.label, {
+      x: x - 0.14,
+      y: plot.y + plot.h + 0.1,
+      w: barW + 0.28,
+      h: 0.42,
+      fontFace: master.typography.caption.fontFace,
+      fontSize: 8.5,
+      color: p.body,
+      align: "center",
+      fit: "shrink",
+    });
+  });
+}
+
+function renderChartSignal(ctx: SlideCtx): void {
+  drawHeader(ctx);
+  const { pptx, slide, spec, p, master } = ctx;
+  const media = currentRecipe(ctx).media ?? currentRecipe(ctx).body;
+  const legacyLabel = PLACEHOLDER_LABELS.chart_placeholder;
+  slide.addShape(pptx.ShapeType.roundRect, {
+    ...media,
+    rectRadius: 0.1,
+    fill: { color: p.bg },
+    line: { color: p.accent, width: 1.25 },
+  });
+  slide.addText("SIGNAL CHART", {
+    x: media.x + 0.42,
+    y: media.y + 0.42,
+    w: 2.3,
+    h: 0.28,
+    ...textStyle(ctx, "kicker", "accent"),
+    color: p.accent2,
+  });
+  slide.addText(spec.placeholder?.label || spec.title || legacyLabel, {
+    x: media.x + 0.42,
+    y: media.y + 0.72,
+    w: media.w - 0.84,
+    h: 0.55,
+    fontFace: master.typography.title.fontFace,
+    fontSize: Math.max(20, master.typography.title.fontSize - 5),
+    bold: true,
+    color: p.accent2,
+  });
+  drawMiniChart(ctx, media, chartItems(spec));
+  slide.addText(spec.placeholder?.caption || "根据正文数据自动生成的可编辑示意图；有真实数据时请在源材料中给出数值。", {
+    x: media.x + 0.42,
+    y: media.y + media.h - 0.58,
+    w: media.w - 0.84,
+    h: 0.34,
+    ...textStyle(ctx, "caption", "body"),
+  });
+}
+
 function renderMediaPlaceholder(ctx: SlideCtx): void {
+  if (ctx.spec.slide_type === "chart_placeholder") {
+    renderChartSignal(ctx);
+    return;
+  }
   drawHeader(ctx);
   const { pptx, slide, spec, master } = ctx;
   const mediaRecipe = master.components.media;
@@ -664,11 +848,8 @@ export async function renderDeckToBase64(deck: DeckSpec): Promise<RenderedDeck> 
     accent: hex(override?.accent ?? master.palette.accent),
     accent2: hex(override?.accent2 ?? master.palette.accent2),
   };
-  const head = override?.fonts?.major || override?.fonts?.minor || master.typography.title.fontFace;
-  const body = override?.fonts?.minor || override?.fonts?.major || master.typography.body.fontFace;
-  if (head || body) {
-    pptx.theme = { headFontFace: head, bodyFontFace: body };
-  }
+  const fonts = masterFontFaces(master, override);
+  pptx.theme = { headFontFace: fonts.head, bodyFontFace: fonts.body };
 
   addCover(pptx, deck, p, master);
 

@@ -523,6 +523,13 @@ class TestDeliverablePlannerPrompt:
         # Uploaded school templates flow through template_path (route A).
         assert "template_path" in prompt
 
+    def test_ppt_prompt_requests_structured_visual_content(self):
+        prompt = build_deliverable_planner_prompt({"pptx_write"})
+
+        assert "chart_placeholder must include numeric clues" in prompt
+        assert "comparison_cards or table with headers/rows" in prompt
+        assert "experiment / evidence slides" in prompt
+
     def test_pdf_html_block_gated_on_writers(self):
         prompt = build_deliverable_planner_prompt({"pdf_write", "html_write"})
         assert "PDF / HTML / Word reports (pdf_write, html_write)" in prompt
@@ -1157,6 +1164,5 @@ class TestOpenAIModelExecutionGuidance:
 # =========================================================================
 # Budget warning history stripping
 # =========================================================================
-
 
 

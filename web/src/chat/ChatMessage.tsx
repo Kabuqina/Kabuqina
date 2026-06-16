@@ -368,11 +368,15 @@ export function ChatMessage({ role, text, attachments, model, timestamp, streami
       {!isUser && <AssistantAvatar />}
       <div
         className={cn(
-          "kq-chat-assistant-column min-w-0 rounded-2xl px-4 py-2.5",
+          "kq-chat-assistant-column min-w-0 px-4 py-2.5",
           isUser
-            ? "max-w-[min(100%,var(--kq-chat-column-max))] kq-chat-bubble-user rounded-tr-sm"
-            : "kq-chat-bubble-assistant rounded-tl-sm"
+            ? "max-w-[min(100%,var(--kq-chat-column-max))] kq-chat-bubble-user"
+            : "kq-chat-bubble-assistant"
         )}
+        style={isUser
+          ? { borderRadius: "18px 18px 4px 18px" }
+          : { borderRadius: "4px 18px 18px 18px" }
+        }
       >
         {isUser ? (
           <>

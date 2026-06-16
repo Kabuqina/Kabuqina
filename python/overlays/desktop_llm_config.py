@@ -24,6 +24,11 @@ log = logging.getLogger("hermesdesk.model")
 
 _DEEPSEEK_DEFAULT_MODEL = "deepseek-v4-flash"
 
+# Default max output tokens.  Providers often default to 4096 which causes
+# "finish_reason='length'" truncation on complex tool-calling turns.
+# 16384 is a safe floor that stays well within any modern model's context window.
+_DEFAULT_MAX_TOKENS = 16384
+
 
 def _apply_deepseek_desk_seed(model: str, api_base: str) -> None:
     """Write DeepSeek-oriented ``model`` block including default reasoning (high)."""
@@ -61,6 +66,14 @@ def _apply_deepseek_desk_seed(model: str, api_base: str) -> None:
         "default": default_model,
         "reasoning_config": reasoning_cfg,
     }
+    # Seed max_tokens only when the user hasn't set one yet.
+    if isinstance(prev, dict) and prev.get("max_tokens") is not None:
+        try:
+            new_block["max_tokens"] = int(prev["max_tokens"])
+        except (TypeError, ValueError):
+            new_block["max_tokens"] = _DEFAULT_MAX_TOKENS
+    else:
+        new_block["max_tokens"] = _DEFAULT_MAX_TOKENS
     if api_base:
         new_block["base_url"] = api_base
     elif isinstance(prev, dict):
@@ -131,6 +144,14 @@ def install() -> None:
             "default": default_model,
             "provider": provider_for_model or "custom",
         }
+        # Seed max_tokens only when the user hasn't set one yet.
+        if isinstance(prev, dict) and prev.get("max_tokens") is not None:
+            try:
+                new_block["max_tokens"] = int(prev["max_tokens"])
+            except (TypeError, ValueError):
+                new_block["max_tokens"] = _DEFAULT_MAX_TOKENS
+        else:
+            new_block["max_tokens"] = _DEFAULT_MAX_TOKENS
         if api_base:
             new_block["base_url"] = api_base
         elif prev_base:
@@ -143,9 +164,12 @@ def install() -> None:
     elif model:
         prev = cfg.get("model")
         if isinstance(prev, dict):
-            cfg["model"] = {**prev, "default": model}
+            merged = {**prev, "default": model}
+            if prev.get("max_tokens") is None:
+                merged["max_tokens"] = _DEFAULT_MAX_TOKENS
+            cfg["model"] = merged
         else:
-            cfg["model"] = model
+            cfg["model"] = {"default": model, "max_tokens": _DEFAULT_MAX_TOKENS}
 
     try:
         save_config(cfg)

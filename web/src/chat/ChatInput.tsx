@@ -46,6 +46,10 @@ export function ChatInput({
   const [screenshotErr, setScreenshotErr] = useState<string | null>(null);
   const [pathMenuOpen, setPathMenuOpen] = useState(false);
   const [screenshotMenuOpen, setScreenshotMenuOpen] = useState(false);
+  const [pathMenuPos, setPathMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const [screenshotMenuPos, setScreenshotMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const pathBtnRef = useRef<HTMLButtonElement>(null);
+  const screenshotBtnRef = useRef<HTMLButtonElement>(null);
   const [needsModelDownload, setNeedsModelDownload] = useState(false);
   const errTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pathErrTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -317,7 +321,7 @@ export function ChatInput({
           </div>
         )}
 
-        <textarea
+          <textarea
           ref={textareaRef}
           value={value}
           onChange={(e) => {
@@ -328,10 +332,10 @@ export function ChatInput({
           rows={1}
           placeholder={placeholder ?? t("chat.placeholder")}
           disabled={sending}
-          className="max-h-[280px] min-h-[3.25rem] w-full resize-none overflow-hidden bg-transparent px-4 py-3.5 text-[15px] leading-relaxed text-[var(--kq-color-ink)] placeholder:text-[var(--kq-color-muted)] outline-none transition focus:ring-2 focus:ring-[#b8a9c9]/25 focus:ring-inset disabled:opacity-50 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+          className="max-h-[220px] min-h-[44px] w-full resize-none overflow-hidden bg-transparent px-4 pb-1 pt-3 text-[14.5px] leading-relaxed text-[var(--kq-color-ink)] placeholder:text-[var(--kq-color-muted)] outline-none transition focus:ring-0 disabled:opacity-50 dark:text-zinc-100 dark:placeholder:text-zinc-500"
         />
 
-        <div className="flex items-center justify-between gap-2 border-t border-zinc-100 px-2.5 pb-2.5 pt-1 dark:border-zinc-800">
+        <div className="flex items-center justify-between gap-2 px-2 pb-2 pt-0.5">
           <div className="flex items-center gap-1 overflow-visible">
             <div className="relative">
               <button
@@ -340,48 +344,27 @@ export function ChatInput({
                 onClick={() => {
                   if (sending) return;
                   setScreenshotMenuOpen(false);
-                  setPathMenuOpen((o) => !o);
+                  if (pathMenuOpen) {
+                    setPathMenuOpen(false);
+                  } else {
+                    if (pathBtnRef.current) {
+                      const rect = pathBtnRef.current.getBoundingClientRect();
+                      setPathMenuPos({ top: rect.top - 4, left: rect.left });
+                    }
+                    setPathMenuOpen(true);
+                  }
                 }}
-                className="kq-soft-icon-btn group relative flex h-9 w-9 items-center justify-center rounded-lg transition active:scale-[0.98] dark:text-zinc-400 dark:hover:bg-zinc-700/80 disabled:cursor-not-allowed disabled:opacity-40"
+                ref={pathBtnRef}
+                className="kq-soft-icon-btn group relative flex h-[34px] w-[34px] items-center justify-center rounded-lg transition active:scale-[0.98] dark:text-zinc-400 dark:hover:bg-zinc-700/80 disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label={t("chat.insertPath")}
                 aria-expanded={pathMenuOpen}
                 aria-haspopup="menu"
               >
-                <FolderOpen className="h-5 w-5" strokeWidth={2} />
+                <FolderOpen className="h-[17px] w-[17px]" strokeWidth={2} />
                 <span className="pointer-events-none absolute -bottom-9 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-lg bg-white/80 px-3 py-1.5 text-xs font-medium text-zinc-600 opacity-0 shadow-md ring-1 ring-zinc-200/60 backdrop-blur-sm transition-opacity group-hover:opacity-100 dark:bg-zinc-900/70 dark:text-zinc-300 dark:ring-zinc-700/60">
                   {t("chat.insertPathHint")}
                 </span>
               </button>
-              {pathMenuOpen && (
-                <>
-                  <div
-                    role="presentation"
-                    className="fixed inset-0 z-[15]"
-                    onClick={() => setPathMenuOpen(false)}
-                  />
-                  <div
-                    role="menu"
-                    className="absolute bottom-full left-0 z-[25] mb-1 min-w-[10.5rem] overflow-hidden rounded-lg border border-zinc-200/95 bg-white py-1 shadow-lg dark:border-zinc-600 dark:bg-zinc-900"
-                  >
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className="block w-full px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                      onClick={() => void handlePickPath("folder")}
-                    >
-                      {t("chat.insertPathFolder")}
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className="block w-full px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                      onClick={() => void handlePickPath("file")}
-                    >
-                      {t("chat.insertPathFile")}
-                    </button>
-                  </div>
-                </>
-              )}
             </div>
             <input
               ref={fileRef}
@@ -398,10 +381,10 @@ export function ChatInput({
               type="button"
               disabled={sending}
               onClick={() => fileRef.current?.click()}
-              className="kq-soft-icon-btn group relative flex h-9 w-9 items-center justify-center rounded-lg transition active:scale-[0.98] dark:text-zinc-400 dark:hover:bg-zinc-700/80 disabled:cursor-not-allowed disabled:opacity-40"
+              className="kq-soft-icon-btn group relative flex h-[34px] w-[34px] items-center justify-center rounded-lg transition active:scale-[0.98] dark:text-zinc-400 dark:hover:bg-zinc-700/80 disabled:cursor-not-allowed disabled:opacity-40"
               aria-label={t("chat.attach")}
             >
-              <Paperclip className="h-5 w-5" />
+              <Paperclip className="h-[17px] w-[17px]" />
               {/* Tooltip */}
               <span className="pointer-events-none absolute -bottom-9 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-lg bg-white/80 px-3 py-1.5 text-xs font-medium text-zinc-600 opacity-0 shadow-md ring-1 ring-zinc-200/60 backdrop-blur-sm transition-opacity group-hover:opacity-100 dark:bg-zinc-900/70 dark:text-zinc-300 dark:ring-zinc-700/60">
                 {t("chat.attachHint")}
@@ -414,48 +397,27 @@ export function ChatInput({
                 onClick={() => {
                   if (sending) return;
                   setPathMenuOpen(false);
-                  setScreenshotMenuOpen((o) => !o);
+                  if (screenshotMenuOpen) {
+                    setScreenshotMenuOpen(false);
+                  } else {
+                    if (screenshotBtnRef.current) {
+                      const rect = screenshotBtnRef.current.getBoundingClientRect();
+                      setScreenshotMenuPos({ top: rect.top - 4, left: rect.left });
+                    }
+                    setScreenshotMenuOpen(true);
+                  }
                 }}
-                className="kq-soft-icon-btn group relative flex h-9 w-9 items-center justify-center rounded-lg transition active:scale-[0.98] dark:text-zinc-400 dark:hover:bg-zinc-700/80 disabled:cursor-not-allowed disabled:opacity-40"
+                ref={screenshotBtnRef}
+                className="kq-soft-icon-btn group relative flex h-[34px] w-[34px] items-center justify-center rounded-lg transition active:scale-[0.98] dark:text-zinc-400 dark:hover:bg-zinc-700/80 disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label={t("chat.screenshot")}
                 aria-expanded={screenshotMenuOpen}
                 aria-haspopup="menu"
               >
-                <Crop className="h-5 w-5" strokeWidth={2} />
+                <Crop className="h-[17px] w-[17px]" strokeWidth={2} />
                 <span className="pointer-events-none absolute -bottom-9 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-lg bg-white/80 px-3 py-1.5 text-xs font-medium text-zinc-600 opacity-0 shadow-md ring-1 ring-zinc-200/60 backdrop-blur-sm transition-opacity group-hover:opacity-100 dark:bg-zinc-900/70 dark:text-zinc-300 dark:ring-zinc-700/60">
                   {t("chat.screenshotHint")}
                 </span>
               </button>
-              {screenshotMenuOpen && (
-                <>
-                  <div
-                    role="presentation"
-                    className="fixed inset-0 z-[15]"
-                    onClick={() => setScreenshotMenuOpen(false)}
-                  />
-                  <div
-                    role="menu"
-                    className="absolute bottom-full left-0 z-[25] mb-1 min-w-[10.5rem] overflow-hidden rounded-lg border border-zinc-200/95 bg-white py-1 shadow-lg dark:border-zinc-600 dark:bg-zinc-900"
-                  >
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className="block w-full px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                      onClick={() => void handleScreenshotAction("region")}
-                    >
-                      {t("chat.screenshotRegion")}
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className="block w-full px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                      onClick={() => void handleScreenshotAction("fullscreen")}
-                    >
-                      {t("chat.screenshotFullscreen")}
-                    </button>
-                  </div>
-                </>
-              )}
             </div>
             {mimeTypeSupported && (
               <VoiceButton
@@ -473,7 +435,7 @@ export function ChatInput({
                 type="button"
                 onClick={() => void onStop()}
                 className={cn(
-                  "flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white",
+                  "flex h-[34px] w-[34px] flex-shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white",
                   "text-zinc-600 shadow-sm transition active:scale-[0.98]",
                   "hover:border-red-200/90 hover:bg-red-50/90 hover:text-red-600",
                   "dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300",
@@ -489,15 +451,78 @@ export function ChatInput({
               type="button"
               onClick={() => void onSend()}
               disabled={!canSend}
-              className="kq-send-button flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-white transition hover:brightness-[1.04] active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-400 disabled:shadow-none dark:disabled:bg-zinc-800 dark:disabled:text-zinc-500"
+              className="kq-send-button flex h-[34px] w-[34px] flex-shrink-0 items-center justify-center rounded-full text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:shadow-none"
               title={sending ? t("chat.sending") : t("chat.send")}
               aria-label={sending ? t("chat.sending") : t("chat.send")}
             >
-              <ArrowUp className="h-5 w-5" strokeWidth={2.25} />
+              <ArrowUp className="h-[17px] w-[17px]" strokeWidth={2.25} />
             </button>
           </div>
         </div>
       </div>
+      {/* Fixed menus rendered outside composer to escape its stacking context */}
+      {pathMenuOpen && pathMenuPos && (
+        <>
+          <div
+            role="presentation"
+            className="fixed inset-0 z-[200]"
+            onClick={() => setPathMenuOpen(false)}
+          />
+          <div
+            role="menu"
+            className="fixed z-[210] min-w-[10.5rem] overflow-hidden rounded-lg border border-zinc-200/95 bg-white py-1 shadow-lg dark:border-zinc-600 dark:bg-zinc-900"
+            style={{ bottom: pathMenuPos.top, left: pathMenuPos.left }}
+          >
+            <button
+              type="button"
+              role="menuitem"
+              className="block w-full px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              onClick={() => void handlePickPath("folder")}
+            >
+              {t("chat.insertPathFolder")}
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="block w-full px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              onClick={() => void handlePickPath("file")}
+            >
+              {t("chat.insertPathFile")}
+            </button>
+          </div>
+        </>
+      )}
+      {screenshotMenuOpen && screenshotMenuPos && (
+        <>
+          <div
+            role="presentation"
+            className="fixed inset-0 z-[200]"
+            onClick={() => setScreenshotMenuOpen(false)}
+          />
+          <div
+            role="menu"
+            className="fixed z-[210] min-w-[10.5rem] overflow-hidden rounded-lg border border-zinc-200/95 bg-white py-1 shadow-lg dark:border-zinc-600 dark:bg-zinc-900"
+            style={{ bottom: screenshotMenuPos.top, left: screenshotMenuPos.left }}
+          >
+            <button
+              type="button"
+              role="menuitem"
+              className="block w-full px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              onClick={() => void handleScreenshotAction("region")}
+            >
+              {t("chat.screenshotRegion")}
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className="block w-full px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              onClick={() => void handleScreenshotAction("fullscreen")}
+            >
+              {t("chat.screenshotFullscreen")}
+            </button>
+          </div>
+        </>
+      )}
       {needsModelDownload && (
         <div className="mx-auto mt-1.5 flex max-w-[var(--kq-chat-column-max)] flex-wrap items-center justify-between gap-2 rounded-md border border-sky-200 bg-sky-50/70 px-3 py-2 text-xs text-sky-900 dark:border-sky-900/40 dark:bg-sky-950/30 dark:text-sky-100">
           <span className="leading-relaxed">{t("chat.voiceModelConfirm")}</span>
@@ -534,9 +559,6 @@ export function ChatInput({
           {screenshotErr}
         </p>
       )}
-      <div className="kq-input-footer mx-auto mt-2.5 flex max-w-[var(--kq-chat-column-max)] justify-center text-center">
-        <p className="text-xs leading-[1.5] text-[var(--kq-color-muted)] dark:text-zinc-500">{t("chat.hint")}</p>
-      </div>
       </div>
       {previewSrc && (
         <div

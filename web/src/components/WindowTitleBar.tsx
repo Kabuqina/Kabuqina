@@ -75,7 +75,7 @@ export function WindowTitleBar() {
   const capabilitiesLabel = t("capabilities.title");
   const navLinkClass = (active: boolean) =>
     cn(
-      "kq-titlebar-link hermes-titlebar-nodrag no-underline rounded-lg px-3 py-1 text-sm font-medium transition",
+      "kq-titlebar-link hermes-titlebar-nodrag no-underline transition",
       active && "kq-titlebar-link-active",
     );
 
@@ -88,23 +88,28 @@ export function WindowTitleBar() {
       data-tauri-drag-region
     >
       <div
-        className="col-start-1 flex min-w-0 items-center pl-3 sm:pl-4"
+        className="col-start-1 flex min-w-0 items-center gap-2 pl-4"
         aria-label={t("brand")}
       >
-        <img
-          src="/kabuqina_na_48.png"
-          alt={t("brand")}
-          className="h-5 w-5 shrink-0 object-contain dark:opacity-95"
-          width={20}
-          height={20}
-          decoding="async"
-        />
-        <span className="kq-titlebar-brand ml-2 truncate text-sm font-semibold dark:text-zinc-200">
+        <div
+          className="grid h-[22px] w-[22px] shrink-0 place-items-center overflow-hidden"
+          style={{ borderRadius: "6px", background: "linear-gradient(135deg, #f5effa, #ebe3f2)", boxShadow: "0 1px 3px rgba(90,74,106,0.12)" }}
+        >
+          <img
+            src="/kabuqina_na_48.png"
+            alt={t("brand")}
+            className="h-[18px] w-[18px] shrink-0 object-contain"
+            width={18}
+            height={18}
+            decoding="async"
+          />
+        </div>
+        <span className="kq-titlebar-brand truncate text-sm font-semibold dark:text-zinc-200" style={{ letterSpacing: "0.03em" }}>
           {t("productName")}
         </span>
       </div>
 
-      <div className="kq-titlebar-nav col-start-2 flex items-center justify-center gap-0.5 px-1 sm:gap-1.5">
+      <div className="kq-titlebar-nav col-start-2 flex items-center justify-center gap-1 px-1">
         <Link
           to="/chat"
           className={navLinkClass(isChat)}
@@ -155,7 +160,7 @@ export function WindowTitleBar() {
         </div>
         {inApp && (
           <>
-            <div className="kq-titlebar-divider mx-1 h-4 w-px shrink-0 dark:bg-zinc-700" aria-hidden />
+            <div className="kq-titlebar-divider" aria-hidden />
             <button
               type="button"
               onClick={onShowCompanion}
@@ -163,21 +168,9 @@ export function WindowTitleBar() {
               title={t("companion.show")}
               aria-label={t("companion.show")}
             >
-              <svg width="0" height="0" className="absolute" aria-hidden>
-                <defs>
-                  <linearGradient id="kq-titlebar-sparkle-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#f97316" />
-                    <stop offset="48%" stopColor="#fbbf24" />
-                    <stop offset="100%" stopColor="#ef4444" />
-                  </linearGradient>
-                </defs>
-              </svg>
               <Sparkles
                 className="kq-titlebar-companion-icon"
-                stroke="url(#kq-titlebar-sparkle-grad)"
-                fill="url(#kq-titlebar-sparkle-grad)"
-                fillOpacity={0.42}
-                strokeWidth={2.25}
+                strokeWidth={2}
                 aria-hidden
               />
             </button>
@@ -185,13 +178,13 @@ export function WindowTitleBar() {
         )}
       </div>
 
-      <div className="kq-titlebar-controls col-start-3 flex items-center justify-end gap-0.5 pr-1 sm:gap-1.5">
+      <div className="kq-titlebar-controls col-start-3 flex items-center justify-end gap-0.5 pr-1">
         {inApp && (
           <>
             <button
               type="button"
               onClick={onMinimize}
-              className="kq-titlebar-control hermes-titlebar-nodrag inline-flex h-8 w-8 shrink-0 items-center justify-center rounded transition dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+              className="kq-titlebar-control hermes-titlebar-nodrag inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-md transition dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
               title={t("shell.minimize")}
               aria-label={t("shell.minimize")}
             >
@@ -200,7 +193,7 @@ export function WindowTitleBar() {
             <button
               type="button"
               onClick={onToggleMax}
-              className="kq-titlebar-control hermes-titlebar-nodrag inline-flex h-8 w-8 shrink-0 items-center justify-center rounded transition dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+              className="kq-titlebar-control hermes-titlebar-nodrag inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-md transition dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
               title={isMaximized ? t("shell.restore") : t("shell.maximize")}
               aria-label={isMaximized ? t("shell.restore") : t("shell.maximize")}
             >
@@ -209,7 +202,7 @@ export function WindowTitleBar() {
             <button
               type="button"
               onClick={onClose}
-              className="kq-titlebar-control hermes-titlebar-nodrag inline-flex h-8 w-8 shrink-0 items-center justify-center rounded transition hover:bg-red-500/90 hover:text-white dark:hover:bg-red-600/90"
+              className="kq-titlebar-control hermes-titlebar-nodrag inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-md transition hover:bg-red-500/90 hover:text-white dark:hover:bg-red-600/90"
               title={t("shell.close")}
               aria-label={t("shell.close")}
             >

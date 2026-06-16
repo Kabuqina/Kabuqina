@@ -2433,13 +2433,18 @@ PPTX_WRITE_SCHEMA = {
                         },
                         "table": {
                             "type": "object",
-                            "description": "For table slides. Use headers and rows arrays.",
+                            "description": (
+                                "For table, comparison, experiment, and evidence slides. Use headers "
+                                "and rows arrays so the renderer can create designed evidence cards or "
+                                "editable tables instead of plain bullet columns."
+                            ),
                         },
                         "placeholder": {
                             "type": "object",
                             "description": (
                                 "For screenshot/chart placeholders. Use label, caption, and optional source_hint. "
-                                "Do not claim a real asset was inserted when using a placeholder."
+                                "For chart_placeholder, include numeric clues in bullets or caption when the "
+                                "source has values. Do not claim a real asset was inserted when using a placeholder."
                             ),
                         },
                         "tags": {"type": "array", "items": {"type": "string"}},

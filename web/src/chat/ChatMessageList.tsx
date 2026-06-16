@@ -249,8 +249,6 @@ function EmptyState({
   const { t, locale } = useI18n();
   const brand = t("brand");
   const productName = t("productName");
-  const wordmarkBase =
-    locale === "zh" ? "/kabuqina_logo_chinese" : "/kabuqina_logo_english";
   const greeting = t("chat.greeting", { name: brand });
   const greetingParts = greeting.split(brand);
   const actions =
@@ -268,36 +266,42 @@ function EmptyState({
           { label: "Write a message", prompt: "Make this message sound more natural:", icon: PenLine, iconClass: "kq-color-icon-pen" },
         ];
   return (
-    <div className="kq-empty-state flex min-h-0 w-full flex-1 flex-col items-center justify-center px-6 py-8 sm:py-10">
-      <div className="flex w-full max-w-3xl -translate-y-1 flex-col items-center text-center">
-        <div className="kq-empty-hero mb-7 flex flex-col items-center sm:mb-8">
-          <picture className="sr-only">
-            <source type="image/avif" srcSet={`${wordmarkBase}.avif`} />
-            <source type="image/webp" srcSet={`${wordmarkBase}.webp`} />
-            <img src={`${wordmarkBase}.webp`} alt={productName} width={260} height={80} decoding="async" />
-          </picture>
+    <div className="kq-empty-state flex min-h-0 w-full flex-1 flex-col items-center justify-center px-6 py-3 sm:py-7">
+      <div className="flex w-full max-w-xl -translate-y-1 flex-col items-center text-center">
+        <div className="kq-empty-hero mb-2 flex flex-col items-center sm:mb-3">
+          {/* Mascot with soft glow */}
+          <div className="relative mb-1.5">
+            <div
+              className="pointer-events-none absolute left-1/2 top-1/2 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full"
+              style={{ background: "radial-gradient(circle, rgba(232,223,240,0.5) 0%, transparent 70%)" }}
+            />
+            <img
+              src="/kabuqina_boot.svg"
+              alt="Kabuqina chat hero — cup on gingham coaster"
+              className="kq-float relative w-48 h-auto select-none"
+              style={{ filter: "drop-shadow(0 6px 20px rgba(90,74,106,0.12))", animation: "kq-float 3.4s ease-in-out infinite" }}
+              width={1280}
+              height={640}
+              decoding="async"
+              draggable={false}
+            />
+          </div>
           <h1 className="kq-empty-title">{productName}</h1>
-          <p className="kq-empty-subtitle mt-4 text-base sm:text-lg">
+          <div className="mt-2.5 flex items-center gap-2.5 text-sm text-[var(--kq-color-muted)]">
             <span className="kq-hero-line" aria-hidden />
-            <span className="kq-hero-heart" aria-hidden>♡</span>
-            <span>{locale === "zh" ? "慢慢来，小娜陪你整理思路" : `${greetingParts[0]}${brand}${greetingParts[1]}`}</span>
+            <span className="kq-hero-heart text-xs" aria-hidden>♡</span>
+            <span style={{ letterSpacing: "0.02em" }}>
+              {locale === "zh" ? "慢慢来，小娜陪你整理思路" : `${greetingParts[0]}${brand}${greetingParts[1]}`}
+            </span>
             <span className="kq-hero-line" aria-hidden />
-          </p>
-          <img
-            src="/kabuqina_boot.svg"
-            alt="Kabuqina chat hero — cup on gingham coaster"
-            className="w-48 h-auto select-none"
-            width={1280}
-            height={640}
-            decoding="async"
-            draggable={false}
-          />
+          </div>
         </div>
         <div
-          className="mt-3 grid w-full max-w-2xl grid-cols-[repeat(auto-fit,minmax(10.5rem,1fr))] gap-2 justify-items-stretch sm:max-w-3xl"
+          className="mt-7 grid w-full gap-2.5"
+          style={{ gridTemplateColumns: "1fr 1fr", maxWidth: "380px" }}
           aria-label={t("chat.emptyActionsLabel")}
         >
-          {actions.map((action) => {
+          {actions.map((action, i) => {
             const Icon = action.icon;
             return (
               <button
@@ -309,14 +313,15 @@ function EmptyState({
                   }
                 }}
                 className={cn(
-                  "kq-empty-action inline-flex h-10 min-w-0 items-center justify-center gap-2 rounded-xl px-3 text-sm font-medium transition",
+                  "kq-empty-action kq-fade-up inline-flex h-auto min-w-0 items-center justify-center gap-2 rounded-xl border px-3.5 py-2.5 text-sm font-medium",
                   "text-[var(--kq-color-ink)] active:scale-[0.99]",
                   "dark:border-zinc-700 dark:bg-zinc-900/70 dark:text-zinc-200",
                   "dark:hover:border-sky-700 dark:hover:bg-sky-950/40 dark:hover:text-sky-100"
                 )}
+                style={{ animationDelay: `${i * 0.06}s`, animationFillMode: "both" }}
               >
                 <Icon
-                  className={cn("kq-empty-action-icon h-4 w-4 shrink-0", action.iconClass)}
+                  className={cn("h-[15px] w-[15px] shrink-0", action.iconClass)}
                   strokeWidth={2.25}
                   aria-hidden
                 />

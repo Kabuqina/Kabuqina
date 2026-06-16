@@ -10,8 +10,7 @@ import {
   Image as ImageIcon,
   type LucideIcon,
   MessageCircle,
-  PanelLeftClose,
-  PanelLeftOpen,
+  PanelLeft,
   Plus,
   Trash2,
 } from "lucide-react";
@@ -70,6 +69,38 @@ function SidebarCommonActionButton({
   );
 }
 
+function formatSessionTime(ts: number | undefined, locale: "zh" | "en"): string {
+  if (!ts) return "";
+  const d = new Date(ts > 1e12 ? ts : ts * 1000);
+  const now = new Date();
+  const isToday =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+  if (isToday) {
+    return d.toLocaleTimeString(locale === "en" ? "en-US" : "zh-CN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  }
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const isYesterday =
+    d.getFullYear() === yesterday.getFullYear() &&
+    d.getMonth() === yesterday.getMonth() &&
+    d.getDate() === yesterday.getDate();
+  if (isYesterday) return locale === "en" ? "Yest" : "昨天";
+  const daysDiff = Math.floor((now.getTime() - d.getTime()) / 86400000);
+  if (daysDiff < 7) {
+    return d.toLocaleDateString(locale === "en" ? "en-US" : "zh-CN", { weekday: "short" });
+  }
+  return d.toLocaleDateString(locale === "en" ? "en-US" : "zh-CN", {
+    month: "numeric",
+    day: "numeric",
+  });
+}
+
 export function ChatSidebar({
   sessions,
   activeSessionId,
@@ -109,7 +140,7 @@ export function ChatSidebar({
       )}
     >
       <div className={cn(
-        "flex items-center gap-2 border-b p-3",
+        "flex items-center gap-2 border-b border-[var(--kq-glass-border)] p-2.5",
         collapsed && "justify-center",
       )}>
         {!collapsed && (
@@ -129,7 +160,7 @@ export function ChatSidebar({
           aria-label={collapsed ? t("chat.leftRailExpand") : t("chat.leftRailCollapse")}
           title={collapsed ? t("chat.leftRailExpand") : t("chat.leftRailCollapse")}
         >
-          {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+          <PanelLeft className="h-4 w-4" />
         </button>
       </div>
       <div className={cn("kq-sidebar-history-scroll min-h-0 flex-1 space-y-0.5 overflow-y-auto pb-4 pt-2", collapsed ? "px-2" : "px-3")}>
@@ -158,6 +189,7 @@ export function ChatSidebar({
             {group.rows.map(({ session: s, label, icon }) => {
               const active = s.id === activeSessionId;
               const Icon = iconFor(icon);
+              const timeStr = !collapsed ? formatSessionTime(s.last_active ?? s.started_at, locale) : "";
               return (
                 <div
                   key={s.id}
@@ -168,7 +200,10 @@ export function ChatSidebar({
                 >
                   {/* Active indicator bar */}
                   {active && (
-                    <div className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full bg-[var(--kq-color-primary)]" />
+                    <div
+                      className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-full"
+                      style={{ background: "linear-gradient(180deg, var(--kq-color-primary-dark), var(--kq-color-primary))" }}
+                    />
                   )}
                   <button
                     type="button"
@@ -176,45 +211,53 @@ export function ChatSidebar({
                     title={label}
                     aria-label={label}
                     className={cn(
-                      "flex min-w-0 flex-1 items-center gap-2 py-2.5 text-left",
+                      "flex min-w-0 flex-1 items-center gap-2.5 py-2 text-left",
                       collapsed ? "justify-center px-0" : "px-2.5",
                       active && "pl-3",
                     )}
                   >
                     <Icon
                       className={cn(
-                        "h-4 w-4 shrink-0",
+                        "h-[15px] w-[15px] shrink-0",
                         s.id === REMINDER_SESSION_ID
                           ? "kq-color-icon-alarm"
                           : active
-                            ? "text-[var(--kq-color-ink)]"
+                            ? "text-[var(--kq-color-strong)]"
                             : "text-[var(--kq-color-muted)]",
                       )}
-                      strokeWidth={2.2}
+                      strokeWidth={2}
                       aria-hidden
                     />
                     {!collapsed && (
                       <div
                         className={cn(
-                          "kq-sidebar-session-label truncate",
+                          "kq-sidebar-session-label min-w-0 flex-1 truncate",
                           active
-                            ? "font-semibold text-[var(--kq-color-ink)]"
-                            : "text-[var(--kq-color-ink)]/78 group-hover:text-[var(--kq-color-ink)]",
+                            ? "font-semibold text-[var(--kq-color-strong)]"
+                            : "text-[var(--kq-color-ink)]/85 group-hover:text-[var(--kq-color-ink)]",
                         )}
+                        style={{ fontSize: "0.8125rem", lineHeight: 1.4, letterSpacing: "0.01em" }}
                       >
                         {label}
                       </div>
                     )}
                   </button>
                   {!collapsed && (
-                    <button
-                      type="button"
-                      title={t("chat.delete")}
-                      onClick={(e) => onDeleteSession(s.id, e)}
-                      className="kq-sidebar-delete shrink-0 px-1.5 opacity-0 transition group-hover:opacity-100"
-                    >
-                      <Trash2 className="h-3 w-3" strokeWidth={2.5} />
-                    </button>
+                    <div className="kq-sidebar-trailing-slot">
+                      <span className="kq-sidebar-session-time group-hover:opacity-0">
+                        {timeStr}
+                      </span>
+                      <div className="kq-sidebar-delete-overlay group-hover:opacity-100">
+                        <button
+                          type="button"
+                          title={t("chat.delete")}
+                          onClick={(e) => onDeleteSession(s.id, e)}
+                          className="kq-sidebar-delete rounded-md p-1 transition hover:bg-red-500/10"
+                        >
+                          <Trash2 className="h-3 w-3" strokeWidth={2.5} />
+                        </button>
+                      </div>
+                    </div>
                   )}
                 </div>
               );
@@ -222,12 +265,7 @@ export function ChatSidebar({
           </div>
         ))}
       </div>
-      <div className={cn("kq-sidebar-common-actions shrink-0 border-t py-2", collapsed ? "px-2" : "px-3")}>
-        {!collapsed && (
-          <p className="kq-sidebar-group-label px-1.5 pb-1 pt-1">
-            {t("chat.workspaceOtherCommon")}
-          </p>
-        )}
+      <div className={cn("kq-sidebar-common-actions shrink-0 border-t border-[var(--kq-glass-border)] py-1.5", collapsed ? "px-2" : "px-2")}>
         <SidebarCommonActionButton
           onClick={onOpenWorkspace}
           icon={FolderOpen}
@@ -245,7 +283,7 @@ export function ChatSidebar({
         <SidebarCommonActionButton
           onClick={onOrganizeDesktop}
           icon={FolderKanban}
-          iconClassName="kq-color-icon-folder"
+          iconClassName="kq-color-icon-pen"
           label={t("chat.workspaceOrganizeDesktop")}
           collapsed={collapsed}
         />

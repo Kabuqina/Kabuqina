@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Maximize2, PanelLeftOpen, PanelRightOpen } from "lucide-react";
+import { Maximize2, PanelRight } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { AppScaffold } from "../components/AppScaffold";
@@ -392,14 +392,6 @@ export function ChatPage() {
     }
   };
 
-  const openLeftRail = () => {
-    if (workbench.focusMode && workbench.leftOpen) {
-      workbench.toggleFocusMode();
-      return;
-    }
-    workbench.toggleLeft();
-  };
-
   const openWorkspace = () => {
     if (workbench.focusMode && workbench.rightOpen) {
       workbench.toggleFocusMode();
@@ -462,37 +454,22 @@ export function ChatPage() {
         </div>
       </ShellModal>
       <div className="flex min-h-0 flex-1">
-        {workbench.showLeftRail && (
-          <ChatSidebar
-            sessions={sessions}
-            activeSessionId={activeSessionId}
-            loading={listLoading}
-            collapsed={!workbench.leftOpen || workbench.isNarrow}
-            onToggleCollapsed={workbench.toggleLeft}
-            onNewChat={onNewChat}
-            onOpenScheduledTasks={() => nav("/settings/cron", { state: { cronBackTo: "/chat" } })}
-            onOpenWorkspace={() => void invoke("cmd_open_workspace")}
-            onOrganizeDesktop={handleOrganizeDesktop}
-            onExport={() => nav("/export")}
-            onSelectSession={onPickSession}
-            onDeleteSession={handleDelete}
-          />
-        )}
+        <ChatSidebar
+          sessions={sessions}
+          activeSessionId={activeSessionId}
+          loading={listLoading}
+          collapsed={!workbench.leftOpen || workbench.isNarrow}
+          onToggleCollapsed={workbench.toggleLeft}
+          onNewChat={onNewChat}
+          onOpenScheduledTasks={() => nav("/settings/cron", { state: { cronBackTo: "/chat" } })}
+          onOpenWorkspace={() => void invoke("cmd_open_workspace")}
+          onOrganizeDesktop={handleOrganizeDesktop}
+          onExport={() => nav("/export")}
+          onSelectSession={onPickSession}
+          onDeleteSession={handleDelete}
+        />
         <main className="flex min-w-0 flex-1 flex-col">
-          <div className="kq-chat-topbar flex h-11 shrink-0 items-center justify-between border-b px-3">
-            <div className="flex min-w-0 items-center gap-2">
-              {!workbench.showLeftRail && (
-                <button
-                  type="button"
-                  onClick={openLeftRail}
-                  className="kq-soft-icon-btn inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg px-0 transition"
-                  aria-label={t("chat.leftRailExpand")}
-                  title={t("chat.leftRailExpand")}
-                >
-                  <PanelLeftOpen className="h-4 w-4" />
-                </button>
-              )}
-            </div>
+          <div className="kq-chat-topbar flex h-11 shrink-0 items-center justify-end border-b px-3">
             <div className="flex items-center gap-1">
               {!workbench.showRightPanel && (
                 <button
@@ -502,7 +479,7 @@ export function ChatPage() {
                   aria-label={t("chat.workspaceExpand")}
                   title={t("chat.workspaceExpand")}
                 >
-                  <PanelRightOpen className="h-4 w-4" />
+                  <PanelRight className="h-4 w-4" />
                 </button>
               )}
               <button
