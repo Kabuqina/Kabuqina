@@ -1537,6 +1537,11 @@ def _render_pdf_from_html(html_source: str) -> Tuple[bytes, int, str]:
     return pdf_bytes, _count_pdf_pages(pdf_bytes), "chromium_print_v1"
 
 
+def render_pdf_from_html_source(html_source: str) -> Tuple[bytes, int, str]:
+    """Render an arbitrary trusted HTML print source using the core PDF renderer."""
+    return _render_pdf_from_html(html_source)
+
+
 def _build_standalone_html(spec: Dict[str, Any]) -> str:
     """Screen-first standalone HTML deliverable.
 

@@ -4,7 +4,9 @@
 //! Path helpers + workspace setup.
 
 use anyhow::{Context, Result};
+use base64::Engine;
 use serde::Serialize;
+use serde_json::json;
 use std::path::{Component, Path, PathBuf};
 use tauri::{AppHandle, Manager};
 
@@ -442,13 +444,39 @@ pub fn cmd_write_text_file(path_str: String, content: String) -> Result<(), Stri
 /// filesystem reads host-owned and limits output to the same user export roots
 /// as text exports.
 #[tauri::command]
-pub fn cmd_write_pdf_from_html(path_str: String, html: String) -> Result<(), String> {
+pub async fn cmd_write_pdf_from_html(
+    app: AppHandle,
+    path_str: String,
+    html: String,
+) -> Result<(), String> {
     let path = std::path::PathBuf::from(&path_str);
     let path = validate_pdf_export_path(&path)?;
     if html.trim().is_empty() {
         return Err("PDF export HTML cannot be empty".into());
     }
-    render_pdf_from_html(&path, &html)
+    let payload = crate::chat::desk_json_request(
+        &app,
+        reqwest::Method::POST,
+        "/api/desk/export/pdf",
+        Some(json!({ "html": html })),
+    )
+    .await?;
+    let pdf_b64 = payload
+        .get("pdfBase64")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| "PDF renderer returned no pdfBase64 payload".to_string())?;
+    let pdf_bytes = base64::engine::general_purpose::STANDARD
+        .decode(pdf_b64)
+        .map_err(|e| format!("decode PDF payload: {e}"))?;
+    if !pdf_bytes.starts_with(b"%PDF-") {
+        return Err("PDF renderer did not produce a valid PDF file".into());
+    }
+
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| format!("create PDF export dir: {e}"))?;
+    }
+    std::fs::write(&path, pdf_bytes).map_err(|e| format!("write PDF export: {e}"))?;
+    Ok(())
 }
 
 fn validate_text_export_path(path: &Path) -> Result<PathBuf, String> {
@@ -495,100 +523,6 @@ fn validate_pdf_export_path(path: &Path) -> Result<PathBuf, String> {
     }
 
     Ok(normalized)
-}
-
-#[cfg(windows)]
-fn render_pdf_from_html(path: &Path, html: &str) -> Result<(), String> {
-    use std::io::Read;
-    use std::os::windows::process::CommandExt;
-    use std::process::Command;
-
-    let edge = find_edge_executable()
-        .ok_or_else(|| "Microsoft Edge was not found; cannot print HTML to PDF".to_string())?;
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| format!("create PDF export dir: {e}"))?;
-    }
-
-    let temp_root =
-        std::env::temp_dir().join(format!("kabuqina-pdf-export-{}", uuid::Uuid::new_v4()));
-    std::fs::create_dir_all(&temp_root).map_err(|e| format!("create PDF temp dir: {e}"))?;
-    let html_path = temp_root.join("source.html");
-    let user_data_dir = temp_root.join("edge-profile");
-    std::fs::write(&html_path, html).map_err(|e| format!("write PDF HTML source: {e}"))?;
-
-    let source_url = url::Url::from_file_path(&html_path)
-        .map_err(|_| "Could not convert PDF HTML source path to file URL".to_string())?;
-    let output = Command::new(edge)
-        .arg("--headless")
-        .arg("--disable-gpu")
-        .arg("--no-pdf-header-footer")
-        .arg("--run-all-compositor-stages-before-draw")
-        .arg(format!("--user-data-dir={}", user_data_dir.display()))
-        .arg(format!("--print-to-pdf={}", path.display()))
-        .arg(source_url.as_str())
-        .creation_flags(0x08000000)
-        .output()
-        .map_err(|e| format!("run Edge PDF renderer: {e}"))?;
-
-    let _ = std::fs::remove_dir_all(&temp_root);
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let detail = stderr.trim();
-        if detail.is_empty() {
-            return Err(format!("Edge PDF renderer exited with {}", output.status));
-        }
-        return Err(format!("Edge PDF renderer failed: {detail}"));
-    }
-
-    let mut f = std::fs::File::open(path).map_err(|e| format!("open rendered PDF: {e}"))?;
-    let mut header = [0u8; 5];
-    f.read_exact(&mut header)
-        .map_err(|e| format!("read rendered PDF header: {e}"))?;
-    if &header != b"%PDF-" {
-        return Err("PDF renderer did not produce a valid PDF file".into());
-    }
-
-    Ok(())
-}
-
-#[cfg(not(windows))]
-fn render_pdf_from_html(_path: &Path, _html: &str) -> Result<(), String> {
-    Err("PDF export is only supported on Windows in this build".into())
-}
-
-#[cfg(windows)]
-fn find_edge_executable() -> Option<PathBuf> {
-    let mut candidates = Vec::new();
-    if let Some(program_files) = std::env::var_os("ProgramFiles") {
-        candidates.push(PathBuf::from(program_files).join("Microsoft/Edge/Application/msedge.exe"));
-    }
-    if let Some(program_files_x86) = std::env::var_os("ProgramFiles(x86)") {
-        let program_files_x86 = PathBuf::from(program_files_x86);
-        candidates.push(program_files_x86.join("Microsoft/Edge/Application/msedge.exe"));
-        candidates.push(program_files_x86.join("Microsoft/EdgeWebView/Application"));
-    }
-    if let Some(local_app_data) = std::env::var_os("LOCALAPPDATA") {
-        candidates
-            .push(PathBuf::from(local_app_data).join("Microsoft/Edge/Application/msedge.exe"));
-    }
-
-    for candidate in candidates {
-        if candidate.is_file() {
-            return Some(candidate);
-        }
-        if candidate.is_dir() {
-            if let Ok(entries) = std::fs::read_dir(&candidate) {
-                for entry in entries.flatten() {
-                    let nested = entry.path().join("msedge.exe");
-                    if nested.is_file() {
-                        return Some(nested);
-                    }
-                }
-            }
-        }
-    }
-    None
 }
 
 fn known_export_roots() -> Vec<PathBuf> {

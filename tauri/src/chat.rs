@@ -64,7 +64,7 @@ pub(crate) fn streaming_http_client() -> reqwest::Client {
         .expect("reqwest streaming client")
 }
 
-async fn desk_json_request(
+pub(crate) async fn desk_json_request(
     app: &AppHandle,
     method: reqwest::Method,
     path: &str,

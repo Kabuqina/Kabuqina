@@ -4,9 +4,9 @@
 
 **Goal:** Add TXT export and real PDF export generated from an internal HTML print source.
 
-**Architecture:** Keep dialogue normalization and document builders in `web/src/chat/chatExport.ts`. Wire format selection in `web/src/advanced/Export.tsx`. Add a Rust-side PDF export command boundary in `tauri/src/paths.rs` so file validation remains host-owned.
+**Architecture:** Keep dialogue normalization and document builders in `web/src/chat/chatExport.ts`. Wire format selection in `web/src/advanced/Export.tsx`. Add a Rust-side PDF export command boundary in `tauri/src/paths.rs` so file validation remains host-owned, then delegate HTML-to-PDF rendering to the existing Python document renderer through the desk server.
 
-**Tech Stack:** React/Vite/TypeScript, Node test scripts, Tauri 2 Rust commands, Windows WebView2 print-to-PDF where available.
+**Tech Stack:** React/Vite/TypeScript, Node test scripts, Tauri 2 Rust commands, FastAPI desk routes, existing Hermes document HTML-to-PDF renderer.
 
 ---
 
@@ -127,7 +127,7 @@ pub async fn cmd_write_pdf_from_html(
 ) -> Result<(), String>
 ```
 
-The command validates `.pdf` output with the existing root policy, rejects empty HTML, and calls a Windows-only helper. On unsupported platforms, return a clear error.
+The command validates `.pdf` output with the existing root policy, rejects empty HTML, calls the desk server `/api/desk/export/pdf` route, validates the returned `%PDF-` bytes, and writes only to the validated save path.
 
 - [ ] **Step 4: Register the command**
 

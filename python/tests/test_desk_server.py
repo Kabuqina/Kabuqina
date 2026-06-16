@@ -345,6 +345,33 @@ class TestDeskServerHttp(unittest.TestCase):
         self.assertEqual(resp.status_code, 400)
         self.assertEqual(resp.json().get("error"), "empty_message")
 
+    def test_export_pdf_route_uses_document_html_renderer(self):
+        import base64
+
+        from desk_server.auth import SESSION_HEADER_NAME, SESSION_TOKEN
+        import tools.document_tools as document_tools
+
+        rendered = []
+
+        def fake_render(html_source):
+            rendered.append(html_source)
+            return b"%PDF-1.4\nchat export\n%%EOF", 2, "chromium_print_v1"
+
+        with patch.object(document_tools, "render_pdf_from_html_source", fake_render):
+            resp = self.client.post(
+                "/api/desk/export/pdf",
+                json={"html": "<!doctype html><h1>Chat</h1>"},
+                headers={SESSION_HEADER_NAME: SESSION_TOKEN},
+            )
+
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertTrue(data["ok"])
+        self.assertEqual(data["renderer"], "chromium_print_v1")
+        self.assertEqual(data["pageCount"], 2)
+        self.assertEqual(base64.b64decode(data["pdfBase64"]), b"%PDF-1.4\nchat export\n%%EOF")
+        self.assertEqual(rendered, ["<!doctype html><h1>Chat</h1>"])
+
 
 if __name__ == "__main__":
     unittest.main()
