@@ -37,6 +37,8 @@ const {
   rowsToExportDialogue,
   buildExportMarkdown,
   buildExportJson,
+  buildExportText,
+  buildExportHtml,
   exportLabelsForLocale,
   defaultExportFilename,
 } = await importTsBundle("./chatExport.ts", ["./deskUserContent.ts"]);
@@ -115,9 +117,54 @@ const json = JSON.parse(
 assert.equal(json.app, "卡布奇娜");
 assert.equal(json.sessions[0].dialogue[0].speaker, "用户");
 assert.equal(json.sessions[0].dialogue[1].speaker, "卡布奇娜");
+
+const exportRowsWithHtml = new Map([
+  [
+    "sess-1",
+    [
+      { role: "user", content: "你好 <script>alert(1)</script>", timestamp: 1_700_000_000 },
+      { role: "assistant", content: "我会安全导出 & 保留文本。", timestamp: 1_700_000_100 },
+    ],
+  ],
+]);
+
+const txt = buildExportText(
+  [{ id: "sess-1", title: "PDF 帮助", model: "deepseek-v4-flash" }],
+  exportRowsWithHtml,
+  labels,
+  "zh",
+);
+assert.match(txt, /卡布奇娜 · 聊天记录/);
+assert.match(txt, /用户 · /);
+assert.match(txt, /卡布奇娜 · /);
+assert.match(txt, /你好 <script>alert\(1\)<\/script>/);
+assert.doesNotMatch(txt, /Hermes|hermesdesk/i);
+
+const html = buildExportHtml(
+  [{ id: "sess-1", title: "PDF 帮助", model: "deepseek-v4-flash" }],
+  exportRowsWithHtml,
+  labels,
+  "zh",
+);
+assert.match(html, /<!doctype html>/i);
+assert.match(html, /@media print/);
+assert.match(html, /page-break-after/);
+assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+assert.match(html, /我会安全导出 &amp; 保留文本。/);
+assert.doesNotMatch(html, /<script>alert/);
+assert.doesNotMatch(html, /Hermes|hermesdesk/i);
+
 assert.equal(defaultExportFilename("json"), "kabuqina-chat-export.json");
 assert.equal(defaultExportFilename("markdown"), "kabuqina-chat-export.md");
+assert.equal(defaultExportFilename("text"), "kabuqina-chat-export.txt");
+assert.equal(defaultExportFilename("pdf"), "kabuqina-chat-export.pdf");
 
 const exportPageSource = fs.readFileSync(new URL("../advanced/Export.tsx", import.meta.url), "utf8");
 assert.match(exportPageSource, /chatExport/);
+assert.match(
+  exportPageSource,
+  /buildExportJson[\s\S]*buildExportMarkdown[\s\S]*buildExportText[\s\S]*buildExportHtml/,
+);
+assert.match(exportPageSource, /\["json", "markdown", "text", "pdf"\] as ExportFormat\[\]/);
+assert.match(exportPageSource, /cmd_write_pdf_from_html/);
 assert.doesNotMatch(exportPageSource, /hermesdesk-export|🤖 Hermes/i);

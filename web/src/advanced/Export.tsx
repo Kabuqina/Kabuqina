@@ -10,9 +10,12 @@ import { AppScaffold } from "../components/AppScaffold";
 import { BackButton } from "../components/ui/BackButton";
 import { useI18n } from "../lib/i18n";
 import {
+  buildExportHtml,
   buildExportJson,
   buildExportMarkdown,
+  buildExportText,
   defaultExportFilename,
+  type ExportFormat,
   exportLabelsForLocale,
 } from "../chat/chatExport";
 import {
@@ -21,8 +24,6 @@ import {
   type MessageRow,
   type SessionRow,
 } from "../chat/chat-api";
-
-type ExportFormat = "json" | "markdown";
 
 export function Export() {
   const { t, locale } = useI18n();
@@ -97,14 +98,24 @@ export function Export() {
       let defaultName: string;
       let filters: { name: string; extensions: string[] }[];
 
+      const isPdf = format === "pdf";
+
       if (format === "json") {
         content = buildExportJson(sortedSessions, msgsBySession, labels, locale);
         defaultName = defaultExportFilename("json");
         filters = [{ name: "JSON", extensions: ["json"] }];
-      } else {
+      } else if (format === "markdown") {
         content = buildExportMarkdown(sortedSessions, msgsBySession, labels, locale);
         defaultName = defaultExportFilename("markdown");
         filters = [{ name: "Markdown", extensions: ["md"] }];
+      } else if (format === "text") {
+        content = buildExportText(sortedSessions, msgsBySession, labels, locale);
+        defaultName = defaultExportFilename("text");
+        filters = [{ name: "Text", extensions: ["txt"] }];
+      } else {
+        content = buildExportHtml(sortedSessions, msgsBySession, labels, locale);
+        defaultName = defaultExportFilename("pdf");
+        filters = [{ name: "PDF", extensions: ["pdf"] }];
       }
 
       const filePath = await save({
@@ -117,10 +128,17 @@ export function Export() {
         return;
       }
 
-      await invoke("cmd_write_text_file", {
-        pathStr: filePath,
-        content,
-      });
+      if (isPdf) {
+        await invoke("cmd_write_pdf_from_html", {
+          pathStr: filePath,
+          html: content,
+        });
+      } else {
+        await invoke("cmd_write_text_file", {
+          pathStr: filePath,
+          content,
+        });
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -146,7 +164,7 @@ export function Export() {
             {t("export.formatLabel")}
           </label>
           <div className="mt-2 flex gap-3">
-            {(["json", "markdown"] as ExportFormat[]).map((f) => (
+            {(["json", "markdown", "text", "pdf"] as ExportFormat[]).map((f) => (
               <label
                 key={f}
                 className="inline-flex items-center gap-2 text-sm cursor-pointer"
@@ -160,7 +178,13 @@ export function Export() {
                   className="accent-[var(--kq-color-primary)]"
                 />
                 <span className="text-[var(--kq-color-ink)]">
-                  {f === "json" ? "JSON" : "Markdown"}
+                  {f === "json"
+                    ? "JSON"
+                    : f === "markdown"
+                      ? "Markdown"
+                      : f === "text"
+                        ? "TXT"
+                        : "PDF"}
                 </span>
               </label>
             ))}

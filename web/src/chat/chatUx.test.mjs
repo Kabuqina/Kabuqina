@@ -666,9 +666,11 @@ const exportPageSource = fs.readFileSync(new URL("../advanced/Export.tsx", impor
 const chatExportSource = fs.readFileSync(new URL("./chatExport.ts", import.meta.url), "utf8");
 assert.match(
   exportPageSource,
-  /buildExportJson[\s\S]*buildExportMarkdown[\s\S]*exportLabelsForLocale/,
-  "Export page should build branded dialogue exports via chatExport helpers.",
+  /buildExportJson[\s\S]*buildExportMarkdown[\s\S]*buildExportText[\s\S]*buildExportHtml[\s\S]*exportLabelsForLocale/,
+  "Export page should build JSON, Markdown, TXT, and PDF/HTML dialogue exports via chatExport helpers.",
 );
+assert.match(exportPageSource, /\(\["json", "markdown", "text", "pdf"\] as ExportFormat\[\]\)/);
+assert.match(exportPageSource, /cmd_write_pdf_from_html/);
 assert.match(chatExportSource, /parseDeskUserContent[\s\S]*speaker: labels\.productName/);
 assert.doesNotMatch(chatExportSource, /Hermes|hermesdesk-export/i);
 

@@ -161,6 +161,7 @@ pub fn run() {
             paths::cmd_set_auto_start_gateway,
             paths::cmd_read_shared_prefs,
             paths::cmd_write_text_file,
+            paths::cmd_write_pdf_from_html,
             paths::cmd_save_shared_prefs,
             cmd_gateway_status,
             cmd_gateway_start,
