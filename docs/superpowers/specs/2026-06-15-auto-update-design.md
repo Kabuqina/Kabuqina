@@ -15,11 +15,11 @@ GitHub Releases is the primary update source. Tencent COS is the fallback source
 The Tauri updater endpoint list will be ordered:
 
 1. `https://github.com/Kabuqina/Kabuqina/releases/latest/download/latest.json`
-2. `https://<kabuqina-cos-release-host>/latest.json`
+2. `https://kabuqina-installer-1428509047.cos.ap-guangzhou.myqcloud.com/latest.json`
 
 Both manifests must describe the same version and the same signed updater bundle. The download URL inside the GitHub manifest may point to GitHub. The download URL inside the COS manifest may point to COS. Both bundles are verified by the updater signature, so hosting trust does not replace signature trust.
 
-The concrete COS host is a release configuration value, not product logic. The implementation should keep the endpoint easy to replace before tagging the release.
+The COS release host is `https://kabuqina-installer-1428509047.cos.ap-guangzhou.myqcloud.com`. The current manually uploaded MSI object uses that host, for example `https://kabuqina-installer-1428509047.cos.ap-guangzhou.myqcloud.com/Kabuqina_0.1.0_x64_en-US.msi`. The updater implementation will publish `latest.json`, `*.msi.zip`, and `*.msi.zip.sig` beside the installer under the same host.
 
 ## Architecture
 
@@ -102,6 +102,6 @@ Manual QA before release:
 - Bad signature refuses installation.
 - Completed install restarts into the new version.
 
-## Open Configuration
+## Configuration
 
-The only unresolved value is the final Tencent COS release host. Implementation can use a clearly named placeholder in docs and scripts until the deployment bucket/domain is chosen, but the production `tauri.conf.json` should point to the real COS `latest.json` before tagging the release.
+The Tencent COS fallback host is known. Before tagging each release, the release operator must upload the matching `latest.json`, `*.msi.zip`, and `*.msi.zip.sig` objects to `https://kabuqina-installer-1428509047.cos.ap-guangzhou.myqcloud.com`.
