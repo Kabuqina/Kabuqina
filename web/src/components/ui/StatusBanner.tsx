@@ -33,10 +33,10 @@ const variantMeta: Record<
   },
   info: {
     icon: Info,
-    border: "border-[var(--kq-color-border)] dark:border-[#D4C5E2]/30",
-    bg: "bg-[var(--kq-color-primary-pale)]/70 dark:bg-[#D4C5E2]/10",
-    text: "text-[var(--kq-color-strong)] dark:text-zinc-100",
-    iconColor: "text-[var(--kq-color-primary)] dark:text-[#D4C5E2]",
+    border: "border-[var(--kq-color-border)] dark:border-[var(--kq-color-primary-light)]/30",
+    bg: "bg-[var(--kq-color-primary-pale)]/70 dark:bg-[var(--kq-color-primary-light)]/10",
+    text: "text-[var(--kq-color-strong)] dark:text-[var(--kq-color-strong)]",
+    iconColor: "text-[var(--kq-color-primary)] dark:text-[var(--kq-color-primary-light)]",
   },
   error: {
     icon: XCircle,
@@ -47,10 +47,10 @@ const variantMeta: Record<
   },
   neutral: {
     icon: Info,
-    border: "border-[var(--kq-color-border)] dark:border-zinc-700/80",
-    bg: "bg-[var(--kq-color-primary-pale)]/45 dark:bg-zinc-900/40",
-    text: "text-[var(--kq-color-ink)] dark:text-zinc-300",
-    iconColor: "text-[var(--kq-color-muted)] dark:text-zinc-400",
+    border: "border-[var(--kq-color-border)] dark:border-[var(--kq-color-border)]",
+    bg: "bg-[var(--kq-color-primary-pale)]/45 dark:bg-[var(--kq-glass-bg)]",
+    text: "text-[var(--kq-color-ink)] dark:text-[var(--kq-color-ink)]",
+    iconColor: "text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]",
   },
 };
 

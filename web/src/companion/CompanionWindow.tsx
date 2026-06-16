@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useEffect, useRef, useState } from "react";
+import { X } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { LogicalSize } from "@tauri-apps/api/dpi";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -280,6 +281,14 @@ export function CompanionWindow() {
           onPointerUp={(event) => event.stopPropagation()}
           onContextMenu={(event) => event.preventDefault()}
         >
+          <button
+            type="button"
+            className="kq-companion-context-close"
+            onClick={closeCompanionMenu}
+            aria-label={locale === "zh" ? "关闭" : "Close"}
+          >
+            <X className="h-3.5 w-3.5" aria-hidden />
+          </button>
           <p className="kq-companion-context-spec">{t("settings.companionImageSpec")}</p>
           {imageError ? <p className="kq-companion-context-error">{imageError}</p> : null}
           <input
@@ -303,14 +312,6 @@ export function CompanionWindow() {
               onClick={resetCompanionImage}
             >
               {t("settings.companionImageReset")}
-            </button>
-            <button
-              type="button"
-              className="kq-companion-context-ghost"
-              onClick={closeCompanionMenu}
-              aria-label={locale === "zh" ? "关闭" : "Close"}
-            >
-              {locale === "zh" ? "关闭" : "Close"}
             </button>
           </div>
         </div>

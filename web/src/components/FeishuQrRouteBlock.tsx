@@ -266,7 +266,7 @@ export function FeishuQrRouteBlock({ className, onSuccess, onHermesRunningChange
         <StatusBanner variant="error" title={inlineErr} />
       ) : null}
       {view?.progress?.phase ? (
-        <p className="text-sm text-zinc-600 dark:text-zinc-300">{phaseLabel(view.progress.phase)}</p>
+        <p className="text-sm text-[var(--kq-color-ink)]">{phaseLabel(view.progress.phase)}</p>
       ) : null}
       {view?.progress?.qr_url ? (
         <div className="space-y-1">
@@ -274,21 +274,21 @@ export function FeishuQrRouteBlock({ className, onSuccess, onHermesRunningChange
             href={view.progress.qr_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-block max-w-full break-all text-sm font-medium text-[var(--kq-color-strong)] underline-offset-2 hover:underline dark:text-[#D4C5E2]"
+            className="inline-block max-w-full break-all text-sm font-medium text-[var(--kq-color-strong)] underline-offset-2 hover:underline dark:text-[var(--kq-color-primary-light)]"
           >
             {t("settings.feishuOpenLink")}
           </a>
-          <p className="break-all font-mono text-xs text-zinc-500 dark:text-zinc-500">
+          <p className="break-all font-mono text-xs text-[var(--kq-color-muted)]">
             {view.progress.qr_url}
           </p>
-          <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">{t("settings.feishuAfterScanHint")}</p>
+          <p className="text-xs leading-relaxed text-[var(--kq-color-muted)]">{t("settings.feishuAfterScanHint")}</p>
         </div>
       ) : null}
       {view?.progress?.message ? (
         <p className="text-sm text-red-600 dark:text-red-400">{view.progress.message}</p>
       ) : null}
       {view?.result?.ok === true ? (
-        <div className="space-y-2 text-sm text-zinc-600 dark:text-zinc-300">
+        <div className="space-y-2 text-sm text-[var(--kq-color-ink)]">
           <p>{restarted ? t("settings.feishuSuccessDone") : t("settings.feishuSuccess")}</p>
           {view.result.app_id ? (
             <p className="font-mono text-xs text-zinc-500">App ID: {view.result.app_id}</p>

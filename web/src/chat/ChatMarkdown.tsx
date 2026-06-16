@@ -32,8 +32,8 @@ const READ_CALLOUTS = {
   "[!NOTE]": {
     label: "Note",
     Icon: Info,
-    className: "border-zinc-200 bg-zinc-50/90 text-zinc-800 dark:border-zinc-600/50 dark:bg-zinc-800/70 dark:text-zinc-100",
-    iconClassName: "text-zinc-500 dark:text-zinc-300",
+    className: "border-zinc-200 bg-zinc-50/90 text-zinc-800 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg-subtle)] dark:text-[var(--kq-color-strong)]",
+    iconClassName: "text-zinc-500 dark:text-[var(--kq-color-ink)]",
   },
   "[!TIP]": {
     label: "Tip",

@@ -23,6 +23,10 @@ export interface ChatInputProps {
   onRemoveAttachment: (index: number) => void;
   onFilesPicked: (files: FileList | null) => void;
   onStop?: () => void;
+  /** When true, the model isn't configured yet — block sending and prompt setup. */
+  needsModelSetup?: boolean;
+  /** Open the initialization flow so the user can configure a model. */
+  onConfigureModel?: () => void;
 }
 
 export function ChatInput({
@@ -35,6 +39,8 @@ export function ChatInput({
   onRemoveAttachment,
   onFilesPicked,
   onStop,
+  needsModelSetup = false,
+  onConfigureModel,
 }: ChatInputProps) {
   const { t } = useI18n();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -46,8 +52,8 @@ export function ChatInput({
   const [screenshotErr, setScreenshotErr] = useState<string | null>(null);
   const [pathMenuOpen, setPathMenuOpen] = useState(false);
   const [screenshotMenuOpen, setScreenshotMenuOpen] = useState(false);
-  const [pathMenuPos, setPathMenuPos] = useState<{ top: number; left: number } | null>(null);
-  const [screenshotMenuPos, setScreenshotMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const [pathMenuPos, setPathMenuPos] = useState<{ bottom: number; left: number } | null>(null);
+  const [screenshotMenuPos, setScreenshotMenuPos] = useState<{ bottom: number; left: number } | null>(null);
   const pathBtnRef = useRef<HTMLButtonElement>(null);
   const screenshotBtnRef = useRef<HTMLButtonElement>(null);
   const [needsModelDownload, setNeedsModelDownload] = useState(false);
@@ -240,7 +246,7 @@ export function ChatInput({
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
-        if (!sending) {
+        if (!sending && !needsModelSetup) {
           const canSend = value.trim() || pendingAttachments.length > 0;
           if (canSend) {
             onSend();
@@ -248,10 +254,10 @@ export function ChatInput({
         }
       }
     },
-    [onSend, sending, value, pendingAttachments.length]
+    [onSend, sending, needsModelSetup, value, pendingAttachments.length]
   );
 
-  const canSend = !sending && (value.trim() || pendingAttachments.length > 0);
+  const canSend = !sending && !needsModelSetup && (value.trim() || pendingAttachments.length > 0);
 
   return (
     <div className="kq-input-area shrink-0">
@@ -259,11 +265,11 @@ export function ChatInput({
       <div
         className={cn(
           "kq-composer mx-auto max-w-[var(--kq-chat-column-max)]",
-          "dark:border-zinc-700 dark:bg-zinc-800/50"
+          "dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg-subtle)]"
         )}
       >
         {pendingAttachments.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 border-b border-zinc-100 px-3 py-2 dark:border-zinc-800">
+          <div className="flex flex-wrap items-center gap-2 border-b border-zinc-100 px-3 py-2 dark:border-[var(--kq-color-border)]">
             {pendingAttachments.map((att, i) => {
               const isImage = att.mime.startsWith("image/");
               if (isImage) {
@@ -271,7 +277,7 @@ export function ChatInput({
                 return (
                   <div
                     key={`${att.name}-${i}`}
-                    className="group relative h-16 w-16 overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800"
+                    className="group relative h-16 w-16 overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg-subtle)]"
                   >
                     <button
                       type="button"
@@ -301,7 +307,7 @@ export function ChatInput({
               return (
                 <span
                   key={`${att.name}-${i}`}
-                  className="inline-flex max-w-[min(100%,14rem)] items-center gap-1 rounded-full bg-zinc-100 pl-2.5 pr-1.5 py-0.5 text-[11px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                  className="inline-flex max-w-[min(100%,14rem)] items-center gap-1 rounded-full bg-zinc-100 pl-2.5 pr-1.5 py-0.5 text-[11px] text-zinc-600 dark:bg-[var(--kq-glass-bg-subtle)] dark:text-[var(--kq-color-ink)]"
                 >
                   <span className="truncate" title={att.name}>
                     {att.name}
@@ -310,7 +316,7 @@ export function ChatInput({
                     type="button"
                     disabled={sending}
                     onClick={() => onRemoveAttachment(i)}
-                    className="shrink-0 rounded-full p-0.5 text-zinc-400 hover:text-zinc-700 disabled:opacity-40 dark:hover:text-zinc-200"
+                    className="shrink-0 rounded-full p-0.5 text-zinc-400 hover:text-zinc-700 disabled:opacity-40 dark:hover:text-[var(--kq-color-strong)]"
                     aria-label={t("chat.removeAttachment")}
                   >
                     <X className="h-3 w-3" strokeWidth={2.5} />
@@ -332,7 +338,7 @@ export function ChatInput({
           rows={1}
           placeholder={placeholder ?? t("chat.placeholder")}
           disabled={sending}
-          className="max-h-[220px] min-h-[44px] w-full resize-none overflow-hidden bg-transparent px-4 pb-1 pt-3 text-[14.5px] leading-relaxed text-[var(--kq-color-ink)] placeholder:text-[var(--kq-color-muted)] outline-none transition focus:ring-0 disabled:opacity-50 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+          className="max-h-[220px] min-h-[44px] w-full resize-none overflow-hidden bg-transparent px-4 pb-1 pt-3 text-[14.5px] leading-relaxed text-[var(--kq-color-ink)] placeholder:text-[var(--kq-color-muted)] outline-none transition focus:ring-0 disabled:opacity-50 dark:text-[var(--kq-color-strong)] dark:placeholder:text-[var(--kq-color-muted)]"
         />
 
         <div className="flex items-center justify-between gap-2 px-2 pb-2 pt-0.5">
@@ -349,19 +355,19 @@ export function ChatInput({
                   } else {
                     if (pathBtnRef.current) {
                       const rect = pathBtnRef.current.getBoundingClientRect();
-                      setPathMenuPos({ top: rect.top - 4, left: rect.left });
+                      setPathMenuPos({ bottom: window.innerHeight - rect.top + 4, left: rect.left });
                     }
                     setPathMenuOpen(true);
                   }
                 }}
                 ref={pathBtnRef}
-                className="kq-soft-icon-btn group relative flex h-[34px] w-[34px] items-center justify-center rounded-lg transition active:scale-[0.98] dark:text-zinc-400 dark:hover:bg-zinc-700/80 disabled:cursor-not-allowed disabled:opacity-40"
+                className="kq-soft-icon-btn group relative flex h-[34px] w-[34px] items-center justify-center rounded-lg transition active:scale-[0.98] dark:text-[var(--kq-color-muted)] dark:hover:bg-[var(--kq-hover-bg-strong)] disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label={t("chat.insertPath")}
                 aria-expanded={pathMenuOpen}
                 aria-haspopup="menu"
               >
                 <FolderOpen className="h-[17px] w-[17px]" strokeWidth={2} />
-                <span className="pointer-events-none absolute -bottom-9 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-lg bg-white/80 px-3 py-1.5 text-xs font-medium text-zinc-600 opacity-0 shadow-md ring-1 ring-zinc-200/60 backdrop-blur-sm transition-opacity group-hover:opacity-100 dark:bg-zinc-900/70 dark:text-zinc-300 dark:ring-zinc-700/60">
+                <span className="pointer-events-none absolute -bottom-9 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-lg bg-white/80 px-3 py-1.5 text-xs font-medium text-zinc-600 opacity-0 shadow-md ring-1 ring-zinc-200/60 backdrop-blur-sm transition-opacity group-hover:opacity-100 dark:bg-[var(--kq-glass-bg)] dark:text-[var(--kq-color-ink)] dark:ring-[var(--kq-color-border)]">
                   {t("chat.insertPathHint")}
                 </span>
               </button>
@@ -381,12 +387,12 @@ export function ChatInput({
               type="button"
               disabled={sending}
               onClick={() => fileRef.current?.click()}
-              className="kq-soft-icon-btn group relative flex h-[34px] w-[34px] items-center justify-center rounded-lg transition active:scale-[0.98] dark:text-zinc-400 dark:hover:bg-zinc-700/80 disabled:cursor-not-allowed disabled:opacity-40"
+              className="kq-soft-icon-btn group relative flex h-[34px] w-[34px] items-center justify-center rounded-lg transition active:scale-[0.98] dark:text-[var(--kq-color-muted)] dark:hover:bg-[var(--kq-hover-bg-strong)] disabled:cursor-not-allowed disabled:opacity-40"
               aria-label={t("chat.attach")}
             >
               <Paperclip className="h-[17px] w-[17px]" />
               {/* Tooltip */}
-              <span className="pointer-events-none absolute -bottom-9 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-lg bg-white/80 px-3 py-1.5 text-xs font-medium text-zinc-600 opacity-0 shadow-md ring-1 ring-zinc-200/60 backdrop-blur-sm transition-opacity group-hover:opacity-100 dark:bg-zinc-900/70 dark:text-zinc-300 dark:ring-zinc-700/60">
+              <span className="pointer-events-none absolute -bottom-9 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-lg bg-white/80 px-3 py-1.5 text-xs font-medium text-zinc-600 opacity-0 shadow-md ring-1 ring-zinc-200/60 backdrop-blur-sm transition-opacity group-hover:opacity-100 dark:bg-[var(--kq-glass-bg)] dark:text-[var(--kq-color-ink)] dark:ring-[var(--kq-color-border)]">
                 {t("chat.attachHint")}
               </span>
             </button>
@@ -402,19 +408,19 @@ export function ChatInput({
                   } else {
                     if (screenshotBtnRef.current) {
                       const rect = screenshotBtnRef.current.getBoundingClientRect();
-                      setScreenshotMenuPos({ top: rect.top - 4, left: rect.left });
+                      setScreenshotMenuPos({ bottom: window.innerHeight - rect.top + 4, left: rect.left });
                     }
                     setScreenshotMenuOpen(true);
                   }
                 }}
                 ref={screenshotBtnRef}
-                className="kq-soft-icon-btn group relative flex h-[34px] w-[34px] items-center justify-center rounded-lg transition active:scale-[0.98] dark:text-zinc-400 dark:hover:bg-zinc-700/80 disabled:cursor-not-allowed disabled:opacity-40"
+                className="kq-soft-icon-btn group relative flex h-[34px] w-[34px] items-center justify-center rounded-lg transition active:scale-[0.98] dark:text-[var(--kq-color-muted)] dark:hover:bg-[var(--kq-hover-bg-strong)] disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label={t("chat.screenshot")}
                 aria-expanded={screenshotMenuOpen}
                 aria-haspopup="menu"
               >
                 <Crop className="h-[17px] w-[17px]" strokeWidth={2} />
-                <span className="pointer-events-none absolute -bottom-9 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-lg bg-white/80 px-3 py-1.5 text-xs font-medium text-zinc-600 opacity-0 shadow-md ring-1 ring-zinc-200/60 backdrop-blur-sm transition-opacity group-hover:opacity-100 dark:bg-zinc-900/70 dark:text-zinc-300 dark:ring-zinc-700/60">
+                <span className="pointer-events-none absolute -bottom-9 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-lg bg-white/80 px-3 py-1.5 text-xs font-medium text-zinc-600 opacity-0 shadow-md ring-1 ring-zinc-200/60 backdrop-blur-sm transition-opacity group-hover:opacity-100 dark:bg-[var(--kq-glass-bg)] dark:text-[var(--kq-color-ink)] dark:ring-[var(--kq-color-border)]">
                   {t("chat.screenshotHint")}
                 </span>
               </button>
@@ -438,7 +444,7 @@ export function ChatInput({
                   "flex h-[34px] w-[34px] flex-shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white",
                   "text-zinc-600 shadow-sm transition active:scale-[0.98]",
                   "hover:border-red-200/90 hover:bg-red-50/90 hover:text-red-600",
-                  "dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300",
+                  "dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)] dark:text-[var(--kq-color-ink)]",
                   "dark:hover:border-red-900/50 dark:hover:bg-red-950/30 dark:hover:text-red-400"
                 )}
                 title={t("chat.stop")}
@@ -452,8 +458,8 @@ export function ChatInput({
               onClick={() => void onSend()}
               disabled={!canSend}
               className="kq-send-button flex h-[34px] w-[34px] flex-shrink-0 items-center justify-center rounded-full text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:shadow-none"
-              title={sending ? t("chat.sending") : t("chat.send")}
-              aria-label={sending ? t("chat.sending") : t("chat.send")}
+              title={needsModelSetup ? t("chat.needModelSetup") : sending ? t("chat.sending") : t("chat.send")}
+              aria-label={needsModelSetup ? t("chat.needModelSetup") : sending ? t("chat.sending") : t("chat.send")}
             >
               <ArrowUp className="h-[17px] w-[17px]" strokeWidth={2.25} />
             </button>
@@ -470,13 +476,13 @@ export function ChatInput({
           />
           <div
             role="menu"
-            className="fixed z-[210] min-w-[10.5rem] overflow-hidden rounded-lg border border-zinc-200/95 bg-white py-1 shadow-lg dark:border-zinc-600 dark:bg-zinc-900"
-            style={{ bottom: pathMenuPos.top, left: pathMenuPos.left }}
+            className="fixed z-[210] min-w-[10.5rem] overflow-hidden rounded-lg border border-zinc-200/95 bg-white py-1 shadow-lg dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)]"
+            style={{ bottom: pathMenuPos.bottom, left: pathMenuPos.left }}
           >
             <button
               type="button"
               role="menuitem"
-              className="block w-full px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              className="block w-full px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-100 dark:text-[var(--kq-color-ink)] dark:hover:bg-[var(--kq-hover-bg-strong)]"
               onClick={() => void handlePickPath("folder")}
             >
               {t("chat.insertPathFolder")}
@@ -484,7 +490,7 @@ export function ChatInput({
             <button
               type="button"
               role="menuitem"
-              className="block w-full px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              className="block w-full px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-100 dark:text-[var(--kq-color-ink)] dark:hover:bg-[var(--kq-hover-bg-strong)]"
               onClick={() => void handlePickPath("file")}
             >
               {t("chat.insertPathFile")}
@@ -501,13 +507,13 @@ export function ChatInput({
           />
           <div
             role="menu"
-            className="fixed z-[210] min-w-[10.5rem] overflow-hidden rounded-lg border border-zinc-200/95 bg-white py-1 shadow-lg dark:border-zinc-600 dark:bg-zinc-900"
-            style={{ bottom: screenshotMenuPos.top, left: screenshotMenuPos.left }}
+            className="fixed z-[210] min-w-[10.5rem] overflow-hidden rounded-lg border border-zinc-200/95 bg-white py-1 shadow-lg dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)]"
+            style={{ bottom: screenshotMenuPos.bottom, left: screenshotMenuPos.left }}
           >
             <button
               type="button"
               role="menuitem"
-              className="block w-full px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              className="block w-full px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-100 dark:text-[var(--kq-color-ink)] dark:hover:bg-[var(--kq-hover-bg-strong)]"
               onClick={() => void handleScreenshotAction("region")}
             >
               {t("chat.screenshotRegion")}
@@ -515,13 +521,27 @@ export function ChatInput({
             <button
               type="button"
               role="menuitem"
-              className="block w-full px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+              className="block w-full px-3 py-2 text-left text-sm text-zinc-700 transition hover:bg-zinc-100 dark:text-[var(--kq-color-ink)] dark:hover:bg-[var(--kq-hover-bg-strong)]"
               onClick={() => void handleScreenshotAction("fullscreen")}
             >
               {t("chat.screenshotFullscreen")}
             </button>
           </div>
         </>
+      )}
+      {needsModelSetup && (
+        <div className="mx-auto mt-1.5 flex max-w-[var(--kq-chat-column-max)] flex-wrap items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50/70 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
+          <span className="leading-relaxed">{t("chat.needModelSetup")}</span>
+          {onConfigureModel && (
+            <button
+              type="button"
+              onClick={onConfigureModel}
+              className="shrink-0 rounded bg-amber-600 px-2 py-1 font-medium text-white shadow-sm transition hover:opacity-90"
+            >
+              {t("chat.apiRequiredGoSetup")}
+            </button>
+          )}
+        </div>
       )}
       {needsModelDownload && (
         <div className="mx-auto mt-1.5 flex max-w-[var(--kq-chat-column-max)] flex-wrap items-center justify-between gap-2 rounded-md border border-sky-200 bg-sky-50/70 px-3 py-2 text-xs text-sky-900 dark:border-sky-900/40 dark:bg-sky-950/30 dark:text-sky-100">
@@ -530,14 +550,14 @@ export function ChatInput({
             <button
               type="button"
               onClick={handleCancelDownload}
-              className="rounded px-2 py-1 text-zinc-600 transition hover:bg-zinc-200/60 dark:text-zinc-300 dark:hover:bg-zinc-700/60"
+              className="rounded px-2 py-1 text-zinc-600 transition hover:bg-zinc-200/60 dark:text-[var(--kq-color-ink)] dark:hover:bg-[var(--kq-hover-bg-strong)]"
             >
               {t("chat.voiceModelCancel")}
             </button>
             <button
               type="button"
               onClick={() => void handleConfirmDownload()}
-              className="rounded bg-sky-600 px-2 py-1 font-medium text-white shadow-sm transition hover:opacity-90 dark:bg-[#3B5BC7]"
+              className="kq-btn-primary rounded px-2 py-1 font-medium text-white shadow-sm transition hover:opacity-90"
             >
               {t("chat.voiceModelDownload")}
             </button>

@@ -15,7 +15,7 @@ type Props = {
 export function Section({ icon: Icon, title, desc, children, className, action }: Props) {
   return (
     <section
-      className={`hd-glass-subtle p-5 sm:p-6 ${className ?? ""}`}
+      className={`hd-setting-card p-5 sm:p-6 ${className ?? ""}`}
     >
       <div className="flex items-start gap-3.5">
         {Icon && (
@@ -26,11 +26,11 @@ export function Section({ icon: Icon, title, desc, children, className, action }
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <h2 className="text-[0.9375rem] font-semibold leading-5 text-[var(--kq-color-strong)] dark:text-zinc-100">
+              <h2 className="text-[0.9375rem] font-semibold leading-5 text-[var(--kq-color-strong)] dark:text-[var(--kq-color-strong)]">
                 {title}
               </h2>
               {desc && (
-                <p className="mt-1 text-sm leading-relaxed text-[var(--kq-color-muted)] dark:text-zinc-400">
+                <p className="mt-1 text-sm leading-relaxed text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">
                   {desc}
                 </p>
               )}

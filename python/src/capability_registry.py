@@ -995,14 +995,14 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
         "title": "Formula to code",
         "description": (
             "Convert formulas, LaTeX, and document math into code for a user-selected target "
-            "language (Python, NumPy, JavaScript, MATLAB/Octave, or C++17) via a canonical "
+            "language (Python, JavaScript, MATLAB/Octave, or C++17) via a canonical "
             "SymPy core with NumPy numeric self-validation."
         ),
         "category": "math",
         "family": "math-expression-engineering",
         "agent_hint": (
             "Use for converting a formula or LaTeX expression into code. Pass the user's chosen "
-            "language (python, numpy, javascript, octave, cpp17). The tool parses into a canonical "
+            "language (python, javascript, octave, cpp17). The tool parses into a canonical "
             "SymPy expression, transpiles with SymPy's code printers, and reports a NumPy lambdify "
             "vs evalf numeric check. Still extract a semantic_contract (variables, dimensions, domains, "
             "boundary/open-closed intervals, invariants, expected outputs) and run executable tests "
@@ -1026,7 +1026,7 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
                 # capabilities, not by steps owned by this pipeline.
                 "stages": ["writer"],
                 "inputs": ["latex", "markdown_formula", "document_math", "extracted_formula"],
-                "writer_targets": ["python", "numpy", "javascript", "octave", "cpp17"],
+                "writer_targets": ["python", "javascript", "octave", "cpp17"],
                 "steps": [
                     {
                         "id": "convert-formula-to-code",

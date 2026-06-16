@@ -27,7 +27,7 @@ export type WeComQrStatusPayload = {
   result: { ok?: boolean; bot_id?: string; error?: string } | null;
 };
 
-const inputClass = "hd-input font-mono dark:border-zinc-700 dark:bg-zinc-900/90 dark:text-zinc-100";
+const inputClass = "hd-input font-mono dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)] dark:text-[var(--kq-color-strong)]";
 
 const ipcErr = (e: unknown): string =>
   e instanceof Error ? e.message : String(e);
@@ -225,8 +225,8 @@ export function WeComSettingsBlock({ className }: { className?: string }) {
 
       {/* ── Choose mode: radio select ── */}
       {viewMode === "choose" && !env?.configured ? (
-        <div className="rounded-[var(--radius-shell-lg)] border border-dashed border-zinc-300/80 px-3 py-2.5 text-sm dark:border-zinc-700/80">
-          <p className="text-xs font-medium text-zinc-600 dark:text-zinc-300 mb-2">
+        <div className="rounded-[var(--radius-shell-lg)] border border-dashed border-zinc-300/80 px-3 py-2.5 text-sm dark:border-[var(--kq-color-border)]">
+          <p className="text-xs font-medium text-[var(--kq-color-ink)] mb-2">
             {t("settings.wecomQrTitle")}
           </p>
           <div className="flex items-center gap-3 mb-2">
@@ -280,10 +280,10 @@ export function WeComSettingsBlock({ className }: { className?: string }) {
 
       {/* QR progress */}
       {qrPolling && qrView?.progress?.phase ? (
-        <div className="kq-info-panel px-3 py-2.5 text-sm dark:border-[#D4C5E2]/20 dark:bg-[#D4C5E2]/10">
-          <p className="text-xs text-zinc-600 dark:text-zinc-300">{qrPhaseLabel(qrView.progress.phase)}</p>
+        <div className="kq-info-panel px-3 py-2.5 text-sm dark:border-[var(--kq-color-primary-light)]/20 dark:bg-[var(--kq-color-primary-light)]/10">
+          <p className="text-xs text-[var(--kq-color-ink)]">{qrPhaseLabel(qrView.progress.phase)}</p>
           {qrView.progress.message ? (
-            <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{qrView.progress.message}</p>
+            <p className="mt-0.5 text-xs text-[var(--kq-color-muted)]">{qrView.progress.message}</p>
           ) : null}
           {qrView.progress.url ? (
             <a href={qrView.progress.url} target="_blank" rel="noopener noreferrer"

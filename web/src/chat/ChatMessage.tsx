@@ -34,22 +34,6 @@ export interface ChatMessageProps {
   streaming?: boolean;
 }
 
-function toMillis(ts: number): number {
-  if (!Number.isFinite(ts)) {
-    return Date.now();
-  }
-  return ts > 1e12 ? ts : ts * 1000;
-}
-
-function formatChatTime(ts: number, locale: "zh" | "en"): string {
-  return new Date(toMillis(ts)).toLocaleString(locale === "en" ? "en-US" : "zh-CN", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 function copyToClipboard(s: string): Promise<void> {
   if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
     return navigator.clipboard.writeText(s);
@@ -135,7 +119,7 @@ function MessageCopyButton({ text }: { text: string }) {
             "pointer-events-none absolute bottom-full right-0 z-30 mb-1.5 hidden rounded-lg bg-zinc-800 px-2.5 py-1.5",
             "text-xs font-medium text-white shadow-md",
             "sm:group-hover:block",
-            "dark:bg-zinc-600"
+            "dark:bg-[var(--kq-hover-bg-strong)]"
           )}
           role="tooltip"
         >
@@ -289,26 +273,14 @@ function SpeakButton({ text }: { text: string }) {
 function AssistantMessageFooter({
   text,
   model,
-  timeStr,
 }: {
   text: string;
   model?: string;
-  timeStr: string | null;
 }) {
   const { t } = useI18n();
   const name = t("brand");
   return (
-    <div
-      className={cn(
-        "mt-2 flex w-full min-w-0 flex-wrap items-center gap-2 border-t border-[var(--kq-glass-border)] pt-1.5 text-[11px]",
-        timeStr ? "justify-between" : "justify-end"
-      )}
-    >
-      {timeStr ? (
-        <span className="shrink-0 font-mono text-[11px] tabular-nums text-[var(--kq-color-muted)]">
-          {timeStr}
-        </span>
-      ) : null}
+    <div className="mt-2 flex w-full min-w-0 flex-wrap items-center justify-end gap-2 border-t border-[var(--kq-glass-border)] pt-1.5 text-[11px]">
       <div className="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-x-1 gap-y-1 font-mono text-[var(--kq-color-muted)] sm:gap-x-1.5">
         <span className="shrink-0 min-w-0 break-all sm:break-normal">
           {model?.trim() ? `${name}(${model.trim()})` : name}
@@ -350,8 +322,8 @@ function UserImageAttachments({ attachments = [] }: { attachments?: DeskAttachme
   );
 }
 
-export function ChatMessage({ role, text, attachments, model, timestamp, streaming = false }: ChatMessageProps) {
-  const { t, locale } = useI18n();
+export function ChatMessage({ role, text, attachments, model, streaming = false }: ChatMessageProps) {
+  const { t } = useI18n();
   const [collapsed, setCollapsed] = useState(false);
   const isUser = role === "user";
 
@@ -360,8 +332,6 @@ export function ChatMessage({ role, text, attachments, model, timestamp, streami
       setCollapsed(false);
     }
   }, [streaming]);
-  const hasTime = timestamp != null && Number.isFinite(timestamp);
-  const timeStr = hasTime ? formatChatTime(timestamp, locale) : null;
 
   return (
     <div className={cn("flex items-start gap-3", isUser ? "justify-end" : "justify-start")}>
@@ -386,11 +356,6 @@ export function ChatMessage({ role, text, attachments, model, timestamp, streami
               </p>
             ) : null}
             <UserImageAttachments attachments={attachments} />
-            {timeStr && (
-              <div className="mt-1.5 text-right text-[11px] font-mono tabular-nums text-[var(--kq-color-muted)] dark:text-sky-200/70">
-                {timeStr}
-              </div>
-            )}
           </>
         ) : (
           <>
@@ -428,7 +393,7 @@ export function ChatMessage({ role, text, attachments, model, timestamp, streami
                 <ChatMarkdown text={text} />
               </Suspense>
             )}
-            <AssistantMessageFooter text={text} model={model} timeStr={timeStr} />
+            <AssistantMessageFooter text={text} model={model} />
           </>
         )}
       </div>

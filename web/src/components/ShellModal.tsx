@@ -57,24 +57,24 @@ export function ShellModal({ open, title, onClose, children, size = "md" }: Shel
         aria-modal
         aria-labelledby="shell-modal-title"
         className={cn(
-          "relative z-10 flex max-h-[min(85vh,720px)] w-full flex-col overflow-hidden rounded-[var(--radius-shell-lg)] border border-[var(--kq-color-border)] bg-white/95 shadow-[var(--kq-shadow-soft)] backdrop-blur-md dark:border-zinc-700 dark:bg-zinc-950",
+          "relative z-10 flex max-h-[min(85vh,720px)] w-full flex-col overflow-hidden rounded-[var(--radius-shell-lg)] border border-[var(--kq-color-border)] bg-white/95 shadow-[var(--kq-shadow-soft)] backdrop-blur-md dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)]",
           maxW
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[var(--kq-color-border)] px-5 py-3.5 dark:border-zinc-800">
-          <h2 id="shell-modal-title" className="pr-2 text-base font-semibold text-[var(--kq-color-strong)] dark:text-zinc-100">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[var(--kq-color-border)] px-5 py-3.5 dark:border-[var(--kq-color-border)]">
+          <h2 id="shell-modal-title" className="pr-2 text-base font-semibold text-[var(--kq-color-strong)] dark:text-[var(--kq-color-strong)]">
             {title}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="kq-btn-ghost shrink-0 rounded-md px-2 py-1 text-sm dark:hover:bg-zinc-800/80 dark:hover:text-zinc-200"
+            className="kq-btn-ghost shrink-0 rounded-md px-2 py-1 text-sm dark:hover:bg-[var(--kq-hover-bg-strong)] dark:hover:text-[var(--kq-color-strong)]"
           >
             ✕
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 text-sm leading-relaxed text-[var(--kq-color-ink)] dark:text-zinc-300">
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 text-sm leading-relaxed text-[var(--kq-color-ink)] dark:text-[var(--kq-color-ink)]">
           {children}
         </div>
       </div>

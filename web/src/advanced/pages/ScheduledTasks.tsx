@@ -122,12 +122,12 @@ export function ScheduledTasksPage() {
   const renderActiveCard = (job: CronJobEntry) => (
     <div
       key={job.id}
-      className="hd-glass-subtle px-5 py-4 dark:border-zinc-800 dark:bg-zinc-900"
+      className="hd-glass-subtle px-5 py-4 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)]"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+            <h3 className="text-sm font-semibold text-[var(--kq-color-strong)] truncate">
               {job.name || job.id.slice(0, 8)}
             </h3>
             {job.paused && (
@@ -185,12 +185,12 @@ export function ScheduledTasksPage() {
     return (
       <div
         key={job.id}
-        className="hd-glass-subtle px-5 py-4 dark:border-zinc-800 dark:bg-zinc-900/50"
+        className="hd-glass-subtle px-5 py-4 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)]"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 truncate">
+              <h3 className="text-sm font-semibold text-[var(--kq-color-ink)] truncate">
                 {job.name || job.id.slice(0, 8)}
               </h3>
               {failed && (
@@ -229,11 +229,11 @@ export function ScheduledTasksPage() {
         <div>
           <BackButton onClick={() => nav(backPath)}>{backLabel}</BackButton>
           <h1 className="hd-page-title">{t("cron.title")}</h1>
-          <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">
+          <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-[var(--kq-color-muted)]">
             {t("cron.lead")}
           </p>
-          <p className="mt-3 max-w-xl rounded-[var(--radius-shell-lg)] border border-[#e8e0ed]/90 bg-[#f8f3f8]/80 px-3.5 py-2.5 text-xs leading-relaxed text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-400">
-            <span className="font-medium text-zinc-700 dark:text-zinc-300">{t("cron.tipLabel")}</span>
+          <p className="mt-3 max-w-xl rounded-[var(--radius-shell-lg)] border border-[#e8e0ed]/90 bg-[#f8f3f8]/80 px-3.5 py-2.5 text-xs leading-relaxed text-zinc-600 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)] dark:text-[var(--kq-color-muted)]">
+            <span className="font-medium text-[var(--kq-color-ink)]">{t("cron.tipLabel")}</span>
             <span className="mx-1 text-zinc-400" aria-hidden>
               ·
             </span>
@@ -244,7 +244,7 @@ export function ScheduledTasksPage() {
         {loading ? (
           <p className="text-sm text-zinc-400">{t("cron.loading")}</p>
         ) : jobs.length === 0 && completed.length === 0 ? (
-          <div className="rounded-[var(--radius-shell-lg)] border border-zinc-200 bg-white px-5 py-8 text-center dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="rounded-[var(--radius-shell-lg)] border border-zinc-200 bg-white px-5 py-8 text-center dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)]">
             <p className="text-sm text-zinc-500">{t("cron.empty")}</p>
             <p className="mt-1 text-xs text-zinc-400">{t("cron.emptyHint")}</p>
           </div>

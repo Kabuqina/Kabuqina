@@ -14,13 +14,13 @@ type Props = {
 export function Toggle({ value, onChange, disabled, tone = "kabuqina", "aria-label": ariaLabel }: Props) {
   const activeClass =
     tone === "kabuqina"
-      ? "bg-[var(--kq-color-primary)] dark:bg-[#D4C5E2]"
-      : "bg-[var(--kq-color-primary)] dark:bg-[#D4C5E2]";
+      ? "bg-[var(--kq-color-primary)] dark:bg-[var(--kq-color-primary-light)]"
+      : "bg-[var(--kq-color-primary)] dark:bg-[var(--kq-color-primary-light)]";
   const idleClass =
     tone === "kabuqina"
-      ? "bg-[#d9cde3] dark:bg-zinc-700"
-      : "bg-[#d9cde3] dark:bg-zinc-700";
-  const focusClass = "focus-visible:ring-[var(--kq-color-primary)] dark:focus-visible:ring-[#D4C5E2]";
+      ? "bg-[#d9cde3] dark:bg-[var(--kq-hover-bg-strong)]"
+      : "bg-[#d9cde3] dark:bg-[var(--kq-hover-bg-strong)]";
+  const focusClass = "focus-visible:ring-[var(--kq-color-primary)] dark:focus-visible:ring-[var(--kq-color-primary-light)]";
 
   return (
     <button
@@ -40,7 +40,7 @@ export function Toggle({ value, onChange, disabled, tone = "kabuqina", "aria-lab
     >
       <span
         className={cn(
-          "pointer-events-none block h-5 w-5 translate-y-0 rounded-full bg-white shadow-sm ring-0 transition-transform dark:bg-zinc-900",
+          "pointer-events-none block h-5 w-5 translate-y-0 rounded-full bg-white shadow-sm ring-0 transition-transform dark:bg-[var(--kq-glass-bg)]",
           value ? "translate-x-5" : "translate-x-0",
         )}
       />

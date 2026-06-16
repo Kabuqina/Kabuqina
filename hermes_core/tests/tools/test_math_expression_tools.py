@@ -24,11 +24,10 @@ def test_cleanup_normalizes_via_sympy_core():
     assert result["warnings"] == []
 
 
-def test_formula_to_code_python_and_numpy_with_validation():
+def test_formula_to_code_python_with_validation():
     from tools.math_expression_tools import math_formula_to_code
 
     py = json.loads(math_formula_to_code("E = mc^2", "python"))
-    npy = json.loads(math_formula_to_code("E = mc^2", "numpy"))
 
     assert py["ok"] is True
     assert py["language"] == "python"
@@ -41,10 +40,14 @@ def test_formula_to_code_python_and_numpy_with_validation():
     assert py["semantic_validation"]["contract_required"] is True
     assert any("open/closed interval" in item for item in py["semantic_validation"]["must_check"])
 
-    assert npy["ok"] is True
-    assert npy["language"] == "numpy"
-    assert "import numpy as np" in npy["code"]
-    assert "def compute_energy" in npy["code"]
+
+def test_formula_to_code_rejects_numpy_target():
+    """NumPy is a Python library, not an advertised target language."""
+    from tools.math_expression_tools import math_formula_to_code
+
+    result = json.loads(math_formula_to_code("E = mc^2", "numpy"))
+    assert "error" in result
+    assert "numpy" not in result["supported"]
 
 
 def test_formula_to_code_emits_each_offered_language():
@@ -52,7 +55,6 @@ def test_formula_to_code_emits_each_offered_language():
 
     expected_signature = {
         "python": "def compute_energy",
-        "numpy": "def compute_energy",
         "javascript": "function compute_energy",
         "octave": "function y = compute_energy",
         "cpp17": "double compute_energy",

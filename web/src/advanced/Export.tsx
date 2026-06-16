@@ -136,13 +136,13 @@ export function Export() {
             {t("export.back")}
           </BackButton>
           <h1 className="hd-page-title">{t("export.title")}</h1>
-          <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">
+          <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-[var(--kq-color-muted)]">
             {t("export.lead")}
           </p>
         </div>
 
-        <div className="rounded-[var(--radius-shell-lg)] border border-zinc-200/90 bg-white/70 p-4 dark:border-zinc-700 dark:bg-zinc-800/60">
-          <label className="block text-sm font-medium text-zinc-800 dark:text-zinc-200">
+        <div className="rounded-[var(--radius-shell-lg)] border border-zinc-200/90 bg-white/70 p-4 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg-subtle)]">
+          <label className="block text-sm font-medium text-[var(--kq-color-strong)]">
             {t("export.formatLabel")}
           </label>
           <div className="mt-2 flex gap-3">
@@ -159,7 +159,7 @@ export function Export() {
                   onChange={() => setFormat(f)}
                   className="accent-[var(--kq-color-primary)]"
                 />
-                <span className="text-zinc-700 dark:text-zinc-300">
+                <span className="text-[var(--kq-color-ink)]">
                   {f === "json" ? "JSON" : "Markdown"}
                 </span>
               </label>
@@ -171,30 +171,30 @@ export function Export() {
           <button
             type="button"
             onClick={selectAll}
-            className="text-sm text-[var(--kq-color-strong)] hover:text-[var(--kq-color-ink)] dark:text-[#D4C5E2] dark:hover:text-[#D4C5E2]"
+            className="text-sm text-[var(--kq-color-strong)] hover:text-[var(--kq-color-ink)] dark:text-[var(--kq-color-primary-light)] dark:hover:text-[var(--kq-color-primary-light)]"
           >
             {t("export.selectAll")}
           </button>
           <button
             type="button"
             onClick={deselectAll}
-            className="text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+            className="text-sm text-zinc-500 hover:text-[var(--kq-color-muted)] dark:hover:text-[var(--kq-color-ink)]"
           >
             {t("export.deselectAll")}
           </button>
-          <span className="ml-auto text-xs text-zinc-400 dark:text-zinc-500">
+          <span className="ml-auto text-xs text-[var(--kq-color-muted)]">
             {t("export.selected", { count: selected.size })}
           </span>
         </div>
 
         {loading && (
-          <p className="text-sm text-zinc-400 dark:text-zinc-500 py-8 text-center">
+          <p className="text-sm text-[var(--kq-color-muted)] py-8 text-center">
             {t("export.loading")}
           </p>
         )}
 
         {!loading && sessions.length === 0 && (
-          <p className="text-sm text-zinc-400 dark:text-zinc-500 py-8 text-center">
+          <p className="text-sm text-[var(--kq-color-muted)] py-8 text-center">
             {t("export.noSessions")}
           </p>
         )}
@@ -208,7 +208,7 @@ export function Export() {
               return (
                 <label
                   key={s.id}
-                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 cursor-pointer transition hover:bg-zinc-100/70 dark:hover:bg-zinc-800/70"
+                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 cursor-pointer transition hover:bg-zinc-100/70 dark:hover:bg-[var(--kq-hover-bg-strong)]"
                 >
                   <input
                     type="checkbox"
@@ -217,10 +217,10 @@ export function Export() {
                     className="accent-[var(--kq-color-primary)] shrink-0"
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm text-zinc-800 dark:text-zinc-200">
+                    <div className="truncate text-sm text-[var(--kq-color-strong)]">
                       {label}
                     </div>
-                    <div className="mt-0.5 flex gap-3 text-xs text-zinc-400 dark:text-zinc-500">
+                    <div className="mt-0.5 flex gap-3 text-xs text-[var(--kq-color-muted)]">
                       <span>{s.id.slice(0, 12)}</span>
                       {s.model && <span>{s.model}</span>}
                       {s.message_count != null && (
@@ -250,7 +250,7 @@ export function Export() {
         <button
           type="button"
           onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" })}
-          className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border border-[var(--kq-color-border)] bg-white/90 text-[var(--kq-color-muted)] shadow-[var(--kq-shadow-card)] backdrop-blur transition hover:bg-white hover:text-[var(--kq-color-strong)] dark:bg-zinc-800/90 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+          className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border border-[var(--kq-color-border)] bg-white/90 text-[var(--kq-color-muted)] shadow-[var(--kq-shadow-card)] backdrop-blur transition hover:bg-white hover:text-[var(--kq-color-strong)] dark:bg-[var(--kq-glass-bg-subtle)] dark:text-[var(--kq-color-ink)] dark:hover:bg-[var(--kq-hover-bg-strong)] dark:hover:text-[var(--kq-color-strong)]"
           aria-label={t("settings.scrollTop")}
           title={t("settings.scrollTop")}
         >
@@ -264,7 +264,7 @@ export function Export() {
               behavior: "smooth",
             })
           }
-          className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border border-[var(--kq-color-border)] bg-white/90 text-[var(--kq-color-muted)] shadow-[var(--kq-shadow-card)] backdrop-blur transition hover:bg-white hover:text-[var(--kq-color-strong)] dark:bg-zinc-800/90 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+          className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border border-[var(--kq-color-border)] bg-white/90 text-[var(--kq-color-muted)] shadow-[var(--kq-shadow-card)] backdrop-blur transition hover:bg-white hover:text-[var(--kq-color-strong)] dark:bg-[var(--kq-glass-bg-subtle)] dark:text-[var(--kq-color-ink)] dark:hover:bg-[var(--kq-hover-bg-strong)] dark:hover:text-[var(--kq-color-strong)]"
           aria-label={t("settings.scrollBottom")}
           title={t("settings.scrollBottom")}
         >

@@ -17,7 +17,7 @@ export function LanguageToggle({ className = "" }: { className?: string }) {
   return (
     <div
       className={cn(
-        "inline-flex rounded-[var(--radius-shell-lg)] border border-[var(--kq-color-border)] bg-[var(--kq-color-primary-pale)]/45 p-0.5 dark:border-zinc-700 dark:bg-zinc-800/50",
+        "inline-flex rounded-[var(--radius-shell-lg)] border border-[var(--kq-color-border)] bg-[var(--kq-color-primary-pale)]/45 p-0.5 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg-subtle)]",
         className
       )}
     >

@@ -55,10 +55,10 @@ export function ConfirmDialogHost() {
         aria-modal
         aria-labelledby="kq-confirm-title"
         aria-describedby="kq-confirm-message"
-        className="kq-confirm-dialog relative z-10 flex w-full max-w-md flex-col overflow-hidden border border-[var(--kq-color-border)] bg-white/96 shadow-[var(--kq-shadow-soft)] backdrop-blur-md dark:border-zinc-700 dark:bg-zinc-950"
+        className="kq-confirm-dialog relative z-10 flex w-full max-w-md flex-col overflow-hidden border border-[var(--kq-color-border)] bg-white/96 shadow-[var(--kq-shadow-soft)] backdrop-blur-md dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start gap-3 border-b border-[var(--kq-color-border)] px-5 py-4 dark:border-zinc-800">
+        <div className="flex items-start gap-3 border-b border-[var(--kq-color-border)] px-5 py-4 dark:border-[var(--kq-color-border)]">
           <div
             className={cn(
               "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-shell-lg)]",
@@ -66,7 +66,7 @@ export function ConfirmDialogHost() {
                 ? "bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-300"
                 : isWarning
                   ? "bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-300"
-                  : "bg-[#f3edf6] text-[var(--kq-color-strong)] dark:bg-zinc-800 dark:text-zinc-200",
+                  : "bg-[#f3edf6] text-[var(--kq-color-strong)] dark:bg-[var(--kq-glass-bg-subtle)] dark:text-[var(--kq-color-ink)]",
             )}
           >
             <AlertTriangle className="h-4 w-4" strokeWidth={2.25} aria-hidden />
@@ -74,13 +74,13 @@ export function ConfirmDialogHost() {
           <div className="min-w-0 flex-1">
             <h2
               id="kq-confirm-title"
-              className="text-base font-semibold leading-snug text-[var(--kq-color-strong)] dark:text-zinc-100"
+              className="text-base font-semibold leading-snug text-[var(--kq-color-strong)] dark:text-[var(--kq-color-strong)]"
             >
               {request.title}
             </h2>
             <p
               id="kq-confirm-message"
-              className="mt-2 text-sm leading-relaxed text-[var(--kq-color-ink)]/88 dark:text-zinc-300"
+              className="mt-2 text-sm leading-relaxed text-[var(--kq-color-ink)]/88 dark:text-[var(--kq-color-ink)]"
             >
               {request.message}
             </p>
@@ -90,7 +90,7 @@ export function ConfirmDialogHost() {
         <div className="flex flex-wrap justify-end gap-2 px-5 py-4">
           <button
             type="button"
-            className="kq-confirm-btn-secondary rounded-[var(--radius-shell-lg)] border border-[var(--kq-color-border)] px-4 py-2 text-sm font-medium text-[var(--kq-color-ink)] transition hover:bg-[#f5f0f7] dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-900"
+            className="kq-confirm-btn-secondary rounded-[var(--radius-shell-lg)] border border-[var(--kq-color-border)] px-4 py-2 text-sm font-medium text-[var(--kq-color-ink)] transition hover:bg-[#f5f0f7] dark:border-[var(--kq-color-border)] dark:text-[var(--kq-color-ink)] dark:hover:bg-[var(--kq-hover-bg-strong)]"
             onClick={() => answerConfirm(false)}
           >
             {cancelLabel}

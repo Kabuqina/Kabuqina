@@ -36,14 +36,14 @@ function TypingIndicator() {
   const { t } = useI18n();
   return (
     <AssistantStreamShell>
-      <div className="kq-chat-bubble-assistant rounded-2xl rounded-tl-sm px-4 py-3 dark:border-zinc-700/80 dark:bg-zinc-800/90">
-        <p className="mb-2 text-xs text-zinc-400 dark:text-zinc-500">
+      <div className="kq-chat-bubble-assistant rounded-2xl rounded-tl-sm px-4 py-3 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg-subtle)]">
+        <p className="mb-2 text-xs text-[var(--kq-color-muted)]">
           {t("chat.typingStatus")}…
         </p>
         <div className="flex h-4 items-center gap-1" aria-hidden>
-          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--kq-color-primary)] dark:bg-zinc-600" style={{ animationDelay: "0ms" }} />
-          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--kq-color-primary)] dark:bg-zinc-600" style={{ animationDelay: "150ms" }} />
-          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--kq-color-primary)] dark:bg-zinc-600" style={{ animationDelay: "300ms" }} />
+          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--kq-color-primary)] dark:bg-[var(--kq-hover-bg-strong)]" style={{ animationDelay: "0ms" }} />
+          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--kq-color-primary)] dark:bg-[var(--kq-hover-bg-strong)]" style={{ animationDelay: "150ms" }} />
+          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[var(--kq-color-primary)] dark:bg-[var(--kq-hover-bg-strong)]" style={{ animationDelay: "300ms" }} />
         </div>
       </div>
     </AssistantStreamShell>
@@ -55,8 +55,8 @@ function LoadPackageDownloadProgress({ packages }: { packages: LoadPackageStatus
   if (packages.length === 0) return null;
   return (
     <AssistantStreamShell>
-      <div className="kq-chat-bubble-assistant rounded-2xl rounded-tl-sm px-4 py-3 dark:border-zinc-700/80 dark:bg-zinc-800/90">
-        <p className="mb-3 text-xs font-medium text-[var(--kq-color-strong)] dark:text-zinc-100">
+      <div className="kq-chat-bubble-assistant rounded-2xl rounded-tl-sm px-4 py-3 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg-subtle)]">
+        <p className="mb-3 text-xs font-medium text-[var(--kq-color-strong)] dark:text-[var(--kq-color-strong)]">
           {t("settings.loadPackageChatTitle")}
         </p>
         <div className="space-y-3">
@@ -67,17 +67,17 @@ function LoadPackageDownloadProgress({ packages }: { packages: LoadPackageStatus
             const percent = job?.percent ?? (total ? Math.floor(downloaded * 100 / total) : 0);
             return (
               <div key={pkg.id}>
-                <div className="flex items-center justify-between gap-3 text-xs text-[var(--kq-color-muted)] dark:text-zinc-400">
+                <div className="flex items-center justify-between gap-3 text-xs text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">
                   <span className="truncate">{packageTitle(pkg, t)}</span>
                   <span>{percent}%</span>
                 </div>
-                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[var(--kq-hover-bg-strong)]">
                   <div
                     className="h-full rounded-full bg-[var(--kq-color-primary)] transition-[width]"
                     style={{ width: `${Math.max(4, Math.min(100, percent))}%` }}
                   />
                 </div>
-                <p className="mt-1 text-xs text-[var(--kq-color-muted)] dark:text-zinc-500">
+                <p className="mt-1 text-xs text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">
                   {formatBytes(downloaded)} / {formatBytes(total)}
                 </p>
               </div>
@@ -139,13 +139,13 @@ function PptxRenderCard({
 
   return (
     <AssistantStreamShell>
-      <div className="kq-chat-bubble-assistant rounded-2xl rounded-tl-sm px-4 py-3 dark:border-zinc-700/80 dark:bg-zinc-800/90">
-        <div className="flex items-center gap-2 text-sm font-semibold text-[var(--kq-color-strong)] dark:text-zinc-100">
+      <div className="kq-chat-bubble-assistant rounded-2xl rounded-tl-sm px-4 py-3 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg-subtle)]">
+        <div className="flex items-center gap-2 text-sm font-semibold text-[var(--kq-color-strong)] dark:text-[var(--kq-color-strong)]">
           <BookOpen className="h-4 w-4" aria-hidden />
           {interaction.question || "正在生成 PPT…"}
         </div>
         {status === "rendering" ? (
-          <p className="mt-2 text-xs text-[var(--kq-color-muted)] dark:text-zinc-400">
+          <p className="mt-2 text-xs text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">
             正在用 PptxGenJS 渲染演示文稿，请稍候…
           </p>
         ) : null}
@@ -186,12 +186,12 @@ function AgentInteractionCard({
   return (
     <>
       <AssistantStreamShell>
-        <div className="kq-chat-bubble-assistant rounded-2xl rounded-tl-sm px-4 py-3 dark:border-zinc-700/80 dark:bg-zinc-800/90">
-          <div className="text-sm font-semibold text-[var(--kq-color-strong)] dark:text-zinc-100">
+        <div className="kq-chat-bubble-assistant rounded-2xl rounded-tl-sm px-4 py-3 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg-subtle)]">
+          <div className="text-sm font-semibold text-[var(--kq-color-strong)] dark:text-[var(--kq-color-strong)]">
             {interaction.question || "请确认"}
           </div>
           {interaction.artifact?.content ? (
-            <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap rounded-lg border border-[#e8e0ed] bg-white/70 p-3 text-sm leading-relaxed text-zinc-800 dark:border-zinc-700 dark:bg-zinc-950/40 dark:text-zinc-100">
+            <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap rounded-lg border border-[#e8e0ed] bg-white/70 p-3 text-sm leading-relaxed text-zinc-800 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)] dark:text-[var(--kq-color-strong)]">
               {interaction.artifact.content}
             </pre>
           ) : null}
@@ -214,11 +214,11 @@ function AgentInteractionCard({
 
       {refineOpen ? (
         <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/30 p-4 sm:items-center" role="presentation">
-          <div className="w-full max-w-lg rounded-xl bg-white p-4 shadow-xl dark:bg-zinc-900">
-            <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">补充要求</h3>
-            <textarea value={note} onChange={(e) => setNote(e.target.value)} className="mt-3 h-32 w-full rounded-lg border border-zinc-300 p-3 text-sm dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100" autoFocus />
+          <div className="w-full max-w-lg rounded-xl bg-white p-4 shadow-xl dark:bg-[var(--kq-glass-bg)]">
+            <h3 className="text-base font-semibold text-[var(--kq-color-strong)]">补充要求</h3>
+            <textarea value={note} onChange={(e) => setNote(e.target.value)} className="mt-3 h-32 w-full rounded-lg border border-zinc-300 p-3 text-sm dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)] dark:text-[var(--kq-color-strong)]" autoFocus />
             <div className="mt-3 flex justify-end gap-2">
-              <button type="button" onClick={() => setRefineOpen(false)} className="rounded-lg px-3 py-2 text-sm text-zinc-600 dark:text-zinc-300">取消</button>
+              <button type="button" onClick={() => setRefineOpen(false)} className="rounded-lg px-3 py-2 text-sm text-[var(--kq-color-ink)]">取消</button>
               <button type="button" onClick={() => submit("refine", note, { outline: draft })} className="kq-quick-action rounded-lg px-3 py-2 text-sm">重新生成</button>
             </div>
           </div>
@@ -227,11 +227,11 @@ function AgentInteractionCard({
 
       {editOpen ? (
         <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/30 p-4 sm:items-center" role="presentation">
-          <div className="w-full max-w-2xl rounded-xl bg-white p-4 shadow-xl dark:bg-zinc-900">
-            <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">自行编辑</h3>
-            <textarea value={draft} onChange={(e) => setDraft(e.target.value)} className="mt-3 h-80 w-full rounded-lg border border-zinc-300 p-3 font-mono text-sm dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100" autoFocus />
+          <div className="w-full max-w-2xl rounded-xl bg-white p-4 shadow-xl dark:bg-[var(--kq-glass-bg)]">
+            <h3 className="text-base font-semibold text-[var(--kq-color-strong)]">自行编辑</h3>
+            <textarea value={draft} onChange={(e) => setDraft(e.target.value)} className="mt-3 h-80 w-full rounded-lg border border-zinc-300 p-3 font-mono text-sm dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)] dark:text-[var(--kq-color-strong)]" autoFocus />
             <div className="mt-3 flex justify-end gap-2">
-              <button type="button" onClick={() => setEditOpen(false)} className="rounded-lg px-3 py-2 text-sm text-zinc-600 dark:text-zinc-300">取消</button>
+              <button type="button" onClick={() => setEditOpen(false)} className="rounded-lg px-3 py-2 text-sm text-[var(--kq-color-ink)]">取消</button>
               <button type="button" onClick={() => submit("edit", draft)} className="kq-quick-action rounded-lg px-3 py-2 text-sm">保存并生成</button>
             </div>
           </div>
@@ -315,7 +315,7 @@ function EmptyState({
                 className={cn(
                   "kq-empty-action kq-fade-up inline-flex h-auto min-w-0 items-center justify-center gap-2 rounded-xl border px-3.5 py-2.5 text-sm font-medium",
                   "text-[var(--kq-color-ink)] active:scale-[0.99]",
-                  "dark:border-zinc-700 dark:bg-zinc-900/70 dark:text-zinc-200",
+                  "dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)] dark:text-[var(--kq-color-ink)]",
                   "dark:hover:border-sky-700 dark:hover:bg-sky-950/40 dark:hover:text-sky-100"
                 )}
                 style={{ animationDelay: `${i * 0.06}s`, animationFillMode: "both" }}
@@ -361,7 +361,7 @@ export function ChatMessageList({
   return (
     <div
       className={cn(
-        "kq-chat-scroll min-h-0 flex-1 overflow-y-auto dark:bg-[#0F172A]",
+        "kq-chat-scroll min-h-0 flex-1 overflow-y-auto",
         isEmpty && "flex min-h-0 flex-col"
       )}
     >

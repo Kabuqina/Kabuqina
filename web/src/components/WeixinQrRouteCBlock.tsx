@@ -263,7 +263,7 @@ export function WeixinQrRouteCBlock({ className, onSuccess, onHermesRunningChang
         <StatusBanner variant="error" title={weixinInlineErr} />
       ) : null}
       {weixinView?.progress?.phase ? (
-        <p className="text-sm text-zinc-600 dark:text-zinc-300">{weixinPhaseLabel(weixinView.progress.phase)}</p>
+        <p className="text-sm text-[var(--kq-color-ink)]">{weixinPhaseLabel(weixinView.progress.phase)}</p>
       ) : null}
       {weixinView?.progress?.liteapp_url ? (
         <div className="space-y-1">
@@ -271,21 +271,21 @@ export function WeixinQrRouteCBlock({ className, onSuccess, onHermesRunningChang
             href={weixinView.progress.liteapp_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-block max-w-full break-all text-sm font-medium text-[var(--kq-color-strong)] underline-offset-2 hover:underline dark:text-[#D4C5E2]"
+            className="inline-block max-w-full break-all text-sm font-medium text-[var(--kq-color-strong)] underline-offset-2 hover:underline dark:text-[var(--kq-color-primary-light)]"
           >
             {t("settings.weixinOpenLink")}
           </a>
-          <p className="break-all font-mono text-xs text-zinc-500 dark:text-zinc-500">
+          <p className="break-all font-mono text-xs text-[var(--kq-color-muted)]">
             {weixinView.progress.liteapp_url}
           </p>
-          <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">{t("settings.weixinAfterScanHint")}</p>
+          <p className="text-xs leading-relaxed text-[var(--kq-color-muted)]">{t("settings.weixinAfterScanHint")}</p>
         </div>
       ) : null}
       {weixinView?.progress?.message ? (
         <p className="text-sm text-red-600 dark:text-red-400">{weixinView.progress.message}</p>
       ) : null}
       {weixinView?.result?.ok === true ? (
-        <div className="space-y-2 text-sm text-zinc-600 dark:text-zinc-300">
+        <div className="space-y-2 text-sm text-[var(--kq-color-ink)]">
           <p>{weixinRestarted ? t("settings.weixinSuccessDone") : t("settings.weixinSuccess")}</p>
           {weixinView.result.account_id ? (
             <p className="font-mono text-xs text-zinc-500">account_id: {weixinView.result.account_id}</p>

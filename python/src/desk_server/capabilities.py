@@ -69,6 +69,20 @@ def _desk_catalog_skills(policy) -> List[Dict[str, Any]]:
     return sorted(out, key=lambda s: (s.get("category") or "", s.get("name") or ""))
 
 
+# Toolsets that 小娜 (Kabuqina desktop) never uses — consumer/entertainment
+# and platform-integration toolsets that don't fit a student-helper desktop.
+# We hide them from the desktop capability catalog only; hermes_core's
+# CONFIGURABLE_TOOLSETS (CLI/TUI/tests) stays intact.
+_DESK_HIDDEN_TOOLSETS = frozenset({
+    "spotify",        # 🎵 music playback
+    "discord",        # 💬 Discord read/participate
+    "discord_admin",  # 🛡️ Discord server admin
+    "homeassistant",  # 🏠 smart-home control
+    "yuanbao",        # 🤖 Yuanbao group bot
+    "rl",             # 🧪 RL training (Tinker-Atropos)
+})
+
+
 @lru_cache(maxsize=256)
 def _resolve_toolset_names_cached(name: str) -> Tuple[str, ...]:
     """Memoize toolset → tool names for desktop catalog (stable per process)."""
@@ -95,6 +109,8 @@ def _desk_catalog_toolsets(policy) -> List[Dict[str, Any]]:
     )
     result: List[Dict[str, Any]] = []
     for name, label, desc in _get_effective_configurable_toolsets():
+        if name in _DESK_HIDDEN_TOOLSETS:
+            continue
         tools = list(_resolve_toolset_names_cached(name))
         # source = provenance (core-built-in toolsets); trust = curation/safety.
         visibility = policy.tool_visibility({"name": name, "source": "builtin", "trust": "official"})
@@ -189,6 +205,29 @@ def _fresh_load_packages_for_capabilities() -> List[Dict[str, Any]]:
         return _fallback_load_packages_for_capabilities(exc)
 
 
+def _always_on_toolset_names() -> set[str]:
+    """Toolsets active for the desktop agent but absent from the configurable
+    checklist (``CONFIGURABLE_TOOLSETS``) — e.g. ``math``.
+
+    The catalog's toolset list (and thus its ``enabled`` flags) only covers
+    user-configurable toolsets, so always-on, non-configurable ones never show
+    up there. Without adding them back, their product capabilities falsely read
+    as ``disabled_toolset`` even though the agent really has those tools. We
+    intentionally subtract the configurable keys so a user-disabled toolset is
+    never resurrected here — only the non-toggleable always-on set is added.
+    """
+    try:
+        from tool_policy import ToolPolicy
+        from hermes_cli.tools_config import CONFIGURABLE_TOOLSETS
+
+        configurable = {key for key, _, _ in CONFIGURABLE_TOOLSETS}
+        resolved = {str(name) for name in ToolPolicy.resolve(ToolPolicy.is_power_user())}
+        return resolved - configurable
+    except Exception as exc:  # pragma: no cover - defensive, keeps catalog usable
+        log.debug("could not resolve always-on toolsets: %s", exc)
+        return set()
+
+
 def _desk_product_capabilities(toolsets: List[Dict[str, Any]], packages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Build product capabilities from fresh load-package state."""
     list_capability_defs, build_all_capability_statuses = _load_product_capability_modules()
@@ -197,6 +236,7 @@ def _desk_product_capabilities(toolsets: List[Dict[str, Any]], packages: List[Di
         for item in toolsets
         if item.get("enabled")
     }
+    enabled_toolsets |= _always_on_toolset_names()
     return build_all_capability_statuses(
         list_capability_defs(),
         packages,

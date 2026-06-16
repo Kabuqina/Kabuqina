@@ -153,7 +153,7 @@ export function SettingsDisplay({
   return (
     <>
       <Section icon={Type} title={t("settings.fontTitle")} desc={t("settings.fontDesc")}>
-        <div className="inline-flex w-full max-w-md rounded-[var(--radius-shell-lg)] border border-[var(--kq-color-border)] bg-[var(--kq-color-primary-pale)]/45 p-0.5 dark:border-zinc-700 dark:bg-zinc-800/50 sm:w-auto">
+        <div className="inline-flex w-full max-w-md rounded-2xl border border-[var(--kq-color-border)] bg-[var(--kq-color-primary-pale)]/45 p-1 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg-subtle)] sm:w-auto">
           {(
             [
               { id: "small" as const, label: t("settings.fontSmall") },
@@ -168,7 +168,7 @@ export function SettingsDisplay({
                 onSetFontSize(id);
               }}
               className={cn(
-                "min-h-[2.25rem] flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition sm:flex-initial",
+                "min-h-[2.25rem] flex-1 rounded-xl px-3 py-1.5 text-sm font-medium transition sm:flex-initial",
                 "active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50",
                 fontSize === id
                   ? "hd-btn-segment-active shadow-sm"
@@ -182,7 +182,7 @@ export function SettingsDisplay({
       </Section>
 
       <Section icon={Moon} title={t("settings.themeTitle")} desc={t("settings.themeDesc")}>
-        <div className="inline-flex w-full max-w-md rounded-[var(--radius-shell-lg)] border border-[var(--kq-color-border)] bg-[var(--kq-color-primary-pale)]/45 p-0.5 dark:border-zinc-700 dark:bg-zinc-800/50 sm:w-auto">
+        <div className="inline-flex w-full max-w-md rounded-2xl border border-[var(--kq-color-border)] bg-[var(--kq-color-primary-pale)]/45 p-1 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg-subtle)] sm:w-auto">
           {(
             [
               { id: "system" as const, label: t("settings.themeSystem") },
@@ -197,7 +197,7 @@ export function SettingsDisplay({
                 onSetThemeMode(id);
               }}
               className={cn(
-                "min-h-[2.25rem] flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition sm:flex-initial",
+                "min-h-[2.25rem] flex-1 rounded-xl px-3 py-1.5 text-sm font-medium transition sm:flex-initial",
                 "active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50",
                 themeMode === id
                   ? "hd-btn-segment-active shadow-sm"
@@ -218,7 +218,7 @@ export function SettingsDisplay({
         desc={t("settings.companionImageDesc")}
       >
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          <div className="grid h-28 w-28 shrink-0 place-items-center rounded-[var(--radius-shell-lg)] border border-[var(--kq-color-border)] bg-[var(--kq-color-primary-pale)]/35 p-2 dark:border-zinc-700 dark:bg-zinc-800/50">
+          <div className="grid h-28 w-28 shrink-0 place-items-center rounded-[var(--radius-shell-lg)] border border-[var(--kq-color-border)] bg-[var(--kq-color-primary-pale)]/35 p-2 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg-subtle)]">
             <img
               src={customCompanionImage ?? "/kabuqina_pill_scene.svg"}
               alt=""
@@ -227,7 +227,7 @@ export function SettingsDisplay({
             />
           </div>
           <div className="min-w-0 flex-1 space-y-3">
-            <p className="text-sm leading-relaxed text-[var(--kq-color-ink)] dark:text-zinc-300">
+            <p className="text-sm leading-relaxed text-[var(--kq-color-ink)] dark:text-[var(--kq-color-ink)]">
               {t("settings.companionImageSpec")}
             </p>
             {companionImageError ? (
@@ -263,12 +263,12 @@ export function SettingsDisplay({
       >
         {powerUser ? (
           <div className="space-y-3">
-            <p className="w-full break-all font-mono text-xs leading-relaxed text-zinc-800 dark:text-zinc-200">
-              <span className="inline-block max-w-full rounded-md bg-zinc-100 px-2 py-1.5 dark:bg-zinc-800/90">
+            <p className="w-full break-all font-mono text-xs leading-relaxed text-[var(--kq-color-strong)]">
+              <span className="inline-block max-w-full rounded-md bg-zinc-100 px-2 py-1.5 dark:bg-[var(--kq-glass-bg-subtle)]">
                 {status?.workspace ?? "…"}
               </span>
             </p>
-            <label className="flex flex-wrap items-center gap-3 text-sm text-[var(--kq-color-ink)] dark:text-zinc-300">
+            <label className="flex flex-wrap items-center gap-3 text-sm text-[var(--kq-color-ink)] dark:text-[var(--kq-color-ink)]">
               <Toggle
                 value={workspaceMigrateFiles}
                 onChange={setWorkspaceMigrateFiles}

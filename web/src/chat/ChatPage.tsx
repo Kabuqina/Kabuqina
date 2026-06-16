@@ -1,7 +1,7 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Maximize2, PanelRight } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
@@ -182,6 +182,11 @@ export function ChatPage() {
   const nav = useNavigate();
   const location = useLocation();
   const workbench = useWorkbenchLayout();
+  // True when chat is reached without a model configured. We no longer force
+  // unconfigured users back to the wizard (onboarding auto-triggers on first
+  // launch and Settings covers config) — instead we keep them on chat with the
+  // send button disabled and a "configure model" prompt.
+  const [needsModelSetup, setNeedsModelSetup] = useState(false);
 
   const { hermesReady, hermesWarming, bootErr } = useHermesReadiness();
   const inFlightTurns = useInFlightTurns();
@@ -260,19 +265,26 @@ export function ChatPage() {
       return;
     }
     if (takePendingChatSecretGateBypass()) {
+      setNeedsModelSetup(false);
       return;
     }
-    const gate = async () => {
+    let cancelled = false;
+    const checkConfigured = async () => {
       try {
-        if (getAllowChatWithoutApi()) return;
+        if (getAllowChatWithoutApi()) {
+          if (!cancelled) setNeedsModelSetup(false);
+          return;
+        }
         const ok = await invoke<boolean>("cmd_has_secret");
-        if (ok) return;
-        nav("/onboarding/welcome", { replace: true });
+        if (!cancelled) setNeedsModelSetup(!ok);
       } catch {
-        nav("/onboarding/welcome", { replace: true });
+        if (!cancelled) setNeedsModelSetup(true);
       }
     };
-    void gate();
+    void checkConfigured();
+    return () => {
+      cancelled = true;
+    };
   }, [nav, location.state]);
 
   useEffect(() => {
@@ -403,7 +415,7 @@ export function ChatPage() {
   if (bootErr) {
     return (
       <AppScaffold surface="chat" className="flex h-full flex-col items-center justify-center px-6 text-center">
-        <p className="max-w-md whitespace-pre-wrap text-left text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="max-w-md whitespace-pre-wrap text-left text-sm text-[var(--kq-color-muted)]">
           {bootErr}
         </p>
         <button
@@ -432,7 +444,7 @@ export function ChatPage() {
         onClose={() => setApiRequiredOpen(false)}
         title={t("chat.apiRequiredTitle")}
       >
-        <p className="text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">{t("chat.apiRequiredBody")}</p>
+        <p className="text-sm leading-relaxed text-[var(--kq-color-muted)]">{t("chat.apiRequiredBody")}</p>
         <div className="mt-6 flex flex-wrap justify-end gap-2">
           <button
             type="button"
@@ -512,6 +524,8 @@ export function ChatPage() {
             onRemoveAttachment={onRemoveAttachment}
             onFilesPicked={onAddFiles}
             onStop={onStopAgent}
+            needsModelSetup={needsModelSetup}
+            onConfigureModel={() => nav("/settings", { state: { settingsTab: "model" } })}
           />
         </main>
         {workbench.showRightPanel && (

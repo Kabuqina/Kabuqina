@@ -316,7 +316,6 @@ export function CapabilitiesPage() {
   const [catalog, setCatalog] = useState<CapabilityCatalog | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("product");
   const [search, setSearch] = useState("");
-  const [recommendedOnly, setRecommendedOnly] = useState(false);
   const [selected, setSelected] = useState<Selected | null>(null);
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -379,7 +378,6 @@ export function CapabilitiesPage() {
     const q = search.trim().toLowerCase();
     return pool.filter((item) => {
       if (!isVisibleForRole(item, catalog.role)) return false;
-      if (recommendedOnly && !item.recommended) return false;
       if (!q) return true;
       return [
         item.name,
@@ -395,7 +393,7 @@ export function CapabilitiesPage() {
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(q));
     });
-  }, [activeTab, catalog, recommendedOnly, search, t]);
+  }, [activeTab, catalog, search, t]);
 
   async function openItem(item: ProductCapabilityItem | SkillItem | ToolsetItem | PluginItem) {
     if (activeTab === "product") {
@@ -460,33 +458,31 @@ export function CapabilitiesPage() {
   const showHintToggle = catalog != null && catalog.role !== "power";
 
   return (
-    <AppScaffold className="h-full overflow-hidden">
-      <div className="mx-auto flex h-full max-w-6xl flex-col gap-5 px-[var(--hd-page-pad-x)] py-8 sm:py-10">
-        <header>
-          <BackButton onClick={() => nav("/chat")}>{t("settings.back")}</BackButton>
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h1 className="hd-page-title">{t("capabilities.title")}</h1>
-              <p className="hd-body mt-1.5 max-w-2xl">{t("capabilities.lead")}</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {showHintToggle ? (
-                <HintToggle
-                  label={t("capabilities.hintLabel")}
-                  desc={t("capabilities.hintDesc")}
-                  value={showCapabilityHint}
-                  saving={hintSaving}
-                  onChange={toggleCapabilityHint}
-                />
-              ) : null}
-              <RolePill role={catalog?.role} roleLabel={t("capabilities.roleLabel")} />
-            </div>
-          </div>
-        </header>
+    <AppScaffold surface="chat" className="flex h-full min-h-0 flex-col overflow-hidden">
+      {/* Sticky glass top bar — same language as the chat shell / settings. */}
+      <div className="hd-topbar flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b px-2 py-2 sm:px-3">
+        <div className="flex items-center gap-2">
+          <BackButton onClick={() => nav("/chat")} className="-ml-1">{t("settings.back")}</BackButton>
+          <span className="text-sm font-semibold text-[var(--kq-color-strong)]">{t("capabilities.title")}</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {showHintToggle ? (
+            <HintToggle
+              label={t("capabilities.hintLabel")}
+              desc={t("capabilities.hintDesc")}
+              value={showCapabilityHint}
+              saving={hintSaving}
+              onChange={toggleCapabilityHint}
+            />
+          ) : null}
+          <RolePill role={catalog?.role} roleLabel={t("capabilities.roleLabel")} />
+        </div>
+      </div>
 
+      <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col gap-4 px-[var(--hd-page-pad-x)] py-5">
         <div className="flex min-h-0 flex-1 gap-4">
           <aside className="w-48 shrink-0">
-            <div className="flex flex-col gap-0.5 rounded-[var(--radius-shell-lg)] border border-[var(--kq-color-border)] bg-[var(--kq-color-primary-pale)]/45 p-0.5 dark:border-zinc-700 dark:bg-zinc-800/50">
+            <div className="flex flex-col gap-0.5 rounded-2xl border border-[var(--kq-color-border)] bg-[var(--kq-color-primary-pale)]/45 p-1 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg-subtle)]">
               {TABS.map(({ id, icon: Icon }) => (
                 <button
                   key={id}
@@ -496,7 +492,7 @@ export function CapabilitiesPage() {
                     setSelected(null);
                   }}
                   className={cn(
-                    "flex w-full items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition",
+                    "flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm font-medium transition",
                     "active:scale-[0.98]",
                     activeTab === id ? "hd-btn-segment-active shadow-sm" : "hd-btn-segment-idle",
                   )}
@@ -508,7 +504,7 @@ export function CapabilitiesPage() {
                   <span
                     className={cn(
                       "text-xs tabular-nums",
-                      activeTab === id ? "text-white/85" : "text-zinc-500 dark:text-zinc-500",
+                      activeTab === id ? "text-white/85" : "text-[var(--kq-color-muted)]",
                     )}
                   >
                     {counts[id]}
@@ -518,8 +514,8 @@ export function CapabilitiesPage() {
             </div>
           </aside>
 
-          <main className="hd-glass flex min-w-0 flex-1 flex-col overflow-hidden rounded-[var(--radius-shell-lg)]">
-            <div className="flex flex-wrap items-center gap-3 border-b border-zinc-200/90 px-4 py-3 dark:border-zinc-700/80">
+          <main className="hd-glass flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl">
+            <div className="flex flex-wrap items-center gap-3 border-b border-zinc-200/90 px-4 py-3 dark:border-[var(--kq-color-border)]">
               <div className="relative min-w-64 flex-1">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
                 <input
@@ -527,8 +523,8 @@ export function CapabilitiesPage() {
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder={t("capabilities.search")}
                   className={cn(
-                    "hd-input h-10 w-full rounded-[var(--radius-shell)] pl-9 pr-9 text-sm outline-none transition",
-                    "placeholder:text-[var(--kq-color-muted)] dark:placeholder:text-zinc-500",
+                    "hd-input h-10 w-full rounded-xl pl-9 pr-9 text-sm outline-none transition",
+                    "placeholder:text-[var(--kq-color-muted)] dark:placeholder:text-[var(--kq-color-muted)]",
                   )}
                 />
                 {search && (
@@ -542,15 +538,6 @@ export function CapabilitiesPage() {
                   </button>
                 )}
               </div>
-              <label className="flex cursor-pointer items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
-                <input
-                  type="checkbox"
-                  checked={recommendedOnly}
-                  onChange={(e) => setRecommendedOnly(e.target.checked)}
-                  className="size-3.5 rounded border-[var(--kq-color-border)] text-[var(--kq-color-primary)] focus:ring-[var(--kq-color-primary)] dark:border-zinc-600 dark:bg-zinc-800"
-                />
-                {t("capabilities.recommendedOnly")}
-              </label>
             </div>
 
             <div className="h-[calc(100%-65px)] overflow-y-auto p-4">
@@ -605,11 +592,11 @@ function CapabilityRow({
       type="button"
       onClick={onClick}
       className={cn(
-        "w-full rounded-[var(--radius-shell-lg)] border p-4 text-left shadow-[var(--shadow-shell)] transition",
+        "w-full rounded-2xl border p-4 text-left shadow-[var(--shadow-shell)] transition",
         "active:scale-[0.99]",
         active
-          ? "border-[var(--kq-color-primary-light)] bg-[var(--hd-info-bg)] dark:border-[#D4C5E2]/30 dark:bg-[var(--hd-info-bg)]"
-          : "hd-glass-subtle border-[var(--kq-color-border)] hover:border-[var(--kq-color-primary-light)] dark:border-zinc-700/90 dark:hover:border-[#D4C5E2]/40",
+          ? "border-[var(--kq-color-primary-light)] bg-[var(--hd-info-bg)] dark:border-[var(--kq-color-primary-light)]/30 dark:bg-[var(--hd-info-bg)]"
+          : "hd-glass-subtle border-[var(--kq-color-border)] hover:border-[var(--kq-color-primary-light)] dark:border-[var(--kq-color-border)] dark:hover:border-[var(--kq-color-primary-light)]/40",
       )}
     >
       <div className="flex items-start justify-between gap-3">
@@ -654,7 +641,7 @@ function DetailPanel({
 
   if (!selected) {
     return (
-      <aside className="hd-glass-subtle hidden w-80 shrink-0 rounded-[var(--radius-shell-lg)] border border-dashed border-zinc-300/90 p-6 text-sm text-zinc-500 dark:border-zinc-600/90 dark:text-zinc-400 lg:block">
+      <aside className="hd-glass-subtle hidden w-80 shrink-0 rounded-2xl border border-dashed border-zinc-300/90 p-6 text-sm text-zinc-500 dark:border-[var(--kq-color-border)] dark:text-[var(--kq-color-muted)] lg:block">
         {t("capabilities.detailSelectItem")}
       </aside>
     );
@@ -665,18 +652,18 @@ function DetailPanel({
   const content = detail?.content;
 
   return (
-    <aside className="hd-glass w-96 shrink-0 overflow-hidden rounded-[var(--radius-shell-lg)]">
-      <div className="flex items-center justify-between border-b border-zinc-200/90 px-4 py-3 dark:border-zinc-700/80">
+    <aside className="hd-glass w-96 shrink-0 overflow-hidden rounded-2xl">
+      <div className="flex items-center justify-between border-b border-zinc-200/90 px-4 py-3 dark:border-[var(--kq-color-border)]">
         <div className="flex min-w-0 items-center gap-2">
           <div className="kq-icon-well flex size-8 shrink-0 items-center justify-center rounded-lg">
             <Boxes className="h-4 w-4" />
           </div>
-          <span className="truncate font-medium text-zinc-900 dark:text-zinc-100">{capabilityTitle(item)}</span>
+          <span className="truncate font-medium text-[var(--kq-color-strong)]">{capabilityTitle(item)}</span>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="rounded-lg p-1.5 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+          className="rounded-lg p-1.5 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-[var(--kq-hover-bg-strong)] dark:hover:text-[var(--kq-color-strong)]"
           aria-label={t("capabilities.closePanel")}
         >
           <X className="h-4 w-4" />
@@ -708,7 +695,7 @@ function DetailPanel({
                 <h3 className="hd-section-title mb-2">{t("capabilities.linkedFiles")}</h3>
                 <div className="space-y-2">
                   {Object.entries(detail.linked_files).map(([group, files]) => (
-                    <div key={group} className="rounded-[var(--radius-shell)] bg-zinc-100 p-3 text-xs dark:bg-zinc-800/80">
+                    <div key={group} className="rounded-[var(--radius-shell)] bg-zinc-100 p-3 text-xs dark:bg-[var(--kq-glass-bg-subtle)]">
                       <div className="mb-1 font-medium">{group}</div>
                       {files.map((file) => (
                         <div key={file} className="font-mono text-zinc-500">{file}</div>
@@ -723,7 +710,7 @@ function DetailPanel({
                 {content}
               </pre>
             )}
-            <div className="flex flex-wrap gap-2 border-t border-zinc-200/90 pt-4 dark:border-zinc-700/80">
+            <div className="flex flex-wrap gap-2 border-t border-zinc-200/90 pt-4 dark:border-[var(--kq-color-border)]">
               {selected.tab === "skills" && item.can_edit && (
                 <Button variant="primary" size="sm" onClick={() => onAskAgent(item, "edit")}>
                   <Bot className="h-3.5 w-3.5" />
@@ -839,9 +826,9 @@ function PipelineGroup({ title, pipelines }: { title: string; pipelines: Product
       ) : (
         <div className="space-y-2">
           {pipelines.map((pipeline) => (
-            <div key={pipeline.id} className="rounded-[var(--radius-shell)] bg-zinc-100 px-3 py-2 text-xs dark:bg-zinc-800/90">
+            <div key={pipeline.id} className="rounded-[var(--radius-shell)] bg-zinc-100 px-3 py-2 text-xs dark:bg-[var(--kq-glass-bg-subtle)]">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="min-w-0 break-all font-medium text-zinc-800 dark:text-zinc-100">
+                <span className="min-w-0 break-all font-medium text-[var(--kq-color-strong)]">
                   {pipeline.title || pipeline.id}
                 </span>
                 <Badge tone={pipeline.ready ? "green" : "amber"}>
@@ -849,7 +836,7 @@ function PipelineGroup({ title, pipelines }: { title: string; pipelines: Product
                 </Badge>
               </div>
               {pipeline.steps.length > 0 ? (
-                <div className="mt-1.5 space-y-1 text-zinc-500 dark:text-zinc-400">
+                <div className="mt-1.5 space-y-1 text-[var(--kq-color-muted)]">
                   {pipeline.steps.map((step, index) => (
                     <div key={step.id || `${pipeline.id}-${index}`} className="break-words">
                       {formatPipelineStep(step)}
@@ -931,8 +918,8 @@ function LoadPackageGroup({
       ) : (
         <div className="space-y-1.5">
           {packages.map((pkg) => (
-            <div key={pkg.id} className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-shell)] bg-zinc-100 px-3 py-2 text-xs dark:bg-zinc-800/90">
-              <span className="min-w-0 break-all font-medium text-zinc-800 dark:text-zinc-100">{pkg.title || pkg.id}</span>
+            <div key={pkg.id} className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-shell)] bg-zinc-100 px-3 py-2 text-xs dark:bg-[var(--kq-glass-bg-subtle)]">
+              <span className="min-w-0 break-all font-medium text-[var(--kq-color-strong)]">{pkg.title || pkg.id}</span>
               <div className="flex shrink-0 flex-wrap items-center gap-1.5">
                 <Badge tone={pkg.job?.status === "error" ? "red" : pkg.job?.status === "running" ? "blue" : pkg.downloaded ? "green" : "amber"}>
                   {pkg.job?.status === "running"
@@ -977,7 +964,7 @@ function PluginDetails({ item }: { item: PluginItem }) {
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between gap-3 rounded-[var(--radius-shell)] bg-zinc-100 px-3 py-2 dark:bg-zinc-800/90">
+    <div className="flex justify-between gap-3 rounded-[var(--radius-shell)] bg-zinc-100 px-3 py-2 dark:bg-[var(--kq-glass-bg-subtle)]">
       <span className="text-zinc-500">{label}</span>
       <span className="min-w-0 break-words text-right font-medium">{value}</span>
     </div>
@@ -992,8 +979,8 @@ function RolePill({ role, roleLabel }: { role?: Role; roleLabel: string }) {
       <div className="kq-icon-well flex size-8 shrink-0 items-center justify-center rounded-lg">
         <Shield className="h-4 w-4" />
       </div>
-      <span className="text-zinc-500 dark:text-zinc-400">{roleLabel}</span>
-      <span className="font-medium text-zinc-900 dark:text-zinc-100">{roleText}</span>
+      <span className="text-[var(--kq-color-muted)]">{roleLabel}</span>
+      <span className="font-medium text-[var(--kq-color-strong)]">{roleText}</span>
     </div>
   );
 }
@@ -1014,8 +1001,8 @@ function HintToggle({
   return (
     <div className="hd-glass-subtle flex items-center gap-3 px-3 py-2 text-sm">
       <div className="min-w-0 flex-1">
-        <div className="text-xs font-medium text-zinc-700 dark:text-zinc-200">{label}</div>
-        <div className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{desc}</div>
+        <div className="text-xs font-medium text-[var(--kq-color-strong)]">{label}</div>
+        <div className="text-[11px] leading-snug text-[var(--kq-color-muted)]">{desc}</div>
       </div>
       <Toggle value={value} disabled={saving} onChange={onChange} />
     </div>
@@ -1047,15 +1034,15 @@ function CapabilityMetaBlock({ item, className }: { item: CapabilityBase; classN
     <dl className={cn("grid gap-1 text-[11px] leading-snug sm:text-xs", className)}>
       <div className="flex flex-wrap gap-x-1 [word-break:break-word]">
         <dt className="hd-meta shrink-0">{t("capabilities.meta.source")}</dt>
-        <dd className="min-w-0 font-medium text-zinc-900 dark:text-zinc-100">{src}</dd>
+        <dd className="min-w-0 font-medium text-[var(--kq-color-strong)]">{src}</dd>
       </div>
       <div className="flex flex-wrap gap-x-1 [word-break:break-word]">
         <dt className="hd-meta shrink-0">{t("capabilities.meta.trust")}</dt>
-        <dd className="min-w-0 font-medium text-zinc-900 dark:text-zinc-100">{trust}</dd>
+        <dd className="min-w-0 font-medium text-[var(--kq-color-strong)]">{trust}</dd>
       </div>
       <div className="flex flex-wrap gap-x-1 [word-break:break-word]">
         <dt className="hd-meta shrink-0">{t("capabilities.meta.roles")}</dt>
-        <dd className="min-w-0 font-medium text-zinc-900 dark:text-zinc-100">{rolesText}</dd>
+        <dd className="min-w-0 font-medium text-[var(--kq-color-strong)]">{rolesText}</dd>
       </div>
       <div className="flex flex-wrap gap-x-1 [word-break:break-word]">
         <dt className="hd-meta shrink-0">{t("capabilities.meta.risk")}</dt>
@@ -1073,8 +1060,8 @@ function Badge({ tone, children }: { tone: "green" | "amber" | "red" | "blue" | 
         tone === "green" && "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
         tone === "amber" && "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
         tone === "red" && "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
-        tone === "blue" && "bg-[var(--kq-color-primary-pale)] text-[var(--kq-color-strong)] dark:bg-[#D4C5E2]/15 dark:text-[#D4C5E2]",
-        tone === "zinc" && "bg-zinc-100 text-zinc-600 dark:bg-zinc-800/90 dark:text-zinc-300",
+        tone === "blue" && "bg-[var(--kq-color-primary-pale)] text-[var(--kq-color-strong)] dark:bg-[var(--kq-color-primary-light)]/15 dark:text-[var(--kq-color-primary-light)]",
+        tone === "zinc" && "bg-zinc-100 text-zinc-600 dark:bg-[var(--kq-glass-bg-subtle)] dark:text-[var(--kq-color-ink)]",
       )}
     >
       {children}
@@ -1084,7 +1071,7 @@ function Badge({ tone, children }: { tone: "green" | "amber" | "red" | "blue" | 
 
 function EmptyState({ text }: { text: string }) {
   return (
-    <div className="flex h-full min-h-40 items-center justify-center rounded-[var(--radius-shell-lg)] border border-dashed border-zinc-300/90 bg-zinc-50/50 p-8 text-center text-sm text-zinc-500 dark:border-zinc-600/90 dark:bg-zinc-900/30 dark:text-zinc-400">
+    <div className="flex h-full min-h-40 items-center justify-center rounded-[var(--radius-shell-lg)] border border-dashed border-zinc-300/90 bg-zinc-50/50 p-8 text-center text-sm text-zinc-500 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)] dark:text-[var(--kq-color-muted)]">
       {text}
     </div>
   );

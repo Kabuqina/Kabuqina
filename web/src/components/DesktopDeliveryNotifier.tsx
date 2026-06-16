@@ -52,25 +52,25 @@ export function DesktopDeliveryNotifier() {
       {notices.map((notice) => (
         <div
           key={notice.id}
-          className="pointer-events-auto rounded-[var(--radius-shell-lg)] border border-[var(--kq-color-primary-pale)] bg-white p-3 shadow-xl shadow-violet-950/15 ring-1 ring-[var(--kq-color-primary-pale)] dark:border-[#D4C5E2]/40 dark:bg-zinc-900 dark:shadow-black/40 dark:ring-[#D4C5E2]/20"
+          className="pointer-events-auto rounded-[var(--radius-shell-lg)] border border-[var(--kq-color-primary-pale)] bg-white p-3 shadow-xl shadow-violet-950/15 ring-1 ring-[var(--kq-color-primary-pale)] dark:border-[var(--kq-color-primary-light)]/40 dark:bg-[var(--kq-glass-bg)] dark:shadow-black/40 dark:ring-[var(--kq-color-primary-light)]/20"
           role="status"
         >
           <div className="flex items-start gap-3">
-            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--kq-color-primary-pale)] text-[var(--kq-color-strong)] dark:bg-[#D4C5E2]/15 dark:text-[#D4C5E2]">
+            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--kq-color-primary-pale)] text-[var(--kq-color-strong)] dark:bg-[var(--kq-color-primary-light)]/15 dark:text-[var(--kq-color-primary-light)]">
               <Bell size={16} aria-hidden="true" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+              <p className="truncate text-sm font-semibold text-[var(--kq-color-strong)]">
                 {notice.title}
               </p>
               {notice.preview && (
-                <p className="mt-1 line-clamp-2 text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+                <p className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--kq-color-muted)]">
                   {notice.preview}
                 </p>
               )}
               <button
                 type="button"
-                className="mt-2 inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-[var(--kq-color-strong)] transition hover:bg-[var(--kq-color-primary-pale)] dark:text-[#D4C5E2] dark:hover:bg-[#D4C5E2]/15"
+                className="mt-2 inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-[var(--kq-color-strong)] transition hover:bg-[var(--kq-color-primary-pale)] dark:text-[var(--kq-color-primary-light)] dark:hover:bg-[var(--kq-color-primary-light)]/15"
                 onClick={() => openChat(notice.id)}
               >
                 <MessageCircle size={14} aria-hidden="true" />
@@ -79,7 +79,7 @@ export function DesktopDeliveryNotifier() {
             </div>
             <button
               type="button"
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-[var(--kq-hover-bg-strong)] dark:hover:text-[var(--kq-color-strong)]"
               onClick={() => setNotices((prev) => prev.filter((item) => item.id !== notice.id))}
               aria-label={t("cron.toastClose")}
             >

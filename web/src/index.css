@@ -80,9 +80,11 @@
   --hd-error-fg: oklch(0.82 0.08 25);
   --hd-info-bg: oklch(0.28 0.06 250);
   --hd-info-fg: oklch(0.78 0.1 250);
-  /* Typography: tighter contrast ladder for dark ambience */
+  /* Typography: tighter contrast ladder for dark ambience.
+     muted is bumped lighter than the surface would suggest — it carries most
+     secondary text AND icon color, and #7a7088 sat too close to the void. */
   --kq-color-ink: #e2dde8;
-  --kq-color-muted: #7a7088;
+  --kq-color-muted: #9790a6;
   --kq-color-strong: #f0ecf5;
   --kq-color-primary: #9b8bb5;
   --kq-color-primary-light: #b8a9c9;
@@ -91,7 +93,7 @@
   --kq-color-primary-pale: #2a2438;
   /* Surface: deeper, cooler void with subtle spatial lighting */
   --kq-color-surface: #0c0a10;
-  --kq-color-border: rgba(255, 255, 255, 0.06);
+  --kq-color-border: rgba(255, 255, 255, 0.12);
   --kq-color-warm: #d4a574;
   /* Shadows: lift via edge-highlight rather than black depth */
   --kq-shadow-soft: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.03);
@@ -101,10 +103,11 @@
     radial-gradient(ellipse 120% 60% at 50% 0%, rgba(120, 100, 160, 0.06) 0%, transparent 60%),
     radial-gradient(ellipse 80% 50% at 50% 45%, rgba(139, 125, 180, 0.03) 0%, transparent 55%),
     linear-gradient(180deg, #0f0c14 0%, #0c0a10 50%, #0e0b12 100%);
-  /* Glass: more translucent, cleaner borders */
-  --kq-glass-bg: rgba(22, 20, 32, 0.65);
-  --kq-glass-bg-subtle: rgba(20, 18, 30, 0.48);
-  --kq-glass-border: rgba(255, 255, 255, 0.06);
+  /* Glass: lifted off the void so cards/sections read as distinct surfaces in
+     dark instead of melting into the background. */
+  --kq-glass-bg: rgba(30, 27, 40, 0.72);
+  --kq-glass-bg-subtle: rgba(26, 23, 36, 0.6);
+  --kq-glass-border: rgba(255, 255, 255, 0.1);
   /* Hover: brand-tinted glow instead of gray wash */
   --kq-hover-bg: rgba(155, 139, 181, 0.08);
   --kq-hover-bg-strong: rgba(155, 139, 181, 0.14);
@@ -444,6 +447,19 @@
   .kq-color-icon-download {
     color: #5a4a6a;
     fill: rgba(90, 74, 106, 0.12);
+  }
+  /* Category icons are single hexes tuned for light backgrounds; the deep
+     purples/blues among them vanish on the near-black dark surface, so dark
+     mode gets lifted variants. */
+  [data-theme="dark"] .kq-color-icon-course {
+    color: #6ea6f5;
+  }
+  [data-theme="dark"] .kq-color-icon-pen {
+    color: #c9a6dc;
+  }
+  [data-theme="dark"] .kq-color-icon-download {
+    color: #b6a8d0;
+    fill: rgba(182, 168, 208, 0.16);
   }
   .kq-chat-bubble-user {
     background: var(--kq-bubble-user-bg);
@@ -888,8 +904,26 @@
     background: rgba(22, 20, 32, 0.94);
     box-shadow: 0 14px 34px rgba(0, 0, 0, 0.42);
   }
+  .kq-companion-context-close {
+    position: absolute;
+    top: 0.45rem;
+    right: 0.45rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.4rem;
+    height: 1.4rem;
+    border-radius: 0.45rem;
+    color: var(--kq-color-muted);
+    transition: background-color 120ms ease, color 120ms ease;
+  }
+  .kq-companion-context-close:hover {
+    background: var(--kq-hover-bg);
+    color: var(--kq-color-strong);
+  }
   .kq-companion-context-spec {
     margin: 0;
+    padding-right: 1.5rem;
     font-size: 0.6875rem;
     line-height: 1.45;
     color: var(--kq-color-muted);
@@ -904,17 +938,18 @@
     color: #f87171;
   }
   .kq-companion-context-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem;
-    margin-top: 0.55rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.4rem;
+    margin-top: 0.6rem;
   }
   .kq-companion-context-actions button {
-    min-height: 1.75rem;
-    border-radius: 0.5rem;
-    padding: 0.35rem 0.55rem;
-    font-size: 0.6875rem;
-    font-weight: 700;
+    width: 100%;
+    min-height: 1.95rem;
+    border-radius: 0.55rem;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.72rem;
+    font-weight: 600;
     line-height: 1.1;
     transition:
       background-color 120ms ease,
@@ -936,13 +971,6 @@
   [data-theme="dark"] .kq-companion-context-secondary {
     border-color: var(--kq-glass-border);
     background: rgba(255, 255, 255, 0.06);
-  }
-  .kq-companion-context-ghost {
-    color: var(--kq-color-muted);
-  }
-  .kq-companion-context-ghost:hover {
-    background: var(--kq-hover-bg);
-    color: var(--kq-color-strong);
   }
   @keyframes kq-companion-pill-float {
     0%,
@@ -1325,6 +1353,34 @@
     border-radius: 9999px;
     border: 1px solid rgba(72, 57, 86, 0.16);
   }
+  .kq-ppt-master-popover {
+    background: rgba(255, 255, 255, 0.97);
+    box-shadow: 0 12px 40px rgba(90, 74, 106, 0.18);
+    animation: kqPptMasterPopIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  /* Dark popover needs a solid surface + real shadow; the light glass + lavender
+     shadow rendered as an undefined translucent box with chat bleeding through. */
+  [data-theme="dark"] .kq-ppt-master-popover {
+    background: #16131e;
+    box-shadow:
+      0 16px 44px rgba(0, 0, 0, 0.6),
+      0 0 0 1px rgba(255, 255, 255, 0.07);
+  }
+  @keyframes kqPptMasterPopIn {
+    from {
+      opacity: 0;
+      transform: translateY(6px) scale(0.97);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .kq-ppt-master-popover {
+      animation: none;
+    }
+  }
   .kq-reminder-card {
     border-radius: var(--radius-shell-lg);
     border-color: rgba(232, 224, 237, 0.9);
@@ -1435,6 +1491,35 @@
     background: var(--kq-glass-bg-subtle);
     box-shadow: var(--kq-shadow-chat);
     backdrop-filter: blur(12px);
+  }
+  /* Settings cards: same glass + radius language as the chat composer/bubbles,
+     so the settings surface reads as part of the chat aesthetic. */
+  .hd-setting-card {
+    border: 1px solid var(--kq-glass-border);
+    border-radius: 1.125rem;
+    background: var(--kq-glass-bg);
+    box-shadow: var(--kq-shadow-card);
+    backdrop-filter: blur(14px);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .hd-setting-card:hover {
+    border-color: rgba(184, 169, 201, 0.55);
+  }
+  [data-theme="dark"] .hd-setting-card:hover {
+    border-color: rgba(155, 139, 181, 0.4);
+  }
+  /* Sticky glass header bar — mirrors .kq-chat-topbar for non-chat pages. */
+  .hd-topbar {
+    border-color: var(--kq-glass-border);
+    background: var(--kq-topbar-bg);
+    box-shadow: inset 0 -1px 0 rgba(232, 224, 237, 0.3);
+    backdrop-filter: blur(16px) saturate(1.05);
+  }
+  [data-theme="dark"] .hd-topbar {
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.03) inset,
+      0 4px 24px rgba(0, 0, 0, 0.25);
+    backdrop-filter: blur(20px) saturate(1.2);
   }
   /* Titles: one scale app-wide (adjust per page with text-3xl if needed) */
   .hd-page-title {

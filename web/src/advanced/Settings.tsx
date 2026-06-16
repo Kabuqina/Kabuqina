@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCallback, useEffect, useState, type ComponentType } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { Cpu, Server, SlidersHorizontal, Wrench } from "lucide-react";
 import { AppScaffold } from "../components/AppScaffold";
@@ -27,10 +27,22 @@ export interface Status {
 
 type SettingsTab = "general" | "model" | "gateway" | "advanced";
 
+function isSettingsTab(value: unknown): value is SettingsTab {
+  return value === "general" || value === "model" || value === "gateway" || value === "advanced";
+}
+
 export function Settings() {
   const { t } = useI18n();
   const nav = useNavigate();
-  const [tab, setTab] = useState<SettingsTab>("general");
+  const location = useLocation();
+  // Allow deep-linking to a specific tab (e.g. chat's "configure model" prompt
+  // routes straight to the model config tab).
+  const initialTab: SettingsTab = isSettingsTab(
+    (location.state as { settingsTab?: unknown } | null)?.settingsTab
+  )
+    ? ((location.state as { settingsTab: SettingsTab }).settingsTab)
+    : "general";
+  const [tab, setTab] = useState<SettingsTab>(initialTab);
   const [status, setStatus] = useState<Status | null>(null);
   const { powerUser, togglePowerUser } = useTogglePowerUser();
   const { size: fontSize, setSize: setFontSize } = useFontSize();
@@ -64,25 +76,30 @@ export function Settings() {
   ];
 
   return (
-    <AppScaffold className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-2xl space-y-5 px-[var(--hd-page-pad-x)] py-8 sm:py-10">
-        <div>
-          <BackButton onClick={() => nav("/chat")}>
-            {t("settings.back")}
-          </BackButton>
-          <h1 className="hd-page-title">{t("settings.title")}</h1>
-          {t("settings.pageLead") && (
-            <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-[var(--kq-color-muted)]">
-              {t("settings.pageLead")}
-            </p>
-          )}
-        </div>
+    <AppScaffold surface="chat" className="flex h-full min-h-0 flex-col">
+      {/* Sticky glass top bar — same language as the chat shell's topbar. */}
+      <div className="hd-topbar sticky top-0 z-20 flex h-12 shrink-0 items-center gap-2 border-b px-2 sm:px-3">
+        <BackButton onClick={() => nav("/chat")} className="-ml-1">
+          {t("settings.back")}
+        </BackButton>
+        <span className="text-sm font-semibold text-[var(--kq-color-strong)]">
+          {t("settings.title")}
+        </span>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="mx-auto max-w-2xl space-y-5 px-[var(--hd-page-pad-x)] py-7 sm:py-9">
+        {t("settings.pageLead") && (
+          <p className="max-w-xl text-sm leading-relaxed text-[var(--kq-color-muted)]">
+            {t("settings.pageLead")}
+          </p>
+        )}
 
         {/* Compact health strip — relevant on every tab, so it stays above the tabs. */}
-        <div className="hd-glass-subtle flex flex-wrap gap-x-5 gap-y-2 px-4 py-3 text-sm text-[var(--kq-color-ink)]">
+        <div className="hd-setting-card flex flex-wrap gap-x-5 gap-y-2 px-4 py-3 text-sm text-[var(--kq-color-ink)]">
           {statusDots.map((dot) => (
             <div key={dot.key} className="flex items-center gap-2">
-              <span className={cn("inline-block h-2 w-2 rounded-full", dot.on ? "bg-emerald-500" : "bg-zinc-300 dark:bg-zinc-600")} />
+              <span className={cn("inline-block h-2 w-2 rounded-full", dot.on ? "bg-emerald-500" : "bg-[var(--kq-color-primary)]/35")} />
               <span>{dot.label}</span>
               <span className="font-medium text-[var(--kq-color-strong)]">
                 {dot.on ? t("settings.yes") : t("settings.no")}
@@ -94,7 +111,7 @@ export function Settings() {
         {/* Category tabs keep each view short instead of one long scroll. */}
         <div
           role="tablist"
-          className="inline-flex w-full rounded-[var(--radius-shell-lg)] border border-[var(--kq-color-border)] bg-[var(--kq-color-primary-pale)]/45 p-0.5 dark:border-zinc-700 dark:bg-zinc-800/50"
+          className="inline-flex w-full rounded-2xl border border-[var(--kq-color-border)] bg-[var(--kq-color-primary-pale)]/45 p-1 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg-subtle)]"
         >
           {tabs.map(({ id, label, icon: Icon }) => (
             <button
@@ -104,7 +121,7 @@ export function Settings() {
               aria-selected={tab === id}
               onClick={() => setTab(id)}
               className={cn(
-                "flex min-h-[2.25rem] flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium transition",
+                "flex min-h-[2.25rem] flex-1 items-center justify-center gap-1.5 rounded-xl px-2 py-1.5 text-sm font-medium transition",
                 "active:scale-[0.98]",
                 tab === id ? "hd-btn-segment-active shadow-sm" : "hd-btn-segment-idle",
               )}
@@ -149,6 +166,7 @@ export function Settings() {
             </>
           )}
         </div>
+      </div>
       </div>
     </AppScaffold>
   );

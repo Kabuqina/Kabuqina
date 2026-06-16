@@ -177,8 +177,6 @@ export const MESSAGES = {
       voiceModelFailed: "模型下载失败，请检查网络后重试。",
       speak: "朗读",
       speaking: "朗读中…",
-      wizardButton: "向导",
-      wizardHint: "按步骤完成连接",
       exportButton: "导出聊天",
       organizeDesktopButton: "整理桌面",
       apiRequiredTitle: "需要先配置 API",
@@ -186,6 +184,7 @@ export const MESSAGES = {
         "请先在设置向导中保存访问凭证，或通过设置完成配置，然后再发送消息。",
       apiRequiredClose: "知道了",
       apiRequiredGoSetup: "去配置",
+      needModelSetup: "尚未配置模型，请先在设置中完成模型配置后再发送消息。",
     },
     desktopOrganizer: {
       title: "整理 Windows 桌面",
@@ -1096,8 +1095,6 @@ export const MESSAGES = {
       voiceModelFailed: "Model download failed. Check your network and try again.",
       speak: "Speak",
       speaking: "Playing…",
-      wizardButton: "Wizard",
-      wizardHint: "Quick guided setup",
       exportButton: "Export chat",
       organizeDesktopButton: "Organize desktop",
       apiRequiredTitle: "Configure your API key first",
@@ -1105,6 +1102,7 @@ export const MESSAGES = {
         "Save your access pass in the setup wizard or in Settings before you can send messages.",
       apiRequiredClose: "Not now",
       apiRequiredGoSetup: "Open setup",
+      needModelSetup: "No model configured yet. Configure a model in Settings before sending messages.",
     },
     desktopOrganizer: {
       title: "Organize Windows Desktop",

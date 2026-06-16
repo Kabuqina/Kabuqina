@@ -99,16 +99,16 @@ export function GatewayChannelSettingsPanel({ platform }: Props) {
 
   return (
     <Section icon={SlidersHorizontal} title={t("settings.channelEnv.panelTitle")}>
-      <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-400 mb-3">
+      <p className="text-xs leading-relaxed text-[var(--kq-color-muted)] mb-3">
         {t("settings.channelEnv.panelLead")}
       </p>
-      <p className="text-[0.7rem] text-zinc-500 dark:text-zinc-500 mb-3">
+      <p className="text-[0.7rem] text-[var(--kq-color-muted)] mb-3">
         {t("settings.channelEnv.clearOptionalHint")}
       </p>
 
       <button
         type="button"
-        className="mb-3 text-xs font-medium text-[var(--kq-color-strong)] underline-offset-2 hover:underline dark:text-[#D4C5E2]"
+        className="mb-3 text-xs font-medium text-[var(--kq-color-strong)] underline-offset-2 hover:underline dark:text-[var(--kq-color-primary-light)]"
         onClick={() => setShowAdvanced((v) => !v)}
       >
         {showAdvanced ? t("settings.channelEnv.hideAdvanced") : t("settings.channelEnv.showAdvanced")}
@@ -119,8 +119,8 @@ export function GatewayChannelSettingsPanel({ platform }: Props) {
       ) : (
         <div className="space-y-6">
           {entry.sections.map((sec) => (
-            <div key={sec.id} className="space-y-3 border-t border-zinc-200/80 dark:border-zinc-700/80 pt-4 first:border-t-0 first:pt-0">
-              <h3 className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
+            <div key={sec.id} className="space-y-3 border-t border-[var(--kq-color-border)] pt-4 first:border-t-0 first:pt-0">
+              <h3 className="text-sm font-medium text-[var(--kq-color-strong)]">
                 {t(sec.titleKey)}
               </h3>
               {sec.footnoteKey ? (
@@ -169,7 +169,7 @@ function FieldRow({
   const id = `gw-${field.envKey}`;
   return (
     <div className="space-y-1">
-      <label htmlFor={id} className="block text-xs font-medium text-zinc-700 dark:text-zinc-300">
+      <label htmlFor={id} className="block text-xs font-medium text-[var(--kq-color-ink)]">
         {t(field.labelKey)}
       </label>
       {field.descriptionKey ? (
@@ -178,7 +178,7 @@ function FieldRow({
       {field.type === "enum" ? (
         <select
           id={id}
-          className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-600 dark:bg-zinc-900"
+          className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)]"
           value={value}
           onChange={(e) => onChange(e.target.value)}
         >
@@ -192,7 +192,7 @@ function FieldRow({
       ) : field.type === "bool" ? (
         <select
           id={id}
-          className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-600 dark:bg-zinc-900"
+          className="w-full rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)]"
           value={value}
           onChange={(e) => onChange(e.target.value)}
         >
@@ -205,7 +205,7 @@ function FieldRow({
           id={id}
           type={field.type === "secret" ? "password" : "text"}
           autoComplete="off"
-          className="hd-input font-mono dark:border-zinc-700 dark:bg-zinc-900/90 dark:text-zinc-100"
+          className="hd-input font-mono dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)] dark:text-[var(--kq-color-strong)]"
           value={value}
           placeholder={field.placeholder}
           onChange={(e) => onChange(e.target.value)}

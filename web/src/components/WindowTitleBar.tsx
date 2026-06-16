@@ -70,7 +70,6 @@ export function WindowTitleBar() {
   const isChat = location.pathname === "/chat";
   const isSettings = location.pathname === "/settings";
   const isCapabilities = location.pathname === "/capabilities";
-  const isWizard = location.pathname.startsWith("/onboarding");
   const settingsLabel = t("chat.openSettings");
   const capabilitiesLabel = t("capabilities.title");
   const navLinkClass = (active: boolean) =>
@@ -83,7 +82,7 @@ export function WindowTitleBar() {
     <div
       className={cn(
         "kq-titlebar hermes-titlebar-drag grid h-9 shrink-0 select-none grid-cols-[1fr_auto_1fr] items-stretch border-b",
-        "dark:border-zinc-700 dark:bg-zinc-900/95"
+        "dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)]"
       )}
       data-tauri-drag-region
     >
@@ -104,7 +103,7 @@ export function WindowTitleBar() {
             decoding="async"
           />
         </div>
-        <span className="kq-titlebar-brand truncate text-sm font-semibold dark:text-zinc-200" style={{ letterSpacing: "0.03em" }}>
+        <span className="kq-titlebar-brand truncate text-sm font-semibold dark:text-[var(--kq-color-ink)]" style={{ letterSpacing: "0.03em" }}>
           {t("productName")}
         </span>
       </div>
@@ -116,13 +115,6 @@ export function WindowTitleBar() {
           title={t("chat.title")}
         >
           {t("chat.title")}
-        </Link>
-        <Link
-          to="/onboarding/welcome"
-          className={navLinkClass(isWizard)}
-          title={t("chat.wizardButton")}
-        >
-          {t("chat.wizardButton")}
         </Link>
         <Link
           to="/settings"
@@ -145,7 +137,7 @@ export function WindowTitleBar() {
           <Zap
             className={cn(
               "h-3.5 w-3.5 shrink-0",
-              powerUser ? "kq-power-icon" : "text-[var(--kq-color-muted)] dark:text-zinc-500",
+              powerUser ? "kq-power-icon" : "text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]",
             )}
             strokeWidth={2.25}
             aria-hidden
@@ -184,7 +176,7 @@ export function WindowTitleBar() {
             <button
               type="button"
               onClick={onMinimize}
-              className="kq-titlebar-control hermes-titlebar-nodrag inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-md transition dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+              className="kq-titlebar-control hermes-titlebar-nodrag inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-md transition dark:hover:bg-[var(--kq-hover-bg-strong)] dark:hover:text-[var(--kq-color-strong)]"
               title={t("shell.minimize")}
               aria-label={t("shell.minimize")}
             >
@@ -193,7 +185,7 @@ export function WindowTitleBar() {
             <button
               type="button"
               onClick={onToggleMax}
-              className="kq-titlebar-control hermes-titlebar-nodrag inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-md transition dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+              className="kq-titlebar-control hermes-titlebar-nodrag inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-md transition dark:hover:bg-[var(--kq-hover-bg-strong)] dark:hover:text-[var(--kq-color-strong)]"
               title={isMaximized ? t("shell.restore") : t("shell.maximize")}
               aria-label={isMaximized ? t("shell.restore") : t("shell.maximize")}
             >

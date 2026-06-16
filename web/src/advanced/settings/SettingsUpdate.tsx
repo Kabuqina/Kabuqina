@@ -82,7 +82,7 @@ export function SettingsUpdate() {
   return (
     <Section icon={Download} title={t("settings.updateTitle")} desc={t("settings.updateDesc")}>
       <div className="space-y-3">
-        <div className="rounded-md border border-[var(--kq-color-border)] bg-white/45 px-3 py-2 text-sm leading-relaxed text-[var(--kq-color-ink)] dark:border-zinc-700 dark:bg-zinc-900/35 dark:text-zinc-300">
+        <div className="rounded-md border border-[var(--kq-color-border)] bg-white/45 px-3 py-2 text-sm leading-relaxed text-[var(--kq-color-ink)] dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)] dark:text-[var(--kq-color-ink)]">
           {state === "idle" && t("settings.updateIdle")}
           {state === "checking" && t("settings.updateChecking")}
           {state === "upToDate" && t("settings.updateUpToDate")}

@@ -263,7 +263,7 @@ export function QqbotQrRouteBlock({ className, onSuccess, onHermesRunningChange 
         <StatusBanner variant="error" title={qqInlineErr} />
       ) : null}
       {qqView?.progress?.phase ? (
-        <p className="text-sm text-zinc-600 dark:text-zinc-300">{qqPhaseLabel(qqView.progress.phase)}</p>
+        <p className="text-sm text-[var(--kq-color-ink)]">{qqPhaseLabel(qqView.progress.phase)}</p>
       ) : null}
       {qqView?.progress?.qr_url ? (
         <div className="space-y-1">
@@ -271,21 +271,21 @@ export function QqbotQrRouteBlock({ className, onSuccess, onHermesRunningChange 
             href={qqView.progress.qr_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-block max-w-full break-all text-sm font-medium text-[var(--kq-color-strong)] underline-offset-2 hover:underline dark:text-[#D4C5E2]"
+            className="inline-block max-w-full break-all text-sm font-medium text-[var(--kq-color-strong)] underline-offset-2 hover:underline dark:text-[var(--kq-color-primary-light)]"
           >
             {t("settings.qqOpenLink")}
           </a>
-          <p className="break-all font-mono text-xs text-zinc-500 dark:text-zinc-500">
+          <p className="break-all font-mono text-xs text-[var(--kq-color-muted)]">
             {qqView.progress.qr_url}
           </p>
-          <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">{t("settings.qqAfterScanHint")}</p>
+          <p className="text-xs leading-relaxed text-[var(--kq-color-muted)]">{t("settings.qqAfterScanHint")}</p>
         </div>
       ) : null}
       {qqView?.progress?.message ? (
         <p className="text-sm text-red-600 dark:text-red-400">{qqView.progress.message}</p>
       ) : null}
       {qqView?.result?.ok === true ? (
-        <div className="space-y-2 text-sm text-zinc-600 dark:text-zinc-300">
+        <div className="space-y-2 text-sm text-[var(--kq-color-ink)]">
           <p>{qqRestarted ? t("settings.qqSuccessDone") : t("settings.qqSuccess")}</p>
           {qqView.result.app_id ? (
             <p className="font-mono text-xs text-zinc-500">App ID: {qqView.result.app_id}</p>

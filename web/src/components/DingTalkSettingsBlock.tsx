@@ -16,7 +16,7 @@ export type DingTalkEnvSnapshot = {
   clientIdHint?: string | null;
 };
 
-const inputClass = "hd-input font-mono dark:border-zinc-700 dark:bg-zinc-900/90 dark:text-zinc-100";
+const inputClass = "hd-input font-mono dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)] dark:text-[var(--kq-color-strong)]";
 
 export function DingTalkSettingsBlock({ className }: { className?: string }) {
   const { t } = useI18n();
@@ -114,8 +114,8 @@ export function DingTalkSettingsBlock({ className }: { className?: string }) {
       ) : null}
 
       {showForm ? (
-        <div className="kq-info-panel space-y-3 px-3 py-3 dark:border-[#D4C5E2]/20 dark:bg-[#D4C5E2]/10">
-          <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
+        <div className="kq-info-panel space-y-3 px-3 py-3 dark:border-[var(--kq-color-primary-light)]/20 dark:bg-[var(--kq-color-primary-light)]/10">
+          <p className="text-xs leading-relaxed text-[var(--kq-color-muted)]">
             {t("settings.dingtalkFormLead")}
           </p>
           <input

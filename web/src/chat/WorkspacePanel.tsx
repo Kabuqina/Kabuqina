@@ -19,6 +19,7 @@ import {
   SquareArrowOutUpRight,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { useI18n } from "../lib/i18n";
 import { cn } from "../lib/cn";
@@ -51,7 +52,6 @@ type WorkspacePanelProps = {
 // hermes_core/tools/math_expression_tools.py (SymPy canonical core, then printer).
 const MATH_TARGET_LANGUAGES = [
   { id: "python", label: "Python" },
-  { id: "numpy", label: "NumPy" },
   { id: "javascript", label: "JavaScript" },
   { id: "octave", label: "MATLAB/Octave" },
   { id: "cpp17", label: "C++17" },
@@ -209,17 +209,23 @@ function DeliverableCard({
 
 function PptVisualMasterPreview({ master }: { master: PptVisualMaster }) {
   const [showPopover, setShowPopover] = useState(false);
-  const [popoverPos, setPopoverPos] = useState<{ top: number; right: number } | null>(null);
+  const [popoverPos, setPopoverPos] = useState<
+    { right: number; top: number; placement: "above" | "below" } | null
+  >(null);
   const cardRef = useRef<HTMLDivElement>(null);
 
   const updatePos = useCallback(() => {
     if (!cardRef.current) return;
     const rect = cardRef.current.getBoundingClientRect();
-    // Position popover above the card, aligned to its right edge
-    setPopoverPos({
-      top: rect.top - 8,
-      right: window.innerWidth - rect.right,
-    });
+    const right = window.innerWidth - rect.right;
+    // The popover is ~260px tall; if there isn't room above the card, flip it
+    // below so it never clips off the top of the viewport.
+    const POPOVER_HEIGHT = 260;
+    if (rect.top < POPOVER_HEIGHT + 12) {
+      setPopoverPos({ placement: "below", right, top: rect.bottom });
+    } else {
+      setPopoverPos({ placement: "above", right, top: rect.top });
+    }
   }, []);
 
   const handleEnter = useCallback(() => {
@@ -267,54 +273,62 @@ function PptVisualMasterPreview({ master }: { master: PptVisualMaster }) {
           </div>
         </div>
       </div>
-      {/* Hover popover — fixed to viewport, floats above all panels */}
-      {showPopover && popoverPos && (
+      {/* Hover popover — fixed to viewport, floats above all panels.
+          The outer wrapper carries padding on the card-facing side so the gap
+          between card and popover stays hoverable (no flicker dead zone). */}
+      {showPopover && popoverPos && createPortal(
         <div
-          className="fixed z-[200] w-[280px] overflow-hidden rounded-xl border border-[var(--kq-glass-border)] bg-white/96 p-2.5 shadow-xl backdrop-blur-sm dark:bg-zinc-900/96"
-          style={{
-            top: popoverPos.top,
-            right: popoverPos.right,
-            transform: "translateY(-100%)",
-            boxShadow: "0 12px 40px rgba(90,74,106,0.18)",
-          }}
+          className={cn(
+            "fixed z-[200] w-[280px]",
+            popoverPos.placement === "above" ? "pb-2 -translate-y-full" : "pt-2"
+          )}
+          style={{ top: popoverPos.top, right: popoverPos.right }}
           onMouseEnter={() => setShowPopover(true)}
           onMouseLeave={() => setShowPopover(false)}
         >
-          <div className="mb-2 flex items-center gap-2">
-            <span className="text-sm font-semibold text-[var(--kq-color-strong)]">{master.name}</span>
-            <span className="text-xs text-[var(--kq-color-muted)]">{master.note}</span>
-          </div>
-          {/* Enlarged slide preview */}
-          <div className="mb-2" style={pptMasterPreviewStyle(master)}>
-            <div
-              className={cn("kq-ppt-master-slide", `kq-ppt-master-preview--${master.id}`)}
-              style={{ aspectRatio: "16/10", width: "100%", height: "auto" }}
-            >
-              <div className="kq-ppt-master-kicker" />
-              <div className="kq-ppt-master-title" />
-              <div className="kq-ppt-master-body">
-                <span />
-                <span />
-                <span />
-              </div>
-              <div className="kq-ppt-master-visual">
-                <i />
-                <i />
-                <i />
+          <div
+            className={cn(
+              "kq-ppt-master-popover overflow-hidden rounded-xl border border-[var(--kq-glass-border)] p-2.5",
+              popoverPos.placement === "above" ? "origin-bottom-right" : "origin-top-right"
+            )}
+          >
+            <div className="mb-2 flex items-center gap-2">
+              <span className="text-sm font-semibold text-[var(--kq-color-strong)]">{master.name}</span>
+              <span className="text-xs text-[var(--kq-color-muted)]">{master.note}</span>
+            </div>
+            {/* Enlarged slide preview */}
+            <div className="mb-2" style={pptMasterPreviewStyle(master)}>
+              <div
+                className={cn("kq-ppt-master-slide", `kq-ppt-master-preview--${master.id}`)}
+                style={{ aspectRatio: "16/10", width: "100%", height: "auto" }}
+              >
+                <div className="kq-ppt-master-kicker" />
+                <div className="kq-ppt-master-title" />
+                <div className="kq-ppt-master-body">
+                  <span />
+                  <span />
+                  <span />
+                </div>
+                <div className="kq-ppt-master-visual">
+                  <i />
+                  <i />
+                  <i />
+                </div>
               </div>
             </div>
+            {/* Color swatches */}
+            <div className="flex items-center gap-1.5">
+              {master.palette.swatches.map((color) => (
+                <div
+                  key={color}
+                  className="h-4 w-4 rounded-full border border-[var(--kq-color-border)]"
+                  style={{ background: color }}
+                />
+              ))}
+            </div>
           </div>
-          {/* Color swatches */}
-          <div className="flex items-center gap-1.5">
-            {master.palette.swatches.map((color) => (
-              <div
-                key={color}
-                className="h-4 w-4 rounded-full border border-black/10"
-                style={{ background: color }}
-              />
-            ))}
-          </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

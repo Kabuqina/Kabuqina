@@ -28,7 +28,7 @@ export function PlatformPage({
           </BackButton>
           <h1 className="hd-page-title">{title}</h1>
           {desc && (
-            <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">
+            <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-[var(--kq-color-muted)]">
               {desc}
             </p>
           )}

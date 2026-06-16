@@ -44,19 +44,19 @@ export function SettingsLoadPackages() {
 
   return (
     <Section icon={Package} title={t("settings.loadPackagesTitle")} desc={t("settings.loadPackagesDesc")}>
-      <div className="space-y-3 text-sm text-[var(--kq-color-ink)] dark:text-zinc-300">
+      <div className="space-y-3 text-sm text-[var(--kq-color-ink)] dark:text-[var(--kq-color-ink)]">
         {loading ? (
-          <p className="text-[var(--kq-color-muted)] dark:text-zinc-400">{t("settings.loadPackagesChecking")}</p>
+          <p className="text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">{t("settings.loadPackagesChecking")}</p>
         ) : (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0 space-y-1">
-              <p className="font-medium text-[var(--kq-color-strong)] dark:text-zinc-100">
+              <p className="font-medium text-[var(--kq-color-strong)] dark:text-[var(--kq-color-strong)]">
                 {t("settings.loadPackagesSummary", {
                   installed: String(summary.installed),
                   total: String(packages.length),
                 })}
               </p>
-              <p className="text-xs text-[var(--kq-color-muted)] dark:text-zinc-400">
+              <p className="text-xs text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">
                 {summary.running > 0
                   ? t("settings.loadPackagesRunning", { count: String(summary.running) })
                   : t("settings.loadPackagesDisk", { size: formatBytes(summary.totalSize) })}

@@ -40,13 +40,13 @@ function ProgressBar({ pkg }: { pkg: LoadPackageStatus }) {
   const percent = job.percent ?? (total ? Math.floor(downloaded * 100 / total) : 0);
   return (
     <div className="mt-3 space-y-1.5">
-      <div className="h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+      <div className="h-2 overflow-hidden rounded-full bg-[var(--kq-hover-bg-strong)]">
         <div
           className="h-full rounded-full bg-[var(--kq-color-primary)] transition-[width]"
           style={{ width: `${Math.max(4, Math.min(100, percent))}%` }}
         />
       </div>
-      <div className="flex flex-wrap justify-between gap-2 text-xs text-[var(--kq-color-muted)] dark:text-zinc-400">
+      <div className="flex flex-wrap justify-between gap-2 text-xs text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">
         <span>
           {t("settings.loadPackageProgress", {
             phase: phaseLabel(job.phase, t),
@@ -58,7 +58,7 @@ function ProgressBar({ pkg }: { pkg: LoadPackageStatus }) {
         </span>
       </div>
       {job.source ? (
-        <p className="text-xs text-[var(--kq-color-muted)] dark:text-zinc-500">
+        <p className="text-xs text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">
           {t("settings.loadPackageSource", { source: job.source })}
         </p>
       ) : null}
@@ -143,13 +143,13 @@ export function LoadPackagesPage() {
         <div>
           <BackButton onClick={() => nav("/settings")}>{t("settings.back")}</BackButton>
           <h1 className="hd-page-title">{t("settings.loadPackagesTitle")}</h1>
-          <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-[var(--kq-color-muted)] dark:text-zinc-400">
+          <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">
             {t("settings.loadPackagesPageLead")}
           </p>
         </div>
 
         {loading ? (
-          <p className="text-sm text-[var(--kq-color-muted)] dark:text-zinc-400">{t("settings.loadPackagesChecking")}</p>
+          <p className="text-sm text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">{t("settings.loadPackagesChecking")}</p>
         ) : (
           <div className="space-y-3">
             {packages.map((pkg) => {
@@ -159,41 +159,41 @@ export function LoadPackagesPage() {
               return (
                 <div
                   key={pkg.id}
-                  className="rounded-[var(--radius-shell-lg)] border border-[var(--kq-color-border)] bg-white/70 p-4 dark:border-zinc-800 dark:bg-zinc-900/55"
+                  className="rounded-[var(--radius-shell-lg)] border border-[var(--kq-color-border)] bg-white/70 p-4 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)]"
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                        <h2 className="text-sm font-semibold text-[var(--kq-color-strong)] dark:text-zinc-100">
+                        <h2 className="text-sm font-semibold text-[var(--kq-color-strong)] dark:text-[var(--kq-color-strong)]">
                           {packageTitle(pkg, t)}
                         </h2>
-                        <span className="inline-flex items-center gap-1.5 text-xs text-[var(--kq-color-muted)] dark:text-zinc-400">
-                          <span className={`inline-block h-2 w-2 rounded-full ${installed ? "bg-emerald-500" : runningJob ? "bg-sky-500" : "bg-zinc-300 dark:bg-zinc-600"}`} />
+                        <span className="inline-flex items-center gap-1.5 text-xs text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">
+                          <span className={`inline-block h-2 w-2 rounded-full ${installed ? "bg-emerald-500" : runningJob ? "bg-sky-500" : "bg-[var(--kq-color-primary)]/35"}`} />
                           {runningJob ? phaseLabel(pkg.job?.phase, t) : installed ? t("settings.loadPackageInstalled") : t("settings.loadPackageNotInstalled")}
                         </span>
                       </div>
-                      <p className="mt-1 text-sm leading-relaxed text-[var(--kq-color-muted)] dark:text-zinc-400">
+                      <p className="mt-1 text-sm leading-relaxed text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">
                         {packageDescription(pkg, t)}
                       </p>
-                      <p className="mt-2 break-all text-xs text-[var(--kq-color-muted)] dark:text-zinc-500">
+                      <p className="mt-2 break-all text-xs text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">
                         {installed
                           ? t("settings.loadPackageSize", { size: formatBytes(pkg.size) })
                           : t("settings.loadPackageExpectedSize", { size: String(pkg.sizeMb) })}
                       </p>
-                      <p className="mt-1 text-xs text-[var(--kq-color-muted)] dark:text-zinc-500">
+                      <p className="mt-1 text-xs text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">
                         {t("settings.loadPackageSources", {
                           sources: (pkg.sources ?? []).map((source) => source.label).join(" / "),
                         })}
                       </p>
                       {pkg.usedByCapabilities?.length ? (
-                        <p className="mt-1 text-xs text-[var(--kq-color-muted)] dark:text-zinc-500">
+                        <p className="mt-1 text-xs text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">
                           {t("settings.loadPackageUsedBy", {
                             names: pkg.usedByCapabilities.map((item) => item.title || item.id).join("、"),
                           })}
                         </p>
                       ) : null}
                       {pkg.source ? (
-                        <p className="mt-1 text-xs text-[var(--kq-color-muted)] dark:text-zinc-500">
+                        <p className="mt-1 text-xs text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">
                           {t("settings.loadPackageSource", { source: pkg.source })}
                         </p>
                       ) : null}
@@ -226,7 +226,7 @@ export function LoadPackagesPage() {
 
         {error ? <StatusBanner variant="error" title={error} /> : null}
 
-        <div className="rounded-[var(--radius-shell-lg)] border border-[var(--kq-color-border)] bg-white/55 p-4 text-sm text-[var(--kq-color-muted)] dark:border-zinc-800 dark:bg-zinc-900/45 dark:text-zinc-400">
+        <div className="rounded-[var(--radius-shell-lg)] border border-[var(--kq-color-border)] bg-white/55 p-4 text-sm text-[var(--kq-color-muted)] dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)] dark:text-[var(--kq-color-muted)]">
           <Package className="mb-2 h-4 w-4" />
           <p>{t("settings.loadPackagesOfficialSourceHint")}</p>
         </div>

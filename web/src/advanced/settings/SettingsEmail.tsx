@@ -35,7 +35,7 @@ type EmailOAuthStatus = {
   hasDefaultClientId: boolean;
 };
 
-const inputClass = "hd-input font-mono dark:border-zinc-700 dark:bg-zinc-900/90 dark:text-zinc-100";
+const inputClass = "hd-input font-mono dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)] dark:text-[var(--kq-color-strong)]";
 
 export function SettingsEmailBlock({ className }: { className?: string }) {
   const { t } = useI18n();
@@ -239,8 +239,8 @@ export function SettingsEmailBlock({ className }: { className?: string }) {
       ) : null}
 
       {showForm ? (
-        <div className="kq-info-panel space-y-3 px-3 py-3 dark:border-[#D4C5E2]/20 dark:bg-[#D4C5E2]/10">
-          <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
+        <div className="kq-info-panel space-y-3 px-3 py-3 dark:border-[var(--kq-color-primary-light)]/20 dark:bg-[var(--kq-color-primary-light)]/10">
+          <p className="text-xs leading-relaxed text-[var(--kq-color-muted)]">
             {t("settings.emailFormLead")}
           </p>
           <input
@@ -300,9 +300,9 @@ export function SettingsEmailBlock({ className }: { className?: string }) {
                   : t("settings.emailOauth2ShowAdvanced")}
               </button>
               {showOauthAdvanced || !oauthHasDefaultClientId ? (
-                <div className="space-y-2 rounded-[var(--radius-shell-lg)] border border-zinc-200 bg-white/70 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900/70">
+                <div className="space-y-2 rounded-[var(--radius-shell-lg)] border border-zinc-200 bg-white/70 px-3 py-2 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)]">
                   {!oauthHasDefaultClientId ? (
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    <p className="text-xs text-[var(--kq-color-muted)]">
                       {t("settings.emailOauth2NoBuiltInApp")}
                     </p>
                   ) : null}
@@ -326,7 +326,7 @@ export function SettingsEmailBlock({ className }: { className?: string }) {
                   />
                 </div>
               ) : null}
-              <div className="rounded-[var(--radius-shell-lg)] border border-zinc-200 bg-white/70 px-3 py-2 text-xs dark:border-zinc-700 dark:bg-zinc-900/70">
+              <div className="rounded-[var(--radius-shell-lg)] border border-zinc-200 bg-white/70 px-3 py-2 text-xs dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)]">
                 <div className="flex flex-wrap items-center gap-2">
                   <PlatformButton
                     disabled={oauthBusy || (!oauthHasDefaultClientId && !oauth2ClientId.trim())}
@@ -350,7 +350,7 @@ export function SettingsEmailBlock({ className }: { className?: string }) {
                   </PlatformButton>
                 </div>
                 {oauthFlow ? (
-                  <div className="mt-2 space-y-1 text-zinc-600 dark:text-zinc-300">
+                  <div className="mt-2 space-y-1 text-[var(--kq-color-ink)]">
                     <p>{t("settings.emailOauth2Code", { code: oauthFlow.userCode })}</p>
                     <p className="break-all">{oauthFlow.verificationUri}</p>
                     <p>{oauthFlow.message}</p>

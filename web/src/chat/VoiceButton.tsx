@@ -39,7 +39,7 @@ export function VoiceButton({ state, durationMs, disabled, onPress }: VoiceButto
       className={cn(
         "group relative flex h-9 items-center justify-center rounded-lg transition",
         "text-zinc-500 hover:bg-zinc-100 active:scale-[0.98]",
-        "dark:text-zinc-400 dark:hover:bg-zinc-700/80",
+        "dark:text-[var(--kq-color-muted)] dark:hover:bg-[var(--kq-hover-bg-strong)]",
         "disabled:cursor-not-allowed disabled:opacity-40",
         state === "idle" && "w-9",
         state !== "idle" && "gap-1 px-2",
@@ -58,12 +58,12 @@ export function VoiceButton({ state, durationMs, disabled, onPress }: VoiceButto
         </span>
       )}
       {(state === "processing" || state === "downloading-model") && (
-        <span className="text-[11px] leading-none text-zinc-400 dark:text-zinc-500">
+        <span className="text-[11px] leading-none text-[var(--kq-color-muted)]">
           {label}
         </span>
       )}
       {state === "idle" && (
-        <span className="pointer-events-none absolute -bottom-9 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-lg bg-white/80 px-3 py-1.5 text-xs font-medium text-zinc-600 opacity-0 shadow-md ring-1 ring-zinc-200/60 backdrop-blur-sm transition-opacity group-hover:opacity-100 dark:bg-zinc-900/70 dark:text-zinc-300 dark:ring-zinc-700/60">
+        <span className="pointer-events-none absolute -bottom-9 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-lg bg-white/80 px-3 py-1.5 text-xs font-medium text-zinc-600 opacity-0 shadow-md ring-1 ring-zinc-200/60 backdrop-blur-sm transition-opacity group-hover:opacity-100 dark:bg-[var(--kq-glass-bg)] dark:text-[var(--kq-color-ink)] dark:ring-[var(--kq-color-border)]">
           {t("chat.voiceRecordHint")}
         </span>
       )}

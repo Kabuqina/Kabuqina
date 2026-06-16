@@ -5,8 +5,9 @@ into a SymPy expression, transpiled to the user-selected target language via
 SymPy's code printers, and numerically self-validated with NumPy through
 ``lambdify``. Code -> formula reuses the same SymPy core (``sympy.latex``).
 
-Target languages offered to the user: python, numpy, javascript, octave
-(MATLAB/Octave), cpp17 (C++17). Fortran is reachable internally but not advertised.
+Target languages offered to the user: python, javascript, octave
+(MATLAB/Octave), cpp17 (C++17). NumPy (a Python library, not a language) and
+Fortran are reachable internally but not advertised as targets.
 
 SymPy/NumPy are imported lazily inside handlers so tool *registration* stays
 cheap and a missing dependency degrades to a clear error instead of breaking
@@ -29,7 +30,9 @@ from tools.registry import registry, tool_error
 # --- Language registry -----------------------------------------------------
 
 # Languages exposed in the UI / capability writer_targets.
-OFFERED_LANGUAGES: Tuple[str, ...] = ("python", "numpy", "javascript", "octave", "cpp17")
+# NumPy is intentionally excluded as a *target* — it's a Python library, not a
+# language. (It remains a valid code→formula *source*; see CODE_TO_FORMULA_LANGUAGES.)
+OFFERED_LANGUAGES: Tuple[str, ...] = ("python", "javascript", "octave", "cpp17")
 
 # Languages we can emit code→formula *from* (parsing other source languages into
 # SymPy is a future follow-up).

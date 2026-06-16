@@ -44,7 +44,7 @@ export function SettingsSharedPrefs() {
         value={content}
         onChange={(e) => setContent(e.target.value)}
         rows={8}
-        className="w-full resize-y rounded-md border border-zinc-300 bg-white p-3 font-mono text-sm dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200"
+        className="w-full resize-y rounded-md border border-zinc-300 bg-white p-3 font-mono text-sm dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg-subtle)] dark:text-[var(--kq-color-ink)]"
         placeholder={t("settings.sharedPrefsPlaceholder")}
       />
       <div className="mt-3 flex items-center justify-end gap-3">

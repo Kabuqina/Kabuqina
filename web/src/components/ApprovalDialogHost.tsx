@@ -82,24 +82,24 @@ function ApprovalCard({
       aria-modal
       aria-labelledby={`approval-title-${request.id}`}
       className={cn(
-        "relative z-10 flex w-full flex-col overflow-hidden rounded-[var(--radius-shell-lg)] border border-[var(--kq-color-border)] bg-white/95 shadow-[var(--kq-shadow-soft)] backdrop-blur-md dark:border-zinc-700 dark:bg-zinc-950",
+        "relative z-10 flex w-full flex-col overflow-hidden rounded-[var(--radius-shell-lg)] border border-[var(--kq-color-border)] bg-white/95 shadow-[var(--kq-shadow-soft)] backdrop-blur-md dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)]",
         isModelDownload ? "max-w-md" : "max-w-lg",
       )}
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="flex items-start gap-3 border-b border-[var(--kq-color-border)] px-5 py-4 dark:border-zinc-800">
+      <div className="flex items-start gap-3 border-b border-[var(--kq-color-border)] px-5 py-4 dark:border-[var(--kq-color-border)]">
         <div className={cn("mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-shell-lg)] bg-amber-50 dark:bg-amber-950/40", accent)}>
           <Icon className="h-4 w-4" strokeWidth={2.2} aria-hidden />
         </div>
         <div className="min-w-0 flex-1">
-          <h2 id={`approval-title-${request.id}`} className="text-base font-semibold text-[var(--kq-color-strong)] dark:text-zinc-100">
+          <h2 id={`approval-title-${request.id}`} className="text-base font-semibold text-[var(--kq-color-strong)] dark:text-[var(--kq-color-strong)]">
             {title}
           </h2>
-          <p className="mt-1 text-sm leading-relaxed text-[var(--kq-color-muted)] dark:text-zinc-400">{hint}</p>
+          <p className="mt-1 text-sm leading-relaxed text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">{hint}</p>
         </div>
       </div>
 
-      <div className="space-y-3 px-5 py-4 text-sm leading-relaxed text-[var(--kq-color-ink)] dark:text-zinc-300">
+      <div className="space-y-3 px-5 py-4 text-sm leading-relaxed text-[var(--kq-color-ink)] dark:text-[var(--kq-color-ink)]">
         {request.reason ? (
           <p className="rounded-[var(--radius-shell-lg)] border border-amber-200/80 bg-amber-50/70 px-3 py-2 text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100">
             {request.reason}
@@ -108,10 +108,10 @@ function ApprovalCard({
 
         {request.modelId ? (
           <div>
-            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-[var(--kq-color-muted)] dark:text-zinc-500">
+            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">
               {t("approval.modelId")}
             </p>
-            <p className="break-all rounded-[var(--radius-shell-lg)] border border-zinc-200/80 bg-zinc-50 px-3 py-2 font-mono text-[12px] text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+            <p className="break-all rounded-[var(--radius-shell-lg)] border border-zinc-200/80 bg-zinc-50 px-3 py-2 font-mono text-[12px] text-zinc-700 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)] dark:text-[var(--kq-color-ink)]">
               {request.modelId}
             </p>
           </div>
@@ -119,10 +119,10 @@ function ApprovalCard({
 
         {request.sizeMb ? (
           <div>
-            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-[var(--kq-color-muted)] dark:text-zinc-500">
+            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">
               {t("approval.modelSize")}
             </p>
-            <p className="rounded-[var(--radius-shell-lg)] border border-zinc-200/80 bg-zinc-50 px-3 py-2 text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+            <p className="rounded-[var(--radius-shell-lg)] border border-zinc-200/80 bg-zinc-50 px-3 py-2 text-zinc-700 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)] dark:text-[var(--kq-color-ink)]">
               {t("approval.modelDownloadSize", { size: String(request.sizeMb) })}
             </p>
           </div>
@@ -130,10 +130,10 @@ function ApprovalCard({
 
         {request.command ? (
           <div>
-            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-[var(--kq-color-muted)] dark:text-zinc-500">
+            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">
               {t("approval.command")}
             </p>
-            <pre className="max-h-40 overflow-auto rounded-[var(--radius-shell-lg)] border border-zinc-200/80 bg-zinc-50 px-3 py-2 font-mono text-[12px] leading-5 text-zinc-800 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200">
+            <pre className="max-h-40 overflow-auto rounded-[var(--radius-shell-lg)] border border-zinc-200/80 bg-zinc-50 px-3 py-2 font-mono text-[12px] leading-5 text-zinc-800 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)] dark:text-[var(--kq-color-ink)]">
               {request.command}
             </pre>
           </div>
@@ -141,10 +141,10 @@ function ApprovalCard({
 
         {request.cwd ? (
           <div>
-            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-[var(--kq-color-muted)] dark:text-zinc-500">
+            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">
               {t("approval.folder")}
             </p>
-            <p className="break-all rounded-[var(--radius-shell-lg)] border border-zinc-200/80 bg-zinc-50 px-3 py-2 font-mono text-[12px] text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+            <p className="break-all rounded-[var(--radius-shell-lg)] border border-zinc-200/80 bg-zinc-50 px-3 py-2 font-mono text-[12px] text-zinc-700 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)] dark:text-[var(--kq-color-ink)]">
               {request.cwd}
             </p>
           </div>
@@ -152,10 +152,10 @@ function ApprovalCard({
 
         {request.target ? (
           <div>
-            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-[var(--kq-color-muted)] dark:text-zinc-500">
+            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">
               {t("approval.target")}
             </p>
-            <p className="break-all rounded-[var(--radius-shell-lg)] border border-zinc-200/80 bg-zinc-50 px-3 py-2 text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+            <p className="break-all rounded-[var(--radius-shell-lg)] border border-zinc-200/80 bg-zinc-50 px-3 py-2 text-zinc-700 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)] dark:text-[var(--kq-color-ink)]">
               {request.target}
             </p>
           </div>
@@ -163,10 +163,10 @@ function ApprovalCard({
 
         {request.contentPreview ? (
           <div>
-            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-[var(--kq-color-muted)] dark:text-zinc-500">
+            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">
               {t("approval.preview")}
             </p>
-            <p className="whitespace-pre-wrap rounded-[var(--radius-shell-lg)] border border-zinc-200/80 bg-zinc-50 px-3 py-2 text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+            <p className="whitespace-pre-wrap rounded-[var(--radius-shell-lg)] border border-zinc-200/80 bg-zinc-50 px-3 py-2 text-zinc-700 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)] dark:text-[var(--kq-color-ink)]">
               {request.contentPreview}
             </p>
           </div>
@@ -174,10 +174,10 @@ function ApprovalCard({
 
         {request.description ? (
           <div>
-            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-[var(--kq-color-muted)] dark:text-zinc-500">
+            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">
               {t("approval.task")}
             </p>
-            <p className="whitespace-pre-wrap rounded-[var(--radius-shell-lg)] border border-zinc-200/80 bg-zinc-50 px-3 py-2 text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+            <p className="whitespace-pre-wrap rounded-[var(--radius-shell-lg)] border border-zinc-200/80 bg-zinc-50 px-3 py-2 text-zinc-700 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)] dark:text-[var(--kq-color-ink)]">
               {request.description}
             </p>
           </div>
@@ -185,10 +185,10 @@ function ApprovalCard({
 
         {request.schedule ? (
           <div>
-            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-[var(--kq-color-muted)] dark:text-zinc-500">
+            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">
               {t("approval.schedule")}
             </p>
-            <p className="rounded-[var(--radius-shell-lg)] border border-zinc-200/80 bg-zinc-50 px-3 py-2 font-mono text-[12px] text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+            <p className="rounded-[var(--radius-shell-lg)] border border-zinc-200/80 bg-zinc-50 px-3 py-2 font-mono text-[12px] text-zinc-700 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)] dark:text-[var(--kq-color-ink)]">
               {request.schedule}
             </p>
           </div>
@@ -196,27 +196,27 @@ function ApprovalCard({
 
         {request.deliveryTarget ? (
           <div>
-            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-[var(--kq-color-muted)] dark:text-zinc-500">
+            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">
               {t("approval.delivery")}
             </p>
-            <p className="rounded-[var(--radius-shell-lg)] border border-zinc-200/80 bg-zinc-50 px-3 py-2 text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+            <p className="rounded-[var(--radius-shell-lg)] border border-zinc-200/80 bg-zinc-50 px-3 py-2 text-zinc-700 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)] dark:text-[var(--kq-color-ink)]">
               {request.deliveryTarget === "desktop" ? t("approval.deliveryDesktop") : request.deliveryTarget}
             </p>
           </div>
         ) : null}
       </div>
 
-      <div className="flex flex-wrap justify-end gap-2 border-t border-[var(--kq-color-border)] px-5 py-4 dark:border-zinc-800">
+      <div className="flex flex-wrap justify-end gap-2 border-t border-[var(--kq-color-border)] px-5 py-4 dark:border-[var(--kq-color-border)]">
         <button
           type="button"
-          className="rounded-[var(--radius-shell-lg)] border border-zinc-300/90 px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-900"
+          className="rounded-[var(--radius-shell-lg)] border border-zinc-300/90 px-4 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-[var(--kq-color-border)] dark:text-[var(--kq-color-ink)] dark:hover:bg-[var(--kq-hover-bg-strong)]"
           onClick={() => onRespond(false)}
         >
           {t("approval.deny")}
         </button>
         <button
           type="button"
-          className="rounded-[var(--radius-shell-lg)] bg-[var(--kq-color-strong)] px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 dark:bg-[#D4C5E2] dark:text-zinc-900"
+          className="rounded-[var(--radius-shell-lg)] bg-[var(--kq-color-strong)] px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 dark:bg-[var(--kq-color-primary-light)] dark:text-[var(--kq-color-surface)]"
           onClick={() => onRespond(true)}
         >
           {allowLabel}
