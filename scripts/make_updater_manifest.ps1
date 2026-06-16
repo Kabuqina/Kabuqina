@@ -9,20 +9,26 @@ param(
     [Parameter(Mandatory)] [string]$Version,           # e.g. v0.1.0
     [string]$BundleDir = "tauri/target/release/bundle/msi",
     [string]$Notes = "See release notes on GitHub.",
-    [string]$Repo = $env:GITHUB_REPOSITORY            # set by Actions
+    [string]$Repo = $env:GITHUB_REPOSITORY,            # set by Actions
+    [string]$AssetBaseUrl = "",
+    [string]$Out = "latest.json"
 )
 
 $ErrorActionPreference = "Stop"
 
 if (-not $Repo) { $Repo = "Kabuqina/Kabuqina" }
 
-$msi = Get-ChildItem -Path $BundleDir -Filter "*.msi" | Select-Object -First 1
-$sig = Get-ChildItem -Path $BundleDir -Filter "*.msi.sig" | Select-Object -First 1
-if (-not $msi) { throw "no .msi found in $BundleDir" }
-if (-not $sig) { throw "no .msi.sig found in $BundleDir (configure tauri.conf updater key)" }
+$zip = Get-ChildItem -Path $BundleDir -Filter "*.msi.zip" | Select-Object -First 1
+$sig = Get-ChildItem -Path $BundleDir -Filter "*.msi.zip.sig" | Select-Object -First 1
+if (-not $zip) { throw "no .msi.zip found in $BundleDir (enable bundle.createUpdaterArtifacts)" }
+if (-not $sig) { throw "no .msi.zip.sig found in $BundleDir (configure tauri updater signing key)" }
 
 $cleanVer = $Version.TrimStart('v')
-$url = "https://github.com/$Repo/releases/download/$Version/$($msi.Name)"
+if (-not $AssetBaseUrl) {
+    $AssetBaseUrl = "https://github.com/$Repo/releases/download/$Version"
+}
+$AssetBaseUrl = $AssetBaseUrl.TrimEnd('/')
+$url = "$AssetBaseUrl/$($zip.Name)"
 $signature = (Get-Content -Raw $sig.FullName).Trim()
 
 $manifest = [ordered]@{
@@ -37,6 +43,5 @@ $manifest = [ordered]@{
     }
 }
 
-$out = "latest.json"
-$manifest | ConvertTo-Json -Depth 6 | Set-Content -Path $out -Encoding UTF8
-Write-Host "wrote $out for $Version" -ForegroundColor Green
+$manifest | ConvertTo-Json -Depth 6 | Set-Content -Path $Out -Encoding UTF8
+Write-Host "wrote $Out for $Version" -ForegroundColor Green

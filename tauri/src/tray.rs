@@ -8,7 +8,7 @@ use tauri::{
     image::Image,
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
-    App, Manager, WindowEvent,
+    App, Emitter, Manager, WindowEvent,
 };
 
 /// Closing the main window hides to tray instead of destroying the webview.
@@ -71,16 +71,10 @@ pub fn install(app: &mut App) -> Result<()> {
                 });
             }
             "updates" => {
-                #[cfg(desktop)]
-                tauri::async_runtime::spawn({
-                    let app = app.clone();
-                    async move {
-                        use tauri_plugin_updater::UpdaterExt;
-                        if let Ok(updater) = app.updater() {
-                            let _ = updater.check().await;
-                        }
-                    }
-                });
+                crate::companion::focus_main_window(&app);
+                if let Err(e) = app.emit("app-update-check-requested", ()) {
+                    log::warn!("emit update check request failed: {e}");
+                }
             }
             "quit" => app.exit(0),
             _ => {}

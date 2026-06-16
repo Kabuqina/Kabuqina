@@ -17,6 +17,7 @@ import { SettingsDisplay } from "./settings/SettingsDisplay";
 import { SettingsSharedPrefs } from "./settings/SettingsSharedPrefs";
 import { SettingsLoadPackages } from "./settings/SettingsLoadPackages";
 import { SettingsLlmConfig } from "./settings/SettingsLlmConfig";
+import { SettingsUpdate } from "./settings/SettingsUpdate";
 
 export interface Status {
   workspace: string;
@@ -116,16 +117,19 @@ export function Settings() {
 
         <div className="space-y-5">
           {tab === "general" && (
-            <SettingsDisplay
-              status={status}
-              powerUser={powerUser}
-              onTogglePowerUser={togglePowerUser}
-              fontSize={fontSize}
-              onSetFontSize={setFontSize}
-              themeMode={themeMode}
-              onSetThemeMode={setThemeMode}
-              onWorkspaceChanged={refreshStatus}
-            />
+            <>
+              <SettingsDisplay
+                status={status}
+                powerUser={powerUser}
+                onTogglePowerUser={togglePowerUser}
+                fontSize={fontSize}
+                onSetFontSize={setFontSize}
+                themeMode={themeMode}
+                onSetThemeMode={setThemeMode}
+                onWorkspaceChanged={refreshStatus}
+              />
+              <SettingsUpdate />
+            </>
           )}
 
           {tab === "model" && <SettingsLlmConfig />}
