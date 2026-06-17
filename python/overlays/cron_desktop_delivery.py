@@ -13,7 +13,7 @@ Upstream behavior:
 For HermesDesk we want every cron firing to surface in the /chat window and
 fire a Windows toast.  The cleanest hook is ``cron.scheduler._deliver_result``:
 we wrap it so that for ``deliver in {"local", "desktop", ""}`` we POST to the
-Tauri desktop_delivery bridge.  Any non-local target (telegram, feishu, …) is
+Tauri desktop_delivery bridge.  Any non-local target (feishu, weixin, …) is
 forwarded to the original implementation unchanged.
 
 This overlay is lazy: ``cron.scheduler`` is part of the bundled hermes tree,
@@ -66,8 +66,8 @@ def _resolve_desktop_targets(deliver_value: str) -> tuple[bool, str]:
 
     Rules:
       - ``""`` / ``"local"`` / ``"desktop"`` -> desktop only
-      - ``"desktop, telegram:#foo"``         -> desktop AND telegram (return ``"telegram:#foo"``)
-      - ``"telegram:#foo"``                  -> no desktop, full string forwarded
+      - ``"desktop, feishu:#foo"``           -> desktop AND feishu (return ``"feishu:#foo"``)
+      - ``"feishu:#foo"``                    -> no desktop, full string forwarded
     """
     raw = (deliver_value or "").strip().lower()
     if raw in ("", "local", "desktop"):

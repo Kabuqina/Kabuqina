@@ -53,6 +53,57 @@ WRITE_DENIED_PATHS = build_write_denied_paths(_HOME)
 WRITE_DENIED_PREFIXES = build_write_denied_prefixes(_HOME)
 
 
+# ---------------------------------------------------------------------------
+# Search noise filter — dependency, build, and VCS directories that bloat
+# results when scanning a real project (e.g. code -> slides). ripgrep already
+# honours .gitignore and skips hidden dirs (.git), but vendored/build trees are
+# frequently *not* gitignored, so we exclude them by default. The exclusion is
+# skipped when the caller deliberately targets one of these directories.
+# ---------------------------------------------------------------------------
+
+DEFAULT_SEARCH_IGNORE_DIRS = (
+    "node_modules",
+    "dist",
+    "build",
+    "target",
+    ".venv",
+    "venv",
+    "__pycache__",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".gradle",
+    ".idea",
+    "vendor",
+)
+
+
+def _targets_ignored_dir(path: Optional[str], file_glob: Optional[str]) -> bool:
+    """True when the search deliberately points into a normally-ignored dir.
+
+    Honours explicit intent: searching inside ``node_modules`` (via ``path`` or a
+    ``file_glob`` that names it) must not be silently emptied by the default
+    exclusions.
+    """
+    haystack = f"{path or ''}/{file_glob or ''}".replace("\\", "/").lower()
+    parts = {seg for seg in haystack.split("/") if seg}
+    return any(ignored.lower() in parts for ignored in DEFAULT_SEARCH_IGNORE_DIRS)
+
+
+def _rg_ignore_glob_args(path: Optional[str], file_glob: Optional[str]) -> list[str]:
+    if _targets_ignored_dir(path, file_glob):
+        return []
+    args: list[str] = []
+    for name in DEFAULT_SEARCH_IGNORE_DIRS:
+        args.extend(["--glob", f"'!**/{name}/**'"])
+    return args
+
+
+def _grep_ignore_dir_args(path: Optional[str], file_glob: Optional[str]) -> list[str]:
+    if _targets_ignored_dir(path, file_glob):
+        return []
+    return [f"--exclude-dir='{name}'" for name in DEFAULT_SEARCH_IGNORE_DIRS]
+
+
 def _get_safe_write_root() -> Optional[str]:
     """Return the resolved HERMES_WRITE_SAFE_ROOT path, or None if unset.
 
@@ -1016,9 +1067,12 @@ class ShellFileOperations(FileOperations):
             glob_pattern = pattern
 
         fetch_limit = limit + offset
+        ignore_globs = " ".join(_rg_ignore_glob_args(path, glob_pattern))
+        ignore_clause = f" {ignore_globs}" if ignore_globs else ""
         # Try mtime-sorted first (rg 13+); fall back to unsorted if not supported.
         cmd_sorted = (
-            f"rg --files --sortr=modified -g {self._escape_shell_arg(glob_pattern)} "
+            f"rg --files --sortr=modified -g {self._escape_shell_arg(glob_pattern)}"
+            f"{ignore_clause} "
             f"{self._escape_shell_arg(path)} 2>/dev/null "
             f"| head -n {fetch_limit}"
         )
@@ -1028,7 +1082,8 @@ class ShellFileOperations(FileOperations):
         if not all_files:
             # --sortr may have failed on older rg; retry without it.
             cmd_plain = (
-                f"rg --files -g {self._escape_shell_arg(glob_pattern)} "
+                f"rg --files -g {self._escape_shell_arg(glob_pattern)}"
+                f"{ignore_clause} "
                 f"{self._escape_shell_arg(path)} 2>/dev/null "
                 f"| head -n {fetch_limit}"
             )
@@ -1072,7 +1127,10 @@ class ShellFileOperations(FileOperations):
         # Add file glob filter (must be quoted to prevent shell expansion)
         if file_glob:
             cmd_parts.extend(["--glob", self._escape_shell_arg(file_glob)])
-        
+
+        # Skip dependency/build/VCS noise unless the caller targets it.
+        cmd_parts.extend(_rg_ignore_glob_args(path, file_glob))
+
         # Output mode handling
         if output_mode == "files_only":
             cmd_parts.append("-l")  # Files only
@@ -1167,11 +1225,14 @@ class ShellFileOperations(FileOperations):
         # Exclude hidden directories (matching ripgrep's default behavior).
         # This prevents searching inside .hub/index-cache/, .git/, etc.
         cmd_parts.append("--exclude-dir='.*'")
-        
+
+        # Skip dependency/build/VCS noise unless the caller targets it.
+        cmd_parts.extend(_grep_ignore_dir_args(path, file_glob))
+
         # Add context if requested
         if context > 0:
             cmd_parts.extend(["-C", str(context)])
-        
+
         # Add file pattern filter (must be quoted to prevent shell expansion)
         if file_glob:
             cmd_parts.extend(["--include", self._escape_shell_arg(file_glob)])

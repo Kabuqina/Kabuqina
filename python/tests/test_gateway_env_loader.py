@@ -12,9 +12,10 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-_SRC = Path(__file__).resolve().parents[1] / "src"
+_PYTHON_ROOT = Path(__file__).resolve().parents[1]
+_SRC = _PYTHON_ROOT / "src"
 _HERMES_CORE = Path(__file__).resolve().parents[2] / "hermes_core"
-for _p in (_SRC, _HERMES_CORE):
+for _p in (_PYTHON_ROOT, _SRC, _HERMES_CORE):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
@@ -56,6 +57,24 @@ class TestGatewayEnvLoader(unittest.TestCase):
         self.assertIn("ilink.example.com", hosts)
         # Telegram disabled — removed from Kabuqina product scope (codex/student-deliverables)
         # self.assertIn("api.telegram.org", hosts)
+
+    def test_collect_messaging_hosts_ignores_removed_platform_credentials(self):
+        import gateway_env_loader as gel
+
+        with patch.dict(
+            os.environ,
+            {
+                "DISCORD_BOT_TOKEN": "discord-token",
+                "SLACK_BOT_TOKEN": "slack-token",
+            },
+            clear=False,
+        ):
+            hosts = gel.collect_messaging_hosts_from_environ()
+
+        self.assertNotIn("discord.com", hosts)
+        self.assertNotIn("gateway.discord.gg", hosts)
+        self.assertNotIn("slack.com", hosts)
+        self.assertNotIn("files.slack.com", hosts)
 
     def test_refresh_extends_network_policy(self):
         import gateway_env_loader as gel

@@ -201,6 +201,40 @@ class TestResolveVisionMainFirst:
         assert mock_resolve.call_args.args[1] == "anthropic/claude-sonnet-4.6"
         assert mock_resolve.call_args.kwargs.get("is_vision") is True
 
+    def test_openrouter_main_text_model_falls_back_to_strict_vision_backend(self):
+        """OpenRouter text-only main model → aux vision uses OpenRouter vision default."""
+        fallback_client = MagicMock()
+
+        with patch(
+            "agent.auxiliary_client._read_main_provider", return_value="openrouter",
+        ), patch(
+            "agent.auxiliary_client._read_main_model",
+            return_value="google/gemma-3-1b",
+        ), patch(
+            "agent.models_dev.get_model_capabilities",
+        ) as mock_caps, patch(
+            "agent.auxiliary_client.resolve_provider_client",
+            side_effect=AssertionError(
+                "text-only main model should not be used for vision"
+            ),
+        ), patch(
+            "agent.auxiliary_client._resolve_strict_vision_backend",
+            return_value=(fallback_client, "google/gemini-3-flash-preview"),
+        ) as mock_strict, patch(
+            "agent.auxiliary_client._resolve_task_provider_model",
+            return_value=("auto", None, None, None, None),
+        ):
+            mock_caps.return_value = MagicMock(supports_vision=False)
+
+            from agent.auxiliary_client import resolve_vision_provider_client
+
+            provider, client, model = resolve_vision_provider_client()
+
+        assert provider == "openrouter"
+        assert client is fallback_client
+        assert model == "google/gemini-3-flash-preview"
+        mock_strict.assert_called_once_with("openrouter")
+
     def test_nous_main_vision_uses_paid_nous_vision_backend(self):
         """Paid Nous main → aux vision uses the dedicated Nous vision backend."""
         with patch(

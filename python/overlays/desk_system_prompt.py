@@ -45,28 +45,55 @@ def _workspace_hint() -> str:
 
 def _block_workspace_files(*, has_terminal: bool) -> str:
     ws = _workspace_hint()
-    base = (
-        "### Workspace file access\n\n"
-        "Kabuqina confines **file tools** (`read_file`, `pdf_read_precise`, `write_file`, "
-        "`search_files`, attachments processing, etc.) to the user's **workspace** folder."
-        f"{ws} Paths on other drives or folders (e.g. `D:\\...`) are **not readable** "
-        "by those tools.\n\n"
+    if has_terminal:
+        scope = (
+            "### Workspace file access\n\n"
+            "**Power user mode — read anywhere, write to the workspace.** File **read** "
+            "tools (`read_file`, `pdf_read_precise`, `search_files`, attachments "
+            "processing, etc.) can reach files **anywhere on disk**, including other "
+            "drives and folders (e.g. `D:\\project\\...`).{ws_w} File **write/output** "
+            "tools (`write_file`, deck/doc/PDF generators) can only write **into the "
+            "workspace**.\n\n"
+        ).format(ws_w=ws)
+    else:
+        scope = (
+            "### Workspace file access\n\n"
+            "Kabuqina confines **file tools** (`read_file`, `pdf_read_precise`, "
+            "`write_file`, `search_files`, attachments processing, etc.) to the user's "
+            f"**workspace** folder.{ws} Paths on other drives or folders (e.g. `D:\\...`) "
+            "are **not readable** by those tools.\n\n"
+        )
+    reading = (
+        "**Reading PDFs/documents — default to the fast mode.** `pdf_read_precise` / "
+        "`document_read_precise` default to `mode=auto`, which extracts text in under a "
+        "second and is what you want for reading, understanding, or summarizing a file. "
+        "Only pass `mode=precise` (layout + tables) or `mode=math` (LaTeX formula "
+        "extraction) when the user **explicitly** needs faithful tables, layout, or "
+        "formulas — those run ML models on the CPU and can take **several minutes** per "
+        "document. Do not reach for precise/math just because a file happens to contain "
+        "a formula or table.\n\n"
     )
+    base = scope + reading
     if has_terminal:
         return base + (
-            "**When the user references a file outside the workspace:** do **not** ask them "
-            "to copy or move it manually as your first step. **Proactively use `terminal`** "
-            "to copy the file into the workspace, then use file/document tools on the "
-            "workspace copy. Git Bash example: "
-            "`cp \"/d/path/to/report.pdf\" \"./report.pdf\"` (or a subfolder under workspace). "
-            "Only ask the user to intervene if the copy fails or they must choose a "
-            "specific destination name.\n"
+            "**When the user points you at a project or folder (e.g. code → slides, "
+            "repo → report):** read its files **in place** with `read_file` / "
+            "`search_files` / `pdf_read_precise` — do **not** copy the whole tree into "
+            "the workspace first. Copying entire projects is slow and pointless when you "
+            "can read them where they are; only the **deliverables you produce** (the "
+            "PPTX, report, etc.) go into the workspace. Copy a single source file in only "
+            "when something genuinely needs to live in the workspace.\n\n"
+            "**Skip noise when scanning a project.** Ignore dependency, build, and VCS "
+            "directories — `.git`, `node_modules`, `dist`, `build`, `target`, `.venv`, "
+            "`__pycache__`, and similar generated folders. `search_files` already filters "
+            "these; when reading manually, focus on source, config, and docs rather than "
+            "vendored or generated files.\n"
         )
     return base + (
         "You do **not** have `terminal` in this session. When a path is outside the "
         "workspace, ask the user to attach the file in chat, move/copy it into the "
-        "workspace folder, or enable **Power user mode** in Settings so you can copy "
-        "it for them.\n"
+        "workspace folder, or enable **Power user mode** in Settings so you can read "
+        "it in place.\n"
     )
 
 

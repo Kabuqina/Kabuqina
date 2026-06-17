@@ -38,12 +38,103 @@ def test_pdf_read_precise_rejects_paths_outside_workspace(tmp_path, monkeypatch)
     outside = tmp_path / "outside.pdf"
     outside.write_bytes(b"%PDF-1.4\n")
 
+    monkeypatch.delenv("HERMESDESK_POWER_USER", raising=False)
     monkeypatch.setenv("HERMESDESK_WORKSPACE", str(workspace))
     result = json.loads(pdf_read_precise(path=str(outside)))
 
     assert result.get("code") == "outside_workspace"
     assert "workspace" in result
     assert "terminal" in result.get("hint", "").lower()
+
+
+def test_validate_read_path_allows_outside_workspace_for_power_user(tmp_path, monkeypatch):
+    from tools.document_tools import _validate_read_path
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    outside = tmp_path / "project" / "report.pdf"
+    outside.parent.mkdir()
+    outside.write_bytes(b"%PDF-1.4\n")
+
+    monkeypatch.setenv("HERMESDESK_WORKSPACE", str(workspace))
+
+    # Default mode confines reads to the workspace.
+    monkeypatch.delenv("HERMESDESK_POWER_USER", raising=False)
+    rejected = _validate_read_path(outside, str(outside), "PDF")
+    assert rejected is not None
+    assert json.loads(rejected).get("code") == "outside_workspace"
+
+    # Power-user mode reads the project in place — no copy required.
+    monkeypatch.setenv("HERMESDESK_POWER_USER", "1")
+    assert _validate_read_path(outside, str(outside), "PDF") is None
+
+    # Write targets stay workspace-confined even for power users.
+    from tools.document_tools import _validate_write_path
+
+    write_rejected = _validate_write_path(outside, str(outside))
+    assert write_rejected is not None
+    assert json.loads(write_rejected).get("code") == "outside_workspace"
+
+
+def test_pdf_read_precise_math_rejects_large_pdf_without_page_range(tmp_path, monkeypatch):
+    from tools import document_tools
+
+    pdf = tmp_path / "formula-heavy.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    monkeypatch.setenv("HERMESDESK_WORKSPACE", str(tmp_path))
+    monkeypatch.setattr(document_tools, "_pdf_page_count", lambda path: 11, raising=False)
+    monkeypatch.setattr(
+        document_tools,
+        "_read_with_docling",
+        lambda *args, **kwargs: pytest.fail("math mode should be rejected before Docling starts"),
+    )
+
+    result = json.loads(document_tools.pdf_read_precise(str(pdf), mode="math", include_content=False))
+
+    assert result["ok"] is False
+    assert result["code"] == "docling_math_too_many_pages"
+    assert "page_start" in result["hint"]
+
+
+def test_pdf_read_precise_passes_page_range_to_docling(tmp_path, monkeypatch):
+    from tools import document_tools
+
+    pdf = tmp_path / "formula-heavy.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    captured = {}
+
+    def fake_read_with_docling(document_path, mode, page_range=None):
+        captured["path"] = document_path
+        captured["mode"] = mode
+        captured["page_range"] = page_range
+        return {
+            "ok": True,
+            "engine": "docling",
+            "mode": mode,
+            "profile": "math",
+            "path": str(document_path),
+            "pages": 2,
+            "content": "$x+y$",
+        }
+
+    monkeypatch.setenv("HERMESDESK_WORKSPACE", str(tmp_path))
+    monkeypatch.setenv("HERMESDESK_DOCLING_MATH_MAX_PAGES", "2")
+    monkeypatch.setattr(document_tools, "_pdf_page_count", lambda path: 11, raising=False)
+    monkeypatch.setattr(document_tools, "_read_with_docling", fake_read_with_docling)
+
+    result = json.loads(
+        document_tools.pdf_read_precise(
+            str(pdf),
+            mode="math",
+            include_content=False,
+            page_start=3,
+            page_end=4,
+        )
+    )
+
+    assert result["ok"] is True
+    assert captured["mode"] == "math"
+    assert captured["page_range"] == (3, 4)
 
 
 def test_pptx_write_emits_deck_spec_and_writes_bytes(tmp_path):
@@ -626,6 +717,63 @@ def test_html_write_repairs_unescaped_quotes_in_json_string(tmp_path):
     assert "<li>第一点</li>" in html
     assert "信息大爆炸" in html  # content quote text survives
     assert '"sections":' not in html  # raw JSON must not leak
+
+
+def test_html_write_renders_common_latex_formula_markup(tmp_path):
+    import tools.document_tools as document_tools
+
+    out = tmp_path / "formula-report"
+    result = json.loads(
+        document_tools.html_write(
+            path=str(out),
+            title="公式报告",
+            document={
+                "blocks": [
+                    {
+                        "type": "formula",
+                        "latex": (
+                            r"\vec{x} = \arg\min_{\vec{x} \in \vec{X}} \|\vec{x}\| "
+                            r"+ \sqrt{(x_1-x_0)^2} + \frac{n}{N}"
+                        ),
+                    }
+                ]
+            },
+        )
+    )
+
+    html = (tmp_path / "formula-report.html").read_text(encoding="utf-8")
+    assert result["block_count"] == 1
+    assert 'class="formula-math"' in html
+    assert 'class="frac"' in html
+    assert 'class="sqrt"' in html
+    assert '<sub>1</sub>' in html
+    assert '<sup>2</sup>' in html
+    assert 'x<span class="vec-mark"' in html
+    assert "\\frac" not in html
+    assert "\\sqrt" not in html
+    assert "\\vec" not in html
+
+
+def test_html_write_rejects_unparseable_json_string_document(tmp_path):
+    """JSON-looking document strings must not be emitted as raw report text."""
+    import tools.document_tools as document_tools
+
+    malformed = (
+        '{"sections": [{"title": "六、不确定符号汇总", '
+        '"table": {"headers": ["#", "状态"], "rows": [["1", "已修正"]]}, '
+        '{"title": "七、提取统计", "paragraphs": ["缺少上一节闭合大括号"]}]}'
+    )
+    with pytest.raises(json.JSONDecodeError):
+        json.loads(malformed)
+
+    out = tmp_path / "bad-jsonish"
+    result = json.loads(
+        document_tools.html_write(path=str(out), title="坏 JSON 报告", document=malformed)
+    )
+
+    assert result["ok"] is False
+    assert result["code"] == "invalid_document_json"
+    assert not out.with_suffix(".html").exists()
 
 
 def test_html_write_rejects_output_outside_workspace(tmp_path, monkeypatch):

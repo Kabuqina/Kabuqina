@@ -21,7 +21,22 @@ ROLE_POWER = "power"
 VALID_ROLES = (ROLE_DEFAULT, ROLE_ADVANCED, ROLE_POWER)
 ROLE_RANK = {role: idx for idx, role in enumerate(VALID_ROLES)}
 
-SAFE_TOOLSETS = {"web", "file", "vision", "image_gen", "tts", "skills", "todo", "browser"}
+SAFE_TOOLSETS = {
+    "web",
+    "file",
+    "vision",
+    "image_gen",
+    "tts",
+    "skills",
+    "clock",
+    "todo",
+    "browser",
+    "clarify",
+    "documents",
+    "math",
+    "cronjob",
+    "messaging",
+}
 POWER_TOOLSETS = {"terminal", "code_execution", "moa"}
 COMMUNITY_SOURCES = {"community", "external", "github", "url", "hub", "third_party", "third-party"}
 COMMUNITY_TRUST = {"community", "untrusted", "unknown"}

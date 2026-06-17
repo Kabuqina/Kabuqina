@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 import sys
 import unittest
@@ -371,6 +372,42 @@ class TestDeskServerHttp(unittest.TestCase):
         self.assertEqual(data["pageCount"], 2)
         self.assertEqual(base64.b64decode(data["pdfBase64"]), b"%PDF-1.4\nchat export\n%%EOF")
         self.assertEqual(rendered, ["<!doctype html><h1>Chat</h1>"])
+
+    def test_export_pdf_route_offloads_sync_renderer_off_loop(self):
+        # Regression guard: the core renderer uses Playwright's Sync API, which
+        # raises when called inside an asyncio event loop. The route must push
+        # the call onto a worker thread, not run it inline on the loop.
+        import threading
+
+        from desk_server.auth import SESSION_HEADER_NAME, SESSION_TOKEN
+        import tools.document_tools as document_tools
+
+        captured = {}
+
+        def fake_render(html_source):
+            captured["thread"] = threading.current_thread()
+            # asyncio.get_running_loop() only succeeds when this thread is
+            # running a loop; in an offloaded worker thread it raises.
+            try:
+                asyncio.get_running_loop()
+                captured["running_loop"] = True
+            except RuntimeError:
+                captured["running_loop"] = False
+            return b"%PDF-1.4\nchat export\n%%EOF", 1, "chromium_print_v1"
+
+        with patch.object(document_tools, "render_pdf_from_html_source", fake_render):
+            resp = self.client.post(
+                "/api/desk/export/pdf",
+                json={"html": "<!doctype html><h1>Chat</h1>"},
+                headers={SESSION_HEADER_NAME: SESSION_TOKEN},
+            )
+
+        self.assertEqual(resp.status_code, 200)
+        # The renderer must run on a different thread than the test/main thread.
+        self.assertIsNotNone(captured.get("thread"))
+        self.assertNotEqual(captured["thread"], threading.main_thread())
+        # ... and never inside a running event loop.
+        self.assertFalse(captured.get("running_loop"))
 
 
 if __name__ == "__main__":

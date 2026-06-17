@@ -64,5 +64,6 @@ jobs:
         with:
           files: |
             tauri/target/release/bundle/msi/*.msi
-            tauri/target/release/bundle/msi/*.msi.sig
+            tauri/target/release/bundle/msi/*.msi.zip
+            tauri/target/release/bundle/msi/*.msi.zip.sig
             latest.json

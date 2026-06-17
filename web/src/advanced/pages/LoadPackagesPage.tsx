@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Download, Package, RefreshCw, Trash2 } from "lucide-react";
+import { Download, RefreshCw, Trash2 } from "lucide-react";
 import { AppScaffold } from "../../components/AppScaffold";
 import { BackButton } from "../../components/ui/BackButton";
 import { Button } from "../../components/ui/Button";
@@ -138,15 +138,16 @@ export function LoadPackagesPage() {
   }, [refresh, t]);
 
   return (
-    <AppScaffold className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-3xl space-y-5 px-[var(--hd-page-pad-x)] py-8 sm:py-10">
-        <div>
-          <BackButton onClick={() => nav("/settings")}>{t("settings.back")}</BackButton>
-          <h1 className="hd-page-title">{t("settings.loadPackagesTitle")}</h1>
-          <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">
-            {t("settings.loadPackagesPageLead")}
-          </p>
-        </div>
+    <AppScaffold surface="chat" className="flex h-full min-h-0 flex-col">
+      <div className="hd-topbar sticky top-0 z-20 flex h-12 shrink-0 items-center gap-2 border-b px-2 sm:px-3">
+        <BackButton onClick={() => nav("/settings")} className="-ml-1">{t("settings.back")}</BackButton>
+        <span className="text-sm font-semibold text-[var(--kq-color-strong)]">{t("settings.loadPackagesTitle")}</span>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="mx-auto max-w-3xl space-y-5 px-[var(--hd-page-pad-x)] py-7 sm:py-9">
+        <p className="max-w-2xl text-sm leading-relaxed text-[var(--kq-color-muted)]">
+          {t("settings.loadPackagesPageLead")}
+        </p>
 
         {loading ? (
           <p className="text-sm text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">{t("settings.loadPackagesChecking")}</p>
@@ -159,7 +160,7 @@ export function LoadPackagesPage() {
               return (
                 <div
                   key={pkg.id}
-                  className="rounded-[var(--radius-shell-lg)] border border-[var(--kq-color-border)] bg-white/70 p-4 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)]"
+                  className="hd-setting-card p-4"
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
@@ -180,11 +181,6 @@ export function LoadPackagesPage() {
                           ? t("settings.loadPackageSize", { size: formatBytes(pkg.size) })
                           : t("settings.loadPackageExpectedSize", { size: String(pkg.sizeMb) })}
                       </p>
-                      <p className="mt-1 text-xs text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">
-                        {t("settings.loadPackageSources", {
-                          sources: (pkg.sources ?? []).map((source) => source.label).join(" / "),
-                        })}
-                      </p>
                       {pkg.usedByCapabilities?.length ? (
                         <p className="mt-1 text-xs text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">
                           {t("settings.loadPackageUsedBy", {
@@ -192,12 +188,6 @@ export function LoadPackagesPage() {
                           })}
                         </p>
                       ) : null}
-                      {pkg.source ? (
-                        <p className="mt-1 text-xs text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">
-                          {t("settings.loadPackageSource", { source: pkg.source })}
-                        </p>
-                      ) : null}
-
                     </div>
 
                     <div className="flex shrink-0 flex-wrap gap-2">
@@ -225,11 +215,7 @@ export function LoadPackagesPage() {
         )}
 
         {error ? <StatusBanner variant="error" title={error} /> : null}
-
-        <div className="rounded-[var(--radius-shell-lg)] border border-[var(--kq-color-border)] bg-white/55 p-4 text-sm text-[var(--kq-color-muted)] dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)] dark:text-[var(--kq-color-muted)]">
-          <Package className="mb-2 h-4 w-4" />
-          <p>{t("settings.loadPackagesOfficialSourceHint")}</p>
-        </div>
+      </div>
       </div>
     </AppScaffold>
   );

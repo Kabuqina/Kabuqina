@@ -5,7 +5,7 @@
 
 ``gateway.run`` loads dotenv at import time. The **web child** (cron ticker,
 ``send_message_tool`` standalone sends) must do the same or **every** remote
-bot delivery fails the same way — missing ``WEIXIN_*`` / ``TELEGRAM_*`` in
+bot delivery fails the same way — missing ``WEIXIN_*`` / ``FEISHU_*`` in
 ``os.environ``, unresolved ``*_HOME_CHANNEL``, and (for httpx-based platforms)
 network-allowlist blocks on API hosts.
 """
@@ -33,21 +33,12 @@ _URL_ENV_SUFFIXES = (
 
 # When credentials are present, allow known API hosts (httpx-based send paths).
 _CREDENTIAL_API_HOSTS: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
-    # Telegram disabled — removed from Kabuqina product scope (codex/student-deliverables)
-    # (("TELEGRAM_BOT_TOKEN",), ("api.telegram.org",)),
-    (("DISCORD_BOT_TOKEN",), ("discord.com", "discordapp.com", "cdn.discordapp.com", "gateway.discord.gg")),
-    (("SLACK_BOT_TOKEN",), ("slack.com", "slack-edge.com", "files.slack.com")),
     (("FEISHU_APP_ID", "FEISHU_APP_SECRET"), ("open.feishu.cn", "open.larkoffice.com")),
-    (("DINGTALK_CLIENT_ID", "DINGTALK_CLIENT_SECRET"), ("api.dingtalk.com", "oapi.dingtalk.com")),
     (("WECOM_BOT_ID", "WECOM_SECRET"), ("qyapi.weixin.qq.com",)),
     (("WECOM_CALLBACK_CORP_ID", "WECOM_CALLBACK_CORP_SECRET"), ("qyapi.weixin.qq.com",)),
     (("WEIXIN_TOKEN",), ()),  # hosts come from WEIXIN_BASE_URL / CDN env
     (("WEIXIN_ACCOUNT_ID",), ()),
-    (("MATRIX_HOMESERVER",), ()),
-    (("SIGNAL_REST_API_URL",), ()),
-    (("BLUEBUBBLES_SERVER_URL",), ()),
     (("QQBOT_APP_ID", "QQBOT_CLIENT_SECRET"), ("api.sgroup.qq.com",)),
-    (("TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN"), ("api.twilio.com",)),
 )
 
 

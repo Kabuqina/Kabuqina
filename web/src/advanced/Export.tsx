@@ -5,7 +5,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
-import { ArrowDown, ArrowUp } from "lucide-react";
 import { AppScaffold } from "../components/AppScaffold";
 import { BackButton } from "../components/ui/BackButton";
 import { useI18n } from "../lib/i18n";
@@ -18,6 +17,7 @@ import {
   type ExportFormat,
   exportLabelsForLocale,
 } from "../chat/chatExport";
+import { HIGHLIGHT_CSS, renderChatMarkdownToHtml } from "../chat/chatExportHtml";
 import {
   cmdGetSessionMessages,
   cmdGetSessions,
@@ -28,7 +28,6 @@ import {
 export function Export() {
   const { t, locale } = useI18n();
   const nav = useNavigate();
-  const scrollRef = useRef<HTMLDivElement>(null);
 
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -113,7 +112,10 @@ export function Export() {
         defaultName = defaultExportFilename("text");
         filters = [{ name: "Text", extensions: ["txt"] }];
       } else {
-        content = buildExportHtml(sortedSessions, msgsBySession, labels, locale);
+        content = buildExportHtml(sortedSessions, msgsBySession, labels, locale, {
+          renderMarkdown: renderChatMarkdownToHtml,
+          extraCss: HIGHLIGHT_CSS,
+        });
         defaultName = defaultExportFilename("pdf");
         filters = [{ name: "PDF", extensions: ["pdf"] }];
       }
@@ -147,19 +149,20 @@ export function Export() {
   }, [selected, format, sessions, locale, t]);
 
   return (
-    <AppScaffold className="h-full overflow-y-auto" ref={scrollRef}>
-      <div className="mx-auto max-w-2xl space-y-5 px-[var(--hd-page-pad-x)] py-8 sm:py-10">
-        <div>
-          <BackButton onClick={() => nav("/chat")}>
-            {t("export.back")}
-          </BackButton>
-          <h1 className="hd-page-title">{t("export.title")}</h1>
-          <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-[var(--kq-color-muted)]">
-            {t("export.lead")}
-          </p>
-        </div>
+    <AppScaffold surface="chat" className="flex h-full min-h-0 flex-col">
+      <div className="hd-topbar sticky top-0 z-20 flex h-12 shrink-0 items-center gap-2 border-b px-2 sm:px-3">
+        <BackButton onClick={() => nav("/chat")} className="-ml-1">
+          {t("export.back")}
+        </BackButton>
+        <span className="text-sm font-semibold text-[var(--kq-color-strong)]">{t("export.title")}</span>
+      </div>
+      <div className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col px-[var(--hd-page-pad-x)]">
+        <div className="shrink-0 space-y-4 pt-7 sm:pt-8">
+        <p className="max-w-xl text-sm leading-relaxed text-[var(--kq-color-muted)]">
+          {t("export.lead")}
+        </p>
 
-        <div className="rounded-[var(--radius-shell-lg)] border border-zinc-200/90 bg-white/70 p-4 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg-subtle)]">
+        <div className="hd-setting-card p-4">
           <label className="block text-sm font-medium text-[var(--kq-color-strong)]">
             {t("export.formatLabel")}
           </label>
@@ -202,7 +205,7 @@ export function Export() {
           <button
             type="button"
             onClick={deselectAll}
-            className="text-sm text-zinc-500 hover:text-[var(--kq-color-muted)] dark:hover:text-[var(--kq-color-ink)]"
+            className="text-sm text-[var(--kq-color-muted)] transition hover:text-[var(--kq-color-strong)]"
           >
             {t("export.deselectAll")}
           </button>
@@ -210,7 +213,9 @@ export function Export() {
             {t("export.selected", { count: selected.size })}
           </span>
         </div>
+        </div>
 
+        <div className="min-h-0 flex-1 overflow-y-auto py-3">
         {loading && (
           <p className="text-sm text-[var(--kq-color-muted)] py-8 text-center">
             {t("export.loading")}
@@ -232,7 +237,7 @@ export function Export() {
               return (
                 <label
                   key={s.id}
-                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 cursor-pointer transition hover:bg-zinc-100/70 dark:hover:bg-[var(--kq-hover-bg-strong)]"
+                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 cursor-pointer transition hover:bg-[var(--kq-hover-bg)]"
                 >
                   <input
                     type="checkbox"
@@ -257,43 +262,18 @@ export function Export() {
             })}
           </div>
         )}
+        </div>
 
-        <div className="pt-4">
+        <div className="shrink-0 border-t border-[var(--kq-color-border)] py-4">
           <button
             type="button"
             disabled={selected.size === 0 || exporting}
             onClick={handleExport}
-            className="kq-btn-primary inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-bold active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+            className="kq-btn-primary inline-flex w-full items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-bold active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {exporting ? "…" : t("export.exportBtn")}
           </button>
         </div>
-      </div>
-
-      <div className="pointer-events-none fixed bottom-6 right-6 z-50 flex flex-col gap-2">
-        <button
-          type="button"
-          onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" })}
-          className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border border-[var(--kq-color-border)] bg-white/90 text-[var(--kq-color-muted)] shadow-[var(--kq-shadow-card)] backdrop-blur transition hover:bg-white hover:text-[var(--kq-color-strong)] dark:bg-[var(--kq-glass-bg-subtle)] dark:text-[var(--kq-color-ink)] dark:hover:bg-[var(--kq-hover-bg-strong)] dark:hover:text-[var(--kq-color-strong)]"
-          aria-label={t("settings.scrollTop")}
-          title={t("settings.scrollTop")}
-        >
-          <ArrowUp className="h-5 w-5" />
-        </button>
-        <button
-          type="button"
-          onClick={() =>
-            scrollRef.current?.scrollTo({
-              top: scrollRef.current.scrollHeight,
-              behavior: "smooth",
-            })
-          }
-          className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border border-[var(--kq-color-border)] bg-white/90 text-[var(--kq-color-muted)] shadow-[var(--kq-shadow-card)] backdrop-blur transition hover:bg-white hover:text-[var(--kq-color-strong)] dark:bg-[var(--kq-glass-bg-subtle)] dark:text-[var(--kq-color-ink)] dark:hover:bg-[var(--kq-hover-bg-strong)] dark:hover:text-[var(--kq-color-strong)]"
-          aria-label={t("settings.scrollBottom")}
-          title={t("settings.scrollBottom")}
-        >
-          <ArrowDown className="h-5 w-5" />
-        </button>
       </div>
     </AppScaffold>
   );

@@ -17,7 +17,7 @@ every launch when the Power-user toggle changes), so the user never has
 to use `hermes tools` from a terminal they don't have.
 
 Beyond the desktop (``cli``) key, this overlay **locks every gateway platform
-key** (``telegram``, ``weixin``, ``discord``, etc.) to the non-power-user
+key** (``weixin``, ``feishu``, ``qqbot``, etc.) to the non-power-user
 keep-list.  Gateway bots never receive expanded tools regardless of the
 power-user toggle.  See ``ToolPolicy.gateway_keep_list()``.
 
@@ -79,7 +79,7 @@ def install() -> None:
         log.debug("toolset config already matches desired set")
 
     # Force all gateway platform toolset keys to non-power-user keep-list.
-    # Gateway bots (weixin, telegram, etc.) never get expanded tools.
+    # Gateway bots (weixin, feishu, qqbot, etc.) never get expanded tools.
     try:
         from hermes_cli.platforms import PLATFORMS as _PLATFORMS
         gw_list = ToolPolicy.gateway_keep_list()

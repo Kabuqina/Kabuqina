@@ -4,6 +4,7 @@
 """Desk export routes for shell-owned save flows."""
 from __future__ import annotations
 
+import asyncio
 import base64
 import logging
 
@@ -33,7 +34,12 @@ async def desk_export_pdf(request: Request):
     try:
         from tools.document_tools import render_pdf_from_html_source
 
-        pdf_bytes, page_count, renderer = render_pdf_from_html_source(html_source)
+        # The core renderer uses Playwright's Sync API, which refuses to run
+        # inside an asyncio event loop. FastAPI dispatches this handler on the
+        # loop, so push the blocking/sync render onto a worker thread.
+        pdf_bytes, page_count, renderer = await asyncio.to_thread(
+            render_pdf_from_html_source, html_source
+        )
     except Exception as exc:
         log.exception("desk export pdf: render failed")
         return JSONResponse(

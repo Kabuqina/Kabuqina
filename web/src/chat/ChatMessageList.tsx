@@ -20,6 +20,7 @@ interface ChatMessageListProps {
   loadPackageDownloads?: LoadPackageStatus[];
   pendingInteraction?: PendingAgentInteraction | null;
   onRespondInteraction?: (action: string, text?: string, data?: Record<string, unknown>) => Promise<void>;
+  onOpenLoadPackageSettings?: () => void;
   onPickSuggestion?: (prompt: string) => void;
 }
 
@@ -50,20 +51,39 @@ function TypingIndicator() {
   );
 }
 
-function LoadPackageDownloadProgress({ packages }: { packages: LoadPackageStatus[] }) {
+function loadPackagePhaseLabel(phase: string | undefined, t: (path: string) => string): string {
+  if (!phase) return "";
+  const key = `settings.loadPackagePhase.${phase}`;
+  const value = t(key);
+  return value === key ? phase : value;
+}
+
+function LoadPackageDownloadProgress({
+  packages,
+  onOpenSettings,
+}: {
+  packages: LoadPackageStatus[];
+  onOpenSettings?: () => void;
+}) {
   const { t } = useI18n();
   if (packages.length === 0) return null;
+  const loadPackageFinished = packages.every((pkg) => pkg.job?.status !== "running");
+  const hasError = packages.some((pkg) => pkg.job?.status === "error");
   return (
     <AssistantStreamShell>
       <div className="kq-chat-bubble-assistant rounded-2xl rounded-tl-sm px-4 py-3 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg-subtle)]">
         <p className="mb-3 text-xs font-medium text-[var(--kq-color-strong)] dark:text-[var(--kq-color-strong)]">
-          {t("settings.loadPackageChatTitle")}
+          {loadPackageFinished
+            ? hasError
+              ? t("settings.loadPackageFailed")
+              : t("settings.loadPackageFinished")
+            : t("settings.loadPackageChatTitle")}
         </p>
         <div className="space-y-3">
           {packages.map((pkg) => {
             const job = pkg.job;
             const total = job?.totalBytes || pkg.sizeMb * 1024 * 1024;
-            const downloaded = job?.downloadedBytes || 0;
+            const downloaded = job?.downloadedBytes || (job?.status === "done" ? total : 0);
             const percent = job?.percent ?? (total ? Math.floor(downloaded * 100 / total) : 0);
             return (
               <div key={pkg.id}>
@@ -78,12 +98,24 @@ function LoadPackageDownloadProgress({ packages }: { packages: LoadPackageStatus
                   />
                 </div>
                 <p className="mt-1 text-xs text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">
-                  {formatBytes(downloaded)} / {formatBytes(total)}
+                  {loadPackagePhaseLabel(job?.phase, t)} · {formatBytes(downloaded)} / {formatBytes(total)}
                 </p>
+                {job?.status === "error" && job.error ? (
+                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">{job.error}</p>
+                ) : null}
               </div>
             );
           })}
         </div>
+        {onOpenSettings ? (
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            className="mt-3 text-xs font-medium text-sky-700 underline-offset-2 hover:underline dark:text-sky-300"
+          >
+            {t("settings.loadPackageChatOpenSettings")}
+          </button>
+        ) : null}
       </div>
     </AssistantStreamShell>
   );
@@ -343,6 +375,7 @@ export function ChatMessageList({
   loadPackageDownloads = [],
   pendingInteraction,
   onRespondInteraction,
+  onOpenLoadPackageSettings,
   onPickSuggestion,
 }: ChatMessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -385,7 +418,7 @@ export function ChatMessageList({
               <AgentProgress progress={progress} />
             </AssistantStreamShell>
           )}
-          <LoadPackageDownloadProgress packages={loadPackageDownloads} />
+          <LoadPackageDownloadProgress packages={loadPackageDownloads} onOpenSettings={onOpenLoadPackageSettings} />
           {pendingInteraction ? (
             pendingInteraction.kind === "pptx_render" ? (
               <PptxRenderCard key={pendingInteraction.id} interaction={pendingInteraction} onRespond={onRespondInteraction} />

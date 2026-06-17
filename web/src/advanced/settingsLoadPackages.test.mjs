@@ -16,6 +16,10 @@ const loadPackagesPageSource = fs.readFileSync(
   "utf8",
 );
 const chatMessageListSource = fs.readFileSync(new URL("../chat/ChatMessageList.tsx", import.meta.url), "utf8");
+const loadPackageDownloadsSource = fs.readFileSync(
+  new URL("../chat/hooks/useLoadPackageDownloads.ts", import.meta.url),
+  "utf8",
+);
 
 assert.match(
   settingsSource,
@@ -66,6 +70,21 @@ assert.match(
   chatMessageListSource,
   /loadPackageDownloads[\s\S]*LoadPackageDownloadProgress/,
   "The chat transcript should surface active load-package downloads.",
+);
+assert.match(
+  loadPackageDownloadsSource,
+  /LOAD_PACKAGE_IDLE_POLL_MS[\s\S]*setInterval[\s\S]*LOAD_PACKAGE_IDLE_POLL_MS/,
+  "The chat load-package hook should keep a slow idle poll so downloads started after chat mount are discovered.",
+);
+assert.match(
+  loadPackageDownloadsSource,
+  /LOAD_PACKAGE_ACTIVE_POLL_MS[\s\S]*downloads\.some\(\(pkg\) => pkg\.job\?\.status === "running"\)/,
+  "The chat load-package hook should switch to a fast poll while any package is downloading.",
+);
+assert.match(
+  chatMessageListSource,
+  /loadPackageFinished[\s\S]*settings\.loadPackageChatOpenSettings/,
+  "The chat transcript should briefly show completed or failed load-package downloads with a settings detail action.",
 );
 assert.match(
   chatApiSource,

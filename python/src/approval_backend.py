@@ -81,6 +81,17 @@ def _workspace_root() -> Path | None:
         return None
 
 
+def _power_user() -> bool:
+    """Power-user mode broadens *read* auto-approval beyond the workspace.
+
+    Writes, copies whose destination leaves the workspace, shell composition,
+    and Python subprocess/write calls stay gated regardless of this flag — only
+    read commands gain anywhere-on-disk reach, so projects can be read in place
+    instead of copied into the workspace first.
+    """
+    return os.environ.get("HERMESDESK_POWER_USER") == "1"
+
+
 def _resolve_workspace_path(raw: str, workspace: Path) -> Path | None:
     s = raw.strip().strip("\"'")
     if not s or s.startswith("-"):
@@ -182,7 +193,9 @@ def _is_safe_workspace_import_command(command: str, workspace: Path) -> bool:
     return True
 
 
-def _is_simple_workspace_read_command(command: str, workspace: Path) -> bool:
+def _is_simple_workspace_read_command(
+    command: str, workspace: Path, *, allow_anywhere: bool = False
+) -> bool:
     inner = _unwrap_powershell_command(command).strip()
     lowered = inner.lower()
     if any(ch in lowered for ch in _SHELL_METACHARS):
@@ -203,7 +216,11 @@ def _is_simple_workspace_read_command(command: str, workspace: Path) -> bool:
         if p is None:
             return False
         paths.append(p)
-    return bool(paths) and all(_is_under(p, workspace) for p in paths)
+    if not paths:
+        return False
+    if allow_anywhere:
+        return True
+    return all(_is_under(p, workspace) for p in paths)
 
 
 def _python_code_from_command(command: str) -> str | None:
@@ -283,7 +300,9 @@ def _safe_path_call_names(tree: ast.AST) -> set[str]:
     return names
 
 
-def _is_python_workspace_read_command(command: str, workspace: Path) -> bool:
+def _is_python_workspace_read_command(
+    command: str, workspace: Path, *, allow_anywhere: bool = False
+) -> bool:
     code = _python_code_from_command(command)
     if not code:
         return False
@@ -324,7 +343,9 @@ def _is_python_workspace_read_command(command: str, workspace: Path) -> bool:
             literal = _literal_path_from_call(node, literal_vars, safe_call_names)
             if literal:
                 p = _resolve_workspace_path(literal, workspace)
-                if p is None or not _is_under(p, workspace):
+                if p is None:
+                    return False
+                if not allow_anywhere and not _is_under(p, workspace):
                     return False
                 read_path_seen = True
 
@@ -335,9 +356,13 @@ def _auto_approve_workspace_read(command: str) -> bool:
     workspace = _workspace_root()
     if workspace is None:
         return False
+    # Power-user mode lets reads reach anywhere on disk so projects can be read
+    # in place. Copy auto-approval stays destination-locked to the workspace in
+    # every mode — relaxing reads must never become a path for data to leave it.
+    anywhere = _power_user()
     return (
-        _is_simple_workspace_read_command(command, workspace)
-        or _is_python_workspace_read_command(command, workspace)
+        _is_simple_workspace_read_command(command, workspace, allow_anywhere=anywhere)
+        or _is_python_workspace_read_command(command, workspace, allow_anywhere=anywhere)
         or _is_safe_workspace_import_command(command, workspace)
     )
 

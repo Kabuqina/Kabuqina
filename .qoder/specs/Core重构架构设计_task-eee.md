@@ -141,30 +141,33 @@ Expected: PASS before and after each later phase.
 
 - [ ] **Step 4: Add env precedence tests**
 
-Create `python/tests/test_env_compat.py`:
+Create `python/tests/test_env_compat.py`. The test must import the **production** helper added in Step 5 (`python/src/env_compat.py`), not a local copy — otherwise it tests a duplicate and gives false confidence. This is intentionally test-first: it fails to import until Step 5 lands.
 
 ```python
 import os
 import unittest
 from unittest.mock import patch
 
-
-def read_preferred_env(new_name: str, old_name: str, default: str | None = None) -> str | None:
-    return os.environ.get(new_name) or os.environ.get(old_name) or default
+from src.env_compat import get_env
 
 
 class EnvCompatTests(unittest.TestCase):
     def test_new_env_wins_over_old_env(self):
         with patch.dict(os.environ, {"KABUQINA_HOME": "new-home", "HERMES_HOME": "old-home"}, clear=True):
-            self.assertEqual(read_preferred_env("KABUQINA_HOME", "HERMES_HOME"), "new-home")
+            self.assertEqual(get_env("KABUQINA_HOME", "HERMES_HOME"), "new-home")
 
     def test_old_env_is_still_supported(self):
         with patch.dict(os.environ, {"HERMES_HOME": "old-home"}, clear=True):
-            self.assertEqual(read_preferred_env("KABUQINA_HOME", "HERMES_HOME"), "old-home")
+            self.assertEqual(get_env("KABUQINA_HOME", "HERMES_HOME"), "old-home")
+
+    def test_empty_new_env_falls_back_to_old(self):
+        # Documents the `or`-chain behavior: an empty new value is treated as unset.
+        with patch.dict(os.environ, {"KABUQINA_HOME": "", "HERMES_HOME": "old-home"}, clear=True):
+            self.assertEqual(get_env("KABUQINA_HOME", "HERMES_HOME"), "old-home")
 
     def test_default_is_used_when_neither_exists(self):
         with patch.dict(os.environ, {}, clear=True):
-            self.assertEqual(read_preferred_env("KABUQINA_HOME", "HERMES_HOME", "fallback"), "fallback")
+            self.assertEqual(get_env("KABUQINA_HOME", "HERMES_HOME", "fallback"), "fallback")
 
 
 if __name__ == "__main__":
@@ -173,12 +176,17 @@ if __name__ == "__main__":
 
 - [ ] **Step 5: Replace duplicated env reads with a helper**
 
-Implement a shared helper in the most local existing Python policy/config module, preferably `python/src/gateway_policy.py` if it already owns platform feature flags, or create `python/src/env_compat.py` if no suitable helper exists:
+Create the shared helper at the fixed path `python/src/env_compat.py` so the Step 4 test has a stable import target. (Do not bury it inside `gateway_policy.py`; a stable, single-purpose module keeps the precedence rule discoverable and testable.)
 
 ```python
 from __future__ import annotations
 
 import os
+
+# Precedence: new name, then old name, then default.
+# Note: an empty-string value ("") is falsy and therefore treated as *unset*,
+# so it falls through to the next source. This is intentional — the migration
+# never uses "" as a meaningful value. Covered by test_empty_new_env_falls_back_to_old.
 
 
 def get_env(new_name: str, old_name: str, default: str | None = None) -> str | None:
@@ -252,24 +260,36 @@ from run_agent import AIAgent
 __all__ = ["AIAgent"]
 ```
 
-Create `hermes_core/kabuqina_core/config/__init__.py`:
+Create `hermes_core/kabuqina_core/config/__init__.py`. Use lazy `__getattr__` resolution so importing the facade does **not** eagerly import `hermes_cli.config` (a 4700-line module). The facade should be a cheap name redirect, not a load-time side effect:
 
 ```python
 """Config facade for Kabuqina callers."""
 
-from hermes_cli.config import load_config, save_config
-
 __all__ = ["load_config", "save_config"]
+
+
+def __getattr__(name: str):
+    if name in __all__:
+        from hermes_cli import config
+
+        return getattr(config, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 ```
 
-Create `hermes_core/kabuqina_core/web_server/__init__.py`:
+Create `hermes_core/kabuqina_core/web_server/__init__.py`. The web server module builds a module-level FastAPI app with side effects, so eagerly importing it from the facade would pull the whole server up just to touch the package. Resolve `app` lazily:
 
 ```python
 """Web server facade for Kabuqina callers."""
 
-from hermes_cli.web_server import app
-
 __all__ = ["app"]
+
+
+def __getattr__(name: str):
+    if name == "app":
+        from hermes_cli.web_server import app
+
+        return app
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 ```
 
 - [ ] **Step 2: Add facade tests**
@@ -439,6 +459,21 @@ cd ..
 
 Expected: run_agent and provider-adjacent tests pass.
 
+Provider extraction changes import wiring on the live request path, so confirm the runtime actually starts and reaches a model before committing:
+
+```powershell
+.\scripts\dev.ps1
+```
+
+Verify manually:
+
+```text
+Python child starts and reports a loopback port
+Shell chat sends one message and receives one response
+```
+
+A circular import or a missed wrapper can keep unit tests green while breaking startup — catch it here, not in Phase 9.
+
 - [ ] **Step 5: Commit Phase 3**
 
 ```powershell
@@ -588,6 +623,22 @@ cd python; python -m unittest discover -s tests -p "test_*.py" -v; cd ..
 
 Expected: all run_agent, agent and desktop Python tests pass.
 
+Because this phase rewrites the hottest runtime path, unit tests alone are not sufficient — monkeypatch compatibility, lazy imports and circular-import regressions routinely pass unit tests while breaking a live conversation. Run a minimal runtime smoke before committing:
+
+```powershell
+.\scripts\dev.ps1
+```
+
+Verify manually:
+
+```text
+Python child starts and reports a loopback port
+Shell chat sends one message and receives one response
+One file tool and one web/search tool call complete
+```
+
+If the runtime smoke fails while unit tests pass, treat it as a blocking regression for this phase — do not defer it to Phase 9.
+
 - [ ] **Step 9: Commit Phase 5 in small commits**
 
 Use one commit per extraction:
@@ -674,10 +725,12 @@ Deletion happens after import inventory and runtime smoke tests, not before.
 Run:
 
 ```powershell
-rg -n "acp_adapter|acp_registry|ui-tui|tui_gateway|website|plugins|mcp_serve|batch_runner|mini_swe_runner|discord|slack|signal|matrix|homeassistant|mattermost|bluebubbles|yuanbao" hermes_core python tauri web scripts -S --glob "!**/node_modules/**" --glob "!**/target/**" > docs/core-removal-inventory.md
+rg -n "acp_adapter|acp_registry|ui-tui|tui_gateway|website|plugins|mcp_serve|batch_runner|mini_swe_runner|rl_cli|model_tools|cli\.py|discord|slack|signal|matrix|homeassistant|mattermost|bluebubbles|yuanbao" hermes_core python tauri web scripts -S --glob "!**/node_modules/**" --glob "!**/target/**" > docs/core-removal-inventory.md
 ```
 
 Expected: every proposed deletion has zero production references or a documented replacement.
+
+Explicitly classify the loose top-level `hermes_core/` files so none are silently left behind: `batch_runner.py`, `mini_swe_runner.py`, `rl_cli.py` are training/benchmark surface (delete candidates); `cli.py`, `model_tools.py` must be confirmed retained-or-removed by checking whether `desktop_entrypoint.py` / the bundle import them before deciding.
 
 - [ ] **Step 2: Quarantine before delete**
 

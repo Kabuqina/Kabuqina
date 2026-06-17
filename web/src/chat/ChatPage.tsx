@@ -513,6 +513,7 @@ export function ChatPage() {
           loadPackageDownloads={loadPackageDownloads}
           pendingInteraction={pendingInteraction}
           onRespondInteraction={onRespondInteraction}
+          onOpenLoadPackageSettings={() => nav("/settings/load-packages")}
           onPickSuggestion={setInput}
         />
           <ChatInput

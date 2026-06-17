@@ -123,6 +123,42 @@ class TestRipgrepAlreadyExcludesHidden:
         assert "SKILL.md" in result.stdout
 
 
+class TestDefaultSearchIgnore:
+    """Dependency/build/VCS noise is filtered unless deliberately targeted."""
+
+    def test_helper_emits_globs_for_broad_search(self):
+        from tools.file_operations import _rg_ignore_glob_args
+
+        args = _rg_ignore_glob_args(".", None)
+        assert "'!**/node_modules/**'" in args
+        assert "'!**/dist/**'" in args
+        assert "'!**/target/**'" in args
+
+    def test_helper_skips_globs_when_targeting_ignored_dir(self):
+        from tools.file_operations import _rg_ignore_glob_args, _grep_ignore_dir_args
+
+        # Searching inside node_modules must not be silently emptied.
+        assert _rg_ignore_glob_args("project/node_modules/pkg", None) == []
+        assert _grep_ignore_dir_args(".", "node_modules/**") == []
+
+    def test_grep_excludes_node_modules_but_keeps_source(self, tmp_path):
+        src = tmp_path / "src"
+        src.mkdir()
+        (src / "app.js").write_text("const marker = 1;")
+        nm = tmp_path / "node_modules" / "left-pad"
+        nm.mkdir(parents=True)
+        (nm / "index.js").write_text("const marker = 2;")
+
+        from tools.file_operations import _grep_ignore_dir_args
+
+        excludes = " ".join(_grep_ignore_dir_args(".", None))
+        cmd = f"grep -rnH --exclude-dir='.*' {excludes} 'marker' {tmp_path}"
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+
+        assert "app.js" in result.stdout
+        assert "node_modules" not in result.stdout
+
+
 class TestIgnoreFileWritten:
     """_write_index_cache should create .ignore in .hub/ directory."""
 

@@ -126,6 +126,11 @@ _PDF_BLOCK_TYPES = {
     "page_break",
 }
 
+
+class DocumentSpecError(ValueError):
+    """Raised when a writer document spec cannot be normalized safely."""
+
+
 _LIGHTWEIGHT_FIRST_SUFFIXES = {
     ".docx",
     ".pptx",
@@ -332,6 +337,54 @@ def _docling_profile_for_mode(mode: str) -> str:
     return "fast"
 
 
+def _docling_ocr_enabled() -> bool:
+    """OCR is off by default — it loads an extra CPU model and runs a per-page
+    pass that born-digital PDFs (papers, task books) never need, and it is the
+    single biggest slowdown of precise/math reads on machines without a GPU. Set
+    HERMESDESK_DOCLING_OCR=1 to re-enable it for genuinely scanned documents."""
+    return _text(os.getenv("HERMESDESK_DOCLING_OCR")).lower() in {"1", "true", "yes", "on"}
+
+
+def _docling_max_pages() -> Optional[int]:
+    """Optional hard cap on pages handed to Docling, so a huge PDF cannot pin the
+    CPU for an unbounded time. Unset by default (no cap); set
+    HERMESDESK_DOCLING_MAX_PAGES=N to bound it."""
+    raw = _text(os.getenv("HERMESDESK_DOCLING_MAX_PAGES"))
+    if not raw:
+        return None
+    try:
+        value = int(raw)
+    except ValueError:
+        return None
+    return value if value > 0 else None
+
+
+def _docling_math_max_pages() -> Optional[int]:
+    """Default guard for CPU-bound CodeFormula extraction.
+
+    ``mode=math`` runs CodeFormula per page and is very slow without a GPU. Keep
+    the default small so agents must request a focused page range instead of
+    accidentally running an entire PDF. Set HERMESDESK_DOCLING_MATH_MAX_PAGES=0
+    to allow full-document math extraction.
+    """
+    raw = _text(os.getenv("HERMESDESK_DOCLING_MATH_MAX_PAGES", "2")).lower()
+    if raw in {"0", "false", "no", "off", "none", "unlimited"}:
+        return None
+    try:
+        value = int(raw)
+    except ValueError:
+        return 2
+    return value if value > 0 else None
+
+
+def _docling_tables_enabled() -> bool:
+    """Table-structure (TableFormer) is the heaviest per-table CPU stage. It stays
+    on for mode=precise but is off for mode=math, whose job is formula extraction,
+    not table reconstruction. Set HERMESDESK_DOCLING_TABLES=1 to force it on for
+    math too."""
+    return _text(os.getenv("HERMESDESK_DOCLING_TABLES")).lower() in {"1", "true", "yes", "on"}
+
+
 def _prime_torch_for_docling() -> None:
     with _TORCH_PRIME_LOCK:
         import torch
@@ -353,6 +406,7 @@ def _configure_pdf_pipeline_options(pipeline_options: Any, profile: str) -> None
         return
 
     if profile == "precise":
+        pipeline_options.do_ocr = _docling_ocr_enabled()
         if hasattr(pipeline_options, "do_formula_enrichment"):
             pipeline_options.do_formula_enrichment = False
         if hasattr(pipeline_options, "do_code_enrichment"):
@@ -360,6 +414,13 @@ def _configure_pdf_pipeline_options(pipeline_options: Any, profile: str) -> None
         return
 
     if profile == "math":
+        pipeline_options.do_ocr = _docling_ocr_enabled()
+        # math is the *formula* profile: skip TableFormer (the heaviest per-table
+        # CPU stage) so formula extraction is not throttled by table-structure
+        # inference the caller did not ask for. Use mode=precise for tables, or
+        # set HERMESDESK_DOCLING_TABLES=1 to keep tables in math too.
+        if hasattr(pipeline_options, "do_table_structure"):
+            pipeline_options.do_table_structure = _docling_tables_enabled()
         if not hasattr(pipeline_options, "do_formula_enrichment"):
             raise ValueError("Docling PdfPipelineOptions does not support formula enrichment")
         pipeline_options.do_formula_enrichment = True
@@ -458,6 +519,16 @@ def _is_outside_workspace(path: Path, workspace: Path) -> bool:
         return True
 
 
+def _power_user_reads_anywhere() -> bool:
+    """Power-user mode lets *read* tools reach outside the workspace.
+
+    Lets the agent read a project in place instead of copying the whole tree
+    into the workspace first. Write targets stay workspace-confined regardless
+    (see ``_validate_write_path``).
+    """
+    return os.environ.get("HERMESDESK_POWER_USER") == "1"
+
+
 def _is_unsupported_runtime_error(lowered: str) -> bool:
     """Detect Docling failures caused by an unsupported Python/ML runtime.
 
@@ -550,7 +621,7 @@ def _validate_read_path(document_path: Path, original_path: str, label: str) -> 
     if not document_path.exists():
         return tool_error(f"{label} not found: {original_path}")
     workspace = _desktop_workspace_root()
-    if workspace is not None:
+    if workspace is not None and not _power_user_reads_anywhere():
         try:
             resolved = document_path.resolve()
         except OSError:
@@ -569,14 +640,38 @@ def _validate_read_path(document_path: Path, original_path: str, label: str) -> 
     return None
 
 
-def _read_with_docling(document_path: Path, mode: str) -> Dict[str, Any]:
-    return _run_on_docling_thread(_read_with_docling_impl, document_path, mode)
+def _read_with_docling(
+    document_path: Path,
+    mode: str,
+    page_range: Optional[Tuple[int, int]] = None,
+) -> Dict[str, Any]:
+    return _run_on_docling_thread(_read_with_docling_impl, document_path, mode, page_range)
 
 
-def _read_with_docling_impl(document_path: Path, mode: str) -> Dict[str, Any]:
+def _read_with_docling_page_range(
+    document_path: Path,
+    mode: str,
+    page_range: Optional[Tuple[int, int]],
+) -> Dict[str, Any]:
+    if page_range is None:
+        return _read_with_docling(document_path, mode)
+    return _read_with_docling(document_path, mode, page_range)
+
+
+def _read_with_docling_impl(
+    document_path: Path,
+    mode: str,
+    page_range: Optional[Tuple[int, int]] = None,
+) -> Dict[str, Any]:
     profile = _docling_profile_for_mode(mode)
     converter = _get_docling_converter(profile)
-    result = converter.convert(str(document_path))
+    convert_kwargs: Dict[str, Any] = {}
+    max_pages = _docling_max_pages()
+    if max_pages is not None:
+        convert_kwargs["max_num_pages"] = max_pages
+    if page_range is not None:
+        convert_kwargs["page_range"] = page_range
+    result = converter.convert(str(document_path), **convert_kwargs)
     document = result.document
     markdown = document.export_to_markdown()
     return {
@@ -607,6 +702,15 @@ def _read_pdf_with_pypdf(pdf_path: Path) -> Dict[str, Any]:
         "content": "\n\n".join(chunks).strip(),
         "warning": "Used text-only pypdf fallback because Docling could not parse this PDF.",
     }
+
+
+def _pdf_page_count(pdf_path: Path) -> Optional[int]:
+    try:
+        from pypdf import PdfReader
+
+        return len(PdfReader(str(pdf_path)).pages)
+    except Exception:
+        return None
 
 
 def _read_docx_with_python_docx(docx_path: Path) -> Dict[str, Any]:
@@ -753,9 +857,92 @@ def _should_avoid_docling_fallback(mode: str, exc: Optional[BaseException] = Non
     return False
 
 
-def _read_document_precise_payload(document_path: Path, *, mode: str, include_content: bool = True) -> Dict[str, Any]:
+def _normalize_page_range(
+    page_start: Optional[int] = None,
+    page_end: Optional[int] = None,
+) -> Tuple[Optional[Tuple[int, int]], Optional[Dict[str, Any]]]:
+    if page_start is None and page_end is None:
+        return None, None
+    try:
+        start = int(page_start) if page_start is not None else 1
+        end = int(page_end) if page_end is not None else start
+    except (TypeError, ValueError):
+        return None, _error_payload(
+            "page_start/page_end must be positive integers.",
+            ok=False,
+            code="invalid_page_range",
+        )
+    if start < 1 or end < 1 or end < start:
+        return None, _error_payload(
+            "Invalid page range: use 1-based page_start/page_end with page_end >= page_start.",
+            ok=False,
+            code="invalid_page_range",
+        )
+    return (start, end), None
+
+
+def _guard_math_page_count(
+    document_path: Path,
+    mode: str,
+    page_range: Optional[Tuple[int, int]],
+) -> Optional[Dict[str, Any]]:
+    if document_path.suffix.lower() != ".pdf" or _docling_profile_for_mode(mode) != "math":
+        return None
+    max_pages = _docling_math_max_pages()
+    if max_pages is None:
+        return None
+    if page_range is not None:
+        selected_pages = page_range[1] - page_range[0] + 1
+        if selected_pages <= max_pages:
+            return None
+        return _error_payload(
+            (
+                f"mode=math selected {selected_pages} pages, above the current "
+                f"CodeFormula CPU guard of {max_pages} pages."
+            ),
+            ok=False,
+            code="docling_math_too_many_pages",
+            pages=selected_pages,
+            max_pages=max_pages,
+            hint=(
+                "Use a smaller page_start/page_end range, split the extraction into "
+                "several calls, or set HERMESDESK_DOCLING_MATH_MAX_PAGES=0 to allow "
+                "full-document math extraction."
+            ),
+        )
+    page_count = _pdf_page_count(document_path)
+    if page_count is None or page_count <= max_pages:
+        return None
+    return _error_payload(
+        (
+            f"mode=math would run CodeFormula over {page_count} PDF pages on CPU. "
+            f"The default guard allows {max_pages} pages per call."
+        ),
+        ok=False,
+        code="docling_math_too_many_pages",
+        pages=page_count,
+        max_pages=max_pages,
+        hint=(
+            "Pass page_start/page_end for the pages that contain formulas, split the "
+            "document into smaller ranges, or set HERMESDESK_DOCLING_MATH_MAX_PAGES=0 "
+            "to allow full-document math extraction."
+        ),
+    )
+
+
+def _read_document_precise_payload(
+    document_path: Path,
+    *,
+    mode: str,
+    include_content: bool = True,
+    page_start: Optional[int] = None,
+    page_end: Optional[int] = None,
+) -> Dict[str, Any]:
     suffix = document_path.suffix.lower()
     docling_error: Optional[str] = None
+    page_range, page_error = _normalize_page_range(page_start, page_end)
+    if page_error is not None:
+        return page_error
 
     if suffix == ".doc":
         return _error_payload(
@@ -771,6 +958,10 @@ def _read_document_precise_payload(document_path: Path, *, mode: str, include_co
             code="unsupported_document_type",
             supported=sorted(_DOCLING_SUFFIXES | _FALLBACK_SUFFIXES),
         )
+
+    math_guard = _guard_math_page_count(document_path, mode, page_range)
+    if math_guard is not None:
+        return math_guard
 
     # Fast text-first for PDFs in auto/fast mode: a text-based paper/report
     # extracts in well under a second with pypdf, versus minutes of Docling
@@ -802,7 +993,11 @@ def _read_document_precise_payload(document_path: Path, *, mode: str, include_co
 
     if suffix in _DOCLING_SUFFIXES:
         try:
-            return _finalize_read_payload(_read_with_docling(document_path, mode), document_path, include_content=include_content)
+            return _finalize_read_payload(
+                _read_with_docling_page_range(document_path, mode, page_range),
+                document_path,
+                include_content=include_content,
+            )
         except Exception as exc:
             docling_error = _format_docling_error(exc)
             if _should_avoid_docling_fallback(mode, exc):
@@ -836,22 +1031,60 @@ def _read_document_precise_payload(document_path: Path, *, mode: str, include_co
     )
 
 
-def pdf_read_precise(path: str, mode: str = "auto", include_content: bool = True) -> str:
+def pdf_read_precise(
+    path: str,
+    mode: str = "auto",
+    include_content: bool = True,
+    page_start: Optional[int] = None,
+    page_end: Optional[int] = None,
+) -> str:
     pdf_path = Path(path).expanduser()
     validation_error = _validate_read_path(pdf_path, path, "PDF")
     if validation_error is not None:
         return validation_error
     if pdf_path.suffix.lower() != ".pdf":
         return tool_error("pdf_read_precise only accepts .pdf files")
-    return _json(_read_document_precise_payload(pdf_path, mode=mode, include_content=include_content))
+    read_kwargs: Dict[str, Any] = {
+        "mode": mode,
+        "include_content": include_content,
+    }
+    if page_start is not None:
+        read_kwargs["page_start"] = page_start
+    if page_end is not None:
+        read_kwargs["page_end"] = page_end
+    return _json(
+        _read_document_precise_payload(
+            pdf_path,
+            **read_kwargs,
+        )
+    )
 
 
-def document_read_precise(path: str, mode: str = "auto", include_content: bool = True) -> str:
+def document_read_precise(
+    path: str,
+    mode: str = "auto",
+    include_content: bool = True,
+    page_start: Optional[int] = None,
+    page_end: Optional[int] = None,
+) -> str:
     document_path = Path(path).expanduser()
     validation_error = _validate_read_path(document_path, path, "Document")
     if validation_error is not None:
         return validation_error
-    return _json(_read_document_precise_payload(document_path, mode=mode, include_content=include_content))
+    read_kwargs: Dict[str, Any] = {
+        "mode": mode,
+        "include_content": include_content,
+    }
+    if page_start is not None:
+        read_kwargs["page_start"] = page_start
+    if page_end is not None:
+        read_kwargs["page_end"] = page_end
+    return _json(
+        _read_document_precise_payload(
+            document_path,
+            **read_kwargs,
+        )
+    )
 
 
 @dataclass(frozen=True)
@@ -1365,7 +1598,15 @@ def _coerce_json_container(value: Any) -> Any:
                     continue
                 if isinstance(parsed, (dict, list)):
                     return parsed
+            raise DocumentSpecError(
+                "document looks like JSON but could not be parsed. Pass document as a real "
+                "object, or fix the malformed JSON string before calling the writer."
+            )
     return value
+
+
+def _document_spec_error(exc: DocumentSpecError) -> str:
+    return tool_error(str(exc), ok=False, code="invalid_document_json")
 
 
 def _pdf_blocks(document: Any) -> List[Dict[str, Any]]:
@@ -1408,6 +1649,146 @@ def _build_pdf_spec(
     }
 
 
+_LATEX_SYMBOLS = {
+    "alpha": "α",
+    "beta": "β",
+    "gamma": "γ",
+    "delta": "δ",
+    "epsilon": "ϵ",
+    "varepsilon": "ε",
+    "theta": "θ",
+    "lambda": "λ",
+    "mu": "μ",
+    "pi": "π",
+    "omega": "ω",
+    "times": "×",
+    "cdot": "·",
+    "cap": "∩",
+    "cup": "∪",
+    "in": "∈",
+    "notin": "∉",
+    "leq": "≤",
+    "geq": "≥",
+    "neq": "≠",
+    "approx": "≈",
+    "emptyset": "∅",
+    "angle": "∠",
+    "ldots": "…",
+    "cdots": "…",
+    "langle": "⟨",
+    "rangle": "⟩",
+    "to": "→",
+    "leftarrow": "←",
+    "rightarrow": "→",
+    "infty": "∞",
+    "arg": "arg",
+    "min": "min",
+    "max": "max",
+}
+
+
+def _latex_group(text: str, start: int) -> Tuple[str, int]:
+    if start >= len(text) or text[start] != "{":
+        return "", start
+    depth = 1
+    i = start + 1
+    while i < len(text):
+        if text[i] == "\\":
+            i += 2
+            continue
+        if text[i] == "{":
+            depth += 1
+        elif text[i] == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start + 1:i], i + 1
+        i += 1
+    return text[start + 1:], len(text)
+
+
+def _latex_atom(text: str, start: int) -> Tuple[str, int]:
+    if start >= len(text):
+        return "", start
+    if text[start] == "{":
+        group, end = _latex_group(text, start)
+        return _render_latex_html(group), end
+    if text[start] == "\\":
+        raw, end = _latex_command_html(text, start)
+        return raw, end
+    return html.escape(text[start]), start + 1
+
+
+def _latex_command_html(text: str, start: int) -> Tuple[str, int]:
+    i = start + 1
+    if i < len(text) and text[i].isalpha():
+        while i < len(text) and text[i].isalpha():
+            i += 1
+        command = text[start + 1:i]
+    elif i < len(text):
+        command = text[i]
+        i += 1
+    else:
+        return "", i
+
+    if command in {"left", "right"}:
+        return "", i
+    if command in {",", ";", ":", "quad", "qquad"}:
+        return " ", i
+    if command == "|":
+        return "‖", i
+    if command == "frac":
+        numerator, i = _latex_group(text, i)
+        denominator, i = _latex_group(text, i)
+        return (
+            '<span class="frac"><span class="num">'
+            f"{_render_latex_html(numerator)}</span><span class=\"den\">"
+            f"{_render_latex_html(denominator)}</span></span>"
+        ), i
+    if command == "sqrt":
+        radicand, i = _latex_group(text, i)
+        return (
+            '<span class="sqrt"><span class="radicand">'
+            f"{_render_latex_html(radicand)}</span></span>"
+        ), i
+    if command == "overline":
+        group, i = _latex_group(text, i)
+        return f'<span class="overline">{_render_latex_html(group)}</span>', i
+    if command == "vec":
+        atom, i = _latex_atom(text, i)
+        return f'{atom}<span class="vec-mark">⃗</span>', i
+    symbol = _LATEX_SYMBOLS.get(command)
+    if symbol is not None:
+        return html.escape(symbol), i
+    return html.escape(command), i
+
+
+def _render_latex_html(text: str) -> str:
+    source = _text(text)
+    out: List[str] = []
+    i = 0
+    while i < len(source):
+        c = source[i]
+        if c == "\\":
+            rendered, i = _latex_command_html(source, i)
+            out.append(rendered)
+            continue
+        if c in {"_", "^"}:
+            atom, i = _latex_atom(source, i + 1)
+            tag = "sub" if c == "_" else "sup"
+            out.append(f"<{tag}>{atom}</{tag}>")
+            continue
+        if c in "{}":
+            i += 1
+            continue
+        out.append(html.escape(c))
+        i += 1
+    return "".join(out)
+
+
+def _formula_to_html(text: str) -> str:
+    return f'<span class="formula-math">{_render_latex_html(text)}</span>'
+
+
 def _block_to_html(block: Dict[str, Any]) -> str:
     block_type = block.get("type")
     if block_type == "heading":
@@ -1428,7 +1809,7 @@ def _block_to_html(block: Dict[str, Any]) -> str:
         label = f"<figcaption>{language}</figcaption>" if language else ""
         return f"<figure class=\"code\">{label}<pre>{html.escape(_text(block.get('text')))}</pre></figure>"
     if block_type == "formula":
-        return f"<div class=\"formula\">{html.escape(_text(block.get('text')))}</div>"
+        return f"<div class=\"formula\">{_formula_to_html(_text(block.get('text')))}</div>"
     if block_type == "image_placeholder":
         label = html.escape(_text(block.get("label")))
         caption = html.escape(_text(block.get("caption")))
@@ -1466,6 +1847,14 @@ def _build_pdf_html(spec: Dict[str, Any]) -> str:
     pre {{ background: #0f172a; color: #e2e8f0; border-radius: 6px; padding: 12px; white-space: pre-wrap; }}
     figure {{ margin: 12px 0; }}
     .formula {{ background: #f8fafc; border-left: 4px solid {accent_css}; padding: 10px 12px; font-family: Cambria Math, serif; }}
+    .formula-math {{ font-size: 1.05em; word-spacing: 0.08em; }}
+    .frac {{ display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; line-height: 1.05; margin: 0 0.12em; }}
+    .frac .num {{ border-bottom: 1px solid currentColor; padding: 0 0.18em 1px; }}
+    .frac .den {{ padding: 1px 0.18em 0; }}
+    .sqrt::before {{ content: "√"; font-size: 1.12em; }}
+    .sqrt .radicand {{ border-top: 1px solid currentColor; padding: 0 0.12em; }}
+    .overline {{ text-decoration: overline; text-decoration-thickness: 1px; }}
+    .vec-mark {{ display: inline-block; margin-left: -0.1em; transform: translateY(-0.18em); }}
     .image-placeholder {{ border: 1px dashed #94a3b8; border-radius: 6px; padding: 18px; color: #475569; }}
     .page-break {{ break-after: page; page-break-after: always; }}
   </style>
@@ -1578,6 +1967,14 @@ def _build_standalone_html(spec: Dict[str, Any]) -> str:
     figure.code figcaption {{ color: #64748b; font-size: 13px; margin-bottom: 4px; }}
     pre {{ background: #0f172a; color: #e2e8f0; border-radius: 8px; padding: 14px; overflow-x: auto; white-space: pre-wrap; }}
     .formula {{ background: #f8fafc; border-left: 4px solid var(--accent); padding: 12px 14px; font-family: Cambria Math, serif; }}
+    .formula-math {{ font-size: 1.05em; word-spacing: 0.08em; }}
+    .frac {{ display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; line-height: 1.05; margin: 0 0.12em; }}
+    .frac .num {{ border-bottom: 1px solid currentColor; padding: 0 0.18em 1px; }}
+    .frac .den {{ padding: 1px 0.18em 0; }}
+    .sqrt::before {{ content: "√"; font-size: 1.12em; }}
+    .sqrt .radicand {{ border-top: 1px solid currentColor; padding: 0 0.12em; }}
+    .overline {{ text-decoration: overline; text-decoration-thickness: 1px; }}
+    .vec-mark {{ display: inline-block; margin-left: -0.1em; transform: translateY(-0.18em); }}
     .image-placeholder {{ border: 1px dashed #94a3b8; border-radius: 8px; padding: 20px; color: #475569; text-align: center; }}
     .page-break {{ break-after: page; page-break-after: always; }}
     @media (max-width: 640px) {{ main.container {{ padding: 24px 16px 48px; }} }}
@@ -1814,7 +2211,10 @@ def pdf_write(
     if validation_error is not None:
         return validation_error
 
-    spec = _build_pdf_spec(title, document, template, visual_master)
+    try:
+        spec = _build_pdf_spec(title, document, template, visual_master)
+    except DocumentSpecError as exc:
+        return _document_spec_error(exc)
     html_source = _build_pdf_html(spec)
     warnings: List[str] = []
     try:
@@ -1881,7 +2281,10 @@ def html_write(
     if validation_error is not None:
         return validation_error
 
-    spec = _build_pdf_spec(title, document, template, visual_master)
+    try:
+        spec = _build_pdf_spec(title, document, template, visual_master)
+    except DocumentSpecError as exc:
+        return _document_spec_error(exc)
     html_source = _build_standalone_html(spec)
 
     try:
@@ -1927,7 +2330,10 @@ def docx_write(
     if validation_error is not None:
         return validation_error
 
-    spec = _build_pdf_spec(title, document, template, visual_master)
+    try:
+        spec = _build_pdf_spec(title, document, template, visual_master)
+    except DocumentSpecError as exc:
+        return _document_spec_error(exc)
     try:
         docx_bytes = _render_docx(spec)
     except ImportError as exc:
@@ -2081,19 +2487,24 @@ def pptx_write(
 PDF_READ_PRECISE_SCHEMA = {
     "name": "pdf_read_precise",
     "description": (
-        "Precisely read a PDF for student work. Path must be inside the Kabuqina "
+        "Read a PDF for student work. Path must be inside the Kabuqina "
         "workspace (file tools cannot read D: or other folders directly). "
         "If the PDF is elsewhere, copy it into the workspace with terminal first. "
-        "Uses Docling when available, with pypdf fallback. For math/formula "
-        "extraction, call with mode=math and inspect the extracted Markdown/read-cache; "
-        "do not use vision_analyze for a normal PDF unless this reader fails or the "
+        "DEFAULT to mode=auto: it extracts text in well under a second and is the "
+        "right choice for understanding or summarizing a document. Only escalate to "
+        "the much slower mode=precise (layout + tables) or mode=math (LaTeX formula "
+        "enrichment) when the user explicitly needs faithful tables, layout, or "
+        "formulas — those run heavy ML models and take minutes on a CPU-only machine. "
+        "Do not use vision_analyze for a normal PDF unless this reader fails or the "
         "user explicitly asks for visual image description."
     ),
     "parameters": {
         "type": "object",
         "properties": {
             "path": {"type": "string"},
-            "mode": {"type": "string", "description": "auto, precise, or math. math enables Docling formula enrichment for LaTeX-oriented extraction."},
+            "mode": {"type": "string", "description": "auto (default, fast text — use this unless told otherwise), precise (slow: layout + tables, no formulas), or math (slow: layout + LaTeX formula extraction, tables skipped for speed — use precise when you need tables). precise/math run ML models on CPU and take longer the more pages/formulas/tables the document has."},
+            "page_start": {"type": "integer", "description": "Optional 1-based first page for Docling precise/math reads. Use with mode=math to extract formulas from a focused page range instead of the whole PDF."},
+            "page_end": {"type": "integer", "description": "Optional 1-based last page for Docling precise/math reads. If omitted while page_start is set, only page_start is read."},
             "include_content": {
                 "type": "boolean",
                 "description": "Return extracted content inline. Set false to return only read_id/cache metadata for downstream tools.",
@@ -2106,16 +2517,22 @@ PDF_READ_PRECISE_SCHEMA = {
 DOCUMENT_READ_PRECISE_SCHEMA = {
     "name": "document_read_precise",
     "description": (
-        "Precisely read student documents using Docling as the primary engine. "
-        "Supports PDF, DOCX, PPTX, XLSX, HTML, Markdown, CSV, common images, and text. "
-        "Legacy .doc must be converted to .docx or .pdf first. Uses format-specific "
-        "text fallbacks when Docling fails and reports the real Docling error."
+        "Read student documents (PDF, DOCX, PPTX, XLSX, HTML, Markdown, CSV, common "
+        "images, text). Legacy .doc must be converted to .docx or .pdf first. "
+        "DEFAULT to mode=auto: fast text extraction, the right choice for reading or "
+        "summarizing. Only escalate to the much slower mode=precise (layout + tables) "
+        "or mode=math (LaTeX formula enrichment) when the user explicitly needs "
+        "faithful tables, layout, or formulas — those run ML models that take minutes "
+        "on a CPU-only machine. Uses format-specific text fallbacks when Docling fails "
+        "and reports the real Docling error."
     ),
     "parameters": {
         "type": "object",
         "properties": {
             "path": {"type": "string"},
-            "mode": {"type": "string", "description": "auto, precise, or math. math enables Docling formula enrichment for LaTeX-oriented extraction."},
+            "mode": {"type": "string", "description": "auto (default, fast text — use this unless told otherwise), precise (slow: layout + tables, no formulas), or math (slow: layout + LaTeX formula extraction, tables skipped for speed — use precise when you need tables). precise/math run ML models on CPU and take longer the more pages/formulas/tables the document has."},
+            "page_start": {"type": "integer", "description": "Optional 1-based first page for PDF Docling precise/math reads. Use with mode=math to extract formulas from a focused page range instead of the whole PDF."},
+            "page_end": {"type": "integer", "description": "Optional 1-based last page for PDF Docling precise/math reads. If omitted while page_start is set, only page_start is read."},
             "include_content": {
                 "type": "boolean",
                 "description": "Return extracted content inline. Set false to return only read_id/cache metadata for downstream tools.",
@@ -2471,6 +2888,8 @@ registry.register(
         path=args.get("path", ""),
         mode=args.get("mode", "auto"),
         include_content=bool(args.get("include_content", True)),
+        page_start=args.get("page_start"),
+        page_end=args.get("page_end"),
     ),
     check_fn=lambda: True,
     emoji="📄",
@@ -2484,6 +2903,8 @@ registry.register(
         path=args.get("path", ""),
         mode=args.get("mode", "auto"),
         include_content=bool(args.get("include_content", True)),
+        page_start=args.get("page_start"),
+        page_end=args.get("page_end"),
     ),
     check_fn=lambda: True,
     emoji="📚",

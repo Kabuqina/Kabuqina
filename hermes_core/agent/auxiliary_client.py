@@ -2503,6 +2503,25 @@ def _strict_vision_backend_available(provider: str) -> bool:
     return _resolve_strict_vision_backend(provider)[0] is not None
 
 
+def _model_is_known_text_only_for_vision(provider: str, model: Optional[str]) -> bool:
+    """Return True only when registry metadata confirms no image input support."""
+    if not provider or not model:
+        return False
+    try:
+        from agent.models_dev import get_model_capabilities
+
+        caps = get_model_capabilities(provider, model)
+    except Exception as exc:  # pragma: no cover - defensive metadata path
+        logger.debug(
+            "Vision auto-detect: model capability lookup failed for %s:%s: %s",
+            provider,
+            model,
+            exc,
+        )
+        return False
+    return caps is not None and not bool(caps.supports_vision)
+
+
 def get_available_vision_backends() -> List[str]:
     """Return the currently available vision backends in auto-selection order.
 
@@ -2584,6 +2603,7 @@ def resolve_vision_provider_client(
         #   4. Stop
         main_provider = _read_main_provider()
         main_model = _read_main_model()
+        main_provider_tried = False
         if main_provider and main_provider not in ("auto", ""):
             vision_model = _PROVIDER_VISION_MODELS.get(main_provider, main_model)
             if main_provider == "nous":
@@ -2609,7 +2629,15 @@ def resolve_vision_provider_client(
                     "vision support) — falling through to aggregator chain",
                     main_provider,
                 )
+            elif _model_is_known_text_only_for_vision(main_provider, vision_model):
+                logger.debug(
+                    "Vision auto-detect: skipping main provider %s model %s "
+                    "(models.dev reports no vision support)",
+                    main_provider,
+                    vision_model,
+                )
             else:
+                main_provider_tried = True
                 rpc_client, rpc_model = resolve_provider_client(
                     main_provider, vision_model,
                     api_mode=resolved_api_mode,
@@ -2625,7 +2653,7 @@ def resolve_vision_provider_client(
         # Fall back through aggregators (uses their dedicated vision model,
         # not the user's main model) when main provider has no client.
         for candidate in _VISION_AUTO_PROVIDER_ORDER:
-            if candidate == main_provider:
+            if candidate == main_provider and main_provider_tried:
                 continue  # already tried above
             sync_client, default_model = _resolve_strict_vision_backend(candidate)
             if sync_client is not None:

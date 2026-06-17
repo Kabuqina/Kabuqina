@@ -197,10 +197,18 @@ function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
+/**
+ * Renders an assistant turn's Markdown (headings, tables, code, LaTeX) to HTML.
+ * Supplied at runtime from the browser bundle; when absent (e.g. the Node test),
+ * callers fall back to escaped pre-wrapped text.
+ */
+export type ExportMarkdownRenderer = (text: string) => string;
+
 function sessionToHtml(
   session: SessionRow,
   dialogue: ExportDialogueTurn[],
   locale: Locale,
+  renderMarkdown?: ExportMarkdownRenderer,
 ): string {
   const title = sessionTitle(session);
   const turns = dialogue
@@ -208,10 +216,16 @@ function sessionToHtml(
       const timeLabel = tsToLocale(turn.timestamp, locale);
       const meta = timeLabel ? `${turn.speaker} · ${timeLabel}` : turn.speaker;
       const roleClass = turn.role === "user" ? "turn-user" : "turn-assistant";
+      // User turns stay verbatim (they hold raw paths/snippets that must not be
+      // reinterpreted as Markdown); assistant turns get full Markdown rendering.
+      const textBlock =
+        turn.role === "assistant" && renderMarkdown
+          ? `<div class="turn-text md">${renderMarkdown(turn.text)}</div>`
+          : `<div class="turn-text">${escapeHtml(turn.text)}</div>`;
       return [
         `<article class="turn ${roleClass}">`,
         `<h3>${escapeHtml(meta)}</h3>`,
-        `<div class="turn-text">${escapeHtml(turn.text)}</div>`,
+        textBlock,
         `</article>`,
       ].join("\n");
     })
@@ -262,17 +276,28 @@ export function buildExportText(
   return parts.join("\n\n\f\n\n");
 }
 
+export type BuildExportHtmlOptions = {
+  /** Renders assistant Markdown to HTML; omit to fall back to escaped text. */
+  renderMarkdown?: ExportMarkdownRenderer;
+  /** Extra CSS appended to the document (e.g. the syntax-highlight theme). */
+  extraCss?: string;
+};
+
 export function buildExportHtml(
   sessions: SessionRow[],
   messagesBySession: Map<string, MessageRow[]>,
   labels: ExportLabels,
   locale: Locale,
+  options: BuildExportHtmlOptions = {},
 ): string {
+  const { renderMarkdown, extraCss } = options;
   const body = sessions
     .map((session) => {
       const rows = messagesBySession.get(session.id) ?? [];
       const dialogue = rowsToExportDialogue(rows, labels);
-      return dialogue.length === 0 ? "" : sessionToHtml(session, dialogue, locale);
+      return dialogue.length === 0
+        ? ""
+        : sessionToHtml(session, dialogue, locale, renderMarkdown);
     })
     .filter(Boolean)
     .join("\n");
@@ -294,15 +319,41 @@ export function buildExportHtml(
     .session:last-child { page-break-after: auto; }
     .session-meta { margin: 0 0 18px; color: #52525b; font-size: 13px; }
     .turn { border-top: 1px solid #e4e4e7; padding: 16px 0; }
+    .turn h3 { break-after: avoid; }
     .turn-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; }
     .turn-user h3 { color: #365314; }
     .turn-assistant h3 { color: #4c1d95; }
+    /* Rendered Markdown (assistant turns). */
+    .md { white-space: normal; overflow-wrap: anywhere; font-size: 14px; }
+    .md > :first-child { margin-top: 0; }
+    .md > :last-child { margin-bottom: 0; }
+    .md h1, .md h2, .md h3, .md h4 { margin: 16px 0 8px; line-height: 1.3; color: #18181b; }
+    .md h1 { font-size: 20px; }
+    .md h2 { font-size: 17px; }
+    .md h3 { font-size: 15px; color: #18181b; }
+    .md h4 { font-size: 14px; }
+    .md p { margin: 8px 0; }
+    .md ul, .md ol { margin: 8px 0; padding-left: 24px; }
+    .md li { margin: 3px 0; }
+    .md a { color: #2563eb; text-decoration: underline; }
+    .md hr { border: none; border-top: 1px solid #e4e4e7; margin: 18px 0; }
+    .md blockquote { margin: 10px 0; padding: 2px 14px; border-left: 3px solid #c4b5fd; color: #52525b; }
+    .md code { background: #f4f4f5; padding: 1px 5px; border-radius: 4px; font-size: 0.9em; }
+    .md pre { background: #f6f8fa; border: 1px solid #e4e4e7; border-radius: 8px; padding: 12px 14px; overflow-x: auto; line-height: 1.45; margin: 12px 0; }
+    .md pre code { background: none; padding: 0; font-size: 12.5px; }
+    .md table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 13px; }
+    .md th, .md td { border: 1px solid #d4d4d8; padding: 6px 10px; text-align: left; vertical-align: top; }
+    .md th { background: #f4f4f5; font-weight: 600; }
+    .md img { max-width: 100%; }
+    .md .katex-display { display: block; margin: 12px 0; overflow-x: auto; text-align: center; }
+    .md math { font-size: 1.05em; }
     @media print {
       body { padding: 0; }
       .session { page-break-after: always; }
-      .turn { break-inside: avoid; }
+      .md pre, .md table { break-inside: avoid; }
     }
   </style>
+  <style>${extraCss ?? ""}</style>
 </head>
 <body>
   <main>

@@ -34,19 +34,20 @@ export function SettingsUpdate() {
   const [state, setState] = useState<UpdateState>("idle");
   const [update, setUpdate] = useState<AppUpdate | null>(null);
   const [progress, setProgress] = useState<UpdateDownloadProgress | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   const checkNow = useCallback(async () => {
     setState("checking");
-    setError(null);
     setProgress(null);
     try {
       const next = await checkForAppUpdate();
       setUpdate(next);
       setState(next ? "available" : "upToDate");
     } catch (e) {
+      // A failed manifest fetch (offline, or no release published yet) is an
+      // expected failure mode — show the friendly localized message and keep
+      // the raw detail in the console rather than leaking it to the user.
+      console.error("update check failed:", errText(e));
       setUpdate(null);
-      setError(errText(e));
       setState("error");
     }
   }, []);
@@ -54,13 +55,12 @@ export function SettingsUpdate() {
   const installNow = useCallback(async () => {
     if (!update) return;
     setState("downloading");
-    setError(null);
     setProgress(null);
     try {
       await installAppUpdate(update, setProgress);
       setState("ready");
     } catch (e) {
-      setError(errText(e));
+      console.error("update install failed:", errText(e));
       setState("error");
     }
   }, [update]);
@@ -101,12 +101,6 @@ export function SettingsUpdate() {
         {update?.body && state === "available" ? (
           <p className="whitespace-pre-wrap text-sm leading-relaxed text-[var(--kq-color-muted)]">
             {update.body}
-          </p>
-        ) : null}
-
-        {error ? (
-          <p className="text-sm leading-relaxed text-red-600 dark:text-red-400">
-            {error}
           </p>
         ) : null}
 

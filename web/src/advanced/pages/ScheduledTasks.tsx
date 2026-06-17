@@ -136,16 +136,16 @@ export function ScheduledTasksPage() {
               </span>
             )}
           </div>
-          <p className="mt-1 text-xs text-zinc-500">
+          <p className="mt-1 text-xs text-[var(--kq-color-muted)]">
             <span className="font-medium">{t("cron.schedule")}:</span>{" "}
             {formatCronSchedule(job.schedule, locale)}
           </p>
           {job.prompt && (
-            <p className="mt-0.5 text-xs text-zinc-400 truncate">
+            <p className="mt-0.5 text-xs text-[var(--kq-color-muted)] truncate">
               {job.prompt.slice(0, 120)}
             </p>
           )}
-          <p className="mt-0.5 text-xs text-zinc-400">
+          <p className="mt-0.5 text-xs text-[var(--kq-color-muted)]">
             <span className="font-medium">{t("cron.deliver")}:</span>{" "}
             {formatDeliverLabel(job.deliver, t)}
           </p>
@@ -156,7 +156,7 @@ export function ScheduledTasksPage() {
             </p>
           )}
           {job.nextRunAt && (
-            <p className="mt-0.5 text-xs text-zinc-400">
+            <p className="mt-0.5 text-xs text-[var(--kq-color-muted)]">
               <span className="font-medium">{t("cron.nextRun")}:</span>{" "}
               {formatCronDateTime(job.nextRunAt, locale)}
             </p>
@@ -200,12 +200,12 @@ export function ScheduledTasksPage() {
               )}
             </div>
             {job.prompt && (
-              <p className="mt-1 text-xs text-zinc-500 truncate">
+              <p className="mt-1 text-xs text-[var(--kq-color-muted)] truncate">
                 {job.prompt.slice(0, 120)}
               </p>
             )}
             {job.completedAt && (
-              <p className="mt-0.5 text-xs text-zinc-400">
+              <p className="mt-0.5 text-xs text-[var(--kq-color-muted)]">
                 <span className="font-medium">{t("cron.completedAt")}:</span>{" "}
                 {formatCronDateTime(job.completedAt, locale)}
               </p>
@@ -224,17 +224,20 @@ export function ScheduledTasksPage() {
   };
 
   return (
-    <AppScaffold className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-2xl space-y-5 px-[var(--hd-page-pad-x)] py-8 sm:py-10">
+    <AppScaffold surface="chat" className="flex h-full min-h-0 flex-col">
+      <div className="hd-topbar sticky top-0 z-20 flex h-12 shrink-0 items-center gap-2 border-b px-2 sm:px-3">
+        <BackButton onClick={() => nav(backPath)} className="-ml-1">{backLabel}</BackButton>
+        <span className="text-sm font-semibold text-[var(--kq-color-strong)]">{t("cron.title")}</span>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="mx-auto max-w-2xl space-y-5 px-[var(--hd-page-pad-x)] py-7 sm:py-9">
         <div>
-          <BackButton onClick={() => nav(backPath)}>{backLabel}</BackButton>
-          <h1 className="hd-page-title">{t("cron.title")}</h1>
-          <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-[var(--kq-color-muted)]">
+          <p className="max-w-xl text-sm leading-relaxed text-[var(--kq-color-muted)]">
             {t("cron.lead")}
           </p>
-          <p className="mt-3 max-w-xl rounded-[var(--radius-shell-lg)] border border-[#e8e0ed]/90 bg-[#f8f3f8]/80 px-3.5 py-2.5 text-xs leading-relaxed text-zinc-600 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)] dark:text-[var(--kq-color-muted)]">
-            <span className="font-medium text-[var(--kq-color-ink)]">{t("cron.tipLabel")}</span>
-            <span className="mx-1 text-zinc-400" aria-hidden>
+          <p className="mt-3 max-w-xl rounded-[var(--radius-shell-lg)] border border-[var(--kq-color-border)] bg-[var(--kq-color-primary-pale)]/40 px-3.5 py-2.5 text-xs leading-relaxed text-[var(--kq-color-ink)]">
+            <span className="font-medium text-[var(--kq-color-strong)]">{t("cron.tipLabel")}</span>
+            <span className="mx-1 text-[var(--kq-color-muted)]" aria-hidden>
               ·
             </span>
             {t("cron.createTip")}
@@ -242,17 +245,17 @@ export function ScheduledTasksPage() {
         </div>
 
         {loading ? (
-          <p className="text-sm text-zinc-400">{t("cron.loading")}</p>
+          <p className="text-sm text-[var(--kq-color-muted)]">{t("cron.loading")}</p>
         ) : jobs.length === 0 && completed.length === 0 ? (
-          <div className="rounded-[var(--radius-shell-lg)] border border-zinc-200 bg-white px-5 py-8 text-center dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)]">
-            <p className="text-sm text-zinc-500">{t("cron.empty")}</p>
-            <p className="mt-1 text-xs text-zinc-400">{t("cron.emptyHint")}</p>
+          <div className="hd-setting-card px-5 py-8 text-center">
+            <p className="text-sm text-[var(--kq-color-muted)]">{t("cron.empty")}</p>
+            <p className="mt-1 text-xs text-[var(--kq-color-muted)]">{t("cron.emptyHint")}</p>
           </div>
         ) : (
           <>
             {jobs.length > 0 && (
               <div>
-                <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
+                <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--kq-color-muted)]">
                   {t("cron.activeSection")}
                 </h2>
                 <div className="space-y-3">{jobs.map(renderActiveCard)}</div>
@@ -260,15 +263,16 @@ export function ScheduledTasksPage() {
             )}
             {completed.length > 0 && (
               <div>
-                <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
+                <h2 className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--kq-color-muted)]">
                   {t("cron.completedSection")}
                 </h2>
-                <p className="mb-2 text-xs text-zinc-400">{t("cron.completedHint")}</p>
+                <p className="mb-2 text-xs text-[var(--kq-color-muted)]">{t("cron.completedHint")}</p>
                 <div className="space-y-3">{completed.map(renderCompletedCard)}</div>
               </div>
             )}
           </>
         )}
+      </div>
       </div>
     </AppScaffold>
   );

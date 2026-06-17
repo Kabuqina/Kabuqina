@@ -246,6 +246,14 @@ class TestCapabilityPolicy(unittest.TestCase):
         self.assertEqual(web["trust"], "official")
         self.assertFalse(web["locked"])
 
+    def test_default_product_toolsets_are_visible_to_default_role(self):
+        policy = CapabilityPolicy(ROLE_DEFAULT)
+        for name in ToolPolicy.resolve(power_user=False):
+            with self.subTest(toolset=name):
+                visibility = policy.tool_visibility({"name": name})
+                self.assertIn(ROLE_DEFAULT, visibility["roles"])
+                self.assertFalse(visibility["locked"])
+
     def test_plugins_default_to_advanced(self):
         policy = CapabilityPolicy(ROLE_DEFAULT)
         visibility = policy.plugin_visibility({"name": "example"})
@@ -391,6 +399,52 @@ class TestApprovalBackendPolicy(unittest.TestCase):
             )
             self.assertFalse(
                 _auto_approve_workspace_read('cp "/d/tmp/report.pdf" "/d/tmp/report-copy.pdf"')
+            )
+
+    def test_power_user_auto_approves_read_outside_workspace(self):
+        outside = Path(tempfile.gettempdir()).parent / "report.txt"
+        env = {
+            "HERMESDESK_WORKSPACE": str(self.workspace),
+            "HERMESDESK_POWER_USER": "1",
+        }
+        with patch.dict(os.environ, env):
+            self.assertTrue(_auto_approve_workspace_read(f"Get-Content {outside}"))
+            self.assertTrue(_auto_approve_workspace_read(f"type {outside}"))
+
+    def test_power_user_auto_approves_python_read_outside_workspace(self):
+        outside = Path(tempfile.gettempdir()).parent / "deck.pptx"
+        env = {
+            "HERMESDESK_WORKSPACE": str(self.workspace),
+            "HERMESDESK_POWER_USER": "1",
+        }
+        with patch.dict(os.environ, env):
+            self.assertTrue(
+                _auto_approve_workspace_read(
+                    f'python -c "from pptx import Presentation; Presentation(r\'{outside}\')"'
+                )
+            )
+
+    def test_power_user_still_blocks_writes_and_copy_outside(self):
+        outside_dest = Path(tempfile.gettempdir()).parent / "leak.pdf"
+        src = self.workspace / "notes.txt"
+        env = {
+            "HERMESDESK_WORKSPACE": str(self.workspace),
+            "HERMESDESK_POWER_USER": "1",
+        }
+        with patch.dict(os.environ, env):
+            # Reads broaden, but data must not leave the workspace via copy …
+            self.assertFalse(
+                _auto_approve_workspace_read(f'cp "{src}" "{outside_dest}"')
+            )
+            # … nor via a Python write call.
+            self.assertFalse(
+                _auto_approve_workspace_read(
+                    'python -c "from pathlib import Path; Path(\'notes.txt\').write_text(\'x\')"'
+                )
+            )
+            # Shell composition stays gated regardless of mode.
+            self.assertFalse(
+                _auto_approve_workspace_read("Get-Content notes.txt | powershell -c whoami")
             )
 
 

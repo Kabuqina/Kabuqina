@@ -47,9 +47,17 @@ class TestNetworkAllowlistOverlayWithHttpx(unittest.TestCase):
         self.assertIn("kabuqina.com", hosts, "kabuqina.com missing from allowlist")
         self.assertIn("huggingface.co", hosts, "huggingface.co missing from allowlist")
         self.assertIn("hf-mirror.com", hosts, "hf-mirror.com missing from allowlist")
+        self.assertIn(
+            "nanapackages-1428509047.cos.ap-guangzhou.myqcloud.com",
+            hosts,
+            "Tencent COS STT mirror missing from allowlist",
+        )
 
     def test_check_url_permits_huggingface(self) -> None:
         """NetworkPolicy.check_url must NOT raise for STT URLs."""
+        self._policy.check_url(
+            "https://nanapackages-1428509047.cos.ap-guangzhou.myqcloud.com/ggml-base-q5_1.bin"
+        )
         self._policy.check_url(
             "https://kabuqina.com/packages/stt/ggml-base-q5_1.bin"
         )

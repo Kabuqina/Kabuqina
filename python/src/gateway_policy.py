@@ -37,7 +37,5 @@ class GatewayPolicy:
         "weixin": PlatformConfig(owner_default="open"),
         "feishu": PlatformConfig(owner_default="open"),
         "qqbot": PlatformConfig(owner_default="open"),
-        # Telegram disabled — removed from Kabuqina product scope (codex/student-deliverables)
-        # "telegram": PlatformConfig(require_mention=False),
         "wecom": PlatformConfig(owner_default="open"),
     })

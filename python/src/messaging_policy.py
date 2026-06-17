@@ -120,8 +120,8 @@ def expand_cron_default_deliver(current_deliver: Optional[str]) -> str:
 
     Product decision (Q2: smart default): if the agent doesn't explicitly
     target a remote platform, fan-out to desktop AND every messaging channel
-    the user has configured a home channel for (Telegram, Discord, Slack, ...).
-    The user can still narrow it: ``deliver="telegram"`` is respected as-is.
+    the user has configured a home channel for (Weixin, Feishu, WeCom, ...).
+    The user can still narrow it: ``deliver="feishu"`` is respected as-is.
 
     Triggers expansion when ``current_deliver`` is one of:
       - ``None`` / empty string  (agent didn't specify)
@@ -160,7 +160,7 @@ def expand_cron_default_deliver(current_deliver: Optional[str]) -> str:
 def _extract_platform(target: str) -> str:
     """Extract the platform portion from a target string.
 
-    ``telegram:#channel`` → ``telegram``
+    ``feishu:#channel`` → ``feishu``
     ``desktop``           → ``desktop``
     ``feishu:oc_xxx``    → ``feishu``
     """
