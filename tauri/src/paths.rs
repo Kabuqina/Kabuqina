@@ -131,6 +131,9 @@ pub fn resolve_runtime_dir(app: &AppHandle) -> Result<PathBuf> {
 }
 
 pub fn is_power_user(app: &AppHandle) -> bool {
+    // Off until explicitly enabled. Onboarding (Welcome step) and the Settings
+    // toggle both persist this via `set_power_user_enabled`; we never silently
+    // enable terminal/code-execution for users who skip that choice.
     matches!(
         read_setting(app, SETTING_POWER_USER).as_deref(),
         Some("1" | "true")
@@ -306,6 +309,10 @@ fn copy_workspace_dir(
         .with_context(|| format!("reading workspace {}", source.display()))?
     {
         let entry = entry?;
+        if is_reserved_windows_device_name(&entry.file_name().to_string_lossy()) {
+            summary.skipped_entries += 1;
+            continue;
+        }
         let from = entry.path();
         let rel = from.strip_prefix(source).unwrap_or(&from);
         let to = destination.join(rel);
@@ -340,6 +347,19 @@ fn copy_workspace_dir(
         }
     }
     Ok(())
+}
+
+fn is_reserved_windows_device_name(name: &str) -> bool {
+    let trimmed = name.trim_end_matches([' ', '.']);
+    let stem = trimmed
+        .split(['.', ':'])
+        .next()
+        .unwrap_or(trimmed)
+        .to_ascii_lowercase();
+    matches!(stem.as_str(), "con" | "prn" | "aux" | "nul")
+        || (stem.len() == 4
+            && (stem.starts_with("com") || stem.starts_with("lpt"))
+            && matches!(stem.as_bytes()[3], b'1'..=b'9'))
 }
 
 fn write_setting(app: &AppHandle, key: &str, value: &str) -> Result<()> {
@@ -590,8 +610,8 @@ pub fn cmd_save_shared_prefs(app: AppHandle, content: String) -> Result<(), Stri
 #[cfg(test)]
 mod tests {
     use super::{
-        cmd_write_text_file, migrate_workspace_contents, parse_auto_start_gateway_setting,
-        validate_pdf_export_path, validate_text_export_path,
+        cmd_write_text_file, is_reserved_windows_device_name, migrate_workspace_contents,
+        parse_auto_start_gateway_setting, validate_pdf_export_path, validate_text_export_path,
     };
 
     fn unique_temp_path(name: &str) -> std::path::PathBuf {
@@ -641,6 +661,18 @@ mod tests {
         assert!(!parse_auto_start_gateway_setting(Some("1")));
         assert!(!parse_auto_start_gateway_setting(Some("true")));
         assert!(!parse_auto_start_gateway_setting(Some("yes")));
+    }
+
+    #[test]
+    fn detects_reserved_windows_device_names_before_metadata_reads() {
+        for name in [
+            "nul", "NUL", "nul.txt", "con", "prn.md", "aux", "com1", "COM9.log", "lpt1",
+        ] {
+            assert!(is_reserved_windows_device_name(name), "{name}");
+        }
+        for name in ["notes.md", "null.md", "company1.txt", "lpt10.txt"] {
+            assert!(!is_reserved_windows_device_name(name), "{name}");
+        }
     }
 
     #[test]

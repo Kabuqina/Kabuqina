@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Optional
 
+import docling_base_models as dbm
 import docling_math_models as dmm
 
 log = logging.getLogger("hermesdesk.load_packages")
@@ -50,6 +51,8 @@ class LoadPackage:
     def status(self) -> dict[str, Any]:
         raw = self.status_fn()
         path_info = _status_path_info(self.id, raw, self.payload_folder)
+        downloaded = bool(path_info["downloaded"])
+        size = int(path_info.get("size") or raw.get("size") or 0)
         return {
             "id": self.id,
             "title": self.title,
@@ -57,8 +60,8 @@ class LoadPackage:
             "feature": self.feature,
             "modelId": self.model_id,
             "sizeMb": self.size_mb,
-            "downloaded": bool(path_info["downloaded"]),
-            "size": int(path_info.get("size") or raw.get("size") or 0),
+            "downloaded": downloaded,
+            "size": size,
             "path": str(path_info.get("realPath") or ""),
             "realPath": str(path_info.get("realPath") or ""),
             "agentPath": str(path_info.get("agentPath") or ""),
@@ -69,7 +72,7 @@ class LoadPackage:
                 for source in self.sources
             ],
             "usedByCapabilities": _package_capability_usage().get(self.id, []),
-            "job": package_job_status(self.id),
+            "job": _job_for_status(self.id, downloaded=downloaded, size=size),
         }
 
 
@@ -265,6 +268,28 @@ def package_job_status(package_id: str) -> dict[str, Any] | None:
         return dict(job) if job else None
 
 
+def _job_for_status(package_id: str, *, downloaded: bool, size: int) -> dict[str, Any] | None:
+    job = package_job_status(package_id)
+    if (
+        job
+        and job.get("status") == "running"
+        and downloaded
+        and str(job.get("phase") or "") in {"checking", "installing", "done"}
+    ):
+        final_size = max(size, int(job.get("downloadedBytes") or 0), int(job.get("totalBytes") or 0))
+        return _update_job(
+            package_id,
+            {
+                "status": "done",
+                "phase": "done",
+                "downloadedBytes": final_size,
+                "totalBytes": final_size,
+                "error": "",
+            },
+        )
+    return job
+
+
 def _run_download(package: LoadPackage) -> dict[str, Any]:
     expected_total = int(package.size_mb) * 1024 * 1024
     _update_job(
@@ -418,6 +443,18 @@ def _formula_delete() -> dict[str, Any]:
     return dmm.delete_code_formula()
 
 
+def _docling_base_status() -> dict[str, Any]:
+    return dbm.docling_base_status()
+
+
+def _docling_base_download(progress: Optional[ProgressFn] = None) -> dict[str, Any]:
+    return dbm.download_docling_base_blocking(progress=progress)
+
+
+def _docling_base_delete() -> dict[str, Any]:
+    return dbm.delete_docling_base()
+
+
 def _eom():
     import easyocr_models as eom
 
@@ -442,6 +479,25 @@ def _easyocr_delete() -> dict[str, Any]:
 
 def _packages() -> dict[str, LoadPackage]:
     return {
+        "docling-base": LoadPackage(
+            id="docling-base",
+            title="Docling base",
+            description="Layout and table-recognition weights for precise document reading.",
+            feature="document-precise-read",
+            model_id=dbm.DOCLING_BASE_REPO,
+            size_mb=dbm.DOCLING_BASE_SIZE_MB,
+            sources=(
+                LoadPackageSource(
+                    id="tencent-cos",
+                    label="Tencent COS",
+                    url=dbm.DOCLING_BASE_ARCHIVE_URLS[0],
+                ),
+            ),
+            status_fn=_docling_base_status,
+            download_fn=_docling_base_download,
+            delete_fn=_docling_base_delete,
+            payload_folder=dbm.DOCLING_BASE_FOLDER,
+        ),
         "docling-codeformula": LoadPackage(
             id="docling-codeformula",
             title="Docling CodeFormula",

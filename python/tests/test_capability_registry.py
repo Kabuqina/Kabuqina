@@ -70,7 +70,9 @@ class CapabilityRegistryTests(unittest.TestCase):
         math = get_capability_def("document-math")
         voice = get_capability_def("voice-local-stt")
 
-        self.assertEqual(math["required_load_packages"], ["docling-codeformula"])
+        precise = get_capability_def("document-precise-read")
+        self.assertEqual(precise["required_load_packages"], ["docling-base"])
+        self.assertEqual(math["required_load_packages"], ["docling-base", "docling-codeformula"])
         self.assertEqual(voice["required_load_packages"], ["local-stt-base-q5_1"])
         self.assertEqual(math["source"], "builtin")
         self.assertEqual(math["trust"], "official")
@@ -410,6 +412,13 @@ class CapabilityRegistryTests(unittest.TestCase):
         from capability_status import build_capability_status
 
         packages = {
+            "docling-base": {
+                "id": "docling-base",
+                "title": "Docling base",
+                "downloaded": True,
+                "sizeMb": 506,
+                "job": None,
+            },
             "docling-codeformula": {
                 "id": "docling-codeformula",
                 "title": "Docling CodeFormula",
@@ -422,13 +431,23 @@ class CapabilityRegistryTests(unittest.TestCase):
         status = build_capability_status(get_capability_def("document-math"), packages)
 
         self.assertEqual(status["status"], "missing_package")
-        self.assertEqual(status["requiredLoadPackages"][0]["id"], "docling-codeformula")
+        self.assertEqual(
+            {item["id"]: item["downloaded"] for item in status["requiredLoadPackages"]},
+            {"docling-base": True, "docling-codeformula": False},
+        )
+        self.assertIn("docling-codeformula", status["statusReason"])
 
     def test_running_required_package_marks_capability_downloading(self):
         from capability_registry import get_capability_def
         from capability_status import build_capability_status
 
         packages = {
+            "docling-base": {
+                "id": "docling-base",
+                "title": "Docling base",
+                "downloaded": True,
+                "job": None,
+            },
             "docling-codeformula": {
                 "id": "docling-codeformula",
                 "title": "Docling CodeFormula",
@@ -447,6 +466,12 @@ class CapabilityRegistryTests(unittest.TestCase):
         from capability_status import build_capability_status
 
         packages = {
+            "docling-base": {
+                "id": "docling-base",
+                "title": "Docling base",
+                "downloaded": True,
+                "job": None,
+            },
             "docling-codeformula": {
                 "id": "docling-codeformula",
                 "title": "Docling CodeFormula",
@@ -465,6 +490,13 @@ class CapabilityRegistryTests(unittest.TestCase):
         from capability_status import build_capability_status
 
         packages = {
+            "docling-base": {
+                "id": "docling-base",
+                "title": "Docling base",
+                "downloaded": True,
+                "sizeMb": 506,
+                "job": None,
+            },
             "docling-codeformula": {
                 "id": "docling-codeformula",
                 "title": "Docling CodeFormula",
@@ -486,6 +518,13 @@ class CapabilityRegistryTests(unittest.TestCase):
         from capability_status import build_capability_status
 
         packages = {
+            "docling-base": {
+                "id": "docling-base",
+                "title": "Docling base",
+                "downloaded": True,
+                "sizeMb": 506,
+                "job": None,
+            },
             "docling-codeformula": {
                 "id": "docling-codeformula",
                 "title": "Docling CodeFormula",
@@ -570,6 +609,12 @@ class CapabilityRegistryTests(unittest.TestCase):
         from capability_status import build_capability_status
 
         packages = {
+            "docling-base": {
+                "id": "docling-base",
+                "title": "Docling base",
+                "downloaded": True,
+                "job": None,
+            },
             "docling-codeformula": {
                 "id": "docling-codeformula",
                 "title": "Docling CodeFormula",
@@ -593,6 +638,12 @@ class CapabilityRegistryTests(unittest.TestCase):
         from capability_status import build_capability_status
 
         packages = {
+            "docling-base": {
+                "id": "docling-base",
+                "title": "Docling base",
+                "downloaded": True,
+                "job": None,
+            },
             "docling-codeformula": {
                 "id": "docling-codeformula",
                 "title": "Docling CodeFormula",
@@ -660,6 +711,12 @@ class CapabilityRegistryTests(unittest.TestCase):
         from capability_status import build_capability_status
 
         packages = {
+            "docling-base": {
+                "id": "docling-base",
+                "title": "Docling base",
+                "downloaded": True,
+                "job": None,
+            },
             "docling-codeformula": {
                 "id": "docling-codeformula",
                 "title": "Docling CodeFormula",

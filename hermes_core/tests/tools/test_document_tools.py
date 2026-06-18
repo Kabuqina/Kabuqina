@@ -968,6 +968,18 @@ def test_docling_converter_is_cached(monkeypatch):
     document_tools.reset_docling_converter_cache()
 
 
+def test_docling_converter_lock_is_reentrant_for_first_use_installs():
+    import tools.document_tools as document_tools
+
+    lock = document_tools._DOCLING_CONVERTER_LOCK
+    lock.acquire()
+    try:
+        assert lock.acquire(blocking=False)
+        lock.release()
+    finally:
+        lock.release()
+
+
 def test_docling_profile_for_mode_defaults_to_fast():
     from tools.document_tools import _docling_profile_for_mode
 

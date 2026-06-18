@@ -72,7 +72,7 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
         "agent_hint": "Use for PDF, Word, and document understanding tasks that need structure beyond plain text.",
         "tools": ["pdf_read_precise", "document_read_precise"],
         "required_toolsets": ["documents"],
-        "required_load_packages": [],
+        "required_load_packages": ["docling-base"],
         "optional_load_packages": ["docling-codeformula"],
         "roles": ["default", "advanced", "power"],
         "risk": "low",
@@ -91,6 +91,7 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
                         "stage": "reader",
                         "tool": "document_read_precise",
                         "default_args": {"mode": "auto"},
+                        "required_load_packages": ["docling-base"],
                         "optional_load_packages": ["docling-codeformula"],
                         "outputs": ["read_id", "markdown", "metadata"],
                     }
@@ -108,6 +109,7 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
                         "stage": "reader",
                         "tool": "pdf_read_precise",
                         "default_args": {"mode": "auto"},
+                        "required_load_packages": ["docling-base"],
                         "optional_load_packages": ["docling-codeformula"],
                         "outputs": ["read_id", "markdown", "metadata"],
                     }
@@ -123,7 +125,7 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
         "agent_hint": "Use when the user asks for formula recognition, math extraction, or LaTeX cleanup.",
         "tools": ["pdf_read_precise", "document_read_precise"],
         "required_toolsets": ["documents"],
-        "required_load_packages": ["docling-codeformula"],
+        "required_load_packages": ["docling-base", "docling-codeformula"],
         "optional_load_packages": [],
         "roles": ["default", "advanced", "power"],
         "risk": "low",
@@ -142,7 +144,7 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
                         "stage": "reader",
                         "tool": "document_read_precise",
                         "default_args": {"mode": "math"},
-                        "required_load_packages": ["docling-codeformula"],
+                        "required_load_packages": ["docling-base", "docling-codeformula"],
                         "outputs": ["read_id", "markdown", "formulas"],
                     }
                 ],
@@ -159,7 +161,7 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
                         "stage": "reader",
                         "tool": "pdf_read_precise",
                         "default_args": {"mode": "math"},
-                        "required_load_packages": ["docling-codeformula"],
+                        "required_load_packages": ["docling-base", "docling-codeformula"],
                         "outputs": ["read_id", "markdown", "formulas"],
                     }
                 ],

@@ -279,6 +279,8 @@ export const MESSAGES = {
       li1: "不用注册账号",
       li2: "不收订阅费，按服务商计费",
       li3: "数据都留在你电脑上",
+      advancedLabel: "高级模式（理工科推荐）",
+      advancedDesc: "终端 · 代码执行 · 社区技能（每次仍会确认）",
       cta: "开始吧",
     },
     brain: {
@@ -429,6 +431,10 @@ export const MESSAGES = {
       loadPackageDownloadFailed: "下载失败：{{msg}}",
       loadPackageDeleteFailed: "删除失败：{{msg}}",
       loadPackage: {
+        "docling-base": {
+          title: "Docling 文档精读基础包 (~506MB)",
+          desc: "用于 PDF / 文档精读的版面识别与表格结构模型。初始化完成后会自动下载，也可在这里重试或删除。",
+        },
         "docling-codeformula": {
           title: "公式提取模型 (~500MB)",
           desc: "用于 pdf_read_precise / document_read_precise 的 mode=math 公式识别。不包含在安装包内，首次需要时也会弹窗请求下载。",
@@ -1198,6 +1204,8 @@ export const MESSAGES = {
       li1: "No account with us.",
       li2: "No subscription or fee from us.",
       li3: "Everything stays on your PC.",
+      advancedLabel: "Advanced mode (recommended for STEM)",
+      advancedDesc: "Terminal · code execution · community skills (you still confirm each time)",
       cta: "Let's get started",
     },
     brain: {
@@ -1350,6 +1358,10 @@ export const MESSAGES = {
       loadPackageDownloadFailed: "Download failed: {{msg}}",
       loadPackageDeleteFailed: "Delete failed: {{msg}}",
       loadPackage: {
+        "docling-base": {
+          title: "Docling precise-reading base pack (~506MB)",
+          desc: "Layout and table-recognition weights for precise PDF/document reads. Download starts automatically after onboarding; retry or delete it here.",
+        },
         "docling-codeformula": {
           title: "Formula extraction model (~500MB)",
           desc: "Required for mode=math in pdf_read_precise / document_read_precise. Not bundled in the installer; first use can also prompt for download.",

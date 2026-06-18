@@ -193,15 +193,29 @@ class TestDeskServerHttp(unittest.TestCase):
                             "load_packages.list_load_packages",
                             return_value=[
                                 {
-                                    "id": "docling-codeformula",
-                                    "title": "Docling CodeFormula",
-                                    "downloaded": False,
-                                    "sizeMb": 500,
+                                    "id": "docling-base",
+                                    "title": "Docling base",
+                                    "downloaded": True,
+                                    "sizeMb": 506,
                                     "job": None,
                                 },
                                 {
-                                    "id": "local-stt-base-q5_1",
-                                    "title": "Local speech recognition",
+                                    "id": "docling-codeformula",
+                                    "title": "Docling CodeFormula",
+            "downloaded": False,
+            "sizeMb": 500,
+            "job": None,
+        },
+        {
+            "id": "docling-base",
+            "title": "Docling base",
+            "downloaded": True,
+            "sizeMb": 506,
+            "job": None,
+        },
+        {
+            "id": "local-stt-base-q5_1",
+            "title": "Local speech recognition",
                                     "downloaded": True,
                                     "sizeMb": 57,
                                     "job": None,
@@ -228,6 +242,7 @@ class TestDeskServerHttp(unittest.TestCase):
             "docling-math-document-read",
         )
         self.assertIn("docling-codeformula", package_ids)
+        self.assertIn("docling-base", package_ids)
         self.assertIn("local-stt-base-q5_1", package_ids)
 
     def test_capabilities_catalog_uses_fresh_load_package_status_with_cached_catalog(self):
@@ -240,6 +255,13 @@ class TestDeskServerHttp(unittest.TestCase):
                 "title": "Docling CodeFormula",
                 "downloaded": False,
                 "sizeMb": 500,
+                "job": None,
+            },
+            {
+                "id": "docling-base",
+                "title": "Docling base",
+                "downloaded": True,
+                "sizeMb": 506,
                 "job": None,
             },
             {
@@ -292,6 +314,13 @@ class TestDeskServerHttp(unittest.TestCase):
                     with patch(
                         "load_packages.list_load_packages",
                         return_value=[
+                            {
+                                "id": "docling-base",
+                                "title": "Docling base",
+                                "downloaded": True,
+                                "sizeMb": 506,
+                                "job": None,
+                            },
                             {
                                 "id": "docling-codeformula",
                                 "title": "Docling CodeFormula",

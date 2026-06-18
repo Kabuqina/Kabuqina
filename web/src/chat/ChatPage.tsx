@@ -38,6 +38,7 @@ import { useInFlightTurns } from "./inFlightTurns";
 import { type CaptureDonePayload } from "../capture/capture-api";
 import type { AgentProgressState } from "./hooks/useAgentProgress";
 import type { DeskAttachmentPayload, UiMsg } from "./chat-api";
+import { cmdLoadPackageDownload } from "./chat-api";
 import { REMINDER_SESSION_ID } from "./reminderSession";
 
 type WorkspaceState = {
@@ -209,6 +210,7 @@ export function ChatPage() {
     onDeleteSession,
     openReminderSession,
     refreshActiveThread,
+    restorePersistedSession,
   } = useChatState({ loadSessions, inFlightTurns });
   const {
     input,
@@ -242,6 +244,16 @@ export function ChatPage() {
   );
 
   useEffect(() => {
+    if (isOpenReminderSession(location.state) || isFromOnboarding(location.state) || getDraftPrompt(location.state)) {
+      return;
+    }
+    if (!hermesReady || hermesWarming || listLoading || activeSessionId) {
+      return;
+    }
+    restorePersistedSession(sessions);
+  }, [activeSessionId, hermesReady, hermesWarming, listLoading, location.state, restorePersistedSession, sessions]);
+
+  useEffect(() => {
     if (isOpenReminderSession(location.state)) {
       armPendingOpenReminderSession();
       nav("/chat", { replace: true, state: {} });
@@ -261,6 +273,9 @@ export function ChatPage() {
     if (isFromOnboarding(location.state)) {
       armPendingChatSecretGateBypass();
       clearDraft();
+      cmdLoadPackageDownload("docling-base").catch((err) => {
+        console.warn("docling-base auto-download failed", err);
+      });
       nav("/chat", { replace: true, state: {} });
       return;
     }

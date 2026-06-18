@@ -21,6 +21,7 @@ $pyFiles = @(
     "path_policy.py",
     "secret_store.py",
     "approval_backend.py",
+    "docling_base_models.py",
     "docling_math_models.py",
     "easyocr_models.py",
     "load_packages.py",

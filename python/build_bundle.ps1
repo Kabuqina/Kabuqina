@@ -17,7 +17,7 @@
 #   .\python\build_bundle.ps1 -Verify        # build + smoke-test (+ STT binary checks)
 #   .\python\build_bundle.ps1 -Clean         # wipe and rebuild
 #   .\python\build_bundle.ps1 -SkipWebBuild  # faster: reuse existing hermes_cli/web_dist (risk: stale UI)
-#   .\python\build_bundle.ps1 -SkipDoclingModels  # faster: skip Docling model download when already bundled
+#   .\python\build_bundle.ps1 -BundleDoclingModels  # dev/offline: embed Docling models despite larger installer
 #   .\python\build_bundle.ps1 -BuildHermesDashboard  # opt-in: build upstream Hermes dashboard SPA
 #
 # NOTE (PowerShell): named parameters conventionally use ONE dash (`-Verify`), unlike many
@@ -32,6 +32,7 @@ param(
     [switch]$Verify,
     [switch]$SkipWebBuild,
     [switch]$SkipDoclingModels,
+    [switch]$BundleDoclingModels,
     [switch]$BuildHermesDashboard
 )
 
@@ -63,6 +64,12 @@ if ($PythonVersion -match '^-{2,}(.+)$') {
             Write-Warning "Interpreting '$PythonVersion' as -SkipDoclingModels."
             $PythonVersion = $defaultPy
             $SkipDoclingModels = $true
+            break
+        }
+        'bundledoclingmodels' {
+            Write-Warning "Interpreting '$PythonVersion' as -BundleDoclingModels."
+            $PythonVersion = $defaultPy
+            $BundleDoclingModels = $true
             break
         }
         default {
@@ -367,21 +374,22 @@ if ($LASTEXITCODE -ne 0) {
     exit 11
 }
 
-# ------------------------------------------------------------------ 5b. Bundle Docling models (offline PDF parsing)
+# ------------------------------------------------------------------ 5b. Docling models (load-packages by default)
 #
-# Docling lazily downloads layout/table/OCR weights from HuggingFace on first
-# PDF parse. Ship them under runtime/docling-models/ so pdf_read_precise works
-# without reaching huggingface.co at runtime.
+# Docling base models are load-packages by default so the NSIS installer stays
+# friendly for student users. ``docling-base`` is downloaded after onboarding
+# and can be retried/deleted from Settings -> Load packages.
 #
-# Includes: layout + table (precise reads) and optional EasyOCR (scanned PDFs).
-# Does NOT include ds4sd/CodeFormula (~500 MB) — that is on-demand via
-# Settings → Load packages (see load_packages.py / docling_math_models.py).
-# Dev-only override: DOCLING_BUNDLE_CODE_FORMULA=1 before build_bundle.ps1.
-# (override HF mirror with HF_ENDPOINT); see python/tools/bundle_docling_models.py.
-if ($SkipDoclingModels) {
-    Write-Host "Skipping Docling model bundling (-SkipDoclingModels)." -ForegroundColor DarkGray
+# Dev/offline override: pass -BundleDoclingModels. CodeFormula still requires
+# DOCLING_BUNDLE_CODE_FORMULA=1. See python/tools/bundle_docling_models.py.
+$doclingModelsDir = Join-Path $Dist "docling-models"
+if ($SkipDoclingModels -or -not $BundleDoclingModels) {
+    if (Test-Path $doclingModelsDir) {
+        Remove-Item -Recurse -Force $doclingModelsDir
+    }
+    Write-Host "Skipping Docling model bundling by default. Docling base models are load-packages." -ForegroundColor DarkGray
 } else {
-Write-Host "Bundling Docling models (layout + table + EasyOCR; CodeFormula excluded)..." -ForegroundColor DarkGray
+Write-Host "Bundling Docling models for dev/offline build (layout + table + EasyOCR; CodeFormula excluded)..." -ForegroundColor DarkGray
 $bundleModelsScript = Join-Path $PSScriptRoot "tools\bundle_docling_models.py"
 $prevHfEndpoint = $env:HF_ENDPOINT
 if (-not $env:HF_ENDPOINT) {
@@ -426,6 +434,7 @@ Copy-Item -Force (Join-Path $PSScriptRoot "src\desk_voice_paths.py") (Join-Path 
 Copy-Item -Force (Join-Path $PSScriptRoot "src\path_policy.py") (Join-Path $Dist "path_policy.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\secret_store.py") (Join-Path $Dist "secret_store.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\approval_backend.py") (Join-Path $Dist "approval_backend.py")
+Copy-Item -Force (Join-Path $PSScriptRoot "src\docling_base_models.py") (Join-Path $Dist "docling_base_models.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\docling_math_models.py") (Join-Path $Dist "docling_math_models.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\easyocr_models.py") (Join-Path $Dist "easyocr_models.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\load_packages.py") (Join-Path $Dist "load_packages.py")

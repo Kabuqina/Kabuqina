@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 Rgb = Tuple[int, int, int]
 
 _DOCLING_CONVERTERS: Dict[str, Any] = {}
-_DOCLING_CONVERTER_LOCK = threading.Lock()
+_DOCLING_CONVERTER_LOCK = threading.RLock()
 _DOCLING_IO_POOL: Optional["ThreadPoolExecutor"] = None
 _DOCLING_IO_POOL_LOCK = threading.Lock()
 _TORCH_PRIME_LOCK = threading.Lock()

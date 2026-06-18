@@ -44,8 +44,16 @@ class LoadPackageRegistryTests(unittest.TestCase):
             packages = load_packages.list_load_packages()
 
         ids = {item["id"] for item in packages}
+        self.assertIn("docling-base", ids)
         self.assertIn("docling-codeformula", ids)
         self.assertIn("local-stt-base-q5_1", ids)
+        base = next(item for item in packages if item["id"] == "docling-base")
+        self.assertEqual(base["modelId"], "ds4sd/docling-models")
+        self.assertEqual(base["sizeMb"], 506)
+        self.assertEqual(
+            base["sources"][0]["url"],
+            "https://nanapackages-1428509047.cos.ap-guangzhou.myqcloud.com/ds4sd--docling-models.zip",
+        )
         formula = next(item for item in packages if item["id"] == "docling-codeformula")
         self.assertEqual(formula["modelId"], "ds4sd/CodeFormula")
         self.assertEqual(formula["sizeMb"], 500)
@@ -102,12 +110,18 @@ class LoadPackageRegistryTests(unittest.TestCase):
     def test_package_status_prefers_user_path_over_bundled_path(self):
         import load_packages
 
-        user_payload = self.data_dir / "load-packages" / "docling-codeformula" / "ds4sd--CodeFormula"
-        bundled_payload = self.data_dir / "runtime" / "load-packages" / "docling-codeformula" / "ds4sd--CodeFormula"
+        user_payload = self.data_dir / "load-packages" / "docling-base" / "ds4sd--docling-models"
+        bundled_payload = self.data_dir / "runtime" / "load-packages" / "docling-base" / "ds4sd--docling-models"
         user_payload.mkdir(parents=True)
         bundled_payload.mkdir(parents=True)
-        (user_payload / "model.safetensors").write_bytes(b"user")
-        (bundled_payload / "model.safetensors").write_bytes(b"bundle")
+        (user_payload / "model_artifacts" / "layout").mkdir(parents=True)
+        (user_payload / "model_artifacts" / "tableformer" / "fast").mkdir(parents=True)
+        (bundled_payload / "model_artifacts" / "layout").mkdir(parents=True)
+        (bundled_payload / "model_artifacts" / "tableformer" / "fast").mkdir(parents=True)
+        (user_payload / "model_artifacts" / "layout" / "model.safetensors").write_bytes(b"user")
+        (user_payload / "model_artifacts" / "tableformer" / "fast" / "tableformer_fast.safetensors").write_bytes(b"user")
+        (bundled_payload / "model_artifacts" / "layout" / "model.safetensors").write_bytes(b"bundle")
+        (bundled_payload / "model_artifacts" / "tableformer" / "fast" / "tableformer_fast.safetensors").write_bytes(b"bundle")
 
         with patch.dict(
             os.environ,
@@ -118,19 +132,21 @@ class LoadPackageRegistryTests(unittest.TestCase):
             },
             clear=False,
         ):
-            status = load_packages.package_status("docling-codeformula")
+            status = load_packages.package_status("docling-base")
 
         self.assertEqual(status["realPath"], str(user_payload))
         self.assertEqual(status["source"], "downloaded")
         self.assertEqual(status["path"], status["realPath"])
-        self.assertEqual(status["agentPath"], ".hermesdesk/load-packages/docling-codeformula")
+        self.assertEqual(status["agentPath"], ".hermesdesk/load-packages/docling-base")
 
     def test_workspace_index_writes_manifests(self):
         import load_packages
 
-        payload = self.data_dir / "load-packages" / "docling-codeformula" / "ds4sd--CodeFormula"
-        payload.mkdir(parents=True)
-        (payload / "model.safetensors").write_bytes(b"x")
+        payload = self.data_dir / "load-packages" / "docling-base" / "ds4sd--docling-models"
+        (payload / "model_artifacts" / "layout").mkdir(parents=True)
+        (payload / "model_artifacts" / "tableformer" / "fast").mkdir(parents=True)
+        (payload / "model_artifacts" / "layout" / "model.safetensors").write_bytes(b"x")
+        (payload / "model_artifacts" / "tableformer" / "fast" / "tableformer_fast.safetensors").write_bytes(b"x")
 
         with patch.dict(
             os.environ,
@@ -144,8 +160,8 @@ class LoadPackageRegistryTests(unittest.TestCase):
 
         root = self.workspace / ".hermesdesk" / "load-packages"
         index = root / "packages.json"
-        per_package = root / "docling-codeformula.json"
-        real_path = root / "docling-codeformula" / "real-path.txt"
+        per_package = root / "docling-base.json"
+        real_path = root / "docling-base" / "real-path.txt"
 
         self.assertTrue(result["ok"])
         self.assertTrue(index.exists())
@@ -153,8 +169,8 @@ class LoadPackageRegistryTests(unittest.TestCase):
         self.assertEqual(real_path.read_text(encoding="utf-8"), str(payload))
         data = json.loads(index.read_text(encoding="utf-8"))
         self.assertEqual(data["version"], 1)
-        formula = next(item for item in data["packages"] if item["id"] == "docling-codeformula")
-        self.assertEqual(formula["agentPath"], ".hermesdesk/load-packages/docling-codeformula")
+        base = next(item for item in data["packages"] if item["id"] == "docling-base")
+        self.assertEqual(base["agentPath"], ".hermesdesk/load-packages/docling-base")
 
     def test_stt_package_delete_removes_downloaded_model(self):
         import load_packages
@@ -245,6 +261,39 @@ class LoadPackageRegistryTests(unittest.TestCase):
         self.assertEqual(final["job"]["downloadedBytes"], 100)
         self.assertEqual(final["job"]["totalBytes"], 100)
         self.assertEqual(final["job"]["percent"], 100)
+
+    def test_installed_package_reconciles_stale_installing_job(self):
+        import load_packages
+
+        payload = self.data_dir / "load-packages" / "docling-codeformula" / "ds4sd--CodeFormula"
+        payload.mkdir(parents=True)
+        (payload / "model.safetensors").write_bytes(b"weights")
+
+        with patch.dict(
+            os.environ,
+            {
+                "HERMESDESK_DATA_DIR": str(self.data_dir),
+                "HERMESDESK_WORKSPACE": str(self.workspace),
+            },
+            clear=False,
+        ):
+            load_packages._update_job(
+                "docling-codeformula",
+                {
+                    "status": "running",
+                    "phase": "installing",
+                    "downloadedBytes": 7,
+                    "totalBytes": 7,
+                },
+            )
+
+            status = load_packages.package_status("docling-codeformula")
+
+        self.assertTrue(status["downloaded"])
+        self.assertEqual(status["job"]["status"], "done")
+        self.assertEqual(status["job"]["phase"], "done")
+        self.assertEqual(status["job"]["downloadedBytes"], status["size"])
+        self.assertEqual(status["job"]["totalBytes"], status["size"])
 
 
 class CodeFormulaFirstUseTests(unittest.TestCase):

@@ -20,6 +20,7 @@ const loadPackageDownloadsSource = fs.readFileSync(
   new URL("../chat/hooks/useLoadPackageDownloads.ts", import.meta.url),
   "utf8",
 );
+const chatPageSource = fs.readFileSync(new URL("../chat/ChatPage.tsx", import.meta.url), "utf8");
 
 assert.match(
   settingsSource,
@@ -131,4 +132,11 @@ assert.match(stringsSource, /loadPackageProgress/);
 assert.match(stringsSource, /loadPackageUsedBy/);
 
 assert.match(stringsSource, /docling-codeformula/);
+assert.match(stringsSource, /docling-base/);
 assert.match(stringsSource, /local-stt-base-q5_1/);
+
+assert.match(
+  chatPageSource,
+  /cmdLoadPackageDownload[\s\S]*docling-base/,
+  "Chat should trigger the Docling base load-package download after onboarding lands in chat.",
+);

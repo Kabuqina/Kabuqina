@@ -633,6 +633,22 @@ assert.match(
 );
 
 assert.match(
+  useChatStateSource,
+  /readPersistedSession[\s\S]*restorePersistedSession/,
+  "Chat state should expose a route-remount restore path for the last active session.",
+);
+assert.match(
+  chatPageSource,
+  /restorePersistedSession[\s\S]*sessions[\s\S]*listLoading/,
+  "ChatPage should restore the active session after returning from Settings or Capabilities.",
+);
+assert.match(
+  sendMessageSource,
+  /persistActiveSessionId\(sessionForSend\)/,
+  "New chat sends should persist the generated session id before route changes can unmount ChatPage.",
+);
+
+assert.match(
   chatPageSource,
   /message\.attachments[\s\S]*att\.mime/,
   "Workspace state should also recognize image attachments stored on user messages.",

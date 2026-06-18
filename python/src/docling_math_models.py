@@ -75,6 +75,14 @@ def bundle_docling_models_dir() -> Optional[Path]:
         path = Path(explicit).expanduser()
         if path.is_dir():
             return path
+    try:
+        from docling_base_models import resolve_docling_base_artifacts_dir
+
+        resolved = resolve_docling_base_artifacts_dir()
+        if resolved is not None:
+            return resolved
+    except Exception:
+        pass
     bundle_dir = os.environ.get("HERMESDESK_BUNDLE_DIR", "").strip()
     if bundle_dir:
         path = Path(bundle_dir) / "docling-models"

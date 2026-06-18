@@ -182,6 +182,25 @@ class ResolveArtifactsPathTests(unittest.TestCase):
             resolved = dmm.resolve_docling_artifacts_path(profile="fast")
         self.assertEqual(resolved, bundle / "docling-models")
 
+    def test_fast_profile_prefers_downloaded_docling_base_package(self):
+        data = self.root / "data"
+        payload = data / "load-packages" / "docling-base" / "ds4sd--docling-models"
+        layout = payload / "model_artifacts" / "layout"
+        table = payload / "model_artifacts" / "tableformer" / "fast"
+        layout.mkdir(parents=True)
+        table.mkdir(parents=True)
+        (layout / "model.safetensors").write_bytes(b"x")
+        (table / "tableformer_fast.safetensors").write_bytes(b"x")
+
+        with patch.dict(
+            os.environ,
+            {"HERMESDESK_BUNDLE_DIR": str(self.root / "bundle"), "HERMESDESK_DATA_DIR": str(data)},
+            clear=False,
+        ):
+            resolved = dmm.resolve_docling_artifacts_path(profile="fast")
+
+        self.assertEqual(resolved, data / "load-packages" / "docling-base")
+
     def test_math_profile_returns_none_without_formula(self):
         bundle = self.root / "bundle"
         layout = bundle / "docling-models" / "ds4sd--docling-models" / "model_artifacts" / "layout"

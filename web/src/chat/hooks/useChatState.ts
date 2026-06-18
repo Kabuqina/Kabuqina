@@ -66,7 +66,15 @@ function rowsToUiMessages(rows: MessageRow[], sessionModel: string): UiMsg[] {
   return out;
 }
 
-function persistSession(id: string | null) {
+export function readPersistedSession(): string | null {
+  if (typeof window === "undefined" || !window.localStorage) {
+    return null;
+  }
+  const id = window.localStorage.getItem(LAST_SESSION_KEY)?.trim() ?? "";
+  return id || null;
+}
+
+export function persistActiveSessionId(id: string | null) {
   if (typeof window === "undefined" || !window.localStorage) {
     return;
   }
@@ -96,7 +104,7 @@ export function useChatState({
       const seq = ++loadSeqRef.current;
       setSendErr(null);
       setActiveSessionId(sid);
-      persistSession(sid);
+      persistActiveSessionId(sid);
       try {
         const [r, list] = await Promise.all([
           cmdGetSessionMessages(sid),
@@ -125,7 +133,7 @@ export function useChatState({
         setMessages([]);
         setThreadModel("");
         setActiveSessionId(null);
-        persistSession(null);
+        persistActiveSessionId(null);
       }
     },
     [inFlightTurns, loadSessions]
@@ -137,7 +145,7 @@ export function useChatState({
     setThreadModel("");
     setMessages([]);
     setSendErr(null);
-    persistSession(null);
+    persistActiveSessionId(null);
   }, []);
 
   const onPickSession = useCallback(
@@ -181,7 +189,7 @@ export function useChatState({
     loadSeqRef.current += 1;
     setSendErr(null);
     setActiveSessionId(REMINDER_SESSION_ID);
-    persistSession(REMINDER_SESSION_ID);
+    persistActiveSessionId(REMINDER_SESSION_ID);
     setThreadModel("");
     setMessages(
       emptyHint
@@ -196,6 +204,24 @@ export function useChatState({
         : [],
     );
   }, [loadThread]);
+
+  const restorePersistedSession = useCallback(
+    (availableSessions?: SessionRow[]) => {
+      if (activeSessionId) {
+        return false;
+      }
+      const sid = readPersistedSession();
+      if (!sid) {
+        return false;
+      }
+      if (availableSessions?.length && !availableSessions.some((session) => session.id === sid)) {
+        return false;
+      }
+      void loadThread(sid);
+      return true;
+    },
+    [activeSessionId, loadThread],
+  );
 
   return {
     activeSessionId,
@@ -213,5 +239,6 @@ export function useChatState({
     onDeleteSession,
     refreshActiveThread,
     openReminderSession,
+    restorePersistedSession,
   } as const;
 }

@@ -30,6 +30,7 @@ import type { Locale } from "../../lib/i18n-core";
 import { friendlyChatError } from "../friendlyError";
 import { latestAssistantText } from "../inFlightTurnUtils";
 import type { InFlightTurn, InFlightTurnsController } from "../inFlightTurns";
+import { persistActiveSessionId } from "./useChatState";
 
 const POLL_INTERVAL_MS = 300;
 
@@ -208,6 +209,7 @@ export function useSendMessage({
           : `desk-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
       setActiveSessionId(sessionForSend);
     }
+    persistActiveSessionId(sessionForSend);
     activeSessionIdRef.current = sessionForSend;
     inFlightSessionIdRef.current = sessionForSend;
 
