@@ -204,6 +204,15 @@ function escapeHtml(value: string): string {
  */
 export type ExportMarkdownRenderer = (text: string) => string;
 
+type MetaLabels = { session: string; model: string; turns: string };
+
+function metaLabelsForLocale(locale: Locale): MetaLabels {
+  if (locale === "en") {
+    return { session: "Session", model: "Model", turns: "Turns" };
+  }
+  return { session: "会话", model: "模型", turns: "对话轮次" };
+}
+
 function sessionToHtml(
   session: SessionRow,
   dialogue: ExportDialogueTurn[],
@@ -211,11 +220,14 @@ function sessionToHtml(
   renderMarkdown?: ExportMarkdownRenderer,
 ): string {
   const title = sessionTitle(session);
+  const ml = metaLabelsForLocale(locale);
   const turns = dialogue
     .map((turn) => {
       const timeLabel = tsToLocale(turn.timestamp, locale);
-      const meta = timeLabel ? `${turn.speaker} · ${timeLabel}` : turn.speaker;
       const roleClass = turn.role === "user" ? "turn-user" : "turn-assistant";
+      const whenHtml = timeLabel
+        ? `<span class="when">${escapeHtml(timeLabel)}</span>`
+        : "";
       // User turns stay verbatim (they hold raw paths/snippets that must not be
       // reinterpreted as Markdown); assistant turns get full Markdown rendering.
       const textBlock =
@@ -224,17 +236,23 @@ function sessionToHtml(
           : `<div class="turn-text">${escapeHtml(turn.text)}</div>`;
       return [
         `<article class="turn ${roleClass}">`,
-        `<h3>${escapeHtml(meta)}</h3>`,
+        `<h3><span class="who">${escapeHtml(turn.speaker)}</span>${whenHtml}</h3>`,
         textBlock,
         `</article>`,
       ].join("\n");
     })
     .join("\n");
 
+  const metaItem = (label: string, value: string) =>
+    `<span class="meta-item"><span class="meta-key">${escapeHtml(label)}</span>${value}</span>`;
   return [
     `<section class="session">`,
     `<h2>${escapeHtml(title)}</h2>`,
-    `<p class="session-meta"><strong>Session:</strong> <code>${escapeHtml(session.id)}</code> <span>|</span> <strong>Model:</strong> ${escapeHtml(session.model || "-")} <span>|</span> <strong>Turns:</strong> ${dialogue.length}</p>`,
+    `<p class="session-meta">`,
+    metaItem(ml.session, `<code>${escapeHtml(session.id)}</code>`),
+    metaItem(ml.model, escapeHtml(session.model || "—")),
+    metaItem(ml.turns, String(dialogue.length)),
+    `</p>`,
     turns,
     `</section>`,
   ].join("\n");
@@ -308,21 +326,33 @@ export function buildExportHtml(
   <meta charset="utf-8" />
   <title>${escapeHtml(labels.documentTitle)}</title>
   <style>
+    /* A4 with real page margins on every printed page (Chromium honors this via
+       prefer_css_page_size); without it the content prints edge-to-edge. */
+    @page { size: A4; margin: 18mm 16mm; }
     :root { color: #18181b; background: #ffffff; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; }
-    body { margin: 0; padding: 32px; line-height: 1.55; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 32px; line-height: 1.6; }
     main { max-width: 820px; margin: 0 auto; }
-    h1 { margin: 0 0 28px; font-size: 28px; }
-    h2 { margin: 0 0 8px; font-size: 22px; }
+    h1 { margin: 0 0 22px; padding-bottom: 12px; border-bottom: 2px solid #ede9fe; font-size: 26px; color: #4c1d95; }
+    h2 { margin: 6px 0 10px; font-size: 20px; color: #18181b; }
     h3 { margin: 0 0 8px; font-size: 14px; color: #52525b; }
     code { font-family: Consolas, "Courier New", monospace; }
-    .session { page-break-after: always; padding-bottom: 24px; }
+    .session { page-break-after: always; padding-bottom: 8px; }
     .session:last-child { page-break-after: auto; }
-    .session-meta { margin: 0 0 18px; color: #52525b; font-size: 13px; }
-    .turn { border-top: 1px solid #e4e4e7; padding: 16px 0; }
-    .turn h3 { break-after: avoid; }
+    .session-meta { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0 0 8px; padding: 9px 14px;
+      background: #faf8ff; border: 1px solid #ede9fe; border-radius: 8px; color: #52525b; font-size: 12px; }
+    .session-meta .meta-key { color: #71717a; margin-right: 6px; }
+    .session-meta code { color: #3f3f46; }
+    .turn { padding: 14px 0 16px 16px; border-left: 3px solid transparent; }
+    .turn + .turn { border-top: 1px solid #ececf0; }
+    .turn-user { border-left-color: #a3e635; }
+    .turn-assistant { border-left-color: #c4b5fd; }
+    .turn > h3 { display: flex; align-items: baseline; gap: 8px; margin: 0 0 7px; font-size: 13px; font-weight: 600; break-after: avoid; }
+    .turn > h3 .who { font-size: 14px; }
+    .turn > h3 .when { font-weight: 400; font-size: 11px; color: #a1a1aa; }
+    .turn-user > h3 .who { color: #4d7c0f; }
+    .turn-assistant > h3 .who { color: #6d28d9; }
     .turn-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; }
-    .turn-user h3 { color: #365314; }
-    .turn-assistant h3 { color: #4c1d95; }
     /* Rendered Markdown (assistant turns). */
     .md { white-space: normal; overflow-wrap: anywhere; font-size: 14px; }
     .md > :first-child { margin-top: 0; }

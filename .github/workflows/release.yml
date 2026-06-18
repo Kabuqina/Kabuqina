@@ -63,7 +63,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            tauri/target/release/bundle/msi/*.msi
-            tauri/target/release/bundle/msi/*.msi.zip
-            tauri/target/release/bundle/msi/*.msi.zip.sig
+            tauri/target/release/bundle/nsis/*-setup.exe
+            tauri/target/release/bundle/nsis/*-setup.nsis.zip
+            tauri/target/release/bundle/nsis/*-setup.nsis.zip.sig
             latest.json

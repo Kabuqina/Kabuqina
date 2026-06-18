@@ -21,9 +21,11 @@ cargo tauri signer generate -w ~/.tauri/Kabuqina.key
 ## Release flow
 
 1. Tag a commit: `git tag v0.1.1 && git push --tags`
-2. The `release` workflow (`.github/workflows/release.yml`) builds the MSI
-   with `bundle.createUpdaterArtifacts=true`, producing the normal installer
-   plus Tauri updater artifacts: `*.msi.zip` and `*.msi.zip.sig`.
+2. The `release` workflow (`.github/workflows/release.yml`) builds the NSIS
+   installer with `bundle.createUpdaterArtifacts=true`, producing the normal
+   installer (`*-setup.exe`) plus Tauri updater artifacts: `*-setup.nsis.zip`
+   and `*-setup.nsis.zip.sig`. (NSIS, not WiX MSI — the bundle is ~2 GB, over
+   WiX's single-cabinet limit; NSIS has no such limit.)
 3. Run `scripts/make_updater_manifest.ps1` for the GitHub asset URL:
    ```powershell
    .\scripts\make_updater_manifest.ps1 -Version v0.1.1
@@ -35,10 +37,10 @@ cargo tauri signer generate -w ~/.tauri/Kabuqina.key
      -AssetBaseUrl "https://kabuqina-installer-1428509047.cos.ap-guangzhou.myqcloud.com" `
      -Out latest.cos.json
    ```
-5. Attach `*.msi`, `*.msi.zip`, `*.msi.zip.sig`, and GitHub `latest.json` to
-   the GitHub release.
-6. Upload `latest.cos.json` as `latest.json` plus the matching `*.msi.zip`
-   and `*.msi.zip.sig` to Tencent COS.
+5. Attach `*-setup.exe`, `*-setup.nsis.zip`, `*-setup.nsis.zip.sig`, and GitHub
+   `latest.json` to the GitHub release.
+6. Upload `latest.cos.json` as `latest.json` plus the matching
+   `*-setup.nsis.zip` and `*-setup.nsis.zip.sig` to Tencent COS.
 7. Existing installs check GitHub first:
    `https://github.com/Kabuqina/Kabuqina/releases/latest/download/latest.json`
    and then COS:

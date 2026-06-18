@@ -418,6 +418,28 @@ def _formula_delete() -> dict[str, Any]:
     return dmm.delete_code_formula()
 
 
+def _eom():
+    import easyocr_models as eom
+
+    return eom
+
+
+def _easyocr_status() -> dict[str, Any]:
+    return _eom().easyocr_status()
+
+
+def _easyocr_download(progress: Optional[ProgressFn] = None) -> dict[str, Any]:
+    import easyocr_models as eom
+
+    return eom.download_easyocr_blocking(progress=progress)
+
+
+def _easyocr_delete() -> dict[str, Any]:
+    import easyocr_models as eom
+
+    return eom.delete_easyocr()
+
+
 def _packages() -> dict[str, LoadPackage]:
     return {
         "docling-codeformula": LoadPackage(
@@ -445,6 +467,25 @@ def _packages() -> dict[str, LoadPackage]:
             download_fn=_formula_download,
             delete_fn=_formula_delete,
             payload_folder=dmm.CODE_FORMULA_FOLDER,
+        ),
+        "easyocr": LoadPackage(
+            id="easyocr",
+            title="EasyOCR",
+            description="Offline OCR weights for ocr_image and scanned-PDF text extraction.",
+            feature="document-ocr",
+            model_id=_eom().EASYOCR_MODEL_ID,
+            size_mb=_eom().EASYOCR_SIZE_MB,
+            sources=(
+                LoadPackageSource(
+                    id="tencent-cos",
+                    label="Tencent COS",
+                    url=_eom().EASYOCR_ARCHIVE_URLS[0],
+                ),
+            ),
+            status_fn=_easyocr_status,
+            download_fn=_easyocr_download,
+            delete_fn=_easyocr_delete,
+            payload_folder=_eom().EASYOCR_FOLDER,
         ),
         "local-stt-base-q5_1": LoadPackage(
             id="local-stt-base-q5_1",

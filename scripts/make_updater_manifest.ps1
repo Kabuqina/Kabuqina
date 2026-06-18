@@ -1,13 +1,13 @@
 # scripts/make_updater_manifest.ps1
 #
 # Produces latest.json for Tauri's updater plugin. Must be uploaded to the
-# release alongside the .msi and the .msi.sig.
+# release alongside the *-setup.exe and the *-setup.nsis.zip(.sig).
 #
 # Schema: https://v2.tauri.app/plugin/updater/#static-json-file
 
 param(
-    [Parameter(Mandatory)] [string]$Version,           # e.g. v0.1.0
-    [string]$BundleDir = "tauri/target/release/bundle/msi",
+    [Parameter(Mandatory)] [string]$Version,           # e.g. v0.2.0
+    [string]$BundleDir = "tauri/target/release/bundle/nsis",
     [string]$Notes = "See release notes on GitHub.",
     [string]$Repo = $env:GITHUB_REPOSITORY,            # set by Actions
     [string]$AssetBaseUrl = "",
@@ -18,10 +18,10 @@ $ErrorActionPreference = "Stop"
 
 if (-not $Repo) { $Repo = "Kabuqina/Kabuqina" }
 
-$zip = Get-ChildItem -Path $BundleDir -Filter "*.msi.zip" | Select-Object -First 1
-$sig = Get-ChildItem -Path $BundleDir -Filter "*.msi.zip.sig" | Select-Object -First 1
-if (-not $zip) { throw "no .msi.zip found in $BundleDir (enable bundle.createUpdaterArtifacts)" }
-if (-not $sig) { throw "no .msi.zip.sig found in $BundleDir (configure tauri updater signing key)" }
+$zip = Get-ChildItem -Path $BundleDir -Filter "*-setup.nsis.zip" | Select-Object -First 1
+$sig = Get-ChildItem -Path $BundleDir -Filter "*-setup.nsis.zip.sig" | Select-Object -First 1
+if (-not $zip) { throw "no *-setup.nsis.zip found in $BundleDir (enable bundle.createUpdaterArtifacts)" }
+if (-not $sig) { throw "no *-setup.nsis.zip.sig found in $BundleDir (configure tauri updater signing key)" }
 
 $cleanVer = $Version.TrimStart('v')
 if (-not $AssetBaseUrl) {

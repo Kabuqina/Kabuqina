@@ -22,6 +22,7 @@ $pyFiles = @(
     "secret_store.py",
     "approval_backend.py",
     "docling_math_models.py",
+    "easyocr_models.py",
     "load_packages.py",
     "messaging_policy.py",
     "cron_scheduler_runner.py",
@@ -63,10 +64,36 @@ function Sync-Directory($src, $dest) {
         Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
 }
 
+function Remove-VisualMasterGeneratedOutputs {
+    param([string]$VisualMastersPath)
+
+    if (-not (Test-Path -LiteralPath $VisualMastersPath)) { return }
+
+    $rootFull = [IO.Path]::GetFullPath((Resolve-Path -LiteralPath $VisualMastersPath).Path).TrimEnd('\', '/')
+    $rootPrefix = $rootFull + [IO.Path]::DirectorySeparatorChar
+
+    Get-ChildItem -LiteralPath $rootFull -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+        $outputs = Join-Path $_.FullName "outputs"
+        if (-not (Test-Path -LiteralPath $outputs -PathType Container)) { return }
+
+        $targetFull = [IO.Path]::GetFullPath((Resolve-Path -LiteralPath $outputs).Path)
+        if (-not $targetFull.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Refusing to delete visual-master outputs outside runtime root: $targetFull"
+        }
+
+        Remove-Item -Recurse -Force -LiteralPath $targetFull -ErrorAction Stop
+    }
+}
+
 Sync-Directory (Join-Path $srcRoot "desk_server") (Join-Path $dist "desk_server")
 Sync-Directory (Join-Path $root "python\overlays") (Join-Path $dist "overlays")
 Sync-Directory (Join-Path $root "python\helpers") (Join-Path $dist "helpers")
 Sync-Directory ([IO.Path]::Combine([string]$root, "assets", "ppt", "visual-masters")) ([IO.Path]::Combine([string]$dist, "assets", "ppt", "visual-masters"))
+
+# Prune stray outputs/ generation junk from visual masters (see build_bundle.ps1)
+# so dev syncs match release and NSIS bundling never hits MAX_PATH.
+$vmDest = [IO.Path]::Combine([string]$dist, "assets", "ppt", "visual-masters")
+Remove-VisualMasterGeneratedOutputs -VisualMastersPath $vmDest
 
 $hermesCore = Join-Path $root "hermes_core"
 $hermesDest = Join-Path $dist "hermes"

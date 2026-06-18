@@ -243,8 +243,18 @@ def _materialize_merged_artifacts() -> Optional[Path]:
     if layout_src.is_dir():
         _ensure_dir_junction(merged / "ds4sd--docling-models", layout_src)
 
-    easyocr_src = bundle / "EasyOcr"
-    if easyocr_src.is_dir():
+    # EasyOCR may be bundled (offline build) or downloaded as a load-package.
+    easyocr_src: Optional[Path] = None
+    try:
+        from easyocr_models import resolve_easyocr_dir
+
+        easyocr_src = resolve_easyocr_dir()
+    except Exception:
+        easyocr_src = None
+    if easyocr_src is None:
+        fallback = bundle / "EasyOcr"
+        easyocr_src = fallback if fallback.is_dir() else None
+    if easyocr_src is not None and easyocr_src.is_dir():
         _ensure_dir_junction(merged / "EasyOcr", easyocr_src)
 
     formula_src = user_formula_dir()
@@ -275,7 +285,24 @@ def resolve_docling_artifacts_path(*, profile: str = "fast") -> Optional[Path]:
         if merged is not None and code_formula_present(merged / CODE_FORMULA_FOLDER):
             return merged
         return None
-    return bundle_docling_models_dir()
+
+    # fast / default
+    bundle = bundle_docling_models_dir()
+    if bundle is not None and (bundle / "EasyOcr").is_dir():
+        # Fully bundled (EasyOCR present): unchanged behavior.
+        return bundle
+    # EasyOCR was unbundled but the user downloaded it -> expose a merged dir so
+    # ocr_image / docling OCR find layout/table (bundle) + EasyOcr (download).
+    try:
+        from easyocr_models import easyocr_downloaded
+
+        if easyocr_downloaded():
+            merged = _materialize_merged_artifacts()
+            if merged is not None:
+                return merged
+    except Exception:
+        pass
+    return bundle
 
 
 def _hf_endpoint_candidates() -> list[str]:

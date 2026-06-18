@@ -46,7 +46,7 @@
   "bundle": {
     "active": true,
     "createUpdaterArtifacts": true,
-    "targets": ["msi"],
+    "targets": ["nsis"],
     "publisher": "Kabuqina Contributors",
     "category": "Productivity",
     "shortDescription": "Kabuqina, a friendly AI helper for your PC",

@@ -30,13 +30,14 @@
 
 1. [ ] **`.\python\build_bundle.ps1 -Verify`**（含 Hermes SPA、runtime）
 2. [ ] **`cd web` → `npm ci` → `npm run build`**
-3. [ ] **`cd tauri` → `cargo tauri build`**（`bundle.targets` 含 **msi**）
+3. [ ] **`cd tauri` → `cargo tauri build`**（`bundle.targets` 含 **nsis**；完整 bundle ~2GB 超出 WiX MSI 单 cab 上限，故用 NSIS）
 
 ---
 
-## 4. MSI 产物与品牌化
+## 4. NSIS 产物与品牌化
 
-- [ ] **输出路径**：`tauri/target/release/bundle/msi/` 下文件名、架构、`en-US` / 其他 WiX language 后缀符合预期
+- [ ] **输出路径**：`tauri/target/release/bundle/nsis/` 下 `*-setup.exe` 文件名、架构符合预期
+- [ ] **品牌名注意**：NSIS 使用 `productName`（ASCII `Kabuqina`）作为「应用和功能」/快捷方式名；WiX 模板 [tauri/wix/main.wxs](../tauri/wix/main.wxs) 的中文显示名（卡布奇娜）**不再生效**（NSIS 不读 WiX 模板）。如需安装器中文名，后续在 `bundle.windows.nsis` 配置
 - [ ] **`publisher` / `copyright` / `shortDescription` / `longDescription`** 是否与当前对外文案一致（摘要会出现在「应用和功能」等处）
 - [ ] **已安装过一次**的机器上更换 `productName` 后：**旧桌面 `.lnk`** 可能不会自动更名；卸载重装或删除旧快捷方式再验证
 
@@ -84,8 +85,8 @@ Splash 路由逻辑见 `web/src/Splash.tsx`：有密钥或允许「稍后配置�
 
 ## 8. 发布物与对外说明
 
-- [ ] **GitHub Release**：附上 **`.msi`**、**`.msi.zip`**、**`.msi.zip.sig`**、**`latest.json`**
-- [ ] **腾讯 COS 备用源**：上传同版本 **`.msi.zip`**、**`.msi.zip.sig`**，并将 COS 版 manifest 上传为 **`latest.json`**
+- [ ] **GitHub Release**：附上 **`*-setup.exe`**、**`*-setup.nsis.zip`**、**`*-setup.nsis.zip.sig`**、**`latest.json`**
+- [ ] **腾讯 COS 备用源**：上传同版本 **`*-setup.nsis.zip`**、**`*-setup.nsis.zip.sig`**，并将 COS 版 manifest 上传为 **`latest.json`**
 - [ ] **Updater key**：`tauri/tauri.conf.json#plugins.updater.pubkey` 与本次签名私钥匹配；私钥只存在于本机安全位置或 CI secret
 - [ ] **Updater endpoint smoke**：发布前手动打开 GitHub `latest.json` 与 COS `latest.json`，确认两者版本一致、URL 可下载、signature 非空
 - [ ] **校验和 / 签名说明**写入 Release Note（按需）

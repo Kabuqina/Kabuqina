@@ -9,10 +9,12 @@ gets:
     - Stripped-package import shims    (strip_shims.py)
     - Secret loaded from Tauri vault   (secret_store.py policy, no overlay)
     - Desktop LLM config seed           (desktop_llm_config.py)
+    - Disable unused image_gen backends (disable_image_gen_backends.py)
     - Workspace folder jail            (workspace_jail.py)
     - Network egress allowlist         (network_allowlist.py)
     - Default toolset = keep-list      (default_toolset.py)
     - L1 builtin helpers tool          (builtin_helpers.py)
+    - EasyOCR on-demand auto-download  (easyocr_autodownload.py)
     - Tauri-routed shell approval      (approval_bridge.py)
 
 Order matters: `apply_all()` enforces it. Call exactly once, before
@@ -65,10 +67,12 @@ def apply_all() -> None:
     _run("strip_shims",         lambda: __import__(__name__ + ".strip_shims",       fromlist=["install"]).install())
     _run("secret_store",        _install_secret_store)
     _run("desktop_llm_config",  lambda: __import__(__name__ + ".desktop_llm_config", fromlist=["install"]).install())
+    _run("disable_image_gen_backends", lambda: __import__(__name__ + ".disable_image_gen_backends", fromlist=["install"]).install())
     _run("workspace_jail",      lambda: __import__(__name__ + ".workspace_jail",    fromlist=["install"]).install())
     _run("network_allowlist",   lambda: __import__(__name__ + ".network_allowlist", fromlist=["install"]).install())
     _run("default_toolset",     lambda: __import__(__name__ + ".default_toolset",   fromlist=["install"]).install())
     _run("builtin_helpers",     lambda: __import__(__name__ + ".builtin_helpers",   fromlist=["install"]).install())
+    _run("easyocr_autodownload", lambda: __import__(__name__ + ".easyocr_autodownload", fromlist=["install"]).install())
     _run("approval_bridge",     lambda: __import__(__name__ + ".approval_bridge",   fromlist=["install"]).install())
     _run(
         "skip_gateway_platform_plugins",

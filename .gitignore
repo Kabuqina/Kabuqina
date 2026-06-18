@@ -32,6 +32,10 @@ __pycache__/
 *.msi
 *.exe
 
+# Local release/build scratch artifacts
+/_packages/
+/tauri/.local-test-build.json
+
 # Secrets (must never be checked in)
 *.pem
 *.pfx

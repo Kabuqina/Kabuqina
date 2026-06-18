@@ -327,6 +327,27 @@ function Remove-BundleGeneratedJunk {
     }
 }
 
+function Remove-VisualMasterGeneratedOutputs {
+    param([string]$VisualMastersPath)
+
+    if (-not (Test-Path -LiteralPath $VisualMastersPath)) { return }
+
+    $rootFull = [IO.Path]::GetFullPath((Resolve-Path -LiteralPath $VisualMastersPath).Path).TrimEnd('\', '/')
+    $rootPrefix = $rootFull + [IO.Path]::DirectorySeparatorChar
+
+    Get-ChildItem -LiteralPath $rootFull -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+        $outputs = Join-Path $_.FullName "outputs"
+        if (-not (Test-Path -LiteralPath $outputs -PathType Container)) { return }
+
+        $targetFull = [IO.Path]::GetFullPath((Resolve-Path -LiteralPath $outputs).Path)
+        if (-not $targetFull.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Refusing to delete visual-master outputs outside runtime root: $targetFull"
+        }
+
+        Remove-Item -Recurse -Force -LiteralPath $targetFull -ErrorAction Stop
+    }
+}
+
 # ``--upgrade`` avoids "Target directory … already exists" when anything survived under
 # ``site-packages`` or pip merges wheels that touch the same top-level names.
 & $Py -m pip install `
@@ -406,6 +427,7 @@ Copy-Item -Force (Join-Path $PSScriptRoot "src\path_policy.py") (Join-Path $Dist
 Copy-Item -Force (Join-Path $PSScriptRoot "src\secret_store.py") (Join-Path $Dist "secret_store.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\approval_backend.py") (Join-Path $Dist "approval_backend.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\docling_math_models.py") (Join-Path $Dist "docling_math_models.py")
+Copy-Item -Force (Join-Path $PSScriptRoot "src\easyocr_models.py") (Join-Path $Dist "easyocr_models.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\load_packages.py") (Join-Path $Dist "load_packages.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\messaging_policy.py") (Join-Path $Dist "messaging_policy.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\cron_scheduler_runner.py") (Join-Path $Dist "cron_scheduler_runner.py")
@@ -443,6 +465,12 @@ if (-not (Test-Path $visualMastersSrc)) {
 Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $visualMastersDest
 New-Item -ItemType Directory -Force -Path (Split-Path $visualMastersDest -Parent) | Out-Null
 Copy-Item -Recurse -Force $visualMastersSrc $visualMastersDest
+
+# Prune stray generation outputs (each holds a node_modules tree) that bloat the
+# bundle and exceed Windows MAX_PATH for the NSIS bundler — makensis cannot open
+# >260-char paths and aborts. Visual masters are layout templates only; the
+# per-master `outputs/` folders are generation junk that must not ship.
+Remove-VisualMasterGeneratedOutputs -VisualMastersPath $visualMastersDest
 
 # A pth file so the bundled hermes/ + site-packages are on sys.path
 $pthBody = @(
