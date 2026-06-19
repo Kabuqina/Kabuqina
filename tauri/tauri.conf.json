@@ -80,11 +80,11 @@
     "updater": {
       "active": true,
       "endpoints": [
-        "https://github.com/Kabuqina/Kabuqina/releases/latest/download/latest.json",
-        "https://kabuqina-installer-1428509047.cos.ap-guangzhou.myqcloud.com/latest.json"
+        "https://kabuqina-installer-1428509047.cos.ap-guangzhou.myqcloud.com/latest.json",
+        "https://github.com/Kabuqina/Kabuqina/releases/latest/download/latest.json"
       ],
       "dialog": false,
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDEwMEYzNzAzRkFEM0YzRjUKUldUMTg5UDZBemNQRUpPZCtaMVF5dVcvbWt1T1hyMDZWZFFXQzh2MHpKOG1lMlBpdENRV0w4ZU4K"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEIxMjkwMzI5MzI3NzAzNzEKUldSeEEzY3lLUU1wc1RCN3p4MXJpNkMvYVRxbHdLMldERkpjMStqWDdxRHR3OWFYQlJ0OTdFcDAK"
     }
   }
 }

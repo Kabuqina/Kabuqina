@@ -1,7 +1,8 @@
 # Auto-update
 
 Kabuqina uses Tauri's [updater plugin](https://v2.tauri.app/plugin/updater/),
-pointed first at GitHub Releases and then at a Tencent COS fallback manifest.
+pointed first at a Tencent COS manifest and then at GitHub Releases as a
+fallback manifest.
 Updates are signed with a separate Ed25519 keypair (the "updater key") so a
 compromised CDN cannot push a malicious binary even if the cert is fine.
 
@@ -26,25 +27,25 @@ cargo tauri signer generate -w ~/.tauri/Kabuqina.key
    installer (`*-setup.exe`) plus Tauri updater artifacts: `*-setup.nsis.zip`
    and `*-setup.nsis.zip.sig`. (NSIS, not WiX MSI — the bundle is ~2 GB, over
    WiX's single-cabinet limit; NSIS has no such limit.)
-3. Run `scripts/make_updater_manifest.ps1` for the GitHub asset URL:
-   ```powershell
-   .\scripts\make_updater_manifest.ps1 -Version v0.1.1
-   ```
-4. Run it again for COS if COS hosts its own copy of the updater zip:
+3. Run `scripts/make_updater_manifest.ps1` for the COS asset URL:
    ```powershell
    .\scripts\make_updater_manifest.ps1 `
      -Version v0.1.1 `
      -AssetBaseUrl "https://kabuqina-installer-1428509047.cos.ap-guangzhou.myqcloud.com" `
      -Out latest.cos.json
    ```
-5. Attach `*-setup.exe`, `*-setup.nsis.zip`, `*-setup.nsis.zip.sig`, and GitHub
-   `latest.json` to the GitHub release.
-6. Upload `latest.cos.json` as `latest.json` plus the matching
-   `*-setup.nsis.zip` and `*-setup.nsis.zip.sig` to Tencent COS.
-7. Existing installs check GitHub first:
-   `https://github.com/Kabuqina/Kabuqina/releases/latest/download/latest.json`
-   and then COS:
-   `https://kabuqina-installer-1428509047.cos.ap-guangzhou.myqcloud.com/latest.json`.
+4. Run it again for GitHub fallback assets:
+   ```powershell
+   .\scripts\make_updater_manifest.ps1 -Version v0.1.1 -Out latest.github.json
+   ```
+5. Upload `*-setup.exe`, `*-setup.nsis.zip`, `*-setup.nsis.zip.sig`, and
+   `latest.cos.json` as `latest.json` to Tencent COS.
+6. Attach `*-setup.exe`, `*-setup.nsis.zip`, `*-setup.nsis.zip.sig`, and
+   `latest.github.json` renamed to `latest.json` to the GitHub release.
+7. Existing installs check COS first:
+   `https://kabuqina-installer-1428509047.cos.ap-guangzhou.myqcloud.com/latest.json`
+   and then GitHub:
+   `https://github.com/Kabuqina/Kabuqina/releases/latest/download/latest.json`.
    Settings and the tray menu both expose "Check for updates".
 
 ## User experience

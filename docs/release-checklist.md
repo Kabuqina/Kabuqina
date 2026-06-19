@@ -85,10 +85,10 @@ Splash 路由逻辑见 `web/src/Splash.tsx`：有密钥或允许「稍后配置�
 
 ## 8. 发布物与对外说明
 
-- [ ] **GitHub Release**：附上 **`*-setup.exe`**、**`*-setup.nsis.zip`**、**`*-setup.nsis.zip.sig`**、**`latest.json`**
-- [ ] **腾讯 COS 备用源**：上传同版本 **`*-setup.nsis.zip`**、**`*-setup.nsis.zip.sig`**，并将 COS 版 manifest 上传为 **`latest.json`**
+- [ ] **腾讯 COS 主源**：上传同版本 **`*-setup.exe`**、**`*-setup.nsis.zip`**、**`*-setup.nsis.zip.sig`**，并将 COS 版 manifest 上传为 **`latest.json`**
+- [ ] **GitHub Release 备份/归档**：附上 **`*-setup.exe`**、**`*-setup.nsis.zip`**、**`*-setup.nsis.zip.sig`**、**`latest.json`**（GitHub 版 manifest）
 - [ ] **Updater key**：`tauri/tauri.conf.json#plugins.updater.pubkey` 与本次签名私钥匹配；私钥只存在于本机安全位置或 CI secret
-- [ ] **Updater endpoint smoke**：发布前手动打开 GitHub `latest.json` 与 COS `latest.json`，确认两者版本一致、URL 可下载、signature 非空
+- [ ] **Updater endpoint smoke**：发布前手动打开 COS `latest.json` 与 GitHub `latest.json`，确认两者版本一致、URL 可下载、signature 非空；应用内更新应优先命中 COS
 - [ ] **校验和 / 签名说明**写入 Release Note（按需）
 - [ ] [README.md](../README.md) 或其它对外文档若写死 MSI 文件名，与当前 `productName` / WiX language 后缀一致
 
