@@ -64,15 +64,17 @@ _AUTOSTART_GATEWAYS: dict[str, tuple[str, ...]] = {
     MAINLAND_CN: ("weixin", "qqbot", "feishu", "wecom"),
 }
 
-# Toolsets hidden from the desktop capability catalog for the profile. Catalog
-# visibility only — hermes_core CONFIGURABLE_TOOLSETS (CLI/TUI/tests) is intact.
-# ``image_gen`` is intentionally NOT here: it is a conditional *default-toolset*
-# cut (drop from defaults unless a China backend is configured), handled in
-# tool_policy, not a flat catalog hide.
+# Toolsets hidden from the desktop capability catalog for the profile, and also
+# subtracted from the default active toolset by ToolPolicy. Catalog visibility
+# only — hermes_core CONFIGURABLE_TOOLSETS (CLI/TUI/tests) is intact.
+# ``image_gen`` is hidden for mainland_cn: its only backend is FAL.ai (a US
+# service, not on the mainland egress allowlist) with no China backend wired in,
+# so it is non-functional by default here. Source is kept for the sea profile.
 _HIDDEN_TOOLSETS: dict[str, tuple[str, ...]] = {
     MAINLAND_CN: (
         "moa", "rl", "homeassistant", "discord", "discord_admin",
         "spotify", "feishu_doc", "feishu_drive", "yuanbao", "delegation",
+        "image_gen",
     ),
 }
 

@@ -37,10 +37,27 @@ class ToolPolicy:
     """Map a runtime mode to the list of active toolsets."""
 
     @staticmethod
+    def _profile_hidden() -> frozenset[str]:
+        """Toolsets the active product profile removes from default surfaces.
+
+        For mainland_cn this drops e.g. image_gen (no China backend). The sea
+        profile keeps them. Falls back to empty so a missing policy module never
+        breaks toolset resolution.
+        """
+        try:
+            from product_profile_policy import ProductProfilePolicy
+
+            return ProductProfilePolicy.hidden_toolsets()
+        except Exception:
+            return frozenset()
+
+    @staticmethod
     def resolve(power_user: bool) -> list[str]:
+        hidden = ToolPolicy._profile_hidden()
+        keep = [t for t in KEEP_LIST if t not in hidden]
         if power_user:
-            return KEEP_LIST + POWER_USER_EXTRA
-        return list(KEEP_LIST)
+            return keep + POWER_USER_EXTRA
+        return keep
 
     @staticmethod
     def is_power_user() -> bool:
@@ -48,4 +65,5 @@ class ToolPolicy:
 
     @staticmethod
     def gateway_keep_list() -> list[str]:
-        return list(GATEWAY_KEEP_LIST)
+        hidden = ToolPolicy._profile_hidden()
+        return [t for t in GATEWAY_KEEP_LIST if t not in hidden]

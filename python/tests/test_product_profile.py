@@ -87,6 +87,7 @@ class MainlandContractTests(unittest.TestCase):
         for name in (
             "moa", "rl", "homeassistant", "discord", "discord_admin",
             "spotify", "feishu_doc", "feishu_drive", "yuanbao", "delegation",
+            "image_gen",
         ):
             self.assertIn(name, hidden)
 
