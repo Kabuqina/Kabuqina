@@ -82,6 +82,9 @@ def test_pdf_read_precise_math_rejects_large_pdf_without_page_range(tmp_path, mo
     pdf = tmp_path / "formula-heavy.pdf"
     pdf.write_bytes(b"%PDF-1.4\n")
     monkeypatch.setenv("HERMESDESK_WORKSPACE", str(tmp_path))
+    # Model already present: the availability gate is a no-op so this test isolates
+    # the page-count guard behavior.
+    monkeypatch.setattr(document_tools, "_ensure_math_artifacts", lambda: None)
     monkeypatch.setattr(document_tools, "_pdf_page_count", lambda path: 11, raising=False)
     monkeypatch.setattr(
         document_tools,
@@ -94,6 +97,68 @@ def test_pdf_read_precise_math_rejects_large_pdf_without_page_range(tmp_path, mo
     assert result["ok"] is False
     assert result["code"] == "docling_math_too_many_pages"
     assert "page_start" in result["hint"]
+
+
+def test_pdf_read_precise_math_offers_download_before_page_guard(tmp_path, monkeypatch):
+    """Attempting math extraction must reach the CodeFormula availability check
+    even on an oversized PDF — the page guard caps inference, not the download."""
+    from tools import document_tools
+
+    pdf = tmp_path / "formula-heavy.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    monkeypatch.setenv("HERMESDESK_WORKSPACE", str(tmp_path))
+    monkeypatch.setattr(document_tools, "_pdf_page_count", lambda path: 11, raising=False)
+
+    calls = []
+    monkeypatch.setattr(document_tools, "_ensure_math_artifacts", lambda: calls.append("ensure"))
+    monkeypatch.setattr(
+        document_tools,
+        "_read_with_docling",
+        lambda *args, **kwargs: pytest.fail("guard should still reject the 11-page read"),
+    )
+
+    result = json.loads(document_tools.pdf_read_precise(str(pdf), mode="math", include_content=False))
+
+    # The availability check (which would prompt the approval-gated download) ran
+    # before the guard rejected the oversized read.
+    assert calls == ["ensure"]
+    assert result["ok"] is False
+    assert result["code"] == "docling_math_too_many_pages"
+
+
+def test_pdf_read_precise_math_missing_model_errors_before_page_guard(tmp_path, monkeypatch):
+    """A declined/missing CodeFormula download short-circuits before the page guard."""
+    from tools import document_tools
+
+    try:
+        from docling_math_models import CodeFormulaMissingError
+    except ImportError:
+        pytest.skip("docling_math_models not on path")
+
+    pdf = tmp_path / "formula-heavy.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    monkeypatch.setenv("HERMESDESK_WORKSPACE", str(tmp_path))
+    # 11 pages would trip the guard, but the missing-model error must win first.
+    monkeypatch.setattr(document_tools, "_pdf_page_count", lambda path: 11, raising=False)
+
+    def fake_ensure():
+        raise CodeFormulaMissingError(
+            "code_formula_model_missing: mode=math requires ds4sd/CodeFormula (~500 MB). "
+            "Download in Settings."
+        )
+
+    monkeypatch.setattr(document_tools, "_ensure_math_artifacts", fake_ensure)
+    monkeypatch.setattr(
+        document_tools,
+        "_read_with_docling",
+        lambda *args, **kwargs: pytest.fail("missing-model should short-circuit before Docling"),
+    )
+
+    result = json.loads(document_tools.pdf_read_precise(str(pdf), mode="math", include_content=False))
+
+    assert result["ok"] is False
+    assert result["code"] == "docling_math_unavailable"
+    assert "code_formula_model_missing" in result["docling_error"]
 
 
 def test_pdf_read_precise_passes_page_range_to_docling(tmp_path, monkeypatch):
@@ -119,6 +184,7 @@ def test_pdf_read_precise_passes_page_range_to_docling(tmp_path, monkeypatch):
 
     monkeypatch.setenv("HERMESDESK_WORKSPACE", str(tmp_path))
     monkeypatch.setenv("HERMESDESK_DOCLING_MATH_MAX_PAGES", "2")
+    monkeypatch.setattr(document_tools, "_ensure_math_artifacts", lambda: None)
     monkeypatch.setattr(document_tools, "_pdf_page_count", lambda path: 11, raising=False)
     monkeypatch.setattr(document_tools, "_read_with_docling", fake_read_with_docling)
 
@@ -1073,6 +1139,10 @@ def test_read_document_precise_math_mode_does_not_fallback_on_missing_model(tmp_
     except ImportError:
         pytest.skip("docling_math_models not on path")
 
+    # Model present at the availability gate; the Docling read itself raises the
+    # missing-model error, which must not fall back to a lossy pypdf read.
+    monkeypatch.setattr(document_tools, "_ensure_math_artifacts", lambda: None)
+
     def fake_read(_path: Path, _mode: str):
         raise CodeFormulaMissingError(
             "code_formula_model_missing: mode=math requires ds4sd/CodeFormula (~500 MB). "
@@ -1155,6 +1225,7 @@ def test_document_read_precise_math_mode_uses_docling_even_for_lightweight_suffi
     monkeypatch.setenv("HERMESDESK_BUNDLE_DIR", str(bundle))
     monkeypatch.setenv("HERMESDESK_WORKSPACE", str(tmp_path))
     monkeypatch.delenv("DOCLING_ARTIFACTS_PATH", raising=False)
+    monkeypatch.setattr(document_tools, "_ensure_math_artifacts", lambda: None)
 
     def fake_read(path: Path, mode: str):
         return {

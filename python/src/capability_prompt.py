@@ -20,7 +20,15 @@ def build_capability_prompt_summary(capabilities: list[dict[str, Any]]) -> str:
             if not bool(pkg.get("downloaded", status == "available"))
         ]
         missing_packages = [pkg for pkg in missing_packages if pkg]
-        suffix = f" Missing package(s): {', '.join(missing_packages)}." if missing_packages else ""
+        suffix = (
+            f" Missing package(s): {', '.join(missing_packages)}."
+            " These are optional model packs Kabuqina downloads on demand — using the"
+            " capability (just call its tool) prompts the user to approve a one-time"
+            " download, or they can fetch it under Settings → Load packages. Never tell"
+            " the user to pip-install or download these manually."
+            if missing_packages
+            else ""
+        )
         if status == "candidate":
             suffix += " Candidate only; not yet executable."
         hint_suffix = f" {hint}" if hint else ""

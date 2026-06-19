@@ -25,6 +25,7 @@ DEFAULT_ALLOW: set[str] = {
     "github.com",
     "api.github.com",
     "huggingface.co",
+    "us.aws.cdn.hf.co",
     "hf-mirror.com",
     "kabuqina.com",
     "nanapackages-1428509047.cos.ap-guangzhou.myqcloud.com",

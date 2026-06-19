@@ -72,6 +72,17 @@ def _block_workspace_files(*, has_terminal: bool) -> str:
         "formulas — those run ML models on the CPU and can take **several minutes** per "
         "document. Do not reach for precise/math just because a file happens to contain "
         "a formula or table.\n\n"
+        "**The precise/math model packs download on demand — never pip-install them.** "
+        "If a pack (e.g. Docling CodeFormula for `mode=math`, ~500 MB) is not yet "
+        "installed, simply **calling the tool with that mode triggers a one-time, "
+        "approval-gated in-app download**, then the read proceeds. These are model-weight "
+        "load-packages, **not** PyPI packages: never tell the user to `pip install "
+        "docling-codeformula`, run a terminal command, or fetch weights manually. Just "
+        "make the `mode=math` call; if the user declines the download (or it fails), say "
+        "the formula pack is unavailable and point them to **Settings → Load packages**. "
+        "For a multi-page PDF in `mode=math`, pass `page_start`/`page_end` for the pages "
+        "that actually contain formulas — a CPU guard caps how many pages run per call, "
+        "so a whole-document math read is asked to narrow to a page range.\n\n"
     )
     base = scope + reading
     if has_terminal:

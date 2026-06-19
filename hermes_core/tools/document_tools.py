@@ -959,6 +959,24 @@ def _read_document_precise_payload(
             supported=sorted(_DOCLING_SUFFIXES | _FALLBACK_SUFFIXES),
         )
 
+    # Ensure the optional CodeFormula pack is available *before* the page-count
+    # guard. The guard only caps CPU-bound formula inference; it must not gate the
+    # one-time, approval-prompted model download. So attempting math extraction at
+    # all should offer the download — even for a large PDF the guard will then ask
+    # to narrow to a page range. Once the pack is present the page-ranged retry
+    # runs without re-downloading.
+    if suffix in _DOCLING_SUFFIXES and _docling_profile_for_mode(mode) == "math":
+        try:
+            _ensure_math_artifacts()
+        except Exception as exc:
+            docling_error = _format_docling_error(exc)
+            return _error_payload(
+                docling_error or "Docling formula model unavailable.",
+                ok=False,
+                code="docling_math_unavailable",
+                docling_error=docling_error,
+            )
+
     math_guard = _guard_math_page_count(document_path, mode, page_range)
     if math_guard is not None:
         return math_guard
