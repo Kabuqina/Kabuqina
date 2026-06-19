@@ -88,7 +88,7 @@ It should expose profile-aware lists for:
 - global student cut items;
 - default network hosts;
 - visible skill categories;
-- bundle drop candidates.
+- bundle drop rules and global deletion targets.
 
 Existing policy modules should consume this object instead of repeating region
 checks:
@@ -126,16 +126,26 @@ For `global_student_cut`, the rule is stricter than regional hiding:
 
 1. The item is not visible in any student profile (`mainland_cn` or `sea`).
 2. The item is not enabled by default in any student profile.
-3. The item is not bundled in student runtimes unless a retained dependency
-   proves it is still needed.
-4. Source may remain temporarily to reduce migration risk, but it is a valid
-   candidate for later physical deletion after tests prove no student path uses
-   it.
+3. The item is physically deleted from student-product source when it is an
+   independent file or directory.
+4. If the item is mixed into a file that also contains retained student
+   behavior, delete the cut behavior, registry entries, UI routes, docs, tests,
+   config fields, and dependencies. Split retained behavior into a smaller file
+   first when that makes deletion safe.
+5. The item is not bundled in student runtimes.
+6. Git history is the fallback. Do not keep dead student-product source around
+   "just in case" after the deletion pass succeeds.
 
 Do not put international student infrastructure in this bucket just because it
 is not useful in mainland China. OpenAI, Google/Gemini, Anthropic, OpenRouter,
 Telegram, WhatsApp, and school email style workflows are regional/profile
 decisions, not global student cuts.
+
+In implementation plans, `global_student_cut` work must be treated as deletion
+work, not catalog hiding. A pull request for a global cut is complete only when
+searching the student branch no longer finds live imports, routes, registry
+entries, build-copy rules, tests, docs, or user-facing strings for that item,
+except for explicit historical notes in this design or changelog entries.
 
 ## Provider Surface
 
@@ -192,11 +202,13 @@ Global student provider cuts from first-party onboarding:
 - `ollama-cloud`
 
 These are developer, enterprise, aggregator, cloud-infrastructure, or
-subscription-identity surfaces rather than student product defaults. If an
-advanced student needs one, it should go through `custom` or a power-user path,
-not first-party onboarding. Do not put normal OpenAI, Google/Gemini, Anthropic,
-OpenRouter, Groq, Mistral, or Hugging Face API providers in this global cut list
-until the SEA branch has made its provider decision.
+subscription-identity surfaces rather than student product defaults. Delete
+their first-party provider entries, aliases, OAuth/device-code surfaces, setup
+copy, tests, and docs from the student branch. If an advanced student needs one,
+it should go through `custom` or a power-user path, not first-party onboarding.
+Do not put normal OpenAI, Google/Gemini, Anthropic, OpenRouter, Groq, Mistral,
+or Hugging Face API providers in this global cut list until the SEA branch has
+made its provider decision.
 
 ## Gateway Surface
 
@@ -297,9 +309,9 @@ Global student toolset cuts:
 - `yuanbao`
 - `moa`
 
-`delegation` should stay source-available but hidden from all student profiles
-unless a concrete Xiaona workflow needs multi-agent execution. It is a
-complexity cut, not a physical deletion target yet.
+`delegation` is not a physical deletion target in this spec. It should be
+hidden from all student profiles unless a concrete Xiaona workflow needs
+multi-agent execution, then decided in a separate design.
 
 ## Plugin Surface
 
@@ -312,7 +324,7 @@ Cut from the `mainland_cn` runtime bundle and catalog:
 - `strike-freedom-cockpit`
 - non-mainland platform plugins under plugin platform surfaces
 
-Keep source for other profiles where useful.
+For `mainland_cn`-only plugin cuts, keep source for other profiles where useful.
 
 Do not expose `observability` or `context_engine` as student-facing product
 features in `mainland_cn` until there is a concrete Xiaona workflow.
@@ -325,10 +337,11 @@ Global student plugin cuts:
 - `hermes-achievements`
 - `strike-freedom-cockpit`
 
-These should not appear in any student product profile. Keep `memory`,
-`image_gen`, and `context_engine` source-available for future evaluation, but do
-not surface them as standalone student product features without a Xiaona
-workflow.
+These should not appear in any student product profile and should be physically
+deleted from student source and runtime bundles when they are independent
+directories. `memory`, `image_gen`, and `context_engine` are not global deletion
+targets in this spec; keep them for future evaluation, but do not surface them
+as standalone student product features without a Xiaona workflow.
 
 ## Skill Surface
 
@@ -416,7 +429,7 @@ Add `mainland_cn` runtime drop rules for:
 Bundle pruning is a second layer. The first correctness layer is the profile
 policy that hides and disables the item before runtime copying is considered.
 
-Global student runtime drop candidates:
+Global student runtime deletion targets:
 
 - `tools/rl_training_tool.py`
 - `tools/homeassistant_tool.py`
@@ -426,7 +439,7 @@ Global student runtime drop candidates:
 - global-cut plugin directories;
 - global-cut skill directories.
 
-Do not drop provider SDKs or OpenAI-compatible transport libraries under the
+Do not delete provider SDKs or OpenAI-compatible transport libraries under the
 global student rule. They are infrastructure for retained providers and future
 regional profiles.
 
@@ -479,7 +492,9 @@ Python policy tests:
 - `mainland_cn` visible providers equal the approved whitelist;
 - `mainland_cn` visible gateway platforms equal the approved whitelist;
 - `mainland_cn` hidden toolsets include the approved hard cuts;
-- `global_student_cut` entries are hidden from both `mainland_cn` and `sea`;
+- `global_student_cut` entries are absent from both `mainland_cn` and `sea`;
+- global student cuts have no live registry entries, imports, UI routes, or
+  build-copy rules in the student branch;
 - OpenAI, Google/Gemini, Anthropic, OpenRouter, Telegram, WhatsApp, and Email
   are not marked as `global_student_cut`;
 - skill category visibility hides the approved categories;
@@ -504,7 +519,9 @@ Bundle smoke tests:
 
 - mainland runtime import still loads the retained desktop server;
 - retained tools import successfully;
-- dropped tools are absent from runtime or unavailable through catalog policy;
+- global-cut tools are absent from runtime;
+- mainland-only dropped tools are absent from runtime or unavailable through
+  catalog policy;
 - `openai` SDK import remains available for compatible providers.
 
 ## Non-Goals
@@ -541,6 +558,8 @@ Likely files:
 - `hermes_core/toolsets.py`
 - `hermes_core/hermes_cli/platforms.py`
 
-Prefer additive metadata and policy routing over broad deletes. Physical bundle
-pruning should happen only after profile policy tests prove the item is not
+Prefer additive metadata and policy routing for regional cuts. For
+`global_student_cut`, prefer real deletion after a dependency audit proves the
+item is not shared with retained student behavior. Physical bundle pruning
+should happen only after profile policy tests prove regional items are not
 reachable in the `mainland_cn` release surface.
