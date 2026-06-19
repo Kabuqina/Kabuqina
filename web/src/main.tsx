@@ -21,9 +21,9 @@ import { CapabilitiesPage } from "./advanced/pages/CapabilitiesPage";
 import { LoadPackagesPage } from "./advanced/pages/LoadPackagesPage";
 import { QqPage } from "./advanced/pages/QqPage";
 import { WeixinPage } from "./advanced/pages/WeixinPage";
-import { DingTalkPage } from "./advanced/pages/DingTalkPage";
 import { WeComPage } from "./advanced/pages/WeComPage";
-import { EmailPage } from "./advanced/pages/EmailPage";
+// DingTalkPage / EmailPage routes are cut from the mainland_cn product surface
+// (v0.3.0). Source kept under advanced/pages for the future sea profile.
 import { ScheduledTasksPage } from "./advanced/pages/ScheduledTasks";
 import { OverlayWindow } from "./capture/OverlayWindow";
 import { CompanionWindow } from "./companion/CompanionWindow";
@@ -86,9 +86,7 @@ if (windowLabel === "capture-overlay") {
                 <Route path="/settings/feishu" element={<FeishuPage />} />
                 <Route path="/settings/qq" element={<QqPage />} />
                 <Route path="/settings/weixin" element={<WeixinPage />} />
-                <Route path="/settings/dingtalk" element={<DingTalkPage />} />
                 <Route path="/settings/wecom" element={<WeComPage />} />
-                <Route path="/settings/email" element={<EmailPage />} />
                 <Route path="/settings/cron" element={<ScheduledTasksPage />} />
                 <Route path="/chat" element={<ChatPage />} />
                 <Route path="/brand-svg-preview" element={<BrandSvgPreview />} />

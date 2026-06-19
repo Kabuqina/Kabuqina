@@ -7,7 +7,6 @@ import {
   Bot,
   Building2,
   ChevronRight,
-  Mail,
   MessageCircle,
   QrCode,
 } from "lucide-react";
@@ -32,12 +31,13 @@ function platformLabel(key: string): string {
   return map[key] ?? key;
 }
 
+// Email and DingTalk are cut from the mainland_cn gateway surface (v0.3.0);
+// their pages/source stay for the future sea profile but are not navigable.
 const platformItems = [
   { key: "feishu", label: "飞书", icon: Building2, path: "/settings/feishu" },
   { key: "qq", label: "QQ", icon: Bot, path: "/settings/qq" },
   { key: "weixin", label: "微信", icon: QrCode, path: "/settings/weixin" },
   { key: "wecom", label: "企微", icon: Building2, path: "/settings/wecom" },
-  { key: "email", label: "Email", icon: Mail, path: "/settings/email" },
 ];
 
 export function SettingsGateway({
