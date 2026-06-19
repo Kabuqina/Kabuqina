@@ -85,6 +85,7 @@ It should expose profile-aware lists for:
 - allowed gateway auto-start platforms;
 - default desktop toolsets;
 - hidden desktop toolsets;
+- global student cut items;
 - default network hosts;
 - visible skill categories;
 - bundle drop candidates.
@@ -113,6 +114,28 @@ For `mainland_cn`, "must cut" means:
 4. Heavy runtime payloads for the item are not bundled unless required by a
    retained student workflow.
 5. Source code may remain for `sea` or `global`.
+
+## Global Student Cut Contract
+
+Some upstream Hermes capabilities are not only unsuitable for `mainland_cn`;
+they are also outside any student-focused Xiaona product profile, including
+future Singapore and Malaysia builds. These should be marked as
+`global_student_cut`.
+
+For `global_student_cut`, the rule is stricter than regional hiding:
+
+1. The item is not visible in any student profile (`mainland_cn` or `sea`).
+2. The item is not enabled by default in any student profile.
+3. The item is not bundled in student runtimes unless a retained dependency
+   proves it is still needed.
+4. Source may remain temporarily to reduce migration risk, but it is a valid
+   candidate for later physical deletion after tests prove no student path uses
+   it.
+
+Do not put international student infrastructure in this bucket just because it
+is not useful in mainland China. OpenAI, Google/Gemini, Anthropic, OpenRouter,
+Telegram, WhatsApp, and school email style workflows are regional/profile
+decisions, not global student cuts.
 
 ## Provider Surface
 
@@ -150,6 +173,31 @@ runtime, because DeepSeek, Alibaba, Kimi, and other retained providers rely on
 compatible chat-completions behavior. User-facing copy should say "compatible
 API" or "custom API" instead of making OpenAI the brand anchor.
 
+Global student provider cuts from first-party onboarding:
+
+- `openai-codex`
+- `copilot-acp`
+- `github-copilot`
+- `google-gemini-cli`
+- `qwen-oauth`
+- `bedrock`
+- `azure-foundry`
+- `vercel`
+- `opencode`
+- `opencode-go`
+- `kilo`
+- `nvidia`
+- `arcee`
+- `gmi`
+- `ollama-cloud`
+
+These are developer, enterprise, aggregator, cloud-infrastructure, or
+subscription-identity surfaces rather than student product defaults. If an
+advanced student needs one, it should go through `custom` or a power-user path,
+not first-party onboarding. Do not put normal OpenAI, Google/Gemini, Anthropic,
+OpenRouter, Groq, Mistral, or Hugging Face API providers in this global cut list
+until the SEA branch has made its provider decision.
+
 ## Gateway Surface
 
 Visible and supported in `mainland_cn`:
@@ -180,6 +228,27 @@ Cut from `mainland_cn` product surfaces and auto-start eligibility:
 Email is intentionally cut for the current branch. If school email workflows
 become a product priority, they should return as a student learning or
 assignment-specific feature, not as a generic upstream mail gateway.
+
+Global student gateway cuts:
+
+- `homeassistant`
+- `discord_admin`
+- `slack`
+- `signal`
+- `matrix`
+- `mattermost`
+- `bluebubbles`
+- `sms`
+- `webhook`
+- `api_server`
+- `dingtalk`
+- `yuanbao`
+
+These are not student-first channels. `telegram`, `whatsapp`, and `email`
+should stay available for `sea` evaluation even though they are cut from
+`mainland_cn`. Plain `discord` should remain a profile decision until the
+Singapore/Malaysia branch decides whether student communities need it; Discord
+server administration is globally cut.
 
 ## Toolset Surface
 
@@ -219,6 +288,19 @@ default capabilities.
 China-available backend is configured. Student PPT and report visuals should
 prefer templates, local rendering, and deterministic layout first.
 
+Global student toolset cuts:
+
+- `rl`
+- `homeassistant`
+- `discord_admin`
+- `spotify`
+- `yuanbao`
+- `moa`
+
+`delegation` should stay source-available but hidden from all student profiles
+unless a concrete Xiaona workflow needs multi-agent execution. It is a
+complexity cut, not a physical deletion target yet.
+
 ## Plugin Surface
 
 Cut from the `mainland_cn` runtime bundle and catalog:
@@ -234,6 +316,19 @@ Keep source for other profiles where useful.
 
 Do not expose `observability` or `context_engine` as student-facing product
 features in `mainland_cn` until there is a concrete Xiaona workflow.
+
+Global student plugin cuts:
+
+- `spotify`
+- `google_meet`
+- `example-dashboard`
+- `hermes-achievements`
+- `strike-freedom-cockpit`
+
+These should not appear in any student product profile. Keep `memory`,
+`image_gen`, and `context_engine` source-available for future evaluation, but do
+not surface them as standalone student product features without a Xiaona
+workflow.
 
 ## Skill Surface
 
@@ -279,6 +374,26 @@ Add Xiaona-specific learning skills separately:
 Optional skills should be hidden by default in `mainland_cn` unless explicitly
 curated into the student profile.
 
+Global student skill category cuts:
+
+- `apple`
+- `autonomous-ai-agents`
+- `devops`
+- `dogfood`
+- `gaming`
+- `gifs`
+- `mcp`
+- `mlops`
+- `red-teaming`
+- `smart-home`
+- `social-media`
+- `yuanbao`
+
+These categories should be absent from both mainland and SEA student catalogs.
+`github`, `software-development`, `data-science`, and `research` should remain
+profile decisions because student coursework may need coding, repository, data,
+or research workflows.
+
 ## Bundle Pruning
 
 `python/build_bundle.ps1` must continue dropping:
@@ -300,6 +415,20 @@ Add `mainland_cn` runtime drop rules for:
 
 Bundle pruning is a second layer. The first correctness layer is the profile
 policy that hides and disables the item before runtime copying is considered.
+
+Global student runtime drop candidates:
+
+- `tools/rl_training_tool.py`
+- `tools/homeassistant_tool.py`
+- `tools/discord_tool.py` admin surface, or the whole file if plain Discord is
+  also excluded by the active profile;
+- `tools/yuanbao_tools.py`
+- global-cut plugin directories;
+- global-cut skill directories.
+
+Do not drop provider SDKs or OpenAI-compatible transport libraries under the
+global student rule. They are infrastructure for retained providers and future
+regional profiles.
 
 ## Data Flow
 
@@ -350,6 +479,9 @@ Python policy tests:
 - `mainland_cn` visible providers equal the approved whitelist;
 - `mainland_cn` visible gateway platforms equal the approved whitelist;
 - `mainland_cn` hidden toolsets include the approved hard cuts;
+- `global_student_cut` entries are hidden from both `mainland_cn` and `sea`;
+- OpenAI, Google/Gemini, Anthropic, OpenRouter, Telegram, WhatsApp, and Email
+  are not marked as `global_student_cut`;
 - skill category visibility hides the approved categories;
 - default network hosts include retained China providers and messaging hosts.
 
@@ -380,6 +512,8 @@ Bundle smoke tests:
 - Do not physically delete international provider source code in this cleanup.
 - Do not remove OpenAI-compatible protocol support.
 - Do not remove source needed by future `sea` or `global` branches.
+- Do not classify future regional needs as `global_student_cut` merely because
+  they are hidden in `mainland_cn`.
 - Do not replace the owned `hermes_core` snapshot wholesale.
 - Do not build a second scheduler or agent core in overlays.
 - Do not redesign Xiaona learning interactions in this spec; this spec only
