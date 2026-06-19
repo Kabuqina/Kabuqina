@@ -29,6 +29,9 @@ pub struct SpawnConfig {
     pub hermes_model: Option<String>,
     pub inference_provider: Option<String>,
     pub power_user: bool,
+    /// Active region product profile ("mainland_cn" | "sea"). Injected into the
+    /// Python child as KABUQINA_PRODUCT_PROFILE; consumed by ProductProfilePolicy.
+    pub product_profile: String,
     /// LLM API key plaintext, injected as the corresponding env var for
     /// gateway children (which can't fetch via HERMESDESK_SECRET_URL).
     pub api_key: Option<String>,
@@ -88,6 +91,7 @@ impl Supervisor {
                 "HERMESDESK_POWER_USER",
                 if cfg.power_user { "1" } else { "0" },
             )
+            .env("KABUQINA_PRODUCT_PROFILE", &cfg.product_profile)
             .env("HERMESDESK_DESK_MINIMAL", "1")
             // HermesDesk desktop contract version.  Must match
             // ``python/src/desktop_contract.py:CONTRACT_VERSION``.

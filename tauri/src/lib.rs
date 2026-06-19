@@ -381,6 +381,7 @@ async fn resolve_spawn_config_for_children(
         hermes_model: llm.hermes_model,
         inference_provider: llm.inference_provider,
         power_user,
+        product_profile: paths::resolve_product_profile(app),
         api_key,
         api_key_env_name,
     })

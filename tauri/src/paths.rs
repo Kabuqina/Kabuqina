@@ -186,6 +186,21 @@ fn read_setting(app: &AppHandle, _key: &str) -> Option<String> {
     v.get(_key).and_then(|x| x.as_str()).map(|s| s.to_string())
 }
 
+/// Default product profile when settings are missing or unknown.
+pub const DEFAULT_PRODUCT_PROFILE: &str = "mainland_cn";
+
+/// Resolve the active region product profile from `settings.json` (flat
+/// `product_profile` key). Missing or unknown values resolve to
+/// `mainland_cn`. Mirrors the Python `ProductProfilePolicy.resolve_profile`.
+pub fn resolve_product_profile(app: &AppHandle) -> String {
+    let raw = read_setting(app, "product_profile").unwrap_or_default();
+    match raw.trim().to_lowercase().as_str() {
+        "mainland_cn" => "mainland_cn".to_string(),
+        "sea" => "sea".to_string(),
+        _ => DEFAULT_PRODUCT_PROFILE.to_string(),
+    }
+}
+
 // ---- IPC commands ---------------------------------------------------------
 
 #[tauri::command]

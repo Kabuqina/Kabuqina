@@ -143,6 +143,14 @@ class TestNetworkPolicy(unittest.TestCase):
         policy.check_url("https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin")
         policy.check_url("https://hf-mirror.com/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin")
 
+    def test_allows_mainland_provider_hosts_by_default(self):
+        """The active profile seeds retained China provider hosts (mainland_cn)."""
+        with patch.dict(os.environ, {"KABUQINA_PRODUCT_PROFILE": "mainland_cn"}):
+            policy = NetworkPolicy()
+            policy.check_url("https://api.deepseek.com/v1/chat/completions")
+            policy.check_url("https://api.kimi.com/coding/v1/models")
+            policy.check_url("https://dashscope-intl.aliyuncs.com/api/v1")
+
 
 class TestToolPolicy(unittest.TestCase):
     def test_default_mode_tools(self):

@@ -29,6 +29,16 @@ def _capability_policy():
     return _load_capability_policy()()
 
 
+def _product_profile_policy():
+    try:
+        from product_profile_policy import ProductProfilePolicy
+    except ImportError:
+        if _DESK_SRC.exists() and str(_DESK_SRC) not in sys.path:
+            sys.path.insert(0, str(_DESK_SRC))
+        from product_profile_policy import ProductProfilePolicy
+    return ProductProfilePolicy
+
+
 def _load_product_capability_modules():
     try:
         from capability_registry import list_capability_defs
@@ -49,10 +59,13 @@ def _desk_catalog_skills(policy) -> List[Dict[str, Any]]:
     from tools.skills_tool import _find_all_skills
     from hermes_cli.skills_config import get_disabled_skills
 
+    profile_policy = _product_profile_policy()
     config = load_config()
     disabled = get_disabled_skills(config)
     out: List[Dict[str, Any]] = []
     for skill in _find_all_skills(skip_disabled=True):
+        if profile_policy.is_skill_category_hidden(skill.get("category")):
+            continue
         visibility = policy.skill_visibility(skill)
         if not visibility["visible"]:
             continue
@@ -69,18 +82,10 @@ def _desk_catalog_skills(policy) -> List[Dict[str, Any]]:
     return sorted(out, key=lambda s: (s.get("category") or "", s.get("name") or ""))
 
 
-# Toolsets that 小娜 (Kabuqina desktop) never uses — consumer/entertainment
-# and platform-integration toolsets that don't fit a student-helper desktop.
-# We hide them from the desktop capability catalog only; hermes_core's
-# CONFIGURABLE_TOOLSETS (CLI/TUI/tests) stays intact.
-_DESK_HIDDEN_TOOLSETS = frozenset({
-    "spotify",        # 🎵 music playback
-    "discord",        # 💬 Discord read/participate
-    "discord_admin",  # 🛡️ Discord server admin
-    "homeassistant",  # 🏠 smart-home control
-    "yuanbao",        # 🤖 Yuanbao group bot
-    "rl",             # 🧪 RL training (Tinker-Atropos)
-})
+# Toolsets hidden from the desktop capability catalog are now decided by the
+# active product profile (ProductProfilePolicy.hidden_toolsets) instead of a
+# local frozenset, so region cuts live in one place. Catalog visibility only —
+# hermes_core CONFIGURABLE_TOOLSETS (CLI/TUI/tests) stays intact.
 
 
 @lru_cache(maxsize=256)
@@ -101,6 +106,7 @@ def _desk_catalog_toolsets(policy) -> List[Dict[str, Any]]:
         _toolset_has_keys,
     )
 
+    hidden_toolsets = _product_profile_policy().hidden_toolsets()
     config = load_config()
     enabled_toolsets = _get_platform_tools(
         config,
@@ -109,7 +115,7 @@ def _desk_catalog_toolsets(policy) -> List[Dict[str, Any]]:
     )
     result: List[Dict[str, Any]] = []
     for name, label, desc in _get_effective_configurable_toolsets():
-        if name in _DESK_HIDDEN_TOOLSETS:
+        if name in hidden_toolsets:
             continue
         tools = list(_resolve_toolset_names_cached(name))
         # source = provenance (core-built-in toolsets); trust = curation/safety.
@@ -137,9 +143,12 @@ def _desk_catalog_toolsets(policy) -> List[Dict[str, Any]]:
 
 
 def _desk_catalog_plugins(policy) -> List[Dict[str, Any]]:
+    profile_policy = _product_profile_policy()
     out: List[Dict[str, Any]] = []
     for plugin in get_desk_plugins():
         clean = _strip_internal_plugin_fields(plugin)
+        if profile_policy.is_plugin_hidden(clean.get("name")):
+            continue
         if not clean.get("source"):
             clean["source"] = "bundled"
         source_l = str(clean.get("source") or "").strip().lower()

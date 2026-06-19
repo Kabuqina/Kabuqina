@@ -81,6 +81,30 @@ const PLATFORM_EXTRA_KEYS: &[(&str, &[&str])] = &[
     ("email", &[]),
 ];
 
+/// Platforms allowed to auto-start the gateway child under the `mainland_cn`
+/// profile. Mirrors the Python `ProductProfilePolicy.autostart_gateways`.
+/// `discover_configured_platforms` still detects other platforms whose keys are
+/// present (e.g. a stale `discord`/`email`/`slack` `.env`), but they must not
+/// make the mainland build look gateway-ready, so they are filtered here.
+const AUTOSTART_ALLOWED_MAINLAND_CN: &[&str] = &["weixin", "qqbot", "feishu", "wecom"];
+
+/// Return the auto-start-eligible platform allowlist for a product profile.
+/// `sea` is reserved and inherits the mainland set until a SEA profile defines
+/// its own.
+fn autostart_allowed_platforms(_profile: &str) -> &'static [&'static str] {
+    AUTOSTART_ALLOWED_MAINLAND_CN
+}
+
+/// Drop discovered platforms that the active profile does not allow to
+/// auto-start. Pure helper so the policy is unit-testable.
+fn filter_autostart_platforms(profile: &str, platforms: Vec<String>) -> Vec<String> {
+    let allowed = autostart_allowed_platforms(profile);
+    platforms
+        .into_iter()
+        .filter(|p| allowed.contains(&p.as_str()))
+        .collect()
+}
+
 /// Name of the profile subdirectory.
 const PROFILES_DIR: &str = "profiles";
 /// Marker file written after first migration.
@@ -640,7 +664,19 @@ impl GatewaySupervisor {
 
         let host_home = hermes_home_path(&cfg.data_dir);
         let host_keys = parse_dotenv_upper(&host_home);
-        let platforms = discover_configured_platforms(&host_keys);
+        let discovered = discover_configured_platforms(&host_keys);
+        let platforms = filter_autostart_platforms(&cfg.product_profile, discovered.clone());
+        let dropped: Vec<&String> = discovered
+            .iter()
+            .filter(|p| !platforms.contains(p))
+            .collect();
+        if !dropped.is_empty() {
+            log::info!(
+                "[gateway_spawn] profile {} blocks auto-start for configured platforms: {:?}",
+                cfg.product_profile,
+                dropped
+            );
+        }
 
         if platforms.is_empty() {
             log::info!("[gateway_spawn] no configured platforms; returning empty supervisor");
@@ -1257,6 +1293,40 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("hermesdesk-{name}-{nanos}"));
         std::fs::create_dir_all(&dir).expect("create temp dir");
         dir
+    }
+
+    #[test]
+    fn mainland_profile_blocks_non_mainland_autostart() {
+        let discovered = vec![
+            "weixin".to_string(),
+            "discord".to_string(),
+            "email".to_string(),
+            "slack".to_string(),
+            "feishu".to_string(),
+            "qqbot".to_string(),
+            "wecom".to_string(),
+        ];
+        let allowed = filter_autostart_platforms("mainland_cn", discovered);
+        assert_eq!(allowed, vec!["weixin", "feishu", "qqbot", "wecom"]);
+    }
+
+    #[test]
+    fn mainland_profile_accepts_all_mainland_platforms() {
+        let discovered = vec![
+            "weixin".to_string(),
+            "qqbot".to_string(),
+            "feishu".to_string(),
+            "wecom".to_string(),
+        ];
+        let allowed = filter_autostart_platforms("mainland_cn", discovered.clone());
+        assert_eq!(allowed, discovered);
+    }
+
+    #[test]
+    fn unknown_profile_falls_back_to_mainland_allowlist() {
+        let discovered = vec!["weixin".to_string(), "discord".to_string()];
+        let allowed = filter_autostart_platforms("antarctica", discovered);
+        assert_eq!(allowed, vec!["weixin"]);
     }
 
     #[test]

@@ -37,6 +37,15 @@ class NetworkPolicy:
 
     def __init__(self, *, llm_host: str = "", extra_hosts: str = "") -> None:
         self._allow = set(DEFAULT_ALLOW)
+        # Seed the active product profile's default provider hosts (e.g. the
+        # retained China LLM providers for mainland_cn) so switching providers
+        # does not require re-validating the egress allowlist. Additive only.
+        try:
+            from product_profile_policy import ProductProfilePolicy
+
+            self._allow.update(ProductProfilePolicy.default_network_hosts())
+        except Exception:  # pragma: no cover - keep allowlist usable if import fails
+            pass
         for v in (llm_host, extra_hosts):
             for h in v.split(","):
                 h = h.strip().lower()
