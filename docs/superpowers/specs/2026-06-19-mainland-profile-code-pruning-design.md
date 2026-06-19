@@ -70,17 +70,25 @@ Provider first-party surfaces to delete:
 Gateway/platform surfaces to delete:
 
 - `homeassistant`
-- `discord_admin`
 - `slack`
 - `signal`
 - `matrix`
 - `mattermost`
 - `bluebubbles`
-- `sms`
 - `webhook`
 - `api_server`
-- `dingtalk`
 - `yuanbao`
+
+`dingtalk` was removed from this global delete list by the v0.3.0 scope
+decision (2026-06-19): its source is retained (a school may use it later) but
+hidden in `mainland_cn`, and its stale Alibaba Cloud SDKs are bundle-dropped.
+See `Gateway Surface` and `Bundle Pruning`.
+
+`discord_admin` was moved to the Toolsets/tools section below; it is a toolset,
+not a gateway platform (it is not in the `PLATFORMS` registry). `sms` was
+removed: it has no source surface in the current Kabuqina tree (no platform
+registry entry and no live references in Python/Rust/Web). See
+`Audit Findings`.
 
 Toolsets/tools to delete:
 
@@ -185,6 +193,11 @@ HERMESDESK_PRODUCT_PROFILE=mainland_cn
 
 For this branch, missing or unknown profile values resolve to `mainland_cn`.
 
+v0.3.0 scope decision (2026-06-19): the new variable is
+`KABUQINA_PRODUCT_PROFILE` (primary) with `HERMESDESK_PRODUCT_PROFILE` accepted
+as a fallback, so the variable does not need renaming when the v0.4.0 core
+rename lands. See `DECISIONS.md` and the v0.3.0 Slim & Focus plan.
+
 ## Product Profile Policy
 
 Add a thin policy object:
@@ -243,7 +256,7 @@ Visible in `mainland_cn`:
 - `alibaba`
 - `custom`
 
-Cut from `mainland_cn` product surfaces:
+Cut from `mainland_cn` product surfaces (source retained for `sea`):
 
 - `openai`
 - `google`
@@ -255,11 +268,14 @@ Cut from `mainland_cn` product surfaces:
 - `groq`
 - `mistral`
 - `xai`
-- `nvidia`
 - `huggingface`
-- `arcee`
-- `gmi`
-- `ollama-cloud`
+
+`nvidia`, `arcee`, `gmi`, and `ollama-cloud` were removed from this list: they
+are already in the global `Global Student Cut Deletion List`, which deletes
+them for every profile including `sea`. Listing them here too implied "source
+retained for `sea`", contradicting the global cut. They are now globally
+deleted only. If the intent was to keep them for `sea`, move them out of the
+global list instead — see `Audit Findings`.
 
 Keep the Python `openai` SDK and neutral OpenAI-compatible wire support in
 runtime, because DeepSeek, Alibaba, Kimi, and other retained providers rely on
@@ -292,11 +308,15 @@ Cut from `mainland_cn` product surfaces and auto-start eligibility:
 - `mattermost`
 - `bluebubbles`
 - `homeassistant`
-- `sms`
 - `webhook`
 - `api_server`
 - `dingtalk`
 - `email`
+
+`sms` is not listed here because it has no platform surface in the current
+tree (see `Audit Findings`). `desktop` in the visible list above is the Tauri
+shell, not a `PLATFORMS` gateway entry, so profile tests should not expect a
+`desktop` platform key.
 
 Email is intentionally cut for the current branch. If school email workflows
 become a product priority, they should return as a student learning or
@@ -304,7 +324,16 @@ assignment-specific feature, not as a generic upstream mail gateway.
 
 Global gateway deletion items are listed in the opening
 `Global Student Cut Deletion List`. `telegram`, `whatsapp`, `email`, and plain
-`discord` remain `sea` profile decisions.
+`discord` remain `sea` profile decisions (source kept; `discord` overlaps the
+student demographic, so it stays available for the future `sea` branch).
+
+`dingtalk` is a special case (v0.3.0 decision): not student-relevant for most
+users, but a school may use it, so its source at
+`hermes_core/gateway/platforms/dingtalk.py` and `hermes_cli/dingtalk_auth.py`
+is retained and hidden in `mainland_cn`. Its stale Alibaba Cloud SDKs
+(`dingtalk_stream`, `alibabacloud_dingtalk`, `alibabacloud_tea_openapi`,
+`alibabacloud_tea_util`) are excluded from the runtime bundle — the adapter
+already degrades gracefully when they are absent (`DINGTALK_STREAM_AVAILABLE`).
 
 ## Toolset Surface
 
@@ -436,6 +465,10 @@ Add `mainland_cn` runtime drop rules for:
 
 - `tools/discord_tool.py`
 - `tools/yuanbao_tools.py`
+- the stale DingTalk SDK packages from bundled site-packages:
+  `dingtalk_stream`, `alibabacloud_dingtalk`, `alibabacloud_tea_openapi`,
+  `alibabacloud_tea_util` (source under `gateway/platforms/dingtalk.py` stays;
+  only the heavy/old dependency is excluded — it degrades gracefully);
 - non-mainland plugin directories listed in this design;
 - skill directories hidden by the `mainland_cn` profile, if the bundle script
   moves from catalog hiding to runtime source pruning.
@@ -562,9 +595,111 @@ Likely files:
 - `python/build_bundle.ps1`
 - `hermes_core/toolsets.py`
 - `hermes_core/hermes_cli/platforms.py`
+- `hermes_core/agent/auxiliary_client.py` — provider-resolution core where the
+  global-cut providers actually live (approach pending discussion; see
+  `Audit Findings`)
+- `hermes_core/agent/account_usage.py` — provider usage accounting that also
+  references global-cut providers
 
 Prefer additive metadata and policy routing for regional cuts. For
 `global_student_cut`, prefer real deletion after a dependency audit proves the
 item is not shared with retained student behavior. Physical bundle pruning
 should happen only after profile policy tests prove regional items are not
 reachable in the `mainland_cn` release surface.
+
+## Audit Findings (2026-06-19)
+
+A pre-implementation audit of this design against the current branch produced
+the findings below. Inline list fixes have already been applied; the remaining
+items are recorded here.
+
+### Verified consistent with the tree
+
+- All implementation files in `Implementation Notes` exist;
+  `python/src/product_profile_policy.py` is the only new file.
+- `web/src/lib/providers.ts` already exposes exactly the eight `mainland_cn`
+  providers in `Provider Surface`.
+- `python/build_bundle.ps1` already drops exactly the five tools and the
+  upstream dashboard SPA listed in `Bundle Pruning`.
+- All five global-cut plugin directories and all named skill categories exist
+  (`mlops`, `github`, `inference-sh` included).
+- No pre-existing `product_profile` logic exists; the central policy is new,
+  confirming the "pruning is scattered" premise.
+
+### Applied fixes
+
+- `sms` removed from both the global gateway delete list and the `mainland_cn`
+  gateway cut list. It has no platform-registry entry and zero live references
+  in Python/Rust/Web — it appears to be an upstream-only surface already absent
+  here. Treat any `sms` cut as a no-op pending a final check.
+- `discord_admin` moved out of "Gateway/platform surfaces to delete"; it is a
+  toolset, not a `PLATFORMS` gateway, and was already listed under toolsets.
+- `nvidia`, `arcee`, `gmi`, `ollama-cloud` removed from the `mainland_cn`
+  provider cut list. They are in the global delete list (delete-everywhere),
+  which contradicted "source retained for `sea`". Resolved in favor of global
+  deletion. **Flag if you intended to retain them for `sea`** — then they
+  should leave the global list instead.
+
+### Open item 1 — provider global deletion is core surgery, not file deletion (for discussion)
+
+The global-cut providers do not live in standalone files. They are embedded in
+`hermes_core/agent/auxiliary_client.py` (~3,833 lines) and
+`hermes_core/agent/account_usage.py`, interleaved with **retained** mainland
+providers in the same file:
+
+- Global-cut hit counts in `hermes_core/agent`: `bedrock` ~92, `opencode` ~16,
+  `nvidia` ~8, `gmi` ~7, `kilo` ~6, `ollama-cloud` ~4, `arcee` ~3, `vercel` ~2,
+  plus `openai-codex` / `copilot-acp` / `github-copilot` / `opencode-go` /
+  `qwen-oauth` throughout.
+- Retained providers in the same `auxiliary_client.py`: `kimi` ~28, `zai` ~8,
+  `minimax` ~7, `alibaba`, `stepfun`.
+
+Deletion rule #2 (split mixed files first) and rule #5 (no live references
+remain) therefore make provider deletion a surgical extraction from a large
+shared core, not a "delete these files" task. The original `Implementation
+Notes` omitted both files (now added). **Approach is deferred for discussion**
+before any code changes — sequencing, how far to extract, and whether to gate
+this behind the profile policy first.
+
+### Open item 2 — surfaces with no disposition
+
+These exist in the tree but the design neither hides nor keeps them. Each needs
+an explicit decision so the rule #5 "no live entries" completion test is
+checkable. Recommended defaults in parentheses:
+
+- bundled skill category `creative` (decide: keep/curate vs hide)
+- bundled skill category `email` (recommend hide in `mainland_cn`, consistent
+  with the email gateway being cut)
+- plugin `disk-cleanup` (recommend hide — utility, not a student feature)
+- plugin `platforms` (keep — platform-registry infrastructure, not a product
+  feature)
+- platform `wecom_callback` (keep — variant of retained `wecom`)
+- platform `cron` (keep — internal scheduler, `cronjob` toolset is retained)
+- platform `cli` (out of scope — not a desktop product surface)
+
+### Open item 3 — ordering reconciliation
+
+`v0.3.0 Scope` says "delete global cuts first"; `Bundle Pruning` and
+`Implementation Notes` say build profile policy and tests first, prune
+physically only after tests prove unreachability. For provider deletion (Open
+item 1) the safe order is policy + characterization tests + dependency audit
+first, then deletion — even though it is a global cut. Read "delete global cuts
+first" as ordering relative to *regional* profile-splitting, not as license to
+delete shared-core code before the policy and tests exist.
+
+### Open item 4 — runtime-copy caveat
+
+Deletion targets are written as `tools/<file>.py` but live at
+`hermes_core/tools/<file>.py`, with build-time copies in
+`python/dist/runtime/...` and `tauri/target/debug/runtime/...`. Deleting source
+does not update those copies until a runtime re-sync / rebuild. The "absent from
+runtime" bundle test must account for this so it does not pass or fail on a
+stale copy. Note also `build_bundle.ps1` keeps `tools/environments/file_sync.py`
+deliberately (ssh/modal/daytona import it) — a concrete example that the
+dependency audit matters.
+
+### Intentional, not a defect
+
+The Feishu split is deliberate: the `feishu` **gateway** is retained for
+`mainland_cn`, while the `feishu_doc` / `feishu_drive` **toolsets** are cut and
+already bundle-dropped. Do not "reconcile" these into a single decision.

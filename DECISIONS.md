@@ -219,3 +219,22 @@ in [docs/skills-design-decision.md](docs/skills-design-decision.md).
 - Third-party (unsigned) Skill marketplace — v1.0 ships only built-in
   Recipes; signed market is v1.1, unsigned third-party is v1.2
 - Voice-first / always-listening mode (push-to-talk only)
+
+## v0.3.0 Slim & Focus scope (2026-06-19)
+
+Plan: [`docs/superpowers/specs/2026-06-19-v0.3.0-slim-and-focus-plan.md`](docs/superpowers/specs/2026-06-19-v0.3.0-slim-and-focus-plan.md).
+Merges the core refactor mechanics ([`.qoder/specs/Core重构架构设计_task-eee.md`](.qoder/specs/Core重构架构设计_task-eee.md))
+and the product pruning policy ([`docs/superpowers/specs/2026-06-19-mainland-profile-code-pruning-design.md`](docs/superpowers/specs/2026-06-19-mainland-profile-code-pruning-design.md)).
+
+| Question | Decision |
+|----------|----------|
+| v0.3.0 theme | Reduce bundle size + converge the product to the `mainland_cn` student profile. No agent hot-path changes, no package rename. |
+| `mainland_cn` visible gateways | `desktop, weixin, qqbot, feishu, wecom` only. |
+| **Telegram** | **Supersedes 2026-05-03.** Moved out of the student (`mainland_cn`) runtime to the future `sea` profile: source retained, hidden in `mainland_cn`. Mainland students do not use it. |
+| Discord / WhatsApp / Email | `sea`-profile: source retained, hidden in `mainland_cn`. Discord overlaps the student/gamer demographic, so it is kept for `sea`. |
+| **DingTalk** | **Extends 2026-05-03.** Source retained (a school / office edition may use it), hidden in `mainland_cn`. Its Alibaba Cloud SDKs (`dingtalk_stream` — needs `websockets<13`, conflicts with Browser/CDP — plus `alibabacloud_dingtalk`/`alibabacloud_tea_openapi`/`alibabacloud_tea_util`) are excluded from the runtime bundle; the adapter degrades gracefully when absent. |
+| webhook / api_server | **Global delete** — technical integration surfaces unsuitable for student users. |
+| Globally deleted (both specs agree) | Gateways `slack`, `signal`, `matrix`, `mattermost`, `bluebubbles`, `homeassistant`, `yuanbao`; tools `rl_training`, `homeassistant`, `mixture_of_agents`, `yuanbao`; global-cut plugins and skill categories; upstream `ui-tui`/`tui_gateway`/`acp_adapter`/`acp_registry`/`website`/RL-benchmark/`mcp_serve` surface. |
+| Provider global deletion | **Deferred to v0.3.x.** The global-cut providers (`bedrock`, `openai-codex`, `copilot-acp`, `opencode`, etc.) are entangled in `hermes_core/agent/auxiliary_client.py` (~3,833 lines) with retained providers. Do refactor Phase 3 (provider extraction) first, then delete at file level. In v0.3.0 they are only hidden via profile policy. |
+| Core rename + user-data migration | **Deferred to v0.4.0.** Refactor Phases 8-9 (`kabuqina_core` rename, `KABUQINA_*` env beyond the profile var, `%LOCALAPPDATA%` home migration) are orthogonal to size/focus. |
+| Profile env var | `KABUQINA_PRODUCT_PROFILE` (primary), `HERMESDESK_PRODUCT_PROFILE` fallback; unknown/missing → `mainland_cn`. |
