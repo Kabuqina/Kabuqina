@@ -239,7 +239,6 @@ TIPS = [
     "Checkpoints use shadow repos in ~/.hermes/checkpoints/ — your project's .git is never touched.",
 
     # --- Batch & Data ---
-    "batch_runner.py processes hundreds of prompts in parallel for training data generation.",
     "hermes chat -Q enables quiet mode for programmatic use — suppresses banner and spinner.",
     "Trajectory saving (--save-trajectories) captures full tool-use traces for model training.",
 
