@@ -16,7 +16,7 @@ Usage::
     coder chat                           # use via wrapper alias
     hermes -p coder chat                 # or via flag
     hermes profile use coder             # set as sticky default
-    hermes profile delete coder          # remove profile + alias + service
+    hermes profile delete coder          # remove profile + alias
 """
 
 import json
@@ -583,26 +583,23 @@ def delete_profile(name: str, yes: bool = False) -> Path:
             print("Cancelled.")
             return profile_dir
 
-    # 1. Disable service (prevents auto-restart)
-    _cleanup_gateway_service(name, profile_dir)
-
-    # 2. Stop running gateway
+    # 1. Stop running gateway
     if gw_running:
         _stop_gateway_process(profile_dir)
 
-    # 3. Remove wrapper script
+    # 2. Remove wrapper script
     if has_wrapper:
         if remove_wrapper_script(name):
             print(f"✓ Removed {wrapper_path}")
 
-    # 4. Remove profile directory
+    # 3. Remove profile directory
     try:
         shutil.rmtree(profile_dir)
         print(f"✓ Removed {profile_dir}")
     except Exception as e:
         print(f"⚠ Could not remove {profile_dir}: {e}")
 
-    # 5. Clear active_profile if it pointed to this profile
+    # 4. Clear active_profile if it pointed to this profile
     try:
         active = get_active_profile()
         if active == name:
@@ -613,54 +610,6 @@ def delete_profile(name: str, yes: bool = False) -> Path:
 
     print(f"\nProfile '{name}' deleted.")
     return profile_dir
-
-
-def _cleanup_gateway_service(name: str, profile_dir: Path) -> None:
-    """Disable and remove systemd/launchd service for a profile."""
-    import platform as _platform
-
-    # Derive service name for this profile
-    # Temporarily set HERMES_HOME so _profile_suffix resolves correctly
-    old_home = os.environ.get("HERMES_HOME")
-    try:
-        os.environ["HERMES_HOME"] = str(profile_dir)
-        from hermes_cli.gateway import get_service_name, get_launchd_plist_path
-
-        if _platform.system() == "Linux":
-            svc_name = get_service_name()
-            svc_file = Path.home() / ".config" / "systemd" / "user" / f"{svc_name}.service"
-            if svc_file.exists():
-                subprocess.run(
-                    ["systemctl", "--user", "disable", svc_name],
-                    capture_output=True, check=False, timeout=10,
-                )
-                subprocess.run(
-                    ["systemctl", "--user", "stop", svc_name],
-                    capture_output=True, check=False, timeout=10,
-                )
-                svc_file.unlink(missing_ok=True)
-                subprocess.run(
-                    ["systemctl", "--user", "daemon-reload"],
-                    capture_output=True, check=False, timeout=10,
-                )
-                print(f"✓ Service {svc_name} removed")
-
-        elif _platform.system() == "Darwin":
-            plist_path = get_launchd_plist_path()
-            if plist_path.exists():
-                subprocess.run(
-                    ["launchctl", "unload", str(plist_path)],
-                    capture_output=True, check=False, timeout=10,
-                )
-                plist_path.unlink(missing_ok=True)
-                print(f"✓ Launchd service removed")
-    except Exception as e:
-        print(f"⚠ Service cleanup: {e}")
-    finally:
-        if old_home is not None:
-            os.environ["HERMES_HOME"] = old_home
-        elif "HERMES_HOME" in os.environ:
-            del os.environ["HERMES_HOME"]
 
 
 def _stop_gateway_process(profile_dir: Path) -> None:

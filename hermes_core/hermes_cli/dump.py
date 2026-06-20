@@ -46,17 +46,12 @@ def _redact(value: str) -> str:
 def _gateway_status() -> str:
     """Return a short gateway status string."""
     try:
-        from hermes_cli.gateway import get_gateway_runtime_snapshot
+        from gateway.status import get_running_pid
 
-        snapshot = get_gateway_runtime_snapshot()
-        if snapshot.running:
-            mode = snapshot.manager
-            if snapshot.has_process_service_mismatch:
-                mode = "manual"
-            return f"running ({mode}, pid {snapshot.gateway_pids[0]})"
-        if snapshot.service_installed and not snapshot.service_running:
-            return f"stopped ({snapshot.manager})"
-        return f"stopped ({snapshot.manager})"
+        pid = get_running_pid(cleanup_stale=False)
+        if pid is not None:
+            return f"running (pid {pid})"
+        return "stopped"
     except Exception:
         return "unknown" if sys.platform.startswith(("linux", "darwin")) else "N/A"
 
