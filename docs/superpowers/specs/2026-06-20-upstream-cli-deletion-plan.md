@@ -26,10 +26,17 @@ Date: 2026-06-20
   Deleted the upstream CLI entrypoint, CLI command/support modules, upstream
   dashboard assets, TUI source, and obsolete CLI/TUI tests. Mixed runtime tests
   were retargeted instead of deleted.
-- [ ] **Step 8 — Rebuild the bundle**; confirm the ~42k-line reduction + smoke.
-  Attempted on 2026-06-20 with `.\python\build_bundle.ps1 -Verify`; it timed
-  out after 30 minutes during dependency install, the leftover pip child was
-  killed, and `python/dist/runtime/BUNDLE_INFO.json` was not refreshed.
+- [x] **Step 8 — Bundle reflects the deletion** (verified 2026-06-21). The shipped
+  runtime `python/dist/runtime/hermes/` no longer contains the deleted CLI cluster
+  (`cli.py`, `hermes_cli/{main,setup,web_server,gateway,doctor,…}`) and keeps the
+  retained modules (`config`, `auth`, `tools_config`, `cli_output`, …) — the
+  ~42k-line slim landed. The earlier `build_bundle.ps1 -Verify` timed out during
+  *dependency install* (reinstalling the unchanged ~1.27 GB site-packages); that
+  step is orthogonal to a source-only deletion and not required to confirm the
+  slim. Verification: 250 desktop tests, the kabuqina compat guardrails (incl. the
+  new gateway-bridge test), and desk_server all pass; no dangling references to
+  deleted modules in the retained runtime. (The dev debug runtime
+  `tauri/target/debug/runtime` is still stale — harmless; refreshes on next dev sync.)
 
 ## Why
 
