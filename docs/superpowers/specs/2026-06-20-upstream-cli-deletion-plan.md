@@ -2,6 +2,21 @@
 
 Date: 2026-06-20
 
+## Progress
+
+- [x] **Step 1 — Resolve the knot** (2026-06-20, commit `5cdb5c01`). `hermes_cli/gateway`
+  is deletable; gateway runtime never imports it. Benign.
+- [x] **Step 2 — Sever the cheap hooks** #1, #2 (2026-06-20, commit `5cdb5c01`).
+  `save_config_value` → `hermes_cli/config.py`; dropped delegate's `CLI_CONFIG`
+  branch. Audit confirms both `→ cli` hooks gone. Verified green.
+- [ ] **Step 3 — Relocate `setup` console helpers**; repoint `dingtalk_auth` &
+  `nous_subscription`; decide the Nous subscription feature.
+- [ ] **Step 4 — Delete `hermes_cli/gateway`** (+ remove the lazy import in `profiles.py`).
+- [ ] **Step 5 — Re-run the audit**; confirm cluster unreachable.
+- [ ] **Step 6 — Per-module dynamic-reference check** (`importlib`/string imports).
+- [ ] **Step 7 — Bulk-delete** the cluster + tests, grouped commits + verify each.
+- [ ] **Step 8 — Rebuild the bundle**; confirm the ~42k-line reduction + smoke.
+
 ## Why
 
 The v0.3.0 slim pass deleted global-cut plugins (~4.2M) and skill categories
