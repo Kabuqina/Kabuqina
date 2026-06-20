@@ -47,7 +47,6 @@ messaging = ["python-telegram-bot[webhooks]>=22.6,<23", "discord.py[voice]>=2.7.
 cron = []  # croniter is now a core dependency; this extra kept for back-compat
 slack = ["slack-bolt>=1.18.0,<2", "slack-sdk>=3.27.0,<4"]
 matrix = ["mautrix[encryption]>=0.20,<1", "Markdown>=3.6,<4", "aiosqlite>=0.20", "asyncpg>=0.29", "aiohttp-socks>=0.10,<1"]
-cli = ["simple-term-menu>=1.0,<2"]
 tts-premium = ["elevenlabs>=1.0,<2"]
 voice = [
   # Local STT pulls in wheel-only transitive deps (ctranslate2, onnxruntime),
@@ -68,12 +67,11 @@ acp = ["agent-client-protocol>=0.9.0,<1.0"]
 mistral = ["mistralai>=2.3.0,<3"]
 bedrock = ["boto3>=1.35.0,<2"]
 termux = [
-  # Tested Android / Termux path: keeps the core CLI feature-rich while
-  # avoiding extras that currently depend on non-Android wheels (notably
-  # faster-whisper -> ctranslate2 via the voice extra).
+  # Tested Android / Termux path: avoids extras that currently depend on
+  # non-Android wheels (notably faster-whisper -> ctranslate2 via the voice
+  # extra).
   "python-telegram-bot[webhooks]>=22.6,<23",
   "hermes-agent[cron]",
-  "hermes-agent[cli]",
   "hermes-agent[pty]",
   "hermes-agent[mcp]",
   "hermes-agent[honcho]",
@@ -110,7 +108,6 @@ all = [
   # [matrix] extra's own marker pulls in the [e2e] variant automatically.
   "hermes-agent[matrix]; sys_platform == 'linux'",
   "hermes-agent[cron]",
-  "hermes-agent[cli]",
   "hermes-agent[dev]",
   "hermes-agent[tts-premium]",
   "hermes-agent[slack]",
@@ -130,12 +127,11 @@ all = [
 ]
 
 [project.scripts]
-hermes = "hermes_cli.main:main"
 hermes-agent = "run_agent:main"
 hermes-acp = "acp_adapter.entry:main"
 
 [tool.setuptools]
-py-modules = ["run_agent", "model_tools", "toolsets", "batch_runner", "trajectory_compressor", "toolset_distributions", "cli", "hermes_constants", "hermes_state", "hermes_time", "hermes_logging", "rl_cli", "utils"]
+py-modules = ["run_agent", "model_tools", "toolsets", "batch_runner", "trajectory_compressor", "toolset_distributions", "hermes_constants", "hermes_state", "hermes_time", "hermes_logging", "rl_cli", "utils"]
 
 [tool.setuptools.package-data]
 hermes_cli = ["web_dist/**/*"]
