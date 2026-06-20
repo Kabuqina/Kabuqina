@@ -9,8 +9,12 @@ Date: 2026-06-20
 - [x] **Step 2 — Sever the cheap hooks** #1, #2 (2026-06-20, commit `5cdb5c01`).
   `save_config_value` → `hermes_cli/config.py`; dropped delegate's `CLI_CONFIG`
   branch. Audit confirms both `→ cli` hooks gone. Verified green.
-- [ ] **Step 3 — Relocate `setup` console helpers**; repoint `dingtalk_auth` &
-  `nous_subscription`; decide the Nous subscription feature.
+- [x] **Step 3 — Sever the `→ setup` hooks** (2026-06-20). `prompt_choice` added to
+  `hermes_cli/cli_output.py`; `dingtalk_auth` repointed to `cli_output` for the
+  `print_*` helpers; `nous_subscription` repointed there for `prompt_choice`.
+  **Nous feature kept** (tools_config.py imports nous_subscription at module level,
+  so it is core, not a CLI-only feature — only its setup import was severed).
+  Audit now shows only the two `gateway → main/setup` hooks, which dissolve in step 4.
 - [ ] **Step 4 — Delete `hermes_cli/gateway`** (+ remove the lazy import in `profiles.py`).
 - [ ] **Step 5 — Re-run the audit**; confirm cluster unreachable.
 - [ ] **Step 6 — Per-module dynamic-reference check** (`importlib`/string imports).
@@ -118,8 +122,8 @@ a delete.
 | 1 | `gateway/run.py` → `from cli import save_config_value` | ✅ Done — `save_config_value` added to `hermes_cli/config.py`; gateway imports it from there. |
 | 2 | `tools/delegate_tool.py` → `from cli import CLI_CONFIG` | ✅ Done — dropped the `CLI_CONFIG` branch; `_load_config` uses `load_config()` only. |
 | 3 | `hermes_cli/gateway.py` → `hermes_cli.main`, `hermes_cli.setup` | ✅ Resolved (knot) — `hermes_cli/gateway` is deletable; dissolved by deleting it (remove one lazy import in `profiles.py`). See below. |
-| 4 | `hermes_cli/dingtalk_auth.py` → `hermes_cli.setup` | `dingtalk_auth` only uses `setup`'s `print_info/print_success/...`. Move those tiny console helpers to a retained util (e.g. `hermes_cli/cli_output.py`). DingTalk source is kept for `sea`. |
-| 5 | `hermes_cli/nous_subscription.py` → `hermes_cli.setup` | Same console-helper relocation, plus decide whether the Nous subscription feature is retained (`agent/prompt_builder.py` calls `get_nous_subscription_features`). If dropped, sever that call too. |
+| 4 | `hermes_cli/dingtalk_auth.py` → `hermes_cli.setup` | ✅ Done — `cli_output.py` already had `print_*`; repointed `dingtalk_auth` to it. |
+| 5 | `hermes_cli/nous_subscription.py` → `hermes_cli.setup` | ✅ Done — added a self-contained `prompt_choice` to `cli_output.py`; repointed `nous_subscription`. Nous feature **kept** (tools_config imports nous_subscription at module level; it is core, not CLI-only). |
 
 (`gateway/run.py` also imports `hermes_cli.tips.get_random_tip`; `tips` is in the
 keep set today, but if the gateway banner/tip is dropped, `tips` becomes
@@ -153,9 +157,11 @@ blocker, and resolving it frees the display modules `hermes_cli/gateway` pulled.
    The re-run audit shows both `→ cli` hooks gone. Verified by compat guardrails,
    desk_server, and the delegate tests. (cli.py's own `save_config_value` stays
    until the bulk delete removes cli.py.)
-3. **Relocate console helpers** (#4, #5): move `setup`'s `print_*` helpers to a
-   retained util; repoint `dingtalk_auth` and `nous_subscription`. Decide the Nous
-   feature. Commit.
+3. **Relocate console helpers** (#4, #5) — ✅ **DONE (2026-06-20).** `print_*`
+   already lived in `cli_output.py`; added `prompt_choice` there. Repointed
+   `dingtalk_auth` and `nous_subscription`. Nous feature kept (it is a core
+   tools_config dependency, not CLI-only). Audit now shows only the two
+   `gateway → main/setup` hooks.
 4. **Sever the knot** (#3) per step 1's decision. Commit.
 5. **Re-run the audit** (`scripts/_audit_cli_reachability.py`) — confirm `cli`,
    `main`, `setup`, `web_server` and the support cluster are now unreachable.

@@ -76,3 +76,41 @@ def prompt_yes_no(question: str, default: bool = True) -> bool:
     if not answer:
         return default
     return answer.lower().startswith("y")
+
+
+def prompt_choice(
+    question: str,
+    choices: list,
+    default: int = 0,
+    description: str | None = None,
+) -> int:
+    """Prompt for one choice from a list; return the selected index.
+
+    Text-based (no curses) so it stays self-contained in the retained output
+    helpers. Empty input keeps *default*; Ctrl-C / EOF re-raises. Relocated here
+    from setup.py so retained callers don't import the upstream CLI.
+    """
+    print(color(question, Colors.YELLOW))
+    if description:
+        print_info(description)
+    for i, choice in enumerate(choices):
+        marker = "●" if i == default else "○"
+        line = f"  {marker} {choice}"
+        print(color(line, Colors.GREEN) if i == default else line)
+    print_info(f"Enter for default ({default + 1}); Ctrl-C to cancel")
+    while True:
+        try:
+            value = input(
+                color(f"  Select [1-{len(choices)}] ({default + 1}): ", Colors.DIM)
+            ).strip()
+            if not value:
+                return default
+            idx = int(value) - 1
+            if 0 <= idx < len(choices):
+                return idx
+            print_error(f"Please enter a number between 1 and {len(choices)}")
+        except ValueError:
+            print_error("Please enter a number")
+        except (KeyboardInterrupt, EOFError):
+            print()
+            raise
