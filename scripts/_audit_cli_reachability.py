@@ -93,11 +93,14 @@ def main() -> None:
                 queue.append(imp)
 
     # Universe of CLI-cluster candidates
-    cli_mods = ["cli"] + [
+    cli_mods = []
+    if mod_to_file("cli") is not None:
+        cli_mods.append("cli")
+    cli_mods.extend(
         "hermes_cli." + p.stem
         for p in sorted((CORE / "hermes_cli").glob("*.py"))
         if p.stem != "__init__"
-    ]
+    )
     kept = [m for m in cli_mods if m in reachable]
     deletable = [m for m in cli_mods if m not in reachable]
 
@@ -114,7 +117,10 @@ def main() -> None:
         print(f"   {n:6d}  {m}")
     print(f"   ----> ~{total_del_lines} lines deletable (cli.py extra:)")
     cf = mod_to_file("cli")
-    print(f"   {len(cf.read_text(encoding='utf-8',errors='replace').splitlines())}  cli  (entrypoint, blocked)")
+    if cf is None:
+        print("        0  cli  (entrypoint, already deleted)")
+    else:
+        print(f"   {len(cf.read_text(encoding='utf-8',errors='replace').splitlines())}  cli  (entrypoint, blocked)")
 
     print("\n=== HOOKS to sever (kept runtime module -> deletable cluster) ===")
     seen = set()

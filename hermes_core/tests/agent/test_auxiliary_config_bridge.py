@@ -1,5 +1,5 @@
 """Tests for auxiliary model config bridging — verifies that config.yaml values
-are properly mapped to environment variables by both CLI and gateway loaders.
+are properly mapped to environment variables by the gateway loader.
 
 Also tests the vision_tools and browser_tool model override env vars.
 """
@@ -17,10 +17,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 
 def _run_auxiliary_bridge(config_dict, monkeypatch):
-    """Simulate the auxiliary config → env var bridging logic shared by CLI and gateway.
+    """Simulate the auxiliary config → env var bridging logic used by gateway.
 
-    This mirrors the code in cli.py load_cli_config() and gateway/run.py.
-    Both use the same pattern; we test it once here.
+    This mirrors the code in gateway/run.py.
     """
     # Clear env vars
     for key in (
@@ -72,7 +71,7 @@ def _run_auxiliary_bridge(config_dict, monkeypatch):
 
 
 class TestAuxiliaryConfigBridge:
-    """Verify the config.yaml → env var bridging logic used by CLI and gateway."""
+    """Verify the config.yaml → env var bridging logic used by gateway."""
 
     def test_vision_provider_bridged(self, monkeypatch):
         config = {
@@ -200,7 +199,7 @@ class TestGatewayBridgeCodeParity:
     def test_gateway_has_auxiliary_bridge(self):
         """The gateway config bridge must include auxiliary.* bridging."""
         gateway_path = Path(__file__).parent.parent.parent / "gateway" / "run.py"
-        content = gateway_path.read_text()
+        content = gateway_path.read_text(encoding="utf-8")
         # Check for key patterns that indicate the bridge is present
         assert "AUXILIARY_VISION_PROVIDER" in content
         assert "AUXILIARY_VISION_MODEL" in content
@@ -214,7 +213,7 @@ class TestGatewayBridgeCodeParity:
     def test_gateway_no_compression_env_bridge(self):
         """Gateway should NOT bridge compression config to env vars (config-only)."""
         gateway_path = Path(__file__).parent.parent.parent / "gateway" / "run.py"
-        content = gateway_path.read_text()
+        content = gateway_path.read_text(encoding="utf-8")
         assert "CONTEXT_COMPRESSION_PROVIDER" not in content
         assert "CONTEXT_COMPRESSION_MODEL" not in content
 
@@ -272,24 +271,3 @@ class TestDefaultConfigShape:
         assert "model" in web
         assert web["provider"] == "auto"
         assert web["model"] == ""
-
-
-# ── CLI defaults parity ─────────────────────────────────────────────────────
-
-
-class TestCLIDefaultsHaveAuxiliaryKeys:
-    """Verify cli.py load_cli_config() defaults dict does NOT include auxiliary
-    (it comes from config.yaml deep merge, not hardcoded defaults)."""
-
-    def test_cli_defaults_can_merge_auxiliary(self):
-        """The load_cli_config deep merge logic handles keys not in defaults.
-        Verify auxiliary would be picked up from config.yaml."""
-        # This is a structural assertion: cli.py's second-pass loop
-        # carries over keys from file_config that aren't in defaults.
-        # So auxiliary config from config.yaml gets merged even though
-        # cli.py's defaults dict doesn't define it.
-        import cli as _cli_mod
-        source = Path(_cli_mod.__file__).read_text()
-        assert "auxiliary_config = defaults.get(\"auxiliary\"" in source
-        assert "AUXILIARY_VISION_PROVIDER" in source
-        assert "AUXILIARY_VISION_MODEL" in source

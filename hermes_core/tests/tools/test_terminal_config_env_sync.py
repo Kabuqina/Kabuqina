@@ -2,12 +2,11 @@
 
 terminal_tool._get_env_config() reads ALL terminal settings from os.environ
 (TERMINAL_*).  config.yaml values therefore have to be bridged into env vars
-at startup, by THREE separate code paths:
+by the retained runtime/config code paths:
 
-  1. cli.py            -> ``env_mappings`` dict (CLI / TUI startup)
-  2. gateway/run.py    -> ``_terminal_env_map`` dict (gateway / messaging
+  1. gateway/run.py    -> ``_terminal_env_map`` dict (gateway / messaging
                           platforms)
-  3. hermes_cli/config.py:save_config_value
+  2. hermes_cli/config.py:save_config_value
                        -> ``_config_to_env_sync`` dict (one-shot when the
                           user runs ``hermes config set …``)
 
@@ -16,11 +15,10 @@ silently does nothing for that entry-point.  This bug already shipped once
 for ``docker_run_as_host_user`` (gateway and CLI maps) and once for
 ``docker_mount_cwd_to_workspace`` (gateway map).
 
-This test guards against future drift by extracting all three maps via source
-inspection and asserting they all bridge the same set of writable
+This test guards against future drift by extracting retained maps via source
+inspection and asserting they bridge the critical writable
 ``terminal.*`` keys.  Source inspection (rather than importing the live
-dicts) keeps the test independent of the user's ~/.hermes/config.yaml and
-mirrors the pattern used in tests/hermes_cli/test_config_drift.py.
+dicts) keeps the test independent of the user's ~/.hermes/config.yaml.
 """
 
 import ast
@@ -70,13 +68,6 @@ def _extract_dict_keys(source: str, dict_name: str) -> set[str]:
     raise AssertionError(f"Could not find `{dict_name} = {{...}}` literal in source")
 
 
-def _cli_env_map_keys() -> set[str]:
-    """terminal config keys bridged by cli.load_cli_config()."""
-    import cli
-    source = inspect.getsource(cli.load_cli_config)
-    return _extract_dict_keys(source, "env_mappings")
-
-
 def _gateway_env_map_keys() -> set[str]:
     """terminal config keys bridged by gateway/run.py at module load."""
     # gateway/run.py builds the dict at module top-level (not inside a
@@ -97,21 +88,6 @@ def _save_config_env_sync_keys() -> set[str]:
     return {k.split(".", 1)[1] for k in keys if k.startswith("terminal.")}
 
 
-# Keys present in cli.py env_mappings but intentionally absent from
-# gateway/run.py or set_config_value.  Each entry must be justified.
-_CLI_ONLY_OK = frozenset({
-    # `env_type` is a legacy YAML key alias for `backend` that cli.py
-    # accepts for backwards-compat with older cli-config.yaml.  The
-    # gateway path normalizes on the canonical `backend` key, which is
-    # also in the map and handles the same bridging.  See cli.py ~line 515.
-    "env_type",
-    # sudo_password is not a terminal-backend option — it's a credential
-    # used across backends, bridged to $SUDO_PASSWORD (not TERMINAL_*).
-    # Treating it as terminal-only would be misleading.
-    "sudo_password",
-})
-
-
 def _terminal_tool_env_var_names() -> set[str]:
     """All TERMINAL_* env vars actually consumed by terminal_tool."""
     import tools.terminal_tool as tt
@@ -120,38 +96,6 @@ def _terminal_tool_env_var_names() -> set[str]:
     import re
     pat = re.compile(r'["\'](TERMINAL_[A-Z0-9_]+)["\']')
     return set(pat.findall(source))
-
-
-def test_cli_and_gateway_env_maps_agree():
-    """cli.py and gateway/run.py must bridge the same set of terminal keys.
-
-    Both feed the same downstream consumer (terminal_tool).  Drift between
-    them means a config.yaml setting that "works in CLI mode but not gateway
-    mode" (or vice-versa) — the bug class that shipped twice already.
-    """
-    cli_keys = _cli_env_map_keys() - _CLI_ONLY_OK
-    gw_keys = _gateway_env_map_keys()
-
-    # Normalize the legacy `env_type` alias: cli.py accepts both `env_type`
-    # and `backend` as source keys for TERMINAL_ENV; gateway only accepts
-    # `backend`.  Since cli.py copies `backend` → `env_type` before the
-    # lookup, they're equivalent.  Remove `backend` from the gateway side
-    # to avoid a spurious "backend missing from cli" failure.
-    gw_keys = gw_keys - {"backend"}
-
-    missing_in_gateway = cli_keys - gw_keys
-    missing_in_cli = gw_keys - cli_keys
-
-    assert not missing_in_gateway, (
-        f"Keys in cli.py env_mappings but missing from gateway/run.py "
-        f"_terminal_env_map: {sorted(missing_in_gateway)}.  Add them to "
-        f"both maps (same bug class as docker_run_as_host_user shipping "
-        f"wired in cli but not gateway in April 2026)."
-    )
-    assert not missing_in_cli, (
-        f"Keys in gateway/run.py _terminal_env_map but missing from cli.py "
-        f"env_mappings: {sorted(missing_in_cli)}.  Add them to both maps."
-    )
 
 
 def test_save_config_set_supports_critical_bridged_keys():
@@ -184,27 +128,25 @@ def test_save_config_set_supports_critical_bridged_keys():
     )
 
 
-def test_docker_run_as_host_user_is_bridged_everywhere():
+def test_docker_run_as_host_user_is_bridged_in_retained_runtime():
     """Explicit pin for the bug we just fixed.
 
     docker_run_as_host_user was added to terminal_tool._get_env_config and
-    DockerEnvironment but NOT to cli.py's env_mappings or gateway/run.py's
+    DockerEnvironment but NOT to gateway/run.py's
     _terminal_env_map, so ``terminal.docker_run_as_host_user: true`` in
     config.yaml had no effect at runtime.  This guard makes the regression
     impossible to reintroduce silently.
     """
-    assert "docker_run_as_host_user" in _cli_env_map_keys()
     assert "docker_run_as_host_user" in _gateway_env_map_keys()
     assert "docker_run_as_host_user" in _save_config_env_sync_keys()
     assert "TERMINAL_DOCKER_RUN_AS_HOST_USER" in _terminal_tool_env_var_names()
 
 
-def test_docker_mount_cwd_to_workspace_is_bridged_everywhere():
+def test_docker_mount_cwd_to_workspace_is_bridged_in_retained_runtime():
     """Same regression class — docker_mount_cwd_to_workspace was missing from
     gateway/run.py's _terminal_env_map until the docker_run_as_host_user
     audit caught it.
     """
-    assert "docker_mount_cwd_to_workspace" in _cli_env_map_keys()
     assert "docker_mount_cwd_to_workspace" in _gateway_env_map_keys()
     assert "docker_mount_cwd_to_workspace" in _save_config_env_sync_keys()
     assert "TERMINAL_DOCKER_MOUNT_CWD_TO_WORKSPACE" in _terminal_tool_env_var_names()

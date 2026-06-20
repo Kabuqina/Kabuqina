@@ -3,7 +3,7 @@
 
 /**
  * Registry of gateway channel settings shown in Kabuqina Settings (not Wizard).
- * Keys must match Hermes `load_gateway_config` / adapters — see hermes_cli/gateway.py.
+ * Keys must match Hermes `load_gateway_config` / gateway adapters.
  * i18n: `settings.channelEnv.*` in locales/strings.ts
  */
 

@@ -1312,11 +1312,9 @@ def honcho_command(args) -> None:
 
     sub = getattr(args, "honcho_command", None)
     if sub == "setup":
-        # Redirect to memory setup — honcho setup goes through the unified path
         print("\n  Honcho is configured via the memory provider system.")
-        print("  Running 'hermes memory setup'...\n")
-        from hermes_cli.memory_setup import cmd_setup_provider
-        cmd_setup_provider("honcho")
+        print("  In Kabuqina, use desktop settings or profile config to set memory.provider: honcho.")
+        print("  Add the Honcho API key through the app credential flow, then restart the gateway.\n")
         return
     elif sub is None:
         cmd_status(args)

@@ -42,7 +42,6 @@ $STRIP_PREFIXES = @(
     "trajectory_compressor.py",
     "mcp_serve.py",
     "tools/environments/file_sync.py",
-    "hermes_cli/gateway.py",
     "tests/"
 )
 

@@ -16,9 +16,8 @@
 #   .\python\build_bundle.ps1                # build
 #   .\python\build_bundle.ps1 -Verify        # build + smoke-test (+ STT binary checks)
 #   .\python\build_bundle.ps1 -Clean         # wipe and rebuild
-#   .\python\build_bundle.ps1 -SkipWebBuild  # faster: reuse existing hermes_cli/web_dist (risk: stale UI)
+#   .\python\build_bundle.ps1 -SkipWebBuild  # legacy no-op; upstream Hermes dashboard is not bundled
 #   .\python\build_bundle.ps1 -BundleDoclingModels  # dev/offline: embed Docling models despite larger installer
-#   .\python\build_bundle.ps1 -BuildHermesDashboard  # opt-in: build upstream Hermes dashboard SPA
 #
 # NOTE (PowerShell): named parameters conventionally use ONE dash (`-Verify`), unlike many
 # POSIX/GNU CLIs (`--verify`). Passing `--Verify` unquoted can accidentally bind as -PythonVersion
@@ -32,8 +31,7 @@ param(
     [switch]$Verify,
     [switch]$SkipWebBuild,
     [switch]$SkipDoclingModels,
-    [switch]$BundleDoclingModels,
-    [switch]$BuildHermesDashboard
+    [switch]$BundleDoclingModels
 )
 
 # Recover GNU-style `--Flag` mistakenly bound to positional -PythonVersion (PowerShell habit vs
@@ -90,6 +88,10 @@ Invalid -PythonVersion '$PythonVersion'. Expected something like 3.11.15.
 Common mistake: use -Verify not --Verify unless this script rewrote GNU-style arguments (see header).
 "@
     exit 99
+}
+
+if ($SkipWebBuild) {
+    Write-Warning "-SkipWebBuild is retained for compatibility; the upstream Hermes dashboard SPA is no longer bundled."
 }
 
 $ErrorActionPreference = "Stop"
@@ -169,7 +171,6 @@ $keep = @(
     "toolsets.py",
     "toolset_distributions.py",
     "trajectory_compressor.py",          # imported by agent code; harmless if unused
-    "cli.py",
     "hermes_constants.py",
     "hermes_state.py",
     "hermes_time.py",
@@ -190,9 +191,6 @@ foreach ($name in $keep) {
 
 # Drop unwanted subtrees that snuck in (gateway is in keep-list? no — but defensive)
 $drop = @(
-    "hermes_cli\gateway.py",
-    "hermes_cli\curses_ui.py",     # POSIX termios-only, not used by web_server
-    "hermes_cli\uninstall.py",     # POSIX geteuid; we have our own MSI uninstaller
     # Keep tools/environments/file_sync.py — ssh/modal/daytona import it; dropping it breaks agent init.
     "tools\rl_training_tool.py",
     "tools\feishu_doc_tool.py",
@@ -212,68 +210,6 @@ foreach ($d in $drop) {
 $hermesInit = Join-Path $bundledHermes "__init__.py"
 if (-not (Test-Path $hermesInit)) {
     "" | Set-Content -Path $hermesInit -Encoding ASCII
-}
-
-function ConvertTo-GitBashPath([string]$WindowsPath) {
-    $full = (Resolve-Path -LiteralPath $WindowsPath).Path
-    if ($full -match '^([A-Za-z]):\\(.*)$') {
-        $dl = $Matches[1].ToLowerInvariant()
-        $tail = $Matches[2] -replace '\\', '/'
-        return "/$dl/$tail"
-    }
-    throw "Cannot convert path to Git Bash form: $WindowsPath"
-}
-
-# Hermes `hermes/web/package.json` prebuild runs `sync-assets` with POSIX `rm`/`cp`; use Git Bash on Windows.
-function Invoke-HermesWebNpmCommand {
-    param(
-        [string]$WebDir,
-        [string[]]$NpmCmd
-    )
-    $gitBash = Join-Path ${env:ProgramFiles} "Git\bin\bash.exe"
-    if (Test-Path -LiteralPath $gitBash) {
-        $bashPath = ConvertTo-GitBashPath $WebDir
-        $argsLine = $NpmCmd -join ' '
-        $line = "set -e; cd '$bashPath' && npm $argsLine"
-        & $gitBash -lc $line
-        if ($LASTEXITCODE -ne 0) { throw "npm in hermes/web failed (exit $LASTEXITCODE): npm $argsLine" }
-    } else {
-        Push-Location $WebDir
-        try {
-            & npm @NpmCmd
-            if ($LASTEXITCODE -ne 0) { throw "npm failed (exit $LASTEXITCODE): $($NpmCmd -join ' ')" }
-        } finally { Pop-Location }
-    }
-}
-
-# ------------------------------------------------------------------ 4b. Hermes dashboard SPA (opt-in; Kabuqina desk-minimal skips web_dist)
-# `hermes_cli/web_server.py` can serve the upstream React dashboard from
-# `hermes_cli/web_dist/`. Kabuqina shell does not use it — pass
-# `-BuildHermesDashboard` only when comparing against upstream Hermes UI.
-$hermesWeb     = Join-Path $HermesDir "web" | Resolve-Path | Select-Object -ExpandProperty Path
-$hermesWebDist = Join-Path $HermesDir "hermes_cli\web_dist"
-$bundledWebDist = Join-Path $bundledHermes "hermes_cli\web_dist"
-$buildHermesDashboard = $BuildHermesDashboard -and -not $SkipWebBuild
-if (-not $buildHermesDashboard) {
-    Write-Host "  (skip) Hermes dashboard SPA — Kabuqina desk-minimal bundle" -ForegroundColor DarkYellow
-    if (Test-Path $bundledWebDist) {
-        Remove-Item -Recurse -Force $bundledWebDist
-    }
-} elseif ($SkipWebBuild) {
-    Write-Host "  (skip) npm run build — using existing hermes_cli\web_dist" -ForegroundColor DarkYellow
-    if (-not (Test-Path (Join-Path $hermesWebDist "index.html"))) {
-        throw "Hermes SPA missing at $hermesWebDist\index.html (run without -SkipWebBuild or drop -BuildHermesDashboard)"
-    }
-    Copy-Item -Recurse -Force $hermesWebDist $bundledWebDist
-} else {
-    Write-Host "  npm install (hermes/web)..." -ForegroundColor DarkGray
-    Invoke-HermesWebNpmCommand -WebDir $hermesWeb -NpmCmd @("install", "--no-audit", "--no-fund")
-    Write-Host "  npm run build (hermes/web)..." -ForegroundColor DarkGray
-    Invoke-HermesWebNpmCommand -WebDir $hermesWeb -NpmCmd @("run", "build")
-    if (-not (Test-Path (Join-Path $hermesWebDist "index.html"))) {
-        throw "Hermes SPA build failed: $hermesWebDist\index.html not found"
-    }
-    Copy-Item -Recurse -Force $hermesWebDist $bundledWebDist
 }
 
 # ------------------------------------------------------------------ 5. Install deps into a target dir (no venv)
@@ -498,7 +434,7 @@ Set-Content -Path (Join-Path $pyDir "Lib\site-packages\hermesdesk.pth") -Value $
 # Ships the binaries needed for the local-command STT path so HermesDesk can
 # transcribe audio without an API key. The model itself (~57 MB) is NOT
 # bundled — it is lazy-downloaded on first use (see desk_stt_model_*
-# endpoints in hermes_cli/web_server.py). Default:
+# endpoints in desk_server). Default:
 # ``HERMESDESK_WORKSPACE\.hermesdesk\stt-models\``; when workspace is unset,
 # ``HERMESDESK_DATA_DIR\stt-models`` or ``%LOCALAPPDATA%\HermesDesk\stt-models``.
 #
@@ -627,8 +563,6 @@ sys.path.insert(0, r'$Dist\hermes')
 sys.path.insert(0, r'$Dist\site-packages')
 from overlays import apply_all
 apply_all()
-import hermes_cli.web_server
-print('OK: hermes_cli.web_server importable')
 import desk_server
 print('OK: desk_server importable')
 "@

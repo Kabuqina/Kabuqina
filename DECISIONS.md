@@ -31,7 +31,7 @@ The "Kabuqina" name is provisional. Trademark check is pending — see
 
 | Question | Decision |
 |----------|----------|
-| Hermes dashboard SPA | **Removed from product path.** Kabuqina shell is the only UI; `web_dist` is not bundled by default (`build_bundle.ps1 -BuildHermesDashboard` opt-in for upstream comparison). |
+| Hermes dashboard SPA | **Removed from product path.** Kabuqina shell is the only UI; `web_dist` and the `-BuildHermesDashboard` opt-in are no longer bundled. |
 | Python boot | **`HERMESDESK_DESK_MINIMAL=1`** — lazy tool/plugin discovery, early `port.txt`, background warm thread; chat returns 503 `warming` until tools are ready. |
 | Edge CDP | Starts **async** after bridge; does not block Python spawn. |
 | Gateway | Unchanged in this pass (still optional second process). |
@@ -41,7 +41,7 @@ The "Kabuqina" name is provisional. Trademark check is pending — see
 | Question | Decision |
 |----------|----------|
 | Product HTTP API | **`python/src/desk_server/`** — Kabuqina-owned FastAPI app with `/api/desk/*`, `/api/sessions*`, `/api/hermesdesk/*`, slim `/api/status`. |
-| Upstream `web_server.py` | **Dashboard-only.** Desk routes, HermesDesk auth bridge, and catalog code removed from `hermes_core/`. Optional `-BuildHermesDashboard` still builds `web_dist` for `hermes dashboard` dev comparison. |
+| Upstream `web_server.py` | **Deleted from the retained runtime.** Desk routes, HermesDesk auth bridge, and catalog code live in Kabuqina `desk_server`; there is no `web_dist` bundle path. |
 | Entrypoint | `desktop_entrypoint.py` imports and starts `desk_server`, not `hermes_cli.web_server`. |
 
 ## Cron notify mode (2026-05-21)

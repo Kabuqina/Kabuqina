@@ -57,6 +57,11 @@ def _run_steps(dockerfile_text: str) -> list[str]:
     ]
 
 
+def test_dockerfile_does_not_reference_deleted_cli_ui_assets(dockerfile_text):
+    assert "ui-tui" not in dockerfile_text
+    assert "HERMES_WEB_DIST" not in dockerfile_text
+
+
 def test_dockerfile_installs_an_init_for_zombie_reaping(dockerfile_text):
     """Some init (tini, dumb-init, catatonit) must be installed.
 
@@ -102,36 +107,6 @@ def test_dockerfile_entrypoint_routes_through_the_init(dockerfile_text):
         f"ENTRYPOINT does not route through an init: {entrypoint_line!r}. "
         "If tini is only installed but not wired into ENTRYPOINT, hermes "
         "still runs as PID 1 and zombies will accumulate (#15012)."
-    )
-
-
-def test_dockerfile_installs_tui_dependencies(dockerfile_text):
-    assert "ui-tui/package.json" in dockerfile_text
-    assert "ui-tui/packages/hermes-ink/package-lock.json" in dockerfile_text
-    assert any(
-        "ui-tui" in step and "npm" in step and (" install" in step or " ci" in step)
-        for step in _run_steps(dockerfile_text)
-    )
-
-
-def test_dockerfile_builds_tui_assets(dockerfile_text):
-    assert any(
-        "ui-tui" in step and "npm" in step and "run build" in step
-        for step in _run_steps(dockerfile_text)
-    )
-
-
-def test_dockerfile_materializes_local_tui_ink_package(dockerfile_text):
-    assert any(
-        "ui-tui" in step
-        and "node_modules/@hermes/ink" in step
-        and "packages/hermes-ink" in step
-        and "rm -rf packages/hermes-ink/node_modules" in step
-        and "npm install --omit=dev" in step
-        and "--prefix node_modules/@hermes/ink" in step
-        and "rm -rf node_modules/@hermes/ink/node_modules/react" in step
-        and "await import('@hermes/ink')" in step
-        for step in _run_steps(dockerfile_text)
     )
 
 

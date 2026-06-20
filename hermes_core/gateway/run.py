@@ -8,9 +8,6 @@ This module provides:
 Usage:
     # Start the gateway
     python -m gateway.run
-    
-    # Or from CLI
-    python cli.py --gateway
 """
 
 import asyncio

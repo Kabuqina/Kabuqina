@@ -646,7 +646,7 @@ class TestGatewayProtection:
 
     def test_pkill_hermes_detected(self):
         """pkill targeting hermes/gateway processes must be caught."""
-        cmd = 'pkill -f "cli.py --gateway"'
+        cmd = 'pkill -f "gateway.run --replace"'
         dangerous, key, desc = detect_dangerous_command(cmd)
         assert dangerous is True
         assert "self-termination" in desc

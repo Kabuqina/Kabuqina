@@ -27,7 +27,7 @@ def _agent_dbg_stt(line: dict) -> None:
     data_dir = (os.environ.get("HERMESDESK_DATA_DIR") or "").strip()
     if data_dir:
         candidates.append(Path(data_dir) / "logs" / "debug-914e79.log")
-    # Dev: hermes_core/hermes_cli/web_server.py -> parents[2] == repo root
+    # Dev: python/src/desk_server/voice_helpers.py -> parents[2] == repo root
     try:
         candidates.append(Path(__file__).resolve().parents[2] / "debug-914e79.log")
     except Exception:

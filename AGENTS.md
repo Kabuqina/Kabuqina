@@ -11,11 +11,11 @@
 ```
 Tauri 2 shell (Rust)
  ├─ Web shell (React/Vite, `web/`)        ← onboarding, /chat, settings
- ├─ Python child: desktop_entrypoint.py   ← Hermes web_server on loopback
+ ├─ Python child: desktop_entrypoint.py   ← desk_server on loopback
  └─ Python child: gateway.run (optional)  ← messaging adapters
 ```
 
-- **Web shell**（`web/src/`）不是 Hermes React UI。它负责 onboarding/settings/chat；需要完整控制台时，再跳转到 `http://127.0.0.1:<random-port>` 上的 Hermes React dashboard（由 `hermes_core/web/` 构建）。
+- **Web shell**（`web/src/`）不是 Hermes React UI。它负责 onboarding/settings/chat；桌面端不再打包或跳转上游 Hermes dashboard。
 - **两个独立 Python 进程**：web child 跑 `desktop_entrypoint.py`；gateway child 跑 `python -m gateway.run`。它们不共享内存。`strip_shims.py` 防止 web child 意外变成 gateway entrypoint。
 - Tauri ↔ Python 的通信全部走 **loopback-only HTTP/WS**，每次启动随机端口。
 - LLM API key 存在 **Windows Credential Manager**（通过 `keyring`/DPAPI），永不落盘。
@@ -39,7 +39,7 @@ cd tauri; cargo tauri dev
 ```
 
 - `web/` 下的 `npm run build` 使用 `tsc --noEmit`（不是 `tsc -b`），避免 Windows 上 `tsconfig.tsbuildinfo` 文件锁问题。
-- `build_bundle.ps1` 也会构建 Hermes 自己的 React SPA（`hermes_core/web/` → `hermes_core/hermes_cli/web_dist/`），优先通过 Git Bash 执行（`sync-assets` 使用 POSIX `rm`/`cp`）；没有 Git Bash 时回退到直接 `npm run build`。
+- `build_bundle.ps1` 只打包桌面 Python runtime；不再构建或复制上游 Hermes React SPA / `hermes_cli/web_dist`。
 
 ## Policy layer（`python/src/`）
 
@@ -200,11 +200,11 @@ cd tauri; cargo tauri icon ..\web\public\kabuqina_na_256.png
 ```
 Tauri 2 shell (Rust)
  ├─ Web shell (React/Vite, `web/`)        ← onboarding, /chat, settings
- ├─ Python child: desktop_entrypoint.py   ← Hermes web_server on loopback
+ ├─ Python child: desktop_entrypoint.py   ← desk_server on loopback
  └─ Python child: gateway.run (optional)  ← messaging adapters
 ```
 
-- The **web shell** (`web/src/`) is NOT the Hermes React UI. It handles onboarding/settings/chat, then redirects to Hermes' React dashboard at `http://127.0.0.1:<random-port>` (built from `hermes_core/web/`).
+- The **web shell** (`web/src/`) is NOT the Hermes React UI. It handles onboarding/settings/chat; the desktop product no longer bundles or redirects to the upstream Hermes dashboard.
 - **Two separate Python processes** — the web child runs `desktop_entrypoint.py`; the gateway child runs `python -m gateway.run`. They don't share memory. `strip_shims.py` prevents the web child from accidentally becoming the gateway entrypoint.
 - All comms between Tauri ↔ Python use **loopback-only HTTP/WS on random ports** per launch.
 - LLM API keys live in **Windows Credential Manager** (DPAPI via `keyring`), never on disk.
@@ -228,7 +228,7 @@ cd tauri; cargo tauri dev
 ```
 
 - `npm run build` in `web/` uses `tsc --noEmit` (not `tsc -b`) to avoid `tsconfig.tsbuildinfo` locking on Windows.
-- `build_bundle.ps1` also builds Hermes' own React SPA (`hermes_core/web/` → `hermes_core/hermes_cli/web_dist/`) via Git Bash (`sync-assets` uses POSIX `rm`/`cp`). On machines without Git Bash, it falls back to `npm run build` directly.
+- `build_bundle.ps1` only packages the desktop Python runtime; it no longer builds or copies the upstream Hermes React SPA / `hermes_cli/web_dist`.
 
 ## Policy layer (`python/src/`)
 

@@ -12,12 +12,12 @@ This applies to the **Hermes web child** (`desktop_entrypoint.py`), not to the
 **separate messaging-gateway process** Tauri spawns (`python -m gateway.run`).
 
 The bundled tree **does ship** upstream ``gateway/`` sources on disk; we only
-prevent ``web_server`` / CLI dispatch paths from treating ``gateway.run.main``
-as the live gateway entry inside **that** interpreter — messaging adapters run in
-their **own** OS child with an unstubbed ``gateway.run``.
+prevent the web-child interpreter from treating ``gateway.run.main`` as the
+live gateway entry inside **that** process — messaging adapters run in their
+**own** OS child with an unstubbed ``gateway.run``.
 
 Fully removed from the desktop **import surface** (AttributeError guides users
-upstream): ``tui_gateway``, ``acp_adapter``, ``acp_registry``, RL helpers, etc.
+upstream): ``acp_adapter``, ``acp_registry``, RL helpers, etc.
 Some upstream code imports symbols unconditionally; rather than fragile forks we
 register placeholders in ``sys.modules``.
 
@@ -26,9 +26,8 @@ Two flavours of placeholder exist:
 * `_Stripped` -- attribute access raises ImportError with a clear message.
   Used for fully removed subsystems (e.g. RL training).
 * `_StubModule` -- exposes a small set of pre-populated attributes
-  (typically callables that return None). Used when upstream `web_server`
-  / `main` code imports specific symbols at module load that we cannot
-  let raise.
+  (typically callables that return None). Used for web-child gateway leaf
+  modules that must not run in that process.
 """
 
 from __future__ import annotations
@@ -40,8 +39,6 @@ from typing import Any, Dict
 
 
 _STRIPPED = (
-    "tui_gateway",
-    "tui_gateway.entry",
     "acp_adapter",
     "acp_adapter.entry",
     "acp_registry",
@@ -73,7 +70,7 @@ _STUBBED: Dict[str, Dict[str, Any]] = {
     # stub without ``__path__`` makes ``import gateway.platforms.base`` fail with
     # ``TypeError: 'function' object is not iterable``.
     #
-    # web_server still needs no-op PIDs / status; keep only these leaf stubs:
+    # The web child needs no-op PIDs / status; keep only these leaf stubs:
     "gateway.status": {
         "get_running_pid": _noop,
         "read_runtime_status": _noop,

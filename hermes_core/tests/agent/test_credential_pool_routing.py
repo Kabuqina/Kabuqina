@@ -1,47 +1,15 @@
 """Tests for credential pool preservation through turn config and 429 recovery.
 
 Covers:
-1. CLI _resolve_turn_agent_config passes credential_pool to runtime dict
-2. Gateway _resolve_turn_agent_config passes credential_pool to runtime dict
-3. Eager fallback deferred when credential pool has credentials
-4. Eager fallback fires when no credential pool exists
-5. Full 429 rotation cycle: retry-same → rotate → exhaust → fallback
+1. Gateway _resolve_turn_agent_config passes credential_pool to runtime dict
+2. Eager fallback deferred when credential pool has credentials
+3. Eager fallback fires when no credential pool exists
+4. Full 429 rotation cycle: retry-same -> rotate -> exhaust -> fallback
 """
 
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-
-# ---------------------------------------------------------------------------
-# 1. CLI _resolve_turn_agent_config includes credential_pool
-# ---------------------------------------------------------------------------
-
-class TestCliTurnRoutePool:
-    def test_resolve_turn_includes_pool(self):
-        """CLI's _resolve_turn_agent_config must pass credential_pool in runtime."""
-        fake_pool = MagicMock(name="FakePool")
-        shell = SimpleNamespace(
-            model="gpt-5.4",
-            api_key="sk-test",
-            base_url=None,
-            provider="openai-codex",
-            api_mode="codex_responses",
-            acp_command=None,
-            acp_args=[],
-            _credential_pool=fake_pool,
-            service_tier=None,
-        )
-
-        from cli import HermesCLI
-        bound = HermesCLI._resolve_turn_agent_config.__get__(shell)
-        route = bound("test message")
-
-        assert route["runtime"]["credential_pool"] is fake_pool
-
-
-# ---------------------------------------------------------------------------
-# 2. Gateway _resolve_turn_agent_config includes credential_pool
-# ---------------------------------------------------------------------------
 
 class TestGatewayTurnRoutePool:
     def test_resolve_turn_includes_pool(self):

@@ -306,9 +306,10 @@ class TestPostSetup:
         user_home = tmp_path / "user-home"
         user_home.mkdir()
         monkeypatch.setenv("HOME", str(user_home))
+        monkeypatch.setenv("USERPROFILE", str(user_home))
 
         selections = iter([1, 0])  # local_embedded, openai
-        monkeypatch.setattr("hermes_cli.memory_setup._curses_select", lambda *args, **kwargs: next(selections))
+        monkeypatch.setattr("plugins.memory.hindsight._select_choice", lambda *args, **kwargs: next(selections))
         monkeypatch.setattr("shutil.which", lambda name: None)
         monkeypatch.setattr("builtins.input", lambda prompt="": "")
         monkeypatch.setattr("sys.stdin.isatty", lambda: True)
@@ -340,9 +341,10 @@ class TestPostSetup:
         user_home = tmp_path / "user-home"
         user_home.mkdir()
         monkeypatch.setenv("HOME", str(user_home))
+        monkeypatch.setenv("USERPROFILE", str(user_home))
 
         selections = iter([1, 0])  # local_embedded, openai
-        monkeypatch.setattr("hermes_cli.memory_setup._curses_select", lambda *args, **kwargs: next(selections))
+        monkeypatch.setattr("plugins.memory.hindsight._select_choice", lambda *args, **kwargs: next(selections))
         monkeypatch.setattr("shutil.which", lambda name: None)
         monkeypatch.setattr("builtins.input", lambda prompt="": "")
         monkeypatch.setattr("sys.stdin.isatty", lambda: True)
@@ -363,9 +365,10 @@ class TestPostSetup:
         user_home = tmp_path / "user-home"
         user_home.mkdir()
         monkeypatch.setenv("HOME", str(user_home))
+        monkeypatch.setenv("USERPROFILE", str(user_home))
 
         selections = iter([1, 0])  # local_embedded, openai
-        monkeypatch.setattr("hermes_cli.memory_setup._curses_select", lambda *args, **kwargs: next(selections))
+        monkeypatch.setattr("plugins.memory.hindsight._select_choice", lambda *args, **kwargs: next(selections))
         monkeypatch.setattr("shutil.which", lambda name: None)
         monkeypatch.setattr("builtins.input", lambda prompt="": "")
         monkeypatch.setattr("sys.stdin.isatty", lambda: True)
@@ -390,6 +393,7 @@ class TestPostSetup:
         user_home = tmp_path / "user-home"
         user_home.mkdir()
         monkeypatch.setenv("HOME", str(user_home))
+        monkeypatch.setenv("USERPROFILE", str(user_home))
         monkeypatch.setattr("plugins.memory.hindsight.get_hermes_home", lambda: hermes_home)
 
         existing_config = {
@@ -410,7 +414,7 @@ class TestPostSetup:
 
         # Simulate pressing Enter at the mode and LLM-provider pickers, which
         # should select their current values, and pressing Enter at text prompts.
-        monkeypatch.setattr("hermes_cli.memory_setup._curses_select", lambda *args, **kwargs: kwargs.get("default", 0))
+        monkeypatch.setattr("plugins.memory.hindsight._select_choice", lambda *args, **kwargs: kwargs.get("default", 0))
         monkeypatch.setattr("shutil.which", lambda name: None)
         monkeypatch.setattr("builtins.input", lambda prompt="": "")
         monkeypatch.setattr("sys.stdin.isatty", lambda: True)
@@ -1444,4 +1448,3 @@ class TestShutdown:
         embedded.close.assert_called_once()
         assert embedded._client is None
         assert provider._client is None
-

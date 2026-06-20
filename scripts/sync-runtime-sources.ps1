@@ -111,7 +111,6 @@ $hermesKeep = @(
     "toolsets.py",
     "toolset_distributions.py",
     "trajectory_compressor.py",
-    "cli.py",
     "hermes_constants.py",
     "hermes_state.py",
     "hermes_time.py",

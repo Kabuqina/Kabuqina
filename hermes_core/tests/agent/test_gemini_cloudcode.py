@@ -1130,10 +1130,10 @@ class TestProviderRegistration:
         assert determine_api_mode("google-gemini-cli", "cloudcode-pa://google") == "chat_completions"
 
     def test_oauth_capable_set_preserves_existing(self):
-        from hermes_cli.auth_commands import _OAUTH_CAPABLE_PROVIDERS
+        from hermes_cli.auth import PROVIDER_REGISTRY
 
         for required in ("anthropic", "nous", "openai-codex", "qwen-oauth", "google-gemini-cli"):
-            assert required in _OAUTH_CAPABLE_PROVIDERS
+            assert required in PROVIDER_REGISTRY
 
     def test_config_env_vars_registered(self):
         from hermes_cli.config import OPTIONAL_ENV_VARS

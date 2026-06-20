@@ -541,19 +541,18 @@ def validate_config(config) -> bool:
 def interactive_setup() -> None:
     """Interactive `hermes gateway setup` flow for the IRC platform.
 
-    Lazy-imports ``hermes_cli.setup`` helpers so the plugin stays importable
+    Lazy-imports retained CLI helpers so the plugin stays importable
     in non-CLI contexts (gateway runtime, tests).
     """
-    from hermes_cli.setup import (
+    from hermes_cli.cli_output import (
         prompt,
         prompt_yes_no,
-        save_env_value,
-        get_env_value,
         print_header,
         print_info,
         print_warning,
         print_success,
     )
+    from hermes_cli.config import get_env_value, save_env_value
 
     print_header("IRC")
     existing_server = get_env_value("IRC_SERVER")

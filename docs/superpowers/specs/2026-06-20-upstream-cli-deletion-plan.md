@@ -15,11 +15,21 @@ Date: 2026-06-20
   **Nous feature kept** (tools_config.py imports nous_subscription at module level,
   so it is core, not a CLI-only feature — only its setup import was severed).
   Audit now shows only the two `gateway → main/setup` hooks, which dissolve in step 4.
-- [ ] **Step 4 — Delete `hermes_cli/gateway`** (+ remove the lazy import in `profiles.py`).
-- [ ] **Step 5 — Re-run the audit**; confirm cluster unreachable.
-- [ ] **Step 6 — Per-module dynamic-reference check** (`importlib`/string imports).
-- [ ] **Step 7 — Bulk-delete** the cluster + tests, grouped commits + verify each.
+- [x] **Step 4 — Delete `hermes_cli/gateway`** (+ remove the lazy import in `profiles.py`).
+  Done in two parts: `profiles.py` no longer imports the CLI gateway bridge, and
+  `hermes_cli/dump.py` uses retained `gateway.status` for gateway status.
+- [x] **Step 5 — Re-run the audit**; confirmed zero remaining deletable modules
+  and no hooks from retained runtime into the deleted cluster.
+- [x] **Step 6 — Per-module dynamic-reference check** (`importlib`/string imports).
+  Live runtime grep is clean except the audit script's intentional block list.
+- [x] **Step 7 — Bulk-delete** the cluster + tests, grouped commits + verify each.
+  Deleted the upstream CLI entrypoint, CLI command/support modules, upstream
+  dashboard assets, TUI source, and obsolete CLI/TUI tests. Mixed runtime tests
+  were retargeted instead of deleted.
 - [ ] **Step 8 — Rebuild the bundle**; confirm the ~42k-line reduction + smoke.
+  Attempted on 2026-06-20 with `.\python\build_bundle.ps1 -Verify`; it timed
+  out after 30 minutes during dependency install, the leftover pip child was
+  killed, and `python/dist/runtime/BUNDLE_INFO.json` was not refreshed.
 
 ## Why
 
@@ -97,18 +107,18 @@ Unreachable once the hooks below are severed. Line counts from the audit:
 | 97 | `hermes_cli/pairing.py` | CLI pairing (desktop pairing is Rust + qr workers) |
 | 70 | `hermes_cli/vercel_auth.py` | vercel (global-cut provider) |
 
-This is a **floor**: several CLI-display modules (`commands`, `curses_ui`,
-`skin_engine`, `cli_output`, `dump`, `logs`, `debug`, `default_soul`) currently
-stay only because the `hermes_cli.gateway` bridge (see knot below) pulls them in.
-Resolving that bridge frees them too.
+Final audit after deletion reports no remaining delete-safe CLI cluster. Some
+display/helper modules (`commands`, `curses_ui`, `skin_engine`, `cli_output`,
+`dump`, `logs`, `debug`, `default_soul`) remain because retained config,
+plugin, and debug/status paths still import them.
 
 ## Keep — runtime genuinely needs these `hermes_cli` modules
 
 `auth`, `config`, `tools_config`, `models`, `model_catalog`, `model_normalize`,
 `model_switch`, `runtime_provider`, `providers`, `plugins`, `plugins_cmd`,
 `skills_config`, `env_loader`, `colors`, `timeouts`, `copilot_auth`,
-`codex_models`, `profiles`, `nous_subscription`, `tips`, `dingtalk_auth`,
-`gateway`, plus the display modules pulled by the gateway bridge.
+`codex_models`, `profiles`, `nous_subscription`, `tips`, `cli_output`, `commands`,
+`curses_ui`, `debug`, `default_soul`, `dump`, `logs`, and `skin_engine`.
 
 `auth.py` (4745) is **core**, not CLI — the agent/provider/credential layer
 (`credential_pool`, `auxiliary_client`, `account_usage`, `credential_sources`)
@@ -162,16 +172,21 @@ blocker, and resolving it frees the display modules `hermes_cli/gateway` pulled.
    `dingtalk_auth` and `nous_subscription`. Nous feature kept (it is a core
    tools_config dependency, not CLI-only). Audit now shows only the two
    `gateway → main/setup` hooks.
-4. **Sever the knot** (#3) per step 1's decision. Commit.
-5. **Re-run the audit** (`scripts/_audit_cli_reachability.py`) — confirm `cli`,
-   `main`, `setup`, `web_server` and the support cluster are now unreachable.
-6. **Per-module dynamic-reference check**: grep each deletable module name for
-   `importlib`/string imports before removal.
-7. **Bulk-delete** the cluster + its tests, in grouped commits (entrypoints;
-   command modules; display modules). After each group: kabuqina compat
-   guardrails + `desk_server` tests + gateway/cron tests + a runtime smoke.
+4. **Sever the knot** (#3) per step 1's decision — ✅ **DONE (2026-06-20).**
+   Removed the `profiles.py` lazy gateway bridge and replaced `dump.py`'s
+   gateway-status dependency with retained `gateway.status`.
+5. **Re-run the audit** (`scripts/_audit_cli_reachability.py`) — ✅ **DONE
+   (2026-06-20).** Final audit reports zero deletable modules and no hooks.
+6. **Per-module dynamic-reference check** — ✅ **DONE (2026-06-20).** Runtime
+   grep is clean except the audit script's intentional block list.
+7. **Bulk-delete** the cluster + its tests — ✅ **DONE (2026-06-20).** Removed
+   the CLI entrypoint, CLI command/support modules, upstream dashboard assets,
+   TUI source, and obsolete CLI/TUI tests; retained mixed runtime tests by
+   deleting only their CLI-specific assertions.
 8. **Rebuild the bundle** and confirm the ~42k-line reduction lands and the
-   desktop still boots, chats, and runs file/web/document tools.
+   desktop still boots, chats, and runs file/web/document tools. Attempted on
+   2026-06-20; timed out before the bundle metadata was refreshed, so this
+   remains open.
 
 ## Verification
 

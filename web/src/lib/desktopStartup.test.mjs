@@ -74,6 +74,6 @@ const buildBundle = fs.readFileSync(
   "utf8",
 );
 assert.ok(
-  buildBundle.includes("BuildHermesDashboard"),
-  "build_bundle.ps1 should gate Hermes dashboard SPA behind -BuildHermesDashboard.",
+  buildBundle.includes("upstream Hermes dashboard SPA is no longer bundled"),
+  "build_bundle.ps1 should keep the upstream Hermes dashboard out of the desktop bundle.",
 );

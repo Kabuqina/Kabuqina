@@ -66,6 +66,19 @@ _PROVIDER_DEFAULT_MODELS = {
 }
 
 
+def _select_choice(question: str, items: list, default: int = 0) -> int:
+    """Prompt for a setup choice without depending on the deleted CLI wizard."""
+    from hermes_cli.cli_output import prompt_choice
+
+    choices = []
+    for item in items:
+        if isinstance(item, (list, tuple)) and len(item) >= 2:
+            choices.append(f"{item[0]} - {item[1]}")
+        else:
+            choices.append(str(item))
+    return prompt_choice(question, choices, default=default)
+
+
 def _parse_int_setting(value: Any, default: int) -> int:
     """Parse an integer config/env value, falling back on invalid input."""
     if value is None or value == "":
@@ -539,8 +552,6 @@ class HindsightMemoryProvider(MemoryProvider):
 
         from hermes_cli.config import save_config
 
-        from hermes_cli.memory_setup import _curses_select
-
         print("\n  Configuring Hindsight memory:\n")
 
         existing_config = self._config if isinstance(self._config, dict) else _load_config()
@@ -556,7 +567,7 @@ class HindsightMemoryProvider(MemoryProvider):
         ]
         existing_mode = existing_config.get("mode")
         mode_default_idx = mode_values.index(existing_mode) if existing_mode in mode_values else 0
-        mode_idx = _curses_select("  Select mode", mode_items, default=mode_default_idx)
+        mode_idx = _select_choice("  Select mode", mode_items, default=mode_default_idx)
         mode = mode_values[mode_idx]
 
         provider_config: dict = dict(existing_config)
@@ -628,7 +639,7 @@ class HindsightMemoryProvider(MemoryProvider):
             ]
             existing_llm_provider = provider_config.get("llm_provider")
             llm_default_idx = providers_list.index(existing_llm_provider) if existing_llm_provider in providers_list else 0
-            llm_idx = _curses_select("  Select LLM provider", llm_items, default=llm_default_idx)
+            llm_idx = _select_choice("  Select LLM provider", llm_items, default=llm_default_idx)
             llm_provider = providers_list[llm_idx]
 
             provider_config["llm_provider"] = llm_provider
