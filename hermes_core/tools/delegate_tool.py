@@ -2320,21 +2320,13 @@ def _resolve_delegation_credentials(cfg: dict, parent_agent) -> dict:
 
 
 def _load_config() -> dict:
-    """Load delegation config from CLI_CONFIG or persistent config.
+    """Load delegation config from the persistent config (``config.yaml``).
 
-    Checks the runtime config (cli.py CLI_CONFIG) first, then falls back
-    to the persistent config (hermes_cli/config.py load_config()) so that
-    ``delegation.model`` / ``delegation.provider`` are picked up regardless
-    of the entry point (CLI, gateway, cron).
+    Reads ``delegation.*`` from ``hermes_cli/config.py`` ``load_config()`` so it
+    works the same across every entry point (desktop, gateway, cron). The old
+    ``cli.py CLI_CONFIG`` (cli-config.yaml overlay) branch was removed with the
+    upstream CLI.
     """
-    try:
-        from cli import CLI_CONFIG
-
-        cfg = CLI_CONFIG.get("delegation", {})
-        if cfg:
-            return cfg
-    except Exception:
-        pass
     try:
         from hermes_cli.config import load_config
 

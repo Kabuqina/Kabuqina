@@ -100,9 +100,9 @@ a delete.
 
 | # | Hook | Handling |
 |---|---|---|
-| 1 | `gateway/run.py` → `from cli import save_config_value` | Move `save_config_value` into a retained module (`hermes_cli/config.py`); update the gateway import. |
-| 2 | `tools/delegate_tool.py` → `from cli import CLI_CONFIG` | Relocate/inline `CLI_CONFIG` (it is a config-shaped constant) into a retained module. |
-| 3 | `hermes_cli/gateway.py` → `hermes_cli.main`, `hermes_cli.setup` | **The knot.** Determine whether the gateway *runtime* needs `hermes_cli.gateway` at all, or only a few helpers (see below). |
+| 1 | `gateway/run.py` → `from cli import save_config_value` | ✅ Done — `save_config_value` added to `hermes_cli/config.py`; gateway imports it from there. |
+| 2 | `tools/delegate_tool.py` → `from cli import CLI_CONFIG` | ✅ Done — dropped the `CLI_CONFIG` branch; `_load_config` uses `load_config()` only. |
+| 3 | `hermes_cli/gateway.py` → `hermes_cli.main`, `hermes_cli.setup` | ✅ Resolved (knot) — `hermes_cli/gateway` is deletable; dissolved by deleting it (remove one lazy import in `profiles.py`). See below. |
 | 4 | `hermes_cli/dingtalk_auth.py` → `hermes_cli.setup` | `dingtalk_auth` only uses `setup`'s `print_info/print_success/...`. Move those tiny console helpers to a retained util (e.g. `hermes_cli/cli_output.py`). DingTalk source is kept for `sea`. |
 | 5 | `hermes_cli/nous_subscription.py` → `hermes_cli.setup` | Same console-helper relocation, plus decide whether the Nous subscription feature is retained (`agent/prompt_builder.py` calls `get_nous_subscription_features`). If dropped, sever that call too. |
 
@@ -110,31 +110,34 @@ a delete.
 keep set today, but if the gateway banner/tip is dropped, `tips` becomes
 deletable too — optional extra ~ a few hundred lines.)
 
-## The knot: `hermes_cli/gateway.py`
+## The knot: `hermes_cli/gateway.py` — RESOLVED (2026-06-20, benign)
 
-`hermes_cli/gateway.py` (4379 lines) is reachable from the runtime (the audit
-keeps it), and it imports the deletable `main` and `setup`. The blocking question
-for the whole effort:
+Investigated in step 1. **`gateway/run.py` does not import `hermes_cli/gateway`
+at all.** The gateway runtime only needs `hermes_cli.profiles.get_active_profile_name`
+(small, keep). `hermes_cli/gateway` is reachable only because `profiles.py:627`
+has a **lazy** `from hermes_cli.gateway import get_service_name, get_launchd_plist_path`
+inside a CLI-only service/launchd-management function that the desktop/gateway
+runtime never calls — plus imports from other deletable CLI modules (cron/doctor/
+dump/status/uninstall).
 
-- **Does the gateway runtime (`gateway/run.py`) actually require
-  `hermes_cli/gateway.py`, or does it only pull a few helpers?**
-
-`hermes_cli/gateway.py` is the `hermes gateway` **CLI command** module. The
-desktop starts the gateway via the Rust supervisor → `gateway/run.py` directly,
-not via the CLI. If `gateway/run.py`'s dependency on `hermes_cli/gateway` is only
-a handful of helpers, extract those into a retained gateway util and then
-`hermes_cli/gateway.py` joins the deletable set (and frees the display modules it
-pulls). Resolve this before committing to the bulk delete — it sets the true
-effort and the final deletable line count.
+Conclusion: **`hermes_cli/gateway.py` is deletable**, not a split. No extraction
+needed — during the bulk delete, remove that one lazy import (and the CLI-only
+service function around it) from `profiles.py`. Deleting `hermes_cli/gateway`
+also dissolves hook #3 (its `→ main`/`→ setup` edges). The knot is **not** a
+blocker, and resolving it frees the display modules `hermes_cli/gateway` pulled.
 
 ## Execution sequence
 
-1. **Resolve the knot first** (investigation, no deletion): map exactly what
-   `gateway/run.py` imports from `hermes_cli/gateway`, and what `hermes_cli/gateway`
-   needs from `main`/`setup`. Decide: extract-helpers-and-delete vs keep-and-split.
-2. **Sever the cheap hooks** (#1, #2): relocate `save_config_value` and
-   `CLI_CONFIG` into retained modules; update the two importers. Run guardrails +
-   gateway smoke. Commit.
+1. **Resolve the knot first** — ✅ **DONE (2026-06-20).** `hermes_cli/gateway` is
+   deletable (gateway runtime does not import it; only a lazy CLI-only import in
+   `profiles.py` references it). See the knot section above.
+2. **Sever the cheap hooks** (#1, #2) — ✅ **DONE (2026-06-20).**
+   `save_config_value` was copied into `hermes_cli/config.py` and `gateway/run.py`
+   now imports it from there; `tools/delegate_tool._load_config` dropped its
+   `from cli import CLI_CONFIG` branch (it already fell back to `load_config()`).
+   The re-run audit shows both `→ cli` hooks gone. Verified by compat guardrails,
+   desk_server, and the delegate tests. (cli.py's own `save_config_value` stays
+   until the bulk delete removes cli.py.)
 3. **Relocate console helpers** (#4, #5): move `setup`'s `print_*` helpers to a
    retained util; repoint `dingtalk_auth` and `nous_subscription`. Decide the Nous
    feature. Commit.
