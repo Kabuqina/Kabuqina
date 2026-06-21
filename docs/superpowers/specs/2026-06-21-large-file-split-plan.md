@@ -81,6 +81,18 @@ Date: 2026-06-21
     `resolve_external_process_provider_credentials`) stay in `auth.py` and use
     the re-exported helpers. Guarded by two more assertions in
     `tests/agent/test_provider_package_split.py`.
+  - [x] Extracted the **shared OAuth/JWT/timestamp leaf helpers** into
+    `providers/oauth_helpers.py`: `_token_fingerprint`, `_oauth_trace(_enabled)`,
+    `_parse_iso_timestamp`, `_is_expiring`, `_coerce_ttl_seconds`,
+    `_optional_base_url`, `_decode_jwt_claims`,
+    `_codex_access_token_is_expiring`. Stdlib-only, zero coupling to the CLI /
+    registry / store, so any provider module can import them without a cycle —
+    this unblocks the per-provider resolver moves. `hermes_cli.auth` re-exports
+    them. (Lesson: the split guardrail only checks existence/identity; a missing
+    `import hashlib` in the new module passed the guardrail but was caught by the
+    functional smoke. Run a quick functional smoke of moved leaf helpers, not
+    just the identity test.) Guarded by two more assertions in
+    `tests/agent/test_provider_package_split.py`.
   - [ ] Remaining `hermes_cli/auth.py` extraction: the per-provider runtime
     credential resolvers (see continuation point below).
 - [ ] **Step 3 — `config.py`**: not started.
@@ -248,15 +260,24 @@ internal callers move; the kabuqina compat guardrails stay green throughout.
 
 ## Current continuation point
 
-Continue the remaining **step 2** work inside `hermes_cli/auth.py`. The
-auth-store persistence layer (`providers/auth_store.py`) and the
-registry-independent API-key helpers (`providers/api_key_auth.py`) are done.
-Next, each a pure move + re-export with a split guardrail:
+Continue the remaining **step 2** work inside `hermes_cli/auth.py`. Done so far:
+the auth-store persistence layer (`providers/auth_store.py`), the
+registry-independent API-key helpers (`providers/api_key_auth.py`), and the
+shared OAuth/JWT/timestamp leaf helpers (`providers/oauth_helpers.py`). The
+shared infra resolvers depend on is now extracted, so the per-provider moves
+are unblocked. Next, each a pure move + re-export with a split guardrail:
 
 1. **Per-provider runtime resolvers** → `providers/<name>_auth.py` (Qwen,
    Gemini-OAuth, Codex, Nous, Minimax, Spotify): the `resolve_*_runtime_credentials`
    / `get_*_auth_status` / token-refresh mechanics. Leave the interactive
    `_login_*` / `*_command` argparse+printing code in `hermes_cli/auth.py`.
+   Start with the smallest/most-isolated provider (Qwen or Gemini-OAuth) to
+   re-establish the pattern; Nous is the largest and most entangled, do it last.
+   These persist via the store primitives (`providers.auth_store`) and use the
+   shared helpers (`providers.oauth_helpers`) — import both directly in the new
+   module. `AuthError` is still in `auth.py`; a resolver module needs it via a
+   lazy `from hermes_cli.auth import AuthError` (or move `AuthError` into a small
+   `providers/auth_errors.py` first to avoid the lazy import).
    These are larger and more entangled (each persists via the store primitives
    and several share OAuth/JWT/timestamp helpers — `_parse_iso_timestamp`,
    `_is_expiring`, `_decode_jwt_claims`, `_coerce_ttl_seconds`, `_oauth_trace*`,

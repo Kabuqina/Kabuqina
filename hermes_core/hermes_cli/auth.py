@@ -84,6 +84,20 @@ from providers.api_key_auth import (  # noqa: E402,F401
     ZAI_ENDPOINTS,
 )
 
+# Shared OAuth/JWT/timestamp helpers now live in providers.oauth_helpers;
+# re-export them so existing call sites keep working.
+from providers.oauth_helpers import (  # noqa: E402,F401
+    _codex_access_token_is_expiring,
+    _coerce_ttl_seconds,
+    _decode_jwt_claims,
+    _is_expiring,
+    _oauth_trace,
+    _oauth_trace_enabled,
+    _optional_base_url,
+    _parse_iso_timestamp,
+    _token_fingerprint,
+)
+
 logger = logging.getLogger(__name__)
 
 try:
@@ -523,31 +537,6 @@ def format_auth_error(error: Exception) -> str:
     return str(error)
 
 
-def _token_fingerprint(token: Any) -> Optional[str]:
-    """Return a short hash fingerprint for telemetry without leaking token bytes."""
-    if not isinstance(token, str):
-        return None
-    cleaned = token.strip()
-    if not cleaned:
-        return None
-    return hashlib.sha256(cleaned.encode("utf-8")).hexdigest()[:12]
-
-
-def _oauth_trace_enabled() -> bool:
-    raw = os.getenv("HERMES_OAUTH_TRACE", "").strip().lower()
-    return raw in {"1", "true", "yes", "on"}
-
-
-def _oauth_trace(event: str, *, sequence_id: Optional[str] = None, **fields: Any) -> None:
-    if not _oauth_trace_enabled():
-        return
-    payload: Dict[str, Any] = {"event": event}
-    if sequence_id:
-        payload["sequence_id"] = sequence_id
-    payload.update(fields)
-    logger.info("oauth_trace %s", json.dumps(payload, sort_keys=True, ensure_ascii=False))
-
-
 # =============================================================================
 # Auth provider lookups (registry-coupled)
 #
@@ -774,67 +763,11 @@ def resolve_provider(
 
 
 # =============================================================================
-# Timestamp / TTL helpers
+# Per-provider runtime credential resolvers
+#
+# Shared OAuth/JWT/timestamp leaf helpers used below now live in
+# providers.oauth_helpers (re-exported at the top of this module).
 # =============================================================================
-
-def _parse_iso_timestamp(value: Any) -> Optional[float]:
-    if not isinstance(value, str) or not value:
-        return None
-    text = value.strip()
-    if not text:
-        return None
-    if text.endswith("Z"):
-        text = text[:-1] + "+00:00"
-    try:
-        parsed = datetime.fromisoformat(text)
-    except Exception:
-        return None
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.timestamp()
-
-
-def _is_expiring(expires_at_iso: Any, skew_seconds: int) -> bool:
-    expires_epoch = _parse_iso_timestamp(expires_at_iso)
-    if expires_epoch is None:
-        return True
-    return expires_epoch <= (time.time() + skew_seconds)
-
-
-def _coerce_ttl_seconds(expires_in: Any) -> int:
-    try:
-        ttl = int(expires_in)
-    except Exception:
-        ttl = 0
-    return max(0, ttl)
-
-
-def _optional_base_url(value: Any) -> Optional[str]:
-    if not isinstance(value, str):
-        return None
-    cleaned = value.strip().rstrip("/")
-    return cleaned if cleaned else None
-
-
-def _decode_jwt_claims(token: Any) -> Dict[str, Any]:
-    if not isinstance(token, str) or token.count(".") != 2:
-        return {}
-    payload = token.split(".")[1]
-    payload += "=" * ((4 - len(payload) % 4) % 4)
-    try:
-        raw = base64.urlsafe_b64decode(payload.encode("utf-8"))
-        claims = json.loads(raw.decode("utf-8"))
-    except Exception:
-        return {}
-    return claims if isinstance(claims, dict) else {}
-
-
-def _codex_access_token_is_expiring(access_token: Any, skew_seconds: int) -> bool:
-    claims = _decode_jwt_claims(access_token)
-    exp = claims.get("exp")
-    if not isinstance(exp, (int, float)):
-        return False
-    return float(exp) <= (time.time() + max(0, int(skew_seconds)))
 
 
 def _qwen_cli_auth_path() -> Path:

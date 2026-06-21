@@ -145,3 +145,36 @@ def test_hermes_cli_auth_reexports_api_key_auth_helpers():
             f"hermes_cli.auth.{name} must re-export providers.api_key_auth.{name}"
         )
 
+
+# Shared OAuth / JWT / timestamp leaf helpers moved from hermes_cli.auth into
+# providers.oauth_helpers (stdlib-only; importable by any provider module
+# without a cycle). hermes_cli.auth re-exports them for existing call sites.
+_OAUTH_HELPERS = (
+    "_token_fingerprint",
+    "_oauth_trace_enabled",
+    "_oauth_trace",
+    "_parse_iso_timestamp",
+    "_is_expiring",
+    "_coerce_ttl_seconds",
+    "_optional_base_url",
+    "_decode_jwt_claims",
+    "_codex_access_token_is_expiring",
+)
+
+
+def test_oauth_helpers_live_in_providers_package():
+    import providers.oauth_helpers as oauth_helpers
+
+    for name in _OAUTH_HELPERS:
+        assert hasattr(oauth_helpers, name), f"providers.oauth_helpers missing {name}"
+
+
+def test_hermes_cli_auth_reexports_oauth_helpers():
+    import hermes_cli.auth as auth
+    import providers.oauth_helpers as oauth_helpers
+
+    for name in _OAUTH_HELPERS:
+        assert getattr(auth, name) is getattr(oauth_helpers, name), (
+            f"hermes_cli.auth.{name} must re-export providers.oauth_helpers.{name}"
+        )
+
