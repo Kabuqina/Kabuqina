@@ -216,6 +216,9 @@ Two reminders before splitting:
    retained providers (`kimi`, `zai`, `minimax`, `alibaba`, …). Extracting these
    into a `providers/` package turns "surgery in a shared 3.8k-line file" into
    "delete a few provider files" — the v0.3.x provider-deletion item depends on it.
+   That deletion is **now in progress** (it became tractable once the shared
+   auth infra was extracted); its recipe, tiers, and checklist live in
+   `2026-06-22-provider-deletion-plan.md` (`arcee` done as of 2026-06-22).
 2. **Maintainability of the hot path + the student surface.** `run_agent.py`
    (14k) and `document_tools.py` (3k, the student PPT/report/docling path) are the
    files most in the way of ongoing work.
