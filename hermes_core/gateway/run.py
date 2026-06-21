@@ -2298,7 +2298,7 @@ class GatewayRunner:
         # any entries whose event loop is now dead so their httpx transports do
         # not accumulate across gateway turns.
         try:
-            from agent.auxiliary_client import cleanup_stale_async_clients
+            from providers.chat_completions import cleanup_stale_async_clients
             cleanup_stale_async_clients()
         except Exception:
             pass
@@ -3336,7 +3336,7 @@ class GatewayRunner:
             # async httpx transports until they hit EMFILE on macOS's default
             # RLIMIT_NOFILE=256.  See #14210.
             try:
-                from agent.auxiliary_client import shutdown_cached_clients
+                from providers.chat_completions import shutdown_cached_clients
                 shutdown_cached_clients()
             except Exception as _e:
                 logger.debug("shutdown_cached_clients error: %s", _e)
@@ -4900,7 +4900,7 @@ class GatewayRunner:
         if "@" in message_text:
             try:
                 from agent.context_references import preprocess_context_references_async
-                from agent.model_metadata import get_model_context_length
+                from providers.model_metadata import get_model_context_length
 
                 _msg_cwd = os.environ.get("TERMINAL_CWD", os.path.expanduser("~"))
                 _msg_runtime = _resolve_runtime_agent_kwargs()
@@ -5118,7 +5118,7 @@ class GatewayRunner:
         #    means hygiene fires a bit early - safe and harmless.
         # -----------------------------------------------------------------
         if history and len(history) >= 4:
-            from agent.model_metadata import (
+            from providers.model_metadata import (
                 estimate_messages_tokens_rough,
                 get_model_context_length,
             )
@@ -5942,7 +5942,7 @@ class GatewayRunner:
         users can immediately see if context detection went wrong (e.g.
         local models falling to the 128K default).
         """
-        from agent.model_metadata import get_model_context_length, DEFAULT_FALLBACK_CONTEXT
+        from providers.model_metadata import get_model_context_length, DEFAULT_FALLBACK_CONTEXT
 
         model = _resolve_gateway_model()
         config_context_length = None
@@ -8101,7 +8101,7 @@ class GatewayRunner:
         try:
             from run_agent import AIAgent
             from agent.manual_compression_feedback import summarize_manual_compression
-            from agent.model_metadata import estimate_messages_tokens_rough
+            from providers.model_metadata import estimate_messages_tokens_rough
 
             session_key = self._session_key_for_source(source)
             model, runtime_kwargs = self._resolve_session_agent_runtime(
@@ -8539,7 +8539,7 @@ class GatewayRunner:
         session_entry = self.session_store.get_or_create_session(source)
         history = self.session_store.load_transcript(session_entry.session_id)
         if history:
-            from agent.model_metadata import estimate_messages_tokens_rough
+            from providers.model_metadata import estimate_messages_tokens_rough
             msgs = [m for m in history if m.get("role") in ("user", "assistant") and m.get("content")]
             approx = estimate_messages_tokens_rough(msgs)
             lines = [
@@ -9572,8 +9572,8 @@ class GatewayRunner:
         tracks ``/model`` switches automatically on the next message.
         """
         try:
-            from agent.image_routing import decide_image_input_mode
-            from agent.auxiliary_client import _read_main_model, _read_main_provider
+            from providers.image_routing import decide_image_input_mode
+            from providers.chat_completions import _read_main_model, _read_main_provider
             from hermes_cli.config import load_config
 
             cfg = load_config()
@@ -11770,7 +11770,7 @@ class GatewayRunner:
                 self._pending_native_image_paths = []
                 if _native_imgs:
                     try:
-                        from agent.image_routing import build_native_content_parts
+                        from providers.image_routing import build_native_content_parts
                         _parts, _skipped = build_native_content_parts(
                             message,
                             _native_imgs,

@@ -1046,7 +1046,7 @@ def _toolset_has_keys(ts_key: str, config: dict = None) -> bool:
 
     if ts_key == "vision":
         try:
-            from agent.auxiliary_client import resolve_vision_provider_client
+            from providers.chat_completions import resolve_vision_provider_client
 
             _provider, client, _model = resolve_vision_provider_client()
             return client is not None

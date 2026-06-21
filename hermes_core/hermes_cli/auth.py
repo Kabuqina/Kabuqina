@@ -526,7 +526,7 @@ def _resolve_api_key_provider_secret(
 
     # Fallback: try credential pool (e.g. zai key stored via auth.json)
     try:
-        from agent.credential_pool import load_pool
+        from providers.credential_pool import load_pool
         pool = load_pool(provider_id)
         if pool and pool.has_credentials():
             entry = pool.peek()
@@ -2981,7 +2981,7 @@ def persist_nous_credentials(
     Returns the upserted :class:`PooledCredential` entry (or ``None`` if
     seeding somehow produced no match — shouldn't happen).
     """
-    from agent.credential_pool import load_pool
+    from providers.credential_pool import load_pool
 
     state = dict(creds)
     if label and str(label).strip():
@@ -3271,7 +3271,7 @@ def _snapshot_nous_pool_status() -> Dict[str, Any]:
     and mints against.
     """
     try:
-        from agent.credential_pool import load_pool
+        from providers.credential_pool import load_pool
 
         pool = load_pool("nous")
         if not pool or not pool.has_credentials():
@@ -3373,7 +3373,7 @@ def get_codex_auth_status() -> Dict[str, Any]:
     # Check credential pool first — this is where `hermes auth` and
     # `hermes model` store device_code tokens.
     try:
-        from agent.credential_pool import load_pool
+        from providers.credential_pool import load_pool
         pool = load_pool("openai-codex")
         if pool and pool.has_credentials():
             entry = pool.select()

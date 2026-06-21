@@ -744,7 +744,7 @@ class SamplingHandler:
         model = self._resolve_model(getattr(params, "modelPreferences", None))
 
         # Get auxiliary LLM client via centralized router
-        from agent.auxiliary_client import call_llm
+        from providers.chat_completions import call_llm
 
         # Model whitelist check (we need to resolve model before calling)
         resolved_model = model or self.model_override or ""

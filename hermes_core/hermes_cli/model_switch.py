@@ -559,7 +559,7 @@ def resolve_display_context_length(
     only if the resolver returns nothing.
     """
     try:
-        from agent.model_metadata import get_model_context_length
+        from providers.model_metadata import get_model_context_length
         ctx = get_model_context_length(
             model,
             base_url=base_url or "",
@@ -1212,7 +1212,7 @@ def list_authenticated_providers(
         # imports on demand but aren't in the raw auth.json yet.
         if not has_creds:
             try:
-                from agent.credential_pool import load_pool
+                from providers.credential_pool import load_pool
                 pool = load_pool(hermes_slug)
                 if pool.has_credentials():
                     has_creds = True
@@ -1227,7 +1227,7 @@ def list_authenticated_providers(
         # configured.
         if not has_creds and hermes_slug == "anthropic":
             try:
-                from agent.anthropic_adapter import (
+                from providers.anthropic import (
                     read_claude_code_credentials,
                     read_hermes_oauth_credentials,
                 )
@@ -1308,7 +1308,7 @@ def list_authenticated_providers(
                 pass
         if not _cp_has_creds:
             try:
-                from agent.credential_pool import load_pool
+                from providers.credential_pool import load_pool
                 _cp_pool = load_pool(_cp.slug)
                 if _cp_pool.has_credentials():
                     _cp_has_creds = True

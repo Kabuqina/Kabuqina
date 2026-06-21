@@ -22,7 +22,7 @@ import logging
 import re
 from typing import Dict, Any, List, Optional, Union
 
-from agent.auxiliary_client import async_call_llm, extract_content_or_reasoning
+from providers.chat_completions import async_call_llm, extract_content_or_reasoning
 MAX_SESSION_CHARS = 100_000
 MAX_SUMMARY_TOKENS = 10000
 

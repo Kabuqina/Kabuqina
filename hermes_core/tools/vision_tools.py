@@ -37,7 +37,7 @@ from pathlib import Path
 from typing import Any, Awaitable, Dict, Optional
 from urllib.parse import urlparse
 import httpx
-from agent.auxiliary_client import async_call_llm, extract_content_or_reasoning
+from providers.chat_completions import async_call_llm, extract_content_or_reasoning
 from hermes_constants import get_hermes_dir
 from tools.debug_helpers import DebugSession
 from tools.website_policy import check_website_access
@@ -687,7 +687,7 @@ async def vision_analyze_tool(
 def check_vision_requirements() -> bool:
     """Check if the configured runtime vision path can resolve a client."""
     try:
-        from agent.auxiliary_client import resolve_vision_provider_client
+        from providers.chat_completions import resolve_vision_provider_client
 
         _provider, client, _model = resolve_vision_provider_client()
         return client is not None

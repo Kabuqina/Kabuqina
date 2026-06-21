@@ -4,8 +4,9 @@ Date: 2026-06-21
 
 ## Progress
 
-- **Step 1 — `document_tools.py`: in progress, 2992 → 1102 lines (-63%).** Package
-  `tools/document/` established; reading and the PPTX writer are separated.
+- **Step 1 — `document_tools.py`: completed, 2992 → 145-line facade.** Package
+  `tools/document/` established; reading, PPTX, shared spec, PDF/HTML, and DOCX
+  writers are separated.
   - [x] `schemas.py` — the 6 JSON tool schemas (commit `7c4abe02`).
   - [x] `common.py` — shared leaf helpers (`_text/_list/_string_list/_dict`) +
     spec/path/data primitives (`DocumentSpecError`, `_json`, `_validate_read_path`,
@@ -18,17 +19,34 @@ Date: 2026-06-21
   - [x] `pptx_writer.py` — the PPTX deck writer (17 symbols; the most independent
     writer, only `_validate_write_path` was shared → moved to `common.py`).
     Extraction is decorator-aware (preserves `@dataclass` on `_PptxTheme`) (commit `e27f8b64`).
-  - [ ] `pdf_write`/`html_write`/`docx_write` + the **shared spec core** they use
+  - [x] `pdf_write`/`html_write`/`docx_write` + the **shared spec core** they use
     (`_coerce_json_container`, `_repair_jsonish`, `_build_pdf_spec`, `_pdf_block(s)`,
-    `_block_to_html`, `_normalize_pdf_template`) remain in `document_tools.py`
-    (~1102 lines). These three share a document/blocks normalization layer, so the
-    clean split is a `writers/spec.py` (shared) + thin per-format writers — more
-    entangled than PPTX was.
+    `_block_to_html`, `_normalize_pdf_template`) moved to `tools/document/spec.py`,
+    `pdf_writer.py`, and `docx_writer.py`; `document_tools.py` remains a public
+    registration/compat facade (commit `0cbd1816`).
   - Notes: (1) writers/readers are heavily monkeypatched by their tests; each
     extraction must retarget those patches/imports to the new module (as steps 1c/1d
     did). (2) AST symbol extraction must be **decorator-aware** (start at the first
     decorator line) or it silently drops `@dataclass`/`@lru_cache`.
-- [ ] **Step 2 — providers** (`auxiliary_client` + `auth` → `providers/`): not started.
+- **Step 2 — providers** (`auxiliary_client` + `auth` → `providers/`): in progress.
+  - [x] Established `providers/` package surface and moved the first provider
+    slice mechanically:
+    `agent/auxiliary_client.py` → `providers/chat_completions.py`,
+    `agent/anthropic_adapter.py` → `providers/anthropic.py`,
+    `agent/gemini_native_adapter.py` → `providers/gemini.py`,
+    `agent/model_metadata.py` → `providers/model_metadata.py`,
+    `agent/credential_pool.py` → `providers/credential_pool.py`,
+    `agent/retry_utils.py` → `providers/retry.py`,
+    `agent/error_classifier.py` → `providers/error_classifier.py`,
+    `agent/image_routing.py` → `providers/image_routing.py`.
+  - [x] Old `agent.*` paths are module-alias wrappers, so monkeypatches and
+    imports still hit the same module object.
+  - [x] Production imports in `run_agent.py`, `gateway/`, `tools/`, `hermes_cli/`,
+    and nearby `agent/` modules now prefer `providers.*`.
+  - [ ] Deeper `hermes_cli/auth.py` provider/credential extraction remains.
+  - [ ] Remaining provider-adjacent agent modules (`credential_sources`,
+    `nous_rate_guard`, `rate_limit_tracker`, image-gen/provider registry, and
+    transports) remain to evaluate/move in smaller slices.
 - [ ] **Step 3 — `config.py`**: not started.
 - [ ] **Step 4 — `run_agent.py`**: not started.
 

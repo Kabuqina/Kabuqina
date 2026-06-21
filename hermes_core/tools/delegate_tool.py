@@ -2212,7 +2212,7 @@ def _resolve_child_credential_pool(effective_provider: Optional[str], parent_age
         return parent_pool
 
     try:
-        from agent.credential_pool import load_pool
+        from providers.credential_pool import load_pool
 
         pool = load_pool(effective_provider)
         if pool is not None and pool.has_credentials():
