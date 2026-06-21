@@ -596,6 +596,7 @@ class TestAuxiliaryPoolAwareness:
 
         with (
             patch("agent.auxiliary_client.load_pool", return_value=_Pool()),
+            patch("hermes_cli.models.get_nous_recommended_aux_model", return_value=None),
             patch("agent.auxiliary_client.OpenAI") as mock_openai,
         ):
             from agent.auxiliary_client import _try_nous
