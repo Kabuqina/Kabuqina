@@ -32,6 +32,66 @@ Date: 2026-06-21
 - [ ] **Step 3 — `config.py`**: not started.
 - [ ] **Step 4 — `run_agent.py`**: not started.
 
+## Handoff — how to finish step 1 (and apply to steps 2-4)
+
+Current `tools/document/` layout (after 5 extractions, all committed + pushed):
+
+```
+document_tools.py  1102  pdf/html/docx writers + shared spec core + registration
+reading.py         1015  Docling reading pipeline + format readers
+pptx_writer.py      465  PPTX deck writer
+schemas.py          403  the 6 JSON tool schemas
+common.py           162  shared leaf helpers + spec/path/data primitives
+latex_render.py     148  LaTeX -> HTML formula renderer
+```
+
+**Remaining for step 1 — split the pdf/html/docx writers.** Unlike PPTX (16/17
+exclusive), these three share a document/blocks normalization layer, so the clean
+shape is:
+
+- `writers/spec.py` (or `document/spec.py`) — the **shared spec core** (reached by
+  ≥2 of pdf/html/docx): `_validate_write_path` (already in `common`),
+  `_normalize_pdf_template`, `_pdf_block`, `_pdf_section_blocks`, `_pdf_blocks`,
+  `_repair_jsonish`, `_coerce_json_container`, `_document_spec_error`,
+  `_build_pdf_spec`, and `_block_to_html` (pdf+html). Plus `_build_pdf_html` /
+  `_build_standalone_html`.
+- `pdf_writer.py` — `pdf_write`, `html_write` (they share the HTML build),
+  `_render_pdf_from_html`, `_render_pdf_with_reportlab`, `_wrap_pdf_text`,
+  `render_pdf_from_html_source`.
+- `docx_writer.py` — `docx_write`, `_docx_add_block`, `_render_docx`.
+
+**Proven recipe (used for reading + pptx):**
+
+1. **Partition with AST.** Compute each public entrypoint's transitive closure of
+   local symbols; symbols reached by ≥2 entrypoints are the shared core, the rest
+   are per-format exclusive. Verify no cross-cycle.
+2. **Surgery script.** Extract symbol source verbatim into the new module(s);
+   remove from `document_tools.py`; re-export the public functions
+   (`pdf_write`/`docx_write`/…) back into `document_tools` for the registration
+   block + `desktop_entrypoint`.
+3. **Migrate tests** (`tests/tools/test_document_tools.py`): retarget every
+   reference to a *moved internal* symbol from `document_tools` to the new module —
+   three forms: `document_tools._X` (calls), `setattr(document_tools, "_X", …)`
+   (monkeypatch), and `from tools.document_tools import _X` (direct import). Public
+   re-exported names (`pdf_write`, etc.) stay as `document_tools`.
+4. Verify: `py_compile`, an import smoke (registration runs), `test_document_tools`,
+   the kabuqina compat guardrails, and `test_desk_server`.
+
+**Three gotchas (each cost a debug cycle here):**
+
+1. **Decorator-aware extraction.** `ast` `node.lineno` is the `def`/`class` line,
+   *not* the decorator. Start the source range at `min(d.lineno for d in
+   node.decorator_list)` or you silently drop `@dataclass`/`@lru_cache`.
+2. **Import the full `common` surface into each new module.** The local-symbol AST
+   analysis does NOT see dependencies on already-*imported* names (e.g. PPTX uses
+   `_validate_read_path`, which moved to `common` in a prior step, so it wasn't
+   flagged as a local dep). Import all of `common`'s public symbols to be safe.
+3. **`logger` is per-module.** Don't move it; give each new module its own
+   `logger = logging.getLogger(__name__)`.
+
+Splitting only reorganizes — it does not reduce bundle size. Its payoff is
+maintainability and (for step 2) unblocking the deferred provider deletion.
+
 ## Context
 
 v0.3.0 slimming removed the upstream CLI (~42k lines: `cli.py`, `hermes_cli/{main,
