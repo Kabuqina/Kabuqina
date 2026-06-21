@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from tools.document import reading
+from tools.document import pptx_writer
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
@@ -245,7 +246,7 @@ def test_pptx_write_emits_deck_spec_and_writes_bytes(tmp_path):
 
 
 def test_deck_meta_normalized_onto_deck_spec():
-    from tools.document_tools import _build_deck_spec, _get_pptx_theme
+    from tools.document.pptx_writer import _build_deck_spec, _get_pptx_theme
 
     deck = _build_deck_spec(
         "基于大数据的社交媒体分析",
@@ -269,7 +270,7 @@ def test_deck_meta_normalized_onto_deck_spec():
 
 
 def test_deck_meta_defaults_to_empty_when_absent():
-    from tools.document_tools import _build_deck_spec, _get_pptx_theme
+    from tools.document.pptx_writer import _build_deck_spec, _get_pptx_theme
 
     deck = _build_deck_spec("课设答辩", [], _get_pptx_theme("code_defense"), "neo_grid_bold")
     assert deck["meta"] == {}
@@ -301,7 +302,7 @@ def _write_theme_pptx(path: Path) -> None:
 
 
 def test_extract_pptx_theme_maps_colors_and_fonts(tmp_path):
-    from tools.document_tools import _extract_pptx_theme
+    from tools.document.pptx_writer import _extract_pptx_theme
 
     tpl = tmp_path / "school.pptx"
     _write_theme_pptx(tpl)
@@ -317,7 +318,7 @@ def test_extract_pptx_theme_maps_colors_and_fonts(tmp_path):
 
 
 def test_extract_pptx_theme_returns_none_on_bad_file(tmp_path):
-    from tools.document_tools import _extract_pptx_theme
+    from tools.document.pptx_writer import _extract_pptx_theme
 
     bad = tmp_path / "not-a-deck.pptx"
     bad.write_bytes(b"this is not a zip")
@@ -354,7 +355,7 @@ def test_pptx_write_applies_uploaded_template_theme(tmp_path, monkeypatch):
 
 
 def test_normalize_deck_slides_keeps_single_richest_agenda():
-    from tools.document_tools import _normalize_deck_slides
+    from tools.document.pptx_writer import _normalize_deck_slides
 
     slides = _normalize_deck_slides([
         {"slide_type": "agenda", "title": "封面信息", "bullets": ["作者：某某"]},
@@ -369,7 +370,7 @@ def test_normalize_deck_slides_keeps_single_richest_agenda():
 
 
 def test_normalize_deck_slides_drops_empty_and_exact_duplicates():
-    from tools.document_tools import _normalize_deck_slides
+    from tools.document.pptx_writer import _normalize_deck_slides
 
     slides = _normalize_deck_slides([
         {"slide_type": "claim_bullets", "title": "", "bullets": []},  # structurally empty -> drop
@@ -380,7 +381,7 @@ def test_normalize_deck_slides_drops_empty_and_exact_duplicates():
 
 
 def test_normalize_deck_slides_preserves_distinct_placeholders():
-    from tools.document_tools import _normalize_deck_slides
+    from tools.document.pptx_writer import _normalize_deck_slides
 
     # Two screenshot placeholders with no bullets must both survive — a repeated
     # "insert result here" cue is legitimate and must not be deduped away.

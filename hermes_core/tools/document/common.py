@@ -141,3 +141,22 @@ def _validate_read_path(document_path: Path, original_path: str, label: str) -> 
                 ),
             )
     return None
+
+
+def _validate_write_path(out_path: Path, original_path: str) -> Optional[str]:
+    """Workspace guard for *write* targets (the file need not exist yet)."""
+    workspace = _desktop_workspace_root()
+    if workspace is None:
+        return None
+    try:
+        resolved = out_path.resolve()
+    except OSError:
+        resolved = out_path
+    if _is_outside_workspace(resolved, workspace):
+        return tool_error(
+            f"Output path is outside the Kabuqina workspace ({workspace}): {original_path}",
+            code="outside_workspace",
+            workspace=str(workspace),
+            hint="Write the output file into the workspace (or a subfolder of it).",
+        )
+    return None
