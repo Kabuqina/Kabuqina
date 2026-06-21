@@ -68,3 +68,47 @@ def test_provider_transports_package_aliases_legacy_agent_paths():
     assert legacy_codex is provider_codex
     assert legacy_types is provider_types
 
+
+# Auth-store persistence primitives moved from hermes_cli.auth into
+# providers.auth_store. hermes_cli.auth must re-export every name so existing
+# imports and monkeypatches of hermes_cli.auth.* keep hitting the same object.
+_AUTH_STORE_PRIMITIVES = (
+    "AUTH_STORE_VERSION",
+    "AUTH_LOCK_TIMEOUT_SECONDS",
+    "_auth_file_path",
+    "_auth_lock_path",
+    "_auth_lock_holder",
+    "_auth_store_lock",
+    "_load_auth_store",
+    "_save_auth_store",
+    "_load_provider_state",
+    "_save_provider_state",
+    "_store_provider_state",
+    "read_credential_pool",
+    "write_credential_pool",
+    "suppress_credential_source",
+    "is_source_suppressed",
+    "unsuppress_credential_source",
+    "get_provider_auth_state",
+    "get_active_provider",
+    "clear_provider_auth",
+    "deactivate_provider",
+)
+
+
+def test_auth_store_primitives_live_in_providers_package():
+    import providers.auth_store as auth_store
+
+    for name in _AUTH_STORE_PRIMITIVES:
+        assert hasattr(auth_store, name), f"providers.auth_store missing {name}"
+
+
+def test_hermes_cli_auth_reexports_auth_store_primitives():
+    import hermes_cli.auth as auth
+    import providers.auth_store as auth_store
+
+    for name in _AUTH_STORE_PRIMITIVES:
+        assert getattr(auth, name) is getattr(auth_store, name), (
+            f"hermes_cli.auth.{name} must re-export providers.auth_store.{name}"
+        )
+
