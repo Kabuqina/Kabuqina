@@ -2,6 +2,28 @@
 
 Date: 2026-06-21
 
+## Progress
+
+- **Step 1 — `document_tools.py`: in progress, 2992 → 1519 lines (-49%).** Package
+  `tools/document/` established; the read/write halves are separated.
+  - [x] `schemas.py` — the 6 JSON tool schemas (commit `7c4abe02`).
+  - [x] `common.py` — shared leaf helpers (`_text/_list/_string_list/_dict`) +
+    spec/path/data primitives (`DocumentSpecError`, `_json`, `_validate_read_path`,
+    `_desktop_workspace_root`, slide/block constants, `_PDF_TEMPLATES`)
+    (commits `c429d658`, `5cfc2142`).
+  - [x] `latex_render.py` — self-contained LaTeX→HTML formula renderer (commit `c429d658`).
+  - [x] `reading.py` — the Docling reading pipeline + format readers (58 symbols,
+    ~950 lines); `document_tools` re-exports the public read API; ~63 test
+    references retargeted to `tools.document.reading` (commit `5cfc2142`).
+  - [ ] Writers (`pdf_write`/`pptx_write`/`docx_write`/`html_write` + their
+    `_build_*_spec`/`_render_*` helpers) remain in `document_tools.py` (~1519 lines).
+    Optional further split into `writers/` (per-format) if the file stays unwieldy.
+  - Note: reading is heavily monkeypatched by its tests; any further reader split
+    must retarget those patches/imports to the new module (as step 1c did).
+- [ ] **Step 2 — providers** (`auxiliary_client` + `auth` → `providers/`): not started.
+- [ ] **Step 3 — `config.py`**: not started.
+- [ ] **Step 4 — `run_agent.py`**: not started.
+
 ## Context
 
 v0.3.0 slimming removed the upstream CLI (~42k lines: `cli.py`, `hermes_cli/{main,
