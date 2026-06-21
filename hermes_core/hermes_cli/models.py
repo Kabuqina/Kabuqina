@@ -62,8 +62,6 @@ OPENROUTER_MODELS: list[tuple[str, str]] = [
     ("x-ai/grok-4.20",                  ""),
     ("nvidia/nemotron-3-super-120b-a12b",      ""),
     ("nvidia/nemotron-3-super-120b-a12b:free", "free"),
-    ("arcee-ai/trinity-large-preview:free", "free"),
-    ("arcee-ai/trinity-large-thinking",  ""),
     ("openai/gpt-5.5-pro",              ""),
     ("openai/gpt-5.4-nano",             ""),
 ]
@@ -181,7 +179,6 @@ _PROVIDER_MODELS: dict[str, list[str]] = {
         "z-ai/glm-5-turbo",
         "x-ai/grok-4.20-beta",
         "nvidia/nemotron-3-super-120b-a12b",
-        "arcee-ai/trinity-large-thinking",
         "openai/gpt-5.5-pro",
         "openai/gpt-5.4-nano",
     ],
@@ -323,11 +320,6 @@ _PROVIDER_MODELS: dict[str, list[str]] = {
     ],
     "tencent-tokenhub": [
         "hy3-preview",
-    ],
-    "arcee": [
-        "trinity-large-thinking",
-        "trinity-large-preview",
-        "trinity-mini",
     ],
     "gmi": [
         "zai-org/GLM-5.1-FP8",
@@ -796,7 +788,6 @@ CANONICAL_PROVIDERS: list[ProviderEntry] = [
     ProviderEntry("minimax-cn",     "MiniMax (China)",          "MiniMax China (domestic direct API)"),
     ProviderEntry("alibaba",        "Alibaba Cloud (DashScope)","Alibaba Cloud / DashScope Coding (Qwen + multi-provider)"),
     ProviderEntry("ollama-cloud",   "Ollama Cloud",             "Ollama Cloud (cloud-hosted open models — ollama.com)"),
-    ProviderEntry("arcee",          "Arcee AI",                 "Arcee AI (Trinity models — direct API)"),
     ProviderEntry("gmi",            "GMI Cloud",                "GMI Cloud (multi-model direct API)"),
     ProviderEntry("kilocode",       "Kilo Code",                "Kilo Code (Kilo Gateway API)"),
     ProviderEntry("opencode-zen",   "OpenCode Zen",             "OpenCode Zen (35+ curated models, pay-as-you-go)"),
@@ -830,8 +821,6 @@ _PROVIDER_ALIASES = {
     "moonshot-cn": "kimi-coding-cn",
     "step": "stepfun",
     "stepfun-coding-plan": "stepfun",
-    "arcee-ai": "arcee",
-    "arceeai": "arcee",
     "gmi-cloud": "gmi",
     "gmicloud": "gmi",
     "minimax-china": "minimax-cn",

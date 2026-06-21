@@ -174,11 +174,6 @@ HERMES_OVERLAYS: Dict[str, HermesOverlay] = {
         transport="openai_chat",
         base_url_env_var="TOKENHUB_BASE_URL",
     ),
-    "arcee": HermesOverlay(
-        transport="openai_chat",
-        base_url_override="https://api.arcee.ai/api/v1",
-        base_url_env_var="ARCEE_BASE_URL",
-    ),
     "gmi": HermesOverlay(
         transport="openai_chat",
         extra_env_vars=("GMI_API_KEY",),
@@ -324,10 +319,6 @@ ALIASES: Dict[str, str] = {
     "aws-bedrock": "bedrock",
     "amazon-bedrock": "bedrock",
     "amazon": "bedrock",
-
-    # arcee
-    "arcee-ai": "arcee",
-    "arceeai": "arcee",
 
     # gmi
     "gmi-cloud": "gmi",

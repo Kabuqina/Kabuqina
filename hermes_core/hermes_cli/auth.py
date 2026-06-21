@@ -290,14 +290,6 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
         api_key_env_vars=("STEPFUN_API_KEY",),
         base_url_env_var="STEPFUN_BASE_URL",
     ),
-    "arcee": ProviderConfig(
-        id="arcee",
-        name="Arcee AI",
-        auth_type="api_key",
-        inference_base_url="https://api.arcee.ai/api/v1",
-        api_key_env_vars=("ARCEEAI_API_KEY",),
-        base_url_env_var="ARCEE_BASE_URL",
-    ),
     "gmi": ProviderConfig(
         id="gmi",
         name="GMI Cloud",
@@ -667,7 +659,6 @@ def resolve_provider(
         "kimi": "kimi-coding", "kimi-for-coding": "kimi-coding", "moonshot": "kimi-coding",
         "kimi-cn": "kimi-coding-cn", "moonshot-cn": "kimi-coding-cn",
         "step": "stepfun", "stepfun-coding-plan": "stepfun",
-        "arcee-ai": "arcee", "arceeai": "arcee",
         "gmi-cloud": "gmi", "gmicloud": "gmi",
         "minimax-china": "minimax-cn", "minimax_cn": "minimax-cn",
         "minimax-portal": "minimax-oauth", "minimax-global": "minimax-oauth", "minimax_oauth": "minimax-oauth",

@@ -38,7 +38,6 @@ _PROVIDER_ENV: dict[str, str] = {
     "xai":        "XAI_API_KEY",
     "nvidia":     "NVIDIA_API_KEY",
     "huggingface": "HF_TOKEN",
-    "arcee":      "ARCEEAI_API_KEY",
     "gmi":        "GMI_API_KEY",
     "ollama-cloud": "OLLAMA_API_KEY",
 }

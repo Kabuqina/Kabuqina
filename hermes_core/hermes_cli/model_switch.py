@@ -148,9 +148,6 @@ MODEL_ALIASES: dict[str, ModelIdentity] = {
 
     # Xiaomi
     "mimo":      ModelIdentity("xiaomi", "mimo"),
-
-    # Arcee
-    "trinity":   ModelIdentity("arcee-ai", "trinity"),
 }
 
 

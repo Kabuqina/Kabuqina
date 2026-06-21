@@ -50,7 +50,6 @@ _PROVIDER_PREFIXES: frozenset[str] = frozenset({
     "opencode-zen", "opencode-go", "ai-gateway", "kilocode", "alibaba",
     "qwen-oauth",
     "xiaomi",
-    "arcee",
     "gmi",
     "tencent-tokenhub",
     "custom", "local",
@@ -62,7 +61,6 @@ _PROVIDER_PREFIXES: frozenset[str] = frozenset({
     "stepfun", "opencode", "zen", "go", "vercel", "kilo", "dashscope", "aliyun", "qwen",
     "mimo", "xiaomi-mimo",
     "tencent", "tokenhub", "tencent-cloud", "tencentmaas",
-    "arcee-ai", "arceeai",
     "gmi-cloud", "gmicloud",
     "xai", "x-ai", "x.ai", "grok",
     "nvidia", "nim", "nvidia-nim", "nemotron",
@@ -214,8 +212,6 @@ DEFAULT_CONTEXT_LENGTHS = {
     "hy3-preview": 256000,
     # Nemotron — NVIDIA's open-weights series (128K context across all sizes)
     "nemotron": 131072,
-    # Arcee
-    "trinity": 262144,
     # OpenRouter
     "elephant": 262144,
     # Hugging Face Inference Providers — model IDs use org/name format
@@ -296,7 +292,6 @@ _URL_TO_PROVIDER: Dict[str, str] = {
     "api.kimi.com": "kimi-coding",
     "api.stepfun.ai": "stepfun",
     "api.stepfun.com": "stepfun",
-    "api.arcee.ai": "arcee",
     "api.minimax": "minimax",
     "dashscope.aliyuncs.com": "alibaba",
     "dashscope-intl.aliyuncs.com": "alibaba",
