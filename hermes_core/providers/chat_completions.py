@@ -707,7 +707,7 @@ class _AnthropicCompletionsAdapter:
 
     def create(self, **kwargs) -> Any:
         from providers.anthropic import build_anthropic_kwargs
-        from agent.transports import get_transport
+        from providers.transports import get_transport
 
         messages = kwargs.get("messages", [])
         model = kwargs.get("model", self._model)

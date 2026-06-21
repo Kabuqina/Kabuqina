@@ -6,8 +6,8 @@ This transport owns format conversion and normalization — NOT client lifecycle
 
 from typing import Any, Dict, List, Optional
 
-from agent.transports.base import ProviderTransport
-from agent.transports.types import NormalizedResponse
+from providers.transports.base import ProviderTransport
+from providers.transports.types import NormalizedResponse
 
 
 class AnthropicTransport(ProviderTransport):
@@ -85,7 +85,7 @@ class AnthropicTransport(ProviderTransport):
         """
         import json
         from providers.anthropic import _to_plain_data
-        from agent.transports.types import ToolCall
+        from providers.transports.types import ToolCall
 
         strip_tool_prefix = kwargs.get("strip_tool_prefix", False)
         _MCP_PREFIX = "mcp_"
@@ -174,6 +174,6 @@ class AnthropicTransport(ProviderTransport):
 
 
 # Auto-register on import
-from agent.transports import register_transport  # noqa: E402
+from providers.transports import register_transport  # noqa: E402
 
 register_transport("anthropic_messages", AnthropicTransport)

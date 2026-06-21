@@ -15,8 +15,8 @@ from typing import Any, Dict, List, Optional
 from agent.lmstudio_reasoning import resolve_lmstudio_effort
 from agent.moonshot_schema import is_moonshot_model, sanitize_moonshot_tools
 from agent.prompt_builder import DEVELOPER_ROLE_MODELS
-from agent.transports.base import ProviderTransport
-from agent.transports.types import NormalizedResponse, ToolCall, Usage
+from providers.transports.base import ProviderTransport
+from providers.transports.types import NormalizedResponse, ToolCall, Usage
 from utils import base_url_host_matches
 
 
@@ -544,6 +544,6 @@ class ChatCompletionsTransport(ProviderTransport):
 
 
 # Auto-register on import
-from agent.transports import register_transport  # noqa: E402
+from providers.transports import register_transport  # noqa: E402
 
 register_transport("chat_completions", ChatCompletionsTransport)

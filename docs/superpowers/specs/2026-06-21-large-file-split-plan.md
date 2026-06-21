@@ -51,9 +51,11 @@ Date: 2026-06-21
     `agent/image_gen_provider.py` -> `providers/image_gen_provider.py`,
     `agent/image_gen_registry.py` -> `providers/image_gen_registry.py`.
     Production imports now prefer the provider package for this slice too.
+  - [x] Moved the transport layer package
+    `agent/transports/` -> `providers/transports/`; the legacy
+    `agent.transports` package aliases the provider package and its submodules
+    so the registry remains single-copy for old import paths.
   - [ ] Deeper `hermes_cli/auth.py` provider/credential extraction remains.
-  - [ ] Remaining provider-adjacent modules such as `agent/transports/` remain
-    to evaluate/move in smaller slices.
 - [ ] **Step 3 — `config.py`**: not started.
 - [ ] **Step 4 — `run_agent.py`**: not started.
 

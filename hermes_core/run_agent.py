@@ -8030,7 +8030,7 @@ class AIAgent:
             self._transport_cache = cache
         t = cache.get(mode)
         if t is None:
-            from agent.transports import get_transport
+            from providers.transports import get_transport
             t = get_transport(mode)
             cache[mode] = t
         return t

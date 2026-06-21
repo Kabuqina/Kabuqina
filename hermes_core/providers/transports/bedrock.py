@@ -8,8 +8,8 @@ boto3 calls stay on AIAgent.
 
 from typing import Any, Dict, List, Optional
 
-from agent.transports.base import ProviderTransport
-from agent.transports.types import NormalizedResponse, ToolCall, Usage
+from providers.transports.base import ProviderTransport
+from providers.transports.types import NormalizedResponse, ToolCall, Usage
 
 
 class BedrockTransport(ProviderTransport):
@@ -149,6 +149,6 @@ class BedrockTransport(ProviderTransport):
 
 
 # Auto-register on import
-from agent.transports import register_transport  # noqa: E402
+from providers.transports import register_transport  # noqa: E402
 
 register_transport("bedrock_converse", BedrockTransport)

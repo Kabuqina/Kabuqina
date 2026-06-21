@@ -7,8 +7,8 @@ streaming, or the _run_codex_stream() call path.
 
 from typing import Any, Dict, List, Optional
 
-from agent.transports.base import ProviderTransport
-from agent.transports.types import NormalizedResponse, ToolCall
+from providers.transports.base import ProviderTransport
+from providers.transports.types import NormalizedResponse, ToolCall
 
 
 class ResponsesApiTransport(ProviderTransport):
@@ -230,6 +230,6 @@ class ResponsesApiTransport(ProviderTransport):
 
 
 # Auto-register on import
-from agent.transports import register_transport  # noqa: E402
+from providers.transports import register_transport  # noqa: E402
 
 register_transport("codex_responses", ResponsesApiTransport)
