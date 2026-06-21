@@ -8,6 +8,7 @@ import pytest
 
 from tools.document import reading
 from tools.document import pptx_writer
+from tools.document import pdf_writer
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
@@ -31,6 +32,19 @@ def _fake_render_callback(captured: dict, *, slide_count: int = 0):
         }
 
     return _cb
+
+
+def test_document_writer_split_modules_keep_public_shim():
+    import tools.document_tools as document_tools
+    from tools.document import docx_writer, pdf_writer, spec as document_spec
+
+    assert document_tools.pdf_write is pdf_writer.pdf_write
+    assert document_tools.html_write is pdf_writer.html_write
+    assert document_tools.docx_write is docx_writer.docx_write
+    assert document_tools.render_pdf_from_html_source is pdf_writer.render_pdf_from_html_source
+    assert document_spec._build_pdf_spec("Title", "Body", "", "")["blocks"] == [
+        {"type": "paragraph", "text": "Body"}
+    ]
 
 
 def test_pdf_read_precise_rejects_paths_outside_workspace(tmp_path, monkeypatch):
@@ -566,9 +580,9 @@ def test_pdf_write_generates_pdf_and_html_sidecar(tmp_path, monkeypatch):
         rendered_specs.append(spec)
         return b"%PDF-1.4\nfake pdf\n%%EOF", 2, "reportlab_pdf_v1"
 
-    monkeypatch.setattr(document_tools, "_render_pdf_with_reportlab", fake_render)
+    monkeypatch.setattr(pdf_writer, "_render_pdf_with_reportlab", fake_render)
     monkeypatch.setattr(
-        document_tools,
+        pdf_writer,
         "_render_pdf_from_html",
         lambda _html_source: (_ for _ in ()).throw(ImportError("chromium missing")),
     )
@@ -622,9 +636,9 @@ def test_pdf_write_uses_html_source_as_pdf_input(tmp_path, monkeypatch):
         rendered_html.append(html_source)
         return b"%PDF-1.4\nhtml print pdf\n%%EOF", 3, "chromium_print_v1"
 
-    monkeypatch.setattr(document_tools, "_render_pdf_from_html", fake_html_render, raising=False)
+    monkeypatch.setattr(pdf_writer, "_render_pdf_from_html", fake_html_render, raising=False)
     monkeypatch.setattr(
-        document_tools,
+        pdf_writer,
         "_render_pdf_with_reportlab",
         lambda _spec: pytest.fail("pdf_write should prefer the HTML print renderer"),
     )
