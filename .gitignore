@@ -61,6 +61,7 @@ windows-port-report.txt
 
 # Local brainstorming/mockup companion files
 .superpowers/
+.worktrees
 
 # Windows reserved name accident
 tauri/nul
