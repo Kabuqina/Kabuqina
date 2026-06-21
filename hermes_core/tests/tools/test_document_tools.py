@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+from tools.document import reading
+
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -84,10 +86,10 @@ def test_pdf_read_precise_math_rejects_large_pdf_without_page_range(tmp_path, mo
     monkeypatch.setenv("HERMESDESK_WORKSPACE", str(tmp_path))
     # Model already present: the availability gate is a no-op so this test isolates
     # the page-count guard behavior.
-    monkeypatch.setattr(document_tools, "_ensure_math_artifacts", lambda: None)
-    monkeypatch.setattr(document_tools, "_pdf_page_count", lambda path: 11, raising=False)
+    monkeypatch.setattr(reading, "_ensure_math_artifacts", lambda: None)
+    monkeypatch.setattr(reading, "_pdf_page_count", lambda path: 11, raising=False)
     monkeypatch.setattr(
-        document_tools,
+        reading,
         "_read_with_docling",
         lambda *args, **kwargs: pytest.fail("math mode should be rejected before Docling starts"),
     )
@@ -107,12 +109,12 @@ def test_pdf_read_precise_math_offers_download_before_page_guard(tmp_path, monke
     pdf = tmp_path / "formula-heavy.pdf"
     pdf.write_bytes(b"%PDF-1.4\n")
     monkeypatch.setenv("HERMESDESK_WORKSPACE", str(tmp_path))
-    monkeypatch.setattr(document_tools, "_pdf_page_count", lambda path: 11, raising=False)
+    monkeypatch.setattr(reading, "_pdf_page_count", lambda path: 11, raising=False)
 
     calls = []
-    monkeypatch.setattr(document_tools, "_ensure_math_artifacts", lambda: calls.append("ensure"))
+    monkeypatch.setattr(reading, "_ensure_math_artifacts", lambda: calls.append("ensure"))
     monkeypatch.setattr(
-        document_tools,
+        reading,
         "_read_with_docling",
         lambda *args, **kwargs: pytest.fail("guard should still reject the 11-page read"),
     )
@@ -139,7 +141,7 @@ def test_pdf_read_precise_math_missing_model_errors_before_page_guard(tmp_path, 
     pdf.write_bytes(b"%PDF-1.4\n")
     monkeypatch.setenv("HERMESDESK_WORKSPACE", str(tmp_path))
     # 11 pages would trip the guard, but the missing-model error must win first.
-    monkeypatch.setattr(document_tools, "_pdf_page_count", lambda path: 11, raising=False)
+    monkeypatch.setattr(reading, "_pdf_page_count", lambda path: 11, raising=False)
 
     def fake_ensure():
         raise CodeFormulaMissingError(
@@ -147,9 +149,9 @@ def test_pdf_read_precise_math_missing_model_errors_before_page_guard(tmp_path, 
             "Download in Settings."
         )
 
-    monkeypatch.setattr(document_tools, "_ensure_math_artifacts", fake_ensure)
+    monkeypatch.setattr(reading, "_ensure_math_artifacts", fake_ensure)
     monkeypatch.setattr(
-        document_tools,
+        reading,
         "_read_with_docling",
         lambda *args, **kwargs: pytest.fail("missing-model should short-circuit before Docling"),
     )
@@ -184,9 +186,9 @@ def test_pdf_read_precise_passes_page_range_to_docling(tmp_path, monkeypatch):
 
     monkeypatch.setenv("HERMESDESK_WORKSPACE", str(tmp_path))
     monkeypatch.setenv("HERMESDESK_DOCLING_MATH_MAX_PAGES", "2")
-    monkeypatch.setattr(document_tools, "_ensure_math_artifacts", lambda: None)
-    monkeypatch.setattr(document_tools, "_pdf_page_count", lambda path: 11, raising=False)
-    monkeypatch.setattr(document_tools, "_read_with_docling", fake_read_with_docling)
+    monkeypatch.setattr(reading, "_ensure_math_artifacts", lambda: None)
+    monkeypatch.setattr(reading, "_pdf_page_count", lambda path: 11, raising=False)
+    monkeypatch.setattr(reading, "_read_with_docling", fake_read_with_docling)
 
     result = json.loads(
         document_tools.pdf_read_precise(
@@ -930,7 +932,7 @@ def test_pdf_fast_text_path_skips_docling_for_text_pdf(tmp_path, monkeypatch):
     pdf = tmp_path / "thesis.pdf"
     pdf.write_bytes(b"%PDF-1.4\n")
     monkeypatch.setattr(
-        document_tools,
+        reading,
         "_read_pdf_with_pypdf",
         lambda p: {"ok": True, "engine": "pypdf", "mode": "fallback", "path": str(p), "pages": 3, "content": "正文内容 " * 400},
     )
@@ -938,7 +940,7 @@ def test_pdf_fast_text_path_skips_docling_for_text_pdf(tmp_path, monkeypatch):
     def _no_docling(_p, _mode):
         raise AssertionError("Docling must not run for a text-rich PDF in auto mode")
 
-    monkeypatch.setattr(document_tools, "_read_with_docling", _no_docling)
+    monkeypatch.setattr(reading, "_read_with_docling", _no_docling)
 
     result = json.loads(document_tools.document_read_precise(path=str(pdf), mode="auto"))
 
@@ -953,12 +955,12 @@ def test_pdf_fast_text_path_falls_through_to_docling_for_scanned_pdf(tmp_path, m
     pdf = tmp_path / "scan.pdf"
     pdf.write_bytes(b"%PDF-1.4\n")
     monkeypatch.setattr(
-        document_tools,
+        reading,
         "_read_pdf_with_pypdf",
         lambda p: {"ok": True, "engine": "pypdf", "pages": 5, "content": "   "},
     )
     monkeypatch.setattr(
-        document_tools,
+        reading,
         "_read_with_docling",
         lambda p, mode: {"ok": True, "engine": "docling", "mode": mode, "path": str(p), "pages": 5, "content": "Docling layout text"},
     )
@@ -978,9 +980,9 @@ def test_pdf_precise_mode_still_uses_docling(tmp_path, monkeypatch):
     def _no_pypdf(_p):
         raise AssertionError("precise mode should not take the fast pypdf path")
 
-    monkeypatch.setattr(document_tools, "_read_pdf_with_pypdf", _no_pypdf)
+    monkeypatch.setattr(reading, "_read_pdf_with_pypdf", _no_pypdf)
     monkeypatch.setattr(
-        document_tools,
+        reading,
         "_read_with_docling",
         lambda p, mode: {"ok": True, "engine": "docling", "mode": mode, "path": str(p), "pages": 2, "content": "precise"},
     )
@@ -1024,10 +1026,10 @@ def test_docling_converter_is_cached(monkeypatch):
         return FakeConverter()
 
     document_tools.reset_docling_converter_cache()
-    monkeypatch.setattr(document_tools, "_create_docling_converter", fake_create)
+    monkeypatch.setattr(reading, "_create_docling_converter", fake_create)
 
-    first = document_tools._get_docling_converter()
-    second = document_tools._get_docling_converter()
+    first = reading._get_docling_converter()
+    second = reading._get_docling_converter()
 
     assert first is second
     assert calls == ["create"]
@@ -1037,7 +1039,7 @@ def test_docling_converter_is_cached(monkeypatch):
 def test_docling_converter_lock_is_reentrant_for_first_use_installs():
     import tools.document_tools as document_tools
 
-    lock = document_tools._DOCLING_CONVERTER_LOCK
+    lock = reading._DOCLING_CONVERTER_LOCK
     lock.acquire()
     try:
         assert lock.acquire(blocking=False)
@@ -1047,7 +1049,7 @@ def test_docling_converter_lock_is_reentrant_for_first_use_installs():
 
 
 def test_docling_profile_for_mode_defaults_to_fast():
-    from tools.document_tools import _docling_profile_for_mode
+    from tools.document.reading import _docling_profile_for_mode
 
     assert _docling_profile_for_mode("auto") == "fast"
     assert _docling_profile_for_mode("") == "fast"
@@ -1055,7 +1057,7 @@ def test_docling_profile_for_mode_defaults_to_fast():
 
 
 def test_docling_profile_for_mode_supports_math():
-    from tools.document_tools import _docling_profile_for_mode
+    from tools.document.reading import _docling_profile_for_mode
 
     assert _docling_profile_for_mode("math") == "math"
     assert _docling_profile_for_mode("MATH") == "math"
@@ -1071,12 +1073,12 @@ def test_configure_pdf_pipeline_options_enables_formula_for_math():
         do_formula_enrichment = False
 
     fast = Options()
-    document_tools._configure_pdf_pipeline_options(fast, "fast")
+    reading._configure_pdf_pipeline_options(fast, "fast")
     assert fast.do_formula_enrichment is False
     assert fast.do_code_enrichment is False
 
     math = Options()
-    document_tools._configure_pdf_pipeline_options(math, "math")
+    reading._configure_pdf_pipeline_options(math, "math")
     assert math.do_formula_enrichment is True
     assert math.do_code_enrichment is False
 
@@ -1090,7 +1092,7 @@ def test_require_math_artifacts_raises_without_codeformula(tmp_path, monkeypatch
     monkeypatch.delenv("DOCLING_ARTIFACTS_PATH", raising=False)
 
     with pytest.raises(ValueError, match="mode=math requires offline CodeFormula"):
-        document_tools._require_math_artifacts_bundled()
+        reading._require_math_artifacts_bundled()
 
 
 def test_ensure_math_artifacts_uses_desktop_first_use_download(monkeypatch):
@@ -1104,13 +1106,13 @@ def test_ensure_math_artifacts_uses_desktop_first_use_download(monkeypatch):
 
     monkeypatch.setattr(docling_math_models, "ensure_code_formula_available_for_math", fake_ensure)
 
-    document_tools._ensure_math_artifacts()
+    reading._ensure_math_artifacts()
 
     assert calls == ["ensure"]
 
 
 def test_format_docling_error_surfaces_settings_hint_for_missing_model():
-    from tools.document_tools import _format_docling_error
+    from tools.document.reading import _format_docling_error
 
     try:
         from docling_math_models import CodeFormulaMissingError
@@ -1141,7 +1143,7 @@ def test_read_document_precise_math_mode_does_not_fallback_on_missing_model(tmp_
 
     # Model present at the availability gate; the Docling read itself raises the
     # missing-model error, which must not fall back to a lossy pypdf read.
-    monkeypatch.setattr(document_tools, "_ensure_math_artifacts", lambda: None)
+    monkeypatch.setattr(reading, "_ensure_math_artifacts", lambda: None)
 
     def fake_read(_path: Path, _mode: str):
         raise CodeFormulaMissingError(
@@ -1149,7 +1151,7 @@ def test_read_document_precise_math_mode_does_not_fallback_on_missing_model(tmp_
             "Download in Settings."
         )
 
-    monkeypatch.setattr(document_tools, "_read_with_docling", fake_read)
+    monkeypatch.setattr(reading, "_read_with_docling", fake_read)
 
     result = json.loads(document_tools.document_read_precise(path=str(source), mode="math"))
 
@@ -1181,7 +1183,7 @@ def test_prime_torch_keeps_existing_modules_on_failure(monkeypatch):
     monkeypatch.setattr("builtins.__import__", fake_import)
 
     with pytest.raises(AttributeError):
-        document_tools._prime_torch_for_docling()
+        reading._prime_torch_for_docling()
 
     assert sys.modules["torch"] is fake_torch
     assert sys.modules["torch.partial"] is fake_child
@@ -1203,7 +1205,7 @@ def test_document_read_precise_routes_docx_through_docling(tmp_path, monkeypatch
             "content": "Docling DOCX content",
         }
 
-    monkeypatch.setattr(document_tools, "_read_with_docling", fake_read)
+    monkeypatch.setattr(reading, "_read_with_docling", fake_read)
 
     result = json.loads(document_tools.document_read_precise(path=str(docx), mode="precise"))
 
@@ -1225,7 +1227,7 @@ def test_document_read_precise_math_mode_uses_docling_even_for_lightweight_suffi
     monkeypatch.setenv("HERMESDESK_BUNDLE_DIR", str(bundle))
     monkeypatch.setenv("HERMESDESK_WORKSPACE", str(tmp_path))
     monkeypatch.delenv("DOCLING_ARTIFACTS_PATH", raising=False)
-    monkeypatch.setattr(document_tools, "_ensure_math_artifacts", lambda: None)
+    monkeypatch.setattr(reading, "_ensure_math_artifacts", lambda: None)
 
     def fake_read(path: Path, mode: str):
         return {
@@ -1237,7 +1239,7 @@ def test_document_read_precise_math_mode_uses_docling_even_for_lightweight_suffi
             "content": "$$e^{i\\pi}+1=0$$",
         }
 
-    monkeypatch.setattr(document_tools, "_read_with_docling", fake_read)
+    monkeypatch.setattr(reading, "_read_with_docling", fake_read)
 
     result = json.loads(document_tools.document_read_precise(path=str(source), mode="math"))
 
@@ -1270,13 +1272,13 @@ def test_run_on_docling_thread_serializes_calls():
         seen.append(value)
         return value
 
-    assert document_tools._run_on_docling_thread(_record, 1) == 1
-    assert document_tools._run_on_docling_thread(_record, 2) == 2
+    assert reading._run_on_docling_thread(_record, 1) == 1
+    assert reading._run_on_docling_thread(_record, 2) == 2
     assert seen == [1, 2]
 
 
 def test_format_docling_error_surfaces_network_failures():
-    from tools.document_tools import _format_docling_error
+    from tools.document.reading import _format_docling_error
 
     msg = _format_docling_error(
         ConnectionError("Connection to huggingface.co timed out.")
@@ -1286,7 +1288,7 @@ def test_format_docling_error_surfaces_network_failures():
 
 
 def test_format_docling_error_flags_unsupported_torch_runtime():
-    from tools.document_tools import _format_docling_error
+    from tools.document.reading import _format_docling_error
 
     msg = _format_docling_error(
         AttributeError(
@@ -1299,7 +1301,7 @@ def test_format_docling_error_flags_unsupported_torch_runtime():
 
 
 def test_format_docling_error_flags_pdfium_page_count_failure():
-    from tools.document_tools import _format_docling_error
+    from tools.document.reading import _format_docling_error
 
     msg = _format_docling_error(ValueError("Inconsistent number of pages: 73!=-1"))
     assert "environment problem" in msg
@@ -1307,7 +1309,7 @@ def test_format_docling_error_flags_pdfium_page_count_failure():
 
 
 def test_format_docling_error_flags_duplicate_torch_kernel_registration():
-    from tools.document_tools import _format_docling_error
+    from tools.document.reading import _format_docling_error
 
     msg = _format_docling_error(
         RuntimeError(
@@ -1321,7 +1323,7 @@ def test_format_docling_error_flags_duplicate_torch_kernel_registration():
 
 
 def test_format_docling_error_surfaces_path_policy_blocks():
-    from tools.document_tools import _format_docling_error
+    from tools.document.reading import _format_docling_error
 
     msg = _format_docling_error(
         PermissionError(
@@ -1333,7 +1335,7 @@ def test_format_docling_error_surfaces_path_policy_blocks():
 
 
 def test_resolve_docling_artifacts_path_from_bundle_env(tmp_path, monkeypatch):
-    from tools.document_tools import _resolve_docling_artifacts_path
+    from tools.document.reading import _resolve_docling_artifacts_path
 
     models = tmp_path / "docling-models"
     models.mkdir()
@@ -1355,7 +1357,7 @@ def test_document_read_precise_fast_text_skips_docling_and_writes_read_cache(tmp
     def fail_docling(path: Path, mode: str):
         raise AssertionError("fast markdown reads should not initialize Docling")
 
-    monkeypatch.setattr(document_tools, "_read_with_docling", fail_docling)
+    monkeypatch.setattr(reading, "_read_with_docling", fail_docling)
 
     result = json.loads(document_tools.document_read_precise(path=str(source), mode="auto"))
 
@@ -1398,7 +1400,7 @@ def test_document_read_precise_large_output_surfaces_cache_hint_before_content(t
         "content": "x" * 120_000,
     }
 
-    result = document_tools._finalize_read_payload(payload, source, include_content=True)
+    result = reading._finalize_read_payload(payload, source, include_content=True)
     serialized = document_tools._json(result)
 
     assert result["content_hint"]
@@ -1419,7 +1421,7 @@ def test_pdf_read_precise_uses_common_read_pipeline_for_pdf(tmp_path, monkeypatc
         calls.append((path, mode, include_content))
         return {"ok": True, "path": str(path), "engine": "fixture", "content": "PDF text"}
 
-    monkeypatch.setattr(document_tools, "_read_document_precise_payload", fake_read)
+    monkeypatch.setattr(reading, "_read_document_precise_payload", fake_read)
 
     result = json.loads(document_tools.pdf_read_precise(path=str(pdf), mode="precise", include_content=False))
 
