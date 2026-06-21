@@ -8478,7 +8478,7 @@ class GatewayRunner:
             # Rate limits (when available from provider headers)
             rl_state = agent.get_rate_limit_state()
             if rl_state and rl_state.has_data:
-                from agent.rate_limit_tracker import format_rate_limit_compact
+                from providers.rate_limit_tracker import format_rate_limit_compact
                 lines.append(f"⏱️ **Rate Limits:** {format_rate_limit_compact(rl_state)}")
                 lines.append("")
 

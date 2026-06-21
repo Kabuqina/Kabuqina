@@ -43,10 +43,17 @@ Date: 2026-06-21
     imports still hit the same module object.
   - [x] Production imports in `run_agent.py`, `gateway/`, `tools/`, `hermes_cli/`,
     and nearby `agent/` modules now prefer `providers.*`.
+  - [x] Moved the next provider-adjacent agent slice into `providers/` with
+    alias wrappers:
+    `agent/credential_sources.py` -> `providers/credential_sources.py`,
+    `agent/nous_rate_guard.py` -> `providers/nous_rate_guard.py`,
+    `agent/rate_limit_tracker.py` -> `providers/rate_limit_tracker.py`,
+    `agent/image_gen_provider.py` -> `providers/image_gen_provider.py`,
+    `agent/image_gen_registry.py` -> `providers/image_gen_registry.py`.
+    Production imports now prefer the provider package for this slice too.
   - [ ] Deeper `hermes_cli/auth.py` provider/credential extraction remains.
-  - [ ] Remaining provider-adjacent agent modules (`credential_sources`,
-    `nous_rate_guard`, `rate_limit_tracker`, image-gen/provider registry, and
-    transports) remain to evaluate/move in smaller slices.
+  - [ ] Remaining provider-adjacent modules such as `agent/transports/` remain
+    to evaluate/move in smaller slices.
 - [ ] **Step 3 — `config.py`**: not started.
 - [ ] **Step 4 — `run_agent.py`**: not started.
 

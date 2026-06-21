@@ -795,7 +795,7 @@ def check_image_generation_requirements() -> bool:
 
     # Probe plugin providers. Discovery is idempotent and cheap.
     try:
-        from agent.image_gen_registry import list_providers
+        from providers.image_gen_registry import list_providers
         from hermes_cli.plugins import _ensure_plugins_discovered
 
         _ensure_plugins_discovered()
@@ -918,7 +918,7 @@ def _dispatch_to_plugin_provider(prompt: str, aspect_ratio: str):
     try:
         # Import locally so plugin discovery isn't triggered just by
         # importing this module (tests rely on that).
-        from agent.image_gen_registry import get_provider
+        from providers.image_gen_registry import get_provider
         from hermes_cli.plugins import _ensure_plugins_discovered
 
         _ensure_plugins_discovered()

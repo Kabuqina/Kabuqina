@@ -443,13 +443,13 @@ class PluginContext:
         """Register an image generation backend.
 
         ``provider`` must be an instance of
-        :class:`agent.image_gen_provider.ImageGenProvider`. The
+        :class:`providers.image_gen_provider.ImageGenProvider`. The
         ``provider.name`` attribute is what ``image_gen.provider`` in
         ``config.yaml`` matches against when routing ``image_generate``
         tool calls.
         """
-        from agent.image_gen_provider import ImageGenProvider
-        from agent.image_gen_registry import register_provider
+        from providers.image_gen_provider import ImageGenProvider
+        from providers.image_gen_registry import register_provider
 
         if not isinstance(provider, ImageGenProvider):
             logger.warning(

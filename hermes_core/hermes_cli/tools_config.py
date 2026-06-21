@@ -1216,7 +1216,7 @@ def _plugin_image_gen_providers() -> list[dict]:
     function surfaces it alongside OpenAI automatically.
     """
     try:
-        from agent.image_gen_registry import list_providers
+        from providers.image_gen_registry import list_providers
         from hermes_cli.plugins import _ensure_plugins_discovered
 
         _ensure_plugins_discovered()
@@ -1287,7 +1287,7 @@ def _toolset_needs_configuration_prompt(ts_key: str, config: dict) -> bool:
         if fal_key_is_configured():
             return False
         try:
-            from agent.image_gen_registry import list_providers
+            from providers.image_gen_registry import list_providers
             from hermes_cli.plugins import _ensure_plugins_discovered
 
             _ensure_plugins_discovered()
@@ -1549,7 +1549,7 @@ def _plugin_image_gen_catalog(plugin_name: str):
     ``({}, None)`` if the provider isn't registered or has no models.
     """
     try:
-        from agent.image_gen_registry import get_provider
+        from providers.image_gen_registry import get_provider
         from hermes_cli.plugins import _ensure_plugins_discovered
 
         _ensure_plugins_discovered()
