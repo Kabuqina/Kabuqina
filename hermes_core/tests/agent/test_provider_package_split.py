@@ -112,3 +112,36 @@ def test_hermes_cli_auth_reexports_auth_store_primitives():
             f"hermes_cli.auth.{name} must re-export providers.auth_store.{name}"
         )
 
+
+# API-key secret / base-URL resolution helpers moved from hermes_cli.auth into
+# providers.api_key_auth. The registry-coupled callers (get_anthropic_key,
+# resolve_api_key_provider_credentials, resolve_external_process_provider_credentials)
+# stay in hermes_cli.auth and reach these via re-export.
+_API_KEY_AUTH_PRIMITIVES = (
+    "KIMI_CODE_BASE_URL",
+    "ZAI_ENDPOINTS",
+    "_PLACEHOLDER_SECRET_VALUES",
+    "has_usable_secret",
+    "_resolve_kimi_base_url",
+    "_resolve_api_key_provider_secret",
+    "detect_zai_endpoint",
+    "_resolve_zai_base_url",
+)
+
+
+def test_api_key_auth_helpers_live_in_providers_package():
+    import providers.api_key_auth as api_key_auth
+
+    for name in _API_KEY_AUTH_PRIMITIVES:
+        assert hasattr(api_key_auth, name), f"providers.api_key_auth missing {name}"
+
+
+def test_hermes_cli_auth_reexports_api_key_auth_helpers():
+    import hermes_cli.auth as auth
+    import providers.api_key_auth as api_key_auth
+
+    for name in _API_KEY_AUTH_PRIMITIVES:
+        assert getattr(auth, name) is getattr(api_key_auth, name), (
+            f"hermes_cli.auth.{name} must re-export providers.api_key_auth.{name}"
+        )
+

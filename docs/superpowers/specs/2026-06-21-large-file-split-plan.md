@@ -69,8 +69,20 @@ Date: 2026-06-21
     stayed in `auth.py` — moving them would need `PROVIDER_REGISTRY` and
     create a circular import. Guarded by two new assertions in
     `tests/agent/test_provider_package_split.py`.
-  - [ ] Remaining `hermes_cli/auth.py` extraction: API-key resolvers, then the
-    per-provider runtime credential resolvers (see continuation point below).
+  - [x] Extracted the **registry-independent API-key helpers** into
+    `providers/api_key_auth.py`: `has_usable_secret`, `_resolve_kimi_base_url`,
+    `_resolve_api_key_provider_secret`, `detect_zai_endpoint`,
+    `_resolve_zai_base_url`, + the `KIMI_CODE_BASE_URL` / `ZAI_ENDPOINTS` /
+    `_PLACEHOLDER_SECRET_VALUES` constants (and the Kimi/Z.AI rationale
+    comments). It imports the store primitives from `providers.auth_store` and
+    only references `ProviderConfig` under `TYPE_CHECKING`, so there is no
+    import cycle. The registry-coupled callers (`get_anthropic_key`,
+    `resolve_api_key_provider_credentials`,
+    `resolve_external_process_provider_credentials`) stay in `auth.py` and use
+    the re-exported helpers. Guarded by two more assertions in
+    `tests/agent/test_provider_package_split.py`.
+  - [ ] Remaining `hermes_cli/auth.py` extraction: the per-provider runtime
+    credential resolvers (see continuation point below).
 - [ ] **Step 3 — `config.py`**: not started.
 - [ ] **Step 4 — `run_agent.py`**: not started.
 
@@ -237,18 +249,23 @@ internal callers move; the kabuqina compat guardrails stay green throughout.
 ## Current continuation point
 
 Continue the remaining **step 2** work inside `hermes_cli/auth.py`. The
-auth-store persistence layer is now in `providers/auth_store.py`. Next clusters,
-smallest/lowest-risk first, each a pure move + re-export with a split guardrail:
+auth-store persistence layer (`providers/auth_store.py`) and the
+registry-independent API-key helpers (`providers/api_key_auth.py`) are done.
+Next, each a pure move + re-export with a split guardrail:
 
-1. **API-key resolvers** → e.g. `providers/api_key_auth.py`: `get_anthropic_key`,
-   `has_usable_secret`, `_resolve_api_key_provider_secret`,
-   `_resolve_kimi_base_url`, `detect_zai_endpoint`/`_resolve_zai_base_url`,
-   `resolve_api_key_provider_credentials`,
-   `resolve_external_process_provider_credentials`.
-2. **Per-provider runtime resolvers** → `providers/<name>_auth.py` (Qwen,
+1. **Per-provider runtime resolvers** → `providers/<name>_auth.py` (Qwen,
    Gemini-OAuth, Codex, Nous, Minimax, Spotify): the `resolve_*_runtime_credentials`
    / `get_*_auth_status` / token-refresh mechanics. Leave the interactive
    `_login_*` / `*_command` argparse+printing code in `hermes_cli/auth.py`.
+   These are larger and more entangled (each persists via the store primitives
+   and several share OAuth/JWT/timestamp helpers — `_parse_iso_timestamp`,
+   `_is_expiring`, `_decode_jwt_claims`, `_coerce_ttl_seconds`, `_oauth_trace*`,
+   `_token_fingerprint`); consider extracting those shared OAuth helpers first.
+2. **Registry-coupled API-key resolvers** (`get_anthropic_key`,
+   `resolve_api_key_provider_credentials`,
+   `resolve_external_process_provider_credentials`) move only once
+   `PROVIDER_REGISTRY` / `ProviderConfig` / `AuthError` are relocated (or via
+   lazy imports) — currently kept in `auth.py` to avoid a cycle.
 
 Keep `hermes_cli.auth` re-exporting each moved name.
 
