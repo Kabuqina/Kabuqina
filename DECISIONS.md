@@ -11,7 +11,7 @@ explicit reasoning to alter.
 | Working name   | **Kabuqina**                                           |
 | Bundle id      | `com.kabuqina.app`                                     |
 | Install target | Per-user, `%LOCALAPPDATA%\com.kabuqina.app` (no admin needed)  |
-| License        | MIT                                                      |
+| License        | Apache-2.0                                               |
 | Upstream       | Frozen snapshot at `hermes_core/` (from `NousResearch/hermes-agent` pinned to `v0.10.0`). No submodule, no automatic sync. |
 | Tagline        | "A friendly AI helper for your PC. No setup, no terminal." |
 
