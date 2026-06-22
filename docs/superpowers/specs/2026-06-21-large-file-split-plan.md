@@ -117,10 +117,11 @@ Date: 2026-06-21
     only **nous** + **minimax** remain (retained); deferred behind the `dev.ps1`
     smoke gate (nous is live-path). `AuthError` prereq is done (`888ef30c`).
     See continuation point.
-- [~] **Step 3 — `config.py`**: **in progress** (4597 → 2066, −55%). Done (6):
+- [~] **Step 3 — `config.py`**: **in progress** (4597 → 2026, −56%). Done (7):
   `config_defaults`, `config_env_schema`, `config_managed`, `config_home`,
-  `config_env`, `config_merge`. Remaining is the coupled loader core + CLI facade
-  (paths → load/save → validation/migration consumers) — see continuation point.
+  `config_env`, `config_merge`, `config_paths`. Remaining is the coupled loader
+  core + CLI facade (load/save → validation/migration consumers) — see
+  continuation point.
 - [ ] **Step 4 — `run_agent.py`**: not started — and **scope reduced**: its core
   loop is the Phase-3.5 LangGraph re-platform target, so don't fully split it;
   extract only orthogonal keep-forever concerns + add characterization tests.
@@ -318,11 +319,13 @@ per-function AST walk that unions defs+assigns+imports+builtins.)
 
 **What remains (~2066 lines) is the coupled loader core + CLI facade — a bigger,
 higher-risk piece, not more clean leaves.** Dependency shape:
-- **paths** (`get_config_path`, `get_project_root`, `save_config_value`) — a clean
-  leaf (only `get_hermes_home`); extract to `config_paths.py` *first* to unblock
-  the loader (same get_env_path lesson).
-- **loader core** (`read_raw_config`, `load_config`, `save_config`) — depends on
-  paths + `config_merge` + `DEFAULT_CONFIG`; this is `config/loader.py`.
+- **paths** (`get_config_path`, `get_project_root`, `save_config_value`) — **done**,
+  `config_paths.py` (`7c576d42`). Was the leaf that unblocks the loader.
+- **loader core** (`read_raw_config`, `load_config`, `save_config`) — **now
+  unblocked; this is the next pass.** Depends on `config_paths` + `config_merge` +
+  `DEFAULT_CONFIG`; target `config/loader.py`. Highest-risk config slice
+  (`load_config` is hot/heavily-imported) — run the robust free-name analysis and
+  a full functional smoke; `save_config`'s monkeypatch surface is wide.
 - **consumers of `load_config`** (`validate_config_structure`+`ConfigIssue`,
   custom-providers `get_compatible_custom_providers` etc., `migrate_config` ~580,
   `get_missing_*`) sit *above* the loader → extract after it, or keep in the
