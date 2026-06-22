@@ -117,11 +117,15 @@ Date: 2026-06-21
     only **nous** + **minimax** remain (retained); deferred behind the `dev.ps1`
     smoke gate (nous is live-path). `AuthError` prereq is done (`888ef30c`).
     See continuation point.
-- [~] **Step 3 — `config.py`**: **in progress** (4597 → 1279, −72%). Done (9):
-  `config_defaults`, `config_env_schema`, `config_managed`, `config_home`,
-  `config_env`, `config_merge`, `config_paths`, `config_loader`, `config_migrate`.
-  Remaining is small: the validation + custom-providers + missing-detection
-  consumers (optional) and the CLI commands (stay in facade) — see continuation.
+- [x] **Step 3 — `config.py`: DONE** (4597 → 683, **−85%**, `e470b41d`). Split into
+  1 facade + 11 siblings: `config_defaults`, `config_env_schema`, `config_managed`,
+  `config_home`, `config_env`, `config_merge`, `config_paths`, `config_loader`,
+  `config_migrate`, `config_missing`, `config_custom_providers`, `config_validate`.
+  `hermes_cli/config.py` is now a thin facade — re-exports + the 4 CLI commands
+  (`show_config`/`edit_config`/`set_config_value`/`config_command`). Key technique:
+  robust free-name analysis (defs+assigns+imports+builtins) before each slice;
+  leaf-first down the dependency stack; one lazy import in `migrate_config` to
+  break a top-of-stack cycle.
 - [ ] **Step 4 — `run_agent.py`**: not started — and **scope reduced**: its core
   loop is the Phase-3.5 LangGraph re-platform target, so don't fully split it;
   extract only orthogonal keep-forever concerns + add characterization tests.
@@ -293,10 +297,23 @@ internal callers move; the kabuqina compat guardrails stay green throughout.
 
 ## Current continuation point
 
-**Step 3 — `config.py` (4597 → 2066, −55% so far). In progress.** Step 2 is
-*parked, not closed* (see below). Keep `hermes_cli.config` as the re-exporting
-facade; extract into sibling `hermes_cli/config_*.py` modules (a `config/`
-package can be formed later).
+**Step 3 (`config.py`) is DONE** — 4597 → 683 (−85%), 1 facade + 11 sibling
+modules (`e470b41d` + the 8 commits before it). Two threads remain in the overall
+split effort:
+
+1. **Parked step-2 tail** — extract the **nous** + **minimax** runtime resolvers
+   from `hermes_cli/auth.py` into `providers/<name>_auth.py` (shared infra is
+   already out: `auth_store`/`oauth_helpers`/`auth_errors`/`api_key_auth`). Gate
+   behind the `scripts/dev.ps1` smoke (nous is live-path); **exclude spotify**
+   (it's a tool, not an inference provider). Details under "Parked step-2 tail".
+2. **Step 4 — `run_agent.py`** — *scope-reduced*: its core loop is the Phase-3.5
+   LangGraph re-platform target, so **don't fully split it** — extract only
+   orthogonal keep-forever concerns (usage/pricing, message persistence) + add
+   characterization tests; leave the loop for the re-platform.
+
+---
+
+The config.py split (for reference / as the pattern for future big-file splits):
 
 Slices done (each verified: import identity + functional smoke + test_config +
 compat):
@@ -321,33 +338,16 @@ extracting — the trivial defined-names scan misses `is_managed`,
 `DEFAULT_SOUL_MD`, `Colors`, etc., causing false-start NameErrors. (Use the
 per-function AST walk that unions defs+assigns+imports+builtins.)
 
-**What remains (~1279 lines) is the smaller `load_config` *consumers* + the CLI
-facade.** The loader core is out; these import `load_config` from `config_loader`
-directly (no cycle), or are left in the facade. Candidates:
-- **`migrate_config`** (~600 lines) → `config_migrate.py` — **done** (`f8439f3f`).
-  Its facade-resident inspection helpers (`check_config_version`, `_set_nested`,
-  `get_missing_*`, shared with the CLI commands) are lazy-imported inside the
-  function to avoid a cycle — the idiomatic pattern for a one-shot, non-hot
-  consumer at the top of the stack.
-- **validation** (`validate_config_structure` + `ConfigIssue`, `print_config_warnings`,
-  `warn_deprecated_cwd_env_vars`, `check_config_version`) → `config_validate.py`.
-- **custom-providers** (`_normalize_custom_provider_entry`,
-  `providers_dict_to_custom_providers`, `get_compatible_custom_providers`,
-  `get_custom_provider_context_length`) → `config_custom_providers.py`.
-- **missing-detection** (`get_missing_env_vars`, `_set_nested`,
-  `get_missing_config_fields`, `get_missing_skill_config_vars`).
-- **CLI commands** (`show_config`, `edit_config`, `set_config_value`,
-  `config_command`) — **stay** in the `hermes_cli.config` facade.
+The `load_config` *consumers* came out last (they import `load_config` from
+`config_loader` — no cycle): `config_migrate` (~600 lines; its facade-resident
+inspection helpers shared with the CLI are lazy-imported inside the function to
+break a top-of-stack cycle), then `config_validate` + `config_custom_providers`
++ `config_missing` in one pass. The **CLI commands** (`show_config`,
+`edit_config`, `set_config_value`, `config_command`) **stay** in the
+`hermes_cli.config` facade by design.
 
-Each consumer is a separate sibling + re-export with the robust free-name
-analysis + functional smoke. config.py at −60% is already a healthy facade;
-these are optional further tidy (diminishing returns vs the loader core). Refactor
-Phase 4 aspirational shape: a `config/` package (`{loader,env_loader,paths,...}`),
-formable later from the siblings.
-
-So the next focused pass is: `config_paths.py` (leaf) → `config/loader.py`
-(load/save/read_raw) → then decide consumers. Refactor Phase 4 target shape:
-`config/{loader,env_loader,paths,profiles,models}.py`.
+Aspirational future shape: fold the 11 `config_*.py` siblings into a `config/`
+package (`__init__.py` becomes the facade) — purely cosmetic, do only if wanted.
 
 **Parked step-2 tail (push after config.py):** extract the **nous** (~900) and
 **minimax** (~300) runtime resolvers into `providers/<name>_auth.py`. Shared
