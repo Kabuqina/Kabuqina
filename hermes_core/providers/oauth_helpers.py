@@ -97,10 +97,3 @@ def _decode_jwt_claims(token: Any) -> Dict[str, Any]:
     except Exception:
         return {}
     return claims if isinstance(claims, dict) else {}
-
-def _codex_access_token_is_expiring(access_token: Any, skew_seconds: int) -> bool:
-    claims = _decode_jwt_claims(access_token)
-    exp = claims.get("exp")
-    if not isinstance(exp, (int, float)):
-        return False
-    return float(exp) <= (time.time() + max(0, int(skew_seconds)))

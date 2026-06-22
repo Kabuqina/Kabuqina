@@ -1116,8 +1116,8 @@ class TestToolUseEnforcementGuidance:
     def test_enforcement_models_includes_gpt(self):
         assert "gpt" in TOOL_USE_ENFORCEMENT_MODELS
 
-    def test_enforcement_models_includes_codex(self):
-        assert "codex" in TOOL_USE_ENFORCEMENT_MODELS
+    def test_enforcement_models_excludes_codex(self):
+        assert "codex" not in TOOL_USE_ENFORCEMENT_MODELS
 
     def test_enforcement_models_includes_grok(self):
         assert "grok" in TOOL_USE_ENFORCEMENT_MODELS
@@ -1127,7 +1127,7 @@ class TestToolUseEnforcementGuidance:
 
 
 class TestOpenAIModelExecutionGuidance:
-    """Tests for GPT/Codex-specific execution discipline guidance."""
+    """Tests for GPT-specific execution discipline guidance."""
 
     def test_guidance_covers_tool_persistence(self):
         text = OPENAI_MODEL_EXECUTION_GUIDANCE.lower()
@@ -1164,5 +1164,4 @@ class TestOpenAIModelExecutionGuidance:
 # =========================================================================
 # Budget warning history stripping
 # =========================================================================
-
 

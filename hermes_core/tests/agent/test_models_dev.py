@@ -31,22 +31,12 @@ SAMPLE_REGISTRY = {
             },
         },
     },
-    "github-copilot": {
-        "id": "github-copilot",
-        "name": "GitHub Copilot",
+    "stepfun": {
+        "id": "stepfun",
+        "name": "StepFun",
         "models": {
-            "claude-opus-4.6": {
-                "id": "claude-opus-4.6",
-                "limit": {"context": 128000, "output": 32000},
-            },
-        },
-    },
-    "kilo": {
-        "id": "kilo",
-        "name": "Kilo Gateway",
-        "models": {
-            "anthropic/claude-sonnet-4.6": {
-                "id": "anthropic/claude-sonnet-4.6",
+            "step-3": {
+                "id": "step-3",
                 "limit": {"context": 1000000, "output": 128000},
             },
         },
@@ -79,19 +69,9 @@ class TestProviderMapping:
             assert isinstance(hermes_id, str)
             assert isinstance(mdev_id, str)
 
-    def test_known_providers_mapped(self):
-        assert PROVIDER_TO_MODELS_DEV["anthropic"] == "anthropic"
-        assert PROVIDER_TO_MODELS_DEV["copilot"] == "github-copilot"
-        assert PROVIDER_TO_MODELS_DEV["stepfun"] == "stepfun"
-        assert PROVIDER_TO_MODELS_DEV["kilocode"] == "kilo"
-        assert PROVIDER_TO_MODELS_DEV["ai-gateway"] == "vercel"
-
     def test_unmapped_provider_not_in_dict(self):
         assert "nous" not in PROVIDER_TO_MODELS_DEV
-
-    def test_openai_codex_mapped_to_openai(self):
-        assert PROVIDER_TO_MODELS_DEV["openai"] == "openai"
-        assert PROVIDER_TO_MODELS_DEV["openai-codex"] == "openai"
+        assert "example-provider" not in PROVIDER_TO_MODELS_DEV
 
 
 class TestExtractContext:
@@ -137,12 +117,9 @@ class TestLookupModelsDevContext:
 
     @patch("agent.models_dev.fetch_models_dev")
     def test_provider_aware_context(self, mock_fetch):
-        """Same model, different context per provider."""
+        """Provider-aware context lookup uses the provider's catalog entry."""
         mock_fetch.return_value = SAMPLE_REGISTRY
-        # Anthropic direct: 1M
         assert lookup_models_dev_context("anthropic", "claude-opus-4-6") == 1000000
-        # GitHub Copilot: only 128K for same model
-        assert lookup_models_dev_context("copilot", "claude-opus-4.6") == 128000
 
     @patch("agent.models_dev.fetch_models_dev")
     def test_zero_context_filtered(self, mock_fetch):

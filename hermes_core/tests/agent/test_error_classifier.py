@@ -633,7 +633,7 @@ class TestClassifyApiError:
     def test_400_flat_body_descriptive_not_context_overflow(self):
         """Responses API flat body with descriptive error + large session → format error.
 
-        The Codex Responses API returns errors in flat body format:
+        Some Responses-style APIs return errors in flat body format:
         {"message": "...", "type": "..."} without an "error" wrapper.
         A descriptive 400 must NOT be misclassified as context overflow
         just because the session is large.
@@ -1131,30 +1131,29 @@ class TestSSLTransientPatterns:
         assert result.reason == FailoverReason.timeout
         assert result.retryable is True
 
-# ── Test: RateLimitError without status_code (Copilot/GitHub Models) ──────────
+# ── Test: RateLimitError without status_code ─────────────────────────────────
 
 class TestRateLimitErrorWithoutStatusCode:
-    """Regression tests for the Copilot/GitHub Models edge case where the
-    OpenAI SDK raises RateLimitError but does not populate .status_code."""
+    """Regression tests for SDK RateLimitError objects without .status_code."""
 
     def _make_rate_limit_error(self, status_code=None):
         """Create an exception whose class name is 'RateLimitError' with
         an optionally missing status_code, mirroring the OpenAI SDK shape."""
         cls = type("RateLimitError", (Exception,), {})
         e = cls("You have exceeded your rate limit.")
-        e.status_code = status_code  # None simulates the Copilot case
+        e.status_code = status_code
         return e
 
     def test_rate_limit_error_without_status_code_classified_as_rate_limit(self):
         """RateLimitError with status_code=None must classify as rate_limit."""
         e = self._make_rate_limit_error(status_code=None)
-        result = classify_api_error(e, provider="copilot", model="gpt-4o")
+        result = classify_api_error(e, provider="openai", model="gpt-4o")
         assert result.reason == FailoverReason.rate_limit
 
     def test_rate_limit_error_with_status_code_429_classified_as_rate_limit(self):
         """RateLimitError that does set status_code=429 still classifies correctly."""
         e = self._make_rate_limit_error(status_code=429)
-        result = classify_api_error(e, provider="copilot", model="gpt-4o")
+        result = classify_api_error(e, provider="openai", model="gpt-4o")
         assert result.reason == FailoverReason.rate_limit
 
     def test_other_error_without_status_code_not_forced_to_rate_limit(self):
@@ -1162,5 +1161,5 @@ class TestRateLimitErrorWithoutStatusCode:
         cls = type("APIError", (Exception,), {})
         e = cls("something went wrong")
         e.status_code = None
-        result = classify_api_error(e, provider="copilot", model="gpt-4o")
+        result = classify_api_error(e, provider="openai", model="gpt-4o")
         assert result.reason != FailoverReason.rate_limit

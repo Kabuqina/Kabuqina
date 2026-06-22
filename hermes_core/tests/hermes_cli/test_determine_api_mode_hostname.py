@@ -13,13 +13,10 @@ from hermes_cli.providers import determine_api_mode
 
 
 class TestOpenAIHostHardening:
-    def test_native_openai_url_is_codex_responses(self):
-        assert determine_api_mode("", "https://api.openai.com/v1") == "codex_responses"
-
-    def test_openai_host_suffix_is_not_codex(self):
+    def test_openai_host_suffix_stays_chat_completions(self):
         assert determine_api_mode("", "https://api.openai.com.example/v1") == "chat_completions"
 
-    def test_openai_path_segment_is_not_codex(self):
+    def test_openai_path_segment_stays_chat_completions(self):
         assert determine_api_mode("", "https://proxy.example.test/api.openai.com/v1") == "chat_completions"
 
 

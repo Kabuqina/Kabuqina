@@ -62,10 +62,6 @@ class TestNormalizeVisionProvider:
         from agent.auxiliary_client import _normalize_vision_provider
         assert _normalize_vision_provider("custom:beans") == "beans"
 
-    def test_codex_alias_still_works(self):
-        from agent.auxiliary_client import _normalize_vision_provider
-        assert _normalize_vision_provider("codex") == "openai-codex"
-
     def test_auto_unchanged(self):
         from agent.auxiliary_client import _normalize_vision_provider
         assert _normalize_vision_provider("auto") == "auto"
@@ -99,26 +95,6 @@ class TestResolveProviderClientMainAlias:
         client, model = resolve_provider_client("main", "test")
         assert client is not None
         assert "beans.local" in str(client.base_url)
-
-    def test_main_resolves_github_copilot_alias(self, tmp_path):
-        _write_config(tmp_path, {
-            "model": {"default": "gpt-5.4", "provider": "github-copilot"},
-        })
-        with (
-            patch("hermes_cli.auth.resolve_api_key_provider_credentials", return_value={
-                "api_key": "ghu_test_token",
-                "base_url": "https://api.githubcopilot.com",
-            }),
-            patch("agent.auxiliary_client.OpenAI") as mock_openai,
-        ):
-            mock_openai.return_value = MagicMock()
-            from agent.auxiliary_client import resolve_provider_client
-
-            client, model = resolve_provider_client("main", "gpt-5.4")
-
-        assert client is not None
-        assert model == "gpt-5.4"
-        assert mock_openai.called
 
 
 class TestResolveProviderClientNamedCustom:

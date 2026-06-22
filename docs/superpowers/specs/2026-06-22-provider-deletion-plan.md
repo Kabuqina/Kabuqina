@@ -41,11 +41,61 @@ smoke is available.
 
 - [x] **`arcee`** — done, commit `e7914833`. 12 files, 269 deletions. Established
   the tier-1 recipe below.
-- [ ] Tier 1 remaining: `gmi`, `nvidia`, `kilo`, `vercel`, `opencode`,
-  `azure-foundry`.
-- [ ] Tier 2: `opencode-go`, `ollama-cloud`.
-- [ ] Tier 3: `bedrock`, `openai-codex`, `copilot-acp`, `github-copilot`,
-  `google-gemini-cli`, `qwen-oauth`.
+- [x] Tier 1 remaining: `gmi`, `nvidia`, `kilo`, `vercel`, `opencode`,
+  `azure-foundry` — removed in the current branch.
+- [x] Tier 2: `opencode-go`, `ollama-cloud` — removed in the current branch,
+  including their runtime/model special cases.
+- [x] Tier 3: `bedrock`, `openai-codex`, `copilot-acp`, `github-copilot`,
+  `google-gemini-cli`, `qwen-oauth` — source/test deletion complete in the
+  current branch. Dedicated adapters/transports/auth modules, provider
+  registries, env/schema entries, model catalogs, image plugin entries,
+  session/state persistence fields, delegate/trajectory branches, and
+  `run_agent.py` hot-path branches have been removed or retargeted.
+
+Current-branch verification (2026-06-22):
+
+- Product contract: `python -m pytest python/tests/test_product_profile.py
+  python/tests/test_disable_image_gen_backends.py -q -o "addopts="
+  -p no:cacheprovider` -> `22 passed, 46 subtests passed`.
+- Core provider/model slice: `python -m pytest -q -o "addopts="
+  -p no:cacheprovider tests/agent/test_provider_package_split.py
+  tests/kabuqina/test_compat_imports.py tests/hermes_cli/test_models.py
+  tests/hermes_cli/test_model_validation.py
+  tests/hermes_cli/test_runtime_provider_resolution.py
+  tests/agent/test_model_metadata.py tests/hermes_cli/test_model_normalize.py
+  tests/hermes_cli/test_config.py
+  tests/hermes_cli/test_model_switch_custom_providers.py
+  tests/test_base_url_hostname.py` -> `415 passed`.
+- Tier-3 hot-path regression slices:
+  `tests/run_agent/test_openai_client_lifecycle.py
+  tests/run_agent/test_context_token_tracking.py
+  tests/run_agent/test_strict_api_validation.py
+  tests/run_agent/test_run_agent.py::TestToolUseEnforcementConfig` ->
+  `21 passed`; `tests/run_agent/test_provider_parity.py` -> `43 passed`;
+  `tests/run_agent/test_create_openai_client_proxy_env.py` -> `9 passed`;
+  `tests/agent/test_unsupported_temperature_retry.py
+  tests/gateway/test_usage_command.py` -> `24 passed`.
+- Focused transport/gateway/plugin slices:
+  `tests/agent/test_auxiliary_client.py
+  tests/agent/transports/test_chat_completions.py
+  tests/agent/transports/test_types.py` -> `169 passed`;
+  `tests/gateway/test_fast_command.py
+  tests/gateway/test_discord_model_picker.py
+  tests/gateway/test_session_model_override_routing.py` -> `5 passed`;
+  `tests/tools/test_image_generation_plugin_dispatch.py
+  tests/gateway/test_session.py::TestRewriteTranscriptPreservesReasoning` ->
+  `5 passed`.
+- Web/Rust: `npm run build` in `web/` passed; `cargo test
+  provider_api_key_env_covers_native_hermes_providers --manifest-path
+  tauri\Cargo.toml` passed.
+- Final inventory: provider-cut strings remain only in
+  `python/src/product_profile_policy.py`, `python/tests/test_product_profile.py`,
+  and the website sidebar non-goal (`hermes_core/website/sidebars.ts`).
+- `git diff --check` passed with only Windows LF->CRLF warnings.
+
+Runtime smoke note: the interactive `scripts/dev.ps1` live chat smoke was not
+run in this non-interactive pass. Keep it as a release/manual gate before
+trusting the Tier-3 hot-path deletion in a live desktop session.
 
 Prerequisite extraction slices already landed (so tier-3 OAuth resolvers are
 less entangled): `providers/auth_store.py` (`1820c1dc`),

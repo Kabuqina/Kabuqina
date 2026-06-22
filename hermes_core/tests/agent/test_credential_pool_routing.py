@@ -11,28 +11,6 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 
-class TestGatewayTurnRoutePool:
-    def test_resolve_turn_includes_pool(self):
-        """Gateway's _resolve_turn_agent_config must pass credential_pool."""
-        from gateway.run import GatewayRunner
-
-        fake_pool = MagicMock(name="FakePool")
-        runner = SimpleNamespace(_service_tier=None)
-        runtime_kwargs = {
-            "api_key": "***",
-            "base_url": None,
-            "provider": "openai-codex",
-            "api_mode": "codex_responses",
-            "command": None,
-            "args": [],
-            "credential_pool": fake_pool,
-        }
-
-        bound = GatewayRunner._resolve_turn_agent_config.__get__(runner)
-        route = bound("test message", "gpt-5.4", runtime_kwargs)
-
-        assert route["runtime"]["credential_pool"] is fake_pool
-
 
 # ---------------------------------------------------------------------------
 # 3 & 4. Eager fallback deferred/fires based on credential pool

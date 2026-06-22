@@ -1,8 +1,7 @@
 """Anthropic Messages API adapter for Hermes Agent.
 
 Translates between Hermes's internal OpenAI-style message format and
-Anthropic's Messages API. Follows the same pattern as the codex_responses
-adapter — all provider-specific logic is isolated here.
+Anthropic's Messages API. Provider-specific logic is isolated here.
 
 Auth supports:
   - Regular API keys (sk-ant-api*) → x-api-key header
@@ -24,8 +23,8 @@ from utils import base_url_host_matches, normalize_proxy_env_vars
 
 # NOTE: `import anthropic` is deliberately NOT at module top — the SDK pulls
 # ~220 ms of imports (anthropic.types, anthropic.lib.tools._beta_runner, etc.)
-# and the 3 usage sites (build_anthropic_client, build_anthropic_bedrock_client,
-# read_claude_code_credentials_from_keychain) are all on cold user-triggered
+# and the usage sites (build_anthropic_client,
+# read_claude_code_credentials_from_keychain) are on cold user-triggered
 # paths. Access via the `_get_anthropic_sdk()` accessor below, which caches
 # the module after the first call and returns None on ImportError.
 _anthropic_sdk: Any = ...  # sentinel — None means "tried and missing"
@@ -223,14 +222,12 @@ def _forbids_sampling_params(model: str) -> bool:
 # that still gate on the headers continue to get the enhanced features.
 #
 # ``context-1m-2025-08-07`` unlocks the 1M context window on Claude Opus 4.6/4.7
-# and Sonnet 4.6 when served via AWS Bedrock or Azure AI Foundry. 1M is GA on
-# native Anthropic (api.anthropic.com) for Opus 4.6+, but Bedrock/Azure still
-# gate it behind this beta header as of 2026-04 — without it Bedrock caps Opus
-# at 200K even though model_metadata.py advertises 1M. The header is a harmless
-# no-op on endpoints where 1M is GA.
+# and Sonnet 4.6 when served through Anthropic-compatible gateways that still
+# gate it behind the beta header. The header is a harmless no-op on endpoints
+# where 1M is GA.
 #
 # Migration guide: remove these if you no longer support ≤4.5 models or once
-# Bedrock/Azure promote 1M to GA.
+# supported gateways promote 1M to GA.
 _COMMON_BETAS = [
     "interleaved-thinking-2025-05-14",
     "fine-grained-tool-streaming-2025-05-14",
@@ -344,7 +341,7 @@ def _normalize_base_url_text(base_url) -> str:
 def _is_third_party_anthropic_endpoint(base_url: str | None) -> bool:
     """Return True for non-Anthropic endpoints using the Anthropic Messages API.
 
-    Third-party proxies (Azure AI Foundry, AWS Bedrock, self-hosted) authenticate
+    Third-party proxies (managed gateways, self-hosted) authenticate
     with their own API keys via x-api-key, not Anthropic OAuth tokens. OAuth
     detection should be skipped for these endpoints.
     """
@@ -568,7 +565,7 @@ def build_anthropic_client(
         if common_betas:
             kwargs["default_headers"] = {"anthropic-beta": ",".join(common_betas)}
     elif _is_third_party_anthropic_endpoint(base_url):
-        # Third-party proxies (Azure AI Foundry, AWS Bedrock, etc.) use their
+        # Third-party proxies use their
         # own API keys with x-api-key auth. Skip OAuth detection — their keys
         # don't follow Anthropic's sk-ant-* prefix convention and would be
         # misclassified as OAuth tokens.
@@ -593,42 +590,6 @@ def build_anthropic_client(
             kwargs["default_headers"] = {"anthropic-beta": ",".join(common_betas)}
 
     return _anthropic_sdk.Anthropic(**kwargs)
-
-
-def build_anthropic_bedrock_client(region: str):
-    """Create an AnthropicBedrock client for Bedrock Claude models.
-
-    Uses the Anthropic SDK's native Bedrock adapter, which provides full
-    Claude feature parity: prompt caching, thinking budgets, adaptive
-    thinking, fast mode — features not available via the Converse API.
-
-    Attaches the common Anthropic beta headers as client-level defaults so
-    that Bedrock-hosted Claude models get the same enhanced features as
-    native Anthropic. The ``context-1m-2025-08-07`` beta in particular
-    unlocks the 1M context window for Opus 4.6/4.7 on Bedrock — without
-    it, Bedrock caps these models at 200K even though the Anthropic API
-    serves them with 1M natively.
-
-    Auth uses the boto3 default credential chain (IAM roles, SSO, env vars).
-    """
-    _anthropic_sdk = _get_anthropic_sdk()
-    if _anthropic_sdk is None:
-        raise ImportError(
-            "The 'anthropic' package is required for the Bedrock provider. "
-            "Install it with: pip install 'anthropic>=0.39.0'"
-        )
-    if not hasattr(_anthropic_sdk, "AnthropicBedrock"):
-        raise ImportError(
-            "anthropic.AnthropicBedrock not available. "
-            "Upgrade with: pip install 'anthropic>=0.39.0'"
-        )
-    from httpx import Timeout
-
-    return _anthropic_sdk.AnthropicBedrock(
-        aws_region=region,
-        timeout=Timeout(timeout=900.0, connect=10.0),
-        default_headers={"anthropic-beta": ",".join(_COMMON_BETAS)},
-    )
 
 
 def _read_claude_code_credentials_from_keychain() -> Optional[Dict[str, Any]]:
@@ -1147,26 +1108,6 @@ def read_hermes_oauth_credentials() -> Optional[Dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 
-def _is_bedrock_model_id(model: str) -> bool:
-    """Detect AWS Bedrock model IDs that use dots as namespace separators.
-
-    Bedrock model IDs come in two forms:
-    - Bare:    ``anthropic.claude-opus-4-7``
-    - Regional (inference profiles): ``us.anthropic.claude-sonnet-4-5-v1:0``
-
-    In both cases the dots separate namespace components, not version
-    numbers, and must be preserved verbatim for the Bedrock API.
-    """
-    lower = model.lower()
-    # Regional inference-profile prefixes
-    if any(lower.startswith(p) for p in ("global.", "us.", "eu.", "ap.", "jp.")):
-        return True
-    # Bare Bedrock model IDs: provider.model-family
-    if lower.startswith("anthropic."):
-        return True
-    return False
-
-
 def normalize_model_name(model: str, preserve_dots: bool = False) -> str:
     """Normalize a model name for the Anthropic API.
 
@@ -1174,19 +1115,11 @@ def normalize_model_name(model: str, preserve_dots: bool = False) -> str:
     - Converts dots to hyphens in version numbers (OpenRouter uses dots,
       Anthropic uses hyphens: claude-opus-4.6 → claude-opus-4-6), unless
       preserve_dots is True (e.g. for Alibaba/DashScope: qwen3.5-plus).
-    - Preserves Bedrock model IDs (``anthropic.claude-opus-4-7``) and
-      regional inference profiles (``us.anthropic.claude-*``) whose dots
-      are namespace separators, not version separators.
     """
     lower = model.lower()
     if lower.startswith("anthropic/"):
         model = model[len("anthropic/"):]
     if not preserve_dots:
-        # Bedrock model IDs use dots as namespace separators
-        # (e.g. "anthropic.claude-opus-4-7", "us.anthropic.claude-*").
-        # These must not be converted to hyphens.  See issue #12295.
-        if _is_bedrock_model_id(model):
-            return model
         # Only convert dots to hyphens for Anthropic/Claude models.
         # Non-Anthropic models (gpt-5.4, gemini-2.5, etc.) use dots
         # as part of their canonical names.  See issue #17171.

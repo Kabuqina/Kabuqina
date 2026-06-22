@@ -5,9 +5,7 @@ Hermes seeds its credential pool from many places:
     env:<VAR>     — os.environ / ~/.hermes/.env
     claude_code   — ~/.claude/.credentials.json
     hermes_pkce   — ~/.hermes/.anthropic_oauth.json
-    device_code   — auth.json providers.<provider> (nous, openai-codex, ...)
-    qwen-cli      — ~/.qwen/oauth_creds.json
-    gh_cli        — gh auth token
+    device_code   — auth.json providers.<provider> (nous, ...)
     config:<name> — custom_providers config entry
     model_config  — model.api_key when model.provider == "custom"
     manual        — user ran `hermes auth add`
@@ -21,8 +19,7 @@ unify here is **removal**:
 Before this module, every source had an ad-hoc removal branch in
 ``auth_remove_command``, and several sources had no branch at all — so
 ``auth remove`` silently reverted on the next ``load_pool()`` call for
-qwen-cli, nous device_code (partial), hermes_pkce, copilot gh_cli, and
-custom-config sources.
+nous device_code (partial), hermes_pkce, and custom-config sources.
 
 Now every source registers a ``RemovalStep`` that does exactly three things
 in the same shape:
@@ -57,7 +54,7 @@ class RemovalResult:
     Attributes:
         cleaned: Short strings describing external state that was actually
             mutated (``"Cleared XAI_API_KEY from .env"``,
-            ``"Cleared openai-codex OAuth tokens from auth store"``).
+            ``"Cleared nous OAuth tokens from auth store"``).
             Printed as plain lines to the user.
         hints: Diagnostic lines ABOUT state the user may need to clean up
             themselves or is deliberately left intact (shell-exported env
@@ -265,82 +262,6 @@ def _remove_minimax_oauth(provider: str, removed) -> RemovalResult:
     return result
 
 
-def _remove_codex_device_code(provider: str, removed) -> RemovalResult:
-    """Codex tokens live in TWO places: our auth store AND ~/.codex/auth.json.
-
-    refresh_codex_oauth_pure() writes both every time, so clearing only
-    the Hermes auth store is not enough — _seed_from_singletons() would
-    re-import from ~/.codex/auth.json on the next load_pool() call and
-    the removal would be instantly undone.  We suppress instead of
-    deleting Codex CLI's file, so the Codex CLI itself keeps working.
-
-    The canonical source name in ``_seed_from_singletons`` is
-    ``"device_code"`` (no prefix).  Entries may show up in the pool as
-    either ``"device_code"`` (seeded) or ``"manual:device_code"`` (added
-    via ``hermes auth add openai-codex``), but in both cases the re-seed
-    gate lives at the ``"device_code"`` suppression key.  We suppress
-    that canonical key here; the central dispatcher also suppresses
-    ``removed.source`` which is fine — belt-and-suspenders, idempotent.
-    """
-    from hermes_cli.auth import suppress_credential_source
-
-    result = RemovalResult()
-    if _clear_auth_store_provider(provider):
-        result.cleaned.append(f"Cleared {provider} OAuth tokens from auth store")
-    # Suppress the canonical re-seed source, not just whatever source the
-    # removed entry had.  Otherwise `manual:device_code` removals wouldn't
-    # block the `device_code` re-seed path.
-    suppress_credential_source(provider, "device_code")
-    result.hints.extend([
-        "Suppressed openai-codex device_code source — it will not be re-seeded.",
-        "Note: Codex CLI credentials still live in ~/.codex/auth.json",
-        "Run `hermes auth add openai-codex` to re-enable if needed.",
-    ])
-    return result
-
-
-def _remove_qwen_cli(provider: str, removed) -> RemovalResult:
-    """~/.qwen/oauth_creds.json is owned by the Qwen CLI.
-
-    Same pattern as claude_code — suppress, don't delete.  The user's
-    Qwen CLI install still reads from that file.
-    """
-    return RemovalResult(hints=[
-        "Suppressed qwen-cli credential — it will not be re-seeded.",
-        "Note: Qwen CLI credentials still live in ~/.qwen/oauth_creds.json",
-        "Run `hermes auth add qwen-oauth` to re-enable if needed.",
-    ])
-
-
-def _remove_copilot_gh(provider: str, removed) -> RemovalResult:
-    """Copilot token comes from `gh auth token` or COPILOT_GITHUB_TOKEN / GH_TOKEN / GITHUB_TOKEN.
-
-    Copilot is special: the same token can be seeded as multiple source
-    entries (gh_cli from ``_seed_from_singletons`` plus env:<VAR> from
-    ``_seed_from_env``), so removing one entry without suppressing the
-    others lets the duplicates resurrect.  We suppress ALL known copilot
-    sources here so removal is stable regardless of which entry the
-    user clicked.
-
-    We don't touch the user's gh CLI or shell state — just suppress so
-    Hermes stops picking the token up.
-    """
-    # Suppress ALL copilot source variants up-front so no path resurrects
-    # the pool entry.  The central dispatcher in auth_remove_command will
-    # ALSO suppress removed.source, but it's idempotent so double-calling
-    # is harmless.
-    from hermes_cli.auth import suppress_credential_source
-    suppress_credential_source(provider, "gh_cli")
-    for env_var in ("COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"):
-        suppress_credential_source(provider, f"env:{env_var}")
-
-    return RemovalResult(hints=[
-        "Suppressed all copilot token sources (gh_cli + env vars) — they will not be re-seeded.",
-        "Note: Your gh CLI / shell environment is unchanged.",
-        "Run `hermes auth add copilot` to re-enable if needed.",
-    ])
-
-
 def _remove_custom_config(provider: str, removed) -> RemovalResult:
     """Custom provider pools are seeded from custom_providers config or
     model.api_key.  Both are in config.yaml — modifying that from here
@@ -359,17 +280,8 @@ def _register_all_sources() -> None:
     """Called once on module import.
 
     ORDER MATTERS — ``find_removal_step`` returns the first match.  Put
-    provider-specific steps before the generic ``env:*`` step so that e.g.
-    copilot's ``env:GH_TOKEN`` goes through the copilot removal (which
-    doesn't touch the user's shell), not the generic env-var removal
-    (which would try to clear .env).
+    provider-specific steps before the generic ``env:*`` step.
     """
-    register(RemovalStep(
-        provider="copilot", source_id="gh_cli",
-        match_fn=lambda src: src == "gh_cli" or src.startswith("env:"),
-        remove_fn=_remove_copilot_gh,
-        description="gh auth token / COPILOT_GITHUB_TOKEN / GH_TOKEN",
-    ))
     register(RemovalStep(
         provider="*", source_id="env:",
         match_fn=lambda src: src.startswith("env:"),
@@ -390,17 +302,6 @@ def _register_all_sources() -> None:
         provider="nous", source_id="device_code",
         remove_fn=_remove_nous_device_code,
         description="auth.json providers.nous",
-    ))
-    register(RemovalStep(
-        provider="openai-codex", source_id="device_code",
-        match_fn=lambda src: src == "device_code" or src.endswith(":device_code"),
-        remove_fn=_remove_codex_device_code,
-        description="auth.json providers.openai-codex + ~/.codex/auth.json",
-    ))
-    register(RemovalStep(
-        provider="qwen-oauth", source_id="qwen-cli",
-        remove_fn=_remove_qwen_cli,
-        description="~/.qwen/oauth_creds.json",
     ))
     register(RemovalStep(
         provider="minimax-oauth", source_id="oauth",

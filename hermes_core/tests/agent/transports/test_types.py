@@ -258,27 +258,3 @@ class TestNormalizedResponseBackwardCompat:
             provider_data=None,
         )
         assert nr.reasoning_details is None
-
-    def test_codex_reasoning_items_from_provider_data(self):
-        items = ["item1", "item2"]
-        nr = NormalizedResponse(
-            content="hi", tool_calls=None, finish_reason="stop",
-            provider_data={"codex_reasoning_items": items},
-        )
-        assert nr.codex_reasoning_items == items
-
-    def test_codex_reasoning_items_none_when_absent(self):
-        nr = NormalizedResponse(content="hi", tool_calls=None, finish_reason="stop")
-        assert nr.codex_reasoning_items is None
-
-    def test_codex_message_items_from_provider_data(self):
-        items = [{"id": "msg_1", "type": "message"}]
-        nr = NormalizedResponse(
-            content="hi", tool_calls=None, finish_reason="stop",
-            provider_data={"codex_message_items": items},
-        )
-        assert nr.codex_message_items == items
-
-    def test_codex_message_items_none_when_absent(self):
-        nr = NormalizedResponse(content="hi", tool_calls=None, finish_reason="stop")
-        assert nr.codex_message_items is None

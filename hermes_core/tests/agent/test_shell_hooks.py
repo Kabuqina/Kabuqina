@@ -542,7 +542,7 @@ class TestIdempotentRegistration:
 
 
 class TestAllowlistConcurrency:
-    """Regression tests for the Codex#1 finding: simultaneous
+    """Regression tests for simultaneous
     _record_approval() calls used to collide on a fixed tmp path and
     silently lose entries under read-modify-write races."""
 

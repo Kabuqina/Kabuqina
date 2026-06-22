@@ -154,22 +154,6 @@ def test_maybe_wrap_anthropic_double_wrap_safe():
     assert result is already_wrapped
 
 
-def test_maybe_wrap_anthropic_codex_client_passes_through():
-    """CodexAuxiliaryClient is never re-dispatched."""
-    from agent.auxiliary_client import (
-        _maybe_wrap_anthropic,
-        CodexAuxiliaryClient,
-        AnthropicAuxiliaryClient,
-    )
-
-    codex_client = MagicMock(spec=CodexAuxiliaryClient)
-    result = _maybe_wrap_anthropic(
-        codex_client, "model", "key",
-        "https://api.kimi.com/coding", api_mode=None,
-    )
-    assert result is codex_client
-    assert not isinstance(result, AnthropicAuxiliaryClient)
-
 
 def test_maybe_wrap_anthropic_sdk_missing_falls_back():
     """ImportError on anthropic SDK returns plain client with warning."""

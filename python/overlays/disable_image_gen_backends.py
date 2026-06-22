@@ -4,7 +4,7 @@
 """Disable unused bundled image_gen backend plugins for the desktop build.
 
 Upstream Hermes auto-loads ``kind: backend`` bundled plugins during
-``discover_plugins()`` — including the OpenAI / OpenAI-Codex / xAI image
+``discover_plugins()`` — including the OpenAI / xAI image
 generation providers. Kabuqina does not surface an image_gen provider
 picker, and these backends are never selected, so registering them only
 adds startup log noise (``Plugin '<name>' registered image_gen provider``)
@@ -33,10 +33,9 @@ _INSTALLED = False
 # Path-derived registry keys for the bundled image_gen backends we never use.
 # ``_get_disabled_plugins`` matches on the plugin's lookup key (the
 # ``plugins/<category>/<name>`` path form for nested plugins), so the keys
-# below correspond to ``plugins/image_gen/{openai,openai-codex,xai}``.
+# below correspond to ``plugins/image_gen/{openai,xai}``.
 _DISABLED_IMAGE_GEN_BACKENDS = (
     "image_gen/openai",
-    "image_gen/openai-codex",
     "image_gen/xai",
 )
 

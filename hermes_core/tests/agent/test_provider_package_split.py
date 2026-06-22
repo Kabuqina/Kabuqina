@@ -48,24 +48,18 @@ def test_provider_transports_package_aliases_legacy_agent_paths():
     import agent.transports as legacy_transports
     import agent.transports.anthropic as legacy_anthropic
     import agent.transports.base as legacy_base
-    import agent.transports.bedrock as legacy_bedrock
     import agent.transports.chat_completions as legacy_chat
-    import agent.transports.codex as legacy_codex
     import agent.transports.types as legacy_types
     import providers.transports as provider_transports
     import providers.transports.anthropic as provider_anthropic
     import providers.transports.base as provider_base
-    import providers.transports.bedrock as provider_bedrock
     import providers.transports.chat_completions as provider_chat
-    import providers.transports.codex as provider_codex
     import providers.transports.types as provider_types
 
     assert legacy_transports is provider_transports
     assert legacy_anthropic is provider_anthropic
     assert legacy_base is provider_base
-    assert legacy_bedrock is provider_bedrock
     assert legacy_chat is provider_chat
-    assert legacy_codex is provider_codex
     assert legacy_types is provider_types
 
 
@@ -158,7 +152,6 @@ _OAUTH_HELPERS = (
     "_coerce_ttl_seconds",
     "_optional_base_url",
     "_decode_jwt_claims",
-    "_codex_access_token_is_expiring",
 )
 
 

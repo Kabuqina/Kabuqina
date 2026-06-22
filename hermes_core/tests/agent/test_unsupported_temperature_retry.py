@@ -6,8 +6,7 @@ web extract summarisation, etc.) hardcode ``temperature=0.3`` for historical
 reasons. Several provider/model combinations reject ``temperature`` with a
 400:
 
-  * OpenAI Responses (gpt-5/o-series reasoning models)
-  * Copilot Responses (reasoning models)
+  * OpenAI reasoning models
   * OpenRouter reasoning models (gpt-5.5, some anthropic via OAI-compat)
   * Anthropic Opus 4.7+ via OpenAI-compat endpoints
   * Kimi/Moonshot (server-managed)
@@ -38,10 +37,10 @@ class TestIsUnsupportedTemperatureError:
     """The detector must match the phrasings providers actually return."""
 
     @pytest.mark.parametrize("message", [
-        # OpenAI / Codex Responses
+        # OpenAI-style errors
         "HTTP 400: Unsupported parameter: temperature",
         "Error code: 400 - {'error': {'message': \"Unsupported parameter: 'temperature'\"}}",
-        # Copilot / OpenAI error-code form
+        # OpenAI error-code form
         "Error code: 400 - {'error': {'code': 'unsupported_parameter', 'param': 'temperature'}}",
         # OpenRouter-style
         "Provider returned error: temperature is not supported for this model",
@@ -93,7 +92,7 @@ class TestCallLlmUnsupportedTemperatureRetry:
 
         with (
             patch("agent.auxiliary_client._resolve_task_provider_model",
-                  return_value=("openai-codex", "gpt-5.5", None, None, None)),
+                  return_value=("openai", "gpt-5.5", None, None, None)),
             patch("agent.auxiliary_client._get_cached_client",
                   return_value=(client, "gpt-5.5")),
             patch("agent.auxiliary_client._validate_llm_response",
@@ -112,11 +111,10 @@ class TestCallLlmUnsupportedTemperatureRetry:
         retry_kwargs = client.chat.completions.create.call_args_list[1].kwargs
         assert first_kwargs["temperature"] == 0.3
         assert "temperature" not in retry_kwargs
-        # other kwargs preserved
         assert retry_kwargs["max_tokens"] == 500
 
     def test_non_temperature_400_does_not_retry_as_temperature(self):
-        """Unrelated 400s (e.g. bad tool role) must not silently drop temp."""
+        """Unrelated 400s must not silently drop temperature."""
         client = MagicMock()
         client.base_url = "https://api.openai.com/v1"
         non_temp_err = RuntimeError(
@@ -126,7 +124,7 @@ class TestCallLlmUnsupportedTemperatureRetry:
 
         with (
             patch("agent.auxiliary_client._resolve_task_provider_model",
-                  return_value=("openai-codex", "gpt-5.5", None, None, None)),
+                  return_value=("openai", "gpt-5.5", None, None, None)),
             patch("agent.auxiliary_client._get_cached_client",
                   return_value=(client, "gpt-5.5")),
             patch("agent.auxiliary_client._validate_llm_response",
@@ -141,22 +139,18 @@ class TestCallLlmUnsupportedTemperatureRetry:
                     temperature=0.3,
                     max_tokens=500,
                 )
-        # Should NOT have retried (non-temperature 400 doesn't match)
         assert client.chat.completions.create.call_count == 1
 
     def test_no_retry_when_temperature_not_in_kwargs(self):
         """If caller didn't send temperature, don't invent a temperature-retry."""
         client = MagicMock()
         client.base_url = "https://api.openai.com/v1"
-        # Provider complains about temperature even though we didn't send it.
-        # (Pathological but possible with misleading error text.)  The guard
-        # ``"temperature" in kwargs`` must prevent an unnecessary retry.
         err = RuntimeError("HTTP 400: Unsupported parameter: temperature")
         client.chat.completions.create.side_effect = err
 
         with (
             patch("agent.auxiliary_client._resolve_task_provider_model",
-                  return_value=("openai-codex", "gpt-5.5", None, None, None)),
+                  return_value=("openai", "gpt-5.5", None, None, None)),
             patch("agent.auxiliary_client._get_cached_client",
                   return_value=(client, "gpt-5.5")),
             patch("agent.auxiliary_client._validate_llm_response",
@@ -168,7 +162,7 @@ class TestCallLlmUnsupportedTemperatureRetry:
                 call_llm(
                     task="compression",
                     messages=[{"role": "user", "content": "x"}],
-                    temperature=None,  # explicit: no temperature sent
+                    temperature=None,
                     max_tokens=500,
                 )
         assert client.chat.completions.create.call_count == 1
@@ -188,7 +182,7 @@ class TestAsyncCallLlmUnsupportedTemperatureRetry:
 
         with (
             patch("agent.auxiliary_client._resolve_task_provider_model",
-                  return_value=("openai-codex", "gpt-5.5", None, None, None)),
+                  return_value=("openai", "gpt-5.5", None, None, None)),
             patch("agent.auxiliary_client._get_cached_client",
                   return_value=(client, "gpt-5.5")),
             patch("agent.auxiliary_client._validate_llm_response",
@@ -219,7 +213,7 @@ class TestAsyncCallLlmUnsupportedTemperatureRetry:
 
         with (
             patch("agent.auxiliary_client._resolve_task_provider_model",
-                  return_value=("openai-codex", "gpt-5.5", None, None, None)),
+                  return_value=("openai", "gpt-5.5", None, None, None)),
             patch("agent.auxiliary_client._get_cached_client",
                   return_value=(client, "gpt-5.5")),
             patch("agent.auxiliary_client._validate_llm_response",

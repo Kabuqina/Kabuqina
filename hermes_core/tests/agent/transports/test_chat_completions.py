@@ -25,26 +25,23 @@ class TestChatCompletionsBasic:
         tools = [{"type": "function", "function": {"name": "test", "parameters": {}}}]
         assert transport.convert_tools(tools) is tools
 
-    def test_convert_messages_no_codex_leaks(self, transport):
+    def test_convert_messages_no_internal_tool_call_fields(self, transport):
         msgs = [{"role": "user", "content": "hi"}]
         result = transport.convert_messages(msgs)
         assert result is msgs  # no copy needed
 
-    def test_convert_messages_strips_codex_fields(self, transport):
+    def test_convert_messages_strips_internal_tool_call_fields(self, transport):
         msgs = [
-            {"role": "assistant", "content": "ok", "codex_reasoning_items": [{"id": "rs_1"}],
-             "codex_message_items": [{"id": "msg_1", "type": "message"}],
+            {"role": "assistant", "content": "ok",
              "tool_calls": [{"id": "call_1", "call_id": "call_1", "response_item_id": "fc_1",
                             "type": "function", "function": {"name": "t", "arguments": "{}"}}]},
         ]
         result = transport.convert_messages(msgs)
-        assert "codex_reasoning_items" not in result[0]
-        assert "codex_message_items" not in result[0]
         assert "call_id" not in result[0]["tool_calls"][0]
         assert "response_item_id" not in result[0]["tool_calls"][0]
         # Original list untouched (deepcopy-on-demand)
-        assert "codex_reasoning_items" in msgs[0]
-        assert "codex_message_items" in msgs[0]
+        assert "call_id" in msgs[0]["tool_calls"][0]
+        assert "response_item_id" in msgs[0]["tool_calls"][0]
 
 
 class TestChatCompletionsBuildKwargs:
@@ -247,20 +244,6 @@ class TestChatCompletionsBuildKwargs:
         )
         assert kw["extra_body"]["extra_body"]["google"]["thinking_config"]["thinking_level"] == "high"
 
-    def test_google_gemini_cli_keeps_top_level_thinking_config(self, transport):
-        msgs = [{"role": "user", "content": "Hi"}]
-        kw = transport.build_kwargs(
-            model="gemini-3-flash-preview",
-            messages=msgs,
-            provider_name="google-gemini-cli",
-            reasoning_config={"enabled": True, "effort": "high"},
-        )
-        assert kw["extra_body"]["thinking_config"] == {
-            "includeThoughts": True,
-            "thinkingLevel": "high",
-        }
-        assert "google" not in kw["extra_body"]
-
     def test_gemini_flash_minimal_clamps_to_low(self, transport):
         # Gemini 3 Flash documents low/medium/high; "minimal" isn't accepted,
         # so clamp it down to "low" rather than forwarding it verbatim.
@@ -335,16 +318,6 @@ class TestChatCompletionsBuildKwargs:
             max_tokens_param_fn=lambda n: {"max_tokens": n},
         )
         assert kw["max_tokens"] == 2048
-
-    def test_nvidia_default_max_tokens(self, transport):
-        msgs = [{"role": "user", "content": "Hi"}]
-        kw = transport.build_kwargs(
-            model="glm-4.7", messages=msgs,
-            is_nvidia_nim=True,
-            max_tokens_param_fn=lambda n: {"max_tokens": n},
-        )
-        # NVIDIA default: 16384
-        assert kw["max_tokens"] == 16384
 
     def test_qwen_default_max_tokens(self, transport):
         msgs = [{"role": "user", "content": "Hi"}]

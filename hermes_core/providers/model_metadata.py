@@ -45,26 +45,21 @@ def _resolve_requests_verify() -> bool | str:
 # Only these are stripped — Ollama-style "model:tag" colons (e.g. "qwen3.5:27b")
 # are preserved so the full model name reaches cache lookups and server queries.
 _PROVIDER_PREFIXES: frozenset[str] = frozenset({
-    "openrouter", "nous", "openai-codex", "copilot", "copilot-acp",
-    "gemini", "ollama-cloud", "zai", "kimi-coding", "kimi-coding-cn", "stepfun", "minimax", "minimax-oauth", "minimax-cn", "anthropic", "deepseek",
-    "opencode-zen", "opencode-go", "ai-gateway", "kilocode", "alibaba",
-    "qwen-oauth",
+    "openrouter", "nous",
+    "gemini", "zai", "kimi-coding", "kimi-coding-cn", "stepfun", "minimax", "minimax-oauth", "minimax-cn", "anthropic", "deepseek",
+    "alibaba",
     "xiaomi",
-    "gmi",
     "tencent-tokenhub",
     "custom", "local",
     # Common aliases
     "google", "google-gemini", "google-ai-studio",
-    "glm", "z-ai", "z.ai", "zhipu", "github", "github-copilot",
-    "github-models", "kimi", "moonshot", "kimi-cn", "moonshot-cn", "claude", "deep-seek",
+    "glm", "z-ai", "z.ai", "zhipu",
+    "kimi", "moonshot", "kimi-cn", "moonshot-cn", "claude", "deep-seek",
     "ollama",
-    "stepfun", "opencode", "zen", "go", "vercel", "kilo", "dashscope", "aliyun", "qwen",
+    "stepfun", "dashscope", "aliyun", "qwen",
     "mimo", "xiaomi-mimo",
     "tencent", "tokenhub", "tencent-cloud", "tencentmaas",
-    "gmi-cloud", "gmicloud",
     "xai", "x-ai", "x.ai", "grok",
-    "nvidia", "nim", "nvidia-nim", "nemotron",
-    "qwen-portal",
 })
 
 
@@ -148,15 +143,13 @@ DEFAULT_CONTEXT_LENGTHS = {
     # OpenAI — GPT-5 family (most have 400k; specific overrides first)
     # Source: https://developers.openai.com/api/docs/models
     # GPT-5.5 (launched Apr 23 2026) is 1.05M on the direct OpenAI API and
-    # ChatGPT Codex OAuth caps it at 272K; both paths resolve via their own
-    # provider-aware branches (_resolve_codex_oauth_context_length + models.dev).
     # This hardcoded value is only reached when every probe misses.
     "gpt-5.5": 1050000,
     "gpt-5.4-nano": 400000,           # 400k (not 1.05M like full 5.4)
     "gpt-5.4-mini": 400000,           # 400k (not 1.05M like full 5.4)
     "gpt-5.4": 1050000,               # GPT-5.4, GPT-5.4 Pro (1.05M context)
     "gpt-5.1-chat": 128000,           # Chat variant has 128k context
-    "gpt-5": 400000,                  # GPT-5.x base, mini, codex variants (400k)
+    "gpt-5": 400000,                  # GPT-5.x base and mini variants (400k)
     "gpt-4.1": 1047576,
     "gpt-4": 128000,
     # Google
@@ -210,8 +203,6 @@ DEFAULT_CONTEXT_LENGTHS = {
     "kimi": 262144,
     # Tencent — Hy3 Preview (Hunyuan) with 256K context window
     "hy3-preview": 256000,
-    # Nemotron — NVIDIA's open-weights series (128K context across all sizes)
-    "nemotron": 131072,
     # OpenRouter
     "elephant": 262144,
     # Hugging Face Inference Providers — model IDs use org/name format
@@ -283,7 +274,6 @@ def _is_custom_endpoint(base_url: str) -> bool:
 
 _URL_TO_PROVIDER: Dict[str, str] = {
     "api.openai.com": "openai",
-    "chatgpt.com": "openai",
     "api.anthropic.com": "anthropic",
     "api.z.ai": "zai",
     "open.bigmodel.cn": "zai",
@@ -295,22 +285,15 @@ _URL_TO_PROVIDER: Dict[str, str] = {
     "api.minimax": "minimax",
     "dashscope.aliyuncs.com": "alibaba",
     "dashscope-intl.aliyuncs.com": "alibaba",
-    "portal.qwen.ai": "qwen-oauth",
     "openrouter.ai": "openrouter",
     "generativelanguage.googleapis.com": "gemini",
     "inference-api.nousresearch.com": "nous",
     "api.deepseek.com": "deepseek",
-    "api.githubcopilot.com": "copilot",
-    "models.github.ai": "copilot",
     "api.fireworks.ai": "fireworks",
-    "opencode.ai": "opencode-go",
     "api.x.ai": "xai",
-    "integrate.api.nvidia.com": "nvidia",
     "api.xiaomimimo.com": "xiaomi",
     "xiaomimimo.com": "xiaomi",
-    "api.gmi-serving.com": "gmi",
     "tokenhub.tencentmaas.com": "tencent-tokenhub",
-    "ollama.com": "ollama-cloud",
 }
 
 
@@ -887,8 +870,8 @@ def _model_id_matches(candidate_id: str, lookup_model: str) -> bool:
     """Return True if *candidate_id* (from server) matches *lookup_model* (configured).
 
     Supports two forms:
-    - Exact match:  "nvidia-nemotron-super-49b-v1" == "nvidia-nemotron-super-49b-v1"
-    - Slug match:   "nvidia/nvidia-nemotron-super-49b-v1" matches "nvidia-nemotron-super-49b-v1"
+    - Exact match:  "claude-sonnet-4.6" == "claude-sonnet-4.6"
+    - Slug match:   "anthropic/claude-sonnet-4.6" matches "claude-sonnet-4.6"
                     (the part after the last "/" equals lookup_model)
 
     This covers LM Studio's native API which stores models as "publisher/slug"
@@ -1092,116 +1075,6 @@ def _query_anthropic_context_length(model: str, base_url: str, api_key: str) -> 
     return None
 
 
-# Known ChatGPT Codex OAuth context windows (observed via live
-# chatgpt.com/backend-api/codex/models probe, Apr 2026). These are the
-# `context_window` values, which are what Codex actually enforces — the
-# direct OpenAI API has larger limits for the same slugs, but Codex OAuth
-# caps lower (e.g. gpt-5.5 is 1.05M on the API, 272K on Codex).
-#
-# Used as a fallback when the live probe fails (no token, network error).
-# Longest keys first so substring match picks the most specific entry.
-_CODEX_OAUTH_CONTEXT_FALLBACK: Dict[str, int] = {
-    "gpt-5.1-codex-max": 272_000,
-    "gpt-5.1-codex-mini": 272_000,
-    "gpt-5.3-codex": 272_000,
-    "gpt-5.2-codex": 272_000,
-    "gpt-5.4-mini": 272_000,
-    "gpt-5.5": 272_000,
-    "gpt-5.4": 272_000,
-    "gpt-5.2": 272_000,
-    "gpt-5": 272_000,
-}
-
-
-_codex_oauth_context_cache: Dict[str, int] = {}
-_codex_oauth_context_cache_time: float = 0.0
-_CODEX_OAUTH_CONTEXT_CACHE_TTL = 3600  # 1 hour
-
-
-def _fetch_codex_oauth_context_lengths(access_token: str) -> Dict[str, int]:
-    """Probe the ChatGPT Codex /models endpoint for per-slug context windows.
-
-    Codex OAuth imposes its own context limits that differ from the direct
-    OpenAI API (e.g. gpt-5.5 is 1.05M on the API, 272K on Codex). The
-    `context_window` field in each model entry is the authoritative source.
-
-    Returns a ``{slug: context_window}`` dict. Empty on failure.
-    """
-    global _codex_oauth_context_cache, _codex_oauth_context_cache_time
-    now = time.time()
-    if (
-        _codex_oauth_context_cache
-        and now - _codex_oauth_context_cache_time < _CODEX_OAUTH_CONTEXT_CACHE_TTL
-    ):
-        return _codex_oauth_context_cache
-
-    try:
-        resp = requests.get(
-            "https://chatgpt.com/backend-api/codex/models?client_version=1.0.0",
-            headers={"Authorization": f"Bearer {access_token}"},
-            timeout=10,
-            verify=_resolve_requests_verify(),
-        )
-        if resp.status_code != 200:
-            logger.debug(
-                "Codex /models probe returned HTTP %s; falling back to hardcoded defaults",
-                resp.status_code,
-            )
-            return {}
-        data = resp.json()
-    except Exception as exc:
-        logger.debug("Codex /models probe failed: %s", exc)
-        return {}
-
-    entries = data.get("models", []) if isinstance(data, dict) else []
-    result: Dict[str, int] = {}
-    for item in entries:
-        if not isinstance(item, dict):
-            continue
-        slug = item.get("slug")
-        ctx = item.get("context_window")
-        if isinstance(slug, str) and isinstance(ctx, int) and ctx > 0:
-            result[slug.strip()] = ctx
-
-    if result:
-        _codex_oauth_context_cache = result
-        _codex_oauth_context_cache_time = now
-    return result
-
-
-def _resolve_codex_oauth_context_length(
-    model: str, access_token: str = ""
-) -> Optional[int]:
-    """Resolve a Codex OAuth model's real context window.
-
-    Prefers a live probe of chatgpt.com/backend-api/codex/models (when we
-    have a bearer token), then falls back to ``_CODEX_OAUTH_CONTEXT_FALLBACK``.
-    """
-    model_bare = _strip_provider_prefix(model).strip()
-    if not model_bare:
-        return None
-
-    if access_token:
-        live = _fetch_codex_oauth_context_lengths(access_token)
-        if model_bare in live:
-            return live[model_bare]
-        # Case-insensitive match in case casing drifts
-        model_lower = model_bare.lower()
-        for slug, ctx in live.items():
-            if slug.lower() == model_lower:
-                return ctx
-
-    # Fallback: longest-key-first substring match over hardcoded defaults.
-    model_lower = model_bare.lower()
-    for slug, ctx in sorted(
-        _CODEX_OAUTH_CONTEXT_FALLBACK.items(), key=lambda x: len(x[0]), reverse=True
-    ):
-        if slug in model_lower:
-            return ctx
-
-    return None
-
-
 def _resolve_nous_context_length(model: str) -> Optional[int]:
     """Resolve Nous Portal model context length via OpenRouter metadata.
 
@@ -1248,7 +1121,6 @@ def get_model_context_length(
     Resolution order:
     0. Explicit config override (model.context_length or custom_providers per-model)
     1. Persistent cache (previously discovered via probing)
-    1b. AWS Bedrock static table (must precede custom-endpoint probe)
     2. Active endpoint metadata (/models for explicit custom endpoints)
     3. Local server query (for local endpoints)
     4. Anthropic /v1/models API (API-key users only, not OAuth)
@@ -1291,47 +1163,11 @@ def get_model_context_length(
     if base_url and provider != "lmstudio":
         cached = get_cached_context_length(model, base_url)
         if cached is not None:
-            # Invalidate stale Codex OAuth cache entries: pre-PR #14935 builds
-            # resolved gpt-5.x to the direct-API value (e.g. 1.05M) via
-            # models.dev and persisted it. Codex OAuth caps at 272K for every
-            # slug, so any cached Codex entry at or above 400K is a leftover
-            # from the old resolution path. Drop it and fall through to the
-            # live /models probe in step 5 below.
-            if provider == "openai-codex" and cached >= 400_000:
-                logger.info(
-                    "Dropping stale Codex cache entry %s@%s -> %s (pre-fix value); "
-                    "re-resolving via live /models probe",
-                    model, base_url, f"{cached:,}",
-                )
-                _invalidate_cached_context_length(model, base_url)
-            else:
-                return cached
-
-    # 1b. AWS Bedrock — use static context length table.
-    # Bedrock's ListFoundationModels API doesn't expose context window sizes,
-    # so we maintain a curated table in bedrock_adapter.py that reflects
-    # AWS-imposed limits (e.g. 200K for Claude models vs 1M on the native
-    # Anthropic API).  This must run BEFORE the custom-endpoint probe at
-    # step 2 — bedrock-runtime.<region>.amazonaws.com is not in
-    # _URL_TO_PROVIDER, so it would otherwise be treated as a custom endpoint,
-    # fail the /models probe (Bedrock doesn't expose that shape), and fall
-    # back to the 128K default before reaching the original step 4b branch.
-    if provider == "bedrock" or (
-        base_url
-        and base_url_hostname(base_url).startswith("bedrock-runtime.")
-        and base_url_host_matches(base_url, "amazonaws.com")
-    ):
-        try:
-            from agent.bedrock_adapter import get_bedrock_context_length
-            return get_bedrock_context_length(model)
-        except ImportError:
-            pass  # boto3 not installed — fall through to generic resolution
+            return cached
 
     # 2. Active endpoint metadata for truly custom/unknown endpoints.
-    # Known providers (Copilot, OpenAI, Anthropic, etc.) skip this — their
-    # /models endpoint may report a provider-imposed limit (e.g. Copilot
-    # returns 128k) instead of the model's full context (400k).  models.dev
-    # has the correct per-provider values and is checked at step 5+.
+    # Known providers skip this; models.dev has provider-specific context
+    # values and is checked at step 5+.
     if _is_custom_endpoint(base_url) and not _is_known_provider_base_url(base_url):
         context_length = _resolve_endpoint_context_length(model, base_url, api_key=api_key)
         if context_length is not None:
@@ -1360,12 +1196,9 @@ def get_model_context_length(
         if ctx:
             return ctx
 
-    # 4b. (Bedrock handled earlier at step 1b — before custom-endpoint probe.)
-
     # 5. Provider-aware lookups (before generic OpenRouter cache)
     # These are provider-specific and take priority over the generic OR cache,
-    # since the same model can have different context limits per provider
-    # (e.g. claude-opus-4.6 is 1M on Anthropic but 128K on GitHub Copilot).
+    # since the same model can have different context limits per provider.
     # If provider is generic (openrouter/custom/empty), try to infer from URL.
     effective_provider = provider
     if not effective_provider or effective_provider in ("openrouter", "custom"):
@@ -1374,37 +1207,9 @@ def get_model_context_length(
             if inferred:
                 effective_provider = inferred
 
-    # 5a. Copilot live /models API — max_prompt_tokens from the user's account.
-    # This catches account-specific models (e.g. claude-opus-4.6-1m) that
-    # don't exist in models.dev. For models that ARE in models.dev, this
-    # returns the provider-enforced limit which is what users can actually use.
-    if effective_provider in ("copilot", "copilot-acp", "github-copilot"):
-        try:
-            from hermes_cli.models import get_copilot_model_context
-            ctx = get_copilot_model_context(model, api_key=api_key)
-            if ctx:
-                return ctx
-        except Exception:
-            pass  # Fall through to models.dev
-
     if effective_provider == "nous":
         ctx = _resolve_nous_context_length(model)
         if ctx:
-            return ctx
-    if effective_provider == "openai-codex":
-        # Codex OAuth enforces lower context limits than the direct OpenAI
-        # API for the same slug (e.g. gpt-5.5 is 1.05M on the API but 272K
-        # on Codex). Authoritative source is Codex's own /models endpoint.
-        codex_ctx = _resolve_codex_oauth_context_length(model, access_token=api_key or "")
-        if codex_ctx:
-            if base_url:
-                save_context_length(model, base_url, codex_ctx)
-            return codex_ctx
-    if effective_provider == "gmi" and base_url:
-        # GMI exposes authoritative context_length via /models, but it is not
-        # in models.dev yet. Preserve that higher-fidelity endpoint lookup.
-        ctx = _resolve_endpoint_context_length(model, base_url, api_key=api_key)
-        if ctx is not None:
             return ctx
     if effective_provider:
         from agent.models_dev import lookup_models_dev_context

@@ -97,7 +97,7 @@ class TestSaveAndLoadRoundtrip:
             assert reloaded["model"] == "test/custom-model"
             assert reloaded["agent"]["max_turns"] == 42
 
-            saved = yaml.safe_load((tmp_path / "config.yaml").read_text())
+            saved = yaml.safe_load((tmp_path / "config.yaml").read_text(encoding="utf-8"))
             assert saved["agent"]["max_turns"] == 42
             assert "max_turns" not in saved
 
@@ -105,7 +105,7 @@ class TestSaveAndLoadRoundtrip:
         with patch.dict(os.environ, {"HERMES_HOME": str(tmp_path)}):
             save_config({"model": "test/custom-model", "max_turns": 37})
 
-            saved = yaml.safe_load((tmp_path / "config.yaml").read_text())
+            saved = yaml.safe_load((tmp_path / "config.yaml").read_text(encoding="utf-8"))
             assert saved["agent"]["max_turns"] == 37
             assert "max_turns" not in saved
 
@@ -252,7 +252,7 @@ class TestSaveConfigAtomicity:
 
             # Read raw YAML to verify it's valid and correct
             config_path = tmp_path / "config.yaml"
-            with open(config_path) as f:
+            with open(config_path, encoding="utf-8") as f:
                 raw = yaml.safe_load(f)
             assert raw["model"] == "test/atomic-model"
             assert raw["agent"]["max_turns"] == 77
@@ -464,7 +464,7 @@ class TestCustomProviderCompatibility:
                             "name": "OpenAI Direct",
                             "base_url": "https://api.openai.com/v1",
                             "api_key": "test-key",
-                            "api_mode": "codex_responses",
+                            "api_mode": "anthropic_messages",
                             "model": "gpt-5-mini",
                         }
                     ],
@@ -487,7 +487,7 @@ class TestCustomProviderCompatibility:
             "api_key": "test-key",
             "default_model": "gpt-5-mini",
             "name": "OpenAI Direct",
-            "transport": "codex_responses",
+            "transport": "anthropic_messages",
         }
         # custom_providers removed by migration — runtime reads via compat layer
         assert "custom_providers" not in raw
@@ -506,7 +506,7 @@ class TestCustomProviderCompatibility:
                             "api_key": "test-key",
                             "default_model": "gpt-5-mini",
                             "name": "OpenAI Direct",
-                            "transport": "codex_responses",
+                            "transport": "anthropic_messages",
                         }
                     },
                 }
@@ -521,7 +521,7 @@ class TestCustomProviderCompatibility:
         assert compatible[0]["name"] == "OpenAI Direct"
         assert compatible[0]["base_url"] == "https://api.openai.com/v1"
         assert compatible[0]["provider_key"] == "openai-direct"
-        assert compatible[0]["api_mode"] == "codex_responses"
+        assert compatible[0]["api_mode"] == "anthropic_messages"
 
     def test_compatible_custom_providers_prefers_base_url_then_url_then_api(self, tmp_path):
         """URL field precedence is base_url > url > api (PR #9332)."""
@@ -595,9 +595,9 @@ class TestCustomProviderCompatibility:
                 {
                     "_config_version": 17,
                     "custom_providers": [
-                        {"name": "Ollama Cloud", "base_url": "https://ollama.com/v1", "model": "qwen3-coder"},
-                        {"name": "Ollama Cloud", "base_url": "https://ollama.com/v1", "model": "glm-5.1"},
-                        {"name": "Ollama Cloud", "base_url": "https://ollama.com/v1", "model": "kimi-k2.5"},
+                        {"name": "Remote Gateway", "base_url": "https://api.example.com/v1", "model": "qwen3-coder"},
+                        {"name": "Remote Gateway", "base_url": "https://api.example.com/v1", "model": "glm-5.1"},
+                        {"name": "Remote Gateway", "base_url": "https://api.example.com/v1", "model": "kimi-k2.5"},
                     ],
                 }
             ),

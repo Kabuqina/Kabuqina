@@ -8,7 +8,7 @@ Covers:
   replacement when the model lacks vision.
 
 * ``_prepare_messages_for_non_vision_model`` — the mirror method for the
-  chat.completions / codex_responses paths. Same contract.
+  chat.completions path. Same contract.
 """
 
 from __future__ import annotations

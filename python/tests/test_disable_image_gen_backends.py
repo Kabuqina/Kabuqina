@@ -16,7 +16,7 @@ for p in (_root, _overlays, _hermes):
     if p.is_dir() and s not in sys.path:
         sys.path.insert(0, s)
 
-_EXPECTED = ["image_gen/openai", "image_gen/openai-codex", "image_gen/xai"]
+_EXPECTED = ["image_gen/openai", "image_gen/xai"]
 
 
 def _fresh_overlay():
@@ -61,7 +61,7 @@ class TestDisableImageGenBackends(unittest.TestCase):
         # remaining backends appended.
         self.assertEqual(
             disabled,
-            ["some-user-plugin", "image_gen/openai", "image_gen/openai-codex", "image_gen/xai"],
+            ["some-user-plugin", "image_gen/openai", "image_gen/xai"],
         )
 
     def test_noop_when_all_already_disabled(self):

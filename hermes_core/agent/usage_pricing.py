@@ -285,80 +285,6 @@ _OFFICIAL_DOCS_PRICING: Dict[tuple[str, str], PricingEntry] = {
         source_url="https://ai.google.dev/pricing",
         pricing_version="google-pricing-2026-03-16",
     ),
-    # AWS Bedrock — pricing per the Bedrock pricing page.
-    # Bedrock charges the same per-token rates as the model provider but
-    # through AWS billing.  These are the on-demand prices (no commitment).
-    # Source: https://aws.amazon.com/bedrock/pricing/
-    (
-        "bedrock",
-        "anthropic.claude-opus-4-6",
-    ): PricingEntry(
-        input_cost_per_million=Decimal("15.00"),
-        output_cost_per_million=Decimal("75.00"),
-        source="official_docs_snapshot",
-        source_url="https://aws.amazon.com/bedrock/pricing/",
-        pricing_version="bedrock-pricing-2026-04",
-    ),
-    (
-        "bedrock",
-        "anthropic.claude-sonnet-4-6",
-    ): PricingEntry(
-        input_cost_per_million=Decimal("3.00"),
-        output_cost_per_million=Decimal("15.00"),
-        source="official_docs_snapshot",
-        source_url="https://aws.amazon.com/bedrock/pricing/",
-        pricing_version="bedrock-pricing-2026-04",
-    ),
-    (
-        "bedrock",
-        "anthropic.claude-sonnet-4-5",
-    ): PricingEntry(
-        input_cost_per_million=Decimal("3.00"),
-        output_cost_per_million=Decimal("15.00"),
-        source="official_docs_snapshot",
-        source_url="https://aws.amazon.com/bedrock/pricing/",
-        pricing_version="bedrock-pricing-2026-04",
-    ),
-    (
-        "bedrock",
-        "anthropic.claude-haiku-4-5",
-    ): PricingEntry(
-        input_cost_per_million=Decimal("0.80"),
-        output_cost_per_million=Decimal("4.00"),
-        source="official_docs_snapshot",
-        source_url="https://aws.amazon.com/bedrock/pricing/",
-        pricing_version="bedrock-pricing-2026-04",
-    ),
-    (
-        "bedrock",
-        "amazon.nova-pro",
-    ): PricingEntry(
-        input_cost_per_million=Decimal("0.80"),
-        output_cost_per_million=Decimal("3.20"),
-        source="official_docs_snapshot",
-        source_url="https://aws.amazon.com/bedrock/pricing/",
-        pricing_version="bedrock-pricing-2026-04",
-    ),
-    (
-        "bedrock",
-        "amazon.nova-lite",
-    ): PricingEntry(
-        input_cost_per_million=Decimal("0.06"),
-        output_cost_per_million=Decimal("0.24"),
-        source="official_docs_snapshot",
-        source_url="https://aws.amazon.com/bedrock/pricing/",
-        pricing_version="bedrock-pricing-2026-04",
-    ),
-    (
-        "bedrock",
-        "amazon.nova-micro",
-    ): PricingEntry(
-        input_cost_per_million=Decimal("0.035"),
-        output_cost_per_million=Decimal("0.14"),
-        source="official_docs_snapshot",
-        source_url="https://aws.amazon.com/bedrock/pricing/",
-        pricing_version="bedrock-pricing-2026-04",
-    ),
     # MiniMax
     (
         "minimax",
@@ -411,8 +337,6 @@ def resolve_billing_route(
             provider_name = inferred_provider
             model = bare_model
 
-    if provider_name == "openai-codex":
-        return BillingRoute(provider="openai-codex", model=model, base_url=base_url or "", billing_mode="subscription_included")
     if provider_name == "openrouter" or base_url_host_matches(base_url or "", "openrouter.ai"):
         return BillingRoute(provider="openrouter", model=model, base_url=base_url or "", billing_mode="official_models_api")
     if provider_name == "anthropic":
@@ -521,12 +445,11 @@ def normalize_usage(
 ) -> CanonicalUsage:
     """Normalize raw API response usage into canonical token buckets.
 
-    Handles three API shapes:
+    Handles two API shapes:
     - Anthropic: input_tokens/output_tokens/cache_read_input_tokens/cache_creation_input_tokens
-    - Codex Responses: input_tokens includes cache tokens; input_tokens_details.cached_tokens separates them
     - OpenAI Chat Completions: prompt_tokens includes cache tokens; prompt_tokens_details.cached_tokens separates them
 
-    In both Codex and OpenAI modes, input_tokens is derived by subtracting cache
+    In OpenAI-compatible mode, input_tokens is derived by subtracting cache
     tokens from the total — the API contract is that input/prompt totals include
     cached tokens and the details object breaks them out.
     """
@@ -541,15 +464,6 @@ def normalize_usage(
         output_tokens = _to_int(getattr(response_usage, "output_tokens", 0))
         cache_read_tokens = _to_int(getattr(response_usage, "cache_read_input_tokens", 0))
         cache_write_tokens = _to_int(getattr(response_usage, "cache_creation_input_tokens", 0))
-    elif mode == "codex_responses":
-        input_total = _to_int(getattr(response_usage, "input_tokens", 0))
-        output_tokens = _to_int(getattr(response_usage, "output_tokens", 0))
-        details = getattr(response_usage, "input_tokens_details", None)
-        cache_read_tokens = _to_int(getattr(details, "cached_tokens", 0) if details else 0)
-        cache_write_tokens = _to_int(
-            getattr(details, "cache_creation_tokens", 0) if details else 0
-        )
-        input_tokens = max(0, input_total - cache_read_tokens - cache_write_tokens)
     else:
         prompt_total = _to_int(getattr(response_usage, "prompt_tokens", 0))
         output_tokens = _to_int(getattr(response_usage, "completion_tokens", 0))

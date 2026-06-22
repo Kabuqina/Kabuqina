@@ -25,11 +25,7 @@ class ToolCall:
     fills it via ``_deterministic_call_id()`` before storing in history.
 
     ``provider_data`` carries per-tool-call protocol metadata that only
-    protocol-aware code reads:
-
-    * Codex: ``{"call_id": "call_XXX", "response_item_id": "fc_XXX"}``
-    * Gemini: ``{"extra_content": {"google": {"thought_signature": "..."}}}``
-    * Others: ``None``
+    protocol-aware code reads, such as Gemini thought signatures.
     """
 
     id: Optional[str]
@@ -53,12 +49,12 @@ class ToolCall:
 
     @property
     def call_id(self) -> Optional[str]:
-        """Codex call_id from provider_data, accessed via getattr by _build_assistant_message."""
+        """Internal call id from provider_data, accessed via getattr by _build_assistant_message."""
         return (self.provider_data or {}).get("call_id")
 
     @property
     def response_item_id(self) -> Optional[str]:
-        """Codex response_item_id from provider_data."""
+        """Internal response item id from provider_data."""
         return (self.provider_data or {}).get("response_item_id")
 
     @property
@@ -94,11 +90,9 @@ class NormalizedResponse:
     them without branching on api_mode.  Protocol-specific state goes in
     ``provider_data`` so that only protocol-aware code paths read it.
 
-    Response-level ``provider_data`` examples:
-
-    * Anthropic: ``{"reasoning_details": [...]}``
-    * Codex: ``{"codex_reasoning_items": [...], "codex_message_items": [...]}``
-    * Others: ``None``
+    Response-level ``provider_data`` examples include Anthropic
+    ``{"reasoning_details": [...]}``; providers without structured side data
+    can leave it as ``None``.
     """
 
     content: Optional[str]
@@ -120,17 +114,6 @@ class NormalizedResponse:
     def reasoning_details(self):
         pd = self.provider_data or {}
         return pd.get("reasoning_details")
-
-    @property
-    def codex_reasoning_items(self):
-        pd = self.provider_data or {}
-        return pd.get("codex_reasoning_items")
-
-    @property
-    def codex_message_items(self):
-        pd = self.provider_data or {}
-        return pd.get("codex_message_items")
-
 
 # ---------------------------------------------------------------------------
 # Factory helpers

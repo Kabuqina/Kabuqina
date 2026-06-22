@@ -355,33 +355,6 @@ class TestMessageStorage:
         assert "reasoning_content" in conv[0]
         assert conv[0]["reasoning_content"] == ""
 
-    def test_codex_message_items_persisted_and_restored(self, db):
-        """codex_message_items must round-trip through JSON serialization."""
-        db.create_session(session_id="s1", source="cli")
-        items = [
-            {
-                "type": "message",
-                "role": "assistant",
-                "status": "completed",
-                "id": "msg_123",
-                "phase": "commentary",
-                "content": [{"type": "output_text", "text": "Thinking..."}],
-            },
-            {
-                "type": "message",
-                "role": "assistant",
-                "status": "completed",
-                "id": "msg_456",
-                "phase": "final_answer",
-                "content": [{"type": "output_text", "text": "Done!"}],
-            },
-        ]
-        db.append_message("s1", role="assistant", content="Done!", codex_message_items=items)
-
-        conv = db.get_messages_as_conversation("s1")
-        assert len(conv) == 1
-        assert conv[0].get("codex_message_items") == items
-
     def test_reasoning_not_set_for_non_assistant(self, db):
         """reasoning is never leaked onto user or tool messages."""
         db.create_session(session_id="s1", source="telegram")
@@ -399,27 +372,6 @@ class TestMessageStorage:
 
         conv = db.get_messages_as_conversation("s1")
         assert "reasoning" not in conv[0]
-
-    def test_codex_reasoning_items_persisted_and_restored(self, db):
-        """codex_reasoning_items (encrypted blobs for Codex Responses API) are
-        round-tripped through JSON serialization in the DB."""
-        db.create_session(session_id="s1", source="cli")
-        codex_items = [
-            {"type": "reasoning", "id": "rs_abc", "encrypted_content": "enc_blob_123"},
-            {"type": "reasoning", "id": "rs_def", "encrypted_content": "enc_blob_456"},
-        ]
-        db.append_message(
-            "s1",
-            role="assistant",
-            content="Done",
-            codex_reasoning_items=codex_items,
-        )
-
-        conv = db.get_messages_as_conversation("s1")
-        assert len(conv) == 1
-        assert conv[0]["codex_reasoning_items"] == codex_items
-        assert conv[0]["codex_reasoning_items"][0]["encrypted_content"] == "enc_blob_123"
-
 
 # =========================================================================
 # FTS5 search
@@ -1458,8 +1410,7 @@ class TestSchemaInit:
                 token_count INTEGER,
                 finish_reason TEXT,
                 reasoning TEXT,
-                reasoning_details TEXT,
-                codex_reasoning_items TEXT
+                reasoning_details TEXT
             );
         """)
         conn.execute(
@@ -1488,8 +1439,7 @@ class TestSchemaInit:
 
         # The query that used to crash must now work
         cursor = migrated_db._conn.execute(
-            "SELECT role, content, reasoning, reasoning_content, "
-            "reasoning_details, codex_reasoning_items "
+            "SELECT role, content, reasoning, reasoning_content, reasoning_details "
             "FROM messages WHERE session_id = ?",
             ("s1",),
         )
@@ -2431,9 +2381,7 @@ class TestFTS5ToolCallMigration:
                 finish_reason TEXT,
                 reasoning TEXT,
                 reasoning_content TEXT,
-                reasoning_details TEXT,
-                codex_reasoning_items TEXT,
-                codex_message_items TEXT
+                reasoning_details TEXT
             );
 
             CREATE VIRTUAL TABLE messages_fts USING fts5(
@@ -2484,4 +2432,3 @@ class TestFTS5ToolCallMigration:
             assert version == 11
         finally:
             session_db.close()
-

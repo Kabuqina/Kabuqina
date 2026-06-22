@@ -53,19 +53,19 @@ class TestNormalizeCustomProviderEntry:
             "api": "openai-reverse-proxy",
             "api_key": "sk-test-key",
         }
-        result = _normalize_custom_provider_entry(entry, provider_key="nvidia")
+        result = _normalize_custom_provider_entry(entry, provider_key="vendor")
         # Should return None because no valid URL was found
         assert result is None
 
     def test_valid_url_in_api_field_accepted(self):
         """Valid URL in 'api' field should still be accepted."""
         entry = {
-            "api": "https://integrate.api.nvidia.com/v1",
+            "api": "https://api.vendor.example.com/v1",
             "api_key": "sk-test-key",
         }
-        result = _normalize_custom_provider_entry(entry, provider_key="nvidia")
+        result = _normalize_custom_provider_entry(entry, provider_key="vendor")
         assert result is not None
-        assert result["base_url"] == "https://integrate.api.nvidia.com/v1"
+        assert result["base_url"] == "https://api.vendor.example.com/v1"
 
     def test_base_url_preferred_over_api(self):
         """base_url should be checked before api field."""

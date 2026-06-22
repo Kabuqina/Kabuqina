@@ -457,9 +457,9 @@ DEFAULT_CONFIG = {
         "reasoning_effort": "high",
         # Tool-use enforcement: injects system prompt guidance that tells the
         # model to actually call tools instead of describing intended actions.
-        # Values: "auto" (default — applies to gpt/codex models), true/false
+        # Values: "auto" (default — applies to GPT models), true/false
         # (force on/off for all models), or a list of model-name substrings
-        # to match (e.g. ["gpt", "codex", "gemini", "qwen"]).
+        # to match (e.g. ["gpt", "gemini", "qwen"]).
         "tool_use_enforcement": "auto",
         # Staged inactivity warning: send a warning to the user at this
         # threshold before escalating to a full timeout.  The warning fires
@@ -664,26 +664,6 @@ DEFAULT_CONFIG = {
         "cache_ttl": "5m",
     },
 
-    # AWS Bedrock provider configuration.
-    # Only used when model.provider is "bedrock".
-    "bedrock": {
-        "region": "",  # AWS region for Bedrock API calls (empty = AWS_REGION env var → us-east-1)
-        "discovery": {
-            "enabled": True,           # Auto-discover models via ListFoundationModels
-            "provider_filter": [],     # Only show models from these providers (e.g. ["anthropic", "amazon"])
-            "refresh_interval": 3600,  # Cache discovery results for this many seconds
-        },
-        "guardrail": {
-            # Amazon Bedrock Guardrails — content filtering and safety policies.
-            # Create a guardrail in the Bedrock console, then set the ID and version here.
-            # See: https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails.html
-            "guardrail_identifier": "",  # e.g. "abc123def456"
-            "guardrail_version": "",     # e.g. "1" or "DRAFT"
-            "stream_processing_mode": "async",  # "sync" or "async"
-            "trace": "disabled",         # "enabled", "disabled", or "enabled_full"
-        },
-    },
-
     # Auxiliary model config — provider:model for each side task.
     # Format: provider is the provider name, model is the model slug.
     # "auto" for provider = auto-detect best available provider.
@@ -693,7 +673,7 @@ DEFAULT_CONFIG = {
     # fallbacks under auxiliary.* instead of relying on a single hardcoded slug.
     "auxiliary": {
         "vision": {
-            "provider": "auto",    # auto | openrouter | nous | codex | custom
+            "provider": "auto",    # auto | openrouter | nous | custom
             "model": "",           # e.g. "google/gemini-2.5-flash", "gpt-4o"
             "base_url": "",        # direct OpenAI-compatible endpoint (takes precedence over provider)
             "api_key": "",         # API key for base_url (falls back to OPENAI_API_KEY)
@@ -1334,22 +1314,6 @@ OPTIONAL_ENV_VARS = {
         "category": "provider",
         "advanced": True,
     },
-    "NVIDIA_API_KEY": {
-        "description": "NVIDIA NIM API key (build.nvidia.com or local NIM endpoint)",
-        "prompt": "NVIDIA NIM API key",
-        "url": "https://build.nvidia.com/",
-        "password": True,
-        "category": "provider",
-        "advanced": True,
-    },
-    "NVIDIA_BASE_URL": {
-        "description": "NVIDIA NIM base URL override (e.g. http://localhost:8000/v1 for local NIM)",
-        "prompt": "NVIDIA NIM base URL (leave empty for default)",
-        "url": None,
-        "password": False,
-        "category": "provider",
-        "advanced": True,
-    },
     "LM_API_KEY": {
         "description": "LM Studio bearer token for auth-enabled local servers",
         "prompt": "LM Studio API key / bearer token",
@@ -1438,22 +1402,6 @@ OPTIONAL_ENV_VARS = {
         "category": "provider",
         "advanced": True,
     },
-    "GMI_API_KEY": {
-        "description": "GMI Cloud API key",
-        "prompt": "GMI Cloud API key",
-        "url": "https://www.gmicloud.ai/",
-        "password": True,
-        "category": "provider",
-        "advanced": True,
-    },
-    "GMI_BASE_URL": {
-        "description": "GMI Cloud base URL override",
-        "prompt": "GMI Cloud base URL (leave empty for default)",
-        "url": None,
-        "password": False,
-        "category": "provider",
-        "advanced": True,
-    },
     "MINIMAX_API_KEY": {
         "description": "MiniMax API key (international)",
         "prompt": "MiniMax API key",
@@ -1515,70 +1463,6 @@ OPTIONAL_ENV_VARS = {
         "category": "provider",
         "advanced": True,
     },
-    "HERMES_QWEN_BASE_URL": {
-        "description": "Qwen Portal base URL override (default: https://portal.qwen.ai/v1)",
-        "prompt": "Qwen Portal base URL (leave empty for default)",
-        "url": None,
-        "password": False,
-        "category": "provider",
-        "advanced": True,
-    },
-    "HERMES_GEMINI_CLIENT_ID": {
-        "description": "Google OAuth client ID for google-gemini-cli (optional; defaults to Google's public gemini-cli client)",
-        "prompt": "Google OAuth client ID (optional — leave empty to use the public default)",
-        "url": "https://console.cloud.google.com/apis/credentials",
-        "password": False,
-        "category": "provider",
-        "advanced": True,
-    },
-    "HERMES_GEMINI_CLIENT_SECRET": {
-        "description": "Google OAuth client secret for google-gemini-cli (optional)",
-        "prompt": "Google OAuth client secret (optional)",
-        "url": "https://console.cloud.google.com/apis/credentials",
-        "password": True,
-        "category": "provider",
-        "advanced": True,
-    },
-    "HERMES_GEMINI_PROJECT_ID": {
-        "description": "GCP project ID for paid Gemini tiers (free tier auto-provisions)",
-        "prompt": "GCP project ID for Gemini OAuth (leave empty for free tier)",
-        "url": None,
-        "password": False,
-        "category": "provider",
-        "advanced": True,
-    },
-    "OPENCODE_ZEN_API_KEY": {
-        "description": "OpenCode Zen API key (pay-as-you-go access to curated models)",
-        "prompt": "OpenCode Zen API key",
-        "url": "https://opencode.ai/auth",
-        "password": True,
-        "category": "provider",
-        "advanced": True,
-    },
-    "OPENCODE_ZEN_BASE_URL": {
-        "description": "OpenCode Zen base URL override",
-        "prompt": "OpenCode Zen base URL (leave empty for default)",
-        "url": None,
-        "password": False,
-        "category": "provider",
-        "advanced": True,
-    },
-    "OPENCODE_GO_API_KEY": {
-        "description": "OpenCode Go API key ($10/month subscription for open models)",
-        "prompt": "OpenCode Go API key",
-        "url": "https://opencode.ai/auth",
-        "password": True,
-        "category": "provider",
-        "advanced": True,
-    },
-    "OPENCODE_GO_BASE_URL": {
-        "description": "OpenCode Go base URL override",
-        "prompt": "OpenCode Go base URL (leave empty for default)",
-        "url": None,
-        "password": False,
-        "category": "provider",
-        "advanced": True,
-    },
     "HF_TOKEN": {
         "description": "Hugging Face token for Inference Providers (20+ open models via router.huggingface.co)",
         "prompt": "Hugging Face Token",
@@ -1589,22 +1473,6 @@ OPTIONAL_ENV_VARS = {
     "HF_BASE_URL": {
         "description": "Hugging Face Inference Providers base URL override",
         "prompt": "HF base URL (leave empty for default)",
-        "url": None,
-        "password": False,
-        "category": "provider",
-        "advanced": True,
-    },
-    "OLLAMA_API_KEY": {
-        "description": "Ollama Cloud API key (ollama.com — cloud-hosted open models)",
-        "prompt": "Ollama Cloud API key",
-        "url": "https://ollama.com/settings",
-        "password": True,
-        "category": "provider",
-        "advanced": True,
-    },
-    "OLLAMA_BASE_URL": {
-        "description": "Ollama Cloud base URL override (default: https://ollama.com/v1)",
-        "prompt": "Ollama base URL (leave empty for default)",
         "url": None,
         "password": False,
         "category": "provider",
@@ -1625,38 +1493,6 @@ OPTIONAL_ENV_VARS = {
         "category": "provider",
         "advanced": True,
     },
-    "AWS_REGION": {
-        "description": "AWS region for Bedrock API calls (e.g. us-east-1, eu-central-1)",
-        "prompt": "AWS Region",
-        "url": "https://docs.aws.amazon.com/bedrock/latest/userguide/bedrock-regions.html",
-        "password": False,
-        "category": "provider",
-        "advanced": True,
-    },
-    "AWS_PROFILE": {
-        "description": "AWS named profile for Bedrock authentication (from ~/.aws/credentials)",
-        "prompt": "AWS Profile",
-        "url": None,
-        "password": False,
-        "category": "provider",
-        "advanced": True,
-    },
-    "AZURE_FOUNDRY_API_KEY": {
-        "description": "Azure Foundry API key for custom Azure endpoints",
-        "prompt": "Azure Foundry API Key",
-        "url": "https://ai.azure.com/",
-        "password": True,
-        "category": "provider",
-    },
-    "AZURE_FOUNDRY_BASE_URL": {
-        "description": "Azure Foundry base URL (set via 'hermes model' for endpoint-specific config)",
-        "prompt": "Azure Foundry base URL",
-        "url": None,
-        "password": False,
-        "category": "provider",
-        "advanced": True,
-    },
-
     # ── Tool API keys ──
     "EXA_API_KEY": {
         "description": "Exa API key for AI-native web search and contents",
@@ -2474,9 +2310,8 @@ def _normalize_custom_provider_entry(
         "contextLength": "context_length",
         "rateLimitDelay": "rate_limit_delay",
     }
-    # api_key_env is a documented snake_case alias for key_env (see
-    # website/docs/guides/azure-foundry.md).  Normalize it up front so the
-    # rest of the normalizer treats it as the canonical field.
+    # api_key_env is a documented snake_case alias for key_env. Normalize it
+    # up front so the rest of the normalizer treats it as the canonical field.
     if "api_key_env" in entry and "key_env" not in entry:
         entry["key_env"] = entry["api_key_env"]
     _KNOWN_KEYS = {
@@ -3869,7 +3704,6 @@ _FALLBACK_COMMENT = """
 #
 # Supported providers:
 #   openrouter   (OPENROUTER_API_KEY)  — routes to any model
-#   openai-codex (OAuth — hermes auth) — OpenAI Codex
 #   nous         (OAuth — hermes auth) — Nous Portal
 #   zai          (ZAI_API_KEY)         — Z.AI / GLM
 #   kimi-coding  (KIMI_API_KEY)        — Kimi / Moonshot
@@ -3900,7 +3734,6 @@ _COMMENTED_SECTIONS = """
 #
 # Supported providers:
 #   openrouter   (OPENROUTER_API_KEY)  — routes to any model
-#   openai-codex (OAuth — hermes auth) — OpenAI Codex
 #   nous         (OAuth — hermes auth) — Nous Portal
 #   zai          (ZAI_API_KEY)         — Z.AI / GLM
 #   kimi-coding  (KIMI_API_KEY)        — Kimi / Moonshot

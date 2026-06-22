@@ -13,6 +13,9 @@ from unittest.mock import patch
 _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
+_core = str(Path(__file__).resolve().parents[2] / "hermes_core")
+if _core not in sys.path:
+    sys.path.insert(0, _core)
 
 from product_profile_policy import (
     DEFAULT_PROFILE,
@@ -138,6 +141,60 @@ class GlobalStudentCutTests(unittest.TestCase):
             "homeassistant", "slack", "webhook", "api_server", "moa",
         ):
             self.assertIn(name, GLOBAL_STUDENT_CUT)
+
+    def test_cut_providers_absent_from_active_provider_surfaces(self):
+        from hermes_cli.auth import AuthError, PROVIDER_REGISTRY, resolve_provider
+        from hermes_cli.models import CANONICAL_PROVIDERS, _PROVIDER_MODELS
+        from hermes_cli.providers import ALIASES, HERMES_OVERLAYS
+        from secret_store import _PROVIDER_ENV
+
+        registry_ids = {
+            "gmi", "nvidia", "kilocode", "ai-gateway", "opencode-zen",
+            "azure-foundry", "opencode-go", "ollama-cloud",
+            "bedrock", "openai-codex", "copilot", "copilot-acp",
+            "qwen-oauth", "google-gemini-cli",
+        }
+        overlay_ids = {
+            "gmi", "nvidia", "kilo", "vercel", "opencode",
+            "azure-foundry", "opencode-go", "ollama-cloud",
+            "bedrock", "openai-codex", "github-copilot", "copilot-acp",
+            "qwen-oauth", "google-gemini-cli",
+        }
+        plan_ids = {
+            "gmi", "nvidia", "kilo", "vercel", "opencode",
+            "azure-foundry", "opencode-go", "ollama-cloud",
+            "bedrock", "openai-codex", "github-copilot", "copilot-acp",
+            "qwen-oauth", "google-gemini-cli",
+        }
+        aliases = {
+            "gmi", "gmi-cloud", "gmicloud",
+            "nvidia", "nim", "nvidia-nim", "build-nvidia", "nemotron",
+            "kilo", "kilocode", "kilo-code", "kilo-gateway",
+            "vercel", "ai-gateway", "aigateway", "vercel-ai-gateway",
+            "opencode", "opencode-zen", "zen",
+            "opencode-go", "opencode-go-sub", "go",
+            "ollama-cloud", "ollama_cloud",
+            "azure-foundry",
+            "bedrock", "aws", "aws-bedrock", "amazon-bedrock", "amazon",
+            "openai-codex", "codex",
+            "copilot", "github", "github-copilot", "github-models",
+            "github-model", "copilot-acp", "github-copilot-acp",
+            "copilot-acp-agent",
+            "qwen-oauth", "qwen-portal", "qwen-cli",
+            "google-gemini-cli", "gemini-cli", "gemini-oauth",
+        }
+
+        self.assertLessEqual(plan_ids, GLOBAL_STUDENT_CUT)
+        self.assertEqual(registry_ids & set(PROVIDER_REGISTRY), set())
+        self.assertEqual(overlay_ids & set(HERMES_OVERLAYS), set())
+        self.assertEqual(overlay_ids & set(ALIASES), set())
+        self.assertEqual(registry_ids & set(_PROVIDER_MODELS), set())
+        self.assertEqual(registry_ids & {entry.slug for entry in CANONICAL_PROVIDERS}, set())
+        self.assertEqual(plan_ids & set(_PROVIDER_ENV), set())
+        for alias in aliases:
+            with self.subTest(alias=alias):
+                with self.assertRaises(AuthError):
+                    resolve_provider(alias)
 
 
 if __name__ == "__main__":

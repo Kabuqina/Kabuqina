@@ -70,8 +70,8 @@ class TestStrictApiValidation:
                 "tool_calls": [
                     {
                         "id": "call_123",
-                        "call_id": "call_123",  # Codex-only field
-                        "response_item_id": "fc_123",  # Codex-only field
+                        "call_id": "call_123",  # Internal helper field
+                        "response_item_id": "fc_123",  # Internal helper field
                         "type": "function",
                         "function": {"name": "terminal", "arguments": '{"command":"pwd"}'},
                     }
@@ -80,7 +80,7 @@ class TestStrictApiValidation:
             {"role": "tool", "tool_call_id": "call_123", "content": "/tmp"},
         ]
 
-        # After _build_api_kwargs, Codex fields should be stripped
+        # After _build_api_kwargs, internal helper fields should be stripped
         kwargs = agent._build_api_kwargs(messages)
 
         assistant_msg = kwargs["messages"][1]
@@ -93,32 +93,6 @@ class TestStrictApiValidation:
         assert tool_call["id"] == "call_123"
         assert tool_call["function"]["name"] == "terminal"
 
-    def test_codex_preserves_fields_for_replay(self, monkeypatch):
-        """Codex mode should preserve fields for Responses API replay."""
-        agent = _make_agent(monkeypatch, "openrouter")
-        agent.api_mode = "codex_responses"
-
-        messages = [
-            {"role": "user", "content": "hi"},
-            {
-                "role": "assistant",
-                "content": "Checking now.",
-                "tool_calls": [
-                    {
-                        "id": "call_123",
-                        "call_id": "call_123",
-                        "response_item_id": "fc_123",
-                        "type": "function",
-                        "function": {"name": "terminal", "arguments": '{"command":"pwd"}'},
-                    }
-                ],
-            },
-        ]
-
-        # In Codex mode, original messages should NOT be mutated
-        assert messages[1]["tool_calls"][0]["call_id"] == "call_123"
-        assert messages[1]["tool_calls"][0]["response_item_id"] == "fc_123"
-
     def test_sanitize_method_with_fireworks_provider(self, monkeypatch):
         """Simulating Fireworks provider should trigger sanitization."""
         agent = _make_agent(
@@ -130,15 +104,3 @@ class TestStrictApiValidation:
 
         # Should sanitize for Fireworks (chat_completions mode)
         assert agent._should_sanitize_tool_calls() is True
-
-    def test_no_sanitize_for_codex_responses(self, monkeypatch):
-        """Codex responses mode should NOT sanitize."""
-        agent = _make_agent(
-            monkeypatch,
-            "openai",
-            api_mode="codex_responses",
-            base_url="https://api.openai.com/v1"
-        )
-
-        # Should NOT sanitize for Codex
-        assert agent._should_sanitize_tool_calls() is False

@@ -43,20 +43,20 @@ async def test_model_picker_clears_controls_before_running_switch_callback():
     view = ModelPickerView(
         providers=[
             {
-                "slug": "copilot",
-                "name": "GitHub Copilot",
+                "slug": "openai",
+                "name": "OpenAI",
                 "models": ["gpt-5.4"],
                 "total_models": 1,
                 "is_current": True,
             }
         ],
         current_model="gpt-5-mini",
-        current_provider="copilot",
+        current_provider="openai",
         session_key="session-1",
         on_model_selected=on_model_selected,
         allowed_user_ids=set(),
     )
-    view._selected_provider = "copilot"
+    view._selected_provider = "openai"
 
     interaction = SimpleNamespace(
         user=SimpleNamespace(id=123),
@@ -74,7 +74,7 @@ async def test_model_picker_clears_controls_before_running_switch_callback():
 
     assert events == [
         ("initial-edit", "⚙ Switching Model", "Switching to `gpt-5.4`...", None),
-        ("switch", "456", "gpt-5.4", "copilot"),
+        ("switch", "456", "gpt-5.4", "openai"),
         ("final-edit", "⚙ Model Switched", "Model switched", None),
     ]
     interaction.response.edit_message.assert_awaited_once()

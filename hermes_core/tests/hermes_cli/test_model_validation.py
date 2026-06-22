@@ -3,17 +3,10 @@
 from unittest.mock import MagicMock, patch
 
 from hermes_cli.models import (
-    azure_foundry_model_api_mode,
-    copilot_model_api_mode,
-    fetch_github_model_catalog,
     curated_models_for_provider,
     fetch_api_models,
     fetch_lmstudio_models,
-    github_model_reasoning_efforts,
-    normalize_copilot_model_id,
-    normalize_opencode_model_id,
     normalize_provider,
-    opencode_model_api_mode,
     parse_model_input,
     probe_api_models,
     provider_label,
@@ -162,7 +155,6 @@ class TestNormalizeProvider:
         assert normalize_provider("kimi") == "kimi-coding"
         assert normalize_provider("moonshot") == "kimi-coding"
         assert normalize_provider("step") == "stepfun"
-        assert normalize_provider("github-copilot") == "copilot"
 
     def test_case_insensitive(self):
         assert normalize_provider("OpenRouter") == "openrouter"
@@ -173,8 +165,6 @@ class TestProviderLabel:
         assert provider_label("anthropic") == "Anthropic"
         assert provider_label("kimi") == "Kimi / Kimi Coding Plan"
         assert provider_label("stepfun") == "StepFun Step Plan"
-        assert provider_label("copilot") == "GitHub Copilot"
-        assert provider_label("copilot-acp") == "GitHub Copilot ACP"
         assert provider_label("auto") == "Auto"
 
     def test_unknown_provider_preserves_original_name(self):
@@ -211,41 +201,6 @@ class TestProviderModelIds:
             return_value=["step-3.5-flash", "step-3-agent-lite"],
         ):
             assert provider_model_ids("stepfun") == ["step-3.5-flash", "step-3-agent-lite"]
-
-    def test_copilot_prefers_live_catalog(self):
-        with patch("hermes_cli.auth.resolve_api_key_provider_credentials", return_value={"api_key": "gh-token"}), \
-             patch("hermes_cli.models._fetch_github_models", return_value=["gpt-5.4", "claude-sonnet-4.6"]):
-            assert provider_model_ids("copilot") == ["gpt-5.4", "claude-sonnet-4.6"]
-
-    def test_copilot_acp_reuses_copilot_catalog(self):
-        with patch("hermes_cli.auth.resolve_api_key_provider_credentials", return_value={"api_key": "gh-token"}), \
-             patch("hermes_cli.models._fetch_github_models", return_value=["gpt-5.4", "claude-sonnet-4.6"]):
-            assert provider_model_ids("copilot-acp") == ["gpt-5.4", "claude-sonnet-4.6"]
-
-    def test_copilot_falls_back_to_curated_defaults_without_stale_opus(self):
-        with patch("hermes_cli.models._resolve_copilot_catalog_api_key", return_value="gh-token"), \
-             patch("hermes_cli.models._fetch_github_models", return_value=None):
-            ids = provider_model_ids("copilot")
-
-        assert "gpt-5.4" in ids
-        assert "claude-sonnet-4.6" in ids
-        assert "claude-sonnet-4" in ids
-        assert "claude-sonnet-4.5" in ids
-        assert "claude-haiku-4.5" in ids
-        assert "gemini-3.1-pro-preview" in ids
-        assert "claude-opus-4.6" not in ids
-
-    def test_copilot_acp_falls_back_to_copilot_defaults(self):
-        with patch("hermes_cli.models._resolve_copilot_catalog_api_key", return_value="gh-token"), \
-             patch("hermes_cli.models._fetch_github_models", return_value=None):
-            ids = provider_model_ids("copilot-acp")
-
-        assert "gpt-5.4" in ids
-        assert "claude-sonnet-4.6" in ids
-        assert "claude-sonnet-4" in ids
-        assert "gemini-3.1-pro-preview" in ids
-        assert "copilot-acp" not in ids
-        assert "claude-opus-4.6" not in ids
 
 
 # -- fetch_api_models --------------------------------------------------------
@@ -284,199 +239,6 @@ class TestFetchApiModels:
         assert probe["models"] == ["local-model"]
         assert probe["resolved_base_url"] == "http://localhost:8000/v1"
         assert probe["used_fallback"] is True
-
-    def test_probe_api_models_uses_copilot_catalog(self):
-        class _Resp:
-            def __enter__(self):
-                return self
-
-            def __exit__(self, exc_type, exc, tb):
-                return False
-
-            def read(self):
-                return b'{"data": [{"id": "gpt-5.4", "model_picker_enabled": true, "supported_endpoints": ["/responses"], "capabilities": {"type": "chat", "supports": {"reasoning_effort": ["low", "medium", "high"]}}}, {"id": "claude-sonnet-4.6", "model_picker_enabled": true, "supported_endpoints": ["/chat/completions"], "capabilities": {"type": "chat", "supports": {"reasoning_effort": ["low", "medium", "high"]}}}, {"id": "text-embedding-3-small", "model_picker_enabled": true, "capabilities": {"type": "embedding"}}]}'
-
-        with patch("hermes_cli.models.urllib.request.urlopen", return_value=_Resp()) as mock_urlopen:
-            probe = probe_api_models("gh-token", "https://api.githubcopilot.com")
-
-        assert mock_urlopen.call_args[0][0].full_url == "https://api.githubcopilot.com/models"
-        assert probe["models"] == ["gpt-5.4", "claude-sonnet-4.6"]
-        assert probe["resolved_base_url"] == "https://api.githubcopilot.com"
-        assert probe["used_fallback"] is False
-
-    def test_fetch_github_model_catalog_filters_non_chat_models(self):
-        class _Resp:
-            def __enter__(self):
-                return self
-
-            def __exit__(self, exc_type, exc, tb):
-                return False
-
-            def read(self):
-                return b'{"data": [{"id": "gpt-5.4", "model_picker_enabled": true, "supported_endpoints": ["/responses"], "capabilities": {"type": "chat", "supports": {"reasoning_effort": ["low", "medium", "high"]}}}, {"id": "text-embedding-3-small", "model_picker_enabled": true, "capabilities": {"type": "embedding"}}]}'
-
-        with patch("hermes_cli.models.urllib.request.urlopen", return_value=_Resp()):
-            catalog = fetch_github_model_catalog("gh-token")
-
-        assert catalog is not None
-        assert [item["id"] for item in catalog] == ["gpt-5.4"]
-
-
-class TestGithubReasoningEfforts:
-    def test_gpt5_supports_minimal_to_high(self):
-        catalog = [{
-            "id": "gpt-5.4",
-            "capabilities": {"type": "chat", "supports": {"reasoning_effort": ["low", "medium", "high"]}},
-            "supported_endpoints": ["/responses"],
-        }]
-        assert github_model_reasoning_efforts("gpt-5.4", catalog=catalog) == [
-            "low",
-            "medium",
-            "high",
-        ]
-
-    def test_legacy_catalog_reasoning_still_supported(self):
-        catalog = [{"id": "openai/o3", "capabilities": ["reasoning"]}]
-        assert github_model_reasoning_efforts("openai/o3", catalog=catalog) == [
-            "low",
-            "medium",
-            "high",
-        ]
-
-    def test_non_reasoning_model_returns_empty(self):
-        catalog = [{"id": "gpt-4.1", "capabilities": {"type": "chat", "supports": {}}}]
-        assert github_model_reasoning_efforts("gpt-4.1", catalog=catalog) == []
-
-
-class TestCopilotNormalization:
-    def test_normalize_old_github_models_slug(self):
-        catalog = [{"id": "gpt-4.1"}, {"id": "gpt-5.4"}]
-        assert normalize_copilot_model_id("openai/gpt-4.1-mini", catalog=catalog) == "gpt-4.1"
-
-    def test_copilot_api_mode_gpt5_uses_responses(self):
-        """GPT-5+ models should use Responses API (matching opencode)."""
-        assert copilot_model_api_mode("gpt-5.4") == "codex_responses"
-        assert copilot_model_api_mode("gpt-5.4-mini") == "codex_responses"
-        assert copilot_model_api_mode("gpt-5.3-codex") == "codex_responses"
-        assert copilot_model_api_mode("gpt-5.2-codex") == "codex_responses"
-        assert copilot_model_api_mode("gpt-5.2") == "codex_responses"
-
-    def test_copilot_api_mode_gpt5_mini_uses_chat(self):
-        """gpt-5-mini is the exception — uses Chat Completions."""
-        assert copilot_model_api_mode("gpt-5-mini") == "chat_completions"
-
-    def test_copilot_api_mode_non_gpt5_uses_chat(self):
-        """Non-GPT-5 models use Chat Completions."""
-        assert copilot_model_api_mode("gpt-4.1") == "chat_completions"
-        assert copilot_model_api_mode("gpt-4o") == "chat_completions"
-        assert copilot_model_api_mode("gpt-4o-mini") == "chat_completions"
-        assert copilot_model_api_mode("claude-sonnet-4.6") == "chat_completions"
-        assert copilot_model_api_mode("claude-opus-4.6") == "chat_completions"
-        assert copilot_model_api_mode("gemini-2.5-pro") == "chat_completions"
-
-    def test_copilot_api_mode_with_catalog_both_endpoints(self):
-        """When catalog shows both endpoints, model ID pattern wins."""
-        catalog = [{
-            "id": "gpt-5.4",
-            "supported_endpoints": ["/chat/completions", "/responses"],
-        }]
-        # GPT-5.4 should use responses even though chat/completions is listed
-        assert copilot_model_api_mode("gpt-5.4", catalog=catalog) == "codex_responses"
-
-    def test_copilot_api_mode_with_catalog_only_responses(self):
-        catalog = [{
-            "id": "gpt-5.4",
-            "supported_endpoints": ["/responses"],
-            "capabilities": {"type": "chat"},
-        }]
-        assert copilot_model_api_mode("gpt-5.4", catalog=catalog) == "codex_responses"
-
-    def test_normalize_opencode_model_id_strips_provider_prefix(self):
-        assert normalize_opencode_model_id("opencode-go", "opencode-go/kimi-k2.5") == "kimi-k2.5"
-        assert normalize_opencode_model_id("opencode-zen", "opencode-zen/claude-sonnet-4-6") == "claude-sonnet-4-6"
-        assert normalize_opencode_model_id("opencode-go", "glm-5") == "glm-5"
-
-    def test_opencode_zen_api_modes_match_docs(self):
-        assert opencode_model_api_mode("opencode-zen", "gpt-5.4") == "codex_responses"
-        assert opencode_model_api_mode("opencode-zen", "gpt-5.3-codex") == "codex_responses"
-        assert opencode_model_api_mode("opencode-zen", "opencode-zen/gpt-5.4") == "codex_responses"
-        assert opencode_model_api_mode("opencode-zen", "claude-sonnet-4-6") == "anthropic_messages"
-        assert opencode_model_api_mode("opencode-zen", "opencode-zen/claude-sonnet-4-6") == "anthropic_messages"
-        assert opencode_model_api_mode("opencode-zen", "gemini-3-flash") == "chat_completions"
-        assert opencode_model_api_mode("opencode-zen", "minimax-m2.5") == "chat_completions"
-
-    def test_opencode_go_api_modes_match_docs(self):
-        assert opencode_model_api_mode("opencode-go", "glm-5.1") == "chat_completions"
-        assert opencode_model_api_mode("opencode-go", "opencode-go/glm-5.1") == "chat_completions"
-        assert opencode_model_api_mode("opencode-go", "glm-5") == "chat_completions"
-        assert opencode_model_api_mode("opencode-go", "opencode-go/glm-5") == "chat_completions"
-        assert opencode_model_api_mode("opencode-go", "kimi-k2.5") == "chat_completions"
-        assert opencode_model_api_mode("opencode-go", "opencode-go/kimi-k2.5") == "chat_completions"
-        assert opencode_model_api_mode("opencode-go", "minimax-m2.5") == "anthropic_messages"
-        assert opencode_model_api_mode("opencode-go", "opencode-go/minimax-m2.5") == "anthropic_messages"
-
-
-class TestAzureFoundryModelApiMode:
-    """Azure Foundry deploys GPT-5.x / codex / o-series as Responses-API-only.
-
-    Azure returns ``400 "The requested operation is unsupported."`` when
-    /chat/completions is called against these deployments.  Verified in the
-    wild by a user debug bundle on 2026-04-26: gpt-5.3-codex failed with
-    that exact payload while gpt-4o-pure worked on the same endpoint.
-    """
-
-    def test_gpt5_family_uses_responses(self):
-        assert azure_foundry_model_api_mode("gpt-5") == "codex_responses"
-        assert azure_foundry_model_api_mode("gpt-5.3") == "codex_responses"
-        assert azure_foundry_model_api_mode("gpt-5.4") == "codex_responses"
-        assert azure_foundry_model_api_mode("gpt-5-codex") == "codex_responses"
-        assert azure_foundry_model_api_mode("gpt-5.3-codex") == "codex_responses"
-        # gpt-5-mini exceptions are Copilot-specific; Azure deploys the whole
-        # gpt-5 family on Responses API uniformly.
-        assert azure_foundry_model_api_mode("gpt-5-mini") == "codex_responses"
-
-    def test_codex_family_uses_responses(self):
-        assert azure_foundry_model_api_mode("codex") == "codex_responses"
-        assert azure_foundry_model_api_mode("codex-mini") == "codex_responses"
-
-    def test_o_series_reasoning_uses_responses(self):
-        assert azure_foundry_model_api_mode("o1") == "codex_responses"
-        assert azure_foundry_model_api_mode("o1-preview") == "codex_responses"
-        assert azure_foundry_model_api_mode("o1-mini") == "codex_responses"
-        assert azure_foundry_model_api_mode("o3") == "codex_responses"
-        assert azure_foundry_model_api_mode("o3-mini") == "codex_responses"
-        assert azure_foundry_model_api_mode("o4-mini") == "codex_responses"
-
-    def test_gpt4_family_returns_none(self):
-        """GPT-4, GPT-4o, etc. speak chat completions on Azure."""
-        assert azure_foundry_model_api_mode("gpt-4") is None
-        assert azure_foundry_model_api_mode("gpt-4o") is None
-        assert azure_foundry_model_api_mode("gpt-4o-pure") is None
-        assert azure_foundry_model_api_mode("gpt-4o-mini") is None
-        assert azure_foundry_model_api_mode("gpt-4-turbo") is None
-        assert azure_foundry_model_api_mode("gpt-4.1") is None
-        assert azure_foundry_model_api_mode("gpt-3.5-turbo") is None
-
-    def test_non_openai_deployments_return_none(self):
-        """Llama, Mistral, Grok, etc. keep the default chat completions."""
-        assert azure_foundry_model_api_mode("llama-3.1-70b") is None
-        assert azure_foundry_model_api_mode("mistral-large") is None
-        assert azure_foundry_model_api_mode("grok-4") is None
-        assert azure_foundry_model_api_mode("phi-3-medium") is None
-
-    def test_vendor_prefix_stripped(self):
-        """Users who copy-paste ``openai/gpt-5.3-codex`` should still match."""
-        assert azure_foundry_model_api_mode("openai/gpt-5.3-codex") == "codex_responses"
-        assert azure_foundry_model_api_mode("openai/gpt-4o") is None
-
-    def test_empty_and_none_return_none(self):
-        assert azure_foundry_model_api_mode(None) is None
-        assert azure_foundry_model_api_mode("") is None
-        assert azure_foundry_model_api_mode("   ") is None
-
-    def test_case_insensitive(self):
-        assert azure_foundry_model_api_mode("GPT-5.3-Codex") == "codex_responses"
-        assert azure_foundry_model_api_mode("Codex-Mini") == "codex_responses"
 
 
 # -- validate — format checks -----------------------------------------------
@@ -562,7 +324,7 @@ class TestValidateApiFallback:
     """When /models is unreachable, the validator must accept the model (with
     a warning) rather than reject it outright — otherwise provider switches
     fail in the gateway for any provider whose /models endpoint is down or
-    doesn't exist (e.g. opencode-go returns 404 HTML).
+    doesn't exist.
 
     Two paths:
       1. Provider has a curated catalog (``_PROVIDER_MODELS`` / live fetch):
@@ -743,42 +505,6 @@ class TestValidateApiFallback:
         assert result["accepted"] is False
         assert "Could not reach LM Studio" in result["message"]
 
-
-# -- validate — Codex auto-correction ------------------------------------------
-
-class TestValidateCodexAutoCorrection:
-    """Auto-correction for typos on openai-codex provider."""
-
-    def test_missing_dash_auto_corrects(self):
-        """gpt5.3-codex (missing dash) auto-corrects to gpt-5.3-codex."""
-        codex_models = ["gpt-5.4-mini", "gpt-5.4", "gpt-5.3-codex",
-                        "gpt-5.2-codex", "gpt-5.1-codex-max"]
-        with patch("hermes_cli.models.provider_model_ids", return_value=codex_models):
-            result = validate_requested_model("gpt5.3-codex", "openai-codex")
-        assert result["accepted"] is True
-        assert result["recognized"] is True
-        assert result["corrected_model"] == "gpt-5.3-codex"
-        assert "Auto-corrected" in result["message"]
-
-    def test_exact_match_no_correction(self):
-        """Exact model name does not trigger auto-correction."""
-        codex_models = ["gpt-5.4-mini", "gpt-5.4", "gpt-5.3-codex"]
-        with patch("hermes_cli.models.provider_model_ids", return_value=codex_models):
-            result = validate_requested_model("gpt-5.3-codex", "openai-codex")
-        assert result["accepted"] is True
-        assert result["recognized"] is True
-        assert result.get("corrected_model") is None
-        assert result["message"] is None
-
-    def test_very_different_name_falls_to_suggestions(self):
-        """Names too different for auto-correction are rejected with a suggestion list."""
-        codex_models = ["gpt-5.4-mini", "gpt-5.4", "gpt-5.3-codex"]
-        with patch("hermes_cli.models.provider_model_ids", return_value=codex_models):
-            result = validate_requested_model("totally-wrong", "openai-codex")
-        assert result["accepted"] is False
-        assert result["recognized"] is False
-        assert result.get("corrected_model") is None
-        assert "not found" in result["message"]
 
 
 # -- probe_api_models — Cloudflare UA mitigation --------------------------------

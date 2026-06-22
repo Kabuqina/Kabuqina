@@ -781,9 +781,8 @@ def _load_gateway_config() -> dict:
 def _resolve_gateway_model(config: dict | None = None) -> str:
     """Read model from config.yaml - single source of truth.
 
-    Without this, temporary AIAgent instances (e.g. /compress) fall
-    back to the hardcoded default which fails when the active provider is
-    openai-codex.
+    Without this, temporary AIAgent instances (e.g. /compress) fall back to the
+    hardcoded default instead of the configured model.
     """
     cfg = config if config is not None else _load_gateway_config()
     model_cfg = cfg.get("model", {})
@@ -1394,8 +1393,7 @@ class GatewayRunner:
                 resolved_session_key, model, runtime_kwargs
             )
 
-        # When the config has no model.default but a provider was resolved
-        # (e.g. user ran `hermes auth add openai-codex` without `hermes model`),
+        # When the config has no model.default but a provider was resolved,
         # fall back to the provider's first catalog model so the API call
         # doesn't fail with "model must be a non-empty string".
         if not model and runtime_kwargs.get("provider"):
@@ -6842,8 +6840,8 @@ class GatewayRunner:
         lines = [f"Model switched to `{result.new_model}`"]
         lines.append(f"Provider: {provider_label}")
 
-        # Context: always resolve via the provider-aware chain so Codex OAuth,
-        # Copilot, and Nous-enforced caps win over the raw models.dev entry.
+        # Context: always resolve via the provider-aware chain so provider
+        # overrides win over the raw models.dev entry.
         mi = result.model_info
         from hermes_cli.model_switch import resolve_display_context_length
         _sw2_config_ctx = None
@@ -11571,8 +11569,7 @@ class GatewayRunner:
                         # The agent's _build_api_kwargs converts these to the
                         # provider-specific format (reasoning_content, etc.).
                         if role == "assistant":
-                            for _rkey in ("reasoning", "reasoning_details",
-                                          "codex_reasoning_items"):
+                            for _rkey in ("reasoning", "reasoning_details"):
                                 _rval = msg.get(_rkey)
                                 if _rval:
                                     entry[_rkey] = _rval

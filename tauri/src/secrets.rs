@@ -170,11 +170,8 @@ pub fn provider_api_key_env(provider: &str) -> String {
         "together" => "TOGETHER_API_KEY",
         "google" => "GOOGLE_API_KEY",
         "xai" => "XAI_API_KEY",
-        "nvidia" => "NVIDIA_API_KEY",
         "huggingface" => "HF_TOKEN",
         "arcee" => "ARCEEAI_API_KEY",
-        "gmi" => "GMI_API_KEY",
-        "ollama-cloud" => "OLLAMA_API_KEY",
         _ => "OPENAI_API_KEY",
     }
     .to_string()

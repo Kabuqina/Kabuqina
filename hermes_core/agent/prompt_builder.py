@@ -192,9 +192,9 @@ TOOL_USE_ENFORCEMENT_GUIDANCE = (
 
 # Model name substrings that trigger tool-use enforcement guidance.
 # Add new patterns here when a model family needs explicit steering.
-TOOL_USE_ENFORCEMENT_MODELS = ("gpt", "codex", "gemini", "gemma", "grok")
+TOOL_USE_ENFORCEMENT_MODELS = ("gpt", "gemini", "gemma", "grok")
 
-# OpenAI GPT/Codex-specific execution guidance.  Addresses known failure modes
+# OpenAI GPT-specific execution guidance.  Addresses known failure modes
 # where GPT models abandon work on partial results, skip prerequisite lookups,
 # hallucinate instead of using tools, and declare "done" without verification.
 # Inspired by patterns from OpenAI's GPT-5.4 prompting guide & OpenClaw PR #38953.
@@ -281,11 +281,11 @@ GOOGLE_MODEL_OPERATIONAL_GUIDANCE = (
 )
 
 # Model name substrings that should use the 'developer' role instead of
-# 'system' for the system prompt.  OpenAI's newer models (GPT-5, Codex)
+# 'system' for the system prompt.  OpenAI's newer GPT models
 # give stronger instruction-following weight to the 'developer' role.
 # The swap happens at the API boundary in _build_api_kwargs() so internal
 # message representation stays consistent ("system" everywhere).
-DEVELOPER_ROLE_MODELS = ("gpt-5", "codex")
+DEVELOPER_ROLE_MODELS = ("gpt-5",)
 
 PLATFORM_HINTS = {
     "whatsapp": (

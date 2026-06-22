@@ -602,7 +602,7 @@ def _locked_update_approvals() -> Iterator[Dict[str, Any]]:
 
     Holds an exclusive ``flock`` on a sibling lock file for the duration
     of the update so concurrent ``_record_approval``/``revoke`` callers
-    cannot clobber each other's changes (the race Codex reproduced with
+    cannot clobber each other's changes (a race reproduced with
     20–50 simultaneous writers).  Falls back to an in-process lock on
     platforms without ``fcntl``.
     """

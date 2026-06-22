@@ -2,6 +2,7 @@ import sys
 import threading
 import types
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import httpx
 import pytest
@@ -49,22 +50,29 @@ class OpenAIFactory:
 
 
 def _build_agent(shared_client=None):
-    agent = run_agent.AIAgent.__new__(run_agent.AIAgent)
-    agent.api_mode = "chat_completions"
-    agent.provider = "openai-codex"
-    agent.base_url = "https://chatgpt.com/backend-api/codex"
-    agent.model = "gpt-5-codex"
-    agent.log_prefix = ""
-    agent.quiet_mode = True
-    agent._interrupt_requested = False
-    agent._interrupt_message = None
-    agent._client_lock = threading.RLock()
-    agent._client_kwargs = {"api_key": "***", "base_url": agent.base_url}
-    agent.client = shared_client or FakeSharedClient(lambda **kwargs: {"shared": True})
-    agent.stream_delta_callback = None
-    agent._stream_callback = None
-    agent.reasoning_callback = None
+    init_client = shared_client or FakeSharedClient(lambda **kwargs: {"init": True})
+    original_openai = run_agent.OpenAI
+    run_agent.OpenAI = lambda **kwargs: init_client
+    try:
+        with (
+            patch("run_agent.get_tool_definitions", return_value=[]),
+            patch("run_agent.check_toolset_requirements", return_value={}),
+        ):
+            agent = run_agent.AIAgent(
+                api_key="test-key",
+                base_url="https://api.openai.com/v1",
+                provider="openai",
+                api_mode="chat_completions",
+                model="gpt-4o",
+                quiet_mode=True,
+                skip_context_files=True,
+                skip_memory=True,
+            )
+    finally:
+        run_agent.OpenAI = original_openai
+    agent.client = init_client
     return agent
+
 
 
 def _connection_error():
@@ -158,11 +166,11 @@ def test_concurrent_requests_do_not_break_each_other_when_one_client_closes(monk
 def test_streaming_call_recreates_closed_shared_client_before_request(monkeypatch):
     chunks = iter([
         SimpleNamespace(
-            model="gpt-5-codex",
+            model="gpt-5.4",
             choices=[SimpleNamespace(delta=SimpleNamespace(content="Hello", tool_calls=None), finish_reason=None)],
         ),
         SimpleNamespace(
-            model="gpt-5-codex",
+            model="gpt-5.4",
             choices=[SimpleNamespace(delta=SimpleNamespace(content=" world", tool_calls=None), finish_reason="stop")],
         ),
     ])
@@ -178,7 +186,7 @@ def test_streaming_call_recreates_closed_shared_client_before_request(monkeypatc
     agent = _build_agent(shared_client=stale_shared)
     agent.stream_delta_callback = lambda _delta: None
     # Force chat_completions mode so the streaming path uses
-    # chat.completions.create(stream=True) instead of Codex responses.stream()
+    # chat.completions.create(stream=True).
     agent.api_mode = "chat_completions"
     response = agent._interruptible_streaming_api_call({"model": agent.model, "messages": []})
 

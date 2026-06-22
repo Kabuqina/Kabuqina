@@ -84,9 +84,7 @@ CREATE TABLE IF NOT EXISTS messages (
     finish_reason TEXT,
     reasoning TEXT,
     reasoning_content TEXT,
-    reasoning_details TEXT,
-    codex_reasoning_items TEXT,
-    codex_message_items TEXT
+    reasoning_details TEXT
 );
 
 CREATE TABLE IF NOT EXISTS state_meta (
@@ -1101,8 +1099,6 @@ class SessionDB:
         reasoning: str = None,
         reasoning_content: str = None,
         reasoning_details: Any = None,
-        codex_reasoning_items: Any = None,
-        codex_message_items: Any = None,
     ) -> int:
         """
         Append a message to a session. Returns the message row ID.
@@ -1115,14 +1111,6 @@ class SessionDB:
             json.dumps(reasoning_details)
             if reasoning_details else None
         )
-        codex_items_json = (
-            json.dumps(codex_reasoning_items)
-            if codex_reasoning_items else None
-        )
-        codex_message_items_json = (
-            json.dumps(codex_message_items)
-            if codex_message_items else None
-        )
         tool_calls_json = json.dumps(tool_calls) if tool_calls else None
 
         # Pre-compute tool call count
@@ -1134,9 +1122,8 @@ class SessionDB:
             cursor = conn.execute(
                 """INSERT INTO messages (session_id, role, content, tool_call_id,
                    tool_calls, tool_name, timestamp, token_count, finish_reason,
-                   reasoning, reasoning_content, reasoning_details, codex_reasoning_items,
-                   codex_message_items)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   reasoning, reasoning_content, reasoning_details)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     session_id,
                     role,
@@ -1150,8 +1137,6 @@ class SessionDB:
                     reasoning,
                     reasoning_content,
                     reasoning_details_json,
-                    codex_items_json,
-                    codex_message_items_json,
                 ),
             )
             msg_id = cursor.lastrowid
@@ -1196,30 +1181,16 @@ class SessionDB:
                 role = msg.get("role", "unknown")
                 tool_calls = msg.get("tool_calls")
                 reasoning_details = msg.get("reasoning_details") if role == "assistant" else None
-                codex_reasoning_items = (
-                    msg.get("codex_reasoning_items") if role == "assistant" else None
-                )
-                codex_message_items = (
-                    msg.get("codex_message_items") if role == "assistant" else None
-                )
-
                 reasoning_details_json = (
                     json.dumps(reasoning_details) if reasoning_details else None
-                )
-                codex_items_json = (
-                    json.dumps(codex_reasoning_items) if codex_reasoning_items else None
-                )
-                codex_message_items_json = (
-                    json.dumps(codex_message_items) if codex_message_items else None
                 )
                 tool_calls_json = json.dumps(tool_calls) if tool_calls else None
 
                 conn.execute(
                     """INSERT INTO messages (session_id, role, content, tool_call_id,
                        tool_calls, tool_name, timestamp, token_count, finish_reason,
-                       reasoning, reasoning_content, reasoning_details, codex_reasoning_items,
-                       codex_message_items)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                       reasoning, reasoning_content, reasoning_details)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (
                         session_id,
                         role,
@@ -1233,8 +1204,6 @@ class SessionDB:
                         msg.get("reasoning") if role == "assistant" else None,
                         msg.get("reasoning_content") if role == "assistant" else None,
                         reasoning_details_json,
-                        codex_items_json,
-                        codex_message_items_json,
                     ),
                 )
                 total_messages += 1
@@ -1351,8 +1320,7 @@ class SessionDB:
             placeholders = ",".join("?" for _ in session_ids)
             rows = self._conn.execute(
                 "SELECT role, content, tool_call_id, tool_calls, tool_name, "
-                "reasoning, reasoning_content, reasoning_details, codex_reasoning_items, "
-                "codex_message_items "
+                "reasoning, reasoning_content, reasoning_details "
                 f"FROM messages WHERE session_id IN ({placeholders}) ORDER BY timestamp, id",
                 tuple(session_ids),
             ).fetchall()
@@ -1387,18 +1355,6 @@ class SessionDB:
                     except (json.JSONDecodeError, TypeError):
                         logger.warning("Failed to deserialize reasoning_details, falling back to None")
                         msg["reasoning_details"] = None
-                if row["codex_reasoning_items"]:
-                    try:
-                        msg["codex_reasoning_items"] = json.loads(row["codex_reasoning_items"])
-                    except (json.JSONDecodeError, TypeError):
-                        logger.warning("Failed to deserialize codex_reasoning_items, falling back to None")
-                        msg["codex_reasoning_items"] = None
-                if row["codex_message_items"]:
-                    try:
-                        msg["codex_message_items"] = json.loads(row["codex_message_items"])
-                    except (json.JSONDecodeError, TypeError):
-                        logger.warning("Failed to deserialize codex_message_items, falling back to None")
-                        msg["codex_message_items"] = None
             if include_ancestors and self._is_duplicate_replayed_user_message(messages, msg):
                 continue
             messages.append(msg)
@@ -2091,4 +2047,3 @@ class SessionDB:
             result["error"] = str(exc)
 
         return result
-

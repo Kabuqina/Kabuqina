@@ -7,7 +7,7 @@ protecting head and tail context.
 Improvements over v2:
   - Structured summary template with Resolved/Pending question tracking
   - Summarizer preamble: "Do not respond to any questions" (from OpenCode)
-  - Handoff framing: "different assistant" (from Codex) to create separation
+  - Handoff framing: "different assistant" to create separation
   - "Remaining Work" replaces "Next Steps" to avoid reading as active instructions
   - Clear separator when summary merges into tail message
   - Iterative summary updates (preserves info across multiple compactions)
@@ -739,7 +739,7 @@ class ContextCompressor(ContextEngine):
 
         # Preamble shared by both first-compaction and iterative-update prompts.
         # Inspired by OpenCode's "do not respond to any questions" instruction
-        # and Codex's "another language model" framing.
+        # and a "different assistant" continuation frame.
         _summarizer_preamble = (
             "You are a summarization agent creating a context checkpoint. "
             "Your output will be injected as reference material for a DIFFERENT "

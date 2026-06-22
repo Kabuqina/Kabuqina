@@ -23,7 +23,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
-from utils import base_url_host_matches, base_url_hostname
+from utils import base_url_hostname
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +35,9 @@ logger = logging.getLogger(__name__)
 class HermesOverlay:
     """Hermes-specific provider metadata layered on top of models.dev."""
 
-    transport: str = "openai_chat"        # openai_chat | anthropic_messages | codex_responses
+    transport: str = "openai_chat"        # openai_chat | anthropic_messages
     is_aggregator: bool = False
-    auth_type: str = "api_key"            # api_key | oauth_device_code | oauth_external | external_process
+    auth_type: str = "api_key"            # api_key | oauth_device_code | oauth_external
     extra_env_vars: Tuple[str, ...] = ()  # env vars models.dev doesn't list
     base_url_override: str = ""           # override if models.dev URL is wrong/missing
     base_url_env_var: str = ""            # env var for user-custom base URL
@@ -55,38 +55,12 @@ HERMES_OVERLAYS: Dict[str, HermesOverlay] = {
         auth_type="oauth_device_code",
         base_url_override="https://inference-api.nousresearch.com/v1",
     ),
-    "openai-codex": HermesOverlay(
-        transport="codex_responses",
-        auth_type="oauth_external",
-        base_url_override="https://chatgpt.com/backend-api/codex",
-    ),
-    "qwen-oauth": HermesOverlay(
-        transport="openai_chat",
-        auth_type="oauth_external",
-        base_url_override="https://portal.qwen.ai/v1",
-        base_url_env_var="HERMES_QWEN_BASE_URL",
-    ),
-    "google-gemini-cli": HermesOverlay(
-        transport="openai_chat",
-        auth_type="oauth_external",
-        base_url_override="cloudcode-pa://google",
-    ),
     "lmstudio": HermesOverlay(
         transport="openai_chat",
         auth_type="api_key",
         extra_env_vars=("LM_API_KEY",),
         base_url_override="http://127.0.0.1:1234/v1",
         base_url_env_var="LM_BASE_URL",
-    ),
-    "copilot-acp": HermesOverlay(
-        transport="codex_responses",
-        auth_type="external_process",
-        base_url_override="acp://copilot",
-        base_url_env_var="COPILOT_ACP_BASE_URL",
-    ),
-    "github-copilot": HermesOverlay(
-        transport="openai_chat",
-        extra_env_vars=("COPILOT_GITHUB_TOKEN", "GH_TOKEN"),
     ),
     "anthropic": HermesOverlay(
         transport="anthropic_messages",
@@ -132,39 +106,15 @@ HERMES_OVERLAYS: Dict[str, HermesOverlay] = {
         transport="openai_chat",
         base_url_env_var="ALIBABA_CODING_PLAN_BASE_URL",
     ),
-    "vercel": HermesOverlay(
-        transport="openai_chat",
-        is_aggregator=True,
-    ),
-    "opencode": HermesOverlay(
-        transport="openai_chat",
-        is_aggregator=True,
-        base_url_env_var="OPENCODE_ZEN_BASE_URL",
-    ),
-    "opencode-go": HermesOverlay(
-        transport="openai_chat",
-        is_aggregator=True,
-        base_url_env_var="OPENCODE_GO_BASE_URL",
-    ),
-    "kilo": HermesOverlay(
-        transport="openai_chat",
-        is_aggregator=True,
-        base_url_env_var="KILOCODE_BASE_URL",
-    ),
     "huggingface": HermesOverlay(
         transport="openai_chat",
         is_aggregator=True,
         base_url_env_var="HF_BASE_URL",
     ),
     "xai": HermesOverlay(
-        transport="codex_responses",
+        transport="openai_chat",
         base_url_override="https://api.x.ai/v1",
         base_url_env_var="XAI_BASE_URL",
-    ),
-    "nvidia": HermesOverlay(
-        transport="openai_chat",
-        base_url_override="https://integrate.api.nvidia.com/v1",
-        base_url_env_var="NVIDIA_BASE_URL",
     ),
     "xiaomi": HermesOverlay(
         transport="openai_chat",
@@ -173,26 +123,6 @@ HERMES_OVERLAYS: Dict[str, HermesOverlay] = {
     "tencent-tokenhub": HermesOverlay(
         transport="openai_chat",
         base_url_env_var="TOKENHUB_BASE_URL",
-    ),
-    "gmi": HermesOverlay(
-        transport="openai_chat",
-        extra_env_vars=("GMI_API_KEY",),
-        base_url_override="https://api.gmi-serving.com/v1",
-        base_url_env_var="GMI_BASE_URL",
-    ),
-    "ollama-cloud": HermesOverlay(
-        transport="openai_chat",
-        base_url_env_var="OLLAMA_BASE_URL",
-    ),
-    # Azure Foundry: supports both OpenAI-style and Anthropic-style endpoints.
-    # The transport is determined at runtime from config.yaml model.api_mode.
-    "azure-foundry": HermesOverlay(
-        transport="openai_chat",  # default; overridden by api_mode in config
-        base_url_env_var="AZURE_FOUNDRY_BASE_URL",
-    ),
-    "bedrock": HermesOverlay(
-        transport="bedrock_converse",
-        auth_type="aws_sdk",
     ),
 }
 
@@ -206,7 +136,7 @@ class ProviderDef:
 
     id: str
     name: str
-    transport: str                        # openai_chat | anthropic_messages | codex_responses
+    transport: str                        # openai_chat | anthropic_messages
     api_key_env_vars: Tuple[str, ...]     # all env vars to check for API key
     base_url: str = ""
     base_url_env_var: str = ""
@@ -235,12 +165,6 @@ ALIASES: Dict[str, str] = {
     "x.ai": "xai",
     "grok": "xai",
 
-    # nvidia
-    "nim": "nvidia",
-    "nvidia-nim": "nvidia",
-    "build-nvidia": "nvidia",
-    "nemotron": "nvidia",
-
     # kimi-for-coding (models.dev ID)
     "kimi": "kimi-for-coding",
     "kimi-coding": "kimi-for-coding",
@@ -259,29 +183,6 @@ ALIASES: Dict[str, str] = {
     "claude": "anthropic",
     "claude-code": "anthropic",
 
-    # github-copilot (models.dev ID)
-    "copilot": "github-copilot",
-    "github": "github-copilot",
-    "github-copilot-acp": "copilot-acp",
-
-    # vercel (models.dev ID for AI Gateway)
-    "ai-gateway": "vercel",
-    "aigateway": "vercel",
-    "vercel-ai-gateway": "vercel",
-
-    # opencode (models.dev ID for OpenCode Zen)
-    "opencode-zen": "opencode",
-    "zen": "opencode",
-
-    # opencode-go
-    "go": "opencode-go",
-    "opencode-go-sub": "opencode-go",
-
-    # kilo (models.dev ID for KiloCode)
-    "kilocode": "kilo",
-    "kilo-code": "kilo",
-    "kilo-gateway": "kilo",
-
     # deepseek
     "deep-seek": "deepseek",
 
@@ -293,11 +194,6 @@ ALIASES: Dict[str, str] = {
     "alibaba_coding": "alibaba-coding-plan",
     "alibaba-coding": "alibaba-coding-plan",
     "alibaba_coding_plan": "alibaba-coding-plan",
-
-    # google-gemini-cli (OAuth + Code Assist)
-    "gemini-cli": "google-gemini-cli",
-    "gemini-oauth": "google-gemini-cli",
-
 
     # huggingface
     "hf": "huggingface",
@@ -314,21 +210,11 @@ ALIASES: Dict[str, str] = {
     "tencent-cloud": "tencent-tokenhub",
     "tencentmaas": "tencent-tokenhub",
 
-    # bedrock
-    "aws": "bedrock",
-    "aws-bedrock": "bedrock",
-    "amazon-bedrock": "bedrock",
-    "amazon": "bedrock",
-
-    # gmi
-    "gmi-cloud": "gmi",
-    "gmicloud": "gmi",
-
     # Local server aliases → virtual "local" concept (resolved via user config)
     "lmstudio": "lmstudio",
     "lm-studio": "lmstudio",
     "lm_studio": "lmstudio",
-    "ollama": "custom",  # bare "ollama" = local; use "ollama-cloud" for cloud
+    "ollama": "custom",
     "vllm": "local",
     "llamacpp": "local",
     "llama.cpp": "local",
@@ -342,16 +228,11 @@ ALIASES: Dict[str, str] = {
 
 _LABEL_OVERRIDES: Dict[str, str] = {
     "nous": "Nous Portal",
-    "openai-codex": "OpenAI Codex",
-    "copilot-acp": "GitHub Copilot ACP",
     "stepfun": "StepFun Step Plan",
     "xiaomi": "Xiaomi MiMo",
-    "gmi": "GMI Cloud",
     "tencent-tokenhub": "Tencent TokenHub",
     "lmstudio": "LM Studio",
     "local": "Local endpoint",
-    "bedrock": "AWS Bedrock",
-    "ollama-cloud": "Ollama Cloud",
 }
 
 
@@ -360,8 +241,6 @@ _LABEL_OVERRIDES: Dict[str, str] = {
 TRANSPORT_TO_API_MODE: Dict[str, str] = {
     "openai_chat": "chat_completions",
     "anthropic_messages": "anthropic_messages",
-    "codex_responses": "codex_responses",
-    "bedrock_converse": "bedrock_converse",
 }
 
 
@@ -381,7 +260,7 @@ def get_provider(name: str) -> Optional[ProviderDef]:
     """Look up a built-in provider by id or alias.
 
     Resolution order:
-      1. Hermes overlays (for providers not in models.dev: nous, openai-codex, etc.)
+      1. Hermes overlays (for providers not in models.dev, such as nous)
       2. models.dev catalog + Hermes overlay
 
     User-defined providers from config.yaml (``providers:`` / ``custom_providers:``)
@@ -489,13 +368,7 @@ def determine_api_mode(provider: str, base_url: str = "") -> str:
                 return "anthropic_messages"
             if url_lower.endswith("/anthropic") or "api.anthropic.com" in url_lower:
                 return "anthropic_messages"
-            if "api.openai.com" in url_lower:
-                return "codex_responses"
         return TRANSPORT_TO_API_MODE.get(pdef.transport, "chat_completions")
-
-    # Direct provider checks for providers not in HERMES_OVERLAYS
-    if provider == "bedrock":
-        return "bedrock_converse"
 
     # URL-based heuristics for custom / unknown providers
     if base_url:
@@ -505,10 +378,6 @@ def determine_api_mode(provider: str, base_url: str = "") -> str:
             return "anthropic_messages"
         if hostname == "api.kimi.com" and "/coding" in url_lower:
             return "anthropic_messages"
-        if hostname == "api.openai.com":
-            return "codex_responses"
-        if hostname.startswith("bedrock-runtime.") and base_url_host_matches(base_url, "amazonaws.com"):
-            return "bedrock_converse"
 
     return "chat_completions"
 

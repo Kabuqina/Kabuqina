@@ -41,7 +41,7 @@ class TestVariantTagPreservation:
     """OpenRouter variant tags (:free, :extended, :fast) must survive model switching."""
 
     @pytest.mark.parametrize("model,expected", [
-        ("nvidia/nemotron-3-super-120b-a12b:free", "nvidia/nemotron-3-super-120b-a12b:free"),
+        ("tencent/hy3-preview:free", "tencent/hy3-preview:free"),
         ("anthropic/claude-sonnet-4.6:extended", "anthropic/claude-sonnet-4.6:extended"),
         ("meta-llama/llama-4-maverick:fast", "meta-llama/llama-4-maverick:fast"),
     ])
@@ -51,13 +51,13 @@ class TestVariantTagPreservation:
 
     def test_legacy_colon_format_converts_to_slash(self):
         """Legacy vendor:model (no slash) should still be converted to vendor/model."""
-        result = _run_switch("nvidia:nemotron-3-super-120b-a12b")
-        assert result == "nvidia/nemotron-3-super-120b-a12b"
+        result = _run_switch("anthropic:claude-sonnet-4.6")
+        assert result == "anthropic/claude-sonnet-4.6"
 
     def test_legacy_colon_format_with_tag_converts_first_colon_only(self):
         """vendor:model:free (no slash) → vendor/model:free — first colon becomes slash."""
-        result = _run_switch("nvidia:nemotron-3-super-120b-a12b:free")
-        assert result == "nvidia/nemotron-3-super-120b-a12b:free"
+        result = _run_switch("tencent:hy3-preview:free")
+        assert result == "tencent/hy3-preview:free"
 
     def test_bare_model_name_unaffected(self):
         """Bare model names without colons or slashes should work normally."""

@@ -28,11 +28,8 @@ export type ProviderId =
   | "minimax-cn"
   | "alibaba"
   | "xai"
-  | "nvidia"
   | "huggingface"
   | "arcee"
-  | "gmi"
-  | "ollama-cloud"
   | "custom";
 
 export interface Provider {

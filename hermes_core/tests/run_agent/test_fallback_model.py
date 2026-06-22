@@ -287,38 +287,6 @@ class TestTryActivateFallback:
             assert agent._try_activate_fallback() is True
             assert agent.client is mock_client
 
-    def test_activates_codex_fallback(self):
-        """OpenAI Codex fallback should use OAuth credentials and codex_responses mode."""
-        agent = _make_agent(
-            fallback_model={"provider": "openai-codex", "model": "gpt-5.3-codex"},
-        )
-        mock_client = _mock_resolve(
-            api_key="codex-oauth-token",
-            base_url="https://chatgpt.com/backend-api/codex",
-        )
-        with patch(
-            "agent.auxiliary_client.resolve_provider_client",
-            return_value=(mock_client, "gpt-5.3-codex"),
-        ):
-            result = agent._try_activate_fallback()
-            assert result is True
-            assert agent.model == "gpt-5.3-codex"
-            assert agent.provider == "openai-codex"
-            assert agent.api_mode == "codex_responses"
-            assert agent.client is mock_client
-
-    def test_codex_fallback_fails_gracefully_without_credentials(self):
-        """Codex fallback should return False if no OAuth credentials available."""
-        agent = _make_agent(
-            fallback_model={"provider": "openai-codex", "model": "gpt-5.3-codex"},
-        )
-        with patch(
-            "agent.auxiliary_client.resolve_provider_client",
-            return_value=(None, None),
-        ):
-            assert agent._try_activate_fallback() is False
-            assert agent._fallback_activated is False
-
     def test_activates_nous_fallback(self):
         """Nous Portal fallback should use OAuth credentials and chat_completions mode."""
         agent = _make_agent(

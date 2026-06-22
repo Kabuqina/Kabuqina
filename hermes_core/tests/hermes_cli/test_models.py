@@ -12,7 +12,7 @@ import hermes_cli.models as _models_mod
 LIVE_OPENROUTER_MODELS = [
     ("anthropic/claude-opus-4.6", "recommended"),
     ("qwen/qwen3.6-plus", ""),
-    ("nvidia/nemotron-3-super-120b-a12b:free", "free"),
+    ("tencent/hy3-preview:free", "free"),
 ]
 
 
@@ -68,7 +68,7 @@ class TestFetchOpenRouterModels:
                 return False
 
             def read(self):
-                return b'{"data":[{"id":"anthropic/claude-opus-4.6","pricing":{"prompt":"0.000015","completion":"0.000075"}},{"id":"qwen/qwen3.6-plus","pricing":{"prompt":"0.000000325","completion":"0.00000195"}},{"id":"nvidia/nemotron-3-super-120b-a12b:free","pricing":{"prompt":"0","completion":"0"}}]}'
+                return b'{"data":[{"id":"anthropic/claude-opus-4.6","pricing":{"prompt":"0.000015","completion":"0.000075"}},{"id":"qwen/qwen3.6-plus","pricing":{"prompt":"0.000000325","completion":"0.00000195"}},{"id":"tencent/hy3-preview:free","pricing":{"prompt":"0","completion":"0"}}]}'
 
         monkeypatch.setattr(_models_mod, "_openrouter_catalog_cache", None)
         with patch("hermes_cli.models.urllib.request.urlopen", return_value=_Resp()):
@@ -77,7 +77,7 @@ class TestFetchOpenRouterModels:
         assert models == [
             ("anthropic/claude-opus-4.6", "recommended"),
             ("qwen/qwen3.6-plus", ""),
-            ("nvidia/nemotron-3-super-120b-a12b:free", "free"),
+            ("tencent/hy3-preview:free", "free"),
         ]
 
     def test_falls_back_to_static_snapshot_on_fetch_failure(self, monkeypatch):
@@ -92,7 +92,7 @@ class TestFetchOpenRouterModels:
 
         hermes-agent is tool-calling-first — surfacing a non-tool model leads to
         immediate runtime failures when the user selects it. Ported from
-        Kilo-Org/kilocode#9068.
+        upstream issue #9068.
         """
         class _Resp:
             def __enter__(self):
@@ -241,20 +241,20 @@ class TestDetectProviderForModel:
     def test_anthropic_model_detected(self):
         """claude-opus-4-6 should resolve to anthropic provider."""
         with patch("hermes_cli.models.fetch_openrouter_models", return_value=LIVE_OPENROUTER_MODELS):
-            result = detect_provider_for_model("claude-opus-4-6", "openai-codex")
+            result = detect_provider_for_model("claude-opus-4-6", "deepseek")
         assert result is not None
         assert result[0] == "anthropic"
 
     def test_deepseek_model_detected(self):
         """deepseek-chat should resolve to deepseek provider."""
-        result = detect_provider_for_model("deepseek-chat", "openai-codex")
+        result = detect_provider_for_model("deepseek-chat", "anthropic")
         assert result is not None
         # Provider is deepseek (direct) or openrouter (fallback) depending on creds
         assert result[0] in ("deepseek", "openrouter")
 
     def test_current_provider_model_returns_none(self):
         """Models belonging to the current provider should not trigger a switch."""
-        assert detect_provider_for_model("gpt-5.3-codex", "openai-codex") is None
+        assert detect_provider_for_model("deepseek-chat", "deepseek") is None
 
     def test_short_alias_resolves_to_static_model(self):
         """Short aliases (e.g. sonnet) should resolve without network lookups."""
@@ -270,7 +270,7 @@ class TestDetectProviderForModel:
     def test_openrouter_slug_match(self):
         """Models in the OpenRouter catalog should be found."""
         with patch("hermes_cli.models.fetch_openrouter_models", return_value=LIVE_OPENROUTER_MODELS):
-            result = detect_provider_for_model("anthropic/claude-opus-4.6", "openai-codex")
+            result = detect_provider_for_model("anthropic/claude-opus-4.6", "deepseek")
         assert result is not None
         assert result[0] == "openrouter"
         assert result[1] == "anthropic/claude-opus-4.6"
@@ -285,7 +285,7 @@ class TestDetectProviderForModel:
             monkeypatch.delenv(env_var, raising=False)
         """Bare model names should get mapped to full OpenRouter slugs."""
         with patch("hermes_cli.models.fetch_openrouter_models", return_value=LIVE_OPENROUTER_MODELS):
-            result = detect_provider_for_model("claude-opus-4.6", "openai-codex")
+            result = detect_provider_for_model("claude-opus-4.6", "deepseek")
         assert result is not None
         # Should find it on OpenRouter with full slug
         assert result[1] == "anthropic/claude-opus-4.6"
@@ -293,12 +293,12 @@ class TestDetectProviderForModel:
     def test_unknown_model_returns_none(self):
         """Completely unknown model names should return None."""
         with patch("hermes_cli.models.fetch_openrouter_models", return_value=LIVE_OPENROUTER_MODELS):
-            assert detect_provider_for_model("nonexistent-model-xyz", "openai-codex") is None
+            assert detect_provider_for_model("nonexistent-model-xyz", "deepseek") is None
 
     def test_aggregator_not_suggested(self):
         """nous/openrouter should never be auto-suggested as target provider."""
         with patch("hermes_cli.models.fetch_openrouter_models", return_value=LIVE_OPENROUTER_MODELS):
-            result = detect_provider_for_model("claude-opus-4-6", "openai-codex")
+            result = detect_provider_for_model("claude-opus-4-6", "deepseek")
         assert result is not None
         assert result[0] not in ("nous",)  # nous has claude models but shouldn't be suggested
 

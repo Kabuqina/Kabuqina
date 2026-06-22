@@ -239,30 +239,6 @@ class TestDelegateTask(unittest.TestCase):
             delegate_task(goal="Test tracking", parent_agent=parent)
             self.assertEqual(len(parent._active_children), 0)
 
-    def test_child_inherits_runtime_credentials(self):
-        parent = _make_mock_parent(depth=0)
-        parent.base_url = "https://chatgpt.com/backend-api/codex"
-        parent.api_key="***"
-        parent.provider = "openai-codex"
-        parent.api_mode = "codex_responses"
-
-        with patch("run_agent.AIAgent") as MockAgent:
-            mock_child = MagicMock()
-            mock_child.run_conversation.return_value = {
-                "final_response": "ok",
-                "completed": True,
-                "api_calls": 1,
-            }
-            MockAgent.return_value = mock_child
-
-            delegate_task(goal="Test runtime inheritance", parent_agent=parent)
-
-            _, kwargs = MockAgent.call_args
-            self.assertEqual(kwargs["base_url"], parent.base_url)
-            self.assertEqual(kwargs["api_key"], parent.api_key)
-            self.assertEqual(kwargs["provider"], parent.provider)
-            self.assertEqual(kwargs["api_mode"], parent.api_mode)
-
     def test_child_inherits_parent_print_fn(self):
         parent = _make_mock_parent(depth=0)
         sink = MagicMock()
@@ -569,7 +545,7 @@ class TestDelegateObservability(unittest.TestCase):
 
 
 class TestSubagentCostRollup(unittest.TestCase):
-    """Port of Kilo-Org/kilocode#9448 — parent's session_estimated_cost_usd
+    """Port of upstream issue #9448 — parent's session_estimated_cost_usd
     must include subagent spend, not just the parent's own API calls."""
 
     def _make_parent_with_cost_counters(self, depth=0, starting_cost=0.0):
@@ -1076,43 +1052,6 @@ class TestDelegationProviderIntegration(unittest.TestCase):
 
     @patch("tools.delegate_tool._load_config")
     @patch("tools.delegate_tool._resolve_delegation_credentials")
-    def test_delegation_acp_runtime_reaches_child_agent(self, mock_creds, mock_cfg):
-        """Resolved ACP runtime command/args must be forwarded to child agents."""
-        mock_cfg.return_value = {
-            "max_iterations": 45,
-            "model": "copilot-model",
-            "provider": "copilot-acp",
-        }
-        mock_creds.return_value = {
-            "model": "copilot-model",
-            "provider": "copilot-acp",
-            "base_url": "acp://copilot",
-            "api_key": "copilot-acp",
-            "api_mode": "chat_completions",
-            "command": "custom-copilot",
-            "args": ["--stdio-custom"],
-        }
-        parent = _make_mock_parent(depth=0)
-
-        with patch("tools.delegate_tool._build_child_agent") as mock_build, \
-             patch("tools.delegate_tool._run_single_child") as mock_run:
-            mock_child = MagicMock()
-            mock_build.return_value = mock_child
-            mock_run.return_value = {
-                "task_index": 0, "status": "completed",
-                "summary": "Done", "api_calls": 1, "duration_seconds": 1.0
-            }
-
-            delegate_task(goal="ACP delegation test", parent_agent=parent)
-
-            _, kwargs = mock_build.call_args
-            self.assertEqual(kwargs.get("override_provider"), "copilot-acp")
-            self.assertEqual(kwargs.get("override_base_url"), "acp://copilot")
-            self.assertEqual(kwargs.get("override_api_key"), "copilot-acp")
-            self.assertEqual(kwargs.get("override_api_mode"), "chat_completions")
-            self.assertEqual(kwargs.get("override_acp_command"), "custom-copilot")
-            self.assertEqual(kwargs.get("override_acp_args"), ["--stdio-custom"])
-
     @patch("tools.delegate_tool._load_config")
     @patch("tools.delegate_tool._resolve_delegation_credentials")
     def test_model_only_no_provider_inherits_parent_credentials(self, mock_creds, mock_cfg):

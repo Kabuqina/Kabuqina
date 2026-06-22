@@ -1,8 +1,4 @@
-"""Tests for hermes_cli.model_normalize — provider-aware model name normalization.
-
-Covers issue #5211: opencode-go model names with dots (e.g. minimax-m2.7)
-must NOT be mangled to hyphens (minimax-m2-7).
-"""
+"""Tests for hermes_cli.model_normalize — provider-aware model name normalization."""
 import pytest
 
 from hermes_cli.model_normalize import (
@@ -12,27 +8,6 @@ from hermes_cli.model_normalize import (
     _normalize_for_deepseek,
     detect_vendor,
 )
-
-
-# ── Regression: issue #5211 ────────────────────────────────────────────
-
-class TestIssue5211OpenCodeGoDotPreservation:
-    """OpenCode Go model names with dots must pass through unchanged."""
-
-    @pytest.mark.parametrize("model,expected", [
-        ("minimax-m2.7", "minimax-m2.7"),
-        ("minimax-m2.5", "minimax-m2.5"),
-        ("glm-4.5", "glm-4.5"),
-        ("kimi-k2.5", "kimi-k2.5"),
-        ("some-model-1.0.3", "some-model-1.0.3"),
-    ])
-    def test_opencode_go_preserves_dots(self, model, expected):
-        result = normalize_model_for_provider(model, "opencode-go")
-        assert result == expected, f"Expected {expected!r}, got {result!r}"
-
-    def test_opencode_go_not_in_dot_to_hyphen_set(self):
-        """opencode-go must NOT be in the dot-to-hyphen provider set."""
-        assert "opencode-go" not in _DOT_TO_HYPHEN_PROVIDERS
 
 
 # ── Anthropic dot-to-hyphen conversion (regression) ────────────────────
@@ -51,100 +26,6 @@ class TestAnthropicDotToHyphen:
     def test_anthropic_strips_vendor_prefix(self):
         result = normalize_model_for_provider("anthropic/claude-sonnet-4.6", "anthropic")
         assert result == "claude-sonnet-4-6"
-
-
-# ── OpenCode Zen regression ────────────────────────────────────────────
-
-class TestOpenCodeZenModelNormalization:
-    """OpenCode Zen preserves dots for most models, but Claude stays hyphenated."""
-
-    @pytest.mark.parametrize("model,expected", [
-        ("claude-sonnet-4.6", "claude-sonnet-4-6"),
-        ("opencode-zen/claude-opus-4.5", "claude-opus-4-5"),
-        ("glm-4.5", "glm-4.5"),
-        ("glm-5.1", "glm-5.1"),
-        ("gpt-5.4", "gpt-5.4"),
-        ("minimax-m2.5-free", "minimax-m2.5-free"),
-        ("kimi-k2.5", "kimi-k2.5"),
-    ])
-    def test_zen_normalizes_models(self, model, expected):
-        result = normalize_model_for_provider(model, "opencode-zen")
-        assert result == expected
-
-    def test_zen_strips_vendor_prefix(self):
-        result = normalize_model_for_provider("opencode-zen/claude-sonnet-4.6", "opencode-zen")
-        assert result == "claude-sonnet-4-6"
-
-    def test_zen_strips_vendor_prefix_for_non_claude(self):
-        result = normalize_model_for_provider("opencode-zen/glm-5.1", "opencode-zen")
-        assert result == "glm-5.1"
-
-
-# ── Copilot dot preservation (regression) ──────────────────────────────
-
-class TestCopilotDotPreservation:
-    """Copilot preserves dots in model names."""
-
-    @pytest.mark.parametrize("model,expected", [
-        ("claude-sonnet-4.6", "claude-sonnet-4.6"),
-        ("gpt-5.4", "gpt-5.4"),
-    ])
-    def test_copilot_preserves_dots(self, model, expected):
-        result = normalize_model_for_provider(model, "copilot")
-        assert result == expected
-
-
-# ── Copilot model-name normalization (issue #6879 regression) ──────────
-
-class TestCopilotModelNormalization:
-    """Copilot requires bare dot-notation model IDs.
-
-    Regression coverage for issue #6879 and the broken Copilot branch
-    that previously left vendor-prefixed Anthropic IDs (e.g.
-    ``anthropic/claude-sonnet-4.6``) and dash-notation Claude IDs (e.g.
-    ``claude-sonnet-4-6``) unchanged, causing the Copilot API to reject
-    the request with HTTP 400 "model_not_supported".
-    """
-
-    @pytest.mark.parametrize("model,expected", [
-        # Vendor-prefixed Anthropic IDs — prefix must be stripped.
-        ("anthropic/claude-opus-4.6",   "claude-opus-4.6"),
-        ("anthropic/claude-sonnet-4.6", "claude-sonnet-4.6"),
-        ("anthropic/claude-sonnet-4.5", "claude-sonnet-4.5"),
-        ("anthropic/claude-haiku-4.5",  "claude-haiku-4.5"),
-        # Vendor-prefixed OpenAI IDs — prefix must be stripped.
-        ("openai/gpt-5.4",              "gpt-5.4"),
-        ("openai/gpt-4o",               "gpt-4o"),
-        ("openai/gpt-4o-mini",          "gpt-4o-mini"),
-        # Dash-notation Claude IDs — must be converted to dot-notation.
-        ("claude-opus-4-6",             "claude-opus-4.6"),
-        ("claude-sonnet-4-6",           "claude-sonnet-4.6"),
-        ("claude-sonnet-4-5",           "claude-sonnet-4.5"),
-        ("claude-haiku-4-5",            "claude-haiku-4.5"),
-        # Combined: vendor-prefixed + dash-notation.
-        ("anthropic/claude-opus-4-6",   "claude-opus-4.6"),
-        ("anthropic/claude-sonnet-4-6", "claude-sonnet-4.6"),
-        # Already-canonical inputs pass through unchanged.
-        ("claude-sonnet-4.6",           "claude-sonnet-4.6"),
-        ("gpt-5.4",                     "gpt-5.4"),
-        ("gpt-5-mini",                  "gpt-5-mini"),
-    ])
-    def test_copilot_normalization(self, model, expected):
-        assert normalize_model_for_provider(model, "copilot") == expected
-
-    @pytest.mark.parametrize("model,expected", [
-        ("anthropic/claude-sonnet-4.6", "claude-sonnet-4.6"),
-        ("claude-sonnet-4-6",           "claude-sonnet-4.6"),
-        ("claude-opus-4-6",             "claude-opus-4.6"),
-        ("openai/gpt-5.4",              "gpt-5.4"),
-    ])
-    def test_copilot_acp_normalization(self, model, expected):
-        """Copilot ACP shares the same API expectations as HTTP Copilot."""
-        assert normalize_model_for_provider(model, "copilot-acp") == expected
-
-    def test_openai_codex_still_strips_openai_prefix(self):
-        """Regression: openai-codex must still strip the openai/ prefix."""
-        assert normalize_model_for_provider("openai/gpt-5.4", "openai-codex") == "gpt-5.4"
 
 
 # ── Aggregator providers (regression) ──────────────────────────────────

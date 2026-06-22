@@ -150,24 +150,6 @@ class TestSessionOps:
         assert state.cwd == "/home/user/project"
 
     @pytest.mark.asyncio
-    async def test_new_session_returns_model_state(self):
-        manager = SessionManager(
-            agent_factory=lambda: SimpleNamespace(model="gpt-5.4", provider="openai-codex")
-        )
-        acp_agent = HermesACPAgent(session_manager=manager)
-
-        with patch(
-            "hermes_cli.models.curated_models_for_provider",
-            return_value=[("gpt-5.4", "recommended"), ("gpt-5.4-mini", "")],
-        ):
-            resp = await acp_agent.new_session(cwd="/tmp")
-
-        assert isinstance(resp.models, SessionModelState)
-        assert resp.models.current_model_id == "openai-codex:gpt-5.4"
-        assert resp.models.available_models[0].model_id == "openai-codex:gpt-5.4"
-        assert resp.models.available_models[0].description is not None
-        assert "Provider:" in resp.models.available_models[0].description
-
     @pytest.mark.asyncio
     async def test_available_commands_include_help(self, agent):
         help_cmd = next(

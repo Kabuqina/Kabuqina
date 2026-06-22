@@ -259,7 +259,6 @@ TIPS = [
     "Custom providers: save named endpoints in config.yaml under custom_providers.",
     "HERMES_EPHEMERAL_SYSTEM_PROMPT injects a system prompt that's never persisted to history.",
     "credential_pool_strategies supports fill_first, round_robin, least_used, and random rotation.",
-    "hermes login supports OAuth-based auth for Nous and OpenAI Codex providers.",
     "The API server supports both Chat Completions and Responses API with server-side state.",
     "tool_preview_length: 0 in config shows full file paths in the spinner's activity feed.",
     "hermes status --deep runs deeper diagnostic checks across all components.",
@@ -287,7 +286,7 @@ TIPS = [
     "delegate_task with acp_command: 'claude' spawns Claude Code as a child agent from any platform.",
     "Delegation has a heartbeat thread — child activity propagates to the parent, preventing gateway timeouts.",
     "When a provider returns HTTP 402 (payment required), the auxiliary client auto-falls back to the next one.",
-    "agent.tool_use_enforcement steers models that describe actions instead of calling tools — auto for GPT/Codex.",
+    "agent.tool_use_enforcement steers models that describe actions instead of calling tools — auto for GPT.",
     "agent.restart_drain_timeout (default 60s) lets running agents finish before a gateway restart takes effect.",
     "agent.api_max_retries (default 3) controls how many times the agent retries a failed API call before surfacing the error — lower it for fast fallback.",
     "The gateway caches AIAgent instances per session — destroying this cache breaks Anthropic prompt caching.",
@@ -308,7 +307,7 @@ TIPS = [
     "display.platforms in config.yaml allows per-platform display overrides: {telegram: {tool_progress: all}}.",
     "human_delay.mode in config simulates human typing speed — configurable min_ms/max_ms range.",
     "Config version migrations run automatically on load — new config keys appear without manual intervention.",
-    "GPT and Codex models get special system prompt guidance for tool discipline and mandatory tool use.",
+    "GPT models get special system prompt guidance for tool discipline and mandatory tool use.",
     "Gemini models get tailored directives for absolute paths, parallel tool calls, and non-interactive commands.",
     "context.engine in config.yaml can be set to a plugin name for alternative context management strategies.",
     "Browser pages over 8000 tokens are auto-summarized by the auxiliary LLM before returning to the agent.",
@@ -321,7 +320,7 @@ TIPS = [
     "The voice record key is configurable via voice.record_key in config.yaml — not just Ctrl+B.",
     ".cursorrules and .cursor/rules/*.mdc files are auto-detected and loaded as project context.",
     "Context files support 10+ prompt injection patterns — invisible Unicode, 'ignore instructions', exfil attempts.",
-    "GPT-5 and Codex use 'developer' role instead of 'system' in the message format.",
+    "GPT-5 uses 'developer' role instead of 'system' in the message format.",
     "Per-task auxiliary overrides: auxiliary.vision.provider, auxiliary.compression.model, etc. in config.yaml.",
     "The auxiliary client treats 'main' as a provider alias — resolves to your actual primary provider + model.",
     "hermes claw migrate --dry-run previews OpenClaw migration without writing anything.",
@@ -344,5 +343,4 @@ def get_random_tip(exclude_recent: int = 0) -> str:
             deduplication across sessions.
     """
     return random.choice(TIPS)
-
 

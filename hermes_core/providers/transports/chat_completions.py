@@ -1,7 +1,7 @@
 """OpenAI Chat Completions transport.
 
-Handles the default api_mode ('chat_completions') used by ~16 OpenAI-compatible
-providers (OpenRouter, Nous, NVIDIA, Qwen, Ollama, DeepSeek, xAI, Kimi, etc.).
+Handles the default api_mode ('chat_completions') used by OpenAI-compatible
+providers (OpenRouter, Nous, Qwen, Ollama, DeepSeek, xAI, Kimi, etc.).
 
 Messages and tools are already in OpenAI format — convert_messages and
 convert_tools are near-identity.  The complexity lives in build_kwargs
@@ -111,19 +111,15 @@ class ChatCompletionsTransport(ProviderTransport):
         return "chat_completions"
 
     def convert_messages(self, messages: List[Dict[str, Any]], **kwargs) -> List[Dict[str, Any]]:
-        """Messages are already in OpenAI format — sanitize Codex leaks only.
+        """Messages are already in OpenAI format; strip internal helper fields.
 
-        Strips Codex Responses API fields (``codex_reasoning_items`` /
-        ``codex_message_items`` on the message, ``call_id``/``response_item_id``
-        on tool_calls) that strict chat-completions providers reject with 400/422.
+        Strict chat-completions providers reject unknown tool-call fields
+        such as ``call_id`` and ``response_item_id`` with 400/422.
         """
         needs_sanitize = False
         for msg in messages:
             if not isinstance(msg, dict):
                 continue
-            if "codex_reasoning_items" in msg or "codex_message_items" in msg:
-                needs_sanitize = True
-                break
             tool_calls = msg.get("tool_calls")
             if isinstance(tool_calls, list):
                 for tc in tool_calls:
@@ -140,8 +136,6 @@ class ChatCompletionsTransport(ProviderTransport):
         for msg in sanitized:
             if not isinstance(msg, dict):
                 continue
-            msg.pop("codex_reasoning_items", None)
-            msg.pop("codex_message_items", None)
             tool_calls = msg.get("tool_calls")
             if isinstance(tool_calls, list):
                 for tc in tool_calls:
@@ -174,23 +168,17 @@ class ChatCompletionsTransport(ProviderTransport):
             reasoning_config: dict | None
             request_overrides: dict | None
             session_id: str | None
-            qwen_session_metadata: dict | None — {sessionId, promptId} precomputed
             model_lower: str — lowercase model name for pattern matching
             # Provider detection flags (all optional, default False)
             is_openrouter: bool
             is_nous: bool
-            is_qwen_portal: bool
             is_github_models: bool
-            is_nvidia_nim: bool
             is_kimi: bool
             is_lmstudio: bool
             is_custom_provider: bool
             ollama_num_ctx: int | None
             # Provider routing
             provider_preferences: dict | None
-            # Qwen-specific
-            qwen_prepare_fn: callable | None — runs AFTER codex sanitization
-            qwen_prepare_inplace_fn: callable | None — in-place variant for deepcopied lists
             # Temperature
             fixed_temperature: Any — from _fixed_temperature_for_model()
             omit_temperature: bool
@@ -203,27 +191,9 @@ class ChatCompletionsTransport(ProviderTransport):
             # Extra
             extra_body_additions: dict | None — pre-built extra_body entries
         """
-        # Codex sanitization: drop reasoning_items / call_id / response_item_id
         sanitized = self.convert_messages(messages)
 
-        # Qwen portal prep AFTER codex sanitization.  If sanitize already
-        # deepcopied, reuse that copy via the in-place variant to avoid a
-        # second deepcopy.
-        is_qwen = params.get("is_qwen_portal", False)
-        if is_qwen:
-            qwen_prep = params.get("qwen_prepare_fn")
-            qwen_prep_inplace = params.get("qwen_prepare_inplace_fn")
-            if sanitized is messages:
-                if qwen_prep is not None:
-                    sanitized = qwen_prep(sanitized)
-            else:
-                # Already deepcopied — transform in place
-                if qwen_prep_inplace is not None:
-                    qwen_prep_inplace(sanitized)
-                elif qwen_prep is not None:
-                    sanitized = qwen_prep(sanitized)
-
-        # Developer role swap for GPT-5/Codex models
+        # Developer role swap for GPT-5 models
         model_lower = params.get("model_lower", (model or "").lower())
         if (
             sanitized
@@ -251,11 +221,6 @@ class ChatCompletionsTransport(ProviderTransport):
         elif fixed_temp is not None:
             api_kwargs["temperature"] = fixed_temp
 
-        # Qwen metadata (caller precomputes {sessionId, promptId})
-        qwen_meta = params.get("qwen_session_metadata")
-        if qwen_meta and is_qwen:
-            api_kwargs["metadata"] = qwen_meta
-
         # Tools
         if tools:
             # Moonshot/Kimi uses a stricter flavored JSON Schema.  Rewriting
@@ -270,7 +235,7 @@ class ChatCompletionsTransport(ProviderTransport):
         ephemeral = params.get("ephemeral_max_output_tokens")
         max_tokens = params.get("max_tokens")
         anthropic_max_out = params.get("anthropic_max_output")
-        is_nvidia_nim = params.get("is_nvidia_nim", False)
+        is_qwen = "qwen" in (model or "").lower()
         is_kimi = params.get("is_kimi", False)
         is_tokenhub = params.get("is_tokenhub", False)
         reasoning_config = params.get("reasoning_config")
@@ -279,8 +244,6 @@ class ChatCompletionsTransport(ProviderTransport):
             api_kwargs.update(max_tokens_fn(ephemeral))
         elif max_tokens is not None and max_tokens_fn:
             api_kwargs.update(max_tokens_fn(max_tokens))
-        elif is_nvidia_nim and max_tokens_fn:
-            api_kwargs.update(max_tokens_fn(16384))
         elif is_qwen and max_tokens_fn:
             api_kwargs.update(max_tokens_fn(65536))
         elif is_kimi and max_tokens_fn:
@@ -412,9 +375,6 @@ class ChatCompletionsTransport(ProviderTransport):
                 if _effort == "none" or _enabled is False:
                     extra_body["think"] = False
 
-        if is_qwen:
-            extra_body["vl_high_resolution_images"] = True
-
         if provider_name == "gemini":
             raw_thinking_config = _build_gemini_thinking_config(model, reasoning_config)
             if _is_gemini_openai_compat_base_url(base_url):
@@ -427,11 +387,6 @@ class ChatCompletionsTransport(ProviderTransport):
                     extra_body["extra_body"] = openai_compat_extra
             elif raw_thinking_config:
                 extra_body["thinking_config"] = raw_thinking_config
-        elif provider_name == "google-gemini-cli":
-            thinking_config = _build_gemini_thinking_config(model, reasoning_config)
-            if thinking_config:
-                extra_body["thinking_config"] = thinking_config
-
         # Merge any pre-built extra_body additions
         additions = params.get("extra_body_additions")
         if additions:

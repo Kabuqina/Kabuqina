@@ -3,8 +3,8 @@ and list_authenticated_providers.
 
 These guard the contract:
 
-  * For providers in ``_MODELS_DEV_PREFERRED`` (opencode-go, opencode-zen,
-    xiaomi, deepseek, smaller inference providers), both the CLI model
+  * For providers in ``_MODELS_DEV_PREFERRED`` (deepseek,
+    xiaomi, and smaller inference providers), both the CLI model
     picker path (``provider_model_ids``) and the gateway ``/model`` picker
     path (``list_authenticated_providers``) merge fresh models.dev entries
     on top of the curated static list.
@@ -13,8 +13,7 @@ These guard the contract:
   * If models.dev is unreachable (offline / CI), the curated list is the
     fallback — no crash, no empty list.
 
-Merging is what lets new models (e.g. ``mimo-v2.5-pro`` on opencode-go)
-appear in ``/model`` without a Hermes release.
+Merging is what lets new models appear in ``/model`` without a Hermes release.
 """
 
 import os
@@ -33,8 +32,8 @@ class TestMergeHelper:
     def test_merge_empty_mdev_returns_curated(self):
         """When models.dev returns nothing, curated list is preserved verbatim."""
         with patch("agent.models_dev.list_agentic_models", return_value=[]):
-            out = _merge_with_models_dev("opencode-go", ["mimo-v2-pro", "kimi-k2.6"])
-        assert out == ["mimo-v2-pro", "kimi-k2.6"]
+            out = _merge_with_models_dev("deepseek", ["deepseek-v4-pro", "deepseek-chat"])
+        assert out == ["deepseek-v4-pro", "deepseek-chat"]
 
     def test_merge_mdev_raises_returns_curated(self):
         """Offline / broken models.dev must not break the catalog path."""
@@ -42,17 +41,17 @@ class TestMergeHelper:
             raise RuntimeError("network down")
 
         with patch("agent.models_dev.list_agentic_models", side_effect=boom):
-            out = _merge_with_models_dev("opencode-go", ["mimo-v2-pro"])
-        assert out == ["mimo-v2-pro"]
+            out = _merge_with_models_dev("deepseek", ["deepseek-v4-pro"])
+        assert out == ["deepseek-v4-pro"]
 
     def test_merge_mdev_first_then_curated_extras(self):
         """models.dev entries come first; curated-only entries are appended."""
-        mdev = ["mimo-v2.5-pro", "mimo-v2-pro", "kimi-k2.6"]
-        curated = ["kimi-k2.6", "kimi-k2.5", "mimo-v2-pro"]  # kimi-k2.5 is curated-only
+        mdev = ["deepseek-v4.1-pro", "deepseek-v4-pro", "deepseek-chat"]
+        curated = ["deepseek-chat", "deepseek-reasoner", "deepseek-v4-pro"]
         with patch("agent.models_dev.list_agentic_models", return_value=mdev):
-            out = _merge_with_models_dev("opencode-go", curated)
+            out = _merge_with_models_dev("deepseek", curated)
         # models.dev entries first (in order), then curated-only entries
-        assert out == ["mimo-v2.5-pro", "mimo-v2-pro", "kimi-k2.6", "kimi-k2.5"]
+        assert out == ["deepseek-v4.1-pro", "deepseek-v4-pro", "deepseek-chat", "deepseek-reasoner"]
 
     def test_merge_case_insensitive_dedup(self):
         """Dedup is case-insensitive but preserves the first occurrence's casing."""
@@ -65,39 +64,25 @@ class TestMergeHelper:
 
 
 class TestProviderModelIdsPreferred:
-    def test_opencode_go_is_preferred(self):
-        assert "opencode-go" in _MODELS_DEV_PREFERRED
+    def test_deepseek_is_preferred(self):
+        assert "deepseek" in _MODELS_DEV_PREFERRED
 
-    def test_opencode_go_includes_fresh_models_dev_entries(self):
-        """provider_model_ids('opencode-go') adds models.dev entries on top."""
-        mdev = ["mimo-v2.5-pro", "mimo-v2.5", "mimo-v2-pro", "kimi-k2.6"]
+    def test_deepseek_includes_fresh_models_dev_entries(self):
+        """provider_model_ids('deepseek') adds models.dev entries on top."""
+        mdev = ["deepseek-v4.1-pro", "deepseek-v4-pro", "deepseek-chat"]
         with patch("agent.models_dev.list_agentic_models", return_value=mdev):
-            out = provider_model_ids("opencode-go")
-        # Fresh models must surface (this is exactly the reported bug fix:
-        # mimo-v2.5-pro should be pickable on opencode-go).
-        assert "mimo-v2.5-pro" in out
-        assert "mimo-v2.5" in out
+            out = provider_model_ids("deepseek")
+        assert "deepseek-v4.1-pro" in out
+        assert "deepseek-v4-pro" in out
         # Curated entries are still present.
-        assert "mimo-v2-pro" in out
-        assert "kimi-k2.6" in out
+        assert "deepseek-chat" in out
 
-    def test_opencode_go_offline_falls_back_to_curated(self):
+    def test_deepseek_offline_falls_back_to_curated(self):
         """Offline models.dev → curated-only list, no crash."""
         with patch("agent.models_dev.list_agentic_models", return_value=[]):
-            out = provider_model_ids("opencode-go")
-        # Curated floor (see hermes_cli/models.py _PROVIDER_MODELS["opencode-go"])
-        assert "mimo-v2-pro" in out
-        assert "kimi-k2.6" in out
-
-    def test_opencode_zen_includes_fresh_models(self):
-        """opencode-zen follows the same pattern as opencode-go."""
-        assert "opencode-zen" in _MODELS_DEV_PREFERRED
-        mdev = ["claude-opus-4-7", "kimi-k2.6", "glm-5.1"]
-        with patch("agent.models_dev.list_agentic_models", return_value=mdev):
-            out = provider_model_ids("opencode-zen")
-        assert "claude-opus-4-7" in out
-        assert "kimi-k2.6" in out
-
+            out = provider_model_ids("deepseek")
+        assert "deepseek-v4-pro" in out
+        assert "deepseek-chat" in out
 
 class TestOpenRouterAndNousUnchanged:
     """Per Teknium: openrouter and nous are NEVER merged with models.dev."""

@@ -84,9 +84,7 @@ _CREDENTIAL_NAMES = frozenset({
     "GLM_API_KEY",
     "ZAI_API_KEY",
     "MINIMAX_API_KEY",
-    "OLLAMA_API_KEY",
     "OPENVIKING_API_KEY",
-    "COPILOT_API_KEY",
     "CLAUDE_CODE_OAUTH_TOKEN",
     "BROWSERBASE_API_KEY",
     "FIRECRAWL_API_KEY",
@@ -135,7 +133,6 @@ _CREDENTIAL_NAMES = frozenset({
     "TOOL_GATEWAY_USER_TOKEN",
     "TELEGRAM_WEBHOOK_SECRET",
     "WEBHOOK_SECRET",
-    "AI_GATEWAY_API_KEY",
     "VOICE_TOOLS_OPENAI_KEY",
     "BROWSER_USE_API_KEY",
     "CUSTOM_API_KEY",
@@ -143,10 +140,8 @@ _CREDENTIAL_NAMES = frozenset({
     "GEMINI_BASE_URL",
     "OPENAI_BASE_URL",
     "OPENROUTER_BASE_URL",
-    "OLLAMA_BASE_URL",
     "GROQ_BASE_URL",
     "XAI_BASE_URL",
-    "AI_GATEWAY_BASE_URL",
     "ANTHROPIC_BASE_URL",
 })
 
@@ -300,11 +295,6 @@ def _hermetic_environment(tmp_path, monkeypatch):
         monkeypatch.setattr(_plugins_mod, "_plugin_manager", None)
     except Exception:
         pass
-    # Explicitly clear provider-specific base URL overrides that don't match
-    # the generic credential-shaped env-var filter above.
-    monkeypatch.delenv("GMI_API_KEY", raising=False)
-    monkeypatch.delenv("GMI_BASE_URL", raising=False)
-
 
 # Backward-compat alias — old tests reference this fixture name. Keep it
 # as a no-op wrapper so imports don't break.

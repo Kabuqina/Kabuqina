@@ -3,7 +3,7 @@
 Two modes:
 
   native  — attach images as OpenAI-style ``image_url`` content parts on the
-            user turn. Provider adapters (Anthropic, Gemini, Bedrock, Codex,
+            user turn. Provider adapters (Anthropic, Gemini,
             OpenAI chat.completions) already translate these into their
             vendor-specific multimodal formats.
 

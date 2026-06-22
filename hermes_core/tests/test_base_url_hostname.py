@@ -66,11 +66,10 @@ class TestBaseUrlHostMatchesExact:
 
     def test_subdomain_matches(self):
         # A subdomain of the registered domain should match — needed for
-        # api.moonshot.ai / api.kimi.com / portal.qwen.ai lookups that
+        # api.moonshot.ai / api.kimi.com lookups that
         # accept both the bare registrable domain and any subdomain under it.
         assert base_url_host_matches("https://api.moonshot.ai/v1", "moonshot.ai") is True
         assert base_url_host_matches("https://api.kimi.com/v1", "api.kimi.com") is True
-        assert base_url_host_matches("https://portal.qwen.ai/v1", "portal.qwen.ai") is True
 
 
 class TestBaseUrlHostMatchesNegatives:
@@ -108,53 +107,45 @@ class TestBaseUrlHostMatchesEdgeCases:
         assert base_url_host_matches("https://openrouter.ai/v1", "openrouter.ai.") is True
 
 
-class TestOllamaUrlHostCheck:
-    """GHSA-76xc-57q6-vm5m — ollama.com was using a raw substring match for
-    credential selection (same bug class as GHSA-xf8p-v2cg-h7h5 for OpenRouter).
-    These tests lock in that the base_url_host_matches fix correctly rejects
-    the same attack vectors for Ollama.
-    """
+class TestSensitiveProviderUrlHostCheck:
+    """Lock in that provider-host checks reject substring attack vectors."""
 
-    def test_ollama_com_path_injection_rejected(self):
-        """http://evil.test/ollama.com/v1 — ollama.com appears in the path,
-        not the host. Must not be treated as Ollama Cloud."""
+    def test_provider_domain_path_injection_rejected(self):
+        """Provider domain appears in the path, not the host."""
         assert base_url_host_matches(
-            "http://127.0.0.1:9000/ollama.com/v1", "ollama.com"
+            "http://127.0.0.1:9000/provider.example.com/v1", "provider.example.com"
         ) is False
 
-    def test_ollama_com_subdomain_lookalike_rejected(self):
-        """ollama.com.attacker.test is a separate host, not ollama.com."""
+    def test_provider_domain_subdomain_lookalike_rejected(self):
+        """provider.example.com.attacker.test is a separate host."""
         assert base_url_host_matches(
-            "http://ollama.com.attacker.test:9000/v1", "ollama.com"
+            "http://provider.example.com.attacker.test:9000/v1", "provider.example.com"
         ) is False
 
-    def test_ollama_com_localtest_me_rejected(self):
-        """ollama.com.localtest.me resolves to 127.0.0.1 via localtest.me
-        but its true hostname is localtest.me, not ollama.com."""
+    def test_provider_domain_localtest_me_rejected(self):
+        """A localtest.me host is not the provider domain."""
         assert base_url_host_matches(
-            "http://ollama.com.localtest.me:9000/v1", "ollama.com"
+            "http://provider.example.com.localtest.me:9000/v1", "provider.example.com"
         ) is False
 
-    def test_ollama_ai_is_not_ollama_com(self):
-        """Different TLD. ollama.ai is not ollama.com."""
+    def test_different_tld_does_not_match(self):
+        """Different TLD must not match."""
         assert base_url_host_matches(
-            "https://ollama.ai/v1", "ollama.com"
+            "https://provider.example.net/v1", "provider.example.com"
         ) is False
 
-    def test_localhost_ollama_port_is_not_ollama_com(self):
-        """http://localhost:11434/v1 is a local Ollama install, but its
-        hostname is localhost, so OLLAMA_API_KEY (an ollama.com-only secret)
-        must not be sent."""
+    def test_localhost_endpoint_is_not_provider_domain(self):
+        """Local endpoints must remain distinct from hosted provider domains."""
         assert base_url_host_matches(
-            "http://localhost:11434/v1", "ollama.com"
+            "http://localhost:11434/v1", "provider.example.com"
         ) is False
 
-    def test_genuine_ollama_com_matches(self):
+    def test_genuine_provider_domain_matches(self):
         assert base_url_host_matches(
-            "https://ollama.com/api/generate", "ollama.com"
+            "https://provider.example.com/api/generate", "provider.example.com"
         ) is True
 
-    def test_ollama_com_subdomain_matches(self):
+    def test_provider_domain_subdomain_matches(self):
         assert base_url_host_matches(
-            "https://api.ollama.com/v1", "ollama.com"
+            "https://api.provider.example.com/v1", "provider.example.com"
         ) is True

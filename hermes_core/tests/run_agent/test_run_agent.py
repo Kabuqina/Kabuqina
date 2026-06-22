@@ -16,8 +16,6 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from agent.codex_responses_adapter import _chat_messages_to_responses_input, _normalize_codex_response, _preflight_codex_input_items
-
 import run_agent
 from run_agent import AIAgent
 from agent.error_classifier import FailoverReason
@@ -983,12 +981,6 @@ class TestToolUseEnforcementConfig:
         prompt = agent._build_system_prompt()
         assert TOOL_USE_ENFORCEMENT_GUIDANCE in prompt
 
-    def test_auto_injects_for_codex(self):
-        from agent.prompt_builder import TOOL_USE_ENFORCEMENT_GUIDANCE
-        agent = self._make_agent(model="openai/codex-mini", tool_use_enforcement="auto")
-        prompt = agent._build_system_prompt()
-        assert TOOL_USE_ENFORCEMENT_GUIDANCE in prompt
-
     def test_auto_skips_for_claude(self):
         from agent.prompt_builder import TOOL_USE_ENFORCEMENT_GUIDANCE
         agent = self._make_agent(model="anthropic/claude-sonnet-4", tool_use_enforcement="auto")
@@ -1047,7 +1039,7 @@ class TestToolUseEnforcementConfig:
         from agent.prompt_builder import TOOL_USE_ENFORCEMENT_GUIDANCE
         agent = self._make_agent(
             model="openai/GPT-4.1",
-            tool_use_enforcement=["GPT", "Codex"],
+            tool_use_enforcement=["GPT"],
         )
         prompt = agent._build_system_prompt()
         assert TOOL_USE_ENFORCEMENT_GUIDANCE in prompt
@@ -1257,90 +1249,12 @@ class TestBuildApiKwargs:
         kwargs = agent._build_api_kwargs(messages)
         assert kwargs["extra_body"]["reasoning"]["effort"] == "medium"
 
-    def test_reasoning_sent_for_copilot_gpt5(self, agent):
-        agent.base_url = "https://api.githubcopilot.com"
-        agent.model = "gpt-5.4"
-        messages = [{"role": "user", "content": "hi"}]
-        kwargs = agent._build_api_kwargs(messages)
-        assert kwargs["extra_body"]["reasoning"] == {"effort": "medium"}
-
-    def test_reasoning_xhigh_normalized_for_copilot(self, agent):
-        agent.base_url = "https://api.githubcopilot.com"
-        agent.model = "gpt-5.4"
-        agent.reasoning_config = {"enabled": True, "effort": "xhigh"}
-        messages = [{"role": "user", "content": "hi"}]
-        kwargs = agent._build_api_kwargs(messages)
-        assert kwargs["extra_body"]["reasoning"] == {"effort": "high"}
-
-    def test_reasoning_omitted_for_non_reasoning_copilot_model(self, agent):
-        agent.base_url = "https://api.githubcopilot.com"
-        agent.model = "gpt-4.1"
-        messages = [{"role": "user", "content": "hi"}]
-        kwargs = agent._build_api_kwargs(messages)
-        assert "reasoning" not in kwargs.get("extra_body", {})
-
     def test_max_tokens_injected(self, agent):
         agent.max_tokens = 4096
         messages = [{"role": "user", "content": "hi"}]
         kwargs = agent._build_api_kwargs(messages)
         assert kwargs["max_tokens"] == 4096
 
-
-    def test_qwen_portal_formats_messages_and_metadata(self, agent):
-        agent.base_url = "https://portal.qwen.ai/v1"
-        agent._base_url_lower = agent.base_url.lower()
-        agent.session_id = "sess-123"
-        messages = [
-            {"role": "system", "content": "You are helpful"},
-            {"role": "assistant", "content": "Got it"},
-            {"role": "user", "content": "hi"},
-        ]
-        kwargs = agent._build_api_kwargs(messages)
-        assert kwargs["metadata"]["sessionId"] == "sess-123"
-        assert kwargs["extra_body"]["vl_high_resolution_images"] is True
-        assert isinstance(kwargs["messages"][0]["content"], list)
-        assert kwargs["messages"][0]["content"][0]["cache_control"] == {"type": "ephemeral"}
-        assert kwargs["messages"][2]["content"][0]["text"] == "hi"
-
-    def test_qwen_portal_normalizes_bare_string_content_parts(self, agent):
-        agent.base_url = "https://portal.qwen.ai/v1"
-        agent._base_url_lower = agent.base_url.lower()
-        messages = [
-            {"role": "system", "content": [{"type": "text", "text": "system"}]},
-            {"role": "user", "content": ["hello", {"type": "text", "text": "world"}]},
-        ]
-        kwargs = agent._build_api_kwargs(messages)
-        user_content = kwargs["messages"][1]["content"]
-        assert user_content[0] == {"type": "text", "text": "hello"}
-        assert user_content[1] == {"type": "text", "text": "world"}
-
-    def test_qwen_portal_no_system_message(self, agent):
-        agent.base_url = "https://portal.qwen.ai/v1"
-        agent._base_url_lower = agent.base_url.lower()
-        messages = [{"role": "user", "content": "hi"}]
-        kwargs = agent._build_api_kwargs(messages)
-        # Should not crash even without a system message
-        assert kwargs["messages"][0]["content"][0]["text"] == "hi"
-        assert "cache_control" not in kwargs["messages"][0]["content"][0]
-
-    def test_qwen_portal_sends_explicit_max_tokens(self, agent):
-        """When the user explicitly sets max_tokens, it should be sent to Qwen Portal."""
-        agent.base_url = "https://portal.qwen.ai/v1"
-        agent._base_url_lower = agent.base_url.lower()
-        agent.max_tokens = 4096
-        messages = [{"role": "system", "content": "sys"}, {"role": "user", "content": "hi"}]
-        kwargs = agent._build_api_kwargs(messages)
-        assert kwargs["max_tokens"] == 4096
-
-    def test_qwen_portal_default_max_tokens(self, agent):
-        """When max_tokens is None, Qwen Portal gets a default of 65536
-        to prevent reasoning models from exhausting their output budget."""
-        agent.base_url = "https://portal.qwen.ai/v1"
-        agent._base_url_lower = agent.base_url.lower()
-        agent.max_tokens = None
-        messages = [{"role": "system", "content": "sys"}, {"role": "user", "content": "hi"}]
-        kwargs = agent._build_api_kwargs(messages)
-        assert kwargs["max_tokens"] == 65536
 
     def test_ollama_think_false_on_effort_none(self, agent):
         """Custom (Ollama) provider with effort=none should inject think=false."""
@@ -3497,43 +3411,6 @@ class TestMaxTokensParam:
 class TestAzureOpenAIRouting:
     """Verify Azure OpenAI endpoints stay on chat_completions for gpt-5.x."""
 
-    def test_azure_gpt5_stays_on_chat_completions(self, agent):
-        """Azure serves gpt-5.x on /chat/completions — must not upgrade to codex_responses."""
-        agent.base_url = "https://my-resource.openai.azure.com/openai/v1"
-        agent.api_mode = "chat_completions"
-        agent.model = "gpt-5.4-mini"
-        # Mirror the routing logic from __init__
-        if (
-            agent.api_mode == "chat_completions"
-            and not agent._is_azure_openai_url()
-            and (
-                agent._is_direct_openai_url()
-                or agent._provider_model_requires_responses_api(
-                    agent.model, provider=agent.provider,
-                )
-            )
-        ):
-            agent.api_mode = "codex_responses"
-        assert agent.api_mode == "chat_completions"
-
-    def test_non_azure_gpt5_upgrades_to_codex_responses(self, agent):
-        """On api.openai.com, gpt-5.x must still upgrade to codex_responses."""
-        agent.base_url = "https://api.openai.com/v1"
-        agent.api_mode = "chat_completions"
-        agent.model = "gpt-5.4-mini"
-        if (
-            agent.api_mode == "chat_completions"
-            and not agent._is_azure_openai_url()
-            and (
-                agent._is_direct_openai_url()
-                or agent._provider_model_requires_responses_api(
-                    agent.model, provider=agent.provider,
-                )
-            )
-        ):
-            agent.api_mode = "codex_responses"
-        assert agent.api_mode == "codex_responses"
-
     def test_is_azure_openai_url_detection(self, agent):
         assert agent._is_azure_openai_url("https://foo.openai.azure.com/openai/v1") is True
         assert agent._is_azure_openai_url("https://api.openai.com/v1") is False
@@ -3920,35 +3797,6 @@ class TestFallbackAnthropicProvider:
         assert agent.api_mode == "chat_completions"
         assert agent.client is mock_client
 
-
-def test_aiagent_uses_copilot_acp_client():
-    with (
-        patch("run_agent.get_tool_definitions", return_value=_make_tool_defs("web_search")),
-        patch("run_agent.check_toolset_requirements", return_value={}),
-        patch("run_agent.OpenAI") as mock_openai,
-        patch("agent.copilot_acp_client.CopilotACPClient") as mock_acp_client,
-    ):
-        acp_client = MagicMock()
-        mock_acp_client.return_value = acp_client
-
-        agent = AIAgent(
-            api_key="copilot-acp",
-            base_url="acp://copilot",
-            provider="copilot-acp",
-            acp_command="/usr/local/bin/copilot",
-            acp_args=["--acp", "--stdio"],
-            quiet_mode=True,
-            skip_context_files=True,
-            skip_memory=True,
-        )
-
-    assert agent.client is acp_client
-    mock_openai.assert_not_called()
-    mock_acp_client.assert_called_once()
-    assert mock_acp_client.call_args.kwargs["base_url"] == "acp://copilot"
-    assert mock_acp_client.call_args.kwargs["api_key"] == "copilot-acp"
-    assert mock_acp_client.call_args.kwargs["command"] == "/usr/local/bin/copilot"
-    assert mock_acp_client.call_args.kwargs["args"] == ["--acp", "--stdio"]
 
 
 def test_quiet_spinner_allowed_with_explicit_print_fn(agent):
@@ -4660,59 +4508,6 @@ class TestVprintForceOnErrors:
             agent._vprint("debug")
             agent._vprint("error", force=True)
         assert len(printed) == 2
-
-
-class TestNormalizeCodexDictArguments:
-    """_normalize_codex_response must produce valid JSON strings for tool
-    call arguments, even when the Responses API returns them as dicts."""
-
-    def _make_codex_response(self, item_type, arguments, item_status="completed"):
-        """Build a minimal Responses API response with a single tool call."""
-        item = SimpleNamespace(
-            type=item_type,
-            status=item_status,
-        )
-        if item_type == "function_call":
-            item.name = "web_search"
-            item.arguments = arguments
-            item.call_id = "call_abc123"
-            item.id = "fc_abc123"
-        elif item_type == "custom_tool_call":
-            item.name = "web_search"
-            item.input = arguments
-            item.call_id = "call_abc123"
-            item.id = "fc_abc123"
-        return SimpleNamespace(
-            output=[item],
-            status="completed",
-        )
-
-    def test_function_call_dict_arguments_produce_valid_json(self, agent):
-        """dict arguments from function_call must be serialised with
-        json.dumps, not str(), so downstream json.loads() succeeds."""
-        args_dict = {"query": "weather in NYC", "units": "celsius"}
-        response = self._make_codex_response("function_call", args_dict)
-        msg, _ = _normalize_codex_response(response)
-        tc = msg.tool_calls[0]
-        parsed = json.loads(tc.function.arguments)
-        assert parsed == args_dict
-
-    def test_custom_tool_call_dict_arguments_produce_valid_json(self, agent):
-        """dict arguments from custom_tool_call must also use json.dumps."""
-        args_dict = {"path": "/tmp/test.txt", "content": "hello"}
-        response = self._make_codex_response("custom_tool_call", args_dict)
-        msg, _ = _normalize_codex_response(response)
-        tc = msg.tool_calls[0]
-        parsed = json.loads(tc.function.arguments)
-        assert parsed == args_dict
-
-    def test_string_arguments_unchanged(self, agent):
-        """String arguments must pass through without modification."""
-        args_str = '{"query": "test"}'
-        response = self._make_codex_response("function_call", args_str)
-        msg, _ = _normalize_codex_response(response)
-        tc = msg.tool_calls[0]
-        assert tc.function.arguments == args_str
 
 
 # ---------------------------------------------------------------------------

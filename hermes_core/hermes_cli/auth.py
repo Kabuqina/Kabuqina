@@ -1,7 +1,7 @@
 """
 Multi-provider authentication system for Hermes Agent.
 
-Supports OAuth device code flows (Nous Portal, future: OpenAI Codex) and
+Supports OAuth device code flows (Nous Portal) and
 traditional API key providers (OpenRouter, custom endpoints). Auth state
 is persisted in ~/.hermes/auth.json with cross-process file locking.
 
@@ -87,7 +87,6 @@ from providers.api_key_auth import (  # noqa: E402,F401
 # Shared OAuth/JWT/timestamp helpers now live in providers.oauth_helpers;
 # re-export them so existing call sites keep working.
 from providers.oauth_helpers import (  # noqa: E402,F401
-    _codex_access_token_is_expiring,
     _coerce_ttl_seconds,
     _decode_jwt_claims,
     _is_expiring,
@@ -122,7 +121,6 @@ DEFAULT_NOUS_SCOPE = "inference:mint_agent_key"
 DEFAULT_AGENT_KEY_MIN_TTL_SECONDS = 30 * 60  # 30 minutes
 ACCESS_TOKEN_REFRESH_SKEW_SECONDS = 120       # refresh 2 min before expiry
 DEVICE_AUTH_POLL_INTERVAL_CAP_SECONDS = 1     # poll at most every 1s
-DEFAULT_CODEX_BASE_URL = "https://chatgpt.com/backend-api/codex"
 MINIMAX_OAUTH_CLIENT_ID = "78257093-7e40-4613-99e0-527b14b39113"
 MINIMAX_OAUTH_SCOPE = "group_id profile model.completion"
 MINIMAX_OAUTH_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:user_code"
@@ -131,18 +129,8 @@ MINIMAX_OAUTH_CN_BASE = "https://api.minimaxi.com"
 MINIMAX_OAUTH_GLOBAL_INFERENCE = "https://api.minimax.io/anthropic"
 MINIMAX_OAUTH_CN_INFERENCE = "https://api.minimaxi.com/anthropic"
 MINIMAX_OAUTH_REFRESH_SKEW_SECONDS = 60
-DEFAULT_QWEN_BASE_URL = "https://portal.qwen.ai/v1"
-DEFAULT_GITHUB_MODELS_BASE_URL = "https://api.githubcopilot.com"
-DEFAULT_COPILOT_ACP_BASE_URL = "acp://copilot"
-DEFAULT_OLLAMA_CLOUD_BASE_URL = "https://ollama.com/v1"
 STEPFUN_STEP_PLAN_INTL_BASE_URL = "https://api.stepfun.ai/step_plan/v1"
 STEPFUN_STEP_PLAN_CN_BASE_URL = "https://api.stepfun.com/step_plan/v1"
-CODEX_OAUTH_CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann"
-CODEX_OAUTH_TOKEN_URL = "https://auth.openai.com/oauth/token"
-CODEX_ACCESS_TOKEN_REFRESH_SKEW_SECONDS = 120
-QWEN_OAUTH_CLIENT_ID = "f0304373b74a44d2b584a3fb70ca9e56"
-QWEN_OAUTH_TOKEN_URL = "https://chat.qwen.ai/api/v1/oauth2/token"
-QWEN_ACCESS_TOKEN_REFRESH_SKEW_SECONDS = 120
 DEFAULT_SPOTIFY_ACCOUNTS_BASE_URL = "https://accounts.spotify.com"
 DEFAULT_SPOTIFY_API_BASE_URL = "https://api.spotify.com/v1"
 DEFAULT_SPOTIFY_REDIRECT_URI = "http://127.0.0.1:43827/spotify/callback"
@@ -164,10 +152,6 @@ DEFAULT_SPOTIFY_SCOPE = " ".join((
 SERVICE_PROVIDER_NAMES: Dict[str, str] = {
     "spotify": "Spotify",
 }
-
-# Google Gemini OAuth (google-gemini-cli provider, Cloud Code Assist backend)
-DEFAULT_GEMINI_CLOUDCODE_BASE_URL = "cloudcode-pa://google"
-GEMINI_OAUTH_ACCESS_TOKEN_REFRESH_SKEW_SECONDS = 60  # refresh 60s before expiry
 
 # LM Studio's default no-auth mode still requires *some* non-empty bearer for
 # the API-key code paths (auxiliary_client, runtime resolver) to treat the
@@ -207,24 +191,6 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
         client_id=DEFAULT_NOUS_CLIENT_ID,
         scope=DEFAULT_NOUS_SCOPE,
     ),
-    "openai-codex": ProviderConfig(
-        id="openai-codex",
-        name="OpenAI Codex",
-        auth_type="oauth_external",
-        inference_base_url=DEFAULT_CODEX_BASE_URL,
-    ),
-    "qwen-oauth": ProviderConfig(
-        id="qwen-oauth",
-        name="Qwen OAuth",
-        auth_type="oauth_external",
-        inference_base_url=DEFAULT_QWEN_BASE_URL,
-    ),
-    "google-gemini-cli": ProviderConfig(
-        id="google-gemini-cli",
-        name="Google Gemini (OAuth)",
-        auth_type="oauth_external",
-        inference_base_url=DEFAULT_GEMINI_CLOUDCODE_BASE_URL,
-    ),
     "lmstudio": ProviderConfig(
         id="lmstudio",
         name="LM Studio",
@@ -232,21 +198,6 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
         inference_base_url="http://127.0.0.1:1234/v1",
         api_key_env_vars=("LM_API_KEY",),
         base_url_env_var="LM_BASE_URL",
-    ),
-    "copilot": ProviderConfig(
-        id="copilot",
-        name="GitHub Copilot",
-        auth_type="api_key",
-        inference_base_url=DEFAULT_GITHUB_MODELS_BASE_URL,
-        api_key_env_vars=("COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN"),
-        base_url_env_var="COPILOT_API_BASE_URL",
-    ),
-    "copilot-acp": ProviderConfig(
-        id="copilot-acp",
-        name="GitHub Copilot ACP",
-        auth_type="external_process",
-        inference_base_url=DEFAULT_COPILOT_ACP_BASE_URL,
-        base_url_env_var="COPILOT_ACP_BASE_URL",
     ),
     "gemini": ProviderConfig(
         id="gemini",
@@ -289,14 +240,6 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
         inference_base_url=STEPFUN_STEP_PLAN_INTL_BASE_URL,
         api_key_env_vars=("STEPFUN_API_KEY",),
         base_url_env_var="STEPFUN_BASE_URL",
-    ),
-    "gmi": ProviderConfig(
-        id="gmi",
-        name="GMI Cloud",
-        auth_type="api_key",
-        inference_base_url="https://api.gmi-serving.com/v1",
-        api_key_env_vars=("GMI_API_KEY",),
-        base_url_env_var="GMI_BASE_URL",
     ),
     "minimax": ProviderConfig(
         id="minimax",
@@ -365,50 +308,6 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
         api_key_env_vars=("XAI_API_KEY",),
         base_url_env_var="XAI_BASE_URL",
     ),
-    "nvidia": ProviderConfig(
-        id="nvidia",
-        name="NVIDIA NIM",
-        auth_type="api_key",
-        inference_base_url="https://integrate.api.nvidia.com/v1",
-        api_key_env_vars=("NVIDIA_API_KEY",),
-        base_url_env_var="NVIDIA_BASE_URL",
-    ),
-    "ai-gateway": ProviderConfig(
-        id="ai-gateway",
-        name="Vercel AI Gateway",
-        auth_type="api_key",
-        inference_base_url="https://ai-gateway.vercel.sh/v1",
-        api_key_env_vars=("AI_GATEWAY_API_KEY",),
-        base_url_env_var="AI_GATEWAY_BASE_URL",
-    ),
-    "opencode-zen": ProviderConfig(
-        id="opencode-zen",
-        name="OpenCode Zen",
-        auth_type="api_key",
-        inference_base_url="https://opencode.ai/zen/v1",
-        api_key_env_vars=("OPENCODE_ZEN_API_KEY",),
-        base_url_env_var="OPENCODE_ZEN_BASE_URL",
-    ),
-    "opencode-go": ProviderConfig(
-        id="opencode-go",
-        name="OpenCode Go",
-        auth_type="api_key",
-        # OpenCode Go mixes API surfaces by model:
-        # - GLM / Kimi use OpenAI-compatible chat completions under /v1
-        # - MiniMax models use Anthropic Messages under /v1/messages
-        # Keep the provider base at /v1 and select api_mode per-model.
-        inference_base_url="https://opencode.ai/zen/go/v1",
-        api_key_env_vars=("OPENCODE_GO_API_KEY",),
-        base_url_env_var="OPENCODE_GO_BASE_URL",
-    ),
-    "kilocode": ProviderConfig(
-        id="kilocode",
-        name="Kilo Code",
-        auth_type="api_key",
-        inference_base_url="https://api.kilo.ai/api/gateway",
-        api_key_env_vars=("KILOCODE_API_KEY",),
-        base_url_env_var="KILOCODE_BASE_URL",
-    ),
     "huggingface": ProviderConfig(
         id="huggingface",
         name="Hugging Face",
@@ -432,30 +331,6 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
         inference_base_url="https://tokenhub.tencentmaas.com/v1",
         api_key_env_vars=("TOKENHUB_API_KEY",),
         base_url_env_var="TOKENHUB_BASE_URL",
-    ),
-    "ollama-cloud": ProviderConfig(
-        id="ollama-cloud",
-        name="Ollama Cloud",
-        auth_type="api_key",
-        inference_base_url=DEFAULT_OLLAMA_CLOUD_BASE_URL,
-        api_key_env_vars=("OLLAMA_API_KEY",),
-        base_url_env_var="OLLAMA_BASE_URL",
-    ),
-    "bedrock": ProviderConfig(
-        id="bedrock",
-        name="AWS Bedrock",
-        auth_type="aws_sdk",
-        inference_base_url="https://bedrock-runtime.us-east-1.amazonaws.com",
-        api_key_env_vars=(),
-        base_url_env_var="BEDROCK_BASE_URL",
-    ),
-    "azure-foundry": ProviderConfig(
-        id="azure-foundry",
-        name="Azure Foundry",
-        auth_type="api_key",
-        inference_base_url="",  # User-provided endpoint
-        api_key_env_vars=("AZURE_FOUNDRY_API_KEY",),
-        base_url_env_var="AZURE_FOUNDRY_BASE_URL",
     ),
 }
 
@@ -646,7 +521,6 @@ def resolve_provider(
     2. Explicit CLI api_key/base_url -> OpenAI-compatible routing (internal id ``openrouter``)
     3. OPENAI_API_KEY or OPENROUTER_API_KEY -> same OpenAI-compatible path
     4. Other provider-specific keys from PROVIDER_REGISTRY (DeepSeek, GLM, Kimi, …)
-    5. AWS Bedrock when the SDK credential chain succeeds
     6. Otherwise raises AuthError (no provider configured)
     """
     normalized = (requested or "auto").strip().lower()
@@ -659,28 +533,18 @@ def resolve_provider(
         "kimi": "kimi-coding", "kimi-for-coding": "kimi-coding", "moonshot": "kimi-coding",
         "kimi-cn": "kimi-coding-cn", "moonshot-cn": "kimi-coding-cn",
         "step": "stepfun", "stepfun-coding-plan": "stepfun",
-        "gmi-cloud": "gmi", "gmicloud": "gmi",
         "minimax-china": "minimax-cn", "minimax_cn": "minimax-cn",
         "minimax-portal": "minimax-oauth", "minimax-global": "minimax-oauth", "minimax_oauth": "minimax-oauth",
         "alibaba_coding": "alibaba-coding-plan", "alibaba-coding": "alibaba-coding-plan",
         "alibaba_coding_plan": "alibaba-coding-plan",
         "claude": "anthropic", "claude-code": "anthropic",
-        "github": "copilot", "github-copilot": "copilot",
-        "github-models": "copilot", "github-model": "copilot",
-        "github-copilot-acp": "copilot-acp", "copilot-acp-agent": "copilot-acp",
-        "aigateway": "ai-gateway", "vercel": "ai-gateway", "vercel-ai-gateway": "ai-gateway",
-        "opencode": "opencode-zen", "zen": "opencode-zen",
-        "qwen-portal": "qwen-oauth", "qwen-cli": "qwen-oauth", "qwen-oauth": "qwen-oauth", "google-gemini-cli": "google-gemini-cli", "gemini-cli": "google-gemini-cli", "gemini-oauth": "google-gemini-cli",
         "hf": "huggingface", "hugging-face": "huggingface", "huggingface-hub": "huggingface",
         "mimo": "xiaomi", "xiaomi-mimo": "xiaomi",
         "tencent": "tencent-tokenhub", "tokenhub": "tencent-tokenhub",
         "tencent-cloud": "tencent-tokenhub", "tencentmaas": "tencent-tokenhub",
-        "aws": "bedrock", "aws-bedrock": "bedrock", "amazon-bedrock": "bedrock", "amazon": "bedrock",
-        "go": "opencode-go", "opencode-go-sub": "opencode-go",
-        "kilo": "kilocode", "kilo-code": "kilocode", "kilo-gateway": "kilocode",
         "lmstudio": "lmstudio", "lm-studio": "lmstudio", "lm_studio": "lmstudio",
         # Local server aliases — route through the generic custom provider
-        "ollama": "custom", "ollama_cloud": "ollama-cloud",
+        "ollama": "custom",
         "vllm": "custom", "llamacpp": "custom",
         "llama.cpp": "custom", "llama-cpp": "custom",
     }
@@ -724,26 +588,14 @@ def resolve_provider(
     for pid, pconfig in PROVIDER_REGISTRY.items():
         if pconfig.auth_type != "api_key":
             continue
-        # GitHub tokens are commonly present for repo/tool access but should not
-        # hijack inference auto-selection unless the user explicitly chooses
-        # Copilot/GitHub Models as the provider. LM Studio is a local server
-        # whose availability isn't implied by LM_API_KEY presence (it may be
-        # offline, and the no-auth setup uses a placeholder value), so it
-        # also requires explicit selection.
-        if pid in ("copilot", "lmstudio"):
+        # LM Studio is a local server whose availability isn't implied by
+        # LM_API_KEY presence (it may be offline, and the no-auth setup uses a
+        # placeholder value), so it requires explicit selection.
+        if pid == "lmstudio":
             continue
         for env_var in pconfig.api_key_env_vars:
             if has_usable_secret(os.getenv(env_var, "")):
                 return pid
-
-    # AWS Bedrock — detect via boto3 credential chain (IAM roles, SSO, env vars).
-    # This runs after API-key providers so explicit keys always win.
-    try:
-        from agent.bedrock_adapter import has_aws_credentials
-        if has_aws_credentials():
-            return "bedrock"
-    except ImportError:
-        pass  # boto3 not installed — skip Bedrock auto-detection
 
     raise AuthError(
         "No inference provider configured. Run 'hermes model' to choose a "
@@ -761,250 +613,6 @@ def resolve_provider(
 # =============================================================================
 
 
-def _qwen_cli_auth_path() -> Path:
-    return Path.home() / ".qwen" / "oauth_creds.json"
-
-
-def _read_qwen_cli_tokens() -> Dict[str, Any]:
-    auth_path = _qwen_cli_auth_path()
-    if not auth_path.exists():
-        raise AuthError(
-            "Qwen CLI credentials not found. Run 'qwen auth qwen-oauth' first.",
-            provider="qwen-oauth",
-            code="qwen_auth_missing",
-        )
-    try:
-        data = json.loads(auth_path.read_text(encoding="utf-8"))
-    except Exception as exc:
-        raise AuthError(
-            f"Failed to read Qwen CLI credentials from {auth_path}: {exc}",
-            provider="qwen-oauth",
-            code="qwen_auth_read_failed",
-        ) from exc
-    if not isinstance(data, dict):
-        raise AuthError(
-            f"Invalid Qwen CLI credentials in {auth_path}.",
-            provider="qwen-oauth",
-            code="qwen_auth_invalid",
-        )
-    return data
-
-
-def _save_qwen_cli_tokens(tokens: Dict[str, Any]) -> Path:
-    auth_path = _qwen_cli_auth_path()
-    auth_path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = auth_path.with_suffix(".tmp")
-    tmp_path.write_text(json.dumps(tokens, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    os.chmod(tmp_path, stat.S_IRUSR | stat.S_IWUSR)
-    tmp_path.replace(auth_path)
-    return auth_path
-
-
-def _qwen_access_token_is_expiring(expiry_date_ms: Any, skew_seconds: int = QWEN_ACCESS_TOKEN_REFRESH_SKEW_SECONDS) -> bool:
-    try:
-        expiry_ms = int(expiry_date_ms)
-    except Exception:
-        return True
-    return (time.time() + max(0, int(skew_seconds))) * 1000 >= expiry_ms
-
-
-def _refresh_qwen_cli_tokens(tokens: Dict[str, Any], timeout_seconds: float = 20.0) -> Dict[str, Any]:
-    refresh_token = str(tokens.get("refresh_token", "") or "").strip()
-    if not refresh_token:
-        raise AuthError(
-            "Qwen OAuth refresh token missing. Re-run 'qwen auth qwen-oauth'.",
-            provider="qwen-oauth",
-            code="qwen_refresh_token_missing",
-        )
-
-    try:
-        response = httpx.post(
-            QWEN_OAUTH_TOKEN_URL,
-            headers={
-                "Content-Type": "application/x-www-form-urlencoded",
-                "Accept": "application/json",
-            },
-            data={
-                "grant_type": "refresh_token",
-                "refresh_token": refresh_token,
-                "client_id": QWEN_OAUTH_CLIENT_ID,
-            },
-            timeout=timeout_seconds,
-        )
-    except Exception as exc:
-        raise AuthError(
-            f"Qwen OAuth refresh failed: {exc}",
-            provider="qwen-oauth",
-            code="qwen_refresh_failed",
-        ) from exc
-
-    if response.status_code >= 400:
-        body = response.text.strip()
-        raise AuthError(
-            "Qwen OAuth refresh failed. Re-run 'qwen auth qwen-oauth'."
-            + (f" Response: {body}" if body else ""),
-            provider="qwen-oauth",
-            code="qwen_refresh_failed",
-        )
-
-    try:
-        payload = response.json()
-    except Exception as exc:
-        raise AuthError(
-            f"Qwen OAuth refresh returned invalid JSON: {exc}",
-            provider="qwen-oauth",
-            code="qwen_refresh_invalid_json",
-        ) from exc
-
-    if not isinstance(payload, dict) or not str(payload.get("access_token", "") or "").strip():
-        raise AuthError(
-            "Qwen OAuth refresh response missing access_token.",
-            provider="qwen-oauth",
-            code="qwen_refresh_invalid_response",
-        )
-
-    expires_in = payload.get("expires_in")
-    try:
-        expires_in_seconds = int(expires_in)
-    except Exception:
-        expires_in_seconds = 6 * 60 * 60
-
-    refreshed = {
-        "access_token": str(payload.get("access_token", "") or "").strip(),
-        "refresh_token": str(payload.get("refresh_token", refresh_token) or refresh_token).strip(),
-        "token_type": str(payload.get("token_type", tokens.get("token_type", "Bearer")) or "Bearer").strip() or "Bearer",
-        "resource_url": str(payload.get("resource_url", tokens.get("resource_url", "portal.qwen.ai")) or "portal.qwen.ai").strip(),
-        "expiry_date": int(time.time() * 1000) + max(1, expires_in_seconds) * 1000,
-    }
-    _save_qwen_cli_tokens(refreshed)
-    return refreshed
-
-
-def resolve_qwen_runtime_credentials(
-    *,
-    force_refresh: bool = False,
-    refresh_if_expiring: bool = True,
-    refresh_skew_seconds: int = QWEN_ACCESS_TOKEN_REFRESH_SKEW_SECONDS,
-) -> Dict[str, Any]:
-    tokens = _read_qwen_cli_tokens()
-    access_token = str(tokens.get("access_token", "") or "").strip()
-    should_refresh = bool(force_refresh)
-    if not should_refresh and refresh_if_expiring:
-        should_refresh = _qwen_access_token_is_expiring(tokens.get("expiry_date"), refresh_skew_seconds)
-    if should_refresh:
-        tokens = _refresh_qwen_cli_tokens(tokens)
-        access_token = str(tokens.get("access_token", "") or "").strip()
-    if not access_token:
-        raise AuthError(
-            "Qwen OAuth access token missing. Re-run 'qwen auth qwen-oauth'.",
-            provider="qwen-oauth",
-            code="qwen_access_token_missing",
-        )
-
-    base_url = os.getenv("HERMES_QWEN_BASE_URL", "").strip().rstrip("/") or DEFAULT_QWEN_BASE_URL
-    return {
-        "provider": "qwen-oauth",
-        "base_url": base_url,
-        "api_key": access_token,
-        "source": "qwen-cli",
-        "expires_at_ms": tokens.get("expiry_date"),
-        "auth_file": str(_qwen_cli_auth_path()),
-    }
-
-
-def get_qwen_auth_status() -> Dict[str, Any]:
-    auth_path = _qwen_cli_auth_path()
-    try:
-        creds = resolve_qwen_runtime_credentials(refresh_if_expiring=False)
-        return {
-            "logged_in": True,
-            "auth_file": str(auth_path),
-            "source": creds.get("source"),
-            "api_key": creds.get("api_key"),
-            "expires_at_ms": creds.get("expires_at_ms"),
-        }
-    except AuthError as exc:
-        return {
-            "logged_in": False,
-            "auth_file": str(auth_path),
-            "error": str(exc),
-        }
-
-
-# =============================================================================
-# Google Gemini OAuth (google-gemini-cli) — PKCE flow + Cloud Code Assist.
-#
-# Tokens live in ~/.hermes/auth/google_oauth.json (managed by agent.google_oauth).
-# The `base_url` here is the marker "cloudcode-pa://google" that run_agent.py
-# uses to construct a GeminiCloudCodeClient instead of the default OpenAI SDK.
-# Actual HTTP traffic goes to https://cloudcode-pa.googleapis.com/v1internal:*.
-# =============================================================================
-
-def resolve_gemini_oauth_runtime_credentials(
-    *,
-    force_refresh: bool = False,
-) -> Dict[str, Any]:
-    """Resolve runtime OAuth creds for google-gemini-cli."""
-    try:
-        from agent.google_oauth import (
-            GoogleOAuthError,
-            _credentials_path,
-            get_valid_access_token,
-            load_credentials,
-        )
-    except ImportError as exc:
-        raise AuthError(
-            f"agent.google_oauth is not importable: {exc}",
-            provider="google-gemini-cli",
-            code="google_oauth_module_missing",
-        ) from exc
-
-    try:
-        access_token = get_valid_access_token(force_refresh=force_refresh)
-    except GoogleOAuthError as exc:
-        raise AuthError(
-            str(exc),
-            provider="google-gemini-cli",
-            code=exc.code,
-        ) from exc
-
-    creds = load_credentials()
-    base_url = DEFAULT_GEMINI_CLOUDCODE_BASE_URL
-    return {
-        "provider": "google-gemini-cli",
-        "base_url": base_url,
-        "api_key": access_token,
-        "source": "google-oauth",
-        "expires_at_ms": (creds.expires_ms if creds else None),
-        "auth_file": str(_credentials_path()),
-        "email": (creds.email if creds else "") or "",
-        "project_id": (creds.project_id if creds else "") or "",
-    }
-
-
-def get_gemini_oauth_auth_status() -> Dict[str, Any]:
-    """Return a status dict for `hermes auth list` / `hermes status`."""
-    try:
-        from agent.google_oauth import _credentials_path, load_credentials
-    except ImportError:
-        return {"logged_in": False, "error": "agent.google_oauth unavailable"}
-    auth_path = _credentials_path()
-    creds = load_credentials()
-    if creds is None or not creds.access_token:
-        return {
-            "logged_in": False,
-            "auth_file": str(auth_path),
-            "error": "not logged in",
-        }
-    return {
-        "logged_in": True,
-        "auth_file": str(auth_path),
-        "source": "google-oauth",
-        "api_key": creds.access_token,
-        "expires_at_ms": creds.expires_ms,
-        "email": creds.email,
-        "project_id": creds.project_id,
-    }
 # Spotify auth — PKCE tokens stored in ~/.hermes/auth.json
 # =============================================================================
 
@@ -1604,281 +1212,6 @@ def login_spotify_command(args) -> None:
 def _is_remote_session() -> bool:
     """Detect if running in an SSH session where webbrowser.open() won't work."""
     return bool(os.getenv("SSH_CLIENT") or os.getenv("SSH_TTY"))
-
-
-# =============================================================================
-# OpenAI Codex auth — tokens stored in ~/.hermes/auth.json (not ~/.codex/)
-#
-# Hermes maintains its own Codex OAuth session separate from the Codex CLI
-# and VS Code extension. This prevents refresh token rotation conflicts
-# where one app's refresh invalidates the other's session.
-# =============================================================================
-
-def _read_codex_tokens(*, _lock: bool = True) -> Dict[str, Any]:
-    """Read Codex OAuth tokens from Hermes auth store (~/.hermes/auth.json).
-    
-    Returns dict with 'tokens' (access_token, refresh_token) and 'last_refresh'.
-    Raises AuthError if no Codex tokens are stored.
-    """
-    if _lock:
-        with _auth_store_lock():
-            auth_store = _load_auth_store()
-    else:
-        auth_store = _load_auth_store()
-    state = _load_provider_state(auth_store, "openai-codex")
-    if not state:
-        raise AuthError(
-            "No Codex credentials stored. Run `hermes auth` to authenticate.",
-            provider="openai-codex",
-            code="codex_auth_missing",
-            relogin_required=True,
-        )
-    tokens = state.get("tokens")
-    if not isinstance(tokens, dict):
-        raise AuthError(
-            "Codex auth state is missing tokens. Run `hermes auth` to re-authenticate.",
-            provider="openai-codex",
-            code="codex_auth_invalid_shape",
-            relogin_required=True,
-        )
-    access_token = tokens.get("access_token")
-    refresh_token = tokens.get("refresh_token")
-    if not isinstance(access_token, str) or not access_token.strip():
-        raise AuthError(
-            "Codex auth is missing access_token. Run `hermes auth` to re-authenticate.",
-            provider="openai-codex",
-            code="codex_auth_missing_access_token",
-            relogin_required=True,
-        )
-    if not isinstance(refresh_token, str) or not refresh_token.strip():
-        raise AuthError(
-            "Codex auth is missing refresh_token. Run `hermes auth` to re-authenticate.",
-            provider="openai-codex",
-            code="codex_auth_missing_refresh_token",
-            relogin_required=True,
-        )
-    return {
-        "tokens": tokens,
-        "last_refresh": state.get("last_refresh"),
-    }
-
-
-def _save_codex_tokens(tokens: Dict[str, str], last_refresh: str = None) -> None:
-    """Save Codex OAuth tokens to Hermes auth store (~/.hermes/auth.json)."""
-    if last_refresh is None:
-        last_refresh = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-    with _auth_store_lock():
-        auth_store = _load_auth_store()
-        state = _load_provider_state(auth_store, "openai-codex") or {}
-        state["tokens"] = tokens
-        state["last_refresh"] = last_refresh
-        state["auth_mode"] = "chatgpt"
-        _save_provider_state(auth_store, "openai-codex", state)
-        _save_auth_store(auth_store)
-
-
-def refresh_codex_oauth_pure(
-    access_token: str,
-    refresh_token: str,
-    *,
-    timeout_seconds: float = 20.0,
-) -> Dict[str, Any]:
-    """Refresh Codex OAuth tokens without mutating Hermes auth state."""
-    del access_token  # Access token is only used by callers to decide whether to refresh.
-    if not isinstance(refresh_token, str) or not refresh_token.strip():
-        raise AuthError(
-            "Codex auth is missing refresh_token. Run `hermes auth` to re-authenticate.",
-            provider="openai-codex",
-            code="codex_auth_missing_refresh_token",
-            relogin_required=True,
-        )
-
-    timeout = httpx.Timeout(max(5.0, float(timeout_seconds)))
-    with httpx.Client(timeout=timeout, headers={"Accept": "application/json"}) as client:
-        response = client.post(
-            CODEX_OAUTH_TOKEN_URL,
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-            data={
-                "grant_type": "refresh_token",
-                "refresh_token": refresh_token,
-                "client_id": CODEX_OAUTH_CLIENT_ID,
-            },
-        )
-
-    if response.status_code != 200:
-        code = "codex_refresh_failed"
-        message = f"Codex token refresh failed with status {response.status_code}."
-        relogin_required = False
-        try:
-            err = response.json()
-            if isinstance(err, dict):
-                err_obj = err.get("error")
-                # OpenAI shape: {"error": {"code": "...", "message": "...", "type": "..."}}
-                if isinstance(err_obj, dict):
-                    nested_code = err_obj.get("code") or err_obj.get("type")
-                    if isinstance(nested_code, str) and nested_code.strip():
-                        code = nested_code.strip()
-                    nested_msg = err_obj.get("message")
-                    if isinstance(nested_msg, str) and nested_msg.strip():
-                        message = f"Codex token refresh failed: {nested_msg.strip()}"
-                # OAuth spec shape: {"error": "code_str", "error_description": "..."}
-                elif isinstance(err_obj, str) and err_obj.strip():
-                    code = err_obj.strip()
-                    err_desc = err.get("error_description") or err.get("message")
-                    if isinstance(err_desc, str) and err_desc.strip():
-                        message = f"Codex token refresh failed: {err_desc.strip()}"
-        except Exception:
-            pass
-        if code in {"invalid_grant", "invalid_token", "invalid_request"}:
-            relogin_required = True
-        if code == "refresh_token_reused":
-            message = (
-                "Codex refresh token was already consumed by another client "
-                "(e.g. Codex CLI or VS Code extension). "
-                "Run `codex` in your terminal to generate fresh tokens, "
-                "then run `hermes auth` to re-authenticate."
-            )
-            relogin_required = True
-        # A 401/403 from the token endpoint always means the refresh token
-        # is invalid/expired — force relogin even if the body error code
-        # wasn't one of the known strings above.
-        if response.status_code in (401, 403) and not relogin_required:
-            relogin_required = True
-        raise AuthError(
-            message,
-            provider="openai-codex",
-            code=code,
-            relogin_required=relogin_required,
-        )
-
-    try:
-        refresh_payload = response.json()
-    except Exception as exc:
-        raise AuthError(
-            "Codex token refresh returned invalid JSON.",
-            provider="openai-codex",
-            code="codex_refresh_invalid_json",
-            relogin_required=True,
-        ) from exc
-
-    refreshed_access = refresh_payload.get("access_token")
-    if not isinstance(refreshed_access, str) or not refreshed_access.strip():
-        raise AuthError(
-            "Codex token refresh response was missing access_token.",
-            provider="openai-codex",
-            code="codex_refresh_missing_access_token",
-            relogin_required=True,
-        )
-
-    updated = {
-        "access_token": refreshed_access.strip(),
-        "refresh_token": refresh_token.strip(),
-        "last_refresh": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-    }
-    next_refresh = refresh_payload.get("refresh_token")
-    if isinstance(next_refresh, str) and next_refresh.strip():
-        updated["refresh_token"] = next_refresh.strip()
-    return updated
-
-
-def _refresh_codex_auth_tokens(
-    tokens: Dict[str, str],
-    timeout_seconds: float,
-) -> Dict[str, str]:
-    """Refresh Codex access token using the refresh token.
-    
-    Saves the new tokens to Hermes auth store automatically.
-    """
-    refreshed = refresh_codex_oauth_pure(
-        str(tokens.get("access_token", "") or ""),
-        str(tokens.get("refresh_token", "") or ""),
-        timeout_seconds=timeout_seconds,
-    )
-    updated_tokens = dict(tokens)
-    updated_tokens["access_token"] = refreshed["access_token"]
-    updated_tokens["refresh_token"] = refreshed["refresh_token"]
-
-    _save_codex_tokens(updated_tokens)
-    return updated_tokens
-
-
-def _import_codex_cli_tokens() -> Optional[Dict[str, str]]:
-    """Try to read tokens from ~/.codex/auth.json (Codex CLI shared file).
-    
-    Returns tokens dict if valid and not expired, None otherwise.
-    Does NOT write to the shared file.
-    """
-    codex_home = os.getenv("CODEX_HOME", "").strip()
-    if not codex_home:
-        codex_home = str(Path.home() / ".codex")
-    auth_path = Path(codex_home).expanduser() / "auth.json"
-    if not auth_path.is_file():
-        return None
-    try:
-        payload = json.loads(auth_path.read_text())
-        tokens = payload.get("tokens")
-        if not isinstance(tokens, dict):
-            return None
-        access_token = tokens.get("access_token")
-        refresh_token = tokens.get("refresh_token")
-        if not access_token or not refresh_token:
-            return None
-        # Reject expired tokens — importing stale tokens from ~/.codex/
-        # that can't be refreshed leaves the user stuck with "Login successful!"
-        # but no working credentials.
-        if _codex_access_token_is_expiring(access_token, 0):
-            logger.debug(
-                "Codex CLI tokens at %s are expired — skipping import.", auth_path,
-            )
-            return None
-        return dict(tokens)
-    except Exception:
-        return None
-
-
-def resolve_codex_runtime_credentials(
-    *,
-    force_refresh: bool = False,
-    refresh_if_expiring: bool = True,
-    refresh_skew_seconds: int = CODEX_ACCESS_TOKEN_REFRESH_SKEW_SECONDS,
-) -> Dict[str, Any]:
-    """Resolve runtime credentials from Hermes's own Codex token store."""
-    data = _read_codex_tokens()
-    tokens = dict(data["tokens"])
-    access_token = str(tokens.get("access_token", "") or "").strip()
-    refresh_timeout_seconds = float(os.getenv("HERMES_CODEX_REFRESH_TIMEOUT_SECONDS", "20"))
-
-    should_refresh = bool(force_refresh)
-    if (not should_refresh) and refresh_if_expiring:
-        should_refresh = _codex_access_token_is_expiring(access_token, refresh_skew_seconds)
-    if should_refresh:
-        # Re-read under lock to avoid racing with other Hermes processes
-        with _auth_store_lock(timeout_seconds=max(float(AUTH_LOCK_TIMEOUT_SECONDS), refresh_timeout_seconds + 5.0)):
-            data = _read_codex_tokens(_lock=False)
-            tokens = dict(data["tokens"])
-            access_token = str(tokens.get("access_token", "") or "").strip()
-
-            should_refresh = bool(force_refresh)
-            if (not should_refresh) and refresh_if_expiring:
-                should_refresh = _codex_access_token_is_expiring(access_token, refresh_skew_seconds)
-
-            if should_refresh:
-                tokens = _refresh_codex_auth_tokens(tokens, refresh_timeout_seconds)
-                access_token = str(tokens.get("access_token", "") or "").strip()
-
-    base_url = (
-        os.getenv("HERMES_CODEX_BASE_URL", "").strip().rstrip("/")
-        or DEFAULT_CODEX_BASE_URL
-    )
-
-    return {
-        "provider": "openai-codex",
-        "base_url": base_url,
-        "api_key": access_token,
-        "source": "hermes-auth-store",
-        "last_refresh": data.get("last_refresh"),
-        "auth_mode": "chatgpt",
-    }
 
 
 # =============================================================================
@@ -2796,55 +2129,6 @@ def get_nous_auth_status() -> Dict[str, Any]:
     return _snapshot_nous_pool_status()
 
 
-def get_codex_auth_status() -> Dict[str, Any]:
-    """Status snapshot for Codex auth.
-    
-    Checks the credential pool first (where `hermes auth` stores credentials),
-    then falls back to the legacy provider state.
-    """
-    # Check credential pool first — this is where `hermes auth` and
-    # `hermes model` store device_code tokens.
-    try:
-        from providers.credential_pool import load_pool
-        pool = load_pool("openai-codex")
-        if pool and pool.has_credentials():
-            entry = pool.select()
-            if entry is not None:
-                api_key = (
-                    getattr(entry, "runtime_api_key", None)
-                    or getattr(entry, "access_token", "")
-                )
-                if api_key and not _codex_access_token_is_expiring(api_key, 0):
-                    return {
-                        "logged_in": True,
-                        "auth_store": str(_auth_file_path()),
-                        "last_refresh": getattr(entry, "last_refresh", None),
-                        "auth_mode": "chatgpt",
-                        "source": f"pool:{getattr(entry, 'label', 'unknown')}",
-                        "api_key": api_key,
-                    }
-    except Exception:
-        pass
-
-    # Fall back to legacy provider state
-    try:
-        creds = resolve_codex_runtime_credentials()
-        return {
-            "logged_in": True,
-            "auth_store": str(_auth_file_path()),
-            "last_refresh": creds.get("last_refresh"),
-            "auth_mode": creds.get("auth_mode"),
-            "source": creds.get("source"),
-            "api_key": creds.get("api_key"),
-        }
-    except AuthError as exc:
-        return {
-            "logged_in": False,
-            "auth_store": str(_auth_file_path()),
-            "error": str(exc),
-        }
-
-
 def get_api_key_provider_status(provider_id: str) -> Dict[str, Any]:
     """Status snapshot for API-key providers (z.ai, Kimi, MiniMax)."""
     pconfig = PROVIDER_REGISTRY.get(provider_id)
@@ -2876,36 +2160,6 @@ def get_api_key_provider_status(provider_id: str) -> Dict[str, Any]:
     }
 
 
-def get_external_process_provider_status(provider_id: str) -> Dict[str, Any]:
-    """Status snapshot for providers that run a local subprocess."""
-    pconfig = PROVIDER_REGISTRY.get(provider_id)
-    if not pconfig or pconfig.auth_type != "external_process":
-        return {"configured": False}
-
-    command = (
-        os.getenv("HERMES_COPILOT_ACP_COMMAND", "").strip()
-        or os.getenv("COPILOT_CLI_PATH", "").strip()
-        or "copilot"
-    )
-    raw_args = os.getenv("HERMES_COPILOT_ACP_ARGS", "").strip()
-    args = shlex.split(raw_args) if raw_args else ["--acp", "--stdio"]
-    base_url = os.getenv(pconfig.base_url_env_var, "").strip() if pconfig.base_url_env_var else ""
-    if not base_url:
-        base_url = pconfig.inference_base_url
-
-    resolved_command = shutil.which(command) if command else None
-    return {
-        "configured": bool(resolved_command or base_url.startswith("acp+tcp://")),
-        "provider": provider_id,
-        "name": pconfig.name,
-        "command": command,
-        "args": args,
-        "resolved_command": resolved_command,
-        "base_url": base_url,
-        "logged_in": bool(resolved_command or base_url.startswith("acp+tcp://")),
-    }
-
-
 def get_auth_status(provider_id: Optional[str] = None) -> Dict[str, Any]:
     """Generic auth status dispatcher."""
     target = provider_id or get_active_provider()
@@ -2913,25 +2167,10 @@ def get_auth_status(provider_id: Optional[str] = None) -> Dict[str, Any]:
         return get_spotify_auth_status()
     if target == "nous":
         return get_nous_auth_status()
-    if target == "openai-codex":
-        return get_codex_auth_status()
-    if target == "qwen-oauth":
-        return get_qwen_auth_status()
-    if target == "google-gemini-cli":
-        return get_gemini_oauth_auth_status()
-    if target == "copilot-acp":
-        return get_external_process_provider_status(target)
     # API-key providers
     pconfig = PROVIDER_REGISTRY.get(target)
     if pconfig and pconfig.auth_type == "api_key":
         return get_api_key_provider_status(target)
-    # AWS SDK providers (Bedrock) — check via boto3 credential chain
-    if pconfig and pconfig.auth_type == "aws_sdk":
-        try:
-            from agent.bedrock_adapter import has_aws_credentials
-            return {"logged_in": has_aws_credentials(), "provider": target}
-        except ImportError:
-            return {"logged_in": False, "provider": target, "error": "boto3 not installed"}
     return {"logged_in": False}
 
 
@@ -2977,46 +2216,6 @@ def resolve_api_key_provider_credentials(provider_id: str) -> Dict[str, Any]:
         "api_key": api_key,
         "base_url": base_url.rstrip("/"),
         "source": key_source or "default",
-    }
-
-
-def resolve_external_process_provider_credentials(provider_id: str) -> Dict[str, Any]:
-    """Resolve runtime details for local subprocess-backed providers."""
-    pconfig = PROVIDER_REGISTRY.get(provider_id)
-    if not pconfig or pconfig.auth_type != "external_process":
-        raise AuthError(
-            f"Provider '{provider_id}' is not an external-process provider.",
-            provider=provider_id,
-            code="invalid_provider",
-        )
-
-    base_url = os.getenv(pconfig.base_url_env_var, "").strip() if pconfig.base_url_env_var else ""
-    if not base_url:
-        base_url = pconfig.inference_base_url
-
-    command = (
-        os.getenv("HERMES_COPILOT_ACP_COMMAND", "").strip()
-        or os.getenv("COPILOT_CLI_PATH", "").strip()
-        or "copilot"
-    )
-    raw_args = os.getenv("HERMES_COPILOT_ACP_ARGS", "").strip()
-    args = shlex.split(raw_args) if raw_args else ["--acp", "--stdio"]
-    resolved_command = shutil.which(command) if command else None
-    if not resolved_command and not base_url.startswith("acp+tcp://"):
-        raise AuthError(
-            f"Could not find the Copilot CLI command '{command}'. "
-            "Install GitHub Copilot CLI or set HERMES_COPILOT_ACP_COMMAND/COPILOT_CLI_PATH.",
-            provider=provider_id,
-            code="missing_copilot_cli",
-        )
-
-    return {
-        "provider": provider_id,
-        "api_key": "copilot-acp",
-        "base_url": base_url.rstrip("/"),
-        "command": resolved_command or command,
-        "args": args,
-        "source": "process",
     }
 
 
@@ -3069,10 +2268,7 @@ def _update_config_for_provider(
     # When the user switches from e.g. a MiniMax custom endpoint
     # (api_mode=anthropic_messages, api_key=mxp-...) to a built-in provider
     # (e.g. OpenRouter), the stale api_key/api_mode would override the new
-    # provider's credentials and transport choice.  Built-in providers that
-    # need a specific api_mode (copilot, xai) set it at request-resolution
-    # time via `_copilot_runtime_api_mode` / `_detect_api_mode_for_url`, so
-    # removing the persisted value here is safe.
+    # provider's credentials and transport choice.
     model_cfg.pop("api_key", None)
     model_cfg.pop("api_mode", None)
 
@@ -3120,12 +2316,12 @@ def _logout_default_provider_from_config() -> Optional[str]:
 
     `hermes logout` historically keyed off auth.json.active_provider only.
     That left users stuck when auth state had already been cleared but
-    config.yaml still selected an OAuth provider such as openai-codex for the
-    agent model: there was no active auth provider to target, so logout printed
+    config.yaml still selected an OAuth provider for the agent model: there
+    was no active auth provider to target, so logout printed
     "No provider is currently logged in" and never reset model.provider.
     """
     provider = _get_config_provider()
-    if provider in {"nous", "openai-codex"}:
+    if provider == "nous":
         return provider
     return None
 
@@ -3348,225 +2544,6 @@ def login_command(args) -> None:
     print("Use 'hermes auth' to manage credentials,")
     print("'hermes model' to select a provider, or 'hermes setup' for full setup.")
     raise SystemExit(0)
-
-
-def _login_openai_codex(
-    args,
-    pconfig: ProviderConfig,
-    *,
-    force_new_login: bool = False,
-) -> None:
-    """OpenAI Codex login via device code flow. Tokens stored in ~/.hermes/auth.json."""
-
-    del args, pconfig  # kept for parity with other provider login helpers
-
-    # Check for existing Hermes-owned credentials
-    if not force_new_login:
-        try:
-            existing = resolve_codex_runtime_credentials()
-            # Verify the resolved token is actually usable (not expired).
-            # resolve_codex_runtime_credentials attempts refresh, so if we get
-            # here the token should be valid — but double-check before telling
-            # the user "Login successful!".
-            _resolved_key = existing.get("api_key", "")
-            if isinstance(_resolved_key, str) and _resolved_key and not _codex_access_token_is_expiring(_resolved_key, 60):
-                print("Existing Codex credentials found in Hermes auth store.")
-                try:
-                    reuse = input("Use existing credentials? [Y/n]: ").strip().lower()
-                except (EOFError, KeyboardInterrupt):
-                    reuse = "y"
-                if reuse in ("", "y", "yes"):
-                    config_path = _update_config_for_provider("openai-codex", existing.get("base_url", DEFAULT_CODEX_BASE_URL))
-                    print()
-                    print("Login successful!")
-                    print(f"  Config updated: {config_path} (model.provider=openai-codex)")
-                    return
-            else:
-                print("Existing Codex credentials are expired. Starting fresh login...")
-        except AuthError:
-            pass
-
-    # Check for existing Codex CLI tokens we can import
-    if not force_new_login:
-        cli_tokens = _import_codex_cli_tokens()
-        if cli_tokens:
-            print("Found existing Codex CLI credentials at ~/.codex/auth.json")
-            print("Hermes will create its own session to avoid conflicts with Codex CLI / VS Code.")
-            try:
-                do_import = input("Import these credentials? (a separate login is recommended) [y/N]: ").strip().lower()
-            except (EOFError, KeyboardInterrupt):
-                do_import = "n"
-            if do_import in ("y", "yes"):
-                _save_codex_tokens(cli_tokens)
-                base_url = os.getenv("HERMES_CODEX_BASE_URL", "").strip().rstrip("/") or DEFAULT_CODEX_BASE_URL
-                config_path = _update_config_for_provider("openai-codex", base_url)
-                print()
-                print("Credentials imported. Note: if Codex CLI refreshes its token,")
-                print("Hermes will keep working independently with its own session.")
-                print(f"  Config updated: {config_path} (model.provider=openai-codex)")
-                return
-
-    # Run a fresh device code flow — Hermes gets its own OAuth session
-    print()
-    print("Signing in to OpenAI Codex...")
-    print("(Hermes creates its own session — won't affect Codex CLI or VS Code)")
-    print()
-
-    creds = _codex_device_code_login()
-
-    # Save tokens to Hermes auth store
-    _save_codex_tokens(creds["tokens"], creds.get("last_refresh"))
-    config_path = _update_config_for_provider("openai-codex", creds.get("base_url", DEFAULT_CODEX_BASE_URL))
-    print()
-    print("Login successful!")
-    from hermes_constants import display_hermes_home as _dhh
-    print(f"  Auth state: {_dhh()}/auth.json")
-    print(f"  Config updated: {config_path} (model.provider=openai-codex)")
-
-
-def _codex_device_code_login() -> Dict[str, Any]:
-    """Run the OpenAI device code login flow and return credentials dict."""
-    import time as _time
-
-    issuer = "https://auth.openai.com"
-    client_id = CODEX_OAUTH_CLIENT_ID
-
-    # Step 1: Request device code
-    try:
-        with httpx.Client(timeout=httpx.Timeout(15.0)) as client:
-            resp = client.post(
-                f"{issuer}/api/accounts/deviceauth/usercode",
-                json={"client_id": client_id},
-                headers={"Content-Type": "application/json"},
-            )
-    except Exception as exc:
-        raise AuthError(
-            f"Failed to request device code: {exc}",
-            provider="openai-codex", code="device_code_request_failed",
-        )
-
-    if resp.status_code != 200:
-        raise AuthError(
-            f"Device code request returned status {resp.status_code}.",
-            provider="openai-codex", code="device_code_request_error",
-        )
-
-    device_data = resp.json()
-    user_code = device_data.get("user_code", "")
-    device_auth_id = device_data.get("device_auth_id", "")
-    poll_interval = max(3, int(device_data.get("interval", "5")))
-
-    if not user_code or not device_auth_id:
-        raise AuthError(
-            "Device code response missing required fields.",
-            provider="openai-codex", code="device_code_incomplete",
-        )
-
-    # Step 2: Show user the code
-    print("To continue, follow these steps:\n")
-    print("  1. Open this URL in your browser:")
-    print(f"     \033[94m{issuer}/codex/device\033[0m\n")
-    print("  2. Enter this code:")
-    print(f"     \033[94m{user_code}\033[0m\n")
-    print("Waiting for sign-in... (press Ctrl+C to cancel)")
-
-    # Step 3: Poll for authorization code
-    max_wait = 15 * 60  # 15 minutes
-    start = _time.monotonic()
-    code_resp = None
-
-    try:
-        with httpx.Client(timeout=httpx.Timeout(15.0)) as client:
-            while _time.monotonic() - start < max_wait:
-                _time.sleep(poll_interval)
-                poll_resp = client.post(
-                    f"{issuer}/api/accounts/deviceauth/token",
-                    json={"device_auth_id": device_auth_id, "user_code": user_code},
-                    headers={"Content-Type": "application/json"},
-                )
-
-                if poll_resp.status_code == 200:
-                    code_resp = poll_resp.json()
-                    break
-                elif poll_resp.status_code in (403, 404):
-                    continue  # User hasn't completed login yet
-                else:
-                    raise AuthError(
-                        f"Device auth polling returned status {poll_resp.status_code}.",
-                        provider="openai-codex", code="device_code_poll_error",
-                    )
-    except KeyboardInterrupt:
-        print("\nLogin cancelled.")
-        raise SystemExit(130)
-
-    if code_resp is None:
-        raise AuthError(
-            "Login timed out after 15 minutes.",
-            provider="openai-codex", code="device_code_timeout",
-        )
-
-    # Step 4: Exchange authorization code for tokens
-    authorization_code = code_resp.get("authorization_code", "")
-    code_verifier = code_resp.get("code_verifier", "")
-    redirect_uri = f"{issuer}/deviceauth/callback"
-
-    if not authorization_code or not code_verifier:
-        raise AuthError(
-            "Device auth response missing authorization_code or code_verifier.",
-            provider="openai-codex", code="device_code_incomplete_exchange",
-        )
-
-    try:
-        with httpx.Client(timeout=httpx.Timeout(15.0)) as client:
-            token_resp = client.post(
-                CODEX_OAUTH_TOKEN_URL,
-                data={
-                    "grant_type": "authorization_code",
-                    "code": authorization_code,
-                    "redirect_uri": redirect_uri,
-                    "client_id": client_id,
-                    "code_verifier": code_verifier,
-                },
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-            )
-    except Exception as exc:
-        raise AuthError(
-            f"Token exchange failed: {exc}",
-            provider="openai-codex", code="token_exchange_failed",
-        )
-
-    if token_resp.status_code != 200:
-        raise AuthError(
-            f"Token exchange returned status {token_resp.status_code}.",
-            provider="openai-codex", code="token_exchange_error",
-        )
-
-    tokens = token_resp.json()
-    access_token = tokens.get("access_token", "")
-    refresh_token = tokens.get("refresh_token", "")
-
-    if not access_token:
-        raise AuthError(
-            "Token exchange did not return an access_token.",
-            provider="openai-codex", code="token_exchange_no_access_token",
-        )
-
-    # Return tokens for the caller to persist (no longer writes to ~/.codex/)
-    base_url = (
-        os.getenv("HERMES_CODEX_BASE_URL", "").strip().rstrip("/")
-        or DEFAULT_CODEX_BASE_URL
-    )
-
-    return {
-        "tokens": {
-            "access_token": access_token,
-            "refresh_token": refresh_token,
-        },
-        "base_url": base_url,
-        "last_refresh": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-        "auth_mode": "chatgpt",
-        "source": "device-code",
-    }
 
 
 # ==================== MiniMax Portal OAuth ====================

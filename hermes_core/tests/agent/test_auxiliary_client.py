@@ -1,9 +1,7 @@
 """Tests for agent.auxiliary_client resolution chain, provider overrides, and model overrides."""
 
-import json
 import logging
 import os
-from pathlib import Path
 from unittest.mock import patch, MagicMock, AsyncMock
 
 import pytest
@@ -16,7 +14,6 @@ from agent.auxiliary_client import (
     auxiliary_max_tokens_param,
     call_llm,
     async_call_llm,
-    _read_codex_access_token,
     _get_provider_chain,
     _is_payment_error,
     _normalize_aux_provider,
@@ -34,174 +31,6 @@ def _clean_env(monkeypatch):
         "ANTHROPIC_API_KEY", "ANTHROPIC_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN",
     ):
         monkeypatch.delenv(key, raising=False)
-
-
-@pytest.fixture
-def codex_auth_dir(tmp_path, monkeypatch):
-    """Provide a writable ~/.codex/ directory with a valid auth.json."""
-    codex_dir = tmp_path / ".codex"
-    codex_dir.mkdir()
-    auth_file = codex_dir / "auth.json"
-    auth_file.write_text(json.dumps({
-        "tokens": {
-            "access_token": "codex-test-token-abc123",
-            "refresh_token": "codex-refresh-xyz",
-        }
-    }))
-    monkeypatch.setattr(
-        "agent.auxiliary_client._read_codex_access_token",
-        lambda: "codex-test-token-abc123",
-    )
-    return codex_dir
-
-
-class TestNormalizeAuxProvider:
-    def test_maps_github_copilot_aliases(self):
-        assert _normalize_aux_provider("github") == "copilot"
-        assert _normalize_aux_provider("github-copilot") == "copilot"
-        assert _normalize_aux_provider("github-models") == "copilot"
-
-    def test_maps_github_copilot_acp_aliases(self):
-        assert _normalize_aux_provider("github-copilot-acp") == "copilot-acp"
-        assert _normalize_aux_provider("copilot-acp-agent") == "copilot-acp"
-
-
-class TestReadCodexAccessToken:
-    def test_valid_auth_store(self, tmp_path, monkeypatch):
-        hermes_home = tmp_path / "hermes"
-        hermes_home.mkdir(parents=True, exist_ok=True)
-        (hermes_home / "auth.json").write_text(json.dumps({
-            "version": 1,
-            "providers": {
-                "openai-codex": {
-                    "tokens": {"access_token": "tok-123", "refresh_token": "r-456"},
-                },
-            },
-        }))
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
-        result = _read_codex_access_token()
-        assert result == "tok-123"
-
-    def test_pool_without_selected_entry_falls_back_to_auth_store(self, tmp_path, monkeypatch):
-        hermes_home = tmp_path / "hermes"
-        hermes_home.mkdir(parents=True, exist_ok=True)
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
-
-        valid_jwt = "eyJhbGciOiJSUzI1NiJ9.eyJleHAiOjk5OTk5OTk5OTl9.sig"
-        with patch("agent.auxiliary_client._select_pool_entry", return_value=(True, None)), \
-             patch("hermes_cli.auth._read_codex_tokens", return_value={
-                 "tokens": {"access_token": valid_jwt, "refresh_token": "refresh"}
-             }):
-            result = _read_codex_access_token()
-
-        assert result == valid_jwt
-
-    def test_missing_returns_none(self, tmp_path, monkeypatch):
-        hermes_home = tmp_path / "hermes"
-        hermes_home.mkdir(parents=True, exist_ok=True)
-        (hermes_home / "auth.json").write_text(json.dumps({"version": 1, "providers": {}}))
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
-        with patch("agent.auxiliary_client._select_pool_entry", return_value=(False, None)):
-            result = _read_codex_access_token()
-        assert result is None
-
-    def test_empty_token_returns_none(self, tmp_path, monkeypatch):
-        hermes_home = tmp_path / "hermes"
-        hermes_home.mkdir(parents=True, exist_ok=True)
-        (hermes_home / "auth.json").write_text(json.dumps({
-            "version": 1,
-            "providers": {
-                "openai-codex": {
-                    "tokens": {"access_token": "  ", "refresh_token": "r"},
-                },
-            },
-        }))
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
-        result = _read_codex_access_token()
-        assert result is None
-
-    def test_malformed_json_returns_none(self, tmp_path):
-        codex_dir = tmp_path / ".codex"
-        codex_dir.mkdir()
-        (codex_dir / "auth.json").write_text("{bad json")
-        with patch("agent.auxiliary_client.Path.home", return_value=tmp_path):
-            result = _read_codex_access_token()
-        assert result is None
-
-    def test_missing_tokens_key_returns_none(self, tmp_path):
-        codex_dir = tmp_path / ".codex"
-        codex_dir.mkdir()
-        (codex_dir / "auth.json").write_text(json.dumps({"other": "data"}))
-        with patch("agent.auxiliary_client.Path.home", return_value=tmp_path):
-            result = _read_codex_access_token()
-        assert result is None
-
-
-    def test_expired_jwt_returns_none(self, tmp_path, monkeypatch):
-        """Expired JWT tokens should be skipped so auto chain continues."""
-        import base64
-        import time as _time
-
-        # Build a JWT with exp in the past
-        header = base64.urlsafe_b64encode(b'{"alg":"RS256","typ":"JWT"}').rstrip(b"=").decode()
-        payload_data = json.dumps({"exp": int(_time.time()) - 3600}).encode()
-        payload = base64.urlsafe_b64encode(payload_data).rstrip(b"=").decode()
-        expired_jwt = f"{header}.{payload}.fakesig"
-
-        hermes_home = tmp_path / "hermes"
-        hermes_home.mkdir(parents=True, exist_ok=True)
-        (hermes_home / "auth.json").write_text(json.dumps({
-            "version": 1,
-            "providers": {
-                "openai-codex": {
-                    "tokens": {"access_token": expired_jwt, "refresh_token": "r"},
-                },
-            },
-        }))
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
-        with patch("agent.auxiliary_client._select_pool_entry", return_value=(False, None)):
-            result = _read_codex_access_token()
-        assert result is None, "Expired JWT should return None"
-
-    def test_valid_jwt_returns_token(self, tmp_path, monkeypatch):
-        """Non-expired JWT tokens should be returned."""
-        import base64
-        import time as _time
-
-        header = base64.urlsafe_b64encode(b'{"alg":"RS256","typ":"JWT"}').rstrip(b"=").decode()
-        payload_data = json.dumps({"exp": int(_time.time()) + 3600}).encode()
-        payload = base64.urlsafe_b64encode(payload_data).rstrip(b"=").decode()
-        valid_jwt = f"{header}.{payload}.fakesig"
-
-        hermes_home = tmp_path / "hermes"
-        hermes_home.mkdir(parents=True, exist_ok=True)
-        (hermes_home / "auth.json").write_text(json.dumps({
-            "version": 1,
-            "providers": {
-                "openai-codex": {
-                    "tokens": {"access_token": valid_jwt, "refresh_token": "r"},
-                },
-            },
-        }))
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
-        result = _read_codex_access_token()
-        assert result == valid_jwt
-
-    def test_non_jwt_token_passes_through(self, tmp_path, monkeypatch):
-        """Non-JWT tokens (no dots) should be returned as-is."""
-        hermes_home = tmp_path / "hermes"
-        hermes_home.mkdir(parents=True, exist_ok=True)
-        (hermes_home / "auth.json").write_text(json.dumps({
-            "version": 1,
-            "providers": {
-                "openai-codex": {
-                    "tokens": {"access_token": "plain-token-no-jwt", "refresh_token": "r"},
-                },
-            },
-        }))
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
-        result = _read_codex_access_token()
-        assert result == "plain-token-no-jwt"
 
 
 class TestAnthropicOAuthFlag:
@@ -259,131 +88,7 @@ class TestAnthropicOAuthFlag:
         assert mock_build.call_args.args[0] == "sk-ant-oat01-pooled"
 
 
-class TestBuildCodexClient:
-    def test_pool_without_selected_entry_falls_back_to_auth_store(self):
-        with (
-            patch("agent.auxiliary_client._select_pool_entry", return_value=(True, None)),
-            patch("agent.auxiliary_client._read_codex_access_token", return_value="codex-auth-token"),
-            patch("agent.auxiliary_client.OpenAI") as mock_openai,
-        ):
-            mock_openai.return_value = MagicMock()
-            from agent.auxiliary_client import _build_codex_client
-
-            client, model = _build_codex_client("gpt-5.4")
-
-        assert client is not None
-        assert model == "gpt-5.4"
-        assert mock_openai.call_args.kwargs["api_key"] == "codex-auth-token"
-        assert mock_openai.call_args.kwargs["base_url"] == "https://chatgpt.com/backend-api/codex"
-
-    def test_rejects_missing_model(self):
-        """Callers must pass an explicit model; no hardcoded default."""
-        from agent.auxiliary_client import _build_codex_client
-
-        client, model = _build_codex_client("")
-        assert client is None
-        assert model is None
-
-
-class TestExpiredCodexFallback:
-    """Test that expired Codex tokens don't block the auto chain."""
-
-    def test_expired_codex_falls_through_to_next(self, tmp_path, monkeypatch):
-        """When Codex token is expired, auto chain should skip it and try next provider."""
-        import base64
-        import time as _time
-
-        # Expired Codex JWT
-        header = base64.urlsafe_b64encode(b'{"alg":"RS256","typ":"JWT"}').rstrip(b"=").decode()
-        payload_data = json.dumps({"exp": int(_time.time()) - 3600}).encode()
-        payload = base64.urlsafe_b64encode(payload_data).rstrip(b"=").decode()
-        expired_jwt = f"{header}.{payload}.fakesig"
-
-        hermes_home = tmp_path / "hermes"
-        hermes_home.mkdir(parents=True, exist_ok=True)
-        (hermes_home / "auth.json").write_text(json.dumps({
-            "version": 1,
-            "providers": {
-                "openai-codex": {
-                    "tokens": {"access_token": expired_jwt, "refresh_token": "r"},
-                },
-            },
-        }))
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
-
-        # Set up Anthropic as fallback
-        monkeypatch.setenv("ANTHROPIC_TOKEN", "sk-ant-oat01-test-fallback")
-        with patch("agent.anthropic_adapter.build_anthropic_client") as mock_build:
-            mock_build.return_value = MagicMock()
-            from agent.auxiliary_client import _resolve_auto, AnthropicAuxiliaryClient
-            client, model = _resolve_auto()
-            # Should NOT be Codex, should be Anthropic (or another available provider)
-            assert not isinstance(client, type(None)), "Should find a provider after expired Codex"
-
-
-    def test_expired_codex_openrouter_wins(self, tmp_path, monkeypatch):
-        """With expired Codex + OpenRouter key, OpenRouter should win (1st in chain)."""
-        import base64
-        import time as _time
-
-        header = base64.urlsafe_b64encode(b'{"alg":"RS256","typ":"JWT"}').rstrip(b"=").decode()
-        payload_data = json.dumps({"exp": int(_time.time()) - 3600}).encode()
-        payload = base64.urlsafe_b64encode(payload_data).rstrip(b"=").decode()
-        expired_jwt = f"{header}.{payload}.fakesig"
-
-        hermes_home = tmp_path / "hermes"
-        hermes_home.mkdir(parents=True, exist_ok=True)
-        (hermes_home / "auth.json").write_text(json.dumps({
-            "version": 1,
-            "providers": {
-                "openai-codex": {
-                    "tokens": {"access_token": expired_jwt, "refresh_token": "r"},
-                },
-            },
-        }))
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
-        monkeypatch.setenv("OPENROUTER_API_KEY", "or-test-key")
-
-        with patch("agent.auxiliary_client.OpenAI") as mock_openai:
-            mock_openai.return_value = MagicMock()
-            from agent.auxiliary_client import _resolve_auto
-            client, model = _resolve_auto()
-            assert client is not None
-            # OpenRouter is 1st in chain, should win
-            mock_openai.assert_called()
-
-    def test_expired_codex_custom_endpoint_wins(self, tmp_path, monkeypatch):
-        """With expired Codex + custom endpoint (Ollama), custom should win (3rd in chain)."""
-        import base64
-        import time as _time
-
-        header = base64.urlsafe_b64encode(b'{"alg":"RS256","typ":"JWT"}').rstrip(b"=").decode()
-        payload_data = json.dumps({"exp": int(_time.time()) - 3600}).encode()
-        payload = base64.urlsafe_b64encode(payload_data).rstrip(b"=").decode()
-        expired_jwt = f"{header}.{payload}.fakesig"
-
-        hermes_home = tmp_path / "hermes"
-        hermes_home.mkdir(parents=True, exist_ok=True)
-        (hermes_home / "auth.json").write_text(json.dumps({
-            "version": 1,
-            "providers": {
-                "openai-codex": {
-                    "tokens": {"access_token": expired_jwt, "refresh_token": "r"},
-                },
-            },
-        }))
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
-
-        # Simulate Ollama or custom endpoint
-        with patch("agent.auxiliary_client._resolve_custom_runtime",
-                   return_value=("http://localhost:11434/v1", "sk-dummy")):
-            with patch("agent.auxiliary_client.OpenAI") as mock_openai:
-                mock_openai.return_value = MagicMock()
-                from agent.auxiliary_client import _resolve_auto
-                client, model = _resolve_auto()
-                assert client is not None
-
-
+class TestAnthropicOAuthFallback:
     def test_hermes_oauth_file_sets_oauth_flag(self, monkeypatch):
         """OAuth-style tokens should get is_oauth=*** (token is not sk-ant-api-*)."""
         # Mock resolve_anthropic_token to return an OAuth-style token
@@ -396,49 +101,6 @@ class TestExpiredCodexFallback:
             assert client is not None, "Should resolve token"
             adapter = client.chat.completions
             assert adapter._is_oauth is True, "Non-sk-ant-api token should set is_oauth=True"
-
-    def test_jwt_missing_exp_passes_through(self, tmp_path, monkeypatch):
-        """JWT with valid JSON but no exp claim should pass through."""
-        import base64
-        header = base64.urlsafe_b64encode(b'{"alg":"RS256","typ":"JWT"}').rstrip(b"=").decode()
-        payload_data = json.dumps({"sub": "user123"}).encode()  # no exp
-        payload = base64.urlsafe_b64encode(payload_data).rstrip(b"=").decode()
-        no_exp_jwt = f"{header}.{payload}.fakesig"
-
-        hermes_home = tmp_path / "hermes"
-        hermes_home.mkdir(parents=True, exist_ok=True)
-        (hermes_home / "auth.json").write_text(json.dumps({
-            "version": 1,
-            "providers": {
-                "openai-codex": {
-                    "tokens": {"access_token": no_exp_jwt, "refresh_token": "r"},
-                },
-            },
-        }))
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
-        result = _read_codex_access_token()
-        assert result == no_exp_jwt, "JWT without exp should pass through"
-
-    def test_jwt_invalid_json_payload_passes_through(self, tmp_path, monkeypatch):
-        """JWT with valid base64 but invalid JSON payload should pass through."""
-        import base64
-        header = base64.urlsafe_b64encode(b'{"alg":"RS256"}').rstrip(b"=").decode()
-        payload = base64.urlsafe_b64encode(b"not-json-content").rstrip(b"=").decode()
-        bad_jwt = f"{header}.{payload}.fakesig"
-
-        hermes_home = tmp_path / "hermes"
-        hermes_home.mkdir(parents=True, exist_ok=True)
-        (hermes_home / "auth.json").write_text(json.dumps({
-            "version": 1,
-            "providers": {
-                "openai-codex": {
-                    "tokens": {"access_token": bad_jwt, "refresh_token": "r"},
-                },
-            },
-        }))
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
-        result = _read_codex_access_token()
-        assert result == bad_jwt, "JWT with invalid JSON payload should pass through"
 
     def test_claude_code_oauth_env_sets_flag(self, monkeypatch):
         """CLAUDE_CODE_OAUTH_TOKEN env var should get is_oauth=True."""
@@ -498,55 +160,15 @@ class TestExplicitProviderRouting:
 class TestGetTextAuxiliaryClient:
     """Test the full resolution chain for get_text_auxiliary_client."""
 
-    def test_codex_pool_entry_takes_priority_over_auth_store(self):
-        class _Entry:
-            access_token = "pooled-codex-token"
-            base_url = "https://chatgpt.com/backend-api/codex"
-
-        class _Pool:
-            def has_credentials(self):
-                return True
-
-            def select(self):
-                return _Entry()
-
-        with (
-            patch("agent.auxiliary_client.load_pool", return_value=_Pool()),
-            patch("agent.auxiliary_client.OpenAI"),
-            patch("hermes_cli.auth._read_codex_tokens", side_effect=AssertionError("legacy codex store should not run")),
-        ):
-            from agent.auxiliary_client import _build_codex_client
-
-            client, model = _build_codex_client("gpt-5.4")
-
-        from agent.auxiliary_client import CodexAuxiliaryClient
-
-        assert isinstance(client, CodexAuxiliaryClient)
-        assert model == "gpt-5.4"
-
     def test_returns_none_when_nothing_available(self, monkeypatch):
         monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
         with patch("agent.auxiliary_client._read_nous_auth", return_value=None), \
-             patch("agent.auxiliary_client._read_codex_access_token", return_value=None), \
              patch("agent.auxiliary_client._resolve_api_key_provider", return_value=(None, None)):
             client, model = get_text_auxiliary_client()
         assert client is None
         assert model is None
-
-    def test_custom_endpoint_uses_codex_wrapper_when_runtime_requests_responses_api(self):
-        with patch("agent.auxiliary_client._resolve_custom_runtime",
-                   return_value=("https://api.openai.com/v1", "sk-test", "codex_responses")), \
-             patch("agent.auxiliary_client._read_main_model", return_value="gpt-5.3-codex"), \
-             patch("agent.auxiliary_client.OpenAI") as mock_openai:
-            client, model = get_text_auxiliary_client()
-
-        from agent.auxiliary_client import CodexAuxiliaryClient
-        assert isinstance(client, CodexAuxiliaryClient)
-        assert model == "gpt-5.3-codex"
-        assert mock_openai.call_args.kwargs["base_url"] == "https://api.openai.com/v1"
-        assert mock_openai.call_args.kwargs["api_key"] == "sk-test"
 
 
 class TestVisionClientFallback:
@@ -714,7 +336,7 @@ class TestAuxiliaryPoolAwareness:
         assert stale_client.chat.completions.create.await_count == 1
         assert fresh_async_client.chat.completions.create.await_count == 1
 
-    def test_cached_gmi_client_keeps_explicit_slash_model_override(self):
+    def test_cached_client_keeps_explicit_slash_model_override(self):
         import agent.auxiliary_client as aux
 
         fake_client = MagicMock()
@@ -726,25 +348,25 @@ class TestAuxiliaryPoolAwareness:
             aux.shutdown_cached_clients()
             try:
                 client, model = aux._get_cached_client(
-                    "gmi",
-                    "google/gemini-3.1-flash-lite-preview",
-                    base_url="https://api.gmi-serving.com/v1",
-                    api_key="gmi-key",
+                    "huggingface",
+                    "moonshotai/Kimi-K2.5",
+                    base_url="https://router.huggingface.co/v1",
+                    api_key="hf-key",
                 )
                 assert client is fake_client
-                assert model == "google/gemini-3.1-flash-lite-preview"
+                assert model == "moonshotai/Kimi-K2.5"
 
                 client, model = aux._get_cached_client(
-                    "gmi",
-                    "openai/gpt-5.4-mini",
-                    base_url="https://api.gmi-serving.com/v1",
-                    api_key="gmi-key",
+                    "huggingface",
+                    "Qwen/Qwen3.5-35B-A3B",
+                    base_url="https://router.huggingface.co/v1",
+                    api_key="hf-key",
                 )
             finally:
                 aux.shutdown_cached_clients()
 
         assert client is fake_client
-        assert model == "openai/gpt-5.4-mini"
+        assert model == "Qwen/Qwen3.5-35B-A3B"
         assert mock_resolve.call_count == 1
 
 
@@ -792,16 +414,6 @@ class TestIsPaymentError:
 class TestGetProviderChain:
     """_get_provider_chain() resolves functions at call time (testable)."""
 
-    def test_returns_four_entries(self):
-        chain = _get_provider_chain()
-        assert len(chain) == 4
-        labels = [label for label, _ in chain]
-        assert labels == ["openrouter", "nous", "local/custom", "api-key"]
-        # Codex is deliberately NOT in this chain — see _get_provider_chain
-        # docstring. ChatGPT-account Codex has a shifting model allow-list;
-        # guessing a model to fall back on breaks more often than it helps.
-        assert "openai-codex" not in labels
-
     def test_picks_up_patched_functions(self):
         """Patches on _try_* functions must be visible in the chain."""
         sentinel = lambda: ("patched", "model")
@@ -831,31 +443,6 @@ class TestTryPaymentFallback:
              patch("agent.auxiliary_client._read_main_provider", return_value="openrouter"):
             client, model, label = _try_payment_fallback("openrouter")
         assert client is None
-        assert label == ""
-
-    def test_codex_alias_maps_to_chain_label(self):
-        """'codex' should map to 'openai-codex' in the skip set."""
-        mock_client = MagicMock()
-        with patch("agent.auxiliary_client._try_openrouter", return_value=(mock_client, "or-model")), \
-             patch("agent.auxiliary_client._read_main_provider", return_value="openai-codex"):
-            client, model, label = _try_payment_fallback("openai-codex", task="vision")
-        assert client is mock_client
-        assert label == "openrouter"
-
-    def test_codex_not_in_fallback_chain(self):
-        """Codex is deliberately NOT a fallback rung (shifting model allow-list).
-
-        When OR/Nous/custom/api-key all fail, payment-fallback returns None —
-        Codex is never tried with a guessed model.
-        """
-        with patch("agent.auxiliary_client._try_openrouter", return_value=(None, None)), \
-             patch("agent.auxiliary_client._try_nous", return_value=(None, None)), \
-             patch("agent.auxiliary_client._try_custom_endpoint", return_value=(None, None)), \
-             patch("agent.auxiliary_client._resolve_api_key_provider", return_value=(None, None)), \
-             patch("agent.auxiliary_client._read_main_provider", return_value="openrouter"):
-            client, model, label = _try_payment_fallback("openrouter")
-        assert client is None
-        assert model is None
         assert label == ""
 
 
@@ -1363,58 +950,6 @@ class _AsyncFailingThenSuccessCompletions:
 
 
 class TestAuxiliaryAuthRefreshRetry:
-    def test_call_llm_refreshes_codex_on_401_for_vision(self):
-        failing_client = MagicMock()
-        failing_client.base_url = "https://chatgpt.com/backend-api/codex"
-        failing_client.chat.completions = _FailingThenSuccessCompletions()
-
-        fresh_client = MagicMock()
-        fresh_client.base_url = "https://chatgpt.com/backend-api/codex"
-        fresh_client.chat.completions.create.return_value = _DummyResponse("fresh-sync")
-
-        with (
-            patch(
-                "agent.auxiliary_client.resolve_vision_provider_client",
-                side_effect=[("openai-codex", failing_client, "gpt-5.4"), ("openai-codex", fresh_client, "gpt-5.4")],
-            ),
-            patch("agent.auxiliary_client._refresh_provider_credentials", return_value=True) as mock_refresh,
-        ):
-            resp = call_llm(
-                task="vision",
-                provider="openai-codex",
-                model="gpt-5.4",
-                messages=[{"role": "user", "content": "hi"}],
-            )
-
-        assert resp.choices[0].message.content == "fresh-sync"
-        mock_refresh.assert_called_once_with("openai-codex")
-
-    def test_call_llm_refreshes_codex_on_401_for_non_vision(self):
-        stale_client = MagicMock()
-        stale_client.base_url = "https://chatgpt.com/backend-api/codex"
-        stale_client.chat.completions.create.side_effect = _AuxAuth401("stale codex token")
-
-        fresh_client = MagicMock()
-        fresh_client.base_url = "https://chatgpt.com/backend-api/codex"
-        fresh_client.chat.completions.create.return_value = _DummyResponse("fresh-non-vision")
-
-        with (
-            patch("agent.auxiliary_client._resolve_task_provider_model", return_value=("openai-codex", "gpt-5.4", None, None, None)),
-            patch("agent.auxiliary_client._get_cached_client", side_effect=[(stale_client, "gpt-5.4"), (fresh_client, "gpt-5.4")]),
-            patch("agent.auxiliary_client._refresh_provider_credentials", return_value=True) as mock_refresh,
-        ):
-            resp = call_llm(
-                task="compression",
-                provider="openai-codex",
-                model="gpt-5.4",
-                messages=[{"role": "user", "content": "hi"}],
-            )
-
-        assert resp.choices[0].message.content == "fresh-non-vision"
-        mock_refresh.assert_called_once_with("openai-codex")
-        assert stale_client.chat.completions.create.call_count == 1
-        assert fresh_client.chat.completions.create.call_count == 1
-
     def test_call_llm_refreshes_anthropic_on_401_for_non_vision(self):
         stale_client = MagicMock()
         stale_client.base_url = "https://api.anthropic.com"
@@ -1442,32 +977,6 @@ class TestAuxiliaryAuthRefreshRetry:
         assert fresh_client.chat.completions.create.call_count == 1
 
     @pytest.mark.asyncio
-    async def test_async_call_llm_refreshes_codex_on_401_for_vision(self):
-        failing_client = MagicMock()
-        failing_client.base_url = "https://chatgpt.com/backend-api/codex"
-        failing_client.chat.completions = _AsyncFailingThenSuccessCompletions()
-
-        fresh_client = MagicMock()
-        fresh_client.base_url = "https://chatgpt.com/backend-api/codex"
-        fresh_client.chat.completions.create = AsyncMock(return_value=_DummyResponse("fresh-async"))
-
-        with (
-            patch(
-                "agent.auxiliary_client.resolve_vision_provider_client",
-                side_effect=[("openai-codex", failing_client, "gpt-5.4"), ("openai-codex", fresh_client, "gpt-5.4")],
-            ),
-            patch("agent.auxiliary_client._refresh_provider_credentials", return_value=True) as mock_refresh,
-        ):
-            resp = await async_call_llm(
-                task="vision",
-                provider="openai-codex",
-                model="gpt-5.4",
-                messages=[{"role": "user", "content": "hi"}],
-            )
-
-        assert resp.choices[0].message.content == "fresh-async"
-        mock_refresh.assert_called_once_with("openai-codex")
-
     def test_refresh_provider_credentials_force_refreshes_anthropic_oauth_and_evicts_cache(self, monkeypatch):
         stale_client = MagicMock()
         cache_key = ("anthropic", False, None, None, None)
@@ -1524,132 +1033,6 @@ class TestAuxiliaryAuthRefreshRetry:
         mock_refresh.assert_called_once_with("anthropic")
         assert stale_client.chat.completions.create.await_count == 1
         assert fresh_client.chat.completions.create.await_count == 1
-
-
-class TestCodexAdapterReasoningTranslation:
-    """Verify _CodexCompletionsAdapter translates extra_body.reasoning
-    into the Responses API's top-level reasoning + include fields, matching
-    agent/transports/codex.py::build_kwargs() behavior.
-
-    Regression for user feedback (Apr 26): auxiliary callers that configure
-    reasoning via auxiliary.<task>.extra_body.reasoning had that config
-    silently dropped because the adapter only forwarded messages/model/tools.
-    """
-
-    @staticmethod
-    def _build_adapter():
-        """Build a _CodexCompletionsAdapter with a mocked responses.stream()."""
-        from agent.auxiliary_client import _CodexCompletionsAdapter
-        from types import SimpleNamespace
-
-        # Mock the stream context manager: yields no events, get_final_response
-        # returns a minimal empty-output response.
-        fake_final = SimpleNamespace(
-            output=[SimpleNamespace(
-                type="message",
-                content=[SimpleNamespace(type="output_text", text="hi")],
-            )],
-            usage=SimpleNamespace(input_tokens=1, output_tokens=1, total_tokens=2),
-        )
-
-        class _FakeStream:
-            def __enter__(self): return self
-            def __exit__(self, *a): return False
-            def __iter__(self): return iter([])
-            def get_final_response(self): return fake_final
-
-        captured_kwargs = {}
-
-        def _stream(**kwargs):
-            captured_kwargs.update(kwargs)
-            return _FakeStream()
-
-        real_client = MagicMock()
-        real_client.responses.stream = _stream
-        adapter = _CodexCompletionsAdapter(real_client, "gpt-5.3-codex")
-        return adapter, captured_kwargs
-
-    def test_reasoning_effort_medium_translated_to_top_level(self):
-        adapter, captured = self._build_adapter()
-        adapter.create(
-            messages=[{"role": "user", "content": "hi"}],
-            extra_body={"reasoning": {"effort": "medium"}},
-        )
-        assert captured.get("reasoning") == {"effort": "medium", "summary": "auto"}
-        assert captured.get("include") == ["reasoning.encrypted_content"]
-
-    def test_reasoning_effort_minimal_clamped_to_low(self):
-        """Codex backend rejects 'minimal'; adapter clamps to 'low' per main transport."""
-        adapter, captured = self._build_adapter()
-        adapter.create(
-            messages=[{"role": "user", "content": "hi"}],
-            extra_body={"reasoning": {"effort": "minimal"}},
-        )
-        assert captured.get("reasoning") == {"effort": "low", "summary": "auto"}
-        assert captured.get("include") == ["reasoning.encrypted_content"]
-
-    def test_reasoning_effort_low_passed_through(self):
-        adapter, captured = self._build_adapter()
-        adapter.create(
-            messages=[{"role": "user", "content": "hi"}],
-            extra_body={"reasoning": {"effort": "low"}},
-        )
-        assert captured.get("reasoning") == {"effort": "low", "summary": "auto"}
-
-    def test_reasoning_effort_high_passed_through(self):
-        adapter, captured = self._build_adapter()
-        adapter.create(
-            messages=[{"role": "user", "content": "hi"}],
-            extra_body={"reasoning": {"effort": "high"}},
-        )
-        assert captured.get("reasoning") == {"effort": "high", "summary": "auto"}
-
-    def test_reasoning_disabled_omits_reasoning_and_include(self):
-        adapter, captured = self._build_adapter()
-        adapter.create(
-            messages=[{"role": "user", "content": "hi"}],
-            extra_body={"reasoning": {"enabled": False}},
-        )
-        assert "reasoning" not in captured
-        assert "include" not in captured
-
-    def test_reasoning_default_effort_when_only_enabled_flag(self):
-        """extra_body={"reasoning": {}} (truthy enabled by omission) → default 'medium'."""
-        adapter, captured = self._build_adapter()
-        adapter.create(
-            messages=[{"role": "user", "content": "hi"}],
-            extra_body={"reasoning": {}},
-        )
-        assert captured.get("reasoning") == {"effort": "medium", "summary": "auto"}
-        assert captured.get("include") == ["reasoning.encrypted_content"]
-
-    def test_no_extra_body_means_no_reasoning_keys(self):
-        """Baseline: without extra_body, no reasoning/include is sent (preserves
-        current behavior for callers that don't opt in)."""
-        adapter, captured = self._build_adapter()
-        adapter.create(messages=[{"role": "user", "content": "hi"}])
-        assert "reasoning" not in captured
-        assert "include" not in captured
-
-    def test_extra_body_without_reasoning_key_is_noop(self):
-        adapter, captured = self._build_adapter()
-        adapter.create(
-            messages=[{"role": "user", "content": "hi"}],
-            extra_body={"metadata": {"source": "test"}},
-        )
-        assert "reasoning" not in captured
-        assert "include" not in captured
-
-    def test_non_dict_reasoning_value_is_ignored_gracefully(self):
-        """Defensive: if a caller accidentally passes a string/None, we
-        silently skip instead of crashing inside the adapter."""
-        adapter, captured = self._build_adapter()
-        adapter.create(
-            messages=[{"role": "user", "content": "hi"}],
-            extra_body={"reasoning": "medium"},  # wrong shape — must not crash
-        )
-        assert "reasoning" not in captured
-
 
 
 class TestVisionAutoSkipsKimiCoding:

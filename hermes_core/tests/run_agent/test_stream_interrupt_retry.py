@@ -5,7 +5,7 @@ loop closes the HTTP connection.  The inner `_call()` thread sees a
 connection error and enters its retry loop.  Before this fix, the retry
 loop would open a FRESH connection without checking `_interrupt_requested`,
 making /stop take multiple retry cycles × read-timeout to actually stop
-(510+ seconds observed on slow ollama-cloud providers).
+on slow providers.
 
 The fix adds an `_interrupt_requested` check at the top of the retry loop
 so the agent exits immediately instead of retrying.

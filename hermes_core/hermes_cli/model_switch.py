@@ -112,7 +112,6 @@ MODEL_ALIASES: dict[str, ModelIdentity] = {
     # OpenAI
     "gpt5":      ModelIdentity("openai", "gpt-5"),
     "gpt":       ModelIdentity("openai", "gpt"),
-    "codex":     ModelIdentity("openai", "codex"),
     "o3":        ModelIdentity("openai", "o3"),
     "o4":        ModelIdentity("openai", "o4"),
 
@@ -134,9 +133,6 @@ MODEL_ALIASES: dict[str, ModelIdentity] = {
     # MiniMax
     "minimax":   ModelIdentity("minimax", "minimax"),
 
-    # Nvidia
-    "nemotron":  ModelIdentity("nvidia", "nemotron"),
-
     # Moonshot / Kimi
     "kimi":      ModelIdentity("moonshotai", "kimi"),
 
@@ -153,7 +149,7 @@ MODEL_ALIASES: dict[str, ModelIdentity] = {
 
 # ---------------------------------------------------------------------------
 # Direct aliases — exact model+provider+base_url for endpoints that aren't
-# in the models.dev catalog (e.g. Ollama Cloud, local servers).
+# in the models.dev catalog (e.g. private gateways, local servers).
 # Checked BEFORE catalog resolution.  Format:
 #   alias -> (model_id, provider, base_url)
 # These can also be loaded from config.yaml ``model_aliases:`` section.
@@ -182,11 +178,11 @@ def _load_direct_aliases() -> dict[str, DirectAlias]:
           qwen:
             model: "qwen3.5:397b"
             provider: custom
-            base_url: "https://ollama.com/v1"
+            base_url: "https://api.example.com/v1"
           minimax:
             model: "minimax-m2.7"
             provider: custom
-            base_url: "https://ollama.com/v1"
+            base_url: "https://api.example.com/v1"
     """
     merged = dict(_BUILTIN_DIRECT_ALIASES)
     try:
@@ -541,11 +537,9 @@ def resolve_display_context_length(
     """Resolve the context length to show in /model output.
 
     models.dev reports per-vendor context (e.g. gpt-5.5 = 1.05M on openai)
-    but provider-enforced limits can be lower (e.g. Codex OAuth caps the
-    same slug at 272k). The authoritative source is
+    but provider-enforced limits can be lower. The authoritative source is
     ``agent.model_metadata.get_model_context_length`` which already knows
-    about Codex OAuth, Copilot, Nous, and falls back to models.dev for the
-    rest.
+    about provider-specific overrides and falls back to models.dev for the rest.
 
     When ``custom_providers`` is provided, per-model ``context_length``
     overrides from ``custom_providers[].models.<id>.context_length`` are
@@ -627,10 +621,8 @@ def switch_model(
         ModelSwitchResult with all information the caller needs.
     """
     from hermes_cli.models import (
-        copilot_model_api_mode,
         detect_provider_for_model,
         validate_requested_model,
-        opencode_model_api_mode,
     )
     from hermes_cli.runtime_provider import resolve_runtime_provider
 
@@ -913,33 +905,9 @@ def switch_model(
     if validation.get("corrected_model"):
         new_model = validation["corrected_model"]
 
-    # --- Copilot api_mode override ---
-    if target_provider in {"copilot", "github-copilot"}:
-        api_mode = copilot_model_api_mode(new_model, api_key=api_key)
-
-    # --- OpenCode api_mode override ---
-    if target_provider in {"opencode-zen", "opencode-go", "opencode"}:
-        api_mode = opencode_model_api_mode(target_provider, new_model)
-
     # --- Determine api_mode if not already set ---
     if not api_mode:
         api_mode = determine_api_mode(target_provider, base_url)
-
-    # OpenCode base URLs end with /v1 for OpenAI-compatible models, but the
-    # Anthropic SDK prepends its own /v1/messages to the base_url.  Strip the
-    # trailing /v1 so the SDK constructs the correct path (e.g.
-    # https://opencode.ai/zen/go/v1/messages instead of .../v1/v1/messages).
-    # Mirrors the same logic in hermes_cli.runtime_provider.resolve_runtime_provider;
-    # without it, /model switches into an anthropic_messages-routed OpenCode
-    # model (e.g. `/model minimax-m2.7` on opencode-go, `/model claude-sonnet-4-6`
-    # on opencode-zen) hit a double /v1 and returned OpenCode's website 404 page.
-    if (
-        api_mode == "anthropic_messages"
-        and target_provider in {"opencode-zen", "opencode-go"}
-        and isinstance(base_url, str)
-        and base_url
-    ):
-        base_url = re.sub(r"/v1/?$", "", base_url)
 
     # --- Get capabilities (legacy) ---
     capabilities = get_model_capabilities(target_provider, new_model)
@@ -1057,10 +1025,6 @@ def list_authenticated_providers(
     # "nous" shares OpenRouter's curated list if not separately defined
     if "nous" not in curated:
         curated["nous"] = curated["openrouter"]
-    # Ollama Cloud uses dynamic discovery (no static curated list)
-    if "ollama-cloud" not in curated:
-        from hermes_cli.models import fetch_ollama_cloud_models
-        curated["ollama-cloud"] = fetch_ollama_cloud_models()
     # LM Studio has no static catalog — probe its native /api/v1/models
     # endpoint live so the picker reflects whatever the user has loaded.
     # Base URL precedence: LM_BASE_URL env var > active config's base_url
@@ -1131,7 +1095,7 @@ def list_authenticated_providers(
 
         # Use curated list, falling back to models.dev if no curated list.
         # For preferred providers, merge models.dev entries into the curated
-        # catalog so newly released models (e.g. mimo-v2.5-pro on opencode-go)
+        # catalog so newly released models
         # show up in the picker without requiring a Hermes release.
         model_ids = curated.get(hermes_id, [])
         if hermes_id in _MODELS_DEV_PREFERRED:
@@ -1156,20 +1120,20 @@ def list_authenticated_providers(
         seen_mdev_ids.add(mdev_id)
         _record_builtin_endpoint(slug)
 
-    # --- 2. Check Hermes-only providers (nous, openai-codex, copilot, opencode-go) ---
+    # --- 2. Check Hermes-only providers (for example nous) ---
     from hermes_cli.providers import HERMES_OVERLAYS
     from hermes_cli.auth import PROVIDER_REGISTRY as _auth_registry
 
     # Build reverse mapping: models.dev ID → Hermes provider ID.
-    # HERMES_OVERLAYS keys may be models.dev IDs (e.g. "github-copilot")
-    # while _PROVIDER_MODELS and config.yaml use Hermes IDs ("copilot").
+    # HERMES_OVERLAYS keys may be models.dev IDs while _PROVIDER_MODELS
+    # and config.yaml use Hermes IDs.
     _mdev_to_hermes = {v: k for k, v in PROVIDER_TO_MODELS_DEV.items()}
 
     for pid, overlay in HERMES_OVERLAYS.items():
         if pid.lower() in seen_slugs:
             continue
 
-        # Resolve Hermes slug — e.g. "github-copilot" → "copilot"
+        # Resolve Hermes slug.
         hermes_slug = _mdev_to_hermes.get(pid, pid)
         if hermes_slug.lower() in seen_slugs:
             continue
@@ -1204,9 +1168,8 @@ def list_authenticated_providers(
             except Exception as exc:
                 logger.debug("Auth store check failed for %s: %s", pid, exc)
         # Fallback: check the credential pool with full auto-seeding.
-        # This catches credentials that exist in external stores (e.g.
-        # Codex CLI ~/.codex/auth.json) which _seed_from_singletons()
-        # imports on demand but aren't in the raw auth.json yet.
+        # This catches credentials that exist in external stores which
+        # _seed_from_singletons() imports on demand but aren't in raw auth.json.
         if not has_creds:
             try:
                 from providers.credential_pool import load_pool
@@ -1238,23 +1201,11 @@ def list_authenticated_providers(
         if not has_creds:
             continue
 
-        if hermes_slug in {"copilot", "copilot-acp"}:
-            model_ids = provider_model_ids(hermes_slug)
-        # For aws_sdk providers (bedrock), use live discovery so the list
-        # reflects the active region (eu.*, ap.*) not the static us.* list.
-        elif overlay.auth_type == "aws_sdk":
-            try:
-                from agent.bedrock_adapter import bedrock_model_ids_or_none
-                _ids = bedrock_model_ids_or_none()
-                model_ids = _ids if _ids is not None else (curated.get(hermes_slug, []) or curated.get(pid, []))
-            except Exception:
-                model_ids = curated.get(hermes_slug, []) or curated.get(pid, [])
-        else:
-            # Use curated list — look up by Hermes slug, fall back to overlay key
-            model_ids = curated.get(hermes_slug, []) or curated.get(pid, [])
-            # Merge with models.dev for preferred providers (same rationale as above).
-            if hermes_slug in _MODELS_DEV_PREFERRED:
-                model_ids = _merge_with_models_dev(hermes_slug, model_ids)
+        # Use curated list — look up by Hermes slug, fall back to overlay key.
+        model_ids = curated.get(hermes_slug, []) or curated.get(pid, [])
+        # Merge with models.dev for preferred providers (same rationale as above).
+        if hermes_slug in _MODELS_DEV_PREFERRED:
+            model_ids = _merge_with_models_dev(hermes_slug, model_ids)
         total = len(model_ids)
         top = model_ids[:max_models]
 
@@ -1312,30 +1263,10 @@ def list_authenticated_providers(
             except Exception:
                 pass
 
-        # Special case: aws_sdk auth (bedrock) — no API key env vars,
-        # credentials come from the boto3 credential chain (env vars,
-        # ~/.aws/credentials, instance roles, etc.)
-        if not _cp_has_creds and _cp_config and getattr(_cp_config, "auth_type", "") == "aws_sdk":
-            try:
-                from agent.bedrock_adapter import has_aws_credentials
-                _cp_has_creds = has_aws_credentials()
-            except Exception:
-                pass
-
         if not _cp_has_creds:
             continue
 
-        # For bedrock, use live discovery so the list reflects the active
-        # region (eu.*, us.*, ap.*) instead of the hardcoded us.* static list.
-        if _cp_config and getattr(_cp_config, "auth_type", "") == "aws_sdk":
-            try:
-                from agent.bedrock_adapter import bedrock_model_ids_or_none
-                _ids = bedrock_model_ids_or_none()
-                _cp_model_ids = _ids if _ids is not None else curated.get(_cp.slug, [])
-            except Exception:
-                _cp_model_ids = curated.get(_cp.slug, [])
-        else:
-            _cp_model_ids = curated.get(_cp.slug, [])
+        _cp_model_ids = curated.get(_cp.slug, [])
         _cp_total = len(_cp_model_ids)
         _cp_top = _cp_model_ids[:max_models]
 

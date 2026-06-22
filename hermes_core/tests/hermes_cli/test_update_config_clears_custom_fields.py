@@ -5,10 +5,8 @@ When the user switches from a custom provider (e.g. MiniMax with
 provider (e.g. OpenRouter), the stale ``api_key`` and ``api_mode`` would
 otherwise override the new provider's credentials and transport choice.
 
-Built-in providers that legitimately need a specific ``api_mode`` (copilot,
-xai) compute it at request-resolution time in
-``_copilot_runtime_api_mode`` / ``_detect_api_mode_for_url``, so removing
-the persisted value here is safe.
+Built-in providers that legitimately need a specific ``api_mode`` compute it
+at request-resolution time, so removing the persisted value here is safe.
 """
 
 from __future__ import annotations
@@ -76,9 +74,3 @@ class TestUpdateConfigForProviderClearsStaleCustomFields:
         assert model_cfg.get("provider") == "nous"
         assert "api_mode" not in model_cfg
         assert "api_key" not in model_cfg
-
-    def test_switching_clears_codex_responses_api_mode(self):
-        """Also covers codex_responses, not just anthropic_messages."""
-        _seed_custom_provider_config(api_mode="codex_responses")
-        _update_config_for_provider("openrouter", "https://openrouter.ai/api/v1")
-        assert "api_mode" not in _read_model_cfg()

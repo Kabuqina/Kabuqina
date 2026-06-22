@@ -1,8 +1,6 @@
 """Tests for hermes_cli.runtime_provider._detect_api_mode_for_url.
 
-The helper maps base URLs to api_modes for three cases:
-  * api.openai.com  → codex_responses
-  * api.x.ai        → codex_responses
+The helper maps base URLs to api_modes for Anthropic-compatible endpoints:
   * */anthropic     → anthropic_messages (third-party gateways like MiniMax,
                                           Zhipu GLM, LiteLLM proxies)
 
@@ -17,17 +15,7 @@ from __future__ import annotations
 from hermes_cli.runtime_provider import _detect_api_mode_for_url
 
 
-class TestCodexResponsesDetection:
-    def test_openai_api_returns_codex_responses(self):
-        assert _detect_api_mode_for_url("https://api.openai.com/v1") == "codex_responses"
-
-    def test_xai_api_returns_codex_responses(self):
-        assert _detect_api_mode_for_url("https://api.x.ai/v1") == "codex_responses"
-
-    def test_openrouter_is_not_codex_responses(self):
-        # api.openai.com check must exclude openrouter (which routes to openai-hosted models).
-        assert _detect_api_mode_for_url("https://openrouter.ai/api/v1") is None
-
+class TestHostSuffixDetection:
     def test_openai_host_suffix_does_not_match(self):
         assert _detect_api_mode_for_url("https://api.openai.com.example/v1") is None
 

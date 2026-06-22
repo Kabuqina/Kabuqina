@@ -26,8 +26,8 @@ def get_transport(api_mode: str):
     cls = _REGISTRY.get(api_mode)
     if cls is None:
         # The registry can be partially populated when a specific transport
-        # module was imported directly (for example chat_completions before
-        # codex).  Discover on misses, not only when the registry is empty, so
+            # module was imported directly. Discover on misses, not only when
+            # the registry is empty, so
         # test/order-dependent imports do not make valid api_modes unavailable.
         _discover_transports()
         cls = _REGISTRY.get(api_mode)
@@ -43,14 +43,6 @@ def _discover_transports() -> None:
     except ImportError:
         pass
     try:
-        import providers.transports.codex  # noqa: F401
-    except ImportError:
-        pass
-    try:
         import providers.transports.chat_completions  # noqa: F401
-    except ImportError:
-        pass
-    try:
-        import providers.transports.bedrock  # noqa: F401
     except ImportError:
         pass

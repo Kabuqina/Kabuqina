@@ -2,16 +2,10 @@
 
 Different LLM providers expect model identifiers in different formats:
 
-- **Aggregators** (OpenRouter, Nous, AI Gateway, Kilo Code) need
+- **Aggregators** (OpenRouter, Nous) need
   ``vendor/model`` slugs like ``anthropic/claude-sonnet-4.6``.
 - **Anthropic** native API expects bare names with dots replaced by
   hyphens: ``claude-sonnet-4-6``.
-- **Copilot** expects bare names *with* dots preserved:
-  ``claude-sonnet-4.6``.
-- **OpenCode Zen** preserves dots for GPT/GLM/Gemini/Kimi/MiniMax-style
-  model IDs, but Claude still uses hyphenated native names like
-  ``claude-sonnet-4-6``.
-- **OpenCode Go** preserves dots in model names: ``minimax-m2.7``.
 - **DeepSeek** accepts ``deepseek-chat`` (V3), ``deepseek-reasoner``
   (R1-family), and the first-class V-series IDs (``deepseek-v4-pro``,
   ``deepseek-v4-flash``, and any future ``deepseek-v<N>-*``).  Older
@@ -56,7 +50,6 @@ _VENDOR_PREFIXES: dict[str, str] = {
     "grok": "x-ai",
     "qwen": "qwen",
     "mimo": "xiaomi",
-    "nemotron": "nvidia",
     "llama": "meta-llama",
     "step": "stepfun",
 }
@@ -65,8 +58,6 @@ _VENDOR_PREFIXES: dict[str, str] = {
 _AGGREGATOR_PROVIDERS: frozenset[str] = frozenset({
     "openrouter",
     "nous",
-    "ai-gateway",
-    "kilocode",
 })
 
 # Providers that want bare names with dots replaced by hyphens.
@@ -75,11 +66,7 @@ _DOT_TO_HYPHEN_PROVIDERS: frozenset[str] = frozenset({
 })
 
 # Providers that want bare names with dots preserved.
-_STRIP_VENDOR_ONLY_PROVIDERS: frozenset[str] = frozenset({
-    "copilot",
-    "copilot-acp",
-    "openai-codex",
-})
+_STRIP_VENDOR_ONLY_PROVIDERS: frozenset[str] = frozenset()
 
 # Providers whose native naming is authoritative -- pass through unchanged.
 _AUTHORITATIVE_NATIVE_PROVIDERS: frozenset[str] = frozenset({
@@ -97,9 +84,7 @@ _MATCHING_PREFIX_STRIP_PROVIDERS: frozenset[str] = frozenset({
     "minimax-oauth",
     "minimax-cn",
     "alibaba",
-    "qwen-oauth",
     "xiaomi",
-    "ollama-cloud",
     "custom",
 })
 
@@ -334,8 +319,8 @@ def normalize_model_for_provider(model_input: str, target_provider: str) -> str:
             (``"anthropic/claude-sonnet-4.6"``), or already in native
             format (``"claude-sonnet-4-6"``).
         target_provider: The canonical Hermes provider id, e.g.
-            ``"openrouter"``, ``"anthropic"``, ``"copilot"``,
-            ``"deepseek"``, ``"custom"``.  Should already be normalised
+            ``"openrouter"``, ``"anthropic"``, ``"deepseek"``,
+            ``"custom"``.  Should already be normalised
             via ``hermes_cli.models.normalize_provider()``.
 
     Returns:
@@ -352,18 +337,6 @@ def normalize_model_for_provider(model_input: str, target_provider: str) -> str:
 
         >>> normalize_model_for_provider("anthropic/claude-sonnet-4.6", "anthropic")
         'claude-sonnet-4-6'
-
-        >>> normalize_model_for_provider("anthropic/claude-sonnet-4.6", "copilot")
-        'claude-sonnet-4.6'
-
-        >>> normalize_model_for_provider("openai/gpt-5.4", "copilot")
-        'gpt-5.4'
-
-        >>> normalize_model_for_provider("claude-sonnet-4.6", "opencode-zen")
-        'claude-sonnet-4-6'
-
-        >>> normalize_model_for_provider("minimax-m2.5-free", "opencode-zen")
-        'minimax-m2.5-free'
 
         >>> normalize_model_for_provider("deepseek-v3", "deepseek")
         'deepseek-chat'
@@ -390,15 +363,6 @@ def normalize_model_for_provider(model_input: str, target_provider: str) -> str:
     if provider in _AGGREGATOR_PROVIDERS:
         return _prepend_vendor(name)
 
-    # --- OpenCode Zen: Claude stays hyphenated; other models keep dots ---
-    if provider == "opencode-zen":
-        bare = _strip_matching_provider_prefix(name, provider)
-        if "/" in bare:
-            return bare
-        if bare.lower().startswith("claude-"):
-            return _dots_to_hyphens(bare)
-        return bare
-
     # --- Anthropic: strip matching provider prefix, dots -> hyphens ---
     if provider in _DOT_TO_HYPHEN_PROVIDERS:
         bare = _strip_matching_provider_prefix(name, provider)
@@ -406,31 +370,9 @@ def normalize_model_for_provider(model_input: str, target_provider: str) -> str:
             return bare
         return _dots_to_hyphens(bare)
 
-    # --- Copilot / Copilot ACP: delegate to the Copilot-specific
-    #     normalizer.  It knows about the alias table (vendor-prefix
-    #     stripping for Anthropic/OpenAI, dash-to-dot repair for Claude)
-    #     and live-catalog lookups.  Without this, vendor-prefixed or
-    #     dash-notation Claude IDs survive to the Copilot API and hit
-    #     HTTP 400 "model_not_supported".  See issue #6879.
-    if provider in {"copilot", "copilot-acp"}:
-        try:
-            from hermes_cli.models import normalize_copilot_model_id
-
-            normalized = normalize_copilot_model_id(name)
-            if normalized:
-                return normalized
-        except Exception:
-            # Fall through to the generic strip-vendor behaviour below
-            # if the Copilot-specific path is unavailable for any reason.
-            pass
-
-    # --- Copilot / Copilot ACP / openai-codex fallback:
-    #     strip matching provider prefix, keep dots ---
+    # --- Providers that strip matching provider prefix and preserve dots ---
     if provider in _STRIP_VENDOR_ONLY_PROVIDERS:
         stripped = _strip_matching_provider_prefix(name, provider)
-        if stripped == name and name.startswith("openai/"):
-            # openai-codex maps openai/gpt-5.4 -> gpt-5.4
-            return name.split("/", 1)[1]
         return stripped
 
     # --- DeepSeek: map to one of two canonical names ---
@@ -460,4 +402,3 @@ def normalize_model_for_provider(model_input: str, target_provider: str) -> str:
 # ---------------------------------------------------------------------------
 # Batch / convenience helpers
 # ---------------------------------------------------------------------------
-

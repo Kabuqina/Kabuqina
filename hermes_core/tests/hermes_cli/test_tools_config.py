@@ -243,22 +243,6 @@ def test_get_platform_tools_no_mcp_sentinel_does_not_affect_other_platforms():
     assert "exa" in cli_enabled
 
 
-def test_toolset_has_keys_for_vision_accepts_codex_auth(tmp_path, monkeypatch):
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    (tmp_path / "auth.json").write_text(
-        '{"active_provider":"openai-codex","providers":{"openai-codex":{"tokens":{"access_token": "codex-...oken","refresh_token": "codex-...oken"}}}}'
-    )
-    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
-    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-
-    monkeypatch.setattr(
-        "agent.auxiliary_client.resolve_vision_provider_client",
-        lambda: ("openai-codex", object(), "gpt-4.1"),
-    )
-
-    assert _toolset_has_keys("vision") is True
-
 
 def test_save_platform_tools_preserves_mcp_server_names():
     """Ensure MCP server names are preserved when saving platform tools.

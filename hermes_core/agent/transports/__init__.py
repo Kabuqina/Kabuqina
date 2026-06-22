@@ -13,9 +13,7 @@ for _submodule in (
     "types",
     "base",
     "anthropic",
-    "bedrock",
     "chat_completions",
-    "codex",
 ):
     _sub_impl = _importlib.import_module(f"providers.transports.{_submodule}")
     _sys.modules[f"{__name__}.{_submodule}"] = _sub_impl

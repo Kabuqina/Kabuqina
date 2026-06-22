@@ -143,7 +143,6 @@ PROVIDER_TO_MODELS_DEV: Dict[str, str] = {
     "openrouter": "openrouter",
     "anthropic": "anthropic",
     "openai": "openai",
-    "openai-codex": "openai",
     "zai": "zai",
     "kimi-coding": "kimi-for-coding",
     "stepfun": "stepfun",
@@ -153,25 +152,17 @@ PROVIDER_TO_MODELS_DEV: Dict[str, str] = {
     "minimax-cn": "minimax-cn",
     "deepseek": "deepseek",
     "alibaba": "alibaba",
-    "qwen-oauth": "alibaba",
-    "copilot": "github-copilot",
-    "ai-gateway": "vercel",
-    "opencode-zen": "opencode",
-    "opencode-go": "opencode-go",
-    "kilocode": "kilo",
     "fireworks": "fireworks-ai",
     "huggingface": "huggingface",
     "gemini": "google",
     "google": "google",
     "xai": "xai",
     "xiaomi": "xiaomi",
-    "nvidia": "nvidia",
     "groq": "groq",
     "mistral": "mistral",
     "togetherai": "togetherai",
     "perplexity": "perplexity",
     "cohere": "cohere",
-    "ollama-cloud": "ollama-cloud",
 }
 
 # Reverse mapping: models.dev → Hermes (built lazily)
@@ -580,8 +571,8 @@ def _parse_provider_info(provider_id: str, raw: Dict[str, Any]) -> ProviderInfo:
 def get_provider_info(provider_id: str) -> Optional[ProviderInfo]:
     """Get full provider metadata from models.dev.
 
-    Accepts either a Hermes provider ID (e.g. "kilocode") or a models.dev
-    ID (e.g. "kilo").  Returns None if the provider is not in the catalog.
+    Accepts either a Hermes provider ID (e.g. "openrouter") or a models.dev
+    ID.  Returns None if the provider is not in the catalog.
     """
     # Resolve Hermes ID → models.dev ID
     mdev_id = PROVIDER_TO_MODELS_DEV.get(provider_id, provider_id)

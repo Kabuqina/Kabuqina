@@ -995,17 +995,10 @@ def _build_child_agent(
 
     # When override_provider is set (e.g. delegation.provider: minimax-cn),
     # the subagent must use direct API calls — not the parent's ACP transport.
-    # Inheriting acp_command unconditionally causes run_agent.py to initialize
-    # CopilotACPClient, bypassing override credentials entirely (issue #16816).
+    # Inheriting acp_command unconditionally bypasses override credentials.
     if override_provider and not override_acp_command:
         effective_acp_command = None
         effective_acp_args = []
-
-    if override_acp_command:
-        # If explicitly forcing an ACP transport override, the provider MUST be copilot-acp
-        # so run_agent.py initializes the CopilotACPClient.
-        effective_provider = "copilot-acp"
-        effective_api_mode = "chat_completions"
 
     # Resolve reasoning config: delegation override > parent inherit
     parent_reasoning = getattr(parent_agent, "reasoning_config", None)
@@ -1625,7 +1618,7 @@ def _run_single_child(
             "_child_role": getattr(child, "_delegate_role", None),
             # Captured before child.close() so the parent aggregator can fold
             # the child's total spend into the parent's session cost.  Port of
-            # Kilo-Org/kilocode#9448 — previously the footer only reflected the
+            # upstream issue #9448 — previously the footer only reflected the
             # parent's direct API calls and under-counted subagent-heavy runs.
             # Stripped before the dict is serialised back to the model.
             "_child_cost_usd": (
@@ -2133,7 +2126,7 @@ def delegate_task(
     except Exception:
         _invoke_hook = None
     # Aggregate child spend here so the parent's footer/UI reflect the true
-    # cost of a subagent-heavy turn.  Port of Kilo-Org/kilocode#9448.  Each
+    # cost of a subagent-heavy turn. Port of upstream issue #9448. Each
     # child's cost was captured in _run_single_child before its AIAgent was
     # closed; we fold them into the parent in one pass alongside the
     # subagent_stop hook loop so we don't walk `results` twice.
@@ -2257,13 +2250,7 @@ def _resolve_delegation_credentials(cfg: dict, parent_agent) -> dict:
         base_lower = configured_base_url.lower()
         provider = "custom"
         api_mode = "chat_completions"
-        if (
-            base_url_hostname(configured_base_url) == "chatgpt.com"
-            and "/backend-api/codex" in base_lower
-        ):
-            provider = "openai-codex"
-            api_mode = "codex_responses"
-        elif base_url_hostname(configured_base_url) == "api.anthropic.com":
+        if base_url_hostname(configured_base_url) == "api.anthropic.com":
             provider = "anthropic"
             api_mode = "anthropic_messages"
         elif "api.kimi.com/coding" in base_lower:
@@ -2480,7 +2467,7 @@ DELEGATE_TASK_SCHEMA = {
             "acp_command": {
                 "type": "string",
                 "description": (
-                    "Override ACP command for child agents (e.g. 'claude', 'copilot'). "
+                    "Override ACP command for child agents (e.g. 'claude'). "
                     "When set, children use ACP subprocess transport instead of inheriting "
                     "the parent's transport. Enables spawning Claude Code (claude --acp --stdio) "
                     "or other ACP-capable agents from any parent, including Discord/Telegram/CLI."

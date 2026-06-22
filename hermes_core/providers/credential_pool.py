@@ -16,11 +16,9 @@ from hermes_constants import OPENROUTER_BASE_URL
 from hermes_cli.config import get_env_value
 import hermes_cli.auth as auth_mod
 from hermes_cli.auth import (
-    CODEX_ACCESS_TOKEN_REFRESH_SKEW_SECONDS,
     DEFAULT_AGENT_KEY_MIN_TTL_SECONDS,
     PROVIDER_REGISTRY,
     _auth_store_lock,
-    _codex_access_token_is_expiring,
     _decode_jwt_claims,
     _load_auth_store,
     _load_provider_state,
@@ -455,70 +453,6 @@ class CredentialPool:
             logger.debug("Failed to sync from credentials file: %s", exc)
         return entry
 
-    def _sync_codex_entry_from_auth_store(self, entry: PooledCredential) -> PooledCredential:
-        """Sync a Codex device_code pool entry from auth.json if tokens differ.
-
-        When a Codex OAuth access token expires (or the ChatGPT account hits
-        its 5h/weekly quota), the pool entry gets marked ``STATUS_EXHAUSTED``
-        with a ``last_error_reset_at`` that can be many hours in the future.
-        Meanwhile the user may run ``hermes model`` / ``hermes auth`` which
-        performs a fresh device-code login and writes new tokens to
-        ``auth.json`` under ``_auth_store_lock``.  Without this sync the pool
-        entry stays frozen until ``last_error_reset_at`` elapses — even
-        though fresh credentials are sitting on disk — and every request
-        fails with "no available entries (all exhausted or empty)".
-
-        Mirrors the Nous/Anthropic resync paths above.  Only applies to
-        device_code-sourced entries; env/API-key-sourced entries have no
-        auth.json shadow to sync from.
-        """
-        if self.provider != "openai-codex" or entry.source != "device_code":
-            return entry
-        try:
-            with _auth_store_lock():
-                auth_store = _load_auth_store()
-                state = _load_provider_state(auth_store, "openai-codex")
-            if not isinstance(state, dict):
-                return entry
-            tokens = state.get("tokens")
-            if not isinstance(tokens, dict):
-                return entry
-            store_access = tokens.get("access_token", "")
-            store_refresh = tokens.get("refresh_token", "")
-            # Adopt auth.json tokens when either side differs.  Codex refresh
-            # tokens are single-use too, so a fresh refresh_token from
-            # another process means our entry's pair is consumed/stale.
-            entry_access = entry.access_token or ""
-            entry_refresh = entry.refresh_token or ""
-            if store_access and (
-                store_access != entry_access
-                or (store_refresh and store_refresh != entry_refresh)
-            ):
-                logger.debug(
-                    "Pool entry %s: syncing Codex tokens from auth.json "
-                    "(refreshed by another process)",
-                    entry.id,
-                )
-                field_updates: Dict[str, Any] = {
-                    "access_token": store_access,
-                    "refresh_token": store_refresh or entry.refresh_token,
-                    "last_status": None,
-                    "last_status_at": None,
-                    "last_error_code": None,
-                    "last_error_reason": None,
-                    "last_error_message": None,
-                    "last_error_reset_at": None,
-                }
-                if state.get("last_refresh"):
-                    field_updates["last_refresh"] = state["last_refresh"]
-                updated = replace(entry, **field_updates)
-                self._replace_entry(entry, updated)
-                self._persist()
-                return updated
-        except Exception as exc:
-            logger.debug("Failed to sync Codex entry from auth.json: %s", exc)
-        return entry
-
     def _sync_nous_entry_from_auth_store(self, entry: PooledCredential) -> PooledCredential:
         """Sync a Nous pool entry from auth.json if tokens differ.
 
@@ -583,8 +517,8 @@ class CredentialPool:
         stale state and can overwrite the fresh pool entry — potentially
         re-seeding a consumed single-use refresh token.
 
-        Applies to any OAuth provider whose singleton lives in auth.json
-        (currently Nous and OpenAI Codex).
+        Applies to OAuth providers whose singleton lives in auth.json
+        (currently Nous).
         """
         if entry.source != "device_code":
             return
@@ -613,20 +547,6 @@ class CredentialPool:
                     if entry.inference_base_url:
                         state["inference_base_url"] = entry.inference_base_url
                     _save_provider_state(auth_store, "nous", state)
-
-                elif self.provider == "openai-codex":
-                    state = _load_provider_state(auth_store, "openai-codex")
-                    if not isinstance(state, dict):
-                        return
-                    tokens = state.get("tokens")
-                    if not isinstance(tokens, dict):
-                        return
-                    tokens["access_token"] = entry.access_token
-                    if entry.refresh_token:
-                        tokens["refresh_token"] = entry.refresh_token
-                    if entry.last_refresh:
-                        state["last_refresh"] = entry.last_refresh
-                    _save_provider_state(auth_store, "openai-codex", state)
 
                 else:
                     return
@@ -668,17 +588,6 @@ class CredentialPool:
                         )
                     except Exception as wexc:
                         logger.debug("Failed to write refreshed token to credentials file: %s", wexc)
-            elif self.provider == "openai-codex":
-                refreshed = auth_mod.refresh_codex_oauth_pure(
-                    entry.access_token,
-                    entry.refresh_token,
-                )
-                updated = replace(
-                    entry,
-                    access_token=refreshed["access_token"],
-                    refresh_token=refreshed["refresh_token"],
-                    last_refresh=refreshed.get("last_refresh"),
-                )
             elif self.provider == "nous":
                 synced = self._sync_nous_entry_from_auth_store(entry)
                 if synced is not entry:
@@ -804,11 +713,6 @@ class CredentialPool:
             if entry.expires_at_ms is None:
                 return False
             return int(entry.expires_at_ms) <= int(time.time() * 1000) + 120_000
-        if self.provider == "openai-codex":
-            return _codex_access_token_is_expiring(
-                entry.access_token,
-                CODEX_ACCESS_TOKEN_REFRESH_SKEW_SECONDS,
-            )
         if self.provider == "nous":
             # Nous refresh/mint can require network access and should happen when
             # runtime credentials are actually resolved, not merely when the pool
@@ -848,18 +752,6 @@ class CredentialPool:
                     and entry.source == "device_code"
                     and entry.last_status == STATUS_EXHAUSTED):
                 synced = self._sync_nous_entry_from_auth_store(entry)
-                if synced is not entry:
-                    entry = synced
-                    cleared_any = True
-            # For openai-codex entries, same pattern: the user may have
-            # re-authed via `hermes model` / `hermes auth` after a 429/401,
-            # leaving fresh tokens on disk while the pool entry is still
-            # frozen behind last_error_reset_at (can be hours in the
-            # future for ChatGPT weekly windows).
-            if (self.provider == "openai-codex"
-                    and entry.source == "device_code"
-                    and entry.last_status == STATUS_EXHAUSTED):
-                synced = self._sync_codex_entry_from_auth_store(entry)
                 if synced is not entry:
                     entry = synced
                     cleared_any = True
@@ -1241,64 +1133,6 @@ def _seed_from_singletons(provider: str, entries: List[PooledCredential]) -> Tup
                 },
             )
 
-    elif provider == "copilot":
-        # Copilot tokens are resolved dynamically via `gh auth token` or
-        # env vars (COPILOT_GITHUB_TOKEN / GH_TOKEN).  They don't live in
-        # the auth store or credential pool, so we resolve them here.
-        try:
-            from hermes_cli.copilot_auth import resolve_copilot_token, get_copilot_api_token
-            token, source = resolve_copilot_token()
-            if token:
-                api_token = get_copilot_api_token(token)
-                source_name = "gh_cli" if "gh" in source.lower() else f"env:{source}"
-                if not _is_suppressed(provider, source_name):
-                    active_sources.add(source_name)
-                    pconfig = PROVIDER_REGISTRY.get(provider)
-                    changed |= _upsert_entry(
-                        entries,
-                        provider,
-                        source_name,
-                        {
-                            "source": source_name,
-                            "auth_type": AUTH_TYPE_API_KEY,
-                            "access_token": api_token,
-                            "base_url": pconfig.inference_base_url if pconfig else "",
-                            "label": source,
-                        },
-                    )
-        except Exception as exc:
-            logger.debug("Copilot token seed failed: %s", exc)
-
-    elif provider == "qwen-oauth":
-        # Qwen OAuth tokens live in ~/.qwen/oauth_creds.json, written by
-        # the Qwen CLI (`qwen auth qwen-oauth`).  They aren't in the
-        # Hermes auth store or env vars, so resolve them here.
-        # Use refresh_if_expiring=False to avoid network calls during
-        # pool loading / provider discovery.
-        try:
-            from hermes_cli.auth import resolve_qwen_runtime_credentials
-            creds = resolve_qwen_runtime_credentials(refresh_if_expiring=False)
-            token = creds.get("api_key", "")
-            if token:
-                source_name = creds.get("source", "qwen-cli")
-                if not _is_suppressed(provider, source_name):
-                    active_sources.add(source_name)
-                    changed |= _upsert_entry(
-                        entries,
-                        provider,
-                        source_name,
-                        {
-                            "source": source_name,
-                            "auth_type": AUTH_TYPE_OAUTH,
-                            "access_token": token,
-                            "expires_at_ms": creds.get("expires_at_ms"),
-                            "base_url": creds.get("base_url", ""),
-                            "label": creds.get("auth_file", source_name),
-                        },
-                    )
-        except Exception as exc:
-            logger.debug("Qwen OAuth token seed failed: %s", exc)
-
     elif provider == "minimax-oauth":
         # MiniMax OAuth tokens live in ~/.hermes/auth.json providers.minimax-oauth.
         # Seed the pool so `/auth list` reflects the logged-in state and the
@@ -1340,39 +1174,6 @@ def _seed_from_singletons(provider: str, entries: List[PooledCredential]) -> Tup
                     )
         except Exception as exc:
             logger.debug("MiniMax OAuth token seed failed: %s", exc)
-
-    elif provider == "openai-codex":
-        # Respect user suppression — `hermes auth remove openai-codex` marks
-        # the device_code source as suppressed so it won't be re-seeded from
-        # the Hermes auth store.  Without this gate the removal is instantly
-        # undone on the next load_pool() call.
-        if _is_suppressed(provider, "device_code"):
-            return changed, active_sources
-
-        state = _load_provider_state(auth_store, "openai-codex")
-        tokens = state.get("tokens") if isinstance(state, dict) else None
-        # Hermes owns its own Codex auth state — we do NOT auto-import from
-        # ~/.codex/auth.json at pool-load time.  OAuth refresh tokens are
-        # single-use, so sharing them with Codex CLI / VS Code causes
-        # refresh_token_reused race failures.  Users who want to adopt
-        # existing Codex CLI credentials get a one-time, explicit prompt
-        # via `hermes auth openai-codex`.
-        if isinstance(tokens, dict) and tokens.get("access_token"):
-            active_sources.add("device_code")
-            changed |= _upsert_entry(
-                entries,
-                provider,
-                "device_code",
-                {
-                    "source": "device_code",
-                    "auth_type": AUTH_TYPE_OAUTH,
-                    "access_token": tokens.get("access_token", ""),
-                    "refresh_token": tokens.get("refresh_token"),
-                    "base_url": "https://chatgpt.com/backend-api/codex",
-                    "last_refresh": state.get("last_refresh"),
-                    "label": label_from_token(tokens.get("access_token", ""), "device_code"),
-                },
-            )
 
     return changed, active_sources
 

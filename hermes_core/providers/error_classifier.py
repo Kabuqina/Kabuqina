@@ -116,7 +116,6 @@ _RATE_LIMIT_PATTERNS = [
     "please retry after",
     "resource_exhausted",
     "rate increased too quickly",  # Alibaba/DashScope throttling
-    # AWS Bedrock throttling
     "throttlingexception",
     "too many concurrent requests",
     "servicequotaexceededexception",
@@ -193,7 +192,6 @@ _CONTEXT_OVERFLOW_PATTERNS = [
     # Chinese error messages (some providers return these)
     "超过最大长度",
     "上下文长度",
-    # AWS Bedrock Converse API error patterns
     "input is too long",
     "max input token",
     "input token",
@@ -360,9 +358,8 @@ def classify_api_error(
     """
     status_code = _extract_status_code(error)
     error_type = type(error).__name__
-    # Copilot/GitHub Models RateLimitError may not set .status_code; force 429
-    # so downstream rate-limit handling (classifier reason, pool rotation,
-    # fallback gating) fires correctly instead of misclassifying as generic.
+    # Some SDK RateLimitError objects may not set .status_code; force 429 so
+    # downstream rate-limit handling fires instead of misclassifying as generic.
     if status_code is None and error_type == "RateLimitError":
         status_code = 429
     body = _extract_error_body(error)
@@ -558,9 +555,9 @@ def _classify_by_status(
 
     if status_code == 401:
         # Not retryable on its own — credential pool rotation and
-        # provider-specific refresh (Codex, Anthropic, Nous) run before
-        # the retryability check in run_agent.py.  If those succeed, the
-        # loop `continue`s.  If they fail, retryable=False ensures we
+        # provider-specific refresh run before the retryability check in
+        # run_agent.py.  If those succeed, the loop `continue`s.  If they fail,
+        # retryable=False ensures we
         # hit the client-error abort path (which tries fallback first).
         return result_fn(
             FailoverReason.auth,

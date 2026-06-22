@@ -103,8 +103,8 @@ class TestMiniMaxCatalogPathRequired:
     """Prove the catalog path is necessary: without it, MiniMax would fail.
 
     These tests demonstrate that when fetch_api_models returns None (simulating
-    the real 404 from MiniMax /v1/models), the openai-codex-style catalog path
-    is the only way to avoid a "Could not reach the API" failure.
+    the real 404 from MiniMax /v1/models), the catalog path is the only way to
+    avoid a "Could not reach the API" failure.
     """
 
     def test_minimax_without_fix_would_reach_api_probe(self):

@@ -9,10 +9,9 @@ env vars were silently ignored for the primary chat client, causing requests
 to bypass local proxies (Clash, corporate egress, etc.) and hit upstream
 directly from the raw interface.
 
-For users on WSL2 + Clash TUN this surfaced as Cloudflare ``cf-mitigated:
-challenge`` 403s against ``chatgpt.com/backend-api/codex`` once they upgraded
-past #11277. The fix forwards the proxy URL explicitly to ``httpx.Client``
-while keeping the keepalive-enabled transport in place.
+For users on WSL2 + Clash TUN this surfaced as upstream 403s once they upgraded
+past #11277. The fix forwards the proxy URL explicitly to ``httpx.Client`` while
+keeping the keepalive-enabled transport in place.
 
 This test pins that the constructed ``httpx.Client`` mounts an ``HTTPProxy``
 pool when a proxy env var is set, AND that the socket-level keepalive
@@ -26,15 +25,21 @@ from run_agent import AIAgent, _get_proxy_from_env, _get_proxy_for_base_url
 
 
 def _make_agent():
-    return AIAgent(
-        api_key="test-key",
-        base_url="https://chatgpt.com/backend-api/codex",
-        provider="openai-codex",
-        model="gpt-5.4",
-        quiet_mode=True,
-        skip_context_files=True,
-        skip_memory=True,
-    )
+    with (
+        patch("run_agent.get_tool_definitions", return_value=[]),
+        patch("run_agent.check_toolset_requirements", return_value={}),
+    ):
+        return AIAgent(
+            api_key="test-key",
+            base_url="https://proxy-regression.example/v1",
+            provider="openai",
+            api_mode="chat_completions",
+            model="gpt-4o",
+            quiet_mode=True,
+            skip_context_files=True,
+            skip_memory=True,
+        )
+
 
 
 def _extract_http_client(client_kwargs: dict):
@@ -91,7 +96,7 @@ def test_create_openai_client_routes_via_proxy_when_env_set(mock_openai, monkeyp
     agent = _make_agent()
     kwargs = {
         "api_key": "test-key",
-        "base_url": "https://chatgpt.com/backend-api/codex",
+        "base_url": "https://proxy-regression.example/v1",
     }
     agent._create_openai_client(kwargs, reason="test", shared=False)
 
@@ -126,7 +131,7 @@ def test_create_openai_client_no_proxy_when_env_unset(mock_openai, monkeypatch):
     agent = _make_agent()
     kwargs = {
         "api_key": "test-key",
-        "base_url": "https://chatgpt.com/backend-api/codex",
+        "base_url": "https://proxy-regression.example/v1",
     }
     agent._create_openai_client(kwargs, reason="test", shared=False)
 

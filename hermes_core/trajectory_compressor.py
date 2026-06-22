@@ -439,11 +439,6 @@ class TrajectoryCompressor:
             return "openrouter"
         if base_url_host_matches(url, "nousresearch.com"):
             return "nous"
-        if (
-            base_url_hostname(url) == "chatgpt.com"
-            and "/backend-api/codex" in url.lower()
-        ):
-            return "codex"
         if base_url_host_matches(url, "z.ai"):
             return "zai"
         if (

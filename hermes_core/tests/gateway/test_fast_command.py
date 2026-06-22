@@ -116,7 +116,7 @@ def test_turn_route_skips_priority_processing_for_unsupported_models():
         "credential_pool": None,
     }
 
-    route = gateway_run.GatewayRunner._resolve_turn_agent_config(runner, "hi", "gpt-5.3-codex", runtime_kwargs)
+    route = gateway_run.GatewayRunner._resolve_turn_agent_config(runner, "hi", "deepseek/deepseek-chat", runtime_kwargs)
 
     assert route["request_overrides"] == {}
 
