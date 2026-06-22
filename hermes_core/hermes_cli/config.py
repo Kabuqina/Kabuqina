@@ -113,126 +113,22 @@ _MANAGED_SYSTEM_NAMES = {
 }
 
 
-def get_managed_system() -> Optional[str]:
-    """Return the package manager owning this install, if any."""
-    raw = os.getenv("HERMES_MANAGED", "").strip()
-    if raw:
-        normalized = raw.lower()
-        if normalized in _MANAGED_TRUE_VALUES:
-            return "NixOS"
-        return _MANAGED_SYSTEM_NAMES.get(normalized, raw)
-
-    managed_marker = get_hermes_home() / ".managed"
-    if managed_marker.exists():
-        return "NixOS"
-    return None
-
-
-def is_managed() -> bool:
-    """Check if Hermes is running in package-manager-managed mode.
-
-    Two signals: the HERMES_MANAGED env var (set by the systemd service),
-    or a .managed marker file in HERMES_HOME (set by the NixOS activation
-    script, so interactive shells also see it).
-    """
-    return get_managed_system() is not None
-
-
-def get_managed_update_command() -> Optional[str]:
-    """Return the preferred upgrade command for a managed install."""
-    managed_system = get_managed_system()
-    if managed_system == "Homebrew":
-        return "brew upgrade hermes-agent"
-    if managed_system == "NixOS":
-        return "sudo nixos-rebuild switch"
-    return None
-
-
-def recommended_update_command() -> str:
-    """Return the best update command for the current installation."""
-    return get_managed_update_command() or "hermes update"
-
-
-def format_managed_message(action: str = "modify this Hermes installation") -> str:
-    """Build a user-facing error for managed installs."""
-    managed_system = get_managed_system() or "a package manager"
-    raw = os.getenv("HERMES_MANAGED", "").strip().lower()
-
-    if managed_system == "NixOS":
-        env_hint = "true" if raw in _MANAGED_TRUE_VALUES else raw or "true"
-        return (
-            f"Cannot {action}: this Hermes installation is managed by NixOS "
-            f"(HERMES_MANAGED={env_hint}).\n"
-            "Edit services.hermes-agent.settings in your configuration.nix and run:\n"
-            "  sudo nixos-rebuild switch"
-        )
-
-    if managed_system == "Homebrew":
-        env_hint = raw or "homebrew"
-        return (
-            f"Cannot {action}: this Hermes installation is managed by Homebrew "
-            f"(HERMES_MANAGED={env_hint}).\n"
-            "Use:\n"
-            "  brew upgrade hermes-agent"
-        )
-
-    return (
-        f"Cannot {action}: this Hermes installation is managed by {managed_system}.\n"
-        "Use your package manager to upgrade or reinstall Hermes."
-    )
-
-def managed_error(action: str = "modify configuration"):
-    """Print user-friendly error for managed mode."""
-    print(format_managed_message(action), file=sys.stderr)
+# Managed-install / container detection now lives in hermes_cli.config_managed
+# (a leaf below config); re-export so existing hermes_cli.config.* imports work.
+from hermes_cli.config_managed import (  # noqa: F401
+    format_managed_message,
+    get_container_exec_info,
+    get_managed_system,
+    get_managed_update_command,
+    is_managed,
+    managed_error,
+    recommended_update_command,
+)
 
 
 # =============================================================================
 # Container-aware CLI (NixOS container mode)
 # =============================================================================
-
-def get_container_exec_info() -> Optional[dict]:
-    """Read container mode metadata from HERMES_HOME/.container-mode.
-
-    Returns a dict with keys: backend, container_name, exec_user, hermes_bin
-    or None if container mode is not active, we're already inside the
-    container, or HERMES_DEV=1 is set.
-
-    The .container-mode file is written by the NixOS activation script when
-    container.enable = true. It tells the host CLI to exec into the container
-    instead of running locally.
-    """
-    if os.environ.get("HERMES_DEV") == "1":
-        return None
-
-    from hermes_constants import is_container
-    if is_container():
-        return None
-
-    container_mode_file = get_hermes_home() / ".container-mode"
-
-    try:
-        info = {}
-        with open(container_mode_file, "r") as f:
-            for line in f:
-                line = line.strip()
-                if "=" in line and not line.startswith("#"):
-                    key, _, value = line.partition("=")
-                    info[key.strip()] = value.strip()
-    except FileNotFoundError:
-        return None
-    # All other exceptions (PermissionError, malformed data, etc.) propagate
-
-    backend = info.get("backend", "docker")
-    container_name = info.get("container_name", "hermes-agent")
-    exec_user = info.get("exec_user", "hermes")
-    hermes_bin = info.get("hermes_bin", "/data/current-package/bin/hermes")
-
-    return {
-        "backend": backend,
-        "container_name": container_name,
-        "exec_user": exec_user,
-        "hermes_bin": hermes_bin,
-    }
 
 
 # =============================================================================
