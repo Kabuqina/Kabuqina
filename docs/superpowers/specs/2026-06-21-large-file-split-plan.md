@@ -117,11 +117,11 @@ Date: 2026-06-21
     only **nous** + **minimax** remain (retained); deferred behind the `dev.ps1`
     smoke gate (nous is live-path). `AuthError` prereq is done (`888ef30c`).
     See continuation point.
-- [~] **Step 3 — `config.py`**: **in progress** (4597 → 1853, −60%). Done (8):
+- [~] **Step 3 — `config.py`**: **in progress** (4597 → 1279, −72%). Done (9):
   `config_defaults`, `config_env_schema`, `config_managed`, `config_home`,
-  `config_env`, `config_merge`, `config_paths`, `config_loader`. Remaining is the
-  `load_config` consumers (`migrate_config` ~580, validation, custom-providers) +
-  the CLI facade — optional further tidy; see continuation point.
+  `config_env`, `config_merge`, `config_paths`, `config_loader`, `config_migrate`.
+  Remaining is small: the validation + custom-providers + missing-detection
+  consumers (optional) and the CLI commands (stay in facade) — see continuation.
 - [ ] **Step 4 — `run_agent.py`**: not started — and **scope reduced**: its core
   loop is the Phase-3.5 LangGraph re-platform target, so don't fully split it;
   extract only orthogonal keep-forever concerns + add characterization tests.
@@ -321,13 +321,14 @@ extracting — the trivial defined-names scan misses `is_managed`,
 `DEFAULT_SOUL_MD`, `Colors`, etc., causing false-start NameErrors. (Use the
 per-function AST walk that unions defs+assigns+imports+builtins.)
 
-**What remains (~1853 lines) is the `load_config` *consumers* + the CLI facade.**
-The loader core is out, so these can now be extracted (they import `load_config`
-from `config_loader` directly — no cycle), or left in the facade. Candidates,
-biggest first:
-- **`migrate_config`** (~580 lines) → `config_migrate.py` — the largest remaining
-  chunk and the highest-value next slice. Depends on `load_config`/`save_config`
-  (config_loader), `DEFAULT_CONFIG`, the env schema, `ENV_VARS_BY_VERSION`.
+**What remains (~1279 lines) is the smaller `load_config` *consumers* + the CLI
+facade.** The loader core is out; these import `load_config` from `config_loader`
+directly (no cycle), or are left in the facade. Candidates:
+- **`migrate_config`** (~600 lines) → `config_migrate.py` — **done** (`f8439f3f`).
+  Its facade-resident inspection helpers (`check_config_version`, `_set_nested`,
+  `get_missing_*`, shared with the CLI commands) are lazy-imported inside the
+  function to avoid a cycle — the idiomatic pattern for a one-shot, non-hot
+  consumer at the top of the stack.
 - **validation** (`validate_config_structure` + `ConfigIssue`, `print_config_warnings`,
   `warn_deprecated_cwd_env_vars`, `check_config_version`) → `config_validate.py`.
 - **custom-providers** (`_normalize_custom_provider_entry`,
