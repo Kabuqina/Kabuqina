@@ -143,6 +143,8 @@ interface SlideCtx {
   layoutRecipe: VisualMasterV2["layouts"][MasterLayoutId];
   pageW: number;
   pageH: number;
+  /** A1: when true, background + rail come from a PptxGenJS slide master, so per-slide drawing skips them. */
+  chromeInMaster?: boolean;
 }
 
 /** pptxgenjs wants hex colors without the leading '#'. */
@@ -212,8 +214,9 @@ function bulletRows(bullets: string[], numbered: boolean): pptxgen.TextProps[] {
   }));
 }
 
-function drawPageBase(ctx: Pick<SlideCtx, "pptx" | "slide" | "p" | "master">): void {
+function drawPageBase(ctx: Pick<SlideCtx, "pptx" | "slide" | "p" | "master" | "chromeInMaster">): void {
   const { pptx, slide, p, master } = ctx;
+  if (ctx.chromeInMaster) return; // background + rail are provided by the slide master (A1)
   slide.background = { color: p.bg };
   if (master.decorations.rail === "left") {
     slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 0.16, h: "100%", fill: { color: p.accent } });
@@ -780,10 +783,81 @@ export function chooseLayout(spec: DeckSlideSpec): SlideLayoutId {
 // Cover + deck assembly
 // ---------------------------------------------------------------------------
 
-function addCover(pptx: pptxgen, deck: DeckSpec, p: Palette, master: VisualMasterV2): void {
-  const slide = pptx.addSlide();
+const MASTER_COVER = "KQ_COVER";
+const MASTER_CONTENT = "KQ_CONTENT";
+
+type SlideMasterProps = Parameters<pptxgen["defineSlideMaster"]>[0];
+type MasterObject = NonNullable<SlideMasterProps["objects"]>[number];
+
+/** A1: a visual master opts in to real PptxGenJS slide masters (chrome lives in the master, not per slide). */
+function supportsSlideMaster(master: VisualMasterV2): boolean {
+  return master.decorations.useSlideMaster === true;
+}
+
+function railObjects(p: Palette, master: VisualMasterV2): MasterObject[] {
+  if (master.decorations.rail === "left") {
+    return [
+      { rect: { x: 0, y: 0, w: 0.16, h: "100%", fill: { color: p.accent } } },
+      { rect: { x: 0, y: 0, w: 0.16, h: 1.1, fill: { color: p.accent2 } } },
+    ];
+  }
+  if (master.decorations.rail === "top") {
+    return [
+      { rect: { x: 0, y: 0, w: "100%", h: 0.14, fill: { color: p.accent } } },
+      { rect: { x: 0, y: 0, w: 3.2, h: 0.14, fill: { color: p.accent2 } } },
+    ];
+  }
+  return [];
+}
+
+function motifObjects(p: Palette, master: VisualMasterV2, pageW: number, pageH: number): MasterObject[] {
+  switch (master.decorations.background) {
+    case "side_band":
+      return [{ rect: { x: pageW - 0.12, y: 0, w: 0.12, h: "100%", fill: { color: p.accent2 } } }];
+    case "corner":
+      return [{ rect: { x: pageW - 1.6, y: pageH - 1.6, w: 1.6, h: 1.6, fill: { color: p.accent2, transparency: 88 } } }];
+    default:
+      return [];
+  }
+}
+
+/** Register one cover master and one content master carrying this deck's repeating chrome. */
+function defineDeckMasters(
+  pptx: pptxgen,
+  master: VisualMasterV2,
+  p: Palette,
+  pageW: number,
+  pageH: number,
+): { cover: string; content: string } {
+  const background = { color: p.bg };
+  const chrome = [...motifObjects(p, master, pageW, pageH), ...railObjects(p, master)];
+
+  // Cover: background + rail + motif only. The title slide carries its own byline/citation and no page number.
+  pptx.defineSlideMaster({ title: MASTER_COVER, background, objects: chrome });
+
+  // Content: same chrome plus an optional footer band; page number via slideNumber when configured.
+  const contentObjects: MasterObject[] = [...chrome];
+  if (master.decorations.footer === "brand") {
+    contentObjects.push({
+      text: {
+        text: "Kabuqina",
+        options: { x: master.spacing.marginX, y: pageH - 0.45, w: 3, h: 0.3, fontSize: 9, color: p.body, fontFace: master.typography.caption.fontFace },
+      },
+    });
+  }
+  const content: SlideMasterProps = { title: MASTER_CONTENT, background, objects: contentObjects };
+  if (master.decorations.footer === "page_number") {
+    content.slideNumber = { x: pageW - 0.9, y: pageH - 0.45, w: 0.6, h: 0.3, fontSize: 9, color: p.body, align: "right", fontFace: master.typography.caption.fontFace };
+  }
+  pptx.defineSlideMaster(content);
+
+  return { cover: MASTER_COVER, content: MASTER_CONTENT };
+}
+
+function addCover(pptx: pptxgen, deck: DeckSpec, p: Palette, master: VisualMasterV2, coverMasterName?: string): void {
+  const slide = coverMasterName ? pptx.addSlide({ masterName: coverMasterName }) : pptx.addSlide();
   const recipe = master.layouts.cover;
-  const coverCtx: Pick<SlideCtx, "pptx" | "slide" | "p" | "master"> = { pptx, slide, p, master };
+  const coverCtx: Pick<SlideCtx, "pptx" | "slide" | "p" | "master" | "chromeInMaster"> = { pptx, slide, p, master, chromeInMaster: !!coverMasterName };
   drawPageBase(coverCtx);
   if (deck.template_badge) {
     slide.addText(deck.template_badge, { x: recipe.title.x, y: 0.5, w: 4, h: 0.4, fontSize: 13, bold: true, color: p.accent, charSpacing: 1 });
@@ -825,7 +899,7 @@ function addCover(pptx: pptxgen, deck: DeckSpec, p: Palette, master: VisualMaste
       x: recipe.body.x, y: 6.45, w: recipe.body.w, h: 0.4, ...master.typography.caption, color: colorFor(p, master.typography.caption.color, "body"), valign: "bottom",
     });
   }
-  if (master.decorations.footer !== "none") {
+  if (!coverMasterName && master.decorations.footer !== "none") {
     slide.addText(master.decorations.footer === "page_number" ? "01" : "Kabuqina", { x: recipe.body.x, y: 6.9, w: 3, h: 0.3, fontSize: 10, color: p.body });
   }
 }
@@ -851,7 +925,13 @@ export async function renderDeckToBase64(deck: DeckSpec): Promise<RenderedDeck> 
   const fonts = masterFontFaces(master, override);
   pptx.theme = { headFontFace: fonts.head, bodyFontFace: fonts.body };
 
-  addCover(pptx, deck, p, master);
+  // A1: opt-in visual masters render repeating chrome (background, rail, footer,
+  // page number, motif) via real PptxGenJS slide masters; other masters keep the
+  // per-slide drawing path unchanged.
+  const useMasters = supportsSlideMaster(master);
+  const masters = useMasters ? defineDeckMasters(pptx, master, p, pageW, pageH) : null;
+
+  addCover(pptx, deck, p, master, masters?.cover);
 
   const audit: RenderAudit = {
     visualMasterId: master.id,
@@ -868,7 +948,7 @@ export async function renderDeckToBase64(deck: DeckSpec): Promise<RenderedDeck> 
   };
 
   for (const spec of deck.slides ?? []) {
-    const slide = pptx.addSlide();
+    const slide = masters ? pptx.addSlide({ masterName: masters.content }) : pptx.addSlide();
     const layoutId = chooseLayout(spec);
     const layoutRecipe = master.layouts[layoutId];
     audit.slideLayouts.push({
@@ -877,7 +957,7 @@ export async function renderDeckToBase64(deck: DeckSpec): Promise<RenderedDeck> 
       slideType: spec.slide_type,
       layout: layoutId,
     });
-    const ctx: SlideCtx = { pptx, slide, spec, p, master, layoutId, layoutRecipe, pageW, pageH };
+    const ctx: SlideCtx = { pptx, slide, spec, p, master, layoutId, layoutRecipe, pageW, pageH, chromeInMaster: useMasters };
     LAYOUTS[layoutId](ctx);
     if (spec.notes) slide.addNotes(spec.notes);
   }

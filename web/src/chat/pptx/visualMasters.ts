@@ -109,6 +109,10 @@ export interface VisualMasterV2 {
     underline: "short" | "wide" | "none";
     footer: "brand" | "page_number" | "none";
     cardStyle: "outline" | "filled" | "minimal";
+    /** Optional background motif rendered into the slide master (A1). Omit for none. */
+    background?: "none" | "side_band" | "corner";
+    /** Opt-in: render repeating chrome via a real PptxGenJS slide master instead of per-slide shapes (A1). */
+    useSlideMaster?: boolean;
   };
   components: VisualMasterComponentRecipe;
   layouts: Record<MasterLayoutId, VisualMasterLayoutRecipe>;
@@ -288,7 +292,7 @@ export const PPT_VISUAL_MASTERS = [
       caption: { fontFace: "Microsoft YaHei UI", fontSize: 10, color: "body" },
     },
     spacing: { marginX: 0.62, headerY: 0.46, bodyTop: 1.52, gutter: 0.3 },
-    decorations: { rail: "top", underline: "wide", footer: "page_number", cardStyle: "minimal" },
+    decorations: { rail: "top", underline: "wide", footer: "page_number", cardStyle: "minimal", background: "side_band", useSlideMaster: true },
     components: withComponents({
       flow: { nodeFill: "accent", nodeLine: "accent", nodeText: "background", connector: "accent2", nodeStyle: "filled", connectorStyle: "bar" },
       table: { headerFill: "accent", headerText: "background", bodyFill: "background", bodyText: "body", border: "accent2", zebra: false },
