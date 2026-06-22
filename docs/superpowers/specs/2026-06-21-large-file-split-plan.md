@@ -117,11 +117,11 @@ Date: 2026-06-21
     only **nous** + **minimax** remain (retained); deferred behind the `dev.ps1`
     smoke gate (nous is live-path). `AuthError` prereq is done (`888ef30c`).
     See continuation point.
-- [~] **Step 3 — `config.py`**: **in progress** (4597 → 2026, −56%). Done (7):
+- [~] **Step 3 — `config.py`**: **in progress** (4597 → 1853, −60%). Done (8):
   `config_defaults`, `config_env_schema`, `config_managed`, `config_home`,
-  `config_env`, `config_merge`, `config_paths`. Remaining is the coupled loader
-  core + CLI facade (load/save → validation/migration consumers) — see
-  continuation point.
+  `config_env`, `config_merge`, `config_paths`, `config_loader`. Remaining is the
+  `load_config` consumers (`migrate_config` ~580, validation, custom-providers) +
+  the CLI facade — optional further tidy; see continuation point.
 - [ ] **Step 4 — `run_agent.py`**: not started — and **scope reduced**: its core
   loop is the Phase-3.5 LangGraph re-platform target, so don't fully split it;
   extract only orthogonal keep-forever concerns + add characterization tests.
@@ -306,6 +306,10 @@ compat):
 - `config_home.py` — `~/.hermes` setup + file/dir security (`62ed4c0d`).
 - `config_env.py` — `.env` read/write + env-only constants (`c1a5a66c`).
 - `config_merge.py` — config-tree merge/normalize helpers below load_config (`5cdf8eea`).
+- `config_paths.py` — `config.yaml` path resolvers + `save_config_value` (`7c576d42`).
+- `config_loader.py` — the loader core `read_raw_config`/`load_config`/`save_config`
+  + mtime caches + save banners (`2ba61288`). Landed cleanly: load/cache/save/
+  reload + consumer smoke, 257 passed. `rp.load_config` monkeypatches keep working.
 
 **Key finding — config.py is a dependency *stack*, not flat.** The pure-data
 blobs were trivial leaves, but the functional clusters layer:
@@ -317,21 +321,28 @@ extracting — the trivial defined-names scan misses `is_managed`,
 `DEFAULT_SOUL_MD`, `Colors`, etc., causing false-start NameErrors. (Use the
 per-function AST walk that unions defs+assigns+imports+builtins.)
 
-**What remains (~2066 lines) is the coupled loader core + CLI facade — a bigger,
-higher-risk piece, not more clean leaves.** Dependency shape:
-- **paths** (`get_config_path`, `get_project_root`, `save_config_value`) — **done**,
-  `config_paths.py` (`7c576d42`). Was the leaf that unblocks the loader.
-- **loader core** (`read_raw_config`, `load_config`, `save_config`) — **now
-  unblocked; this is the next pass.** Depends on `config_paths` + `config_merge` +
-  `DEFAULT_CONFIG`; target `config/loader.py`. Highest-risk config slice
-  (`load_config` is hot/heavily-imported) — run the robust free-name analysis and
-  a full functional smoke; `save_config`'s monkeypatch surface is wide.
-- **consumers of `load_config`** (`validate_config_structure`+`ConfigIssue`,
-  custom-providers `get_compatible_custom_providers` etc., `migrate_config` ~580,
-  `get_missing_*`) sit *above* the loader → extract after it, or keep in the
-  facade / lazy-import `load_config`.
+**What remains (~1853 lines) is the `load_config` *consumers* + the CLI facade.**
+The loader core is out, so these can now be extracted (they import `load_config`
+from `config_loader` directly — no cycle), or left in the facade. Candidates,
+biggest first:
+- **`migrate_config`** (~580 lines) → `config_migrate.py` — the largest remaining
+  chunk and the highest-value next slice. Depends on `load_config`/`save_config`
+  (config_loader), `DEFAULT_CONFIG`, the env schema, `ENV_VARS_BY_VERSION`.
+- **validation** (`validate_config_structure` + `ConfigIssue`, `print_config_warnings`,
+  `warn_deprecated_cwd_env_vars`, `check_config_version`) → `config_validate.py`.
+- **custom-providers** (`_normalize_custom_provider_entry`,
+  `providers_dict_to_custom_providers`, `get_compatible_custom_providers`,
+  `get_custom_provider_context_length`) → `config_custom_providers.py`.
+- **missing-detection** (`get_missing_env_vars`, `_set_nested`,
+  `get_missing_config_fields`, `get_missing_skill_config_vars`).
 - **CLI commands** (`show_config`, `edit_config`, `set_config_value`,
-  `config_command`) stay in the `hermes_cli.config` facade.
+  `config_command`) — **stay** in the `hermes_cli.config` facade.
+
+Each consumer is a separate sibling + re-export with the robust free-name
+analysis + functional smoke. config.py at −60% is already a healthy facade;
+these are optional further tidy (diminishing returns vs the loader core). Refactor
+Phase 4 aspirational shape: a `config/` package (`{loader,env_loader,paths,...}`),
+formable later from the siblings.
 
 So the next focused pass is: `config_paths.py` (leaf) → `config/loader.py`
 (load/save/read_raw) → then decide consumers. Refactor Phase 4 target shape:
