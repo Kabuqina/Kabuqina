@@ -117,10 +117,10 @@ Date: 2026-06-21
     only **nous** + **minimax** remain (retained); deferred behind the `dev.ps1`
     smoke gate (nous is live-path). `AuthError` prereq is done (`888ef30c`).
     See continuation point.
-- [~] **Step 3 — `config.py`**: **in progress** (4597 → 2669, −42%). Done:
-  `config_defaults`, `config_env_schema`, `config_managed`, `config_home`.
-  Next: `config_env` (unblocked), then `load_config`/`save_config` last. config.py
-  is a dependency stack (managed → home → env → load) — see continuation point.
+- [~] **Step 3 — `config.py`**: **in progress** (4597 → 2066, −55%). Done (6):
+  `config_defaults`, `config_env_schema`, `config_managed`, `config_home`,
+  `config_env`, `config_merge`. Remaining is the coupled loader core + CLI facade
+  (paths → load/save → validation/migration consumers) — see continuation point.
 - [ ] **Step 4 — `run_agent.py`**: not started — and **scope reduced**: its core
   loop is the Phase-3.5 LangGraph re-platform target, so don't fully split it;
   extract only orthogonal keep-forever concerns + add characterization tests.
@@ -292,7 +292,7 @@ internal callers move; the kabuqina compat guardrails stay green throughout.
 
 ## Current continuation point
 
-**Step 3 — `config.py` (4597 → 2669, −42% so far). In progress.** Step 2 is
+**Step 3 — `config.py` (4597 → 2066, −55% so far). In progress.** Step 2 is
 *parked, not closed* (see below). Keep `hermes_cli.config` as the re-exporting
 facade; extract into sibling `hermes_cli/config_*.py` modules (a `config/`
 package can be formed later).
@@ -303,29 +303,36 @@ compat):
 - `config_env_schema.py` — `ENV_VARS_BY_VERSION`/`REQUIRED_ENV_VARS`/`OPTIONAL_ENV_VARS` (`cd8811bc`).
 - `config_managed.py` — managed-install + container detection (`281be9ad`).
 - `config_home.py` — `~/.hermes` setup + file/dir security (`62ed4c0d`).
+- `config_env.py` — `.env` read/write + env-only constants (`c1a5a66c`).
+- `config_merge.py` — config-tree merge/normalize helpers below load_config (`5cdf8eea`).
 
 **Key finding — config.py is a dependency *stack*, not flat.** The pure-data
 blobs were trivial leaves, but the functional clusters layer:
-`config_managed` → `config_home` → **`config_env` (.env IO)** → `load_config`.
-Each layer must be extracted before the one above it (env-IO calls
-`is_managed`/`managed_error` from managed and `ensure_hermes_home`/`_secure_file`
-from home). **Lesson:** for these clusters, run a *robust* free-name analysis
-that includes imported names + module-level constants before extracting — the
-trivial defined-names scan misses `is_managed`, `DEFAULT_SOUL_MD`, `Colors`,
-etc., causing false-start NameErrors. (Use the per-function AST walk that unions
-defs+assigns+imports+builtins; see commit history for two env false-starts.)
+`config_managed` → `config_home` → `config_env` (.env IO), and a parallel
+`config_merge` (tree transforms) — both feed `load_config`. Each layer must be
+extracted before the one above it. **Lesson:** for these clusters, run a *robust*
+free-name analysis that includes imported names + module-level constants before
+extracting — the trivial defined-names scan misses `is_managed`,
+`DEFAULT_SOUL_MD`, `Colors`, etc., causing false-start NameErrors. (Use the
+per-function AST walk that unions defs+assigns+imports+builtins.)
 
-**Next slice: `config_env.py` (.env read/write) — now unblocked** (managed +
-home are out). Its complete dep list (from robust analysis): move-with =
-`get_env_path` + the constants `_ENV_VAR_NAME_RE`/`_EXTRA_ENV_KEYS`/`_IS_WINDOWS`;
-import from siblings = `is_managed`/`managed_error` (config_managed),
-`ensure_hermes_home`/`_secure_file` (config_home), `OPTIONAL_ENV_VARS`
-(config_env_schema); plus stdlib + `atomic_replace` (utils). **Two things to nail
-first:** where `Colors`/`color` are imported from, and whether
-`_ENV_VAR_NAME_RE`/`_EXTRA_ENV_KEYS`/`_IS_WINDOWS` are env-only (move them) or
-shared (then keep in config.py + import, or hoist to a shared constants module).
-After env: `load_config`/`save_config` last (most entangled). Refactor Phase 4
-target shape: `config/{loader,env_loader,paths,profiles,models}.py`.
+**What remains (~2066 lines) is the coupled loader core + CLI facade — a bigger,
+higher-risk piece, not more clean leaves.** Dependency shape:
+- **paths** (`get_config_path`, `get_project_root`, `save_config_value`) — a clean
+  leaf (only `get_hermes_home`); extract to `config_paths.py` *first* to unblock
+  the loader (same get_env_path lesson).
+- **loader core** (`read_raw_config`, `load_config`, `save_config`) — depends on
+  paths + `config_merge` + `DEFAULT_CONFIG`; this is `config/loader.py`.
+- **consumers of `load_config`** (`validate_config_structure`+`ConfigIssue`,
+  custom-providers `get_compatible_custom_providers` etc., `migrate_config` ~580,
+  `get_missing_*`) sit *above* the loader → extract after it, or keep in the
+  facade / lazy-import `load_config`.
+- **CLI commands** (`show_config`, `edit_config`, `set_config_value`,
+  `config_command`) stay in the `hermes_cli.config` facade.
+
+So the next focused pass is: `config_paths.py` (leaf) → `config/loader.py`
+(load/save/read_raw) → then decide consumers. Refactor Phase 4 target shape:
+`config/{loader,env_loader,paths,profiles,models}.py`.
 
 **Parked step-2 tail (push after config.py):** extract the **nous** (~900) and
 **minimax** (~300) runtime resolvers into `providers/<name>_auth.py`. Shared
