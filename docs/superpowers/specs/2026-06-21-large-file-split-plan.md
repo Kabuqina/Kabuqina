@@ -93,6 +93,26 @@ Date: 2026-06-21
     functional smoke. Run a quick functional smoke of moved leaf helpers, not
     just the identity test.) Guarded by two more assertions in
     `tests/agent/test_provider_package_split.py`.
+  - [x] Extracted **`AuthError` + `format_auth_error`** into the zero-dep leaf
+    `providers/auth_errors.py` (`888ef30c`), so per-provider resolver modules can
+    `raise AuthError` without a cycle back into the CLI facade. `hermes_cli.auth`
+    re-exports both; `AuthError` stays a single class object across every
+    importer (verified — `except`/`isinstance` safety).
+  - [ ] **Step 2 not closed — deferred, not dropped.** After the set-D deletion
+    landed (`1870cbce`), the codex/qwen/gemini-oauth/copilot resolvers are *gone*,
+    so only the **retained** providers' resolvers remain to extract: **nous**
+    (~900 lines: device-code, agent-key mint, refresh, pool snapshot, the
+    `_default_verify`/`_resolve_verify` SSL helpers — `_is_remote_session` is
+    shared with the login flows and stays) and **minimax** (~300 lines). These
+    no longer *unblock* anything (deletion is done) — their value is the clean
+    per-provider end-state + maintainability, which is a real split goal in its
+    own right. But `resolve_nous_runtime_credentials` is on the **live request
+    path**, so this slice **rides the same pending `scripts/dev.ps1` runtime
+    smoke gate** as the tier-3 deletions. `spotify` is a music-control *tool*,
+    not an inference provider — **exclude it from `providers/`** (leave in
+    `auth.py` or move to a tools-adjacent module separately).
+    **Sequencing decision (2026-06-22): pivot to `config.py` (step 3) first;
+    push the nous/minimax extraction afterwards.**
   - [ ] Remaining `hermes_cli/auth.py` extraction: the per-provider runtime
     credential resolvers (see continuation point below).
 - [ ] **Step 3 — `config.py`**: not started.
@@ -263,28 +283,25 @@ internal callers move; the kabuqina compat guardrails stay green throughout.
 
 ## Current continuation point
 
-Continue the remaining **step 2** work inside `hermes_cli/auth.py`. Done so far:
-the auth-store persistence layer (`providers/auth_store.py`), the
-registry-independent API-key helpers (`providers/api_key_auth.py`), and the
-shared OAuth/JWT/timestamp leaf helpers (`providers/oauth_helpers.py`). The
-shared infra resolvers depend on is now extracted, so the per-provider moves
-are unblocked. Next, each a pure move + re-export with a split guardrail:
+**Now: step 3 — `config.py` (4597 lines).** Step 2 is *parked, not closed* (see
+below). config.py is the biggest **clean** split target — heavily imported by
+desk_server/runtime, no live-request-path, no LangGraph-replatform conflict — so
+it's higher value + lower risk than finishing the retained-provider resolvers.
+Keep `hermes_cli.config` re-exporting; split `load_config`/`save_config` first
+(refactor Phase 4 → `config/{loader,env_loader,paths,profiles,models}.py`).
 
-1. **Per-provider runtime resolvers** → `providers/<name>_auth.py` (Qwen,
-   Gemini-OAuth, Codex, Nous, Minimax, Spotify): the `resolve_*_runtime_credentials`
-   / `get_*_auth_status` / token-refresh mechanics. Leave the interactive
-   `_login_*` / `*_command` argparse+printing code in `hermes_cli/auth.py`.
-   Start with the smallest/most-isolated provider (Qwen or Gemini-OAuth) to
-   re-establish the pattern; Nous is the largest and most entangled, do it last.
-   These persist via the store primitives (`providers.auth_store`) and use the
-   shared helpers (`providers.oauth_helpers`) — import both directly in the new
-   module. `AuthError` is still in `auth.py`; a resolver module needs it via a
-   lazy `from hermes_cli.auth import AuthError` (or move `AuthError` into a small
-   `providers/auth_errors.py` first to avoid the lazy import).
-   These are larger and more entangled (each persists via the store primitives
-   and several share OAuth/JWT/timestamp helpers — `_parse_iso_timestamp`,
-   `_is_expiring`, `_decode_jwt_claims`, `_coerce_ttl_seconds`, `_oauth_trace*`,
-   `_token_fingerprint`); consider extracting those shared OAuth helpers first.
+**Parked step-2 tail (push after config.py):** extract the **nous** (~900) and
+**minimax** (~300) runtime resolvers into `providers/<name>_auth.py`. Shared
+infra they need is already out (`auth_store`, `oauth_helpers`, `auth_errors`).
+Leave interactive `_login_*` / `*_command` in `auth.py`; keep `_is_remote_session`
+in `auth.py` (shared with login flows); `_default_verify`/`_resolve_verify` move
+with nous. **Exclude spotify** (it's a tool, not an inference provider). This
+tail touches the live nous request path → gate it behind the pending
+`scripts/dev.ps1` smoke. Note: the split's value here is maintainability / the
+clean per-provider end-state — it no longer unblocks deletion (that's done), but
+that was never the *only* goal.
+
+(historical) Earlier remaining list — now obsolete after deletion:
 2. **Registry-coupled API-key resolvers** (`get_anthropic_key`,
    `resolve_api_key_provider_credentials`,
    `resolve_external_process_provider_credentials`) move only once
