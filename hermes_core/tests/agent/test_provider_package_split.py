@@ -193,3 +193,74 @@ def test_hermes_cli_auth_reexports_auth_errors():
             f"hermes_cli.auth.{name} must re-export providers.auth_errors.{name}"
         )
 
+
+# Nous Portal runtime auth (device-code, refresh, mint, status) moved from
+# hermes_cli.auth into providers.nous_auth.  hermes_cli.auth re-exports every
+# name so existing imports and monkeypatches keep hitting the same objects.
+_NOUS_AUTH_PRIMITIVES = (
+    "_default_verify",
+    "_resolve_verify",
+    "_request_device_code",
+    "_poll_for_token",
+    "_refresh_access_token",
+    "_mint_agent_key",
+    "fetch_nous_models",
+    "_agent_key_is_usable",
+    "resolve_nous_access_token",
+    "refresh_nous_oauth_pure",
+    "refresh_nous_oauth_from_state",
+    "NOUS_DEVICE_CODE_SOURCE",
+    "persist_nous_credentials",
+    "resolve_nous_runtime_credentials",
+    "_empty_nous_auth_status",
+    "_snapshot_nous_pool_status",
+    "get_nous_auth_status",
+)
+
+
+def test_nous_auth_primitives_live_in_providers_package():
+    import providers.nous_auth as nous_auth
+
+    for name in _NOUS_AUTH_PRIMITIVES:
+        assert hasattr(nous_auth, name), f"providers.nous_auth missing {name}"
+
+
+def test_hermes_cli_auth_reexports_nous_auth_primitives():
+    import hermes_cli.auth as auth
+    import providers.nous_auth as nous_auth
+
+    for name in _NOUS_AUTH_PRIMITIVES:
+        assert getattr(auth, name) is getattr(nous_auth, name), (
+            f"hermes_cli.auth.{name} must re-export providers.nous_auth.{name}"
+        )
+
+
+# MiniMax OAuth runtime helpers moved from hermes_cli.auth into
+# providers.minimax_auth.  hermes_cli.auth re-exports every name so existing
+# imports and monkeypatches keep hitting the same objects.
+_MINIMAX_AUTH_PRIMITIVES = (
+    "_minimax_pkce_pair",
+    "_minimax_request_user_code",
+    "_minimax_poll_token",
+    "_minimax_save_auth_state",
+    "_refresh_minimax_oauth_state",
+    "resolve_minimax_oauth_runtime_credentials",
+    "get_minimax_oauth_auth_status",
+)
+
+
+def test_minimax_auth_primitives_live_in_providers_package():
+    import providers.minimax_auth as minimax_auth
+
+    for name in _MINIMAX_AUTH_PRIMITIVES:
+        assert hasattr(minimax_auth, name), f"providers.minimax_auth missing {name}"
+
+
+def test_hermes_cli_auth_reexports_minimax_auth_primitives():
+    import hermes_cli.auth as auth
+    import providers.minimax_auth as minimax_auth
+
+    for name in _MINIMAX_AUTH_PRIMITIVES:
+        assert getattr(auth, name) is getattr(minimax_auth, name), (
+            f"hermes_cli.auth.{name} must re-export providers.minimax_auth.{name}"
+        )

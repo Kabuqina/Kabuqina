@@ -354,7 +354,7 @@ def test_refresh_updates_access_token():
         mock_client_class.return_value = mock_client_instance
 
         # Patch _minimax_save_auth_state to avoid touching the auth store
-        with patch("hermes_cli.auth._minimax_save_auth_state"):
+        with patch("providers.minimax_auth._minimax_save_auth_state"):
             result = _refresh_minimax_oauth_state(state)
 
     assert result["access_token"] == "new-access"
@@ -402,7 +402,7 @@ def test_refresh_reuse_triggers_relogin_required():
 
 def test_resolve_credentials_requires_login():
     """When no state is stored, resolve_minimax_oauth_runtime_credentials raises."""
-    with patch("hermes_cli.auth.get_provider_auth_state", return_value=None):
+    with patch("providers.minimax_auth.get_provider_auth_state", return_value=None):
         with pytest.raises(AuthError) as exc_info:
             resolve_minimax_oauth_runtime_credentials()
 
@@ -441,7 +441,7 @@ def test_minimax_oauth_alias_resolves():
 # ---------------------------------------------------------------------------
 
 def test_get_minimax_oauth_auth_status_not_logged_in():
-    with patch("hermes_cli.auth.get_provider_auth_state", return_value=None):
+    with patch("providers.minimax_auth.get_provider_auth_state", return_value=None):
         status = get_minimax_oauth_auth_status()
 
     assert status["logged_in"] is False
@@ -459,7 +459,7 @@ def test_get_minimax_oauth_auth_status_logged_in():
         "region": "global",
     }
 
-    with patch("hermes_cli.auth.get_provider_auth_state", return_value=state):
+    with patch("providers.minimax_auth.get_provider_auth_state", return_value=state):
         status = get_minimax_oauth_auth_status()
 
     assert status["logged_in"] is True

@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 from hermes_constants import OPENROUTER_BASE_URL
 from hermes_cli.config import get_env_value
-import hermes_cli.auth as auth_mod
+from providers.nous_auth import refresh_nous_oauth_from_state
 from hermes_cli.auth import (
     DEFAULT_AGENT_KEY_MIN_TTL_SECONDS,
     PROVIDER_REGISTRY,
@@ -606,7 +606,7 @@ class CredentialPool:
                     "agent_key_expires_at": entry.agent_key_expires_at,
                     "tls": entry.tls,
                 }
-                refreshed = auth_mod.refresh_nous_oauth_from_state(
+                refreshed = refresh_nous_oauth_from_state(
                     nous_state,
                     min_key_ttl_seconds=DEFAULT_AGENT_KEY_MIN_TTL_SECONDS,
                     force_refresh=force,

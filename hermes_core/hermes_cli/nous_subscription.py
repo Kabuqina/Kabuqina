@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, Optional, Set
 
-from hermes_cli.auth import get_nous_auth_status
+from providers.nous_auth import get_nous_auth_status
 from hermes_cli.config import get_env_value, load_config
 from tools.managed_tool_gateway import is_managed_tool_gateway_ready
 from utils import is_truthy_value

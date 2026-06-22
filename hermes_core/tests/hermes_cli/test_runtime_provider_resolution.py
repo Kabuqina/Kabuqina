@@ -1639,8 +1639,8 @@ def test_minimax_oauth_runtime_returns_anthropic_messages_mode(monkeypatch):
         "source": "oauth",
     }
 
-    import hermes_cli.auth as auth_mod
-    monkeypatch.setattr(auth_mod, "resolve_minimax_oauth_runtime_credentials",
+    import providers.minimax_auth as minimax_auth_mod
+    monkeypatch.setattr(minimax_auth_mod, "resolve_minimax_oauth_runtime_credentials",
                         lambda **k: fake_creds)
 
     resolved = rp.resolve_runtime_provider(requested="minimax-oauth")
@@ -1667,8 +1667,8 @@ def test_minimax_oauth_runtime_uses_inference_base_url(monkeypatch):
         "source": "oauth",
     }
 
-    import hermes_cli.auth as auth_mod
-    monkeypatch.setattr(auth_mod, "resolve_minimax_oauth_runtime_credentials",
+    import providers.minimax_auth as minimax_auth_mod
+    monkeypatch.setattr(minimax_auth_mod, "resolve_minimax_oauth_runtime_credentials",
                         lambda **k: fake_creds)
 
     resolved = rp.resolve_runtime_provider(requested="minimax-oauth")

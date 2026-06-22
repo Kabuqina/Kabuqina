@@ -199,7 +199,7 @@ def test_get_nous_auth_status_auth_store_fallback(tmp_path, monkeypatch):
     _setup_nous_auth(hermes_home, access_token="at-123")
     monkeypatch.setenv("HERMES_HOME", str(hermes_home))
     monkeypatch.setattr(
-        "hermes_cli.auth.resolve_nous_runtime_credentials",
+        "providers.nous_auth.resolve_nous_runtime_credentials",
         lambda min_key_ttl_seconds=60: {
             "base_url": "https://inference.example.com/v1",
             "expires_at": "2099-01-01T00:00:00+00:00",
@@ -239,7 +239,7 @@ def test_get_nous_auth_status_prefers_runtime_auth_store_over_stale_pool(tmp_pat
     pool.add_entry(stale)
 
     monkeypatch.setattr(
-        "hermes_cli.auth.resolve_nous_runtime_credentials",
+        "providers.nous_auth.resolve_nous_runtime_credentials",
         lambda min_key_ttl_seconds=60: {
             "base_url": "https://inference.example.com/v1",
             "expires_at": "2099-01-01T00:00:00+00:00",
@@ -265,7 +265,7 @@ def test_get_nous_auth_status_reports_revoked_refresh_session(tmp_path, monkeypa
     def _boom(min_key_ttl_seconds=60):
         raise AuthError("Refresh session has been revoked", provider="nous", relogin_required=True)
 
-    monkeypatch.setattr("hermes_cli.auth.resolve_nous_runtime_credentials", _boom)
+    monkeypatch.setattr("providers.nous_auth.resolve_nous_runtime_credentials", _boom)
 
     status = get_nous_auth_status()
     assert status["logged_in"] is False
@@ -315,8 +315,8 @@ def test_refresh_token_persisted_when_mint_returns_insufficient_credits(tmp_path
             raise AuthError("credits exhausted", provider="nous", code="insufficient_credits")
         return _mint_payload(api_key="agent-key-2")
 
-    monkeypatch.setattr("hermes_cli.auth._refresh_access_token", _fake_refresh_access_token)
-    monkeypatch.setattr("hermes_cli.auth._mint_agent_key", _fake_mint_agent_key)
+    monkeypatch.setattr("providers.nous_auth._refresh_access_token", _fake_refresh_access_token)
+    monkeypatch.setattr("providers.nous_auth._mint_agent_key", _fake_mint_agent_key)
 
     with pytest.raises(AuthError) as exc:
         resolve_nous_runtime_credentials(min_key_ttl_seconds=300)
@@ -348,8 +348,8 @@ def test_refresh_token_persisted_when_mint_times_out(tmp_path, monkeypatch):
     def _fake_mint_agent_key(*, client, portal_base_url, access_token, min_ttl_seconds):
         raise httpx.ReadTimeout("mint timeout")
 
-    monkeypatch.setattr("hermes_cli.auth._refresh_access_token", _fake_refresh_access_token)
-    monkeypatch.setattr("hermes_cli.auth._mint_agent_key", _fake_mint_agent_key)
+    monkeypatch.setattr("providers.nous_auth._refresh_access_token", _fake_refresh_access_token)
+    monkeypatch.setattr("providers.nous_auth._mint_agent_key", _fake_mint_agent_key)
 
     with pytest.raises(httpx.ReadTimeout):
         resolve_nous_runtime_credentials(min_key_ttl_seconds=300)
@@ -384,8 +384,8 @@ def test_mint_retry_uses_latest_rotated_refresh_token(tmp_path, monkeypatch):
             raise AuthError("stale access token", provider="nous", code="invalid_token")
         return _mint_payload(api_key="agent-key")
 
-    monkeypatch.setattr("hermes_cli.auth._refresh_access_token", _fake_refresh_access_token)
-    monkeypatch.setattr("hermes_cli.auth._mint_agent_key", _fake_mint_agent_key)
+    monkeypatch.setattr("providers.nous_auth._refresh_access_token", _fake_refresh_access_token)
+    monkeypatch.setattr("providers.nous_auth._mint_agent_key", _fake_mint_agent_key)
 
     creds = resolve_nous_runtime_credentials(min_key_ttl_seconds=300)
     assert creds["api_key"] == "agent-key"
@@ -652,8 +652,8 @@ def test_persist_nous_credentials_allows_recovery_from_401(tmp_path, monkeypatch
     def _fake_mint_agent_key(*, client, portal_base_url, access_token, min_ttl_seconds):
         return _mint_payload(api_key="new-agent-key")
 
-    monkeypatch.setattr("hermes_cli.auth._refresh_access_token", _fake_refresh_access_token)
-    monkeypatch.setattr("hermes_cli.auth._mint_agent_key", _fake_mint_agent_key)
+    monkeypatch.setattr("providers.nous_auth._refresh_access_token", _fake_refresh_access_token)
+    monkeypatch.setattr("providers.nous_auth._mint_agent_key", _fake_mint_agent_key)
 
     creds = resolve_nous_runtime_credentials(min_key_ttl_seconds=300, force_mint=True)
     assert creds["api_key"] == "new-agent-key"

@@ -28,7 +28,8 @@ Date: 2026-06-21
     extraction must retarget those patches/imports to the new module (as steps 1c/1d
     did). (2) AST symbol extraction must be **decorator-aware** (start at the first
     decorator line) or it silently drops `@dataclass`/`@lru_cache`.
-- **Step 2 — providers** (`auxiliary_client` + `auth` → `providers/`): in progress.
+- **Step 2 — providers** (`auxiliary_client` + `auth` → `providers/`): **DONE**
+  (3116 → 2012, **−35%**, auth.py tail extraction).
   - [x] Established `providers/` package surface and moved the first provider
     slice mechanically:
     `agent/auxiliary_client.py` → `providers/chat_completions.py`,
@@ -98,25 +99,22 @@ Date: 2026-06-21
     `raise AuthError` without a cycle back into the CLI facade. `hermes_cli.auth`
     re-exports both; `AuthError` stays a single class object across every
     importer (verified — `except`/`isinstance` safety).
-  - [ ] **Step 2 not closed — deferred, not dropped.** After the set-D deletion
-    landed (`1870cbce`), the codex/qwen/gemini-oauth/copilot resolvers are *gone*,
-    so only the **retained** providers' resolvers remain to extract: **nous**
-    (~900 lines: device-code, agent-key mint, refresh, pool snapshot, the
-    `_default_verify`/`_resolve_verify` SSL helpers — `_is_remote_session` is
-    shared with the login flows and stays) and **minimax** (~300 lines). These
-    no longer *unblock* anything (deletion is done) — their value is the clean
-    per-provider end-state + maintainability, which is a real split goal in its
-    own right. But `resolve_nous_runtime_credentials` is on the **live request
-    path**, so this slice **rides the same pending `scripts/dev.ps1` runtime
-    smoke gate** as the tier-3 deletions. `spotify` is a music-control *tool*,
-    not an inference provider — **exclude it from `providers/`** (leave in
-    `auth.py` or move to a tools-adjacent module separately).
-    **Sequencing decision (2026-06-22): pivot to `config.py` (step 3) first;
-    push the nous/minimax extraction afterwards.**
-  - [~] **Parked:** the per-provider runtime resolvers. After the set-D deletion
-    only **nous** + **minimax** remain (retained); deferred behind the `dev.ps1`
-    smoke gate (nous is live-path). `AuthError` prereq is done (`888ef30c`).
-    See continuation point.
+  - [x] **Step 2 tail — nous + minimax runtime resolvers** (2026-06-22).
+    Extracted the **nous** (~970 lines: device-code, agent-key mint, refresh,
+    pool snapshot, `_default_verify`/`_resolve_verify` SSL helpers) into
+    `providers/nous_auth.py` and the **minimax** (~268 lines: PKCE, user-code
+    flow, token polling, refresh, runtime resolver, status) into
+    `providers/minimax_auth.py`. `hermes_cli/auth.py` is now 3116 → 2012 lines
+    (−35%), keeping only interactive `_login_*` / `*_command` functions, the
+    `PROVIDER_REGISTRY`, and registry-coupled dispatchers. `_is_remote_session`
+    stays (shared with login flows); `spotify` excluded (it's a tool, not an
+    inference provider). Production callers (`runtime_provider.py`, `models.py`,
+    `nous_subscription.py`, `managed_tool_gateway.py`, `credential_pool.py`)
+    updated to import from `providers.nous_auth` / `providers.minimax_auth`.
+    Test monkeypatch targets updated accordingly. Guarded by four new assertions
+    in `tests/agent/test_provider_package_split.py` (17 nous + 7 minimax symbols).
+    **Pending: `scripts/dev.ps1` runtime smoke gate** (unit tests pass: 152
+    passed, 1 pre-existing GBK failure unrelated).
 - [x] **Step 3 — `config.py`: DONE** (4597 → 683, **−85%**, `e470b41d`). Split into
   1 facade + 11 siblings: `config_defaults`, `config_env_schema`, `config_managed`,
   `config_home`, `config_env`, `config_merge`, `config_paths`, `config_loader`,
@@ -132,10 +130,9 @@ Date: 2026-06-21
   See `2026-06-22-provider-deletion-plan.md` siblings / the restructuring phase
   model.
 
-## Handoff — how to finish step 2 (then apply to steps 3-4)
+## Handoff — step 2 is DONE (apply pattern to step 4)
 
-Current `providers/` layout (after the completed step 2 slices, all committed +
-pushed):
+Current `providers/` layout (all committed):
 
 ```
 providers/
@@ -152,46 +149,20 @@ providers/
   image_gen_registry.py    image generation provider registry
   nous_rate_guard.py       shared Nous rate-limit guard
   rate_limit_tracker.py    rate-limit header parsing/display
+  auth_store.py            auth.json load/save/update primitives
+  api_key_auth.py          registry-independent API-key helpers
+  oauth_helpers.py         shared OAuth/JWT/timestamp leaf helpers
+  auth_errors.py           AuthError + format_auth_error
+  nous_auth.py             Nous Portal runtime (device-code, refresh, mint, status)
+  minimax_auth.py          MiniMax OAuth runtime (PKCE, poll, refresh, status)
   transports/              provider response normalization transports
 ```
 
-**Remaining for step 2 — split provider/credential code out of
-`hermes_cli/auth.py`.** The `agent/` provider-adjacent modules have been moved.
-The remaining large-file work is the CLI auth surface: keep
-`hermes_cli.auth` as the command/public facade, and move reusable
-provider/credential mechanics into `providers/` modules in small slices.
-
-Likely next extraction shape:
-
-- `providers/auth_store.py` or `providers/credential_auth_store.py` — shared
-  auth.json load/save/update helpers that provider runtime code can import
-  without depending on CLI command wiring.
-- Provider-specific auth helpers, only where they are reusable outside the CLI:
-  e.g. Nous device-code state, Codex/OpenAI OAuth token readers, Qwen/Ollama
-  credential readers.
-- `hermes_cli/auth.py` keeps argparse/printing/interactive command behavior and
-  delegates to the provider modules.
-
-**Recipe for the remaining step 2 slice:**
-
-1. **Inventory first.** Use `rg`/AST to separate CLI-only command code from
-   reusable credential/provider helpers. Do not move UI prompts, command output,
-   or argparse handlers into `providers/`.
-2. **TDD guardrail.** Extend the provider package split/compat tests, or add a
-   focused auth extraction test, before moving production code. Watch it fail on
-   the new `providers.*` path first.
-3. **Move one cluster only.** Prefer one cohesive cluster per commit (for
-   example auth-store primitives before provider-specific OAuth flows).
-4. **Keep old paths working.** `hermes_cli.auth` must re-export or delegate so
-   existing CLI tests and monkeypatches keep hitting the same behavior.
-5. **Verify auth/runtime coverage.** At minimum run the relevant
-   `tests/hermes_cli/test_auth_*.py`, `test_non_ascii_credential.py`,
-   `test_profile_export_credentials.py`, credential-pool tests,
-   `tests/kabuqina/test_compat_imports.py`, and `python/tests/test_desk_server.py`.
-
-Step 1's old document-writer handoff is now historical. Its completed layout is
-captured in the progress section above; use the same wrapper+compat-test pattern,
-not the old "remaining step 1" checklist.
+Step 2 is complete. The `hermes_cli/auth.py` facade retains: interactive CLI
+commands (`login_command`, `logout_command`, `_login_nous`, `_login_minimax_oauth`,
+`_nous_device_code_login`, `_minimax_oauth_login`), the `PROVIDER_REGISTRY`,
+registry-coupled dispatchers (`resolve_provider`, `get_auth_status`,
+`resolve_api_key_provider_credentials`), and spotify (a tool, not a provider).
 
 Splitting only reorganizes — it does not reduce bundle size. Its payoff is
 maintainability and (for step 2) unblocking the deferred provider deletion.
@@ -297,19 +268,16 @@ internal callers move; the kabuqina compat guardrails stay green throughout.
 
 ## Current continuation point
 
-**Step 3 (`config.py`) is DONE** — 4597 → 683 (−85%), 1 facade + 11 sibling
-modules (`e470b41d` + the 8 commits before it). Two threads remain in the overall
-split effort:
+**Steps 1, 2, 3 are DONE.** Only step 4 remains in the overall split effort:
 
-1. **Parked step-2 tail** — extract the **nous** + **minimax** runtime resolvers
-   from `hermes_cli/auth.py` into `providers/<name>_auth.py` (shared infra is
-   already out: `auth_store`/`oauth_helpers`/`auth_errors`/`api_key_auth`). Gate
-   behind the `scripts/dev.ps1` smoke (nous is live-path); **exclude spotify**
-   (it's a tool, not an inference provider). Details under "Parked step-2 tail".
-2. **Step 4 — `run_agent.py`** — *scope-reduced*: its core loop is the Phase-3.5
+1. **Step 4 — `run_agent.py`** — *scope-reduced*: its core loop is the Phase-3.5
    LangGraph re-platform target, so **don't fully split it** — extract only
    orthogonal keep-forever concerns (usage/pricing, message persistence) + add
    characterization tests; leave the loop for the re-platform.
+
+**Pending gate:** `scripts/dev.ps1` runtime smoke for the step 2 tail
+(nous is on the live request path). Unit tests pass (152 passed, 1 pre-existing
+GBK failure unrelated).
 
 ---
 
@@ -349,16 +317,13 @@ break a top-of-stack cycle), then `config_validate` + `config_custom_providers`
 Aspirational future shape: fold the 11 `config_*.py` siblings into a `config/`
 package (`__init__.py` becomes the facade) — purely cosmetic, do only if wanted.
 
-**Parked step-2 tail (push after config.py):** extract the **nous** (~900) and
-**minimax** (~300) runtime resolvers into `providers/<name>_auth.py`. Shared
-infra they need is already out (`auth_store`, `oauth_helpers`, `auth_errors`).
-Leave interactive `_login_*` / `*_command` in `auth.py`; keep `_is_remote_session`
-in `auth.py` (shared with login flows); `_default_verify`/`_resolve_verify` move
-with nous. **Exclude spotify** (it's a tool, not an inference provider). This
-tail touches the live nous request path → gate it behind the pending
-`scripts/dev.ps1` smoke. Note: the split's value here is maintainability / the
-clean per-provider end-state — it no longer unblocks deletion (that's done), but
-that was never the *only* goal.
+**Step-2 tail — DONE (2026-06-22):** extracted **nous** (~970 lines) into
+`providers/nous_auth.py` and **minimax** (~268 lines) into
+`providers/minimax_auth.py`. Interactive `_login_*` / `*_command` stay in
+`auth.py`; `_is_remote_session` stays (shared with login flows);
+`_default_verify`/`_resolve_verify` moved with nous. `spotify` excluded (it's a
+tool, not an inference provider). Production callers updated to `providers.*`.
+Pending: `scripts/dev.ps1` runtime smoke.
 
 (historical) Earlier remaining list — now obsolete after deletion:
 2. **Registry-coupled API-key resolvers** (`get_anthropic_key`,

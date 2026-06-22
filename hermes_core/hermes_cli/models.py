@@ -387,7 +387,8 @@ def check_nous_free_tier() -> bool:
             return cached_result
 
     try:
-        from hermes_cli.auth import get_provider_auth_state, resolve_nous_runtime_credentials
+        from hermes_cli.auth import get_provider_auth_state
+        from providers.nous_auth import resolve_nous_runtime_credentials
 
         # Ensure we have a fresh token (triggers refresh if needed)
         resolve_nous_runtime_credentials(min_key_ttl_seconds=60)
@@ -941,7 +942,7 @@ def _resolve_openrouter_api_key() -> str:
 def _resolve_nous_pricing_credentials() -> tuple[str, str]:
     """Return ``(api_key, base_url)`` for Nous Portal pricing, or empty strings."""
     try:
-        from hermes_cli.auth import resolve_nous_runtime_credentials
+        from providers.nous_auth import resolve_nous_runtime_credentials
         creds = resolve_nous_runtime_credentials()
         if creds:
             return (creds.get("api_key", ""), creds.get("base_url", ""))
@@ -1457,7 +1458,7 @@ def provider_model_ids(provider: Optional[str], *, force_refresh: bool = False) 
     if normalized == "nous":
         # Try live Nous Portal /models endpoint
         try:
-            from hermes_cli.auth import fetch_nous_models, resolve_nous_runtime_credentials
+            from providers.nous_auth import fetch_nous_models, resolve_nous_runtime_credentials
             creds = resolve_nous_runtime_credentials()
             if creds:
                 live = fetch_nous_models(api_key=creds.get("api_key", ""), inference_base_url=creds.get("base_url", ""))

@@ -14,12 +14,14 @@ from providers.credential_pool import CredentialPool, PooledCredential, get_cust
 from hermes_cli.auth import (
     AuthError,
     PROVIDER_REGISTRY,
-    _agent_key_is_usable,
     format_auth_error,
     resolve_provider,
-    resolve_nous_runtime_credentials,
     resolve_api_key_provider_credentials,
     has_usable_secret,
+)
+from providers.nous_auth import (
+    _agent_key_is_usable,
+    resolve_nous_runtime_credentials,
 )
 from hermes_cli.config import get_compatible_custom_providers, load_config
 from hermes_constants import OPENROUTER_BASE_URL
@@ -816,7 +818,7 @@ def resolve_runtime_provider(
     if provider == "minimax-oauth":
         pconfig = PROVIDER_REGISTRY.get(provider)
         if pconfig and pconfig.auth_type == "oauth_minimax":
-            from hermes_cli.auth import resolve_minimax_oauth_runtime_credentials
+            from providers.minimax_auth import resolve_minimax_oauth_runtime_credentials
             creds = resolve_minimax_oauth_runtime_credentials()
             return {
                 "provider": provider,
