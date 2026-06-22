@@ -283,12 +283,40 @@ internal callers move; the kabuqina compat guardrails stay green throughout.
 
 ## Current continuation point
 
-**Now: step 3 — `config.py` (4597 lines).** Step 2 is *parked, not closed* (see
-below). config.py is the biggest **clean** split target — heavily imported by
-desk_server/runtime, no live-request-path, no LangGraph-replatform conflict — so
-it's higher value + lower risk than finishing the retained-provider resolvers.
-Keep `hermes_cli.config` re-exporting; split `load_config`/`save_config` first
-(refactor Phase 4 → `config/{loader,env_loader,paths,profiles,models}.py`).
+**Step 3 — `config.py` (4597 → 2669, −42% so far). In progress.** Step 2 is
+*parked, not closed* (see below). Keep `hermes_cli.config` as the re-exporting
+facade; extract into sibling `hermes_cli/config_*.py` modules (a `config/`
+package can be formed later).
+
+Slices done (each verified: import identity + functional smoke + test_config +
+compat):
+- `config_defaults.py` — the `DEFAULT_CONFIG` tree (`30d040bb`).
+- `config_env_schema.py` — `ENV_VARS_BY_VERSION`/`REQUIRED_ENV_VARS`/`OPTIONAL_ENV_VARS` (`cd8811bc`).
+- `config_managed.py` — managed-install + container detection (`281be9ad`).
+- `config_home.py` — `~/.hermes` setup + file/dir security (`62ed4c0d`).
+
+**Key finding — config.py is a dependency *stack*, not flat.** The pure-data
+blobs were trivial leaves, but the functional clusters layer:
+`config_managed` → `config_home` → **`config_env` (.env IO)** → `load_config`.
+Each layer must be extracted before the one above it (env-IO calls
+`is_managed`/`managed_error` from managed and `ensure_hermes_home`/`_secure_file`
+from home). **Lesson:** for these clusters, run a *robust* free-name analysis
+that includes imported names + module-level constants before extracting — the
+trivial defined-names scan misses `is_managed`, `DEFAULT_SOUL_MD`, `Colors`,
+etc., causing false-start NameErrors. (Use the per-function AST walk that unions
+defs+assigns+imports+builtins; see commit history for two env false-starts.)
+
+**Next slice: `config_env.py` (.env read/write) — now unblocked** (managed +
+home are out). Its complete dep list (from robust analysis): move-with =
+`get_env_path` + the constants `_ENV_VAR_NAME_RE`/`_EXTRA_ENV_KEYS`/`_IS_WINDOWS`;
+import from siblings = `is_managed`/`managed_error` (config_managed),
+`ensure_hermes_home`/`_secure_file` (config_home), `OPTIONAL_ENV_VARS`
+(config_env_schema); plus stdlib + `atomic_replace` (utils). **Two things to nail
+first:** where `Colors`/`color` are imported from, and whether
+`_ENV_VAR_NAME_RE`/`_EXTRA_ENV_KEYS`/`_IS_WINDOWS` are env-only (move them) or
+shared (then keep in config.py + import, or hoist to a shared constants module).
+After env: `load_config`/`save_config` last (most entangled). Refactor Phase 4
+target shape: `config/{loader,env_loader,paths,profiles,models}.py`.
 
 **Parked step-2 tail (push after config.py):** extract the **nous** (~900) and
 **minimax** (~300) runtime resolvers into `providers/<name>_auth.py`. Shared
