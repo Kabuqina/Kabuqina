@@ -171,3 +171,25 @@ def test_hermes_cli_auth_reexports_oauth_helpers():
             f"hermes_cli.auth.{name} must re-export providers.oauth_helpers.{name}"
         )
 
+
+# AuthError + format_auth_error moved to providers.auth_errors (a zero-dep leaf
+# so provider resolver modules can raise AuthError without an import cycle).
+_AUTH_ERROR_NAMES = ("AuthError", "format_auth_error")
+
+
+def test_auth_errors_live_in_providers_package():
+    import providers.auth_errors as auth_errors
+
+    for name in _AUTH_ERROR_NAMES:
+        assert hasattr(auth_errors, name), f"providers.auth_errors missing {name}"
+
+
+def test_hermes_cli_auth_reexports_auth_errors():
+    import hermes_cli.auth as auth
+    import providers.auth_errors as auth_errors
+
+    for name in _AUTH_ERROR_NAMES:
+        assert getattr(auth, name) is getattr(auth_errors, name), (
+            f"hermes_cli.auth.{name} must re-export providers.auth_errors.{name}"
+        )
+

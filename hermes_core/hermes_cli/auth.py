@@ -97,6 +97,14 @@ from providers.oauth_helpers import (  # noqa: E402,F401
     _token_fingerprint,
 )
 
+# Structured auth error + formatter now live in providers.auth_errors (a
+# zero-dep leaf so provider resolver modules can raise it without a cycle);
+# re-export them so existing hermes_cli.auth.* imports keep working.
+from providers.auth_errors import (  # noqa: E402,F401
+    AuthError,
+    format_auth_error,
+)
+
 logger = logging.getLogger(__name__)
 
 try:
@@ -355,53 +363,6 @@ def get_anthropic_key() -> str:
         if value:
             return value
     return ""
-
-
-# =============================================================================
-# Error Types
-# =============================================================================
-
-class AuthError(RuntimeError):
-    """Structured auth error with UX mapping hints."""
-
-    def __init__(
-        self,
-        message: str,
-        *,
-        provider: str = "",
-        code: Optional[str] = None,
-        relogin_required: bool = False,
-    ) -> None:
-        super().__init__(message)
-        self.provider = provider
-        self.code = code
-        self.relogin_required = relogin_required
-
-
-def format_auth_error(error: Exception) -> str:
-    """Map auth failures to concise user-facing guidance."""
-    if not isinstance(error, AuthError):
-        return str(error)
-
-    if error.relogin_required:
-        return f"{error} Run `hermes model` to re-authenticate."
-
-    if error.code == "subscription_required":
-        return (
-            "No active paid subscription found on Nous Portal. "
-            "Please purchase/activate a subscription, then retry."
-        )
-
-    if error.code == "insufficient_credits":
-        return (
-            "Subscription credits are exhausted. "
-            "Top up/renew credits in Nous Portal, then retry."
-        )
-
-    if error.code == "temporarily_unavailable":
-        return f"{error} Please retry in a few seconds."
-
-    return str(error)
 
 
 # =============================================================================
