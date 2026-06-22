@@ -113,10 +113,19 @@ Date: 2026-06-21
     `auth.py` or move to a tools-adjacent module separately).
     **Sequencing decision (2026-06-22): pivot to `config.py` (step 3) first;
     push the nous/minimax extraction afterwards.**
-  - [ ] Remaining `hermes_cli/auth.py` extraction: the per-provider runtime
-    credential resolvers (see continuation point below).
-- [ ] **Step 3 — `config.py`**: not started.
-- [ ] **Step 4 — `run_agent.py`**: not started.
+  - [~] **Parked:** the per-provider runtime resolvers. After the set-D deletion
+    only **nous** + **minimax** remain (retained); deferred behind the `dev.ps1`
+    smoke gate (nous is live-path). `AuthError` prereq is done (`888ef30c`).
+    See continuation point.
+- [~] **Step 3 — `config.py`**: **in progress** (4597 → 2669, −42%). Done:
+  `config_defaults`, `config_env_schema`, `config_managed`, `config_home`.
+  Next: `config_env` (unblocked), then `load_config`/`save_config` last. config.py
+  is a dependency stack (managed → home → env → load) — see continuation point.
+- [ ] **Step 4 — `run_agent.py`**: not started — and **scope reduced**: its core
+  loop is the Phase-3.5 LangGraph re-platform target, so don't fully split it;
+  extract only orthogonal keep-forever concerns + add characterization tests.
+  See `2026-06-22-provider-deletion-plan.md` siblings / the restructuring phase
+  model.
 
 ## Handoff — how to finish step 2 (then apply to steps 3-4)
 
