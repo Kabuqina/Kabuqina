@@ -366,7 +366,9 @@ PPTX_WRITE_SCHEMA = {
                             "description": (
                                 "Optional per-slide layout: hero_statement, standard_bullets, "
                                 "two_column_bullets, comparison_cards, process_flow_horizontal, "
-                                "process_flow_vertical, data_table, media_placeholder, section_divider. "
+                                "process_flow_vertical, data_table, media_placeholder, section_divider, "
+                                "stat_callout, big_number_grid, pull_quote, icon_grid, timeline, "
+                                "image_text_split. "
                                 "Omit to let the renderer auto-select by this page's content."
                             ),
                         },

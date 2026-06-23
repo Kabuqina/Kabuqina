@@ -1012,6 +1012,14 @@ def build_deliverable_planner_prompt(valid_tool_names: "set[str] | None" = None)
             f"force one, set a slide `layout` (one of: {layouts})."
         )
         lines.append(
+            "Layout cues (the renderer also auto-selects, but you may set `layout` to steer): "
+            "stat_callout / big_number_grid for metric-centric slides — write bullets as "
+            "`标签: 数值` (e.g. `准确率: 84%`) so the number renders large; pull_quote for a single "
+            "thesis / contribution line; image_text_split to pair a screenshot or chart with "
+            "explaining bullets; timeline for phased milestones; icon_grid for 3-6 short parallel "
+            "items (modules / features)."
+        )
+        lines.append(
             "Slide content quality — the bar this deck is judged on:\n"
             "- Substance over definitions: every bullet must carry THIS source's specific claim, "
             "finding, number, named method, or result. Cut textbook definitions and generic "

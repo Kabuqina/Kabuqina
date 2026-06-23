@@ -42,6 +42,12 @@ PPTX_SLIDE_LAYOUTS: tuple[str, ...] = (
     "data_table",
     "media_placeholder",
     "section_divider",
+    "stat_callout",
+    "pull_quote",
+    "image_text_split",
+    "big_number_grid",
+    "icon_grid",
+    "timeline",
 )
 
 # Per-structure "must cover" outline for PPT decks. Keyed by the capability
