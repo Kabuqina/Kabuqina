@@ -160,6 +160,23 @@ def _deck_slide_spec(raw: Dict[str, Any]) -> Dict[str, Any]:
             "caption": _text(placeholder.get("caption")),
             "source_hint": _text(placeholder.get("source_hint")),
         }
+    # Track D design intent (model-provided): structured metrics for stat layouts
+    # and a single spotlight emphasis. Bounded + sanitized like the blocks above.
+    metrics = [
+        {"value": _text(_dict(m).get("value")), "label": _text(_dict(m).get("label"))}
+        for m in _list(raw.get("metrics"))[:4]
+        if _text(_dict(m).get("value"))
+    ]
+    if metrics:
+        entry["metrics"] = metrics
+    emphasis = _dict(raw.get("emphasis"))
+    kind = _text(emphasis.get("kind"))
+    if kind in ("stat", "quote"):
+        entry["emphasis"] = {
+            "kind": kind,
+            "value": _text(emphasis.get("value")),
+            "label": _text(emphasis.get("label")),
+        }
     return entry
 
 

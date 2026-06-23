@@ -1020,6 +1020,13 @@ def build_deliverable_planner_prompt(valid_tool_names: "set[str] | None" = None)
             "items (modules / features)."
         )
         lines.append(
+            "Design intent (optional, emitted on the same pptx_write call — no extra model cost): "
+            "for metric slides set `metrics` as an array of {value, label} (e.g. "
+            "{\"value\": \"84%\", \"label\": \"准确率\"}) so the number renders large; set `emphasis` "
+            "{kind: \"stat\"|\"quote\", value, label} to spotlight the single key number or the core "
+            "thesis / contribution line. Prefer structured `metrics` over burying numbers in prose."
+        )
+        lines.append(
             "Slide content quality — the bar this deck is judged on:\n"
             "- Substance over definitions: every bullet must carry THIS source's specific claim, "
             "finding, number, named method, or result. Cut textbook definitions and generic "

@@ -480,6 +480,46 @@ def test_pptx_write_passes_valid_layout_hint_and_drops_unknown(tmp_path):
     assert "layout" not in slides[1]
 
 
+def test_pptx_write_carries_design_intent_and_drops_invalid(tmp_path):
+    """Track D: structured metrics/emphasis survive the whitelist; junk is dropped."""
+    from tools.document_tools import pptx_write
+
+    captured: dict = {}
+    json.loads(
+        pptx_write(
+            path=str(tmp_path / "design_intent.pptx"),
+            title="设计意图",
+            slides=[
+                {
+                    "title": "核心结果",
+                    "bullets": ["简述"],
+                    "metrics": [
+                        {"value": "84%", "label": "准确率"},
+                        {"label": "缺数值"},  # dropped: no value
+                        {"value": "0.79", "label": "F1"},
+                    ],
+                    "emphasis": {"kind": "quote", "value": "首次在中文场景验证", "label": "——结论"},
+                },
+                {
+                    "title": "无效意图",
+                    "bullets": ["x"],
+                    "emphasis": {"kind": "bogus", "value": "y"},  # dropped: unknown kind
+                },
+            ],
+            template="course_report",
+            callback=_fake_render_callback(captured),
+        )
+    )
+    slides = captured["artifact"]["deck"]["slides"]
+    assert slides[0]["metrics"] == [
+        {"value": "84%", "label": "准确率"},
+        {"value": "0.79", "label": "F1"},
+    ]
+    assert slides[0]["emphasis"] == {"kind": "quote", "value": "首次在中文场景验证", "label": "——结论"}
+    # Unknown emphasis kind is dropped so the renderer falls back to content heuristics.
+    assert "emphasis" not in slides[1]
+
+
 def test_pptx_write_unknown_slide_type_normalizes_to_claim_bullets(tmp_path):
     from tools.document_tools import pptx_write
 
