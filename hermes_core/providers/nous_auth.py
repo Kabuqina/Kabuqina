@@ -39,9 +39,10 @@ from providers.oauth_helpers import (
     _token_fingerprint,
 )
 
-# Constants live in hermes_cli.auth (the CLI facade); import them here so
-# providers.nous_auth is self-contained for callers that don't need the facade.
-from hermes_cli.auth import (
+# Constants live in the zero-import leaf providers.auth_constants (NOT
+# hermes_cli.auth — importing the facade here would be a circular import, since
+# the facade re-exports this module's functions).
+from providers.auth_constants import (
     ACCESS_TOKEN_REFRESH_SKEW_SECONDS,
     DEFAULT_AGENT_KEY_MIN_TTL_SECONDS,
     DEFAULT_NOUS_CLIENT_ID,

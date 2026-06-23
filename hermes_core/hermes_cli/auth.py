@@ -122,21 +122,27 @@ except Exception:
 
 
 # Nous Portal defaults
-DEFAULT_NOUS_PORTAL_URL = "https://portal.nousresearch.com"
-DEFAULT_NOUS_INFERENCE_URL = "https://inference-api.nousresearch.com/v1"
-DEFAULT_NOUS_CLIENT_ID = "hermes-cli"
-DEFAULT_NOUS_SCOPE = "inference:mint_agent_key"
-DEFAULT_AGENT_KEY_MIN_TTL_SECONDS = 30 * 60  # 30 minutes
-ACCESS_TOKEN_REFRESH_SKEW_SECONDS = 120       # refresh 2 min before expiry
-DEVICE_AUTH_POLL_INTERVAL_CAP_SECONDS = 1     # poll at most every 1s
-MINIMAX_OAUTH_CLIENT_ID = "78257093-7e40-4613-99e0-527b14b39113"
-MINIMAX_OAUTH_SCOPE = "group_id profile model.completion"
-MINIMAX_OAUTH_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:user_code"
-MINIMAX_OAUTH_GLOBAL_BASE = "https://api.minimax.io"
-MINIMAX_OAUTH_CN_BASE = "https://api.minimaxi.com"
-MINIMAX_OAUTH_GLOBAL_INFERENCE = "https://api.minimax.io/anthropic"
-MINIMAX_OAUTH_CN_INFERENCE = "https://api.minimaxi.com/anthropic"
-MINIMAX_OAUTH_REFRESH_SKEW_SECONDS = 60
+# Nous/MiniMax OAuth constants live in the zero-import leaf
+# providers.auth_constants (shared with providers.nous_auth / minimax_auth
+# without a circular import); re-export them so existing
+# hermes_cli.auth.* references keep working.
+from providers.auth_constants import (  # noqa: E402,F401
+    ACCESS_TOKEN_REFRESH_SKEW_SECONDS,
+    DEFAULT_AGENT_KEY_MIN_TTL_SECONDS,
+    DEFAULT_NOUS_CLIENT_ID,
+    DEFAULT_NOUS_INFERENCE_URL,
+    DEFAULT_NOUS_PORTAL_URL,
+    DEFAULT_NOUS_SCOPE,
+    DEVICE_AUTH_POLL_INTERVAL_CAP_SECONDS,
+    MINIMAX_OAUTH_CLIENT_ID,
+    MINIMAX_OAUTH_CN_BASE,
+    MINIMAX_OAUTH_CN_INFERENCE,
+    MINIMAX_OAUTH_GLOBAL_BASE,
+    MINIMAX_OAUTH_GLOBAL_INFERENCE,
+    MINIMAX_OAUTH_GRANT_TYPE,
+    MINIMAX_OAUTH_REFRESH_SKEW_SECONDS,
+    MINIMAX_OAUTH_SCOPE,
+)
 STEPFUN_STEP_PLAN_INTL_BASE_URL = "https://api.stepfun.ai/step_plan/v1"
 STEPFUN_STEP_PLAN_CN_BASE_URL = "https://api.stepfun.com/step_plan/v1"
 DEFAULT_SPOTIFY_ACCOUNTS_BASE_URL = "https://accounts.spotify.com"

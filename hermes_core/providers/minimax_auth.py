@@ -29,9 +29,10 @@ from providers.auth_store import (
     get_provider_auth_state,
 )
 
-# Constants live in hermes_cli.auth (the CLI facade); import them here so
-# providers.minimax_auth is self-contained for callers that don't need the facade.
-from hermes_cli.auth import (
+# Constants live in the zero-import leaf providers.auth_constants (NOT
+# hermes_cli.auth — importing the facade here would be a circular import, since
+# the facade re-exports this module's functions).
+from providers.auth_constants import (
     MINIMAX_OAUTH_GRANT_TYPE,
     MINIMAX_OAUTH_REFRESH_SKEW_SECONDS,
     MINIMAX_OAUTH_SCOPE,
