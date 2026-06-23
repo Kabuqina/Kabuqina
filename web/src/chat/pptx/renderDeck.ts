@@ -79,6 +79,9 @@ export interface DeckSlideSpec {
   diagram?: { nodes?: string[] };
   table?: { headers?: string[]; rows?: string[][] };
   placeholder?: { label?: string; caption?: string; source_hint?: string };
+  /** Track D design intent (model-provided on the same planner call). */
+  metrics?: { value?: string; label?: string }[];
+  emphasis?: { kind?: "stat" | "quote" | "none"; value?: string; label?: string };
 }
 
 export interface DeckMeta {
@@ -753,6 +756,13 @@ function renderMediaPlaceholder(ctx: SlideCtx): void {
 // carry a real number (no fabrication) — the planner is already told to emit
 // this shape ("样本数: 500"). Track D will later prefer a structured field.
 function statMetrics(spec: DeckSlideSpec): Array<{ label: string; value: string }> {
+  // Track D: prefer model-provided structured metrics over parsing bullet prose.
+  if (spec.metrics?.length) {
+    return spec.metrics
+      .filter((m) => m && m.value)
+      .slice(0, 4)
+      .map((m) => ({ label: (m.label ?? "").slice(0, 18), value: String(m.value) }));
+  }
   const src = [...(spec.bullets ?? []), spec.placeholder?.caption].filter(Boolean) as string[];
   const out: Array<{ label: string; value: string }> = [];
   for (const s of src) {
@@ -817,15 +827,16 @@ function renderPullQuote(ctx: SlideCtx): void {
     x: body.x - 0.1, y: Math.max(0.2, body.y - 1.1), w: 2.2, h: 1.7,
     fontFace: master.typography.title.fontFace, fontSize: 120, bold: true, color: p.accent2,
   });
-  const quote = spec.bullets?.[0] || spec.subtitle || spec.title || "请补充本页要点";
+  const quote = spec.emphasis?.value || spec.bullets?.[0] || spec.subtitle || spec.title || "请补充本页要点";
   slide.addText(quote, {
     ...body, fontFace: master.typography.title.fontFace,
     fontSize: Math.max(24, master.typography.coverTitle.fontSize - 8), bold: true,
     color: p.title, align: "left", valign: "middle", lineSpacingMultiple: 1.12, fit: "shrink",
   });
-  const attribution = spec.bullets && spec.bullets.length > 1
-    ? spec.bullets.slice(1).join("   ·   ")
-    : quote !== spec.title ? spec.title ?? "" : "";
+  const attribution = spec.emphasis?.label
+    || (spec.bullets && spec.bullets.length > 1
+      ? spec.bullets.slice(1).join("   ·   ")
+      : quote !== spec.title ? spec.title ?? "" : "");
   if (attribution) {
     slide.addText(`— ${attribution}`, {
       x: body.x + 0.05, y: body.y + body.h + 0.15, w: body.w, h: 0.6,
@@ -1016,6 +1027,12 @@ function avgLen(items: string[]): number {
 export function chooseLayout(spec: DeckSlideSpec): SlideLayoutId {
   const hint = spec.layout as SlideLayoutId | undefined;
   if (hint && (SLIDE_LAYOUT_IDS as readonly string[]).includes(hint)) return hint;
+
+  // Track D: explicit model design intent beats content guessing.
+  if (spec.emphasis?.kind === "quote") return "pull_quote";
+  if (spec.emphasis?.kind === "stat" || (spec.metrics?.length ?? 0) >= 1) {
+    return (spec.metrics?.length ?? 0) >= 3 ? "big_number_grid" : "stat_callout";
+  }
 
   const t = spec.slide_type;
   const bullets = spec.bullets ?? [];

@@ -394,6 +394,22 @@ PPTX_WRITE_SCHEMA = {
                                 "source has values. Do not claim a real asset was inserted when using a placeholder."
                             ),
                         },
+                        "metrics": {
+                            "type": "array",
+                            "description": (
+                                "Optional structured numbers for metric slides: array of {value, label} "
+                                "(e.g. {\"value\": \"84%\", \"label\": \"准确率\"}). The renderer shows these as "
+                                "large stat callouts — prefer this over burying numbers in bullet prose."
+                            ),
+                        },
+                        "emphasis": {
+                            "type": "object",
+                            "description": (
+                                "Optional design intent for one spotlight element: {kind: \"stat\"|\"quote\", "
+                                "value, label}. kind=stat highlights the key number; kind=quote renders value as "
+                                "a large thesis/contribution line."
+                            ),
+                        },
                         "tags": {"type": "array", "items": {"type": "string"}},
                     },
                     "required": ["title", "bullets"],

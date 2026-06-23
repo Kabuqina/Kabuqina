@@ -783,6 +783,22 @@ assert.match(
   /export function chooseLayout[\s\S]*const layoutId = chooseLayout\(spec\)[\s\S]*LAYOUTS\[layoutId\]\(ctx\)/,
   "renderDeck should pick a per-slide layout via chooseLayout and a layout registry.",
 );
+// Track D: chooseLayout honors model-provided design intent before content guessing.
+assert.match(
+  renderDeckSource,
+  /spec\.emphasis\?\.kind === "quote"[\s\S]*spec\.emphasis\?\.kind === "stat"[\s\S]*spec\.metrics\?\.length/,
+  "chooseLayout should route pull_quote / stat layouts from emphasis + metrics design intent.",
+);
+assert.match(
+  renderDeckSource,
+  /function statMetrics[\s\S]*if \(spec\.metrics\?\.length\)/,
+  "statMetrics should prefer model-provided structured metrics over parsing bullet prose.",
+);
+assert.match(
+  renderDeckSource,
+  /interface DeckSlideSpec[\s\S]*metrics\?:[\s\S]*emphasis\?:/,
+  "DeckSlideSpec should declare optional metrics and emphasis design-intent fields.",
+);
 assert.match(
   renderDeckSource,
   /master\.typography[\s\S]*master\.layouts\[layoutId\][\s\S]*layoutRecipe/,
