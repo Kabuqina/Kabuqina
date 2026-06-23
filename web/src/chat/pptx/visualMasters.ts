@@ -19,7 +19,13 @@ export type SlideLayoutId =
   | "process_flow_vertical"
   | "data_table"
   | "media_placeholder"
-  | "section_divider";
+  | "section_divider"
+  | "stat_callout"
+  | "pull_quote"
+  | "image_text_split"
+  | "big_number_grid"
+  | "icon_grid"
+  | "timeline";
 
 export type MasterLayoutId = SlideLayoutId | "cover";
 
@@ -109,6 +115,10 @@ export interface VisualMasterV2 {
     underline: "short" | "wide" | "none";
     footer: "brand" | "page_number" | "none";
     cardStyle: "outline" | "filled" | "minimal";
+    /** Optional background motif rendered into the slide master (A1). Omit for none. */
+    background?: "none" | "side_band" | "corner";
+    /** Opt-in: render repeating chrome via a real PptxGenJS slide master instead of per-slide shapes (A1). */
+    useSlideMaster?: boolean;
   };
   components: VisualMasterComponentRecipe;
   layouts: Record<MasterLayoutId, VisualMasterLayoutRecipe>;
@@ -173,6 +183,36 @@ const DEFAULT_LAYOUTS: Record<MasterLayoutId, VisualMasterLayoutRecipe> = {
     title: { x: 0.6, y: 0.64, w: 12.1, h: 0.7 },
     subtitle: { x: 0.62, y: 1.5, w: 12, h: 0.38 },
     body: { x: 0.9, y: 1.8, w: 11.6, h: 4.8 },
+  },
+  stat_callout: {
+    title: { x: 0.6, y: 0.64, w: 12.1, h: 0.7 },
+    subtitle: { x: 0.62, y: 1.5, w: 12, h: 0.38 },
+    body: { x: 0.7, y: 1.95, w: 12, h: 4.7 },
+  },
+  pull_quote: {
+    title: { x: 1.2, y: 0.7, w: 10.9, h: 0.4 },
+    body: { x: 1.4, y: 2.4, w: 10.5, h: 2.9 },
+  },
+  image_text_split: {
+    title: { x: 0.6, y: 0.64, w: 12.1, h: 0.7 },
+    subtitle: { x: 0.62, y: 1.5, w: 12, h: 0.38 },
+    body: { x: 0.7, y: 1.85, w: 6.0, h: 4.9 },
+    media: { x: 7.05, y: 1.85, w: 5.6, h: 4.9 },
+  },
+  big_number_grid: {
+    title: { x: 0.6, y: 0.64, w: 12.1, h: 0.7 },
+    subtitle: { x: 0.62, y: 1.5, w: 12, h: 0.38 },
+    body: { x: 0.7, y: 2.0, w: 12, h: 4.4 },
+  },
+  icon_grid: {
+    title: { x: 0.6, y: 0.64, w: 12.1, h: 0.7 },
+    subtitle: { x: 0.62, y: 1.5, w: 12, h: 0.38 },
+    body: { x: 0.7, y: 1.9, w: 12, h: 4.9 },
+  },
+  timeline: {
+    title: { x: 0.6, y: 0.64, w: 12.1, h: 0.7 },
+    subtitle: { x: 0.62, y: 1.5, w: 12, h: 0.38 },
+    body: { x: 0.7, y: 2.1, w: 12, h: 4.3 },
   },
 };
 
@@ -247,7 +287,7 @@ export const PPT_VISUAL_MASTERS = [
       caption: { fontFace: "Microsoft YaHei UI", fontSize: 11, italic: true, color: "body" },
     },
     spacing: { marginX: 0.7, headerY: 0.64, bodyTop: 1.74, gutter: 0.35 },
-    decorations: { rail: "left", underline: "short", footer: "brand", cardStyle: "outline" },
+    decorations: { rail: "left", underline: "short", footer: "brand", cardStyle: "outline", background: "corner", useSlideMaster: true },
     components: withComponents({
       flow: { nodeFill: "background", nodeLine: "accent", nodeText: "title", connector: "accent2", nodeStyle: "outline", connectorStyle: "arrow" },
       table: { headerFill: "accent", headerText: "background", bodyFill: "background", bodyText: "body", border: "accent2", zebra: true },
@@ -288,7 +328,7 @@ export const PPT_VISUAL_MASTERS = [
       caption: { fontFace: "Microsoft YaHei UI", fontSize: 10, color: "body" },
     },
     spacing: { marginX: 0.62, headerY: 0.46, bodyTop: 1.52, gutter: 0.3 },
-    decorations: { rail: "top", underline: "wide", footer: "page_number", cardStyle: "minimal" },
+    decorations: { rail: "top", underline: "wide", footer: "page_number", cardStyle: "minimal", background: "side_band", useSlideMaster: true },
     components: withComponents({
       flow: { nodeFill: "accent", nodeLine: "accent", nodeText: "background", connector: "accent2", nodeStyle: "filled", connectorStyle: "bar" },
       table: { headerFill: "accent", headerText: "background", bodyFill: "background", bodyText: "body", border: "accent2", zebra: false },
@@ -332,7 +372,7 @@ export const PPT_VISUAL_MASTERS = [
       caption: { fontFace: "Microsoft YaHei UI", fontSize: 10, italic: true, color: "body" },
     },
     spacing: { marginX: 0.82, headerY: 0.72, bodyTop: 1.95, gutter: 0.42 },
-    decorations: { rail: "left", underline: "short", footer: "brand", cardStyle: "filled" },
+    decorations: { rail: "left", underline: "short", footer: "brand", cardStyle: "filled", background: "side_band", useSlideMaster: true },
     components: withComponents({
       flow: { nodeFill: "accent", nodeLine: "accent2", nodeText: "title", connector: "accent2", nodeStyle: "filled", connectorStyle: "dot" },
       table: { headerFill: "accent", headerText: "title", bodyFill: "background", bodyText: "body", border: "accent", zebra: true },
@@ -373,7 +413,7 @@ export const PPT_VISUAL_MASTERS = [
       caption: { fontFace: "Microsoft YaHei UI", fontSize: 10, color: "body" },
     },
     spacing: { marginX: 0.56, headerY: 0.48, bodyTop: 1.45, gutter: 0.24 },
-    decorations: { rail: "top", underline: "wide", footer: "page_number", cardStyle: "outline" },
+    decorations: { rail: "top", underline: "wide", footer: "page_number", cardStyle: "outline", useSlideMaster: true },
     components: withComponents({
       flow: { nodeFill: "accent", nodeLine: "title", nodeText: "title", connector: "title", nodeStyle: "banded", connectorStyle: "bar" },
       table: { headerFill: "title", headerText: "accent", bodyFill: "background", bodyText: "title", border: "title", zebra: false },
@@ -412,7 +452,7 @@ export const PPT_VISUAL_MASTERS = [
       caption: { fontFace: "Microsoft YaHei UI", fontSize: 10, italic: true, color: "body" },
     },
     spacing: { marginX: 0.78, headerY: 0.62, bodyTop: 1.82, gutter: 0.38 },
-    decorations: { rail: "left", underline: "short", footer: "brand", cardStyle: "filled" },
+    decorations: { rail: "left", underline: "short", footer: "brand", cardStyle: "filled", background: "side_band", useSlideMaster: true },
     components: withComponents({
       flow: { nodeFill: "accent2", nodeLine: "accent2", nodeText: "background", connector: "accent", nodeStyle: "filled", connectorStyle: "arrow" },
       table: { headerFill: "accent2", headerText: "background", bodyFill: "background", bodyText: "body", border: "accent", zebra: true },

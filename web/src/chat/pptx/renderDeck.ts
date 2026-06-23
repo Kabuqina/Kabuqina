@@ -41,7 +41,13 @@ export type SlideLayoutId =
   | "process_flow_vertical"
   | "data_table"
   | "media_placeholder"
-  | "section_divider";
+  | "section_divider"
+  | "stat_callout"
+  | "pull_quote"
+  | "image_text_split"
+  | "big_number_grid"
+  | "icon_grid"
+  | "timeline";
 
 export const SLIDE_LAYOUT_IDS: readonly SlideLayoutId[] = [
   "hero_statement",
@@ -53,6 +59,12 @@ export const SLIDE_LAYOUT_IDS: readonly SlideLayoutId[] = [
   "data_table",
   "media_placeholder",
   "section_divider",
+  "stat_callout",
+  "pull_quote",
+  "image_text_split",
+  "big_number_grid",
+  "icon_grid",
+  "timeline",
 ];
 
 export interface DeckSlideSpec {
@@ -143,6 +155,8 @@ interface SlideCtx {
   layoutRecipe: VisualMasterV2["layouts"][MasterLayoutId];
   pageW: number;
   pageH: number;
+  /** A1: when true, background + rail come from a PptxGenJS slide master, so per-slide drawing skips them. */
+  chromeInMaster?: boolean;
 }
 
 /** pptxgenjs wants hex colors without the leading '#'. */
@@ -212,8 +226,9 @@ function bulletRows(bullets: string[], numbered: boolean): pptxgen.TextProps[] {
   }));
 }
 
-function drawPageBase(ctx: Pick<SlideCtx, "pptx" | "slide" | "p" | "master">): void {
+function drawPageBase(ctx: Pick<SlideCtx, "pptx" | "slide" | "p" | "master" | "chromeInMaster">): void {
   const { pptx, slide, p, master } = ctx;
+  if (ctx.chromeInMaster) return; // background + rail are provided by the slide master (A1)
   slide.background = { color: p.bg };
   if (master.decorations.rail === "left") {
     slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 0.16, h: "100%", fill: { color: p.accent } });
@@ -244,6 +259,7 @@ function drawHeader(ctx: SlideCtx): void {
   slide.addText(spec.title || "未命名页", {
     ...titleBox,
     ...textStyle(ctx, "title", "title"),
+    fit: "shrink",
   });
   if (master.decorations.underline !== "none") {
     slide.addShape(pptx.ShapeType.rect, {
@@ -336,6 +352,7 @@ function renderStandardBullets(ctx: SlideCtx): void {
     ...textStyle(ctx, "body", "body"),
     valign: "top",
     lineSpacingMultiple: 1.15,
+    fit: "shrink",
   });
 }
 
@@ -420,12 +437,14 @@ function renderTwoColumnBullets(ctx: SlideCtx): void {
     ...textStyle(ctx, "body", "body"),
     valign: "top",
     lineSpacingMultiple: 1.15,
+    fit: "shrink",
   });
   ctx.slide.addText(bulletRows(bullets.slice(mid), false), {
     ...columns[1],
     ...textStyle(ctx, "body", "body"),
     valign: "top",
     lineSpacingMultiple: 1.15,
+    fit: "shrink",
   });
 }
 
@@ -730,6 +749,243 @@ function renderMediaPlaceholder(ctx: SlideCtx): void {
   slide.addText(ph.caption || "请替换为真实材料后再提交。", { x: media.x + 0.4, y: media.y + 1.95, w: media.w - 0.8, h: 0.7, ...textStyle(ctx, "body", "body") });
 }
 
+// Parse "label: number" pairs from bullets/caption. Only returns metrics that
+// carry a real number (no fabrication) — the planner is already told to emit
+// this shape ("样本数: 500"). Track D will later prefer a structured field.
+function statMetrics(spec: DeckSlideSpec): Array<{ label: string; value: string }> {
+  const src = [...(spec.bullets ?? []), spec.placeholder?.caption].filter(Boolean) as string[];
+  const out: Array<{ label: string; value: string }> = [];
+  for (const s of src) {
+    const m = s.match(/^(.*?)[：:]\s*([+\-]?\d[\d,]*(?:\.\d+)?\s*[%％]?)\s*$/);
+    if (m && m[1].trim()) out.push({ label: m[1].trim().slice(0, 18), value: m[2].replace(/\s+/g, "") });
+  }
+  return out;
+}
+
+// One large hero number + label, with secondary metrics or supporting bullets
+// alongside. Falls back to a hero statement when no real number is present.
+function renderStatCallout(ctx: SlideCtx): void {
+  const metrics = statMetrics(ctx.spec);
+  if (!metrics.length) {
+    renderHeroStatement(ctx);
+    return;
+  }
+  drawHeader(ctx);
+  const { slide, p, master } = ctx;
+  const body = currentRecipe(ctx).body;
+  const hero = metrics[0];
+  const numW = Math.min(5.0, body.w * 0.42);
+  slide.addText(hero.value, {
+    x: body.x, y: body.y + 0.1, w: numW, h: 2.1,
+    fontFace: master.typography.title.fontFace, fontSize: 80, bold: true,
+    color: p.accent, align: "left", valign: "middle", fit: "shrink",
+  });
+  slide.addText(hero.label, {
+    x: body.x + 0.04, y: body.y + 2.25, w: numW, h: 0.7,
+    ...textStyle(ctx, "subtitle", "accent"), color: p.title,
+  });
+  const supportX = body.x + numW + 0.5;
+  const supportW = body.x + body.w - supportX;
+  const rest = metrics.slice(1);
+  if (rest.length) {
+    const rows: pptxgen.TextProps[] = [];
+    rest.slice(0, 5).forEach((m) => {
+      rows.push({ text: `${m.value}   `, options: { color: p.accent2, bold: true } });
+      rows.push({ text: m.label, options: { color: p.body, breakLine: true, paraSpaceAfter: 12 } });
+    });
+    slide.addText(rows, {
+      x: supportX, y: body.y + 0.2, w: supportW, h: body.h - 0.4,
+      fontSize: Math.max(15, master.typography.body.fontSize - 1), valign: "top",
+    });
+  } else {
+    const nonMetric = (ctx.spec.bullets ?? []).filter((b) => !/[：:]\s*[+\-]?\d/.test(b));
+    if (nonMetric.length) {
+      slide.addText(bulletRows(nonMetric.slice(0, 4), false), {
+        x: supportX, y: body.y + 0.2, w: supportW, h: body.h - 0.4,
+        ...textStyle(ctx, "body", "body"), valign: "top", lineSpacingMultiple: 1.15,
+      });
+    }
+  }
+}
+
+// A large centered statement for a thesis / contribution / conclusion line.
+function renderPullQuote(ctx: SlideCtx): void {
+  const { slide, spec, p, master } = ctx;
+  drawPageBase(ctx);
+  const body = currentRecipe(ctx).body;
+  slide.addText("“", {
+    x: body.x - 0.1, y: Math.max(0.2, body.y - 1.1), w: 2.2, h: 1.7,
+    fontFace: master.typography.title.fontFace, fontSize: 120, bold: true, color: p.accent2,
+  });
+  const quote = spec.bullets?.[0] || spec.subtitle || spec.title || "请补充本页要点";
+  slide.addText(quote, {
+    ...body, fontFace: master.typography.title.fontFace,
+    fontSize: Math.max(24, master.typography.coverTitle.fontSize - 8), bold: true,
+    color: p.title, align: "left", valign: "middle", lineSpacingMultiple: 1.12, fit: "shrink",
+  });
+  const attribution = spec.bullets && spec.bullets.length > 1
+    ? spec.bullets.slice(1).join("   ·   ")
+    : quote !== spec.title ? spec.title ?? "" : "";
+  if (attribution) {
+    slide.addText(`— ${attribution}`, {
+      x: body.x + 0.05, y: body.y + body.h + 0.15, w: body.w, h: 0.6,
+      ...textStyle(ctx, "subtitle", "accent"),
+    });
+  }
+}
+
+// Media placeholder (or auto chart) on one side, supporting bullets on the
+// other — pairs a screenshot/figure with the substance that explains it.
+function renderImageTextSplit(ctx: SlideCtx): void {
+  drawHeader(ctx);
+  const { pptx, slide, spec, p, master } = ctx;
+  const recipe = currentRecipe(ctx);
+  const textBox = recipe.body;
+  const media = recipe.media ?? { x: 7.05, y: bodyTop(ctx), w: 5.6, h: 4.9 };
+  slide.addText(bulletRows(spec.bullets ?? [], false), {
+    ...textBox, ...textStyle(ctx, "body", "body"), valign: "top", lineSpacingMultiple: 1.18,
+  });
+  const ph = spec.placeholder || {};
+  if (spec.slide_type === "chart_placeholder") {
+    slide.addShape(pptx.ShapeType.roundRect, {
+      ...media, rectRadius: 0.1, fill: { color: p.bg }, line: { color: p.accent, width: 1.25 },
+    });
+    slide.addText(ph.label || spec.title || "数据示意", {
+      x: media.x + 0.3, y: media.y + 0.3, w: media.w - 0.6, h: 0.4,
+      ...textStyle(ctx, "kicker", "accent"), color: p.accent2,
+    });
+    drawMiniChart(ctx, media, chartItems(spec));
+  } else {
+    const mediaRecipe = master.components.media;
+    slide.addShape(pptx.ShapeType.roundRect, {
+      ...media, rectRadius: 0.1,
+      fill: { color: slotColor(ctx, mediaRecipe.fill, "bg") },
+      line: { color: slotColor(ctx, mediaRecipe.border, "accent"), width: 1.5, dashType: mediaRecipe.borderStyle === "dash" ? "dash" : "solid" },
+    });
+    const kind = PLACEHOLDER_LABELS[spec.slide_type] || "PLACEHOLDER";
+    slide.addText(kind, {
+      x: media.x + 0.3, y: media.y + 0.35, w: media.w - 0.6, h: 0.35,
+      ...textStyle(ctx, "kicker", "accent"), color: slotColor(ctx, mediaRecipe.label, "accent"),
+    });
+    slide.addText(ph.label || "待补充截图", {
+      x: media.x + 0.3, y: media.y + media.h / 2 - 0.4, w: media.w - 0.6, h: 0.9,
+      fontSize: Math.max(18, master.typography.title.fontSize - 5), bold: true,
+      color: slotColor(ctx, mediaRecipe.label, "title"), align: "center", valign: "middle",
+    });
+    if (ph.caption) {
+      slide.addText(ph.caption, {
+        x: media.x + 0.3, y: media.y + media.h - 0.7, w: media.w - 0.6, h: 0.5,
+        ...textStyle(ctx, "caption", "body"), align: "center",
+      });
+    }
+  }
+}
+
+// Pick black/white text for legibility on a given fill (handles e.g. neon
+// accents where white would vanish). Palette colors are 6-hex without '#'.
+function contrastText(hexColor: string): string {
+  const h = (hexColor || "").replace(/^#/, "");
+  if (h.length !== 6) return "111111";
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.6 ? "111111" : "FFFFFF";
+}
+
+// A row of equal KPI cards (2-4) from parsed metrics; falls back to a single
+// hero stat when fewer than two numbers are present.
+function renderBigNumberGrid(ctx: SlideCtx): void {
+  const metrics = statMetrics(ctx.spec);
+  if (metrics.length < 2) {
+    renderStatCallout(ctx);
+    return;
+  }
+  drawHeader(ctx);
+  const { pptx, slide, p, master } = ctx;
+  const body = currentRecipe(ctx).body;
+  const cards = metrics.slice(0, 4);
+  const n = cards.length;
+  const gap = 0.4;
+  const cardW = (body.w - gap * (n - 1)) / n;
+  const cardH = Math.min(body.h, 3.0);
+  const top = body.y + Math.max(0, (body.h - cardH) / 2);
+  cards.forEach((m, i) => {
+    const x = body.x + i * (cardW + gap);
+    const accent = i % 2 === 0 ? p.accent : p.accent2;
+    const numColor = contrastText(accent) === "111111" ? "1A1A1A" : accent;
+    slide.addShape(pptx.ShapeType.roundRect, { x, y: top, w: cardW, h: cardH, rectRadius: 0.08, fill: { color: "FFFFFF" }, line: { color: accent, width: 1.1 } });
+    slide.addShape(pptx.ShapeType.rect, { x, y: top, w: cardW, h: 0.1, fill: { color: accent } });
+    slide.addText(m.value, { x: x + 0.1, y: top + 0.45, w: cardW - 0.2, h: cardH * 0.46, fontFace: master.typography.title.fontFace, fontSize: 52, bold: true, color: numColor, align: "center", valign: "middle", fit: "shrink" });
+    slide.addText(m.label, { x: x + 0.12, y: top + cardH - 1.0, w: cardW - 0.24, h: 0.8, fontFace: master.typography.body.fontFace, fontSize: Math.max(12, master.typography.body.fontSize - 3), color: p.body, align: "center", valign: "top", fit: "shrink" });
+  });
+}
+
+// 2-6 short parallel items as numbered chips (modules / features). PptxGenJS
+// has no icon font, so a numbered badge stands in for an icon.
+function renderIconGrid(ctx: SlideCtx): void {
+  drawHeader(ctx);
+  const { pptx, slide, p, master } = ctx;
+  const items = (ctx.spec.bullets ?? []).slice(0, 6);
+  if (items.length < 2) {
+    renderStandardBullets(ctx);
+    return;
+  }
+  const body = currentRecipe(ctx).body;
+  const cols = items.length <= 4 ? 2 : 3;
+  const rows = Math.ceil(items.length / cols);
+  const gapX = 0.4;
+  const gapY = 0.35;
+  const cellW = (body.w - gapX * (cols - 1)) / cols;
+  const cellH = Math.min(2.1, (body.h - gapY * (rows - 1)) / rows);
+  items.forEach((text, i) => {
+    const r = Math.floor(i / cols);
+    const c = i % cols;
+    const x = body.x + c * (cellW + gapX);
+    const y = body.y + r * (cellH + gapY);
+    const accent = i % 2 === 0 ? p.accent : p.accent2;
+    const badge = 0.6;
+    slide.addShape(pptx.ShapeType.roundRect, { x, y, w: cellW, h: cellH, rectRadius: 0.08, fill: { color: "FFFFFF" }, line: { color: accent, width: 1.0 } });
+    slide.addShape(pptx.ShapeType.ellipse, { x: x + 0.24, y: y + 0.26, w: badge, h: badge, fill: { color: accent } });
+    slide.addText(String(i + 1), { x: x + 0.24, y: y + 0.26, w: badge, h: badge, fontFace: master.typography.title.fontFace, fontSize: 18, bold: true, color: contrastText(accent), align: "center", valign: "middle" });
+    const parts = text.split(/[：:]/);
+    const head = parts[0].trim();
+    const rest = parts.slice(1).join("：").trim();
+    slide.addText(rest ? head : text, { x: x + 1.02, y: y + 0.26, w: cellW - 1.24, h: 0.68, fontFace: master.typography.body.fontFace, fontSize: Math.max(13, master.typography.body.fontSize - 2), bold: true, color: contrastText("FFFFFF"), valign: "middle", fit: "shrink" });
+    if (rest) {
+      slide.addText(rest, { x: x + 0.3, y: y + 1.0, w: cellW - 0.55, h: cellH - 1.15, fontFace: master.typography.body.fontFace, fontSize: Math.max(11, master.typography.body.fontSize - 4), color: p.body, valign: "top", lineSpacingMultiple: 1.05 });
+    }
+  });
+}
+
+// Horizontal milestone strip: a baseline with evenly spaced nodes and labels
+// alternating above/below. For phased plans / roadmaps.
+function renderTimeline(ctx: SlideCtx): void {
+  drawHeader(ctx);
+  const { pptx, slide, p, master } = ctx;
+  const items = (ctx.spec.diagram?.nodes ?? ctx.spec.bullets ?? []).slice(0, 6);
+  if (items.length < 2) {
+    renderStandardBullets(ctx);
+    return;
+  }
+  const body = currentRecipe(ctx).body;
+  const midY = body.y + body.h / 2;
+  slide.addShape(pptx.ShapeType.rect, { x: body.x, y: midY - 0.015, w: body.w, h: 0.03, fill: { color: p.accent } });
+  const n = items.length;
+  const step = body.w / n;
+  items.forEach((text, i) => {
+    const cx = body.x + step * (i + 0.5);
+    const dot = 0.26;
+    const accent = i % 2 === 0 ? p.accent : p.accent2;
+    const above = i % 2 === 0;
+    slide.addShape(pptx.ShapeType.ellipse, { x: cx - dot / 2, y: midY - dot / 2, w: dot, h: dot, fill: { color: accent } });
+    const labelX = cx - step / 2 + 0.1;
+    const labelW = step - 0.2;
+    const numY = above ? midY - 1.65 : midY + 0.42;
+    slide.addText(String(i + 1).padStart(2, "0"), { x: labelX, y: numY, w: labelW, h: 0.32, fontFace: master.typography.kicker.fontFace, fontSize: 11, bold: true, color: accent, align: "center", charSpacing: 1 });
+    slide.addText(text, { x: labelX, y: above ? numY + 0.32 : numY + 0.34, w: labelW, h: 1.0, fontFace: master.typography.body.fontFace, fontSize: Math.max(12, master.typography.body.fontSize - 3), color: p.title, align: "center", valign: above ? "bottom" : "top", lineSpacingMultiple: 1.0, fit: "shrink" });
+  });
+}
+
 const LAYOUTS: Record<SlideLayoutId, (ctx: SlideCtx) => void> = {
   hero_statement: renderHeroStatement,
   standard_bullets: renderStandardBullets,
@@ -740,6 +996,12 @@ const LAYOUTS: Record<SlideLayoutId, (ctx: SlideCtx) => void> = {
   data_table: renderDataTable,
   media_placeholder: renderMediaPlaceholder,
   section_divider: renderSectionDivider,
+  stat_callout: renderStatCallout,
+  pull_quote: renderPullQuote,
+  image_text_split: renderImageTextSplit,
+  big_number_grid: renderBigNumberGrid,
+  icon_grid: renderIconGrid,
+  timeline: renderTimeline,
 };
 
 // ---------------------------------------------------------------------------
@@ -759,18 +1021,28 @@ export function chooseLayout(spec: DeckSlideSpec): SlideLayoutId {
   const bullets = spec.bullets ?? [];
 
   if (t === "diagram" || (spec.diagram?.nodes?.length ?? 0) > 0) {
-    return diagramNodes(spec).length <= 4 ? "process_flow_horizontal" : "process_flow_vertical";
+    const nodes = diagramNodes(spec);
+    const text = `${spec.title ?? ""} ${nodes.join(" ")}`.toLowerCase();
+    if (nodes.length >= 2 && /阶段|时间线|里程碑|路线图|timeline|roadmap/.test(text)) return "timeline";
+    return nodes.length <= 4 ? "process_flow_horizontal" : "process_flow_vertical";
   }
   if (t === "screenshot_placeholder" || t === "chart_placeholder" || spec.placeholder) {
-    return "media_placeholder";
+    // Pair a placeholder with real substance side-by-side when bullets exist
+    // (the planner's "placeholder discipline" rule); else a full-width frame.
+    return (spec.bullets?.length ?? 0) >= 2 ? "image_text_split" : "media_placeholder";
   }
   if (t === "table" || (spec.table?.headers?.length ?? 0) > 0) {
     return (spec.table?.headers?.length ?? 0) === 2 ? "comparison_cards" : "data_table";
   }
   if (t === "agenda") return "section_divider";
+  if (t === "closing" && bullets.length <= 1) return "pull_quote";
   if (t === "closing" && bullets.length <= 3) return "hero_statement";
 
   // Bullet-driven pages.
+  const metrics = statMetrics(spec);
+  if (metrics.length >= 3) return "big_number_grid";
+  if (metrics.length >= 2) return "stat_callout";
+  if (bullets.length >= 3 && bullets.length <= 6 && avgLen(bullets) <= 24) return "icon_grid";
   if (bullets.length <= 2 && avgLen(bullets) <= 64) return "hero_statement";
   if (bullets.length >= 6) return "two_column_bullets";
   return "standard_bullets";
@@ -780,10 +1052,81 @@ export function chooseLayout(spec: DeckSlideSpec): SlideLayoutId {
 // Cover + deck assembly
 // ---------------------------------------------------------------------------
 
-function addCover(pptx: pptxgen, deck: DeckSpec, p: Palette, master: VisualMasterV2): void {
-  const slide = pptx.addSlide();
+const MASTER_COVER = "KQ_COVER";
+const MASTER_CONTENT = "KQ_CONTENT";
+
+type SlideMasterProps = Parameters<pptxgen["defineSlideMaster"]>[0];
+type MasterObject = NonNullable<SlideMasterProps["objects"]>[number];
+
+/** A1: a visual master opts in to real PptxGenJS slide masters (chrome lives in the master, not per slide). */
+function supportsSlideMaster(master: VisualMasterV2): boolean {
+  return master.decorations.useSlideMaster === true;
+}
+
+function railObjects(p: Palette, master: VisualMasterV2): MasterObject[] {
+  if (master.decorations.rail === "left") {
+    return [
+      { rect: { x: 0, y: 0, w: 0.16, h: "100%", fill: { color: p.accent } } },
+      { rect: { x: 0, y: 0, w: 0.16, h: 1.1, fill: { color: p.accent2 } } },
+    ];
+  }
+  if (master.decorations.rail === "top") {
+    return [
+      { rect: { x: 0, y: 0, w: "100%", h: 0.14, fill: { color: p.accent } } },
+      { rect: { x: 0, y: 0, w: 3.2, h: 0.14, fill: { color: p.accent2 } } },
+    ];
+  }
+  return [];
+}
+
+function motifObjects(p: Palette, master: VisualMasterV2, pageW: number, pageH: number): MasterObject[] {
+  switch (master.decorations.background) {
+    case "side_band":
+      return [{ rect: { x: pageW - 0.12, y: 0, w: 0.12, h: "100%", fill: { color: p.accent2 } } }];
+    case "corner":
+      return [{ rect: { x: pageW - 1.6, y: pageH - 1.6, w: 1.6, h: 1.6, fill: { color: p.accent2, transparency: 88 } } }];
+    default:
+      return [];
+  }
+}
+
+/** Register one cover master and one content master carrying this deck's repeating chrome. */
+function defineDeckMasters(
+  pptx: pptxgen,
+  master: VisualMasterV2,
+  p: Palette,
+  pageW: number,
+  pageH: number,
+): { cover: string; content: string } {
+  const background = { color: p.bg };
+  const chrome = [...motifObjects(p, master, pageW, pageH), ...railObjects(p, master)];
+
+  // Cover: background + rail + motif only. The title slide carries its own byline/citation and no page number.
+  pptx.defineSlideMaster({ title: MASTER_COVER, background, objects: chrome });
+
+  // Content: same chrome plus an optional footer band; page number via slideNumber when configured.
+  const contentObjects: MasterObject[] = [...chrome];
+  if (master.decorations.footer === "brand") {
+    contentObjects.push({
+      text: {
+        text: "Kabuqina",
+        options: { x: master.spacing.marginX, y: pageH - 0.45, w: 3, h: 0.3, fontSize: 9, color: p.body, fontFace: master.typography.caption.fontFace },
+      },
+    });
+  }
+  const content: SlideMasterProps = { title: MASTER_CONTENT, background, objects: contentObjects };
+  if (master.decorations.footer === "page_number") {
+    content.slideNumber = { x: pageW - 0.9, y: pageH - 0.45, w: 0.6, h: 0.3, fontSize: 9, color: p.body, align: "right", fontFace: master.typography.caption.fontFace };
+  }
+  pptx.defineSlideMaster(content);
+
+  return { cover: MASTER_COVER, content: MASTER_CONTENT };
+}
+
+function addCover(pptx: pptxgen, deck: DeckSpec, p: Palette, master: VisualMasterV2, coverMasterName?: string): void {
+  const slide = coverMasterName ? pptx.addSlide({ masterName: coverMasterName }) : pptx.addSlide();
   const recipe = master.layouts.cover;
-  const coverCtx: Pick<SlideCtx, "pptx" | "slide" | "p" | "master"> = { pptx, slide, p, master };
+  const coverCtx: Pick<SlideCtx, "pptx" | "slide" | "p" | "master" | "chromeInMaster"> = { pptx, slide, p, master, chromeInMaster: !!coverMasterName };
   drawPageBase(coverCtx);
   if (deck.template_badge) {
     slide.addText(deck.template_badge, { x: recipe.title.x, y: 0.5, w: 4, h: 0.4, fontSize: 13, bold: true, color: p.accent, charSpacing: 1 });
@@ -795,6 +1138,7 @@ function addCover(pptx: pptxgen, deck: DeckSpec, p: Palette, master: VisualMaste
     color: colorFor(p, master.typography.coverTitle.color, "title"),
     fontFace: master.typography.coverTitle.fontFace,
     valign: "middle",
+    fit: "shrink",
   });
   if (master.decorations.underline !== "none") {
     slide.addShape(pptx.ShapeType.rect, {
@@ -825,7 +1169,7 @@ function addCover(pptx: pptxgen, deck: DeckSpec, p: Palette, master: VisualMaste
       x: recipe.body.x, y: 6.45, w: recipe.body.w, h: 0.4, ...master.typography.caption, color: colorFor(p, master.typography.caption.color, "body"), valign: "bottom",
     });
   }
-  if (master.decorations.footer !== "none") {
+  if (!coverMasterName && master.decorations.footer !== "none") {
     slide.addText(master.decorations.footer === "page_number" ? "01" : "Kabuqina", { x: recipe.body.x, y: 6.9, w: 3, h: 0.3, fontSize: 10, color: p.body });
   }
 }
@@ -851,7 +1195,13 @@ export async function renderDeckToBase64(deck: DeckSpec): Promise<RenderedDeck> 
   const fonts = masterFontFaces(master, override);
   pptx.theme = { headFontFace: fonts.head, bodyFontFace: fonts.body };
 
-  addCover(pptx, deck, p, master);
+  // A1: opt-in visual masters render repeating chrome (background, rail, footer,
+  // page number, motif) via real PptxGenJS slide masters; other masters keep the
+  // per-slide drawing path unchanged.
+  const useMasters = supportsSlideMaster(master);
+  const masters = useMasters ? defineDeckMasters(pptx, master, p, pageW, pageH) : null;
+
+  addCover(pptx, deck, p, master, masters?.cover);
 
   const audit: RenderAudit = {
     visualMasterId: master.id,
@@ -868,7 +1218,7 @@ export async function renderDeckToBase64(deck: DeckSpec): Promise<RenderedDeck> 
   };
 
   for (const spec of deck.slides ?? []) {
-    const slide = pptx.addSlide();
+    const slide = masters ? pptx.addSlide({ masterName: masters.content }) : pptx.addSlide();
     const layoutId = chooseLayout(spec);
     const layoutRecipe = master.layouts[layoutId];
     audit.slideLayouts.push({
@@ -877,7 +1227,7 @@ export async function renderDeckToBase64(deck: DeckSpec): Promise<RenderedDeck> 
       slideType: spec.slide_type,
       layout: layoutId,
     });
-    const ctx: SlideCtx = { pptx, slide, spec, p, master, layoutId, layoutRecipe, pageW, pageH };
+    const ctx: SlideCtx = { pptx, slide, spec, p, master, layoutId, layoutRecipe, pageW, pageH, chromeInMaster: useMasters };
     LAYOUTS[layoutId](ctx);
     if (spec.notes) slide.addNotes(spec.notes);
   }

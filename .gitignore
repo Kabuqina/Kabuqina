@@ -72,3 +72,6 @@ tauri/icons/2023-2024学年第一学期课程/
 tauri/icons/2023-2024学年第二学期课程/
 tauri/_icons_new/
 /hermes/
+
+# Regenerable PPT render QA scratch (emitted by the renderer smoke test)
+/samples/
