@@ -2,6 +2,20 @@
 
 Date: 2026-06-21
 
+## Status: CLOSED (2026-06-24)
+
+Steps 1–3 are done and smoke-tested; they delivered the plan's two real payoffs
+(document_tools maintainability; the `providers/` extraction that unblocked — and
+the now-completed — provider deletion; config maintainability). **Step 4
+(`run_agent.py`) is superseded, not abandoned:** re-evaluation on 2026-06-24
+confirmed the loop is the Phase-3.5 LangGraph re-platform target (do **not**
+decompose it), and the one named extraction (usage/pricing) had already landed in
+`agent/usage_pricing.py` + `agent/account_usage.py`. The residual run_agent.py
+work (characterization harness + optional orthogonal extraction) has been migrated
+to the re-platform track:
+**`2026-06-24-consolidate-and-langgraph-replatform-plan.md`**. See the resolved
+step 4 below for the rationale.
+
 ## Progress
 
 - **Step 1 — `document_tools.py`: completed, 2992 → 145-line facade.** Package
@@ -124,11 +138,21 @@ Date: 2026-06-21
   robust free-name analysis (defs+assigns+imports+builtins) before each slice;
   leaf-first down the dependency stack; one lazy import in `migrate_config` to
   break a top-of-stack cycle.
-- [ ] **Step 4 — `run_agent.py`**: not started — and **scope reduced**: its core
-  loop is the Phase-3.5 LangGraph re-platform target, so don't fully split it;
-  extract only orthogonal keep-forever concerns + add characterization tests.
-  See `2026-06-22-provider-deletion-plan.md` siblings / the restructuring phase
-  model.
+- [~] **Step 4 — `run_agent.py`: SUPERSEDED → migrated to the re-platform track**
+  (re-evaluated 2026-06-24). The original decompose target
+  (`agent/{loop,tool_dispatch,response_handler,openai_client,usage}.py`) is
+  throwaway work — the loop (`run_conversation`, ~3.3k lines, + the streaming/
+  tool-exec block) is exactly the surface that becomes the LangGraph graph at
+  Phase 3.5, so decomposing it now would be discarded by the re-platform. The
+  facts that drove the call: (1) usage/pricing was **already** extracted to
+  `agent/usage_pricing.py` (635) + `agent/account_usage.py` (264) — run_agent
+  imports from it; (2) tier-3 provider deletion already shrank the file
+  14018 → 12897 and collapsed api_mode to 2 live values; (3) the phase model
+  fixes the re-platform at Phase 3.5, gated on Phase 3 (consolidate), which had
+  no plan. What actually has value — a **golden-transcript characterization
+  harness** (the named safety net for both consolidate and the re-platform) plus
+  an *optional* persistence/trajectory extraction — now lives in
+  `2026-06-24-consolidate-and-langgraph-replatform-plan.md`.
 
 ## Handoff — step 2 is DONE (apply pattern to step 4)
 
@@ -268,16 +292,10 @@ internal callers move; the kabuqina compat guardrails stay green throughout.
 
 ## Current continuation point
 
-**Steps 1, 2, 3 are DONE.** Only step 4 remains in the overall split effort:
-
-1. **Step 4 — `run_agent.py`** — *scope-reduced*: its core loop is the Phase-3.5
-   LangGraph re-platform target, so **don't fully split it** — extract only
-   orthogonal keep-forever concerns (usage/pricing, message persistence) + add
-   characterization tests; leave the loop for the re-platform.
-
-**Pending gate:** `scripts/dev.ps1` runtime smoke for the step 2 tail
-(nous is on the live request path). Unit tests pass (152 passed, 1 pre-existing
-GBK failure unrelated).
+**Plan CLOSED — nothing remains here.** Steps 1, 2, 3 are DONE and smoke-tested
+(the step-2 tail `scripts/dev.ps1` runtime smoke is satisfied). Step 4 is
+superseded and migrated (see the resolved step 4 above). Continue in
+**`2026-06-24-consolidate-and-langgraph-replatform-plan.md`**.
 
 ---
 

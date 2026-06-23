@@ -1,0 +1,147 @@
+{
+  "name": "single_tool",
+  "description": "One tool call (sequential dispatch), tool result fed back, then a final answer.",
+  "agent": {
+    "api_mode": "chat_completions",
+    "provider": "openrouter",
+    "model": "golden/test-model",
+    "base_url": "https://api.openai.com/v1"
+  },
+  "user_message": "What's the weather in Tokyo? Use web_search.",
+  "tools": [
+    "web_search"
+  ],
+  "tool_results": {
+    "web_search": "{\"answer\": \"Tokyo is sunny, 22C\"}"
+  },
+  "model_turns": [
+    {
+      "content": null,
+      "finish_reason": "tool_calls",
+      "tool_calls": [
+        {
+          "id": "call_ws_1",
+          "name": "web_search",
+          "arguments": "{\"query\": \"Tokyo weather\"}"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 100,
+        "completion_tokens": 12,
+        "total_tokens": 112
+      }
+    },
+    {
+      "content": "It's sunny and 22C in Tokyo right now.",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 130,
+        "completion_tokens": 11,
+        "total_tokens": 141
+      }
+    }
+  ],
+  "expected": {
+    "result": {
+      "final_response": "It's sunny and 22C in Tokyo right now.",
+      "completed": true,
+      "partial": false,
+      "interrupted": false,
+      "api_calls": 2,
+      "model": "golden/test-model",
+      "provider": "openrouter"
+    },
+    "usage": {
+      "input_tokens": 230,
+      "output_tokens": 23,
+      "prompt_tokens": 230,
+      "completion_tokens": 23,
+      "total_tokens": 253,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0,
+      "reasoning_tokens": 0,
+      "last_prompt_tokens": 130,
+      "estimated_cost_usd": 0.0,
+      "cost_status": "unknown",
+      "cost_source": "none"
+    },
+    "messages": [
+      {
+        "role": "user",
+        "content": "What's the weather in Tokyo? Use web_search."
+      },
+      {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_ws_1",
+            "name": "web_search",
+            "arguments": "{\"query\": \"Tokyo weather\"}"
+          }
+        ],
+        "finish_reason": "tool_calls"
+      },
+      {
+        "role": "tool",
+        "content": "{\"answer\": \"Tokyo is sunny, 22C\"}",
+        "tool_call_id": "call_ws_1"
+      },
+      {
+        "role": "assistant",
+        "content": "It's sunny and 22C in Tokyo right now.",
+        "finish_reason": "stop"
+      }
+    ],
+    "tool_invocations": [
+      {
+        "name": "web_search",
+        "arguments": {
+          "query": "Tokyo weather"
+        }
+      }
+    ],
+    "model_turns_consumed": 2,
+    "persisted_db_messages": [
+      {
+        "role": "user",
+        "content": "What's the weather in Tokyo? Use web_search.",
+        "tool_name": null,
+        "tool_call_id": null,
+        "finish_reason": null,
+        "tool_calls": null
+      },
+      {
+        "role": "assistant",
+        "content": "",
+        "tool_name": null,
+        "tool_call_id": null,
+        "finish_reason": "tool_calls",
+        "tool_calls": [
+          {
+            "id": "call_ws_1",
+            "name": "web_search",
+            "arguments": "{\"query\": \"Tokyo weather\"}"
+          }
+        ]
+      },
+      {
+        "role": "tool",
+        "content": "{\"answer\": \"Tokyo is sunny, 22C\"}",
+        "tool_name": null,
+        "tool_call_id": "call_ws_1",
+        "finish_reason": null,
+        "tool_calls": null
+      },
+      {
+        "role": "assistant",
+        "content": "It's sunny and 22C in Tokyo right now.",
+        "tool_name": null,
+        "tool_call_id": null,
+        "finish_reason": "stop",
+        "tool_calls": null
+      }
+    ],
+    "stream_deltas": []
+  }
+}

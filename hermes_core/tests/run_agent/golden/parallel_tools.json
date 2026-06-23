@@ -1,0 +1,183 @@
+{
+  "name": "parallel_tools",
+  "description": "Two parallel-safe tools in one turn (concurrent dispatch path), then a final answer.",
+  "agent": {
+    "api_mode": "chat_completions",
+    "provider": "openrouter",
+    "model": "golden/test-model",
+    "base_url": "https://api.openai.com/v1"
+  },
+  "user_message": "Look up Tokyo weather and extract the page. Use web_search and web_extract together.",
+  "tools": [
+    "web_search",
+    "web_extract"
+  ],
+  "tool_results": {
+    "web_search": "{\"answer\": \"Tokyo is sunny, 22C\"}",
+    "web_extract": "{\"text\": \"Forecast: clear skies all day.\"}"
+  },
+  "model_turns": [
+    {
+      "content": null,
+      "finish_reason": "tool_calls",
+      "tool_calls": [
+        {
+          "id": "call_ws_1",
+          "name": "web_search",
+          "arguments": "{\"query\": \"Tokyo weather\"}"
+        },
+        {
+          "id": "call_we_1",
+          "name": "web_extract",
+          "arguments": "{\"url\": \"https://example.com/tokyo\"}"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 120,
+        "completion_tokens": 24,
+        "total_tokens": 144
+      }
+    },
+    {
+      "content": "Tokyo is sunny at 22C with clear skies all day.",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 170,
+        "completion_tokens": 14,
+        "total_tokens": 184
+      }
+    }
+  ],
+  "expected": {
+    "result": {
+      "final_response": "Tokyo is sunny at 22C with clear skies all day.",
+      "completed": true,
+      "partial": false,
+      "interrupted": false,
+      "api_calls": 2,
+      "model": "golden/test-model",
+      "provider": "openrouter"
+    },
+    "usage": {
+      "input_tokens": 290,
+      "output_tokens": 38,
+      "prompt_tokens": 290,
+      "completion_tokens": 38,
+      "total_tokens": 328,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0,
+      "reasoning_tokens": 0,
+      "last_prompt_tokens": 170,
+      "estimated_cost_usd": 0.0,
+      "cost_status": "unknown",
+      "cost_source": "none"
+    },
+    "messages": [
+      {
+        "role": "user",
+        "content": "Look up Tokyo weather and extract the page. Use web_search and web_extract together."
+      },
+      {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_ws_1",
+            "name": "web_search",
+            "arguments": "{\"query\": \"Tokyo weather\"}"
+          },
+          {
+            "id": "call_we_1",
+            "name": "web_extract",
+            "arguments": "{\"url\": \"https://example.com/tokyo\"}"
+          }
+        ],
+        "finish_reason": "tool_calls"
+      },
+      {
+        "role": "tool",
+        "content": "{\"answer\": \"Tokyo is sunny, 22C\"}",
+        "tool_call_id": "call_ws_1"
+      },
+      {
+        "role": "tool",
+        "content": "{\"text\": \"Forecast: clear skies all day.\"}",
+        "tool_call_id": "call_we_1"
+      },
+      {
+        "role": "assistant",
+        "content": "Tokyo is sunny at 22C with clear skies all day.",
+        "finish_reason": "stop"
+      }
+    ],
+    "tool_invocations": [
+      {
+        "name": "web_extract",
+        "arguments": {
+          "url": "https://example.com/tokyo"
+        }
+      },
+      {
+        "name": "web_search",
+        "arguments": {
+          "query": "Tokyo weather"
+        }
+      }
+    ],
+    "model_turns_consumed": 2,
+    "persisted_db_messages": [
+      {
+        "role": "user",
+        "content": "Look up Tokyo weather and extract the page. Use web_search and web_extract together.",
+        "tool_name": null,
+        "tool_call_id": null,
+        "finish_reason": null,
+        "tool_calls": null
+      },
+      {
+        "role": "assistant",
+        "content": "",
+        "tool_name": null,
+        "tool_call_id": null,
+        "finish_reason": "tool_calls",
+        "tool_calls": [
+          {
+            "id": "call_ws_1",
+            "name": "web_search",
+            "arguments": "{\"query\": \"Tokyo weather\"}"
+          },
+          {
+            "id": "call_we_1",
+            "name": "web_extract",
+            "arguments": "{\"url\": \"https://example.com/tokyo\"}"
+          }
+        ]
+      },
+      {
+        "role": "tool",
+        "content": "{\"answer\": \"Tokyo is sunny, 22C\"}",
+        "tool_name": null,
+        "tool_call_id": "call_ws_1",
+        "finish_reason": null,
+        "tool_calls": null
+      },
+      {
+        "role": "tool",
+        "content": "{\"text\": \"Forecast: clear skies all day.\"}",
+        "tool_name": null,
+        "tool_call_id": "call_we_1",
+        "finish_reason": null,
+        "tool_calls": null
+      },
+      {
+        "role": "assistant",
+        "content": "Tokyo is sunny at 22C with clear skies all day.",
+        "tool_name": null,
+        "tool_call_id": null,
+        "finish_reason": "stop",
+        "tool_calls": null
+      }
+    ],
+    "stream_deltas": []
+  }
+}

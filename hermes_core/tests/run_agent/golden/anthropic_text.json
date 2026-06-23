@@ -1,0 +1,80 @@
+{
+  "name": "anthropic_text",
+  "description": "Plain text answer over the anthropic_messages api_mode (the second wire protocol).",
+  "agent": {
+    "api_mode": "anthropic_messages",
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-6",
+    "base_url": "https://api.anthropic.com"
+  },
+  "user_message": "Say hello in one short sentence.",
+  "tools": [],
+  "tool_results": {},
+  "model_turns": [
+    {
+      "content": "Hello — happy to help with whatever you need.",
+      "stop_reason": "end_turn",
+      "usage": {
+        "input_tokens": 40,
+        "output_tokens": 11
+      }
+    }
+  ],
+  "expected": {
+    "result": {
+      "final_response": "Hello — happy to help with whatever you need.",
+      "completed": true,
+      "partial": false,
+      "interrupted": false,
+      "api_calls": 1,
+      "model": "claude-sonnet-4-6",
+      "provider": "anthropic"
+    },
+    "usage": {
+      "input_tokens": 40,
+      "output_tokens": 11,
+      "prompt_tokens": 40,
+      "completion_tokens": 11,
+      "total_tokens": 51,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0,
+      "reasoning_tokens": 0,
+      "last_prompt_tokens": 40,
+      "estimated_cost_usd": 0.0,
+      "cost_status": "unknown",
+      "cost_source": "none"
+    },
+    "messages": [
+      {
+        "role": "user",
+        "content": "Say hello in one short sentence."
+      },
+      {
+        "role": "assistant",
+        "content": "Hello — happy to help with whatever you need.",
+        "finish_reason": "stop"
+      }
+    ],
+    "tool_invocations": [],
+    "model_turns_consumed": 1,
+    "persisted_db_messages": [
+      {
+        "role": "user",
+        "content": "Say hello in one short sentence.",
+        "tool_name": null,
+        "tool_call_id": null,
+        "finish_reason": null,
+        "tool_calls": null
+      },
+      {
+        "role": "assistant",
+        "content": "Hello — happy to help with whatever you need.",
+        "tool_name": null,
+        "tool_call_id": null,
+        "finish_reason": "stop",
+        "tool_calls": null
+      }
+    ],
+    "stream_deltas": []
+  }
+}
