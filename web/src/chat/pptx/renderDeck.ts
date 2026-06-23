@@ -41,7 +41,10 @@ export type SlideLayoutId =
   | "process_flow_vertical"
   | "data_table"
   | "media_placeholder"
-  | "section_divider";
+  | "section_divider"
+  | "stat_callout"
+  | "pull_quote"
+  | "image_text_split";
 
 export const SLIDE_LAYOUT_IDS: readonly SlideLayoutId[] = [
   "hero_statement",
@@ -53,6 +56,9 @@ export const SLIDE_LAYOUT_IDS: readonly SlideLayoutId[] = [
   "data_table",
   "media_placeholder",
   "section_divider",
+  "stat_callout",
+  "pull_quote",
+  "image_text_split",
 ];
 
 export interface DeckSlideSpec {
@@ -733,6 +739,138 @@ function renderMediaPlaceholder(ctx: SlideCtx): void {
   slide.addText(ph.caption || "请替换为真实材料后再提交。", { x: media.x + 0.4, y: media.y + 1.95, w: media.w - 0.8, h: 0.7, ...textStyle(ctx, "body", "body") });
 }
 
+// Parse "label: number" pairs from bullets/caption. Only returns metrics that
+// carry a real number (no fabrication) — the planner is already told to emit
+// this shape ("样本数: 500"). Track D will later prefer a structured field.
+function statMetrics(spec: DeckSlideSpec): Array<{ label: string; value: string }> {
+  const src = [...(spec.bullets ?? []), spec.placeholder?.caption].filter(Boolean) as string[];
+  const out: Array<{ label: string; value: string }> = [];
+  for (const s of src) {
+    const m = s.match(/^(.*?)[：:]\s*([+\-]?\d[\d,]*(?:\.\d+)?\s*[%％]?)\s*$/);
+    if (m && m[1].trim()) out.push({ label: m[1].trim().slice(0, 18), value: m[2].replace(/\s+/g, "") });
+  }
+  return out;
+}
+
+// One large hero number + label, with secondary metrics or supporting bullets
+// alongside. Falls back to a hero statement when no real number is present.
+function renderStatCallout(ctx: SlideCtx): void {
+  const metrics = statMetrics(ctx.spec);
+  if (!metrics.length) {
+    renderHeroStatement(ctx);
+    return;
+  }
+  drawHeader(ctx);
+  const { slide, p, master } = ctx;
+  const body = currentRecipe(ctx).body;
+  const hero = metrics[0];
+  const numW = Math.min(5.0, body.w * 0.42);
+  slide.addText(hero.value, {
+    x: body.x, y: body.y + 0.1, w: numW, h: 2.1,
+    fontFace: master.typography.title.fontFace, fontSize: 80, bold: true,
+    color: p.accent, align: "left", valign: "middle", fit: "shrink",
+  });
+  slide.addText(hero.label, {
+    x: body.x + 0.04, y: body.y + 2.25, w: numW, h: 0.7,
+    ...textStyle(ctx, "subtitle", "accent"), color: p.title,
+  });
+  const supportX = body.x + numW + 0.5;
+  const supportW = body.x + body.w - supportX;
+  const rest = metrics.slice(1);
+  if (rest.length) {
+    const rows: pptxgen.TextProps[] = [];
+    rest.slice(0, 5).forEach((m) => {
+      rows.push({ text: `${m.value}   `, options: { color: p.accent2, bold: true } });
+      rows.push({ text: m.label, options: { color: p.body, breakLine: true, paraSpaceAfter: 12 } });
+    });
+    slide.addText(rows, {
+      x: supportX, y: body.y + 0.2, w: supportW, h: body.h - 0.4,
+      fontSize: Math.max(15, master.typography.body.fontSize - 1), valign: "top",
+    });
+  } else {
+    const nonMetric = (ctx.spec.bullets ?? []).filter((b) => !/[：:]\s*[+\-]?\d/.test(b));
+    if (nonMetric.length) {
+      slide.addText(bulletRows(nonMetric.slice(0, 4), false), {
+        x: supportX, y: body.y + 0.2, w: supportW, h: body.h - 0.4,
+        ...textStyle(ctx, "body", "body"), valign: "top", lineSpacingMultiple: 1.15,
+      });
+    }
+  }
+}
+
+// A large centered statement for a thesis / contribution / conclusion line.
+function renderPullQuote(ctx: SlideCtx): void {
+  const { slide, spec, p, master } = ctx;
+  drawPageBase(ctx);
+  const body = currentRecipe(ctx).body;
+  slide.addText("“", {
+    x: body.x - 0.1, y: Math.max(0.2, body.y - 1.1), w: 2.2, h: 1.7,
+    fontFace: master.typography.title.fontFace, fontSize: 120, bold: true, color: p.accent2,
+  });
+  const quote = spec.bullets?.[0] || spec.subtitle || spec.title || "请补充本页要点";
+  slide.addText(quote, {
+    ...body, fontFace: master.typography.title.fontFace,
+    fontSize: Math.max(24, master.typography.coverTitle.fontSize - 8), bold: true,
+    color: p.title, align: "left", valign: "middle", lineSpacingMultiple: 1.12, fit: "shrink",
+  });
+  const attribution = spec.bullets && spec.bullets.length > 1
+    ? spec.bullets.slice(1).join("   ·   ")
+    : quote !== spec.title ? spec.title ?? "" : "";
+  if (attribution) {
+    slide.addText(`— ${attribution}`, {
+      x: body.x + 0.05, y: body.y + body.h + 0.15, w: body.w, h: 0.6,
+      ...textStyle(ctx, "subtitle", "accent"),
+    });
+  }
+}
+
+// Media placeholder (or auto chart) on one side, supporting bullets on the
+// other — pairs a screenshot/figure with the substance that explains it.
+function renderImageTextSplit(ctx: SlideCtx): void {
+  drawHeader(ctx);
+  const { pptx, slide, spec, p, master } = ctx;
+  const recipe = currentRecipe(ctx);
+  const textBox = recipe.body;
+  const media = recipe.media ?? { x: 7.05, y: bodyTop(ctx), w: 5.6, h: 4.9 };
+  slide.addText(bulletRows(spec.bullets ?? [], false), {
+    ...textBox, ...textStyle(ctx, "body", "body"), valign: "top", lineSpacingMultiple: 1.18,
+  });
+  const ph = spec.placeholder || {};
+  if (spec.slide_type === "chart_placeholder") {
+    slide.addShape(pptx.ShapeType.roundRect, {
+      ...media, rectRadius: 0.1, fill: { color: p.bg }, line: { color: p.accent, width: 1.25 },
+    });
+    slide.addText(ph.label || spec.title || "数据示意", {
+      x: media.x + 0.3, y: media.y + 0.3, w: media.w - 0.6, h: 0.4,
+      ...textStyle(ctx, "kicker", "accent"), color: p.accent2,
+    });
+    drawMiniChart(ctx, media, chartItems(spec));
+  } else {
+    const mediaRecipe = master.components.media;
+    slide.addShape(pptx.ShapeType.roundRect, {
+      ...media, rectRadius: 0.1,
+      fill: { color: slotColor(ctx, mediaRecipe.fill, "bg") },
+      line: { color: slotColor(ctx, mediaRecipe.border, "accent"), width: 1.5, dashType: mediaRecipe.borderStyle === "dash" ? "dash" : "solid" },
+    });
+    const kind = PLACEHOLDER_LABELS[spec.slide_type] || "PLACEHOLDER";
+    slide.addText(kind, {
+      x: media.x + 0.3, y: media.y + 0.35, w: media.w - 0.6, h: 0.35,
+      ...textStyle(ctx, "kicker", "accent"), color: slotColor(ctx, mediaRecipe.label, "accent"),
+    });
+    slide.addText(ph.label || "待补充截图", {
+      x: media.x + 0.3, y: media.y + media.h / 2 - 0.4, w: media.w - 0.6, h: 0.9,
+      fontSize: Math.max(18, master.typography.title.fontSize - 5), bold: true,
+      color: slotColor(ctx, mediaRecipe.label, "title"), align: "center", valign: "middle",
+    });
+    if (ph.caption) {
+      slide.addText(ph.caption, {
+        x: media.x + 0.3, y: media.y + media.h - 0.7, w: media.w - 0.6, h: 0.5,
+        ...textStyle(ctx, "caption", "body"), align: "center",
+      });
+    }
+  }
+}
+
 const LAYOUTS: Record<SlideLayoutId, (ctx: SlideCtx) => void> = {
   hero_statement: renderHeroStatement,
   standard_bullets: renderStandardBullets,
@@ -743,6 +881,9 @@ const LAYOUTS: Record<SlideLayoutId, (ctx: SlideCtx) => void> = {
   data_table: renderDataTable,
   media_placeholder: renderMediaPlaceholder,
   section_divider: renderSectionDivider,
+  stat_callout: renderStatCallout,
+  pull_quote: renderPullQuote,
+  image_text_split: renderImageTextSplit,
 };
 
 // ---------------------------------------------------------------------------
@@ -765,15 +906,19 @@ export function chooseLayout(spec: DeckSlideSpec): SlideLayoutId {
     return diagramNodes(spec).length <= 4 ? "process_flow_horizontal" : "process_flow_vertical";
   }
   if (t === "screenshot_placeholder" || t === "chart_placeholder" || spec.placeholder) {
-    return "media_placeholder";
+    // Pair a placeholder with real substance side-by-side when bullets exist
+    // (the planner's "placeholder discipline" rule); else a full-width frame.
+    return (spec.bullets?.length ?? 0) >= 2 ? "image_text_split" : "media_placeholder";
   }
   if (t === "table" || (spec.table?.headers?.length ?? 0) > 0) {
     return (spec.table?.headers?.length ?? 0) === 2 ? "comparison_cards" : "data_table";
   }
   if (t === "agenda") return "section_divider";
+  if (t === "closing" && bullets.length <= 1) return "pull_quote";
   if (t === "closing" && bullets.length <= 3) return "hero_statement";
 
   // Bullet-driven pages.
+  if (statMetrics(spec).length >= 2) return "stat_callout";
   if (bullets.length <= 2 && avgLen(bullets) <= 64) return "hero_statement";
   if (bullets.length >= 6) return "two_column_bullets";
   return "standard_bullets";

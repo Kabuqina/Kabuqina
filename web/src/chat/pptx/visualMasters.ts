@@ -19,7 +19,10 @@ export type SlideLayoutId =
   | "process_flow_vertical"
   | "data_table"
   | "media_placeholder"
-  | "section_divider";
+  | "section_divider"
+  | "stat_callout"
+  | "pull_quote"
+  | "image_text_split";
 
 export type MasterLayoutId = SlideLayoutId | "cover";
 
@@ -177,6 +180,21 @@ const DEFAULT_LAYOUTS: Record<MasterLayoutId, VisualMasterLayoutRecipe> = {
     title: { x: 0.6, y: 0.64, w: 12.1, h: 0.7 },
     subtitle: { x: 0.62, y: 1.5, w: 12, h: 0.38 },
     body: { x: 0.9, y: 1.8, w: 11.6, h: 4.8 },
+  },
+  stat_callout: {
+    title: { x: 0.6, y: 0.64, w: 12.1, h: 0.7 },
+    subtitle: { x: 0.62, y: 1.5, w: 12, h: 0.38 },
+    body: { x: 0.7, y: 1.95, w: 12, h: 4.7 },
+  },
+  pull_quote: {
+    title: { x: 1.2, y: 0.7, w: 10.9, h: 0.4 },
+    body: { x: 1.4, y: 2.4, w: 10.5, h: 2.9 },
+  },
+  image_text_split: {
+    title: { x: 0.6, y: 0.64, w: 12.1, h: 0.7 },
+    subtitle: { x: 0.62, y: 1.5, w: 12, h: 0.38 },
+    body: { x: 0.7, y: 1.85, w: 6.0, h: 4.9 },
+    media: { x: 7.05, y: 1.85, w: 5.6, h: 4.9 },
   },
 };
 
