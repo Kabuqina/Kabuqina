@@ -251,7 +251,7 @@ export const PPT_VISUAL_MASTERS = [
       caption: { fontFace: "Microsoft YaHei UI", fontSize: 11, italic: true, color: "body" },
     },
     spacing: { marginX: 0.7, headerY: 0.64, bodyTop: 1.74, gutter: 0.35 },
-    decorations: { rail: "left", underline: "short", footer: "brand", cardStyle: "outline" },
+    decorations: { rail: "left", underline: "short", footer: "brand", cardStyle: "outline", background: "corner", useSlideMaster: true },
     components: withComponents({
       flow: { nodeFill: "background", nodeLine: "accent", nodeText: "title", connector: "accent2", nodeStyle: "outline", connectorStyle: "arrow" },
       table: { headerFill: "accent", headerText: "background", bodyFill: "background", bodyText: "body", border: "accent2", zebra: true },
@@ -336,7 +336,7 @@ export const PPT_VISUAL_MASTERS = [
       caption: { fontFace: "Microsoft YaHei UI", fontSize: 10, italic: true, color: "body" },
     },
     spacing: { marginX: 0.82, headerY: 0.72, bodyTop: 1.95, gutter: 0.42 },
-    decorations: { rail: "left", underline: "short", footer: "brand", cardStyle: "filled" },
+    decorations: { rail: "left", underline: "short", footer: "brand", cardStyle: "filled", background: "side_band", useSlideMaster: true },
     components: withComponents({
       flow: { nodeFill: "accent", nodeLine: "accent2", nodeText: "title", connector: "accent2", nodeStyle: "filled", connectorStyle: "dot" },
       table: { headerFill: "accent", headerText: "title", bodyFill: "background", bodyText: "body", border: "accent", zebra: true },
@@ -377,7 +377,7 @@ export const PPT_VISUAL_MASTERS = [
       caption: { fontFace: "Microsoft YaHei UI", fontSize: 10, color: "body" },
     },
     spacing: { marginX: 0.56, headerY: 0.48, bodyTop: 1.45, gutter: 0.24 },
-    decorations: { rail: "top", underline: "wide", footer: "page_number", cardStyle: "outline" },
+    decorations: { rail: "top", underline: "wide", footer: "page_number", cardStyle: "outline", useSlideMaster: true },
     components: withComponents({
       flow: { nodeFill: "accent", nodeLine: "title", nodeText: "title", connector: "title", nodeStyle: "banded", connectorStyle: "bar" },
       table: { headerFill: "title", headerText: "accent", bodyFill: "background", bodyText: "title", border: "title", zebra: false },
@@ -416,7 +416,7 @@ export const PPT_VISUAL_MASTERS = [
       caption: { fontFace: "Microsoft YaHei UI", fontSize: 10, italic: true, color: "body" },
     },
     spacing: { marginX: 0.78, headerY: 0.62, bodyTop: 1.82, gutter: 0.38 },
-    decorations: { rail: "left", underline: "short", footer: "brand", cardStyle: "filled" },
+    decorations: { rail: "left", underline: "short", footer: "brand", cardStyle: "filled", background: "side_band", useSlideMaster: true },
     components: withComponents({
       flow: { nodeFill: "accent2", nodeLine: "accent2", nodeText: "background", connector: "accent", nodeStyle: "filled", connectorStyle: "arrow" },
       table: { headerFill: "accent2", headerText: "background", bodyFill: "background", bodyText: "body", border: "accent", zebra: true },
