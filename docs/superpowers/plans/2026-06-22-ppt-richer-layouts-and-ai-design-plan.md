@@ -106,6 +106,8 @@ npm run build
 
 ## Track D — AI design layer (paid model, no extra call)
 
+**Status: ✅ COMPLETE (D1–D4)** on branch `ppt/richer-layouts-ai-design`, commit `7ce565c9`. The planner call now optionally emits `metrics` ([{value,label}]) and `emphasis` ({kind: stat|quote, value, label}) on the same `pptx_write` call (no extra model invocation); whitelisted in `_deck_slide_spec` + `DeckSlideSpec` + the `pptx_write` schema; renderer honors them (`statMetrics` prefers `spec.metrics`; `chooseLayout` routes from emphasis/metrics; `pull_quote` renders `emphasis.value/label`). D4 free fallback already landed in A3. Verified: `tsc` clean, render smoke routes metrics/emphasis on all masters, Python whitelist + planner tests green (124), chat-ux design-intent assertions green.
+
 **Target effort:** ~2–3 dev days. Depends on A3 (new layouts) being available to honor.
 
 ### Task D1: Add design-intent fields to the shared contract
