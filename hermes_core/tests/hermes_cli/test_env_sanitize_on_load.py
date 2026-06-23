@@ -25,7 +25,7 @@ def test_load_env_sanitizes_concatenated_lines():
         env_path = Path(f.name)
 
     try:
-        with patch("hermes_cli.config.get_env_path", return_value=env_path):
+        with patch("hermes_cli.config_env.get_env_path", return_value=env_path):
             result = load_env()
         assert result.get("TELEGRAM_BOT_TOKEN") == token, (
             f"Token should be exactly '{token}', got '{result.get('TELEGRAM_BOT_TOKEN')}'"
@@ -54,7 +54,7 @@ def test_load_env_normal_file_unchanged():
         env_path = Path(f.name)
 
     try:
-        with patch("hermes_cli.config.get_env_path", return_value=env_path):
+        with patch("hermes_cli.config_env.get_env_path", return_value=env_path):
             result = load_env()
         assert result["TELEGRAM_BOT_TOKEN"] == "mytoken123"
         assert result["ANTHROPIC_API_KEY"] == "sk-ant-key"

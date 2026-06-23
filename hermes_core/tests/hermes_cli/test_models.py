@@ -398,7 +398,7 @@ class TestCheckNousFreeTierCache:
         """Second call within TTL returns cached result without API call."""
         mock_fetch.return_value = {"subscription": {"monthly_charge": 0}}
         with patch("hermes_cli.auth.get_provider_auth_state", return_value={"access_token": "tok"}), \
-             patch("hermes_cli.auth.resolve_nous_runtime_credentials"):
+             patch("providers.nous_auth.resolve_nous_runtime_credentials"):
             result1 = check_nous_free_tier()
             result2 = check_nous_free_tier()
 
@@ -412,7 +412,7 @@ class TestCheckNousFreeTierCache:
         """After TTL expires, the API is called again."""
         mock_fetch.return_value = {"subscription": {"monthly_charge": 20}}
         with patch("hermes_cli.auth.get_provider_auth_state", return_value={"access_token": "tok"}), \
-             patch("hermes_cli.auth.resolve_nous_runtime_credentials"):
+             patch("providers.nous_auth.resolve_nous_runtime_credentials"):
             result1 = check_nous_free_tier()
             assert mock_fetch.call_count == 1
 
