@@ -44,7 +44,10 @@ export type SlideLayoutId =
   | "section_divider"
   | "stat_callout"
   | "pull_quote"
-  | "image_text_split";
+  | "image_text_split"
+  | "big_number_grid"
+  | "icon_grid"
+  | "timeline";
 
 export const SLIDE_LAYOUT_IDS: readonly SlideLayoutId[] = [
   "hero_statement",
@@ -59,6 +62,9 @@ export const SLIDE_LAYOUT_IDS: readonly SlideLayoutId[] = [
   "stat_callout",
   "pull_quote",
   "image_text_split",
+  "big_number_grid",
+  "icon_grid",
+  "timeline",
 ];
 
 export interface DeckSlideSpec {
@@ -253,6 +259,7 @@ function drawHeader(ctx: SlideCtx): void {
   slide.addText(spec.title || "未命名页", {
     ...titleBox,
     ...textStyle(ctx, "title", "title"),
+    fit: "shrink",
   });
   if (master.decorations.underline !== "none") {
     slide.addShape(pptx.ShapeType.rect, {
@@ -345,6 +352,7 @@ function renderStandardBullets(ctx: SlideCtx): void {
     ...textStyle(ctx, "body", "body"),
     valign: "top",
     lineSpacingMultiple: 1.15,
+    fit: "shrink",
   });
 }
 
@@ -429,12 +437,14 @@ function renderTwoColumnBullets(ctx: SlideCtx): void {
     ...textStyle(ctx, "body", "body"),
     valign: "top",
     lineSpacingMultiple: 1.15,
+    fit: "shrink",
   });
   ctx.slide.addText(bulletRows(bullets.slice(mid), false), {
     ...columns[1],
     ...textStyle(ctx, "body", "body"),
     valign: "top",
     lineSpacingMultiple: 1.15,
+    fit: "shrink",
   });
 }
 
@@ -871,6 +881,111 @@ function renderImageTextSplit(ctx: SlideCtx): void {
   }
 }
 
+// Pick black/white text for legibility on a given fill (handles e.g. neon
+// accents where white would vanish). Palette colors are 6-hex without '#'.
+function contrastText(hexColor: string): string {
+  const h = (hexColor || "").replace(/^#/, "");
+  if (h.length !== 6) return "111111";
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.6 ? "111111" : "FFFFFF";
+}
+
+// A row of equal KPI cards (2-4) from parsed metrics; falls back to a single
+// hero stat when fewer than two numbers are present.
+function renderBigNumberGrid(ctx: SlideCtx): void {
+  const metrics = statMetrics(ctx.spec);
+  if (metrics.length < 2) {
+    renderStatCallout(ctx);
+    return;
+  }
+  drawHeader(ctx);
+  const { pptx, slide, p, master } = ctx;
+  const body = currentRecipe(ctx).body;
+  const cards = metrics.slice(0, 4);
+  const n = cards.length;
+  const gap = 0.4;
+  const cardW = (body.w - gap * (n - 1)) / n;
+  const cardH = Math.min(body.h, 3.0);
+  const top = body.y + Math.max(0, (body.h - cardH) / 2);
+  cards.forEach((m, i) => {
+    const x = body.x + i * (cardW + gap);
+    const accent = i % 2 === 0 ? p.accent : p.accent2;
+    const numColor = contrastText(accent) === "111111" ? "1A1A1A" : accent;
+    slide.addShape(pptx.ShapeType.roundRect, { x, y: top, w: cardW, h: cardH, rectRadius: 0.08, fill: { color: "FFFFFF" }, line: { color: accent, width: 1.1 } });
+    slide.addShape(pptx.ShapeType.rect, { x, y: top, w: cardW, h: 0.1, fill: { color: accent } });
+    slide.addText(m.value, { x: x + 0.1, y: top + 0.45, w: cardW - 0.2, h: cardH * 0.46, fontFace: master.typography.title.fontFace, fontSize: 52, bold: true, color: numColor, align: "center", valign: "middle", fit: "shrink" });
+    slide.addText(m.label, { x: x + 0.12, y: top + cardH - 1.0, w: cardW - 0.24, h: 0.8, fontFace: master.typography.body.fontFace, fontSize: Math.max(12, master.typography.body.fontSize - 3), color: p.body, align: "center", valign: "top", fit: "shrink" });
+  });
+}
+
+// 2-6 short parallel items as numbered chips (modules / features). PptxGenJS
+// has no icon font, so a numbered badge stands in for an icon.
+function renderIconGrid(ctx: SlideCtx): void {
+  drawHeader(ctx);
+  const { pptx, slide, p, master } = ctx;
+  const items = (ctx.spec.bullets ?? []).slice(0, 6);
+  if (items.length < 2) {
+    renderStandardBullets(ctx);
+    return;
+  }
+  const body = currentRecipe(ctx).body;
+  const cols = items.length <= 4 ? 2 : 3;
+  const rows = Math.ceil(items.length / cols);
+  const gapX = 0.4;
+  const gapY = 0.35;
+  const cellW = (body.w - gapX * (cols - 1)) / cols;
+  const cellH = Math.min(2.1, (body.h - gapY * (rows - 1)) / rows);
+  items.forEach((text, i) => {
+    const r = Math.floor(i / cols);
+    const c = i % cols;
+    const x = body.x + c * (cellW + gapX);
+    const y = body.y + r * (cellH + gapY);
+    const accent = i % 2 === 0 ? p.accent : p.accent2;
+    const badge = 0.6;
+    slide.addShape(pptx.ShapeType.roundRect, { x, y, w: cellW, h: cellH, rectRadius: 0.08, fill: { color: "FFFFFF" }, line: { color: accent, width: 1.0 } });
+    slide.addShape(pptx.ShapeType.ellipse, { x: x + 0.24, y: y + 0.26, w: badge, h: badge, fill: { color: accent } });
+    slide.addText(String(i + 1), { x: x + 0.24, y: y + 0.26, w: badge, h: badge, fontFace: master.typography.title.fontFace, fontSize: 18, bold: true, color: contrastText(accent), align: "center", valign: "middle" });
+    const parts = text.split(/[：:]/);
+    const head = parts[0].trim();
+    const rest = parts.slice(1).join("：").trim();
+    slide.addText(rest ? head : text, { x: x + 1.02, y: y + 0.26, w: cellW - 1.24, h: 0.68, fontFace: master.typography.body.fontFace, fontSize: Math.max(13, master.typography.body.fontSize - 2), bold: true, color: contrastText("FFFFFF"), valign: "middle", fit: "shrink" });
+    if (rest) {
+      slide.addText(rest, { x: x + 0.3, y: y + 1.0, w: cellW - 0.55, h: cellH - 1.15, fontFace: master.typography.body.fontFace, fontSize: Math.max(11, master.typography.body.fontSize - 4), color: p.body, valign: "top", lineSpacingMultiple: 1.05 });
+    }
+  });
+}
+
+// Horizontal milestone strip: a baseline with evenly spaced nodes and labels
+// alternating above/below. For phased plans / roadmaps.
+function renderTimeline(ctx: SlideCtx): void {
+  drawHeader(ctx);
+  const { pptx, slide, p, master } = ctx;
+  const items = (ctx.spec.diagram?.nodes ?? ctx.spec.bullets ?? []).slice(0, 6);
+  if (items.length < 2) {
+    renderStandardBullets(ctx);
+    return;
+  }
+  const body = currentRecipe(ctx).body;
+  const midY = body.y + body.h / 2;
+  slide.addShape(pptx.ShapeType.rect, { x: body.x, y: midY - 0.015, w: body.w, h: 0.03, fill: { color: p.accent } });
+  const n = items.length;
+  const step = body.w / n;
+  items.forEach((text, i) => {
+    const cx = body.x + step * (i + 0.5);
+    const dot = 0.26;
+    const accent = i % 2 === 0 ? p.accent : p.accent2;
+    const above = i % 2 === 0;
+    slide.addShape(pptx.ShapeType.ellipse, { x: cx - dot / 2, y: midY - dot / 2, w: dot, h: dot, fill: { color: accent } });
+    const labelX = cx - step / 2 + 0.1;
+    const labelW = step - 0.2;
+    const numY = above ? midY - 1.65 : midY + 0.42;
+    slide.addText(String(i + 1).padStart(2, "0"), { x: labelX, y: numY, w: labelW, h: 0.32, fontFace: master.typography.kicker.fontFace, fontSize: 11, bold: true, color: accent, align: "center", charSpacing: 1 });
+    slide.addText(text, { x: labelX, y: above ? numY + 0.32 : numY + 0.34, w: labelW, h: 1.0, fontFace: master.typography.body.fontFace, fontSize: Math.max(12, master.typography.body.fontSize - 3), color: p.title, align: "center", valign: above ? "bottom" : "top", lineSpacingMultiple: 1.0, fit: "shrink" });
+  });
+}
+
 const LAYOUTS: Record<SlideLayoutId, (ctx: SlideCtx) => void> = {
   hero_statement: renderHeroStatement,
   standard_bullets: renderStandardBullets,
@@ -884,6 +999,9 @@ const LAYOUTS: Record<SlideLayoutId, (ctx: SlideCtx) => void> = {
   stat_callout: renderStatCallout,
   pull_quote: renderPullQuote,
   image_text_split: renderImageTextSplit,
+  big_number_grid: renderBigNumberGrid,
+  icon_grid: renderIconGrid,
+  timeline: renderTimeline,
 };
 
 // ---------------------------------------------------------------------------
@@ -903,7 +1021,10 @@ export function chooseLayout(spec: DeckSlideSpec): SlideLayoutId {
   const bullets = spec.bullets ?? [];
 
   if (t === "diagram" || (spec.diagram?.nodes?.length ?? 0) > 0) {
-    return diagramNodes(spec).length <= 4 ? "process_flow_horizontal" : "process_flow_vertical";
+    const nodes = diagramNodes(spec);
+    const text = `${spec.title ?? ""} ${nodes.join(" ")}`.toLowerCase();
+    if (nodes.length >= 2 && /阶段|时间线|里程碑|路线图|timeline|roadmap/.test(text)) return "timeline";
+    return nodes.length <= 4 ? "process_flow_horizontal" : "process_flow_vertical";
   }
   if (t === "screenshot_placeholder" || t === "chart_placeholder" || spec.placeholder) {
     // Pair a placeholder with real substance side-by-side when bullets exist
@@ -918,7 +1039,10 @@ export function chooseLayout(spec: DeckSlideSpec): SlideLayoutId {
   if (t === "closing" && bullets.length <= 3) return "hero_statement";
 
   // Bullet-driven pages.
-  if (statMetrics(spec).length >= 2) return "stat_callout";
+  const metrics = statMetrics(spec);
+  if (metrics.length >= 3) return "big_number_grid";
+  if (metrics.length >= 2) return "stat_callout";
+  if (bullets.length >= 3 && bullets.length <= 6 && avgLen(bullets) <= 24) return "icon_grid";
   if (bullets.length <= 2 && avgLen(bullets) <= 64) return "hero_statement";
   if (bullets.length >= 6) return "two_column_bullets";
   return "standard_bullets";
@@ -1014,6 +1138,7 @@ function addCover(pptx: pptxgen, deck: DeckSpec, p: Palette, master: VisualMaste
     color: colorFor(p, master.typography.coverTitle.color, "title"),
     fontFace: master.typography.coverTitle.fontFace,
     valign: "middle",
+    fit: "shrink",
   });
   if (master.decorations.underline !== "none") {
     slide.addShape(pptx.ShapeType.rect, {

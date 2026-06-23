@@ -22,7 +22,10 @@ export type SlideLayoutId =
   | "section_divider"
   | "stat_callout"
   | "pull_quote"
-  | "image_text_split";
+  | "image_text_split"
+  | "big_number_grid"
+  | "icon_grid"
+  | "timeline";
 
 export type MasterLayoutId = SlideLayoutId | "cover";
 
@@ -195,6 +198,21 @@ const DEFAULT_LAYOUTS: Record<MasterLayoutId, VisualMasterLayoutRecipe> = {
     subtitle: { x: 0.62, y: 1.5, w: 12, h: 0.38 },
     body: { x: 0.7, y: 1.85, w: 6.0, h: 4.9 },
     media: { x: 7.05, y: 1.85, w: 5.6, h: 4.9 },
+  },
+  big_number_grid: {
+    title: { x: 0.6, y: 0.64, w: 12.1, h: 0.7 },
+    subtitle: { x: 0.62, y: 1.5, w: 12, h: 0.38 },
+    body: { x: 0.7, y: 2.0, w: 12, h: 4.4 },
+  },
+  icon_grid: {
+    title: { x: 0.6, y: 0.64, w: 12.1, h: 0.7 },
+    subtitle: { x: 0.62, y: 1.5, w: 12, h: 0.38 },
+    body: { x: 0.7, y: 1.9, w: 12, h: 4.9 },
+  },
+  timeline: {
+    title: { x: 0.6, y: 0.64, w: 12.1, h: 0.7 },
+    subtitle: { x: 0.62, y: 1.5, w: 12, h: 0.38 },
+    body: { x: 0.7, y: 2.1, w: 12, h: 4.3 },
   },
 };
 
