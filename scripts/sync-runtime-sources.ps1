@@ -100,6 +100,7 @@ $hermesCore = Join-Path $root "hermes_core"
 $hermesDest = Join-Path $dist "hermes"
 $hermesKeep = @(
     "agent",
+    "providers",
     "tools",
     "gateway",
     "hermes_cli",

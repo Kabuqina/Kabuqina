@@ -159,6 +159,7 @@ New-Item -ItemType Directory -Force -Path $bundledHermes | Out-Null
 # Files / directories we copy.
 $keep = @(
     "agent",
+    "providers",                        # provider package (chat_completions, *_auth, transports) — agent/* are thin aliases into it; required for the inference path
     "tools",
     "gateway",                          # session_context, approval.py — required for terminal + desk
     "hermes_cli",
