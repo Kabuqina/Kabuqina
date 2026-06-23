@@ -38,6 +38,8 @@
 
 ## Track A — Richer PptxGenJS renderer
 
+**Status: ✅ COMPLETE (A1–A6)** on branch `ppt/richer-layouts-ai-design`, commits `0fe6710b..d0bc7fb9`. Slide masters on all 5 visual masters; 6 new layouts (`stat_callout`, `big_number_grid`, `pull_quote`, `icon_grid`, `timeline`, `image_text_split`) with content auto-selection + planner-hint support; footer/page-number on every slide (A4 folded into the masters); `fit:"shrink"` overflow guards. Verified: `tsc` clean, render smoke across all masters, chat-ux PPT assertions green, Python contract tests green. Pending: user visual QA of `samples/`.
+
 **Target effort:** ~4–6 dev days + 1 QA day.
 
 ### Task A1: Slide masters with background chrome
