@@ -1,6 +1,6 @@
 # Kabuqina UI / marketing captures (proprietary)
 
-**License:** [LICENSE](./LICENSE) — All Rights Reserved. **Not MIT.**  
+**License:** [LICENSE](./LICENSE) - All Rights Reserved. **Not Apache-2.0.**
 **Copyright:** ladylydia · lilyreso@gmail.com · [github.com/ladylydia](https://github.com/ladylydia)
 
 Screenshot and promo images used in the README and docs:

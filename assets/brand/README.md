@@ -1,6 +1,6 @@
 # Kabuqina brand assets (proprietary)
 
-**License:** [LICENSE](./LICENSE) — All Rights Reserved. **Not MIT.**  
+**License:** [LICENSE](./LICENSE) - All Rights Reserved. **Not Apache-2.0.**
 **Copyright:** ladylydia · lilyreso@gmail.com · [github.com/ladylydia](https://github.com/ladylydia)
 
 These paths in the monorepo ship **preview / distribution copies** of the
@@ -53,7 +53,7 @@ geometry is tuned in `generate_mascot_scenes.py` (`cup_foot_nudge_down_rem`, etc
 ## Generator scripts (`Na_logo/`) — All Rights Reserved
 
 These Python files encode mascot geometry, palette, and export pipelines. They
-are **proprietary brand tooling**, not MIT-licensed application code:
+are **proprietary brand tooling**, not Apache-2.0-licensed application code:
 
 | Script | Purpose |
 | ------ | ------- |
@@ -70,10 +70,10 @@ python Na_logo/generate_mascot_scenes.py
 python Na_logo/generate_na_mark.py
 ```
 
-## Related code (MIT)
+## Related code (Apache-2.0)
 
 The **CSS-rendered companion cup** in `web/src/` (e.g. `CompanionCup.tsx`) is
-**MIT-licensed source code**. The **visual identity** it implements is still
+**Apache-2.0-licensed source code**. The **visual identity** it implements is still
 proprietary — do not reuse the look for another product without permission.
 
 ## UI screenshots
