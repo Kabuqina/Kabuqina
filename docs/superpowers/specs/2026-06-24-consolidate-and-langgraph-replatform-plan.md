@@ -170,48 +170,68 @@ working — they were always meant to die once callers migrate.
 
 Lowest risk, no behavior surface; warms up the harness wiring.
 
-### 3b — Merge the overlay + registry double layer
+### 3b — Overlay + registry: DEFERRED after investigation (2026-06-24)
 
-Two parallel provider-description structures survive:
-`HERMES_OVERLAYS`/`HermesOverlay` (`hermes_cli/providers.py:46`) and
-`PROVIDER_REGISTRY`/`ProviderConfig` (`hermes_cli/auth.py:233`). They were a
-double layer to let the upstream registry and the Hermes overlay coexist; with a
-small fixed provider set, one structure should own provider metadata.
+Investigated `HERMES_OVERLAYS`/`HermesOverlay` (`hermes_cli/providers.py:46`) vs
+`PROVIDER_REGISTRY`/`ProviderConfig` (`hermes_cli/auth.py:233`). **They are not a
+redundant double layer** — they are two registries serving two subsystems with
+only incidental field overlap, and the assumption behind this step (one structure
+should obviously own the metadata) does not hold cleanly:
 
-- Inventory what each field of `HermesOverlay` adds over `ProviderConfig` and
-  where each is read (`model_switch.py:1124`, `providers.py:282`, the model
-  catalog in `models.py`). Decide a single source of truth (likely fold overlay
-  fields into the registry, keep `providers.py` as the read API).
-- This touches `/model` switching and model-catalog code, not the hot request
-  loop directly — but run the golden harness anyway (model identity affects
-  `_build_api_kwargs`).
+- **`PROVIDER_REGISTRY` is on the live request path.** It's read by
+  `runtime_provider.py` (5 sites — `resolve_runtime_provider`, which resolves the
+  per-request base_url / api_key env / api_mode), plus `model_switch.py`,
+  `providers/chat_completions.py` (api-key fallback iteration), and
+  `credential_pool.py`. It also carries the OAuth login fields
+  (`portal_base_url`/`client_id`/`scope`/`extra`).
+- **`HERMES_OVERLAYS` is identity/routing only** — read by `model_switch.py` (the
+  `/model` picker) and `providers.py:get_provider`; it adds `transport` /
+  `is_aggregator` on top of the models.dev catalog.
+- **Different id conventions + membership:** registry has `gemini`,
+  `kimi-coding`, `kimi-coding-cn`; overlay has `openrouter`, `kimi-for-coding`
+  (models.dev id). A merge must first *reconcile the id schemes* — a
+  behavior-affecting decision, not a mechanical move.
 
-### 3c — Review the `api_mode` indirection at N=2
+A real merge therefore re-routes the **live request path** through a single
+structure and reconciles ids — exactly the change class the provider-deletion
+plan flags as "unit tests pass while a missed hot-path branch breaks a live
+conversation," requiring a **`scripts/dev.ps1` runtime smoke**. The golden net
+does not cover provider resolution (it constructs `AIAgent` with an explicit
+provider/base_url and stubs the transport). **Deferred** to its own focused effort
+with a runtime smoke available — do not fold it into a session that can't run the
+live smoke. (A safe interim option, if drift is the worry: a guard test pinning
+the *shared* fields of providers present in both structures — but the relationship
+is subtle, e.g. overlay `extra_env_vars` vs registry full `api_key_env_vars`, so
+it is not a simple equality.)
+
+### 3c — `api_mode` at N=2: DEFERRED into 3.5 (2026-06-24)
 
 `_VALID_API_MODES = {"chat_completions", "anthropic_messages"}`
-(`runtime_provider.py:141`). These are **two genuinely different wire protocols**,
-so the dimension does *not* simply collapse — but its *machinery* is spread thin:
-77 refs in `run_agent.py`, 62 in `providers/chat_completions.py`, 61 in
-`runtime_provider.py`, 35 in `models.py`.
+(`runtime_provider.py:141`) — two genuinely different wire protocols, 77 refs in
+`run_agent.py`. The earlier-hoped win was removing *dead* scaffolding from the cut
+api_modes — but the tier-3 provider deletion already did that: a grep of
+`run_agent.py` finds only the two live literals (`bedrock_converse` /
+`codex_responses` are gone). So **what remains is the live 2-protocol dispatch
+threaded through the request/response loop** — and trimming it is exactly the
+"loop surgery" this step's own conservative rule says to **defer into 3.5**, where
+the LangGraph re-platform rewrites that dispatch behind the anti-corruption port
+anyway. Doing it now would be throwaway work against a hot path with no runtime
+smoke. Deferred per rule — the correct outcome, not a failure.
 
-- The win here is **not** deleting the dimension — it's removing dead branches
-  and dispatch scaffolding left over from the cut api_modes (`bedrock_converse`,
-  `codex_responses`) and concentrating the 2-way switch behind the transport
-  layer (`providers/transports/`) instead of re-deciding `api_mode == "…"` at 77
-  call-sites in the loop.
-- **Be conservative:** this is the consolidate target most entangled with the
-  loop, and the loop is about to be re-platformed. Only collapse what's clearly
-  dead or trivially behind the transport boundary; leave deeper api_mode
-  threading for the re-platform to absorb. If 3c looks like it's turning into
-  loop surgery, **stop and defer it into 3.5** — that's the correct outcome, not
-  a failure.
+**Phase 3 status (2026-06-24): 3a DONE; 3b and 3c DEFERRED.** 3a (the safe,
+mechanical, behavior-preserving leaf) landed and is verified. 3b and 3c both touch
+the live request path (auth/runtime resolution; the in-loop api_mode dispatch)
+where the golden net gives limited coverage and the project's discipline requires
+a `scripts/dev.ps1` runtime smoke — so they are deferred to focused efforts with
+that smoke available (3c folds into 3.5). **Net:** phase 3 delivered the
+import-surface consolidation; the registry merge and api_mode trim are
+intentionally left for when a live smoke can back them.
 
-**Phase 3 exit criteria:** golden harness green; `scripts/dev.ps1` runtime smoke
-(chat + one tool, both a chat-completions and an Anthropic backend); the
-`providers/` split guardrails (`test_provider_package_split.py`) and compat
-guardrails (`tests/kabuqina/test_compat_imports.py`) green. Then **write the
-Phase 3.5 go/no-go note** and re-confirm the re-platform decision against the
-consolidated surface.
+**Phase 3 exit criteria (for the deferred parts):** golden harness green;
+`scripts/dev.ps1` runtime smoke (chat + one tool, both a chat-completions and an
+Anthropic backend); the `providers/` split guardrails
+(`test_provider_package_split.py`) and compat guardrails
+(`tests/kabuqina/test_compat_imports.py`) green.
 
 ---
 
