@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from agent import image_gen_registry
-from agent.image_gen_provider import ImageGenProvider
+from providers import image_gen_registry
+from providers.image_gen_provider import ImageGenProvider
 
 
 class _FakeProvider(ImageGenProvider):

@@ -96,7 +96,7 @@ class TestFallbackChainAdvancement:
             {"provider": "zai", "model": "glm-4.7"},
         ]
         agent = _make_agent(fallback_model=fbs)
-        with patch("agent.auxiliary_client.resolve_provider_client",
+        with patch("providers.chat_completions.resolve_provider_client",
                     return_value=(_mock_client(), "gpt-4o")):
             assert agent._try_activate_fallback() is True
             assert agent._fallback_index == 1
@@ -109,7 +109,7 @@ class TestFallbackChainAdvancement:
             {"provider": "zai", "model": "glm-4.7"},
         ]
         agent = _make_agent(fallback_model=fbs)
-        with patch("agent.auxiliary_client.resolve_provider_client",
+        with patch("providers.chat_completions.resolve_provider_client",
                     return_value=(_mock_client(), "resolved")):
             assert agent._try_activate_fallback() is True
             assert agent.model == "gpt-4o"
@@ -120,7 +120,7 @@ class TestFallbackChainAdvancement:
     def test_all_exhausted_returns_false(self):
         fbs = [{"provider": "openai", "model": "gpt-4o"}]
         agent = _make_agent(fallback_model=fbs)
-        with patch("agent.auxiliary_client.resolve_provider_client",
+        with patch("providers.chat_completions.resolve_provider_client",
                     return_value=(_mock_client(), "gpt-4o")):
             assert agent._try_activate_fallback() is True
             assert agent._try_activate_fallback() is False
@@ -132,7 +132,7 @@ class TestFallbackChainAdvancement:
             {"provider": "openai", "model": "gpt-4o"},
         ]
         agent = _make_agent(fallback_model=fbs)
-        with patch("agent.auxiliary_client.resolve_provider_client") as mock_rpc:
+        with patch("providers.chat_completions.resolve_provider_client") as mock_rpc:
             mock_rpc.side_effect = [
                 (None, None),                    # broken provider
                 (_mock_client(), "gpt-4o"),       # fallback succeeds
@@ -148,7 +148,7 @@ class TestFallbackChainAdvancement:
             {"provider": "openai", "model": "gpt-4o"},
         ]
         agent = _make_agent(fallback_model=fbs)
-        with patch("agent.auxiliary_client.resolve_provider_client") as mock_rpc:
+        with patch("providers.chat_completions.resolve_provider_client") as mock_rpc:
             mock_rpc.side_effect = [
                 RuntimeError("auth failed"),
                 (_mock_client(), "gpt-4o"),
@@ -169,7 +169,7 @@ class TestFallbackChainAdvancement:
         with (
             patch.dict("os.environ", {"MY_FALLBACK_KEY": "env-secret"}, clear=False),
             patch(
-                "agent.auxiliary_client.resolve_provider_client",
+                "providers.chat_completions.resolve_provider_client",
                 return_value=(
                     _mock_client(
                         base_url="https://fallback.example/v1",

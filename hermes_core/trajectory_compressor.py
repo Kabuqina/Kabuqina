@@ -46,7 +46,7 @@ import fire
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn, TimeElapsedColumn, TimeRemainingColumn
 from rich.console import Console
 from hermes_constants import OPENROUTER_BASE_URL, get_hermes_home
-from agent.retry_utils import jittered_backoff
+from providers.retry import jittered_backoff
 
 # Load .env from HERMES_HOME first, then project root as a dev fallback.
 from hermes_cli.env_loader import load_hermes_dotenv
@@ -67,7 +67,7 @@ def _effective_temperature_for_model(
     callers must omit the ``temperature`` kwarg entirely in that case.
     """
     try:
-        from agent.auxiliary_client import _fixed_temperature_for_model, OMIT_TEMPERATURE
+        from providers.chat_completions import _fixed_temperature_for_model, OMIT_TEMPERATURE
     except Exception:
         return requested_temperature
 
@@ -385,7 +385,7 @@ class TrajectoryCompressor:
             self._llm_provider = provider
             self._use_call_llm = True
             # Verify the provider is available
-            from agent.auxiliary_client import resolve_provider_client
+            from providers.chat_completions import resolve_provider_client
             client, _ = resolve_provider_client(
                 provider, model=self.config.summarization_model)
             if client is None:
@@ -403,7 +403,7 @@ class TrajectoryCompressor:
                     f"Missing API key. Set {self.config.api_key_env} "
                     f"environment variable.")
             from openai import OpenAI
-            from agent.auxiliary_client import _to_openai_base_url
+            from providers.chat_completions import _to_openai_base_url
             self.client = OpenAI(
                 api_key=api_key, base_url=_to_openai_base_url(self.config.base_url))
             # AsyncOpenAI is created lazily in _get_async_client() so it
@@ -424,7 +424,7 @@ class TrajectoryCompressor:
         avoiding "Event loop is closed" errors on repeated calls.
         """
         from openai import AsyncOpenAI
-        from agent.auxiliary_client import _to_openai_base_url
+        from providers.chat_completions import _to_openai_base_url
         # Always create a fresh client so it binds to the running loop.
         self.async_client = AsyncOpenAI(
             api_key=self._async_client_api_key,
@@ -599,7 +599,7 @@ Write only the summary, starting with "[CONTEXT SUMMARY]:" prefix."""
                 )
                 
                 if getattr(self, '_use_call_llm', False):
-                    from agent.auxiliary_client import call_llm
+                    from providers.chat_completions import call_llm
                     response = call_llm(
                         provider=self._llm_provider,
                         model=self.config.summarization_model,
@@ -668,7 +668,7 @@ Write only the summary, starting with "[CONTEXT SUMMARY]:" prefix."""
                 )
                 
                 if getattr(self, '_use_call_llm', False):
-                    from agent.auxiliary_client import async_call_llm
+                    from providers.chat_completions import async_call_llm
                     response = await async_call_llm(
                         provider=self._llm_provider,
                         model=self.config.summarization_model,

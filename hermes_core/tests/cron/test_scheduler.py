@@ -790,7 +790,7 @@ class TestRunJobSessionPersistence:
                  },
              ), \
              patch("run_agent.AIAgent") as mock_agent_cls, \
-             patch("agent.auxiliary_client.cleanup_stale_async_clients") as cleanup_mock:
+             patch("providers.chat_completions.cleanup_stale_async_clients") as cleanup_mock:
             mock_agent = MagicMock()
             mock_agent.run_conversation.return_value = {"final_response": "ok"}
             mock_agent_cls.return_value = mock_agent

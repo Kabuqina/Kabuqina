@@ -538,7 +538,7 @@ def resolve_display_context_length(
 
     models.dev reports per-vendor context (e.g. gpt-5.5 = 1.05M on openai)
     but provider-enforced limits can be lower. The authoritative source is
-    ``agent.model_metadata.get_model_context_length`` which already knows
+    ``providers.model_metadata.get_model_context_length`` which already knows
     about provider-specific overrides and falls back to models.dev for the rest.
 
     When ``custom_providers`` is provided, per-model ``context_length``

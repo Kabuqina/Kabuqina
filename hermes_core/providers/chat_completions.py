@@ -50,7 +50,7 @@ from urllib.parse import urlparse, parse_qs, urlunparse
 #       (Python's function-scope name lookup resolves `OpenAI` to the proxy
 #       object bound in module globals here, without triggering any import);
 #   (b) external code can still do `auxiliary_client.OpenAI` or
-#       `patch("agent.auxiliary_client.OpenAI", ...)` — tests see the proxy,
+#       `patch("providers.chat_completions.OpenAI", ...)` — tests see the proxy,
 #       and patch replaces the module attribute as usual;
 #   (c) `OpenAI` as a type annotation resolves at runtime to the proxy class
 #       (which is harmless — annotations aren't type-checked at runtime).

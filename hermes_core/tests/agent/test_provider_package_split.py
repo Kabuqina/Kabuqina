@@ -1,66 +1,65 @@
 from __future__ import annotations
 
+import importlib
 
-def test_provider_package_modules_alias_legacy_agent_paths():
-    import agent.anthropic_adapter as legacy_anthropic
-    import agent.auxiliary_client as legacy_chat
-    import agent.credential_pool as legacy_pool
-    import agent.credential_sources as legacy_sources
-    import agent.error_classifier as legacy_errors
-    import agent.gemini_native_adapter as legacy_gemini
-    import agent.image_gen_provider as legacy_image_gen_provider
-    import agent.image_gen_registry as legacy_image_gen_registry
-    import agent.image_routing as legacy_image_routing
-    import agent.model_metadata as legacy_metadata
-    import agent.nous_rate_guard as legacy_nous_guard
-    import agent.rate_limit_tracker as legacy_rate_limits
-    import agent.retry_utils as legacy_retry
-    import providers.anthropic as provider_anthropic
-    import providers.chat_completions as provider_chat
-    import providers.credential_pool as provider_pool
-    import providers.credential_sources as provider_sources
-    import providers.error_classifier as provider_errors
-    import providers.gemini as provider_gemini
-    import providers.image_gen_provider as provider_image_gen_provider
-    import providers.image_gen_registry as provider_image_gen_registry
-    import providers.image_routing as provider_image_routing
-    import providers.model_metadata as provider_metadata
-    import providers.nous_rate_guard as provider_nous_guard
-    import providers.rate_limit_tracker as provider_rate_limits
-    import providers.retry as provider_retry
+import pytest
 
-    assert legacy_anthropic is provider_anthropic
-    assert legacy_chat is provider_chat
-    assert legacy_pool is provider_pool
-    assert legacy_sources is provider_sources
-    assert legacy_errors is provider_errors
-    assert legacy_gemini is provider_gemini
-    assert legacy_image_gen_provider is provider_image_gen_provider
-    assert legacy_image_gen_registry is provider_image_gen_registry
-    assert legacy_image_routing is provider_image_routing
-    assert legacy_metadata is provider_metadata
-    assert legacy_nous_guard is provider_nous_guard
-    assert legacy_rate_limits is provider_rate_limits
-    assert legacy_retry is provider_retry
+# Phase 3a removed the legacy ``agent.*`` alias shims (the provider extraction's
+# migration scaffolding); ``providers.*`` is now the single import surface. These
+# tests guard that the legacy paths stay gone, and that the canonical modules
+# still import.
+_REMOVED_AGENT_MODULES = (
+    "agent.anthropic_adapter",
+    "agent.auxiliary_client",
+    "agent.credential_pool",
+    "agent.credential_sources",
+    "agent.error_classifier",
+    "agent.gemini_native_adapter",
+    "agent.image_gen_provider",
+    "agent.image_gen_registry",
+    "agent.image_routing",
+    "agent.model_metadata",
+    "agent.nous_rate_guard",
+    "agent.rate_limit_tracker",
+    "agent.retry_utils",
+    "agent.transports",
+    "agent.transports.anthropic",
+    "agent.transports.base",
+    "agent.transports.chat_completions",
+    "agent.transports.types",
+)
+
+_CANONICAL_PROVIDER_MODULES = (
+    "providers.anthropic",
+    "providers.chat_completions",
+    "providers.credential_pool",
+    "providers.credential_sources",
+    "providers.error_classifier",
+    "providers.gemini",
+    "providers.image_gen_provider",
+    "providers.image_gen_registry",
+    "providers.image_routing",
+    "providers.model_metadata",
+    "providers.nous_rate_guard",
+    "providers.rate_limit_tracker",
+    "providers.retry",
+    "providers.transports",
+    "providers.transports.anthropic",
+    "providers.transports.base",
+    "providers.transports.chat_completions",
+    "providers.transports.types",
+)
 
 
-def test_provider_transports_package_aliases_legacy_agent_paths():
-    import agent.transports as legacy_transports
-    import agent.transports.anthropic as legacy_anthropic
-    import agent.transports.base as legacy_base
-    import agent.transports.chat_completions as legacy_chat
-    import agent.transports.types as legacy_types
-    import providers.transports as provider_transports
-    import providers.transports.anthropic as provider_anthropic
-    import providers.transports.base as provider_base
-    import providers.transports.chat_completions as provider_chat
-    import providers.transports.types as provider_types
+@pytest.mark.parametrize("module_name", _REMOVED_AGENT_MODULES)
+def test_legacy_agent_alias_modules_are_removed(module_name):
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module(module_name)
 
-    assert legacy_transports is provider_transports
-    assert legacy_anthropic is provider_anthropic
-    assert legacy_base is provider_base
-    assert legacy_chat is provider_chat
-    assert legacy_types is provider_types
+
+@pytest.mark.parametrize("module_name", _CANONICAL_PROVIDER_MODULES)
+def test_canonical_provider_modules_import(module_name):
+    assert importlib.import_module(module_name) is not None
 
 
 # Auth-store persistence primitives moved from hermes_cli.auth into

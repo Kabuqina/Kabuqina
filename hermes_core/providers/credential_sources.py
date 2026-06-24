@@ -10,7 +10,7 @@ Hermes seeds its credential pool from many places:
     model_config  — model.api_key when model.provider == "custom"
     manual        — user ran `hermes auth add`
 
-Each source has its own reader inside ``agent.credential_pool._seed_from_*``
+Each source has its own reader inside ``providers.credential_pool._seed_from_*``
 (which keep their existing shape — we haven't restructured them).  What we
 unify here is **removal**:
 

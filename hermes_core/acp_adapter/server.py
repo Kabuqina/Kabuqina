@@ -913,7 +913,7 @@ class HermesACPAgent(acp.Agent):
             if not hasattr(agent, "_compress_context"):
                 return "Context compression not available for this agent."
 
-            from agent.model_metadata import estimate_messages_tokens_rough
+            from providers.model_metadata import estimate_messages_tokens_rough
 
             original_count = len(state.history)
             approx_tokens = estimate_messages_tokens_rough(state.history)

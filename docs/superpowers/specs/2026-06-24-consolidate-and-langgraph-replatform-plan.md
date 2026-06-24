@@ -127,7 +127,29 @@ large. After the set-D deletion the live providers are a handful of
 OpenAI-compatible chat backends + Anthropic. Three targets, leaf-first, each its
 own commit, golden harness green after each.
 
-### 3a — Remove the `agent.*` alias shims (leaf, mechanical, do first)
+### 3a — Remove the `agent.*` alias shims (leaf, mechanical, do first) — DONE (2026-06-24)
+
+**Landed.** Deleted the 13 `agent/*` alias modules + the `agent/transports/`
+package alias, and retargeted every caller `agent.X` → `providers.Y` (4 production
+import sites + ~80 files of test imports/monkeypatch strings). Behavior-preserving
+by construction — the shims made `agent.X` and `providers.Y` the same module
+object, so any name importable/patchable via the old path is identical via the
+new one. The two identity-assertion guard tests in
+`tests/agent/test_provider_package_split.py` were rewritten to assert the legacy
+paths are gone (`ModuleNotFoundError`) and the canonical `providers.*` modules
+import. Verified: the heaviest-touched files (913 tests: auxiliary_client,
+model_metadata, anthropic_adapter, credential_pool, nous/rate-limit, gemini,
+image_*, golden, run_agent, compat) all pass; production modules cold-import
+clean; a stash-baseline confirmed the remaining suite failures (gateway cut
+platforms, optional-dep tools, Windows file-permission/prompt_toolkit tests) are
+pre-existing, identical with or without this change. (Lesson: the retarget script's
+dir-exclusion `agent/transports/` also matched the test path
+`tests/agent/transports/`, so those 3 files were missed on the first pass — caught
+by running the broader suite, then fixed.)
+
+Original notes:
+
+
 
 The step-2 extraction left `sys.modules[__name__] = _impl` redirects in `agent/`
 (`auxiliary_client`, `anthropic_adapter`, `gemini_native_adapter`,

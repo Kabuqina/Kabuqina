@@ -1047,7 +1047,7 @@ def run_job(job: dict) -> tuple[bool, str, str, Optional[str]]:
         runtime_provider = str(runtime.get("provider") or "").strip().lower()
         if runtime_provider:
             try:
-                from agent.credential_pool import load_pool
+                from providers.credential_pool import load_pool
                 pool = load_pool(runtime_provider)
                 if pool.has_credentials():
                     credential_pool = pool
@@ -1285,7 +1285,7 @@ def run_job(job: dict) -> tuple[bool, str, str, Optional[str]]:
         # httpx clients cached under that loop are now unusable — reap them
         # so their transports don't accumulate in the process-global cache.
         try:
-            from agent.auxiliary_client import cleanup_stale_async_clients
+            from providers.chat_completions import cleanup_stale_async_clients
             cleanup_stale_async_clients()
         except Exception as e:
             logger.debug("Job '%s': failed to reap stale auxiliary clients: %s", job_id, e)

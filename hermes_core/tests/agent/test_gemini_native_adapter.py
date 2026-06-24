@@ -20,7 +20,7 @@ class DummyResponse:
 
 
 def test_build_native_request_preserves_thought_signature_on_tool_replay():
-    from agent.gemini_native_adapter import build_gemini_request
+    from providers.gemini import build_gemini_request
 
     request = build_gemini_request(
         messages=[
@@ -53,7 +53,7 @@ def test_build_native_request_preserves_thought_signature_on_tool_replay():
 
 
 def test_build_native_request_uses_original_function_name_for_tool_result():
-    from agent.gemini_native_adapter import build_gemini_request
+    from providers.gemini import build_gemini_request
 
     request = build_gemini_request(
         messages=[
@@ -86,7 +86,7 @@ def test_build_native_request_uses_original_function_name_for_tool_result():
 
 
 def test_build_native_request_strips_json_schema_only_fields_from_tool_parameters():
-    from agent.gemini_native_adapter import build_gemini_request
+    from providers.gemini import build_gemini_request
 
     request = build_gemini_request(
         messages=[{"role": "user", "content": "Hello"}],
@@ -126,7 +126,7 @@ def test_build_native_request_strips_json_schema_only_fields_from_tool_parameter
 
 
 def test_translate_native_response_surfaces_reasoning_and_tool_calls():
-    from agent.gemini_native_adapter import translate_gemini_response
+    from providers.gemini import translate_gemini_response
 
     payload = {
         "candidates": [
@@ -156,7 +156,7 @@ def test_translate_native_response_surfaces_reasoning_and_tool_calls():
 
 
 def test_native_client_uses_x_goog_api_key_and_native_models_endpoint(monkeypatch):
-    from agent.gemini_native_adapter import GeminiNativeClient
+    from providers.gemini import GeminiNativeClient
 
     recorded = {}
 
@@ -184,7 +184,7 @@ def test_native_client_uses_x_goog_api_key_and_native_models_endpoint(monkeypatc
         def close(self):
             return None
 
-    monkeypatch.setattr("agent.gemini_native_adapter.httpx.Client", lambda *a, **k: DummyHTTP())
+    monkeypatch.setattr("providers.gemini.httpx.Client", lambda *a, **k: DummyHTTP())
 
     client = GeminiNativeClient(api_key="AIza-test", base_url="https://generativelanguage.googleapis.com/v1beta")
     response = client.chat.completions.create(
@@ -199,7 +199,7 @@ def test_native_client_uses_x_goog_api_key_and_native_models_endpoint(monkeypatc
 
 
 def test_native_http_error_keeps_status_and_retry_after():
-    from agent.gemini_native_adapter import gemini_http_error
+    from providers.gemini import gemini_http_error
 
     response = DummyResponse(
         status_code=429,
@@ -227,7 +227,7 @@ def test_native_http_error_keeps_status_and_retry_after():
 
 
 def test_native_client_accepts_injected_http_client():
-    from agent.gemini_native_adapter import GeminiNativeClient
+    from providers.gemini import GeminiNativeClient
 
     injected = SimpleNamespace(close=lambda: None)
     client = GeminiNativeClient(api_key="AIza-test", http_client=injected)
@@ -237,7 +237,7 @@ def test_native_client_accepts_injected_http_client():
 def test_native_client_rejects_empty_api_key_with_actionable_message():
     """Empty/whitespace api_key must raise at construction, not produce a cryptic
     Google GFE 'Error 400 (Bad Request)!!1' HTML page on the first request."""
-    from agent.gemini_native_adapter import GeminiNativeClient
+    from providers.gemini import GeminiNativeClient
 
     for bad in ("", "   ", None):
         with pytest.raises(RuntimeError) as excinfo:
@@ -249,7 +249,7 @@ def test_native_client_rejects_empty_api_key_with_actionable_message():
 
 @pytest.mark.asyncio
 async def test_async_native_client_streams_without_requiring_async_iterator_from_sync_client():
-    from agent.gemini_native_adapter import AsyncGeminiNativeClient
+    from providers.gemini import AsyncGeminiNativeClient
 
     chunk = SimpleNamespace(choices=[SimpleNamespace(delta=SimpleNamespace(content="hi"), finish_reason=None)])
     sync_stream = iter([chunk])
@@ -277,7 +277,7 @@ async def test_async_native_client_streams_without_requiring_async_iterator_from
 
 
 def test_stream_event_translation_emits_tool_call_delta_with_stable_index():
-    from agent.gemini_native_adapter import translate_stream_event
+    from providers.gemini import translate_stream_event
 
     tool_call_indices = {}
     event = {
@@ -305,7 +305,7 @@ def test_stream_event_translation_emits_tool_call_delta_with_stable_index():
 
 
 def test_stream_event_translation_keeps_identical_calls_in_distinct_parts():
-    from agent.gemini_native_adapter import translate_stream_event
+    from providers.gemini import translate_stream_event
 
     event = {
         "candidates": [

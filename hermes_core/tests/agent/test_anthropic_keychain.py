@@ -6,7 +6,7 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-from agent.anthropic_adapter import (
+from providers.anthropic import (
     _read_claude_code_credentials_from_keychain,
     read_claude_code_credentials,
 )
@@ -17,42 +17,42 @@ class TestReadClaudeCodeCredentialsFromKeychain:
 
     def test_returns_none_on_linux(self):
         """Keychain reading is Darwin-only; must return None on other platforms."""
-        with patch("agent.anthropic_adapter.platform.system", return_value="Linux"):
+        with patch("providers.anthropic.platform.system", return_value="Linux"):
             assert _read_claude_code_credentials_from_keychain() is None
 
     def test_returns_none_on_windows(self):
-        with patch("agent.anthropic_adapter.platform.system", return_value="Windows"):
+        with patch("providers.anthropic.platform.system", return_value="Windows"):
             assert _read_claude_code_credentials_from_keychain() is None
 
     def test_returns_none_when_security_command_not_found(self):
         """OSError from missing security binary must be handled gracefully."""
-        with patch("agent.anthropic_adapter.platform.system", return_value="Darwin"), \
-             patch("agent.anthropic_adapter.subprocess.run",
+        with patch("providers.anthropic.platform.system", return_value="Darwin"), \
+             patch("providers.anthropic.subprocess.run",
                    side_effect=OSError("security not found")):
             assert _read_claude_code_credentials_from_keychain() is None
 
     def test_returns_none_on_nonzero_exit_code(self):
         """security returns non-zero when the Keychain entry doesn't exist."""
-        with patch("agent.anthropic_adapter.platform.system", return_value="Darwin"), \
-             patch("agent.anthropic_adapter.subprocess.run") as mock_run:
+        with patch("providers.anthropic.platform.system", return_value="Darwin"), \
+             patch("providers.anthropic.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="")
             assert _read_claude_code_credentials_from_keychain() is None
 
     def test_returns_none_for_empty_stdout(self):
-        with patch("agent.anthropic_adapter.platform.system", return_value="Darwin"), \
-             patch("agent.anthropic_adapter.subprocess.run") as mock_run:
+        with patch("providers.anthropic.platform.system", return_value="Darwin"), \
+             patch("providers.anthropic.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
             assert _read_claude_code_credentials_from_keychain() is None
 
     def test_returns_none_for_non_json_payload(self):
-        with patch("agent.anthropic_adapter.platform.system", return_value="Darwin"), \
-             patch("agent.anthropic_adapter.subprocess.run") as mock_run:
+        with patch("providers.anthropic.platform.system", return_value="Darwin"), \
+             patch("providers.anthropic.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0, stdout="not valid json", stderr="")
             assert _read_claude_code_credentials_from_keychain() is None
 
     def test_returns_none_when_password_field_is_missing_claude_ai_oauth(self):
-        with patch("agent.anthropic_adapter.platform.system", return_value="Darwin"), \
-             patch("agent.anthropic_adapter.subprocess.run") as mock_run:
+        with patch("providers.anthropic.platform.system", return_value="Darwin"), \
+             patch("providers.anthropic.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
                 returncode=0,
                 stdout=json.dumps({"someOtherService": {"accessToken": "tok"}}),
@@ -61,8 +61,8 @@ class TestReadClaudeCodeCredentialsFromKeychain:
             assert _read_claude_code_credentials_from_keychain() is None
 
     def test_returns_none_when_access_token_is_empty(self):
-        with patch("agent.anthropic_adapter.platform.system", return_value="Darwin"), \
-             patch("agent.anthropic_adapter.subprocess.run") as mock_run:
+        with patch("providers.anthropic.platform.system", return_value="Darwin"), \
+             patch("providers.anthropic.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
                 returncode=0,
                 stdout=json.dumps({"claudeAiOauth": {"accessToken": "", "refreshToken": "x"}}),
@@ -71,8 +71,8 @@ class TestReadClaudeCodeCredentialsFromKeychain:
             assert _read_claude_code_credentials_from_keychain() is None
 
     def test_parses_valid_keychain_entry(self):
-        with patch("agent.anthropic_adapter.platform.system", return_value="Darwin"), \
-             patch("agent.anthropic_adapter.subprocess.run") as mock_run:
+        with patch("providers.anthropic.platform.system", return_value="Darwin"), \
+             patch("providers.anthropic.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
                 returncode=0,
                 stdout=json.dumps({
@@ -107,11 +107,11 @@ class TestReadClaudeCodeCredentialsPriority:
                 "expiresAt": 9999999999999,
             }
         }))
-        monkeypatch.setattr("agent.anthropic_adapter.Path.home", lambda: tmp_path)
+        monkeypatch.setattr("providers.anthropic.Path.home", lambda: tmp_path)
 
         # Mock Keychain to return a "newer" token
-        with patch("agent.anthropic_adapter.platform.system", return_value="Darwin"), \
-             patch("agent.anthropic_adapter.subprocess.run") as mock_run:
+        with patch("providers.anthropic.platform.system", return_value="Darwin"), \
+             patch("providers.anthropic.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
                 returncode=0,
                 stdout=json.dumps({
@@ -141,10 +141,10 @@ class TestReadClaudeCodeCredentialsPriority:
                 "expiresAt": 9999999999999,
             }
         }))
-        monkeypatch.setattr("agent.anthropic_adapter.Path.home", lambda: tmp_path)
+        monkeypatch.setattr("providers.anthropic.Path.home", lambda: tmp_path)
 
-        with patch("agent.anthropic_adapter.platform.system", return_value="Darwin"), \
-             patch("agent.anthropic_adapter.subprocess.run") as mock_run:
+        with patch("providers.anthropic.platform.system", return_value="Darwin"), \
+             patch("providers.anthropic.subprocess.run") as mock_run:
             # Simulate Keychain entry not found
             mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="")
             creds = read_claude_code_credentials()
@@ -155,10 +155,10 @@ class TestReadClaudeCodeCredentialsPriority:
 
     def test_returns_none_when_neither_keychain_nor_json_has_creds(self, tmp_path, monkeypatch):
         """No credentials anywhere — must return None cleanly."""
-        monkeypatch.setattr("agent.anthropic_adapter.Path.home", lambda: tmp_path)
+        monkeypatch.setattr("providers.anthropic.Path.home", lambda: tmp_path)
 
-        with patch("agent.anthropic_adapter.platform.system", return_value="Darwin"), \
-             patch("agent.anthropic_adapter.subprocess.run") as mock_run:
+        with patch("providers.anthropic.platform.system", return_value="Darwin"), \
+             patch("providers.anthropic.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="")
             creds = read_claude_code_credentials()
 

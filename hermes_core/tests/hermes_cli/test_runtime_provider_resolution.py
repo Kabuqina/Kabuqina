@@ -77,7 +77,7 @@ def test_resolve_runtime_provider_anthropic_explicit_override_skips_pool(monkeyp
     )
     monkeypatch.setattr(rp, "load_pool", _unexpected_pool)
     monkeypatch.setattr(
-        "agent.anthropic_adapter.resolve_anthropic_token",
+        "providers.anthropic.resolve_anthropic_token",
         _unexpected_anthropic_token,
     )
 
@@ -1468,7 +1468,7 @@ class TestAzureAnthropicEnvVarHint:
             called["resolve_anthropic_token"] = True
             return "token-from-resolver"
         monkeypatch.setattr(
-            "agent.anthropic_adapter.resolve_anthropic_token",
+            "providers.anthropic.resolve_anthropic_token",
             _fake_resolve,
         )
 

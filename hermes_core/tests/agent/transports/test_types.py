@@ -3,7 +3,7 @@
 import json
 import pytest
 
-from agent.transports.types import (
+from providers.transports.types import (
     NormalizedResponse,
     ToolCall,
     Usage,

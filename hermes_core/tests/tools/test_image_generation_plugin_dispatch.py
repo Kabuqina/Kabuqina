@@ -5,8 +5,8 @@ import sys
 import types
 import pytest
 
-from agent import image_gen_registry
-from agent.image_gen_provider import ImageGenProvider
+from providers import image_gen_registry
+from providers.image_gen_provider import ImageGenProvider
 
 
 @pytest.fixture(autouse=True)
@@ -36,7 +36,7 @@ class _FakeSampleProvider(ImageGenProvider):
 class TestPluginDispatch:
     def test_dispatch_routes_to_sample_provider(self, monkeypatch, tmp_path):
         from tools import image_generation_tool
-        from agent import image_gen_registry as registry_module
+        from providers import image_gen_registry as registry_module
         from hermes_cli import plugins as plugins_module
 
         monkeypatch.setenv("HERMES_HOME", str(tmp_path))
@@ -75,7 +75,7 @@ class TestPluginDispatch:
     def test_dispatch_force_refreshes_plugins_when_provider_initially_missing(self, monkeypatch, tmp_path):
         from tools import image_generation_tool
         from hermes_cli import plugins as plugins_module
-        from agent import image_gen_registry as registry_module
+        from providers import image_gen_registry as registry_module
 
         monkeypatch.setenv("HERMES_HOME", str(tmp_path))
         (tmp_path / "config.yaml").write_text("image_gen:\n  provider: sample\n")

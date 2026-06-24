@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from agent.error_classifier import FailoverReason, classify_api_error
+from providers.error_classifier import FailoverReason, classify_api_error
 
 
 class _FakeApiError(Exception):

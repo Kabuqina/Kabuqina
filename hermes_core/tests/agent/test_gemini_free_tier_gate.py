@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from agent.gemini_native_adapter import (
+from providers.gemini import (
     gemini_http_error,
     is_free_tier_quota_error,
     probe_gemini_tier,
@@ -21,7 +21,7 @@ def _mock_response(status: int, headers: dict | None = None, text: str = "") -> 
 
 
 def _run_probe(resp: MagicMock) -> str:
-    with patch("agent.gemini_native_adapter.httpx.Client") as MC:
+    with patch("providers.gemini.httpx.Client") as MC:
         inst = MagicMock()
         inst.post.return_value = resp
         MC.return_value.__enter__.return_value = inst
@@ -79,7 +79,7 @@ class TestProbeGeminiTier:
 
     def test_network_error_returns_unknown(self):
         with patch(
-            "agent.gemini_native_adapter.httpx.Client",
+            "providers.gemini.httpx.Client",
             side_effect=Exception("dns failure"),
         ):
             assert probe_gemini_tier("fake-key") == "unknown"
@@ -97,7 +97,7 @@ class TestProbeGeminiTier:
     def test_openai_compat_suffix_stripped(self):
         """Base URLs ending in /openai get normalized to the native endpoint."""
         resp = _mock_response(200, {"x-ratelimit-limit-requests-per-day": "1500"}, "{}")
-        with patch("agent.gemini_native_adapter.httpx.Client") as MC:
+        with patch("providers.gemini.httpx.Client") as MC:
             inst = MagicMock()
             inst.post.return_value = resp
             MC.return_value.__enter__.return_value = inst

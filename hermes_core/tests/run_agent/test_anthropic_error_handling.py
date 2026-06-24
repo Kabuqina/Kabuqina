@@ -195,7 +195,7 @@ def _run_with_agent(monkeypatch, agent_cls):
     """Run _run_agent through the gateway with the given agent class."""
     _patch_agent_bootstrap(monkeypatch)
     monkeypatch.setattr(
-        "agent.anthropic_adapter.build_anthropic_client", _fake_build_anthropic_client
+        "providers.anthropic.build_anthropic_client", _fake_build_anthropic_client
     )
     monkeypatch.setattr(run_agent, "AIAgent", agent_cls)
     monkeypatch.setattr(
@@ -295,7 +295,7 @@ def test_401_credential_refresh_recovers(monkeypatch):
     """401 should trigger credential refresh and retry once."""
     _patch_agent_bootstrap(monkeypatch)
     monkeypatch.setattr(
-        "agent.anthropic_adapter.build_anthropic_client", _fake_build_anthropic_client
+        "providers.anthropic.build_anthropic_client", _fake_build_anthropic_client
     )
     monkeypatch.setenv("HERMES_TOOL_PROGRESS", "false")
 
@@ -379,7 +379,7 @@ def test_401_refresh_fails_is_non_retryable(monkeypatch):
     """401 with failed credential refresh should be treated as non-retryable."""
     _patch_agent_bootstrap(monkeypatch)
     monkeypatch.setattr(
-        "agent.anthropic_adapter.build_anthropic_client", _fake_build_anthropic_client
+        "providers.anthropic.build_anthropic_client", _fake_build_anthropic_client
     )
     monkeypatch.setenv("HERMES_TOOL_PROGRESS", "false")
 
@@ -454,7 +454,7 @@ def test_prompt_too_long_triggers_compression(monkeypatch):
     """Anthropic 'prompt is too long' error should trigger context compression, not immediate fail."""
     _patch_agent_bootstrap(monkeypatch)
     monkeypatch.setattr(
-        "agent.anthropic_adapter.build_anthropic_client", _fake_build_anthropic_client
+        "providers.anthropic.build_anthropic_client", _fake_build_anthropic_client
     )
     monkeypatch.setenv("HERMES_TOOL_PROGRESS", "false")
 

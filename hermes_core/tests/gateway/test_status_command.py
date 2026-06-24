@@ -211,7 +211,7 @@ async def test_handle_message_persists_agent_token_counts(monkeypatch):
 
     monkeypatch.setattr(gateway_run, "_resolve_runtime_agent_kwargs", lambda: {"api_key": "***"})
     monkeypatch.setattr(
-        "agent.model_metadata.get_model_context_length",
+        "providers.model_metadata.get_model_context_length",
         lambda *_args, **_kwargs: 100000,
     )
 
@@ -260,7 +260,7 @@ async def test_first_run_slack_dm_auto_sets_home_without_onboarding_prompt(monke
     )
     monkeypatch.setattr(gateway_run, "_resolve_runtime_agent_kwargs", lambda: {"api_key": "***"})
     monkeypatch.setattr(
-        "agent.model_metadata.get_model_context_length",
+        "providers.model_metadata.get_model_context_length",
         lambda *_args, **_kwargs: 100000,
     )
 
@@ -308,7 +308,7 @@ async def test_first_run_non_slack_dm_auto_sets_home_without_onboarding_prompt(m
     )
     monkeypatch.setattr(gateway_run, "_resolve_runtime_agent_kwargs", lambda: {"api_key": "***"})
     monkeypatch.setattr(
-        "agent.model_metadata.get_model_context_length",
+        "providers.model_metadata.get_model_context_length",
         lambda *_args, **_kwargs: 100000,
     )
 
@@ -354,7 +354,7 @@ async def test_handle_message_discards_stale_result_after_session_invalidation(m
 
     monkeypatch.setattr(gateway_run, "_resolve_runtime_agent_kwargs", lambda: {"api_key": "***"})
     monkeypatch.setattr(
-        "agent.model_metadata.get_model_context_length",
+        "providers.model_metadata.get_model_context_length",
         lambda *_args, **_kwargs: 100000,
     )
 
@@ -424,7 +424,7 @@ async def test_handle_message_stale_result_keeps_newer_generation_callback(monke
 
     monkeypatch.setattr(gateway_run, "_resolve_runtime_agent_kwargs", lambda: {"api_key": "***"})
     monkeypatch.setattr(
-        "agent.model_metadata.get_model_context_length",
+        "providers.model_metadata.get_model_context_length",
         lambda *_args, **_kwargs: 100000,
     )
 

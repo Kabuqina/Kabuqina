@@ -16,7 +16,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from agent.auxiliary_client import extract_content_or_reasoning
+from providers.chat_completions import extract_content_or_reasoning
 
 
 # ── helpers ────────────────────────────────────────────────────────────────

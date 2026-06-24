@@ -18,7 +18,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 import run_agent
 from run_agent import AIAgent
-from agent.error_classifier import FailoverReason
+from providers.error_classifier import FailoverReason
 from agent.prompt_builder import DEFAULT_AGENT_IDENTITY
 
 
@@ -603,7 +603,7 @@ class TestInit:
         with (
             patch("run_agent.get_tool_definitions", return_value=[]),
             patch("run_agent.check_toolset_requirements", return_value={}),
-            patch("agent.anthropic_adapter._anthropic_sdk") as mock_anthropic,
+            patch("providers.anthropic._anthropic_sdk") as mock_anthropic,
         ):
             agent = AIAgent(
                 api_key="test-key-1234567890",
@@ -671,7 +671,7 @@ class TestInit:
         with (
             patch("run_agent.get_tool_definitions", return_value=[]),
             patch("run_agent.check_toolset_requirements", return_value={}),
-            patch("agent.anthropic_adapter._anthropic_sdk"),
+            patch("providers.anthropic._anthropic_sdk"),
         ):
             a = AIAgent(
                 api_key="test-key-1234567890",
@@ -3645,7 +3645,7 @@ class TestBuildApiKwargsAnthropicMaxTokens:
         agent.max_tokens = 4096
         agent.reasoning_config = None
 
-        with patch("agent.anthropic_adapter.build_anthropic_kwargs") as mock_build:
+        with patch("providers.anthropic.build_anthropic_kwargs") as mock_build:
             mock_build.return_value = {"model": "claude-sonnet-4-20250514", "messages": [], "max_tokens": 4096}
             agent._build_api_kwargs([{"role": "user", "content": "test"}])
             _, kwargs = mock_build.call_args
@@ -3661,7 +3661,7 @@ class TestBuildApiKwargsAnthropicMaxTokens:
         agent.max_tokens = None
         agent.reasoning_config = None
 
-        with patch("agent.anthropic_adapter.build_anthropic_kwargs") as mock_build:
+        with patch("providers.anthropic.build_anthropic_kwargs") as mock_build:
             mock_build.return_value = {"model": "claude-sonnet-4-20250514", "messages": [], "max_tokens": 16384}
             agent._build_api_kwargs([{"role": "user", "content": "test"}])
             call_args = mock_build.call_args
@@ -3687,7 +3687,7 @@ class TestAnthropicImageFallback:
 
         with (
             patch("tools.vision_tools.vision_analyze_tool", new=AsyncMock(return_value=json.dumps({"success": True, "analysis": "A cat sitting on a chair."}))),
-            patch("agent.anthropic_adapter.build_anthropic_kwargs") as mock_build,
+            patch("providers.anthropic.build_anthropic_kwargs") as mock_build,
         ):
             mock_build.return_value = {"model": "claude-sonnet-4-20250514", "messages": [], "max_tokens": 4096}
             agent._build_api_kwargs(api_messages)
@@ -3727,7 +3727,7 @@ class TestAnthropicImageFallback:
         mock_vision = AsyncMock(return_value=json.dumps({"success": True, "analysis": "A small test image."}))
         with (
             patch("tools.vision_tools.vision_analyze_tool", new=mock_vision),
-            patch("agent.anthropic_adapter.build_anthropic_kwargs") as mock_build,
+            patch("providers.anthropic.build_anthropic_kwargs") as mock_build,
         ):
             mock_build.return_value = {"model": "claude-sonnet-4-20250514", "messages": [], "max_tokens": 4096}
             agent._build_api_kwargs(api_messages)
@@ -3749,9 +3749,9 @@ class TestFallbackAnthropicProvider:
         mock_client.api_key = "sk-ant-api03-test"
 
         with (
-            patch("agent.auxiliary_client.resolve_provider_client", return_value=(mock_client, None)),
-            patch("agent.anthropic_adapter.build_anthropic_client") as mock_build,
-            patch("agent.anthropic_adapter.resolve_anthropic_token", return_value=None),
+            patch("providers.chat_completions.resolve_provider_client", return_value=(mock_client, None)),
+            patch("providers.anthropic.build_anthropic_client") as mock_build,
+            patch("providers.anthropic.resolve_anthropic_token", return_value=None),
         ):
             mock_build.return_value = MagicMock()
             result = agent._try_activate_fallback()
@@ -3772,9 +3772,9 @@ class TestFallbackAnthropicProvider:
         mock_client.api_key = "sk-ant-api03-test"
 
         with (
-            patch("agent.auxiliary_client.resolve_provider_client", return_value=(mock_client, None)),
-            patch("agent.anthropic_adapter.build_anthropic_client", return_value=MagicMock()),
-            patch("agent.anthropic_adapter.resolve_anthropic_token", return_value=None),
+            patch("providers.chat_completions.resolve_provider_client", return_value=(mock_client, None)),
+            patch("providers.anthropic.build_anthropic_client", return_value=MagicMock()),
+            patch("providers.anthropic.resolve_anthropic_token", return_value=None),
         ):
             agent._try_activate_fallback()
 
@@ -3790,7 +3790,7 @@ class TestFallbackAnthropicProvider:
         mock_client.base_url = "https://openrouter.ai/api/v1"
         mock_client.api_key = "sk-or-test"
 
-        with patch("agent.auxiliary_client.resolve_provider_client", return_value=(mock_client, None)):
+        with patch("providers.chat_completions.resolve_provider_client", return_value=(mock_client, None)):
             result = agent._try_activate_fallback()
 
         assert result is True
@@ -3869,7 +3869,7 @@ class TestAnthropicBaseUrlPassthrough:
         with (
             patch("run_agent.get_tool_definitions", return_value=_make_tool_defs("web_search")),
             patch("run_agent.check_toolset_requirements", return_value={}),
-            patch("agent.anthropic_adapter.build_anthropic_client") as mock_build,
+            patch("providers.anthropic.build_anthropic_client") as mock_build,
         ):
             mock_build.return_value = MagicMock()
             a = AIAgent(
@@ -3888,7 +3888,7 @@ class TestAnthropicBaseUrlPassthrough:
         with (
             patch("run_agent.get_tool_definitions", return_value=_make_tool_defs("web_search")),
             patch("run_agent.check_toolset_requirements", return_value={}),
-            patch("agent.anthropic_adapter.build_anthropic_client") as mock_build,
+            patch("providers.anthropic.build_anthropic_client") as mock_build,
         ):
             mock_build.return_value = MagicMock()
             a = AIAgent(
@@ -3909,7 +3909,7 @@ class TestAnthropicCredentialRefresh:
         with (
             patch("run_agent.get_tool_definitions", return_value=_make_tool_defs("web_search")),
             patch("run_agent.check_toolset_requirements", return_value={}),
-            patch("agent.anthropic_adapter.build_anthropic_client") as mock_build,
+            patch("providers.anthropic.build_anthropic_client") as mock_build,
         ):
             old_client = MagicMock()
             new_client = MagicMock()
@@ -3929,8 +3929,8 @@ class TestAnthropicCredentialRefresh:
         agent.provider = "anthropic"
 
         with (
-            patch("agent.anthropic_adapter.resolve_anthropic_token", return_value="sk-ant-oat01-fresh-token"),
-            patch("agent.anthropic_adapter.build_anthropic_client", return_value=new_client) as rebuild,
+            patch("providers.anthropic.resolve_anthropic_token", return_value="sk-ant-oat01-fresh-token"),
+            patch("providers.anthropic.build_anthropic_client", return_value=new_client) as rebuild,
         ):
             assert agent._try_refresh_anthropic_client_credentials() is True
 
@@ -3945,7 +3945,7 @@ class TestAnthropicCredentialRefresh:
         with (
             patch("run_agent.get_tool_definitions", return_value=_make_tool_defs("web_search")),
             patch("run_agent.check_toolset_requirements", return_value={}),
-            patch("agent.anthropic_adapter.build_anthropic_client", return_value=MagicMock()),
+            patch("providers.anthropic.build_anthropic_client", return_value=MagicMock()),
         ):
             agent = AIAgent(
                 api_key="sk-ant-oat01-same-token",
@@ -3961,8 +3961,8 @@ class TestAnthropicCredentialRefresh:
         agent._anthropic_api_key = "sk-ant-oat01-same-token"
 
         with (
-            patch("agent.anthropic_adapter.resolve_anthropic_token", return_value="sk-ant-oat01-same-token"),
-            patch("agent.anthropic_adapter.build_anthropic_client") as rebuild,
+            patch("providers.anthropic.resolve_anthropic_token", return_value="sk-ant-oat01-same-token"),
+            patch("providers.anthropic.build_anthropic_client") as rebuild,
         ):
             assert agent._try_refresh_anthropic_client_credentials() is False
 
@@ -3973,7 +3973,7 @@ class TestAnthropicCredentialRefresh:
         with (
             patch("run_agent.get_tool_definitions", return_value=_make_tool_defs("web_search")),
             patch("run_agent.check_toolset_requirements", return_value={}),
-            patch("agent.anthropic_adapter.build_anthropic_client", return_value=MagicMock()),
+            patch("providers.anthropic.build_anthropic_client", return_value=MagicMock()),
         ):
             agent = AIAgent(
                 api_key="sk-ant-oat01-current-token",
@@ -4527,9 +4527,9 @@ class TestOAuthFlagAfterCredentialRefresh:
         agent._is_anthropic_oauth = False
 
         with (
-            patch("agent.anthropic_adapter.resolve_anthropic_token",
+            patch("providers.anthropic.resolve_anthropic_token",
                   return_value="sk-ant-setup-oauth-token"),
-            patch("agent.anthropic_adapter.build_anthropic_client",
+            patch("providers.anthropic.build_anthropic_client",
                   return_value=MagicMock()),
         ):
             result = agent._try_refresh_anthropic_client_credentials()
@@ -4546,9 +4546,9 @@ class TestOAuthFlagAfterCredentialRefresh:
         agent._is_anthropic_oauth = True
 
         with (
-            patch("agent.anthropic_adapter.resolve_anthropic_token",
+            patch("providers.anthropic.resolve_anthropic_token",
                   return_value="sk-ant-api03-new-key"),
-            patch("agent.anthropic_adapter.build_anthropic_client",
+            patch("providers.anthropic.build_anthropic_client",
                   return_value=MagicMock()),
         ):
             result = agent._try_refresh_anthropic_client_credentials()
@@ -4571,11 +4571,11 @@ class TestFallbackSetsOAuthFlag:
         mock_client.api_key = "sk-ant-setup-oauth-token"
 
         with (
-            patch("agent.auxiliary_client.resolve_provider_client",
+            patch("providers.chat_completions.resolve_provider_client",
                   return_value=(mock_client, None)),
-            patch("agent.anthropic_adapter.build_anthropic_client",
+            patch("providers.anthropic.build_anthropic_client",
                   return_value=MagicMock()),
-            patch("agent.anthropic_adapter.resolve_anthropic_token",
+            patch("providers.anthropic.resolve_anthropic_token",
                   return_value=None),
         ):
             result = agent._try_activate_fallback()
@@ -4594,11 +4594,11 @@ class TestFallbackSetsOAuthFlag:
         mock_client.api_key = "sk-ant-api03-regular-key"
 
         with (
-            patch("agent.auxiliary_client.resolve_provider_client",
+            patch("providers.chat_completions.resolve_provider_client",
                   return_value=(mock_client, None)),
-            patch("agent.anthropic_adapter.build_anthropic_client",
+            patch("providers.anthropic.build_anthropic_client",
                   return_value=MagicMock()),
-            patch("agent.anthropic_adapter.resolve_anthropic_token",
+            patch("providers.anthropic.resolve_anthropic_token",
                   return_value=None),
         ):
             result = agent._try_activate_fallback()

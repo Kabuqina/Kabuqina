@@ -293,8 +293,8 @@ class TestBundledBackendAutoLoad:
 
 class TestRegisterImageGenProvider:
     def test_accepts_valid_provider(self, tmp_path, monkeypatch):
-        from agent import image_gen_registry
-        from agent.image_gen_provider import ImageGenProvider
+        from providers import image_gen_registry
+        from providers.image_gen_provider import ImageGenProvider
 
         image_gen_registry._reset_for_tests()
 
@@ -312,7 +312,7 @@ class TestRegisterImageGenProvider:
             hermes_home / "plugins",
             ["my-img-plugin"],
             register_body=(
-                "from agent.image_gen_provider import ImageGenProvider\n"
+                "from providers.image_gen_provider import ImageGenProvider\n"
                 "    class P(ImageGenProvider):\n"
                 "        @property\n"
                 "        def name(self): return 'fake-ctx'\n"
@@ -332,7 +332,7 @@ class TestRegisterImageGenProvider:
         image_gen_registry._reset_for_tests()
 
     def test_rejects_non_provider(self, tmp_path, monkeypatch, caplog):
-        from agent import image_gen_registry
+        from providers import image_gen_registry
 
         image_gen_registry._reset_for_tests()
 

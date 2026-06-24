@@ -1,5 +1,5 @@
 """Regression tests for the generic unsupported-parameter detector in
-``agent.auxiliary_client``.
+``providers.chat_completions``.
 
 The original temperature-specific detector (PR #15621) was generalized so the
 same reactive-retry strategy covers any provider that rejects an arbitrary
@@ -20,7 +20,7 @@ from unittest.mock import patch, MagicMock, AsyncMock
 
 import pytest
 
-from agent.auxiliary_client import (
+from providers.chat_completions import (
     call_llm,
     async_call_llm,
     _is_unsupported_parameter_error,

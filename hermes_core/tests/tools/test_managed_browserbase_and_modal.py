@@ -72,7 +72,7 @@ def _install_fake_tools_package():
     agent_package = types.ModuleType("agent")
     agent_package.__path__ = []  # type: ignore[attr-defined]
     sys.modules["agent"] = agent_package
-    sys.modules["agent.auxiliary_client"] = types.SimpleNamespace(
+    sys.modules["providers.chat_completions"] = types.SimpleNamespace(
         call_llm=lambda *args, **kwargs: "",
     )
 

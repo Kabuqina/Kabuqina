@@ -1110,7 +1110,7 @@ class TestChildCredentialPoolResolution(unittest.TestCase):
         mock_pool = MagicMock()
         mock_pool.has_credentials.return_value = True
 
-        with patch("agent.credential_pool.load_pool", return_value=mock_pool):
+        with patch("providers.credential_pool.load_pool", return_value=mock_pool):
             result = _resolve_child_credential_pool("anthropic", parent)
 
         self.assertIs(result, mock_pool)
@@ -1121,7 +1121,7 @@ class TestChildCredentialPoolResolution(unittest.TestCase):
         mock_pool = MagicMock()
         mock_pool.has_credentials.return_value = False
 
-        with patch("agent.credential_pool.load_pool", return_value=mock_pool):
+        with patch("providers.credential_pool.load_pool", return_value=mock_pool):
             result = _resolve_child_credential_pool("anthropic", parent)
 
         self.assertIsNone(result)
@@ -1130,7 +1130,7 @@ class TestChildCredentialPoolResolution(unittest.TestCase):
         parent = _make_mock_parent()
         parent._credential_pool = MagicMock()
 
-        with patch("agent.credential_pool.load_pool", side_effect=Exception("disk error")):
+        with patch("providers.credential_pool.load_pool", side_effect=Exception("disk error")):
             result = _resolve_child_credential_pool("anthropic", parent)
 
         self.assertIsNone(result)
