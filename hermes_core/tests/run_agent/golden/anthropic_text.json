@@ -28,7 +28,9 @@
       "interrupted": false,
       "api_calls": 1,
       "model": "claude-sonnet-4-6",
-      "provider": "anthropic"
+      "provider": "anthropic",
+      "interrupt_message": null,
+      "pending_steer": null
     },
     "usage": {
       "input_tokens": 40,

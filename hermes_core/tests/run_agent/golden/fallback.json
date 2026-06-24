@@ -1,48 +1,56 @@
 {
-  "name": "plain_text",
-  "description": "Direct text answer, no tools — the simplest single-turn loop.",
+  "name": "fallback",
+  "description": "Primary returns an empty/malformed (None) response; the loop activates the fallback provider and the next turn answers from it.",
   "agent": {
     "api_mode": "chat_completions",
     "provider": "openrouter",
     "model": "golden/test-model",
-    "base_url": "https://api.openai.com/v1"
+    "base_url": "https://api.openai.com/v1",
+    "fallback_model": {
+      "provider": "fallbackprov",
+      "model": "fallback-model",
+      "base_url": "https://fallback.example/v1"
+    }
   },
-  "user_message": "Say hello in one short sentence.",
+  "user_message": "Say hello.",
   "tools": [],
   "tool_results": {},
   "model_turns": [
     {
-      "content": "Hello! How can I help you today?",
+      "invalid": true
+    },
+    {
+      "content": "Hello from the fallback provider.",
       "finish_reason": "stop",
       "usage": {
-        "prompt_tokens": 50,
-        "completion_tokens": 8,
-        "total_tokens": 58
+        "prompt_tokens": 60,
+        "completion_tokens": 9,
+        "total_tokens": 69
       }
     }
   ],
   "expected": {
     "result": {
-      "final_response": "Hello! How can I help you today?",
+      "final_response": "Hello from the fallback provider.",
       "completed": true,
       "partial": false,
       "interrupted": false,
       "api_calls": 1,
-      "model": "golden/test-model",
-      "provider": "openrouter",
+      "model": "fallback-model",
+      "provider": "fallbackprov",
       "interrupt_message": null,
       "pending_steer": null
     },
     "usage": {
-      "input_tokens": 50,
-      "output_tokens": 8,
-      "prompt_tokens": 50,
-      "completion_tokens": 8,
-      "total_tokens": 58,
+      "input_tokens": 60,
+      "output_tokens": 9,
+      "prompt_tokens": 60,
+      "completion_tokens": 9,
+      "total_tokens": 69,
       "cache_read_tokens": 0,
       "cache_write_tokens": 0,
       "reasoning_tokens": 0,
-      "last_prompt_tokens": 50,
+      "last_prompt_tokens": 60,
       "estimated_cost_usd": 0.0,
       "cost_status": "unknown",
       "cost_source": "none"
@@ -50,20 +58,20 @@
     "messages": [
       {
         "role": "user",
-        "content": "Say hello in one short sentence."
+        "content": "Say hello."
       },
       {
         "role": "assistant",
-        "content": "Hello! How can I help you today?",
+        "content": "Hello from the fallback provider.",
         "finish_reason": "stop"
       }
     ],
     "tool_invocations": [],
-    "model_turns_consumed": 1,
+    "model_turns_consumed": 2,
     "persisted_db_messages": [
       {
         "role": "user",
-        "content": "Say hello in one short sentence.",
+        "content": "Say hello.",
         "tool_name": null,
         "tool_call_id": null,
         "finish_reason": null,
@@ -71,7 +79,7 @@
       },
       {
         "role": "assistant",
-        "content": "Hello! How can I help you today?",
+        "content": "Hello from the fallback provider.",
         "tool_name": null,
         "tool_call_id": null,
         "finish_reason": "stop",

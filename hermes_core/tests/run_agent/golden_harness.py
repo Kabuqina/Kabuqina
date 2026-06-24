@@ -53,17 +53,15 @@ from unittest.mock import MagicMock, patch
 # Fixed, deterministic identity so persisted rows / session tags never vary.
 GOLDEN_SESSION_ID = "golden-session-0001"
 
-# Branches still to cover for the full phase-0 gate (each needs a small affordance
-# here before a fixture can drive it — see the plan, phase 0 exit criteria):
-#   * max-iterations  — accept an "iteration_cap" in the spec and apply it to the
-#     agent's iteration budget, then script more tool turns than the cap.
-#   * interrupt/steer — let a model turn carry an "interrupt"/"steer" marker the
-#     transport raises via agent.interrupt()/agent.steer() between turns.
-#   * compression     — script a usage prompt_tokens above the context window and
-#     stub the compressor so _compress_context fires deterministically.
-#   * provider fallback — script an invalid (None) response with a fallback chain
-#     configured so _try_activate_fallback runs.
-#   * unknown-tool rejection — script a tool_call whose name is NOT in `tools`.
+# Covered branches (fixtures under golden/): plain text, single-tool (sequential),
+# parallel multi-tool (concurrent), anthropic_messages text, interrupt, steer,
+# unknown-tool rejection, max-iterations (summary call), provider fallback.
+#
+# Still TODO for the full phase-0 gate — compression. It needs more than a spec
+# field: _compress_context runs the ContextCompressor, which itself orchestrates
+# model calls, so a deterministic fixture needs the compressor stubbed (not just a
+# high prompt_tokens). Deferred to avoid shipping a brittle golden; do it as a
+# focused follow-up that fakes the compressor's summarize step.
 
 
 # ── Fakes mirroring the production client surfaces (see
@@ -99,13 +97,20 @@ def _tool_def(name: str) -> Dict[str, Any]:
 
 
 class _ScriptedTransport:
-    """Returns the next scripted model turn per call; records the call count."""
+    """Returns the next scripted model turn per call; records the call count.
+
+    A turn may carry an ``action`` ("interrupt"/"steer", applied to ``self.agent``
+    before the response is returned, so the loop observes the signal mid-turn) and
+    ``invalid: true`` (returns ``None`` to drive the empty/malformed-response →
+    fallback path).
+    """
 
     def __init__(self, turns: List[Dict[str, Any]], builder, model: str):
         self._turns = turns
         self._builder = builder
         self._model = model
         self.calls = 0
+        self.agent = None  # set by replay_transcript after construction
 
     def __call__(self, *args, **kwargs):
         if self.calls >= len(self._turns):
@@ -116,7 +121,37 @@ class _ScriptedTransport:
             )
         turn = self._turns[self.calls]
         self.calls += 1
+
+        action = turn.get("action")
+        if action == "interrupt":
+            self.agent.interrupt(turn.get("action_text"))
+        elif action == "steer":
+            self.agent.steer(turn.get("action_text", ""))
+
+        if turn.get("invalid"):
+            return None
         return self._builder(turn, self._model)
+
+
+class _FakeChatClient(_FakeOpenAIClient):
+    """Fake OpenAI client whose ``chat.completions.create`` returns a fixed
+    response — used for the max-iterations summary call, which bypasses
+    ``_interruptible_api_call`` and hits ``self.client`` directly."""
+
+    def __init__(self, summary_response):
+        self._summary = summary_response
+        self.chat = SimpleNamespace(
+            completions=SimpleNamespace(create=self._create)
+        )
+
+    def _create(self, **kwargs):
+        if self._summary is None:
+            raise AssertionError(
+                "the loop made a direct client.chat.completions.create() call "
+                "(e.g. the max-iterations summary) but the transcript has no "
+                "'summary_response'"
+            )
+        return self._summary
 
 
 class _ToolStub:
@@ -275,6 +310,8 @@ def _snapshot(result, agent, tool_stub, transport, stream_log) -> Dict[str, Any]
             "api_calls": result.get("api_calls"),
             "model": result.get("model"),
             "provider": result.get("provider"),
+            "interrupt_message": result.get("interrupt_message"),
+            "pending_steer": result.get("pending_steer"),
         },
         "usage": {
             "input_tokens": result.get("input_tokens"),
@@ -340,6 +377,32 @@ def _patches(tool_names, tool_stub, api_mode):
         stack.close()
 
 
+@contextlib.contextmanager
+def _fallback_patch(fallback_model):
+    """Make ``resolve_provider_client`` hand the fallback path a fake client.
+
+    No-op unless the transcript configures a fallback — without it, an unknown
+    fallback provider would just no-op (provider not configured) and never
+    activate, so the fallback branch couldn't be characterized.
+    """
+    if not fallback_model:
+        yield
+        return
+    import providers.chat_completions as cc
+
+    fb = fallback_model[0] if isinstance(fallback_model, list) else fallback_model
+    fb_model = (fb or {}).get("model", "fallback-model")
+    fb_base = (fb or {}).get("base_url") or "https://fallback.example/v1"
+    fake = SimpleNamespace(
+        base_url=fb_base,
+        api_key="fallback-key",
+        _default_headers=None,
+        close=lambda: None,
+    )
+    with patch.object(cc, "resolve_provider_client", lambda *a, **k: (fake, fb_model)):
+        yield
+
+
 def replay_transcript(spec: Dict[str, Any]) -> Dict[str, Any]:
     """Replay one transcript against a real ``AIAgent`` and return the snapshot."""
     import run_agent
@@ -356,7 +419,17 @@ def replay_transcript(spec: Dict[str, Any]) -> Dict[str, Any]:
     transport = _ScriptedTransport(spec.get("model_turns", []), builder, model)
     stream_log: List[str] = []
 
-    with _patches(tool_names, tool_stub, api_mode):
+    # Optional summary response for the max-iterations path (direct client call).
+    summary_spec = spec.get("summary_response")
+    summary_response = _chat_response(summary_spec, model) if summary_spec else None
+
+    extra_kwargs = {}
+    if "max_iterations" in cfg:
+        extra_kwargs["max_iterations"] = cfg["max_iterations"]
+    if cfg.get("fallback_model"):
+        extra_kwargs["fallback_model"] = cfg["fallback_model"]
+
+    with _patches(tool_names, tool_stub, api_mode), _fallback_patch(cfg.get("fallback_model")):
         agent = run_agent.AIAgent(
             api_key="golden-key",
             base_url=base_url,
@@ -366,6 +439,7 @@ def replay_transcript(spec: Dict[str, Any]) -> Dict[str, Any]:
             quiet_mode=True,
             skip_context_files=True,
             skip_memory=True,
+            **extra_kwargs,
         )
         # Determinism + hermeticity.
         agent.session_id = GOLDEN_SESSION_ID
@@ -376,7 +450,10 @@ def replay_transcript(spec: Dict[str, Any]) -> Dict[str, Any]:
         agent._last_flushed_db_idx = 0
         agent._save_session_log = lambda *a, **k: None  # no JSON log on disk
         agent._save_trajectory = lambda *a, **k: None  # no trajectory on disk
+        if summary_response is not None:
+            agent.client = _FakeChatClient(summary_response)
 
+        transport.agent = agent
         if api_mode == "anthropic_messages":
             agent._anthropic_messages_create = transport
         else:

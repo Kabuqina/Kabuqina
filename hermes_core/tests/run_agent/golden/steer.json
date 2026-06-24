@@ -1,56 +1,51 @@
 {
-  "name": "parallel_tools",
-  "description": "Two parallel-safe tools in one turn (concurrent dispatch path), then a final answer.",
+  "name": "steer",
+  "description": "User /steer lands during a tool-call turn; it is drained into the next turn rather than dropped, then the model answers.",
   "agent": {
     "api_mode": "chat_completions",
     "provider": "openrouter",
     "model": "golden/test-model",
     "base_url": "https://api.openai.com/v1"
   },
-  "user_message": "Look up Tokyo weather and extract the page. Use web_search and web_extract together.",
+  "user_message": "Search the web for Tokyo weather.",
   "tools": [
-    "web_search",
-    "web_extract"
+    "web_search"
   ],
   "tool_results": {
-    "web_search": "{\"answer\": \"Tokyo is sunny, 22C\"}",
-    "web_extract": "{\"text\": \"Forecast: clear skies all day.\"}"
+    "web_search": "{\"answer\": \"Tokyo is sunny, 22C\"}"
   },
   "model_turns": [
     {
       "content": null,
       "finish_reason": "tool_calls",
+      "action": "steer",
+      "action_text": "also include the humidity",
       "tool_calls": [
         {
           "id": "call_ws_1",
           "name": "web_search",
           "arguments": "{\"query\": \"Tokyo weather\"}"
-        },
-        {
-          "id": "call_we_1",
-          "name": "web_extract",
-          "arguments": "{\"url\": \"https://example.com/tokyo\"}"
         }
       ],
       "usage": {
-        "prompt_tokens": 120,
-        "completion_tokens": 24,
-        "total_tokens": 144
+        "prompt_tokens": 100,
+        "completion_tokens": 12,
+        "total_tokens": 112
       }
     },
     {
-      "content": "Tokyo is sunny at 22C with clear skies all day.",
+      "content": "Tokyo is sunny at 22C with 45% humidity.",
       "finish_reason": "stop",
       "usage": {
-        "prompt_tokens": 170,
-        "completion_tokens": 14,
-        "total_tokens": 184
+        "prompt_tokens": 140,
+        "completion_tokens": 13,
+        "total_tokens": 153
       }
     }
   ],
   "expected": {
     "result": {
-      "final_response": "Tokyo is sunny at 22C with clear skies all day.",
+      "final_response": "Tokyo is sunny at 22C with 45% humidity.",
       "completed": true,
       "partial": false,
       "interrupted": false,
@@ -61,15 +56,15 @@
       "pending_steer": null
     },
     "usage": {
-      "input_tokens": 290,
-      "output_tokens": 38,
-      "prompt_tokens": 290,
-      "completion_tokens": 38,
-      "total_tokens": 328,
+      "input_tokens": 240,
+      "output_tokens": 25,
+      "prompt_tokens": 240,
+      "completion_tokens": 25,
+      "total_tokens": 265,
       "cache_read_tokens": 0,
       "cache_write_tokens": 0,
       "reasoning_tokens": 0,
-      "last_prompt_tokens": 170,
+      "last_prompt_tokens": 140,
       "estimated_cost_usd": 0.0,
       "cost_status": "unknown",
       "cost_source": "none"
@@ -77,7 +72,7 @@
     "messages": [
       {
         "role": "user",
-        "content": "Look up Tokyo weather and extract the page. Use web_search and web_extract together."
+        "content": "Search the web for Tokyo weather."
       },
       {
         "role": "assistant",
@@ -87,38 +82,22 @@
             "id": "call_ws_1",
             "name": "web_search",
             "arguments": "{\"query\": \"Tokyo weather\"}"
-          },
-          {
-            "id": "call_we_1",
-            "name": "web_extract",
-            "arguments": "{\"url\": \"https://example.com/tokyo\"}"
           }
         ],
         "finish_reason": "tool_calls"
       },
       {
         "role": "tool",
-        "content": "{\"answer\": \"Tokyo is sunny, 22C\"}",
+        "content": "{\"answer\": \"Tokyo is sunny, 22C\"}\n\nUser guidance: also include the humidity",
         "tool_call_id": "call_ws_1"
       },
       {
-        "role": "tool",
-        "content": "{\"text\": \"Forecast: clear skies all day.\"}",
-        "tool_call_id": "call_we_1"
-      },
-      {
         "role": "assistant",
-        "content": "Tokyo is sunny at 22C with clear skies all day.",
+        "content": "Tokyo is sunny at 22C with 45% humidity.",
         "finish_reason": "stop"
       }
     ],
     "tool_invocations": [
-      {
-        "name": "web_extract",
-        "arguments": {
-          "url": "https://example.com/tokyo"
-        }
-      },
       {
         "name": "web_search",
         "arguments": {
@@ -130,7 +109,7 @@
     "persisted_db_messages": [
       {
         "role": "user",
-        "content": "Look up Tokyo weather and extract the page. Use web_search and web_extract together.",
+        "content": "Search the web for Tokyo weather.",
         "tool_name": null,
         "tool_call_id": null,
         "finish_reason": null,
@@ -147,33 +126,20 @@
             "id": "call_ws_1",
             "name": "web_search",
             "arguments": "{\"query\": \"Tokyo weather\"}"
-          },
-          {
-            "id": "call_we_1",
-            "name": "web_extract",
-            "arguments": "{\"url\": \"https://example.com/tokyo\"}"
           }
         ]
       },
       {
         "role": "tool",
-        "content": "{\"answer\": \"Tokyo is sunny, 22C\"}",
+        "content": "{\"answer\": \"Tokyo is sunny, 22C\"}\n\nUser guidance: also include the humidity",
         "tool_name": null,
         "tool_call_id": "call_ws_1",
         "finish_reason": null,
         "tool_calls": null
       },
       {
-        "role": "tool",
-        "content": "{\"text\": \"Forecast: clear skies all day.\"}",
-        "tool_name": null,
-        "tool_call_id": "call_we_1",
-        "finish_reason": null,
-        "tool_calls": null
-      },
-      {
         "role": "assistant",
-        "content": "Tokyo is sunny at 22C with clear skies all day.",
+        "content": "Tokyo is sunny at 22C with 45% humidity.",
         "tool_name": null,
         "tool_call_id": null,
         "finish_reason": "stop",

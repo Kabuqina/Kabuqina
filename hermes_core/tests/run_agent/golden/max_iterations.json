@@ -1,0 +1,161 @@
+{
+  "name": "max_iterations",
+  "description": "Iteration budget hits the cap with no final answer; the loop makes one extra toolless summary call (via the raw client, bypassing _interruptible_api_call) and returns completed=false.",
+  "agent": {
+    "api_mode": "chat_completions",
+    "provider": "openrouter",
+    "model": "golden/test-model",
+    "base_url": "https://api.openai.com/v1",
+    "max_iterations": 1
+  },
+  "user_message": "Keep searching until you find it.",
+  "tools": [
+    "web_search"
+  ],
+  "tool_results": {
+    "web_search": "{\"answer\": \"partial result\"}"
+  },
+  "model_turns": [
+    {
+      "content": null,
+      "finish_reason": "tool_calls",
+      "tool_calls": [
+        {
+          "id": "call_ws_1",
+          "name": "web_search",
+          "arguments": "{\"query\": \"thing\"}"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 100,
+        "completion_tokens": 10,
+        "total_tokens": 110
+      }
+    }
+  ],
+  "summary_response": {
+    "content": "I reached the iteration limit. So far I found a partial result.",
+    "finish_reason": "stop",
+    "usage": {
+      "prompt_tokens": 150,
+      "completion_tokens": 14,
+      "total_tokens": 164
+    }
+  },
+  "expected": {
+    "result": {
+      "final_response": "I reached the iteration limit. So far I found a partial result.",
+      "completed": false,
+      "partial": false,
+      "interrupted": false,
+      "api_calls": 1,
+      "model": "golden/test-model",
+      "provider": "openrouter",
+      "interrupt_message": null,
+      "pending_steer": null
+    },
+    "usage": {
+      "input_tokens": 100,
+      "output_tokens": 10,
+      "prompt_tokens": 100,
+      "completion_tokens": 10,
+      "total_tokens": 110,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0,
+      "reasoning_tokens": 0,
+      "last_prompt_tokens": 100,
+      "estimated_cost_usd": 0.0,
+      "cost_status": "unknown",
+      "cost_source": "none"
+    },
+    "messages": [
+      {
+        "role": "user",
+        "content": "Keep searching until you find it."
+      },
+      {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_ws_1",
+            "name": "web_search",
+            "arguments": "{\"query\": \"thing\"}"
+          }
+        ],
+        "finish_reason": "tool_calls"
+      },
+      {
+        "role": "tool",
+        "content": "{\"answer\": \"partial result\"}",
+        "tool_call_id": "call_ws_1"
+      },
+      {
+        "role": "user",
+        "content": "You've reached the maximum number of tool-calling iterations allowed. Please provide a final response summarizing what you've found and accomplished so far, without calling any more tools."
+      },
+      {
+        "role": "assistant",
+        "content": "I reached the iteration limit. So far I found a partial result."
+      }
+    ],
+    "tool_invocations": [
+      {
+        "name": "web_search",
+        "arguments": {
+          "query": "thing"
+        }
+      }
+    ],
+    "model_turns_consumed": 1,
+    "persisted_db_messages": [
+      {
+        "role": "user",
+        "content": "Keep searching until you find it.",
+        "tool_name": null,
+        "tool_call_id": null,
+        "finish_reason": null,
+        "tool_calls": null
+      },
+      {
+        "role": "assistant",
+        "content": "",
+        "tool_name": null,
+        "tool_call_id": null,
+        "finish_reason": "tool_calls",
+        "tool_calls": [
+          {
+            "id": "call_ws_1",
+            "name": "web_search",
+            "arguments": "{\"query\": \"thing\"}"
+          }
+        ]
+      },
+      {
+        "role": "tool",
+        "content": "{\"answer\": \"partial result\"}",
+        "tool_name": null,
+        "tool_call_id": "call_ws_1",
+        "finish_reason": null,
+        "tool_calls": null
+      },
+      {
+        "role": "user",
+        "content": "You've reached the maximum number of tool-calling iterations allowed. Please provide a final response summarizing what you've found and accomplished so far, without calling any more tools.",
+        "tool_name": null,
+        "tool_call_id": null,
+        "finish_reason": null,
+        "tool_calls": null
+      },
+      {
+        "role": "assistant",
+        "content": "I reached the iteration limit. So far I found a partial result.",
+        "tool_name": null,
+        "tool_call_id": null,
+        "finish_reason": null,
+        "tool_calls": null
+      }
+    ],
+    "stream_deltas": []
+  }
+}

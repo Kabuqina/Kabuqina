@@ -1,0 +1,189 @@
+{
+  "name": "unknown_tool",
+  "description": "Model calls a tool that does not exist; the loop returns an error for self-correction, and after 3 invalid attempts stops as partial.",
+  "agent": {
+    "api_mode": "chat_completions",
+    "provider": "openrouter",
+    "model": "golden/test-model",
+    "base_url": "https://api.openai.com/v1"
+  },
+  "user_message": "Do the thing.",
+  "tools": [
+    "web_search"
+  ],
+  "tool_results": {},
+  "model_turns": [
+    {
+      "content": null,
+      "finish_reason": "tool_calls",
+      "tool_calls": [
+        {
+          "id": "call_x_1",
+          "name": "nonexistent_zzz",
+          "arguments": "{}"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 100,
+        "completion_tokens": 6,
+        "total_tokens": 106
+      }
+    },
+    {
+      "content": null,
+      "finish_reason": "tool_calls",
+      "tool_calls": [
+        {
+          "id": "call_x_2",
+          "name": "nonexistent_zzz",
+          "arguments": "{}"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 120,
+        "completion_tokens": 6,
+        "total_tokens": 126
+      }
+    },
+    {
+      "content": null,
+      "finish_reason": "tool_calls",
+      "tool_calls": [
+        {
+          "id": "call_x_3",
+          "name": "nonexistent_zzz",
+          "arguments": "{}"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 140,
+        "completion_tokens": 6,
+        "total_tokens": 146
+      }
+    }
+  ],
+  "expected": {
+    "result": {
+      "final_response": null,
+      "completed": false,
+      "partial": true,
+      "interrupted": null,
+      "api_calls": 3,
+      "model": null,
+      "provider": null,
+      "interrupt_message": null,
+      "pending_steer": null
+    },
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "cache_read_tokens": null,
+      "cache_write_tokens": null,
+      "reasoning_tokens": null,
+      "last_prompt_tokens": null,
+      "estimated_cost_usd": null,
+      "cost_status": null,
+      "cost_source": null
+    },
+    "messages": [
+      {
+        "role": "user",
+        "content": "Do the thing."
+      },
+      {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_x_1",
+            "name": "nonexistent_zzz",
+            "arguments": "{}"
+          }
+        ],
+        "finish_reason": "tool_calls"
+      },
+      {
+        "role": "tool",
+        "content": "Tool 'nonexistent_zzz' does not exist. Available tools: web_search",
+        "tool_call_id": "call_x_1"
+      },
+      {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_x_2",
+            "name": "nonexistent_zzz",
+            "arguments": "{}"
+          }
+        ],
+        "finish_reason": "tool_calls"
+      },
+      {
+        "role": "tool",
+        "content": "Tool 'nonexistent_zzz' does not exist. Available tools: web_search",
+        "tool_call_id": "call_x_2"
+      }
+    ],
+    "tool_invocations": [],
+    "model_turns_consumed": 3,
+    "persisted_db_messages": [
+      {
+        "role": "user",
+        "content": "Do the thing.",
+        "tool_name": null,
+        "tool_call_id": null,
+        "finish_reason": null,
+        "tool_calls": null
+      },
+      {
+        "role": "assistant",
+        "content": "",
+        "tool_name": null,
+        "tool_call_id": null,
+        "finish_reason": "tool_calls",
+        "tool_calls": [
+          {
+            "id": "call_x_1",
+            "name": "nonexistent_zzz",
+            "arguments": "{}"
+          }
+        ]
+      },
+      {
+        "role": "tool",
+        "content": "Tool 'nonexistent_zzz' does not exist. Available tools: web_search",
+        "tool_name": null,
+        "tool_call_id": "call_x_1",
+        "finish_reason": null,
+        "tool_calls": null
+      },
+      {
+        "role": "assistant",
+        "content": "",
+        "tool_name": null,
+        "tool_call_id": null,
+        "finish_reason": "tool_calls",
+        "tool_calls": [
+          {
+            "id": "call_x_2",
+            "name": "nonexistent_zzz",
+            "arguments": "{}"
+          }
+        ]
+      },
+      {
+        "role": "tool",
+        "content": "Tool 'nonexistent_zzz' does not exist. Available tools: web_search",
+        "tool_name": null,
+        "tool_call_id": "call_x_2",
+        "finish_reason": null,
+        "tool_calls": null
+      }
+    ],
+    "stream_deltas": []
+  }
+}
