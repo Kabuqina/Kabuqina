@@ -265,9 +265,9 @@ assert.match(
 );
 
 assert.match(
-  chatPageSource,
-  /PanelLeftOpen/,
-  "The left-rail expand button should remain available in the center header.",
+  sidebarSource,
+  /collapsed \? t\("chat\.leftRailExpand"\) : t\("chat\.leftRailCollapse"\)[\s\S]*PanelLeft/,
+  "The left-rail toggle should remain available in the sidebar and expose an expand action when collapsed (PanelLeft icon, label flips on collapsed).",
 );
 
 assert.doesNotMatch(
@@ -343,7 +343,7 @@ assert.doesNotMatch(
 
 assert.match(
   sidebarSource,
-  /workspaceOtherCommon[\s\S]*workspaceOpenWorkspace[\s\S]*cron\.title[\s\S]*workspaceOrganizeDesktop[\s\S]*chat\.exportButton/,
+  /workspaceOpenWorkspace[\s\S]*cron\.title[\s\S]*workspaceOrganizeDesktop[\s\S]*chat\.exportButton/,
   "Chat sidebar should move non-academy common actions below chat history, open workspace first.",
 );
 
@@ -354,7 +354,7 @@ assert.match(
 );
 assert.match(
   sidebarSource,
-  /kq-sidebar-history-scroll[\s\S]*<\/div>\s*<div[\s\S]*kq-sidebar-common-actions[\s\S]*workspaceOtherCommon/,
+  /kq-sidebar-history-scroll[\s\S]*<\/div>\s*<div[\s\S]*kq-sidebar-common-actions[\s\S]*workspaceOpenWorkspace/,
   "Sidebar common actions should be outside the scrollable history region so history cannot push them down.",
 );
 
@@ -410,7 +410,7 @@ assert.match(
 );
 assert.match(
   workspacePanelSource,
-  /kq-workspace-panel flex w-72 shrink-0/,
+  /kq-workspace-panel flex w-\[264px\] shrink-0/,
   "The right rail keeps a stable width so widening can never push it off a narrow window.",
 );
 assert.doesNotMatch(
@@ -461,8 +461,8 @@ for (const className of ["kq-titlebar-brand", "kq-titlebar-link", "kq-titlebar-l
 
 assert.match(
   messageListSource,
-  /wordmarkBase[\s\S]*kq-empty-title[\s\S]*\u6162\u6162\u6765\uff0c\u5c0f\u5a1c\u966a\u4f60\u6574\u7406\u601d\u8def[\s\S]*kabuqina_boot\.svg/,
-  "The empty chat state should show Kabuqina with the current wordmark and hero asset.",
+  /kabuqina_boot\.svg[\s\S]*kq-empty-title[\s\S]*\u6162\u6162\u6765\uff0c\u5c0f\u5a1c\u966a\u4f60\u6574\u7406\u601d\u8def/,
+  "The empty chat state should show the hero asset, the product name title, then the greeting.",
 );
 
 assert.match(
@@ -477,10 +477,10 @@ assert.match(
   "The chat composer should use the reference-style centered bottom input layout.",
 );
 
-assert.match(
+assert.doesNotMatch(
   chatInputSource,
-  /kq-input-footer[\s\S]*justify-center[\s\S]*chat\.hint/,
-  "The input hint should stay centered below the composer.",
+  /kq-input-footer/,
+  "The composer keyboard-hint footer was intentionally removed per the Claude Design mockup.",
 );
 
 assert.match(
@@ -516,7 +516,7 @@ assert.match(
   "Power-user toggle should sit in the titlebar beside capabilities.",
 );
 
-assert.match(messageListSource, /kq-empty-action-icon/);
+assert.match(messageListSource, /kq-empty-action\b/);
 assert.match(messageListSource, /strokeWidth=\{2\.25\}/);
 assert.match(
   messageListSource,
@@ -526,8 +526,8 @@ assert.match(
 
 assert.match(
   messageListSource,
-  /grid-cols-\[repeat\(auto-fit,minmax\(10\.5rem,1fr\)\)\]/,
-  "Empty-state quick actions should wrap on narrow screens.",
+  /gridTemplateColumns: "1fr 1fr"[\s\S]*maxWidth: "380px"/,
+  "Empty-state quick actions use a compact two-column grid capped at 380px so they fit narrow screens.",
 );
 
 assert.match(
@@ -667,9 +667,9 @@ assert.match(
 );
 
 assert.match(
-  indexCssSource,
-  /\.kq-section-heading[\s\S]*border-left:\s*3px[\s\S]*background:\s*rgba\(243,\s*237,\s*246/,
-  "Workspace section headings should use a subtle left accent instead of heavy lavender pills.",
+  workspacePanelSource,
+  /kq-section-heading[\s\S]*h-1\.5 w-1\.5 shrink-0 rounded-full/,
+  "Workspace section headings should use a small round dot accent instead of heavy lavender pills.",
 );
 
 assert.match(
@@ -680,11 +680,19 @@ assert.match(
 
 const exportPageSource = fs.readFileSync(new URL("../advanced/Export.tsx", import.meta.url), "utf8");
 const chatExportSource = fs.readFileSync(new URL("./chatExport.ts", import.meta.url), "utf8");
-assert.match(
-  exportPageSource,
-  /buildExportJson[\s\S]*buildExportMarkdown[\s\S]*buildExportText[\s\S]*buildExportHtml[\s\S]*exportLabelsForLocale/,
-  "Export page should build JSON, Markdown, TXT, and PDF/HTML dialogue exports via chatExport helpers.",
-);
+for (const fn of [
+  "buildExportJson",
+  "buildExportMarkdown",
+  "buildExportText",
+  "buildExportHtml",
+  "exportLabelsForLocale",
+]) {
+  assert.match(
+    exportPageSource,
+    new RegExp(fn),
+    `Export page should build dialogue exports via the ${fn} chatExport helper.`,
+  );
+}
 assert.match(exportPageSource, /\(\["json", "markdown", "text", "pdf"\] as ExportFormat\[\]\)/);
 assert.match(exportPageSource, /cmd_write_pdf_from_html/);
 assert.match(chatExportSource, /parseDeskUserContent[\s\S]*speaker: labels\.productName/);
@@ -951,8 +959,8 @@ assert.match(
 
 assert.match(
   titleBarSource,
-  /kq-titlebar-nav[\s\S]*kq-titlebar-companion-btn[\s\S]*kq-titlebar-sparkle-grad/,
-  "Shrink-to-pill sparkle should sit in the centered titlebar nav with a colorful gradient.",
+  /kq-titlebar-nav[\s\S]*kq-titlebar-companion-btn[\s\S]*kq-titlebar-companion-icon/,
+  "The companion sparkle should sit in the centered titlebar nav.",
 );
 assert.match(titleBarSource, /onShowCompanion[\s\S]*cmd_show_companion/);
 assert.match(indexCssSource, /kq-titlebar-companion-btn/);

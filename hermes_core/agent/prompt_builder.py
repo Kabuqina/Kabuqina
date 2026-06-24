@@ -979,6 +979,13 @@ def build_deliverable_planner_prompt(valid_tool_names: "set[str] | None" = None)
         "# Student deliverable generation (file-generation pipeline)",
         "When the user asks for a generated file (PPT, PDF, or HTML report / notes), "
         "plan through the four-layer pipeline and never skip a layer:",
+        "0. Clarify intent (only when the request is ambiguous and the answer would change the "
+        "plan) — before reading, confirm at most one or two of: audience / scenario (course "
+        "report vs defense vs self-study), goal (drive one conclusion vs full coverage), and any "
+        "chapter / method / metric to emphasize. If the request or the quick-action already "
+        "specifies these (e.g. structure / template / visual_master are present, or the user "
+        "stated audience and goal), do NOT re-ask — proceed with sensible defaults. Never block a "
+        "specific request with questions; ask in one consolidated message, not a chain.",
         "1. Read — use pdf_read_precise / document_read_precise / file tools to read the source material.",
         "2. Material index — call material_index_build to organize already-read material into "
         "reusable evidence (sections / tables / figures / screenshots / code_files / evidence / "

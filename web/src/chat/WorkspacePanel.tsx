@@ -57,6 +57,63 @@ const MATH_TARGET_LANGUAGES = [
   { id: "cpp17", label: "C++17" },
 ] as const;
 type MathLanguageId = (typeof MATH_TARGET_LANGUAGES)[number]["id"];
+
+// Deck intent (goal + emphasis) the planner cannot know at click time. These feed
+// the PPT quick-action prompts so the planner's Step 0 (clarify intent) does not
+// need to re-ask. The "auto" option injects nothing — the fast path stays
+// untouched and the planner falls back to sensible defaults. `prompt` is Chinese
+// on purpose (it is steering the model, not shown as UI); `zh`/`en` are the labels.
+const PPT_GOALS = [
+  { id: "auto", zh: "自动（让小娜判断）", en: "Auto (let 小娜 decide)", prompt: "" },
+  {
+    id: "single_conclusion",
+    zh: "聚焦一个核心结论",
+    en: "Drive one conclusion",
+    prompt: "目标：聚焦讲清一个核心结论，围绕它组织全篇，次要内容果断取舍。",
+  },
+  {
+    id: "full_coverage",
+    zh: "全面系统覆盖",
+    en: "Full coverage",
+    prompt: "目标：全面系统地覆盖材料的主要内容，结构完整、章节均衡。",
+  },
+  {
+    id: "quick_overview",
+    zh: "简短概览",
+    en: "Short overview",
+    prompt: "目标：做一个简短概览，只保留最关键的要点，控制篇幅、不堆砌细节。",
+  },
+] as const;
+type PptGoalId = (typeof PPT_GOALS)[number]["id"];
+
+const PPT_EMPHASES = [
+  { id: "auto", zh: "自动（不限）", en: "Auto (no preference)", prompt: "" },
+  {
+    id: "method",
+    zh: "方法 / 技术细节",
+    en: "Method / detail",
+    prompt: "重点强调：方法与技术细节（实现思路、模型 / 算法、关键步骤）。",
+  },
+  {
+    id: "results",
+    zh: "结果 / 实验数据",
+    en: "Results / data",
+    prompt: "重点强调：结果与实验数据（指标、对比、图表中的数字）。",
+  },
+  {
+    id: "contribution",
+    zh: "结论 / 贡献",
+    en: "Conclusion / contribution",
+    prompt: "重点强调：结论与贡献（核心论点、创新点、价值）。",
+  },
+  {
+    id: "background",
+    zh: "背景 / 动机",
+    en: "Background / motivation",
+    prompt: "重点强调：背景与动机（问题定义、研究意义、相关工作）。",
+  },
+] as const;
+type PptEmphasisId = (typeof PPT_EMPHASES)[number]["id"];
 type PptMasterPreviewStyle = CSSProperties & {
   "--kq-ppt-bg": string;
   "--kq-ppt-title": string;
@@ -344,7 +401,7 @@ export function WorkspacePanel({
   activeTool,
   busy = false,
 }: WorkspacePanelProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   // The right rail is one surface with two modes: ACADEMY (the launchpad of
   // capabilities) and WORK (this session's goal / materials / deliverables).
   // Start on ACADEMY; morph to WORK the first time a deliverable appears.
@@ -355,7 +412,14 @@ export function WorkspacePanel({
   const [mathLanguage, setMathLanguage] = useState<MathLanguageId>("python");
   const selectedMathLanguage =
     MATH_TARGET_LANGUAGES.find((item) => item.id === mathLanguage) ?? MATH_TARGET_LANGUAGES[0];
-  const buildPptPrompt = (sections: string[]) => sections.join("\n\n");
+  const [pptGoal, setPptGoal] = useState<PptGoalId>("auto");
+  const selectedPptGoal = PPT_GOALS.find((item) => item.id === pptGoal) ?? PPT_GOALS[0];
+  const [pptEmphasis, setPptEmphasis] = useState<PptEmphasisId>("auto");
+  const selectedPptEmphasis =
+    PPT_EMPHASES.find((item) => item.id === pptEmphasis) ?? PPT_EMPHASES[0];
+  const intentLabel = (item: { zh: string; en: string }) => (locale === "en" ? item.en : item.zh);
+  // Empty sections drop out so an all-"auto" selection injects nothing.
+  const buildPptPrompt = (sections: string[]) => sections.filter(Boolean).join("\n\n");
   // Canonical planner rules — slide_type / layout vocabulary, placeholder
   // discipline, the four-layer flow, and the per-structure must-cover outlines —
   // now live in the agent system prompt (hermes_core
@@ -366,18 +430,26 @@ export function WorkspacePanel({
     "按系统提示中的“学生交付物四层流程”执行：读取材料 → material_index_build → 生成带 slide_type / notes / 证据占位的 Markdown 大纲 → review_outline 让我确认 → pptx_write 输出到 workspace 并返回路径。";
   const pptVisualMasterRule =
     `视觉母版：我已选择 ${selectedPptVisualMaster.name}。review_outline 通过后调用 pptx_write 时必须同时传入 template 和 visual_master，visual_master 使用 "${selectedPptVisualMaster.id}"。`;
+  // Deck intent the user set in the panel — feeds Step 0 so the planner does not
+  // re-ask. Both "auto" → empty string, filtered out by buildPptPrompt.
+  const pptIntentRule = [selectedPptGoal.prompt, selectedPptEmphasis.prompt]
+    .filter(Boolean)
+    .join("\n\n");
   const paperToPptPrompt = buildPptPrompt([
     "请把我上传的论文、文献 PDF 或粘贴的论文内容转换成论文/文献汇报 PPT（structure=paper_report，template=paper_report）。",
+    pptIntentRule,
     pptFlowReminder,
     pptVisualMasterRule,
   ]);
   const courseToPptPrompt = buildPptPrompt([
     "请把我提供的课程笔记、章节要点、学习材料或粘贴的内容转换成课程学习汇报 PPT（structure=course_report，template=course_report）。",
+    pptIntentRule,
     pptFlowReminder,
     pptVisualMasterRule,
   ]);
   const codeToPptPrompt = buildPptPrompt([
     "请把我提供的代码项目或课设材料转换成课设答辩 PPT（structure=code_defense，template=code_defense）。",
+    pptIntentRule,
     pptFlowReminder,
     pptVisualMasterRule,
   ]);
@@ -562,6 +634,40 @@ export function WorkspacePanel({
               icon={<Code2 className="kq-color-icon-pen mr-2 inline h-4 w-4" aria-hidden />}
               label={t("chat.workspaceCodeToPpt")}
             />
+            <label className="kq-workspace-body grid grid-cols-1 gap-1.5 text-[13px] leading-snug">
+              <span className="inline-flex items-center gap-1.5 font-medium">
+                <Rocket className="h-3.5 w-3.5 text-[var(--kq-color-primary-dark)]" aria-hidden />
+                {t("chat.workspacePptGoal")}
+              </span>
+              <select
+                value={pptGoal}
+                onChange={(event) => setPptGoal(event.currentTarget.value as PptGoalId)}
+                className="kq-workspace-select rounded-md px-2 py-1.5 text-sm transition"
+              >
+                {PPT_GOALS.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {intentLabel(item)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="kq-workspace-body grid grid-cols-1 gap-1.5 text-[13px] leading-snug">
+              <span className="inline-flex items-center gap-1.5 font-medium">
+                <FileText className="h-3.5 w-3.5 text-[var(--kq-color-primary-dark)]" aria-hidden />
+                {t("chat.workspacePptEmphasis")}
+              </span>
+              <select
+                value={pptEmphasis}
+                onChange={(event) => setPptEmphasis(event.currentTarget.value as PptEmphasisId)}
+                className="kq-workspace-select rounded-md px-2 py-1.5 text-sm transition"
+              >
+                {PPT_EMPHASES.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {intentLabel(item)}
+                  </option>
+                ))}
+              </select>
+            </label>
             <label className="kq-workspace-body grid grid-cols-1 gap-1.5 text-[13px] leading-snug">
               <span className="inline-flex items-center gap-1.5 font-medium">
                 <Palette className="h-3.5 w-3.5 text-[var(--kq-color-primary-dark)]" aria-hidden />
