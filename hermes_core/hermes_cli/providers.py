@@ -37,7 +37,7 @@ class HermesOverlay:
 
     transport: str = "openai_chat"        # openai_chat | anthropic_messages
     is_aggregator: bool = False
-    auth_type: str = "api_key"            # api_key | oauth_device_code | oauth_external
+    auth_type: str = "api_key"            # api_key | oauth_device_code | oauth_external | oauth_minimax
     extra_env_vars: Tuple[str, ...] = ()  # env vars models.dev doesn't list
     base_url_override: str = ""           # override if models.dev URL is wrong/missing
     base_url_env_var: str = ""            # env var for user-custom base URL
@@ -87,7 +87,13 @@ HERMES_OVERLAYS: Dict[str, HermesOverlay] = {
     ),
     "minimax-oauth": HermesOverlay(
         transport="anthropic_messages",
-        auth_type="oauth_external",
+        # Match PROVIDER_REGISTRY (hermes_cli/auth.py), which uses the
+        # minimax-specific "oauth_minimax" to drive the login dispatch
+        # (runtime_provider.resolve_runtime_provider). The value is inert in the
+        # identity/picker path (ProviderDef.auth_type is not branched on), but
+        # the two structures must agree — see
+        # tests/hermes_cli/test_provider_registry_overlay_consistency.py.
+        auth_type="oauth_minimax",
         base_url_override="https://api.minimax.io/anthropic",
     ),
     "minimax-cn": HermesOverlay(

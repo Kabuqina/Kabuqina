@@ -37,11 +37,11 @@ _OVERLAY_TO_REGISTRY_ID = {"kimi-for-coding": "kimi-coding"}
 _OVERLAY_ONLY = {"openrouter"}
 _REGISTRY_ONLY = {"gemini", "kimi-coding-cn"}
 
-# Known, accepted divergence: the overlay tags minimax-oauth as the generic
-# "oauth_external" while the registry uses the minimax-specific "oauth_minimax"
-# that actually drives the login dispatch. Tracked separately; see the spawned
-# follow-up. Listed here so the guard stays green while the rest is pinned.
-_AUTH_TYPE_DIVERGENCE = {"minimax-oauth"}
+# Providers whose overlay/registry auth_type intentionally differs. Empty: the
+# former minimax-oauth divergence (overlay "oauth_external" vs registry
+# "oauth_minimax") was reconciled — the overlay now matches the registry's
+# login-driving value.
+_AUTH_TYPE_DIVERGENCE: set[str] = set()
 
 
 def _registry_for(overlay_id: str):

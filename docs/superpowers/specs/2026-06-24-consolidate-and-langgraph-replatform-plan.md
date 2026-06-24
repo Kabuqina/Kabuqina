@@ -211,11 +211,15 @@ source of truth ([model_switch.py:1068]). So instead of merging, added
 the membership asymmetry (overlay-only `openrouter`; registry-only `gemini`,
 `kimi-coding-cn`) and the shared fields (`base_url_env_var` agreement, overlay
 `extra_env_vars` ⊆ registry `api_key_env_vars`, `auth_type` agreement). The guard
-**already caught a real drift**: `minimax-oauth` is `oauth_external` in the overlay
-vs `oauth_minimax` in the registry (the latter drives the actual login) — pinned
-as a documented exception and spawned as a follow-up to reconcile. A full
-structural merge remains possible but is **not recommended**; if pursued it needs
-the runtime smoke + id-scheme reconciliation as its own effort.
+**already caught a real drift**: `minimax-oauth` was `oauth_external` in the
+overlay vs `oauth_minimax` in the registry (the latter drives the actual login).
+**Reconciled** — the overlay now uses `oauth_minimax` to match; the change is
+behavior-inert (`ProviderDef.auth_type` is set but never branched on; every
+`auth_type` dispatch reads the registry `pconfig`, and minimax-oauth resolves via
+the dedicated `runtime_provider.py` branch), verified by 209 tests, and the guard
+now asserts full agreement (empty exception set). A full structural merge remains
+possible but is **not recommended**; if pursued it needs the runtime smoke +
+id-scheme reconciliation as its own effort.
 
 ### 3c — `api_mode` at N=2: DEFERRED into 3.5 (2026-06-24)
 
