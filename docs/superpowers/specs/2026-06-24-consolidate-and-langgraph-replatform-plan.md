@@ -197,12 +197,25 @@ structure and reconciles ids — exactly the change class the provider-deletion
 plan flags as "unit tests pass while a missed hot-path branch breaks a live
 conversation," requiring a **`scripts/dev.ps1` runtime smoke**. The golden net
 does not cover provider resolution (it constructs `AIAgent` with an explicit
-provider/base_url and stubs the transport). **Deferred** to its own focused effort
-with a runtime smoke available — do not fold it into a session that can't run the
-live smoke. (A safe interim option, if drift is the worry: a guard test pinning
-the *shared* fields of providers present in both structures — but the relationship
-is subtle, e.g. overlay `extra_env_vars` vs registry full `api_key_env_vars`, so
-it is not a simple equality.)
+provider/base_url and stubs the transport).
+
+**Resolution (2026-06-24): keep the two structures separate; guard against drift
+instead of merging.** A user-run smoke unblocked a structural merge, but deeper
+investigation confirmed the merge is high-risk / low-value: it reconciles two id
+schemes and re-routes the hot path to de-duplicate ~18 small entries, with a
+regression surface (the full `/model` picker matrix + login flows) wider than one
+chat smoke validates. The actual hazard of a double layer is **drift of the
+shared fields**, and the codebase already treats `PROVIDER_REGISTRY` as the
+source of truth ([model_switch.py:1068]). So instead of merging, added
+`tests/hermes_cli/test_provider_registry_overlay_consistency.py` — a guard pinning
+the membership asymmetry (overlay-only `openrouter`; registry-only `gemini`,
+`kimi-coding-cn`) and the shared fields (`base_url_env_var` agreement, overlay
+`extra_env_vars` ⊆ registry `api_key_env_vars`, `auth_type` agreement). The guard
+**already caught a real drift**: `minimax-oauth` is `oauth_external` in the overlay
+vs `oauth_minimax` in the registry (the latter drives the actual login) — pinned
+as a documented exception and spawned as a follow-up to reconcile. A full
+structural merge remains possible but is **not recommended**; if pursued it needs
+the runtime smoke + id-scheme reconciliation as its own effort.
 
 ### 3c — `api_mode` at N=2: DEFERRED into 3.5 (2026-06-24)
 
@@ -218,14 +231,15 @@ the LangGraph re-platform rewrites that dispatch behind the anti-corruption port
 anyway. Doing it now would be throwaway work against a hot path with no runtime
 smoke. Deferred per rule — the correct outcome, not a failure.
 
-**Phase 3 status (2026-06-24): 3a DONE; 3b and 3c DEFERRED.** 3a (the safe,
-mechanical, behavior-preserving leaf) landed and is verified. 3b and 3c both touch
-the live request path (auth/runtime resolution; the in-loop api_mode dispatch)
-where the golden net gives limited coverage and the project's discipline requires
-a `scripts/dev.ps1` runtime smoke — so they are deferred to focused efforts with
-that smoke available (3c folds into 3.5). **Net:** phase 3 delivered the
-import-surface consolidation; the registry merge and api_mode trim are
-intentionally left for when a live smoke can back them.
+**Phase 3 status (2026-06-24): 3a DONE; 3b RESOLVED (guard, no merge); 3c DEFERRED
+into 3.5.** 3a (the safe, mechanical, behavior-preserving leaf) landed and is
+verified. 3b was investigated to a conclusion — the overlay and registry are
+genuinely separate subsystems, so rather than a risky structural merge a drift
+guard was added (and it already found the `minimax-oauth` `auth_type` divergence).
+3c's remaining `api_mode` machinery is the live 2-protocol dispatch — loop surgery,
+folded into 3.5. **Net:** phase 3 delivered the import-surface consolidation (3a)
+and the drift guard (3b); the structural registry merge is intentionally *not*
+done (high-risk/low-value), and the api_mode trim belongs to the re-platform.
 
 **Phase 3 exit criteria (for the deferred parts):** golden harness green;
 `scripts/dev.ps1` runtime smoke (chat + one tool, both a chat-completions and an
