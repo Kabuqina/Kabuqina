@@ -279,6 +279,13 @@ version churn + locking `langsmith` tracing off.
    The orthogonal keep-forever concerns (persistence via
    `_flush_messages_to_session_db`, trajectory, usage via `usage_pricing`) stay
    as side-effect nodes / post-hooks — they are *not* re-implemented in the graph.
+5. **Absorb the `api_mode` 2-protocol dispatch here (this is folded-in 3c).** The
+   77 `run_agent.py` `api_mode == "…"` call-sites that decide chat-completions vs
+   anthropic-messages request/response handling are rewritten as the graph's
+   single transport boundary (one node calling `providers/transports/`), not
+   re-threaded through the new graph. Trimming this dispatch was deferred out of
+   Phase 3 precisely because it is loop surgery; it lands here, behind the golden
+   net + the live smoke, as part of the rewrite rather than as a separate pass.
 
 **Optional pre-3.5 extraction (the residual from old split-plan step 4):** if it
 helps the graph have a clean loop to replace, extract the session-persistence
