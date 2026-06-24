@@ -53,15 +53,13 @@ from unittest.mock import MagicMock, patch
 # Fixed, deterministic identity so persisted rows / session tags never vary.
 GOLDEN_SESSION_ID = "golden-session-0001"
 
-# Covered branches (fixtures under golden/): plain text, single-tool (sequential),
-# parallel multi-tool (concurrent), anthropic_messages text, interrupt, steer,
-# unknown-tool rejection, max-iterations (summary call), provider fallback.
-#
-# Still TODO for the full phase-0 gate — compression. It needs more than a spec
-# field: _compress_context runs the ContextCompressor, which itself orchestrates
-# model calls, so a deterministic fixture needs the compressor stubbed (not just a
-# high prompt_tokens). Deferred to avoid shipping a brittle golden; do it as a
-# focused follow-up that fakes the compressor's summarize step.
+# Covered branches (fixtures under golden/) — the full phase-0 set:
+# plain text, single-tool (sequential), parallel multi-tool (concurrent),
+# anthropic_messages text, interrupt, steer, unknown-tool rejection,
+# max-iterations (toolless summary via the raw client), provider fallback, and
+# preflight compression (compressor stubbed; _compress_context runs for real,
+# rotating the session — its random new id is not snapshotted, so it stays
+# deterministic).
 
 
 # ── Fakes mirroring the production client surfaces (see
@@ -168,6 +166,21 @@ class _ToolStub:
         if function_name in self._results:
             return self._results[function_name]
         return json.dumps({"ok": True, "tool": function_name}, ensure_ascii=False)
+
+
+class _CompressStub:
+    """Replaces ``context_compressor.compress``; records calls and returns a
+    deterministic compressed history (the real compressor makes model calls and
+    is covered by tests/agent/test_context_compressor.py — here we only
+    characterize the loop's *integration* with it)."""
+
+    def __init__(self, compressed_history):
+        self._compressed = compressed_history
+        self.calls = 0
+
+    def __call__(self, messages, *args, **kwargs):
+        self.calls += 1
+        return [dict(m) for m in self._compressed]
 
 
 def _chat_response(turn: Dict[str, Any], model: str):
@@ -423,6 +436,15 @@ def replay_transcript(spec: Dict[str, Any]) -> Dict[str, Any]:
     summary_spec = spec.get("summary_response")
     summary_response = _chat_response(summary_spec, model) if summary_spec else None
 
+    # Optional preflight-compression config.
+    compression = spec.get("compression")
+    compress_stub = (
+        _CompressStub(compression.get("compressed_history", []))
+        if compression
+        else None
+    )
+    conversation_history = spec.get("conversation_history")
+
     extra_kwargs = {}
     if "max_iterations" in cfg:
         extra_kwargs["max_iterations"] = cfg["max_iterations"]
@@ -453,6 +475,17 @@ def replay_transcript(spec: Dict[str, Any]) -> Dict[str, Any]:
         if summary_response is not None:
             agent.client = _FakeChatClient(summary_response)
 
+        if compression is not None:
+            # Drive the preflight-compression path deterministically: lower the
+            # protect window + threshold so a small history trips it, and stub
+            # the model-calling compressor with a fixed compressed history.
+            agent.compression_enabled = True
+            cc = agent.context_compressor
+            cc.protect_first_n = compression.get("protect_first_n", 1)
+            cc.protect_last_n = compression.get("protect_last_n", 1)
+            cc.threshold_tokens = compression.get("threshold_tokens", 5)
+            cc.compress = compress_stub
+
         transport.agent = agent
         if api_mode == "anthropic_messages":
             agent._anthropic_messages_create = transport
@@ -461,7 +494,15 @@ def replay_transcript(spec: Dict[str, Any]) -> Dict[str, Any]:
 
         result = agent.run_conversation(
             spec["user_message"],
+            conversation_history=conversation_history,
             stream_callback=lambda text: stream_log.append(text),
+        )
+
+    if compress_stub is not None:
+        assert compress_stub.calls > 0, (
+            "compression transcript did not trip the preflight compressor — check "
+            "conversation_history length vs protect_first_n+protect_last_n+1 and "
+            "threshold_tokens"
         )
 
     return _snapshot(result, agent, tool_stub, transport, stream_log)

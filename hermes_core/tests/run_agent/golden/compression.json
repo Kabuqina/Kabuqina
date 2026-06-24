@@ -1,0 +1,128 @@
+{
+  "name": "compression",
+  "description": "Preflight compression: a large-enough history trips the threshold, the loop compresses (compressor stubbed) and rotates the session, then answers on the compressed context.",
+  "agent": {
+    "api_mode": "chat_completions",
+    "provider": "openrouter",
+    "model": "golden/test-model",
+    "base_url": "https://api.openai.com/v1"
+  },
+  "user_message": "Now, what is 2 + 2?",
+  "tools": [],
+  "tool_results": {},
+  "conversation_history": [
+    {
+      "role": "user",
+      "content": "Let's plan the project."
+    },
+    {
+      "role": "assistant",
+      "content": "Sure, what's the scope?"
+    },
+    {
+      "role": "user",
+      "content": "Three milestones."
+    },
+    {
+      "role": "assistant",
+      "content": "Got it, noted the three milestones."
+    }
+  ],
+  "compression": {
+    "threshold_tokens": 5,
+    "protect_first_n": 1,
+    "protect_last_n": 1,
+    "compressed_history": [
+      {
+        "role": "user",
+        "content": "[Earlier conversation summarized: planning a 3-milestone project.]"
+      },
+      {
+        "role": "user",
+        "content": "Now, what is 2 + 2?"
+      }
+    ]
+  },
+  "model_turns": [
+    {
+      "content": "2 + 2 = 4.",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 30,
+        "completion_tokens": 6,
+        "total_tokens": 36
+      }
+    }
+  ],
+  "expected": {
+    "result": {
+      "final_response": "2 + 2 = 4.",
+      "completed": true,
+      "partial": false,
+      "interrupted": false,
+      "api_calls": 1,
+      "model": "golden/test-model",
+      "provider": "openrouter",
+      "interrupt_message": null,
+      "pending_steer": null
+    },
+    "usage": {
+      "input_tokens": 30,
+      "output_tokens": 6,
+      "prompt_tokens": 30,
+      "completion_tokens": 6,
+      "total_tokens": 36,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0,
+      "reasoning_tokens": 0,
+      "last_prompt_tokens": 30,
+      "estimated_cost_usd": 0.0,
+      "cost_status": "unknown",
+      "cost_source": "none"
+    },
+    "messages": [
+      {
+        "role": "user",
+        "content": "[Earlier conversation summarized: planning a 3-milestone project.]"
+      },
+      {
+        "role": "user",
+        "content": "Now, what is 2 + 2?"
+      },
+      {
+        "role": "assistant",
+        "content": "2 + 2 = 4.",
+        "finish_reason": "stop"
+      }
+    ],
+    "tool_invocations": [],
+    "model_turns_consumed": 1,
+    "persisted_db_messages": [
+      {
+        "role": "user",
+        "content": "[Earlier conversation summarized: planning a 3-milestone project.]",
+        "tool_name": null,
+        "tool_call_id": null,
+        "finish_reason": null,
+        "tool_calls": null
+      },
+      {
+        "role": "user",
+        "content": "Now, what is 2 + 2?",
+        "tool_name": null,
+        "tool_call_id": null,
+        "finish_reason": null,
+        "tool_calls": null
+      },
+      {
+        "role": "assistant",
+        "content": "2 + 2 = 4.",
+        "tool_name": null,
+        "tool_call_id": null,
+        "finish_reason": "stop",
+        "tool_calls": null
+      }
+    ],
+    "stream_deltas": []
+  }
+}

@@ -39,27 +39,28 @@ anti-corruption port so API churn has a one-file blast radius.
 
 ## Phase 0 — Golden-transcript characterization harness (DO FIRST)
 
-**Status (2026-06-24): LANDED, 9/10 branches.** The replay harness
+**Status (2026-06-24): COMPLETE — gate met, 10/10 branches.** The replay harness
 (`tests/run_agent/golden_harness.py`) + runner (`test_golden_transcripts.py`) +
-fixtures (`tests/run_agent/golden/*.json`) are in place and green (10 tests,
+fixtures (`tests/run_agent/golden/*.json`) are in place and green (11 tests,
 deterministic across two runs, hermetic — no network/disk/DB, passes under the
 default `-n auto` xdist addopts). It mocks the transport boundary
 (`_interruptible_api_call` / `_anthropic_messages_create`), stubs tools at the
 shared `handle_function_call` primitive, and snapshots the result dict +
 normalized message trajectory + tool invocations + usage/cost + would-be-persisted
 rows + stream deltas. **Covered cases:** plain text, single-tool (sequential),
-parallel multi-tool (concurrent), anthropic_messages text, **interrupt, steer,
+parallel multi-tool (concurrent), anthropic_messages text, interrupt, steer,
 unknown-tool rejection, max-iterations (toolless summary via the raw client),
-provider fallback.** Gotchas handled: persisted tool_calls carry a per-run-random
-`response_item_id` (normalized out); interrupt/steer are driven via a per-turn
-action hook in the scripted transport; max-iterations needs a fake
-`client.chat.completions.create` because the summary call bypasses
-`_interruptible_api_call`; fallback needs `resolve_provider_client` faked.
-**One branch still deferred: compression** — `_compress_context` runs the
-ContextCompressor (which itself makes model calls), so a deterministic fixture
-needs the compressor stubbed, not just a high `prompt_tokens`; deferred to avoid a
-brittle golden, do as a focused follow-up. Record/update goldens with
+provider fallback, **preflight compression.** Gotchas handled: persisted tool_calls
+carry a per-run-random `response_item_id` (normalized out); interrupt/steer driven
+via a per-turn action hook in the scripted transport; max-iterations needs a fake
+`client.chat.completions.create` (the summary call bypasses
+`_interruptible_api_call`); fallback needs `resolve_provider_client` faked;
+compression keeps `_compress_context` real (it rotates `session_id` to a random
+id — not snapshotted, so still deterministic) and stubs only the model-calling
+`context_compressor.compress`. Record/update goldens with
 `GOLDEN_RECORD=1 python -m pytest tests/run_agent/test_golden_transcripts.py -o "addopts=" -p no:cacheprovider`.
+
+**→ Phase 3 (consolidate) may now begin behind this net.** Start with 3a.
 
 **Goal:** pin the *observable* behavior of `AIAgent.run_conversation`
 (`run_agent.py:9374`) with replayable golden transcripts, so both the consolidate
