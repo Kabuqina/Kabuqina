@@ -18,12 +18,14 @@ import {
   Sigma,
   SquareArrowOutUpRight,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { useI18n } from "../lib/i18n";
 import { cn } from "../lib/cn";
 import { PPT_VISUAL_MASTERS, type PptVisualMaster } from "./pptx/visualMasters";
+import { WorkspaceSection, WorkspaceActionButton } from "./workspaceSection";
+import { StudySection } from "./study/StudySection";
 
 export type WorkspaceItem = {
   id: string;
@@ -155,52 +157,8 @@ function latestDeliverables(outputs: WorkspaceItem[]): WorkspaceItem[] {
   return result;
 }
 
-function WorkspaceSectionHeading({ children, dotColor = "var(--kq-color-primary-dark)" }: { children: ReactNode; dotColor?: string }) {
-  return (
-    <h3 className="workspace-section-heading kq-section-heading inline-flex items-center gap-1.5 px-0 py-0 text-[12.5px] font-bold leading-snug tracking-normal">
-      <span
-        className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
-        style={{ background: dotColor }}
-      />
-      {children}
-    </h3>
-  );
-}
-
-function WorkspaceSection({ sectionId, title, dotColor, children }: {
-  sectionId: string;
-  title: string;
-  dotColor?: string;
-  children?: ReactNode;
-}) {
-  return (
-    <section data-workspace-section={sectionId} className="kq-workspace-card">
-      <WorkspaceSectionHeading dotColor={dotColor}>{title}</WorkspaceSectionHeading>
-      {children}
-    </section>
-  );
-}
-
-function WorkspaceActionButton({
-  icon,
-  label,
-  onClick,
-}: {
-  icon: ReactNode;
-  label: string;
-  onClick?: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="kq-quick-action justify-start rounded-[10px] px-2.5 py-2 text-left text-[13px] leading-snug transition"
-    >
-      {icon}
-      {label}
-    </button>
-  );
-}
+// WorkspaceSectionHeading / WorkspaceSection / WorkspaceActionButton now live in
+// ./workspaceSection (shared with feature modules like ./study).
 
 function DeliverableCard({
   item,
@@ -617,6 +575,8 @@ export function WorkspacePanel({
         </>
         ) : (
         <>
+        <StudySection onStartPrompt={onStartPrompt} />
+
         <WorkspaceSection sectionId="workspace.reportPpt" title={t("chat.workspaceReportPpt")} dotColor="var(--kq-color-primary-dark)">
           <div className="mt-3 grid grid-cols-1 gap-2">
             <WorkspaceActionButton

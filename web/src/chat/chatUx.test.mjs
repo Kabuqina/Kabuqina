@@ -207,6 +207,12 @@ const workspacePanelSource = fs.readFileSync(
   new URL("./WorkspacePanel.tsx", import.meta.url),
   "utf8",
 );
+// Shared section primitives were extracted from WorkspacePanel into
+// ./workspaceSection so feature modules (e.g. ./study) can reuse them.
+const workspaceSectionSource = fs.readFileSync(
+  new URL("./workspaceSection.tsx", import.meta.url),
+  "utf8",
+);
 // Visual-master palettes were extracted into a shared module so the PptxGenJS
 // renderer (renderDeck.ts) and the WorkspacePanel selector use one source.
 const visualMastersSource = fs.readFileSync(
@@ -661,13 +667,13 @@ assert.match(
 );
 
 assert.match(
-  workspacePanelSource,
+  workspaceSectionSource,
   /kq-workspace-card/,
   "Workspace sections should render as lavender-tinted cards.",
 );
 
 assert.match(
-  workspacePanelSource,
+  workspaceSectionSource,
   /kq-section-heading[\s\S]*h-1\.5 w-1\.5 shrink-0 rounded-full/,
   "Workspace section headings should use a small round dot accent instead of heavy lavender pills.",
 );
@@ -1014,3 +1020,40 @@ const chatPageReminderSource = fs.readFileSync(new URL("./ChatPage.tsx", import.
 assert.match(reminderSessionSource, /hermesdesk-reminders/);
 assert.match(chatPageReminderSource, /openReminderSession[\s\S]*REMINDER_SESSION_ID/);
 assert.match(chatPageReminderSource, /\/settings\/cron/);
+
+// ── STUDY module ────────────────────────────────────────────────────────────
+// The learning-planning quick actions live in their own module
+// (web/src/chat/study) and render as a section in the ACADEMY workspace panel.
+const { STUDY_PROMPTS } = await importTs("./study/studyPrompts.ts");
+const studySectionSource = fs.readFileSync(new URL("./study/StudySection.tsx", import.meta.url), "utf8");
+
+assert.deepEqual(
+  Object.keys(STUDY_PROMPTS),
+  ["learningProfile", "learningPath", "learningResources"],
+  "STUDY module should expose the three ordered learning actions (profile -> path -> resources).",
+);
+for (const [id, prompt] of Object.entries(STUDY_PROMPTS)) {
+  assert.ok(typeof prompt === "string" && prompt.length > 0, `${id} prompt should be a non-empty string`);
+  assert.match(prompt, /不要.*编造/, `${id} prompt should forbid fabricating unknown info`);
+  assert.match(prompt, /请不要使用 emoji/, `${id} prompt should keep the no-emoji academic style`);
+}
+assert.match(
+  STUDY_PROMPTS.learningProfile,
+  /个性化学习画像[\s\S]*至少包含 6 个维度[\s\S]*已确认 \/ 待确认 \/ 推断/,
+  "Learning-profile prompt should require bounded dimensions and uncertainty labels.",
+);
+assert.match(
+  studySectionSource,
+  /workspaceBuildLearningProfile[\s\S]*workspaceBuildLearningPath[\s\S]*workspaceBuildResourcePack/,
+  "StudySection should wire the three learning quick actions in order (profile -> path -> resources).",
+);
+assert.match(
+  studySectionSource,
+  /sectionId="workspace\.study"/,
+  "StudySection should render under the workspace.study section id.",
+);
+assert.match(
+  workspacePanelSource,
+  /<StudySection\b/,
+  "WorkspacePanel should render the STUDY module section.",
+);
