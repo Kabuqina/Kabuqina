@@ -20,7 +20,7 @@ _MAX_CITATIONS = 24
 _MAX_UNCERTAIN = 16
 _SNIPPET_LIMIT = 320
 
-_PROFILES = {"paper_report", "course_report", "code_defense", "auto"}
+_PROFILES = {"paper_report", "course_report", "code_defense", "sandtable_review", "auto"}
 _CODE_SUFFIXES = {
     ".java",
     ".py",
@@ -411,6 +411,14 @@ def _generation_hints(profile: str, *, tables, figures, screenshots, code_files,
     elif profile == "course_report":
         ppt_types = ["diagram", "table", "claim_bullets", "qa_backup"]
         report_sections = ["知识结构", "关键概念", "案例应用", "学习总结"]
+    elif profile == "sandtable_review":
+        ppt_types = ["timeline", "table", "chart_placeholder", "claim_bullets", "qa_backup"]
+        report_sections = ["沙盘背景与规则", "团队战略", "各周期决策", "经营结果", "复盘改进"]
+        if not tables:
+            missing_assets.append({
+                "kind": "table_or_metrics",
+                "reason": "Sandtable review is stronger with per-round financial tables/metrics (营收/利润/份额).",
+            })
     else:
         ppt_types = ["diagram", "table", "chart_placeholder", "qa_backup"]
         report_sections = ["研究背景", "方法框架", "关键证据", "结果分析", "局限与展望"]

@@ -191,7 +191,7 @@ class CapabilityRegistryTests(unittest.TestCase):
         self.assertEqual(ppt["family"], "student-report-generation")
         self.assertEqual(
             {item["id"] for item in ppt["structure_templates"]},
-            {"course_report", "paper_report", "code_defense"},
+            {"course_report", "paper_report", "code_defense", "sandtable_review"},
         )
         self.assertEqual(
             {item["id"] for item in ppt["visual_masters"]},
@@ -199,7 +199,7 @@ class CapabilityRegistryTests(unittest.TestCase):
         )
         self.assertEqual(
             {pipeline["id"] for pipeline in ppt["pipelines"]},
-            {"student-course-report-ppt", "student-paper-report-ppt", "student-code-defense-ppt"},
+            {"student-course-report-ppt", "student-paper-report-ppt", "student-code-defense-ppt", "student-sandtable-review-ppt"},
         )
         for pipeline in ppt["pipelines"]:
             self.assertTrue(pipeline["visual_master_required"])
@@ -211,7 +211,7 @@ class CapabilityRegistryTests(unittest.TestCase):
             enabled_toolsets={"documents", "clarify"},
         )
         self.assertEqual(status["status"], "available")
-        self.assertEqual(len(status["structureTemplates"]), 3)
+        self.assertEqual(len(status["structureTemplates"]), 4)
         self.assertEqual(len(status["visualMasters"]), 5)
         self.assertTrue(all(pipeline["ready"] for pipeline in status["pipelines"]))
 

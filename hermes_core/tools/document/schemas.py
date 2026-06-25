@@ -305,7 +305,8 @@ PPTX_WRITE_SCHEMA = {
         "Slides can use editable structured types such as agenda, claim_bullets, "
         "diagram, table, screenshot_placeholder, chart_placeholder, qa_backup, and closing. "
         "Templates apply distinct visual themes: course_report (blue classroom), "
-        "paper_report (green academic), code_defense (indigo/orange tech defense). "
+        "paper_report (green academic), code_defense (indigo/orange tech defense), "
+        "sandtable_review (navy/gold business review). "
         "The deck is rendered by PptxGenJS in the Kabuqina desktop UI using the selected "
         "visual_master palette. Always CALL this tool to generate the deck — do not "
         "refuse or claim the renderer is unavailable in advance. Only if the call itself "
@@ -316,7 +317,7 @@ PPTX_WRITE_SCHEMA = {
         "properties": {
             "path": {"type": "string"},
             "title": {"type": "string"},
-            "template": {"type": "string", "description": "course_report, paper_report, or code_defense"},
+            "template": {"type": "string", "description": "course_report, paper_report, code_defense, or sandtable_review"},
             "visual_master": {
                 "type": "string",
                 "description": (

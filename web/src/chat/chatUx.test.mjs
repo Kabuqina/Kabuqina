@@ -320,8 +320,8 @@ assert.equal(
 
 assert.match(
   workspacePanelSource,
-  /workspace\.reportPpt[\s\S]*workspacePaperToPpt[\s\S]*workspaceCourseToPpt[\s\S]*workspaceCodeToPpt/,
-  "Workspace panel should group the three report PPT workflows under Generate Report PPT, paper first.",
+  /workspace\.reportPpt[\s\S]*workspacePaperToPpt[\s\S]*workspaceCourseToPpt[\s\S]*workspaceCodeToPpt[\s\S]*workspaceSandtableToPpt/,
+  "Workspace panel should group the four report PPT workflows under Generate Report PPT, paper first.",
 );
 
 assert.match(

@@ -88,6 +88,18 @@ PPTX_STRUCTURES: dict[str, dict[str, object]] = {
             "部署运行说明或核心代码说明 qa_backup",
         ],
     },
+    "sandtable_review": {
+        "title": "经营沙盘模拟复盘",
+        "must_cover": [
+            "沙盘背景与经营规则",
+            "团队分工与总体战略",
+            "各经营周期关键决策 timeline",
+            "经营结果与财务指标 table 或 chart（营收 / 利润 / 市场份额 / ROE）",
+            "关键转折与得失分析",
+            "复盘总结与改进",
+            "老师可能追问 qa_backup",
+        ],
+    },
 }
 
 # Writer tools whose presence should trigger the planner guidance, mapped to the
