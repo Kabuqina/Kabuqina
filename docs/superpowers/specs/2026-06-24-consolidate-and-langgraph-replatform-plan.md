@@ -1,494 +1,1132 @@
-# Consolidate + LangGraph Re-platform Plan (phases 0 / 3 / 3.5)
+# Consolidate + LangGraph Re-platform Implementation Plan
 
-Date: 2026-06-24
+> **For agentic workers:** REQUIRED SUB-SKILL: use
+> `superpowers:subagent-driven-development` (recommended) or
+> `superpowers:executing-plans` to implement this plan task-by-task. Steps use
+> checkbox (`- [ ]`) syntax for tracking.
 
-Successor to `2026-06-21-large-file-split-plan.md` (CLOSED). Covers the
-restructuring tail: a **golden-transcript characterization harness** (the safety
-net), **Phase 3 — consolidate the narrowed architecture**, and **Phase 3.5 —
-ReAct→LangGraph core re-platform**. Sequencing and rationale come from the
-restructuring phase model (memory `restructuring-phase-model`); this doc turns
-its "NO PLAN WRITTEN YET" Phase 3 into concrete touchpoints and fixes the
-ordering of the characterization work.
+**Goal:** preserve the observable behavior of the owned Hermes agent core while
+finishing the provider consolidation and replacing the synchronous ReAct control
+loop with an explicitly modelled, rollback-safe LangGraph engine.
 
-## Where this fits
+**Architecture:** Phase 0 and Phase 3 below are retained as completed history.
+Phase 3.5 remains behind the legacy loop until dependency, packaging, and all
+21 current exit-path contracts are pinned. The graph uses low-level
+`StateGraph` only, keeps plain Hermes message dictionaries, passes
+non-serializable collaborators through a runtime context, and does not enable a
+LangGraph checkpointer during the equivalence migration.
 
-The phase model orders work by **churn-radius × verifiability** — subtractive /
-verifiable early, transformative / unverifiable late on the most stable surface:
+**Tech stack:** Python 3.11 bundled runtime, pytest golden transcripts,
+LangGraph 1.2.x low-level graph API, Tauri 2/Rust child supervisors, PowerShell
+7 build scripts.
 
-- **0–1** scope decision + big-bang delete: done (v0.3.0).
-- **2** split shared auth infra ⇄ delete entangled set-D providers: **done** —
-  `providers/` extraction landed (split plan steps 1–3) and all 15 set-D
-  providers cut (`2026-06-22-provider-deletion-plan.md`).
-- **0 (this doc, but do first)** golden-transcript characterization harness:
-  the behavioral safety net. **Prerequisite for Phase 3, not a tail task** — it
-  protects the consolidate refactor *and* the re-platform.
-- **3** consolidate the narrowed architecture: collapse abstractions built for
-  the full provider set that now serve `kimi/zai/minimax/alibaba/anthropic/…`.
-  **The gate for everything below.**
-- **3.5** ReAct→LangGraph re-platform of the core loop. Go/no-go **deferred
-  until Phase 3 lands**.
-- **4** rename / identity migration (`kabuqina_core`, `KABUQINA_*`, `~/.hermes`):
-  last, mechanical sweep over the final surface. Out of scope here.
-
-Guiding constraint from the phase model: **do not rename before re-platforming**,
-and **build on langgraph-core only** (StateGraph/state/checkpoint — 1.0/GA), not
-the fast-churning LangChain chains/agents periphery, wrapped behind a thin
-anti-corruption port so API churn has a one-file blast radius.
+Date: 2026-06-24; revised 2026-06-27 after grounded implementation review.
 
 ---
 
-## Phase 0 — Golden-transcript characterization harness (DO FIRST)
+## Status and decisions
 
-**Status (2026-06-24): COMPLETE — gate met, 10/10 branches.** The replay harness
-(`tests/run_agent/golden_harness.py`) + runner (`test_golden_transcripts.py`) +
-fixtures (`tests/run_agent/golden/*.json`) are in place and green (11 tests,
-deterministic across two runs, hermetic — no network/disk/DB, passes under the
-default `-n auto` xdist addopts). It mocks the transport boundary
-(`_interruptible_api_call` / `_anthropic_messages_create`), stubs tools at the
-shared `handle_function_call` primitive, and snapshots the result dict +
-normalized message trajectory + tool invocations + usage/cost + would-be-persisted
-rows + stream deltas. **Covered cases:** plain text, single-tool (sequential),
-parallel multi-tool (concurrent), anthropic_messages text, interrupt, steer,
-unknown-tool rejection, max-iterations (toolless summary via the raw client),
-provider fallback, **preflight compression.** Gotchas handled: persisted tool_calls
-carry a per-run-random `response_item_id` (normalized out); interrupt/steer driven
-via a per-turn action hook in the scripted transport; max-iterations needs a fake
-`client.chat.completions.create` (the summary call bypasses
-`_interruptible_api_call`); fallback needs `resolve_provider_client` faked;
-compression keeps `_compress_context` real (it rotates `session_id` to a random
-id — not snapshotted, so still deterministic) and stubs only the model-calling
-`context_compressor.compress`. Record/update goldens with
-`GOLDEN_RECORD=1 python -m pytest tests/run_agent/test_golden_transcripts.py -o "addopts=" -p no:cacheprovider`.
+**Phase 3.5 status: NO-GO as of 2026-06-27.** Do not begin graph implementation
+until Tasks 1 and 2 below pass their gates and the go/no-go checklist is updated
+in this document.
 
-**→ Phase 3 (consolidate) may now begin behind this net.** Start with 3a.
+The revision makes these decisions explicit:
 
-**Goal:** pin the *observable* behavior of `AIAgent.run_conversation`
-(`run_agent.py:9374`) with replayable golden transcripts, so both the consolidate
-refactor (Phase 3) and the re-platform (Phase 3.5) can be proven
-behavior-equivalent by test rather than by inspection. "New graph ≡ old loop" and
-"consolidated dispatch ≡ old dispatch" are exactly the claims that can't be eyeballed.
+1. **Keep the LangGraph objective.** Use the low-level graph API, not LangChain
+   agents, chains, model wrappers, message classes, or `add_messages`.
+2. **Accept the real dependency closure.** The `langgraph` distribution requires
+   `langchain-core`, `langgraph-checkpoint`, `langgraph-prebuilt`, and
+   `langgraph-sdk`; `langchain-core` requires `langsmith`. These packages may be
+   installed transitively, but Kabuqina production code must not import them
+   directly outside the graph builder.
+3. **No checkpointer in Phase 3.5.** Compile without `MemorySaver` or
+   `InMemorySaver`. Hermes `session_db` remains the only persistent conversation
+   store. Durable graph resume is a separate future decision, not an accidental
+   side effect of this migration.
+4. **Preserve before improving.** The current early returns do not all execute
+   cleanup, `post_llm_call`, or `on_session_end`. That inconsistency is part of
+   the characterization contract. Normalize it only in a later behavior-change
+   commit with explicit tests and release notes.
+5. **Never live-shadow side effects.** Tests may run loop and graph separately
+   on scripted transports. Production must choose one engine before a turn.
+   Never run both engines on the same real turn, and never automatically rerun a
+   failed graph turn through the loop after a tool may have executed.
+6. **Rename remains Phase 4.** The temporary rollout variable is
+   `HERMES_AGENT_ENGINE`, not `KABUQINA_AGENT_ENGINE`.
 
-**Why first (corrects the split plan's "tests last"):** consolidate collapses
-api_mode / overlay+registry / alias machinery that threads through the request
-path — behavior-preserving *in intent*, risky *in fact*. The same harness that
-de-risks 3.5 de-risks 3, so it must exist before Phase 3 edits begin.
+Dependency facts must be rechecked immediately before Task 1 because package
+metadata can change. At this revision, the relevant official metadata is:
 
-**What exists to build on:**
-- ~80 focused unit tests under `tests/run_agent/` (streaming, tool repair,
-  compression, interrupts, client lifecycle) — keep them; they're not full-loop.
-- A `MockMessage/MockToolCall/MockChoice/MockFunction` dataclass pattern in
-  `tests/run_agent/test_agent_loop.py` (built for the atropos `environments`
-  loop) — reuse the shape to fake OpenAI/Anthropic responses for `AIAgent`.
-- `agent/usage_pricing.py` (`estimate_usage_cost`, `normalize_usage`) — already
-  the usage accounting; golden assertions on cost should call through it.
-
-**Design — record/replay a conversation, assert observable outputs:**
-1. **Mock the transport boundary, not the loop.** Drive the loop through a fake
-   client that yields a *scripted sequence* of assistant turns (text +
-   tool_calls), one per API call, for both api_modes (`chat_completions` and
-   `anthropic_messages`). The fake records the `api_kwargs` it was handed.
-2. **A transcript = (input user message, scripted model turns, stubbed tool
-   results, expected observable outputs).** Store as JSON fixtures under
-   `tests/run_agent/golden/`.
-3. **Observable outputs to snapshot** (the equivalence contract):
-   - final assistant text + the full `messages` list shape (roles, tool_call ids,
-     ordering, thinking-block handling);
-   - the sequence of tool invocations (`_invoke_tool` name + args) and the
-     dispatch decision (sequential vs concurrent, `_should_parallelize_tool_batch`);
-   - persisted session rows (`_flush_messages_to_session_db`) and trajectory
-     (`_convert_to_trajectory_format`) — capture via the existing hooks;
-   - usage/cost (`normalize_usage` / `estimate_usage_cost`);
-   - emitted stream deltas / status / interim messages (stream-callback log).
-4. **Cover the load-bearing branches** at least once each: a plain text answer,
-   a single-tool turn, a parallel multi-tool batch, a compression trigger
-   (`_compress_context`), an interrupt/steer, a provider-fallback
-   (`_try_activate_fallback`), max-iterations (`_handle_max_iterations`), and one
-   `anthropic_messages` path. These are the behaviors consolidate/3.5 are most
-   likely to perturb.
-
-**Deliverables:** `tests/run_agent/golden/` fixtures + a `replay_transcript()`
-helper + a `test_golden_transcripts.py` runner. A `--record` mode that captures a
-fresh snapshot makes adding cases cheap (review the diff, commit the fixture).
-
-**Exit criteria:** harness runs green on `main`; each branch above has ≥1 golden
-case; the snapshot is stable across two runs (no nondeterminism leaking — seed
-`_deterministic_call_id`, freeze timestamps in persisted rows). **Do not start
-Phase 3 until this is green.**
-
-**Non-goal:** this is not a live-API test. Keep the existing `scripts/dev.ps1`
-runtime smoke as the separate manual gate for real-network behavior.
+- <https://pypi.org/pypi/langgraph/1.2.6/json>
+- <https://pypi.org/pypi/langchain-core/1.4.7/json>
+- <https://docs.langchain.com/oss/python/langgraph/persistence>
+- <https://docs.langchain.com/langsmith/trace-without-env-vars>
 
 ---
 
-## Phase 3 — Consolidate the narrowed architecture
+## Completed baseline
 
-**Goal:** remove indirection that only earned its keep when the provider set was
-large. After the set-D deletion the live providers are a handful of
-OpenAI-compatible chat backends + Anthropic. Three targets, leaf-first, each its
-own commit, golden harness green after each.
+### Phase 0 — golden-transcript harness: COMPLETE
 
-### 3a — Remove the `agent.*` alias shims (leaf, mechanical, do first) — DONE (2026-06-24)
+The replay harness (`hermes_core/tests/run_agent/golden_harness.py`), runner
+(`hermes_core/tests/run_agent/test_golden_transcripts.py`), and ten fixtures
+under `hermes_core/tests/run_agent/golden/` are present. They cover plain text,
+single and concurrent tools, Anthropic messages, interrupt, steer, unknown tool,
+max iterations, provider fallback, and preflight compression.
 
-**Landed.** Deleted the 13 `agent/*` alias modules + the `agent/transports/`
-package alias, and retargeted every caller `agent.X` → `providers.Y` (4 production
-import sites + ~80 files of test imports/monkeypatch strings). Behavior-preserving
-by construction — the shims made `agent.X` and `providers.Y` the same module
-object, so any name importable/patchable via the old path is identical via the
-new one. The two identity-assertion guard tests in
-`tests/agent/test_provider_package_split.py` were rewritten to assert the legacy
-paths are gone (`ModuleNotFoundError`) and the canonical `providers.*` modules
-import. Verified: the heaviest-touched files (913 tests: auxiliary_client,
-model_metadata, anthropic_adapter, credential_pool, nous/rate-limit, gemini,
-image_*, golden, run_agent, compat) all pass; production modules cold-import
-clean; a stash-baseline confirmed the remaining suite failures (gateway cut
-platforms, optional-dep tools, Windows file-permission/prompt_toolkit tests) are
-pre-existing, identical with or without this change. (Lesson: the retarget script's
-dir-exclusion `agent/transports/` also matched the test path
-`tests/agent/transports/`, so those 3 files were missed on the first pass — caught
-by running the broader suite, then fixed.)
+Verified on 2026-06-27 with the repository's Windows no-xdist command:
 
-Original notes:
+```powershell
+cd hermes_core
+python -m pytest tests/run_agent/test_golden_transcripts.py `
+  -o "addopts=" -p no:cacheprovider -q
+```
 
+Expected and observed: `11 passed`. This run used system Python 3.14; Task 1
+adds the missing bundled-CPython-3.11 gate.
 
+### Phase 3 — consolidate narrowed architecture: COMPLETE
 
-The step-2 extraction left `sys.modules[__name__] = _impl` redirects in `agent/`
-(`auxiliary_client`, `anthropic_adapter`, `gemini_native_adapter`,
-`credential_pool`, `error_classifier`, `model_metadata`, `image_routing`,
-`retry_utils`, `transports/`, …). They exist only so old import paths keep
-working — they were always meant to die once callers migrate.
+- **3a complete:** removed the `agent.*` provider aliases and retargeted callers
+  to `providers.*`.
+- **3b resolved without merge:** `HERMES_OVERLAYS` and `PROVIDER_REGISTRY` serve
+  different subsystems. The consistency invariant is pinned in
+  `hermes_core/tests/hermes_cli/test_provider_registry_overlay_consistency.py`.
+- **3c folded into Phase 3.5:** the two remaining protocols,
+  `chat_completions` and `anthropic_messages`, are both live. Their dispatch is
+  moved behind the graph transport port rather than trimmed first.
 
-- Several already have **0 internal source callers** (`anthropic_adapter`,
-  `gemini_native_adapter`, `error_classifier`, `image_routing`) → delete the shim
-  outright.
-- The rest have a handful (`auxiliary_client`×3, `model_metadata`×3,
-  `credential_pool`×2, `retry_utils`×1) → migrate those imports to `providers.*`
-  first, then delete the shim.
-- The deletion conditions are already encoded in
-  `tests/agent/test_provider_package_split.py` (the `agent.X is providers.Y`
-  identity assertions) — flip each from "is the same object" to "agent.X no
-  longer imports" as you delete, or remove the assertion if the path is gone.
+### Grounded loop facts
 
-Lowest risk, no behavior surface; warms up the harness wiring.
-
-### 3b — Overlay + registry: DEFERRED after investigation (2026-06-24)
-
-Investigated `HERMES_OVERLAYS`/`HermesOverlay` (`hermes_cli/providers.py:46`) vs
-`PROVIDER_REGISTRY`/`ProviderConfig` (`hermes_cli/auth.py:233`). **They are not a
-redundant double layer** — they are two registries serving two subsystems with
-only incidental field overlap, and the assumption behind this step (one structure
-should obviously own the metadata) does not hold cleanly:
-
-- **`PROVIDER_REGISTRY` is on the live request path.** It's read by
-  `runtime_provider.py` (5 sites — `resolve_runtime_provider`, which resolves the
-  per-request base_url / api_key env / api_mode), plus `model_switch.py`,
-  `providers/chat_completions.py` (api-key fallback iteration), and
-  `credential_pool.py`. It also carries the OAuth login fields
-  (`portal_base_url`/`client_id`/`scope`/`extra`).
-- **`HERMES_OVERLAYS` is identity/routing only** — read by `model_switch.py` (the
-  `/model` picker) and `providers.py:get_provider`; it adds `transport` /
-  `is_aggregator` on top of the models.dev catalog.
-- **Different id conventions + membership:** registry has `gemini`,
-  `kimi-coding`, `kimi-coding-cn`; overlay has `openrouter`, `kimi-for-coding`
-  (models.dev id). A merge must first *reconcile the id schemes* — a
-  behavior-affecting decision, not a mechanical move.
-
-A real merge therefore re-routes the **live request path** through a single
-structure and reconciles ids — exactly the change class the provider-deletion
-plan flags as "unit tests pass while a missed hot-path branch breaks a live
-conversation," requiring a **`scripts/dev.ps1` runtime smoke**. The golden net
-does not cover provider resolution (it constructs `AIAgent` with an explicit
-provider/base_url and stubs the transport).
-
-**Resolution (2026-06-24): keep the two structures separate; guard against drift
-instead of merging.** A user-run smoke unblocked a structural merge, but deeper
-investigation confirmed the merge is high-risk / low-value: it reconciles two id
-schemes and re-routes the hot path to de-duplicate ~18 small entries, with a
-regression surface (the full `/model` picker matrix + login flows) wider than one
-chat smoke validates. The actual hazard of a double layer is **drift of the
-shared fields**, and the codebase already treats `PROVIDER_REGISTRY` as the
-source of truth ([model_switch.py:1068]). So instead of merging, added
-`tests/hermes_cli/test_provider_registry_overlay_consistency.py` — a guard pinning
-the membership asymmetry (overlay-only `openrouter`; registry-only `gemini`,
-`kimi-coding-cn`) and the shared fields (`base_url_env_var` agreement, overlay
-`extra_env_vars` ⊆ registry `api_key_env_vars`, `auth_type` agreement). The guard
-**already caught a real drift**: `minimax-oauth` was `oauth_external` in the
-overlay vs `oauth_minimax` in the registry (the latter drives the actual login).
-**Reconciled** — the overlay now uses `oauth_minimax` to match; the change is
-behavior-inert (`ProviderDef.auth_type` is set but never branched on; every
-`auth_type` dispatch reads the registry `pconfig`, and minimax-oauth resolves via
-the dedicated `runtime_provider.py` branch), verified by 209 tests, and the guard
-now asserts full agreement (empty exception set). A full structural merge remains
-possible but is **not recommended**; if pursued it needs the runtime smoke +
-id-scheme reconciliation as its own effort.
-
-### 3c — `api_mode` at N=2: DEFERRED into 3.5 (2026-06-24)
-
-`_VALID_API_MODES = {"chat_completions", "anthropic_messages"}`
-(`runtime_provider.py:141`) — two genuinely different wire protocols, 77 refs in
-`run_agent.py`. The earlier-hoped win was removing *dead* scaffolding from the cut
-api_modes — but the tier-3 provider deletion already did that: a grep of
-`run_agent.py` finds only the two live literals (`bedrock_converse` /
-`codex_responses` are gone). So **what remains is the live 2-protocol dispatch
-threaded through the request/response loop** — and trimming it is exactly the
-"loop surgery" this step's own conservative rule says to **defer into 3.5**, where
-the LangGraph re-platform rewrites that dispatch behind the anti-corruption port
-anyway. Doing it now would be throwaway work against a hot path with no runtime
-smoke. Deferred per rule — the correct outcome, not a failure.
-
-**Phase 3 status (2026-06-24): 3a DONE; 3b RESOLVED (guard, no merge); 3c DEFERRED
-into 3.5.** 3a (the safe, mechanical, behavior-preserving leaf) landed and is
-verified. 3b was investigated to a conclusion — the overlay and registry are
-genuinely separate subsystems, so rather than a risky structural merge a drift
-guard was added (and it already found the `minimax-oauth` `auth_type` divergence).
-3c's remaining `api_mode` machinery is the live 2-protocol dispatch — loop surgery,
-folded into 3.5. **Net:** phase 3 delivered the import-surface consolidation (3a)
-and the drift guard (3b); the structural registry merge is intentionally *not*
-done (high-risk/low-value), and the api_mode trim belongs to the re-platform.
-
-**Phase 3 exit criteria (for the deferred parts):** golden harness green;
-`scripts/dev.ps1` runtime smoke (chat + one tool, both a chat-completions and an
-Anthropic backend); the `providers/` split guardrails
-(`test_provider_package_split.py`) and compat guardrails
-(`tests/kabuqina/test_compat_imports.py`) green.
+- `hermes_core/run_agent.py` currently has 12,897 lines.
+- `AIAgent.run_conversation` spans lines 9374–12664 and has **21 return sites**,
+  not 22. Twenty return literal dictionaries; the final site returns `result`.
+- The public dictionaries use several key-presence shapes. Adding absent keys
+  with `None` or `False` is an observable behavior change.
+- Six plugin hooks are load-bearing: `on_session_start`, `pre_llm_call`,
+  `pre_api_request`, `post_api_request`, `post_llm_call`, and `on_session_end`.
+- Existing helpers mutate both `self` and the `messages` list. `TurnState` is
+  authoritative for per-turn messages, counters, routes, and outcomes;
+  `AIAgent` remains the owner of cross-turn runtime configuration such as the
+  active provider. Every service mutation that affects both must return a
+  mirrored state update, and parity tests must catch divergence.
+- `python/build_bundle.ps1` installs from
+  `python/requirements-desktop.txt`. Adding a dependency only to
+  `hermes_core/pyproject.toml` does not put it in the desktop runtime.
 
 ---
 
-## Phase 3.5 — ReAct→LangGraph core re-platform
+## Scope and non-goals
 
-**Gated** on Phase 3 landing + the golden harness. Phase 3 is now landed
-(2026-06-24; 3a done, 3b drift-guard done, 3c folded into this phase), and the
-golden net covers 10 of the loop's load-bearing branches deterministically
-(`tests/run_agent/test_golden_transcripts.py`). The pre-3.5 myths are already
-resolved (see [[restructuring-phase-model]]): bundle size is a non-issue
-(~10–20 MB pure-Python marginal add; see [[msi-bundle-size-2gb-limit]]); the
-real cost is **LangChain-ecosystem version churn** + locking `langsmith` tracing
-off. STUDY frontend integration sits in parallel on `student/study-module`; the
-re-platform must not block on it landing in main (its prompts and section
-rendering have zero loop coupling).
+In scope:
 
-### Pre-3.5 grounded facts (2026-06-24 audit)
+- dependency and bundled-runtime validation;
+- exact loop/graph result, message, hook, stream, persistence, and cleanup
+  parity;
+- graph orchestration for both live API modes;
+- a one-release loop escape hatch;
+- release-build runtime smoke on both API modes.
 
-- `hermes_core/run_agent.py` is **12,897 lines**; `run_conversation` itself
-  spans roughly `run_agent.py:9374–12666` (the loop) plus its 22 distinct return
-  shapes (`"completed":` exits). These exits are the equivalence contract the
-  graph must reproduce.
-- `langgraph` / `langchain` are **not** in `hermes_core/pyproject.toml` yet —
-  this phase introduces the first dependency. Pin `langgraph` (core only) to a
-  specific 1.x version; do not add `langchain`, `langchain-core`,
-  `langchain-community`, or `langgraph-prebuilt`.
-- `run_conversation` fires **6 plugin hooks** that must keep firing at the
-  same logical points: `on_session_start`, `pre_llm_call`, `pre_api_request`,
-  `post_api_request`, `post_llm_call`, `on_session_end`. These define the
-  observable extension contract; any graph node layout must preserve their
-  ordering and payloads.
-- Side-effect modules already extracted (re-platform reuses, does not
-  reimplement): `agent/usage_pricing.py` (635 lines), `agent/trajectory.py`
-  (56 lines), and the providers `transports/` package.
-- Prior art for "another loop driving the agent": `hermes_core/environments/
-  agent_loop.py` (atropos RL adaptation) — useful reference for what state
-  needs to be externally observable.
+Out of scope:
 
-### Go / no-go decision (do this first; record the outcome in this doc)
+- Phase 4 identity rename (`kabuqina_core`, `KABUQINA_*`, `~/.hermes`);
+- LangChain agents, model integrations, chains, or message objects;
+- LangGraph checkpoint persistence, human-in-the-loop interrupts, Studio, or
+  Agent Server;
+- new gateway platform work;
+- changing result shapes or fixing the current early-return hook inconsistency;
+- reintroducing cut providers or removing names from `GLOBAL_STUDENT_CUT`.
 
-Decide GO only when ALL of these hold; otherwise document which fail and defer:
+---
 
-1. Phase 3 status: 3a DONE, 3b RESOLVED, 3c folded here. ✓ (2026-06-24)
-2. Golden net: 10/10 branches green, deterministic across two runs, hermetic
-   (no network/disk/DB), passes under default `-n auto` xdist. ✓ (2026-06-24)
-3. STUDY integration: either landed in main, OR confirmed loop-decoupled and
-   safe to land in parallel. ✓ (frontend-only, zero loop coupling)
-4. `scripts/dev.ps1` runtime smoke is available for the operator (chat +
-   one tool, on both a chat-completions backend and an Anthropic backend).
-   This is the only check the golden net cannot substitute for.
-5. A 2-week window in which no other hot-path landings are scheduled (so the
-   parallel-run diff stays interpretable).
+## Target file map
 
-If go: proceed to 3.5a. If no-go on (4) or (5): defer; record reason here.
+### New production files
 
-### 3.5a — Add langgraph-core dependency + minimal smoke
+| File | Responsibility |
+|---|---|
+| `hermes_core/agent/graph_engine/__init__.py` | Export only `GraphEngine` and stable contracts. |
+| `hermes_core/agent/graph_engine/contracts.py` | Serializable `TurnState`, exact legacy result type, routes, and exit policy. No LangGraph imports. |
+| `hermes_core/agent/graph_engine/ports.py` | Protocols for transport, tools, hooks, persistence, pricing, compression, interrupts, and cleanup. No LangGraph imports. |
+| `hermes_core/agent/graph_engine/nodes.py` | Pure node operations accepting `TurnState` plus the service port. No LangGraph imports. |
+| `hermes_core/agent/graph_engine/builder.py` | The only production import site for `langgraph.*`; wraps pure nodes and compiles without a checkpointer. |
+| `hermes_core/agent/graph_engine/engine.py` | Stable `GraphEngine.run_turn()` adapter that converts graph output back to the exact legacy dictionary. |
+| `hermes_core/agent/engine_selector.py` | Resolve explicit constructor value → `HERMES_AGENT_ENGINE` → `agent.engine` config → `loop`. |
 
-One commit. Adds `langgraph>=1.0,<2` to `hermes_core/pyproject.toml` `[project.dependencies]`. Verifies:
+### Modified production and packaging files
 
-- it installs into the bundled runtime without pulling `langchain` /
-  `langchain-core` / `langchain-community` (audit the resolved lockfile);
-- `python -c "from langgraph.graph import StateGraph; from langgraph.checkpoint.memory import MemorySaver"` succeeds;
-- `langsmith` tracing is off by default (`LANGSMITH_TRACING_V2=false` in
-  managed env, and assert `os.environ.get("LANGSMITH_TRACING") != "true"` in a
-  startup guard);
-- bundle-size delta is within the 10–20 MB envelope (record actual). If a
-  transitive `langchain-core` sneaks in, **stop and pin around it** before
-  proceeding.
+| File | Change |
+|---|---|
+| `hermes_core/run_agent.py` | Keep legacy body as `_run_conversation_loop`; add graph service adapter and final dispatch. |
+| `hermes_core/hermes_cli/config_defaults.py` | Add `agent.engine: loop` without a config-version bump. |
+| `hermes_core/pyproject.toml` | Add the validated LangGraph pin. |
+| `hermes_core/uv.lock` | Lock the complete dependency closure. |
+| `python/requirements-desktop.txt` | Mirror the exact LangGraph pin for the bundled runtime. |
+| `python/tools/verify_bundle_site_packages.py` | Verify low-level graph imports from bundled site-packages. |
+| `tauri/src/python_supervisor.rs` | Force `LANGSMITH_TRACING=false` for the web child. |
+| `tauri/src/gateway_supervisor.rs` | Force `LANGSMITH_TRACING=false` for every gateway child. |
+| `DECISIONS.md` | Record dependency closure, no-checkpointer decision, engine precedence, and rollback constraints. |
 
-### 3.5b — Anti-corruption port skeleton
+### Tests
 
-One commit. Create `hermes_core/agent/graph_port.py` (the single LangGraph
-import site for the rest of the codebase). It exports a stable interface that
-hides LangGraph types:
+| File | Responsibility |
+|---|---|
+| `hermes_core/tests/run_agent/golden_harness.py` | Accept an engine parameter and capture hooks, cleanup, interrupt clearing, and exact result-key presence. |
+| `hermes_core/tests/run_agent/test_golden_transcripts.py` | Parameterize selected fixtures over loop/graph without mutating process-global env. |
+| `hermes_core/tests/run_agent/test_exit_contract.py` | Pin all 21 exit sites by named scenario and exit policy. |
+| `hermes_core/tests/run_agent/test_hook_invocation_parity.py` | Compare hook presence, order, and payloads for every exit family. |
+| `hermes_core/tests/agent/test_graph_import_isolation.py` | Forbid LangGraph/LangChain/LangSmith imports outside `builder.py`. |
+| `hermes_core/tests/agent/test_engine_selector.py` | Pin selector validation and precedence. |
+| `python/tests/test_langgraph_bundle_contract.py` | Pin mirrored requirement and tracing-off supervisor wiring. |
+
+---
+
+## Go / no-go checklist
+
+Record the date and evidence beside each item. GO requires every item checked.
+
+- [x] Phase 3 is complete or intentionally resolved.
+- [x] Existing ten-fixture golden suite passes on the legacy loop.
+- [x] STUDY integration is loop-decoupled and may land independently.
+- [ ] Task 1 proves the complete dependency closure installs in bundled
+  CPython 3.11 and records the actual size delta.
+- [ ] Task 1 proves both desktop child types start with
+  `LANGSMITH_TRACING=false`.
+- [ ] Task 2 pins every current return site and its side-effect policy.
+- [ ] The operator can run release-build chat + one tool on both API modes.
+- [ ] A two-week window has no other scheduled `run_agent.py`, transport,
+  provider fallback, or session-persistence landings.
+- [ ] The GO decision is recorded in `DECISIONS.md` and in this section.
+
+If a gate fails, leave the product on `loop`, document the failure, and stop.
+Passing unit tests is not permission to waive a failed packaging or runtime gate.
+
+---
+
+## Task 1 — Dependency, tracing, and bundled-runtime spike
+
+**Files:**
+
+- Modify: `hermes_core/pyproject.toml`
+- Modify: `hermes_core/uv.lock`
+- Modify: `python/requirements-desktop.txt`
+- Modify: `python/tools/verify_bundle_site_packages.py`
+- Modify: `tauri/src/python_supervisor.rs`
+- Modify: `tauri/src/gateway_supervisor.rs`
+- Create: `python/tests/test_langgraph_bundle_contract.py`
+- Modify: `DECISIONS.md`
+
+- [ ] **Step 1: record the pre-change runtime size**
+
+Run from the repository root:
+
+```powershell
+$before = (Get-ChildItem python\dist\runtime -Recurse -File |
+  Measure-Object Length -Sum).Sum
+[math]::Round($before / 1MB, 2)
+```
+
+Record the number under the Task 1 completion note in this document. If the
+runtime does not exist, run `./python/build_bundle.ps1 -Verify` first.
+
+- [ ] **Step 2: write the failing bundle contract test**
+
+The test must assert all of these invariants:
 
 ```python
-# Public API (stable; LangGraph types do NOT leak past this file)
-class AgentGraphPort:
-    def __init__(self, *, transport, tools, hooks, pricing, persistence): ...
-    def run_turn(self, *, state: AgentState, on_event: EventCallback) -> AgentResult: ...
+import unittest
+from pathlib import Path
 
-@dataclass
-class AgentState:    # the externally-observable state mirror; same fields as the golden snapshot
-    messages: list[dict]
-    iteration_budget_remaining: int
-    fallback_index: int
-    ...
 
-@dataclass
-class AgentResult:   # mirrors the existing run_conversation return dict (22 exit shapes)
+ROOT = Path(__file__).resolve().parents[2]
+
+
+class LangGraphBundleContractTests(unittest.TestCase):
+    def test_desktop_requirements_pin_langgraph_exactly_once(self):
+        path = ROOT / "python" / "requirements-desktop.txt"
+        text = path.read_text("utf-8")
+        self.assertEqual(text.count("langgraph==1.2.6"), 1)
+
+    def test_both_children_force_langsmith_tracing_off(self):
+        for relpath in (
+            "tauri/src/python_supervisor.rs",
+            "tauri/src/gateway_supervisor.rs",
+        ):
+            with self.subTest(relpath=relpath):
+                text = (ROOT / relpath).read_text("utf-8")
+                self.assertIn('.env("LANGSMITH_TRACING", "false")', text)
+```
+
+Run:
+
+```powershell
+cd python
+python -m unittest tests.test_langgraph_bundle_contract -v
+cd ..
+```
+
+Expected: FAIL because the pin and supervisor env are absent.
+
+- [ ] **Step 3: add the same exact direct pin to both dependency manifests**
+
+Add this line to `hermes_core/pyproject.toml` project dependencies and to the
+core section of `python/requirements-desktop.txt`:
+
+```text
+langgraph==1.2.6
+```
+
+Do not add direct production dependencies on `langchain`, `langchain-core`,
+`langgraph-prebuilt`, or `langsmith`; they are accepted transitive dependencies
+and remain visible in the lockfile audit.
+
+- [ ] **Step 4: refresh and inspect the core lockfile**
+
+```powershell
+cd hermes_core
+uv lock
+uv tree | Select-String -Pattern "langgraph|langchain-core|langsmith"
+cd ..
+```
+
+Expected: the tree contains `langgraph`, `langchain-core`,
+`langgraph-checkpoint`, `langgraph-prebuilt`, `langgraph-sdk`, and `langsmith`.
+Stop if the resolver selects a different `langgraph` version or requires a
+Python version newer than 3.11.
+
+- [ ] **Step 5: disable LangSmith tracing in both child supervisors**
+
+Add the same command-builder entry beside the existing Python environment
+settings in both Rust supervisors:
+
+```rust
+.env("LANGSMITH_TRACING", "false")
+```
+
+Do not use `LANGSMITH_TRACING_V2`; it is not the current documented switch.
+
+- [ ] **Step 6: extend the bundle verifier**
+
+Add these imports to `python/tools/verify_bundle_site_packages.py`:
+
+```python
+from langgraph.graph import END, START, StateGraph  # noqa: F401
+```
+
+The verifier must not import `MemorySaver`, `InMemorySaver`, LangChain agents,
+or LangSmith clients.
+
+- [ ] **Step 7: rebuild and verify bundled CPython 3.11**
+
+```powershell
+./python/build_bundle.ps1 -Verify
+./python/dist/runtime/python/python.exe -c `
+  "from langgraph.graph import StateGraph; import sys; assert sys.version_info[:2] == (3, 11); print('langgraph bundle ok')"
+```
+
+Expected: `langgraph bundle ok` and exit code 0.
+
+- [ ] **Step 8: record dependency and size evidence**
+
+```powershell
+$after = (Get-ChildItem python\dist\runtime -Recurse -File |
+  Measure-Object Length -Sum).Sum
+[math]::Round($after / 1MB, 2)
+```
+
+Record before, after, and delta in this document and `DECISIONS.md`. The gate
+fails if the delta exceeds 25 MB or the Windows build requires a source-built
+wheel. A failed gate triggers a separate decision between an older supported
+pin and an owned finite-state engine; do not silently loosen the threshold.
+
+- [ ] **Step 9: run tests and commit**
+
+```powershell
+cd python
+python -m unittest tests.test_langgraph_bundle_contract -v
+cd ..
+cd tauri
+cargo test
+cd ..
+git add hermes_core/pyproject.toml hermes_core/uv.lock `
+  python/requirements-desktop.txt python/tools/verify_bundle_site_packages.py `
+  python/tests/test_langgraph_bundle_contract.py tauri/src/python_supervisor.rs `
+  tauri/src/gateway_supervisor.rs DECISIONS.md `
+  docs/superpowers/specs/2026-06-24-consolidate-and-langgraph-replatform-plan.md
+git commit -m "build: validate langgraph desktop dependency closure"
+```
+
+Expected: Python contract and Rust tests pass.
+
+---
+
+## Task 2 — Complete the legacy exit and side-effect contract
+
+**Files:**
+
+- Modify: `hermes_core/tests/run_agent/golden_harness.py`
+- Modify: `hermes_core/tests/run_agent/test_golden_transcripts.py`
+- Create: `hermes_core/tests/run_agent/test_exit_contract.py`
+- Create: `hermes_core/tests/run_agent/test_hook_invocation_parity.py`
+- Modify: `hermes_core/tests/run_agent/golden/plain_text.json`
+- Modify: `hermes_core/tests/run_agent/golden/unknown_tool.json`
+- Create: `hermes_core/tests/run_agent/golden/exit_nous_rate_guard.json`
+- Create: `hermes_core/tests/run_agent/golden/exit_invalid_response.json`
+- Create: `hermes_core/tests/run_agent/golden/exit_interrupt_invalid_wait.json`
+- Create: `hermes_core/tests/run_agent/golden/exit_thinking_budget.json`
+- Create: `hermes_core/tests/run_agent/golden/exit_text_continuation.json`
+- Create: `hermes_core/tests/run_agent/golden/exit_truncated_tool_call.json`
+- Create: `hermes_core/tests/run_agent/golden/exit_truncation_rollback.json`
+- Create: `hermes_core/tests/run_agent/golden/exit_first_response_truncated.json`
+- Create: `hermes_core/tests/run_agent/golden/exit_interrupt_api_error.json`
+- Create: `hermes_core/tests/run_agent/golden/exit_payload_compression.json`
+- Create: `hermes_core/tests/run_agent/golden/exit_payload_no_compression.json`
+- Create: `hermes_core/tests/run_agent/golden/exit_safe_output_context.json`
+- Create: `hermes_core/tests/run_agent/golden/exit_context_stepdown.json`
+- Create: `hermes_core/tests/run_agent/golden/exit_context_no_compression.json`
+- Create: `hermes_core/tests/run_agent/golden/exit_nonretryable_client.json`
+- Create: `hermes_core/tests/run_agent/golden/exit_api_retries.json`
+- Create: `hermes_core/tests/run_agent/golden/exit_interrupt_retry_wait.json`
+- Create: `hermes_core/tests/run_agent/golden/exit_incomplete_scratchpad.json`
+- Create: `hermes_core/tests/run_agent/golden/exit_truncated_json_args.json`
+
+The contract for each exit is:
+
+- exact result-key presence and values;
+- exact message trajectory and tool ordering;
+- stream/status/interim event order;
+- persisted rows and trajectory writes;
+- cleanup call count and task id;
+- whether `clear_interrupt()` runs;
+- plugin hook names, order, and payloads, including hooks that are absent;
+- usage and cost accounting.
+
+- [ ] **Step 1: extend harness observations without changing fixtures**
+
+Add these snapshot fields with deterministic lists and booleans:
+
+```python
+snapshot["result_keys"] = sorted(result)
+snapshot["hook_calls"] = hook_calls
+snapshot["cleanup_task_ids"] = cleanup_task_ids
+snapshot["clear_interrupt_calls"] = clear_interrupt_calls
+```
+
+Patch the shared hook dispatcher, `_cleanup_task_resources`, and
+`clear_interrupt` at their existing boundaries. Do not patch the loop branches
+being characterized.
+
+- [ ] **Step 2: add named scenarios for all 21 return sites**
+
+`test_exit_contract.py` must contain this exact scenario inventory so a source
+return cannot disappear from the equivalence review unnoticed:
+
+| Return | Scenario id | Fixture |
+|---:|---|---|
+| 10086 | `nous_rate_guard_without_fallback` | `exit_nous_rate_guard.json` |
+| 10311 | `invalid_response_retries_exhausted` | `exit_invalid_response.json` |
+| 10332 | `interrupt_during_invalid_response_wait` | `exit_interrupt_invalid_wait.json` |
+| 10445 | `thinking_budget_exhausted` | `exit_thinking_budget.json` |
+| 10485 | `text_continuation_exhausted` | `exit_text_continuation.json` |
+| 10513 | `truncated_tool_call_repeated` | `exit_truncated_tool_call.json` |
+| 10530 | `truncation_rolls_back_history` | `exit_truncation_rollback.json` |
+| 10542 | `first_response_truncated` | `exit_first_response_truncated.json` |
+| 11097 | `interrupt_during_api_error_handling` | `exit_interrupt_api_error.json` |
+| 11267 | `payload_compression_attempts_exhausted` | `exit_payload_compression.json` |
+| 11298 | `payload_cannot_compress` | `exit_payload_no_compression.json` |
+| 11351 | `safe_output_context_attempts_exhausted` | `exit_safe_output_context.json` |
+| 11424 | `context_stepdown_attempts_exhausted` | `exit_context_stepdown.json` |
+| 11457 | `context_cannot_compress` | `exit_context_no_compression.json` |
+| 11552 | `nonretryable_client_error` | `exit_nonretryable_client.json` |
+| 11635 | `api_retries_exhausted` | `exit_api_retries.json` |
+| 11677 | `interrupt_during_generic_retry_wait` | `exit_interrupt_retry_wait.json` |
+| 11831 | `incomplete_scratchpad_exhausted` | `exit_incomplete_scratchpad.json` |
+| 11878 | `unknown_tool_retries_exhausted` | existing `unknown_tool.json` |
+| 11944 | `truncated_json_tool_arguments` | `exit_truncated_json_args.json` |
+| 12664 | `normal_final_result` | existing `plain_text.json` |
+
+Line numbers document the 2026-06-27 audit; scenario ids are the stable
+contract. Future line movement must not rename the scenarios.
+
+- [ ] **Step 3: record loop snapshots once, then freeze them**
+
+```powershell
+cd hermes_core
+$env:GOLDEN_RECORD = "1"
+python -m pytest tests/run_agent/test_golden_transcripts.py `
+  -o "addopts=" -p no:cacheprovider
+Remove-Item Env:GOLDEN_RECORD
+git diff -- tests/run_agent/golden
+```
+
+Review every fixture diff. Once committed, Phase 3.5 graph work must not run
+with `GOLDEN_RECORD=1`.
+
+- [ ] **Step 4: prove deterministic replay twice**
+
+```powershell
+python -m pytest tests/run_agent/test_golden_transcripts.py `
+  tests/run_agent/test_exit_contract.py `
+  tests/run_agent/test_hook_invocation_parity.py `
+  -o "addopts=" -p no:cacheprovider -q
+python -m pytest tests/run_agent/test_golden_transcripts.py `
+  tests/run_agent/test_exit_contract.py `
+  tests/run_agent/test_hook_invocation_parity.py `
+  -o "addopts=" -p no:cacheprovider -q
+cd ..
+```
+
+Expected: both runs pass with identical fixture files and no network, real DB,
+or user-home writes.
+
+- [ ] **Step 5: commit the characterization gate**
+
+```powershell
+git add hermes_core/tests/run_agent
+git commit -m "test: pin all agent loop exit contracts"
+```
+
+---
+
+## Task 3 — Introduce graph contracts and import isolation
+
+**Files:**
+
+- Create: `hermes_core/agent/graph_engine/__init__.py`
+- Create: `hermes_core/agent/graph_engine/contracts.py`
+- Create: `hermes_core/agent/graph_engine/ports.py`
+- Create: `hermes_core/agent/graph_engine/nodes.py`
+- Create: `hermes_core/agent/graph_engine/builder.py`
+- Create: `hermes_core/agent/graph_engine/engine.py`
+- Create: `hermes_core/tests/agent/test_graph_import_isolation.py`
+- Create: `hermes_core/tests/agent/test_graph_contracts.py`
+
+- [ ] **Step 1: write failing import-isolation and contract tests**
+
+The import test walks production `.py` files and allows `langgraph` imports only
+in `agent/graph_engine/builder.py`. It rejects production imports beginning with
+`langchain` or `langsmith` everywhere. The contract test asserts that converting
+a `LegacyRunResult` to output does not add absent optional keys.
+
+Run:
+
+```powershell
+cd hermes_core
+python -m pytest tests/agent/test_graph_import_isolation.py `
+  tests/agent/test_graph_contracts.py -o "addopts=" -p no:cacheprovider -q
+```
+
+Expected: FAIL because the package does not exist.
+
+- [ ] **Step 2: define the exact public result and serializable state**
+
+`contracts.py` starts with these result fields and keeps optional key presence:
+
+```python
+from typing import Any, Literal, NotRequired, TypedDict
+
+
+class LegacyRunResult(TypedDict, total=False):
     final_response: str | None
+    messages: list[dict[str, Any]]
+    api_calls: int
     completed: bool
     partial: bool
     interrupted: bool
-    ...
+    failed: bool
+    error: str
+    compression_exhausted: bool
+
+
+Route = Literal[
+    "prepare_request",
+    "call_transport",
+    "process_response",
+    "handle_transport_error",
+    "dispatch_tools",
+    "apply_steer",
+    "summarize_on_budget",
+    "finish",
+]
+
+
+class ExitPolicy(TypedDict):
+    cleanup_task_resources: bool
+    persist_session: bool
+    save_trajectory: bool
+    fire_post_llm_call: bool
+    fire_on_session_end: bool
+    clear_interrupt: bool
+
+
+class TurnState(TypedDict):
+    user_message: Any
+    system_message: str | None
+    conversation_history: list[dict[str, Any]] | None
+    messages: list[dict[str, Any]]
+    effective_task_id: str
+    api_call_count: int
+    retry_count: int
+    compression_attempts: int
+    iteration_budget_remaining: int
+    fallback_index: int
+    route: Route
+    result: NotRequired[LegacyRunResult]
+    exit_policy: NotRequired[ExitPolicy]
 ```
 
-Inside, `graph_port.py` builds a `StateGraph[AgentState]` and a node layout
-(see 3.5c). The rest of the codebase only ever imports `AgentGraphPort` and the
-dataclasses — never `langgraph.*`. A LangGraph API break is a one-file edit.
+Callbacks, clients, plugin managers, DB handles, and the `AIAgent` instance must
+not be fields of `TurnState`.
 
-A guard test pins this: `tests/agent/test_graph_port_isolation.py` greps the
-source tree for `langgraph` imports outside `graph_port.py` and asserts zero.
+- [ ] **Step 3: define service ports and pure nodes**
 
-### 3.5c — Graph node layout (state-driven, not control-flow-driven)
+`ports.py` defines a `GraphServices` protocol with named methods for:
 
-One commit. The graph maps the loop's 22 exit paths onto a small set of nodes
-+ conditional edges. Concretely:
+`initialize_turn`, `prepare_request`, `call_transport`, `process_response`,
+`handle_transport_error`, `dispatch_tools`, `apply_steer`,
+`summarize_on_budget`, and `apply_exit_policy`.
 
-| Node | Replaces (in `run_conversation`) | Side effect |
-|---|---|---|
-| `prepare_request` | preflight compression check + `_build_api_kwargs` | fires `pre_llm_call`, `pre_api_request` |
-| `call_transport` | `_interruptible_api_call` / `_anthropic_messages_create` (one boundary, this is the **folded-in 3c**) | fires `post_api_request` |
-| `validate_response` | empty/malformed-response branch | sets `state.invalid_response_reason` |
-| `try_fallback` | `_try_activate_fallback` | mutates provider/base_url/api_mode |
-| `dispatch_tools` | `_execute_tool_calls` (parallel-vs-sequential decision lives here) | calls `handle_function_call` |
-| `apply_steer` | `_drain_pending_steer` + the "User guidance:" suffix into the next tool result | — |
-| `check_interrupt` | `_interrupt_requested` poll | exits with `interrupted=True` |
-| `summarize_on_budget` | `_handle_max_iterations` (toolless summary call) | direct `client.chat.completions.create` |
-| `finalize` | the result-dict assembly at `run_agent.py:~12570` | fires `post_llm_call`, `on_session_end`; flushes session_db; saves trajectory; updates usage_pricing |
+Every method accepts `TurnState` and returns a partial state update dictionary.
+It may call existing `AIAgent` helpers through the adapter, but it must not
+return LangGraph or LangChain types. If an existing helper mutates per-turn
+state on `AIAgent`, the adapter copies the resulting value into its returned
+state update before the next node. `nodes.py` contains one function per method
+and delegates through this protocol.
 
-Conditional edges encode the loop's actual decisions: `tool_calls?` →
-`dispatch_tools`; `invalid?` → `try_fallback` → `prepare_request | finalize`;
-`interrupted?` → `finalize`; `budget exhausted?` → `summarize_on_budget` →
-`finalize`. Use LangGraph's `MemorySaver` for in-turn checkpoint state only;
-persistent state stays in the existing session_db (do not double-write).
+- [ ] **Step 4: build without a checkpointer**
 
-**Hook contract:** all 6 hook names listed above must fire in the same logical
-order with the same payload shape. A new test
-(`tests/run_agent/test_hook_invocation_parity.py`) replays a golden case
-through both paths and asserts the recorded hook-call sequence is identical.
-
-### 3.5d — Strangler / parallel-run behind `KABUQINA_AGENT_ENGINE`
-
-One commit. Introduce env (and config) flag `KABUQINA_AGENT_ENGINE` with values
-`loop` (default) and `graph`. `AIAgent.run_conversation` becomes a 3-line
-dispatch:
+`builder.py` is the only file that imports:
 
 ```python
-if os.environ.get("KABUQINA_AGENT_ENGINE", "loop") == "graph":
-    return self._run_conversation_graph(...)
-return self._run_conversation_loop(...)  # current body, renamed
+from langgraph.graph import END, START, StateGraph
+from langgraph.runtime import Runtime
 ```
 
-Update the golden harness to take a `engine` parameter (default `loop`) and
-add a CI mode that runs every golden case under **both** engines and asserts
-the snapshots are identical (modulo a documented allow-list for known
-non-observable differences — there should be none if 3.5c is right).
+It declares a runtime context containing `GraphServices`, wraps the pure node
+functions, adds explicit conditional edges based on `state["route"]`, and calls:
 
-### 3.5e — Equivalence drive: graph must match all 10 goldens
+```python
+compiled = graph.compile()
+```
 
-Iterate node-by-node until both engines produce identical snapshots for all
-10 fixtures. This is the bulk of the work; expect 5–10 commits, each tightening
-one node or edge. The diff between the two engines on a failing case is the
-spec for the next fix. Do NOT modify the golden fixtures during this phase —
-the loop is the reference.
+Do not pass a checkpointer. Do not use message reducers; Hermes message lists
+remain ordinary dictionaries and each node returns the complete replacement
+list when it changes messages.
 
-Exit when:
-- `pytest tests/run_agent/test_golden_transcripts.py` green under
-  `KABUQINA_AGENT_ENGINE=loop` AND `KABUQINA_AGENT_ENGINE=graph`;
-- `tests/run_agent/test_hook_invocation_parity.py` green;
-- run on the broader `tests/run_agent/` slice with `engine=graph` to surface
-  any branch the golden net missed (treat each new failure as a fixture
-  candidate — add it before fixing the graph).
+- [ ] **Step 5: pass tests and commit**
 
-### 3.5f — `scripts/dev.ps1` runtime smoke under `engine=graph`
-
-Operator-driven (cannot be automated here). Two minimum scenarios:
-1. chat-completions backend (e.g. openrouter or zai): a multi-turn chat with
-   one tool call (`web_search` is fine);
-2. Anthropic backend: same shape against an `anthropic_messages` provider.
-
-Record the smoke results in this doc.
-
-### 3.5g — Flip default + remove the legacy loop
-
-One commit per step:
-
-1. Flip default to `graph` (`KABUQINA_AGENT_ENGINE=loop` retained as a 1-release
-   escape hatch).
-2. After a release cycle with no regressions, delete `_run_conversation_loop`
-   and the dispatch flag in a single commit. This reclaims the bulk of the
-   `run_agent.py` line count (~7-9k of it was the loop body and its helpers).
-3. Update the plan doc and memory to mark 3.5 complete.
-
-### Optional pre-3.5 extraction (if it helps 3.5c)
-
-The original split-plan residual: extract session-persistence helpers
-(`_persist_session`, `_flush_messages_to_session_db`, `_save_session_log`,
-~`run_agent.py:3493–4115`) into `agent/session_persistence.py`, and trajectory
-helpers into the existing `agent/trajectory.py`. **Recommendation: skip unless
-3.5c reveals it's needed.** It's behavior-neutral wrapper churn, ~600–900 lines
-moved, no size win, and 3.5g will delete the legacy versions anyway. Only do
-it if the `finalize` node ends up too entangled to write cleanly.
-
-### Rollback plan
-
-The strangler flag IS the rollback plan. At any stage from 3.5d onward, an
-operator can set `KABUQINA_AGENT_ENGINE=loop` to revert to the proven loop with
-no code change. If 3.5e stalls for more than 2 weeks with persistent
-non-equivalence, the rollback decision is: keep the flag default at `loop`,
-land what's done, and treat 3.5 as deferred (the graph code stays as a
-non-default opt-in until the gap is understood). Do not delete the legacy loop
-until at least one release cycle has run with the flag flipped.
-
-### Exit criteria (all must hold)
-
-- Both engines pass the full golden net, deterministic across two runs.
-- Hook-parity test green.
-- `scripts/dev.ps1` runtime smoke recorded for both api_modes.
-- Default flag flipped to `graph`; one release cycle with no regression.
-- Legacy loop removed in a dedicated commit; `run_agent.py` line count drops
-  by ~7–9k.
-- `langgraph` import isolation test green: no `import langgraph` outside
-  `agent/graph_port.py`.
-- Plan doc + memory updated to reflect completion; `restructuring-phase-model`
-  advances to Phase 4 (rename).
+```powershell
+python -m pytest tests/agent/test_graph_import_isolation.py `
+  tests/agent/test_graph_contracts.py -o "addopts=" -p no:cacheprovider -q
+cd ..
+git add hermes_core/agent/graph_engine hermes_core/tests/agent
+git commit -m "feat: add isolated agent graph contracts"
+```
 
 ---
 
-## Guardrails (every phase)
+## Task 4 — Plain-text vertical slice
 
-- **Golden harness green after every commit** in Phase 3 / 3.5 — it is the
-  equivalence contract.
-- No behavior change bundled with a move (the split plan's rule still holds).
-- After each step: the golden harness, `tests/run_agent/`,
-  `tests/kabuqina/test_compat_imports.py`,
-  `tests/agent/test_provider_package_split.py`,
-  `python/tests/test_product_profile.py` (provider-cut absence contract), then a
-  desktop `python -m unittest discover`. For any hot-path change and for 3.5, a
-  `scripts/dev.ps1` runtime smoke (live chat + one tool, **both** api_modes) —
-  unit + golden tests pass while a missed branch breaks a live conversation.
-- Test-env on this Windows box (memory `running-tests-windows-dev`): system
-  Python, `-o "addopts=" -p no:cacheprovider`; GBK-locale / `prompt_toolkit` /
-  Windows-permission failures are pre-existing environmental noise.
+**Files:**
 
-## Non-goals
+- Modify: `hermes_core/run_agent.py`
+- Modify: `hermes_core/agent/graph_engine/nodes.py`
+- Modify: `hermes_core/agent/graph_engine/builder.py`
+- Modify: `hermes_core/agent/graph_engine/engine.py`
+- Modify: `hermes_core/tests/run_agent/golden_harness.py`
+- Create: `hermes_core/tests/run_agent/test_graph_plain_text.py`
 
-- No rename / identity migration (Phase 4) before the re-platform.
-- No new gateway-platform splits (separate track).
-- Don't reintroduce a cut provider or remove names from `GLOBAL_STUDENT_CUT`.
-- Phase 3.5 is **not pre-approved** — its go/no-go is decided after Phase 3.
+- [ ] **Step 1: add a failing graph-only plain-text test**
+
+Construct a fresh `AIAgent`, reuse the scripted chat-completions response from
+`plain_text.json`, invoke `_run_conversation_graph`, and assert equality with the
+frozen loop snapshot. Do not select through an environment variable yet.
+
+- [ ] **Step 2: implement only the plain-text route**
+
+Wire `initialize_turn → prepare_request → call_transport → process_response →
+finish`. Reuse existing request builders, transport adapters, usage accounting,
+message builders, and persistence helpers through `GraphServices`. Do not copy
+provider SDK calls into graph files.
+
+`pre_llm_call` fires once during initialization. `pre_api_request` and
+`post_api_request` fire around each transport call. Final hook and persistence
+behavior comes from the frozen normal-result exit policy.
+
+- [ ] **Step 3: run loop and graph assertions**
+
+```powershell
+cd hermes_core
+python -m pytest tests/run_agent/test_graph_plain_text.py `
+  tests/run_agent/test_golden_transcripts.py `
+  -o "addopts=" -p no:cacheprovider -q
+cd ..
+```
+
+Expected: plain text matches exactly and the legacy suite remains green.
+
+- [ ] **Step 4: commit**
+
+```powershell
+git add hermes_core/run_agent.py hermes_core/agent/graph_engine `
+  hermes_core/tests/run_agent
+git commit -m "feat: run plain agent turns through graph engine"
+```
+
+---
+
+## Task 5 — Anthropic protocol and streaming parity
+
+**Files:**
+
+- Modify: `hermes_core/run_agent.py`
+- Modify: `hermes_core/agent/graph_engine/ports.py`
+- Modify: `hermes_core/agent/graph_engine/nodes.py`
+- Modify: `hermes_core/agent/graph_engine/builder.py`
+- Modify: `hermes_core/agent/graph_engine/engine.py`
+- Modify: `hermes_core/tests/run_agent/test_streaming.py`
+- Create: `hermes_core/tests/run_agent/test_graph_protocol_parity.py`
+
+- [ ] **Step 1: write failing Anthropic and streaming graph tests**
+
+Cover `anthropic_text.json` and the existing streaming cases for delta order,
+callback exceptions, stream-drop fallback, and interrupt polling.
+
+- [ ] **Step 2: route both protocols through one transport service port**
+
+The graph node chooses neither SDK nor wire format. `GraphServices.call_transport`
+delegates to the existing `_interruptible_api_call` /
+`_anthropic_messages_create` boundary using the current `api_mode` and returns a
+normalized response update.
+
+Interrupt polling remains inside blocking transport and retry helpers; a graph
+node between blocking operations is not a substitute for the current 200 ms
+polling behavior.
+
+- [ ] **Step 3: run and commit**
+
+```powershell
+cd hermes_core
+python -m pytest tests/run_agent/test_graph_protocol_parity.py `
+  tests/run_agent/test_streaming.py `
+  tests/run_agent/test_golden_transcripts.py `
+  -o "addopts=" -p no:cacheprovider -q
+cd ..
+git add hermes_core/run_agent.py hermes_core/agent/graph_engine `
+  hermes_core/tests/run_agent
+git commit -m "feat: preserve graph transport and streaming parity"
+```
+
+---
+
+## Task 6 — Tool dispatch, concurrency, and steer parity
+
+**Files:**
+
+- Modify: `hermes_core/run_agent.py`
+- Modify: `hermes_core/agent/graph_engine/ports.py`
+- Modify: `hermes_core/agent/graph_engine/nodes.py`
+- Modify: `hermes_core/agent/graph_engine/builder.py`
+- Modify: `hermes_core/agent/graph_engine/engine.py`
+- Create: `hermes_core/tests/run_agent/test_graph_tool_parity.py`
+
+- [ ] **Step 1: write failing graph tests for tool branches**
+
+Use `single_tool.json`, `parallel_tools.json`, `unknown_tool.json`,
+`exit_truncated_json_args.json`, and `steer.json`. Assert invocation order,
+sequential/concurrent choice, tool-result message shape, steer suffix placement,
+and partial exits.
+
+- [ ] **Step 2: implement dispatch and steer nodes through existing helpers**
+
+`dispatch_tools` calls `_execute_tool_calls`; it does not reproduce tool
+selection or thread-pool code. The returned state update contains a replacement
+messages list and the next route. `apply_steer` calls `_drain_pending_steer` once
+at the same logical boundary as the loop.
+
+- [ ] **Step 3: run and commit**
+
+```powershell
+cd hermes_core
+python -m pytest tests/run_agent/test_graph_tool_parity.py `
+  tests/run_agent/test_golden_transcripts.py `
+  -o "addopts=" -p no:cacheprovider -q
+cd ..
+git add hermes_core/run_agent.py hermes_core/agent/graph_engine `
+  hermes_core/tests/run_agent
+git commit -m "feat: preserve graph tool and steer behavior"
+```
+
+---
+
+## Task 7 — Retry, fallback, interruption, and error parity
+
+**Files:**
+
+- Modify: `hermes_core/run_agent.py`
+- Modify: `hermes_core/agent/graph_engine/contracts.py`
+- Modify: `hermes_core/agent/graph_engine/ports.py`
+- Modify: `hermes_core/agent/graph_engine/nodes.py`
+- Modify: `hermes_core/agent/graph_engine/builder.py`
+- Modify: `hermes_core/agent/graph_engine/engine.py`
+- Create: `hermes_core/tests/run_agent/test_graph_error_parity.py`
+
+- [ ] **Step 1: write failing graph tests for transport-error exits**
+
+Cover fallback, rate guard, invalid response retry, nonretryable client error,
+generic retry exhaustion, interrupt during both retry waits, and interrupt during
+API-error handling. Patch sleep through the existing harness clock; do not reduce
+production retry counts for tests.
+
+- [ ] **Step 2: implement error classification and routing**
+
+The node delegates classification, credential rotation, provider fallback,
+backoff calculation, and primary-runtime restoration to existing helpers. State
+records counters and the next route; provider/base URL/API mode mutations remain
+encapsulated by the service adapter until a later extraction can make them fully
+state-driven.
+
+- [ ] **Step 3: prove an error cannot live-fallback to the other engine**
+
+Add a test in which a graph tool side effect is recorded and a later graph node
+raises. Assert the legacy loop is never invoked and the side-effect count is one.
+
+- [ ] **Step 4: run and commit**
+
+```powershell
+cd hermes_core
+python -m pytest tests/run_agent/test_graph_error_parity.py `
+  tests/run_agent/test_exit_contract.py `
+  -o "addopts=" -p no:cacheprovider -q
+cd ..
+git add hermes_core/run_agent.py hermes_core/agent/graph_engine `
+  hermes_core/tests/run_agent
+git commit -m "feat: preserve graph retry and fallback behavior"
+```
+
+---
+
+## Task 8 — Compression, truncation, and budget parity
+
+**Files:**
+
+- Modify: `hermes_core/run_agent.py`
+- Modify: `hermes_core/agent/graph_engine/contracts.py`
+- Modify: `hermes_core/agent/graph_engine/ports.py`
+- Modify: `hermes_core/agent/graph_engine/nodes.py`
+- Modify: `hermes_core/agent/graph_engine/builder.py`
+- Modify: `hermes_core/agent/graph_engine/engine.py`
+- Create: `hermes_core/tests/run_agent/test_graph_budget_parity.py`
+
+- [ ] **Step 1: write failing graph tests for every budget exit family**
+
+Cover preflight compression, payload-too-large compression, context step-down,
+cannot-compress paths, thinking-budget exhaustion, text continuation, truncated
+tool calls, incomplete scratchpads, and max-iteration summarization.
+
+- [ ] **Step 2: implement graph routes through existing compression helpers**
+
+Compression may rotate `session_id` and clear `conversation_history`; return both
+changes explicitly in state. `summarize_on_budget` keeps the existing direct
+toolless summary call and its API-mode behavior. Configure LangGraph's recursion
+limit high enough for the current `max_iterations` plus retry nodes, but keep
+Hermes `iteration_budget` as the user-visible budget authority.
+
+Set the invocation recursion limit deterministically:
+
+```python
+recursion_limit = max(1000, (max_iterations * 12) + 100)
+```
+
+- [ ] **Step 3: run and commit**
+
+```powershell
+cd hermes_core
+python -m pytest tests/run_agent/test_graph_budget_parity.py `
+  tests/run_agent/test_exit_contract.py `
+  -o "addopts=" -p no:cacheprovider -q
+cd ..
+git add hermes_core/run_agent.py hermes_core/agent/graph_engine `
+  hermes_core/tests/run_agent
+git commit -m "feat: preserve graph compression and budget behavior"
+```
+
+---
+
+## Task 9 — Finalization and full dual-engine equivalence
+
+**Files:**
+
+- Modify: `hermes_core/run_agent.py`
+- Modify: `hermes_core/agent/graph_engine/contracts.py`
+- Modify: `hermes_core/agent/graph_engine/ports.py`
+- Modify: `hermes_core/agent/graph_engine/nodes.py`
+- Modify: `hermes_core/agent/graph_engine/builder.py`
+- Modify: `hermes_core/agent/graph_engine/engine.py`
+- Modify: `hermes_core/tests/run_agent/golden_harness.py`
+- Modify: `hermes_core/tests/run_agent/test_golden_transcripts.py`
+- Modify: `hermes_core/tests/run_agent/test_hook_invocation_parity.py`
+
+- [ ] **Step 1: apply the frozen exit policy instead of one universal finalizer**
+
+For each scenario, `finish` produces the exact `LegacyRunResult` and
+`ExitPolicy`. `apply_exit_policy` performs only the side effects enabled by that
+policy. Do not make early exits fire hooks merely because the normal path does.
+
+- [ ] **Step 2: parameterize all fixtures over independent engine instances**
+
+`replay_transcript(spec, engine="loop")` and
+`replay_transcript(spec, engine="graph")` must construct separate agents and
+fresh scripted transports. The test compares the complete snapshots. Do not
+change `os.environ` inside a parameterized test because xdist workers and nested
+agents may share it.
+
+- [ ] **Step 3: run the full equivalence gate twice**
+
+```powershell
+cd hermes_core
+python -m pytest tests/run_agent/test_golden_transcripts.py `
+  tests/run_agent/test_exit_contract.py `
+  tests/run_agent/test_hook_invocation_parity.py `
+  -o "addopts=" -p no:cacheprovider -q
+python -m pytest tests/run_agent/test_golden_transcripts.py `
+  tests/run_agent/test_exit_contract.py `
+  tests/run_agent/test_hook_invocation_parity.py `
+  -o "addopts=" -p no:cacheprovider -q
+python -m pytest tests/run_agent -q -n 4
+cd ..
+```
+
+Expected: both deterministic runs pass; the broader slice passes under both
+engines after Task 10 installs the selector. At this task, the broader slice is
+the legacy-regression gate; graph coverage comes from the explicitly
+parameterized golden and exit-contract tests. Any newly discovered branch gets
+a loop fixture before its graph fix.
+
+- [ ] **Step 4: commit**
+
+```powershell
+git add hermes_core/run_agent.py hermes_core/agent/graph_engine `
+  hermes_core/tests/run_agent
+git commit -m "test: prove loop and graph agent equivalence"
+```
+
+---
+
+## Task 10 — Strangler selector and one-release escape hatch
+
+**Files:**
+
+- Create: `hermes_core/agent/engine_selector.py`
+- Create: `hermes_core/tests/agent/test_engine_selector.py`
+- Modify: `hermes_core/hermes_cli/config_defaults.py`
+- Modify: `hermes_core/run_agent.py`
+- Modify: `DECISIONS.md`
+
+The selector precedence is:
+
+1. explicit `AIAgent(agent_engine="graph")` constructor argument;
+2. `HERMES_AGENT_ENGINE` environment override;
+3. `agent.engine` from the active profile's `config.yaml`;
+4. default `loop` during migration.
+
+Only `loop` and `graph` are valid. An invalid explicit or environment value
+raises `ValueError`; an invalid config value logs a warning and falls back to
+`loop` so a bad user file does not brick startup.
+
+- [ ] **Step 1: write selector precedence tests**
+
+Test all four levels, invalid values, profile-aware `HERMES_HOME`, and separate
+web/gateway process environments.
+
+- [ ] **Step 2: add the config default**
+
+```yaml
+agent:
+  engine: loop
+```
+
+Adding the key is handled by deep merge and does not bump `_config_version`.
+
+- [ ] **Step 3: rename and dispatch the legacy body**
+
+Add `agent_engine: str | None = None` to `AIAgent.__init__`, resolve it once
+through `engine_selector.py`, and store the validated value on
+`self.agent_engine`. Keep the current body intact as `_run_conversation_loop`.
+The public method selects once before any per-turn setup or side effect:
+
+```python
+def run_conversation(self, user_message, system_message=None,
+                     conversation_history=None, task_id=None,
+                     stream_callback=None, persist_user_message=None):
+    if self.agent_engine == "graph":
+        return self._run_conversation_graph(
+            user_message=user_message,
+            system_message=system_message,
+            conversation_history=conversation_history,
+            task_id=task_id,
+            stream_callback=stream_callback,
+            persist_user_message=persist_user_message,
+        )
+    return self._run_conversation_loop(
+        user_message=user_message,
+        system_message=system_message,
+        conversation_history=conversation_history,
+        task_id=task_id,
+        stream_callback=stream_callback,
+        persist_user_message=persist_user_message,
+    )
+```
+
+Do not catch a graph exception and invoke `_run_conversation_loop` for the same
+turn.
+
+- [ ] **Step 4: run and commit**
+
+```powershell
+cd hermes_core
+python -m pytest tests/agent/test_engine_selector.py `
+  -o "addopts=" -p no:cacheprovider -q
+$env:HERMES_AGENT_ENGINE = "loop"
+python -m pytest tests/run_agent -q -n 4
+$env:HERMES_AGENT_ENGINE = "graph"
+python -m pytest tests/run_agent -q -n 4
+Remove-Item Env:HERMES_AGENT_ENGINE
+cd ..
+git add hermes_core/agent/engine_selector.py `
+  hermes_core/tests/agent/test_engine_selector.py `
+  hermes_core/hermes_cli/config_defaults.py hermes_core/run_agent.py DECISIONS.md
+git commit -m "feat: add rollback-safe agent engine selector"
+```
+
+---
+
+## Task 11 — Desktop release smoke, default flip, and legacy removal
+
+**Files:**
+
+- Modify after smoke: `hermes_core/hermes_cli/config_defaults.py`
+- Modify after one release: `hermes_core/run_agent.py`
+- Modify after one release: `hermes_core/agent/engine_selector.py`
+- Modify: `DECISIONS.md`
+- Modify: this plan
+
+- [ ] **Step 1: build the release-equivalent runtime**
+
+```powershell
+./python/build_bundle.ps1 -Verify
+cd web
+npm ci
+npm run build
+cd ..
+cd tauri
+cargo tauri build
+cd ..
+```
+
+Expected: bundle verification, web build, and Tauri build all succeed.
+
+- [ ] **Step 2: run graph smoke on both API modes**
+
+With `agent.engine: graph`, run:
+
+1. a multi-turn chat-completions conversation with one read-only tool call;
+2. the same shape on an `anthropic_messages` provider;
+3. an interrupt during a long model call;
+4. an app restart followed by session resume;
+5. one gateway profile conversation to prove the separate process selects graph.
+
+Record date, provider, model, tool, result, and log path in this document. Do
+not use a state-changing tool for the smoke.
+
+- [ ] **Step 3: flip the default only after GO is recorded**
+
+Change `agent.engine` default from `loop` to `graph`. Retain explicit
+`agent.engine: loop` and `HERMES_AGENT_ENGINE=loop` for one release. Update user
+support documentation with the rollback setting.
+
+- [ ] **Step 4: complete a release-cycle soak**
+
+The soak is at least 14 days and requires:
+
+- no unresolved P0/P1 issue attributable to graph execution;
+- release-build smoke green on both API modes at the beginning and end;
+- no unexplained differences in result shapes, hooks, persistence, or usage;
+- every graph regression added first as a loop fixture, then fixed.
+
+- [ ] **Step 5: remove the legacy loop in a dedicated commit**
+
+After the soak, delete `_run_conversation_loop`, the selector flag, and loop-only
+tests. Keep the engine-independent contracts, service ports, golden fixtures,
+and graph import-isolation test. Do not use `run_agent.py` line-count reduction
+as the success criterion; use branch coverage, exit-contract coverage, and
+dependency direction instead.
+
+```powershell
+git add hermes_core/run_agent.py hermes_core/agent/engine_selector.py `
+  hermes_core/hermes_cli/config_defaults.py hermes_core/tests DECISIONS.md `
+  docs/superpowers/specs/2026-06-24-consolidate-and-langgraph-replatform-plan.md
+git commit -m "refactor: remove legacy agent conversation loop"
+```
+
+---
+
+## Rollback rules
+
+- Before the default flip, rollback is `agent.engine: loop`; no code rollback is
+  required.
+- After the default flip and during the one-release escape window, support may
+  set `agent.engine: loop` in the affected profile or launch with
+  `HERMES_AGENT_ENGINE=loop`, then restart the relevant child/app.
+- A graph failure after any possible tool execution must return its graph error.
+  It must not retry through the loop because that can duplicate file writes,
+  shell commands, messages, or external API mutations.
+- If equivalence work stalls for two weeks, keep default `loop`, retain graph as
+  an opt-in test path, record the failing scenarios, and close Phase 3.5 as
+  deferred.
+- If the dependency or bundle gate fails, remove the spike cleanly and write a
+  separate owned finite-state-engine plan. Do not vendor LangGraph internals.
+
+---
+
+## Verification matrix
+
+Run the smallest relevant row after every commit and the entire matrix before a
+default flip.
+
+| Surface | Command | Required result |
+|---|---|---|
+| Deterministic goldens | `cd hermes_core; python -m pytest tests/run_agent/test_golden_transcripts.py -o "addopts=" -p no:cacheprovider -q` | All fixtures pass twice without changes. |
+| Core run-agent slice | `cd hermes_core; python -m pytest tests/run_agent -q -n 4` | Pass under loop and graph. |
+| Provider guards | `cd hermes_core; python -m pytest tests/agent/test_provider_package_split.py tests/kabuqina/test_compat_imports.py -q -n 4` | Pass. |
+| Desktop Python | `cd python; python -m unittest discover -s tests -p "test_*.py" -v` | Pass. |
+| Bundle | `./python/build_bundle.ps1 -Verify` | Bundled CPython 3.11 imports LangGraph. |
+| Web | `cd web; npm run lint; npm run build` | Pass. |
+| Rust | `cd tauri; cargo test` | Pass. |
+| Live runtime | release build, both API modes, one read-only tool | Result recorded in this plan. |
+
+On environments where `hermes_core/scripts/run_tests.sh` is available, prefer
+that wrapper for CI-parity. Native Windows fallback uses `-n 4`; golden recording
+and deterministic replay deliberately clear repository addopts and disable
+xdist.
+
+---
+
+## Phase 3.5 exit criteria
+
+All must hold:
+
+- [ ] dependency closure and actual bundle-size delta are recorded;
+- [ ] bundled Python 3.11 imports and runs the low-level graph;
+- [ ] LangSmith tracing is forced off for web and gateway children;
+- [ ] all 21 legacy exit scenarios have frozen loop contracts;
+- [ ] loop and graph snapshots match twice deterministically;
+- [ ] hook, cleanup, interrupt, persistence, stream, usage, and result-key parity
+  tests pass;
+- [ ] both API modes pass release-build chat + tool smoke;
+- [ ] graph is default for a 14-day release soak with the loop escape hatch;
+- [ ] legacy loop is removed in a dedicated commit;
+- [ ] no production LangGraph import exists outside
+  `agent/graph_engine/builder.py`, and no production LangChain/LangSmith import
+  exists;
+- [ ] `DECISIONS.md` and this plan record completion and Phase 4 may begin.
