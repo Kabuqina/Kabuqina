@@ -35,6 +35,7 @@ const { isWorkbenchNarrow } = await importTs("./hooks/workbenchLayoutLogic.ts");
 const useChatStateSource = fs.readFileSync(new URL("./hooks/useChatState.ts", import.meta.url), "utf8");
 const sidebarSource = fs.readFileSync(new URL("./ChatSidebar.tsx", import.meta.url), "utf8");
 const messageListSource = fs.readFileSync(new URL("./ChatMessageList.tsx", import.meta.url), "utf8");
+const outlineReviewModalSource = fs.readFileSync(new URL("./OutlineReviewModal.tsx", import.meta.url), "utf8");
 const chatMessageSource = fs.readFileSync(new URL("./ChatMessage.tsx", import.meta.url), "utf8");
 const agentProgressSource = fs.readFileSync(new URL("./AgentProgress.tsx", import.meta.url), "utf8");
 
@@ -585,8 +586,23 @@ assert.match(
 
 assert.match(
   messageListSource,
-  /AgentInteractionCard[\s\S]*通过[\s\S]*补充要求[\s\S]*自行编辑/s,
-  "Chat should render reusable interaction cards with the PPT outline review actions.",
+  /outline_review[\s\S]*OutlineReviewModal/s,
+  "Chat should render OutlineReviewModal for outline_review interactions.",
+);
+assert.match(
+  outlineReviewModalSource,
+  /通过[\s\S]*补充要求[\s\S]*自行编辑/s,
+  "OutlineReviewModal should keep the original action button order: approve, refine, edit.",
+);
+assert.match(
+  outlineReviewModalSource,
+  /重新生成/s,
+  "OutlineReviewModal should expose the refine action inside the refine panel.",
+);
+assert.match(
+  outlineReviewModalSource,
+  /保存并生成/s,
+  "OutlineReviewModal should expose the edit action inside the edit panel.",
 );
 
 // Regression: under StrictMode the render effect runs mount->cleanup->mount.

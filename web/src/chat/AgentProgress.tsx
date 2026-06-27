@@ -1,7 +1,7 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
   Check,
@@ -125,9 +125,24 @@ function StatusRow({ progress }: { progress: AgentProgressState }) {
   );
 }
 
+const AUTO_COLLAPSE_THRESHOLD = 10;
+
 export function AgentProgress({ progress }: { progress: AgentProgressState | null }) {
   const { t } = useI18n();
   const [collapsed, setCollapsed] = useState(false);
+  const autoCollapsedRef = useRef(false);
+
+  useEffect(() => {
+    if (!progress) return;
+    const stepCount = progress.steps.length;
+    if (stepCount === 0) {
+      autoCollapsedRef.current = false;
+    }
+    if (stepCount > AUTO_COLLAPSE_THRESHOLD && !autoCollapsedRef.current && !collapsed) {
+      autoCollapsedRef.current = true;
+      setCollapsed(true);
+    }
+  }, [progress, collapsed]);
 
   if (!progress || (!progress.running && progress.steps.length === 0)) {
     return null;

@@ -766,7 +766,7 @@ function statMetrics(spec: DeckSlideSpec): Array<{ label: string; value: string 
   const src = [...(spec.bullets ?? []), spec.placeholder?.caption].filter(Boolean) as string[];
   const out: Array<{ label: string; value: string }> = [];
   for (const s of src) {
-    const m = s.match(/^(.*?)[：:]\s*([+\-]?\d[\d,]*(?:\.\d+)?\s*[%％]?)\s*$/);
+    const m = s.match(/^(.*?)[：:]\s*([+-]?\d[\d,]*(?:\.\d+)?\s*[%％]?)\s*$/);
     if (m && m[1].trim()) out.push({ label: m[1].trim().slice(0, 18), value: m[2].replace(/\s+/g, "") });
   }
   return out;
@@ -808,7 +808,7 @@ function renderStatCallout(ctx: SlideCtx): void {
       fontSize: Math.max(15, master.typography.body.fontSize - 1), valign: "top",
     });
   } else {
-    const nonMetric = (ctx.spec.bullets ?? []).filter((b) => !/[：:]\s*[+\-]?\d/.test(b));
+    const nonMetric = (ctx.spec.bullets ?? []).filter((b) => !/[：:]\s*[+-]?\d/.test(b));
     if (nonMetric.length) {
       slide.addText(bulletRows(nonMetric.slice(0, 4), false), {
         x: supportX, y: body.y + 0.2, w: supportW, h: body.h - 0.4,

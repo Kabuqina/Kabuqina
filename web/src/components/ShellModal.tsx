@@ -12,12 +12,14 @@ type ShellModalProps = {
   children: ReactNode;
   /** Wider modals for long option lists (e.g. gateway). */
   size?: "md" | "lg";
+  /** If false, hides the close button and ignores mask/Escape close. Default true. */
+  closable?: boolean;
 };
 
 /**
  * Simple shell dialog (no external UI lib). Mounts to `document.body` to avoid `overflow` clipping.
  */
-export function ShellModal({ open, title, onClose, children, size = "md" }: ShellModalProps) {
+export function ShellModal({ open, title, onClose, children, size = "md", closable = true }: ShellModalProps) {
   useEffect(() => {
     if (!open) return;
     const body = document.body;
@@ -29,13 +31,13 @@ export function ShellModal({ open, title, onClose, children, size = "md" }: Shel
   }, [open]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !closable) return;
     const h = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [open, onClose]);
+  }, [open, onClose, closable]);
 
   if (!open) return null;
 
@@ -50,7 +52,7 @@ export function ShellModal({ open, title, onClose, children, size = "md" }: Shel
         type="button"
         className="absolute inset-0 cursor-default bg-black/45 dark:bg-black/60"
         aria-label="Close"
-        onClick={onClose}
+        onClick={closable ? onClose : undefined}
       />
       <div
         role="dialog"
@@ -66,13 +68,15 @@ export function ShellModal({ open, title, onClose, children, size = "md" }: Shel
           <h2 id="shell-modal-title" className="pr-2 text-base font-semibold text-[var(--kq-color-strong)] dark:text-[var(--kq-color-strong)]">
             {title}
           </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="kq-btn-ghost shrink-0 rounded-md px-2 py-1 text-sm dark:hover:bg-[var(--kq-hover-bg-strong)] dark:hover:text-[var(--kq-color-strong)]"
-          >
-            ✕
-          </button>
+          {closable ? (
+            <button
+              type="button"
+              onClick={onClose}
+              className="kq-btn-ghost shrink-0 rounded-md px-2 py-1 text-sm dark:hover:bg-[var(--kq-hover-bg-strong)] dark:hover:text-[var(--kq-color-strong)]"
+            >
+              ✕
+            </button>
+          ) : null}
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 text-sm leading-relaxed text-[var(--kq-color-ink)] dark:text-[var(--kq-color-ink)]">
           {children}

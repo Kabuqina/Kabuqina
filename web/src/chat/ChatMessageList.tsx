@@ -7,6 +7,7 @@ import { useI18n } from "../lib/i18n";
 import type { LoadPackageStatus, PendingAgentInteraction, UiMsg } from "./chat-api";
 import { AgentProgress } from "./AgentProgress";
 import { ChatMessage } from "./ChatMessage";
+import { OutlineReviewModal } from "./OutlineReviewModal";
 import { AssistantAvatar } from "../components/AssistantAvatar";
 import { cn } from "../lib/cn";
 import type { AgentProgressState } from "./hooks/useAgentProgress";
@@ -422,6 +423,20 @@ export function ChatMessageList({
           {pendingInteraction ? (
             pendingInteraction.kind === "pptx_render" ? (
               <PptxRenderCard key={pendingInteraction.id} interaction={pendingInteraction} onRespond={onRespondInteraction} />
+            ) : pendingInteraction.kind === "outline_review" ? (
+              <>
+                <AssistantStreamShell>
+                  <div className="kq-chat-bubble-assistant rounded-2xl rounded-tl-sm px-4 py-3 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg-subtle)]">
+                    <div className="text-sm font-semibold text-[var(--kq-color-strong)] dark:text-[var(--kq-color-strong)]">
+                      {pendingInteraction.question || "请审阅 PPT 大纲"}
+                    </div>
+                    <p className="mt-2 text-xs text-[var(--kq-color-muted)]">
+                      已弹出审阅窗口，请在窗口中确认或修改后继续生成。
+                    </p>
+                  </div>
+                </AssistantStreamShell>
+                <OutlineReviewModal interaction={pendingInteraction} onRespond={onRespondInteraction} />
+              </>
             ) : (
               <AgentInteractionCard interaction={pendingInteraction} onRespond={onRespondInteraction} />
             )
