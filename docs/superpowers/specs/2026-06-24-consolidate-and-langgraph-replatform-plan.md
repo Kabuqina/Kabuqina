@@ -255,51 +255,218 @@ Anthropic backend); the `providers/` split guardrails
 
 ## Phase 3.5 — ReAct→LangGraph core re-platform
 
-**Gated** on Phase 3 landing + the golden harness. Go/no-go is a deliberate
-decision made *after* consolidate, not assumed here. The phase model's myths are
-already resolved: bundle size is a non-issue (~10–20 MB pure-Python marginal add;
-see memory `msi-bundle-size-2gb-limit`); the real cost is LangChain-ecosystem
-version churn + locking `langsmith` tracing off.
+**Gated** on Phase 3 landing + the golden harness. Phase 3 is now landed
+(2026-06-24; 3a done, 3b drift-guard done, 3c folded into this phase), and the
+golden net covers 10 of the loop's load-bearing branches deterministically
+(`tests/run_agent/test_golden_transcripts.py`). The pre-3.5 myths are already
+resolved (see [[restructuring-phase-model]]): bundle size is a non-issue
+(~10–20 MB pure-Python marginal add; see [[msi-bundle-size-2gb-limit]]); the
+real cost is **LangChain-ecosystem version churn** + locking `langsmith` tracing
+off. STUDY frontend integration sits in parallel on `student/study-module`; the
+re-platform must not block on it landing in main (its prompts and section
+rendering have zero loop coupling).
 
-**Approach (from the phase model — restated as build rules):**
-1. **langgraph-core only.** Use `StateGraph` / typed state / checkpointer. Do
-   **not** pull in LangChain chains/agents or LangGraph prebuilt periphery (the
-   churn lives there). No `langchain`-framework runtime dependency.
-2. **Anti-corruption port.** Wrap LangGraph behind one thin module
-   (`agent/graph_port.py` or similar) that the rest of the codebase imports —
-   so a LangGraph API break is a one-file edit, not a repo-wide churn.
-3. **Strangler / parallel-run behind a feature flag.** Keep `run_conversation`
-   as the public entrypoint; add the graph path behind a flag (env or config),
-   default off. Run both against the **golden transcripts** and diff observable
-   outputs until the graph matches the loop case-for-case; only then flip the
-   default. Keep the old loop deletable in one commit once the graph is trusted.
-4. **Map the state, not the line-by-line control flow.** The graph state carries
-   the message list, tool-call queue, iteration budget (`IterationBudget`),
-   compression/interrupt/steer signals, fallback state, and usage accumulator.
-   The orthogonal keep-forever concerns (persistence via
-   `_flush_messages_to_session_db`, trajectory, usage via `usage_pricing`) stay
-   as side-effect nodes / post-hooks — they are *not* re-implemented in the graph.
-5. **Absorb the `api_mode` 2-protocol dispatch here (this is folded-in 3c).** The
-   77 `run_agent.py` `api_mode == "…"` call-sites that decide chat-completions vs
-   anthropic-messages request/response handling are rewritten as the graph's
-   single transport boundary (one node calling `providers/transports/`), not
-   re-threaded through the new graph. Trimming this dispatch was deferred out of
-   Phase 3 precisely because it is loop surgery; it lands here, behind the golden
-   net + the live smoke, as part of the rewrite rather than as a separate pass.
+### Pre-3.5 grounded facts (2026-06-24 audit)
 
-**Optional pre-3.5 extraction (the residual from old split-plan step 4):** if it
-helps the graph have a clean loop to replace, extract the session-persistence
-helpers (`_persist_session`, `_flush_messages_to_session_db`, `_save_session_log`,
-~`run_agent.py:3493–4115`) and the trajectory helpers (`_save_trajectory`,
-`_convert_to_trajectory_format`) into `agent/session_persistence.py` (trajectory
-folds into the existing `agent/trajectory.py`). This is **optional and low-value**
-on its own (~600–900 lines off a 12.9k file, no size win, adds wrapper churn) —
-do it only as 3.5 prep, behind the golden harness, never as a standalone branch.
+- `hermes_core/run_agent.py` is **12,897 lines**; `run_conversation` itself
+  spans roughly `run_agent.py:9374–12666` (the loop) plus its 22 distinct return
+  shapes (`"completed":` exits). These exits are the equivalence contract the
+  graph must reproduce.
+- `langgraph` / `langchain` are **not** in `hermes_core/pyproject.toml` yet —
+  this phase introduces the first dependency. Pin `langgraph` (core only) to a
+  specific 1.x version; do not add `langchain`, `langchain-core`,
+  `langchain-community`, or `langgraph-prebuilt`.
+- `run_conversation` fires **6 plugin hooks** that must keep firing at the
+  same logical points: `on_session_start`, `pre_llm_call`, `pre_api_request`,
+  `post_api_request`, `post_llm_call`, `on_session_end`. These define the
+  observable extension contract; any graph node layout must preserve their
+  ordering and payloads.
+- Side-effect modules already extracted (re-platform reuses, does not
+  reimplement): `agent/usage_pricing.py` (635 lines), `agent/trajectory.py`
+  (56 lines), and the providers `transports/` package.
+- Prior art for "another loop driving the agent": `hermes_core/environments/
+  agent_loop.py` (atropos RL adaptation) — useful reference for what state
+  needs to be externally observable.
 
-**Exit criteria:** graph path matches all golden transcripts; `scripts/dev.ps1`
-live smoke on a chat-completions and an Anthropic backend; flag default flipped;
-old loop removed in a dedicated commit; anti-corruption port is the only
-LangGraph import site.
+### Go / no-go decision (do this first; record the outcome in this doc)
+
+Decide GO only when ALL of these hold; otherwise document which fail and defer:
+
+1. Phase 3 status: 3a DONE, 3b RESOLVED, 3c folded here. ✓ (2026-06-24)
+2. Golden net: 10/10 branches green, deterministic across two runs, hermetic
+   (no network/disk/DB), passes under default `-n auto` xdist. ✓ (2026-06-24)
+3. STUDY integration: either landed in main, OR confirmed loop-decoupled and
+   safe to land in parallel. ✓ (frontend-only, zero loop coupling)
+4. `scripts/dev.ps1` runtime smoke is available for the operator (chat +
+   one tool, on both a chat-completions backend and an Anthropic backend).
+   This is the only check the golden net cannot substitute for.
+5. A 2-week window in which no other hot-path landings are scheduled (so the
+   parallel-run diff stays interpretable).
+
+If go: proceed to 3.5a. If no-go on (4) or (5): defer; record reason here.
+
+### 3.5a — Add langgraph-core dependency + minimal smoke
+
+One commit. Adds `langgraph>=1.0,<2` to `hermes_core/pyproject.toml` `[project.dependencies]`. Verifies:
+
+- it installs into the bundled runtime without pulling `langchain` /
+  `langchain-core` / `langchain-community` (audit the resolved lockfile);
+- `python -c "from langgraph.graph import StateGraph; from langgraph.checkpoint.memory import MemorySaver"` succeeds;
+- `langsmith` tracing is off by default (`LANGSMITH_TRACING_V2=false` in
+  managed env, and assert `os.environ.get("LANGSMITH_TRACING") != "true"` in a
+  startup guard);
+- bundle-size delta is within the 10–20 MB envelope (record actual). If a
+  transitive `langchain-core` sneaks in, **stop and pin around it** before
+  proceeding.
+
+### 3.5b — Anti-corruption port skeleton
+
+One commit. Create `hermes_core/agent/graph_port.py` (the single LangGraph
+import site for the rest of the codebase). It exports a stable interface that
+hides LangGraph types:
+
+```python
+# Public API (stable; LangGraph types do NOT leak past this file)
+class AgentGraphPort:
+    def __init__(self, *, transport, tools, hooks, pricing, persistence): ...
+    def run_turn(self, *, state: AgentState, on_event: EventCallback) -> AgentResult: ...
+
+@dataclass
+class AgentState:    # the externally-observable state mirror; same fields as the golden snapshot
+    messages: list[dict]
+    iteration_budget_remaining: int
+    fallback_index: int
+    ...
+
+@dataclass
+class AgentResult:   # mirrors the existing run_conversation return dict (22 exit shapes)
+    final_response: str | None
+    completed: bool
+    partial: bool
+    interrupted: bool
+    ...
+```
+
+Inside, `graph_port.py` builds a `StateGraph[AgentState]` and a node layout
+(see 3.5c). The rest of the codebase only ever imports `AgentGraphPort` and the
+dataclasses — never `langgraph.*`. A LangGraph API break is a one-file edit.
+
+A guard test pins this: `tests/agent/test_graph_port_isolation.py` greps the
+source tree for `langgraph` imports outside `graph_port.py` and asserts zero.
+
+### 3.5c — Graph node layout (state-driven, not control-flow-driven)
+
+One commit. The graph maps the loop's 22 exit paths onto a small set of nodes
++ conditional edges. Concretely:
+
+| Node | Replaces (in `run_conversation`) | Side effect |
+|---|---|---|
+| `prepare_request` | preflight compression check + `_build_api_kwargs` | fires `pre_llm_call`, `pre_api_request` |
+| `call_transport` | `_interruptible_api_call` / `_anthropic_messages_create` (one boundary, this is the **folded-in 3c**) | fires `post_api_request` |
+| `validate_response` | empty/malformed-response branch | sets `state.invalid_response_reason` |
+| `try_fallback` | `_try_activate_fallback` | mutates provider/base_url/api_mode |
+| `dispatch_tools` | `_execute_tool_calls` (parallel-vs-sequential decision lives here) | calls `handle_function_call` |
+| `apply_steer` | `_drain_pending_steer` + the "User guidance:" suffix into the next tool result | — |
+| `check_interrupt` | `_interrupt_requested` poll | exits with `interrupted=True` |
+| `summarize_on_budget` | `_handle_max_iterations` (toolless summary call) | direct `client.chat.completions.create` |
+| `finalize` | the result-dict assembly at `run_agent.py:~12570` | fires `post_llm_call`, `on_session_end`; flushes session_db; saves trajectory; updates usage_pricing |
+
+Conditional edges encode the loop's actual decisions: `tool_calls?` →
+`dispatch_tools`; `invalid?` → `try_fallback` → `prepare_request | finalize`;
+`interrupted?` → `finalize`; `budget exhausted?` → `summarize_on_budget` →
+`finalize`. Use LangGraph's `MemorySaver` for in-turn checkpoint state only;
+persistent state stays in the existing session_db (do not double-write).
+
+**Hook contract:** all 6 hook names listed above must fire in the same logical
+order with the same payload shape. A new test
+(`tests/run_agent/test_hook_invocation_parity.py`) replays a golden case
+through both paths and asserts the recorded hook-call sequence is identical.
+
+### 3.5d — Strangler / parallel-run behind `KABUQINA_AGENT_ENGINE`
+
+One commit. Introduce env (and config) flag `KABUQINA_AGENT_ENGINE` with values
+`loop` (default) and `graph`. `AIAgent.run_conversation` becomes a 3-line
+dispatch:
+
+```python
+if os.environ.get("KABUQINA_AGENT_ENGINE", "loop") == "graph":
+    return self._run_conversation_graph(...)
+return self._run_conversation_loop(...)  # current body, renamed
+```
+
+Update the golden harness to take a `engine` parameter (default `loop`) and
+add a CI mode that runs every golden case under **both** engines and asserts
+the snapshots are identical (modulo a documented allow-list for known
+non-observable differences — there should be none if 3.5c is right).
+
+### 3.5e — Equivalence drive: graph must match all 10 goldens
+
+Iterate node-by-node until both engines produce identical snapshots for all
+10 fixtures. This is the bulk of the work; expect 5–10 commits, each tightening
+one node or edge. The diff between the two engines on a failing case is the
+spec for the next fix. Do NOT modify the golden fixtures during this phase —
+the loop is the reference.
+
+Exit when:
+- `pytest tests/run_agent/test_golden_transcripts.py` green under
+  `KABUQINA_AGENT_ENGINE=loop` AND `KABUQINA_AGENT_ENGINE=graph`;
+- `tests/run_agent/test_hook_invocation_parity.py` green;
+- run on the broader `tests/run_agent/` slice with `engine=graph` to surface
+  any branch the golden net missed (treat each new failure as a fixture
+  candidate — add it before fixing the graph).
+
+### 3.5f — `scripts/dev.ps1` runtime smoke under `engine=graph`
+
+Operator-driven (cannot be automated here). Two minimum scenarios:
+1. chat-completions backend (e.g. openrouter or zai): a multi-turn chat with
+   one tool call (`web_search` is fine);
+2. Anthropic backend: same shape against an `anthropic_messages` provider.
+
+Record the smoke results in this doc.
+
+### 3.5g — Flip default + remove the legacy loop
+
+One commit per step:
+
+1. Flip default to `graph` (`KABUQINA_AGENT_ENGINE=loop` retained as a 1-release
+   escape hatch).
+2. After a release cycle with no regressions, delete `_run_conversation_loop`
+   and the dispatch flag in a single commit. This reclaims the bulk of the
+   `run_agent.py` line count (~7-9k of it was the loop body and its helpers).
+3. Update the plan doc and memory to mark 3.5 complete.
+
+### Optional pre-3.5 extraction (if it helps 3.5c)
+
+The original split-plan residual: extract session-persistence helpers
+(`_persist_session`, `_flush_messages_to_session_db`, `_save_session_log`,
+~`run_agent.py:3493–4115`) into `agent/session_persistence.py`, and trajectory
+helpers into the existing `agent/trajectory.py`. **Recommendation: skip unless
+3.5c reveals it's needed.** It's behavior-neutral wrapper churn, ~600–900 lines
+moved, no size win, and 3.5g will delete the legacy versions anyway. Only do
+it if the `finalize` node ends up too entangled to write cleanly.
+
+### Rollback plan
+
+The strangler flag IS the rollback plan. At any stage from 3.5d onward, an
+operator can set `KABUQINA_AGENT_ENGINE=loop` to revert to the proven loop with
+no code change. If 3.5e stalls for more than 2 weeks with persistent
+non-equivalence, the rollback decision is: keep the flag default at `loop`,
+land what's done, and treat 3.5 as deferred (the graph code stays as a
+non-default opt-in until the gap is understood). Do not delete the legacy loop
+until at least one release cycle has run with the flag flipped.
+
+### Exit criteria (all must hold)
+
+- Both engines pass the full golden net, deterministic across two runs.
+- Hook-parity test green.
+- `scripts/dev.ps1` runtime smoke recorded for both api_modes.
+- Default flag flipped to `graph`; one release cycle with no regression.
+- Legacy loop removed in a dedicated commit; `run_agent.py` line count drops
+  by ~7–9k.
+- `langgraph` import isolation test green: no `import langgraph` outside
+  `agent/graph_port.py`.
+- Plan doc + memory updated to reflect completion; `restructuring-phase-model`
+  advances to Phase 4 (rename).
 
 ---
 
