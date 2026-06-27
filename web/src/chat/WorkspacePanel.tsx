@@ -27,6 +27,7 @@ import { cn } from "../lib/cn";
 import { PPT_VISUAL_MASTERS, type PptVisualMaster } from "./pptx/visualMasters";
 import { WorkspaceSection, WorkspaceActionButton } from "./workspaceSection";
 import { StudySection } from "./study/StudySection";
+import { ShellModal } from "../components/ShellModal";
 
 export type WorkspaceItem = {
   id: string;
@@ -350,6 +351,84 @@ function PptVisualMasterPreview({ master }: { master: PptVisualMaster }) {
   );
 }
 
+
+function PptIntentModal({
+  initialGoal,
+  initialEmphasis,
+  locale,
+  onClose,
+  onConfirm,
+}: {
+  initialGoal: PptGoalId;
+  initialEmphasis: PptEmphasisId;
+  locale: string;
+  onClose: () => void;
+  onConfirm: (goalId: PptGoalId, emphasisId: PptEmphasisId) => void;
+}) {
+  const [goal, setGoal] = useState<PptGoalId>(initialGoal);
+  const [emphasis, setEmphasis] = useState<PptEmphasisId>(initialEmphasis);
+  const label = (item: { zh: string; en: string }) => (locale === "en" ? item.en : item.zh);
+
+  const cardCls = (selected: boolean) =>
+    cn(
+      "rounded-lg border px-3 py-2 text-left text-sm transition leading-snug",
+      selected
+        ? "border-[var(--kq-color-primary)] bg-[var(--kq-color-primary)]/10 font-medium text-[var(--kq-color-primary-dark)]"
+        : "border-[var(--kq-color-border)] text-[var(--kq-color-ink)] hover:border-[var(--kq-color-primary)]/40 hover:bg-[var(--kq-hover-bg)]"
+    );
+
+  return (
+    <ShellModal
+      open
+      title={locale === "en" ? "PPT Generation Settings" : "PPT 生成设置"}
+      onClose={onClose}
+    >
+      <div className="flex flex-col gap-5">
+        <section>
+          <p className="mb-2 text-xs font-medium text-[var(--kq-color-muted)]">
+            {locale === "en" ? "Goal" : "生成目标"}
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {PPT_GOALS.map((item) => (
+              <button key={item.id} type="button" onClick={() => setGoal(item.id)} className={cardCls(goal === item.id)}>
+                {label(item)}
+              </button>
+            ))}
+          </div>
+        </section>
+        <section>
+          <p className="mb-2 text-xs font-medium text-[var(--kq-color-muted)]">
+            {locale === "en" ? "Emphasis" : "重点强调"}
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {PPT_EMPHASES.map((item) => (
+              <button key={item.id} type="button" onClick={() => setEmphasis(item.id)} className={cardCls(emphasis === item.id)}>
+                {label(item)}
+              </button>
+            ))}
+          </div>
+        </section>
+        <div className="flex justify-end gap-2 pt-1">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg px-3 py-2 text-sm text-[var(--kq-color-ink)]"
+          >
+            {locale === "en" ? "Cancel" : "取消"}
+          </button>
+          <button
+            type="button"
+            onClick={() => onConfirm(goal, emphasis)}
+            className="kq-quick-action inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm"
+          >
+            {locale === "en" ? "Start" : "开始生成"}
+          </button>
+        </div>
+      </div>
+    </ShellModal>
+  );
+}
+
 export function WorkspacePanel({
   className,
   onCollapse,
@@ -375,52 +454,32 @@ export function WorkspacePanel({
   const selectedMathLanguage =
     MATH_TARGET_LANGUAGES.find((item) => item.id === mathLanguage) ?? MATH_TARGET_LANGUAGES[0];
   const [pptGoal, setPptGoal] = useState<PptGoalId>("auto");
-  const selectedPptGoal = PPT_GOALS.find((item) => item.id === pptGoal) ?? PPT_GOALS[0];
   const [pptEmphasis, setPptEmphasis] = useState<PptEmphasisId>("auto");
-  const selectedPptEmphasis =
-    PPT_EMPHASES.find((item) => item.id === pptEmphasis) ?? PPT_EMPHASES[0];
-  const intentLabel = (item: { zh: string; en: string }) => (locale === "en" ? item.en : item.zh);
-  // Empty sections drop out so an all-"auto" selection injects nothing.
+  const [pptModal, setPptModal] = useState<{ base: string } | null>(null);
   const buildPptPrompt = (sections: string[]) => sections.filter(Boolean).join("\n\n");
-  // Canonical planner rules — slide_type / layout vocabulary, placeholder
-  // discipline, the four-layer flow, and the per-structure must-cover outlines —
-  // now live in the agent system prompt (hermes_core
-  // build_deliverable_planner_prompt), shared by the desk and gateway children.
-  // Keep these quick-action prompts thin: intent + structure id + the dynamic
-  // visual-master selection the system prompt cannot know at click time.
   const pptFlowReminder =
     "按系统提示中的“学生交付物四层流程”执行：读取材料 → material_index_build → 生成带 slide_type / notes / 证据占位的 Markdown 大纲 → review_outline 让我确认 → pptx_write 输出到 workspace 并返回路径。";
   const pptVisualMasterRule =
     `视觉母版：我已选择 ${selectedPptVisualMaster.name}。review_outline 通过后调用 pptx_write 时必须同时传入 template 和 visual_master，visual_master 使用 "${selectedPptVisualMaster.id}"。`;
-  // Deck intent the user set in the panel — feeds Step 0 so the planner does not
-  // re-ask. Both "auto" → empty string, filtered out by buildPptPrompt.
-  const pptIntentRule = [selectedPptGoal.prompt, selectedPptEmphasis.prompt]
-    .filter(Boolean)
-    .join("\n\n");
-  const paperToPptPrompt = buildPptPrompt([
-    "请把我上传的论文、文献 PDF 或粘贴的论文内容转换成论文/文献汇报 PPT（structure=paper_report，template=paper_report）。",
-    pptIntentRule,
-    pptFlowReminder,
-    pptVisualMasterRule,
-  ]);
-  const courseToPptPrompt = buildPptPrompt([
-    "请把我提供的课程笔记、章节要点、学习材料或粘贴的内容转换成课程学习汇报 PPT（structure=course_report，template=course_report）。",
-    pptIntentRule,
-    pptFlowReminder,
-    pptVisualMasterRule,
-  ]);
-  const codeToPptPrompt = buildPptPrompt([
-    "请把我提供的代码项目或课设材料转换成课设答辩 PPT（structure=code_defense，template=code_defense）。",
-    pptIntentRule,
-    pptFlowReminder,
-    pptVisualMasterRule,
-  ]);
-  const sandtableToPptPrompt = buildPptPrompt([
-    "请把我提供的经营沙盘模拟材料目录（各经营周期的财务数据、决策记录、报表截图等）转换成经营沙盘复盘 PPT（structure=sandtable_review，template=sandtable_review）。",
-    pptIntentRule,
-    pptFlowReminder,
-    pptVisualMasterRule,
-  ]);
+  const handlePptModalConfirm = (goalId: PptGoalId, emphasisId: PptEmphasisId) => {
+    if (!pptModal) return;
+    const goal = PPT_GOALS.find((g) => g.id === goalId)!;
+    const emphasis = PPT_EMPHASES.find((e) => e.id === emphasisId)!;
+    const intentRule = [goal.prompt, emphasis.prompt].filter(Boolean).join("\n\n");
+    onStartPrompt?.(buildPptPrompt([pptModal.base, intentRule, pptFlowReminder, pptVisualMasterRule]));
+    setPptGoal(goalId);
+    setPptEmphasis(emphasisId);
+    setPptModal(null);
+  };
+
+  const paperToPptBase =
+    "请把我上传的论文、文献 PDF 或粘贴的论文内容转换成论文/文献汇报 PPT（structure=paper_report，template=paper_report）。";
+  const courseToPptBase =
+    "请把我提供的课程笔记、章节要点、学习材料或粘贴的内容转换成课程学习汇报 PPT（structure=course_report，template=course_report）。";
+  const codeToPptBase =
+    "请把我提供的代码项目或课设材料转换成课设答辩 PPT（structure=code_defense，template=code_defense）。";
+  const sandtableToPptBase =
+    "请把我提供的经营沙盘模拟材料目录（各经营周期的财务数据、决策记录、报表截图等）转换成经营沙盘复盘 PPT（structure=sandtable_review，template=sandtable_review）。"
   const codeToFormulaPrompt =
     [
       "请把我提供的代码转换成清晰的数学公式表达。",
@@ -597,59 +656,25 @@ export function WorkspacePanel({
         <WorkspaceSection sectionId="workspace.reportPpt" title={t("chat.workspaceReportPpt")} dotColor="var(--kq-color-primary-dark)">
           <div className="mt-3 grid grid-cols-1 gap-2">
             <WorkspaceActionButton
-              onClick={() => onStartPrompt?.(paperToPptPrompt)}
+              onClick={() => setPptModal({ base: paperToPptBase })}
               icon={<BookOpenText className="kq-color-icon-book mr-2 inline h-4 w-4" aria-hidden />}
               label={t("chat.workspacePaperToPpt")}
             />
             <WorkspaceActionButton
-              onClick={() => onStartPrompt?.(courseToPptPrompt)}
+              onClick={() => setPptModal({ base: courseToPptBase })}
               icon={<GraduationCap className="kq-color-icon-course mr-2 inline h-4 w-4" aria-hidden />}
               label={t("chat.workspaceCourseToPpt")}
             />
             <WorkspaceActionButton
-              onClick={() => onStartPrompt?.(codeToPptPrompt)}
+              onClick={() => setPptModal({ base: codeToPptBase })}
               icon={<Code2 className="kq-color-icon-pen mr-2 inline h-4 w-4" aria-hidden />}
               label={t("chat.workspaceCodeToPpt")}
             />
             <WorkspaceActionButton
-              onClick={() => onStartPrompt?.(sandtableToPptPrompt)}
+              onClick={() => setPptModal({ base: sandtableToPptBase })}
               icon={<LineChart className="kq-color-icon-pen mr-2 inline h-4 w-4" aria-hidden />}
               label={t("chat.workspaceSandtableToPpt")}
             />
-            <label className="kq-workspace-body grid grid-cols-1 gap-1.5 text-[13px] leading-snug">
-              <span className="inline-flex items-center gap-1.5 font-medium">
-                <Rocket className="h-3.5 w-3.5 text-[var(--kq-color-primary-dark)]" aria-hidden />
-                {t("chat.workspacePptGoal")}
-              </span>
-              <select
-                value={pptGoal}
-                onChange={(event) => setPptGoal(event.currentTarget.value as PptGoalId)}
-                className="kq-workspace-select rounded-md px-2 py-1.5 text-sm transition"
-              >
-                {PPT_GOALS.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {intentLabel(item)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="kq-workspace-body grid grid-cols-1 gap-1.5 text-[13px] leading-snug">
-              <span className="inline-flex items-center gap-1.5 font-medium">
-                <FileText className="h-3.5 w-3.5 text-[var(--kq-color-primary-dark)]" aria-hidden />
-                {t("chat.workspacePptEmphasis")}
-              </span>
-              <select
-                value={pptEmphasis}
-                onChange={(event) => setPptEmphasis(event.currentTarget.value as PptEmphasisId)}
-                className="kq-workspace-select rounded-md px-2 py-1.5 text-sm transition"
-              >
-                {PPT_EMPHASES.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {intentLabel(item)}
-                  </option>
-                ))}
-              </select>
-            </label>
             <label className="kq-workspace-body grid grid-cols-1 gap-1.5 text-[13px] leading-snug">
               <span className="inline-flex items-center gap-1.5 font-medium">
                 <Palette className="h-3.5 w-3.5 text-[var(--kq-color-primary-dark)]" aria-hidden />
@@ -714,6 +739,15 @@ export function WorkspacePanel({
         </>
         )}
       </div>
+      {pptModal && (
+        <PptIntentModal
+          initialGoal={pptGoal}
+          initialEmphasis={pptEmphasis}
+          locale={locale}
+          onClose={() => setPptModal(null)}
+          onConfirm={handlePptModalConfirm}
+        />
+      )}
     </aside>
   );
 }
