@@ -20,7 +20,7 @@ try {
         ./scripts/sync-runtime-sources.ps1
     }
 
-    if (-not (Test-Path "web\node_modules")) {
+    if (-not (Test-Path "web\node_modules\.bin\vite.cmd")) {
         Write-Host "Installing web deps..." -ForegroundColor Cyan
         Push-Location web
         npm ci
