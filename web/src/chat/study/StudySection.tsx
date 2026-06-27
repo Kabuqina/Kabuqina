@@ -1,7 +1,7 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-// STUDY module — the student learning-planning quick actions in the ACADEMY
+// STUDY module — the student learning-planning quick actions in the STUDY
 // workspace panel, parallel to the report/PPT and math sections. Three ordered
 // steps that build on each other: learning profile -> learning path ->
 // learning resource pack. Each button injects a bounded, crafted prompt (see

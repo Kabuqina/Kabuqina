@@ -1208,19 +1208,29 @@
     background: var(--kq-color-primary-pale);
     color: var(--kq-color-primary-dark);
   }
-  /* Segmented WORK / ACADEMY switch in the right-rail header. */
+  /* Segmented WORK / STUDY / ACADEMY switch in the right-rail header. */
   .kq-workspace-tabs {
+    display: flex;
+    flex: 1 1 0;
+    min-width: 0;
+    flex-wrap: nowrap;
     border: 1px solid var(--kq-color-border);
     background: rgba(245, 242, 248, 0.7);
     border-radius: 0.5rem;
     padding: 2px;
   }
   .kq-workspace-tab {
-    padding: 4px 12px;
+    flex: 1 1 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    padding: 4px 8px;
     border-radius: 0.375rem;
     font-size: 12px;
     font-weight: 600;
     letter-spacing: 0.02em;
+    white-space: nowrap;
     color: var(--kq-color-muted);
     transition: all 0.15s ease;
   }

@@ -406,13 +406,18 @@ assert.doesNotMatch(
 );
 assert.match(
   workspacePanelSource,
-  /setMode\("work"\)[\s\S]*setMode\("academy"\)/,
-  "Right rail should offer a WORK / ACADEMY mode switch instead of nesting work inside academy.",
+  /setMode\("work"\)[\s\S]*setMode\("study"\)[\s\S]*setMode\("academy"\)/,
+  "Right rail should offer a WORK / STUDY / ACADEMY mode switch instead of nesting work inside academy.",
 );
 assert.match(
   workspacePanelSource,
-  /mode === "work" \? \([\s\S]*workspace\.deliverables[\s\S]*\) : \([\s\S]*workspace\.reportPpt/,
-  "WORK mode should show deliverables; ACADEMY mode should show the PPT/math launchpad.",
+  /workspace\.deliverables[\s\S]*workspace\.reportPpt[\s\S]*workspace\.mathAbility/,
+  "WORK mode should show deliverables before ACADEMY's PPT/math launchpad.",
+);
+assert.match(
+  workspacePanelSource,
+  /mode === "study"[\s\S]*<StudySection\b/,
+  "STUDY mode should show the learning-planning section.",
 );
 assert.match(
   workspacePanelSource,
@@ -1023,7 +1028,7 @@ assert.match(chatPageReminderSource, /\/settings\/cron/);
 
 // ── STUDY module ────────────────────────────────────────────────────────────
 // The learning-planning quick actions live in their own module
-// (web/src/chat/study) and render as a section in the ACADEMY workspace panel.
+// (web/src/chat/study) and render as a section in the STUDY workspace panel.
 const { STUDY_PROMPTS } = await importTs("./study/studyPrompts.ts");
 const studySectionSource = fs.readFileSync(new URL("./study/StudySection.tsx", import.meta.url), "utf8");
 
@@ -1056,4 +1061,9 @@ assert.match(
   workspacePanelSource,
   /<StudySection\b/,
   "WorkspacePanel should render the STUDY module section.",
+);
+assert.match(
+  workspacePanelSource,
+  /mode === "study"[\s\S]*<StudySection\b/,
+  "STUDY module section should render only in STUDY mode.",
 );

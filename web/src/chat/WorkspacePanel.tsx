@@ -361,10 +361,13 @@ export function WorkspacePanel({
   busy = false,
 }: WorkspacePanelProps) {
   const { t, locale } = useI18n();
-  // The right rail is one surface with two modes: ACADEMY (the launchpad of
-  // capabilities) and WORK (this session's goal / materials / deliverables).
+  // The right rail is one surface with three modes: WORK (this session's goal /
+  // materials / deliverables), ACADEMY (the launchpad of report/math abilities),
+  // and STUDY (the student learning-planning quick actions).
   // Start on ACADEMY; morph to WORK the first time a deliverable appears.
-  const [mode, setMode] = useState<"academy" | "work">(outputs.length > 0 ? "work" : "academy");
+  const [mode, setMode] = useState<"work" | "academy" | "study">(
+    outputs.length > 0 ? "work" : "academy",
+  );
   const [pptVisualMaster, setPptVisualMaster] = useState<(typeof PPT_VISUAL_MASTERS)[number]["id"]>("soft_editorial");
   const selectedPptVisualMaster =
     PPT_VISUAL_MASTERS.find((item) => item.id === pptVisualMaster) ?? PPT_VISUAL_MASTERS[0];
@@ -488,6 +491,15 @@ export function WorkspacePanel({
           <button
             type="button"
             role="tab"
+            aria-selected={mode === "study"}
+            className={cn("kq-workspace-tab", mode === "study" && "is-active")}
+            onClick={() => setMode("study")}
+          >
+            {t("chat.workspaceModeStudy")}
+          </button>
+          <button
+            type="button"
+            role="tab"
             aria-selected={mode === "academy"}
             className={cn("kq-workspace-tab", mode === "academy" && "is-active")}
             onClick={() => setMode("academy")}
@@ -580,10 +592,8 @@ export function WorkspacePanel({
           </WorkspaceSection>
         )}
         </>
-        ) : (
+        ) : mode === "academy" ? (
         <>
-        <StudySection onStartPrompt={onStartPrompt} />
-
         <WorkspaceSection sectionId="workspace.reportPpt" title={t("chat.workspaceReportPpt")} dotColor="var(--kq-color-primary-dark)">
           <div className="mt-3 grid grid-cols-1 gap-2">
             <WorkspaceActionButton
@@ -697,6 +707,10 @@ export function WorkspacePanel({
             />
           </div>
         </WorkspaceSection>
+        </>
+        ) : (
+        <>
+        <StudySection onStartPrompt={onStartPrompt} />
         </>
         )}
       </div>
