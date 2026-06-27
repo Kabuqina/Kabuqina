@@ -20,7 +20,8 @@ LangGraph checkpointer during the equivalence migration.
 LangGraph 1.2.x low-level graph API, Tauri 2/Rust child supervisors, PowerShell
 7 build scripts.
 
-Date: 2026-06-24; revised 2026-06-27 after grounded implementation review.
+Date: 2026-06-24; revised 2026-06-27 after grounded implementation review and
+Bounded Goal Runner synchronization.
 
 ---
 
@@ -53,6 +54,11 @@ The revision makes these decisions explicit:
    failed graph turn through the loop after a tool may have executed.
 6. **Rename remains Phase 4.** The temporary rollout variable is
    `HERMES_AGENT_ENGINE`, not `KABUQINA_AGENT_ENGINE`.
+7. **Develop the outer loop in gated parallel.** The Bounded Goal Runner's pure
+   state, verifier, reporting, and controller foundations may land beside Tasks
+   1–9. Its runtime adapter waits for Tasks 9–10, and its product exposure waits
+   for the Task 11 soak. Phase 3.5 never absorbs outer-loop persistence or
+   verifier semantics into LangGraph.
 
 Dependency facts must be rechecked immediately before Task 1 because package
 metadata can change. At this revision, the relevant official metadata is:
@@ -61,6 +67,47 @@ metadata can change. At this revision, the relevant official metadata is:
 - <https://pypi.org/pypi/langchain-core/1.4.7/json>
 - <https://docs.langchain.com/oss/python/langgraph/persistence>
 - <https://docs.langchain.com/langsmith/trace-without-env-vars>
+
+---
+
+## Parallel contract with the Bounded Goal Runner plan
+
+Companion plan:
+`docs/superpowers/plans/2026-06-27-bounded-goal-runner.md`.
+
+The plans deliberately cross at explicit gates rather than sharing an
+implementation branch:
+
+| Gate | Phase 3.5 state | Goal Runner state | Merge rule |
+|---|---|---|---|
+| **G0** | Tasks 1–9 in progress | Goal Tasks 1–6 may progress | Pure goal modules and read-only status only; no due-job runtime path. |
+| **G1** | Tasks 9 and 10 pass | Goal Tasks 7–9 may progress | Goal adapter calls public `AIAgent.run_conversation`; it never imports graph internals or edits `run_agent.py`. |
+| **G2** | Task 11 Step 4 completes the 14-day soak | Goal Task 10 may expose and run Pilot 1 | Run the pilot with explicit loop and graph before removing the loop. |
+| **Removal** | Task 11 Step 5 | Goal Task 10 dual-engine evidence recorded, or the product plan is explicitly deferred | Only then remove the selector and legacy loop. |
+
+### File ownership and serialization
+
+| Owner | Files | Constraint |
+|---|---|---|
+| Phase 3.5 | `hermes_core/run_agent.py`, `hermes_core/agent/graph_engine/**`, `hermes_core/agent/engine_selector.py`, LangGraph dependency and supervisor tracing files | Goal Runner never edits or imports their private internals. |
+| Goal Runner | `hermes_core/cron/goal_*.py`, `hermes_core/tools/goal_report_tool.py`, goal-specific cron tests, host status/control surfaces | May merge at G0 if no live cron path changes. |
+| Serialized | `hermes_core/hermes_cli/config_defaults.py` | Phase Task 10 adds `agent.engine` first. Goal Task 8 rebases and then adds `cron.goal_loop`. |
+| Serialized | `DECISIONS.md` and these plans | Append after rebasing; preserve both gate records. |
+
+No Goal Runner commit may add a LangGraph checkpointer, call graph nodes, change
+the 21 exit contracts, or run loop and graph on the same real turn. No Phase 3.5
+commit may move goal state into `TurnState` or make the inner engine own cron
+rescheduling.
+
+### Development-loop cursor
+
+Execution uses the Track A outer-loop contract from the companion design. The
+resumable cursor lives at
+`docs/superpowers/progress/phase-3.5-loop-state.json`; plan checkboxes, test
+evidence, and commits remain authoritative. A cycle selects one eligible task,
+uses one isolated worktree, runs its deterministic commands, records evidence,
+and stops for human review. It never auto-merges, pushes, changes a golden, or
+waives a failed gate.
 
 ---
 
@@ -200,6 +247,65 @@ Record the date and evidence beside each item. GO requires every item checked.
 
 If a gate fails, leave the product on `loop`, document the failure, and stop.
 Passing unit tests is not permission to waive a failed packaging or runtime gate.
+
+---
+
+## Task 0 — Initialize the bounded development loop
+
+**Files:**
+
+- Create when execution begins:
+  `docs/superpowers/progress/phase-3.5-loop-state.json`
+- Modify after every cycle: this plan and the progress cursor
+
+- [ ] **Step 1: create the resumable cursor before Task 1 changes code**
+
+```json
+{
+  "plan": "docs/superpowers/specs/2026-06-24-consolidate-and-langgraph-replatform-plan.md",
+  "current_task": 1,
+  "status": "ready",
+  "attempt": 0,
+  "worktree": null,
+  "last_commit": null,
+  "last_verification": [],
+  "failed_approaches": [],
+  "blocker": null,
+  "next_action": "Run the dependency and bundled-runtime spike"
+}
+```
+
+Allowed statuses are `ready`, `running`, `verifying`, `review_required`,
+`blocked`, and `complete`. The file contains no prompts, secrets, model output,
+or raw fixture contents.
+
+- [ ] **Step 2: validate the cursor and record the starting commit**
+
+```powershell
+$cursor = Get-Content `
+  docs/superpowers/progress/phase-3.5-loop-state.json -Raw |
+  ConvertFrom-Json
+if ($cursor.current_task -ne 1 -or $cursor.status -ne "ready") {
+  throw "invalid Phase 3.5 loop cursor"
+}
+git rev-parse HEAD
+```
+
+Write the returned commit to `last_commit`. Commit the initial cursor separately
+from production work so later task diffs stay reviewable.
+
+```powershell
+git add docs/superpowers/progress/phase-3.5-loop-state.json
+git commit -m "chore: initialize phase 3.5 execution cursor"
+```
+
+- [ ] **Step 3: enforce one-task cycles**
+
+For each later task, set `running` before edits, `verifying` before its required
+commands, and `review_required` only after they pass. Record command, exit code,
+changed files, commit, and next eligible task. Stop after two identical failure
+signatures, an out-of-scope file need, a golden/dependency decision, or any human
+gate. The cursor cannot mark a plan checkbox complete by itself.
 
 ---
 
@@ -903,6 +1009,10 @@ the legacy-regression gate; graph coverage comes from the explicitly
 parameterized golden and exit-contract tests. Any newly discovered branch gets
 a loop fixture before its graph fix.
 
+Passing this task alone does not open Goal Runner G1. Task 10 must also land the
+public selector so the outer-loop adapter can select each engine without calling
+private methods.
+
 - [ ] **Step 4: commit**
 
 ```powershell
@@ -999,6 +1109,13 @@ git add hermes_core/agent/engine_selector.py `
 git commit -m "feat: add rollback-safe agent engine selector"
 ```
 
+- [ ] **Step 5: open the companion plan's G1 gate**
+
+Record the Task 9 equivalence commit and this selector commit in
+`docs/superpowers/plans/2026-06-27-bounded-goal-runner.md`. Goal Runner Tasks
+7–9 may now integrate through public `AIAgent.run_conversation`. They must finish
+their explicit loop/graph adapter gate before this plan removes the selector.
+
 ---
 
 ## Task 11 — Desktop release smoke, default flip, and legacy removal
@@ -1054,13 +1171,19 @@ The soak is at least 14 days and requires:
 - no unexplained differences in result shapes, hooks, persistence, or usage;
 - every graph regression added first as a loop fixture, then fixed.
 
+When this evidence is recorded, open Goal Runner G2. Its Task 10 may expose the
+host-only Pilot 1 while the loop escape hatch still exists.
+
 - [ ] **Step 5: remove the legacy loop in a dedicated commit**
 
-After the soak, delete `_run_conversation_loop`, the selector flag, and loop-only
-tests. Keep the engine-independent contracts, service ports, golden fixtures,
-and graph import-isolation test. Do not use `run_agent.py` line-count reduction
-as the success criterion; use branch coverage, exit-contract coverage, and
-dependency direction instead.
+After the soak, first require Goal Runner Task 10 to record one bounded synthetic
+pilot under explicit `loop` and one under explicit `graph`, or explicitly record
+that the Goal Runner plan is deferred before runtime integration. Then delete
+`_run_conversation_loop`, the selector flag, and loop-only tests. Keep the
+engine-independent contracts, service ports, golden fixtures, and graph
+import-isolation test. Do not use `run_agent.py` line-count reduction as the
+success criterion; use branch coverage, exit-contract coverage, and dependency
+direction instead.
 
 ```powershell
 git add hermes_core/run_agent.py hermes_core/agent/engine_selector.py `
@@ -1104,6 +1227,7 @@ default flip.
 | Web | `cd web; npm run lint; npm run build` | Pass. |
 | Rust | `cd tauri; cargo test` | Pass. |
 | Live runtime | release build, both API modes, one read-only tool | Result recorded in this plan. |
+| Outer-loop compatibility | If Goal Runner G1 has opened: `cd hermes_core; python -m pytest tests/cron/test_goal_agent_worker.py tests/cron/test_cron_goal.py -o "addopts=" -p no:cacheprovider -q` | Explicit loop and graph cases pass before legacy-loop removal. |
 
 On environments where `hermes_core/scripts/run_tests.sh` is available, prefer
 that wrapper for CI-parity. Native Windows fallback uses `-n 4`; golden recording
@@ -1125,6 +1249,8 @@ All must hold:
   tests pass;
 - [ ] both API modes pass release-build chat + tool smoke;
 - [ ] graph is default for a 14-day release soak with the loop escape hatch;
+- [ ] before legacy-loop removal, Goal Runner Task 10 records its explicit
+  loop/graph synthetic pilot, or its runtime integration is explicitly deferred;
 - [ ] legacy loop is removed in a dedicated commit;
 - [ ] no production LangGraph import exists outside
   `agent/graph_engine/builder.py`, and no production LangChain/LangSmith import

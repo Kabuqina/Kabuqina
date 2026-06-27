@@ -1,0 +1,1091 @@
+# Bounded Goal Runner Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: use
+> `superpowers:subagent-driven-development` (recommended) or
+> `superpowers:executing-plans` to implement this plan task-by-task. Steps use
+> checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** add a bounded, durable `mode: goal` cron execution mode that performs
+one fresh agent iteration per scheduler wake, accepts completion only after an
+independent verifier passes, and pauses safely when limits or human judgment are
+required.
+
+**Architecture:** build the persistence, transition, verifier, reporting, and
+controller modules as engine-neutral pure foundations while Phase 3.5 is in
+progress. After Phase 3.5 proves full loop/graph equivalence and lands the engine
+selector, connect a thin worker adapter to public `AIAgent.run_conversation`.
+After the graph-default release soak, expose creation and rollout surfaces. The
+Goal Runner never imports LangGraph, never checkpoints an inner graph, never
+edits `run_agent.py`, and never runs both inner engines for one iteration.
+
+**Tech stack:** Python 3.11, existing Hermes cron scheduler and tool registry,
+JSON state with atomic `os.replace`, pytest, Tauri 2/Rust, React/TypeScript, and
+the existing desktop delivery bridge.
+
+Date: 2026-06-27
+
+Source design:
+`docs/superpowers/specs/2026-06-27-loop-engineering-bounded-goal-runner-design.md`
+
+Companion Phase 3.5 plan:
+`docs/superpowers/specs/2026-06-24-consolidate-and-langgraph-replatform-plan.md`
+
+---
+
+## Delivery model: two plans, three gates
+
+This plan and the Phase 3.5 plan are intentionally developed together. They
+share an agent runtime but not an implementation hot path.
+
+| Gate | When it opens | Goal Runner work allowed |
+|---|---|---|
+| **G0 — foundation** | Immediately | Tasks 1–6: state, transitions, verifiers, internal reporting, pure controller, and read-only status projection. |
+| **G1 — runtime integration** | Phase 3.5 Tasks 9 and 10 pass: full loop/graph equivalence plus selector | Tasks 7–9: `AIAgent` adapter, cron wiring behind a disabled flag, desktop integration. |
+| **G2 — product rollout** | Phase 3.5 Task 11 Step 4 records the 14-day graph-default soak | Tasks 10–11: public creation/control contract, Pilot 1, and staged enablement. |
+
+G0 work may merge while Phase 3.5 remains `NO-GO`; it cannot change existing
+cron behavior or become reachable from a due job. G1 work may run goal tests
+against both explicitly selected inner engines, but the feature flag remains
+off. G2 is the first point at which a non-developer user may create a Goal Task.
+
+### Shared-file serialization
+
+| Ownership | Files | Rule |
+|---|---|---|
+| Phase 3.5 only | `hermes_core/run_agent.py`, `hermes_core/agent/graph_engine/**`, LangGraph dependency files, supervisor tracing settings | Goal Runner commits never touch these files. |
+| Goal Runner only | `hermes_core/cron/goal_*.py`, `hermes_core/tools/goal_report_tool.py`, goal-specific tests, `tauri/src/cron.rs`, Scheduled Tasks goal presentation | May progress at G0. |
+| Serialized | `hermes_core/hermes_cli/config_defaults.py` | Phase 3.5 Task 10 lands `agent.engine` first; Goal Runner Task 8 rebases, then adds `cron.goal_loop`. |
+| Serialized | `hermes_core/cron/jobs.py`, `scheduler.py`, `tools/cronjob_tools.py` | Reserved for Goal Runner only after G1; do not mix Phase 3.5 refactors into those commits. |
+| Append-only coordination | `DECISIONS.md`, both plan documents | Rebase before editing and preserve the other plan's entries. |
+
+If a task discovers it must edit a file outside its row, stop and update both
+plans before continuing. Do not solve a merge collision by duplicating core
+semantics in an overlay.
+
+### Non-negotiable invariants
+
+- Each scheduler wake executes at most one worker turn for one Goal Task.
+- The scheduler's existing profile lock still provides single-executor behavior.
+- State is scoped to the active `HERMES_HOME`; host and gateway profiles never
+  inspect or execute each other's goals.
+- The worker's self-report is evidence, not authority. Only the controller plus
+  verifier may declare `completed`.
+- A fresh inner-agent session is created for every iteration. Compact goal state
+  is injected explicitly; no inner graph checkpoint is reused.
+- No automatic retry occurs after an ambiguous external side effect.
+- `agent` and `notify` jobs keep their current JSON defaults and scheduler path.
+- Intermediate progress is not delivered to chat unless the job requests a
+  periodic progress cadence; completion, pause, failure, and cancellation are.
+
+---
+
+## Task 1 — Define goal state and atomic profile-local storage (G0)
+
+**Files:**
+
+- Create: `hermes_core/cron/goal_state.py`
+- Create: `hermes_core/tests/cron/test_goal_state.py`
+
+- [ ] **Step 1: write failing model, path, and round-trip tests**
+
+The tests must cover valid states, rejected job IDs, missing state, unknown
+schema versions, atomic replacement, and recovery when a stale `.tmp` file is
+present. Use `monkeypatch` to point `cron.goal_state.get_hermes_home` at
+`tmp_path`; never mutate the real profile.
+
+The public contract is:
+
+```python
+GoalStatus = Literal[
+    "scheduled", "running", "verifying", "completed",
+    "paused", "failed", "cancelled",
+]
+
+@dataclass(frozen=True)
+class GoalLimits:
+    max_runs: int
+    max_cost_usd: Decimal | None
+    max_wall_seconds: int
+    deadline: datetime | None
+    no_progress_limit: int
+    max_infrastructure_failures: int = 3
+
+@dataclass(frozen=True)
+class GoalReport:
+    status: Literal["progress", "candidate_done", "blocked"]
+    summary: str
+    artifacts: tuple[str, ...]
+    evidence: Mapping[str, JSONValue]
+    next_step: str | None
+    external_side_effects: tuple[str, ...]
+
+@dataclass(frozen=True)
+class GoalDefinition:
+    job_id: str
+    objective: str
+    iteration_prompt: str
+    workdir: Path
+    verifier_kind: str
+    verifier_config: Mapping[str, JSONValue]
+    limits: GoalLimits
+    enabled_toolsets: tuple[str, ...]
+    approval_mode: Literal["ask_before_external_side_effect", "always"]
+    progress_delivery_every: int | None
+
+@dataclass(frozen=True)
+class GoalRunState:
+    schema_version: Literal[1]
+    job_id: str
+    status: GoalStatus
+    iteration: int
+    accumulated_cost_usd: Decimal
+    accumulated_wall_seconds: float
+    no_progress_count: int
+    infrastructure_failures: int
+    last_evidence_hash: str | None
+    last_summary: str | None
+    last_verifier_outcome: Literal["pass", "fail", "error"] | None
+    pause_reason: str | None
+    last_error: str | None
+    started_at: datetime | None
+    completed_at: datetime | None
+    updated_at: datetime
+```
+
+Persist decimals and datetimes as strings. The file layout is:
+
+```text
+<HERMES_HOME>/cron/goal-runs/<job-id>/state.json
+<HERMES_HOME>/cron/goal-runs/<job-id>/iterations/000001/report.json
+<HERMES_HOME>/cron/goal-runs/<job-id>/iterations/000001/verification.json
+<HERMES_HOME>/cron/goal-runs/<job-id>/iterations/000001/transition.json
+```
+
+- [ ] **Step 2: run the test and confirm it fails for the missing module**
+
+```powershell
+cd hermes_core
+python -m pytest tests/cron/test_goal_state.py `
+  -o "addopts=" -p no:cacheprovider -q
+```
+
+- [ ] **Step 3: implement validation and atomic writes**
+
+Use `get_hermes_home()` at call time, not module import time. Accept only job IDs
+matching `^[a-f0-9]{12}$`; resolve the final directory and confirm its parent is
+the resolved `goal-runs` root. Write JSON to `state.json.tmp`, flush and
+`os.fsync`, then `os.replace`. A stale temp file is ignored and may be replaced;
+it is never treated as committed state.
+
+Iteration record files are immutable: create them with exclusive-create
+semantics and
+fail if the iteration path already exists. This prevents a retry or recovery
+path from rewriting the evidence used for a prior decision.
+
+Required functions:
+
+```python
+def goal_run_dir(job_id: str) -> Path: ...
+def new_goal_state(job_id: str, *, now: datetime) -> GoalRunState: ...
+def load_goal_state(job_id: str) -> GoalRunState | None: ...
+def save_goal_state(state: GoalRunState) -> Path: ...
+def save_iteration_record(
+    job_id: str,
+    iteration: int,
+    kind: Literal["report", "verification", "transition"],
+    payload: Mapping[str, JSONValue],
+) -> Path: ...
+```
+
+Reject malformed committed JSON and unsupported schema versions with a typed
+`GoalStateError`; do not silently reset them.
+
+- [ ] **Step 4: verify and commit**
+
+```powershell
+cd hermes_core
+python -m pytest tests/cron/test_goal_state.py `
+  -o "addopts=" -p no:cacheprovider -q
+cd ..
+git add hermes_core/cron/goal_state.py `
+  hermes_core/tests/cron/test_goal_state.py
+git commit -m "feat: add durable goal run state"
+```
+
+---
+
+## Task 2 — Implement the pure transition and limit engine (G0)
+
+**Files:**
+
+- Create: `hermes_core/cron/goal_transitions.py`
+- Create: `hermes_core/tests/cron/test_goal_transitions.py`
+
+- [ ] **Step 1: write a table-driven state-transition test**
+
+Cover these exact outcomes:
+
+| Worker report | Verifier | Limits/evidence | Next status |
+|---|---|---|---|
+| `progress` | not run | within limits, changed | `scheduled` |
+| `candidate_done` | pass | within limits | `completed` |
+| `candidate_done` | fail | within limits, changed | `scheduled` |
+| `blocked` | not run | any | `paused` |
+| any | verifier error | any | `paused` |
+| any | run/cost/wall/deadline exceeded | any | `paused` |
+| `progress` or failed candidate | unchanged hash reaches limit | any | `paused` |
+| infrastructure exception below limit | not run | no ambiguous side effect | `scheduled` |
+| infrastructure exception reaches limit | not run | any | `failed` |
+| any exception after reported external effect | not run | ambiguous | `paused` |
+
+- [ ] **Step 2: implement a side-effect-free reducer**
+
+```python
+@dataclass(frozen=True)
+class IterationObservation:
+    report: GoalReport | None
+    verifier: VerifierResult | None
+    cost_usd: Decimal
+    wall_seconds: float
+    evidence_hash: str | None
+    infrastructure_error: str | None
+    ambiguous_external_effect: bool
+
+@dataclass(frozen=True)
+class GoalTransition:
+    previous_status: GoalStatus
+    next_state: GoalRunState
+    reason: str
+    should_deliver: bool
+
+def reduce_iteration(
+    state: GoalRunState,
+    limits: GoalLimits,
+    observation: IterationObservation,
+    *,
+    now: datetime,
+) -> GoalTransition: ...
+```
+
+The reducer must not read the clock, filesystem, environment, config, or model.
+Apply limits after adding the current iteration's usage. A verifier pass can
+complete only a `candidate_done` report. A worker cannot complete by writing
+`status=completed` because that value is not in the report schema.
+
+- [ ] **Step 3: prove determinism and invalid-transition rejection**
+
+Call the reducer twice with equal inputs and compare dataclass equality. Reject
+attempts to run from `completed`, `cancelled`, or `failed` with
+`InvalidGoalTransition`.
+
+- [ ] **Step 4: verify and commit**
+
+```powershell
+cd hermes_core
+python -m pytest tests/cron/test_goal_transitions.py `
+  -o "addopts=" -p no:cacheprovider -q
+cd ..
+git add hermes_core/cron/goal_transitions.py `
+  hermes_core/tests/cron/test_goal_transitions.py
+git commit -m "feat: add bounded goal transitions"
+```
+
+---
+
+## Task 3 — Add deterministic verifier registry (G0)
+
+**Files:**
+
+- Create: `hermes_core/cron/goal_verifiers.py`
+- Create: `hermes_core/tests/cron/test_goal_verifiers.py`
+
+- [ ] **Step 1: test path confinement and verifier results**
+
+Every artifact path is relative to the configured absolute `workdir`. Reject
+absolute paths, `..` traversal, symlink escapes, missing workdirs, and files
+outside the root. Tests run on Windows and must compare resolved `Path` objects,
+not slash-formatted strings.
+
+- [ ] **Step 2: define the verifier port and registry**
+
+```python
+@dataclass(frozen=True)
+class VerificationContext:
+    workdir: Path
+    report: GoalReport
+    config: Mapping[str, JSONValue]
+    previous_evidence_hash: str | None
+
+@dataclass(frozen=True)
+class VerifierResult:
+    outcome: Literal["pass", "fail", "error"]
+    summary: str
+    evidence: Mapping[str, JSONValue]
+
+Verifier = Callable[[VerificationContext], VerifierResult]
+
+def verify(kind: str, context: VerificationContext) -> VerifierResult: ...
+```
+
+Unknown verifier kinds return `error` and pause the goal; they never fall back to
+an LLM judgment.
+
+- [ ] **Step 3: implement the Pilot 1 verifier set**
+
+Implement and test:
+
+- `artifact_exists`: all configured relative files exist and are regular files;
+- `manifest_complete`: every supported file under configured roots has exactly
+  one normalized manifest record, the pilot's fixed required fields and value
+  types are valid, and no out-of-root record exists;
+- `content_hash_changed`: canonical evidence hash differs from the previous one.
+
+The desktop requirements currently receive `jsonschema` only as a transitive
+dependency of `mcp`; neither the core nor desktop requirements declare the
+verifier dependency directly. Do not touch dependency files during G0, rely on
+that transitive accident, or write a partial JSON Schema engine. Generic
+`json_schema` remains reserved but unsupported until a separate post-Phase-3.5
+dependency gate adds and bundles an explicit pin.
+`manifest_complete` is a purpose-built verifier and must sort normalized
+relative paths before hashing so filesystem enumeration order cannot change the
+result.
+
+Do not implement `test_command` or `llm_rubric` in this task. They are outside
+Pilot 1 and require separate power-user and evaluator-risk decisions.
+
+- [ ] **Step 4: verify and commit**
+
+```powershell
+cd hermes_core
+python -m pytest tests/cron/test_goal_verifiers.py `
+  -o "addopts=" -p no:cacheprovider -q
+cd ..
+git add hermes_core/cron/goal_verifiers.py `
+  hermes_core/tests/cron/test_goal_verifiers.py
+git commit -m "feat: add deterministic goal verifiers"
+```
+
+---
+
+## Task 4 — Add an iteration-scoped internal report tool (G0)
+
+**Files:**
+
+- Create: `hermes_core/cron/goal_report.py`
+- Create: `hermes_core/tools/goal_report_tool.py`
+- Create: `hermes_core/tests/cron/test_goal_report.py`
+
+- [ ] **Step 1: write isolation and schema tests**
+
+Prove that the tool is unavailable without an active goal-report scope, accepts
+exactly one valid report inside a scope, rejects unknown keys and oversized
+fields, and keeps independently created scopes isolated across copied contexts
+and parallel threads.
+
+- [ ] **Step 2: implement the scoped report collector**
+
+Use a `ContextVar[GoalReportCollector | None]`. The context manager returns a
+collector and always resets its token:
+
+```python
+@contextmanager
+def goal_report_scope(job_id: str, iteration: int) -> Iterator[GoalReportCollector]:
+    collector = GoalReportCollector(job_id=job_id, iteration=iteration)
+    token = _active_goal_report.set(collector)
+    try:
+        yield collector
+    finally:
+        _active_goal_report.reset(token)
+```
+
+The collector rejects a second report. Cap summaries and next steps at 4,000
+characters, artifact entries at 200, and serialized evidence at 64 KiB. Secret
+redaction remains the caller's responsibility; the tool schema explicitly tells
+the worker never to include secrets or raw document bodies.
+
+- [ ] **Step 3: register `goal_report` in an internal toolset**
+
+Register through the existing `ToolRegistry` as toolset `goal_internal`. Its
+module-level registration is discovered by the existing built-in tool scan; no
+bootstrap import is added. Do not use the scope in `check_fn`, because registry
+availability checks are TTL-cached. The handler itself requires an active scope
+and returns a structured tool error outside one. It returns the normal registry
+JSON string and never writes goal state directly.
+
+Do not add `goal_internal` to default toolsets or static core-tool lists. The
+Goal Agent adapter in Task 7 enables it explicitly for one worker turn.
+
+- [ ] **Step 4: verify and commit**
+
+```powershell
+cd hermes_core
+python -m pytest tests/cron/test_goal_report.py `
+  -o "addopts=" -p no:cacheprovider -q
+cd ..
+git add hermes_core/cron/goal_report.py `
+  hermes_core/tools/goal_report_tool.py `
+  hermes_core/tests/cron/test_goal_report.py
+git commit -m "feat: add scoped goal report tool"
+```
+
+---
+
+## Task 5 — Build the engine-neutral one-iteration controller (G0)
+
+**Files:**
+
+- Create: `hermes_core/cron/goal_runner.py`
+- Create: `hermes_core/tests/cron/test_goal_runner.py`
+
+- [ ] **Step 1: define injected ports and fake-driven tests**
+
+```python
+class GoalWorker(Protocol):
+    def run_iteration(
+        self,
+        definition: GoalDefinition,
+        state: GoalRunState,
+    ) -> WorkerObservation: ...
+
+class GoalVerifier(Protocol):
+    def verify(
+        self,
+        definition: GoalDefinition,
+        report: GoalReport,
+        previous_evidence_hash: str | None,
+    ) -> VerifierResult: ...
+
+@dataclass(frozen=True)
+class GoalIterationResult:
+    transition: GoalTransition
+    full_output: str
+    delivery_text: str
+    evidence_path: Path
+
+def run_goal_iteration(
+    definition: GoalDefinition,
+    *,
+    worker: GoalWorker,
+    verifier: GoalVerifier,
+    now: datetime,
+) -> GoalIterationResult: ...
+```
+
+Tests use fakes only. They cover initialization, one worker call, verifier only
+for `candidate_done`, progress reschedule, verified completion, pause, persistence
+before return, restart from committed state, and no second iteration in one call.
+
+- [ ] **Step 2: implement orchestration in this exact order**
+
+1. Load or initialize state.
+2. Reject terminal/paused states. If committed state is `running` or
+   `verifying`, persist a `paused` recovery transition and return without a
+   worker call; never guess whether the prior turn had side effects.
+3. Persist `running` before invoking the worker.
+4. Invoke the worker exactly once.
+5. Persist the sanitized report and usage as immutable `report.json`.
+6. Persist `verifying` before a candidate verifier call.
+7. Run the verifier, persist `verification.json`, then canonicalize and hash the
+   verifier inputs and outputs.
+8. Reduce the observation, persist `transition.json`, then persist next state.
+9. Return output and delivery intent; never call a delivery adapter itself.
+
+If the process exits between steps 3 and 8, the next wake sees `running` or
+`verifying` and pauses for recovery review. It must not replay automatically.
+
+- [ ] **Step 3: add restart and fault-injection tests**
+
+Inject failures before and after every state write. Assert that a committed
+terminal state is never overwritten, evidence is immutable per iteration, and a
+missing report becomes a controlled pause rather than guessed progress.
+
+- [ ] **Step 4: run the G0 core gate and commit**
+
+```powershell
+cd hermes_core
+python -m pytest tests/cron/test_goal_state.py `
+  tests/cron/test_goal_transitions.py `
+  tests/cron/test_goal_verifiers.py `
+  tests/cron/test_goal_report.py `
+  tests/cron/test_goal_runner.py `
+  -o "addopts=" -p no:cacheprovider -q
+cd ..
+git add hermes_core/cron/goal_runner.py `
+  hermes_core/tests/cron/test_goal_runner.py
+git commit -m "feat: add engine-neutral bounded goal controller"
+```
+
+---
+
+## Task 6 — Add read-only host-profile status projection (G0)
+
+**Files:**
+
+- Modify: `tauri/src/cron.rs`
+- Modify: `web/src/advanced/pages/ScheduledTasks.tsx`
+- Modify: `web/src/locales/strings.ts`
+- Create: `web/src/advanced/scheduledTasksGoalUx.test.mjs`
+
+- [ ] **Step 1: add Rust deserialization and sanitization tests**
+
+Extend `CronJobEntry` with optional fields only:
+
+```rust
+pub mode: Option<String>,
+pub goal_status: Option<String>,
+pub goal_iteration: Option<u64>,
+pub goal_cost_usd: Option<String>,
+pub goal_pause_reason: Option<String>,
+pub goal_updated_at: Option<String>,
+```
+
+For `mode: goal`, `cmd_cron_list` may read only
+`<host HERMES_HOME>/cron/goal-runs/<id>/state.json`. It must not enumerate
+gateway profile directories and must not expose evidence, prompts, or error
+stacks. Malformed state produces `goal_status: "state_error"` without failing
+the entire task list.
+
+- [ ] **Step 2: render status without adding creation or execution controls**
+
+Show a “持续目标 / Goal Task” badge, iteration, accumulated cost, updated time,
+and sanitized pause reason. Existing `agent` and `notify` cards stay unchanged;
+goal cards are status-only at G0 and do not call the legacy raw-file toggle or
+delete commands. No create form is added at G0. The view is naturally dormant
+until a developer fixture or later runtime wiring creates a goal job.
+
+- [ ] **Step 3: verify legacy and goal rendering**
+
+```powershell
+cd tauri
+cargo test cron
+cd ..\web
+node --test src/advanced/scheduledTasksGoalUx.test.mjs
+npm run lint
+npm run build
+cd ..
+```
+
+- [ ] **Step 4: commit**
+
+```powershell
+git add tauri/src/cron.rs `
+  web/src/advanced/pages/ScheduledTasks.tsx `
+  web/src/advanced/scheduledTasksGoalUx.test.mjs `
+  web/src/locales/strings.ts
+git commit -m "feat: show bounded goal status in scheduled tasks"
+```
+
+---
+
+## G1 review gate — Phase 3.5 runtime contract
+
+Do not start Task 7 until all boxes are checked in both plans:
+
+- [ ] Phase 3.5 Task 9 passes the deterministic loop/graph equivalence gate
+  twice and its broader run-agent suite passes.
+- [ ] Phase 3.5 Task 10 lands the explicit constructor/environment/config
+  selector and proves both `loop` and `graph` independently.
+- [ ] `AIAgent.run_conversation` remains the stable public entry point.
+- [ ] Goal Runner Tasks 1–6 pass and introduce no imports from
+  `agent.graph_engine` or `langgraph`.
+- [ ] The integration diff and file ownership are reviewed by a person.
+
+Record the Phase 3.5 commit and date here before proceeding:
+
+```text
+G1 opened: __________ at __________; reviewed by __________
+```
+
+---
+
+## Task 7 — Connect a thin `AIAgent` worker adapter (G1)
+
+**Files:**
+
+- Create: `hermes_core/cron/goal_agent_worker.py`
+- Create: `hermes_core/tests/cron/test_goal_agent_worker.py`
+- Modify: `hermes_core/cron/goal_runner.py`
+
+- [ ] **Step 1: write adapter tests against a fake `AIAgent` factory**
+
+Assert one agent instance and one `run_conversation` call per iteration, a fresh
+session ID, explicit selected engine propagation, exact report-scope lifetime,
+and rejection when no valid `goal_report` is submitted. Run each case with
+`agent_engine="loop"` and `agent_engine="graph"`; never run both for one case.
+An exception before entering `run_conversation` may be classified as a safe
+infrastructure failure. Any exception after entry is conservatively marked
+`ambiguous_external_effect=True` and pauses; the adapter never infers from a
+missing report that no tool ran.
+
+- [ ] **Step 2: build bounded context from durable state**
+
+The system message includes the objective, current iteration, compact previous
+summary, last evidence hash, remaining limits, allowed workdir, verifier
+description, and report schema. It excludes prior raw transcripts and evidence
+bodies. The user message is the job's per-iteration prompt.
+
+- [ ] **Step 3: instantiate the agent through its public API**
+
+`GoalAgentWorker` imports `AIAgent` lazily from `run_agent`, accepts an injected
+factory for tests, and calls public `run_conversation`. It never imports or calls
+`_run_conversation_loop`, `_run_conversation_graph`, `GraphEngine`, or a graph
+node.
+
+The enabled toolsets are the job's allowlist intersected with the profile's
+policy, plus `goal_internal`. For Pilot 1 explicitly remove `messaging`,
+`cronjob`, `terminal`, `code_execution`, and `moa`. The adapter cannot broaden a
+desktop policy allowlist.
+
+- [ ] **Step 4: verify both selected engines and commit**
+
+```powershell
+cd hermes_core
+python -m pytest tests/cron/test_goal_agent_worker.py `
+  tests/cron/test_goal_runner.py `
+  -o "addopts=" -p no:cacheprovider -q
+cd ..
+git add hermes_core/cron/goal_agent_worker.py `
+  hermes_core/cron/goal_runner.py `
+  hermes_core/tests/cron/test_goal_agent_worker.py
+git commit -m "feat: connect goal iterations to the public agent API"
+```
+
+---
+
+## Task 8 — Add `mode: goal` and scheduler routing behind a disabled flag (G1)
+
+**Files:**
+
+- Modify: `hermes_core/hermes_cli/config_defaults.py`
+- Create: `hermes_core/cron/scheduler_lock.py`
+- Modify: `hermes_core/cron/jobs.py`
+- Modify: `hermes_core/cron/scheduler.py`
+- Modify: `hermes_core/tools/cronjob_tools.py`
+- Create: `hermes_core/tests/cron/test_cron_goal.py`
+- Create: `hermes_core/tests/cron/test_scheduler_lock.py`
+- Modify: `DECISIONS.md`
+
+- [ ] **Step 1: rebase after Phase 3.5 Task 10 and add the disabled default**
+
+Add under the existing `cron` section:
+
+```yaml
+cron:
+  goal_loop:
+    enabled: false
+```
+
+The config version does not change. `false` means no due goal can invoke a model;
+the scheduler pauses it with `feature_disabled` and preserves state for
+inspection. Do not use a top-level `goal_loop` key. Because every host/gateway
+profile has its own `HERMES_HOME` and config, Pilot 1 enables only the host
+profile; gateway profile configs remain false.
+
+- [ ] **Step 2: characterize legacy modes before modifying normalization**
+
+Extend tests to prove missing/unknown mode still normalizes to `agent`, aliases
+still normalize to `notify`, and existing serialized job fixtures are unchanged.
+Then allow exact `goal` as a third mode.
+
+Add goal-only fields to `create_job` with `None` defaults: `goal`, `verifier`,
+`limits`, `approval_mode`, and `progress_delivery_every`. Reject `goal` without
+an absolute confined workdir, non-empty objective, known deterministic verifier,
+and explicit finite limits. Existing modes ignore no unknown goal fields: they
+must reject them so a typo cannot silently create an ordinary agent job.
+
+- [ ] **Step 3: route one due wake through the controller**
+
+First extract the existing cross-platform `.tick.lock` acquisition into
+`scheduler_lock.py` and pin its nonblocking/single-owner behavior without
+changing lock scope: `tick()` still holds it from due-job selection through all
+execution, delivery, and marking. The later control service uses the same helper
+and fails with a busy result instead of racing an active iteration.
+
+Extend `_job_execution_mode` to return `goal`. Add `_run_goal_job` beside
+`_run_notify_job`. It loads config, checks the feature/profile gate, constructs
+the definition and adapter, and executes exactly one controller iteration.
+
+Keep the public `run_job(job) -> tuple[bool, str, str, str | None]` contract
+unchanged for legacy `agent` and `notify` callers. Branch inside `tick()`'s
+private `_process_job` so the goal transition remains available for marking:
+
+The current `tick()` calls `advance_next_run` before execution and
+`mark_job_run` afterward. Preserve advance-before-run at-most-once behavior, but
+branch final bookkeeping:
+
+```python
+mode = _job_execution_mode(job)
+goal_result = None
+if mode == "goal":
+    goal_result = _run_goal_job(job)
+    success = goal_result.transition.next_state.status != "failed"
+    output = goal_result.full_output
+    final_response = goal_result.delivery_text
+    error = goal_result.transition.next_state.last_error
+else:
+    success, output, final_response, error = run_job(job)
+
+# Existing save and delivery pipeline remains here.
+
+if goal_result is not None:
+    mark_goal_job_run(
+        job["id"],
+        transition=goal_result.transition,
+        delivery_error=delivery_error,
+    )
+else:
+    mark_job_run(job["id"], success, error, delivery_error=delivery_error)
+```
+
+`mark_goal_job_run` updates last-run metadata and mirrors terminal/pause status
+onto the job record. It does not increment ordinary `repeat.completed`, compute a
+second next run, or delete the job. `completed`, `paused`, `failed`, and
+`cancelled` disable future wakes; `scheduled` keeps the next time already
+advanced by `tick()`.
+
+The `_process_job` exception path also branches by mode. A catastrophic goal
+exception calls `mark_goal_job_crash`, disables future wakes, records a sanitized
+error on the job mirror, and leaves committed goal state/evidence untouched for
+recovery review. It must not call ordinary `mark_job_run`.
+
+- [ ] **Step 4: keep the public tool contract hidden**
+
+Core `create_job` may accept the new mode for internal tests, but the registered
+`cronjob` tool schema and handler reject `mode: goal` while G2 is closed. This
+prevents an agent or user from creating live Goal Tasks during the inner-engine
+soak.
+
+- [ ] **Step 5: prove scheduler and legacy behavior**
+
+Tests cover flag off in a gateway-shaped profile, flag on in the host-shaped
+profile, one call/wake, state reschedule, terminal disable,
+pause/resume/cancel bookkeeping, no double schedule computation,
+delivery only on configured transitions, and unchanged `agent`/`notify` paths.
+
+```powershell
+cd hermes_core
+python -m pytest tests/cron/test_cron_goal.py `
+  tests/cron/test_cron_notify.py tests/cron/test_jobs.py `
+  tests/cron/test_scheduler.py tests/cron/test_scheduler_lock.py `
+  -o "addopts=" -p no:cacheprovider -q
+cd ..
+git add hermes_core/hermes_cli/config_defaults.py `
+  hermes_core/cron/jobs.py hermes_core/cron/scheduler.py `
+  hermes_core/cron/scheduler_lock.py `
+  hermes_core/tools/cronjob_tools.py `
+  hermes_core/tests/cron/test_cron_goal.py `
+  hermes_core/tests/cron/test_scheduler_lock.py DECISIONS.md
+git commit -m "feat: route disabled-by-default goal cron jobs"
+```
+
+---
+
+## Task 9 — Integrate desktop delivery, controls, and profile boundaries (G1)
+
+**Files:**
+
+- Create: `hermes_core/cron/goal_controls.py`
+- Create: `hermes_core/tests/cron/test_goal_controls.py`
+- Modify: `python/overlays/cron_desktop_delivery.py`
+- Create: `python/src/desk_server/goal_routes.py`
+- Modify: `python/src/desk_server/app.py`
+- Create: `python/tests/test_goal_desktop_delivery.py`
+- Create: `python/tests/test_goal_routes.py`
+- Create: `python/tests/test_goal_profile_isolation.py`
+- Modify: `tauri/src/cron.rs`
+- Modify: `tauri/src/lib.rs`
+- Modify: `web/src/advanced/pages/ScheduledTasks.tsx`
+
+- [ ] **Step 1: characterize existing desktop delivery exactly-once behavior**
+
+Write tests before changing the overlay. A normal intermediate iteration produces
+no toast or chat item. Completion, pause, failure, and cancellation produce one
+sanitized delivery. A configured progress cadence may deliver only at its exact
+iteration multiple.
+
+- [ ] **Step 2: prove per-profile isolation with process-shaped fixtures**
+
+Create separate host and gateway `HERMES_HOME` trees containing the same job ID
+with different state. Each scheduler instance must load, lock, update, and project
+only its active home. Pilot 1 rejects gateway-profile execution even if a goal
+job file is copied there.
+
+- [ ] **Step 3: implement crash-safe core control transitions**
+
+Add `pause_goal`, `resume_goal`, `cancel_goal`, and `delete_goal` in
+`goal_controls.py`. State is authoritative and the cron job record is its
+scheduling mirror. Use this write order so any interrupted operation fails
+closed:
+
+- pause/cancel: persist goal state first, then disable the cron job;
+- resume: enable the cron job and compute its next wake first, then persist
+  `scheduled` goal state;
+- scheduler execution requires both an enabled job and runnable goal state.
+- delete is allowed only after `completed`, `failed`, or `cancelled`; it removes
+  the job record and deliberately retains the goal-run directory for inspection.
+
+Fault-injection tests stop between the two writes. A partial pause/cancel cannot
+run; a partial resume remains blocked by paused goal state. Retrying the same
+control is idempotent and repairs the mirror.
+
+Every control acquires the same nonblocking profile scheduler lock extracted in
+Task 8. If an iteration or another tick owns it, return `GoalControlBusy`; the
+desk route maps that to HTTP 409 and performs no write. This deliberately
+cancels future iterations, not an already executing agent turn.
+
+- [ ] **Step 4: proxy pause, resume, cancel, and delete through the core**
+
+Add authenticated desk-server routes that delegate only to the core control
+service:
+
+```text
+POST /api/desk/goals/{job_id}/pause
+POST /api/desk/goals/{job_id}/resume
+POST /api/desk/goals/{job_id}/cancel
+DELETE /api/desk/goals/{job_id}
+```
+
+Validate the host-profile job ID, return sanitized state, and reuse the existing
+desk authentication middleware. Add async Tauri commands in `cron.rs` that proxy
+to these routes using the same loopback client/auth pattern as `chat.rs`.
+Register them in `lib.rs`; React invokes the Tauri commands and never calls the
+Python port directly.
+
+The controls behave as follows:
+
+- pause records a human action and disables future wakes;
+- resume accepts only non-terminal paused state and schedules the next wake
+  without running immediately;
+- delete requires destructive confirmation, refuses an active goal, removes the
+  job through the core service, and retains goal-run evidence until an explicit
+  later retention decision;
+- cancellation is distinct from deletion and retains the cancelled job and
+  state for inspection.
+
+Do not reuse the current raw-file `cmd_cron_toggle` for Goal Tasks; it writes a
+legacy `paused` field that is not the core goal-state contract. Ordinary cron
+jobs keep their existing command until that separate compatibility issue is
+planned. Rust and React contain no mutable goal-state transition logic.
+
+- [ ] **Step 5: run the G1 integration gate and commit**
+
+```powershell
+cd python
+python -m unittest discover -s tests -p "test_goal_*.py" -v
+cd ..\hermes_core
+python -m pytest tests/cron -q -n 4
+cd ..\tauri
+cargo test cron
+cd ..\web
+npm run lint
+npm run build
+cd ..
+git add python/overlays/cron_desktop_delivery.py `
+  python/tests/test_goal_desktop_delivery.py `
+  python/tests/test_goal_routes.py `
+  python/tests/test_goal_profile_isolation.py `
+  python/src/desk_server/goal_routes.py python/src/desk_server/app.py `
+  hermes_core/cron/goal_controls.py `
+  hermes_core/tests/cron/test_goal_controls.py `
+  tauri/src/cron.rs tauri/src/lib.rs `
+  web/src/advanced/pages/ScheduledTasks.tsx
+git commit -m "feat: integrate bounded goals with desktop profiles"
+```
+
+---
+
+## G2 review gate — product exposure
+
+Do not expose `mode: goal` until:
+
+- [ ] Phase 3.5 Task 11 records a successful 14-day graph-default release soak.
+- [ ] The loop escape hatch still works, or its planned removal has not yet
+  landed; Goal Runner passes with explicit `loop` and `graph` before removal.
+- [ ] G1 tests pass in bundled CPython 3.11 and a release-equivalent desktop.
+- [ ] Pilot 1's verifier and limits are frozen in fixtures.
+- [ ] Product copy, destructive controls, and approval boundaries receive human
+  review.
+
+Record the Phase 3.5 soak evidence here:
+
+```text
+G2 opened: __________ at __________; reviewed by __________
+```
+
+---
+
+## Task 10 — Expose the bounded creation/control contract and run Pilot 1 (G2)
+
+**Files:**
+
+- Modify: `hermes_core/tools/cronjob_tools.py`
+- Modify: `hermes_core/tests/cron/test_cron_goal.py`
+- Modify: `hermes_core/tests/cron/test_goal_verifiers.py`
+- Modify: `python/src/desk_server/goal_routes.py`
+- Modify: `python/tests/test_goal_routes.py`
+- Modify: `tauri/src/cron.rs`
+- Modify: `tauri/src/lib.rs`
+- Modify: `web/src/advanced/pages/ScheduledTasks.tsx`
+- Modify: `web/src/locales/strings.ts`
+- Modify: `web/src/advanced/scheduledTasksGoalUx.test.mjs`
+- Create: `hermes_core/tests/cron/fixtures/goal_manifest_pilot/`
+- Modify: `docs/superpowers/specs/2026-06-27-loop-engineering-bounded-goal-runner-design.md`
+
+- [ ] **Step 1: expose a strict `mode: goal` tool schema**
+
+The tool requires objective, per-iteration prompt, schedule, workdir, one known
+verifier config, finite limits, and delivery preference. It refuses nested Goal
+Task creation while `goal_internal` is active and refuses Goal Tasks in gateway
+profiles for Pilot 1. Creation remains an approval-requiring action under the
+existing messaging/cron policy when requested by an agent.
+Goal pause, resume, cancel, and delete actions delegate to `goal_controls.py`;
+the tool handler does not mutate goal state or job JSON itself.
+
+- [ ] **Step 2: add UI creation only after the core contract is stable**
+
+Add `POST /api/desk/goals` to the authenticated route module. It delegates to
+core `create_job` validation, returns the sanitized created record, and is
+proxied by a new async Tauri command; the webview never receives the Python port
+or auth token. The form exposes Pilot 1's `manifest_complete` template,
+conservative limits, and a clear statement that one iteration runs per wake.
+Advanced arbitrary verifier JSON, terminal verifiers, and LLM-only completion
+are not exposed. UI creation is an explicit confirmed user action;
+pause/resume/cancel controls display their consequences before confirmation.
+
+- [ ] **Step 3: run the read-mostly workspace inventory pilot**
+
+Before Phase 3.5 removes its escape hatch, complete the synthetic workspace once
+with explicit `agent_engine="loop"` and once with explicit
+`agent_engine="graph"`; compare controller transitions, verifier results, and
+sanitized artifacts, not raw inner transcripts. Then use a human-selected
+disposable local workspace. Enforce:
+
+- host profile only;
+- file read plus one manifest write;
+- no network, messaging, terminal, code execution, or subagents;
+- maximum 40 runs, four hours, and a configured cost cap;
+- restart once while `scheduled`, once after `running` recovery pause, and once
+  after a failed verifier;
+- deterministic manifest verification before completion.
+
+Record each pilot run's state transitions and verification command in the design
+document. Never record prompts, document contents, or secrets.
+
+- [ ] **Step 4: verify and commit**
+
+```powershell
+cd hermes_core
+python -m pytest tests/cron/test_cron_goal.py `
+  tests/cron/test_goal_verifiers.py `
+  -o "addopts=" -p no:cacheprovider -q
+cd ..\web
+node --test src/advanced/scheduledTasksGoalUx.test.mjs
+npm run lint
+npm run build
+cd ..
+git add hermes_core/tools/cronjob_tools.py `
+  hermes_core/tests/cron/test_cron_goal.py `
+  hermes_core/tests/cron/test_goal_verifiers.py `
+  hermes_core/tests/cron/fixtures/goal_manifest_pilot `
+  python/src/desk_server/goal_routes.py python/tests/test_goal_routes.py `
+  tauri/src/cron.rs tauri/src/lib.rs `
+  web/src/advanced/pages/ScheduledTasks.tsx `
+  web/src/advanced/scheduledTasksGoalUx.test.mjs `
+  web/src/locales/strings.ts `
+  docs/superpowers/specs/2026-06-27-loop-engineering-bounded-goal-runner-design.md
+git commit -m "feat: expose the bounded goal pilot"
+```
+
+---
+
+## Task 11 — Release hardening and staged enablement (G2)
+
+**Files:**
+
+- Modify: `hermes_core/hermes_cli/config_defaults.py`
+- Modify: `DECISIONS.md`
+- Modify: this plan
+- Modify: `docs/architecture.md`
+- Modify: `docs/safety.md`
+- Modify: `docs/troubleshooting.md`
+
+- [ ] **Step 1: satisfy the pilot exit criteria**
+
+Complete 30 consecutive correct completions or pauses, at least five process/app
+restarts, zero out-of-workspace writes, zero secret leakage, zero duplicate
+non-idempotent effects, exact usage accumulation, and no false completion found
+by manual review.
+
+- [ ] **Step 2: run the full regression and release-build smoke**
+
+```powershell
+cd hermes_core
+python -m pytest tests/cron tests/run_agent -q -n 4
+cd ..\python
+python -m unittest discover -s tests -p "test_*.py" -v
+cd ..
+./python/build_bundle.ps1 -Verify
+cd web
+npm ci
+npm run lint
+npm run build
+cd ..\tauri
+cargo test
+cargo tauri build
+cd ..
+```
+
+In the release build, run one legacy `notify`, one legacy `agent`, and Pilot 1.
+Restart the app mid-goal and verify exact state recovery. Test host and one
+gateway profile and confirm the gateway cannot see or execute the host pilot.
+
+- [ ] **Step 3: choose the enablement level explicitly**
+
+The default remains `cron.goal_loop.enabled: false` until the pilot exit criteria
+and release smoke are recorded. Enable it only in the host profile and only in a
+dedicated decision commit. Gateway profile configs remain false for the first
+release. Gateway support is a separate later plan, not an automatic consequence
+of enabling the host feature.
+
+- [ ] **Step 4: document rollback and commit**
+
+Disabling the flag stops new iterations, preserves state/evidence, and keeps
+inspection/cancel/delete available. A controller defect pauses affected goals;
+it never replays their last turn. Removing goal support must leave legacy job
+loading and delivery unchanged.
+
+```powershell
+git add hermes_core/hermes_cli/config_defaults.py DECISIONS.md `
+  docs/superpowers/plans/2026-06-27-bounded-goal-runner.md `
+  docs/architecture.md docs/safety.md docs/troubleshooting.md
+git commit -m "docs: record bounded goal rollout decision"
+```
+
+---
+
+## Verification matrix
+
+| Surface | Command | Required result |
+|---|---|---|
+| Pure goal core | `cd hermes_core; python -m pytest tests/cron/test_goal_state.py tests/cron/test_goal_transitions.py tests/cron/test_goal_verifiers.py tests/cron/test_goal_report.py tests/cron/test_goal_runner.py -o "addopts=" -p no:cacheprovider -q` | Pass at G0 without LangGraph imports. |
+| Runtime adapter | `cd hermes_core; python -m pytest tests/cron/test_goal_agent_worker.py tests/cron/test_cron_goal.py -o "addopts=" -p no:cacheprovider -q` | Pass under explicit loop and graph selection. |
+| Cron regression | `cd hermes_core; python -m pytest tests/cron -q -n 4` | Legacy and goal tests pass. |
+| Run-agent regression | `cd hermes_core; python -m pytest tests/run_agent -q -n 4` | Inner-engine contracts remain green. |
+| Desktop Python | `cd python; python -m unittest discover -s tests -p "test_*.py" -v` | Delivery and profile isolation pass. |
+| Rust projection | `cd tauri; cargo test cron` | Host-only sanitized status passes. |
+| Web | `cd web; node --test src/advanced/scheduledTasksGoalUx.test.mjs; npm run lint; npm run build` | UI contract, lint, and build pass. |
+| Bundle | `./python/build_bundle.ps1 -Verify` | Bundled CPython 3.11 imports all goal modules. |
+| Release smoke | Release build: notify + agent + Pilot 1 + restart | Correct delivery, recovery, and isolation. |
+
+## Completion criteria
+
+- [ ] Tasks 1–6 merged without changing live cron execution.
+- [ ] G1 evidence recorded; Tasks 7–9 pass with explicit loop and graph engines.
+- [ ] `mode: goal` remains unreachable while the feature flag is false.
+- [ ] G2 evidence recorded after the Phase 3.5 graph-default soak.
+- [ ] Pilot 1 satisfies every safety and correctness exit criterion.
+- [ ] Existing `agent` and `notify` jobs remain behaviorally unchanged.
+- [ ] Goal Runner has no LangGraph import, checkpointer, or `run_agent.py` edit.
+- [ ] Host/gateway profile isolation and single-executor behavior are proven.
+- [ ] Rollback is a config change that preserves inspectable state.
+- [ ] `DECISIONS.md` records the final enablement scope and any deferred work.
