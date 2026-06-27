@@ -281,13 +281,15 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
     {
         "id": "student-ppt",
         "title": "Generate report (PPT)",
-        "description": "Generate student-facing course, paper, and code-defense PPT reports with reviewed outlines and selectable visual masters.",
+        "description": "Generate student-facing course, paper, code-defense, and sandtable-review PPT reports with reviewed outlines and selectable visual masters.",
         "category": "documents",
         "family": "student-report-generation",
         "agent_hint": (
             "Use for student PPT report generation. First pick the report structure "
-            "(course_report, paper_report, or code_defense), build/review the outline, "
-            "then call pptx_write with the selected visual_master."
+            "(course_report, paper_report, code_defense, or sandtable_review), build/review "
+            "the outline, then call pptx_write with the selected visual_master. "
+            "sandtable_review (经营沙盘复盘) and code_defense usually read a project/material "
+            "directory in place, not a single file."
         ),
         "tools": ["material_index_build", "review_outline", "pptx_write"],
         "required_toolsets": ["documents", "clarify"],
@@ -330,6 +332,20 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
                     "agenda",
                     "diagram",
                     "screenshot_placeholder",
+                    "table",
+                    "chart_placeholder",
+                    "qa_backup",
+                    "closing",
+                ],
+            },
+            {
+                "id": "sandtable_review",
+                "title": "Sandtable review",
+                "description": "经营沙盘模拟复盘：背景规则、团队战略、各周期决策、经营财务结果、得失分析、复盘改进、备用问答。",
+                "default_slide_types": [
+                    "agenda",
+                    "claim_bullets",
+                    "diagram",
                     "table",
                     "chart_placeholder",
                     "qa_backup",
@@ -530,6 +546,56 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
                         "outputs": ["pptx_path", "visual_master"],
                     },
                 ],
+            },
+            {
+                "id": "student-sandtable-review-ppt",
+                "title": "Generate sandtable-review PPT",
+                "primary": False,
+                "stages": ["reader", "material_index", "planner", "writer"],
+                "inputs": ["workspace", "document"],
+                "structure_template": "sandtable_review",
+                "visual_master_required": True,
+                "steps": [
+                    {
+                        "id": "inspect-sandtable-material",
+                        "stage": "reader",
+                        "tools": ["document_read_precise"],
+                        "default_args": {"mode": "auto", "include_content": False},
+                        "outputs": ["read_id", "markdown", "metadata"],
+                    },
+                    {
+                        "id": "build-sandtable-material-index",
+                        "stage": "material_index",
+                        "tool": "material_index_build",
+                        "default_args": {"profile": "sandtable_review"},
+                        "inputs": ["read_id"],
+                        "outputs": ["material_index"],
+                    },
+                    {
+                        "id": "review-sandtable-ppt-outline",
+                        "stage": "planner",
+                        "kind": "agent_review",
+                        "requires_user_review": True,
+                        "inputs": ["material_index"],
+                        "outputs": ["outline"],
+                    },
+                    {
+                        "id": "select-ppt-visual-master",
+                        "stage": "planner",
+                        "kind": "user_select_visual_master",
+                        "requires_user_review": True,
+                        "inputs": ["outline"],
+                        "outputs": ["visual_master"],
+                    },
+                    {
+                        "id": "write-sandtable-ppt",
+                        "stage": "writer",
+                        "tool": "pptx_write",
+                        "default_args": {"template": "sandtable_review", "visual_master": "signal"},
+                        "inputs": ["outline", "material_index", "visual_master"],
+                        "outputs": ["pptx_path", "visual_master"],
+                    },
+                ],
             }
         ],
         "shortcuts": [
@@ -555,6 +621,14 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
                 "label": "Code-defense PPT",
                 "entry_pipeline": "student-code-defense-ppt",
                 "requires_input": ["document"],
+                "visible_when": "pipeline_ready_or_downloadable",
+            },
+            {
+                "id": "create-sandtable-review-ppt",
+                "surface": "wizard",
+                "label": "Sandtable review PPT",
+                "entry_pipeline": "student-sandtable-review-ppt",
+                "requires_input": ["workspace", "document"],
                 "visible_when": "pipeline_ready_or_downloadable",
             }
         ],

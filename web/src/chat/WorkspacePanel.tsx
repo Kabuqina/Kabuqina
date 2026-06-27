@@ -10,6 +10,7 @@ import {
   FolderOpen,
   GraduationCap,
   Languages,
+  LineChart,
   Loader2,
   Palette,
   PanelRight,
@@ -411,6 +412,12 @@ export function WorkspacePanel({
     pptFlowReminder,
     pptVisualMasterRule,
   ]);
+  const sandtableToPptPrompt = buildPptPrompt([
+    "请把我提供的经营沙盘模拟材料目录（各经营周期的财务数据、决策记录、报表截图等）转换成经营沙盘复盘 PPT（structure=sandtable_review，template=sandtable_review）。",
+    pptIntentRule,
+    pptFlowReminder,
+    pptVisualMasterRule,
+  ]);
   const codeToFormulaPrompt =
     [
       "请把我提供的代码转换成清晰的数学公式表达。",
@@ -593,6 +600,11 @@ export function WorkspacePanel({
               onClick={() => onStartPrompt?.(codeToPptPrompt)}
               icon={<Code2 className="kq-color-icon-pen mr-2 inline h-4 w-4" aria-hidden />}
               label={t("chat.workspaceCodeToPpt")}
+            />
+            <WorkspaceActionButton
+              onClick={() => onStartPrompt?.(sandtableToPptPrompt)}
+              icon={<LineChart className="kq-color-icon-pen mr-2 inline h-4 w-4" aria-hidden />}
+              label={t("chat.workspaceSandtableToPpt")}
             />
             <label className="kq-workspace-body grid grid-cols-1 gap-1.5 text-[13px] leading-snug">
               <span className="inline-flex items-center gap-1.5 font-medium">

@@ -81,6 +81,18 @@ _PPTX_THEMES: Dict[str, _PptxTheme] = {
         accent_light=(249, 115, 22),
         footer_band=(30, 41, 59),
     ),
+    "sandtable_review": _PptxTheme(
+        key="sandtable_review",
+        subtitle="经营沙盘模拟复盘",
+        badge="沙盘复盘",
+        bg=(248, 250, 252),
+        title=(28, 38, 68),
+        subtitle_color=(200, 168, 112),
+        body=(71, 85, 105),
+        accent=(28, 38, 68),
+        accent_light=(200, 168, 112),
+        footer_band=(28, 38, 68),
+    ),
 }
 
 
