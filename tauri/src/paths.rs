@@ -223,22 +223,46 @@ pub fn cmd_open_workspace(app: AppHandle) -> Result<(), String> {
 /// the OS opener. Deliverable paths shown in the workspace panel are extracted
 /// from agent messages via regex, so we never open an arbitrary location a
 /// crafted message could point at.
-fn resolve_workspace_child(app: &AppHandle, path: &str) -> Result<PathBuf, String> {
-    let workspace = ensure_workspace(app).map_err(|e| e.to_string())?;
-    let ws_canon = std::fs::canonicalize(&workspace).unwrap_or(workspace);
+/// Resolve a path the UI asked to open or reveal, allowing only files that live
+/// inside a directory Kabuqina manages. The path must exist on disk and sit
+/// under one of:
+///   * the user workspace (where document writers — pptx/docx/pdf/html — save), or
+///   * the app's Hermes home (`<data_dir>/hermes-home`), where generated
+///     artifacts that are not deliverables-proper land — notably browser
+///     screenshots at `cache/screenshots/*.png`.
+///
+/// Anything else (e.g. an arbitrary `C:\Windows\...` path injected via chat) or
+/// a non-existent path is rejected.
+fn resolve_openable_path(app: &AppHandle, path: &str) -> Result<PathBuf, String> {
     let canon =
         std::fs::canonicalize(PathBuf::from(path)).map_err(|e| format!("path not found: {}", e))?;
-    if !canon.starts_with(&ws_canon) {
-        return Err("path is outside the workspace".into());
+
+    // Collect the allowed roots, canonicalized so the prefix check below compares
+    // like-for-like with `canon` (matters on Windows, where canonicalize returns
+    // the `\\?\` verbatim form).
+    let mut roots: Vec<PathBuf> = Vec::new();
+    if let Ok(workspace) = ensure_workspace(app) {
+        roots.push(std::fs::canonicalize(&workspace).unwrap_or(workspace));
     }
-    Ok(canon)
+    if let Ok(data_dir) = ensure_data_dir(app) {
+        let home = crate::gateway_supervisor::hermes_home_path(&data_dir);
+        if let Ok(home_canon) = std::fs::canonicalize(&home) {
+            roots.push(home_canon);
+        }
+    }
+
+    if roots.iter().any(|root| canon.starts_with(root)) {
+        Ok(canon)
+    } else {
+        Err("path is outside the workspace".into())
+    }
 }
 
 /// Open a workspace file with the OS default application.
 #[tauri::command]
 pub fn cmd_open_path(app: AppHandle, path: String) -> Result<(), String> {
     use tauri_plugin_opener::OpenerExt;
-    let target = resolve_workspace_child(&app, &path)?;
+    let target = resolve_openable_path(&app, &path)?;
     app.opener()
         .open_path(target.to_string_lossy(), None::<&str>)
         .map_err(|e| e.to_string())
@@ -248,7 +272,7 @@ pub fn cmd_open_path(app: AppHandle, path: String) -> Result<(), String> {
 #[tauri::command]
 pub fn cmd_reveal_path(app: AppHandle, path: String) -> Result<(), String> {
     use tauri_plugin_opener::OpenerExt;
-    let target = resolve_workspace_child(&app, &path)?;
+    let target = resolve_openable_path(&app, &path)?;
     app.opener()
         .reveal_item_in_dir(&target)
         .map_err(|e| e.to_string())
