@@ -1,17 +1,15 @@
 {
   "plan": "docs/superpowers/specs/2026-06-24-consolidate-and-langgraph-replatform-plan.md",
-  "current_task": 1,
-  "status": "review_required",
+  "current_task": 2,
+  "status": "running",
   "attempt": 1,
   "worktree": null,
-  "last_commit": "25dca1dbbcecedf0cf9ce6d166c6db0cac421221",
+  "last_commit": "211e6f9841cc1889e3cc780b16ab511871642131",
   "last_verification": [
-    "python -m unittest tests.test_langgraph_bundle_contract -> exit 0 (2 ok)",
-    "cargo test --manifest-path tauri/Cargo.toml -> exit 0 (60 passed)",
-    "bundled-CPython-3.11.15 wheels-only probe -> net +9.46MB, no source-built wheel, langgraph.graph import ok",
-    "uv lock --locked on committed state (no langgraph) -> exit 1 (uv.lock pre-existingly stale vs pyproject.toml)"
+    "Task 2 step 1a: test_retry_contract.py -> 2 passed (pins api_max_retries=3, max_compression_attempts=3, text_continuation=3, truncated_tool_call=1, incomplete_scratchpad=2, unknown_tool=3). Committed 211e6f98.",
+    "Mapped exit-site/limit anchors in run_agent.py: run_conversation 9374-12664; cleanup 3096; clear_interrupt 4184; limits at 1724/10042/10463/10497/11818/11874."
   ],
   "failed_approaches": [],
   "blocker": null,
-  "next_action": "Human review of Task 1 commit 25dca1db. Deferred follow-ups before [x]: run build_bundle.ps1 -Verify (official rebuild + true on-disk after-size) and refresh uv.lock in a dedicated dependency-hygiene commit. Then advance to Task 2 (legacy exit/side-effect characterization)."
+  "next_action": "Task 2 remainder (coupled block): (Step 2) extend golden_harness.py to (a) script transport errors {raise: api_error/413/context} at the transport boundary, (b) sequence compressor outputs, (c) capture hooks/cleanup/clear_interrupt + add snapshot fields result_keys/hook_calls/cleanup_task_ids/clear_interrupt_calls, (d) patch sleep. Requires reading run_agent error-classification block (~11050-11650) + hook dispatch. (Step 3) test_exit_contract.py 21-row inventory. (Step 1) test_exit_reachability.py. (Step 4) create 16 exit_*.json + reuse plain_text/unknown_tool, GOLDEN_RECORD then review every diff (schema change re-records ALL goldens). (Step 5) deterministic twice. test_hook_invocation_parity.py. NOTE: adding snapshot fields forces a reviewed full golden re-record. Task 1 commits + Task 2 retry-contract remain local/unpushed."
 }
