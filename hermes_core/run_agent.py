@@ -12856,8 +12856,24 @@ class _GraphServicesAdapter:
                 },
             }
 
+        # Determine whether to use streaming or non-streaming transport.
+        # Mirrors the dispatch logic in the legacy loop (lines ~10156-10174).
+        _use_streaming = True
+        if getattr(agent, "_disable_streaming", False):
+            _use_streaming = False
+        elif not agent._has_stream_consumers():
+            # No display/TTS consumer. Still prefer streaming for
+            # health checking, but skip for Mock clients in tests
+            from unittest.mock import Mock
+
+            if isinstance(getattr(agent, "client", None), Mock):
+                _use_streaming = False
+
         try:
-            response = agent._interruptible_api_call(api_kwargs)
+            if _use_streaming:
+                response = agent._interruptible_streaming_api_call(api_kwargs)
+            else:
+                response = agent._interruptible_api_call(api_kwargs)
         except Exception as exc:
             # Emit usage event for the failed attempt
             self._emit_usage_event(state, outcome="transport_error")
