@@ -1,12 +1,17 @@
 {
   "plan": "docs/superpowers/specs/2026-06-24-consolidate-and-langgraph-replatform-plan.md",
   "current_task": 1,
-  "status": "ready",
-  "attempt": 0,
+  "status": "review_required",
+  "attempt": 1,
   "worktree": null,
-  "last_commit": "e854c3e337bbe82b9ca7be3aee81bb05fa376c56",
-  "last_verification": [],
+  "last_commit": "25dca1dbbcecedf0cf9ce6d166c6db0cac421221",
+  "last_verification": [
+    "python -m unittest tests.test_langgraph_bundle_contract -> exit 0 (2 ok)",
+    "cargo test --manifest-path tauri/Cargo.toml -> exit 0 (60 passed)",
+    "bundled-CPython-3.11.15 wheels-only probe -> net +9.46MB, no source-built wheel, langgraph.graph import ok",
+    "uv lock --locked on committed state (no langgraph) -> exit 1 (uv.lock pre-existingly stale vs pyproject.toml)"
+  ],
   "failed_approaches": [],
   "blocker": null,
-  "next_action": "Run the dependency and bundled-runtime spike"
+  "next_action": "Human review of Task 1 commit 25dca1db. Deferred follow-ups before [x]: run build_bundle.ps1 -Verify (official rebuild + true on-disk after-size) and refresh uv.lock in a dedicated dependency-hygiene commit. Then advance to Task 2 (legacy exit/side-effect characterization)."
 }
