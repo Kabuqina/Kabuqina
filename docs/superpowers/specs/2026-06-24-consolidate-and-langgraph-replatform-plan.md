@@ -749,7 +749,8 @@ goldens changed additively only. The full Task 2 gate passed twice with
 - Create: `hermes_core/tests/agent/test_graph_contracts.py`
 - Create: `hermes_core/tests/agent/test_usage_event_contract.py`
 
-- [ ] **Step 1: write failing import-isolation and contract tests**
+- [x] **Step 1: write failing import-isolation and contract tests**  
+  *(2026-06-28: 10 failed as expected — ModuleNotFoundError for missing graph_engine/usage_events)*
 
 The import test walks production `.py` files and allows `langgraph` imports only
 in `agent/graph_engine/builder.py`. It rejects production imports beginning with
@@ -773,7 +774,8 @@ python -m pytest tests/agent/test_graph_import_isolation.py `
 
 Expected: FAIL because the package does not exist.
 
-- [ ] **Step 2: define the exact public result and serializable state**
+- [x] **Step 2: define the exact public result and serializable state**  
+  *(2026-06-28: contracts.py with LegacyRunResult, Route, ExitPolicy, TurnState)*
 
 `contracts.py` starts with these result fields and keeps optional key presence:
 
@@ -833,7 +835,8 @@ class TurnState(TypedDict):
 Callbacks, clients, plugin managers, DB handles, and the `AIAgent` instance must
 not be fields of `TurnState`.
 
-- [ ] **Step 3: define service ports and pure nodes**
+- [x] **Step 3: define service ports and pure nodes**  
+  *(2026-06-28: ports.py, nodes.py, usage_events.py — all langgraph-import-free)*
 
 `ports.py` defines a `GraphServices` protocol with named methods for:
 
@@ -858,7 +861,8 @@ unknown events are retained and make the aggregate amount unavailable.
 import. It is optional for ordinary callers and cannot change legacy result-key
 presence.
 
-- [ ] **Step 4: build without a checkpointer**
+- [x] **Step 4: build without a checkpointer**  
+  *(2026-06-28: builder.py is only langgraph import point; engine.py lazy-imports builder; compiled without checkpointer per decision 3)*
 
 `builder.py` is the only file that imports:
 
@@ -878,7 +882,8 @@ Do not pass a checkpointer. Do not use message reducers; Hermes message lists
 remain ordinary dictionaries and each node returns the complete replacement
 list when it changes messages.
 
-- [ ] **Step 5: pass tests and commit**
+- [x] **Step 5: pass tests and commit**  
+  *(2026-06-28: 81 passed, 34 skipped across 3 test files; 28 golden tests unchanged; commit `9836d7ec`)*
 
 ```powershell
 python -m pytest tests/agent/test_graph_import_isolation.py `

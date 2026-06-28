@@ -1,16 +1,19 @@
 {
   "plan": "docs/superpowers/specs/2026-06-24-consolidate-and-langgraph-replatform-plan.md",
   "current_task": 3,
-  "status": "ready",
-  "attempt": 0,
+  "status": "complete",
+  "attempt": 1,
   "worktree": null,
-  "last_commit": "605ecda50394f6329a05e47ebdffa01fa375d76c",
+  "last_commit": "9836d7ec",
   "last_verification": [
-    "Task 1 gate (2026-06-28 session 2): build_bundle.ps1 -Verify passed; bundled Python 3.11.15 imports langgraph.graph.StateGraph OK; runtime 1414.28 MB. Go/no-go checkbox flipped to [x].",
-    "Task 2 completion: 19 runtime exits executed; 2 truncation fallthroughs structurally guarded; exact 21-return inventory; 17 new exit fixtures; retry assumptions pinned. Full deterministic gate x2: 81 passed.",
-    "Task 0: cursor initialized (91b3182b), validated, single-worktree discipline enforced."
+    "Task 3 Step 1: 10 failed as expected (ModuleNotFoundError).",
+    "Task 3 Steps 2-4: contracts.py, ports.py, nodes.py, usage_events.py, builder.py, engine.py, __init__.py created.",
+    "Task 3 Step 5: 81 passed, 34 skipped (test_graph_import_isolation, test_graph_contracts, test_usage_event_contract). 28 golden tests unchanged. Commit 9836d7ec."
   ],
-  "failed_approaches": [],
+  "failed_approaches": [
+    "Initial attempt used Runtime(values=...) and ctx parameter — langgraph 1.2.6 does not support this API; switched to config['configurable'] pattern.",
+    "from __future__ import annotations broke TypedDict NotRequired on Python 3.11; removed from contracts.py."
+  ],
   "blocker": null,
-  "next_action": "Task 3: Introduce graph contracts and import isolation. Create hermes_core/agent/graph_engine/*, agent/usage_events.py, and failing import-isolation + contract tests."
+  "next_action": "Task 4: Plain-text vertical slice — wire initialize_turn→prepare_request→call_transport→process_response→finish through GraphServices adapter in run_agent.py."
 }
