@@ -18,6 +18,7 @@ jinja2>=3.1.5,<4
 pydantic>=2.12.5,<3
 prompt_toolkit>=3.0.52,<4
 croniter>=6.0.0,<7               # cron tick scheduler (built-in feature)
+langgraph==1.2.6                 # Phase 3.5 agent graph engine (low-level StateGraph only)
 
 # --- Tools we keep --------------------------------------------------------
 exa-py>=2.9.0,<3                 # web search

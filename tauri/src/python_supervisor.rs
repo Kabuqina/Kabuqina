@@ -111,6 +111,8 @@ impl Supervisor {
             .env("PYTHONIOENCODING", "utf-8")
             .env("PYTHONUTF8", "1")
             .env("PYTHONUNBUFFERED", "1")
+            // Phase 3.5: never enable LangSmith tracing in shipped children.
+            .env("LANGSMITH_TRACING", "false")
             // Don't inherit any stale provider keys from the user shell
             .env_remove("OPENAI_API_KEY")
             .env_remove("DEEPSEEK_API_KEY")

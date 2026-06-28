@@ -238,3 +238,16 @@ and the product pruning policy ([`docs/superpowers/specs/2026-06-19-mainland-pro
 | Provider global deletion | **Deferred to v0.3.x.** The global-cut providers (`bedrock`, `openai-codex`, `copilot-acp`, `opencode`, etc.) are entangled in `hermes_core/agent/auxiliary_client.py` (~3,833 lines) with retained providers. Do refactor Phase 3 (provider extraction) first, then delete at file level. In v0.3.0 they are only hidden via profile policy. |
 | Core rename + user-data migration | **Deferred to v0.4.0.** Refactor Phases 8-9 (`kabuqina_core` rename, `KABUQINA_*` env beyond the profile var, `%LOCALAPPDATA%` home migration) are orthogonal to size/focus. |
 | Profile env var | `KABUQINA_PRODUCT_PROFILE` (primary), `HERMESDESK_PRODUCT_PROFILE` fallback; unknown/missing → `mainland_cn`. |
+
+## Phase 3.5 LangGraph dependency closure (2026-06-28)
+
+Plan: [`docs/superpowers/specs/2026-06-24-consolidate-and-langgraph-replatform-plan.md`](docs/superpowers/specs/2026-06-24-consolidate-and-langgraph-replatform-plan.md) Task 1.
+
+| Question | Decision |
+|----------|----------|
+| Pin | `langgraph==1.2.6` in `hermes_core/pyproject.toml` (core deps) and `python/requirements-desktop.txt` (desktop bundle). Low-level `StateGraph` API only. |
+| Transitive deps | `langchain-core`, `langgraph-checkpoint`, `langgraph-prebuilt`, `langgraph-sdk`, `langsmith` are accepted **transitive** deps; production code must not import them outside the graph builder. No direct pins on them. |
+| Checkpointer | **None** in Phase 3.5 — compile the graph without `MemorySaver`/`InMemorySaver`; Hermes `session_db` stays the only conversation store. |
+| Bundle viability (probe, 2026-06-28) | Wheels-only resolution under bundled CPython 3.11.15; **net +9.46 MB** (gross closure 21.68 MB; ≤ 25 MB gate **PASS**); `from langgraph.graph import StateGraph` imports OK. No source-built wheel required. |
+| LangSmith tracing | Forced `LANGSMITH_TRACING=false` in `tauri/src/python_supervisor.rs` and `tauri/src/gateway_supervisor.rs` (verified by contract test + `cargo test`, 60 passed). |
+| Deferred | Official `build_bundle.ps1 -Verify` destructive rebuild (true on-disk after-size); and the `uv.lock` refresh — committed `uv.lock` is **already stale** vs `pyproject.toml` (`uv lock --locked` fails even without langgraph; refresh pulls in unrelated `botocore`→google-api drift), so it is split into a separate dependency-hygiene commit. |

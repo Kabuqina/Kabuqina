@@ -246,10 +246,15 @@ Record the date and evidence beside each item. GO requires every item checked.
 - [x] Phase 3 is complete or intentionally resolved.
 - [x] Existing ten-fixture golden suite passes on the legacy loop.
 - [x] STUDY integration is loop-decoupled and may land independently.
-- [ ] Task 1 proves the complete dependency closure installs in bundled
-  CPython 3.11 and records the actual size delta.
-- [ ] Task 1 proves both desktop child types start with
-  `LANGSMITH_TRACING=false`.
+- [~] Task 1 proves the complete dependency closure installs in bundled
+  CPython 3.11 and records the actual size delta. *(2026-06-28: proven via a
+  non-destructive wheels-only probe — net +9.46 MB, bundled-3.11 import OK, no
+  source-built wheel. The official `build_bundle.ps1 -Verify` rebuild is
+  deferred by decision; flip to `[x]` after it runs. See Task 1 completion
+  note.)*
+- [x] Task 1 proves both desktop child types start with
+  `LANGSMITH_TRACING=false`. *(2026-06-28: both supervisors wired; contract test
+  + `cargo test` 60 passed.)*
 - [ ] Task 2 pins all nineteen reachable return contracts, structurally guards
   the two dead fallthroughs, and pins retry assumptions.
 - [ ] The operator can run release-build chat + one tool on both API modes.
@@ -483,6 +488,52 @@ git commit -m "build: validate langgraph desktop dependency closure"
 ```
 
 Expected: Python contract and Rust tests pass.
+
+### Task 1 completion note (2026-06-28)
+
+**Status: dependency/tracing wiring landed; the viability gate PASSED via a
+non-destructive probe. The official `build_bundle.ps1 -Verify` rebuild is
+deferred by decision (it wipes+rebuilds the working 1.4 GB dev bundle); run it
+before flipping the go/no-go box to `[x]`.**
+
+Metadata recheck (PyPI, 2026-06-28): `langgraph==1.2.6`, `requires_python
+>=3.10`, ships a pure-Python `py3-none-any` wheel. Direct closure:
+`langchain-core>=1.4.7,<2`, `langgraph-checkpoint>=4.1.0,<5`,
+`langgraph-prebuilt>=1.1.0,<1.2`, `langgraph-sdk>=0.4.2,<0.5`, `pydantic`,
+`xxhash`.
+
+Probe method (no mutation of `python/dist/runtime`): installed
+`langgraph==1.2.6` with the bundled CPython 3.11.15 using the build's
+wheels-only flag (`--only-binary=:all:`) into a throwaway `--target`, summed the
+per-distribution footprint, and excluded distributions already present in the
+shipped `site-packages`.
+
+| Evidence | Value |
+|---|---|
+| Runtime size before | 1415.94 MB |
+| Gross closure (probe) | 21.68 MB (35 dists) |
+| **Net delta (new dists only)** | **+9.46 MB** |
+| Projected runtime after | ~1425.40 MB |
+| Size gate (≤ 25 MB) | **PASS** |
+| Source-built wheel required? | **No** — every cp311/win_amd64 dep resolved as a prebuilt wheel |
+| Bundled-3.11 import | `from langgraph.graph import StateGraph, START, END` → "langgraph bundle ok 3.11.15" |
+| Tracing-off (both supervisors) | PASS — contract test + `cargo test` (60 passed) |
+
+Net-new distributions: `langsmith`, `langchain-core` (1.4.8), `langgraph` +
+`-checkpoint`/`-prebuilt`/`-sdk`, `orjson`, `ormsgpack`, `zstandard`,
+`uuid-utils`, `xxhash`, `jsonpatch`, `jsonpointer`, `langchain-protocol`.
+
+Deferred / flagged for separate scoped commits:
+
+- **`build_bundle.ps1 -Verify`** official destructive rebuild — records the true
+  on-disk after-size and runs the bundled verifier import end-to-end.
+- **`uv.lock` refresh.** `hermes_core/uv.lock` is **already stale** vs the
+  committed `pyproject.toml` (`uv lock --locked` fails even without langgraph;
+  refreshing it removes `botocore`/`s3transfer`/`jmespath` and adds the
+  google-api + oauth stack — unrelated to this change). `uv.lock` is left at
+  HEAD so this commit stays scoped; the desktop bundle installs from
+  `requirements-desktop.txt` (pip), not `uv.lock`. The refresh + the langgraph
+  lock entry belong in a dedicated dependency-hygiene commit.
 
 ---
 

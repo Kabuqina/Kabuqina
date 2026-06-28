@@ -38,7 +38,12 @@ def main() -> int:
     import fastapi  # noqa: F401
     import uvicorn  # noqa: F401
 
-    print("pip payload ok: PyYAML, fastapi, uvicorn")
+    # Phase 3.5: prove the low-level LangGraph graph API imports from the bundled
+    # site-packages. Do not import MemorySaver/InMemorySaver, LangChain agents,
+    # or LangSmith clients here.
+    from langgraph.graph import END, START, StateGraph  # noqa: F401
+
+    print("pip payload ok: PyYAML, fastapi, uvicorn, langgraph")
     return 0
 
 

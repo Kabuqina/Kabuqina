@@ -810,6 +810,8 @@ impl GatewaySupervisor {
                 .map_err(|e| anyhow::anyhow!("PYTHONPATH: {e}"))?,
             )
             .env("NO_PROXY", "127.0.0.1,localhost,::1")
+            // Phase 3.5: never enable LangSmith tracing in shipped children.
+            .env("LANGSMITH_TRACING", "false")
             .env("BROWSER_CDP_URL", crate::edge_browser::cdp_url());
 
         // Inject the LLM API key from our vault so the upstream gateway

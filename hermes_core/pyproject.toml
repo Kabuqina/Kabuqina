@@ -25,6 +25,10 @@ dependencies = [
   "pydantic>=2.12.5,<3",
   # Terminal and approval helpers use prompt_toolkit integration points.
   "prompt_toolkit>=3.0.52,<4",
+  # Phase 3.5 agent graph engine. Low-level StateGraph only; langchain-core /
+  # langgraph-checkpoint / langgraph-prebuilt / langgraph-sdk / langsmith are
+  # accepted transitive deps and must not be imported outside the graph builder.
+  "langgraph==1.2.6",
   # Tools
   "exa-py>=2.9.0,<3",
   "firecrawl-py>=4.16.0,<5",
