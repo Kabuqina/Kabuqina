@@ -21,9 +21,13 @@ harness can declare ``assumed_retry_counts`` against a single source of truth.
 from __future__ import annotations
 
 import re
+import json
 from pathlib import Path
 
+from tests.run_agent.golden_harness import RETRY_ASSUMPTIONS
+
 RUN_AGENT_SRC = Path(__file__).resolve().parents[2] / "run_agent.py"
+GOLDEN_DIR = Path(__file__).parent / "golden"
 
 # name -> (expected count, regex pinning the production source expression that
 # encodes that count). The number is embedded in the pattern so changing the
@@ -67,3 +71,38 @@ def test_expected_counts_are_the_documented_contract() -> None:
         "incomplete_scratchpad_retries": 2,
         "unknown_tool_retries": 3,
     }
+    assert RETRY_ASSUMPTIONS == EXPECTED_RETRY_COUNTS
+
+
+def test_exhaustion_fixtures_declare_their_retry_assumptions() -> None:
+    required = {
+        "exit_invalid_response.json": "api_max_retries",
+        "exit_text_continuation.json": "text_continuation_attempts",
+        "exit_truncated_tool_call.json": "truncated_tool_call_retries",
+        "exit_payload_compression.json": "max_compression_attempts",
+        "exit_safe_output_context.json": "max_compression_attempts",
+        "exit_context_stepdown.json": "max_compression_attempts",
+        "exit_api_retries.json": "api_max_retries",
+        "exit_incomplete_scratchpad.json": "incomplete_scratchpad_retries",
+        "unknown_tool.json": "unknown_tool_retries",
+    }
+    missing: list[str] = []
+    for fixture_name, assumption_name in required.items():
+        spec = json.loads((GOLDEN_DIR / fixture_name).read_text(encoding="utf-8"))
+        assumptions = spec.get("assumed_retry_counts", {})
+        if assumptions.get(assumption_name) != EXPECTED_RETRY_COUNTS[assumption_name]:
+            missing.append(f"{fixture_name}: {assumption_name}")
+    assert not missing, "missing/drifted fixture retry assumptions:\n  " + "\n  ".join(missing)
+
+
+def test_all_declared_fixture_assumptions_match_contract() -> None:
+    drifted: list[str] = []
+    for fixture_path in sorted(GOLDEN_DIR.glob("*.json")):
+        spec = json.loads(fixture_path.read_text(encoding="utf-8"))
+        for name, value in spec.get("assumed_retry_counts", {}).items():
+            if EXPECTED_RETRY_COUNTS.get(name) != value:
+                drifted.append(
+                    f"{fixture_path.name}: {name}={value!r}, "
+                    f"expected={EXPECTED_RETRY_COUNTS.get(name)!r}"
+                )
+    assert not drifted, "fixture retry assumption drift:\n  " + "\n  ".join(drifted)

@@ -1,0 +1,130 @@
+{
+  "name": "exit_interrupt_invalid_wait",
+  "description": "Interrupt arrives during malformed-response backoff.",
+  "agent": {},
+  "user_message": "hello",
+  "assumed_retry_counts": {
+    "api_max_retries": 3
+  },
+  "preconditions": {
+    "backoff_seconds": 0.4,
+    "interrupt_on_sleep": 1,
+    "interrupt_text": "stop invalid retry"
+  },
+  "model_turns": [
+    {
+      "invalid": true
+    }
+  ],
+  "expected": {
+    "result_keys": [
+      "api_calls",
+      "completed",
+      "final_response",
+      "interrupted",
+      "messages"
+    ],
+    "result": {
+      "final_response": "Operation interrupted during retry (fast response (0.0s) — likely rate limited, attempt 1/3).",
+      "completed": false,
+      "partial": null,
+      "interrupted": true,
+      "api_calls": 1,
+      "model": null,
+      "provider": null,
+      "interrupt_message": null,
+      "pending_steer": null
+    },
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "cache_read_tokens": null,
+      "cache_write_tokens": null,
+      "reasoning_tokens": null,
+      "last_prompt_tokens": null,
+      "estimated_cost_usd": null,
+      "cost_status": null,
+      "cost_source": null
+    },
+    "messages": [
+      {
+        "role": "user",
+        "content": "hello"
+      }
+    ],
+    "tool_invocations": [],
+    "model_turns_consumed": 1,
+    "persisted_db_messages": [
+      {
+        "role": "user",
+        "content": "hello",
+        "tool_name": null,
+        "tool_call_id": null,
+        "finish_reason": null,
+        "tool_calls": null
+      }
+    ],
+    "stream_deltas": [],
+    "callback_events": [
+      {
+        "channel": "status",
+        "kind": "lifecycle",
+        "message": "⚠ No auxiliary LLM provider configured — context compression will drop middle turns without a summary. Run `hermes setup` or set OPENROUTER_API_KEY."
+      },
+      {
+        "channel": "status",
+        "kind": "lifecycle",
+        "message": "⚠ No auxiliary LLM provider configured — context compression will drop middle turns without a summary. Run `hermes setup` or set OPENROUTER_API_KEY."
+      }
+    ],
+    "trajectory_writes": [],
+    "hook_calls": [
+      {
+        "hook": "on_session_start",
+        "payload": {
+          "model": "golden/test-model",
+          "platform": "",
+          "session_id": "golden-session-0001"
+        }
+      },
+      {
+        "hook": "pre_llm_call",
+        "payload": {
+          "conversation_history": [
+            {
+              "role": "user",
+              "content": "hello"
+            }
+          ],
+          "is_first_turn": true,
+          "model": "golden/test-model",
+          "platform": "",
+          "sender_id": "",
+          "session_id": "golden-session-0001",
+          "user_message": "hello"
+        }
+      },
+      {
+        "hook": "pre_api_request",
+        "payload": {
+          "api_call_count": 1,
+          "api_mode": "chat_completions",
+          "base_url": "https://api.openai.com/v1",
+          "max_tokens": null,
+          "message_count": 2,
+          "model": "golden/test-model",
+          "platform": "",
+          "provider": "openrouter",
+          "session_id": "golden-session-0001",
+          "task_id": "golden-task-0001",
+          "tool_count": 0
+        }
+      }
+    ],
+    "cleanup_task_ids": [],
+    "clear_interrupt_calls": 1
+  }
+}

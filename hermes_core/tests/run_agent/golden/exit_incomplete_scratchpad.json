@@ -1,68 +1,23 @@
 {
-  "name": "unknown_tool",
-  "description": "Model calls a tool that does not exist; the loop returns an error for self-correction, and after 3 invalid attempts stops as partial.",
-  "agent": {
-    "api_mode": "chat_completions",
-    "provider": "openrouter",
-    "model": "golden/test-model",
-    "base_url": "https://api.openai.com/v1"
-  },
-  "user_message": "Do the thing.",
+  "name": "exit_incomplete_scratchpad",
+  "description": "Three unclosed scratchpads exhaust two retries.",
+  "agent": {},
+  "user_message": "reason",
   "assumed_retry_counts": {
-    "unknown_tool_retries": 3
+    "incomplete_scratchpad_retries": 2
   },
-  "tools": [
-    "web_search"
-  ],
-  "tool_results": {},
   "model_turns": [
     {
-      "content": null,
-      "finish_reason": "tool_calls",
-      "tool_calls": [
-        {
-          "id": "call_x_1",
-          "name": "nonexistent_zzz",
-          "arguments": "{}"
-        }
-      ],
-      "usage": {
-        "prompt_tokens": 100,
-        "completion_tokens": 6,
-        "total_tokens": 106
-      }
+      "content": "<REASONING_SCRATCHPAD>first",
+      "finish_reason": "stop"
     },
     {
-      "content": null,
-      "finish_reason": "tool_calls",
-      "tool_calls": [
-        {
-          "id": "call_x_2",
-          "name": "nonexistent_zzz",
-          "arguments": "{}"
-        }
-      ],
-      "usage": {
-        "prompt_tokens": 120,
-        "completion_tokens": 6,
-        "total_tokens": 126
-      }
+      "content": "<REASONING_SCRATCHPAD>second",
+      "finish_reason": "stop"
     },
     {
-      "content": null,
-      "finish_reason": "tool_calls",
-      "tool_calls": [
-        {
-          "id": "call_x_3",
-          "name": "nonexistent_zzz",
-          "arguments": "{}"
-        }
-      ],
-      "usage": {
-        "prompt_tokens": 140,
-        "completion_tokens": 6,
-        "total_tokens": 146
-      }
+      "content": "<REASONING_SCRATCHPAD>third",
+      "finish_reason": "stop"
     }
   ],
   "expected": {
@@ -102,41 +57,7 @@
     "messages": [
       {
         "role": "user",
-        "content": "Do the thing."
-      },
-      {
-        "role": "assistant",
-        "content": "",
-        "tool_calls": [
-          {
-            "id": "call_x_1",
-            "name": "nonexistent_zzz",
-            "arguments": "{}"
-          }
-        ],
-        "finish_reason": "tool_calls"
-      },
-      {
-        "role": "tool",
-        "content": "Tool 'nonexistent_zzz' does not exist. Available tools: web_search",
-        "tool_call_id": "call_x_1"
-      },
-      {
-        "role": "assistant",
-        "content": "",
-        "tool_calls": [
-          {
-            "id": "call_x_2",
-            "name": "nonexistent_zzz",
-            "arguments": "{}"
-          }
-        ],
-        "finish_reason": "tool_calls"
-      },
-      {
-        "role": "tool",
-        "content": "Tool 'nonexistent_zzz' does not exist. Available tools: web_search",
-        "tool_call_id": "call_x_2"
+        "content": "reason"
       }
     ],
     "tool_invocations": [],
@@ -144,53 +65,9 @@
     "persisted_db_messages": [
       {
         "role": "user",
-        "content": "Do the thing.",
+        "content": "reason",
         "tool_name": null,
         "tool_call_id": null,
-        "finish_reason": null,
-        "tool_calls": null
-      },
-      {
-        "role": "assistant",
-        "content": "",
-        "tool_name": null,
-        "tool_call_id": null,
-        "finish_reason": "tool_calls",
-        "tool_calls": [
-          {
-            "id": "call_x_1",
-            "name": "nonexistent_zzz",
-            "arguments": "{}"
-          }
-        ]
-      },
-      {
-        "role": "tool",
-        "content": "Tool 'nonexistent_zzz' does not exist. Available tools: web_search",
-        "tool_name": null,
-        "tool_call_id": "call_x_1",
-        "finish_reason": null,
-        "tool_calls": null
-      },
-      {
-        "role": "assistant",
-        "content": "",
-        "tool_name": null,
-        "tool_call_id": null,
-        "finish_reason": "tool_calls",
-        "tool_calls": [
-          {
-            "id": "call_x_2",
-            "name": "nonexistent_zzz",
-            "arguments": "{}"
-          }
-        ]
-      },
-      {
-        "role": "tool",
-        "content": "Tool 'nonexistent_zzz' does not exist. Available tools: web_search",
-        "tool_name": null,
-        "tool_call_id": "call_x_2",
         "finish_reason": null,
         "tool_calls": null
       }
@@ -224,7 +101,7 @@
           "conversation_history": [
             {
               "role": "user",
-              "content": "Do the thing."
+              "content": "reason"
             }
           ],
           "is_first_turn": true,
@@ -232,7 +109,7 @@
           "platform": "",
           "sender_id": "",
           "session_id": "golden-session-0001",
-          "user_message": "Do the thing."
+          "user_message": "reason"
         }
       },
       {
@@ -248,7 +125,7 @@
           "provider": "openrouter",
           "session_id": "golden-session-0001",
           "task_id": "golden-task-0001",
-          "tool_count": 1
+          "tool_count": 0
         }
       },
       {
@@ -256,10 +133,10 @@
         "payload": {
           "api_call_count": 1,
           "api_mode": "chat_completions",
-          "assistant_content_chars": 0,
-          "assistant_tool_call_count": 1,
+          "assistant_content_chars": 27,
+          "assistant_tool_call_count": 0,
           "base_url": "https://api.openai.com/v1",
-          "finish_reason": "tool_calls",
+          "finish_reason": "stop",
           "message_count": 2,
           "model": "golden/test-model",
           "platform": "",
@@ -267,16 +144,7 @@
           "response_model": "golden/test-model",
           "session_id": "golden-session-0001",
           "task_id": "golden-task-0001",
-          "usage": {
-            "cache_read_tokens": 0,
-            "cache_write_tokens": 0,
-            "input_tokens": 100,
-            "output_tokens": 6,
-            "prompt_tokens": 100,
-            "reasoning_tokens": 0,
-            "request_count": 1,
-            "total_tokens": 106
-          }
+          "usage": null
         }
       },
       {
@@ -286,13 +154,13 @@
           "api_mode": "chat_completions",
           "base_url": "https://api.openai.com/v1",
           "max_tokens": null,
-          "message_count": 4,
+          "message_count": 2,
           "model": "golden/test-model",
           "platform": "",
           "provider": "openrouter",
           "session_id": "golden-session-0001",
           "task_id": "golden-task-0001",
-          "tool_count": 1
+          "tool_count": 0
         }
       },
       {
@@ -300,27 +168,18 @@
         "payload": {
           "api_call_count": 2,
           "api_mode": "chat_completions",
-          "assistant_content_chars": 0,
-          "assistant_tool_call_count": 1,
+          "assistant_content_chars": 28,
+          "assistant_tool_call_count": 0,
           "base_url": "https://api.openai.com/v1",
-          "finish_reason": "tool_calls",
-          "message_count": 4,
+          "finish_reason": "stop",
+          "message_count": 2,
           "model": "golden/test-model",
           "platform": "",
           "provider": "openrouter",
           "response_model": "golden/test-model",
           "session_id": "golden-session-0001",
           "task_id": "golden-task-0001",
-          "usage": {
-            "cache_read_tokens": 0,
-            "cache_write_tokens": 0,
-            "input_tokens": 120,
-            "output_tokens": 6,
-            "prompt_tokens": 120,
-            "reasoning_tokens": 0,
-            "request_count": 1,
-            "total_tokens": 126
-          }
+          "usage": null
         }
       },
       {
@@ -330,13 +189,13 @@
           "api_mode": "chat_completions",
           "base_url": "https://api.openai.com/v1",
           "max_tokens": null,
-          "message_count": 6,
+          "message_count": 2,
           "model": "golden/test-model",
           "platform": "",
           "provider": "openrouter",
           "session_id": "golden-session-0001",
           "task_id": "golden-task-0001",
-          "tool_count": 1
+          "tool_count": 0
         }
       },
       {
@@ -344,31 +203,24 @@
         "payload": {
           "api_call_count": 3,
           "api_mode": "chat_completions",
-          "assistant_content_chars": 0,
-          "assistant_tool_call_count": 1,
+          "assistant_content_chars": 27,
+          "assistant_tool_call_count": 0,
           "base_url": "https://api.openai.com/v1",
-          "finish_reason": "tool_calls",
-          "message_count": 6,
+          "finish_reason": "stop",
+          "message_count": 2,
           "model": "golden/test-model",
           "platform": "",
           "provider": "openrouter",
           "response_model": "golden/test-model",
           "session_id": "golden-session-0001",
           "task_id": "golden-task-0001",
-          "usage": {
-            "cache_read_tokens": 0,
-            "cache_write_tokens": 0,
-            "input_tokens": 140,
-            "output_tokens": 6,
-            "prompt_tokens": 140,
-            "reasoning_tokens": 0,
-            "request_count": 1,
-            "total_tokens": 146
-          }
+          "usage": null
         }
       }
     ],
-    "cleanup_task_ids": [],
+    "cleanup_task_ids": [
+      "golden-task-0001"
+    ],
     "clear_interrupt_calls": 0
   }
 }

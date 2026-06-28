@@ -1,0 +1,232 @@
+{
+  "name": "exit_text_continuation",
+  "description": "Three truncated text responses exhaust continuation attempts.",
+  "agent": {},
+  "user_message": "write a long answer",
+  "assumed_retry_counts": {
+    "text_continuation_attempts": 3
+  },
+  "model_turns": [
+    {
+      "content": "part one ",
+      "finish_reason": "length"
+    },
+    {
+      "content": "part two ",
+      "finish_reason": "length"
+    },
+    {
+      "content": "part three",
+      "finish_reason": "length"
+    }
+  ],
+  "expected": {
+    "result_keys": [
+      "api_calls",
+      "completed",
+      "error",
+      "final_response",
+      "messages",
+      "partial"
+    ],
+    "result": {
+      "final_response": "part one part two part three",
+      "completed": false,
+      "partial": true,
+      "interrupted": null,
+      "api_calls": 3,
+      "model": null,
+      "provider": null,
+      "interrupt_message": null,
+      "pending_steer": null
+    },
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "cache_read_tokens": null,
+      "cache_write_tokens": null,
+      "reasoning_tokens": null,
+      "last_prompt_tokens": null,
+      "estimated_cost_usd": null,
+      "cost_status": null,
+      "cost_source": null
+    },
+    "messages": [
+      {
+        "role": "user",
+        "content": "write a long answer"
+      },
+      {
+        "role": "assistant",
+        "content": "part one",
+        "finish_reason": "length"
+      },
+      {
+        "role": "user",
+        "content": "[System: Your previous response was truncated by the output length limit. Continue exactly where you left off. Do not restart or repeat prior text. Finish the answer directly.]"
+      },
+      {
+        "role": "assistant",
+        "content": "part two",
+        "finish_reason": "length"
+      },
+      {
+        "role": "user",
+        "content": "[System: Your previous response was truncated by the output length limit. Continue exactly where you left off. Do not restart or repeat prior text. Finish the answer directly.]"
+      },
+      {
+        "role": "assistant",
+        "content": "part three",
+        "finish_reason": "length"
+      }
+    ],
+    "tool_invocations": [],
+    "model_turns_consumed": 3,
+    "persisted_db_messages": [
+      {
+        "role": "user",
+        "content": "write a long answer",
+        "tool_name": null,
+        "tool_call_id": null,
+        "finish_reason": null,
+        "tool_calls": null
+      },
+      {
+        "role": "assistant",
+        "content": "part one",
+        "tool_name": null,
+        "tool_call_id": null,
+        "finish_reason": "length",
+        "tool_calls": null
+      },
+      {
+        "role": "user",
+        "content": "[System: Your previous response was truncated by the output length limit. Continue exactly where you left off. Do not restart or repeat prior text. Finish the answer directly.]",
+        "tool_name": null,
+        "tool_call_id": null,
+        "finish_reason": null,
+        "tool_calls": null
+      },
+      {
+        "role": "assistant",
+        "content": "part two",
+        "tool_name": null,
+        "tool_call_id": null,
+        "finish_reason": "length",
+        "tool_calls": null
+      },
+      {
+        "role": "user",
+        "content": "[System: Your previous response was truncated by the output length limit. Continue exactly where you left off. Do not restart or repeat prior text. Finish the answer directly.]",
+        "tool_name": null,
+        "tool_call_id": null,
+        "finish_reason": null,
+        "tool_calls": null
+      },
+      {
+        "role": "assistant",
+        "content": "part three",
+        "tool_name": null,
+        "tool_call_id": null,
+        "finish_reason": "length",
+        "tool_calls": null
+      }
+    ],
+    "stream_deltas": [],
+    "callback_events": [
+      {
+        "channel": "status",
+        "kind": "lifecycle",
+        "message": "⚠ No auxiliary LLM provider configured — context compression will drop middle turns without a summary. Run `hermes setup` or set OPENROUTER_API_KEY."
+      },
+      {
+        "channel": "status",
+        "kind": "lifecycle",
+        "message": "⚠ No auxiliary LLM provider configured — context compression will drop middle turns without a summary. Run `hermes setup` or set OPENROUTER_API_KEY."
+      }
+    ],
+    "trajectory_writes": [],
+    "hook_calls": [
+      {
+        "hook": "on_session_start",
+        "payload": {
+          "model": "golden/test-model",
+          "platform": "",
+          "session_id": "golden-session-0001"
+        }
+      },
+      {
+        "hook": "pre_llm_call",
+        "payload": {
+          "conversation_history": [
+            {
+              "role": "user",
+              "content": "write a long answer"
+            }
+          ],
+          "is_first_turn": true,
+          "model": "golden/test-model",
+          "platform": "",
+          "sender_id": "",
+          "session_id": "golden-session-0001",
+          "user_message": "write a long answer"
+        }
+      },
+      {
+        "hook": "pre_api_request",
+        "payload": {
+          "api_call_count": 1,
+          "api_mode": "chat_completions",
+          "base_url": "https://api.openai.com/v1",
+          "max_tokens": null,
+          "message_count": 2,
+          "model": "golden/test-model",
+          "platform": "",
+          "provider": "openrouter",
+          "session_id": "golden-session-0001",
+          "task_id": "golden-task-0001",
+          "tool_count": 0
+        }
+      },
+      {
+        "hook": "pre_api_request",
+        "payload": {
+          "api_call_count": 2,
+          "api_mode": "chat_completions",
+          "base_url": "https://api.openai.com/v1",
+          "max_tokens": null,
+          "message_count": 4,
+          "model": "golden/test-model",
+          "platform": "",
+          "provider": "openrouter",
+          "session_id": "golden-session-0001",
+          "task_id": "golden-task-0001",
+          "tool_count": 0
+        }
+      },
+      {
+        "hook": "pre_api_request",
+        "payload": {
+          "api_call_count": 3,
+          "api_mode": "chat_completions",
+          "base_url": "https://api.openai.com/v1",
+          "max_tokens": null,
+          "message_count": 6,
+          "model": "golden/test-model",
+          "platform": "",
+          "provider": "openrouter",
+          "session_id": "golden-session-0001",
+          "task_id": "golden-task-0001",
+          "tool_count": 0
+        }
+      }
+    ],
+    "cleanup_task_ids": [
+      "golden-task-0001"
+    ],
+    "clear_interrupt_calls": 0
+  }
+}

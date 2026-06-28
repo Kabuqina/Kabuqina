@@ -1,0 +1,113 @@
+{
+  "name": "exit_nous_rate_guard",
+  "description": "Nous cross-session rate guard is active and no fallback exists.",
+  "agent": {
+    "provider": "nous"
+  },
+  "user_message": "hello",
+  "model_turns": [],
+  "preconditions": {
+    "nous_rate_guard_seconds": 60
+  },
+  "expected": {
+    "result_keys": [
+      "api_calls",
+      "completed",
+      "error",
+      "failed",
+      "final_response",
+      "messages"
+    ],
+    "result": {
+      "final_response": "⏳ Nous Portal rate limit active — resets in 60s.\n\nNo fallback provider available. Try again after the reset, or add a fallback provider in config.yaml.",
+      "completed": false,
+      "partial": null,
+      "interrupted": null,
+      "api_calls": 1,
+      "model": null,
+      "provider": null,
+      "interrupt_message": null,
+      "pending_steer": null
+    },
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "cache_read_tokens": null,
+      "cache_write_tokens": null,
+      "reasoning_tokens": null,
+      "last_prompt_tokens": null,
+      "estimated_cost_usd": null,
+      "cost_status": null,
+      "cost_source": null
+    },
+    "messages": [
+      {
+        "role": "user",
+        "content": "hello"
+      }
+    ],
+    "tool_invocations": [],
+    "model_turns_consumed": 0,
+    "persisted_db_messages": [
+      {
+        "role": "user",
+        "content": "hello",
+        "tool_name": null,
+        "tool_call_id": null,
+        "finish_reason": null,
+        "tool_calls": null
+      }
+    ],
+    "stream_deltas": [],
+    "callback_events": [
+      {
+        "channel": "status",
+        "kind": "lifecycle",
+        "message": "⚠ No auxiliary LLM provider configured — context compression will drop middle turns without a summary. Run `hermes setup` or set OPENROUTER_API_KEY."
+      },
+      {
+        "channel": "status",
+        "kind": "lifecycle",
+        "message": "⚠ No auxiliary LLM provider configured — context compression will drop middle turns without a summary. Run `hermes setup` or set OPENROUTER_API_KEY."
+      },
+      {
+        "channel": "status",
+        "kind": "lifecycle",
+        "message": "⏳ Nous Portal rate limit active — resets in 60s."
+      }
+    ],
+    "trajectory_writes": [],
+    "hook_calls": [
+      {
+        "hook": "on_session_start",
+        "payload": {
+          "model": "golden/test-model",
+          "platform": "",
+          "session_id": "golden-session-0001"
+        }
+      },
+      {
+        "hook": "pre_llm_call",
+        "payload": {
+          "conversation_history": [
+            {
+              "role": "user",
+              "content": "hello"
+            }
+          ],
+          "is_first_turn": true,
+          "model": "golden/test-model",
+          "platform": "",
+          "sender_id": "",
+          "session_id": "golden-session-0001",
+          "user_message": "hello"
+        }
+      }
+    ],
+    "cleanup_task_ids": [],
+    "clear_interrupt_calls": 0
+  }
+}

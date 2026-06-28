@@ -103,6 +103,35 @@
       }
     ],
     "stream_deltas": [],
+    "callback_events": [
+      {
+        "channel": "status",
+        "kind": "lifecycle",
+        "message": "⚠ No auxiliary LLM provider configured — context compression will drop middle turns without a summary. Run `hermes setup` or set OPENROUTER_API_KEY."
+      },
+      {
+        "channel": "status",
+        "kind": "lifecycle",
+        "message": "⚠ No auxiliary LLM provider configured — context compression will drop middle turns without a summary. Run `hermes setup` or set OPENROUTER_API_KEY."
+      }
+    ],
+    "trajectory_writes": [
+      {
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello in one short sentence."
+          },
+          {
+            "role": "assistant",
+            "content": "Hello — happy to help with whatever you need.",
+            "finish_reason": "stop"
+          }
+        ],
+        "user_query": "Say hello in one short sentence.",
+        "completed": true
+      }
+    ],
     "hook_calls": [
       {
         "hook": "on_session_start",

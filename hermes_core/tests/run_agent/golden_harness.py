@@ -57,6 +57,18 @@ GOLDEN_SESSION_ID = "golden-session-0001"
 # task-scoped hook payload / cleanup id stay deterministic across runs.
 GOLDEN_TASK_ID = "golden-task-0001"
 
+# Retry/attempt limits frozen by Phase 3.5 Task 2. Exhaustion fixtures declare
+# only the limits they depend on; validation happens before the loop consumes a
+# scripted turn so drift fails with a targeted message.
+RETRY_ASSUMPTIONS = {
+    "api_max_retries": 3,
+    "max_compression_attempts": 3,
+    "text_continuation_attempts": 3,
+    "truncated_tool_call_retries": 1,
+    "incomplete_scratchpad_retries": 2,
+    "unknown_tool_retries": 3,
+}
+
 # Hook payload fields that are wall-clock- or system-prompt-dependent and must
 # never enter a frozen snapshot. ``api_duration`` is elapsed seconds;
 # ``approx_input_tokens`` / ``request_char_count`` are measured over the full
@@ -140,6 +152,18 @@ class _ScriptedTransport:
 
         if turn.get("invalid"):
             return None
+        if error_spec := turn.get("raise"):
+            error_type = error_spec.get("type", "api_error")
+            error_cls = ValueError if error_type == "value_error" else Exception
+            error = error_cls(error_spec.get("message", error_type))
+            for attr in ("status_code", "body"):
+                if attr in error_spec:
+                    setattr(error, attr, error_spec[attr])
+            if "response_headers" in error_spec:
+                error.response = SimpleNamespace(
+                    headers=dict(error_spec["response_headers"])
+                )
+            raise error
         return self._builder(turn, self._model)
 
 
@@ -186,13 +210,61 @@ class _CompressStub:
     is covered by tests/agent/test_context_compressor.py — here we only
     characterize the loop's *integration* with it)."""
 
-    def __init__(self, compressed_history):
+    def __init__(self, compressed_history=None, *, sequence=None):
+        if compressed_history is not None and sequence is not None:
+            raise TypeError("declare compressed_history or sequence, not both")
         self._compressed = compressed_history
+        self._sequence = sequence
         self.calls = 0
 
     def __call__(self, messages, *args, **kwargs):
         self.calls += 1
-        return [dict(m) for m in self._compressed]
+        if self._sequence is not None:
+            if self.calls > len(self._sequence):
+                raise AssertionError(
+                    f"compressor requested output #{self.calls}, but the fixture "
+                    f"only declares {len(self._sequence)} output(s)"
+                )
+            compressed = self._sequence[self.calls - 1]
+        else:
+            compressed = self._compressed or []
+        return [dict(m) for m in compressed]
+
+
+class _ScriptedClock:
+    """Deterministic clock for retry/compression sleeps in transcript replay."""
+
+    def __init__(self, *, interrupt_on_sleep=None, interrupt=None):
+        # Keep the synthetic epoch comfortably modern so libraries that inspect
+        # wall time (for certificate sanity checks) do not emit warnings.
+        self._now = 2_000_000_000.0
+        self._interrupt_on_sleep = interrupt_on_sleep
+        self._interrupt = interrupt
+        self.sleep_calls = 0
+
+    def time(self):
+        return self._now
+
+    def sleep(self, seconds):
+        self.sleep_calls += 1
+        self._now += max(float(seconds), 0.001)
+        if (
+            self._interrupt_on_sleep == self.sleep_calls
+            and self._interrupt is not None
+        ):
+            self._interrupt()
+
+
+def _validate_retry_assumptions(assumptions: Dict[str, int]) -> None:
+    """Fail before replay when a fixture's declared retry limit has drifted."""
+    unknown = sorted(set(assumptions) - set(RETRY_ASSUMPTIONS))
+    assert not unknown, f"unknown retry assumption(s): {', '.join(unknown)}"
+    drifted = [
+        f"{name}: fixture={value}, contract={RETRY_ASSUMPTIONS[name]}"
+        for name, value in sorted(assumptions.items())
+        if RETRY_ASSUMPTIONS[name] != value
+    ]
+    assert not drifted, "retry assumption drift:\n  " + "\n  ".join(drifted)
 
 
 def _chat_response(turn: Dict[str, Any], model: str):
@@ -388,6 +460,8 @@ def _snapshot(
     hook_recorder,
     cleanup_task_ids,
     clear_interrupt_calls,
+    callback_events,
+    trajectory_writes,
 ) -> Dict[str, Any]:
     return {
         # Exact result-key presence (adding an absent key is a behavior change).
@@ -427,6 +501,10 @@ def _snapshot(
         "model_turns_consumed": transport.calls,
         "persisted_db_messages": _normalize_persisted(agent._session_db),
         "stream_deltas": list(stream_log),
+        # Unified callback stream preserves cross-channel order for lifecycle
+        # status, interim assistant commentary, and text deltas.
+        "callback_events": list(callback_events),
+        "trajectory_writes": list(trajectory_writes),
         # Plugin hook names/order/payloads (including which hooks are *absent* on
         # an exit), and the cleanup / interrupt-clear side effects per exit.
         "hook_calls": hook_recorder.calls,
@@ -436,10 +514,11 @@ def _snapshot(
 
 
 @contextlib.contextmanager
-def _patches(tool_names, tool_stub, api_mode):
+def _patches(tool_names, tool_stub, api_mode, preconditions=None):
     import run_agent
     import hermes_cli.plugins as _plugins
 
+    preconditions = preconditions or {}
     stack = contextlib.ExitStack()
     stack.enter_context(
         patch.object(
@@ -454,6 +533,7 @@ def _patches(tool_names, tool_stub, api_mode):
     stack.enter_context(
         patch.object(run_agent, "OpenAI", lambda **kw: _FakeOpenAIClient())
     )
+    stack.enter_context(patch.object(run_agent, "fetch_model_metadata", lambda: {}))
     stack.enter_context(
         patch.object(run_agent, "handle_function_call", tool_stub)
     )
@@ -465,6 +545,24 @@ def _patches(tool_names, tool_stub, api_mode):
                 anthropic_provider,
                 "build_anthropic_client",
                 lambda *a, **k: _FakeAnthropicClient(),
+            )
+        )
+    if "nous_rate_guard_seconds" in preconditions:
+        import providers.nous_rate_guard as nous_rate_guard
+
+        seconds = preconditions["nous_rate_guard_seconds"]
+        stack.enter_context(
+            patch.object(
+                nous_rate_guard,
+                "nous_rate_limit_remaining",
+                lambda: seconds,
+            )
+        )
+        stack.enter_context(
+            patch.object(
+                nous_rate_guard,
+                "format_remaining",
+                lambda remaining: f"{int(remaining)}s",
             )
         )
     # Observe (don't replace) the plugin-hook dispatcher. Each call site does a
@@ -508,7 +606,10 @@ def replay_transcript(spec: Dict[str, Any]) -> Dict[str, Any]:
     """Replay one transcript against a real ``AIAgent`` and return the snapshot."""
     import run_agent
 
+    _validate_retry_assumptions(spec.get("assumed_retry_counts", {}))
+
     cfg = spec.get("agent", {})
+    preconditions = spec.get("preconditions", {})
     api_mode = cfg.get("api_mode", "chat_completions")
     provider = cfg.get("provider", "openrouter")
     model = cfg.get("model", "golden/test-model")
@@ -519,6 +620,8 @@ def replay_transcript(spec: Dict[str, Any]) -> Dict[str, Any]:
     builder = _anthropic_response if api_mode == "anthropic_messages" else _chat_response
     transport = _ScriptedTransport(spec.get("model_turns", []), builder, model)
     stream_log: List[str] = []
+    callback_events: List[Dict[str, Any]] = []
+    trajectory_writes: List[Dict[str, Any]] = []
 
     # Optional summary response for the max-iterations path (direct client call).
     summary_spec = spec.get("summary_response")
@@ -526,11 +629,13 @@ def replay_transcript(spec: Dict[str, Any]) -> Dict[str, Any]:
 
     # Optional preflight-compression config.
     compression = spec.get("compression")
-    compress_stub = (
-        _CompressStub(compression.get("compressed_history", []))
-        if compression
-        else None
-    )
+    compressed_sequence = preconditions.get("compressed_history_sequence")
+    if compressed_sequence is not None:
+        compress_stub = _CompressStub(sequence=compressed_sequence)
+    elif compression:
+        compress_stub = _CompressStub(compression.get("compressed_history", []))
+    else:
+        compress_stub = None
     conversation_history = spec.get("conversation_history")
 
     extra_kwargs = {}
@@ -539,7 +644,9 @@ def replay_transcript(spec: Dict[str, Any]) -> Dict[str, Any]:
     if cfg.get("fallback_model"):
         extra_kwargs["fallback_model"] = cfg["fallback_model"]
 
-    with _patches(tool_names, tool_stub, api_mode) as hook_recorder, _fallback_patch(cfg.get("fallback_model")):
+    with _patches(
+        tool_names, tool_stub, api_mode, preconditions
+    ) as hook_recorder, _fallback_patch(cfg.get("fallback_model")):
         agent = run_agent.AIAgent(
             api_key="golden-key",
             base_url=base_url,
@@ -549,6 +656,16 @@ def replay_transcript(spec: Dict[str, Any]) -> Dict[str, Any]:
             quiet_mode=True,
             skip_context_files=True,
             skip_memory=True,
+            status_callback=lambda kind, message: callback_events.append(
+                {"channel": "status", "kind": kind, "message": message}
+            ),
+            interim_assistant_callback=lambda text, **kwargs: callback_events.append(
+                {
+                    "channel": "interim",
+                    "text": text,
+                    "already_streamed": bool(kwargs.get("already_streamed")),
+                }
+            ),
             **extra_kwargs,
         )
         # Determinism + hermeticity.
@@ -559,7 +676,16 @@ def replay_transcript(spec: Dict[str, Any]) -> Dict[str, Any]:
         agent._session_db = MagicMock()  # capture would-be-persisted rows
         agent._last_flushed_db_idx = 0
         agent._save_session_log = lambda *a, **k: None  # no JSON log on disk
-        agent._save_trajectory = lambda *a, **k: None  # no trajectory on disk
+        def _record_trajectory(messages, user_query, completed):
+            trajectory_writes.append(
+                {
+                    "messages": _normalize_messages(messages),
+                    "user_query": user_query,
+                    "completed": completed,
+                }
+            )
+
+        agent._save_trajectory = _record_trajectory  # observe; never write disk
         if summary_response is not None:
             agent.client = _FakeChatClient(summary_response)
 
@@ -573,6 +699,11 @@ def replay_transcript(spec: Dict[str, Any]) -> Dict[str, Any]:
             cc.protect_last_n = compression.get("protect_last_n", 1)
             cc.threshold_tokens = compression.get("threshold_tokens", 5)
             cc.compress = compress_stub
+        elif compress_stub is not None:
+            agent.context_compressor.compress = compress_stub
+
+        if "context_length" in preconditions:
+            agent.context_compressor.context_length = preconditions["context_length"]
 
         # Observe cleanup + interrupt-clear at their boundaries (record, delegate).
         cleanup_task_ids: List[str] = []
@@ -597,12 +728,31 @@ def replay_transcript(spec: Dict[str, Any]) -> Dict[str, Any]:
         else:
             agent._interruptible_api_call = transport
 
-        result = agent.run_conversation(
-            spec["user_message"],
-            conversation_history=conversation_history,
-            task_id=GOLDEN_TASK_ID,
-            stream_callback=lambda text: stream_log.append(text),
+        clock = _ScriptedClock(
+            interrupt_on_sleep=preconditions.get("interrupt_on_sleep"),
+            interrupt=lambda: agent.interrupt(
+                preconditions.get("interrupt_text", "scripted sleep interrupt")
+            ),
         )
+        with (
+            patch.object(run_agent.time, "time", clock.time),
+            patch.object(run_agent.time, "sleep", clock.sleep),
+            patch.object(
+                run_agent,
+                "jittered_backoff",
+                lambda *a, **k: preconditions.get("backoff_seconds", 0.2),
+            ),
+        ):
+            def _record_stream(text):
+                stream_log.append(text)
+                callback_events.append({"channel": "stream", "text": text})
+
+            result = agent.run_conversation(
+                spec["user_message"],
+                conversation_history=conversation_history,
+                task_id=GOLDEN_TASK_ID,
+                stream_callback=_record_stream,
+            )
 
     if compress_stub is not None:
         assert compress_stub.calls > 0, (
@@ -620,4 +770,6 @@ def replay_transcript(spec: Dict[str, Any]) -> Dict[str, Any]:
         hook_recorder,
         cleanup_task_ids,
         clear_interrupt_calls[0],
+        callback_events,
+        trajectory_writes,
     )

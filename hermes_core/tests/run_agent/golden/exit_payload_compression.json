@@ -1,0 +1,318 @@
+{
+  "name": "exit_payload_compression",
+  "description": "Four 413 responses exhaust three reducing compression attempts.",
+  "agent": {},
+  "user_message": "continue",
+  "assumed_retry_counts": {
+    "max_compression_attempts": 3
+  },
+  "conversation_history": [
+    {
+      "role": "user",
+      "content": "u1"
+    },
+    {
+      "role": "assistant",
+      "content": "a1"
+    },
+    {
+      "role": "user",
+      "content": "u2"
+    },
+    {
+      "role": "assistant",
+      "content": "a2"
+    },
+    {
+      "role": "user",
+      "content": "u3"
+    },
+    {
+      "role": "assistant",
+      "content": "a3"
+    }
+  ],
+  "preconditions": {
+    "compressed_history_sequence": [
+      [
+        {
+          "role": "user",
+          "content": "c1"
+        },
+        {
+          "role": "assistant",
+          "content": "c2"
+        },
+        {
+          "role": "user",
+          "content": "c3"
+        },
+        {
+          "role": "assistant",
+          "content": "c4"
+        },
+        {
+          "role": "user",
+          "content": "continue"
+        }
+      ],
+      [
+        {
+          "role": "user",
+          "content": "c2"
+        },
+        {
+          "role": "assistant",
+          "content": "c3"
+        },
+        {
+          "role": "user",
+          "content": "continue"
+        }
+      ],
+      [
+        {
+          "role": "user",
+          "content": "continue"
+        }
+      ]
+    ]
+  },
+  "model_turns": [
+    {
+      "raise": {
+        "type": "api_error",
+        "status_code": 413,
+        "message": "request payload too large"
+      }
+    },
+    {
+      "raise": {
+        "type": "api_error",
+        "status_code": 413,
+        "message": "request payload too large"
+      }
+    },
+    {
+      "raise": {
+        "type": "api_error",
+        "status_code": 413,
+        "message": "request payload too large"
+      }
+    },
+    {
+      "raise": {
+        "type": "api_error",
+        "status_code": 413,
+        "message": "request payload too large"
+      }
+    }
+  ],
+  "expected": {
+    "result_keys": [
+      "api_calls",
+      "completed",
+      "compression_exhausted",
+      "error",
+      "failed",
+      "messages",
+      "partial"
+    ],
+    "result": {
+      "final_response": null,
+      "completed": false,
+      "partial": true,
+      "interrupted": null,
+      "api_calls": 1,
+      "model": null,
+      "provider": null,
+      "interrupt_message": null,
+      "pending_steer": null
+    },
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "cache_read_tokens": null,
+      "cache_write_tokens": null,
+      "reasoning_tokens": null,
+      "last_prompt_tokens": null,
+      "estimated_cost_usd": null,
+      "cost_status": null,
+      "cost_source": null
+    },
+    "messages": [
+      {
+        "role": "user",
+        "content": "continue"
+      }
+    ],
+    "tool_invocations": [],
+    "model_turns_consumed": 4,
+    "persisted_db_messages": [
+      {
+        "role": "user",
+        "content": "continue",
+        "tool_name": null,
+        "tool_call_id": null,
+        "finish_reason": null,
+        "tool_calls": null
+      }
+    ],
+    "stream_deltas": [],
+    "callback_events": [
+      {
+        "channel": "status",
+        "kind": "lifecycle",
+        "message": "⚠ No auxiliary LLM provider configured — context compression will drop middle turns without a summary. Run `hermes setup` or set OPENROUTER_API_KEY."
+      },
+      {
+        "channel": "status",
+        "kind": "lifecycle",
+        "message": "⚠ No auxiliary LLM provider configured — context compression will drop middle turns without a summary. Run `hermes setup` or set OPENROUTER_API_KEY."
+      },
+      {
+        "channel": "status",
+        "kind": "lifecycle",
+        "message": "⚠️  Request payload too large (413) — compression attempt 1/3..."
+      },
+      {
+        "channel": "status",
+        "kind": "lifecycle",
+        "message": "🗜️ Compressed 7 → 5 messages, retrying..."
+      },
+      {
+        "channel": "status",
+        "kind": "lifecycle",
+        "message": "⚠️  Request payload too large (413) — compression attempt 2/3..."
+      },
+      {
+        "channel": "status",
+        "kind": "lifecycle",
+        "message": "🗜️ Compressed 5 → 3 messages, retrying..."
+      },
+      {
+        "channel": "status",
+        "kind": "lifecycle",
+        "message": "⚠️  Request payload too large (413) — compression attempt 3/3..."
+      },
+      {
+        "channel": "status",
+        "kind": "lifecycle",
+        "message": "🗜️ Compressed 3 → 1 messages, retrying..."
+      }
+    ],
+    "trajectory_writes": [],
+    "hook_calls": [
+      {
+        "hook": "pre_llm_call",
+        "payload": {
+          "conversation_history": [
+            {
+              "role": "user",
+              "content": "u1"
+            },
+            {
+              "role": "assistant",
+              "content": "a1"
+            },
+            {
+              "role": "user",
+              "content": "u2"
+            },
+            {
+              "role": "assistant",
+              "content": "a2"
+            },
+            {
+              "role": "user",
+              "content": "u3"
+            },
+            {
+              "role": "assistant",
+              "content": "a3"
+            },
+            {
+              "role": "user",
+              "content": "continue"
+            }
+          ],
+          "is_first_turn": false,
+          "model": "golden/test-model",
+          "platform": "",
+          "sender_id": "",
+          "session_id": "golden-session-0001",
+          "user_message": "continue"
+        }
+      },
+      {
+        "hook": "pre_api_request",
+        "payload": {
+          "api_call_count": 1,
+          "api_mode": "chat_completions",
+          "base_url": "https://api.openai.com/v1",
+          "max_tokens": null,
+          "message_count": 8,
+          "model": "golden/test-model",
+          "platform": "",
+          "provider": "openrouter",
+          "session_id": "golden-session-0001",
+          "task_id": "golden-task-0001",
+          "tool_count": 0
+        }
+      },
+      {
+        "hook": "pre_api_request",
+        "payload": {
+          "api_call_count": 1,
+          "api_mode": "chat_completions",
+          "base_url": "https://api.openai.com/v1",
+          "max_tokens": null,
+          "message_count": 6,
+          "model": "golden/test-model",
+          "platform": "",
+          "provider": "openrouter",
+          "session_id": "<rotated-session>",
+          "task_id": "golden-task-0001",
+          "tool_count": 0
+        }
+      },
+      {
+        "hook": "pre_api_request",
+        "payload": {
+          "api_call_count": 1,
+          "api_mode": "chat_completions",
+          "base_url": "https://api.openai.com/v1",
+          "max_tokens": null,
+          "message_count": 4,
+          "model": "golden/test-model",
+          "platform": "",
+          "provider": "openrouter",
+          "session_id": "<rotated-session>",
+          "task_id": "golden-task-0001",
+          "tool_count": 0
+        }
+      },
+      {
+        "hook": "pre_api_request",
+        "payload": {
+          "api_call_count": 1,
+          "api_mode": "chat_completions",
+          "base_url": "https://api.openai.com/v1",
+          "max_tokens": null,
+          "message_count": 2,
+          "model": "golden/test-model",
+          "platform": "",
+          "provider": "openrouter",
+          "session_id": "<rotated-session>",
+          "task_id": "golden-task-0001",
+          "tool_count": 0
+        }
+      }
+    ],
+    "cleanup_task_ids": [],
+    "clear_interrupt_calls": 0
+  }
+}

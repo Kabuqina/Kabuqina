@@ -149,6 +149,39 @@
       }
     ],
     "stream_deltas": [],
+    "callback_events": [
+      {
+        "channel": "status",
+        "kind": "lifecycle",
+        "message": "⚠ No auxiliary LLM provider configured — context compression will drop middle turns without a summary. Run `hermes setup` or set OPENROUTER_API_KEY."
+      },
+      {
+        "channel": "status",
+        "kind": "lifecycle",
+        "message": "⚠ No auxiliary LLM provider configured — context compression will drop middle turns without a summary. Run `hermes setup` or set OPENROUTER_API_KEY."
+      }
+    ],
+    "trajectory_writes": [
+      {
+        "messages": [
+          {
+            "role": "user",
+            "content": "[Earlier conversation summarized: planning a 3-milestone project.]"
+          },
+          {
+            "role": "user",
+            "content": "Now, what is 2 + 2?"
+          },
+          {
+            "role": "assistant",
+            "content": "2 + 2 = 4.",
+            "finish_reason": "stop"
+          }
+        ],
+        "user_query": "Now, what is 2 + 2?",
+        "completed": true
+      }
+    ],
     "hook_calls": [
       {
         "hook": "pre_llm_call",

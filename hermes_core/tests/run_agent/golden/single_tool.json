@@ -170,6 +170,52 @@
       }
     ],
     "stream_deltas": [],
+    "callback_events": [
+      {
+        "channel": "status",
+        "kind": "lifecycle",
+        "message": "⚠ No auxiliary LLM provider configured — context compression will drop middle turns without a summary. Run `hermes setup` or set OPENROUTER_API_KEY."
+      },
+      {
+        "channel": "status",
+        "kind": "lifecycle",
+        "message": "⚠ No auxiliary LLM provider configured — context compression will drop middle turns without a summary. Run `hermes setup` or set OPENROUTER_API_KEY."
+      }
+    ],
+    "trajectory_writes": [
+      {
+        "messages": [
+          {
+            "role": "user",
+            "content": "What's the weather in Tokyo? Use web_search."
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+              {
+                "id": "call_ws_1",
+                "name": "web_search",
+                "arguments": "{\"query\": \"Tokyo weather\"}"
+              }
+            ],
+            "finish_reason": "tool_calls"
+          },
+          {
+            "role": "tool",
+            "content": "{\"answer\": \"Tokyo is sunny, 22C\"}",
+            "tool_call_id": "call_ws_1"
+          },
+          {
+            "role": "assistant",
+            "content": "It's sunny and 22C in Tokyo right now.",
+            "finish_reason": "stop"
+          }
+        ],
+        "user_query": "What's the weather in Tokyo? Use web_search.",
+        "completed": true
+      }
+    ],
     "hook_calls": [
       {
         "hook": "on_session_start",
