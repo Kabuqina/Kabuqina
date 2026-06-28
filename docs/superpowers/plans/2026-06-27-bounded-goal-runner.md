@@ -17,6 +17,8 @@ selector, connect a thin worker adapter to public `AIAgent.run_conversation`.
 After the graph-default release soak, expose creation and rollout surfaces. The
 Goal Runner never imports LangGraph, never checkpoints an inner graph, never
 edits `run_agent.py`, and never runs both inner engines for one iteration.
+Phase 3.5 supplies the engine-neutral usage-event sink that makes early-exit
+cost accounting complete without changing the public result shape.
 
 **Tech stack:** Python 3.11, existing Hermes cron scheduler and tool registry,
 JSON state with atomic `os.replace`, pytest, Tauri 2/Rust, React/TypeScript, and
@@ -52,7 +54,7 @@ off. G2 is the first point at which a non-developer user may create a Goal Task.
 
 | Ownership | Files | Rule |
 |---|---|---|
-| Phase 3.5 only | `hermes_core/run_agent.py`, `hermes_core/agent/graph_engine/**`, LangGraph dependency files, supervisor tracing settings | Goal Runner commits never touch these files. |
+| Phase 3.5 only | `hermes_core/run_agent.py`, `hermes_core/agent/graph_engine/**`, initial `hermes_core/agent/usage_events.py` integration, LangGraph dependency files, supervisor tracing settings | Goal Runner commits never touch these files. |
 | Goal Runner only | `hermes_core/cron/goal_*.py`, `hermes_core/tools/goal_report_tool.py`, goal-specific tests, `tauri/src/cron.rs`, Scheduled Tasks goal presentation | May progress at G0. |
 | Serialized | `hermes_core/hermes_cli/config_defaults.py` | Phase 3.5 Task 10 lands `agent.engine` first; Goal Runner Task 8 rebases, then adds `cron.goal_loop`. |
 | Serialized | `hermes_core/cron/jobs.py`, `scheduler.py`, `tools/cronjob_tools.py` | Reserved for Goal Runner only after G1; do not mix Phase 3.5 refactors into those commits. |
@@ -73,18 +75,22 @@ semantics in an overlay.
 - A fresh inner-agent session is created for every iteration. Compact goal state
   is injected explicitly; no inner graph checkpoint is reused.
 - No automatic retry occurs after an ambiguous external side effect.
+- Missing usage or pricing is never charged as zero; an incomplete cost ledger
+  pauses before verification or completion.
 - `agent` and `notify` jobs keep their current JSON defaults and scheduler path.
 - Intermediate progress is not delivered to chat unless the job requests a
   periodic progress cadence; completion, pause, failure, and cancellation are.
 
 ---
 
-## Task 1 — Define goal state and atomic profile-local storage (G0)
+## Task 1 — Define goal state, usage summary, and atomic profile-local storage (G0)
 
 **Files:**
 
 - Create: `hermes_core/cron/goal_state.py`
+- Create: `hermes_core/cron/goal_usage.py`
 - Create: `hermes_core/tests/cron/test_goal_state.py`
+- Create: `hermes_core/tests/cron/test_goal_usage.py`
 
 - [ ] **Step 1: write failing model, path, and round-trip tests**
 
@@ -92,6 +98,11 @@ The tests must cover valid states, rejected job IDs, missing state, unknown
 schema versions, atomic replacement, and recovery when a stale `.tmp` file is
 present. Use `monkeypatch` to point `cron.goal_state.get_hermes_home` at
 `tmp_path`; never mutate the real profile.
+
+Usage tests cover no-attempt zero cost, multiple known events, included routes,
+mixed known/unknown events, missing usage, unknown pricing, exact decimal
+addition, and sanitized JSON round-trip. Any unknown event makes the aggregate
+amount unavailable rather than contributing zero.
 
 The public contract is:
 
@@ -139,6 +150,7 @@ class GoalRunState:
     status: GoalStatus
     iteration: int
     accumulated_cost_usd: Decimal
+    cost_accounting: Literal["complete", "incomplete"]
     accumulated_wall_seconds: float
     no_progress_count: int
     infrastructure_failures: int
@@ -151,6 +163,44 @@ class GoalRunState:
     completed_at: datetime | None
     updated_at: datetime
 ```
+
+`goal_usage.py` defines the engine-independent persisted view of Phase 3.5's
+usage-event stream:
+
+```python
+@dataclass(frozen=True)
+class GoalUsageEvent:
+    attempt_index: int
+    outcome: Literal["response", "invalid_response", "transport_error"]
+    provider: str
+    model: str
+    api_mode: str
+    input_tokens: int
+    output_tokens: int
+    cache_read_tokens: int
+    cache_write_tokens: int
+    reasoning_tokens: int
+    amount_usd: Decimal | None
+    cost_status: Literal["actual", "estimated", "included", "unknown"]
+    cost_source: str
+    pricing_version: str | None
+
+@dataclass(frozen=True)
+class GoalUsageSnapshot:
+    events: tuple[GoalUsageEvent, ...]
+    amount_usd: Decimal | None
+    complete: bool
+    incomplete_reason: str | None
+
+def summarize_usage_events(
+    events: Sequence[GoalUsageEvent],
+) -> GoalUsageSnapshot: ...
+```
+
+No events means a complete zero-cost iteration because no transport attempt was
+made. Every attempted request must have a numeric `actual`, `estimated`, or
+`included` event; otherwise the snapshot amount is `None` and `complete=False`.
+Never sum known events and silently discard an unknown event.
 
 Persist decimals and datetimes as strings. The file layout is:
 
@@ -166,6 +216,7 @@ Persist decimals and datetimes as strings. The file layout is:
 ```powershell
 cd hermes_core
 python -m pytest tests/cron/test_goal_state.py `
+  tests/cron/test_goal_usage.py `
   -o "addopts=" -p no:cacheprovider -q
 ```
 
@@ -208,7 +259,9 @@ python -m pytest tests/cron/test_goal_state.py `
   -o "addopts=" -p no:cacheprovider -q
 cd ..
 git add hermes_core/cron/goal_state.py `
-  hermes_core/tests/cron/test_goal_state.py
+  hermes_core/cron/goal_usage.py `
+  hermes_core/tests/cron/test_goal_state.py `
+  hermes_core/tests/cron/test_goal_usage.py
 git commit -m "feat: add durable goal run state"
 ```
 
@@ -233,6 +286,7 @@ Cover these exact outcomes:
 | `blocked` | not run | any | `paused` |
 | any | verifier error | any | `paused` |
 | any | run/cost/wall/deadline exceeded | any | `paused` |
+| any | usage/cost incomplete | any | `paused` with `cost_unknown` |
 | `progress` or failed candidate | unchanged hash reaches limit | any | `paused` |
 | infrastructure exception below limit | not run | no ambiguous side effect | `scheduled` |
 | infrastructure exception reaches limit | not run | any | `failed` |
@@ -245,7 +299,7 @@ Cover these exact outcomes:
 class IterationObservation:
     report: GoalReport | None
     verifier: VerifierResult | None
-    cost_usd: Decimal
+    usage: GoalUsageSnapshot
     wall_seconds: float
     evidence_hash: str | None
     infrastructure_error: str | None
@@ -268,9 +322,16 @@ def reduce_iteration(
 ```
 
 The reducer must not read the clock, filesystem, environment, config, or model.
-Apply limits after adding the current iteration's usage. A verifier pass can
+If `usage.complete` is false, set `cost_accounting="incomplete"`, preserve the
+last known accumulated amount, and pause before accepting any verifier result.
+Otherwise add `usage.amount_usd` and apply limits. A verifier pass can
 complete only a `candidate_done` report. A worker cannot complete by writing
 `status=completed` because that value is not in the report schema.
+
+When several pause causes apply, use this stable reason precedence:
+`ambiguous_external_effect`, `cost_unknown`, `worker_blocked`, verifier error,
+budget/deadline, then no-progress. Persist all applicable diagnostics even
+though only the first becomes `pause_reason`.
 
 - [ ] **Step 3: prove determinism and invalid-transition rejection**
 
@@ -484,11 +545,28 @@ before return, restart from committed state, and no second iteration in one call
 3. Persist `running` before invoking the worker.
 4. Invoke the worker exactly once.
 5. Persist the sanitized report and usage as immutable `report.json`.
-6. Persist `verifying` before a candidate verifier call.
-7. Run the verifier, persist `verification.json`, then canonicalize and hash the
+6. If the usage snapshot is incomplete, persist a `cost_unknown` pause and do
+   not run the verifier.
+7. Persist `verifying` before a candidate verifier call.
+8. Run the verifier, persist `verification.json`, then canonicalize and hash the
    verifier inputs and outputs.
-8. Reduce the observation, persist `transition.json`, then persist next state.
-9. Return output and delivery intent; never call a delivery adapter itself.
+9. Reduce the observation, persist `transition.json`, then persist next state.
+10. Return output and delivery intent; never call a delivery adapter itself.
+
+The progress fingerprint is the canonical JSON hash of only:
+
+```json
+{
+  "artifacts": [{"path": "learning-materials.json", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"}],
+  "verifier": {"outcome": "pass", "evidence": {"manifest_complete": true}}
+}
+```
+
+Sort artifacts by normalized path and canonicalize verifier evidence keys. Do
+not include worker `summary`, `next_step`, self-reported `evidence`, other model
+text, timestamps, iteration, usage, or cost. Tests vary every excluded field
+while keeping artifacts/verifier output fixed and assert the fingerprint is
+unchanged; changing one artifact digest must change it.
 
 If the process exits between steps 3 and 8, the next wake sees `running` or
 `verifying` and pauses for recovery review. It must not replay automatically.
@@ -504,6 +582,7 @@ missing report becomes a controlled pause rather than guessed progress.
 ```powershell
 cd hermes_core
 python -m pytest tests/cron/test_goal_state.py `
+  tests/cron/test_goal_usage.py `
   tests/cron/test_goal_transitions.py `
   tests/cron/test_goal_verifiers.py `
   tests/cron/test_goal_report.py `
@@ -535,6 +614,7 @@ pub mode: Option<String>,
 pub goal_status: Option<String>,
 pub goal_iteration: Option<u64>,
 pub goal_cost_usd: Option<String>,
+pub goal_cost_accounting: Option<String>,
 pub goal_pause_reason: Option<String>,
 pub goal_updated_at: Option<String>,
 ```
@@ -548,7 +628,8 @@ the entire task list.
 - [ ] **Step 2: render status without adding creation or execution controls**
 
 Show a “持续目标 / Goal Task” badge, iteration, accumulated cost, updated time,
-and sanitized pause reason. Existing `agent` and `notify` cards stay unchanged;
+cost-accounting completeness, and sanitized pause reason. Never render an
+incomplete amount as `$0`. Existing `agent` and `notify` cards stay unchanged;
 goal cards are status-only at G0 and do not call the legacy raw-file toggle or
 delete commands. No create form is added at G0. The view is naturally dormant
 until a developer fixture or later runtime wiring creates a goal job.
@@ -585,6 +666,8 @@ Do not start Task 7 until all boxes are checked in both plans:
   twice and its broader run-agent suite passes.
 - [ ] Phase 3.5 Task 10 lands the explicit constructor/environment/config
   selector and proves both `loop` and `graph` independently.
+- [ ] Phase 3.5's usage-event sink records normal and early-exit transport
+  attempts before branching, without changing legacy result dictionaries.
 - [ ] `AIAgent.run_conversation` remains the stable public entry point.
 - [ ] Goal Runner Tasks 1–6 pass and introduce no imports from
   `agent.graph_engine` or `langgraph`.
@@ -610,12 +693,19 @@ G1 opened: __________ at __________; reviewed by __________
 
 Assert one agent instance and one `run_conversation` call per iteration, a fresh
 session ID, explicit selected engine propagation, exact report-scope lifetime,
-and rejection when no valid `goal_report` is submitted. Run each case with
+complete usage-event propagation, and rejection when no valid `goal_report` is
+submitted. Run each case with
 `agent_engine="loop"` and `agent_engine="graph"`; never run both for one case.
 An exception before entering `run_conversation` may be classified as a safe
 infrastructure failure. Any exception after entry is conservatively marked
 `ambiguous_external_effect=True` and pauses; the adapter never infers from a
 missing report that no tool ran.
+
+Usage cases include a normal numeric result, thinking-budget/truncation exits
+whose result dictionaries omit cost, missing provider usage, unknown pricing,
+fallback route changes, compression, and max-iteration summary. The injected
+ledger—not result-key presence—must account for every attempt; any gap yields
+`complete=False`.
 
 - [ ] **Step 2: build bounded context from durable state**
 
@@ -631,10 +721,20 @@ factory for tests, and calls public `run_conversation`. It never imports or call
 `_run_conversation_loop`, `_run_conversation_graph`, `GraphEngine`, or a graph
 node.
 
+Construct a fresh Phase 3.5 `UsageLedger`, pass it through the public optional
+`AIAgent(..., usage_sink=ledger)` argument, and convert its snapshot to
+`GoalUsageSnapshot` after `run_conversation` returns. Do not infer cost from
+missing early-exit result keys or read aggregate session DB rows. If any event is
+unknown, return an incomplete usage snapshot so the controller pauses.
+
 The enabled toolsets are the job's allowlist intersected with the profile's
-policy, plus `goal_internal`. For Pilot 1 explicitly remove `messaging`,
-`cronjob`, `terminal`, `code_execution`, and `moa`. The adapter cannot broaden a
-desktop policy allowlist.
+policy, plus `goal_internal`. Pilot 1 enables only `file` and `goal_internal`;
+skills are preloaded context, not an expandable runtime toolset. It excludes
+network/browser, messaging, `cronjob`, `terminal`, `code_execution`, `moa`,
+`delegation`, vision, image generation, and TTS. The adapter cannot broaden a
+desktop policy allowlist. More generally, a toolset that can incur a separate
+model/API charge remains unavailable to Goal Tasks until it emits complete cost
+events into the iteration ledger.
 
 - [ ] **Step 4: verify both selected engines and commit**
 
@@ -962,7 +1062,9 @@ disposable local workspace. Enforce:
 
 - host profile only;
 - file read plus one manifest write;
-- no network, messaging, terminal, code execution, or subagents;
+- only `file` and `goal_internal` runtime toolsets; no network/browser,
+  messaging, terminal, code execution, subagents, vision, image generation, TTS,
+  or other separately billed tool;
 - maximum 40 runs, four hours, and a configured cost cap;
 - restart once while `scheduled`, once after `running` recovery pause, and once
   after a failed verifier;
@@ -1013,8 +1115,9 @@ git commit -m "feat: expose the bounded goal pilot"
 
 Complete 30 consecutive correct completions or pauses, at least five process/app
 restarts, zero out-of-workspace writes, zero secret leakage, zero duplicate
-non-idempotent effects, exact usage accumulation, and no false completion found
-by manual review.
+non-idempotent effects, exact per-attempt usage/cost accumulation, explicit
+`cost_unknown` pauses for incomplete ledgers, and no false completion found by
+manual review.
 
 - [ ] **Step 2: run the full regression and release-build smoke**
 
@@ -1067,7 +1170,7 @@ git commit -m "docs: record bounded goal rollout decision"
 
 | Surface | Command | Required result |
 |---|---|---|
-| Pure goal core | `cd hermes_core; python -m pytest tests/cron/test_goal_state.py tests/cron/test_goal_transitions.py tests/cron/test_goal_verifiers.py tests/cron/test_goal_report.py tests/cron/test_goal_runner.py -o "addopts=" -p no:cacheprovider -q` | Pass at G0 without LangGraph imports. |
+| Pure goal core | `cd hermes_core; python -m pytest tests/cron/test_goal_state.py tests/cron/test_goal_usage.py tests/cron/test_goal_transitions.py tests/cron/test_goal_verifiers.py tests/cron/test_goal_report.py tests/cron/test_goal_runner.py -o "addopts=" -p no:cacheprovider -q` | Pass at G0 without LangGraph imports. |
 | Runtime adapter | `cd hermes_core; python -m pytest tests/cron/test_goal_agent_worker.py tests/cron/test_cron_goal.py -o "addopts=" -p no:cacheprovider -q` | Pass under explicit loop and graph selection. |
 | Cron regression | `cd hermes_core; python -m pytest tests/cron -q -n 4` | Legacy and goal tests pass. |
 | Run-agent regression | `cd hermes_core; python -m pytest tests/run_agent -q -n 4` | Inner-engine contracts remain green. |
@@ -1086,6 +1189,8 @@ git commit -m "docs: record bounded goal rollout decision"
 - [ ] Pilot 1 satisfies every safety and correctness exit criterion.
 - [ ] Existing `agent` and `notify` jobs remain behaviorally unchanged.
 - [ ] Goal Runner has no LangGraph import, checkpointer, or `run_agent.py` edit.
+- [ ] Every iteration persists a complete per-attempt usage ledger or pauses as
+  `cost_unknown`; unknown cost is never treated as zero.
 - [ ] Host/gateway profile isolation and single-executor behavior are proven.
 - [ ] Rollback is a config change that preserves inspectable state.
 - [ ] `DECISIONS.md` records the final enablement scope and any deferred work.

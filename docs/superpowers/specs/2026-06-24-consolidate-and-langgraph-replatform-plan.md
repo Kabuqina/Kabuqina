@@ -10,9 +10,9 @@ finishing the provider consolidation and replacing the synchronous ReAct control
 loop with an explicitly modelled, rollback-safe LangGraph engine.
 
 **Architecture:** Phase 0 and Phase 3 below are retained as completed history.
-Phase 3.5 remains behind the legacy loop until dependency, packaging, and all
-21 current exit-path contracts are pinned. The graph uses low-level
-`StateGraph` only, keeps plain Hermes message dictionaries, passes
+Phase 3.5 remains behind the legacy loop until dependency, packaging, all
+reachable exit contracts, and the two dead-branch guards are pinned. The graph
+uses low-level `StateGraph` only, keeps plain Hermes message dictionaries, passes
 non-serializable collaborators through a runtime context, and does not enable a
 LangGraph checkpointer during the equivalence migration.
 
@@ -47,7 +47,9 @@ The revision makes these decisions explicit:
 4. **Preserve before improving.** The current early returns do not all execute
    cleanup, `post_llm_call`, or `on_session_end`. That inconsistency is part of
    the characterization contract. Normalize it only in a later behavior-change
-   commit with explicit tests and release notes.
+   commit with explicit tests and release notes. Before legacy-loop removal,
+   record a tracked follow-up identifier in `DECISIONS.md`; freezing the bug for
+   migration does not close the normalization work.
 5. **Never live-shadow side effects.** Tests may run loop and graph separately
    on scripted transports. Production must choose one engine before a turn.
    Never run both engines on the same real turn, and never automatically rerun a
@@ -89,7 +91,7 @@ implementation branch:
 
 | Owner | Files | Constraint |
 |---|---|---|
-| Phase 3.5 | `hermes_core/run_agent.py`, `hermes_core/agent/graph_engine/**`, `hermes_core/agent/engine_selector.py`, LangGraph dependency and supervisor tracing files | Goal Runner never edits or imports their private internals. |
+| Phase 3.5 | `hermes_core/run_agent.py`, `hermes_core/agent/graph_engine/**`, `hermes_core/agent/engine_selector.py`, `hermes_core/agent/usage_events.py`, LangGraph dependency and supervisor tracing files | Goal Runner never edits or imports their private internals; it consumes only the public usage sink contract. |
 | Goal Runner | `hermes_core/cron/goal_*.py`, `hermes_core/tools/goal_report_tool.py`, goal-specific cron tests, host status/control surfaces | May merge at G0 if no live cron path changes. |
 | Serialized | `hermes_core/hermes_cli/config_defaults.py` | Phase Task 10 adds `agent.engine` first. Goal Task 8 rebases and then adds `cron.goal_loop`. |
 | Serialized | `DECISIONS.md` and these plans | Append after rebasing; preserve both gate records. |
@@ -146,8 +148,11 @@ adds the missing bundled-CPython-3.11 gate.
 ### Grounded loop facts
 
 - `hermes_core/run_agent.py` currently has 12,897 lines.
-- `AIAgent.run_conversation` spans lines 9374–12664 and has **21 return sites**,
-  not 22. Twenty return literal dictionaries; the final site returns `result`.
+- `AIAgent.run_conversation` spans lines 9374–12664 and has **21 source return
+  sites**, not 22. The 2026-06-28 reachability spike classifies 19 as runtime
+  candidates and two truncation fallthroughs (10530 and 10542) as structurally
+  unreachable under both supported transport contracts. Twenty return literal
+  dictionaries; the final site returns `result`.
 - The public dictionaries use several key-presence shapes. Adding absent keys
   with `None` or `False` is an observable behavior change.
 - Six plugin hooks are load-bearing: `on_session_start`, `pre_llm_call`,
@@ -199,6 +204,7 @@ Out of scope:
 | `hermes_core/agent/graph_engine/builder.py` | The only production import site for `langgraph.*`; wraps pure nodes and compiles without a checkpointer. |
 | `hermes_core/agent/graph_engine/engine.py` | Stable `GraphEngine.run_turn()` adapter that converts graph output back to the exact legacy dictionary. |
 | `hermes_core/agent/engine_selector.py` | Resolve explicit constructor value → `HERMES_AGENT_ENGINE` → `agent.engine` config → `loop`. |
+| `hermes_core/agent/usage_events.py` | Engine-neutral per-transport-attempt usage/cost events and optional sink; no graph imports. |
 
 ### Modified production and packaging files
 
@@ -220,10 +226,15 @@ Out of scope:
 |---|---|
 | `hermes_core/tests/run_agent/golden_harness.py` | Accept an engine parameter and capture hooks, cleanup, interrupt clearing, and exact result-key presence. |
 | `hermes_core/tests/run_agent/test_golden_transcripts.py` | Parameterize selected fixtures over loop/graph without mutating process-global env. |
-| `hermes_core/tests/run_agent/test_exit_contract.py` | Pin all 21 exit sites by named scenario and exit policy. |
+| `hermes_core/tests/run_agent/test_exit_contract.py` | Inventory all 21 source exits; pin policies for nineteen runtime cases and structural status for two dead fallthroughs. |
 | `hermes_core/tests/run_agent/test_hook_invocation_parity.py` | Compare hook presence, order, and payloads for every exit family. |
+| `hermes_core/tests/run_agent/test_exit_reachability.py` | Prove runtime candidates and statically guard the two supported-protocol dead branches. |
+| `hermes_core/tests/run_agent/test_retry_contract.py` | Pin retry assumptions declared by exhaustion fixtures. |
+| `hermes_core/tests/run_agent/test_usage_event_sink.py` | Pin per-attempt usage/cost events for normal and early exits without changing results. |
+| `hermes_core/tests/run_agent/test_graph_differential_sequences.py` | Compare loop/graph on deterministic generated valid transport/tool sequences beyond fixed goldens. |
 | `hermes_core/tests/agent/test_graph_import_isolation.py` | Forbid LangGraph/LangChain/LangSmith imports outside `builder.py`. |
 | `hermes_core/tests/agent/test_engine_selector.py` | Pin selector validation and precedence. |
+| `hermes_core/tests/agent/test_usage_event_contract.py` | Pin ledger completeness and known/unknown cost aggregation. |
 | `python/tests/test_langgraph_bundle_contract.py` | Pin mirrored requirement and tracing-off supervisor wiring. |
 
 ---
@@ -239,7 +250,8 @@ Record the date and evidence beside each item. GO requires every item checked.
   CPython 3.11 and records the actual size delta.
 - [ ] Task 1 proves both desktop child types start with
   `LANGSMITH_TRACING=false`.
-- [ ] Task 2 pins every current return site and its side-effect policy.
+- [ ] Task 2 pins all nineteen reachable return contracts, structurally guards
+  the two dead fallthroughs, and pins retry assumptions.
 - [ ] The operator can run release-build chat + one tool on both API modes.
 - [ ] A two-week window has no other scheduled `run_agent.py`, transport,
   provider fallback, or session-persistence landings.
@@ -247,6 +259,14 @@ Record the date and evidence beside each item. GO requires every item checked.
 
 If a gate fails, leave the product on `loop`, document the failure, and stop.
 Passing unit tests is not permission to waive a failed packaging or runtime gate.
+
+The two-week item is a scheduled stabilization window, not a wait for the
+repository to become quiet by accident. After Task 2, record its start/end dates
+and base commit in this section and announce the frozen file surfaces. Goal
+Runner G0 and unrelated worktrees may continue outside them. Any urgent landing
+in `run_agent.py`, transport, fallback, or session persistence is allowed, but it
+restarts the 14-day clock after rebase and regression; a long-lived Phase branch
+is not a substitute for the window.
 
 ---
 
@@ -473,6 +493,8 @@ Expected: Python contract and Rust tests pass.
 - Modify: `hermes_core/tests/run_agent/golden_harness.py`
 - Modify: `hermes_core/tests/run_agent/test_golden_transcripts.py`
 - Create: `hermes_core/tests/run_agent/test_exit_contract.py`
+- Create: `hermes_core/tests/run_agent/test_exit_reachability.py`
+- Create: `hermes_core/tests/run_agent/test_retry_contract.py`
 - Create: `hermes_core/tests/run_agent/test_hook_invocation_parity.py`
 - Modify: `hermes_core/tests/run_agent/golden/plain_text.json`
 - Modify: `hermes_core/tests/run_agent/golden/unknown_tool.json`
@@ -482,8 +504,6 @@ Expected: Python contract and Rust tests pass.
 - Create: `hermes_core/tests/run_agent/golden/exit_thinking_budget.json`
 - Create: `hermes_core/tests/run_agent/golden/exit_text_continuation.json`
 - Create: `hermes_core/tests/run_agent/golden/exit_truncated_tool_call.json`
-- Create: `hermes_core/tests/run_agent/golden/exit_truncation_rollback.json`
-- Create: `hermes_core/tests/run_agent/golden/exit_first_response_truncated.json`
 - Create: `hermes_core/tests/run_agent/golden/exit_interrupt_api_error.json`
 - Create: `hermes_core/tests/run_agent/golden/exit_payload_compression.json`
 - Create: `hermes_core/tests/run_agent/golden/exit_payload_no_compression.json`
@@ -507,7 +527,48 @@ The contract for each exit is:
 - plugin hook names, order, and payloads, including hooks that are absent;
 - usage and cost accounting.
 
-- [ ] **Step 1: extend harness observations without changing fixtures**
+This task freezes the current public result/session accounting, including absent
+early-exit cost keys and any response usage the legacy loop currently misses.
+It does not repair that behavior. Task 4 adds a separate optional usage-event
+sink before branch handling; the sink is an additive observer and cannot alter a
+frozen result dictionary.
+
+- [ ] **Step 1: implement the reachability and retry-contract spike**
+
+Use the completed audit in
+`docs/superpowers/specs/2026-06-28-phase-3.5-exit-reachability-spike.md`.
+Extend the fixture driver with explicit scripted transport errors, compressor
+output sequences, starting context state, and `assumed_retry_counts`. These are
+declared preconditions, not patches to loop conditions or return dictionaries.
+
+`test_exit_reachability.py` must execute every runtime candidate before its
+golden is recorded. It also proves, by supported-protocol/normalizer contract,
+that 10530 and 10542 cannot be reached without an invalid `None` normalized
+response. Do not create goldens or graph routes for those two fallthroughs.
+
+`test_retry_contract.py` compares fixture assumptions with the current values:
+
+- `agent.api_max_retries` default: 3;
+- `max_compression_attempts`: 3;
+- text continuation attempts: 3;
+- truncated tool-call retries: 1;
+- incomplete scratchpad retries before the terminal response: 2;
+- unknown-tool retries: 3.
+
+Run the hardest slice first:
+
+```powershell
+cd hermes_core
+python -m pytest tests/run_agent/test_exit_reachability.py `
+  tests/run_agent/test_retry_contract.py `
+  -o "addopts=" -p no:cacheprovider -q
+```
+
+If another source return proves unreachable, stop and update the audit and
+inventory. Do not force it through a test double that violates a production
+transport contract.
+
+- [ ] **Step 2: extend harness observations without changing existing fixtures**
 
 Add these snapshot fields with deterministic lists and booleans:
 
@@ -522,7 +583,7 @@ Patch the shared hook dispatcher, `_cleanup_task_resources`, and
 `clear_interrupt` at their existing boundaries. Do not patch the loop branches
 being characterized.
 
-- [ ] **Step 2: add named scenarios for all 21 return sites**
+- [ ] **Step 3: inventory all 21 source returns without inventing dead fixtures**
 
 `test_exit_contract.py` must contain this exact scenario inventory so a source
 return cannot disappear from the equivalence review unnoticed:
@@ -535,8 +596,8 @@ return cannot disappear from the equivalence review unnoticed:
 | 10445 | `thinking_budget_exhausted` | `exit_thinking_budget.json` |
 | 10485 | `text_continuation_exhausted` | `exit_text_continuation.json` |
 | 10513 | `truncated_tool_call_repeated` | `exit_truncated_tool_call.json` |
-| 10530 | `truncation_rolls_back_history` | `exit_truncation_rollback.json` |
-| 10542 | `first_response_truncated` | `exit_first_response_truncated.json` |
+| 10530 | `truncation_rolls_back_history` | structural unreachable guard; no fixture |
+| 10542 | `first_response_truncated` | structural unreachable guard; no fixture |
 | 11097 | `interrupt_during_api_error_handling` | `exit_interrupt_api_error.json` |
 | 11267 | `payload_compression_attempts_exhausted` | `exit_payload_compression.json` |
 | 11298 | `payload_cannot_compress` | `exit_payload_no_compression.json` |
@@ -551,10 +612,11 @@ return cannot disappear from the equivalence review unnoticed:
 | 11944 | `truncated_json_tool_arguments` | `exit_truncated_json_args.json` |
 | 12664 | `normal_final_result` | existing `plain_text.json` |
 
-Line numbers document the 2026-06-27 audit; scenario ids are the stable
-contract. Future line movement must not rename the scenarios.
+Line numbers document the source audit; scenario ids are stable inventory keys.
+Future line movement must not rename them. The two guarded ids document dead
+legacy code, not runtime behavior the graph must reproduce.
 
-- [ ] **Step 3: record loop snapshots once, then freeze them**
+- [ ] **Step 4: record the nineteen reachable loop snapshots once, then freeze them**
 
 ```powershell
 cd hermes_core
@@ -568,15 +630,19 @@ git diff -- tests/run_agent/golden
 Review every fixture diff. Once committed, Phase 3.5 graph work must not run
 with `GOLDEN_RECORD=1`.
 
-- [ ] **Step 4: prove deterministic replay twice**
+- [ ] **Step 5: prove deterministic replay and reachability twice**
 
 ```powershell
 python -m pytest tests/run_agent/test_golden_transcripts.py `
   tests/run_agent/test_exit_contract.py `
+  tests/run_agent/test_exit_reachability.py `
+  tests/run_agent/test_retry_contract.py `
   tests/run_agent/test_hook_invocation_parity.py `
   -o "addopts=" -p no:cacheprovider -q
 python -m pytest tests/run_agent/test_golden_transcripts.py `
   tests/run_agent/test_exit_contract.py `
+  tests/run_agent/test_exit_reachability.py `
+  tests/run_agent/test_retry_contract.py `
   tests/run_agent/test_hook_invocation_parity.py `
   -o "addopts=" -p no:cacheprovider -q
 cd ..
@@ -585,7 +651,7 @@ cd ..
 Expected: both runs pass with identical fixture files and no network, real DB,
 or user-home writes.
 
-- [ ] **Step 5: commit the characterization gate**
+- [ ] **Step 6: commit the characterization gate**
 
 ```powershell
 git add hermes_core/tests/run_agent
@@ -604,8 +670,10 @@ git commit -m "test: pin all agent loop exit contracts"
 - Create: `hermes_core/agent/graph_engine/nodes.py`
 - Create: `hermes_core/agent/graph_engine/builder.py`
 - Create: `hermes_core/agent/graph_engine/engine.py`
+- Create: `hermes_core/agent/usage_events.py`
 - Create: `hermes_core/tests/agent/test_graph_import_isolation.py`
 - Create: `hermes_core/tests/agent/test_graph_contracts.py`
+- Create: `hermes_core/tests/agent/test_usage_event_contract.py`
 
 - [ ] **Step 1: write failing import-isolation and contract tests**
 
@@ -614,12 +682,19 @@ in `agent/graph_engine/builder.py`. It rejects production imports beginning with
 `langchain` or `langsmith` everywhere. The contract test asserts that converting
 a `LegacyRunResult` to output does not add absent optional keys.
 
+The usage contract test asserts that zero attempts is complete zero cost,
+numeric `actual`/`estimated`/`included` events sum exactly with `Decimal`, and
+one missing-usage or unknown-pricing attempt makes the whole snapshot incomplete
+instead of silently contributing zero.
+
 Run:
 
 ```powershell
 cd hermes_core
 python -m pytest tests/agent/test_graph_import_isolation.py `
-  tests/agent/test_graph_contracts.py -o "addopts=" -p no:cacheprovider -q
+  tests/agent/test_graph_contracts.py `
+  tests/agent/test_usage_event_contract.py `
+  -o "addopts=" -p no:cacheprovider -q
 ```
 
 Expected: FAIL because the package does not exist.
@@ -699,6 +774,16 @@ state on `AIAgent`, the adapter copies the resulting value into its returned
 state update before the next node. `nodes.py` contains one function per method
 and delegates through this protocol.
 
+`agent/usage_events.py` defines an engine-neutral `UsageEvent`, `UsageEventSink`
+protocol, and in-memory `UsageLedger`. Events contain attempt outcome, active
+billing route, canonical tokens, and the existing `CostResult`. The ledger is
+complete only when every attempted request has a numeric known/included amount;
+unknown events are retained and make the aggregate amount unavailable.
+
+`UsageEventSink` is runtime context, never `TurnState`, and has no LangGraph
+import. It is optional for ordinary callers and cannot change legacy result-key
+presence.
+
 - [ ] **Step 4: build without a checkpointer**
 
 `builder.py` is the only file that imports:
@@ -723,9 +808,12 @@ list when it changes messages.
 
 ```powershell
 python -m pytest tests/agent/test_graph_import_isolation.py `
-  tests/agent/test_graph_contracts.py -o "addopts=" -p no:cacheprovider -q
+  tests/agent/test_graph_contracts.py `
+  tests/agent/test_usage_event_contract.py `
+  -o "addopts=" -p no:cacheprovider -q
 cd ..
-git add hermes_core/agent/graph_engine hermes_core/tests/agent
+git add hermes_core/agent/graph_engine hermes_core/agent/usage_events.py `
+  hermes_core/tests/agent
 git commit -m "feat: add isolated agent graph contracts"
 ```
 
@@ -741,6 +829,7 @@ git commit -m "feat: add isolated agent graph contracts"
 - Modify: `hermes_core/agent/graph_engine/engine.py`
 - Modify: `hermes_core/tests/run_agent/golden_harness.py`
 - Create: `hermes_core/tests/run_agent/test_graph_plain_text.py`
+- Create: `hermes_core/tests/run_agent/test_usage_event_sink.py`
 
 - [ ] **Step 1: add a failing graph-only plain-text test**
 
@@ -748,12 +837,37 @@ Construct a fresh `AIAgent`, reuse the scripted chat-completions response from
 `plain_text.json`, invoke `_run_conversation_graph`, and assert equality with the
 frozen loop snapshot. Do not select through an environment variable yet.
 
+Add failing loop usage-sink cases for a normal response, a response with missing
+usage, a transport exception, and the thinking-budget early exit. Add the graph
+case for the normal-response vertical slice. Assert one event per attempted call
+and assert that adding the optional sink does not change the result dictionary.
+
 - [ ] **Step 2: implement only the plain-text route**
 
 Wire `initialize_turn → prepare_request → call_transport → process_response →
 finish`. Reuse existing request builders, transport adapters, usage accounting,
 message builders, and persistence helpers through `GraphServices`. Do not copy
 provider SDK calls into graph files.
+
+Add `usage_sink: UsageEventSink | None = None` to `AIAgent.__init__`. Emit an
+event immediately when each transport attempt returns or raises, before response
+validation, finish-reason handling, truncation, or any early return. Normalize
+and price response usage with `agent.usage_pricing`; a missing-usage response or
+transport error emits an explicit unknown-cost event. The existing session
+counters, DB writes, hooks, and result dictionaries remain unchanged.
+
+Cache the canonical usage and `CostResult` on the attempt event. When control
+reaches the legacy session-accounting block, reuse that event instead of
+normalizing/pricing a second time. Early exits still skip the legacy counters as
+their frozen contract requires; only the optional side-channel sees their event.
+
+Thread the same sink through agent-owned auxiliary model calls, including
+context compression and the max-iteration toolless summary. Do not claim a turn
+ledger is complete when one of those calls bypasses the sink.
+
+Pricing lookup failures become unknown-cost events. A sink callback exception is
+logged and cannot change the agent result or retry path; the Goal adapter treats
+a missing expected event as an incomplete ledger and pauses.
 
 `pre_llm_call` fires once during initialization. `pre_api_request` and
 `post_api_request` fire around each transport call. Final hook and persistence
@@ -764,6 +878,7 @@ behavior comes from the frozen normal-result exit policy.
 ```powershell
 cd hermes_core
 python -m pytest tests/run_agent/test_graph_plain_text.py `
+  tests/run_agent/test_usage_event_sink.py `
   tests/run_agent/test_golden_transcripts.py `
   -o "addopts=" -p no:cacheprovider -q
 cd ..
@@ -792,11 +907,15 @@ git commit -m "feat: run plain agent turns through graph engine"
 - Modify: `hermes_core/agent/graph_engine/engine.py`
 - Modify: `hermes_core/tests/run_agent/test_streaming.py`
 - Create: `hermes_core/tests/run_agent/test_graph_protocol_parity.py`
+- Modify: `hermes_core/tests/run_agent/test_usage_event_sink.py`
 
 - [ ] **Step 1: write failing Anthropic and streaming graph tests**
 
 Cover `anthropic_text.json` and the existing streaming cases for delta order,
 callback exceptions, stream-drop fallback, and interrupt polling.
+Assert Anthropic raw response usage becomes the same canonical usage/cost event
+under loop and graph even though its normalized response currently carries no
+usage object.
 
 - [ ] **Step 2: route both protocols through one transport service port**
 
@@ -815,6 +934,7 @@ polling behavior.
 cd hermes_core
 python -m pytest tests/run_agent/test_graph_protocol_parity.py `
   tests/run_agent/test_streaming.py `
+  tests/run_agent/test_usage_event_sink.py `
   tests/run_agent/test_golden_transcripts.py `
   -o "addopts=" -p no:cacheprovider -q
 cd ..
@@ -876,6 +996,7 @@ git commit -m "feat: preserve graph tool and steer behavior"
 - Modify: `hermes_core/agent/graph_engine/builder.py`
 - Modify: `hermes_core/agent/graph_engine/engine.py`
 - Create: `hermes_core/tests/run_agent/test_graph_error_parity.py`
+- Modify: `hermes_core/tests/run_agent/test_usage_event_sink.py`
 
 - [ ] **Step 1: write failing graph tests for transport-error exits**
 
@@ -883,6 +1004,10 @@ Cover fallback, rate guard, invalid response retry, nonretryable client error,
 generic retry exhaustion, interrupt during both retry waits, and interrupt during
 API-error handling. Patch sleep through the existing harness clock; do not reduce
 production retry counts for tests.
+
+For both engines, assert one usage event per attempted route, including explicit
+unknown-cost events for invalid responses and transport errors. Fallback events
+must retain the provider/model active for each attempt.
 
 - [ ] **Step 2: implement error classification and routing**
 
@@ -902,6 +1027,7 @@ raises. Assert the legacy loop is never invoked and the side-effect count is one
 ```powershell
 cd hermes_core
 python -m pytest tests/run_agent/test_graph_error_parity.py `
+  tests/run_agent/test_usage_event_sink.py `
   tests/run_agent/test_exit_contract.py `
   -o "addopts=" -p no:cacheprovider -q
 cd ..
@@ -923,6 +1049,7 @@ git commit -m "feat: preserve graph retry and fallback behavior"
 - Modify: `hermes_core/agent/graph_engine/builder.py`
 - Modify: `hermes_core/agent/graph_engine/engine.py`
 - Create: `hermes_core/tests/run_agent/test_graph_budget_parity.py`
+- Modify: `hermes_core/tests/run_agent/test_usage_event_sink.py`
 
 - [ ] **Step 1: write failing graph tests for every budget exit family**
 
@@ -944,11 +1071,24 @@ Set the invocation recursion limit deterministically:
 recursion_limit = max(1000, (max_iterations * 12) + 100)
 ```
 
+Treat this formula as an initial ceiling, not a proved constant. In
+`test_graph_budget_parity.py`, count test-only node transitions for the
+worst-case API retry, compression retry, truncated continuation, and tool-loop
+fixtures. Assert each completes without `GraphRecursionError`, record the
+maximum observed super-steps, and require at least 20% headroom below the chosen
+limit. If the measurement fails, revise the formula from evidence and record the
+new bound here; do not merely raise it until the test turns green.
+
+The same budget tests assert that compression and max-iteration summary model
+calls append usage events to the current turn ledger under both engines. A
+missing auxiliary event makes the ledger incomplete.
+
 - [ ] **Step 3: run and commit**
 
 ```powershell
 cd hermes_core
 python -m pytest tests/run_agent/test_graph_budget_parity.py `
+  tests/run_agent/test_usage_event_sink.py `
   tests/run_agent/test_exit_contract.py `
   -o "addopts=" -p no:cacheprovider -q
 cd ..
@@ -972,6 +1112,8 @@ git commit -m "feat: preserve graph compression and budget behavior"
 - Modify: `hermes_core/tests/run_agent/golden_harness.py`
 - Modify: `hermes_core/tests/run_agent/test_golden_transcripts.py`
 - Modify: `hermes_core/tests/run_agent/test_hook_invocation_parity.py`
+- Modify: `hermes_core/tests/run_agent/test_usage_event_sink.py`
+- Create: `hermes_core/tests/run_agent/test_graph_differential_sequences.py`
 
 - [ ] **Step 1: apply the frozen exit policy instead of one universal finalizer**
 
@@ -987,6 +1129,19 @@ fresh scripted transports. The test compares the complete snapshots. Do not
 change `os.environ` inside a parameterized test because xdist workers and nested
 agents may share it.
 
+For each of the nineteen reachable exit scenarios, compare the complete
+`UsageLedger` event sequence under loop and graph: attempt outcome, active route,
+canonical tokens, numeric/unknown amount, status, source, and pricing version.
+The two structural dead branches have no usage sequence and no graph route.
+
+Add a deterministic differential pass using a fixed seed and stdlib `random`;
+do not add a property-testing dependency. Generate at least 100 valid bounded
+sequences from text, known/unknown tools, steer, interrupt, truncation, retryable
+error, and completion events. Run loop and graph on fresh agents/transports and
+compare the same full snapshot contract. On failure print the seed and minimized
+prefix so it can become a named regression fixture. This supplements fixed
+goldens; it does not authorize changing them automatically.
+
 - [ ] **Step 3: run the full equivalence gate twice**
 
 ```powershell
@@ -994,10 +1149,14 @@ cd hermes_core
 python -m pytest tests/run_agent/test_golden_transcripts.py `
   tests/run_agent/test_exit_contract.py `
   tests/run_agent/test_hook_invocation_parity.py `
+  tests/run_agent/test_usage_event_sink.py `
+  tests/run_agent/test_graph_differential_sequences.py `
   -o "addopts=" -p no:cacheprovider -q
 python -m pytest tests/run_agent/test_golden_transcripts.py `
   tests/run_agent/test_exit_contract.py `
   tests/run_agent/test_hook_invocation_parity.py `
+  tests/run_agent/test_usage_event_sink.py `
+  tests/run_agent/test_graph_differential_sequences.py `
   -o "addopts=" -p no:cacheprovider -q
 python -m pytest tests/run_agent -q -n 4
 cd ..
@@ -1115,6 +1274,8 @@ Record the Task 9 equivalence commit and this selector commit in
 `docs/superpowers/plans/2026-06-27-bounded-goal-runner.md`. Goal Runner Tasks
 7–9 may now integrate through public `AIAgent.run_conversation`. They must finish
 their explicit loop/graph adapter gate before this plan removes the selector.
+Do not open G1 unless `test_usage_event_sink.py` also proves complete/unknown
+per-attempt events on both engines without result-shape changes.
 
 ---
 
@@ -1185,6 +1346,9 @@ import-isolation test. Do not use `run_agent.py` line-count reduction as the
 success criterion; use branch coverage, exit-contract coverage, and dependency
 direction instead.
 
+Before this commit, create or designate the tracked cleanup/hook-normalization
+follow-up required by decision 4 and record its identifier in `DECISIONS.md`.
+
 ```powershell
 git add hermes_core/run_agent.py hermes_core/agent/engine_selector.py `
   hermes_core/hermes_cli/config_defaults.py hermes_core/tests DECISIONS.md `
@@ -1220,6 +1384,9 @@ default flip.
 | Surface | Command | Required result |
 |---|---|---|
 | Deterministic goldens | `cd hermes_core; python -m pytest tests/run_agent/test_golden_transcripts.py -o "addopts=" -p no:cacheprovider -q` | All fixtures pass twice without changes. |
+| Exit reachability | `cd hermes_core; python -m pytest tests/run_agent/test_exit_reachability.py tests/run_agent/test_retry_contract.py -o "addopts=" -p no:cacheprovider -q` | Nineteen runtime candidates execute; two dead fallthrough guards pass; retry assumptions match. |
+| Usage side channel | `cd hermes_core; python -m pytest tests/agent/test_usage_event_contract.py tests/run_agent/test_usage_event_sink.py -o "addopts=" -p no:cacheprovider -q` | Per-attempt loop/graph events match; unknown cost is explicit. |
+| Differential sequences | `cd hermes_core; python -m pytest tests/run_agent/test_graph_differential_sequences.py -o "addopts=" -p no:cacheprovider -q` | At least 100 fixed-seed valid sequences match. |
 | Core run-agent slice | `cd hermes_core; python -m pytest tests/run_agent -q -n 4` | Pass under loop and graph. |
 | Provider guards | `cd hermes_core; python -m pytest tests/agent/test_provider_package_split.py tests/kabuqina/test_compat_imports.py -q -n 4` | Pass. |
 | Desktop Python | `cd python; python -m unittest discover -s tests -p "test_*.py" -v` | Pass. |
@@ -1243,10 +1410,13 @@ All must hold:
 - [ ] dependency closure and actual bundle-size delta are recorded;
 - [ ] bundled Python 3.11 imports and runs the low-level graph;
 - [ ] LangSmith tracing is forced off for web and gateway children;
-- [ ] all 21 legacy exit scenarios have frozen loop contracts;
+- [ ] all nineteen reachable legacy exits have frozen loop contracts and the two
+  supported-protocol dead fallthroughs have structural guards;
 - [ ] loop and graph snapshots match twice deterministically;
 - [ ] hook, cleanup, interrupt, persistence, stream, usage, and result-key parity
   tests pass;
+- [ ] optional usage-event sink sequences match under loop and graph for every
+  reachable exit, including explicit unknown-cost attempts;
 - [ ] both API modes pass release-build chat + tool smoke;
 - [ ] graph is default for a 14-day release soak with the loop escape hatch;
 - [ ] before legacy-loop removal, Goal Runner Task 10 records its explicit

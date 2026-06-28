@@ -236,6 +236,7 @@ Agent and scheduling semantics belong in `hermes_core/`:
 
 | File | Responsibility |
 |---|---|
+| `hermes_core/agent/usage_events.py` | Engine-neutral per-attempt usage/cost sink supplied by Phase 3.5. |
 | `hermes_core/cron/goal_runner.py` | Execute one bounded iteration and return a state transition. |
 | `hermes_core/cron/goal_state.py` | Validate, atomically persist, and recover mutable goal state. |
 | `hermes_core/cron/goal_transitions.py` | Apply limits and reduce one observation to a pure state transition. |
@@ -332,6 +333,7 @@ The state schema is:
   "updated_at": null,
   "completed_at": null,
   "accumulated_cost_usd": "0.0",
+  "cost_accounting": "complete",
   "accumulated_wall_seconds": 0.0,
   "no_progress_count": 0,
   "infrastructure_failures": 0,
@@ -373,6 +375,59 @@ never completes a goal.
 The internal report port records data only. It cannot change the job definition,
 raise limits, expand toolsets, approve an action, or mark the goal verified.
 
+### Usage and cost ledger
+
+The normal `run_conversation` result currently includes numeric
+`estimated_cost_usd`, token totals, `cost_status`, and `cost_source`. Most early
+exit dictionaries do not. More importantly, several truncation exits return
+before the loop's existing session counters and session DB update consume the
+response usage. The Goal Runner therefore does not treat the result dictionary,
+agent instance totals, or session DB row as a complete per-iteration ledger.
+
+Phase 3.5 introduces an engine-neutral side channel in
+`hermes_core/agent/usage_events.py`. `AIAgent` accepts an optional usage sink;
+the loop and graph transport adapters emit exactly one event for every main or
+agent-owned auxiliary model attempt before any response branch can return. This
+includes context-compression and max-iteration summary calls, not only the main
+conversation transport. An event records:
+
+- attempt index and outcome (`response`, `invalid_response`, or
+  `transport_error`);
+- provider, model, base URL, and API mode active for that attempt;
+- normalized input, output, cache-read, cache-write, and reasoning tokens when
+  the provider supplies usage;
+- `CostResult.amount_usd`, status, source, and pricing version from the existing
+  `agent.usage_pricing` logic.
+
+The sink is `None` for ordinary callers and does not add or remove result keys.
+Goal Task iterations inject a fresh in-memory `UsageLedger` and persist its
+sanitized events in `report.json`. The ledger, not the result dictionary, is the
+authoritative source for the iteration cost.
+
+An optional independent evaluator uses a separate ledger that is merged into the
+same iteration record before limits are applied. Pilot 1 disables subagents and
+tools that make separately billed model/API calls. They remain unavailable to
+Goal Tasks until they propagate the usage sink or define their own complete cost
+event contract; a main-agent ledger cannot claim to cap charges it cannot see.
+
+Cost completeness is fail-closed:
+
+- zero transport attempts is a complete known cost of zero;
+- `actual`, `estimated`, and `included` events with numeric amounts are summed;
+- any attempted request with missing usage or unknown pricing makes the
+  iteration cost incomplete;
+- an incomplete ledger is never attributed as zero and never passes
+  `max_cost_usd`; the task pauses with `cost_unknown` before verification or
+  completion;
+- Pilot 1 validates the primary and fallback pricing routes before its first
+  worker turn so unknown-cost pauses are exceptional rather than routine.
+
+The state keeps the sum of complete prior/current amounts in
+`accumulated_cost_usd` and records `cost_accounting` as `complete` or
+`incomplete`. A future provider reconciliation may replace an estimate with an
+actual charge only through a separately versioned ledger event; it must not
+silently rewrite old iteration evidence.
+
 ### Verification model
 
 Verification is tiered:
@@ -413,30 +468,38 @@ home-grown JSON Schema interpreter.
 The controller applies transitions in this order:
 
 1. Validate job definition and load state.
-2. Enforce deadline, run-count, cost, wall-time, and cancellation limits before
-   calling a model.
+2. Enforce deadline, run-count, previously accumulated cost, wall-time, and
+   cancellation limits before calling a model.
 3. Run one worker turn with the job's fixed skills and toolsets.
-4. Persist the worker report and usage before verification.
-5. Run the deterministic verifier.
-6. Run the independent evaluator only when configured and deterministic checks
+4. Persist the worker report and complete usage-event ledger before verification.
+5. If cost accounting is incomplete, persist `paused/cost_unknown` and stop.
+   Otherwise add the iteration amount and enforce `max_cost_usd`.
+6. Run the deterministic verifier.
+7. Run the independent evaluator only when configured and deterministic checks
    have not failed.
-7. Compute a stable evidence hash from verifier inputs and outputs.
-8. Transition:
+8. Compute a stable evidence hash from deterministic signals only: the sorted
+   content hashes of the declared artifacts plus the deterministic verifier's
+   `outcome` and canonicalized `evidence`. Model-authored report fields
+   (`summary`, `next_step`, and the worker's self-reported `evidence`) are
+   excluded so the hash reflects real change, not regenerated prose.
+9. Transition:
    - verified `candidate_done` → `completed`;
    - evidence changed and limits remain → `scheduled`;
    - `blocked`, approval required, invalid verifier, or repeated evidence →
      `paused`;
    - unrecoverable state corruption → `failed`;
    - user cancellation → `cancelled`.
-9. Persist state atomically, then deliver the transition summary.
+10. Persist state atomically, then deliver the transition summary.
 
 Only the controller sets `completed`.
 
 ### No-progress detection
 
-The evidence hash includes artifact hashes, deterministic verifier output, and
-the normalized worker report without timestamps. Repeating the same hash
-increments `no_progress_count`; changed evidence resets it.
+The evidence hash includes only sorted declared-artifact content hashes and the
+canonical deterministic verifier outcome/evidence. It excludes the worker's
+`summary`, `next_step`, self-reported `evidence`, all other model prose,
+timestamps, cost, usage, and iteration number. Repeating the same hash increments
+`no_progress_count`; changed deterministic evidence resets it.
 
 At `no_progress_limit`, the task pauses with the last reports and verifier
 feedback. It does not ask the same model to try the same strategy indefinitely.
@@ -450,7 +513,7 @@ The existing per-turn `IterationBudget` remains in force. Goal Tasks add
 cross-run limits:
 
 - maximum worker runs;
-- accumulated normalized LLM cost;
+- accumulated normalized LLM cost from complete usage-ledger events;
 - accumulated active wall time;
 - optional deadline;
 - no-progress count;
@@ -459,12 +522,18 @@ cross-run limits:
 Budget exhaustion pauses rather than fails the goal. Increasing a limit is a
 user action and is recorded in evidence history.
 
+Incomplete cost accounting also pauses rather than failing or assuming zero.
+Resume requires a known pricing route or an explicit, audited manual cost
+attribution for the paused iteration.
+
 ### Side effects and approvals
 
 Goal Tasks inherit the current path, network, tool, and approval policies. They
 add these rules:
 
-- default toolsets are the non-power-user safe set minus messaging and cronjob;
+- Pilot 1 toolsets are exactly `file` plus `goal_internal`; later templates may
+  add policy-approved tools only after their side effects and separately billed
+  calls are covered by the goal ledger;
 - a Goal Task cannot create another Goal Task;
 - toolsets and skills cannot expand while an iteration is running;
 - an independent evaluator receives read-only tools;
@@ -515,7 +584,8 @@ The first UI exposes:
 - schedule and allowed toolsets;
 - verifier kind and verifier-specific fields;
 - run, cost, wall-time, and no-progress limits;
-- status, iteration, cost, last evidence hash, and pause reason;
+- status, iteration, cost plus accounting completeness, last evidence hash, and
+  pause reason; incomplete cost is never displayed as zero;
 - pause, resume, cancel, and terminal-only delete actions.
 
 Run-now and open-artifact actions are deferred. Run-now needs an explicit
@@ -545,7 +615,9 @@ under one selected workspace directory.
 
 Constraints:
 
-- no network, messaging, terminal, code execution, or subagents;
+- only `file` plus the internal goal-report toolset at runtime; no network,
+  browser, messaging, terminal, code execution, subagents, vision, image
+  generation, TTS, or other separately billed tool;
 - host profile and web-child execution only;
 - file reads plus one manifest write inside the workspace;
 - one changed or missing file processed per iteration;
@@ -568,7 +640,8 @@ All must hold before enabling Goal Tasks outside a developer flag:
 - zero secret values in state, evidence, output, or logs;
 - zero duplicate non-idempotent effects;
 - no manually identified false completion;
-- accumulated usage equals the sum of recorded per-turn usage;
+- accumulated tokens and cost equal the sum of complete per-attempt ledger
+  events, and every incomplete ledger pauses as `cost_unknown`;
 - old `agent` and `notify` cron jobs remain behaviorally unchanged.
 
 ## Testing strategy
@@ -586,6 +659,8 @@ Place behavior tests under `hermes_core/tests/cron/`:
 - deterministic verifier pass/fail/error behavior;
 - evidence hashing and no-progress pause;
 - run, cost, wall-time, deadline, and infrastructure-failure limits;
+- normal and early-exit usage events, unknown-pricing pause, and no zero-cost
+  attribution for incomplete attempts;
 - cancellation and resume audit history;
 - no nested cron/goal creation;
 - no automatic replay after ambiguous side effects;
