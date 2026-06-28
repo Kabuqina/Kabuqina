@@ -1,0 +1,190 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+"""Phase 3.5 Task 4: usage-event sink wired through graph-engine path.
+
+Verifies that the optional ``UsageEventSink`` (from ``agent.usage_events``)
+receives exactly one ``UsageEvent`` per transport attempt — success or error
+— and that the ledger snapshot reflects the outcome.
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+import types
+from decimal import Decimal
+from pathlib import Path
+from typing import Any, Dict, List
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+sys.modules.setdefault("fire", types.SimpleNamespace(Fire=lambda *a, **k: None))
+sys.modules.setdefault("firecrawl", types.SimpleNamespace(Firecrawl=object))
+sys.modules.setdefault("fal_client", types.SimpleNamespace())
+
+try:
+    from tests.run_agent.golden_harness import (
+        GOLDEN_SESSION_ID,
+        GOLDEN_TASK_ID,
+        _ScriptedTransport,
+        _ToolStub,
+        _chat_response,
+        _patches,
+        _ScriptedClock,
+    )
+except ImportError:
+    from golden_harness import (
+        GOLDEN_SESSION_ID,
+        GOLDEN_TASK_ID,
+        _ScriptedTransport,
+        _ToolStub,
+        _chat_response,
+        _patches,
+        _ScriptedClock,
+    )
+
+from agent.usage_events import (
+    UsageEvent,
+    UsageEventSink,
+    UsageLedger,
+    UsageSnapshot,
+)
+
+
+GOLDEN_DIR = Path(__file__).parent / "golden"
+
+
+class _RecordingSink:
+    """Collects UsageEvents for assertion; also acts as a UsageEventSink."""
+
+    def __init__(self) -> None:
+        self.events: List[UsageEvent] = []
+
+    def on_attempt(self, event: UsageEvent) -> None:
+        self.events.append(event)
+
+
+# ── Tests ────────────────────────────────────────────────────────────────────
+
+
+def test_usage_event_sink_plain_text():
+    """A plain-text graph turn fires exactly one usage event via the sink."""
+    import run_agent
+
+    fixture_path = GOLDEN_DIR / "plain_text.json"
+    spec = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    cfg = spec.get("agent", {})
+    api_mode = cfg.get("api_mode", "chat_completions")
+    model = cfg.get("model", "golden/test-model")
+    base_url = cfg.get("base_url", "https://api.openai.com/v1")
+
+    transport = _ScriptedTransport(
+        spec.get("model_turns", []), _chat_response, model
+    )
+    sink = _RecordingSink()
+    tool_stub = _ToolStub({})
+
+    with _patches(
+        spec.get("tools", []), tool_stub, api_mode
+    ) as _hook_recorder:
+        agent = run_agent.AIAgent(
+            api_key="golden-key",
+            base_url=base_url,
+            provider=cfg.get("provider", "openrouter"),
+            api_mode=api_mode,
+            model=model,
+            quiet_mode=True,
+            skip_context_files=True,
+            skip_memory=True,
+            usage_sink=sink,
+        )
+        agent.session_id = GOLDEN_SESSION_ID
+        agent._disable_streaming = True
+        agent._session_db = MagicMock()
+        agent._save_session_log = lambda *a, **k: None
+        agent._save_trajectory = lambda *a, **k: None
+
+        transport.agent = agent
+        agent._interruptible_api_call = transport
+
+        clock = _ScriptedClock()
+        with (
+            patch.object(run_agent.time, "time", clock.time),
+            patch.object(run_agent.time, "sleep", clock.sleep),
+            patch.object(
+                run_agent,
+                "jittered_backoff",
+                lambda *a, **k: 0.1,
+            ),
+        ):
+            result = agent._run_conversation_graph(
+                spec["user_message"],
+                task_id=GOLDEN_TASK_ID,
+            )
+
+    # Assert the result looks like a plain-text reply
+    assert result.get("final_response") == "Hello! How can I help you today?"
+    assert result.get("completed") is True
+
+    # Assert exactly one transport attempt was made
+    assert transport.calls == 1
+
+    # Assert exactly one usage event was recorded
+    assert len(sink.events) == 1, f"Expected 1 usage event, got {len(sink.events)}"
+    event = sink.events[0]
+
+    # Event fields
+    assert event.attempt_index == 0
+    assert event.outcome == "success"
+    assert event.route == "call_transport"
+    assert event.provider == "openrouter"
+    assert event.model == "golden/test-model"
+    assert event.input_tokens == 50
+    assert event.output_tokens == 8
+
+
+def test_usage_ledger_snapshot():
+    """UsageLedger.snapshot() with all-known-cost events is complete."""
+    ledger = UsageLedger()
+    ledger.record(
+        UsageEvent(
+            attempt_index=0,
+            outcome="success",
+            route="call_transport",
+            provider="test",
+            model="test-model",
+            input_tokens=100,
+            output_tokens=50,
+            pricing_version="v1",
+            cost_amount=Decimal("0.005"),
+            cost_currency="USD",
+        )
+    )
+    snap = ledger.snapshot()
+    assert snap.complete is True
+    assert snap.total_cost == Decimal("0.005")
+    assert len(snap.events) == 1
+
+
+def test_usage_ledger_unknown_cost_incomplete():
+    """UsageLedger with any unknown-cost event makes snapshot incomplete."""
+    ledger = UsageLedger()
+    ledger.record(
+        UsageEvent(
+            attempt_index=0,
+            outcome="transport_error",
+            route="call_transport",
+            provider=None,
+            model=None,
+            input_tokens=None,
+            output_tokens=None,
+            pricing_version=None,
+            cost_amount=None,
+            cost_currency=None,
+        )
+    )
+    snap = ledger.snapshot()
+    assert snap.complete is False
+    assert snap.total_cost is None

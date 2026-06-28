@@ -988,6 +988,7 @@ class AIAgent:
         checkpoints_enabled: bool = False,
         checkpoint_max_snapshots: int = 50,
         pass_session_id: bool = False,
+        usage_sink: "UsageEventSink" = None,  # Phase 3.5: optional per-transport-attempt event sink
     ):
         """
         Initialize the AI Agent.
@@ -1063,6 +1064,8 @@ class AIAgent:
         self.skip_context_files = skip_context_files
         self.load_soul_identity = load_soul_identity
         self.pass_session_id = pass_session_id
+        self._usage_sink = usage_sink  # Phase 3.5: optional per-transport-attempt event sink
+        self._graph_engine = None  # Phase 3.5: lazy-initialised GraphEngine instance
         self._credential_pool = credential_pool
         self.log_prefix_chars = log_prefix_chars
         self.log_prefix = f"{log_prefix} " if log_prefix else ""
@@ -12663,6 +12666,64 @@ class AIAgent:
 
         return result
 
+    def _run_conversation_graph(
+        self,
+        user_message: str,
+        system_message: str = None,
+        conversation_history: list = None,
+        task_id: str = None,
+        stream_callback: callable = None,
+        persist_user_message: str = None,
+    ) -> dict:
+        """Phase 3.5: Run one turn through the LangGraph engine (plain text only).
+
+        This is the graph-path equivalent of ``run_conversation``.  For Task 4
+        only the plain-text route (no tools, no errors, no compression) is
+        wired.  All other routes fall through to stubs that return an
+        incomplete result.
+        """
+        from agent.graph_engine.engine import GraphEngine
+
+        # ── Essential per-turn AIAgent state that the adapter needs ──────
+        self._stream_callback = stream_callback
+        self._persist_user_message_idx = None
+        self._persist_user_message_override = persist_user_message
+
+        # Reset retry counters
+        self._invalid_tool_retries = 0
+        self._invalid_json_retries = 0
+        self._empty_content_retries = 0
+        self._incomplete_scratchpad_retries = 0
+        self._thinking_prefill_retries = 0
+        self._post_tool_empty_retried = False
+        self._mute_post_response = False
+        self._unicode_sanitization_passes = 0
+
+        # Iteration budget
+        self.iteration_budget = IterationBudget(self.max_iterations)
+
+        # Build system prompt if not cached
+        if self._cached_system_prompt is None:
+            self._cached_system_prompt = self._build_system_prompt(system_message)
+
+        # Create adapter and engine
+        adapter = _GraphServicesAdapter(self, conversation_history)
+        engine = GraphEngine()
+        self._graph_engine = engine
+
+        # Run the graph
+        result = engine.run_turn(
+            services=adapter,
+            user_message=user_message,
+            system_message=system_message or self._cached_system_prompt,
+            conversation_history=conversation_history,
+            task_id=task_id,
+            stream_callback=stream_callback,
+            persist_user_message=persist_user_message,
+        )
+
+        return dict(result)
+
     def chat(self, message: str, stream_callback: Optional[callable] = None) -> str:
         """
         Simple chat interface that returns just the final response.
@@ -12676,6 +12737,375 @@ class AIAgent:
         """
         result = self.run_conversation(message, stream_callback=stream_callback)
         return result["final_response"]
+
+
+# ── Phase 3.5: GraphServices adapter (bridge between AIAgent and GraphEngine) ─
+
+class _GraphServicesAdapter:
+    """Implements ``GraphServices`` protocol by delegating to ``AIAgent``.
+
+    Each method corresponds to one graph node; the adapter holds a weak
+    reference to the agent instance and carries per-turn state (api_messages,
+    api_kwargs, response) that flows through the graph.
+
+    Only the plain-text route is wired for Task 4.  All other methods return
+    stub results that set route=finish with an incomplete result.
+    """
+
+    def __init__(self, agent: "AIAgent", conversation_history: list | None) -> None:
+        self._agent = agent
+        self._conversation_history = conversation_history
+        # Per-turn mutable state carried through the graph
+        self._api_messages: list | None = None
+        self._api_kwargs: dict | None = None
+
+    # ── Plain-text route (Task 4) ───────────────────────────────────────
+
+    def initialize_turn(
+        self, state: dict, user_message: str,
+        system_message: str | None, conversation_history: list | None,
+        task_id: str | None, stream_callback: callable,
+        persist_user_message: str | None,
+    ) -> dict:
+        """Bootstrap a fresh agent turn (graph equivalent of loop init)."""
+        agent = self._agent
+
+        # Sanitize surrogate characters from user input
+        if isinstance(user_message, str):
+            user_message = _sanitize_surrogates(user_message)
+
+        effective_task_id = task_id or str(uuid.uuid4())
+        agent._current_task_id = effective_task_id
+
+        # Reset per-turn state (mirrors run_conversation init block)
+        agent._invalid_tool_retries = 0
+        agent._invalid_json_retries = 0
+        agent._empty_content_retries = 0
+        agent._incomplete_scratchpad_retries = 0
+        agent._thinking_prefill_retries = 0
+        agent._post_tool_empty_retried = False
+        agent._last_content_with_tools = None
+        agent._last_content_tools_all_housekeeping = False
+        agent._mute_post_response = False
+        agent._unicode_sanitization_passes = 0
+
+        # Copy conversation and add user message
+        messages = list(conversation_history) if conversation_history else []
+        user_msg = {"role": "user", "content": user_message}
+        messages.append(user_msg)
+        agent._persist_user_message_idx = len(messages) - 1
+
+        # Build system prompt if not cached (should already be done by _run_conversation_graph)
+        if agent._cached_system_prompt is None:
+            agent._cached_system_prompt = agent._build_system_prompt(system_message)
+
+        return {
+            "messages": messages,
+            "system_message": system_message or agent._cached_system_prompt or "",
+            "effective_task_id": effective_task_id,
+            "api_call_count": 0,
+            "retry_count": 0,
+            "compression_attempts": 0,
+            "iteration_budget_remaining": agent.max_iterations,
+            "fallback_index": 0,
+            "route": "prepare_request",
+        }
+
+    def prepare_request(self, state: dict) -> dict:
+        """Build the API request payload and set route to call_transport."""
+        agent = self._agent
+        messages = state.get("messages", [])
+
+        # Copy messages for API (ephemeral modifications don't touch history)
+        api_messages = [msg.copy() for msg in messages]
+
+        # Add system prompt prefix
+        system_prompt = state.get("system_message") or ""
+        if system_prompt:
+            api_messages = [{"role": "system", "content": system_prompt}] + api_messages
+
+        # Sanitize for API consumption
+        api_messages = agent._sanitize_api_messages(api_messages)
+        api_messages = agent._drop_thinking_only_and_merge_users(api_messages)
+
+        # Build transport kwargs
+        api_kwargs = agent._build_api_kwargs(api_messages)
+        self._api_messages = api_messages
+        self._api_kwargs = api_kwargs
+
+        return {
+            "route": "call_transport",
+            "api_call_count": state.get("api_call_count", 0),
+        }
+
+    def call_transport(self, state: dict) -> dict:
+        """Invoke the provider transport and store the raw response."""
+        agent = self._agent
+        api_kwargs = self._api_kwargs
+
+        if api_kwargs is None:
+            return {
+                "route": "finish",
+                "result": {
+                    "final_response": None,
+                    "messages": state.get("messages", []),
+                    "api_calls": state.get("api_call_count", 0),
+                    "completed": False,
+                    "failed": True,
+                    "error": "No API kwargs prepared",
+                },
+            }
+
+        try:
+            response = agent._interruptible_api_call(api_kwargs)
+        except Exception as exc:
+            # Emit usage event for the failed attempt
+            self._emit_usage_event(state, outcome="transport_error")
+            return {
+                "route": "finish",
+                "result": {
+                    "final_response": None,
+                    "messages": state.get("messages", []),
+                    "api_calls": state.get("api_call_count", 0) + 1,
+                    "completed": False,
+                    "failed": True,
+                    "error": str(exc),
+                },
+            }
+
+        if response is None:
+            self._emit_usage_event(state, outcome="invalid_response")
+            return {
+                "route": "finish",
+                "result": {
+                    "final_response": None,
+                    "messages": state.get("messages", []),
+                    "api_calls": state.get("api_call_count", 0) + 1,
+                    "completed": False,
+                    "failed": True,
+                    "error": "No response from API",
+                },
+            }
+
+        # Emit usage event for successful attempt
+        self._emit_usage_event(state, outcome="success", response=response)
+
+        return {
+            "route": "process_response",
+            "api_call_count": state.get("api_call_count", 0) + 1,
+            "_response": response,
+        }
+
+    def process_response(self, state: dict) -> dict:
+        """Normalize transport response and detect plain-text vs tool-calls."""
+        agent = self._agent
+        response = state.get("_response")
+        messages = list(state.get("messages", []))
+        api_call_count = state.get("api_call_count", 0)
+
+        if response is None:
+            return {
+                "route": "finish",
+                "result": {
+                    "final_response": None,
+                    "messages": messages,
+                    "api_calls": api_call_count,
+                    "completed": False,
+                    "failed": True,
+                    "error": "No response to process",
+                },
+            }
+
+        # Normalize the response via the transport adapter
+        transport = agent._get_transport()
+        try:
+            normalized = transport.normalize_response(response)
+        except Exception as exc:
+            return {
+                "route": "finish",
+                "result": {
+                    "final_response": None,
+                    "messages": messages,
+                    "api_calls": api_call_count,
+                    "completed": False,
+                    "failed": True,
+                    "error": f"Response normalisation failed: {exc}",
+                },
+            }
+
+        # Extract content and tool calls
+        content = normalized.content or ""
+        finish_reason = getattr(normalized, "finish_reason", "stop")
+        has_tool_calls = bool(getattr(normalized, "tool_calls", None))
+
+        # Track usage from response
+        if hasattr(response, "usage") and response.usage:
+            try:
+                from agent.graph_engine.engine import GraphEngine
+                # _normalize_usage already done by the transport layer; skip
+                pass
+            except Exception:
+                pass
+
+        if has_tool_calls:
+            # Tool dispatch not yet implemented in Task 4 plain-text slice
+            assistant_msg = agent._build_assistant_message(normalized, finish_reason)
+            messages.append(assistant_msg)
+            return {
+                "route": "finish",
+                "messages": messages,
+                "result": {
+                    "final_response": content,
+                    "messages": messages,
+                    "api_calls": api_call_count,
+                    "completed": True,
+                    "partial": True,
+                    "interrupted": False,
+                },
+            }
+
+        # Plain-text response — the happy path for Task 4
+        final_response = content
+
+        # Build assistant message and append to history
+        assistant_msg = agent._build_assistant_message(normalized, finish_reason)
+        messages.append(assistant_msg)
+
+        return {
+            "route": "finish",
+            "messages": messages,
+            "result": {
+                "final_response": final_response,
+                "messages": messages,
+                "api_calls": api_call_count,
+                "completed": True,
+                "partial": False,
+                "interrupted": False,
+                "model": agent.model,
+                "provider": agent.provider,
+                "base_url": agent.base_url,
+                "input_tokens": agent.session_input_tokens,
+                "output_tokens": agent.session_output_tokens,
+                "prompt_tokens": agent.session_prompt_tokens,
+                "completion_tokens": agent.session_completion_tokens,
+                "total_tokens": agent.session_total_tokens,
+                "cache_read_tokens": agent.session_cache_read_tokens,
+                "cache_write_tokens": agent.session_cache_write_tokens,
+                "reasoning_tokens": agent.session_reasoning_tokens,
+                "last_prompt_tokens": getattr(agent.context_compressor, "last_prompt_tokens", 0) or 0,
+                "estimated_cost_usd": agent.session_estimated_cost_usd,
+                "cost_status": agent.session_cost_status,
+                "cost_source": agent.session_cost_source,
+            },
+        }
+
+    # ── Stub methods (not implemented in Task 4) ────────────────────────
+
+    def handle_transport_error(self, state: dict) -> dict:
+        return {"route": "finish", "result": {
+            "final_response": None,
+            "messages": state.get("messages", []),
+            "api_calls": state.get("api_call_count", 0),
+            "completed": False,
+            "failed": True,
+            "error": "Transport error handling not yet implemented (Task 5)",
+        }}
+
+    def dispatch_tools(self, state: dict) -> dict:
+        return {"route": "finish", "result": {
+            "final_response": None,
+            "messages": state.get("messages", []),
+            "api_calls": state.get("api_call_count", 0),
+            "completed": False,
+            "partial": True,
+            "error": "Tool dispatch not yet implemented (Task 6)",
+        }}
+
+    def apply_steer(self, state: dict) -> dict:
+        return {"route": "finish", "result": {
+            "final_response": None,
+            "messages": state.get("messages", []),
+            "api_calls": state.get("api_call_count", 0),
+            "completed": False,
+        }}
+
+    def summarize_on_budget(self, state: dict) -> dict:
+        return {"route": "finish", "result": {
+            "final_response": None,
+            "messages": state.get("messages", []),
+            "api_calls": state.get("api_call_count", 0),
+            "completed": False,
+            "compression_exhausted": True,
+        }}
+
+    def apply_exit_policy(self, state: dict) -> dict:
+        """Execute side effects and return the final LegacyRunResult."""
+        agent = self._agent
+        result = state.get("result", {})
+        effective_task_id = state.get("effective_task_id", "")
+        messages = state.get("messages", [])
+
+        # Cleanup task resources (VM, browser, etc.)
+        if effective_task_id:
+            try:
+                agent._cleanup_task_resources(effective_task_id)
+            except Exception:
+                pass
+
+        # Persist session (JSON log + SQLite)
+        try:
+            agent._persist_session(messages, self._conversation_history)
+        except Exception:
+            pass
+
+        # Clear interrupt state and stream callback
+        try:
+            agent.clear_interrupt()
+        except Exception:
+            pass
+        agent._stream_callback = None
+
+        return {"result": result, "route": "finish"}
+
+    # ── Internal helpers ────────────────────────────────────────────────
+
+    def _emit_usage_event(
+        self,
+        state: dict,
+        outcome: str,
+        response: Any = None,
+    ) -> None:
+        """Emit a UsageEvent to the optional sink configured on the agent."""
+        agent = self._agent
+        if agent._usage_sink is None:
+            return
+        try:
+            from agent.usage_events import UsageEvent
+
+            input_tokens = None
+            output_tokens = None
+            if response is not None and hasattr(response, "usage"):
+                usage = response.usage
+                if usage is not None:
+                    input_tokens = getattr(usage, "prompt_tokens", None)
+                    output_tokens = getattr(usage, "completion_tokens", None)
+
+            event = UsageEvent(
+                attempt_index=state.get("api_call_count", 0),
+                outcome=outcome,
+                route="call_transport",
+                provider=agent.provider,
+                model=agent.model,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                pricing_version=None,
+                cost_amount=None,
+                cost_currency=None,
+            )
+            agent._usage_sink.on_attempt(event)
+        except Exception:
+            pass  # sink errors must never alter the agent result
+
 
 
 def main(

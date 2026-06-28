@@ -10,21 +10,19 @@ Services and per-turn parameters travel via ``config["configurable"]``.
 No LangGraph imports.
 """
 
-from __future__ import annotations
-
 from typing import Any
 
 from agent.graph_engine.ports import GraphServices
 
 
-def _services(config: dict[str, Any] | None) -> GraphServices:
+def _services(config: Any) -> GraphServices:
     """Extract the service adapter from the LangGraph configurable dict."""
     if config is None:
         raise RuntimeError("GraphServices not available in node config")
     return config["configurable"]["services"]
 
 
-def _get_configurable(config: dict[str, Any] | None, key: str, default: Any = None) -> Any:
+def _get_configurable(config: Any, key: str, default: Any = None) -> Any:
     """Safely read a configurable value."""
     if config is None:
         return default
@@ -33,7 +31,7 @@ def _get_configurable(config: dict[str, Any] | None, key: str, default: Any = No
 
 # ── Initialisation ───────────────────────────────────────────────────────
 
-def initialize_turn(state: dict[str, Any], *, config: dict[str, Any] = None) -> dict[str, Any]:
+def initialize_turn(state: dict[str, Any], *, config = None) -> dict[str, Any]:
     """Bootstrap a fresh agent turn."""
     svc = _services(config)
     return svc.initialize_turn(
@@ -49,39 +47,39 @@ def initialize_turn(state: dict[str, Any], *, config: dict[str, Any] = None) -> 
 
 # ── Request / response ───────────────────────────────────────────────────
 
-def prepare_request(state: dict[str, Any], *, config: dict[str, Any] = None) -> dict[str, Any]:
+def prepare_request(state: dict[str, Any], *, config = None) -> dict[str, Any]:
     return _services(config).prepare_request(state)
 
 
-def call_transport(state: dict[str, Any], *, config: dict[str, Any] = None) -> dict[str, Any]:
+def call_transport(state: dict[str, Any], *, config = None) -> dict[str, Any]:
     return _services(config).call_transport(state)
 
 
-def process_response(state: dict[str, Any], *, config: dict[str, Any] = None) -> dict[str, Any]:
+def process_response(state: dict[str, Any], *, config = None) -> dict[str, Any]:
     return _services(config).process_response(state)
 
 
-def handle_transport_error(state: dict[str, Any], *, config: dict[str, Any] = None) -> dict[str, Any]:
+def handle_transport_error(state: dict[str, Any], *, config = None) -> dict[str, Any]:
     return _services(config).handle_transport_error(state)
 
 
 # ── Tool / steer ─────────────────────────────────────────────────────────
 
-def dispatch_tools(state: dict[str, Any], *, config: dict[str, Any] = None) -> dict[str, Any]:
+def dispatch_tools(state: dict[str, Any], *, config = None) -> dict[str, Any]:
     return _services(config).dispatch_tools(state)
 
 
-def apply_steer(state: dict[str, Any], *, config: dict[str, Any] = None) -> dict[str, Any]:
+def apply_steer(state: dict[str, Any], *, config = None) -> dict[str, Any]:
     return _services(config).apply_steer(state)
 
 
 # ── Budget ───────────────────────────────────────────────────────────────
 
-def summarize_on_budget(state: dict[str, Any], *, config: dict[str, Any] = None) -> dict[str, Any]:
+def summarize_on_budget(state: dict[str, Any], *, config = None) -> dict[str, Any]:
     return _services(config).summarize_on_budget(state)
 
 
 # ── Finalisation ─────────────────────────────────────────────────────────
 
-def finish(state: dict[str, Any], *, config: dict[str, Any] = None) -> dict[str, Any]:
+def finish(state: dict[str, Any], *, config = None) -> dict[str, Any]:
     return _services(config).apply_exit_policy(state)
