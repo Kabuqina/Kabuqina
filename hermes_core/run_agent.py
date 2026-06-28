@@ -12836,6 +12836,7 @@ class _GraphServicesAdapter:
         return {
             "route": "call_transport",
             "api_call_count": state.get("api_call_count", 0),
+            "messages": state.get("messages", []),
         }
 
     def call_transport(self, state: dict) -> dict:
@@ -12910,6 +12911,7 @@ class _GraphServicesAdapter:
             "route": "process_response",
             "api_call_count": state.get("api_call_count", 0) + 1,
             "_response": response,
+            "messages": state.get("messages", []),
         }
 
     def process_response(self, state: dict) -> dict:
@@ -12964,20 +12966,12 @@ class _GraphServicesAdapter:
                 pass
 
         if has_tool_calls:
-            # Tool dispatch not yet implemented in Task 4 plain-text slice
             assistant_msg = agent._build_assistant_message(normalized, finish_reason)
             messages.append(assistant_msg)
             return {
-                "route": "finish",
+                "route": "dispatch_tools",
                 "messages": messages,
-                "result": {
-                    "final_response": content,
-                    "messages": messages,
-                    "api_calls": api_call_count,
-                    "completed": True,
-                    "partial": True,
-                    "interrupted": False,
-                },
+                "api_call_count": api_call_count,
             }
 
         # Plain-text response — the happy path for Task 4
@@ -13028,22 +13022,103 @@ class _GraphServicesAdapter:
         }}
 
     def dispatch_tools(self, state: dict) -> dict:
-        return {"route": "finish", "result": {
-            "final_response": None,
-            "messages": state.get("messages", []),
-            "api_calls": state.get("api_call_count", 0),
-            "completed": False,
-            "partial": True,
-            "error": "Tool dispatch not yet implemented (Task 6)",
-        }}
+        """Execute tool calls from the last assistant message.
+
+        Reconstructs a SimpleNamespace assistant message from the stored
+        dict, delegates to ``_execute_tool_calls``, and returns the updated
+        messages plus the next route.
+        """
+        agent = self._agent
+        messages = list(state.get("messages", []))
+        api_call_count = state.get("api_call_count", 0)
+        effective_task_id = state.get("effective_task_id", "")
+
+        # Find the last assistant message with tool_calls
+        assistant_msg_dict = None
+        for m in reversed(messages):
+            if isinstance(m, dict) and m.get("role") == "assistant" and m.get("tool_calls"):
+                assistant_msg_dict = m
+                break
+
+        if assistant_msg_dict is None:
+            return {"route": "prepare_request"}
+
+        # Reconstruct SimpleNamespace tool_calls from the stored dict format.
+        # The _build_assistant_message output has:
+        #   {"id": ..., "type": "function",
+        #    "function": {"name": ..., "arguments": ...}}
+        from types import SimpleNamespace
+        tc_dicts = assistant_msg_dict.get("tool_calls", [])
+        tool_calls_ns = []
+        for tc in tc_dicts:
+            fn_info = tc.get("function", {}) or {}
+            fn_name = fn_info.get("name", tc.get("name", ""))
+            fn_args = fn_info.get("arguments", tc.get("arguments", "{}"))
+            tool_calls_ns.append(SimpleNamespace(
+                id=tc.get("id", ""),
+                type="function",
+                function=SimpleNamespace(
+                    name=fn_name,
+                    arguments=fn_args,
+                ),
+            ))
+
+        assistant_msg = SimpleNamespace(tool_calls=tool_calls_ns)
+        old_len = len(messages)
+        try:
+            agent._execute_tool_calls(assistant_msg, messages, effective_task_id, api_call_count)
+        except Exception:
+            pass
+
+        return {
+            "messages": messages,
+            "_num_tool_msgs": len(messages) - old_len,
+            "api_call_count": api_call_count,
+            "route": "apply_steer",
+        }
 
     def apply_steer(self, state: dict) -> dict:
-        return {"route": "finish", "result": {
-            "final_response": None,
-            "messages": state.get("messages", []),
-            "api_calls": state.get("api_call_count", 0),
-            "completed": False,
-        }}
+        """Drain pending steer and append to the last tool result message.
+
+        Mirrors the pre-API-call steer drain in the legacy loop.
+        """
+        agent = self._agent
+        messages = state.get("messages", [])
+
+        # Drain any pending steer (appends to last tool message if found)
+        steer_text = agent._drain_pending_steer()
+
+        if steer_text and messages:
+            # Find the last tool-role message and append steer text
+            for j in range(len(messages) - 1, -1, -1):
+                msg = messages[j]
+                if isinstance(msg, dict) and msg.get("role") == "tool":
+                    marker = f"\n\nUser guidance: {steer_text}"
+                    existing = msg.get("content", "")
+                    if isinstance(existing, str):
+                        msg["content"] = existing + marker
+                    else:
+                        blocks = list(existing) if existing else []
+                        blocks.append({"type": "text", "text": marker.lstrip()})
+                        msg["content"] = blocks
+                    break
+
+        # Check iteration budget before continuing
+        iteration_budget_remaining = state.get("iteration_budget_remaining", 0)
+        api_call_count = state.get("api_call_count", 0)
+        budget = getattr(agent, "iteration_budget", None)
+        if budget and budget.remaining <= 0:
+            return {
+                "messages": messages,
+                "route": "finish",
+                "api_call_count": api_call_count,
+            }
+
+        return {
+            "messages": messages,
+            "route": "prepare_request",
+            "api_call_count": api_call_count,
+        }
 
     def summarize_on_budget(self, state: dict) -> dict:
         return {"route": "finish", "result": {
