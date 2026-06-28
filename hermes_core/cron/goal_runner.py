@@ -49,6 +49,11 @@ class GoalRunnerError(RuntimeError):
     """Raised when durable state and the requested definition disagree."""
 
 
+def _sanitized_exception(component: str, exc: Exception) -> str:
+    """Return stable diagnostics without persisting provider-controlled text."""
+    return f"{component}_exception:{type(exc).__name__}"
+
+
 @dataclass(frozen=True)
 class WorkerObservation:
     report: GoalReport | None
@@ -319,8 +324,13 @@ def run_goal_iteration(
             usage=summarize_usage_events(()),
             full_output="",
             wall_seconds=0.0,
-            infrastructure_error=f"{type(exc).__name__}: {exc}",
+            infrastructure_error=_sanitized_exception("worker", exc),
             ambiguous_external_effect=False,
+        )
+    if worker_observation.infrastructure_error is not None:
+        worker_observation = replace(
+            worker_observation,
+            infrastructure_error="worker_infrastructure_error",
         )
 
     report_record: dict[str, JSONValue] = {
@@ -353,7 +363,7 @@ def run_goal_iteration(
             )
         except Exception as exc:
             verifier_result = VerifierResult(
-                "error", f"{type(exc).__name__}: {exc}", {}
+                "error", _sanitized_exception("verifier", exc), {}
             )
         save_iteration_record(
             definition.job_id,
@@ -423,4 +433,3 @@ def run_goal_iteration(
         delivery_text=_delivery_text(transition),
         evidence_path=transition_path,
     )
-

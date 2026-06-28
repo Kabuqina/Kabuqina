@@ -293,6 +293,66 @@ def test_worker_exception_is_reduced_as_infrastructure_failure(definition):
     assert result.transition.next_state.infrastructure_failures == 1
 
 
+def test_exception_messages_are_not_persisted_in_goal_evidence(definition):
+    secret = "sk-live-secret-from-provider"
+
+    class RaisingWorker:
+        def run_iteration(self, definition, state):
+            raise RuntimeError(f"provider rejected {secret}")
+
+    run_goal_iteration(
+        definition, worker=RaisingWorker(), verifier=FakeVerifier(), now=NOW
+    )
+
+    run_dir = goal_state.goal_run_dir(JOB_ID)
+    assert secret not in (run_dir / "state.json").read_text(encoding="utf-8")
+    assert secret not in (
+        run_dir / "iterations" / "000001" / "report.json"
+    ).read_text(encoding="utf-8")
+
+
+def test_verifier_exception_messages_are_not_persisted(definition):
+    secret = "sk-live-secret-from-verifier"
+
+    class RaisingVerifier:
+        def verify(self, definition, report, previous_evidence_hash):
+            raise RuntimeError(f"verifier saw {secret}")
+
+    run_goal_iteration(
+        definition,
+        worker=FakeWorker(_worker_observation("candidate_done")),
+        verifier=RaisingVerifier(),
+        now=NOW,
+    )
+
+    run_dir = goal_state.goal_run_dir(JOB_ID)
+    assert secret not in (run_dir / "state.json").read_text(encoding="utf-8")
+    assert secret not in (
+        run_dir / "iterations" / "000001" / "verification.json"
+    ).read_text(encoding="utf-8")
+
+
+def test_worker_supplied_infrastructure_error_is_sanitized(definition):
+    secret = "raw provider body with sk-live-secret"
+    run_goal_iteration(
+        definition,
+        worker=FakeWorker(
+            _worker_observation(
+                report=None,
+                infrastructure_error=secret,
+            )
+        ),
+        verifier=FakeVerifier(),
+        now=NOW,
+    )
+
+    run_dir = goal_state.goal_run_dir(JOB_ID)
+    assert secret not in (run_dir / "state.json").read_text(encoding="utf-8")
+    assert secret not in (
+        run_dir / "iterations" / "000001" / "report.json"
+    ).read_text(encoding="utf-8")
+
+
 def test_crash_after_running_state_commit_recovers_without_second_worker_call(
     definition, monkeypatch
 ):
