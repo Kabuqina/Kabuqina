@@ -255,11 +255,18 @@ Record the date and evidence beside each item. GO requires every item checked.
 - [x] Task 1 proves both desktop child types start with
   `LANGSMITH_TRACING=false`. *(2026-06-28: both supervisors wired; contract test
   + `cargo test` 60 passed.)*
-- [ ] Task 2 pins all nineteen reachable return contracts, structurally guards
-  the two dead fallthroughs, and pins retry assumptions.
+- [x] Task 2 pins all nineteen reachable return contracts, structurally guards
+  the two dead fallthroughs, and pins retry assumptions. *(2026-06-28:
+  characterization commit `605ecda5`; full deterministic gate passed twice,
+  81 tests per run, with all 27 golden hashes unchanged.)*
 - [ ] The operator can run release-build chat + one tool on both API modes.
 - [ ] A two-week window has no other scheduled `run_agent.py`, transport,
-  provider fallback, or session-persistence landings.
+  provider fallback, or session-persistence landings. *(Scheduled stabilization
+  window: 2026-06-28 through 2026-07-12 at the earliest; base commit
+  `605ecda5`. Frozen surfaces: `hermes_core/run_agent.py`,
+  `hermes_core/providers/transports/**`, provider fallback/retry paths, and
+  session persistence. Any urgent landing on those surfaces restarts the clock
+  after rebase and regression.)*
 - [ ] The GO decision is recorded in `DECISIONS.md` and in this section.
 
 If a gate fails, leave the product on `loop`, document the failure, and stop.
@@ -584,7 +591,7 @@ It does not repair that behavior. Task 4 adds a separate optional usage-event
 sink before branch handling; the sink is an additive observer and cannot alter a
 frozen result dictionary.
 
-- [ ] **Step 1: implement the reachability and retry-contract spike**
+- [x] **Step 1: implement the reachability and retry-contract spike**
 
 Use the completed audit in
 `docs/superpowers/specs/2026-06-28-phase-3.5-exit-reachability-spike.md`.
@@ -619,7 +626,7 @@ If another source return proves unreachable, stop and update the audit and
 inventory. Do not force it through a test double that violates a production
 transport contract.
 
-- [ ] **Step 2: extend harness observations without changing existing fixtures**
+- [x] **Step 2: extend harness observations without changing existing fixtures**
 
 Add these snapshot fields with deterministic lists and booleans:
 
@@ -634,7 +641,7 @@ Patch the shared hook dispatcher, `_cleanup_task_resources`, and
 `clear_interrupt` at their existing boundaries. Do not patch the loop branches
 being characterized.
 
-- [ ] **Step 3: inventory all 21 source returns without inventing dead fixtures**
+- [x] **Step 3: inventory all 21 source returns without inventing dead fixtures**
 
 `test_exit_contract.py` must contain this exact scenario inventory so a source
 return cannot disappear from the equivalence review unnoticed:
@@ -667,7 +674,7 @@ Line numbers document the source audit; scenario ids are stable inventory keys.
 Future line movement must not rename them. The two guarded ids document dead
 legacy code, not runtime behavior the graph must reproduce.
 
-- [ ] **Step 4: record the nineteen reachable loop snapshots once, then freeze them**
+- [x] **Step 4: record the nineteen reachable loop snapshots once, then freeze them**
 
 ```powershell
 cd hermes_core
@@ -681,7 +688,7 @@ git diff -- tests/run_agent/golden
 Review every fixture diff. Once committed, Phase 3.5 graph work must not run
 with `GOLDEN_RECORD=1`.
 
-- [ ] **Step 5: prove deterministic replay and reachability twice**
+- [x] **Step 5: prove deterministic replay and reachability twice**
 
 ```powershell
 python -m pytest tests/run_agent/test_golden_transcripts.py `
@@ -702,12 +709,22 @@ cd ..
 Expected: both runs pass with identical fixture files and no network, real DB,
 or user-home writes.
 
-- [ ] **Step 6: commit the characterization gate**
+- [x] **Step 6: commit the characterization gate**
 
 ```powershell
 git add hermes_core/tests/run_agent
 git commit -m "test: pin all agent loop exit contracts"
 ```
+
+**Task 2 completion note (2026-06-28):** `605ecda5` adds executable
+reachability for all nineteen runtime candidates, structural normalizer guards
+for the two dead truncation fallthroughs, the exact 21-return inventory, six
+retry-limit contracts, and seventeen new exit fixtures. The harness now records
+result-key presence, hook payload/order, cleanup, interrupt clearing, unified
+status/interim/stream callback order, trajectory-write attempts, persistence,
+and usage/cost observations without changing the loop. The pre-existing ten
+goldens changed additively only. The full Task 2 gate passed twice with
+`81 passed` per run, and the 27 fixture hashes were unchanged across both runs.
 
 ---
 

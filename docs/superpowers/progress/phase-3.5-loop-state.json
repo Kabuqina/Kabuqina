@@ -1,16 +1,18 @@
 {
   "plan": "docs/superpowers/specs/2026-06-24-consolidate-and-langgraph-replatform-plan.md",
   "current_task": 2,
-  "status": "running",
+  "status": "review_required",
   "attempt": 1,
-  "worktree": null,
-  "last_commit": "5f46099266d4d666164f3d3f56ccd7b3b282d5cd",
+  "worktree": "D:\\project\\Kabuqina\\.worktrees\\phase-3-5-task2",
+  "last_commit": "605ecda50394f6329a05e47ebdffa01fa375d76c",
   "last_verification": [
     "Task 2 step 1a: test_retry_contract.py -> 2 passed. Committed 211e6f98.",
     "Task 2 step 2: golden_harness observability (result_keys, hook_calls, cleanup_task_ids, clear_interrupt_calls) + re-record 10 goldens; diff additive-only (no existing field changed); deterministic x2 (11 passed). Fixed compression session-rotation volatility. Committed 5f46099.",
-    "Captured early-exit hook contract: unknown_tool exit skips on_session_end/cleanup/clear_interrupt; interrupt omits post_llm_call. Also found 7th hook pre_tool_call."
+    "Captured early-exit hook contract: unknown_tool exit skips on_session_end/cleanup/clear_interrupt; interrupt omits post_llm_call. Also found 7th hook pre_tool_call.",
+    "Task 2 completion: 19 runtime exits executed; 2 truncation fallthroughs structurally guarded; exact 21-return inventory; 17 new exit fixtures; retry assumptions pinned in every exhaustion fixture.",
+    "Full deterministic gate x2: 81 passed per run; all 27 golden SHA-256 hashes unchanged. Characterization commit 605ecda5."
   ],
   "failed_approaches": [],
   "blocker": null,
-  "next_action": "Task 2 next chunk: extend golden_harness to SCRIPT transport errors ({raise: api_error/413/context/rate-guard/nonretryable}) + sequence compressor outputs + patch sleep. Requires reading run_agent error-classification block ~11050-11650 + retry/backoff helpers. Then create 16 exit_*.json fixtures (10 error-path + transport-only ones) per spike hard-branch matrix, GOLDEN_RECORD + review. Then test_exit_reachability.py (run 19 candidates, statically guard 10530/10542), test_exit_contract.py (21-row inventory), test_hook_invocation_parity.py. Verify twice; final commit. Anchors: exits ~10086/10311/10332/10445/10485/10513/11097/11267/11298/11351/11424/11457/11552/11635/11677/11831/11878/11944/12664. Task 1 + Task 2 commits remain local/unpushed."
+  "next_action": "Human review of Task 2 commit 605ecda5. Stabilization window runs from 2026-06-28 through 2026-07-12 at the earliest; any landing on frozen run_agent/transport/fallback/session-persistence surfaces restarts it. Task 3 remains blocked until the remaining Task 1 official bundle rebuild gate and the go/no-go checklist are complete."
 }
