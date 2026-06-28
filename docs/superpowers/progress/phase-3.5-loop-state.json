@@ -1,0 +1,12 @@
+{
+  "plan": "docs/superpowers/specs/2026-06-24-consolidate-and-langgraph-replatform-plan.md",
+  "current_task": 1,
+  "status": "ready",
+  "attempt": 0,
+  "worktree": null,
+  "last_commit": "e854c3e337bbe82b9ca7be3aee81bb05fa376c56",
+  "last_verification": [],
+  "failed_approaches": [],
+  "blocker": null,
+  "next_action": "Run the dependency and bundled-runtime spike"
+}
