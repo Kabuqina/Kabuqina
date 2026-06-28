@@ -182,6 +182,60 @@
       }
     ],
     "stream_deltas": [],
+    "callback_events": [
+      {
+        "channel": "status",
+        "kind": "lifecycle",
+        "message": "⚠ No auxiliary LLM provider configured — context compression will drop middle turns without a summary. Run `hermes setup` or set OPENROUTER_API_KEY."
+      },
+      {
+        "channel": "status",
+        "kind": "lifecycle",
+        "message": "⚠ No auxiliary LLM provider configured — context compression will drop middle turns without a summary. Run `hermes setup` or set OPENROUTER_API_KEY."
+      },
+      {
+        "channel": "status",
+        "kind": "lifecycle",
+        "message": "⚠️ Iteration budget exhausted (1/1) — asking model to summarise"
+      }
+    ],
+    "trajectory_writes": [
+      {
+        "messages": [
+          {
+            "role": "user",
+            "content": "Keep searching until you find it."
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+              {
+                "id": "call_ws_1",
+                "name": "web_search",
+                "arguments": "{\"query\": \"thing\"}"
+              }
+            ],
+            "finish_reason": "tool_calls"
+          },
+          {
+            "role": "tool",
+            "content": "{\"answer\": \"partial result\"}",
+            "tool_call_id": "call_ws_1"
+          },
+          {
+            "role": "user",
+            "content": "You've reached the maximum number of tool-calling iterations allowed. Please provide a final response summarizing what you've found and accomplished so far, without calling any more tools."
+          },
+          {
+            "role": "assistant",
+            "content": "I reached the iteration limit. So far I found a partial result."
+          }
+        ],
+        "user_query": "Keep searching until you find it.",
+        "completed": false
+      }
+    ],
     "hook_calls": [
       {
         "hook": "on_session_start",

@@ -206,6 +206,62 @@
       }
     ],
     "stream_deltas": [],
+    "callback_events": [
+      {
+        "channel": "status",
+        "kind": "lifecycle",
+        "message": "⚠ No auxiliary LLM provider configured — context compression will drop middle turns without a summary. Run `hermes setup` or set OPENROUTER_API_KEY."
+      },
+      {
+        "channel": "status",
+        "kind": "lifecycle",
+        "message": "⚠ No auxiliary LLM provider configured — context compression will drop middle turns without a summary. Run `hermes setup` or set OPENROUTER_API_KEY."
+      }
+    ],
+    "trajectory_writes": [
+      {
+        "messages": [
+          {
+            "role": "user",
+            "content": "Look up Tokyo weather and extract the page. Use web_search and web_extract together."
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+              {
+                "id": "call_ws_1",
+                "name": "web_search",
+                "arguments": "{\"query\": \"Tokyo weather\"}"
+              },
+              {
+                "id": "call_we_1",
+                "name": "web_extract",
+                "arguments": "{\"url\": \"https://example.com/tokyo\"}"
+              }
+            ],
+            "finish_reason": "tool_calls"
+          },
+          {
+            "role": "tool",
+            "content": "{\"answer\": \"Tokyo is sunny, 22C\"}",
+            "tool_call_id": "call_ws_1"
+          },
+          {
+            "role": "tool",
+            "content": "{\"text\": \"Forecast: clear skies all day.\"}",
+            "tool_call_id": "call_we_1"
+          },
+          {
+            "role": "assistant",
+            "content": "Tokyo is sunny at 22C with clear skies all day.",
+            "finish_reason": "stop"
+          }
+        ],
+        "user_query": "Look up Tokyo weather and extract the page. Use web_search and web_extract together.",
+        "completed": true
+      }
+    ],
     "hook_calls": [
       {
         "hook": "on_session_start",

@@ -112,6 +112,35 @@
       }
     ],
     "stream_deltas": [],
+    "callback_events": [
+      {
+        "channel": "status",
+        "kind": "lifecycle",
+        "message": "⚠️ Empty/malformed response — switching to fallback..."
+      },
+      {
+        "channel": "status",
+        "kind": "lifecycle",
+        "message": "🔄 Primary model failed — switching to fallback: fallback-model via fallbackprov"
+      }
+    ],
+    "trajectory_writes": [
+      {
+        "messages": [
+          {
+            "role": "user",
+            "content": "Say hello."
+          },
+          {
+            "role": "assistant",
+            "content": "Hello from the fallback provider.",
+            "finish_reason": "stop"
+          }
+        ],
+        "user_query": "Say hello.",
+        "completed": true
+      }
+    ],
     "hook_calls": [
       {
         "hook": "on_session_start",

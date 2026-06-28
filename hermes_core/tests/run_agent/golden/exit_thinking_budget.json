@@ -1,0 +1,126 @@
+{
+  "name": "exit_thinking_budget",
+  "description": "A length-truncated thinking-only response exhausts the thinking budget.",
+  "agent": {},
+  "user_message": "answer carefully",
+  "model_turns": [
+    {
+      "content": "<think>internal reasoning</think>",
+      "finish_reason": "length"
+    }
+  ],
+  "expected": {
+    "result_keys": [
+      "api_calls",
+      "completed",
+      "error",
+      "final_response",
+      "messages",
+      "partial"
+    ],
+    "result": {
+      "final_response": "⚠️ **Thinking Budget Exhausted**\n\nThe model used all its output tokens on reasoning and had none left for the actual response.\n\nTo fix this:\n→ Lower reasoning effort: `/thinkon low` or `/thinkon minimal`\n→ Or switch to a larger/non-reasoning model with `/model`",
+      "completed": false,
+      "partial": true,
+      "interrupted": null,
+      "api_calls": 1,
+      "model": null,
+      "provider": null,
+      "interrupt_message": null,
+      "pending_steer": null
+    },
+    "usage": {
+      "input_tokens": null,
+      "output_tokens": null,
+      "prompt_tokens": null,
+      "completion_tokens": null,
+      "total_tokens": null,
+      "cache_read_tokens": null,
+      "cache_write_tokens": null,
+      "reasoning_tokens": null,
+      "last_prompt_tokens": null,
+      "estimated_cost_usd": null,
+      "cost_status": null,
+      "cost_source": null
+    },
+    "messages": [
+      {
+        "role": "user",
+        "content": "answer carefully"
+      }
+    ],
+    "tool_invocations": [],
+    "model_turns_consumed": 1,
+    "persisted_db_messages": [
+      {
+        "role": "user",
+        "content": "answer carefully",
+        "tool_name": null,
+        "tool_call_id": null,
+        "finish_reason": null,
+        "tool_calls": null
+      }
+    ],
+    "stream_deltas": [],
+    "callback_events": [
+      {
+        "channel": "status",
+        "kind": "lifecycle",
+        "message": "⚠ No auxiliary LLM provider configured — context compression will drop middle turns without a summary. Run `hermes setup` or set OPENROUTER_API_KEY."
+      },
+      {
+        "channel": "status",
+        "kind": "lifecycle",
+        "message": "⚠ No auxiliary LLM provider configured — context compression will drop middle turns without a summary. Run `hermes setup` or set OPENROUTER_API_KEY."
+      }
+    ],
+    "trajectory_writes": [],
+    "hook_calls": [
+      {
+        "hook": "on_session_start",
+        "payload": {
+          "model": "golden/test-model",
+          "platform": "",
+          "session_id": "golden-session-0001"
+        }
+      },
+      {
+        "hook": "pre_llm_call",
+        "payload": {
+          "conversation_history": [
+            {
+              "role": "user",
+              "content": "answer carefully"
+            }
+          ],
+          "is_first_turn": true,
+          "model": "golden/test-model",
+          "platform": "",
+          "sender_id": "",
+          "session_id": "golden-session-0001",
+          "user_message": "answer carefully"
+        }
+      },
+      {
+        "hook": "pre_api_request",
+        "payload": {
+          "api_call_count": 1,
+          "api_mode": "chat_completions",
+          "base_url": "https://api.openai.com/v1",
+          "max_tokens": null,
+          "message_count": 2,
+          "model": "golden/test-model",
+          "platform": "",
+          "provider": "openrouter",
+          "session_id": "golden-session-0001",
+          "task_id": "golden-task-0001",
+          "tool_count": 0
+        }
+      }
+    ],
+    "cleanup_task_ids": [
+      "golden-task-0001"
+    ],
+    "clear_interrupt_calls": 0
+  }
+}
