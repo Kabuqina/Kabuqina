@@ -8,7 +8,7 @@
 //! reads/writes this file (with OS-level file locks), so we acquire the
 //! same lock for writes.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tauri::AppHandle;
 
@@ -42,6 +42,13 @@ pub struct CronJobEntry {
     pub completed_at: Option<String>,
     pub last_status: Option<String>,
     pub last_delivery_error: Option<String>,
+    pub mode: Option<String>,
+    pub goal_status: Option<String>,
+    pub goal_iteration: Option<u64>,
+    pub goal_cost_usd: Option<String>,
+    pub goal_cost_accounting: Option<String>,
+    pub goal_pause_reason: Option<String>,
+    pub goal_updated_at: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -186,7 +193,110 @@ fn days_to_ymd(days: i64) -> (i32, u32, u32) {
     (y, m, d)
 }
 
-fn job_to_entry(job: &serde_json::Value) -> CronJobEntry {
+#[derive(Debug, Deserialize)]
+struct GoalStateProjection {
+    schema_version: u64,
+    job_id: String,
+    status: String,
+    iteration: u64,
+    accumulated_cost_usd: String,
+    cost_accounting: String,
+    pause_reason: Option<String>,
+    updated_at: String,
+}
+
+#[derive(Default)]
+struct SanitizedGoalProjection {
+    status: Option<String>,
+    iteration: Option<u64>,
+    cost_usd: Option<String>,
+    cost_accounting: Option<String>,
+    pause_reason: Option<String>,
+    updated_at: Option<String>,
+}
+
+fn state_error_projection() -> SanitizedGoalProjection {
+    SanitizedGoalProjection {
+        status: Some("state_error".to_string()),
+        ..SanitizedGoalProjection::default()
+    }
+}
+
+fn sanitized_pause_reason(reason: Option<String>) -> Option<String> {
+    const ALLOWED: &[&str] = &[
+        "ambiguous_external_effect",
+        "cost_unknown",
+        "worker_blocked",
+        "verifier_error",
+        "max_runs",
+        "max_cost_usd",
+        "max_wall_seconds",
+        "deadline",
+        "no_progress",
+        "missing_report",
+        "recovery_review",
+        "feature_disabled",
+    ];
+    reason.map(|value| {
+        if ALLOWED.contains(&value.as_str()) {
+            value
+        } else {
+            "other".to_string()
+        }
+    })
+}
+
+fn read_goal_projection(data_dir: &std::path::Path, job_id: &str) -> SanitizedGoalProjection {
+    if job_id.len() != 12
+        || !job_id
+            .bytes()
+            .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+    {
+        return state_error_projection();
+    }
+    let path = data_dir
+        .join("hermes-home")
+        .join("cron")
+        .join("goal-runs")
+        .join(job_id)
+        .join("state.json");
+    let raw = match std::fs::read_to_string(path) {
+        Ok(value) => value,
+        Err(_) => return state_error_projection(),
+    };
+    let state: GoalStateProjection = match serde_json::from_str(&raw) {
+        Ok(value) => value,
+        Err(_) => return state_error_projection(),
+    };
+    let valid_status = matches!(
+        state.status.as_str(),
+        "scheduled" | "running" | "verifying" | "completed" | "paused" | "failed" | "cancelled"
+    );
+    let valid_accounting = matches!(state.cost_accounting.as_str(), "complete" | "incomplete");
+    let valid_cost = state
+        .accumulated_cost_usd
+        .parse::<f64>()
+        .is_ok_and(|value| value.is_finite() && value >= 0.0);
+    if state.schema_version != 1
+        || state.job_id != job_id
+        || !valid_status
+        || !valid_accounting
+        || !valid_cost
+        || state.updated_at.is_empty()
+    {
+        return state_error_projection();
+    }
+    SanitizedGoalProjection {
+        status: Some(state.status),
+        iteration: Some(state.iteration),
+        cost_usd: Some(state.accumulated_cost_usd),
+        cost_accounting: Some(state.cost_accounting),
+        pause_reason: sanitized_pause_reason(state.pause_reason),
+        updated_at: Some(state.updated_at),
+    }
+}
+
+fn job_to_entry(job: &serde_json::Value, data_dir: &std::path::Path) -> CronJobEntry {
     // ``schedule`` may be a struct (cron/interval/once) or a plain string in
     // older formats. We surface a human-readable summary regardless.
     let schedule_str = match job.get("schedule") {
@@ -215,23 +325,35 @@ fn job_to_entry(job: &serde_json::Value) -> CronJobEntry {
         _ => String::new(),
     };
 
+    let id = job
+        .get("id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let mode = job.get("mode").and_then(|v| v.as_str()).map(str::to_string);
+    let is_goal = mode.as_deref() == Some("goal");
+    let goal = if is_goal {
+        read_goal_projection(data_dir, &id)
+    } else {
+        SanitizedGoalProjection::default()
+    };
+
     CronJobEntry {
-        id: job
-            .get("id")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string(),
+        id,
         name: job
             .get("name")
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string(),
         schedule: schedule_str,
-        prompt: job
-            .get("prompt")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string(),
+        prompt: if is_goal {
+            String::new()
+        } else {
+            job.get("prompt")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string()
+        },
         deliver: job
             .get("deliver")
             .and_then(|v| v.as_str())
@@ -263,6 +385,13 @@ fn job_to_entry(job: &serde_json::Value) -> CronJobEntry {
             .get("last_delivery_error")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string()),
+        mode,
+        goal_status: goal.status,
+        goal_iteration: goal.iteration,
+        goal_cost_usd: goal.cost_usd,
+        goal_cost_accounting: goal.cost_accounting,
+        goal_pause_reason: goal.pause_reason,
+        goal_updated_at: goal.updated_at,
     }
 }
 
@@ -273,10 +402,11 @@ fn job_to_entry(job: &serde_json::Value) -> CronJobEntry {
 #[tauri::command]
 pub fn cmd_cron_list(app: AppHandle) -> Result<CronJobListResponse, String> {
     let jobs_raw = read_jobs_raw(&app)?;
+    let data_dir = _data_dir(&app)?;
     let mut active: Vec<CronJobEntry> = Vec::new();
     let mut completed: Vec<CronJobEntry> = Vec::new();
     for job in jobs_raw.iter() {
-        let entry = job_to_entry(job);
+        let entry = job_to_entry(job, &data_dir);
         if entry.state == "completed" {
             completed.push(entry);
         } else {
@@ -324,4 +454,148 @@ pub fn cmd_cron_delete(app: AppHandle, job_id: String) -> Result<(), String> {
         return Err(format!("job {job_id} not found"));
     }
     write_jobs_raw(&app, &jobs)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_data_dir(name: &str) -> PathBuf {
+        let root = std::env::temp_dir().join(format!(
+            "kabuqina-cron-{name}-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        root
+    }
+
+    fn goal_job() -> serde_json::Value {
+        serde_json::json!({
+            "id": "abc123def456",
+            "name": "Inventory",
+            "mode": "goal",
+            "schedule": {"kind": "interval", "seconds": 600},
+            "prompt": "secret iteration prompt",
+            "deliver": "desktop",
+            "state": "scheduled"
+        })
+    }
+
+    #[test]
+    fn legacy_job_projection_remains_unchanged() {
+        let data_dir = temp_data_dir("legacy");
+        let job = serde_json::json!({
+            "id": "legacy-job",
+            "name": "Reminder",
+            "schedule": "0 * * * *",
+            "prompt": "drink water",
+            "deliver": "desktop",
+            "paused": false
+        });
+
+        let entry = job_to_entry(&job, &data_dir);
+
+        assert_eq!(entry.mode, None);
+        assert_eq!(entry.prompt, "drink water");
+        assert_eq!(entry.goal_status, None);
+        assert_eq!(entry.state, "scheduled");
+        let _ = std::fs::remove_dir_all(data_dir);
+    }
+
+    #[test]
+    fn goal_projection_reads_only_sanitized_host_state() {
+        let data_dir = temp_data_dir("goal");
+        let run_dir = data_dir
+            .join("hermes-home")
+            .join("cron")
+            .join("goal-runs")
+            .join("abc123def456");
+        std::fs::create_dir_all(&run_dir).unwrap();
+        std::fs::write(
+            run_dir.join("state.json"),
+            serde_json::json!({
+                "schema_version": 1,
+                "job_id": "abc123def456",
+                "status": "paused",
+                "iteration": 4,
+                "accumulated_cost_usd": "1.25",
+                "cost_accounting": "complete",
+                "pause_reason": "no_progress",
+                "updated_at": "2026-06-27T12:00:00+00:00",
+                "last_error": "do not expose this stack",
+                "evidence": {"secret": "do not expose"},
+                "prompt": "do not expose"
+            })
+            .to_string(),
+        )
+        .unwrap();
+
+        let entry = job_to_entry(&goal_job(), &data_dir);
+
+        assert_eq!(entry.mode.as_deref(), Some("goal"));
+        assert_eq!(entry.prompt, "");
+        assert_eq!(entry.goal_status.as_deref(), Some("paused"));
+        assert_eq!(entry.goal_iteration, Some(4));
+        assert_eq!(entry.goal_cost_usd.as_deref(), Some("1.25"));
+        assert_eq!(entry.goal_cost_accounting.as_deref(), Some("complete"));
+        assert_eq!(entry.goal_pause_reason.as_deref(), Some("no_progress"));
+        let serialized = serde_json::to_string(&entry).unwrap();
+        assert!(!serialized.contains("do not expose"));
+        assert!(!serialized.contains("secret"));
+        let _ = std::fs::remove_dir_all(data_dir);
+    }
+
+    #[test]
+    fn malformed_goal_state_marks_only_that_entry_as_state_error() {
+        let data_dir = temp_data_dir("malformed");
+        let run_dir = data_dir
+            .join("hermes-home")
+            .join("cron")
+            .join("goal-runs")
+            .join("abc123def456");
+        std::fs::create_dir_all(&run_dir).unwrap();
+        std::fs::write(run_dir.join("state.json"), "not json").unwrap();
+
+        let entry = job_to_entry(&goal_job(), &data_dir);
+
+        assert_eq!(entry.goal_status.as_deref(), Some("state_error"));
+        assert_eq!(entry.goal_iteration, None);
+        let _ = std::fs::remove_dir_all(data_dir);
+    }
+
+    #[test]
+    fn goal_projection_never_falls_back_to_a_gateway_profile() {
+        let data_dir = temp_data_dir("profile");
+        let gateway_run_dir = data_dir
+            .join("gateway-profile")
+            .join("cron")
+            .join("goal-runs")
+            .join("abc123def456");
+        std::fs::create_dir_all(&gateway_run_dir).unwrap();
+        std::fs::write(
+            gateway_run_dir.join("state.json"),
+            serde_json::json!({
+                "schema_version": 1,
+                "job_id": "abc123def456",
+                "status": "completed",
+                "iteration": 99,
+                "accumulated_cost_usd": "9.99",
+                "cost_accounting": "complete",
+                "pause_reason": null,
+                "updated_at": "2026-06-27T12:00:00+00:00"
+            })
+            .to_string(),
+        )
+        .unwrap();
+
+        let entry = job_to_entry(&goal_job(), &data_dir);
+
+        assert_eq!(entry.goal_status.as_deref(), Some("state_error"));
+        assert_ne!(entry.goal_iteration, Some(99));
+        let _ = std::fs::remove_dir_all(data_dir);
+    }
 }

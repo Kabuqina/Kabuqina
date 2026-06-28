@@ -26,6 +26,13 @@ interface CronJobEntry {
   completedAt: string | null;
   lastStatus: string | null;
   lastDeliveryError: string | null;
+  mode: string | null;
+  goalStatus: string | null;
+  goalIteration: number | null;
+  goalCostUsd: string | null;
+  goalCostAccounting: string | null;
+  goalPauseReason: string | null;
+  goalUpdatedAt: string | null;
 }
 
 function formatDeliverLabel(deliver: string, t: (key: string) => string): string {
@@ -119,11 +126,66 @@ export function ScheduledTasksPage() {
     }
   };
 
-  const renderActiveCard = (job: CronJobEntry) => (
-    <div
-      key={job.id}
-      className="hd-glass-subtle px-5 py-4 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)]"
-    >
+  const renderGoalCard = (job: CronJobEntry) => {
+    const cost = job.goalCostAccounting === "incomplete"
+      ? t("cron.goalCostUnknown")
+      : job.goalCostUsd
+        ? `$${job.goalCostUsd}`
+        : t("cron.goalCostUnavailable");
+    return (
+      <div
+        key={job.id}
+        className="hd-glass-subtle px-5 py-4 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)]"
+      >
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-semibold text-[var(--kq-color-strong)] truncate">
+              {job.name || job.id.slice(0, 8)}
+            </h3>
+            <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
+              {t("cron.goalBadge")}
+            </span>
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+              {job.goalStatus || t("cron.goalStateError")}
+            </span>
+          </div>
+          <div className="mt-2 grid gap-1 text-xs text-[var(--kq-color-muted)] sm:grid-cols-2">
+            <p>
+              <span className="font-medium">{t("cron.goalIteration")}:</span>{" "}
+              {job.goalIteration ?? "—"}
+            </p>
+            <p>
+              <span className="font-medium">{t("cron.goalCost")}:</span>{" "}
+              {cost}
+            </p>
+            {job.goalUpdatedAt && (
+              <p>
+                <span className="font-medium">{t("cron.goalUpdatedAt")}:</span>{" "}
+                {formatCronDateTime(job.goalUpdatedAt, locale)}
+              </p>
+            )}
+            {job.goalPauseReason && (
+              <p>
+                <span className="font-medium">{t("cron.goalPauseReason")}:</span>{" "}
+                {job.goalPauseReason}
+              </p>
+            )}
+          </div>
+          <p className="mt-2 text-[11px] text-[var(--kq-color-muted)]">
+            {t("cron.goalStatusOnly")}
+          </p>
+        </div>
+      </div>
+    );
+  };
+
+  const renderActiveCard = (job: CronJobEntry) => {
+    if (job.mode === "goal") return renderGoalCard(job);
+    return (
+      <div
+        key={job.id}
+        className="hd-glass-subtle px-5 py-4 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)]"
+      >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
@@ -177,10 +239,12 @@ export function ScheduledTasksPage() {
           </Button>
         </div>
       </div>
-    </div>
-  );
+      </div>
+    );
+  };
 
   const renderCompletedCard = (job: CronJobEntry) => {
+    if (job.mode === "goal") return renderGoalCard(job);
     const failed = job.lastStatus === "error";
     return (
       <div

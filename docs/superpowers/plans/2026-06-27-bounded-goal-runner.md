@@ -92,7 +92,7 @@ semantics in an overlay.
 - Create: `hermes_core/tests/cron/test_goal_state.py`
 - Create: `hermes_core/tests/cron/test_goal_usage.py`
 
-- [ ] **Step 1: write failing model, path, and round-trip tests**
+- [x] **Step 1: write failing model, path, and round-trip tests**
 
 The tests must cover valid states, rejected job IDs, missing state, unknown
 schema versions, atomic replacement, and recovery when a stale `.tmp` file is
@@ -211,7 +211,7 @@ Persist decimals and datetimes as strings. The file layout is:
 <HERMES_HOME>/cron/goal-runs/<job-id>/iterations/000001/transition.json
 ```
 
-- [ ] **Step 2: run the test and confirm it fails for the missing module**
+- [x] **Step 2: run the test and confirm it fails for the missing module**
 
 ```powershell
 cd hermes_core
@@ -220,7 +220,7 @@ python -m pytest tests/cron/test_goal_state.py `
   -o "addopts=" -p no:cacheprovider -q
 ```
 
-- [ ] **Step 3: implement validation and atomic writes**
+- [x] **Step 3: implement validation and atomic writes**
 
 Use `get_hermes_home()` at call time, not module import time. Accept only job IDs
 matching `^[a-f0-9]{12}$`; resolve the final directory and confirm its parent is
@@ -251,7 +251,7 @@ def save_iteration_record(
 Reject malformed committed JSON and unsupported schema versions with a typed
 `GoalStateError`; do not silently reset them.
 
-- [ ] **Step 4: verify and commit**
+- [x] **Step 4: verify and commit**
 
 ```powershell
 cd hermes_core
@@ -274,7 +274,7 @@ git commit -m "feat: add durable goal run state"
 - Create: `hermes_core/cron/goal_transitions.py`
 - Create: `hermes_core/tests/cron/test_goal_transitions.py`
 
-- [ ] **Step 1: write a table-driven state-transition test**
+- [x] **Step 1: write a table-driven state-transition test**
 
 Cover these exact outcomes:
 
@@ -292,7 +292,7 @@ Cover these exact outcomes:
 | infrastructure exception reaches limit | not run | any | `failed` |
 | any exception after reported external effect | not run | ambiguous | `paused` |
 
-- [ ] **Step 2: implement a side-effect-free reducer**
+- [x] **Step 2: implement a side-effect-free reducer**
 
 ```python
 @dataclass(frozen=True)
@@ -333,13 +333,13 @@ When several pause causes apply, use this stable reason precedence:
 budget/deadline, then no-progress. Persist all applicable diagnostics even
 though only the first becomes `pause_reason`.
 
-- [ ] **Step 3: prove determinism and invalid-transition rejection**
+- [x] **Step 3: prove determinism and invalid-transition rejection**
 
 Call the reducer twice with equal inputs and compare dataclass equality. Reject
 attempts to run from `completed`, `cancelled`, or `failed` with
 `InvalidGoalTransition`.
 
-- [ ] **Step 4: verify and commit**
+- [x] **Step 4: verify and commit**
 
 ```powershell
 cd hermes_core
@@ -360,14 +360,14 @@ git commit -m "feat: add bounded goal transitions"
 - Create: `hermes_core/cron/goal_verifiers.py`
 - Create: `hermes_core/tests/cron/test_goal_verifiers.py`
 
-- [ ] **Step 1: test path confinement and verifier results**
+- [x] **Step 1: test path confinement and verifier results**
 
 Every artifact path is relative to the configured absolute `workdir`. Reject
 absolute paths, `..` traversal, symlink escapes, missing workdirs, and files
 outside the root. Tests run on Windows and must compare resolved `Path` objects,
 not slash-formatted strings.
 
-- [ ] **Step 2: define the verifier port and registry**
+- [x] **Step 2: define the verifier port and registry**
 
 ```python
 @dataclass(frozen=True)
@@ -391,7 +391,7 @@ def verify(kind: str, context: VerificationContext) -> VerifierResult: ...
 Unknown verifier kinds return `error` and pause the goal; they never fall back to
 an LLM judgment.
 
-- [ ] **Step 3: implement the Pilot 1 verifier set**
+- [x] **Step 3: implement the Pilot 1 verifier set**
 
 Implement and test:
 
@@ -414,7 +414,7 @@ result.
 Do not implement `test_command` or `llm_rubric` in this task. They are outside
 Pilot 1 and require separate power-user and evaluator-risk decisions.
 
-- [ ] **Step 4: verify and commit**
+- [x] **Step 4: verify and commit**
 
 ```powershell
 cd hermes_core
@@ -436,14 +436,14 @@ git commit -m "feat: add deterministic goal verifiers"
 - Create: `hermes_core/tools/goal_report_tool.py`
 - Create: `hermes_core/tests/cron/test_goal_report.py`
 
-- [ ] **Step 1: write isolation and schema tests**
+- [x] **Step 1: write isolation and schema tests**
 
 Prove that the tool is unavailable without an active goal-report scope, accepts
 exactly one valid report inside a scope, rejects unknown keys and oversized
 fields, and keeps independently created scopes isolated across copied contexts
 and parallel threads.
 
-- [ ] **Step 2: implement the scoped report collector**
+- [x] **Step 2: implement the scoped report collector**
 
 Use a `ContextVar[GoalReportCollector | None]`. The context manager returns a
 collector and always resets its token:
@@ -464,7 +464,7 @@ characters, artifact entries at 200, and serialized evidence at 64 KiB. Secret
 redaction remains the caller's responsibility; the tool schema explicitly tells
 the worker never to include secrets or raw document bodies.
 
-- [ ] **Step 3: register `goal_report` in an internal toolset**
+- [x] **Step 3: register `goal_report` in an internal toolset**
 
 Register through the existing `ToolRegistry` as toolset `goal_internal`. Its
 module-level registration is discovered by the existing built-in tool scan; no
@@ -476,7 +476,7 @@ JSON string and never writes goal state directly.
 Do not add `goal_internal` to default toolsets or static core-tool lists. The
 Goal Agent adapter in Task 7 enables it explicitly for one worker turn.
 
-- [ ] **Step 4: verify and commit**
+- [x] **Step 4: verify and commit**
 
 ```powershell
 cd hermes_core
@@ -498,7 +498,7 @@ git commit -m "feat: add scoped goal report tool"
 - Create: `hermes_core/cron/goal_runner.py`
 - Create: `hermes_core/tests/cron/test_goal_runner.py`
 
-- [ ] **Step 1: define injected ports and fake-driven tests**
+- [x] **Step 1: define injected ports and fake-driven tests**
 
 ```python
 class GoalWorker(Protocol):
@@ -536,7 +536,7 @@ Tests use fakes only. They cover initialization, one worker call, verifier only
 for `candidate_done`, progress reschedule, verified completion, pause, persistence
 before return, restart from committed state, and no second iteration in one call.
 
-- [ ] **Step 2: implement orchestration in this exact order**
+- [x] **Step 2: implement orchestration in this exact order**
 
 1. Load or initialize state.
 2. Reject terminal/paused states. If committed state is `running` or
@@ -571,13 +571,13 @@ unchanged; changing one artifact digest must change it.
 If the process exits between steps 3 and 8, the next wake sees `running` or
 `verifying` and pauses for recovery review. It must not replay automatically.
 
-- [ ] **Step 3: add restart and fault-injection tests**
+- [x] **Step 3: add restart and fault-injection tests**
 
 Inject failures before and after every state write. Assert that a committed
 terminal state is never overwritten, evidence is immutable per iteration, and a
 missing report becomes a controlled pause rather than guessed progress.
 
-- [ ] **Step 4: run the G0 core gate and commit**
+- [x] **Step 4: run the G0 core gate and commit**
 
 ```powershell
 cd hermes_core
@@ -605,7 +605,7 @@ git commit -m "feat: add engine-neutral bounded goal controller"
 - Modify: `web/src/locales/strings.ts`
 - Create: `web/src/advanced/scheduledTasksGoalUx.test.mjs`
 
-- [ ] **Step 1: add Rust deserialization and sanitization tests**
+- [x] **Step 1: add Rust deserialization and sanitization tests**
 
 Extend `CronJobEntry` with optional fields only:
 
@@ -625,7 +625,7 @@ gateway profile directories and must not expose evidence, prompts, or error
 stacks. Malformed state produces `goal_status: "state_error"` without failing
 the entire task list.
 
-- [ ] **Step 2: render status without adding creation or execution controls**
+- [x] **Step 2: render status without adding creation or execution controls**
 
 Show a “持续目标 / Goal Task” badge, iteration, accumulated cost, updated time,
 cost-accounting completeness, and sanitized pause reason. Never render an
@@ -634,7 +634,7 @@ goal cards are status-only at G0 and do not call the legacy raw-file toggle or
 delete commands. No create form is added at G0. The view is naturally dormant
 until a developer fixture or later runtime wiring creates a goal job.
 
-- [ ] **Step 3: verify legacy and goal rendering**
+- [x] **Step 3: verify legacy and goal rendering**
 
 ```powershell
 cd tauri
@@ -646,7 +646,7 @@ npm run build
 cd ..
 ```
 
-- [ ] **Step 4: commit**
+- [x] **Step 4: commit**
 
 ```powershell
 git add tauri/src/cron.rs `
