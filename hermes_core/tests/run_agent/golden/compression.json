@@ -55,6 +55,31 @@
     }
   ],
   "expected": {
+    "result_keys": [
+      "api_calls",
+      "base_url",
+      "cache_read_tokens",
+      "cache_write_tokens",
+      "completed",
+      "completion_tokens",
+      "cost_source",
+      "cost_status",
+      "estimated_cost_usd",
+      "final_response",
+      "input_tokens",
+      "interrupted",
+      "last_prompt_tokens",
+      "last_reasoning",
+      "messages",
+      "model",
+      "output_tokens",
+      "partial",
+      "prompt_tokens",
+      "provider",
+      "reasoning_tokens",
+      "response_previewed",
+      "total_tokens"
+    ],
     "result": {
       "final_response": "2 + 2 = 4.",
       "completed": true,
@@ -123,6 +148,112 @@
         "tool_calls": null
       }
     ],
-    "stream_deltas": []
+    "stream_deltas": [],
+    "hook_calls": [
+      {
+        "hook": "pre_llm_call",
+        "payload": {
+          "conversation_history": [
+            {
+              "role": "user",
+              "content": "[Earlier conversation summarized: planning a 3-milestone project.]"
+            },
+            {
+              "role": "user",
+              "content": "Now, what is 2 + 2?"
+            }
+          ],
+          "is_first_turn": true,
+          "model": "golden/test-model",
+          "platform": "",
+          "sender_id": "",
+          "session_id": "<rotated-session>",
+          "user_message": "Now, what is 2 + 2?"
+        }
+      },
+      {
+        "hook": "pre_api_request",
+        "payload": {
+          "api_call_count": 1,
+          "api_mode": "chat_completions",
+          "base_url": "https://api.openai.com/v1",
+          "max_tokens": null,
+          "message_count": 3,
+          "model": "golden/test-model",
+          "platform": "",
+          "provider": "openrouter",
+          "session_id": "<rotated-session>",
+          "task_id": "golden-task-0001",
+          "tool_count": 0
+        }
+      },
+      {
+        "hook": "post_api_request",
+        "payload": {
+          "api_call_count": 1,
+          "api_mode": "chat_completions",
+          "assistant_content_chars": 10,
+          "assistant_tool_call_count": 0,
+          "base_url": "https://api.openai.com/v1",
+          "finish_reason": "stop",
+          "message_count": 3,
+          "model": "golden/test-model",
+          "platform": "",
+          "provider": "openrouter",
+          "response_model": "golden/test-model",
+          "session_id": "<rotated-session>",
+          "task_id": "golden-task-0001",
+          "usage": {
+            "cache_read_tokens": 0,
+            "cache_write_tokens": 0,
+            "input_tokens": 30,
+            "output_tokens": 6,
+            "prompt_tokens": 30,
+            "reasoning_tokens": 0,
+            "request_count": 1,
+            "total_tokens": 36
+          }
+        }
+      },
+      {
+        "hook": "post_llm_call",
+        "payload": {
+          "assistant_response": "2 + 2 = 4.",
+          "conversation_history": [
+            {
+              "role": "user",
+              "content": "[Earlier conversation summarized: planning a 3-milestone project.]"
+            },
+            {
+              "role": "user",
+              "content": "Now, what is 2 + 2?"
+            },
+            {
+              "role": "assistant",
+              "content": "2 + 2 = 4.",
+              "finish_reason": "stop"
+            }
+          ],
+          "model": "golden/test-model",
+          "platform": "",
+          "session_id": "<rotated-session>",
+          "user_message": "Now, what is 2 + 2?"
+        }
+      },
+      {
+        "hook": "on_session_end",
+        "payload": {
+          "completed": true,
+          "interrupted": false,
+          "model": "golden/test-model",
+          "platform": "",
+          "session_id": "<rotated-session>"
+        }
+      }
+    ],
+    "cleanup_task_ids": [
+      "golden-task-0001"
+    ],
+    "clear_interrupt_calls": 1
   }
 }

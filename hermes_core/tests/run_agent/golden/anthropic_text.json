@@ -21,6 +21,31 @@
     }
   ],
   "expected": {
+    "result_keys": [
+      "api_calls",
+      "base_url",
+      "cache_read_tokens",
+      "cache_write_tokens",
+      "completed",
+      "completion_tokens",
+      "cost_source",
+      "cost_status",
+      "estimated_cost_usd",
+      "final_response",
+      "input_tokens",
+      "interrupted",
+      "last_prompt_tokens",
+      "last_reasoning",
+      "messages",
+      "model",
+      "output_tokens",
+      "partial",
+      "prompt_tokens",
+      "provider",
+      "reasoning_tokens",
+      "response_previewed",
+      "total_tokens"
+    ],
     "result": {
       "final_response": "Hello — happy to help with whatever you need.",
       "completed": true,
@@ -77,6 +102,112 @@
         "tool_calls": null
       }
     ],
-    "stream_deltas": []
+    "stream_deltas": [],
+    "hook_calls": [
+      {
+        "hook": "on_session_start",
+        "payload": {
+          "model": "claude-sonnet-4-6",
+          "platform": "",
+          "session_id": "golden-session-0001"
+        }
+      },
+      {
+        "hook": "pre_llm_call",
+        "payload": {
+          "conversation_history": [
+            {
+              "role": "user",
+              "content": "Say hello in one short sentence."
+            }
+          ],
+          "is_first_turn": true,
+          "model": "claude-sonnet-4-6",
+          "platform": "",
+          "sender_id": "",
+          "session_id": "golden-session-0001",
+          "user_message": "Say hello in one short sentence."
+        }
+      },
+      {
+        "hook": "pre_api_request",
+        "payload": {
+          "api_call_count": 1,
+          "api_mode": "anthropic_messages",
+          "base_url": "https://api.anthropic.com",
+          "max_tokens": null,
+          "message_count": 2,
+          "model": "claude-sonnet-4-6",
+          "platform": "",
+          "provider": "anthropic",
+          "session_id": "golden-session-0001",
+          "task_id": "golden-task-0001",
+          "tool_count": 0
+        }
+      },
+      {
+        "hook": "post_api_request",
+        "payload": {
+          "api_call_count": 1,
+          "api_mode": "anthropic_messages",
+          "assistant_content_chars": 45,
+          "assistant_tool_call_count": 0,
+          "base_url": "https://api.anthropic.com",
+          "finish_reason": "stop",
+          "message_count": 2,
+          "model": "claude-sonnet-4-6",
+          "platform": "",
+          "provider": "anthropic",
+          "response_model": "claude-sonnet-4-6",
+          "session_id": "golden-session-0001",
+          "task_id": "golden-task-0001",
+          "usage": {
+            "cache_read_tokens": 0,
+            "cache_write_tokens": 0,
+            "input_tokens": 40,
+            "output_tokens": 11,
+            "prompt_tokens": 40,
+            "reasoning_tokens": 0,
+            "request_count": 1,
+            "total_tokens": 51
+          }
+        }
+      },
+      {
+        "hook": "post_llm_call",
+        "payload": {
+          "assistant_response": "Hello — happy to help with whatever you need.",
+          "conversation_history": [
+            {
+              "role": "user",
+              "content": "Say hello in one short sentence."
+            },
+            {
+              "role": "assistant",
+              "content": "Hello — happy to help with whatever you need.",
+              "finish_reason": "stop"
+            }
+          ],
+          "model": "claude-sonnet-4-6",
+          "platform": "",
+          "session_id": "golden-session-0001",
+          "user_message": "Say hello in one short sentence."
+        }
+      },
+      {
+        "hook": "on_session_end",
+        "payload": {
+          "completed": true,
+          "interrupted": false,
+          "model": "claude-sonnet-4-6",
+          "platform": "",
+          "session_id": "golden-session-0001"
+        }
+      }
+    ],
+    "cleanup_task_ids": [
+      "golden-task-0001"
+    ],
+    "clear_interrupt_calls": 1
   }
 }

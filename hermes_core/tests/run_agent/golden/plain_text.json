@@ -22,6 +22,31 @@
     }
   ],
   "expected": {
+    "result_keys": [
+      "api_calls",
+      "base_url",
+      "cache_read_tokens",
+      "cache_write_tokens",
+      "completed",
+      "completion_tokens",
+      "cost_source",
+      "cost_status",
+      "estimated_cost_usd",
+      "final_response",
+      "input_tokens",
+      "interrupted",
+      "last_prompt_tokens",
+      "last_reasoning",
+      "messages",
+      "model",
+      "output_tokens",
+      "partial",
+      "prompt_tokens",
+      "provider",
+      "reasoning_tokens",
+      "response_previewed",
+      "total_tokens"
+    ],
     "result": {
       "final_response": "Hello! How can I help you today?",
       "completed": true,
@@ -78,6 +103,112 @@
         "tool_calls": null
       }
     ],
-    "stream_deltas": []
+    "stream_deltas": [],
+    "hook_calls": [
+      {
+        "hook": "on_session_start",
+        "payload": {
+          "model": "golden/test-model",
+          "platform": "",
+          "session_id": "golden-session-0001"
+        }
+      },
+      {
+        "hook": "pre_llm_call",
+        "payload": {
+          "conversation_history": [
+            {
+              "role": "user",
+              "content": "Say hello in one short sentence."
+            }
+          ],
+          "is_first_turn": true,
+          "model": "golden/test-model",
+          "platform": "",
+          "sender_id": "",
+          "session_id": "golden-session-0001",
+          "user_message": "Say hello in one short sentence."
+        }
+      },
+      {
+        "hook": "pre_api_request",
+        "payload": {
+          "api_call_count": 1,
+          "api_mode": "chat_completions",
+          "base_url": "https://api.openai.com/v1",
+          "max_tokens": null,
+          "message_count": 2,
+          "model": "golden/test-model",
+          "platform": "",
+          "provider": "openrouter",
+          "session_id": "golden-session-0001",
+          "task_id": "golden-task-0001",
+          "tool_count": 0
+        }
+      },
+      {
+        "hook": "post_api_request",
+        "payload": {
+          "api_call_count": 1,
+          "api_mode": "chat_completions",
+          "assistant_content_chars": 32,
+          "assistant_tool_call_count": 0,
+          "base_url": "https://api.openai.com/v1",
+          "finish_reason": "stop",
+          "message_count": 2,
+          "model": "golden/test-model",
+          "platform": "",
+          "provider": "openrouter",
+          "response_model": "golden/test-model",
+          "session_id": "golden-session-0001",
+          "task_id": "golden-task-0001",
+          "usage": {
+            "cache_read_tokens": 0,
+            "cache_write_tokens": 0,
+            "input_tokens": 50,
+            "output_tokens": 8,
+            "prompt_tokens": 50,
+            "reasoning_tokens": 0,
+            "request_count": 1,
+            "total_tokens": 58
+          }
+        }
+      },
+      {
+        "hook": "post_llm_call",
+        "payload": {
+          "assistant_response": "Hello! How can I help you today?",
+          "conversation_history": [
+            {
+              "role": "user",
+              "content": "Say hello in one short sentence."
+            },
+            {
+              "role": "assistant",
+              "content": "Hello! How can I help you today?",
+              "finish_reason": "stop"
+            }
+          ],
+          "model": "golden/test-model",
+          "platform": "",
+          "session_id": "golden-session-0001",
+          "user_message": "Say hello in one short sentence."
+        }
+      },
+      {
+        "hook": "on_session_end",
+        "payload": {
+          "completed": true,
+          "interrupted": false,
+          "model": "golden/test-model",
+          "platform": "",
+          "session_id": "golden-session-0001"
+        }
+      }
+    ],
+    "cleanup_task_ids": [
+      "golden-task-0001"
+    ],
+    "clear_interrupt_calls": 1
   }
 }

@@ -53,6 +53,18 @@ from unittest.mock import MagicMock, patch
 # Fixed, deterministic identity so persisted rows / session tags never vary.
 GOLDEN_SESSION_ID = "golden-session-0001"
 
+# Fixed task id so ``effective_task_id`` (otherwise ``str(uuid.uuid4())``) and any
+# task-scoped hook payload / cleanup id stay deterministic across runs.
+GOLDEN_TASK_ID = "golden-task-0001"
+
+# Hook payload fields that are wall-clock- or system-prompt-dependent and must
+# never enter a frozen snapshot. ``api_duration`` is elapsed seconds;
+# ``approx_input_tokens`` / ``request_char_count`` are measured over the full
+# request payload, whose system prompt carries today's date / cwd.
+_VOLATILE_HOOK_KEYS = frozenset(
+    {"api_duration", "approx_input_tokens", "request_char_count"}
+)
+
 # Covered branches (fixtures under golden/) — the full phase-0 set:
 # plain text, single-tool (sequential), parallel multi-tool (concurrent),
 # anthropic_messages text, interrupt, steer, unknown-tool rejection,
@@ -313,8 +325,73 @@ def _normalize_persisted(session_db) -> List[Dict[str, Any]]:
     return rows
 
 
-def _snapshot(result, agent, tool_stub, transport, stream_log) -> Dict[str, Any]:
+def _normalize_hook_kwargs(kwargs: Dict[str, Any]) -> Dict[str, Any]:
+    """Deterministic view of a plugin-hook payload.
+
+    Drops wall-clock / system-prompt-dependent fields and reduces message lists
+    to the same normalized trajectory used elsewhere, so re-recording is stable.
+    Any non-scalar leaf is replaced with its type name to stay JSON-serializable.
+    """
+    out: Dict[str, Any] = {}
+    for key in sorted(kwargs):
+        if key in _VOLATILE_HOOK_KEYS:
+            continue
+        value = kwargs[key]
+        if key == "session_id":
+            # Preflight compression rotates session_id to a fresh random id
+            # mid-run, so hooks after it carry a non-deterministic value. Keep the
+            # snapshot stable while still recording that a rotation happened.
+            out[key] = "<rotated-session>" if (value and value != GOLDEN_SESSION_ID) else value
+            continue
+        if key in ("conversation_history", "messages") and isinstance(value, list):
+            out[key] = _normalize_messages(value)
+        elif isinstance(value, (str, int, float, bool)) or value is None:
+            out[key] = value
+        elif isinstance(value, dict):
+            out[key] = {
+                k: (
+                    value[k]
+                    if isinstance(value[k], (str, int, float, bool)) or value[k] is None
+                    else type(value[k]).__name__
+                )
+                for k in sorted(value)
+            }
+        else:
+            out[key] = type(value).__name__
+    return out
+
+
+class _HookRecorder:
+    """Wraps ``hermes_cli.plugins.invoke_hook`` to record ``{hook, payload}`` in
+    call order while delegating to the real dispatcher — which no-ops with no
+    plugins registered, and crucially still returns the iterable that the
+    ``pre_llm_call`` site consumes. Replacing (instead of wrapping) would change
+    behavior; we only observe."""
+
+    def __init__(self, real_invoke):
+        self._real = real_invoke
+        self.calls: List[Dict[str, Any]] = []
+
+    def __call__(self, hook_name, *args, **kwargs):
+        self.calls.append(
+            {"hook": hook_name, "payload": _normalize_hook_kwargs(kwargs)}
+        )
+        return self._real(hook_name, *args, **kwargs)
+
+
+def _snapshot(
+    result,
+    agent,
+    tool_stub,
+    transport,
+    stream_log,
+    hook_recorder,
+    cleanup_task_ids,
+    clear_interrupt_calls,
+) -> Dict[str, Any]:
     return {
+        # Exact result-key presence (adding an absent key is a behavior change).
+        "result_keys": sorted(result.keys()),
         "result": {
             "final_response": result.get("final_response"),
             "completed": result.get("completed"),
@@ -350,12 +427,18 @@ def _snapshot(result, agent, tool_stub, transport, stream_log) -> Dict[str, Any]
         "model_turns_consumed": transport.calls,
         "persisted_db_messages": _normalize_persisted(agent._session_db),
         "stream_deltas": list(stream_log),
+        # Plugin hook names/order/payloads (including which hooks are *absent* on
+        # an exit), and the cleanup / interrupt-clear side effects per exit.
+        "hook_calls": hook_recorder.calls,
+        "cleanup_task_ids": list(cleanup_task_ids),
+        "clear_interrupt_calls": clear_interrupt_calls,
     }
 
 
 @contextlib.contextmanager
 def _patches(tool_names, tool_stub, api_mode):
     import run_agent
+    import hermes_cli.plugins as _plugins
 
     stack = contextlib.ExitStack()
     stack.enter_context(
@@ -384,8 +467,13 @@ def _patches(tool_names, tool_stub, api_mode):
                 lambda *a, **k: _FakeAnthropicClient(),
             )
         )
+    # Observe (don't replace) the plugin-hook dispatcher. Each call site does a
+    # runtime ``from hermes_cli.plugins import invoke_hook``, so patching the
+    # module attribute is seen by all six hooks.
+    hook_recorder = _HookRecorder(_plugins.invoke_hook)
+    stack.enter_context(patch.object(_plugins, "invoke_hook", hook_recorder))
     try:
-        yield
+        yield hook_recorder
     finally:
         stack.close()
 
@@ -451,7 +539,7 @@ def replay_transcript(spec: Dict[str, Any]) -> Dict[str, Any]:
     if cfg.get("fallback_model"):
         extra_kwargs["fallback_model"] = cfg["fallback_model"]
 
-    with _patches(tool_names, tool_stub, api_mode), _fallback_patch(cfg.get("fallback_model")):
+    with _patches(tool_names, tool_stub, api_mode) as hook_recorder, _fallback_patch(cfg.get("fallback_model")):
         agent = run_agent.AIAgent(
             api_key="golden-key",
             base_url=base_url,
@@ -486,6 +574,23 @@ def replay_transcript(spec: Dict[str, Any]) -> Dict[str, Any]:
             cc.threshold_tokens = compression.get("threshold_tokens", 5)
             cc.compress = compress_stub
 
+        # Observe cleanup + interrupt-clear at their boundaries (record, delegate).
+        cleanup_task_ids: List[str] = []
+        clear_interrupt_calls = [0]
+        _real_cleanup = agent._cleanup_task_resources
+        _real_clear = agent.clear_interrupt
+
+        def _observed_cleanup(task_id, _real=_real_cleanup, _ids=cleanup_task_ids):
+            _ids.append(task_id)
+            return _real(task_id)
+
+        def _observed_clear(_real=_real_clear, _box=clear_interrupt_calls):
+            _box[0] += 1
+            return _real()
+
+        agent._cleanup_task_resources = _observed_cleanup
+        agent.clear_interrupt = _observed_clear
+
         transport.agent = agent
         if api_mode == "anthropic_messages":
             agent._anthropic_messages_create = transport
@@ -495,6 +600,7 @@ def replay_transcript(spec: Dict[str, Any]) -> Dict[str, Any]:
         result = agent.run_conversation(
             spec["user_message"],
             conversation_history=conversation_history,
+            task_id=GOLDEN_TASK_ID,
             stream_callback=lambda text: stream_log.append(text),
         )
 
@@ -505,4 +611,13 @@ def replay_transcript(spec: Dict[str, Any]) -> Dict[str, Any]:
             "threshold_tokens"
         )
 
-    return _snapshot(result, agent, tool_stub, transport, stream_log)
+    return _snapshot(
+        result,
+        agent,
+        tool_stub,
+        transport,
+        stream_log,
+        hook_recorder,
+        cleanup_task_ids,
+        clear_interrupt_calls[0],
+    )
