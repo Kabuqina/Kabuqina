@@ -92,7 +92,7 @@ semantics in an overlay.
 - Create: `hermes_core/tests/cron/test_goal_state.py`
 - Create: `hermes_core/tests/cron/test_goal_usage.py`
 
-- [ ] **Step 1: write failing model, path, and round-trip tests**
+- [x] **Step 1: write failing model, path, and round-trip tests**
 
 The tests must cover valid states, rejected job IDs, missing state, unknown
 schema versions, atomic replacement, and recovery when a stale `.tmp` file is
@@ -211,7 +211,7 @@ Persist decimals and datetimes as strings. The file layout is:
 <HERMES_HOME>/cron/goal-runs/<job-id>/iterations/000001/transition.json
 ```
 
-- [ ] **Step 2: run the test and confirm it fails for the missing module**
+- [x] **Step 2: run the test and confirm it fails for the missing module**
 
 ```powershell
 cd hermes_core
@@ -220,7 +220,7 @@ python -m pytest tests/cron/test_goal_state.py `
   -o "addopts=" -p no:cacheprovider -q
 ```
 
-- [ ] **Step 3: implement validation and atomic writes**
+- [x] **Step 3: implement validation and atomic writes**
 
 Use `get_hermes_home()` at call time, not module import time. Accept only job IDs
 matching `^[a-f0-9]{12}$`; resolve the final directory and confirm its parent is
@@ -251,7 +251,7 @@ def save_iteration_record(
 Reject malformed committed JSON and unsupported schema versions with a typed
 `GoalStateError`; do not silently reset them.
 
-- [ ] **Step 4: verify and commit**
+- [x] **Step 4: verify and commit**
 
 ```powershell
 cd hermes_core
