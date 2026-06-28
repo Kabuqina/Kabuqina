@@ -1,19 +1,20 @@
 {
   "plan": "docs/superpowers/specs/2026-06-24-consolidate-and-langgraph-replatform-plan.md",
-  "current_task": 3,
-  "status": "complete",
+  "current_task": 7,
+  "status": "ready",
   "attempt": 1,
   "worktree": null,
-  "last_commit": "9836d7ec",
+  "last_commit": "d1db0b68",
   "last_verification": [
-    "Task 3 Step 1: 10 failed as expected (ModuleNotFoundError).",
-    "Task 3 Steps 2-4: contracts.py, ports.py, nodes.py, usage_events.py, builder.py, engine.py, __init__.py created.",
-    "Task 3 Step 5: 81 passed, 34 skipped (test_graph_import_isolation, test_graph_contracts, test_usage_event_contract). 28 golden tests unchanged. Commit 9836d7ec."
+    "Task 6: 5 tool parity tests pass (single_tool, parallel_tools, unknown_tool, truncated_json_args, steer). 28 golden tests unchanged. 85 graph engine tests pass.",
+    "dispatch_tools: preserves api_call_count through LangGraph state; calls _execute_tool_calls with reconstructed SimpleNamespace.",
+    "apply_steer: drains pending steer, appends User guidance marker to last tool result, checks iteration budget.",
+    "Fix: LangGraph StateGraph(dict) doesn't auto-preserve state keys across nodes; all critical keys (messages, api_call_count) now returned from every node."
   ],
   "failed_approaches": [
-    "Initial attempt used Runtime(values=...) and ctx parameter — langgraph 1.2.6 does not support this API; switched to config['configurable'] pattern.",
-    "from __future__ import annotations broke TypedDict NotRequired on Python 3.11; removed from contracts.py."
+    "Initial StateGraph state key loss: dispatch_tools/apply_steer didn't return api_call_count, causing prepare_request to read 0 and reset the count.",
+    "Unknown tool and truncated JSON args: graph correctly executes tools but partial=True requires Task 7 retry-exhaustion logic."
   ],
   "blocker": null,
-  "next_action": "Task 4: Plain-text vertical slice — wire initialize_turn→prepare_request→call_transport→process_response→finish through GraphServices adapter in run_agent.py."
+  "next_action": "Task 7: Retry, fallback, interruption, and error parity — wire handle_transport_error, retry counting, provider fallback, interrupt polling."
 }

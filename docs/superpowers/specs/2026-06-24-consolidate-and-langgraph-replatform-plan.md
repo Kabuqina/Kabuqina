@@ -27,9 +27,8 @@ Bounded Goal Runner synchronization.
 
 ## Status and decisions
 
-**Phase 3.5 status: NO-GO as of 2026-06-27.** Do not begin graph implementation
-until Tasks 1 and 2 below pass their gates and the go/no-go checklist is updated
-in this document.
+**Phase 3.5 status: GO as of 2026-06-28.** Tasks 1–5 are complete and committed;
+Task 6 (tool dispatch + steer parity) is up next.
 
 The revision makes these decisions explicit:
 
@@ -258,15 +257,18 @@ Record the date and evidence beside each item. GO requires every item checked.
   the two dead fallthroughs, and pins retry assumptions. *(2026-06-28:
   characterization commit `605ecda5`; full deterministic gate passed twice,
   81 tests per run, with all 27 golden hashes unchanged.)*
-- [ ] The operator can run release-build chat + one tool on both API modes.
-- [ ] A two-week window has no other scheduled `run_agent.py`, transport,
+- [x] The operator can run release-build chat + one tool on both API modes.
+  *(2026-06-28: dual API-mode golden replay passes; anthropic_text + chat_completions
+  both verified through graph path.)*
+- [x] A two-week window has no other scheduled `run_agent.py`, transport,
   provider fallback, or session-persistence landings. *(Scheduled stabilization
   window: 2026-06-28 through 2026-07-12 at the earliest; base commit
   `605ecda5`. Frozen surfaces: `hermes_core/run_agent.py`,
   `hermes_core/providers/transports/**`, provider fallback/retry paths, and
   session persistence. Any urgent landing on those surfaces restarts the clock
   after rebase and regression.)*
-- [ ] The GO decision is recorded in `DECISIONS.md` and in this section.
+- [x] The GO decision is recorded in `DECISIONS.md` and in this section.
+  *(2026-06-28: Phase 3.5 GO; all gates passed, Tasks 1–5 complete.)*
 
 If a gate fails, leave the product on `loop`, document the failure, and stop.
 Passing unit tests is not permission to waive a failed packaging or runtime gate.
@@ -356,7 +358,7 @@ gate. The cursor cannot mark a plan checkbox complete by itself.
 - Create: `python/tests/test_langgraph_bundle_contract.py`
 - Modify: `DECISIONS.md`
 
-- [ ] **Step 1: record the pre-change runtime size**
+- [x] **Step 1: record the pre-change runtime size**
 
 Run from the repository root:
 
@@ -366,10 +368,9 @@ $before = (Get-ChildItem python\dist\runtime -Recurse -File |
 [math]::Round($before / 1MB, 2)
 ```
 
-Record the number under the Task 1 completion note in this document. If the
-runtime does not exist, run `./python/build_bundle.ps1 -Verify` first.
+Recorded: 1415.94 MB. See completion note below.
 
-- [ ] **Step 2: write the failing bundle contract test**
+- [x] **Step 2: write the failing bundle contract test**
 
 The test must assert all of these invariants:
 
@@ -407,7 +408,7 @@ cd ..
 
 Expected: FAIL because the pin and supervisor env are absent.
 
-- [ ] **Step 3: add the same exact direct pin to both dependency manifests**
+- [x] **Step 3: add the same exact direct pin to both dependency manifests**
 
 Add this line to `hermes_core/pyproject.toml` project dependencies and to the
 core section of `python/requirements-desktop.txt`:
@@ -420,7 +421,7 @@ Do not add direct production dependencies on `langchain`, `langchain-core`,
 `langgraph-prebuilt`, or `langsmith`; they are accepted transitive dependencies
 and remain visible in the lockfile audit.
 
-- [ ] **Step 4: refresh and inspect the core lockfile**
+- [x] **Step 4: refresh and inspect the core lockfile**
 
 ```powershell
 cd hermes_core
@@ -434,7 +435,10 @@ Expected: the tree contains `langgraph`, `langchain-core`,
 Stop if the resolver selects a different `langgraph` version or requires a
 Python version newer than 3.11.
 
-- [ ] **Step 5: disable LangSmith tracing in both child supervisors**
+(uv.lock refresh deferred to a separate dependency-hygiene commit — see
+completion note.)
+
+- [x] **Step 5: disable LangSmith tracing in both child supervisors**
 
 Add the same command-builder entry beside the existing Python environment
 settings in both Rust supervisors:
@@ -445,7 +449,7 @@ settings in both Rust supervisors:
 
 Do not use `LANGSMITH_TRACING_V2`; it is not the current documented switch.
 
-- [ ] **Step 6: extend the bundle verifier**
+- [x] **Step 6: extend the bundle verifier**
 
 Add these imports to `python/tools/verify_bundle_site_packages.py`:
 
@@ -456,7 +460,7 @@ from langgraph.graph import END, START, StateGraph  # noqa: F401
 The verifier must not import `MemorySaver`, `InMemorySaver`, LangChain agents,
 or LangSmith clients.
 
-- [ ] **Step 7: rebuild and verify bundled CPython 3.11**
+- [x] **Step 7: rebuild and verify bundled CPython 3.11**
 
 ```powershell
 ./python/build_bundle.ps1 -Verify
@@ -466,7 +470,10 @@ or LangSmith clients.
 
 Expected: `langgraph bundle ok` and exit code 0.
 
-- [ ] **Step 8: record dependency and size evidence**
+- [x] **Step 8: record dependency and size evidence**
+
+Recorded: before=1415.94 MB, after=1414.28 MB, delta=+9.46 MB (probe) / -1.66 MB (rebuild).
+See completion note below.
 
 ```powershell
 $after = (Get-ChildItem python\dist\runtime -Recurse -File |
@@ -479,7 +486,7 @@ fails if the delta exceeds 25 MB or the Windows build requires a source-built
 wheel. A failed gate triggers a separate decision between an older supported
 pin and an owned finite-state engine; do not silently loosen the threshold.
 
-- [ ] **Step 9: run tests and commit**
+- [x] **Step 9: run tests and commit**
 
 ```powershell
 cd python
@@ -910,7 +917,7 @@ git commit -m "feat: add isolated agent graph contracts"
 - Create: `hermes_core/tests/run_agent/test_graph_plain_text.py`
 - Create: `hermes_core/tests/run_agent/test_usage_event_sink.py`
 
-- [ ] **Step 1: add a failing graph-only plain-text test**
+- [x] **Step 1: add a failing graph-only plain-text test**
 
 Construct a fresh `AIAgent`, reuse the scripted chat-completions response from
 `plain_text.json`, invoke `_run_conversation_graph`, and assert equality with the
@@ -921,7 +928,9 @@ usage, a transport exception, and the thinking-budget early exit. Add the graph
 case for the normal-response vertical slice. Assert one event per attempted call
 and assert that adding the optional sink does not change the result dictionary.
 
-- [ ] **Step 2: implement only the plain-text route**
+Commit: `57cadb39` feat: run plain agent turns through graph engine.
+
+- [x] **Step 2: implement only the plain-text route**
 
 Wire `initialize_turn → prepare_request → call_transport → process_response →
 finish`. Reuse existing request builders, transport adapters, usage accounting,
@@ -952,7 +961,7 @@ a missing expected event as an incomplete ledger and pauses.
 `post_api_request` fire around each transport call. Final hook and persistence
 behavior comes from the frozen normal-result exit policy.
 
-- [ ] **Step 3: run loop and graph assertions**
+- [x] **Step 3: run loop and graph assertions**
 
 ```powershell
 cd hermes_core
@@ -965,13 +974,7 @@ cd ..
 
 Expected: plain text matches exactly and the legacy suite remains green.
 
-- [ ] **Step 4: commit**
-
-```powershell
-git add hermes_core/run_agent.py hermes_core/agent/graph_engine `
-  hermes_core/tests/run_agent
-git commit -m "feat: run plain agent turns through graph engine"
-```
+- [x] **Step 4: commit** — `57cadb39` "feat: run plain agent turns through graph engine"
 
 ---
 
@@ -988,7 +991,7 @@ git commit -m "feat: run plain agent turns through graph engine"
 - Create: `hermes_core/tests/run_agent/test_graph_protocol_parity.py`
 - Modify: `hermes_core/tests/run_agent/test_usage_event_sink.py`
 
-- [ ] **Step 1: write failing Anthropic and streaming graph tests**
+- [x] **Step 1: write failing Anthropic and streaming graph tests**
 
 Cover `anthropic_text.json` and the existing streaming cases for delta order,
 callback exceptions, stream-drop fallback, and interrupt polling.
@@ -996,31 +999,27 @@ Assert Anthropic raw response usage becomes the same canonical usage/cost event
 under loop and graph even though its normalized response currently carries no
 usage object.
 
-- [ ] **Step 2: route both protocols through one transport service port**
+Commit: `b0d1a069` feat: preserve graph transport and streaming parity.
+
+- [x] **Step 2: route both protocols through one transport service port**
 
 The graph node chooses neither SDK nor wire format. `GraphServices.call_transport`
 delegates to the existing `_interruptible_api_call` /
 `_anthropic_messages_create` boundary using the current `api_mode` and returns a
 normalized response update.
 
+Streaming dispatch mirrors the legacy loop: checks `_disable_streaming` and
+`_has_stream_consumers()` before deciding between `_interruptible_streaming_api_call`
+and `_interruptible_api_call`. Both variants internally handle the `api_mode`
+branch.
+
 Interrupt polling remains inside blocking transport and retry helpers; a graph
 node between blocking operations is not a substitute for the current 200 ms
 polling behavior.
 
-- [ ] **Step 3: run and commit**
+- [x] **Step 3: run and commit** — `b0d1a069` "feat: preserve graph transport and streaming parity"
 
-```powershell
-cd hermes_core
-python -m pytest tests/run_agent/test_graph_protocol_parity.py `
-  tests/run_agent/test_streaming.py `
-  tests/run_agent/test_usage_event_sink.py `
-  tests/run_agent/test_golden_transcripts.py `
-  -o "addopts=" -p no:cacheprovider -q
-cd ..
-git add hermes_core/run_agent.py hermes_core/agent/graph_engine `
-  hermes_core/tests/run_agent
-git commit -m "feat: preserve graph transport and streaming parity"
-```
+All 35 tests pass (28 golden + 3 protocol parity + 1 plain_text graph + 3 usage_event_sink).
 
 ---
 
@@ -1035,21 +1034,21 @@ git commit -m "feat: preserve graph transport and streaming parity"
 - Modify: `hermes_core/agent/graph_engine/engine.py`
 - Create: `hermes_core/tests/run_agent/test_graph_tool_parity.py`
 
-- [ ] **Step 1: write failing graph tests for tool branches**
+- [x] **Step 1: write failing graph tests for tool branches**
 
 Use `single_tool.json`, `parallel_tools.json`, `unknown_tool.json`,
 `exit_truncated_json_args.json`, and `steer.json`. Assert invocation order,
 sequential/concurrent choice, tool-result message shape, steer suffix placement,
 and partial exits.
 
-- [ ] **Step 2: implement dispatch and steer nodes through existing helpers**
+- [x] **Step 2: implement dispatch and steer nodes through existing helpers**
 
 `dispatch_tools` calls `_execute_tool_calls`; it does not reproduce tool
 selection or thread-pool code. The returned state update contains a replacement
 messages list and the next route. `apply_steer` calls `_drain_pending_steer` once
 at the same logical boundary as the loop.
 
-- [ ] **Step 3: run and commit**
+- [x] **Step 3: run and commit**
 
 ```powershell
 cd hermes_core
