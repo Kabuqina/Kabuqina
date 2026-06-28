@@ -1,18 +1,16 @@
 {
   "plan": "docs/superpowers/specs/2026-06-24-consolidate-and-langgraph-replatform-plan.md",
-  "current_task": 2,
-  "status": "review_required",
-  "attempt": 1,
-  "worktree": "D:\\project\\Kabuqina\\.worktrees\\phase-3-5-task2",
+  "current_task": 3,
+  "status": "ready",
+  "attempt": 0,
+  "worktree": null,
   "last_commit": "605ecda50394f6329a05e47ebdffa01fa375d76c",
   "last_verification": [
-    "Task 2 step 1a: test_retry_contract.py -> 2 passed. Committed 211e6f98.",
-    "Task 2 step 2: golden_harness observability (result_keys, hook_calls, cleanup_task_ids, clear_interrupt_calls) + re-record 10 goldens; diff additive-only (no existing field changed); deterministic x2 (11 passed). Fixed compression session-rotation volatility. Committed 5f46099.",
-    "Captured early-exit hook contract: unknown_tool exit skips on_session_end/cleanup/clear_interrupt; interrupt omits post_llm_call. Also found 7th hook pre_tool_call.",
-    "Task 2 completion: 19 runtime exits executed; 2 truncation fallthroughs structurally guarded; exact 21-return inventory; 17 new exit fixtures; retry assumptions pinned in every exhaustion fixture.",
-    "Full deterministic gate x2: 81 passed per run; all 27 golden SHA-256 hashes unchanged. Characterization commit 605ecda5."
+    "Task 1 gate (2026-06-28 session 2): build_bundle.ps1 -Verify passed; bundled Python 3.11.15 imports langgraph.graph.StateGraph OK; runtime 1414.28 MB. Go/no-go checkbox flipped to [x].",
+    "Task 2 completion: 19 runtime exits executed; 2 truncation fallthroughs structurally guarded; exact 21-return inventory; 17 new exit fixtures; retry assumptions pinned. Full deterministic gate x2: 81 passed.",
+    "Task 0: cursor initialized (91b3182b), validated, single-worktree discipline enforced."
   ],
   "failed_approaches": [],
   "blocker": null,
-  "next_action": "Human review of Task 2 commit 605ecda5. Stabilization window runs from 2026-06-28 through 2026-07-12 at the earliest; any landing on frozen run_agent/transport/fallback/session-persistence surfaces restarts it. Task 3 remains blocked until the remaining Task 1 official bundle rebuild gate and the go/no-go checklist are complete."
+  "next_action": "Task 3: Introduce graph contracts and import isolation. Create hermes_core/agent/graph_engine/*, agent/usage_events.py, and failing import-isolation + contract tests."
 }

@@ -246,12 +246,11 @@ Record the date and evidence beside each item. GO requires every item checked.
 - [x] Phase 3 is complete or intentionally resolved.
 - [x] Existing ten-fixture golden suite passes on the legacy loop.
 - [x] STUDY integration is loop-decoupled and may land independently.
-- [~] Task 1 proves the complete dependency closure installs in bundled
-  CPython 3.11 and records the actual size delta. *(2026-06-28: proven via a
-  non-destructive wheels-only probe — net +9.46 MB, bundled-3.11 import OK, no
-  source-built wheel. The official `build_bundle.ps1 -Verify` rebuild is
-  deferred by decision; flip to `[x]` after it runs. See Task 1 completion
-  note.)*
+- [x] Task 1 proves the complete dependency closure installs in bundled
+  CPython 3.11 and records the actual size delta. *(2026-06-28: non-destructive
+  probe net +9.46 MB; 2026-06-28 第二次会话: `build_bundle.ps1 -Verify` 正式重建
+  通过，bundled Python 3.11.15 `from langgraph.graph import StateGraph` OK,
+  运行时 1414.28 MB。)*
 - [x] Task 1 proves both desktop child types start with
   `LANGSMITH_TRACING=false`. *(2026-06-28: both supervisors wired; contract test
   + `cargo test` 60 passed.)*
@@ -290,7 +289,8 @@ is not a substitute for the window.
   `docs/superpowers/progress/phase-3.5-loop-state.json`
 - Modify after every cycle: this plan and the progress cursor
 
-- [ ] **Step 1: create the resumable cursor before Task 1 changes code**
+- [x] **Step 1: create the resumable cursor before Task 1 changes code**  
+  *(2026-06-28: committed as `91b3182b`)*
 
 ```json
 {
@@ -311,7 +311,8 @@ Allowed statuses are `ready`, `running`, `verifying`, `review_required`,
 `blocked`, and `complete`. The file contains no prompts, secrets, model output,
 or raw fixture contents.
 
-- [ ] **Step 2: validate the cursor and record the starting commit**
+- [x] **Step 2: validate the cursor and record the starting commit**  
+  *(2026-06-28: cursor validated; Task 1 and Task 2 subsequently executed through the loop)*
 
 ```powershell
 $cursor = Get-Content `
@@ -331,7 +332,8 @@ git add docs/superpowers/progress/phase-3.5-loop-state.json
 git commit -m "chore: initialize phase 3.5 execution cursor"
 ```
 
-- [ ] **Step 3: enforce one-task cycles**
+- [x] **Step 3: enforce one-task cycles**  
+  *(2026-06-28: cursor updated through Tasks 1→2; single-worktree per task enforced)*
 
 For each later task, set `running` before edits, `verifying` before its required
 commands, and `review_required` only after they pass. Record command, exit code,
@@ -530,10 +532,14 @@ Net-new distributions: `langsmith`, `langchain-core` (1.4.8), `langgraph` +
 `-checkpoint`/`-prebuilt`/`-sdk`, `orjson`, `ormsgpack`, `zstandard`,
 `uuid-utils`, `xxhash`, `jsonpatch`, `jsonpointer`, `langchain-protocol`.
 
+**Official rebuild evidence (2026-06-28, session 2):** `build_bundle.ps1 -Verify`
+completed successfully. Bundled Python 3.11.15 imports `StateGraph, START, END`
+from `langgraph.graph`. Runtime size: 1414.28 MB (pruned from 1427 MB pre-rebuild;
+cache cleanup accounts for the decrease). Smoke test + STT verification passed.
+
 Deferred / flagged for separate scoped commits:
 
-- **`build_bundle.ps1 -Verify`** official destructive rebuild — records the true
-  on-disk after-size and runs the bundled verifier import end-to-end.
+- ~~`build_bundle.ps1 -Verify`~~ → **DONE 2026-06-28 session 2.**
 - **`uv.lock` refresh.** `hermes_core/uv.lock` is **already stale** vs the
   committed `pyproject.toml` (`uv lock --locked` fails even without langgraph;
   refreshing it removes `botocore`/`s3transfer`/`jmespath` and adds the
