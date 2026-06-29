@@ -1047,6 +1047,7 @@ assert.match(chatPageReminderSource, /\/settings\/cron/);
 // (web/src/chat/study) and render as a section in the STUDY workspace panel.
 const { STUDY_PROMPTS } = await importTs("./study/studyPrompts.ts");
 const studySectionSource = fs.readFileSync(new URL("./study/StudySection.tsx", import.meta.url), "utf8");
+const studyStoreSource = fs.readFileSync(new URL("./study/studyStore.ts", import.meta.url), "utf8");
 
 assert.deepEqual(
   Object.keys(STUDY_PROMPTS),
@@ -1104,6 +1105,31 @@ assert.match(
   studySectionSource,
   /sectionId="workspace\.study"/,
   "StudySection should render under the workspace.study section id.",
+);
+assert.match(
+  studyStoreSource,
+  /STUDY_CONTEXT_STORAGE_KEY\s*=\s*"kabuqina\.study\.context\.v1"/,
+  "Study context should persist under a versioned Kabuqina-specific localStorage key.",
+);
+assert.match(
+  studyStoreSource,
+  /STUDY_CONTEXT_FIELD_LIMIT\s*=\s*800/,
+  "Study context should cap field length for bounded prompt injection.",
+);
+assert.match(
+  studyStoreSource,
+  /normalizeStudyContext[\s\S]*loadStudyContext[\s\S]*saveStudyContext[\s\S]*clearStudyContext[\s\S]*formatStudyContextForPrompt/,
+  "Study store should normalize, persist, clear, and format context for prompts.",
+);
+assert.match(
+  studySectionSource,
+  /loadStudyContext[\s\S]*saveStudyContext[\s\S]*clearStudyContext[\s\S]*formatStudyContextForPrompt/,
+  "StudySection should wire persistent context into every learning action.",
+);
+assert.match(
+  studySectionSource,
+  /studyContextCourse[\s\S]*studyContextGoal[\s\S]*studyContextProfile[\s\S]*studyContextWeakPoints[\s\S]*studyContextPreferences/,
+  "StudySection should expose the persisted study context fields.",
 );
 assert.match(
   workspacePanelSource,
