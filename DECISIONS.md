@@ -298,6 +298,14 @@ Both files hardcode the same 21 return-line numbers and will drift again on any
 `run_agent.py` edit; if this keeps generating false alarms, derive the numbers
 once via AST and assert on scenario *ordering* rather than absolute positions.
 
+**Task 8 status (2026-06-29):** In progress, committed locally, not pushed.
+8a (budget consumption + max-iteration summary + recursion ceiling, `0d15a7e5`)
+and 8b (all six compression fixtures: 413 payload `4d5d6c30`, plus context
+step-down / safe-output / cannot-compress / preflight) are done. Remaining: 8c
+(truncation/continuation families — thinking budget, text continuation, truncated
+tool-call, truncated json args, incomplete scratchpad) and the full recursion
+super-step measurement (PH35-FU-006).
+
 **Task 7 status (2026-06-29):** Complete, committed locally (`0a8b7b8b`), not
 pushed. Retry/fallback/interrupt/error parity. Invalid responses now retry to
 exhaustion; interrupt-during-retry-wait reproduced via

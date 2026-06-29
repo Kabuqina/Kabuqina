@@ -216,3 +216,68 @@ def test_graph_payload_cannot_compress():
     assert snapshot["result"]["partial"] is True
     assert snapshot["result"]["api_calls"] == expected["result"]["api_calls"] == 1
     assert snapshot["model_turns_consumed"] == expected["model_turns_consumed"] == 1
+
+
+# ── Context-overflow compression family (Task 8b) ────────────────────────
+
+
+def _assert_compression_exhausted(fixture: str, *, turns: int):
+    spec = _load(fixture)
+    snapshot = _replay_graph(spec)
+    expected = spec["expected"]
+
+    assert snapshot["result_keys"] == expected["result_keys"]
+    assert "compression_exhausted" in snapshot["result_keys"]
+    assert "final_response" not in snapshot["result_keys"]
+    assert snapshot["result"]["completed"] is False
+    assert snapshot["result"]["partial"] is True
+    assert snapshot["result"]["api_calls"] == expected["result"]["api_calls"] == 1
+    assert snapshot["model_turns_consumed"] == expected["model_turns_consumed"] == turns
+
+
+def test_graph_context_stepdown_exhausted():
+    """400 context-length → step the window down + compress × 3 → exhausted.
+
+    Parity with the loop's context step-down exit (run_agent.py:11449).
+    """
+    _assert_compression_exhausted("exit_context_stepdown", turns=4)
+
+
+def test_graph_safe_output_context_exhausted():
+    """400 max_tokens-too-large → cap output + retry × 3 → exhausted.
+
+    Parity with the loop's safe-output exit (run_agent.py:11376).
+    """
+    _assert_compression_exhausted("exit_safe_output_context", turns=4)
+
+
+def test_graph_context_cannot_compress():
+    """400 at the minimum tier with nothing left to compress → exhaustion.
+
+    Parity with the loop's "cannot compress further" exit (run_agent.py:11482).
+    """
+    _assert_compression_exhausted("exit_context_no_compression", turns=1)
+
+
+# ── Preflight compression (success path, Task 8b) ────────────────────────
+
+
+def test_graph_preflight_compression():
+    """An over-threshold request is compressed up front, then succeeds.
+
+    Parity with the loop's preflight compression (run_agent.py:9614): the
+    middle turns are summarised before the first call, so the surviving
+    history starts with the summary marker and the single model turn returns
+    the answer.
+    """
+    spec = _load("compression")
+    snapshot = _replay_graph(spec)
+    expected = spec["expected"]
+
+    assert snapshot["result"]["completed"] is True
+    assert snapshot["result"]["api_calls"] == expected["result"]["api_calls"] == 1
+    assert snapshot["model_turns_consumed"] == expected["model_turns_consumed"] == 1
+    assert snapshot["result"]["final_response"] == expected["result"]["final_response"]
+    # Compression actually ran: the surviving history opens with the summary.
+    assert len(snapshot["messages"]) == len(expected["messages"])
+    assert "summarized" in str(snapshot["messages"][0].get("content", ""))

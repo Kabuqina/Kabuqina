@@ -12831,9 +12831,43 @@ class _GraphServicesAdapter:
         if agent._cached_system_prompt is None:
             agent._cached_system_prompt = agent._build_system_prompt(system_message)
 
+        active_system_prompt = system_message or agent._cached_system_prompt or ""
+
+        # ── Preflight compression (once before the tool loop, loop :9614) ──
+        # If the request already exceeds the compressor's threshold, summarise
+        # the middle turns up front (up to 3 passes) before the first call.
+        compressor = getattr(agent, "context_compressor", None)
+        if (
+            getattr(agent, "compression_enabled", False)
+            and compressor is not None
+            and len(messages) > compressor.protect_first_n + compressor.protect_last_n + 1
+        ):
+            _preflight_tokens = estimate_request_tokens_rough(
+                messages, system_prompt=active_system_prompt or "",
+                tools=agent.tools or None,
+            )
+            if _preflight_tokens >= compressor.threshold_tokens:
+                for _pass in range(3):
+                    _orig_len = len(messages)
+                    messages, active_system_prompt = agent._compress_context(
+                        messages, system_message,
+                        approx_tokens=_preflight_tokens, task_id=effective_task_id,
+                    )
+                    if len(messages) >= _orig_len:
+                        break  # Cannot compress further
+                    # Compression rotated the session — drop the cached history
+                    # so the next persist writes the compressed messages.
+                    self._conversation_history = None
+                    _preflight_tokens = estimate_request_tokens_rough(
+                        messages, system_prompt=active_system_prompt or "",
+                        tools=agent.tools or None,
+                    )
+                    if _preflight_tokens < compressor.threshold_tokens:
+                        break
+
         return {
             "messages": messages,
-            "system_message": system_message or agent._cached_system_prompt or "",
+            "system_message": active_system_prompt,
             "effective_task_id": effective_task_id,
             "api_call_count": 0,
             "retry_count": 0,
@@ -13254,6 +13288,13 @@ class _GraphServicesAdapter:
         ):
             return self._handle_payload_compression(state, messages, api_call_count)
 
+        # ── Context overflow (400) → step down + compress, or exhaust (:11341) ──
+        if (
+            _classified is not None
+            and _classified.reason == FailoverReason.context_overflow
+        ):
+            return self._handle_context_overflow(state, messages, api_call_count)
+
         # ── Non-retryable client error → fallback or abort (loop :11512) ──
         if is_client_error:
             if self._try_fallback():
@@ -13357,17 +13398,109 @@ class _GraphServicesAdapter:
         self._conversation_history = None
 
         if len(new_messages) < original_len:
-            return {
-                "route": "prepare_request",
-                "messages": new_messages,
-                "api_call_count": api_call_count,
-                "compression_attempts": compression_attempts,
-                "first_attempt": False,
-            }
+            return self._compression_retry_route(
+                api_call_count, new_messages, compression_attempts
+            )
         return self._compression_exhausted_result(
             new_messages, api_call_count,
             error="Request payload too large (413). Cannot compress further.",
         )
+
+    def _handle_context_overflow(
+        self, state: dict, messages, api_call_count
+    ) -> dict:
+        """Context-length / output-cap errors (loop :11341-11490).
+
+        Two sub-cases share the compression counter and exit shape:
+        * the requested ``max_tokens`` exceeds the room left in the window —
+          cap output and retry (no compression);
+        * the prompt itself is too long — step the context window down a tier
+          and compress, retrying while either the history shrank or the window
+          stepped down, otherwise reporting it cannot compress further.
+        """
+        agent = self._agent
+        exc = self._pending_exc
+        error_msg = (str(exc).lower() if exc is not None else "")
+        max_compression_attempts = 3
+        compressor = getattr(agent, "context_compressor", None)
+        old_ctx = getattr(compressor, "context_length", 200000) if compressor else 200000
+
+        # ── Output cap too large for the prompt → reduce max_tokens (:11355) ──
+        available_out = parse_available_output_tokens_from_error(error_msg)
+        if available_out is not None:
+            agent._ephemeral_max_output_tokens = max(1, available_out - 64)
+            compression_attempts = state.get("compression_attempts", 0) + 1
+            if compression_attempts > max_compression_attempts:
+                return self._compression_exhausted_result(
+                    messages, api_call_count,
+                    error=(
+                        f"Context length exceeded: max compression attempts "
+                        f"({max_compression_attempts}) reached."
+                    ),
+                )
+            return self._compression_retry_route(
+                api_call_count, messages, compression_attempts
+            )
+
+        # ── Prompt too long → step the context window down a tier (:11388) ──
+        parsed_limit = parse_context_limit_from_error(error_msg)
+        if parsed_limit and parsed_limit < old_ctx:
+            new_ctx = parsed_limit
+        else:
+            new_ctx = get_next_probe_tier(old_ctx)
+        if new_ctx and new_ctx < old_ctx and compressor is not None:
+            try:
+                compressor.update_model(
+                    model=agent.model, context_length=new_ctx,
+                    base_url=agent.base_url,
+                    api_key=getattr(agent, "api_key", ""),
+                    provider=agent.provider,
+                )
+            except Exception:
+                logger.warning("graph context step-down failed", exc_info=True)
+
+        compression_attempts = state.get("compression_attempts", 0) + 1
+        if compression_attempts > max_compression_attempts:
+            return self._compression_exhausted_result(
+                messages, api_call_count,
+                error=(
+                    f"Context length exceeded: max compression attempts "
+                    f"({max_compression_attempts}) reached."
+                ),
+            )
+
+        system_message = state.get("system_message")
+        task_id = state.get("effective_task_id", "default") or "default"
+        original_len = len(messages)
+        try:
+            new_messages, _new_sys = agent._compress_context(
+                messages, system_message, approx_tokens=None, task_id=task_id,
+            )
+        except Exception:
+            logger.warning("graph context compression failed", exc_info=True)
+            new_messages = messages
+        self._conversation_history = None
+
+        if len(new_messages) < original_len or (new_ctx and new_ctx < old_ctx):
+            return self._compression_retry_route(
+                api_call_count, new_messages, compression_attempts
+            )
+        return self._compression_exhausted_result(
+            new_messages, api_call_count,
+            error="Context length exceeded. Cannot compress further.",
+        )
+
+    def _compression_retry_route(
+        self, api_call_count, messages, compression_attempts
+    ) -> dict:
+        """Retry within the same turn after a compression/step-down attempt."""
+        return {
+            "route": "prepare_request",
+            "messages": messages,
+            "api_call_count": api_call_count,
+            "compression_attempts": compression_attempts,
+            "first_attempt": False,
+        }
 
     def _compression_exhausted_result(self, messages, api_call_count, *, error) -> dict:
         """Frozen compression-exhausted exit shape (loop :11292/:11323).
