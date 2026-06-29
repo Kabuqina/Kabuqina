@@ -1,10 +1,10 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-// STUDY module — China Software Cup A3 learning-agent quick actions in the
-// STUDY workspace panel. Each button injects a bounded, crafted prompt (see
-// ./studyPrompts); the module owns nothing else, so new study actions are a
-// one-line addition to STUDY_ACTIONS.
+// STUDY module — learning-agent quick actions in the STUDY workspace panel.
+// Each button injects a bounded, crafted prompt (see ./studyPrompts); the
+// module owns nothing else, so new study actions are a one-line addition to
+// STUDY_ACTIONS.
 
 import {
   BookMarked,

@@ -1060,7 +1060,7 @@ assert.deepEqual(
     "learningEvaluation",
     "contentSafetyReview",
   ],
-  "STUDY module should expose the ordered learning actions required by the contest task.",
+  "STUDY module should expose the ordered learning actions required by the product workflow.",
 );
 for (const [id, prompt] of Object.entries(STUDY_PROMPTS)) {
   assert.ok(typeof prompt === "string" && prompt.length > 0, `${id} prompt should be a non-empty string`);

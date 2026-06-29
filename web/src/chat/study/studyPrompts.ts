@@ -7,7 +7,7 @@
 // in isolation. The prompts are deliberately bounded for an academic assistant:
 // ask 3–5 clarifying questions first, never fabricate unknown facts, label each
 // item 已确认 / 待确认 / 推断, emit a fixed output structure, and use no emoji.
-// The actions align with the China Software Cup A3 task: learning profile,
+// The actions align with the product learning workflow: learning profile,
 // course knowledge base, multi-agent resource generation, learning path,
 // tutoring, evaluation, and safety review.
 
