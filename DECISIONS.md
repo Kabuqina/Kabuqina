@@ -252,3 +252,45 @@ Plan: [`docs/superpowers/specs/2026-06-24-consolidate-and-langgraph-replatform-p
 | LangSmith tracing | Forced `LANGSMITH_TRACING=false` in `tauri/src/python_supervisor.rs` and `tauri/src/gateway_supervisor.rs` (verified by contract test + `cargo test`, 60 passed). |
 | Deferred | Official `build_bundle.ps1 -Verify` destructive rebuild (true on-disk after-size); and the `uv.lock` refresh — committed `uv.lock` is **already stale** vs `pyproject.toml` (`uv lock --locked` fails even without langgraph; refresh pulls in unrelated `botocore`→google-api drift), so it is split into a separate dependency-hygiene commit. |
 | GO (2026-06-28) | **Phase 3.5 GO.** All go/no-go gates passed. Tasks 1–5 complete and committed (`57cadb39`, `b0d1a069`). Stabilization window: 2026-06-28 through 2026-07-12 at the earliest; base commit `605ecda5`. Frozen surfaces: `hermes_core/run_agent.py`, `hermes_core/providers/transports/**`, provider fallback/retry paths, session persistence. Next: Task 6 (tool dispatch + steer parity). |
+
+## Phase 3.5 graph-engine parity follow-ups (2026-06-29)
+
+A review of the committed graph-engine tasks (4–7) on 2026-06-29 found that they
+achieved **core-result** parity (final_response, api_calls, completed, messages,
+provider/model, streaming dispatch, tool ordering, steer placement,
+retry/fallback/interrupt) but left several **side-effect** parity items
+unimplemented — and the graph-specific tests were scoped narrowly enough that the
+gaps did not surface as failures. The graph engine is **gated off** (no selector
+until Task 10), so production runs the loop and end users are unaffected today.
+
+Decision: the items below are **deferred to Task 9 ("Finalization and full
+dual-engine equivalence")** and MUST be closed before the engine selector
+(Task 10) defaults to `graph` or the legacy loop is removed (Task 11). Each is
+now *measured* by `hermes_core/tests/run_agent/test_graph_equivalence_gaps.py`
+as `xfail(strict=True)` — when a gap closes the case XPASSes, which strict mode
+reports as a failure, forcing promotion to an enforced parity assertion.
+
+| ID | Gap | Evidence | Close in |
+|----|-----|----------|----------|
+| PH35-FU-001 | Graph fires **none** of the six load-bearing plugin hooks (`on_session_start`, `pre_llm_call`, `pre_api_request`, `post_api_request`, `post_llm_call`, `on_session_end`). The loop fires them from the `run_conversation` body (run_agent.py:9586/9678/10138/11787/12569/12673); the adapter delegates to helpers but fires zero. Plan Task 4 Step 2 explicitly scoped `pre_llm_call`/`pre_api_request`/`post_api_request` into Task 4. | `test_graph_plugin_hooks_gap` | Task 9 |
+| PH35-FU-002 | Graph never updates session token/cost counters. `process_response` reads `agent.session_*` (zero on a fresh turn); the loop increments at run_agent.py:10605-10608. `_emit_usage_event` also hardcodes `cost_amount=None`/`pricing_version=None` on every event incl. success, so the usage ledger is always "incomplete" — contradicts plan Task 4 Step 2 (price with `agent.usage_pricing`, cache `CostResult`). | `test_graph_usage_accounting_gap` | Task 9 |
+| PH35-FU-003 | Graph does not write conversation trajectories; `apply_exit_policy` persists the session but never calls `_save_trajectory`. | `test_graph_trajectory_write_gap` | Task 9 |
+| PH35-FU-004 | `test_golden_transcripts` was never parameterised over loop/graph (the plan's file-map required it); it still runs the loop only. Until FU-001..003 close, full-snapshot parameterisation would be red — the xfail file is the interim measurement. Fold the graph back into the golden gate (or promote the gap file to full-snapshot equality) once the gaps close. | n/a (process) | Task 9 |
+| PH35-FU-005 | Minor observable diffs: streaming `call_transport` omits `on_first_delta=_stop_spinner` (run_agent.py:10194), so the thinking spinner does not stop on first delta; `process_response` drops assistant text `content` when a turn also has tool calls. Verify against the loop and match or accept. | n/a | Task 9 |
+
+**Process note — characterization gate was committed red.** Tasks 5/6 shifted the
+`run_conversation` return-line positions and committed without re-running the
+Task 2 gate: `test_exit_contract.py` and `test_exit_reachability.py` were
+**failing at HEAD** (`ca6832f1`) when Task 7 began, despite the completion notes
+asserting the gates passed. Line numbers were rebased in Task 7 (`0a8b7b8b`).
+Both files hardcode the same 21 return-line numbers and will drift again on any
+`run_agent.py` edit; if this keeps generating false alarms, derive the numbers
+once via AST and assert on scenario *ordering* rather than absolute positions.
+
+**Task 7 status (2026-06-29):** Complete, committed locally (`0a8b7b8b`), not
+pushed. Retry/fallback/interrupt/error parity. Invalid responses now retry to
+exhaustion; interrupt-during-retry-wait reproduced via
+`AIAgent._graph_backoff_with_interrupt`; the loop's real classifier is reused;
+the live exception is carried on the adapter (not `TurnState`); a `first_attempt`
+state field replaces the hidden `_retrying` flag. Full Phase 3.5 suite: 211
+passed / 34 skipped, twice. Follow-ups PH35-FU-001..005 logged above.
