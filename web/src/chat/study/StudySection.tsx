@@ -6,7 +6,15 @@
 // ./studyPrompts); the module owns nothing else, so new study actions are a
 // one-line addition to STUDY_ACTIONS.
 
-import { ClipboardCheck, Layers3, MessagesSquare, Route, UserRoundCog, type LucideIcon } from "lucide-react";
+import {
+  BookMarked,
+  ClipboardCheck,
+  Layers3,
+  MessagesSquare,
+  Route,
+  UserRoundCog,
+  type LucideIcon,
+} from "lucide-react";
 
 import { useI18n } from "../../lib/i18n";
 import { WorkspaceActionButton, WorkspaceSection } from "../workspaceSection";
@@ -31,6 +39,12 @@ const STUDY_ACTIONS: StudyAction[] = [
     icon: Route,
     labelKey: "chat.workspaceBuildLearningPath",
     prompt: STUDY_PROMPTS.learningPath,
+  },
+  {
+    id: "courseKnowledgeBase",
+    icon: BookMarked,
+    labelKey: "chat.workspaceBuildCourseKnowledgeBase",
+    prompt: STUDY_PROMPTS.courseKnowledgeBase,
   },
   {
     id: "learningResources",

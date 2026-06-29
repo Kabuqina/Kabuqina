@@ -1050,7 +1050,14 @@ const studySectionSource = fs.readFileSync(new URL("./study/StudySection.tsx", i
 
 assert.deepEqual(
   Object.keys(STUDY_PROMPTS),
-  ["learningProfile", "learningPath", "learningResources", "learningTutor", "learningEvaluation"],
+  [
+    "learningProfile",
+    "learningPath",
+    "courseKnowledgeBase",
+    "learningResources",
+    "learningTutor",
+    "learningEvaluation",
+  ],
   "STUDY module should expose the ordered learning actions required by the contest task.",
 );
 for (const [id, prompt] of Object.entries(STUDY_PROMPTS)) {
@@ -1062,6 +1069,16 @@ assert.match(
   STUDY_PROMPTS.learningProfile,
   /个性化学习画像[\s\S]*至少包含 6 个维度[\s\S]*已确认 \/ 待确认 \/ 推断/,
   "Learning-profile prompt should require bounded dimensions and uncertainty labels.",
+);
+assert.match(
+  STUDY_PROMPTS.courseKnowledgeBase,
+  /初始知识库 \/ 文档集[\s\S]*课程 -> 单元 -> 知识点 -> 子技能[\s\S]*版权\/许可/,
+  "Course-knowledge-base prompt should build a structured course corpus with import metadata.",
+);
+assert.match(
+  STUDY_PROMPTS.courseKnowledgeBase,
+  /质量核验与防幻觉规则[\s\S]*已确认 \/ 待确认 \/ 推断/,
+  "Course-knowledge-base prompt should require quality checks and uncertainty labels.",
 );
 assert.match(
   STUDY_PROMPTS.learningResources,
@@ -1080,8 +1097,8 @@ assert.match(
 );
 assert.match(
   studySectionSource,
-  /workspaceBuildLearningProfile[\s\S]*workspaceBuildLearningPath[\s\S]*workspaceBuildResourcePack[\s\S]*workspaceStartLearningTutor[\s\S]*workspaceEvaluateLearningEffect/,
-  "StudySection should wire the five learning quick actions in order.",
+  /workspaceBuildLearningProfile[\s\S]*workspaceBuildLearningPath[\s\S]*workspaceBuildCourseKnowledgeBase[\s\S]*workspaceBuildResourcePack[\s\S]*workspaceStartLearningTutor[\s\S]*workspaceEvaluateLearningEffect/,
+  "StudySection should wire the six learning quick actions in order.",
 );
 assert.match(
   studySectionSource,

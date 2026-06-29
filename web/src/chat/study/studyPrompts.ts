@@ -8,7 +8,8 @@
 // ask 3–5 clarifying questions first, never fabricate unknown facts, label each
 // item 已确认 / 待确认 / 推断, emit a fixed output structure, and use no emoji.
 // The actions align with the China Software Cup A3 task: learning profile,
-// multi-agent resource generation, learning path, tutoring, and evaluation.
+// course knowledge base, multi-agent resource generation, learning path,
+// tutoring, and evaluation.
 
 export const LEARNING_PROFILE_PROMPT = [
   "请用对话式方式帮我构建一份“个性化学习画像”。这是一个学习规划前置步骤，不要替我编造未知信息。",
@@ -25,6 +26,17 @@ export const LEARNING_PATH_PROMPT = [
   "当信息足够后，请输出结构化学习路径，至少包含：目标拆解、阶段安排、每日/每周任务、推荐资源类型、练习与项目安排、检查点/评估方式、根据薄弱点的补强任务。",
   "请把每个任务标注预计耗时、前置条件、完成标准和风险提示；如果某项安排基于推断，请明确写出推断依据。",
   "输出格式请固定为：1. 路径摘要；2. 阶段路线表；3. 每日/每周任务清单；4. 资源推荐与使用方式；5. 评估检查点；6. 动态调整建议。",
+  "请不要使用 emoji，保持清晰、克制、学术助手风格。",
+].join("\n\n");
+
+export const COURSE_KNOWLEDGE_BASE_PROMPT = [
+  "请帮我为一门高校专业课程构建“初始知识库 / 文档集”方案，用作后续个性化资源生成、多智能体协同和学习路径规划的系统输入。不要编造我没有提供的教材、论文或课程资料。",
+  "如果课程信息不足，请先追问 3 到 5 个关键问题；问题要覆盖课程名称、专业方向、目标学生层次、已有资料类型、希望覆盖的章节范围和实践/实验要求。",
+  "当信息足够后，请输出一份可落地的课程知识库设计，至少包含：课程边界、章节目录、核心知识点、先修关系、术语表、公式/算法/代码片段索引、实验项目、练习题素材、参考资料清单、质量核验规则。",
+  "请把知识点组织成分层结构：课程 -> 单元 -> 知识点 -> 子技能 -> 典型误区 -> 可验证练习。每个知识点需要标注难度、前置知识、建议资源类型、可用于画像更新的观察信号。",
+  "请设计后续导入材料的字段规范，包含标题、来源、类型、章节、知识点标签、适用水平、可信度、版权/许可、人工核验状态。",
+  "输出格式请固定为：1. 知识库目标与边界；2. 课程目录与知识图谱；3. 初始文档集清单；4. 知识点字段规范；5. 实验/项目素材；6. 质量核验与防幻觉规则；7. 下一步采集计划。",
+  "所有事实性课程内容请标注“已确认 / 待确认 / 推断”，推断内容必须说明依据；如果依据不足，放到“待采集资料”里，不要写成事实。",
   "请不要使用 emoji，保持清晰、克制、学术助手风格。",
 ].join("\n\n");
 
@@ -63,6 +75,7 @@ export const LEARNING_EVALUATION_PROMPT = [
 export const STUDY_PROMPTS = {
   learningProfile: LEARNING_PROFILE_PROMPT,
   learningPath: LEARNING_PATH_PROMPT,
+  courseKnowledgeBase: COURSE_KNOWLEDGE_BASE_PROMPT,
   learningResources: LEARNING_RESOURCE_PACK_PROMPT,
   learningTutor: LEARNING_TUTOR_PROMPT,
   learningEvaluation: LEARNING_EVALUATION_PROMPT,
