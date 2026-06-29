@@ -56,15 +56,20 @@ class GraphEngine:
         """
         # LangGraph's recursion limit is only a safety ceiling — Hermes
         # ``iteration_budget`` is the user-visible authority (enforced in the
-        # prepare_request node).  Size it from ``max_iterations`` with generous
-        # headroom for retry/compression sub-steps within each iteration.
-        # NOTE: treat this formula as an initial ceiling validated by the
-        # super-step measurement in test_graph_budget_parity.py, not a proved
-        # constant; revise from evidence if that test loses its 20% headroom.
+        # prepare_request node).  Size it from ``max_iterations`` with headroom
+        # for the retry/compression/continuation sub-steps within an iteration.
+        #
+        # Evidence (test_graph_budget_parity.py super-step measurement, Task 8):
+        # the most expensive single iteration — one that hits the max api-retry
+        # or compression attempts before resolving — costs ~14 super-steps.
+        # Budgeting 24 per iteration keeps >20% headroom over a worst case where
+        # every iteration is that expensive (max_iterations * 14), with a 2000
+        # floor so small ``max_iterations`` still has a safe ceiling.  Revise
+        # from evidence if the measurement test loses its 20% headroom.
         max_iterations = getattr(
             getattr(services, "_agent", None), "max_iterations", 90
         ) or 90
-        recursion_limit = max(1000, (max_iterations * 12) + 100)
+        recursion_limit = max(2000, (max_iterations * 24) + 200)
 
         config: dict[str, Any] = {
             "recursion_limit": recursion_limit,

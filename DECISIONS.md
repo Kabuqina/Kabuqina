@@ -277,7 +277,7 @@ reports as a failure, forcing promotion to an enforced parity assertion.
 | PH35-FU-003 | Graph does not write conversation trajectories; `apply_exit_policy` persists the session but never calls `_save_trajectory`. | `test_graph_trajectory_write_gap` | Task 9 |
 | PH35-FU-004 | `test_golden_transcripts` was never parameterised over loop/graph (the plan's file-map required it); it still runs the loop only. Until FU-001..003 close, full-snapshot parameterisation would be red — the xfail file is the interim measurement. Fold the graph back into the golden gate (or promote the gap file to full-snapshot equality) once the gaps close. | n/a (process) | Task 9 |
 | PH35-FU-005 | Minor observable diffs: streaming `call_transport` omits `on_first_delta=_stop_spinner` (run_agent.py:10194), so the thinking spinner does not stop on first delta; `process_response` drops assistant text `content` when a turn also has tool calls. Verify against the loop and match or accept. | n/a | Task 9 |
-| PH35-FU-006 | **Largely closed by Task 8a (2026-06-29).** The graph now consumes `iteration_budget` and enforces `max_iterations` at the `prepare_request` iteration boundary (the dead `apply_steer` gate was removed), routes to a toolless summary on exhaustion (`summarize_on_budget` → `_handle_max_iterations`), and sets `recursion_limit = max(1000, max_iterations*12 + 100)` in `engine.run_turn`. Covered by `test_graph_budget_parity.py`. **Remaining:** the rigorous super-step measurement + 20%-headroom validation of the recursion formula needs the compression × continuation × retry worst case, which only exists once Task 8b/8c route those families — deferred to **Task 8c**. The current test asserts headroom only for the fixtures that route today. | `test_graph_budget_parity.py` | Task 8c (recursion measurement) |
+| PH35-FU-006 | **Closed by Task 8 (2026-06-29).** The graph consumes `iteration_budget` and enforces `max_iterations` at the `prepare_request` iteration boundary (the dead `apply_steer` gate was removed) and routes to a toolless summary on exhaustion. The recursion ceiling was **revised from measurement**: the per-iteration worst case (an iteration hitting the max api-retry / compression attempts) measured ~14 super-steps, so the original `max_iterations*12 + 100` (= 1180 at the default 90) sat *below* the realistic worst case `90*14 = 1260`; `engine.run_turn` now uses `max(2000, max_iterations*24 + 200)` (= 2360 at 90), validated by `test_recursion_limit_has_20pct_headroom` across every routed retry/compression/continuation family with >20% headroom. | `test_graph_budget_parity.py` | **done** |
 
 **Closed by the 2026-06-29 review (commit pending):** *Tool-loop interrupt
 parity* — the loop checks for a pending interrupt at the top of every iteration
@@ -304,9 +304,10 @@ not pushed. 8a (budget consumption + max-iteration summary + recursion ceiling,
 step-down / safe-output / cannot-compress / preflight `7c4b401e`), and 8c
 (truncation/continuation: thinking budget, text continuation, truncated tool-call,
 truncated json args, incomplete scratchpad) are done — 16 budget/compression/
-truncation parity tests. Remaining for Task 8: the full recursion-limit super-step
-measurement + 20% headroom across the worst-case multiplying paths (PH35-FU-006),
-now that all those paths exist.
+truncation parity tests. The recursion-limit super-step measurement is done and
+the formula was revised from evidence (PH35-FU-006 closed). **Task 8 complete.**
+Next: Task 9 (finalization + full dual-engine equivalence — closes the remaining
+PH35-FU-001/002/003/005 side-effect gaps).
 
 **Task 7 status (2026-06-29):** Complete, committed locally (`0a8b7b8b`), not
 pushed. Retry/fallback/interrupt/error parity. Invalid responses now retry to

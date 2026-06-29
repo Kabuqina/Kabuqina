@@ -151,29 +151,59 @@ def _count_supersteps(spec: Dict[str, Any]) -> int:
     return counter["n"]
 
 
-def test_recursion_limit_has_headroom_for_routed_fixtures():
-    """The configured recursion limit clears the routed worst cases with margin.
+# Formula mirrored from engine.run_turn (revised in Task 8 from the super-step
+# evidence below — the per-iteration worst case measured ~14 super-steps).
+def _recursion_limit(max_iters: int) -> int:
+    return max(2000, (max_iters * 24) + 200)
 
-    NOTE: the *full* worst case (compression × continuation × retry) cannot be
-    measured until Task 8b/8c route those families; this asserts headroom for
-    the fixtures that route today (budget summary + a 3-retry transport loop)
-    and pins the formula value.  Revisit the 20%-headroom requirement and the
-    formula in Task 8c once the multiplying paths exist (see PH35-FU-006).
+
+# All fixtures whose graph route hits a retry/compression/continuation
+# multiplier — these bound the per-iteration super-step cost.
+WORST_CASE_FIXTURES = (
+    "exit_api_retries",            # 3 transport retries in one iteration
+    "exit_payload_compression",    # 4 compression attempts in one iteration
+    "exit_context_stepdown",       # context step-down + compress × 3
+    "exit_safe_output_context",    # safe-output retries × 3
+    "exit_text_continuation",      # 3 continuation turns
+    "exit_incomplete_scratchpad",  # 3 scratchpad retry turns
+    "max_iterations",              # budget summary
+)
+
+
+def test_recursion_limit_has_20pct_headroom():
+    """The recursion ceiling clears the measured worst case with >20% headroom.
+
+    Measures the most expensive single iteration across every routed
+    retry/compression/continuation family, then verifies the formula keeps a
+    worst case of ``max_iterations`` such iterations safely (>20% headroom)
+    below the ceiling.  See DECISIONS.md PH35-FU-006.
     """
-    # Formula mirrored from engine.run_turn.
-    def _limit(max_iters: int) -> int:
-        return max(1000, (max_iters * 12) + 100)
+    assert _recursion_limit(1) == 2000
+    assert _recursion_limit(90) == 2360
 
-    assert _limit(1) == 1000
-    assert _limit(90) == 1180
-
-    for fixture in ("max_iterations", "exit_api_retries"):
+    # Per-iteration worst case: the costliest single graph invocation observed,
+    # divided down to a per-model-turn budget.  Each fixture above is ~1-3 model
+    # turns; the max super-step count bounds the cost of one expensive iteration.
+    worst_iteration_steps = 0
+    for fixture in WORST_CASE_FIXTURES:
         spec = _load(fixture)
         steps = _count_supersteps(spec)
+        # No fixture may itself approach its own ceiling.
         max_iters = spec.get("agent", {}).get("max_iterations", 90)
-        limit = _limit(max_iters)
-        assert steps <= 0.8 * limit, (
-            f"{fixture}: {steps} super-steps exceeds 80% of recursion_limit {limit}"
+        assert steps <= 0.8 * _recursion_limit(max_iters), (
+            f"{fixture}: {steps} super-steps exceeds 80% of recursion_limit"
+        )
+        worst_iteration_steps = max(worst_iteration_steps, steps)
+
+    # Worst case: every iteration of a full max_iterations run is as expensive
+    # as the costliest measured iteration.  Require >=20% headroom.
+    for max_iters in (10, 90):
+        worst_total = worst_iteration_steps * max_iters
+        limit = _recursion_limit(max_iters)
+        assert worst_total <= 0.8 * limit, (
+            f"max_iterations={max_iters}: worst-case {worst_total} super-steps "
+            f"({worst_iteration_steps}/iter) exceeds 80% of recursion_limit "
+            f"{limit} — revise the formula in engine.run_turn from this evidence"
         )
 
 
