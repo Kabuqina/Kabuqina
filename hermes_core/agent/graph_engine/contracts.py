@@ -83,5 +83,10 @@ class TurnState(TypedDict):
     iteration_budget_remaining: int
     fallback_index: int
     route: Route
+    # True on the first transport attempt of a fresh model turn (initial turn,
+    # post-tool/steer continuation).  ``call_transport`` bumps ``api_call_count``
+    # only when this is set, mirroring the legacy loop's once-per-outer-iteration
+    # counter; retries and fallbacks within a turn leave it False.
+    first_attempt: NotRequired[bool]
     result: NotRequired[LegacyRunResult]
     exit_policy: NotRequired[ExitPolicy]

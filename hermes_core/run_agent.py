@@ -4606,6 +4606,28 @@ class AIAgent:
         """Check if an interrupt has been requested."""
         return self._interrupt_requested
 
+    def _graph_backoff_with_interrupt(
+        self, retry_count: int, *, base_delay: float, max_delay: float
+    ) -> bool:
+        """Graph-engine mirror of the loop's interrupt-aware retry backoff.
+
+        Sleeps for a jittered backoff interval, polling ``_interrupt_requested``
+        every 200 ms (legacy loop lines ~11671-11695 / ~10327-10351).  Returns
+        True if an interrupt was observed during the wait, False otherwise.
+
+        Uses the module-level ``time`` and ``jittered_backoff`` so deterministic
+        test clocks patch it the same way they patch the legacy loop.
+        """
+        wait_time = jittered_backoff(
+            retry_count, base_delay=base_delay, max_delay=max_delay
+        )
+        sleep_end = time.time() + wait_time
+        while time.time() < sleep_end:
+            if self._interrupt_requested:
+                return True
+            time.sleep(0.2)
+        return False
+
 
 
 
@@ -12758,6 +12780,16 @@ class _GraphServicesAdapter:
         # Per-turn mutable state carried through the graph
         self._api_messages: list | None = None
         self._api_kwargs: dict | None = None
+        # The live exception from the most recent failed transport attempt.
+        # Held on the adapter (not in serializable ``TurnState``) so
+        # ``handle_transport_error`` can reuse the loop's real classifier and
+        # error-summary helpers.  ``None`` together with ``_pending_invalid``
+        # distinguishes an empty/malformed response from a raised exception.
+        self._pending_exc: Exception | None = None
+        self._pending_invalid: bool = False
+        # Wall-clock start of the latest transport attempt, used to reproduce
+        # the loop's invalid-response "failure hint" duration text.
+        self._api_start_time: float = 0.0
 
     # ── Plain-text route (Task 4) ───────────────────────────────────────
 
@@ -12808,6 +12840,7 @@ class _GraphServicesAdapter:
             "compression_attempts": 0,
             "iteration_budget_remaining": agent.max_iterations,
             "fallback_index": 0,
+            "first_attempt": True,
             "route": "prepare_request",
         }
 
@@ -12815,6 +12848,40 @@ class _GraphServicesAdapter:
         """Build the API request payload and set route to call_transport."""
         agent = self._agent
         messages = state.get("messages", [])
+
+        # ── Nous rate guard (mirrors legacy loop pre-call check) ─────
+        _provider = getattr(agent, "provider", "") or ""
+        if _provider == "nous":
+            try:
+                from providers.nous_rate_guard import nous_rate_limit_remaining
+                _remaining = nous_rate_limit_remaining()
+                if _remaining is not None and _remaining > 0:
+                    # Rate-limited — fail without making an API call
+                    return {
+                        "route": "finish",
+                        "result": {
+                            "final_response": (
+                                f"\u23f3 Nous Portal rate limit active \u2014 "
+                                f"resets in {int(_remaining)}s.\n\n"
+                                "No fallback provider available. Try again after"
+                                " the reset, or add a fallback provider in"
+                                " config.yaml."
+                            ),
+                            "messages": messages,
+                            "api_calls": state.get("api_call_count", 0) + 1,
+                            "completed": False,
+                            "failed": True,
+                            "error": "Nous rate-limited",
+                        },
+                    }
+            except ImportError:
+                # Nous rate-guard module is optional; absence means no guard.
+                logger.debug("nous_rate_guard unavailable; skipping pre-call check")
+            except Exception:
+                logger.warning(
+                    "graph prepare_request: nous rate-guard check failed",
+                    exc_info=True,
+                )
 
         # Copy messages for API (ephemeral modifications don't touch history)
         api_messages = [msg.copy() for msg in messages]
@@ -12836,6 +12903,11 @@ class _GraphServicesAdapter:
         return {
             "route": "call_transport",
             "api_call_count": state.get("api_call_count", 0),
+            "retry_count": state.get("retry_count", 0),
+            # ``StateGraph(dict)`` uses ephemeral channels: a key is only visible
+            # to the next node if the current node re-emits it.  Forward
+            # ``first_attempt`` so call_transport's once-per-turn counter sees it.
+            "first_attempt": state.get("first_attempt", True),
             "messages": state.get("messages", []),
         }
 
@@ -12857,6 +12929,14 @@ class _GraphServicesAdapter:
                 },
             }
 
+        # Bump api_call_count once per fresh model turn (mirrors the loop's
+        # once-per-outer-iteration counter at run_agent.py:9758).  Retries and
+        # fallbacks within the same turn leave ``first_attempt`` False and so
+        # do not double-count.
+        api_call_count = state.get("api_call_count", 0)
+        if state.get("first_attempt", True):
+            api_call_count += 1
+
         # Determine whether to use streaming or non-streaming transport.
         # Mirrors the dispatch logic in the legacy loop (lines ~10156-10174).
         _use_streaming = True
@@ -12870,48 +12950,53 @@ class _GraphServicesAdapter:
             if isinstance(getattr(agent, "client", None), Mock):
                 _use_streaming = False
 
+        # Record attempt start so the invalid-response path can reproduce the
+        # loop's duration-based "failure hint" text.
+        self._api_start_time = time.time()
+
         try:
             if _use_streaming:
                 response = agent._interruptible_streaming_api_call(api_kwargs)
             else:
                 response = agent._interruptible_api_call(api_kwargs)
         except Exception as exc:
-            # Emit usage event for the failed attempt
+            # Stash the live exception so handle_transport_error can reuse the
+            # loop's real classifier and error-summary helpers.
+            self._pending_exc = exc
+            self._pending_invalid = False
             self._emit_usage_event(state, outcome="transport_error")
             return {
-                "route": "finish",
-                "result": {
-                    "final_response": None,
-                    "messages": state.get("messages", []),
-                    "api_calls": state.get("api_call_count", 0) + 1,
-                    "completed": False,
-                    "failed": True,
-                    "error": str(exc),
-                },
+                "route": "handle_transport_error",
+                "messages": state.get("messages", []),
+                "api_call_count": api_call_count,
+                "retry_count": state.get("retry_count", 0),
+                "first_attempt": False,
             }
 
         if response is None:
+            self._pending_exc = None
+            self._pending_invalid = True
             self._emit_usage_event(state, outcome="invalid_response")
             return {
-                "route": "finish",
-                "result": {
-                    "final_response": None,
-                    "messages": state.get("messages", []),
-                    "api_calls": state.get("api_call_count", 0) + 1,
-                    "completed": False,
-                    "failed": True,
-                    "error": "No response from API",
-                },
+                "route": "handle_transport_error",
+                "messages": state.get("messages", []),
+                "api_call_count": api_call_count,
+                "retry_count": state.get("retry_count", 0),
+                "first_attempt": False,
             }
 
         # Emit usage event for successful attempt
         self._emit_usage_event(state, outcome="success", response=response)
 
+        self._pending_exc = None
+        self._pending_invalid = False
+
         return {
             "route": "process_response",
-            "api_call_count": state.get("api_call_count", 0) + 1,
+            "api_call_count": api_call_count,
             "_response": response,
             "messages": state.get("messages", []),
+            "first_attempt": False,
         }
 
     def process_response(self, state: dict) -> dict:
@@ -13009,17 +13094,268 @@ class _GraphServicesAdapter:
             },
         }
 
-    # ── Stub methods (not implemented in Task 4) ────────────────────────
+    # ── Error handling (Task 7) ──────────────────────────────────────────
 
     def handle_transport_error(self, state: dict) -> dict:
-        return {"route": "finish", "result": {
-            "final_response": None,
-            "messages": state.get("messages", []),
-            "api_calls": state.get("api_call_count", 0),
-            "completed": False,
-            "failed": True,
-            "error": "Transport error handling not yet implemented (Task 5)",
-        }}
+        """Classify a failed transport attempt and retry, fall back, or finish.
+
+        Mirrors the legacy loop's inner retry block: it increments the retry
+        counter, performs the same interrupt-aware backoff, and delegates
+        classification and provider fallback to existing ``AIAgent`` helpers.
+        The live exception (or invalid-response marker) is carried on the
+        adapter, not in serializable ``TurnState``.
+        """
+        agent = self._agent
+        messages = state.get("messages", [])
+        api_call_count = state.get("api_call_count", 0)
+        max_retries = getattr(agent, "_api_max_retries", 3)
+        # Increment first, mirroring the loop (``retry_count += 1`` precedes the
+        # exhaustion check at run_agent.py:10303 / :11564).
+        retry_count = state.get("retry_count", 0) + 1
+
+        if self._pending_invalid:
+            return self._handle_invalid_response(
+                messages, api_call_count, retry_count, max_retries
+            )
+        return self._handle_api_exception(
+            messages, api_call_count, retry_count, max_retries
+        )
+
+    def _handle_invalid_response(
+        self, messages, api_call_count, retry_count, max_retries
+    ) -> dict:
+        """Empty/malformed response path (legacy loop lines ~10219-10351)."""
+        agent = self._agent
+
+        # Eager fallback: malformed responses are a common rate-limit symptom
+        # (loop :10236).
+        if self._try_fallback():
+            return self._retry_route(api_call_count, messages, reset=True)
+
+        failure_hint = self._invalid_failure_hint()
+
+        if retry_count >= max_retries:
+            # One last fallback attempt before giving up (loop :10306).
+            if self._try_fallback():
+                return self._retry_route(api_call_count, messages, reset=True)
+            return {
+                "route": "finish",
+                "result": {
+                    "messages": messages,
+                    "completed": False,
+                    "api_calls": api_call_count,
+                    "error": (
+                        f"Invalid API response after {max_retries} retries: "
+                        f"{failure_hint}"
+                    ),
+                    "failed": True,
+                },
+            }
+
+        # Interrupt-aware backoff (5s base, 120s cap), then retry (loop :10322).
+        if agent._graph_backoff_with_interrupt(
+            retry_count, base_delay=5.0, max_delay=120.0
+        ):
+            return {
+                "route": "finish",
+                "result": {
+                    "final_response": (
+                        f"Operation interrupted during retry ({failure_hint}, "
+                        f"attempt {retry_count}/{max_retries})."
+                    ),
+                    "messages": messages,
+                    "api_calls": api_call_count,
+                    "completed": False,
+                    "interrupted": True,
+                },
+            }
+        return self._retry_route(api_call_count, messages, retry_count=retry_count)
+
+    def _handle_api_exception(
+        self, messages, api_call_count, retry_count, max_retries
+    ) -> dict:
+        """Raised-exception path (legacy loop lines ~11036-11695)."""
+        agent = self._agent
+        exc = self._pending_exc
+
+        # ── Interrupt detected during error handling (loop :11096) ────────
+        if agent._interrupt_requested:
+            error_type = type(exc).__name__ if exc is not None else "Exception"
+            clean = agent._clean_error_message(str(exc)) if exc is not None else ""
+            return {
+                "route": "finish",
+                "result": {
+                    "final_response": (
+                        f"Operation interrupted: handling API error "
+                        f"({error_type}: {clean})."
+                    ),
+                    "messages": messages,
+                    "api_calls": api_call_count,
+                    "completed": False,
+                    "interrupted": True,
+                },
+            }
+
+        _classified, is_client_error, _status_code = self._classify_exception(exc)
+        summary = (
+            agent._summarize_api_error(exc)
+            if exc is not None
+            else "Unknown transport error"
+        )
+
+        # ── Non-retryable client error → fallback or abort (loop :11512) ──
+        if is_client_error:
+            if self._try_fallback():
+                return self._retry_route(api_call_count, messages, reset=True)
+            return {
+                "route": "finish",
+                "result": {
+                    "final_response": None,
+                    "messages": messages,
+                    "api_calls": api_call_count,
+                    "completed": False,
+                    "failed": True,
+                    "error": str(exc) if exc is not None else summary,
+                },
+            }
+
+        # ── Retries exhausted → recover primary / fallback / abort (:11564) ──
+        if retry_count >= max_retries:
+            try:
+                if exc is not None and agent._try_recover_primary_transport(
+                    exc, retry_count=retry_count, max_retries=max_retries
+                ):
+                    return self._retry_route(api_call_count, messages, reset=True)
+            except Exception:
+                logger.debug(
+                    "graph: primary transport recovery failed", exc_info=True
+                )
+            if self._try_fallback():
+                return self._retry_route(api_call_count, messages, reset=True)
+            return {
+                "route": "finish",
+                "result": {
+                    "final_response": (
+                        f"API call failed after {max_retries} retries: {summary}"
+                    ),
+                    "messages": messages,
+                    "api_calls": api_call_count,
+                    "completed": False,
+                    "failed": True,
+                    "error": summary,
+                },
+            }
+
+        # ── Interrupt-aware backoff (2s base, 60s cap), then retry (:11658) ──
+        if agent._graph_backoff_with_interrupt(
+            retry_count, base_delay=2.0, max_delay=60.0
+        ):
+            return {
+                "route": "finish",
+                "result": {
+                    "final_response": (
+                        f"Operation interrupted: retrying API call after error "
+                        f"(retry {retry_count}/{max_retries})."
+                    ),
+                    "messages": messages,
+                    "api_calls": api_call_count,
+                    "completed": False,
+                    "interrupted": True,
+                },
+            }
+        return self._retry_route(api_call_count, messages, retry_count=retry_count)
+
+    # ── Error-handling helpers ───────────────────────────────────────────
+
+    def _retry_route(
+        self, api_call_count, messages, *, retry_count: int = 0, reset: bool = False
+    ) -> dict:
+        """Route back to ``prepare_request`` for another attempt in this turn.
+
+        ``reset=True`` follows a fallback activation (the loop resets the retry
+        counter on the new provider).  ``first_attempt`` stays False so the
+        retry/fallback attempt does not bump ``api_call_count``.  ``messages`` is
+        re-emitted because ``StateGraph(dict)`` channels are ephemeral.
+        """
+        return {
+            "route": "prepare_request",
+            "api_call_count": api_call_count,
+            "retry_count": 0 if reset else retry_count,
+            "first_attempt": False,
+            "messages": messages,
+        }
+
+    def _try_fallback(self) -> bool:
+        """Activate a provider fallback if one is configured."""
+        try:
+            return bool(self._agent._try_activate_fallback())
+        except Exception:
+            logger.warning("graph: fallback activation failed", exc_info=True)
+            return False
+
+    def _classify_exception(self, exc):
+        """Return ``(classified, is_client_error, status_code)``.
+
+        Replicates the loop's client-error predicate (run_agent.py:11481-11510)
+        so a local validation bug or a non-retryable 4xx aborts, while server
+        errors, rate limits, and transport failures stay retryable.
+        """
+        agent = self._agent
+        if exc is None:
+            return None, False, None
+        status_code = getattr(exc, "status_code", None)
+        is_local_validation_error = (
+            isinstance(exc, (ValueError, TypeError))
+            and not isinstance(exc, (UnicodeEncodeError, json.JSONDecodeError))
+            and not isinstance(exc, ssl.SSLError)
+        )
+        try:
+            _compressor = getattr(agent, "context_compressor", None)
+            _ctx_len = getattr(_compressor, "context_length", 200000) if _compressor else 200000
+            classified = classify_api_error(
+                exc,
+                provider=getattr(agent, "provider", "") or "",
+                model=getattr(agent, "model", "") or "",
+                approx_tokens=0,
+                context_length=_ctx_len or 200000,
+                num_messages=len(self._api_messages) if self._api_messages else 0,
+            )
+        except Exception:
+            # Classification failure must not crash error handling; treat as a
+            # retryable transport error unless it was a local validation bug.
+            logger.debug("graph: error classification failed", exc_info=True)
+            return None, is_local_validation_error, status_code
+
+        is_context_length_error = classified.reason == FailoverReason.context_overflow
+        is_client_error = (
+            is_local_validation_error
+            or (
+                not classified.retryable
+                and not classified.should_compress
+                and classified.reason not in (
+                    FailoverReason.rate_limit,
+                    FailoverReason.billing,
+                    FailoverReason.overloaded,
+                    FailoverReason.context_overflow,
+                    FailoverReason.payload_too_large,
+                    FailoverReason.long_context_tier,
+                    FailoverReason.thinking_signature,
+                )
+            )
+        ) and not is_context_length_error
+        return classified, is_client_error, status_code
+
+    def _invalid_failure_hint(self) -> str:
+        """Duration-based failure hint for a malformed response (loop :10290)."""
+        try:
+            api_duration = time.time() - self._api_start_time
+        except Exception:
+            api_duration = 0.0
+        if api_duration < 10:
+            return f"fast response ({api_duration:.1f}s) — likely rate limited"
+        if api_duration > 60:
+            return f"slow response ({api_duration:.0f}s) — likely upstream timeout"
+        return f"response time {api_duration:.1f}s"
 
     def dispatch_tools(self, state: dict) -> dict:
         """Execute tool calls from the last assistant message.
@@ -13113,10 +13449,13 @@ class _GraphServicesAdapter:
                 "api_call_count": api_call_count,
             }
 
+        # A post-tool/steer continuation is a fresh model turn: the next
+        # transport attempt bumps api_call_count (loop outer-iteration boundary).
         return {
             "messages": messages,
             "route": "prepare_request",
             "api_call_count": api_call_count,
+            "first_attempt": True,
         }
 
     def summarize_on_budget(self, state: dict) -> dict:

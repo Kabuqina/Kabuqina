@@ -22,26 +22,30 @@ from tests.run_agent.golden_harness import (
 
 GOLDEN_DIR = Path(__file__).parent / "golden"
 
+# Return line numbers rebased 2026-06-29 after Tasks 5-7 added graph-engine code
+# above and inside the adapter (the returns themselves are unchanged; only their
+# absolute positions shifted).  Kept in sync with EXIT_INVENTORY in
+# test_exit_contract.py.
 RUNTIME_EXITS = {
-    "nous_rate_guard_without_fallback": (10086, "exit_nous_rate_guard.json"),
-    "invalid_response_retries_exhausted": (10311, "exit_invalid_response.json"),
-    "interrupt_during_invalid_response_wait": (10332, "exit_interrupt_invalid_wait.json"),
-    "thinking_budget_exhausted": (10445, "exit_thinking_budget.json"),
-    "text_continuation_exhausted": (10485, "exit_text_continuation.json"),
-    "truncated_tool_call_repeated": (10513, "exit_truncated_tool_call.json"),
-    "interrupt_during_api_error_handling": (11097, "exit_interrupt_api_error.json"),
-    "payload_compression_attempts_exhausted": (11267, "exit_payload_compression.json"),
-    "payload_cannot_compress": (11298, "exit_payload_no_compression.json"),
-    "safe_output_context_attempts_exhausted": (11351, "exit_safe_output_context.json"),
-    "context_stepdown_attempts_exhausted": (11424, "exit_context_stepdown.json"),
-    "context_cannot_compress": (11457, "exit_context_no_compression.json"),
-    "nonretryable_client_error": (11552, "exit_nonretryable_client.json"),
-    "api_retries_exhausted": (11635, "exit_api_retries.json"),
-    "interrupt_during_generic_retry_wait": (11677, "exit_interrupt_retry_wait.json"),
-    "incomplete_scratchpad_exhausted": (11831, "exit_incomplete_scratchpad.json"),
-    "unknown_tool_retries_exhausted": (11878, "unknown_tool.json"),
-    "truncated_json_tool_arguments": (11944, "exit_truncated_json_args.json"),
-    "normal_final_result": (12664, "plain_text.json"),
+    "nous_rate_guard_without_fallback": (10111, "exit_nous_rate_guard.json"),
+    "invalid_response_retries_exhausted": (10336, "exit_invalid_response.json"),
+    "interrupt_during_invalid_response_wait": (10357, "exit_interrupt_invalid_wait.json"),
+    "thinking_budget_exhausted": (10470, "exit_thinking_budget.json"),
+    "text_continuation_exhausted": (10510, "exit_text_continuation.json"),
+    "truncated_tool_call_repeated": (10538, "exit_truncated_tool_call.json"),
+    "interrupt_during_api_error_handling": (11122, "exit_interrupt_api_error.json"),
+    "payload_compression_attempts_exhausted": (11292, "exit_payload_compression.json"),
+    "payload_cannot_compress": (11323, "exit_payload_no_compression.json"),
+    "safe_output_context_attempts_exhausted": (11376, "exit_safe_output_context.json"),
+    "context_stepdown_attempts_exhausted": (11449, "exit_context_stepdown.json"),
+    "context_cannot_compress": (11482, "exit_context_no_compression.json"),
+    "nonretryable_client_error": (11577, "exit_nonretryable_client.json"),
+    "api_retries_exhausted": (11660, "exit_api_retries.json"),
+    "interrupt_during_generic_retry_wait": (11702, "exit_interrupt_retry_wait.json"),
+    "incomplete_scratchpad_exhausted": (11856, "exit_incomplete_scratchpad.json"),
+    "unknown_tool_retries_exhausted": (11903, "unknown_tool.json"),
+    "truncated_json_tool_arguments": (11969, "exit_truncated_json_args.json"),
+    "normal_final_result": (12689, "plain_text.json"),
 }
 
 

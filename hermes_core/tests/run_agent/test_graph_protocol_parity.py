@@ -47,8 +47,12 @@ from tests.run_agent.golden_harness import (
 GOLDEN_DIR = Path(__file__).parent / "golden"
 
 
-def _replay_graph(spec: Dict[str, Any]) -> Dict[str, Any]:
-    """Replay one transcript through ``AIAgent._run_conversation_graph``."""
+def _replay_graph(spec: Dict[str, Any], *, usage_sink: Any = None) -> Dict[str, Any]:
+    """Replay one transcript through ``AIAgent._run_conversation_graph``.
+
+    ``usage_sink`` is an optional ``UsageEventSink`` wired onto the agent so a
+    caller can collect per-attempt usage events without changing the result.
+    """
     import run_agent
 
     _validate_retry_assumptions(spec.get("assumed_retry_counts", {}))
@@ -109,6 +113,7 @@ def _replay_graph(spec: Dict[str, Any]) -> Dict[str, Any]:
                     "already_streamed": bool(kwargs.get("already_streamed")),
                 }
             ),
+            usage_sink=usage_sink,
             **extra_kwargs,
         )
         agent.session_id = GOLDEN_SESSION_ID

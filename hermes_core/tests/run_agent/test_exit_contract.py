@@ -13,28 +13,32 @@ GOLDEN_DIR = Path(__file__).parent / "golden"
 
 # Stable scenario ids are the review contract. Source lines document the audited
 # legacy body and intentionally require review when that body moves.
+#
+# Line numbers rebased 2026-06-29 after Tasks 5-7 added graph-engine code above
+# and inside the adapter (the 21 returns themselves are unchanged; only their
+# absolute line positions shifted).  Scenario ids and ordering are unchanged.
 EXIT_INVENTORY = (
-    (10086, "nous_rate_guard_without_fallback", "exit_nous_rate_guard.json"),
-    (10311, "invalid_response_retries_exhausted", "exit_invalid_response.json"),
-    (10332, "interrupt_during_invalid_response_wait", "exit_interrupt_invalid_wait.json"),
-    (10445, "thinking_budget_exhausted", "exit_thinking_budget.json"),
-    (10485, "text_continuation_exhausted", "exit_text_continuation.json"),
-    (10513, "truncated_tool_call_repeated", "exit_truncated_tool_call.json"),
-    (10530, "truncation_rolls_back_history", None),
-    (10542, "first_response_truncated", None),
-    (11097, "interrupt_during_api_error_handling", "exit_interrupt_api_error.json"),
-    (11267, "payload_compression_attempts_exhausted", "exit_payload_compression.json"),
-    (11298, "payload_cannot_compress", "exit_payload_no_compression.json"),
-    (11351, "safe_output_context_attempts_exhausted", "exit_safe_output_context.json"),
-    (11424, "context_stepdown_attempts_exhausted", "exit_context_stepdown.json"),
-    (11457, "context_cannot_compress", "exit_context_no_compression.json"),
-    (11552, "nonretryable_client_error", "exit_nonretryable_client.json"),
-    (11635, "api_retries_exhausted", "exit_api_retries.json"),
-    (11677, "interrupt_during_generic_retry_wait", "exit_interrupt_retry_wait.json"),
-    (11831, "incomplete_scratchpad_exhausted", "exit_incomplete_scratchpad.json"),
-    (11878, "unknown_tool_retries_exhausted", "unknown_tool.json"),
-    (11944, "truncated_json_tool_arguments", "exit_truncated_json_args.json"),
-    (12664, "normal_final_result", "plain_text.json"),
+    (10111, "nous_rate_guard_without_fallback", "exit_nous_rate_guard.json"),
+    (10336, "invalid_response_retries_exhausted", "exit_invalid_response.json"),
+    (10357, "interrupt_during_invalid_response_wait", "exit_interrupt_invalid_wait.json"),
+    (10470, "thinking_budget_exhausted", "exit_thinking_budget.json"),
+    (10510, "text_continuation_exhausted", "exit_text_continuation.json"),
+    (10538, "truncated_tool_call_repeated", "exit_truncated_tool_call.json"),
+    (10555, "truncation_rolls_back_history", None),
+    (10567, "first_response_truncated", None),
+    (11122, "interrupt_during_api_error_handling", "exit_interrupt_api_error.json"),
+    (11292, "payload_compression_attempts_exhausted", "exit_payload_compression.json"),
+    (11323, "payload_cannot_compress", "exit_payload_no_compression.json"),
+    (11376, "safe_output_context_attempts_exhausted", "exit_safe_output_context.json"),
+    (11449, "context_stepdown_attempts_exhausted", "exit_context_stepdown.json"),
+    (11482, "context_cannot_compress", "exit_context_no_compression.json"),
+    (11577, "nonretryable_client_error", "exit_nonretryable_client.json"),
+    (11660, "api_retries_exhausted", "exit_api_retries.json"),
+    (11702, "interrupt_during_generic_retry_wait", "exit_interrupt_retry_wait.json"),
+    (11856, "incomplete_scratchpad_exhausted", "exit_incomplete_scratchpad.json"),
+    (11903, "unknown_tool_retries_exhausted", "unknown_tool.json"),
+    (11969, "truncated_json_tool_arguments", "exit_truncated_json_args.json"),
+    (12689, "normal_final_result", "plain_text.json"),
 )
 
 
