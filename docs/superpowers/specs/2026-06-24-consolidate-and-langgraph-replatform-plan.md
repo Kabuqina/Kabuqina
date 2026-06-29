@@ -1313,7 +1313,8 @@ Passing this task alone does not open Goal Runner G1. Task 10 must also land the
 public selector so the outer-loop adapter can select each engine without calling
 private methods.
 
-- [ ] **Step 4: commit**
+- [x] **Step 4: commit**  
+  *(2026-06-29: committed locally as `4ab120ff` "test: prove loop and graph agent equivalence" — NOT pushed, per the Phase 3.5 bounded-loop workflow; stop for human review. PH35-FU-007 (loop-side usage-event emission) remains open before Task 10 opens Goal Runner G1.)*
 
 ```powershell
 git add hermes_core/run_agent.py hermes_core/agent/graph_engine `
