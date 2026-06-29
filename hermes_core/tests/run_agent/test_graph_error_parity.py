@@ -184,6 +184,107 @@ def test_graph_nonretryable_client_error():
     assert snapshot["result"]["final_response"] is None
 
 
+def test_graph_billing_error_delegates_credential_rotation():
+    """Billing failures rotate through the existing credential-pool helper."""
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock, patch
+
+    import run_agent
+    from providers.error_classifier import FailoverReason
+
+    agent = MagicMock()
+    agent._interrupt_requested = False
+    agent._api_max_retries = 3
+    agent._summarize_api_error.return_value = "billing exhausted"
+    agent._extract_api_error_context.return_value = {"request_id": "req-1"}
+    agent._recover_with_credential_pool.return_value = (True, False)
+    agent._graph_backoff_with_interrupt.return_value = False
+
+    adapter = run_agent._GraphServicesAdapter(agent, conversation_history=None)
+    error = RuntimeError("payment required")
+    error.status_code = 402
+    adapter._pending_exc = error
+    classified = SimpleNamespace(reason=FailoverReason.billing)
+
+    with patch.object(
+        adapter,
+        "_classify_exception",
+        return_value=(classified, False, 402),
+    ):
+        update = adapter.handle_transport_error(
+            {
+                "messages": [],
+                "api_call_count": 1,
+                "retry_count": 0,
+            }
+        )
+
+    agent._recover_with_credential_pool.assert_called_once_with(
+        status_code=402,
+        has_retried_429=False,
+        classified_reason=FailoverReason.billing,
+        error_context={"request_id": "req-1"},
+    )
+    assert update["route"] == "prepare_request"
+    assert update["retry_count"] == 1
+
+
+def test_graph_rate_limit_rotation_tracks_consecutive_failures():
+    """A second consecutive 429 rotates after the first same-key retry."""
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock, call, patch
+
+    import run_agent
+    from providers.error_classifier import FailoverReason
+
+    agent = MagicMock()
+    agent._interrupt_requested = False
+    agent._api_max_retries = 3
+    agent._summarize_api_error.return_value = "rate limited"
+    agent._extract_api_error_context.return_value = {"request_id": "req-429"}
+    agent._recover_with_credential_pool.side_effect = [
+        (False, True),
+        (True, False),
+    ]
+    agent._graph_backoff_with_interrupt.return_value = False
+
+    adapter = run_agent._GraphServicesAdapter(agent, conversation_history=None)
+    error = RuntimeError("too many requests")
+    error.status_code = 429
+    classified = SimpleNamespace(reason=FailoverReason.rate_limit)
+
+    with patch.object(
+        adapter,
+        "_classify_exception",
+        return_value=(classified, False, 429),
+    ):
+        adapter._pending_exc = error
+        first_update = adapter.handle_transport_error(
+            {"messages": [], "api_call_count": 1, "retry_count": 0}
+        )
+        adapter._pending_exc = error
+        second_update = adapter.handle_transport_error(first_update)
+
+    assert agent._recover_with_credential_pool.call_args_list == [
+        call(
+            status_code=429,
+            has_retried_429=False,
+            classified_reason=FailoverReason.rate_limit,
+            error_context={"request_id": "req-429"},
+        ),
+        call(
+            status_code=429,
+            has_retried_429=True,
+            classified_reason=FailoverReason.rate_limit,
+            error_context={"request_id": "req-429"},
+        ),
+    ]
+    assert first_update["route"] == "prepare_request"
+    assert first_update["retry_count"] == 1
+    assert second_update["route"] == "prepare_request"
+    assert second_update["retry_count"] == 2
+
+
 # ── Nous rate guard ──────────────────────────────────────────────────────
 
 

@@ -12787,6 +12787,9 @@ class _GraphServicesAdapter:
         # distinguishes an empty/malformed response from a raised exception.
         self._pending_exc: Exception | None = None
         self._pending_invalid: bool = False
+        # The first 429 retries the same credential; a consecutive 429 may
+        # rotate the pool entry, matching the legacy inner retry loop.
+        self._has_retried_429: bool = False
         # Wall-clock start of the latest transport attempt, used to reproduce
         # the loop's invalid-response "failure hint" duration text.
         self._api_start_time: float = 0.0
@@ -12863,6 +12866,11 @@ class _GraphServicesAdapter:
                     # Compression rotated the session — drop the cached history
                     # so the next persist writes the compressed messages.
                     self._conversation_history = None
+                    self._emit_usage_event(
+                        {"api_call_count": 0},
+                        outcome="compression",
+                        route="compression",
+                    )
                     _preflight_tokens = estimate_request_tokens_rough(
                         messages, system_prompt=active_system_prompt or "",
                         tools=agent.tools or None,
@@ -13002,6 +13010,9 @@ class _GraphServicesAdapter:
         """Invoke the provider transport and store the raw response."""
         agent = self._agent
         api_kwargs = self._api_kwargs
+
+        if state.get("first_attempt", True):
+            self._has_retried_429 = False
 
         if api_kwargs is None:
             return {
@@ -13484,6 +13495,35 @@ class _GraphServicesAdapter:
             else "Unknown transport error"
         )
 
+        error_context = None
+        if exc is not None:
+            try:
+                error_context = agent._extract_api_error_context(exc)
+            except Exception:
+                logger.debug(
+                    "graph: failed to extract API error context", exc_info=True
+                )
+        try:
+            recovered_with_pool, self._has_retried_429 = (
+                agent._recover_with_credential_pool(
+                    status_code=_status_code,
+                    has_retried_429=self._has_retried_429,
+                    classified_reason=(
+                        _classified.reason if _classified is not None else None
+                    ),
+                    error_context=error_context,
+                )
+            )
+        except Exception:
+            recovered_with_pool = False
+            logger.debug(
+                "graph: credential-pool recovery failed", exc_info=True
+            )
+        if recovered_with_pool:
+            return self._retry_route(
+                api_call_count, messages, retry_count=retry_count
+            )
+
         # ── Payload too large (413) → compress history and retry (loop :11285) ──
         if (
             _classified is not None
@@ -13599,7 +13639,9 @@ class _GraphServicesAdapter:
         # so the next persist writes the compressed messages to the new session
         # (mirrors the loop's ``conversation_history = None`` at :11311).
         self._conversation_history = None
-
+        self._emit_usage_event(
+            state, outcome="compression", route="compression"
+        )
         if len(new_messages) < original_len:
             return self._compression_retry_route(
                 api_call_count, new_messages, compression_attempts
@@ -13683,7 +13725,9 @@ class _GraphServicesAdapter:
             logger.warning("graph context compression failed", exc_info=True)
             new_messages = messages
         self._conversation_history = None
-
+        self._emit_usage_event(
+            state, outcome="compression", route="compression"
+        )
         if len(new_messages) < original_len or (new_ctx and new_ctx < old_ctx):
             return self._compression_retry_route(
                 api_call_count, new_messages, compression_attempts

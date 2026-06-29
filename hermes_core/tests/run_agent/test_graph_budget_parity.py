@@ -404,3 +404,48 @@ def test_graph_truncated_json_tool_arguments():
     assert snapshot["result"]["final_response"] is None
     # The truncated tool was never executed.
     assert snapshot["tool_invocations"] == []
+
+
+# ── Auxiliary model calls append usage events (Task 8 Step 2) ────────────
+
+
+def _replay_graph_collecting_events(spec):
+    """Replay a fixture through the graph, collecting per-attempt usage events."""
+    from agent.usage_events import UsageEvent
+
+    events = []
+
+    class _Sink:
+        def on_attempt(self, event: UsageEvent) -> None:
+            events.append(event)
+
+    _replay_graph(spec, usage_sink=_Sink())
+    return events
+
+
+def test_graph_max_iteration_summary_emits_usage_event():
+    """The toolless summary model call appends a usage event to the ledger."""
+    events = _replay_graph_collecting_events(_load("max_iterations"))
+    summary_events = [e for e in events if e.route == "summarize_on_budget"]
+    assert len(summary_events) == 1
+    assert summary_events[0].outcome == "summary"
+
+
+def test_graph_compression_emits_usage_events():
+    """Each compression model call appends a usage event to the ledger.
+
+    Plan Task 8 Step 2: a missing auxiliary event makes the ledger incomplete.
+    The payload family compresses three times before exhausting.
+    """
+    events = _replay_graph_collecting_events(_load("exit_payload_compression"))
+    compression_events = [e for e in events if e.route == "compression"]
+    # Three successful compressions precede the fourth (exhausting) 413.
+    assert len(compression_events) == 3
+    assert all(e.outcome == "compression" for e in compression_events)
+
+
+def test_graph_preflight_compression_emits_usage_event():
+    """Preflight compression also appends a usage event."""
+    events = _replay_graph_collecting_events(_load("compression"))
+    compression_events = [e for e in events if e.route == "compression"]
+    assert len(compression_events) >= 1
