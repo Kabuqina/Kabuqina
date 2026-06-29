@@ -1050,8 +1050,8 @@ const studySectionSource = fs.readFileSync(new URL("./study/StudySection.tsx", i
 
 assert.deepEqual(
   Object.keys(STUDY_PROMPTS),
-  ["learningProfile", "learningPath", "learningResources"],
-  "STUDY module should expose the three ordered learning actions (profile -> path -> resources).",
+  ["learningProfile", "learningPath", "learningResources", "learningTutor", "learningEvaluation"],
+  "STUDY module should expose the ordered learning actions required by the contest task.",
 );
 for (const [id, prompt] of Object.entries(STUDY_PROMPTS)) {
   assert.ok(typeof prompt === "string" && prompt.length > 0, `${id} prompt should be a non-empty string`);
@@ -1064,9 +1064,24 @@ assert.match(
   "Learning-profile prompt should require bounded dimensions and uncertainty labels.",
 );
 assert.match(
+  STUDY_PROMPTS.learningResources,
+  /多智能体协同[\s\S]*至少 5 类学习资源[\s\S]*防幻觉/,
+  "Resource-pack prompt should require multi-agent generation, five resource types, and hallucination checks.",
+);
+assert.match(
+  STUDY_PROMPTS.learningTutor,
+  /智能辅导智能体[\s\S]*文字解释[\s\S]*图解\/思维导图大纲/,
+  "Tutoring prompt should provide personalized multi-format guidance.",
+);
+assert.match(
+  STUDY_PROMPTS.learningEvaluation,
+  /学习效果评估[\s\S]*至少覆盖 6 个维度[\s\S]*动态调整/,
+  "Evaluation prompt should assess learning effects and adjust the plan.",
+);
+assert.match(
   studySectionSource,
-  /workspaceBuildLearningProfile[\s\S]*workspaceBuildLearningPath[\s\S]*workspaceBuildResourcePack/,
-  "StudySection should wire the three learning quick actions in order (profile -> path -> resources).",
+  /workspaceBuildLearningProfile[\s\S]*workspaceBuildLearningPath[\s\S]*workspaceBuildResourcePack[\s\S]*workspaceStartLearningTutor[\s\S]*workspaceEvaluateLearningEffect/,
+  "StudySection should wire the five learning quick actions in order.",
 );
 assert.match(
   studySectionSource,

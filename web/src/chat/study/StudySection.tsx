@@ -1,14 +1,12 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-// STUDY module — the student learning-planning quick actions in the STUDY
-// workspace panel, parallel to the report/PPT and math sections. Three ordered
-// steps that build on each other: learning profile -> learning path ->
-// learning resource pack. Each button injects a bounded, crafted prompt (see
+// STUDY module — China Software Cup A3 learning-agent quick actions in the
+// STUDY workspace panel. Each button injects a bounded, crafted prompt (see
 // ./studyPrompts); the module owns nothing else, so new study actions are a
 // one-line addition to STUDY_ACTIONS.
 
-import { Layers3, Route, UserRoundCog, type LucideIcon } from "lucide-react";
+import { ClipboardCheck, Layers3, MessagesSquare, Route, UserRoundCog, type LucideIcon } from "lucide-react";
 
 import { useI18n } from "../../lib/i18n";
 import { WorkspaceActionButton, WorkspaceSection } from "../workspaceSection";
@@ -39,6 +37,18 @@ const STUDY_ACTIONS: StudyAction[] = [
     icon: Layers3,
     labelKey: "chat.workspaceBuildResourcePack",
     prompt: STUDY_PROMPTS.learningResources,
+  },
+  {
+    id: "learningTutor",
+    icon: MessagesSquare,
+    labelKey: "chat.workspaceStartLearningTutor",
+    prompt: STUDY_PROMPTS.learningTutor,
+  },
+  {
+    id: "learningEvaluation",
+    icon: ClipboardCheck,
+    labelKey: "chat.workspaceEvaluateLearningEffect",
+    prompt: STUDY_PROMPTS.learningEvaluation,
   },
 ];
 
