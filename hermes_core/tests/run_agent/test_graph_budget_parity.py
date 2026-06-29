@@ -175,3 +175,44 @@ def test_recursion_limit_has_headroom_for_routed_fixtures():
         assert steps <= 0.8 * limit, (
             f"{fixture}: {steps} super-steps exceeds 80% of recursion_limit {limit}"
         )
+
+
+# ── Payload-too-large (413) compression family (Task 8b) ─────────────────
+
+
+def test_graph_payload_compression_exhausted():
+    """413 compressed ``max_compression_attempts`` times → compression_exhausted.
+
+    Four 413 transport turns (1 initial + 3 compression retries) with the
+    compressor shrinking history each time; the fourth exhausts the budget.
+    Parity with the loop's payload exit (run_agent.py:11292).
+    """
+    spec = _load("exit_payload_compression")
+    snapshot = _replay_graph(spec)
+    expected = spec["expected"]
+
+    assert snapshot["result_keys"] == expected["result_keys"]
+    assert "compression_exhausted" in snapshot["result_keys"]
+    assert "final_response" not in snapshot["result_keys"]
+    assert snapshot["result"]["completed"] is False
+    assert snapshot["result"]["partial"] is True
+    assert snapshot["result"]["api_calls"] == expected["result"]["api_calls"] == 1
+    assert snapshot["model_turns_consumed"] == expected["model_turns_consumed"] == 4
+
+
+def test_graph_payload_cannot_compress():
+    """413 where compression cannot shrink history → immediate exhaustion.
+
+    Parity with the loop's "cannot compress further" exit (run_agent.py:11323):
+    one transport turn, no retries.
+    """
+    spec = _load("exit_payload_no_compression")
+    snapshot = _replay_graph(spec)
+    expected = spec["expected"]
+
+    assert snapshot["result_keys"] == expected["result_keys"]
+    assert "compression_exhausted" in snapshot["result_keys"]
+    assert snapshot["result"]["completed"] is False
+    assert snapshot["result"]["partial"] is True
+    assert snapshot["result"]["api_calls"] == expected["result"]["api_calls"] == 1
+    assert snapshot["model_turns_consumed"] == expected["model_turns_consumed"] == 1

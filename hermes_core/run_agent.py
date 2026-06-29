@@ -12952,8 +12952,10 @@ class _GraphServicesAdapter:
             "retry_count": state.get("retry_count", 0),
             # ``StateGraph(dict)`` uses ephemeral channels: a key is only visible
             # to the next node if the current node re-emits it.  Forward
-            # ``first_attempt`` so call_transport's once-per-turn counter sees it.
+            # ``first_attempt`` so call_transport's once-per-turn counter sees it,
+            # and ``compression_attempts`` so the 413 retry counter survives.
             "first_attempt": state.get("first_attempt", True),
+            "compression_attempts": state.get("compression_attempts", 0),
             "messages": state.get("messages", []),
         }
 
@@ -13016,6 +13018,7 @@ class _GraphServicesAdapter:
                 "messages": state.get("messages", []),
                 "api_call_count": api_call_count,
                 "retry_count": state.get("retry_count", 0),
+                "compression_attempts": state.get("compression_attempts", 0),
                 "first_attempt": False,
             }
 
@@ -13028,6 +13031,7 @@ class _GraphServicesAdapter:
                 "messages": state.get("messages", []),
                 "api_call_count": api_call_count,
                 "retry_count": state.get("retry_count", 0),
+                "compression_attempts": state.get("compression_attempts", 0),
                 "first_attempt": False,
             }
 
@@ -13043,6 +13047,9 @@ class _GraphServicesAdapter:
             "_response": response,
             "messages": state.get("messages", []),
             "first_attempt": False,
+            # Reset the compression counter on a successful response (mirrors the
+            # loop's reset-on-recovery, run_agent.py:10106).
+            "compression_attempts": 0,
         }
 
     def process_response(self, state: dict) -> dict:
@@ -13155,7 +13162,7 @@ class _GraphServicesAdapter:
                 messages, api_call_count, retry_count, max_retries
             )
         return self._handle_api_exception(
-            messages, api_call_count, retry_count, max_retries
+            state, messages, api_call_count, retry_count, max_retries
         )
 
     def _handle_invalid_response(
@@ -13209,7 +13216,7 @@ class _GraphServicesAdapter:
         return self._retry_route(api_call_count, messages, retry_count=retry_count)
 
     def _handle_api_exception(
-        self, messages, api_call_count, retry_count, max_retries
+        self, state, messages, api_call_count, retry_count, max_retries
     ) -> dict:
         """Raised-exception path (legacy loop lines ~11036-11695)."""
         agent = self._agent
@@ -13239,6 +13246,13 @@ class _GraphServicesAdapter:
             if exc is not None
             else "Unknown transport error"
         )
+
+        # ── Payload too large (413) → compress history and retry (loop :11285) ──
+        if (
+            _classified is not None
+            and _classified.reason == FailoverReason.payload_too_large
+        ):
+            return self._handle_payload_compression(state, messages, api_call_count)
 
         # ── Non-retryable client error → fallback or abort (loop :11512) ──
         if is_client_error:
@@ -13301,6 +13315,79 @@ class _GraphServicesAdapter:
                 },
             }
         return self._retry_route(api_call_count, messages, retry_count=retry_count)
+
+    # ── Compression error paths (Task 8b) ────────────────────────────────
+
+    def _handle_payload_compression(
+        self, state: dict, messages, api_call_count
+    ) -> dict:
+        """413 payload-too-large: compress and retry, or exhaust (loop :11285-11331).
+
+        Mirrors the loop's payload branch: increment the compression counter,
+        give up after ``max_compression_attempts``, otherwise compress via the
+        shared ``_compress_context`` helper and retry only if it actually
+        shrank the history (otherwise it cannot compress further).
+        """
+        agent = self._agent
+        max_compression_attempts = 3
+        compression_attempts = state.get("compression_attempts", 0) + 1
+
+        if compression_attempts > max_compression_attempts:
+            return self._compression_exhausted_result(
+                messages, api_call_count,
+                error=(
+                    f"Request payload too large: max compression attempts "
+                    f"({max_compression_attempts}) reached."
+                ),
+            )
+
+        system_message = state.get("system_message")
+        task_id = state.get("effective_task_id", "default") or "default"
+        original_len = len(messages)
+        try:
+            new_messages, _new_sys = agent._compress_context(
+                messages, system_message, approx_tokens=None, task_id=task_id,
+            )
+        except Exception:
+            logger.warning("graph payload compression failed", exc_info=True)
+            new_messages = messages
+        # Compression rotates the session — clear the cached conversation_history
+        # so the next persist writes the compressed messages to the new session
+        # (mirrors the loop's ``conversation_history = None`` at :11311).
+        self._conversation_history = None
+
+        if len(new_messages) < original_len:
+            return {
+                "route": "prepare_request",
+                "messages": new_messages,
+                "api_call_count": api_call_count,
+                "compression_attempts": compression_attempts,
+                "first_attempt": False,
+            }
+        return self._compression_exhausted_result(
+            new_messages, api_call_count,
+            error="Request payload too large (413). Cannot compress further.",
+        )
+
+    def _compression_exhausted_result(self, messages, api_call_count, *, error) -> dict:
+        """Frozen compression-exhausted exit shape (loop :11292/:11323).
+
+        No ``final_response`` / ``model`` / ``provider`` keys — matches the
+        legacy result-key set for the compression family.
+        """
+        return {
+            "route": "finish",
+            "messages": messages,
+            "result": {
+                "messages": messages,
+                "completed": False,
+                "api_calls": api_call_count,
+                "error": error,
+                "partial": True,
+                "failed": True,
+                "compression_exhausted": True,
+            },
+        }
 
     # ── Error-handling helpers ───────────────────────────────────────────
 
