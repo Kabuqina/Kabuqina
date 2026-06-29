@@ -12790,6 +12790,11 @@ class _GraphServicesAdapter:
         # Wall-clock start of the latest transport attempt, used to reproduce
         # the loop's invalid-response "failure hint" duration text.
         self._api_start_time: float = 0.0
+        # Response-validation counters (Task 8c).  Per-conversation, like the
+        # loop's locals: truncation continuation accumulation + retry counts.
+        self._length_continue_retries: int = 0
+        self._truncated_tool_call_retries: int = 0
+        self._truncated_response_prefix: str = ""
 
     # ── Plain-text route (Task 4) ───────────────────────────────────────
 
@@ -13128,7 +13133,57 @@ class _GraphServicesAdapter:
         finish_reason = getattr(normalized, "finish_reason", "stop")
         has_tool_calls = bool(getattr(normalized, "tool_calls", None))
 
+        # ── Truncated response (finish_reason == "length") (loop :10395) ──
+        if finish_reason == "length":
+            _length_exit = self._handle_length_truncation(
+                state, normalized, messages, api_call_count, has_tool_calls
+            )
+            if _length_exit is not None:
+                return _length_exit
+
+        # ── Incomplete <REASONING_SCRATCHPAD> → retry up to 2 (loop :11838) ──
+        if has_incomplete_scratchpad(content):
+            agent._incomplete_scratchpad_retries += 1
+            if agent._incomplete_scratchpad_retries <= 2:
+                # Fresh-turn retry (bumps api_calls); the broken message is not
+                # appended.
+                return {
+                    "route": "prepare_request",
+                    "messages": messages,
+                    "api_call_count": api_call_count,
+                    "first_attempt": True,
+                }
+            agent._incomplete_scratchpad_retries = 0
+            rolled_back = agent._get_messages_up_to_last_assistant(messages)
+            return {
+                "route": "finish",
+                "messages": rolled_back,
+                "result": {
+                    "final_response": None,
+                    "messages": rolled_back,
+                    "api_calls": api_call_count,
+                    "completed": False,
+                    "partial": True,
+                    "error": "Incomplete REASONING_SCRATCHPAD after 2 retries",
+                },
+            }
+        agent._incomplete_scratchpad_retries = 0
+
         if has_tool_calls:
+            # ── Truncated tool-call arguments (cut-off JSON) (loop :11948) ──
+            if self._detect_truncated_json_args(normalized):
+                return {
+                    "route": "finish",
+                    "messages": messages,
+                    "result": {
+                        "final_response": None,
+                        "messages": messages,
+                        "api_calls": api_call_count,
+                        "completed": False,
+                        "partial": True,
+                        "error": "Response truncated due to output length limit",
+                    },
+                }
             assistant_msg = agent._build_assistant_message(normalized, finish_reason)
             messages.append(assistant_msg)
             return {
@@ -13171,6 +13226,154 @@ class _GraphServicesAdapter:
                 "cost_source": agent.session_cost_source,
             },
         }
+
+    # ── Truncation / continuation handling (Task 8c) ─────────────────────
+
+    def _handle_length_truncation(
+        self, state, normalized, messages, api_call_count, has_tool_calls
+    ) -> dict | None:
+        """Handle a ``finish_reason == "length"`` response (loop :10395).
+
+        Three sub-cases:
+        * thinking-budget exhausted (reasoning tags, no visible answer) → end;
+        * truncated text → accumulate and request continuation (up to 3 fresh
+          turns), then end with the partial text;
+        * truncated tool call → retry the same turn once (no api_calls bump),
+          then end.
+
+        Returns a route dict, or ``None`` to fall through (never happens today;
+        kept for forward-compatibility with non-length finish reasons).
+        """
+        agent = self._agent
+        content = normalized.content
+
+        # ── Thinking-budget exhaustion (:10437) ──────────────────────────
+        has_think = bool(
+            content
+            and re.search(
+                r'<(?:think|thinking|reasoning|REASONING_SCRATCHPAD)[^>]*>',
+                content, re.IGNORECASE,
+            )
+        )
+        thinking_exhausted = (
+            not has_tool_calls
+            and has_think
+            and (
+                content is None
+                or not agent._has_content_after_think_block(content)
+            )
+        )
+        if thinking_exhausted:
+            return {
+                "route": "finish",
+                "messages": messages,
+                "result": {
+                    "final_response": (
+                        "⚠️ **Thinking Budget Exhausted**\n\n"
+                        "The model used all its output tokens on reasoning "
+                        "and had none left for the actual response.\n\n"
+                        "To fix this:\n"
+                        "→ Lower reasoning effort: `/thinkon low` or `/thinkon minimal`\n"
+                        "→ Or switch to a larger/non-reasoning model with `/model`"
+                    ),
+                    "messages": messages,
+                    "api_calls": api_call_count,
+                    "completed": False,
+                    "partial": True,
+                    "error": (
+                        "Model used all output tokens on reasoning with none "
+                        "left for the response. Try lowering reasoning effort "
+                        "or increasing max_tokens."
+                    ),
+                },
+            }
+
+        # ── Truncated text → request continuation (:10479) ───────────────
+        if not has_tool_calls:
+            self._length_continue_retries += 1
+            interim = agent._build_assistant_message(normalized, "length")
+            messages.append(interim)
+            if normalized.content:
+                self._truncated_response_prefix += normalized.content
+
+            if self._length_continue_retries < 3:
+                messages.append({
+                    "role": "user",
+                    "content": (
+                        "[System: Your previous response was truncated by the "
+                        "output length limit. Continue exactly where you left "
+                        "off. Do not restart or repeat prior text. Finish the "
+                        "answer directly.]"
+                    ),
+                })
+                # A continuation is a fresh model turn (bumps api_calls).
+                return {
+                    "route": "prepare_request",
+                    "messages": messages,
+                    "api_call_count": api_call_count,
+                    "first_attempt": True,
+                }
+
+            partial = agent._strip_think_blocks(
+                self._truncated_response_prefix
+            ).strip()
+            return {
+                "route": "finish",
+                "messages": messages,
+                "result": {
+                    "final_response": partial or None,
+                    "messages": messages,
+                    "api_calls": api_call_count,
+                    "completed": False,
+                    "partial": True,
+                    "error": "Response remained truncated after 3 continuation attempts",
+                },
+            }
+
+        # ── Truncated tool call → retry the same turn once (:10519) ───────
+        if self._truncated_tool_call_retries < 1:
+            self._truncated_tool_call_retries += 1
+            # Don't append the broken response — retry from the current state
+            # without bumping api_calls (first_attempt False).
+            return {
+                "route": "prepare_request",
+                "messages": messages,
+                "api_call_count": api_call_count,
+                "first_attempt": False,
+            }
+        return {
+            "route": "finish",
+            "messages": messages,
+            "result": {
+                "final_response": None,
+                "messages": messages,
+                "api_calls": api_call_count,
+                "completed": False,
+                "partial": True,
+                "error": "Response truncated due to output length limit",
+            },
+        }
+
+    @staticmethod
+    def _detect_truncated_json_args(normalized) -> bool:
+        """True if any tool call carries cut-off (truncated) JSON args (:11948).
+
+        Routers sometimes rewrite ``finish_reason`` from ``length`` to
+        ``tool_calls``, hiding the truncation from the length handler; detect it
+        from arguments that fail to parse and do not close with ``}``/``]``.
+        Non-truncated invalid JSON is left for the dispatch path.
+        """
+        tool_calls = getattr(normalized, "tool_calls", None) or []
+        for tc in tool_calls:
+            args = getattr(getattr(tc, "function", None), "arguments", None)
+            if isinstance(args, (dict, list)) or not args or not str(args).strip():
+                continue
+            try:
+                json.loads(args)
+            except (json.JSONDecodeError, TypeError, ValueError):
+                if not str(args).rstrip().endswith(("}", "]")):
+                    return True
+        return False
 
     # ── Error handling (Task 7) ──────────────────────────────────────────
 

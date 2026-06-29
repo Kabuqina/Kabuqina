@@ -281,3 +281,96 @@ def test_graph_preflight_compression():
     # Compression actually ran: the surviving history opens with the summary.
     assert len(snapshot["messages"]) == len(expected["messages"])
     assert "summarized" in str(snapshot["messages"][0].get("content", ""))
+
+
+# ── Truncation / continuation families (Task 8c) ─────────────────────────
+
+
+def test_graph_thinking_budget_exhausted():
+    """finish_reason=length with reasoning but no answer → thinking-budget exit.
+
+    Parity with the loop (run_agent.py:10470): one turn, no continuation.
+    """
+    spec = _load("exit_thinking_budget")
+    snapshot = _replay_graph(spec)
+    expected = spec["expected"]
+
+    assert snapshot["result_keys"] == expected["result_keys"]
+    assert snapshot["result"]["completed"] is False
+    assert snapshot["result"]["partial"] is True
+    assert snapshot["result"]["api_calls"] == expected["result"]["api_calls"] == 1
+    assert snapshot["model_turns_consumed"] == 1
+    assert "Thinking Budget" in (snapshot["result"]["final_response"] or "")
+
+
+def test_graph_text_continuation_exhausted():
+    """finish_reason=length text → 3 continuation turns → concatenated partial.
+
+    Parity with the loop (run_agent.py:10510): each continuation is a fresh
+    model turn (api_calls=3), and the accumulated prefix is returned.
+    """
+    spec = _load("exit_text_continuation")
+    snapshot = _replay_graph(spec)
+    expected = spec["expected"]
+
+    assert snapshot["result_keys"] == expected["result_keys"]
+    assert snapshot["result"]["completed"] is False
+    assert snapshot["result"]["partial"] is True
+    assert snapshot["result"]["api_calls"] == expected["result"]["api_calls"] == 3
+    assert snapshot["model_turns_consumed"] == 3
+    assert snapshot["result"]["final_response"] == expected["result"]["final_response"]
+
+
+def test_graph_truncated_tool_call_repeated():
+    """finish_reason=length tool call → 1 inner retry → truncated exit.
+
+    Parity with the loop (run_agent.py:10538): the retry does not bump
+    api_calls (1) but consumes a second model turn (2).
+    """
+    spec = _load("exit_truncated_tool_call")
+    snapshot = _replay_graph(spec)
+    expected = spec["expected"]
+
+    assert snapshot["result_keys"] == expected["result_keys"]
+    assert snapshot["result"]["completed"] is False
+    assert snapshot["result"]["partial"] is True
+    assert snapshot["result"]["api_calls"] == expected["result"]["api_calls"] == 1
+    assert snapshot["model_turns_consumed"] == 2
+    assert snapshot["result"]["final_response"] is None
+
+
+def test_graph_incomplete_scratchpad_exhausted():
+    """Unclosed <REASONING_SCRATCHPAD> → 2 fresh-turn retries → partial exit.
+
+    Parity with the loop (run_agent.py:11856): each retry is a fresh model
+    turn (api_calls=3) and the broken turns are rolled back.
+    """
+    spec = _load("exit_incomplete_scratchpad")
+    snapshot = _replay_graph(spec)
+    expected = spec["expected"]
+
+    assert snapshot["result_keys"] == expected["result_keys"]
+    assert snapshot["result"]["completed"] is False
+    assert snapshot["result"]["partial"] is True
+    assert snapshot["result"]["api_calls"] == expected["result"]["api_calls"] == 3
+    assert snapshot["model_turns_consumed"] == 3
+    assert snapshot["result"]["final_response"] is None
+
+
+def test_graph_truncated_json_tool_arguments():
+    """tool_calls with cut-off JSON arguments → immediate truncated exit.
+
+    Parity with the loop (run_agent.py:11969): one turn, no tool execution.
+    """
+    spec = _load("exit_truncated_json_args")
+    snapshot = _replay_graph(spec)
+    expected = spec["expected"]
+
+    assert snapshot["result_keys"] == expected["result_keys"]
+    assert snapshot["result"]["completed"] is False
+    assert snapshot["result"]["partial"] is True
+    assert snapshot["result"]["api_calls"] == expected["result"]["api_calls"] == 1
+    assert snapshot["model_turns_consumed"] == 1
+    assert snapshot["result"]["final_response"] is None
+    # The truncated tool was never executed.
+    assert snapshot["tool_invocations"] == []

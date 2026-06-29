@@ -111,18 +111,19 @@ def test_graph_unknown_tool():
 
 
 def test_graph_exit_truncated_json_args():
-    """Graph engine: truncated tool call arguments → tool executes with broken JSON.
+    """Graph engine: truncated tool-call arguments → partial exit, no execution.
 
-    Note: The graph currently passes truncated JSON through to
-    ``_execute_tool_calls`` which forwards to the tool stub. The
-    ``partial=True`` early exit requires the retry-exhaustion logic from
-    Task 7.
+    Task 8c routes cut-off JSON arguments to the truncated exit (loop
+    :11969) instead of forwarding broken args to ``_execute_tool_calls``.
     """
     spec = _load_fixture("exit_truncated_json_args")
     snapshot = _replay_graph(spec)
 
-    # Tool dispatch still runs (with broken JSON passed to stub)
-    assert len(snapshot["tool_invocations"]) >= 1
+    assert snapshot["result"]["completed"] is False
+    assert snapshot["result"]["partial"] is True
+    assert snapshot["result"]["final_response"] is None
+    # The broken tool call must NOT have executed.
+    assert snapshot["tool_invocations"] == []
 
 
 # ── Steer — appended to tool result ──────────────────────────────────────
