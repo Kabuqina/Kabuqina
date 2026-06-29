@@ -12873,6 +12873,28 @@ class _GraphServicesAdapter:
                 },
             }
 
+        # ── Iteration-budget gate (mirrors loop while-top, run_agent.py:9768-9794) ──
+        # Only a fresh model turn consumes the budget; retries and fallbacks
+        # (first_attempt False) reuse the current iteration.  When the budget or
+        # the max_iterations ceiling is exhausted, route to the toolless summary
+        # instead of issuing another call.  This is the user-visible budget
+        # authority; LangGraph's recursion limit is only a safety ceiling.
+        if state.get("first_attempt", True):
+            api_call_count = state.get("api_call_count", 0)
+            budget = getattr(agent, "iteration_budget", None)
+            _exhausted = api_call_count >= agent.max_iterations
+            if not _exhausted and budget is not None:
+                if getattr(agent, "_budget_grace_call", False):
+                    agent._budget_grace_call = False
+                elif not budget.consume():
+                    _exhausted = True
+            if _exhausted:
+                return {
+                    "route": "summarize_on_budget",
+                    "messages": messages,
+                    "api_call_count": api_call_count,
+                }
+
         # ── Nous rate guard (mirrors legacy loop pre-call check) ─────
         _provider = getattr(agent, "provider", "") or ""
         if _provider == "nous":
@@ -13454,18 +13476,11 @@ class _GraphServicesAdapter:
                         msg["content"] = blocks
                     break
 
-        # Check iteration budget before continuing
+        # A post-tool/steer continuation is a fresh model turn: route back to
+        # prepare_request, which is the single iteration-boundary authority for
+        # the interrupt and iteration-budget gates (mirrors the loop while-top).
+        # The next transport attempt bumps api_call_count.
         api_call_count = state.get("api_call_count", 0)
-        budget = getattr(agent, "iteration_budget", None)
-        if budget and budget.remaining <= 0:
-            return {
-                "messages": messages,
-                "route": "finish",
-                "api_call_count": api_call_count,
-            }
-
-        # A post-tool/steer continuation is a fresh model turn: the next
-        # transport attempt bumps api_call_count (loop outer-iteration boundary).
         return {
             "messages": messages,
             "route": "prepare_request",
@@ -13474,13 +13489,46 @@ class _GraphServicesAdapter:
         }
 
     def summarize_on_budget(self, state: dict) -> dict:
-        return {"route": "finish", "result": {
-            "final_response": None,
-            "messages": state.get("messages", []),
-            "api_calls": state.get("api_call_count", 0),
-            "completed": False,
-            "compression_exhausted": True,
-        }}
+        """Budget/iteration exhausted: one toolless summary call (loop :12493).
+
+        Delegates to ``_handle_max_iterations``, which injects a user prompt,
+        makes a single tools-stripped request, and appends the summary as an
+        assistant message.  ``api_calls`` is unchanged — the summary call does
+        not go through the transport counter, matching the loop.
+        """
+        agent = self._agent
+        messages = list(state.get("messages", []))
+        api_call_count = state.get("api_call_count", 0)
+        try:
+            final_response = agent._handle_max_iterations(messages, api_call_count)
+        except Exception as exc:
+            logger.warning(
+                "graph summarize_on_budget failed: %s", exc, exc_info=True
+            )
+            final_response = (
+                f"I reached the maximum iterations ({agent.max_iterations}) "
+                f"but couldn't summarize. Error: {exc}"
+            )
+        # Auxiliary model call → record a usage event so the turn ledger knows it
+        # happened (unknown cost; full pricing is PH35-FU-002).
+        self._emit_usage_event(
+            state, outcome="summary", route="summarize_on_budget"
+        )
+        return {
+            "route": "finish",
+            "messages": messages,
+            "result": {
+                "final_response": final_response,
+                "messages": messages,
+                "api_calls": api_call_count,
+                "completed": False,
+                "partial": False,
+                "interrupted": False,
+                "model": agent.model,
+                "provider": agent.provider,
+                "base_url": agent.base_url,
+            },
+        }
 
     def apply_exit_policy(self, state: dict) -> dict:
         """Execute side effects and return the final LegacyRunResult."""
@@ -13518,8 +13566,14 @@ class _GraphServicesAdapter:
         state: dict,
         outcome: str,
         response: Any = None,
+        route: str = "call_transport",
     ) -> None:
-        """Emit a UsageEvent to the optional sink configured on the agent."""
+        """Emit a UsageEvent to the optional sink configured on the agent.
+
+        ``route`` distinguishes the primary transport from agent-owned auxiliary
+        model calls (e.g. the max-iteration summary), so a turn ledger can tell
+        whether every attempted request was observed.
+        """
         agent = self._agent
         if agent._usage_sink is None:
             return
@@ -13537,7 +13591,7 @@ class _GraphServicesAdapter:
             event = UsageEvent(
                 attempt_index=state.get("api_call_count", 0),
                 outcome=outcome,
-                route="call_transport",
+                route=route,
                 provider=agent.provider,
                 model=agent.model,
                 input_tokens=input_tokens,

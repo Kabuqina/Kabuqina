@@ -54,12 +54,25 @@ class GraphEngine:
         Returns:
             The exact ``LegacyRunResult`` dictionary frozen by Task 2.
         """
+        # LangGraph's recursion limit is only a safety ceiling — Hermes
+        # ``iteration_budget`` is the user-visible authority (enforced in the
+        # prepare_request node).  Size it from ``max_iterations`` with generous
+        # headroom for retry/compression sub-steps within each iteration.
+        # NOTE: treat this formula as an initial ceiling validated by the
+        # super-step measurement in test_graph_budget_parity.py, not a proved
+        # constant; revise from evidence if that test loses its 20% headroom.
+        max_iterations = getattr(
+            getattr(services, "_agent", None), "max_iterations", 90
+        ) or 90
+        recursion_limit = max(1000, (max_iterations * 12) + 100)
+
         config: dict[str, Any] = {
+            "recursion_limit": recursion_limit,
             "configurable": {
                 "services": services,
                 "stream_callback": stream_callback,
                 "persist_user_message": persist_user_message,
-            }
+            },
         }
 
         initial_state: dict[str, Any] = {

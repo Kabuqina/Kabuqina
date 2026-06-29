@@ -47,10 +47,11 @@ def build_agent_graph() -> StateGraph:
     graph.add_edge(START, "initialize_turn")
     graph.add_edge("initialize_turn", "prepare_request")
 
-    # prepare → call or error or finish (route set by prepare_request)
+    # prepare → call, budget summary, error, or finish (route set by prepare_request)
     graph.add_conditional_edges(
         "prepare_request", _route,
         {"call_transport": "call_transport",
+         "summarize_on_budget": "summarize_on_budget",
          "handle_transport_error": "handle_transport_error",
          "finish": "finish"},
     )
