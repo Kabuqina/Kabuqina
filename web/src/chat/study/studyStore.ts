@@ -13,6 +13,11 @@ export type StudyContext = {
   preferences: string;
   progressNotes: string;
   assessmentEvidence: string;
+  currentStage: string;
+  generatedResources: string;
+  tutoringNotes: string;
+  evaluationSummary: string;
+  nextAdjustment: string;
 };
 
 const EMPTY_STUDY_CONTEXT: StudyContext = {
@@ -23,6 +28,11 @@ const EMPTY_STUDY_CONTEXT: StudyContext = {
   preferences: "",
   progressNotes: "",
   assessmentEvidence: "",
+  currentStage: "",
+  generatedResources: "",
+  tutoringNotes: "",
+  evaluationSummary: "",
+  nextAdjustment: "",
 };
 
 export function emptyStudyContext(): StudyContext {
@@ -45,6 +55,11 @@ export function normalizeStudyContext(value: unknown): StudyContext {
     preferences: cleanField(raw.preferences),
     progressNotes: cleanField(raw.progressNotes),
     assessmentEvidence: cleanField(raw.assessmentEvidence),
+    currentStage: cleanField(raw.currentStage),
+    generatedResources: cleanField(raw.generatedResources),
+    tutoringNotes: cleanField(raw.tutoringNotes),
+    evaluationSummary: cleanField(raw.evaluationSummary),
+    nextAdjustment: cleanField(raw.nextAdjustment),
   };
 }
 
@@ -111,10 +126,15 @@ export function formatStudyContextForPrompt(context: StudyContext): string {
     ["学习偏好/可投入时间", normalized.preferences],
     ["学习进度/行为记录", normalized.progressNotes],
     ["练习结果/资源反馈", normalized.assessmentEvidence],
+    ["当前学习阶段", normalized.currentStage],
+    ["已生成/已使用资源", normalized.generatedResources],
+    ["辅导记录/待解决问题", normalized.tutoringNotes],
+    ["最近评估结论", normalized.evaluationSummary],
+    ["下一轮调整建议", normalized.nextAdjustment],
   ].filter(([, value]) => value);
 
   return [
-    "以下是已保存的学习上下文，请优先使用；缺失或不确定的信息仍需追问，不要编造。",
+    "以下是已保存的学习闭环上下文，请优先使用；缺失或不确定的信息仍需追问，不要编造。",
     ...rows.map(([label, value]) => `- ${label}：${value}`),
   ].join("\n");
 }

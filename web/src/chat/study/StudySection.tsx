@@ -156,6 +156,31 @@ export function StudySection({
       label: t("chat.studyContextEvidence"),
       placeholder: t("chat.studyContextEvidencePlaceholder"),
     },
+    {
+      key: "currentStage",
+      label: t("chat.studyContextStage"),
+      placeholder: t("chat.studyContextStagePlaceholder"),
+    },
+    {
+      key: "generatedResources",
+      label: t("chat.studyContextResources"),
+      placeholder: t("chat.studyContextResourcesPlaceholder"),
+    },
+    {
+      key: "tutoringNotes",
+      label: t("chat.studyContextTutoring"),
+      placeholder: t("chat.studyContextTutoringPlaceholder"),
+    },
+    {
+      key: "evaluationSummary",
+      label: t("chat.studyContextEvaluationSummary"),
+      placeholder: t("chat.studyContextEvaluationSummaryPlaceholder"),
+    },
+    {
+      key: "nextAdjustment",
+      label: t("chat.studyContextNextAdjustment"),
+      placeholder: t("chat.studyContextNextAdjustmentPlaceholder"),
+    },
   ];
 
   return (

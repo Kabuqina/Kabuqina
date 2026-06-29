@@ -1087,13 +1087,23 @@ assert.match(
   "Resource-pack prompt should require multi-agent generation, five resource types, and hallucination checks.",
 );
 assert.match(
+  STUDY_PROMPTS.learningPath,
+  /学习闭环上下文[\s\S]*最近评估结论[\s\S]*建议写回学习上下文的字段摘要/,
+  "Learning-path prompt should consume loop state and emit a write-back summary.",
+);
+assert.match(
+  STUDY_PROMPTS.learningResources,
+  /建议写回学习上下文的字段摘要/,
+  "Resource-pack prompt should emit a write-back summary for the loop state.",
+);
+assert.match(
   STUDY_PROMPTS.learningTutor,
   /智能辅导智能体[\s\S]*文字解释[\s\S]*图解\/思维导图大纲/,
   "Tutoring prompt should provide personalized multi-format guidance.",
 );
 assert.match(
   STUDY_PROMPTS.learningEvaluation,
-  /学习效果评估[\s\S]*至少覆盖 6 个维度[\s\S]*动态调整/,
+  /学习效果评估[\s\S]*至少覆盖 6 个维度[\s\S]*动态调整[\s\S]*建议写回学习上下文的字段摘要/,
   "Evaluation prompt should assess learning effects and adjust the plan.",
 );
 assert.match(
@@ -1128,7 +1138,7 @@ assert.match(
 );
 assert.match(
   studySectionSource,
-  /studyContextCourse[\s\S]*studyContextGoal[\s\S]*studyContextProfile[\s\S]*studyContextWeakPoints[\s\S]*studyContextPreferences[\s\S]*studyContextProgress[\s\S]*studyContextEvidence/,
+  /studyContextCourse[\s\S]*studyContextGoal[\s\S]*studyContextProfile[\s\S]*studyContextWeakPoints[\s\S]*studyContextPreferences[\s\S]*studyContextProgress[\s\S]*studyContextEvidence[\s\S]*studyContextStage[\s\S]*studyContextResources[\s\S]*studyContextTutoring[\s\S]*studyContextEvaluationSummary[\s\S]*studyContextNextAdjustment/,
   "StudySection should expose the persisted study context fields.",
 );
 assert.match(

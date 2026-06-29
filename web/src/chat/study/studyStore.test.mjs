@@ -43,6 +43,11 @@ assert.deepEqual(store.emptyStudyContext(), {
   preferences: "",
   progressNotes: "",
   assessmentEvidence: "",
+  currentStage: "",
+  generatedResources: "",
+  tutoringNotes: "",
+  evaluationSummary: "",
+  nextAdjustment: "",
 });
 
 assert.deepEqual(store.normalizeStudyContext(null), store.emptyStudyContext());
@@ -55,6 +60,11 @@ assert.deepEqual(
     preferences: "每天 1 小时",
     progressNotes: "完成逻辑回归",
     assessmentEvidence: "基础题 8/10",
+    currentStage: "第 2 周",
+    generatedResources: "逻辑回归资源包",
+    tutoringNotes: "sigmoid 待复习",
+    evaluationSummary: "指标偏弱",
+    nextAdjustment: "追加混淆矩阵练习",
   }),
   {
     course: "机器学习基础",
@@ -64,6 +74,11 @@ assert.deepEqual(
     preferences: "每天 1 小时",
     progressNotes: "完成逻辑回归",
     assessmentEvidence: "基础题 8/10",
+    currentStage: "第 2 周",
+    generatedResources: "逻辑回归资源包",
+    tutoringNotes: "sigmoid 待复习",
+    evaluationSummary: "指标偏弱",
+    nextAdjustment: "追加混淆矩阵练习",
   },
 );
 
@@ -80,13 +95,23 @@ const formatted = store.formatStudyContextForPrompt({
   preferences: "",
   progressNotes: "已完成 20 道练习",
   assessmentEvidence: "进阶题 5/8",
+  currentStage: "逻辑回归复习",
+  generatedResources: "分层练习",
+  tutoringNotes: "决策边界仍需图解",
+  evaluationSummary: "基础达标，应用偏弱",
+  nextAdjustment: "追加阈值调节实验",
 });
-assert.match(formatted, /已保存的学习上下文/);
+assert.match(formatted, /已保存的学习闭环上下文/);
 assert.match(formatted, /课程\/专业方向：机器学习基础/);
 assert.match(formatted, /学习目标：掌握监督学习/);
 assert.match(formatted, /知识短板\/易错点：模型评估指标/);
 assert.match(formatted, /学习进度\/行为记录：已完成 20 道练习/);
 assert.match(formatted, /练习结果\/资源反馈：进阶题 5\/8/);
+assert.match(formatted, /当前学习阶段：逻辑回归复习/);
+assert.match(formatted, /已生成\/已使用资源：分层练习/);
+assert.match(formatted, /辅导记录\/待解决问题：决策边界仍需图解/);
+assert.match(formatted, /最近评估结论：基础达标，应用偏弱/);
+assert.match(formatted, /下一轮调整建议：追加阈值调节实验/);
 assert.doesNotMatch(formatted, /学习画像摘要：/);
 
 globalThis.window = {
@@ -107,6 +132,11 @@ const saved = store.saveStudyContext({
   preferences: "图示优先",
   progressNotes: "完成第一章",
   assessmentEvidence: "小测 7/10",
+  currentStage: "第一阶段",
+  generatedResources: "导论讲义",
+  tutoringNotes: "暂无",
+  evaluationSummary: "可进入下一章",
+  nextAdjustment: "增加项目任务",
 });
 assert.equal(saved.course, "人工智能导论");
 assert.deepEqual(store.loadStudyContext(), saved);
