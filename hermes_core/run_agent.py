@@ -13068,7 +13068,7 @@ class _GraphServicesAdapter:
         try:
             agent._execute_tool_calls(assistant_msg, messages, effective_task_id, api_call_count)
         except Exception:
-            pass
+            logger.warning("graph dispatch_tools: tool execution failed", exc_info=True)
 
         return {
             "messages": messages,
@@ -13104,7 +13104,6 @@ class _GraphServicesAdapter:
                     break
 
         # Check iteration budget before continuing
-        iteration_budget_remaining = state.get("iteration_budget_remaining", 0)
         api_call_count = state.get("api_call_count", 0)
         budget = getattr(agent, "iteration_budget", None)
         if budget and budget.remaining <= 0:
