@@ -1058,6 +1058,7 @@ assert.deepEqual(
     "learningResources",
     "learningTutor",
     "learningEvaluation",
+    "contentSafetyReview",
   ],
   "STUDY module should expose the ordered learning actions required by the contest task.",
 );
@@ -1107,9 +1108,19 @@ assert.match(
   "Evaluation prompt should assess learning effects and adjust the plan.",
 );
 assert.match(
+  STUDY_PROMPTS.contentSafetyReview,
+  /防幻觉与内容安全审核[\s\S]*至少覆盖 6 个维度[\s\S]*版权\/许可标注/,
+  "Safety-review prompt should cover hallucination, safety, and license checks.",
+);
+assert.match(
+  STUDY_PROMPTS.contentSafetyReview,
+  /阻塞 \/ 需修改 \/ 建议优化[\s\S]*已确认 \/ 待确认 \/ 推断[\s\S]*修订版摘要/,
+  "Safety-review prompt should classify risks, uncertainty, and revision output.",
+);
+assert.match(
   studySectionSource,
-  /workspaceBuildLearningProfile[\s\S]*workspaceBuildLearningPath[\s\S]*workspaceBuildCourseKnowledgeBase[\s\S]*workspaceBuildResourcePack[\s\S]*workspaceStartLearningTutor[\s\S]*workspaceEvaluateLearningEffect/,
-  "StudySection should wire the six learning quick actions in order.",
+  /workspaceBuildLearningProfile[\s\S]*workspaceBuildLearningPath[\s\S]*workspaceBuildCourseKnowledgeBase[\s\S]*workspaceBuildResourcePack[\s\S]*workspaceStartLearningTutor[\s\S]*workspaceEvaluateLearningEffect[\s\S]*workspaceReviewStudyContent/,
+  "StudySection should wire the seven learning quick actions in order.",
 );
 assert.match(
   studySectionSource,

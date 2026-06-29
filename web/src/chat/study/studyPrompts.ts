@@ -9,7 +9,7 @@
 // item 已确认 / 待确认 / 推断, emit a fixed output structure, and use no emoji.
 // The actions align with the China Software Cup A3 task: learning profile,
 // course knowledge base, multi-agent resource generation, learning path,
-// tutoring, and evaluation.
+// tutoring, evaluation, and safety review.
 
 export const LEARNING_PROFILE_PROMPT = [
   "请用对话式方式帮我构建一份“个性化学习画像”。这是一个学习规划前置步骤，不要替我编造未知信息。",
@@ -72,6 +72,16 @@ export const LEARNING_EVALUATION_PROMPT = [
   "请不要使用 emoji，保持清晰、克制、学术助手风格。",
 ].join("\n\n");
 
+export const CONTENT_SAFETY_REVIEW_PROMPT = [
+  "请作为质量审核智能体，对我提供的课程知识库、学习路径、资源包、辅导答案或评估结果进行“防幻觉与内容安全审核”。如果我没有提供待审核内容，请先要求我粘贴或上传内容，不要自行假设审核对象。",
+  "不要编造审核结论、来源、风险或许可信息；无法确认的内容必须标为待确认，并说明需要补充的证据。",
+  "审核至少覆盖 6 个维度：事实来源与可核验性、未核验推断、学术准确性、敏感/违规内容、版权/许可标注、学习适配性与可操作性。",
+  "请把每条问题标注严重级别：阻塞 / 需修改 / 建议优化；同时标注证据状态：已确认 / 待确认 / 推断。事实性问题必须说明依据或要求补充来源。",
+  "如果发现可能的幻觉、来源缺失、过度承诺、多模态文件未实际生成却声称已生成、版权或许可不清、敏感违规风险，请明确列出并给出改写建议。",
+  "输出格式请固定为：1. 审核结论；2. 风险清单；3. 事实核验表；4. 版权/许可检查；5. 安全与合规检查；6. 可操作性与学习适配性建议；7. 修订版摘要；8. 建议写回学习上下文的字段摘要。",
+  "请不要使用 emoji，保持清晰、克制、学术助手风格。",
+].join("\n\n");
+
 export const STUDY_PROMPTS = {
   learningProfile: LEARNING_PROFILE_PROMPT,
   learningPath: LEARNING_PATH_PROMPT,
@@ -79,6 +89,7 @@ export const STUDY_PROMPTS = {
   learningResources: LEARNING_RESOURCE_PACK_PROMPT,
   learningTutor: LEARNING_TUTOR_PROMPT,
   learningEvaluation: LEARNING_EVALUATION_PROMPT,
+  contentSafetyReview: CONTENT_SAFETY_REVIEW_PROMPT,
 } as const;
 
 export type StudyActionId = keyof typeof STUDY_PROMPTS;

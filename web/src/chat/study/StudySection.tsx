@@ -14,6 +14,7 @@ import {
   MessagesSquare,
   Route,
   Save,
+  ShieldCheck,
   UserRoundCog,
   type LucideIcon,
 } from "lucide-react";
@@ -75,6 +76,12 @@ const STUDY_ACTIONS: StudyAction[] = [
     icon: ClipboardCheck,
     labelKey: "chat.workspaceEvaluateLearningEffect",
     prompt: STUDY_PROMPTS.learningEvaluation,
+  },
+  {
+    id: "contentSafetyReview",
+    icon: ShieldCheck,
+    labelKey: "chat.workspaceReviewStudyContent",
+    prompt: STUDY_PROMPTS.contentSafetyReview,
   },
 ];
 
