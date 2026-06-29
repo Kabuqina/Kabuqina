@@ -11,8 +11,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from agent.graph_engine.contracts import LegacyRunResult
-from agent.graph_engine.ports import GraphServices
+from agent.graph_engine.contracts import LegacyRunResult, TurnState
+from agent.graph_engine.ports import GraphRuntimeContext, GraphServices
 
 
 class GraphEngine:
@@ -71,16 +71,14 @@ class GraphEngine:
         ) or 90
         recursion_limit = max(2000, (max_iterations * 24) + 200)
 
-        config: dict[str, Any] = {
-            "recursion_limit": recursion_limit,
-            "configurable": {
-                "services": services,
-                "stream_callback": stream_callback,
-                "persist_user_message": persist_user_message,
-            },
+        config: dict[str, Any] = {"recursion_limit": recursion_limit}
+        context: GraphRuntimeContext = {
+            "services": services,
+            "stream_callback": stream_callback,
+            "persist_user_message": persist_user_message,
         }
 
-        initial_state: dict[str, Any] = {
+        initial_state: TurnState = {
             "user_message": user_message,
             "system_message": system_message,
             "conversation_history": conversation_history,
@@ -94,7 +92,7 @@ class GraphEngine:
             "route": "prepare_request",
         }
 
-        final_state = self._graph.invoke(initial_state, config)
+        final_state = self._graph.invoke(initial_state, config, context=context)
 
         # Extract the exact legacy result from final state
         result: LegacyRunResult = final_state.get("result", {})

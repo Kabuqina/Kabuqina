@@ -148,7 +148,12 @@ from agent.context_compressor import ContextCompressor
 from agent.subdirectory_hints import SubdirectoryHintTracker
 from agent.prompt_caching import apply_anthropic_cache_control
 from agent.prompt_builder import build_skills_system_prompt, build_context_files_prompt, build_environment_hints, load_soul_md, TOOL_USE_ENFORCEMENT_GUIDANCE, TOOL_USE_ENFORCEMENT_MODELS, GOOGLE_MODEL_OPERATIONAL_GUIDANCE, OPENAI_MODEL_EXECUTION_GUIDANCE
-from agent.usage_pricing import estimate_usage_cost, normalize_usage
+from agent.usage_pricing import (
+    CostResult,
+    estimate_usage_cost,
+    normalize_usage,
+    resolve_billing_route,
+)
 from agent.display import (
     KawaiiSpinner, build_tool_preview as _build_tool_preview,
     get_cute_tool_message as _get_cute_tool_message_impl,
@@ -12767,8 +12772,8 @@ class _GraphServicesAdapter:
     """Implements ``GraphServices`` protocol by delegating to ``AIAgent``.
 
     Each method corresponds to one graph node; the adapter holds a weak
-    reference to the agent instance and carries per-turn state (api_messages,
-    api_kwargs, response) that flows through the graph.
+    reference to the agent instance and carries live per-turn collaborators
+    (API kwargs, responses, exceptions) outside serializable graph state.
 
     Only the plain-text route is wired for Task 4.  All other methods return
     stub results that set route=finish with an incomplete result.
@@ -12790,6 +12795,9 @@ class _GraphServicesAdapter:
         # The first 429 retries the same credential; a consecutive 429 may
         # rotate the pool entry, matching the legacy inner retry loop.
         self._has_retried_429: bool = False
+        # Raw SDK response objects are runtime collaborators, not serializable
+        # graph state.  Keep one here until ``process_response`` consumes it.
+        self._pending_response: Any = None
         # Wall-clock start of the latest transport attempt, used to reproduce
         # the loop's invalid-response "failure hint" duration text.
         self._api_start_time: float = 0.0
@@ -13058,6 +13066,7 @@ class _GraphServicesAdapter:
             else:
                 response = agent._interruptible_api_call(api_kwargs)
         except Exception as exc:
+            self._pending_response = None
             # Stash the live exception so handle_transport_error can reuse the
             # loop's real classifier and error-summary helpers.
             self._pending_exc = exc
@@ -13073,6 +13082,7 @@ class _GraphServicesAdapter:
             }
 
         if response is None:
+            self._pending_response = None
             self._pending_exc = None
             self._pending_invalid = True
             self._emit_usage_event(state, outcome="invalid_response")
@@ -13087,6 +13097,7 @@ class _GraphServicesAdapter:
 
         # Emit usage event for successful attempt
         self._emit_usage_event(state, outcome="success", response=response)
+        self._pending_response = response
 
         self._pending_exc = None
         self._pending_invalid = False
@@ -13094,7 +13105,6 @@ class _GraphServicesAdapter:
         return {
             "route": "process_response",
             "api_call_count": api_call_count,
-            "_response": response,
             "messages": state.get("messages", []),
             "first_attempt": False,
             # Reset the compression counter on a successful response (mirrors the
@@ -13105,7 +13115,8 @@ class _GraphServicesAdapter:
     def process_response(self, state: dict) -> dict:
         """Normalize transport response and detect plain-text vs tool-calls."""
         agent = self._agent
-        response = state.get("_response")
+        response = self._pending_response
+        self._pending_response = None
         messages = list(state.get("messages", []))
         api_call_count = state.get("api_call_count", 0)
 
@@ -14047,25 +14058,45 @@ class _GraphServicesAdapter:
         try:
             from agent.usage_events import UsageEvent
 
-            input_tokens = None
-            output_tokens = None
+            billing_route = resolve_billing_route(
+                agent.model,
+                provider=agent.provider,
+                base_url=agent.base_url,
+            )
+            canonical_usage = None
             if response is not None and hasattr(response, "usage"):
-                usage = response.usage
-                if usage is not None:
-                    input_tokens = getattr(usage, "prompt_tokens", None)
-                    output_tokens = getattr(usage, "completion_tokens", None)
+                raw_usage = response.usage
+                if raw_usage is not None:
+                    canonical_usage = normalize_usage(
+                        raw_usage,
+                        provider=agent.provider,
+                        api_mode=agent.api_mode,
+                    )
+
+            if canonical_usage is None:
+                cost = CostResult(
+                    amount_usd=None,
+                    status="unknown",
+                    source="none",
+                    label="n/a",
+                    notes=("usage unavailable",),
+                )
+            else:
+                cost = estimate_usage_cost(
+                    agent.model,
+                    canonical_usage,
+                    provider=agent.provider,
+                    base_url=agent.base_url,
+                    api_key=getattr(agent, "api_key", ""),
+                )
 
             event = UsageEvent(
                 attempt_index=state.get("api_call_count", 0),
                 outcome=outcome,
                 route=route,
-                provider=agent.provider,
-                model=agent.model,
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
-                pricing_version=None,
-                cost_amount=None,
-                cost_currency=None,
+                billing_route=billing_route,
+                usage=canonical_usage,
+                cost=cost,
             )
             agent._usage_sink.on_attempt(event)
         except Exception:
