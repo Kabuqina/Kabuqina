@@ -12849,6 +12849,30 @@ class _GraphServicesAdapter:
         agent = self._agent
         messages = state.get("messages", [])
 
+        # ── Iteration-boundary interrupt check (mirrors loop while-top) ──
+        # The legacy loop checks for a pending interrupt at the top of every
+        # iteration (run_agent.py:9773) and breaks *before* making the next
+        # API call.  Without this, a Stop arriving during tool execution would
+        # let the graph start another transport call instead of ending the
+        # turn cleanly.  (Full hook/usage side effects on this exit are tracked
+        # as DECISIONS.md PH35-FU-001/002.)
+        if agent._interrupt_requested:
+            return {
+                "route": "finish",
+                "result": {
+                    "final_response": None,
+                    "messages": messages,
+                    "api_calls": state.get("api_call_count", 0),
+                    "completed": False,
+                    "partial": False,
+                    "interrupted": True,
+                    "interrupt_message": getattr(agent, "_interrupt_message", None),
+                    "model": agent.model,
+                    "provider": agent.provider,
+                    "base_url": agent.base_url,
+                },
+            }
+
         # ── Nous rate guard (mirrors legacy loop pre-call check) ─────
         _provider = getattr(agent, "provider", "") or ""
         if _provider == "nous":
@@ -13040,15 +13064,6 @@ class _GraphServicesAdapter:
         content = normalized.content or ""
         finish_reason = getattr(normalized, "finish_reason", "stop")
         has_tool_calls = bool(getattr(normalized, "tool_calls", None))
-
-        # Track usage from response
-        if hasattr(response, "usage") and response.usage:
-            try:
-                from agent.graph_engine.engine import GraphEngine
-                # _normalize_usage already done by the transport layer; skip
-                pass
-            except Exception:
-                pass
 
         if has_tool_calls:
             assistant_msg = agent._build_assistant_message(normalized, finish_reason)

@@ -277,6 +277,17 @@ reports as a failure, forcing promotion to an enforced parity assertion.
 | PH35-FU-003 | Graph does not write conversation trajectories; `apply_exit_policy` persists the session but never calls `_save_trajectory`. | `test_graph_trajectory_write_gap` | Task 9 |
 | PH35-FU-004 | `test_golden_transcripts` was never parameterised over loop/graph (the plan's file-map required it); it still runs the loop only. Until FU-001..003 close, full-snapshot parameterisation would be red — the xfail file is the interim measurement. Fold the graph back into the golden gate (or promote the gap file to full-snapshot equality) once the gaps close. | n/a (process) | Task 9 |
 | PH35-FU-005 | Minor observable diffs: streaming `call_transport` omits `on_first_delta=_stop_spinner` (run_agent.py:10194), so the thinking spinner does not stop on first delta; `process_response` drops assistant text `content` when a turn also has tool calls. Verify against the loop and match or accept. | n/a | Task 9 |
+| PH35-FU-006 | Iteration budget is never consumed in the graph. `iteration_budget.consume()` is never called, so `apply_steer`'s `if budget.remaining <= 0` gate is **dead code** that can never fire, and `max_iterations` is unenforced. The only bound is LangGraph's **default `recursion_limit` (25 super-steps)** — a ~5-tool-turn conversation crashes with `GraphRecursionError` instead of respecting the user's budget. Budget parity (incl. the `recursion_limit = max(1000, max_iterations*12 + 100)` formula) is owned by Task 8; until then the `apply_steer` gate is a misleading half-stub. | n/a | Task 8 |
+
+**Closed by the 2026-06-29 review (commit pending):** *Tool-loop interrupt
+parity* — the loop checks for a pending interrupt at the top of every iteration
+(run_agent.py:9773) and breaks before the next API call; the graph had no such
+check, so a Stop during tool execution would issue another transport call. Fixed
+by an iteration-boundary check at the top of `prepare_request`; the graph now
+ends the turn cleanly (interrupted=True, api_calls unchanged, no extra call),
+covered by `test_graph_error_parity.py::test_graph_interrupt_in_tool_loop`
+against the existing `interrupt.json` golden. Core parity only — the full
+post-loop side effects on this exit remain PH35-FU-001/002.
 
 **Process note — characterization gate was committed red.** Tasks 5/6 shifted the
 `run_conversation` return-line positions and committed without re-running the

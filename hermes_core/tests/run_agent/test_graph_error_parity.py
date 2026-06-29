@@ -90,6 +90,37 @@ def test_graph_interrupt_api_error():
     )
 
 
+# ── Interrupt at the tool-loop iteration boundary ────────────────────────
+
+
+def test_graph_interrupt_in_tool_loop():
+    """Interrupt arriving during a tool turn ends the turn without a 2nd call.
+
+    Parity with the loop's while-top check (run_agent.py:9773): the interrupt
+    is raised while the first (tool-call) turn is served; the tool is skipped
+    via the shared ``_execute_tool_calls`` and the graph must break at the next
+    iteration boundary rather than issue another transport call.
+
+    Core parity only — the full post-loop side effects (post_llm_call /
+    on_session_end hooks, usage accounting) are tracked as PH35-FU-001/002.
+    """
+    spec = _load_fixture("interrupt")
+    snapshot = _replay_graph(spec)
+    expected = spec["expected"]
+
+    assert snapshot["result"]["interrupted"] is True
+    assert snapshot["result"]["completed"] is False
+    # api_calls == 1 and exactly one model turn consumed prove no 2nd call.
+    assert snapshot["result"]["api_calls"] == expected["result"]["api_calls"] == 1
+    assert snapshot["model_turns_consumed"] == expected["model_turns_consumed"] == 1
+    assert snapshot["result"]["final_response"] is None
+    assert snapshot["result"]["interrupt_message"] == expected["result"]["interrupt_message"]
+    # The tool was skipped on interrupt (loop contract: tool_invocations empty),
+    # but the synthetic tool message is still appended.
+    assert snapshot["tool_invocations"] == []
+    assert [m.get("role") for m in snapshot["messages"]] == ["user", "assistant", "tool"]
+
+
 # ── Interrupt during a generic retry wait ────────────────────────────────
 
 
