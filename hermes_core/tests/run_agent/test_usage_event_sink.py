@@ -17,8 +17,6 @@ from pathlib import Path
 from typing import Any, Dict, List
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 sys.modules.setdefault("fire", types.SimpleNamespace(Fire=lambda *a, **k: None))
 sys.modules.setdefault("firecrawl", types.SimpleNamespace(Firecrawl=object))
 sys.modules.setdefault("fal_client", types.SimpleNamespace())
@@ -46,10 +44,9 @@ except ImportError:
 
 from agent.usage_events import (
     UsageEvent,
-    UsageEventSink,
     UsageLedger,
-    UsageSnapshot,
 )
+from agent.usage_pricing import BillingRoute, CanonicalUsage, CostResult
 
 
 GOLDEN_DIR = Path(__file__).parent / "golden"
@@ -77,7 +74,10 @@ def test_usage_event_sink_plain_text():
 
     cfg = spec.get("agent", {})
     api_mode = cfg.get("api_mode", "chat_completions")
-    model = cfg.get("model", "golden/test-model")
+    # Use a deterministic official-pricing route so this integration test
+    # proves the emitter produces a numeric CostResult, not only rich fields.
+    model = "gpt-4o"
+    provider = "openai"
     base_url = cfg.get("base_url", "https://api.openai.com/v1")
 
     transport = _ScriptedTransport(
@@ -92,7 +92,7 @@ def test_usage_event_sink_plain_text():
         agent = run_agent.AIAgent(
             api_key="golden-key",
             base_url=base_url,
-            provider=cfg.get("provider", "openrouter"),
+            provider=provider,
             api_mode=api_mode,
             model=model,
             quiet_mode=True,
@@ -139,10 +139,16 @@ def test_usage_event_sink_plain_text():
     assert event.attempt_index == 0
     assert event.outcome == "success"
     assert event.route == "call_transport"
-    assert event.provider == "openrouter"
-    assert event.model == "golden/test-model"
+    assert event.provider == "openai"
+    assert event.model == "gpt-4o"
     assert event.input_tokens == 50
     assert event.output_tokens == 8
+    assert event.billing_route.billing_mode == "official_docs_snapshot"
+    assert event.usage == CanonicalUsage(input_tokens=50, output_tokens=8)
+    assert event.cost.status == "estimated"
+    assert event.cost.source == "official_docs_snapshot"
+    assert event.cost.amount_usd is not None
+    assert event.cost.amount_usd > Decimal("0")
 
 
 def test_usage_ledger_snapshot():
@@ -153,13 +159,15 @@ def test_usage_ledger_snapshot():
             attempt_index=0,
             outcome="success",
             route="call_transport",
-            provider="test",
-            model="test-model",
-            input_tokens=100,
-            output_tokens=50,
-            pricing_version="v1",
-            cost_amount=Decimal("0.005"),
-            cost_currency="USD",
+            billing_route=BillingRoute(provider="test", model="test-model"),
+            usage=CanonicalUsage(input_tokens=100, output_tokens=50),
+            cost=CostResult(
+                amount_usd=Decimal("0.005"),
+                status="estimated",
+                source="official_docs_snapshot",
+                label="~$0.01",
+                pricing_version="v1",
+            ),
         )
     )
     snap = ledger.snapshot()
@@ -176,13 +184,14 @@ def test_usage_ledger_unknown_cost_incomplete():
             attempt_index=0,
             outcome="transport_error",
             route="call_transport",
-            provider=None,
-            model=None,
-            input_tokens=None,
-            output_tokens=None,
-            pricing_version=None,
-            cost_amount=None,
-            cost_currency=None,
+            billing_route=BillingRoute(provider="test", model="test-model"),
+            usage=None,
+            cost=CostResult(
+                amount_usd=None,
+                status="unknown",
+                source="none",
+                label="n/a",
+            ),
         )
     )
     snap = ledger.snapshot()

@@ -116,3 +116,72 @@ def test_turn_state_required_keys():
 
     assert set(TurnState.__required_keys__) == required
     assert set(TurnState.__optional_keys__) == optional
+
+
+def test_engine_passes_collaborators_via_runtime_context():
+    """Non-serializable collaborators belong in invoke(context=...), not config."""
+    from agent.graph_engine.engine import GraphEngine
+
+    captured = {}
+
+    class FakeGraph:
+        def invoke(self, initial_state, config, *, context=None):
+            captured["state"] = initial_state
+            captured["config"] = config
+            captured["context"] = context
+            return {"result": {"completed": True}}
+
+    services = object()
+    stream_callback = object()
+    engine = GraphEngine.__new__(GraphEngine)
+    engine._graph = FakeGraph()
+
+    result = engine.run_turn(
+        services,
+        "hello",
+        stream_callback=stream_callback,
+        persist_user_message="clean hello",
+    )
+
+    assert result == {"completed": True}
+    assert "configurable" not in captured["config"]
+    assert captured["context"] == {
+        "services": services,
+        "stream_callback": stream_callback,
+        "persist_user_message": "clean hello",
+    }
+
+
+def test_pure_node_delegates_through_explicit_context():
+    """LangGraph-free nodes consume the engine-neutral runtime context."""
+    from agent.graph_engine import nodes
+
+    calls = []
+
+    class RecordingServices:
+        def prepare_request(self, state):
+            calls.append(state)
+            return {"route": "call_transport"}
+
+    state = {"route": "prepare_request"}
+    context = {
+        "services": RecordingServices(),
+        "stream_callback": None,
+        "persist_user_message": None,
+    }
+
+    update = nodes.prepare_request(state, context=context)
+
+    assert update == {"route": "call_transport"}
+    assert calls == [state]
+
+
+def test_compiled_graph_declares_runtime_context_schema():
+    """The builder must declare the typed Runtime context on StateGraph."""
+    pytest.importorskip("langgraph")
+    from agent.graph_engine.builder import build_agent_graph
+    from agent.graph_engine.ports import GraphRuntimeContext
+
+    compiled = build_agent_graph()
+
+    assert compiled.context_schema is GraphRuntimeContext

@@ -14,8 +14,11 @@ from __future__ import annotations
 from typing import Any
 
 from langgraph.graph import END, START, StateGraph
+from langgraph.runtime import Runtime
 
 from agent.graph_engine import nodes
+from agent.graph_engine.contracts import TurnState
+from agent.graph_engine.ports import GraphRuntimeContext
 
 
 def _route(state: dict[str, Any]) -> str:
@@ -23,25 +26,40 @@ def _route(state: dict[str, Any]) -> str:
     return state["route"]
 
 
+def _with_runtime(node):
+    """Adapt an engine-neutral node to LangGraph's Runtime signature."""
+    def wrapped(
+        state: TurnState, runtime: Runtime[GraphRuntimeContext]
+    ) -> dict[str, Any]:
+        if runtime.context is None:
+            raise RuntimeError("Graph runtime context is required")
+        return node(state, context=runtime.context)
+
+    return wrapped
+
+
 def build_agent_graph() -> StateGraph:
     """Construct and compile the agent turn graph without a checkpointer.
 
     Returns a compiled graph ready for ``.ainvoke()`` / ``.invoke()``.
-    The caller must supply a ``config`` dict with ``configurable.services``
-    containing the ``GraphServices`` adapter.
+    The caller supplies ``GraphRuntimeContext`` through ``invoke(context=...)``.
     """
-    graph = StateGraph(dict)
+    graph = StateGraph(TurnState, context_schema=GraphRuntimeContext)
 
     # -- nodes -----------------------------------------------------------
-    graph.add_node("initialize_turn", nodes.initialize_turn)
-    graph.add_node("prepare_request", nodes.prepare_request)
-    graph.add_node("call_transport", nodes.call_transport)
-    graph.add_node("process_response", nodes.process_response)
-    graph.add_node("handle_transport_error", nodes.handle_transport_error)
-    graph.add_node("dispatch_tools", nodes.dispatch_tools)
-    graph.add_node("apply_steer", nodes.apply_steer)
-    graph.add_node("summarize_on_budget", nodes.summarize_on_budget)
-    graph.add_node("finish", nodes.finish)
+    graph.add_node("initialize_turn", _with_runtime(nodes.initialize_turn))
+    graph.add_node("prepare_request", _with_runtime(nodes.prepare_request))
+    graph.add_node("call_transport", _with_runtime(nodes.call_transport))
+    graph.add_node("process_response", _with_runtime(nodes.process_response))
+    graph.add_node(
+        "handle_transport_error", _with_runtime(nodes.handle_transport_error)
+    )
+    graph.add_node("dispatch_tools", _with_runtime(nodes.dispatch_tools))
+    graph.add_node("apply_steer", _with_runtime(nodes.apply_steer))
+    graph.add_node(
+        "summarize_on_budget", _with_runtime(nodes.summarize_on_budget)
+    )
+    graph.add_node("finish", _with_runtime(nodes.finish))
 
     # -- edges -----------------------------------------------------------
     graph.add_edge(START, "initialize_turn")

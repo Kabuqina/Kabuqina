@@ -9,29 +9,62 @@ frozen ``LegacyRunResult`` dictionary.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from decimal import Decimal
+import logging
 from typing import Protocol
+
+from agent.usage_pricing import BillingRoute, CanonicalUsage, CostResult
+
+
+logger = logging.getLogger(__name__)
+_COMPLETE_COST_STATUSES = {"actual", "estimated", "included"}
 
 
 # ── Event ────────────────────────────────────────────────────────────────
 
-@dataclass(slots=True)
+@dataclass(frozen=True, slots=True)
 class UsageEvent:
-    """One transport attempt with its canonical usage and optional cost.
+    """One transport attempt with canonical usage and its billing result.
 
     *attempt_index* is zero-based within a single turn.
     """
     attempt_index: int
     outcome: str                     # "success" | "transport_error" | "invalid_response" | ...
     route: str                       # e.g. "call_transport", "summarize_on_budget"
-    provider: str | None
-    model: str | None
-    input_tokens: int | None
-    output_tokens: int | None
-    pricing_version: str | None      # None → unknown pricing
-    cost_amount: Decimal | None      # None → unknown cost
-    cost_currency: str | None
+    billing_route: BillingRoute
+    usage: CanonicalUsage | None
+    cost: CostResult
+
+    @property
+    def provider(self) -> str:
+        """Compatibility view of the active billing provider."""
+        return self.billing_route.provider
+
+    @property
+    def model(self) -> str:
+        """Compatibility view of the active billing model."""
+        return self.billing_route.model
+
+    @property
+    def input_tokens(self) -> int | None:
+        return self.usage.input_tokens if self.usage is not None else None
+
+    @property
+    def output_tokens(self) -> int | None:
+        return self.usage.output_tokens if self.usage is not None else None
+
+    @property
+    def pricing_version(self) -> str | None:
+        return self.cost.pricing_version
+
+    @property
+    def cost_amount(self) -> Decimal | None:
+        return self.cost.amount_usd
+
+    @property
+    def cost_currency(self) -> str | None:
+        return "USD" if self.cost.amount_usd is not None else None
 
 
 # ── Sink protocol ────────────────────────────────────────────────────────
@@ -47,18 +80,18 @@ class UsageEventSink(Protocol):
 
 # ── Ledger ───────────────────────────────────────────────────────────────
 
-@dataclass
+@dataclass(frozen=True)
 class UsageSnapshot:
     """Immutable view of a completed (or abandoned) turn's usage ledger."""
     complete: bool
     total_cost: Decimal | None       # None when any event has unknown cost
-    events: list[UsageEvent] = field(default_factory=list)
+    events: tuple[UsageEvent, ...] = ()
 
 
 class UsageLedger:
     """In-memory collector and optional sink for per-attempt usage events.
 
-    Thread-safe for a single turn; not designed for cross-turn reuse.
+    Scoped to one synchronously recorded turn; not designed for cross-turn reuse.
     """
 
     def __init__(self, sink: UsageEventSink | None = None) -> None:
@@ -69,10 +102,21 @@ class UsageLedger:
     def record(self, event: UsageEvent) -> None:
         """Append an event and forward it to the optional sink."""
         self._events.append(event)
-        if event.cost_amount is None or event.pricing_version is None:
+        if (
+            event.usage is None
+            or event.cost.amount_usd is None
+            or event.cost.status not in _COMPLETE_COST_STATUSES
+        ):
             self._has_unknown = True
         if self._sink is not None:
-            self._sink.on_attempt(event)
+            try:
+                self._sink.on_attempt(event)
+            except Exception:
+                logger.warning("usage event sink failed", exc_info=True)
+
+    def on_attempt(self, event: UsageEvent) -> None:
+        """Implement ``UsageEventSink`` by recording the attempt locally."""
+        self.record(event)
 
     def snapshot(self) -> UsageSnapshot:
         """Return a stable view of the current ledger.
@@ -82,9 +126,17 @@ class UsageLedger:
         incomplete.
         """
         if self._has_unknown:
-            return UsageSnapshot(complete=False, total_cost=None, events=list(self._events))
+            return UsageSnapshot(
+                complete=False, total_cost=None, events=tuple(self._events)
+            )
         total = sum(
-            (e.cost_amount for e in self._events if e.cost_amount is not None),
+            (
+                event.cost.amount_usd
+                for event in self._events
+                if event.cost.amount_usd is not None
+            ),
             Decimal("0.00"),
         )
-        return UsageSnapshot(complete=True, total_cost=total, events=list(self._events))
+        return UsageSnapshot(
+            complete=True, total_cost=total, events=tuple(self._events)
+        )
