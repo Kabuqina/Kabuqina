@@ -88,23 +88,24 @@ def test_graph_parallel_tools():
 
 
 def test_graph_unknown_tool():
-    """Graph engine: unknown tool name → tool returns error, does not crash.
+    """Graph engine: a hallucinated tool name is rejected, not dispatched.
 
-    Note: ``partial=True`` requires the retry-exhaustion logic from Task 7.
-    The graph currently runs tool dispatch and error injection correctly but
-    does not enforce unknown-tool retry limits; it will loop until the
-    transport runs out of scripted turns.
+    Task 9 wired the loop's invalid-tool-name validation into the graph
+    (``_validate_tool_names``): an unknown tool name is never sent to
+    ``handle_function_call``; instead an error tool result is appended and the
+    model is asked to self-correct, ending ``partial`` after three straight
+    invalid turns — matching the ``unknown_tool.json`` golden exactly.
     """
     spec = _load_fixture("unknown_tool")
     snapshot = _replay_graph(spec)
+    expected = spec["expected"]
 
-    # The graph correctly dispatches tool calls and returns results.
-    # For unknown tools, the stub returns {"ok": True, "tool": "nonexistent_zzz"}
-    # (the real handle_function_call returns an error, but the stub doesn't).
-    assert len(snapshot["tool_invocations"]) >= 1, (
-        "tool dispatch should have been invoked"
-    )
-    assert snapshot["tool_invocations"][0]["name"] == "nonexistent_zzz"
+    # Unknown names short-circuit before dispatch, so nothing reaches the tool
+    # primitive (parity with the loop's empty ``tool_invocations``).
+    assert snapshot["tool_invocations"] == expected["tool_invocations"] == []
+    assert snapshot["result"]["partial"] is True
+    assert snapshot["result"]["api_calls"] == expected["result"]["api_calls"]
+    assert snapshot["result"]["final_response"] == expected["result"]["final_response"]
 
 
 # ── Truncated JSON args — immediate partial ─────────────────────────────

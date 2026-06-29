@@ -602,8 +602,21 @@ def _fallback_patch(fallback_model):
         yield
 
 
-def replay_transcript(spec: Dict[str, Any]) -> Dict[str, Any]:
-    """Replay one transcript against a real ``AIAgent`` and return the snapshot."""
+def replay_transcript(spec: Dict[str, Any], engine: str = "loop") -> Dict[str, Any]:
+    """Replay one transcript against a real ``AIAgent`` and return the snapshot.
+
+    ``engine`` selects the conversation driver:
+
+    * ``"loop"`` runs the legacy ``AIAgent.run_conversation`` body
+      (``_run_conversation_loop`` once Task 10 lands the selector);
+    * ``"graph"`` runs ``AIAgent._run_conversation_graph`` (Phase 3.5 LangGraph).
+
+    Both engines are constructed on a *fresh* agent and *fresh* scripted
+    transport — never the same instance — so a parameterized equivalence test
+    can compare their complete snapshots without sharing process-global state.
+    """
+    if engine not in ("loop", "graph"):
+        raise ValueError(f"unknown engine {engine!r}; expected 'loop' or 'graph'")
     import run_agent
 
     _validate_retry_assumptions(spec.get("assumed_retry_counts", {}))
@@ -747,7 +760,12 @@ def replay_transcript(spec: Dict[str, Any]) -> Dict[str, Any]:
                 stream_log.append(text)
                 callback_events.append({"channel": "stream", "text": text})
 
-            result = agent.run_conversation(
+            _driver = (
+                agent._run_conversation_graph
+                if engine == "graph"
+                else agent.run_conversation
+            )
+            result = _driver(
                 spec["user_message"],
                 conversation_history=conversation_history,
                 task_id=GOLDEN_TASK_ID,

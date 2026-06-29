@@ -272,12 +272,32 @@ reports as a failure, forcing promotion to an enforced parity assertion.
 
 | ID | Gap | Evidence | Close in |
 |----|-----|----------|----------|
-| PH35-FU-001 | Graph fires **none** of the six load-bearing plugin hooks (`on_session_start`, `pre_llm_call`, `pre_api_request`, `post_api_request`, `post_llm_call`, `on_session_end`). The loop fires them from the `run_conversation` body (run_agent.py:9586/9678/10138/11787/12569/12673); the adapter delegates to helpers but fires zero. Plan Task 4 Step 2 explicitly scoped `pre_llm_call`/`pre_api_request`/`post_api_request` into Task 4. | `test_graph_plugin_hooks_gap` | Task 9 |
-| PH35-FU-002 | Graph never updates session token/cost counters. `process_response` reads `agent.session_*` (zero on a fresh turn); the loop increments at run_agent.py:10605-10608. `_emit_usage_event` also hardcodes `cost_amount=None`/`pricing_version=None` on every event incl. success, so the usage ledger is always "incomplete" — contradicts plan Task 4 Step 2 (price with `agent.usage_pricing`, cache `CostResult`). | `test_graph_usage_accounting_gap` | Task 9 |
-| PH35-FU-003 | Graph does not write conversation trajectories; `apply_exit_policy` persists the session but never calls `_save_trajectory`. | `test_graph_trajectory_write_gap` | Task 9 |
-| PH35-FU-004 | `test_golden_transcripts` was never parameterised over loop/graph (the plan's file-map required it); it still runs the loop only. Until FU-001..003 close, full-snapshot parameterisation would be red — the xfail file is the interim measurement. Fold the graph back into the golden gate (or promote the gap file to full-snapshot equality) once the gaps close. | n/a (process) | Task 9 |
-| PH35-FU-005 | Minor observable diffs: streaming `call_transport` omits `on_first_delta=_stop_spinner` (run_agent.py:10194), so the thinking spinner does not stop on first delta; `process_response` drops assistant text `content` when a turn also has tool calls. Verify against the loop and match or accept. | n/a | Task 9 |
+| PH35-FU-001 | **Closed by Task 9 (2026-06-29).** The graph fires all six load-bearing hooks at the same boundaries as the loop: `on_session_start`/`pre_llm_call` in `initialize_turn` (with the loop's new-session-vs-continuation gating), `pre_api_request`/`post_api_request` around each transport attempt in `call_transport`/`process_response`, and `post_llm_call`/`on_session_end` in `_finalize_turn` (post_llm_call only on a completed, non-interrupted turn). `pre_tool_call` already fired via the shared `_execute_tool_calls`. | `test_golden_transcripts` (loop+graph), `test_hook_invocation_parity` (loop+graph) | **done** |
+| PH35-FU-002 | **Closed by Task 9 (2026-06-29).** `_accumulate_session_usage` folds each successful response's canonical usage + `CostResult` into the session counters (mirroring run_agent.py:10581), so the finalized result reports the same token/cost totals. | `test_golden_transcripts` (loop+graph), `test_graph_equivalence_gaps` | **done** |
+| PH35-FU-003 | **Closed by Task 9 (2026-06-29).** `_finalize_turn` calls `_save_trajectory` on every full-completion exit, matching the loop's frozen exit policy. | `test_golden_transcripts` (loop+graph) | **done** |
+| PH35-FU-004 | **Closed by Task 9 (2026-06-29).** `test_golden_transcripts` is now parameterised over `["loop", "graph"]` and both engines are pinned to the same committed `expected` snapshot. The interim `test_graph_equivalence_gaps` xfail cases were promoted to plain parity assertions. | `test_golden_transcripts` | **done** |
+| PH35-FU-005 | **Closed by Task 9 (2026-06-29).** Full-snapshot loop/graph equality (incl. stream deltas and the unified callback stream) holds across all 27 fixtures and 120 fixed-seed generated sequences. The graph also replays the compression lifecycle warning and emits the loop's retry/fallback/compression/budget/nous `_emit_status` lifecycle messages. | `test_golden_transcripts`, `test_graph_differential_sequences` | **done** |
+| PH35-FU-007 | **Open (deferred from Task 9).** The optional `UsageEventSink` is emitted **only by the graph** (`_GraphServicesAdapter._emit_usage_event`); the legacy loop never emits to it. So a full per-exit *loop-vs-graph UsageLedger sequence* comparison (plan Task 9 Step 2 / a phase exit criterion) is not yet possible. The **observable** result-usage parity (session token/cost counters in `LegacyRunResult`) is fully proven by `test_golden_transcripts` (loop+graph). Loop-side emission must be added — guarded by `_usage_sink is None` so it stays a no-op for sink-less callers — before Task 10 opens Goal Runner G1 (which consumes the ledger). | `test_usage_event_sink.py` | Task 10 (or a scoped follow-up before G1) |
 | PH35-FU-006 | **Closed by Task 8 (2026-06-29).** The graph consumes `iteration_budget` and enforces `max_iterations` at the `prepare_request` iteration boundary (the dead `apply_steer` gate was removed) and routes to a toolless summary on exhaustion. The recursion ceiling was **revised from measurement**: the per-iteration worst case (an iteration hitting the max api-retry / compression attempts) measured ~14 super-steps, so the original `max_iterations*12 + 100` (= 1180 at the default 90) sat *below* the realistic worst case `90*14 = 1260`; `engine.run_turn` now uses `max(2000, max_iterations*24 + 200)` (= 2360 at 90), validated by `test_recursion_limit_has_20pct_headroom` across every routed retry/compression/continuation family with >20% headroom. | `test_graph_budget_parity.py` | **done** |
+
+**Task 9 status (2026-06-29):** Full dual-engine observable equivalence
+implemented; committed locally, not pushed. The graph engine now reproduces the
+loop's complete observable contract: all six load-bearing plugin hooks at the
+same boundaries (FU-001), session token/cost accounting (FU-002), trajectory
+writes (FU-003), and per-exit side-effect policy (cleanup / persistence /
+interrupt-clearing / `post_llm_call` / `on_session_end`) via a frozen
+`ExitPolicy` + `_finalize_turn` split. `_run_conversation_graph` now binds the
+execution thread and self-heals stale interrupt state like the loop, replays the
+compression lifecycle warning, and emits the loop's retry/fallback/compression/
+budget/nous `_emit_status` lifecycle messages. `test_golden_transcripts` is
+parameterised over `["loop", "graph"]` (both pinned to the same committed
+snapshot, all 27 fixtures), `test_hook_invocation_parity` over both engines, and
+a new `test_graph_differential_sequences` proves loop≡graph on 120 fixed-seed
+generated sequences (text / known+unknown tools / steer / interrupt). The
+interim `test_graph_equivalence_gaps` xfail cases were promoted to plain parity
+assertions. The exit-contract line inventory was rebased (+5, from Task 8's
+loop-side additions). One sub-item deferred: PH35-FU-007 (loop-side
+`UsageEventSink` emission for a full per-exit ledger comparison).
 
 **Closed by the 2026-06-29 review (commit pending):** *Tool-loop interrupt
 parity* — the loop checks for a pending interrupt at the top of every iteration

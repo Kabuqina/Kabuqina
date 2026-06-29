@@ -14,17 +14,13 @@ two real divergences unmeasured:
 * the graph never updates the session token/cost counters, so a successful
   turn reports zero usage / zero cost.
 
-This module makes both visible:
+Task 9 **closed** all three gaps: the graph now fires the six load-bearing
+plugin hooks, updates the session token/cost counters, and writes the
+trajectory exactly like the loop.  The former ``xfail(strict=True)`` measurement
+cases are now plain parity assertions; the authoritative end-to-end gate is the
+loop/graph-parameterized ``test_golden_transcripts``.
 
-* ``test_graph_core_parity`` enforces the parity the graph *does* achieve today
-  (regression protection).
-* the ``test_graph_*_gap`` cases are ``xfail(strict=True)``: they assert the
-  *desired* full parity and are expected to fail now.  When Task 9 closes a gap
-  the case XPASSes, which strict mode reports as a failure — forcing whoever
-  fixes it to delete the marker and promote the assertion.  This is the
-  measurement, not a blessing of the divergence.
-
-See ``DECISIONS.md`` (PH35-FU-001 / PH35-FU-002 / PH35-FU-003).
+See ``DECISIONS.md`` (PH35-FU-001 / PH35-FU-002 / PH35-FU-003 — closed).
 """
 
 from __future__ import annotations
@@ -67,37 +63,25 @@ def test_graph_core_parity(name: str) -> None:
     assert snap["tool_invocations"] == exp["tool_invocations"]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Graph fires no plugin hooks (Task 9 / DECISIONS.md PH35-FU-001)",
-)
-def test_graph_plugin_hooks_gap() -> None:
-    """KNOWN GAP: the graph should fire the same plugin hooks as the loop."""
+def test_graph_plugin_hooks_closed() -> None:
+    """CLOSED (PH35-FU-001): the graph fires the same plugin hooks as the loop."""
     spec = _load(GAP_FIXTURE)
     snap = _replay_graph(spec)
     exp = spec["expected"]
     assert snap["hook_calls"] == exp["hook_calls"]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Graph does not update session usage/cost (Task 9 / DECISIONS.md PH35-FU-002)",
-)
-def test_graph_usage_accounting_gap() -> None:
-    """KNOWN GAP: the graph should record the same usage/cost as the loop."""
+def test_graph_usage_accounting_closed() -> None:
+    """CLOSED (PH35-FU-002): the graph records the same usage/cost as the loop."""
     spec = _load(GAP_FIXTURE)
     snap = _replay_graph(spec)
     exp = spec["expected"]
     assert snap["usage"] == exp["usage"]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Graph does not write trajectories (Task 9 / DECISIONS.md PH35-FU-003)",
-)
-def test_graph_trajectory_write_gap() -> None:
-    """KNOWN GAP: the graph should write trajectories like the loop."""
+def test_graph_trajectory_write_closed() -> None:
+    """CLOSED (PH35-FU-003): the graph writes the trajectory like the loop."""
     spec = _load(GAP_FIXTURE)
     snap = _replay_graph(spec)
     exp = spec["expected"]
-    assert len(snap["trajectory_writes"]) == len(exp["trajectory_writes"])
+    assert snap["trajectory_writes"] == exp["trajectory_writes"]

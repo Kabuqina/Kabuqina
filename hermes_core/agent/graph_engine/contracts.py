@@ -90,3 +90,10 @@ class TurnState(TypedDict):
     first_attempt: NotRequired[bool]
     result: NotRequired[LegacyRunResult]
     exit_policy: NotRequired[ExitPolicy]
+    # Full-completion finalization markers (Task 9).  When ``finalize`` is set,
+    # the ``finish`` node builds the canonical rich result and runs the full
+    # finalizer (trajectory, cleanup, persist, post_llm_call, on_session_end,
+    # clear_interrupt) instead of honoring an early-exit ``ExitPolicy``.
+    finalize: NotRequired[bool]
+    final_response: NotRequired[str | None]
+    turn_interrupted: NotRequired[bool]

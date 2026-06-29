@@ -48,19 +48,33 @@ def _fixtures():
     return sorted(GOLDEN_DIR.glob("*.json"))
 
 
+@pytest.mark.parametrize("engine", ["loop", "graph"])
 @pytest.mark.parametrize(
     "fixture_path", _fixtures(), ids=lambda p: p.stem
 )
-def test_golden_transcript(fixture_path: Path):
+def test_golden_transcript(fixture_path: Path, engine: str):
+    """Replay each fixture under both engines and pin it to the frozen golden.
+
+    The ``loop`` parameterization is the legacy characterization gate; the
+    ``graph`` parameterization is the Phase 3.5 equivalence gate.  Both engines
+    are compared to the **same** committed ``expected`` snapshot (recorded from
+    the loop), so a graph divergence in result keys, messages, hooks, cleanup,
+    interrupt clearing, persistence, streaming, or usage shows up here.  Each
+    parameterization constructs its own fresh agent and scripted transport.
+    """
     spec = json.loads(fixture_path.read_text(encoding="utf-8"))
-    snapshot = replay_transcript(spec)
 
     if RECORD:
+        if engine != "loop":
+            pytest.skip("goldens are recorded from the loop only")
+        snapshot = replay_transcript(spec, engine="loop")
         spec["expected"] = snapshot
         fixture_path.write_text(
             json.dumps(spec, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
         )
         pytest.skip(f"recorded golden snapshot for {fixture_path.name}")
+
+    snapshot = replay_transcript(spec, engine=engine)
 
     expected = spec.get("expected")
     assert expected is not None, (

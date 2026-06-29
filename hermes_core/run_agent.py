@@ -12729,9 +12729,32 @@ class AIAgent:
         # Iteration budget
         self.iteration_budget = IterationBudget(self.max_iterations)
 
-        # Build system prompt if not cached
-        if self._cached_system_prompt is None:
-            self._cached_system_prompt = self._build_system_prompt(system_message)
+        # Bind this turn to its execution thread and clear stale per-thread
+        # interrupt state, exactly like the loop (run_agent.py:9737-9748).  This
+        # scopes interrupt()/clear_interrupt() tool signalling to this agent's
+        # thread and self-heals any residual interrupt bit from a previous turn
+        # so a fresh graph turn never starts spuriously interrupted.
+        self._execution_thread_id = threading.current_thread().ident
+        _set_interrupt(False, self._execution_thread_id)
+        if self._interrupt_requested:
+            _set_interrupt(True, self._execution_thread_id)
+            self._interrupt_thread_signal_pending = False
+        else:
+            self._interrupt_message = None
+            self._interrupt_thread_signal_pending = False
+
+        # Replay the compression warning through status_callback for gateway
+        # platforms (the callback was not wired during __init__) — mirrors the
+        # loop at run_agent.py:9492 so the lifecycle status stream matches.
+        if self._compression_warning:
+            self._replay_compression_warning()
+            self._compression_warning = None  # send once
+
+        # NOTE: the system prompt + ``on_session_start`` decision is owned by
+        # ``initialize_turn`` so the graph reproduces the loop's
+        # new-session-vs-continuation gating exactly.  Do not pre-build the
+        # prompt here — that would set ``_cached_system_prompt`` and skip the
+        # hook on a fresh session.
 
         # Create adapter and engine
         adapter = _GraphServicesAdapter(self, conversation_history)
@@ -12742,7 +12765,7 @@ class AIAgent:
         result = engine.run_turn(
             services=adapter,
             user_message=user_message,
-            system_message=system_message or self._cached_system_prompt,
+            system_message=system_message,
             conversation_history=conversation_history,
             task_id=task_id,
             stream_callback=stream_callback,
@@ -12767,6 +12790,31 @@ class AIAgent:
 
 
 # ── Phase 3.5: GraphServices adapter (bridge between AIAgent and GraphEngine) ─
+
+# Frozen per-exit side-effect policies (Task 9 Step 1).  ``apply_exit_policy``
+# performs only the side effects each scenario's loop return performs — it does
+# not run one universal finalizer.  The "full completion" paths (normal text,
+# tool completion, max-iteration summary, boundary interrupt) are handled by
+# ``_finalize_turn`` (trajectory + cleanup + persist + post_llm_call +
+# on_session_end + clear_interrupt) and do not use these dicts.  Every early
+# exit persists the session (its loop return calls ``_persist_session``); they
+# differ only in cleanup and interrupt-clearing.
+_EARLY_PLAIN_POLICY = {
+    "cleanup_task_resources": False,
+    "persist_session": True,
+    "save_trajectory": False,
+    "fire_post_llm_call": False,
+    "fire_on_session_end": False,
+    "clear_interrupt": False,
+}
+# Truncation / scratchpad exhaustion exits whose loop return also tears down
+# task resources (thinking budget, text continuation, truncated tool call,
+# incomplete scratchpad, truncated JSON args).
+_EARLY_CLEANUP_POLICY = {**_EARLY_PLAIN_POLICY, "cleanup_task_resources": True}
+# Interrupt-during-wait exits whose loop return clears the interrupt flag
+# (interrupt during invalid-response wait, API-error handling, generic retry).
+_EARLY_INTERRUPT_POLICY = {**_EARLY_PLAIN_POLICY, "clear_interrupt": True}
+
 
 class _GraphServicesAdapter:
     """Implements ``GraphServices`` protocol by delegating to ``AIAgent``.
@@ -12806,6 +12854,15 @@ class _GraphServicesAdapter:
         self._length_continue_retries: int = 0
         self._truncated_tool_call_retries: int = 0
         self._truncated_response_prefix: str = ""
+        # The clean user message (``persist_user_message`` override or the raw
+        # input) used by ``pre_llm_call`` / ``post_llm_call`` payloads and the
+        # trajectory write, mirroring the loop's ``original_user_message``.
+        self._original_user_message: Any = None
+        # The caller's original ``system_message`` argument (usually ``None``).
+        # Compression rebuilds the prompt from this, never from the already-built
+        # active prompt — mirroring the loop, which always passes its original
+        # ``system_message`` local to ``_compress_context``.
+        self._original_system_message: Any = None
 
     # ── Plain-text route (Task 4) ───────────────────────────────────────
 
@@ -12821,6 +12878,12 @@ class _GraphServicesAdapter:
         # Sanitize surrogate characters from user input
         if isinstance(user_message, str):
             user_message = _sanitize_surrogates(user_message)
+
+        # The clean message used by lifecycle hooks and trajectory logging.
+        self._original_user_message = (
+            persist_user_message if persist_user_message is not None else user_message
+        )
+        self._original_system_message = system_message
 
         effective_task_id = task_id or str(uuid.uuid4())
         agent._current_task_id = effective_task_id
@@ -12841,13 +12904,46 @@ class _GraphServicesAdapter:
         messages = list(conversation_history) if conversation_history else []
         user_msg = {"role": "user", "content": user_message}
         messages.append(user_msg)
-        agent._persist_user_message_idx = len(messages) - 1
+        current_turn_user_idx = len(messages) - 1
+        agent._persist_user_message_idx = current_turn_user_idx
 
-        # Build system prompt if not cached (should already be done by _run_conversation_graph)
+        # ── System prompt + on_session_start (mirrors loop :9574) ───────────
+        # New session vs continuation: a continuing session (history present and
+        # a stored prompt in the session DB) reuses the stored prompt and does
+        # NOT fire on_session_start; a brand-new session builds fresh and fires
+        # the hook once.
         if agent._cached_system_prompt is None:
-            agent._cached_system_prompt = agent._build_system_prompt(system_message)
+            stored_prompt = None
+            if conversation_history and agent._session_db:
+                try:
+                    session_row = agent._session_db.get_session(agent.session_id)
+                    if session_row:
+                        stored_prompt = session_row.get("system_prompt") or None
+                except Exception:
+                    pass
+            if stored_prompt:
+                agent._cached_system_prompt = stored_prompt
+            else:
+                agent._cached_system_prompt = agent._build_system_prompt(system_message)
+                try:
+                    from hermes_cli.plugins import invoke_hook as _invoke_hook
+                    _invoke_hook(
+                        "on_session_start",
+                        session_id=agent.session_id,
+                        model=agent.model,
+                        platform=getattr(agent, "platform", None) or "",
+                    )
+                except Exception as exc:
+                    logger.warning("on_session_start hook failed: %s", exc)
+                if agent._session_db:
+                    try:
+                        agent._session_db.update_system_prompt(
+                            agent.session_id, agent._cached_system_prompt
+                        )
+                    except Exception as e:
+                        logger.debug("Session DB update_system_prompt failed: %s", e)
 
-        active_system_prompt = system_message or agent._cached_system_prompt or ""
+        active_system_prompt = agent._cached_system_prompt or ""
 
         # ── Preflight compression (once before the tool loop, loop :9614) ──
         # If the request already exceeds the compressor's threshold, summarise
@@ -12872,8 +12968,12 @@ class _GraphServicesAdapter:
                     if len(messages) >= _orig_len:
                         break  # Cannot compress further
                     # Compression rotated the session — drop the cached history
-                    # so the next persist writes the compressed messages.
+                    # so the next persist writes the compressed messages.  Also
+                    # clear the local reference so the pre_llm_call hook below
+                    # reports ``is_first_turn`` from the post-compression state,
+                    # matching the loop (run_agent.py:9663).
                     self._conversation_history = None
+                    conversation_history = None
                     self._emit_usage_event(
                         {"api_call_count": 0},
                         outcome="compression",
@@ -12885,6 +12985,45 @@ class _GraphServicesAdapter:
                     )
                     if _preflight_tokens < compressor.threshold_tokens:
                         break
+
+        # ── Plugin hook: pre_llm_call (mirrors loop :9683) ──────────────────
+        # Fires once per turn before the tool loop.  Plugins may return a
+        # ``context`` string that is appended (ephemerally) to the current
+        # turn's user message — never the system prompt — so the cache prefix
+        # is preserved.
+        _plugin_user_context = ""
+        try:
+            from hermes_cli.plugins import invoke_hook as _invoke_hook
+            _pre_results = _invoke_hook(
+                "pre_llm_call",
+                session_id=agent.session_id,
+                user_message=self._original_user_message,
+                conversation_history=list(messages),
+                is_first_turn=(not bool(conversation_history)),
+                model=agent.model,
+                platform=getattr(agent, "platform", None) or "",
+                sender_id=getattr(agent, "_user_id", None) or "",
+            )
+            _ctx_parts: list[str] = []
+            for r in _pre_results or []:
+                if isinstance(r, dict) and r.get("context"):
+                    _ctx_parts.append(str(r["context"]))
+                elif isinstance(r, str) and r.strip():
+                    _ctx_parts.append(r)
+            if _ctx_parts:
+                _plugin_user_context = "\n\n".join(_ctx_parts)
+        except Exception as exc:
+            logger.warning("pre_llm_call hook failed: %s", exc)
+
+        if _plugin_user_context:
+            _cur = messages[current_turn_user_idx]
+            _existing = _cur.get("content", "")
+            if isinstance(_existing, str):
+                _cur["content"] = (
+                    f"{_existing}\n\n{_plugin_user_context}"
+                    if _existing
+                    else _plugin_user_context
+                )
 
         return {
             "messages": messages,
@@ -12912,20 +13051,16 @@ class _GraphServicesAdapter:
         # turn cleanly.  (Full hook/usage side effects on this exit are tracked
         # as DECISIONS.md PH35-FU-001/002.)
         if agent._interrupt_requested:
+            # A boundary interrupt ends the turn through the full finalizer
+            # (trajectory + cleanup + persist + on_session_end + clear_interrupt);
+            # post_llm_call is skipped because the turn was interrupted.
             return {
                 "route": "finish",
-                "result": {
-                    "final_response": None,
-                    "messages": messages,
-                    "api_calls": state.get("api_call_count", 0),
-                    "completed": False,
-                    "partial": False,
-                    "interrupted": True,
-                    "interrupt_message": getattr(agent, "_interrupt_message", None),
-                    "model": agent.model,
-                    "provider": agent.provider,
-                    "base_url": agent.base_url,
-                },
+                "messages": messages,
+                "api_call_count": state.get("api_call_count", 0),
+                "finalize": True,
+                "final_response": None,
+                "turn_interrupted": True,
             }
 
         # ── Iteration-budget gate (mirrors loop while-top, run_agent.py:9768-9794) ──
@@ -12957,7 +13092,12 @@ class _GraphServicesAdapter:
                 from providers.nous_rate_guard import nous_rate_limit_remaining
                 _remaining = nous_rate_limit_remaining()
                 if _remaining is not None and _remaining > 0:
-                    # Rate-limited — fail without making an API call
+                    # Rate-limited — fail without making an API call.  Mirror the
+                    # loop's lifecycle status (run_agent.py:10108).
+                    agent._emit_status(
+                        f"⏳ Nous Portal rate limit active — "
+                        f"resets in {int(_remaining)}s."
+                    )
                     return {
                         "route": "finish",
                         "result": {
@@ -13055,6 +13195,10 @@ class _GraphServicesAdapter:
 
             if isinstance(getattr(agent, "client", None), Mock):
                 _use_streaming = False
+
+        # Plugin hook: pre_api_request fires once per transport attempt, just
+        # before the call, with the freshly incremented attempt counter.
+        self._fire_pre_api_request(state, api_call_count)
 
         # Record attempt start so the invalid-response path can reproduce the
         # loop's duration-based "failure hint" text.
@@ -13163,6 +13307,17 @@ class _GraphServicesAdapter:
             if _length_exit is not None:
                 return _length_exit
 
+        # Valid (non-length-truncation) response: fold usage into the session
+        # counters and fire post_api_request.  Both mirror the loop ordering —
+        # after truncation handling, before scratchpad/tool processing — and
+        # are skipped for the length-truncation exits above (which the loop
+        # also excludes by returning/continuing first).
+        _api_duration = max(time.time() - self._api_start_time, 0.0)
+        self._accumulate_session_usage(response, _api_duration)
+        self._fire_post_api_request(
+            state, response, normalized, finish_reason, api_call_count, _api_duration
+        )
+
         # ── Incomplete <REASONING_SCRATCHPAD> → retry up to 2 (loop :11838) ──
         if has_incomplete_scratchpad(content):
             agent._incomplete_scratchpad_retries += 1
@@ -13180,6 +13335,7 @@ class _GraphServicesAdapter:
             return {
                 "route": "finish",
                 "messages": rolled_back,
+                "exit_policy": _EARLY_CLEANUP_POLICY,
                 "result": {
                     "final_response": None,
                     "messages": rolled_back,
@@ -13192,11 +13348,19 @@ class _GraphServicesAdapter:
         agent._incomplete_scratchpad_retries = 0
 
         if has_tool_calls:
+            # ── Unknown tool name → self-correct up to 3 times (loop :11884) ──
+            _invalid_exit = self._validate_tool_names(
+                state, normalized, messages, api_call_count, finish_reason
+            )
+            if _invalid_exit is not None:
+                return _invalid_exit
+
             # ── Truncated tool-call arguments (cut-off JSON) (loop :11948) ──
             if self._detect_truncated_json_args(normalized):
                 return {
                     "route": "finish",
                     "messages": messages,
+                    "exit_policy": _EARLY_CLEANUP_POLICY,
                     "result": {
                         "final_response": None,
                         "messages": messages,
@@ -13214,39 +13378,20 @@ class _GraphServicesAdapter:
                 "api_call_count": api_call_count,
             }
 
-        # Plain-text response — the happy path for Task 4
+        # Plain-text response — a completed turn.  Defer the canonical result
+        # construction and all finalization side effects to ``_finalize_turn``
+        # so every full-completion path shares one frozen exit policy.
         final_response = content
-
-        # Build assistant message and append to history
         assistant_msg = agent._build_assistant_message(normalized, finish_reason)
         messages.append(assistant_msg)
 
         return {
             "route": "finish",
             "messages": messages,
-            "result": {
-                "final_response": final_response,
-                "messages": messages,
-                "api_calls": api_call_count,
-                "completed": True,
-                "partial": False,
-                "interrupted": False,
-                "model": agent.model,
-                "provider": agent.provider,
-                "base_url": agent.base_url,
-                "input_tokens": agent.session_input_tokens,
-                "output_tokens": agent.session_output_tokens,
-                "prompt_tokens": agent.session_prompt_tokens,
-                "completion_tokens": agent.session_completion_tokens,
-                "total_tokens": agent.session_total_tokens,
-                "cache_read_tokens": agent.session_cache_read_tokens,
-                "cache_write_tokens": agent.session_cache_write_tokens,
-                "reasoning_tokens": agent.session_reasoning_tokens,
-                "last_prompt_tokens": getattr(agent.context_compressor, "last_prompt_tokens", 0) or 0,
-                "estimated_cost_usd": agent.session_estimated_cost_usd,
-                "cost_status": agent.session_cost_status,
-                "cost_source": agent.session_cost_source,
-            },
+            "api_call_count": api_call_count,
+            "finalize": True,
+            "final_response": final_response,
+            "turn_interrupted": False,
         }
 
     # ── Truncation / continuation handling (Task 8c) ─────────────────────
@@ -13289,6 +13434,7 @@ class _GraphServicesAdapter:
             return {
                 "route": "finish",
                 "messages": messages,
+                "exit_policy": _EARLY_CLEANUP_POLICY,
                 "result": {
                     "final_response": (
                         "⚠️ **Thinking Budget Exhausted**\n\n"
@@ -13342,6 +13488,7 @@ class _GraphServicesAdapter:
             return {
                 "route": "finish",
                 "messages": messages,
+                "exit_policy": _EARLY_CLEANUP_POLICY,
                 "result": {
                     "final_response": partial or None,
                     "messages": messages,
@@ -13366,6 +13513,7 @@ class _GraphServicesAdapter:
         return {
             "route": "finish",
             "messages": messages,
+            "exit_policy": _EARLY_CLEANUP_POLICY,
             "result": {
                 "final_response": None,
                 "messages": messages,
@@ -13374,6 +13522,83 @@ class _GraphServicesAdapter:
                 "partial": True,
                 "error": "Response truncated due to output length limit",
             },
+        }
+
+    def _validate_tool_names(
+        self, state, normalized, messages, api_call_count, finish_reason
+    ) -> dict | None:
+        """Reject hallucinated tool names, self-correcting up to 3 times (:11884).
+
+        Repairs near-miss names, then on a genuinely unknown tool appends an
+        error tool result and routes a fresh model turn.  After three straight
+        invalid turns it ends the turn ``partial`` — matching the loop's
+        ``_invalid_tool_retries`` exhaustion.  Returns a route dict to short-
+        circuit, or ``None`` when every tool name is valid.
+        """
+        agent = self._agent
+        tool_calls = getattr(normalized, "tool_calls", None) or []
+
+        for tc in tool_calls:
+            if tc.function.name not in agent.valid_tool_names:
+                repaired = agent._repair_tool_call(tc.function.name)
+                if repaired:
+                    tc.function.name = repaired
+
+        invalid_tool_calls = [
+            tc.function.name for tc in tool_calls
+            if tc.function.name not in agent.valid_tool_names
+        ]
+        if not invalid_tool_calls:
+            agent._invalid_tool_retries = 0
+            return None
+
+        agent._invalid_tool_retries += 1
+        available = ", ".join(sorted(agent.valid_tool_names))
+        invalid_name = invalid_tool_calls[0]
+        invalid_preview = (
+            invalid_name[:80] + "..." if len(invalid_name) > 80 else invalid_name
+        )
+
+        if agent._invalid_tool_retries >= 3:
+            agent._invalid_tool_retries = 0
+            return {
+                "route": "finish",
+                "messages": messages,
+                "exit_policy": _EARLY_PLAIN_POLICY,
+                "result": {
+                    "final_response": None,
+                    "messages": messages,
+                    "api_calls": api_call_count,
+                    "completed": False,
+                    "partial": True,
+                    "error": f"Model generated invalid tool call: {invalid_preview}",
+                },
+            }
+
+        assistant_msg = agent._build_assistant_message(normalized, finish_reason)
+        messages.append(assistant_msg)
+        for tc in tool_calls:
+            if tc.function.name not in agent.valid_tool_names:
+                content = (
+                    f"Tool '{tc.function.name}' does not exist. "
+                    f"Available tools: {available}"
+                )
+            else:
+                content = (
+                    "Skipped: another tool call in this turn used an invalid "
+                    "name. Please retry this tool call."
+                )
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tc.id,
+                "content": content,
+            })
+        # Self-correction is a fresh model turn (bumps api_calls).
+        return {
+            "route": "prepare_request",
+            "messages": messages,
+            "api_call_count": api_call_count,
+            "first_attempt": True,
         }
 
     @staticmethod
@@ -13431,16 +13656,27 @@ class _GraphServicesAdapter:
         agent = self._agent
 
         # Eager fallback: malformed responses are a common rate-limit symptom
-        # (loop :10236).
+        # (loop :10261).  The lifecycle status is only emitted when a fallback
+        # is actually available to switch to.
+        if agent._fallback_index < len(agent._fallback_chain):
+            agent._emit_status("⚠️ Empty/malformed response — switching to fallback...")
         if self._try_fallback():
             return self._retry_route(api_call_count, messages, reset=True)
 
         failure_hint = self._invalid_failure_hint()
 
         if retry_count >= max_retries:
-            # One last fallback attempt before giving up (loop :10306).
+            # One last fallback attempt before giving up (loop :10330).
+            agent._emit_status(
+                f"⚠️ Max retries ({max_retries}) for invalid responses — "
+                f"trying fallback..."
+            )
             if self._try_fallback():
                 return self._retry_route(api_call_count, messages, reset=True)
+            agent._emit_status(
+                f"❌ Max retries ({max_retries}) exceeded for invalid "
+                f"responses. Giving up."
+            )
             return {
                 "route": "finish",
                 "result": {
@@ -13461,6 +13697,7 @@ class _GraphServicesAdapter:
         ):
             return {
                 "route": "finish",
+                "exit_policy": _EARLY_INTERRUPT_POLICY,
                 "result": {
                     "final_response": (
                         f"Operation interrupted during retry ({failure_hint}, "
@@ -13487,6 +13724,7 @@ class _GraphServicesAdapter:
             clean = agent._clean_error_message(str(exc)) if exc is not None else ""
             return {
                 "route": "finish",
+                "exit_policy": _EARLY_INTERRUPT_POLICY,
                 "result": {
                     "final_response": (
                         f"Operation interrupted: handling API error "
@@ -13551,8 +13789,14 @@ class _GraphServicesAdapter:
 
         # ── Non-retryable client error → fallback or abort (loop :11512) ──
         if is_client_error:
+            agent._emit_status(
+                f"⚠️ Non-retryable error (HTTP {_status_code}) — trying fallback..."
+            )
             if self._try_fallback():
                 return self._retry_route(api_call_count, messages, reset=True)
+            agent._emit_status(
+                f"❌ Non-retryable error (HTTP {_status_code}): {summary}"
+            )
             return {
                 "route": "finish",
                 "result": {
@@ -13576,8 +13820,14 @@ class _GraphServicesAdapter:
                 logger.debug(
                     "graph: primary transport recovery failed", exc_info=True
                 )
+            agent._emit_status(
+                f"⚠️ Max retries ({max_retries}) exhausted — trying fallback..."
+            )
             if self._try_fallback():
                 return self._retry_route(api_call_count, messages, reset=True)
+            agent._emit_status(
+                f"❌ API failed after {max_retries} retries — {summary}"
+            )
             return {
                 "route": "finish",
                 "result": {
@@ -13593,11 +13843,18 @@ class _GraphServicesAdapter:
             }
 
         # ── Interrupt-aware backoff (2s base, 60s cap), then retry (:11658) ──
+        # Emit the retry status with the same backoff value the loop displays
+        # (jittered_backoff is patched to a constant under the golden harness).
+        _wait_time = jittered_backoff(retry_count, base_delay=2.0, max_delay=60.0)
+        agent._emit_status(
+            f"⏳ Retrying in {_wait_time:.1f}s (attempt {retry_count}/{max_retries})..."
+        )
         if agent._graph_backoff_with_interrupt(
             retry_count, base_delay=2.0, max_delay=60.0
         ):
             return {
                 "route": "finish",
+                "exit_policy": _EARLY_INTERRUPT_POLICY,
                 "result": {
                     "final_response": (
                         f"Operation interrupted: retrying API call after error "
@@ -13636,7 +13893,11 @@ class _GraphServicesAdapter:
                 ),
             )
 
-        system_message = state.get("system_message")
+        agent._emit_status(
+            f"⚠️  Request payload too large (413) — compression attempt "
+            f"{compression_attempts}/{max_compression_attempts}..."
+        )
+        system_message = self._original_system_message
         task_id = state.get("effective_task_id", "default") or "default"
         original_len = len(messages)
         try:
@@ -13654,6 +13915,10 @@ class _GraphServicesAdapter:
             state, outcome="compression", route="compression"
         )
         if len(new_messages) < original_len:
+            agent._emit_status(
+                f"🗜️ Compressed {original_len} → {len(new_messages)} "
+                f"messages, retrying..."
+            )
             return self._compression_retry_route(
                 api_call_count, new_messages, compression_attempts
             )
@@ -13725,12 +13990,17 @@ class _GraphServicesAdapter:
                 ),
             )
 
-        system_message = state.get("system_message")
+        approx_tokens = estimate_messages_tokens_rough(self._api_messages or [])
+        agent._emit_status(
+            f"🗜️ Context too large (~{approx_tokens:,} tokens) — compressing "
+            f"({compression_attempts}/{max_compression_attempts})..."
+        )
+        system_message = self._original_system_message
         task_id = state.get("effective_task_id", "default") or "default"
         original_len = len(messages)
         try:
             new_messages, _new_sys = agent._compress_context(
-                messages, system_message, approx_tokens=None, task_id=task_id,
+                messages, system_message, approx_tokens=approx_tokens, task_id=task_id,
             )
         except Exception:
             logger.warning("graph context compression failed", exc_info=True)
@@ -13740,6 +14010,11 @@ class _GraphServicesAdapter:
             state, outcome="compression", route="compression"
         )
         if len(new_messages) < original_len or (new_ctx and new_ctx < old_ctx):
+            if len(new_messages) < original_len:
+                agent._emit_status(
+                    f"🗜️ Compressed {original_len} → {len(new_messages)} "
+                    f"messages, retrying..."
+                )
             return self._compression_retry_route(
                 api_call_count, new_messages, compression_attempts
             )
@@ -13977,6 +14252,10 @@ class _GraphServicesAdapter:
         agent = self._agent
         messages = list(state.get("messages", []))
         api_call_count = state.get("api_call_count", 0)
+        agent._emit_status(
+            f"⚠️ Iteration budget exhausted ({api_call_count}/{agent.max_iterations}) "
+            "— asking model to summarise"
+        )
         try:
             final_response = agent._handle_max_iterations(messages, api_call_count)
         except Exception as exc:
@@ -13992,50 +14271,325 @@ class _GraphServicesAdapter:
         self._emit_usage_event(
             state, outcome="summary", route="summarize_on_budget"
         )
+        # Max-iteration summary is a completed turn — share the full finalizer.
         return {
             "route": "finish",
             "messages": messages,
-            "result": {
-                "final_response": final_response,
-                "messages": messages,
-                "api_calls": api_call_count,
-                "completed": False,
-                "partial": False,
-                "interrupted": False,
-                "model": agent.model,
-                "provider": agent.provider,
-                "base_url": agent.base_url,
-            },
+            "api_call_count": api_call_count,
+            "finalize": True,
+            "final_response": final_response,
+            "turn_interrupted": False,
         }
 
     def apply_exit_policy(self, state: dict) -> dict:
-        """Execute side effects and return the final LegacyRunResult."""
+        """Execute the scenario's frozen exit policy and return the result.
+
+        Full-completion paths (text, tool completion, max-iteration summary,
+        boundary interrupt) set ``finalize`` and run the canonical finalizer.
+        Early exits carry an explicit ``result`` plus an ``ExitPolicy`` and
+        perform only the side effects that policy enables.
+        """
+        if state.get("finalize"):
+            return self._finalize_turn(state)
+
         agent = self._agent
         result = state.get("result", {})
         effective_task_id = state.get("effective_task_id", "")
         messages = state.get("messages", [])
+        policy = state.get("exit_policy") or _EARLY_PLAIN_POLICY
 
-        # Cleanup task resources (VM, browser, etc.)
+        if policy["cleanup_task_resources"] and effective_task_id:
+            try:
+                agent._cleanup_task_resources(effective_task_id)
+            except Exception:
+                pass
+
+        if policy["persist_session"]:
+            try:
+                agent._persist_session(messages, self._conversation_history)
+            except Exception:
+                pass
+
+        if policy["clear_interrupt"]:
+            try:
+                agent.clear_interrupt()
+            except Exception:
+                pass
+
+        agent._stream_callback = None
+        return {"result": result, "route": "finish"}
+
+    def _finalize_turn(self, state: dict) -> dict:
+        """Build the canonical full result and run the full finalizer.
+
+        Mirrors the legacy loop's normal finalization (run_agent.py
+        :12517-12694): trajectory, cleanup, persistence, the conditional
+        ``post_llm_call`` hook, the rich result dictionary, interrupt clearing,
+        and the ``on_session_end`` hook.
+        """
+        agent = self._agent
+        messages = state.get("messages", [])
+        effective_task_id = state.get("effective_task_id", "")
+        final_response = state.get("final_response")
+        interrupted = bool(state.get("turn_interrupted"))
+        api_call_count = state.get("api_call_count", 0)
+        completed = final_response is not None and api_call_count < agent.max_iterations
+
+        # Save trajectory (observe-only in tests; real disk write otherwise).
+        try:
+            agent._save_trajectory(
+                messages,
+                _summarize_user_message_for_log(self._original_user_message),
+                completed,
+            )
+        except Exception:
+            pass
+
+        # Clean up VM/browser resources for this task.
         if effective_task_id:
             try:
                 agent._cleanup_task_resources(effective_task_id)
             except Exception:
                 pass
 
-        # Persist session (JSON log + SQLite)
+        # Persist session to JSON log + SQLite.
         try:
             agent._persist_session(messages, self._conversation_history)
         except Exception:
             pass
 
-        # Clear interrupt state and stream callback
+        # Plugin hook: post_llm_call (only on a completed, non-interrupted turn).
+        if final_response and not interrupted:
+            self._fire_post_llm_call(final_response, messages)
+
+        # Last assistant reasoning, if any.
+        last_reasoning = None
+        for msg in reversed(messages):
+            if isinstance(msg, dict) and msg.get("role") == "assistant" and msg.get("reasoning"):
+                last_reasoning = msg["reasoning"]
+                break
+
+        result = {
+            "final_response": final_response,
+            "last_reasoning": last_reasoning,
+            "messages": messages,
+            "api_calls": api_call_count,
+            "completed": completed,
+            "partial": False,
+            "interrupted": interrupted,
+            "response_previewed": getattr(agent, "_response_was_previewed", False),
+            "model": agent.model,
+            "provider": agent.provider,
+            "base_url": agent.base_url,
+            "input_tokens": agent.session_input_tokens,
+            "output_tokens": agent.session_output_tokens,
+            "cache_read_tokens": agent.session_cache_read_tokens,
+            "cache_write_tokens": agent.session_cache_write_tokens,
+            "reasoning_tokens": agent.session_reasoning_tokens,
+            "prompt_tokens": agent.session_prompt_tokens,
+            "completion_tokens": agent.session_completion_tokens,
+            "total_tokens": agent.session_total_tokens,
+            "last_prompt_tokens": getattr(agent.context_compressor, "last_prompt_tokens", 0) or 0,
+            "estimated_cost_usd": agent.session_estimated_cost_usd,
+            "cost_status": agent.session_cost_status,
+            "cost_source": agent.session_cost_source,
+        }
+
+        # A /steer landed after the final assistant turn: hand it back so the
+        # caller can deliver it as the next user turn instead of dropping it.
+        _leftover_steer = agent._drain_pending_steer()
+        if _leftover_steer:
+            result["pending_steer"] = _leftover_steer
+        agent._response_was_previewed = False
+
+        if interrupted and getattr(agent, "_interrupt_message", None):
+            result["interrupt_message"] = agent._interrupt_message
+
         try:
             agent.clear_interrupt()
         except Exception:
             pass
         agent._stream_callback = None
 
+        # Plugin hook: on_session_end (always, at the very end of the turn).
+        self._fire_on_session_end(completed, interrupted)
+
         return {"result": result, "route": "finish"}
+
+    # ── Plugin hooks (mirror the loop body's invoke_hook sites) ──────────
+
+    def _fire_pre_api_request(self, state: dict, api_call_count: int) -> None:
+        """Fire ``pre_api_request`` before a transport attempt (loop :10142)."""
+        agent = self._agent
+        api_messages = self._api_messages or []
+        try:
+            from hermes_cli.plugins import invoke_hook as _invoke_hook
+            # Match the loop's request-size estimate (run_agent.py:10037) so any
+            # plugin reading these volatile fields sees the same numbers.
+            _total_chars = sum(len(str(msg)) for msg in api_messages)
+            _approx_tokens = estimate_messages_tokens_rough(api_messages)
+            _invoke_hook(
+                "pre_api_request",
+                task_id=state.get("effective_task_id", ""),
+                session_id=agent.session_id or "",
+                platform=agent.platform or "",
+                model=agent.model,
+                provider=agent.provider,
+                base_url=agent.base_url,
+                api_mode=agent.api_mode,
+                api_call_count=api_call_count,
+                message_count=len(api_messages),
+                tool_count=len(agent.tools or []),
+                approx_input_tokens=_approx_tokens,
+                request_char_count=_total_chars,
+                max_tokens=agent.max_tokens,
+            )
+        except Exception:
+            pass
+
+    def _fire_post_api_request(
+        self, state: dict, response: Any, normalized: Any,
+        finish_reason: str, api_call_count: int, api_duration: float,
+    ) -> None:
+        """Fire ``post_api_request`` after a valid response (loop :11791)."""
+        agent = self._agent
+        api_messages = self._api_messages or []
+        try:
+            from hermes_cli.plugins import invoke_hook as _invoke_hook
+            _tool_calls = getattr(normalized, "tool_calls", None) or []
+            _text = getattr(normalized, "content", None) or ""
+            _invoke_hook(
+                "post_api_request",
+                task_id=state.get("effective_task_id", ""),
+                session_id=agent.session_id or "",
+                platform=agent.platform or "",
+                model=agent.model,
+                provider=agent.provider,
+                base_url=agent.base_url,
+                api_mode=agent.api_mode,
+                api_call_count=api_call_count,
+                api_duration=api_duration,
+                finish_reason=finish_reason,
+                message_count=len(api_messages),
+                response_model=getattr(response, "model", None),
+                usage=agent._usage_summary_for_api_request_hook(response),
+                assistant_content_chars=len(_text),
+                assistant_tool_call_count=len(_tool_calls),
+            )
+        except Exception:
+            pass
+
+    def _fire_post_llm_call(self, final_response: str, messages: list) -> None:
+        """Fire ``post_llm_call`` on a completed, non-interrupted turn (loop :12581)."""
+        agent = self._agent
+        try:
+            from hermes_cli.plugins import invoke_hook as _invoke_hook
+            _invoke_hook(
+                "post_llm_call",
+                session_id=agent.session_id,
+                user_message=self._original_user_message,
+                assistant_response=final_response,
+                conversation_history=list(messages),
+                model=agent.model,
+                platform=getattr(agent, "platform", None) or "",
+            )
+        except Exception as exc:
+            logger.warning("post_llm_call hook failed: %s", exc)
+
+    def _fire_on_session_end(self, completed: bool, interrupted: bool) -> None:
+        """Fire ``on_session_end`` at the end of a finalized turn (loop :12683)."""
+        agent = self._agent
+        try:
+            from hermes_cli.plugins import invoke_hook as _invoke_hook
+            _invoke_hook(
+                "on_session_end",
+                session_id=agent.session_id,
+                completed=completed,
+                interrupted=interrupted,
+                model=agent.model,
+                platform=getattr(agent, "platform", None) or "",
+            )
+        except Exception as exc:
+            logger.warning("on_session_end hook failed: %s", exc)
+
+    # ── Session usage accounting (mirrors loop :10581) ───────────────────
+
+    def _accumulate_session_usage(self, response: Any, api_duration: float) -> None:
+        """Fold one successful response's usage into the session counters.
+
+        Mirrors the loop's post-call accounting block so the finalized result
+        reports the same token/cost totals.  Skipped for length-truncation
+        responses, which the loop also excludes (they return/continue before
+        this block).
+        """
+        agent = self._agent
+        if not (hasattr(response, "usage") and response.usage):
+            return
+        canonical_usage = normalize_usage(
+            response.usage, provider=agent.provider, api_mode=agent.api_mode,
+        )
+        usage_dict = {
+            "prompt_tokens": canonical_usage.prompt_tokens,
+            "completion_tokens": canonical_usage.output_tokens,
+            "total_tokens": canonical_usage.total_tokens,
+        }
+        agent.context_compressor.update_from_response(usage_dict)
+        if getattr(agent.context_compressor, "_context_probed", False):
+            ctx = agent.context_compressor.context_length
+            if getattr(agent.context_compressor, "_context_probe_persistable", False):
+                save_context_length(agent.model, agent.base_url, ctx)
+            agent.context_compressor._context_probed = False
+            agent.context_compressor._context_probe_persistable = False
+
+        agent.session_prompt_tokens += canonical_usage.prompt_tokens
+        agent.session_completion_tokens += canonical_usage.output_tokens
+        agent.session_total_tokens += canonical_usage.total_tokens
+        agent.session_api_calls += 1
+        agent.session_input_tokens += canonical_usage.input_tokens
+        agent.session_output_tokens += canonical_usage.output_tokens
+        agent.session_cache_read_tokens += canonical_usage.cache_read_tokens
+        agent.session_cache_write_tokens += canonical_usage.cache_write_tokens
+        agent.session_reasoning_tokens += canonical_usage.reasoning_tokens
+
+        cost_result = estimate_usage_cost(
+            agent.model, canonical_usage,
+            provider=agent.provider, base_url=agent.base_url,
+            api_key=getattr(agent, "api_key", ""),
+        )
+        if cost_result.amount_usd is not None:
+            agent.session_estimated_cost_usd += float(cost_result.amount_usd)
+        agent.session_cost_status = cost_result.status
+        agent.session_cost_source = cost_result.source
+
+        if agent._session_db and agent.session_id:
+            try:
+                agent._session_db.update_token_counts(
+                    agent.session_id,
+                    input_tokens=canonical_usage.input_tokens,
+                    output_tokens=canonical_usage.output_tokens,
+                    cache_read_tokens=canonical_usage.cache_read_tokens,
+                    cache_write_tokens=canonical_usage.cache_write_tokens,
+                    reasoning_tokens=canonical_usage.reasoning_tokens,
+                    estimated_cost_usd=float(cost_result.amount_usd)
+                    if cost_result.amount_usd is not None else None,
+                    cost_status=cost_result.status,
+                    cost_source=cost_result.source,
+                    billing_provider=agent.provider,
+                    billing_base_url=agent.base_url,
+                    billing_mode="subscription_included"
+                    if cost_result.status == "included" else None,
+                    model=agent.model,
+                    api_call_count=1,
+                )
+            except Exception:
+                pass
+
+        if agent.provider == "nous":
+            try:
+                from providers.nous_rate_guard import clear_nous_rate_limit
+                clear_nous_rate_limit()
+            except Exception:
+                pass
 
     # ── Internal helpers ────────────────────────────────────────────────
 

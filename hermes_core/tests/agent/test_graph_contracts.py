@@ -112,7 +112,15 @@ def test_turn_state_required_keys():
         "fallback_index",
         "route",
     }
-    optional = {"first_attempt", "result", "exit_policy"}
+    optional = {
+        "first_attempt",
+        "result",
+        "exit_policy",
+        # Task 9 full-completion finalization markers.
+        "finalize",
+        "final_response",
+        "turn_interrupted",
+    }
 
     assert set(TurnState.__required_keys__) == required
     assert set(TurnState.__optional_keys__) == optional
