@@ -41,6 +41,8 @@ assert.deepEqual(store.emptyStudyContext(), {
   profileSummary: "",
   weakPoints: "",
   preferences: "",
+  progressNotes: "",
+  assessmentEvidence: "",
 });
 
 assert.deepEqual(store.normalizeStudyContext(null), store.emptyStudyContext());
@@ -51,6 +53,8 @@ assert.deepEqual(
     profileSummary: "Python 基础",
     weakPoints: "F1 混淆",
     preferences: "每天 1 小时",
+    progressNotes: "完成逻辑回归",
+    assessmentEvidence: "基础题 8/10",
   }),
   {
     course: "机器学习基础",
@@ -58,6 +62,8 @@ assert.deepEqual(
     profileSummary: "Python 基础",
     weakPoints: "F1 混淆",
     preferences: "每天 1 小时",
+    progressNotes: "完成逻辑回归",
+    assessmentEvidence: "基础题 8/10",
   },
 );
 
@@ -72,11 +78,15 @@ const formatted = store.formatStudyContextForPrompt({
   profileSummary: "",
   weakPoints: "模型评估指标",
   preferences: "",
+  progressNotes: "已完成 20 道练习",
+  assessmentEvidence: "进阶题 5/8",
 });
 assert.match(formatted, /已保存的学习上下文/);
 assert.match(formatted, /课程\/专业方向：机器学习基础/);
 assert.match(formatted, /学习目标：掌握监督学习/);
 assert.match(formatted, /知识短板\/易错点：模型评估指标/);
+assert.match(formatted, /学习进度\/行为记录：已完成 20 道练习/);
+assert.match(formatted, /练习结果\/资源反馈：进阶题 5\/8/);
 assert.doesNotMatch(formatted, /学习画像摘要：/);
 
 globalThis.window = {
@@ -95,6 +105,8 @@ const saved = store.saveStudyContext({
   profileSummary: "",
   weakPoints: "",
   preferences: "图示优先",
+  progressNotes: "完成第一章",
+  assessmentEvidence: "小测 7/10",
 });
 assert.equal(saved.course, "人工智能导论");
 assert.deepEqual(store.loadStudyContext(), saved);

@@ -1128,7 +1128,7 @@ assert.match(
 );
 assert.match(
   studySectionSource,
-  /studyContextCourse[\s\S]*studyContextGoal[\s\S]*studyContextProfile[\s\S]*studyContextWeakPoints[\s\S]*studyContextPreferences/,
+  /studyContextCourse[\s\S]*studyContextGoal[\s\S]*studyContextProfile[\s\S]*studyContextWeakPoints[\s\S]*studyContextPreferences[\s\S]*studyContextProgress[\s\S]*studyContextEvidence/,
   "StudySection should expose the persisted study context fields.",
 );
 assert.match(

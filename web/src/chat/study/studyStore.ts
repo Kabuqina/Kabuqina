@@ -11,6 +11,8 @@ export type StudyContext = {
   profileSummary: string;
   weakPoints: string;
   preferences: string;
+  progressNotes: string;
+  assessmentEvidence: string;
 };
 
 const EMPTY_STUDY_CONTEXT: StudyContext = {
@@ -19,6 +21,8 @@ const EMPTY_STUDY_CONTEXT: StudyContext = {
   profileSummary: "",
   weakPoints: "",
   preferences: "",
+  progressNotes: "",
+  assessmentEvidence: "",
 };
 
 export function emptyStudyContext(): StudyContext {
@@ -39,6 +43,8 @@ export function normalizeStudyContext(value: unknown): StudyContext {
     profileSummary: cleanField(raw.profileSummary),
     weakPoints: cleanField(raw.weakPoints),
     preferences: cleanField(raw.preferences),
+    progressNotes: cleanField(raw.progressNotes),
+    assessmentEvidence: cleanField(raw.assessmentEvidence),
   };
 }
 
@@ -103,6 +109,8 @@ export function formatStudyContextForPrompt(context: StudyContext): string {
     ["学习画像摘要", normalized.profileSummary],
     ["知识短板/易错点", normalized.weakPoints],
     ["学习偏好/可投入时间", normalized.preferences],
+    ["学习进度/行为记录", normalized.progressNotes],
+    ["练习结果/资源反馈", normalized.assessmentEvidence],
   ].filter(([, value]) => value);
 
   return [

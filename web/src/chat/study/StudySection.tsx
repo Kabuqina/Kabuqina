@@ -146,6 +146,16 @@ export function StudySection({
       label: t("chat.studyContextPreferences"),
       placeholder: t("chat.studyContextPreferencesPlaceholder"),
     },
+    {
+      key: "progressNotes",
+      label: t("chat.studyContextProgress"),
+      placeholder: t("chat.studyContextProgressPlaceholder"),
+    },
+    {
+      key: "assessmentEvidence",
+      label: t("chat.studyContextEvidence"),
+      placeholder: t("chat.studyContextEvidencePlaceholder"),
+    },
   ];
 
   return (
