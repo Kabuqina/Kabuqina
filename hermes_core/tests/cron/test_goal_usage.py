@@ -113,6 +113,56 @@ class TestSummarize:
         assert snap.complete is False
         assert snap.incomplete_reason is not None
 
+    @pytest.mark.parametrize(
+        "attempts",
+        [
+            [0, 0],
+            [0, 2],
+            [1],
+        ],
+    )
+    def test_attempt_indices_must_be_zero_based_contiguous_and_unique(self, attempts):
+        from cron.goal_usage import summarize_usage_events
+
+        snap = summarize_usage_events(
+            [_ev(Decimal("0.10"), "actual", attempt=index) for index in attempts]
+        )
+
+        assert snap.amount_usd is None
+        assert snap.complete is False
+        assert snap.incomplete_reason == "invalid_attempt_sequence"
+
+    @pytest.mark.parametrize(
+        "amount",
+        [
+            Decimal("-0.01"),
+            Decimal("NaN"),
+            Decimal("Infinity"),
+            Decimal("-Infinity"),
+        ],
+    )
+    def test_amounts_must_be_non_negative_and_finite(self, amount):
+        from cron.goal_usage import summarize_usage_events
+
+        snap = summarize_usage_events([_ev(amount, "actual", attempt=0)])
+
+        assert snap.amount_usd is None
+        assert snap.complete is False
+        assert snap.incomplete_reason == "invalid_amount"
+
+    def test_negative_event_cannot_reduce_accumulated_cost(self):
+        from cron.goal_usage import summarize_usage_events
+
+        snap = summarize_usage_events(
+            [
+                _ev(Decimal("1"), "actual", attempt=0),
+                _ev(Decimal("-2"), "actual", attempt=1),
+            ]
+        )
+
+        assert snap.amount_usd is None
+        assert snap.complete is False
+
 
 class TestJsonRoundTrip:
     def test_snapshot_round_trip(self):

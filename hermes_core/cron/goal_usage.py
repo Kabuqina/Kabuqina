@@ -83,6 +83,32 @@ def summarize_usage_events(
             events=(), amount_usd=Decimal("0"), complete=True, incomplete_reason=None
         )
 
+    if any(type(event.attempt_index) is not int for event in events) or tuple(
+        event.attempt_index for event in events
+    ) != tuple(range(len(events))):
+        return GoalUsageSnapshot(
+            events=events,
+            amount_usd=None,
+            complete=False,
+            incomplete_reason="invalid_attempt_sequence",
+        )
+
+    if any(
+        event.amount_usd is not None
+        and (
+            not isinstance(event.amount_usd, Decimal)
+            or not event.amount_usd.is_finite()
+            or event.amount_usd < 0
+        )
+        for event in events
+    ):
+        return GoalUsageSnapshot(
+            events=events,
+            amount_usd=None,
+            complete=False,
+            incomplete_reason="invalid_amount",
+        )
+
     total = Decimal("0")
     complete = True
     incomplete_reason: str | None = None
