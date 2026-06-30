@@ -266,6 +266,22 @@ class TestIterationRecords:
         with pytest.raises(GoalStateError):
             save_iteration_record(JOB_ID, 1, "report", {"a": 2})
 
+    def test_serialization_failure_does_not_publish_a_partial_record(self, goal_home):
+        from cron.goal_state import goal_run_dir, save_iteration_record
+
+        target = goal_run_dir(JOB_ID) / "iterations" / "000001" / "report.json"
+
+        with pytest.raises(TypeError):
+            save_iteration_record(
+                JOB_ID,
+                1,
+                "report",
+                {"bad": object()},  # type: ignore[dict-item]
+            )
+
+        assert not target.exists()
+        assert save_iteration_record(JOB_ID, 1, "report", {"ok": True}) == target
+
     def test_distinct_kinds_and_iterations_coexist(self, goal_home):
         from cron.goal_state import save_iteration_record
 

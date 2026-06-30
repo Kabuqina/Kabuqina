@@ -24,6 +24,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -345,20 +346,40 @@ def save_iteration_record(
     if not isinstance(iteration, int) or iteration < 1:
         raise GoalStateError(f"invalid iteration index {iteration!r}")
 
+    serialized = json.dumps(
+        payload,
+        indent=2,
+        sort_keys=True,
+        default=_json_default,
+    )
     iteration_dir = goal_run_dir(job_id) / "iterations" / f"{iteration:06d}"
     iteration_dir.mkdir(parents=True, exist_ok=True)
     target = iteration_dir / f"{kind}.json"
 
+    tmp_path: Path | None = None
     try:
-        # "x" mode fails if the file already exists — the immutability guarantee.
-        with open(target, "x", encoding="utf-8") as handle:
-            json.dump(payload, handle, indent=2, sort_keys=True, default=_json_default)
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=iteration_dir,
+            prefix=f".{kind}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            tmp_path = Path(handle.name)
+            handle.write(serialized)
             handle.flush()
             os.fsync(handle.fileno())
+        # Publishing by hard link is atomic and never replaces an existing
+        # record. The temporary file and target are on the same filesystem.
+        os.link(tmp_path, target)
     except FileExistsError as exc:
         raise GoalStateError(
             f"iteration record {kind} for {job_id!r}#{iteration} already exists"
         ) from exc
+    finally:
+        if tmp_path is not None:
+            tmp_path.unlink(missing_ok=True)
     return target
 
 
