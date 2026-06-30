@@ -401,6 +401,33 @@ fn job_to_entry(job: &serde_json::Value, data_dir: &std::path::Path) -> CronJobE
     }
 }
 
+fn toggle_job_raw(jobs: &mut [serde_json::Value], job_id: &str) -> Result<(), String> {
+    let job = jobs
+        .iter_mut()
+        .find(|job| job.get("id").and_then(|v| v.as_str()) == Some(job_id))
+        .ok_or_else(|| format!("job {job_id} not found"))?;
+    if job.get("mode").and_then(|v| v.as_str()) == Some("goal") {
+        return Err("Goal Task state must use the dedicated goal controls".to_string());
+    }
+    let current = job.get("paused").and_then(|v| v.as_bool()).unwrap_or(false);
+    if let Some(obj) = job.as_object_mut() {
+        obj.insert("paused".to_string(), serde_json::Value::Bool(!current));
+    }
+    Ok(())
+}
+
+fn delete_job_raw(jobs: &mut Vec<serde_json::Value>, job_id: &str) -> Result<(), String> {
+    let index = jobs
+        .iter()
+        .position(|job| job.get("id").and_then(|v| v.as_str()) == Some(job_id))
+        .ok_or_else(|| format!("job {job_id} not found"))?;
+    if jobs[index].get("mode").and_then(|v| v.as_str()) == Some("goal") {
+        return Err("Goal Task deletion must use the dedicated goal controls".to_string());
+    }
+    jobs.remove(index);
+    Ok(())
+}
+
 // ------------------------------------------------------------------
 // Tauri commands
 // ------------------------------------------------------------------
@@ -434,31 +461,14 @@ pub fn cmd_cron_list(app: AppHandle) -> Result<CronJobListResponse, String> {
 #[tauri::command]
 pub fn cmd_cron_toggle(app: AppHandle, job_id: String) -> Result<(), String> {
     let mut jobs = read_jobs_raw(&app)?;
-    let mut found = false;
-    for job in &mut jobs {
-        if job.get("id").and_then(|v| v.as_str()) == Some(&job_id) {
-            let current = job.get("paused").and_then(|v| v.as_bool()).unwrap_or(false);
-            if let Some(obj) = job.as_object_mut() {
-                obj.insert("paused".to_string(), serde_json::Value::Bool(!current));
-            }
-            found = true;
-            break;
-        }
-    }
-    if !found {
-        return Err(format!("job {job_id} not found"));
-    }
+    toggle_job_raw(&mut jobs, &job_id)?;
     write_jobs_raw(&app, &jobs)
 }
 
 #[tauri::command]
 pub fn cmd_cron_delete(app: AppHandle, job_id: String) -> Result<(), String> {
     let mut jobs = read_jobs_raw(&app)?;
-    let len_before = jobs.len();
-    jobs.retain(|job| job.get("id").and_then(|v| v.as_str()) != Some(&job_id));
-    if jobs.len() == len_before {
-        return Err(format!("job {job_id} not found"));
-    }
+    delete_job_raw(&mut jobs, &job_id)?;
     write_jobs_raw(&app, &jobs)
 }
 
@@ -607,5 +617,34 @@ mod tests {
         assert_eq!(entry.goal_status.as_deref(), Some("state_error"));
         assert_ne!(entry.goal_iteration, Some(99));
         let _ = std::fs::remove_dir_all(data_dir);
+    }
+
+    #[test]
+    fn raw_mutations_reject_goal_jobs_without_changing_the_list() {
+        let original = vec![goal_job()];
+
+        let mut toggle_jobs = original.clone();
+        assert!(toggle_job_raw(&mut toggle_jobs, "abc123def456")
+            .unwrap_err()
+            .contains("Goal Task"));
+        assert_eq!(toggle_jobs, original);
+
+        let mut delete_jobs = original.clone();
+        assert!(delete_job_raw(&mut delete_jobs, "abc123def456")
+            .unwrap_err()
+            .contains("Goal Task"));
+        assert_eq!(delete_jobs, original);
+    }
+
+    #[test]
+    fn raw_mutations_preserve_legacy_toggle_and_delete_behavior() {
+        let legacy = serde_json::json!({"id": "legacy-job", "paused": false});
+        let mut jobs = vec![legacy];
+
+        toggle_job_raw(&mut jobs, "legacy-job").unwrap();
+        assert_eq!(jobs[0]["paused"], true);
+
+        delete_job_raw(&mut jobs, "legacy-job").unwrap();
+        assert!(jobs.is_empty());
     }
 }
