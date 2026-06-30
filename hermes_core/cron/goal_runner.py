@@ -42,6 +42,7 @@ __all__ = [
     "GoalWorker",
     "GoalVerifier",
     "GoalIterationResult",
+    "build_artifact_fingerprint",
     "build_evidence_fingerprint",
     "run_goal_iteration",
 ]
@@ -79,7 +80,7 @@ class GoalVerifier(Protocol):
         self,
         definition: GoalDefinition,
         report: GoalReport,
-        previous_evidence_hash: str | None,
+        previous_artifact_hash: str | None,
     ) -> VerifierResult: ...
 
 
@@ -146,6 +147,20 @@ def build_evidence_fingerprint(
     return hashlib.sha256(encoded).hexdigest()
 
 
+def build_artifact_fingerprint(
+    definition: GoalDefinition,
+    report: GoalReport,
+) -> str:
+    """Hash only declared artifact paths and contents for cross-run comparison."""
+    encoded = json.dumps(
+        _artifact_fingerprints(definition, report),
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
 def _report_to_json(report: GoalReport | None) -> JSONValue:
     if report is None:
         return None
@@ -181,6 +196,7 @@ def _transition_to_json(transition: GoalTransition) -> dict[str, JSONValue]:
         "no_progress_count": state.no_progress_count,
         "infrastructure_failures": state.infrastructure_failures,
         "last_evidence_hash": state.last_evidence_hash,
+        "last_artifact_hash": state.last_artifact_hash,
         "updated_at": state.updated_at.isoformat(),
         "next_state": goal_state_to_json(state),
     }
@@ -385,6 +401,11 @@ def run_goal_iteration(
     )
 
     verifier_result: VerifierResult | None = None
+    artifact_hash = (
+        build_artifact_fingerprint(definition, worker_observation.report)
+        if worker_observation.report is not None
+        else None
+    )
     if (
         worker_observation.report is not None
         and worker_observation.report.status == "candidate_done"
@@ -397,7 +418,7 @@ def run_goal_iteration(
             verifier_result = verifier.verify(
                 definition,
                 worker_observation.report,
-                state.last_evidence_hash,
+                state.last_artifact_hash,
             )
         except Exception as exc:
             verifier_result = VerifierResult(
@@ -450,6 +471,15 @@ def run_goal_iteration(
                 ),
             ),
             now=now,
+        )
+
+    if artifact_hash is not None:
+        transition = replace(
+            transition,
+            next_state=replace(
+                transition.next_state,
+                last_artifact_hash=artifact_hash,
+            ),
         )
 
     cadence = definition.progress_delivery_every

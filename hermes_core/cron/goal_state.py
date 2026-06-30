@@ -147,6 +147,7 @@ class GoalRunState:
     started_at: datetime | None
     completed_at: datetime | None
     updated_at: datetime
+    last_artifact_hash: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -204,6 +205,7 @@ def new_goal_state(job_id: str, *, now: datetime) -> GoalRunState:
         started_at=None,
         completed_at=None,
         updated_at=now,
+        last_artifact_hash=None,
     )
 
 
@@ -238,6 +240,7 @@ def _serialize_state(state: GoalRunState) -> dict:
         "started_at": _dt_to_json(state.started_at),
         "completed_at": _dt_to_json(state.completed_at),
         "updated_at": _dt_to_json(state.updated_at),
+        "last_artifact_hash": state.last_artifact_hash,
     }
 
 
@@ -283,6 +286,7 @@ def _deserialize_state(raw: object, job_id: str) -> GoalRunState:
             started_at=_dt_from_json(raw.get("started_at")),
             completed_at=_dt_from_json(raw.get("completed_at")),
             updated_at=updated_at,
+            last_artifact_hash=raw.get("last_artifact_hash"),
         )
     except GoalStateError:
         raise

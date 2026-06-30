@@ -58,6 +58,7 @@ class TestNewGoalState:
         assert state.no_progress_count == 0
         assert state.infrastructure_failures == 0
         assert state.last_evidence_hash is None
+        assert state.last_artifact_hash is None
         assert state.last_verifier_outcome is None
         assert state.pause_reason is None
         assert state.last_error is None
@@ -148,6 +149,7 @@ class TestSaveLoadRoundTrip:
             started_at=datetime(2026, 6, 28, 10, 0, 0, tzinfo=timezone.utc),
             completed_at=None,
             updated_at=_now(),
+            last_artifact_hash="b" * 64,
         )
         save_goal_state(state)
         assert load_goal_state(JOB_ID) == state

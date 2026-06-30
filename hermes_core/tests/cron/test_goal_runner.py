@@ -26,7 +26,7 @@ from cron.goal_state import (
 )
 from cron.goal_transitions import InvalidGoalTransition
 from cron.goal_usage import GoalUsageSnapshot
-from cron.goal_verifiers import VerifierResult
+from cron.goal_verifiers import VerificationContext, VerifierResult, verify
 
 
 NOW = datetime(2026, 6, 27, 12, 0, tzinfo=timezone.utc)
@@ -169,6 +169,46 @@ def test_candidate_done_verifies_once_and_persists_completion(definition):
         ).read_text(encoding="utf-8")
     )
     assert verification["outcome"] == "pass"
+
+
+def test_content_hash_changed_compares_same_artifact_domain_across_iterations(
+    definition,
+):
+    class RegistryVerifier:
+        def verify(self, definition, report, previous_evidence_hash):
+            return verify(
+                definition.verifier_kind,
+                VerificationContext(
+                    workdir=definition.workdir,
+                    report=report,
+                    config=definition.verifier_config,
+                    previous_evidence_hash=previous_evidence_hash,
+                ),
+            )
+
+    definition = replace(
+        definition,
+        verifier_kind="content_hash_changed",
+        verifier_config={},
+    )
+    verifier = RegistryVerifier()
+
+    first = run_goal_iteration(
+        definition,
+        worker=FakeWorker(_worker_observation("progress")),
+        verifier=verifier,
+        now=NOW,
+    )
+    second = run_goal_iteration(
+        definition,
+        worker=FakeWorker(_worker_observation("candidate_done")),
+        verifier=verifier,
+        now=NOW + timedelta(minutes=1),
+    )
+
+    assert first.transition.next_state.status == "scheduled"
+    assert second.transition.next_state.status == "scheduled"
+    assert second.transition.next_state.last_verifier_outcome == "fail"
 
 
 def test_incomplete_usage_pauses_without_running_verifier(definition):
