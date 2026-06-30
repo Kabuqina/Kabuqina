@@ -1346,7 +1346,7 @@ raises `ValueError`; an invalid config value logs a warning and falls back to
 `loop` so a bad user file does not brick startup.
 
 - [x] **Step 1: write selector precedence tests**  
-  *(2026-06-30: `tests/agent/test_engine_selector.py` — 22 cases covering all four precedence levels, invalid explicit/env (`ValueError`) vs invalid config (warn→`loop`), blank coercion, profile-aware `HERMES_HOME` via the real `load_config`, and the separate web/gateway process-env model via injected `env` mappings.)*
+  *(2026-06-30: `tests/agent/test_engine_selector.py` — 20 cases (17 resolver + 3 public-dispatch, added in review Group D): all four precedence levels, invalid explicit/env (`ValueError`) vs invalid config (warn→`loop`), blank coercion, profile-aware `HERMES_HOME` via the real `load_config`, the separate web/gateway process-env model via injected `env` mappings, plus `AIAgent.run_conversation` actually routing to `_run_conversation_loop`/`_run_conversation_graph` and the no-cross-engine-fallback rule. The earlier "22 cases" note was a miscount, P2-6.)*
 
 Test all four levels, invalid values, profile-aware `HERMES_HOME`, and separate
 web/gateway process environments.
@@ -1396,7 +1396,7 @@ Do not catch a graph exception and invoke `_run_conversation_loop` for the same
 turn.
 
 - [x] **Step 4: run and commit**  
-  *(2026-06-30: `test_engine_selector` 22 passed; deterministic equivalence gate (golden+exit_contract+hook_parity+usage_sink+differential) green twice. `HERMES_AGENT_ENGINE=loop` slice = 1274 passed / 10 pre-existing env failures (the legacy-regression gate holds). `=graph` slice = 1253 passed / 32 failed: 10 env + **22 graph-specific edge-case equivalence gaps** (retry/empty-response/fallback, reasoning-only prefill, compression triggers, length-continuation, 401 remint) beyond the Task 9 golden corpus — logged as PH35-FU-009; they gate Task 11's default flip, not the selector. The fuzzer's non-deterministic interrupt variant was removed (PH35-FU-008) and now passes 121×3 under xdist. Committed locally; not pushed.)*
+  *(2026-06-30: `test_engine_selector` 20 passed (corrected from a "22" miscount, P2-6); deterministic equivalence gate (golden+exit_contract+hook_parity+usage_sink+differential) green twice. `HERMES_AGENT_ENGINE=loop` slice = 1274 passed / 10 pre-existing env failures (the legacy-regression gate holds). `=graph` slice = 1253 passed / 32 failed: 10 env + **22 graph-specific edge-case equivalence gaps** (retry/empty-response/fallback, reasoning-only prefill, compression triggers, length-continuation, 401 remint) beyond the Task 9 golden corpus — logged as PH35-FU-009; they gate Task 11's default flip, not the selector. The fuzzer's non-deterministic interrupt variant was removed (PH35-FU-008) and now passes 121×3 under xdist. Committed locally; not pushed.)*
 
 ```powershell
 cd hermes_core

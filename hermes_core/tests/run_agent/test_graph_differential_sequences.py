@@ -72,12 +72,41 @@ def _text_turn(rng: random.Random) -> Dict[str, Any]:
     }
 
 
+def _unknown_tool_turn(rng: random.Random) -> Dict[str, Any]:
+    """A call to a tool the agent does not have → invalid-tool self-correction."""
+    return {
+        "content": None,
+        "finish_reason": "tool_calls",
+        "tool_calls": [
+            {
+                "id": f"call_{rng.randint(1, 1_000_000):06d}",
+                "name": f"unknown_tool_{rng.randint(0, 99)}",
+                "arguments": "{}",
+            }
+        ],
+        "usage": _usage(rng),
+    }
+
+
+def _length_turn(rng: random.Random) -> Dict[str, Any]:
+    """A length-truncated turn → drives one text-continuation before the end."""
+    return {
+        "content": f"partial {rng.randint(0, 99)} ",
+        "finish_reason": "length",
+        "usage": _usage(rng),
+    }
+
+
 def _generate_spec(rng: random.Random) -> Dict[str, Any]:
     """Build one valid, bounded transcript spec.
 
-    Structure: zero or more known-tool turns, then a terminating text turn.
-    Variants may inject a single ``unknown_tool`` turn (self-correction) or a
-    ``steer`` action on one turn.
+    Structure: an optional single-shot *prefix* event (recoverable unknown-tool,
+    retryable transport error, length-truncation, or empty/malformed response),
+    then zero or more known-tool turns, then a terminating text turn.  All
+    variants recover and end on the same text turn, so the conversation is
+    bounded and deterministic on both engines (review P1-5 — the fuzzer now
+    covers the unknown-tool / truncation / retryable-error / empty-response
+    families the spec requires, not just known tools + steer).
 
     NOTE: the ``interrupt`` action is intentionally NOT generated here.  An
     interrupt fired mid-turn is observed at a *timing-dependent* point relative
@@ -99,13 +128,47 @@ def _generate_spec(rng: random.Random) -> Dict[str, Any]:
     turns: List[Dict[str, Any]] = [_tool_turn(rng, t) for t in used_tools]
     turns.append(_text_turn(rng))
 
-    # Optional single-shot variants (kept bounded + deterministic so the
-    # conversation still ends the same way on both engines every run).
-    variant = rng.choice(["plain", "plain", "steer", "plain"])
+    # Optional single-shot variant (kept bounded + deterministic so the
+    # conversation still recovers and ends the same way on both engines).
+    variant = rng.choice(
+        [
+            "plain",
+            "plain",
+            "steer",
+            "unknown_tool",
+            "retryable_error",
+            "truncation",
+            "empty_response",
+        ]
+    )
     if variant == "steer" and turns:
         idx = rng.randrange(len(turns))
         turns[idx]["action"] = "steer"
         turns[idx]["action_text"] = "please be concise"
+    elif variant == "unknown_tool":
+        # Reject one unknown tool call, then proceed through the planned turns.
+        turns.insert(0, _unknown_tool_turn(rng))
+    elif variant == "retryable_error":
+        # One retryable 5xx, recovered on the next transport attempt.
+        turns.insert(
+            0,
+            {
+                "raise": {
+                    "type": "api_error",
+                    "status_code": 500,
+                    "message": "upstream server error",
+                }
+            },
+        )
+    elif variant == "truncation":
+        # A length-truncated turn → exactly one text continuation, then end.
+        # Kept free of intervening tool turns so this exercises the legitimate
+        # text-continuation path (Task 8c parity), not a malformed length→tool
+        # sequence whose continuation semantics aren't a defined contract.
+        turns = [_length_turn(rng), _text_turn(rng)]
+    elif variant == "empty_response":
+        # One empty/malformed response → retry/fallback, then recover.
+        turns.insert(0, {"invalid": True})
 
     spec: Dict[str, Any] = {
         "name": "generated",

@@ -351,6 +351,11 @@ narrow, so genuinely divergent side effects passed silently.
 - **P2-6** `test_engine_selector` only tests the resolver, never constructs
   `AIAgent(agent_engine=…)` to prove dispatch + no cross-engine fallback; and it
   is **17 tests, not the "22" recorded** (a factual error in the Task 10 notes).
+  **Resolved 2026-06-30 (Group D):** added three public-dispatch tests (bare
+  `AIAgent` whose two engine bodies are stubbed) asserting `run_conversation`
+  routes to `_run_conversation_graph`/`_run_conversation_loop` by
+  `self.agent_engine` and that a graph exception propagates without re-running the
+  loop; the count was corrected to **20** in the plan/cursor.
 
 **Group A (P1-1 + P1-2) resolved 2026-06-30 — observe→fix→verify.** The golden
 harness now records a `lifecycle_calls` snapshot field (counts of
@@ -396,6 +401,35 @@ delegates to it.
   shifts automatically (no manual rebase — the 2026-06-30 refactor paying off).
 Deterministic gate = 255 passed twice; four new usage tests
 (`test_usage_event_sink.py`). Remaining review groups: C (P1-5), D (P2-6).
+
+**Group C (P1-5) resolved 2026-06-30.** The differential fuzzer now generates the
+required event families: a recoverable **unknown-tool** call (invalid-tool
+self-correction), a retryable **5xx transport error** (recovers on the next
+attempt), a **length-truncation** → text continuation, and an **empty/malformed
+response** (retry/fallback). Three of the four passed immediately (parity from
+Tasks 7/9). The truncation family **caught a real graph bug**: the graph's
+plain-text completion used the raw content, while the loop folds in any
+truncation-continuation prefix and applies `_strip_think_blocks(...).strip()`
+(run_agent.py:12548-12554) — so a final response with think blocks or trailing
+whitespace diverged (loop `"partial 72"` vs graph `"partial 72 "`). Fixed by
+mirroring the loop's finalization at the graph's plain-text exit
+(`process_response`). The widened fuzzer is now 121 passed (serial + xdist). This
+is exactly the gap class P1-5 said the narrow fuzzer was hiding; one PH35-FU-009
+item (the strip divergence) is closed by this fix.
+
+**Group D (P2-6) resolved 2026-06-30.** Added three public-dispatch tests to
+`test_engine_selector.py` (a bare `AIAgent` whose two engine bodies are stubbed):
+`run_conversation` routes to `_run_conversation_graph`/`_run_conversation_loop`
+by `self.agent_engine`, and a graph exception **propagates without re-running the
+loop** (no duplicated side effects). The selector file is now **20 tests** (17
+resolver + 3 dispatch); the earlier "22" was a miscount, corrected in the plan and
+cursor.
+
+**Review status: all 5×P1 + 1×P2 addressed across Groups A–D.** Still open before
+G1/Task 11 (pre-existing, separately tracked): PH35-FU-007 error-path loop
+emission, the rest of PH35-FU-009 (remaining graph edge-case gaps from the broader
+unit suite under graph), and PH35-FU-008 (deterministic interrupt-during-API
+fixture). Re-review recommended before approval.
 
 **Closed by the 2026-06-29 review (commit pending):** *Tool-loop interrupt
 parity* — the loop checks for a pending interrupt at the top of every iteration

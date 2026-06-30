@@ -12,6 +12,7 @@ loader, and the separate-process environment model (injected ``env`` mapping).
 from __future__ import annotations
 
 import logging
+from unittest.mock import MagicMock
 
 import pytest
 import yaml
@@ -158,3 +159,65 @@ def test_separate_process_environments_are_independent():
     cfg = {"agent": {"engine": "loop"}}
     assert resolve_agent_engine(None, env=web_env, config=cfg) == "graph"
     assert resolve_agent_engine(None, env=gateway_env, config=cfg) == "loop"
+
+
+# ── Public dispatcher: AIAgent.run_conversation routes by self.agent_engine ──
+# These exercise the actual seam (not just the resolver): a real AIAgent.method
+# is invoked on a bare instance whose two engine bodies are stubbed, so the
+# dispatch decision — and the "graph error must not fall back to loop" rule — are
+# verified without running a full conversation. (Review P2-6.)
+
+
+def _bare_agent(engine: str):
+    """An AIAgent instance with only ``agent_engine`` set, bypassing __init__."""
+    import run_agent
+
+    agent = object.__new__(run_agent.AIAgent)
+    agent.agent_engine = engine
+    return agent
+
+
+def test_run_conversation_dispatches_to_graph_when_selected():
+    import run_agent
+
+    agent = _bare_agent("graph")
+    agent._run_conversation_graph = MagicMock(return_value={"final_response": "graph"})
+    agent._run_conversation_loop = MagicMock(return_value={"final_response": "loop"})
+
+    out = run_agent.AIAgent.run_conversation(agent, "hello", task_id="t1")
+
+    assert out == {"final_response": "graph"}
+    agent._run_conversation_graph.assert_called_once()
+    agent._run_conversation_loop.assert_not_called()
+    _, kwargs = agent._run_conversation_graph.call_args
+    assert kwargs["user_message"] == "hello"
+    assert kwargs["task_id"] == "t1"
+
+
+def test_run_conversation_dispatches_to_loop_by_default():
+    import run_agent
+
+    agent = _bare_agent("loop")
+    agent._run_conversation_graph = MagicMock()
+    agent._run_conversation_loop = MagicMock(return_value={"final_response": "loop"})
+
+    out = run_agent.AIAgent.run_conversation(agent, "hello")
+
+    assert out == {"final_response": "loop"}
+    agent._run_conversation_loop.assert_called_once()
+    agent._run_conversation_graph.assert_not_called()
+
+
+def test_graph_failure_does_not_fall_back_to_loop():
+    """A graph exception must propagate, never re-run the loop for the same turn
+    (a tool may already have mutated external state — see run_conversation)."""
+    import run_agent
+
+    agent = _bare_agent("graph")
+    agent._run_conversation_graph = MagicMock(side_effect=RuntimeError("graph boom"))
+    agent._run_conversation_loop = MagicMock()
+
+    with pytest.raises(RuntimeError, match="graph boom"):
+        run_agent.AIAgent.run_conversation(agent, "hello")
+
+    agent._run_conversation_loop.assert_not_called()

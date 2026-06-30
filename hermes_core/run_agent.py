@@ -13567,10 +13567,19 @@ class _GraphServicesAdapter:
                 "api_call_count": api_call_count,
             }
 
-        # Plain-text response — a completed turn.  Defer the canonical result
-        # construction and all finalization side effects to ``_finalize_turn``
-        # so every full-completion path shares one frozen exit policy.
-        final_response = content
+        # Plain-text response — a completed turn.  Mirror the loop's text
+        # finalization (run_agent.py:12548-12554): fold in any accumulated
+        # truncation-continuation prefix, then strip think blocks and trim
+        # surrounding whitespace.  Previously the graph used the raw content, so
+        # a final response carrying think blocks or trailing whitespace diverged
+        # from the loop (caught by the widened differential fuzzer, review P1-5).
+        if self._truncated_response_prefix:
+            final_response = self._truncated_response_prefix + content
+            self._truncated_response_prefix = ""
+            self._length_continue_retries = 0
+        else:
+            final_response = content
+        final_response = agent._strip_think_blocks(final_response).strip()
         assistant_msg = agent._build_assistant_message(normalized, finish_reason)
         messages.append(assistant_msg)
 
