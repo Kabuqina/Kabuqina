@@ -15,7 +15,7 @@ from tests.run_agent.test_exit_contract import EXIT_INVENTORY
 GOLDEN_DIR = Path(__file__).parent / "golden"
 RUNTIME_FIXTURES = [
     (scenario, fixture)
-    for _line, scenario, fixture in EXIT_INVENTORY
+    for scenario, fixture in EXIT_INVENTORY
     if fixture is not None
 ]
 

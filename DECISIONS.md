@@ -346,10 +346,19 @@ post-loop side effects on this exit remain PH35-FU-001/002.
 `run_conversation` return-line positions and committed without re-running the
 Task 2 gate: `test_exit_contract.py` and `test_exit_reachability.py` were
 **failing at HEAD** (`ca6832f1`) when Task 7 began, despite the completion notes
-asserting the gates passed. Line numbers were rebased in Task 7 (`0a8b7b8b`).
-Both files hardcode the same 21 return-line numbers and will drift again on any
-`run_agent.py` edit; if this keeps generating false alarms, derive the numbers
-once via AST and assert on scenario *ordering* rather than absolute positions.
+asserting the gates passed. Line numbers were rebased in Task 7 (`0a8b7b8b`) and
+again +45 in Task 10 (`97ef7ac9`) when the selector inserted code above the loop.
+
+**Resolved 2026-06-30 (Task 2 review):** the recommended fix landed. The two
+files no longer hardcode return-line numbers. `EXIT_INVENTORY` is now an ordered
+`(scenario_id, fixture)` list (source order is the contract); `loop_return_lines()`
+derives the 21 returns from `run_agent.py` via AST at test time, and
+`scenario_return_lines()` joins inventory→line by source-order position (with a
+count assertion that fails loudly if a return is added/removed/reordered).
+`test_exit_reachability` imports that mapping instead of duplicating it. Verified
+drift-proof: inserting a line above the loop auto-shifts every derived line and
+the gate stays green with no manual rebase (72 passed). Future `run_agent.py`
+edits — including the Task 11 loop removal — no longer require a line rebase.
 
 **Task 8 status (2026-06-29):** Exit-family parity complete, committed locally,
 not pushed. 8a (budget consumption + max-iteration summary + recursion ceiling,
