@@ -180,6 +180,22 @@ def test_incomplete_usage_pauses_before_accepting_verifier_pass():
     assert transition.next_state.completed_at is None
 
 
+def test_verified_completion_is_allowed_on_the_last_permitted_run():
+    transition = reduce_iteration(
+        _state(),
+        _limits(max_runs=1),
+        _observation(
+            report=_report("candidate_done"),
+            verifier=SimpleNamespace(outcome="pass", summary="ok", evidence={}),
+        ),
+        now=NOW + timedelta(minutes=1),
+    )
+
+    assert transition.next_state.iteration == 1
+    assert transition.next_state.status == "completed"
+    assert transition.reason == "verified_complete"
+
+
 def test_repeated_evidence_pauses_at_no_progress_limit_and_changed_hash_resets():
     repeated = reduce_iteration(
         _state(last_evidence_hash="same", no_progress_count=2),

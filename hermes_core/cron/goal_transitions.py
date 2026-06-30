@@ -77,6 +77,11 @@ def reduce_iteration(
     verifier_outcome = (
         observation.verifier.outcome if observation.verifier is not None else None
     )
+    verified_candidate = (
+        observation.report is not None
+        and observation.report.status == "candidate_done"
+        and verifier_outcome == "pass"
+    )
 
     no_progress_count = state.no_progress_count
     checks_progress = observation.report is not None and (
@@ -108,7 +113,7 @@ def reduce_iteration(
         )
     ):
         diagnostics.append("verifier_error")
-    if iteration >= limits.max_runs:
+    if iteration >= limits.max_runs and not verified_candidate:
         diagnostics.append("max_runs")
     if limits.max_cost_usd is not None and accumulated_cost > limits.max_cost_usd:
         diagnostics.append("max_cost_usd")
@@ -130,11 +135,7 @@ def reduce_iteration(
     elif observation.infrastructure_error is not None:
         status = "scheduled"
         reason = "infrastructure_retry"
-    elif (
-        observation.report is not None
-        and observation.report.status == "candidate_done"
-        and verifier_outcome == "pass"
-    ):
+    elif verified_candidate:
         status = "completed"
         reason = "verified_complete"
     elif (
