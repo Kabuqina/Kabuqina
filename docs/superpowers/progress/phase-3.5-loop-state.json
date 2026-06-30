@@ -4,7 +4,7 @@
   "status": "review_required",
   "attempt": 1,
   "worktree": null,
-  "last_commit": "4ab120ff",
+  "last_commit": "97ef7ac9",
   "last_verification": [
     "Task 10: rollback-safe strangler selector. agent/engine_selector.py:resolve_agent_engine — precedence explicit arg > HERMES_AGENT_ENGINE > agent.engine (profile config) > loop; invalid explicit/env raise ValueError, invalid config warns+falls back to loop.",
     "config_defaults agent.engine: loop (deep-merged, _config_version unchanged). AIAgent resolves once in __init__ (self.agent_engine); public run_conversation dispatches to _run_conversation_graph / renamed _run_conversation_loop with no cross-engine fallback.",

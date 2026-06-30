@@ -683,7 +683,7 @@ Phase 3.5 commits to date:
 
 ```text
 Task 9 equivalence: 4ab120ff (2026-06-29)
-Task 10 selector:   <this commit> (2026-06-30)
+Task 10 selector:   97ef7ac9 (2026-06-30)
 G1 opened: __________ at __________; reviewed by __________
 ```
 
