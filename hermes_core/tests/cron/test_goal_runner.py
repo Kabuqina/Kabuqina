@@ -414,7 +414,7 @@ def test_evidence_fingerprint_ignores_model_text_and_metadata_but_tracks_artifac
     assert build_evidence_fingerprint(definition, changed_text, verifier) != first
 
 
-def test_fault_before_final_state_write_leaves_inflight_state_and_immutable_evidence(
+def test_fault_before_final_state_write_recovers_committed_transition_consistently(
     definition, monkeypatch
 ):
     real_save = goal_runner.save_goal_state
@@ -445,15 +445,23 @@ def test_fault_before_final_state_write_leaves_inflight_state_and_immutable_evid
     )
     assert report_path.exists()
     original = report_path.read_bytes()
+    transition_path = report_path.with_name("transition.json")
+    committed_transition = json.loads(transition_path.read_text(encoding="utf-8"))
+    assert committed_transition["next_status"] == "scheduled"
 
     monkeypatch.setattr(goal_runner, "save_goal_state", real_save)
+    recovery_worker = FakeWorker(_worker_observation())
     recovered = run_goal_iteration(
         definition,
-        worker=FakeWorker(_worker_observation()),
+        worker=recovery_worker,
         verifier=FakeVerifier(),
         now=NOW + timedelta(minutes=1),
     )
-    assert recovered.transition.reason == "recovery_review"
+    assert recovery_worker.calls == []
+    assert recovered.transition.reason == "progress"
+    assert recovered.transition.next_state.status == "scheduled"
+    assert load_goal_state(JOB_ID) == recovered.transition.next_state
+    assert json.loads(transition_path.read_text(encoding="utf-8"))["next_status"] == load_goal_state(JOB_ID).status
     assert report_path.read_bytes() == original
 
 

@@ -15,6 +15,8 @@ from cron.goal_state import (
     GoalRunState,
     GoalStateError,
     JSONValue,
+    goal_state_from_json,
+    goal_state_to_json,
     goal_run_dir,
     load_goal_state,
     new_goal_state,
@@ -180,6 +182,7 @@ def _transition_to_json(transition: GoalTransition) -> dict[str, JSONValue]:
         "infrastructure_failures": state.infrastructure_failures,
         "last_evidence_hash": state.last_evidence_hash,
         "updated_at": state.updated_at.isoformat(),
+        "next_state": goal_state_to_json(state),
     }
 
 
@@ -249,21 +252,56 @@ def _persist_transition(
 
 
 def _recover_inflight(state: GoalRunState, *, now: datetime) -> GoalIterationResult:
+    iteration = max(1, state.iteration)
+    transition_path = goal_run_dir(state.job_id) / "iterations" / f"{iteration:06d}" / "transition.json"
+    if transition_path.exists():
+        try:
+            raw = json.loads(transition_path.read_text(encoding="utf-8"))
+            next_state = goal_state_from_json(raw["next_state"], state.job_id)
+            previous_status = raw["previous_status"]
+            reason = raw["reason"]
+            should_deliver = raw["should_deliver"]
+        except (OSError, json.JSONDecodeError, KeyError, TypeError, GoalStateError) as exc:
+            raise GoalRunnerError(
+                f"committed transition for {state.job_id!r}#{iteration} is invalid"
+            ) from exc
+        if (
+            raw.get("next_status") != next_state.status
+            or raw.get("iteration") != next_state.iteration
+            or next_state.iteration != state.iteration
+            or previous_status not in {"scheduled", "running", "verifying"}
+            or not isinstance(reason, str)
+            or not isinstance(should_deliver, bool)
+        ):
+            raise GoalRunnerError(
+                f"committed transition for {state.job_id!r}#{iteration} is inconsistent"
+            )
+        transition = GoalTransition(
+            previous_status=previous_status,
+            next_state=next_state,
+            reason=reason,
+            should_deliver=should_deliver,
+        )
+        save_goal_state(next_state)
+        return GoalIterationResult(
+            transition=transition,
+            full_output="",
+            delivery_text=_delivery_text(transition),
+            evidence_path=transition_path,
+        )
+
     transition = _pause_transition(
         state,
         "recovery_review",
         now=now,
         last_error="prior iteration stopped while in flight; automatic replay refused",
     )
-    iteration = max(1, state.iteration)
-    transition_path = goal_run_dir(state.job_id) / "iterations" / f"{iteration:06d}" / "transition.json"
-    if not transition_path.exists():
-        transition_path = save_iteration_record(
-            state.job_id,
-            iteration,
-            "transition",
-            _transition_to_json(transition),
-        )
+    transition_path = save_iteration_record(
+        state.job_id,
+        iteration,
+        "transition",
+        _transition_to_json(transition),
+    )
     save_goal_state(transition.next_state)
     return GoalIterationResult(
         transition=transition,

@@ -41,6 +41,8 @@ __all__ = [
     "GoalDefinition",
     "GoalRunState",
     "GoalStateError",
+    "goal_state_to_json",
+    "goal_state_from_json",
     "goal_run_dir",
     "new_goal_state",
     "load_goal_state",
@@ -288,6 +290,16 @@ def _deserialize_state(raw: object, job_id: str) -> GoalRunState:
         raise GoalStateError(
             f"malformed goal state for {job_id!r}: {exc}"
         ) from exc
+
+
+def goal_state_to_json(state: GoalRunState) -> dict[str, JSONValue]:
+    """Return the canonical JSON representation used by durable state records."""
+    return _serialize_state(state)
+
+
+def goal_state_from_json(raw: object, job_id: str) -> GoalRunState:
+    """Decode state while binding it to the trusted containing job identity."""
+    return _deserialize_state(raw, job_id)
 
 
 # ---------------------------------------------------------------------------
