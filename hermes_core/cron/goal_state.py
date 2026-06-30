@@ -248,6 +248,12 @@ def _deserialize_state(raw: object, job_id: str) -> GoalRunState:
             f"unsupported goal state schema version {version!r} for {job_id!r}"
         )
 
+    stored_job_id = raw.get("job_id")
+    if stored_job_id != job_id:
+        raise GoalStateError(
+            f"goal state job id mismatch: expected {job_id!r}, found {stored_job_id!r}"
+        )
+
     status = raw.get("status")
     if status not in _VALID_STATUSES:
         raise GoalStateError(f"unknown goal status {status!r} for {job_id!r}")
@@ -258,7 +264,7 @@ def _deserialize_state(raw: object, job_id: str) -> GoalRunState:
             raise GoalStateError(f"goal state for {job_id!r} missing updated_at")
         return GoalRunState(
             schema_version=_SCHEMA_VERSION,
-            job_id=str(raw["job_id"]),
+            job_id=job_id,
             status=status,  # type: ignore[arg-type]
             iteration=int(raw["iteration"]),
             accumulated_cost_usd=Decimal(str(raw["accumulated_cost_usd"])),

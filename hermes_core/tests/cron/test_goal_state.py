@@ -225,6 +225,26 @@ class TestRejectsCorruptState:
         with pytest.raises(GoalStateError):
             load_goal_state(JOB_ID)
 
+    def test_committed_job_id_must_match_its_goal_directory(self, goal_home):
+        from cron.goal_state import (
+            GoalStateError,
+            goal_run_dir,
+            load_goal_state,
+            new_goal_state,
+            save_goal_state,
+        )
+
+        other_job_id = "def456abc123"
+        state_path = save_goal_state(new_goal_state(JOB_ID, now=_now()))
+        payload = json.loads(state_path.read_text(encoding="utf-8"))
+        payload["job_id"] = other_job_id
+        state_path.write_text(json.dumps(payload), encoding="utf-8")
+
+        with pytest.raises(GoalStateError, match="job id mismatch"):
+            load_goal_state(JOB_ID)
+
+        assert not goal_run_dir(other_job_id).exists()
+
 
 # ---------------------------------------------------------------------------
 # Immutable iteration records
