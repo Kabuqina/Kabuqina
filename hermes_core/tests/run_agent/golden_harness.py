@@ -609,8 +609,14 @@ def _fallback_patch(fallback_model):
         yield
 
 
-def replay_transcript(spec: Dict[str, Any], engine: str = "loop") -> Dict[str, Any]:
+def replay_transcript(
+    spec: Dict[str, Any], engine: str = "loop", usage_sink=None
+) -> Dict[str, Any]:
     """Replay one transcript against a real ``AIAgent`` and return the snapshot.
+
+    ``usage_sink`` (optional) is wired onto the agent as its ``UsageEventSink``
+    so a test can assert the per-attempt usage events either engine emits.  It
+    does not appear in the returned snapshot — the goldens stay sink-agnostic.
 
     ``engine`` selects the conversation driver:
 
@@ -676,6 +682,7 @@ def replay_transcript(spec: Dict[str, Any], engine: str = "loop") -> Dict[str, A
             quiet_mode=True,
             skip_context_files=True,
             skip_memory=True,
+            usage_sink=usage_sink,
             status_callback=lambda kind, message: callback_events.append(
                 {"channel": "status", "kind": kind, "message": message}
             ),

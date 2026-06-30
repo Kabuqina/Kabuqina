@@ -30,6 +30,7 @@ try:
         _chat_response,
         _patches,
         _ScriptedClock,
+        replay_transcript,
     )
 except ImportError:
     from golden_harness import (
@@ -40,6 +41,7 @@ except ImportError:
         _chat_response,
         _patches,
         _ScriptedClock,
+        replay_transcript,
     )
 
 from agent.usage_events import (
@@ -197,3 +199,78 @@ def test_usage_ledger_unknown_cost_incomplete():
     snap = ledger.snapshot()
     assert snap.complete is False
     assert snap.total_cost is None
+
+
+# ── Review remediation: per-attempt index (P1-4), aux usage (P1-3), and
+#    engine-neutral loop emission (PH35-FU-007). ──────────────────────────────
+
+
+def _events_for(fixture: str, engine: str) -> List[UsageEvent]:
+    spec = json.loads((GOLDEN_DIR / fixture).read_text(encoding="utf-8"))
+    sink = _RecordingSink()
+    replay_transcript(spec, engine=engine, usage_sink=sink)
+    return sink.events
+
+
+def test_attempt_index_is_unique_and_monotonic_across_retries():
+    """Review P1-4: each transport attempt gets a distinct, monotonic index.
+
+    The graph previously set ``attempt_index = state["api_call_count"]`` — a
+    per-model-turn counter — so consecutive retries within one model turn
+    collided (observed ``[0, 1, 1]``).  ``exit_api_retries`` drives the retry
+    ladder to exhaustion, so it emits several attempts in one turn.
+    """
+    events = _events_for("exit_api_retries.json", "graph")
+    indices = [e.attempt_index for e in events]
+    assert len(indices) >= 2, f"expected multiple transport attempts, got {indices}"
+    assert indices == list(range(len(indices))), (
+        f"attempt_index must be unique + monotonic 0..n-1, got {indices}"
+    )
+
+
+def test_aux_summary_event_records_real_usage():
+    """Review P1-3: the max-iteration summary event carries the real aux-call
+    usage, not a ``response=None`` placeholder (which lost the tokens)."""
+    events = _events_for("max_iterations.json", "graph")
+    summary = [e for e in events if e.route == "summarize_on_budget"]
+    assert len(summary) >= 1, f"no summary usage event; routes={[e.route for e in events]}"
+    ev = summary[0]
+    assert ev.usage is not None, "summary event lost the real aux-call usage"
+    # max_iterations.json's summary_response declares prompt=150, completion=14.
+    assert ev.input_tokens == 150, ev.input_tokens
+    assert ev.output_tokens == 14, ev.output_tokens
+
+
+def test_loop_and_graph_emit_matching_success_event():
+    """PH35-FU-007: with a sink wired, the legacy loop emits the same per-attempt
+    success event as the graph (shared ``_record_usage_attempt``), so a
+    ``UsageLedger`` can be compared across engines.  Without a sink the recorder
+    is a strict no-op, so the default path and the frozen result are unchanged.
+    """
+    loop_events = _events_for("plain_text.json", "loop")
+    graph_events = _events_for("plain_text.json", "graph")
+
+    assert len(loop_events) == 1, [e.outcome for e in loop_events]
+    assert len(graph_events) == 1, [e.outcome for e in graph_events]
+    le, ge = loop_events[0], graph_events[0]
+    assert le.attempt_index == ge.attempt_index == 0
+    assert le.outcome == ge.outcome == "success"
+    assert le.route == ge.route == "call_transport"
+    assert le.usage == ge.usage
+    assert le.cost.status == ge.cost.status
+
+
+def test_recorder_is_noop_without_sink():
+    """The engine-neutral recorder must not touch the counter or result when no
+    sink is configured (so sink-less production callers pay nothing)."""
+    import run_agent
+
+    with _patches([], _ToolStub({}), "chat_completions"):
+        agent = run_agent.AIAgent(
+            api_key="k", base_url="https://api.openai.com/v1", provider="openai",
+            api_mode="chat_completions", model="gpt-4o", quiet_mode=True,
+            skip_context_files=True, skip_memory=True,  # no usage_sink
+        )
+    assert agent._usage_sink is None
+    agent._record_usage_attempt(outcome="success", response=None)
+    assert agent._usage_attempt_index == 0  # counter did not advance

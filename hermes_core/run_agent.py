@@ -1071,6 +1071,7 @@ class AIAgent:
         self.load_soul_identity = load_soul_identity
         self.pass_session_id = pass_session_id
         self._usage_sink = usage_sink  # Phase 3.5: optional per-transport-attempt event sink
+        self._usage_attempt_index = 0  # Per-turn monotonic UsageEvent index (review P1-4)
         self._graph_engine = None  # Phase 3.5: lazy-initialised GraphEngine instance
         # Phase 3.5 strangler selector: resolve the conversation engine once,
         # before any per-turn setup or side effect.  Precedence: explicit arg >
@@ -9354,6 +9355,13 @@ class AIAgent:
                 summary_response = self._ensure_primary_openai_client(reason="iteration_limit_summary").chat.completions.create(**summary_kwargs)
                 _summary_result = self._get_transport().normalize_response(summary_response)
                 final_response = (_summary_result.content or "").strip()
+            # Record the real auxiliary summary call's usage (review P1-3): the
+            # graph previously emitted one response=None event, losing the
+            # actual tokens; recording here covers both engines and both the
+            # anthropic and chat-completions branches.
+            self._record_usage_attempt(
+                outcome="summary", route="summarize_on_budget", response=summary_response
+            )
 
             if final_response:
                 if "<think>" in final_response:
@@ -9373,6 +9381,9 @@ class AIAgent:
                     retry_response = self._anthropic_messages_create(_ant_kw2)
                     _retry_result = _tretry.normalize_response(retry_response, strip_tool_prefix=self._is_anthropic_oauth)
                     final_response = (_retry_result.content or "").strip()
+                    self._record_usage_attempt(
+                        outcome="summary", route="summarize_on_budget", response=retry_response
+                    )
                 else:
                     summary_kwargs = {
                         "model": self.model,
@@ -9390,6 +9401,9 @@ class AIAgent:
                     summary_response = self._ensure_primary_openai_client(reason="iteration_limit_summary_retry").chat.completions.create(**summary_kwargs)
                     _retry_result = self._get_transport().normalize_response(summary_response)
                     final_response = (_retry_result.content or "").strip()
+                    self._record_usage_attempt(
+                        outcome="summary", route="summarize_on_budget", response=summary_response
+                    )
 
                 if final_response:
                     if "<think>" in final_response:
@@ -9406,6 +9420,68 @@ class AIAgent:
             final_response = f"I reached the maximum iterations ({self.max_iterations}) but couldn't summarize. Error: {str(e)}"
 
         return final_response
+
+    def _record_usage_attempt(
+        self,
+        outcome: str,
+        route: str = "call_transport",
+        response: Any = None,
+    ) -> None:
+        """Record one transport/auxiliary attempt to the optional usage sink.
+
+        Engine-neutral (Phase 3.5 PH35-FU-007): called by both the legacy loop
+        and the graph adapter so a ``UsageLedger`` observes the same per-attempt
+        event sequence on either engine.  ``attempt_index`` is a per-turn
+        monotonic counter (``_usage_attempt_index``, reset at turn start), so
+        retries within one model turn never collide on the same index — the bug
+        the graph had when it derived the index from ``api_call_count`` (review
+        P1-4).
+
+        A strict no-op when no sink is configured: it does not even advance the
+        counter, so sink-less callers (the default) pay nothing and the frozen
+        ``LegacyRunResult`` dictionary is never touched.
+        """
+        if self._usage_sink is None:
+            return
+        try:
+            from agent.usage_events import UsageEvent
+
+            billing_route = resolve_billing_route(
+                self.model, provider=self.provider, base_url=self.base_url
+            )
+            canonical_usage = None
+            if response is not None and getattr(response, "usage", None) is not None:
+                canonical_usage = normalize_usage(
+                    response.usage, provider=self.provider, api_mode=self.api_mode
+                )
+            if canonical_usage is None:
+                cost = CostResult(
+                    amount_usd=None,
+                    status="unknown",
+                    source="none",
+                    label="n/a",
+                    notes=("usage unavailable",),
+                )
+            else:
+                cost = estimate_usage_cost(
+                    self.model,
+                    canonical_usage,
+                    provider=self.provider,
+                    base_url=self.base_url,
+                    api_key=getattr(self, "api_key", ""),
+                )
+            event = UsageEvent(
+                attempt_index=self._usage_attempt_index,
+                outcome=outcome,
+                route=route,
+                billing_route=billing_route,
+                usage=canonical_usage,
+                cost=cost,
+            )
+            self._usage_attempt_index += 1
+            self._usage_sink.on_attempt(event)
+        except Exception:
+            logger.warning("usage event sink failed", exc_info=True)
 
     def run_conversation(
         self,
@@ -9520,6 +9596,7 @@ class AIAgent:
         self._last_content_tools_all_housekeeping = False
         self._mute_post_response = False
         self._unicode_sanitization_passes = 0
+        self._usage_attempt_index = 0  # Per-turn UsageEvent index (review P1-4)
 
         # Pre-turn connection health check: detect and clean up dead TCP
         # connections left over from provider outages or dropped streams.
@@ -10683,6 +10760,14 @@ class AIAgent:
                             self.session_estimated_cost_usd += float(cost_result.amount_usd)
                         self.session_cost_status = cost_result.status
                         self.session_cost_source = cost_result.source
+
+                        # Engine-neutral usage sink (PH35-FU-007): record this
+                        # successful transport attempt so a UsageLedger sees the
+                        # same per-attempt event the graph emits.  No-op without
+                        # a sink, so the default path is unchanged.
+                        self._record_usage_attempt(
+                            outcome="success", route="call_transport", response=response
+                        )
 
                         # Persist token counts to session DB for /insights.
                         # Do this for every platform with a session_id so non-CLI
@@ -12971,6 +13056,7 @@ class _GraphServicesAdapter:
         agent._last_content_tools_all_housekeeping = False
         agent._mute_post_response = False
         agent._unicode_sanitization_passes = 0
+        agent._usage_attempt_index = 0  # Per-turn UsageEvent index (review P1-4)
 
         # Copy conversation and add user message
         messages = list(conversation_history) if conversation_history else []
@@ -14369,11 +14455,10 @@ class _GraphServicesAdapter:
                 f"I reached the maximum iterations ({agent.max_iterations}) "
                 f"but couldn't summarize. Error: {exc}"
             )
-        # Auxiliary model call → record a usage event so the turn ledger knows it
-        # happened (unknown cost; full pricing is PH35-FU-002).
-        self._emit_usage_event(
-            state, outcome="summary", route="summarize_on_budget"
-        )
+        # NOTE: the auxiliary summary call's usage event(s) are recorded inside
+        # ``_handle_max_iterations`` itself, with the real response usage and one
+        # event per actual call (summary + optional retry) — review P1-3.  Do
+        # not re-emit here, which previously logged a single response=None event.
         # Max-iteration summary is a completed turn — share the full finalizer.
         return {
             "route": "finish",
@@ -14738,61 +14823,18 @@ class _GraphServicesAdapter:
         response: Any = None,
         route: str = "call_transport",
     ) -> None:
-        """Emit a UsageEvent to the optional sink configured on the agent.
+        """Record one usage attempt via the engine-neutral agent recorder.
 
-        ``route`` distinguishes the primary transport from agent-owned auxiliary
-        model calls (e.g. the max-iteration summary), so a turn ledger can tell
-        whether every attempted request was observed.
+        Delegates to ``AIAgent._record_usage_attempt`` so the loop and graph
+        emit the same per-attempt event sequence.  ``state`` is intentionally
+        no longer consulted for the attempt index: the legacy code used
+        ``state["api_call_count"]`` (a per-model-turn counter), so consecutive
+        retries within one model turn collided on the same index (review P1-4).
+        The index is now a per-turn monotonic counter owned by the agent.
         """
-        agent = self._agent
-        if agent._usage_sink is None:
-            return
-        try:
-            from agent.usage_events import UsageEvent
-
-            billing_route = resolve_billing_route(
-                agent.model,
-                provider=agent.provider,
-                base_url=agent.base_url,
-            )
-            canonical_usage = None
-            if response is not None and hasattr(response, "usage"):
-                raw_usage = response.usage
-                if raw_usage is not None:
-                    canonical_usage = normalize_usage(
-                        raw_usage,
-                        provider=agent.provider,
-                        api_mode=agent.api_mode,
-                    )
-
-            if canonical_usage is None:
-                cost = CostResult(
-                    amount_usd=None,
-                    status="unknown",
-                    source="none",
-                    label="n/a",
-                    notes=("usage unavailable",),
-                )
-            else:
-                cost = estimate_usage_cost(
-                    agent.model,
-                    canonical_usage,
-                    provider=agent.provider,
-                    base_url=agent.base_url,
-                    api_key=getattr(agent, "api_key", ""),
-                )
-
-            event = UsageEvent(
-                attempt_index=state.get("api_call_count", 0),
-                outcome=outcome,
-                route=route,
-                billing_route=billing_route,
-                usage=canonical_usage,
-                cost=cost,
-            )
-            agent._usage_sink.on_attempt(event)
-        except Exception:
-            pass  # sink errors must never alter the agent result
+        self._agent._record_usage_attempt(
+            outcome=outcome, route=route, response=response
+        )
 
 
 
