@@ -238,6 +238,14 @@
     "cleanup_task_ids": [
       "golden-task-0001"
     ],
-    "clear_interrupt_calls": 1
+    "clear_interrupt_calls": 1,
+    "lifecycle_calls": {
+      "restore_primary_runtime": 1,
+      "hydrate_todo_store": 0,
+      "scrubber_reset": 1,
+      "sync_external_memory_for_turn": 1,
+      "spawn_background_review": 0,
+      "user_turn_count_delta": 1
+    }
   }
 }

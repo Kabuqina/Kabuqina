@@ -12908,6 +12908,9 @@ class _GraphServicesAdapter:
         # active prompt — mirroring the loop, which always passes its original
         # ``system_message`` local to ``_compress_context``.
         self._original_system_message: Any = None
+        # Memory nudge decision, computed in ``initialize_turn`` (loop prefix)
+        # and consumed by ``_finalize_turn`` for the background review (P1-1/P1-2).
+        self._should_review_memory: bool = False
 
     # ── Plain-text route (Task 4) ───────────────────────────────────────
 
@@ -12920,9 +12923,33 @@ class _GraphServicesAdapter:
         """Bootstrap a fresh agent turn (graph equivalent of loop init)."""
         agent = self._agent
 
-        # Sanitize surrogate characters from user input
+        # ── Turn prefix side effects the loop runs before the tool loop
+        # (run_agent.py:9483-9536) that the graph previously skipped (P1-1). ──
+        # Tag log records on this thread with the session id.
+        from hermes_logging import set_session_context
+        set_session_context(agent.session_id)
+        # Restore the primary runtime if a previous turn fell back, so a cached
+        # agent (gateway/CLI session reuse) doesn't stay pinned to the fallback
+        # model for every subsequent graph turn.
+        agent._restore_primary_runtime()
+        # Pre-turn connection health check (non-anthropic), mirroring loop:9527.
+        if agent.api_mode != "anthropic_messages":
+            try:
+                if agent._cleanup_dead_connections():
+                    agent._emit_status(
+                        "🔌 Detected stale connections from a previous provider "
+                        "issue — cleaned up automatically. Proceeding with fresh "
+                        "connection."
+                    )
+            except Exception:
+                pass
+
+        # Sanitize surrogate characters from user input (both the API-facing
+        # message and the persisted clean message, mirroring loop:9494-9497).
         if isinstance(user_message, str):
             user_message = _sanitize_surrogates(user_message)
+        if isinstance(persist_user_message, str):
+            persist_user_message = _sanitize_surrogates(persist_user_message)
 
         # The clean message used by lifecycle hooks and trajectory logging.
         self._original_user_message = (
@@ -12947,6 +12974,28 @@ class _GraphServicesAdapter:
 
         # Copy conversation and add user message
         messages = list(conversation_history) if conversation_history else []
+
+        # Hydrate the todo store from history (gateway builds a fresh agent per
+        # message, so the in-memory store starts empty), mirroring loop:9565.
+        if conversation_history and not agent._todo_store.has_items():
+            agent._hydrate_todo_store(conversation_history)
+
+        # Turn counting + scrubber reset + memory nudge (loop:9574-9596).
+        agent._user_turn_count += 1
+        _scrubber = getattr(agent, "_stream_context_scrubber", None)
+        if _scrubber is not None:
+            _scrubber.reset()
+        self._should_review_memory = False
+        if (
+            agent._memory_nudge_interval > 0
+            and "memory" in agent.valid_tool_names
+            and agent._memory_store
+        ):
+            agent._turns_since_memory += 1
+            if agent._turns_since_memory >= agent._memory_nudge_interval:
+                self._should_review_memory = True
+                agent._turns_since_memory = 0
+
         user_msg = {"role": "user", "content": user_message}
         messages.append(user_msg)
         current_turn_user_idx = len(messages) - 1
@@ -13129,6 +13178,15 @@ class _GraphServicesAdapter:
                     "messages": messages,
                     "api_call_count": api_call_count,
                 }
+            # Track tool-calling iterations for the skill nudge, once per fresh
+            # non-exhausted iteration (loop:9874-9878).  Consumed in
+            # ``_finalize_turn``; reset to 0 when skill_manage is actually used
+            # (shared ``_execute_tool_calls`` path).
+            if (
+                agent._skill_nudge_interval > 0
+                and "skill_manage" in agent.valid_tool_names
+            ):
+                agent._iters_since_skill += 1
 
         # ── Nous rate guard (mirrors legacy loop pre-call check) ─────
         _provider = getattr(agent, "provider", "") or ""
@@ -14455,6 +14513,41 @@ class _GraphServicesAdapter:
         except Exception:
             pass
         agent._stream_callback = None
+
+        # ── Post-response finalizer steps the graph previously skipped (P1-2):
+        # skill nudge, external-memory sync, and background memory/skill review
+        # (loop:12689-12714). ──
+        _should_review_skills = False
+        if (
+            agent._skill_nudge_interval > 0
+            and agent._iters_since_skill >= agent._skill_nudge_interval
+            and "skill_manage" in agent.valid_tool_names
+        ):
+            _should_review_skills = True
+            agent._iters_since_skill = 0
+
+        # External memory provider: sync the completed turn + queue next prefetch
+        # (unconditional, internally a no-op without a provider — loop:12698).
+        agent._sync_external_memory_for_turn(
+            original_user_message=self._original_user_message,
+            final_response=final_response,
+            interrupted=interrupted,
+        )
+
+        # Background memory/skill review — best-effort, after delivery (loop:12706).
+        if (
+            final_response
+            and not interrupted
+            and (self._should_review_memory or _should_review_skills)
+        ):
+            try:
+                agent._spawn_background_review(
+                    messages_snapshot=list(messages),
+                    review_memory=self._should_review_memory,
+                    review_skills=_should_review_skills,
+                )
+            except Exception:
+                pass  # Background review is best-effort
 
         # Plugin hook: on_session_end (always, at the very end of the turn).
         self._fire_on_session_end(completed, interrupted)

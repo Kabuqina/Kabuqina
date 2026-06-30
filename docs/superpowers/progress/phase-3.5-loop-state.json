@@ -1,7 +1,7 @@
 {
   "plan": "docs/superpowers/specs/2026-06-24-consolidate-and-langgraph-replatform-plan.md",
-  "current_task": 10,
-  "status": "review_required",
+  "current_task": "10-review-remediation",
+  "status": "in_progress",
   "attempt": 1,
   "worktree": null,
   "last_commit": "97ef7ac9",
@@ -19,5 +19,5 @@
     "Task 9 finalize markers were dropped by StateGraph(TurnState) until declared as NotRequired channels (finalize/final_response/turn_interrupted)."
   ],
   "blocker": null,
-  "next_action": "Commit Task 10 locally; stop for human review (do not push). Open work before G1/Task 11: PH35-FU-007 (loop-side usage-event emission), PH35-FU-009 (22 graph edge-case equivalence gaps -> pin as loop fixtures then fix), PH35-FU-008 (pin a deterministic interrupt-during-API fixture + route graph through _finalize_turn)."
+  "next_action": "Tasks 8/9/10 review NOT APPROVED (5xP1+1xP2). Group A (P1-1 graph turn-prefix + P1-2 finalizer memory/review) DONE: harness lifecycle_calls observation + graph parity; deterministic gate 251 passed twice. Remaining review groups: B = P1-3/P1-4 (aux usage event fake + attempt_index duplication; fold in PH35-FU-007 loop-side emission), C = P1-5 (fuzzer must generate unknown-tool/truncation/retryable-error; ties to PH35-FU-009), D = P2-6 (test AIAgent(agent_engine=...) dispatch + no-fallback; correct 17-vs-22 miscount). Then PH35-FU-008. Commit locally per group, do NOT push, stop for review."
 }

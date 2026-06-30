@@ -332,6 +332,45 @@ the dispatcher/selector inserted above the loop body. **G1 stays closed**: its
 usage-event-sink prerequisite is PH35-FU-007 (loop-side emission), still open,
 plus Goal Runner Tasks 1–6 and human review.
 
+**Tasks 8/9/10 external review (2026-06-30) — NOT APPROVED; 5×P1 + 1×P2.** All
+six verified against source. The Task 9 "full observable equivalence" claim was
+overstated: it held only over the snapshot fields the golden harness observed,
+and both that observation set and the differential fuzzer's input space were too
+narrow, so genuinely divergent side effects passed silently.
+- **P1-1** Graph turn-prefix incomplete: `_run_conversation_graph`/`initialize_turn`
+  skipped `_restore_primary_runtime` (fallback stickiness on cached agents), todo
+  hydration, scrubber reset, and the memory nudge.
+- **P1-2** Graph finalizer (`_finalize_turn`) dropped `_sync_external_memory_for_turn`
+  and the background memory/skill review; the golden snapshot didn't observe them.
+- **P1-3** Aux-model usage event is fake: `summarize_on_budget` emits one
+  `response=None` event (null usage/cost) for a real billed call.
+- **P1-4** Retry usage event `attempt_index` duplicates (uses `api_call_count`,
+  a per-model-turn counter, not transport attempts) → `[(0,err),(1,err),(1,err)]`.
+- **P1-5** Differential fuzzer never generates unknown-tool / truncation /
+  retryable-error turns — why it missed the 22 PH35-FU-009 gaps.
+- **P2-6** `test_engine_selector` only tests the resolver, never constructs
+  `AIAgent(agent_engine=…)` to prove dispatch + no cross-engine fallback; and it
+  is **17 tests, not the "22" recorded** (a factual error in the Task 10 notes).
+
+**Group A (P1-1 + P1-2) resolved 2026-06-30 — observe→fix→verify.** The golden
+harness now records a `lifecycle_calls` snapshot field (counts of
+`_restore_primary_runtime`, `_hydrate_todo_store`, scrubber reset,
+`_sync_external_memory_for_turn`, `_spawn_background_review`, plus the
+`_user_turn_count` delta). Re-recording the goldens from the loop (only that
+field changed) turned the 27 graph cases red, proving the gap; the graph was then
+brought to parity: `initialize_turn` now runs `set_session_context`,
+`_restore_primary_runtime`, the non-anthropic dead-connection check, persist-arg
+surrogate sanitize, todo hydration, `_user_turn_count++`, scrubber reset, and the
+memory-nudge `_should_review_memory` decision; `prepare_request` increments
+`_iters_since_skill` once per fresh non-exhausted iteration; `_finalize_turn`
+runs the skill-nudge check, `_sync_external_memory_for_turn` (unconditional), and
+the conditional background review — matching the loop's order and its
+early-exit-vs-completion split (sync runs only on full completion, not early
+exits). Deterministic gate (golden+exit+retry+hook+usage+differential) = 251
+passed twice; loop unit tests unaffected (33 passed). The differential fuzzer now
+also compares `lifecycle_calls` for free. Remaining: B (P1-3/P1-4 usage events),
+C (P1-5 fuzzer breadth), D (P2-6 dispatcher test + miscount).
+
 **Closed by the 2026-06-29 review (commit pending):** *Tool-loop interrupt
 parity* — the loop checks for a pending interrupt at the top of every iteration
 (run_agent.py:9773) and breaks before the next API call; the graph had no such

@@ -233,6 +233,14 @@
       }
     ],
     "cleanup_task_ids": [],
-    "clear_interrupt_calls": 0
+    "clear_interrupt_calls": 0,
+    "lifecycle_calls": {
+      "restore_primary_runtime": 1,
+      "hydrate_todo_store": 0,
+      "scrubber_reset": 1,
+      "sync_external_memory_for_turn": 0,
+      "spawn_background_review": 0,
+      "user_turn_count_delta": 1
+    }
   }
 }

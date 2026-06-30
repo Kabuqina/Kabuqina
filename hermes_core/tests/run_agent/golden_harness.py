@@ -462,6 +462,7 @@ def _snapshot(
     clear_interrupt_calls,
     callback_events,
     trajectory_writes,
+    lifecycle_calls,
 ) -> Dict[str, Any]:
     return {
         # Exact result-key presence (adding an absent key is a behavior change).
@@ -510,6 +511,12 @@ def _snapshot(
         "hook_calls": hook_recorder.calls,
         "cleanup_task_ids": list(cleanup_task_ids),
         "clear_interrupt_calls": clear_interrupt_calls,
+        # Turn-lifecycle side effects the loop runs at its prefix/finalizer that
+        # the snapshot previously did not observe (Group A review remediation):
+        # restore-primary-runtime, todo hydration, scrubber reset, the memory
+        # nudge turn counter, external-memory sync, and background review.  A
+        # graph that skips any of these diverges here.
+        "lifecycle_calls": dict(lifecycle_calls),
     }
 
 
@@ -735,6 +742,42 @@ def replay_transcript(spec: Dict[str, Any], engine: str = "loop") -> Dict[str, A
         agent._cleanup_task_resources = _observed_cleanup
         agent.clear_interrupt = _observed_clear
 
+        # Observe turn-lifecycle side effects (Group A review remediation): the
+        # loop runs these at its turn prefix and finalizer; the graph must too.
+        # Counting them at their boundaries puts them in the frozen snapshot, so
+        # a graph that skips one (P1-1/P1-2) diverges from the loop here.
+        lifecycle_calls = {
+            "restore_primary_runtime": 0,
+            "hydrate_todo_store": 0,
+            "scrubber_reset": 0,
+            "sync_external_memory_for_turn": 0,
+            "spawn_background_review": 0,
+        }
+        _initial_user_turns = agent._user_turn_count
+
+        def _count_calls(name, real):
+            def _wrapped(*a, _name=name, _real=real, **k):
+                lifecycle_calls[_name] += 1
+                return _real(*a, **k)
+
+            return _wrapped
+
+        agent._restore_primary_runtime = _count_calls(
+            "restore_primary_runtime", agent._restore_primary_runtime
+        )
+        agent._hydrate_todo_store = _count_calls(
+            "hydrate_todo_store", agent._hydrate_todo_store
+        )
+        agent._sync_external_memory_for_turn = _count_calls(
+            "sync_external_memory_for_turn", agent._sync_external_memory_for_turn
+        )
+        agent._spawn_background_review = _count_calls(
+            "spawn_background_review", agent._spawn_background_review
+        )
+        _scrubber = getattr(agent, "_stream_context_scrubber", None)
+        if _scrubber is not None:
+            _scrubber.reset = _count_calls("scrubber_reset", _scrubber.reset)
+
         transport.agent = agent
         if api_mode == "anthropic_messages":
             agent._anthropic_messages_create = transport
@@ -783,6 +826,10 @@ def replay_transcript(spec: Dict[str, Any], engine: str = "loop") -> Dict[str, A
             "threshold_tokens"
         )
 
+    # The memory nudge increments _user_turn_count once per turn (loop:9574);
+    # observe it as a delta so a graph that skips the nudge counter diverges.
+    lifecycle_calls["user_turn_count_delta"] = agent._user_turn_count - _initial_user_turns
+
     return _snapshot(
         result,
         agent,
@@ -794,4 +841,5 @@ def replay_transcript(spec: Dict[str, Any], engine: str = "loop") -> Dict[str, A
         clear_interrupt_calls[0],
         callback_events,
         trajectory_writes,
+        lifecycle_calls,
     )
