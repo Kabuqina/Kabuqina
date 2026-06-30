@@ -994,6 +994,7 @@ class AIAgent:
         checkpoint_max_snapshots: int = 50,
         pass_session_id: bool = False,
         usage_sink: "UsageEventSink" = None,  # Phase 3.5: optional per-transport-attempt event sink
+        agent_engine: str = None,  # Phase 3.5: "loop" | "graph"; None resolves via engine_selector
     ):
         """
         Initialize the AI Agent.
@@ -1071,6 +1072,11 @@ class AIAgent:
         self.pass_session_id = pass_session_id
         self._usage_sink = usage_sink  # Phase 3.5: optional per-transport-attempt event sink
         self._graph_engine = None  # Phase 3.5: lazy-initialised GraphEngine instance
+        # Phase 3.5 strangler selector: resolve the conversation engine once,
+        # before any per-turn setup or side effect.  Precedence: explicit arg >
+        # HERMES_AGENT_ENGINE > agent.engine (profile config) > "loop".
+        from agent.engine_selector import resolve_agent_engine
+        self.agent_engine = resolve_agent_engine(agent_engine)
         self._credential_pool = credential_pool
         self.log_prefix_chars = log_prefix_chars
         self.log_prefix = f"{log_prefix} " if log_prefix else ""
@@ -9402,6 +9408,45 @@ class AIAgent:
         return final_response
 
     def run_conversation(
+        self,
+        user_message: str,
+        system_message: str = None,
+        conversation_history: List[Dict[str, Any]] = None,
+        task_id: str = None,
+        stream_callback: Optional[callable] = None,
+        persist_user_message: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Run one conversation turn, dispatching to the selected engine.
+
+        Phase 3.5 strangler seam.  ``self.agent_engine`` was resolved once in
+        ``__init__`` (explicit arg > HERMES_AGENT_ENGINE > profile config >
+        ``loop``).  The selection happens here, before any per-turn setup or
+        side effect, and is never re-evaluated mid-turn.
+
+        A graph failure is the graph's to return: this method must NOT catch a
+        graph exception and re-run the loop for the same turn, because by then a
+        tool may already have written files, run shell commands, sent messages,
+        or mutated external state — retrying through the loop could duplicate it.
+        """
+        if self.agent_engine == "graph":
+            return self._run_conversation_graph(
+                user_message=user_message,
+                system_message=system_message,
+                conversation_history=conversation_history,
+                task_id=task_id,
+                stream_callback=stream_callback,
+                persist_user_message=persist_user_message,
+            )
+        return self._run_conversation_loop(
+            user_message=user_message,
+            system_message=system_message,
+            conversation_history=conversation_history,
+            task_id=task_id,
+            stream_callback=stream_callback,
+            persist_user_message=persist_user_message,
+        )
+
+    def _run_conversation_loop(
         self,
         user_message: str,
         system_message: str = None,

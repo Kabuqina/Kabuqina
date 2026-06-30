@@ -27,25 +27,25 @@ GOLDEN_DIR = Path(__file__).parent / "golden"
 # absolute positions shifted).  Kept in sync with EXIT_INVENTORY in
 # test_exit_contract.py.
 RUNTIME_EXITS = {
-    "nous_rate_guard_without_fallback": (10116, "exit_nous_rate_guard.json"),
-    "invalid_response_retries_exhausted": (10341, "exit_invalid_response.json"),
-    "interrupt_during_invalid_response_wait": (10362, "exit_interrupt_invalid_wait.json"),
-    "thinking_budget_exhausted": (10475, "exit_thinking_budget.json"),
-    "text_continuation_exhausted": (10515, "exit_text_continuation.json"),
-    "truncated_tool_call_repeated": (10543, "exit_truncated_tool_call.json"),
-    "interrupt_during_api_error_handling": (11127, "exit_interrupt_api_error.json"),
-    "payload_compression_attempts_exhausted": (11297, "exit_payload_compression.json"),
-    "payload_cannot_compress": (11328, "exit_payload_no_compression.json"),
-    "safe_output_context_attempts_exhausted": (11381, "exit_safe_output_context.json"),
-    "context_stepdown_attempts_exhausted": (11454, "exit_context_stepdown.json"),
-    "context_cannot_compress": (11487, "exit_context_no_compression.json"),
-    "nonretryable_client_error": (11582, "exit_nonretryable_client.json"),
-    "api_retries_exhausted": (11665, "exit_api_retries.json"),
-    "interrupt_during_generic_retry_wait": (11707, "exit_interrupt_retry_wait.json"),
-    "incomplete_scratchpad_exhausted": (11861, "exit_incomplete_scratchpad.json"),
-    "unknown_tool_retries_exhausted": (11908, "unknown_tool.json"),
-    "truncated_json_tool_arguments": (11974, "exit_truncated_json_args.json"),
-    "normal_final_result": (12694, "plain_text.json"),
+    "nous_rate_guard_without_fallback": (10161, "exit_nous_rate_guard.json"),
+    "invalid_response_retries_exhausted": (10386, "exit_invalid_response.json"),
+    "interrupt_during_invalid_response_wait": (10407, "exit_interrupt_invalid_wait.json"),
+    "thinking_budget_exhausted": (10520, "exit_thinking_budget.json"),
+    "text_continuation_exhausted": (10560, "exit_text_continuation.json"),
+    "truncated_tool_call_repeated": (10588, "exit_truncated_tool_call.json"),
+    "interrupt_during_api_error_handling": (11172, "exit_interrupt_api_error.json"),
+    "payload_compression_attempts_exhausted": (11342, "exit_payload_compression.json"),
+    "payload_cannot_compress": (11373, "exit_payload_no_compression.json"),
+    "safe_output_context_attempts_exhausted": (11426, "exit_safe_output_context.json"),
+    "context_stepdown_attempts_exhausted": (11499, "exit_context_stepdown.json"),
+    "context_cannot_compress": (11532, "exit_context_no_compression.json"),
+    "nonretryable_client_error": (11627, "exit_nonretryable_client.json"),
+    "api_retries_exhausted": (11710, "exit_api_retries.json"),
+    "interrupt_during_generic_retry_wait": (11752, "exit_interrupt_retry_wait.json"),
+    "incomplete_scratchpad_exhausted": (11906, "exit_incomplete_scratchpad.json"),
+    "unknown_tool_retries_exhausted": (11953, "unknown_tool.json"),
+    "truncated_json_tool_arguments": (12019, "exit_truncated_json_args.json"),
+    "normal_final_result": (12739, "plain_text.json"),
 }
 
 
@@ -55,7 +55,7 @@ def _replay_with_line_trace(spec):
     def trace(frame, event, arg):
         if (
             event == "line"
-            and frame.f_code.co_name == "run_conversation"
+            and frame.f_code.co_name == "_run_conversation_loop"
             and Path(frame.f_code.co_filename).name == "run_agent.py"
         ):
             visited.add(frame.f_lineno)
@@ -180,7 +180,7 @@ def test_truncation_fallthroughs_are_structurally_unreachable() -> None:
         annotation = inspect.signature(transport.normalize_response).return_annotation
         assert annotation in (NormalizedResponse, "NormalizedResponse")
 
-    source = inspect.getsource(AIAgent.run_conversation)
+    source = inspect.getsource(AIAgent._run_conversation_loop)
     assert "_trunc_msg = _trunc_result" in source
     assert not (GOLDEN_DIR / "exit_truncation_rolls_back_history.json").exists()
     assert not (GOLDEN_DIR / "exit_first_response_truncated.json").exists()

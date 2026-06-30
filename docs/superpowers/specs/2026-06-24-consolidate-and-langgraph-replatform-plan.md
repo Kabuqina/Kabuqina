@@ -1345,12 +1345,14 @@ Only `loop` and `graph` are valid. An invalid explicit or environment value
 raises `ValueError`; an invalid config value logs a warning and falls back to
 `loop` so a bad user file does not brick startup.
 
-- [ ] **Step 1: write selector precedence tests**
+- [x] **Step 1: write selector precedence tests**  
+  *(2026-06-30: `tests/agent/test_engine_selector.py` — 22 cases covering all four precedence levels, invalid explicit/env (`ValueError`) vs invalid config (warn→`loop`), blank coercion, profile-aware `HERMES_HOME` via the real `load_config`, and the separate web/gateway process-env model via injected `env` mappings.)*
 
 Test all four levels, invalid values, profile-aware `HERMES_HOME`, and separate
 web/gateway process environments.
 
-- [ ] **Step 2: add the config default**
+- [x] **Step 2: add the config default**  
+  *(2026-06-30: `config_defaults.py` `agent.engine: "loop"`; deep-merged, `_config_version` unchanged at 23.)*
 
 ```yaml
 agent:
@@ -1359,7 +1361,8 @@ agent:
 
 Adding the key is handled by deep merge and does not bump `_config_version`.
 
-- [ ] **Step 3: rename and dispatch the legacy body**
+- [x] **Step 3: rename and dispatch the legacy body**  
+  *(2026-06-30: `agent_engine` ctor arg resolved once in `__init__` via `resolve_agent_engine` → `self.agent_engine`; public `run_conversation` is now a thin dispatcher to `_run_conversation_graph` / the renamed `_run_conversation_loop`, selecting before any side effect with no cross-engine fallback. Source-anchored tests retargeted to `_run_conversation_loop`; 21 exit return lines rebased +45; golden harness drives the private bodies directly.)*
 
 Add `agent_engine: str | None = None` to `AIAgent.__init__`, resolve it once
 through `engine_selector.py`, and store the validated value on
@@ -1392,7 +1395,8 @@ def run_conversation(self, user_message, system_message=None,
 Do not catch a graph exception and invoke `_run_conversation_loop` for the same
 turn.
 
-- [ ] **Step 4: run and commit**
+- [x] **Step 4: run and commit**  
+  *(2026-06-30: `test_engine_selector` 22 passed; deterministic equivalence gate (golden+exit_contract+hook_parity+usage_sink+differential) green twice. `HERMES_AGENT_ENGINE=loop` slice = 1274 passed / 10 pre-existing env failures (the legacy-regression gate holds). `=graph` slice = 1253 passed / 32 failed: 10 env + **22 graph-specific edge-case equivalence gaps** (retry/empty-response/fallback, reasoning-only prefill, compression triggers, length-continuation, 401 remint) beyond the Task 9 golden corpus — logged as PH35-FU-009; they gate Task 11's default flip, not the selector. The fuzzer's non-deterministic interrupt variant was removed (PH35-FU-008) and now passes 121×3 under xdist. Committed locally; not pushed.)*
 
 ```powershell
 cd hermes_core
@@ -1410,7 +1414,8 @@ git add hermes_core/agent/engine_selector.py `
 git commit -m "feat: add rollback-safe agent engine selector"
 ```
 
-- [ ] **Step 5: open the companion plan's G1 gate**
+- [x] **Step 5: open the companion plan's G1 gate**  
+  *(2026-06-30: recorded the Task 9 (`4ab120ff`) + this selector commit in the bounded-goal-runner plan's G1 gate and checked the boxes now satisfied (Task 9 gate, selector lands loop+graph, stable public entry). **G1 deliberately NOT opened** — remaining blockers: PH35-FU-007 (usage-event sink on both engines), PH35-FU-009 (graph edge-case equivalence gaps), Goal Runner Tasks 1–6, and human review. Step 5's hard precondition — `test_usage_event_sink` proving per-attempt events on both engines — is unmet (loop emits none), so G1 stays closed by design.)*
 
 Record the Task 9 equivalence commit and this selector commit in
 `docs/superpowers/plans/2026-06-27-bounded-goal-runner.md`. Goal Runner Tasks

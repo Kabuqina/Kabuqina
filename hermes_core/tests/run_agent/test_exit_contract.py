@@ -14,33 +14,35 @@ GOLDEN_DIR = Path(__file__).parent / "golden"
 # Stable scenario ids are the review contract. Source lines document the audited
 # legacy body and intentionally require review when that body moves.
 #
-# Line numbers rebased 2026-06-29 (Task 9): the legacy ``run_conversation`` body
-# shifted uniformly when Task 8 landed loop-side compression code above the
-# returns.  Task 9 added only graph-engine/adapter code *below* the loop, so the
-# 21 returns themselves are unchanged — only their absolute positions moved.
-# Scenario ids and ordering are the stable review contract.
+# Line numbers rebased 2026-06-29 (Task 9), then again 2026-06-30 (Task 10): the
+# legacy loop body (renamed ``run_conversation`` -> ``_run_conversation_loop``
+# when the strangler selector landed) shifts uniformly when code is inserted
+# above its returns.  Task 10 added the constructor selector + the public
+# ``run_conversation`` dispatcher above the loop body, so all 21 returns moved
+# by a fixed +45 with no change to the returns themselves.  Scenario ids and
+# ordering are the stable review contract.
 EXIT_INVENTORY = (
-    (10116, "nous_rate_guard_without_fallback", "exit_nous_rate_guard.json"),
-    (10341, "invalid_response_retries_exhausted", "exit_invalid_response.json"),
-    (10362, "interrupt_during_invalid_response_wait", "exit_interrupt_invalid_wait.json"),
-    (10475, "thinking_budget_exhausted", "exit_thinking_budget.json"),
-    (10515, "text_continuation_exhausted", "exit_text_continuation.json"),
-    (10543, "truncated_tool_call_repeated", "exit_truncated_tool_call.json"),
-    (10560, "truncation_rolls_back_history", None),
-    (10572, "first_response_truncated", None),
-    (11127, "interrupt_during_api_error_handling", "exit_interrupt_api_error.json"),
-    (11297, "payload_compression_attempts_exhausted", "exit_payload_compression.json"),
-    (11328, "payload_cannot_compress", "exit_payload_no_compression.json"),
-    (11381, "safe_output_context_attempts_exhausted", "exit_safe_output_context.json"),
-    (11454, "context_stepdown_attempts_exhausted", "exit_context_stepdown.json"),
-    (11487, "context_cannot_compress", "exit_context_no_compression.json"),
-    (11582, "nonretryable_client_error", "exit_nonretryable_client.json"),
-    (11665, "api_retries_exhausted", "exit_api_retries.json"),
-    (11707, "interrupt_during_generic_retry_wait", "exit_interrupt_retry_wait.json"),
-    (11861, "incomplete_scratchpad_exhausted", "exit_incomplete_scratchpad.json"),
-    (11908, "unknown_tool_retries_exhausted", "unknown_tool.json"),
-    (11974, "truncated_json_tool_arguments", "exit_truncated_json_args.json"),
-    (12694, "normal_final_result", "plain_text.json"),
+    (10161, "nous_rate_guard_without_fallback", "exit_nous_rate_guard.json"),
+    (10386, "invalid_response_retries_exhausted", "exit_invalid_response.json"),
+    (10407, "interrupt_during_invalid_response_wait", "exit_interrupt_invalid_wait.json"),
+    (10520, "thinking_budget_exhausted", "exit_thinking_budget.json"),
+    (10560, "text_continuation_exhausted", "exit_text_continuation.json"),
+    (10588, "truncated_tool_call_repeated", "exit_truncated_tool_call.json"),
+    (10605, "truncation_rolls_back_history", None),
+    (10617, "first_response_truncated", None),
+    (11172, "interrupt_during_api_error_handling", "exit_interrupt_api_error.json"),
+    (11342, "payload_compression_attempts_exhausted", "exit_payload_compression.json"),
+    (11373, "payload_cannot_compress", "exit_payload_no_compression.json"),
+    (11426, "safe_output_context_attempts_exhausted", "exit_safe_output_context.json"),
+    (11499, "context_stepdown_attempts_exhausted", "exit_context_stepdown.json"),
+    (11532, "context_cannot_compress", "exit_context_no_compression.json"),
+    (11627, "nonretryable_client_error", "exit_nonretryable_client.json"),
+    (11710, "api_retries_exhausted", "exit_api_retries.json"),
+    (11752, "interrupt_during_generic_retry_wait", "exit_interrupt_retry_wait.json"),
+    (11906, "incomplete_scratchpad_exhausted", "exit_incomplete_scratchpad.json"),
+    (11953, "unknown_tool_retries_exhausted", "unknown_tool.json"),
+    (12019, "truncated_json_tool_arguments", "exit_truncated_json_args.json"),
+    (12739, "normal_final_result", "plain_text.json"),
 )
 
 
@@ -48,11 +50,11 @@ def _run_conversation_return_lines() -> list[int]:
     source = RUN_AGENT_SRC.read_text(encoding="utf-8")
     tree = ast.parse(source)
     for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef) and node.name == "run_conversation":
+        if isinstance(node, ast.FunctionDef) and node.name == "_run_conversation_loop":
             return sorted(
                 child.lineno for child in ast.walk(node) if isinstance(child, ast.Return)
             )
-    raise AssertionError("AIAgent.run_conversation not found")
+    raise AssertionError("AIAgent._run_conversation_loop not found")
 
 
 def test_inventory_covers_all_21_source_returns() -> None:

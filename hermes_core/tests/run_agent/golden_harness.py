@@ -760,10 +760,14 @@ def replay_transcript(spec: Dict[str, Any], engine: str = "loop") -> Dict[str, A
                 stream_log.append(text)
                 callback_events.append({"channel": "stream", "text": text})
 
+            # Drive the engine bodies *directly* so the loop/graph
+            # parameterization is independent of the strangler selector
+            # (HERMES_AGENT_ENGINE / agent.engine), which the public
+            # run_conversation dispatcher consults.
             _driver = (
                 agent._run_conversation_graph
                 if engine == "graph"
-                else agent.run_conversation
+                else agent._run_conversation_loop
             )
             result = _driver(
                 spec["user_message"],

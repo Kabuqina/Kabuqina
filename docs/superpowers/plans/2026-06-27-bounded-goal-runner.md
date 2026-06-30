@@ -662,20 +662,28 @@ git commit -m "feat: show bounded goal status in scheduled tasks"
 
 Do not start Task 7 until all boxes are checked in both plans:
 
-- [ ] Phase 3.5 Task 9 passes the deterministic loop/graph equivalence gate
-  twice and its broader run-agent suite passes.
-- [ ] Phase 3.5 Task 10 lands the explicit constructor/environment/config
-  selector and proves both `loop` and `graph` independently.
+- [x] Phase 3.5 Task 9 passes the deterministic loop/graph equivalence gate
+  twice and its broader run-agent suite passes. *(2026-06-29, commit `4ab120ff`.)*
+- [x] Phase 3.5 Task 10 lands the explicit constructor/environment/config
+  selector and proves both `loop` and `graph` independently. *(2026-06-30 — selector + dispatcher; loop and graph are each independently selectable and exercised. NOTE: routing the full loop unit suite through graph surfaced 22 edge-case equivalence gaps, PH35-FU-009 — these gate the Task 11 default flip but not selectability.)*
 - [ ] Phase 3.5's usage-event sink records normal and early-exit transport
   attempts before branching, without changing legacy result dictionaries.
-- [ ] `AIAgent.run_conversation` remains the stable public entry point.
+  *(BLOCKED: PH35-FU-007 — loop-side emission not yet added.)*
+- [x] `AIAgent.run_conversation` remains the stable public entry point.
+  *(2026-06-30 — now a thin dispatcher; signature unchanged.)*
 - [ ] Goal Runner Tasks 1–6 pass and introduce no imports from
-  `agent.graph_engine` or `langgraph`.
+  `agent.graph_engine` or `langgraph`. *(companion-plan tasks — not yet verified here.)*
 - [ ] The integration diff and file ownership are reviewed by a person.
 
-Record the Phase 3.5 commit and date here before proceeding:
+**G1 is NOT open.** Remaining blockers: PH35-FU-007 (usage-event sink on both
+engines), PH35-FU-009 (graph edge-case equivalence gaps — needed for confidence
+though strictly a Task 11 gate), Goal Runner Tasks 1–6, and human review.
+
+Phase 3.5 commits to date:
 
 ```text
+Task 9 equivalence: 4ab120ff (2026-06-29)
+Task 10 selector:   <this commit> (2026-06-30)
 G1 opened: __________ at __________; reviewed by __________
 ```
 

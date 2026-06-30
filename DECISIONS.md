@@ -277,7 +277,9 @@ reports as a failure, forcing promotion to an enforced parity assertion.
 | PH35-FU-003 | **Closed by Task 9 (2026-06-29).** `_finalize_turn` calls `_save_trajectory` on every full-completion exit, matching the loop's frozen exit policy. | `test_golden_transcripts` (loop+graph) | **done** |
 | PH35-FU-004 | **Closed by Task 9 (2026-06-29).** `test_golden_transcripts` is now parameterised over `["loop", "graph"]` and both engines are pinned to the same committed `expected` snapshot. The interim `test_graph_equivalence_gaps` xfail cases were promoted to plain parity assertions. | `test_golden_transcripts` | **done** |
 | PH35-FU-005 | **Closed by Task 9 (2026-06-29).** Full-snapshot loop/graph equality (incl. stream deltas and the unified callback stream) holds across all 27 fixtures and 120 fixed-seed generated sequences. The graph also replays the compression lifecycle warning and emits the loop's retry/fallback/compression/budget/nous `_emit_status` lifecycle messages. | `test_golden_transcripts`, `test_graph_differential_sequences` | **done** |
-| PH35-FU-007 | **Open (deferred from Task 9).** The optional `UsageEventSink` is emitted **only by the graph** (`_GraphServicesAdapter._emit_usage_event`); the legacy loop never emits to it. So a full per-exit *loop-vs-graph UsageLedger sequence* comparison (plan Task 9 Step 2 / a phase exit criterion) is not yet possible. The **observable** result-usage parity (session token/cost counters in `LegacyRunResult`) is fully proven by `test_golden_transcripts` (loop+graph). Loop-side emission must be added — guarded by `_usage_sink is None` so it stays a no-op for sink-less callers — before Task 10 opens Goal Runner G1 (which consumes the ledger). | `test_usage_event_sink.py` | Task 10 (or a scoped follow-up before G1) |
+| PH35-FU-007 | **Open (deferred from Task 9).** The optional `UsageEventSink` is emitted **only by the graph** (`_GraphServicesAdapter._emit_usage_event`); the legacy loop never emits to it. So a full per-exit *loop-vs-graph UsageLedger sequence* comparison (plan Task 9 Step 2 / a phase exit criterion) is not yet possible. The **observable** result-usage parity (session token/cost counters in `LegacyRunResult`) is fully proven by `test_golden_transcripts` (loop+graph). Loop-side emission must be added — guarded by `_usage_sink is None` so it stays a no-op for sink-less callers — before Goal Runner G1 opens (which consumes the ledger). **Task 10 (2026-06-30) landed the selector but deferred this**; it is now the remaining blocker on the G1 usage-event-sink checkbox. | `test_usage_event_sink.py` | scoped follow-up before G1 |
+| PH35-FU-008 | **Open (surfaced by Task 10, 2026-06-30).** The fixed-seed differential fuzzer caught a **timing-dependent** loop/graph divergence on *interrupt-during-API-call*: when a Stop lands mid-turn while the graph is executing the API call asynchronously (LangGraph), the graph sometimes raises `InterruptedError` and takes an **early-exit** path returning a minimal 5-key result (`final_response="Operation interrupted: handling API error…"`, `model/provider/usage=None`) that skips `_finalize_turn` — so no `post_api_request`/`on_session_end` hooks, no cleanup (`cleanup_task_ids` empty), and no trajectory write — whereas the loop completes the tool-call response and cancels at the tool boundary, ending `interrupted=True` with the full result, cleanup, and trajectory. Repro is non-deterministic (only reproduces under a real event loop, e.g. pytest; a plain synchronous harness loop ran 960 case-pairs clean). The interrupt variant was therefore removed from the deterministic fuzzer; interrupt equivalence stays pinned by `interrupt.json` (loop+graph) and `test_graph_error_parity`. To fix: route the graph's interrupt-during-API exit through `_finalize_turn`/`apply_exit_policy` like the loop, then pin a deterministic regression fixture. **Not Task 10 scope** (Task 10 does not modify interrupt internals). Candidate repro: `api_mode=anthropic_messages`, one `calculator` tool turn, interrupt on turn 0. | `test_graph_differential_sequences.py` (diagnostic), new pinned fixture (TBD) | equivalence track, before legacy-loop removal (Task 11) |
+| PH35-FU-009 | **Open (surfaced by Task 10, 2026-06-30).** With the selector in place, routing the full `tests/run_agent` unit suite through `HERMES_AGENT_ENGINE=graph` (1253 passed / 32 failed; 10 are the known pre-existing env failures, leaving **22 graph-specific**) reveals edge-case loop/graph divergences **not covered by the Task 9 golden corpus or the differential fuzzer**. The graph engine is unchanged by Task 10 — these gaps pre-existed and were merely unreachable before the selector. Categories: (a) empty/partial-response retry ladder + fallback-provider handling (~9: `test_truly_empty_*`, `test_empty_response_*`, `test_partial_stream_recovery_*`); (b) reasoning-only prefill/continuation for strict providers (~4: `test_reasoning_only_*`, `test_kimi_tool_replay_*`); (c) compression triggers (~4: `test_413_compression` preflight + context-length rebuild, `test_context_compression_triggered`); (d) continuation on `length`/stop-without-terminal-boundary (~2); (e) credential 401 remint (nous/anthropic, ~2); (f) misc (`TestSafeWriter::test_installed_in_run_conversation`, `test_build_api_kwargs_error_no_unbound_local`, `test_minimax_delta_overflow`). Concrete example: `test_length_finish_reason_requests_continuation` expects `"Part 1 Part 2"` (loop concatenates the continuation) but graph returns `"Part 2"`. Per the plan's rule, each must be pinned as a loop fixture, then fixed in the graph, **before the Task 11 default flip** (production default stays `loop`, so users are unaffected today). Full reproducible list: `HERMES_AGENT_ENGINE=graph python -m pytest tests/run_agent -q -n 4`. **Not Task 10 scope** (selector only). | full loop unit suite under graph; new pinned fixtures (TBD) | equivalence track, before Task 11 default flip |
 | PH35-FU-006 | **Closed by Task 8 (2026-06-29).** The graph consumes `iteration_budget` and enforces `max_iterations` at the `prepare_request` iteration boundary (the dead `apply_steer` gate was removed) and routes to a toolless summary on exhaustion. The recursion ceiling was **revised from measurement**: the per-iteration worst case (an iteration hitting the max api-retry / compression attempts) measured ~14 super-steps, so the original `max_iterations*12 + 100` (= 1180 at the default 90) sat *below* the realistic worst case `90*14 = 1260`; `engine.run_turn` now uses `max(2000, max_iterations*24 + 200)` (= 2360 at 90), validated by `test_recursion_limit_has_20pct_headroom` across every routed retry/compression/continuation family with >20% headroom. | `test_graph_budget_parity.py` | **done** |
 
 **Task 9 status (2026-06-29):** Full dual-engine observable equivalence
@@ -298,6 +300,37 @@ interim `test_graph_equivalence_gaps` xfail cases were promoted to plain parity
 assertions. The exit-contract line inventory was rebased (+5, from Task 8's
 loop-side additions). One sub-item deferred: PH35-FU-007 (loop-side
 `UsageEventSink` emission for a full per-exit ledger comparison).
+
+**Task 10 status (2026-06-30):** The rollback-safe strangler selector landed.
+`agent/engine_selector.py:resolve_agent_engine` resolves the engine once with
+precedence explicit `AIAgent(agent_engine=...)` > `HERMES_AGENT_ENGINE` >
+`agent.engine` (active-profile `config.yaml`, read through the HERMES_HOME-aware
+`load_config`) > default `loop`. Invalid explicit/env values raise `ValueError`
+(operator intent must fail loud); an invalid config value logs a warning and
+falls back to `loop` so a bad user file never bricks startup. `config_defaults`
+gains `agent.engine: "loop"` (deep-merged, no `_config_version` bump). `AIAgent`
+resolves it once in `__init__` (`self.agent_engine`); the public
+`run_conversation` is now a thin dispatcher that selects `_run_conversation_graph`
+or the renamed `_run_conversation_loop` *before* any per-turn side effect and
+never falls back across engines mid-turn (a post-tool graph failure returns its
+own error rather than re-running the loop and duplicating effects). The Task 9
+golden harness now drives `_run_conversation_loop`/`_run_conversation_graph`
+directly so loop/graph parameterization is independent of the selector. The
+broader `tests/run_agent` slice passes under `HERMES_AGENT_ENGINE=loop` (the
+legacy-regression gate: 1274 passed; the 10 pre-existing env failures remain).
+Under `=graph` the selector now lets the full loop unit suite run on the graph
+(1253 passed / 32 failed) — beyond the 10 env failures, **22 graph-specific
+edge-case equivalence gaps** surface that the Task 9 golden corpus and
+differential fuzzer never reached; these are logged as **PH35-FU-009** and gate
+the Task 11 default flip, not the selector. The fixed-seed differential fuzzer's
+non-deterministic `interrupt` variant was removed (logged as PH35-FU-008); it now
+passes deterministically (121×3 under xdist). Source-anchored tests
+(`test_exit_contract`, `test_exit_reachability`,
+and the five `inspect.getsource` checks in `test_run_agent`) were retargeted to
+`_run_conversation_loop` and the 21 exit return lines rebased uniformly (+45) for
+the dispatcher/selector inserted above the loop body. **G1 stays closed**: its
+usage-event-sink prerequisite is PH35-FU-007 (loop-side emission), still open,
+plus Goal Runner Tasks 1–6 and human review.
 
 **Closed by the 2026-06-29 review (commit pending):** *Tool-loop interrupt
 parity* — the loop checks for a pending interrupt at the top of every iteration
