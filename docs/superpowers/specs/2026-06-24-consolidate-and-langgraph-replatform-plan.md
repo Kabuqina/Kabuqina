@@ -665,36 +665,43 @@ being characterized.
 
 - [x] **Step 3: inventory all 21 source returns without inventing dead fixtures**
 
-`test_exit_contract.py` must contain this exact scenario inventory so a source
-return cannot disappear from the equivalence review unnoticed:
+`test_exit_contract.py` must contain this exact scenario inventory, **in source
+order**, so a source return cannot disappear from the equivalence review
+unnoticed. The `#` column is the source-order position (top to bottom of the
+loop body), which is the live contract: `scenario_return_lines()` joins the i-th
+scenario to the i-th AST-derived `return`.
 
-| Return | Scenario id                              | Fixture                                  |
-| ------:| ---------------------------------------- | ---------------------------------------- |
-| 10086  | `nous_rate_guard_without_fallback`       | `exit_nous_rate_guard.json`              |
-| 10311  | `invalid_response_retries_exhausted`     | `exit_invalid_response.json`             |
-| 10332  | `interrupt_during_invalid_response_wait` | `exit_interrupt_invalid_wait.json`       |
-| 10445  | `thinking_budget_exhausted`              | `exit_thinking_budget.json`              |
-| 10485  | `text_continuation_exhausted`            | `exit_text_continuation.json`            |
-| 10513  | `truncated_tool_call_repeated`           | `exit_truncated_tool_call.json`          |
-| 10530  | `truncation_rolls_back_history`          | structural unreachable guard; no fixture |
-| 10542  | `first_response_truncated`               | structural unreachable guard; no fixture |
-| 11097  | `interrupt_during_api_error_handling`    | `exit_interrupt_api_error.json`          |
-| 11267  | `payload_compression_attempts_exhausted` | `exit_payload_compression.json`          |
-| 11298  | `payload_cannot_compress`                | `exit_payload_no_compression.json`       |
-| 11351  | `safe_output_context_attempts_exhausted` | `exit_safe_output_context.json`          |
-| 11424  | `context_stepdown_attempts_exhausted`    | `exit_context_stepdown.json`             |
-| 11457  | `context_cannot_compress`                | `exit_context_no_compression.json`       |
-| 11552  | `nonretryable_client_error`              | `exit_nonretryable_client.json`          |
-| 11635  | `api_retries_exhausted`                  | `exit_api_retries.json`                  |
-| 11677  | `interrupt_during_generic_retry_wait`    | `exit_interrupt_retry_wait.json`         |
-| 11831  | `incomplete_scratchpad_exhausted`        | `exit_incomplete_scratchpad.json`        |
-| 11878  | `unknown_tool_retries_exhausted`         | existing `unknown_tool.json`             |
-| 11944  | `truncated_json_tool_arguments`          | `exit_truncated_json_args.json`          |
-| 12664  | `normal_final_result`                    | existing `plain_text.json`               |
+| #  | Scenario id                              | Fixture                                  |
+| --:| ---------------------------------------- | ---------------------------------------- |
+| 1  | `nous_rate_guard_without_fallback`       | `exit_nous_rate_guard.json`              |
+| 2  | `invalid_response_retries_exhausted`     | `exit_invalid_response.json`             |
+| 3  | `interrupt_during_invalid_response_wait` | `exit_interrupt_invalid_wait.json`       |
+| 4  | `thinking_budget_exhausted`              | `exit_thinking_budget.json`              |
+| 5  | `text_continuation_exhausted`            | `exit_text_continuation.json`            |
+| 6  | `truncated_tool_call_repeated`           | `exit_truncated_tool_call.json`          |
+| 7  | `truncation_rolls_back_history`          | structural unreachable guard; no fixture |
+| 8  | `first_response_truncated`               | structural unreachable guard; no fixture |
+| 9  | `interrupt_during_api_error_handling`    | `exit_interrupt_api_error.json`          |
+| 10 | `payload_compression_attempts_exhausted` | `exit_payload_compression.json`          |
+| 11 | `payload_cannot_compress`                | `exit_payload_no_compression.json`       |
+| 12 | `safe_output_context_attempts_exhausted` | `exit_safe_output_context.json`          |
+| 13 | `context_stepdown_attempts_exhausted`    | `exit_context_stepdown.json`             |
+| 14 | `context_cannot_compress`                | `exit_context_no_compression.json`       |
+| 15 | `nonretryable_client_error`              | `exit_nonretryable_client.json`          |
+| 16 | `api_retries_exhausted`                  | `exit_api_retries.json`                  |
+| 17 | `interrupt_during_generic_retry_wait`    | `exit_interrupt_retry_wait.json`         |
+| 18 | `incomplete_scratchpad_exhausted`        | `exit_incomplete_scratchpad.json`        |
+| 19 | `unknown_tool_retries_exhausted`         | existing `unknown_tool.json`             |
+| 20 | `truncated_json_tool_arguments`          | `exit_truncated_json_args.json`          |
+| 21 | `normal_final_result`                    | existing `plain_text.json`               |
 
-Line numbers document the source audit; scenario ids are stable inventory keys.
-Future line movement must not rename them. The two guarded ids document dead
-legacy code, not runtime behavior the graph must reproduce.
+Scenario ids and their ordering are the stable inventory keys. Absolute source
+line numbers are intentionally **not** pinned here: since 2026-06-30,
+`test_exit_contract.py`/`test_exit_reachability.py` derive the 21 return lines
+from `run_agent.py` via AST and join them to this inventory by position, so the
+tests track `run_agent.py` edits with no manual rebase. Future line movement must
+not rename or reorder these ids. The two guarded ids (7, 8) document dead legacy
+code, not runtime behavior the graph must reproduce.
 
 - [x] **Step 4: record the nineteen reachable loop snapshots once, then freeze them**
 
