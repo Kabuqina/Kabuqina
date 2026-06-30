@@ -477,3 +477,21 @@ exhaustion; interrupt-during-retry-wait reproduced via
 the live exception is carried on the adapter (not `TurnState`); a `first_attempt`
 state field replaces the hidden `_retrying` flag. Full Phase 3.5 suite: 211
 passed / 34 skipped, twice. Follow-ups PH35-FU-001..005 logged above.
+
+**Goal Runner G0 review remediation (2026-06-30; G1 remains closed).** The
+post-merge review found seven P1 and two P2 issues. The repair branch binds a
+loaded state's embedded `job_id` to its containing goal directory; publishes
+immutable evidence from a fully serialized and fsynced same-directory temp file
+using an atomic no-overwrite hard link; and treats `transition.json` as a WAL by
+embedding the full `next_state`, so recovery finishes an already-decided state
+commit instead of inventing a contradictory pause. Usage ledgers are complete
+only when attempt indices are exactly zero-based/contiguous/unique and every
+present amount is a non-negative finite `Decimal`. `last_evidence_hash` remains
+the combined no-progress fingerprint, while the new optional
+`last_artifact_hash` is the single comparison domain for
+`content_hash_changed`; absent/non-file/out-of-root reported artifacts pause as
+`invalid_artifact` and never create progress evidence. A verified candidate may
+complete on the final permitted run, but an unfinished final run still pauses.
+Goal IPC clears legacy prompt/status/delivery-error text, and legacy Tauri
+toggle/delete commands reject `mode: goal` in the backend. These repairs do not
+open G1; the G0 diff still requires a second human review after verification.
