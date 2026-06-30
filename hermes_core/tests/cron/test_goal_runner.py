@@ -242,6 +242,24 @@ def test_missing_report_becomes_controlled_pause(definition):
     assert verifier.calls == []
 
 
+def test_missing_reported_artifact_pauses_without_creating_progress_fingerprint(
+    definition,
+):
+    report = _report("progress", artifacts=("missing-a.txt",))
+
+    result = run_goal_iteration(
+        definition,
+        worker=FakeWorker(_worker_observation(report=report)),
+        verifier=FakeVerifier(),
+        now=NOW,
+    )
+
+    assert result.transition.next_state.status == "paused"
+    assert result.transition.reason == "invalid_artifact"
+    assert result.transition.next_state.last_artifact_hash is None
+    assert result.transition.next_state.last_evidence_hash is None
+
+
 def test_paused_and_terminal_states_do_not_run_worker(definition):
     worker = FakeWorker(_worker_observation())
     verifier = FakeVerifier()

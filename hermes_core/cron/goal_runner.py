@@ -114,10 +114,12 @@ def _artifact_fingerprints(
             relative = resolved.relative_to(root).as_posix()
         except ValueError as exc:
             raise GoalRunnerError("reported artifact escapes the goal workdir") from exc
+        if not resolved.is_file():
+            raise GoalRunnerError("reported artifact is missing or not a regular file")
         artifacts.append(
             {
                 "path": relative,
-                "sha256": _file_sha256(resolved) if resolved.is_file() else None,
+                "sha256": _file_sha256(resolved),
             }
         )
     artifacts.sort(key=lambda item: str(item["path"]))
@@ -401,11 +403,29 @@ def run_goal_iteration(
     )
 
     verifier_result: VerifierResult | None = None
-    artifact_hash = (
-        build_artifact_fingerprint(definition, worker_observation.report)
-        if worker_observation.report is not None
-        else None
-    )
+    try:
+        artifact_hash = (
+            build_artifact_fingerprint(definition, worker_observation.report)
+            if worker_observation.report is not None
+            else None
+        )
+    except GoalRunnerError:
+        transition = _pause_transition(
+            running_state,
+            "invalid_artifact",
+            now=now,
+            last_error="reported artifact was missing or outside the workdir",
+        )
+        transition_path = _persist_transition(
+            transition,
+            record_iteration=iteration,
+        )
+        return GoalIterationResult(
+            transition=transition,
+            full_output=worker_observation.full_output,
+            delivery_text=_delivery_text(transition),
+            evidence_path=transition_path,
+        )
     if (
         worker_observation.report is not None
         and worker_observation.report.status == "candidate_done"
