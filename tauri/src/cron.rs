@@ -377,14 +377,20 @@ fn job_to_entry(job: &serde_json::Value, data_dir: &std::path::Path) -> CronJobE
             .get("completed_at")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string()),
-        last_status: job
-            .get("last_status")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string()),
-        last_delivery_error: job
-            .get("last_delivery_error")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string()),
+        last_status: if is_goal {
+            None
+        } else {
+            job.get("last_status")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        },
+        last_delivery_error: if is_goal {
+            None
+        } else {
+            job.get("last_delivery_error")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        },
         mode,
         goal_status: goal.status,
         goal_iteration: goal.iteration,
@@ -481,7 +487,9 @@ mod tests {
             "schedule": {"kind": "interval", "seconds": 600},
             "prompt": "secret iteration prompt",
             "deliver": "desktop",
-            "state": "scheduled"
+            "state": "scheduled",
+            "last_status": "provider error with secret-provider-token",
+            "last_delivery_error": "delivery failed with secret-delivery-token"
         })
     }
 
@@ -543,6 +551,8 @@ mod tests {
         assert_eq!(entry.goal_cost_usd.as_deref(), Some("1.25"));
         assert_eq!(entry.goal_cost_accounting.as_deref(), Some("complete"));
         assert_eq!(entry.goal_pause_reason.as_deref(), Some("no_progress"));
+        assert_eq!(entry.last_status, None);
+        assert_eq!(entry.last_delivery_error, None);
         let serialized = serde_json::to_string(&entry).unwrap();
         assert!(!serialized.contains("do not expose"));
         assert!(!serialized.contains("secret"));
