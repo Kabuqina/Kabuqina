@@ -93,3 +93,29 @@ export const STUDY_PROMPTS = {
 } as const;
 
 export type StudyActionId = keyof typeof STUDY_PROMPTS;
+
+// Generation prompt for the spaced-repetition flashcard module. It asks for a
+// single machine-readable JSON block so the student can paste the reply back
+// into the flashcard panel, where flashcardStore.parseFlashcards extracts it.
+// The strict output contract keeps parsing robust and avoids fabricated facts.
+export const FLASHCARD_GENERATION_PROMPT = [
+  "请基于我已提供的学习材料、课程知识库或学习上下文，帮我生成一组用于间隔重复记忆的抽认卡片。不要编造材料里没有的事实、定义或数据；如果材料不足，请先追问 3 到 5 个关键问题，暂不输出卡片。",
+  "优先覆盖核心概念、易混淆点、公式/定义、关键步骤和我已记录的薄弱点。每张卡片只考察一个知识点，正面是一个明确问题或提示，背面是简洁、可自检的答案。",
+  "生成 10 到 20 张卡片（材料不足时可少于 10 张）。可选地为每张卡片提供一句提示（hint）和 1 到 3 个知识点标签（tags）。",
+  "最重要：请在回答末尾输出且仅输出一个 ```json 代码块，内容为一个数组，每个元素形如 {\"front\": \"问题\", \"back\": \"答案\", \"hint\": \"可选提示\", \"tags\": [\"标签\"]}。字段值必须是纯文本字符串，不要包含未在材料中确认的内容。代码块之外可以先用简短文字说明取材范围与不确定信息。",
+  "如果某个知识点无法从材料中确认，请不要写成卡片，而是在代码块前的说明里列为“待确认”。请不要使用 emoji。",
+].join("\n\n");
+
+// Generation prompt for the self-test quiz module. Mirrors the flashcard
+// contract: a strict, single machine-readable JSON block that quizStore.parseQuiz
+// validates (question types, in-range answer indices, options). The client owns
+// grading, so the model must emit correct-answer indices, not prose answers.
+export const QUIZ_GENERATION_PROMPT = [
+  "请基于我已提供的学习材料、课程知识库或学习上下文，帮我出一套用于自测的小测验，用来检验我的掌握程度。不要编造材料里没有的事实或数据；如果材料不足，请先追问 3 到 5 个关键问题，暂不出题。",
+  "题目要覆盖核心概念、易错点和我记录的薄弱点，难度由易到难。共出 5 到 10 题，混合单选、多选和简答三种题型。每题只考察一个明确知识点，并尽量附一句简短解析（explanation）和 1 到 2 个知识点标签（tags）。",
+  "答案约定：单选题 type 为 \"single\"，多选题为 \"multiple\"，简答题为 \"short\"。选择题必须给出至少 2 个选项（options 数组），正确答案用 answerIndices 表示，即正确选项在 options 中的下标（从 0 开始）；单选只有一个下标，多选可有多个。简答题不要 options，用 accepted 数组给出可接受的标准答案（可含同义写法），供自动判分。",
+  "最重要：请在回答末尾输出且仅输出一个 ```json 代码块，形如 {\"title\": \"测验标题\", \"questions\": [{\"type\": \"single\", \"prompt\": \"题干\", \"options\": [\"A\", \"B\", \"C\"], \"answerIndices\": [1], \"explanation\": \"解析\", \"tags\": [\"标签\"]}, {\"type\": \"short\", \"prompt\": \"题干\", \"accepted\": [\"标准答案\"], \"tags\": [\"标签\"]}]}。所有字段值必须是纯文本或整数下标，answerIndices 中的每个下标都必须落在对应 options 范围内。",
+  "代码块之外可以先用简短文字说明取材范围与不确定信息。无法从材料确认的知识点不要出题。请不要使用 emoji。",
+].join("\n\n");
+
+
