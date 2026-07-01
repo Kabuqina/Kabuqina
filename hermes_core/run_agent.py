@@ -13011,6 +13011,7 @@ class _GraphServicesAdapter:
         # The first 429 retries the same credential; a consecutive 429 may
         # rotate the pool entry, matching the legacy inner retry loop.
         self._has_retried_429: bool = False
+        self._nous_auth_retry_attempted: bool = False
         # Raw SDK response objects are runtime collaborators, not serializable
         # graph state.  Keep one here until ``process_response`` consumes it.
         self._pending_response: Any = None
@@ -13095,6 +13096,7 @@ class _GraphServicesAdapter:
         agent._mute_post_response = False
         agent._unicode_sanitization_passes = 0
         agent._usage_attempt_index = 0  # Per-turn UsageEvent index (review P1-4)
+        self._nous_auth_retry_attempted = False
 
         # Copy conversation and add user message
         messages = list(conversation_history) if conversation_history else []
@@ -14334,6 +14336,35 @@ class _GraphServicesAdapter:
                 logger.debug(
                     "graph: failed to extract API error context", exc_info=True
                 )
+
+        # Nous Portal can rotate the short-lived agent key after a 401 and retry
+        # the same turn once (loop :11128-11135).  Do this before generic
+        # credential-pool recovery / non-retryable 4xx handling so a refreshable
+        # 401 does not prematurely fail or fall back.
+        if (
+            getattr(agent, "api_mode", "") == "chat_completions"
+            and getattr(agent, "provider", "") == "nous"
+            and _status_code == 401
+            and not self._nous_auth_retry_attempted
+        ):
+            self._nous_auth_retry_attempted = True
+            try:
+                refreshed = agent._try_refresh_nous_client_credentials(force=True)
+            except Exception:
+                refreshed = False
+                logger.debug(
+                    "graph: Nous credential refresh failed",
+                    exc_info=True,
+                )
+            if refreshed:
+                agent._safe_print(
+                    f"{agent.log_prefix}🔐 Nous agent key refreshed after 401. "
+                    "Retrying request..."
+                )
+                return self._retry_route(
+                    api_call_count, messages, retry_count=retry_count
+                )
+
         try:
             recovered_with_pool, self._has_retried_429 = (
                 agent._recover_with_credential_pool(
