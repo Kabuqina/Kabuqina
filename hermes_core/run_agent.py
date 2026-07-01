@@ -14529,8 +14529,27 @@ class _GraphServicesAdapter:
 
         # ── Prompt too long → step the context window down a tier (:11388) ──
         parsed_limit = parse_context_limit_from_error(error_msg)
+        _provider_lower = (getattr(agent, "provider", "") or "").lower()
+        _base_lower = (getattr(agent, "base_url", "") or "").rstrip("/").lower()
+        is_minimax_provider = (
+            _provider_lower in {"minimax", "minimax-cn"}
+            or _base_lower.startswith((
+                "https://api.minimax.io/anthropic",
+                "https://api.minimaxi.com/anthropic",
+            ))
+        )
+        minimax_delta_only_overflow = (
+            is_minimax_provider
+            and parsed_limit is None
+            and "context window exceeds limit (" in error_msg
+        )
         if parsed_limit and parsed_limit < old_ctx:
             new_ctx = parsed_limit
+        elif minimax_delta_only_overflow:
+            # MiniMax reports the overflow delta in parentheses, not the real
+            # window.  Keep the known context length and compress only, matching
+            # the loop's provider-specific guard (:11560-11574).
+            new_ctx = old_ctx
         else:
             new_ctx = get_next_probe_tier(old_ctx)
         if new_ctx and new_ctx < old_ctx and compressor is not None:
@@ -14760,11 +14779,41 @@ class _GraphServicesAdapter:
         except Exception:
             logger.warning("graph dispatch_tools: tool execution failed", exc_info=True)
 
+        # Tool results can push the next prompt over the compression threshold.
+        # Mirror the loop's post-tool check (run_agent.py:12303-12331) before
+        # routing back toward the next API call.
+        system_message = state.get("system_message") or self._original_system_message
+        compressor = getattr(agent, "context_compressor", None)
+        if getattr(agent, "compression_enabled", False) and compressor is not None:
+            if getattr(compressor, "last_prompt_tokens", 0) > 0:
+                real_tokens = compressor.last_prompt_tokens
+            else:
+                real_tokens = estimate_messages_tokens_rough(messages)
+            if compressor.should_compress(real_tokens):
+                agent._safe_print("  ⟳ compacting context…")
+                try:
+                    messages, system_message = agent._compress_context(
+                        messages,
+                        self._original_system_message,
+                        approx_tokens=getattr(compressor, "last_prompt_tokens", 0),
+                        task_id=effective_task_id,
+                    )
+                    self._conversation_history = None
+                    self._emit_usage_event(
+                        state, outcome="compression", route="compression"
+                    )
+                except Exception:
+                    logger.warning(
+                        "graph post-tool context compression failed",
+                        exc_info=True,
+                    )
+
         return {
             "messages": messages,
             "_num_tool_msgs": len(messages) - old_len,
             "api_call_count": api_call_count,
             "route": "apply_steer",
+            "system_message": system_message,
         }
 
     def apply_steer(self, state: dict) -> dict:
