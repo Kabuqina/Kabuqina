@@ -1047,11 +1047,20 @@ assert.match(chatPageReminderSource, /\/settings\/cron/);
 // (web/src/chat/study) and render as a section in the STUDY workspace panel.
 const { STUDY_PROMPTS } = await importTs("./study/studyPrompts.ts");
 const studySectionSource = fs.readFileSync(new URL("./study/StudySection.tsx", import.meta.url), "utf8");
+const studyStoreSource = fs.readFileSync(new URL("./study/studyStore.ts", import.meta.url), "utf8");
 
 assert.deepEqual(
   Object.keys(STUDY_PROMPTS),
-  ["learningProfile", "learningPath", "learningResources"],
-  "STUDY module should expose the three ordered learning actions (profile -> path -> resources).",
+  [
+    "learningProfile",
+    "learningPath",
+    "courseKnowledgeBase",
+    "learningResources",
+    "learningTutor",
+    "learningEvaluation",
+    "contentSafetyReview",
+  ],
+  "STUDY module should expose the ordered learning actions required by the product workflow.",
 );
 for (const [id, prompt] of Object.entries(STUDY_PROMPTS)) {
   assert.ok(typeof prompt === "string" && prompt.length > 0, `${id} prompt should be a non-empty string`);
@@ -1064,14 +1073,84 @@ assert.match(
   "Learning-profile prompt should require bounded dimensions and uncertainty labels.",
 );
 assert.match(
+  STUDY_PROMPTS.courseKnowledgeBase,
+  /初始知识库 \/ 文档集[\s\S]*课程 -> 单元 -> 知识点 -> 子技能[\s\S]*版权\/许可/,
+  "Course-knowledge-base prompt should build a structured course corpus with import metadata.",
+);
+assert.match(
+  STUDY_PROMPTS.courseKnowledgeBase,
+  /质量核验与防幻觉规则[\s\S]*已确认 \/ 待确认 \/ 推断/,
+  "Course-knowledge-base prompt should require quality checks and uncertainty labels.",
+);
+assert.match(
+  STUDY_PROMPTS.learningResources,
+  /多智能体协同[\s\S]*至少 5 类学习资源[\s\S]*防幻觉/,
+  "Resource-pack prompt should require multi-agent generation, five resource types, and hallucination checks.",
+);
+assert.match(
+  STUDY_PROMPTS.learningPath,
+  /学习闭环上下文[\s\S]*最近评估结论[\s\S]*建议写回学习上下文的字段摘要/,
+  "Learning-path prompt should consume loop state and emit a write-back summary.",
+);
+assert.match(
+  STUDY_PROMPTS.learningResources,
+  /建议写回学习上下文的字段摘要/,
+  "Resource-pack prompt should emit a write-back summary for the loop state.",
+);
+assert.match(
+  STUDY_PROMPTS.learningTutor,
+  /智能辅导智能体[\s\S]*文字解释[\s\S]*图解\/思维导图大纲/,
+  "Tutoring prompt should provide personalized multi-format guidance.",
+);
+assert.match(
+  STUDY_PROMPTS.learningEvaluation,
+  /学习效果评估[\s\S]*至少覆盖 6 个维度[\s\S]*动态调整[\s\S]*建议写回学习上下文的字段摘要/,
+  "Evaluation prompt should assess learning effects and adjust the plan.",
+);
+assert.match(
+  STUDY_PROMPTS.contentSafetyReview,
+  /防幻觉与内容安全审核[\s\S]*至少覆盖 6 个维度[\s\S]*版权\/许可标注/,
+  "Safety-review prompt should cover hallucination, safety, and license checks.",
+);
+assert.match(
+  STUDY_PROMPTS.contentSafetyReview,
+  /阻塞 \/ 需修改 \/ 建议优化[\s\S]*已确认 \/ 待确认 \/ 推断[\s\S]*修订版摘要/,
+  "Safety-review prompt should classify risks, uncertainty, and revision output.",
+);
+assert.match(
   studySectionSource,
-  /workspaceBuildLearningProfile[\s\S]*workspaceBuildLearningPath[\s\S]*workspaceBuildResourcePack/,
-  "StudySection should wire the three learning quick actions in order (profile -> path -> resources).",
+  /workspaceBuildLearningProfile[\s\S]*workspaceBuildLearningPath[\s\S]*workspaceBuildCourseKnowledgeBase[\s\S]*workspaceBuildResourcePack[\s\S]*workspaceStartLearningTutor[\s\S]*workspaceEvaluateLearningEffect[\s\S]*workspaceReviewStudyContent/,
+  "StudySection should wire the seven learning quick actions in order.",
 );
 assert.match(
   studySectionSource,
   /sectionId="workspace\.study"/,
   "StudySection should render under the workspace.study section id.",
+);
+assert.match(
+  studyStoreSource,
+  /STUDY_CONTEXT_STORAGE_KEY\s*=\s*"kabuqina\.study\.context\.v1"/,
+  "Study context should persist under a versioned Kabuqina-specific localStorage key.",
+);
+assert.match(
+  studyStoreSource,
+  /STUDY_CONTEXT_FIELD_LIMIT\s*=\s*800/,
+  "Study context should cap field length for bounded prompt injection.",
+);
+assert.match(
+  studyStoreSource,
+  /normalizeStudyContext[\s\S]*loadStudyContext[\s\S]*saveStudyContext[\s\S]*clearStudyContext[\s\S]*formatStudyContextForPrompt/,
+  "Study store should normalize, persist, clear, and format context for prompts.",
+);
+assert.match(
+  studySectionSource,
+  /loadStudyContext[\s\S]*saveStudyContext[\s\S]*clearStudyContext[\s\S]*formatStudyContextForPrompt/,
+  "StudySection should wire persistent context into every learning action.",
+);
+assert.match(
+  studySectionSource,
+  /studyContextCourse[\s\S]*studyContextGoal[\s\S]*studyContextProfile[\s\S]*studyContextWeakPoints[\s\S]*studyContextPreferences[\s\S]*studyContextProgress[\s\S]*studyContextEvidence[\s\S]*studyContextStage[\s\S]*studyContextResources[\s\S]*studyContextTutoring[\s\S]*studyContextEvaluationSummary[\s\S]*studyContextNextAdjustment/,
+  "StudySection should expose the persisted study context fields.",
 );
 assert.match(
   workspacePanelSource,

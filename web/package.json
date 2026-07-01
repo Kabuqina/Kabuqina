@@ -13,6 +13,7 @@
     "test:desktop-startup": "node src/lib/desktopStartup.test.mjs",
     "test:chat-ux": "node src/chat/chatUx.test.mjs",
     "test:chat-display": "node src/chat/chatDisplay.test.mjs",
+    "test:study-store": "node src/chat/study/studyStore.test.mjs",
     "test:ui-prefs": "node src/lib/ui-prefs.test.mjs",
     "test:gateway-ux": "node src/advanced/gatewayUx.test.mjs",
     "test:capabilities-page": "node src/advanced/capabilitiesPage.test.mjs",
