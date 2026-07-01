@@ -522,6 +522,38 @@ A 5 + C 4 + B 2) but also the highest-risk (hot path, easy to diverge on a count
 or message order), so it warrants its own focused cycle with per-sub-case
 verification rather than being rushed alongside the smaller fixes.
 
+**FU-009 families A/B/C RESOLVED (2026-07-02).** The graph adapter now mirrors the
+loop's empty-response ladder in `process_response`, split into small commits:
+- **B partial-stream recovery** (`8770d3a6`): if the transport returns an empty
+  final stub after visible streamed content, the graph finalizes the stripped
+  streamed text instead of falling through to stale tool-content or `""`.
+- **C reasoning-only/prefill** (`23461009`): structured reasoning with no visible
+  answer gets the loop's two `_thinking_prefill` continuations before it can enter
+  the true empty ladder; graph `prepare_request` also copies strict-provider
+  reasoning fields for API replay, fixing Kimi `reasoning_content=""`.
+- **A/shared empty ladder** (`ef037c4b`): graph tool-call turns now preserve visible
+  content attached to housekeeping tools, reuse that prior content on an empty
+  follow-up, issue the loop-valid post-tool nudge sequence
+  `tool -> assistant("(empty)") -> user(nudge)` for substantive tools, retry truly
+  empty responses three times, activate fallback providers with a fresh counter,
+  and finally persist/return the explicit `"(empty)"` terminal placeholder.
+  Two parity tests pin the previously untested housekeeping shortcut and post-tool
+  message-order contract.
+
+Verification: targeted A/B/C set under `HERMES_AGENT_ENGINE=graph` = 14 passed;
+same targeted set under the default loop = 14 passed. The fixed-seed differential
+gate (`test_graph_differential_sequences.py`) was confirmed at 121 passed twice in
+this handoff cycle; when local metadata lookups are slow, stubbing only the
+metadata-network aliases in the test process avoids unrelated HTTPS latency while
+leaving scripted transports unchanged. Full loop regression:
+`test_run_agent.py -q -n 4` = 296 passed. Full graph slice:
+`HERMES_AGENT_ENGINE=graph test_run_agent.py -q -n 4` = 292 passed / 4 failed; the
+remaining failures are exactly the expected FU-009 D/F/H set:
+`test_context_compression_triggered`,
+`test_minimax_delta_overflow_keeps_known_context_length`,
+`test_ollama_glm_stop_after_tools_without_terminal_boundary_requests_continuation`,
+and `test_nous_401_refreshes_after_remint_and_retries`.
+
 **Task 10 re-review + Step 0 harness fix (2026-07-01).** The re-review APPROVED
 the selector + Groups A–D (selector 20 passed; deterministic gate
 differential+usage+exit = 131 passed). It also surfaced a regression the
