@@ -12871,6 +12871,12 @@ class AIAgent:
         wired.  All other routes fall through to stubs that return an
         incomplete result.
         """
+        # Guard stdio against OSError from broken pipes (systemd/headless/daemon),
+        # mirroring the loop's first action (run_agent.py:9555).  pytest swaps in a
+        # fresh capture buffer per test, so the __init__-time install is not enough
+        # — the per-turn install is what a caller inside run_conversation observes.
+        _install_safe_stdio()
+
         from agent.graph_engine.engine import GraphEngine
 
         # ── Essential per-turn AIAgent state that the adapter needs ──────

@@ -458,6 +458,36 @@ Anthropic-tier branch; the parity probe caught the divergence (loop had 4×
 transport_error, no compression) before commit. G1 blocker cleared; FU-008/009
 remain.
 
+**PH35-FU-009 triage (2026-07-01).** With the `_snapshot` test-rot fixed (Step 0)
+and FU-007 landed, the clean signal is `test_run_agent.py` (the loop unit suite)
+run under `HERMES_AGENT_ENGINE=graph`: **18 failed / 276 passed**. The 18 cluster
+into 7 families, and most share ONE root — the graph adapter reproduced the loop's
+happy path + major exits but not its deep retry/nudge/fallback ladders, and its
+transport node checks only `if response is None` (:13417) where the loop uses
+`validate_response` (None **or** malformed):
+- **A. empty/malformed nudge ladder (5):** truly_empty (3× nudge → "(empty)",
+  api_calls 4), succeeds_on_nudge, triggers_fallback, fallback_also_empty,
+  emits_status. Root: graph's `process_response` plain-text path (:13602) finalizes
+  empty content as `final_response=""` with no nudge-retry ladder.
+- **B. partial stream recovery (2):** on_empty_stub, preempts_prior_turn_fallback.
+- **C. reasoning-only / prefill (4):** reasoning_only ×3, kimi empty-reasoning replay.
+- **D. compression trigger (2):** context_compression_triggered, minimax_delta_overflow.
+- **E. retry-exhaustion returns error not crash (2):** invalid_response (empty
+  `choices=[]` → "Invalid API response"; SHARES A's malformed-response root),
+  build_api_kwargs UnboundLocal (graph's `prepare_request` calls
+  `_build_api_kwargs` at :13367 **outside** any try/except, so a raise escapes
+  uncaught instead of surfacing a failed result).
+- **F. continuation boundary (1):** ollama_glm_stop_after_tools.
+- **G. SafeWriter install (1):** RESOLVED — the graph did not call
+  `_install_safe_stdio()` (loop does at :9555); pytest swaps a fresh capture buffer
+  per test so the __init__-time install is not observed. Added the call at the top
+  of `_run_conversation_graph`. 6/6 pass on both engines; idempotent guard, cannot
+  create a loop/graph divergence.
+Sequencing: A + E.1 + B share the invalid/empty-response detection root, so the
+next focused cycle is that shared machinery (detect malformed via `validate_response`,
+wire the nudge/retry/fallback ladder into the graph) — it unlocks the largest
+cluster at once. E.2 (build-error handling) and F are smaller, independent.
+
 **Task 10 re-review + Step 0 harness fix (2026-07-01).** The re-review APPROVED
 the selector + Groups A–D (selector 20 passed; deterministic gate
 differential+usage+exit = 131 passed). It also surfaced a regression the
