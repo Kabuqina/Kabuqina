@@ -12,6 +12,8 @@ export default tseslint.config(
       globals: {
         console: "readonly",
         URL: "readonly",
+        Buffer: "readonly",
+        window: "readonly",
       },
     },
     rules: {

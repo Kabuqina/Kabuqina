@@ -22,6 +22,7 @@ import { useEffect, useState } from "react";
 
 import { useI18n } from "../../lib/i18n";
 import { WorkspaceActionButton, WorkspaceSection } from "../workspaceSection";
+import { FlashcardPanel } from "./FlashcardPanel";
 import { STUDY_PROMPTS, type StudyActionId } from "./studyPrompts";
 import {
   STUDY_CONTEXT_EVENT,
@@ -191,11 +192,12 @@ export function StudySection({
   ];
 
   return (
-    <WorkspaceSection
-      sectionId="workspace.study"
-      title={t("chat.workspaceStudy")}
-      dotColor="#2f9e8f"
-    >
+    <>
+      <WorkspaceSection
+        sectionId="workspace.study"
+        title={t("chat.workspaceStudy")}
+        dotColor="#2f9e8f"
+      >
       <div className="mt-3 grid grid-cols-1 gap-2">
         {fields.map((field) => (
           <label key={field.key} className="grid gap-1 text-[12px] leading-snug text-[var(--kq-color-muted)]">
@@ -244,5 +246,7 @@ export function StudySection({
         })}
       </div>
     </WorkspaceSection>
+      <FlashcardPanel onStartPrompt={onStartPrompt} />
+    </>
   );
 }
