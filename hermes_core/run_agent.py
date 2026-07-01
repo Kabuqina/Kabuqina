@@ -13351,8 +13351,20 @@ class _GraphServicesAdapter:
                     exc_info=True,
                 )
 
-        # Copy messages for API (ephemeral modifications don't touch history)
-        api_messages = [msg.copy() for msg in messages]
+        # Copy messages for API (ephemeral modifications don't touch history).
+        # Preserve provider-native reasoning replay exactly as the loop does at
+        # run_agent.py:10025-10066; strict providers such as Kimi require an
+        # explicit ``reasoning_content`` field on replayed assistant tool calls.
+        api_messages = []
+        for msg in messages:
+            api_msg = msg.copy()
+            agent._copy_reasoning_content_for_api(msg, api_msg)
+            api_msg.pop("reasoning", None)
+            api_msg.pop("finish_reason", None)
+            api_msg.pop("_thinking_prefill", None)
+            if agent._should_sanitize_tool_calls():
+                agent._sanitize_tool_calls_for_strict_api(api_msg)
+            api_messages.append(api_msg)
 
         # Add system prompt prefix
         system_prompt = state.get("system_message") or ""
@@ -13663,6 +13675,38 @@ class _GraphServicesAdapter:
                     "turn_interrupted": False,
                 }
 
+            # Structured reasoning with no visible answer is an incomplete
+            # assistant turn, not a terminal empty response.  Mirror the loop's
+            # two prefill continuations (run_agent.py:12449-12479); the marker is
+            # stripped from the API copy in ``prepare_request`` above.
+            has_structured_reasoning = bool(
+                getattr(normalized, "reasoning", None)
+                or getattr(normalized, "reasoning_content", None)
+                or getattr(normalized, "reasoning_details", None)
+            )
+            if has_structured_reasoning and agent._thinking_prefill_retries < 2:
+                agent._thinking_prefill_retries += 1
+                logger.info(
+                    "Thinking-only response (no visible content) — "
+                    "prefilling to continue (%d/2)",
+                    agent._thinking_prefill_retries,
+                )
+                agent._emit_status(
+                    f"↻ Thinking-only response — prefilling to continue "
+                    f"({agent._thinking_prefill_retries}/2)"
+                )
+                interim_msg = agent._build_assistant_message(normalized, "incomplete")
+                interim_msg["_thinking_prefill"] = True
+                messages.append(interim_msg)
+                agent._session_messages = messages
+                agent._save_session_log(messages)
+                return {
+                    "route": "prepare_request",
+                    "messages": messages,
+                    "api_call_count": api_call_count,
+                    "first_attempt": True,
+                }
+
         # Plain-text response — a completed turn.  Mirror the loop's text
         # finalization (run_agent.py:12548-12554): fold in any accumulated
         # truncation-continuation prefix, then strip think blocks and trim
@@ -13677,6 +13721,16 @@ class _GraphServicesAdapter:
             final_response = content
         final_response = agent._strip_think_blocks(final_response).strip()
         assistant_msg = agent._build_assistant_message(normalized, finish_reason)
+        # Drop the temporary reasoning-only prefill turns before storing the
+        # completed answer (loop :12590-12601), preserving strict alternation.
+        while (
+            messages
+            and isinstance(messages[-1], dict)
+            and messages[-1].get("_thinking_prefill")
+        ):
+            messages.pop()
+        agent._empty_content_retries = 0
+        agent._thinking_prefill_retries = 0
         messages.append(assistant_msg)
 
         return {
