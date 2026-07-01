@@ -10366,6 +10366,15 @@ class AIAgent:
                                 error_details.append("response.choices is empty")
 
                     if response_invalid:
+                        # Engine-neutral usage sink (PH35-FU-007): the graph emits
+                        # ``invalid_response`` only for a None response (:13421); a
+                        # non-None-but-malformed response is a separate loop/graph
+                        # divergence tracked under PH35-FU-009, so gate on None here
+                        # to keep FU-007 to the paths where the engines already agree.
+                        if response is None:
+                            self._record_usage_attempt(
+                                outcome="invalid_response", route="call_transport"
+                            )
                         # Stop spinner before printing error messages
                         if thinking_spinner:
                             thinking_spinner.stop("(´;ω;`) oops, retrying...")
@@ -10850,6 +10859,14 @@ class AIAgent:
                     break
 
                 except Exception as api_error:
+                    # Engine-neutral usage sink (PH35-FU-007): record this failed
+                    # transport attempt so a UsageLedger sees the same per-attempt
+                    # event the graph emits at its transport node (:13407).  Fires
+                    # for every caught exception before classification/retry, exactly
+                    # as the graph does.  No-op without a sink; default path unchanged.
+                    self._record_usage_attempt(
+                        outcome="transport_error", route="call_transport"
+                    )
                     # Stop spinner before printing error messages
                     if thinking_spinner:
                         thinking_spinner.stop("(╥_╥) error, retrying...")
@@ -11444,6 +11461,11 @@ class AIAgent:
                         # so _flush_messages_to_session_db writes compressed
                         # messages to the new session, not skipping them.
                         conversation_history = None
+                        # Engine-neutral usage sink (PH35-FU-007): mirror the graph's
+                        # payload-too-large compression event (:14112).
+                        self._record_usage_attempt(
+                            outcome="compression", route="compression"
+                        )
 
                         if len(messages) < original_len:
                             self._emit_status(f"🗜️ Compressed {original_len} → {len(messages)} messages, retrying...")
@@ -11601,6 +11623,16 @@ class AIAgent:
                         # so _flush_messages_to_session_db writes compressed
                         # messages to the new session, not skipping them.
                         conversation_history = None
+                        # Engine-neutral usage sink (PH35-FU-007): mirror the graph's
+                        # context-overflow compression event (:14207) — emitted after
+                        # the compress + history reset.  NOTE: the Anthropic 1M-tier
+                        # reduction above is loop-only (the graph has no compression
+                        # handler for long_context_tier), so it is intentionally NOT
+                        # emitted, to avoid a loop-only event; that structural gap is
+                        # PH35-FU-009 territory, not FU-007.
+                        self._record_usage_attempt(
+                            outcome="compression", route="compression"
+                        )
 
                         if len(messages) < original_len or new_ctx and new_ctx < old_ctx:
                             if len(messages) < original_len:

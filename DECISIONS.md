@@ -431,6 +431,33 @@ emission, the rest of PH35-FU-009 (remaining graph edge-case gaps from the broad
 unit suite under graph), and PH35-FU-008 (deterministic interrupt-during-API
 fixture). Re-review recommended before approval.
 
+**PH35-FU-007 RESOLVED (2026-07-01).** The legacy loop now emits usage events on
+its error paths through the shared engine-neutral `_record_usage_attempt`, closing
+the per-exit ledger asymmetry (previously only the success path emitted). Emission
+points, each mirroring the graph's transport node / error handlers:
+- `transport_error` at the top of the loop's `except Exception as api_error`
+  (fires for every caught exception before classification/retry ≡ graph :13407);
+- `invalid_response` gated on `response is None` inside the `response_invalid`
+  block (the graph emits invalid_response only for None :13421; a non-None-but-
+  malformed response is a separate loop/graph divergence left to PH35-FU-009);
+- `compression` after the 413 payload compress + history reset (≡ graph :14112)
+  and after the general context-overflow step-down compress (≡ graph :14207).
+Placement decision: the loop's Anthropic 1M-tier context reduction also compresses,
+but the graph has **no** compression handler for `long_context_tier` (its
+`handle_transport_error` routes only `payload_too_large`→`_handle_payload_compression`
+and `context_overflow`→`_handle_context_overflow`), so the loop intentionally does
+NOT emit there — emitting would create a loop-only event. That the graph doesn't
+model the 1M-tier reduction at all is a structural gap logged under PH35-FU-009.
+Verified: loop≡graph usage-event sequences MATCH on 5 error fixtures
+(exit_api_retries, exit_invalid_response, exit_nonretryable_client,
+exit_payload_compression, exit_context_stepdown) via a new parametrized test in
+`test_usage_event_sink.py`; differential fuzzer 121, loop unit suite 294,
+usage/compression/exit 29. No-op without a sink → legacy result dicts untouched.
+The initial implementation misplaced the context-overflow emission in the
+Anthropic-tier branch; the parity probe caught the divergence (loop had 4×
+transport_error, no compression) before commit. G1 blocker cleared; FU-008/009
+remain.
+
 **Task 10 re-review + Step 0 harness fix (2026-07-01).** The re-review APPROVED
 the selector + Groups A–D (selector 20 passed; deterministic gate
 differential+usage+exit = 131 passed). It also surfaced a regression the

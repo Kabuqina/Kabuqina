@@ -17,6 +17,8 @@ from pathlib import Path
 from typing import Any, Dict, List
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 sys.modules.setdefault("fire", types.SimpleNamespace(Fire=lambda *a, **k: None))
 sys.modules.setdefault("firecrawl", types.SimpleNamespace(Firecrawl=object))
 sys.modules.setdefault("fal_client", types.SimpleNamespace())
@@ -258,6 +260,41 @@ def test_loop_and_graph_emit_matching_success_event():
     assert le.route == ge.route == "call_transport"
     assert le.usage == ge.usage
     assert le.cost.status == ge.cost.status
+
+
+@pytest.mark.parametrize(
+    "fixture",
+    [
+        "exit_api_retries.json",         # transport_error ladder to exhaustion
+        "exit_invalid_response.json",    # invalid_response (None) retries
+        "exit_nonretryable_client.json", # single transport_error
+        "exit_payload_compression.json", # 413 payload-too-large compression events
+        "exit_context_stepdown.json",    # context-overflow step-down compression
+    ],
+)
+def test_loop_and_graph_emit_matching_error_path_events(fixture):
+    """PH35-FU-007: with a sink wired, the legacy loop emits transport_error /
+    invalid_response / compression usage events on its error paths, matching the
+    graph's per-attempt sequence — so a ``UsageLedger`` is comparable across
+    engines on error exits, not only the success path.
+
+    Placement parity note: the loop's Anthropic 1M-tier context reduction also
+    compresses, but the graph has no compression handler for ``long_context_tier``
+    (it routes only ``payload_too_large`` and ``context_overflow`` to a
+    compression-emitting handler), so the loop intentionally does NOT emit there.
+    That structural gap is tracked under PH35-FU-009.
+    """
+    loop_seq = [(e.outcome, e.route) for e in _events_for(fixture, "loop")]
+    graph_seq = [(e.outcome, e.route) for e in _events_for(fixture, "graph")]
+    assert loop_seq == graph_seq, (
+        f"{fixture}: loop/graph usage-event sequence diverged\n"
+        f"  loop:  {loop_seq}\n  graph: {graph_seq}"
+    )
+    # Guard: the fixture must actually exercise an error path, else it is not
+    # testing FU-007 (a success-only sequence would pass vacuously).
+    assert any(outcome != "success" for outcome, _ in loop_seq), (
+        f"{fixture} emitted no error-path usage event: {loop_seq}"
+    )
 
 
 def test_recorder_is_noop_without_sink():

@@ -666,18 +666,24 @@ Do not start Task 7 until all boxes are checked in both plans:
   twice and its broader run-agent suite passes. *(2026-06-29, commit `4ab120ff`.)*
 - [x] Phase 3.5 Task 10 lands the explicit constructor/environment/config
   selector and proves both `loop` and `graph` independently. *(2026-06-30 — selector + dispatcher; loop and graph are each independently selectable and exercised. NOTE: routing the full loop unit suite through graph surfaced 22 edge-case equivalence gaps, PH35-FU-009 — these gate the Task 11 default flip but not selectability.)*
-- [ ] Phase 3.5's usage-event sink records normal and early-exit transport
+- [x] Phase 3.5's usage-event sink records normal and early-exit transport
   attempts before branching, without changing legacy result dictionaries.
-  *(BLOCKED: PH35-FU-007 — loop-side emission not yet added.)*
+  *(2026-07-01 — PH35-FU-007 resolved: the loop now emits transport_error,
+  invalid_response (gated on a None response), and compression (413 +
+  general context-overflow) events via the shared `_record_usage_attempt`,
+  matching the graph's per-attempt sequence on 5 error fixtures. No-op without a
+  sink, so legacy result dicts are untouched. Verified: differential 121, loop
+  suite 294, usage/compression/exit 29.)*
 - [x] `AIAgent.run_conversation` remains the stable public entry point.
   *(2026-06-30 — now a thin dispatcher; signature unchanged.)*
 - [ ] Goal Runner Tasks 1–6 pass and introduce no imports from
   `agent.graph_engine` or `langgraph`. *(companion-plan tasks — not yet verified here.)*
 - [ ] The integration diff and file ownership are reviewed by a person.
 
-**G1 is NOT open.** Remaining blockers: PH35-FU-007 (usage-event sink on both
-engines), PH35-FU-009 (graph edge-case equivalence gaps — needed for confidence
-though strictly a Task 11 gate), Goal Runner Tasks 1–6, and human review.
+**G1 is NOT open.** Remaining blockers (PH35-FU-007 cleared 2026-07-01):
+PH35-FU-009 (graph edge-case equivalence gaps — needed for confidence though
+strictly a Task 11 gate), PH35-FU-008 (deterministic interrupt-during-API
+fixture), Goal Runner Tasks 1–6, and human review.
 
 Phase 3.5 commits to date:
 
