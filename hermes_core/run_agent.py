@@ -13634,6 +13634,35 @@ class _GraphServicesAdapter:
                 "api_call_count": api_call_count,
             }
 
+        # Empty visible content may still have been delivered incrementally
+        # before a streaming connection died.  The loop gives that content
+        # priority over every empty-response fallback (run_agent.py:12347-12369),
+        # including stale content from a prior tool turn.
+        if not agent._has_content_after_think_block(content):
+            partial_streamed = (
+                getattr(agent, "_current_streamed_assistant_text", "") or ""
+            )
+            if agent._has_content_after_think_block(partial_streamed):
+                recovered = agent._strip_think_blocks(partial_streamed).strip()
+                logger.info(
+                    "Partial stream content delivered (%d chars) "
+                    "— using as final response",
+                    len(recovered),
+                )
+                agent._emit_status(
+                    "↻ Stream interrupted — using delivered content "
+                    "as final response"
+                )
+                agent._response_was_previewed = True
+                return {
+                    "route": "finish",
+                    "messages": messages,
+                    "api_call_count": api_call_count,
+                    "finalize": True,
+                    "final_response": recovered,
+                    "turn_interrupted": False,
+                }
+
         # Plain-text response — a completed turn.  Mirror the loop's text
         # finalization (run_agent.py:12548-12554): fold in any accumulated
         # truncation-continuation prefix, then strip think blocks and trim
