@@ -23,6 +23,7 @@ import { useEffect, useState } from "react";
 import { useI18n } from "../../lib/i18n";
 import { WorkspaceActionButton, WorkspaceSection } from "../workspaceSection";
 import { FlashcardPanel } from "./FlashcardPanel";
+import { QuizPanel } from "./QuizPanel";
 import { STUDY_PROMPTS, type StudyActionId } from "./studyPrompts";
 import {
   STUDY_CONTEXT_EVENT,
@@ -247,6 +248,7 @@ export function StudySection({
       </div>
     </WorkspaceSection>
       <FlashcardPanel onStartPrompt={onStartPrompt} />
+      <QuizPanel onStartPrompt={onStartPrompt} />
     </>
   );
 }
