@@ -88,6 +88,23 @@ Future first-party additions follow this order: add a load package in `python/sr
 | Planner sink (Phase C planner, 2026-06-12) | The Planner layer is sunk into the agent core: **`build_deliverable_planner_prompt` in `hermes_core/agent/prompt_builder.py`**, called by `run_agent._build_system_prompt` and self-gated on the deliverable writer tools, so the **desk child and gateway child plan identically** (both construct `run_agent.AIAgent`). Slide vocabulary is single-sourced from new **`hermes_core/tools/deliverable_contract.py`** — `document_tools` normalizes against the same sets a drift-guard test enforces, so planner guidance and writer normalization cannot diverge. `WorkspacePanel.tsx` quick-actions are thinned to intent + structure id + visual-master selection. |
 | DOCX writer path (Phase C, 2026-06-12) | Editable Word output is **`docx_write` in `hermes_core/tools/document_tools.py`** (renderer `python_docx_v1`, via the already-bundled `python-docx`), registered in the `documents` toolset. It reuses the shared `sections`/`blocks` contract (`_build_pdf_spec` normalization) and renders the same block types to Word (`_render_docx` / `_docx_add_block`), so one reviewed outline can target PDF, HTML, or DOCX. Exposed as first-party `document-docx-generation` with a full four-layer primary pipeline `document-report-docx` plus a non-primary `document-docx-writer-v1` direct path; report types are `word_report` / `study_notes` / `project_report`. |
 
+## STUDY four-layer learning pipeline (2026-07-01)
+
+| Question | Decision |
+|----------|----------|
+| Four-layer mapping | Keep the existing deliverable path (`Read → Material Index → Deliverable Planner → File Writer`) and add a parallel learning path (`Read / Student State / Activity → Learning Index → Learning Planner → Output Writer`). Learning Index is deterministic and does not modify Material Index v1. |
+| Planner architecture | Use a **lightweight `PlannerSpec` / registry**, not plain-function sprawl and not a second executor. Deliverable Planner (PPT/document specializations) and Learning Planner are siblings; the existing `AIAgent` loop still executes tools. |
+| Contract authority | Learning artifact kinds, versions, lifecycle and review levels are single-sourced in shared-core `learning_contract.py`. The capability registry references stable ids and remains the product/readiness catalog; drift tests forbid duplicate vocabularies. |
+| Review boundary | Deterministic validation always runs. Knowledge bases, learning plans, resource packs, batch flashcards and quizzes also receive prompt-based semantic review. AI-produced content is always a `draft` until a trusted UI/API or deterministic Gateway command activates it. Real user activity writes directly. |
+| Writer architecture | Writer has two branches: existing **File Writer** and generic **Output Writer**. Output Writer validates discriminated per-kind payloads, versions and persists non-file learning artifacts; STUDY is its first consumer. A resource pack may fan out to both writers. |
+| Persistence scope | Store learning state in a separate SQLite/WAL **`learning.db`** under the common Hermes root, organized by `owner_id + learning_space`. Do not extend per-profile `state.db`; a course workspace, not a chat session, is the durable scope. |
+| Identity | Desktop and each Gateway platform user are isolated owners by default. Gateway ids use `gateway:<platform>:<hashed-user-id>`. Owner is runtime-injected through `LearningExecutionContext` and is never model-supplied; future account linking must be explicit. |
+| Desktop/Gateway interaction | Draft creation is non-blocking and emits `learning.output.created`; do not reuse the blocking review interaction bridge. Gateway trust-boundary actions use deterministic `/study list/new/use/drafts/approve/reject` commands. |
+| STUDY migration | Replace the copy-JSON/import main path with a shared draft inbox and a lifecycle UI (course setup → plan → tutor/learn → practice/review → evaluation/adjustment). Automatically import legacy localStorage per key, idempotently, and retain old data read-only for one release. |
+| Delivery strategy | Ship vertical slices: foundation; course space + flashcards; quiz; student state/evaluation/plan; knowledge/resources/tutoring/quality; lifecycle UI. Each slice must retain owner isolation, migration rollback and existing deliverable-Planner behavior. |
+
+Full design: `docs/superpowers/specs/2026-07-01-study-four-layer-learning-pipeline-design.md`.
+
 **Cherry-pick log:**
 
 | Date | Commit | Origin | Reason |
