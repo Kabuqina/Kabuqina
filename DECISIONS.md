@@ -554,6 +554,35 @@ remaining failures are exactly the expected FU-009 D/F/H set:
 `test_ollama_glm_stop_after_tools_without_terminal_boundary_requests_continuation`,
 and `test_nous_401_refreshes_after_remint_and_retries`.
 
+**FU-009 D/F/H RESOLVED; run_agent graph gaps closed (2026-07-02).**
+- **D compression triggers** (`14632efe`): graph `dispatch_tools` now performs the
+  loop's post-tool `context_compressor.should_compress(...)` check before the next
+  API turn, carries the returned active system prompt forward, clears cached
+  conversation history after compression, and emits the same compression usage
+  event. Graph `_handle_context_overflow` also gained the MiniMax delta-only guard:
+  MiniMax's `"context window exceeds limit (2013)"` reports an overflow amount,
+  not the true window, so graph now keeps the known context length and compresses;
+  non-MiniMax providers still probe down to the next tier.
+- **F Ollama/GLM suspicious `stop` continuation** (`484c356a`): graph now calls the
+  existing `_should_treat_stop_as_truncated(...)` helper before usage/post hooks and
+  finalization. The narrow Ollama-hosted GLM post-tool pattern is reclassified as
+  `length` and routed through the shared continuation handler; naturally terminated
+  responses and non-Ollama providers remain unchanged.
+- **H Nous 401 remint/retry** (`148ffd30`): graph now mirrors the loop's one-shot
+  Nous Portal 401 recovery before generic credential-pool / non-retryable 4xx
+  handling. A successful `_try_refresh_nous_client_credentials(force=True)` retries
+  the same turn; a failed refresh falls through to the existing client-error path.
+
+Verification: targeted family checks pass on both graph and loop (D compression
+set 3/3, F Ollama/GLM stop set 3/3, H Nous 401 1/1). The full `test_run_agent.py`
+slice now passes under both engines: `HERMES_AGENT_ENGINE=graph ... -q -n 4` =
+296 passed / 300 warnings; default loop `... -q -n 4` = 296 passed / 296 warnings.
+The differential gate was not rerun after D/F/H because it had already been
+confirmed at 121 passed twice in the same handoff cycle and the user explicitly
+called out that duplicate pass; before a default-engine flip or PR review, rerun
+the agreed final gate set. **PH35-FU-009's `test_run_agent.py` graph-equivalence
+signal is closed; Task 11 remains blocked by PH35-FU-008 and final review.**
+
 **Task 10 re-review + Step 0 harness fix (2026-07-01).** The re-review APPROVED
 the selector + Groups A–D (selector 20 passed; deterministic gate
 differential+usage+exit = 131 passed). It also surfaced a regression the
