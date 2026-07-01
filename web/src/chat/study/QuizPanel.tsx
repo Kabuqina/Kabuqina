@@ -140,8 +140,8 @@ export function QuizPanel({
       const merged = [result.weakTags.join("、"), context.weakPoints].filter(Boolean).join("；");
       weakPoints = merged.slice(0, STUDY_CONTEXT_FIELD_LIMIT);
     }
-    saveStudyContext({ ...context, evaluationSummary, weakPoints });
-    setWroteBack(true);
+    const saveResult = saveStudyContext({ ...context, evaluationSummary, weakPoints });
+    setWroteBack(saveResult.succeeded);
   };
 
   const retry = () => {

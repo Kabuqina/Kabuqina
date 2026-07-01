@@ -94,10 +94,13 @@ export function StudySection({
 }) {
   const { t } = useI18n();
   const [context, setContext] = useState<StudyContext>(emptyStudyContext);
-  const [saved, setSaved] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saved" | "failed">("idle");
 
   useEffect(() => {
-    const sync = () => setContext(loadStudyContext());
+    const sync = () => {
+      setContext(loadStudyContext());
+      setSaveStatus("idle");
+    };
     sync();
     window.addEventListener("storage", sync);
     window.addEventListener(STUDY_CONTEXT_EVENT, sync);
@@ -108,24 +111,27 @@ export function StudySection({
   }, []);
 
   const updateContext = (key: keyof StudyContext, value: string) => {
-    setSaved(false);
+    setSaveStatus("idle");
     setContext((current) => ({ ...current, [key]: value }));
   };
 
   const persistContext = () => {
-    setContext(saveStudyContext(context));
-    setSaved(true);
+    const result = saveStudyContext(context);
+    setContext(result.context);
+    setSaveStatus(result.succeeded ? "saved" : "failed");
   };
 
   const resetContext = () => {
-    setContext(clearStudyContext());
-    setSaved(false);
+    const result = clearStudyContext();
+    if (result.succeeded) setContext(result.context);
+    setSaveStatus(result.succeeded ? "idle" : "failed");
   };
 
   const startAction = (prompt: string) => {
-    const savedContext = saveStudyContext(context);
-    setContext(savedContext);
-    const contextPrompt = formatStudyContextForPrompt(savedContext);
+    const result = saveStudyContext(context);
+    setContext(result.context);
+    setSaveStatus(result.succeeded ? "saved" : "failed");
+    const contextPrompt = formatStudyContextForPrompt(result.context);
     onStartPrompt?.([contextPrompt, prompt].filter(Boolean).join("\n\n"));
   };
 
@@ -219,7 +225,11 @@ export function StudySection({
             className="kq-quick-action inline-flex flex-1 items-center justify-center gap-1.5 rounded-[10px] px-2.5 py-2 text-[12.5px] leading-snug transition"
           >
             <Save className="h-3.5 w-3.5" aria-hidden />
-            {saved ? t("chat.studyContextSaved") : t("chat.studyContextSave")}
+            {saveStatus === "saved"
+              ? t("chat.studyContextSaved")
+              : saveStatus === "failed"
+                ? t("chat.studyContextSaveFailed")
+                : t("chat.studyContextSave")}
           </button>
           <button
             type="button"

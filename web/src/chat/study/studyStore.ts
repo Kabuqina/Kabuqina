@@ -20,6 +20,11 @@ export type StudyContext = {
   nextAdjustment: string;
 };
 
+export type StudyContextStorageResult = {
+  context: StudyContext;
+  succeeded: boolean;
+};
+
 const EMPTY_STUDY_CONTEXT: StudyContext = {
   course: "",
   goal: "",
@@ -64,8 +69,12 @@ export function normalizeStudyContext(value: unknown): StudyContext {
 }
 
 function storageAvailable(): Storage | null {
-  if (typeof window === "undefined" || !window.localStorage) return null;
-  return window.localStorage;
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export function loadStudyContext(): StudyContext {
@@ -84,31 +93,30 @@ function emitStudyContextChanged() {
   window.dispatchEvent(new Event(STUDY_CONTEXT_EVENT));
 }
 
-export function saveStudyContext(context: StudyContext): StudyContext {
+export function saveStudyContext(context: StudyContext): StudyContextStorageResult {
   const normalized = normalizeStudyContext(context);
   const storage = storageAvailable();
-  if (storage) {
-    try {
-      storage.setItem(STUDY_CONTEXT_STORAGE_KEY, JSON.stringify(normalized));
-    } catch {
-      // localStorage may be unavailable or full in restricted webviews.
-    }
+  if (!storage) return { context: normalized, succeeded: false };
+  try {
+    storage.setItem(STUDY_CONTEXT_STORAGE_KEY, JSON.stringify(normalized));
+  } catch {
+    return { context: normalized, succeeded: false };
   }
   emitStudyContextChanged();
-  return normalized;
+  return { context: normalized, succeeded: true };
 }
 
-export function clearStudyContext(): StudyContext {
+export function clearStudyContext(): StudyContextStorageResult {
+  const empty = emptyStudyContext();
   const storage = storageAvailable();
-  if (storage) {
-    try {
-      storage.removeItem(STUDY_CONTEXT_STORAGE_KEY);
-    } catch {
-      // ignore
-    }
+  if (!storage) return { context: empty, succeeded: false };
+  try {
+    storage.removeItem(STUDY_CONTEXT_STORAGE_KEY);
+  } catch {
+    return { context: empty, succeeded: false };
   }
   emitStudyContextChanged();
-  return emptyStudyContext();
+  return { context: empty, succeeded: true };
 }
 
 export function hasStudyContext(context: StudyContext): boolean {

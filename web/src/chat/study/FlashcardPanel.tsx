@@ -137,8 +137,8 @@ export function FlashcardPanel({
       0,
       STUDY_CONTEXT_FIELD_LIMIT,
     );
-    saveStudyContext({ ...context, progressNotes });
-    setWroteBack(true);
+    const result = saveStudyContext({ ...context, progressNotes });
+    setWroteBack(result.succeeded);
   };
 
   const clearAll = () => {

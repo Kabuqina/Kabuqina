@@ -1048,6 +1048,8 @@ assert.match(chatPageReminderSource, /\/settings\/cron/);
 const { STUDY_PROMPTS } = await importTs("./study/studyPrompts.ts");
 const studySectionSource = fs.readFileSync(new URL("./study/StudySection.tsx", import.meta.url), "utf8");
 const studyStoreSource = fs.readFileSync(new URL("./study/studyStore.ts", import.meta.url), "utf8");
+const flashcardPanelSource = fs.readFileSync(new URL("./study/FlashcardPanel.tsx", import.meta.url), "utf8");
+const quizPanelSource = fs.readFileSync(new URL("./study/QuizPanel.tsx", import.meta.url), "utf8");
 
 assert.deepEqual(
   Object.keys(STUDY_PROMPTS),
@@ -1146,6 +1148,21 @@ assert.match(
   studySectionSource,
   /loadStudyContext[\s\S]*saveStudyContext[\s\S]*clearStudyContext[\s\S]*formatStudyContextForPrompt/,
   "StudySection should wire persistent context into every learning action.",
+);
+assert.match(
+  studySectionSource,
+  /saveStatus[\s\S]*succeeded \? "saved" : "failed"[\s\S]*studyContextSaveFailed/,
+  "StudySection should surface local storage failures instead of reporting a false save success.",
+);
+assert.match(
+  flashcardPanelSource,
+  /const result = saveStudyContext\([\s\S]*setWroteBack\(result\.succeeded\)/,
+  "Flashcard progress write-back should only report success after storage succeeds.",
+);
+assert.match(
+  quizPanelSource,
+  /const saveResult = saveStudyContext\([\s\S]*setWroteBack\(saveResult\.succeeded\)/,
+  "Quiz result write-back should only report success after storage succeeds.",
 );
 assert.match(
   studySectionSource,

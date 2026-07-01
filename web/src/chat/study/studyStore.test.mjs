@@ -11,7 +11,7 @@ async function importTs(path) {
       jsx: ts.JsxEmit.ReactJSX,
     },
   }).outputText;
-  const url = `data:text/javascript;base64,${Buffer.from(js).toString("base64")}`;
+  const url = `data:text/javascript;base64,${globalThis.Buffer.from(js).toString("base64")}`;
   return import(url);
 }
 
@@ -124,7 +124,7 @@ globalThis.Event = class {
   }
 };
 
-const saved = store.saveStudyContext({
+const saveResult = store.saveStudyContext({
   course: "  人工智能导论  ",
   goal: "完成课程项目",
   profileSummary: "",
@@ -138,12 +138,55 @@ const saved = store.saveStudyContext({
   evaluationSummary: "可进入下一章",
   nextAdjustment: "增加项目任务",
 });
+assert.equal(saveResult.succeeded, true);
+const saved = saveResult.context;
 assert.equal(saved.course, "人工智能导论");
 assert.deepEqual(store.loadStudyContext(), saved);
-assert.deepEqual(store.clearStudyContext(), store.emptyStudyContext());
+const clearResult = store.clearStudyContext();
+assert.equal(clearResult.succeeded, true);
+assert.deepEqual(clearResult.context, store.emptyStudyContext());
 assert.deepEqual(store.loadStudyContext(), store.emptyStudyContext());
 
-window.localStorage.setItem(store.STUDY_CONTEXT_STORAGE_KEY, "{bad json");
+globalThis.window.localStorage.setItem(store.STUDY_CONTEXT_STORAGE_KEY, "{bad json");
 assert.deepEqual(store.loadStudyContext(), store.emptyStudyContext());
+
+Object.defineProperty(globalThis.window, "localStorage", {
+  configurable: true,
+  get() {
+    throw new globalThis.DOMException("Storage is disabled", "SecurityError");
+  },
+});
+assert.deepEqual(
+  store.loadStudyContext(),
+  store.emptyStudyContext(),
+  "load should fall back to an empty context when the localStorage getter throws",
+);
+
+const failingStorage = createStorage();
+failingStorage.setItem = () => {
+  throw new globalThis.DOMException("Storage quota exceeded", "QuotaExceededError");
+};
+Object.defineProperty(globalThis.window, "localStorage", {
+  configurable: true,
+  value: failingStorage,
+});
+const failedSave = store.saveStudyContext({
+  ...store.emptyStudyContext(),
+  course: "机器学习基础",
+});
+assert.equal(failedSave.succeeded, false, "save should report storage write failures");
+assert.equal(failedSave.context.course, "机器学习基础");
+
+const failingClearStorage = createStorage();
+failingClearStorage.removeItem = () => {
+  throw new globalThis.DOMException("Storage is read-only", "SecurityError");
+};
+Object.defineProperty(globalThis.window, "localStorage", {
+  configurable: true,
+  value: failingClearStorage,
+});
+const failedClear = store.clearStudyContext();
+assert.equal(failedClear.succeeded, false, "clear should report storage removal failures");
+assert.deepEqual(failedClear.context, store.emptyStudyContext());
 
 console.log("studyStore.test.mjs: ok");
