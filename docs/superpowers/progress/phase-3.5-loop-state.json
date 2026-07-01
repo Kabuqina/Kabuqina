@@ -1,23 +1,22 @@
 {
   "plan": "docs/superpowers/specs/2026-06-24-consolidate-and-langgraph-replatform-plan.md",
   "current_task": "10-review-remediation",
-  "status": "in_progress",
+  "status": "approved",
   "attempt": 1,
   "worktree": null,
-  "last_commit": "97ef7ac9",
+  "last_commit": "baefa4fa",
   "last_verification": [
-    "Task 10: rollback-safe strangler selector. agent/engine_selector.py:resolve_agent_engine — precedence explicit arg > HERMES_AGENT_ENGINE > agent.engine (profile config) > loop; invalid explicit/env raise ValueError, invalid config warns+falls back to loop.",
-    "config_defaults agent.engine: loop (deep-merged, _config_version unchanged). AIAgent resolves once in __init__ (self.agent_engine); public run_conversation dispatches to _run_conversation_graph / renamed _run_conversation_loop with no cross-engine fallback.",
-    "Source-anchored tests retargeted to _run_conversation_loop (test_exit_contract AST, test_exit_reachability trace+getsource, 5 getsource checks in test_run_agent); 21 exit return lines rebased uniformly +45 for the dispatcher inserted above the loop body. Golden harness drives the private bodies directly.",
-    "test_engine_selector.py: 20 cases (17 resolver + 3 public-dispatch added in Group D; the earlier '22' was a miscount, P2-6). Deterministic equivalence gate green twice.",
-    "Broader slice HERMES_AGENT_ENGINE=loop: 1274 passed / 10 pre-existing env failures (legacy-regression gate holds).",
-    "Broader slice =graph: 1253 passed / 32 failed = 10 env + 22 graph-specific edge-case equivalence gaps (retry/empty-response/fallback, reasoning-only prefill, compression triggers, length-continuation, 401 remint) beyond the Task 9 golden corpus -> logged PH35-FU-009; gates Task 11 default flip, not the selector.",
-    "Differential fuzzer: removed the non-deterministic interrupt variant (the graph early-exits with a minimal result on interrupt-during-async-API-call vs the loop's tool-cancel path; real timing-dependent gap -> PH35-FU-008). Now passes 121x3 under xdist; added a diff-keys enrichment to the assertion."
+    "Task 10 re-review (2026-07-01) APPROVED. Reviewed the rollback-safe engine selector + review-remediation Groups A-D (commits c05b344d -> 7cfce77d -> 58cf57b0 -> 017ff465 -> baefa4fa).",
+    "engine_selector.py: precedence explicit > HERMES_AGENT_ENGINE > agent.engine (config) > loop is correct; explicit/env invalid -> ValueError (operator intent), config invalid -> warn+fallback to loop; no LangGraph import; resolved once in __init__ (self.agent_engine). test_engine_selector.py: 20 passed (the 17->20 miscount is fixed).",
+    "Dispatch seam run_agent.py:9486 run_conversation -> _run_conversation_graph / _run_conversation_loop with NO cross-engine fallback; docstring documents the tool-side-effect rationale for not re-running the loop on a graph failure.",
+    "P1-1/P1-2 (7cfce77d) confirmed real: graph initialize_turn/_finalize_turn now mirror the loop prefix+finalizer side effects, each loop-line-cited; _sync_external_memory_for_turn self-guards on interrupted (run_agent.py:4465, #15218), so the unconditional call is correct parity. golden lifecycle_calls is a legit parity pin re-recorded from the loop.",
+    "P1-3/P1-4 (58cf57b0) confirmed: _record_usage_attempt uses a per-turn monotonic _usage_attempt_index (fixes the [0,1,1] api_call_count collision); max-iteration summary records real per-call usage; strict no-op without a usage_sink -> ZERO production behavior change (default has no sink).",
+    "Deterministic equivalence gate re-run on current main this session: test_graph_differential_sequences + test_usage_event_sink + test_exit_contract = 131 passed. test_engine_selector = 20 passed."
   ],
   "failed_approaches": [
-    "Initial hypothesis that the differential flake was the OpenRouter prewarm/cost cache race was wrong: a plain (no-pytest) harness loop ran 960 case-pairs clean. The real cause was the interrupt variant under a real (pytest) event loop — graph runs async and observes the interrupt at a non-deterministic point.",
+    "Initial hypothesis that the differential flake was the OpenRouter prewarm/cost cache race was wrong: a plain (no-pytest) harness loop ran 960 case-pairs clean. The real cause was the interrupt variant under a real (pytest) event loop -> graph runs async and observes the interrupt at a non-deterministic point (-> PH35-FU-008).",
     "Task 9 finalize markers were dropped by StateGraph(TurnState) until declared as NotRequired channels (finalize/final_response/turn_interrupted)."
   ],
   "blocker": null,
-  "next_action": "Tasks 8/9/10 review (5xP1+1xP2) ALL ADDRESSED across Groups A-D. A: graph turn-prefix + finalizer parity. B: P1-3 aux usage real + P1-4 per-turn monotonic attempt_index (engine-neutral _record_usage_attempt) + PH35-FU-007 success/aux loop emission. C: differential fuzzer widened to unknown-tool/retryable-error/truncation/empty-response families, which caught + fixed a real graph bug (plain-text final response now folds the truncation prefix + _strip_think_blocks().strip() like the loop). D: 3 public-dispatch tests + 17->20 miscount fix. Deterministic gate 275 passed twice; widened fuzzer 121 xdist-stable twice. STOP for re-review before approval. Still open before G1/Task 11: PH35-FU-007 error-path loop emission, remaining PH35-FU-009 graph edge-case gaps, PH35-FU-008 interrupt fixture. Do NOT push."
+  "next_action": "Task 10 APPROVED (re-review 2026-07-01). NOTE ON STATE: contrary to the prior 'Do NOT push' cursor note, the Task 10 work + Groups A-D remediation are ALREADY on origin/main (merged, likely via the PR flow) alongside G0 and the STUDY PRs #4/#5. This is low-risk because DEFAULT_ENGINE='loop' and Task 11 (the default flip) is NOT done -> the graph engine is DORMANT unless HERMES_AGENT_ENGINE=graph or agent.engine=graph is set explicitly. Before Task 11 / G1 default-flip, three gates remain OPEN: PH35-FU-007 (loop-side usage emission on error paths transport_error/invalid_response/compression; only the success path is done), PH35-FU-008 (interrupt fixture: graph observes interrupt at a non-deterministic async point), PH35-FU-009 (22 graph edge-case equivalence gaps: retry/empty-response/compression-trigger/length-continuation/401-remint). Do NOT flip the default engine until FU-007/008/009 are closed."
 }
