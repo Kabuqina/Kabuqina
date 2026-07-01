@@ -461,7 +461,7 @@ remain.
 **PH35-FU-009 triage (2026-07-01).** With the `_snapshot` test-rot fixed (Step 0)
 and FU-007 landed, the clean signal is `test_run_agent.py` (the loop unit suite)
 run under `HERMES_AGENT_ENGINE=graph`: **18 failed / 276 passed**. The 18 cluster
-into 7 families, and most share ONE root — the graph adapter reproduced the loop's
+into 8 families, and most share ONE root — the graph adapter reproduced the loop's
 happy path + major exits but not its deep retry/nudge/fallback ladders, and its
 transport node checks only `if response is None` (:13417) where the loop uses
 `validate_response` (None **or** malformed):
@@ -478,6 +478,9 @@ transport node checks only `if response is None` (:13417) where the loop uses
   `_build_api_kwargs` at :13367 **outside** any try/except, so a raise escapes
   uncaught instead of surfacing a failed result).
 - **F. continuation boundary (1):** ollama_glm_stop_after_tools.
+- **H. 401 credential remint (1):** nous_401_refreshes_after_remint_and_retries —
+  the loop remints the token on a 401 and retries; the graph's error path does not
+  yet reproduce the remint-and-retry.
 - **G. SafeWriter install (1):** RESOLVED — the graph did not call
   `_install_safe_stdio()` (loop does at :9555); pytest swaps a fresh capture buffer
   per test so the __init__-time install is not observed. Added the call at the top
