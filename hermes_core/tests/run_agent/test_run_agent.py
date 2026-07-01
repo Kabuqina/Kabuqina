@@ -2467,6 +2467,94 @@ class TestRunConversation:
         failure_msgs = [m for m in status_messages if "no content" in m.lower() or "no fallback" in m.lower()]
         assert len(failure_msgs) >= 1, f"Expected at least 1 failure status, got: {status_messages}"
 
+    def test_housekeeping_tool_empty_followup_uses_prior_content(
+        self, agent_with_memory_tool
+    ):
+        """Content accompanying only housekeeping tools is already the final answer."""
+        agent = agent_with_memory_tool
+        self._setup_agent(agent)
+        housekeeping_call = _mock_tool_call(
+            name="memory", arguments="{}", call_id="c1"
+        )
+        answered_with_tool = _mock_response(
+            content="The requested information is already above.",
+            finish_reason="tool_calls",
+            tool_calls=[housekeeping_call],
+        )
+        empty_followup = _mock_response(content=None, finish_reason="stop")
+        should_not_be_used = _mock_response(
+            content="This extra model turn should not happen.", finish_reason="stop"
+        )
+        agent.client.chat.completions.create.side_effect = [
+            answered_with_tool,
+            empty_followup,
+            should_not_be_used,
+        ]
+
+        def _fake_tool_execution(_assistant, messages, _task_id, _api_calls=0):
+            messages.append({
+                "role": "tool",
+                "tool_call_id": "c1",
+                "content": "saved",
+            })
+
+        with (
+            patch.object(agent, "_execute_tool_calls", side_effect=_fake_tool_execution),
+            patch.object(agent, "_persist_session"),
+            patch.object(agent, "_save_trajectory"),
+            patch.object(agent, "_cleanup_task_resources"),
+        ):
+            result = agent.run_conversation("finish the housekeeping")
+
+        assert result["final_response"] == "The requested information is already above."
+        assert result["api_calls"] == 2
+
+    def test_post_tool_empty_nudge_preserves_valid_message_sequence(self, agent):
+        """A substantive tool empty-followup uses tool/assistant/user ordering."""
+        self._setup_agent(agent)
+        substantive_call = _mock_tool_call(
+            name="web_search", arguments="{}", call_id="c1"
+        )
+        tool_turn = _mock_response(
+            content="I'll inspect the result.",
+            finish_reason="tool_calls",
+            tool_calls=[substantive_call],
+        )
+        empty_followup = _mock_response(content=None, finish_reason="stop")
+        completed = _mock_response(content="Processed result.", finish_reason="stop")
+        agent.client.chat.completions.create.side_effect = [
+            tool_turn,
+            empty_followup,
+            completed,
+        ]
+
+        def _fake_tool_execution(_assistant, messages, _task_id, _api_calls=0):
+            messages.append({
+                "role": "tool",
+                "tool_call_id": "c1",
+                "content": "search result",
+            })
+
+        with (
+            patch.object(agent, "_execute_tool_calls", side_effect=_fake_tool_execution),
+            patch.object(agent, "_persist_session"),
+            patch.object(agent, "_save_trajectory"),
+            patch.object(agent, "_cleanup_task_resources"),
+        ):
+            result = agent.run_conversation("search and finish")
+
+        assert result["final_response"] == "Processed result."
+        sent_messages = agent.client.chat.completions.create.call_args_list[2].kwargs[
+            "messages"
+        ]
+        assert [message["role"] for message in sent_messages[-3:]] == [
+            "tool",
+            "assistant",
+            "user",
+        ]
+        assert sent_messages[-2]["content"] == "(empty)"
+        assert "process the tool results" in sent_messages[-1]["content"].lower()
+
     def test_partial_stream_recovery_uses_streamed_content(self, agent):
         """When streaming fails after partial delivery, recovered partial content becomes final response."""
         self._setup_agent(agent)

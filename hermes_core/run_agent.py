@@ -13639,6 +13639,42 @@ class _GraphServicesAdapter:
                     },
                 }
             assistant_msg = agent._build_assistant_message(normalized, finish_reason)
+
+            # Preserve visible content that accompanied tool calls.  If every
+            # tool is housekeeping, an empty follow-up can reuse this content as
+            # the final answer (loop :12197-12222).
+            turn_content = normalized.content or ""
+            if turn_content and agent._has_content_after_think_block(turn_content):
+                agent._last_content_with_tools = turn_content
+                housekeeping_tools = frozenset({
+                    "memory", "todo", "skill_manage", "session_search",
+                })
+                all_housekeeping = all(
+                    tool_call.function.name in housekeeping_tools
+                    for tool_call in normalized.tool_calls
+                )
+                agent._last_content_tools_all_housekeeping = all_housekeeping
+                if all_housekeeping and agent._has_stream_consumers():
+                    agent._mute_post_response = True
+                elif agent._should_emit_quiet_tool_messages():
+                    clean_content = agent._strip_think_blocks(turn_content).strip()
+                    if clean_content:
+                        agent._vprint(f"  ┊ 💬 {clean_content}")
+
+            # A tool-call success completes any temporary reasoning prefill and
+            # starts a fresh post-tool empty-nudge allowance (loop :12224-12248).
+            had_prefill = False
+            while (
+                messages
+                and isinstance(messages[-1], dict)
+                and messages[-1].get("_thinking_prefill")
+            ):
+                messages.pop()
+                had_prefill = True
+            if had_prefill:
+                agent._thinking_prefill_retries = 0
+                agent._empty_content_retries = 0
+            agent._post_tool_empty_retried = False
             messages.append(assistant_msg)
             return {
                 "route": "dispatch_tools",
@@ -13651,6 +13687,9 @@ class _GraphServicesAdapter:
         # priority over every empty-response fallback (run_agent.py:12347-12369),
         # including stale content from a prior tool turn.
         if not agent._has_content_after_think_block(content):
+            # The loop unmutes this branch so recovery/failure statuses remain
+            # visible after a muted housekeeping-tool turn (:12338-12343).
+            agent._mute_post_response = False
             partial_streamed = (
                 getattr(agent, "_current_streamed_assistant_text", "") or ""
             )
@@ -13673,6 +13712,73 @@ class _GraphServicesAdapter:
                     "finalize": True,
                     "final_response": recovered,
                     "turn_interrupted": False,
+                }
+
+            # A prior assistant turn that combined real content with only
+            # housekeeping tools is already a complete user-visible answer.
+            # Reuse it without persisting the current empty assistant response
+            # (loop :12371-12395).
+            prior_content = getattr(agent, "_last_content_with_tools", None)
+            if prior_content and getattr(
+                agent, "_last_content_tools_all_housekeeping", False
+            ):
+                logger.info(
+                    "Empty follow-up after tool calls — using prior turn content "
+                    "as final response"
+                )
+                agent._emit_status(
+                    "↻ Empty response after tool calls — using earlier content "
+                    "as final answer"
+                )
+                agent._last_content_with_tools = None
+                agent._last_content_tools_all_housekeeping = False
+                agent._empty_content_retries = 0
+                recovered = agent._strip_think_blocks(prior_content).strip()
+                agent._response_was_previewed = True
+                return {
+                    "route": "finish",
+                    "messages": messages,
+                    "api_call_count": api_call_count,
+                    "finalize": True,
+                    "final_response": recovered,
+                    "turn_interrupted": False,
+                }
+
+            # A substantive tool turn needs one explicit continuation nudge.
+            # Preserve the API-valid ordering required by the loop
+            # (:12397-12447): tool -> assistant("(empty)") -> user(nudge).
+            prior_was_tool = any(
+                message.get("role") == "tool"
+                for message in messages[-5:]
+                if isinstance(message, dict)
+            )
+            if prior_was_tool and not agent._post_tool_empty_retried:
+                agent._post_tool_empty_retried = True
+                agent._last_content_with_tools = None
+                agent._last_content_tools_all_housekeeping = False
+                logger.info(
+                    "Empty response after tool calls — nudging model to "
+                    "continue processing"
+                )
+                agent._emit_status(
+                    "⚠️ Model returned empty after tool calls — nudging to continue"
+                )
+                nudge_msg = agent._build_assistant_message(normalized, finish_reason)
+                nudge_msg["content"] = "(empty)"
+                messages.append(nudge_msg)
+                messages.append({
+                    "role": "user",
+                    "content": (
+                        "You just executed tool calls but returned an empty "
+                        "response. Please process the tool results above and "
+                        "continue with the task."
+                    ),
+                })
+                return {
+                    "route": "prepare_request",
+                    "messages": messages,
+                    "api_call_count": api_call_count,
+                    "first_attempt": True,
                 }
 
             # Structured reasoning with no visible answer is an incomplete
@@ -13706,6 +13812,116 @@ class _GraphServicesAdapter:
                     "api_call_count": api_call_count,
                     "first_attempt": True,
                 }
+
+            # Once reasoning prefill is exhausted, both structured-only and
+            # truly empty responses share the loop's three-attempt nudge ladder
+            # (:12481-12508).
+            truly_empty = not agent._strip_think_blocks(content).strip()
+            prefill_exhausted = (
+                has_structured_reasoning
+                and agent._thinking_prefill_retries >= 2
+            )
+            if (
+                truly_empty
+                and (not has_structured_reasoning or prefill_exhausted)
+                and agent._empty_content_retries < 3
+            ):
+                agent._empty_content_retries += 1
+                logger.warning(
+                    "Empty response (no content or reasoning) — retry %d/3 "
+                    "(model=%s)",
+                    agent._empty_content_retries,
+                    agent.model,
+                )
+                agent._emit_status(
+                    f"⚠️ Empty response from model — retrying "
+                    f"({agent._empty_content_retries}/3)"
+                )
+                return {
+                    "route": "prepare_request",
+                    "messages": messages,
+                    "api_call_count": api_call_count,
+                    "first_attempt": True,
+                }
+
+            # Empty retries are scoped to the active provider.  If a fallback
+            # activates, reset the counter and run the same ladder there (loop
+            # :12510-12538).
+            if truly_empty and agent._fallback_chain:
+                logger.warning(
+                    "Empty response after %d retries — attempting fallback "
+                    "(model=%s, provider=%s)",
+                    agent._empty_content_retries,
+                    agent.model,
+                    agent.provider,
+                )
+                agent._emit_status(
+                    "⚠️ Model returning empty responses — switching to "
+                    "fallback provider..."
+                )
+                if agent._try_activate_fallback():
+                    agent._empty_content_retries = 0
+                    agent._emit_status(
+                        f"↻ Switched to fallback: {agent.model} ({agent.provider})"
+                    )
+                    logger.info(
+                        "Fallback activated after empty responses: now using %s on %s",
+                        agent.model,
+                        agent.provider,
+                    )
+                    return {
+                        "route": "prepare_request",
+                        "messages": messages,
+                        "api_call_count": api_call_count,
+                        "first_attempt": True,
+                    }
+
+            # No usable content and no remaining fallback: persist the explicit
+            # terminal placeholder, matching the loop's result/history contract
+            # (:12540-12575).
+            reasoning_text = agent._extract_reasoning(normalized)
+            assistant_msg = agent._build_assistant_message(normalized, finish_reason)
+            assistant_msg["content"] = "(empty)"
+            messages.append(assistant_msg)
+            if reasoning_text:
+                reasoning_preview = (
+                    reasoning_text[:500] + "..."
+                    if len(reasoning_text) > 500
+                    else reasoning_text
+                )
+                logger.warning(
+                    "Reasoning-only response (no visible content) after "
+                    "exhausting retries and fallback. Reasoning: %s",
+                    reasoning_preview,
+                )
+                agent._emit_status(
+                    "⚠️ Model produced reasoning but no visible response "
+                    "after all retries. Returning empty."
+                )
+            else:
+                logger.warning(
+                    "Empty response (no content or reasoning) after %d retries. "
+                    "No fallback available. model=%s provider=%s",
+                    agent._empty_content_retries,
+                    agent.model,
+                    agent.provider,
+                )
+                agent._emit_status(
+                    "❌ Model returned no content after all retries"
+                    + (
+                        " and fallback attempts."
+                        if agent._fallback_chain
+                        else ". No fallback providers configured."
+                    )
+                )
+            return {
+                "route": "finish",
+                "messages": messages,
+                "api_call_count": api_call_count,
+                "finalize": True,
+                "final_response": "(empty)",
+                "turn_interrupted": False,
+            }
 
         # Plain-text response — a completed turn.  Mirror the loop's text
         # finalization (run_agent.py:12548-12554): fold in any accumulated
