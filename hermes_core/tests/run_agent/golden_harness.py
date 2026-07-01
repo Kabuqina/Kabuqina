@@ -462,7 +462,7 @@ def _snapshot(
     clear_interrupt_calls,
     callback_events,
     trajectory_writes,
-    lifecycle_calls,
+    lifecycle_calls=None,
 ) -> Dict[str, Any]:
     return {
         # Exact result-key presence (adding an absent key is a behavior change).
@@ -515,8 +515,12 @@ def _snapshot(
         # the snapshot previously did not observe (Group A review remediation):
         # restore-primary-runtime, todo hydration, scrubber reset, the memory
         # nudge turn counter, external-memory sync, and background review.  A
-        # graph that skips any of these diverges here.
-        "lifecycle_calls": dict(lifecycle_calls),
+        # graph that skips any of these diverges here.  Optional: the canonical
+        # golden/differential replays capture and pass it (owning the lifecycle
+        # invariant); the older per-family parity replays predate it and pass
+        # nothing, so both sides compare an empty map and parity holds on the
+        # other fields, exactly as before the Group A signature change.
+        "lifecycle_calls": dict(lifecycle_calls or {}),
     }
 
 

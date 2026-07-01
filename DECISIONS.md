@@ -431,6 +431,34 @@ emission, the rest of PH35-FU-009 (remaining graph edge-case gaps from the broad
 unit suite under graph), and PH35-FU-008 (deterministic interrupt-during-API
 fixture). Re-review recommended before approval.
 
+**Task 10 re-review + Step 0 harness fix (2026-07-01).** The re-review APPROVED
+the selector + Groups A–D (selector 20 passed; deterministic gate
+differential+usage+exit = 131 passed). It also surfaced a regression the
+Group A change left behind: `7cfce77d` added `lifecycle_calls` as a **required**
+positional arg to `golden_harness._snapshot`, but only the canonical
+golden/differential callers were updated — the older per-family parity replays
+(`test_graph_protocol_parity._replay_graph/_replay_loop`, imported by
+`test_graph_tool_parity`, `_error_parity`, `_budget_parity`) still called it with
+10 args, so **those files had been red with `TypeError: _snapshot() missing
+'lifecycle_calls'` on main since 2026-06-30**, unnoticed because the recorded
+"deterministic gate 131 passed" measurement did not include them (the narrow-gate
+risk materialising on the review's own gate). Step 0 fix: `lifecycle_calls`
+made optional (`=None` → `dict(lifecycle_calls or {})`) — a clean revert of the
+accidental signature break; the canonical replays still pass it explicitly and
+own the lifecycle invariant, the per-family replays predate it and compare an
+empty map on both engines. After the fix all six graph-parity files
+(protocol/tool/error/budget/equivalence_gaps/plain_text) pass — 39+ tests green,
+**no real divergence underneath the TypeError** (pure test-rot). Two compression
+goldens (`exit_context_no_compression`, `exit_context_stepdown`) still fail on
+**both** engines locally because the aux-provider status callback differs without
+`OPENROUTER_API_KEY` — a pre-existing env failure, not a graph gap, excluded from
+PH35-FU-009. Follow-up: the canonical deterministic gate should include the
+`test_graph_*_parity.py` files so a shared-helper signature change can't silently
+red them again. The clean PH35-FU-009 signal is the ~18 `test_run_agent.py`
+loop-suite-under-graph divergences (empty/partial response, reasoning-only
+prefill, compression trigger, 401 remint, continuation boundary, retry
+exhaustion).
+
 **Closed by the 2026-06-29 review (commit pending):** *Tool-loop interrupt
 parity* — the loop checks for a pending interrupt at the top of every iteration
 (run_agent.py:9773) and breaks before the next API call; the graph had no such
