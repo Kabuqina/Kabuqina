@@ -491,6 +491,37 @@ next focused cycle is that shared machinery (detect malformed via `validate_resp
 wire the nudge/retry/fallback ladder into the graph) — it unlocks the largest
 cluster at once. E.2 (build-error handling) and F are smaller, independent.
 
+**FU-009 families E.1 + E.2 RESOLVED (2026-07-01).**
+- **E.1** (test_invalid_response_returns_error_not_crash): the graph's transport
+  node checked only `if response is None`, so a structurally malformed response
+  (empty `choices=[]`) was mis-emitted as a successful attempt and crashed
+  downstream. Fixed by validating with `agent._get_transport().validate_response()`
+  (None **or** malformed → `_pending_invalid` → the existing `_handle_invalid_response`
+  ladder → "Invalid API response after N retries"). This also closes the FU-007
+  deferral: the loop's invalid_response usage emission is now **ungated** (fires for
+  None or malformed alike), keeping loop/graph symmetric.
+- **E.2** (test_build_api_kwargs_error_no_unbound_local): the graph called
+  `_build_api_kwargs` at `prepare_request` :13367 outside any try/except, so a raise
+  escaped uncaught. Wrapped it; on failure it stashes `_pending_exc`, emits the same
+  `transport_error` usage event the loop does, and routes to `handle_transport_error`
+  → `_handle_api_exception` (shared classifier) → non-retryable client error surfaces
+  `str(exc)` ("bad messages") with `failed=True`, mirroring the loop.
+Verified: TestRetryExhaustion 3 passed on both engines; FU-007 usage parity 12 passed.
+
+**Family A/B/C scope note (2026-07-01).** Reading the loop's empty-response region
+(:12360-:12580) shows it is NOT three independent families but ONE ~200-line block
+covering, in order: partial-stream recovery (**B**), prior-turn-content shortcut
+(housekeeping tools), post-tool empty nudge, thinking-only prefill continuation
+(**C**), truly-empty retry ×3 (**A**), fallback provider, and the "(empty)" terminal
+— all sharing `_empty_content_retries` / `_thinking_prefill_retries` /
+`_post_tool_empty_retried` counters and a strict message-sequence contract
+(tool→assistant("(empty)")→user(nudge)). The graph's `process_response` plain-text
+path (:13602) currently finalizes empty content as `final_response=""` with none of
+this. Porting it is the single highest-leverage FU-009 change (unlocks ~11 tests:
+A 5 + C 4 + B 2) but also the highest-risk (hot path, easy to diverge on a counter
+or message order), so it warrants its own focused cycle with per-sub-case
+verification rather than being rushed alongside the smaller fixes.
+
 **Task 10 re-review + Step 0 harness fix (2026-07-01).** The re-review APPROVED
 the selector + Groups A–D (selector 20 passed; deterministic gate
 differential+usage+exit = 131 passed). It also surfaced a regression the

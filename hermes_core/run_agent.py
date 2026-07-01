@@ -10366,15 +10366,15 @@ class AIAgent:
                                 error_details.append("response.choices is empty")
 
                     if response_invalid:
-                        # Engine-neutral usage sink (PH35-FU-007): the graph emits
-                        # ``invalid_response`` only for a None response (:13421); a
-                        # non-None-but-malformed response is a separate loop/graph
-                        # divergence tracked under PH35-FU-009, so gate on None here
-                        # to keep FU-007 to the paths where the engines already agree.
-                        if response is None:
-                            self._record_usage_attempt(
-                                outcome="invalid_response", route="call_transport"
-                            )
+                        # Engine-neutral usage sink (PH35-FU-007): record the invalid
+                        # attempt.  The graph's transport node now also detects a
+                        # malformed (non-None) response via validate_response and
+                        # routes it through the same invalid-response ladder (FU-009
+                        # family E.1), so both engines emit invalid_response for the
+                        # whole response_invalid block — None or malformed alike.
+                        self._record_usage_attempt(
+                            outcome="invalid_response", route="call_transport"
+                        )
                         # Stop spinner before printing error messages
                         if thinking_spinner:
                             thinking_spinner.stop("(´;ω;`) oops, retrying...")
@@ -13363,8 +13363,29 @@ class _GraphServicesAdapter:
         api_messages = agent._sanitize_api_messages(api_messages)
         api_messages = agent._drop_thinking_only_and_merge_users(api_messages)
 
-        # Build transport kwargs
-        api_kwargs = agent._build_api_kwargs(api_messages)
+        # Build transport kwargs.  A failure here (e.g. malformed messages) is
+        # handled like a transport exception: the loop builds kwargs inside the
+        # same try as the API call, so a raise is caught by its error handler and
+        # surfaced as a failed result (str(exc)) rather than escaping as an
+        # UnboundLocalError referencing the unassigned api_kwargs (FU-009 E.2).
+        # Route through handle_transport_error so the shared classifier decides
+        # retry/fallback/abort, and emit the same transport_error usage event the
+        # loop emits at its except (PH35-FU-007).
+        try:
+            api_kwargs = agent._build_api_kwargs(api_messages)
+        except Exception as exc:
+            self._pending_response = None
+            self._pending_exc = exc
+            self._pending_invalid = False
+            self._emit_usage_event(state, outcome="transport_error")
+            return {
+                "route": "handle_transport_error",
+                "messages": state.get("messages", []),
+                "api_call_count": state.get("api_call_count", 0),
+                "retry_count": state.get("retry_count", 0),
+                "compression_attempts": state.get("compression_attempts", 0),
+                "first_attempt": False,
+            }
         self._api_messages = api_messages
         self._api_kwargs = api_kwargs
 
@@ -13452,7 +13473,15 @@ class _GraphServicesAdapter:
                 "first_attempt": False,
             }
 
-        if response is None:
+        # Invalid response — None OR structurally malformed (empty choices / no
+        # content list).  The loop uses validate_response for this (:10347-10366),
+        # not a bare ``is None`` check, so an empty-``choices`` response routes into
+        # the invalid-response retry ladder (-> "Invalid API response after N
+        # retries") rather than being mis-emitted as a successful attempt
+        # (PH35-FU-009 family E.1).  An empty-*content* response with valid choices
+        # still validates here and is handled downstream by the empty-content nudge
+        # ladder in process_response (family A).
+        if not agent._get_transport().validate_response(response):
             self._pending_response = None
             self._pending_exc = None
             self._pending_invalid = True
