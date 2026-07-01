@@ -13567,6 +13567,24 @@ class _GraphServicesAdapter:
         finish_reason = getattr(normalized, "finish_reason", "stop")
         has_tool_calls = bool(getattr(normalized, "tool_calls", None))
 
+        # Ollama-hosted GLM can report ``finish_reason=stop`` even when the
+        # post-tool answer is visibly cut off.  The loop reclassifies this
+        # narrow pattern as ``length`` before the truncation branch
+        # (run_agent.py:10520-10529), so graph must do the same before usage
+        # accounting/post hooks and finalization.
+        if agent._should_treat_stop_as_truncated(
+            finish_reason,
+            normalized,
+            messages,
+        ):
+            agent._vprint(
+                f"{agent.log_prefix}⚠️  Treating suspicious Ollama/GLM stop "
+                "response as truncated",
+                force=True,
+            )
+            finish_reason = "length"
+            normalized.finish_reason = "length"
+
         # ── Truncated response (finish_reason == "length") (loop :10395) ──
         if finish_reason == "length":
             _length_exit = self._handle_length_truncation(
