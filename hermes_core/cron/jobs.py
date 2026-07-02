@@ -14,9 +14,10 @@ import os
 import re
 import uuid
 from datetime import datetime, timedelta
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from hermes_constants import get_hermes_home
-from typing import Optional, Dict, List, Any, Union
+from typing import Optional, Dict, List, Any, Mapping, Union
 
 logger = logging.getLogger(__name__)
 
@@ -420,14 +421,142 @@ def _normalize_workdir(workdir: Optional[str]) -> Optional[str]:
 
 
 def _normalize_job_mode(mode: Optional[str]) -> str:
-    """``agent`` (default) or ``notify`` (fixed-text delivery, no LLM)."""
+    """``agent`` (default), ``notify`` (fixed-text delivery, no LLM), or ``goal``.
+
+    ``goal`` (the Bounded Goal Runner) is matched *exactly* — it has no aliases,
+    so a typo can never resolve to ``goal`` and any unknown value still falls
+    back to ``agent`` exactly as before.
+    """
     raw = (mode or "agent")
     if not isinstance(raw, str):
         return "agent"
     normalized = raw.strip().lower()
     if normalized in ("notify", "static", "message"):
         return "notify"
+    if normalized == "goal":
+        return "goal"
     return "agent"
+
+
+_GOAL_APPROVAL_MODES = frozenset({"ask_before_external_side_effect", "always"})
+_GOAL_ONLY_FIELDS = ("goal", "verifier", "limits", "approval_mode", "progress_delivery_every")
+
+
+def _pos_int(value: object, field: str) -> int:
+    if type(value) is not int or value <= 0:
+        raise ValueError(f"{field} must be a positive integer")
+    return value
+
+
+def _normalize_goal_cost(value: object) -> str:
+    try:
+        result = Decimal(str(value))
+    except (InvalidOperation, ValueError) as exc:
+        raise ValueError("goal limits.max_cost_usd must be a decimal string") from exc
+    if not result.is_finite() or result < 0:
+        raise ValueError("goal limits.max_cost_usd must be a non-negative finite decimal")
+    return str(result)
+
+
+def _normalize_goal_deadline(value: object) -> str:
+    if not isinstance(value, str):
+        raise ValueError("goal limits.deadline must be an ISO-8601 string")
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError as exc:
+        raise ValueError("goal limits.deadline must be a valid ISO-8601 timestamp") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError("goal limits.deadline must be timezone-aware")
+    return parsed.isoformat()
+
+
+def _normalize_goal_limits(limits: object) -> Dict[str, Any]:
+    if not isinstance(limits, Mapping):
+        raise ValueError(
+            "goal jobs require explicit limits (max_runs, max_wall_seconds, ...)"
+        )
+    max_runs = _pos_int(limits.get("max_runs"), "goal limits.max_runs")
+    max_wall_seconds = _pos_int(
+        limits.get("max_wall_seconds"), "goal limits.max_wall_seconds"
+    )
+    no_progress_limit = limits.get("no_progress_limit", 3)
+    if type(no_progress_limit) is not int or no_progress_limit < 0:
+        raise ValueError("goal limits.no_progress_limit must be a non-negative integer")
+    max_infra = limits.get("max_infrastructure_failures", 3)
+    max_infra = _pos_int(max_infra, "goal limits.max_infrastructure_failures")
+    max_cost = limits.get("max_cost_usd")
+    if max_cost is not None:
+        max_cost = _normalize_goal_cost(max_cost)
+    deadline = limits.get("deadline")
+    if deadline is not None:
+        deadline = _normalize_goal_deadline(deadline)
+    return {
+        "max_runs": max_runs,
+        "max_cost_usd": max_cost,
+        "max_wall_seconds": max_wall_seconds,
+        "deadline": deadline,
+        "no_progress_limit": no_progress_limit,
+        "max_infrastructure_failures": max_infra,
+    }
+
+
+def _normalize_goal_spec(
+    *,
+    objective: object,
+    verifier: object,
+    limits: object,
+    approval_mode: object,
+    progress_delivery_every: object,
+    workdir: Optional[str],
+) -> Dict[str, Any]:
+    """Validate the goal-only fields and return the persisted ``job['goal']``.
+
+    Fails closed: a goal job is rejected unless it has a confined absolute
+    workdir, a non-empty objective, a known deterministic verifier, and
+    explicit finite limits.
+    """
+    from cron.goal_verifiers import KNOWN_VERIFIER_KINDS
+
+    if not isinstance(objective, str) or not objective.strip():
+        raise ValueError("goal jobs require a non-empty objective (goal=...)")
+    if not workdir:
+        raise ValueError("goal jobs require an absolute confined workdir")
+
+    if not isinstance(verifier, Mapping):
+        raise ValueError(
+            "goal verifier must be an object with 'kind' and optional 'config'"
+        )
+    kind = verifier.get("kind")
+    if not isinstance(kind, str) or kind not in KNOWN_VERIFIER_KINDS:
+        raise ValueError(
+            f"goal verifier kind must be one of {sorted(KNOWN_VERIFIER_KINDS)}"
+        )
+    config = verifier.get("config", {})
+    if config is None:
+        config = {}
+    if not isinstance(config, Mapping):
+        raise ValueError("goal verifier config must be an object")
+
+    normalized_limits = _normalize_goal_limits(limits)
+
+    approval = approval_mode or "ask_before_external_side_effect"
+    if approval not in _GOAL_APPROVAL_MODES:
+        raise ValueError(
+            f"approval_mode must be one of {sorted(_GOAL_APPROVAL_MODES)}"
+        )
+
+    if progress_delivery_every is not None:
+        progress_delivery_every = _pos_int(
+            progress_delivery_every, "progress_delivery_every"
+        )
+
+    return {
+        "objective": objective.strip(),
+        "verifier": {"kind": kind, "config": dict(config)},
+        "limits": normalized_limits,
+        "approval_mode": approval,
+        "progress_delivery_every": progress_delivery_every,
+    }
 
 
 def create_job(
@@ -448,6 +577,11 @@ def create_job(
     workdir: Optional[str] = None,
     mode: Optional[str] = None,
     message: Optional[str] = None,
+    goal: Optional[str] = None,
+    verifier: Optional[Mapping[str, Any]] = None,
+    limits: Optional[Mapping[str, Any]] = None,
+    approval_mode: Optional[str] = None,
+    progress_delivery_every: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
     Create a new cron job.
@@ -487,6 +621,26 @@ def create_job(
         The created job dict
     """
     normalized_mode = _normalize_job_mode(mode)
+
+    # Typo guard: goal-only fields must never silently attach to an agent/notify
+    # job. Reject them outright unless this is an exact goal job.
+    if normalized_mode != "goal":
+        stray = sorted(
+            name
+            for name, value in (
+                ("goal", goal),
+                ("verifier", verifier),
+                ("limits", limits),
+                ("approval_mode", approval_mode),
+                ("progress_delivery_every", progress_delivery_every),
+            )
+            if value is not None
+        )
+        if stray:
+            raise ValueError(
+                f"{', '.join(stray)} are only valid for mode='goal'"
+            )
+
     normalized_message = (
         str(message).strip() if isinstance(message, str) and str(message).strip() else None
     )
@@ -497,6 +651,9 @@ def create_job(
             raise ValueError("notify jobs require a non-empty message or prompt")
         normalized_message = body
         prompt_stripped = body
+    elif normalized_mode == "goal":
+        if not prompt_stripped:
+            raise ValueError("goal jobs require a non-empty iteration prompt")
     elif not prompt_stripped and not skill and not skills:
         # agent mode: allow skills-only jobs (validated below via normalized_skills)
         pass
@@ -530,6 +687,17 @@ def create_job(
     normalized_toolsets = [str(t).strip() for t in enabled_toolsets if str(t).strip()] if enabled_toolsets else None
     normalized_toolsets = normalized_toolsets or None
     normalized_workdir = _normalize_workdir(workdir)
+
+    goal_spec = None
+    if normalized_mode == "goal":
+        goal_spec = _normalize_goal_spec(
+            objective=goal,
+            verifier=verifier,
+            limits=limits,
+            approval_mode=approval_mode,
+            progress_delivery_every=progress_delivery_every,
+            workdir=normalized_workdir,
+        )
 
     # Normalize context_from: accept str or list of str, store as list or None
     if isinstance(context_from, str):
@@ -580,6 +748,10 @@ def create_job(
         "enabled_toolsets": normalized_toolsets,
         "workdir": normalized_workdir,
     }
+
+    # Goal jobs carry a namespaced spec; agent/notify records stay unchanged.
+    if goal_spec is not None:
+        job["goal"] = goal_spec
 
     jobs = load_jobs()
     jobs.append(job)

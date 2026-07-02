@@ -16,6 +16,7 @@ __all__ = [
     "VerifierResult",
     "Verifier",
     "verify",
+    "KNOWN_VERIFIER_KINDS",
 ]
 
 
@@ -265,6 +266,12 @@ _VERIFIERS: dict[str, Verifier] = {
     "manifest_complete": _manifest_complete,
     "content_hash_changed": _content_hash_changed,
 }
+
+
+# Public, read-only view of the registered deterministic verifier kinds, so
+# job-creation validation can reject an unknown kind without importing the
+# private registry.
+KNOWN_VERIFIER_KINDS: frozenset[str] = frozenset(_VERIFIERS)
 
 
 def verify(kind: str, context: VerificationContext) -> VerifierResult:
