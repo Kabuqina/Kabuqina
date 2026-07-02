@@ -564,6 +564,14 @@ def _desk_chat_build_agent(session_id: str, db: Any) -> Any:
             "No API credentials available. Configure a model key in Hermes (Settings / Keys or ~/.hermes)."
         )
 
+    log.info(
+        "desk agent runtime provider=%s model=%s api_mode=%s engine=%s",
+        runtime.get("provider"),
+        default_model,
+        runtime.get("api_mode"),
+        str(agent_section.get("engine") or "loop"),
+    )
+
     kwargs: Dict[str, Any] = {
         "model": default_model,
         "platform": "hermesdesk",

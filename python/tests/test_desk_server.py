@@ -139,6 +139,47 @@ class TestDeskCapabilityPrompt(unittest.TestCase):
         self.assertIn("Configured desk personality.", prompt)
         self.assertIn("Current Kabuqina product capabilities", prompt)
 
+    def test_chat_agent_logs_resolved_mode_without_secret(self):
+        from desk_server import chat_core
+
+        class FakeAgent:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+
+        with patch.dict("sys.modules", {"run_agent": type("RunAgent", (), {"AIAgent": FakeAgent})}):
+            with patch(
+                "hermes_cli.config.load_config",
+                return_value={
+                    "model": {"default": "mimo-v2.5", "provider": "custom"},
+                    "agent": {"engine": "graph"},
+                },
+            ):
+                with patch(
+                    "hermes_cli.runtime_provider.resolve_runtime_provider",
+                    return_value={
+                        "provider": "custom",
+                        "api_mode": "anthropic_messages",
+                        "base_url": "https://example.com/anthropic",
+                        "api_key": "never-log-me",
+                    },
+                ):
+                    with patch("hermes_cli.tools_config._get_platform_tools", return_value={"file"}):
+                        with patch.object(
+                            chat_core,
+                            "current_capability_prompt_summary",
+                            return_value="",
+                        ):
+                            with self.assertLogs("desk_server.chat_core", level="INFO") as captured:
+                                agent = chat_core._desk_chat_build_agent("desk-mode-log", db=object())
+
+        self.assertIsNotNone(agent)
+        joined = "\n".join(captured.output)
+        self.assertIn("provider=custom", joined)
+        self.assertIn("model=mimo-v2.5", joined)
+        self.assertIn("api_mode=anthropic_messages", joined)
+        self.assertIn("engine=graph", joined)
+        self.assertNotIn("never-log-me", joined)
+
 
 class TestDeskServerHttp(unittest.TestCase):
     def setUp(self):

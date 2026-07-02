@@ -541,7 +541,7 @@ git commit -m "feat(python): apply provider API mode override"
 - Modify: `hermes_core/gateway/run.py`
 - Create: `hermes_core/tests/gateway/test_runtime_mode_observability.py`
 
-- [ ] **Step 1: Write failing observability tests**
+- [x] **Step 1: Write failing observability tests**
 
 In `python/tests/test_desk_server.py`, extend the existing `_desk_chat_build_agent` fixture to capture logs and assert:
 
@@ -580,7 +580,7 @@ def test_gateway_logs_resolved_mode_without_secret(monkeypatch, caplog):
 
 Use the real module import/monkeypatch pattern from neighboring gateway tests.
 
-- [ ] **Step 2: Run observability tests and verify RED**
+- [x] **Step 2: Run observability tests and verify RED**
 
 Run:
 
@@ -593,7 +593,7 @@ python -m pytest tests/gateway/test_runtime_mode_observability.py -o "addopts=" 
 
 Expected: assertions fail because no resolved-mode log exists.
 
-- [ ] **Step 3: Add secret-free runtime logs**
+- [x] **Step 3: Add secret-free runtime logs**
 
 In `_desk_chat_build_agent`, after runtime resolution and before constructing `AIAgent`, log only safe fields:
 
@@ -620,7 +620,7 @@ return result
 
 Do not log the API key, full URL, headers, or query data.
 
-- [ ] **Step 4: Run observability and runtime-provider regressions**
+- [x] **Step 4: Run observability and runtime-provider regressions**
 
 Run:
 
@@ -633,7 +633,7 @@ python -m pytest tests/gateway/test_runtime_mode_observability.py tests/hermes_c
 
 Expected: all selected tests pass.
 
-- [ ] **Step 5: Commit observability**
+- [x] **Step 5: Commit observability**
 
 ```powershell
 git add python/src/desk_server/chat_core.py python/tests/test_desk_server.py hermes_core/gateway/run.py hermes_core/tests/gateway/test_runtime_mode_observability.py
