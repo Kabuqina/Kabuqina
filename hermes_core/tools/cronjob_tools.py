@@ -284,6 +284,16 @@ def cronjob(
     try:
         normalized = (action or "").strip().lower()
 
+        # Bounded Goal Runner (mode:goal) stays hidden from the public tool
+        # until G2 opens — neither an agent nor a user may create or convert a
+        # job into a live Goal Task during the inner-engine soak. Core
+        # create_job still accepts the mode for internal tests.
+        if isinstance(mode, str) and mode.strip().lower() == "goal":
+            return tool_error(
+                "mode='goal' (Bounded Goal Runner) is not available via cronjob yet",
+                success=False,
+            )
+
         if normalized == "create":
             if not schedule:
                 return tool_error("schedule is required for create", success=False)

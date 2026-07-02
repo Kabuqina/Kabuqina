@@ -9,7 +9,8 @@ per profile without disturbing the rest of the `cron` config.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 import yaml
@@ -386,3 +387,147 @@ class TestMarkGoalJobCrash:
         assert updated["last_status"] == "error"
         assert updated["last_error"] == "goal_job_exception:RuntimeError"
         assert updated["goal_status"] == "state_error"
+
+
+class TestCronjobToolHidesGoalMode:
+    """Step 4: the public tool rejects mode:goal while G2 is closed."""
+
+    def test_create_rejects_goal_and_creates_no_job(self):
+        from cron.jobs import load_jobs
+        from tools.cronjob_tools import cronjob
+
+        before = len(load_jobs())
+        result = cronjob(
+            action="create", schedule="every 1h", prompt="do it", mode="goal"
+        )
+
+        assert "goal" in result.lower()
+        # The rejected create must not persist anything.
+        assert len(load_jobs()) == before
+
+    def test_update_rejects_goal_mode(self):
+        from cron.jobs import create_job
+        from tools.cronjob_tools import cronjob
+
+        job = create_job(prompt="hi", schedule="every 1h")
+
+        result = cronjob(action="update", job_id=job["id"], mode="goal")
+
+        assert "goal" in result.lower()
+
+
+def _make_due(job_ids):
+    from cron.jobs import load_jobs, save_jobs
+    from hermes_time import now as _now
+
+    past = (_now() - timedelta(minutes=1)).isoformat()
+    jobs = load_jobs()
+    for job in jobs:
+        if job["id"] in job_ids:
+            job["next_run_at"] = past
+    save_jobs(jobs)
+
+
+def _canned_goal_result(status, *, last_error=None, last_summary="did work"):
+    from dataclasses import replace
+
+    from cron.goal_runner import GoalIterationResult
+    from cron.goal_state import new_goal_state
+    from cron.goal_transitions import GoalTransition
+
+    state = replace(
+        new_goal_state("abc123def456", now=NOW),
+        status=status,
+        iteration=1,
+        last_summary=last_summary,
+        last_error=last_error,
+    )
+    transition = GoalTransition(
+        previous_status="scheduled",
+        next_state=state,
+        reason=status,
+        should_deliver=True,
+    )
+    # Empty delivery_text → no delivery attempt during the tick.
+    return GoalIterationResult(
+        transition=transition,
+        full_output="inner output",
+        delivery_text="",
+        evidence_path=Path("."),
+    )
+
+
+class TestTickRoutesGoalJobs:
+    def test_flag_off_pauses_goal_and_still_runs_notify(self, tmp_path):
+        from cron.goal_state import load_goal_state
+        from cron.jobs import create_job, get_job
+        from cron.scheduler import tick
+
+        goal_job = create_job(**_goal_kwargs(tmp_path, deliver="local"))
+        notify_job = create_job(
+            prompt="", schedule="every 1h", mode="notify", message="hi", deliver="local"
+        )
+        _make_due([goal_job["id"], notify_job["id"]])
+
+        tick(verbose=False)
+
+        goal = get_job(goal_job["id"])
+        assert goal["enabled"] is False
+        assert goal["state"] == "paused"
+        assert goal["goal_status"] == "paused"
+        assert load_goal_state(goal_job["id"]).pause_reason == "feature_disabled"
+
+        # The legacy notify path is untouched: it ran and stays scheduled.
+        notify = get_job(notify_job["id"])
+        assert notify["enabled"] is True
+        assert notify["last_status"] == "ok"
+
+    def test_flag_on_scheduled_keeps_job_enabled(self, tmp_path, monkeypatch):
+        import cron.scheduler as scheduler
+        from cron.jobs import create_job, get_job
+        from cron.scheduler import tick
+
+        calls = []
+
+        def fake_run_goal_job(job, **kwargs):
+            calls.append(job["id"])
+            return _canned_goal_result("scheduled")
+
+        monkeypatch.setattr(scheduler, "_run_goal_job", fake_run_goal_job)
+
+        goal_job = create_job(**_goal_kwargs(tmp_path, deliver="local"))
+        _make_due([goal_job["id"]])
+
+        tick(verbose=False)
+
+        assert calls == [goal_job["id"]]
+        goal = get_job(goal_job["id"])
+        assert goal["enabled"] is True
+        assert goal["state"] == "scheduled"
+        assert goal["goal_status"] == "scheduled"
+
+    def test_catastrophic_goal_exception_crashes_via_mark_goal_job_crash(
+        self, tmp_path, monkeypatch
+    ):
+        import cron.scheduler as scheduler
+        from cron.goal_state import load_goal_state
+        from cron.jobs import create_job, get_job
+        from cron.scheduler import tick
+
+        def boom(job, **kwargs):
+            raise RuntimeError("catastrophe")
+
+        monkeypatch.setattr(scheduler, "_run_goal_job", boom)
+
+        goal_job = create_job(**_goal_kwargs(tmp_path, deliver="local"))
+        _make_due([goal_job["id"]])
+
+        tick(verbose=False)
+
+        goal = get_job(goal_job["id"])
+        assert goal["enabled"] is False
+        assert goal["state"] == "error"
+        assert goal["goal_status"] == "state_error"
+        assert goal["last_error"] == "goal_job_exception:RuntimeError"
+        # Committed goal state is left untouched (never ran → no state file).
+        assert load_goal_state(goal_job["id"]) is None

@@ -688,3 +688,26 @@ normalized because the system prompt embeds date/cwd; callback ordering and
 attempt numbers remain pinned. Task 10 is closed locally on
 `codex/fu009-empty-response-ladder`. The configured default remains `loop`;
 changing it is Task 11 scope.
+
+**Goal Runner G1 opened; Tasks 7–8 (2026-07-02).** The G1 review gate is open:
+Goal Runner Tasks 1–6 pass with no `langgraph`/`graph_engine` imports, the
+runtime-contract hardening was reviewed and merged, and Phase 3.5 FU-007/008/009
+are closed. Task 7 connects iterations to the agent through the public
+`AIAgent.run_conversation` seam via `GoalAgentWorker`: a fresh session and a
+fresh injected `UsageLedger` per iteration, engine propagated explicitly, cost
+measured from the ledger (never inferred from result keys) so any unpriced
+attempt pauses; a missing `goal_report` is `report=None` (never read as "no tool
+ran"); a pre-`run_conversation` exception is a safe infra failure while any
+exception after entry is `ambiguous_external_effect=True`. `goal_runner.py` is
+deliberately not imported by the worker (injection avoids a cycle). Task 8 adds
+`mode: goal` behind a disabled `cron.goal_loop.enabled` gate: the nested,
+validated goal spec persists under `job["goal"]` and agent/notify records stay
+byte-identical; the `.tick.lock` acquisition is extracted verbatim into
+`scheduler_lock.tick_lock` (unchanged scope) so a later control service can
+share it; `tick`/`_process_job` branch by mode, running exactly one controller
+iteration and mirroring its status via `mark_goal_job_run`/`mark_goal_job_crash`
+(which never touch `repeat.completed`, `next_run`, or deletion), while a
+disabled gate pauses with `feature_disabled` and invokes no model. The public
+`cronjob` tool rejects `mode: goal` until G2 opens, though core `create_job`
+accepts it for internal tests. `mark_goal_job_run` takes primitive fields rather
+than a transition object to keep `jobs.py` free of goal-type imports.
