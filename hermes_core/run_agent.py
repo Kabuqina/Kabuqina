@@ -13419,6 +13419,7 @@ class _GraphServicesAdapter:
     def call_transport(self, state: dict) -> dict:
         """Invoke the provider transport and store the raw response."""
         agent = self._agent
+        messages = state.get("messages", [])
         api_kwargs = self._api_kwargs
 
         if state.get("first_attempt", True):
@@ -13471,6 +13472,29 @@ class _GraphServicesAdapter:
                 response = agent._interruptible_streaming_api_call(api_kwargs)
             else:
                 response = agent._interruptible_api_call(api_kwargs)
+        except InterruptedError:
+            # An interrupt raised by the in-flight transport is a normal turn
+            # termination, not a retryable API failure.  The loop records the
+            # partial session here and then continues through its canonical
+            # finalizer; route the graph through that same full lifecycle so
+            # cleanup, trajectory, memory sync, on_session_end, and the rich
+            # result contract are preserved (PH35-FU-008).
+            api_elapsed = time.time() - self._api_start_time
+            agent._vprint(
+                f"{agent.log_prefix}⚡ Interrupted during API call.", force=True
+            )
+            agent._persist_session(messages, self._conversation_history)
+            return {
+                "route": "finish",
+                "messages": messages,
+                "api_call_count": api_call_count,
+                "finalize": True,
+                "final_response": (
+                    "Operation interrupted: waiting for model response "
+                    f"({api_elapsed:.1f}s elapsed)."
+                ),
+                "turn_interrupted": True,
+            }
         except Exception as exc:
             self._pending_response = None
             # Stash the live exception so handle_transport_error can reuse the

@@ -45,6 +45,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import re
 import threading
 from types import SimpleNamespace
 from typing import Any, Dict, List
@@ -133,6 +134,8 @@ class _ScriptedTransport:
         self._model = model
         self.calls = 0
         self.agent = None  # set by replay_transcript after construction
+        self.interrupt_api_entered = threading.Event()
+        self.interrupt_api_release = threading.Event()
 
     def __call__(self, *args, **kwargs):
         if self.calls >= len(self._turns):
@@ -147,6 +150,14 @@ class _ScriptedTransport:
         action = turn.get("action")
         if action == "interrupt":
             self.agent.interrupt(turn.get("action_text"))
+        elif action == "interrupt_during_api":
+            # Keep the provider call in flight until the conversation driver
+            # has observed the interrupt.  replay_transcript owns the matching
+            # interrupter/release synchronization so this exercises the real
+            # _interruptible_api_call polling path without timing sleeps.
+            self.interrupt_api_entered.set()
+            if not self.interrupt_api_release.wait(timeout=5):
+                raise AssertionError("interrupt-during-API fixture was not released")
         elif action == "steer":
             self.agent.steer(turn.get("action_text", ""))
 
@@ -433,6 +444,25 @@ def _normalize_hook_kwargs(kwargs: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
+def _normalize_callback_events(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Drop environment-dependent estimates while preserving callback order."""
+    normalized = []
+    for event in events:
+        item = dict(event)
+        message = item.get("message")
+        if isinstance(message, str):
+            # The request includes the dated/cwd-dependent system prompt, so
+            # this rough compression estimate can drift without any behavior
+            # change.  Keep the lifecycle event and attempt number frozen.
+            item["message"] = re.sub(
+                r"Context too large \(~[\d,]+ tokens\)",
+                "Context too large (~<approx> tokens)",
+                message,
+            )
+        normalized.append(item)
+    return normalized
+
+
 class _HookRecorder:
     """Wraps ``hermes_cli.plugins.invoke_hook`` to record ``{hook, payload}`` in
     call order while delegating to the real dispatcher — which no-ops with no
@@ -504,7 +534,7 @@ def _snapshot(
         "stream_deltas": list(stream_log),
         # Unified callback stream preserves cross-channel order for lifecycle
         # status, interim assistant commentary, and text deltas.
-        "callback_events": list(callback_events),
+        "callback_events": _normalize_callback_events(callback_events),
         "trajectory_writes": list(trajectory_writes),
         # Plugin hook names/order/payloads (including which hooks are *absent* on
         # an exit), and the cleanup / interrupt-clear side effects per exit.
@@ -795,6 +825,31 @@ def replay_transcript(
         else:
             agent._interruptible_api_call = transport
 
+        interrupt_during_api = any(
+            turn.get("action") == "interrupt_during_api"
+            for turn in spec.get("model_turns", [])
+        )
+        interrupt_thread = None
+        interrupt_errors: List[BaseException] = []
+        if interrupt_during_api:
+            def _interrupt_when_transport_is_in_flight():
+                if not transport.interrupt_api_entered.wait(timeout=5):
+                    interrupt_errors.append(
+                        AssertionError("transport never entered interrupt fixture")
+                    )
+                    transport.interrupt_api_release.set()
+                    return
+                agent.interrupt(
+                    preconditions.get("interrupt_text", "scripted API interrupt")
+                )
+
+            interrupt_thread = threading.Thread(
+                target=_interrupt_when_transport_is_in_flight,
+                daemon=True,
+                name="golden-interrupt-during-api",
+            )
+            interrupt_thread.start()
+
         clock = _ScriptedClock(
             interrupt_on_sleep=preconditions.get("interrupt_on_sleep"),
             interrupt=lambda: agent.interrupt(
@@ -823,12 +878,20 @@ def replay_transcript(
                 if engine == "graph"
                 else agent._run_conversation_loop
             )
-            result = _driver(
-                spec["user_message"],
-                conversation_history=conversation_history,
-                task_id=GOLDEN_TASK_ID,
-                stream_callback=_record_stream,
-            )
+            try:
+                result = _driver(
+                    spec["user_message"],
+                    conversation_history=conversation_history,
+                    task_id=GOLDEN_TASK_ID,
+                    stream_callback=_record_stream,
+                )
+            finally:
+                transport.interrupt_api_release.set()
+                if interrupt_thread is not None:
+                    interrupt_thread.join(timeout=5)
+
+        if interrupt_errors:
+            raise interrupt_errors[0]
 
     if compress_stub is not None:
         assert compress_stub.calls > 0, (

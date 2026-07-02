@@ -91,7 +91,7 @@
       {
         "channel": "status",
         "kind": "lifecycle",
-        "message": "🗜️ Context too large (~373 tokens) — compressing (1/3)..."
+        "message": "🗜️ Context too large (~<approx> tokens) — compressing (1/3)..."
       }
     ],
     "trajectory_writes": [],

@@ -1,0 +1,200 @@
+{
+  "name": "interrupt_during_api",
+  "description": "A user interrupt lands while an Anthropic provider call is still in flight; the turn exits through the full finalizer.",
+  "agent": {
+    "api_mode": "anthropic_messages",
+    "provider": "anthropic",
+    "model": "golden/test-model",
+    "base_url": "https://api.anthropic.com"
+  },
+  "preconditions": {
+    "interrupt_text": "stop during API"
+  },
+  "user_message": "Calculate 2 + 2.",
+  "tools": [
+    "calculator"
+  ],
+  "tool_results": {
+    "calculator": "4"
+  },
+  "model_turns": [
+    {
+      "content": null,
+      "finish_reason": "tool_calls",
+      "action": "interrupt_during_api",
+      "tool_calls": [
+        {
+          "id": "call_calc_1",
+          "name": "calculator",
+          "arguments": "{\"expression\": \"2 + 2\"}"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 80,
+        "completion_tokens": 10,
+        "total_tokens": 90
+      }
+    }
+  ],
+  "expected": {
+    "result_keys": [
+      "api_calls",
+      "base_url",
+      "cache_read_tokens",
+      "cache_write_tokens",
+      "completed",
+      "completion_tokens",
+      "cost_source",
+      "cost_status",
+      "estimated_cost_usd",
+      "final_response",
+      "input_tokens",
+      "interrupt_message",
+      "interrupted",
+      "last_prompt_tokens",
+      "last_reasoning",
+      "messages",
+      "model",
+      "output_tokens",
+      "partial",
+      "prompt_tokens",
+      "provider",
+      "reasoning_tokens",
+      "response_previewed",
+      "total_tokens"
+    ],
+    "result": {
+      "final_response": "Operation interrupted: waiting for model response (0.0s elapsed).",
+      "completed": true,
+      "partial": false,
+      "interrupted": true,
+      "api_calls": 1,
+      "model": "golden/test-model",
+      "provider": "anthropic",
+      "interrupt_message": "stop during API",
+      "pending_steer": null
+    },
+    "usage": {
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0,
+      "reasoning_tokens": 0,
+      "last_prompt_tokens": 0,
+      "estimated_cost_usd": 0.0,
+      "cost_status": "unknown",
+      "cost_source": "none"
+    },
+    "messages": [
+      {
+        "role": "user",
+        "content": "Calculate 2 + 2."
+      }
+    ],
+    "tool_invocations": [],
+    "model_turns_consumed": 1,
+    "persisted_db_messages": [
+      {
+        "role": "user",
+        "content": "Calculate 2 + 2.",
+        "tool_name": null,
+        "tool_call_id": null,
+        "finish_reason": null,
+        "tool_calls": null
+      }
+    ],
+    "stream_deltas": [],
+    "callback_events": [
+      {
+        "channel": "status",
+        "kind": "lifecycle",
+        "message": "⚠ No auxiliary LLM provider configured — context compression will drop middle turns without a summary. Run `hermes setup` or set OPENROUTER_API_KEY."
+      },
+      {
+        "channel": "status",
+        "kind": "lifecycle",
+        "message": "⚠ No auxiliary LLM provider configured — context compression will drop middle turns without a summary. Run `hermes setup` or set OPENROUTER_API_KEY."
+      }
+    ],
+    "trajectory_writes": [
+      {
+        "messages": [
+          {
+            "role": "user",
+            "content": "Calculate 2 + 2."
+          }
+        ],
+        "user_query": "Calculate 2 + 2.",
+        "completed": true
+      }
+    ],
+    "hook_calls": [
+      {
+        "hook": "on_session_start",
+        "payload": {
+          "model": "golden/test-model",
+          "platform": "",
+          "session_id": "golden-session-0001"
+        }
+      },
+      {
+        "hook": "pre_llm_call",
+        "payload": {
+          "conversation_history": [
+            {
+              "role": "user",
+              "content": "Calculate 2 + 2."
+            }
+          ],
+          "is_first_turn": true,
+          "model": "golden/test-model",
+          "platform": "",
+          "sender_id": "",
+          "session_id": "golden-session-0001",
+          "user_message": "Calculate 2 + 2."
+        }
+      },
+      {
+        "hook": "pre_api_request",
+        "payload": {
+          "api_call_count": 1,
+          "api_mode": "anthropic_messages",
+          "base_url": "https://api.anthropic.com",
+          "max_tokens": null,
+          "message_count": 2,
+          "model": "golden/test-model",
+          "platform": "",
+          "provider": "anthropic",
+          "session_id": "golden-session-0001",
+          "task_id": "golden-task-0001",
+          "tool_count": 1
+        }
+      },
+      {
+        "hook": "on_session_end",
+        "payload": {
+          "completed": true,
+          "interrupted": true,
+          "model": "golden/test-model",
+          "platform": "",
+          "session_id": "golden-session-0001"
+        }
+      }
+    ],
+    "cleanup_task_ids": [
+      "golden-task-0001"
+    ],
+    "clear_interrupt_calls": 1,
+    "lifecycle_calls": {
+      "restore_primary_runtime": 1,
+      "hydrate_todo_store": 0,
+      "scrubber_reset": 1,
+      "sync_external_memory_for_turn": 1,
+      "spawn_background_review": 0,
+      "user_turn_count_delta": 1
+    }
+  }
+}
