@@ -1404,6 +1404,7 @@ turn.
 
 - [x] **Step 4: run and commit**  
   *(2026-06-30: `test_engine_selector` 20 passed (corrected from a "22" miscount, P2-6); deterministic equivalence gate (golden+exit_contract+hook_parity+usage_sink+differential) green twice. `HERMES_AGENT_ENGINE=loop` slice = 1274 passed / 10 pre-existing env failures (the legacy-regression gate holds). `=graph` slice = 1253 passed / 32 failed: 10 env + **22 graph-specific edge-case equivalence gaps** (retry/empty-response/fallback, reasoning-only prefill, compression triggers, length-continuation, 401 remint) beyond the Task 9 golden corpus — logged as PH35-FU-009; they gate Task 11's default flip, not the selector. The fuzzer's non-deterministic interrupt variant was removed (PH35-FU-008) and now passes 121×3 under xdist. Committed locally; not pushed.)*
+  *(Closure update 2026-07-02: PH35-FU-009 and PH35-FU-008 are closed. A barrier-driven `interrupt_during_api` golden now pins full-finalizer parity. Fresh gates: graph parity/goldens 102, differential 121, selector/usage/exit 64, and `test_run_agent.py` 296 under each engine. Task 10 is complete locally; the default remains `loop` until Task 11.)*
 
 ```powershell
 cd hermes_core
@@ -1423,6 +1424,7 @@ git commit -m "feat: add rollback-safe agent engine selector"
 
 - [x] **Step 5: open the companion plan's G1 gate**  
   *(2026-06-30: recorded the Task 9 (`4ab120ff`) + this selector commit in the bounded-goal-runner plan's G1 gate and checked the boxes now satisfied (Task 9 gate, selector lands loop+graph, stable public entry). **G1 deliberately NOT opened** — remaining blockers: PH35-FU-007 (usage-event sink on both engines), PH35-FU-009 (graph edge-case equivalence gaps), Goal Runner Tasks 1–6, and human review. Step 5's hard precondition — `test_usage_event_sink` proving per-attempt events on both engines — is unmet (loop emits none), so G1 stays closed by design.)*
+  *(Closure update 2026-07-02: PH35-FU-007 and PH35-FU-009 are now closed and the engine-side G1 evidence is green. Any remaining G1 state is owned by the companion Goal Runner plan (its Tasks 1–6/review), not by unfinished Task 10 work.)*
 
 Record the Task 9 equivalence commit and this selector commit in
 `docs/superpowers/plans/2026-06-27-bounded-goal-runner.md`. Goal Runner Tasks
