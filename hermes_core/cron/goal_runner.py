@@ -44,6 +44,7 @@ __all__ = [
     "build_artifact_fingerprint",
     "build_evidence_fingerprint",
     "run_goal_iteration",
+    "pause_goal_iteration",
 ]
 
 
@@ -325,6 +326,44 @@ def _recover_inflight(state: GoalRunState, *, now: datetime) -> GoalIterationRes
         full_output="",
         delivery_text=_delivery_text(transition),
         evidence_path=transition_path,
+    )
+
+
+def pause_goal_iteration(
+    definition: GoalDefinition,
+    reason: str,
+    *,
+    now: datetime,
+    last_error: str | None = None,
+) -> GoalIterationResult:
+    """Pause a goal without running a worker turn.
+
+    Used when a gate forbids invoking a model on this wake (e.g. the
+    ``cron.goal_loop`` feature flag is disabled). Durable evidence is preserved;
+    only a paused transition is committed so the state stays inspectable. An
+    in-flight (running/verifying) state is recovered rather than overwritten,
+    and a terminal state is rejected.
+    """
+    state = load_goal_state(definition.job_id)
+    if state is None:
+        state = new_goal_state(definition.job_id, now=now)
+    if state.job_id != definition.job_id:
+        raise GoalRunnerError("goal definition does not match committed state")
+    if state.status in {"running", "verifying"}:
+        return _recover_inflight(state, now=now)
+    if state.status in {"completed", "failed", "cancelled"}:
+        raise InvalidGoalTransition(
+            f"cannot pause goal {state.job_id!r} from state {state.status!r}"
+        )
+    transition = _pause_transition(state, reason, now=now, last_error=last_error)
+    # No iteration ran, so persist only the paused state — like the preflight
+    # pause path — rather than writing an iteration transition record.
+    state_path = save_goal_state(transition.next_state)
+    return GoalIterationResult(
+        transition=transition,
+        full_output="",
+        delivery_text=_delivery_text(transition),
+        evidence_path=state_path,
     )
 
 

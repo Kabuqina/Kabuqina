@@ -17,6 +17,7 @@ __all__ = [
     "Verifier",
     "verify",
     "KNOWN_VERIFIER_KINDS",
+    "RegistryVerifier",
 ]
 
 
@@ -285,4 +286,29 @@ def verify(kind: str, context: VerificationContext) -> VerifierResult:
         return VerifierResult("error", str(exc), {})
     except OSError as exc:
         return VerifierResult("error", f"verifier filesystem error: {exc}", {})
+
+
+class RegistryVerifier:
+    """Adapt the deterministic verifier registry to the ``GoalVerifier`` port.
+
+    The controller calls ``verify(definition, report, previous_evidence_hash)``;
+    this bridges that to the registry's ``verify(kind, context)`` without the
+    controller having to know any concrete verifier.
+    """
+
+    def verify(
+        self,
+        definition: "GoalDefinition",  # noqa: F821 — structural, avoids an import cycle
+        report: GoalReport,
+        previous_evidence_hash: str | None,
+    ) -> VerifierResult:
+        return verify(
+            definition.verifier_kind,
+            VerificationContext(
+                workdir=definition.workdir,
+                report=report,
+                config=definition.verifier_config,
+                previous_evidence_hash=previous_evidence_hash,
+            ),
+        )
 

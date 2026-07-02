@@ -206,3 +206,183 @@ class TestGoalFieldTypoGuard:
                 message="hi",
                 goal="x",
             )
+
+
+NOW = datetime(2026, 6, 27, 12, 0, tzinfo=timezone.utc)
+
+
+def _enable_goal_loop():
+    import yaml
+    from hermes_cli import config_loader
+    from hermes_constants import get_config_path
+
+    path = get_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        yaml.safe_dump({"cron": {"goal_loop": {"enabled": True}}}), encoding="utf-8"
+    )
+    config_loader._LOAD_CONFIG_CACHE.clear()
+
+
+def _observation(status="progress"):
+    from decimal import Decimal
+
+    from cron.goal_runner import WorkerObservation
+    from cron.goal_state import GoalReport
+    from cron.goal_usage import GoalUsageSnapshot
+
+    return WorkerObservation(
+        report=GoalReport(
+            status=status,
+            summary="did one unit of work",
+            artifacts=(),
+            evidence={"count": 1},
+            next_step="continue",
+            external_side_effects=(),
+        ),
+        usage=GoalUsageSnapshot(
+            events=(), amount_usd=Decimal("0.01"), complete=True, incomplete_reason=None
+        ),
+        full_output="inner output",
+        wall_seconds=1.0,
+        infrastructure_error=None,
+        ambiguous_external_effect=False,
+    )
+
+
+class _FakeWorker:
+    def __init__(self, observation):
+        self.observation = observation
+        self.calls = 0
+
+    def run_iteration(self, definition, state):
+        self.calls += 1
+        return self.observation
+
+
+class _FakeVerifier:
+    def verify(self, definition, report, previous_evidence_hash):
+        from cron.goal_verifiers import VerifierResult
+
+        return VerifierResult("pass", "ok", {})
+
+
+class TestBuildGoalDefinition:
+    def test_reconstructs_definition_from_persisted_spec(self, tmp_path):
+        from decimal import Decimal
+
+        from cron.jobs import create_job
+        from cron.scheduler import _build_goal_definition
+
+        deadline = datetime(2026, 8, 1, 12, 0, tzinfo=timezone.utc)
+        job = create_job(
+            **_goal_kwargs(
+                tmp_path,
+                enabled_toolsets=["file"],
+                limits={
+                    "max_runs": 7,
+                    "max_wall_seconds": 900,
+                    "max_cost_usd": "2.50",
+                    "deadline": deadline.isoformat(),
+                },
+            )
+        )
+
+        definition = _build_goal_definition(job)
+
+        assert definition.job_id == job["id"]
+        assert definition.objective == "complete the inventory"
+        assert definition.iteration_prompt == "process one item"
+        assert definition.verifier_kind == "artifact_exists"
+        assert definition.limits.max_runs == 7
+        assert definition.limits.max_cost_usd == Decimal("2.50")
+        assert definition.limits.deadline == deadline
+        assert definition.enabled_toolsets == ("file",)
+
+
+class TestRunGoalJobGate:
+    def test_disabled_gate_pauses_without_running_an_iteration(self, tmp_path):
+        from cron.goal_state import load_goal_state
+        from cron.jobs import create_job
+        from cron.scheduler import _run_goal_job
+
+        job = create_job(**_goal_kwargs(tmp_path))
+
+        result = _run_goal_job(job, now=NOW)
+
+        assert result.transition.next_state.status == "paused"
+        assert result.transition.next_state.pause_reason == "feature_disabled"
+        # No worker turn ran: durable state stays at iteration 0.
+        assert load_goal_state(job["id"]).iteration == 0
+
+    def test_enabled_gate_runs_exactly_one_iteration(self, tmp_path):
+        from cron.jobs import create_job
+        from cron.scheduler import _run_goal_job
+
+        _enable_goal_loop()
+        job = create_job(**_goal_kwargs(tmp_path))
+        worker = _FakeWorker(_observation("progress"))
+
+        result = _run_goal_job(job, worker=worker, verifier=_FakeVerifier(), now=NOW)
+
+        assert worker.calls == 1
+        assert result.transition.next_state.status == "scheduled"
+        assert result.transition.next_state.iteration == 1
+
+
+class TestMarkGoalJobRun:
+    def _goal_job(self, tmp_path):
+        from cron.jobs import create_job
+
+        return create_job(**_goal_kwargs(tmp_path))
+
+    def test_scheduled_keeps_job_enabled_without_incrementing_repeat(self, tmp_path):
+        from cron.jobs import get_job, mark_goal_job_run
+
+        job = self._goal_job(tmp_path)
+        mark_goal_job_run(job["id"], status="scheduled", last_summary="progress")
+
+        updated = get_job(job["id"])
+        assert updated["enabled"] is True
+        assert updated["state"] == "scheduled"
+        assert updated["goal_status"] == "scheduled"
+        assert updated["last_summary"] == "progress"
+        assert updated["repeat"]["completed"] == 0
+
+    @pytest.mark.parametrize("status", ["completed", "paused", "cancelled"])
+    def test_terminal_and_paused_disable_future_wakes(self, tmp_path, status):
+        from cron.jobs import get_job, mark_goal_job_run
+
+        job = self._goal_job(tmp_path)
+        mark_goal_job_run(job["id"], status=status)
+
+        updated = get_job(job["id"])
+        assert updated["enabled"] is False
+        assert updated["state"] == status
+        assert updated["goal_status"] == status
+
+    def test_failed_marks_error_status(self, tmp_path):
+        from cron.jobs import get_job, mark_goal_job_run
+
+        job = self._goal_job(tmp_path)
+        mark_goal_job_run(job["id"], status="failed", last_error="infra")
+
+        updated = get_job(job["id"])
+        assert updated["enabled"] is False
+        assert updated["last_status"] == "error"
+        assert updated["last_error"] == "infra"
+
+
+class TestMarkGoalJobCrash:
+    def test_crash_disables_and_records_sanitized_error(self, tmp_path):
+        from cron.jobs import create_job, get_job, mark_goal_job_crash
+
+        job = create_job(**_goal_kwargs(tmp_path))
+        mark_goal_job_crash(job["id"], "goal_job_exception:RuntimeError")
+
+        updated = get_job(job["id"])
+        assert updated["enabled"] is False
+        assert updated["state"] == "error"
+        assert updated["last_status"] == "error"
+        assert updated["last_error"] == "goal_job_exception:RuntimeError"
+        assert updated["goal_status"] == "state_error"

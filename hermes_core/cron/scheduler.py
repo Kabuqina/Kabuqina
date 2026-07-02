@@ -17,6 +17,8 @@ import os
 import subprocess
 import sys
 
+from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import List, Optional
 
@@ -98,7 +100,14 @@ _LEGACY_HOME_TARGET_ENV_VARS = {
     "QQBOT_HOME_CHANNEL": "QQ_HOME_CHANNEL",
 }
 
-from cron.jobs import get_due_jobs, mark_job_run, save_job_output, advance_next_run
+from cron.jobs import (
+    get_due_jobs,
+    mark_job_run,
+    mark_goal_job_run,
+    mark_goal_job_crash,
+    save_job_output,
+    advance_next_run,
+)
 from cron.scheduler_lock import tick_lock
 
 # Sentinel: when a cron agent has nothing new to report, it can start its
@@ -788,14 +797,109 @@ def _build_job_prompt(job: dict, prerun_script: Optional[tuple] = None) -> str:
 
 
 def _job_execution_mode(job: dict) -> str:
-    """Return ``agent`` (default) or ``notify`` (fixed-text delivery, no LLM)."""
+    """Return ``agent`` (default), ``notify`` (fixed text), or ``goal``.
+
+    ``goal`` matches exactly, mirroring ``jobs._normalize_job_mode``, so an
+    unknown value still falls back to ``agent``.
+    """
     raw = job.get("mode") or "agent"
     if not isinstance(raw, str):
         return "agent"
     normalized = raw.strip().lower()
     if normalized in ("notify", "static", "message"):
         return "notify"
+    if normalized == "goal":
+        return "goal"
     return "agent"
+
+
+def _goal_loop_enabled() -> bool:
+    """Whether the ``cron.goal_loop`` feature gate is on for this profile."""
+    try:
+        cfg = load_config() or {}
+        cron_cfg = cfg.get("cron", {}) if isinstance(cfg, dict) else {}
+        return bool((cron_cfg.get("goal_loop") or {}).get("enabled", False))
+    except Exception:
+        return False
+
+
+def _build_goal_definition(job: dict):
+    """Reconstruct a validated ``GoalDefinition`` from a persisted goal job.
+
+    The nested ``job['goal']`` spec was validated at create time, so this only
+    reverses the durable encodings (decimal string → Decimal, ISO → datetime).
+    """
+    from cron.goal_state import GoalDefinition, GoalLimits
+
+    spec = job.get("goal") or {}
+    limits_spec = spec.get("limits") or {}
+    max_cost = limits_spec.get("max_cost_usd")
+    deadline = limits_spec.get("deadline")
+    limits = GoalLimits(
+        max_runs=int(limits_spec["max_runs"]),
+        max_cost_usd=Decimal(str(max_cost)) if max_cost is not None else None,
+        max_wall_seconds=int(limits_spec["max_wall_seconds"]),
+        deadline=datetime.fromisoformat(deadline) if deadline else None,
+        no_progress_limit=int(limits_spec.get("no_progress_limit", 3)),
+        max_infrastructure_failures=int(
+            limits_spec.get("max_infrastructure_failures", 3)
+        ),
+    )
+    verifier = spec.get("verifier") or {}
+    return GoalDefinition(
+        job_id=job["id"],
+        objective=spec["objective"],
+        iteration_prompt=job.get("prompt") or "",
+        workdir=Path(job["workdir"]),
+        verifier_kind=verifier.get("kind", ""),
+        verifier_config=dict(verifier.get("config") or {}),
+        limits=limits,
+        enabled_toolsets=tuple(job.get("enabled_toolsets") or ()),
+        approval_mode=spec.get("approval_mode", "ask_before_external_side_effect"),
+        progress_delivery_every=spec.get("progress_delivery_every"),
+    )
+
+
+def _run_goal_job(job: dict, *, worker=None, verifier=None, now=None):
+    """Run exactly one bounded goal iteration, or pause it if the gate is off.
+
+    Returns a ``GoalIterationResult``. When ``cron.goal_loop`` is disabled the
+    goal is paused with ``feature_disabled`` and no model is invoked. ``worker``
+    and ``verifier`` are injectable for tests; production builds the real
+    adapter and registry verifier.
+    """
+    from cron.goal_runner import run_goal_iteration, pause_goal_iteration
+
+    definition = _build_goal_definition(job)
+    when = now or _hermes_now()
+
+    if not _goal_loop_enabled():
+        logger.info(
+            "Job '%s' (ID: %s): mode=goal but cron.goal_loop disabled — pausing",
+            job.get("name", job["id"]),
+            job["id"],
+        )
+        return pause_goal_iteration(
+            definition,
+            "feature_disabled",
+            now=when,
+            last_error="cron.goal_loop is disabled for this profile",
+        )
+
+    if worker is None:
+        from agent.engine_selector import resolve_agent_engine
+        from cron.goal_agent_worker import GoalAgentWorker
+
+        worker = GoalAgentWorker(
+            agent_engine=resolve_agent_engine(None),
+            model=(job.get("model") or ""),
+        )
+    if verifier is None:
+        from cron.goal_verifiers import RegistryVerifier
+
+        verifier = RegistryVerifier()
+
+    return run_goal_iteration(definition, worker=worker, verifier=verifier, now=when)
 
 
 def _run_notify_job(job: dict) -> tuple[bool, str, str, Optional[str]]:
@@ -1350,8 +1454,21 @@ def tick(verbose: bool = True, adapters=None, loop=None) -> int:
 
         def _process_job(job: dict) -> bool:
             """Run one due job end-to-end: execute, save, deliver, mark."""
+            mode = _job_execution_mode(job)
+            goal_result = None
             try:
-                success, output, final_response, error = run_job(job)
+                if mode == "goal":
+                    # Goal jobs return a committed transition instead of the
+                    # legacy tuple; the delivery pipeline below is shared, only
+                    # the marking (and empty-output handling) branch.
+                    goal_result = _run_goal_job(job)
+                    _gs = goal_result.transition.next_state
+                    success = _gs.status != "failed"
+                    output = goal_result.full_output
+                    final_response = goal_result.delivery_text
+                    error = _gs.last_error
+                else:
+                    success, output, final_response, error = run_job(job)
 
                 output_file = save_job_output(job["id"], output)
                 if verbose:
@@ -1376,17 +1493,34 @@ def tick(verbose: bool = True, adapters=None, loop=None) -> int:
 
                 # Treat empty final_response as a soft failure so last_status
                 # is not "ok" — the agent ran but produced nothing useful.
-                # (issue #8585)
-                if success and not final_response:
+                # (issue #8585).  A goal job legitimately produces no delivery
+                # text on a silent scheduled wake, so this applies to agents
+                # only; the controller status is authoritative for goals.
+                if goal_result is None and success and not final_response:
                     success = False
                     error = "Agent completed but produced empty response (model error, timeout, or misconfiguration)"
 
-                mark_job_run(job["id"], success, error, delivery_error=delivery_error)
+                if goal_result is not None:
+                    _gs = goal_result.transition.next_state
+                    mark_goal_job_run(
+                        job["id"],
+                        status=_gs.status,
+                        last_error=_gs.last_error,
+                        last_summary=_gs.last_summary,
+                        delivery_error=delivery_error,
+                    )
+                else:
+                    mark_job_run(job["id"], success, error, delivery_error=delivery_error)
                 return True
 
             except Exception as e:
                 logger.error("Error processing job %s: %s", job['id'], e)
-                mark_job_run(job["id"], False, str(e))
+                if mode == "goal":
+                    # Leave committed goal state/evidence untouched for review;
+                    # only disable future wakes and record a sanitized error.
+                    mark_goal_job_crash(job["id"], f"goal_job_exception:{type(e).__name__}")
+                else:
+                    mark_job_run(job["id"], False, str(e))
                 return False
 
         # Partition due jobs: those with a per-job workdir mutate

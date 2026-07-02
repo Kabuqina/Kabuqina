@@ -958,6 +958,69 @@ def mark_job_run(job_id: str, success: bool, error: Optional[str] = None,
         logger.warning("mark_job_run: job_id %s not found, skipping save", job_id)
 
 
+_GOAL_TERMINAL_STATES = frozenset({"completed", "failed", "cancelled"})
+
+
+def mark_goal_job_run(
+    job_id: str,
+    *,
+    status: str,
+    last_error: Optional[str] = None,
+    last_summary: Optional[str] = None,
+    delivery_error: Optional[str] = None,
+) -> None:
+    """Mirror one goal iteration's outcome onto the cron job record.
+
+    Unlike :func:`mark_job_run` this never increments ``repeat.completed``,
+    computes a second ``next_run_at`` (``tick`` already advanced it), or deletes
+    the job. Terminal (``completed``/``failed``/``cancelled``) and ``paused``
+    goal states disable future wakes; ``scheduled`` keeps the next time ``tick``
+    already advanced.
+    """
+    with _jobs_file_lock:
+        jobs = load_jobs()
+        for job in jobs:
+            if job["id"] == job_id:
+                job["last_run_at"] = _hermes_now().isoformat()
+                job["last_status"] = "error" if status == "failed" else "ok"
+                job["last_error"] = last_error
+                job["last_delivery_error"] = delivery_error
+                if last_summary is not None:
+                    job["last_summary"] = last_summary
+                # Mirror the authoritative controller status for the projection.
+                job["goal_status"] = status
+                if status in _GOAL_TERMINAL_STATES or status == "paused":
+                    job["enabled"] = False
+                    job["state"] = status
+                else:  # scheduled — keep tick's already-advanced next_run_at
+                    job["state"] = "scheduled"
+                save_jobs(jobs)
+                return
+        logger.warning("mark_goal_job_run: job_id %s not found, skipping save", job_id)
+
+
+def mark_goal_job_crash(job_id: str, error: str) -> None:
+    """Disable a goal job after a catastrophic iteration exception.
+
+    Records a sanitized error on the job mirror and disables future wakes,
+    leaving committed goal state/evidence untouched for recovery review. Never
+    calls :func:`mark_job_run`.
+    """
+    with _jobs_file_lock:
+        jobs = load_jobs()
+        for job in jobs:
+            if job["id"] == job_id:
+                job["last_run_at"] = _hermes_now().isoformat()
+                job["last_status"] = "error"
+                job["last_error"] = error
+                job["enabled"] = False
+                job["state"] = "error"
+                job["goal_status"] = "state_error"
+                save_jobs(jobs)
+                return
+        logger.warning("mark_goal_job_crash: job_id %s not found, skipping save", job_id)
+
+
 def advance_next_run(job_id: str) -> bool:
     """Preemptively advance next_run_at for a recurring job before execution.
 
