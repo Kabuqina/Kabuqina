@@ -720,6 +720,14 @@ DEFAULT_CONFIG = {
         # 1 = serial (pre-v0.9 behaviour).
         # Also overridable via HERMES_CRON_MAX_PARALLEL env var.
         "max_parallel_jobs": None,
+        # Bounded Goal Runner (G1, `mode: goal`).  Disabled by default: when
+        # false, a due goal job cannot invoke a model — the scheduler pauses it
+        # with `feature_disabled` and preserves its committed state for
+        # inspection.  Each host/gateway profile has its own HERMES_HOME/config,
+        # so Pilot 1 enables only the host profile; gateway configs stay false.
+        "goal_loop": {
+            "enabled": False,
+        },
     },
 
     # execute_code settings — controls the tool used for programmatic tool calls.
