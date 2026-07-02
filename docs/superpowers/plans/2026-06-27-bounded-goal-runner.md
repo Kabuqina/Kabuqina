@@ -707,9 +707,17 @@ G1 opened: 3ed4ae9c at 2026-07-02; reviewed by ladylydia
 
 - Create: `hermes_core/cron/goal_agent_worker.py`
 - Create: `hermes_core/tests/cron/test_goal_agent_worker.py`
-- Modify: `hermes_core/cron/goal_runner.py`
+- ~~Modify: `hermes_core/cron/goal_runner.py`~~ *(not modified — `GoalAgentWorker`
+  satisfies the existing `GoalWorker` protocol by injection; importing it into
+  `goal_runner` would create a `goal_runner ↔ goal_agent_worker` cycle. The
+  construction wiring lands in Task 8's scheduler routing.)*
 
-- [ ] **Step 1: write adapter tests against a fake `AIAgent` factory**
+- [x] **Step 1: write adapter tests against a fake `AIAgent` factory**
+  *(2026-07-02, `990320d5` — `tests/cron/test_goal_agent_worker.py`, 20 cases,
+  loop/graph parametrized: one agent + one `run_conversation` per iteration,
+  fresh session id, engine propagation, report-scope lifetime, complete/unpriced
+  usage propagation, missing-report → `report=None`, pre-entry exception = safe
+  infra, post-entry exception = `ambiguous_external_effect=True`.)*
 
 Assert one agent instance and one `run_conversation` call per iteration, a fresh
 session ID, explicit selected engine propagation, exact report-scope lifetime,
@@ -727,14 +735,24 @@ fallback route changes, compression, and max-iteration summary. The injected
 ledger—not result-key presence—must account for every attempt; any gap yields
 `complete=False`.
 
-- [ ] **Step 2: build bounded context from durable state**
+- [x] **Step 2: build bounded context from durable state**
+  *(2026-07-02 — `_build_system_message` carries objective, current iteration,
+  remaining runs/cost/deadline, compact `last_summary` + evidence fingerprint,
+  workdir, verifier kind, and the report-tool schema; excludes raw transcripts
+  and evidence bodies. User message = `definition.iteration_prompt`.)*
 
 The system message includes the objective, current iteration, compact previous
 summary, last evidence hash, remaining limits, allowed workdir, verifier
 description, and report schema. It excludes prior raw transcripts and evidence
 bodies. The user message is the job's per-iteration prompt.
 
-- [ ] **Step 3: instantiate the agent through its public API**
+- [x] **Step 3: instantiate the agent through its public API**
+  *(2026-07-02 — lazy `from run_agent import AIAgent` inside the default factory
+  only; injected factory for tests; calls public `run_conversation`. Fresh
+  `UsageLedger` passed via `usage_sink=`, snapshot converted to
+  `GoalUsageSnapshot` after return; any unpriced attempt → `complete=False`.
+  enabled_toolsets = job allowlist ∪ `goal_internal` (dedup, no broadening);
+  profile-policy intersection stays inside `AIAgent`.)*
 
 `GoalAgentWorker` imports `AIAgent` lazily from `run_agent`, accepts an injected
 factory for tests, and calls public `run_conversation`. It never imports or calls
@@ -756,7 +774,12 @@ desktop policy allowlist. More generally, a toolset that can incur a separate
 model/API charge remains unavailable to Goal Tasks until it emits complete cost
 events into the iteration ledger.
 
-- [ ] **Step 4: verify both selected engines and commit**
+- [x] **Step 4: verify both selected engines and commit**
+  *(2026-07-02, `990320d5` — adapter suite 20 passed (engine propagation
+  verified for both `loop` and `graph` via the injected factory); Step 4 suite
+  `test_goal_agent_worker + test_goal_runner + test_goal_state + test_goal_report`
+  = 130 passed. Real-engine end-to-end deferred to Task 8+ integration. Isolation
+  grep over `goal_agent_worker.py` clean.)*
 
 ```powershell
 cd hermes_core
