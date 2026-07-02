@@ -676,21 +676,27 @@ Do not start Task 7 until all boxes are checked in both plans:
   suite 294, usage/compression/exit 29.)*
 - [x] `AIAgent.run_conversation` remains the stable public entry point.
   *(2026-06-30 — now a thin dispatcher; signature unchanged.)*
-- [ ] Goal Runner Tasks 1–6 pass and introduce no imports from
-  `agent.graph_engine` or `langgraph`. *(companion-plan tasks — not yet verified here.)*
-- [ ] The integration diff and file ownership are reviewed by a person.
+- [x] Goal Runner Tasks 1–6 pass and introduce no imports from
+  `agent.graph_engine` or `langgraph`. *(2026-07-02 — goal cron tests 107 passed;
+  full `tests/cron` 423 passed / 2 skipped, only the known Windows env failures
+  (chmod/`~`-expansion); `grep graph_engine|langgraph|GraphEngine` over
+  `cron/goal_*.py` is empty — isolation contract holds.)*
+- [x] The integration diff and file ownership are reviewed by a person.
+  *(2026-07-02 — G1 runtime-contract hardening `7326c333` "fail closed on
+  incomplete iteration evidence" + `3ed4ae9c` "require timezone-aware persisted
+  timestamps" reviewed and signed off, fast-forwarded onto `main`.)*
 
-**G1 is NOT open.** Remaining blockers (PH35-FU-007 cleared 2026-07-01):
-PH35-FU-009 (graph edge-case equivalence gaps — needed for confidence though
-strictly a Task 11 gate), PH35-FU-008 (deterministic interrupt-during-API
-fixture), Goal Runner Tasks 1–6, and human review.
+**G1 is OPEN (2026-07-02).** All substantive blockers cleared: PH35-FU-007
+(2026-07-01) plus PH35-FU-008 and PH35-FU-009 (both closed 2026-07-02 on the
+Phase 3.5 plan — the earlier "needed for confidence" caveat no longer applies),
+Goal Runner Tasks 1–6, and human review. Task 7 may start.
 
 Phase 3.5 commits to date:
 
 ```text
 Task 9 equivalence: 4ab120ff (2026-06-29)
 Task 10 selector:   97ef7ac9 (2026-06-30)
-G1 opened: __________ at __________; reviewed by __________
+G1 opened: 3ed4ae9c at 2026-07-02; reviewed by ladylydia
 ```
 
 ---
