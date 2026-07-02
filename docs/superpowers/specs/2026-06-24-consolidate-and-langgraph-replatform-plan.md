@@ -1474,6 +1474,32 @@ Expected: bundle verification, web build, and Tauri build all succeed.
 
 - [ ] **Step 2: run graph smoke on both API modes**
 
+  *(Partial evidence, 2026-07-02 — 4/5 scenarios passed; keep this step open.
+  The desktop and the independent Weixin profile both had
+  `agent.engine: graph`.)*
+
+  - *`chat_completions`: DeepSeek `deepseek-v4-flash` called the read-only
+    `clock` tool and returned `2026-07-02 20:12:53 Asia/Shanghai`; a same-session
+    follow-up returned `2026-07-02` without another tool call. Evidence:
+    `%LOCALAPPDATA%\\com.kabuqina.app\\logs\\hermesdesk.log`, session
+    `419f9d9d-afc1-48d9-8875-dd4be44c9b47`, plus operator screenshots.*
+  - *Interrupt/recovery: the operator stopped a deliberately long model call;
+    the next turn (`只回复 OK`) completed successfully.*
+  - *Restart/resume: custom `mimo-v2.5` retained session marker
+    `RESUME-20260702` across a Python-child restart (PIDs/timestamps recorded in
+    `hermesdesk.log`).*
+  - *Separate gateway process: `python -m gateway.run` used
+    `profiles/weixin/config.yaml` with `engine: graph`; Weixin inbound at
+    20:30:49 and 22-character response at 20:30:57 are recorded in
+    `profiles/weixin/logs/gateway.log`; operator screenshot shows
+    `GATEWAY-GRAPH-20260702`.*
+  - *BLOCKED: the Mimo custom endpoint did not exercise
+    `anthropic_messages`. Logs identify `providers.chat_completions`, and the
+    current desktop custom-provider form is OpenAI-compatible-only (it rejects
+    the `/anthropic` endpoint and seeds `OPENAI_API_KEY`). Add or expose a real
+    Anthropic-mode configuration path, then repeat the read-only multi-turn
+    smoke before checking this step.*
+
 With `agent.engine: graph`, run:
 
 1. a multi-turn chat-completions conversation with one read-only tool call;
