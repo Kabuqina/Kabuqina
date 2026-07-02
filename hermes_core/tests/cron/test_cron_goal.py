@@ -428,7 +428,7 @@ def _make_due(job_ids):
     save_jobs(jobs)
 
 
-def _canned_goal_result(status, *, last_error=None, last_summary="did work"):
+def _canned_goal_result(status, *, last_error=None, last_summary="did work", delivery_text=""):
     from dataclasses import replace
 
     from cron.goal_runner import GoalIterationResult
@@ -446,13 +446,13 @@ def _canned_goal_result(status, *, last_error=None, last_summary="did work"):
         previous_status="scheduled",
         next_state=state,
         reason=status,
-        should_deliver=True,
+        should_deliver=bool(delivery_text),
     )
     # Empty delivery_text → no delivery attempt during the tick.
     return GoalIterationResult(
         transition=transition,
         full_output="inner output",
-        delivery_text="",
+        delivery_text=delivery_text,
         evidence_path=Path("."),
     )
 
@@ -531,3 +531,49 @@ class TestTickRoutesGoalJobs:
         assert goal["last_error"] == "goal_job_exception:RuntimeError"
         # Committed goal state is left untouched (never ran → no state file).
         assert load_goal_state(goal_job["id"]) is None
+
+
+class TestGoalDeliveryExactlyOnce:
+    """Step 1: intermediate iterations are silent; terminal/pause deliver once."""
+
+    def _run_with(self, tmp_path, monkeypatch, result):
+        import cron.scheduler as scheduler
+        from cron.jobs import create_job
+        from cron.scheduler import tick
+
+        deliveries = []
+        monkeypatch.setattr(
+            scheduler, "_deliver_result", lambda *a, **k: deliveries.append(a) or None
+        )
+        monkeypatch.setattr(scheduler, "_run_goal_job", lambda job, **k: result)
+
+        goal_job = create_job(**_goal_kwargs(tmp_path, deliver="local"))
+        _make_due([goal_job["id"]])
+        tick(verbose=False)
+        return deliveries
+
+    def test_intermediate_scheduled_iteration_delivers_nothing(self, tmp_path, monkeypatch):
+        result = _canned_goal_result("scheduled", delivery_text="")
+
+        deliveries = self._run_with(tmp_path, monkeypatch, result)
+
+        assert deliveries == []
+
+    @pytest.mark.parametrize("status", ["completed", "paused", "cancelled"])
+    def test_terminal_and_pause_deliver_sanitized_text_once(self, tmp_path, monkeypatch, status):
+        text = f"Goal abc123def456 {status}: x"
+        result = _canned_goal_result(status, delivery_text=text)
+
+        deliveries = self._run_with(tmp_path, monkeypatch, result)
+
+        assert len(deliveries) == 1
+        # Delivered content is the sanitized transition text — no provider output.
+        assert deliveries[0][1] == text
+
+    def test_failed_goal_delivers_once(self, tmp_path, monkeypatch):
+        # A failed goal delivers the scheduler's failure wrapper, still exactly once.
+        result = _canned_goal_result("failed", delivery_text="Goal abc123def456 failed: x")
+
+        deliveries = self._run_with(tmp_path, monkeypatch, result)
+
+        assert len(deliveries) == 1
