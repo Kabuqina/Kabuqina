@@ -10,6 +10,12 @@ import { cn } from "../lib/cn";
 import { useI18n } from "../lib/i18n";
 import { findProvider, type Provider, type ProviderId } from "../lib/providers";
 import {
+  normalizeApiBaseUrl,
+  persistedApiMode,
+  shouldProbeOpenAiModels,
+  type ApiModeSelection,
+} from "../lib/api-mode";
+import {
   hostFromBaseUrl,
   initialPickerProvider,
   PROVIDER_PRESETS,
@@ -17,7 +23,7 @@ import {
   type LlmConfigPreview,
   type ProviderSaveConfig,
 } from "../lib/llm-config";
-import { normalizeOpenAiBaseUrl, validateCustomEndpoint, validateKey } from "../lib/validate";
+import { validateCustomEndpoint, validateKey } from "../lib/validate";
 
 type Mode = "onboarding" | "settings";
 
@@ -43,17 +49,18 @@ async function validateEndpointForProvider(
   selectedProvider: Provider | null,
   baseUrl: string,
   apiKey: string,
+  probeOpenAiModels: boolean,
 ) {
   if (selectedProvider?.skipEndpointValidation) {
     return { ok: true as const };
   }
   if (baseUrl.trim()) {
-    return validateCustomEndpoint(baseUrl, apiKey);
+    return validateCustomEndpoint(baseUrl, apiKey, probeOpenAiModels);
   }
   if (selectedProvider) {
     return validateKey(selectedProvider.id, apiKey);
   }
-  return validateCustomEndpoint(baseUrl, apiKey);
+  return validateCustomEndpoint(baseUrl, apiKey, probeOpenAiModels);
 }
 
 function knownProviderOrNull(id: string): Provider | null {
@@ -107,6 +114,7 @@ export function LlmConfigEditor({
   const [customProviderId, setCustomProviderId] = useState(initialCustomProviderId);
   const [baseUrl, setBaseUrl] = useState(initialBaseUrl || (initialSelectedProvider && PROVIDER_PRESETS[initialSelectedProvider]?.host) || "");
   const [modelId, setModelId] = useState(initialModel || (initialSelectedProvider && PROVIDER_PRESETS[initialSelectedProvider]?.model) || "");
+  const [apiModeSelection, setApiModeSelection] = useState<ApiModeSelection>("auto");
   const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -129,6 +137,7 @@ export function LlmConfigEditor({
           setCustomProviderId(nextCustomProviderId);
           setBaseUrl(nextBaseUrl);
           setModelId(nextModel);
+          setApiModeSelection(p.apiMode ?? "auto");
           if (mode === "onboarding" && initialProviderId === "custom") {
             onDraftChange?.({
               customBaseUrl: nextBaseUrl,
@@ -138,7 +147,7 @@ export function LlmConfigEditor({
           }
         }
       })
-      .catch(() => setPreview({ hasSecret: false, provider: null, host: null, model: null, apiBaseUrl: null }));
+      .catch(() => setPreview({ hasSecret: false, provider: null, host: null, model: null, apiBaseUrl: null, apiMode: null }));
   }, [initialProviderId, mode, onDraftChange]);
 
   useEffect(() => {
@@ -152,7 +161,20 @@ export function LlmConfigEditor({
     const timer = setTimeout(async () => {
       setValidationStatus("validating");
       try {
-        const result = await validateEndpointForProvider(selectedKnownProvider, baseUrl, key);
+        const providerForMode = selectedProvider !== "custom"
+          ? selectedProvider
+          : customProviderId.trim() || "custom";
+        const probeOpenAiModels = shouldProbeOpenAiModels(
+          apiModeSelection,
+          providerForMode,
+          baseUrl,
+        );
+        const result = await validateEndpointForProvider(
+          selectedKnownProvider,
+          baseUrl,
+          key,
+          probeOpenAiModels,
+        );
         setValidationStatus(result.ok ? "valid" : "invalid");
         setValidationMessage(result.message ?? null);
       } catch {
@@ -161,12 +183,13 @@ export function LlmConfigEditor({
       }
     }, 800);
     return () => clearTimeout(timer);
-  }, [baseUrl, key, selectedKnownProvider, selectedProvider, t]);
+  }, [apiModeSelection, baseUrl, customProviderId, key, selectedKnownProvider, selectedProvider, t]);
 
   function applyProvider(next: ProviderId | "custom" | "") {
     setSelectedProvider(next);
     setError(null);
     setSavedNotice(false);
+    setApiModeSelection("auto");
     if (hasPreset(next)) {
       const preset = PROVIDER_PRESETS[next];
       setBaseUrl(preset.host);
@@ -200,7 +223,8 @@ export function LlmConfigEditor({
       provider: providerForSave,
       host: selectedKnownProvider?.host || hostFromBaseUrl(url),
       model,
-      api_base_url: url ? normalizeOpenAiBaseUrl(url) : null,
+      api_base_url: url ? normalizeApiBaseUrl(url) : null,
+      api_mode: persistedApiMode(apiModeSelection),
     };
   }
 
@@ -213,7 +237,20 @@ export function LlmConfigEditor({
     try {
       const continuingWithSaved = savedMatches && !key.trim();
       if (!continuingWithSaved) {
-        const result = await validateEndpointForProvider(selectedKnownProvider, baseUrl, key);
+        const providerForMode = selectedProvider !== "custom"
+          ? selectedProvider
+          : customProviderId.trim() || "custom";
+        const probeOpenAiModels = shouldProbeOpenAiModels(
+          apiModeSelection,
+          providerForMode,
+          baseUrl,
+        );
+        const result = await validateEndpointForProvider(
+          selectedKnownProvider,
+          baseUrl,
+          key,
+          probeOpenAiModels,
+        );
         if (!result.ok) {
           setError(result.message ?? t("pass.errGeneric"));
           return;
@@ -335,6 +372,25 @@ export function LlmConfigEditor({
           className={fieldClass}
         />
       </div>
+
+      <details className="rounded-[var(--radius-shell)] border border-[var(--kq-color-border)] px-4 py-3">
+        <summary className="cursor-pointer text-sm font-medium text-[var(--kq-color-ink)]">
+          {t("settings.apiModeAdvanced")}
+        </summary>
+        <div className="mt-3 space-y-2">
+          <label className="hd-wizard-label">{t("settings.apiModeLabel")}</label>
+          <select
+            value={apiModeSelection}
+            onChange={(event) => setApiModeSelection(event.target.value as ApiModeSelection)}
+            className="w-full rounded-[var(--radius-shell)] border border-[var(--kq-color-border)] bg-[var(--kq-input-surface)] px-4 py-3 text-sm"
+          >
+            <option value="auto">{t("settings.apiModeAuto")}</option>
+            <option value="chat_completions">{t("settings.apiModeOpenAi")}</option>
+            <option value="anthropic_messages">{t("settings.apiModeAnthropic")}</option>
+          </select>
+          <p className="hd-wizard-hint">{t("settings.apiModeHint")}</p>
+        </div>
+      </details>
 
       <div className="space-y-2">
         <label className="hd-wizard-label">

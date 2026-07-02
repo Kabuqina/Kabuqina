@@ -40,3 +40,11 @@ export function effectiveApiMode(
 export function persistedApiMode(selection: ApiModeSelection): ApiMode | null {
   return selection === "auto" ? null : selection;
 }
+
+export function shouldProbeOpenAiModels(
+  selection: ApiModeSelection,
+  provider: string,
+  baseUrl: string,
+): boolean {
+  return effectiveApiMode(selection, provider, baseUrl) === "chat_completions";
+}

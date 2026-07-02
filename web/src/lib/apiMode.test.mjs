@@ -32,6 +32,7 @@ const {
   inferApiMode,
   normalizeApiBaseUrl,
   persistedApiMode,
+  shouldProbeOpenAiModels,
 } = await importTs("./api-mode.ts");
 
 assert.equal(inferApiMode("custom", "https://example.com/v1"), "chat_completions");
@@ -54,6 +55,22 @@ assert.equal(
 assert.equal(persistedApiMode("auto"), null);
 assert.equal(persistedApiMode("chat_completions"), "chat_completions");
 assert.equal(persistedApiMode("anthropic_messages"), "anthropic_messages");
+assert.equal(
+  shouldProbeOpenAiModels("auto", "custom", "https://example.com/anthropic"),
+  false,
+);
+assert.equal(
+  shouldProbeOpenAiModels("anthropic_messages", "custom", "https://example.com/v1"),
+  false,
+);
+assert.equal(
+  shouldProbeOpenAiModels("chat_completions", "custom", "https://example.com/v1"),
+  true,
+);
+assert.equal(
+  shouldProbeOpenAiModels("auto", "custom", "https://example.com/v1"),
+  true,
+);
 
 const llmConfigSource = fs.readFileSync(new URL("./llm-config.ts", import.meta.url), "utf8");
 assert.match(llmConfigSource, /apiMode:\s*ApiMode\s*\|\s*null/);

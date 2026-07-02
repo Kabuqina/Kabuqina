@@ -168,7 +168,7 @@ git commit -m "feat(web): define automatic provider API modes"
 - Modify: `web/src/locales/strings.ts`
 - Modify: `web/src/onboarding/providerUx.test.mjs`
 
-- [ ] **Step 1: Write failing validation and editor contracts**
+- [x] **Step 1: Write failing validation and editor contracts**
 
 Extend `apiMode.test.mjs` to import `validate.ts` with a stubbed Tauri invoke and assert that local validation accepts a valid Anthropic URL/key without invoking `<base>/models`, while OpenAI mode still invokes it. Export a pure decision helper so the behavior is testable without React:
 
@@ -189,7 +189,7 @@ assert.match(llmConfigEditorSource, /api_mode:\s*persistedApiMode\(apiModeSelect
 assert.match(llmConfigEditorSource, /p\.apiMode\s*\?\?\s*"auto"/);
 ```
 
-- [ ] **Step 2: Run the Web contracts and verify RED**
+- [x] **Step 2: Run the Web contracts and verify RED**
 
 Run:
 
@@ -200,7 +200,7 @@ node --test src/lib/apiMode.test.mjs src/onboarding/providerUx.test.mjs
 
 Expected: FAIL because probe selection and UI wiring do not exist.
 
-- [ ] **Step 3: Implement protocol-aware validation**
+- [x] **Step 3: Implement protocol-aware validation**
 
 Add to `api-mode.ts`:
 
@@ -237,7 +237,7 @@ export async function validateCustomEndpoint(
 }
 ```
 
-- [ ] **Step 4: Implement editor hydration, advanced control, and save**
+- [x] **Step 4: Implement editor hydration, advanced control, and save**
 
 In `LlmConfigEditor.tsx`:
 
@@ -279,7 +279,7 @@ and equivalent English strings.
 
 Reset the selection to `auto` when changing providers. Add `apiModeSelection` to the validation effect dependencies. Ensure preview fallback objects include `apiMode: null`.
 
-- [ ] **Step 5: Run Web unit, lint, and build gates**
+- [x] **Step 5: Run Web unit, lint, and build gates**
 
 Run:
 
@@ -292,7 +292,7 @@ npm run build
 
 Expected: tests, lint, and build all pass; the existing Vite chunk-size warning is allowed.
 
-- [ ] **Step 6: Commit the Web UI behavior**
+- [x] **Step 6: Commit the Web UI behavior**
 
 ```powershell
 git add web/src/lib/api-mode.ts web/src/lib/apiMode.test.mjs web/src/lib/validate.ts web/src/components/LlmConfigEditor.tsx web/src/locales/strings.ts web/src/onboarding/providerUx.test.mjs
