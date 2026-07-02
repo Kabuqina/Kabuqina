@@ -8,9 +8,9 @@
 
 Task 11's release smoke proved the graph engine on an OpenAI-compatible
 `chat_completions` endpoint, but the desktop could not exercise
-`anthropic_messages`. The custom-provider form always normalized addresses as
-OpenAI-compatible `/v1` endpoints, probed them with OpenAI assumptions, stored
-the key as an OpenAI-compatible credential, and gave users no protocol control.
+`anthropic_messages`. The custom-provider form always treated addresses as
+OpenAI-compatible endpoints, probed `<base>/models` with OpenAI assumptions,
+stored the key as an OpenAI-compatible credential, and gave users no protocol control.
 An Anthropic-compatible Mimo endpoint ending in `/anthropic` was consequently
 rejected with a misleading 404 even though Hermes core already supports both
 wire protocols.
@@ -93,12 +93,13 @@ Manager.
 
 Normalization becomes protocol-aware:
 
-- Explicit `chat_completions` keeps the current OpenAI-compatible `/v1`
-  normalization and cheap endpoint validation.
+- Explicit `chat_completions` keeps the current OpenAI-compatible trailing-slash
+  normalization and cheap `<base>/models` endpoint validation.
 - Explicit `anthropic_messages` preserves the supplied base path (apart from
   whitespace and a trailing slash) and never appends `/v1`.
 - Automatic preserves a URL recognized as Anthropic-compatible; otherwise it
-  retains current OpenAI-compatible normalization for backward compatibility.
+  retains the current OpenAI-compatible trailing-slash normalization and
+  validation for backward compatibility.
 
 The OpenAI `/models` validation request is not used for an explicitly or
 automatically recognized Anthropic endpoint. For that path, Kabuqina validates
