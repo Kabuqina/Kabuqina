@@ -17,15 +17,6 @@ import os
 import subprocess
 import sys
 
-# fcntl is Unix-only; on Windows use msvcrt for file locking
-try:
-    import fcntl
-except ImportError:
-    fcntl = None
-    try:
-        import msvcrt
-    except ImportError:
-        msvcrt = None
 from pathlib import Path
 from typing import List, Optional
 
@@ -108,6 +99,7 @@ _LEGACY_HOME_TARGET_ENV_VARS = {
 }
 
 from cron.jobs import get_due_jobs, mark_job_run, save_job_output, advance_next_run
+from cron.scheduler_lock import tick_lock
 
 # Sentinel: when a cron agent has nothing new to report, it can start its
 # response with this marker to suppress delivery.  Output is still saved
@@ -1306,23 +1298,15 @@ def tick(verbose: bool = True, adapters=None, loop=None) -> int:
     Returns:
         Number of jobs executed (0 if another tick is already running)
     """
-    _LOCK_DIR.mkdir(parents=True, exist_ok=True)
+    # Cross-platform single-owner lock (fcntl/msvcrt), extracted to
+    # scheduler_lock so the Goal Runner control service can reuse the same
+    # nonblocking acquisition. Scope is unchanged: held from due-job selection
+    # through execution, delivery, and marking.
+    with tick_lock(_LOCK_FILE) as acquired:
+        if not acquired:
+            logger.debug("Tick skipped — another instance holds the lock")
+            return 0
 
-    # Cross-platform file locking: fcntl on Unix, msvcrt on Windows
-    lock_fd = None
-    try:
-        lock_fd = open(_LOCK_FILE, "w")
-        if fcntl:
-            fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        elif msvcrt:
-            msvcrt.locking(lock_fd.fileno(), msvcrt.LK_NBLCK, 1)
-    except (OSError, IOError):
-        logger.debug("Tick skipped — another instance holds the lock")
-        if lock_fd is not None:
-            lock_fd.close()
-        return 0
-
-    try:
         due_jobs = get_due_jobs()
 
         if verbose and not due_jobs:
@@ -1440,15 +1424,6 @@ def tick(verbose: bool = True, adapters=None, loop=None) -> int:
             logger.debug("Post-tick MCP orphan cleanup failed: %s", _e)
 
         return sum(_results)
-    finally:
-        if fcntl:
-            fcntl.flock(lock_fd, fcntl.LOCK_UN)
-        elif msvcrt:
-            try:
-                msvcrt.locking(lock_fd.fileno(), msvcrt.LK_UNLCK, 1)
-            except (OSError, IOError):
-                pass
-        lock_fd.close()
 
 
 if __name__ == "__main__":
