@@ -1,10 +1,12 @@
 # STUDY 四层学习管线设计
 
-**日期：** 2026-07-01
+**日期：** 2026-07-01（2026-07-02 评审修订）
 
 **状态：** 已确认，待实施计划
 
 **范围：** STUDY 模块、共享 Agent Core、桌面端与 Gateway 的学习产物契约
+
+**修订记录：** 2026-07-02 依据评审补齐了动工前必须冻结的契约：跨存储 fan-out 的部分成功语义（§4.1、§7）、跨库引用自洽约束（§5.1、§8.2）、语义 reviewer 失败态（§4.3、§6）、迁移的 draft/active 判定（§12）、Desktop owner id 来源与恢复（§8.3）、Gateway owner 粒度（§8.3、§10.3）、`tutoring_note`/`evaluation` 审核默认（§6）、M1 owner 地基验收（§13）、Web 测试栈（§14）。
 
 ## 1. 背景
 
@@ -65,6 +67,8 @@ Event ┘                                             └─────── F
 - Learning Index 描述某一课程空间当前可用的学习上下文，用于教学决策和学习产物。
 - Resource Pack 等混合产物可以由一次规划同时分发给 Output Writer 和 File Writer。
 
+**跨存储 fan-out 没有共享事务。** Output Writer 写 `learning.db`，File Writer 写文件系统，二者不能原子提交。因此 fan-out 采用**以 Output Writer 为准的部分成功语义**：先由 Output Writer 落地并激活 artifact 记录，再由 File Writer 生成导出文件。File Writer 失败不回滚已保存的学习 artifact，只在该 artifact 上记录 `export_status=failed` 供重试；Output Writer 失败则整个产物视为未创建，已生成的孤儿文件按临时导出处理、可安全清理。实现不得出现"文件已给用户、但 `learning.db` 里查不到对应 artifact"的状态。
+
 Learning Index 与 Material Index 并列，而不是在 Material Index 中增加学生状态、错题或复习进度。这样可以保持 Material Index 的确定性证据契约，也避免学习状态污染所有文件生成场景。
 
 ### 4.2 Planner 采用轻量策略框架
@@ -115,6 +119,8 @@ Planner
 
 语义审核只能降低风险，不能被表述为代码级事实保证。外部来源材料仍保留手动审计入口；“自动安全门”不能删除用户检查来源、题目和答案的能力。
 
+**reviewer 失败态。** 语义审核是额外 LLM 调用，会超时、被预算耗尽（见 DECISIONS 中 budget/exit-family 工作）或异常。确定性校验已通过、但语义 reviewer 未能产出结论时，草稿**停在 `review.status = pending`**：既不因 reviewer 失败自动 `active`，也不自动 `reject`。UI/命令应能看到"待复核"原因并允许重试。只有 reviewer 明确给出通过意见后，草稿才进入可被用户激活的状态。
+
 ## 5. Learning Index
 
 ### 5.1 职责
@@ -129,6 +135,8 @@ Planner
 - 到期复习项、薄弱点和未完成计划。
 
 它输出一个有版本的、大小受限的课程快照，供 Learning Planner 使用。
+
+**来源必须自洽。** Read / Material Index 的来源可能存在于 `state.db`、聊天 session 或临时文件中，这些在 `learning.db` 之外、且可能被清理。`learning.db` 与它们没有外键约束。因此凡进入 Learning Index 和 learning artifact 的来源引用，**必须内嵌足以自洽的稳定摘录**（引用 id + 必要片段），不得依赖运行时仍能回读某个 session/state.db/临时文件。来源原件消失时，已保存产物仍应可读、可审计。
 
 ### 5.2 非职责
 
@@ -182,10 +190,12 @@ v1 产物类型：
 | `resource_pack` | 资源条目、用途、来源、可信度说明 | 语义 + 手动审计入口 |
 | `flashcard_deck` | 卡组与卡片，含正反面、标签、来源 | 批量时语义 |
 | `quiz` | 题目判别联合、答案、解析、评分规则、来源 | 语义 |
-| `tutoring_note` | 辅导目标、提示层级、误区和下一步 | 确定性或语义 |
-| `evaluation` | 观察、证据、薄弱点、建议，不做人格/能力定性 | 确定性或语义 |
+| `tutoring_note` | 辅导目标、提示层级、误区和下一步 | 默认确定性；引用外部来源或含题目答案时升级语义 |
+| `evaluation` | 观察、证据、薄弱点、建议，不做人格/能力定性 | 默认语义（可降级）|
 
 每个 kind 都有独立 schema、尺寸限制和迁移规则。例如 quiz 的选择题、判断题和简答题必须使用各自的题型 schema，不能依靠前端猜测字段。
+
+`review.status` 的取值与转换：`pending`（确定性已过、等待语义结论或人工激活）、`approved`（语义通过、可激活）、`rejected`。语义 reviewer 不可用时停在 `pending`（见 §4.3），不得静默跳过。仅确定性审核的 kind（如 `student_state`）跳过语义步骤后直接可激活。
 
 ## 7. Output Writer
 
@@ -207,7 +217,7 @@ File Writer 继续生成 PPTX、PDF、HTML、DOCX 等文件。Output Writer 负�
 6. 发出产物事件，供桌面端或 Gateway 展示。
 7. 对真实用户行为直接写入 activity/item 状态，不伪装成 AI artifact。
 
-Resource Pack 可以同时产生结构化学习资源和导出的文件清单，因此 Planner 可将同一个已审核计划分别交给 Output Writer 与 File Writer；两个 Writer 各自拥有自己的输出契约。
+Resource Pack 可以同时产生结构化学习资源和导出的文件清单，因此 Planner 可将同一个已审核计划分别交给 Output Writer 与 File Writer；两个 Writer 各自拥有自己的输出契约。二者无共享事务，按 §4.1 的以 Output Writer 为准的部分成功语义执行（先 Output Writer 落地，再 File Writer 导出，导出失败不回滚学习 artifact）。
 
 ## 8. 状态与持久化
 
@@ -238,14 +248,14 @@ v1 表：
 | `learning_activities` | 作答、评分、复习、完成、跳过等用户行为 |
 | `learning_migrations` | localStorage 迁移进度和幂等标记 |
 
-数据库保存结构化学习数据，不保存 API key，不默认复制完整聊天或原始外部文件。来源使用稳定引用和必要摘录，遵守数据最小化。
+数据库保存结构化学习数据，不保存 API key，不默认复制完整聊天或原始外部文件。来源使用稳定引用和必要摘录，遵守数据最小化——但摘录量必须满足 §5.1 的自洽约束，即来源原件（session/state.db/临时文件）消失后产物仍可读、可审计。
 
 ### 8.3 Owner 隔离
 
 默认身份隔离，未来再提供显式绑定：
 
-- Desktop 使用稳定的本地 owner id。
-- Gateway 使用 `gateway:<platform>:<hashed-user-id>`。
+- Desktop 使用稳定的本地 owner id。该 id 从产品数据目录（`%LOCALAPPDATA%\com.kabuqina.app`）下一个持久 owner 记录派生并随 `learning.db` 一同备份；不从机器指纹或用户名派生，以免换机/改名后失配。**owner id 与其 learning 数据同目录持久化，是 `learning.db` 的一部分**，因此重装但保留数据目录时 id 不变；数据目录被重建导致 id 缺失时，生成新 id 并把已存在但"无主"的 space 呈现为可显式认领的迁移入口，绝不静默丢弃或自动重绑。
+- Gateway 使用 `gateway:<platform>:<hashed-user-id>`。owner 粒度是**发消息的个人**，不是群/频道：群聊中的 space、草稿和 approve/reject 按 sender 隔离，群内其他成员默认既不可见也不可批；因此 sender 身份识别必须可靠，无法可靠识别 sender 的消息不得执行信任边界操作。
 - 所有查询和写入都必须同时约束 `owner_id` 与 `space_id`。
 - 模型工具 schema 中不出现 `owner_id`；由运行时 `LearningExecutionContext` 注入。
 - 将来若支持身份绑定，必须显式确认并记录映射，不能根据昵称或平台资料自动猜测。
@@ -321,7 +331,7 @@ Gateway 使用确定性命令激活学习工作区和草稿，不把权限操作
 /study reject <artifact-id>
 ```
 
-命令处理器从平台上下文建立 owner，并验证 artifact 属于当前 owner 和 space。自然语言仍可请求生成草稿，但不能替代 approve/reject 命令。
+命令处理器从平台上下文建立 owner（个人级，见 §8.3），并验证 artifact 属于当前 owner 和 space。群聊中一名成员的 approve/reject 只作用于该成员自己的 space，不影响同群其他 owner。自然语言仍可请求生成草稿，但不能替代 approve/reject 命令。
 
 ## 11. STUDY 交互整合
 
@@ -352,12 +362,12 @@ Gateway 使用确定性命令激活学习工作区和草稿，不把权限操作
 
 1. Web 检测每个旧 key 是否存在，以及 `learning_migrations` 是否已完成该 key。
 2. 每个 key 独立解析、校验和导入，使用幂等 migration id。
-3. 成功项写入默认课程空间；AI 型内容标记为 `active` 仅限用户此前已经显式保存/导入的内容，并记录 `origin=legacy_local_storage`。
+3. 成功项写入默认课程空间。现有 localStorage 没有 draft/active 概念——里面的一切都是用户此前显式保存的，因此**迁移一律导入为 `active`**，并记录 `origin=legacy_local_storage`（不引入无法从旧数据判定的前置条件）。迁移后新产生的 AI 内容才走 `draft → active` 审核路径。
 4. 单个 key 失败不阻塞其他 key，UI 显示可重试和导出原数据入口。
 5. 旧 localStorage 保留一个发布周期，只读作为回滚保障。
 6. 下一发布周期确认迁移稳定后再移除旧读取路径；不静默删除无法解析的数据。
 
-迁移必须覆盖 STUDY context、flashcards、quiz 及其他已发布 key，并用实际旧版本样本测试。
+迁移必须覆盖现有三个已发布 key——`kabuqina.study.context.v1`、`kabuqina.study.flashcards.v1`、`kabuqina.study.quiz.v1`——及未来新增 key，并用实际旧版本样本测试。（注意 `kabuqina-study-*` 是 window 事件名而非存储 key，迁移只处理 `.v1` 存储 key。）
 
 ## 13. 交付里程碑
 
@@ -367,11 +377,12 @@ Gateway 使用确定性命令激活学习工作区和草稿，不把权限操作
 
 - `learning_contract.py` 与 per-kind schemas；
 - `PlannerSpec` / registry 及 Deliverable Planner 适配；
+- **`LearningExecutionContext` + owner 注入**（Desktop owner id 来源、Gateway owner 派生），作为所有后续切片的安全地基，必须在 M1 落地，不能延后；
 - `learning.db`、owner context 与基础 store；
 - Learning Index / Output Writer 最小骨架；
 - capability registry 引用与漂移测试。
 
-验收：现有 PPT/文档规划行为不变；两个 child 可以在不同 owner 下安全读写隔离的课程空间。
+验收：现有 PPT/文档规划行为不变；两个 child 可以在不同 owner 下安全读写隔离的课程空间；**owner 越权、模型伪造 owner、跨 Gateway 用户访问的隔离测试在 M1 即为绿**（不等到后续里程碑）。
 
 ### M2：课程空间 + 闪卡
 
@@ -436,7 +447,7 @@ Gateway 使用确定性命令激活学习工作区和草稿，不把权限操作
 
 ### Web 测试
 
-使用 Vitest + React Testing Library 覆盖：
+沿用现有 Web study 测试栈——`node:test` + `node:assert`，通过 `typescript.transpileModule` 转译（见 `web/src/chat/study/studyStore.test.mjs`），仓库当前没有 Vitest 配置。除非单列一项"迁移到 Vitest + React Testing Library"的工作，否则本设计不引入第二套 runner，以免 store 逻辑用一套、组件用另一套。覆盖：
 
 - 课程空间选择和切换；
 - 草稿预览、approve、reject、archive；
@@ -471,5 +482,10 @@ Gateway 使用确定性命令激活学习工作区和草稿，不把权限操作
 - 用户真实行为直接写入 activity，不经过草稿审批。
 - 学习数据保存在公共 Hermes root 的独立 `learning.db`，以 owner + course space 隔离。
 - Desktop 与 Gateway 默认是不同 owner；未来仅通过显式绑定合并。
-- Gateway 使用确定性 `/study` 命令承担 approve/reject 等权限操作。
+- Gateway 使用确定性 `/study` 命令承担 approve/reject 等权限操作，owner 粒度为个人。
 - 采用纵向切片交付，先基础与闪卡，再测验、状态/计划、知识/资源，最后重组 UI。
+- 跨存储 fan-out 以 Output Writer 为准，采用部分成功语义，不出现"文件已给用户但 artifact 查不到"。
+- 语义 reviewer 不可用时草稿停在 `pending`，绝不自动激活或拒绝。
+- 学习产物内嵌自洽摘录，来源原件消失后仍可读可审计。
+- 现有 localStorage 迁移一律导入为 `active` 并记 `origin=legacy_local_storage`。
+- `LearningExecutionContext` + owner 注入是 M1 地基，owner 隔离测试在 M1 即为绿。
