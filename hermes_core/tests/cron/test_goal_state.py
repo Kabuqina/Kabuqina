@@ -257,6 +257,9 @@ class TestRejectsCorruptState:
             {"last_verifier_outcome": "unknown"},
             {"last_verifier_outcome": []},
             {"last_summary": 123},
+            {"updated_at": datetime(2026, 6, 28, 12, 0, 0)},
+            {"started_at": datetime(2026, 6, 28, 12, 0, 0)},
+            {"completed_at": datetime(2026, 6, 28, 12, 0, 0)},
         ],
     )
     def test_save_rejects_invalid_domain_values_and_types(

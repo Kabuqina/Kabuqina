@@ -301,8 +301,16 @@ def _validate_state(state: GoalRunState) -> None:
         _optional_string(getattr(state, field), field)
     for field in ("started_at", "completed_at", "updated_at"):
         value = getattr(state, field)
-        if value is not None and not isinstance(value, datetime):
+        if value is None:
+            continue
+        if not isinstance(value, datetime):
             raise GoalStateError(f"{field} must be a datetime or null")
+        # Persisted timestamps must be timezone-aware: they serialize via
+        # ``datetime.isoformat()`` and the Rust projection rejects any
+        # ``updated_at`` without an offset as a corrupt state. Reject naive
+        # datetimes here so both sides agree at the write boundary.
+        if value.utcoffset() is None:
+            raise GoalStateError(f"{field} must be timezone-aware")
     if state.updated_at is None:
         raise GoalStateError(f"goal state for {state.job_id!r} missing updated_at")
 
