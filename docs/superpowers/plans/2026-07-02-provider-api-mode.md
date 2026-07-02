@@ -440,7 +440,7 @@ git commit -m "feat(shell): persist provider API mode"
 - Create: `python/tests/test_desktop_llm_config.py`
 - Modify: `python/overlays/desktop_llm_config.py`
 
-- [ ] **Step 1: Write failing overlay tests**
+- [x] **Step 1: Write failing overlay tests**
 
 Create `python/tests/test_desktop_llm_config.py`. Patch `sys.modules` with a fake `hermes_cli.config` whose `load_config` returns a mutable config and whose `save_config` captures the result. Reload the overlay for each case and patch environment variables.
 
@@ -476,7 +476,7 @@ def test_automatic_removes_stale_explicit_mode(self):
 
 Add cases for explicit `chat_completions`, DeepSeek's special seed path, and invalid environment values falling back to Automatic with a warning. Assert provider/model/base URL/max tokens remain intact.
 
-- [ ] **Step 2: Run overlay tests and verify RED**
+- [x] **Step 2: Run overlay tests and verify RED**
 
 Run:
 
@@ -487,7 +487,7 @@ python -m unittest discover -s tests -p "test_desktop_llm_config.py" -v
 
 Expected: FAIL because the overlay ignores `HERMESDESK_API_MODE` and leaves stale values.
 
-- [ ] **Step 3: Implement one mode-application helper**
+- [x] **Step 3: Implement one mode-application helper**
 
 Add:
 
@@ -511,7 +511,7 @@ Read `HERMESDESK_API_MODE` in `install()`. Call `_apply_api_mode` for the DeepSe
 
 Update the log to include `api_mode=%r`, using `"auto"` when the helper returns `None`. Do not change `secret_store.py`; the same custom-supplier key is passed to whichever transport runtime resolution selects.
 
-- [ ] **Step 4: Run overlay and existing policy tests**
+- [x] **Step 4: Run overlay and existing policy tests**
 
 Run:
 
@@ -524,7 +524,7 @@ python -m unittest discover -s tests -p "test_gateway_env_loader.py" -v
 
 Expected: all tests pass.
 
-- [ ] **Step 5: Commit Python configuration behavior**
+- [x] **Step 5: Commit Python configuration behavior**
 
 ```powershell
 git add python/overlays/desktop_llm_config.py python/tests/test_desktop_llm_config.py
