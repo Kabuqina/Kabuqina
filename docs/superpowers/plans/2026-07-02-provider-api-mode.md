@@ -41,7 +41,7 @@
 - Create: `web/src/lib/apiMode.test.mjs`
 - Modify: `web/src/lib/llm-config.ts`
 
-- [ ] **Step 1: Write the failing helper tests**
+- [x] **Step 1: Write the failing helper tests**
 
 Create `web/src/lib/apiMode.test.mjs` using the same TypeScript transpile helper as `providerUx.test.mjs` and assert this contract:
 
@@ -64,7 +64,7 @@ assert.equal(persistedApiMode("anthropic_messages"), "anthropic_messages");
 
 Also update the imported `LlmConfigPreview`/`ProviderSaveConfig` source contract expectation so `apiMode: ApiMode | null` and `api_mode: ApiMode | null` are required.
 
-- [ ] **Step 2: Run the helper test and verify RED**
+- [x] **Step 2: Run the helper test and verify RED**
 
 Run:
 
@@ -75,7 +75,7 @@ node --test src/lib/apiMode.test.mjs
 
 Expected: FAIL because `api-mode.ts` does not exist.
 
-- [ ] **Step 3: Implement the minimal pure helper module**
+- [x] **Step 3: Implement the minimal pure helper module**
 
 Create `web/src/lib/api-mode.ts`:
 
@@ -140,7 +140,7 @@ export type ProviderSaveConfig = {
 };
 ```
 
-- [ ] **Step 4: Run the helper tests and verify GREEN**
+- [x] **Step 4: Run the helper tests and verify GREEN**
 
 Run:
 
@@ -151,7 +151,7 @@ node --test src/lib/apiMode.test.mjs src/onboarding/providerUx.test.mjs
 
 Expected: both test files pass.
 
-- [ ] **Step 5: Commit the pure Web contract**
+- [x] **Step 5: Commit the pure Web contract**
 
 ```powershell
 git add web/src/lib/api-mode.ts web/src/lib/apiMode.test.mjs web/src/lib/llm-config.ts
