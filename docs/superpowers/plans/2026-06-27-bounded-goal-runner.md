@@ -968,21 +968,41 @@ git commit -m "feat: route disabled-by-default goal cron jobs"
 - Modify: `tauri/src/lib.rs`
 - Modify: `web/src/advanced/pages/ScheduledTasks.tsx`
 
-- [ ] **Step 1: characterize existing desktop delivery exactly-once behavior**
+- [x] **Step 1: characterize existing desktop delivery exactly-once behavior**
+  *(2026-07-03, `0543d332` — an intermediate scheduled iteration fires no
+  delivery; completion/pause/cancellation deliver the sanitized transition text
+  exactly once; a failed goal delivers the failure wrapper once. The exactly-once
+  gating lives in `tick`/`_process_job` (should_deliver + delivery_text), so the
+  desktop-delivery overlay is a pass-through content-forwarder needing no
+  goal-specific change.)*
 
 Write tests before changing the overlay. A normal intermediate iteration produces
 no toast or chat item. Completion, pause, failure, and cancellation produce one
 sanitized delivery. A configured progress cadence may deliver only at its exact
 iteration multiple.
 
-- [ ] **Step 2: prove per-profile isolation with process-shaped fixtures**
+- [x] **Step 2: prove per-profile isolation with process-shaped fixtures**
+  *(2026-07-03, `e857680a` — same job id in two `HERMES_HOME` trees resolves
+  only its active home; the scheduler lock path follows the active home; a
+  gateway-shaped profile (default-disabled `cron.goal_loop`) pauses a copied goal
+  job with `feature_disabled` and runs no model while the host profile runs one
+  iteration. NOTE: there is no separate profile-type flag — isolation is
+  env-based home + per-profile config.)*
 
 Create separate host and gateway `HERMES_HOME` trees containing the same job ID
 with different state. Each scheduler instance must load, lock, update, and project
 only its active home. Pilot 1 rejects gateway-profile execution even if a goal
 job file is copied there.
 
-- [ ] **Step 3: implement crash-safe core control transitions**
+- [x] **Step 3: implement crash-safe core control transitions**
+  *(2026-07-03, `d94cc247` — `cron/goal_controls.py`: pause/resume/cancel/delete.
+  Goal state is authoritative, the cron job its scheduling mirror. Each control
+  takes the profile scheduler lock nonblocking (`GoalControlBusy` if held).
+  Write order: pause/cancel persist state then disable the mirror; resume enables
+  + schedules the next wake then writes runnable state; delete is terminal-only,
+  removes the job, retains the goal-run dir. Fault-injection tests prove partial
+  ops fail closed and retries repair the mirror. 14 tests incl. real busy-lock
+  contention.)*
 
 Add `pause_goal`, `resume_goal`, `cancel_goal`, and `delete_goal` in
 `goal_controls.py`. State is authoritative and the cron job record is its
@@ -1006,6 +1026,14 @@ desk route maps that to HTTP 409 and performs no write. This deliberately
 cancels future iterations, not an already executing agent turn.
 
 - [ ] **Step 4: proxy pause, resume, cancel, and delete through the core**
+  *(PARTIAL 2026-07-03, `5d399148` — Python desk routes done:
+  `desk_server/routes/goal_routes.py` exposes POST pause/resume/cancel + DELETE,
+  delegating only to `cron.goal_controls`, mapping busy→409/not-found→404/
+  invalid→409, returning sanitized state; registered in `app.py`; 8 route tests +
+  existing desk suite green. Placed under `routes/` to match app router
+  discovery. STILL PENDING (need a build env, cannot compile/run here): the Tauri
+  proxy commands in `tauri/src/cron.rs` + `lib.rs`, and the React wiring in
+  `web/src/advanced/pages/ScheduledTasks.tsx`.)*
 
 Add authenticated desk-server routes that delegate only to the core control
 service:
@@ -1040,6 +1068,10 @@ jobs keep their existing command until that separate compatibility issue is
 planned. Rust and React contain no mutable goal-state transition logic.
 
 - [ ] **Step 5: run the G1 integration gate and commit**
+  *(PENDING — the cross-stack integration gate (release build + desktop smoke of
+  the goal controls end-to-end) needs a build environment. Task 9's engine-neutral
+  Python core (Steps 1–3 + the desk routes) is landed and fully unit-tested; the
+  gate stays open until the Tauri/React wiring in Step 4 is built and smoked.)*
 
 ```powershell
 cd python
