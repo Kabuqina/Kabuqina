@@ -1449,7 +1449,15 @@ per-attempt events on both engines without result-shape changes.
 
 - Modify: this plan
 
-- [ ] **Step 1: build the release-equivalent runtime**
+- [x] **Step 1: build the release-equivalent runtime**
+
+  *(2026-07-02, branch `codex/task11-release-smoke`: `build_bundle.ps1
+  -Verify` passed with bundled Python 3.11.15, desk-server/STT/import smoke
+  green, and a 1398.4 MB runtime. `npm ci` + `npm run build` passed (2389
+  modules; existing 7-package audit warning and large-chunk warning retained).
+  `cargo tauri build` produced the 293,295,371-byte NSIS installer
+  `Kabuqina_0.2.0_x64-setup.exe`, SHA-256
+  `6B9AB47E8890EF008CEC58FB0E2CFD4367DE84C90F3CF585619DFC1F01248339`.)*
 
 ```powershell
 ./python/build_bundle.ps1 -Verify
