@@ -808,7 +808,10 @@ git commit -m "feat: connect goal iterations to the public agent API"
 - Create: `hermes_core/tests/cron/test_scheduler_lock.py`
 - Modify: `DECISIONS.md`
 
-- [ ] **Step 1: rebase after Phase 3.5 Task 10 and add the disabled default**
+- [x] **Step 1: rebase after Phase 3.5 Task 10 and add the disabled default**
+  *(2026-07-02, `4002753a` — `cron.goal_loop.enabled: false` added under the
+  existing `cron` section of `DEFAULT_CONFIG`; config version unchanged;
+  resolves per profile without disturbing sibling cron keys.)*
 
 Add under the existing `cron` section:
 
@@ -824,7 +827,13 @@ inspection. Do not use a top-level `goal_loop` key. Because every host/gateway
 profile has its own `HERMES_HOME` and config, Pilot 1 enables only the host
 profile; gateway profile configs remain false.
 
-- [ ] **Step 2: characterize legacy modes before modifying normalization**
+- [x] **Step 2: characterize legacy modes before modifying normalization**
+  *(2026-07-02, `7e768f65` — characterization pins missing/unknown → `agent`,
+  aliases → `notify`, non-goal records byte-identical. `_normalize_job_mode`
+  gains exact `goal`; `create_job` gains goal/verifier/limits/approval_mode/
+  progress_delivery_every (None defaults) persisted under `job["goal"]`; fails
+  closed on workdir/objective/verifier/limits; goal fields on non-goal modes are
+  rejected. `goal_verifiers.KNOWN_VERIFIER_KINDS` backs the check.)*
 
 Extend tests to prove missing/unknown mode still normalizes to `agent`, aliases
 still normalize to `notify`, and existing serialized job fixtures are unchanged.
@@ -836,7 +845,17 @@ an absolute confined workdir, non-empty objective, known deterministic verifier,
 and explicit finite limits. Existing modes ignore no unknown goal fields: they
 must reject them so a typo cannot silently create an ordinary agent job.
 
-- [ ] **Step 3: route one due wake through the controller**
+- [x] **Step 3: route one due wake through the controller**
+  *(2026-07-02 — 3a `9fba39a0`: `.tick.lock` extracted verbatim into
+  `scheduler_lock.tick_lock` (unchanged scope; test_scheduler 103 unchanged).
+  3b `11f46ed5`: `_job_execution_mode` gains `goal`; `_run_goal_job` builds the
+  `GoalDefinition` from `job["goal"]`, checks the gate, runs one controller
+  iteration (worker/verifier injectable); `goal_runner.pause_goal_iteration`
+  gives a gated no-model pause; `_process_job` branches by mode with shared
+  save/deliver and branched marking; `mark_goal_job_run`/`mark_goal_job_crash`
+  mirror status without touching repeat/next_run/deletion. NOTE: `goal_runner.py`
+  intentionally not imported by the worker/jobs (injection avoids a cycle);
+  `mark_goal_job_run` takes primitives, not a transition object.)*
 
 First extract the existing cross-platform `.tick.lock` acquisition into
 `scheduler_lock.py` and pin its nonblocking/single-owner behavior without
@@ -891,14 +910,24 @@ exception calls `mark_goal_job_crash`, disables future wakes, records a sanitize
 error on the job mirror, and leaves committed goal state/evidence untouched for
 recovery review. It must not call ordinary `mark_job_run`.
 
-- [ ] **Step 4: keep the public tool contract hidden**
+- [x] **Step 4: keep the public tool contract hidden**
+  *(2026-07-02, `8402e6a6` — the registered `cronjob` tool rejects `mode: goal`
+  on create and update while G2 is closed; the schema never advertised `goal`.
+  Core `create_job` still accepts the mode for internal tests.)*
 
 Core `create_job` may accept the new mode for internal tests, but the registered
 `cronjob` tool schema and handler reject `mode: goal` while G2 is closed. This
 prevents an agent or user from creating live Goal Tasks during the inner-engine
 soak.
 
-- [ ] **Step 5: prove scheduler and legacy behavior**
+- [x] **Step 5: prove scheduler and legacy behavior**
+  *(2026-07-02, `8402e6a6` — tick-level: flag off pauses a due goal
+  (`feature_disabled`, disabled) while a co-due notify still runs; flag on routes
+  exactly one wake and keeps a `scheduled` job enabled; a catastrophic goal
+  exception marks the job crashed and leaves committed goal state untouched.
+  Plus the gate on/off single-iteration, mark-status matrix, and no-double-
+  schedule unit proofs. `test_cron_goal.py` 48; full `tests/cron` 497 passed / 2
+  skipped / 7 pre-existing env failures. `DECISIONS.md` records the contract.)*
 
 Tests cover flag off in a gateway-shaped profile, flag on in the host-shaped
 profile, one call/wake, state reschedule, terminal disable,
