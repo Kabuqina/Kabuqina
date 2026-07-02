@@ -309,7 +309,7 @@ git commit -m "feat(web): auto-detect provider API format"
 - Modify: `tauri/src/gateway_supervisor.rs`
 - Modify: `tauri/src/lib.rs`
 
-- [ ] **Step 1: Write failing Rust trust-boundary tests**
+- [x] **Step 1: Write failing Rust trust-boundary tests**
 
 Add tests inside `tauri/src/secrets.rs`:
 
@@ -354,7 +354,7 @@ fn custom_config(api_mode: Option<&str>) -> ProviderConfig {
 }
 ```
 
-- [ ] **Step 2: Run Rust tests and verify RED**
+- [x] **Step 2: Run Rust tests and verify RED**
 
 Run:
 
@@ -366,7 +366,7 @@ cargo test secrets
 
 Expected: compile/test failure because `ProviderConfig.api_mode` does not exist.
 
-- [ ] **Step 3: Add the validated nullable persistence field**
+- [x] **Step 3: Add the validated nullable persistence field**
 
 Add to `ProviderConfig`, `LlmConfigPreview`, and `LlmSpawnParams`:
 
@@ -392,7 +392,7 @@ Assign `cfg.api_mode = normalize_api_mode(cfg.api_mode.as_deref())?;`. Update al
 
 Update the custom-provider error text from “custom OpenAI-compatible APIs” to protocol-neutral “custom APIs”.
 
-- [ ] **Step 4: Propagate the mode to both child types**
+- [x] **Step 4: Propagate the mode to both child types**
 
 Add to `python_supervisor::SpawnConfig`:
 
@@ -411,7 +411,7 @@ In `lib.rs`, set `api_mode: llm.api_mode`. In both `python_supervisor.rs` and `g
 
 Do not map a custom Anthropic-compatible supplier to provider `anthropic`; retain its provider id and existing Credential Manager account/environment mapping.
 
-- [ ] **Step 5: Run Rust gates and verify GREEN**
+- [x] **Step 5: Run Rust gates and verify GREEN**
 
 Run:
 
@@ -425,7 +425,7 @@ cargo test python_supervisor
 
 Expected: all selected tests pass and the crate compiles with every updated struct literal.
 
-- [ ] **Step 6: Commit Rust persistence and propagation**
+- [x] **Step 6: Commit Rust persistence and propagation**
 
 ```powershell
 git add tauri/src/secrets.rs tauri/src/python_supervisor.rs tauri/src/gateway_supervisor.rs tauri/src/lib.rs

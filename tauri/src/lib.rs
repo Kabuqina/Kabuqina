@@ -378,6 +378,7 @@ async fn resolve_spawn_config_for_children(
         provider: llm.provider,
         llm_host: llm.llm_host,
         api_base_url: llm.api_base_url,
+        api_mode: llm.api_mode,
         hermes_model: llm.hermes_model,
         inference_provider: llm.inference_provider,
         power_user,

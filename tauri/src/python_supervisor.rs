@@ -26,6 +26,7 @@ pub struct SpawnConfig {
     pub provider: String,
     pub llm_host: String,
     pub api_base_url: Option<String>,
+    pub api_mode: Option<String>,
     pub hermes_model: Option<String>,
     pub inference_provider: Option<String>,
     pub power_user: bool,
@@ -73,6 +74,10 @@ impl Supervisor {
             .env(
                 "HERMESDESK_API_BASE_URL",
                 cfg.api_base_url.as_deref().unwrap_or(""),
+            )
+            .env(
+                "HERMESDESK_API_MODE",
+                cfg.api_mode.as_deref().unwrap_or(""),
             )
             .env(
                 "HERMESDESK_MODEL",
