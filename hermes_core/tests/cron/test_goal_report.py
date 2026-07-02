@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextvars
 import json
+import math
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
@@ -115,4 +116,14 @@ def test_collector_rejects_direct_second_record():
         collector.record(_valid_args())
         with pytest.raises(GoalReportError):
             collector.record(_valid_args())
+
+
+@pytest.mark.parametrize("value", [math.nan, math.inf, -math.inf])
+def test_tool_rejects_non_finite_json_evidence(value):
+    with goal_report_scope("abc123def456", 1) as collector:
+        result = _dispatch(_valid_args(evidence={"measurement": value}))
+
+    assert "error" in result
+    assert "json" in result["error"].lower()
+    assert collector.report is None
 

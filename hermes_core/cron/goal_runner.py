@@ -31,7 +31,6 @@ from cron.goal_transitions import (
 )
 from cron.goal_usage import (
     GoalUsageSnapshot,
-    summarize_usage_events,
     usage_snapshot_to_json,
 )
 from cron.goal_verifiers import VerifierResult
@@ -377,11 +376,16 @@ def run_goal_iteration(
     except Exception as exc:
         worker_observation = WorkerObservation(
             report=None,
-            usage=summarize_usage_events(()),
+            usage=GoalUsageSnapshot(
+                events=(),
+                amount_usd=None,
+                complete=False,
+                incomplete_reason="worker_exception",
+            ),
             full_output="",
             wall_seconds=0.0,
             infrastructure_error=_sanitized_exception("worker", exc),
-            ambiguous_external_effect=False,
+            ambiguous_external_effect=True,
         )
     if worker_observation.infrastructure_error is not None:
         worker_observation = replace(
@@ -402,35 +406,25 @@ def run_goal_iteration(
         definition.job_id, iteration, "report", report_record
     )
 
+    usage_complete = (
+        worker_observation.usage.complete
+        and worker_observation.usage.amount_usd is not None
+    )
     verifier_result: VerifierResult | None = None
-    try:
-        artifact_hash = (
-            build_artifact_fingerprint(definition, worker_observation.report)
-            if worker_observation.report is not None
-            else None
-        )
-    except GoalRunnerError:
-        transition = _pause_transition(
-            running_state,
-            "invalid_artifact",
-            now=now,
-            last_error="reported artifact was missing or outside the workdir",
-        )
-        transition_path = _persist_transition(
-            transition,
-            record_iteration=iteration,
-        )
-        return GoalIterationResult(
-            transition=transition,
-            full_output=worker_observation.full_output,
-            delivery_text=_delivery_text(transition),
-            evidence_path=transition_path,
-        )
+    artifact_hash = None
+    artifact_error = False
+    if usage_complete and worker_observation.report is not None:
+        try:
+            artifact_hash = build_artifact_fingerprint(
+                definition, worker_observation.report
+            )
+        except GoalRunnerError:
+            artifact_error = True
     if (
         worker_observation.report is not None
         and worker_observation.report.status == "candidate_done"
-        and worker_observation.usage.complete
-        and worker_observation.usage.amount_usd is not None
+        and usage_complete
+        and not artifact_error
     ):
         verifying_state = replace(running_state, status="verifying", updated_at=now)
         save_goal_state(verifying_state)
@@ -452,45 +446,60 @@ def run_goal_iteration(
         )
 
     reducer_state = replace(running_state, iteration=state.iteration)
-    if (
-        worker_observation.report is None
-        and worker_observation.infrastructure_error is None
-        and worker_observation.usage.complete
-    ):
-        transition = _pause_transition(
-            running_state,
-            "missing_report",
-            now=now,
-            last_error="worker returned without a goal_report",
+    evidence_hash = (
+        build_evidence_fingerprint(
+            definition, worker_observation.report, verifier_result
         )
-    else:
-        evidence_hash = (
-            build_evidence_fingerprint(
-                definition, worker_observation.report, verifier_result
-            )
-            if worker_observation.report is not None
-            else None
-        )
-        transition = reduce_iteration(
-            reducer_state,
-            definition.limits,
-            IterationObservation(
-                report=worker_observation.report,
-                verifier=verifier_result,
-                usage=worker_observation.usage,
-                wall_seconds=worker_observation.wall_seconds,
-                evidence_hash=evidence_hash,
-                infrastructure_error=worker_observation.infrastructure_error,
-                ambiguous_external_effect=(
-                    worker_observation.ambiguous_external_effect
-                    or bool(
-                        worker_observation.infrastructure_error
-                        and worker_observation.report is not None
-                        and worker_observation.report.external_side_effects
-                    )
-                ),
+        if worker_observation.report is not None
+        and usage_complete
+        and not artifact_error
+        else None
+    )
+    transition = reduce_iteration(
+        reducer_state,
+        definition.limits,
+        IterationObservation(
+            report=worker_observation.report,
+            verifier=verifier_result,
+            usage=worker_observation.usage,
+            wall_seconds=worker_observation.wall_seconds,
+            evidence_hash=evidence_hash,
+            infrastructure_error=worker_observation.infrastructure_error,
+            ambiguous_external_effect=(
+                worker_observation.ambiguous_external_effect
+                or bool(
+                    worker_observation.infrastructure_error
+                    and worker_observation.report is not None
+                    and worker_observation.report.external_side_effects
+                )
             ),
-            now=now,
+        ),
+        now=now,
+    )
+
+    forced_pause_reason = None
+    forced_last_error = None
+    if usage_complete and artifact_error:
+        forced_pause_reason = "invalid_artifact"
+        forced_last_error = "reported artifact was missing or outside the workdir"
+    elif (
+        usage_complete
+        and worker_observation.report is None
+        and worker_observation.infrastructure_error is None
+    ):
+        forced_pause_reason = "missing_report"
+        forced_last_error = "worker returned without a goal_report"
+    if forced_pause_reason is not None:
+        transition = replace(
+            transition,
+            next_state=replace(
+                transition.next_state,
+                status="paused",
+                pause_reason=forced_pause_reason,
+                last_error=forced_last_error,
+            ),
+            reason=forced_pause_reason,
+            should_deliver=True,
         )
 
     if artifact_hash is not None:

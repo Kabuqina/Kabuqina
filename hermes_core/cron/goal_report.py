@@ -82,6 +82,7 @@ class GoalReportCollector:
         try:
             encoded = json.dumps(
                 evidence,
+                allow_nan=False,
                 ensure_ascii=False,
                 separators=(",", ":"),
                 sort_keys=True,

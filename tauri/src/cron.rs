@@ -246,6 +246,92 @@ fn sanitized_pause_reason(reason: Option<String>) -> Option<String> {
     })
 }
 
+fn canonical_goal_state_path(data_dir: &std::path::Path, job_id: &str) -> Option<PathBuf> {
+    let root = data_dir.join("hermes-home").join("cron").join("goal-runs");
+    let canonical_root = std::fs::canonicalize(&root).ok()?;
+    let state_path = std::fs::canonicalize(root.join(job_id).join("state.json")).ok()?;
+    state_path
+        .starts_with(&canonical_root)
+        .then_some(state_path)
+}
+
+fn is_valid_rfc3339(value: &str) -> bool {
+    fn number(bytes: &[u8], start: usize, len: usize) -> Option<u32> {
+        let digits = bytes.get(start..start + len)?;
+        digits.iter().try_fold(0_u32, |value, byte| {
+            byte.is_ascii_digit()
+                .then_some(value * 10 + u32::from(byte - b'0'))
+        })
+    }
+
+    fn leap_year(year: u32) -> bool {
+        year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
+    }
+
+    let bytes = value.as_bytes();
+    if bytes.len() < 20
+        || bytes.get(4) != Some(&b'-')
+        || bytes.get(7) != Some(&b'-')
+        || !matches!(bytes.get(10), Some(b'T' | b't'))
+        || bytes.get(13) != Some(&b':')
+        || bytes.get(16) != Some(&b':')
+    {
+        return false;
+    }
+
+    let Some(year) = number(bytes, 0, 4) else {
+        return false;
+    };
+    let Some(month) = number(bytes, 5, 2) else {
+        return false;
+    };
+    let Some(day) = number(bytes, 8, 2) else {
+        return false;
+    };
+    let Some(hour) = number(bytes, 11, 2) else {
+        return false;
+    };
+    let Some(minute) = number(bytes, 14, 2) else {
+        return false;
+    };
+    let Some(second) = number(bytes, 17, 2) else {
+        return false;
+    };
+    let days_in_month = match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if leap_year(year) => 29,
+        2 => 28,
+        _ => return false,
+    };
+    if year == 0 || day == 0 || day > days_in_month || hour > 23 || minute > 59 || second > 60 {
+        return false;
+    }
+
+    let mut offset_start = 19;
+    if bytes.get(offset_start) == Some(&b'.') {
+        offset_start += 1;
+        let fraction_start = offset_start;
+        while bytes.get(offset_start).is_some_and(u8::is_ascii_digit) {
+            offset_start += 1;
+        }
+        if offset_start == fraction_start {
+            return false;
+        }
+    }
+
+    match bytes.get(offset_start) {
+        Some(b'Z' | b'z') => offset_start + 1 == bytes.len(),
+        Some(b'+' | b'-') => {
+            offset_start + 6 == bytes.len()
+                && bytes.get(offset_start + 3) == Some(&b':')
+                && number(bytes, offset_start + 1, 2).is_some_and(|value| value <= 23)
+                && number(bytes, offset_start + 4, 2).is_some_and(|value| value <= 59)
+        }
+        _ => false,
+    }
+}
+
 fn read_goal_projection(data_dir: &std::path::Path, job_id: &str) -> SanitizedGoalProjection {
     if job_id.len() != 12
         || !job_id
@@ -254,12 +340,10 @@ fn read_goal_projection(data_dir: &std::path::Path, job_id: &str) -> SanitizedGo
     {
         return state_error_projection();
     }
-    let path = data_dir
-        .join("hermes-home")
-        .join("cron")
-        .join("goal-runs")
-        .join(job_id)
-        .join("state.json");
+    let path = match canonical_goal_state_path(data_dir, job_id) {
+        Some(value) => value,
+        None => return state_error_projection(),
+    };
     let raw = match std::fs::read_to_string(path) {
         Ok(value) => value,
         Err(_) => return state_error_projection(),
@@ -282,7 +366,7 @@ fn read_goal_projection(data_dir: &std::path::Path, job_id: &str) -> SanitizedGo
         || !valid_status
         || !valid_accounting
         || !valid_cost
-        || state.updated_at.is_empty()
+        || !is_valid_rfc3339(&state.updated_at)
     {
         return state_error_projection();
     }
@@ -475,6 +559,7 @@ pub fn cmd_cron_delete(app: AppHandle, job_id: String) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::Path;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn temp_data_dir(name: &str) -> PathBuf {
@@ -501,6 +586,41 @@ mod tests {
             "last_status": "provider error with secret-provider-token",
             "last_delivery_error": "delivery failed with secret-delivery-token"
         })
+    }
+
+    fn write_valid_goal_state(run_dir: &Path, updated_at: &str) {
+        std::fs::create_dir_all(run_dir).unwrap();
+        std::fs::write(
+            run_dir.join("state.json"),
+            serde_json::json!({
+                "schema_version": 1,
+                "job_id": "abc123def456",
+                "status": "completed",
+                "iteration": 1,
+                "accumulated_cost_usd": "0.25",
+                "cost_accounting": "complete",
+                "pause_reason": null,
+                "updated_at": updated_at
+            })
+            .to_string(),
+        )
+        .unwrap();
+    }
+
+    #[cfg(windows)]
+    fn create_directory_link(link: &Path, target: &Path) {
+        let status = std::process::Command::new("cmd")
+            .args(["/C", "mklink", "/J"])
+            .arg(link)
+            .arg(target)
+            .status()
+            .unwrap();
+        assert!(status.success(), "failed to create test directory junction");
+    }
+
+    #[cfg(unix)]
+    fn create_directory_link(link: &Path, target: &Path) {
+        std::os::unix::fs::symlink(target, link).unwrap();
     }
 
     #[test]
@@ -616,6 +736,39 @@ mod tests {
 
         assert_eq!(entry.goal_status.as_deref(), Some("state_error"));
         assert_ne!(entry.goal_iteration, Some(99));
+        let _ = std::fs::remove_dir_all(data_dir);
+    }
+
+    #[test]
+    fn goal_projection_rejects_goal_run_link_outside_host_root() {
+        let data_dir = temp_data_dir("goal-path-escape");
+        let goal_runs_root = data_dir.join("hermes-home").join("cron").join("goal-runs");
+        std::fs::create_dir_all(&goal_runs_root).unwrap();
+        let outside_run_dir = data_dir.join("gateway-profile").join("abc123def456");
+        write_valid_goal_state(&outside_run_dir, "2026-06-27T12:00:00+00:00");
+        create_directory_link(&goal_runs_root.join("abc123def456"), &outside_run_dir);
+
+        let entry = job_to_entry(&goal_job(), &data_dir);
+
+        assert_eq!(entry.goal_status.as_deref(), Some("state_error"));
+        assert_eq!(entry.goal_iteration, None);
+        let _ = std::fs::remove_dir_all(data_dir);
+    }
+
+    #[test]
+    fn goal_projection_rejects_non_rfc3339_updated_at() {
+        let data_dir = temp_data_dir("goal-invalid-updated-at");
+        let run_dir = data_dir
+            .join("hermes-home")
+            .join("cron")
+            .join("goal-runs")
+            .join("abc123def456");
+        write_valid_goal_state(&run_dir, "not-a-timestamp");
+
+        let entry = job_to_entry(&goal_job(), &data_dir);
+
+        assert_eq!(entry.goal_status.as_deref(), Some("state_error"));
+        assert_eq!(entry.goal_updated_at, None);
         let _ = std::fs::remove_dir_all(data_dir);
     }
 

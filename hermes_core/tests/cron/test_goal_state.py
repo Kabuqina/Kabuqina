@@ -16,6 +16,8 @@ These tests never touch the real profile: they monkeypatch
 from __future__ import annotations
 
 import json
+import math
+from dataclasses import replace
 from datetime import datetime, timezone
 from decimal import Decimal
 
@@ -188,6 +190,99 @@ class TestSaveLoadRoundTrip:
 # ---------------------------------------------------------------------------
 
 class TestRejectsCorruptState:
+    @staticmethod
+    def _valid_payload():
+        from cron.goal_state import goal_state_to_json, new_goal_state
+
+        return goal_state_to_json(new_goal_state(JOB_ID, now=_now()))
+
+    @pytest.mark.parametrize(
+        ("field", "value"),
+        [
+            ("schema_version", True),
+            ("status", "unknown"),
+            ("iteration", -1),
+            ("iteration", True),
+            ("iteration", "1"),
+            ("accumulated_cost_usd", "-0.01"),
+            ("accumulated_cost_usd", "NaN"),
+            ("accumulated_cost_usd", "Infinity"),
+            ("accumulated_cost_usd", 0),
+            ("cost_accounting", "unknown"),
+            ("accumulated_wall_seconds", -0.1),
+            ("accumulated_wall_seconds", math.nan),
+            ("accumulated_wall_seconds", math.inf),
+            ("accumulated_wall_seconds", True),
+            ("accumulated_wall_seconds", "0"),
+            ("no_progress_count", -1),
+            ("no_progress_count", True),
+            ("infrastructure_failures", -1),
+            ("infrastructure_failures", True),
+            ("last_verifier_outcome", "unknown"),
+            ("last_summary", 123),
+            ("updated_at", 123),
+        ],
+    )
+    def test_from_json_rejects_invalid_domain_values_and_types(
+        self, goal_home, field, value
+    ):
+        from cron.goal_state import GoalStateError, goal_state_from_json
+
+        payload = self._valid_payload()
+        payload[field] = value
+
+        with pytest.raises(GoalStateError):
+            goal_state_from_json(payload, JOB_ID)
+
+    @pytest.mark.parametrize(
+        "changes",
+        [
+            {"schema_version": True},
+            {"iteration": -1},
+            {"iteration": True},
+            {"accumulated_cost_usd": 0},
+            {"accumulated_cost_usd": Decimal("-0.01")},
+            {"accumulated_cost_usd": Decimal("NaN")},
+            {"accumulated_cost_usd": Decimal("Infinity")},
+            {"accumulated_wall_seconds": -0.1},
+            {"accumulated_wall_seconds": math.nan},
+            {"accumulated_wall_seconds": math.inf},
+            {"accumulated_wall_seconds": True},
+            {"no_progress_count": -1},
+            {"infrastructure_failures": -1},
+            {"status": "unknown"},
+            {"status": []},
+            {"cost_accounting": "unknown"},
+            {"cost_accounting": []},
+            {"last_verifier_outcome": "unknown"},
+            {"last_verifier_outcome": []},
+            {"last_summary": 123},
+        ],
+    )
+    def test_save_rejects_invalid_domain_values_and_types(
+        self, goal_home, changes
+    ):
+        from cron.goal_state import GoalStateError, new_goal_state, save_goal_state
+
+        state = replace(new_goal_state(JOB_ID, now=_now()), **changes)
+
+        with pytest.raises(GoalStateError):
+            save_goal_state(state)
+
+    @pytest.mark.parametrize("constant", ["NaN", "Infinity", "-Infinity"])
+    def test_load_rejects_non_finite_json_constants(self, goal_home, constant):
+        from cron.goal_state import GoalStateError, goal_run_dir, load_goal_state
+
+        run_dir = goal_run_dir(JOB_ID)
+        run_dir.mkdir(parents=True, exist_ok=True)
+        payload = self._valid_payload()
+        payload["accumulated_wall_seconds"] = constant
+        serialized = json.dumps(payload).replace(f'"{constant}"', constant)
+        (run_dir / "state.json").write_text(serialized, encoding="utf-8")
+
+        with pytest.raises(GoalStateError):
+            load_goal_state(JOB_ID)
+
     def test_malformed_json_raises(self, goal_home):
         from cron.goal_state import GoalStateError, goal_run_dir, load_goal_state
 

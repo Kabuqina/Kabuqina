@@ -239,6 +239,9 @@ def test_missing_report_becomes_controlled_pause(definition):
 
     assert result.transition.next_state.status == "paused"
     assert result.transition.reason == "missing_report"
+    assert result.transition.next_state.iteration == 1
+    assert result.transition.next_state.accumulated_cost_usd == Decimal("0.25")
+    assert result.transition.next_state.accumulated_wall_seconds == 1.5
     assert verifier.calls == []
 
 
@@ -256,8 +259,36 @@ def test_missing_reported_artifact_pauses_without_creating_progress_fingerprint(
 
     assert result.transition.next_state.status == "paused"
     assert result.transition.reason == "invalid_artifact"
+    assert result.transition.next_state.iteration == 1
+    assert result.transition.next_state.accumulated_cost_usd == Decimal("0.25")
+    assert result.transition.next_state.accumulated_wall_seconds == 1.5
     assert result.transition.next_state.last_artifact_hash is None
     assert result.transition.next_state.last_evidence_hash is None
+
+
+def test_unknown_cost_precedes_invalid_artifact_and_skips_verifier(definition):
+    report = _report("candidate_done", artifacts=("missing-a.txt",))
+    verifier = FakeVerifier()
+
+    result = run_goal_iteration(
+        definition,
+        worker=FakeWorker(
+            _worker_observation(
+                report=report,
+                usage=_usage(None, complete=False),
+                wall_seconds=2.5,
+            )
+        ),
+        verifier=verifier,
+        now=NOW,
+    )
+
+    assert verifier.calls == []
+    assert result.transition.next_state.status == "paused"
+    assert result.transition.reason == "cost_unknown"
+    assert result.transition.next_state.cost_accounting == "incomplete"
+    assert result.transition.next_state.iteration == 1
+    assert result.transition.next_state.accumulated_wall_seconds == 2.5
 
 
 def test_paused_and_terminal_states_do_not_run_worker(definition):
@@ -332,7 +363,7 @@ def test_progress_cadence_sets_delivery_only_on_exact_multiple(definition):
     assert "scheduled" in second.delivery_text
 
 
-def test_worker_exception_is_reduced_as_infrastructure_failure(definition):
+def test_worker_exception_pauses_with_unknown_cost(definition):
     class RaisingWorker:
         calls = 0
 
@@ -346,8 +377,9 @@ def test_worker_exception_is_reduced_as_infrastructure_failure(definition):
     )
 
     assert worker.calls == 1
-    assert result.transition.next_state.status == "scheduled"
-    assert result.transition.reason == "infrastructure_retry"
+    assert result.transition.next_state.status == "paused"
+    assert result.transition.reason == "ambiguous_external_effect"
+    assert result.transition.next_state.cost_accounting == "incomplete"
     assert result.transition.next_state.infrastructure_failures == 1
 
 

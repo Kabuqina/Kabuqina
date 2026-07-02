@@ -22,6 +22,7 @@ evidence used for a prior decision.
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import tempfile
@@ -76,6 +77,8 @@ _VALID_STATUSES: frozenset[str] = frozenset(
         "cancelled",
     }
 )
+_VALID_COST_ACCOUNTING: frozenset[str] = frozenset({"complete", "incomplete"})
+_VALID_VERIFIER_OUTCOMES: frozenset[str] = frozenset({"pass", "fail", "error"})
 
 _JOB_ID_RE = re.compile(r"^[a-f0-9]{12}$")
 _SCHEMA_VERSION = 1
@@ -218,7 +221,90 @@ def _dt_to_json(value: datetime | None) -> str | None:
 
 
 def _dt_from_json(value: object) -> datetime | None:
-    return None if value is None else datetime.fromisoformat(str(value))
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise GoalStateError("datetime fields must be ISO-8601 strings or null")
+    return datetime.fromisoformat(value)
+
+
+def _nonnegative_int(value: object, field: str) -> int:
+    if type(value) is not int or value < 0:
+        raise GoalStateError(f"{field} must be a non-negative integer")
+    return value
+
+
+def _nonnegative_float(value: object, field: str) -> float:
+    if type(value) not in (int, float):
+        raise GoalStateError(f"{field} must be a non-negative finite number")
+    result = float(value)
+    if not math.isfinite(result) or result < 0:
+        raise GoalStateError(f"{field} must be a non-negative finite number")
+    return result
+
+
+def _nonnegative_decimal(value: object, field: str, *, serialized: bool) -> Decimal:
+    expected_type = str if serialized else Decimal
+    if not isinstance(value, expected_type):
+        expected = "string" if serialized else "Decimal"
+        raise GoalStateError(f"{field} must be a {expected}")
+    try:
+        result = Decimal(value)
+    except (ValueError, ArithmeticError) as exc:
+        raise GoalStateError(f"{field} must be a valid decimal") from exc
+    if not result.is_finite() or result < 0:
+        raise GoalStateError(f"{field} must be a non-negative finite decimal")
+    return result
+
+
+def _optional_string(value: object, field: str) -> str | None:
+    if value is not None and not isinstance(value, str):
+        raise GoalStateError(f"{field} must be a string or null")
+    return value
+
+
+def _validate_state(state: GoalRunState) -> None:
+    if type(state.schema_version) is not int or state.schema_version != _SCHEMA_VERSION:
+        raise GoalStateError(f"unsupported goal state schema version {state.schema_version!r}")
+    _validate_job_id(state.job_id)
+    if not isinstance(state.status, str) or state.status not in _VALID_STATUSES:
+        raise GoalStateError(f"unknown goal status {state.status!r} for {state.job_id!r}")
+    _nonnegative_int(state.iteration, "iteration")
+    _nonnegative_decimal(
+        state.accumulated_cost_usd, "accumulated_cost_usd", serialized=False
+    )
+    if (
+        not isinstance(state.cost_accounting, str)
+        or state.cost_accounting not in _VALID_COST_ACCOUNTING
+    ):
+        raise GoalStateError(f"unknown cost_accounting {state.cost_accounting!r}")
+    _nonnegative_float(state.accumulated_wall_seconds, "accumulated_wall_seconds")
+    _nonnegative_int(state.no_progress_count, "no_progress_count")
+    _nonnegative_int(state.infrastructure_failures, "infrastructure_failures")
+    if (
+        state.last_verifier_outcome is not None
+        and (
+            not isinstance(state.last_verifier_outcome, str)
+            or state.last_verifier_outcome not in _VALID_VERIFIER_OUTCOMES
+        )
+    ):
+        raise GoalStateError(
+            f"unknown last_verifier_outcome {state.last_verifier_outcome!r}"
+        )
+    for field in (
+        "last_evidence_hash",
+        "last_artifact_hash",
+        "last_summary",
+        "pause_reason",
+        "last_error",
+    ):
+        _optional_string(getattr(state, field), field)
+    for field in ("started_at", "completed_at", "updated_at"):
+        value = getattr(state, field)
+        if value is not None and not isinstance(value, datetime):
+            raise GoalStateError(f"{field} must be a datetime or null")
+    if state.updated_at is None:
+        raise GoalStateError(f"goal state for {state.job_id!r} missing updated_at")
 
 
 def _serialize_state(state: GoalRunState) -> dict:
@@ -249,7 +335,7 @@ def _deserialize_state(raw: object, job_id: str) -> GoalRunState:
         raise GoalStateError(f"goal state for {job_id!r} is not a JSON object")
 
     version = raw.get("schema_version")
-    if version != _SCHEMA_VERSION:
+    if type(version) is not int or version != _SCHEMA_VERSION:
         raise GoalStateError(
             f"unsupported goal state schema version {version!r} for {job_id!r}"
         )
@@ -261,10 +347,52 @@ def _deserialize_state(raw: object, job_id: str) -> GoalRunState:
         )
 
     status = raw.get("status")
-    if status not in _VALID_STATUSES:
+    if not isinstance(status, str) or status not in _VALID_STATUSES:
         raise GoalStateError(f"unknown goal status {status!r} for {job_id!r}")
 
     try:
+        iteration = _nonnegative_int(raw["iteration"], "iteration")
+        accumulated_cost = _nonnegative_decimal(
+            raw["accumulated_cost_usd"],
+            "accumulated_cost_usd",
+            serialized=True,
+        )
+        cost_accounting = raw["cost_accounting"]
+        if (
+            not isinstance(cost_accounting, str)
+            or cost_accounting not in _VALID_COST_ACCOUNTING
+        ):
+            raise GoalStateError(f"unknown cost_accounting {cost_accounting!r}")
+        accumulated_wall = _nonnegative_float(
+            raw["accumulated_wall_seconds"], "accumulated_wall_seconds"
+        )
+        no_progress_count = _nonnegative_int(
+            raw["no_progress_count"], "no_progress_count"
+        )
+        infrastructure_failures = _nonnegative_int(
+            raw["infrastructure_failures"], "infrastructure_failures"
+        )
+        verifier_outcome = raw.get("last_verifier_outcome")
+        if (
+            verifier_outcome is not None
+            and (
+                not isinstance(verifier_outcome, str)
+                or verifier_outcome not in _VALID_VERIFIER_OUTCOMES
+            )
+        ):
+            raise GoalStateError(
+                f"unknown last_verifier_outcome {verifier_outcome!r}"
+            )
+        optional_strings = {
+            field: _optional_string(raw.get(field), field)
+            for field in (
+                "last_evidence_hash",
+                "last_artifact_hash",
+                "last_summary",
+                "pause_reason",
+                "last_error",
+            )
+        }
         updated_at = _dt_from_json(raw.get("updated_at"))
         if updated_at is None:
             raise GoalStateError(f"goal state for {job_id!r} missing updated_at")
@@ -272,21 +400,21 @@ def _deserialize_state(raw: object, job_id: str) -> GoalRunState:
             schema_version=_SCHEMA_VERSION,
             job_id=job_id,
             status=status,  # type: ignore[arg-type]
-            iteration=int(raw["iteration"]),
-            accumulated_cost_usd=Decimal(str(raw["accumulated_cost_usd"])),
-            cost_accounting=raw["cost_accounting"],
-            accumulated_wall_seconds=float(raw["accumulated_wall_seconds"]),
-            no_progress_count=int(raw["no_progress_count"]),
-            infrastructure_failures=int(raw["infrastructure_failures"]),
-            last_evidence_hash=raw.get("last_evidence_hash"),
-            last_summary=raw.get("last_summary"),
-            last_verifier_outcome=raw.get("last_verifier_outcome"),
-            pause_reason=raw.get("pause_reason"),
-            last_error=raw.get("last_error"),
+            iteration=iteration,
+            accumulated_cost_usd=accumulated_cost,
+            cost_accounting=cost_accounting,  # type: ignore[arg-type]
+            accumulated_wall_seconds=accumulated_wall,
+            no_progress_count=no_progress_count,
+            infrastructure_failures=infrastructure_failures,
+            last_evidence_hash=optional_strings["last_evidence_hash"],
+            last_summary=optional_strings["last_summary"],
+            last_verifier_outcome=verifier_outcome,  # type: ignore[arg-type]
+            pause_reason=optional_strings["pause_reason"],
+            last_error=optional_strings["last_error"],
             started_at=_dt_from_json(raw.get("started_at")),
             completed_at=_dt_from_json(raw.get("completed_at")),
             updated_at=updated_at,
-            last_artifact_hash=raw.get("last_artifact_hash"),
+            last_artifact_hash=optional_strings["last_artifact_hash"],
         )
     except GoalStateError:
         raise
@@ -322,8 +450,13 @@ def load_goal_state(job_id: str) -> GoalRunState | None:
         return None
     try:
         with open(target, "r", encoding="utf-8") as handle:
-            raw = json.load(handle)
-    except json.JSONDecodeError as exc:
+            raw = json.load(
+                handle,
+                parse_constant=lambda value: (_ for _ in ()).throw(
+                    ValueError(f"non-finite JSON number {value}")
+                ),
+            )
+    except (json.JSONDecodeError, ValueError) as exc:
         raise GoalStateError(f"corrupt goal state for {job_id!r}: {exc}") from exc
     except OSError as exc:
         raise GoalStateError(f"failed to read goal state for {job_id!r}: {exc}") from exc
@@ -332,13 +465,20 @@ def load_goal_state(job_id: str) -> GoalRunState | None:
 
 def save_goal_state(state: GoalRunState) -> Path:
     """Atomically persist ``state`` to ``state.json`` and return its path."""
+    _validate_state(state)
     run_dir = goal_run_dir(state.job_id)
     run_dir.mkdir(parents=True, exist_ok=True)
     target = run_dir / "state.json"
     tmp = run_dir / "state.json.tmp"
 
     with open(tmp, "w", encoding="utf-8") as handle:
-        json.dump(_serialize_state(state), handle, indent=2, sort_keys=True)
+        json.dump(
+            _serialize_state(state),
+            handle,
+            indent=2,
+            sort_keys=True,
+            allow_nan=False,
+        )
         handle.flush()
         os.fsync(handle.fileno())
     os.replace(tmp, target)
