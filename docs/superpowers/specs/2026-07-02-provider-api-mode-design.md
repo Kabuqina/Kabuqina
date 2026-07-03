@@ -1,7 +1,7 @@
 # Provider API Mode Auto-Detection Design
 
 **Date:** 2026-07-02  
-**Status:** Proposed for implementation  
+**Status:** Implemented and release-smoked
 **Scope:** Kabuqina desktop and gateway LLM routing
 
 ## Context

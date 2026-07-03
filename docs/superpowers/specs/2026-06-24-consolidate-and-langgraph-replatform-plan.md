@@ -1472,11 +1472,12 @@ cd ..
 
 Expected: bundle verification, web build, and Tauri build all succeed.
 
-- [ ] **Step 2: run graph smoke on both API modes**
+- [x] **Step 2: run graph smoke on both API modes**
 
-  *(Partial evidence, 2026-07-02 — 4/5 scenarios passed; keep this step open.
-  The desktop and the independent Weixin profile both had
-  `agent.engine: graph`.)*
+  *(GO recorded 2026-07-03 — all 5 scenarios passed on the rebuilt release.
+  The desktop and the independent Weixin profile both used
+  `agent.engine: graph`. Operator evidence was reviewed from release screenshots
+  and the logs/config paths below.)*
 
   - *`chat_completions`: DeepSeek `deepseek-v4-flash` called the read-only
     `clock` tool and returned `2026-07-02 20:12:53 Asia/Shanghai`; a same-session
@@ -1493,12 +1494,22 @@ Expected: bundle verification, web build, and Tauri build all succeed.
     20:30:49 and 22-character response at 20:30:57 are recorded in
     `profiles/weixin/logs/gateway.log`; operator screenshot shows
     `GATEWAY-GRAPH-20260702`.*
-  - *BLOCKED: the Mimo custom endpoint did not exercise
-    `anthropic_messages`. Logs identify `providers.chat_completions`, and the
-    current desktop custom-provider form is OpenAI-compatible-only (it rejects
-    the `/anthropic` endpoint and seeds `OPENAI_API_KEY`). Add or expose a real
-    Anthropic-mode configuration path, then repeat the read-only multi-turn
-    smoke before checking this step.*
+  - *`anthropic_messages`: custom `mimo-v2.5` at
+    `https://token-plan-cn.xiaomimimo.com/anthropic` called the read-only
+    `clock` tool and returned `2026-07-03T02:23:02+08:00`; the same-session
+    follow-up returned `2026-07-03` without another tool call. Explicit-mode
+    evidence is in `%LOCALAPPDATA%\\com.kabuqina.app\\logs\\hermesdesk.log`
+    (`api_mode='anthropic_messages'`, session
+    `4727bec6-0f3d-489e-9339-9b4ac9fba30f`). Automatic-mode evidence then
+    removed `settings.json.provider.api_mode` and `model.api_mode`, logged
+    `api_mode='auto'`, retained the `/anthropic` endpoint, and completed session
+    `01e8103c-bfff-4108-8376-662cf6235d76` with `AUTO-ANTHROPIC-OK`.*
+  - *The rebuilt bundle used Python 3.11.15 (1402.2 MB). Web build transformed
+    2390 modules. Focused gates: Web 2, overlay 5, policy 52, gateway-env 4,
+    desk-server 19, Hermes runtime-provider/gateway 86, Rust secrets 8 and
+    gateway 12. NSIS artifact:
+    `Kabuqina_0.2.0_x64-setup.exe`, 296,375,724 bytes, SHA-256
+    `D9E9FE3534BB74E2131BD38F1B538D3202D25AC48379358E0ABEB0032F4BD8A9`.*
 
 With `agent.engine: graph`, run:
 

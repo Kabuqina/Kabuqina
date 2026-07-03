@@ -648,7 +648,7 @@ git commit -m "feat(runtime): log selected provider API mode"
 - Modify: `docs/superpowers/specs/2026-07-02-provider-api-mode-design.md`
 - Modify: `docs/superpowers/specs/2026-06-24-consolidate-and-langgraph-replatform-plan.md`
 
-- [ ] **Step 1: Run all focused gates from a clean worktree**
+- [x] **Step 1: Run all focused gates from a clean worktree**
 
 Run:
 
@@ -672,7 +672,15 @@ cargo test python_supervisor
 
 Expected: all focused tests, lint, and build pass. Record exact counts in the Task 11 evidence note.
 
-- [ ] **Step 2: Rebuild the packaged runtime and Tauri release**
+- [x] **Step 2: Rebuild the packaged runtime and Tauri release**
+
+  *(2026-07-03: Python 3.11.15 bundle Verify passed, 1402.2 MB;
+  Web build passed with 2390 modules. The outer Tauri command exceeded the
+  60-minute tool window while NSIS continued as an orphaned child; Cargo and
+  makensis subsequently exited and atomically produced
+  `Kabuqina_0.2.0_x64-setup.exe`, 296,375,724 bytes, timestamp
+  2026-07-03 02:08:11, SHA-256
+  `D9E9FE3534BB74E2131BD38F1B538D3202D25AC48379358E0ABEB0032F4BD8A9`.)*
 
 Run from repository root:
 
@@ -687,7 +695,13 @@ cargo tauri build
 
 Expected: bundle verification, Web build, and Tauri release build succeed. Record `BUNDLE_INFO.json`, installer path, size, timestamp, and SHA-256.
 
-- [ ] **Step 3: Run the final real-model smoke with proxy disabled**
+- [x] **Step 3: Run the final real-model smoke with proxy disabled**
+
+  *(2026-07-03: explicit `anthropic_messages` and Automatic `/anthropic`
+  release smokes passed with `mimo-v2.5`; the two-turn `clock` conversation,
+  automatic-mode marker, and Weixin response were captured by the operator.
+  Non-secret config and logs confirmed `engine: graph`, explicit profile mode,
+  Automatic stale-mode removal, and the independent Gateway process.)*
 
 In release Settings, select the custom supplier, enter its `/anthropic` base URL, leave API format at Automatic, retain `agent.engine: graph`, and send:
 
@@ -710,13 +724,13 @@ Expected:
 - after starting the configured Gateway profile, its `gateway.log` contains `api_mode=anthropic_messages` from the independent `python -m gateway.run` process;
 - no API key appears in either log.
 
-- [ ] **Step 4: Record GO and close Task 11 Step 2**
+- [x] **Step 4: Record GO and close Task 11 Step 2**
 
 Update the Task 11 Step 2 note with date, supplier, model, tool, result, desktop session id, desktop log path, gateway profile/log path, resolved mode, build artifact hash, and reviewer. Check Step 2 only when all five scenarios have evidence.
 
 Correct the design document's status to `Implemented` and retain the factual wording that the former failure was the OpenAI-only `<base>/models` probe, not automatic `/v1` mutation.
 
-- [ ] **Step 5: Run document checks and commit evidence**
+- [x] **Step 5: Run document checks and commit evidence**
 
 ```powershell
 git diff --check
