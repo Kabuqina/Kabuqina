@@ -1112,16 +1112,17 @@ git commit -m "feat: integrate bounded goals with desktop profiles"
 
 ## G2 review gate — product exposure
 
-Do not expose `mode: goal` until (status as of 2026-07-03 — **none met; G1 is
-open but G2 is not**):
+Do not expose `mode: goal` until (status as of 2026-07-03 — **1 of 5 met (with a
+waiver); G1 is open but G2 is not**):
 
-- [ ] Phase 3.5 Task 11 records a successful 14-day graph-default release soak.
-  *(IN PROGRESS — the long pole. Steps 2 (both-API-mode graph smoke GO) and 3
-  (default flip → `graph`, `d28e1614`) are done and merged to main (merge
-  `b7b62886`). Step 4 soak STARTED 2026-07-03 on the pinned graph-default build
-  (`Kabuqina_0.2.0_x64-setup.exe`, SHA-256 `9ABCA52E…`); end target ≥ 2026-07-17,
-  when the end-of-soak both-API-mode smoke + hash re-verification must pass. Not
-  yet complete.)*
+- [x] Phase 3.5 Task 11 records a successful 14-day graph-default release soak.
+  *(SATISFIED WITH A WAIVER, 2026-07-03. Steps 2–3 done + merged; Step 4 was
+  **closed early by owner decision — the ≥14-day calendar soak was NOT run to
+  term**. Substituted evidence on merged main `76b1343f`: pinned installer
+  re-verified (`9ABCA52E…`, unchanged), fresh graph regression 296 + loop 296 +
+  parity/differential/exit/golden gates 215, both-API-mode smoke reusing Step 2's
+  GO. The live-usage soak window is explicitly waived — see the LangGraph plan
+  Step 4 closure note. Treated as met for gate purposes.)*
 - [ ] The loop escape hatch still works, or its planned removal has not yet
   landed; Goal Runner passes with explicit `loop` and `graph` before removal.
   *(Partial — the default is now `graph` but explicit `agent.engine: loop` /

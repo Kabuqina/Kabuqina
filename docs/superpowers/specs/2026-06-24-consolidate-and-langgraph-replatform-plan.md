@@ -1539,7 +1539,9 @@ Change `agent.engine` default from `loop` to `graph`. Retain explicit
 `agent.engine: loop` and `HERMES_AGENT_ENGINE=loop` for one release. Update user
 support documentation with the rollback setting.
 
-- [ ] **Step 4: complete a release-cycle soak**
+- [x] **Step 4: complete a release-cycle soak** *(CLOSED EARLY BY OWNER
+  2026-07-03 — the ≥14-day calendar window was deliberately compressed/waived,
+  not run to term. See the closure note below for the substituted evidence.)*
 
 The soak is at least 14 days and requires:
 
@@ -1566,18 +1568,31 @@ both-API-mode graph evidence is Step 2's 5-scenario GO (chat_completions +
 anthropic_messages, 2026-07-03) — the identical graph code path now ships as the
 default in the pinned build above.
 
-**End-of-soak checklist (~2026-07-17), before checking this box:**
+**CLOSURE NOTE — Step 4 closed early by owner decision, 2026-07-03.** The
+soak started and was closed the same day: the ≥14-day production window was
+**not** run to term; the owner accepted graph as the release default on the
+strength of the substituted evidence below rather than an extended live soak.
+Recorded honestly so no reader mistakes this for a completed 14-day soak.
 
-- [ ] Re-run `docs/release-smoke-test.md` both-API-mode smoke on the pinned
-      installer and confirm it still hashes to `9ABCA52E…` (guards against a
-      silent mid-soak rebuild swapping the artifact under the soak).
-- [ ] No unresolved P0/P1 attributable to graph execution.
-- [ ] No unexplained result-shape / hook / persistence / usage differences.
-- [ ] Every graph regression found during the soak landed first as a loop
-      fixture, then was fixed.
+Substituted evidence (gathered on merged `main` @ `76b1343f`, 2026-07-03):
 
-When this evidence is recorded, open Goal Runner G2. Its Task 10 may expose the
-host-only Pilot 1 while the loop escape hatch still exists.
+- [x] Pinned installer re-verified: `Kabuqina_0.2.0_x64-setup.exe` still hashes
+      to `9ABCA52E…` (296,372,014 bytes) — the artifact was not swapped.
+- [x] Fresh full regression on the merged tree: graph
+      `HERMES_AGENT_ENGINE=graph test_run_agent.py` = 296 passed; loop = 296
+      passed; graph parity + differential + exit-contract + golden gates = 215
+      passed.
+- [x] Both-API-mode graph smoke reuses Step 2's GO (chat_completions +
+      anthropic_messages, 2026-07-03) on the pre-flip build; the identical graph
+      code path ships as the default in the pinned build.
+- [ ] *Waived:* the ≥14-day live-usage window and its "no soak-period P0/P1 /
+      no unexplained result-shape/hook/persistence/usage drift over the period"
+      observation. Any graph regression found later must still land first as a
+      loop fixture, then be fixed.
+
+This satisfies G2 gate condition 1 (with the waiver noted); G2's other four
+conditions remain open. Its Task 10 may expose the host-only Pilot 1 while the
+loop escape hatch still exists.
 
 - [ ] **Step 5: remove the legacy loop in a dedicated commit**
 

@@ -1,17 +1,17 @@
 {
   "plan": "docs/superpowers/specs/2026-06-24-consolidate-and-langgraph-replatform-plan.md",
-  "current_task": "11-step4-soak",
-  "status": "soak_running",
+  "current_task": "11-step4-complete",
+  "status": "complete",
   "attempt": 1,
   "worktree": ".worktrees/task11-release-smoke",
-  "last_commit": "03599a5b",
+  "last_commit": "76b1343f",
   "last_verification": [
-    "Task 11 Step 2 (graph smoke, both API modes): GO recorded 2026-07-03 - all 5 scenarios passed (chat_completions DeepSeek + anthropic_messages mimo-v2.5, interrupt/recovery, restart/resume, separate Weixin gateway process); evidence in the plan Step 2 block.",
-    "Task 11 Step 3 (default flip loop->graph, d28e1614): selector+config 76 passed; default-graph test_run_agent.py 296 passed; explicit-loop test_run_agent.py 296 passed; graph goldens/parity/differential + usage/exit 303 passed; desktop Python suite 272 passed.",
-    "Task 11 Step 4 soak STARTED 2026-07-03 (end target >= 2026-07-17). Pinned soak build (Step-4 rebuild, graph default): Kabuqina_0.2.0_x64-setup.exe, 296,372,014 bytes, SHA-256 9ABCA52EEB7FFCEE96333D4250E6376E969E9BA1C82631C713E072871F5751B3, built 2026-07-03 20:22 UTC @ d28e1614. Distinct by design from the Step 2 smoke build D9E9FE35..."
+    "Task 11 Step 2 (graph smoke, both API modes): GO recorded 2026-07-03 - all 5 scenarios passed (chat_completions DeepSeek + anthropic_messages mimo-v2.5, interrupt/recovery, restart/resume, separate Weixin gateway process).",
+    "Task 11 Step 3 (default flip loop->graph, d28e1614): selector+config 76 passed; default-graph and explicit-loop test_run_agent.py 296 each; graph goldens/parity/differential + usage/exit 303 passed; desktop Python suite 272 passed. Merged to main (b7b62886 -> 76b1343f).",
+    "Task 11 Step 4 CLOSED EARLY BY OWNER 2026-07-03: the >=14-day calendar soak window was deliberately compressed/waived, NOT run to term. Substituted automated evidence on merged main @ 76b1343f: pinned installer re-verified (SHA-256 9ABCA52E..., unchanged); fresh graph regression 296, loop regression 296, graph parity+differential+exit+golden gates 215; both-API-mode smoke reuses Step 2 GO. Waived: the 14-day live-usage window + no-soak-period-P0/P1 observation."
   ],
   "failed_approaches": [],
-  "blocker": "Task 11 Step 4 is a >=14-day calendar soak (started 2026-07-03, end ~2026-07-17). It cannot be closed early; end-of-soak requires re-running the both-API-mode release smoke on the pinned build, re-verifying SHA-256 9ABCA52E..., and confirming no graph-attributable P0/P1.",
-  "handoff_prompt": "Task 11 Steps 2-3 done; Step 4 soak running on the graph-default build (merged to main together with Goal Runner G1). Do NOT close Step 4 or remove the legacy loop (Step 5) before the 14-day soak completes and its end-smoke + hash re-verification pass. Goal Runner G2 stays gated on this.",
-  "next_action": "Wait out the >=14-day soak to ~2026-07-17, then run the end-of-soak checklist in plan Step 4 (re-smoke both API modes on the pinned installer, confirm it still hashes to 9ABCA52E..., confirm no unexplained result-shape/hook/persistence/usage diffs, no graph P0/P1, and that every graph regression landed as a loop fixture first). Only then check Step 4; Step 5 (remove legacy loop) also requires Goal Runner Task 10 pilot evidence."
+  "blocker": null,
+  "handoff_prompt": "Task 11 Steps 2-4 are done and merged to main (Step 4 closed EARLY by owner 2026-07-03 - the 14-day soak was waived, not run; substituted regression/hash evidence is recorded). Step 5 (remove legacy loop) is still pending and must NOT be done until Goal Runner Task 10 records its bounded loop+graph pilot (or the Goal Runner plan is explicitly deferred).",
+  "next_action": "Phase 3.5 Task 11 Steps 1-4 complete. Remaining: Step 5 (remove the legacy conversation loop) - gated on Goal Runner Task 10 pilot evidence, so it waits on the Goal Runner track. G2 gate condition 1 (soak) is now satisfied with the owner waiver noted; G2's other 4 conditions (dual-engine before removal, bundled-CPython/release-desktop G1 tests, frozen Pilot-1 fixtures, human review) remain open."
 }
