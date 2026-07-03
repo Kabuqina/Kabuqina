@@ -1548,6 +1548,34 @@ The soak is at least 14 days and requires:
 - no unexplained differences in result shapes, hooks, persistence, or usage;
 - every graph regression added first as a loop fixture, then fixed.
 
+**SOAK STARTED 2026-07-03; end target ≥ 2026-07-17.** Pinned soak build — the
+Step-4 rebuild produced *after* the default flip (`d28e1614`), so graph ships as
+the default:
+
+```text
+artifact: tauri/target/release/bundle/nsis/Kabuqina_0.2.0_x64-setup.exe
+bytes:    296,372,014
+sha256:   9ABCA52EEB7FFCEE96333D4250E6376E969E9BA1C82631C713E072871F5751B3
+built:    2026-07-03 20:22 UTC (HEAD codex/task11-release-smoke @ d28e1614)
+```
+
+This is intentionally a *different* artifact than the Step 2 smoke build
+(`D9E9FE35…`, 296,375,724 bytes): Step 2 authorized the flip on the pre-flip
+build; Step 4 rebuilt for the graph-default release under soak. The beginning
+both-API-mode graph evidence is Step 2's 5-scenario GO (chat_completions +
+anthropic_messages, 2026-07-03) — the identical graph code path now ships as the
+default in the pinned build above.
+
+**End-of-soak checklist (~2026-07-17), before checking this box:**
+
+- [ ] Re-run `docs/release-smoke-test.md` both-API-mode smoke on the pinned
+      installer and confirm it still hashes to `9ABCA52E…` (guards against a
+      silent mid-soak rebuild swapping the artifact under the soak).
+- [ ] No unresolved P0/P1 attributable to graph execution.
+- [ ] No unexplained result-shape / hook / persistence / usage differences.
+- [ ] Every graph regression found during the soak landed first as a loop
+      fixture, then was fixed.
+
 When this evidence is recorded, open Goal Runner G2. Its Task 10 may expose the
 host-only Pilot 1 while the loop escape hatch still exists.
 
