@@ -1116,13 +1116,18 @@ Do not expose `mode: goal` until (status as of 2026-07-03 — **none met; G1 is
 open but G2 is not**):
 
 - [ ] Phase 3.5 Task 11 records a successful 14-day graph-default release soak.
-  *(NOT met — the long pole. Task 11 Step 4 (soak) is not reached (Codex is on
-  Step 2); the default flip (Step 3) has not landed; Task 11 is not merged to
-  main.)*
+  *(IN PROGRESS — the long pole. Steps 2 (both-API-mode graph smoke GO) and 3
+  (default flip → `graph`, `d28e1614`) are done and merged to main (merge
+  `b7b62886`). Step 4 soak STARTED 2026-07-03 on the pinned graph-default build
+  (`Kabuqina_0.2.0_x64-setup.exe`, SHA-256 `9ABCA52E…`); end target ≥ 2026-07-17,
+  when the end-of-soak both-API-mode smoke + hash re-verification must pass. Not
+  yet complete.)*
 - [ ] The loop escape hatch still works, or its planned removal has not yet
   landed; Goal Runner passes with explicit `loop` and `graph` before removal.
-  *(Partial — default is still `loop` and the escape hatch exists; the adapter
-  propagates both engines and Task 7 unit-tests each, but the full Goal Runner
+  *(Partial — the default is now `graph` but explicit `agent.engine: loop` /
+  `HERMES_AGENT_ENGINE=loop` remain covered rollback paths (the escape hatch is
+  retained for one release); the adapter propagates both engines and Task 7
+  unit-tests each, but the full Goal Runner
   under both engines in a release build is not yet proven.)*
 - [ ] G1 tests pass in bundled CPython 3.11 and a release-equivalent desktop.
   *(NOT met — G1 tests ran on the dev system Python and a `cargo tauri dev`
