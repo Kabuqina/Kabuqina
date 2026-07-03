@@ -1078,8 +1078,11 @@ planned. Rust and React contain no mutable goal-state transition logic.
   create a goal via the internal path (the tool hides `mode:goal`), and exercise
   pause→resume→cancel→delete through the UI observing the state transitions +
   busy(409) behaviour. That interactive smoke needs a human at the running
-  desktop app (or `cargo tauri dev`); it is the only thing left before Task 9
-  closes and the G2 gate can open.)*
+  desktop app (via `scripts/dev.ps1` — which syncs Python sources into the
+  runtime, not bare `cargo tauri dev`). Passing it closes Task 9 and completes
+  the **G1** work. It does NOT open G2: G2 is a separate 5-condition gate (see
+  below) whose long pole is the Phase 3.5 Task 11 14-day graph-default soak,
+  which is not reached and not merged to main.)*
 
 ```powershell
 cd python
@@ -1108,15 +1111,24 @@ git commit -m "feat: integrate bounded goals with desktop profiles"
 
 ## G2 review gate — product exposure
 
-Do not expose `mode: goal` until:
+Do not expose `mode: goal` until (status as of 2026-07-03 — **none met; G1 is
+open but G2 is not**):
 
 - [ ] Phase 3.5 Task 11 records a successful 14-day graph-default release soak.
+  *(NOT met — the long pole. Task 11 Step 4 (soak) is not reached (Codex is on
+  Step 2); the default flip (Step 3) has not landed; Task 11 is not merged to
+  main.)*
 - [ ] The loop escape hatch still works, or its planned removal has not yet
   landed; Goal Runner passes with explicit `loop` and `graph` before removal.
+  *(Partial — default is still `loop` and the escape hatch exists; the adapter
+  propagates both engines and Task 7 unit-tests each, but the full Goal Runner
+  under both engines in a release build is not yet proven.)*
 - [ ] G1 tests pass in bundled CPython 3.11 and a release-equivalent desktop.
-- [ ] Pilot 1's verifier and limits are frozen in fixtures.
+  *(NOT met — G1 tests ran on the dev system Python and a `cargo tauri dev`
+  build, not the bundled CPython 3.11 / release-equivalent desktop.)*
+- [ ] Pilot 1's verifier and limits are frozen in fixtures. *(NOT met.)*
 - [ ] Product copy, destructive controls, and approval boundaries receive human
-  review.
+  review. *(NOT met.)*
 
 Record the Phase 3.5 soak evidence here:
 
