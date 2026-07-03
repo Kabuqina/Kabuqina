@@ -564,12 +564,16 @@ def _desk_chat_build_agent(session_id: str, db: Any) -> Any:
             "No API credentials available. Configure a model key in Hermes (Settings / Keys or ~/.hermes)."
         )
 
+    from agent.engine_selector import resolve_agent_engine
+
+    effective_engine = resolve_agent_engine(config=config)
+
     log.info(
         "desk agent runtime provider=%s model=%s api_mode=%s engine=%s",
         runtime.get("provider"),
         default_model,
         runtime.get("api_mode"),
-        str(agent_section.get("engine") or "loop"),
+        effective_engine,
     )
 
     kwargs: Dict[str, Any] = {
@@ -582,6 +586,7 @@ def _desk_chat_build_agent(session_id: str, db: Any) -> Any:
         "quiet_mode": True,
         "provider": runtime.get("provider"),
         "api_mode": runtime.get("api_mode"),
+        "agent_engine": effective_engine,
         "base_url": runtime.get("base_url"),
         "api_key": runtime.get("api_key"),
         "command": runtime.get("command"),

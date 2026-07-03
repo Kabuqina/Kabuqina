@@ -151,7 +151,7 @@ class TestDeskCapabilityPrompt(unittest.TestCase):
                 "hermes_cli.config.load_config",
                 return_value={
                     "model": {"default": "mimo-v2.5", "provider": "custom"},
-                    "agent": {"engine": "graph"},
+                    "agent": {},
                 },
             ):
                 with patch(
@@ -173,6 +173,7 @@ class TestDeskCapabilityPrompt(unittest.TestCase):
                                 agent = chat_core._desk_chat_build_agent("desk-mode-log", db=object())
 
         self.assertIsNotNone(agent)
+        self.assertEqual(agent.kwargs.get("agent_engine"), "graph")
         joined = "\n".join(captured.output)
         self.assertIn("provider=custom", joined)
         self.assertIn("model=mimo-v2.5", joined)

@@ -202,7 +202,7 @@ Out of scope:
 | `hermes_core/agent/graph_engine/nodes.py`     | Pure node operations accepting `TurnState` plus the service port. No LangGraph imports.                                  |
 | `hermes_core/agent/graph_engine/builder.py`   | The only production import site for `langgraph.*`; wraps pure nodes and compiles without a checkpointer.                 |
 | `hermes_core/agent/graph_engine/engine.py`    | Stable `GraphEngine.run_turn()` adapter that converts graph output back to the exact legacy dictionary.                  |
-| `hermes_core/agent/engine_selector.py`        | Resolve explicit constructor value → `HERMES_AGENT_ENGINE` → `agent.engine` config → `loop`.                             |
+| `hermes_core/agent/engine_selector.py`        | Resolve explicit constructor value → `HERMES_AGENT_ENGINE` → `agent.engine` config → the current release default (`graph` after Task 11 Step 3). |
 | `hermes_core/agent/usage_events.py`           | Engine-neutral per-transport-attempt usage/cost events and optional sink; no graph imports.                              |
 
 ### Modified production and packaging files
@@ -1522,7 +1522,18 @@ With `agent.engine: graph`, run:
 Record date, provider, model, tool, result, and log path in this document. Do
 not use a state-changing tool for the smoke.
 
-- [ ] **Step 3: flip the default only after GO is recorded**
+- [x] **Step 3: flip the default only after GO is recorded**
+
+  *(2026-07-03: Step 2 GO was already recorded before the change. Both the
+  serialized `agent.engine` default and the selector fallback now resolve to
+  `graph`, preventing raw-config/load-failure paths from retaining a split
+  default. Explicit `agent.engine: loop` and `HERMES_AGENT_ENGINE=loop` remain
+  covered rollback paths. User support instructions are in
+  `docs/troubleshooting.md` §19. Fresh gates: selector + config 76 passed;
+  default Graph `test_run_agent.py` 296 passed; explicit Loop
+  `test_run_agent.py` 296 passed; graph goldens/parity/differential plus
+  usage/exit contracts 303 passed; desktop Python suite 272 passed. The desk
+  runtime log uses the same resolved engine passed into `AIAgent`.)*
 
 Change `agent.engine` default from `loop` to `graph`. Retain explicit
 `agent.engine: loop` and `HERMES_AGENT_ENGINE=loop` for one release. Update user
@@ -1565,17 +1576,15 @@ git commit -m "refactor: remove legacy agent conversation loop"
 
 ## Rollback rules
 
-- Before the default flip, rollback is `agent.engine: loop`; no code rollback is
-  required.
-- After the default flip and during the one-release escape window, support may
+- During the one-release escape window after the default flip, support may
   set `agent.engine: loop` in the affected profile or launch with
   `HERMES_AGENT_ENGINE=loop`, then restart the relevant child/app.
 - A graph failure after any possible tool execution must return its graph error.
   It must not retry through the loop because that can duplicate file writes,
   shell commands, messages, or external API mutations.
-- If equivalence work stalls for two weeks, keep default `loop`, retain graph as
-  an opt-in test path, record the failing scenarios, and close Phase 3.5 as
-  deferred.
+- If an unresolved graph-attributable P0/P1 appears during the soak, use the
+  explicit loop escape hatch, record the failing scenario, and pause release or
+  removal rather than silently crossing engines within a turn.
 - If the dependency or bundle gate fails, remove the spike cleanly and write a
   separate owned finite-state-engine plan. Do not vendor LangGraph internals.
 

@@ -4,7 +4,7 @@
 """Phase 3.5 Task 10: agent engine selector precedence and validation.
 
 Covers all four precedence levels (explicit arg > HERMES_AGENT_ENGINE > profile
-config > default ``loop``), invalid-value handling for each source, blank-value
+config > default ``graph``), invalid-value handling for each source, blank-value
 coercion, profile-aware ``HERMES_HOME`` resolution through the real config
 loader, and the separate-process environment model (injected ``env`` mapping).
 """
@@ -27,9 +27,15 @@ from agent.engine_selector import (
 
 # ── Level 4: default ──────────────────────────────────────────────────────
 
-def test_default_is_loop_when_nothing_set():
-    assert resolve_agent_engine(None, env={}, config={}) == "loop"
-    assert DEFAULT_ENGINE == "loop"
+def test_default_is_graph_when_nothing_set():
+    assert resolve_agent_engine(None, env={}, config={}) == "graph"
+    assert DEFAULT_ENGINE == "graph"
+
+
+def test_serialized_config_default_is_graph():
+    from hermes_cli.config import DEFAULT_CONFIG
+
+    assert DEFAULT_CONFIG["agent"]["engine"] == "graph"
 
 
 def test_default_engine_is_a_valid_engine():
@@ -45,6 +51,13 @@ def test_config_value_selects_engine():
     )
 
 
+def test_config_loop_rolls_back_graph_default():
+    assert (
+        resolve_agent_engine(None, env={}, config={"agent": {"engine": "loop"}})
+        == "loop"
+    )
+
+
 def test_config_value_is_normalized():
     assert (
         resolve_agent_engine(None, env={}, config={"agent": {"engine": "  GRAPH "}})
@@ -53,7 +66,7 @@ def test_config_value_is_normalized():
 
 
 def test_missing_agent_section_falls_back_to_default():
-    assert resolve_agent_engine(None, env={}, config={"model": "x"}) == "loop"
+    assert resolve_agent_engine(None, env={}, config={"model": "x"}) == "graph"
 
 
 def test_invalid_config_value_warns_and_falls_back(caplog):
@@ -61,7 +74,7 @@ def test_invalid_config_value_warns_and_falls_back(caplog):
         result = resolve_agent_engine(
             None, env={}, config={"agent": {"engine": "banana"}}
         )
-    assert result == "loop"
+    assert result == "graph"
     assert any("banana" in rec.message for rec in caplog.records)
 
 
@@ -75,6 +88,17 @@ def test_env_overrides_config():
             config={"agent": {"engine": "loop"}},
         )
         == "graph"
+    )
+
+
+def test_env_loop_rolls_back_graph_config():
+    assert (
+        resolve_agent_engine(
+            None,
+            env={ENGINE_ENV_VAR: "loop"},
+            config={"agent": {"engine": "graph"}},
+        )
+        == "loop"
     )
 
 
@@ -147,8 +171,8 @@ def test_profile_aware_home_default_when_unset(monkeypatch, tmp_path):
     home = tmp_path / "hermes"
     _write_config(home, {"model": "x"})  # no agent.engine override
     monkeypatch.setenv("HERMES_HOME", str(home))
-    # DEFAULT_CONFIG supplies agent.engine == "loop" via deep merge.
-    assert resolve_agent_engine(None, env={}) == "loop"
+    # DEFAULT_CONFIG supplies agent.engine == "graph" via deep merge.
+    assert resolve_agent_engine(None, env={}) == "graph"
 
 
 def test_separate_process_environments_are_independent():
