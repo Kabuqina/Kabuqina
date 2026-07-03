@@ -1025,15 +1025,18 @@ Task 8. If an iteration or another tick owns it, return `GoalControlBusy`; the
 desk route maps that to HTTP 409 and performs no write. This deliberately
 cancels future iterations, not an already executing agent turn.
 
-- [ ] **Step 4: proxy pause, resume, cancel, and delete through the core**
-  *(PARTIAL 2026-07-03, `5d399148` — Python desk routes done:
-  `desk_server/routes/goal_routes.py` exposes POST pause/resume/cancel + DELETE,
-  delegating only to `cron.goal_controls`, mapping busy→409/not-found→404/
-  invalid→409, returning sanitized state; registered in `app.py`; 8 route tests +
-  existing desk suite green. Placed under `routes/` to match app router
-  discovery. STILL PENDING (need a build env, cannot compile/run here): the Tauri
-  proxy commands in `tauri/src/cron.rs` + `lib.rs`, and the React wiring in
-  `web/src/advanced/pages/ScheduledTasks.tsx`.)*
+- [x] **Step 4: proxy pause, resume, cancel, and delete through the core**
+  *(2026-07-03 — Python routes `5d399148`; Tauri+React `b6b69bc1`. Python:
+  `desk_server/routes/goal_routes.py` (POST pause/resume/cancel + DELETE) delegates
+  only to `cron.goal_controls`, maps busy→409/not-found→404/invalid→409, returns
+  sanitized state; 8 route tests + desk suite green. Tauri: `cmd_goal_*` proxy to
+  those routes via `chat::desk_json_request`; `validate_goal_job_id` guards the id;
+  registered in `lib.rs`; legacy `cmd_cron_toggle/delete` still reject goal jobs,
+  so these are the only desktop control path. React: `ScheduledTasks` goal card
+  gains status-driven Pause/Resume/Cancel/Delete via `cmd_goal_*` with confirm
+  dialogs; en+zh labels. Verified: `cargo check` clean, `cargo test --lib cron::`
+  9 passed (incl. id validator), `scheduledTasksGoalUx.test.mjs` pass,
+  `tsc --noEmit` clean.)*
 
 Add authenticated desk-server routes that delegate only to the core control
 service:
@@ -1068,10 +1071,15 @@ jobs keep their existing command until that separate compatibility issue is
 planned. Rust and React contain no mutable goal-state transition logic.
 
 - [ ] **Step 5: run the G1 integration gate and commit**
-  *(PENDING — the cross-stack integration gate (release build + desktop smoke of
-  the goal controls end-to-end) needs a build environment. Task 9's engine-neutral
-  Python core (Steps 1–3 + the desk routes) is landed and fully unit-tested; the
-  gate stays open until the Tauri/React wiring in Step 4 is built and smoked.)*
+  *(PARTIAL 2026-07-03 — every buildable/testable layer of the gate is green:
+  Python `tests/cron` + `test_goal_routes.py` pass; `cargo test --lib cron::` 9
+  passed; `scheduledTasksGoalUx.test.mjs` pass; `tsc --noEmit` clean; `cargo
+  check` clean. REMAINING: the live desktop end-to-end smoke — launch the app,
+  create a goal via the internal path (the tool hides `mode:goal`), and exercise
+  pause→resume→cancel→delete through the UI observing the state transitions +
+  busy(409) behaviour. That interactive smoke needs a human at the running
+  desktop app (or `cargo tauri dev`); it is the only thing left before Task 9
+  closes and the G2 gate can open.)*
 
 ```powershell
 cd python
