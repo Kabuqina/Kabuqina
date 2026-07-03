@@ -126,6 +126,40 @@ export function ScheduledTasksPage() {
     }
   };
 
+  // Goal Task controls route to the dedicated cmd_goal_* commands, which proxy
+  // to the crash-safe core control service. Legacy cmd_cron_toggle/delete
+  // reject goal jobs, so they are never used here.
+  const handleGoalControl = async (
+    job: CronJobEntry,
+    action: "pause" | "resume" | "cancel" | "delete",
+  ) => {
+    if (action === "cancel") {
+      const ok = await confirm({
+        title: t("cron.goalCancelTitle"),
+        message: t("cron.goalCancelAsk", { name: job.name || job.id }),
+        confirmLabel: t("cron.goalCancel"),
+        cancelLabel: t("dialog.cancel"),
+        tone: "danger",
+      });
+      if (!ok) return;
+    } else if (action === "delete") {
+      const ok = await confirm({
+        title: t("cron.deleteTitle"),
+        message: t("cron.deleteAsk", { name: job.name || job.id }),
+        confirmLabel: t("dialog.delete"),
+        cancelLabel: t("dialog.cancel"),
+        tone: "danger",
+      });
+      if (!ok) return;
+    }
+    try {
+      await invoke(`cmd_goal_${action}`, { jobId: job.id });
+      void fetchJobs();
+    } catch (e) {
+      console.error(`cmd_goal_${action} failed:`, e);
+    }
+  };
+
   const renderGoalCard = (job: CronJobEntry) => {
     const cost = job.goalCostAccounting === "incomplete"
       ? t("cron.goalCostUnknown")
@@ -171,9 +205,37 @@ export function ScheduledTasksPage() {
               </p>
             )}
           </div>
-          <p className="mt-2 text-[11px] text-[var(--kq-color-muted)]">
-            {t("cron.goalStatusOnly")}
-          </p>
+          {(() => {
+            const status = job.goalStatus || "";
+            const isActive = ["scheduled", "running", "verifying"].includes(status);
+            const isPaused = status === "paused";
+            const isTerminal = ["completed", "failed", "cancelled"].includes(status);
+            if (!isActive && !isPaused && !isTerminal) return null;
+            return (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {isActive && (
+                  <Button variant="ghost" size="sm" onClick={() => handleGoalControl(job, "pause")}>
+                    {t("cron.goalPause")}
+                  </Button>
+                )}
+                {isPaused && (
+                  <Button variant="ghost" size="sm" onClick={() => handleGoalControl(job, "resume")}>
+                    {t("cron.goalResume")}
+                  </Button>
+                )}
+                {(isActive || isPaused) && (
+                  <Button variant="ghost" size="sm" onClick={() => handleGoalControl(job, "cancel")}>
+                    {t("cron.goalCancel")}
+                  </Button>
+                )}
+                {isTerminal && (
+                  <Button variant="ghost" size="sm" onClick={() => handleGoalControl(job, "delete")}>
+                    {t("cron.delete")}
+                  </Button>
+                )}
+              </div>
+            );
+          })()}
         </div>
       </div>
     );

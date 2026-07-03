@@ -35,7 +35,22 @@ assert.ok(goalCard, "Scheduled Tasks should define a dedicated goal card.");
 assert.doesNotMatch(
   goalCard,
   /<Toggle|handleToggle|cmd_cron_toggle|handleDelete|cmd_cron_delete/,
-  "G0 goal cards must stay status-only and expose no legacy controls.",
+  "Goal cards must never use the legacy cron toggle/delete (which reject goal jobs); G1 uses the dedicated cmd_goal_* controls.",
+);
+assert.match(
+  goalCard,
+  /cron\.goalPause[\s\S]*cron\.goalResume[\s\S]*cron\.goalCancel/,
+  "G1 goal cards must expose pause, resume, and cancel controls.",
+);
+assert.match(
+  goalCard,
+  /handleGoalControl\(job, "delete"\)/,
+  "Terminal goal cards must offer delete via the dedicated goal control.",
+);
+assert.match(
+  pageSource,
+  /handleGoalControl[\s\S]*invoke\(`cmd_goal_\$\{action\}`/,
+  "Goal controls must proxy through the dedicated cmd_goal_* commands.",
 );
 assert.doesNotMatch(
   goalCard,
@@ -45,13 +60,17 @@ assert.doesNotMatch(
 assert.match(
   pageSource,
   /job\.mode === "goal"[\s\S]*renderGoalCard\(job\)/,
-  "Goal jobs should route to the status-only card.",
+  "Goal jobs should route to the dedicated goal card.",
 );
 assert.match(
   pageSource,
   /const renderCompletedCard[\s\S]*job\.mode === "goal"[\s\S]*renderGoalCard\(job\)/,
-  "Completed Goal Tasks must remain status-only instead of exposing legacy delete controls.",
+  "Completed Goal Tasks must route to the goal card (delete only for terminal state).",
 );
 assert.match(stringsSource, /goalBadge:\s*"持续目标"/);
 assert.match(stringsSource, /goalBadge:\s*"Goal Task"/);
 assert.match(stringsSource, /goalCostUnknown/);
+assert.match(stringsSource, /goalPause:\s*"暂停"/);
+assert.match(stringsSource, /goalPause:\s*"Pause"/);
+assert.match(stringsSource, /goalResume:\s*"(继续|Resume)"/);
+assert.match(stringsSource, /goalCancel:\s*"(取消任务|Cancel task)"/);

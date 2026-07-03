@@ -556,11 +556,84 @@ pub fn cmd_cron_delete(app: AppHandle, job_id: String) -> Result<(), String> {
     write_jobs_raw(&app, &jobs)
 }
 
+// ------------------------------------------------------------------
+// Goal Task human controls — proxied to the core control service.
+//
+// Goal state transitions are crash-safe and live only in the Python core
+// (`cron.goal_controls`); the desktop must never mutate goal state directly.
+// These commands validate the host-profile job id and forward to the desk
+// server's `/api/desk/goals/*` routes, which delegate to that core. The legacy
+// `cmd_cron_toggle`/`cmd_cron_delete` reject `mode: goal`, so these are the only
+// desktop path for pause/resume/cancel/delete of a Goal Task.
+// ------------------------------------------------------------------
+
+fn validate_goal_job_id(job_id: &str) -> Result<(), String> {
+    if job_id.len() == 12
+        && job_id
+            .bytes()
+            .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+    {
+        Ok(())
+    } else {
+        Err("invalid goal job id".to_string())
+    }
+}
+
+async fn proxy_goal_control(
+    app: &AppHandle,
+    job_id: &str,
+    action: &str,
+) -> Result<serde_json::Value, String> {
+    validate_goal_job_id(job_id)?;
+    let (method, path) = if action == "delete" {
+        (reqwest::Method::DELETE, format!("/api/desk/goals/{job_id}"))
+    } else {
+        (
+            reqwest::Method::POST,
+            format!("/api/desk/goals/{job_id}/{action}"),
+        )
+    };
+    crate::chat::desk_json_request(app, method, &path, None).await
+}
+
+#[tauri::command]
+pub async fn cmd_goal_pause(app: AppHandle, job_id: String) -> Result<serde_json::Value, String> {
+    proxy_goal_control(&app, &job_id, "pause").await
+}
+
+#[tauri::command]
+pub async fn cmd_goal_resume(app: AppHandle, job_id: String) -> Result<serde_json::Value, String> {
+    proxy_goal_control(&app, &job_id, "resume").await
+}
+
+#[tauri::command]
+pub async fn cmd_goal_cancel(app: AppHandle, job_id: String) -> Result<serde_json::Value, String> {
+    proxy_goal_control(&app, &job_id, "cancel").await
+}
+
+#[tauri::command]
+pub async fn cmd_goal_delete(app: AppHandle, job_id: String) -> Result<serde_json::Value, String> {
+    proxy_goal_control(&app, &job_id, "delete").await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::path::Path;
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn goal_job_id_validation_accepts_only_12_lowercase_hex() {
+        assert!(validate_goal_job_id("abc123def456").is_ok());
+        assert!(validate_goal_job_id("000000000000").is_ok());
+        // Wrong length.
+        assert!(validate_goal_job_id("abc123").is_err());
+        assert!(validate_goal_job_id("abc123def4567").is_err());
+        // Uppercase and non-hex are rejected (defends the proxy path traversal).
+        assert!(validate_goal_job_id("ABC123DEF456").is_err());
+        assert!(validate_goal_job_id("abc123def45g").is_err());
+        assert!(validate_goal_job_id("../etc/passwd").is_err());
+    }
 
     fn temp_data_dir(name: &str) -> PathBuf {
         let root = std::env::temp_dir().join(format!(
