@@ -772,6 +772,10 @@ impl GatewaySupervisor {
                 cfg.api_base_url.as_deref().unwrap_or(""),
             )
             .env(
+                "HERMESDESK_API_MODE",
+                cfg.api_mode.as_deref().unwrap_or(""),
+            )
+            .env(
                 "HERMESDESK_MODEL",
                 cfg.hermes_model.as_deref().unwrap_or(""),
             )

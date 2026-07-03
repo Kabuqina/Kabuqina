@@ -202,7 +202,7 @@ Out of scope:
 | `hermes_core/agent/graph_engine/nodes.py`     | Pure node operations accepting `TurnState` plus the service port. No LangGraph imports.                                  |
 | `hermes_core/agent/graph_engine/builder.py`   | The only production import site for `langgraph.*`; wraps pure nodes and compiles without a checkpointer.                 |
 | `hermes_core/agent/graph_engine/engine.py`    | Stable `GraphEngine.run_turn()` adapter that converts graph output back to the exact legacy dictionary.                  |
-| `hermes_core/agent/engine_selector.py`        | Resolve explicit constructor value → `HERMES_AGENT_ENGINE` → `agent.engine` config → `loop`.                             |
+| `hermes_core/agent/engine_selector.py`        | Resolve explicit constructor value → `HERMES_AGENT_ENGINE` → `agent.engine` config → the current release default (`graph` after Task 11 Step 3). |
 | `hermes_core/agent/usage_events.py`           | Engine-neutral per-transport-attempt usage/cost events and optional sink; no graph imports.                              |
 
 ### Modified production and packaging files
@@ -1449,7 +1449,15 @@ per-attempt events on both engines without result-shape changes.
 
 - Modify: this plan
 
-- [ ] **Step 1: build the release-equivalent runtime**
+- [x] **Step 1: build the release-equivalent runtime**
+
+  *(2026-07-02, branch `codex/task11-release-smoke`: `build_bundle.ps1
+  -Verify` passed with bundled Python 3.11.15, desk-server/STT/import smoke
+  green, and a 1398.4 MB runtime. `npm ci` + `npm run build` passed (2389
+  modules; existing 7-package audit warning and large-chunk warning retained).
+  `cargo tauri build` produced the 293,295,371-byte NSIS installer
+  `Kabuqina_0.2.0_x64-setup.exe`, SHA-256
+  `6B9AB47E8890EF008CEC58FB0E2CFD4367DE84C90F3CF585619DFC1F01248339`.)*
 
 ```powershell
 ./python/build_bundle.ps1 -Verify
@@ -1464,7 +1472,44 @@ cd ..
 
 Expected: bundle verification, web build, and Tauri build all succeed.
 
-- [ ] **Step 2: run graph smoke on both API modes**
+- [x] **Step 2: run graph smoke on both API modes**
+
+  *(GO recorded 2026-07-03 — all 5 scenarios passed on the rebuilt release.
+  The desktop and the independent Weixin profile both used
+  `agent.engine: graph`. Operator evidence was reviewed from release screenshots
+  and the logs/config paths below.)*
+
+  - *`chat_completions`: DeepSeek `deepseek-v4-flash` called the read-only
+    `clock` tool and returned `2026-07-02 20:12:53 Asia/Shanghai`; a same-session
+    follow-up returned `2026-07-02` without another tool call. Evidence:
+    `%LOCALAPPDATA%\\com.kabuqina.app\\logs\\hermesdesk.log`, session
+    `419f9d9d-afc1-48d9-8875-dd4be44c9b47`, plus operator screenshots.*
+  - *Interrupt/recovery: the operator stopped a deliberately long model call;
+    the next turn (`只回复 OK`) completed successfully.*
+  - *Restart/resume: custom `mimo-v2.5` retained session marker
+    `RESUME-20260702` across a Python-child restart (PIDs/timestamps recorded in
+    `hermesdesk.log`).*
+  - *Separate gateway process: `python -m gateway.run` used
+    `profiles/weixin/config.yaml` with `engine: graph`; Weixin inbound at
+    20:30:49 and 22-character response at 20:30:57 are recorded in
+    `profiles/weixin/logs/gateway.log`; operator screenshot shows
+    `GATEWAY-GRAPH-20260702`.*
+  - *`anthropic_messages`: custom `mimo-v2.5` at
+    `https://token-plan-cn.xiaomimimo.com/anthropic` called the read-only
+    `clock` tool and returned `2026-07-03T02:23:02+08:00`; the same-session
+    follow-up returned `2026-07-03` without another tool call. Explicit-mode
+    evidence is in `%LOCALAPPDATA%\\com.kabuqina.app\\logs\\hermesdesk.log`
+    (`api_mode='anthropic_messages'`, session
+    `4727bec6-0f3d-489e-9339-9b4ac9fba30f`). Automatic-mode evidence then
+    removed `settings.json.provider.api_mode` and `model.api_mode`, logged
+    `api_mode='auto'`, retained the `/anthropic` endpoint, and completed session
+    `01e8103c-bfff-4108-8376-662cf6235d76` with `AUTO-ANTHROPIC-OK`.*
+  - *The rebuilt bundle used Python 3.11.15 (1402.2 MB). Web build transformed
+    2390 modules. Focused gates: Web 2, overlay 5, policy 52, gateway-env 4,
+    desk-server 19, Hermes runtime-provider/gateway 86, Rust secrets 8 and
+    gateway 12. NSIS artifact:
+    `Kabuqina_0.2.0_x64-setup.exe`, 296,375,724 bytes, SHA-256
+    `D9E9FE3534BB74E2131BD38F1B538D3202D25AC48379358E0ABEB0032F4BD8A9`.*
 
 With `agent.engine: graph`, run:
 
@@ -1477,7 +1522,18 @@ With `agent.engine: graph`, run:
 Record date, provider, model, tool, result, and log path in this document. Do
 not use a state-changing tool for the smoke.
 
-- [ ] **Step 3: flip the default only after GO is recorded**
+- [x] **Step 3: flip the default only after GO is recorded**
+
+  *(2026-07-03: Step 2 GO was already recorded before the change. Both the
+  serialized `agent.engine` default and the selector fallback now resolve to
+  `graph`, preventing raw-config/load-failure paths from retaining a split
+  default. Explicit `agent.engine: loop` and `HERMES_AGENT_ENGINE=loop` remain
+  covered rollback paths. User support instructions are in
+  `docs/troubleshooting.md` §19. Fresh gates: selector + config 76 passed;
+  default Graph `test_run_agent.py` 296 passed; explicit Loop
+  `test_run_agent.py` 296 passed; graph goldens/parity/differential plus
+  usage/exit contracts 303 passed; desktop Python suite 272 passed. The desk
+  runtime log uses the same resolved engine passed into `AIAgent`.)*
 
 Change `agent.engine` default from `loop` to `graph`. Retain explicit
 `agent.engine: loop` and `HERMES_AGENT_ENGINE=loop` for one release. Update user
@@ -1491,6 +1547,34 @@ The soak is at least 14 days and requires:
 - release-build smoke green on both API modes at the beginning and end;
 - no unexplained differences in result shapes, hooks, persistence, or usage;
 - every graph regression added first as a loop fixture, then fixed.
+
+**SOAK STARTED 2026-07-03; end target ≥ 2026-07-17.** Pinned soak build — the
+Step-4 rebuild produced *after* the default flip (`d28e1614`), so graph ships as
+the default:
+
+```text
+artifact: tauri/target/release/bundle/nsis/Kabuqina_0.2.0_x64-setup.exe
+bytes:    296,372,014
+sha256:   9ABCA52EEB7FFCEE96333D4250E6376E969E9BA1C82631C713E072871F5751B3
+built:    2026-07-03 20:22 UTC (HEAD codex/task11-release-smoke @ d28e1614)
+```
+
+This is intentionally a *different* artifact than the Step 2 smoke build
+(`D9E9FE35…`, 296,375,724 bytes): Step 2 authorized the flip on the pre-flip
+build; Step 4 rebuilt for the graph-default release under soak. The beginning
+both-API-mode graph evidence is Step 2's 5-scenario GO (chat_completions +
+anthropic_messages, 2026-07-03) — the identical graph code path now ships as the
+default in the pinned build above.
+
+**End-of-soak checklist (~2026-07-17), before checking this box:**
+
+- [ ] Re-run `docs/release-smoke-test.md` both-API-mode smoke on the pinned
+      installer and confirm it still hashes to `9ABCA52E…` (guards against a
+      silent mid-soak rebuild swapping the artifact under the soak).
+- [ ] No unresolved P0/P1 attributable to graph execution.
+- [ ] No unexplained result-shape / hook / persistence / usage differences.
+- [ ] Every graph regression found during the soak landed first as a loop
+      fixture, then was fixed.
 
 When this evidence is recorded, open Goal Runner G2. Its Task 10 may expose the
 host-only Pilot 1 while the loop escape hatch still exists.
@@ -1520,17 +1604,15 @@ git commit -m "refactor: remove legacy agent conversation loop"
 
 ## Rollback rules
 
-- Before the default flip, rollback is `agent.engine: loop`; no code rollback is
-  required.
-- After the default flip and during the one-release escape window, support may
+- During the one-release escape window after the default flip, support may
   set `agent.engine: loop` in the affected profile or launch with
   `HERMES_AGENT_ENGINE=loop`, then restart the relevant child/app.
 - A graph failure after any possible tool execution must return its graph error.
   It must not retry through the loop because that can duplicate file writes,
   shell commands, messages, or external API mutations.
-- If equivalence work stalls for two weeks, keep default `loop`, retain graph as
-  an opt-in test path, record the failing scenarios, and close Phase 3.5 as
-  deferred.
+- If an unresolved graph-attributable P0/P1 appears during the soak, use the
+  explicit loop escape hatch, record the failing scenario, and pause release or
+  removal rather than silently crossing engines within a turn.
 - If the dependency or bundle gate fails, remove the spike cleanly and write a
   separate owned finite-state-engine plan. Do not vendor LangGraph internals.
 

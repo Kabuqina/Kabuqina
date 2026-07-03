@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { ProviderId } from "./providers";
+import type { ApiMode } from "./api-mode";
 
 export type LlmConfigPreview = {
   hasSecret: boolean;
@@ -9,6 +10,7 @@ export type LlmConfigPreview = {
   host: string | null;
   model: string | null;
   apiBaseUrl: string | null;
+  apiMode: ApiMode | null;
 };
 
 export type ProviderSaveConfig = {
@@ -16,6 +18,7 @@ export type ProviderSaveConfig = {
   host: string;
   model: string | null;
   api_base_url: string | null;
+  api_mode: ApiMode | null;
 };
 
 export const SELECTABLE_LLM_PROVIDERS: (ProviderId | "custom")[] = [

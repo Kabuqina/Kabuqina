@@ -133,10 +133,15 @@ class DownloadDeleteTests(unittest.TestCase):
             },
             clear=False,
         ):
-            with patch.object(dmm, "_download_static_code_formula", side_effect=fake_official):
-                with patch("huggingface_hub.snapshot_download", side_effect=fake_snapshot_download):
-                    with patch.object(dmm, "code_formula_present", return_value=True):
-                        dmm._download_code_formula(self.data_dir / "formula", progress=False)
+            with patch.object(
+                dmm,
+                "_download_code_formula_archive",
+                side_effect=RuntimeError("archive unavailable"),
+            ):
+                with patch.object(dmm, "_download_static_code_formula", side_effect=fake_official):
+                    with patch("huggingface_hub.snapshot_download", side_effect=fake_snapshot_download):
+                        with patch.object(dmm, "code_formula_present", return_value=True):
+                            dmm._download_code_formula(self.data_dir / "formula", progress=False)
 
         self.assertEqual(calls, [("official", self.data_dir / "formula")])
 

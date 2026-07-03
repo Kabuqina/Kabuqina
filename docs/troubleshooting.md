@@ -707,6 +707,57 @@ Windows 上任何 `os.kill(pid, 0)` 调用都需要 catch `OSError`，不可仅�
 
 ---
 
+## 19. Graph 默认引擎异常时临时回滚到 Loop
+
+**Symptom**
+
+* 升级后，只有对话执行出现 Graph 特有回归；Provider、密钥和网络均正常。
+* 日志或复现结果表明问题与默认 `graph` 引擎相关，需要先恢复可用性再收集诊断信息。
+
+**Fix**
+
+Task 11 起默认引擎是 `graph`。旧 `loop` 引擎在一个发布周期内仍作为显式回滚通道保留。
+
+首选持久化回滚：关闭 Kabuqina，在受影响配置的 `config.yaml` 中设置：
+
+```yaml
+agent:
+  engine: loop
+```
+
+桌面对话使用：
+
+```text
+%LOCALAPPDATA%\com.kabuqina.app\hermes-home\config.yaml
+```
+
+Gateway profile 使用：
+
+```text
+%LOCALAPPDATA%\com.kabuqina.app\hermes-home\profiles\<profile>\config.yaml
+```
+
+保存后重启整个应用；仅 Gateway 受影响时，至少重启对应 Gateway profile。恢复默认行为时删除该 `engine` 行，或改回 `graph`。
+
+也可从 PowerShell 临时按进程回滚，用于复现和支持诊断：
+
+```powershell
+$env:HERMES_AGENT_ENGINE = "loop"
+& "C:\path\to\Kabuqina.exe"  # 替换为实际安装路径
+```
+
+环境变量优先于 `config.yaml`，且只影响由该 PowerShell 启动的应用及其子进程。诊断结束后执行：
+
+```powershell
+Remove-Item Env:HERMES_AGENT_ENGINE
+```
+
+**Lesson**
+
+> 回滚引擎不需要回滚安装包或修改会话数据。先显式选择 `loop` 并重启受影响进程，再保留日志、Provider/API 格式和最小复现步骤供排查。
+
+---
+
 ## Appendix: diagnostic one-liners
 
 Quick checks worth running before opening an issue.

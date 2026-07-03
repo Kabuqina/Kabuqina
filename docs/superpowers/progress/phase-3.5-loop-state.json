@@ -1,25 +1,17 @@
 {
   "plan": "docs/superpowers/specs/2026-06-24-consolidate-and-langgraph-replatform-plan.md",
-  "current_task": "10-complete",
-  "status": "complete",
+  "current_task": "11-step4-soak",
+  "status": "soak_running",
   "attempt": 1,
-  "worktree": null,
-  "last_commit": "944f3433",
+  "worktree": ".worktrees/task11-release-smoke",
+  "last_commit": "03599a5b",
   "last_verification": [
-    "FU-009 run_agent graph edge-case gaps resolved locally on 2026-07-02. Earlier fixes: G SafeWriter, E.1 malformed response validation, E.2 build_api_kwargs error handling. This branch adds B partial-stream recovery (8770d3a6), C reasoning-only/prefill + Kimi empty reasoning replay (23461009), A/shared empty ladder + housekeeping/post-tool nudge ordering (ef037c4b), D compression triggers + MiniMax delta overflow (14632efe), F Ollama GLM suspicious stop continuation (484c356a), and H Nous 401 remint/retry (148ffd30).",
-    "Targeted family checks passed on both graph and loop: A/B/C target set = 14 passed each; D compression set = 3 passed each; F Ollama/GLM stop set = 3 passed each; H Nous 401 test = 1 passed each.",
-    "Full graph regression: HERMES_AGENT_ENGINE=graph python -m pytest tests/run_agent/test_run_agent.py -o addopts= -p no:cacheprovider -q -n 4 => 296 passed, 300 warnings in 187.92s.",
-    "Full loop regression: python -m pytest tests/run_agent/test_run_agent.py -o addopts= -p no:cacheprovider -q -n 4 => 296 passed, 296 warnings in 189.03s.",
-    "FU-008 deterministic interrupt-during-API fixture and graph finalization fix landed in 944f3433. Focused loop+graph fixture: 2 passed.",
-    "Fresh final graph-parity/golden gate: 102 passed. Fresh fixed-seed differential gate: 121 passed. Fresh selector/usage/exit-contract gate: 64 passed.",
-    "Fresh full graph regression: HERMES_AGENT_ENGINE=graph test_run_agent.py => 296 passed, 300 warnings. Fresh full loop regression: HERMES_AGENT_ENGINE=loop test_run_agent.py => 296 passed, 296 warnings."
+    "Task 11 Step 2 (graph smoke, both API modes): GO recorded 2026-07-03 - all 5 scenarios passed (chat_completions DeepSeek + anthropic_messages mimo-v2.5, interrupt/recovery, restart/resume, separate Weixin gateway process); evidence in the plan Step 2 block.",
+    "Task 11 Step 3 (default flip loop->graph, d28e1614): selector+config 76 passed; default-graph test_run_agent.py 296 passed; explicit-loop test_run_agent.py 296 passed; graph goldens/parity/differential + usage/exit 303 passed; desktop Python suite 272 passed.",
+    "Task 11 Step 4 soak STARTED 2026-07-03 (end target >= 2026-07-17). Pinned soak build (Step-4 rebuild, graph default): Kabuqina_0.2.0_x64-setup.exe, 296,372,014 bytes, SHA-256 9ABCA52EEB7FFCEE96333D4250E6376E969E9BA1C82631C713E072871F5751B3, built 2026-07-03 20:22 UTC @ d28e1614. Distinct by design from the Step 2 smoke build D9E9FE35..."
   ],
-  "failed_approaches": [
-    "Initial hypothesis that the differential flake was the OpenRouter prewarm/cost cache race was wrong: a plain (no-pytest) harness loop ran 960 case-pairs clean. The real cause was the interrupt variant under a real (pytest) event loop -> graph runs async and observes the interrupt at a non-deterministic point (-> PH35-FU-008).",
-    "Task 9 finalize markers were dropped by StateGraph(TurnState) until declared as NotRequired channels (finalize/final_response/turn_interrupted).",
-    "FU-009 differential gate initially appeared to hang because several model-metadata aliases still made external HTTPS calls; patching those aliases in the test process reduced a single replay from tens of seconds to normal speed without changing scripted transport behavior."
-  ],
-  "blocker": null,
-  "handoff_prompt": "Task 10 is closed locally on branch codex/fu009-empty-response-ladder. FIRST read this file's next_action and the Task 10 closure entry at the end of DECISIONS.md. FU-007/FU-008/FU-009 are resolved and the final graph/loop, parity, differential, selector, usage, and exit gates are green. Do not flip DEFAULT_ENGINE as part of Task 10; that transition belongs to Task 11. No subagents unless explicitly requested.",
-  "next_action": "Task 10 requires no further implementation work. If publishing this local branch, push it and open/review the PR. The next product implementation step is Task 11's explicit default-engine transition/soak workflow; preserve DEFAULT_ENGINE='loop' until that task begins under its own gates."
+  "failed_approaches": [],
+  "blocker": "Task 11 Step 4 is a >=14-day calendar soak (started 2026-07-03, end ~2026-07-17). It cannot be closed early; end-of-soak requires re-running the both-API-mode release smoke on the pinned build, re-verifying SHA-256 9ABCA52E..., and confirming no graph-attributable P0/P1.",
+  "handoff_prompt": "Task 11 Steps 2-3 done; Step 4 soak running on the graph-default build (merged to main together with Goal Runner G1). Do NOT close Step 4 or remove the legacy loop (Step 5) before the 14-day soak completes and its end-smoke + hash re-verification pass. Goal Runner G2 stays gated on this.",
+  "next_action": "Wait out the >=14-day soak to ~2026-07-17, then run the end-of-soak checklist in plan Step 4 (re-smoke both API modes on the pinned installer, confirm it still hashes to 9ABCA52E..., confirm no unexplained result-shape/hook/persistence/usage diffs, no graph P0/P1, and that every graph regression landed as a loop fixture first). Only then check Step 4; Step 5 (remove legacy loop) also requires Goal Runner Task 10 pilot evidence."
 }

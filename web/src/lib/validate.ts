@@ -4,11 +4,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { getLocale, translate } from "./i18n-core";
 import { findProvider, type ProviderId } from "./providers";
-
-/** Strip trailing slashes for OpenAI-compatible base URLs. */
-export function normalizeOpenAiBaseUrl(url: string): string {
-  return url.trim().replace(/\/+$/, "");
-}
+import { normalizeApiBaseUrl } from "./api-mode";
 
 function hasTauriInvoke(): boolean {
   return typeof window !== "undefined" && !!(window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
@@ -23,9 +19,10 @@ function loc() {
  */
 export async function validateCustomEndpoint(
   baseUrl: string,
-  apiKey: string
+  apiKey: string,
+  probeOpenAiModels = true,
 ): Promise<ValidateResult> {
-  const base = normalizeOpenAiBaseUrl(baseUrl);
+  const base = normalizeApiBaseUrl(baseUrl);
   if (!base) {
     return { ok: false, message: translate("validate.needUrl", loc()) };
   }
@@ -33,6 +30,17 @@ export async function validateCustomEndpoint(
   if (!trimmed) {
     return { ok: false, message: translate("validate.needKey", loc()) };
   }
+
+  try {
+    const parsed = new URL(base);
+    if (parsed.protocol !== "https:" || !parsed.hostname) {
+      return { ok: false, message: translate("validate.unreachable", loc()) };
+    }
+  } catch {
+    return { ok: false, message: translate("validate.unreachable", loc()) };
+  }
+
+  if (!probeOpenAiModels) return { ok: true };
 
   const modelsUrl = `${base}/models`;
 

@@ -120,6 +120,27 @@ assert.match(
 );
 
 assert.match(
+  llmConfigEditorSource,
+  /apiModeSelection/,
+  "The shared editor should track the API mode selection.",
+);
+assert.match(
+  llmConfigEditorSource,
+  /<details[\s\S]*apiModeAuto[\s\S]*apiModeAnthropic/,
+  "The API mode override should remain inside an advanced disclosure.",
+);
+assert.match(
+  llmConfigEditorSource,
+  /api_mode:\s*persistedApiMode\(apiModeSelection\)/,
+  "The editor should serialize only concrete API mode overrides.",
+);
+assert.match(
+  llmConfigEditorSource,
+  /p\.apiMode\s*\?\?\s*"auto"/,
+  "Missing persisted API mode should hydrate as Automatic.",
+);
+
+assert.match(
   llmConfigSource,
   /"kimi-coding-cn":\s*\{\s*host:\s*"https:\/\/api\.kimi\.com\/coding\/v1"/,
   "Kimi / Moonshot (China) should use the current Kimi Coding base URL.",

@@ -1075,7 +1075,7 @@ class AIAgent:
         self._graph_engine = None  # Phase 3.5: lazy-initialised GraphEngine instance
         # Phase 3.5 strangler selector: resolve the conversation engine once,
         # before any per-turn setup or side effect.  Precedence: explicit arg >
-        # HERMES_AGENT_ENGINE > agent.engine (profile config) > "loop".
+        # HERMES_AGENT_ENGINE > agent.engine (profile config) > "graph".
         from agent.engine_selector import resolve_agent_engine
         self.agent_engine = resolve_agent_engine(agent_engine)
         self._credential_pool = credential_pool
@@ -9496,7 +9496,7 @@ class AIAgent:
 
         Phase 3.5 strangler seam.  ``self.agent_engine`` was resolved once in
         ``__init__`` (explicit arg > HERMES_AGENT_ENGINE > profile config >
-        ``loop``).  The selection happens here, before any per-turn setup or
+        ``graph``).  The selection happens here, before any per-turn setup or
         side effect, and is never re-evaluated mid-turn.
 
         A graph failure is the graph's to return: this method must NOT catch a

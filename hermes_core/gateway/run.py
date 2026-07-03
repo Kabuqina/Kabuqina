@@ -584,7 +584,7 @@ def _resolve_runtime_agent_kwargs() -> dict:
     except Exception as exc:
         raise RuntimeError(format_runtime_provider_error(exc)) from exc
 
-    return {
+    result = {
         "api_key": runtime.get("api_key"),
         "base_url": runtime.get("base_url"),
         "provider": runtime.get("provider"),
@@ -593,6 +593,12 @@ def _resolve_runtime_agent_kwargs() -> dict:
         "args": list(runtime.get("args") or []),
         "credential_pool": runtime.get("credential_pool"),
     }
+    logger.info(
+        "gateway agent runtime provider=%s api_mode=%s",
+        result.get("provider"),
+        result.get("api_mode"),
+    )
+    return result
 
 
 def _try_resolve_fallback_provider() -> dict | None:

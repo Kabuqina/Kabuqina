@@ -9,11 +9,11 @@ Precedence, highest first:
 1. an explicit ``AIAgent(agent_engine=...)`` constructor argument;
 2. the ``HERMES_AGENT_ENGINE`` environment variable;
 3. ``agent.engine`` from the active profile's ``config.yaml``;
-4. the migration default, ``loop``.
+4. the release default, ``graph``.
 
 Only ``loop`` and ``graph`` are valid.  An invalid *explicit* or *environment*
 value raises ``ValueError`` — those are operator intent and a typo must fail
-loud.  An invalid *config* value logs a warning and falls back to ``loop`` so a
+loud.  An invalid *config* value logs a warning and falls back to ``graph`` so a
 bad user file never bricks startup.
 
 This module performs no LangGraph imports and is import-cheap: the profile
@@ -33,8 +33,8 @@ logger = logging.getLogger(__name__)
 #: The two engines the selector understands.
 VALID_ENGINES = ("loop", "graph")
 
-#: Migration default — the legacy loop stays the default until Task 11 flips it.
-DEFAULT_ENGINE = "loop"
+#: Release default — the legacy loop remains available as an explicit rollback.
+DEFAULT_ENGINE = "graph"
 
 #: Per-process override environment variable.
 ENGINE_ENV_VAR = "HERMES_AGENT_ENGINE"

@@ -711,3 +711,20 @@ disabled gate pauses with `feature_disabled` and invokes no model. The public
 `cronjob` tool rejects `mode: goal` until G2 opens, though core `create_job`
 accepts it for internal tests. `mark_goal_job_run` takes primitive fields rather
 than a transition object to keep `jobs.py` free of goal-type imports.
+
+**Task 11 default flip (2026-07-03).** After the release-equivalent Graph smoke
+passed on both `chat_completions` and `anthropic_messages`, the release default
+changed from `loop` to `graph`. The serialized default in
+`hermes_cli/config_defaults.py` and the selector fallback in
+`agent/engine_selector.py` change together so desktop, Gateway, raw-config, and
+config-load-failure paths cannot disagree about the default. For one release,
+operators can still select the legacy engine with `agent.engine: loop` in the
+affected profile or with the higher-precedence `HERMES_AGENT_ENGINE=loop`, then
+restart the affected app/child. This is a runtime rollback and does not migrate
+or rewrite sessions. Existing files that already contain `engine: loop` remain
+explicit Loop selections; restoring the new default means deleting that field
+or changing it to `graph`. The desk runtime log now records the selector's
+resolved value and passes that same value into `AIAgent`, so support evidence
+cannot disagree with the engine actually used. The support procedure is documented in
+`docs/troubleshooting.md` §19. Legacy-loop removal remains gated by Task 11's
+14-day soak and bounded Goal Runner A/B evidence.

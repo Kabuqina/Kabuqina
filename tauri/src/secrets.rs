@@ -31,6 +31,9 @@ pub struct ProviderConfig {
     /// OpenAI-compatible chat/completions base URL (e.g. https://api.example.com/v1).
     #[serde(default)]
     pub api_base_url: Option<String>,
+    /// Explicit Hermes wire protocol override. None means automatic detection.
+    #[serde(default)]
+    pub api_mode: Option<String>,
 }
 
 const VENDOR_LLM_DISABLED: &str = "hermesdesk.vendor_llm_disabled";
@@ -68,6 +71,17 @@ fn host_from_api_base(url: &str) -> String {
     rest.split('/').next().unwrap_or(rest).to_string()
 }
 
+fn normalize_api_mode(raw: Option<&str>) -> Result<Option<String>, String> {
+    match raw.map(str::trim) {
+        None => Ok(None),
+        Some("chat_completions") => Ok(Some("chat_completions".into())),
+        Some("anthropic_messages") => Ok(Some("anthropic_messages".into())),
+        Some(_) => Err(
+            "api_mode must be chat_completions, anthropic_messages, or null".into(),
+        ),
+    }
+}
+
 fn validate_provider_config_for_save(cfg: &mut ProviderConfig, secret: &str) -> Result<(), String> {
     cfg.provider = cfg.provider.trim().to_ascii_lowercase();
     cfg.host = cfg.host.trim().to_ascii_lowercase();
@@ -76,6 +90,7 @@ fn validate_provider_config_for_save(cfg: &mut ProviderConfig, secret: &str) -> 
         .as_ref()
         .map(|s| s.trim().trim_end_matches('/').to_string())
         .filter(|s| !s.is_empty());
+    cfg.api_mode = normalize_api_mode(cfg.api_mode.as_deref())?;
 
     if cfg.provider.is_empty() {
         return Err("provider must be set".into());
@@ -87,7 +102,7 @@ fn validate_provider_config_for_save(cfg: &mut ProviderConfig, secret: &str) -> 
 
     if cfg.provider == "custom" {
         let url = cfg.api_base_url.as_deref().ok_or_else(|| {
-            "api_base_url is required for custom OpenAI-compatible APIs".to_string()
+            "api_base_url is required for custom APIs".to_string()
         })?;
         crate::validation::validate_public_endpoint(url, None)?;
         let base_host = host_from_api_base(url).to_ascii_lowercase();
@@ -181,6 +196,43 @@ pub fn provider_api_key_env(provider: &str) -> String {
 mod tests {
     use super::{provider_api_key_env, validate_provider_config_for_save, ProviderConfig};
 
+    fn custom_config(api_mode: Option<&str>) -> ProviderConfig {
+        ProviderConfig {
+            provider: "custom".into(),
+            host: "api.example.com".into(),
+            model: Some("model".into()),
+            api_base_url: Some("https://api.example.com/anthropic".into()),
+            api_mode: api_mode.map(str::to_string),
+        }
+    }
+
+    #[test]
+    fn old_provider_json_defaults_api_mode_to_automatic() {
+        let cfg: ProviderConfig = serde_json::from_str(
+            r#"{"provider":"custom","host":"api.example.com","model":"m","api_base_url":"https://api.example.com/v1"}"#,
+        )
+        .unwrap();
+
+        assert_eq!(cfg.api_mode, None);
+    }
+
+    #[test]
+    fn save_config_accepts_concrete_api_modes() {
+        for mode in ["chat_completions", "anthropic_messages"] {
+            let mut cfg = custom_config(Some(mode));
+            validate_provider_config_for_save(&mut cfg, "sk-test").unwrap();
+            assert_eq!(cfg.api_mode.as_deref(), Some(mode));
+        }
+    }
+
+    #[test]
+    fn save_config_rejects_auto_and_unknown_api_modes() {
+        for mode in ["auto", "anthropic", ""] {
+            let mut cfg = custom_config(Some(mode));
+            assert!(validate_provider_config_for_save(&mut cfg, "sk-test").is_err());
+        }
+    }
+
     #[test]
     fn provider_api_key_env_covers_native_hermes_providers() {
         assert_eq!(provider_api_key_env("openai"), "OPENAI_API_KEY");
@@ -200,6 +252,7 @@ mod tests {
             host: "127.0.0.1".into(),
             model: None,
             api_base_url: Some("http://127.0.0.1:11434/v1".into()),
+            api_mode: None,
         };
 
         let result = validate_provider_config_for_save(&mut cfg, "sk-test");
@@ -214,6 +267,7 @@ mod tests {
             host: "openrouter.ai".into(),
             model: None,
             api_base_url: None,
+            api_mode: None,
         };
 
         let result = validate_provider_config_for_save(&mut cfg, "sk-test\nEVIL=1");
@@ -228,6 +282,7 @@ mod tests {
             host: "".into(),
             model: None,
             api_base_url: Some("https://api.example.com/v1".into()),
+            api_mode: None,
         };
 
         validate_provider_config_for_save(&mut cfg, "sk-test").unwrap();
@@ -260,6 +315,7 @@ pub struct LlmSpawnParams {
     pub provider: String,
     pub llm_host: String,
     pub api_base_url: Option<String>,
+    pub api_mode: Option<String>,
     pub hermes_model: Option<String>,
     pub inference_provider: Option<String>,
 }
@@ -281,6 +337,7 @@ pub fn resolve_llm_spawn_params(app: &AppHandle) -> LlmSpawnParams {
             provider: "custom".into(),
             llm_host: host_from_api_base(base),
             api_base_url: Some(base.to_string()),
+            api_mode: None,
             hermes_model: vendor_model_compile().map(|s| s.to_string()),
             inference_provider: Some("custom".into()),
         };
@@ -307,6 +364,7 @@ pub fn resolve_llm_spawn_params(app: &AppHandle) -> LlmSpawnParams {
             provider: prov,
             llm_host: host,
             api_base_url: api,
+            api_mode: c.api_mode.clone(),
             hermes_model: c.model.clone().filter(|s| !s.trim().is_empty()),
             inference_provider: inf,
         };
@@ -316,6 +374,7 @@ pub fn resolve_llm_spawn_params(app: &AppHandle) -> LlmSpawnParams {
         provider: "deepseek".into(),
         llm_host: "api.deepseek.com".into(),
         api_base_url: Some("https://api.deepseek.com/v1".into()),
+        api_mode: None,
         hermes_model: Some("deepseek-v4-flash".into()),
         inference_provider: None,
     }
@@ -391,6 +450,7 @@ pub struct LlmConfigPreview {
     pub host: Option<String>,
     pub model: Option<String>,
     pub api_base_url: Option<String>,
+    pub api_mode: Option<String>,
 }
 
 #[tauri::command]
@@ -420,6 +480,7 @@ pub async fn cmd_llm_config_preview(app: AppHandle) -> Result<LlmConfigPreview, 
             .filter(|s| !s.trim().is_empty()),
         model: cfg.as_ref().and_then(|c| c.model.clone()),
         api_base_url: cfg.as_ref().and_then(|c| c.api_base_url.clone()),
+        api_mode: cfg.as_ref().and_then(|c| c.api_mode.clone()),
     })
 }
 
@@ -452,6 +513,7 @@ pub async fn cmd_update_llm_config(
         .as_ref()
         .map(|s| s.trim().trim_end_matches('/').to_string())
         .filter(|s| !s.is_empty());
+    cfg.api_mode = normalize_api_mode(cfg.api_mode.as_deref())?;
 
     if cfg.provider.is_empty() {
         return Err("provider must be set".into());
@@ -470,7 +532,7 @@ pub async fn cmd_update_llm_config(
 
     if cfg.provider == "custom" {
         let url = cfg.api_base_url.as_deref().ok_or_else(|| {
-            "api_base_url is required for custom OpenAI-compatible APIs".to_string()
+            "api_base_url is required for custom APIs".to_string()
         })?;
         crate::validation::validate_public_endpoint(url, None)?;
         let base_host = host_from_api_base(url).to_ascii_lowercase();
