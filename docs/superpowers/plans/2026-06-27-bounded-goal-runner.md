@@ -1070,19 +1070,20 @@ legacy `paused` field that is not the core goal-state contract. Ordinary cron
 jobs keep their existing command until that separate compatibility issue is
 planned. Rust and React contain no mutable goal-state transition logic.
 
-- [ ] **Step 5: run the G1 integration gate and commit**
-  *(PARTIAL 2026-07-03 — every buildable/testable layer of the gate is green:
-  Python `tests/cron` + `test_goal_routes.py` pass; `cargo test --lib cron::` 9
-  passed; `scheduledTasksGoalUx.test.mjs` pass; `tsc --noEmit` clean; `cargo
-  check` clean. REMAINING: the live desktop end-to-end smoke — launch the app,
-  create a goal via the internal path (the tool hides `mode:goal`), and exercise
-  pause→resume→cancel→delete through the UI observing the state transitions +
-  busy(409) behaviour. That interactive smoke needs a human at the running
-  desktop app (via `scripts/dev.ps1` — which syncs Python sources into the
-  runtime, not bare `cargo tauri dev`). Passing it closes Task 9 and completes
-  the **G1** work. It does NOT open G2: G2 is a separate 5-condition gate (see
-  below) whose long pole is the Phase 3.5 Task 11 14-day graph-default soak,
-  which is not reached and not merged to main.)*
+- [x] **Step 5: run the G1 integration gate and commit**
+  *(2026-07-03 — buildable/testable layers green: Python `tests/cron` +
+  `test_goal_routes.py`; `cargo test --lib cron::` 9 passed;
+  `scheduledTasksGoalUx.test.mjs`; `tsc --noEmit`; `cargo check`. Live desktop
+  smoke PASSED via `scripts/dev.ps1`: a seeded goal (`db4e42df6e0b` under
+  `%LOCALAPPDATA%\com.kabuqina.app\hermes-home`) exercised through the UI —
+  Pause→`paused` (Resume+Cancel), Resume→`scheduled` (Pause+Cancel),
+  Cancel→confirm→`cancelled` (Delete only), Delete→card removed with the
+  goal-run dir retained. Only goal-specific controls shown; no legacy
+  Toggle/delete on goal cards. busy(409) not manually reproduced (covered by
+  `GoalControlBusy` units). This closes Task 9 and completes the **G1** work; it
+  does NOT open G2 — see the G2 gate below. Follow-ups for Task 10 polish: a
+  `state_error` goal card exposes no controls (can't be cleared from the UI);
+  human pause shows `pause_reason: other` (friendlier label desirable).)*
 
 ```powershell
 cd python
