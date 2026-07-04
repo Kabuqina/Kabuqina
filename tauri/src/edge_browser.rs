@@ -5,6 +5,8 @@
 //! browser automation.  Edge is pre-installed on Windows; no Node.js/Playwright
 //! needed.  The child uses ``BROWSER_CDP_URL`` to connect via CDP protocol.
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex as SyncMutex;
@@ -51,15 +53,24 @@ pub fn spawn(data_dir: &std::path::Path) -> Result<Child, String> {
     })?;
 
     let profile = profile_dir(data_dir);
-    let child = Command::new(&edge)
-        .arg(format!("--remote-debugging-port={}", CDP_PORT))
+    let mut cmd = Command::new(&edge);
+    cmd.arg(format!("--remote-debugging-port={}", CDP_PORT))
         .arg(format!("--user-data-dir={}", profile.display()))
         .arg("--no-first-run")
         .arg("--no-default-browser-check")
-        .arg("--headless")
+        .arg("--headless=new")
+        .arg("--disable-gpu")
         .stdout(Stdio::null())
         .stderr(Stdio::null())
-        .stdin(Stdio::null())
+        .stdin(Stdio::null());
+
+    #[cfg(windows)]
+    {
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+
+    let child = cmd
         .spawn()
         .map_err(|e| format!("Failed to launch Edge: {}", e))?;
 

@@ -805,6 +805,16 @@ pub(crate) async fn respawn_embedded_hermes_python(app: tauri::AppHandle) -> Res
     Ok(port)
 }
 
+pub(crate) fn schedule_embedded_hermes_respawn(app: tauri::AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        if let Err(e) = respawn_embedded_hermes_python(app.clone()).await {
+            log::error!("embedded Python background respawn failed: {e}");
+            let state: tauri::State<AppState> = app.state();
+            *state.hermes_bootstrap_error.lock().await = Some(e);
+        }
+    });
+}
+
 /// Save the power-user flag and restart embedded Python so
 /// `platform_toolsets[cli]` matches the toggle (terminal, browser, …).
 #[tauri::command]

@@ -76,9 +76,7 @@ fn normalize_api_mode(raw: Option<&str>) -> Result<Option<String>, String> {
         None => Ok(None),
         Some("chat_completions") => Ok(Some("chat_completions".into())),
         Some("anthropic_messages") => Ok(Some("anthropic_messages".into())),
-        Some(_) => Err(
-            "api_mode must be chat_completions, anthropic_messages, or null".into(),
-        ),
+        Some(_) => Err("api_mode must be chat_completions, anthropic_messages, or null".into()),
     }
 }
 
@@ -101,9 +99,10 @@ fn validate_provider_config_for_save(cfg: &mut ProviderConfig, secret: &str) -> 
     crate::validation::validate_env_value(secret)?;
 
     if cfg.provider == "custom" {
-        let url = cfg.api_base_url.as_deref().ok_or_else(|| {
-            "api_base_url is required for custom APIs".to_string()
-        })?;
+        let url = cfg
+            .api_base_url
+            .as_deref()
+            .ok_or_else(|| "api_base_url is required for custom APIs".to_string())?;
         crate::validation::validate_public_endpoint(url, None)?;
         let base_host = host_from_api_base(url).to_ascii_lowercase();
         if cfg.host.is_empty() {
@@ -496,7 +495,7 @@ pub async fn cmd_save_secret(
         .map_err(|e| e.to_string())?;
     write_provider_cfg(&app, &cfg).map_err(|e| e.to_string())?;
     let _ = write_bool_setting(&app, VENDOR_LLM_DISABLED, false);
-    crate::respawn_embedded_hermes_python(app).await?;
+    crate::schedule_embedded_hermes_respawn(app);
     Ok(())
 }
 
@@ -531,9 +530,10 @@ pub async fn cmd_update_llm_config(
     }
 
     if cfg.provider == "custom" {
-        let url = cfg.api_base_url.as_deref().ok_or_else(|| {
-            "api_base_url is required for custom APIs".to_string()
-        })?;
+        let url = cfg
+            .api_base_url
+            .as_deref()
+            .ok_or_else(|| "api_base_url is required for custom APIs".to_string())?;
         crate::validation::validate_public_endpoint(url, None)?;
         let base_host = host_from_api_base(url).to_ascii_lowercase();
         if cfg.host.is_empty() {
@@ -557,7 +557,7 @@ pub async fn cmd_update_llm_config(
 
     write_provider_cfg(&app, &cfg).map_err(|e| e.to_string())?;
     let _ = write_bool_setting(&app, VENDOR_LLM_DISABLED, false);
-    crate::respawn_embedded_hermes_python(app).await?;
+    crate::schedule_embedded_hermes_respawn(app);
     Ok(())
 }
 

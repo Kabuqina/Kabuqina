@@ -2,7 +2,9 @@
 # Full dependency or Hermes tree changes still need: .\python\build_bundle.ps1
 
 [CmdletBinding()]
-param()
+param(
+    [switch]$IncludeSkills
+)
 
 $ErrorActionPreference = "Stop"
 $root = Resolve-Path (Join-Path $PSScriptRoot "..")
@@ -104,7 +106,6 @@ $hermesKeep = @(
     "tools",
     "gateway",
     "hermes_cli",
-    "skills",
     "plugins",
     "cron",
     "run_agent.py",
@@ -118,6 +119,11 @@ $hermesKeep = @(
     "hermes_logging.py",
     "utils.py"
 )
+if ($IncludeSkills) {
+    $hermesKeep += "skills"
+} else {
+    Write-Host "Skipping hermes_core/skills in fast sync (use -IncludeSkills after editing skills)." -ForegroundColor DarkGray
+}
 
 foreach ($name in $hermesKeep) {
     $src = Join-Path $hermesCore $name

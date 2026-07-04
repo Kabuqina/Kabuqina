@@ -77,3 +77,35 @@ assert.ok(
   buildBundle.includes("upstream Hermes dashboard SPA is no longer bundled"),
   "build_bundle.ps1 should keep the upstream Hermes dashboard out of the desktop bundle.",
 );
+
+const edgeBrowser = fs.readFileSync(
+  new URL("../../../tauri/src/edge_browser.rs", import.meta.url),
+  "utf8",
+);
+assert.ok(
+  edgeBrowser.includes("--headless=new"),
+  "Edge CDP backend should use the modern headless mode so NSIS launches do not expose a blank browser window.",
+);
+assert.ok(
+  edgeBrowser.includes("--disable-gpu"),
+  "Headless Edge should disable GPU compositing to avoid visible blank surfaces on Windows.",
+);
+
+const secretsSource = fs.readFileSync(
+  new URL("../../../tauri/src/secrets.rs", import.meta.url),
+  "utf8",
+);
+for (const commandName of ["cmd_save_secret", "cmd_update_llm_config"]) {
+  const start = secretsSource.indexOf(`pub async fn ${commandName}`);
+  assert.ok(start >= 0, `${commandName} should exist.`);
+  const nextCommand = secretsSource.indexOf("#[tauri::command]", start + 1);
+  const body = secretsSource.slice(start, nextCommand >= 0 ? nextCommand : undefined);
+  assert.ok(
+    body.includes("schedule_embedded_hermes_respawn(app);"),
+    `${commandName} should schedule Python restart in the background after saving credentials.`,
+  );
+  assert.ok(
+    !body.includes("respawn_embedded_hermes_python(app).await?"),
+    `${commandName} should not block onboarding while waiting for embedded Python to finish cold-starting.`,
+  );
+}
