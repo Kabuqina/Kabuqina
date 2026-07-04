@@ -1,14 +1,14 @@
 """Trusted flashcard capture and practice service for STUDY.
 
-The model-facing ``learning`` tools can create ``flashcard_deck`` drafts. This
-module is the trusted UI/API layer for kq-kp single-card capture: a user click
-creates one active deck, materializes one ``learning_items`` row, and records a
-real ``flashcard.capture`` activity.
+The model-facing ``learning`` tools create ``flashcard_deck`` drafts. This
+module is the trusted UI/API layer: kq-kp clicks can capture one active card,
+and STUDY UI commands can activate/reject decks, materialize cards, and record
+real review activities.
 """
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 from learning.learning_context import LearningExecutionContext
@@ -16,8 +16,19 @@ from learning.output_writer import OutputWriter
 
 FLASHCARD_ITEM_TYPE = "flashcard"
 FLASHCARD_CAPTURE_ACTIVITY = "flashcard.capture"
+FLASHCARD_REVIEW_ACTIVITY = "flashcard.review"
 FLASHCARD_SPACE_CAP = 500
+
+MIN_EASE = 1.3
 DEFAULT_EASE = 2.5
+MAX_INTERVAL_DAYS = 365
+
+_GRADE_DELTA = {
+    "again": -0.2,
+    "hard": -0.15,
+    "good": 0.0,
+    "easy": 0.15,
+}
 
 
 def _now_utc() -> datetime:
@@ -28,6 +39,19 @@ def _iso(dt: datetime) -> str:
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc).isoformat()
+
+
+def _parse_iso(value: Any) -> Optional[datetime]:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        text = value.replace("Z", "+00:00")
+        dt = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
 
 
 def _clean_text(value: Any, limit: int = 600) -> str:
@@ -55,6 +79,14 @@ def _clean_tags(value: Any) -> List[str]:
     return out
 
 
+def _round2(value: float) -> float:
+    return round(value + 1e-9, 2)
+
+
+def _clamp(value: float, min_value: float, max_value: float) -> float:
+    return max(min_value, min(max_value, value))
+
+
 def _item_id(artifact_id: str, index: int) -> str:
     return f"{artifact_id}-{index:04d}"
 
@@ -73,8 +105,12 @@ def _capture_detail(source_refs: Optional[List[Dict[str, Any]]]) -> Dict[str, An
     return detail
 
 
+def _is_fresh(card: Dict[str, Any]) -> bool:
+    return int(card.get("repetitions") or 0) <= 0 and not card.get("lastReviewedAt")
+
+
 class FlashcardService:
-    """Trusted operations for active flashcards."""
+    """Trusted operations for active flashcards and review activities."""
 
     def __init__(
         self,
@@ -112,13 +148,22 @@ class FlashcardService:
             created += 1
         return {"artifact_id": artifact_id, "status": "active", "materialized": created}
 
+    def reject_deck(self, artifact_id: str) -> Dict[str, Any]:
+        artifact = self._require_deck(artifact_id)
+        if artifact["status"] != "rejected":
+            self._ctx.set_artifact_status(artifact_id, "rejected")
+        return {"artifact_id": artifact_id, "status": "rejected"}
+
+    def list_decks(self, *, status: Optional[str] = None) -> List[Dict[str, Any]]:
+        return self._ctx.list_artifacts(kind="flashcard_deck", status=status)
+
     def list_cards(self, *, due_only: bool = False) -> List[Dict[str, Any]]:
         rows = self._ctx.list_items(item_type=FLASHCARD_ITEM_TYPE)
         cards = [self._card_from_item(row) for row in rows]
         if due_only:
-            now = _iso(self._now())
-            cards = [card for card in cards if not card.get("dueAt") or str(card["dueAt"]) <= now]
-        return sorted(cards, key=lambda card: (str(card.get("dueAt") or ""), str(card.get("item_id") or "")))
+            now = self._now()
+            cards = [card for card in cards if self._is_due(card, now)]
+        return sorted(cards, key=self._sort_key)
 
     def capture_card(
         self,
@@ -135,11 +180,12 @@ class FlashcardService:
             raise ValueError("front and back are required")
 
         normalized = _normalized_front(clean_front)
-        for card in self.list_cards():
+        cards = self.list_cards()
+        for card in cards:
             if _normalized_front(card.get("front")) == normalized:
                 return {"duplicate": True, "item_id": card["item_id"]}
 
-        if len(self.list_cards()) >= FLASHCARD_SPACE_CAP:
+        if len(cards) >= FLASHCARD_SPACE_CAP:
             raise ValueError(f"flashcard space cap reached ({FLASHCARD_SPACE_CAP})")
 
         card = {
@@ -172,6 +218,25 @@ class FlashcardService:
             "front": clean_front,
             "dueAt": due_at,
         }
+
+    def review_card(self, item_id: str, grade: str) -> Dict[str, Any]:
+        card = self._require_card(item_id)
+        normalized_grade = grade if grade in _GRADE_DELTA else "again"
+        updated = self._review_state(card, normalized_grade)
+        self._ctx.update_item_state(item_id, updated)
+        self._ctx.record_activity(
+            activity_type=FLASHCARD_REVIEW_ACTIVITY,
+            artifact_id=str(card.get("artifact_id") or ""),
+            item_id=item_id,
+            detail={
+                "grade": normalized_grade,
+                "ease": updated["ease"],
+                "intervalDays": updated["intervalDays"],
+                "repetitions": updated["repetitions"],
+                "dueAt": updated["dueAt"],
+            },
+        )
+        return {**updated, "grade": normalized_grade}
 
     def _require_deck(self, artifact_id: str) -> Dict[str, Any]:
         artifact = self._ctx.get_artifact(artifact_id)
@@ -224,3 +289,44 @@ class FlashcardService:
             if card["item_id"] == item_id:
                 return card
         raise KeyError(f"flashcard {item_id!r} not found")
+
+    def _review_state(self, card: Dict[str, Any], grade: str) -> Dict[str, Any]:
+        now = self._now()
+        ease = _round2(_clamp(float(card.get("ease") or DEFAULT_EASE) + _GRADE_DELTA[grade], MIN_EASE, 5.0))
+        repetitions = int(card.get("repetitions") or 0)
+        lapses = int(card.get("lapses") or 0)
+        previous_interval = max(1, int(card.get("intervalDays") or 0))
+
+        if grade == "again":
+            next_repetitions = 0
+            interval = 1
+            lapses += 1
+        else:
+            next_repetitions = repetitions + 1
+            if repetitions <= 0:
+                interval = 4 if grade == "easy" else 1 if grade == "hard" else 2
+            elif repetitions == 1:
+                interval = 8 if grade == "easy" else 4 if grade == "hard" else 6
+            else:
+                factor = 1.2 if grade == "hard" else ease * 1.3 if grade == "easy" else ease
+                interval = round(previous_interval * factor)
+        interval = int(_clamp(interval, 1, MAX_INTERVAL_DAYS))
+        due = now + timedelta(days=interval)
+        return {
+            **card,
+            "ease": ease,
+            "intervalDays": interval,
+            "repetitions": next_repetitions,
+            "lapses": lapses,
+            "lastReviewedAt": _iso(now),
+            "dueAt": _iso(due),
+        }
+
+    def _is_due(self, card: Dict[str, Any], now: datetime) -> bool:
+        due = _parse_iso(card.get("dueAt"))
+        return due is None or due <= now
+
+    def _sort_key(self, card: Dict[str, Any]) -> tuple:
+        fresh_rank = 0 if _is_fresh(card) else 1
+        due = _parse_iso(card.get("dueAt")) or datetime.min.replace(tzinfo=timezone.utc)
+        return (fresh_rank, due, str(card.get("item_id") or ""))

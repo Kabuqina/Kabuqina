@@ -21,6 +21,7 @@ import {
   type DeskAttachmentPayload,
   type UiMsg,
 } from "../chat-api";
+import { STUDY_LEARNING_EVENT } from "../study/flashcardLearningStore";
 import {
   applyEvents,
   emptyProgress,
@@ -412,6 +413,9 @@ export function useSendMessage({
           ...event.interaction,
           sessionId: event.session_id || sessionForSend,
         });
+      }
+      if (event.type === "learning.output.created" && typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent(STUDY_LEARNING_EVENT, { detail: event }));
       }
       if (event.type === "delta" && typeof event.text === "string" && !stopTurnRef.current) {
         queueDelta(event.text);

@@ -243,6 +243,36 @@ def test_migration_markers_owner_scoped(store):
     assert store.is_migrated("owner-B", "localStorage:flashcards") is False
 
 
+def test_learning_items_are_owner_and_space_scoped(store):
+    store.upsert_item(
+        "owner-A",
+        "space-1",
+        item_id="card-1",
+        item_type="flashcard",
+        artifact_id="deck-1",
+        state={"front": "q", "dueAt": "2026-01-01T00:00:00Z"},
+    )
+
+    rows = store.list_items("owner-A", "space-1", item_type="flashcard")
+    assert len(rows) == 1
+    assert rows[0]["item_id"] == "card-1"
+    assert rows[0]["artifact_id"] == "deck-1"
+    assert rows[0]["state"]["front"] == "q"
+
+    assert store.list_items("owner-B", "space-1", item_type="flashcard") == []
+    assert store.list_items("owner-A", "space-2", item_type="flashcard") == []
+
+    store.update_item_state(
+        "owner-A",
+        "space-1",
+        "card-1",
+        {"front": "q", "dueAt": "2026-01-02T00:00:00Z", "repetitions": 1},
+    )
+    updated = store.list_items("owner-A", "space-1", item_type="flashcard")[0]
+    assert updated["state"]["repetitions"] == 1
+    assert updated["state"]["dueAt"].startswith("2026-01-02")
+
+
 # --------------------------------------------------------------------------- #
 # Concurrency (WAL + busy-retry) with owner isolation — Step 3
 # --------------------------------------------------------------------------- #

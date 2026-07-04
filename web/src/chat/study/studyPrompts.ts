@@ -79,16 +79,15 @@ export const STUDY_PROMPTS = {
 
 export type StudyActionId = keyof typeof STUDY_PROMPTS;
 
-// Generation prompt for the spaced-repetition flashcard module. It asks for a
-// single machine-readable JSON block so the student can paste the reply back
-// into the flashcard panel, where flashcardStore.parseFlashcards extracts it.
-// The strict output contract keeps parsing robust and avoids fabricated facts.
+// Generation prompt for the spaced-repetition flashcard module. M2 stores the
+// deck as a typed learning draft via the learning toolset, so the student no
+// longer copies JSON back into the UI.
 export const FLASHCARD_GENERATION_PROMPT = [
   "请基于我已提供的学习材料、课程知识库或学习上下文，帮我生成一组用于间隔重复记忆的抽认卡片。不要编造材料里没有的事实、定义或数据；如果材料不足，请先追问 3 到 5 个关键问题，暂不输出卡片。",
+  "请使用 STUDY learning 工具完成：先确认或创建当前课程空间，调用 learning_index_build 读取当前 Learning Index，然后用 learning_draft_create 创建 kind=flashcard_deck 的草稿。不要把卡片 JSON 直接贴给我让我复制导入。",
   "优先覆盖核心概念、易混淆点、公式/定义、关键步骤和我已记录的薄弱点。每张卡片只考察一个知识点，正面是一个明确问题或提示，背面是简洁、可自检的答案。",
-  "生成 10 到 20 张卡片（材料不足时可少于 10 张）。可选地为每张卡片提供一句提示（hint）和 1 到 3 个知识点标签（tags）。",
-  "最重要：请在回答末尾输出且仅输出一个 ```json 代码块，内容为一个数组，每个元素形如 {\"front\": \"问题\", \"back\": \"答案\", \"hint\": \"可选提示\", \"tags\": [\"标签\"]}。字段值必须是纯文本字符串，不要包含未在材料中确认的内容。代码块之外可以先用简短文字说明取材范围与不确定信息。",
-  "如果某个知识点无法从材料中确认，请不要写成卡片，而是在代码块前的说明里列为“待确认”。请不要使用 emoji。",
+  "生成 10 到 20 张卡片（材料不足时可少于 10 张）。payload 必须是 {\"cards\": [{\"front\": \"问题\", \"back\": \"答案\", \"hint\": \"可选提示\", \"tags\": [\"标签\"]}]}，字段值必须是纯文本字符串，不要包含未在材料中确认的内容。",
+  "创建草稿后只用简短文字告诉我已生成并等待审核；如果某个知识点无法从材料中确认，请列为“待确认”。请不要使用 emoji。",
 ].join("\n\n");
 
 // Generation prompt for the self-test quiz module. Mirrors the flashcard

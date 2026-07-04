@@ -2,11 +2,11 @@
 
 **日期：** 2026-07-01（2026-07-02 评审修订）
 
-**状态：** 已确认，待实施计划
+**状态：** 已确认，M2 已收口，M3 待实施
 
 **范围：** STUDY 模块、共享 Agent Core、桌面端与 Gateway 的学习产物契约
 
-**修订记录：** 2026-07-02 依据评审补齐了动工前必须冻结的契约：跨存储 fan-out 的部分成功语义（§4.1、§7）、跨库引用自洽约束（§5.1、§8.2）、语义 reviewer 失败态（§4.3、§6）、迁移的 draft/active 判定（§12）、Desktop owner id 来源与恢复（§8.3）、Gateway owner 粒度（§8.3、§10.3）、`tutoring_note`/`evaluation` 审核默认（§6）、M1 owner 地基验收（§13）、Web 测试栈（§14）。
+**修订记录：** 2026-07-02 依据评审补齐了动工前必须冻结的契约：跨存储 fan-out 的部分成功语义（§4.1、§7）、跨库引用自洽约束（§5.1、§8.2）、语义 reviewer 失败态（§4.3、§6）、迁移的 draft/active 判定（§12）、Desktop owner id 来源与恢复（§8.3）、Gateway owner 粒度（§8.3、§10.3）、`tutoring_note`/`evaluation` 审核默认（§6）、M1 owner 地基验收（§13）、Web 测试栈（§14）。2026-07-04 收口 M2：课程空间、闪卡草稿激活/拒绝、真实复习活动、legacy 闪卡迁移、`learning.output.created` 非阻塞刷新链路已落地；M3 仍限定为 quiz。
 
 ## 1. 背景
 
@@ -393,6 +393,8 @@ Gateway 使用确定性命令激活学习工作区和草稿，不把权限操作
 - 非阻塞桌面事件。
 
 验收：完整走通 `Read/State → Index → Plan → Review → Output → Practice`，不再需要复制 JSON。
+
+收口记录（2026-07-04）：M2 以 `flashcard_deck` 纵向切片落地。Core 新增 `FlashcardService`，将 active deck materialize 为 `learning_items`，并以 `flashcard.review` 记录真实复习活动；Desk API 暴露 `/api/desk/study/spaces`、`/api/desk/study/drafts`、`/api/desk/study/artifacts/{id}/activate|reject`、`/api/desk/study/flashcards`、`/api/desk/study/flashcards/review`、`/api/desk/study/migrations/flashcards`；Tauri 对应注册 `cmd_study_*` 代理；Web 使用 `study-learning-event` 刷新课程空间、草稿和卡片列表。legacy 闪卡迁移 id 固定为 `localStorage:kabuqina.study.flashcards.v1`，迁移后的旧卡片直接进入 active practice state。Gateway `/study` 命令仍为 M5，不在 M2 中提前实现。
 
 ### M3：测验
 

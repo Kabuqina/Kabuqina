@@ -20,6 +20,8 @@ non-blocking desktop event bridge is M2 — this module stays engine-decoupled.
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import Any, Callable, Dict, List, Optional
 
 from learning.learning_context import LearningExecutionContext
@@ -28,6 +30,22 @@ from learning.learning_context import LearningExecutionContext
 SIGNAL_OUTPUT_CREATED = "learning.output.created"
 
 CreatedCallback = Callable[[Dict[str, Any]], None]
+
+_active_created_callback: ContextVar[Optional[CreatedCallback]] = ContextVar(
+    "active_learning_created_callback", default=None
+)
+
+
+@contextmanager
+def learning_created_callback_scope(
+    callback: Optional[CreatedCallback],
+):
+    """Bind a non-blocking ``learning.output.created`` callback for this scope."""
+    token = _active_created_callback.set(callback)
+    try:
+        yield
+    finally:
+        _active_created_callback.reset(token)
 
 
 class OutputWriter:
@@ -44,7 +62,7 @@ class OutputWriter:
         on_created: Optional[CreatedCallback] = None,
     ):
         self._ctx = context
-        self._on_created = on_created
+        self._on_created = on_created if on_created is not None else _active_created_callback.get()
 
     # ── AI artifact creation ───────────────────────────────────────────── #
 
@@ -73,11 +91,12 @@ class OutputWriter:
             source_refs=source_refs,
             review=_pending_review(review),
         )
+        space_id = self._ctx.current_space()
         self._emit_created(
             {
                 "event": SIGNAL_OUTPUT_CREATED,
                 "owner_id": self._ctx.owner_id,
-                "space_id": self._ctx.space_id,
+                "space_id": space_id,
                 "artifact_id": res["artifact_id"],
                 "kind": kind,
                 "version": res["version"],

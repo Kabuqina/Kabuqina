@@ -12,7 +12,11 @@ import pytest
 from learning.learning_contract import ContractError
 from learning.learning_store import LearningStore
 from learning.learning_context import LearningExecutionContext
-from learning.output_writer import OutputWriter, SIGNAL_OUTPUT_CREATED
+from learning.output_writer import (
+    OutputWriter,
+    SIGNAL_OUTPUT_CREATED,
+    learning_created_callback_scope,
+)
 
 
 def _cards():
@@ -58,6 +62,38 @@ def test_write_emits_created_signal_shape(env):
     assert sig["kind"] == "flashcard_deck"
     assert sig["version"] == 1
     assert sig["status"] == "draft"
+
+
+def test_writer_uses_active_created_callback_scope(tmp_path):
+    store = LearningStore(db_path=tmp_path / "learning.db")
+    try:
+        ctx = LearningExecutionContext(store, owner_id="owner-A")
+        ctx.create_space(title="Algebra", space_id="s1")
+        signals = []
+        with learning_created_callback_scope(signals.append):
+            res = OutputWriter(ctx).write_artifact(
+                kind="flashcard_deck", title="Scoped", payload=_cards()
+            )
+        assert [signal["artifact_id"] for signal in signals] == [res["artifact_id"]]
+    finally:
+        store.close()
+
+
+def test_created_signal_uses_persisted_current_space(tmp_path):
+    store = LearningStore(db_path=tmp_path / "learning.db")
+    try:
+        setup = LearningExecutionContext(store, owner_id="owner-A")
+        setup.create_space(title="Algebra", space_id="s1")
+
+        ctx = LearningExecutionContext(store, owner_id="owner-A")
+        signals = []
+        OutputWriter(ctx, on_created=signals.append).write_artifact(
+            kind="flashcard_deck", title="Scoped", payload=_cards()
+        )
+
+        assert signals[0]["space_id"] == "s1"
+    finally:
+        store.close()
 
 
 def test_multiple_writes_emit_distinct_signals(env):
