@@ -1136,8 +1136,17 @@ Step 5 waits on G2 → Goal Runner Task 10, never the reverse**):
   runs after G2 opens while the loop still exists. Do not read it as a G2
   blocker.)*
 - [ ] G1 tests pass in bundled CPython 3.11 and a release-equivalent desktop.
-  *(NOT met — G1 tests ran on the dev system Python and a `cargo tauri dev`
-  build, not the bundled CPython 3.11 / release-equivalent desktop.)*
+  *(HALF met, 2026-07-03. **Bundled CPython 3.11 ✅**: ran the G1 suite under the
+  bundled interpreter `python/dist/runtime/python/python.exe` = Python 3.11.15
+  (pytest installed to a temp `--target`, `PYTHONPATH` = runtime
+  `site-packages`+`overlays`) — `tests/cron` goal suite (goal_controls, cron_goal,
+  goal_agent_worker, goal_profile_isolation, goal_runner, goal_state,
+  goal_verifiers, goal_report, scheduler_lock) = **217 passed / 1 skipped**;
+  `python/tests/test_goal_routes.py` = **8 passed** (benign starlette/httpx
+  deprecation warning only). REMAINING — **release-equivalent desktop**: install
+  the pinned NSIS `Kabuqina_0.2.0_x64-setup.exe` and re-run the goal-control smoke
+  (pause→resume→cancel→delete) on the installed *release* build (the earlier smoke
+  was the `scripts/dev.ps1` debug build). Owner to run.)*
 - [ ] Pilot 1's verifier and limits are frozen in fixtures. *(NOT met.)*
 - [ ] Product copy, destructive controls, and approval boundaries receive human
   review. *(NOT met.)*
