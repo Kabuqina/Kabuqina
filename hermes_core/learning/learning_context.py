@@ -11,7 +11,9 @@ This class holds no engine state and imports no engine code.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from contextlib import contextmanager
+from contextvars import ContextVar
+from typing import Any, Dict, Iterator, List, Optional
 
 from learning.learning_store import LearningStore
 
@@ -149,3 +151,39 @@ class LearningExecutionContext:
 
     def is_migrated(self, migration_key: str) -> bool:
         return self._store.is_migrated(self._owner_id, migration_key)
+
+
+# --------------------------------------------------------------------------- #
+# Active-context scope — the runtime injects the resolved context here so that
+# model tools read owner/space from it and never from tool arguments. Mirrors
+# the goal-runner's ``goal_report_scope`` ContextVar pattern.
+# --------------------------------------------------------------------------- #
+
+_active_learning_context: ContextVar[Optional[LearningExecutionContext]] = ContextVar(
+    "active_learning_context", default=None
+)
+
+
+@contextmanager
+def learning_context_scope(
+    context: LearningExecutionContext,
+) -> Iterator[LearningExecutionContext]:
+    """Bind ``context`` as the active learning context for the duration."""
+    token = _active_learning_context.set(context)
+    try:
+        yield context
+    finally:
+        _active_learning_context.reset(token)
+
+
+def active_learning_context() -> Optional[LearningExecutionContext]:
+    """The context bound by :func:`learning_context_scope`, or ``None``."""
+    return _active_learning_context.get()
+
+
+def require_active_learning_context() -> LearningExecutionContext:
+    """The active learning context, or raise :class:`LookupError`."""
+    ctx = _active_learning_context.get()
+    if ctx is None:
+        raise LookupError("no active learning context")
+    return ctx
