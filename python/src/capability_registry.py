@@ -1201,7 +1201,7 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
         ),
         "category": "learning",
         "family": "student-learning",
-        "status": "candidate",
+        "lifecycle": "candidate",
         "agent_hint": (
             "Use the 'learning' toolset for course-space learning artifacts. Select "
             "or create a course space, call learning_index_build, then plan via the "

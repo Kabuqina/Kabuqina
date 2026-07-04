@@ -158,6 +158,13 @@ def test_artifact_list_returns_draft_and_active(ctx):
     assert arch["artifact_id"] not in ids
 
 
+def test_artifact_list_without_selected_space_returns_error(ctx):
+    with learning_context_scope(ctx):
+        out = _result(lt._handle_artifact_list({}))
+    assert out.get("success") is not True
+    assert "error" in out or out.get("ok") is False
+
+
 def test_bad_draft_payload_returns_error_not_crash(ctx):
     with learning_context_scope(ctx):
         ctx.create_space(title="Algebra", space_id="s1")

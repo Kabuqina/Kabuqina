@@ -310,6 +310,26 @@ def test_oversize_payload_rejected():
         validate_envelope(_envelope("flashcard_deck", huge))
 
 
+def test_oversize_source_refs_rejected():
+    env = _envelope(
+        "flashcard_deck",
+        VALID_PAYLOADS["flashcard_deck"],
+        source_refs=["x" * (600 * 1024)],
+    )
+    with pytest.raises(ContractError):
+        validate_envelope(env)
+
+
+def test_non_json_serializable_source_ref_rejected():
+    env = _envelope(
+        "flashcard_deck",
+        VALID_PAYLOADS["flashcard_deck"],
+        source_refs=[{"bad": {1, 2}}],
+    )
+    with pytest.raises(ContractError):
+        validate_envelope(env)
+
+
 # --------------------------------------------------------------------------- #
 # Per-kind payload rejections
 # --------------------------------------------------------------------------- #

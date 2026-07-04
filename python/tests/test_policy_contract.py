@@ -161,7 +161,7 @@ class TestToolPolicy(unittest.TestCase):
             tools,
             [
                 "web", "file", "vision", "tts", "skills", "clock", "todo", "browser",
-                "clarify", "documents", "math", "cronjob", "messaging",
+                "clarify", "documents", "math", "learning", "cronjob", "messaging",
             ],
         )
         self.assertNotIn("image_gen", tools)
@@ -169,11 +169,12 @@ class TestToolPolicy(unittest.TestCase):
     def test_power_user_mode_tools(self):
         with patch.dict(os.environ, {"KABUQINA_PRODUCT_PROFILE": "mainland_cn"}):
             tools = ToolPolicy.resolve(power_user=True)
-        self.assertEqual(len(tools), 16)
+        self.assertEqual(len(tools), 17)
         self.assertTrue("terminal" in tools)
         self.assertTrue("browser" in tools)
         self.assertTrue("cronjob" in tools)
         self.assertTrue("messaging" in tools)
+        self.assertTrue("learning" in tools)
         self.assertTrue("code_execution" in tools)
         self.assertTrue("moa" in tools)
         self.assertNotIn("image_gen", tools)
@@ -182,6 +183,7 @@ class TestToolPolicy(unittest.TestCase):
         tools = ToolPolicy.resolve(power_user=False)
         self.assertNotIn("terminal", tools)
         self.assertNotIn("code_execution", tools)
+        self.assertIn("learning", tools)
 
     def test_gateway_keep_list_includes_default_delivery_tools(self):
         with patch.dict(os.environ, {"KABUQINA_PRODUCT_PROFILE": "mainland_cn"}):
@@ -190,7 +192,7 @@ class TestToolPolicy(unittest.TestCase):
             tools,
             [
                 "web", "file", "vision", "tts", "skills", "clock", "todo", "browser",
-                "clarify", "documents", "math", "cronjob", "messaging",
+                "clarify", "documents", "math", "learning", "cronjob", "messaging",
             ],
         )
 

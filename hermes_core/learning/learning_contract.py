@@ -433,6 +433,13 @@ def _validate_source_refs(refs: Any) -> List[Any]:
     return copy.deepcopy(refs)
 
 
+def _json_size_bytes(value: Any, label: str) -> int:
+    try:
+        return len(json.dumps(value, ensure_ascii=False).encode("utf-8"))
+    except (TypeError, ValueError):
+        raise ContractError(f"{label} is not JSON-serializable")
+
+
 def validate_envelope(data: Mapping[str, Any]) -> LearningOutputEnvelope:
     """Validate a ``LearningOutputEnvelope v1`` and return an owned copy.
 
@@ -472,16 +479,22 @@ def validate_envelope(data: Mapping[str, Any]) -> LearningOutputEnvelope:
 
     _PAYLOAD_VALIDATORS[kind](payload)
 
-    try:
-        size = len(json.dumps(payload, ensure_ascii=False).encode("utf-8"))
-    except (TypeError, ValueError):
-        raise ContractError("payload is not JSON-serializable")
+    review = _normalize_review(d.get("review"), kind)
+    envelope = {
+        "version": CONTRACT_VERSION,
+        "kind": kind,
+        "space_id": space_id,
+        "title": title,
+        "source_refs": source_refs,
+        "payload": payload,
+        "review": review,
+    }
+
+    size = _json_size_bytes(envelope, "envelope")
     if size > MAX_ENVELOPE_BYTES:
         raise ContractError(
-            f"payload {size} bytes exceeds cap {MAX_ENVELOPE_BYTES}"
+            f"envelope {size} bytes exceeds cap {MAX_ENVELOPE_BYTES}"
         )
-
-    review = _normalize_review(d.get("review"), kind)
 
     return LearningOutputEnvelope(
         version=CONTRACT_VERSION,

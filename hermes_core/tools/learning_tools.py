@@ -214,13 +214,16 @@ def _handle_artifact_list(args: dict, **_kwargs) -> str:
         return tool_error(str(exc))
     kind = args.get("kind")
     status = args.get("status")
-    if status is not None:
-        rows = ctx.list_artifacts(kind=kind, status=status)
-    else:
-        # Model-facing default: drafts + active only (never rejected/archived).
-        rows = []
-        for st in _MODEL_VISIBLE_STATUSES:
-            rows.extend(ctx.list_artifacts(kind=kind, status=st))
+    try:
+        if status is not None:
+            rows = ctx.list_artifacts(kind=kind, status=status)
+        else:
+            # Model-facing default: drafts + active only (never rejected/archived).
+            rows = []
+            for st in _MODEL_VISIBLE_STATUSES:
+                rows.extend(ctx.list_artifacts(kind=kind, status=st))
+    except (ValueError, KeyError) as exc:
+        return tool_error(str(exc))
     return tool_result(success=True, artifacts=[_artifact_ref(a) for a in rows])
 
 

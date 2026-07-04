@@ -19,6 +19,7 @@ KEEP_LIST = [
     "clarify",
     "documents",
     "math",
+    "learning",
     "cronjob",    # scheduled tasks (create-once-approve, then auto-run)
     "messaging",  # cross-channel message delivery (cron delivery + proactive send)
 ]
@@ -28,6 +29,7 @@ GATEWAY_KEEP_LIST = [
     "clarify",
     "documents",
     "math",
+    "learning",
     "cronjob",
     "messaging",
 ]

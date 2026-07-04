@@ -31,11 +31,31 @@ def _learning_capabilities() -> list[dict]:
     return [c for c in list_capability_defs() if "learning_output_kinds" in c]
 
 
+def _learning_capability() -> dict:
+    for cap in _learning_capabilities():
+        if cap["id"] == "student-learning-foundation":
+            return cap
+    raise AssertionError("student-learning-foundation missing")
+
+
 class LearningCapabilityDriftTests(unittest.TestCase):
     def test_learning_capability_is_registered(self):
         caps = _learning_capabilities()
         self.assertTrue(caps, "no learning capability registered")
         self.assertIn("student-learning-foundation", {c["id"] for c in caps})
+
+    def test_learning_capability_remains_candidate_until_ui_exists(self):
+        from capability_status import build_capability_status
+
+        cap = _learning_capability()
+        self.assertEqual(cap.get("lifecycle"), "candidate")
+        self.assertNotIn("status", cap)
+
+        status = build_capability_status(cap, {}, enabled_toolsets={"learning"})
+        self.assertEqual(status["status"], "candidate")
+        self.assertEqual(status["lifecycle"], "candidate")
+        self.assertTrue(status["pipelines"])
+        self.assertTrue(all(pipeline["ready"] is False for pipeline in status["pipelines"]))
 
     def test_referenced_planner_ids_exist(self):
         from learning.planner_registry import planner_ids

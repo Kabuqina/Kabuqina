@@ -102,6 +102,7 @@ Future first-party additions follow this order: add a load package in `python/sr
 | Desktop/Gateway interaction | Draft creation is non-blocking and emits `learning.output.created`; do not reuse the blocking review interaction bridge. Gateway trust-boundary actions use deterministic `/study list/new/use/drafts/approve/reject` commands. |
 | STUDY migration | Replace the copy-JSON/import main path with a shared draft inbox and a lifecycle UI (course setup → plan → tutor/learn → practice/review → evaluation/adjustment). Automatically import legacy localStorage per key, idempotently, and retain old data read-only for one release. |
 | Delivery strategy | Ship vertical slices: foundation; course space + flashcards; quiz; student state/evaluation/plan; knowledge/resources/tutoring/quality; lifecycle UI. Each slice must retain owner isolation, migration rollback and existing deliverable-Planner behavior. |
+| M1 closure (2026-07-04) | M1 is closed as a candidate/data-spine foundation, not a user-facing STUDY UI. The `learning` toolset is enabled in desktop and gateway tool policies; `student-learning-foundation` stays `lifecycle: candidate` until the M2+ UI/execution surface exists; and envelope validation serializes and sizes the full `LearningOutputEnvelope`, so `source_refs` cannot bypass contract limits or JSON safety. |
 
 Full design: `docs/superpowers/specs/2026-07-01-study-four-layer-learning-pipeline-design.md`.
 
