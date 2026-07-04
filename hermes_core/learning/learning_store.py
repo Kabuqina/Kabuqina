@@ -161,9 +161,7 @@ class LearningStore:
             isolation_level=None,  # we manage transactions via BEGIN IMMEDIATE
         )
         self._conn.row_factory = sqlite3.Row
-        self._conn.execute("PRAGMA journal_mode=WAL")
-        self._conn.execute("PRAGMA foreign_keys=ON")
-        self._init_schema()
+        self._setup_connection_with_retry()
 
     # ── connection / schema ────────────────────────────────────────────── #
 
@@ -174,6 +172,39 @@ class LearningStore:
         return {
             r[1] for r in self._conn.execute(f'PRAGMA table_info("{table}")').fetchall()
         }
+
+    def _setup_connection_with_retry(self) -> None:
+        """Set WAL/foreign-keys pragmas and initialize the schema, tolerating
+        concurrent first-time setup.
+
+        When two children open the *same fresh* ``learning.db`` at once, the
+        contended step is ``PRAGMA journal_mode=WAL`` (switching journal mode
+        needs exclusive access) — and the schema writes that follow. All of it
+        is idempotent: WAL is a persistent db property so the loser sees WAL
+        already set on retry, ``CREATE/INDEX IF NOT EXISTS`` are no-ops,
+        reconcile checks existence, and the version row is guarded. So we retry
+        the whole setup with jitter — the convoy-avoiding strategy used for
+        writes — and it converges once any child wins.
+        """
+        last_err: Optional[Exception] = None
+        for attempt in range(self._WRITE_MAX_RETRIES):
+            try:
+                self._conn.execute("PRAGMA journal_mode=WAL")
+                self._conn.execute("PRAGMA foreign_keys=ON")
+                self._init_schema()
+                return
+            except sqlite3.OperationalError as exc:
+                msg = str(exc).lower()
+                if ("locked" in msg or "busy" in msg) and attempt < self._WRITE_MAX_RETRIES - 1:
+                    last_err = exc
+                    try:
+                        self._conn.rollback()
+                    except Exception:
+                        pass
+                    time.sleep(random.uniform(self._WRITE_RETRY_MIN_S, self._WRITE_RETRY_MAX_S))
+                    continue
+                raise
+        raise last_err or sqlite3.OperationalError("schema setup locked after max retries")
 
     def _init_schema(self) -> None:
         cur = self._conn.cursor()

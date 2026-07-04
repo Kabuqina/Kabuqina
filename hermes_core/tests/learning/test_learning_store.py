@@ -255,9 +255,11 @@ def test_concurrent_writers_stay_isolated(tmp_path):
 
     def worker(owner_id):
         # Each worker owns its own connection — the web-child / gateway-child
-        # shape (separate processes sharing one learning.db).
-        st = LearningStore(db_path=path)
+        # shape (separate processes sharing one learning.db). Construction is
+        # inside the try so concurrent first-time schema-init errors surface too.
+        st = None
         try:
+            st = LearningStore(db_path=path)
             sid = st.create_space(owner_id, title="Course", space_id=f"space-{owner_id}")
             for i in range(per_owner):
                 st.insert_artifact(
@@ -266,7 +268,8 @@ def test_concurrent_writers_stay_isolated(tmp_path):
         except Exception as exc:  # noqa: BLE001 — surface to assertion
             errors.append(exc)
         finally:
-            st.close()
+            if st is not None:
+                st.close()
 
     threads = [threading.Thread(target=worker, args=(o,)) for o in owners]
     for t in threads:
