@@ -137,6 +137,54 @@ pub async fn cmd_study_migrate_flashcards(app: AppHandle, deck: Value) -> Result
     .await
 }
 
+#[tauri::command]
+pub async fn cmd_study_quizzes(app: AppHandle) -> Result<Value, String> {
+    crate::chat::desk_json_request(&app, reqwest::Method::GET, "/api/desk/study/quizzes", None)
+        .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_quiz_questions(
+    app: AppHandle,
+    artifact_id: String,
+) -> Result<Value, String> {
+    validate_study_path_id(&artifact_id)?;
+    crate::chat::desk_json_request(
+        &app,
+        reqwest::Method::GET,
+        &format!("/api/desk/study/quizzes/{artifact_id}/questions"),
+        None,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_quiz_submit(
+    app: AppHandle,
+    artifact_id: String,
+    responses: Value,
+) -> Result<Value, String> {
+    validate_study_path_id(&artifact_id)?;
+    crate::chat::desk_json_request(
+        &app,
+        reqwest::Method::POST,
+        &format!("/api/desk/study/quizzes/{artifact_id}/submit"),
+        Some(json!({ "responses": responses })),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_migrate_quizzes(app: AppHandle, quiz: Value) -> Result<Value, String> {
+    crate::chat::desk_json_request(
+        &app,
+        reqwest::Method::POST,
+        "/api/desk/study/migrations/quizzes",
+        Some(json!({ "quiz": quiz })),
+    )
+    .await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -145,6 +193,7 @@ mod tests {
     fn study_path_id_validation_rejects_path_and_query_chars() {
         assert!(validate_study_path_id("abc123DEF-_:").is_ok());
         assert!(validate_study_path_id("deck-0001").is_ok());
+        assert!(validate_study_path_id("quiz_01:question-0001").is_ok());
         assert!(validate_study_path_id("").is_err());
         assert!(validate_study_path_id("../etc/passwd").is_err());
         assert!(validate_study_path_id("abc/def").is_err());

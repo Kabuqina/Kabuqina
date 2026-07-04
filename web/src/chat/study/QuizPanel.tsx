@@ -1,30 +1,33 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-// STUDY module — self-test quiz panel.
-//
-// A thin view over quizStore: parsing, validation and grading all live in the
-// store (unit-tested there). The agent writes a quiz via a bounded prompt; the
-// student pastes it back, takes it here, and the client grades it locally. A
-// graded result can be written back into the study context to close the loop.
+// STUDY M3 quizzes: course-space selection, draft activation, deterministic
+// backend grading, and real attempt activity writes through the desktop API.
 
-import { Check, Eraser, FileQuestion, Import, ListChecks, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import {
+  Check,
+  FileQuestion,
+  Layers,
+  ListChecks,
+  Plus,
+  RefreshCw,
+  X,
+  type LucideIcon,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useI18n } from "../../lib/i18n";
 import { WorkspaceSection } from "../workspaceSection";
+import { STUDY_LEARNING_EVENT } from "./flashcardLearningStore";
 import {
-  QUIZ_EVENT,
-  type QuizResult,
-  type QuizState,
-  clearQuizState,
-  emptyResponse,
-  formatQuizResultForContext,
-  gradeQuiz,
-  loadQuizState,
-  parseQuiz,
-  saveQuizState,
-} from "./quizStore";
+  backendQuestionsToQuizRows,
+  formatQuizAttemptSummary,
+  legacyQuizToMigrationQuiz,
+  responsesToSubmitPayload,
+  type QuizQuestionRow,
+  type QuizResponseDraft,
+} from "./quizLearningStore";
+import { loadQuizState } from "./quizStore";
 import { QUIZ_GENERATION_PROMPT } from "./studyPrompts";
 import {
   STUDY_CONTEXT_FIELD_LIMIT,
@@ -32,12 +35,31 @@ import {
   loadStudyContext,
   saveStudyContext,
 } from "./studyStore";
+import {
+  cmdStudyArtifactActivate,
+  cmdStudyArtifactReject,
+  cmdStudyDrafts,
+  cmdStudyMigrateQuizzes,
+  cmdStudyQuizQuestions,
+  cmdStudyQuizSubmit,
+  cmdStudyQuizzes,
+  cmdStudySpaceCreate,
+  cmdStudySpaceSelect,
+  cmdStudySpaces,
+  type StudyArtifact,
+  type StudyQuizPerQuestion,
+  type StudyQuizResult,
+  type StudySpace,
+} from "./study-api";
 
 type Mode = "idle" | "taking" | "result";
 
-function initialMode(state: QuizState): Mode {
-  if (state.submitted && state.quiz.questions.length) return "result";
-  return "idle";
+function answerLetters(value: unknown): string {
+  const values = Array.isArray(value) ? value : [value];
+  return values
+    .filter((item): item is number => Number.isInteger(item))
+    .map((n) => String.fromCharCode(65 + n))
+    .join(", ");
 }
 
 export function QuizPanel({
@@ -45,157 +67,414 @@ export function QuizPanel({
 }: {
   onStartPrompt?: (prompt: string) => void;
 }) {
-  const { t } = useI18n();
-  const [state, setState] = useState<QuizState>(loadQuizState);
-  const [mode, setMode] = useState<Mode>(() => initialMode(loadQuizState()));
+  const { t, locale } = useI18n();
+  const [spaces, setSpaces] = useState<StudySpace[]>([]);
+  const [currentSpaceId, setCurrentSpaceId] = useState("");
+  const [newSpaceTitle, setNewSpaceTitle] = useState("");
+  const [drafts, setDrafts] = useState<StudyArtifact[]>([]);
+  const [quizzes, setQuizzes] = useState<StudyArtifact[]>([]);
+  const [selectedQuizId, setSelectedQuizId] = useState("");
+  const [questions, setQuestions] = useState<QuizQuestionRow[]>([]);
+  const [responses, setResponses] = useState<Record<string, QuizResponseDraft>>({});
+  const [mode, setMode] = useState<Mode>("idle");
   const [index, setIndex] = useState(0);
-  const [showImport, setShowImport] = useState(false);
-  const [importText, setImportText] = useState("");
-  const [importMsg, setImportMsg] = useState("");
+  const [result, setResult] = useState<StudyQuizResult | null>(null);
+  const [status, setStatus] = useState("");
   const [wroteBack, setWroteBack] = useState(false);
+  const migratedRef = useRef(false);
 
-  useEffect(() => {
-    const sync = () => setState(loadQuizState());
-    window.addEventListener("storage", sync);
-    window.addEventListener(QUIZ_EVENT, sync);
-    return () => {
-      window.removeEventListener("storage", sync);
-      window.removeEventListener(QUIZ_EVENT, sync);
-    };
+  const refresh = useCallback(async () => {
+    const [spaceRes, draftRes, quizRes] = await Promise.all([
+      cmdStudySpaces(),
+      cmdStudyDrafts("quiz"),
+      cmdStudyQuizzes(),
+    ]);
+    const active = quizRes.quizzes || [];
+    setSpaces(spaceRes.spaces || []);
+    setCurrentSpaceId(spaceRes.currentSpaceId || "");
+    setDrafts(draftRes.drafts || []);
+    setQuizzes(active);
+    setSelectedQuizId((prev) =>
+      prev && active.some((quiz) => quiz.artifact_id === prev)
+        ? prev
+        : active[0]?.artifact_id || "",
+    );
   }, []);
 
-  const persist = (next: QuizState) => setState(saveQuizState(next));
+  useEffect(() => {
+    let alive = true;
+    const run = async () => {
+      try {
+        await refresh();
+        if (!migratedRef.current) {
+          migratedRef.current = true;
+          const migrationQuiz = legacyQuizToMigrationQuiz(loadQuizState().quiz);
+          if (migrationQuiz.questions.length > 0) {
+            const res = await cmdStudyMigrateQuizzes(migrationQuiz);
+            if (alive && res.migrated) {
+              setStatus(t("chat.quizMigrated", { count: res.questions }));
+              await refresh();
+            }
+          }
+        }
+      } catch (error) {
+        if (alive) setStatus(t("chat.quizBackendUnavailable"));
+        console.debug("study quiz refresh failed:", error);
+      }
+    };
+    void run();
+    const onLearning = () => {
+      void refresh().catch((error) => console.debug("study quiz learning refresh failed:", error));
+    };
+    window.addEventListener(STUDY_LEARNING_EVENT, onLearning);
+    return () => {
+      alive = false;
+      window.removeEventListener(STUDY_LEARNING_EVENT, onLearning);
+    };
+  }, [refresh, t]);
 
-  const typeLabel = (type: string) =>
-    type === "multiple"
-      ? t("chat.quizTypeMultiple")
-      : type === "short"
-        ? t("chat.quizTypeShort")
-        : t("chat.quizTypeSingle");
+  const stats = useMemo(
+    () => ({ active: quizzes.length, drafts: drafts.length, questions: questions.length }),
+    [drafts.length, questions.length, quizzes.length],
+  );
+
+  const current = questions[index];
+
+  const createSpace = async () => {
+    const title = newSpaceTitle.trim();
+    if (!title) return;
+    try {
+      const res = await cmdStudySpaceCreate(title);
+      setNewSpaceTitle("");
+      setCurrentSpaceId(res.currentSpaceId || res.space_id || "");
+      await refresh();
+    } catch (error) {
+      setStatus(t("chat.quizBackendUnavailable"));
+      console.debug("study create quiz space failed:", error);
+    }
+  };
+
+  const selectSpace = async (spaceId: string) => {
+    try {
+      await cmdStudySpaceSelect(spaceId);
+      setCurrentSpaceId(spaceId);
+      setMode("idle");
+      setQuestions([]);
+      setResult(null);
+      await refresh();
+    } catch (error) {
+      setStatus(t("chat.quizBackendUnavailable"));
+      console.debug("study select quiz space failed:", error);
+    }
+  };
+
+  const activateDraft = async (artifactId: string) => {
+    try {
+      await cmdStudyArtifactActivate(artifactId);
+      await refresh();
+    } catch (error) {
+      setStatus(t("chat.quizBackendUnavailable"));
+      console.debug("study activate quiz failed:", error);
+    }
+  };
+
+  const rejectDraft = async (artifactId: string) => {
+    try {
+      await cmdStudyArtifactReject(artifactId);
+      await refresh();
+    } catch (error) {
+      setStatus(t("chat.quizBackendUnavailable"));
+      console.debug("study reject quiz failed:", error);
+    }
+  };
 
   const generate = () => {
     const contextPrompt = formatStudyContextForPrompt(loadStudyContext());
     onStartPrompt?.([contextPrompt, QUIZ_GENERATION_PROMPT].filter(Boolean).join("\n\n"));
   };
 
-  const runImport = () => {
-    const quiz = parseQuiz(importText);
-    if (!quiz.questions.length) {
-      setImportMsg(t("chat.quizImportEmpty"));
-      return;
+  const startQuiz = async () => {
+    if (!selectedQuizId) return;
+    try {
+      const res = await cmdStudyQuizQuestions(selectedQuizId);
+      const rows = backendQuestionsToQuizRows(res.questions || []);
+      if (!rows.length) {
+        setStatus(t("chat.quizNoQuestions"));
+        return;
+      }
+      setQuestions(rows);
+      setResponses({});
+      setResult(null);
+      setWroteBack(false);
+      setIndex(0);
+      setMode("taking");
+    } catch (error) {
+      setStatus(t("chat.quizBackendUnavailable"));
+      console.debug("study start quiz failed:", error);
     }
-    persist({ version: 1, quiz, responses: {}, submitted: false });
-    setImportText("");
-    setShowImport(false);
-    setImportMsg(t("chat.quizLoaded", { count: quiz.questions.length }));
-    setIndex(0);
   };
 
-  const startQuiz = () => {
-    if (!state.quiz.questions.length) return;
-    persist({ ...state, responses: {}, submitted: false });
+  const setResponse = (itemId: string, patch: QuizResponseDraft) => {
+    setResponses((prev) => ({
+      ...prev,
+      [itemId]: { selected: [], text: "", value: null, ...(prev[itemId] || {}), ...patch },
+    }));
+  };
+
+  const toggleChoice = (question: QuizQuestionRow, optionIndex: number) => {
+    const prev = responses[question.itemId]?.selected || [];
+    const selected = question.multiple
+      ? prev.includes(optionIndex)
+        ? prev.filter((n) => n !== optionIndex)
+        : [...prev, optionIndex].sort((a, b) => a - b)
+      : [optionIndex];
+    setResponse(question.itemId, { selected, text: "", value: null });
+  };
+
+  const submit = async () => {
+    if (!selectedQuizId) return;
+    try {
+      const graded = await cmdStudyQuizSubmit(
+        selectedQuizId,
+        responsesToSubmitPayload(responses),
+      );
+      setResult(graded);
+      setMode("result");
+      await refresh();
+    } catch (error) {
+      setStatus(t("chat.quizBackendUnavailable"));
+      console.debug("study quiz submit failed:", error);
+    }
+  };
+
+  const retry = () => {
+    setResponses({});
+    setResult(null);
     setIndex(0);
     setWroteBack(false);
     setMode("taking");
   };
-
-  const setResponse = (id: string, selected: number[], text: string) => {
-    const responses = { ...state.responses, [id]: { selected, text } };
-    persist({ ...state, responses });
-  };
-
-  const toggleChoice = (id: string, optionIndex: number, multiple: boolean) => {
-    const prev = state.responses[id] ?? emptyResponse();
-    let selected: number[];
-    if (multiple) {
-      selected = prev.selected.includes(optionIndex)
-        ? prev.selected.filter((n) => n !== optionIndex)
-        : [...prev.selected, optionIndex].sort((a, b) => a - b);
-    } else {
-      selected = [optionIndex];
-    }
-    setResponse(id, selected, "");
-  };
-
-  const submit = () => {
-    persist({ ...state, submitted: true });
-    setMode("result");
-  };
-
-  const result: QuizResult | null = useMemo(
-    () => (mode === "result" ? gradeQuiz(state.quiz, state.responses) : null),
-    [mode, state.quiz, state.responses],
-  );
 
   const writeBack = () => {
     if (!result) return;
     const context = loadStudyContext();
-    const summary = formatQuizResultForContext(state.quiz, result);
+    const stamp = new Date().toISOString().slice(0, 10);
+    const summary = `【${stamp}】${formatQuizAttemptSummary(
+      result,
+      locale === "en" ? "en" : "zh",
+    )}`;
     const evaluationSummary = `${summary}${context.evaluationSummary ? `\n${context.evaluationSummary}` : ""}`.slice(
       0,
       STUDY_CONTEXT_FIELD_LIMIT,
     );
-    let weakPoints = context.weakPoints;
-    if (result.weakTags.length) {
-      const merged = [result.weakTags.join("、"), context.weakPoints].filter(Boolean).join("；");
-      weakPoints = merged.slice(0, STUDY_CONTEXT_FIELD_LIMIT);
-    }
-    const saveResult = saveStudyContext({ ...context, evaluationSummary, weakPoints });
+    const weak = result.weakTags?.length
+      ? [result.weakTags.join("、"), context.weakPoints].filter(Boolean).join("；")
+      : context.weakPoints;
+    const saveResult = saveStudyContext({
+      ...context,
+      evaluationSummary,
+      weakPoints: weak.slice(0, STUDY_CONTEXT_FIELD_LIMIT),
+    });
     setWroteBack(saveResult.succeeded);
   };
 
-  const retry = () => {
-    persist({ ...state, responses: {}, submitted: false });
-    setIndex(0);
-    setWroteBack(false);
-    setMode("taking");
+  const typeLabel = (question: QuizQuestionRow) => {
+    if (question.type === "true_false") return t("chat.quizTypeTrueFalse");
+    if (question.type === "short_answer") return t("chat.quizTypeShort");
+    return question.multiple ? t("chat.quizTypeMultiple") : t("chat.quizTypeSingle");
   };
 
-  const clearAll = () => {
-    if (typeof window !== "undefined" && !window.confirm(t("chat.quizClearConfirm"))) return;
-    setState(clearQuizState());
-    setMode("idle");
-    setIndex(0);
-    setImportMsg("");
+  const userAnswer = (question: QuizQuestionRow) => {
+    const response = responses[question.itemId];
+    if (question.type === "short_answer") return response?.text?.trim() || t("chat.quizNoAnswer");
+    if (question.type === "true_false") {
+      return typeof response?.value === "boolean"
+        ? response.value
+          ? t("chat.quizTrue")
+          : t("chat.quizFalse")
+        : t("chat.quizNoAnswer");
+    }
+    return (response?.selected || []).map((n) => String.fromCharCode(65 + n)).join(", ") || t("chat.quizNoAnswer");
   };
 
-  const questions = state.quiz.questions;
-  const current = questions[index];
+  const correctAnswer = (per: StudyQuizPerQuestion) => {
+    if (per.type === "true_false") {
+      return per.answer === true ? t("chat.quizTrue") : t("chat.quizFalse");
+    }
+    if (per.type === "short_answer") {
+      const parts = [
+        typeof per.answer === "string" ? per.answer : "",
+        ...(per.accepted || []),
+      ].filter(Boolean);
+      return parts.join(" / ") || t("chat.quizNoAnswer");
+    }
+    return answerLetters(per.answer) || t("chat.quizNoAnswer");
+  };
 
   return (
-    <WorkspaceSection
-      sectionId="workspace.quiz"
-      title={t("chat.quizTitle")}
-      dotColor="#2f9e8f"
-    >
+    <WorkspaceSection sectionId="workspace.quiz" title={t("chat.quizTitle")} dotColor="#2f9e8f">
+      <div className="mt-2 grid gap-2">
+        <div className="flex items-center gap-2">
+          <select
+            value={currentSpaceId}
+            onChange={(event) => void selectSpace(event.currentTarget.value)}
+            className="kq-workspace-select min-w-0 flex-1 rounded-md px-2 py-1.5 text-[12px] text-[var(--kq-color-ink)]"
+          >
+            <option value="">{t("chat.quizNoSpace")}</option>
+            {spaces.map((space) => (
+              <option key={space.space_id} value={space.space_id}>
+                {space.title}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => void refresh()}
+            className="kq-soft-icon-btn inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition"
+            aria-label={t("chat.quizRefresh")}
+            title={t("chat.quizRefresh")}
+          >
+            <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+          </button>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            value={newSpaceTitle}
+            onChange={(event) => setNewSpaceTitle(event.currentTarget.value)}
+            placeholder={t("chat.quizNewSpacePlaceholder")}
+            className="kq-workspace-select min-w-0 flex-1 rounded-md px-2 py-1.5 text-[12px] text-[var(--kq-color-ink)]"
+          />
+          <button
+            type="button"
+            onClick={() => void createSpace()}
+            disabled={!newSpaceTitle.trim()}
+            className="kq-soft-icon-btn inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition disabled:opacity-60"
+            aria-label={t("chat.quizCreateSpace")}
+            title={t("chat.quizCreateSpace")}
+          >
+            <Plus className="h-3.5 w-3.5" aria-hidden />
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-3 flex items-center gap-3 text-[12px] text-[var(--kq-color-muted)]">
+        <StatChip icon={Layers} label={t("chat.quizActive")} value={stats.active} />
+        <StatChip icon={FileQuestion} label={t("chat.quizDrafts")} value={stats.drafts} />
+        <StatChip icon={ListChecks} label={t("chat.quizQuestions")} value={stats.questions} />
+      </div>
+
+      {drafts.length ? (
+        <div className="mt-3 grid gap-1.5">
+          <div className="text-[12px] font-medium text-[var(--kq-color-ink)]">{t("chat.quizDrafts")}</div>
+          {drafts.map((draft) => (
+            <div key={draft.artifact_id} className="kq-workspace-card flex items-center gap-2 rounded-md px-2 py-2">
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[12.5px] font-medium text-[var(--kq-color-ink)]">{draft.title}</div>
+                <div className="text-[11px] text-[var(--kq-color-muted)]">{draft.review?.status || draft.status}</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => void activateDraft(draft.artifact_id)}
+                className="kq-soft-icon-btn inline-flex h-8 w-8 items-center justify-center rounded-md transition"
+                aria-label={t("chat.quizActivate")}
+                title={t("chat.quizActivate")}
+              >
+                <Check className="h-3.5 w-3.5" aria-hidden />
+              </button>
+              <button
+                type="button"
+                onClick={() => void rejectDraft(draft.artifact_id)}
+                className="kq-soft-icon-btn inline-flex h-8 w-8 items-center justify-center rounded-md transition"
+                aria-label={t("chat.quizReject")}
+                title={t("chat.quizReject")}
+              >
+                <X className="h-3.5 w-3.5" aria-hidden />
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {mode === "idle" ? (
+        <div className="mt-3 grid gap-2">
+          <select
+            value={selectedQuizId}
+            onChange={(event) => setSelectedQuizId(event.currentTarget.value)}
+            className="kq-workspace-select min-w-0 rounded-md px-2 py-1.5 text-[12px] text-[var(--kq-color-ink)]"
+          >
+            <option value="">{t("chat.quizNoQuiz")}</option>
+            {quizzes.map((quiz) => (
+              <option key={quiz.artifact_id} value={quiz.artifact_id}>
+                {quiz.title}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => void startQuiz()}
+            disabled={!selectedQuizId}
+            className="kq-quick-action justify-start rounded-[10px] px-2.5 py-2 text-left text-[13px] leading-snug transition disabled:opacity-60"
+          >
+            <ListChecks className="kq-color-icon-course mr-2 inline h-4 w-4" aria-hidden />
+            {t("chat.quizStart")}
+          </button>
+          <button
+            type="button"
+            onClick={generate}
+            className="kq-quick-action justify-start rounded-[10px] px-2.5 py-2 text-left text-[13px] leading-snug transition"
+          >
+            <FileQuestion className="kq-color-icon-course mr-2 inline h-4 w-4" aria-hidden />
+            {t("chat.quizGenerate")}
+          </button>
+        </div>
+      ) : null}
+
       {mode === "taking" && current ? (
         <div className="mt-3 grid gap-2">
           <div className="flex items-center justify-between text-[11.5px] text-[var(--kq-color-muted)]">
             <span>{t("chat.quizQuestionProgress", { current: index + 1, total: questions.length })}</span>
-            <span className="rounded-full bg-[var(--kq-color-surface-2)] px-2 py-0.5">{typeLabel(current.type)}</span>
+            <span className="rounded-full bg-[var(--kq-color-surface-2)] px-2 py-0.5">{typeLabel(current)}</span>
           </div>
-          <div className="text-[13px] font-medium text-[var(--kq-color-ink)] whitespace-pre-wrap break-words">
+          <div className="whitespace-pre-wrap break-words text-[13px] font-medium text-[var(--kq-color-ink)]">
             {current.prompt}
           </div>
 
-          {current.type === "short" ? (
+          {current.type === "short_answer" ? (
             <textarea
-              value={state.responses[current.id]?.text ?? ""}
-              onChange={(event) => setResponse(current.id, [], event.currentTarget.value)}
+              value={responses[current.itemId]?.text || ""}
+              onChange={(event) => setResponse(current.itemId, { text: event.currentTarget.value, selected: [], value: null })}
               placeholder={t("chat.quizShortPlaceholder")}
               rows={2}
               className="kq-workspace-select min-h-[38px] resize-none rounded-md px-2 py-1.5 text-[12.5px] leading-snug text-[var(--kq-color-ink)] transition"
             />
+          ) : current.type === "true_false" ? (
+            <div className="grid grid-cols-2 gap-1.5">
+              {[true, false].map((value) => {
+                const active = responses[current.itemId]?.value === value;
+                return (
+                  <button
+                    key={String(value)}
+                    type="button"
+                    onClick={() => setResponse(current.itemId, { value, selected: [], text: "" })}
+                    className="kq-quick-action rounded-[10px] px-2.5 py-2 text-[12.5px] leading-snug transition"
+                    style={active ? { borderColor: "#2f9e8f", color: "#2f9e8f" } : undefined}
+                    aria-pressed={active}
+                  >
+                    {value ? t("chat.quizTrue") : t("chat.quizFalse")}
+                  </button>
+                );
+              })}
+            </div>
           ) : (
             <div className="grid gap-1.5">
               {current.options.map((option, optionIndex) => {
-                const selected = state.responses[current.id]?.selected ?? [];
+                const selected = responses[current.itemId]?.selected || [];
                 const active = selected.includes(optionIndex);
                 return (
                   <button
                     key={optionIndex}
                     type="button"
-                    onClick={() => toggleChoice(current.id, optionIndex, current.type === "multiple")}
+                    onClick={() => toggleChoice(current, optionIndex)}
                     className="kq-quick-action justify-start rounded-[10px] px-2.5 py-2 text-left text-[12.5px] leading-snug transition"
                     style={active ? { borderColor: "#2f9e8f", color: "#2f9e8f" } : undefined}
                     aria-pressed={active}
@@ -228,7 +507,7 @@ export function QuizPanel({
             ) : (
               <button
                 type="button"
-                onClick={submit}
+                onClick={() => void submit()}
                 className="kq-quick-action flex-1 rounded-[10px] px-2.5 py-2 text-[12.5px] font-medium leading-snug transition"
                 style={{ color: "#2f9e8f" }}
               >
@@ -248,7 +527,7 @@ export function QuizPanel({
             <div className="text-[11.5px] text-[var(--kq-color-muted)]">
               {t("chat.quizCorrectCount", { correct: result.correctCount, total: result.total })}
             </div>
-            {result.weakTags.length ? (
+            {result.weakTags?.length ? (
               <div className="mt-1 text-[11.5px] text-[var(--kq-color-muted)]">
                 {t("chat.quizWeakTags")}: {result.weakTags.join("、")}
               </div>
@@ -257,42 +536,31 @@ export function QuizPanel({
 
           <div className="grid gap-1.5">
             {questions.map((question, qi) => {
-              const per = result.perQuestion.find((p) => p.id === question.id);
+              const per = result.perQuestion.find((p) => p.item_id === question.itemId);
               const correct = per?.correct ?? false;
-              const response = state.responses[question.id];
-              const yours =
-                question.type === "short"
-                  ? response?.text?.trim() || t("chat.quizNoAnswer")
-                  : (response?.selected ?? [])
-                      .map((n) => String.fromCharCode(65 + n))
-                      .join(", ") || t("chat.quizNoAnswer");
-              const answer =
-                question.type === "short"
-                  ? question.accepted.join(" / ")
-                  : question.answerIndices.map((n) => String.fromCharCode(65 + n)).join(", ");
               return (
-                <div key={question.id} className="rounded-md border border-[var(--kq-color-border)] px-2.5 py-2 text-[12px]">
+                <div key={question.itemId} className="rounded-md border border-[var(--kq-color-border)] px-2.5 py-2 text-[12px]">
                   <div className="flex items-start gap-1.5">
                     {correct ? (
                       <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: "#2f9e8f" }} aria-hidden />
                     ) : (
                       <X className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: "#c2410c" }} aria-hidden />
                     )}
-                    <span className="font-medium text-[var(--kq-color-ink)] whitespace-pre-wrap break-words">
+                    <span className="whitespace-pre-wrap break-words font-medium text-[var(--kq-color-ink)]">
                       {qi + 1}. {question.prompt}
                     </span>
                   </div>
                   <div className="mt-1 pl-5 text-[var(--kq-color-muted)]">
-                    {t("chat.quizYourAnswer")}: {yours}
+                    {t("chat.quizYourAnswer")}: {userAnswer(question)}
                   </div>
-                  {!correct ? (
+                  {!correct && per ? (
                     <div className="pl-5 text-[var(--kq-color-muted)]">
-                      {t("chat.quizCorrectAnswer")}: {answer}
+                      {t("chat.quizCorrectAnswer")}: {correctAnswer(per)}
                     </div>
                   ) : null}
-                  {question.explanation ? (
+                  {per?.explanation ? (
                     <div className="pl-5 text-[11.5px] text-[var(--kq-color-muted)]">
-                      {t("chat.quizExplanation")}: {question.explanation}
+                      {t("chat.quizExplanation")}: {per.explanation}
                     </div>
                   ) : null}
                 </div>
@@ -321,76 +589,25 @@ export function QuizPanel({
         </div>
       ) : null}
 
-      {mode === "idle" ? (
-        <div className="mt-3 grid grid-cols-1 gap-2">
-          <button
-            type="button"
-            onClick={startQuiz}
-            disabled={questions.length === 0}
-            className="kq-quick-action justify-start rounded-[10px] px-2.5 py-2 text-left text-[13px] leading-snug transition disabled:opacity-60"
-          >
-            <ListChecks className="kq-color-icon-course mr-2 inline h-4 w-4" aria-hidden />
-            {questions.length > 0
-              ? `${t("chat.quizStart")}（${questions.length}）`
-              : t("chat.quizStart")}
-          </button>
-          <button
-            type="button"
-            onClick={generate}
-            className="kq-quick-action justify-start rounded-[10px] px-2.5 py-2 text-left text-[13px] leading-snug transition"
-          >
-            <FileQuestion className="kq-color-icon-course mr-2 inline h-4 w-4" aria-hidden />
-            {t("chat.quizGenerate")}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setShowImport((v) => !v);
-              setImportMsg("");
-            }}
-            className="kq-quick-action justify-start rounded-[10px] px-2.5 py-2 text-left text-[13px] leading-snug transition"
-          >
-            <Import className="kq-color-icon-course mr-2 inline h-4 w-4" aria-hidden />
-            {t("chat.quizImportToggle")}
-          </button>
-
-          {showImport ? (
-            <div className="grid gap-1.5">
-              <textarea
-                value={importText}
-                onChange={(event) => setImportText(event.currentTarget.value)}
-                placeholder={t("chat.quizImportPlaceholder")}
-                rows={4}
-                className="kq-workspace-select min-h-[64px] resize-none rounded-md px-2 py-1.5 text-[12px] leading-snug text-[var(--kq-color-ink)] transition"
-              />
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={runImport}
-                  disabled={!importText.trim()}
-                  className="kq-quick-action inline-flex flex-1 items-center justify-center gap-1.5 rounded-[10px] px-2.5 py-2 text-[12.5px] leading-snug transition disabled:opacity-60"
-                >
-                  <Import className="h-3.5 w-3.5" aria-hidden />
-                  {t("chat.quizImport")}
-                </button>
-                <button
-                  type="button"
-                  onClick={clearAll}
-                  disabled={questions.length === 0}
-                  className="kq-soft-icon-btn inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition disabled:opacity-60"
-                  aria-label={t("chat.quizClear")}
-                  title={t("chat.quizClear")}
-                >
-                  <Eraser className="h-3.5 w-3.5" aria-hidden />
-                </button>
-              </div>
-              {importMsg ? (
-                <div className="text-[11.5px] text-[var(--kq-color-muted)]">{importMsg}</div>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
+      {status ? <div className="mt-2 text-[11.5px] text-[var(--kq-color-muted)]">{status}</div> : null}
     </WorkspaceSection>
+  );
+}
+
+function StatChip({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: number;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <Icon className="h-3.5 w-3.5" aria-hidden />
+      <span className="font-medium text-[var(--kq-color-ink)]">{value}</span>
+      {label}
+    </span>
   );
 }

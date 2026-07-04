@@ -61,6 +61,38 @@ def _seed_draft(db_path: Path, *, status: str = "draft") -> str:
         store.close()
 
 
+def _seed_quiz_draft(db_path: Path) -> str:
+    store = LearningStore(db_path=db_path)
+    try:
+        ctx = LearningExecutionContext(store, owner_id=OWNER)
+        ctx.create_space(title="Algebra", space_id="s1")
+        return OutputWriter(ctx).write_artifact(
+            kind="quiz",
+            title="Diagnostic quiz",
+            payload={
+                "questions": [
+                    {
+                        "type": "choice",
+                        "prompt": "2+2?",
+                        "options": ["3", "4"],
+                        "answer": 1,
+                        "tags": ["arithmetic"],
+                        "points": 2,
+                    },
+                    {
+                        "type": "short_answer",
+                        "prompt": "Optimizer abbreviated GD?",
+                        "answer": "gradient descent",
+                        "accepted": ["GD"],
+                        "tags": ["optimization"],
+                    },
+                ]
+            },
+        )["artifact_id"]
+    finally:
+        store.close()
+
+
 def test_space_routes_create_list_and_select(study_client):
     client, _db_path = study_client
 
@@ -163,3 +195,82 @@ def test_legacy_flashcard_migration_is_idempotent(study_client):
 
     cards = client.get("/api/desk/study/flashcards", headers=_headers())
     assert [card["front"] for card in cards.json()["cards"]] == ["legacy q"]
+
+
+def test_quiz_draft_activate_questions_and_submit_routes(study_client):
+    client, db_path = study_client
+    artifact_id = _seed_quiz_draft(db_path)
+
+    activated = client.post(
+        f"/api/desk/study/artifacts/{artifact_id}/activate",
+        headers=_headers(),
+    )
+    assert activated.status_code == 200
+    assert activated.json()["status"] == "active"
+    assert activated.json()["materialized"] == 2
+
+    quizzes = client.get("/api/desk/study/quizzes", headers=_headers())
+    assert quizzes.status_code == 200
+    assert [item["artifact_id"] for item in quizzes.json()["quizzes"]] == [artifact_id]
+
+    questions = client.get(
+        f"/api/desk/study/quizzes/{artifact_id}/questions",
+        headers=_headers(),
+    )
+    assert questions.status_code == 200
+    rows = questions.json()["questions"]
+    assert [row["prompt"] for row in rows] == ["2+2?", "Optimizer abbreviated GD?"]
+    assert all("answer" not in row for row in rows)
+
+    submitted = client.post(
+        f"/api/desk/study/quizzes/{artifact_id}/submit",
+        json={
+            "responses": {
+                rows[0]["item_id"]: {"selected": [1]},
+                rows[1]["item_id"]: {"text": " gd! "},
+            }
+        },
+        headers=_headers(),
+    )
+    assert submitted.status_code == 200
+    assert submitted.json()["score"] == 3
+    assert submitted.json()["maxScore"] == 3
+    assert submitted.json()["correctCount"] == 2
+
+
+def test_legacy_quiz_migration_is_idempotent(study_client):
+    client, _db_path = study_client
+    payload = {
+        "quiz": {
+            "title": "Legacy quiz",
+            "questions": [
+                {
+                    "type": "choice",
+                    "prompt": "legacy q",
+                    "options": ["a", "b"],
+                    "answer": 0,
+                }
+            ],
+        }
+    }
+
+    first = client.post(
+        "/api/desk/study/migrations/quizzes",
+        json=payload,
+        headers=_headers(),
+    )
+    assert first.status_code == 200
+    assert first.json()["migrated"] is True
+    assert first.json()["questions"] == 1
+    assert first.json()["status"] == "active"
+
+    second = client.post(
+        "/api/desk/study/migrations/quizzes",
+        json=payload,
+        headers=_headers(),
+    )
+    assert second.status_code == 200
+    assert second.json()["migrated"] is False
+
+    quizzes = client.get("/api/desk/study/quizzes", headers=_headers())
+    assert [item["title"] for item in quizzes.json()["quizzes"]] == ["Legacy quiz"]

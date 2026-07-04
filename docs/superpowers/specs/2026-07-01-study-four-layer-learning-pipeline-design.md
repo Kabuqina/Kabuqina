@@ -1,12 +1,12 @@
 # STUDY 四层学习管线设计
 
-**日期：** 2026-07-01（2026-07-02 评审修订）
+**日期：** 2026-07-01（2026-07-02 评审修订；2026-07-04 M3 收口）
 
-**状态：** 已确认，M2 已收口，M3 待实施
+**状态：** 已确认，M1-M3 已收口，M4 待实施
 
 **范围：** STUDY 模块、共享 Agent Core、桌面端与 Gateway 的学习产物契约
 
-**修订记录：** 2026-07-02 依据评审补齐了动工前必须冻结的契约：跨存储 fan-out 的部分成功语义（§4.1、§7）、跨库引用自洽约束（§5.1、§8.2）、语义 reviewer 失败态（§4.3、§6）、迁移的 draft/active 判定（§12）、Desktop owner id 来源与恢复（§8.3）、Gateway owner 粒度（§8.3、§10.3）、`tutoring_note`/`evaluation` 审核默认（§6）、M1 owner 地基验收（§13）、Web 测试栈（§14）。2026-07-04 收口 M2：课程空间、闪卡草稿激活/拒绝、真实复习活动、legacy 闪卡迁移、`learning.output.created` 非阻塞刷新链路已落地；M3 仍限定为 quiz。
+**修订记录：** 2026-07-02 依据评审补齐了动工前必须冻结的契约：跨存储 fan-out 的部分成功语义（§4.1、§7）、跨库引用自洽约束（§5.1、§8.2）、语义 reviewer 失败态（§4.3、§6）、迁移的 draft/active 判定（§12）、Desktop owner id 来源与恢复（§8.3）、Gateway owner 粒度（§8.3、§10.3）、`tutoring_note`/`evaluation` 审核默认（§6）、M1 owner 地基验收（§13）、Web 测试栈（§14）。2026-07-04 收口 M2：课程空间、闪卡草稿激活/拒绝、真实复习活动、legacy 闪卡迁移、`learning.output.created` 非阻塞刷新链路已落地；M3 限定为 quiz。2026-07-04 收口 M3：quiz 草稿激活/拒绝、题目 materialize、确定性答题评分、`quiz.attempt` 活动、legacy quiz 迁移和 backend-driven QuizPanel 已落地；Gateway `/study` 命令仍为 M5。
 
 ## 1. 背景
 
@@ -404,6 +404,8 @@ Gateway 使用确定性命令激活学习工作区和草稿，不把权限操作
 - localStorage quiz 迁移。
 
 验收：题目内容与答题行为分离；重新生成题库不会覆盖历史成绩。
+
+收口记录（2026-07-04）：M3 以 `quiz` 纵向切片落地。Core 新增 `QuizService`，将 active quiz materialize 为 `learning_items` 的 `quiz_question`，并以 `quiz.attempt` 记录真实提交活动；评分保持确定性，`choice` 精确匹配选项索引，`true_false` 匹配布尔值，`short_answer` 仅将规范化文本与 `answer`/`accepted` 比较。Desk API 暴露 `/api/desk/study/quizzes`、`/api/desk/study/quizzes/{artifact_id}/questions`、`/api/desk/study/quizzes/{artifact_id}/submit`、`/api/desk/study/migrations/quizzes`，并复用通用 artifact activate/reject 路由分派 quiz；Tauri 注册 `cmd_study_quizzes`、`cmd_study_quiz_questions`、`cmd_study_quiz_submit`、`cmd_study_migrate_quizzes`；Web QuizPanel 从 backend 读取课程空间、草稿、active quiz 和提交结果。legacy quiz 迁移 id 固定为 `localStorage:kabuqina.study.quiz.v1`。语义/LLM 短答评分和 Gateway `/study` 命令仍留到后续里程碑。
 
 ### M4：学生状态、评估与学习计划
 

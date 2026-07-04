@@ -1,7 +1,7 @@
 # Copyright 2026 Kabuqina Contributors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Trusted desktop STUDY routes for course spaces, flashcards, and capture."""
+"""Trusted desktop STUDY routes for course spaces, flashcards, capture, and quizzes."""
 
 from __future__ import annotations
 
@@ -14,11 +14,13 @@ from learning.flashcards import FlashcardService
 from learning.learning_contract import ContractError
 from learning.learning_store import LearningStore
 from learning.output_writer import OutputWriter
+from learning.quizzes import QuizService
 from learning_owner import desktop_learning_scope
 
 router = APIRouter()
 
 FLASHCARD_MIGRATION_KEY = "localStorage:kabuqina.study.flashcards.v1"
+QUIZ_MIGRATION_KEY = "localStorage:kabuqina.study.quiz.v1"
 DEFAULT_SPACE_TITLE = "Default course"
 _SOURCE_KEYS = ("origin", "session_id", "source_label", "confidence", "gist")
 
@@ -77,6 +79,13 @@ def _ensure_space(ctx) -> str:
     if current:
         return current
     return ctx.create_space(title=DEFAULT_SPACE_TITLE)
+
+
+def _require_artifact(ctx, artifact_id: str) -> Dict[str, Any]:
+    artifact = ctx.get_artifact(artifact_id)
+    if not artifact:
+        raise KeyError(f"artifact {artifact_id!r} not found")
+    return artifact
 
 
 def _source_refs_from_body(body: Dict[str, Any]) -> list[Dict[str, str]]:
@@ -167,7 +176,12 @@ async def study_drafts(kind: Optional[str] = Query(default=None)):
 async def study_artifact_activate(artifact_id: str):
     try:
         with _desktop_ctx() as ctx:
-            return FlashcardService(ctx).activate_deck(artifact_id)
+            artifact = _require_artifact(ctx, artifact_id)
+            if artifact["kind"] == "flashcard_deck":
+                return FlashcardService(ctx).activate_deck(artifact_id)
+            if artifact["kind"] == "quiz":
+                return QuizService(ctx).activate_quiz(artifact_id)
+            raise ValueError(f"unsupported artifact kind: {artifact['kind']}")
     except (ValueError, KeyError, ContractError) as exc:
         raise _http_error(exc) from exc
 
@@ -176,7 +190,12 @@ async def study_artifact_activate(artifact_id: str):
 async def study_artifact_reject(artifact_id: str):
     try:
         with _desktop_ctx() as ctx:
-            return FlashcardService(ctx).reject_deck(artifact_id)
+            artifact = _require_artifact(ctx, artifact_id)
+            if artifact["kind"] == "flashcard_deck":
+                return FlashcardService(ctx).reject_deck(artifact_id)
+            if artifact["kind"] == "quiz":
+                return QuizService(ctx).reject_quiz(artifact_id)
+            raise ValueError(f"unsupported artifact kind: {artifact['kind']}")
     except (ValueError, KeyError, ContractError) as exc:
         raise _http_error(exc) from exc
 
@@ -253,6 +272,73 @@ async def study_flashcards_migrate(body: Dict[str, Any]):
                 "migrated": True,
                 "artifact_id": res["artifact_id"],
                 "cards": result["materialized"],
+                "status": result["status"],
+            }
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+
+@router.get("/api/desk/study/quizzes")
+async def study_quizzes():
+    try:
+        with _desktop_ctx() as ctx:
+            if not ctx.current_space():
+                return {"quizzes": []}
+            quizzes = QuizService(ctx).list_quizzes(status="active")
+            return {"quizzes": [_artifact_ref(item) for item in quizzes]}
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+
+@router.get("/api/desk/study/quizzes/{artifact_id}/questions")
+async def study_quiz_questions(artifact_id: str):
+    try:
+        with _desktop_ctx() as ctx:
+            artifact = _require_artifact(ctx, artifact_id)
+            if artifact["kind"] != "quiz":
+                raise ValueError("artifact is not a quiz")
+            questions = QuizService(ctx).list_questions(artifact_id=artifact_id)
+            return {"questions": questions}
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+
+@router.post("/api/desk/study/quizzes/{artifact_id}/submit")
+async def study_quiz_submit(artifact_id: str, body: Dict[str, Any]):
+    try:
+        with _desktop_ctx() as ctx:
+            responses = body.get("responses") if isinstance(body.get("responses"), dict) else {}
+            return QuizService(ctx).submit_attempt(artifact_id, responses)
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+
+@router.post("/api/desk/study/migrations/quizzes")
+async def study_quizzes_migrate(body: Dict[str, Any]):
+    try:
+        with _desktop_ctx() as ctx:
+            if ctx.is_migrated(QUIZ_MIGRATION_KEY):
+                return {"migrated": False, "questions": 0}
+            _ensure_space(ctx)
+            quiz = body.get("quiz") if isinstance(body.get("quiz"), dict) else {}
+            questions = quiz.get("questions") if isinstance(quiz, dict) else []
+            title = str(quiz.get("title") or body.get("title") or "Legacy quiz").strip()
+            writer = OutputWriter(ctx)
+            res = writer.write_artifact(
+                kind="quiz",
+                title=title,
+                payload={"questions": questions if isinstance(questions, list) else []},
+                source_refs=[{"origin": "legacy_local_storage", "key": QUIZ_MIGRATION_KEY}],
+            )
+            result = QuizService(ctx).activate_quiz(res["artifact_id"])
+            ctx.mark_migration(
+                QUIZ_MIGRATION_KEY,
+                detail={"artifact_id": res["artifact_id"], "questions": result["materialized"]},
+            )
+            return {
+                "migrated": True,
+                "artifact_id": res["artifact_id"],
+                "questions": result["materialized"],
                 "status": result["status"],
             }
     except (ValueError, KeyError, ContractError) as exc:

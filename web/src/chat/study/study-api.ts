@@ -79,6 +79,60 @@ export type StudyMigrationResponse = {
   status?: string;
 };
 
+export type StudyQuizzesResponse = {
+  quizzes: StudyArtifact[];
+};
+
+export type StudyQuizQuestionType = "choice" | "true_false" | "short_answer";
+
+export type StudyQuizQuestion = {
+  item_id: string;
+  artifact_id: string;
+  type: StudyQuizQuestionType;
+  prompt: string;
+  options?: string[];
+  multiple?: boolean;
+  explanation?: string;
+  tags?: string[];
+  points?: number;
+};
+
+export type StudyQuizQuestionsResponse = {
+  questions: StudyQuizQuestion[];
+};
+
+export type StudyQuizPerQuestion = {
+  item_id: string;
+  prompt: string;
+  type: StudyQuizQuestionType;
+  correct: boolean;
+  earned: number;
+  points: number;
+  answer?: unknown;
+  accepted?: string[];
+  explanation?: string;
+  tags?: string[];
+  response?: unknown;
+};
+
+export type StudyQuizResult = {
+  activity_id?: string;
+  score: number;
+  maxScore: number;
+  percent: number;
+  correctCount: number;
+  total: number;
+  weakTags?: string[];
+  perQuestion: StudyQuizPerQuestion[];
+};
+
+export type StudyQuizMigrationResponse = {
+  migrated: boolean;
+  artifact_id?: string;
+  questions: number;
+  status?: string;
+};
+
 export function cmdStudySpaces(): Promise<StudySpacesResponse> {
   return invoke("cmd_study_spaces");
 }
@@ -117,4 +171,20 @@ export function cmdStudyFlashcardReview(itemId: string, grade: string): Promise<
 
 export function cmdStudyMigrateFlashcards(deck: unknown): Promise<StudyMigrationResponse> {
   return invoke("cmd_study_migrate_flashcards", { deck });
+}
+
+export function cmdStudyQuizzes(): Promise<StudyQuizzesResponse> {
+  return invoke("cmd_study_quizzes");
+}
+
+export function cmdStudyQuizQuestions(artifactId: string): Promise<StudyQuizQuestionsResponse> {
+  return invoke("cmd_study_quiz_questions", { artifactId });
+}
+
+export function cmdStudyQuizSubmit(artifactId: string, responses: unknown): Promise<StudyQuizResult> {
+  return invoke("cmd_study_quiz_submit", { artifactId, responses });
+}
+
+export function cmdStudyMigrateQuizzes(quiz: unknown): Promise<StudyQuizMigrationResponse> {
+  return invoke("cmd_study_migrate_quizzes", { quiz });
 }

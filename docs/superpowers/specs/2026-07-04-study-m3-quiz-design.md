@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-04
 
-**Status:** Approved for implementation
+**Status:** Closed after implementation
 
 **Scope:** STUDY M3 only: quiz artifact lifecycle, deterministic quiz practice, legacy quiz migration, and the Web quiz surface. Gateway `/study` commands remain M5.
 
@@ -118,3 +118,14 @@ TDD coverage:
 - Rust command validation/registration via `cargo test study`.
 - Final M3 gate: `hermes_core` learning tests, desk STUDY tests, web quiz mapper/store tests, `npm run build`, `cargo test study`, and `git diff --check`.
 
+## Closure Evidence
+
+Implemented on 2026-07-04 with the deterministic option described above. `QuizService` owns activation, question materialization, deterministic grading, and `quiz.attempt` writes; desk routes and Tauri commands stay thin trusted proxies; the Web QuizPanel now uses backend drafts, active quizzes, question fetch, submit, result rendering, legacy migration, and `study-learning-event` refresh.
+
+Fresh verification evidence:
+
+- `hermes_core`: `python -m pytest tests/learning -o "addopts=" -p no:cacheprovider -q` -> `144 passed`.
+- `python`: `python -m pytest tests/test_study_routes.py tests/test_desk_chat_learning_context.py tests/test_learning_owner_context.py -o "addopts=" -p no:cacheprovider -q` -> `18 passed`.
+- `web`: `node src/chat/study/quizLearningStore.test.mjs`, `node src/chat/study/quizStore.test.mjs`, and `npm run build` -> mapper tests passed and production build succeeded, with the existing Vite chunk-size warning.
+- `tauri`: `cargo test study` -> `1 passed`.
+- `git diff --check` -> no whitespace errors; Git reported Windows line-ending conversion warnings only.

@@ -19,6 +19,7 @@
     "test:knowledge-points": "node src/chat/study/knowledgePoints.test.mjs",
     "test:flashcard-learning-store": "node src/chat/study/flashcardLearningStore.test.mjs",
     "test:quiz-store": "node src/chat/study/quizStore.test.mjs",
+    "test:quiz-learning-store": "node src/chat/study/quizLearningStore.test.mjs",
     "test:ui-prefs": "node src/lib/ui-prefs.test.mjs",
     "test:gateway-ux": "node src/advanced/gatewayUx.test.mjs",
     "test:capabilities-page": "node src/advanced/capabilitiesPage.test.mjs",

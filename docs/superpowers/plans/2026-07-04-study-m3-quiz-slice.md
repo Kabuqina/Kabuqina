@@ -33,17 +33,17 @@
 - Create: `hermes_core/learning/quizzes.py`
 - Create: `hermes_core/tests/learning/test_quizzes.py`
 
-- [ ] **Step 1: Write failing activation and rejection tests.**
+- [x] **Step 1: Write failing activation and rejection tests.**
 
 Add tests proving `QuizService.activate_quiz()` activates a draft `quiz` artifact and materializes one item per question with `item_type="quiz_question"`, while `reject_quiz()` rejects without materializing items.
 
-- [ ] **Step 2: Run RED.**
+- [x] **Step 2: Run RED.**
 
 Run: `cd hermes_core; python -m pytest tests/learning/test_quizzes.py -o "addopts=" -p no:cacheprovider -q`
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'learning.quizzes'`.
 
-- [ ] **Step 3: Implement minimal `QuizService` activation/rejection.**
+- [x] **Step 3: Implement minimal `QuizService` activation/rejection.**
 
 Implement constants:
 
@@ -65,15 +65,15 @@ class QuizService:
 
 Use item ids `f"{artifact_id}-{index:04d}"`. Store question state with prompt, type, options, answer, accepted, explanation, tags, points, createdAt, and artifact_id. Public question payloads hide answer/accepted unless `include_answers=True`.
 
-- [ ] **Step 4: Write failing deterministic grading tests.**
+- [x] **Step 4: Write failing deterministic grading tests.**
 
 Cover exact choice matching, true/false matching, short-answer normalized matching, incorrect answers, weak tag aggregation, and `quiz.attempt` activity details.
 
-- [ ] **Step 5: Run RED for grading.**
+- [x] **Step 5: Run RED for grading.**
 
 Expected: FAIL because `submit_attempt()` is missing.
 
-- [ ] **Step 6: Implement deterministic grading.**
+- [x] **Step 6: Implement deterministic grading.**
 
 Add:
 
@@ -83,7 +83,7 @@ def submit_attempt(self, artifact_id: str, responses: dict) -> dict: ...
 
 Normalize responses as `{question_item_id: {"selected": [...], "text": "...", "value": true}}`. Score all-or-nothing per question; default `points=1`; invalid/out-of-range responses are incorrect. Record a `quiz.attempt` activity with score, maxScore, percent, correctCount, total, responses, and perQuestion.
 
-- [ ] **Step 7: Run GREEN.**
+- [x] **Step 7: Run GREEN.**
 
 Run: `cd hermes_core; python -m pytest tests/learning/test_quizzes.py -o "addopts=" -p no:cacheprovider -q`
 
@@ -97,7 +97,7 @@ Expected: PASS.
 - Modify: `python/src/desk_server/routes/study_routes.py`
 - Modify: `python/tests/test_study_routes.py`
 
-- [ ] **Step 1: Write failing route tests.**
+- [x] **Step 1: Write failing route tests.**
 
 Add tests for:
 
@@ -107,21 +107,21 @@ Add tests for:
 - `POST /api/desk/study/quizzes/{artifact_id}/submit`;
 - `POST /api/desk/study/migrations/quizzes` idempotency.
 
-- [ ] **Step 2: Run RED.**
+- [x] **Step 2: Run RED.**
 
 Run: `cd python; python -m pytest tests/test_study_routes.py -o "addopts=" -p no:cacheprovider -q`
 
 Expected: FAIL with 404 for quiz routes and/or non-quiz activation behavior.
 
-- [ ] **Step 3: Implement route dispatch.**
+- [x] **Step 3: Implement route dispatch.**
 
 In `study_artifact_activate`, inspect artifact kind and dispatch `flashcard_deck` to `FlashcardService.activate_deck()` and `quiz` to `QuizService.activate_quiz()`. Do the same for reject.
 
-- [ ] **Step 4: Implement quiz endpoints and migration.**
+- [x] **Step 4: Implement quiz endpoints and migration.**
 
 Use migration key `localStorage:kabuqina.study.quiz.v1`. Migration body accepts `{ "quiz": { "title": "...", "questions": [...] } }`, writes a `kind="quiz"` artifact, activates it, marks migration, and returns `{ migrated, artifact_id, questions, status }`.
 
-- [ ] **Step 5: Run GREEN.**
+- [x] **Step 5: Run GREEN.**
 
 Run: `cd python; python -m pytest tests/test_study_routes.py tests/test_learning_owner_context.py -o "addopts=" -p no:cacheprovider -q`
 
@@ -135,11 +135,11 @@ Expected: PASS.
 - Modify: `tauri/src/study.rs`
 - Modify: `tauri/src/lib.rs`
 
-- [ ] **Step 1: Add Rust command coverage.**
+- [x] **Step 1: Add Rust command coverage.**
 
 Extend the existing study path-id validation test to cover quiz item/artifact ids. The existing `cargo test study` should continue to compile command registration.
 
-- [ ] **Step 2: Implement commands.**
+- [x] **Step 2: Implement commands.**
 
 Add:
 
@@ -152,11 +152,11 @@ cmd_study_migrate_quizzes(app: AppHandle, quiz: Value) -> Result<Value, String>
 
 Each validates path ids and calls `crate::chat::desk_json_request`.
 
-- [ ] **Step 3: Register commands.**
+- [x] **Step 3: Register commands.**
 
 Add all four commands to `tauri::generate_handler!`.
 
-- [ ] **Step 4: Run GREEN.**
+- [x] **Step 4: Run GREEN.**
 
 Run: `cd tauri; cargo test study`
 
@@ -172,7 +172,7 @@ Expected: PASS. In this repo, create a temporary empty `python/dist/runtime` dir
 - Create: `web/src/chat/study/quizLearningStore.test.mjs`
 - Modify: `web/package.json`
 
-- [ ] **Step 1: Write failing mapper tests.**
+- [x] **Step 1: Write failing mapper tests.**
 
 Test:
 
@@ -181,17 +181,17 @@ Test:
 - responses map to backend submit payload;
 - result summaries produce zh/en text from backend result.
 
-- [ ] **Step 2: Run RED.**
+- [x] **Step 2: Run RED.**
 
 Run: `cd web; node src/chat/study/quizLearningStore.test.mjs`
 
 Expected: FAIL because `quizLearningStore.ts` does not exist.
 
-- [ ] **Step 3: Implement mappers and API wrappers.**
+- [x] **Step 3: Implement mappers and API wrappers.**
 
 Add `StudyQuiz`, `StudyQuizQuestion`, `StudyQuizResult`, and command wrappers to `study-api.ts`. Implement mapper functions in `quizLearningStore.ts` without React/Tauri imports except type-only imports.
 
-- [ ] **Step 4: Run GREEN.**
+- [x] **Step 4: Run GREEN.**
 
 Run: `cd web; node src/chat/study/quizLearningStore.test.mjs`
 
@@ -206,23 +206,23 @@ Expected: PASS.
 - Modify: `web/src/chat/study/studyPrompts.ts`
 - Modify: `web/src/locales/strings.ts`
 
-- [ ] **Step 1: Update prompt.**
+- [x] **Step 1: Update prompt.**
 
 Change `QUIZ_GENERATION_PROMPT` so it asks the agent to use STUDY learning tools: confirm/create course space, call `learning_index_build`, then create `kind=quiz` via `learning_draft_create`. It must not ask the student to copy/paste JSON.
 
-- [ ] **Step 2: Replace primary QuizPanel data flow.**
+- [x] **Step 2: Replace primary QuizPanel data flow.**
 
 Load spaces, drafts, active quizzes, and questions from backend. Keep old `quizStore` only for migration payload reading and local result summary compatibility.
 
-- [ ] **Step 3: Implement quiz taking and submit.**
+- [x] **Step 3: Implement quiz taking and submit.**
 
 Collect responses by backend `item_id`; call `cmdStudyQuizSubmit(artifactId, responses)`; render returned score and per-question answers/explanations. Write summary back to study context using backend result.
 
-- [ ] **Step 4: Implement legacy migration and refresh event.**
+- [x] **Step 4: Implement legacy migration and refresh event.**
 
 On first load, convert `loadQuizState().quiz` to migration payload and call `cmdStudyMigrateQuizzes()` if it contains questions. Listen for `STUDY_LEARNING_EVENT` and refresh.
 
-- [ ] **Step 5: Run Web gate.**
+- [x] **Step 5: Run Web gate.**
 
 Run:
 
@@ -245,7 +245,7 @@ Expected: PASS/build succeeds.
 - Modify: `docs/superpowers/specs/2026-07-04-study-m3-quiz-design.md`
 - Modify: `docs/superpowers/plans/2026-07-04-study-m3-quiz-slice.md`
 
-- [ ] **Step 1: Run full M3 gate.**
+- [x] **Step 1: Run full M3 gate.**
 
 ```powershell
 cd hermes_core
@@ -260,18 +260,17 @@ cd ..\tauri
 cargo test study
 ```
 
-- [ ] **Step 2: Update docs.**
+- [x] **Step 2: Update docs.**
 
 Record M3 closure evidence, API names, event behavior, deterministic short-answer grading, and migration key. Reconfirm Gateway `/study` commands remain M5.
 
-- [ ] **Step 3: Review diff.**
+- [x] **Step 3: Review diff.**
 
 Run: `git diff --check && git diff --stat`
 
-- [ ] **Step 4: Commit.**
+- [x] **Step 4: Commit.**
 
 ```powershell
 git add DECISIONS.md docs/superpowers/specs docs/superpowers/plans hermes_core python tauri web
 git commit -m "feat: complete study m3 quiz slice"
 ```
-
