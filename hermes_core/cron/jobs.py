@@ -992,6 +992,11 @@ def mark_goal_job_run(
                 if status in _GOAL_TERMINAL_STATES or status == "paused":
                     job["enabled"] = False
                     job["state"] = status
+                elif job.get("schedule", {}).get("kind") not in ("cron", "interval"):
+                    job["enabled"] = False
+                    job["state"] = "paused"
+                    job["goal_status"] = "paused"
+                    job["last_error"] = "Goal jobs require a recurring schedule"
                 else:  # scheduled — keep tick's already-advanced next_run_at
                     job["state"] = "scheduled"
                 save_jobs(jobs)

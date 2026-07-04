@@ -818,7 +818,10 @@ def _goal_loop_enabled() -> bool:
     try:
         cfg = load_config() or {}
         cron_cfg = cfg.get("cron", {}) if isinstance(cfg, dict) else {}
-        return bool((cron_cfg.get("goal_loop") or {}).get("enabled", False))
+        goal_loop = cron_cfg.get("goal_loop", {})
+        if not isinstance(goal_loop, dict):
+            return False
+        return goal_loop.get("enabled", False) is True
     except Exception:
         return False
 

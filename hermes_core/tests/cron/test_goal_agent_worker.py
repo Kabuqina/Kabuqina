@@ -13,6 +13,7 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+import os
 
 import pytest
 
@@ -107,10 +108,15 @@ class FakeAgent:
         self._raise_exc = raise_exc
         self.sink = None
         self.run_calls = []
+        self.close_calls = 0
 
     def run_conversation(self, *, user_message, system_message=None, **kwargs):
         self.run_calls.append(
-            {"user_message": user_message, "system_message": system_message}
+            {
+                "user_message": user_message,
+                "system_message": system_message,
+                "terminal_cwd": os.environ.get("TERMINAL_CWD"),
+            }
         )
         for event in self._events:
             self.sink.on_attempt(event)
@@ -119,6 +125,9 @@ class FakeAgent:
         if self._report_payload is not None:
             record_active_goal_report(self._report_payload)
         return self._result
+
+    def close(self):
+        self.close_calls += 1
 
 
 class RecordingFactory:
@@ -346,3 +355,61 @@ def test_user_message_is_the_iteration_prompt(definition):
     worker.run_iteration(definition, _running_state())
 
     assert agent.run_calls[0]["user_message"] == "process one item"
+
+
+def test_agent_constructed_with_goal_workdir_context(definition):
+    factory = RecordingFactory(FakeAgent(report_payload=_REPORT_PAYLOAD))
+    worker = GoalAgentWorker(agent_engine="loop", agent_factory=factory)
+
+    worker.run_iteration(definition, _running_state())
+
+    call = factory.calls[0]
+    assert call["platform"] == "cron"
+    assert call["skip_context_files"] is False
+    assert call["skip_memory"] is True
+
+
+def test_goal_iteration_binds_and_restores_terminal_cwd(definition, monkeypatch):
+    agent = FakeAgent(report_payload=_REPORT_PAYLOAD)
+    factory = RecordingFactory(agent)
+    worker = GoalAgentWorker(agent_engine="loop", agent_factory=factory)
+    monkeypatch.setenv("TERMINAL_CWD", "D:\\prior")
+
+    worker.run_iteration(definition, _running_state())
+
+    assert os.environ["TERMINAL_CWD"] == "D:\\prior"
+    assert agent.run_calls[0]["terminal_cwd"] == str(definition.workdir)
+
+
+def test_goal_iteration_removes_terminal_cwd_when_previously_unset(
+    definition, monkeypatch
+):
+    agent = FakeAgent(report_payload=_REPORT_PAYLOAD)
+    factory = RecordingFactory(agent)
+    worker = GoalAgentWorker(agent_engine="loop", agent_factory=factory)
+    monkeypatch.delenv("TERMINAL_CWD", raising=False)
+
+    worker.run_iteration(definition, _running_state())
+
+    assert "TERMINAL_CWD" not in os.environ
+    assert agent.run_calls[0]["terminal_cwd"] == str(definition.workdir)
+
+
+def test_agent_is_closed_after_successful_iteration(definition):
+    agent = FakeAgent(report_payload=_REPORT_PAYLOAD)
+    factory = RecordingFactory(agent)
+    worker = GoalAgentWorker(agent_engine="loop", agent_factory=factory)
+
+    worker.run_iteration(definition, _running_state())
+
+    assert agent.close_calls == 1
+
+
+def test_agent_is_closed_after_run_exception(definition):
+    agent = FakeAgent(events=[_event()], raise_exc=RuntimeError("crash mid-turn"))
+    factory = RecordingFactory(agent)
+    worker = GoalAgentWorker(agent_engine="loop", agent_factory=factory)
+
+    worker.run_iteration(definition, _running_state())
+
+    assert agent.close_calls == 1

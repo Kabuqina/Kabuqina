@@ -26,6 +26,7 @@ narrow:
 
 from __future__ import annotations
 
+import os
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -95,18 +96,29 @@ class GoalAgentWorker:
         system_message = self._build_system_message(definition, state)
         enabled_toolsets = self._enabled_toolsets(definition)
         ledger = UsageLedger()
+        workdir = str(definition.workdir)
+        prior_terminal_cwd = os.environ.get("TERMINAL_CWD")
+        had_terminal_cwd = "TERMINAL_CWD" in os.environ
+        os.environ["TERMINAL_CWD"] = workdir
 
         # --- Setup phase: an exception here ran no tool -> safe infra failure ---
         try:
+            agent_kwargs = {
+                "model": self.model,
+                "session_id": session_id,
+                "enabled_toolsets": list(enabled_toolsets),
+                "usage_sink": ledger,
+                "agent_engine": self.agent_engine,
+                "platform": "cron",
+                "skip_context_files": False,
+                "skip_memory": True,
+            }
+            agent_kwargs.update(dict(self.extra_agent_kwargs))
             agent = self.agent_factory(
-                model=self.model,
-                session_id=session_id,
-                enabled_toolsets=list(enabled_toolsets),
-                usage_sink=ledger,
-                agent_engine=self.agent_engine,
-                **dict(self.extra_agent_kwargs),
+                **agent_kwargs,
             )
         except Exception as exc:
+            self._restore_terminal_cwd(had_terminal_cwd, prior_terminal_cwd)
             return WorkerObservation(
                 report=None,
                 usage=summarize_usage_events(()),
@@ -134,6 +146,13 @@ class GoalAgentWorker:
                 infrastructure_error=_sanitized_exception("worker_run", exc),
                 ambiguous_external_effect=True,
             )
+        finally:
+            try:
+                close = getattr(agent, "close", None)
+                if callable(close):
+                    close()
+            finally:
+                self._restore_terminal_cwd(had_terminal_cwd, prior_terminal_cwd)
 
         return WorkerObservation(
             report=report,
@@ -158,6 +177,13 @@ class GoalAgentWorker:
         ordered = dict.fromkeys(definition.enabled_toolsets)
         ordered[_GOAL_INTERNAL_TOOLSET] = None
         return tuple(ordered)
+
+    @staticmethod
+    def _restore_terminal_cwd(had_value: bool, prior_value: str | None) -> None:
+        if had_value:
+            os.environ["TERMINAL_CWD"] = prior_value or ""
+        else:
+            os.environ.pop("TERMINAL_CWD", None)
 
     def _build_system_message(
         self, definition: GoalDefinition, state: GoalRunState

@@ -49,6 +49,22 @@ class TestGoalLoopGateDefault:
         assert cfg["cron"]["wrap_response"] is True
         assert cfg["cron"]["max_parallel_jobs"] is None
 
+    @pytest.mark.parametrize("value", ["false", "true", 1, 0])
+    def test_runtime_gate_only_accepts_boolean_true(self, value, tmp_path):
+        from hermes_cli import config_loader
+        from hermes_constants import get_config_path
+        from cron.scheduler import _goal_loop_enabled
+
+        path = get_config_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            yaml.safe_dump({"cron": {"goal_loop": {"enabled": value}}}),
+            encoding="utf-8",
+        )
+        config_loader._LOAD_CONFIG_CACHE.clear()
+
+        assert _goal_loop_enabled() is False
+
 
 def _goal_kwargs(workdir_dir, **overrides):
     kwargs = {
@@ -349,6 +365,18 @@ class TestMarkGoalJobRun:
         assert updated["goal_status"] == "scheduled"
         assert updated["last_summary"] == "progress"
         assert updated["repeat"]["completed"] == 0
+
+    def test_scheduled_once_goal_is_paused_after_first_wake(self, tmp_path):
+        from cron.jobs import create_job, get_job, mark_goal_job_run
+
+        job = create_job(**_goal_kwargs(tmp_path, schedule="30m"))
+        mark_goal_job_run(job["id"], status="scheduled", last_summary="progress")
+
+        updated = get_job(job["id"])
+        assert updated["enabled"] is False
+        assert updated["state"] == "paused"
+        assert updated["goal_status"] == "paused"
+        assert updated["last_error"] == "Goal jobs require a recurring schedule"
 
     @pytest.mark.parametrize("status", ["completed", "paused", "cancelled"])
     def test_terminal_and_paused_disable_future_wakes(self, tmp_path, status):
