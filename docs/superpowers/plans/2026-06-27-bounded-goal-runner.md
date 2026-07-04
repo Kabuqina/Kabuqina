@@ -1112,8 +1112,11 @@ git commit -m "feat: integrate bounded goals with desktop profiles"
 
 ## G2 review gate — product exposure
 
-Do not expose `mode: goal` until (status as of 2026-07-03 — **1 of 5 met (with a
-waiver); G1 is open but G2 is not**):
+Do not expose `mode: goal` until (status as of 2026-07-03 — **2 of 5 met (one
+with a waiver); G1 is open but G2 is not. NOTE: G2 opens on the Task 11 Step 4
+soak, NOT on loop removal (Step 5). Step 5 is a *later, downstream* "Removal"
+gate — see the LangGraph plan's gate table. There is no circular dependency;
+Step 5 waits on G2 → Goal Runner Task 10, never the reverse**):
 
 - [x] Phase 3.5 Task 11 records a successful 14-day graph-default release soak.
   *(SATISFIED WITH A WAIVER, 2026-07-03. Steps 2–3 done + merged; Step 4 was
@@ -1123,13 +1126,15 @@ waiver); G1 is open but G2 is not**):
   parity/differential/exit/golden gates 215, both-API-mode smoke reusing Step 2's
   GO. The live-usage soak window is explicitly waived — see the LangGraph plan
   Step 4 closure note. Treated as met for gate purposes.)*
-- [ ] The loop escape hatch still works, or its planned removal has not yet
+- [x] The loop escape hatch still works, or its planned removal has not yet
   landed; Goal Runner passes with explicit `loop` and `graph` before removal.
-  *(Partial — the default is now `graph` but explicit `agent.engine: loop` /
-  `HERMES_AGENT_ENGINE=loop` remain covered rollback paths (the escape hatch is
-  retained for one release); the adapter propagates both engines and Task 7
-  unit-tests each, but the full Goal Runner
-  under both engines in a release build is not yet proven.)*
+  *(MET — the loop removal has NOT landed (Step 5 is downstream), and the escape
+  hatch works: explicit `agent.engine: loop` / `HERMES_AGENT_ENGINE=loop` are
+  retained for one release. The trailing "Goal Runner passes with explicit loop
+  and graph **before removal**" clause is a precondition of the **Removal gate
+  (Step 5)**, NOT of G2 — it is the Goal Runner Task 10 dual-engine pilot, which
+  runs after G2 opens while the loop still exists. Do not read it as a G2
+  blocker.)*
 - [ ] G1 tests pass in bundled CPython 3.11 and a release-equivalent desktop.
   *(NOT met — G1 tests ran on the dev system Python and a `cargo tauri dev`
   build, not the bundled CPython 3.11 / release-equivalent desktop.)*
