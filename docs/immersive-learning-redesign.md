@@ -140,6 +140,50 @@ M1 刻意做薄：不动布局、不加模式开关，只换灵魂、加附注�
   防编造与 no-emoji 保留），`chatUx.test.mjs` 断言同步改为新教学契约。
 - **B1 未完成，留到下一轮**：长回复分节展开；12 字段学习上下文折叠为摘要卡片。
 
+## 与 STUDY 四层学习管线的关系（2026-07-05 比对）
+
+`student/study-module` 分支的 [四层学习管线设计](superpowers/specs/2026-07-01-study-four-layer-learning-pipeline-design.md)
+（M1-M3 已收口,M4 已规划）与本方案是**互补的两条轨**：
+
+```text
+四层管线 = 数据/架构轨：learning.db、draft→active 审核、课程空间、owner 隔离
+本方案   = 行为/交互轨：导师灵魂、节奏契约、answer-then-teach、kq-kp 协议
+```
+
+对方管线没有教学行为层（本方案 A1/A2 填空）；本方案没有持久化与信任边界
+（对方管线补齐）。四层管线 §11 的"减少复制 JSON 主路径"与本方案的
+对话化改造目标一致。
+
+**合并时必须解决的冲突（按优先级）：**
+
+1. **chips 的写入目标**（实冲突）——本方案 M1 的知识点 chips 写
+   `flashcardStore`（localStorage `kabuqina.study.flashcards.v1`）,但
+   M2 已把卡组迁至 `learning.db`（一次性幂等迁移,旧 key 只读一个发布
+   周期）。合并后 chips 新增的卡会滞留在死存储里。需要一个受信的单卡
+   入库路径（backend 目前只有 deck 草稿 + activate/reject + 迁移,无单
+   卡 API）。待定设计：chip 点击视为用户显式确认（用户已读 name+gist）,
+   走受信 UI 直接 active;或轻量 draft+auto-activate。
+2. **A4（kq-study-update 写回协议）作废** —— 被 M4 的 `student_state` /
+   `evaluation` artifact + "prompts 指示 agent 用 learning_draft_create"
+   完全取代,且 M4 方案更优（owner 隔离、可审计）。A4 未实现,直接从
+   本方案移除,B2 的写回部分改为消费 M4 的 API。
+3. **studyPrompts 双改**（文本冲突,语义可合成）——本方案把七个动作对话
+   化;分支把 flashcard/quiz 生成 prompt 工具化（learning_draft_create）。
+   合并后需要第三轮：对话化的节奏 + 结尾用 learning 工具建草稿,
+   两者叠加而非二选一。M4 方案已要求 profile/path/evaluation prompts
+   工具化,届时以对话化版本为底稿。
+4. **12 字段上下文折叠（B1 遗留项）让位于 M4** —— M4 会把
+   `kabuqina.study.context.v1` 迁移为 backend `student_state` 并做最小
+   Web 面;B1 的"摘要卡片"不再单独做,并入 M4 的 StudySection 改造。
+5. **B3 学习空间 vs M6 生命周期 UI** —— 同一块领土：M6 按
+   `课程设置→计划→学习→练习→评估` 重组,B3 定义屏幕形态（学习者主
+   舞台+旁注对话）。必须合并设计,建议 B3 的三区布局作为 M6 的呈现层。
+
+**无冲突可直接合流的**：灵魂/学习行为段（分支未动 run_agent/soul）;
+kq-kp 协议本身（消息级轻量标注,与 artifact 管线正交——长期可把
+"知识点被保存"记为 `learning_activities`,喂给 Learning Index 的
+weak_points 投影）。
+
 ## 4. 风险与取舍
 
 - **标记协议污染正文** — 严格约定尾部块；前端剥离；解析失败静默降级。
