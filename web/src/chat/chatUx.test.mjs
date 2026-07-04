@@ -1067,57 +1067,97 @@ assert.deepEqual(
 for (const [id, prompt] of Object.entries(STUDY_PROMPTS)) {
   assert.ok(typeof prompt === "string" && prompt.length > 0, `${id} prompt should be a non-empty string`);
   assert.match(prompt, /不要.*编造/, `${id} prompt should forbid fabricating unknown info`);
-  assert.match(prompt, /请不要使用 emoji/, `${id} prompt should keep the no-emoji academic style`);
+  assert.match(prompt, /请不要使用 emoji/, `${id} prompt should keep the no-emoji style`);
+  // The immersive-learning redesign (docs/immersive-learning-redesign.md)
+  // turned these actions from report generators into guided conversations:
+  // no fixed multi-section output contracts.
+  assert.doesNotMatch(
+    prompt,
+    /输出格式请固定为/,
+    `${id} prompt must not demand a fixed report format (work-agent pattern)`,
+  );
+}
+// The six learning actions must pace the conversation: one question or one
+// step at a time, handing the turn back to the learner.
+for (const id of [
+  "learningProfile",
+  "learningPath",
+  "courseKnowledgeBase",
+  "learningResources",
+  "learningTutor",
+  "learningEvaluation",
+]) {
+  assert.match(
+    STUDY_PROMPTS[id],
+    /一次只|每次只/,
+    `${id} prompt should pace the dialogue one question/step at a time`,
+  );
 }
 assert.match(
   STUDY_PROMPTS.learningProfile,
-  /个性化学习画像[\s\S]*至少包含 6 个维度[\s\S]*已确认 \/ 待确认 \/ 推断/,
-  "Learning-profile prompt should require bounded dimensions and uncertainty labels.",
-);
-assert.match(
-  STUDY_PROMPTS.courseKnowledgeBase,
-  /初始知识库 \/ 文档集[\s\S]*课程 -> 单元 -> 知识点 -> 子技能[\s\S]*版权\/许可/,
-  "Course-knowledge-base prompt should build a structured course corpus with import metadata.",
-);
-assert.match(
-  STUDY_PROMPTS.courseKnowledgeBase,
-  /质量核验与防幻觉规则[\s\S]*已确认 \/ 待确认 \/ 推断/,
-  "Course-knowledge-base prompt should require quality checks and uncertainty labels.",
-);
-assert.match(
-  STUDY_PROMPTS.learningResources,
-  /多智能体协同[\s\S]*至少 5 类学习资源[\s\S]*防幻觉/,
-  "Resource-pack prompt should require multi-agent generation, five resource types, and hallucination checks.",
+  /画像[\s\S]*复述确认[\s\S]*已确认[\s\S]*推断/,
+  "Learning-profile prompt should co-build the profile conversationally with uncertainty labels.",
 );
 assert.match(
   STUDY_PROMPTS.learningPath,
-  /学习闭环上下文[\s\S]*最近评估结论[\s\S]*建议写回学习上下文的字段摘要/,
-  "Learning-path prompt should consume loop state and emit a write-back summary.",
+  /阶段[\s\S]*只细化最近的一个阶段[\s\S]*写回学习上下文/,
+  "Learning-path prompt should confirm coarse stages first and only detail the nearest one.",
+);
+assert.match(
+  STUDY_PROMPTS.courseKnowledgeBase,
+  /一个单元或章节[\s\S]*前置知识[\s\S]*易错点[\s\S]*待确认/,
+  "Course-knowledge-base prompt should process one unit at a time with provenance labels.",
 );
 assert.match(
   STUDY_PROMPTS.learningResources,
-  /建议写回学习上下文的字段摘要/,
-  "Resource-pack prompt should emit a write-back summary for the loop state.",
+  /每次只做一类[\s\S]*基础、进阶、应用[\s\S]*写回学习上下文/,
+  "Resource-pack prompt should deliver one resource type at a time with tiered exercises.",
 );
 assert.match(
   STUDY_PROMPTS.learningTutor,
-  /智能辅导智能体[\s\S]*文字解释[\s\S]*图解\/思维导图大纲/,
-  "Tutoring prompt should provide personalized multi-format guidance.",
+  /一次只讲一个概念或一步推导[\s\S]*先给提示让我再试一次[\s\S]*明确要求直接给答案[\s\S]*完整给出/,
+  "Tutoring prompt should step through concepts, hint-first on practice, but never withhold demanded answers.",
 );
 assert.match(
   STUDY_PROMPTS.learningEvaluation,
-  /学习效果评估[\s\S]*至少覆盖 6 个维度[\s\S]*动态调整[\s\S]*建议写回学习上下文的字段摘要/,
-  "Evaluation prompt should assess learning effects and adjust the plan.",
+  /一次只出一题[\s\S]*反馈[\s\S]*薄弱[\s\S]*写回学习上下文/,
+  "Evaluation prompt should quiz one item at a time and summarize weak points with evidence.",
 );
 assert.match(
   STUDY_PROMPTS.contentSafetyReview,
-  /防幻觉与内容安全审核[\s\S]*至少覆盖 6 个维度[\s\S]*版权\/许可标注/,
-  "Safety-review prompt should cover hallucination, safety, and license checks.",
+  /防幻觉与内容安全审核[\s\S]*版权[\s\S]*阻塞 \/ 需修改 \/ 建议优化[\s\S]*已确认 \/ 待确认 \/ 推断/,
+  "Safety-review prompt should cover hallucination, license checks, severity and evidence labels.",
+);
+
+// ── kq-kp knowledge-point protocol ──────────────────────────────────────────
+// Assistant messages strip the trailing kq-kp block from the prose (also for
+// copy/TTS) and render it as chips that feed the spaced-repetition deck. The
+// parsing contract itself is covered by knowledgePoints.test.mjs.
+assert.match(
+  chatMessageSource,
+  /splitKnowledgePoints\(text\)/,
+  "ChatMessage should split kq-kp knowledge points out of assistant text.",
 );
 assert.match(
-  STUDY_PROMPTS.contentSafetyReview,
-  /阻塞 \/ 需修改 \/ 建议优化[\s\S]*已确认 \/ 待确认 \/ 推断[\s\S]*修订版摘要/,
-  "Safety-review prompt should classify risks, uncertainty, and revision output.",
+  chatMessageSource,
+  /<ChatMarkdown text=\{body\} \/>/,
+  "ChatMessage should render the stripped body, never the raw kq-kp block.",
+);
+assert.match(
+  chatMessageSource,
+  /points\.length > 0 && <KnowledgePointChips points=\{points\} \/>/,
+  "ChatMessage should render knowledge-point chips only when a message has points.",
+);
+assert.match(
+  chatMessageSource,
+  /<AssistantMessageFooter text=\{body\}/,
+  "Copy/TTS should use the stripped body, not the raw text.",
+);
+const kpChipsSource = fs.readFileSync(new URL("./study/KnowledgePointChips.tsx", import.meta.url), "utf8");
+assert.match(
+  kpChipsSource,
+  /upsertCards\(loadDeck\(\), \[card\]\)/,
+  "Knowledge-point chips should feed the flashcard deck (click → review queue).",
 );
 assert.match(
   studySectionSource,

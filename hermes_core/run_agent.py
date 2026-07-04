@@ -132,7 +132,7 @@ from providers.error_classifier import classify_api_error, FailoverReason
 from agent.prompt_builder import (
     DEFAULT_AGENT_IDENTITY, PLATFORM_HINTS,
     MEMORY_GUIDANCE, SESSION_SEARCH_GUIDANCE, SKILLS_GUIDANCE,
-    HERMES_AGENT_HELP_GUIDANCE,
+    HERMES_AGENT_HELP_GUIDANCE, LEARNING_CONDUCT_GUIDANCE,
     build_nous_subscription_prompt,
     build_deliverable_planner_prompt,
 )
@@ -4679,6 +4679,10 @@ class AIAgent:
         if not _soul_loaded:
             # Fallback to hardcoded identity
             prompt_parts = [DEFAULT_AGENT_IDENTITY]
+
+        # Learning-conduct contract sits right after identity so it survives a
+        # user-customized SOUL.md (persona is editable, conduct is canonical).
+        prompt_parts.append(LEARNING_CONDUCT_GUIDANCE)
 
         # Pointer to the hermes-agent skill + docs for user questions about Hermes itself.
         prompt_parts.append(HERMES_AGENT_HELP_GUIDANCE)

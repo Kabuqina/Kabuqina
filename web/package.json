@@ -15,6 +15,7 @@
     "test:chat-display": "node src/chat/chatDisplay.test.mjs",
     "test:study-store": "node src/chat/study/studyStore.test.mjs",
     "test:flashcard-store": "node src/chat/study/flashcardStore.test.mjs",
+    "test:knowledge-points": "node src/chat/study/knowledgePoints.test.mjs",
     "test:quiz-store": "node src/chat/study/quizStore.test.mjs",
     "test:ui-prefs": "node src/lib/ui-prefs.test.mjs",
     "test:gateway-ux": "node src/advanced/gatewayUx.test.mjs",

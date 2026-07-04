@@ -860,6 +860,38 @@ class TestBuildSystemPrompt:
         prompt = agent._build_system_prompt()
         assert DEFAULT_AGENT_IDENTITY in prompt
 
+    def test_always_has_learning_conduct(self, agent):
+        # The learning-conduct contract (rhythm, answer-then-teach, kq-kp
+        # protocol) is canonical and must be present regardless of persona.
+        from agent.prompt_builder import LEARNING_CONDUCT_GUIDANCE
+
+        prompt = agent._build_system_prompt()
+        assert LEARNING_CONDUCT_GUIDANCE in prompt
+
+    def test_learning_conduct_survives_custom_soul(self):
+        # A user-customized SOUL.md replaces the identity slot but must not
+        # strip the teaching behavior — persona is editable, conduct is not.
+        from agent.prompt_builder import LEARNING_CONDUCT_GUIDANCE
+
+        with (
+            patch("run_agent.get_tool_definitions", return_value=_make_tool_defs("terminal")),
+            patch("run_agent.check_toolset_requirements", return_value={}),
+            patch("run_agent.OpenAI"),
+            patch("run_agent.load_soul_md", return_value="CUSTOM SOUL"),
+        ):
+            agent = AIAgent(
+                api_key="test-k...7890",
+                base_url="https://openrouter.ai/api/v1",
+                quiet_mode=True,
+                skip_context_files=True,
+                load_soul_identity=True,
+                skip_memory=True,
+            )
+            prompt = agent._build_system_prompt()
+
+        assert "CUSTOM SOUL" in prompt
+        assert LEARNING_CONDUCT_GUIDANCE in prompt
+
     def test_can_use_soul_identity_even_when_context_files_are_skipped(self):
         with (
             patch("run_agent.get_tool_definitions", return_value=_make_tool_defs("terminal")),

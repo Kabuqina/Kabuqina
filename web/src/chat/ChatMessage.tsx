@@ -1,12 +1,14 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, ChevronUp, Copy, Volume2 } from "lucide-react";
 import { useI18n } from "../lib/i18n";
 import { cn } from "../lib/cn";
 import { AssistantAvatar } from "../components/AssistantAvatar";
 import { cmdTtsSpeak, type DeskAttachmentPayload } from "./chat-api";
+import { KnowledgePointChips } from "./study/KnowledgePointChips";
+import { splitKnowledgePoints } from "./study/knowledgePoints";
 
 const ChatMarkdown = lazy(() => import("./ChatMarkdown"));
 
@@ -327,6 +329,15 @@ export function ChatMessage({ role, text, attachments, model, streaming = false 
   const [collapsed, setCollapsed] = useState(false);
   const isUser = role === "user";
 
+  // kq-kp protocol: the learning-conduct layer asks the model to end teaching
+  // replies with a fenced knowledge-point block. Strip it from the prose (also
+  // mid-stream, once the closing fence arrives) and render it as chips instead.
+  // Copy and TTS get the stripped body — the block is app metadata, not prose.
+  const { body, points } = useMemo(
+    () => (isUser ? { body: text, points: [] } : splitKnowledgePoints(text)),
+    [isUser, text],
+  );
+
   useEffect(() => {
     if (!streaming) {
       setCollapsed(false);
@@ -383,17 +394,18 @@ export function ChatMessage({ role, text, attachments, model, streaming = false 
                       <ChevronUp className="h-3.5 w-3.5" strokeWidth={2.5} />
                     </button>
                     <p className="whitespace-pre-wrap break-words pr-5 text-sm leading-[1.6] text-[var(--kq-color-ink)] [overflow-wrap:anywhere]">
-                      {text}
+                      {body}
                     </p>
                   </>
                 )}
               </div>
             ) : (
               <Suspense fallback={<div className="text-sm text-[var(--kq-color-muted)] italic">...</div>}>
-                <ChatMarkdown text={text} />
+                <ChatMarkdown text={body} />
               </Suspense>
             )}
-            <AssistantMessageFooter text={text} model={model} />
+            {!streaming && points.length > 0 && <KnowledgePointChips points={points} />}
+            <AssistantMessageFooter text={body} model={model} />
           </>
         )}
       </div>

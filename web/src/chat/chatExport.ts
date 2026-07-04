@@ -4,6 +4,7 @@
 import type { Locale } from "../lib/i18n-core";
 import type { MessageRow, SessionRow } from "./chat-api";
 import { parseDeskUserContent } from "./deskUserContent";
+import { splitKnowledgePoints } from "./study/knowledgePoints";
 
 export type ExportDialogueTurn = {
   role: "user" | "assistant";
@@ -17,6 +18,7 @@ export type ExportLabels = {
   productName: string;
   userLabel: string;
   documentTitle: string;
+  knowledgePointsLabel: string;
 };
 
 export type ExportFormat = "json" | "markdown" | "text" | "pdf";
@@ -27,12 +29,14 @@ export function exportLabelsForLocale(locale: Locale): ExportLabels {
       productName: "Kabuqina",
       userLabel: "You",
       documentTitle: "Kabuqina · Chat history",
+      knowledgePointsLabel: "Knowledge points",
     };
   }
   return {
     productName: "卡布奇娜",
     userLabel: "用户",
     documentTitle: "卡布奇娜 · 聊天记录",
+    knowledgePointsLabel: "知识点",
   };
 }
 
@@ -105,7 +109,15 @@ export function rowsToExportDialogue(rows: MessageRow[], labels: ExportLabels): 
       continue;
     }
 
-    const text = contentToString(m.content).trim();
+    // kq-kp protocol: exports mirror the chat UI — the machine-readable block
+    // never appears as raw JSON; its points become a readable trailer list.
+    const { body, points } = splitKnowledgePoints(contentToString(m.content));
+    const kpTrailer = points.length
+      ? `\n\n${labels.knowledgePointsLabel}:\n${points
+          .map((p) => `- ${p.name} — ${p.gist}`)
+          .join("\n")}`
+      : "";
+    const text = body.trim() ? `${body.trim()}${kpTrailer}` : "";
     if (!text) {
       continue;
     }

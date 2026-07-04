@@ -9,6 +9,14 @@ The following areas have been modified by Kabuqina Contributors to support
 desktop-shell integration, Windows-specific policies, and student / academic
 workflows:
 
+- `hermes_cli/default_soul.py` — Kabuqina learning-mentor persona replaces the
+  generic assistant identity (rewrite; see docs/immersive-learning-redesign.md)
+- `agent/prompt_builder.py` — Added `LEARNING_CONDUCT_GUIDANCE`: teaching
+  rhythm contract, answer-then-teach rule, and the kq-kp knowledge-point
+  trailer protocol consumed by the web frontend (patch)
+- `run_agent.py` — `_build_system_prompt` injects the learning-conduct layer
+  right after the identity slot, so it survives a customized SOUL.md (patch)
+
 > **TODO — awaiting review by the core development agent.**
 >
 > Please audit the git history of `hermes_core/` and list the modules / files
