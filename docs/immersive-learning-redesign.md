@@ -159,10 +159,11 @@ M1 刻意做薄：不动布局、不加模式开关，只换灵魂、加附注�
 1. **chips 的写入目标**（实冲突）——本方案 M1 的知识点 chips 写
    `flashcardStore`（localStorage `kabuqina.study.flashcards.v1`）,但
    M2 已把卡组迁至 `learning.db`（一次性幂等迁移,旧 key 只读一个发布
-   周期）。合并后 chips 新增的卡会滞留在死存储里。需要一个受信的单卡
-   入库路径（backend 目前只有 deck 草稿 + activate/reject + 迁移,无单
-   卡 API）。待定设计：chip 点击视为用户显式确认（用户已读 name+gist）,
-   走受信 UI 直接 active;或轻量 draft+auto-activate。
+   周期）。合并后 chips 新增的卡会滞留在死存储里。解法已成稿：受信
+   单卡捕获路径（`FlashcardService.capture_card` +
+   `POST /api/desk/study/flashcards/capture`,写入即激活,按 front 去重
+   幂等,记 `flashcard.capture` 活动）,见
+   [知识点单卡捕获设计](superpowers/specs/2026-07-05-study-knowledge-point-capture-design.md)。
 2. **A4（kq-study-update 写回协议）作废** —— 被 M4 的 `student_state` /
    `evaluation` artifact + "prompts 指示 agent 用 learning_draft_create"
    完全取代,且 M4 方案更优（owner 隔离、可审计）。A4 未实现,直接从
