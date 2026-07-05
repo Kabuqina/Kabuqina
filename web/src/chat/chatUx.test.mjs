@@ -249,8 +249,18 @@ assert.match(
 
 assert.match(
   stringsSource,
-  /workspaceTitle:\s*"ACADEMY"/,
-  "Chat workspace panel title should use ACADEMY.",
+  /workspaceModeReport:\s*"REPORT"/,
+  "The launchpad tab label is REPORT (ACADEMY was renamed in the v0.3.0 reorg).",
+);
+assert.doesNotMatch(
+  stringsSource,
+  /workspaceTitle:\s*"ACADEMY"|workspaceMathAbility:/,
+  "The old ACADEMY tab title and Math-ability keys must not linger in the locales.",
+);
+assert.match(
+  stringsSource,
+  /workspaceMathCode:\s*"数学与代码"/,
+  "The math section is titled 数学与代码 inside STUDY.",
 );
 
 assert.match(
@@ -334,7 +344,32 @@ assert.match(
 assert.match(
   workspacePanelSource,
   /workspace\.mathAbility[\s\S]*workspaceFormulaToCode[\s\S]*workspaceCodeToFormula[\s\S]*workspaceMathFormulaExtract/,
-  "Workspace panel should group code/formula conversion and formula extraction under Math Ability, formula-to-code first.",
+  "Workspace panel should group code/formula conversion and formula extraction under Math & Code, formula-to-code first.",
+);
+// ACADEMY→REPORT reorg (docs/superpowers/specs/2026-07-05-study-math-code-practice-design.md §6.1):
+// math is a learning function, so its section renders inside the STUDY branch,
+// after the StudySection quick actions; the report branch keeps only PPT.
+assert.match(
+  workspacePanelSource,
+  /<StudySection onStartPrompt=\{onStartPrompt\} \/>[\s\S]*workspace\.mathAbility/,
+  "Math & Code must live in the STUDY tab, below the study quick actions.",
+);
+assert.doesNotMatch(
+  workspacePanelSource,
+  /"academy"/,
+  "The academy mode id is gone — the launchpad tab is REPORT now.",
+);
+// The math prompts follow the STUDY conversational contract plus the
+// answer-then-teach hook (knowledge points + offer of a variant round).
+assert.match(
+  workspacePanelSource,
+  /一次只问一个问题[\s\S]*变式练习[\s\S]*请不要使用 emoji/,
+  "Math & Code prompts should pace one question per turn and end with the variant-practice hook.",
+);
+assert.match(
+  workspacePanelSource,
+  /反向练一遍[\s\S]*我拒绝就不再追问/,
+  "Code-to-formula should offer reverse practice without nagging after refusal.",
 );
 assert.match(
   workspacePanelSource,
@@ -345,13 +380,13 @@ assert.match(
 assert.doesNotMatch(
   workspacePanelSource,
   /workspace\.otherCommon|cron\.title|workspaceOpenWorkspace|workspaceOrganizeDesktop|chat\.exportButton/,
-  "Academy panel should not keep non-academy common actions.",
+  "Workspace panel should not keep non-launchpad common actions.",
 );
 
 assert.match(
   sidebarSource,
   /workspaceOpenWorkspace[\s\S]*cron\.title[\s\S]*workspaceOrganizeDesktop[\s\S]*chat\.exportButton/,
-  "Chat sidebar should move non-academy common actions below chat history, open workspace first.",
+  "Chat sidebar should keep common actions below chat history, open workspace first.",
 );
 
 assert.match(
@@ -407,13 +442,13 @@ assert.doesNotMatch(
 );
 assert.match(
   workspacePanelSource,
-  /setMode\("work"\)[\s\S]*setMode\("study"\)[\s\S]*setMode\("academy"\)/,
-  "Right rail should offer a WORK / STUDY / ACADEMY mode switch instead of nesting work inside academy.",
+  /setMode\("work"\)[\s\S]*setMode\("study"\)[\s\S]*setMode\("report"\)/,
+  "Right rail should offer a WORK / STUDY / REPORT mode switch instead of nesting work inside the launchpad.",
 );
 assert.match(
   workspacePanelSource,
   /workspace\.deliverables[\s\S]*workspace\.reportPpt[\s\S]*workspace\.mathAbility/,
-  "WORK mode should show deliverables before ACADEMY's PPT/math launchpad.",
+  "Source order: WORK deliverables, then REPORT's PPT launchpad, then STUDY's Math & Code.",
 );
 assert.match(
   workspacePanelSource,

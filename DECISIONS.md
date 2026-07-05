@@ -774,3 +774,19 @@ Later M2 merge obligations:
    the migration, and the branch migration route does not dedupe.
 3. FlashcardPanel remains legacy until M2. Captured cards live in `learning.db`
    and are invisible to the review UI during this accepted dev-only gap.
+
+**ACADEMY→REPORT + math into STUDY (2026-07-05, v0.3.0 structural move).** The
+right-rail launchpad tab is renamed ACADEMY→REPORT (mode id `report`; the PPT
+launchpad and visual-master picker stay unchanged — REPORT is task-mode work,
+the answer-then-teach exemption zone). The math ability section moves into the
+STUDY tab as「数学与代码」(Math & Code): math is a learning function, not a
+conversion service. Its three prompts are rewritten to the STUDY conversational
+contract (one question per turn, no fabrication, no emoji) and end with the
+answer-then-teach hook — name the knowledge points involved and offer a variant
+practice round (conversational only; the persisted exercise contract, sandbox
+grader, and practice ladder are v0.4.0/v0.5.0 per
+`docs/superpowers/specs/2026-07-05-study-math-code-practice-design.md`).
+Frontend/prompt-layer only: no capability-registry change (the
+`math-expression-engineering` ids stay candidates), no backend routes, no
+engine change (soak-safe). `workspace.mathAbility` keeps its sectionId so
+collapse preferences survive the move.

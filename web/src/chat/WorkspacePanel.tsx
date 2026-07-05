@@ -441,11 +441,14 @@ export function WorkspacePanel({
 }: WorkspacePanelProps) {
   const { t, locale } = useI18n();
   // The right rail is one surface with three modes: WORK (this session's goal /
-  // materials / deliverables), ACADEMY (the launchpad of report/math abilities),
-  // and STUDY (the student learning-planning quick actions).
-  // Start on ACADEMY; morph to WORK the first time a deliverable appears.
-  const [mode, setMode] = useState<"work" | "academy" | "study">(
-    outputs.length > 0 ? "work" : "academy",
+  // materials / deliverables), REPORT (the launchpad of report/PPT deliverables),
+  // and STUDY (learning quick actions + math & code). REPORT is task-mode work
+  // (the answer-then-teach exemption zone); math abilities live in STUDY because
+  // they are learning functions, not conversion services — see
+  // docs/superpowers/specs/2026-07-05-study-math-code-practice-design.md.
+  // Start on REPORT; morph to WORK the first time a deliverable appears.
+  const [mode, setMode] = useState<"work" | "report" | "study">(
+    outputs.length > 0 ? "work" : "report",
   );
   const [pptVisualMaster, setPptVisualMaster] = useState<(typeof PPT_VISUAL_MASTERS)[number]["id"]>("soft_editorial");
   const selectedPptVisualMaster =
@@ -480,29 +483,39 @@ export function WorkspacePanel({
     "请把我提供的代码项目或课设材料转换成课设答辩 PPT（structure=code_defense，template=code_defense）。";
   const sandtableToPptBase =
     "请把我提供的经营沙盘模拟材料目录（各经营周期的财务数据、决策记录、报表截图等）转换成经营沙盘复盘 PPT（structure=sandtable_review，template=sandtable_review）。"
+  // Math & Code prompts follow the STUDY conversational contract (one question
+  // per turn, small steps, no fabrication, no emoji) while keeping the full
+  // engineering verification requirements. Each ends with the answer-then-teach
+  // hook: point out the knowledge involved, offer a variant practice round —
+  // conversational only for now; the persisted exercise contract is v0.4.0
+  // (see the math-code practice design, §6.1).
   const codeToFormulaPrompt =
     [
-      "请把我提供的代码转换成清晰的数学公式表达。",
-      "请先识别变量、输入输出、循环/递推/损失函数/约束条件，再用 LaTeX 给出对应公式；如果代码语义不完整，请列出需要我补充的上下文。",
-      "最后必须给出语义核对清单：变量含义、维度/定义域、边界条件、输出范围或不变量，并说明这些公式是否覆盖原代码的全部关键分支。",
+      "请把我提供的代码转换成清晰的数学公式表达。如果我还没有贴代码，或代码语义不完整（缺少变量定义、输入输出不明），请先问我，一次只问一个问题，不要编造语义。",
+      "转换时先识别变量、输入输出、循环/递推/损失函数/约束条件，再用 LaTeX 给出对应公式；附语义核对清单：变量含义、维度/定义域、边界条件、输出范围或不变量，并说明这些公式是否覆盖原代码的全部关键分支，不确定的分支明确标注为待确认。",
+      "给出公式后，用一两句话点出这段代码背后的数学概念和值得回头补的知识点，并问我要不要反向练一遍（由我对照公式手写实现，或解释某一步为什么成立）；我拒绝就不再追问。",
+      "请不要使用 emoji，保持清晰、克制、温和的导师风格。",
     ].join("\n\n");
   const formulaToCodePrompt = [
-    `请把我提供的数学公式转换成 ${selectedMathLanguage.label} 代码，并加入公式语义校验层。`,
+    `请把我提供的数学公式转换成 ${selectedMathLanguage.label} 代码，并加入公式语义校验层。如果我还没有给出公式，或公式里有含义不明的符号，请先问我，一次只问一个问题，不要编造语义。`,
     `调用 math_formula_to_code 时使用 language="${selectedMathLanguage.id}"。该工具会先用 SymPy 把公式规范化为标准表达式，再用 SymPy 的代码打印器转成目标语言，并用 NumPy lambdify 对照 SymPy evalf 做数值自检（结果在 validation 字段）。`,
     "先输出 semantic_contract：逐条列出变量含义、维度、定义域/取值范围、前提条件、输出范围、不变量，以及结论必须满足的开闭区间或边界要求。",
     "必须生成并运行可执行测试：至少覆盖一个正常样例、一个边界/端点样例、一个反例或失败样例；如果公式有解析解或已知性质，加入 property/随机测试。",
-    "测试通过条件不能只看数值误差，还必须逐条检查 semantic_contract。例如存在 c ∈ (a,b) 时，必须断言 a < c < b，端点不能标绿。",
-    "如果无法自动验证某条语义约束，请明确标为 needs_human_check，不要把结果包装成完全通过。",
+    "测试通过条件不能只看数值误差，还必须逐条检查 semantic_contract。例如存在 c ∈ (a,b) 时，必须断言 a < c < b，端点不能标绿。如果无法自动验证某条语义约束，请明确标为 needs_human_check，不要把结果包装成完全通过。",
+    "交付代码后，用一两句话点出这次转换涉及的知识点（公式背后的概念、实现里容易踩的坑），并问我要不要做一道变式练习（换参数或换形式再实现一次）来巩固；我拒绝就不再追问。",
+    "请不要使用 emoji，保持清晰、克制、温和的导师风格。",
   ].join("\n\n");
-  const mathFormulaExtractPrompt =
-    "请从我上传的图片、PDF 或文档中提取数学公式。优先使用可用的精确读取/公式识别工具，输出 LaTeX、公式含义和所在页码或位置；识别不确定的符号请明确标注，并给出需要人工确认的候选。";
+  const mathFormulaExtractPrompt = [
+    "请从我上传的图片、PDF 或文档中提取数学公式。优先使用可用的精确读取/公式识别工具，输出 LaTeX、公式含义和所在页码或位置；识别不确定的符号明确标注为待确认，并给出需要人工确认的候选，不要写成事实。",
+    "提取完成后，问我是否需要把其中某个公式讲解一遍或转换成代码，一次只推进一步。请不要使用 emoji。",
+  ].join("\n\n");
 
   const deliverables = latestDeliverables(outputs);
   const trimmedGoal = goal?.trim() || null;
   const showContext = Boolean(trimmedGoal) || materials.length > 0 || Boolean(activeTool);
 
   // Reveal WORK automatically the moment the first deliverable lands, without
-  // overriding a later manual switch back to ACADEMY.
+  // overriding a later manual switch back to REPORT.
   const hadDeliverables = useRef(deliverables.length > 0);
   useEffect(() => {
     const has = deliverables.length > 0;
@@ -559,11 +572,11 @@ export function WorkspacePanel({
           <button
             type="button"
             role="tab"
-            aria-selected={mode === "academy"}
-            className={cn("kq-workspace-tab", mode === "academy" && "is-active")}
-            onClick={() => setMode("academy")}
+            aria-selected={mode === "report"}
+            className={cn("kq-workspace-tab", mode === "report" && "is-active")}
+            onClick={() => setMode("report")}
           >
-            {t("chat.workspaceTitle")}
+            {t("chat.workspaceModeReport")}
           </button>
         </div>
         <button
@@ -641,7 +654,7 @@ export function WorkspacePanel({
               </p>
               <button
                 type="button"
-                onClick={() => setMode("academy")}
+                onClick={() => setMode("report")}
                 className="kq-quick-action mt-3 flex w-full items-center gap-2 rounded-[10px] px-2.5 py-2 text-left text-[12.5px] leading-snug transition"
               >
                 <Rocket className="h-3.5 w-3.5 shrink-0" style={{ color: "var(--kq-color-primary-dark)" }} aria-hidden />
@@ -651,7 +664,7 @@ export function WorkspacePanel({
           </WorkspaceSection>
         )}
         </>
-        ) : mode === "academy" ? (
+        ) : mode === "report" ? (
         <>
         <WorkspaceSection sectionId="workspace.reportPpt" title={t("chat.workspaceReportPpt")} dotColor="var(--kq-color-primary-dark)">
           <div className="mt-3 grid grid-cols-1 gap-2">
@@ -696,7 +709,14 @@ export function WorkspacePanel({
           </div>
         </WorkspaceSection>
 
-        <WorkspaceSection sectionId="workspace.mathAbility" title={t("chat.workspaceMathAbility")} dotColor="#4466cc">
+        </>
+        ) : (
+        <>
+        <StudySection onStartPrompt={onStartPrompt} />
+        {/* Math & Code — learning functions, not conversion services; the
+            sectionId keeps the old workspace.mathAbility so collapse
+            preferences survive the ACADEMY→REPORT reorg. */}
+        <WorkspaceSection sectionId="workspace.mathAbility" title={t("chat.workspaceMathCode")} dotColor="#4466cc">
           <div className="mt-3 grid grid-cols-1 gap-2">
             <label className="kq-workspace-body grid grid-cols-1 gap-1.5 text-[13px] leading-snug">
               <span className="inline-flex items-center gap-1.5 font-medium">
@@ -732,10 +752,6 @@ export function WorkspacePanel({
             />
           </div>
         </WorkspaceSection>
-        </>
-        ) : (
-        <>
-        <StudySection onStartPrompt={onStartPrompt} />
         </>
         )}
       </div>
