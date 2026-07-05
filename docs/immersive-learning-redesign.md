@@ -3,6 +3,7 @@
 > Status: **M1 in progress**（A1/A2/A3 + B1 的协议与快捷动作部分已落地，见下方 M1 实现记录）
 > Last updated: 2026-07-05
 > 前置阅读：[learning-layer.md](learning-layer.md)（Learning Layer 的边界与交互模式定义）
+> 后续评审：[learning-runtime-alignment.md](learning-runtime-alignment.md)（harness 与 graph 层的改造点与排期分配,含 kq-kp gateway 门控这一 bug 级事项）
 
 ## 0. 出发点
 
