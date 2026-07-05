@@ -36,6 +36,7 @@ mod python_supervisor;
 mod qq_env;
 mod qqbot_qr;
 mod secrets;
+mod study;
 mod telegram_env;
 mod tray;
 mod validation;
@@ -196,6 +197,8 @@ pub fn run() {
             chat::cmd_load_package_download,
             chat::cmd_load_package_delete,
             chat::cmd_tts_speak,
+            study::cmd_study_flashcards,
+            study::cmd_study_flashcard_capture,
             weixin_qr::cmd_weixin_qr_start,
             weixin_qr::cmd_weixin_qr_status,
             weixin_qr::cmd_weixin_env_status,

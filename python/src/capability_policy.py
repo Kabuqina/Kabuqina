@@ -34,6 +34,7 @@ SAFE_TOOLSETS = {
     "clarify",
     "documents",
     "math",
+    "learning",
     "cronjob",
     "messaging",
 }

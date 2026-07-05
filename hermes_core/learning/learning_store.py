@@ -518,6 +518,103 @@ class LearningStore:
 
         self._execute_write(_op)
 
+    # ── items ─────────────────────────────────────────────────────────── #
+
+    def upsert_item(
+        self,
+        owner_id: str,
+        space_id: str,
+        *,
+        item_id: str,
+        item_type: str,
+        artifact_id: Optional[str] = None,
+        state: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        _require(owner_id, "owner_id")
+        _require(space_id, "space_id")
+        _require(item_id, "item_id")
+        _require(item_type, "item_type")
+        state_json = json.dumps(state or {}, ensure_ascii=False)
+        now = _now()
+
+        def _op(conn: sqlite3.Connection) -> None:
+            conn.execute(
+                "INSERT INTO learning_items "
+                "(owner_id, space_id, item_id, artifact_id, item_type, state_json, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT(owner_id, space_id, item_id) DO UPDATE SET "
+                "artifact_id = excluded.artifact_id, "
+                "item_type = excluded.item_type, "
+                "state_json = excluded.state_json, "
+                "updated_at = excluded.updated_at",
+                (
+                    owner_id,
+                    space_id,
+                    item_id,
+                    artifact_id,
+                    item_type,
+                    state_json,
+                    now,
+                    now,
+                ),
+            )
+
+        self._execute_write(_op)
+        return item_id
+
+    def _row_to_item(self, row: sqlite3.Row) -> Dict[str, Any]:
+        d = dict(row)
+        d["state"] = json.loads(d.pop("state_json") or "{}")
+        return d
+
+    def list_items(
+        self,
+        owner_id: str,
+        space_id: str,
+        *,
+        item_type: Optional[str] = None,
+        artifact_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        _require(owner_id, "owner_id")
+        _require(space_id, "space_id")
+        sql = "SELECT * FROM learning_items WHERE owner_id = ? AND space_id = ?"
+        params: List[Any] = [owner_id, space_id]
+        if item_type is not None:
+            sql += " AND item_type = ?"
+            params.append(item_type)
+        if artifact_id is not None:
+            sql += " AND artifact_id = ?"
+            params.append(artifact_id)
+        sql += " ORDER BY created_at, item_id"
+        return [
+            self._row_to_item(r)
+            for r in self._conn.execute(sql, params).fetchall()
+        ]
+
+    def update_item_state(
+        self,
+        owner_id: str,
+        space_id: str,
+        item_id: str,
+        state: Dict[str, Any],
+    ) -> None:
+        _require(owner_id, "owner_id")
+        _require(space_id, "space_id")
+        _require(item_id, "item_id")
+        state_json = json.dumps(state or {}, ensure_ascii=False)
+        now = _now()
+
+        def _op(conn: sqlite3.Connection) -> None:
+            cur = conn.execute(
+                "UPDATE learning_items SET state_json = ?, updated_at = ? "
+                "WHERE owner_id = ? AND space_id = ? AND item_id = ?",
+                (state_json, now, owner_id, space_id, item_id),
+            )
+            if cur.rowcount == 0:
+                raise KeyError(f"item {item_id!r} not found for owner/space")
+
+        self._execute_write(_op)
+
     # ── activities ─────────────────────────────────────────────────────── #
 
     def insert_activity(

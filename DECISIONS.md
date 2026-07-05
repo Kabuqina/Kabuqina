@@ -746,3 +746,28 @@ resolved value and passes that same value into `AIAgent`, so support evidence
 cannot disagree with the engine actually used. The support procedure is documented in
 `docs/troubleshooting.md` §19. Legacy-loop removal remains gated by Task 11's
 14-day soak and bounded Goal Runner A/B evidence.
+
+**STUDY M1 foundation merge + kq-kp capture postfix (2026-07-05).** The
+integration branch intentionally stops the data merge at M1: it brings in the
+shared learning foundation (`learning_contract`, `learning.db`, owner/space
+isolation, Output Writer, Learning Index, PlannerSpec, and the minimal
+model-facing `learning` toolset) while preserving the immersive behavior M1
+work from `main` (`LEARNING_CONDUCT_GUIDANCE`, `kq-kp` parsing/chips, and
+conversational STUDY prompts). The only post-M1 vertical slice added before M2
+is trusted single-card capture for kq-kp chips: UI clicks call
+`POST /api/desk/study/flashcards/capture`, which writes one active
+`flashcard_deck`, materializes one `learning_items` flashcard, and records a
+`flashcard.capture` activity. Model tools still cannot activate or capture
+cards directly.
+
+Later M2 merge obligations:
+
+1. `hermes_core/learning/flashcards.py`, `python/src/desk_server/routes/study_routes.py`,
+   `tauri/src/study.rs`, and `web/src/chat/study/study-api.ts` now exist on the
+   integration branch as capture-minimal versions. The M2 merge must union
+   methods/routes/commands into these files, not replace them.
+2. M2's legacy flashcard migration must dedupe by normalized front against
+   existing `learning_items` before import; capture-created cards may predate
+   the migration, and the branch migration route does not dedupe.
+3. FlashcardPanel remains legacy until M2. Captured cards live in `learning.db`
+   and are invisible to the review UI during this accepted dev-only gap.

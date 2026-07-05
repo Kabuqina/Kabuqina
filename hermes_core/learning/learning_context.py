@@ -122,6 +122,46 @@ class LearningExecutionContext:
             self._owner_id, self._require_space(), artifact_id, new_status
         )
 
+    # ── items ─────────────────────────────────────────────────────────── #
+
+    def upsert_item(
+        self,
+        *,
+        item_id: str,
+        item_type: str,
+        artifact_id: Optional[str] = None,
+        state: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        return self._store.upsert_item(
+            self._owner_id,
+            self._require_space(),
+            item_id=item_id,
+            item_type=item_type,
+            artifact_id=artifact_id,
+            state=state,
+        )
+
+    def list_items(
+        self,
+        *,
+        item_type: Optional[str] = None,
+        artifact_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        return self._store.list_items(
+            self._owner_id,
+            self._require_space(),
+            item_type=item_type,
+            artifact_id=artifact_id,
+        )
+
+    def update_item_state(self, item_id: str, state: Dict[str, Any]) -> None:
+        self._store.update_item_state(
+            self._owner_id,
+            self._require_space(),
+            item_id,
+            state,
+        )
+
     # ── activities + migrations ────────────────────────────────────────── #
 
     def record_activity(

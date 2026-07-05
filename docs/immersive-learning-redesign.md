@@ -154,15 +154,22 @@ M1 刻意做薄：不动布局、不加模式开关，只换灵魂、加附注�
 （对方管线补齐）。四层管线 §11 的"减少复制 JSON 主路径"与本方案的
 对话化改造目标一致。
 
+**M1 merge decision (2026-07-05):** stop at M1 by integrating only the shared
+learning foundation (`learning_contract`, `learning.db`, owner/space isolation,
+Learning Index, Output Writer, PlannerSpec, minimal `learning` toolset) while
+keeping the immersive behavior M1 UI (`kq-kp` chips and conversational STUDY
+prompts). M2/M3 backend-driven Flashcard/Quiz UI, desk routes, Tauri study
+commands, and M4 state/evaluation work remain out of this merge. The one
+exception is the M1 postfix trusted single-card capture path below, added so
+`kq-kp` chips no longer write to legacy localStorage.
+
 **合并时必须解决的冲突（按优先级）：**
 
-1. **chips 的写入目标**（实冲突）——本方案 M1 的知识点 chips 写
-   `flashcardStore`（localStorage `kabuqina.study.flashcards.v1`）,但
-   M2 已把卡组迁至 `learning.db`（一次性幂等迁移,旧 key 只读一个发布
-   周期）。合并后 chips 新增的卡会滞留在死存储里。解法已成稿：受信
-   单卡捕获路径（`FlashcardService.capture_card` +
-   `POST /api/desk/study/flashcards/capture`,写入即激活,按 front 去重
-   幂等,记 `flashcard.capture` 活动）,见
+1. **chips 的写入目标（已解决,2026-07-05 M1 postfix）**——知识点 chips
+   已从 `flashcardStore`（localStorage `kabuqina.study.flashcards.v1`）
+   改为受信单卡捕获路径（`FlashcardService.capture_card` +
+   `POST /api/desk/study/flashcards/capture`），写入即激活,按 front 去重
+   幂等,记 `flashcard.capture` 活动。设计记录见
    [知识点单卡捕获设计](superpowers/specs/2026-07-05-study-knowledge-point-capture-design.md)。
 2. **A4（kq-study-update 写回协议）作废** —— 被 M4 的 `student_state` /
    `evaluation` artifact + "prompts 指示 agent 用 learning_draft_create"
