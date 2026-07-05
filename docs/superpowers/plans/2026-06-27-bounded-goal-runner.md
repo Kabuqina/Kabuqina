@@ -1112,20 +1112,21 @@ git commit -m "feat: integrate bounded goals with desktop profiles"
 
 ## G2 review gate — product exposure
 
-Do not expose `mode: goal` until (status as of 2026-07-03 — **2 of 5 met (one
-with a waiver); G1 is open but G2 is not. NOTE: G2 opens on the Task 11 Step 4
+Do not expose `mode: goal` until (status as of 2026-07-05 — **1 of 5 met; G1
+is open but G2 is not. NOTE: G2 opens on the Task 11 Step 4
 soak, NOT on loop removal (Step 5). Step 5 is a *later, downstream* "Removal"
 gate — see the LangGraph plan's gate table. There is no circular dependency;
 Step 5 waits on G2 → Goal Runner Task 10, never the reverse**):
 
-- [x] Phase 3.5 Task 11 records a successful 14-day graph-default release soak.
-  *(SATISFIED WITH A WAIVER, 2026-07-03. Steps 2–3 done + merged; Step 4 was
-  **closed early by owner decision — the ≥14-day calendar soak was NOT run to
-  term**. Substituted evidence on merged main `76b1343f`: pinned installer
-  re-verified (`9ABCA52E…`, unchanged), fresh graph regression 296 + loop 296 +
-  parity/differential/exit/golden gates 215, both-API-mode smoke reusing Step 2's
-  GO. The live-usage soak window is explicitly waived — see the LangGraph plan
-  Step 4 closure note. Treated as met for gate purposes.)*
+- [ ] Phase 3.5 Task 11 records a successful 14-day graph-default release soak.
+  *(REOPENED, 2026-07-05. The 2026-07-03 owner waiver was rescinded; Step 4's
+  substituted regression/hash evidence remains historical baseline evidence but
+  is no longer treated as met for gate purposes. The soak clock restarts only
+  after a refreshed graph-default candidate is pinned, beginning regressions and
+  both-API-mode release smoke are green, and artifact/hash evidence is recorded
+  in the LangGraph plan. Because Task 11 code has already merged, reopened
+  debug and soak happen on `main`; the old task11 worktree is historical
+  evidence only.)*
 - [x] The loop escape hatch still works, or its planned removal has not yet
   landed; Goal Runner passes with explicit `loop` and `graph` before removal.
   *(MET — the loop removal has NOT landed (Step 5 is downstream), and the escape

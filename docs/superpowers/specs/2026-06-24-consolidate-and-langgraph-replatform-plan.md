@@ -1539,9 +1539,9 @@ Change `agent.engine` default from `loop` to `graph`. Retain explicit
 `agent.engine: loop` and `HERMES_AGENT_ENGINE=loop` for one release. Update user
 support documentation with the rollback setting.
 
-- [x] **Step 4: complete a release-cycle soak** *(CLOSED EARLY BY OWNER
-  2026-07-03 — the ≥14-day calendar window was deliberately compressed/waived,
-  not run to term. See the closure note below for the substituted evidence.)*
+- [~] **Step 4: complete a release-cycle soak** *(REOPENED BY OWNER
+  2026-07-05 — the 2026-07-03 waiver is rescinded. The historical early
+  closure note remains below for audit, but it no longer satisfies G2.)*
 
 The soak is at least 14 days and requires:
 
@@ -1574,6 +1574,16 @@ soak started and was closed the same day: the ≥14-day production window was
 strength of the substituted evidence below rather than an extended live soak.
 Recorded honestly so no reader mistakes this for a completed 14-day soak.
 
+**REOPEN NOTE — waiver rescinded by owner decision, 2026-07-05.** Step 4 is
+open again. The substituted evidence below is still useful baseline evidence,
+but it is no longer gate-satisfying evidence for G2. The soak clock restarts
+only after a refreshed graph-default candidate is pinned, beginning regression
+and both-API-mode release smoke are green, and the artifact/hash are recorded
+here. The completion target is candidate start + at least 14 calendar days.
+Because Task 11 development has already merged, reopened debugging and soak run
+on `main`; the old `codex/task11-release-smoke` worktree is historical evidence
+only, not the active soak workspace.
+
 Substituted evidence (gathered on merged `main` @ `76b1343f`, 2026-07-03):
 
 - [x] Pinned installer re-verified: `Kabuqina_0.2.0_x64-setup.exe` still hashes
@@ -1590,9 +1600,10 @@ Substituted evidence (gathered on merged `main` @ `76b1343f`, 2026-07-03):
       observation. Any graph regression found later must still land first as a
       loop fixture, then be fixed.
 
-This satisfies G2 gate condition 1 (with the waiver noted); G2's other four
-conditions remain open. Its Task 10 may expose the host-only Pilot 1 while the
-loop escape hatch still exists.
+This no longer satisfies G2 gate condition 1 after the 2026-07-05 waiver
+rescission. G2 remains closed; Task 10 must not expose the host-only Pilot 1 on
+the strength of the waived Step 4 evidence. Re-evaluate G2 only after the
+reopened soak completes to term while the loop escape hatch still exists.
 
 - [ ] **Step 5: remove the legacy loop in a dedicated commit**
 
