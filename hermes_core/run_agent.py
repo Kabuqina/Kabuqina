@@ -13051,6 +13051,7 @@ class _GraphServicesAdapter:
         # rotate the pool entry, matching the legacy inner retry loop.
         self._has_retried_429: bool = False
         self._nous_auth_retry_attempted: bool = False
+        self._anthropic_auth_retry_attempted: bool = False
         # Raw SDK response objects are runtime collaborators, not serializable
         # graph state.  Keep one here until ``process_response`` consumes it.
         self._pending_response: Any = None
@@ -13136,6 +13137,7 @@ class _GraphServicesAdapter:
         agent._unicode_sanitization_passes = 0
         agent._usage_attempt_index = 0  # Per-turn UsageEvent index (review P1-4)
         self._nous_auth_retry_attempted = False
+        self._anthropic_auth_retry_attempted = False
 
         # Copy conversation and add user message
         messages = list(conversation_history) if conversation_history else []
@@ -14428,6 +14430,33 @@ class _GraphServicesAdapter:
                     api_call_count, messages, retry_count=retry_count
                 )
 
+        # Anthropic OAuth/setup-token credentials can be refreshed after a 401
+        # in the legacy loop.  Keep graph parity so gateway sessions recover
+        # instead of treating the first auth failure as non-retryable.
+        if (
+            getattr(agent, "api_mode", "") == "anthropic_messages"
+            and _status_code == 401
+            and hasattr(agent, "_anthropic_api_key")
+            and not self._anthropic_auth_retry_attempted
+        ):
+            self._anthropic_auth_retry_attempted = True
+            try:
+                refreshed = agent._try_refresh_anthropic_client_credentials()
+            except Exception:
+                refreshed = False
+                logger.debug(
+                    "graph: Anthropic credential refresh failed",
+                    exc_info=True,
+                )
+            if refreshed:
+                agent._safe_print(
+                    f"{agent.log_prefix}🔐 Anthropic credentials refreshed "
+                    "after 401. Retrying request..."
+                )
+                return self._retry_route(
+                    api_call_count, messages, retry_count=retry_count
+                )
+
         try:
             recovered_with_pool, self._has_retried_429 = (
                 agent._recover_with_credential_pool(
@@ -14576,8 +14605,9 @@ class _GraphServicesAdapter:
         system_message = self._original_system_message
         task_id = state.get("effective_task_id", "default") or "default"
         original_len = len(messages)
+        new_system_message = state.get("system_message") or ""
         try:
-            new_messages, _new_sys = agent._compress_context(
+            new_messages, new_system_message = agent._compress_context(
                 messages, system_message, approx_tokens=None, task_id=task_id,
             )
         except Exception:
@@ -14596,7 +14626,10 @@ class _GraphServicesAdapter:
                 f"messages, retrying..."
             )
             return self._compression_retry_route(
-                api_call_count, new_messages, compression_attempts
+                api_call_count,
+                new_messages,
+                compression_attempts,
+                system_message=new_system_message,
             )
         return self._compression_exhausted_result(
             new_messages, api_call_count,
@@ -14636,7 +14669,10 @@ class _GraphServicesAdapter:
                     ),
                 )
             return self._compression_retry_route(
-                api_call_count, messages, compression_attempts
+                api_call_count,
+                messages,
+                compression_attempts,
+                system_message=state.get("system_message") or "",
             )
 
         # ── Prompt too long → step the context window down a tier (:11388) ──
@@ -14693,8 +14729,9 @@ class _GraphServicesAdapter:
         system_message = self._original_system_message
         task_id = state.get("effective_task_id", "default") or "default"
         original_len = len(messages)
+        new_system_message = state.get("system_message") or ""
         try:
-            new_messages, _new_sys = agent._compress_context(
+            new_messages, new_system_message = agent._compress_context(
                 messages, system_message, approx_tokens=approx_tokens, task_id=task_id,
             )
         except Exception:
@@ -14711,7 +14748,10 @@ class _GraphServicesAdapter:
                     f"messages, retrying..."
                 )
             return self._compression_retry_route(
-                api_call_count, new_messages, compression_attempts
+                api_call_count,
+                new_messages,
+                compression_attempts,
+                system_message=new_system_message,
             )
         return self._compression_exhausted_result(
             new_messages, api_call_count,
@@ -14719,16 +14759,19 @@ class _GraphServicesAdapter:
         )
 
     def _compression_retry_route(
-        self, api_call_count, messages, compression_attempts
+        self, api_call_count, messages, compression_attempts, *, system_message=None
     ) -> dict:
         """Retry within the same turn after a compression/step-down attempt."""
-        return {
+        route = {
             "route": "prepare_request",
             "messages": messages,
             "api_call_count": api_call_count,
             "compression_attempts": compression_attempts,
             "first_attempt": False,
         }
+        if system_message is not None:
+            route["system_message"] = system_message
+        return route
 
     def _compression_exhausted_result(self, messages, api_call_count, *, error) -> dict:
         """Frozen compression-exhausted exit shape (loop :11292/:11323).

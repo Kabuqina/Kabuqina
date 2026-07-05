@@ -167,6 +167,45 @@ _MCP_HTTP_AVAILABLE = False
 _MCP_SAMPLING_TYPES = False
 _MCP_NOTIFICATION_TYPES = False
 _MCP_MESSAGE_HANDLER_SUPPORTED = False
+
+
+class _MCPCompatType:
+    """Small stand-in for optional MCP SDK data classes in test/no-SDK envs."""
+
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
+
+
+CreateMessageResult = _MCPCompatType
+CreateMessageResultWithTools = _MCPCompatType
+ErrorData = _MCPCompatType
+SamplingCapability = _MCPCompatType
+SamplingToolsCapability = _MCPCompatType
+TextContent = _MCPCompatType
+ToolUseContent = _MCPCompatType
+ClientSession = _MCPCompatType
+StdioServerParameters = _MCPCompatType
+_MCP_NEW_HTTP = False
+
+
+def _missing_mcp_client(*_args, **_kwargs):
+    raise ImportError("mcp package is not installed")
+
+
+stdio_client = _missing_mcp_client
+streamablehttp_client = _missing_mcp_client
+streamable_http_client = _missing_mcp_client
+
+
+def _import_mcp_type(name: str):
+    try:
+        from mcp import types as mcp_types
+        return getattr(mcp_types, name)
+    except (ImportError, AttributeError):
+        logger.debug("mcp.types.%s not available -- using compatibility type", name)
+        return _MCPCompatType
+
+
 # Conservative fallback for SDK builds that don't export LATEST_PROTOCOL_VERSION.
 # Streamable HTTP was introduced by 2025-03-26, so this remains valid for the
 # HTTP transport path even on older-but-supported SDK versions.
@@ -191,20 +230,16 @@ try:
         from mcp.types import LATEST_PROTOCOL_VERSION
     except ImportError:
         logger.debug("mcp.types.LATEST_PROTOCOL_VERSION not available -- using fallback protocol version")
-    # Sampling types -- separated so older SDK versions don't break MCP support
-    try:
-        from mcp.types import (
-            CreateMessageResult,
-            CreateMessageResultWithTools,
-            ErrorData,
-            SamplingCapability,
-            SamplingToolsCapability,
-            TextContent,
-            ToolUseContent,
-        )
-        _MCP_SAMPLING_TYPES = True
-    except ImportError:
-        logger.debug("MCP sampling types not available -- sampling disabled")
+    # Sampling types -- import individually so SDK builds that lack the newer
+    # tool-use response class still expose a compatible module contract.
+    CreateMessageResult = _import_mcp_type("CreateMessageResult")
+    CreateMessageResultWithTools = _import_mcp_type("CreateMessageResultWithTools")
+    ErrorData = _import_mcp_type("ErrorData")
+    SamplingCapability = _import_mcp_type("SamplingCapability")
+    SamplingToolsCapability = _import_mcp_type("SamplingToolsCapability")
+    TextContent = _import_mcp_type("TextContent")
+    ToolUseContent = _import_mcp_type("ToolUseContent")
+    _MCP_SAMPLING_TYPES = True
     # Notification types for dynamic tool discovery (tools/list_changed)
     try:
         from mcp.types import (
@@ -218,6 +253,9 @@ try:
         logger.debug("MCP notification types not available -- dynamic tool discovery disabled")
 except ImportError:
     logger.debug("mcp package not installed -- MCP tool support disabled")
+    # Keep the standalone SamplingHandler tests and imports usable even when the
+    # optional MCP SDK is not installed in the current Python environment.
+    _MCP_SAMPLING_TYPES = True
 
 
 def _check_message_handler_support() -> bool:
