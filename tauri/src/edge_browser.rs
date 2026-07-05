@@ -58,6 +58,7 @@ pub fn spawn(data_dir: &std::path::Path) -> Result<Child, String> {
         .arg(format!("--user-data-dir={}", profile.display()))
         .arg("--no-first-run")
         .arg("--no-default-browser-check")
+        .arg("--no-startup-window")
         .arg("--headless=new")
         .arg("--disable-gpu")
         .stdout(Stdio::null())

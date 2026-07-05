@@ -33,6 +33,7 @@ PyJWT[crypto]>=2.12.0,<3
 
 # --- Web server (Hermes' built-in localhost UI) --------------------------
 fastapi>=0.104.0,<1
+click>=8.1.8,<9                    # uvicorn CLI/runtime import dependency; keep explicit for pip --target bundles
 uvicorn[standard]>=0.24.0,<1
 
 # --- HermesDesk L1 built-in helpers (QuickActions) ------------------------

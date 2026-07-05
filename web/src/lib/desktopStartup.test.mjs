@@ -22,8 +22,21 @@ assert.ok(
 
 const mainSource = fs.readFileSync(new URL("../main.tsx", import.meta.url), "utf8");
 assert.ok(
-  mainSource.includes("showMainWindowWhenReady"),
-  "The main webview should call showMainWindowWhenReady() after React has rendered the first frame.",
+  mainSource.includes("revealMainWindowAfterShellPaint"),
+  "The main webview should reveal only after the shell has mounted and painted.",
+);
+assert.match(
+  mainSource,
+  /function MainWindowShell[\s\S]*useEffect[\s\S]*revealMainWindowAfterShellPaint/,
+  "The main shell component should own the reveal timing so the native window is not shown before React content exists.",
+);
+assert.ok(
+  mainSource.includes("MAIN_WINDOW_REVEAL_DELAY_MS"),
+  "Main window reveal should include a small post-paint delay to avoid a blank WebView first frame.",
+);
+assert.ok(
+  !mainSource.includes("showMainWindowWhenReady();"),
+  "The entrypoint should not reveal the main window immediately after ReactDOM.render().",
 );
 
 assert.ok(
@@ -89,6 +102,10 @@ assert.ok(
 assert.ok(
   edgeBrowser.includes("--disable-gpu"),
   "Headless Edge should disable GPU compositing to avoid visible blank surfaces on Windows.",
+);
+assert.ok(
+  edgeBrowser.includes("--no-startup-window"),
+  "Edge CDP backend should explicitly avoid creating an initial blank browser window.",
 );
 
 const secretsSource = fs.readFileSync(

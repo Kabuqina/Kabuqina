@@ -1,7 +1,7 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import React from "react";
+import React, { useEffect } from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -43,13 +43,66 @@ const windowLabel = (() => {
   }
 })();
 
-function showMainWindowWhenReady() {
-  const win = getCurrentWindow();
+const MAIN_WINDOW_REVEAL_DELAY_MS = 48;
+
+function revealMainWindowAfterShellPaint() {
+  let win: ReturnType<typeof getCurrentWindow>;
+  try {
+    win = getCurrentWindow();
+  } catch {
+    return;
+  }
+
+  let timeoutId: number | undefined;
   window.requestAnimationFrame(() => {
     window.requestAnimationFrame(() => {
-      void win.show();
+      timeoutId = window.setTimeout(() => {
+        void win.show();
+      }, MAIN_WINDOW_REVEAL_DELAY_MS);
     });
   });
+
+  return () => {
+    if (timeoutId !== undefined) {
+      window.clearTimeout(timeoutId);
+    }
+  };
+}
+
+function MainWindowShell() {
+  useEffect(() => revealMainWindowAfterShellPaint(), []);
+
+  return (
+    <I18nProvider>
+      <BrowserRouter>
+        <div className="flex h-full min-h-0 flex-col">
+          <WindowTitleBar />
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <Routes>
+              <Route path="/" element={<Splash />} />
+              <Route path="/onboarding/*" element={<Wizard />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/settings/load-packages" element={<LoadPackagesPage />} />
+              <Route path="/capabilities" element={<CapabilitiesPage />} />
+              <Route path="/export" element={<Export />} />
+              <Route path="/settings/feishu" element={<FeishuPage />} />
+              <Route path="/settings/qq" element={<QqPage />} />
+              <Route path="/settings/weixin" element={<WeixinPage />} />
+              <Route path="/settings/wecom" element={<WeComPage />} />
+              <Route path="/settings/cron" element={<ScheduledTasksPage />} />
+              <Route path="/chat" element={<ChatPage />} />
+              <Route path="/brand-svg-preview" element={<BrandSvgPreview />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+            <DesktopDeliveryNotifier />
+            <ApprovalDialogHost />
+            <ConfirmDialogHost />
+            <DesktopDeliveryPoller />
+          </div>
+        </div>
+      </BrowserRouter>
+    </I18nProvider>
+  );
 }
 
 if (windowLabel === "capture-overlay") {
@@ -71,36 +124,7 @@ if (windowLabel === "capture-overlay") {
   // --- Main window: normal app shell ---
   ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
-      <I18nProvider>
-        <BrowserRouter>
-          <div className="flex h-full min-h-0 flex-col">
-            <WindowTitleBar />
-            <div className="min-h-0 flex-1 overflow-hidden">
-              <Routes>
-                <Route path="/" element={<Splash />} />
-                <Route path="/onboarding/*" element={<Wizard />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="/settings/load-packages" element={<LoadPackagesPage />} />
-                <Route path="/capabilities" element={<CapabilitiesPage />} />
-                <Route path="/export" element={<Export />} />
-                <Route path="/settings/feishu" element={<FeishuPage />} />
-                <Route path="/settings/qq" element={<QqPage />} />
-                <Route path="/settings/weixin" element={<WeixinPage />} />
-                <Route path="/settings/wecom" element={<WeComPage />} />
-                <Route path="/settings/cron" element={<ScheduledTasksPage />} />
-                <Route path="/chat" element={<ChatPage />} />
-                <Route path="/brand-svg-preview" element={<BrandSvgPreview />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-              <DesktopDeliveryNotifier />
-              <ApprovalDialogHost />
-              <ConfirmDialogHost />
-              <DesktopDeliveryPoller />
-            </div>
-          </div>
-        </BrowserRouter>
-      </I18nProvider>
+      <MainWindowShell />
     </React.StrictMode>,
   );
-  showMainWindowWhenReady();
 }

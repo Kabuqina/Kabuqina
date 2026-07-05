@@ -8,7 +8,8 @@ Usage (from build_bundle.ps1)::
 
     python.exe tools\\verify_bundle_site_packages.py <absolute-path-to-runtime-dir>
 
-Exits 0 if PyYAML (with ``safe_load``), fastapi, and uvicorn import from ``site-packages``.
+Exits 0 if PyYAML (with ``safe_load``), click, fastapi, and uvicorn import
+from ``site-packages``.
 """
 
 from __future__ import annotations
@@ -35,6 +36,11 @@ def main() -> int:
     if not hasattr(yaml, "safe_load"):
         sys.stderr.write("broken yaml module (not PyYAML): %r\n" % (yaml,))
         return 1
+    import click
+
+    if not hasattr(click, "Choice"):
+        sys.stderr.write("broken click module (missing Choice): %r\n" % (click,))
+        return 1
     import fastapi  # noqa: F401
     import uvicorn  # noqa: F401
 
@@ -43,7 +49,7 @@ def main() -> int:
     # or LangSmith clients here.
     from langgraph.graph import END, START, StateGraph  # noqa: F401
 
-    print("pip payload ok: PyYAML, fastapi, uvicorn, langgraph")
+    print("pip payload ok: PyYAML, click, fastapi, uvicorn, langgraph")
     return 0
 
 

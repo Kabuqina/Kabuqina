@@ -21,6 +21,22 @@ class LangGraphBundleContractTests(unittest.TestCase):
         text = path.read_text("utf-8")
         self.assertEqual(text.count("langgraph==1.2.6"), 1)
 
+    def test_desktop_requirements_include_click_for_uvicorn(self):
+        path = ROOT / "python" / "requirements-desktop.txt"
+        lines = path.read_text("utf-8").splitlines()
+        normalized = [
+            line.split("#", 1)[0].strip().lower()
+            for line in lines
+            if line.split("#", 1)[0].strip()
+        ]
+        self.assertIn("click>=8.1.8,<9", normalized)
+
+    def test_bundle_verifier_checks_click_choice(self):
+        path = ROOT / "python" / "tools" / "verify_bundle_site_packages.py"
+        text = path.read_text("utf-8")
+        self.assertIn("import click", text)
+        self.assertIn('hasattr(click, "Choice")', text)
+
     def test_both_children_force_langsmith_tracing_off(self):
         for relpath in (
             "tauri/src/python_supervisor.rs",
