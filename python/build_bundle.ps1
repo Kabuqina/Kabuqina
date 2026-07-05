@@ -16,6 +16,8 @@
 #   .\python\build_bundle.ps1                # build
 #   .\python\build_bundle.ps1 -Verify        # build + smoke-test (+ STT binary checks)
 #   .\python\build_bundle.ps1 -Clean         # wipe and rebuild
+#   .\python\build_bundle.ps1 -Force         # rebuild even if a fresh bundle already exists
+#   .\python\build_bundle.ps1 -NoSuccessPause # don't pause after success in an interactive shell
 #   .\python\build_bundle.ps1 -SkipWebBuild  # legacy no-op; upstream Hermes dashboard is not bundled
 #   .\python\build_bundle.ps1 -BundleDoclingModels  # dev/offline: embed Docling models despite larger installer
 #
@@ -28,6 +30,8 @@ param(
     [string]$PythonVersion = "3.11.15",
     [string]$PbsRelease    = "20260414",   # python-build-standalone tag (latest as of 2026-04-19)
     [switch]$Clean,
+    [switch]$Force,
+    [switch]$NoSuccessPause,
     [switch]$Verify,
     [switch]$SkipWebBuild,
     [switch]$SkipDoclingModels,
@@ -50,6 +54,18 @@ if ($PythonVersion -match '^-{2,}(.+)$') {
             Write-Warning "Interpreting '$PythonVersion' as -Clean."
             $PythonVersion = $defaultPy
             $Clean = $true
+            break
+        }
+        'force' {
+            Write-Warning "Interpreting '$PythonVersion' as -Force."
+            $PythonVersion = $defaultPy
+            $Force = $true
+            break
+        }
+        'nosuccesspause' {
+            Write-Warning "Interpreting '$PythonVersion' as -NoSuccessPause."
+            $PythonVersion = $defaultPy
+            $NoSuccessPause = $true
             break
         }
         'skipwebbuild' {
@@ -95,11 +111,70 @@ if ($SkipWebBuild) {
 }
 
 $ErrorActionPreference = "Stop"
+$ProgressPreference = "SilentlyContinue"
 $Root      = Resolve-Path (Join-Path $PSScriptRoot "..")
 $BuildDir  = Join-Path $PSScriptRoot "_build"
 $Download  = Join-Path $PSScriptRoot "_download"
 $Dist      = Join-Path $PSScriptRoot "dist\runtime"
 $HermesDir = Join-Path $Root "hermes_core"
+
+function Test-BundleSentinels {
+    param([string]$Runtime)
+
+    $required = @(
+        "BUNDLE_INFO.json",
+        "python\python.exe",
+        "hermes\run_agent.py",
+        "site-packages\yaml\__init__.py",
+        "site-packages\fastapi\__init__.py",
+        "site-packages\uvicorn\__init__.py",
+        "site-packages\click\__init__.py",
+        "overlays\__init__.py",
+        "desktop_entrypoint.py"
+    )
+
+    foreach ($rel in $required) {
+        if (-not (Test-Path -LiteralPath (Join-Path $Runtime $rel))) {
+            return $false
+        }
+    }
+    return $true
+}
+
+function Test-RecentCompletedBundle {
+    param([string]$Runtime)
+
+    $infoPath = Join-Path $Runtime "BUNDLE_INFO.json"
+    if (-not (Test-Path -LiteralPath $infoPath)) { return $false }
+    if (-not (Test-BundleSentinels -Runtime $Runtime)) { return $false }
+
+    try {
+        $info = Get-Content -Raw -LiteralPath $infoPath | ConvertFrom-Json
+        $builtAt = [DateTimeOffset]::Parse([string]$info.builtAt)
+    } catch {
+        return $false
+    }
+
+    $ageMinutes = ([DateTimeOffset]::UtcNow - $builtAt.ToUniversalTime()).TotalMinutes
+    if ($ageMinutes -lt 0 -or $ageMinutes -gt 30) { return $false }
+
+    return $true
+}
+
+function Invoke-BundleSuccessPause {
+    if ($NoSuccessPause) { return }
+    if ($env:CI -or $env:HERMESDESK_NO_BUNDLE_SUCCESS_PAUSE) { return }
+    if (-not [Environment]::UserInteractive) { return }
+
+    Write-Host "[bundle] Success marker stays visible for 5 seconds before returning to the shell..." -ForegroundColor DarkGray
+    Start-Sleep -Seconds 5
+}
+
+if (-not $Clean -and -not $Force -and (Test-RecentCompletedBundle -Runtime $Dist)) {
+    Write-Host "[bundle] Skipping immediate duplicate bundle run; existing runtime was just completed." -ForegroundColor Yellow
+    Write-Host "[bundle] Pass -Force or -Clean to rebuild anyway." -ForegroundColor Yellow
+    exit 0
+}
 
 if ($Clean) {
     Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $BuildDir, $Dist
@@ -300,6 +375,7 @@ function Remove-VisualMasterGeneratedOutputs {
 
 # ``--upgrade`` avoids "Target directory … already exists" when anything survived under
 # ``site-packages`` or pip merges wheels that touch the same top-level names.
+Write-Host "[bundle] 5/8 Installing Python dependencies..." -ForegroundColor Cyan
 & $Py -m pip install `
     --upgrade `
     --target $siteDir `
@@ -364,6 +440,7 @@ Or skip model bundling entirely when already present:
 }
 
 # ------------------------------------------------------------------ 6. Copy overlays + entrypoint
+Write-Host "[bundle] 6/8 Copying runtime sources..." -ForegroundColor Cyan
 $overlaysDest = Join-Path $Dist "overlays"
 Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $overlaysDest
 Copy-Item -Recurse -Force (Join-Path $PSScriptRoot "overlays") $overlaysDest
@@ -552,6 +629,9 @@ $info | ConvertTo-Json | Set-Content -Path (Join-Path $Dist "BUNDLE_INFO.json") 
 
 Write-Host ""
 Write-Host "Bundle ready at $Dist  ($($info.bundleSizeMb) MB)" -ForegroundColor Green
+if (-not $Verify) {
+    Invoke-BundleSuccessPause
+}
 
 # ------------------------------------------------------------------ 8. Verify
 if ($Verify) {
@@ -623,4 +703,5 @@ print('OK: desk_server importable')
         }
     }
     Write-Host "STT binaries OK" -ForegroundColor Green
+    Invoke-BundleSuccessPause
 }
