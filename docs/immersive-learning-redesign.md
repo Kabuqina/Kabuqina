@@ -4,6 +4,7 @@
 > Last updated: 2026-07-05
 > 前置阅读：[learning-layer.md](learning-layer.md)（Learning Layer 的边界与交互模式定义）
 > 后续评审：[learning-runtime-alignment.md](learning-runtime-alignment.md)（harness 与 graph 层的改造点与排期分配,含 kq-kp gateway 门控这一 bug 级事项）
+> 姊妹设计：[数学与代码练习系统](superpowers/specs/2026-07-05-study-math-code-practice-design.md)（ACADEMY→REPORT 重组 + 技能型学习的五级梯子,v0.3.0 起分三版落地）
 
 ## 0. 出发点
 
