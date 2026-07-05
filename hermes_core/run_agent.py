@@ -132,7 +132,7 @@ from providers.error_classifier import classify_api_error, FailoverReason
 from agent.prompt_builder import (
     DEFAULT_AGENT_IDENTITY, PLATFORM_HINTS,
     MEMORY_GUIDANCE, SESSION_SEARCH_GUIDANCE, SKILLS_GUIDANCE,
-    HERMES_AGENT_HELP_GUIDANCE, LEARNING_CONDUCT_GUIDANCE,
+    HERMES_AGENT_HELP_GUIDANCE, build_learning_conduct_guidance,
     build_nous_subscription_prompt,
     build_deliverable_planner_prompt,
 )
@@ -4682,7 +4682,7 @@ class AIAgent:
 
         # Learning-conduct contract sits right after identity so it survives a
         # user-customized SOUL.md (persona is editable, conduct is canonical).
-        prompt_parts.append(LEARNING_CONDUCT_GUIDANCE)
+        prompt_parts.append(build_learning_conduct_guidance(self.platform))
 
         # Pointer to the hermes-agent skill + docs for user questions about Hermes itself.
         prompt_parts.append(HERMES_AGENT_HELP_GUIDANCE)
@@ -9425,6 +9425,35 @@ class AIAgent:
 
         return final_response
 
+    @staticmethod
+    def _usage_response_text(response: Any) -> Optional[str]:
+        """Best-effort assistant text extraction for telemetry only."""
+        choices = getattr(response, "choices", None)
+        if not choices:
+            return None
+        try:
+            message = getattr(choices[0], "message", None)
+        except Exception:
+            return None
+        if message is None:
+            return None
+        content = getattr(message, "content", None)
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            parts: list[str] = []
+            for part in content:
+                text = None
+                if isinstance(part, dict):
+                    text = part.get("text") or part.get("content")
+                else:
+                    text = getattr(part, "text", None) or getattr(part, "content", None)
+                if isinstance(text, str):
+                    parts.append(text)
+            if parts:
+                return "\n".join(parts)
+        return None
+
     def _record_usage_attempt(
         self,
         outcome: str,
@@ -9448,7 +9477,7 @@ class AIAgent:
         if self._usage_sink is None:
             return
         try:
-            from agent.usage_events import UsageEvent
+            from agent.usage_events import UsageEvent, analyze_learning_conduct_text
 
             billing_route = resolve_billing_route(
                 self.model, provider=self.provider, base_url=self.base_url
@@ -9474,6 +9503,11 @@ class AIAgent:
                     base_url=self.base_url,
                     api_key=getattr(self, "api_key", ""),
                 )
+            conduct = None
+            if outcome in {"success", "summary"}:
+                conduct = analyze_learning_conduct_text(
+                    self._usage_response_text(response)
+                )
             event = UsageEvent(
                 attempt_index=self._usage_attempt_index,
                 outcome=outcome,
@@ -9481,6 +9515,7 @@ class AIAgent:
                 billing_route=billing_route,
                 usage=canonical_usage,
                 cost=cost,
+                conduct=conduct,
             )
             self._usage_attempt_index += 1
             self._usage_sink.on_attempt(event)

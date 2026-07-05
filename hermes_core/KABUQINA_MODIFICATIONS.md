@@ -11,9 +11,9 @@ workflows:
 
 - `hermes_cli/default_soul.py` — Kabuqina learning-mentor persona replaces the
   generic assistant identity (rewrite; see docs/immersive-learning-redesign.md)
-- `agent/prompt_builder.py` — Added `LEARNING_CONDUCT_GUIDANCE`: teaching
-  rhythm contract, answer-then-teach rule, and the kq-kp knowledge-point
-  trailer protocol consumed by the web frontend (patch)
+- `agent/prompt_builder.py` — Added the learning conduct prompt: teaching
+  rhythm contract and answer-then-teach rule are always injected; the kq-kp
+  knowledge-point trailer is surface-gated for the web frontend (patch)
 - `run_agent.py` — `_build_system_prompt` injects the learning-conduct layer
   right after the identity slot, so it survives a customized SOUL.md (patch)
 

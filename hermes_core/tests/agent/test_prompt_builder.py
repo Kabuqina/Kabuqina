@@ -22,6 +22,7 @@ from agent.prompt_builder import (
     build_environment_hints,
     CONTEXT_FILE_MAX_CHARS,
     DEFAULT_AGENT_IDENTITY,
+    LEARNING_CONDUCT_GUIDANCE,
     TOOL_USE_ENFORCEMENT_GUIDANCE,
     TOOL_USE_ENFORCEMENT_MODELS,
     OPENAI_MODEL_EXECUTION_GUIDANCE,
@@ -45,6 +46,14 @@ class TestGuidanceConstants:
         assert "session_search" in MEMORY_GUIDANCE
         assert "like a diary" not in MEMORY_GUIDANCE
         assert ">80%" not in MEMORY_GUIDANCE
+
+    def test_memory_guidance_keeps_learning_state_out_of_memory(self):
+        assert "learning store" in MEMORY_GUIDANCE
+        assert "knowledge state" in MEMORY_GUIDANCE
+
+    def test_learning_conduct_base_does_not_include_kq_kp_protocol(self):
+        assert "Learning conduct" in LEARNING_CONDUCT_GUIDANCE
+        assert "```kq-kp" not in LEARNING_CONDUCT_GUIDANCE
 
     def test_session_search_guidance_is_simple_cross_session_recall(self):
         assert "relevant cross-session context exists" in SESSION_SEARCH_GUIDANCE

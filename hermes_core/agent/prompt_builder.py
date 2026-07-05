@@ -147,10 +147,9 @@ HERMES_AGENT_HELP_GUIDANCE = (
 #
 # The rules are self-scoping: the rhythm contract applies to explanatory turns
 # only, so plain task/tool requests keep normal agent efficiency. The kq-kp
-# trailer is a machine-readable protocol — the web frontend strips the fenced
-# block from the rendered message and turns it into knowledge-point chips that
-# feed the spaced-repetition deck, so format discipline matters more than
-# recall: when unsure whether something qualifies, emit nothing.
+# trailer is split into its own surface-gated section because only the desktop
+# web shell currently strips and renders it; messaging gateway users must never
+# see the raw machine-readable block.
 LEARNING_CONDUCT_GUIDANCE = (
     "# Learning conduct\n"
     "You are a learning companion. Your success metric is the learner's growth, "
@@ -176,9 +175,11 @@ LEARNING_CONDUCT_GUIDANCE = (
     "Use hint-first / Socratic questioning ONLY when the user explicitly asks "
     "not to be told the answer, or during practice and quizzing. Guiding someone "
     "who is stuck is teaching; quizzing someone who already understands, or who "
-    "just wants the answer, is condescension.\n"
-    "\n"
-    "## Knowledge-point trailer (kq-kp protocol)\n"
+    "just wants the answer, is condescension."
+)
+
+LEARNING_KQ_KP_GUIDANCE = (
+    "# Knowledge-point trailer (kq-kp protocol)\n"
     "At the END of a reply that explains subject matter or hands over a "
     "subject-matter answer, append exactly one fenced block tagged kq-kp "
     "containing a JSON array of the knowledge points the reply touched:\n"
@@ -198,6 +199,17 @@ LEARNING_CONDUCT_GUIDANCE = (
     "app renders it separately."
 )
 
+LEARNING_KQ_KP_PLATFORMS = frozenset({"hermesdesk"})
+
+
+def build_learning_conduct_guidance(platform: Optional[str] = None) -> str:
+    """Return the learning conduct prompt for the active surface."""
+    platform_key = (platform or "").strip().lower()
+    if platform_key in LEARNING_KQ_KP_PLATFORMS:
+        return LEARNING_CONDUCT_GUIDANCE + "\n\n" + LEARNING_KQ_KP_GUIDANCE
+    return LEARNING_CONDUCT_GUIDANCE
+
+
 MEMORY_GUIDANCE = (
     "You have persistent memory across sessions. Save durable facts using the memory "
     "tool: user preferences, environment details, tool quirks, and stable conventions. "
@@ -215,7 +227,10 @@ MEMORY_GUIDANCE = (
     "'Project uses pytest with xdist' ✓ — 'Run tests with pytest -n 4' ✗. "
     "Imperative phrasing gets re-read as a directive in later sessions and can "
     "cause repeated work or override the user's current request. Procedures and "
-    "workflows belong in skills, not memory."
+    "workflows belong in skills, not memory. "
+    "Do NOT save learner knowledge state, ability labels, or 'user is weak at X' "
+    "observations to memory; route learning-state observations through the "
+    "learning store and evaluation draft flow."
 )
 
 SESSION_SEARCH_GUIDANCE = (

@@ -7,10 +7,11 @@ Kabuqina is a *learning* agent, not a work agent. A work agent succeeds by
 doing things instead of the human; learning cannot be delegated, so Kabuqina
 succeeds only when the learner changes — understands more, retains more, can
 do more without her. The persona below encodes that stance. The enforceable
-turn-by-turn rules (rhythm contract, answer-then-teach, the kq-kp knowledge
-point protocol) live in agent/prompt_builder.py LEARNING_CONDUCT_GUIDANCE,
-which is always injected; this file is the user-editable identity layer
-seeded into HERMES_HOME as SOUL.md.
+turn-by-turn rules (rhythm contract, answer-then-teach) live in
+agent/prompt_builder.py LEARNING_CONDUCT_GUIDANCE, which is always injected.
+The kq-kp knowledge point protocol is surface-gated in the same module for
+clients that render it. This file is the user-editable identity layer seeded
+into HERMES_HOME as SOUL.md.
 """
 
 DEFAULT_SOUL_MD = (

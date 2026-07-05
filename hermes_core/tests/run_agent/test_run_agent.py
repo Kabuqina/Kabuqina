@@ -10,6 +10,7 @@ import json
 import logging
 import re
 import uuid
+from decimal import Decimal
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from types import SimpleNamespace
@@ -861,12 +862,52 @@ class TestBuildSystemPrompt:
         assert DEFAULT_AGENT_IDENTITY in prompt
 
     def test_always_has_learning_conduct(self, agent):
-        # The learning-conduct contract (rhythm, answer-then-teach, kq-kp
-        # protocol) is canonical and must be present regardless of persona.
+        # The base learning-conduct contract is canonical and must be present
+        # regardless of persona. The kq-kp trailer is surface-gated.
         from agent.prompt_builder import LEARNING_CONDUCT_GUIDANCE
 
         prompt = agent._build_system_prompt()
         assert LEARNING_CONDUCT_GUIDANCE in prompt
+
+    def test_gateway_platform_omits_kq_kp_protocol(self):
+        with (
+            patch("run_agent.get_tool_definitions", return_value=_make_tool_defs("web_search")),
+            patch("run_agent.check_toolset_requirements", return_value={}),
+            patch("run_agent.OpenAI"),
+        ):
+            agent = AIAgent(
+                api_key="test-k...7890",
+                base_url="https://openrouter.ai/api/v1",
+                quiet_mode=True,
+                skip_context_files=True,
+                skip_memory=True,
+                platform="telegram",
+            )
+
+        prompt = agent._build_system_prompt()
+
+        assert "Learning conduct" in prompt
+        assert "```kq-kp" not in prompt
+
+    def test_hermesdesk_platform_includes_kq_kp_protocol(self):
+        with (
+            patch("run_agent.get_tool_definitions", return_value=_make_tool_defs("web_search")),
+            patch("run_agent.check_toolset_requirements", return_value={}),
+            patch("run_agent.OpenAI"),
+        ):
+            agent = AIAgent(
+                api_key="test-k...7890",
+                base_url="https://openrouter.ai/api/v1",
+                quiet_mode=True,
+                skip_context_files=True,
+                skip_memory=True,
+                platform="hermesdesk",
+            )
+
+        prompt = agent._build_system_prompt()
+
+        assert "Learning conduct" in prompt
+        assert "```kq-kp" in prompt
 
     def test_learning_conduct_survives_custom_soul(self):
         # A user-customized SOUL.md replaces the identity slot but must not
@@ -977,6 +1018,65 @@ class TestBuildSystemPrompt:
         assert "SKILLS_PROMPT" in prompt
         assert mock_skills.call_args.kwargs["available_tools"] == set(toolset_map)
         assert mock_skills.call_args.kwargs["available_toolsets"] == {"web", "skills"}
+
+
+def test_usage_attempt_attaches_learning_conduct_metrics():
+    class Sink:
+        def __init__(self):
+            self.events = []
+
+        def on_attempt(self, event):
+            self.events.append(event)
+
+    sink = Sink()
+    response = SimpleNamespace(
+        usage=SimpleNamespace(prompt_tokens=12, completion_tokens=7),
+        choices=[
+            SimpleNamespace(
+                message=SimpleNamespace(
+                    content=(
+                        "答案是 42。\n\n"
+                        "你可以先想想为什么单位会抵消？\n\n"
+                        "```kq-kp\n"
+                        "[{\"name\":\"单位分析\",\"gist\":\"检查单位能暴露公式错配。\",\"confidence\":\"confirmed\"}]\n"
+                        "```"
+                    )
+                )
+            )
+        ],
+    )
+
+    with (
+        patch("run_agent.get_tool_definitions", return_value=_make_tool_defs("web_search")),
+        patch("run_agent.check_toolset_requirements", return_value={}),
+        patch("run_agent.OpenAI"),
+        patch(
+            "run_agent.estimate_usage_cost",
+            return_value=run_agent.CostResult(
+                amount_usd=Decimal("0.001"),
+                status="estimated",
+                source="official_docs_snapshot",
+                label="~$0.00",
+            ),
+        ),
+    ):
+        agent = AIAgent(
+            api_key="test-k...7890",
+            provider="openai",
+            model="gpt-4o",
+            base_url="https://api.openai.com/v1",
+            quiet_mode=True,
+            skip_context_files=True,
+            skip_memory=True,
+            usage_sink=sink,
+        )
+
+    agent._record_usage_attempt(outcome="success", response=response)
+
+    assert len(sink.events) == 1
+    assert sink.events[0].conduct is not None
+    assert sink.events[0].conduct.kq_kp_emitted is True
+    assert sink.events[0].conduct.ends_with_check_question is True
 
 
 class TestToolUseEnforcementConfig:

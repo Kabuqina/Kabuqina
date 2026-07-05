@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal
 import logging
+import re
 from typing import Protocol
 
 from agent.usage_pricing import BillingRoute, CanonicalUsage, CostResult
@@ -19,9 +20,43 @@ from agent.usage_pricing import BillingRoute, CanonicalUsage, CostResult
 
 logger = logging.getLogger(__name__)
 _COMPLETE_COST_STATUSES = {"actual", "estimated", "included"}
+_KQ_KP_BLOCK_RE = re.compile(
+    r"^```kq-kp[ \t]*\r?\n([\s\S]*?)^```[ \t]*(?:\r?\n|$)",
+    re.IGNORECASE | re.MULTILINE,
+)
+_CHECK_QUESTION_ENDINGS = ("?", "？")
 
 
 # ── Event ────────────────────────────────────────────────────────────────
+
+@dataclass(frozen=True, slots=True)
+class LearningConductMetrics:
+    """Cheap per-assistant-turn signals for the learning conduct contract."""
+    assistant_chars: int
+    assistant_words: int
+    ends_with_check_question: bool
+    kq_kp_emitted: bool
+    answer_then_teach_covered: bool
+
+
+def analyze_learning_conduct_text(text: str | None) -> LearningConductMetrics | None:
+    """Extract low-cost learning-conduct telemetry from assistant text."""
+    if not isinstance(text, str):
+        return None
+
+    kq_kp_emitted = bool(_KQ_KP_BLOCK_RE.search(text))
+    visible_text = _KQ_KP_BLOCK_RE.sub("", text).strip()
+    if not visible_text and not kq_kp_emitted:
+        return None
+
+    return LearningConductMetrics(
+        assistant_chars=len(visible_text),
+        assistant_words=len(re.findall(r"\S+", visible_text)),
+        ends_with_check_question=visible_text.rstrip().endswith(_CHECK_QUESTION_ENDINGS),
+        kq_kp_emitted=kq_kp_emitted,
+        answer_then_teach_covered=bool(kq_kp_emitted and visible_text),
+    )
+
 
 @dataclass(frozen=True, slots=True)
 class UsageEvent:
@@ -35,6 +70,7 @@ class UsageEvent:
     billing_route: BillingRoute
     usage: CanonicalUsage | None
     cost: CostResult
+    conduct: LearningConductMetrics | None = None
 
     @property
     def provider(self) -> str:

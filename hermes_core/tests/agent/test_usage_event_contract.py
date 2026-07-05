@@ -68,6 +68,46 @@ def test_usage_event_preserves_rich_billing_contract():
     assert event.usage.cache_read_tokens == 20
     assert event.usage.cache_write_tokens == 10
     assert event.usage.reasoning_tokens == 5
+    assert event.conduct is None
+
+
+def test_learning_conduct_metrics_capture_text_shape_and_protocol():
+    from agent.usage_events import analyze_learning_conduct_text
+
+    text = (
+        "答案是 42。\n\n"
+        "你可以先想想为什么单位会抵消？\n\n"
+        "```kq-kp\n"
+        "[{\"name\":\"单位分析\",\"gist\":\"检查单位能暴露公式错配。\",\"confidence\":\"confirmed\"}]\n"
+        "```"
+    )
+
+    metrics = analyze_learning_conduct_text(text)
+
+    assert metrics is not None
+    assert metrics.assistant_chars == len("答案是 42。\n\n你可以先想想为什么单位会抵消？")
+    assert metrics.assistant_words == 3
+    assert metrics.ends_with_check_question is True
+    assert metrics.kq_kp_emitted is True
+    assert metrics.answer_then_teach_covered is True
+
+
+def test_usage_event_can_carry_learning_conduct_metrics():
+    from agent.usage_events import analyze_learning_conduct_text
+
+    metrics = analyze_learning_conduct_text("Short answer?")
+    event, *_ = _rich_event()
+    enriched = type(event)(
+        attempt_index=event.attempt_index,
+        outcome=event.outcome,
+        route=event.route,
+        billing_route=event.billing_route,
+        usage=event.usage,
+        cost=event.cost,
+        conduct=metrics,
+    )
+
+    assert enriched.conduct is metrics
 
 
 def test_ledger_is_a_sink_and_downstream_errors_do_not_escape():
