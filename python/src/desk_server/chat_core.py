@@ -623,19 +623,36 @@ def _desk_chat_run_in_thread(
             progress_event_callback=progress_event_callback,
         )
     try:
-        if persist_user_message is not None:
-            result = agent.run_conversation(
-                user_message=user_message,
-                conversation_history=history,
-                task_id=session_id,
-                persist_user_message=persist_user_message,
-            )
-        else:
-            result = agent.run_conversation(
-                user_message=user_message,
-                conversation_history=history,
-                task_id=session_id,
-            )
+        from learning.learning_store import LearningStore
+        from learning.output_writer import learning_created_callback_scope
+        from learning_owner import desktop_learning_scope
+
+        def _emit_learning_created(signal: Dict[str, Any]) -> None:
+            if progress_event_callback is None:
+                return
+            payload = dict(signal)
+            payload["type"] = str(payload.pop("event", "learning.output.created"))
+            progress_event_callback(payload)
+
+        store = LearningStore()
+        try:
+            created_callback = _emit_learning_created if progress_event_callback else None
+            with desktop_learning_scope(store), learning_created_callback_scope(created_callback):
+                if persist_user_message is not None:
+                    result = agent.run_conversation(
+                        user_message=user_message,
+                        conversation_history=history,
+                        task_id=session_id,
+                        persist_user_message=persist_user_message,
+                    )
+                else:
+                    result = agent.run_conversation(
+                        user_message=user_message,
+                        conversation_history=history,
+                        task_id=session_id,
+                    )
+        finally:
+            store.close()
         return {
             "result": result,
             "prompt_tokens": int(getattr(agent, "session_prompt_tokens", 0) or 0),

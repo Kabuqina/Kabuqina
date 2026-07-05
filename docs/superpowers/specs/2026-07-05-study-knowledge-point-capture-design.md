@@ -2,7 +2,7 @@
 
 **日期：** 2026-07-05
 
-**状态：** 设计稿，随 `student/study-module` 合并实施
+**状态：** 已实施（M1 后置补丁，`codex/study-m1-merge` 本地提交）
 
 **范围：** kq-kp 知识点 chips 的持久化改道：core `FlashcardService` 单卡捕获、
 desk API、Tauri 代理、Web chips 重接线。不含 Gateway 暴露、不含 Learning

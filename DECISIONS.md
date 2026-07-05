@@ -88,6 +88,25 @@ Future first-party additions follow this order: add a load package in `python/sr
 | Planner sink (Phase C planner, 2026-06-12) | The Planner layer is sunk into the agent core: **`build_deliverable_planner_prompt` in `hermes_core/agent/prompt_builder.py`**, called by `run_agent._build_system_prompt` and self-gated on the deliverable writer tools, so the **desk child and gateway child plan identically** (both construct `run_agent.AIAgent`). Slide vocabulary is single-sourced from new **`hermes_core/tools/deliverable_contract.py`** — `document_tools` normalizes against the same sets a drift-guard test enforces, so planner guidance and writer normalization cannot diverge. `WorkspacePanel.tsx` quick-actions are thinned to intent + structure id + visual-master selection. |
 | DOCX writer path (Phase C, 2026-06-12) | Editable Word output is **`docx_write` in `hermes_core/tools/document_tools.py`** (renderer `python_docx_v1`, via the already-bundled `python-docx`), registered in the `documents` toolset. It reuses the shared `sections`/`blocks` contract (`_build_pdf_spec` normalization) and renders the same block types to Word (`_render_docx` / `_docx_add_block`), so one reviewed outline can target PDF, HTML, or DOCX. Exposed as first-party `document-docx-generation` with a full four-layer primary pipeline `document-report-docx` plus a non-primary `document-docx-writer-v1` direct path; report types are `word_report` / `study_notes` / `project_report`. |
 
+## STUDY four-layer learning pipeline (2026-07-01)
+
+| Question | Decision |
+|----------|----------|
+| Four-layer mapping | Keep the existing deliverable path (`Read → Material Index → Deliverable Planner → File Writer`) and add a parallel learning path (`Read / Student State / Activity → Learning Index → Learning Planner → Output Writer`). Learning Index is deterministic and does not modify Material Index v1. |
+| Planner architecture | Use a **lightweight `PlannerSpec` / registry**, not plain-function sprawl and not a second executor. Deliverable Planner (PPT/document specializations) and Learning Planner are siblings; the existing `AIAgent` loop still executes tools. |
+| Contract authority | Learning artifact kinds, versions, lifecycle and review levels are single-sourced in shared-core `learning_contract.py`. The capability registry references stable ids and remains the product/readiness catalog; drift tests forbid duplicate vocabularies. |
+| Review boundary | Deterministic validation always runs. Knowledge bases, learning plans, resource packs, batch flashcards and quizzes also receive prompt-based semantic review. AI-produced content is always a `draft` until a trusted UI/API or deterministic Gateway command activates it. Real user activity writes directly. |
+| Writer architecture | Writer has two branches: existing **File Writer** and generic **Output Writer**. Output Writer validates discriminated per-kind payloads, versions and persists non-file learning artifacts; STUDY is its first consumer. A resource pack may fan out to both writers. |
+| Persistence scope | Store learning state in a separate SQLite/WAL **`learning.db`** under the common Hermes root, organized by `owner_id + learning_space`. Do not extend per-profile `state.db`; a course workspace, not a chat session, is the durable scope. |
+| Identity | Desktop and each Gateway platform user are isolated owners by default. Gateway ids use `gateway:<platform>:<hashed-user-id>`. Owner is runtime-injected through `LearningExecutionContext` and is never model-supplied; future account linking must be explicit. |
+| Desktop/Gateway interaction | Draft creation is non-blocking and emits `learning.output.created`; do not reuse the blocking review interaction bridge. Gateway trust-boundary actions use deterministic `/study list/new/use/drafts/approve/reject` commands. |
+| STUDY migration | Replace the copy-JSON/import main path with a shared draft inbox and a lifecycle UI (course setup → plan → tutor/learn → practice/review → evaluation/adjustment). Automatically import legacy localStorage per key, idempotently, and retain old data read-only for one release. |
+| Delivery strategy | Ship vertical slices: foundation; course space + flashcards; quiz; student state/evaluation/plan; knowledge/resources/tutoring/quality; lifecycle UI. Each slice must retain owner isolation, migration rollback and existing deliverable-Planner behavior. |
+| M1 closure (2026-07-04) | M1 is closed as a candidate/data-spine foundation, not a user-facing STUDY UI. The `learning` toolset is enabled in desktop and gateway tool policies; `student-learning-foundation` stays `lifecycle: candidate` until the M2+ UI/execution surface exists; and envelope validation serializes and sizes the full `LearningOutputEnvelope`, so `source_refs` cannot bypass contract limits or JSON safety. |
+| M2 closure (2026-07-04) | M2 is closed as the first user-facing STUDY slice. `flashcard_deck` remains an AI-created draft artifact; trusted desk/Tauri/Web paths activate or reject it, materialize active cards into `learning_items`, and write `flashcard.review` activities for real practice. The desktop API surface is `/api/desk/study/*`, Tauri exposes `cmd_study_*`, and web refreshes on `learning.output.created` via `study-learning-event`. Legacy `kabuqina.study.flashcards.v1` imports idempotently with migration id `localStorage:kabuqina.study.flashcards.v1`. M3 remains quiz-specific; Gateway `/study` commands remain M5. |
+
+Full design: `docs/superpowers/specs/2026-07-01-study-four-layer-learning-pipeline-design.md`.
+
 **Cherry-pick log:**
 
 | Date | Commit | Origin | Reason |
@@ -728,3 +747,28 @@ resolved value and passes that same value into `AIAgent`, so support evidence
 cannot disagree with the engine actually used. The support procedure is documented in
 `docs/troubleshooting.md` §19. Legacy-loop removal remains gated by Task 11's
 14-day soak and bounded Goal Runner A/B evidence.
+
+**STUDY M1 foundation merge + kq-kp capture postfix (2026-07-05).** The
+integration branch intentionally stops the data merge at M1: it brings in the
+shared learning foundation (`learning_contract`, `learning.db`, owner/space
+isolation, Output Writer, Learning Index, PlannerSpec, and the minimal
+model-facing `learning` toolset) while preserving the immersive behavior M1
+work from `main` (`LEARNING_CONDUCT_GUIDANCE`, `kq-kp` parsing/chips, and
+conversational STUDY prompts). The only post-M1 vertical slice added before M2
+is trusted single-card capture for kq-kp chips: UI clicks call
+`POST /api/desk/study/flashcards/capture`, which writes one active
+`flashcard_deck`, materializes one `learning_items` flashcard, and records a
+`flashcard.capture` activity. Model tools still cannot activate or capture
+cards directly.
+
+Later M2 merge obligations:
+
+1. `hermes_core/learning/flashcards.py`, `python/src/desk_server/routes/study_routes.py`,
+   `tauri/src/study.rs`, and `web/src/chat/study/study-api.ts` now exist on the
+   integration branch as capture-minimal versions. The M2 merge must union
+   methods/routes/commands into these files, not replace them.
+2. M2's legacy flashcard migration must dedupe by normalized front against
+   existing `learning_items` before import; capture-created cards may predate
+   the migration, and the branch migration route does not dedupe.
+3. FlashcardPanel remains legacy until M2. Captured cards live in `learning.db`
+   and are invisible to the review UI during this accepted dev-only gap.

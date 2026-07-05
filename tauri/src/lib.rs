@@ -36,6 +36,7 @@ mod python_supervisor;
 mod qq_env;
 mod qqbot_qr;
 mod secrets;
+mod study;
 mod telegram_env;
 mod tray;
 mod validation;
@@ -245,6 +246,16 @@ pub fn run() {
             cron::cmd_goal_resume,
             cron::cmd_goal_cancel,
             cron::cmd_goal_delete,
+            study::cmd_study_spaces,
+            study::cmd_study_space_create,
+            study::cmd_study_space_select,
+            study::cmd_study_drafts,
+            study::cmd_study_artifact_activate,
+            study::cmd_study_artifact_reject,
+            study::cmd_study_flashcards,
+            study::cmd_study_flashcard_capture,
+            study::cmd_study_flashcard_review,
+            study::cmd_study_migrate_flashcards,
             capture::cmd_capture_region,
             capture::cmd_capture_fullscreen,
             capture::cmd_show_capture_overlay,

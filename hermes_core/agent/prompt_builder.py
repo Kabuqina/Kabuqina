@@ -1145,6 +1145,25 @@ def build_deliverable_planner_prompt(valid_tool_names: "set[str] | None" = None)
     return "\n".join(lines)
 
 
+def deliverable_planner_is_active(valid_tool_names: "set[str] | None" = None) -> bool:
+    """Whether the Deliverable Planner applies for the given tool set.
+
+    Mirrors the self-gating inside :func:`build_deliverable_planner_prompt`
+    (which returns ``""`` when no deliverable writer is present) as a standalone
+    predicate, so the STUDY Planner registry can declare activation without
+    duplicating the gating logic — both read the same
+    ``DELIVERABLE_WRITER_TOOLS`` source, so they cannot drift. This does not
+    change the prompt output.
+    """
+    try:
+        from tools.deliverable_contract import DELIVERABLE_WRITER_TOOLS
+    except Exception as exc:  # pragma: no cover - defensive import
+        logger.debug("Failed to import deliverable contract: %s", exc)
+        return False
+    valid_names = set(valid_tool_names or set())
+    return any(tool in valid_names for tool in DELIVERABLE_WRITER_TOOLS)
+
+
 # =========================================================================
 # Context files (SOUL.md, AGENTS.md, .cursorrules)
 # =========================================================================

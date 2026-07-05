@@ -1187,6 +1187,85 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
             }
         ],
     },
+    {
+        # STUDY learning foundation (M1). References the learning Planner id and
+        # learning artifact kinds by STABLE ID only — no prompt/schema is
+        # duplicated here; the drift test in tests/test_capability_registry_learning.py
+        # binds these ids back to hermes_core (learning_contract / planner_registry).
+        "id": "student-learning-foundation",
+        "title": "Learning foundation (course spaces & artifacts)",
+        "description": (
+            "Course-space learning spine: build the Learning Index and produce "
+            "typed learning artifacts (flashcards, quizzes, plans, etc.) as drafts "
+            "for review. Data/contract only in M1; the STUDY UI arrives later."
+        ),
+        "category": "learning",
+        "family": "student-learning",
+        "lifecycle": "candidate",
+        "agent_hint": (
+            "Use the 'learning' toolset for course-space learning artifacts. Select "
+            "or create a course space, call learning_index_build, then plan via the "
+            "learning Planner and save typed drafts with learning_draft_create. "
+            "Owner/space are injected by the runtime — never pass them as arguments."
+        ),
+        "tools": [
+            "learning_space_list",
+            "learning_space_create",
+            "learning_space_select",
+            "learning_index_build",
+            "learning_draft_create",
+            "learning_artifact_list",
+        ],
+        "required_toolsets": ["learning"],
+        # Stable-id references (drift-tested against hermes_core):
+        "learning_planner_id": "learning",
+        "learning_output_kinds": [
+            "student_state",
+            "knowledge_base",
+            "learning_plan",
+            "resource_pack",
+            "flashcard_deck",
+            "quiz",
+            "tutoring_note",
+            "evaluation",
+        ],
+        "pipelines": [
+            {
+                "id": "learning-foundation-pipeline",
+                "primary": True,
+                "stages": ["reader", "material_index", "planner", "writer"],
+                "steps": [
+                    {
+                        "id": "read-learning-context",
+                        "stage": "reader",
+                        "outputs": ["learning_context"],
+                    },
+                    {
+                        "id": "build-learning-index",
+                        "stage": "material_index",
+                        "tool": "learning_index_build",
+                        "inputs": ["learning_context"],
+                        "outputs": ["learning_index"],
+                    },
+                    {
+                        "id": "plan-learning-output",
+                        "stage": "planner",
+                        "kind": "agent_plan",
+                        "planner_id": "learning",
+                        "inputs": ["learning_index"],
+                        "outputs": ["learning_output_plan"],
+                    },
+                    {
+                        "id": "write-learning-draft",
+                        "stage": "writer",
+                        "tool": "learning_draft_create",
+                        "inputs": ["learning_output_plan"],
+                        "outputs": ["learning_artifact_draft"],
+                    },
+                ],
+            }
+        ],
+    },
 )
 
 

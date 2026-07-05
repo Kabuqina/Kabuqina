@@ -1156,8 +1156,13 @@ assert.match(
 const kpChipsSource = fs.readFileSync(new URL("./study/KnowledgePointChips.tsx", import.meta.url), "utf8");
 assert.match(
   kpChipsSource,
-  /upsertCards\(loadDeck\(\), \[card\]\)/,
-  "Knowledge-point chips should feed the flashcard deck (click → review queue).",
+  /cmdStudyFlashcardCapture/,
+  "Knowledge-point chips should capture cards through the trusted learning.db API.",
+);
+assert.doesNotMatch(
+  kpChipsSource,
+  /flashcardStore/,
+  "Knowledge-point chips should not write new cards to legacy localStorage.",
 );
 assert.match(
   studySectionSource,
