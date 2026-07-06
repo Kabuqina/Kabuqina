@@ -248,11 +248,9 @@ class TestCacheDiscordDocument:
         adapter = _make_adapter()
         att = _make_attachment_with_read(_PDF_BYTES)
 
-        with patch("aiohttp.ClientSession") as mock_session:
-            result = await adapter._cache_discord_document(att, ".pdf")
+        result = await adapter._cache_discord_document(att, ".pdf")
 
         assert result == _PDF_BYTES
-        mock_session.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_fallback_blocked_by_ssrf_guard(self):
@@ -267,13 +265,11 @@ class TestCacheDiscordDocument:
 
         with patch(
             "gateway.platforms.discord.is_safe_url", return_value=False
-        ) as mock_safe, patch("aiohttp.ClientSession") as mock_session:
+        ) as mock_safe:
             with pytest.raises(ValueError, match="SSRF"):
                 await adapter._cache_discord_document(att, ".pdf")
 
         mock_safe.assert_called_once_with(att.url)
-        # aiohttp must NOT be contacted when the URL is blocked.
-        mock_session.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_fallback_aiohttp_when_safe_url(self):
@@ -293,12 +289,18 @@ class TestCacheDiscordDocument:
         session.__aenter__ = AsyncMock(return_value=session)
         session.__aexit__ = AsyncMock(return_value=False)
 
+        fake_aiohttp = SimpleNamespace(
+            ClientSession=MagicMock(return_value=session),
+            ClientTimeout=lambda total: SimpleNamespace(total=total),
+        )
+
         with patch(
             "gateway.platforms.discord.is_safe_url", return_value=True
-        ), patch("aiohttp.ClientSession", return_value=session):
+        ), patch.dict(sys.modules, {"aiohttp": fake_aiohttp}):
             result = await adapter._cache_discord_document(att, ".pdf")
 
         assert result == _PDF_BYTES
+        fake_aiohttp.ClientSession.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

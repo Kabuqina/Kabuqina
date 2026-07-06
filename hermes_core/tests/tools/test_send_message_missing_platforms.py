@@ -2,8 +2,11 @@
 
 import asyncio
 import os
+import sys
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from tools.send_message_tool import (
     _send_dingtalk,
@@ -41,6 +44,17 @@ def _make_aiohttp_session(resp):
     session_ctx.__aenter__ = AsyncMock(return_value=session)
     session_ctx.__aexit__ = AsyncMock(return_value=False)
     return session_ctx, session
+
+
+@pytest.fixture(autouse=True)
+def fake_aiohttp_module(monkeypatch):
+    """Keep these unit tests independent of the optional aiohttp package."""
+    fake = SimpleNamespace(
+        ClientSession=MagicMock(),
+        ClientTimeout=lambda *args, **kwargs: SimpleNamespace(args=args, kwargs=kwargs),
+    )
+    monkeypatch.setitem(sys.modules, "aiohttp", fake)
+    return fake
 
 
 # ---------------------------------------------------------------------------

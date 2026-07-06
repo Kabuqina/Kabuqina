@@ -433,6 +433,14 @@ def reload_env() -> int:
             count += 1
     return count
 
+def _current_load_env():
+    """Return the active dotenv loader, honoring config facade monkeypatches."""
+    facade = sys.modules.get("hermes_cli.config")
+    facade_loader = getattr(facade, "load_env", None)
+    if facade_loader is not None and facade_loader is not load_env:
+        return facade_loader
+    return load_env
+
 def get_env_value(key: str) -> Optional[str]:
     """Get a value from ~/.hermes/.env or environment."""
     # Check environment first
@@ -440,7 +448,7 @@ def get_env_value(key: str) -> Optional[str]:
         return os.environ[key]
     
     # Then check .env file
-    env_vars = load_env()
+    env_vars = _current_load_env()()
     return env_vars.get(key)
 
 def redact_key(key: str) -> str:

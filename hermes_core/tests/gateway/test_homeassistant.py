@@ -32,7 +32,8 @@ class TestCheckRequirements:
 
     def test_returns_true_with_token(self, monkeypatch):
         monkeypatch.setenv("HASS_TOKEN", "test-token")
-        assert check_ha_requirements() is True
+        with patch("gateway.platforms.homeassistant.AIOHTTP_AVAILABLE", True):
+            assert check_ha_requirements() is True
 
     @patch("gateway.platforms.homeassistant.AIOHTTP_AVAILABLE", False)
     def test_returns_false_without_aiohttp(self, monkeypatch):

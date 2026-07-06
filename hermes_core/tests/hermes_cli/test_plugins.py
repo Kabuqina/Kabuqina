@@ -185,6 +185,22 @@ class TestPluginDiscovery:
 
         assert "ep_plugin" in mgr._plugins
 
+    def test_manifest_yaml_is_read_as_utf8(self, tmp_path):
+        """Bundled plugin manifests may contain UTF-8 punctuation on Windows."""
+        plugins_dir = tmp_path / "plugins"
+        plugin_dir = plugins_dir / "utf_plugin"
+        plugin_dir.mkdir(parents=True)
+        (plugin_dir / "plugin.yaml").write_bytes(
+            b'name: utf_plugin\ndescription: "UTF-8 \xe2\x80\x94 manifest"\n'
+        )
+        (plugin_dir / "__init__.py").write_text("def register(ctx): pass\n")
+
+        mgr = PluginManager()
+        manifests = mgr._scan_directory(plugins_dir, source="bundled")
+
+        assert [m.name for m in manifests] == ["utf_plugin"]
+        assert manifests[0].description == "UTF-8 \u2014 manifest"
+
 
 # ── TestPluginLoading ──────────────────────────────────────────────────────
 

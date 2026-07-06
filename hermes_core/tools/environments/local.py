@@ -3,6 +3,7 @@
 import os
 import platform
 import shutil
+import shlex
 import signal
 import subprocess
 import tempfile
@@ -234,12 +235,38 @@ def _unix_to_windows_path(path: str) -> str:
     """
     if not path or not path.startswith("/"):
         return path
+    try:
+        bash = _find_bash()
+        if os.path.basename(bash).lower() != "cmd.exe":
+            result = subprocess.run(
+                [bash, "-lc", "cygpath -w -- " + shlex.quote(path)],
+                capture_output=True,
+                text=True,
+                timeout=2,
+            )
+            converted = result.stdout.strip()
+            if result.returncode == 0 and converted:
+                return converted
+    except Exception:
+        pass
     raw = path.lstrip("/").split("/", 1)
     letter = raw[0]
     if len(letter) == 1 and letter.isalpha():
         suffix = "\\" + raw[1] if len(raw) > 1 else "\\"
         return f"{letter.upper()}:{suffix}"
     return path
+
+
+def _windows_to_git_bash_path(path: str) -> str:
+    if not path:
+        return path
+    drive, rest = os.path.splitdrive(path)
+    if not drive:
+        return path.replace("\\", "/")
+    rest = rest.replace("\\", "/")
+    if not rest.startswith("/"):
+        rest = "/" + rest
+    return f"/{drive[0].lower()}{rest}"
 
 
 def _read_terminal_shell_init_config() -> tuple[list[str], bool]:
@@ -296,7 +323,15 @@ def _resolve_shell_init_files() -> list[str]:
     resolved: list[str] = []
     for raw in candidates:
         try:
-            path = os.path.expandvars(os.path.expanduser(raw))
+            path = os.path.expandvars(raw)
+            if path == "~":
+                path = os.environ.get("HOME") or os.path.expanduser(path)
+            elif path.startswith("~/"):
+                home = os.environ.get("HOME") or os.path.expanduser("~")
+                path = os.path.normpath(os.path.join(home, path[2:]))
+            else:
+                path = os.path.expanduser(path)
+            path = os.path.normpath(path)
         except Exception:
             continue
         if path and os.path.isfile(path):
@@ -384,6 +419,18 @@ class LocalEnvironment(BaseEnvironment):
                 return f'cd /d "{cwd}" 2>nul & {command}'
             return command
         return super()._wrap_command(command, cwd)
+
+    def _shell_cwd_for_cd(self, cwd: str) -> str:
+        bash = _find_bash()
+        if _IS_WINDOWS and os.path.basename(bash).lower() != "cmd.exe":
+            return _windows_to_git_bash_path(cwd)
+        return cwd
+
+    def path_for_shell(self, path: str) -> str:
+        bash = _find_bash()
+        if _IS_WINDOWS and os.path.basename(bash).lower() != "cmd.exe":
+            return _windows_to_git_bash_path(path)
+        return path
 
     def _run_bash(self, cmd_string: str, *, login: bool = False,
                   timeout: int = 120,

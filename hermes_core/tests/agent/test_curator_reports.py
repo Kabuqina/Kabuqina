@@ -159,7 +159,7 @@ def test_report_md_is_human_readable(curator_env):
             provider="openrouter",
         ),
     )
-    md = (run_dir / "REPORT.md").read_text()
+    md = (run_dir / "REPORT.md").read_text(encoding="utf-8")
 
     # Structural checks
     assert "# Curator run" in md
@@ -223,9 +223,9 @@ def test_report_captures_llm_error_and_continues(curator_env):
             summary="error",
         ),
     )
-    md = (run_dir / "REPORT.md").read_text()
+    md = (run_dir / "REPORT.md").read_text(encoding="utf-8")
     assert "HTTP 400" in md
-    payload = json.loads((run_dir / "run.json").read_text())
+    payload = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
     assert payload["llm_error"] == "HTTP 400: No models provided"
 
 
@@ -248,11 +248,11 @@ def test_state_transitions_captured_in_report(curator_env):
         after_report=after,
         llm_meta=_make_llm_meta(),
     )
-    payload = json.loads((run_dir / "run.json").read_text())
+    payload = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
     assert payload["state_transitions"] == [
         {"name": "getting-old", "from": "active", "to": "stale"}
     ]
-    md = (run_dir / "REPORT.md").read_text()
+    md = (run_dir / "REPORT.md").read_text(encoding="utf-8")
     assert "State transitions" in md
     assert "getting-old" in md
     assert "active → stale" in md

@@ -1,4 +1,7 @@
 """Tests for the BlueBubbles iMessage gateway adapter."""
+import sys
+from types import SimpleNamespace
+
 import pytest
 
 from gateway.config import Platform, PlatformConfig
@@ -62,6 +65,7 @@ class TestBlueBubblesHelpers:
     def test_check_requirements(self, monkeypatch):
         monkeypatch.setenv("BLUEBUBBLES_SERVER_URL", "http://localhost:1234")
         monkeypatch.setenv("BLUEBUBBLES_PASSWORD", "secret")
+        monkeypatch.setitem(sys.modules, "aiohttp", SimpleNamespace())
         from gateway.platforms.bluebubbles import check_bluebubbles_requirements
 
         assert check_bluebubbles_requirements() is True

@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import time
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -988,7 +989,8 @@ class TestHermesHomeIsolation:
         from tools.tirith_security import _failure_marker_path
         with patch.dict(os.environ, {"HERMES_HOME": "/custom/hermes"}):
             result = _failure_marker_path()
-        assert result == "/custom/hermes/.tirith-install-failed"
+        expected = os.path.normpath("/custom/hermes/.tirith-install-failed")
+        assert os.path.normpath(result) == expected
 
     def test_conftest_isolation_prevents_real_home_writes(self):
         """The conftest autouse fixture sets HERMES_HOME; verify it's active."""
@@ -999,11 +1001,10 @@ class TestHermesHomeIsolation:
     def test_get_hermes_home_fallback(self):
         """Without HERMES_HOME set, falls back to the active OS home."""
         from tools.tirith_security import _get_hermes_home
-        with patch.dict(os.environ, {}, clear=True):
-            # Remove HERMES_HOME entirely. With HOME also absent, expanduser
-            # falls back to the account database; compute expected under the
-            # same environment instead of after patch.dict restores HOME.
+        fake_home = Path.cwd() / "fake-home"
+        with patch.dict(os.environ, {}, clear=True), \
+             patch("hermes_constants.Path.home", return_value=fake_home):
             os.environ.pop("HERMES_HOME", None)
-            expected = os.path.join(os.path.expanduser("~"), ".hermes")
+            expected = str(fake_home / ".hermes")
             result = _get_hermes_home()
         assert result == expected

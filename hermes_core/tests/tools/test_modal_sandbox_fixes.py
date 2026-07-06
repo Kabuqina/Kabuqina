@@ -299,13 +299,16 @@ class TestHostPrefixList:
 
     def test_all_common_host_prefixes_caught(self):
         """The host prefix check should catch /Users/, /home/, C:\\, C:/."""
-        # Read the actual source to verify the prefixes
-        import inspect
-        source = inspect.getsource(_tt_mod._get_env_config)
-        for prefix in ["/Users/", "/home/", 'C:\\\\"', "C:/"]:
-            # Normalize for source comparison
-            check = prefix.rstrip('"')
-            assert check in source or prefix in source, (
-                f"Host prefix {prefix!r} not found in _get_env_config. "
+        for path in [
+            "/Users/someone/project",
+            "/home/someone/project",
+            r"C:\Users\someone\project",
+            "C:/Users/someone/project",
+        ]:
+            assert _tt_mod._looks_like_host_cwd(path), (
+                f"Host path {path!r} was not recognized. "
                 "Container backends need this to avoid using host paths."
             )
+
+        for path in ["/workspace/project", "/root/project", "src"]:
+            assert not _tt_mod._looks_like_host_cwd(path)

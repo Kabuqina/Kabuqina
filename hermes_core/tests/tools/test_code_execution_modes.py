@@ -14,6 +14,7 @@ there is no env-var override. Tests patch ``_load_config`` directly.
 
 import json
 import os
+import pathlib
 import sys
 import unittest
 from contextlib import contextmanager
@@ -58,6 +59,20 @@ def _mock_handle_function_call(function_name, function_args, task_id=None, user_
     if function_name == "read_file":
         return json.dumps({"content": "line1\n", "total_lines": 1})
     return json.dumps({"error": f"Unknown tool: {function_name}"})
+
+
+def _venv_python(root: pathlib.Path) -> pathlib.Path:
+    if os.name == "nt":
+        return root / "Scripts" / "python.exe"
+    return root / "bin" / "python"
+
+
+def _create_python_candidate(root: pathlib.Path) -> pathlib.Path:
+    python_path = _venv_python(root)
+    python_path.parent.mkdir(parents=True)
+    python_path.write_text("", encoding="utf-8")
+    python_path.chmod(python_path.stat().st_mode | 0o111)
+    return python_path
 
 
 # ---------------------------------------------------------------------------
@@ -130,18 +145,17 @@ class TestResolveChildPython(unittest.TestCase):
             self.assertEqual(_resolve_child_python("project"), sys.executable)
 
     def test_project_with_virtualenv_picks_venv_python(self):
-        """Project mode + VIRTUAL_ENV pointing at a real venv → that python."""
-        import tempfile, pathlib
+        """Project mode + VIRTUAL_ENV pointing at an interpreter candidate → that python."""
+        import tempfile
         with tempfile.TemporaryDirectory() as td:
             fake_venv = pathlib.Path(td)
-            (fake_venv / "bin").mkdir()
-            # Symlink to real python so the version check actually passes
-            (fake_venv / "bin" / "python").symlink_to(sys.executable)
-            with patch.dict(os.environ, {"VIRTUAL_ENV": str(fake_venv)}):
-                # Clear cache — _is_usable_python memoizes on path
-                _is_usable_python.cache_clear()
+            expected = _create_python_candidate(fake_venv)
+            with patch.dict(os.environ, {"VIRTUAL_ENV": str(fake_venv)}), patch(
+                "tools.code_execution_tool._is_usable_python", return_value=True
+            ) as usable_python:
                 result = _resolve_child_python("project")
-                self.assertEqual(result, str(fake_venv / "bin" / "python"))
+                self.assertEqual(result, str(expected))
+                usable_python.assert_called_once_with(str(expected))
 
     def test_project_with_broken_venv_falls_back(self):
         """VIRTUAL_ENV set but bin/python missing → sys.executable."""
@@ -154,20 +168,20 @@ class TestResolveChildPython(unittest.TestCase):
 
     def test_project_prefers_virtualenv_over_conda(self):
         """If both VIRTUAL_ENV and CONDA_PREFIX are set, VIRTUAL_ENV wins."""
-        import tempfile, pathlib
+        import tempfile
         with tempfile.TemporaryDirectory() as ve_td, tempfile.TemporaryDirectory() as conda_td:
             ve = pathlib.Path(ve_td)
-            (ve / "bin").mkdir()
-            (ve / "bin" / "python").symlink_to(sys.executable)
+            expected = _create_python_candidate(ve)
 
             conda = pathlib.Path(conda_td)
-            (conda / "bin").mkdir()
-            (conda / "bin" / "python").symlink_to(sys.executable)
+            _create_python_candidate(conda)
 
-            with patch.dict(os.environ, {"VIRTUAL_ENV": str(ve), "CONDA_PREFIX": str(conda)}):
-                _is_usable_python.cache_clear()
+            with patch.dict(os.environ, {"VIRTUAL_ENV": str(ve), "CONDA_PREFIX": str(conda)}), patch(
+                "tools.code_execution_tool._is_usable_python", return_value=True
+            ) as usable_python:
                 result = _resolve_child_python("project")
-                self.assertEqual(result, str(ve / "bin" / "python"))
+                self.assertEqual(result, str(expected))
+                usable_python.assert_called_once_with(str(expected))
 
     def test_is_usable_python_rejects_nonexistent(self):
         _is_usable_python.cache_clear()

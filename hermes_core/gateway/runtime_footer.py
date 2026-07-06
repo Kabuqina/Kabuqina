@@ -38,10 +38,20 @@ def _home_relative_cwd(cwd: str) -> str:
     if not cwd:
         return ""
     try:
-        home = os.path.expanduser("~")
-        p = os.path.abspath(cwd)
-        if home and (p == home or p.startswith(home + os.sep)):
-            return "~" + p[len(home):]
+        raw_home = os.environ.get("HOME") or os.environ.get("USERPROFILE") or os.path.expanduser("~")
+        p = os.path.normpath(cwd).replace("\\", "/") if cwd.startswith("/") else os.path.abspath(cwd)
+        home = (
+            os.path.normpath(raw_home).replace("\\", "/")
+            if raw_home.startswith("/")
+            else os.path.abspath(raw_home)
+        )
+
+        p_cmp = os.path.normcase(p).replace("\\", "/")
+        home_slash = home.rstrip("\\/").replace("\\", "/")
+        home_cmp = os.path.normcase(home_slash).replace("\\", "/")
+        if home_cmp and (p_cmp == home_cmp or p_cmp.startswith(home_cmp + "/")):
+            p_slash = p.replace("\\", "/")
+            return "~" + p_slash[len(home_slash):]
         return p
     except Exception:
         return cwd

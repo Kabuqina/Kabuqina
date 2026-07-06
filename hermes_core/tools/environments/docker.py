@@ -98,6 +98,16 @@ def _load_hermes_env_vars() -> dict[str, str]:
         return {}
 
 
+def _is_executable_file(path: str) -> bool:
+    if not os.path.isfile(path):
+        return False
+    if sys.platform == "win32":
+        pathext = os.environ.get("PATHEXT", ".COM;.EXE;.BAT;.CMD")
+        executable_suffixes = {suffix.lower() for suffix in pathext.split(";") if suffix}
+        return os.path.splitext(path)[1].lower() in executable_suffixes
+    return os.access(path, os.X_OK)
+
+
 def find_docker() -> Optional[str]:
     """Locate the docker (or podman) CLI binary.
 
@@ -115,7 +125,7 @@ def find_docker() -> Optional[str]:
 
     # 1. Explicit override via env var (e.g. for Podman on immutable distros)
     override = os.getenv("HERMES_DOCKER_BINARY")
-    if override and os.path.isfile(override) and os.access(override, os.X_OK):
+    if override and _is_executable_file(override):
         _docker_executable = override
         logger.info("Using HERMES_DOCKER_BINARY override: %s", override)
         return override
@@ -135,7 +145,7 @@ def find_docker() -> Optional[str]:
 
     # 4. Well-known macOS Docker Desktop locations
     for path in _DOCKER_SEARCH_PATHS:
-        if os.path.isfile(path) and os.access(path, os.X_OK):
+        if _is_executable_file(path):
             _docker_executable = path
             logger.info("Found docker at non-PATH location: %s", path)
             return path

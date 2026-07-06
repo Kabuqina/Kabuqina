@@ -16,6 +16,14 @@ def _reset_cache():
     docker_mod._docker_executable = None
 
 
+def _fake_executable(tmp_path, name="docker"):
+    filename = f"{name}.exe" if os.name == "nt" else name
+    fake_binary = tmp_path / filename
+    fake_binary.write_text("#!/bin/sh\n")
+    fake_binary.chmod(0o755)
+    return fake_binary
+
+
 class TestFindDocker:
     def test_found_via_shutil_which(self):
         with patch("tools.environments.docker.shutil.which", return_value="/usr/bin/docker"):
@@ -24,9 +32,7 @@ class TestFindDocker:
 
     def test_not_in_path_falls_back_to_known_locations(self, tmp_path):
         # Create a fake docker binary at a known path
-        fake_docker = tmp_path / "docker"
-        fake_docker.write_text("#!/bin/sh\n")
-        fake_docker.chmod(0o755)
+        fake_docker = _fake_executable(tmp_path, "docker")
 
         with patch("tools.environments.docker.shutil.which", return_value=None), \
              patch("tools.environments.docker._DOCKER_SEARCH_PATHS", [str(fake_docker)]):
@@ -49,9 +55,7 @@ class TestFindDocker:
 
     def test_env_var_override_takes_precedence(self, tmp_path):
         """HERMES_DOCKER_BINARY overrides PATH and known-location discovery."""
-        fake_binary = tmp_path / "podman"
-        fake_binary.write_text("#!/bin/sh\n")
-        fake_binary.chmod(0o755)
+        fake_binary = _fake_executable(tmp_path, "podman")
 
         with patch.dict(os.environ, {"HERMES_DOCKER_BINARY": str(fake_binary)}), \
              patch("tools.environments.docker.shutil.which", return_value="/usr/bin/docker"):

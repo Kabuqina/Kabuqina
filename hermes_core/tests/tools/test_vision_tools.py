@@ -533,6 +533,7 @@ class TestTildeExpansion:
         img.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 8)
 
         monkeypatch.setenv("HOME", str(fake_home))
+        monkeypatch.setenv("USERPROFILE", str(fake_home))
 
         mock_response = MagicMock()
         mock_choice = MagicMock()
@@ -563,6 +564,7 @@ class TestTildeExpansion:
         fake_home = tmp_path / "fakehome"
         fake_home.mkdir()
         monkeypatch.setenv("HOME", str(fake_home))
+        monkeypatch.setenv("USERPROFILE", str(fake_home))
 
         result = await vision_analyze_tool(
             "~/nonexistent.png", "describe this", "test/model"

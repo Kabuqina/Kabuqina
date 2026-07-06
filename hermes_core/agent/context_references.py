@@ -341,12 +341,20 @@ def _resolve_path(cwd: Path, target: str, *, allowed_root: Path | None = None) -
 
 def _ensure_reference_path_allowed(path: Path) -> None:
     from hermes_constants import get_hermes_home
-    home = Path(os.path.expanduser("~")).resolve()
     hermes_home = get_hermes_home().resolve()
 
-    blocked_exact = {home / rel for rel in _SENSITIVE_HOME_FILES}
+    homes = _sensitive_home_roots()
+    blocked_exact = {
+        home / rel
+        for home in homes
+        for rel in _SENSITIVE_HOME_FILES
+    }
     blocked_exact.add(hermes_home / ".env")
-    blocked_dirs = [home / rel for rel in _SENSITIVE_HOME_DIRS]
+    blocked_dirs = [
+        home / rel
+        for home in homes
+        for rel in _SENSITIVE_HOME_DIRS
+    ]
     blocked_dirs.extend(hermes_home / rel for rel in _SENSITIVE_HERMES_DIRS)
 
     if path in blocked_exact:
@@ -358,6 +366,26 @@ def _ensure_reference_path_allowed(path: Path) -> None:
         except ValueError:
             continue
         raise ValueError("path is a sensitive credential or internal Hermes path and cannot be attached")
+
+
+def _sensitive_home_roots() -> list[Path]:
+    """Return all plausible user-home roots for credential path blocking."""
+    roots: list[Path] = []
+    for raw in (
+        os.environ.get("HOME"),
+        os.environ.get("USERPROFILE"),
+        str(Path.home()),
+        os.path.expanduser("~"),
+    ):
+        if not raw:
+            continue
+        try:
+            root = Path(raw).expanduser().resolve()
+        except (OSError, RuntimeError, ValueError):
+            continue
+        if root not in roots:
+            roots.append(root)
+    return roots
 
 
 def _strip_trailing_punctuation(value: str) -> str:

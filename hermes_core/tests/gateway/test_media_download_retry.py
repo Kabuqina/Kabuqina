@@ -13,10 +13,34 @@ in this environment.
 
 import asyncio
 import sys
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import httpx
+
+
+class _FakeFormData:
+    def __init__(self):
+        self.fields = []
+
+    def add_field(self, *args, **kwargs):
+        self.fields.append((args, kwargs))
+
+
+@pytest.fixture(autouse=True)
+def _fake_aiohttp_module(monkeypatch):
+    monkeypatch.setitem(
+        sys.modules,
+        "aiohttp",
+        SimpleNamespace(
+            ClientTimeout=lambda total: SimpleNamespace(total=total),
+            ClientError=Exception,
+            ClientConnectionError=Exception,
+            FormData=_FakeFormData,
+        ),
+    )
+
 
 # ---------------------------------------------------------------------------
 # Helpers for building httpx exceptions

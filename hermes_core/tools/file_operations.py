@@ -489,6 +489,17 @@ class ShellFileOperations(FileOperations):
         """
         if not path:
             return path
+
+        def _path_for_shell(value: str) -> str:
+            if not hasattr(type(self.env), "path_for_shell"):
+                return value
+            converter = getattr(self.env, "path_for_shell", None)
+            if callable(converter):
+                try:
+                    return converter(value)
+                except Exception:
+                    return value
+            return value
         
         # Handle ~ and ~user
         if path.startswith('~'):
@@ -497,9 +508,9 @@ class ShellFileOperations(FileOperations):
             if result.exit_code == 0 and result.stdout.strip():
                 home = result.stdout.strip()
                 if path == '~':
-                    return home
+                    return _path_for_shell(home)
                 elif path.startswith('~/'):
-                    return home + path[1:]  # Replace ~ with home
+                    return _path_for_shell(home + path[1:])  # Replace ~ with home
                 # ~username format - extract and validate username before
                 # letting shell expand it (prevent shell injection via
                 # paths like "~; rm -rf /").
@@ -513,9 +524,9 @@ class ShellFileOperations(FileOperations):
                     if expand_result.exit_code == 0 and expand_result.stdout.strip():
                         user_home = expand_result.stdout.strip()
                         suffix = path[1 + len(username):]  # e.g. "/rest/of/path"
-                        return user_home + suffix
+                        return _path_for_shell(user_home + suffix)
         
-        return path
+        return _path_for_shell(path)
     
     def _escape_shell_arg(self, arg: str) -> str:
         """Escape a string for safe use in shell commands."""

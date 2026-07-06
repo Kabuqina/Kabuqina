@@ -898,6 +898,7 @@ class TestInterruptHandling(unittest.TestCase):
             t.join(timeout=3)
 
 
+@unittest.skipIf(sys.platform == "win32", "UDS not available on Windows")
 class TestHeadTailTruncation(unittest.TestCase):
     """Tests for head+tail truncation of large stdout in execute_code."""
 
