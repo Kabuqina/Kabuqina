@@ -952,13 +952,13 @@ def execute_code(
     Returns:
         JSON string with execution results.
     """
+    if not code or not code.strip():
+        return tool_error("No code provided.")
+
     if not SANDBOX_AVAILABLE:
         return json.dumps({
             "error": "execute_code is not available on Windows. Use normal tool calls instead."
         })
-
-    if not code or not code.strip():
-        return tool_error("No code provided.")
 
     # Dispatch: remote backends use file-based RPC, local uses UDS
     from tools.terminal_tool import _get_env_config

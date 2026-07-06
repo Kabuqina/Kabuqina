@@ -15,6 +15,7 @@ import pytest
 
 import json
 import os
+import shlex
 import sys
 from pathlib import Path
 
@@ -62,6 +63,20 @@ SPECIAL_CONTENT = "single 'quotes' and \"doubles\" and $VARS and `backticks` and
 MULTIFILE_A = "def func_alpha():\n    return 42\n"
 MULTIFILE_B = "def func_bravo():\n    return 99\n"
 MULTIFILE_C = "nothing relevant here\n"
+
+
+def _shell_path(path) -> str:
+    text = str(path)
+    if sys.platform == "win32":
+        drive, rest = os.path.splitdrive(text)
+        if drive:
+            return f"/{drive[0].lower()}{rest.replace(os.sep, '/')}"
+        return text.replace("\\", "/")
+    return text
+
+
+def _shell_arg(path) -> str:
+    return shlex.quote(_shell_path(path))
 
 
 @pytest.fixture
@@ -115,7 +130,7 @@ class TestLocalEnvironmentExecute:
         subdir.mkdir()
         result = env.execute("pwd", cwd=str(subdir))
         assert result["returncode"] == 0
-        assert result["output"].strip() == str(subdir)
+        assert result["output"].strip() == _shell_path(subdir)
         _assert_clean(result["output"])
 
     def test_multiline_exact(self, env):
@@ -128,7 +143,7 @@ class TestLocalEnvironmentExecute:
         result = env.execute("echo $HOME")
         assert result["returncode"] == 0
         home = result["output"].strip()
-        assert home == str(Path.home())
+        assert home == _shell_path(Path.home())
         _assert_clean(result["output"])
 
     def test_pipe_exact(self, env):
@@ -140,7 +155,7 @@ class TestLocalEnvironmentExecute:
     def test_cat_deterministic_content(self, env, tmp_path):
         f = tmp_path / "det.txt"
         f.write_text(SIMPLE_CONTENT)
-        result = env.execute(f"cat {f}")
+        result = env.execute(f"cat {_shell_arg(f)}")
         assert result["returncode"] == 0
         assert result["output"] == SIMPLE_CONTENT
         _assert_clean(result["output"])
@@ -365,7 +380,7 @@ class TestSearch:
 class TestExpandPath:
     def test_tilde_exact(self, ops):
         result = ops._expand_path("~/test.txt")
-        expected = f"{Path.home()}/test.txt"
+        expected = _shell_path(Path.home() / "test.txt")
         assert result == expected
         _assert_clean(result)
 
@@ -377,7 +392,7 @@ class TestExpandPath:
 
     def test_bare_tilde(self, ops):
         result = ops._expand_path("~")
-        assert result == str(Path.home())
+        assert result == _shell_path(Path.home())
         _assert_clean(result)
 
     def test_tilde_injection_blocked(self, ops):
@@ -413,14 +428,14 @@ class TestTerminalOutputCleanliness:
     def test_cat(self, env, tmp_path):
         f = tmp_path / "cat_test.txt"
         f.write_text("CAT_CONTENT_EXACT\n")
-        result = env.execute(f"cat {f}")
+        result = env.execute(f"cat {_shell_arg(f)}")
         assert result["output"] == "CAT_CONTENT_EXACT\n"
         _assert_clean(result["output"])
 
     def test_ls(self, env, tmp_path):
         (tmp_path / "file_a.txt").write_text("")
         (tmp_path / "file_b.txt").write_text("")
-        result = env.execute(f"ls {tmp_path}")
+        result = env.execute(f"ls {_shell_arg(tmp_path)}")
         _assert_clean(result["output"])
         assert "file_a.txt" in result["output"]
         assert "file_b.txt" in result["output"]
@@ -428,21 +443,21 @@ class TestTerminalOutputCleanliness:
     def test_wc(self, env, tmp_path):
         f = tmp_path / "wc_test.txt"
         f.write_text("one\ntwo\nthree\n")
-        result = env.execute(f"wc -l < {f}")
+        result = env.execute(f"wc -l < {_shell_arg(f)}")
         assert result["output"].strip() == "3"
         _assert_clean(result["output"])
 
     def test_head(self, env, tmp_path):
         f = tmp_path / "head_test.txt"
         f.write_text(NUMBERED_CONTENT)
-        result = env.execute(f"head -n 3 {f}")
+        result = env.execute(f"head -n 3 {_shell_arg(f)}")
         expected = "LINE_0001\nLINE_0002\nLINE_0003\n"
         assert result["output"] == expected
         _assert_clean(result["output"])
 
     def test_env_var_expansion(self, env):
         result = env.execute("echo $HOME")
-        assert result["output"].strip() == str(Path.home())
+        assert result["output"].strip() == _shell_path(Path.home())
         _assert_clean(result["output"])
 
     def test_command_substitution(self, env):

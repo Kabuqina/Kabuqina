@@ -103,8 +103,13 @@ def _pipe_stdin(proc: subprocess.Popen, data: str) -> None:
 
     def _write():
         try:
-            proc.stdin.write(data)
-            proc.stdin.close()
+            raw = getattr(proc.stdin, "buffer", None)
+            if raw is not None:
+                raw.write(data.encode("utf-8"))
+                raw.close()
+            else:
+                proc.stdin.write(data)
+                proc.stdin.close()
         except (BrokenPipeError, OSError):
             pass
 
@@ -338,7 +343,7 @@ class BaseEnvironment(ABC):
         # Restore configured cwd after login shell profile scripts, which may
         # change the working directory (e.g. bashrc `cd ~`).  Without this,
         # pwd -P captures the profile's directory, not terminal.cwd.
-        _quoted_cwd = shlex.quote(self.cwd)
+        _quoted_cwd = shlex.quote(self._shell_cwd_for_cd(self.cwd))
         bootstrap = (
             f"export -p > {self._snapshot_path}\n"
             f"declare -f | grep -vE '^_[^_]' >> {self._snapshot_path}\n"
@@ -384,6 +389,10 @@ class BaseEnvironment(ABC):
             return f"$HOME/{shlex.quote(cwd[2:])}"
         return shlex.quote(cwd)
 
+    def _shell_cwd_for_cd(self, cwd: str) -> str:
+        """Return the path form understood by the backend shell's ``cd``."""
+        return cwd
+
     def _wrap_command(self, command: str, cwd: str) -> str:
         """Build the full bash script that sources snapshot, cd's, runs command,
         re-dumps env vars, and emits CWD markers."""
@@ -404,7 +413,7 @@ class BaseEnvironment(ABC):
 
         # Preserve bare ``~`` expansion, but rewrite ``~/...`` through
         # ``$HOME`` so suffixes with spaces remain a single shell word.
-        quoted_cwd = self._quote_cwd_for_cd(cwd)
+        quoted_cwd = self._quote_cwd_for_cd(self._shell_cwd_for_cd(cwd))
         parts.append(f"builtin cd {quoted_cwd} || exit 126")
 
         # Run the actual command
@@ -486,61 +495,52 @@ class BaseEnvironment(ABC):
         # U+FFFD substitution rather than clobbering the whole buffer.
         decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
 
-        def _drain():
-            fd = proc.stdout.fileno()
-            idle_after_exit = 0
-            try:
-                while True:
-                    try:
-                        ready, _, _ = select.select([fd], [], [], 0.1)
-                    except (ValueError, OSError):
-                        break  # fd already closed
-                    if ready:
-                        try:
-                            chunk = os.read(fd, 4096)
-                        except (ValueError, OSError):
-                            break
-                        if not chunk:
-                            break  # true EOF — all writers closed
-                        output_chunks.append(decoder.decode(chunk))
-                        idle_after_exit = 0
-                    elif proc.poll() is not None:
-                        # bash is gone and the pipe was idle for ~100ms.  Give
-                        # it two more cycles to catch any buffered tail, then
-                        # stop — otherwise we wait forever on a grandchild pipe.
-                        idle_after_exit += 1
-                        if idle_after_exit >= 3:
-                            break
-            finally:
-                # Windows: select.select() does not report pipe readiness for
-                # anonymous pipes created by subprocess.Popen.  The select loop
-                # above may break before ever reading stdout from a fast-exiting
-                # child (echo hello, python -c "print(42)").  Drain any residual
-                # buffered output before flushing the decoder.
+        if os.name == "nt":
+            def _drain():
                 try:
-                    os.set_blocking(fd, False)
-                except Exception:
+                    while True:
+                        chunk = proc.stdout.read(4096)
+                        if not chunk:
+                            break
+                        output_chunks.append(chunk)
+                except (ValueError, OSError):
                     pass
+        else:
+            def _drain():
+                fd = proc.stdout.fileno()
+                idle_after_exit = 0
                 try:
                     while True:
                         try:
-                            chunk = os.read(fd, 4096)
-                            if not chunk:
+                            ready, _, _ = select.select([fd], [], [], 0.1)
+                        except (ValueError, OSError):
+                            break  # fd already closed
+                        if ready:
+                            try:
+                                chunk = os.read(fd, 4096)
+                            except (ValueError, OSError):
                                 break
+                            if not chunk:
+                                break  # true EOF — all writers closed
                             output_chunks.append(decoder.decode(chunk))
-                        except (BlockingIOError, ValueError, OSError):
-                            break
-                except Exception:
-                    pass
-                # Flush any bytes buffered mid-sequence.  With ``errors="replace"``
-                # this emits U+FFFD for any final incomplete sequence rather than
-                # raising.
-                try:
-                    tail = decoder.decode(b"", final=True)
-                    if tail:
-                        output_chunks.append(tail)
-                except Exception:
-                    pass
+                            idle_after_exit = 0
+                        elif proc.poll() is not None:
+                            # bash is gone and the pipe was idle for ~100ms. Give
+                            # it two more cycles to catch any buffered tail, then
+                            # stop — otherwise we wait forever on a grandchild pipe.
+                            idle_after_exit += 1
+                            if idle_after_exit >= 3:
+                                break
+                finally:
+                    # Flush any bytes buffered mid-sequence.  With
+                    # ``errors="replace"`` this emits U+FFFD for any final
+                    # incomplete sequence rather than raising.
+                    try:
+                        tail = decoder.decode(b"", final=True)
+                        if tail:
+                            output_chunks.append(tail)
+                    except Exception:
+                        pass
 
         drain_thread = threading.Thread(target=_drain, daemon=True)
         drain_thread.start()
