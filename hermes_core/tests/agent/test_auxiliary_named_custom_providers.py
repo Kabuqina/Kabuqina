@@ -335,13 +335,18 @@ class TestProvidersDictApiModeAnthropicMessages:
             AnthropicAuxiliaryClient,
             AsyncAnthropicAuxiliaryClient,
         )
-        sync_client, sync_model = resolve_provider_client("myrelay", async_mode=False)
+        with patch(
+            "providers.anthropic.build_anthropic_client",
+            return_value=MagicMock(name="anthropic_sdk_client"),
+        ):
+            sync_client, sync_model = resolve_provider_client("myrelay", async_mode=False)
+            async_client, async_model = resolve_provider_client("myrelay", async_mode=True)
+
         assert isinstance(sync_client, AnthropicAuxiliaryClient), (
             f"expected AnthropicAuxiliaryClient, got {type(sync_client).__name__}"
         )
         assert sync_model == "claude-opus-4-7"
 
-        async_client, async_model = resolve_provider_client("myrelay", async_mode=True)
         assert isinstance(async_client, AsyncAnthropicAuxiliaryClient), (
             f"expected AsyncAnthropicAuxiliaryClient, got {type(async_client).__name__}"
         )
@@ -375,11 +380,16 @@ class TestProvidersDictApiModeAnthropicMessages:
             AnthropicAuxiliaryClient,
             AsyncAnthropicAuxiliaryClient,
         )
-        async_client, async_model = get_async_text_auxiliary_client("compression")
+        with patch(
+            "providers.anthropic.build_anthropic_client",
+            return_value=MagicMock(name="anthropic_sdk_client"),
+        ):
+            async_client, async_model = get_async_text_auxiliary_client("compression")
+            sync_client, sync_model = get_text_auxiliary_client("compression")
+
         assert isinstance(async_client, AsyncAnthropicAuxiliaryClient)
         assert async_model == "claude-sonnet-4.6"
 
-        sync_client, sync_model = get_text_auxiliary_client("compression")
         assert isinstance(sync_client, AnthropicAuxiliaryClient)
         assert sync_model == "claude-sonnet-4.6"
 
