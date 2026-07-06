@@ -968,6 +968,14 @@ def _parse_env_var(name: str, default: str, converter=int, type_label: str = "in
         )
 
 
+_HOST_CWD_PREFIXES = ("/Users/", "/home/", "C:/")
+
+
+def _looks_like_host_cwd(path: str) -> bool:
+    normalized = path.replace("\\", "/")
+    return normalized.startswith(_HOST_CWD_PREFIXES)
+
+
 def _get_env_config() -> Dict[str, Any]:
     """Get terminal environment configuration from environment variables."""
     # Default image with Python and Node.js for maximum compatibility
@@ -996,19 +1004,20 @@ def _get_env_config() -> Dict[str, Any]:
     if cwd:
         cwd = os.path.expanduser(cwd)
     host_cwd = None
-    host_prefixes = ("/Users/", "/home/", "C:\\", "C:/")
     if env_type == "docker" and mount_docker_cwd:
         docker_cwd_source = os.getenv("TERMINAL_CWD") or os.getcwd()
-        candidate = os.path.abspath(os.path.expanduser(docker_cwd_source))
+        expanded_source = os.path.expanduser(docker_cwd_source)
+        candidate = os.path.abspath(expanded_source)
         if (
-            any(candidate.startswith(p) for p in host_prefixes)
+            _looks_like_host_cwd(expanded_source)
+            or _looks_like_host_cwd(candidate)
             or (os.path.isabs(candidate) and os.path.isdir(candidate) and not candidate.startswith(("/workspace", "/root")))
         ):
-            host_cwd = candidate
+            host_cwd = expanded_source if _looks_like_host_cwd(expanded_source) else candidate
             cwd = "/workspace"
     elif env_type in ("modal", "docker", "singularity", "daytona", "vercel_sandbox") and cwd:
         # Host paths and relative paths that won't work inside containers
-        is_host_path = any(cwd.startswith(p) for p in host_prefixes)
+        is_host_path = _looks_like_host_cwd(cwd)
         is_relative = not os.path.isabs(cwd)  # e.g. "." or "src/"
         if (is_host_path or is_relative) and cwd != default_cwd:
             logger.info("Ignoring TERMINAL_CWD=%r for %s backend "

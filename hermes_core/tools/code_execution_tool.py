@@ -73,9 +73,6 @@ MAX_STDERR_BYTES = 10_000    # 10 KB
 
 def check_sandbox_requirements() -> bool:
     """Code execution sandbox requires a POSIX OS for Unix domain sockets."""
-    if not SANDBOX_AVAILABLE:
-        return False
-
     try:
         from tools.terminal_tool import (
             _check_vercel_sandbox_requirements,
@@ -89,6 +86,12 @@ def check_sandbox_requirements() -> bool:
 
     if config.get("env_type") == "vercel_sandbox":
         return _check_vercel_sandbox_requirements(config)
+
+    if config.get("env_type") != "local":
+        return True
+
+    if not SANDBOX_AVAILABLE:
+        return False
 
     return True
 
@@ -955,16 +958,16 @@ def execute_code(
     if not code or not code.strip():
         return tool_error("No code provided.")
 
-    if not SANDBOX_AVAILABLE:
-        return json.dumps({
-            "error": "execute_code is not available on Windows. Use normal tool calls instead."
-        })
-
     # Dispatch: remote backends use file-based RPC, local uses UDS
     from tools.terminal_tool import _get_env_config
     env_type = _get_env_config()["env_type"]
     if env_type != "local":
         return _execute_remote(code, task_id, enabled_tools)
+
+    if not SANDBOX_AVAILABLE:
+        return json.dumps({
+            "error": "execute_code is not available on Windows local backend. Use normal tool calls instead."
+        })
 
     # --- Local execution path (UDS) --- below this line is unchanged ---
 

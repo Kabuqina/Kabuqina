@@ -382,14 +382,14 @@ class TestSkillView:
             _make_skill(
                 tmp_path,
                 "dynamic",
-                body="Current date: !`printf 2026-04-24`",
+                body='Current date: !`python -c "print(\'2026-04-24\')" `',
             )
             raw = skill_view("dynamic")
 
         result = json.loads(raw)
         assert result["success"] is True
         assert "Current date: 2026-04-24" in result["content"]
-        assert "!`printf 2026-04-24`" not in result["content"]
+        assert "!`python -c" not in result["content"]
 
     def test_skill_view_leaves_inline_shell_literal_when_disabled(self, tmp_path):
         with (

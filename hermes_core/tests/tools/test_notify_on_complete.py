@@ -9,7 +9,6 @@ Covers:
 """
 
 import json
-import os
 import queue
 import time
 import pytest
@@ -207,11 +206,12 @@ class TestCheckpointNotify:
         checkpoint.write_text(json.dumps([{
             "session_id": "proc_live",
             "command": "sleep 999",
-            "pid": os.getpid(),
+            "pid": 12345,
             "task_id": "t1",
             "notify_on_complete": True,
-        }]))
-        with patch("tools.process_registry.CHECKPOINT_PATH", checkpoint):
+        }]), encoding="utf-8")
+        with patch("tools.process_registry.CHECKPOINT_PATH", checkpoint), \
+             patch.object(registry, "_is_host_pid_alive", return_value=True):
             recovered = registry.recover_from_checkpoint()
             assert recovered == 1
             s = registry.get("proc_live")
@@ -222,7 +222,7 @@ class TestCheckpointNotify:
         checkpoint.write_text(json.dumps([{
             "session_id": "proc_live",
             "command": "sleep 999",
-            "pid": os.getpid(),
+            "pid": 12345,
             "task_id": "t1",
             "session_key": "sk1",
             "watcher_platform": "telegram",
@@ -232,8 +232,9 @@ class TestCheckpointNotify:
             "watcher_thread_id": "42",
             "watcher_interval": 5,
             "notify_on_complete": True,
-        }]))
-        with patch("tools.process_registry.CHECKPOINT_PATH", checkpoint):
+        }]), encoding="utf-8")
+        with patch("tools.process_registry.CHECKPOINT_PATH", checkpoint), \
+             patch.object(registry, "_is_host_pid_alive", return_value=True):
             recovered = registry.recover_from_checkpoint()
             assert recovered == 1
             assert len(registry.pending_watchers) == 1
@@ -247,10 +248,11 @@ class TestCheckpointNotify:
         checkpoint.write_text(json.dumps([{
             "session_id": "proc_live",
             "command": "sleep 999",
-            "pid": os.getpid(),
+            "pid": 12345,
             "task_id": "t1",
-        }]))
-        with patch("tools.process_registry.CHECKPOINT_PATH", checkpoint):
+        }]), encoding="utf-8")
+        with patch("tools.process_registry.CHECKPOINT_PATH", checkpoint), \
+             patch.object(registry, "_is_host_pid_alive", return_value=True):
             recovered = registry.recover_from_checkpoint()
             assert recovered == 1
             s = registry.get("proc_live")

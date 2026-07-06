@@ -82,7 +82,10 @@ def quoted_mkdir_command(dirs: list[str]) -> str:
 
 def unique_parent_dirs(files: list[tuple[str, str]]) -> list[str]:
     """Extract sorted unique parent directories from (host, remote) pairs."""
-    return sorted({str(Path(remote).parent) for _, remote in files})
+    return sorted({
+        posixpath.dirname((remote.replace("\\", "/").rstrip("/") or "/")) or "/"
+        for _, remote in files
+    })
 
 
 def _sha256_file(path: str) -> str:

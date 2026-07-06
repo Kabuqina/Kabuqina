@@ -194,14 +194,17 @@ class TestMemoryStorePersistence:
 
         store2 = MemoryStore()
         store2.load_from_disk()
-        assert "persistent fact" in store2.memory_entries
-        assert "Alice, developer" in store2.user_entries
+        assert any("persistent fact" in entry for entry in store2.memory_entries)
+        assert any("Alice, developer" in entry for entry in store2.user_entries)
 
     def test_deduplication_on_load(self, tmp_path, monkeypatch):
         monkeypatch.setattr("tools.memory_tool.get_memory_dir", lambda: tmp_path)
         # Write file with duplicates
         mem_file = tmp_path / "MEMORY.md"
-        mem_file.write_text("duplicate entry\n§\nduplicate entry\n§\nunique entry")
+        mem_file.write_text(
+            "duplicate entry\n§\nduplicate entry\n§\nunique entry",
+            encoding="utf-8",
+        )
 
         store = MemoryStore()
         store.load_from_disk()
