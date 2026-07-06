@@ -1,0 +1,13 @@
+name: spotify
+version: 1.0.0
+kind: backend
+description: "Spotify Web API tools for playback, search, playlists, albums, and library operations."
+author: Hermes Agent
+provides_tools:
+  - spotify_playback
+  - spotify_devices
+  - spotify_queue
+  - spotify_search
+  - spotify_playlists
+  - spotify_albums
+  - spotify_library

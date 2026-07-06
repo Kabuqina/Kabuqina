@@ -14,6 +14,8 @@ import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+pytest.importorskip("aiohttp")
+pytest.importorskip("aiohttp.test_utils")
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 

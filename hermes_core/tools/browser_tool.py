@@ -88,7 +88,10 @@ from tools.tool_backend_helpers import normalize_browser_cloud_provider
 # Camofox local anti-detection browser backend (optional).
 # When CAMOFOX_URL is set, all browser operations route through the
 # camofox REST API instead of the agent-browser CLI.
-_is_camofox_mode = lambda: False  # Camofox removed — HermesDesk uses Edge CDP # noqa: E731
+try:
+    from tools.browser_camofox import is_camofox_mode as _is_camofox_mode
+except Exception:
+    _is_camofox_mode = lambda: False  # noqa: E731
 
 # Lazy-loaded CDP backend.  Imported on first use so the module can be
 # missing from the bundle without crashing registration.
@@ -2687,8 +2690,15 @@ def _cleanup_single_browser_session(task_id: str) -> None:
     # before the backend tears down the underlying CDP endpoint.
     _stop_cdp_supervisor(task_id)
 
-    # Camofox previously had a cleanup path here; removed in HermesDesk
-    # (HermesDesk uses Edge CDP instead).
+    if _is_camofox_mode():
+        try:
+            from tools.browser_camofox import camofox_close, camofox_soft_cleanup
+            if camofox_soft_cleanup(task_id):
+                return
+            camofox_close(task_id)
+            return
+        except Exception as exc:
+            logger.debug("Camofox cleanup failed for %s: %s", task_id, exc)
 
     logger.debug("cleanup_browser called for task_id: %s", task_id)
     logger.debug("Active sessions: %s", list(_active_sessions.keys()))

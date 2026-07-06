@@ -9,6 +9,7 @@ view) and don't need this.
 import hashlib
 import logging
 import os
+import posixpath
 import shlex
 import shutil
 import signal
@@ -297,13 +298,14 @@ class FileSyncManager:
         except Exception:
             file_mapping = []
 
-        with tempfile.NamedTemporaryFile(suffix=".tar") as tf:
-            self._bulk_download_fn(Path(tf.name))
+        with tempfile.TemporaryDirectory(prefix="hermes-sync-download-") as download_dir:
+            tar_path = Path(download_dir) / "remote.tar"
+            self._bulk_download_fn(tar_path)
 
             # Defensive size cap: a misbehaving sandbox could produce an
             # arbitrarily large tar. Refuse to extract if it exceeds the cap.
             try:
-                tar_size = os.path.getsize(tf.name)
+                tar_size = os.path.getsize(tar_path)
             except OSError:
                 tar_size = 0
             if tar_size > _SYNC_BACK_MAX_BYTES:
@@ -314,14 +316,14 @@ class FileSyncManager:
                 return
 
             with tempfile.TemporaryDirectory(prefix="hermes-sync-back-") as staging:
-                with tarfile.open(tf.name) as tar:
+                with tarfile.open(tar_path) as tar:
                     tar.extractall(staging, filter="data")
 
                 applied = 0
                 for dirpath, _dirnames, filenames in os.walk(staging):
                     for fname in filenames:
                         staged_file = os.path.join(dirpath, fname)
-                        rel = os.path.relpath(staged_file, staging)
+                        rel = os.path.relpath(staged_file, staging).replace(os.sep, "/")
                         remote_path = "/" + rel
 
                         pushed_hash = self._pushed_hashes.get(remote_path)
@@ -385,9 +387,9 @@ class FileSyncManager:
         """
         mapping = file_mapping if file_mapping is not None else []
         for host, remote in mapping:
-            remote_dir = str(Path(remote).parent)
+            remote_dir = posixpath.dirname(remote.rstrip("/"))
             if remote_path.startswith(remote_dir + "/"):
                 host_dir = str(Path(host).parent)
-                suffix = remote_path[len(remote_dir):]
-                return host_dir + suffix
+                suffix = remote_path[len(remote_dir):].lstrip("/")
+                return str(Path(host_dir).joinpath(*suffix.split("/")))
         return None
