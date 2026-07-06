@@ -323,7 +323,15 @@ def _resolve_shell_init_files() -> list[str]:
     resolved: list[str] = []
     for raw in candidates:
         try:
-            path = os.path.expandvars(os.path.expanduser(raw))
+            path = os.path.expandvars(raw)
+            if path == "~":
+                path = os.environ.get("HOME") or os.path.expanduser(path)
+            elif path.startswith("~/"):
+                home = os.environ.get("HOME") or os.path.expanduser("~")
+                path = os.path.normpath(os.path.join(home, path[2:]))
+            else:
+                path = os.path.expanduser(path)
+            path = os.path.normpath(path)
         except Exception:
             continue
         if path and os.path.isfile(path):

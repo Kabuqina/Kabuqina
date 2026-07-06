@@ -469,6 +469,12 @@ class BaseEnvironment(ABC):
         """
         output_chunks: list[str] = []
 
+        def _output_text() -> str:
+            output = "".join(output_chunks)
+            if os.name == "nt":
+                output = output.replace("\r\n", "\n")
+            return output
+
         # Non-blocking drain via select().
         #
         # The old pattern — ``for line in proc.stdout`` — blocks on
@@ -497,13 +503,20 @@ class BaseEnvironment(ABC):
 
         if os.name == "nt":
             def _drain():
+                fd = proc.stdout.fileno()
                 try:
                     while True:
-                        chunk = proc.stdout.read(4096)
+                        chunk = os.read(fd, 4096)
                         if not chunk:
                             break
-                        output_chunks.append(chunk)
+                        output_chunks.append(decoder.decode(chunk))
                 except (ValueError, OSError):
+                    pass
+                try:
+                    tail = decoder.decode(b"", final=True)
+                    if tail:
+                        output_chunks.append(tail)
+                except Exception:
                     pass
         else:
             def _drain():
@@ -583,7 +596,7 @@ class BaseEnvironment(ABC):
                     self._kill_process(proc)
                     drain_thread.join(timeout=2)
                     return {
-                        "output": "".join(output_chunks) + "\n[Command interrupted]",
+                        "output": _output_text() + "\n[Command interrupted]",
                         "returncode": 130,
                     }
                 if time.monotonic() > deadline:
@@ -595,7 +608,7 @@ class BaseEnvironment(ABC):
                         )
                     self._kill_process(proc)
                     drain_thread.join(timeout=2)
-                    partial = "".join(output_chunks)
+                    partial = _output_text()
                     timeout_msg = f"\n[Command timed out after {timeout}s]"
                     return {
                         "output": partial + timeout_msg
@@ -666,7 +679,7 @@ class BaseEnvironment(ABC):
                 proc.returncode,
             )
 
-        return {"output": "".join(output_chunks), "returncode": proc.returncode}
+        return {"output": _output_text(), "returncode": proc.returncode}
 
     def _kill_process(self, proc: ProcessHandle):
         """Terminate a process. Subclasses may override for process-group kill."""

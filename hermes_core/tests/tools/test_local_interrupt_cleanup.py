@@ -14,6 +14,7 @@ died.  See commit message for full context.
 import os
 import signal
 import subprocess
+import sys
 import threading
 import time
 from types import SimpleNamespace
@@ -21,6 +22,11 @@ from types import SimpleNamespace
 import pytest
 
 from tools.environments.local import LocalEnvironment
+
+pytestmark = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="POSIX process-group cleanup uses os.getpgid/os.killpg",
+)
 
 
 @pytest.fixture(autouse=True)

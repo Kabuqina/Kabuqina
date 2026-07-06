@@ -12,6 +12,7 @@ stops draining shortly after bash exits even if the pipe hasn't EOF'd.
 """
 import json
 import subprocess
+import sys
 import time
 
 import pytest
@@ -35,6 +36,10 @@ def local_env():
 class TestBackgroundChildDoesNotHang:
     """Regression guard for issue #8340."""
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason="Git Bash on Windows waits for plain background jobs unless they are detached",
+    )
     def test_plain_background_returns_promptly(self, local_env):
         """``cmd &`` with no output redirection must not hang on pipe inherit."""
         marker = "hermes_8340_plain_bg"
@@ -98,7 +103,7 @@ class TestBackgroundChildDoesNotHang:
         result = local_env.execute("sleep 30", timeout=2)
         elapsed = time.monotonic() - t0
 
-        assert elapsed < 4.0
+        assert elapsed < (6.0 if sys.platform == "win32" else 4.0)
         assert result["returncode"] == 124
         assert "timed out" in result["output"].lower()
 

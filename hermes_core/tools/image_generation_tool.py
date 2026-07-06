@@ -29,7 +29,10 @@ import uuid
 from typing import Any, Dict, Optional, Union
 from urllib.parse import urlencode
 
-import fal_client
+try:
+    import fal_client
+except ImportError:
+    fal_client = None
 
 from tools.debug_helpers import DebugSession
 from tools.managed_tool_gateway import resolve_managed_tool_gateway
@@ -438,6 +441,8 @@ def _submit_fal_request(model: str, arguments: Dict[str, Any]):
     request_headers = {"x-idempotency-key": str(uuid.uuid4())}
     managed_gateway = _resolve_managed_fal_gateway()
     if managed_gateway is None:
+        if fal_client is None:
+            raise RuntimeError("fal_client library is required for direct FAL image generation")
         return fal_client.submit(model, arguments=arguments, headers=request_headers)
 
     managed_client = _get_managed_fal_client(managed_gateway)
@@ -787,10 +792,9 @@ def check_image_generation_requirements() -> bool:
     providers is resolved per-call by ``image_gen.provider``.
     """
     try:
-        if check_fal_api_key():
-            fal_client  # noqa: F401 — SDK presence check
+        if check_fal_api_key() and fal_client is not None:
             return True
-    except ImportError:
+    except Exception:
         pass
 
     # Probe plugin providers. Discovery is idempotent and cheap.

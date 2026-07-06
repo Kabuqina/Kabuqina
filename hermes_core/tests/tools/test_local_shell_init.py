@@ -7,6 +7,7 @@ tests verify the config-driven prelude that fixes that.
 """
 
 import os
+import sys
 from unittest.mock import patch
 
 import pytest
@@ -19,7 +20,14 @@ from tools.environments.local import (
 )
 
 
+POSIX_AUTO_SOURCE_ONLY = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Windows Git Bash uses explicit shell_init_files only",
+)
+
+
 class TestResolveShellInitFiles:
+    @POSIX_AUTO_SOURCE_ONLY
     def test_auto_sources_bashrc_when_present(self, tmp_path, monkeypatch):
         bashrc = tmp_path / ".bashrc"
         bashrc.write_text('export MARKER=seen\n')
@@ -34,6 +42,7 @@ class TestResolveShellInitFiles:
 
         assert resolved == [str(bashrc)]
 
+    @POSIX_AUTO_SOURCE_ONLY
     def test_auto_sources_profile_when_present(self, tmp_path, monkeypatch):
         """~/.profile is where ``n`` / ``nvm`` installers typically write
         their PATH export on Debian/Ubuntu, and it has no interactivity
@@ -51,6 +60,7 @@ class TestResolveShellInitFiles:
 
         assert resolved == [str(profile)]
 
+    @POSIX_AUTO_SOURCE_ONLY
     def test_auto_sources_bash_profile_when_present(self, tmp_path, monkeypatch):
         bash_profile = tmp_path / ".bash_profile"
         bash_profile.write_text('export MARKER=bp\n')
@@ -64,6 +74,7 @@ class TestResolveShellInitFiles:
 
         assert resolved == [str(bash_profile)]
 
+    @POSIX_AUTO_SOURCE_ONLY
     def test_auto_sources_profile_before_bashrc(self, tmp_path, monkeypatch):
         """Both files present: profile runs first so PATH exports in
         profile take effect even if bashrc short-circuits on the
