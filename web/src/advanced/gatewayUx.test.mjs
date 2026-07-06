@@ -35,8 +35,14 @@ assert.match(
 
 assert.match(
   settingsGatewaySource,
-  /platformItems\s*=\s*\[[\s\S]*feishu[\s\S]*email[\s\S]*\]/,
-  "Messaging platform settings should expose the platform entries (without Telegram).",
+  /platformItems\s*=\s*\[[\s\S]*feishu[\s\S]*qq[\s\S]*weixin[\s\S]*wecom[\s\S]*\]/,
+  "Messaging platform settings should expose the mainland profile entries.",
+);
+
+assert.doesNotMatch(
+  settingsGatewaySource,
+  /platformItems\s*=\s*\[[\s\S]*(email|dingtalk)[\s\S]*\]/i,
+  "Mainland profile gateway navigation should not expose Email or DingTalk.",
 );
 
 assert.match(

@@ -85,50 +85,51 @@ class TestRealSubagentInterrupt(unittest.TestCase):
         result_holder = [None]
         error_holder = [None]
 
+        # Production delegate_task builds the child on the caller thread, then
+        # passes the pre-built agent into _run_single_child. Keep the same shape
+        # here so the interrupt assertion measures run_conversation/API handling,
+        # not slow AIAgent construction on Windows.
+        with patch('run_agent.OpenAI') as MockOpenAI:
+            mock_client = MagicMock()
+            # API call takes 5 seconds — should be interrupted before that
+            mock_client.chat.completions.create = _make_slow_api_response(delay=5.0)
+            mock_client.close = MagicMock()
+            MockOpenAI.return_value = mock_client
+
+            with patch.object(AIAgent, '_build_system_prompt', return_value="You are a test agent"):
+                child = AIAgent(
+                    base_url="http://localhost:1",
+                    api_key="test-key",
+                    model="test/model",
+                    provider="test",
+                    api_mode="chat_completions",
+                    max_iterations=5,
+                    enabled_toolsets=["terminal"],
+                    quiet_mode=True,
+                    skip_context_files=True,
+                    skip_memory=True,
+                    platform="cli",
+                )
+        child._delegate_depth = 1
+        parent._active_children.append(child)
+
+        original_run = child.run_conversation
+
+        def patched_run(*args, **kwargs):
+            child_started.set()
+            return original_run(*args, **kwargs)
+
+        child.run_conversation = patched_run
+
         def run_delegate():
             try:
-                # Patch the OpenAI client creation inside AIAgent.__init__
-                with patch('run_agent.OpenAI') as MockOpenAI:
-                    mock_client = MagicMock()
-                    # API call takes 5 seconds — should be interrupted before that
-                    mock_client.chat.completions.create = _make_slow_api_response(delay=5.0)
-                    mock_client.close = MagicMock()
-                    MockOpenAI.return_value = mock_client
-
-                    # Patch the instance method so it skips prompt assembly
-                    with patch.object(AIAgent, '_build_system_prompt', return_value="You are a test agent"):
-                        # Signal when child starts
-                        original_run = AIAgent.run_conversation
-
-                        def patched_run(self_agent, *args, **kwargs):
-                            child_started.set()
-                            return original_run(self_agent, *args, **kwargs)
-
-                        with patch.object(AIAgent, 'run_conversation', patched_run):
-                            # Build a real child agent (AIAgent is NOT patched here,
-                            # only run_conversation and _build_system_prompt are)
-                            child = AIAgent(
-                                base_url="http://localhost:1",
-                                api_key="test-key",
-                                model="test/model",
-                                provider="test",
-                                api_mode="chat_completions",
-                                max_iterations=5,
-                                enabled_toolsets=["terminal"],
-                                quiet_mode=True,
-                                skip_context_files=True,
-                                skip_memory=True,
-                                platform="cli",
-                            )
-                            child._delegate_depth = 1
-                            parent._active_children.append(child)
-                            result = _run_single_child(
-                                task_index=0,
-                                goal="Test task",
-                                child=child,
-                                parent_agent=parent,
-                            )
-                            result_holder[0] = result
+                result = _run_single_child(
+                    task_index=0,
+                    goal="Test task",
+                    child=child,
+                    parent_agent=parent,
+                )
+                result_holder[0] = result
             except Exception as e:
                 import traceback
                 traceback.print_exc()

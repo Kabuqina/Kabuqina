@@ -31,10 +31,10 @@ assert.equal(
 assert.deepEqual(
   tauriConfig.plugins.updater.endpoints,
   [
-    "https://github.com/Kabuqina/Kabuqina/releases/latest/download/latest.json",
     "https://kabuqina-installer-1428509047.cos.ap-guangzhou.myqcloud.com/latest.json",
+    "https://github.com/Kabuqina/Kabuqina/releases/latest/download/latest.json",
   ],
-  "Updater should try GitHub first and Tencent COS second.",
+  "Updater should try Tencent COS first and GitHub as fallback.",
 );
 assert.match(
   tauriConfig.plugins.updater.pubkey,
