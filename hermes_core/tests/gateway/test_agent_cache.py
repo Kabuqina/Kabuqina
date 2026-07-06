@@ -916,6 +916,13 @@ class TestAgentCacheSpilloverLive:
         """Many threads inserting in parallel end with len(cache) == CAP."""
         from gateway import run as gw_run
 
+        class _LightAgent:
+            def __init__(self):
+                self.client = object()
+
+            def release_clients(self):
+                self.client = None
+
         CAP = 16
         monkeypatch.setattr(gw_run, "_AGENT_CACHE_MAX_SIZE", CAP)
         runner = self._runner()
@@ -925,7 +932,7 @@ class TestAgentCacheSpilloverLive:
 
         def worker(tid: int):
             for j in range(PER_THREAD):
-                a = self._real_agent()
+                a = _LightAgent()
                 key = f"t{tid}-s{j}"
                 with runner._agent_cache_lock:
                     runner._agent_cache[key] = (a, "sig")

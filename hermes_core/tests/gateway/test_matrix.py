@@ -224,7 +224,24 @@ def _make_fake_mautrix():
 
     mautrix_util_async_db.Database = Database
 
+    # --- aiohttp ---
+    aiohttp_mod = types.ModuleType("aiohttp")
+
+    class ClientSession:
+        def __init__(self, *args, trust_env=False, proxy=None, connector=None, **kwargs):
+            self.trust_env = trust_env
+            self._default_proxy = proxy
+            self.connector = connector
+
+        async def close(self):
+            pass
+
+    aiohttp_mod.ClientSession = ClientSession
+    aiohttp_mod.ClientTimeout = lambda total: types.SimpleNamespace(total=total)
+    aiohttp_mod.ClientError = Exception
+
     return {
+        "aiohttp": aiohttp_mod,
         "mautrix": mautrix,
         "mautrix.api": mautrix_api,
         "mautrix.types": mautrix_types,

@@ -11,6 +11,12 @@ from gateway.config import Platform, StreamingConfig
 from gateway.platforms.base import resolve_proxy_url
 from gateway.run import GatewayRunner
 from gateway.session import SessionSource
+from tests.gateway.aiohttp_stub import install_aiohttp_stub
+
+
+@pytest.fixture(autouse=True)
+def _aiohttp_stub(monkeypatch):
+    install_aiohttp_stub(monkeypatch)
 
 
 def _make_runner(proxy_url=None):

@@ -17,6 +17,14 @@ from typing import Optional
 
 from hermes_constants import get_hermes_home
 
+_MANAGED_TRUE_VALUES = ("true", "1", "yes")
+_MANAGED_SYSTEM_NAMES = {
+    "brew": "Homebrew",
+    "homebrew": "Homebrew",
+    "nix": "NixOS",
+    "nixos": "NixOS",
+}
+
 
 def get_managed_system() -> Optional[str]:
     """Return the package manager owning this install, if any."""

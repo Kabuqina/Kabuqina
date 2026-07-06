@@ -10,10 +10,14 @@ swapped in via a conditional import at module bottom.
 """
 
 import ctypes
+import json
 import os
+import sys
 from ctypes import wintypes
 from pathlib import Path
 from typing import Optional
+
+from hermes_constants import get_hermes_home
 
 _kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
 
@@ -36,7 +40,45 @@ _SYNCHRONIZE = 0x00100000
 _MUTEX_NAME_BASE = "Global\\hermes-gateway-runtime-lock"
 
 _gateway_mutex_handle: Optional[int] = None
+_gateway_mutex_metadata_path: Optional[Path] = None
 _mutex_name_cache: Optional[str] = None
+
+
+def _get_gateway_lock_path() -> Path:
+    return get_hermes_home() / "gateway.lock"
+
+
+def _build_pid_record() -> dict:
+    try:
+        from . import status as status_module
+        return status_module._build_pid_record()
+    except Exception:
+        return {
+            "pid": os.getpid(),
+            "kind": "hermes-gateway",
+            "argv": list(sys.argv),
+            "start_time": None,
+        }
+
+
+def _write_gateway_lock_record(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(_build_pid_record()), encoding="utf-8")
+
+
+def _remove_gateway_lock_record(path: Optional[Path]) -> None:
+    if path is None:
+        return
+    try:
+        record = json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        record = None
+    if isinstance(record, dict) and record.get("pid") not in (None, os.getpid()):
+        return
+    try:
+        path.unlink(missing_ok=True)
+    except OSError:
+        pass
 
 
 def _resolved_mutex_name() -> str:
@@ -63,8 +105,11 @@ def acquire_gateway_runtime_lock() -> bool:
     Returns True if the lock was acquired, False if another gateway
     already holds it.
     """
-    global _gateway_mutex_handle
+    global _gateway_mutex_handle, _gateway_mutex_metadata_path
+    metadata_path = _get_gateway_lock_path()
     if _gateway_mutex_handle is not None:
+        _write_gateway_lock_record(metadata_path)
+        _gateway_mutex_metadata_path = metadata_path
         return True
 
     name = _resolved_mutex_name()
@@ -75,16 +120,21 @@ def acquire_gateway_runtime_lock() -> bool:
         _CloseHandle(h)
         return False
     _gateway_mutex_handle = h
+    _gateway_mutex_metadata_path = metadata_path
+    _write_gateway_lock_record(metadata_path)
     return True
 
 
 def release_gateway_runtime_lock() -> None:
     """Release the runtime lock when owned by this process."""
-    global _gateway_mutex_handle
+    global _gateway_mutex_handle, _gateway_mutex_metadata_path
     if _gateway_mutex_handle is None:
         return
+    metadata_path = _gateway_mutex_metadata_path
     _CloseHandle(_gateway_mutex_handle)
     _gateway_mutex_handle = None
+    _gateway_mutex_metadata_path = None
+    _remove_gateway_lock_record(metadata_path)
 
 
 def is_gateway_runtime_lock_active(

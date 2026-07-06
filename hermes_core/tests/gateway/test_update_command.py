@@ -118,7 +118,7 @@ class TestHandleUpdateCommand:
             result = await runner._handle_update_command(event)
 
         assert "Could not locate" in result
-        assert "hermes update" in result
+        assert "卡布奇娜" in result
 
     @pytest.mark.asyncio
     async def test_no_module_fallback_after_cli_deletion(self, tmp_path):
@@ -232,7 +232,7 @@ class TestHandleUpdateCommand:
         assert call_args[0] == "/usr/bin/setsid"
         assert call_args[1] == "bash"
         assert ".update_exit_code" in call_args[-1]
-        assert "Starting Hermes update" in result
+        assert "正在开始更新卡布奇娜" in result
 
     @pytest.mark.asyncio
     async def test_fallback_when_no_setsid(self, tmp_path):
@@ -272,7 +272,7 @@ class TestHandleUpdateCommand:
         # start_new_session=True should be in kwargs
         call_kwargs = mock_popen.call_args[1]
         assert call_kwargs.get("start_new_session") is True
-        assert "Starting Hermes update" in result
+        assert "正在开始更新卡布奇娜" in result
 
     @pytest.mark.asyncio
     async def test_popen_failure_cleans_up(self, tmp_path):
@@ -321,7 +321,8 @@ class TestHandleUpdateCommand:
              patch("subprocess.Popen"):
             result = await runner._handle_update_command(event)
 
-        assert "stream progress" in result
+        assert "正在开始更新卡布奇娜" in result
+        assert "进度" in result
 
 
 # ---------------------------------------------------------------------------
@@ -406,7 +407,8 @@ class TestSendUpdateNotification:
         }
         (hermes_home / ".update_pending.json").write_text(json.dumps(pending))
         (hermes_home / ".update_output.txt").write_text(
-            "→ Found 3 new commit(s)\n✓ Code updated!\n✓ Update complete!"
+            "→ Found 3 new commit(s)\n✓ Code updated!\n✓ Update complete!",
+            encoding="utf-8",
         )
         (hermes_home / ".update_exit_code").write_text("0")
 
@@ -421,7 +423,7 @@ class TestSendUpdateNotification:
         mock_adapter.send.assert_called_once()
         call_args = mock_adapter.send.call_args
         assert call_args[0][0] == "67890"  # chat_id
-        assert "Update complete" in call_args[0][1] or "update finished" in call_args[0][1].lower()
+        assert "更新完成" in call_args[0][1] or "Update complete" in call_args[0][1]
 
     @pytest.mark.asyncio
     async def test_strips_ansi_codes(self, tmp_path):
@@ -433,7 +435,8 @@ class TestSendUpdateNotification:
         pending = {"platform": "telegram", "chat_id": "111", "user_id": "222"}
         (hermes_home / ".update_pending.json").write_text(json.dumps(pending))
         (hermes_home / ".update_output.txt").write_text(
-            "\x1b[32m✓ Code updated!\x1b[0m\n\x1b[1mDone\x1b[0m"
+            "\x1b[32m✓ Code updated!\x1b[0m\n\x1b[1mDone\x1b[0m",
+            encoding="utf-8",
         )
         (hermes_home / ".update_exit_code").write_text("0")
 
@@ -491,7 +494,7 @@ class TestSendUpdateNotification:
 
         assert result is True
         sent_text = mock_adapter.send.call_args[0][1]
-        assert "update failed" in sent_text.lower()
+        assert "更新失败" in sent_text
         assert "Traceback: boom" in sent_text
 
     @pytest.mark.asyncio
@@ -513,7 +516,7 @@ class TestSendUpdateNotification:
             await runner._send_update_notification()
 
         sent_text = mock_adapter.send.call_args[0][1]
-        assert "finished successfully" in sent_text
+        assert "更新完成" in sent_text
 
     @pytest.mark.asyncio
     async def test_cleans_up_files_after_notification(self, tmp_path):
@@ -528,7 +531,7 @@ class TestSendUpdateNotification:
         pending_path.write_text(json.dumps({
             "platform": "telegram", "chat_id": "111", "user_id": "222",
         }))
-        output_path.write_text("✓ Done")
+        output_path.write_text("✓ Done", encoding="utf-8")
         exit_code_path.write_text("0")
 
         mock_adapter = AsyncMock()
@@ -554,7 +557,7 @@ class TestSendUpdateNotification:
         pending_path.write_text(json.dumps({
             "platform": "telegram", "chat_id": "111", "user_id": "222",
         }))
-        output_path.write_text("✓ Done")
+        output_path.write_text("✓ Done", encoding="utf-8")
         exit_code_path.write_text("0")
 
         # Adapter send raises

@@ -34,6 +34,7 @@ import re
 import traceback
 import uuid
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from typing import Any, Dict, List, Optional, Set
 
 try:
@@ -108,6 +109,57 @@ DINGTALK_TYPE_MAPPING = {
     "picture": "image",
     "voice": "audio",
 }
+
+
+def _fallback_chatbot_message_from_dict(data: Dict[str, Any]) -> SimpleNamespace:
+    """Build the subset of ChatbotMessage used by the adapter.
+
+    Unit tests run without the optional dingtalk-stream package installed.
+    The production path still uses the SDK's ChatbotMessage when available,
+    but this fallback keeps callback normalization testable and defensive.
+    """
+    text = data.get("text")
+    if text is None and data.get("msgtype") == "text":
+        text = {"content": data.get("content", "")}
+
+    return SimpleNamespace(
+        message_id=data.get("msgId") or data.get("msg_id") or "",
+        message_type=data.get("msgtype") or data.get("message_type") or "",
+        conversation_id=data.get("conversationId")
+        or data.get("conversation_id")
+        or "",
+        conversation_type=data.get("conversationType")
+        or data.get("conversation_type")
+        or "1",
+        conversation_title=data.get("conversationTitle")
+        or data.get("conversation_title")
+        or "",
+        sender_id=data.get("senderId") or data.get("sender_id") or "",
+        sender_staff_id=data.get("senderStaffId")
+        or data.get("sender_staff_id")
+        or "",
+        sender_nick=data.get("senderNick") or data.get("sender_nick") or "",
+        text=text,
+        rich_text=data.get("richText") or data.get("rich_text"),
+        rich_text_content=data.get("richTextContent")
+        or data.get("rich_text_content"),
+        image_content=data.get("imageContent") or data.get("image_content"),
+        session_webhook=data.get("sessionWebhook")
+        or data.get("session_webhook")
+        or "",
+        session_webhook_expired_time=data.get("sessionWebhookExpiredTime")
+        or data.get("session_webhook_expired_time")
+        or 0,
+        create_at=data.get("createAt") or data.get("create_at") or 0,
+        at_users=data.get("atUsers") or data.get("at_users") or [],
+        is_in_at_list=bool(data.get("isInAtList") or data.get("is_in_at_list")),
+    )
+
+
+def _chatbot_message_from_dict(data: Any):
+    if ChatbotMessage is not None:
+        return ChatbotMessage.from_dict(data)
+    return _fallback_chatbot_message_from_dict(data if isinstance(data, dict) else {})
 
 
 def check_dingtalk_requirements() -> bool:
@@ -1301,8 +1353,10 @@ class _IncomingHandler(
             if isinstance(data, str):
                 data = json.loads(data)
 
-            # Parse dict into ChatbotMessage using SDK's from_dict
-            chatbot_msg = ChatbotMessage.from_dict(data)
+            # Parse dict into ChatbotMessage using SDK's from_dict.  When the
+            # optional SDK is absent, use a small normalized object with the
+            # fields the adapter consumes so tests can still exercise routing.
+            chatbot_msg = _chatbot_message_from_dict(data)
 
             # Ensure session_webhook is populated even if the SDK's
             # from_dict() did not map it (field name mismatch across

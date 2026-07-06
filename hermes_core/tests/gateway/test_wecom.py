@@ -10,6 +10,15 @@ import pytest
 
 from gateway.config import Platform, PlatformConfig
 from gateway.platforms.base import SendResult
+from tests.gateway.aiohttp_stub import install_aiohttp_stub
+
+
+@pytest.fixture(autouse=True)
+def _aiohttp_stub(monkeypatch):
+    aiohttp = install_aiohttp_stub(monkeypatch)
+    import gateway.platforms.wecom as wecom
+    monkeypatch.setattr(wecom, "aiohttp", aiohttp)
+    monkeypatch.setattr(wecom, "AIOHTTP_AVAILABLE", True)
 
 
 class TestWeComRequirements:

@@ -35,6 +35,7 @@ _IS_WINDOWS = sys.platform == "win32"
 _UNSET = object()
 _GATEWAY_LOCK_FILENAME = "gateway.lock"
 _gateway_lock_handle = None
+_gateway_lock_handle_path: Optional[Path] = None
 _runtime_status_lock = threading.Lock()
 
 
@@ -312,11 +313,13 @@ def acquire_gateway_runtime_lock() -> bool:
     Unlike the PID file, the lock is owned by the live process itself. If the
     process dies abruptly, the OS releases the lock automatically.
     """
-    global _gateway_lock_handle
-    if _gateway_lock_handle is not None:
-        return True
-
+    global _gateway_lock_handle, _gateway_lock_handle_path
     path = _get_gateway_lock_path()
+    if _gateway_lock_handle is not None:
+        if _gateway_lock_handle_path == path:
+            return True
+        release_gateway_runtime_lock()
+
     path.parent.mkdir(parents=True, exist_ok=True)
     handle = open(path, "a+", encoding="utf-8")
     if not _try_acquire_file_lock(handle):
@@ -324,16 +327,18 @@ def acquire_gateway_runtime_lock() -> bool:
         return False
     _write_gateway_lock_record(handle)
     _gateway_lock_handle = handle
+    _gateway_lock_handle_path = path
     return True
 
 
 def release_gateway_runtime_lock() -> None:
     """Release the gateway runtime lock when owned by this process."""
-    global _gateway_lock_handle
+    global _gateway_lock_handle, _gateway_lock_handle_path
     handle = _gateway_lock_handle
     if handle is None:
         return
     _gateway_lock_handle = None
+    _gateway_lock_handle_path = None
     _release_file_lock(handle)
     try:
         handle.close()
@@ -343,9 +348,9 @@ def release_gateway_runtime_lock() -> None:
 
 def is_gateway_runtime_lock_active(lock_path: Optional[Path] = None) -> bool:
     """Return True when some process currently owns the gateway runtime lock."""
-    global _gateway_lock_handle
+    global _gateway_lock_handle, _gateway_lock_handle_path
     resolved_lock_path = lock_path or _get_gateway_lock_path()
-    if _gateway_lock_handle is not None and resolved_lock_path == _get_gateway_lock_path():
+    if _gateway_lock_handle is not None and resolved_lock_path == _gateway_lock_handle_path:
         return True
 
     if not resolved_lock_path.exists():

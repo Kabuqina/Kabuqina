@@ -1,11 +1,36 @@
 """Tests for Mattermost platform adapter."""
 import json
 import os
+import sys
 import time
+from types import SimpleNamespace
+
 import pytest
 from unittest.mock import MagicMock, patch, AsyncMock
 
 from gateway.config import Platform, PlatformConfig
+
+
+class _FakeFormData:
+    def __init__(self):
+        self.fields = []
+
+    def add_field(self, *args, **kwargs):
+        self.fields.append((args, kwargs))
+
+
+@pytest.fixture(autouse=True)
+def _fake_aiohttp_module(monkeypatch):
+    monkeypatch.setitem(
+        sys.modules,
+        "aiohttp",
+        SimpleNamespace(
+            ClientTimeout=lambda total: SimpleNamespace(total=total),
+            ClientError=Exception,
+            ClientConnectionError=Exception,
+            FormData=_FakeFormData,
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------

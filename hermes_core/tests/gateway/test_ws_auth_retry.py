@@ -11,6 +11,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from tests.gateway.aiohttp_stub import install_aiohttp_stub
+
+
+@pytest.fixture(autouse=True)
+def _aiohttp_stub(monkeypatch):
+    install_aiohttp_stub(monkeypatch)
+
 
 # ---------------------------------------------------------------------------
 # Mattermost: _ws_loop auth-aware retry

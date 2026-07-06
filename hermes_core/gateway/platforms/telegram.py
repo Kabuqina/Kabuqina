@@ -2557,6 +2557,14 @@ class TelegramAdapter(BasePlatformAdapter):
             return {str(part).strip() for part in raw if str(part).strip()}
         return {part.strip() for part in str(raw).split(",") if part.strip()}
 
+    def _telegram_group_allow_from_configured(self) -> bool:
+        raw = self.config.extra.get("group_allow_from")
+        if raw is None:
+            raw = os.getenv("TELEGRAM_GROUP_ALLOWED_USERS", "")
+        if isinstance(raw, list):
+            return any(str(part).strip() for part in raw)
+        return any(part.strip() for part in str(raw).split(","))
+
     def _telegram_ignored_threads(self) -> set[int]:
         raw = self.config.extra.get("ignored_threads")
         if raw is None:
@@ -2727,6 +2735,8 @@ class TelegramAdapter(BasePlatformAdapter):
                     return False
             except (TypeError, ValueError):
                 logger.warning("[%s] Ignoring non-numeric Telegram message_thread_id: %r", self.name, thread_id)
+        if self._telegram_group_allow_from_configured():
+            return True
         if str(getattr(getattr(message, "chat", None), "id", "")) in self._telegram_free_response_chats():
             return True
         if not self._telegram_require_mention():

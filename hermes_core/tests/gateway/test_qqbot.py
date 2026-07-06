@@ -9,6 +9,15 @@ from unittest import mock
 import pytest
 
 from gateway.config import Platform, PlatformConfig
+from tests.gateway.aiohttp_stub import install_aiohttp_stub
+
+
+@pytest.fixture(autouse=True)
+def _aiohttp_stub(monkeypatch):
+    aiohttp = install_aiohttp_stub(monkeypatch)
+    import gateway.platforms.qqbot.adapter as qq_adapter
+    monkeypatch.setattr(qq_adapter, "aiohttp", aiohttp)
+    monkeypatch.setattr(qq_adapter, "AIOHTTP_AVAILABLE", True)
 
 
 # ---------------------------------------------------------------------------
