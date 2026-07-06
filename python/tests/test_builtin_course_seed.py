@@ -89,6 +89,25 @@ def test_seed_creates_space_artifacts_and_materials(ctx, tmp_path):
     assert result["materials"]["written"] == len(python_advanced._MATERIALS)
 
 
+def test_course_links_code_repo(ctx, tmp_path):
+    """The structured layer must reference the external code+dataset repo."""
+    repo = python_advanced.CODE_REPO_URL
+    assert repo.startswith("https://github.com/")
+
+    result = seed_builtin_course(ctx, workspace_root=tmp_path / "workspace")
+    assert result["code_repo"] == repo
+
+    # resource_pack draft carries the repo url; source_refs record it too.
+    ctx.select_space(python_advanced.SPACE_ID)
+    pack = ctx.list_artifacts(kind="resource_pack")[0]
+    resources = pack["envelope"]["payload"]["resources"]
+    assert any(r.get("url") == repo for r in resources)
+    assert any(
+        isinstance(ref, dict) and ref.get("code_repo") == repo
+        for ref in pack["envelope"]["source_refs"]
+    )
+
+
 def test_seed_is_idempotent(ctx, tmp_path):
     workspace = tmp_path / "workspace"
     first = seed_builtin_course(ctx, workspace_root=workspace)

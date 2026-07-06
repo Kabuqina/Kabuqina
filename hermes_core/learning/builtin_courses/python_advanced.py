@@ -32,7 +32,13 @@ SPACE_TITLE = "Python 高级程序设计"
 # Directory (relative to the workspace root) the materials are written into.
 MATERIALS_SUBDIR = "courses/python-advanced"
 
-_SOURCE_REFS = [{"origin": "builtin:python-advanced"}]
+# Canonical code library + practice dataset for this course. The embedded
+# materials below are a lightweight in-app copy; the full runnable repo (5
+# lesson modules + datasets + tests) lives here and is what the learner clones
+# to actually run examples, do exercises, and work with the datasets.
+CODE_REPO_URL = "https://github.com/Kabuqina/course0-Advanced-Programming-of-Python"
+
+_SOURCE_REFS = [{"origin": "builtin:python-advanced", "code_repo": CODE_REPO_URL}]
 
 
 # --------------------------------------------------------------------------- #
@@ -51,8 +57,22 @@ _README_MD = """\
 4. 并发与 asyncio（GIL、线程/进程、事件循环）
 5. 元编程（描述符、元类、`__getattr__`）
 
+## 代码库与练习数据集
+完整可运行的课程仓库（5 个模块 + 数据集 + 测试）在：
+https://github.com/Kabuqina/course0-Advanced-Programming-of-Python
+
+克隆到工作区后即可运行示例、做练习、用配套数据集实操：
+
+```bash
+git clone https://github.com/Kabuqina/course0-Advanced-Programming-of-Python
+cd course0-Advanced-Programming-of-Python
+pip install -r requirements.txt
+pytest
+```
+
 ## 说明
-本目录为内置示例课程的占位素材，内容真实可运行，供学习功能开发与测试使用。
+本目录为内置示例课程的占位素材（讲义与少量代码），内容真实可运行；完整代码库与
+数据集以上方仓库为准，供学习功能开发与测试使用。
 """
 
 _ITERATORS_MD = """\
@@ -358,6 +378,10 @@ def _resource_pack() -> Dict[str, Any]:
         "title": "Python 高级程序设计 · 资料清单",
         "payload": {
             "resources": [
+                {"title": "课程代码库与练习数据集（GitHub）",
+                 "purpose": "克隆到工作区后运行示例、做练习、用数据集实操——课程资源本体",
+                 "url": CODE_REPO_URL,
+                 "credibility": "官方课程仓库"},
                 {"title": "课程总览 README.md", "purpose": "了解课程结构与模块划分",
                  "credibility": "内置课程素材"},
                 {"title": "讲义：迭代器与生成器", "purpose": "掌握惰性求值与迭代器协议"},
@@ -487,6 +511,7 @@ def _quiz() -> Dict[str, Any]:
 
 COURSE: Dict[str, Any] = {
     "space": {"space_id": SPACE_ID, "title": SPACE_TITLE},
+    "code_repo": CODE_REPO_URL,
     "source_refs": _SOURCE_REFS,
     "materials_subdir": MATERIALS_SUBDIR,
     "materials": _MATERIALS,

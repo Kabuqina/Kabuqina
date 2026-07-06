@@ -148,6 +148,7 @@ def seed_builtin_course(
         "seeded": True,
         "space_id": space_id,
         "title": space["title"],
+        "code_repo": course.get("code_repo"),
         "artifacts": artifacts,
         "materials": materials,
     }
