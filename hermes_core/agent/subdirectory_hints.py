@@ -15,6 +15,7 @@ Inspired by Block/goose's SubdirectoryHintTracker.
 
 import logging
 import os
+import re
 import shlex
 from pathlib import Path
 from typing import Dict, Any, Optional, Set
@@ -40,6 +41,11 @@ _PATH_ARG_KEYS = {"path", "file_path", "workdir"}
 
 # Tools that take shell commands where we should extract paths
 _COMMAND_TOOLS = {"terminal"}
+
+# Windows drive-letter paths use backslashes and may have no "." in the
+# directory token, so shlex-based POSIX token checks miss them.
+_QUOTED_WINDOWS_PATH_RE = re.compile(r"""(["'])([A-Za-z]:[\\/][^"']+)\1""")
+_WINDOWS_ABS_PATH_RE = re.compile(r"""(?<![\w:/])([A-Za-z]:[\\/][^\s"'`|;&<>]+)""")
 
 # How many parent directories to walk up when looking for hints.
 # Prevents scanning all the way to / for deeply nested paths.
@@ -140,17 +146,23 @@ class SubdirectoryHintTracker:
 
     def _extract_paths_from_command(self, cmd: str, candidates: Set[Path]):
         """Extract path-like tokens from a shell command string."""
+        for match in _QUOTED_WINDOWS_PATH_RE.finditer(cmd):
+            self._add_path_candidate(match.group(2), candidates)
+        for match in _WINDOWS_ABS_PATH_RE.finditer(cmd):
+            self._add_path_candidate(match.group(1), candidates)
+
         try:
             tokens = shlex.split(cmd)
         except ValueError:
             tokens = cmd.split()
 
         for token in tokens:
+            token = token.strip("\"'")
             # Skip flags
             if token.startswith("-"):
                 continue
             # Must look like a path (contains / or .)
-            if "/" not in token and "." not in token:
+            if "/" not in token and "\\" not in token and "." not in token:
                 continue
             # Skip URLs
             if token.startswith(("http://", "https://", "git@")):
