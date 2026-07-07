@@ -1,0 +1,5 @@
+id	cwd	command	exit_code	duration_seconds	log
+3.1-study-policy	D:\project\Kabuqina\python	python -m pytest listed STUDY/policy tests -o "addopts=" -p no:cacheprovider -q	0	17	D:\project\Kabuqina\.test-output\v0.3.0-current\B-3.1-study-policy.log
+3.2-desk-delivery	D:\project\Kabuqina\python	python -m pytest listed desk/delivery tests -o "addopts=" -p no:cacheprovider -q	0	28	D:\project\Kabuqina\.test-output\v0.3.0-current\B-3.2-desk-delivery.log
+3.3-bundle-contracts	D:\project\Kabuqina\python	python -m pytest listed bundle tests -o "addopts=" -p no:cacheprovider -q	0	30	D:\project\Kabuqina\.test-output\v0.3.0-current\B-3.3-bundle-contracts.log
+3.4-python-full	D:\project\Kabuqina\python	python -m pytest tests -o "addopts=" -p no:cacheprovider -q	0	86	D:\project\Kabuqina\.test-output\v0.3.0-current\B-3.4-python-full.log

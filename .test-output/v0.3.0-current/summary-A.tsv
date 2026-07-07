@@ -1,0 +1,9 @@
+id	cwd	command	exit_code	duration_seconds	log
+2.1-learning	D:\project\Kabuqina\hermes_core	python -m pytest tests/learning -o "addopts=" -p no:cacheprovider -q	0	27	D:\project\Kabuqina\.test-output\v0.3.0-current\A-2.1-learning.log
+2.2-agent	D:\project\Kabuqina\hermes_core	python -m pytest tests/agent -o "addopts=" -p no:cacheprovider -q	0	317	D:\project\Kabuqina\.test-output\v0.3.0-current\A-2.2-agent.log
+2.3-run-agent-graph	D:\project\Kabuqina\hermes_core	$env:HERMES_AGENT_ENGINE="graph"; python -m pytest tests/run_agent -o "addopts=" -p no:cacheprovider -q	1	1399	D:\project\Kabuqina\.test-output\v0.3.0-current\A-2.3-run-agent-graph.log
+2.3-run-agent-loop	D:\project\Kabuqina\hermes_core	$env:HERMES_AGENT_ENGINE="loop"; python -m pytest tests/run_agent -o "addopts=" -p no:cacheprovider -q	1	1530	D:\project\Kabuqina\.test-output\v0.3.0-current\A-2.3-run-agent-loop.log
+2.4-graph-gates	D:\project\Kabuqina\hermes_core	python -m pytest listed graph gates -o "addopts=" -p no:cacheprovider -q	0	294	D:\project\Kabuqina\.test-output\v0.3.0-current\A-2.4-graph-gates.log
+2.5-tools-gateway-kabuqina	D:\project\Kabuqina\hermes_core	python -m pytest tests/tools tests/gateway tests/kabuqina -o "addopts=" -p no:cacheprovider -q	1	1413	D:\project\Kabuqina\.test-output\v0.3.0-current\A-2.5-tools-gateway-kabuqina.log
+2.6-cron	D:\project\Kabuqina\hermes_core	python -m pytest tests/cron -o "addopts=" -p no:cacheprovider -q	1	57	D:\project\Kabuqina\.test-output\v0.3.0-current\A-2.6-cron.log
+2.7-core-misc	D:\project\Kabuqina\hermes_core	python -m pytest tests ... ignores -o "addopts=" -p no:cacheprovider -q	2	18	D:\project\Kabuqina\.test-output\v0.3.0-current\A-2.7-core-misc.log
