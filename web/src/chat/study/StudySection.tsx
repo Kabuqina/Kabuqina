@@ -24,6 +24,7 @@ import { useI18n } from "../../lib/i18n";
 import { WorkspaceActionButton, WorkspaceSection } from "../workspaceSection";
 import { FlashcardPanel } from "./FlashcardPanel";
 import { QuizPanel } from "./QuizPanel";
+import { ResourcePackPanel } from "./ResourcePackPanel";
 import { STUDY_PROMPTS, type StudyActionId } from "./studyPrompts";
 import {
   STUDY_CONTEXT_EVENT,
@@ -259,6 +260,7 @@ export function StudySection({
     </WorkspaceSection>
       <FlashcardPanel onStartPrompt={onStartPrompt} />
       <QuizPanel onStartPrompt={onStartPrompt} />
+      <ResourcePackPanel onStartPrompt={onStartPrompt} />
     </>
   );
 }

@@ -24,6 +24,29 @@ export type StudyArtifact = {
   review?: { mode?: string; status?: string };
   created_at?: string;
   updated_at?: string;
+  // resource_pack drafts carry their payload (see study_routes._artifact_ref)
+  payload?: ResourcePackPayload;
+};
+
+// M3 备课组 resource_pack subtypes (rendered by ResourcePackPanel).
+export type ResourceMindmapNode = { label?: string; title?: string; children?: ResourceMindmapNode[] };
+export type ResourceVideoScene = { narration?: string; visual?: string; caption?: string };
+export type ResourcePackResource = {
+  title?: string;
+  purpose?: string;
+  credibility?: string;
+  resource_type?: string;
+  difficulty?: string;
+  reason?: string;
+  url?: string;
+  outline?: ResourceMindmapNode | ResourceMindmapNode[];
+  mermaid?: string;
+  scenes?: ResourceVideoScene[];
+  [key: string]: unknown;
+};
+export type ResourcePackPayload = {
+  resource_type?: string;
+  resources?: ResourcePackResource[];
 };
 
 export type StudyDraftsResponse = {
