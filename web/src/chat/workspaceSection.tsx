@@ -37,7 +37,7 @@ export function WorkspaceSection({
   children?: ReactNode;
 }) {
   return (
-    <section data-workspace-section={sectionId} className="kq-workspace-card">
+    <section data-workspace-section={sectionId} className="kq-workspace-card min-w-0 overflow-hidden">
       <WorkspaceSectionHeading dotColor={dotColor}>{title}</WorkspaceSectionHeading>
       {children}
     </section>
