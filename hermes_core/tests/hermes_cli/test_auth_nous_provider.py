@@ -305,7 +305,7 @@ def test_refresh_token_persisted_when_mint_returns_insufficient_credits(tmp_path
         return {
             "access_token": f"access-{idx}",
             "refresh_token": f"refresh-{idx}",
-            "expires_in": 0,
+            "expires_in": 3600,
             "token_type": "Bearer",
         }
 
@@ -329,7 +329,8 @@ def test_refresh_token_persisted_when_mint_returns_insufficient_credits(tmp_path
 
     creds = resolve_nous_runtime_credentials(min_key_ttl_seconds=300)
     assert creds["api_key"] == "agent-key-2"
-    assert refresh_calls == ["refresh-old", "refresh-1"]
+    assert refresh_calls == ["refresh-old"]
+    assert mint_calls["count"] == 2
 
 
 def test_refresh_token_persisted_when_mint_times_out(tmp_path, monkeypatch):
