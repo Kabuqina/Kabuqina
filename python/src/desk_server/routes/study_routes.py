@@ -171,8 +171,14 @@ async def study_drafts(kind: Optional[str] = Query(default=None)):
         with _desktop_ctx() as ctx:
             if not ctx.current_space():
                 return {"drafts": []}
-            drafts = ctx.list_artifacts(kind=kind, status="draft")
-            return {"drafts": [_artifact_ref(item) for item in drafts]}
+            # resource_pack (M3 备课组 multimodal outputs) has no separate
+            # "active" surface like flashcards/quizzes, so return draft + active
+            # together — activation should keep the resource visible, not hide it.
+            statuses = ("draft", "active") if kind == "resource_pack" else ("draft",)
+            items = []
+            for st in statuses:
+                items.extend(ctx.list_artifacts(kind=kind, status=st))
+            return {"drafts": [_artifact_ref(item) for item in items]}
     except (ValueError, KeyError, ContractError) as exc:
         raise _http_error(exc) from exc
 

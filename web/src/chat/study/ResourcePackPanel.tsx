@@ -196,25 +196,47 @@ export function ResourcePackPanel({ onStartPrompt }: { onStartPrompt?: (prompt: 
                     <span className="shrink-0 rounded-full bg-[var(--kq-glass-hover,rgba(0,0,0,0.04))] px-1.5 py-px text-[10px] text-[var(--kq-color-muted)]">
                       {meta.label}
                     </span>
+                    <span
+                      className={cn(
+                        "shrink-0 rounded-full px-1.5 py-px text-[10px]",
+                        draft.status === "active"
+                          ? "bg-emerald-500/15 text-emerald-600"
+                          : "bg-[var(--kq-glass-hover,rgba(0,0,0,0.04))] text-[var(--kq-color-muted)]",
+                      )}
+                    >
+                      {draft.status === "active" ? "已激活" : "待审核"}
+                    </span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => void act(cmdStudyArtifactActivate, draft.artifact_id)}
-                    className="kq-soft-icon-btn inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition"
-                    aria-label="激活"
-                    title="激活"
-                  >
-                    <Check className="h-3.5 w-3.5" aria-hidden />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void act(cmdStudyArtifactReject, draft.artifact_id)}
-                    className="kq-soft-icon-btn inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition"
-                    aria-label="驳回"
-                    title="驳回"
-                  >
-                    <X className="h-3.5 w-3.5" aria-hidden />
-                  </button>
+                  {draft.status === "active" ? (
+                    <span
+                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center text-emerald-600"
+                      title="已激活"
+                      aria-hidden
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                    </span>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => void act(cmdStudyArtifactActivate, draft.artifact_id)}
+                        className="kq-soft-icon-btn inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition"
+                        aria-label="激活"
+                        title="激活"
+                      >
+                        <Check className="h-3.5 w-3.5" aria-hidden />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void act(cmdStudyArtifactReject, draft.artifact_id)}
+                        className="kq-soft-icon-btn inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition"
+                        aria-label="驳回"
+                        title="驳回"
+                      >
+                        <X className="h-3.5 w-3.5" aria-hidden />
+                      </button>
+                    </>
+                  )}
                 </div>
                 {open ? (
                   <div className="mt-2 space-y-2 border-t border-[var(--kq-glass-border)] pt-2">
