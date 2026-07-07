@@ -28,6 +28,15 @@ if str(_REPO_ROOT) not in sys.path:
 from utils import atomic_json_write, atomic_replace, atomic_yaml_write
 
 
+def _create_symlink_or_skip(link: Path, target: Path) -> None:
+    try:
+        link.symlink_to(target)
+    except OSError as exc:
+        if os.name == "nt" and getattr(exc, "winerror", None) == 1314:
+            pytest.skip("Windows symlink creation requires Developer Mode or admin rights")
+        raise
+
+
 # ─── Direct helper ────────────────────────────────────────────────────────────
 
 
@@ -41,7 +50,7 @@ def test_atomic_replace_preserves_symlink(tmp_path: Path) -> None:
     real = tmp_path / "real.yaml"
     link = tmp_path / "link.yaml"
     real.write_text("original\n", encoding="utf-8")
-    link.symlink_to(real)
+    _create_symlink_or_skip(link, real)
 
     tmp = _write_tmp(tmp_path, "updated\n")
     returned = atomic_replace(tmp, link)
@@ -98,7 +107,7 @@ def test_atomic_json_write_preserves_symlink(tmp_path: Path) -> None:
     real = tmp_path / "real.json"
     link = tmp_path / "link.json"
     real.write_text("{}", encoding="utf-8")
-    link.symlink_to(real)
+    _create_symlink_or_skip(link, real)
 
     atomic_json_write(link, {"hello": "world"})
 
@@ -111,7 +120,7 @@ def test_atomic_yaml_write_preserves_symlink(tmp_path: Path) -> None:
     real = tmp_path / "real.yaml"
     link = tmp_path / "link.yaml"
     real.write_text("placeholder: true\n", encoding="utf-8")
-    link.symlink_to(real)
+    _create_symlink_or_skip(link, real)
 
     atomic_yaml_write(link, {"model": {"provider": "openrouter"}})
 
@@ -148,7 +157,7 @@ def test_atomic_replace_broken_symlink_creates_target(tmp_path: Path) -> None:
     """
     missing = tmp_path / "does_not_exist_yet.yaml"
     link = tmp_path / "link.yaml"
-    link.symlink_to(missing)
+    _create_symlink_or_skip(link, missing)
     assert link.is_symlink()
     assert not missing.exists()
 

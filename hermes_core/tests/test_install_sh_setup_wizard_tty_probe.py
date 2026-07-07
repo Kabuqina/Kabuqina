@@ -34,7 +34,7 @@ def _extract_function_body(name: str) -> str:
     Anchored to ``<name>()`` and a top-of-line ``}`` so the helper keeps
     working if neighbouring functions are renamed.
     """
-    text = INSTALL_SH.read_text()
+    text = INSTALL_SH.read_text(encoding="utf-8")
     match = re.search(
         rf"^{re.escape(name)}\(\)\s*\{{\s*\n(?P<body>.*?)^\}}",
         text,

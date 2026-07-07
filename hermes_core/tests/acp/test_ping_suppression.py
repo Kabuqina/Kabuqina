@@ -118,6 +118,7 @@ class _FakeAgent:
         pass
 
 
+@pytest.mark.skipif(os.name == "nt", reason="asyncio os.pipe transports are POSIX-only in this test")
 @pytest.mark.asyncio
 async def test_bare_ping_request_produces_proper_response_and_no_stderr_noise(
     caplog: pytest.LogCaptureFixture,

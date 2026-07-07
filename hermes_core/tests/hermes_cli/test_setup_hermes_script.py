@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 import subprocess
 
 
@@ -6,8 +7,23 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SETUP_SCRIPT = REPO_ROOT / "setup-hermes.sh"
 
 
+def _bash_visible_path(path: Path) -> str:
+    if os.name != "nt":
+        return str(path)
+    resolved = path.resolve()
+    drive = resolved.drive.rstrip(":").lower()
+    if not drive:
+        return resolved.as_posix()
+    return f"/mnt/{drive}{resolved.as_posix()[2:]}"
+
+
 def test_setup_hermes_script_is_valid_shell():
-    result = subprocess.run(["bash", "-n", str(SETUP_SCRIPT)], capture_output=True, text=True)
+    result = subprocess.run(
+        ["bash", "-n", _bash_visible_path(SETUP_SCRIPT)],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
     assert result.returncode == 0, result.stderr
 
 
