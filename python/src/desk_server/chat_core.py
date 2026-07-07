@@ -115,6 +115,17 @@ def _desk_prepare_active_agent(
         "error": None,
     }
     _desk_attach_progress_events(agent, progress_event_callback)
+    # Route study-team (小娜编队) orchestrator events to the SSE stream as
+    # `agent_state` frames. tools/team_tool.py looks this callback up on the
+    # agent; on the CLI (no stream) it stays unset and events are dropped.
+    if progress_event_callback is not None:
+        def _team_state_cb(evt: Dict[str, Any]) -> None:
+            try:
+                progress_event_callback(evt)
+            except Exception:
+                log.debug("desk team_state stream emit failed", exc_info=True)
+
+        agent._team_state_callback = _team_state_cb
     if stream_delta_callback is not None:
         agent.stream_delta_callback = stream_delta_callback
 
@@ -556,6 +567,11 @@ def _desk_chat_build_agent(session_id: str, db: Any) -> Any:
     tool_list = sorted(_get_platform_tools(config, "cli"))
     if not tool_list:
         tool_list = None
+    elif "orchestration" not in tool_list:
+        # Expose the study-team tool (convene_study_team) to 小娜 even when the
+        # platform tool list doesn't list it. When tool_list is None all tools
+        # are enabled, so orchestration is already available.
+        tool_list = sorted(set(tool_list) | {"orchestration"})
 
     runtime = resolve_runtime_provider(requested=config_provider)
     api_key = str(runtime.get("api_key") or "").strip()

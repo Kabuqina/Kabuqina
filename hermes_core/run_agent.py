@@ -8367,6 +8367,20 @@ class AIAgent:
             parent_agent=self,
         )
 
+    def _dispatch_convene_study_team(self, function_args: dict) -> str:
+        """Single call site for convene_study_team dispatch.
+
+        Mirrors _dispatch_delegate_task: injects ``parent_agent=self`` so the
+        study-team orchestrator can spawn role child-agents that inherit this
+        agent's provider/credentials/toolset and the learning conduct layer.
+        """
+        from tools.team_tool import convene_study_team as _convene_study_team
+        return _convene_study_team(
+            goal=function_args.get("goal"),
+            roles=function_args.get("roles"),
+            parent_agent=self,
+        )
+
     def _invoke_tool(self, function_name: str, function_args: dict, effective_task_id: str,
                      tool_call_id: Optional[str] = None, messages: list = None) -> str:
         """Invoke a single tool and return the result string. No display logic.
@@ -8462,6 +8476,8 @@ class AIAgent:
             )
         elif function_name == "delegate_task":
             return self._dispatch_delegate_task(function_args)
+        elif function_name == "convene_study_team":
+            return self._dispatch_convene_study_team(function_args)
         else:
             return handle_function_call(
                 function_name, function_args, effective_task_id,
@@ -9058,6 +9074,11 @@ class AIAgent:
                         spinner.stop(cute_msg)
                     elif self._should_emit_quiet_tool_messages():
                         self._vprint(f"  {cute_msg}")
+            elif function_name == "convene_study_team":
+                function_result = self._dispatch_convene_study_team(function_args)
+                tool_duration = time.time() - tool_start_time
+                if self._should_emit_quiet_tool_messages():
+                    self._vprint(f"  🧩 学习编队完成 ({tool_duration:.1f}s)")
             elif self._context_engine_tool_names and function_name in self._context_engine_tool_names:
                 # Context engine tools (lcm_grep, lcm_describe, lcm_expand, etc.)
                 spinner = None
