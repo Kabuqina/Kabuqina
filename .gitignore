@@ -55,6 +55,8 @@ audit-output.json
 windows-port-report.txt
 
 # Generated review/export outputs and test scratch homes
+/.test-output/
+/hermes_core/.test-output/
 /outputs/
 /python/tests/_tmp_hermes_home/
 /assets/ppt/visual-masters/*/outputs/

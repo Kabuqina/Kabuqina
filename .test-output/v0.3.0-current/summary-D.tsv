@@ -1,2 +1,0 @@
-id	cwd	command	exit_code	duration_seconds	log
-5.1-cargo-check-test	D:\project\Kabuqina\tauri	cargo check; cargo test	0	738	D:\project\Kabuqina\.test-output\v0.3.0-current\D-5.1-cargo-check-test.log

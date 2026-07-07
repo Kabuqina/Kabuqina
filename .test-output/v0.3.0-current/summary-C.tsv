@@ -1,3 +1,0 @@
-id	cwd	command	exit_code	duration_seconds	log
-4.1-web-node-scripts	D:\project\Kabuqina\web	all npm run test:* scripts listed in plan	0	102	D:\project\Kabuqina\.test-output\v0.3.0-current\C-4.1-web-node-scripts.log
-4.2-web-lint-build	D:\project\Kabuqina\web	npm run lint; npm run build	0	167	D:\project\Kabuqina\.test-output\v0.3.0-current\C-4.2-web-lint-build.log
