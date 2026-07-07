@@ -82,8 +82,9 @@ class TestBackgroundChildDoesNotHang:
         result = local_env.execute(cmd, timeout=10)
         elapsed = time.monotonic() - t0
 
-        # Loop body sleeps ~0.6s total — elapsed should be close to that.
-        assert 0.5 < elapsed < 3.0
+        # Loop body sleeps ~0.6s total; Windows shell startup can push this
+        # higher under a long test run.
+        assert 0.5 < elapsed < (4.0 if sys.platform == "win32" else 3.0)
         assert result["returncode"] == 0
         for expected in ("tick 1", "tick 2", "tick 3", "done"):
             assert expected in result["output"], f"missing {expected!r}"

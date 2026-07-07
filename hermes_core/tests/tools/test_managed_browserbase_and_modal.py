@@ -37,11 +37,12 @@ def _restore_tool_and_agent_modules():
         or name.startswith("tools.")
         or name == "agent"
         or name.startswith("agent.")
+        or name == "providers.chat_completions"
     }
     try:
         yield
     finally:
-        _reset_modules(("tools", "agent"))
+        _reset_modules(("tools", "agent", "providers.chat_completions"))
         sys.modules.update(original_modules)
 
 

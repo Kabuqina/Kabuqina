@@ -1038,8 +1038,8 @@ class SlashCommandCompleter(Completer):
 
         Returns the path-like token under the cursor, or None if the
         current word doesn't look like a path.  A word is path-like when
-        it starts with ``./``, ``../``, ``~/``, ``/``, or contains a
-        ``/`` separator (e.g. ``src/main.py``).
+        it starts with ``./``, ``../``, ``~/``, ``/`` (or their Windows
+        backslash equivalents), is absolute, or contains a path separator.
         """
         if not text:
             return None
@@ -1052,7 +1052,12 @@ class SlashCommandCompleter(Completer):
         if not word:
             return None
         # Only trigger path completion for path-like tokens
-        if word.startswith(("./", "../", "~/", "/")) or "/" in word:
+        if (
+            word.startswith(("./", "../", "~/", ".\\", "..\\", "~\\", "/", "\\"))
+            or "/" in word
+            or "\\" in word
+            or os.path.isabs(word)
+        ):
             return word
         return None
 
@@ -1061,7 +1066,7 @@ class SlashCommandCompleter(Completer):
         """Yield Completion objects for file paths matching *word*."""
         expanded = os.path.expanduser(word)
         # Split into directory part and prefix to match inside it
-        if expanded.endswith("/"):
+        if expanded.endswith(("/", "\\")):
             search_dir = expanded
             prefix = ""
         else:

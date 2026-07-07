@@ -7,6 +7,7 @@ extras to be installed in the developer environment.
 from __future__ import annotations
 
 import types
+import sys
 from types import SimpleNamespace
 
 
@@ -122,6 +123,12 @@ def make_aiohttp_stub():
 
 def install_aiohttp_stub(monkeypatch):
     aiohttp, web = make_aiohttp_stub()
-    monkeypatch.setitem(__import__("sys").modules, "aiohttp", aiohttp)
-    monkeypatch.setitem(__import__("sys").modules, "aiohttp.web", web)
+    monkeypatch.setitem(sys.modules, "aiohttp", aiohttp)
+    monkeypatch.setitem(sys.modules, "aiohttp.web", web)
+
+    api_server = sys.modules.get("gateway.platforms.api_server")
+    if api_server is not None:
+        monkeypatch.setattr(api_server, "web", web, raising=False)
+        monkeypatch.setattr(api_server, "AIOHTTP_AVAILABLE", True, raising=False)
+
     return aiohttp

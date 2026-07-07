@@ -38,6 +38,7 @@ def _make_agent(fallback_model=None, provider="custom", base_url="https://my-llm
         patch("run_agent.get_tool_definitions", return_value=_make_tool_defs("web_search")),
         patch("run_agent.check_toolset_requirements", return_value={}),
         patch("run_agent.OpenAI"),
+        patch("providers.anthropic.build_anthropic_client", return_value=MagicMock()),
     ):
         agent = AIAgent(
             api_key="test-key-12345678",
@@ -327,10 +328,9 @@ class TestTryRecoverPrimaryTransport:
     def test_allowed_for_anthropic_direct(self):
         """Direct Anthropic endpoint should get recovery."""
         agent = _make_agent(provider="anthropic", base_url="https://api.anthropic.com")
-        # For non-anthropic_messages api_mode, it will use OpenAI client
         error = _make_transport_error("ConnectError")
 
-        with patch("run_agent.OpenAI", return_value=MagicMock()), \
+        with patch("providers.anthropic.build_anthropic_client", return_value=MagicMock()), \
              patch("time.sleep"):
             result = agent._try_recover_primary_transport(
                 error, retry_count=3, max_retries=3,
