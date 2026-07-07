@@ -27,6 +27,7 @@ import { cn } from "../lib/cn";
 import { PPT_VISUAL_MASTERS, type PptVisualMaster } from "./pptx/visualMasters";
 import { WorkspaceSection, WorkspaceActionButton } from "./workspaceSection";
 import { StudySection } from "./study/StudySection";
+import { ResourcePackPanel } from "./study/ResourcePackPanel";
 import { AgentTeamSection } from "./AgentTeamSection";
 import { ShellModal } from "../components/ShellModal";
 
@@ -721,7 +722,10 @@ export function WorkspacePanel({
 
         </>
         ) : mode === "team" ? (
+        <>
         <AgentTeamSection />
+        <ResourcePackPanel onStartPrompt={onStartPrompt} />
+        </>
         ) : (
         <>
         <StudySection onStartPrompt={onStartPrompt} />
