@@ -357,7 +357,7 @@ export function QuizPanel({
         </div>
       </div>
 
-      <div className="mt-3 flex items-center gap-3 text-[12px] text-[var(--kq-color-muted)]">
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-[var(--kq-color-muted)]">
         <StatChip icon={Layers} label={t("chat.quizActive")} value={stats.active} />
         <StatChip icon={FileQuestion} label={t("chat.quizDrafts")} value={stats.drafts} />
         <StatChip icon={ListChecks} label={t("chat.quizQuestions")} value={stats.questions} />
@@ -375,7 +375,7 @@ export function QuizPanel({
               <button
                 type="button"
                 onClick={() => void activateDraft(draft.artifact_id)}
-                className="kq-soft-icon-btn inline-flex h-8 w-8 items-center justify-center rounded-md transition"
+                className="kq-soft-icon-btn inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition"
                 aria-label={t("chat.quizActivate")}
                 title={t("chat.quizActivate")}
               >
@@ -384,7 +384,7 @@ export function QuizPanel({
               <button
                 type="button"
                 onClick={() => void rejectDraft(draft.artifact_id)}
-                className="kq-soft-icon-btn inline-flex h-8 w-8 items-center justify-center rounded-md transition"
+                className="kq-soft-icon-btn inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition"
                 aria-label={t("chat.quizReject")}
                 title={t("chat.quizReject")}
               >
@@ -604,7 +604,7 @@ function StatChip({
   value: number;
 }) {
   return (
-    <span className="inline-flex items-center gap-1">
+    <span className="inline-flex items-center gap-1 whitespace-nowrap">
       <Icon className="h-3.5 w-3.5" aria-hidden />
       <span className="font-medium text-[var(--kq-color-ink)]">{value}</span>
       {label}
