@@ -11,6 +11,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+pytest.importorskip("plugins.google_meet", reason="google_meet plugin is not bundled in this snapshot")
+
 
 @pytest.fixture(autouse=True)
 def _isolate_home(tmp_path, monkeypatch):
