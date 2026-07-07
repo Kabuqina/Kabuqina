@@ -36,6 +36,7 @@ $pyFiles = @(
     "network_policy.py",
     "tool_policy.py",
     "capability_policy.py",
+    "product_profile_policy.py",
     "capability_registry.py",
     "capability_status.py",
     "capability_prompt.py",

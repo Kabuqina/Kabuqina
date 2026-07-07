@@ -467,6 +467,7 @@ Copy-Item -Force (Join-Path $PSScriptRoot "src\desktop_delivery.py") (Join-Path 
 Copy-Item -Force (Join-Path $PSScriptRoot "src\network_policy.py") (Join-Path $Dist "network_policy.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\tool_policy.py") (Join-Path $Dist "tool_policy.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\capability_policy.py") (Join-Path $Dist "capability_policy.py")
+Copy-Item -Force (Join-Path $PSScriptRoot "src\product_profile_policy.py") (Join-Path $Dist "product_profile_policy.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\capability_registry.py") (Join-Path $Dist "capability_registry.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\capability_status.py") (Join-Path $Dist "capability_status.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\capability_prompt.py") (Join-Path $Dist "capability_prompt.py")

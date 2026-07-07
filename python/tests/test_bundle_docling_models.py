@@ -80,6 +80,14 @@ class BundlePresenceTests(unittest.TestCase):
         self.assertIn('"capability_status.py"', sync_script)
         self.assertIn('"capability_prompt.py"', sync_script)
 
+    def test_bundle_script_copies_product_profile_policy(self):
+        root = Path(__file__).resolve().parents[1]
+        script = (root / "build_bundle.ps1").read_text(encoding="utf-8")
+        sync_script = (root.parent / "scripts" / "sync-runtime-sources.ps1").read_text(encoding="utf-8")
+
+        self.assertIn("src\\product_profile_policy.py", script)
+        self.assertIn('"product_profile_policy.py"', sync_script)
+
     def test_build_bundle_skips_docling_model_bundling_by_default(self):
         root = Path(__file__).resolve().parents[1]
         script = (root / "build_bundle.ps1").read_text(encoding="utf-8")
