@@ -238,6 +238,7 @@ $keep = @(
     "tools",
     "gateway",                          # session_context, approval.py — required for terminal + desk
     "hermes_cli",
+    "learning",
     "skills",
     "plugins",
     "cron",
@@ -459,6 +460,7 @@ Copy-Item -Force (Join-Path $PSScriptRoot "src\docling_math_models.py") (Join-Pa
 Copy-Item -Force (Join-Path $PSScriptRoot "src\easyocr_models.py") (Join-Path $Dist "easyocr_models.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\load_packages.py") (Join-Path $Dist "load_packages.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\messaging_policy.py") (Join-Path $Dist "messaging_policy.py")
+Copy-Item -Force (Join-Path $PSScriptRoot "src\learning_owner.py") (Join-Path $Dist "learning_owner.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\cron_scheduler_runner.py") (Join-Path $Dist "cron_scheduler_runner.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\gateway_env_loader.py") (Join-Path $Dist "gateway_env_loader.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\desktop_timezone.py") (Join-Path $Dist "desktop_timezone.py")
@@ -644,16 +646,8 @@ if ($Verify) {
     $env:HERMESDESK_OVERLAY_LENIENT = "0"
     $env:PYTHONDONTWRITEBYTECODE = "1"
     New-Item -ItemType Directory -Force -Path $env:HERMESDESK_WORKSPACE, $env:HERMES_HOME | Out-Null
-    & $Py -c @"
-import sys
-sys.path.insert(0, r'$Dist')
-sys.path.insert(0, r'$Dist\hermes')
-sys.path.insert(0, r'$Dist\site-packages')
-from overlays import apply_all
-apply_all()
-import desk_server
-print('OK: desk_server importable')
-"@
+    $runtimeImportScript = Join-Path $PSScriptRoot "tools\verify_runtime_imports.py"
+    & $Py $runtimeImportScript $Dist
     if ($LASTEXITCODE -ne 0) {
         Write-Error "smoke test FAILED"
         exit $LASTEXITCODE

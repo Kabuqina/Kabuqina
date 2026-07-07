@@ -28,6 +28,7 @@ $pyFiles = @(
     "easyocr_models.py",
     "load_packages.py",
     "messaging_policy.py",
+    "learning_owner.py",
     "cron_scheduler_runner.py",
     "gateway_env_loader.py",
     "desktop_timezone.py",
@@ -107,6 +108,7 @@ $hermesKeep = @(
     "tools",
     "gateway",
     "hermes_cli",
+    "learning",
     "plugins",
     "cron",
     "run_agent.py",
@@ -144,6 +146,14 @@ foreach ($name in $hermesKeep) {
         }
         Copy-Item -Force $src $dest
     }
+}
+
+$py = Join-Path $dist "python\python.exe"
+$verifyRuntimeImports = Join-Path $root "python\tools\verify_runtime_imports.py"
+& $py $verifyRuntimeImports $dist
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Runtime import verification failed after source sync."
+    exit $LASTEXITCODE
 }
 
 Write-Host "Synced runtime sources -> python/dist/runtime" -ForegroundColor Green
