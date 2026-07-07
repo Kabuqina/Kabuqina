@@ -20,9 +20,26 @@ repository, including but not limited to:
 
 are proprietary and protected by copyright and trademark law.
 
+Coverage rule (in addition to the illustrative list above):
+
+1. ALL files under assets/brand/, assets/ui/, and Na_logo/ are covered.
+2. ANY file in this repository bearing the SPDX identifier
+   "LicenseRef-Kabuqina-Brand" (alone or in an SPDX expression such as
+   "Apache-2.0 AND LicenseRef-Kabuqina-Brand") is covered to the extent
+   stated in that file's header.
+3. The Kabuqina brand ARTWORK — the mascot design, vector geometry, palette
+   definitions, and scene compositions — is covered AS A WORK regardless of
+   the file format or location in which it is expressed. This includes
+   inline-vector and CSS renderings embedded in source-code files (for
+   example under web/src/components/), even where the surrounding component
+   CODE is licensed under Apache-2.0. In such mixed files the code license
+   grants no rights to the embedded artwork.
+
 They are NOT covered by the Apache License, Version 2.0 governing the Kabuqina
 source code in this repository. See the root LICENSE file and BRAND.md for the
-split.
+split. Unbranded forks are welcome to replace the artwork data (geometry,
+palette, mascot) with their own; the surrounding Apache-2.0 component code may
+be reused for that purpose.
 
 You may NOT use, reproduce, modify, or distribute these brand assets or generator
 scripts without prior written permission, except as required to run an unmodified

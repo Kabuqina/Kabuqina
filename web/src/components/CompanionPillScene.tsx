@@ -1,5 +1,8 @@
-// Copyright 2026 Kabuqina Contributors
-// SPDX-License-Identifier: Apache-2.0
+// Component code: Copyright 2026 Kabuqina Contributors — Apache-2.0.
+// Embedded Kabuqina brand artwork (mascot scene composition):
+// Copyright (c) 2026 ladylydia — All Rights Reserved, NOT Apache-2.0.
+// See assets/brand/LICENSE. Unbranded forks must replace the artwork.
+// SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Kabuqina-Brand
 
 import { cn } from "../lib/cn";
 import { useCustomCompanionImage } from "../lib/ui-prefs";

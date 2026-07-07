@@ -20,8 +20,17 @@ Kabuqina uses a **dual license** model:
 ## Asset locations
 
 Brand and UI files currently live in their build paths (`web/public/`, `Na_logo/`,
-`tauri/icons/`). Legal coverage is defined by [assets/brand/README.md](./assets/brand/README.md)
-and [assets/ui/README.md](./assets/ui/README.md), not by directory name alone.
+`tauri/icons/`). Legal coverage is defined by [assets/brand/LICENSE](./assets/brand/LICENSE)
+— the covered directories, the `LicenseRef-Kabuqina-Brand` SPDX marker, and the
+artwork-as-a-work clause — not by directory name alone.
+
+The mascot's **inline renderings in code** (`web/src/components/brand/*`,
+`CompanionCup.tsx`, `CompanionPillScene.tsx`, and the `.kq-companion-cup*`
+CSS block in `web/src/index.css`) are dual-marked
+`Apache-2.0 AND LicenseRef-Kabuqina-Brand`: the component code is open, the
+embedded artwork is proprietary. Any future file embedding brand artwork
+(including the v0.5 desk / notebook / whiteboard scene) must carry the same
+marker.
 
 ## Copyright holder (brand & UI assets)
 
