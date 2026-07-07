@@ -9,6 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 
+@unittest.skipIf(os.name == "nt", "Windows does not expose POSIX chmod mode bits")
 class TestCronFilePermissions(unittest.TestCase):
     """Verify cron files get secure permissions."""
 
@@ -75,6 +76,7 @@ class TestCronFilePermissions(unittest.TestCase):
             self.assertEqual(dir_mode, 0o700)
 
 
+@unittest.skipIf(os.name == "nt", "Windows does not expose POSIX chmod mode bits")
 class TestConfigFilePermissions(unittest.TestCase):
     """Verify config files get secure permissions."""
 
@@ -87,8 +89,8 @@ class TestConfigFilePermissions(unittest.TestCase):
 
     def test_save_config_sets_0600(self):
         config_path = Path(self.tmpdir) / "config.yaml"
-        with patch("hermes_cli.config.get_config_path", return_value=config_path), \
-             patch("hermes_cli.config.ensure_hermes_home"):
+        with patch("hermes_cli.config_loader.get_config_path", return_value=config_path), \
+             patch("hermes_cli.config_loader.ensure_hermes_home"):
             from hermes_cli.config import save_config
             save_config({"model": "test/model"})
 
@@ -97,8 +99,8 @@ class TestConfigFilePermissions(unittest.TestCase):
 
     def test_save_env_value_sets_0600(self):
         env_path = Path(self.tmpdir) / ".env"
-        with patch("hermes_cli.config.get_env_path", return_value=env_path), \
-             patch("hermes_cli.config.ensure_hermes_home"):
+        with patch("hermes_cli.config_env.get_env_path", return_value=env_path), \
+             patch("hermes_cli.config_env.ensure_hermes_home"):
             from hermes_cli.config import save_env_value
             save_env_value("TEST_KEY", "test_value")
 
@@ -107,7 +109,7 @@ class TestConfigFilePermissions(unittest.TestCase):
 
     def test_ensure_hermes_home_sets_0700(self):
         home = Path(self.tmpdir) / ".hermes"
-        with patch("hermes_cli.config.get_hermes_home", return_value=home):
+        with patch("hermes_cli.config_home.get_hermes_home", return_value=home):
             from hermes_cli.config import ensure_hermes_home
             ensure_hermes_home()
 
