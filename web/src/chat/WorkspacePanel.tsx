@@ -27,6 +27,7 @@ import { cn } from "../lib/cn";
 import { PPT_VISUAL_MASTERS, type PptVisualMaster } from "./pptx/visualMasters";
 import { WorkspaceSection, WorkspaceActionButton } from "./workspaceSection";
 import { StudySection } from "./study/StudySection";
+import { AgentTeamSection } from "./AgentTeamSection";
 import { ShellModal } from "../components/ShellModal";
 
 export type WorkspaceItem = {
@@ -447,7 +448,7 @@ export function WorkspacePanel({
   // they are learning functions, not conversion services — see
   // docs/superpowers/specs/2026-07-05-study-math-code-practice-design.md.
   // Start on REPORT; morph to WORK the first time a deliverable appears.
-  const [mode, setMode] = useState<"work" | "report" | "study">(
+  const [mode, setMode] = useState<"work" | "report" | "study" | "team">(
     outputs.length > 0 ? "work" : "report",
   );
   const [pptVisualMaster, setPptVisualMaster] = useState<(typeof PPT_VISUAL_MASTERS)[number]["id"]>("soft_editorial");
@@ -568,6 +569,15 @@ export function WorkspacePanel({
             onClick={() => setMode("study")}
           >
             {t("chat.workspaceModeStudy")}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "team"}
+            className={cn("kq-workspace-tab", mode === "team" && "is-active")}
+            onClick={() => setMode("team")}
+          >
+            {t("chat.workspaceModeTeam")}
           </button>
           <button
             type="button"
@@ -710,6 +720,8 @@ export function WorkspacePanel({
         </WorkspaceSection>
 
         </>
+        ) : mode === "team" ? (
+        <AgentTeamSection />
         ) : (
         <>
         <StudySection onStartPrompt={onStartPrompt} />

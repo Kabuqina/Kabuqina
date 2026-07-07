@@ -22,6 +22,7 @@ import {
   type UiMsg,
 } from "../chat-api";
 import { STUDY_LEARNING_EVENT } from "../study/flashcardLearningStore";
+import { AGENT_TEAM_EVENT } from "../study/agentTeamStore";
 import {
   applyEvents,
   emptyProgress,
@@ -416,6 +417,9 @@ export function useSendMessage({
       }
       if (event.type === "learning.output.created" && typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent(STUDY_LEARNING_EVENT, { detail: event }));
+      }
+      if (event.type === "agent_state" && typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent(AGENT_TEAM_EVENT, { detail: event }));
       }
       if (event.type === "delta" && typeof event.text === "string" && !stopTurnRef.current) {
         queueDelta(event.text);

@@ -112,8 +112,13 @@ export async function cmdChatSend(
 
 export const CHAT_STREAM_EVENT = "chat-stream-event";
 
+/** One node/edge snapshot of the study-team DAG (小娜编队), sent on team_started. */
+export type AgentTeamDagNode = { role_id: string; display: string; blurb?: string; is_gate?: boolean };
+export type AgentTeamDag = { nodes: AgentTeamDagNode[]; edges: [string, string][]; layers?: string[][] };
+export type AgentTeamArtifact = { artifact_id?: string; kind?: string; title?: string };
+
 export type ChatStreamEvent = {
-  type: "start" | "delta" | "boundary" | "progress" | "final" | "error" | "done" | string;
+  type: "start" | "delta" | "boundary" | "progress" | "final" | "error" | "done" | "agent_state" | string;
   session_id?: string;
   text?: string;
   progress?: ChatPreviewResponse;
@@ -123,6 +128,19 @@ export type ChatStreamEvent = {
   detail?: string;
   final_response?: string;
   model?: string;
+  // ── agent_state (study-team / 编队协同) fields ──
+  phase?: "team_started" | "role" | "team_done" | string;
+  run_id?: string;
+  role_id?: string;
+  display?: string;
+  status?: string; // waiting|working|produced|passed|flagged|failed|skipped
+  current_tool?: string | null;
+  produced?: AgentTeamArtifact[];
+  dropped?: AgentTeamArtifact[];
+  summary?: string | null;
+  is_gate?: boolean;
+  dag?: AgentTeamDag;
+  report?: Record<string, unknown>;
 };
 
 export type ChatStreamEnvelope = {
