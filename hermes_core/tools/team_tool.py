@@ -200,10 +200,10 @@ def convene_study_team(
 CONVENE_STUDY_TEAM_SCHEMA = {
     "name": "convene_study_team",
     "description": (
-        "召集小娜的学习智能体编队（画像师/讲解官/出题官/守门人）协同为学生生成"
-        "个性化学习资源。多个角色子智能体按 DAG 协作，各自把产物写入草稿箱（draft），"
-        "由守门人把关；激活仍由学生在 STUDY 完成。用于'把某章/某课做成复习资料/题库'"
-        "这类需要多类资源协同产出的请求。"
+        "召集小娜的学习智能体编队（画像师/讲解官/出题官/导图师/影像师/阅读官/守门人）"
+        "协同为学生生成个性化多模态学习资源。多个角色子智能体按 DAG 协作，各自把产物"
+        "写入草稿箱（draft），由守门人把关；激活仍由学生在 STUDY 完成。用于'把某章/某课"
+        "做成复习资料/题库/思维导图/讲解视频脚本/拓展阅读'这类需要多类资源协同产出的请求。"
     ),
     "parameters": {
         "type": "object",
@@ -216,9 +216,12 @@ CONVENE_STUDY_TEAM_SCHEMA = {
                 "type": "array",
                 "items": {
                     "type": "string",
-                    "enum": ["profiler", "lecturer", "quizmaster", "guardian"],
+                    "enum": [
+                        "profiler", "lecturer", "quizmaster",
+                        "mindmapper", "filmmaker", "librarian", "guardian",
+                    ],
                 },
-                "description": "可选：指定参与的角色子集；省略则用默认编队（守门人始终参与）。",
+                "description": "可选：指定参与的角色子集；省略则用默认全编队（守门人始终参与）。",
             },
         },
         "required": ["goal"],

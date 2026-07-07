@@ -54,9 +54,15 @@ def test_toposort_strict_missing_dep_raises():
 # Roles / registry
 # --------------------------------------------------------------------------- #
 
-def test_default_team_is_the_m0_four():
-    ids = [s.role_id for s in default_team()]
-    assert ids == ["profiler", "lecturer", "quizmaster", "guardian"]
+def test_default_team_roles():
+    ids = {s.role_id for s in default_team()}
+    assert ids == {
+        "profiler", "lecturer", "quizmaster",
+        "mindmapper", "filmmaker", "librarian", "guardian",
+    }
+    # guardian is the sole gate and reviews everyone
+    guardian = next(s for s in default_team() if s.role_id == "guardian")
+    assert guardian.is_gate and set(guardian.depends_on) == ids - {"guardian"}
 
 
 def test_role_allowed_kinds_are_real_contract_kinds():
@@ -101,6 +107,7 @@ def test_orchestrator_runs_in_dependency_order_and_passes_upstream():
         "profiler": [{"artifact_id": "s1", "kind": "student_state", "title": "画像"}],
         "lecturer": [{"artifact_id": "k1", "kind": "knowledge_base", "title": "KB"}],
         "quizmaster": [{"artifact_id": "q1", "kind": "quiz", "title": "测验"}],
+        "mindmapper": [{"artifact_id": "m1", "kind": "resource_pack", "title": "导图"}],
     })
     events_log = []
     orch = StudyTeamOrchestrator(run_role, emit=events_log.append)
@@ -108,13 +115,19 @@ def test_orchestrator_runs_in_dependency_order_and_passes_upstream():
     report = orch.run("目标", default_team(), run_id="run-1", session_id="sess-1")
 
     order = [rid for rid, _ in calls]
-    assert order == ["profiler", "lecturer", "quizmaster", "guardian"]
-    # lecturer saw profiler's result; quizmaster saw lecturer's; guardian saw all
+    # DAG invariants (not the exact middle-layer order):
+    assert order[0] == "profiler"
+    assert order[1] == "lecturer"
+    assert order[-1] == "guardian"
+    # lecturer saw profiler; content roles saw lecturer; guardian saw everyone
     assert dict(calls)["lecturer"] == ["profiler"]
     assert dict(calls)["quizmaster"] == ["lecturer"]
-    assert dict(calls)["guardian"] == ["lecturer", "profiler", "quizmaster"]
+    assert dict(calls)["mindmapper"] == ["lecturer"]
+    assert dict(calls)["guardian"] == sorted(
+        ["profiler", "lecturer", "quizmaster", "mindmapper", "filmmaker", "librarian"]
+    )
     assert report["ok"] is True
-    assert report["drafts_total"] == 3
+    assert report["drafts_total"] == 4
     assert report["violations"] == []
 
 
@@ -128,11 +141,17 @@ def test_orchestrator_emits_expected_event_sequence():
     assert phases[0] == "team_started"
     assert phases[-1] == "team_done"
     assert all(e["type"] == ev.EVENT_TYPE for e in log)
-    # every role emits a working + a terminal state frame
+    # every role emits a working frame
     working = [e for e in log if e["phase"] == "role" and e["status"] == "working"]
-    assert {e["role_id"] for e in working} == {"profiler", "lecturer", "quizmaster", "guardian"}
-    started = log[0]
-    assert started["dag"]["layers"] == [["profiler"], ["lecturer"], ["quizmaster"], ["guardian"]]
+    assert {e["role_id"] for e in working} == {
+        "profiler", "lecturer", "quizmaster", "mindmapper", "filmmaker", "librarian", "guardian",
+    }
+    layers = log[0]["dag"]["layers"]
+    assert layers[0] == ["profiler"]
+    assert layers[1] == ["lecturer"]
+    assert layers[-1] == ["guardian"]
+    # the four content roles share the middle layer
+    assert set(layers[2]) == {"quizmaster", "mindmapper", "filmmaker", "librarian"}
 
 
 def test_orchestrator_enforces_allowed_kinds():
@@ -165,7 +184,8 @@ def test_orchestrator_survives_a_failing_role():
     )
     assert "lecturer" in report["failed_roles"]
     assert report["ok"] is False
-    # downstream roles still ran (team didn't crash)
+    # downstream roles still ran (team didn't crash) — full 7-role team
     assert {r["role_id"] for r in report["roles"]} == {
-        "profiler", "lecturer", "quizmaster", "guardian"
+        "profiler", "lecturer", "quizmaster",
+        "mindmapper", "filmmaker", "librarian", "guardian",
     }

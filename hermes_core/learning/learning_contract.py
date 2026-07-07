@@ -215,14 +215,31 @@ def _v_learning_plan(p: Mapping[str, Any]) -> None:
             _opt_str(tm, "done_when", tctx)
 
 
+# resource_pack subtypes (M3 备课组). "doc" is the implicit default when a
+# pack omits the discriminator; older packs without it remain valid.
+_RESOURCE_TYPES: frozenset = frozenset({"doc", "mindmap", "reading", "video_script"})
+
+
 def _v_resource_pack(p: Mapping[str, Any]) -> None:
     resources = _req_nonempty_list(p, "resources", "resource_pack")
+    # Optional discriminator (M3): lets 备课组 produce typed resources
+    # (mindmap / reading / video_script) while old packs (no type) stay valid.
+    rtype = p.get("resource_type")
+    if rtype is not None and rtype not in _RESOURCE_TYPES:
+        raise ContractError(
+            f"resource_pack: 'resource_type' must be one of {sorted(_RESOURCE_TYPES)}"
+        )
     for i, r in enumerate(resources):
         ctx = f"resource_pack.resources[{i}]"
         rm = _mapping(r, ctx)
         _req_str(rm, "title", ctx)
         _req_str(rm, "purpose", ctx)
         _opt_str(rm, "credibility", ctx)
+        r_rtype = rm.get("resource_type")
+        if r_rtype is not None and r_rtype not in _RESOURCE_TYPES:
+            raise ContractError(
+                f"{ctx}: 'resource_type' must be one of {sorted(_RESOURCE_TYPES)}"
+            )
 
 
 def _v_flashcard_deck(p: Mapping[str, Any]) -> None:

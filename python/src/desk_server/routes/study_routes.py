@@ -46,7 +46,7 @@ def _http_error(exc: Exception) -> HTTPException:
 
 
 def _artifact_ref(artifact: Dict[str, Any]) -> Dict[str, Any]:
-    return {
+    ref = {
         "artifact_id": artifact["artifact_id"],
         "kind": artifact["kind"],
         "title": artifact["title"],
@@ -56,6 +56,11 @@ def _artifact_ref(artifact: Dict[str, Any]) -> Dict[str, Any]:
         "created_at": artifact["created_at"],
         "updated_at": artifact["updated_at"],
     }
+    # M3: resource_pack drafts carry their payload so the STUDY panel can render
+    # mindmap / reading / video-script content without a second round-trip.
+    if artifact.get("kind") == "resource_pack":
+        ref["payload"] = (artifact.get("envelope") or {}).get("payload")
+    return ref
 
 
 def _space_payload(ctx) -> Dict[str, Any]:
@@ -181,6 +186,11 @@ async def study_artifact_activate(artifact_id: str):
                 return FlashcardService(ctx).activate_deck(artifact_id)
             if artifact["kind"] == "quiz":
                 return QuizService(ctx).activate_quiz(artifact_id)
+            if artifact["kind"] in ("resource_pack", "knowledge_base", "learning_plan"):
+                # M3: generated reference resources activate via a plain
+                # trust-boundary status transition (no per-item study state).
+                ctx.set_artifact_status(artifact_id, "active")
+                return {"artifact_id": artifact_id, "status": "active", **_space_payload(ctx)}
             raise ValueError(f"unsupported artifact kind: {artifact['kind']}")
     except (ValueError, KeyError, ContractError) as exc:
         raise _http_error(exc) from exc
@@ -195,6 +205,9 @@ async def study_artifact_reject(artifact_id: str):
                 return FlashcardService(ctx).reject_deck(artifact_id)
             if artifact["kind"] == "quiz":
                 return QuizService(ctx).reject_quiz(artifact_id)
+            if artifact["kind"] in ("resource_pack", "knowledge_base", "learning_plan"):
+                ctx.set_artifact_status(artifact_id, "rejected")
+                return {"artifact_id": artifact_id, "status": "rejected", **_space_payload(ctx)}
             raise ValueError(f"unsupported artifact kind: {artifact['kind']}")
     except (ValueError, KeyError, ContractError) as exc:
         raise _http_error(exc) from exc

@@ -129,6 +129,37 @@ def _guardian_prompt(goal: str, up: Mapping[str, RoleResult]) -> str:
     )
 
 
+def _mindmapper_prompt(goal: str, up: Mapping[str, RoleResult]) -> str:
+    return (
+        "你是小娜的「导图师」。基于讲解官梳理的知识点，产出一份思维导图，"
+        "以 resource_pack 草稿写入，payload 顶层标注 resource_type=\"mindmap\"；"
+        "每个 resource 含 title、purpose，并给出 outline(根节点及 children 的层级结构)"
+        "与等价的 Mermaid mindmap 文本，便于前端渲染与编辑。\n"
+        f"{_upstream_digest(up)}\n总目标：{goal}"
+    )
+
+
+def _filmmaker_prompt(goal: str, up: Mapping[str, RoleResult]) -> str:
+    return (
+        "你是小娜的「影像师」。为目标知识点设计一段 60–90 秒的教学动画/短视频，"
+        "以 resource_pack 草稿写入，payload 顶层 resource_type=\"video_script\"；"
+        "每个 resource 含 title、purpose，并给出可继续编辑的分镜脚本 scenes"
+        "(每个场景含旁白 narration 与画面 visual 描述)，风格面向 manim/p5js 可实现，"
+        "本轮不要求渲染出视频文件。\n"
+        f"{_upstream_digest(up)}\n总目标：{goal}"
+    )
+
+
+def _librarian_prompt(goal: str, up: Mapping[str, RoleResult]) -> str:
+    return (
+        "你是小娜的「阅读官」。围绕目标主题整理一份拓展阅读材料清单，"
+        "以 resource_pack 草稿写入，payload 顶层 resource_type=\"reading\"；"
+        "每个 resource 含 title、purpose，并尽量给出难度(入门/进阶)与推荐理由；"
+        "引用外部来源须可溯源、不臆造链接。\n"
+        f"{_upstream_digest(up)}\n总目标：{goal}"
+    )
+
+
 # --------------------------------------------------------------------------- #
 # Registry (M0 编制：画像 → 讲解 → 出题 → 守门)
 # --------------------------------------------------------------------------- #
@@ -165,12 +196,42 @@ _M0_ROLES: List[RoleSpec] = [
         prompt_builder=_quizmaster_prompt,
     ),
     RoleSpec(
+        role_id="mindmapper",
+        display="小娜·导图",
+        blurb="生成知识点思维导图",
+        toolsets=("learning",),
+        allowed_kinds=frozenset({"resource_pack"}),
+        depends_on=("lecturer",),
+        model_tier="fast",
+        prompt_builder=_mindmapper_prompt,
+    ),
+    RoleSpec(
+        role_id="filmmaker",
+        display="小娜·影像",
+        blurb="设计教学动画/短视频脚本分镜",
+        toolsets=("learning",),
+        allowed_kinds=frozenset({"resource_pack"}),
+        depends_on=("lecturer",),
+        model_tier="main",
+        prompt_builder=_filmmaker_prompt,
+    ),
+    RoleSpec(
+        role_id="librarian",
+        display="小娜·阅读",
+        blurb="整理拓展阅读材料清单",
+        toolsets=("learning",),
+        allowed_kinds=frozenset({"resource_pack"}),
+        depends_on=("lecturer",),
+        model_tier="fast",
+        prompt_builder=_librarian_prompt,
+    ),
+    RoleSpec(
         role_id="guardian",
         display="小娜·把关",
         blurb="防幻觉/内容安全/引用溯源门禁",
         toolsets=(),
         allowed_kinds=frozenset(),
-        depends_on=("profiler", "lecturer", "quizmaster"),
+        depends_on=("profiler", "lecturer", "quizmaster", "mindmapper", "filmmaker", "librarian"),
         model_tier="fast",
         is_gate=True,
         prompt_builder=_guardian_prompt,
