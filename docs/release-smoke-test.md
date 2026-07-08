@@ -13,7 +13,7 @@
 ## 0. 测试准备
 
 - [ ] 使用本次 Release 产物：
-  `tauri/target/release/bundle/nsis/Kabuqina_0.2.0_x64-setup.exe`
+  `tauri/target/release/bundle/nsis/Kabuqina_0.3.0_x64-setup.exe`
 - [ ] 准备一个可用的 LLM Provider API Key。
 - [ ] 准备一个测试工作区，例如：
   `%USERPROFILE%\Documents\KabuqinaReleaseSmoke`
@@ -30,7 +30,7 @@
 
 ## 1. NSIS 安装与启动（必测）
 
-- [ ] 双击 `Kabuqina_0.2.0_x64-setup.exe`。
+- [ ] 双击 `Kabuqina_0.3.0_x64-setup.exe`。
 - [ ] 安装流程能完成，无 NSIS 报错。
 - [ ] 开始菜单或桌面入口能启动 Kabuqina。
 - [ ] Windows「应用和功能」中能看到 Kabuqina。

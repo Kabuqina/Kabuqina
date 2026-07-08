@@ -748,7 +748,19 @@ or changing it to `graph`. The desk runtime log now records the selector's
 resolved value and passes that same value into `AIAgent`, so support evidence
 cannot disagree with the engine actually used. The support procedure is documented in
 `docs/troubleshooting.md` §19. Legacy-loop removal remains gated by Task 11's
-14-day soak and bounded Goal Runner A/B evidence.
+Step 4 release acceptance and bounded Goal Runner A/B evidence.
+
+**Task 11 Step 4 release acceptance (2026-07-08).** The owner replaced the
+strict fixed-artifact 14-day soak interpretation with a v0.3.0 release
+acceptance gate. v0.3.0 may ship with Graph as the default while the legacy
+Loop escape hatch remains available. Step 4 closes only after the NSIS release
+candidate, bundle/release smoke, and initial manual checks are recorded, and a
+short post-release observation window of a few days finds no obvious
+graph-attributable P0/P1 or unexplained result-shape, hook, persistence, or
+usage drift. This is an explicit release-risk decision and must not be described
+later as a completed 14-day fixed-artifact soak. Step 5 may begin only after
+that Step 4 closure, followed by the required Goal Runner dual-engine evidence
+or an explicit Goal Runner runtime-defer record.
 
 **STUDY M1 foundation merge + kq-kp capture postfix (2026-07-05).** The
 integration branch intentionally stops the data merge at M1: it brings in the

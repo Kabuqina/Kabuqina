@@ -21,7 +21,8 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 import { useI18n } from "../lib/i18n";
 import { cn } from "../lib/cn";
 import { PPT_VISUAL_MASTERS, type PptVisualMaster } from "./pptx/visualMasters";
@@ -160,6 +161,14 @@ function latestDeliverables(outputs: WorkspaceItem[]): WorkspaceItem[] {
     result.push(item);
   }
   return result;
+}
+
+function buildPptDirectoryBase(base: string, folderPath: string): string {
+  return [
+    base,
+    `材料目录：${folderPath}`,
+    "请把这个目录作为本次任务的材料根目录，递归读取其中所有相关文件，先通过 material_index_build 建立材料索引，再生成 PPT 大纲。",
+  ].join("\n\n");
 }
 
 // WorkspaceSectionHeading / WorkspaceSection / WorkspaceActionButton now live in
@@ -462,6 +471,7 @@ export function WorkspacePanel({
   const [pptGoal, setPptGoal] = useState<PptGoalId>("auto");
   const [pptEmphasis, setPptEmphasis] = useState<PptEmphasisId>("auto");
   const [pptModal, setPptModal] = useState<{ base: string } | null>(null);
+  const [pptFolderErr, setPptFolderErr] = useState<string | null>(null);
   const buildPptPrompt = (sections: string[]) => sections.filter(Boolean).join("\n\n");
   const pptFlowReminder =
     "按系统提示中的“学生交付物四层流程”执行：读取材料 → material_index_build → 生成带 slide_type / notes / 证据占位的 Markdown 大纲 → review_outline 让我确认 → pptx_write 输出到 workspace 并返回路径。";
@@ -485,7 +495,27 @@ export function WorkspacePanel({
   const codeToPptBase =
     "请把我提供的代码项目或课设材料转换成课设答辩 PPT（structure=code_defense，template=code_defense）。";
   const sandtableToPptBase =
-    "请把我提供的经营沙盘模拟材料目录（各经营周期的财务数据、决策记录、报表截图等）转换成经营沙盘复盘 PPT（structure=sandtable_review，template=sandtable_review）。"
+    "请把我提供的经营沙盘模拟材料目录（各经营周期的财务数据、决策记录、报表截图等）转换成经营沙盘复盘 PPT（structure=sandtable_review，template=sandtable_review）。";
+  const pickPptMaterialFolder = async (base: string) => {
+    setPptFolderErr(null);
+    if (!isTauri()) {
+      setPptFolderErr(t("chat.insertPathNeedsApp"));
+      return;
+    }
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: t("chat.workspaceChoosePptMaterialFolder"),
+      });
+      if (selected == null) return;
+      const folderPath = typeof selected === "string" ? selected : selected[0];
+      if (!folderPath) return;
+      setPptModal({ base: buildPptDirectoryBase(base, folderPath) });
+    } catch {
+      setPptFolderErr(t("chat.insertPathFailed"));
+    }
+  };
   // Math & Code prompts follow the STUDY conversational contract (one question
   // per turn, small steps, no fabrication, no emoji) while keeping the full
   // engineering verification requirements. Each ends with the answer-then-teach
@@ -692,15 +722,20 @@ export function WorkspacePanel({
               label={t("chat.workspaceCourseToPpt")}
             />
             <WorkspaceActionButton
-              onClick={() => setPptModal({ base: codeToPptBase })}
+              onClick={() => void pickPptMaterialFolder(codeToPptBase)}
               icon={<Code2 className="kq-color-icon-pen mr-2 inline h-4 w-4" aria-hidden />}
               label={t("chat.workspaceCodeToPpt")}
             />
             <WorkspaceActionButton
-              onClick={() => setPptModal({ base: sandtableToPptBase })}
+              onClick={() => void pickPptMaterialFolder(sandtableToPptBase)}
               icon={<LineChart className="kq-color-icon-pen mr-2 inline h-4 w-4" aria-hidden />}
               label={t("chat.workspaceSandtableToPpt")}
             />
+            {pptFolderErr ? (
+              <p className="text-[12px] leading-snug text-amber-700 dark:text-amber-400">
+                {pptFolderErr}
+              </p>
+            ) : null}
             <label className="kq-workspace-body grid grid-cols-1 gap-1.5 text-[13px] leading-snug">
               <span className="inline-flex items-center gap-1.5 font-medium">
                 <Palette className="h-3.5 w-3.5 text-[var(--kq-color-primary-dark)]" aria-hidden />

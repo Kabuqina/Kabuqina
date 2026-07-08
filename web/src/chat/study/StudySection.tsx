@@ -12,6 +12,7 @@ import {
   Eraser,
   Layers3,
   MessagesSquare,
+  PencilLine,
   Route,
   Save,
   ShieldCheck,
@@ -20,6 +21,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 
 import { useI18n } from "../../lib/i18n";
+import { ShellModal } from "../../components/ShellModal";
 import { WorkspaceActionButton, WorkspaceSection } from "../workspaceSection";
 import { cmdStudyMigrateBuiltinCourse } from "./study-api";
 import { STUDY_LEARNING_EVENT } from "./flashcardLearningStore";
@@ -84,6 +86,16 @@ const STUDY_ACTIONS: StudyAction[] = [
   },
 ];
 
+const STUDY_PROFILE_SUMMARY_KEYS: Array<keyof StudyContext> = [
+  "course",
+  "goal",
+  "profileSummary",
+  "weakPoints",
+  "currentStage",
+  "preferences",
+  "progressNotes",
+];
+
 export function StudySection({
   onStartPrompt,
 }: {
@@ -92,6 +104,7 @@ export function StudySection({
   const { t } = useI18n();
   const [context, setContext] = useState<StudyContext>(emptyStudyContext);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saved" | "failed">("idle");
+  const [profileEditorOpen, setProfileEditorOpen] = useState(false);
   const builtinSeededRef = useRef(false);
 
   // Seed the built-in course once per session mount. The backend is idempotent
@@ -209,6 +222,12 @@ export function StudySection({
     },
   ];
 
+  const summaryRows = fields
+    .filter((field) => STUDY_PROFILE_SUMMARY_KEYS.includes(field.key))
+    .map((field) => ({ label: field.label, value: context[field.key].trim() }))
+    .filter((row) => row.value.length > 0)
+    .slice(0, 4);
+
   return (
     <>
       <ProfilePanel onStartPrompt={onStartPrompt} />
@@ -217,58 +236,106 @@ export function StudySection({
         title={t("chat.workspaceStudy")}
         dotColor="#2f9e8f"
       >
-      <div className="mt-3 grid grid-cols-1 gap-2">
-        {fields.map((field) => (
-          <label key={field.key} className="grid gap-1 text-[12px] leading-snug text-[var(--kq-color-muted)]">
-            <span className="font-medium text-[var(--kq-color-ink)]">{field.label}</span>
-            <textarea
-              value={context[field.key]}
-              onChange={(event) => updateContext(field.key, event.currentTarget.value)}
-              placeholder={field.placeholder}
-              rows={field.key === "profileSummary" ? 3 : 2}
-              className="kq-workspace-select min-h-[38px] resize-none rounded-md px-2 py-1.5 text-[12.5px] leading-snug text-[var(--kq-color-ink)] transition"
-            />
-          </label>
-        ))}
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={persistContext}
-            className="kq-quick-action inline-flex flex-1 items-center justify-center gap-1.5 rounded-[10px] px-2.5 py-2 text-[12.5px] leading-snug transition"
-          >
-            <Save className="h-3.5 w-3.5" aria-hidden />
-            {saveStatus === "saved"
-              ? t("chat.studyContextSaved")
-              : saveStatus === "failed"
-                ? t("chat.studyContextSaveFailed")
-                : t("chat.studyContextSave")}
-          </button>
-          <button
-            type="button"
-            onClick={resetContext}
-            className="kq-soft-icon-btn inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition"
-            aria-label={t("chat.studyContextClear")}
-            title={t("chat.studyContextClear")}
-          >
-            <Eraser className="h-3.5 w-3.5" aria-hidden />
-          </button>
+        <div className="kq-study-profile-card mt-3 rounded-lg border border-[var(--kq-color-border)] bg-white/55 p-3 text-[12px] leading-snug shadow-[0_10px_24px_rgba(90,74,106,0.07)] dark:bg-white/[0.04]">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <div className="text-[13px] font-semibold text-[var(--kq-color-strong)]">
+                {t("chat.studyContextCardTitle")}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setProfileEditorOpen(true)}
+              className="kq-soft-icon-btn inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition"
+              aria-label={t("chat.studyContextEdit")}
+              title={t("chat.studyContextEdit")}
+            >
+              <PencilLine className="h-3.5 w-3.5" aria-hidden />
+            </button>
+          </div>
+          {summaryRows.length > 0 ? (
+            <div className="mt-2 grid gap-1.5">
+              {summaryRows.map((row) => (
+                <div key={row.label} className="min-w-0 rounded-md bg-[var(--kq-hover-bg)] px-2 py-1">
+                  <span className="mr-1 font-medium text-[var(--kq-color-muted)]">{row.label}</span>
+                  <span className="text-[var(--kq-color-ink)]">{row.value}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-2 text-[11px] text-[var(--kq-color-muted)]">
+              {t("chat.studyContextEmpty")}
+            </p>
+          )}
         </div>
-      </div>
 
-      <div className="mt-3 grid grid-cols-1 gap-2">
-        {STUDY_ACTIONS.map((action) => {
-          const Icon = action.icon;
-          return (
-            <WorkspaceActionButton
-              key={action.id}
-              onClick={() => startAction(action.prompt)}
-              icon={<Icon className="kq-color-icon-course mr-2 inline h-4 w-4" aria-hidden />}
-              label={t(action.labelKey)}
-            />
-          );
-        })}
-      </div>
-    </WorkspaceSection>
+        <div className="mt-3 grid grid-cols-1 gap-2">
+          {STUDY_ACTIONS.map((action) => {
+            const Icon = action.icon;
+            return (
+              <WorkspaceActionButton
+                key={action.id}
+                onClick={() => startAction(action.prompt)}
+                icon={<Icon className="kq-color-icon-course mr-2 inline h-4 w-4" aria-hidden />}
+                label={t(action.labelKey)}
+              />
+            );
+          })}
+        </div>
+      </WorkspaceSection>
+
+      <ShellModal
+        open={profileEditorOpen}
+        title={t("chat.studyContextCardTitle")}
+        onClose={() => setProfileEditorOpen(false)}
+        size="lg"
+      >
+        <div className="grid grid-cols-1 gap-3">
+          {fields.map((field) => (
+            <label key={field.key} className="grid gap-1 text-[12px] leading-snug text-[var(--kq-color-muted)]">
+              <span className="font-medium text-[var(--kq-color-ink)]">{field.label}</span>
+              <textarea
+                value={context[field.key]}
+                onChange={(event) => updateContext(field.key, event.currentTarget.value)}
+                placeholder={field.placeholder}
+                rows={field.key === "profileSummary" ? 3 : 2}
+                className="kq-workspace-select min-h-[38px] resize-none rounded-md px-2 py-1.5 text-[12.5px] leading-snug text-[var(--kq-color-ink)] transition"
+              />
+            </label>
+          ))}
+          <div className="flex items-center justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={resetContext}
+              className="kq-soft-icon-btn inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition"
+              aria-label={t("chat.studyContextClear")}
+              title={t("chat.studyContextClear")}
+            >
+              <Eraser className="h-3.5 w-3.5" aria-hidden />
+            </button>
+            <button
+              type="button"
+              onClick={() => setProfileEditorOpen(false)}
+              className="rounded-lg px-3 py-2 text-sm text-[var(--kq-color-ink)]"
+            >
+              {t("chat.studyContextClose")}
+            </button>
+            <button
+              type="button"
+              onClick={persistContext}
+              className="kq-quick-action inline-flex items-center justify-center gap-1.5 rounded-[10px] px-3 py-2 text-sm leading-snug transition"
+            >
+              <Save className="h-3.5 w-3.5" aria-hidden />
+              {saveStatus === "saved"
+                ? t("chat.studyContextSaved")
+                : saveStatus === "failed"
+                  ? t("chat.studyContextSaveFailed")
+                  : t("chat.studyContextSave")}
+            </button>
+          </div>
+        </div>
+      </ShellModal>
+
       <FlashcardPanel onStartPrompt={onStartPrompt} />
       <QuizPanel onStartPrompt={onStartPrompt} />
     </>

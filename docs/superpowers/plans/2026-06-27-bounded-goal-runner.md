@@ -43,7 +43,7 @@ share an agent runtime but not an implementation hot path.
 |---|---|---|
 | **G0 — foundation** | Immediately | Tasks 1–6: state, transitions, verifiers, internal reporting, pure controller, and read-only status projection. |
 | **G1 — runtime integration** | Phase 3.5 Tasks 9 and 10 pass: full loop/graph equivalence plus selector | Tasks 7–9: `AIAgent` adapter, cron wiring behind a disabled flag, desktop integration. |
-| **G2 — product rollout** | Phase 3.5 Task 11 Step 4 records the 14-day graph-default soak | Tasks 10–11: public creation/control contract, Pilot 1, and staged enablement. |
+| **G2 — product rollout** | Phase 3.5 Task 11 Step 4 closes through the v0.3.0 release-acceptance soak | Tasks 10–11: public creation/control contract, Pilot 1, and staged enablement. |
 
 G0 work may merge while Phase 3.5 remains `NO-GO`; it cannot change existing
 cron behavior or become reachable from a due job. G1 work may run goal tests
@@ -1112,13 +1112,14 @@ git commit -m "feat: integrate bounded goals with desktop profiles"
 
 ## G2 review gate — product exposure
 
-Do not expose `mode: goal` until (status as of 2026-07-05 — **1 of 5 met; G1
+Do not expose `mode: goal` until (status as of 2026-07-08 — **1 of 5 met; G1
 is open but G2 is not. NOTE: G2 opens on the Task 11 Step 4
 soak, NOT on loop removal (Step 5). Step 5 is a *later, downstream* "Removal"
 gate — see the LangGraph plan's gate table. There is no circular dependency;
 Step 5 waits on G2 → Goal Runner Task 10, never the reverse**):
 
-- [ ] Phase 3.5 Task 11 records a successful 14-day graph-default release soak.
+- [ ] Phase 3.5 Task 11 records a successful graph-default v0.3.0
+  release-acceptance soak.
   *(REOPENED, 2026-07-05. The 2026-07-03 owner waiver was rescinded; Step 4's
   substituted regression/hash evidence remains historical baseline evidence but
   is no longer treated as met for gate purposes. The soak clock restarts only
@@ -1126,7 +1127,12 @@ Step 5 waits on G2 → Goal Runner Task 10, never the reverse**):
   both-API-mode release smoke are green, and artifact/hash evidence is recorded
   in the LangGraph plan. Because Task 11 code has already merged, reopened
   debug and soak happen on `main`; the old task11 worktree is historical
-  evidence only.)*
+  evidence only. UPDATED, 2026-07-08: the fixed-artifact 14-day interpretation
+  is replaced by owner release acceptance for v0.3.0: ship the NSIS candidate
+  with the loop escape hatch still present, record release/manual smoke, observe
+  a short post-release window of a few days with no obvious graph-attributable
+  P0/P1 or unexplained result-shape, hook, persistence, or usage drift, then
+  close Step 4. This does not claim that a fixed artifact completed 14 days.)*
 - [x] The loop escape hatch still works, or its planned removal has not yet
   landed; Goal Runner passes with explicit `loop` and `graph` before removal.
   *(MET — the loop removal has NOT landed (Step 5 is downstream), and the escape

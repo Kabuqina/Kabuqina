@@ -1,18 +1,19 @@
 {
   "plan": "docs/superpowers/specs/2026-06-24-consolidate-and-langgraph-replatform-plan.md",
-  "current_task": "11-step4-reopened",
+  "current_task": "11-step4-v0.3.0-release-acceptance",
   "status": "in_progress",
   "attempt": 1,
   "worktree": "main",
-  "last_commit": "76b1343f",
+  "last_commit": "adf231c4",
   "last_verification": [
     "Task 11 Step 2 (graph smoke, both API modes): GO recorded 2026-07-03 - all 5 scenarios passed (chat_completions DeepSeek + anthropic_messages mimo-v2.5, interrupt/recovery, restart/resume, separate Weixin gateway process).",
     "Task 11 Step 3 (default flip loop->graph, d28e1614): selector+config 76 passed; default-graph and explicit-loop test_run_agent.py 296 each; graph goldens/parity/differential + usage/exit 303 passed; desktop Python suite 272 passed. Merged to main (b7b62886 -> 76b1343f).",
     "Task 11 Step 4 CLOSED EARLY BY OWNER 2026-07-03: the >=14-day calendar soak window was deliberately compressed/waived, NOT run to term. Substituted automated evidence on merged main @ 76b1343f: pinned installer re-verified (SHA-256 9ABCA52E..., unchanged); fresh graph regression 296, loop regression 296, graph parity+differential+exit+golden gates 215; both-API-mode smoke reuses Step 2 GO. Waived: the 14-day live-usage window + no-soak-period-P0/P1 observation.",
-    "Task 11 Step 4 REOPENED BY OWNER 2026-07-05: the 2026-07-03 waiver is rescinded. The substituted evidence remains historical baseline evidence only and no longer satisfies G2. Because Task 11 code has already merged, reopened debug and soak happen on main; the old task11 worktree is historical evidence only. The soak clock restarts after a refreshed graph-default candidate is pinned and beginning regression + both-API-mode release smoke are green."
+    "Task 11 Step 4 REOPENED BY OWNER 2026-07-05: the 2026-07-03 waiver is rescinded. The substituted evidence remains historical baseline evidence only and no longer satisfies G2. Because Task 11 code has already merged, reopened debug and soak happen on main; the old task11 worktree is historical evidence only. The soak clock restarts after a refreshed graph-default candidate is pinned and beginning regression + both-API-mode release smoke are green.",
+    "Task 11 Step 4 UPDATED BY OWNER 2026-07-08: the fixed-artifact 14-day interpretation is replaced by v0.3.0 release acceptance. Ship v0.3.0 with graph default and the loop escape hatch still present; record NSIS/release smoke and initial manual evidence; observe a short post-release window of a few days with no obvious graph-attributable P0/P1 or unexplained result-shape, hook, persistence, or usage drift; then close Step 4 and re-evaluate G2 before Step 5. This is an explicit owner risk decision, not a completed 14-day fixed-artifact soak."
   ],
   "failed_approaches": [],
   "blocker": null,
-  "handoff_prompt": "Task 11 Steps 2-3 are done and merged to main. Step 4 is REOPENED by owner decision 2026-07-05: the earlier 2026-07-03 14-day soak waiver is rescinded and no longer satisfies G2. Continue debug and reopened soak on main; the old task11 worktree is historical evidence only. Do not run Step 5 (remove legacy loop) and do not expose Goal Runner G2 surfaces until the reopened graph-default soak completes to term and the Goal Runner dual-engine evidence/defer decision is recorded.",
-  "next_action": "On main, refresh/pin a graph-default soak candidate, run beginning regression + both-API-mode release smoke, record artifact/hash evidence, then run the >=14-day soak window. G2 gate condition 1 is open again; Step 5 remains blocked."
+  "handoff_prompt": "Task 11 Steps 2-3 are done and merged to main. Step 4 is now the v0.3.0 release-acceptance soak by owner decision 2026-07-08: the earlier fixed-artifact 14-day interpretation is no longer the chosen gate. Release v0.3.0 with graph default and the loop escape hatch still present; record NSIS/release smoke and initial manual evidence; observe a short post-release window of a few days with no obvious graph-attributable P0/P1 or unexplained result-shape, hook, persistence, or usage drift; then close Step 4 and re-evaluate G2. Do not run Step 5 (remove legacy loop) and do not expose Goal Runner G2 surfaces until Step 4 is closed and the Goal Runner dual-engine evidence/defer decision is recorded.",
+  "next_action": "After v0.3.0 release, record the final artifact/hash, release smoke, initial manual checks, and post-release observation result in the LangGraph plan; then close Step 4 if clean, re-evaluate G2, and only then prepare Step 5 after Goal Runner dual-engine evidence or explicit defer."
 }
