@@ -249,6 +249,7 @@ export const MESSAGES = {
       workspacePaperToPpt: "论文 -> PPT",
       workspaceCodeToPpt: "代码项目 -> PPT",
       workspaceSandtableToPpt: "沙盘复盘 -> PPT",
+      workspaceChoosePptMaterialFolder: "选择材料目录…",
       workspacePptVisualMaster: "PPT 视觉母版",
       workspaceMathLanguage: "公式转代码目标语言",
       workspaceOpenWorkspace: "打开工作区",
@@ -310,6 +311,11 @@ export const MESSAGES = {
     },
     desktopOrganizer: {
       title: "整理 Windows 桌面",
+      confirmTitle: "确认整理桌面？",
+      confirmBody:
+        "小娜会把桌面顶层文件按类型移动到分类文件夹，并重新排列桌面图标；快捷方式、文件夹、隐藏文件和系统文件会跳过。继续吗？",
+      confirmApply: "确认整理",
+      confirmCancel: "先不要",
       userAction: "整理一下 Windows 桌面",
       running: "正在整理桌面…",
       doneOneClick: "整理好了：已归类 {{count}} 个文件。",
@@ -1316,6 +1322,7 @@ export const MESSAGES = {
       workspacePaperToPpt: "Paper -> PPT",
       workspaceCodeToPpt: "Code project -> PPT",
       workspaceSandtableToPpt: "Sandtable review -> PPT",
+      workspaceChoosePptMaterialFolder: "Choose materials folder…",
       workspacePptVisualMaster: "PPT visual master",
       workspaceMathLanguage: "Formula→code target language",
       workspaceOpenWorkspace: "Open workspace",
@@ -1377,6 +1384,11 @@ export const MESSAGES = {
     },
     desktopOrganizer: {
       title: "Organize Windows Desktop",
+      confirmTitle: "Organize your desktop?",
+      confirmBody:
+        "Nana will move top-level desktop files into type-based folders and realign desktop icons. Shortcuts, folders, hidden files, and system files are skipped. Continue?",
+      confirmApply: "Organize",
+      confirmCancel: "Not now",
       userAction: "Organize my Windows desktop",
       running: "Organizing your desktop…",
       doneOneClick: "Done: organized {{count}} files.",

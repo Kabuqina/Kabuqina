@@ -232,7 +232,19 @@ assert.match(indexCssSource, /kq-assistant-avatar-image[\s\S]*drop-shadow/);
 assert.match(
   chatPageSource,
   /handleOrganizeDesktop[\s\S]*role: "user"[\s\S]*desktopOrganizer\.userAction[\s\S]*role: "assistant"/,
-  "One-click desktop organizing should add a visible user action and assistant result to chat.",
+  "Confirmed desktop organizing should add a visible user action and assistant result to chat.",
+);
+
+assert.match(
+  chatPageSource,
+  /handleOrganizeDesktop[\s\S]*const ok = await confirm\(\{[\s\S]*desktopOrganizer\.confirmTitle[\s\S]*desktopOrganizer\.confirmBody[\s\S]*desktopOrganizer\.confirmApply[\s\S]*desktopOrganizer\.confirmCancel[\s\S]*tone: "warning"[\s\S]*if \(!ok\) return;[\s\S]*setMessages[\s\S]*runDesktopOrganize\(locale\)/,
+  "Desktop organizing must show the shared confirmation dialog before transcript updates or cmd_desktop_organize_run.",
+);
+
+assert.match(
+  stringsSource,
+  /confirmTitle:[\s\S]*confirmBody:[\s\S]*confirmApply:[\s\S]*confirmCancel:/,
+  "Desktop organizing confirmation copy should be localized.",
 );
 
 assert.match(
@@ -296,7 +308,7 @@ assert.doesNotMatch(
 assert.doesNotMatch(
   chatPageSource,
   /DesktopOrganizerModal|desktopOrganizerOpen|setDesktopOrganizerOpen/,
-  "One-click desktop organizing should not open a modal confirmation flow.",
+  "Desktop organizing should reuse the shared confirm dialog, not the removed organizer preview modal flow.",
 );
 
 assert.match(
@@ -339,6 +351,36 @@ assert.match(
   workspacePanelSource,
   /workspace\.reportPpt[\s\S]*workspacePaperToPpt[\s\S]*workspaceCourseToPpt[\s\S]*workspaceCodeToPpt[\s\S]*workspaceSandtableToPpt/,
   "Workspace panel should group the four report PPT workflows under Generate Report PPT, paper first.",
+);
+assert.match(
+  workspacePanelSource,
+  /import \{ open \} from "@tauri-apps\/plugin-dialog"/,
+  "Directory-based PPT workflows should use the native Tauri folder picker.",
+);
+assert.match(
+  workspacePanelSource,
+  /function buildPptDirectoryBase[\s\S]*材料目录：\$\{folderPath\}[\s\S]*递归读取[\s\S]*material_index_build/,
+  "Code and sandtable PPT prompts should carry the chosen material directory and require recursive indexing.",
+);
+assert.match(
+  workspacePanelSource,
+  /open\(\{[\s\S]*directory:\s*true[\s\S]*multiple:\s*false[\s\S]*workspaceChoosePptMaterialFolder/,
+  "Directory-based PPT workflows should open a single-folder picker with a specific title.",
+);
+assert.match(
+  workspacePanelSource,
+  /setPptModal\(\{ base: paperToPptBase \}\)[\s\S]*setPptModal\(\{ base: courseToPptBase \}\)[\s\S]*pickPptMaterialFolder\(codeToPptBase\)[\s\S]*workspaceCodeToPpt[\s\S]*pickPptMaterialFolder\(sandtableToPptBase\)[\s\S]*workspaceSandtableToPpt/,
+  "Only code-project and sandtable PPT workflows should require choosing a materials folder.",
+);
+assert.match(
+  stringsSource,
+  /workspaceChoosePptMaterialFolder:\s*"选择材料目录…"/,
+  "PPT material folder picker should have localized zh copy.",
+);
+assert.match(
+  stringsSource,
+  /workspaceChoosePptMaterialFolder:\s*"Choose materials folder…"/,
+  "PPT material folder picker should have localized en copy.",
 );
 
 assert.match(

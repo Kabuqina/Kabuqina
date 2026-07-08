@@ -354,6 +354,15 @@ export function ChatPage() {
   }, [activeSessionId, hermesReady, hermesWarming, loadSessions, refreshActiveThread]);
 
   const handleOrganizeDesktop = useCallback(async () => {
+    const ok = await confirm({
+      title: t("desktopOrganizer.confirmTitle"),
+      message: t("desktopOrganizer.confirmBody"),
+      confirmLabel: t("desktopOrganizer.confirmApply"),
+      cancelLabel: t("desktopOrganizer.confirmCancel"),
+      tone: "warning",
+    });
+    if (!ok) return;
+
     const now = Date.now();
     const pendingId = `desktop-organizer-assistant-${now}`;
 
