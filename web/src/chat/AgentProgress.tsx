@@ -45,6 +45,18 @@ function formatDuration(seconds: number | null): string {
   return `${Math.round(seconds)}s`;
 }
 
+/** One-line status label for a compact/collapsed progress header. */
+export function describeProgress(progress: AgentProgressState): string {
+  const { status, current_tool, error } = progress;
+  if (error) return error;
+  if (status === "tool" && current_tool) return `running ${current_tool.replace(/_/g, " ")}…`;
+  if (status === "thinking") return "thinking…";
+  if (status === "starting") return "starting…";
+  if (status === "done") return "done";
+  if (status === "interrupted") return "interrupted";
+  return "computing…";
+}
+
 function StepRow({ step }: { step: AgentStep }) {
   const Icon = iconForTool(step.tool);
   const display = step.preview && step.preview.trim() ? step.preview : "";
@@ -127,7 +139,13 @@ function StatusRow({ progress }: { progress: AgentProgressState }) {
 
 const AUTO_COLLAPSE_THRESHOLD = 10;
 
-export function AgentProgress({ progress }: { progress: AgentProgressState | null }) {
+export function AgentProgress({
+  progress,
+  embedded = false,
+}: {
+  progress: AgentProgressState | null;
+  embedded?: boolean;
+}) {
   const { t } = useI18n();
   const [collapsed, setCollapsed] = useState(false);
   const autoCollapsedRef = useRef(false);
@@ -146,6 +164,19 @@ export function AgentProgress({ progress }: { progress: AgentProgressState | nul
 
   if (!progress || (!progress.running && progress.steps.length === 0)) {
     return null;
+  }
+
+  // Embedded: no outer bubble/self-collapse — the host (ChatMessage 过程 区)
+  // owns the fold. Just render the step list + live status row.
+  if (embedded) {
+    return (
+      <div className="space-y-0.5" role="status" aria-label="agent progress">
+        {progress.steps.map((s) => (
+          <StepRow key={s.seq} step={s} />
+        ))}
+        {progress.running && <StatusRow progress={progress} />}
+      </div>
+    );
   }
 
   const currentTool = progress.current_tool?.replace(/_/g, " ");

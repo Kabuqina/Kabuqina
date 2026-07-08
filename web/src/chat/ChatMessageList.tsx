@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from "react";
 import { AlarmClock, BookOpen, Check, FolderOpen, PenLine, Pencil, RefreshCw } from "lucide-react";
 import { useI18n } from "../lib/i18n";
 import type { LoadPackageStatus, PendingAgentInteraction, UiMsg } from "./chat-api";
-import { AgentProgress } from "./AgentProgress";
 import { ChatMessage } from "./ChatMessage";
 import { OutlineReviewModal } from "./OutlineReviewModal";
 import { AssistantAvatar } from "../components/AssistantAvatar";
@@ -414,11 +413,6 @@ export function ChatMessageList({
               streaming={false}
             />
           ))}
-          {progress?.running && (
-            <AssistantStreamShell>
-              <AgentProgress progress={progress} />
-            </AssistantStreamShell>
-          )}
           <LoadPackageDownloadProgress packages={loadPackageDownloads} onOpenSettings={onOpenLoadPackageSettings} />
           {pendingInteraction ? (
             pendingInteraction.kind === "pptx_render" ? (
@@ -450,6 +444,7 @@ export function ChatMessageList({
               model={pendingAssistant.model}
               timestamp={pendingAssistant.timestamp}
               streaming={sending}
+              progress={progress}
             />
           )}
           {sending && !progress?.running && !pendingVisibleText && <TypingIndicator />}

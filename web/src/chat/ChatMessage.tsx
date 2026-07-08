@@ -9,6 +9,8 @@ import { AssistantAvatar } from "../components/AssistantAvatar";
 import { cmdTtsSpeak, type DeskAttachmentPayload } from "./chat-api";
 import { KnowledgePointChips } from "./study/KnowledgePointChips";
 import { splitKnowledgePoints } from "./study/knowledgePoints";
+import { AgentProgress, describeProgress } from "./AgentProgress";
+import type { AgentProgressState } from "./hooks/useAgentProgress";
 
 const ChatMarkdown = lazy(() => import("./ChatMarkdown"));
 
@@ -34,6 +36,9 @@ export interface ChatMessageProps {
   /** Unix seconds or ms (see `MessageRow.timestamp`) */
   timestamp?: number;
   streaming?: boolean;
+  /** Live agent progress for this (streaming) turn — rendered as a collapsible
+   * 过程 section inside the same bubble, between the answer and the footer. */
+  progress?: AgentProgressState | null;
 }
 
 function copyToClipboard(s: string): Promise<void> {
@@ -324,7 +329,46 @@ function UserImageAttachments({ attachments = [] }: { attachments?: DeskAttachme
   );
 }
 
-export function ChatMessage({ role, text, attachments, model, streaming = false }: ChatMessageProps) {
+/**
+ * 合并进气泡的「过程」区：思考 + 工具调用步骤。默认收起——收起时只显示一行
+ * 原地更新的紧凑状态（不再上下滚动跳转）；展开才显示完整步骤列表。位于回答内容
+ * 与「小娜(model) 朗读 复制」页脚之间，各以分割线相隔。
+ */
+function ProcessSection({ progress }: { progress?: AgentProgressState | null }) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  if (!progress || (!progress.running && progress.steps.length === 0)) {
+    return null;
+  }
+  const label = progress.running
+    ? describeProgress(progress)
+    : `${progress.steps.length} ${t("chat.processSteps")}`;
+  return (
+    <div className="mt-2 border-t border-[var(--kq-glass-border)] pt-1.5">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-2 rounded-md py-0.5 text-left text-[12px] text-[var(--kq-color-muted)] transition hover:text-[var(--kq-color-strong)]"
+        aria-expanded={open}
+      >
+        {open ? (
+          <ChevronUp className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+        ) : (
+          <ChevronDown className="h-3.5 w-3.5 shrink-0" strokeWidth={2.25} />
+        )}
+        <span className="shrink-0 font-medium text-[var(--kq-color-ink)]">{t("chat.processLabel")}</span>
+        <span className="min-w-0 flex-1 truncate font-mono text-[11.5px] italic">{label}</span>
+      </button>
+      {open && (
+        <div className="mt-1">
+          <AgentProgress progress={progress} embedded />
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function ChatMessage({ role, text, attachments, model, streaming = false, progress }: ChatMessageProps) {
   const { t } = useI18n();
   const [collapsed, setCollapsed] = useState(false);
   const isUser = role === "user";
@@ -405,6 +449,7 @@ export function ChatMessage({ role, text, attachments, model, streaming = false 
               </Suspense>
             )}
             {!streaming && points.length > 0 && <KnowledgePointChips points={points} />}
+            <ProcessSection progress={progress} />
             <AssistantMessageFooter text={body} model={model} />
           </>
         )}
