@@ -185,6 +185,17 @@ pub async fn cmd_study_migrate_quizzes(app: AppHandle, quiz: Value) -> Result<Va
     .await
 }
 
+#[tauri::command]
+pub async fn cmd_study_migrate_builtin_course(app: AppHandle) -> Result<Value, String> {
+    crate::chat::desk_json_request(
+        &app,
+        reqwest::Method::POST,
+        "/api/desk/study/migrations/builtin-course",
+        None,
+    )
+    .await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -5,11 +5,13 @@
 
 from __future__ import annotations
 
+import os
 from contextlib import contextmanager
 from typing import Any, Dict, Iterator, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
+from learning.builtin_course_seed import seed_builtin_course
 from learning.flashcards import FlashcardService
 from learning.learning_contract import ContractError
 from learning.learning_store import LearningStore
@@ -33,6 +35,16 @@ def _desktop_ctx() -> Iterator[Any]:
             yield ctx
     finally:
         store.close()
+
+
+def _workspace_root() -> Optional[str]:
+    """Workspace root for materials, mirroring load_packages._workspace_root."""
+    raw = (
+        os.environ.get("HERMESDESK_WORKSPACE")
+        or os.environ.get("HERMES_WORKSPACE")
+        or ""
+    ).strip()
+    return raw or None
 
 
 def _http_error(exc: Exception) -> HTTPException:
@@ -161,6 +173,16 @@ async def study_space_select(space_id: str):
         with _desktop_ctx() as ctx:
             ctx.select_space(space_id)
             return {"space_id": space_id, **_space_payload(ctx)}
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+
+@router.post("/api/desk/study/migrations/builtin-course")
+async def study_seed_builtin_course():
+    """Seed the built-in 'Python 高级程序设计' course once for this owner."""
+    try:
+        with _desktop_ctx() as ctx:
+            return seed_builtin_course(ctx, workspace_root=_workspace_root())
     except (ValueError, KeyError, ContractError) as exc:
         raise _http_error(exc) from exc
 

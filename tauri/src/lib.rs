@@ -260,6 +260,7 @@ pub fn run() {
             study::cmd_study_quiz_questions,
             study::cmd_study_quiz_submit,
             study::cmd_study_migrate_quizzes,
+            study::cmd_study_migrate_builtin_course,
             capture::cmd_capture_region,
             capture::cmd_capture_fullscreen,
             capture::cmd_show_capture_overlay,

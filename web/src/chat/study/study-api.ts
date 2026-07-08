@@ -211,3 +211,16 @@ export function cmdStudyQuizSubmit(artifactId: string, responses: unknown): Prom
 export function cmdStudyMigrateQuizzes(quiz: unknown): Promise<StudyQuizMigrationResponse> {
   return invoke("cmd_study_migrate_quizzes", { quiz });
 }
+
+export type StudyBuiltinCourseResponse = {
+  seeded: boolean;
+  reason?: string;
+  space_id?: string;
+  title?: string;
+  artifacts?: Array<{ artifact_id: string; kind: string; materialized: number }>;
+  materials?: { written?: number; skipped?: number | string; path?: string };
+};
+
+export function cmdStudyMigrateBuiltinCourse(): Promise<StudyBuiltinCourseResponse> {
+  return invoke("cmd_study_migrate_builtin_course");
+}
