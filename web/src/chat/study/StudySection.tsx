@@ -15,7 +15,6 @@ import {
   Route,
   Save,
   ShieldCheck,
-  UserRoundCog,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -46,12 +45,7 @@ type StudyAction = {
 };
 
 const STUDY_ACTIONS: StudyAction[] = [
-  {
-    id: "learningProfile",
-    icon: UserRoundCog,
-    labelKey: "chat.workspaceBuildLearningProfile",
-    prompt: STUDY_PROMPTS.learningProfile,
-  },
+  // 「构建学习画像」已由顶部「学习画像（6 维）」面板承载，此处不再重复。
   {
     id: "learningPath",
     icon: Route,
