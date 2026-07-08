@@ -10,12 +10,19 @@ Each adapter handles:
 
 from .base import BasePlatformAdapter, MessageEvent, SendResult
 from .qqbot import QQAdapter
-from .yuanbao import YuanbaoAdapter
+
+_OPTIONAL_EXPORTS = []
+try:
+    from .yuanbao import YuanbaoAdapter
+except ModuleNotFoundError as exc:
+    if exc.name != f"{__name__}.yuanbao":
+        raise
+else:
+    _OPTIONAL_EXPORTS.append("YuanbaoAdapter")
 
 __all__ = [
     "BasePlatformAdapter",
     "MessageEvent",
     "SendResult",
     "QQAdapter",
-    "YuanbaoAdapter",
-]
+] + _OPTIONAL_EXPORTS

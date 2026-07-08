@@ -266,8 +266,24 @@ foreach ($name in $keep) {
     }
 }
 
-# Drop unwanted subtrees that snuck in (gateway is in keep-list? no — but defensive)
+# Drop unwanted subtrees that snuck in through broad package copies.
 $drop = @(
+    # v0.3.0 global-cut gateway adapters. Keep gateway/base helpers and the
+    # retained mainland adapters (weixin, qqbot, feishu, wecom).
+    "gateway\platforms\api_server.py",
+    "gateway\platforms\bluebubbles.py",
+    "gateway\platforms\homeassistant.py",
+    "gateway\platforms\matrix.py",
+    "gateway\platforms\mattermost.py",
+    "gateway\platforms\signal.py",
+    "gateway\platforms\signal_rate_limit.py",
+    "gateway\platforms\slack.py",
+    "gateway\platforms\sms.py",
+    "gateway\platforms\webhook.py",
+    "gateway\platforms\yuanbao.py",
+    "gateway\platforms\yuanbao_media.py",
+    "gateway\platforms\yuanbao_proto.py",
+    "gateway\platforms\yuanbao_sticker.py",
     # Keep tools/environments/file_sync.py — ssh/modal/daytona import it; dropping it breaks agent init.
     "tools\rl_training_tool.py",
     "tools\feishu_doc_tool.py",
@@ -281,11 +297,18 @@ $drop = @(
     # The tool registry discovers tools/*.py by glob and skips missing ones, so
     # the gateway adapters (cut/non-eligible in mainland) degrade gracefully.
     "tools\discord_tool.py",
-    "tools\yuanbao_tools.py"
+    "tools\yuanbao_tools.py",
+    # v0.3.0 student runtime plugin/skill cuts.
+    "plugins\disk-cleanup",
+    "plugins\platforms",
+    "plugins\spotify",
+    "skills\creative\popular-web-designs\templates\spotify.md",
+    "skills\dogfood",
+    "skills\media\spotify"
 )
 foreach ($d in $drop) {
     $f = Join-Path $bundledHermes $d
-    if (Test-Path $f) { Remove-Item -Force -Recurse $f }
+    if (Test-Path $f) { Remove-Item -Force -Recurse -LiteralPath $f }
 }
 
 # Prevent implicit namespace package causing subthread import failures
@@ -646,6 +669,12 @@ if ($Verify) {
     $env:HERMESDESK_OVERLAY_LENIENT = "0"
     $env:PYTHONDONTWRITEBYTECODE = "1"
     New-Item -ItemType Directory -Force -Path $env:HERMESDESK_WORKSPACE, $env:HERMES_HOME | Out-Null
+    $runtimePrunedScript = Join-Path $PSScriptRoot "tools\verify_runtime_pruned.py"
+    & $Py $runtimePrunedScript $Dist
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "runtime pruning verification FAILED"
+        exit $LASTEXITCODE
+    }
     $runtimeImportScript = Join-Path $PSScriptRoot "tools\verify_runtime_imports.py"
     & $Py $runtimeImportScript $Dist
     if ($LASTEXITCODE -ne 0) {

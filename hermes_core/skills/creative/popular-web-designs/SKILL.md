@@ -1,6 +1,6 @@
 ---
 name: popular-web-designs
-description: 54 real design systems (Stripe, Linear, Vercel) as HTML/CSS.
+description: 53 real design systems (Stripe, Linear, Vercel) as HTML/CSS.
 version: 1.0.0
 author: Hermes Agent + Teknium (design systems sourced from VoltAgent/awesome-design-md)
 license: MIT
@@ -19,7 +19,7 @@ triggers:
 
 # Popular Web Designs
 
-54 real-world design systems ready for use when generating HTML/CSS. Each template captures a
+53 real-world design systems ready for use when generating HTML/CSS. Each template captures a
 site's complete visual language: color palette, typography hierarchy, component styles, spacing
 system, shadows, responsive behavior, and practical agent prompts with exact CSS values.
 
@@ -96,7 +96,6 @@ substitute that preserves the design's character. Common mappings:
 | sohne-var (Stripe) | Source Sans 3 | Light weight elegance |
 | Berkeley Mono | JetBrains Mono | Technical monospace |
 | Airbnb Cereal VF | DM Sans | Rounded, friendly geometric |
-| Circular (Spotify) | DM Sans | Geometric, warm |
 | figmaSans | Inter | Clean humanist |
 | Pin Sans (Pinterest) | DM Sans | Friendly, rounded |
 | NVIDIA-EMEA | Inter (or Arial system) | Industrial, clean |
@@ -195,7 +194,6 @@ those carry more visual identity than the specific font face.
 | `ibm.md` | IBM | Carbon design system, structured blue palette |
 | `nvidia.md` | NVIDIA | Green-black energy, technical power aesthetic |
 | `spacex.md` | SpaceX | Stark black and white, full-bleed imagery, futuristic |
-| `spotify.md` | Spotify | Vibrant green on dark, bold type, album-art-driven |
 | `uber.md` | Uber | Bold black and white, tight type, urban energy |
 
 ## Choosing a Design
