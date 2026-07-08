@@ -359,6 +359,15 @@ def start_download_package(package_id: str) -> dict[str, Any]:
     return package.status()
 
 
+def start_package_download_if_missing(package_id: str) -> dict[str, Any]:
+    """Start a package download in the background unless it is already present."""
+    status = package_status(package_id)
+    if status["downloaded"]:
+        return {"ok": True, "already": True, **status}
+    started = start_download_package(package_id)
+    return {"ok": True, "started": True, **started}
+
+
 def _file_size(path: Path) -> int:
     try:
         return int(path.stat().st_size)
@@ -636,25 +645,3 @@ def _refresh_workspace_package_index_best_effort() -> None:
         refresh_workspace_package_index()
     except Exception as exc:
         log.warning("Failed to refresh workspace load-package index: %s", exc)
-
-
-def ensure_package_available_with_approval(package_id: str, *, reason: str = "") -> dict[str, Any]:
-    package = _get_package(package_id)
-    status = package.status()
-    if status["downloaded"]:
-        return {"ok": True, "already": True, **status}
-
-    from approval_backend import ApprovalBackend
-
-    result = ApprovalBackend().ask_model_download(
-        model_id=package.model_id,
-        size_mb=package.size_mb,
-        reason=reason or package.description,
-        package_id=package.id,
-        package_title=package.title,
-    )
-    if result != "once":
-        raise PermissionError(f"User declined the {package.title} download.")
-
-    downloaded = download_package(package_id)
-    return {"ok": True, **downloaded}

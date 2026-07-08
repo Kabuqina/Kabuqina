@@ -303,30 +303,68 @@ class CodeFormulaFirstUseTests(unittest.TestCase):
         self.data_dir = Path(self._tmpdir.name) / "appdata"
         self.data_dir.mkdir()
 
-    def test_ensure_code_formula_prompts_then_downloads_when_missing(self):
+    def test_ensure_code_formula_starts_background_download_when_missing(self):
         import docling_math_models as dmm
 
         with patch.dict(os.environ, {"HERMESDESK_DATA_DIR": str(self.data_dir)}, clear=False):
-            with patch("approval_backend.ApprovalBackend.ask_model_download", return_value="once") as ask:
-                with patch.object(dmm, "download_code_formula_blocking", return_value={"ok": True}) as download:
-                    with patch.object(dmm, "code_formula_present", side_effect=[False, False, True]):
+            with patch("load_packages.start_download_package", return_value={"job": {"status": "running"}}) as start:
+                with patch("approval_backend.ApprovalBackend.ask_model_download") as ask:
+                    with patch.object(dmm, "download_code_formula_blocking") as download:
+                        with patch.object(dmm, "code_formula_present", return_value=False):
+                            with self.assertRaises(dmm.CodeFormulaMissingError) as ctx:
+                                dmm.ensure_code_formula_available_for_math()
+
+        start.assert_called_once_with("docling-codeformula")
+        ask.assert_not_called()
+        download.assert_not_called()
+        self.assertIn("downloading in the background", str(ctx.exception))
+
+    def test_ensure_code_formula_wraps_background_start_error(self):
+        import docling_math_models as dmm
+
+        with patch.dict(os.environ, {"HERMESDESK_DATA_DIR": str(self.data_dir)}, clear=False):
+            with patch("load_packages.start_download_package", side_effect=RuntimeError("offline")):
+                with patch.object(dmm, "code_formula_present", return_value=False):
+                    with self.assertRaises(dmm.CodeFormulaMissingError) as ctx:
                         dmm.ensure_code_formula_available_for_math()
 
-        ask.assert_called_once()
-        kwargs = ask.call_args.kwargs
-        self.assertEqual(kwargs["model_id"], "ds4sd/CodeFormula")
-        self.assertEqual(kwargs["size_mb"], 500)
-        self.assertEqual(kwargs["package_id"], "docling-codeformula")
-        self.assertEqual(kwargs["package_title"], "Docling CodeFormula")
-        download.assert_called_once()
+        self.assertIn("offline", str(ctx.exception))
 
-    def test_ensure_code_formula_raises_when_user_declines(self):
+    def test_ensure_code_formula_returns_when_present(self):
         import docling_math_models as dmm
 
         with patch.dict(os.environ, {"HERMESDESK_DATA_DIR": str(self.data_dir)}, clear=False):
-            with patch("approval_backend.ApprovalBackend.ask_model_download", return_value="deny"):
-                with self.assertRaises(PermissionError):
+            with patch("load_packages.start_download_package") as start:
+                with patch.object(dmm, "code_formula_present", return_value=True):
                     dmm.ensure_code_formula_available_for_math()
+
+        start.assert_not_called()
+
+    def test_background_download_helper_starts_missing_package_without_approval(self):
+        import load_packages
+
+        with patch.dict(os.environ, {"HERMESDESK_DATA_DIR": str(self.data_dir)}, clear=False):
+            with patch.object(load_packages, "package_status", return_value={"downloaded": False}) as status:
+                with patch.object(load_packages, "start_download_package", return_value={"id": "easyocr"}) as start:
+                    with patch("approval_backend.ApprovalBackend.ask_model_download") as ask:
+                        result = load_packages.start_package_download_if_missing("easyocr")
+
+        self.assertEqual(result["id"], "easyocr")
+        status.assert_called_once_with("easyocr")
+        start.assert_called_once_with("easyocr")
+        ask.assert_not_called()
+
+    def test_background_download_helper_skips_installed_package(self):
+        import load_packages
+
+        installed = {"downloaded": True, "id": "easyocr"}
+        with patch.dict(os.environ, {"HERMESDESK_DATA_DIR": str(self.data_dir)}, clear=False):
+            with patch.object(load_packages, "package_status", return_value=installed):
+                with patch.object(load_packages, "start_download_package") as start:
+                    result = load_packages.start_package_download_if_missing("easyocr")
+
+        self.assertTrue(result["already"])
+        start.assert_not_called()
 
     def test_download_restores_hf_endpoint_after_success(self):
         import docling_math_models as dmm
