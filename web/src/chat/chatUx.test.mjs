@@ -1031,6 +1031,11 @@ assert.match(
   /useState[\s\S]*collapsed[\s\S]*chat\.streamingWorking[\s\S]*progress\.steps\.length[\s\S]*ChevronDown/,
   "Agent progress should collapse dense streaming tool rows into a one-line working status.",
 );
+assert.match(
+  agentProgressSource,
+  /LONG_TASK_META[\s\S]*pptx_write[\s\S]*manim_render[\s\S]*LongTaskProgress[\s\S]*transition-\[width\]/,
+  "Agent progress should show a visible progress bar for known long-running PPT/video tasks.",
+);
 
 assert.doesNotMatch(
   workspacePanelSource,

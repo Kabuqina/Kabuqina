@@ -34,6 +34,14 @@ const TOOL_ICON_MAP: Record<string, typeof Wrench> = {
   list_directory: Folder,
 };
 
+const LONG_TASK_META: Record<string, { label: string; phase: string; estimateSeconds: number }> = {
+  pptx_write: { label: "PPT 生成", phase: "正在排版并写入文件", estimateSeconds: 75 },
+  manim_render: { label: "视频渲染", phase: "正在渲染讲解动画", estimateSeconds: 120 },
+  video_render: { label: "视频渲染", phase: "正在生成短视频", estimateSeconds: 120 },
+  render_video: { label: "视频渲染", phase: "正在生成短视频", estimateSeconds: 120 },
+  xfyun_tts: { label: "语音合成", phase: "正在合成讲解音频", estimateSeconds: 45 },
+};
+
 function iconForTool(tool: string) {
   return TOOL_ICON_MAP[tool] ?? Wrench;
 }
@@ -49,12 +57,62 @@ function formatDuration(seconds: number | null): string {
 export function describeProgress(progress: AgentProgressState): string {
   const { status, current_tool, error } = progress;
   if (error) return error;
-  if (status === "tool" && current_tool) return `running ${current_tool.replace(/_/g, " ")}…`;
+  if (status === "tool" && current_tool) {
+    const longTask = LONG_TASK_META[current_tool];
+    return longTask ? `${longTask.label} · ${longTask.phase}…` : `running ${current_tool.replace(/_/g, " ")}…`;
+  }
   if (status === "thinking") return "thinking…";
   if (status === "starting") return "starting…";
   if (status === "done") return "done";
   if (status === "interrupted") return "interrupted";
   return "computing…";
+}
+
+function runningLongTask(progress: AgentProgressState): AgentStep | null {
+  const current = [...progress.steps].reverse().find((step) => step.running && LONG_TASK_META[step.tool]);
+  if (current) return current;
+  if (progress.current_tool && LONG_TASK_META[progress.current_tool]) {
+    return progress.steps.find((step) => step.running && step.tool === progress.current_tool) || null;
+  }
+  return null;
+}
+
+function LongTaskProgress({ step }: { step: AgentStep }) {
+  const meta = LONG_TASK_META[step.tool];
+  const [now, setNow] = useState(() => Date.now() / 1000);
+
+  useEffect(() => {
+    if (!step.running) return;
+    const timer = window.setInterval(() => setNow(Date.now() / 1000), 1000);
+    return () => window.clearInterval(timer);
+  }, [step.running]);
+
+  if (!meta) return null;
+  const elapsed = Math.max(0, now - step.startedAt);
+  const percent = step.running
+    ? Math.max(8, Math.min(92, Math.round((elapsed / meta.estimateSeconds) * 86) + 8))
+    : 100;
+  return (
+    <div className="mb-2 rounded-lg border border-[var(--kq-glass-border)] bg-[var(--kq-glass-bg-subtle,rgba(255,255,255,0.35))] px-2.5 py-2">
+      <div className="flex items-center justify-between gap-2 text-[12px] leading-snug">
+        <span className="min-w-0 truncate font-medium text-[var(--kq-color-ink)]">
+          {meta.label}
+        </span>
+        <span className="shrink-0 font-mono text-[11px] tabular-nums text-[var(--kq-color-muted)]">
+          {step.running ? `${percent}%` : "100%"}
+        </span>
+      </div>
+      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[var(--kq-hover-bg-strong)]">
+        <div
+          className="h-full rounded-full bg-[var(--kq-color-primary)] transition-[width]"
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+      <p className="mt-1 truncate text-[11px] text-[var(--kq-color-muted)]" title={step.preview || meta.phase}>
+        {meta.phase} · {formatDuration(elapsed)}
+      </p>
+    </div>
+  );
 }
 
 function StepRow({ step }: { step: AgentStep }) {
@@ -169,8 +227,10 @@ export function AgentProgress({
   // Embedded: no outer bubble/self-collapse — the host (ChatMessage 过程 区)
   // owns the fold. Just render the step list + live status row.
   if (embedded) {
+    const longTask = runningLongTask(progress);
     return (
       <div className="space-y-0.5" role="status" aria-label="agent progress">
+        {longTask ? <LongTaskProgress step={longTask} /> : null}
         {progress.steps.map((s) => (
           <StepRow key={s.seq} step={s} />
         ))}
@@ -226,6 +286,7 @@ export function AgentProgress({
         <ChevronUp className="h-3.5 w-3.5" strokeWidth={2.5} />
       </button>
       <div className="space-y-0.5">
+        {runningLongTask(progress) ? <LongTaskProgress step={runningLongTask(progress)!} /> : null}
         {progress.steps.map((s) => (
           <StepRow key={s.seq} step={s} />
         ))}
