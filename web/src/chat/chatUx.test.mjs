@@ -1252,6 +1252,31 @@ assert.match(
   "StudySection should render under the workspace.study section id.",
 );
 assert.match(
+  studySectionSource,
+  /import \{ ShellModal \} from "\.\.\/\.\.\/components\/ShellModal"/,
+  "StudySection should use the shared shell modal for learning profile editing.",
+);
+assert.match(
+  studySectionSource,
+  /kq-study-profile-card[\s\S]*studyContextCardTitle[\s\S]*studyContextEdit[\s\S]*STUDY_ACTIONS\.map/,
+  "StudySection should pin the learning profile summary card above the learning actions.",
+);
+assert.match(
+  studySectionSource,
+  /profileEditorOpen[\s\S]*<ShellModal[\s\S]*fields\.map/,
+  "StudySection should keep the full study context form behind the edit modal.",
+);
+assert.match(
+  stringsSource,
+  /studyContextCardTitle:\s*"学习档案"[\s\S]*studyContextEdit:\s*"编辑"[\s\S]*studyContextEmpty:/,
+  "Study profile card should have localized zh copy.",
+);
+assert.match(
+  stringsSource,
+  /studyContextCardTitle:\s*"Learning profile"[\s\S]*studyContextEdit:\s*"Edit"[\s\S]*studyContextEmpty:/,
+  "Study profile card should have localized en copy.",
+);
+assert.match(
   studyStoreSource,
   /STUDY_CONTEXT_STORAGE_KEY\s*=\s*"kabuqina\.study\.context\.v1"/,
   "Study context should persist under a versioned Kabuqina-specific localStorage key.",
