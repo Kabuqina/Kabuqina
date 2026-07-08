@@ -1,7 +1,7 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useId, useState } from "react";
 import { AlertTriangle, Check, Copy, FileText, Info, Lightbulb } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -240,6 +240,65 @@ function CodeBlock({
   );
 }
 
+function MermaidBlock({ code, isDark }: { code: string; isDark: boolean }) {
+  const reactId = useId().replace(/[^a-zA-Z0-9_-]/g, "");
+  const [svg, setSvg] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    const source = code.trim();
+    if (!source) {
+      setSvg("");
+      setError("");
+      return;
+    }
+    const render = async () => {
+      try {
+        const mermaid = (await import("mermaid")).default;
+        mermaid.initialize({
+          startOnLoad: false,
+          securityLevel: "strict",
+          theme: isDark ? "dark" : "default",
+          fontFamily: "Microsoft YaHei UI, Inter, sans-serif",
+        });
+        const result = await mermaid.render(`kq-mermaid-${reactId}-${Date.now()}`, source);
+        if (cancelled) return;
+        setSvg(result.svg);
+        setError("");
+      } catch (err) {
+        if (cancelled) return;
+        setSvg("");
+        setError(err instanceof Error ? err.message : "Mermaid render failed");
+      }
+    };
+    void render();
+    return () => {
+      cancelled = true;
+    };
+  }, [code, isDark, reactId]);
+
+  return (
+    <div
+      className={cn(
+        "my-3 overflow-hidden rounded-xl border px-3 py-3 shadow-sm",
+        isDark ? "border-[var(--kq-glass-border)] bg-[var(--kq-glass-bg)]" : "border-zinc-200/80 bg-white/60",
+      )}
+    >
+      {svg ? (
+        <div
+          className="kq-mermaid-diagram overflow-x-auto [&_svg]:mx-auto [&_svg]:max-w-full"
+          dangerouslySetInnerHTML={{ __html: svg }}
+        />
+      ) : (
+        <pre className="overflow-x-auto whitespace-pre-wrap break-words text-xs leading-relaxed text-[var(--kq-color-muted)]">
+          {error ? `Mermaid 图解渲染失败：${error}\n\n${code}` : code}
+        </pre>
+      )}
+    </div>
+  );
+}
+
 function parseMarkdownCallout(children: React.ReactNode): { marker: ReadCalloutMarker; body: string } | null {
   const raw = reactNodeText(children).replace(/\r\n/g, "\n").trim();
   const match = raw.match(/^\[!(SOURCE|WARNING|NOTE|TIP)\]\s*/i);
@@ -380,6 +439,9 @@ export default function ChatMarkdown({ text, className = "" }: Props) {
             ) as React.ReactElement<{ className?: string; children?: React.ReactNode }> | undefined;
             const lang = (codeEl?.props?.className ?? "").replace("language-", "");
             const code = reactNodeText(codeEl?.props?.children ?? children);
+            if (lang === "mermaid") {
+              return <MermaidBlock code={code} isDark={isDark} />;
+            }
             return (
               <CodeBlock code={code} isDark={isDark} lang={lang}>
                 {children}

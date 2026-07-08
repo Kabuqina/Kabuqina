@@ -8,6 +8,7 @@
 
 import {
   BookMarked,
+  BrainCircuit,
   Eraser,
   Layers3,
   MessagesSquare,
@@ -67,6 +68,12 @@ const STUDY_ACTIONS: StudyAction[] = [
     icon: MessagesSquare,
     labelKey: "chat.workspaceStartLearningTutor",
     prompt: STUDY_PROMPTS.learningTutor,
+  },
+  {
+    id: "feynmanTutor",
+    icon: BrainCircuit,
+    labelKey: "chat.workspaceStartFeynmanTutor",
+    prompt: STUDY_PROMPTS.feynmanTutor,
   },
   {
     id: "contentSafetyReview",

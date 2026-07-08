@@ -37,6 +37,7 @@ const sidebarSource = fs.readFileSync(new URL("./ChatSidebar.tsx", import.meta.u
 const messageListSource = fs.readFileSync(new URL("./ChatMessageList.tsx", import.meta.url), "utf8");
 const outlineReviewModalSource = fs.readFileSync(new URL("./OutlineReviewModal.tsx", import.meta.url), "utf8");
 const chatMessageSource = fs.readFileSync(new URL("./ChatMessage.tsx", import.meta.url), "utf8");
+const chatMarkdownSource = fs.readFileSync(new URL("./ChatMarkdown.tsx", import.meta.url), "utf8");
 const agentProgressSource = fs.readFileSync(new URL("./AgentProgress.tsx", import.meta.url), "utf8");
 
 const now = new Date("2026-05-13T10:00:00+08:00");
@@ -1138,6 +1139,7 @@ assert.deepEqual(
     "courseKnowledgeBase",
     "learningResources",
     "learningTutor",
+    "feynmanTutor",
     "learningEvaluation",
     "contentSafetyReview",
   ],
@@ -1164,6 +1166,7 @@ for (const id of [
   "courseKnowledgeBase",
   "learningResources",
   "learningTutor",
+  "feynmanTutor",
   "learningEvaluation",
 ]) {
   assert.match(
@@ -1194,8 +1197,13 @@ assert.match(
 );
 assert.match(
   STUDY_PROMPTS.learningTutor,
-  /一次只讲一个概念或一步推导[\s\S]*先给提示让我再试一次[\s\S]*明确要求直接给答案[\s\S]*完整给出/,
-  "Tutoring prompt should step through concepts, hint-first on practice, but never withhold demanded answers.",
+  /一次只讲一个概念或一步推导[\s\S]*Mermaid 图解[\s\S]*video_script[\s\S]*先给提示让我再试一次[\s\S]*明确要求直接给答案[\s\S]*完整给出/,
+  "Tutoring prompt should step through concepts, include multimodal diagrams/video scripts, hint-first on practice, but never withhold demanded answers.",
+);
+assert.match(
+  STUDY_PROMPTS.feynmanTutor,
+  /费曼反讲模式[\s\S]*一次只问一个问题[\s\S]*Mermaid 图解[\s\S]*薄弱点/,
+  "Feynman prompt should guide teach-back, render diagrams, and identify weak points with evidence.",
 );
 assert.match(
   STUDY_PROMPTS.learningEvaluation,
@@ -1245,7 +1253,7 @@ assert.doesNotMatch(
 );
 assert.match(
   studySectionSource,
-  /workspaceBuildCourseKnowledgeBase[\s\S]*workspaceBuildResourcePack[\s\S]*workspaceStartLearningTutor[\s\S]*workspaceReviewStudyContent/,
+  /workspaceBuildCourseKnowledgeBase[\s\S]*workspaceBuildResourcePack[\s\S]*workspaceStartLearningTutor[\s\S]*workspaceStartFeynmanTutor[\s\S]*workspaceReviewStudyContent/,
   "StudySection should wire the remaining shared learning quick actions in order.",
 );
 assert.doesNotMatch(
@@ -1287,6 +1295,16 @@ assert.match(
   quizPanelSource,
   /buildVariantQuizPrompt[\s\S]*weakTags[\s\S]*针对错题再练/,
   "QuizPanel should turn weakTags into a variant-practice prompt after grading.",
+);
+assert.match(
+  chatMarkdownSource,
+  /import\("mermaid"\)[\s\S]*language-\",\s*""\)[\s\S]*lang === "mermaid"[\s\S]*<MermaidBlock/,
+  "ChatMarkdown should lazily render fenced mermaid diagrams.",
+);
+assert.match(
+  stringsSource,
+  /workspaceStartFeynmanTutor:\s*"费曼反讲"[\s\S]*workspaceStartFeynmanTutor:\s*"Feynman teach-back"/,
+  "Feynman teach-back action should be localized.",
 );
 assert.match(
   studySectionSource,
