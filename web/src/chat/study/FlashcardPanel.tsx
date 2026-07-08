@@ -242,7 +242,7 @@ export function FlashcardPanel({
 
   return (
     <WorkspaceSection sectionId="workspace.flashcards" title={t("chat.flashcardTitle")} dotColor="#2f9e8f">
-      <div className="mt-2 grid gap-2">
+      <div className="mt-2 grid grid-cols-1 gap-2">
         <div className="flex items-center gap-2">
           <select
             value={currentSpaceId}
@@ -293,7 +293,7 @@ export function FlashcardPanel({
       </div>
 
       {drafts.length ? (
-        <div className="mt-3 grid gap-1.5">
+        <div className="mt-3 grid grid-cols-1 gap-1.5">
           <div className="text-[12px] font-medium text-[var(--kq-color-ink)]">
             {t("chat.flashcardDrafts")}
           </div>
@@ -331,7 +331,7 @@ export function FlashcardPanel({
       ) : null}
 
       {mode === "review" && current ? (
-        <div className="mt-3 grid gap-2">
+        <div className="mt-3 grid grid-cols-1 gap-2">
           <div className="kq-workspace-card rounded-md px-3 py-3">
             <div className="whitespace-pre-wrap break-words text-[13px] font-medium text-[var(--kq-color-ink)]">
               {current.front}
@@ -377,7 +377,7 @@ export function FlashcardPanel({
       ) : null}
 
       {mode === "done" ? (
-        <div className="mt-3 grid gap-2">
+        <div className="mt-3 grid grid-cols-1 gap-2">
           <div className="rounded-md bg-[var(--kq-color-surface-2)] px-3 py-2 text-[12.5px] text-[var(--kq-color-ink)]">
             {t("chat.flashcardReviewDone")}
           </div>

@@ -174,7 +174,7 @@ export function ResourcePackPanel({ onStartPrompt }: { onStartPrompt?: (prompt: 
       </div>
 
       {drafts.length ? (
-        <div className="mt-3 grid gap-1.5">
+        <div className="mt-3 grid grid-cols-1 gap-1.5">
           {drafts.map((draft) => {
             const type = resourceType(draft);
             const meta = TYPE_META[type];
