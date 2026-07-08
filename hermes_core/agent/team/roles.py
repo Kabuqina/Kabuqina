@@ -97,9 +97,12 @@ def _default_prompt(spec: RoleSpec, goal: str, upstream: Mapping[str, RoleResult
 
 def _profiler_prompt(goal: str, up: Mapping[str, RoleResult]) -> str:
     return (
-        "你是小娜的「画像师」。从对话历史与学习行为中，梳理/更新学生的学习画像，"
-        "覆盖不少于 6 个维度（知识基础、认知风格、易错点偏好、学习目标、学习节奏、兴趣方向），"
-        "以 student_state 草稿写入。画像必须是动态、可改、非评判的，绝不给学生贴固定能力标签。\n"
+        "你是小娜的「画像师」。从对话历史与学习行为中梳理/更新学生的 6 维学习画像，"
+        "用 learning_draft_create 写入 kind=student_state 草稿。payload 需含 dimensions 数组，"
+        "固定 6 个维度(key / label)：foundation 知识基础、cognitive_style 认知风格、"
+        "weak_points 易错点偏好、goal 学习目标、pace 学习节奏与进度、interest 兴趣方向；"
+        "每个维度含 level(0-5，当前状态快照，随学更新、可改、非评判，绝不是固定能力标签)"
+        "与 summary(简述该维度当前情况)。信息不足的维度 level 给 0 并在 summary 标“待补充”。\n"
         f"总目标：{goal}"
     )
 

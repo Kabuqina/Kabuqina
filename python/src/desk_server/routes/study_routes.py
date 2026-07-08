@@ -70,7 +70,7 @@ def _artifact_ref(artifact: Dict[str, Any]) -> Dict[str, Any]:
     }
     # M3: resource_pack drafts carry their payload so the STUDY panel can render
     # mindmap / reading / video-script content without a second round-trip.
-    if artifact.get("kind") == "resource_pack":
+    if artifact.get("kind") in ("resource_pack", "student_state"):
         ref["payload"] = (artifact.get("envelope") or {}).get("payload")
     return ref
 
@@ -196,7 +196,7 @@ async def study_drafts(kind: Optional[str] = Query(default=None)):
             # resource_pack (M3 备课组 multimodal outputs) has no separate
             # "active" surface like flashcards/quizzes, so return draft + active
             # together — activation should keep the resource visible, not hide it.
-            statuses = ("draft", "active") if kind == "resource_pack" else ("draft",)
+            statuses = ("draft", "active") if kind in ("resource_pack", "student_state") else ("draft",)
             items = []
             for st in statuses:
                 items.extend(ctx.list_artifacts(kind=kind, status=st))
@@ -214,7 +214,7 @@ async def study_artifact_activate(artifact_id: str):
                 return FlashcardService(ctx).activate_deck(artifact_id)
             if artifact["kind"] == "quiz":
                 return QuizService(ctx).activate_quiz(artifact_id)
-            if artifact["kind"] in ("resource_pack", "knowledge_base", "learning_plan"):
+            if artifact["kind"] in ("resource_pack", "knowledge_base", "learning_plan", "student_state"):
                 # M3: generated reference resources activate via a plain
                 # trust-boundary status transition (no per-item study state).
                 ctx.set_artifact_status(artifact_id, "active")
@@ -233,7 +233,7 @@ async def study_artifact_reject(artifact_id: str):
                 return FlashcardService(ctx).reject_deck(artifact_id)
             if artifact["kind"] == "quiz":
                 return QuizService(ctx).reject_quiz(artifact_id)
-            if artifact["kind"] in ("resource_pack", "knowledge_base", "learning_plan"):
+            if artifact["kind"] in ("resource_pack", "knowledge_base", "learning_plan", "student_state"):
                 ctx.set_artifact_status(artifact_id, "rejected")
                 return {"artifact_id": artifact_id, "status": "rejected", **_space_payload(ctx)}
             raise ValueError(f"unsupported artifact kind: {artifact['kind']}")

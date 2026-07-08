@@ -187,6 +187,26 @@ def _v_student_state(p: Mapping[str, Any]) -> None:
         raise ContractError("student_state: 'preferences' must be an object or list")
     _opt_str_list(p, "goals", "student_state")
     _opt_str_list(p, "constraints", "student_state")
+    # M1: optional multi-dimensional profile. Each dimension is a *dynamic,
+    # editable snapshot* (level 0-5 = current familiarity/engagement, not a
+    # fixed ability judgment) plus a free-text summary. Backward-compatible:
+    # older student_state without 'dimensions' stays valid.
+    dims = p.get("dimensions")
+    if dims is not None:
+        if not isinstance(dims, list):
+            raise ContractError("student_state: 'dimensions' must be a list")
+        for i, d in enumerate(dims):
+            ctx = f"student_state.dimensions[{i}]"
+            dm = _mapping(d, ctx)
+            _req_str(dm, "key", ctx)
+            _req_str(dm, "label", ctx)
+            if "level" in dm:
+                lvl = dm["level"]
+                if isinstance(lvl, bool) or not isinstance(lvl, (int, float)):
+                    raise ContractError(f"{ctx}: 'level' must be a number (0-5)")
+                if lvl < 0 or lvl > 5:
+                    raise ContractError(f"{ctx}: 'level' must be within 0-5")
+            _opt_str(dm, "summary", ctx)
 
 
 def _v_knowledge_base(p: Mapping[str, Any]) -> None:
