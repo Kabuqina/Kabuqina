@@ -650,6 +650,8 @@ def ensure_package_available_with_approval(package_id: str, *, reason: str = "")
         model_id=package.model_id,
         size_mb=package.size_mb,
         reason=reason or package.description,
+        package_id=package.id,
+        package_title=package.title,
     )
     if result != "once":
         raise PermissionError(f"User declined the {package.title} download.")

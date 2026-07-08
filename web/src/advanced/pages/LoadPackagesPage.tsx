@@ -35,8 +35,9 @@ function ProgressBar({ pkg }: { pkg: LoadPackageStatus }) {
   const { t } = useI18n();
   const job = pkg.job;
   if (!job) return null;
+  if (job.status !== "running" && job.status !== "error") return null;
   const total = job.totalBytes || pkg.sizeMb * 1024 * 1024;
-  const downloaded = job.downloadedBytes || (job.status === "done" ? total : 0);
+  const downloaded = job.downloadedBytes || 0;
   const percent = job.percent ?? (total ? Math.floor(downloaded * 100 / total) : 0);
   return (
     <div className="mt-3 space-y-1.5">

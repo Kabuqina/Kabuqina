@@ -38,7 +38,6 @@ import { useInFlightTurns } from "./inFlightTurns";
 import { type CaptureDonePayload } from "../capture/capture-api";
 import type { AgentProgressState } from "./hooks/useAgentProgress";
 import type { DeskAttachmentPayload, UiMsg } from "./chat-api";
-import { cmdLoadPackageDownload } from "./chat-api";
 import { REMINDER_SESSION_ID } from "./reminderSession";
 
 type WorkspaceState = {
@@ -273,9 +272,6 @@ export function ChatPage() {
     if (isFromOnboarding(location.state)) {
       armPendingChatSecretGateBypass();
       clearDraft();
-      cmdLoadPackageDownload("docling-base").catch((err) => {
-        console.warn("docling-base auto-download failed", err);
-      });
       nav("/chat", { replace: true, state: {} });
       return;
     }

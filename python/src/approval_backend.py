@@ -415,14 +415,21 @@ class ApprovalBackend:
         model_id: str,
         size_mb: int,
         reason: str = "",
+        package_id: str = "",
+        package_title: str = "",
     ) -> str:
         """Ask before downloading a large optional ML model to the user profile."""
-        return self._post({
+        payload = {
             "type": "model_download",
             "model_id": model_id,
             "size_mb": int(size_mb),
             "description": reason[:500],
-        })
+        }
+        if package_id:
+            payload["package_id"] = package_id
+        if package_title:
+            payload["package_title"] = package_title
+        return self._post(payload)
 
     def _post(self, payload: dict) -> str:
         url = os.environ.get("HERMESDESK_APPROVAL_URL")

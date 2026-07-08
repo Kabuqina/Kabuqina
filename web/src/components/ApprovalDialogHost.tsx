@@ -24,6 +24,8 @@ export type ApprovalRequest = {
   deliveryTarget?: string | null;
   modelId?: string | null;
   sizeMb?: number | null;
+  packageId?: string | null;
+  packageTitle?: string | null;
 };
 
 function kindMeta(kind: string) {
@@ -48,10 +50,12 @@ function ApprovalCard({
 }) {
   const { t } = useI18n();
   const { icon: Icon, accent } = kindMeta(request.kind);
+  const modelDownloadName =
+    request.packageTitle?.trim() || request.modelId?.trim() || t("approval.modelDownloadFallback");
 
   const title =
     request.kind === "model_download"
-      ? t("approval.modelDownloadTitle")
+      ? t("approval.modelDownloadTitle", { name: modelDownloadName })
       : request.kind === "messaging"
         ? t("approval.messagingTitle")
         : request.kind === "cron"
@@ -60,7 +64,7 @@ function ApprovalCard({
 
   const hint =
     request.kind === "model_download"
-      ? t("approval.modelDownloadHint", { size: String(request.sizeMb ?? 500) })
+      ? t("approval.modelDownloadHint", { name: modelDownloadName, size: String(request.sizeMb ?? 500) })
       : request.kind === "cron"
         ? t("approval.cronHint")
         : request.kind === "messaging"

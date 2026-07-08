@@ -316,6 +316,8 @@ class CodeFormulaFirstUseTests(unittest.TestCase):
         kwargs = ask.call_args.kwargs
         self.assertEqual(kwargs["model_id"], "ds4sd/CodeFormula")
         self.assertEqual(kwargs["size_mb"], 500)
+        self.assertEqual(kwargs["package_id"], "docling-codeformula")
+        self.assertEqual(kwargs["package_title"], "Docling CodeFormula")
         download.assert_called_once()
 
     def test_ensure_code_formula_raises_when_user_declines(self):
