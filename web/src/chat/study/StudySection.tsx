@@ -13,7 +13,6 @@ import {
   Layers3,
   MessagesSquare,
   PencilLine,
-  Route,
   Save,
   ShieldCheck,
   type LucideIcon,
@@ -26,6 +25,7 @@ import { WorkspaceActionButton, WorkspaceSection } from "../workspaceSection";
 import { cmdStudyMigrateBuiltinCourse } from "./study-api";
 import { STUDY_LEARNING_EVENT } from "./flashcardLearningStore";
 import { FlashcardPanel } from "./FlashcardPanel";
+import { LearningPathPanel } from "./LearningPathPanel";
 import { QuizPanel } from "./QuizPanel";
 import { ProfilePanel } from "./ProfilePanel";
 import { STUDY_PROMPTS, type StudyActionId } from "./studyPrompts";
@@ -48,12 +48,7 @@ type StudyAction = {
 
 const STUDY_ACTIONS: StudyAction[] = [
   // 「构建学习画像」已由顶部「学习画像（6 维）」面板承载，此处不再重复。
-  {
-    id: "learningPath",
-    icon: Route,
-    labelKey: "chat.workspaceBuildLearningPath",
-    prompt: STUDY_PROMPTS.learningPath,
-  },
+  // 「学习路径」已由专属面板承载，此处不再重复。
   {
     id: "courseKnowledgeBase",
     icon: BookMarked,
@@ -231,6 +226,7 @@ export function StudySection({
   return (
     <>
       <ProfilePanel onStartPrompt={onStartPrompt} />
+      <LearningPathPanel onStartPrompt={onStartPrompt} />
       <WorkspaceSection
         sectionId="workspace.study"
         title={t("chat.workspaceStudy")}

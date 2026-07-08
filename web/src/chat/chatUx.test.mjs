@@ -1124,6 +1124,7 @@ assert.match(chatPageReminderSource, /\/settings\/cron/);
 // (web/src/chat/study) and render as a section in the STUDY workspace panel.
 const { STUDY_PROMPTS } = await importTs("./study/studyPrompts.ts");
 const studySectionSource = fs.readFileSync(new URL("./study/StudySection.tsx", import.meta.url), "utf8");
+const learningPathPanelSource = fs.readFileSync(new URL("./study/LearningPathPanel.tsx", import.meta.url), "utf8");
 const studyStoreSource = fs.readFileSync(new URL("./study/studyStore.ts", import.meta.url), "utf8");
 const flashcardPanelSource = fs.readFileSync(new URL("./study/FlashcardPanel.tsx", import.meta.url), "utf8");
 const quizPanelSource = fs.readFileSync(new URL("./study/QuizPanel.tsx", import.meta.url), "utf8");
@@ -1177,8 +1178,8 @@ assert.match(
 );
 assert.match(
   STUDY_PROMPTS.learningPath,
-  /阶段[\s\S]*只细化最近的一个阶段[\s\S]*写回学习上下文/,
-  "Learning-path prompt should confirm coarse stages first and only detail the nearest one.",
+  /阶段[\s\S]*只细化最近的一个阶段[\s\S]*只调整未完成阶段[\s\S]*kind=learning_plan/,
+  "Learning-path prompt should confirm coarse stages, detail the nearest one, and draft a reviewable dynamic plan.",
 );
 assert.match(
   STUDY_PROMPTS.courseKnowledgeBase,
@@ -1243,8 +1244,28 @@ assert.doesNotMatch(
 );
 assert.match(
   studySectionSource,
-  /workspaceBuildLearningProfile[\s\S]*workspaceBuildLearningPath[\s\S]*workspaceBuildCourseKnowledgeBase[\s\S]*workspaceBuildResourcePack[\s\S]*workspaceStartLearningTutor[\s\S]*workspaceEvaluateLearningEffect[\s\S]*workspaceReviewStudyContent/,
-  "StudySection should wire the seven learning quick actions in order.",
+  /workspaceBuildCourseKnowledgeBase[\s\S]*workspaceBuildResourcePack[\s\S]*workspaceStartLearningTutor[\s\S]*workspaceEvaluateLearningEffect[\s\S]*workspaceReviewStudyContent/,
+  "StudySection should wire the remaining shared learning quick actions in order.",
+);
+assert.doesNotMatch(
+  studySectionSource,
+  /workspaceBuildLearningPath/,
+  "Learning-path generation should live in the dedicated panel, not duplicate the quick actions.",
+);
+assert.match(
+  studySectionSource,
+  /<ProfilePanel onStartPrompt=\{onStartPrompt\} \/>[\s\S]*<LearningPathPanel onStartPrompt=\{onStartPrompt\} \/>/,
+  "LearningPathPanel should render below the profile panel in STUDY.",
+);
+assert.match(
+  learningPathPanelSource,
+  /cmdStudyDrafts\("learning_plan"\)[\s\S]*cmdStudyArtifactActivate[\s\S]*cmdStudyArtifactReject/,
+  "LearningPathPanel should fetch reviewable learning_plan drafts and support activate/reject.",
+);
+assert.match(
+  learningPathPanelSource,
+  /phases[\s\S]*tasks[\s\S]*done_when[\s\S]*推送到今日提醒/,
+  "LearningPathPanel should render phase tasks and expose the precision-reminder entry.",
 );
 assert.match(
   studySectionSource,

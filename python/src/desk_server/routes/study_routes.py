@@ -68,9 +68,10 @@ def _artifact_ref(artifact: Dict[str, Any]) -> Dict[str, Any]:
         "created_at": artifact["created_at"],
         "updated_at": artifact["updated_at"],
     }
-    # M3: resource_pack drafts carry their payload so the STUDY panel can render
-    # mindmap / reading / video-script content without a second round-trip.
-    if artifact.get("kind") in ("resource_pack", "student_state"):
+    # Reviewable STUDY panels carry their payload so the UI can render content
+    # without a second round-trip, and active items remain visible after trust
+    # transition.
+    if artifact.get("kind") in ("resource_pack", "student_state", "learning_plan"):
         ref["payload"] = (artifact.get("envelope") or {}).get("payload")
     return ref
 
@@ -193,10 +194,10 @@ async def study_drafts(kind: Optional[str] = Query(default=None)):
         with _desktop_ctx() as ctx:
             if not ctx.current_space():
                 return {"drafts": []}
-            # resource_pack (M3 备课组 multimodal outputs) has no separate
-            # "active" surface like flashcards/quizzes, so return draft + active
-            # together — activation should keep the resource visible, not hide it.
-            statuses = ("draft", "active") if kind in ("resource_pack", "student_state") else ("draft",)
+            # Panel-rendered artifacts have no separate "active" surface like
+            # flashcards/quizzes, so return draft + active together — activation
+            # should keep them visible, not hide them.
+            statuses = ("draft", "active") if kind in ("resource_pack", "student_state", "learning_plan") else ("draft",)
             items = []
             for st in statuses:
                 items.extend(ctx.list_artifacts(kind=kind, status=st))

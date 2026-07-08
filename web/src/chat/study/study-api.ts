@@ -24,8 +24,8 @@ export type StudyArtifact = {
   review?: { mode?: string; status?: string };
   created_at?: string;
   updated_at?: string;
-  // resource_pack drafts carry their payload (see study_routes._artifact_ref)
-  payload?: ResourcePackPayload & StudentStatePayload;
+  // Panel-rendered drafts carry their payload (see study_routes._artifact_ref)
+  payload?: ResourcePackPayload & StudentStatePayload & LearningPlanPayload;
 };
 
 // M1 6-dimension learning profile (rendered by ProfilePanel radar).
@@ -55,6 +55,25 @@ export type ResourcePackResource = {
 export type ResourcePackPayload = {
   resource_type?: string;
   resources?: ResourcePackResource[];
+};
+
+// M4 personalized learning path (rendered by LearningPathPanel).
+export type LearningPlanTask = {
+  title?: string;
+  order?: number;
+  done_when?: string;
+  [key: string]: unknown;
+};
+export type LearningPlanPhase = {
+  title?: string;
+  status?: "pending" | "active" | "done" | string;
+  focus?: string;
+  tasks?: LearningPlanTask[];
+  [key: string]: unknown;
+};
+export type LearningPlanPayload = {
+  goals?: string[];
+  phases?: LearningPlanPhase[];
 };
 
 export type StudyDraftsResponse = {
