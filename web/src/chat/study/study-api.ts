@@ -25,7 +25,15 @@ export type StudyArtifact = {
   created_at?: string;
   updated_at?: string;
   // resource_pack drafts carry their payload (see study_routes._artifact_ref)
-  payload?: ResourcePackPayload;
+  payload?: ResourcePackPayload & StudentStatePayload;
+};
+
+// M1 6-dimension learning profile (rendered by ProfilePanel radar).
+export type ProfileDimension = { key: string; label?: string; level?: number; summary?: string };
+export type StudentStatePayload = {
+  dimensions?: ProfileDimension[];
+  goals?: string[];
+  constraints?: string[];
 };
 
 // M3 备课组 resource_pack subtypes (rendered by ResourcePackPanel).

@@ -26,6 +26,7 @@ import { cmdStudyMigrateBuiltinCourse } from "./study-api";
 import { STUDY_LEARNING_EVENT } from "./flashcardLearningStore";
 import { FlashcardPanel } from "./FlashcardPanel";
 import { QuizPanel } from "./QuizPanel";
+import { ProfilePanel } from "./ProfilePanel";
 import { STUDY_PROMPTS, type StudyActionId } from "./studyPrompts";
 import {
   STUDY_CONTEXT_EVENT,
@@ -216,6 +217,7 @@ export function StudySection({
 
   return (
     <>
+      <ProfilePanel onStartPrompt={onStartPrompt} />
       <WorkspaceSection
         sectionId="workspace.study"
         title={t("chat.workspaceStudy")}
