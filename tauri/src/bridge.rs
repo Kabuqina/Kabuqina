@@ -312,12 +312,24 @@ async fn handle_approval(
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
+            let package_id = payload
+                .get("package_id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let package_title = payload
+                .get("package_title")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
             ask_user_to_approve_model_download(
                 &st.app,
                 &st.approval_store,
                 &model_id,
                 size_mb,
                 &reason,
+                &package_id,
+                &package_title,
             )
             .await
         }
@@ -563,6 +575,17 @@ async fn ask_user_to_approve_model_download(
     model_id: &str,
     size_mb: u32,
     reason: &str,
+    package_id: &str,
+    package_title: &str,
 ) -> bool {
-    crate::approval::ask_model_download(app, store, model_id, size_mb, reason).await
+    crate::approval::ask_model_download(
+        app,
+        store,
+        model_id,
+        size_mb,
+        reason,
+        package_id,
+        package_title,
+    )
+    .await
 }

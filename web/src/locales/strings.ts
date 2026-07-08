@@ -52,12 +52,14 @@ export const MESSAGES = {
       task: "任务说明",
       delivery: "投递方式",
       deliveryDesktop: "本机通知",
-      modelDownloadTitle: "需要下载公式识别模型",
+      modelDownloadTitle: "需要下载 {{name}}",
       modelDownloadHint:
-        "首次使用公式识别（mode=math）需要下载约 {{size}} MB 的模型到本机，不会包含在安装包内。下载完成后可离线使用。",
+        "首次使用相关能力需要下载约 {{size}} MB 的可选资源到本机，不会包含在安装包内。下载完成后可离线使用。",
       modelDownloadAllow: "下载",
       modelDownloadSize: "约 {{size}} MB",
       modelId: "模型",
+      modelSize: "大小",
+      modelDownloadFallback: "可选模型",
     },
     splash: {
       waking: "正在唤醒…",
@@ -1132,12 +1134,14 @@ export const MESSAGES = {
       task: "Task",
       delivery: "Delivery",
       deliveryDesktop: "Desktop notification",
-      modelDownloadTitle: "Formula model download",
+      modelDownloadTitle: "Download {{name}}",
       modelDownloadHint:
-        "The first time you use formula extraction (mode=math), Kabuqina needs to download about {{size}} MB to your profile. It is not bundled in the installer. After download, it works offline.",
+        "The first time you use this capability, Kabuqina needs to download about {{size}} MB of optional resources to your profile. It is not bundled in the installer. After download, it works offline.",
       modelDownloadAllow: "Download",
       modelDownloadSize: "About {{size}} MB",
       modelId: "Model",
+      modelSize: "Size",
+      modelDownloadFallback: "optional model",
     },
     splash: {
       waking: "Waking your assistant…",

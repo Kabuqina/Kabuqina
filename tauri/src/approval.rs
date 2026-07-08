@@ -27,6 +27,8 @@ pub struct ApprovalRequestEvent {
     pub delivery_target: Option<String>,
     pub model_id: Option<String>,
     pub size_mb: Option<u32>,
+    pub package_id: Option<String>,
+    pub package_title: Option<String>,
 }
 
 pub struct ApprovalStore {
@@ -99,6 +101,8 @@ pub async fn ask_shell(
                 delivery_target: None,
                 model_id: None,
                 size_mb: None,
+                package_id: None,
+                package_title: None,
             },
         )
         .await
@@ -131,6 +135,8 @@ pub async fn ask_messaging(
                 delivery_target: None,
                 model_id: None,
                 size_mb: None,
+                package_id: None,
+                package_title: None,
             },
         )
         .await
@@ -167,6 +173,8 @@ pub async fn ask_cron(
                 },
                 model_id: None,
                 size_mb: None,
+                package_id: None,
+                package_title: None,
             },
         )
         .await
@@ -178,6 +186,8 @@ pub async fn ask_model_download(
     model_id: &str,
     size_mb: u32,
     reason: &str,
+    package_id: &str,
+    package_title: &str,
 ) -> bool {
     store
         .request(
@@ -199,6 +209,16 @@ pub async fn ask_model_download(
                 delivery_target: None,
                 model_id: Some(model_id.to_string()),
                 size_mb: Some(size_mb),
+                package_id: if package_id.is_empty() {
+                    None
+                } else {
+                    Some(package_id.to_string())
+                },
+                package_title: if package_title.is_empty() {
+                    None
+                } else {
+                    Some(package_title.to_string())
+                },
             },
         )
         .await

@@ -1,17 +1,18 @@
 # Copyright 2026 Kabuqina Contributors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Auto-download EasyOCR weights (with approval) the first time OCR is used.
+"""Start EasyOCR weight downloads in the background the first time OCR is probed.
 
 EasyOCR is shipped as an on-demand load-package (see ``easyocr_models.py``),
 not bundled in the installer. ``tools/ocr_tools.ocr_image_tool`` resolves the
-model dir via the module-global ``resolve_easyocr_model_dir()`` at call time, so
-wrapping that global lets us trigger the download right before OCR runs —
-without editing the frozen upstream ``hermes_core`` tree.
+model dir via the module-global ``resolve_easyocr_model_dir()`` at call time, and
+the tool registry also probes that resolver during availability checks. The
+wrapper must therefore only start the generic load-package background job and
+return immediately; it must never block chat on a model download.
 
 If the weights are already present (downloaded or bundled) the wrapper is a
-no-op. If the user declines the download, the original ``ocr_image_tool`` still
-emits its clean ``easyocr_models_missing`` error.
+no-op. While the background job is still running, the original ``ocr_image_tool``
+still emits its clean ``easyocr_models_missing`` error.
 """
 
 from __future__ import annotations
@@ -43,15 +44,15 @@ def install() -> None:
         found = original_resolve(*args, **kwargs)
         if found is not None:
             return found
-        # Missing -> try a one-time, approval-gated download, then re-resolve.
+        # Missing -> start the generic load-package background job, then return
+        # immediately so tool availability checks never block chat startup.
         try:
-            from easyocr_models import ensure_easyocr_available
+            from easyocr_models import EASYOCR_PACKAGE_ID
+            from load_packages import start_package_download_if_missing
 
-            ensure_easyocr_available(
-                reason="Kabuqina needs the EasyOCR pack to extract text from this image/scanned page."
-            )
+            start_package_download_if_missing(EASYOCR_PACKAGE_ID)
         except Exception as exc:  # noqa: BLE001 - fall back to the clean missing error
-            log.info("EasyOCR auto-download skipped/failed: %s", exc)
+            log.info("EasyOCR background download not started: %s", exc)
             return None
         return original_resolve(*args, **kwargs)
 

@@ -327,25 +327,28 @@ def _invalidate_caches() -> None:
 
 
 def ensure_easyocr_available(*, reason: str = "") -> dict[str, Any]:
-    """Ask once, then download EasyOCR the first time OCR needs it."""
+    """Start the EasyOCR background download when OCR first needs it."""
     if easyocr_present():
         return {"ok": True, "already": True, **easyocr_status()}
 
     try:
-        from load_packages import ensure_package_available_with_approval
+        from load_packages import start_package_download_if_missing
     except ImportError as exc:
         raise EasyOcrMissingError(
             f"easyocr_models_missing: OCR requires the EasyOCR pack "
             f"(~{EASYOCR_SIZE_MB} MB). {EASYOCR_SETTINGS_HINT}"
         ) from exc
 
-    ensure_package_available_with_approval(
-        EASYOCR_PACKAGE_ID,
-        reason=reason or "Kabuqina needs the EasyOCR pack to read text from this image/scanned page.",
-    )
-    if not easyocr_present():
+    try:
+        start_package_download_if_missing(EASYOCR_PACKAGE_ID)
+    except Exception as exc:
         raise EasyOcrMissingError(
-            f"easyocr_models_missing: EasyOCR download completed but weights were not found. "
-            f"{EASYOCR_SETTINGS_HINT}"
+            f"easyocr_models_missing: OCR requires the EasyOCR pack (~{EASYOCR_SIZE_MB} MB), "
+            f"but the background download could not start: {exc}. {EASYOCR_SETTINGS_HINT}"
+        ) from exc
+
+    raise EasyOcrMissingError(
+        f"easyocr_models_missing: OCR requires the EasyOCR pack (~{EASYOCR_SIZE_MB} MB). "
+        f"The pack is downloading in the background; retry after it finishes, "
+        f"or check {EASYOCR_SETTINGS_HINT}"
         )
-    return {"ok": True, **easyocr_status()}

@@ -129,6 +129,27 @@ class TestEasyOcrResolve(unittest.TestCase):
         self.assertFalse(eom.easyocr_downloaded())
 
 
+class TestEasyOcrFirstUse(unittest.TestCase):
+    def test_ensure_starts_background_download_when_missing(self):
+        with patch.object(eom, "easyocr_present", return_value=False):
+            with patch("load_packages.package_status", return_value={"downloaded": False}):
+                with patch("load_packages.start_download_package", return_value={"job": {"status": "running"}}) as start:
+                    with self.assertRaises(eom.EasyOcrMissingError) as ctx:
+                        eom.ensure_easyocr_available(reason="need ocr")
+
+        start.assert_called_once_with(eom.EASYOCR_PACKAGE_ID)
+        self.assertIn("downloading in the background", str(ctx.exception))
+
+    def test_ensure_returns_when_present(self):
+        with patch.object(eom, "easyocr_present", return_value=True):
+            with patch("load_packages.start_download_package") as start:
+                result = eom.ensure_easyocr_available(reason="need ocr")
+
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["already"])
+        start.assert_not_called()
+
+
 class TestEasyOcrExtract(unittest.TestCase):
     def test_extract_top_folder_layout(self):
         with tempfile.TemporaryDirectory() as d:

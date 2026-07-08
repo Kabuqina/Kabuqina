@@ -171,30 +171,32 @@ def require_code_formula() -> None:
 
 
 def ensure_code_formula_available_for_math() -> None:
-    """Ask once, then download CodeFormula when ``mode=math`` first needs it."""
+    """Start the CodeFormula background download when ``mode=math`` first needs it."""
     if code_formula_present():
         return
 
     try:
-        from load_packages import ensure_package_available_with_approval
+        from load_packages import start_package_download_if_missing
     except ImportError as exc:
         raise CodeFormulaMissingError(
             "code_formula_model_missing: mode=math requires ds4sd/CodeFormula "
             f"(~{CODE_FORMULA_SIZE_MB} MB). {CODE_FORMULA_SETTINGS_HINT}"
         ) from exc
 
-    ensure_package_available_with_approval(
-        "docling-codeformula",
-        reason=(
-            "Kabuqina needs the optional Docling CodeFormula pack to extract "
-            "formulas from this document with mode=math."
-        ),
-    )
-    if not code_formula_present():
+    try:
+        start_package_download_if_missing("docling-codeformula")
+    except Exception as exc:
         raise CodeFormulaMissingError(
-            "code_formula_model_missing: CodeFormula download completed but "
-            f"weights were not found. {CODE_FORMULA_SETTINGS_HINT}"
-        )
+            "code_formula_model_missing: mode=math requires ds4sd/CodeFormula "
+            f"(~{CODE_FORMULA_SIZE_MB} MB), but the background download could not start: {exc}. "
+            f"{CODE_FORMULA_SETTINGS_HINT}"
+        ) from exc
+
+    raise CodeFormulaMissingError(
+        "code_formula_model_missing: mode=math requires ds4sd/CodeFormula "
+        f"(~{CODE_FORMULA_SIZE_MB} MB). The optional pack is downloading in the background; "
+        f"retry after it finishes, or check {CODE_FORMULA_SETTINGS_HINT}"
+    )
 
 
 def invalidate_docling_converter_cache() -> None:

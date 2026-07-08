@@ -15,6 +15,7 @@ const loadPackagesPageSource = fs.readFileSync(
   new URL("./pages/LoadPackagesPage.tsx", import.meta.url),
   "utf8",
 );
+const approvalDialogSource = fs.readFileSync(new URL("../components/ApprovalDialogHost.tsx", import.meta.url), "utf8");
 const chatMessageListSource = fs.readFileSync(new URL("../chat/ChatMessageList.tsx", import.meta.url), "utf8");
 const loadPackageDownloadsSource = fs.readFileSync(
   new URL("../chat/hooks/useLoadPackageDownloads.ts", import.meta.url),
@@ -46,6 +47,11 @@ assert.match(
   loadPackagesPageSource,
   /cmdLoadPackages[\s\S]*packages\.map[\s\S]*job/,
   "The dedicated load-package page should render packages and job progress returned by the generic API.",
+);
+assert.match(
+  loadPackagesPageSource,
+  /job\.status !== "running" && job\.status !== "error"/,
+  "The dedicated load-package page should hide stale 100% progress bars after a package is installed.",
 );
 assert.match(
   chatApiSource,
@@ -130,6 +136,13 @@ assert.match(stringsSource, /loadPackagesDesktopOnly/);
 assert.match(stringsSource, /loadPackagesOpen/);
 assert.match(stringsSource, /loadPackageProgress/);
 assert.match(stringsSource, /loadPackageUsedBy/);
+assert.match(stringsSource, /modelDownloadTitle:\s*"需要下载 \{\{name\}\}"/);
+assert.match(stringsSource, /modelSize:\s*"大小"/);
+assert.match(
+  approvalDialogSource,
+  /packageTitle[\s\S]*modelDownloadTitle/,
+  "The optional-model approval dialog should title downloads with the concrete package name.",
+);
 
 assert.match(stringsSource, /docling-codeformula/);
 assert.match(stringsSource, /docling-base/);
@@ -137,6 +150,11 @@ assert.match(stringsSource, /local-stt-base-q5_1/);
 
 assert.match(
   chatPageSource,
-  /cmdLoadPackageDownload[\s\S]*docling-base/,
-  "Chat should trigger the Docling base load-package download after onboarding lands in chat.",
+  /startOnboardingLoadPackageDownloads[\s\S]*cmdLoadPackages[\s\S]*cmdLoadPackageDownload\(pkg\.id\)/,
+  "Chat should start generic background downloads for missing load packages after onboarding.",
+);
+assert.doesNotMatch(
+  chatPageSource,
+  /docling-base/,
+  "Onboarding load-package auto-download should be generic, not hard-code one package.",
 );
