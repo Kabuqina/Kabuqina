@@ -83,7 +83,7 @@ implementation branch:
 | ----------- | ---------------------------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | **G0**      | Tasks 1–9 in progress                    | Goal Tasks 1–6 may progress                                                            | Pure goal modules and read-only status only; no due-job runtime path.                                           |
 | **G1**      | Tasks 9 and 10 pass                      | Goal Tasks 7–9 may progress                                                            | Goal adapter calls public `AIAgent.run_conversation`; it never imports graph internals or edits `run_agent.py`. |
-| **G2**      | Task 11 Step 4 completes the 14-day soak | Goal Task 10 may expose and run Pilot 1                                                | Run the pilot with explicit loop and graph before removing the loop.                                            |
+| **G2**      | Task 11 Step 4 closes through the v0.3.0 release-acceptance soak | Goal Task 10 may expose and run Pilot 1                                                | Run the pilot with explicit loop and graph before removing the loop.                                            |
 | **Removal** | Task 11 Step 5                           | Goal Task 10 dual-engine evidence recorded, or the product plan is explicitly deferred | Only then remove the selector and legacy loop.                                                                  |
 
 ### File ownership and serialization
@@ -279,7 +279,10 @@ and base commit in this section and announce the frozen file surfaces. Goal
 Runner G0 and unrelated worktrees may continue outside them. Any urgent landing
 in `run_agent.py`, transport, fallback, or session persistence is allowed, but it
 restarts the 14-day clock after rebase and regression; a long-lived Phase branch
-is not a substitute for the window.
+is not a substitute for the window. For Task 11 Step 4, this original fixed
+artifact interpretation is superseded by the 2026-07-08 owner update below:
+v0.3.0 release acceptance plus a short post-release observation window is the
+chosen gate.
 
 ---
 
@@ -1541,9 +1544,14 @@ support documentation with the rollback setting.
 
 - [~] **Step 4: complete a release-cycle soak** *(REOPENED BY OWNER
   2026-07-05 — the 2026-07-03 waiver is rescinded. The historical early
-  closure note remains below for audit, but it no longer satisfies G2.)*
+  closure note remains below for audit, but it no longer satisfies G2.
+  UPDATED BY OWNER 2026-07-08 — the fixed-artifact 14-day interpretation is
+  replaced by v0.3.0 release acceptance plus a short post-release observation
+  window; see the 2026-07-08 note below.)*
 
-The soak is at least 14 days and requires:
+The original fixed-artifact soak contract was at least 14 days and required the
+items below. For v0.3.0, the 2026-07-08 owner update below replaces this with a
+release-acceptance soak:
 
 - no unresolved P0/P1 issue attributable to graph execution;
 - release-build smoke green on both API modes at the beginning and end;
@@ -1584,6 +1592,22 @@ Because Task 11 development has already merged, reopened debugging and soak run
 on `main`; the old `codex/task11-release-smoke` worktree is historical evidence
 only, not the active soak workspace.
 
+**OWNER UPDATE — release-acceptance soak, 2026-07-08.** The strict "pin one
+artifact and freeze product development for at least 14 calendar days" reading
+is no longer the chosen gate for v0.3.0. Product work must continue, and several
+rounds of graph-default debugging have already run after the original Step 4
+reopen. Step 4 now closes only after the v0.3.0 NSIS release candidate ships
+with the loop escape hatch still present, initial release/manual smoke is
+recorded, and a short post-release observation window ("a few days") finds no
+obvious graph-attributable P0/P1 or unexplained result-shape, hook,
+persistence, or usage drift. This is an explicit owner acceptance decision, not
+evidence that a fixed artifact completed a 14-day soak.
+
+Until that post-release acceptance is recorded, G2 remains closed and Step 5
+must not start. Once it is recorded, re-evaluate G2 for Goal Runner Pilot 1 and
+then proceed toward Step 5 only after the Goal Runner dual-engine evidence is
+recorded or the Goal Runner runtime integration is explicitly deferred.
+
 Substituted evidence (gathered on merged `main` @ `76b1343f`, 2026-07-03):
 
 - [x] Pinned installer re-verified: `Kabuqina_0.2.0_x64-setup.exe` still hashes
@@ -1601,16 +1625,18 @@ Substituted evidence (gathered on merged `main` @ `76b1343f`, 2026-07-03):
       loop fixture, then be fixed.
 
 This no longer satisfies G2 gate condition 1 after the 2026-07-05 waiver
-rescission. G2 remains closed; Task 10 must not expose the host-only Pilot 1 on
-the strength of the waived Step 4 evidence. Re-evaluate G2 only after the
-reopened soak completes to term while the loop escape hatch still exists.
+rescission and 2026-07-08 release-acceptance update. G2 remains closed; Task 10
+must not expose the host-only Pilot 1 on the strength of the waived Step 4
+evidence. Re-evaluate G2 only after the v0.3.0 release-acceptance record closes
+Step 4 while the loop escape hatch still exists.
 
 - [ ] **Step 5: remove the legacy loop in a dedicated commit**
 
-After the soak, first require Goal Runner Task 10 to record one bounded synthetic
-pilot under explicit `loop` and one under explicit `graph`, or explicitly record
-that the Goal Runner plan is deferred before runtime integration. Then delete
-`_run_conversation_loop`, the selector flag, and loop-only tests. Keep the
+After Step 4 closes through the v0.3.0 release-acceptance record, first require
+Goal Runner Task 10 to record one bounded synthetic pilot under explicit `loop`
+and one under explicit `graph`, or explicitly record that the Goal Runner plan
+is deferred before runtime integration. Then delete `_run_conversation_loop`,
+the selector flag, and loop-only tests. Keep the
 engine-independent contracts, service ports, golden fixtures, and graph
 import-isolation test. Do not use `run_agent.py` line-count reduction as the
 success criterion; use branch coverage, exit-contract coverage, and dependency
@@ -1686,7 +1712,8 @@ All must hold:
 - [ ] optional usage-event sink sequences match under loop and graph for every
   reachable exit, including explicit unknown-cost attempts;
 - [ ] both API modes pass release-build chat + tool smoke;
-- [ ] graph is default for a 14-day release soak with the loop escape hatch;
+- [ ] graph is accepted as the v0.3.0 release default through the explicit
+  release-acceptance soak record while the loop escape hatch still exists;
 - [ ] before legacy-loop removal, Goal Runner Task 10 records its explicit
   loop/graph synthetic pilot, or its runtime integration is explicitly deferred;
 - [ ] legacy loop is removed in a dedicated commit;
