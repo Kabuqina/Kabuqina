@@ -45,7 +45,7 @@ function polygon(ratios: number[]): string {
 }
 
 function pickCurrent(items: StudyArtifact[]): StudyArtifact | null {
-  if (!items.length) return null;
+  if (!Array.isArray(items) || items.length === 0) return null;
   const byRecent = [...items].sort((a, b) =>
     String(b.updated_at || "").localeCompare(String(a.updated_at || "")),
   );
@@ -125,8 +125,11 @@ export function ProfilePanel({ onStartPrompt }: { onStartPrompt?: (prompt: strin
 
   const dimsByKey = useMemo(() => {
     const map: Record<string, ProfileDimension> = {};
-    for (const d of profile?.payload?.dimensions || []) {
-      if (d?.key) map[d.key] = d;
+    const list = profile?.payload?.dimensions;
+    if (Array.isArray(list)) {
+      for (const d of list) {
+        if (d && typeof d === "object" && d.key) map[d.key] = d;
+      }
     }
     return map;
   }, [profile]);
@@ -142,7 +145,7 @@ export function ProfilePanel({ onStartPrompt }: { onStartPrompt?: (prompt: strin
     }
   };
 
-  const hasDims = (profile?.payload?.dimensions || []).length > 0;
+  const hasDims = Object.keys(dimsByKey).length > 0;
 
   return (
     <WorkspaceSection sectionId="workspace.profile" title="学习画像（6 维）" dotColor="#7c5cff">

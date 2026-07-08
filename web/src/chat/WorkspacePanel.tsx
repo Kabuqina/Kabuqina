@@ -29,6 +29,7 @@ import { WorkspaceSection, WorkspaceActionButton } from "./workspaceSection";
 import { StudySection } from "./study/StudySection";
 import { ResourcePackPanel } from "./study/ResourcePackPanel";
 import { AgentTeamSection } from "./AgentTeamSection";
+import { PanelErrorBoundary } from "./PanelErrorBoundary";
 import { ShellModal } from "../components/ShellModal";
 
 export type WorkspaceItem = {
@@ -602,6 +603,7 @@ export function WorkspacePanel({
       </div>
 
       <div className="min-h-0 flex-1 space-y-3.5 overflow-y-auto overflow-x-hidden px-3 py-3.5">
+        <PanelErrorBoundary label={mode}>
         {mode === "work" ? (
         <>
         {showContext ? (
@@ -770,6 +772,7 @@ export function WorkspacePanel({
         </WorkspaceSection>
         </>
         )}
+        </PanelErrorBoundary>
       </div>
       {pptModal && (
         <PptIntentModal
