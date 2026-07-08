@@ -25,7 +25,7 @@ export type StudyArtifact = {
   created_at?: string;
   updated_at?: string;
   // Panel-rendered drafts carry their payload (see study_routes._artifact_ref)
-  payload?: ResourcePackPayload & StudentStatePayload & LearningPlanPayload;
+  payload?: ResourcePackPayload & StudentStatePayload & LearningPlanPayload & EvaluationPayload;
 };
 
 // M1 6-dimension learning profile (rendered by ProfilePanel radar).
@@ -74,6 +74,14 @@ export type LearningPlanPhase = {
 export type LearningPlanPayload = {
   goals?: string[];
   phases?: LearningPlanPhase[];
+};
+
+// M6 learning-effect evaluation (rendered by EvaluationPanel).
+export type EvaluationPayload = {
+  observations?: unknown[];
+  weak_points?: string[];
+  suggestions?: string[];
+  [key: string]: unknown;
 };
 
 export type StudyDraftsResponse = {

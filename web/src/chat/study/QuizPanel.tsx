@@ -11,6 +11,7 @@ import {
   ListChecks,
   Plus,
   RefreshCw,
+  RotateCcw,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -60,6 +61,26 @@ function answerLetters(value: unknown): string {
     .filter((item): item is number => Number.isInteger(item))
     .map((n) => String.fromCharCode(65 + n))
     .join(", ");
+}
+
+function buildVariantQuizPrompt(result: StudyQuizResult): string {
+  const weakTags = result.weakTags?.length ? result.weakTags.join("、") : "本次错题涉及的知识点";
+  const missed = result.perQuestion
+    .filter((item) => !item.correct)
+    .slice(0, 5)
+    .map((item, index) => {
+      const tags = item.tags?.length ? `；标签：${item.tags.join("、")}` : "";
+      const explanation = item.explanation ? `；解析：${item.explanation}` : "";
+      return `${index + 1}. ${item.prompt}${tags}${explanation}`;
+    })
+    .join("\n");
+  return [
+    "请基于我刚完成的小测结果，生成一组“针对错题再练”的变式题。",
+    `薄弱标签：${weakTags}`,
+    missed ? `错题证据：\n${missed}` : "",
+    "请不要重复原题，要保持同一知识点但换情境、换数字或换问法；每题附 tags 和 explanation，优先覆盖上面的薄弱标签。",
+    QUIZ_GENERATION_PROMPT,
+  ].filter(Boolean).join("\n\n");
 }
 
 export function QuizPanel({
@@ -270,12 +291,25 @@ export function QuizPanel({
     const weak = result.weakTags?.length
       ? [result.weakTags.join("、"), context.weakPoints].filter(Boolean).join("；")
       : context.weakPoints;
+    const nextAdjustment = result.weakTags?.length
+      ? [`针对错题标签再练：${result.weakTags.join("、")}`, context.nextAdjustment]
+          .filter(Boolean)
+          .join("\n")
+          .slice(0, STUDY_CONTEXT_FIELD_LIMIT)
+      : context.nextAdjustment;
     const saveResult = saveStudyContext({
       ...context,
       evaluationSummary,
       weakPoints: weak.slice(0, STUDY_CONTEXT_FIELD_LIMIT),
+      nextAdjustment,
     });
     setWroteBack(saveResult.succeeded);
+  };
+
+  const practiceWeakTags = () => {
+    if (!result) return;
+    const contextPrompt = formatStudyContextForPrompt(loadStudyContext());
+    onStartPrompt?.([contextPrompt, buildVariantQuizPrompt(result)].filter(Boolean).join("\n\n"));
   };
 
   const typeLabel = (question: QuizQuestionRow) => {
@@ -578,6 +612,16 @@ export function QuizPanel({
               <Check className="h-3.5 w-3.5" aria-hidden />
               {wroteBack ? t("chat.quizWroteBack") : t("chat.quizWriteBack")}
             </button>
+            {result.weakTags?.length ? (
+              <button
+                type="button"
+                onClick={practiceWeakTags}
+                className="kq-quick-action inline-flex flex-1 items-center justify-center gap-1.5 rounded-[10px] px-2.5 py-2 text-[12.5px] leading-snug transition"
+              >
+                <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+                针对错题再练
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={retry}

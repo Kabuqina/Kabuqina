@@ -8,7 +8,6 @@
 
 import {
   BookMarked,
-  ClipboardCheck,
   Eraser,
   Layers3,
   MessagesSquare,
@@ -24,6 +23,7 @@ import { ShellModal } from "../../components/ShellModal";
 import { WorkspaceActionButton, WorkspaceSection } from "../workspaceSection";
 import { cmdStudyMigrateBuiltinCourse } from "./study-api";
 import { STUDY_LEARNING_EVENT } from "./flashcardLearningStore";
+import { EvaluationPanel } from "./EvaluationPanel";
 import { FlashcardPanel } from "./FlashcardPanel";
 import { LearningPathPanel } from "./LearningPathPanel";
 import { QuizPanel } from "./QuizPanel";
@@ -49,6 +49,7 @@ type StudyAction = {
 const STUDY_ACTIONS: StudyAction[] = [
   // 「构建学习画像」已由顶部「学习画像（6 维）」面板承载，此处不再重复。
   // 「学习路径」已由专属面板承载，此处不再重复。
+  // 「学习效果评估」已由专属面板承载，此处不再重复。
   {
     id: "courseKnowledgeBase",
     icon: BookMarked,
@@ -66,12 +67,6 @@ const STUDY_ACTIONS: StudyAction[] = [
     icon: MessagesSquare,
     labelKey: "chat.workspaceStartLearningTutor",
     prompt: STUDY_PROMPTS.learningTutor,
-  },
-  {
-    id: "learningEvaluation",
-    icon: ClipboardCheck,
-    labelKey: "chat.workspaceEvaluateLearningEffect",
-    prompt: STUDY_PROMPTS.learningEvaluation,
   },
   {
     id: "contentSafetyReview",
@@ -227,6 +222,7 @@ export function StudySection({
     <>
       <ProfilePanel onStartPrompt={onStartPrompt} />
       <LearningPathPanel onStartPrompt={onStartPrompt} />
+      <EvaluationPanel onStartPrompt={onStartPrompt} />
       <WorkspaceSection
         sectionId="workspace.study"
         title={t("chat.workspaceStudy")}

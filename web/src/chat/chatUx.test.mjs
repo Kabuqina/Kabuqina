@@ -1125,6 +1125,7 @@ assert.match(chatPageReminderSource, /\/settings\/cron/);
 const { STUDY_PROMPTS } = await importTs("./study/studyPrompts.ts");
 const studySectionSource = fs.readFileSync(new URL("./study/StudySection.tsx", import.meta.url), "utf8");
 const learningPathPanelSource = fs.readFileSync(new URL("./study/LearningPathPanel.tsx", import.meta.url), "utf8");
+const evaluationPanelSource = fs.readFileSync(new URL("./study/EvaluationPanel.tsx", import.meta.url), "utf8");
 const studyStoreSource = fs.readFileSync(new URL("./study/studyStore.ts", import.meta.url), "utf8");
 const flashcardPanelSource = fs.readFileSync(new URL("./study/FlashcardPanel.tsx", import.meta.url), "utf8");
 const quizPanelSource = fs.readFileSync(new URL("./study/QuizPanel.tsx", import.meta.url), "utf8");
@@ -1198,8 +1199,8 @@ assert.match(
 );
 assert.match(
   STUDY_PROMPTS.learningEvaluation,
-  /一次只出一题[\s\S]*反馈[\s\S]*薄弱[\s\S]*写回学习上下文/,
-  "Evaluation prompt should quiz one item at a time and summarize weak points with evidence.",
+  /一次只出一题[\s\S]*反馈[\s\S]*kind=evaluation[\s\S]*observations[\s\S]*写回学习上下文/,
+  "Evaluation prompt should quiz one item at a time, summarize weak points with evidence, and draft a reviewable evaluation.",
 );
 assert.match(
   STUDY_PROMPTS.contentSafetyReview,
@@ -1244,7 +1245,7 @@ assert.doesNotMatch(
 );
 assert.match(
   studySectionSource,
-  /workspaceBuildCourseKnowledgeBase[\s\S]*workspaceBuildResourcePack[\s\S]*workspaceStartLearningTutor[\s\S]*workspaceEvaluateLearningEffect[\s\S]*workspaceReviewStudyContent/,
+  /workspaceBuildCourseKnowledgeBase[\s\S]*workspaceBuildResourcePack[\s\S]*workspaceStartLearningTutor[\s\S]*workspaceReviewStudyContent/,
   "StudySection should wire the remaining shared learning quick actions in order.",
 );
 assert.doesNotMatch(
@@ -1254,8 +1255,8 @@ assert.doesNotMatch(
 );
 assert.match(
   studySectionSource,
-  /<ProfilePanel onStartPrompt=\{onStartPrompt\} \/>[\s\S]*<LearningPathPanel onStartPrompt=\{onStartPrompt\} \/>/,
-  "LearningPathPanel should render below the profile panel in STUDY.",
+  /<ProfilePanel onStartPrompt=\{onStartPrompt\} \/>[\s\S]*<LearningPathPanel onStartPrompt=\{onStartPrompt\} \/>[\s\S]*<EvaluationPanel onStartPrompt=\{onStartPrompt\} \/>/,
+  "LearningPathPanel and EvaluationPanel should render below the profile panel in STUDY.",
 );
 assert.match(
   learningPathPanelSource,
@@ -1266,6 +1267,26 @@ assert.match(
   learningPathPanelSource,
   /phases[\s\S]*tasks[\s\S]*done_when[\s\S]*推送到今日提醒/,
   "LearningPathPanel should render phase tasks and expose the precision-reminder entry.",
+);
+assert.doesNotMatch(
+  studySectionSource,
+  /workspaceEvaluateLearningEffect/,
+  "Learning evaluation should live in the dedicated panel, not duplicate the quick actions.",
+);
+assert.match(
+  evaluationPanelSource,
+  /cmdStudyDrafts\("evaluation"\)[\s\S]*observations[\s\S]*weak_points[\s\S]*suggestions/,
+  "EvaluationPanel should fetch reviewable evaluation drafts and render observations, weak points, and suggestions.",
+);
+assert.match(
+  evaluationPanelSource,
+  /应用到画像\/路径[\s\S]*按评估重规划/,
+  "EvaluationPanel should expose write-back and path-adjustment actions.",
+);
+assert.match(
+  quizPanelSource,
+  /buildVariantQuizPrompt[\s\S]*weakTags[\s\S]*针对错题再练/,
+  "QuizPanel should turn weakTags into a variant-practice prompt after grading.",
 );
 assert.match(
   studySectionSource,

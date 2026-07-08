@@ -71,7 +71,7 @@ def _artifact_ref(artifact: Dict[str, Any]) -> Dict[str, Any]:
     # Reviewable STUDY panels carry their payload so the UI can render content
     # without a second round-trip, and active items remain visible after trust
     # transition.
-    if artifact.get("kind") in ("resource_pack", "student_state", "learning_plan"):
+    if artifact.get("kind") in ("resource_pack", "student_state", "learning_plan", "evaluation"):
         ref["payload"] = (artifact.get("envelope") or {}).get("payload")
     return ref
 
@@ -197,7 +197,7 @@ async def study_drafts(kind: Optional[str] = Query(default=None)):
             # Panel-rendered artifacts have no separate "active" surface like
             # flashcards/quizzes, so return draft + active together — activation
             # should keep them visible, not hide them.
-            statuses = ("draft", "active") if kind in ("resource_pack", "student_state", "learning_plan") else ("draft",)
+            statuses = ("draft", "active") if kind in ("resource_pack", "student_state", "learning_plan", "evaluation") else ("draft",)
             items = []
             for st in statuses:
                 items.extend(ctx.list_artifacts(kind=kind, status=st))
@@ -215,7 +215,7 @@ async def study_artifact_activate(artifact_id: str):
                 return FlashcardService(ctx).activate_deck(artifact_id)
             if artifact["kind"] == "quiz":
                 return QuizService(ctx).activate_quiz(artifact_id)
-            if artifact["kind"] in ("resource_pack", "knowledge_base", "learning_plan", "student_state"):
+            if artifact["kind"] in ("resource_pack", "knowledge_base", "learning_plan", "student_state", "evaluation"):
                 # M3: generated reference resources activate via a plain
                 # trust-boundary status transition (no per-item study state).
                 ctx.set_artifact_status(artifact_id, "active")
@@ -234,7 +234,7 @@ async def study_artifact_reject(artifact_id: str):
                 return FlashcardService(ctx).reject_deck(artifact_id)
             if artifact["kind"] == "quiz":
                 return QuizService(ctx).reject_quiz(artifact_id)
-            if artifact["kind"] in ("resource_pack", "knowledge_base", "learning_plan", "student_state"):
+            if artifact["kind"] in ("resource_pack", "knowledge_base", "learning_plan", "student_state", "evaluation"):
                 ctx.set_artifact_status(artifact_id, "rejected")
                 return {"artifact_id": artifact_id, "status": "rejected", **_space_payload(ctx)}
             raise ValueError(f"unsupported artifact kind: {artifact['kind']}")
