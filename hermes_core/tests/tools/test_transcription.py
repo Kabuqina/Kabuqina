@@ -8,9 +8,17 @@ import json
 import os
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch, mock_open
 
 import pytest
+
+
+def _fake_faster_whisper_module(whisper_model):
+    return patch.dict(
+        "sys.modules",
+        {"faster_whisper": SimpleNamespace(WhisperModel=whisper_model)},
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -136,9 +144,10 @@ class TestTranscribeLocal:
 
         mock_model = MagicMock()
         mock_model.transcribe.return_value = ([mock_segment], mock_info)
+        mock_whisper_cls = MagicMock(return_value=mock_model)
 
         with patch("tools.transcription_tools._HAS_FASTER_WHISPER", True), \
-             patch("faster_whisper.WhisperModel", return_value=mock_model), \
+             _fake_faster_whisper_module(mock_whisper_cls), \
              patch("tools.transcription_tools._local_model", None):
             from tools.transcription_tools import _transcribe_local
             result = _transcribe_local(str(audio_file), "base")
@@ -292,6 +301,7 @@ class TestNormalizeLocalModel:
         try:
             mock_model = MagicMock()
             mock_model.transcribe.return_value = (iter([]), MagicMock(language="en", duration=1.0))
+            mock_cls = MagicMock(return_value=mock_model)
             with patch("tools.transcription_tools._HAS_FASTER_WHISPER", True), \
                  patch("tools.transcription_tools._load_stt_config", return_value={
                      "enabled": True,
@@ -300,7 +310,7 @@ class TestNormalizeLocalModel:
                  }), \
                  patch("tools.transcription_tools._local_model", None), \
                  patch("tools.transcription_tools._local_model_name", None), \
-                 patch("faster_whisper.WhisperModel", return_value=mock_model) as mock_cls:
+                 _fake_faster_whisper_module(mock_cls):
                 from tools.transcription_tools import transcribe_audio
                 transcribe_audio(audio_file)
                 # WhisperModel must NOT have been called with "whisper-1"

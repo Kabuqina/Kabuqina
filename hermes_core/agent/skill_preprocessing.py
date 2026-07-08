@@ -1,7 +1,9 @@
 """Shared SKILL.md preprocessing helpers."""
 
 import logging
+import os
 import re
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -18,6 +20,33 @@ _INLINE_SHELL_RE = re.compile(r"!`([^`\n]+)`")
 
 # Cap inline-shell output so a runaway command can't blow out the context.
 _INLINE_SHELL_MAX_OUTPUT = 4000
+
+
+def _inline_shell_args(command: str) -> list[str]:
+    """Return a platform-appropriate shell argv for an inline snippet."""
+    if os.name != "nt":
+        return ["bash", "-c", command]
+
+    # Avoid C:\Windows\System32\bash.exe on Windows: it is the WSL launcher and
+    # can hang in environments without a fully configured distro.
+    stripped = command.strip()
+    if stripped in {"pwd", "pwd -P"}:
+        command = "(Get-Location).Path"
+
+    shell = shutil.which("pwsh") or shutil.which("powershell")
+    if shell:
+        return [
+            shell,
+            "-NoLogo",
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            command,
+        ]
+
+    if stripped in {"pwd", "pwd -P"}:
+        command = "cd"
+    return ["cmd.exe", "/d", "/c", command]
 
 
 def load_skills_config() -> dict:
@@ -68,7 +97,7 @@ def run_inline_shell(command: str, cwd: Path | None, timeout: int) -> str:
     """
     try:
         completed = subprocess.run(
-            ["bash", "-c", command],
+            _inline_shell_args(command),
             cwd=str(cwd) if cwd else None,
             capture_output=True,
             text=True,

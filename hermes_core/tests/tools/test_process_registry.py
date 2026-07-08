@@ -587,7 +587,7 @@ class TestCheckpoint:
         checkpoint.write_text(json.dumps([{
             "session_id": "proc_live",
             "command": "sleep 999",
-            "pid": os.getpid(),  # current process — guaranteed alive
+            "pid": 12345,
             "task_id": "t1",
             "session_key": "sk1",
             "watcher_platform": "telegram",
@@ -596,8 +596,9 @@ class TestCheckpoint:
             "watcher_user_name": "alice",
             "watcher_thread_id": "42",
             "watcher_interval": 60,
-        }]))
-        with patch("tools.process_registry.CHECKPOINT_PATH", checkpoint):
+        }]), encoding="utf-8")
+        with patch("tools.process_registry.CHECKPOINT_PATH", checkpoint), \
+             patch.object(registry, "_is_host_pid_alive", return_value=True):
             recovered = registry.recover_from_checkpoint()
             assert recovered == 1
             assert len(registry.pending_watchers) == 1
@@ -615,11 +616,12 @@ class TestCheckpoint:
         checkpoint.write_text(json.dumps([{
             "session_id": "proc_live",
             "command": "sleep 999",
-            "pid": os.getpid(),
+            "pid": 12345,
             "task_id": "t1",
             "watcher_interval": 0,
-        }]))
-        with patch("tools.process_registry.CHECKPOINT_PATH", checkpoint):
+        }]), encoding="utf-8")
+        with patch("tools.process_registry.CHECKPOINT_PATH", checkpoint), \
+             patch.object(registry, "_is_host_pid_alive", return_value=True):
             recovered = registry.recover_from_checkpoint()
             assert recovered == 1
             assert len(registry.pending_watchers) == 0
@@ -629,20 +631,21 @@ class TestCheckpoint:
         checkpoint.write_text(json.dumps([{
             "session_id": "proc_live",
             "command": "sleep 999",
-            "pid": os.getpid(),
+            "pid": 12345,
             "task_id": "t1",
             "session_key": "sk1",
-        }]))
+        }]), encoding="utf-8")
 
-        with patch("tools.process_registry.CHECKPOINT_PATH", checkpoint):
+        with patch("tools.process_registry.CHECKPOINT_PATH", checkpoint), \
+             patch.object(registry, "_is_host_pid_alive", return_value=True):
             recovered = registry.recover_from_checkpoint()
             assert recovered == 1
             assert registry.get("proc_live") is not None
 
-            data = json.loads(checkpoint.read_text())
+            data = json.loads(checkpoint.read_text(encoding="utf-8"))
             assert len(data) == 1
             assert data[0]["session_id"] == "proc_live"
-            assert data[0]["pid"] == os.getpid()
+            assert data[0]["pid"] == 12345
             assert data != []
 
     def test_recovery_skips_explicit_sandbox_backed_entries(self, registry, tmp_path):
@@ -650,18 +653,18 @@ class TestCheckpoint:
         original = [{
             "session_id": "proc_remote",
             "command": "sleep 999",
-            "pid": os.getpid(),
+            "pid": 12345,
             "task_id": "t1",
             "pid_scope": "sandbox",
         }]
-        checkpoint.write_text(json.dumps(original))
+        checkpoint.write_text(json.dumps(original), encoding="utf-8")
 
         with patch("tools.process_registry.CHECKPOINT_PATH", checkpoint):
             recovered = registry.recover_from_checkpoint()
             assert recovered == 0
             assert registry.get("proc_remote") is None
 
-            data = json.loads(checkpoint.read_text())
+            data = json.loads(checkpoint.read_text(encoding="utf-8"))
             assert data == []
 
     def test_detached_recovered_process_eventually_exits(self, registry, tmp_path):
@@ -728,18 +731,13 @@ class TestKillProcess:
         s.detached = True
         registry._running[s.id] = s
 
-        calls = []
-
-        def fake_kill(pid, sig):
-            calls.append((pid, sig))
-
         try:
-            with patch("tools.process_registry.os.kill", side_effect=fake_kill):
+            with patch.object(registry, "_is_host_pid_alive", return_value=True), \
+                 patch.object(registry, "_terminate_host_pid") as mock_terminate:
                 result = registry.kill_process(s.id)
 
             assert result["status"] == "killed"
-            assert (424242, 0) in calls
-            assert (424242, signal.SIGTERM) in calls
+            mock_terminate.assert_called_once_with(424242)
         finally:
             registry._running.pop(s.id, None)
 

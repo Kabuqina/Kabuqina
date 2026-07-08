@@ -1,7 +1,9 @@
 """Tests for the dangerous command approval module."""
 
 import ast
+import sys
 from pathlib import Path
+from types import ModuleType
 from types import SimpleNamespace
 from unittest.mock import patch as mock_patch
 
@@ -16,6 +18,21 @@ from tools.approval import (
     prompt_dangerous_approval,
     submit_pending,
 )
+
+
+def _install_prompt_toolkit_current(monkeypatch, get_app_or_none):
+    prompt_toolkit = ModuleType("prompt_toolkit")
+    application = ModuleType("prompt_toolkit.application")
+    current = ModuleType("prompt_toolkit.application.current")
+    prompt_toolkit.__path__ = []
+    application.__path__ = []
+    current.get_app_or_none = get_app_or_none
+    application.current = current
+    prompt_toolkit.application = application
+    monkeypatch.setitem(sys.modules, "prompt_toolkit", prompt_toolkit)
+    monkeypatch.setitem(sys.modules, "prompt_toolkit.application", application)
+    monkeypatch.setitem(sys.modules, "prompt_toolkit.application.current", current)
+    return current
 
 
 class TestApprovalModeParsing:
@@ -918,50 +935,44 @@ class TestFailClosedUnderPromptToolkit:
     stdin capture, not to input().
     """
 
-    def test_denies_when_prompt_toolkit_active_and_no_callback(self):
+    def test_denies_when_prompt_toolkit_active_and_no_callback(self, monkeypatch):
         import threading
-        import prompt_toolkit.application.current as ptc
 
-        orig = ptc.get_app_or_none
-        ptc.get_app_or_none = lambda: object()  # pretend a pt app is running
+        _install_prompt_toolkit_current(
+            monkeypatch,
+            lambda: object(),  # pretend a pt app is running
+        )
         result = []
-        try:
-            def run():
-                result.append(
-                    prompt_dangerous_approval(
-                        "rm -rf /",
-                        "test danger",
-                        timeout_seconds=30,
-                        approval_callback=None,
-                    )
+
+        def run():
+            result.append(
+                prompt_dangerous_approval(
+                    "rm -rf /",
+                    "test danger",
+                    timeout_seconds=30,
+                    approval_callback=None,
                 )
-
-            t = threading.Thread(target=run, daemon=True)
-            t.start()
-            t.join(timeout=3)
-            assert not t.is_alive(), (
-                "prompt_dangerous_approval deadlocked under prompt_toolkit "
-                "with no callback -- fail-closed guard is broken"
             )
-            assert result == ["deny"]
-        finally:
-            ptc.get_app_or_none = orig
 
-    def test_callback_path_still_wins_over_guard(self):
+        t = threading.Thread(target=run, daemon=True)
+        t.start()
+        t.join(timeout=3)
+        assert not t.is_alive(), (
+            "prompt_dangerous_approval deadlocked under prompt_toolkit "
+            "with no callback -- fail-closed guard is broken"
+        )
+        assert result == ["deny"]
+
+    def test_callback_path_still_wins_over_guard(self, monkeypatch):
         """Guard must not short-circuit a valid callback."""
-        import prompt_toolkit.application.current as ptc
+        _install_prompt_toolkit_current(monkeypatch, lambda: object())
 
-        orig = ptc.get_app_or_none
-        ptc.get_app_or_none = lambda: object()
-        try:
-            def cb(command, description, **kwargs):
-                return "once"
+        def cb(command, description, **kwargs):
+            return "once"
 
-            result = prompt_dangerous_approval(
-                "rm -rf /",
-                "test danger",
-                approval_callback=cb,
-            )
-            assert result == "once"
-        finally:
-            ptc.get_app_or_none = orig
+        result = prompt_dangerous_approval(
+            "rm -rf /",
+            "test danger",
+            approval_callback=cb,
+        )
+        assert result == "once"

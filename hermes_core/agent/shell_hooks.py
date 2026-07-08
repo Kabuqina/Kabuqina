@@ -13,9 +13,9 @@ Design notes
   :func:`hermes_cli.plugins.invoke_hook` and its aggregators.  Python
   plugins are registered first (via ``discover_and_load()``) so their
   block decisions win ties over shell-hook blocks.
-* Subprocess execution uses ``shlex.split(os.path.expanduser(command))``
-  with ``shell=False`` — no shell injection footguns.  Users that need
-  pipes/redirection wrap their logic in a script.
+* Subprocess execution uses platform-aware argv splitting with
+  ``shell=False`` — no shell injection footguns.  Users that need pipes
+  or redirection wrap their logic in a script.
 * First-use consent is gated by the allowlist under
   ``~/.hermes/shell-hooks-allowlist.json``.  Non-TTY callers must pass
   ``accept_hooks=True`` (resolved from ``--accept-hooks``,
@@ -360,6 +360,35 @@ def _parse_single_entry(
 _TOP_LEVEL_PAYLOAD_KEYS = {"tool_name", "args", "session_id", "parent_session_id"}
 
 
+def _strip_wrapping_quotes(token: str) -> str:
+    if len(token) >= 2 and token[0] == token[-1] and token[0] in ("'", '"'):
+        return token[1:-1]
+    return token
+
+
+def _expand_user_token(token: str) -> str:
+    if token == "~" or token.startswith("~/") or token.startswith("~\\"):
+        home = os.environ.get("HOME")
+        if home:
+            suffix = token[1:].lstrip("/\\")
+            return os.path.join(home, suffix) if suffix else home
+    return os.path.expanduser(token)
+
+
+def _split_command(command: str, *, expand_user: bool = False) -> List[str]:
+    """Split a hook command without corrupting Windows paths."""
+    if os.name == "nt":
+        # Validate quote balance with the stricter POSIX parser, but use
+        # posix=False for the actual split so backslashes in C:\paths survive.
+        shlex.split(command)
+        parts = [_strip_wrapping_quotes(p) for p in shlex.split(command, posix=False)]
+    else:
+        parts = shlex.split(command)
+    if expand_user:
+        return [_expand_user_token(p) for p in parts]
+    return parts
+
+
 def _spawn(spec: ShellHookSpec, stdin_json: str) -> Dict[str, Any]:
     """Run ``spec.command`` as a subprocess with ``stdin_json`` on stdin.
 
@@ -379,7 +408,7 @@ def _spawn(spec: ShellHookSpec, stdin_json: str) -> Dict[str, Any]:
         "error": None,
     }
     try:
-        argv = shlex.split(os.path.expanduser(spec.command))
+        argv = _split_command(spec.command, expand_user=True)
     except ValueError as exc:
         result["error"] = f"command {spec.command!r} cannot be parsed: {exc}"
         return result
@@ -721,7 +750,7 @@ def _command_script_path(command: str) -> str:
     common bare-path form.
     """
     try:
-        parts = shlex.split(command)
+        parts = _split_command(command)
     except ValueError:
         return command
     if not parts:
@@ -730,7 +759,7 @@ def _command_script_path(command: str) -> str:
         if part.lower().endswith(_SCRIPT_EXTENSIONS):
             return part
     for part in parts:
-        if "/" in part or part.startswith("~"):
+        if "/" in part or "\\" in part or part.startswith("~"):
             return part
     return parts[0]
 
@@ -785,7 +814,7 @@ def script_mtime_iso(command: str) -> Optional[str]:
     if not path:
         return None
     try:
-        expanded = os.path.expanduser(path)
+        expanded = _expand_user_token(path)
         return datetime.fromtimestamp(
             os.path.getmtime(expanded), tz=timezone.utc,
         ).isoformat().replace("+00:00", "Z")
@@ -804,14 +833,16 @@ def script_is_executable(command: str) -> bool:
     path = _command_script_path(command)
     if not path:
         return False
-    expanded = os.path.expanduser(path)
+    expanded = _expand_user_token(path)
     if not os.path.isfile(expanded):
         return False
     try:
-        argv = shlex.split(command)
+        argv = _split_command(command)
     except ValueError:
         return False
     is_bare_invocation = bool(argv) and argv[0] == path
+    if os.name == "nt" and is_bare_invocation:
+        return Path(expanded).suffix.lower() in {".exe", ".bat", ".cmd", ".com"}
     required = os.X_OK if is_bare_invocation else os.R_OK
     return os.access(expanded, required)
 

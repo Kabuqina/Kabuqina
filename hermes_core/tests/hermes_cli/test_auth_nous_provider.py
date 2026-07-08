@@ -305,7 +305,7 @@ def test_refresh_token_persisted_when_mint_returns_insufficient_credits(tmp_path
         return {
             "access_token": f"access-{idx}",
             "refresh_token": f"refresh-{idx}",
-            "expires_in": 0,
+            "expires_in": 3600,
             "token_type": "Bearer",
         }
 
@@ -329,7 +329,8 @@ def test_refresh_token_persisted_when_mint_returns_insufficient_credits(tmp_path
 
     creds = resolve_nous_runtime_credentials(min_key_ttl_seconds=300)
     assert creds["api_key"] == "agent-key-2"
-    assert refresh_calls == ["refresh-old", "refresh-1"]
+    assert refresh_calls == ["refresh-old"]
+    assert mint_calls["count"] == 2
 
 
 def test_refresh_token_persisted_when_mint_times_out(tmp_path, monkeypatch):
@@ -477,13 +478,13 @@ class TestLoginNousSkipKeepsCurrent:
         _login_nous(args, PROVIDER_REGISTRY["nous"])
 
         # config.yaml model section must be unchanged
-        cfg_after = yaml.safe_load(config_path.read_text())
+        cfg_after = yaml.safe_load(config_path.read_text(encoding="utf-8"))
         assert cfg_after["model"]["provider"] == "openrouter"
         assert cfg_after["model"]["default"] == "anthropic/claude-opus-4.6"
         assert "base_url" not in cfg_after["model"]
 
         # auth.json: active_provider restored to openrouter, but Nous creds saved
-        auth_after = json.loads(auth_path.read_text())
+        auth_after = json.loads(auth_path.read_text(encoding="utf-8"))
         assert auth_after["active_provider"] == "openrouter"
         assert "nous" in auth_after["providers"]
         assert auth_after["providers"]["nous"]["access_token"] == "fake-nous-token"
@@ -509,11 +510,11 @@ class TestLoginNousSkipKeepsCurrent:
         )
         _login_nous(args, PROVIDER_REGISTRY["nous"])
 
-        cfg_after = yaml.safe_load(config_path.read_text())
+        cfg_after = yaml.safe_load(config_path.read_text(encoding="utf-8"))
         assert cfg_after["model"]["provider"] == "nous"
         assert cfg_after["model"]["default"] == "xiaomi/mimo-v2-pro"
 
-        auth_after = json.loads(auth_path.read_text())
+        auth_after = json.loads(auth_path.read_text(encoding="utf-8"))
         assert auth_after["active_provider"] == "nous"
 
     def test_skip_with_no_prior_active_provider_clears_it(self, tmp_path, monkeypatch):
@@ -540,7 +541,7 @@ class TestLoginNousSkipKeepsCurrent:
         _login_nous(args, PROVIDER_REGISTRY["nous"])
 
         auth_path = hermes_home / "auth.json"
-        auth_after = json.loads(auth_path.read_text())
+        auth_after = json.loads(auth_path.read_text(encoding="utf-8"))
         # active_provider should NOT be set to "nous" after Skip
         assert auth_after.get("active_provider") in (None, "")
         # But Nous creds are still saved
@@ -601,7 +602,7 @@ def test_persist_nous_credentials_writes_both_pool_and_providers(tmp_path, monke
     assert entry.provider == "nous"
     assert entry.source == NOUS_DEVICE_CODE_SOURCE
 
-    payload = json.loads((hermes_home / "auth.json").read_text())
+    payload = json.loads((hermes_home / "auth.json").read_text(encoding="utf-8"))
 
     # providers.nous populated with the full state (new behaviour)
     singleton = payload["providers"]["nous"]
@@ -686,7 +687,7 @@ def test_persist_nous_credentials_idempotent_no_duplicate_pool_entries(tmp_path,
     second["agent_key"] = "agent-key-second"
     persist_nous_credentials(second)
 
-    payload = json.loads((hermes_home / "auth.json").read_text())
+    payload = json.loads((hermes_home / "auth.json").read_text(encoding="utf-8"))
 
     # providers.nous reflects the latest write (singleton semantics)
     assert payload["providers"]["nous"]["access_token"] == "access-second"
@@ -750,7 +751,7 @@ def test_persist_nous_credentials_embeds_custom_label(tmp_path, monkeypatch):
 
     # providers.nous carries the label so re-seeding on the next load_pool
     # doesn't overwrite it with the auto-derived fingerprint.
-    payload = json.loads((hermes_home / "auth.json").read_text())
+    payload = json.loads((hermes_home / "auth.json").read_text(encoding="utf-8"))
     assert payload["providers"]["nous"]["label"] == "my-personal"
 
 
@@ -800,7 +801,7 @@ def test_persist_nous_credentials_no_label_uses_auto_derived(tmp_path, monkeypat
     assert entry.label != "my-personal"
 
     # No "label" key embedded in providers.nous when the caller didn't supply one.
-    payload = json.loads((hermes_home / "auth.json").read_text())
+    payload = json.loads((hermes_home / "auth.json").read_text(encoding="utf-8"))
     assert "label" not in payload["providers"]["nous"]
 
 

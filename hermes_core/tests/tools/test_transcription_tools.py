@@ -9,9 +9,17 @@ import os
 import struct
 import subprocess
 import wave
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+
+def _fake_faster_whisper_module(whisper_model):
+    return patch.dict(
+        "sys.modules",
+        {"faster_whisper": SimpleNamespace(WhisperModel=whisper_model)},
+    )
 
 
 # ============================================================================
@@ -377,7 +385,7 @@ class TestTranscribeLocalCommand:
         )
         monkeypatch.setenv("HERMES_LOCAL_STT_LANGUAGE", "en")
 
-        def fake_tempdir(prefix=None):
+        def fake_tempdir(prefix=None, **kwargs):
             class _TempDir:
                 def __enter__(self_inner):
                     return str(out_dir)
@@ -431,7 +439,7 @@ class TestTranscribeLocalExtended:
         mock_whisper_cls = MagicMock(return_value=mock_model)
 
         with patch("tools.transcription_tools._HAS_FASTER_WHISPER", True), \
-             patch("faster_whisper.WhisperModel", mock_whisper_cls), \
+             _fake_faster_whisper_module(mock_whisper_cls), \
              patch("tools.transcription_tools._local_model", None), \
              patch("tools.transcription_tools._local_model_name", None):
             from tools.transcription_tools import _transcribe_local
@@ -457,7 +465,7 @@ class TestTranscribeLocalExtended:
         mock_whisper_cls = MagicMock(return_value=mock_model)
 
         with patch("tools.transcription_tools._HAS_FASTER_WHISPER", True), \
-             patch("faster_whisper.WhisperModel", mock_whisper_cls), \
+             _fake_faster_whisper_module(mock_whisper_cls), \
              patch("tools.transcription_tools._local_model", None), \
              patch("tools.transcription_tools._local_model_name", None):
             from tools.transcription_tools import _transcribe_local
@@ -473,7 +481,7 @@ class TestTranscribeLocalExtended:
         mock_whisper_cls = MagicMock(side_effect=RuntimeError("CUDA out of memory"))
 
         with patch("tools.transcription_tools._HAS_FASTER_WHISPER", True), \
-             patch("faster_whisper.WhisperModel", mock_whisper_cls), \
+             _fake_faster_whisper_module(mock_whisper_cls), \
              patch("tools.transcription_tools._local_model", None):
             from tools.transcription_tools import _transcribe_local
             result = _transcribe_local(str(audio), "large-v3")
@@ -495,9 +503,10 @@ class TestTranscribeLocalExtended:
 
         mock_model = MagicMock()
         mock_model.transcribe.return_value = ([seg1, seg2], mock_info)
+        mock_whisper_cls = MagicMock(return_value=mock_model)
 
         with patch("tools.transcription_tools._HAS_FASTER_WHISPER", True), \
-             patch("faster_whisper.WhisperModel", return_value=mock_model), \
+             _fake_faster_whisper_module(mock_whisper_cls), \
              patch("tools.transcription_tools._local_model", None):
             from tools.transcription_tools import _transcribe_local
             result = _transcribe_local(str(audio), "base")
@@ -527,8 +536,9 @@ class TestTranscribeLocalExtended:
                 raise RuntimeError("Library libcublas.so.12 is not found or cannot be loaded")
             return cpu_model
 
+        mock_whisper_cls = MagicMock(side_effect=fake_whisper)
         with patch("tools.transcription_tools._HAS_FASTER_WHISPER", True), \
-             patch("faster_whisper.WhisperModel", side_effect=fake_whisper), \
+             _fake_faster_whisper_module(mock_whisper_cls), \
              patch("tools.transcription_tools._local_model", None), \
              patch("tools.transcription_tools._local_model_name", None):
             from tools.transcription_tools import _transcribe_local
@@ -565,8 +575,9 @@ class TestTranscribeLocalExtended:
             call_args.append((device, compute_type))
             return models.pop(0)
 
+        mock_whisper_cls = MagicMock(side_effect=fake_whisper)
         with patch("tools.transcription_tools._HAS_FASTER_WHISPER", True), \
-             patch("faster_whisper.WhisperModel", side_effect=fake_whisper), \
+             _fake_faster_whisper_module(mock_whisper_cls), \
              patch("tools.transcription_tools._local_model", None), \
              patch("tools.transcription_tools._local_model_name", None):
             from tools.transcription_tools import _transcribe_local
@@ -589,7 +600,7 @@ class TestTranscribeLocalExtended:
         mock_whisper_cls = MagicMock(side_effect=RuntimeError("CUDA out of memory"))
 
         with patch("tools.transcription_tools._HAS_FASTER_WHISPER", True), \
-             patch("faster_whisper.WhisperModel", mock_whisper_cls), \
+             _fake_faster_whisper_module(mock_whisper_cls), \
              patch("tools.transcription_tools._local_model", None), \
              patch("tools.transcription_tools._local_model_name", None):
             from tools.transcription_tools import _transcribe_local

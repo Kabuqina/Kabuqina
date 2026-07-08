@@ -19,6 +19,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from gateway.config import Platform
+from tests.gateway.aiohttp_stub import install_aiohttp_stub
+
+
+@pytest.fixture(autouse=True)
+def _aiohttp_stub(monkeypatch):
+    install_aiohttp_stub(monkeypatch)
 
 
 # ---------------------------------------------------------------------------

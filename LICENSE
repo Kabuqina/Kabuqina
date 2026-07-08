@@ -1,3 +1,23 @@
+SCOPE NOTE (Kabuqina repository)
+
+The Apache License 2.0 below governs the Kabuqina SOURCE CODE in this
+repository, EXCEPT the Kabuqina brand and visual assets, which are
+proprietary (All Rights Reserved) and are NOT licensed under Apache-2.0:
+
+  - everything under assets/brand/, assets/ui/, and Na_logo/;
+  - any file bearing the SPDX identifier "LicenseRef-Kabuqina-Brand"
+    (alone or in an SPDX expression);
+  - the Kabuqina brand artwork (mascot design, vector geometry, palette,
+    scene compositions) as a work, in whatever file it is expressed —
+    including inline renderings inside otherwise Apache-2.0 code files.
+
+See assets/brand/LICENSE and BRAND.md for the exact terms. The bundled
+Hermes Agent core is under its own MIT license (hermes_core/LICENSE).
+Apache-2.0 grants no trademark rights (Section 6): the Kabuqina / 卡布奇娜
+names, logos, and the coffee-cup mascot may not be used to identify forks.
+
+-------------------------------------------------------------------------
+
                                  Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/

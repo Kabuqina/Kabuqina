@@ -69,6 +69,31 @@ fn runtime_has_python(dir: &Path) -> bool {
     dir.join("python").join("python.exe").is_file()
 }
 
+fn dev_repo_runtime_candidate(exe: &Path) -> Option<PathBuf> {
+    let exe_lossy = exe.to_string_lossy();
+    if !(exe_lossy.contains("\\target\\release\\") || exe_lossy.contains("\\target\\debug\\")) {
+        return None;
+    }
+    let repo_root = exe
+        .parent()
+        .and_then(|p| p.parent())
+        .and_then(|p| p.parent())
+        .and_then(|p| p.parent())?;
+    Some(repo_root.join("python").join("dist").join("runtime"))
+}
+
+fn runtime_candidates_from_exe(exe: &Path) -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+    if let Some(from_repo) = dev_repo_runtime_candidate(exe) {
+        candidates.push(from_repo);
+    }
+    if let Some(exe_dir) = exe.parent() {
+        candidates.push(exe_dir.join("resources/runtime"));
+        candidates.push(exe_dir.join("runtime"));
+    }
+    candidates
+}
+
 pub fn resolve_runtime_dir(app: &AppHandle) -> Result<PathBuf> {
     if let Ok(force) = std::env::var("HERMESDESK_RUNTIME_DIR") {
         let p = PathBuf::from(force.trim());
@@ -83,34 +108,13 @@ pub fn resolve_runtime_dir(app: &AppHandle) -> Result<PathBuf> {
 
     let mut tried: Vec<PathBuf> = Vec::new();
 
-    // Portable zip / MSI layout: runtime next to kabuqina.exe (see package-portable-windows.ps1).
+    // Dev target binaries prefer the freshly synced repo runtime. Packaged apps
+    // still look beside kabuqina.exe (see package-portable-windows.ps1).
     if let Ok(exe) = std::env::current_exe() {
-        if let Some(exe_dir) = exe.parent() {
-            for rel in ["resources/runtime", "runtime"] {
-                let candidate = exe_dir.join(rel);
-                tried.push(candidate.clone());
-                if runtime_has_python(&candidate) {
-                    return Ok(candidate);
-                }
-            }
-
-            // Dev only: `repo/tauri/target/{debug,release}/kabuqina.exe` → prefer fresh
-            // `python/dist/runtime` over a stale `target/.../runtime` copy.
-            let exe_lossy = exe.to_string_lossy();
-            if exe_lossy.contains("\\target\\release\\") || exe_lossy.contains("\\target\\debug\\")
-            {
-                if let Some(repo_root) = exe
-                    .parent()
-                    .and_then(|p| p.parent())
-                    .and_then(|p| p.parent())
-                    .and_then(|p| p.parent())
-                {
-                    let from_repo = repo_root.join("python").join("dist").join("runtime");
-                    tried.push(from_repo.clone());
-                    if runtime_has_python(&from_repo) {
-                        return Ok(from_repo);
-                    }
-                }
+        for candidate in runtime_candidates_from_exe(&exe) {
+            tried.push(candidate.clone());
+            if runtime_has_python(&candidate) {
+                return Ok(candidate);
             }
         }
     }
@@ -650,7 +654,8 @@ pub fn cmd_save_shared_prefs(app: AppHandle, content: String) -> Result<(), Stri
 mod tests {
     use super::{
         cmd_write_text_file, is_reserved_windows_device_name, migrate_workspace_contents,
-        parse_auto_start_gateway_setting, validate_pdf_export_path, validate_text_export_path,
+        parse_auto_start_gateway_setting, runtime_candidates_from_exe, validate_pdf_export_path,
+        validate_text_export_path,
     };
 
     fn unique_temp_path(name: &str) -> std::path::PathBuf {
@@ -700,6 +705,26 @@ mod tests {
         assert!(!parse_auto_start_gateway_setting(Some("1")));
         assert!(!parse_auto_start_gateway_setting(Some("true")));
         assert!(!parse_auto_start_gateway_setting(Some("yes")));
+    }
+
+    #[test]
+    fn dev_runtime_candidates_prefer_repo_dist_runtime() {
+        let exe = std::path::PathBuf::from(r"C:\repo\Kabuqina\tauri\target\debug\kabuqina.exe");
+
+        let candidates = runtime_candidates_from_exe(&exe);
+
+        assert_eq!(
+            candidates[0],
+            std::path::PathBuf::from(r"C:\repo\Kabuqina\python\dist\runtime")
+        );
+        assert_eq!(
+            candidates[1],
+            std::path::PathBuf::from(r"C:\repo\Kabuqina\tauri\target\debug\resources\runtime")
+        );
+        assert_eq!(
+            candidates[2],
+            std::path::PathBuf::from(r"C:\repo\Kabuqina\tauri\target\debug\runtime")
+        );
     }
 
     #[test]

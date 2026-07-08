@@ -174,7 +174,7 @@ def _build_skill_message(
     linked_files = loaded_skill.get("linked_files") or {}
     for entries in linked_files.values():
         if isinstance(entries, list):
-            supporting.extend(entries)
+            supporting.extend(Path(str(entry)).as_posix() for entry in entries)
 
     if not supporting and skill_dir:
         for subdir in ("references", "templates", "scripts", "assets"):
@@ -182,7 +182,7 @@ def _build_skill_message(
             if subdir_path.exists():
                 for f in sorted(subdir_path.rglob("*")):
                     if f.is_file() and not f.is_symlink():
-                        rel = str(f.relative_to(skill_dir))
+                        rel = f.relative_to(skill_dir).as_posix()
                         supporting.append(rel)
 
     if supporting and skill_dir:

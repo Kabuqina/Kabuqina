@@ -1,5 +1,6 @@
 """Tests for credential file passthrough and skills directory mounting."""
 
+import errno
 import json
 import os
 from pathlib import Path
@@ -28,6 +29,15 @@ def _clean_state():
     yield
     clear_credential_files()
     _cred_mod._config_files = None
+
+
+def _symlink_or_skip(link: Path, target: Path) -> None:
+    try:
+        link.symlink_to(target)
+    except OSError as exc:
+        if getattr(exc, "winerror", None) == 1314 or exc.errno in {errno.EPERM, errno.EACCES}:
+            pytest.skip("symlink creation is not permitted in this test environment")
+        raise
 
 
 class TestRegisterCredentialFiles:
@@ -145,7 +155,7 @@ class TestSkillsDirectoryMount:
         # Create a symlink pointing outside the skills tree
         secret = tmp_path / "secret.txt"
         secret.write_text("TOP SECRET")
-        (skills_dir / "evil_link").symlink_to(secret)
+        _symlink_or_skip(skills_dir / "evil_link", secret)
 
         with patch.dict(os.environ, {"HERMES_HOME": str(hermes_home)}):
             mounts = get_skills_directory_mount()
@@ -185,7 +195,7 @@ class TestIterSkillsFiles:
         # Add a symlink that should be filtered
         secret = tmp_path / "secret"
         secret.write_text("nope")
-        (skills_dir / "cat" / "myskill" / "evil").symlink_to(secret)
+        _symlink_or_skip(skills_dir / "cat" / "myskill" / "evil", secret)
 
         with patch.dict(os.environ, {"HERMES_HOME": str(hermes_home)}):
             files = iter_skills_files()
@@ -448,7 +458,7 @@ class TestIterCacheFiles:
         doc_dir.mkdir(parents=True)
         real_file = doc_dir / "real.txt"
         real_file.write_text("content")
-        (doc_dir / "link.txt").symlink_to(real_file)
+        _symlink_or_skip(doc_dir / "link.txt", real_file)
         monkeypatch.setenv("HERMES_HOME", str(hermes_home))
 
         entries = iter_cache_files()

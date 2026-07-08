@@ -5,7 +5,15 @@ without risk of circular imports.
 """
 
 import os
+import tempfile
 from pathlib import Path
+
+
+def _safe_user_home() -> Path:
+    try:
+        return Path.home()
+    except RuntimeError:
+        return Path(tempfile.gettempdir())
 
 
 def get_hermes_home() -> Path:
@@ -15,7 +23,7 @@ def get_hermes_home() -> Path:
     This is the single source of truth — all other copies should import this.
     """
     val = os.environ.get("HERMES_HOME", "").strip()
-    return Path(val) if val else Path.home() / ".hermes"
+    return Path(val) if val else _safe_user_home() / ".hermes"
 
 
 def get_default_hermes_root() -> Path:
@@ -34,7 +42,7 @@ def get_default_hermes_root() -> Path:
 
     Import-safe — no dependencies beyond stdlib.
     """
-    native_home = Path.home() / ".hermes"
+    native_home = _safe_user_home() / ".hermes"
     env_home = os.environ.get("HERMES_HOME", "")
     if not env_home:
         return native_home
@@ -107,7 +115,7 @@ def display_hermes_home() -> str:
     """
     home = get_hermes_home()
     try:
-        return "~/" + str(home.relative_to(Path.home()))
+        return "~/" + str(home.relative_to(_safe_user_home()))
     except ValueError:
         return str(home)
 

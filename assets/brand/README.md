@@ -70,11 +70,29 @@ python Na_logo/generate_mascot_scenes.py
 python Na_logo/generate_na_mark.py
 ```
 
-## Related code (Apache-2.0)
+## Inline copies in code (dual-marked)
 
-The **CSS-rendered companion cup** in `web/src/` (e.g. `CompanionCup.tsx`) is
-**Apache-2.0-licensed source code**. The **visual identity** it implements is still
-proprietary — do not reuse the look for another product without permission.
+The mascot artwork also exists as **inline vector/CSS renderings inside
+source files**. Those files carry the dual SPDX expression
+`Apache-2.0 AND LicenseRef-Kabuqina-Brand`: the component CODE is
+Apache-2.0, the embedded ARTWORK (geometry, palette, composition) is
+proprietary under [LICENSE](./LICENSE). Current set:
+
+| File | Embedded artwork |
+| ---- | ---------------- |
+| `web/src/components/brand/CompanionCupSvg.tsx` | Cup vector |
+| `web/src/components/brand/KabuqinaCoasterSvg.tsx` | Coaster vector |
+| `web/src/components/brand/KabuqinaSceneSvg.tsx` | Scene composite |
+| `web/src/components/brand/kabuqinaBrandTokens.ts` | Palette + geometry tokens |
+| `web/src/components/CompanionCup.tsx` | CSS-rendered cup |
+| `web/src/components/CompanionPillScene.tsx` | Pill scene composition |
+| `web/src/index.css` (`.kq-companion-cup*` block) | CSS mascot rules (banner comment marks the block) |
+
+**Rule going forward:** any new file embedding brand artwork (including the
+v0.5 desk/notebook/whiteboard scene assets) MUST carry the
+`LicenseRef-Kabuqina-Brand` SPDX marker — coverage follows the marker and
+the directories, not this table. Unbranded forks may keep the Apache code
+and replace the artwork data.
 
 ## UI screenshots
 

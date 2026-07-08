@@ -8,6 +8,7 @@ from unittest.mock import patch, MagicMock, AsyncMock
 
 import pytest
 
+from tools import mcp_oauth
 from tools.mcp_oauth import (
     HermesTokenStorage,
     OAuthNonInteractiveError,
@@ -19,6 +20,11 @@ from tools.mcp_oauth import (
     _wait_for_callback,
     _make_callback_handler,
 )
+
+
+def _require_oauth_sdk():
+    if not mcp_oauth._OAUTH_AVAILABLE:
+        pytest.skip("MCP SDK auth not available")
 
 
 # ---------------------------------------------------------------------------
@@ -197,7 +203,12 @@ class TestUtilities:
         monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
         # Mock os.name and uname for non-macOS, non-Windows
         monkeypatch.setattr(os, "name", "posix")
-        monkeypatch.setattr(os, "uname", lambda: type("", (), {"sysname": "Linux"})())
+        monkeypatch.setattr(
+            os,
+            "uname",
+            lambda: type("", (), {"sysname": "Linux"})(),
+            raising=False,
+        )
         assert _can_open_browser() is False
 
     def test_can_open_browser_true_with_display(self, monkeypatch):
@@ -440,6 +451,7 @@ class TestBuildOAuthAuthNonInteractive:
 
 def test_build_client_metadata_basic():
     """_build_client_metadata returns metadata with expected defaults."""
+    _require_oauth_sdk()
     from tools.mcp_oauth import _build_client_metadata, _configure_callback_port
 
     cfg = {"client_name": "Test Client"}
@@ -453,6 +465,7 @@ def test_build_client_metadata_basic():
 
 def test_build_client_metadata_without_secret_is_public():
     """Without client_secret, token endpoint auth is 'none' (public client)."""
+    _require_oauth_sdk()
     from tools.mcp_oauth import _build_client_metadata, _configure_callback_port
 
     cfg = {}
@@ -463,6 +476,7 @@ def test_build_client_metadata_without_secret_is_public():
 
 def test_build_client_metadata_with_secret_is_confidential():
     """With client_secret, token endpoint auth is 'client_secret_post'."""
+    _require_oauth_sdk()
     from tools.mcp_oauth import _build_client_metadata, _configure_callback_port
 
     cfg = {"client_secret": "shh"}
@@ -501,6 +515,7 @@ def test_build_oauth_auth_preserves_server_url_path():
     itself for authorization-server discovery via
     ``OAuthContext.get_authorization_base_url``; Hermes must not pre-strip.
     """
+    _require_oauth_sdk()
     from tools import mcp_oauth
 
     captured: dict = {}

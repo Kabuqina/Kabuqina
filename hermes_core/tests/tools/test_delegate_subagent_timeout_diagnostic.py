@@ -118,7 +118,7 @@ class TestDumpSubagentTimeoutDiagnostic:
         assert p.name.startswith("subagent-timeout-sa-7-abc123-")
         assert p.suffix == ".log"
 
-        content = p.read_text()
+        content = p.read_text(encoding="utf-8")
         # Header references the issue for future grep-ability
         assert "issue #14726" in content
         # Timeout facts
@@ -162,7 +162,7 @@ class TestDumpSubagentTimeoutDiagnostic:
         )
         child.interrupt()
 
-        content = Path(path).read_text()
+        content = Path(path).read_text(encoding="utf-8")
         assert "[truncated]" in content
         # Goal section trimmed to 1000 chars + suffix
         goal_block = content.split("## Goal", 1)[1].split("## Child config", 1)[0]
@@ -180,7 +180,7 @@ class TestDumpSubagentTimeoutDiagnostic:
             goal="x",
         )
         child.interrupt()
-        content = Path(path).read_text()
+        content = Path(path).read_text(encoding="utf-8")
         assert "<no worker thread handle>" in content
 
     def test_exited_worker_thread_is_handled(self, hermes_home):
@@ -200,7 +200,7 @@ class TestDumpSubagentTimeoutDiagnostic:
             goal="x",
         )
         child.interrupt()
-        content = Path(path).read_text()
+        content = Path(path).read_text(encoding="utf-8")
         assert "<worker thread already exited>" in content
 
     def test_returns_none_on_unwritable_logs_dir(self, tmp_path, monkeypatch):

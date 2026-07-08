@@ -110,9 +110,13 @@ class TestSSHBulkUpload:
                 expected = os.path.join(
                     staging_dir, "home/testuser/.hermes/skills/my_skill.md"
                 )
+                staged = Path(expected)
                 staging_paths.append(expected)
-                assert os.path.islink(expected), f"Expected symlink at {expected}"
-                assert os.readlink(expected) == os.path.abspath(str(f1))
+                assert staged.exists(), f"Expected staged file at {expected}"
+                if os.path.islink(expected):
+                    assert os.readlink(expected) == os.path.abspath(str(f1))
+                else:
+                    assert staged.read_text() == "content a"
 
             mock = MagicMock()
             mock.stdout = MagicMock()

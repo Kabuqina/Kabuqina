@@ -620,6 +620,11 @@
     filter: none;
     user-select: none;
   }
+  /* ── Kabuqina mascot (CSS rendering) ─────────────────────────────────
+     The .kq-companion-cup* rules below express the Kabuqina coffee-cup
+     mascot ARTWORK. The artwork is proprietary (Copyright (c) 2026
+     ladylydia, All Rights Reserved — see assets/brand/LICENSE), even though
+     this stylesheet's CODE is Apache-2.0. Unbranded forks must restyle. */
   .kq-companion-cup {
     width: 2rem;
     height: 2rem;

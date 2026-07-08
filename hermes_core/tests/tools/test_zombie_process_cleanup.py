@@ -5,14 +5,9 @@ Reproduction for issue #7131: zombie process accumulation on long-running
 gateway deployments.
 """
 
-import os
-import signal
 import subprocess
 import sys
-import time
 import threading
-
-import pytest
 
 
 def _spawn_sleep(seconds: float = 60) -> subprocess.Popen:
@@ -22,15 +17,6 @@ def _spawn_sleep(seconds: float = 60) -> subprocess.Popen:
     )
 
 
-def _pid_alive(pid: int) -> bool:
-    """Return True if a process with the given PID is still running."""
-    try:
-        os.kill(pid, 0)
-        return True
-    except (ProcessLookupError, PermissionError):
-        return False
-
-
 class TestZombieReproduction:
     """Demonstrate that subprocesses survive when cleanup is not called."""
 
@@ -38,30 +24,31 @@ class TestZombieReproduction:
         """REPRODUCTION: processes spawned directly survive if no one kills
         them — this models the gap that causes zombie accumulation when
         the gateway drops agent references without calling close()."""
-        pids = []
+        procs = []
 
         try:
             for _ in range(3):
                 proc = _spawn_sleep(60)
-                pids.append(proc.pid)
+                procs.append(proc)
 
-            for pid in pids:
-                assert _pid_alive(pid), f"PID {pid} should be alive after spawn"
+            for proc in procs:
+                assert proc.poll() is None, f"PID {proc.pid} should be alive after spawn"
 
             # Simulate "session end" by just dropping the reference
             del proc  # noqa: F821
 
             # BUG: processes are still alive after reference is dropped
-            for pid in pids:
-                assert _pid_alive(pid), (
-                    f"PID {pid} died after ref drop — "
+            for proc in procs:
+                assert proc.poll() is None, (
+                    f"PID {proc.pid} died after ref drop — "
                     f"expected it to survive (demonstrating the bug)"
                 )
         finally:
-            for pid in pids:
+            for proc in procs:
                 try:
-                    os.kill(pid, signal.SIGKILL)
-                except (ProcessLookupError, PermissionError):
+                    proc.kill()
+                    proc.wait(timeout=1)
+                except Exception:
                     pass
 
     def test_explicit_terminate_reaps_processes(self):
@@ -75,7 +62,7 @@ class TestZombieReproduction:
                 procs.append(proc)
 
             for proc in procs:
-                assert _pid_alive(proc.pid)
+                assert proc.poll() is None
 
             for proc in procs:
                 proc.terminate()

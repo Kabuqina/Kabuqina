@@ -579,8 +579,10 @@ class TestSecurity:
         checkpoints = mgr.list_checkpoints(str(work_dir))
         target_hash = checkpoints[0]["hash"]
         
-        # Absolute path outside
-        result = mgr.restore(str(work_dir), target_hash, file_path="/etc/passwd")
+        # Absolute path outside. Build it with the current platform's anchor so
+        # Windows treats it as absolute too.
+        absolute_outside = str(Path(work_dir.anchor) / "etc" / "passwd")
+        result = mgr.restore(str(work_dir), target_hash, file_path=absolute_outside)
         assert result["success"] is False
         assert "got absolute path" in result["error"]
         

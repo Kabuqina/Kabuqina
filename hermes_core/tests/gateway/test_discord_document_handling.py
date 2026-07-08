@@ -137,19 +137,12 @@ def make_message(attachments: list, content: str = "") -> SimpleNamespace:
 
 
 def _mock_aiohttp_download(raw_bytes: bytes):
-    """Return a patch context manager that makes aiohttp return raw_bytes."""
-    resp = AsyncMock()
-    resp.status = 200
-    resp.read = AsyncMock(return_value=raw_bytes)
-    resp.__aenter__ = AsyncMock(return_value=resp)
-    resp.__aexit__ = AsyncMock(return_value=False)
-
-    session = AsyncMock()
-    session.get = MagicMock(return_value=resp)
-    session.__aenter__ = AsyncMock(return_value=session)
-    session.__aexit__ = AsyncMock(return_value=False)
-
-    return patch("aiohttp.ClientSession", return_value=session)
+    """Return a patch context manager that makes attachment.read() succeed."""
+    return patch.object(
+        DiscordAdapter,
+        "_read_attachment_bytes",
+        new=AsyncMock(return_value=raw_bytes),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -279,16 +272,11 @@ class TestIncomingDocumentHandling:
     @pytest.mark.asyncio
     async def test_download_error_handled(self, adapter):
         """If the HTTP download raises, the handler should not crash."""
-        resp = AsyncMock()
-        resp.__aenter__ = AsyncMock(side_effect=RuntimeError("connection reset"))
-        resp.__aexit__ = AsyncMock(return_value=False)
-
-        session = AsyncMock()
-        session.get = MagicMock(return_value=resp)
-        session.__aenter__ = AsyncMock(return_value=session)
-        session.__aexit__ = AsyncMock(return_value=False)
-
-        with patch("aiohttp.ClientSession", return_value=session):
+        with patch.object(
+            DiscordAdapter,
+            "_cache_discord_document",
+            new=AsyncMock(side_effect=RuntimeError("connection reset")),
+        ):
             msg = make_message([
                 make_attachment(filename="report.pdf", content_type="application/pdf")
             ])
@@ -322,34 +310,11 @@ class TestIncomingDocumentHandling:
         content1 = b"First file content"
         content2 = b"Second file content"
 
-        call_count = 0
-        responses = [content1, content2]
-
-        def make_session(_responses):
-            idx = 0
-
-            class FakeSession:
-                async def __aenter__(self):
-                    return self
-
-                async def __aexit__(self, *_):
-                    pass
-
-                def get(self, url, **kwargs):
-                    nonlocal idx
-                    data = _responses[idx % len(_responses)]
-                    idx += 1
-
-                    resp = AsyncMock()
-                    resp.status = 200
-                    resp.read = AsyncMock(return_value=data)
-                    resp.__aenter__ = AsyncMock(return_value=resp)
-                    resp.__aexit__ = AsyncMock(return_value=False)
-                    return resp
-
-            return FakeSession()
-
-        with patch("aiohttp.ClientSession", return_value=make_session([content1, content2])):
+        with patch.object(
+            DiscordAdapter,
+            "_read_attachment_bytes",
+            new=AsyncMock(side_effect=[content1, content2]),
+        ):
             msg = make_message(
                 attachments=[
                     make_attachment(filename="file1.txt", content_type="text/plain"),

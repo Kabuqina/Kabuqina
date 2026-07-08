@@ -42,7 +42,10 @@ _lock = threading.Lock()
 
 # Tool-call result shapes we can parse
 _WRITE_FILE_PATH_KEY = "path"
-_TERMINAL_PATH_REGEX = re.compile(r"(?:^|\s)(/[^\s'\"`]+|\~/[^\s'\"`]+)")
+_TERMINAL_PATH_REGEX = re.compile(
+    r"(?<!\S)([A-Za-z]:[\\/][^\s'\"`]+|\\\\[^\s'\"`]+|/[^\s'\"`]+|~[\\/][^\s'\"`]+)"
+)
+_WINDOWS_ABSOLUTE_PATH_REGEX = re.compile(r"^(?:[A-Za-z]:[\\/]|\\\\)")
 
 
 # ---------------------------------------------------------------------------
@@ -107,13 +110,15 @@ def _extract_paths_from_terminal(args: Dict[str, Any], result: str) -> Set[str]:
     paths: Set[str] = set()
     cmd = args.get("command") or ""
     if isinstance(cmd, str) and cmd:
-        # Tokenise the command — catches `touch /tmp/hermes-x/test_foo.py`
-        try:
-            for tok in shlex.split(cmd, posix=True):
-                if tok.startswith(("/", "~")):
-                    paths.add(tok)
-        except ValueError:
-            pass
+        # Tokenise the command — catches POSIX paths and Windows drive paths.
+        for posix in (True, False):
+            try:
+                for tok in shlex.split(cmd, posix=posix):
+                    tok = tok.strip("\"'")
+                    if tok.startswith(("/", "~", "\\")) or _WINDOWS_ABSOLUTE_PATH_REGEX.match(tok):
+                        paths.add(tok)
+            except ValueError:
+                pass
     # Only scan the result text if it's a reasonable size (avoid 50KB dumps).
     if isinstance(result, str) and len(result) < 4096:
         for match in _TERMINAL_PATH_REGEX.findall(result):

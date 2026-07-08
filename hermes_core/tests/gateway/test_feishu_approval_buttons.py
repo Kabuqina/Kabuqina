@@ -20,6 +20,9 @@ if _repo not in sys.path:
 # ---------------------------------------------------------------------------
 # Minimal Feishu mock so FeishuAdapter can be imported without lark-oapi
 # ---------------------------------------------------------------------------
+_FEISHU_STUB_MODULES: set[str] = set()
+
+
 def _ensure_feishu_mocks():
     """Provide stubs for lark-oapi / aiohttp.web so the import succeeds."""
     if importlib.util.find_spec("lark_oapi") is None and "lark_oapi" not in sys.modules:
@@ -29,10 +32,12 @@ def _ensure_feishu_mocks():
             "lark_oapi.event", "lark_oapi.event.callback_type",
         ):
             sys.modules.setdefault(name, mod)
+            _FEISHU_STUB_MODULES.add(name)
     if importlib.util.find_spec("aiohttp") is None and "aiohttp" not in sys.modules:
         aio = MagicMock()
         sys.modules.setdefault("aiohttp", aio)
         sys.modules.setdefault("aiohttp.web", aio.web)
+        _FEISHU_STUB_MODULES.update({"aiohttp", "aiohttp.web"})
 
 
 _ensure_feishu_mocks()
@@ -40,6 +45,9 @@ _ensure_feishu_mocks()
 from gateway.config import PlatformConfig
 import gateway.platforms.feishu as feishu_module
 from gateway.platforms.feishu import FeishuAdapter
+
+for _name in _FEISHU_STUB_MODULES:
+    sys.modules.pop(_name, None)
 
 
 # ---------------------------------------------------------------------------

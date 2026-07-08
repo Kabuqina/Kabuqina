@@ -7,12 +7,22 @@ import os
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
+import pytest
+
 from gateway.config import PlatformConfig
 from gateway.config import GatewayConfig, HomeChannel, Platform, _apply_env_overrides
 from gateway.platforms.base import SendResult
 from gateway.platforms import weixin
 from gateway.platforms.weixin import ContextTokenStore, WeixinAdapter
 from tools.send_message_tool import _parse_target_ref, _send_to_platform
+from tests.gateway.aiohttp_stub import install_aiohttp_stub
+
+
+@pytest.fixture(autouse=True)
+def _aiohttp_stub(monkeypatch):
+    aiohttp = install_aiohttp_stub(monkeypatch)
+    monkeypatch.setattr(weixin, "aiohttp", aiohttp)
+    monkeypatch.setattr(weixin, "AIOHTTP_AVAILABLE", True)
 
 
 def _make_adapter() -> WeixinAdapter:

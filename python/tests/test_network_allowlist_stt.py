@@ -41,6 +41,12 @@ class TestNetworkAllowlistOverlayWithHttpx(unittest.TestCase):
         network_allowlist.install()
         cls._policy = network_allowlist._policy
 
+    @classmethod
+    def tearDownClass(cls) -> None:
+        from overlays import network_allowlist
+
+        network_allowlist._reset_for_tests()
+
     def test_policy_includes_stt_hosts(self) -> None:
         """DEFAULT_ALLOW must include official and fallback model hosts."""
         hosts = self._policy.allowed_hosts

@@ -20,6 +20,26 @@ def _reset_signal_scheduler():
     yield
     _reset_scheduler()
 
+
+class _FakeFormData:
+    def __init__(self):
+        self.fields = []
+
+    def add_field(self, *args, **kwargs):
+        self.fields.append((args, kwargs))
+
+
+@pytest.fixture(autouse=True)
+def _fake_aiohttp_module(monkeypatch):
+    fake = SimpleNamespace(
+        ClientSession=MagicMock(),
+        ClientTimeout=lambda *args, **kwargs: SimpleNamespace(args=args, kwargs=kwargs),
+        FormData=_FakeFormData,
+    )
+    monkeypatch.setitem(sys.modules, "aiohttp", fake)
+    return fake
+
+
 from gateway.config import Platform
 from tools.send_message_tool import (
     _derive_forum_thread_name,
@@ -501,9 +521,9 @@ class TestSendToPlatformChunking:
         assert all(call == [] for call in sent_calls[:-1])
         assert sent_calls[-1] == media
 
-    def test_matrix_media_uses_native_adapter_helper(self):
+    def test_matrix_media_uses_native_adapter_helper(self, tmp_path):
 
-        doc_path = Path("/tmp/test-send-message-matrix.pdf")
+        doc_path = tmp_path / "test-send-message-matrix.pdf"
         doc_path.write_bytes(b"%PDF-1.4 test")
 
         try:

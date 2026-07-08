@@ -5,6 +5,7 @@ import logging
 import os
 import stat
 import tempfile
+import time
 from pathlib import Path
 from typing import Any, Union
 from urllib.parse import urlparse
@@ -78,7 +79,14 @@ def atomic_replace(tmp_path: Union[str, Path], target: Union[str, Path]) -> str:
     """
     target_str = str(target)
     real_path = os.path.realpath(target_str) if os.path.islink(target_str) else target_str
-    os.replace(str(tmp_path), real_path)
+    for attempt in range(10):
+        try:
+            os.replace(str(tmp_path), real_path)
+            break
+        except PermissionError:
+            if os.name != "nt" or attempt == 9:
+                raise
+            time.sleep(0.01 * (attempt + 1))
     return real_path
 
 

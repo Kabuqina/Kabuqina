@@ -17,8 +17,8 @@ Fix: _exec() now prefers the LIVE ``env.cwd`` over the init-time
 
 from __future__ import annotations
 
-import os
-import tempfile
+import shlex
+from pathlib import Path
 
 import pytest
 
@@ -39,27 +39,48 @@ class _FakeEnv:
         self.calls: list[dict] = []
 
     def execute(self, command: str, cwd: str = None, **kwargs) -> dict:
-        import subprocess
         self.calls.append({"command": command, "cwd": cwd})
+        effective_cwd = Path(cwd or self.cwd)
+
+        def _path_from_shell(text: str) -> Path:
+            parts = shlex.split(text)
+            if not parts:
+                return effective_cwd
+            path = Path(parts[0])
+            return path if path.is_absolute() else effective_cwd / path
+
         # Simulate cd by updating self.cwd (the real env does the same
         # via _extract_cwd_from_output after a successful command)
         if command.strip().startswith("cd "):
             new = command.strip()[3:].strip()
             self.cwd = new
             return {"output": "", "returncode": 0}
-        # Actually run the command — handle stdin via subprocess
+
+        stripped = command.strip()
         stdin_data = kwargs.get("stdin_data")
-        proc = subprocess.run(
-            ["bash", "-c", command],
-            cwd=cwd or self.cwd,
-            input=stdin_data,
-            capture_output=True,
-            text=True,
-        )
-        return {
-            "output": proc.stdout + proc.stderr,
-            "returncode": proc.returncode,
-        }
+        if stripped.startswith("cat > "):
+            target = _path_from_shell(stripped[len("cat > "):])
+            target.write_text(stdin_data or "")
+            return {"output": "", "returncode": 0}
+        if stripped.startswith("cat "):
+            target_expr = stripped[len("cat "):].split(" 2>/dev/null", 1)[0]
+            target = _path_from_shell(target_expr)
+            if not target.is_file():
+                return {"output": "", "returncode": 1}
+            return {"output": target.read_text(), "returncode": 0}
+        if stripped.startswith("wc -c < "):
+            target_expr = stripped[len("wc -c < "):].split(" 2>/dev/null", 1)[0]
+            target = _path_from_shell(target_expr)
+            if not target.is_file():
+                return {"output": "", "returncode": 1}
+            return {"output": str(target.stat().st_size), "returncode": 0}
+        if stripped.startswith("mkdir -p "):
+            target = _path_from_shell(stripped[len("mkdir -p "):])
+            target.mkdir(parents=True, exist_ok=True)
+            return {"output": "", "returncode": 0}
+        if stripped.startswith("command -v "):
+            return {"output": "", "returncode": 1}
+        raise AssertionError(f"Unexpected fake shell command: {command}")
 
 
 class TestShellFileOpsCwdTracking:

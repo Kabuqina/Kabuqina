@@ -25,7 +25,7 @@ class TestManifest:
         assert (PLUGIN_DIR / "__init__.py").exists()
 
     def test_manifest_fields(self):
-        data = yaml.safe_load((PLUGIN_DIR / "plugin.yaml").read_text())
+        data = yaml.safe_load((PLUGIN_DIR / "plugin.yaml").read_text(encoding="utf-8"))
         assert data["name"] == "langfuse"
         assert data["version"]
         # All six hooks the plugin implements.

@@ -1491,8 +1491,13 @@ class TestAdapterBehavior(unittest.TestCase):
             headers={},
             read=AsyncMock(return_value=body),
         )
+        web_module = SimpleNamespace(
+            json_response=lambda _body, status=200: SimpleNamespace(status=status),
+            Response=lambda status=200, text="": SimpleNamespace(status=status, text=text),
+        )
 
-        response = asyncio.run(adapter._handle_webhook_request(request))
+        with patch("gateway.platforms.feishu.web", web_module):
+            response = asyncio.run(adapter._handle_webhook_request(request))
 
         self.assertEqual(response.status, 200)
         adapter._on_message_event.assert_called_once()

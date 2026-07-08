@@ -14,9 +14,32 @@ directories, matching ripgrep's default behavior.
 """
 
 import os
+import shutil
 import subprocess
 
 import pytest
+
+
+def _has_posix_tool(name: str) -> bool:
+    """Return whether *name* appears to be a POSIX/GNU-style CLI."""
+    exe = shutil.which(name)
+    if exe is None:
+        return False
+    try:
+        result = subprocess.run(
+            [exe, "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return result.returncode == 0
+
+
+HAS_POSIX_FIND = _has_posix_tool("find")
+HAS_GREP = _has_posix_tool("grep")
+HAS_RG = shutil.which("rg") is not None
 
 
 @pytest.fixture
@@ -42,6 +65,7 @@ def searchable_tree(tmp_path):
     return tmp_path / "skills"
 
 
+@pytest.mark.skipif(not HAS_POSIX_FIND, reason="POSIX find not installed")
 class TestFindExcludesHiddenDirs:
     """_search_files uses find, which should exclude hidden directories."""
 
@@ -72,6 +96,7 @@ class TestFindExcludesHiddenDirs:
         assert "SKILL.md" in result.stdout
 
 
+@pytest.mark.skipif(not HAS_GREP, reason="grep not installed")
 class TestGrepExcludesHiddenDirs:
     """_search_with_grep should exclude hidden directories."""
 
@@ -97,10 +122,7 @@ class TestGrepExcludesHiddenDirs:
 class TestRipgrepAlreadyExcludesHidden:
     """Verify ripgrep's default behavior is to skip hidden directories."""
 
-    @pytest.mark.skipif(
-        subprocess.run(["which", "rg"], capture_output=True).returncode != 0,
-        reason="ripgrep not installed",
-    )
+    @pytest.mark.skipif(not HAS_RG, reason="ripgrep not installed")
     def test_rg_skips_hub_by_default(self, searchable_tree):
         """rg should skip .hub/ by default (no --hidden flag)."""
         result = subprocess.run(
@@ -110,10 +132,7 @@ class TestRipgrepAlreadyExcludesHidden:
         assert ".hub" not in result.stdout
         assert "catalog.json" not in result.stdout
 
-    @pytest.mark.skipif(
-        subprocess.run(["which", "rg"], capture_output=True).returncode != 0,
-        reason="ripgrep not installed",
-    )
+    @pytest.mark.skipif(not HAS_RG, reason="ripgrep not installed")
     def test_rg_finds_visible_content(self, searchable_tree):
         """rg should find content in visible directories."""
         result = subprocess.run(
@@ -141,6 +160,7 @@ class TestDefaultSearchIgnore:
         assert _rg_ignore_glob_args("project/node_modules/pkg", None) == []
         assert _grep_ignore_dir_args(".", "node_modules/**") == []
 
+    @pytest.mark.skipif(not HAS_GREP, reason="grep not installed")
     def test_grep_excludes_node_modules_but_keeps_source(self, tmp_path):
         src = tmp_path / "src"
         src.mkdir()

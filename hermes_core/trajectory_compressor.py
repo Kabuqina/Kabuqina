@@ -42,7 +42,6 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from utils import base_url_host_matches, base_url_hostname
-import fire
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn, TimeElapsedColumn, TimeRemainingColumn
 from rich.console import Console
 from hermes_constants import OPENROUTER_BASE_URL, get_hermes_home
@@ -1498,4 +1497,6 @@ def main(
 
 
 if __name__ == "__main__":
+    import fire
+
     fire.Fire(main)

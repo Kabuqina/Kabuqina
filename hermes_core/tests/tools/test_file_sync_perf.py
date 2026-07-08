@@ -8,6 +8,7 @@ Skip markers gate each backend.
 """
 
 import statistics
+import sys
 import time
 
 import pytest
@@ -75,8 +76,9 @@ class TestLocalPerf:
     def test_echo_latency(self, local_env):
         durations = _time_executions(local_env, "echo hello", n=20)
         med = _report("local echo", durations)
-        # Spawn-per-call overhead should be < 500ms
-        assert med < 0.5, f"local echo median {med*1000:.0f}ms exceeds 500ms"
+        # Windows process + shell startup is materially slower than POSIX bash.
+        limit = 2.5 if sys.platform == "win32" else 0.5
+        assert med < limit, f"local echo median {med*1000:.0f}ms exceeds {limit*1000:.0f}ms"
 
 
 @pytest.mark.ssh

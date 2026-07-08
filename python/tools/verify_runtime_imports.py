@@ -1,0 +1,81 @@
+# Copyright 2026 Kabuqina Contributors
+# SPDX-License-Identifier: Apache-2.0
+
+"""Verify that desktop runtime entry imports resolve from a bundled runtime."""
+
+from __future__ import annotations
+
+import importlib
+import os
+import sys
+import tempfile
+from pathlib import Path
+
+
+REQUIRED_IMPORTS = (
+    "desk_server",
+    "desk_server.routes.study_routes",
+    "desk_server.capabilities",
+    "product_profile_policy",
+    "learning.flashcards",
+    "learning_owner",
+)
+
+
+def _add_runtime_paths(root: Path) -> None:
+    for path in (
+        root,
+        root / "hermes",
+        root / "site-packages",
+        root / "site-packages" / "win32",
+        root / "site-packages" / "win32" / "lib",
+        root / "site-packages" / "pythonwin",
+    ):
+        if path.exists():
+            sys.path.insert(0, str(path))
+
+
+def _seed_import_environment(root: Path) -> None:
+    smoke_root = Path(tempfile.gettempdir()) / "kabuqina-runtime-import-smoke"
+    os.environ.setdefault("HERMESDESK_BUNDLE_DIR", str(root))
+    os.environ.setdefault("HERMESDESK_DATA_DIR", str(smoke_root / "data"))
+    os.environ.setdefault("HERMESDESK_WORKSPACE", str(smoke_root / "workspace"))
+    os.environ.setdefault("HERMES_HOME", str(smoke_root / "hermes-home"))
+    os.environ.setdefault("HERMESDESK_OVERLAY_LENIENT", "1")
+    os.environ.setdefault("PYTHONDONTWRITEBYTECODE", "1")
+
+
+def verify_runtime_imports(root: Path) -> list[tuple[str, BaseException]]:
+    _add_runtime_paths(root)
+    _seed_import_environment(root)
+    failures: list[tuple[str, BaseException]] = []
+    for module in REQUIRED_IMPORTS:
+        try:
+            importlib.import_module(module)
+        except Exception as exc:  # pragma: no cover - exercised by subprocess tests
+            failures.append((module, exc))
+    return failures
+
+
+def main(argv: list[str]) -> int:
+    if len(argv) != 2:
+        print("usage: verify_runtime_imports.py <runtime-root>", file=sys.stderr)
+        return 2
+    root = Path(argv[1]).resolve()
+    if not root.is_dir():
+        print(f"runtime root not found: {root}", file=sys.stderr)
+        return 2
+    failures = verify_runtime_imports(root)
+    if failures:
+        for module, exc in failures:
+            print(
+                f"runtime import failed: {module}: {type(exc).__name__}: {exc}",
+                file=sys.stderr,
+            )
+        return 1
+    print("runtime imports ok: " + ", ".join(REQUIRED_IMPORTS))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv))

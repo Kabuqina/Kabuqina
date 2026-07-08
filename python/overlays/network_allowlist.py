@@ -43,6 +43,9 @@ except ImportError:
 
 _policy: NetworkPolicy | None = None
 _net_open: bool = False
+_orig_httpx_send = None
+_orig_httpx_asend = None
+_orig_requests_send = None
 
 
 def _check_url(url: str) -> None:
@@ -66,7 +69,7 @@ def _check_url(url: str) -> None:
 
 
 def install() -> None:
-    global _policy, _net_open
+    global _policy, _net_open, _orig_httpx_send, _orig_httpx_asend, _orig_requests_send
     _net_open = os.environ.get("HERMESDESK_NET_OPEN") == "1"
     _policy = NetworkPolicy(
         llm_host=os.environ.get("HERMESDESK_LLM_HOST", ""),
@@ -77,16 +80,18 @@ def install() -> None:
     except ImportError:
         return
 
-    _orig_send = httpx.Client.send
-    _orig_asend = httpx.AsyncClient.send
+    if _orig_httpx_send is None:
+        _orig_httpx_send = httpx.Client.send
+    if _orig_httpx_asend is None:
+        _orig_httpx_asend = httpx.AsyncClient.send
 
     def safe_send(self, request, *args, **kwargs):
         _check_url(str(request.url))
-        return _orig_send(self, request, *args, **kwargs)
+        return _orig_httpx_send(self, request, *args, **kwargs)
 
     async def safe_asend(self, request, *args, **kwargs):
         _check_url(str(request.url))
-        return await _orig_asend(self, request, *args, **kwargs)
+        return await _orig_httpx_asend(self, request, *args, **kwargs)
 
     httpx.Client.send = safe_send  # type: ignore[assignment]
     httpx.AsyncClient.send = safe_asend  # type: ignore[assignment]
@@ -95,14 +100,42 @@ def install() -> None:
         import requests  # noqa
         from requests.adapters import HTTPAdapter
 
-        _orig_req_send = HTTPAdapter.send
+        if _orig_requests_send is None:
+            _orig_requests_send = HTTPAdapter.send
 
         def safe_req_send(self, request, *args, **kwargs):
             _check_url(request.url)
-            return _orig_req_send(self, request, *args, **kwargs)
+            return _orig_requests_send(self, request, *args, **kwargs)
 
         HTTPAdapter.send = safe_req_send  # type: ignore[assignment]
     except ImportError:
         pass
 
     log.info("network allowlist installed; allowed=%s", sorted(_policy.allowed_hosts))
+
+
+def _reset_for_tests() -> None:
+    """Restore monkey-patched clients after tests that install the overlay."""
+    global _policy, _net_open, _orig_httpx_send, _orig_httpx_asend, _orig_requests_send
+    try:
+        import httpx
+
+        if _orig_httpx_send is not None:
+            httpx.Client.send = _orig_httpx_send  # type: ignore[assignment]
+        if _orig_httpx_asend is not None:
+            httpx.AsyncClient.send = _orig_httpx_asend  # type: ignore[assignment]
+    except ImportError:
+        pass
+    try:
+        from requests.adapters import HTTPAdapter
+
+        if _orig_requests_send is not None:
+            HTTPAdapter.send = _orig_requests_send  # type: ignore[assignment]
+    except ImportError:
+        pass
+
+    _policy = None
+    _net_open = False
+    _orig_httpx_send = None
+    _orig_httpx_asend = None
+    _orig_requests_send = None

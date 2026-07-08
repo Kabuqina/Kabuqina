@@ -10,6 +10,40 @@ import pytest
 from gateway.config import Platform, PlatformConfig
 
 
+class _FakeDingTalkModel:
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
+
+
+class _FakeRuntimeOptions:
+    pass
+
+
+def _install_fake_card_models(monkeypatch):
+    """Let AI-card unit tests run without Alibaba's optional SDK packages."""
+    fake_card_models = SimpleNamespace(
+        CreateCardRequest=_FakeDingTalkModel,
+        CreateCardRequestCardData=_FakeDingTalkModel,
+        CreateCardRequestImGroupOpenSpaceModel=_FakeDingTalkModel,
+        CreateCardRequestImRobotOpenSpaceModel=_FakeDingTalkModel,
+        CreateCardHeaders=_FakeDingTalkModel,
+        DeliverCardRequest=_FakeDingTalkModel,
+        DeliverCardRequestImGroupOpenDeliverModel=_FakeDingTalkModel,
+        DeliverCardRequestImRobotOpenDeliverModel=_FakeDingTalkModel,
+        DeliverCardHeaders=_FakeDingTalkModel,
+        StreamingUpdateRequest=_FakeDingTalkModel,
+        StreamingUpdateHeaders=_FakeDingTalkModel,
+    )
+    monkeypatch.setattr(
+        "gateway.platforms.dingtalk.dingtalk_card_models",
+        fake_card_models,
+    )
+    monkeypatch.setattr(
+        "gateway.platforms.dingtalk.tea_util_models",
+        SimpleNamespace(RuntimeOptions=_FakeRuntimeOptions),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Requirements check
 # ---------------------------------------------------------------------------
@@ -751,8 +785,9 @@ class TestMessageContextIsolation:
 class TestCardLifecycle:
 
     @pytest.fixture
-    def adapter_with_card(self):
+    def adapter_with_card(self, monkeypatch):
         from gateway.platforms.dingtalk import DingTalkAdapter
+        _install_fake_card_models(monkeypatch)
         a = DingTalkAdapter(PlatformConfig(
             enabled=True,
             extra={"card_template_id": "tmpl-1"},
@@ -942,9 +977,10 @@ class TestDingTalkAdapterAICards:
         return msg
 
     @pytest.mark.asyncio
-    async def test_send_uses_ai_card_if_configured(self, config, mock_stream_client, mock_http_client, mock_message):
+    async def test_send_uses_ai_card_if_configured(self, config, mock_stream_client, mock_http_client, mock_message, monkeypatch):
         from gateway.platforms.dingtalk import DingTalkAdapter
 
+        _install_fake_card_models(monkeypatch)
         adapter = DingTalkAdapter(config)
         adapter._stream_client = mock_stream_client
         adapter._http_client = mock_http_client

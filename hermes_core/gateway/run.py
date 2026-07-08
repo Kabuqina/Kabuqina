@@ -1740,7 +1740,7 @@ class GatewayRunner:
         """
         import shlex
 
-        text = str(raw_args or "").strip().replace("-", "--")
+        text = str(raw_args or "").strip()
         if not text:
             return "", False
         try:
@@ -1751,7 +1751,10 @@ class GatewayRunner:
         persist_global = False
         value_tokens = []
         for token in tokens:
-            if token == "--global":
+            flag_token = token
+            if flag_token.startswith(("\u2013", "\u2014")):
+                flag_token = "--" + flag_token[1:]
+            if flag_token == "--global":
                 persist_global = True
             else:
                 value_tokens.append(token)
@@ -4005,7 +4008,7 @@ class GatewayRunner:
                 response_path = _hermes_home / ".update_response"
                 try:
                     tmp = response_path.with_suffix(".tmp")
-                    tmp.write_text(response_text)
+                    tmp.write_text(response_text, encoding="utf-8")
                     tmp.replace(response_path)
                 except OSError as e:
                     logger.warning("Failed to write update response: %s", e)
@@ -4023,7 +4026,7 @@ class GatewayRunner:
                 response_path = _hermes_home / ".update_response"
                 try:
                     tmp = response_path.with_suffix(".tmp")
-                    tmp.write_text("")
+                    tmp.write_text("", encoding="utf-8")
                     tmp.replace(response_path)
                     logger.info(
                         "Recognized /%s during pending update prompt for %s; "
@@ -9155,7 +9158,7 @@ class GatewayRunner:
             "timestamp": datetime.now().isoformat(),
         }
         _tmp_pending = pending_path.with_suffix(".tmp")
-        _tmp_pending.write_text(json.dumps(pending))
+        _tmp_pending.write_text(json.dumps(pending), encoding="utf-8")
         _tmp_pending.replace(pending_path)
         exit_code_path.unlink(missing_ok=True)
 
@@ -9242,7 +9245,7 @@ class GatewayRunner:
         for path in (claimed_path, pending_path):
             if path.exists():
                 try:
-                    pending = json.loads(path.read_text())
+                    pending = json.loads(path.read_text(encoding="utf-8"))
                     platform_str = pending.get("platform")
                     chat_id = pending.get("chat_id")
                     session_key = pending.get("session_key")
@@ -9265,7 +9268,7 @@ class GatewayRunner:
                     return
                 await asyncio.sleep(poll_interval)
             if (pending_path.exists() or claimed_path.exists()) and not exit_code_path.exists():
-                exit_code_path.write_text("124")
+                exit_code_path.write_text("124", encoding="utf-8")
                 await self._send_update_notification()
             return
 
@@ -9303,7 +9306,7 @@ class GatewayRunner:
                 # Read any remaining output
                 if output_path.exists():
                     try:
-                        content = output_path.read_text()
+                        content = output_path.read_text(encoding="utf-8", errors="replace")
                         if len(content) > bytes_sent:
                             buffer += content[bytes_sent:]
                             bytes_sent = len(content)
@@ -9313,7 +9316,7 @@ class GatewayRunner:
 
                 # Send final status
                 try:
-                    exit_code_raw = exit_code_path.read_text().strip() or "1"
+                    exit_code_raw = exit_code_path.read_text(encoding="utf-8").strip() or "1"
                     exit_code = int(exit_code_raw)
                     if exit_code == 0:
                         await adapter.send(chat_id, "✅ 卡布奇娜更新完成。")
@@ -9334,7 +9337,7 @@ class GatewayRunner:
             # Check for new output
             if output_path.exists():
                 try:
-                    content = output_path.read_text()
+                    content = output_path.read_text(encoding="utf-8", errors="replace")
                     if len(content) > bytes_sent:
                         buffer += content[bytes_sent:]
                         bytes_sent = len(content)
@@ -9352,7 +9355,7 @@ class GatewayRunner:
             if (prompt_path.exists() and session_key
                     and not self._update_prompt_pending.get(session_key)):
                 try:
-                    prompt_data = json.loads(prompt_path.read_text())
+                    prompt_data = json.loads(prompt_path.read_text(encoding="utf-8"))
                     prompt_text = prompt_data.get("prompt", "")
                     default = prompt_data.get("default", "")
                     if prompt_text:
@@ -9396,7 +9399,7 @@ class GatewayRunner:
         # Timeout
         if not exit_code_path.exists():
             logger.warning("Update watcher timed out after %.0fs", timeout)
-            exit_code_path.write_text("124")
+            exit_code_path.write_text("124", encoding="utf-8")
             await _flush_buffer()
             try:
                 await adapter.send(chat_id, "❌ 卡布奇娜更新超时（30 分钟）。")
@@ -9438,7 +9441,7 @@ class GatewayRunner:
             elif not claimed_path.exists():
                 return True
 
-            pending = json.loads(claimed_path.read_text())
+            pending = json.loads(claimed_path.read_text(encoding="utf-8"))
             platform_str = pending.get("platform")
             chat_id = pending.get("chat_id")
 
@@ -9449,13 +9452,13 @@ class GatewayRunner:
                 claimed_path.replace(pending_path)
                 return False
 
-            exit_code_raw = exit_code_path.read_text().strip() or "1"
+            exit_code_raw = exit_code_path.read_text(encoding="utf-8").strip() or "1"
             exit_code = int(exit_code_raw)
 
             # Read the captured update output
             output = ""
             if output_path.exists():
-                output = output_path.read_text()
+                output = output_path.read_text(encoding="utf-8", errors="replace")
 
             # Resolve adapter
             platform = Platform(platform_str)

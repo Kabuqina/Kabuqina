@@ -720,12 +720,16 @@ def content_hash(skill_path: Path) -> str:
     """Compute a SHA-256 hash of all files in a skill directory for integrity tracking."""
     h = hashlib.sha256()
     if skill_path.is_dir():
-        for f in sorted(skill_path.rglob("*")):
-            if f.is_file():
-                try:
-                    h.update(f.read_bytes())
-                except OSError:
-                    continue
+        files = sorted(
+            (f.relative_to(skill_path).as_posix(), f)
+            for f in skill_path.rglob("*")
+            if f.is_file()
+        )
+        for _rel_path, f in files:
+            try:
+                h.update(f.read_bytes())
+            except OSError:
+                continue
     elif skill_path.is_file():
         h.update(skill_path.read_bytes())
     return f"sha256:{h.hexdigest()[:16]}"

@@ -1151,7 +1151,8 @@ def test_require_math_artifacts_raises_without_codeformula(tmp_path, monkeypatch
 
 
 def test_ensure_math_artifacts_uses_desktop_first_use_download(monkeypatch):
-    import docling_math_models
+    import sys
+    import types
     import tools.document_tools as document_tools
 
     calls = []
@@ -1159,7 +1160,9 @@ def test_ensure_math_artifacts_uses_desktop_first_use_download(monkeypatch):
     def fake_ensure():
         calls.append("ensure")
 
-    monkeypatch.setattr(docling_math_models, "ensure_code_formula_available_for_math", fake_ensure)
+    fake_module = types.ModuleType("docling_math_models")
+    fake_module.ensure_code_formula_available_for_math = fake_ensure
+    monkeypatch.setitem(sys.modules, "docling_math_models", fake_module)
 
     reading._ensure_math_artifacts()
 

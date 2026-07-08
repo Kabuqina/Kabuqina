@@ -88,7 +88,10 @@ from tools.tool_backend_helpers import normalize_browser_cloud_provider
 # Camofox local anti-detection browser backend (optional).
 # When CAMOFOX_URL is set, all browser operations route through the
 # camofox REST API instead of the agent-browser CLI.
-_is_camofox_mode = lambda: False  # Camofox removed — HermesDesk uses Edge CDP # noqa: E731
+try:
+    from tools.browser_camofox import is_camofox_mode as _is_camofox_mode
+except Exception:
+    _is_camofox_mode = lambda: False  # noqa: E731
 
 # Lazy-loaded CDP backend.  Imported on first use so the module can be
 # missing from the bundle without crashing registration.
@@ -141,7 +144,7 @@ def _discover_homebrew_node_dirs() -> tuple[str, ...]:
     try:
         for entry in os.listdir(homebrew_opt):
             if entry.startswith("node") and entry != "node":
-                bin_dir = os.path.join(homebrew_opt, entry, "bin")
+                bin_dir = f"{homebrew_opt}/{entry}/bin"
                 if os.path.isdir(bin_dir):
                     dirs.append(bin_dir)
     except OSError:
@@ -922,6 +925,11 @@ def _reap_orphaned_browser_sessions():
             continue
         except PermissionError:
             # Alive but owned by someone else — leave it alone
+            continue
+        except OSError:
+            # Windows can raise a plain OSError (for example WinError 87)
+            # for an invalid/dead PID when probing with signal 0.
+            shutil.rmtree(socket_dir, ignore_errors=True)
             continue
 
         # Daemon is alive and its owner is dead (or legacy + untracked).  Reap.
@@ -2687,8 +2695,15 @@ def _cleanup_single_browser_session(task_id: str) -> None:
     # before the backend tears down the underlying CDP endpoint.
     _stop_cdp_supervisor(task_id)
 
-    # Camofox previously had a cleanup path here; removed in HermesDesk
-    # (HermesDesk uses Edge CDP instead).
+    if _is_camofox_mode():
+        try:
+            from tools.browser_camofox import camofox_close, camofox_soft_cleanup
+            if camofox_soft_cleanup(task_id):
+                return
+            camofox_close(task_id)
+            return
+        except Exception as exc:
+            logger.debug("Camofox cleanup failed for %s: %s", task_id, exc)
 
     logger.debug("cleanup_browser called for task_id: %s", task_id)
     logger.debug("Active sessions: %s", list(_active_sessions.keys()))
@@ -2863,12 +2878,17 @@ def check_browser_requirements() -> bool:
     """
     Check if browser tool requirements are met.
 
-    In **local mode** (no cloud provider configured): the ``agent-browser``
-    CLI must be findable *and* a Chromium build must be installed on disk.
+    In **local mode** (no cloud provider or Camofox configured): the
+    ``agent-browser`` CLI must be findable *and* a Chromium build must be
+    installed on disk.
 
     In **cloud mode** (Browserbase, Browser Use, or Firecrawl): the CLI
     and the provider's required credentials must be present. The cloud
     provider hosts its own Chromium, so no local browser binary is needed.
+
+    In **Camofox mode**: browser operations route through the configured
+    Camofox REST API, so neither ``agent-browser`` nor local Playwright
+    Chromium is required.
 
     Returns:
         True if all requirements are met, False otherwise
@@ -2877,6 +2897,9 @@ def check_browser_requirements() -> bool:
     # or local Chromium needed.  Used by HermesDesk which auto-launches Edge
     # with --remote-debugging-port.
     if os.environ.get("BROWSER_CDP_URL", "").strip():
+        return True
+
+    if _is_camofox_mode():
         return True
 
     # The agent-browser CLI is always required

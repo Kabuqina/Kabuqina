@@ -34,6 +34,9 @@ PLUGIN_MODULE_PATH = (
     / "plugin_api.py"
 )
 
+if not PLUGIN_MODULE_PATH.exists():
+    pytest.skip("hermes-achievements plugin is not bundled in this snapshot", allow_module_level=True)
+
 
 @pytest.fixture
 def plugin_api(tmp_path, monkeypatch):

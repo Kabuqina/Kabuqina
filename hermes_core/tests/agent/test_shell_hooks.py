@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import stat
+import sys
 from pathlib import Path
 from typing import Any, Dict
 
@@ -24,9 +25,17 @@ from agent import shell_hooks
 
 def _write_script(tmp_path: Path, name: str, body: str) -> Path:
     path = tmp_path / name
-    path.write_text(body)
+    path.write_text(body, encoding="utf-8")
     path.chmod(0o755)
     return path
+
+
+def _write_python_script(tmp_path: Path, name: str, body: str) -> Path:
+    return _write_script(tmp_path, name, body)
+
+
+def _python_command(script: Path) -> str:
+    return f'"{sys.executable}" "{script}"'
 
 
 def _allowlist_pair(monkeypatch, tmp_path, event: str, command: str) -> None:
@@ -221,23 +230,24 @@ class TestMatcher:
 class TestCallbackSubprocess:
     def test_timeout_returns_none(self, tmp_path):
         # Script that sleeps forever; we set a 1s timeout.
-        script = _write_script(
-            tmp_path, "slow.sh",
-            "#!/usr/bin/env bash\nsleep 60\n",
+        script = _write_python_script(
+            tmp_path, "slow.py",
+            "import time\n"
+            "time.sleep(60)\n",
         )
         spec = shell_hooks.ShellHookSpec(
-            event="post_tool_call", command=str(script), timeout=1,
+            event="post_tool_call", command=_python_command(script), timeout=1,
         )
         cb = shell_hooks._make_callback(spec)
         assert cb(tool_name="terminal") is None
 
     def test_malformed_json_stdout_returns_none(self, tmp_path):
-        script = _write_script(
-            tmp_path, "bad_json.sh",
-            "#!/usr/bin/env bash\necho 'not json at all'\n",
+        script = _write_python_script(
+            tmp_path, "bad_json.py",
+            "print('not json at all')\n",
         )
         spec = shell_hooks.ShellHookSpec(
-            event="pre_tool_call", command=str(script),
+            event="pre_tool_call", command=_python_command(script),
         )
         cb = shell_hooks._make_callback(spec)
         # Matcher is None so the callback fires for any tool.
@@ -247,14 +257,14 @@ class TestCallbackSubprocess:
         """A script that signals failure via exit code AND prints a block
         directive must still block — scripts should be free to mix exit
         codes with parseable output."""
-        script = _write_script(
-            tmp_path, "exit1_block.sh",
-            "#!/usr/bin/env bash\n"
-            'printf \'{"decision": "block", "reason": "via exit 1"}\\n\'\n'
-            "exit 1\n",
+        script = _write_python_script(
+            tmp_path, "exit1_block.py",
+            "import sys\n"
+            "print('{\"decision\": \"block\", \"reason\": \"via exit 1\"}')\n"
+            "sys.exit(1)\n",
         )
         spec = shell_hooks.ShellHookSpec(
-            event="pre_tool_call", command=str(script),
+            event="pre_tool_call", command=_python_command(script),
         )
         cb = shell_hooks._make_callback(spec)
         assert cb(tool_name="terminal") == {"action": "block", "message": "via exit 1"}
@@ -266,14 +276,13 @@ class TestCallbackSubprocess:
         must translate it to the canonical Hermes block shape so that
         get_pre_tool_call_block_message() surfaces the block.
         """
-        script = _write_script(
-            tmp_path, "blocker.sh",
-            "#!/usr/bin/env bash\n"
-            'printf \'{"decision": "block", "reason": "no terminal"}\\n\'\n',
+        script = _write_python_script(
+            tmp_path, "blocker.py",
+            "print('{\"decision\": \"block\", \"reason\": \"no terminal\"}')\n",
         )
         spec = shell_hooks.ShellHookSpec(
             event="pre_tool_call",
-            command=str(script),
+            command=_python_command(script),
             matcher="terminal",
         )
         cb = shell_hooks._make_callback(spec)
@@ -286,10 +295,9 @@ class TestCallbackSubprocess:
         end-to-end control flow used by run_agent._invoke_tool."""
         from hermes_cli import plugins
 
-        script = _write_script(
-            tmp_path, "block.sh",
-            "#!/usr/bin/env bash\n"
-            'printf \'{"decision": "block", "reason": "blocked-by-shell"}\\n\'\n',
+        script = _write_python_script(
+            tmp_path, "block.py",
+            "print('{\"decision\": \"block\", \"reason\": \"blocked-by-shell\"}')\n",
         )
 
         monkeypatch.setenv("HERMES_HOME", str(tmp_path / "home"))
@@ -301,7 +309,7 @@ class TestCallbackSubprocess:
         cfg = {
             "hooks": {
                 "pre_tool_call": [
-                    {"matcher": "terminal", "command": str(script)},
+                    {"matcher": "terminal", "command": _python_command(script)},
                 ],
             },
         }
@@ -317,15 +325,18 @@ class TestCallbackSubprocess:
     def test_matcher_regex_filters_callback(self, tmp_path, monkeypatch):
         """A matcher set to 'terminal' must not fire for 'web_search'."""
         calls = tmp_path / "calls.log"
-        script = _write_script(
-            tmp_path, "log.sh",
-            f"#!/usr/bin/env bash\n"
-            f"echo \"$(cat -)\" >> {calls}\n"
-            f"printf '{{}}\\n'\n",
+        script = _write_python_script(
+            tmp_path, "log.py",
+            "import sys\n"
+            "from pathlib import Path\n"
+            f"path = Path({str(calls)!r})\n"
+            "with path.open('a', encoding='utf-8') as fh:\n"
+            "    fh.write(sys.stdin.read())\n"
+            "print('{}')\n",
         )
         spec = shell_hooks.ShellHookSpec(
             event="pre_tool_call",
-            command=str(script),
+            command=_python_command(script),
             matcher="terminal",
         )
         cb = shell_hooks._make_callback(spec)
@@ -334,16 +345,19 @@ class TestCallbackSubprocess:
         cb(tool_name="file_read", args={"path": "x"})
         assert calls.exists()
         # Only the terminal call wrote to the log
-        assert calls.read_text().count("pre_tool_call") == 1
+        assert calls.read_text(encoding="utf-8").count("pre_tool_call") == 1
 
     def test_payload_schema_delivered(self, tmp_path):
         capture = tmp_path / "payload.json"
-        script = _write_script(
-            tmp_path, "capture.sh",
-            f"#!/usr/bin/env bash\ncat - > {capture}\nprintf '{{}}\\n'\n",
+        script = _write_python_script(
+            tmp_path, "capture.py",
+            "import sys\n"
+            "from pathlib import Path\n"
+            f"Path({str(capture)!r}).write_text(sys.stdin.read(), encoding='utf-8')\n"
+            "print('{}')\n",
         )
         spec = shell_hooks.ShellHookSpec(
-            event="pre_tool_call", command=str(script),
+            event="pre_tool_call", command=_python_command(script),
         )
         cb = shell_hooks._make_callback(spec)
         cb(
@@ -352,7 +366,7 @@ class TestCallbackSubprocess:
             session_id="sess-77",
             task_id="task-77",
         )
-        payload = json.loads(capture.read_text())
+        payload = json.loads(capture.read_text(encoding="utf-8"))
         assert payload["hook_event_name"] == "pre_tool_call"
         assert payload["tool_name"] == "terminal"
         assert payload["tool_input"] == {"command": "echo hi"}
@@ -361,13 +375,12 @@ class TestCallbackSubprocess:
         assert payload["extra"]["task_id"] == "task-77"
 
     def test_pre_llm_call_context_flows_through(self, tmp_path):
-        script = _write_script(
-            tmp_path, "ctx.sh",
-            "#!/usr/bin/env bash\n"
-            'printf \'{"context": "env-note"}\\n\'\n',
+        script = _write_python_script(
+            tmp_path, "ctx.py",
+            "print('{\"context\": \"env-note\"}')\n",
         )
         spec = shell_hooks.ShellHookSpec(
-            event="pre_llm_call", command=str(script),
+            event="pre_llm_call", command=_python_command(script),
         )
         cb = shell_hooks._make_callback(spec)
         result = cb(
@@ -380,14 +393,14 @@ class TestCallbackSubprocess:
     def test_shlex_handles_paths_with_spaces(self, tmp_path):
         dir_with_space = tmp_path / "path with space"
         dir_with_space.mkdir()
-        script = _write_script(
-            dir_with_space, "ok.sh",
-            "#!/usr/bin/env bash\nprintf '{}\\n'\n",
+        script = _write_python_script(
+            dir_with_space, "ok.py",
+            "print('{}')\n",
         )
         # Quote the path so shlex keeps it as a single token.
         spec = shell_hooks.ShellHookSpec(
             event="post_tool_call",
-            command=f'"{script}"',
+            command=_python_command(script),
         )
         cb = shell_hooks._make_callback(spec)
         # No crash = shlex parsed it correctly.
@@ -648,15 +661,20 @@ class TestAllowlistConcurrency:
         script.write_text("print()\n")  # readable, NOT executable
 
         # Interpreter prefix: R_OK is enough.
-        assert shell_hooks.script_is_executable(f"python3 {script}")
+        assert shell_hooks.script_is_executable(f"{sys.executable} {script}")
         assert shell_hooks.script_is_executable(f"/usr/bin/env python3 {script}")
 
         # Bare invocation on the same non-X_OK file: not runnable.
         assert not shell_hooks.script_is_executable(str(script))
 
-        # Flip +x; bare invocation is now runnable too.
-        script.chmod(0o755)
-        assert shell_hooks.script_is_executable(str(script))
+        if os.name == "nt":
+            cmd = tmp_path / "hook.cmd"
+            cmd.write_text("@echo off\n", encoding="utf-8")
+            assert shell_hooks.script_is_executable(str(cmd))
+        else:
+            # Flip +x; bare invocation is now runnable too.
+            script.chmod(0o755)
+            assert shell_hooks.script_is_executable(str(script))
 
     def test_command_script_path_resolution(self):
         """Regression: ``_command_script_path`` used to return the first
@@ -688,6 +706,12 @@ class TestAllowlistConcurrency:
             # empty
             ("", ""),
         ]
+        if os.name == "nt":
+            cases.extend([
+                (r"C:\Temp\hook.sh", r"C:\Temp\hook.sh"),
+                (r"python C:\Temp\hook.py", r"C:\Temp\hook.py"),
+                (r'"C:\path with space\hook.py"', r"C:\path with space\hook.py"),
+            ])
         for command, expected in cases:
             got = shell_hooks._command_script_path(command)
             assert got == expected, f"{command!r} -> {got!r}, expected {expected!r}"
