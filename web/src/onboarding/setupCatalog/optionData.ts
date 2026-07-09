@@ -58,6 +58,16 @@ export const CATALOG_TTS: SetupCatalogOption[] = [
     name: L("NeuTTS（本机）", "NeuTTS (on-device)"),
     defaultHint: L("本机包与系统依赖，可空置后装", "Local packages; can skip here"),
   },
+  {
+    id: "xfyun",
+    name: L("讯飞语音合成（在线）", "iFlytek TTS (online)"),
+    defaultHint: L("科大讯飞在线合成，需三件套", "iFlytek online TTS, needs 3 keys"),
+    configFields: [
+      F("XFYUN_APPID", L("XFYUN_APPID", "XFYUN_APPID"), L("讯飞开放平台应用 APPID", "iFlytek console APPID"), "text"),
+      F("XFYUN_API_KEY", L("XFYUN_API_KEY", "XFYUN_API_KEY"), L("讯飞开放平台 APIKey", "iFlytek console APIKey"), "password"),
+      F("XFYUN_API_SECRET", L("XFYUN_API_SECRET", "XFYUN_API_SECRET"), L("讯飞开放平台 APISecret", "iFlytek console APISecret"), "password"),
+    ],
+  },
 ];
 
 /**
@@ -105,6 +115,16 @@ export const CATALOG_STT: SetupCatalogOption[] = [
     defaultHint: L("XAI_API_KEY", "XAI_API_KEY"),
     configFields: [
       F("XAI_API_KEY", L("XAI_API_KEY", "XAI_API_KEY"), L("xAI 控制台", "xAI console"), "password"),
+    ],
+  },
+  {
+    id: "xfyun",
+    name: L("讯飞语音听写（在线）", "iFlytek IAT (online)"),
+    defaultHint: L("科大讯飞在线听写，需三件套", "iFlytek online dictation, needs 3 keys"),
+    configFields: [
+      F("XFYUN_APPID", L("XFYUN_APPID", "XFYUN_APPID"), L("讯飞开放平台应用 APPID", "iFlytek console APPID"), "text"),
+      F("XFYUN_API_KEY", L("XFYUN_API_KEY", "XFYUN_API_KEY"), L("讯飞开放平台 APIKey", "iFlytek console APIKey"), "password"),
+      F("XFYUN_API_SECRET", L("XFYUN_API_SECRET", "XFYUN_API_SECRET"), L("讯飞开放平台 APISecret", "iFlytek console APISecret"), "password"),
     ],
   },
   {

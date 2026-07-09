@@ -24,13 +24,17 @@ _DESK_VOICE_ENV_ALLOWED = frozenset({
     "MINIMAX_API_KEY",
     "GEMINI_API_KEY",
     "GOOGLE_API_KEY",
+    # 科大讯飞语音听写/合成三件套
+    "XFYUN_APPID",
+    "XFYUN_API_KEY",
+    "XFYUN_API_SECRET",
 })
 
 _DESK_VOICE_PROVIDER_ALLOWED = {
-    "stt": frozenset({"local", "local_command", "groq", "openai", "mistral", "xai"}),
+    "stt": frozenset({"local", "local_command", "groq", "openai", "mistral", "xai", "xfyun"}),
     "tts": frozenset({
         "edge", "elevenlabs", "openai", "xai", "minimax", "mistral",
-        "gemini", "neutts", "kittentts", "piper",
+        "gemini", "neutts", "kittentts", "piper", "xfyun",
     }),
 }
 

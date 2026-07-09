@@ -149,6 +149,9 @@ DEFAULT_XAI_BASE_URL = "https://api.x.ai/v1"
 DEFAULT_GEMINI_TTS_MODEL = "gemini-2.5-flash-preview-tts"
 DEFAULT_GEMINI_TTS_VOICE = "Kore"
 DEFAULT_GEMINI_TTS_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
+# 科大讯飞在线语音合成（WebSocket v2）
+DEFAULT_XFYUN_TTS_HOST = "tts-api.xfyun.cn"
+DEFAULT_XFYUN_VOICE = "x4_xiaoyan"  # 讯飞小燕（V3/V4 引擎 vcn）；中文女声
 # PCM output specs for Gemini TTS (fixed by the API)
 GEMINI_TTS_SAMPLE_RATE = 24000
 GEMINI_TTS_CHANNELS = 1
@@ -174,6 +177,7 @@ PROVIDER_MAX_TEXT_LENGTH: Dict[str, int] = {
     "minimax": 10000,     # https://platform.minimax.io/docs/api-reference/speech-t2a-http (sync)
     "mistral": 4000,      # conservative; no published per-request cap
     "gemini": 5000,       # Gemini TTS caps at ~8k input tokens / ~655s audio
+    "xfyun": 2000,        # 讯飞在线合成单次约 8000 字节，中文按字符保守取 2000
     "elevenlabs": 10000,  # fallback when model-aware lookup can't resolve (multilingual_v2)
     "neutts": 2000,       # local model, quality falls off on long text
     "kittentts": 2000,    # local 25MB model
@@ -324,6 +328,7 @@ BUILTIN_TTS_PROVIDERS = frozenset({
     "neutts",
     "kittentts",
     "piper",
+    "xfyun",
 })
 
 DEFAULT_COMMAND_TTS_TIMEOUT_SECONDS = 120
@@ -1471,9 +1476,133 @@ def _generate_piper_tts(text: str, output_path: str, tts_config: Dict[str, Any])
 
 
 # ===========================================================================
+# Provider: 科大讯飞在线语音合成 (iFlytek TTS, WebSocket v2)
+# ===========================================================================
+async def _xfyun_tts_collect(
+    text: str,
+    app_id: str,
+    api_key: str,
+    api_secret: str,
+    host: str,
+    voice: str,
+    speed: int,
+    volume: int,
+    pitch: int,
+) -> bytes:
+    """Stream iFlytek online TTS over WebSocket and return the MP3 bytes.
+
+    Requests ``aue=lame`` (MP3) with ``sfl=1`` (streamed) so the base64 audio
+    frames concatenate straight into a playable .mp3.
+    """
+    import websockets
+
+    from tools.xfyun_ws import build_xfyun_ws_url
+
+    url = build_xfyun_ws_url(host, "/v2/tts", api_key, api_secret)
+    request = {
+        "common": {"app_id": app_id},
+        "business": {
+            "aue": "lame",
+            "sfl": 1,
+            "auf": "audio/L16;rate=16000",
+            "vcn": voice,
+            "tte": "UTF8",
+            "speed": speed,
+            "volume": volume,
+            "pitch": pitch,
+        },
+        "data": {
+            "status": 2,
+            "text": base64.b64encode(text.encode("utf-8")).decode("utf-8"),
+        },
+    }
+
+    audio = bytearray()
+    async with websockets.connect(url, max_size=None) as ws:
+        await ws.send(json.dumps(request))
+        while True:
+            message = await ws.recv()
+            resp = json.loads(message)
+            code = resp.get("code", 0)
+            if code != 0:
+                raise RuntimeError(
+                    f"讯飞 TTS 返回错误 code={code}: {resp.get('message', '')} "
+                    f"(sid={resp.get('sid', '')})"
+                )
+            data = resp.get("data") or {}
+            chunk_b64 = data.get("audio")
+            if chunk_b64:
+                audio.extend(base64.b64decode(chunk_b64))
+            if data.get("status") == 2:
+                break
+    if not audio:
+        raise RuntimeError("讯飞 TTS 未返回任何音频数据")
+    return bytes(audio)
+
+
+def _generate_xfyun_tts(text: str, output_path: str, tts_config: Dict[str, Any]) -> str:
+    """Generate audio using iFlytek (科大讯飞) online TTS.
+
+    Uses ``wss://tts-api.xfyun.cn/v2/tts`` with HMAC-SHA256 URL auth. Outputs
+    MP3. Credentials (XFYUN_APPID / XFYUN_API_KEY / XFYUN_API_SECRET) are read
+    from the Windows Credential store / .env, never hard-coded.
+    """
+    from tools.xfyun_ws import get_xfyun_credentials, run_ws_coroutine
+
+    app_id, api_key, api_secret = get_xfyun_credentials()
+    if not (app_id and api_key and api_secret):
+        raise ValueError(
+            "讯飞语音凭据未配置：请在设置里填入 XFYUN_APPID / XFYUN_API_KEY / XFYUN_API_SECRET"
+        )
+
+    xf_config = tts_config.get("xfyun", {}) if isinstance(tts_config, dict) else {}
+    voice = str(xf_config.get("voice", DEFAULT_XFYUN_VOICE)).strip() or DEFAULT_XFYUN_VOICE
+    host = str(xf_config.get("host", DEFAULT_XFYUN_TTS_HOST)).strip() or DEFAULT_XFYUN_TTS_HOST
+
+    def _clamp(value: Any, default: int) -> int:
+        try:
+            return max(0, min(100, int(value)))
+        except (TypeError, ValueError):
+            return default
+
+    speed = _clamp(xf_config.get("speed", 50), 50)
+    volume = _clamp(xf_config.get("volume", 50), 50)
+    pitch = _clamp(xf_config.get("pitch", 50), 50)
+
+    audio_bytes = run_ws_coroutine(
+        lambda: _xfyun_tts_collect(
+            text, app_id, api_key, api_secret, host, voice, speed, volume, pitch
+        )
+    )
+
+    # iFlytek returns MP3 frames; if the caller wants .ogg, convert via ffmpeg.
+    mp3_path = output_path
+    if not output_path.lower().endswith(".mp3"):
+        mp3_path = output_path.rsplit(".", 1)[0] + ".mp3"
+    with open(mp3_path, "wb") as fh:
+        fh.write(audio_bytes)
+
+    if mp3_path != output_path:
+        ffmpeg = shutil.which("ffmpeg")
+        if ffmpeg:
+            subprocess.run(
+                [ffmpeg, "-i", mp3_path, "-y", "-loglevel", "error", output_path],
+                check=True,
+                timeout=30,
+            )
+            try:
+                os.remove(mp3_path)
+            except OSError:
+                pass
+        else:
+            os.rename(mp3_path, output_path)
+
+    return output_path
+
+
+# ===========================================================================
 # Provider: KittenTTS (local, lightweight)
 # ===========================================================================
-
 # Module-level cache for KittenTTS model instance
 _kittentts_model_cache: Dict[str, Any] = {}
 
@@ -1671,6 +1800,10 @@ def text_to_speech_tool(
             logger.info("Generating speech with Google Gemini TTS...")
             _generate_gemini_tts(text, file_str, tts_config)
 
+        elif provider == "xfyun":
+            logger.info("Generating speech with iFlytek (科大讯飞) online TTS...")
+            _generate_xfyun_tts(text, file_str, tts_config)
+
         elif provider == "neutts":
             if not _check_neutts_available():
                 return json.dumps({
@@ -1756,7 +1889,7 @@ def text_to_speech_tool(
                     if opus_path:
                         file_str = opus_path
                 voice_compatible = file_str.endswith(".ogg")
-        elif provider in ("edge", "neutts", "minimax", "xai", "kittentts", "piper") and not file_str.endswith(".ogg"):
+        elif provider in ("edge", "neutts", "minimax", "xai", "kittentts", "piper", "xfyun") and not file_str.endswith(".ogg"):
             opus_path = _convert_to_opus(file_str)
             if opus_path:
                 file_str = opus_path
@@ -1836,6 +1969,13 @@ def check_tts_requirements() -> bool:
     if get_env_value("XAI_API_KEY"):
         return True
     if get_env_value("GEMINI_API_KEY") or get_env_value("GOOGLE_API_KEY"):
+        return True
+    # 科大讯飞在线合成：三件套齐备即可用
+    if (
+        get_env_value("XFYUN_APPID")
+        and get_env_value("XFYUN_API_KEY")
+        and get_env_value("XFYUN_API_SECRET")
+    ):
         return True
     try:
         _import_mistral_client()

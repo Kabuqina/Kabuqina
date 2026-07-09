@@ -26,6 +26,9 @@ Usage::
         print(result["transcript"])
 """
 
+import asyncio
+import base64
+import json
 import logging
 import os
 import shlex
@@ -91,6 +94,8 @@ COMMON_LOCAL_BIN_DIRS = ("/opt/homebrew/bin", "/usr/local/bin")
 GROQ_BASE_URL = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
 OPENAI_BASE_URL = os.getenv("STT_OPENAI_BASE_URL", "https://api.openai.com/v1")
 XAI_STT_BASE_URL = os.getenv("XAI_STT_BASE_URL", "https://api.x.ai/v1")
+# 科大讯飞语音听写（WebSocket v2）
+XFYUN_IAT_HOST = os.getenv("XFYUN_IAT_HOST", "iat-api.xfyun.cn")
 
 SUPPORTED_FORMATS = {".mp3", ".mp4", ".mpeg", ".mpga", ".m4a", ".wav", ".webm", ".ogg", ".aac", ".flac"}
 LOCAL_NATIVE_AUDIO_FORMATS = {".wav", ".aiff", ".aif"}
@@ -268,6 +273,15 @@ def _get_provider(stt_config: dict) -> str:
             )
             return "none"
 
+        if provider == "xfyun":
+            if _has_xfyun_credentials():
+                return "xfyun"
+            logger.warning(
+                "STT provider 'xfyun' configured but XFYUN_APPID / "
+                "XFYUN_API_KEY / XFYUN_API_SECRET not all set"
+            )
+            return "none"
+
         return provider  # Unknown — let it fail downstream
 
     # --- Auto-detect (no explicit provider): local > groq > openai > mistral > xai -
@@ -288,6 +302,9 @@ def _get_provider(stt_config: dict) -> str:
     if get_env_value("XAI_API_KEY"):
         logger.info("No local STT available, using xAI Grok STT API")
         return "xai"
+    if _has_xfyun_credentials():
+        logger.info("No local STT available, using iFlytek (科大讯飞) IAT")
+        return "xfyun"
     return "none"
 
 # ---------------------------------------------------------------------------
@@ -704,6 +721,204 @@ def _transcribe_mistral(file_path: str, model_name: str) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+def _has_xfyun_credentials() -> bool:
+    """Return True when all three iFlytek voice credentials are present."""
+    return bool(
+        get_env_value("XFYUN_APPID")
+        and get_env_value("XFYUN_API_KEY")
+        and get_env_value("XFYUN_API_SECRET")
+    )
+
+
+def _to_pcm16k_mono(file_path: str) -> bytes:
+    """Decode any supported audio file to 16 kHz / 16-bit / mono raw PCM.
+
+    iFlytek IAT requires raw ``audio/L16;rate=16000`` frames, so we transcode
+    the recorded webm/ogg/wav via ffmpeg first.
+    """
+    ffmpeg = _find_ffmpeg_binary()
+    if not ffmpeg:
+        raise RuntimeError(
+            "ffmpeg 未找到，无法将录音转换为讯飞听写所需的 16k PCM。"
+        )
+    with tempfile.NamedTemporaryFile(suffix=".pcm", delete=False) as tmp:
+        pcm_path = tmp.name
+    try:
+        subprocess.run(
+            [ffmpeg, "-y", "-i", file_path, "-ar", "16000", "-ac", "1",
+             "-f", "s16le", "-loglevel", "error", pcm_path],
+            check=True,
+            capture_output=True,
+            timeout=60,
+        )
+        with open(pcm_path, "rb") as fh:
+            return fh.read()
+    finally:
+        try:
+            os.unlink(pcm_path)
+        except OSError:
+            pass
+
+
+async def _xfyun_iat_collect(
+    pcm_bytes: bytes,
+    app_id: str,
+    api_key: str,
+    api_secret: str,
+    host: str,
+    language: str,
+    accent: str,
+) -> str:
+    """Stream raw PCM to iFlytek IAT over WebSocket and assemble the transcript.
+
+    Handles dynamic correction (``pgs`` = ``rpl`` replace / ``apd`` append) by
+    keying partial results on their sentence number so the final text reflects
+    the corrected segments rather than duplicated fragments.
+    """
+    import websockets
+
+    from tools.xfyun_ws import build_xfyun_ws_url
+
+    url = build_xfyun_ws_url(host, "/v2/iat", api_key, api_secret)
+    frame_size = 1280  # 40ms of 16k/16bit mono audio
+    interval = 0.04
+    audio_fmt = "audio/L16;rate=16000"
+
+    segments: Dict[int, str] = {}
+
+    async with websockets.connect(url, max_size=None) as ws:
+
+        async def _send_all() -> None:
+            total = len(pcm_bytes)
+            offset = 0
+            first = True
+            # Always send at least one audio frame then the terminal frame.
+            while True:
+                chunk = pcm_bytes[offset:offset + frame_size]
+                offset += frame_size
+                is_last = offset >= total
+                if first:
+                    frame = {
+                        "common": {"app_id": app_id},
+                        "business": {
+                            "language": language,
+                            "domain": "iat",
+                            "accent": accent,
+                            "vad_eos": 5000,
+                            "dwa": "wpgs",
+                        },
+                        "data": {
+                            "status": 0,
+                            "format": audio_fmt,
+                            "encoding": "raw",
+                            "audio": base64.b64encode(chunk).decode("utf-8"),
+                        },
+                    }
+                    first = False
+                else:
+                    frame = {
+                        "data": {
+                            "status": 1,
+                            "format": audio_fmt,
+                            "encoding": "raw",
+                            "audio": base64.b64encode(chunk).decode("utf-8"),
+                        }
+                    }
+                await ws.send(json.dumps(frame))
+                if is_last:
+                    break
+                await asyncio.sleep(interval)
+            # Terminal frame — signals end of audio.
+            await ws.send(json.dumps({
+                "data": {"status": 2, "format": audio_fmt, "encoding": "raw", "audio": ""}
+            }))
+
+        sender = asyncio.ensure_future(_send_all())
+        try:
+            while True:
+                try:
+                    message = await ws.recv()
+                except websockets.exceptions.ConnectionClosedOK:
+                    # iFlytek closes the socket (1000) once it has returned all
+                    # results (or on a silence/read timeout) — treat as end.
+                    break
+                resp = json.loads(message)
+                if resp.get("code", 0) != 0:
+                    raise RuntimeError(
+                        f"讯飞 IAT 返回错误 code={resp.get('code')}: "
+                        f"{resp.get('message', '')} (sid={resp.get('sid', '')})"
+                    )
+                data = resp.get("data") or {}
+                result = data.get("result") or {}
+                words = "".join(
+                    cw.get("w", "")
+                    for ws_item in result.get("ws", [])
+                    for cw in ws_item.get("cw", [])
+                )
+                sn = result.get("sn")
+                rg = result.get("rg")
+                if result.get("pgs") == "rpl" and isinstance(rg, list) and len(rg) == 2:
+                    # Replace previously received sentence segments in range.
+                    for k in [key for key in segments if rg[0] <= key <= rg[1]]:
+                        segments.pop(k, None)
+                if sn is not None:
+                    segments[sn] = words
+                if data.get("status") == 2:
+                    break
+        finally:
+            if not sender.done():
+                sender.cancel()
+            try:
+                await sender
+            except (asyncio.CancelledError, Exception):
+                pass
+
+    return "".join(segments[k] for k in sorted(segments))
+
+
+def _transcribe_xfyun(file_path: str) -> Dict[str, Any]:
+    """Transcribe using iFlytek (科大讯飞) online speech dictation (IAT).
+
+    Uses ``wss://iat-api.xfyun.cn/v2/iat`` with HMAC-SHA256 URL auth. The input
+    audio is transcoded to 16 kHz mono PCM via ffmpeg, then streamed frame by
+    frame. Requires XFYUN_APPID / XFYUN_API_KEY / XFYUN_API_SECRET (stored in
+    the Windows Credential store / .env, never hard-coded).
+    """
+    from tools.xfyun_ws import get_xfyun_credentials, run_ws_coroutine
+
+    app_id, api_key, api_secret = get_xfyun_credentials()
+    if not (app_id and api_key and api_secret):
+        return {
+            "success": False,
+            "transcript": "",
+            "error": "讯飞语音凭据未配置：请填入 XFYUN_APPID / XFYUN_API_KEY / XFYUN_API_SECRET",
+        }
+
+    stt_config = _load_stt_config()
+    xf_config = stt_config.get("xfyun", {}) if isinstance(stt_config, dict) else {}
+    language = str(xf_config.get("language", "zh_cn")).strip() or "zh_cn"
+    accent = str(xf_config.get("accent", "mandarin")).strip() or "mandarin"
+    host = str(xf_config.get("host", XFYUN_IAT_HOST)).strip() or XFYUN_IAT_HOST
+
+    try:
+        pcm_bytes = _to_pcm16k_mono(file_path)
+        if not pcm_bytes:
+            return {"success": False, "transcript": "", "error": "音频为空或转码失败"}
+        transcript = run_ws_coroutine(
+            lambda: _xfyun_iat_collect(
+                pcm_bytes, app_id, api_key, api_secret, host, language, accent
+            )
+        ).strip()
+    except Exception as exc:  # noqa: BLE001 - surface a friendly message to the UI
+        logger.error("iFlytek IAT transcription failed: %s", exc, exc_info=True)
+        return {"success": False, "transcript": "", "error": f"讯飞听写失败: {exc}"}
+
+    if not transcript:
+        return {"success": False, "transcript": "", "error": "讯飞听写返回空结果"}
+    logger.info("Transcribed %s via iFlytek IAT (%d chars)", Path(file_path).name, len(transcript))
+    return {"success": True, "transcript": transcript, "provider": "xfyun"}
+
+
 def _transcribe_xai(file_path: str, model_name: str) -> Dict[str, Any]:
     """Transcribe using xAI Grok STT API.
 
@@ -870,6 +1085,10 @@ def transcribe_audio(file_path: str, model: Optional[str] = None) -> Dict[str, A
         # xAI Grok STT doesn't use a model parameter — pass through for logging
         model_name = model or "grok-stt"
         return _transcribe_xai(file_path, model_name)
+
+    if provider == "xfyun":
+        # iFlytek IAT has no model parameter; language/accent come from config.
+        return _transcribe_xfyun(file_path)
 
     # No provider available
     return {
