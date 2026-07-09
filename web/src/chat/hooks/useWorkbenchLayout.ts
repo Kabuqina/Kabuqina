@@ -6,10 +6,21 @@ import { isWorkbenchNarrow } from "./workbenchLayoutLogic";
 
 export const WORKBENCH_LAYOUT_KEY = "kabuqina.workbench.layout";
 
+/** Right workspace panel width bounds (px). */
+export const RIGHT_PANEL_MIN_WIDTH = 240;
+export const RIGHT_PANEL_MAX_WIDTH = 680;
+export const RIGHT_PANEL_DEFAULT_WIDTH = 264;
+
+function clampRightWidth(value: number): number {
+  if (!Number.isFinite(value)) return RIGHT_PANEL_DEFAULT_WIDTH;
+  return Math.max(RIGHT_PANEL_MIN_WIDTH, Math.min(RIGHT_PANEL_MAX_WIDTH, Math.round(value)));
+}
+
 type StoredWorkbenchLayout = {
   leftOpen?: boolean;
   rightOpen?: boolean;
   focusMode?: boolean;
+  rightWidth?: number;
 };
 
 export type WorkbenchLayout = {
@@ -19,9 +30,11 @@ export type WorkbenchLayout = {
   isNarrow: boolean;
   showLeftRail: boolean;
   showRightPanel: boolean;
+  rightWidth: number;
   toggleLeft: () => void;
   toggleRight: () => void;
   toggleFocusMode: () => void;
+  setRightWidth: (width: number) => void;
 };
 
 function readStoredLayout(): StoredWorkbenchLayout {
@@ -49,6 +62,9 @@ export function useWorkbenchLayout(): WorkbenchLayout {
   const [rightOpen, setRightOpen] = useState(stored.rightOpen ?? true);
   const [focusMode, setFocusMode] = useState(stored.focusMode ?? false);
   const [isNarrow, setIsNarrow] = useState(false);
+  const [rightWidth, setRightWidthState] = useState(() =>
+    clampRightWidth(stored.rightWidth ?? RIGHT_PANEL_DEFAULT_WIDTH),
+  );
 
   useEffect(() => {
     const update = () => setIsNarrow(isWorkbenchNarrow(window.innerWidth));
@@ -58,8 +74,12 @@ export function useWorkbenchLayout(): WorkbenchLayout {
   }, []);
 
   useEffect(() => {
-    writeStoredLayout({ leftOpen, rightOpen, focusMode });
-  }, [leftOpen, rightOpen, focusMode]);
+    writeStoredLayout({ leftOpen, rightOpen, focusMode, rightWidth });
+  }, [leftOpen, rightOpen, focusMode, rightWidth]);
+
+  const setRightWidth = useCallback((width: number) => {
+    setRightWidthState(clampRightWidth(width));
+  }, []);
 
   const toggleLeft = useCallback(() => {
     setFocusMode(false);
@@ -82,8 +102,10 @@ export function useWorkbenchLayout(): WorkbenchLayout {
     isNarrow,
     showLeftRail: !focusMode && (leftOpen || isNarrow),
     showRightPanel: !focusMode && rightOpen && !isNarrow,
+    rightWidth,
     toggleLeft,
     toggleRight,
     toggleFocusMode,
+    setRightWidth,
   };
 }

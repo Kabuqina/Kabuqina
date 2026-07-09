@@ -52,6 +52,10 @@ type WorkspacePanelProps = {
   // True while a turn is in flight. Deliverable files may still be mid-write, so
   // their open/reveal/regenerate actions stay disabled until 小娜 finishes replying.
   busy?: boolean;
+  /** Panel width in px (user-resizable). Falls back to the CSS default when omitted. */
+  width?: number;
+  /** Called with the new width (px) while the user drags the left edge. */
+  onResize?: (width: number) => void;
 };
 
 // PPT_VISUAL_MASTERS + PptVisualMaster now live in ./pptx/visualMasters (shared with the renderer).
@@ -450,8 +454,35 @@ export function WorkspacePanel({
   outputs,
   activeTool,
   busy = false,
+  width,
+  onResize,
 }: WorkspacePanelProps) {
   const { t, locale } = useI18n();
+  const asideRef = useRef<HTMLElement | null>(null);
+
+  // Drag the panel's left edge to resize. Width is derived from the panel's
+  // own right edge so it stays correct regardless of surrounding chrome; the
+  // owner (useWorkbenchLayout.setRightWidth) clamps and persists it.
+  const startResize = useCallback(
+    (event: React.MouseEvent) => {
+      if (!onResize) return;
+      event.preventDefault();
+      const rightEdge = asideRef.current?.getBoundingClientRect().right ?? window.innerWidth;
+      const onMove = (ev: MouseEvent) => onResize(rightEdge - ev.clientX);
+      const onUp = () => {
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+        document.body.style.userSelect = "";
+        document.body.style.cursor = "";
+      };
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
+      document.body.style.userSelect = "none";
+      document.body.style.cursor = "col-resize";
+    },
+    [onResize],
+  );
+
   // The right rail is one surface with three modes: WORK (this session's goal /
   // materials / deliverables), REPORT (the launchpad of report/PPT deliverables),
   // and STUDY (learning quick actions + math & code). REPORT is task-mode work
@@ -577,11 +608,23 @@ export function WorkspacePanel({
 
   return (
     <aside
+      ref={asideRef}
       className={cn(
-        "kq-workspace-panel flex w-[264px] shrink-0 flex-col border-l",
+        "kq-workspace-panel flex w-[264px] shrink-0 flex-col border-l relative",
         className,
       )}
+      style={typeof width === "number" ? { width: `${width}px` } : undefined}
     >
+      {onResize ? (
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label={locale === "zh" ? "拖动调整面板宽度" : "Drag to resize panel"}
+          title={locale === "zh" ? "拖动调整宽度" : "Drag to resize"}
+          onMouseDown={startResize}
+          className="absolute left-0 top-0 z-20 h-full w-1.5 -translate-x-1/2 cursor-col-resize bg-transparent transition-colors hover:bg-[var(--kq-color-primary)]/40"
+        />
+      ) : null}
       <div className="flex h-11 items-center justify-between gap-2 border-b border-[var(--kq-glass-border)] px-2.5">
         <div className="kq-workspace-tabs inline-flex p-0.5" role="tablist">
           <button

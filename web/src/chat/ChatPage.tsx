@@ -561,6 +561,8 @@ export function ChatPage() {
             outputs={workspace.outputs}
             activeTool={workspace.activeTool}
             busy={sending}
+            width={workbench.rightWidth}
+            onResize={workbench.setRightWidth}
           />
         )}
       </div>
