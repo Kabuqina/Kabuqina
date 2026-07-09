@@ -17,6 +17,7 @@ log = logging.getLogger("hermesdesk.secret")
 
 _PROVIDER_ENV: dict[str, str] = {
     "deepseek":   "DEEPSEEK_API_KEY",
+    "spark":      "SPARK_API_KEY",
     "openrouter": "OPENROUTER_API_KEY",
     "openai":     "OPENAI_API_KEY",
     "custom":     "OPENAI_API_KEY",

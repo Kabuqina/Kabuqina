@@ -329,6 +329,15 @@ PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
         api_key_env_vars=("DEEPSEEK_API_KEY",),
         base_url_env_var="DEEPSEEK_BASE_URL",
     ),
+    "spark": ProviderConfig(
+        id="spark",
+        name="讯飞星火 Spark",
+        auth_type="api_key",
+        # OpenAI-compatible endpoint; APIPassword is used as the Bearer token.
+        inference_base_url="https://spark-api-open.xf-yun.com/v1",
+        api_key_env_vars=("SPARK_API_KEY",),
+        base_url_env_var="SPARK_BASE_URL",
+    ),
     "xai": ProviderConfig(
         id="xai",
         name="xAI",

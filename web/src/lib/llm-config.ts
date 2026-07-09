@@ -23,6 +23,7 @@ export type ProviderSaveConfig = {
 
 export const SELECTABLE_LLM_PROVIDERS: (ProviderId | "custom")[] = [
   "deepseek",
+  "spark",
   "zai",
   "kimi-coding",
   "kimi-coding-cn",
@@ -34,6 +35,7 @@ export const SELECTABLE_LLM_PROVIDERS: (ProviderId | "custom")[] = [
 
 export const PROVIDER_PRESETS: Record<string, { host: string; model: string }> = {
   deepseek: { host: "https://api.deepseek.com/v1", model: "deepseek-v4-flash" },
+  spark: { host: "https://spark-api-open.xf-yun.com/v1", model: "generalv3.5" },
   zai: { host: "https://api.z.ai/api/paas/v4", model: "glm-5.1" },
   "kimi-coding": { host: "https://api.kimi.com/coding", model: "kimi-k2.6" },
   "kimi-coding-cn": { host: "https://api.kimi.com/coding/v1", model: "kimi-k2.6" },

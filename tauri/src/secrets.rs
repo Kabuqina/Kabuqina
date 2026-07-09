@@ -167,6 +167,7 @@ pub fn provider_api_key_env(provider: &str) -> String {
         "openrouter" => "OPENROUTER_API_KEY",
         "openai" => "OPENAI_API_KEY",
         "deepseek" => "DEEPSEEK_API_KEY",
+        "spark" => "SPARK_API_KEY",
         "custom" => "OPENAI_API_KEY",
         "anthropic" => "ANTHROPIC_API_KEY",
         "nous" => "NOUS_PORTAL_API_KEY",

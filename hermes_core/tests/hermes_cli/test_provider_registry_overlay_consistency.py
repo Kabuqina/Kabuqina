@@ -34,8 +34,9 @@ _OVERLAY_TO_REGISTRY_ID = {"kimi-for-coding": "kimi-coding"}
 # Intentional one-sided membership (documented, not drift):
 #  - openrouter: an aggregator with no dedicated login flow → overlay only.
 #  - gemini / kimi-coding-cn: have auth/runtime config but no models.dev overlay.
+#  - spark: 讯飞星火 (China) has auth/runtime config but no models.dev overlay.
 _OVERLAY_ONLY = {"openrouter"}
-_REGISTRY_ONLY = {"gemini", "kimi-coding-cn"}
+_REGISTRY_ONLY = {"gemini", "kimi-coding-cn", "spark"}
 
 # Providers whose overlay/registry auth_type intentionally differs. Empty: the
 # former minimax-oauth divergence (overlay "oauth_external" vs registry

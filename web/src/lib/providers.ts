@@ -16,6 +16,7 @@ export type ProviderId =
   | "openai"
   | "anthropic"
   | "deepseek"
+  | "spark"
   | "nous"
   | "groq"
   | "mistral"
@@ -56,6 +57,20 @@ export const PROVIDERS: Provider[] = [
     keyPrefixHint: "sk-",
     blurb: "DeepSeek V4. Leading performance, competitive pricing.",
     freeTier: false,
+  },
+  {
+    id: "spark",
+    label: "讯飞星火 Spark",
+    host: "spark-api-open.xf-yun.com",
+    signupUrl: "https://console.xfyun.cn/services/bmv3",
+    validateUrl: "https://spark-api-open.xf-yun.com/v1/models",
+    validateAuth: (k) => `Bearer ${k}`,
+    // Spark's OpenAI-compatible endpoint uses an APIPassword (Bearer token)
+    // from the console's「http 服务接口认证信息」page; it may not expose a
+    // GET /v1/models probe, so we skip the pre-flight endpoint validation.
+    skipEndpointValidation: true,
+    blurb: "科大讯飞星火认知大模型（OpenAI 兼容）。国产合规，支持 lite/pro/4.0Ultra。",
+    freeTier: true,
   },
   {
     id: "zai",

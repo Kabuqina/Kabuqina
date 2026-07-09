@@ -33,7 +33,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' asset: data: blob: http://127.0.0.1:* https:; connect-src ipc: http://ipc.localhost http://127.0.0.1:* ws://127.0.0.1:* https://api.openrouter.ai https://openrouter.ai https://api.openai.com https://api.anthropic.com https://portal.nousresearch.com https://api.groq.com https://api.mistral.ai https://api.deepseek.com https://fonts.googleapis.com https://fonts.gstatic.com; style-src 'self' 'unsafe-inline'; script-src 'self'",
+      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' asset: data: blob: http://127.0.0.1:* https:; connect-src ipc: http://ipc.localhost http://127.0.0.1:* ws://127.0.0.1:* https://api.openrouter.ai https://openrouter.ai https://api.openai.com https://api.anthropic.com https://portal.nousresearch.com https://api.groq.com https://api.mistral.ai https://api.deepseek.com https://spark-api-open.xf-yun.com https://tts-api.xfyun.cn https://iat-api.xfyun.cn wss://tts-api.xfyun.cn wss://iat-api.xfyun.cn https://fonts.googleapis.com https://fonts.gstatic.com; style-src 'self' 'unsafe-inline'; script-src 'self'",
       "assetProtocol": {
         "enable": true,
         "scope": [
