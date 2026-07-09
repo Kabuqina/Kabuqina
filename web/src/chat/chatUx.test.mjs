@@ -1321,10 +1321,20 @@ assert.match(
   /const result = saveStudyContext\([\s\S]*setWroteBack\(result\.succeeded\)/,
   "Flashcard progress write-back should only report success after storage succeeds.",
 );
+assert.doesNotMatch(
+  flashcardPanelSource,
+  /className="mt-[23] grid gap-/,
+  "Flashcard panel stacks must use grid-cols-1 so long titles cannot widen the right rail.",
+);
 assert.match(
   quizPanelSource,
   /const saveResult = saveStudyContext\([\s\S]*setWroteBack\(saveResult\.succeeded\)/,
   "Quiz result write-back should only report success after storage succeeds.",
+);
+assert.doesNotMatch(
+  quizPanelSource,
+  /className="mt-[23] grid gap-/,
+  "Quiz panel stacks must use grid-cols-1 so long titles cannot widen the right rail.",
 );
 assert.match(
   studySectionSource,

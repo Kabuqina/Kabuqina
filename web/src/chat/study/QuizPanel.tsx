@@ -313,7 +313,7 @@ export function QuizPanel({
 
   return (
     <WorkspaceSection sectionId="workspace.quiz" title={t("chat.quizTitle")} dotColor="#2f9e8f">
-      <div className="mt-2 grid gap-2">
+      <div className="mt-2 grid grid-cols-1 gap-2">
         <div className="flex items-center gap-2">
           <select
             value={currentSpaceId}
@@ -364,7 +364,7 @@ export function QuizPanel({
       </div>
 
       {drafts.length ? (
-        <div className="mt-3 grid gap-1.5">
+        <div className="mt-3 grid grid-cols-1 gap-1.5">
           <div className="text-[12px] font-medium text-[var(--kq-color-ink)]">{t("chat.quizDrafts")}</div>
           {drafts.map((draft) => (
             <div key={draft.artifact_id} className="kq-workspace-card flex items-center gap-2 rounded-md px-2 py-2">
@@ -396,7 +396,7 @@ export function QuizPanel({
       ) : null}
 
       {mode === "idle" ? (
-        <div className="mt-3 grid gap-2">
+        <div className="mt-3 grid grid-cols-1 gap-2">
           <select
             value={selectedQuizId}
             onChange={(event) => setSelectedQuizId(event.currentTarget.value)}
@@ -430,7 +430,7 @@ export function QuizPanel({
       ) : null}
 
       {mode === "taking" && current ? (
-        <div className="mt-3 grid gap-2">
+        <div className="mt-3 grid grid-cols-1 gap-2">
           <div className="flex items-center justify-between text-[11.5px] text-[var(--kq-color-muted)]">
             <span>{t("chat.quizQuestionProgress", { current: index + 1, total: questions.length })}</span>
             <span className="rounded-full bg-[var(--kq-color-surface-2)] px-2 py-0.5">{typeLabel(current)}</span>
@@ -519,7 +519,7 @@ export function QuizPanel({
       ) : null}
 
       {mode === "result" && result ? (
-        <div className="mt-3 grid gap-2">
+        <div className="mt-3 grid grid-cols-1 gap-2">
           <div className="rounded-md bg-[var(--kq-color-surface-2)] px-3 py-2 text-[12.5px] text-[var(--kq-color-ink)]">
             <div className="font-medium">
               {t("chat.quizScore", { score: result.score, max: result.maxScore, percent: result.percent })}
