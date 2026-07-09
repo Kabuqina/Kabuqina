@@ -154,6 +154,34 @@ def _find_ffmpeg_binary() -> Optional[str]:
     return _find_binary("ffmpeg")
 
 
+def _resolve_ffmpeg() -> Optional[str]:
+    """Locate an ffmpeg binary, preferring the one bundled next to whisper.cpp.
+
+    The desktop build stages ``ffmpeg.exe`` into ``<runtime>/stt-bin/`` via
+    ``python/build_bundle.ps1`` (same dir as ``whisper-cli.exe``); it is not on
+    PATH. Check the bundle first (via ``HERMESDESK_BUNDLE_DIR`` set by the Tauri
+    shell, then the runtime layout relative to this file), then fall back to
+    PATH / common local dirs for CLI/dev use.
+    """
+    names = ("ffmpeg.exe", "ffmpeg")
+    roots = []
+    bundle = (os.environ.get("HERMESDESK_BUNDLE_DIR") or "").strip()
+    if bundle:
+        roots.append(Path(bundle) / "stt-bin")
+    try:
+        # In the runtime, this file is <runtime>/hermes/tools/transcription_tools.py,
+        # so parents[2] is <runtime> and stt-bin sits beside the hermes/ sources.
+        roots.append(Path(__file__).resolve().parents[2] / "stt-bin")
+    except Exception:
+        pass
+    for root in roots:
+        for name in names:
+            candidate = root / name
+            if candidate.is_file():
+                return str(candidate)
+    return _find_ffmpeg_binary()
+
+
 def _find_whisper_binary() -> Optional[str]:
     return _find_binary("whisper")
 
@@ -736,10 +764,12 @@ def _to_pcm16k_mono(file_path: str) -> bytes:
     iFlytek IAT requires raw ``audio/L16;rate=16000`` frames, so we transcode
     the recorded webm/ogg/wav via ffmpeg first.
     """
-    ffmpeg = _find_ffmpeg_binary()
+    ffmpeg = _resolve_ffmpeg()
     if not ffmpeg:
         raise RuntimeError(
             "ffmpeg 未找到，无法将录音转换为讯飞听写所需的 16k PCM。"
+            "请运行 python/build_bundle.ps1 打包 stt-bin（含 ffmpeg），"
+            "或将 ffmpeg 加入 PATH。"
         )
     with tempfile.NamedTemporaryFile(suffix=".pcm", delete=False) as tmp:
         pcm_path = tmp.name
