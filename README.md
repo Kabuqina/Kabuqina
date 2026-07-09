@@ -75,7 +75,7 @@
 2. 配置 LLM Provider 和 API Key。
 3. 按需进入 Settings 启用能力包或消息平台。
 
-卡布奇娜采用 BYO API Key 模式，支持 OpenAI、OpenRouter、Anthropic、DeepSeek、Groq、Mistral 等 provider。
+卡布奇娜采用 BYO API Key 模式，支持 OpenAI、OpenRouter、Anthropic、DeepSeek、**科大讯飞星火**、Groq、Mistral 等 provider。
 
 ## 隐私与安全
 
@@ -158,6 +158,29 @@ Tauri 2 shell (Rust)
 - [docs/immersive-learning-redesign.md](docs/immersive-learning-redesign.md) — 学习产品原则与路线
 - [docs/superpowers/specs/2026-07-01-study-four-layer-learning-pipeline-design.md](docs/superpowers/specs/2026-07-01-study-four-layer-learning-pipeline-design.md) — 学习数据管线契约
 - [docs/learning-runtime-alignment.md](docs/learning-runtime-alignment.md) — 运行时与图引擎的演进方向
+
+## 第三方服务与合规标注
+
+按第十五届中国软件杯赛题要求，现将本项目使用的前沿 AI 工具与开源项目在此显著标注名称、来源与协议。
+
+### 科大讯飞（iFlytek）
+
+本项目集成科大讯飞相关 AI 工具作为大模型与语音能力：
+
+- **讯飞星火认知大模型 Spark**（大语言模型，OpenAI 兼容接入）——可作为默认/可选 LLM Provider，用于对话、多智能体编队与个性化学习内容生成。
+- **讯飞语音听写 IAT**（语音识别 / ASR）——麦克风与录音转写为文本。
+- **讯飞在线语音合成 TTS**（语音合成 / TTS）——聊天回复的「朗读」。
+
+来源：讯飞开放平台（<https://www.xfyun.cn/>）。使用遵循讯飞开放平台《服务协议》及各接口服务条款。凭据（APPID / APIKey / APISecret / 星火 APIPassword）由用户在设置中自行填写，存入 Windows 凭据管理器，不随源码或安装包分发。
+
+### 开源项目
+
+- **Hermes Agent**（Nous Research，MIT）——本项目 agent core（`hermes_core/`）源自该项目，作为自有 core 在仓库内独立演进。见 [hermes_core/LICENSE](hermes_core/LICENSE)。
+- 桌面壳与运行时依赖 **Tauri 2**、**React 19 / Vite**、**FastAPI**、**websockets** 等，均遵循各自开源协议。
+
+### AI 辅助开发工具
+
+开发过程中使用了 AI 编码助手（Claude Code）辅助编写与审阅代码，所有产出均经人工审阅与测试。按赛题要求，面向产品能力的 AI 工具优先选用科大讯飞相关工具（星火认知大模型、讯飞语音听写 / 合成）。
 
 ## 排障
 
