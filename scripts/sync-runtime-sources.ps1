@@ -148,7 +148,51 @@ foreach ($name in $hermesKeep) {
     }
 }
 
+$runtimeDrop = @(
+    "gateway\platforms\api_server.py",
+    "gateway\platforms\bluebubbles.py",
+    "gateway\platforms\homeassistant.py",
+    "gateway\platforms\matrix.py",
+    "gateway\platforms\mattermost.py",
+    "gateway\platforms\signal.py",
+    "gateway\platforms\signal_rate_limit.py",
+    "gateway\platforms\slack.py",
+    "gateway\platforms\sms.py",
+    "gateway\platforms\webhook.py",
+    "gateway\platforms\yuanbao.py",
+    "gateway\platforms\yuanbao_media.py",
+    "gateway\platforms\yuanbao_proto.py",
+    "gateway\platforms\yuanbao_sticker.py",
+    "tools\rl_training_tool.py",
+    "tools\feishu_doc_tool.py",
+    "tools\feishu_drive_tool.py",
+    "tools\homeassistant_tool.py",
+    "tools\browser_camofox.py",
+    "tools\browser_camofox_state.py",
+    "tools\mixture_of_agents_tool.py",
+    "tools\discord_tool.py",
+    "tools\yuanbao_tools.py",
+    "plugins\disk-cleanup",
+    "plugins\platforms",
+    "plugins\spotify",
+    "skills\creative\popular-web-designs\templates\spotify.md",
+    "skills\dogfood",
+    "skills\media\spotify"
+)
+foreach ($d in $runtimeDrop) {
+    $target = Join-Path $hermesDest $d
+    if (Test-Path $target) {
+        Remove-Item -Recurse -Force -LiteralPath $target
+    }
+}
+
 $py = Join-Path $dist "python\python.exe"
+$verifyRuntimePruned = Join-Path $root "python\tools\verify_runtime_pruned.py"
+& $py $verifyRuntimePruned $dist
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Runtime pruning verification failed after source sync."
+    exit $LASTEXITCODE
+}
 $verifyRuntimeImports = Join-Path $root "python\tools\verify_runtime_imports.py"
 & $py $verifyRuntimeImports $dist
 if ($LASTEXITCODE -ne 0) {

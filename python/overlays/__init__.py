@@ -14,7 +14,6 @@ gets:
     - Network egress allowlist         (network_allowlist.py)
     - Default toolset = keep-list      (default_toolset.py)
     - L1 builtin helpers tool          (builtin_helpers.py)
-    - EasyOCR on-demand auto-download  (easyocr_autodownload.py)
     - Tauri-routed shell approval      (approval_bridge.py)
 
 Order matters: `apply_all()` enforces it. Call exactly once, before
@@ -72,7 +71,6 @@ def apply_all() -> None:
     _run("network_allowlist",   lambda: __import__(__name__ + ".network_allowlist", fromlist=["install"]).install())
     _run("default_toolset",     lambda: __import__(__name__ + ".default_toolset",   fromlist=["install"]).install())
     _run("builtin_helpers",     lambda: __import__(__name__ + ".builtin_helpers",   fromlist=["install"]).install())
-    _run("easyocr_autodownload", lambda: __import__(__name__ + ".easyocr_autodownload", fromlist=["install"]).install())
     _run("approval_bridge",     lambda: __import__(__name__ + ".approval_bridge",   fromlist=["install"]).install())
     _run(
         "skip_gateway_platform_plugins",

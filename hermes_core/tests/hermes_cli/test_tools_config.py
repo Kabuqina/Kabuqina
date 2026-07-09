@@ -79,6 +79,32 @@ def test_get_platform_tools_default_telegram_includes_messaging():
     assert "messaging" in enabled
 
 
+def test_vision_toolset_configured_check_does_not_resolve_client(monkeypatch):
+    """The desktop/catalog configured flag must not eagerly build vision clients."""
+    import providers.chat_completions as chat_completions
+
+    def fail_resolve(*_args, **_kwargs):
+        raise AssertionError("vision configured check should not resolve a client")
+
+    monkeypatch.setattr(
+        chat_completions,
+        "resolve_vision_provider_client",
+        fail_resolve,
+    )
+    monkeypatch.setattr(chat_completions, "_read_main_provider", lambda: "custom")
+    monkeypatch.setattr(chat_completions, "_read_main_model", lambda: "mimo-v2.5-pro")
+    monkeypatch.setattr(
+        chat_completions,
+        "_model_is_known_text_only_for_vision",
+        lambda _provider, _model: False,
+    )
+
+    assert _toolset_has_keys(
+        "vision",
+        {"model": {"provider": "custom", "default": "mimo-v2.5-pro"}},
+    ) is True
+
+
 def test_get_platform_tools_homeassistant_platform_keeps_homeassistant_toolset():
     enabled = _get_platform_tools({}, "homeassistant")
 
@@ -826,12 +852,8 @@ def test_get_platform_tools_feishu_tools_not_on_other_platforms():
         assert "feishu_drive" not in enabled, f"feishu_drive leaked onto {plat}"
 
 
-def test_get_effective_configurable_toolsets_dedupes_bundled_plugins():
-    """Bundled plugins (plugins/spotify) share their toolset key with the
-    built-in CONFIGURABLE_TOOLSETS entry. The effective list must not list
-    them twice — otherwise `hermes tools` → "reconfigure existing" shows
-    the same toolset two rows in a row.
-    """
+def test_get_effective_configurable_toolsets_has_unique_keys():
+    """The effective list must not show duplicate rows."""
     from hermes_cli.tools_config import _get_effective_configurable_toolsets
 
     all_ts = _get_effective_configurable_toolsets()
@@ -840,8 +862,3 @@ def test_get_effective_configurable_toolsets_dedupes_bundled_plugins():
         f"duplicate toolset keys in effective list: "
         f"{[k for k in keys if keys.count(k) > 1]}"
     )
-    # Spotify specifically — the bug that motivated the dedupe.
-    spotify_rows = [t for t in all_ts if t[0] == "spotify"]
-    assert len(spotify_rows) == 1, spotify_rows
-    # Built-in label wins over the plugin label.
-    assert spotify_rows[0][1] == "🎵 Spotify"

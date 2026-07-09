@@ -6,11 +6,13 @@ import { AlarmClock, BookOpen, Check, FolderOpen, PenLine, Pencil, RefreshCw } f
 import { useI18n } from "../lib/i18n";
 import type { LoadPackageStatus, PendingAgentInteraction, UiMsg } from "./chat-api";
 import { ChatMessage } from "./ChatMessage";
+import { AgentProgress } from "./AgentProgress";
 import { OutlineReviewModal } from "./OutlineReviewModal";
 import { AssistantAvatar } from "../components/AssistantAvatar";
 import { cn } from "../lib/cn";
-import type { AgentProgressState } from "./hooks/useAgentProgress";
+import { shouldDisplayAgentProgress, type AgentProgressState } from "./hooks/useAgentProgress";
 import { formatBytes, packageTitle } from "../advanced/settings/loadPackageUi";
+import { hasVisibleAssistantStreamText } from "./inFlightTurnUtils";
 
 interface ChatMessageListProps {
   messages: UiMsg[];
@@ -389,7 +391,8 @@ export function ChatMessageList({
   const isEmpty = messages.length === 0 && !sendErr;
   const pendingAssistant = messages.find((m) => m.id === "pending-assistant");
   const completedMessages = messages.filter((m) => m.id !== "pending-assistant");
-  const pendingVisibleText = !!pendingAssistant?.text.trim().replace(/^[.…]+$/, "");
+  const pendingVisibleText = hasVisibleAssistantStreamText(pendingAssistant?.text ?? "");
+  const showAgentProgress = shouldDisplayAgentProgress(progress);
 
   return (
     <div
@@ -413,6 +416,11 @@ export function ChatMessageList({
               streaming={false}
             />
           ))}
+          {showAgentProgress && (
+            <AssistantStreamShell>
+              <AgentProgress progress={progress ?? null} />
+            </AssistantStreamShell>
+          )}
           <LoadPackageDownloadProgress packages={loadPackageDownloads} onOpenSettings={onOpenLoadPackageSettings} />
           {pendingInteraction ? (
             pendingInteraction.kind === "pptx_render" ? (
@@ -435,7 +443,7 @@ export function ChatMessageList({
               <AgentInteractionCard interaction={pendingInteraction} onRespond={onRespondInteraction} />
             )
           ) : null}
-          {pendingAssistant && (
+          {pendingAssistant && pendingVisibleText && (
             <ChatMessage
               key={pendingAssistant.id}
               role={pendingAssistant.role}
@@ -447,7 +455,7 @@ export function ChatMessageList({
               progress={progress}
             />
           )}
-          {sending && !progress?.running && !pendingVisibleText && <TypingIndicator />}
+          {sending && !showAgentProgress && !pendingVisibleText && <TypingIndicator />}
           {sendErr && (
             <div className="hd-semantic-error rounded-[var(--radius-shell-lg)] px-3 py-2 text-sm">
               {sendErr}

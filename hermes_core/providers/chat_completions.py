@@ -839,6 +839,35 @@ def _read_main_provider() -> str:
     return ""
 
 
+def _config_main_model(config: Optional[Dict[str, Any]]) -> str:
+    model_cfg = (config or {}).get("model", {})
+    if isinstance(model_cfg, str) and model_cfg.strip():
+        return model_cfg.strip()
+    if isinstance(model_cfg, dict):
+        value = model_cfg.get("default") or model_cfg.get("model") or ""
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+def _config_main_provider(config: Optional[Dict[str, Any]]) -> str:
+    model_cfg = (config or {}).get("model", {})
+    if isinstance(model_cfg, dict):
+        provider = model_cfg.get("provider", "")
+        if isinstance(provider, str) and provider.strip():
+            return provider.strip().lower()
+    return ""
+
+
+def _config_model_base_url(config: Optional[Dict[str, Any]]) -> str:
+    model_cfg = (config or {}).get("model", {})
+    if isinstance(model_cfg, dict):
+        base_url = model_cfg.get("base_url", "")
+        if isinstance(base_url, str) and base_url.strip():
+            return base_url.strip()
+    return ""
+
+
 def _resolve_custom_runtime() -> Tuple[Optional[str], Optional[str], Optional[str]]:
     """Resolve the active custom/main endpoint the same way the main CLI does.
 
@@ -1838,6 +1867,169 @@ def get_available_vision_backends() -> List[str]:
         if p not in available and _strict_vision_backend_available(p):
             available.append(p)
     return available
+
+
+def _resolve_vision_availability_selection(
+    config: Optional[Dict[str, Any]] = None,
+    provider: Optional[str] = None,
+    model: Optional[str] = None,
+    base_url: Optional[str] = None,
+    api_key: Optional[str] = None,
+) -> Tuple[str, Optional[str], Optional[str], Optional[str]]:
+    """Resolve the vision selection without constructing a provider client."""
+    if config is None:
+        requested, resolved_model, resolved_base_url, resolved_api_key, _ = (
+            _resolve_task_provider_model("vision", provider, model, base_url, api_key)
+        )
+        return requested, resolved_model, resolved_base_url, resolved_api_key
+
+    cfg_provider = None
+    cfg_model = None
+    cfg_base_url = None
+    cfg_api_key = None
+    aux = config.get("auxiliary", {}) if isinstance(config, dict) else {}
+    task_config = aux.get("vision", {}) if isinstance(aux, dict) else {}
+    if isinstance(task_config, dict):
+        cfg_provider = str(task_config.get("provider", "")).strip() or None
+        cfg_model = str(task_config.get("model", "")).strip() or None
+        cfg_base_url = str(task_config.get("base_url", "")).strip() or None
+        cfg_api_key = str(task_config.get("api_key", "")).strip() or None
+
+    resolved_model = model or cfg_model
+    if base_url:
+        return "custom", resolved_model, base_url, api_key
+    if provider:
+        return provider, resolved_model, base_url, api_key
+    if cfg_base_url:
+        return "custom", resolved_model, cfg_base_url, cfg_api_key
+    if cfg_provider and cfg_provider != "auto":
+        return cfg_provider, resolved_model, None, None
+    return "auto", resolved_model, None, None
+
+
+def _configured_secret(*names: str) -> bool:
+    try:
+        from hermes_cli.auth import has_usable_secret
+        from hermes_cli.config import get_env_value
+
+        return any(has_usable_secret(get_env_value(name) or "") for name in names)
+    except Exception:
+        return any(bool(str(os.getenv(name) or "").strip()) for name in names)
+
+
+def _pool_has_runtime_key(provider: str) -> bool:
+    pool_present, entry = _select_pool_entry(provider)
+    return pool_present and bool(_pool_runtime_api_key(entry))
+
+
+def _nous_configured() -> bool:
+    if _pool_has_runtime_key("nous"):
+        return True
+    return _read_nous_auth() is not None
+
+
+def _custom_endpoint_configured(config: Optional[Dict[str, Any]]) -> bool:
+    if _config_model_base_url(config):
+        return True
+    if _configured_secret("OPENAI_BASE_URL"):
+        return True
+    if config is not None:
+        return _config_main_provider(config) == "custom" and bool(_config_main_model(config))
+    return _read_main_provider() == "custom" and bool(_read_main_model())
+
+
+def _named_custom_provider_configured(provider: str) -> bool:
+    try:
+        from hermes_cli.runtime_provider import _get_named_custom_provider
+
+        entry = _get_named_custom_provider(provider)
+    except Exception:
+        return False
+    return bool(isinstance(entry, dict) and str(entry.get("base_url") or "").strip())
+
+
+def _api_key_provider_configured(provider: str) -> bool:
+    if _pool_has_runtime_key(provider):
+        return True
+    try:
+        from hermes_cli.auth import PROVIDER_REGISTRY, get_api_key_provider_status
+
+        pconfig = PROVIDER_REGISTRY.get(provider)
+        if pconfig and pconfig.auth_type == "api_key":
+            return bool(get_api_key_provider_status(provider).get("configured"))
+    except Exception:
+        return False
+    return False
+
+
+def _vision_provider_configured(
+    provider: str,
+    model: Optional[str],
+    config: Optional[Dict[str, Any]],
+) -> bool:
+    provider = _normalize_vision_provider(provider)
+    if not provider or provider == "auto":
+        return False
+    if provider == "openrouter":
+        return _pool_has_runtime_key("openrouter") or _configured_secret("OPENROUTER_API_KEY")
+    if provider == "nous":
+        return _nous_configured()
+    if provider == "custom":
+        return _custom_endpoint_configured(config)
+    if _named_custom_provider_configured(provider):
+        return True
+    return _api_key_provider_configured(provider)
+
+
+def is_vision_backend_configured(
+    config: Optional[Dict[str, Any]] = None,
+    provider: Optional[str] = None,
+    model: Optional[str] = None,
+    base_url: Optional[str] = None,
+    api_key: Optional[str] = None,
+) -> bool:
+    """Return True when vision appears configured, without creating clients.
+
+    This is intentionally a cheap availability probe for tool/catalog gating.
+    The real request path still calls ``resolve_vision_provider_client()`` so
+    provider-specific transport fixes, auth refresh, and fallbacks remain in
+    one place.
+    """
+    requested, resolved_model, resolved_base_url, _resolved_api_key = (
+        _resolve_vision_availability_selection(
+            config=config,
+            provider=provider,
+            model=model,
+            base_url=base_url,
+            api_key=api_key,
+        )
+    )
+    requested = _normalize_vision_provider(requested)
+
+    if resolved_base_url:
+        return True
+
+    if requested != "auto":
+        return _vision_provider_configured(requested, resolved_model, config)
+
+    main_provider = _config_main_provider(config) if config is not None else _read_main_provider()
+    main_model = _config_main_model(config) if config is not None else _read_main_model()
+    if main_provider and main_provider not in ("auto", ""):
+        vision_model = _PROVIDER_VISION_MODELS.get(main_provider, main_model)
+        if main_provider == "nous":
+            if _nous_configured():
+                return True
+        elif (
+            main_provider not in _PROVIDERS_WITHOUT_VISION
+            and not _model_is_known_text_only_for_vision(main_provider, vision_model)
+            and _vision_provider_configured(main_provider, vision_model, config)
+        ):
+            return True
+
+    return (
+        _vision_provider_configured("openrouter", None, config)
+        or _vision_provider_configured("nous", None, config)
+    )
 
 
 def resolve_vision_provider_client(

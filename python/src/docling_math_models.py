@@ -200,12 +200,14 @@ def ensure_code_formula_available_for_math() -> None:
 
 
 def invalidate_docling_converter_cache() -> None:
+    # Best-effort cache reset — must never fail a completed download if the
+    # optional document toolchain has an unrelated import problem.
     try:
         from tools.document_tools import reset_docling_converter_cache
 
         reset_docling_converter_cache()
-    except ImportError:
-        pass
+    except Exception:
+        log.debug("skipped docling converter cache invalidation", exc_info=True)
 
 
 def _ensure_dir_junction(link: Path, target: Path) -> None:
@@ -439,12 +441,96 @@ def _download_static_code_formula(local_dir: Path, *, progress_cb: Optional[Prog
         raise RuntimeError(f"download finished but weights missing under {local_dir}")
 
 
+def _http_total_size(url: str) -> int:
+    try:
+        req = Request(url, method="HEAD", headers={"User-Agent": "Kabuqina/1.0"})
+        with urlopen(req, timeout=60) as response:
+            return int(response.headers.get("Content-Length") or 0)
+    except Exception:
+        return 0
+
+
+def _download_archive_with_resume(
+    url: str,
+    dest: Path,
+    *,
+    progress_cb: Optional[ProgressFn],
+    source: str,
+    max_attempts: int = 6,
+) -> None:
+    """Stream ``url`` to ``dest`` with HTTP Range resume, retries and a size check.
+
+    Mirrors the docling-base downloader so a truncated COS stream on the ~500 MB
+    CodeFormula archive resumes instead of failing the whole download.
+    """
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    part = dest.with_suffix(dest.suffix + ".part")
+    total = _http_total_size(url)
+    fallback_total = CODE_FORMULA_SIZE_MB * 1024 * 1024
+    last_err: Optional[BaseException] = None
+
+    for attempt in range(1, max_attempts + 1):
+        have = part.stat().st_size if part.exists() else 0
+        if total and have == total:
+            break
+        if total and have > total:
+            part.unlink(missing_ok=True)
+            have = 0
+
+        headers = {"User-Agent": "Kabuqina/1.0"}
+        if have:
+            headers["Range"] = f"bytes={have}-"
+        try:
+            with urlopen(Request(url, headers=headers), timeout=900) as response:
+                status = getattr(response, "status", 200) or 200
+                mode = "ab"
+                if have and status != 206:
+                    have, mode = 0, "wb"
+                if not total:
+                    if status == 206:
+                        content_range = response.headers.get("Content-Range") or ""
+                        if "/" in content_range:
+                            try:
+                                total = int(content_range.rsplit("/", 1)[1])
+                            except ValueError:
+                                pass
+                    else:
+                        total = int(response.headers.get("Content-Length") or 0)
+                with open(part, mode) as handle:
+                    while True:
+                        chunk = response.read(STATIC_DOWNLOAD_CHUNK_SIZE)
+                        if not chunk:
+                            break
+                        handle.write(chunk)
+                        if progress_cb:
+                            progress_cb({
+                                "phase": "downloading",
+                                "source": source,
+                                "totalBytes": total or fallback_total,
+                                "downloadedBytes": handle.tell(),
+                            })
+                    handle.flush()
+                    try:
+                        os.fsync(handle.fileno())
+                    except OSError:
+                        pass
+        except Exception as exc:
+            last_err = exc
+            log.warning("CodeFormula archive attempt %d/%d failed (%s); resuming", attempt, max_attempts, exc)
+            time.sleep(min(2.0 * attempt, 10.0))
+
+    final_size = part.stat().st_size if part.exists() else 0
+    if final_size == 0:
+        raise last_err or RuntimeError("CodeFormula archive download produced an empty file")
+    if total and final_size != total:
+        raise last_err or RuntimeError(f"incomplete CodeFormula archive: {final_size}/{total} bytes")
+    os.replace(part, dest)
+
+
 def _download_code_formula_archive(url: str, local_dir: Path, *, progress_cb: Optional[ProgressFn] = None) -> None:
     source = urlparse(url).netloc or url
     local_dir.mkdir(parents=True, exist_ok=True)
     archive = local_dir.parent / f"{CODE_FORMULA_FOLDER}.zip.tmp"
-    request = Request(url, headers={"User-Agent": "Kabuqina/1.0"})
-    downloaded = 0
     try:
         if progress_cb:
             progress_cb({
@@ -453,26 +539,7 @@ def _download_code_formula_archive(url: str, local_dir: Path, *, progress_cb: Op
                 "totalBytes": CODE_FORMULA_SIZE_MB * 1024 * 1024,
                 "downloadedBytes": _dir_size_bytes(local_dir),
             })
-        with urlopen(request, timeout=600) as response:
-            with open(archive, "wb") as handle:
-                while True:
-                    chunk = response.read(STATIC_DOWNLOAD_CHUNK_SIZE)
-                    if not chunk:
-                        break
-                    handle.write(chunk)
-                    downloaded += len(chunk)
-                    if progress_cb:
-                        progress_cb({
-                            "phase": "downloading",
-                            "source": source,
-                            "totalBytes": CODE_FORMULA_SIZE_MB * 1024 * 1024,
-                            "downloadedBytes": downloaded,
-                        })
-                handle.flush()
-                try:
-                    os.fsync(handle.fileno())
-                except OSError:
-                    pass
+        _download_archive_with_resume(url, archive, progress_cb=progress_cb, source=source)
 
         extract_root = local_dir.parent / f"{CODE_FORMULA_FOLDER}.extracting"
         if extract_root.exists():

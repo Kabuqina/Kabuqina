@@ -1036,6 +1036,21 @@ assert.match(
   /LONG_TASK_META[\s\S]*pptx_write[\s\S]*manim_render[\s\S]*LongTaskProgress[\s\S]*transition-\[width\]/,
   "Agent progress should show a visible progress bar for known long-running PPT/video tasks.",
 );
+assert.match(
+  messageListSource,
+  /shouldDisplayAgentProgress\(progress\)/,
+  "ChatMessageList should show the working/tool bubble only when a turn has actual tool activity.",
+);
+assert.match(
+  messageListSource,
+  /pendingAssistant && pendingVisibleText &&/,
+  "Placeholder-only assistant stream text should not render as a reply bubble before real text arrives.",
+);
+assert.match(
+  messageListSource,
+  /sending && !showAgentProgress && !pendingVisibleText && <TypingIndicator \/>/,
+  "Non-tool turns should keep the ordinary waiting bubble until assistant text starts streaming.",
+);
 
 assert.doesNotMatch(
   workspacePanelSource,
@@ -1371,10 +1386,20 @@ assert.match(
   /const result = saveStudyContext\([\s\S]*setWroteBack\(result\.succeeded\)/,
   "Flashcard progress write-back should only report success after storage succeeds.",
 );
+assert.doesNotMatch(
+  flashcardPanelSource,
+  /className="mt-[23] grid gap-/,
+  "Flashcard panel stacks must use grid-cols-1 so long titles cannot widen the right rail.",
+);
 assert.match(
   quizPanelSource,
   /const saveResult = saveStudyContext\([\s\S]*setWroteBack\(saveResult\.succeeded\)/,
   "Quiz result write-back should only report success after storage succeeds.",
+);
+assert.doesNotMatch(
+  quizPanelSource,
+  /className="mt-[23] grid gap-/,
+  "Quiz panel stacks must use grid-cols-1 so long titles cannot widen the right rail.",
 );
 assert.match(
   studySectionSource,

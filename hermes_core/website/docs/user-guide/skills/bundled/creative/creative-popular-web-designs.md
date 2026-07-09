@@ -105,7 +105,6 @@ substitute that preserves the design's character. Common mappings:
 | sohne-var (Stripe) | Source Sans 3 | Light weight elegance |
 | Berkeley Mono | JetBrains Mono | Technical monospace |
 | Airbnb Cereal VF | DM Sans | Rounded, friendly geometric |
-| Circular (Spotify) | DM Sans | Geometric, warm |
 | figmaSans | Inter | Clean humanist |
 | Pin Sans (Pinterest) | DM Sans | Friendly, rounded |
 | NVIDIA-EMEA | Inter (or Arial system) | Industrial, clean |
@@ -204,7 +203,6 @@ those carry more visual identity than the specific font face.
 | `ibm.md` | IBM | Carbon design system, structured blue palette |
 | `nvidia.md` | NVIDIA | Green-black energy, technical power aesthetic |
 | `spacex.md` | SpaceX | Stark black and white, full-bleed imagery, futuristic |
-| `spotify.md` | Spotify | Vibrant green on dark, bold type, album-art-driven |
 | `uber.md` | Uber | Bold black and white, tight type, urban energy |
 
 ## Choosing a Design

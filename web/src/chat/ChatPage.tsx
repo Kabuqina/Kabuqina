@@ -38,7 +38,6 @@ import { useInFlightTurns } from "./inFlightTurns";
 import { type CaptureDonePayload } from "../capture/capture-api";
 import type { AgentProgressState } from "./hooks/useAgentProgress";
 import type { DeskAttachmentPayload, UiMsg } from "./chat-api";
-import { cmdLoadPackageDownload, cmdLoadPackages } from "./chat-api";
 import { REMINDER_SESSION_ID } from "./reminderSession";
 
 type WorkspaceState = {
@@ -178,16 +177,6 @@ function buildWorkspaceState(
   return { goal, materials: materials.slice(0, 8), outputs: outputs.slice(-8), activeTool };
 }
 
-async function startOnboardingLoadPackageDownloads() {
-  try {
-    const response = await cmdLoadPackages();
-    const pending = response.packages.filter((pkg) => !pkg.downloaded && pkg.job?.status !== "running");
-    await Promise.allSettled(pending.map((pkg) => cmdLoadPackageDownload(pkg.id)));
-  } catch (err) {
-    console.warn("load-package auto-download failed", err);
-  }
-}
-
 export function ChatPage() {
   const { t, locale } = useI18n();
   const nav = useNavigate();
@@ -283,7 +272,9 @@ export function ChatPage() {
     if (isFromOnboarding(location.state)) {
       armPendingChatSecretGateBypass();
       clearDraft();
-      void startOnboardingLoadPackageDownloads();
+      // Optional load-package downloads are no longer kicked off here: the desk
+      // server self-heals them serially at boot (see load_packages.start_auto_downloads),
+      // so onboarding/first-chat is not slowed by ~1GB of concurrent downloads.
       nav("/chat", { replace: true, state: {} });
       return;
     }

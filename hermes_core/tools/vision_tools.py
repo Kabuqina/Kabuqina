@@ -685,12 +685,11 @@ async def vision_analyze_tool(
 
 
 def check_vision_requirements() -> bool:
-    """Check if the configured runtime vision path can resolve a client."""
+    """Check if a vision backend appears configured without building a client."""
     try:
-        from providers.chat_completions import resolve_vision_provider_client
+        from providers.chat_completions import is_vision_backend_configured
 
-        _provider, client, _model = resolve_vision_provider_client()
-        return client is not None
+        return is_vision_backend_configured()
     except Exception:
         return False
 
