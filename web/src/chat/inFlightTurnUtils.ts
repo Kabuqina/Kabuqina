@@ -84,6 +84,11 @@ export function latestAssistantText(rows: MessageRow[]): string {
   return "";
 }
 
+export function hasVisibleAssistantStreamText(text: string): boolean {
+  const trimmed = text.trim();
+  return Boolean(trimmed && !/^[.…]+$/.test(trimmed));
+}
+
 export function mergeInFlightMessages(
   dbMessages: UiMsg[],
   turn: InFlightTurn | null | undefined,

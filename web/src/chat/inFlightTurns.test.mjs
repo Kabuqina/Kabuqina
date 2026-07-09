@@ -29,7 +29,99 @@ async function importTs(relativePath) {
   }
 }
 
-const { latestAssistantText, mergeInFlightMessages } = await importTs("./inFlightTurnUtils.ts");
+const {
+  hasVisibleAssistantStreamText,
+  latestAssistantText,
+  mergeInFlightMessages,
+} = await importTs("./inFlightTurnUtils.ts");
+const { shouldDisplayAgentProgress } = await importTs("./hooks/useAgentProgress.ts");
+
+assert.equal(
+  typeof hasVisibleAssistantStreamText,
+  "function",
+  "The chat render layer needs a shared helper for hiding placeholder-only assistant stream text.",
+);
+
+if (typeof hasVisibleAssistantStreamText === "function") {
+  assert.equal(hasVisibleAssistantStreamText("…"), false);
+  assert.equal(hasVisibleAssistantStreamText("..."), false);
+  assert.equal(hasVisibleAssistantStreamText("  .…  "), false);
+  assert.equal(hasVisibleAssistantStreamText("正在整理结果…"), true);
+}
+
+assert.equal(
+  typeof shouldDisplayAgentProgress,
+  "function",
+  "Agent progress should expose the display policy for tool-only working bubbles.",
+);
+
+if (typeof shouldDisplayAgentProgress === "function") {
+  const baseProgress = {
+    running: true,
+    status: "starting",
+    iteration: 0,
+    max_iterations: 0,
+    current_tool: null,
+    error: null,
+    steps: [],
+    nextSeq: 0,
+  };
+  assert.equal(
+    shouldDisplayAgentProgress(baseProgress),
+    false,
+    "Starting without a tool should leave the ordinary waiting bubble visible.",
+  );
+  assert.equal(
+    shouldDisplayAgentProgress({ ...baseProgress, status: "thinking" }),
+    false,
+    "Thinking without a tool should not show the tool progress bubble.",
+  );
+  assert.equal(
+    shouldDisplayAgentProgress({ ...baseProgress, status: "tool", current_tool: "read_file" }),
+    true,
+    "A current tool should show the tool progress bubble.",
+  );
+  assert.equal(
+    shouldDisplayAgentProgress({
+      ...baseProgress,
+      status: "thinking",
+      steps: [
+        {
+          seq: 1,
+          tool: "read_file",
+          preview: "paper.pdf",
+          running: false,
+          duration: 0.2,
+          isError: false,
+          startedAt: 1,
+        },
+      ],
+      nextSeq: 1,
+    }),
+    true,
+    "Completed tool steps should keep the tool progress bubble visible for the turn.",
+  );
+  assert.equal(
+    shouldDisplayAgentProgress({
+      ...baseProgress,
+      running: false,
+      status: "done",
+      steps: [
+        {
+          seq: 1,
+          tool: "read_file",
+          preview: null,
+          running: false,
+          duration: 0.2,
+          isError: false,
+          startedAt: 1,
+        },
+      ],
+    }),
+    false,
+    "Finished progress should not keep an extra working bubble in the transcript.",
+  );
+}
 
 const turn = {
   sessionId: "s1",

@@ -39,6 +39,15 @@ export function emptyProgress(): AgentProgressState {
   };
 }
 
+export function shouldDisplayAgentProgress(
+  progress: AgentProgressState | null | undefined,
+): boolean {
+  if (!progress?.running) {
+    return false;
+  }
+  return progress.status === "tool" || Boolean(progress.current_tool) || progress.steps.length > 0;
+}
+
 /** Fold `tool.started` / `tool.completed` events into the running step list. */
 export function applyEvents(
   steps: AgentStep[],

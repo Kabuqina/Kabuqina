@@ -1030,6 +1030,21 @@ assert.match(
   /useState[\s\S]*collapsed[\s\S]*chat\.streamingWorking[\s\S]*progress\.steps\.length[\s\S]*ChevronDown/,
   "Agent progress should collapse dense streaming tool rows into a one-line working status.",
 );
+assert.match(
+  messageListSource,
+  /shouldDisplayAgentProgress\(progress\)/,
+  "ChatMessageList should show the working/tool bubble only when a turn has actual tool activity.",
+);
+assert.match(
+  messageListSource,
+  /pendingAssistant && pendingVisibleText &&/,
+  "Placeholder-only assistant stream text should not render as a reply bubble before real text arrives.",
+);
+assert.match(
+  messageListSource,
+  /sending && !showAgentProgress && !pendingVisibleText && <TypingIndicator \/>/,
+  "Non-tool turns should keep the ordinary waiting bubble until assistant text starts streaming.",
+);
 
 assert.doesNotMatch(
   workspacePanelSource,
