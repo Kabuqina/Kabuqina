@@ -290,8 +290,8 @@ assert.match(
 
 assert.match(
   chatPageSource,
-  /toggleFocusMode/,
-  "ChatPage should expose focus mode controls.",
+  /setRightPanelOpen\(!workbench\.showRightPanel\)/,
+  "ChatPage topbar should be a single show/hide sidebar toggle.",
 );
 
 assert.match(

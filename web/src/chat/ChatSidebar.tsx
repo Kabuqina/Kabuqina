@@ -14,6 +14,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
+import { useCallback, useRef, useState } from "react";
 import { useI18n } from "../lib/i18n";
 import type { SessionRow } from "./chat-api";
 import { cn } from "../lib/cn";
@@ -33,6 +34,10 @@ export interface ChatSidebarProps {
   onExport: () => void;
   onSelectSession: (id: string) => void;
   onDeleteSession: (id: string, e: React.MouseEvent) => void;
+  /** Sidebar width in px when expanded (user-resizable). Ignored while collapsed. */
+  width?: number;
+  /** Called with the new width (px) while the user drags the right edge. */
+  onResize?: (width: number) => void;
 }
 
 function SidebarCommonActionButton({
@@ -114,8 +119,36 @@ export function ChatSidebar({
   onExport,
   onSelectSession,
   onDeleteSession,
+  width,
+  onResize,
 }: ChatSidebarProps) {
   const { t, locale } = useI18n();
+  const asideRef = useRef<HTMLElement | null>(null);
+  const [resizing, setResizing] = useState(false);
+
+  // Drag the sidebar's right edge to resize. Width derives from the sidebar's
+  // own left edge; owner (useWorkbenchLayout.setLeftWidth) clamps and persists.
+  const startResize = useCallback(
+    (event: React.MouseEvent) => {
+      if (!onResize) return;
+      event.preventDefault();
+      const leftEdge = asideRef.current?.getBoundingClientRect().left ?? 0;
+      setResizing(true);
+      const onMove = (ev: MouseEvent) => onResize(ev.clientX - leftEdge);
+      const onUp = () => {
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+        document.body.style.userSelect = "";
+        document.body.style.cursor = "";
+        setResizing(false);
+      };
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onUp);
+      document.body.style.userSelect = "none";
+      document.body.style.cursor = "col-resize";
+    },
+    [onResize],
+  );
   const grouped = sessions.reduce<Array<{ group: string; rows: Array<{ session: SessionRow; label: string; icon: SessionIcon }> }>>(
     (acc, session) => {
       const presentation = deriveSessionPresentation(session, locale);
@@ -134,11 +167,24 @@ export function ChatSidebar({
 
   return (
     <aside
+      ref={asideRef}
       className={cn(
-        "kq-sidebar flex shrink-0 flex-col border-r transition-[width] duration-200 ease-out",
+        "kq-sidebar relative flex shrink-0 flex-col border-r ease-out",
+        !resizing && "transition-[width] duration-200",
         collapsed ? "w-14" : "w-56",
       )}
+      style={!collapsed && typeof width === "number" ? { width: `${width}px` } : undefined}
     >
+      {!collapsed && onResize ? (
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label={locale === "zh" ? "拖动调整侧边栏宽度" : "Drag to resize sidebar"}
+          title={locale === "zh" ? "拖动调整宽度" : "Drag to resize"}
+          onMouseDown={startResize}
+          className="absolute right-0 top-0 z-20 h-full w-1.5 translate-x-1/2 cursor-col-resize bg-transparent transition-colors hover:bg-[var(--kq-color-primary)]/40"
+        />
+      ) : null}
       <div className={cn(
         "flex items-center gap-2 border-b border-[var(--kq-glass-border)] p-2.5",
         collapsed && "justify-center",

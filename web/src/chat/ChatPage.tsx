@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Maximize2, PanelRight } from "lucide-react";
+import { PanelRight, PanelRightClose } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { AppScaffold } from "../components/AppScaffold";
@@ -427,12 +427,8 @@ export function ChatPage() {
     }
   };
 
-  const openWorkspace = () => {
-    if (workbench.focusMode && workbench.rightOpen) {
-      workbench.toggleFocusMode();
-      return;
-    }
-    workbench.toggleRight();
+  const toggleSidebar = () => {
+    workbench.setRightPanelOpen(!workbench.showRightPanel);
   };
 
   if (bootErr) {
@@ -495,6 +491,8 @@ export function ChatPage() {
           loading={listLoading}
           collapsed={!workbench.leftOpen || workbench.isNarrow}
           onToggleCollapsed={workbench.toggleLeft}
+          width={workbench.leftWidth}
+          onResize={workbench.setLeftWidth}
           onNewChat={onNewChat}
           onOpenScheduledTasks={() => nav("/settings/cron", { state: { cronBackTo: "/chat" } })}
           onOpenWorkspace={() => void invoke("cmd_open_workspace")}
@@ -506,25 +504,18 @@ export function ChatPage() {
         <main className="flex min-w-0 flex-1 flex-col">
           <div className="kq-chat-topbar flex h-11 shrink-0 items-center justify-end border-b px-3">
             <div className="flex items-center gap-1">
-              {!workbench.showRightPanel && (
-                <button
-                  type="button"
-                  onClick={openWorkspace}
-                  className="kq-soft-icon-btn inline-flex h-8 w-8 items-center justify-center rounded-lg px-0 transition"
-                  aria-label={t("chat.workspaceExpand")}
-                  title={t("chat.workspaceExpand")}
-                >
-                  <PanelRight className="h-4 w-4" />
-                </button>
-              )}
               <button
                 type="button"
-                onClick={workbench.toggleFocusMode}
+                onClick={toggleSidebar}
                 className="kq-soft-icon-btn inline-flex h-8 w-8 items-center justify-center rounded-lg px-0 transition"
-                aria-label={workbench.focusMode ? t("chat.focusExit") : t("chat.focusEnter")}
-                title={workbench.focusMode ? t("chat.focusExit") : t("chat.focusEnter")}
+                aria-label={workbench.showRightPanel ? t("chat.sidebarHide") : t("chat.sidebarShow")}
+                title={workbench.showRightPanel ? t("chat.sidebarHide") : t("chat.sidebarShow")}
               >
-                <Maximize2 className="h-4 w-4" />
+                {workbench.showRightPanel ? (
+                  <PanelRightClose className="h-4 w-4" />
+                ) : (
+                  <PanelRight className="h-4 w-4" />
+                )}
               </button>
             </div>
           </div>

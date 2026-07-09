@@ -11,9 +11,19 @@ export const RIGHT_PANEL_MIN_WIDTH = 240;
 export const RIGHT_PANEL_MAX_WIDTH = 680;
 export const RIGHT_PANEL_DEFAULT_WIDTH = 264;
 
+/** Left sidebar width bounds (px, applies only when expanded — not the rail). */
+export const LEFT_PANEL_MIN_WIDTH = 200;
+export const LEFT_PANEL_MAX_WIDTH = 420;
+export const LEFT_PANEL_DEFAULT_WIDTH = 224;
+
 function clampRightWidth(value: number): number {
   if (!Number.isFinite(value)) return RIGHT_PANEL_DEFAULT_WIDTH;
   return Math.max(RIGHT_PANEL_MIN_WIDTH, Math.min(RIGHT_PANEL_MAX_WIDTH, Math.round(value)));
+}
+
+function clampLeftWidth(value: number): number {
+  if (!Number.isFinite(value)) return LEFT_PANEL_DEFAULT_WIDTH;
+  return Math.max(LEFT_PANEL_MIN_WIDTH, Math.min(LEFT_PANEL_MAX_WIDTH, Math.round(value)));
 }
 
 type StoredWorkbenchLayout = {
@@ -21,6 +31,7 @@ type StoredWorkbenchLayout = {
   rightOpen?: boolean;
   focusMode?: boolean;
   rightWidth?: number;
+  leftWidth?: number;
 };
 
 export type WorkbenchLayout = {
@@ -31,10 +42,13 @@ export type WorkbenchLayout = {
   showLeftRail: boolean;
   showRightPanel: boolean;
   rightWidth: number;
+  leftWidth: number;
   toggleLeft: () => void;
   toggleRight: () => void;
   toggleFocusMode: () => void;
   setRightWidth: (width: number) => void;
+  setLeftWidth: (width: number) => void;
+  setRightPanelOpen: (open: boolean) => void;
 };
 
 function readStoredLayout(): StoredWorkbenchLayout {
@@ -65,6 +79,9 @@ export function useWorkbenchLayout(): WorkbenchLayout {
   const [rightWidth, setRightWidthState] = useState(() =>
     clampRightWidth(stored.rightWidth ?? RIGHT_PANEL_DEFAULT_WIDTH),
   );
+  const [leftWidth, setLeftWidthState] = useState(() =>
+    clampLeftWidth(stored.leftWidth ?? LEFT_PANEL_DEFAULT_WIDTH),
+  );
 
   useEffect(() => {
     const update = () => setIsNarrow(isWorkbenchNarrow(window.innerWidth));
@@ -74,11 +91,22 @@ export function useWorkbenchLayout(): WorkbenchLayout {
   }, []);
 
   useEffect(() => {
-    writeStoredLayout({ leftOpen, rightOpen, focusMode, rightWidth });
-  }, [leftOpen, rightOpen, focusMode, rightWidth]);
+    writeStoredLayout({ leftOpen, rightOpen, focusMode, rightWidth, leftWidth });
+  }, [leftOpen, rightOpen, focusMode, rightWidth, leftWidth]);
 
   const setRightWidth = useCallback((width: number) => {
     setRightWidthState(clampRightWidth(width));
+  }, []);
+
+  const setLeftWidth = useCallback((width: number) => {
+    setLeftWidthState(clampLeftWidth(width));
+  }, []);
+
+  // Explicit show/hide for the right workspace panel (clears focus mode so the
+  // panel can actually appear). Backs the unified "显示/隐藏侧边栏" toggle.
+  const setRightPanelOpen = useCallback((open: boolean) => {
+    setFocusMode(false);
+    setRightOpen(open);
   }, []);
 
   const toggleLeft = useCallback(() => {
@@ -103,9 +131,12 @@ export function useWorkbenchLayout(): WorkbenchLayout {
     showLeftRail: !focusMode && (leftOpen || isNarrow),
     showRightPanel: !focusMode && rightOpen && !isNarrow,
     rightWidth,
+    leftWidth,
     toggleLeft,
     toggleRight,
     toggleFocusMode,
     setRightWidth,
+    setLeftWidth,
+    setRightPanelOpen,
   };
 }
