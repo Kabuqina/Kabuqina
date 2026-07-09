@@ -79,6 +79,101 @@ class LoadPackage:
 _JOB_LOCK = threading.Lock()
 _JOBS: dict[str, dict[str, Any]] = {}
 
+# Single serial download worker. All package downloads — onboarding self-heal,
+# on-demand feature triggers, and manual Settings actions — flow through this one
+# queue so at most one large asset downloads at a time (no bandwidth contention
+# with chat or with each other). Historically each package spawned its own thread
+# (parallel) and EasyOCR had a private resolver trigger; both are gone now.
+_QUEUE_LOCK = threading.Lock()
+_QUEUE_COND = threading.Condition(_QUEUE_LOCK)
+_QUEUE: list["LoadPackage"] = []
+_QUEUED_IDS: set[str] = set()
+_ACTIVE_ID: Optional[str] = None
+_WORKER: Optional[threading.Thread] = None
+
+
+def _truthy_env(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _suppress_file() -> Path:
+    return _data_dir() / "load-packages" / ".auto-skip.json"
+
+
+def _load_suppressed() -> set[str]:
+    try:
+        data = json.loads(_suppress_file().read_text(encoding="utf-8"))
+    except Exception:
+        return set()
+    return {str(item) for item in data} if isinstance(data, list) else set()
+
+
+def _save_suppressed(ids: set[str]) -> None:
+    path = _suppress_file()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(sorted(ids)), encoding="utf-8")
+    except OSError as exc:
+        log.warning("failed to persist load-package auto-skip list: %s", exc)
+
+
+def _add_suppressed(package_id: str) -> None:
+    ids = _load_suppressed()
+    if package_id not in ids:
+        ids.add(package_id)
+        _save_suppressed(ids)
+
+
+def _clear_suppressed(package_id: str) -> None:
+    ids = _load_suppressed()
+    if package_id in ids:
+        ids.discard(package_id)
+        _save_suppressed(ids)
+
+
+def _ensure_worker() -> None:
+    global _WORKER
+    if _WORKER is not None and _WORKER.is_alive():
+        return
+    _WORKER = threading.Thread(target=_download_worker, name="load-package-downloader", daemon=True)
+    _WORKER.start()
+
+
+def _download_worker() -> None:
+    global _ACTIVE_ID
+    while True:
+        with _QUEUE_COND:
+            while not _QUEUE:
+                _QUEUE_COND.wait()
+            package = _QUEUE.pop(0)
+            _QUEUED_IDS.discard(package.id)
+            _ACTIVE_ID = package.id
+        try:
+            status = package.status()
+            if status["downloaded"]:
+                size = int(status.get("size") or 0)
+                _update_job(
+                    package.id,
+                    {"status": "done", "phase": "done", "downloadedBytes": size, "totalBytes": size, "error": ""},
+                )
+            else:
+                _run_download(package)
+        except Exception:
+            log.exception("load-package download failed: %s", package.id)
+        finally:
+            with _QUEUE_COND:
+                _ACTIVE_ID = None
+
+
+def _enqueue(package: "LoadPackage") -> None:
+    _ensure_worker()
+    with _QUEUE_COND:
+        if package.id == _ACTIVE_ID or package.id in _QUEUED_IDS:
+            return
+        _QUEUE.append(package)
+        _QUEUED_IDS.add(package.id)
+        _QUEUE_COND.notify()
+
 
 def _data_dir() -> Path:
     raw = os.environ.get("HERMESDESK_DATA_DIR", "").strip()
@@ -333,7 +428,11 @@ def _run_download(package: LoadPackage) -> dict[str, Any]:
 
 
 def start_download_package(package_id: str) -> dict[str, Any]:
+    # Resolve the package synchronously so any test/patched download_fn is
+    # captured before the worker runs it on another thread.
     package = _get_package(package_id)
+    # Any explicit intent to download clears a prior "user deleted this" mark.
+    _clear_suppressed(package_id)
     status = package.status()
     if status["downloaded"]:
         _update_job(
@@ -354,9 +453,39 @@ def start_download_package(package_id: str) -> dict[str, Any]:
             return package.status()
         _JOBS[package.id] = _base_job(package.id, status="running", phase="queued")
 
-    thread = threading.Thread(target=_run_download, args=(package,), daemon=True, name=f"load-package-{package.id}")
-    thread.start()
+    # Serial: hand the package to the single background worker instead of
+    # spawning a per-package thread. It stays "running/queued" until its turn.
+    _enqueue(package)
     return package.status()
+
+
+def start_auto_downloads() -> dict[str, Any]:
+    """Enqueue every missing, non-suppressed package for background download.
+
+    Called once at desk-server boot. Idempotent (already-present and
+    already-running packages are skipped) so an interrupted download resumes on
+    the next launch — this is what makes optional packages self-heal instead of
+    being stranded when the one-shot onboarding batch was interrupted.
+    """
+    if _truthy_env("HERMESDESK_DISABLE_AUTO_LOAD_PACKAGES"):
+        return {"ok": True, "disabled": True, "queued": []}
+
+    suppressed = _load_suppressed()
+    queued: list[str] = []
+    for package_id in sorted(_packages()):
+        if package_id in suppressed:
+            continue
+        try:
+            if package_status(package_id)["downloaded"]:
+                continue
+            start_download_package(package_id)
+        except Exception:
+            log.exception("auto load-package download failed to start: %s", package_id)
+            continue
+        queued.append(package_id)
+    if queued:
+        log.info("auto load-package downloads queued (serial): %s", ", ".join(queued))
+    return {"ok": True, "queued": queued}
 
 
 def start_package_download_if_missing(package_id: str) -> dict[str, Any]:
@@ -610,6 +739,9 @@ def download_package(package_id: str) -> dict[str, Any]:
 
 def delete_package(package_id: str) -> dict[str, Any]:
     result = _get_package(package_id).delete_fn()
+    # Remember the explicit delete so boot self-heal does not silently
+    # re-download it; a manual/Settings download later clears this.
+    _add_suppressed(package_id)
     _refresh_workspace_package_index_best_effort()
     return result
 

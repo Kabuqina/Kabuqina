@@ -4,6 +4,7 @@
 """LaTeX -> HTML formula rendering for the document writers (split from document_tools.py)."""
 
 import html
+from typing import List, Tuple
 
 from tools.document.common import _text
 

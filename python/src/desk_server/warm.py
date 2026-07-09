@@ -42,6 +42,15 @@ def ensure_desk_warmed() -> None:
         invalidate_desk_catalog_cache()
     except Exception:
         pass
+    # Kick off optional load-package downloads once the server is warm. This is a
+    # single, idempotent, serial self-heal decoupled from onboarding and the first
+    # chat turn — enqueue-and-return, so it never blocks warm or the event loop.
+    try:
+        import load_packages
+
+        load_packages.start_auto_downloads()
+    except Exception:
+        log.exception("desk warm: auto load-package downloads failed to start")
     log.info("desk warm complete in %.0fms", (time.monotonic() - t0) * 1000)
 
 

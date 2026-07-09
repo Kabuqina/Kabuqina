@@ -148,13 +148,18 @@ assert.match(stringsSource, /docling-codeformula/);
 assert.match(stringsSource, /docling-base/);
 assert.match(stringsSource, /local-stt-base-q5_1/);
 
-assert.match(
+assert.doesNotMatch(
   chatPageSource,
-  /startOnboardingLoadPackageDownloads[\s\S]*cmdLoadPackages[\s\S]*cmdLoadPackageDownload\(pkg\.id\)/,
-  "Chat should start generic background downloads for missing load packages after onboarding.",
+  /cmdLoadPackageDownload/,
+  "Chat/onboarding must not trigger load-package downloads — the desk server self-heals them serially at boot.",
 );
 assert.doesNotMatch(
   chatPageSource,
   /docling-base/,
-  "Onboarding load-package auto-download should be generic, not hard-code one package.",
+  "Load-package auto-download logic must not live in the chat page.",
+);
+assert.match(
+  loadPackageDownloadsSource,
+  /cmdLoadPackages/,
+  "The chat still polls load-package status to show download progress.",
 );
