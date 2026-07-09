@@ -79,6 +79,32 @@ def test_get_platform_tools_default_telegram_includes_messaging():
     assert "messaging" in enabled
 
 
+def test_vision_toolset_configured_check_does_not_resolve_client(monkeypatch):
+    """The desktop/catalog configured flag must not eagerly build vision clients."""
+    import providers.chat_completions as chat_completions
+
+    def fail_resolve(*_args, **_kwargs):
+        raise AssertionError("vision configured check should not resolve a client")
+
+    monkeypatch.setattr(
+        chat_completions,
+        "resolve_vision_provider_client",
+        fail_resolve,
+    )
+    monkeypatch.setattr(chat_completions, "_read_main_provider", lambda: "custom")
+    monkeypatch.setattr(chat_completions, "_read_main_model", lambda: "mimo-v2.5-pro")
+    monkeypatch.setattr(
+        chat_completions,
+        "_model_is_known_text_only_for_vision",
+        lambda _provider, _model: False,
+    )
+
+    assert _toolset_has_keys(
+        "vision",
+        {"model": {"provider": "custom", "default": "mimo-v2.5-pro"}},
+    ) is True
+
+
 def test_get_platform_tools_homeassistant_platform_keeps_homeassistant_toolset():
     enabled = _get_platform_tools({}, "homeassistant")
 

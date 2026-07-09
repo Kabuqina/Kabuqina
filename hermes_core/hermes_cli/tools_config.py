@@ -1001,10 +1001,9 @@ def _toolset_has_keys(ts_key: str, config: dict = None) -> bool:
 
     if ts_key == "vision":
         try:
-            from providers.chat_completions import resolve_vision_provider_client
+            from providers.chat_completions import is_vision_backend_configured
 
-            _provider, client, _model = resolve_vision_provider_client()
-            return client is not None
+            return is_vision_backend_configured(config=config)
         except Exception:
             return False
 
