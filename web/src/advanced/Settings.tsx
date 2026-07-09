@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useState, type ComponentType } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
-import { Cpu, Server, SlidersHorizontal, Wrench } from "lucide-react";
+import { Cpu, Mic, Server, SlidersHorizontal, Wrench } from "lucide-react";
 import { AppScaffold } from "../components/AppScaffold";
 import { BackButton } from "../components/ui/BackButton";
 import { useI18n } from "../lib/i18n";
@@ -17,6 +17,7 @@ import { SettingsDisplay } from "./settings/SettingsDisplay";
 import { SettingsSharedPrefs } from "./settings/SettingsSharedPrefs";
 import { SettingsLoadPackages } from "./settings/SettingsLoadPackages";
 import { SettingsLlmConfig } from "./settings/SettingsLlmConfig";
+import { SettingsVoice } from "./settings/SettingsVoice";
 import { SettingsUpdate } from "./settings/SettingsUpdate";
 
 export interface Status {
@@ -25,14 +26,20 @@ export interface Status {
   pythonRunning: boolean;
 }
 
-type SettingsTab = "general" | "model" | "gateway" | "advanced";
+type SettingsTab = "general" | "model" | "voice" | "gateway" | "advanced";
 
 function isSettingsTab(value: unknown): value is SettingsTab {
-  return value === "general" || value === "model" || value === "gateway" || value === "advanced";
+  return (
+    value === "general" ||
+    value === "model" ||
+    value === "voice" ||
+    value === "gateway" ||
+    value === "advanced"
+  );
 }
 
 export function Settings() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const nav = useNavigate();
   const location = useLocation();
   // Allow deep-linking to a specific tab (e.g. chat's "configure model" prompt
@@ -65,6 +72,7 @@ export function Settings() {
   const tabs: Array<{ id: SettingsTab; label: string; icon: ComponentType<{ className?: string }> }> = [
     { id: "general", label: t("settings.tabGeneral"), icon: SlidersHorizontal },
     { id: "model", label: t("settings.tabModel"), icon: Cpu },
+    { id: "voice", label: locale === "zh" ? "语音" : "Voice", icon: Mic },
     { id: "gateway", label: t("settings.tabGateway"), icon: Server },
     { id: "advanced", label: t("settings.tabAdvanced"), icon: Wrench },
   ];
@@ -150,6 +158,8 @@ export function Settings() {
           )}
 
           {tab === "model" && <SettingsLlmConfig />}
+
+          {tab === "voice" && <SettingsVoice />}
 
           {tab === "gateway" && (
             <SettingsGateway

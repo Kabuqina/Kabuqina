@@ -35,6 +35,7 @@ const TTS_UI_TO_PROVIDER: Record<string, string | null> = {
   mistral_tts: "mistral",
   xai: "xai",
   neutts: "neutts",
+  xfyun: "xfyun",
 };
 
 /**
