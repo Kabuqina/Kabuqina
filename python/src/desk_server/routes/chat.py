@@ -3,7 +3,7 @@
 
 """Desk chat HTTP routes."""
 from __future__ import annotations
-import asyncio, json, logging, queue, threading, uuid
+import asyncio, json, logging, queue, threading, time, uuid
 from typing import Any, Dict
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -22,7 +22,7 @@ from desk_server.chat_core import (
     _desk_text_from_assistant_messages,
 )
 from desk_server.interactions import interaction_manager
-from desk_server.warm import warming_http_response
+from desk_server.warm import start_auto_load_packages_after_first_chat, warming_http_response
 log = logging.getLogger(__name__)
 router = APIRouter()
 
@@ -154,6 +154,7 @@ async def desk_chat_stream(request: Request):
         )
     user_payload, persist_um = built
     session_id = (body.get("session_id") or "").strip() or str(uuid.uuid4())
+    request_started = time.monotonic()
     if not atts:
         slash_payload = _desk_slash_response(message, session_id)
         if slash_payload is not None:
@@ -185,8 +186,11 @@ async def desk_chat_stream(request: Request):
             db.close()
             return JSONResponse({"ok": False, "error": "agent_init", "detail": str(e)}, status_code=500)
 
+        agent_ready_at = time.monotonic()
+
         event_q: "queue.Queue[Dict[str, Any]]" = queue.Queue()
         _recv_len = len(message) + sum(len(p.get("data") or b"") for p in atts)
+        timing: Dict[str, Any] = {"first_delta_at": None}
 
         def emit(payload: Dict[str, Any]) -> None:
             payload.setdefault("session_id", session_id)
@@ -194,6 +198,8 @@ async def desk_chat_stream(request: Request):
 
         def on_delta(delta: Any) -> None:
             if isinstance(delta, str) and delta:
+                if timing["first_delta_at"] is None:
+                    timing["first_delta_at"] = time.monotonic()
                 emit({"type": "delta", "text": delta})
             elif delta is None:
                 emit({"type": "boundary"})
@@ -206,6 +212,7 @@ async def desk_chat_stream(request: Request):
         )
 
         def worker() -> None:
+            turn_succeeded = False
             try:
                 log.info(
                     "desk stream: session=%s user_chars~%d history_msgs=%d attachments=%d",
@@ -259,6 +266,24 @@ async def desk_chat_stream(request: Request):
                     "completion_tokens": int((payload or {}).get("completion_tokens") or 0),
                     "model": _effective_model,
                 })
+                turn_succeeded = True
+                finished_at = time.monotonic()
+                first_delta_at = timing.get("first_delta_at")
+                log.info(
+                    "desk stream timing: session=%s new_session=%s agent_init_ms=%.0f "
+                    "ttft_ms=%s total_ms=%.0f prompt_chars=%d input=%d output=%d "
+                    "cache_read=%d cache_write=%d",
+                    session_id,
+                    not history,
+                    (agent_ready_at - request_started) * 1000,
+                    f"{(first_delta_at - request_started) * 1000:.0f}" if first_delta_at else "none",
+                    (finished_at - request_started) * 1000,
+                    int((payload or {}).get("system_prompt_chars") or 0),
+                    int((payload or {}).get("input_tokens") or 0),
+                    int((payload or {}).get("output_tokens") or 0),
+                    int((payload or {}).get("cache_read_tokens") or 0),
+                    int((payload or {}).get("cache_write_tokens") or 0),
+                )
             except Exception as e:
                 log.exception("desk stream: run_conversation failed")
                 emit({"type": "error", "ok": False, "error": "run_failed", "detail": str(e)})
@@ -268,6 +293,8 @@ async def desk_chat_stream(request: Request):
                 except Exception:
                     pass
                 emit({"type": "done"})
+                if turn_succeeded:
+                    start_auto_load_packages_after_first_chat()
 
         threading.Thread(target=worker, daemon=True, name=f"desk-chat-stream-{session_id[:8]}").start()
 

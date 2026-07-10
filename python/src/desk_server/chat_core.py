@@ -516,7 +516,7 @@ def _desk_ephemeral_system_prompt(agent_section: Dict[str, Any]) -> Optional[str
     return combined or None
 
 
-def _desk_chat_build_agent(session_id: str, db: Any) -> Any:
+def _desk_chat_build_agent(session_id: str, db: Any, *, warmup: bool = False) -> Any:
     """Construct AIAgent using the same config + credentials as the CLI."""
     from run_agent import AIAgent
     from hermes_cli.config import load_config
@@ -527,7 +527,7 @@ def _desk_chat_build_agent(session_id: str, db: Any) -> Any:
         from tools.terminal_tool import register_task_env_overrides
     except Exception:
         register_task_env_overrides = None
-    if register_task_env_overrides:
+    if register_task_env_overrides and not warmup:
         ws = (os.environ.get("HERMES_WORKSPACE") or os.environ.get("TERMINAL_CWD") or "").strip()
         if ws:
             try:
@@ -593,6 +593,10 @@ def _desk_chat_build_agent(session_id: str, db: Any) -> Any:
         "args": list(runtime.get("args") or []),
         "credential_pool": runtime.get("credential_pool"),
         "ephemeral_system_prompt": _desk_ephemeral_system_prompt(agent_section),
+        # New desktop conversations must keep the expensive base prompt byte-for-byte
+        # stable so OpenAI-compatible providers can reuse it across session IDs.
+        # The live clock remains available through get_current_time.
+        "include_session_start_time": False,
     }
     if isinstance(model_cfg, dict):
         if model_cfg.get("reasoning_config") is not None:
@@ -604,6 +608,34 @@ def _desk_chat_build_agent(session_id: str, db: Any) -> Any:
                 pass
 
     return AIAgent(**kwargs)
+
+
+def warm_desk_agent_runtime() -> bool:
+    """Prime imports and auxiliary-client setup before the first desk turn.
+
+    The warmup agent intentionally has no SessionDB, so it cannot create a visible
+    conversation or persist user state. It is immediately closed; imported modules
+    and process-level SDK caches remain available to the real first turn.
+    """
+    agent = None
+    started = time.monotonic()
+    try:
+        agent = _desk_chat_build_agent("__desk_runtime_warmup__", None, warmup=True)
+    except ValueError:
+        # Expected before onboarding has supplied a usable provider key.
+        log.info("desk agent warm skipped: no configured runtime")
+        return False
+    except Exception:
+        log.warning("desk agent warm failed", exc_info=True)
+        return False
+    finally:
+        if agent is not None:
+            try:
+                agent.close()
+            except Exception:
+                log.debug("desk agent warm close failed", exc_info=True)
+    log.info("desk agent runtime warm complete in %.0fms", (time.monotonic() - started) * 1000)
+    return True
 
 
 def _desk_chat_run_in_thread(
@@ -657,6 +689,11 @@ def _desk_chat_run_in_thread(
             "result": result,
             "prompt_tokens": int(getattr(agent, "session_prompt_tokens", 0) or 0),
             "completion_tokens": int(getattr(agent, "session_completion_tokens", 0) or 0),
+            "input_tokens": int(getattr(agent, "session_input_tokens", 0) or 0),
+            "output_tokens": int(getattr(agent, "session_output_tokens", 0) or 0),
+            "cache_read_tokens": int(getattr(agent, "session_cache_read_tokens", 0) or 0),
+            "cache_write_tokens": int(getattr(agent, "session_cache_write_tokens", 0) or 0),
+            "system_prompt_chars": len(getattr(agent, "_cached_system_prompt", "") or ""),
         }
     finally:
         _desk_unregister_active(session_id)

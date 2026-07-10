@@ -105,6 +105,7 @@ class TestDeskCapabilityPrompt(unittest.TestCase):
                             chat_core._desk_chat_build_agent("desk-capability-test", db=object())
 
         self.assertIn("Current Kabuqina product capabilities", captured.get("ephemeral_system_prompt", ""))
+        self.assertFalse(captured.get("include_session_start_time", True))
 
     def test_chat_agent_preserves_configured_system_prompt_with_capability_summary(self):
         from desk_server import chat_core
@@ -138,6 +139,7 @@ class TestDeskCapabilityPrompt(unittest.TestCase):
         prompt = captured.get("ephemeral_system_prompt", "")
         self.assertIn("Configured desk personality.", prompt)
         self.assertIn("Current Kabuqina product capabilities", prompt)
+        self.assertFalse(captured.get("include_session_start_time", True))
 
     def test_chat_agent_logs_resolved_mode_without_secret(self):
         from desk_server import chat_core

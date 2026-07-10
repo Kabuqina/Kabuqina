@@ -802,3 +802,14 @@ Frontend/prompt-layer only: no capability-registry change (the
 `math-expression-engineering` ids stay candidates), no backend routes, no
 engine change (soak-safe). `workspace.mathAbility` keeps its sectionId so
 collapse preferences survive the move.
+
+**Desk first-turn latency (2026-07-10).** `AIAgent` now accepts the
+backward-compatible `include_session_start_time` flag (default `True`). The
+desktop web child sets it to `False`: the live clock remains available through
+`get_current_time`, while new desktop sessions share an identical stored system
+prompt prefix and can reuse provider prompt caches. Desktop startup primes one
+non-persistent, immediately-closed `AIAgent` in the background; optional load
+packages are deferred until the first successful chat turn so multi-hundred-MB
+downloads do not contend with onboarding or the first model request. The desk
+stream log records agent initialization, time-to-first-token, total time, and
+provider cache counters for release observation.

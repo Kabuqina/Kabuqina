@@ -995,6 +995,7 @@ class AIAgent:
         pass_session_id: bool = False,
         usage_sink: "UsageEventSink" = None,  # Phase 3.5: optional per-transport-attempt event sink
         agent_engine: str = None,  # Phase 3.5: "loop" | "graph"; None resolves via engine_selector
+        include_session_start_time: bool = True,
     ):
         """
         Initialize the AI Agent.
@@ -1034,6 +1035,9 @@ class AIAgent:
                 output_config.format instead of a trailing-assistant prefill.
             platform (str): The interface platform the user is on (e.g. "cli", "telegram", "discord", "whatsapp").
                 Used to inject platform-specific formatting hints into the system prompt.
+            include_session_start_time (bool): Include the per-session "Conversation started" timestamp
+                in the stored system prompt. Disable only for transports that need the same
+                stable prompt prefix across independent sessions for provider-side caching.
             skip_context_files (bool): If True, skip auto-injection of SOUL.md, AGENTS.md, and .cursorrules
                 into the system prompt. Use this for batch processing and data generation to avoid
                 polluting trajectories with user-specific persona or project instructions.
@@ -1070,6 +1074,7 @@ class AIAgent:
         self.skip_context_files = skip_context_files
         self.load_soul_identity = load_soul_identity
         self.pass_session_id = pass_session_id
+        self.include_session_start_time = include_session_start_time
         self._usage_sink = usage_sink  # Phase 3.5: optional per-transport-attempt event sink
         self._usage_attempt_index = 0  # Per-turn monotonic UsageEvent index (review P1-4)
         self._graph_engine = None  # Phase 3.5: lazy-initialised GraphEngine instance
@@ -4807,19 +4812,23 @@ class AIAgent:
             if context_files_prompt:
                 prompt_parts.append(context_files_prompt)
 
-        from hermes_time import now as _hermes_now
-        now = _hermes_now()
-        timestamp_line = (
-            f"Conversation started: {now.strftime('%A, %B %d, %Y %I:%M %p')} "
-            "(session start only — use get_current_time for the live clock)"
-        )
+        timestamp_lines = []
+        if self.include_session_start_time:
+            from hermes_time import now as _hermes_now
+
+            now = _hermes_now()
+            timestamp_lines.append(
+                f"Conversation started: {now.strftime('%A, %B %d, %Y %I:%M %p')} "
+                "(session start only — use get_current_time for the live clock)"
+            )
         if self.pass_session_id and self.session_id:
-            timestamp_line += f"\nSession ID: {self.session_id}"
+            timestamp_lines.append(f"Session ID: {self.session_id}")
         if self.model:
-            timestamp_line += f"\nModel: {self.model}"
+            timestamp_lines.append(f"Model: {self.model}")
         if self.provider:
-            timestamp_line += f"\nProvider: {self.provider}"
-        prompt_parts.append(timestamp_line)
+            timestamp_lines.append(f"Provider: {self.provider}")
+        if timestamp_lines:
+            prompt_parts.append("\n".join(timestamp_lines))
 
         # Alibaba Coding Plan API always returns "glm-4.7" as model name regardless
         # of the requested model. Inject explicit model identity into the system prompt

@@ -13,6 +13,8 @@ from fastapi.responses import JSONResponse
 log = logging.getLogger(__name__)
 
 _warm_event = threading.Event()
+_auto_load_packages_started = threading.Event()
+_auto_load_packages_lock = threading.Lock()
 
 
 def desk_is_warming() -> bool:
@@ -42,16 +44,52 @@ def ensure_desk_warmed() -> None:
         invalidate_desk_catalog_cache()
     except Exception:
         pass
-    # Kick off optional load-package downloads once the server is warm. This is a
-    # single, idempotent, serial self-heal decoupled from onboarding and the first
-    # chat turn — enqueue-and-return, so it never blocks warm or the event loop.
+    # A full AIAgent construction is expensive only once per Python process.
+    # Start it after readiness so onboarding can proceed while imports and SDK
+    # setup are primed for the first real turn.
+    threading.Thread(
+        target=_warm_agent_runtime,
+        name="desk-agent-warm",
+        daemon=True,
+    ).start()
+    log.info("desk warm complete in %.0fms", (time.monotonic() - t0) * 1000)
+
+
+def _warm_agent_runtime() -> None:
+    try:
+        from desk_server.chat_core import warm_desk_agent_runtime
+
+        warm_desk_agent_runtime()
+    except Exception:
+        log.exception("desk warm: agent runtime warm failed")
+
+
+def start_auto_load_packages_after_first_chat() -> None:
+    """Start boot self-heal only after the first chat turn is complete.
+
+    Optional packages can exceed 1 GB. Running them during onboarding or the first
+    request competes with the configured model endpoint for disk, CPU, and network.
+    Explicit Settings downloads remain immediate.
+    """
+    with _auto_load_packages_lock:
+        if _auto_load_packages_started.is_set():
+            return
+        _auto_load_packages_started.set()
+    threading.Thread(
+        target=_start_auto_load_packages,
+        name="desk-auto-load-packages",
+        daemon=True,
+    ).start()
+
+
+def _start_auto_load_packages() -> None:
     try:
         import load_packages
 
         load_packages.start_auto_downloads()
+        log.info("desk auto load-package downloads started after first chat")
     except Exception:
-        log.exception("desk warm: auto load-package downloads failed to start")
-    log.info("desk warm complete in %.0fms", (time.monotonic() - t0) * 1000)
+        log.exception("desk warm: deferred auto load-package downloads failed to start")
 
 
 def start_desk_warm_background() -> None:

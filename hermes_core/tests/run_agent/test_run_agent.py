@@ -974,6 +974,14 @@ class TestBuildSystemPrompt:
         # Should contain current date info like "Conversation started:"
         assert "Conversation started:" in prompt
 
+    def test_can_omit_session_start_time_for_cross_session_cache(self, agent):
+        agent.include_session_start_time = False
+
+        prompt = agent._build_system_prompt()
+
+        assert "Conversation started:" not in prompt
+        assert prompt
+
     def test_includes_nous_subscription_prompt(self, agent, monkeypatch):
         monkeypatch.setattr(run_agent, "build_nous_subscription_prompt", lambda tool_names: "NOUS SUBSCRIPTION BLOCK")
         prompt = agent._build_system_prompt()
