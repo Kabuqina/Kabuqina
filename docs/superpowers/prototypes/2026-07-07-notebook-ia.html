@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<!--
+  Kabuqina 笔记本信息架构原型（v0.4.0 B-5 / M6 交互验证,mock 数据）
+  自包含单文件,双击即开;零依赖,禁位图。
+  Prototype code: Copyright 2026 Kabuqina Contributors - Apache-2.0.
+  Embedded Kabuqina brand artwork (mascot cup as rendered in CSS):
+  Copyright (c) 2026 ladylydia - All Rights Reserved, NOT Apache-2.0.
+  See assets/brand/LICENSE.  SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Kabuqina-Brand
+  设计依据: docs/superpowers/specs/2026-07-06-desk-notebook-frontend-vision.md
+-->
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>卡布奇娜 · 笔记本原型</title>
+<style>
+  :root {
+    --desk: #e8dfd2;
+    --desk-edge: #d4c6b2;
+    --paper: #fbf8f1;
+    --paper-line: #e7e0d2;
+    --ink: #3a3630;
+    --ink-strong: #26231e;
+    --pencil: #8a857c;
+    --muted: #97917f;
+    --accent: #2f9e8f;
+    --accent-soft: #e3f2ef;
+    --warn: #b4543a;
+    --warn-soft: #f7e8e2;
+    --card: #ffffff;
+    --shadow: 0 2px 6px rgba(80,65,40,.10), 0 10px 28px rgba(80,65,40,.08);
+    --radius: 14px;
+    --tab-h: 40px;
+  }
+  [data-theme="dark"] {
+    --desk: #2b2823;
+    --desk-edge: #211f1b;
+    --paper: #34312b;
+    --paper-line: #403c34;
+    --ink: #ddd6c8;
+    --ink-strong: #f2ece0;
+    --pencil: #8f887a;
+    --muted: #7e786a;
+    --accent: #4db6a7;
+    --accent-soft: #2e3f3c;
+    --warn: #d07b5f;
+    --warn-soft: #443229;
+    --card: #3a362f;
+    --shadow: 0 2px 6px rgba(0,0,0,.35), 0 10px 28px rgba(0,0,0,.3);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; }
+  body {
+    font: 14.5px/1.65 "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(1200px 500px at 50% -100px, rgba(255,255,255,.25), transparent 60%),
+      var(--desk);
+    transition: background .35s, color .35s;
+  }
+  /* 纸纹/桌面噪点:SVG feTurbulence,禁位图 */
+  .grain::after {
+    content: ""; position: fixed; inset: 0; pointer-events: none; opacity: .5;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2"/><feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.02 0"/></filter><rect width="180" height="180" filter="url(%23n)"/></svg>');
+  }
+
+  .desk-top {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 22px 0;
+    max-width: 1180px; margin: 0 auto;
+  }
+  .bookend { display: flex; gap: 6px; align-items: flex-end; flex: 1; min-width: 0; overflow-x: auto; padding-bottom: 2px; }
+  .nb-pill {
+    border: 1px solid var(--desk-edge); border-bottom: none;
+    border-radius: 10px 10px 0 0; background: var(--paper);
+    color: var(--muted); cursor: pointer;
+    padding: 6px 14px 8px; font-size: 13px; white-space: nowrap;
+    box-shadow: inset 0 -6px 8px -8px rgba(80,65,40,.35);
+    display: inline-flex; align-items: center; gap: 7px;
+  }
+  .nb-pill .spine { width: 8px; height: 14px; border-radius: 2px; background: var(--muted); opacity: .55; }
+  .nb-pill.active { color: var(--ink-strong); font-weight: 600; box-shadow: none; padding-bottom: 12px; }
+  .nb-pill.active .spine { opacity: 1; }
+  .nb-pill.new { border-style: dashed; background: transparent; }
+  .lamp {
+    border: none; background: transparent; cursor: pointer; font-size: 13px;
+    color: var(--muted); padding: 6px 10px; border-radius: 8px;
+  }
+  .lamp:hover { background: rgba(0,0,0,.06); color: var(--ink-strong); }
+
+  .scene {
+    display: grid; grid-template-columns: minmax(0, 1fr) 250px; gap: 20px;
+    max-width: 1180px; margin: 0 auto; padding: 0 22px 30px;
+  }
+  @media (max-width: 900px) { .scene { grid-template-columns: 1fr; } .margin-rail { flex-direction: row; flex-wrap: wrap; } }
+
+  /* ── 笔记本 ─────────────────────────────── */
+  .notebook {
+    position: relative;
+    background: var(--paper);
+    border-radius: 4px var(--radius) var(--radius) 4px;
+    box-shadow: var(--shadow);
+    border-left: 10px solid var(--accent);
+    min-height: 620px;
+    display: flex; flex-direction: column;
+    transform: perspective(1400px) rotateX(.6deg);
+  }
+  .notebook.free { border-left-color: #b0a893; }
+  .nb-tabs { display: flex; gap: 2px; padding: 12px 16px 0 14px; border-bottom: 1px solid var(--paper-line); }
+  .nb-tab {
+    height: var(--tab-h); border: none; background: transparent; cursor: pointer;
+    color: var(--muted); font-size: 14px; padding: 0 14px;
+    border-radius: 10px 10px 0 0; position: relative;
+  }
+  .nb-tab:hover { color: var(--ink-strong); background: rgba(0,0,0,.04); }
+  .nb-tab.active { color: var(--ink-strong); font-weight: 600; }
+  .nb-tab.active::after {
+    content: ""; position: absolute; left: 12px; right: 12px; bottom: -1px;
+    height: 3px; border-radius: 3px 3px 0 0; background: var(--accent);
+  }
+  .nb-tab .dot {
+    display: inline-block; min-width: 17px; height: 17px; border-radius: 9px;
+    background: var(--warn); color: #fff; font-size: 11px; line-height: 17px;
+    margin-left: 6px; padding: 0 4px;
+  }
+  .nb-page { padding: 22px 30px 28px; flex: 1; }
+  .page-title { font-size: 13px; letter-spacing: .12em; color: var(--muted); text-transform: uppercase; margin-bottom: 14px; }
+
+  /* 书签:露出本子右上,点击=继续上次 */
+  .bookmark {
+    position: absolute; top: -12px; right: 44px;
+    background: var(--warn); color: #fff; font-size: 12.5px;
+    padding: 16px 11px 8px; border-radius: 0 0 7px 7px; cursor: pointer;
+    box-shadow: 0 3px 8px rgba(80,40,20,.25);
+    max-width: 190px; line-height: 1.4;
+  }
+  .bookmark:hover { filter: brightness(1.07); }
+  .bookmark small { display: block; opacity: .8; }
+
+  /* ── 扉页 ─────────────────────────────── */
+  .flyleaf .row { display: grid; grid-template-columns: 108px 1fr auto; gap: 10px; align-items: baseline; padding: 9px 2px; border-bottom: 1px dashed var(--paper-line); }
+  .flyleaf .k { color: var(--muted); font-size: 13px; }
+  .ink { color: var(--ink-strong); }
+  .pencil { color: var(--pencil); font-style: italic; position: relative; }
+  .pencil::after { content: " ·铅笔"; font-size: 11px; opacity: .75; font-style: normal; }
+  .mini { font-size: 12.5px; border: 1px solid var(--paper-line); background: transparent; color: var(--ink); border-radius: 8px; padding: 3px 10px; cursor: pointer; }
+  .mini:hover { border-color: var(--accent); color: var(--accent); }
+  .mini.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .hint { color: var(--muted); font-size: 12.5px; margin-top: 14px; }
+
+  /* ── 夹页(草稿) ────────────────────────── */
+  .looseleaf {
+    margin: 16px 0; padding: 14px 16px 12px; position: relative;
+    background: var(--card); border: 1px solid var(--paper-line);
+    border-radius: 3px; transform: rotate(-.7deg);
+    box-shadow: 0 4px 10px rgba(80,65,40,.12);
+  }
+  .looseleaf::before {
+    content: ""; position: absolute; top: -9px; left: 18px; width: 15px; height: 24px;
+    border: 2.5px solid var(--muted); border-bottom: none; border-radius: 8px 8px 0 0;
+  }
+  .looseleaf .tag { font-size: 11.5px; color: var(--pencil); letter-spacing: .08em; margin-bottom: 6px; }
+  .looseleaf .body { color: var(--pencil); font-style: italic; }
+  .looseleaf .acts { margin-top: 10px; display: flex; gap: 8px; }
+  .looseleaf.inked { transform: none; border-style: none; box-shadow: none; background: transparent; padding-left: 2px; }
+  .looseleaf.inked::before { display: none; }
+  .looseleaf.inked .body { color: var(--ink-strong); font-style: normal; }
+  .looseleaf.gone { opacity: 0; transform: translateX(40px) rotate(3deg); transition: all .35s; }
+
+  /* ── 列表页(计划/学习/评估) ─────────────── */
+  .item { display: flex; gap: 10px; align-items: flex-start; padding: 10px 2px; border-bottom: 1px solid var(--paper-line); }
+  .item .grow { flex: 1; min-width: 0; }
+  .item .sub { color: var(--muted); font-size: 12.5px; }
+  .item.done .grow { text-decoration: line-through; color: var(--muted); }
+  .chiprow { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+  .kp-chip {
+    border: 1px solid var(--paper-line); border-radius: 999px; background: var(--card);
+    padding: 3px 12px; font-size: 12.5px; cursor: pointer; color: var(--ink);
+  }
+  .kp-chip:hover { border-color: var(--accent); color: var(--accent); }
+  .kp-chip.added { background: var(--accent-soft); border-color: transparent; color: var(--accent); cursor: default; }
+  .empty { text-align: center; color: var(--muted); padding: 44px 10px; }
+  .empty .big { font-size: 15px; color: var(--ink); margin-bottom: 6px; }
+
+  /* ── 练习:抽认卡 ───────────────────────── */
+  .flash { perspective: 1000px; margin: 8px auto 14px; max-width: 430px; height: 190px; cursor: pointer; }
+  .flash .inner { position: relative; width: 100%; height: 100%; transition: transform .45s; transform-style: preserve-3d; }
+  .flash.flipped .inner { transform: rotateY(180deg); }
+  .face {
+    position: absolute; inset: 0; backface-visibility: hidden;
+    background: var(--card); border: 1px solid var(--paper-line); border-radius: 12px;
+    display: flex; align-items: center; justify-content: center; text-align: center;
+    padding: 22px; font-size: 16px; box-shadow: var(--shadow);
+  }
+  .face.back { transform: rotateY(180deg); color: var(--ink-strong); }
+  .grades { display: flex; gap: 8px; justify-content: center; }
+  .grade { border: 1px solid var(--paper-line); background: var(--card); border-radius: 10px; padding: 7px 14px; cursor: pointer; font-size: 13px; color: var(--ink); }
+  .grade b { display: block; font-size: 11px; color: var(--muted); font-weight: 500; }
+  .grade:hover { border-color: var(--accent); }
+  .keyhint { text-align: center; color: var(--muted); font-size: 12px; margin-top: 10px; }
+
+  /* ── 评估:错题本/日志 ───────────────────── */
+  .wrongbook .item { border-left: 3px solid var(--warn); padding-left: 10px; border-bottom: 1px dashed var(--paper-line); }
+  .timeline .item { border-bottom: none; padding: 5px 2px; color: var(--muted); font-size: 13px; }
+  .timeline .t { color: var(--pencil); font-size: 12px; min-width: 88px; }
+
+  /* ── 右栏:卡片盒 + 小娜 ─────────────────── */
+  .margin-rail { display: flex; flex-direction: column; gap: 16px; }
+  .cardbox {
+    background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 14px 16px; cursor: pointer; position: relative;
+    border-top: 6px solid var(--accent);
+  }
+  .cardbox:hover { transform: translateY(-1px); }
+  .cardbox .n { font-size: 24px; font-weight: 700; color: var(--ink-strong); }
+  .cardbox .lbl { color: var(--muted); font-size: 12.5px; }
+  .cardbox .stack { position: absolute; right: 14px; top: 12px; width: 40px; height: 30px; }
+  .cardbox .stack i { position: absolute; inset: 0; background: var(--paper); border: 1px solid var(--paper-line); border-radius: 4px; }
+  .cardbox .stack i:nth-child(2) { transform: translate(3px,-3px) rotate(3deg); }
+  .cardbox .stack i:nth-child(3) { transform: translate(6px,-6px) rotate(-2deg); }
+
+  /* 小娜 = 咖啡杯(CSS 渲染,品牌美术,见文件头许可) */
+  .nana { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 10px 0 4px; }
+  .cup { position: relative; width: 74px; height: 60px; cursor: pointer; }
+  .cup .body {
+    position: absolute; bottom: 0; left: 7px; width: 52px; height: 40px;
+    background: linear-gradient(180deg, #fff, #f0e9dd); border: 2px solid #c9b8a0;
+    border-radius: 6px 6px 22px 22px;
+  }
+  [data-theme="dark"] .cup .body { background: linear-gradient(180deg, #efe7d8, #d9cdb9); }
+  .cup .handle { position: absolute; right: 2px; bottom: 12px; width: 16px; height: 20px; border: 3px solid #c9b8a0; border-left: none; border-radius: 0 10px 10px 0; }
+  .cup .face { position: absolute; bottom: 14px; left: 22px; width: 22px; font-size: 10px; letter-spacing: 3px; color: #8b6f52; }
+  .cup .steam { position: absolute; top: -4px; left: 24px; width: 4px; height: 18px; border-radius: 4px; background: currentColor; color: #c9b8a0; opacity: .55; animation: steam 2.8s infinite ease-in-out; }
+  .cup .steam.s2 { left: 34px; animation-delay: .9s; height: 14px; }
+  .cup.speaking .steam { animation-duration: 1.1s; opacity: .85; }
+  @keyframes steam { 0%,100% { transform: translateY(0) scaleY(1); opacity:.25 } 50% { transform: translateY(-7px) scaleY(1.25); opacity:.7 } }
+  .nana .say { color: var(--muted); font-size: 12px; }
+
+  .margin-note {
+    background: var(--accent-soft); border-radius: 12px 12px 12px 3px;
+    padding: 10px 13px; font-size: 13px; color: var(--ink-strong);
+    box-shadow: var(--shadow); animation: pop .25s ease-out;
+  }
+  .margin-note .q { display: block; margin-top: 6px; color: var(--accent); font-size: 12.5px; }
+  @keyframes pop { from { transform: translateY(6px); opacity: 0 } }
+
+  footer { max-width: 1180px; margin: 6px auto 26px; padding: 0 22px; color: var(--muted); font-size: 11.5px; line-height: 1.8; }
+  footer b { color: var(--ink); font-weight: 600; }
+</style>
+</head>
+<body class="grain">
+
+<div class="desk-top">
+  <div class="bookend" id="bookend"></div>
+  <button class="lamp" id="lamp" title="台灯:主题切换(彩蛋;正式设置在 chrome)">台灯</button>
+</div>
+
+<div class="scene">
+  <section class="notebook" id="notebook">
+    <div class="bookmark" id="bookmark" title="书签:上次学到哪(current_plan item / checkpoint)"></div>
+    <nav class="nb-tabs" id="tabs"></nav>
+    <div class="nb-page" id="page"></div>
+  </section>
+
+  <aside class="margin-rail">
+    <div class="cardbox" id="cardbox" title="卡片盒随本走;徽标 = 到期数(flashcards due)">
+      <div class="stack"><i></i><i></i><i></i></div>
+      <div class="n" id="dueN">0</div>
+      <div class="lbl">张卡片到期 · 点击开始复习</div>
+    </div>
+    <div class="nana">
+      <div class="cup" id="cup" title="小娜(点击她说话)">
+        <div class="steam"></div><div class="steam s2"></div>
+        <div class="body"></div><div class="handle"></div>
+        <div class="face">˘ ᴗ ˘</div>
+      </div>
+      <div class="say">小娜在桌上陪着你</div>
+    </div>
+    <div id="notes"></div>
+  </aside>
+</div>
+
+<footer>
+  <b>撒谎检查表(本原型每个物件的真实数据源)</b><br>
+  笔记本=learning_space · 扉页=student_state(铅笔=draft/落墨=active) · 夹页=草稿审核 ·
+  书签=current_plan item · 卡片盒=flashcards due · 错题本=weak_points+quiz.attempt 证据 ·
+  学习日志=learning_activities · 知识点 chip=kq-kp 捕获 · 台灯=ui-prefs theme(chrome 开关仍保留) ·
+  复习键位=Anki 约定(空格翻卡,1/2/3/4 评分)
+</footer>
+
+<script>
+/* ── mock 数据:形状对齐 M4/四层契约 ─────────────────────────── */
+const DATA = {
+  prob: {
+    title: "概率论", free: false,
+    flyleaf: [
+      { k: "课程",      v: "概率论与数理统计", state: "ink" },
+      { k: "本期目标",  v: "期中 85 分;搞懂贝叶斯这一章", state: "ink" },
+      { k: "我的偏好",  v: "先看代码例子再看公式", state: "ink" },
+      { k: "可投入",    v: "工作日晚上 40 分钟", state: "pencil" },
+      { k: "当前阶段",  v: "第三章 · 条件概率", state: "ink" },
+    ],
+    bookmark: { text: "继续上次", sub: "变式练习 · 贝叶斯定理" },
+    plan: {
+      phase: "阶段 2 / 4 · 条件概率与贝叶斯",
+      items: [
+        { t: "重推一遍全概率公式(补每步理由)", sub: "预计 20 分钟 · 完成标准:不看书写出", done: true },
+        { t: "贝叶斯定理:代码例子 → 公式", sub: "预计 30 分钟 · 你的偏好:先代码后公式", done: false },
+        { t: "做 3 道变式(换先验)", sub: "预计 25 分钟", done: false },
+      ],
+      draft: { tag: "铅笔 · 她拟的下一阶段草稿", body: "阶段 3:随机变量与分布 —— 先用抛硬币模拟建立直觉,再进公式;两周,每周三个任务。" },
+    },
+    knowledge: [
+      { t: "贝叶斯定理", sub: "后验 = 先验 × 似然 / 证据 · 来源:讲义 2.3" },
+      { t: "全概率公式", sub: "对样本空间的一个划分求加权和 · 来源:讲义 2.2" },
+      { t: "先验与后验", sub: "观测前后的信念更新 · 推断,待你确认" },
+    ],
+    chips: [ { t: "条件概率", added: true }, { t: "独立性", added: false }, { t: "似然", added: false } ],
+    cards: [
+      { f: "全概率公式的适用前提?", b: "B₁…Bₙ 构成样本空间的一个划分(互斥且完备)" },
+      { f: "贝叶斯定理里“证据”指什么?", b: "P(A):观测数据的边际概率,作归一化用" },
+      { f: "先验概率是什么?", b: "看到数据之前,对假设的信念 P(H)" },
+    ],
+    wrong: [
+      { t: "把 P(A|B) 当成了 P(B|A)", sub: "证据:7月5日测验 第3题 · 混淆方向是常见误区" },
+      { t: "划分不完备仍用了全概率", sub: "证据:7月4日练习 第1题" },
+    ],
+    log: [
+      { t: "今天 20:14", e: "复习 3 张卡片(2 良好 / 1 困难)" },
+      { t: "昨天 21:02", e: "测验 8 题,答对 6" },
+      { t: "7月5日",    e: "完成计划项:重推全概率公式" },
+      { t: "7月5日",    e: "捕获知识点:条件概率" },
+    ],
+  },
+  free: {
+    title: "杂记本", free: true,
+    flyleaf: [
+      { k: "这是什么", v: "不属于任何课程的随手记;聊天里捕获的知识点会先落在这里", state: "ink" },
+      { k: "整理",     v: "内容可以随时转移进课程本", state: "ink" },
+    ],
+    bookmark: null,
+    plan: { phase: null, items: [], draft: null },
+    knowledge: [ { t: "SM-2 间隔重复", sub: "来自昨晚随口一问 · 可转移到任何课程本" } ],
+    chips: [ { t: "间隔重复", added: true } ],
+    cards: [],
+    wrong: [],
+    log: [ { t: "昨天 23:40", e: "捕获知识点:SM-2 间隔重复" } ],
+  },
+};
+
+const TABS = ["扉页", "计划", "学习", "练习", "评估"];
+let nb = "prob", tab = "扉页", flipped = false, cardIdx = 0;
+let due = 3;
+
+const $ = (id) => document.getElementById(id);
+const d = () => DATA[nb];
+
+/* ── 书立(换本) ── */
+function renderBookend() {
+  $("bookend").innerHTML = Object.entries(DATA).map(([id, n]) =>
+    `<button class="nb-pill ${id===nb?"active":""}" data-nb="${id}">
+       <span class="spine" style="background:${n.free?"#b0a893":"var(--accent)"}"></span>${n.title}</button>`
+  ).join("") + `<button class="nb-pill new" id="newnb">+ 开新本</button>`;
+  document.querySelectorAll("[data-nb]").forEach(b => b.onclick = () => { nb = b.dataset.nb; tab = "扉页"; render(); });
+  $("newnb").onclick = () => say("开一本新本子吧。这门课叫什么名字?", "开本仪式 = 她陪你填扉页(原型示意)");
+}
+
+/* ── 标签页 ── */
+function renderTabs() {
+  $("tabs").innerHTML = TABS.map(t => {
+    const badge = (t === "练习" && due > 0 && d().cards.length) ? `<span class="dot">${due}</span>` : "";
+    return `<button class="nb-tab ${t===tab?"active":""}" data-tab="${t}">${t}${badge}</button>`;
+  }).join("");
+  document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { tab = b.dataset.tab; render(); });
+}
+
+/* ── 页面内容 ── */
+function pageFlyleaf() {
+  return `<div class="page-title">扉页 · 我写在自己本子上的</div><div class="flyleaf">` +
+    d().flyleaf.map((r,i) => `
+      <div class="row"><span class="k">${r.k}</span>
+        <span class="${r.state}">${r.v}</span>
+        <span>${r.state==="pencil" ? `<button class="mini primary" data-inkrow="${i}">落墨</button> <button class="mini" data-eraserow="${i}">擦掉</button>` : ""}</span>
+      </div>`).join("") +
+    `</div><p class="hint">铅笔字是她拟的(draft),落墨才算数(active);橡皮永远在你手里。薄弱点不在这一页 —— 扉页写"我是谁、我想要什么",错题本记"证据显示什么"。</p>`;
+}
+function pagePlan() {
+  const p = d().plan;
+  if (!p.phase) return `<div class="page-title">计划</div><div class="empty"><div class="big">杂记本不赶进度</div>想为某门课立个计划,先开一本课程本。</div>`;
+  return `<div class="page-title">计划 · ${p.phase}</div>` +
+    p.items.map((it,i) => `
+      <div class="item ${it.done?"done":""}"><div class="grow">${it.t}<div class="sub">${it.sub}</div></div>
+        ${it.done ? "" : `<button class="mini" data-done="${i}">完成</button><button class="mini" data-skip="${i}">跳过</button>`}
+      </div>`).join("") +
+    (p.draft ? `
+      <div class="looseleaf" id="draftleaf">
+        <div class="tag">${p.draft.tag}</div><div class="body">${p.draft.body}</div>
+        <div class="acts"><button class="mini primary" id="inkDraft">落墨粘合</button><button class="mini" id="pullDraft">抽走</button></div>
+      </div>` : "") +
+    `<p class="hint">只细化最近一个阶段;后面的等你走到了再说。完成/跳过是你的行为,直接记进日志,不需要审批。</p>`;
+}
+function pageLearn() {
+  return `<div class="page-title">学习 · 这本的知识点</div>` +
+    (d().knowledge.length
+      ? d().knowledge.map(k => `<div class="item"><div class="grow">${k.t}<div class="sub">${k.sub}</div></div></div>`).join("")
+      : `<div class="empty"><div class="big">这一页还空着</div>去聊天里问她点什么,知识点会自己长到这里。</div>`) +
+    `<div class="chiprow">` + d().chips.map((c,i) =>
+      `<button class="kp-chip ${c.added?"added":""}" data-chip="${i}">${c.added?"✓ ":"+ "}${c.t}</button>`).join("") + `</div>
+    <p class="hint">chips 来自对话的 kq-kp 捕获;点一下 = 进卡片盒(写入即激活,幂等去重)。</p>`;
+}
+function pagePractice() {
+  if (!d().cards.length) return `<div class="page-title">练习</div><div class="empty"><div class="big">今天没有到期的卡片</div>这是值得庆祝的空;去学点新的,或者歇一会儿。</div>`;
+  const c = d().cards[cardIdx % d().cards.length];
+  return `<div class="page-title">练习 · 到期复习(${due} 张)</div>
+    <div class="flash ${flipped?"flipped":""}" id="flash"><div class="inner">
+      <div class="face">${c.f}</div><div class="face back">${c.b}</div>
+    </div></div>
+    ${flipped ? `<div class="grades">
+      ${[["再来","1"],["困难","2"],["良好","3"],["轻松","4"]].map(([t,k]) =>
+        `<button class="grade" data-grade="${k}">${t}<b>${k}</b></button>`).join("")}
+    </div>` : ""}
+    <div class="keyhint">空格 翻卡 · 1/2/3/4 评分(Anki 约定)</div>`;
+}
+function pageReview() {
+  const w = d().wrong;
+  return `<div class="page-title">评估 · 错题本</div><div class="wrongbook">` +
+    (w.length ? w.map(x => `<div class="item"><div class="grow">${x.t}<div class="sub">${x.sub}</div></div><button class="mini">再试一次</button></div>`).join("")
+              : `<div class="empty"><div class="big">错题本是空的</div>干净的错题本值得骄傲 —— 也可能只是还没开始练。</div>`) +
+    `</div><div class="page-title" style="margin-top:26px">学习日志(她见证的,只读)</div><div class="timeline">` +
+    d().log.map(l => `<div class="item"><span class="t">${l.t}</span><span>${l.e}</span></div>`).join("") + `</div>`;
+}
+
+function renderPage() {
+  const fn = { "扉页": pageFlyleaf, "计划": pagePlan, "学习": pageLearn, "练习": pagePractice, "评估": pageReview }[tab];
+  $("page").innerHTML = fn();
+  /* 行为绑定 */
+  document.querySelectorAll("[data-inkrow]").forEach(b => b.onclick = () => { d().flyleaf[b.dataset.inkrow].state = "ink"; say("好,落墨了。可投入时间我记下了 —— 计划会按每晚 40 分钟排。"); render(); });
+  document.querySelectorAll("[data-eraserow]").forEach(b => b.onclick = () => { d().flyleaf.splice(b.dataset.eraserow,1); render(); });
+  document.querySelectorAll("[data-done]").forEach(b => b.onclick = () => { d().plan.items[b.dataset.done].done = true; say("完成一项。要不要现在就趁热做下一项?"); render(); });
+  document.querySelectorAll("[data-skip]").forEach(b => b.onclick = () => { d().plan.items.splice(b.dataset.skip,1); render(); });
+  document.querySelectorAll("[data-chip]").forEach(b => b.onclick = () => {
+    const c = d().chips[b.dataset.chip];
+    if (!c.added) { c.added = true; due += 1; say(`「${c.t}」进卡片盒了。明天它会第一次到期。`); render(); }
+  });
+  const fl = $("flash"); if (fl) fl.onclick = () => { flipped = !flipped; renderPage(); };
+  document.querySelectorAll("[data-grade]").forEach(b => b.onclick = () => grade());
+  const ink = $("inkDraft"); if (ink) ink.onclick = () => {
+    const leaf = $("draftleaf"); leaf.classList.add("inked");
+    leaf.querySelector(".acts").remove(); leaf.querySelector(".tag").textContent = "已落墨 · 阶段 3(待你走到)";
+    d().plan.draft = null; say("阶段 3 粘进本子了。现在还是专心眼前这页。");
+  };
+  const pull = $("pullDraft"); if (pull) pull.onclick = () => {
+    const leaf = $("draftleaf"); leaf.classList.add("gone");
+    setTimeout(() => { d().plan.draft = null; render(); }, 320);
+    say("抽走了。想要不一样的节奏,随时跟我说。");
+  };
+}
+
+function grade() {
+  flipped = false; cardIdx += 1;
+  if (due > 0) due -= 1;
+  if (due === 0) say("今天的卡片清完了。桌子归你,我就在这儿。");
+  render();
+}
+
+/* ── 书签 / 卡片盒 / 小娜 ── */
+function renderBookmark() {
+  const bm = d().bookmark, el = $("bookmark");
+  el.style.display = bm ? "block" : "none";
+  if (bm) { el.innerHTML = `${bm.text}<small>${bm.sub}</small>`; el.onclick = () => { tab = "练习"; render(); }; }
+}
+function renderBox() { $("dueN").textContent = due; $("cardbox").onclick = () => { tab = "练习"; render(); }; }
+
+let sayTimer = null;
+function say(text, sub) {
+  const cup = $("cup"); cup.classList.add("speaking");
+  $("notes").innerHTML = `<div class="margin-note">${text}${sub ? `<span class="q">${sub}</span>` : ""}</div>`;
+  clearTimeout(sayTimer);
+  sayTimer = setTimeout(() => { cup.classList.remove("speaking"); }, 2600);
+}
+$("cup").onclick = () => say("需要我的时候叫我;不需要的时候,我就是一杯安静的咖啡。");
+
+/* ── 台灯(主题彩蛋) ── */
+$("lamp").onclick = () => {
+  const r = document.documentElement;
+  r.dataset.theme = r.dataset.theme === "light" ? "dark" : "light";
+};
+
+/* ── Anki 键位(练习页作用域) ── */
+document.addEventListener("keydown", (e) => {
+  if (tab !== "练习" || !d().cards.length) return;
+  if (e.code === "Space") { e.preventDefault(); flipped = !flipped; renderPage(); }
+  if (flipped && ["1","2","3","4"].includes(e.key)) grade();
+});
+
+function render() {
+  $("notebook").classList.toggle("free", d().free);
+  renderBookend(); renderTabs(); renderPage(); renderBookmark(); renderBox();
+}
+render();
+say("欢迎回来。书签还停在贝叶斯 —— 从上次的地方继续?", "点右上角的书签直接回去");
+</script>
+</body>
+</html>
