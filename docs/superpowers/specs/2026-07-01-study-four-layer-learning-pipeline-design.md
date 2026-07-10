@@ -2,7 +2,7 @@
 
 **日期：** 2026-07-01（2026-07-02 评审修订；2026-07-04 M3 收口）
 
-**状态：** 已确认，M1-M3 已收口，M4 待实施
+**状态：** 已确认，M1-M4 已收口，M5 待实施
 
 **范围：** STUDY 模块、共享 Agent Core、桌面端与 Gateway 的学习产物契约
 
@@ -413,6 +413,18 @@ Gateway 使用确定性命令激活学习工作区和草稿，不把权限操作
 - evaluation；
 - learning plan 与计划项活动；
 - 评估结果影响后续 Planner 输入，但不自动固化能力标签。
+
+收口记录（2026-07-10）：M4 以 `student_state`、`evaluation`、
+`learning_plan` 三个 trusted service 落地；legacy
+`kabuqina.study.context.v1` 的 12 字段幂等迁移为 owner/space scoped
+active state 与可选 active evaluation，固定能力/人格标签继续由 contract
+拒绝。计划激活会归档旧 active plan 并 materialize 稳定 plan item，完成/
+跳过只写直接 activity。Learning Index 只投影 active state/evaluation/
+current plan、到期卡引用、去重 weak points 与白名单 activity 摘要；H3 将
+其中的到期数/弱点/当前计划项以 ≤2KB 的 fresh ephemeral block 每回合注入。
+LG6 复用 cron notify + desktop delivery，默认关闭、N=0 静音、按 desktop
+owner 跨课程计数，opt-out 删除 job。T1 已用默认 production DB 的
+owner-only ACL 实效测试锁定。生命周期页面仍归 D 轨。
 
 ### M5：知识库、资源包、辅导与质量门
 

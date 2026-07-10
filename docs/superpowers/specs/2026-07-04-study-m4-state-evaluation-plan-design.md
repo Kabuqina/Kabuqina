@@ -2,7 +2,9 @@
 
 **Date:** 2026-07-04
 
-**Status:** Planning only. Do not implement until M1-M3 review feedback is resolved.
+**Status:** Implemented and verified (2026-07-10). The M1-M3 review gate was
+re-checked before implementation; no finding changed the artifact lifecycle,
+route naming, migration rules, or Learning Index shape.
 
 **Scope:** STUDY M4 only: durable student state, evidence-based evaluations, active learning plans, plan-item activities, and Learning Index projections for subsequent planning. Gateway `/study` commands, semantic reviewer quality gates, knowledge bases, resource packs, tutoring notes, and the lifecycle UI rewrite remain out of scope.
 
@@ -176,3 +178,25 @@ git diff --check
 ## Review Gate
 
 This design is intentionally planning-only. Before M4 implementation starts, re-read M1-M3 review findings and update this spec if those findings change the artifact lifecycle, route naming, migration rules, Web refresh behavior, or Learning Index shape.
+
+## Closure Record (2026-07-10)
+
+M4 landed as three trusted core services (`student_state`, `evaluation`, and
+`learning_plan`), bounded active-only Learning Index projections, owner-scoped
+desk routes, and Tauri proxy contracts. Legacy
+`kabuqina.study.context.v1` migration preserves all twelve fields, is
+idempotent, and never puts weak/evaluation evidence into `student_state`.
+Plan tasks materialize as stable `learning_plan_item` rows; complete/skip are
+direct activities and invalid repeat or archived-plan actions fail.
+
+The two B-1 riders also landed: H3 recomputes a ≤2KB due-card/weak-point/current-
+plan projection in the desk ephemeral prompt before every turn, without
+touching the cached base prompt or graph/loop internals; LG6 reuses cron
+`mode=notify` plus desktop delivery, remains default-off, dynamically counts
+due cards for the persisted owner, emits `[SILENT]` for zero, and removes its
+job on opt-out. The learning-data charter T1 gap was closed by applying and
+auditing an owner-only ACL on the default production `learning.db` root.
+
+Per the newer v0.4 workstream boundary, notebook page/UI work is owned by D
+track. B-1 therefore exposes backend/Tauri contracts but does not modify
+`StudySection` or create a competing minimal page.

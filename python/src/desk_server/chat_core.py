@@ -16,6 +16,7 @@ _desk_active_lock = threading.Lock()
 _DESK_MAX_ATTACHMENTS = 6
 _DESK_MAX_ATTR_BYTES = 12 * 1024 * 1024
 _DESK_MAX_INLINE_CHARS = 200_000
+_DESK_LEARNING_PROMPT_MAX_BYTES = 2 * 1024
 
 
 def _desk_register_active(session_id: str, agent: Any) -> None:
@@ -516,6 +517,67 @@ def _desk_ephemeral_system_prompt(agent_section: Dict[str, Any]) -> Optional[str
     return combined or None
 
 
+def _desk_learning_ephemeral_prompt(
+    context: Any, *, max_bytes: int = _DESK_LEARNING_PROMPT_MAX_BYTES
+) -> str:
+    """Render the fresh, bounded M4 projection for one desk chat turn."""
+    if not context.current_space():
+        return ""
+
+    from learning.learning_index import LearningIndex
+
+    snapshot = LearningIndex(context).build()
+    current_plan = snapshot.get("current_plan")
+    current_item = None
+    if isinstance(current_plan, dict):
+        items = current_plan.get("items")
+        if isinstance(items, list):
+            current_item = next(
+                (item for item in items if isinstance(item, dict) and item.get("status") == "open"),
+                next((item for item in items if isinstance(item, dict)), None),
+            )
+
+    item_summary = None
+    if isinstance(current_item, dict):
+        item_summary = {
+            "item_id": str(current_item.get("item_id") or "")[:160],
+            "title": str(current_item.get("title") or "")[:300],
+            "done_when": str(current_item.get("done_when") or "")[:300],
+            "status": str(current_item.get("status") or "")[:40],
+        }
+    payload = {
+        "space_id": str(snapshot.get("space_id") or "")[:160],
+        "due_review_count": len(snapshot.get("due_reviews") or []),
+        "weak_points": [
+            str(point)[:200] for point in (snapshot.get("weak_points") or [])[:8]
+        ],
+        "current_plan_item": item_summary,
+    }
+    header = "# Current learning context (fresh, read-only)\n"
+
+    def _render() -> str:
+        return header + json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+
+    while payload["weak_points"] and len(_render().encode("utf-8")) > max_bytes:
+        payload["weak_points"].pop()
+    if len(_render().encode("utf-8")) > max_bytes:
+        payload["current_plan_item"] = None
+    if len(_render().encode("utf-8")) > max_bytes:
+        payload["space_id"] = ""
+    rendered = _render()
+    return rendered if len(rendered.encode("utf-8")) <= max_bytes else ""
+
+
+def _desk_refresh_learning_ephemeral_prompt(agent: Any, context: Any) -> None:
+    base = getattr(agent, "_desk_base_ephemeral_system_prompt", None)
+    if base is None:
+        base = str(getattr(agent, "ephemeral_system_prompt", None) or "").strip()
+        agent._desk_base_ephemeral_system_prompt = base
+    learning = _desk_learning_ephemeral_prompt(context)
+    combined = "\n\n".join(part for part in (base, learning) if part)
+    agent.ephemeral_system_prompt = combined or None
+
+
 def _desk_chat_build_agent(session_id: str, db: Any, *, warmup: bool = False) -> Any:
     """Construct AIAgent using the same config + credentials as the CLI."""
     from run_agent import AIAgent
@@ -607,7 +669,9 @@ def _desk_chat_build_agent(session_id: str, db: Any, *, warmup: bool = False) ->
             except (TypeError, ValueError):
                 pass
 
-    return AIAgent(**kwargs)
+    agent = AIAgent(**kwargs)
+    agent._desk_base_ephemeral_system_prompt = kwargs.get("ephemeral_system_prompt") or ""
+    return agent
 
 
 def warm_desk_agent_runtime() -> bool:
@@ -669,7 +733,8 @@ def _desk_chat_run_in_thread(
         store = LearningStore()
         try:
             created_callback = _emit_learning_created if progress_event_callback else None
-            with desktop_learning_scope(store), learning_created_callback_scope(created_callback):
+            with desktop_learning_scope(store) as learning_ctx, learning_created_callback_scope(created_callback):
+                _desk_refresh_learning_ephemeral_prompt(agent, learning_ctx)
                 if persist_user_message is not None:
                     result = agent.run_conversation(
                         user_message=user_message,

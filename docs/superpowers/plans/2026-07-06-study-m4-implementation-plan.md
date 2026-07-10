@@ -17,6 +17,18 @@ review reminder, opt-in).
 **Tech Stack:** Python 3.11 (hermes_core learning services + desk_server
 routes), Tauri thin proxies, TypeScript web (minimal surface), TDD throughout.
 
+## Progress Notes
+
+**2026-07-10 — B-1 complete.** Before code changes, the M1-M3 review closure
+was re-read and confirmed not to alter lifecycle, route, migration, refresh, or
+index contracts. Tasks 1-3 and 5-6 landed with TDD. The v0.4 master plan now
+assigns all notebook UI/minimal Web surfaces to D track, so Task 4's
+`StudySection` work was deliberately superseded; B-1 supplies desk/Tauri
+contracts without editing D's components. Focused evidence: core learning 174
+tests, cron reminder 11 tests, desk/H3/route/reminder suites, and `cargo test
+study` pass (Tauri test used `TAURI_CONFIG` to omit the 1.5GB bundle resources
+from test-only build-script scanning). Graph/loop internals were not changed.
+
 ---
 
 ## Guardrails

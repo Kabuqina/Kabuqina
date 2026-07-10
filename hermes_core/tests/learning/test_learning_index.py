@@ -181,3 +181,121 @@ def test_index_not_truncated_when_within_caps(env):
     assert snap["truncated"] is False
     # Snapshot is JSON-serializable (a real snapshot for a planner to consume).
     json.dumps(snap)
+
+
+# --------------------------------------------------------------------------- #
+# M4 projections
+# --------------------------------------------------------------------------- #
+
+def test_index_projects_active_state_evaluations_plan_and_due_cards(env):
+    from datetime import datetime, timezone
+
+    from learning.evaluations import EvaluationService
+    from learning.flashcards import FlashcardService
+    from learning.learning_plans import LearningPlanService
+    from learning.student_state import StudentStateService
+
+    store, ctx, writer = env
+    StudentStateService(ctx).save_state(
+        {"course": "Algebra", "goals": ["Midterm"]}
+    )
+    evaluation_id = writer.write_artifact(
+        kind="evaluation",
+        title="Eval",
+        payload={"observations": ["Missed primes"], "weak_points": ["Prime numbers"]},
+    )["artifact_id"]
+    EvaluationService(ctx).activate_evaluation(evaluation_id)
+    plan_id = writer.write_artifact(
+        kind="learning_plan",
+        title="Plan",
+        payload={"phases": [{"title": "P1", "tasks": [{"title": "Drill", "order": 1}]}]},
+    )["artifact_id"]
+    LearningPlanService(ctx).activate_plan(plan_id)
+    FlashcardService(
+        ctx, now=lambda: datetime(2020, 1, 1, tzinfo=timezone.utc)
+    ).capture_card(front="Prime", back="Divisible only by one and itself")
+
+    snap = LearningIndex(ctx).build()
+
+    assert snap["student_state"]["course"] == "Algebra"
+    assert snap["evaluations"][0]["weak_points"] == ["Prime numbers"]
+    assert snap["current_plan"]["artifact_id"] == plan_id
+    assert snap["current_plan"]["items"][0]["title"] == "Drill"
+    assert snap["weak_points"] == ["Prime numbers"]
+    assert len(snap["due_reviews"]) == 1
+    assert "front" not in snap["due_reviews"][0]
+
+
+def test_index_excludes_draft_m4_artifacts(env):
+    store, ctx, writer = env
+    writer.write_artifact(
+        kind="student_state", title="Draft state", payload={"course": "Draft"}
+    )
+    writer.write_artifact(
+        kind="evaluation",
+        title="Draft eval",
+        payload={"observations": ["Not active"], "weak_points": ["draft"]},
+    )
+    writer.write_artifact(
+        kind="learning_plan",
+        title="Draft plan",
+        payload={"phases": [{"title": "P", "tasks": [{"title": "Hidden"}]}]},
+    )
+
+    snap = LearningIndex(ctx).build()
+
+    assert snap["student_state"] == {}
+    assert snap["evaluations"] == []
+    assert snap["current_plan"] is None
+    assert snap["weak_points"] == []
+
+
+def test_index_deduplicates_evaluation_and_quiz_weak_points(env):
+    from learning.evaluations import EvaluationService
+
+    store, ctx, writer = env
+    evaluation_id = writer.write_artifact(
+        kind="evaluation",
+        title="Eval",
+        payload={"observations": ["x"], "weak_points": ["Prime", "Fractions"]},
+    )["artifact_id"]
+    EvaluationService(ctx).activate_evaluation(evaluation_id)
+    ctx.record_activity(
+        activity_type="quiz.attempt",
+        detail={
+            "score": 1,
+            "maxScore": 2,
+            "percent": 50,
+            "weakTags": ["prime", "Factoring"],
+            "perQuestion": [{"prompt": "must not leak"}],
+        },
+    )
+
+    snap = LearningIndex(ctx).build()
+
+    assert snap["weak_points"] == ["Prime", "Fractions", "Factoring"]
+    assert snap["activities"][0]["summary"] == {
+        "score": 1,
+        "maxScore": 2,
+        "percent": 50,
+        "weakTags": ["prime", "Factoring"],
+    }
+    assert "perQuestion" not in snap["activities"][0]["summary"]
+
+
+def test_index_m4_payloads_are_trimmed_under_realistic_byte_cap(env):
+    from learning.student_state import StudentStateService
+
+    store, ctx, writer = env
+    StudentStateService(ctx).save_state(
+        {
+            "course": "A" * 800,
+            "goals": [f"goal-{index}-" + "x" * 200 for index in range(24)],
+            "progress_notes": ["y" * 400 for _ in range(24)],
+        }
+    )
+
+    snap = LearningIndex(ctx).build(max_bytes=2_048)
+
+    assert len(json.dumps(snap, ensure_ascii=False).encode("utf-8")) <= 2_048
+    assert snap["truncated"] is True

@@ -76,9 +76,17 @@ MAX_SOURCE_REFS: int = 200
 MAX_LIST_ITEMS: int = 1_000
 MAX_QUIZ_QUESTIONS: int = 500
 MAX_CHOICE_OPTIONS: int = 26
+MAX_LEARNING_PLAN_ITEMS: int = 500
+MAX_DERIVATION_STEPS: int = 50
 MAX_ENVELOPE_BYTES: int = 512 * 1024
 
-QUIZ_QUESTION_TYPES: frozenset = frozenset({"choice", "true_false", "short_answer"})
+QUIZ_QUESTION_TYPES: frozenset = frozenset(
+    {"choice", "true_false", "short_answer", "code", "derivation"}
+)
+CODE_QUESTION_MODES: frozenset = frozenset({"solve", "transcribe", "variant"})
+DERIVATION_CHECKS: frozenset = frozenset(
+    {"numeric-equivalence", "normalized-match"}
+)
 
 
 class ContractError(ValueError):
@@ -201,11 +209,17 @@ def _v_knowledge_base(p: Mapping[str, Any]) -> None:
 def _v_learning_plan(p: Mapping[str, Any]) -> None:
     _opt_str_list(p, "goals", "learning_plan")
     phases = _req_nonempty_list(p, "phases", "learning_plan")
+    total_tasks = 0
     for i, ph in enumerate(phases):
         ctx = f"learning_plan.phases[{i}]"
         pm = _mapping(ph, ctx)
         _req_str(pm, "title", ctx)
         tasks = _req_nonempty_list(pm, "tasks", ctx)
+        total_tasks += len(tasks)
+        if total_tasks > MAX_LEARNING_PLAN_ITEMS:
+            raise ContractError(
+                f"learning_plan: exceeds {MAX_LEARNING_PLAN_ITEMS} plan items"
+            )
         for j, t in enumerate(tasks):
             tctx = f"{ctx}.tasks[{j}]"
             tm = _mapping(t, tctx)
@@ -274,10 +288,67 @@ def _v_quiz_short_answer(q: Mapping[str, Any], ctx: str) -> None:
         )
 
 
+def _v_quiz_code(q: Mapping[str, Any], ctx: str) -> None:
+    language = _req_str(q, "language", ctx).strip().casefold()
+    mode = q.get("mode")
+    if mode not in CODE_QUESTION_MODES:
+        raise ContractError(
+            f"{ctx}: code 'mode' must be one of {sorted(CODE_QUESTION_MODES)}"
+        )
+    for field in ("starter", "target_code", "test_code", "reference", "variant_of"):
+        _opt_str(q, field, ctx)
+    _opt_str_list(q, "tags", ctx)
+    if mode == "transcribe" and not (
+        isinstance(q.get("target_code"), str) and q["target_code"].strip()
+    ):
+        raise ContractError(f"{ctx}: transcribe code needs 'target_code'")
+    if language == "python" and mode in {"solve", "variant"} and not (
+        isinstance(q.get("test_code"), str) and q["test_code"].strip()
+    ):
+        raise ContractError(f"{ctx}: python {mode} code needs 'test_code'")
+
+
+def _v_quiz_derivation(q: Mapping[str, Any], ctx: str) -> None:
+    steps = _req_nonempty_list(q, "steps", ctx)
+    if len(steps) > MAX_DERIVATION_STEPS:
+        raise ContractError(
+            f"{ctx}: derivation exceeds {MAX_DERIVATION_STEPS} steps"
+        )
+    for i, step in enumerate(steps):
+        sctx = f"{ctx}.steps[{i}]"
+        sm = _mapping(step, sctx)
+        _req_str(sm, "expr", sctx)
+        _opt_str(sm, "expr_py", sctx)
+        _opt_str(sm, "justification", sctx)
+        _opt_str_list(sm, "accepted", sctx)
+    check = q.get("check")
+    if check not in DERIVATION_CHECKS:
+        raise ContractError(
+            f"{ctx}: derivation 'check' must be one of {sorted(DERIVATION_CHECKS)}"
+        )
+    cloze = _req_nonempty_list(q, "cloze", ctx)
+    seen: set[int] = set()
+    for value in cloze:
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, int)
+            or value < 0
+            or value >= len(steps)
+            or value in seen
+        ):
+            raise ContractError(
+                f"{ctx}: derivation 'cloze' must contain unique zero-based step indices"
+            )
+        seen.add(value)
+    _opt_str_list(q, "tags", ctx)
+
+
 _QUIZ_TYPE_VALIDATORS: Dict[str, Callable[[Mapping[str, Any], str], None]] = {
     "choice": _v_quiz_choice,
     "true_false": _v_quiz_true_false,
     "short_answer": _v_quiz_short_answer,
+    "code": _v_quiz_code,
+    "derivation": _v_quiz_derivation,
 }
 
 
@@ -310,8 +381,20 @@ def _v_tutoring_note(p: Mapping[str, Any]) -> None:
 def _v_evaluation(p: Mapping[str, Any]) -> None:
     _forbid_keys(p, _FIXED_LABEL_KEYS, "evaluation")
     _req_nonempty_list(p, "observations", "evaluation")
+    _opt_str_list(p, "observations", "evaluation")
     _opt_str_list(p, "weak_points", "evaluation")
     _opt_str_list(p, "suggestions", "evaluation")
+    refs = p.get("evidence_refs")
+    if refs is None:
+        return
+    if not isinstance(refs, list) or len(refs) > MAX_SOURCE_REFS:
+        raise ContractError("evaluation: 'evidence_refs' must be a bounded list")
+    for i, ref in enumerate(refs):
+        rctx = f"evaluation.evidence_refs[{i}]"
+        rm = _mapping(ref, rctx)
+        for key, value in rm.items():
+            if not isinstance(key, str) or not isinstance(value, str):
+                raise ContractError(f"{rctx}: keys and values must be strings")
 
 
 _PAYLOAD_VALIDATORS: Dict[str, Callable[[Mapping[str, Any]], None]] = {

@@ -27,7 +27,7 @@ workflows:
 >
 > Example format:
 > ```markdown
-> - `cron/scheduler.py` — Added `mode: notify` for fixed-text desktop reminders (patch)
+> - `cron/scheduler.py` — Added `mode: notify` for fixed-text desktop reminders and the owner-scoped, live-count STUDY due-review reminder branch (patch)
 > - `tools/cronjob_tools.py` — Extended job schema with `message` and `deliver` fields (patch)
 > ```
 

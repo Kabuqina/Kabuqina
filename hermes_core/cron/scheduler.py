@@ -909,7 +909,16 @@ def _run_notify_job(job: dict) -> tuple[bool, str, str, Optional[str]]:
     """Deliver a fixed message at schedule time without invoking the agent."""
     job_id = job["id"]
     job_name = job.get("name", job_id)
-    body = (job.get("message") or job.get("prompt") or "").strip()
+    reminder_spec = job.get("study_review_reminder")
+    if isinstance(reminder_spec, dict):
+        try:
+            due_count = _study_review_due_count(reminder_spec)
+        except Exception as exc:
+            logger.exception("Job '%s': study review reminder query failed", job_id)
+            return False, "", "", f"study review reminder query failed: {exc}"
+        body = f"今日有 {due_count} 张卡片到期" if due_count > 0 else SILENT_MARKER
+    else:
+        body = (job.get("message") or job.get("prompt") or "").strip()
     if not body:
         return False, "", "", "notify job requires non-empty message or prompt"
     logger.info(
@@ -925,6 +934,31 @@ def _run_notify_job(job: dict) -> tuple[bool, str, str, Optional[str]]:
         f"{body}\n"
     )
     return True, doc, body, None
+
+
+def _study_review_due_count(spec: dict) -> int:
+    """Count due cards across active spaces for the persisted reminder owner."""
+    owner_id = spec.get("owner_id")
+    if not isinstance(owner_id, str) or not owner_id.strip():
+        raise ValueError("study review reminder requires owner_id")
+
+    from learning.flashcards import FlashcardService
+    from learning.learning_context import LearningExecutionContext
+    from learning.learning_store import LearningStore
+
+    store = LearningStore()
+    try:
+        total = 0
+        for space in store.list_spaces(owner_id):
+            if space.get("status") != "active":
+                continue
+            context = LearningExecutionContext(
+                store, owner_id=owner_id, space_id=space["space_id"]
+            )
+            total += len(FlashcardService(context).list_cards(due_only=True))
+        return total
+    finally:
+        store.close()
 
 
 def run_job(job: dict) -> tuple[bool, str, str, Optional[str]]:

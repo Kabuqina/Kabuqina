@@ -15,6 +15,24 @@ parallel with B-1 (different file surfaces).
 
 **Tech Stack:** Python 3.11, subprocess sandboxing, pytest TDD.
 
+## Progress Notes
+
+**2026-07-10 — security review pause (Tasks 1-2 complete).** Contract tests
+cover valid/invalid `code` and `derivation` members, including the 50-step and
+20k-character limits, zero-based cloze indices, `expr_py` fallback shape, and
+honest non-Python acceptance for later `gradable: false` materialization. The
+standalone grader passes adversarial tests for isolated/minimal env, Unicode,
+pass/fail/error, timeout, Windows process-tree kill, 64KB stream truncation,
+temp cleanup, deterministic numeric equivalence, false equivalence, and
+all-domain-error fallback. The test suite also demonstrates (rather than
+hiding) that an absolute path remains readable under the current user.
+
+Task 3 has not started. Owner sign-off is pending on the documented residual
+risks: unrestricted network egress, current-user absolute-path access, process
+creation before tree kill, and memory exhaustion before timeout. Public result
+shape exposes only bounded pass/fail metadata and a ≤240-character sanitized
+exception summary; stdout is never returned.
+
 ---
 
 ## Guardrails

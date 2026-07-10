@@ -391,6 +391,61 @@ def test_evaluation_requires_observations():
         validate_envelope(_envelope("evaluation", {"suggestions": ["study more"]}))
 
 
+def test_evaluation_evidence_refs_are_valid():
+    env = validate_envelope(
+        _envelope(
+            "evaluation",
+            {
+                "observations": ["Quiz score improved."],
+                "weak_points": ["prime numbers"],
+                "suggestions": ["Add mixed drills"],
+                "evidence_refs": [
+                    {"activity_id": "act-1", "activity_type": "quiz.attempt"},
+                    {"artifact_id": "quiz-1"},
+                ],
+            },
+        )
+    )
+    assert env.payload["evidence_refs"][0]["activity_id"] == "act-1"
+
+
+@pytest.mark.parametrize(
+    "refs",
+    [
+        ["not an object"],
+        [{"activity_id": 42}],
+        [{}] * 201,
+    ],
+)
+def test_evaluation_evidence_refs_must_be_bounded_string_map_list(refs):
+    with pytest.raises(ContractError):
+        validate_envelope(
+            _envelope(
+                "evaluation",
+                {"observations": ["x"], "evidence_refs": refs},
+            )
+        )
+
+
+def test_learning_plan_has_a_total_item_bound():
+    with pytest.raises(ContractError, match="plan items"):
+        validate_envelope(
+            _envelope(
+                "learning_plan",
+                {
+                    "phases": [
+                        {
+                            "title": "Too much",
+                            "tasks": [
+                                {"title": f"Task {index}"} for index in range(501)
+                            ],
+                        }
+                    ]
+                },
+            )
+        )
+
+
 # --------------------------------------------------------------------------- #
 # Quiz discriminated union — each question type has its own sub-schema.
 # --------------------------------------------------------------------------- #
@@ -483,6 +538,126 @@ def test_quiz_short_answer_accepted_list_is_valid():
         )
     )
     assert env.kind == "quiz"
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        {
+            "type": "code",
+            "prompt": "Implement sigmoid",
+            "language": "python",
+            "mode": "solve",
+            "starter": "def sigmoid(x):\n    ...",
+            "test_code": "assert abs(sigmoid(0) - 0.5) < 1e-9",
+            "reference": "def sigmoid(x): return 1 / (1 + exp(-x))",
+            "tags": ["activation"],
+        },
+        {
+            "type": "code",
+            "prompt": "Transcribe this function",
+            "language": "python",
+            "mode": "transcribe",
+            "target_code": "def add(a, b):\n    return a + b",
+        },
+        {
+            "type": "code",
+            "prompt": "Implement in JavaScript",
+            "language": "javascript",
+            "mode": "solve",
+        },
+        {
+            "type": "derivation",
+            "prompt": "Derive variance",
+            "steps": [
+                {
+                    "expr": "Var(X)=E[(X-E[X])^2]",
+                    "expr_py": "E_x2 - 2*mu*mu + mu*mu",
+                    "justification": "definition",
+                    "accepted": ["definition", "by definition"],
+                },
+                {"expr": "=E[X^2]-E[X]^2", "justification": "expand"},
+            ],
+            "check": "numeric-equivalence",
+            "cloze": [1],
+            "tags": ["variance"],
+        },
+    ],
+)
+def test_quiz_code_and_derivation_members_are_valid(question):
+    env = validate_envelope(_envelope("quiz", {"questions": [question]}))
+    assert env.payload["questions"][0]["type"] in {"code", "derivation"}
+
+
+@pytest.mark.parametrize(
+    "question,match",
+    [
+        (
+            {"type": "code", "prompt": "x", "language": "python", "mode": "copy"},
+            "mode",
+        ),
+        (
+            {"type": "code", "prompt": "x", "language": "python", "mode": "transcribe"},
+            "target_code",
+        ),
+        (
+            {"type": "code", "prompt": "x", "language": "python", "mode": "solve"},
+            "test_code",
+        ),
+        (
+            {"type": "code", "prompt": "x", "language": "", "mode": "solve"},
+            "language",
+        ),
+        (
+            {
+                "type": "derivation",
+                "prompt": "x",
+                "steps": [{"expr": "x"}],
+                "check": "symbolic",
+                "cloze": [0],
+            },
+            "check",
+        ),
+        (
+            {
+                "type": "derivation",
+                "prompt": "x",
+                "steps": [{"expr": "x"}],
+                "check": "normalized-match",
+                "cloze": [1],
+            },
+            "cloze",
+        ),
+        (
+            {
+                "type": "derivation",
+                "prompt": "x",
+                "steps": [{"expr": "x"}] * 51,
+                "check": "normalized-match",
+                "cloze": [0],
+            },
+            "50",
+        ),
+    ],
+)
+def test_quiz_code_and_derivation_invalid_rules_are_rejected(question, match):
+    with pytest.raises(ContractError, match=match):
+        validate_envelope(_envelope("quiz", {"questions": [question]}))
+
+
+@pytest.mark.parametrize("field", ["starter", "target_code", "test_code", "reference"])
+def test_quiz_code_fields_use_contract_string_cap(field):
+    question = {
+        "type": "code",
+        "prompt": "x",
+        "language": "python",
+        "mode": "transcribe" if field == "target_code" else "solve",
+        "test_code": "assert True",
+        "target_code": "pass",
+        field: "x" * 20_001,
+    }
+    with pytest.raises(ContractError, match=field):
+        validate_envelope(_envelope("quiz", {"questions": [question]}))
 
 
 # --------------------------------------------------------------------------- #

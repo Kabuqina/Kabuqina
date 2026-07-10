@@ -43,6 +43,34 @@ class TestRunNotifyJob:
         assert final == ""
         assert "non-empty" in (err or "")
 
+    def test_study_review_reminder_renders_live_count(self):
+        job = {
+            "id": "r" * 12,
+            "name": "study-review",
+            "mode": "notify",
+            "message": "placeholder",
+            "study_review_reminder": {"owner_id": "desktop:test-owner"},
+        }
+        with patch("cron.scheduler._study_review_due_count", return_value=3):
+            ok, _, final, err = _run_notify_job(job)
+        assert ok is True
+        assert final == "今日有 3 张卡片到期"
+        assert err is None
+
+    def test_study_review_reminder_is_silent_when_nothing_is_due(self):
+        job = {
+            "id": "s" * 12,
+            "name": "study-review",
+            "mode": "notify",
+            "message": "placeholder",
+            "study_review_reminder": {"owner_id": "desktop:test-owner"},
+        }
+        with patch("cron.scheduler._study_review_due_count", return_value=0):
+            ok, _, final, err = _run_notify_job(job)
+        assert ok is True
+        assert final == "[SILENT]"
+        assert err is None
+
 
 class TestRunJobNotifySkipsAgent:
     def test_skips_ai_agent(self, monkeypatch):

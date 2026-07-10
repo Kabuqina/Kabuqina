@@ -813,3 +813,17 @@ packages are deferred until the first successful chat turn so multi-hundred-MB
 downloads do not contend with onboarding or the first model request. The desk
 stream log records agent initialization, time-to-first-token, total time, and
 provider cache counters for release observation.
+
+**STUDY M4 state/evaluation/plan semantics (2026-07-10).** Exactly one active
+`student_state` and one active `learning_plan` exist per owner/space; replacing
+either archives the previous active artifact. `evaluation` stays evidence-based
+and active-only for planning, with bounded `evidence_refs`; fixed ability or
+personality labels remain forbidden. Plan tasks materialize as stable items,
+while complete/skip are direct learner activities and are valid only once on an
+active plan. H3 reads a fresh bounded Learning Index projection into the desk
+ephemeral prompt without changing graph/loop contracts. LG6 is a tagged
+`mode=notify` cron job: absent by default, dynamically counts due cards across
+the persisted desktop owner's active spaces, suppresses zero-count delivery,
+and is deleted on opt-out. Notebook UI remains D-track-owned. The default
+production learning DB root is protected by an audited current-user ACL so WAL
+sidecars inherit the same protection.

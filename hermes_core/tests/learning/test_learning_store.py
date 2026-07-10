@@ -15,6 +15,20 @@ import pytest
 
 from learning.learning_contract import ContractError
 from learning.learning_store import LearningStore
+
+
+def test_default_learning_db_acl_is_effective(tmp_path, monkeypatch):
+    import learning.learning_store as store_module
+
+    db_path = tmp_path / "private" / "learning.db"
+    monkeypatch.setattr(store_module, "default_learning_db_path", lambda: db_path)
+    store_module._ACL_SECURED_ROOTS.discard(db_path.parent.resolve())
+    store_module._ACL_SECURED_DATABASES.discard(db_path.resolve())
+
+    store = LearningStore()
+    store.close()
+
+    assert store_module.audit_default_learning_db_acl(db_path) is True
 from learning.learning_context import LearningExecutionContext
 
 

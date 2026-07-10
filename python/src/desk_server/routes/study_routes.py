@@ -1,7 +1,7 @@
 # Copyright 2026 Kabuqina Contributors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Trusted desktop STUDY routes for course spaces, flashcards, capture, and quizzes."""
+"""Trusted desktop STUDY routes for course state, practice, and plans."""
 
 from __future__ import annotations
 
@@ -12,12 +12,16 @@ from typing import Any, Dict, Iterator, Optional
 from fastapi import APIRouter, HTTPException, Query
 
 from learning.builtin_course_seed import seed_builtin_course
+from learning.evaluations import EvaluationService
 from learning.flashcards import FlashcardService
 from learning.learning_contract import ContractError
+from learning.learning_plans import LearningPlanService
 from learning.learning_store import LearningStore
 from learning.output_writer import OutputWriter
 from learning.quizzes import QuizService
+from learning.student_state import LEGACY_CONTEXT_MIGRATION_KEY, StudentStateService
 from learning_owner import desktop_learning_scope
+from study_review_reminder import StudyReviewReminderService
 
 router = APIRouter()
 
@@ -48,12 +52,12 @@ def _workspace_root() -> Optional[str]:
 
 
 def _http_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, ContractError):
+        return HTTPException(status_code=409, detail=str(exc))
     if isinstance(exc, ValueError):
         return HTTPException(status_code=400, detail=str(exc))
     if isinstance(exc, KeyError):
         return HTTPException(status_code=404, detail=str(exc))
-    if isinstance(exc, ContractError):
-        return HTTPException(status_code=409, detail=str(exc))
     return HTTPException(status_code=500, detail=str(exc))
 
 
@@ -203,6 +207,12 @@ async def study_artifact_activate(artifact_id: str):
                 return FlashcardService(ctx).activate_deck(artifact_id)
             if artifact["kind"] == "quiz":
                 return QuizService(ctx).activate_quiz(artifact_id)
+            if artifact["kind"] == "student_state":
+                return StudentStateService(ctx).activate_state(artifact_id)
+            if artifact["kind"] == "evaluation":
+                return EvaluationService(ctx).activate_evaluation(artifact_id)
+            if artifact["kind"] == "learning_plan":
+                return LearningPlanService(ctx).activate_plan(artifact_id)
             raise ValueError(f"unsupported artifact kind: {artifact['kind']}")
     except (ValueError, KeyError, ContractError) as exc:
         raise _http_error(exc) from exc
@@ -217,6 +227,12 @@ async def study_artifact_reject(artifact_id: str):
                 return FlashcardService(ctx).reject_deck(artifact_id)
             if artifact["kind"] == "quiz":
                 return QuizService(ctx).reject_quiz(artifact_id)
+            if artifact["kind"] == "student_state":
+                return StudentStateService(ctx).reject_state(artifact_id)
+            if artifact["kind"] == "evaluation":
+                return EvaluationService(ctx).reject_evaluation(artifact_id)
+            if artifact["kind"] == "learning_plan":
+                return LearningPlanService(ctx).reject_plan(artifact_id)
             raise ValueError(f"unsupported artifact kind: {artifact['kind']}")
     except (ValueError, KeyError, ContractError) as exc:
         raise _http_error(exc) from exc
@@ -229,6 +245,170 @@ async def study_flashcards(due_only: bool = Query(default=False)):
             if not ctx.current_space():
                 return {"cards": []}
             return {"cards": FlashcardService(ctx).list_cards(due_only=due_only)}
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+
+@router.get("/api/desk/study/student-state")
+async def study_student_state():
+    try:
+        with _desktop_ctx() as ctx:
+            if not ctx.current_space():
+                return {"state": None}
+            return {"state": StudentStateService(ctx).get_current_state()}
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+
+@router.put("/api/desk/study/student-state")
+async def study_student_state_save(body: Dict[str, Any]):
+    try:
+        with _desktop_ctx() as ctx:
+            _ensure_space(ctx)
+            state = body.get("state") if isinstance(body.get("state"), dict) else {}
+            return {"state": StudentStateService(ctx).save_state(state)}
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+
+@router.post("/api/desk/study/migrations/context")
+async def study_context_migrate(body: Dict[str, Any]):
+    try:
+        with _desktop_ctx() as ctx:
+            if ctx.is_migrated(LEGACY_CONTEXT_MIGRATION_KEY):
+                return {"migrated": False}
+            _ensure_space(ctx)
+            legacy = body.get("context") if isinstance(body.get("context"), dict) else {}
+            state_payload, evaluation_payload = StudentStateService.legacy_context_to_payloads(legacy)
+            state = StudentStateService(ctx).save_state(
+                state_payload, title="Legacy study context"
+            )
+            evaluation = None
+            if evaluation_payload:
+                result = OutputWriter(ctx).write_artifact(
+                    kind="evaluation",
+                    title="Legacy study evaluation",
+                    payload=evaluation_payload,
+                    source_refs=[
+                        {
+                            "origin": "legacy_local_storage",
+                            "key": LEGACY_CONTEXT_MIGRATION_KEY,
+                        }
+                    ],
+                )
+                evaluation = EvaluationService(ctx).activate_evaluation(
+                    result["artifact_id"]
+                )
+            ctx.mark_migration(
+                LEGACY_CONTEXT_MIGRATION_KEY,
+                detail={
+                    "student_state": state["artifact_id"],
+                    "evaluation": evaluation["artifact_id"] if evaluation else "",
+                },
+            )
+            return {
+                "migrated": True,
+                "student_state": state,
+                "evaluation": evaluation,
+            }
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+
+@router.get("/api/desk/study/evaluations")
+async def study_evaluations():
+    try:
+        with _desktop_ctx() as ctx:
+            if not ctx.current_space():
+                return {"evaluations": []}
+            rows = EvaluationService(ctx).list_evaluations(status="active")
+            return {"evaluations": [_artifact_ref(row) for row in rows]}
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+
+@router.get("/api/desk/study/evaluations/{artifact_id}")
+async def study_evaluation_detail(artifact_id: str):
+    try:
+        with _desktop_ctx() as ctx:
+            artifact = EvaluationService(ctx).get_evaluation(artifact_id)
+            return {
+                "evaluation": {
+                    **_artifact_ref(artifact),
+                    "payload": artifact["envelope"]["payload"],
+                }
+            }
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+
+@router.get("/api/desk/study/learning-plans")
+async def study_learning_plans():
+    try:
+        with _desktop_ctx() as ctx:
+            if not ctx.current_space():
+                return {"plans": []}
+            rows = LearningPlanService(ctx).list_plans(status="active")
+            return {"plans": [_artifact_ref(row) for row in rows]}
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+
+@router.get("/api/desk/study/learning-plans/{artifact_id}/items")
+async def study_learning_plan_items(artifact_id: str):
+    try:
+        with _desktop_ctx() as ctx:
+            artifact = _require_artifact(ctx, artifact_id)
+            if artifact["kind"] != "learning_plan":
+                raise ValueError("artifact is not a learning_plan")
+            return {
+                "items": LearningPlanService(ctx).list_plan_items(
+                    artifact_id=artifact_id
+                )
+            }
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+
+@router.post("/api/desk/study/learning-plans/items/{item_id}/complete")
+async def study_learning_plan_item_complete(item_id: str, body: Dict[str, Any]):
+    try:
+        with _desktop_ctx() as ctx:
+            return LearningPlanService(ctx).complete_item(
+                item_id, note=str(body.get("note") or "")
+            )
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+
+@router.post("/api/desk/study/learning-plans/items/{item_id}/skip")
+async def study_learning_plan_item_skip(item_id: str, body: Dict[str, Any]):
+    try:
+        with _desktop_ctx() as ctx:
+            return LearningPlanService(ctx).skip_item(
+                item_id, note=str(body.get("note") or "")
+            )
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+
+@router.get("/api/desk/study/review-reminder")
+async def study_review_reminder_get():
+    try:
+        with _desktop_ctx() as ctx:
+            return StudyReviewReminderService(ctx.owner_id).get_settings()
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+
+@router.put("/api/desk/study/review-reminder")
+async def study_review_reminder_put(body: Dict[str, Any]):
+    try:
+        with _desktop_ctx() as ctx:
+            return StudyReviewReminderService(ctx.owner_id).configure(
+                enabled=body.get("enabled") is True,
+                time_of_day=str(body.get("time_of_day") or "20:00"),
+            )
     except (ValueError, KeyError, ContractError) as exc:
         raise _http_error(exc) from exc
 

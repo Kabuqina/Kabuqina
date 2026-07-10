@@ -16,8 +16,10 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import random
 import sqlite3
+import subprocess
 import threading
 import time
 import uuid
@@ -37,6 +39,23 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
+_ACL_LOCK = threading.Lock()
+_ACL_SECURED_ROOTS: set[Path] = set()
+_ACL_SECURED_DATABASES: set[Path] = set()
+
+
+def _windows_identity() -> str:
+    identity = subprocess.run(
+        ["whoami"],
+        check=True,
+        capture_output=True,
+        text=True,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    ).stdout.strip()
+    if not identity:
+        raise PermissionError("cannot resolve Windows identity for learning.db ACL")
+    return identity
+
 
 def default_learning_db_path() -> Path:
     """Path to the shared ``learning.db`` under the common Hermes root.
@@ -45,6 +64,107 @@ def default_learning_db_path() -> Path:
     Gateway profiles converge on one database — see design §8.2.
     """
     return get_default_hermes_root() / "learning.db"
+
+
+def secure_default_learning_db(db_path: Path) -> None:
+    """Restrict the production learning DB root to the current OS user.
+
+    Windows uses ``icacls`` to remove inherited access and grant the current
+    principal full control with inheritable child permissions. This covers
+    SQLite's transient ``-wal``/``-shm`` files as well as ``learning.db``.
+    POSIX uses the equivalent 0700 directory / 0600 file modes.
+
+    The operation is cached per process and intentionally runs only for the
+    default production path; callers that inject an explicit test/custom path
+    retain responsibility for that path's policy.
+    """
+    path = Path(db_path).resolve()
+    root = path.parent
+    with _ACL_LOCK:
+        if root in _ACL_SECURED_ROOTS:
+            return
+        if os.name == "nt":
+            identity = _windows_identity()
+            command = [
+                "icacls",
+                str(root),
+                "/inheritance:r",
+                "/grant:r",
+                f"{identity}:(OI)(CI)F",
+                "/Q",
+            ]
+            result = subprocess.run(
+                command,
+                check=False,
+                capture_output=True,
+                text=True,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+            if result.returncode != 0:
+                detail = (result.stderr or result.stdout or "icacls failed").strip()
+                raise PermissionError(f"cannot secure learning.db ACL: {detail}")
+        else:
+            os.chmod(root, 0o700)
+        _ACL_SECURED_ROOTS.add(root)
+
+
+def secure_default_learning_db_files(db_path: Path) -> None:
+    """Protect an existing DB and SQLite sidecars after schema setup."""
+    path = Path(db_path).resolve()
+    with _ACL_LOCK:
+        if path in _ACL_SECURED_DATABASES:
+            return
+        if os.name == "nt":
+            identity = _windows_identity()
+            for candidate in (path, Path(f"{path}-wal"), Path(f"{path}-shm")):
+                if not candidate.exists():
+                    continue
+                result = subprocess.run(
+                    [
+                        "icacls",
+                        str(candidate),
+                        "/inheritance:r",
+                        "/grant:r",
+                        f"{identity}:F",
+                        "/Q",
+                    ],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                )
+                if result.returncode != 0:
+                    detail = (result.stderr or result.stdout or "icacls failed").strip()
+                    raise PermissionError(f"cannot secure learning.db file ACL: {detail}")
+        else:
+            os.chmod(path, 0o600)
+        _ACL_SECURED_DATABASES.add(path)
+
+
+def audit_default_learning_db_acl(db_path: Path) -> bool:
+    """Return whether the production DB has a non-inherited user-only ACL."""
+    path = Path(db_path).resolve()
+    if os.name == "nt":
+        identity = _windows_identity().casefold()
+        for candidate in (path.parent, path):
+            result = subprocess.run(
+                ["icacls", str(candidate)],
+                check=False,
+                capture_output=True,
+                text=True,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+            if (
+                result.returncode != 0
+                or "(I)" in result.stdout
+                or identity not in result.stdout.casefold()
+                or "(F)" not in result.stdout
+            ):
+                return False
+        return True
+    root_mode = path.parent.stat().st_mode & 0o777
+    file_mode = path.stat().st_mode & 0o777 if path.exists() else 0o600
+    return root_mode == 0o700 and file_mode == 0o600
 
 
 SCHEMA_SQL = """
@@ -150,8 +270,11 @@ class LearningStore:
     _WRITE_RETRY_MAX_S = 0.150
 
     def __init__(self, db_path: Optional[Path] = None):
+        is_default_path = db_path is None
         self.db_path = Path(db_path) if db_path else default_learning_db_path()
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        if is_default_path:
+            secure_default_learning_db(self.db_path)
 
         self._lock = threading.Lock()
         self._conn = sqlite3.connect(
@@ -162,6 +285,8 @@ class LearningStore:
         )
         self._conn.row_factory = sqlite3.Row
         self._setup_connection_with_retry()
+        if is_default_path:
+            secure_default_learning_db_files(self.db_path)
 
     # ── connection / schema ────────────────────────────────────────────── #
 
