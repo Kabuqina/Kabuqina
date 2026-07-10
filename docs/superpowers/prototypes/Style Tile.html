@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>卡布奇娜 · 风格基调页 Style Tile</title>
+<!--
+  卡布奇娜 · 场景视觉素材清单 第 0 步 · 风格基调页 (Style Tile)
+  依据: docs/superpowers/specs/2026-07-06-scene-visual-asset-checklist.md
+  配色接: web/src/index.css (--kq-color-* / --kq-glass-*) + kabuqinaBrandTokens.ts
+  自包含单文件, 双击即开; 零远程依赖 (系统字体降级, 纹理为内嵌 SVG feTurbulence)。
+  Prototype/doc code: Copyright 2026 Kabuqina Contributors — Apache-2.0.
+  Embedded Kabuqina brand artwork (mascot cup rendered in CSS, palette):
+  Copyright (c) 2026 ladylydia — All Rights Reserved, NOT Apache-2.0.
+  SPDX-License-Identifier: Apache-2.0 AND LicenseRef-Kabuqina-Brand
+-->
+<style>
+  :root {
+    /* 字体: 系统降级, 无远程加载 */
+    --font-ui: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    --font-serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", "SimSun", Georgia, serif;
+    --font-hand: "Ma Shan Zheng", "Kaiti SC", "STKaiti", "KaiTi", cursive;
+    --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Code", Consolas, monospace;
+
+    /* ── LIGHT 场景 token (见 09 表) ── */
+    --kq-scene-desk-a: #efe9dd;
+    --kq-scene-desk: #e8dfd2;
+    --kq-scene-desk-b: #e4dacb;
+    --kq-scene-desk-edge: #d4c6b2;
+    --kq-scene-paper: #fbf8f1;
+    --kq-scene-paper-line: #e7e0d2;
+    --kq-scene-ink-strong: #49385e;
+    --kq-scene-ink: #5a4a6a;
+    --kq-scene-muted: #7a6494;        /* 可读 4.86:1 (替换 kq muted #8f75a8 3.75:1) */
+    --kq-scene-muted-soft: #8f75a8;   /* 仅大字/装饰 */
+    --kq-scene-pencil: #7d61a0;       /* 可读铅笔字 4.84:1 (替换 draft #b79fcd 2.24:1) */
+    --kq-scene-pencil-tint: #b79fcd;  /* 铅笔装饰/描边 = cup.handle */
+    --kq-scene-accent: #6b5580;
+    --kq-scene-accent-2: #8f75a8;
+    --kq-scene-accent-soft: #f5effa;
+    --kq-scene-warm: #d4b080;
+    --kq-scene-warn: #a8472f;         /* 可读警示 5.49:1 (原 #b4543a 4.64:1 边/大字可用) */
+    --kq-scene-warn-soft: #b4543a;
+    --kq-scene-card: #fff;
+    --kq-scene-card-border: #ede6f0;
+    --kq-scene-glass-bg: rgba(255,255,255,.72);
+    --kq-scene-glass-border: rgba(232,224,237,.86);
+    --kq-scene-shadow-near: 0 2px 6px rgba(90,74,106,.10);
+    --kq-scene-shadow-far: 0 14px 34px rgba(90,74,106,.08);
+    --kq-scene-noise: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxODAiIGhlaWdodD0iMTgwIj48ZmlsdGVyIGlkPSJuIj48ZmVUdXJidWxlbmNlIHR5cGU9ImZyYWN0YWxOb2lzZSIgYmFzZUZyZXF1ZW5jeT0iMC45IiBudW1PY3RhdmVzPSIyIi8+PGZlQ29sb3JNYXRyaXggdmFsdWVzPSIwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwLjAzNSAwIi8+PC9maWx0ZXI+PHJlY3Qgd2lkdGg9IjE4MCIgaGVpZ2h0PSIxODAiIGZpbHRlcj0idXJsKCNuKSIvPjwvc3ZnPg==');
+    --noise-a002: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxODAiIGhlaWdodD0iMTgwIj48ZmlsdGVyIGlkPSJuIj48ZmVUdXJidWxlbmNlIHR5cGU9ImZyYWN0YWxOb2lzZSIgYmFzZUZyZXF1ZW5jeT0iMC45IiBudW1PY3RhdmVzPSIyIi8+PGZlQ29sb3JNYXRyaXggdmFsdWVzPSIwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwLjAyIDAiLz48L2ZpbHRlcj48cmVjdCB3aWR0aD0iMTgwIiBoZWlnaHQ9IjE4MCIgZmlsdGVyPSJ1cmwoI24pIi8+PC9zdmc+');
+    --noise-a08: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxODAiIGhlaWdodD0iMTgwIj48ZmlsdGVyIGlkPSJuIj48ZmVUdXJidWxlbmNlIHR5cGU9ImZyYWN0YWxOb2lzZSIgYmFzZUZyZXF1ZW5jeT0iMC45IiBudW1PY3RhdmVzPSIyIi8+PGZlQ29sb3JNYXRyaXggdmFsdWVzPSIwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwLjA4IDAiLz48L2ZpbHRlcj48cmVjdCB3aWR0aD0iMTgwIiBoZWlnaHQ9IjE4MCIgZmlsdGVyPSJ1cmwoI24pIi8+PC9zdmc+');
+  }
+
+  /* ── DARK 场景 scope (对照, 就地覆盖变量; 映射 [data-theme=dark] kq vars) ── */
+  .scene-dark {
+    --kq-scene-desk-a: #2a2136;
+    --kq-scene-desk: #241d2e;
+    --kq-scene-desk-b: #1f1829;
+    --kq-scene-desk-edge: #3a2f49;
+    --kq-scene-paper: #2a2438;          /* = --kq-color-primary-pale (dark) */
+    --kq-scene-paper-line: #3d3350;
+    --kq-scene-ink-strong: #f0ecf5;     /* = --kq-color-strong (dark) */
+    --kq-scene-ink: #e2dde8;            /* = --kq-color-ink (dark) */
+    --kq-scene-muted: #b7a6cc;          /* 可读 6.6:1 */
+    --kq-scene-muted-soft: #9790a6;     /* = --kq-color-muted (dark) */
+    --kq-scene-pencil: #a98fc9;         /* 可读铅笔字 5.3:1 */
+    --kq-scene-pencil-tint: #6f5b88;
+    --kq-scene-accent: #b8a9c9;         /* = --kq-color-primary-light (dark) */
+    --kq-scene-accent-2: #cbb6e0;
+    --kq-scene-accent-soft: rgba(155,139,181,.16);
+    --kq-scene-warm: #d4a574;           /* = --kq-color-warm (dark) */
+    --kq-scene-warn: #e08a72;
+    --kq-scene-warn-soft: #e08a72;
+    --kq-scene-card: #201a2b;
+    --kq-scene-card-border: rgba(255,255,255,.12);
+    --kq-scene-glass-bg: rgba(30,27,40,.72);
+    --kq-scene-glass-border: rgba(255,255,255,.10);
+    --kq-scene-shadow-near: 0 2px 8px rgba(0,0,0,.45);
+    --kq-scene-shadow-far: 0 16px 38px rgba(0,0,0,.5);
+    --kq-scene-noise: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxODAiIGhlaWdodD0iMTgwIj48ZmlsdGVyIGlkPSJuIj48ZmVUdXJidWxlbmNlIHR5cGU9ImZyYWN0YWxOb2lzZSIgYmFzZUZyZXF1ZW5jeT0iMC45IiBudW1PY3RhdmVzPSIyIi8+PGZlQ29sb3JNYXRyaXggdmFsdWVzPSIwIDAgMCAwIDEgMCAwIDAgMCAxIDAgMCAwIDAgMSAwIDAgMCAwLjA1IDAiLz48L2ZpbHRlcj48cmVjdCB3aWR0aD0iMTgwIiBoZWlnaHQ9IjE4MCIgZmlsdGVyPSJ1cmwoI24pIi8+PC9zdmc+');
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-ui);
+    color: var(--kq-scene-ink);
+    line-height: 1.6;
+    background: #cdbfae;
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    justify-content: center;
+  }
+  a { color: var(--kq-scene-accent); }
+  a:hover { color: var(--kq-scene-ink-strong); }
+  code { font-family: var(--font-mono); font-size: .86em; }
+
+  .page {
+    width: 1240px;
+    padding: 46px 44px 40px;
+    background:
+      radial-gradient(1300px 560px at 26% -120px, rgba(245,239,250,.9), transparent 60%),
+      linear-gradient(180deg, var(--kq-scene-desk-a) 0%, var(--kq-scene-desk) 55%, var(--kq-scene-desk-b) 100%);
+  }
+  .wrap { max-width: 1152px; margin: 0 auto; }
+
+  .eyebrow { display:flex; align-items:center; gap:12px; font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--kq-scene-accent); font-weight:700; }
+  .eyebrow .rule { display:inline-block; width:26px; height:2px; background:currentColor; border-radius:2px; }
+  h1 { font-family: var(--font-serif); font-weight:600; font-size:40px; letter-spacing:.02em; color:var(--kq-scene-ink-strong); margin:10px 0 6px; }
+  .lede { max-width:820px; color:var(--kq-scene-ink); font-size:15px; margin:0; }
+  .lede b, .strong { color:var(--kq-scene-ink-strong); }
+
+  .callout { padding:12px 16px; border-radius:12px; background:var(--kq-scene-accent-soft); border:1px solid rgba(143,117,168,.3); font-size:13.5px; color:var(--kq-scene-ink); }
+
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:22px; }
+  .card {
+    background: var(--kq-scene-paper);
+    background-image: var(--kq-scene-noise);
+    border-radius:18px; padding:26px 28px;
+    box-shadow: var(--kq-scene-shadow-near), var(--kq-scene-shadow-far);
+  }
+  .card.span { grid-column:1 / -1; }
+  .sec-no { font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--kq-scene-accent); font-weight:700; margin-bottom:16px; }
+  .note { font-size:13px; color:var(--kq-scene-muted); }
+  .note code { color:var(--kq-scene-accent); }
+
+  .swatch-row { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+  .sw h4 { margin:9px 0 1px; font-weight:600; color:var(--kq-scene-ink-strong); font-size:14px; }
+  .sw .hex { font-family:var(--font-mono); font-size:12px; color:var(--kq-scene-muted); }
+  .sw .chip { height:88px; border-radius:12px; box-shadow: inset 0 1px 0 rgba(255,255,255,.5); }
+
+  .mono { font-family:var(--font-mono); }
+  .pill { display:inline-block; padding:2px 9px; border-radius:999px; font-size:11px; font-weight:700; letter-spacing:.03em; }
+
+  /* token table */
+  table.tok { width:100%; border-collapse:collapse; font-size:12.5px; }
+  table.tok th, table.tok td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--kq-scene-card-border); vertical-align:middle; }
+  table.tok th { font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--kq-scene-muted); font-weight:700; }
+  table.tok td.tk { font-family:var(--font-mono); color:var(--kq-scene-ink-strong); white-space:nowrap; }
+  table.tok td.v { font-family:var(--font-mono); color:var(--kq-scene-ink); white-space:nowrap; }
+  .dot { display:inline-block; width:14px; height:14px; border-radius:4px; vertical-align:-2px; margin-right:6px; border:1px solid rgba(90,74,106,.18); }
+  .tag-exist { background:rgba(107,85,128,.12); color:var(--kq-scene-accent); }
+  .tag-new   { background:rgba(212,176,128,.22); color:#8a6a35; }
+  .tag-repl  { background:rgba(168,71,47,.14); color:var(--kq-scene-warn); }
+  .scene-dark .tag-new { color:#e0be92; }
+  .scene-dark .tag-repl { color:#e08a72; }
+
+  @keyframes st-steam { 0%,100% { transform: translateY(0) scaleY(1); opacity:.25 } 50% { transform: translateY(-7px) scaleY(1.25); opacity:.7 } }
+
+  /* Nana cup (CSS mascot) */
+  .nana { position:relative; width:104px; height:88px; }
+  .nana .steam { position:absolute; width:5px; border-radius:4px; background:var(--nana-steam,#c9b8a0); opacity:.55; animation: st-steam 2.8s infinite ease-in-out; }
+  .nana .body { position:absolute; bottom:0; left:12px; width:72px; height:56px; border-radius:8px 8px 30px 30px; }
+  .nana .handle { position:absolute; right:2px; bottom:18px; width:22px; height:28px; border:3px solid var(--kq-scene-pencil-tint); border-left:none; border-radius:0 14px 14px 0; }
+  .nana .latte { position:absolute; top:20px; left:22px; width:52px; height:26px; border-radius:50%; background:linear-gradient(180deg,#f5e6d0,#e8cfa8 55%,#d4b080); }
+  .nana .eye { position:absolute; bottom:14px; width:7px; height:7px; border-radius:50%; background:var(--nana-eye,#8b7d9a); }
+  .nana .blush { position:absolute; bottom:9px; width:12px; height:6px; border-radius:50%; background:#c495a0; opacity:.32; }
+</style>
+</head>
+<body>
+
+<div class="page" id="page">
+  <div class="wrap">
+
+    <!-- ── header ── -->
+    <header style="margin-bottom:32px;">
+      <div class="eyebrow"><span class="rule"></span>场景视觉素材清单 · 第 0 步</div>
+      <h1>风格基调页 · Style Tile</h1>
+      <p class="lede">在画任何素材之前先定调。这一页锁定：桌面材质与主色、纸张白与纸纹强度、光照方向、阴影语言、圆角与线宽、铅笔/落墨字迹语言，以及与现有 <b>kq-glass</b> chrome 和 <b>lucide 2px</b> 图标线宽的接缝。<b>本页 = light + dark 双主题基调 + 最终 token 表。通过后才开 P0 具体素材。</b></p>
+      <div class="callout" style="margin-top:14px;">
+        <b class="strong">关键裁决 —</b> B-5 笔记本原型里的<b> 青绿强调色 <span class="mono">#2f9e8f</span> 属于风格漂移</b>。真正的品牌盘（小娜杯 / 杯垫 / 聊天壳 / <code>index.css --kq-color-*</code> / <code>kabuqinaBrandTokens</code>）是<b> 薰衣草墨 + 暖拿铁</b>。桌面纸感保留，强调色统一收回品牌盘——素材不再各说各话。
+      </div>
+    </header>
+
+    <div class="grid2">
+
+      <!-- ── 01 桌面材质与主色 ── -->
+      <section class="card span" style="border-left:9px solid var(--kq-scene-accent);">
+        <div class="sec-no">01 · 桌面材质与主色</div>
+        <div class="swatch-row">
+          <div class="sw"><div class="chip" style="background:linear-gradient(180deg,var(--kq-scene-desk-a),var(--kq-scene-desk));border:1px solid var(--kq-scene-desk-edge);"></div><h4>桌面 Desk</h4><div class="hex">#e8dfd2 · edge #d4c6b2</div></div>
+          <div class="sw"><div class="chip" style="background:var(--kq-scene-paper);border:1px solid var(--kq-scene-paper-line);"></div><h4>纸张白 Paper</h4><div class="hex">#fbf8f1 · line #e7e0d2</div></div>
+          <div class="sw"><div class="chip" style="background:linear-gradient(135deg,#6b5580,#8f75a8);"></div><h4>主色 · 薰衣草墨</h4><div class="hex">#6b5580 → #8f75a8</div></div>
+          <div class="sw"><div class="chip" style="background:linear-gradient(135deg,#e8cfa8,#d4b080);"></div><h4>暖色 · 拿铁 Latte</h4><div class="hex">#d4b080 (latte.outer)</div></div>
+        </div>
+        <div class="swatch-row" style="grid-template-columns:repeat(3,1fr);margin-top:22px;">
+          <div style="border-radius:12px;overflow:hidden;border:1px solid var(--kq-scene-paper-line);">
+            <div style="height:64px;background:var(--kq-scene-paper);background-image:var(--noise-a002);"></div>
+            <div style="padding:8px 11px;font-size:12.5px;color:var(--kq-scene-muted);background:var(--kq-scene-card);">纸纹 0.02 α · <b class="strong">留白页</b>（几乎无纹）</div>
+          </div>
+          <div style="border-radius:12px;overflow:hidden;border:1px solid var(--kq-scene-paper-line);">
+            <div style="height:64px;background:var(--kq-scene-paper);background-image:var(--kq-scene-noise);"></div>
+            <div style="padding:8px 11px;font-size:12.5px;color:var(--kq-scene-muted);background:var(--kq-scene-card);">纸纹 <b class="strong">0.035 α · 推荐</b>（纸感够、不脏）</div>
+          </div>
+          <div style="border-radius:12px;overflow:hidden;border:1px solid var(--kq-scene-paper-line);">
+            <div style="height:64px;background:var(--kq-scene-paper);background-image:var(--noise-a08);"></div>
+            <div style="padding:8px 11px;font-size:12.5px;color:var(--kq-scene-muted);background:var(--kq-scene-card);">纸纹 0.08 α · <b style="color:var(--kq-scene-warn);">太重</b>（发灰、上限外）</div>
+          </div>
+        </div>
+        <p class="note" style="margin:16px 0 0;">纹理一律内嵌 SVG <code>feTurbulence</code>；位图纹理禁令（愿景 §7）。桌面 = CSS 渐变 + 噪点参数化，不给位图。</p>
+      </section>
+
+      <!-- ── 02 语义色板 ── -->
+      <section class="card">
+        <div class="sec-no">02 · 语义色板（接 --kq-color-*）</div>
+        <div style="display:flex;flex-direction:column;gap:0;">
+          <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px dashed var(--kq-scene-paper-line);"><span style="width:34px;height:34px;border-radius:9px;background:#49385e;flex-shrink:0;"></span><div style="flex:1;"><b class="strong">墨字 ink-strong</b><div class="note">标题 / 落墨正文</div></div><code style="color:var(--kq-scene-accent);">#49385e</code></div>
+          <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px dashed var(--kq-scene-paper-line);"><span style="width:34px;height:34px;border-radius:9px;background:#5a4a6a;flex-shrink:0;"></span><div style="flex:1;"><b class="strong">正文 ink</b><div class="note">默认字色</div></div><code style="color:var(--kq-scene-accent);">#5a4a6a</code></div>
+          <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px dashed var(--kq-scene-paper-line);"><span style="width:34px;height:34px;border-radius:9px;background:#7a6494;flex-shrink:0;"></span><div style="flex:1;"><b class="strong">辅助 muted <span class="pill tag-repl">替换</span></b><div class="note">小字说明 / 元信息 · 4.86:1</div></div><code style="color:var(--kq-scene-accent);">#7a6494</code></div>
+          <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px dashed var(--kq-scene-paper-line);"><span style="width:34px;height:34px;border-radius:9px;background:#7d61a0;flex-shrink:0;"></span><div style="flex:1;"><b class="strong">铅笔字 pencil <span class="pill tag-repl">替换</span></b><div class="note">草稿文字（斜体+手写）· 4.84:1</div></div><code style="color:var(--kq-scene-accent);">#7d61a0</code></div>
+          <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px dashed var(--kq-scene-paper-line);"><span style="width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#6b5580,#8f75a8);flex-shrink:0;"></span><div style="flex:1;"><b class="strong">强调 accent</b><div class="note">书脊 / 激活标签 / 主按钮</div></div><code style="color:var(--kq-scene-accent);">#6b5580</code></div>
+          <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px dashed var(--kq-scene-paper-line);"><span style="width:34px;height:34px;border-radius:9px;background:#f5effa;border:1px solid #d8cbe6;flex-shrink:0;"></span><div style="flex:1;"><b class="strong">强调-软 accent-soft</b><div class="note">旁注气泡 / 已收藏底 = coaster.bg</div></div><code style="color:var(--kq-scene-accent);">#f5effa</code></div>
+          <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px dashed var(--kq-scene-paper-line);"><span style="width:34px;height:34px;border-radius:9px;background:#d4b080;flex-shrink:0;"></span><div style="flex:1;"><b class="strong">暖 warm / latte</b><div class="note">书签 / 杂记本 / 咖啡暖点</div></div><code style="color:var(--kq-scene-accent);">#d4b080</code></div>
+          <div style="display:flex;align-items:center;gap:12px;padding:8px 0;"><span style="width:34px;height:34px;border-radius:9px;background:#a8472f;flex-shrink:0;"></span><div style="flex:1;"><b class="strong">警示 warn <span class="pill tag-repl">替换</span></b><div class="note">错题本边 / 到期徽标 · 5.49:1</div></div><code style="color:var(--kq-scene-accent);">#a8472f</code></div>
+        </div>
+      </section>
+
+      <!-- ── 03 光照 + 阴影 ── -->
+      <section class="card">
+        <div class="sec-no">03 · 光照方向 + 阴影语言</div>
+        <div style="display:flex;gap:20px;align-items:center;margin-bottom:22px;">
+          <div style="position:relative;width:132px;height:100px;border-radius:12px;background:var(--kq-scene-desk-a);border:1px solid var(--kq-scene-desk-edge);flex-shrink:0;overflow:hidden;">
+            <div style="position:absolute;top:-14px;left:-14px;width:70px;height:70px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff6df,#e8cfa8 60%,transparent 72%);"></div>
+            <div style="position:absolute;left:16px;top:12px;font-size:11px;color:var(--kq-scene-muted);">↖ 光源</div>
+            <div style="position:absolute;right:26px;bottom:22px;width:44px;height:34px;border-radius:8px;background:var(--kq-scene-paper);box-shadow:6px 8px 12px rgba(90,74,106,.22);border:1px solid var(--kq-scene-paper-line);"></div>
+          </div>
+          <div style="font-size:13.5px;color:var(--kq-scene-ink);">光源固定 <b class="strong">左上（↖）</b>，全套素材统一。投影一律落向 <b class="strong">右下</b>；高光落在物体左上棱。</div>
+        </div>
+        <div class="grid2" style="gap:16px;">
+          <div>
+            <div style="height:76px;border-radius:12px;background:var(--kq-scene-card);box-shadow:var(--kq-scene-shadow-near),var(--kq-scene-shadow-far);border:1px solid var(--kq-scene-card-border);"></div>
+            <div class="note" style="margin-top:9px;"><b class="strong">柔和双层 · 卡片/本子</b><br>近层 2/6 + 远层 14/34</div>
+          </div>
+          <div>
+            <div style="height:76px;border-radius:12px;background:var(--kq-scene-card);box-shadow:0 1px 2px rgba(90,74,106,.10),0 4px 10px rgba(90,74,106,.12);border:1px solid var(--kq-scene-card-border);transform:rotate(-.8deg);"></div>
+            <div class="note" style="margin-top:9px;"><b class="strong">夹页/活页 · 更贴纸面</b><br>单层近影 + 微旋转</div>
+          </div>
+        </div>
+        <p class="note" style="margin:16px 0 0;">阴影色 = 墨 <code>#5a4a6a</code> 低透明（shadow.ink），不用纯黑；接触影更实（α.38），漂浮影更散（α.08）。dark 主题下阴影转黑 + 1px 高光描边。</p>
+      </section>
+
+      <!-- ── 04 圆角 + 线宽 ── -->
+      <section class="card">
+        <div class="sec-no">04 · 圆角半径 + lucide 线宽</div>
+        <div style="display:flex;gap:14px;align-items:flex-end;margin-bottom:22px;">
+          <div style="text-align:center;"><div style="width:56px;height:44px;background:var(--kq-scene-accent-soft);border:1.5px solid var(--kq-scene-accent-2);border-radius:3px;"></div><div class="note" style="margin-top:6px;">3 活页</div></div>
+          <div style="text-align:center;"><div style="width:56px;height:44px;background:var(--kq-scene-accent-soft);border:1.5px solid var(--kq-scene-accent-2);border-radius:8px;"></div><div class="note" style="margin-top:6px;">8 按钮</div></div>
+          <div style="text-align:center;"><div style="width:56px;height:44px;background:var(--kq-scene-accent-soft);border:1.5px solid var(--kq-scene-accent-2);border-radius:12px;"></div><div class="note" style="margin-top:6px;">12 卡片</div></div>
+          <div style="text-align:center;"><div style="width:56px;height:44px;background:var(--kq-scene-accent-soft);border:1.5px solid var(--kq-scene-accent-2);border-radius:14px;"></div><div class="note" style="margin-top:6px;">14 本子</div></div>
+          <div style="text-align:center;"><div style="width:56px;height:44px;background:var(--kq-scene-accent-soft);border:1.5px solid var(--kq-scene-accent-2);border-radius:999px;"></div><div class="note" style="margin-top:6px;">999 chip</div></div>
+        </div>
+        <div class="note" style="margin-bottom:10px;">生命周期分页图标 ×5 · 16–20px · <b class="strong">stroke-width 2</b> · round cap/join（与 lucide 一致）</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <div style="width:52px;height:52px;border-radius:12px;background:var(--kq-scene-card);border:1px solid var(--kq-scene-card-border);display:grid;place-items:center;box-shadow:0 1px 3px rgba(90,74,106,.08);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b5580" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v8l3-3 3 3V2"></path><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"></path></svg></div>
+          <div style="width:52px;height:52px;border-radius:12px;background:var(--kq-scene-card);border:1px solid var(--kq-scene-card-border);display:grid;place-items:center;box-shadow:0 1px 3px rgba(90,74,106,.08);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b5580" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 17 2 2 4-4"></path><path d="m3 7 2 2 4-4"></path><path d="M13 6h8"></path><path d="M13 12h8"></path><path d="M13 18h8"></path></svg></div>
+          <div style="width:52px;height:52px;border-radius:12px;background:var(--kq-scene-card);border:1px solid var(--kq-scene-card-border);display:grid;place-items:center;box-shadow:0 1px 3px rgba(90,74,106,.08);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b5580" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7v14"></path><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"></path></svg></div>
+          <div style="width:52px;height:52px;border-radius:12px;background:var(--kq-scene-card);border:1px solid var(--kq-scene-card-border);display:grid;place-items:center;box-shadow:0 1px 3px rgba(90,74,106,.08);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b5580" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"></path><path d="m12 12 8-4.5"></path><path d="M12 12v9"></path><path d="m12 12-8-4.5"></path></svg></div>
+          <div style="width:52px;height:52px;border-radius:12px;background:var(--kq-scene-card);border:1px solid var(--kq-scene-card-border);display:grid;place-items:center;box-shadow:0 1px 3px rgba(90,74,106,.08);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b5580" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"></path><path d="M9 9h1"></path><path d="M9 13h4"></path><path d="m15 3 6 6-4 1-1 4-6-6z"></path></svg></div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;font-size:11px;color:var(--kq-scene-muted);"><span style="width:52px;text-align:center;">扉页</span><span style="width:52px;text-align:center;">计划</span><span style="width:52px;text-align:center;">学习</span><span style="width:52px;text-align:center;">练习</span><span style="width:52px;text-align:center;">评估</span></div>
+      </section>
+
+      <!-- ── 05 字迹语言 铅笔 vs 落墨 ── -->
+      <section class="card span">
+        <div class="sec-no">05 · 字迹语言 · 铅笔(draft) / 落墨(active)</div>
+        <div class="grid2" style="gap:18px;">
+          <div style="padding:16px;border:1px dashed var(--kq-scene-pencil-tint);border-radius:12px;background:var(--kq-scene-accent-soft);">
+            <div style="font-size:11.5px;letter-spacing:.08em;color:var(--kq-scene-pencil);margin-bottom:8px;">铅笔 · 她拟的草稿</div>
+            <div style="font-family:var(--font-hand);font-size:24px;color:var(--kq-scene-pencil);line-height:1.3;">阶段 3：随机变量与分布</div>
+            <div style="font-style:italic;color:var(--kq-scene-pencil);font-size:14px;margin-top:6px;">先用抛硬币模拟建立直觉，再进公式<span style="font-style:normal;font-size:11px;opacity:.8;"> · 铅笔</span></div>
+            <div class="note" style="margin-top:10px;">可读薰衣草 <code>#7d61a0</code> · <b style="color:var(--kq-scene-pencil);">斜体 / 手写体 / “·铅笔”标签</b> 三重区分。未落墨不算数。</div>
+          </div>
+          <div style="padding:16px;border:1px solid var(--kq-scene-card-border);border-radius:12px;background:var(--kq-scene-card);">
+            <div style="font-size:11.5px;letter-spacing:.08em;color:var(--kq-scene-accent);margin-bottom:8px;">落墨 · 你确认的</div>
+            <div style="font-family:var(--font-serif);font-weight:600;font-size:24px;color:var(--kq-scene-ink-strong);line-height:1.3;">阶段 2：条件概率与贝叶斯</div>
+            <div style="color:var(--kq-scene-ink-strong);font-size:14px;margin-top:6px;">代码例子 → 公式，先看直觉再推导</div>
+            <div class="note" style="margin-top:10px;">墨 <code>#49385e</code> · 正体衬线。落墨才进学习上下文。</div>
+          </div>
+        </div>
+        <p class="note" style="margin:16px 0 0;">同一句话，两种笔迹一眼可辨：<b style="color:var(--kq-scene-pencil);">斜 · 手写 · 带“铅笔”标 = 待确认</b>；<b class="strong">正 · 衬线 · 深墨 = 已落墨</b>。<b class="strong">铅笔较浅的语义靠形态与标签承载，字色本身已提到可读档</b>——橡皮永远在用户手里。</p>
+      </section>
+
+      <!-- ── 06 kq-glass 接缝 + 小娜杯 ── -->
+      <section class="card span" style="padding:0;background:none;box-shadow:none;background-image:none;">
+        <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:22px;">
+          <div style="border-radius:18px;padding:26px 28px;background:linear-gradient(135deg,#faf8fb 0%,#f6f2f8 100%);box-shadow:var(--kq-scene-shadow-near),var(--kq-scene-shadow-far);">
+            <div class="sec-no">06 · 与 kq-glass 的接缝</div>
+            <p style="font-size:13.5px;color:var(--kq-scene-ink);margin:0 0 16px;">纸感场景 = 内容层（笔记本/书桌）；<b class="strong">kq-glass</b> = chrome 层（标题栏 / 侧栏 / 输入框）。二者共用薰衣草墨与暖点，靠 <b class="strong">材质区分而非配色</b>：玻璃磨砂半透，纸面实心带纹。</p>
+            <div style="display:flex;gap:14px;align-items:stretch;">
+              <div style="flex:1;padding:14px 16px;border-radius:14px;background:var(--kq-scene-glass-bg);border:1px solid var(--kq-scene-glass-border);box-shadow:0 4px 16px rgba(90,74,106,.08);backdrop-filter:blur(14px);">
+                <div style="font-weight:600;color:var(--kq-scene-ink-strong);font-size:13.5px;">kq-glass 卡片</div>
+                <div class="note" style="margin-top:3px;">bg .72 · blur 14 · border .86</div>
+              </div>
+              <div style="flex:1;padding:14px 16px;border-radius:14px;background:var(--kq-scene-paper);background-image:var(--kq-scene-noise);border:1px solid var(--kq-scene-paper-line);box-shadow:0 4px 16px rgba(90,74,106,.08);">
+                <div style="font-weight:600;color:var(--kq-scene-ink-strong);font-size:13.5px;">纸面卡片</div>
+                <div class="note" style="margin-top:3px;">#fbf8f1 实心 · 纹 .035 · 同款影</div>
+              </div>
+            </div>
+          </div>
+          <div class="card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;">
+            <div class="sec-no" style="align-self:flex-start;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">07 · 小娜 · idle <span class="pill" style="background:rgba(212,176,128,.22);color:#8a6a35;text-transform:none;letter-spacing:0;">v0.5 品牌兼容参考</span></div>
+            <div class="nana">
+              <div class="steam" style="top:-4px;left:36px;height:22px;"></div>
+              <div class="steam" style="top:-2px;left:50px;height:17px;animation-delay:.9s;"></div>
+              <div class="body" style="background:linear-gradient(180deg,#fff,#f5f0eb 60%,#e8ddd4);border:2px solid rgba(107,85,128,.32);"></div>
+              <div class="handle"></div>
+              <div class="latte"></div>
+              <div class="eye" style="left:34px;"></div>
+              <div class="eye" style="left:50px;"></div>
+              <div class="blush" style="left:26px;"></div>
+              <div class="blush" style="left:54px;"></div>
+            </div>
+            <div class="note" style="margin-top:14px;">杯身白→拿铁暖 · 眼 #8b7d9a · 腮 #c495a0 · 把手薰衣草。<br>热气缓慢 = idle，加速 = speaking。演化自现有 mascot，新版即带新许可标记。<br><b style="color:#8a6a35;">— 小娜为 v0.5 品牌兼容参考，不在 v0.4 P0 开工范围内。</b></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 08 DARK MODE 对照 ── -->
+      <section class="card span scene-dark" style="background:linear-gradient(180deg,var(--kq-scene-desk-a),var(--kq-scene-desk-b));background-image:none;color:var(--kq-scene-ink);border:1px solid rgba(255,255,255,.06);">
+        <div class="sec-no" style="color:var(--kq-scene-accent);">08 · Dark mode 对照（同一基调, 暗色表现）</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;">
+          <div class="sw"><div class="chip" style="background:linear-gradient(180deg,#2a2136,#1f1829);border:1px solid var(--kq-scene-desk-edge);box-shadow:none;"></div><h4 style="color:var(--kq-scene-ink-strong);">桌面 Desk</h4><div class="hex">#241d2e · edge #3a2f49</div></div>
+          <div class="sw"><div class="chip" style="background:var(--kq-scene-paper);border:1px solid var(--kq-scene-paper-line);box-shadow:none;"></div><h4 style="color:var(--kq-scene-ink-strong);">纸面 Paper</h4><div class="hex">#2a2438 (primary-pale)</div></div>
+          <div class="sw"><div class="chip" style="background:linear-gradient(135deg,#b8a9c9,#cbb6e0);box-shadow:none;"></div><h4 style="color:var(--kq-scene-ink-strong);">强调 accent</h4><div class="hex">#b8a9c9 (primary-light)</div></div>
+          <div class="sw"><div class="chip" style="background:linear-gradient(135deg,#e8cfa8,#d4a574);box-shadow:none;"></div><h4 style="color:var(--kq-scene-ink-strong);">暖 warm</h4><div class="hex">#d4a574</div></div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:16px;margin-top:20px;">
+          <!-- 文字 + 纸纹 -->
+          <div style="border-radius:14px;padding:16px 18px;background:var(--kq-scene-paper);background-image:var(--kq-scene-noise);border:1px solid var(--kq-scene-paper-line);">
+            <div style="font-size:11px;letter-spacing:.08em;color:var(--kq-scene-muted);margin-bottom:8px;">文字层级 + 纸纹 .05</div>
+            <div style="color:var(--kq-scene-ink-strong);font-family:var(--font-serif);font-weight:600;font-size:18px;">墨字 ink-strong</div>
+            <div style="color:var(--kq-scene-ink);font-size:13.5px;margin-top:2px;">正文 ink — 默认字色</div>
+            <div style="color:var(--kq-scene-muted);font-size:12.5px;margin-top:2px;">辅助 muted 6.6:1</div>
+            <div style="color:var(--kq-scene-pencil);font-style:italic;font-family:var(--font-hand);font-size:15px;margin-top:2px;">铅笔字 5.3:1 · 待确认</div>
+          </div>
+          <!-- 边框 + 阴影 -->
+          <div style="border-radius:14px;padding:16px 18px;background:var(--kq-scene-card);border:1px solid var(--kq-scene-card-border);box-shadow:var(--kq-scene-shadow-near),var(--kq-scene-shadow-far);">
+            <div style="font-size:11px;letter-spacing:.08em;color:var(--kq-scene-muted);margin-bottom:10px;">边框 + 阴影</div>
+            <div style="height:44px;border-radius:10px;background:#241f31;border:1px solid var(--kq-scene-card-border);box-shadow:0 8px 22px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.04);"></div>
+            <div class="note" style="margin-top:9px;color:var(--kq-scene-muted);">边 = rgba(255,255,255,.12)；影转黑 + 1px 高光描边（防止暗底融为一片）。</div>
+          </div>
+          <!-- kq-glass dark -->
+          <div style="border-radius:14px;padding:16px 18px;background:var(--kq-scene-glass-bg);border:1px solid var(--kq-scene-glass-border);backdrop-filter:blur(14px);">
+            <div style="font-size:11px;letter-spacing:.08em;color:var(--kq-scene-muted);margin-bottom:10px;">kq-glass · dark</div>
+            <div style="font-weight:600;color:var(--kq-scene-ink-strong);font-size:13.5px;">磨砂 chrome</div>
+            <div class="note" style="margin-top:3px;color:var(--kq-scene-muted);">bg rgba(30,27,40,.72) · border .10 —— 纸面仍实心，靠材质分层不靠色。</div>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:22px;margin-top:20px;padding:16px 18px;border-radius:14px;background:var(--kq-scene-card);border:1px solid var(--kq-scene-card-border);">
+          <div class="nana" style="--nana-steam:#8f7eaa;--nana-eye:#cbb6e0;">
+            <div class="steam" style="top:-4px;left:36px;height:22px;opacity:.7;"></div>
+            <div class="steam" style="top:-2px;left:50px;height:17px;animation-delay:.9s;opacity:.7;"></div>
+            <div class="body" style="background:linear-gradient(180deg,#3a3350,#2c2740 60%,#221d30);border:2px solid rgba(184,169,201,.4);"></div>
+            <div class="handle" style="border-color:var(--kq-scene-accent);"></div>
+            <div class="latte" style="background:linear-gradient(180deg,#e8cfa8,#d4a574 55%,#b8926a);"></div>
+            <div class="eye" style="left:34px;background:#cbb6e0;"></div>
+            <div class="eye" style="left:50px;background:#cbb6e0;"></div>
+            <div class="blush" style="left:26px;background:#b57f8c;"></div>
+            <div class="blush" style="left:54px;background:#b57f8c;"></div>
+          </div>
+          <div>
+            <div style="font-weight:600;color:var(--kq-scene-ink-strong);font-size:14px;">小娜 · dark</div>
+            <div class="note" style="margin-top:4px;color:var(--kq-scene-muted);max-width:560px;">杯身转深靛（#3a3350→#221d30），拿铁保暖不变作为唯一暖光；眼/热气改用亮薰衣草 #cbb6e0 以在暗底浮起；把手 = dark accent。腮红压低。识别度靠<b style="color:var(--kq-scene-ink-strong);">拿铁暖点</b>锚定，明暗一致。</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 09 TOKEN TABLE ── -->
+      <section class="card span">
+        <div class="sec-no">09 · 最终 <code>--kq-scene-*</code> token 表（映射到 index.css / brandTokens）</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;font-size:12px;">
+          <span class="pill tag-exist">现有</span><span class="note">直接引用现有 kq token / brandTokens</span>
+          <span class="pill tag-new" style="margin-left:12px;">新增</span><span class="note">场景层新增语义（桌面/纸/纹理无对应）</span>
+          <span class="pill tag-repl" style="margin-left:12px;">替换</span><span class="note">为达 WCAG 而重定的可读值</span>
+        </div>
+        <div style="overflow:hidden;border-radius:12px;border:1px solid var(--kq-scene-card-border);">
+        <table class="tok">
+          <thead><tr><th style="width:22%;">--kq-scene-*</th><th style="width:16%;">Light</th><th style="width:16%;">Dark</th><th>映射 / 来源</th><th style="width:9%;">类型</th></tr></thead>
+          <tbody>
+            <tr><td class="tk">desk</td><td class="v"><span class="dot" style="background:#e8dfd2;"></span>#e8dfd2</td><td class="v"><span class="dot" style="background:#241d2e;"></span>#241d2e</td><td>桌面材质（无对应）</td><td><span class="pill tag-new">新增</span></td></tr>
+            <tr><td class="tk">desk-edge</td><td class="v"><span class="dot" style="background:#d4c6b2;"></span>#d4c6b2</td><td class="v"><span class="dot" style="background:#3a2f49;"></span>#3a2f49</td><td>桌面棱边高光/描边</td><td><span class="pill tag-new">新增</span></td></tr>
+            <tr><td class="tk">paper</td><td class="v"><span class="dot" style="background:#fbf8f1;"></span>#fbf8f1</td><td class="v"><span class="dot" style="background:#2a2438;"></span>#2a2438</td><td>纸面。dark = <code>--kq-color-primary-pale</code></td><td><span class="pill tag-new">新增</span></td></tr>
+            <tr><td class="tk">paper-line</td><td class="v"><span class="dot" style="background:#e7e0d2;"></span>#e7e0d2</td><td class="v"><span class="dot" style="background:#3d3350;"></span>#3d3350</td><td>横线/分隔虚线</td><td><span class="pill tag-new">新增</span></td></tr>
+            <tr><td class="tk">ink-strong</td><td class="v"><span class="dot" style="background:#49385e;"></span>#49385e</td><td class="v"><span class="dot" style="background:#f0ecf5;"></span>#f0ecf5</td><td>= <code>--kq-color-strong</code></td><td><span class="pill tag-exist">现有</span></td></tr>
+            <tr><td class="tk">ink</td><td class="v"><span class="dot" style="background:#5a4a6a;"></span>#5a4a6a</td><td class="v"><span class="dot" style="background:#e2dde8;"></span>#e2dde8</td><td>= <code>--kq-color-ink</code></td><td><span class="pill tag-exist">现有</span></td></tr>
+            <tr><td class="tk">muted</td><td class="v"><span class="dot" style="background:#7a6494;"></span>#7a6494</td><td class="v"><span class="dot" style="background:#b7a6cc;"></span>#b7a6cc</td><td>替 <code>--kq-color-muted</code>(#8B7D9A 3.6:1) → 4.86:1</td><td><span class="pill tag-repl">替换</span></td></tr>
+            <tr><td class="tk">muted-soft</td><td class="v"><span class="dot" style="background:#8f75a8;"></span>#8f75a8</td><td class="v"><span class="dot" style="background:#9790a6;"></span>#9790a6</td><td>旧 muted，仅大字/装饰。dark = <code>--kq-color-muted</code></td><td><span class="pill tag-exist">现有</span></td></tr>
+            <tr><td class="tk">pencil</td><td class="v"><span class="dot" style="background:#7d61a0;"></span>#7d61a0</td><td class="v"><span class="dot" style="background:#a98fc9;"></span>#a98fc9</td><td>替 draft #b79fcd(2.24:1) → 可读铅笔字 4.84:1</td><td><span class="pill tag-repl">替换</span></td></tr>
+            <tr><td class="tk">pencil-tint</td><td class="v"><span class="dot" style="background:#b79fcd;"></span>#b79fcd</td><td class="v"><span class="dot" style="background:#6f5b88;"></span>#6f5b88</td><td>铅笔装饰/描边 = <code>cup.handle</code></td><td><span class="pill tag-exist">现有</span></td></tr>
+            <tr><td class="tk">accent</td><td class="v"><span class="dot" style="background:#6b5580;"></span>#6b5580</td><td class="v"><span class="dot" style="background:#b8a9c9;"></span>#b8a9c9</td><td>= <code>--kq-color-primary-dark</code> / dark <code>-light</code></td><td><span class="pill tag-exist">现有</span></td></tr>
+            <tr><td class="tk">accent-2</td><td class="v"><span class="dot" style="background:#8f75a8;"></span>#8f75a8</td><td class="v"><span class="dot" style="background:#cbb6e0;"></span>#cbb6e0</td><td>= <code>coaster.line</code></td><td><span class="pill tag-exist">现有</span></td></tr>
+            <tr><td class="tk">accent-soft</td><td class="v"><span class="dot" style="background:#f5effa;"></span>#f5effa</td><td class="v"><span class="dot" style="background:#3a3350;"></span>rgba(155,139,181,.16)</td><td>light = <code>coaster.background</code></td><td><span class="pill tag-exist">现有</span></td></tr>
+            <tr><td class="tk">warm</td><td class="v"><span class="dot" style="background:#d4b080;"></span>#d4b080</td><td class="v"><span class="dot" style="background:#d4a574;"></span>#d4a574</td><td>= <code>latte.outer</code> / <code>--kq-color-warm</code></td><td><span class="pill tag-exist">现有</span></td></tr>
+            <tr><td class="tk">warn</td><td class="v"><span class="dot" style="background:#a8472f;"></span>#a8472f</td><td class="v"><span class="dot" style="background:#e08a72;"></span>#e08a72</td><td>错题/到期。text 用此(5.49:1)，边/大字可用 #b4543a(4.64:1)</td><td><span class="pill tag-repl">替换</span></td></tr>
+            <tr><td class="tk">glass-bg</td><td class="v">rgba(255,255,255,.72)</td><td class="v">rgba(30,27,40,.72)</td><td>= <code>--kq-glass-bg-subtle</code></td><td><span class="pill tag-exist">现有</span></td></tr>
+            <tr><td class="tk">glass-border</td><td class="v">rgba(232,224,237,.86)</td><td class="v">rgba(255,255,255,.10)</td><td>= <code>--kq-glass-border</code></td><td><span class="pill tag-exist">现有</span></td></tr>
+            <tr><td class="tk">shadow(near/far)</td><td class="v">rgba(90,74,106,·)</td><td class="v">rgba(0,0,0,·)+高光</td><td>= <code>shadow.ink</code> / <code>--kq-shadow-*</code></td><td><span class="pill tag-exist">现有</span></td></tr>
+            <tr><td class="tk">noise-alpha</td><td class="v">0.035</td><td class="v">0.05 (白噪)</td><td>内嵌 feTurbulence α</td><td><span class="pill tag-new">新增</span></td></tr>
+          </tbody>
+        </table>
+        </div>
+      </section>
+
+      <!-- ── 无障碍校验 ── -->
+      <section class="card span" style="border-left:9px solid var(--kq-scene-warn-soft);">
+        <div class="sec-no" style="color:var(--kq-scene-warn);">无障碍对比度修正（WCAG AA · 正文 4.5:1 / 大字 3:1）</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
+          <div style="padding:14px 16px;border-radius:12px;border:1px solid var(--kq-scene-card-border);background:var(--kq-scene-card);">
+            <div class="note">辅助 muted</div>
+            <div style="font-size:13px;margin-top:6px;"><span style="color:var(--kq-scene-warn);text-decoration:line-through;">#8f75a8 · 3.75:1 ✗</span></div>
+            <div style="font-size:13px;color:#7a6494;font-weight:600;">#7a6494 · 4.86:1 ✓</div>
+          </div>
+          <div style="padding:14px 16px;border-radius:12px;border:1px solid var(--kq-scene-card-border);background:var(--kq-scene-card);">
+            <div class="note">铅笔字 pencil</div>
+            <div style="font-size:13px;margin-top:6px;"><span style="color:var(--kq-scene-warn);text-decoration:line-through;">#b79fcd · 2.24:1 ✗</span></div>
+            <div style="font-size:13px;color:#7d61a0;font-weight:600;">#7d61a0 · 4.84:1 ✓ <span style="font-weight:400;color:var(--kq-scene-muted);">(+斜体+手写+标签)</span></div>
+          </div>
+          <div style="padding:14px 16px;border-radius:12px;border:1px solid var(--kq-scene-card-border);background:var(--kq-scene-card);">
+            <div class="note">警示 warn</div>
+            <div style="font-size:13px;margin-top:6px;"><span style="color:var(--kq-scene-warn);">#b4543a · 4.64:1 △ 已达标但余量窄</span></div>
+            <div style="font-size:13px;color:#a8472f;font-weight:600;">#a8472f · 5.49:1 ✓ 安全余量</div>
+          </div>
+        </div>
+        <p class="note" style="margin:14px 0 0;">原则：<b class="strong">“铅笔较浅”的语义由形态承载</b>（斜体 + 手写体 + “·铅笔”标签 + 虚线容器），字色本身提到可读档；<b class="strong">颜色永不单独承载状态</b>。#b79fcd / #8f75a8 降级为纯装饰或 ≥24px 大字。</p>
+      </section>
+
+      <!-- ── footer ── -->
+      <div class="card span" style="background:rgba(73,56,94,.05);background-image:none;box-shadow:none;border:1px solid rgba(143,117,168,.22);font-size:12px;color:var(--kq-scene-muted);line-height:1.9;">
+        <b class="strong">通过此页后开工 v0.4 P0 小件：</b>分页图标 ×5（首项=扉页）· 知识点 chip 五态 · 卡片盒三态 · 错题本页标 · 复习卡框架 · 空态插画 ×4 · 页边注 · 扉页版式 · 夹页三态。<span style="color:#8a6a35;">（小娜两态属 v0.5 品牌兼容，已从 v0.4 P0 移除）</span><br>
+        <b class="strong">交付纪律 —</b> 全矢量 SVG（位图纹理禁令）· 动画组分层命名（<code>steam/ eyes/ lid/</code>）· light/dark 由 <code>--kq-scene-*</code> 变量驱动 · 颜色引 token · 每件一句数据映射 · 文件头带 <code>SPDX: Apache-2.0 AND LicenseRef-Kabuqina-Brand</code>。
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+</body></html>
