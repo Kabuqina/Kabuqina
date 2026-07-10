@@ -1603,6 +1603,31 @@ obvious graph-attributable P0/P1 or unexplained result-shape, hook,
 persistence, or usage drift. This is an explicit owner acceptance decision, not
 evidence that a fixed artifact completed a 14-day soak.
 
+**RELEASE EVIDENCE — observation in progress, 2026-07-10.** The owner confirmed
+that v0.3.0 was actually released, installed, and exercised; it is no longer
+merely a release candidate. The released local NSIS evidence is:
+
+```text
+artifact: tauri/target/release/bundle/nsis/Kabuqina_0.3.0_x64-setup.exe
+bytes:    303,938,663
+sha256:   9C320DFFB7046CD8718C16904D9BAC56AA3A5A464642824C6BBFA0BF56D30F10
+built:    2026-07-09 15:56:35 +08:00
+PE:       ProductVersion=0.3.0, FileVersion=0.3.0
+```
+
+The installed release at `D:\Program Files (x86)\Kabuqina` uses bundled
+CPython 3.11.15. Local installed-app logs from 2026-07-09 contain seven explicit
+`engine=graph` desk runs. The only recorded ERROR is the network policy
+intentionally blocking `image.pollinations.ai`; it is a non-graph allowlist
+denial, not evidence of result-shape, hook, persistence, or usage drift.
+
+On 2026-07-10 the G1 goal suite was refreshed under the bundled CPython 3.11.15
+runtime (pytest installed only into ignored `.test-output`): goal core tests =
+227 passed / 1 skipped; desk goal routes = 8 passed. Step 4 remains open here
+until the short post-release window has elapsed and the owner explicitly records
+the clean observation outcome. This note records real release evidence without
+silently compressing the chosen acceptance window again.
+
 Until that post-release acceptance is recorded, G2 remains closed and Step 5
 must not start. Once it is recorded, re-evaluate G2 for Goal Runner Pilot 1 and
 then proceed toward Step 5 only after the Goal Runner dual-engine evidence is

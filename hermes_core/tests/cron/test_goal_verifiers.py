@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 from dataclasses import replace
 from pathlib import Path
 
@@ -10,6 +11,9 @@ import pytest
 
 from cron.goal_state import GoalReport
 from cron.goal_verifiers import VerificationContext, verify
+
+
+PILOT_FIXTURE = Path(__file__).parent / "fixtures" / "goal_manifest_pilot"
 
 
 def _report(*artifacts: str) -> GoalReport:
@@ -137,6 +141,34 @@ def _manifest_context(workdir: Path):
             "extensions": [".pdf", ".docx", ".pptx"],
         },
     )
+
+
+def test_pilot_one_fixture_passes_then_detects_content_drift(tmp_path):
+    shutil.copytree(PILOT_FIXTURE, tmp_path, dirs_exist_ok=True)
+    definition = json.loads(
+        (tmp_path / "pilot-definition.json").read_text(encoding="utf-8")
+    )
+    context = _context(
+        tmp_path,
+        artifacts=("learning-materials.json",),
+        config=definition["verifier"]["config"],
+    )
+
+    passed = verify("manifest_complete", context)
+
+    assert passed.outcome == "pass"
+    assert passed.evidence["paths"] == [
+        "materials/algebra.pdf",
+        "materials/lesson.docx",
+    ]
+
+    (tmp_path / "materials" / "lesson.docx").write_text(
+        "changed after the frozen manifest", encoding="utf-8"
+    )
+    drifted = verify("manifest_complete", context)
+
+    assert drifted.outcome == "fail"
+    assert drifted.evidence["invalid_records"] == [1]
 
 
 def test_manifest_complete_passes_with_sorted_normalized_records(tmp_path):

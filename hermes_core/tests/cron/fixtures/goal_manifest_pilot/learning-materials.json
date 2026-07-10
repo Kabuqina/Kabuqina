@@ -1,0 +1,14 @@
+{
+  "files": [
+    {
+      "path": "materials/algebra.pdf",
+      "sha256": "eb7d343dae8faf8b10126b248b853b25e9dfcb2f8773afb2a4260b65204f1876",
+      "size_bytes": 55
+    },
+    {
+      "path": "materials/lesson.docx",
+      "sha256": "8a0d6f00f34f0fef6a527d5ef9951ad52a5a8cfbebc2c8029d849cca49fd1aef",
+      "size_bytes": 52
+    }
+  ]
+}

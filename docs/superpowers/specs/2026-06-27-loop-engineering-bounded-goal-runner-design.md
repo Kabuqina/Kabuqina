@@ -276,21 +276,23 @@ is unchanged. A goal job adds fields with safe defaults:
     "display": "every 10m"
   },
   "skills": ["ocr-and-documents", "powerpoint"],
-  "enabled_toolsets": ["file", "vision"],
+  "enabled_toolsets": ["file"],
   "workdir": "C:\\Users\\student\\Documents\\KabuqinaWork",
   "verifier": {
     "kind": "manifest_complete",
     "config": {
       "manifest": "learning-materials.json",
+      "roots": ["materials"],
       "extensions": [".pdf", ".docx", ".pptx"]
     }
   },
   "limits": {
     "max_runs": 40,
-    "max_cost_usd": 5.0,
+    "max_cost_usd": "5.00",
     "max_wall_seconds": 14400,
     "deadline": null,
-    "no_progress_limit": 3
+    "no_progress_limit": 3,
+    "max_infrastructure_failures": 3
   },
   "approval_mode": "ask_before_external_side_effect",
   "deliver": "origin"
@@ -300,6 +302,13 @@ is unchanged. A goal job adds fields with safe defaults:
 `goal`, `verifier`, and `limits` are required for `mode: goal`. Toolsets remain
 fixed for the lifetime of a run unless the user pauses and edits the job; this
 preserves prompt-cache and safety assumptions.
+
+Pilot 1 declares only the `file` toolset in the persisted job. The runtime
+adapter adds the non-default `goal_internal` report toolset without broadening
+the profile policy. The canonical pre-exposure contract is frozen in
+`hermes_core/tests/cron/fixtures/goal_manifest_pilot/pilot-definition.json`;
+tests must fail if its verifier, roots, extensions, toolset, 40-run / four-hour /
+USD 5.00 limits, or pause thresholds drift.
 
 ### Mutable state and evidence
 

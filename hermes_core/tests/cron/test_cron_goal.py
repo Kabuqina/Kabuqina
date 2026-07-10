@@ -9,6 +9,7 @@ per profile without disturbing the rest of the `cron` config.
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -16,6 +17,15 @@ import pytest
 import yaml
 
 from hermes_cli.config_defaults import DEFAULT_CONFIG
+
+
+PILOT_FIXTURE = Path(__file__).parent / "fixtures" / "goal_manifest_pilot"
+
+
+def _pilot_definition():
+    return json.loads(
+        (PILOT_FIXTURE / "pilot-definition.json").read_text(encoding="utf-8")
+    )
 
 
 class TestGoalLoopGateDefault:
@@ -111,6 +121,36 @@ class TestLegacyModeNormalizationUnchanged:
 
 
 class TestGoalJobCreation:
+    def test_pilot_one_fixture_freezes_public_safety_limits(self, tmp_path):
+        from cron.jobs import create_job
+
+        definition = _pilot_definition()
+        job = create_job(workdir=str(tmp_path), **definition)
+
+        assert job["mode"] == "goal"
+        assert job["enabled_toolsets"] == ["file"]
+        assert job["goal"] == {
+            "objective": definition["goal"],
+            "verifier": {
+                "kind": "manifest_complete",
+                "config": {
+                    "manifest": "learning-materials.json",
+                    "roots": ["materials"],
+                    "extensions": [".pdf", ".docx", ".pptx"],
+                },
+            },
+            "limits": {
+                "max_runs": 40,
+                "max_cost_usd": "5.00",
+                "max_wall_seconds": 14400,
+                "deadline": None,
+                "no_progress_limit": 3,
+                "max_infrastructure_failures": 3,
+            },
+            "approval_mode": "ask_before_external_side_effect",
+            "progress_delivery_every": 5,
+        }
+
     def test_goal_mode_persists_nested_spec(self, tmp_path):
         from cron.jobs import create_job, get_job
 

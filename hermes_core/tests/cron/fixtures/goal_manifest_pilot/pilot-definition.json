@@ -1,0 +1,35 @@
+{
+  "name": "Learning material inventory",
+  "mode": "goal",
+  "goal": "Keep learning-materials.json complete for supported files in materials/",
+  "prompt": "Inspect at most one new or changed supported file, then update learning-materials.json with its normalized relative path, SHA-256, and byte size. Do not write outside the selected workspace.",
+  "schedule": "every 10m",
+  "deliver": "local",
+  "enabled_toolsets": [
+    "file"
+  ],
+  "verifier": {
+    "kind": "manifest_complete",
+    "config": {
+      "manifest": "learning-materials.json",
+      "roots": [
+        "materials"
+      ],
+      "extensions": [
+        ".pdf",
+        ".docx",
+        ".pptx"
+      ]
+    }
+  },
+  "limits": {
+    "max_runs": 40,
+    "max_cost_usd": "5.00",
+    "max_wall_seconds": 14400,
+    "deadline": null,
+    "no_progress_limit": 3,
+    "max_infrastructure_failures": 3
+  },
+  "approval_mode": "ask_before_external_side_effect",
+  "progress_delivery_every": 5
+}
