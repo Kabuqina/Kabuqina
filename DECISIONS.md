@@ -814,6 +814,14 @@ downloads do not contend with onboarding or the first model request. The desk
 stream log records agent initialization, time-to-first-token, total time, and
 provider cache counters for release observation.
 
+**Profile-aware capability disclosure (2026-07-10).** Non-CLI system prompts
+derive their standard-capability statement from the agent's actual registered
+tool names, rather than from a universal hardcoded list. This keeps
+`mainland_cn` honest when `image_gen` is removed: the prompt explicitly says
+image generation is unavailable and forbids fabricating a generated-image URL
+or sending a hypothetical image to `vision_analyze`. Tool schemas remain the
+source of truth for every profile and gateway.
+
 **STUDY M4 state/evaluation/plan semantics (2026-07-10).** Exactly one active
 `student_state` and one active `learning_plan` exist per owner/space; replacing
 either archives the previous active artifact. `evaluation` stays evidence-based

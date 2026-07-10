@@ -4654,6 +4654,57 @@ class AIAgent:
 
 
 
+    @staticmethod
+    def _platform_capability_disclosure(valid_tool_names: set[str]) -> str:
+        """Describe only standard capabilities backed by an actual tool schema.
+
+        Gateway and desktop profiles can remove toolsets at runtime. The system
+        prompt must therefore derive this disclosure from ``valid_tool_names``
+        rather than a broad default capability list.
+        """
+        tool_names = set(valid_tool_names or ())
+        capability_tools = (
+            ("web search", frozenset({"web_search", "web_extract"})),
+            (
+                "file read/write",
+                frozenset({"read_file", "write_file", "patch", "search_files"}),
+            ),
+            ("vision", frozenset({"vision_analyze"})),
+            ("image generation", frozenset({"image_generate"})),
+            ("text-to-speech", frozenset({"text_to_speech"})),
+            ("skills", frozenset({"skills_list", "skill_view", "skill_manage"})),
+            ("todo list", frozenset({"todo"})),
+            (
+                "web browser",
+                frozenset(
+                    {"browser_navigate", "browser_snapshot", "browser_click", "browser_type"}
+                ),
+            ),
+            ("shell/terminal commands", frozenset({"terminal", "process"})),
+            ("code execution", frozenset({"execute_code"})),
+            ("mixture-of-agents", frozenset({"mixture_of_agents"})),
+        )
+        available = [label for label, names in capability_tools if tool_names & names]
+        unavailable = [label for label, names in capability_tools if not tool_names & names]
+        lines = [
+            "You are running with the permissions and tools supplied by this platform.",
+            "Available tools: " + (", ".join(available) if available else "no standard user tools") + ".",
+        ]
+        if unavailable:
+            lines.append("Not available: " + ", ".join(unavailable) + ".")
+        lines.append(
+            "The tool definitions in this conversation are the source of truth; "
+            "do not claim, simulate, or attempt a capability whose definition is absent."
+        )
+        if "image generation" in unavailable:
+            lines.append(
+                "Image generation is unavailable. Do not fabricate a generated-image URL "
+                "or pass a hypothetical generated image to vision_analyze; vision only "
+                "analyzes an image the user actually supplied."
+            )
+        return "\n\n".join(lines)
+
+
     def _build_system_prompt(self, system_message: str = None) -> str:
         """
         Assemble the full system prompt from all layers.
@@ -4862,20 +4913,10 @@ class AIAgent:
                 pass
 
         # Gateway permission disclosure — non-CLI platforms have reduced
-        # tool access.  Tell the agent its capability tier and instruct it
-        # to be transparent with users.
+        # tool access. Derive the disclosure from the actual tool schemas so
+        # regional/profile cuts cannot leave stale capabilities in the prompt.
         if platform_key and platform_key != "cli":
-            prompt_parts.append(
-                "You are running with standard user permissions on this "
-                "messaging platform.\n\n"
-                "Available tools: web search, file read/write, vision, "
-                "image generation, text-to-speech, skills, todo list, "
-                "and web browser.\n"
-                "NOT available: shell/terminal commands, code execution, "
-                "MCP servers, or mixture-of-agents.\n\n"
-                "If a user asks about your capabilities or permissions, "
-                "be direct and honest about what you can and cannot do."
-            )
+            prompt_parts.append(self._platform_capability_disclosure(self.valid_tool_names))
 
         return "\n\n".join(p.strip() for p in prompt_parts if p.strip())
 

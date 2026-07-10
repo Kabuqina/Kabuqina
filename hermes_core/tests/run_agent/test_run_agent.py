@@ -857,6 +857,21 @@ class TestHydrateTodoStore:
 
 
 class TestBuildSystemPrompt:
+    def test_platform_capability_disclosure_hides_missing_image_generation(self):
+        disclosure = AIAgent._platform_capability_disclosure(
+            {"web_search", "read_file", "vision_analyze"}
+        )
+
+        assert "Available tools: web search, file read/write, vision." in disclosure
+        assert "Image generation is unavailable." in disclosure
+        assert "fabricate a generated-image URL" in disclosure
+
+    def test_platform_capability_disclosure_lists_registered_image_generation(self):
+        disclosure = AIAgent._platform_capability_disclosure({"image_generate"})
+
+        assert "Available tools: image generation." in disclosure
+        assert "Image generation is unavailable." not in disclosure
+
     def test_always_has_identity(self, agent):
         prompt = agent._build_system_prompt()
         assert DEFAULT_AGENT_IDENTITY in prompt
