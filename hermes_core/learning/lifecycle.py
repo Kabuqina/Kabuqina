@@ -46,8 +46,8 @@ class ArtifactLifecycleService:
                 "title": str(row.get("title") or "")[:300],
                 "status": row["status"],
                 "review": {
-                    "mode": str((row.get("review") or {}).get("mode") or "")[:40],
-                    "status": str((row.get("review") or {}).get("status") or "")[:40],
+                    "mode": str(row.get("review_mode") or "")[:40],
+                    "status": str(row.get("review_status") or "")[:40],
                 },
                 "updated_at": row["updated_at"],
             }

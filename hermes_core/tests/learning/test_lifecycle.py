@@ -29,6 +29,10 @@ def test_summaries_are_bounded_counted_and_hide_envelopes(tmp_path):
         assert result["truncated"] is True
         assert result["counts"]["draft"] == 4
         assert result["kind_counts"] == {"student_state": 1, "tutoring_note": 3}
+        assert all(
+            item["review"] == {"mode": "deterministic", "status": "pending"}
+            for item in result["items"]
+        )
         assert all("envelope" not in item for item in result["items"])
         assert "secret hint" not in str(result)
     finally:

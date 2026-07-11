@@ -45,6 +45,7 @@ def test_bounded_drafts_and_wrongbook_routes(client):
     assert set(drafts["items"][0]) == {
         "artifact_id", "kind", "title", "status", "review", "updated_at",
     }
+    assert drafts["items"][0]["review"] == {"mode": "deterministic", "status": "pending"}
     detail = http.get(
         f"/api/desk/study/artifacts/{drafts['items'][0]['artifact_id']}",
         headers=headers(),

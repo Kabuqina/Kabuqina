@@ -10,6 +10,8 @@ describe("study route model", () => {
     ["/study/space-a", { kind: "space", spaceId: "space-a" }],
     ["/study/space-a/learn", { kind: "page", spaceId: "space-a", page: "learn" }],
     ["/study/space-a/wrong", { kind: "not-found", spaceId: "space-a" }],
+    ["/study/100%", { kind: "not-found" }],
+    ["/study/%zz/learn", { kind: "not-found" }],
   ])("parses %s", (path, expected) => {
     expect(parseStudyPath(path)).toEqual(expected);
   });
