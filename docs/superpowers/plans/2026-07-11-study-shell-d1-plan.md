@@ -258,3 +258,10 @@ lint、TypeScript 与 production build 全绿。收口 entry JS 1,567.69 kB /
 gzip 合计净增约 **2.44 kB**。独立 `StudyRoute` chunk 11.00 / 3.80 kB
 gzip；manifest 递归检查确认没有 CodeMirror、motion、KaTeX 新副本。
 完整 drafts metadata 的无界载荷仍记录为 B-5 summary/count query 债务。
+
+**Error-contract hardening（2026-07-11）：** D-1 Task 2 的临时字符串错误
+兼容已收口。共享 desk bridge 现保留结构化 `{status, code, detail}`；旧命令
+继续通过字符串 wrapper 兼容，spaces/create/select/drafts 已切换结构化
+返回。Python STUDY routes 为 400/404/409 提供稳定机器码，Web repository
+按 code/status 映射且不解析或渲染 detail。Rust 3 tests、Python route
+17 tests、Web 21 component tests 与 lint/TypeScript 均通过。
