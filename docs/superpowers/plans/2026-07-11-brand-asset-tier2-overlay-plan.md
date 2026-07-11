@@ -84,12 +84,15 @@ kabuqina-mascot/
   `assets/brand/placeholder/generate_placeholder.py`; canvas sizes mirror the
   shipped SVGs, geometry/palette all-new greyscale, `<title>Placeholder …` is
   the machine-checkable sentinel.)*
-- [ ] **Step 2:** run it; regenerate `tauri/icons/` from the placeholder
-  256-png via `cargo tauri icon`; commit the placeholder set. App must build
-  and run showing the neutral identity.
-- [ ] **Step 3:** grep-guard test (component test or script check) asserting
-  no file under `web/public/` or `tauri/icons/` differs from the committed
-  placeholder set at test time — catches an accidentally committed overlay.
+- [x] **Step 2:** run it; regenerate `tauri/icons/` from the placeholder
+  source via `cargo tauri icon icons/_icon-1024.png` + tray copy; commit the
+  placeholder set. *(2026-07-11: `npm run build` green — entry chunk
+  1,568.75 kB / 471.59 kB gzip, StudyRoute still its own chunk; placeholder
+  sentinel confirmed in `web/dist`; owner visually accepted the neutral
+  identity.)*
+- [x] **Step 3:** guard implemented as `apply-brand-overlay.ps1 -Check`
+  (fails when `web/public` or `tauri/icons` differ from HEAD) — ran OK after
+  the placeholder commit.
 
 ### Task 3: overlay 注入脚本
 
@@ -135,6 +138,8 @@ kabuqina-mascot/
   the bundle for absence of the real-asset hashes.
 - [ ] **Step 2:** branded round on owner machine: apply → build → restore;
   confirm working tree clean after restore and the artifact carries real
-  branding.
+  branding. *(2026-07-11: apply → restore mechanics verified — banner shown,
+  tree clean after restore; the full round with a rebuild in between is still
+  owed at release time.)*
 - [ ] **Step 3:** record both rounds' evidence in progress notes; this plan's
   completion gates the start of any v0.5 scene-art production.
