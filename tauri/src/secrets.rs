@@ -36,21 +36,28 @@ pub struct ProviderConfig {
     pub api_mode: Option<String>,
 }
 
-const VENDOR_LLM_DISABLED: &str = "hermesdesk.vendor_llm_disabled";
+const VENDOR_LLM_DISABLED: &str = "kabuqina.vendor_llm_disabled";
+const LEGACY_VENDOR_LLM_DISABLED: &str = "hermesdesk.vendor_llm_disabled";
 
 /// Build-time optional defaults so a distributor can ship a working demo key.
 /// Set at **compile time** only (not committed to git):
-/// `set HERMESDESK_VENDOR_API_KEY=...&& set HERMESDESK_VENDOR_BASE_URL=https://.../v1&& cargo tauri build`
+/// `set KABUQINA_VENDOR_API_KEY=...&& set KABUQINA_VENDOR_BASE_URL=https://.../v1&& cargo tauri build`
 fn vendor_api_key_compile() -> Option<&'static str> {
-    option_env!("HERMESDESK_VENDOR_API_KEY").filter(|s| !s.is_empty())
+    option_env!("KABUQINA_VENDOR_API_KEY")
+        .filter(|s| !s.is_empty())
+        .or_else(|| option_env!("HERMESDESK_VENDOR_API_KEY").filter(|s| !s.is_empty()))
 }
 
 fn vendor_base_url_compile() -> Option<&'static str> {
-    option_env!("HERMESDESK_VENDOR_BASE_URL").filter(|s| !s.is_empty())
+    option_env!("KABUQINA_VENDOR_BASE_URL")
+        .filter(|s| !s.is_empty())
+        .or_else(|| option_env!("HERMESDESK_VENDOR_BASE_URL").filter(|s| !s.is_empty()))
 }
 
 fn vendor_model_compile() -> Option<&'static str> {
-    option_env!("HERMESDESK_VENDOR_MODEL").filter(|s| !s.is_empty())
+    option_env!("KABUQINA_VENDOR_MODEL")
+        .filter(|s| !s.is_empty())
+        .or_else(|| option_env!("HERMESDESK_VENDOR_MODEL").filter(|s| !s.is_empty()))
 }
 
 pub fn vendor_llm_available() -> bool {
@@ -129,20 +136,29 @@ fn validate_provider_config_for_save(cfg: &mut ProviderConfig, secret: &str) -> 
     Ok(())
 }
 
-fn read_bool_setting(app: &AppHandle, key: &str) -> bool {
+fn read_bool_setting(app: &AppHandle, key: &str) -> Option<bool> {
     let Some(f) = settings_file(app).ok() else {
-        return false;
+        return None;
     };
     let Ok(raw) = std::fs::read_to_string(f) else {
-        return false;
+        return None;
     };
     let Ok(v) = serde_json::from_str::<serde_json::Value>(&raw) else {
-        return false;
+        return None;
     };
-    matches!(
-        v.get(key).and_then(|x| x.as_str()),
-        Some("1" | "true" | "yes")
-    ) || v.get(key).and_then(|x| x.as_bool()) == Some(true)
+    bool_setting_value(&v, key)
+}
+
+fn bool_setting_value(v: &serde_json::Value, key: &str) -> Option<bool> {
+    let value = v.get(key)?;
+    value.as_bool().or_else(|| {
+        value.as_str().map(|raw| {
+            matches!(
+                raw.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes"
+            )
+        })
+    })
 }
 
 fn write_bool_setting(app: &AppHandle, key: &str, value: bool) -> Result<()> {
@@ -157,7 +173,14 @@ fn write_bool_setting(app: &AppHandle, key: &str, value: bool) -> Result<()> {
 }
 
 pub fn is_vendor_llm_disabled(app: &AppHandle) -> bool {
-    read_bool_setting(app, VENDOR_LLM_DISABLED)
+    if let Some(current) = read_bool_setting(app, VENDOR_LLM_DISABLED) {
+        return current;
+    }
+    if let Some(legacy) = read_bool_setting(app, LEGACY_VENDOR_LLM_DISABLED) {
+        let _ = write_bool_setting(app, VENDOR_LLM_DISABLED, legacy);
+        return legacy;
+    }
+    false
 }
 
 /// Map a HermesDesk provider name to the env var that should hold its API key.
@@ -193,7 +216,10 @@ pub fn provider_api_key_env(provider: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{provider_api_key_env, validate_provider_config_for_save, ProviderConfig};
+    use super::{
+        bool_setting_value, provider_api_key_env, validate_provider_config_for_save,
+        ProviderConfig, LEGACY_VENDOR_LLM_DISABLED, VENDOR_LLM_DISABLED,
+    };
 
     fn custom_config(api_mode: Option<&str>) -> ProviderConfig {
         ProviderConfig {
@@ -213,6 +239,30 @@ mod tests {
         .unwrap();
 
         assert_eq!(cfg.api_mode, None);
+    }
+
+    #[test]
+    fn vendor_setting_preserves_explicit_false_on_new_key() {
+        let settings = serde_json::json!({
+            VENDOR_LLM_DISABLED: false,
+            LEGACY_VENDOR_LLM_DISABLED: true,
+        });
+
+        assert_eq!(
+            bool_setting_value(&settings, VENDOR_LLM_DISABLED),
+            Some(false)
+        );
+        assert_eq!(
+            bool_setting_value(&settings, LEGACY_VENDOR_LLM_DISABLED),
+            Some(true)
+        );
+    }
+
+    #[test]
+    fn missing_vendor_setting_remains_distinct_from_false() {
+        let settings = serde_json::json!({LEGACY_VENDOR_LLM_DISABLED: true});
+
+        assert_eq!(bool_setting_value(&settings, VENDOR_LLM_DISABLED), None);
     }
 
     #[test]

@@ -12,6 +12,8 @@ from __future__ import annotations
 import logging
 import os
 
+from kabuqina_env import get
+
 log = logging.getLogger("kabuqina.toolset")
 
 KEEP_LIST = [
@@ -63,7 +65,7 @@ class ToolPolicy:
 
     @staticmethod
     def is_power_user() -> bool:
-        return os.environ.get("HERMESDESK_POWER_USER") == "1"
+        return get("KABUQINA_POWER_USER") == "1"
 
     @staticmethod
     def gateway_keep_list() -> list[str]:

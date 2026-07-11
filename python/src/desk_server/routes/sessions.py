@@ -14,7 +14,7 @@ async def get_sessions(limit: int = 20, offset: int = 0, source: str = None):
         db = SessionDB()
         try:
             sessions = db.list_sessions_rich(limit=limit, offset=offset, source=source)
-            total = db.session_count()
+            total = db.session_count(source=source)
             now = time.time()
             for s in sessions:
                 s["is_active"] = (

@@ -20,6 +20,8 @@ import sys
 import traceback
 from pathlib import Path
 
+from kabuqina_env import require
+
 # Must keep a reference to the real ``print`` before we monkeypatch ``builtins.print``,
 # otherwise ``_real_print`` would call the patched function and recurse infinitely.
 _ORIGINAL_PRINT = builtins.print
@@ -34,7 +36,7 @@ def _wire_sys_path() -> None:
 
 
 def _data_dir() -> Path:
-    return Path(os.environ["HERMESDESK_DATA_DIR"])
+    return Path(require("KABUQINA_DATA_DIR"))
 
 
 def _write_progress(obj: dict) -> None:

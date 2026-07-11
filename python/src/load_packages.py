@@ -176,7 +176,7 @@ def _enqueue(package: "LoadPackage") -> None:
 
 
 def _data_dir() -> Path:
-    raw = os.environ.get("HERMESDESK_DATA_DIR", "").strip()
+    raw = get("KABUQINA_DATA_DIR").strip()
     if raw:
         return Path(raw).expanduser()
     local = os.environ.get("LOCALAPPDATA", "").strip()
@@ -186,12 +186,12 @@ def _data_dir() -> Path:
 
 
 def _bundle_dir() -> Path | None:
-    raw = os.environ.get("HERMESDESK_BUNDLE_DIR", "").strip()
+    raw = get("KABUQINA_BUNDLE_DIR").strip()
     return Path(raw).expanduser() if raw else None
 
 
 def _workspace_root() -> Path | None:
-    raw = (os.environ.get("HERMESDESK_WORKSPACE") or os.environ.get("HERMES_WORKSPACE") or "").strip()
+    raw = (get("KABUQINA_WORKSPACE") or os.environ.get("HERMES_WORKSPACE") or "").strip()
     return Path(raw).expanduser() if raw else None
 
 
@@ -777,3 +777,4 @@ def _refresh_workspace_package_index_best_effort() -> None:
         refresh_workspace_package_index()
     except Exception as exc:
         log.warning("Failed to refresh workspace load-package index: %s", exc)
+from kabuqina_env import get

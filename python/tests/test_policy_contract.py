@@ -222,6 +222,31 @@ class TestCapabilityPolicy(unittest.TestCase):
             ROLE_POWER,
         )
 
+    def test_show_recipe_market_reads_data_file_when_env_is_missing(self):
+        with tempfile.TemporaryDirectory() as data_dir:
+            Path(data_dir, "kabuqina_show_recipe_market.txt").write_text(
+                "1\n", encoding="utf-8"
+            )
+            with patch.dict(
+                os.environ, {"KABUQINA_DATA_DIR": data_dir}, clear=True
+            ):
+                self.assertTrue(CapabilityPolicy._read_show_recipe_market())
+
+    def test_show_recipe_market_explicit_empty_env_beats_data_file(self):
+        with tempfile.TemporaryDirectory() as data_dir:
+            Path(data_dir, "kabuqina_show_recipe_market.txt").write_text(
+                "1\n", encoding="utf-8"
+            )
+            with patch.dict(
+                os.environ,
+                {
+                    "KABUQINA_DATA_DIR": data_dir,
+                    "KABUQINA_SHOW_RECIPE_MARKET": "",
+                },
+                clear=True,
+            ):
+                self.assertFalse(CapabilityPolicy._read_show_recipe_market())
+
     def test_untagged_skill_is_visible_to_default(self):
         policy = CapabilityPolicy(ROLE_DEFAULT)
         visibility = policy.skill_visibility({"name": "built-in"})

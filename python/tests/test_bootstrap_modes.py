@@ -14,6 +14,7 @@ if _src not in sys.path:
     sys.path.insert(0, _src)
 
 from desktop_config import DesktopConfig, RuntimeMode, from_env
+from kabuqina_env import normalize
 
 
 class TestBoostrapModes(unittest.TestCase):
@@ -36,6 +37,32 @@ class TestBoostrapModes(unittest.TestCase):
             self.assertEqual(cfg.contract_version, 1)
             self.assertEqual(cfg.provider, "openrouter")
             self.assertEqual(cfg.workspace, Path("/tmp/workspace"))
+
+    def test_kabuqina_env_is_accepted_without_legacy_aliases(self):
+        env = {
+            key.replace("HERMESDESK_", "KABUQINA_"): value
+            for key, value in self._make_env(power_user=True).items()
+        }
+        with patch.dict(os.environ, env, clear=True):
+            cfg = from_env()
+        self.assertEqual(cfg.workspace, Path("/tmp/workspace"))
+        self.assertTrue(cfg.power_user)
+
+    def test_kabuqina_env_wins_over_legacy_alias(self):
+        env = self._make_env(provider="legacy")
+        env["KABUQINA_PROVIDER"] = "current"
+        with patch.dict(os.environ, env, clear=True):
+            cfg = from_env()
+        self.assertEqual(cfg.provider, "current")
+
+    def test_normalize_overwrites_conflicting_legacy_alias(self):
+        with patch.dict(
+            os.environ,
+            {"KABUQINA_WORKSPACE": "/tmp/new", "HERMESDESK_WORKSPACE": "/tmp/old"},
+            clear=True,
+        ):
+            normalize()
+            self.assertEqual(os.environ["HERMESDESK_WORKSPACE"], "/tmp/new")
 
     def test_power_user_mode(self):
         with patch.dict(os.environ, self._make_env(power_user=True)):

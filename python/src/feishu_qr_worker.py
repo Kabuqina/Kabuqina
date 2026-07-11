@@ -20,6 +20,8 @@ import time
 import traceback
 from pathlib import Path
 
+from kabuqina_env import require
+
 
 def _wire_sys_path() -> None:
     here = Path(__file__).resolve().parent
@@ -30,7 +32,7 @@ def _wire_sys_path() -> None:
 
 
 def _data_dir() -> Path:
-    return Path(os.environ["HERMESDESK_DATA_DIR"])
+    return Path(require("KABUQINA_DATA_DIR"))
 
 
 def _write_progress(obj: dict) -> None:

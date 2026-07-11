@@ -19,6 +19,8 @@ import os
 import urllib.error
 import urllib.request
 
+from kabuqina_env import get
+
 log = logging.getLogger("kabuqina.desktop.delivery")
 
 REMINDER_SESSION_ID = "hermesdesk-reminders"
@@ -68,9 +70,9 @@ def deliver(message: str, title: str = "", attachments: list[str] | None = None)
     """
     persist_reminder_session(title, message)
 
-    url = os.environ.get("HERMESDESK_DESKTOP_DELIVERY_URL")
+    url = get("KABUQINA_DESKTOP_DELIVERY_URL")
     if not url:
-        log.warning("HERMESDESK_DESKTOP_DELIVERY_URL not set; cannot deliver")
+        log.warning("KABUQINA_DESKTOP_DELIVERY_URL not set; cannot deliver")
         return False
 
     payload = json.dumps({

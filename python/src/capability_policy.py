@@ -14,6 +14,8 @@ import os
 from pathlib import Path
 from typing import Any, Iterable
 
+from kabuqina_env import get, lookup
+
 
 ROLE_DEFAULT = "default"
 ROLE_ADVANCED = "advanced"
@@ -92,7 +94,7 @@ class CapabilityPolicy:
         show_recipe_market: bool | None = None,
     ) -> str:
         if power_user is None:
-            power_user = os.environ.get("HERMESDESK_POWER_USER") == "1"
+            power_user = get("KABUQINA_POWER_USER") == "1"
         if power_user:
             return ROLE_POWER
 
@@ -102,11 +104,11 @@ class CapabilityPolicy:
 
     @staticmethod
     def _read_show_recipe_market() -> bool:
-        env_value = os.environ.get("HERMESDESK_SHOW_RECIPE_MARKET")
+        env_value = lookup("KABUQINA_SHOW_RECIPE_MARKET")
         if env_value is not None:
             return _as_bool(env_value)
 
-        data_dir = os.environ.get("HERMESDESK_DATA_DIR")
+        data_dir = get("KABUQINA_DATA_DIR")
         if not data_dir:
             return False
         try:

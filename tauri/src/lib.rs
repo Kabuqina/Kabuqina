@@ -89,7 +89,7 @@ pub struct AppState {
     pub hermes_port: Arc<Mutex<Option<u16>>>,
     /// Set when embedded Python fails to start (shown in shell /chat instead of spinning forever).
     pub hermes_bootstrap_error: Arc<Mutex<Option<String>>>,
-    /// Same value as Python `HERMESDESK_BRIDGE_SECRET` for `X-HermesDesk-Auth`.
+    /// Same value as Python `KABUQINA_BRIDGE_SECRET` for `X-Kabuqina-Auth`.
     pub desk_auth_token: Arc<Mutex<Option<String>>>,
     /// Last known PID of the Python child for emergency kill.
     pub python_child_pid: Arc<std::sync::Mutex<Option<u32>>>,
@@ -167,9 +167,9 @@ pub fn run() {
             cmd_gateway_status,
             cmd_gateway_start,
             cmd_gateway_stop,
-            cmd_get_hermes_port,
-            cmd_get_hermes_bootstrap_error,
-            chat::cmd_get_hermes_desk_boot_state,
+            cmd_get_kabuqina_port,
+            cmd_get_kabuqina_bootstrap_error,
+            chat::cmd_get_kabuqina_boot_state,
             companion::cmd_show_companion,
             companion::cmd_hide_companion,
             companion::cmd_resize_companion,
@@ -864,9 +864,9 @@ async fn cmd_set_workspace(
     Ok(result)
 }
 
-/// Get the Hermes Python backend port (for diagnostics and fallbacks).
+/// Get the Kabuqina Python backend port (for diagnostics and fallbacks).
 #[tauri::command]
-async fn cmd_get_hermes_port(app: tauri::AppHandle) -> Result<Option<u16>, String> {
+async fn cmd_get_kabuqina_port(app: tauri::AppHandle) -> Result<Option<u16>, String> {
     let state: tauri::State<AppState> = app.state();
     let port = *state.hermes_port.lock().await;
     Ok(port)
@@ -874,7 +874,7 @@ async fn cmd_get_hermes_port(app: tauri::AppHandle) -> Result<Option<u16>, Strin
 
 /// Why embedded Python did not become ready (missing runtime, overlay crash, …).
 #[tauri::command]
-async fn cmd_get_hermes_bootstrap_error(app: tauri::AppHandle) -> Result<Option<String>, String> {
+async fn cmd_get_kabuqina_bootstrap_error(app: tauri::AppHandle) -> Result<Option<String>, String> {
     let state: tauri::State<AppState> = app.state();
     let err = state.hermes_bootstrap_error.lock().await.clone();
     Ok(err)

@@ -66,9 +66,10 @@ export async function cmdGetSessions(limit = 50, offset = 0, source?: string): P
 
 /** Read current and legacy desktop sessions during the rename window. */
 export async function cmdGetKabuqinaSessions(limit = 50, offset = 0): Promise<SessionsResponse> {
+  const fetchLimit = Math.max(0, offset) + Math.max(0, limit);
   const [current, legacy] = await Promise.all([
-    cmdGetSessions(limit, offset, "kabuqina"),
-    cmdGetSessions(limit, offset, "hermesdesk"),
+    cmdGetSessions(fetchLimit, 0, "kabuqina"),
+    cmdGetSessions(fetchLimit, 0, "hermesdesk"),
   ]);
   const byId = new Map<string, SessionRow>();
   for (const session of [...current.sessions, ...legacy.sessions]) {
@@ -77,7 +78,10 @@ export async function cmdGetKabuqinaSessions(limit = 50, offset = 0): Promise<Se
   const sessions = [...byId.values()].sort(
     (left, right) => (right.last_active ?? 0) - (left.last_active ?? 0),
   );
-  return { sessions, total: sessions.length };
+  return {
+    sessions: sessions.slice(offset, offset + limit),
+    total: current.total + legacy.total,
+  };
 }
 
 export async function cmdGetSessionMessages(id: string): Promise<SessionMessagesResponse> {

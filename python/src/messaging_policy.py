@@ -24,6 +24,8 @@ from __future__ import annotations
 
 import logging
 import os
+
+from kabuqina_env import get
 import threading
 import time
 from typing import Optional
@@ -40,7 +42,7 @@ class MessagingPolicy:
         self._lock = threading.Lock()
 
     def is_power_user(self) -> bool:
-        return os.environ.get("HERMESDESK_POWER_USER") == "1"
+        return get("KABUQINA_POWER_USER") == "1"
 
     def is_cron_context(self) -> bool:
         """True when the current agent invocation is a cron-triggered run.

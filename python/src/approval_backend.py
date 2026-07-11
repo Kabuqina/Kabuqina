@@ -20,6 +20,8 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+from kabuqina_env import get
+
 log = logging.getLogger("kabuqina.approval")
 
 _READ_COMMANDS = {"cat", "type", "more", "gc", "get-content"}
@@ -68,7 +70,7 @@ _SAFE_LITERAL_PATH_CALLS = {
 
 def _workspace_root() -> Path | None:
     raw = (
-        os.environ.get("HERMESDESK_WORKSPACE")
+        get("KABUQINA_WORKSPACE")
         or os.environ.get("HERMES_WORKSPACE")
         or os.environ.get("TERMINAL_CWD")
         or ""
@@ -89,7 +91,7 @@ def _power_user() -> bool:
     read commands gain anywhere-on-disk reach, so projects can be read in place
     instead of copied into the workspace first.
     """
-    return os.environ.get("HERMESDESK_POWER_USER") == "1"
+    return get("KABUQINA_POWER_USER") == "1"
 
 
 def _resolve_workspace_path(raw: str, workspace: Path) -> Path | None:
@@ -432,9 +434,9 @@ class ApprovalBackend:
         return self._post(payload)
 
     def _post(self, payload: dict) -> str:
-        url = os.environ.get("HERMESDESK_APPROVAL_URL")
+        url = get("KABUQINA_APPROVAL_URL")
         if not url:
-            log.warning("no HERMESDESK_APPROVAL_URL; denying request")
+            log.warning("no KABUQINA_APPROVAL_URL; denying request")
             return "deny"
 
         data = json.dumps(payload).encode("utf-8")

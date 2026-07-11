@@ -22,6 +22,8 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+from kabuqina_env import require
+
 _QR_GENERATE_URL = "https://work.weixin.qq.com/ai/qc/generate"
 _QR_QUERY_URL = "https://work.weixin.qq.com/ai/qc/query_result"
 _QR_CODE_PAGE = "https://work.weixin.qq.com/ai/qc/gen?source=hermes&scode="
@@ -38,7 +40,7 @@ def _wire_sys_path() -> None:
 
 
 def _data_dir() -> Path:
-    return Path(os.environ["HERMESDESK_DATA_DIR"])
+    return Path(require("KABUQINA_DATA_DIR"))
 
 
 def _write_progress(obj: dict) -> None:
