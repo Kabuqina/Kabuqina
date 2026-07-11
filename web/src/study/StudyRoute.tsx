@@ -29,7 +29,12 @@ export default function StudyRoute() {
         if (coordinator.current.isCurrent(request.generation)) setSpaces({ status: "ready", data });
       },
       (error) => {
-        if (coordinator.current.isCurrent(request.generation)) setSpaces({ status: "error", error });
+        if (!coordinator.current.isCurrent(request.generation)) return;
+        setSpaces((current) => ({
+          status: "error",
+          error,
+          ...(current.status === "loading" && current.previous ? { previous: current.previous } : {}),
+        }));
       },
     );
   }, [repository]);
@@ -40,10 +45,13 @@ export default function StudyRoute() {
     return () => activeCoordinator.cancel();
   }, [load]);
 
-  if (spaces.status === "idle" || spaces.status === "loading") {
+  if (spaces.status === "idle") {
     return <div className="kq-study-route-status" role="status">{t("study.loading")}</div>;
   }
-  if (spaces.status === "error") {
+  if (spaces.status === "loading" && !spaces.previous) {
+    return <div className="kq-study-route-status" role="status">{t("study.loading")}</div>;
+  }
+  if (spaces.status === "error" && !spaces.previous) {
     return (
       <StudyRouteStatus alert>
         <h1>{t("study.unavailableTitle")}</h1>
@@ -54,11 +62,12 @@ export default function StudyRoute() {
     );
   }
 
+  const retainedSpaces = spaces.status === "ready" ? spaces.data : spaces.previous!;
   const route = parseStudyPath(location.pathname);
   if (route.kind === "not-found") {
-    const fallbackId = route.spaceId && spaces.data.spaces.some((space) => space.id === route.spaceId)
+    const fallbackId = route.spaceId && retainedSpaces.spaces.some((space) => space.id === route.spaceId)
       ? route.spaceId
-      : spaces.data.currentSpaceId;
+      : retainedSpaces.currentSpaceId;
     return (
       <StudyRouteStatus>
         <h1>{t("study.notFoundTitle")}</h1>
@@ -68,11 +77,16 @@ export default function StudyRoute() {
     );
   }
   if (route.kind === "root") {
-    return spaces.data.currentSpaceId
-      ? <Navigate to={studyPath(spaces.data.currentSpaceId)} replace />
-      : <StudyShell spaces={spaces.data} onRevalidate={load} />;
+    return retainedSpaces.currentSpaceId
+      ? <Navigate to={studyPath(retainedSpaces.currentSpaceId)} replace />
+      : <StudyShell
+          spaces={retainedSpaces}
+          onRevalidate={load}
+          refreshing={spaces.status === "loading"}
+          refreshFailed={spaces.status === "error"}
+        />;
   }
-  if (!spaces.data.spaces.some((space) => space.id === route.spaceId)) {
+  if (!retainedSpaces.spaces.some((space) => space.id === route.spaceId)) {
     return (
       <StudyRouteStatus>
         <h1>{t("study.spaceUnavailableTitle")}</h1>
@@ -83,5 +97,12 @@ export default function StudyRoute() {
     );
   }
   if (route.kind === "space") return <Navigate to={studyPath(route.spaceId)} replace />;
-  return <StudyShell spaces={spaces.data} spaceId={route.spaceId} page={route.page} onRevalidate={load} />;
+  return <StudyShell
+    spaces={retainedSpaces}
+    spaceId={route.spaceId}
+    page={route.page}
+    onRevalidate={load}
+    refreshing={spaces.status === "loading"}
+    refreshFailed={spaces.status === "error"}
+  />;
 }

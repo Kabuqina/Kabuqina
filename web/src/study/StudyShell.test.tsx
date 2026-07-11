@@ -24,10 +24,10 @@ function renderShell(repositoryOverrides: Partial<StudyRepository> = {}) {
   const repository: StudyRepository = {
     listSpaces: vi.fn().mockResolvedValue(spaces),
     selectSpace: vi.fn().mockResolvedValue({ ...spaces, currentSpaceId: "space-b" }),
-    listDrafts: vi.fn().mockResolvedValue([
-      { id: "d1", kind: "flashcard_deck", status: "draft" },
-      { id: "d2", kind: "quiz", status: "draft" },
-    ]),
+    listDrafts: vi.fn().mockResolvedValue({
+      total: 2,
+      kindCounts: { flashcard_deck: 1, quiz: 1 },
+    }),
     ...repositoryOverrides,
   };
   render(
@@ -69,6 +69,15 @@ describe("StudyShell", () => {
     expect(screen.getByRole("heading", { name: "学习" })).toBeInTheDocument();
   });
 
+  it("moves to the selected space while preserving the current lifecycle page", async () => {
+    const user = userEvent.setup();
+    const repository = renderShell();
+    await user.click(screen.getByRole("button", { name: /Linear Algebra/ }));
+    await user.click(screen.getByRole("option", { name: "Physics" }));
+    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/study/space-b/learn"));
+    expect(repository.selectSpace).toHaveBeenCalledWith("space-b", expect.any(AbortSignal));
+  });
+
   it("uses a modal presentation in a narrow container and restores trigger focus on Escape", async () => {
     class NarrowResizeObserver {
       constructor(private callback: ResizeObserverCallback) {}
@@ -82,6 +91,14 @@ describe("StudyShell", () => {
     const trigger = screen.getByRole("button", { name: /Linear Algebra/ });
     await user.click(trigger);
     expect(screen.getByRole("dialog", { name: "切换学习空间" })).toHaveAttribute("aria-modal", "true");
+    const close = screen.getByRole("button", { name: "取消" });
+    expect(close).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("option", { name: "Physics" })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("link", { name: "开新本" })).toHaveFocus();
+    await user.tab();
+    expect(close).toHaveFocus();
     await user.keyboard("{Escape}");
     await waitFor(() => expect(trigger).toHaveFocus());
   });

@@ -36,6 +36,8 @@ export const MESSAGES = {
     },
     study: {
       loading: "正在打开学习空间…",
+      refreshing: "正在同步学习空间…",
+      refreshFailed: "学习空间更新失败，当前内容仍可继续查看。",
       unavailableTitle: "学习空间暂时不可用",
       unavailableBody: "桌面学习服务还没有准备好。你可以重试，或先返回聊天。",
       retry: "重试",
@@ -1147,6 +1149,8 @@ export const MESSAGES = {
     },
     study: {
       loading: "Opening your study space…",
+      refreshing: "Syncing your study space…",
+      refreshFailed: "The study space could not refresh. You can keep viewing the current content.",
       unavailableTitle: "Study space is temporarily unavailable",
       unavailableBody: "The desktop study service is not ready. Retry or return to chat.",
       retry: "Retry",

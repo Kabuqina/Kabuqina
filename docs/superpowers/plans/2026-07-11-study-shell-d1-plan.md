@@ -163,9 +163,9 @@ raw / 21.52 kB gzip**; manifest generated at `dist/.vite/manifest.json`.
   VM/popover 只保留 kind→count，不保留或渲染 title/content；显示值 99+
   封顶。点击展开**只读** popover:按 kind 分组计数 + 一行说明
   "草稿审核在各分页进行（D-2 起迁入）"。不做 activate/reject（防双写,
-  统一草稿箱是 D-4）。当前 endpoint 仍可能返回无界元数据：把 B-5
-  增加 summary/count query 记入收口记录，不能把 99+ 显示上限误写成
-  网络载荷上限。popover 支持 Escape，关闭后焦点归还触发按钮。
+  统一草稿箱是 D-4）。B-5 的 bounded summary/count query 已落地：壳只
+  消费 `total + kindCounts`，不保留或渲染 metadata；99+ 只是显示上限。
+  popover 支持 Escape，关闭后焦点归还触发按钮。
 - [x] **Step 6: PlaceholderPage。** 每个 lifecycle page 渲染:页 `h1`
   （route 完成后 `tabIndex=-1` 聚焦,D0 §9）、一句"本页将在 D-x 迁入"
   说明、指向旧侧栏对应能力的链接（能力仍在旧处,诚实导流）。"尚未迁入"
@@ -252,12 +252,13 @@ npm run test:components; npm run test:chat-ux; npm run lint; npm run build
 
 ## Completion record（2026-07-11）
 
-D-1 首轮壳已完成。质量门：Vitest/RTL **7 files / 20 tests**、chat UX、
-lint、TypeScript 与 production build 全绿。收口 entry JS 1,567.69 kB /
-471.28 kB gzip，CSS 139.03 / 22.88；相对 Task 1 fresh baseline 的初始图
-gzip 合计净增约 **2.44 kB**。独立 `StudyRoute` chunk 11.00 / 3.80 kB
-gzip；manifest 递归检查确认没有 CodeMirror、motion、KaTeX 新副本。
-完整 drafts metadata 的无界载荷仍记录为 B-5 summary/count query 债务。
+D-1 首轮壳与 hardening 已完成。质量门：Vitest/RTL **7 files / 25 tests**、
+chat UX、lint、TypeScript 与 production build 全绿。收口 entry JS
+1,568.75 kB / 471.59 kB gzip，CSS 139.39 / 22.94；相对 Task 1 fresh
+baseline 的初始图 gzip 合计净增约 **2.81 kB**。独立 `StudyRoute` chunk
+12.24 / 4.09 kB gzip；manifest 递归检查确认没有 CodeMirror、motion、
+KaTeX 新副本。刷新期间保留当前壳与数据，失败后可就地重试；B-5 bounded
+summary/count query 已接入草稿箱。
 
 **Error-contract hardening（2026-07-11）：** D-1 Task 2 的临时字符串错误
 兼容已收口。共享 desk bridge 现保留结构化 `{status, code, detail}`；旧命令

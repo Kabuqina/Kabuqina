@@ -265,6 +265,19 @@
   font-weight: 650;
 }
 .kq-study-page { width: min(100%, 72rem); margin: 0 auto; padding: clamp(1.25rem, 4vw, 3rem); }
+.kq-study-refresh-status,
+.kq-study-refresh-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2rem;
+  padding: 0.25rem clamp(1rem, 3vw, 2rem);
+  color: var(--kq-study-muted);
+  font-size: 0.8rem;
+}
+.kq-study-refresh-error { color: var(--kq-study-warn); }
+.kq-study-refresh-error button { color: inherit; text-decoration: underline; text-underline-offset: 0.2rem; }
 .kq-study-placeholder,
 .kq-study-empty,
 .kq-study-route-status {

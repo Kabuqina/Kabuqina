@@ -17,10 +17,11 @@ export function SpaceSwitcher({ spaces, currentSpaceId, pending, error, onSelect
   const { t } = useI18n();
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
-  const firstOption = useRef<HTMLButtonElement>(null);
+  const firstFocusable = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   const [narrow, setNarrow] = useState(false);
   const current = spaces.find((space) => space.id === currentSpaceId);
+  const firstSelectableSpaceId = spaces.find((space) => space.id !== currentSpaceId)?.id;
 
   useEffect(() => {
     if (!root.current || typeof ResizeObserver === "undefined") return;
@@ -30,7 +31,7 @@ export function SpaceSwitcher({ spaces, currentSpaceId, pending, error, onSelect
   }, []);
 
   useEffect(() => {
-    if (open) firstOption.current?.focus();
+    if (open) firstFocusable.current?.focus();
   }, [open]);
 
   const close = () => {
@@ -41,8 +42,9 @@ export function SpaceSwitcher({ spaces, currentSpaceId, pending, error, onSelect
   const onKeyDown = (event: React.KeyboardEvent) => {
     if (event.key === "Escape") close();
     if (narrow && event.key === "Tab") {
-      const focusable = root.current?.querySelectorAll<HTMLElement>("[data-study-focus]");
-      if (!focusable?.length) return;
+      const focusable = [...(root.current?.querySelectorAll<HTMLElement>("[data-study-focus]") ?? [])]
+        .filter((element) => !element.hasAttribute("disabled"));
+      if (!focusable.length) return;
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
@@ -72,12 +74,12 @@ export function SpaceSwitcher({ spaces, currentSpaceId, pending, error, onSelect
           aria-label={t("study.openSpace")}
         >
           <div className={narrow ? "kq-study-dialog" : undefined}>
-            {narrow ? <button data-study-focus type="button" className="kq-study-dialog-close" onClick={close} aria-label={t("dialog.cancel")}><X aria-hidden /></button> : null}
+            {narrow ? <button ref={firstFocusable} data-study-focus type="button" className="kq-study-dialog-close" onClick={close} aria-label={t("dialog.cancel")}><X aria-hidden /></button> : null}
             <div role="listbox" aria-label={t("study.openSpace")}>
-              {spaces.map((space, index) => (
+              {spaces.map((space) => (
                 <button
                   data-study-focus
-                  ref={index === 0 ? firstOption : undefined}
+                  ref={!narrow && space.id === firstSelectableSpaceId ? firstFocusable : undefined}
                   key={space.id}
                   type="button"
                   role="option"

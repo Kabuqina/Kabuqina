@@ -14,11 +14,13 @@ import { PlaceholderPage } from "./pages/PlaceholderPage";
 
 const STUDY_LEARNING_EVENT = "study-learning-event";
 
-export function StudyShell({ spaces, spaceId, page, onRevalidate }: {
+export function StudyShell({ spaces, spaceId, page, onRevalidate, refreshing = false, refreshFailed = false }: {
   spaces: StudySpaces;
   spaceId?: string;
   page?: StudyPageSlug;
   onRevalidate?: () => void;
+  refreshing?: boolean;
+  refreshFailed?: boolean;
 }) {
   const { t } = useI18n();
   const repository = useStudyRepository();
@@ -34,13 +36,8 @@ export function StudyShell({ spaces, spaceId, page, onRevalidate }: {
     const request = draftRequests.current.begin();
     void repository.listDrafts(request.signal).then((drafts) => {
       if (!draftRequests.current.isCurrent(request.generation)) return;
-      setDraftCounts(drafts.reduce<Record<string, number>>((counts, draft) => {
-        counts[draft.kind] = (counts[draft.kind] ?? 0) + 1;
-        return counts;
-      }, {}));
-    }, () => {
-      if (draftRequests.current.isCurrent(request.generation)) setDraftCounts({});
-    });
+      setDraftCounts({ ...drafts.kindCounts });
+    }, () => undefined);
   }, [repository, spaceId]);
 
   useEffect(() => {
@@ -95,10 +92,17 @@ export function StudyShell({ spaces, spaceId, page, onRevalidate }: {
           onSelectSpace={selectSpace}
         />
         <StudyLifecycleNav spaceId={spaceId} />
+        {refreshing ? <p className="kq-study-refresh-status" role="status">{t("study.refreshing")}</p> : null}
+        {refreshFailed ? (
+          <div className="kq-study-refresh-error" role="alert">
+            <span>{t("study.refreshFailed")}</span>
+            <button type="button" onClick={onRevalidate}>{t("study.retry")}</button>
+          </div>
+        ) : null}
         <div className="kq-study-page"><PlaceholderPage page={page} /></div>
       </>
     );
-  }, [draftCounts, page, selectSpace, spaceId, spaces.spaces, switchError, switching, t]);
+  }, [draftCounts, onRevalidate, page, refreshFailed, refreshing, selectSpace, spaceId, spaces.spaces, switchError, switching, t]);
 
   return <div className="kq-study-shell" data-testid="study-shell">{shell}</div>;
 }
