@@ -3,6 +3,29 @@ from __future__ import annotations
 import hashlib
 from learning.learning_context import LearningExecutionContext
 from learning.learning_store import LearningStore
+from learning.semantic_review import requires_semantic_review
+
+def _activate(ctx: LearningExecutionContext, artifact: dict) -> None:
+    artifact_id, kind = artifact["artifact_id"], artifact["kind"]
+    if requires_semantic_review(artifact) and artifact["review"]["status"] != "passed":
+        raise ValueError("semantic review has not passed")
+    if kind == "flashcard_deck":
+        from learning.flashcards import FlashcardService
+        FlashcardService(ctx).activate_deck(artifact_id)
+    elif kind == "quiz":
+        from learning.quizzes import QuizService
+        QuizService(ctx).activate_quiz(artifact_id)
+    elif kind == "learning_plan":
+        from learning.learning_plans import LearningPlanService
+        LearningPlanService(ctx).activate_plan(artifact_id)
+    elif kind == "student_state":
+        from learning.student_state import StudentStateService
+        StudentStateService(ctx).activate_state(artifact_id)
+    elif kind == "evaluation":
+        from learning.evaluations import EvaluationService
+        EvaluationService(ctx).activate_evaluation(artifact_id)
+    else:
+        ctx.set_artifact_status(artifact_id, "active")
 
 def gateway_owner_id(platform: str, user_id: str) -> str:
     digest = hashlib.sha256(user_id.encode("utf-8")).hexdigest()[:16]
@@ -43,9 +66,9 @@ def handle_study_command(platform: str, user_id: str, raw_args: str) -> str:
                 return f"Usage: /study {action} <artifact-id>"
             if action == "approve":
                 artifact = ctx.get_artifact(argument)
-                if not artifact or artifact["review"]["status"] != "passed":
-                    return "Study draft is still awaiting a passed semantic review."
-                ctx.set_artifact_status(argument, "active")
+                if not artifact:
+                    return "Study draft not found."
+                _activate(ctx, artifact)
                 return f"Study draft approved: {argument}"
             ctx.set_artifact_status(argument, "rejected")
             return f"Study draft rejected: {argument}"

@@ -644,7 +644,8 @@ class LearningStore:
         self._execute_write(_op)
 
     def update_artifact_review(
-        self, owner_id: str, space_id: str, artifact_id: str, review_status: str
+        self, owner_id: str, space_id: str, artifact_id: str, review_status: str,
+        *, review_mode: Optional[str] = None,
     ) -> None:
         """Persist a trusted semantic-review conclusion for one owned draft."""
         if review_status not in {"pending", "passed", "failed"}:
@@ -658,11 +659,13 @@ class LearningStore:
             if not row:
                 raise KeyError(f"artifact {artifact_id!r} not found")
             envelope = json.loads(row["envelope_json"])
-            envelope["review"] = {**(envelope.get("review") or {}), "status": review_status}
+            current_review = envelope.get("review") or {}
+            mode = review_mode or current_review.get("mode") or "deterministic"
+            envelope["review"] = {"mode": mode, "status": review_status}
             conn.execute(
-                "UPDATE learning_artifacts SET review_status = ?, envelope_json = ?, updated_at = ? "
+                "UPDATE learning_artifacts SET review_mode = ?, review_status = ?, envelope_json = ?, updated_at = ? "
                 "WHERE owner_id = ? AND space_id = ? AND artifact_id = ?",
-                (review_status, json.dumps(envelope, ensure_ascii=False), now, owner_id, space_id, artifact_id),
+                (mode, review_status, json.dumps(envelope, ensure_ascii=False), now, owner_id, space_id, artifact_id),
             )
         self._execute_write(_op)
 

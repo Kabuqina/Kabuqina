@@ -195,3 +195,44 @@ def test_identifier_renaming_does_not_change_strings_comments_or_docstrings(ctx)
     assert '"add docs"' in question["reference"]
     assert "# add comment" in question["reference"]
     assert 'return "add"' in question["reference"]
+
+
+def test_variant_without_optional_starter_omits_field_and_names_entrypoint(ctx):
+    source_id, item_id = _active_code_quiz(ctx)
+    # Rebuild a legal source without starter through the public writer path.
+    source_id = OutputWriter(ctx).write_artifact(
+        kind="quiz", title="No starter", payload={"questions": [{
+            "type":"code", "prompt":"Implement add", "language":"python", "mode":"solve",
+            "test_code":"assert add(2, 3) == 5", "reference":"def add(a, b):\n    return a + b"
+        }]}
+    )["artifact_id"]
+    QuizService(ctx).activate_quiz(source_id)
+    item_id = QuizService(ctx).list_questions(artifact_id=source_id)[0]["item_id"]
+    generated = PracticeGenerator(ctx).generate(artifact_id=source_id, item_id=item_id, practice_kind="variant")
+    question = ctx.get_artifact(generated["artifact_id"])["envelope"]["payload"]["questions"][0]
+    assert "starter" not in question
+    assert "`add_variant`" in question["prompt"]
+
+
+def test_variant_targets_function_called_by_tests_not_first_helper(ctx):
+    reference = "def helper(x):\n    return x\n\ndef add(a, b):\n    return a + b"
+    source_id, item_id = _active_code_quiz(ctx, reference=reference)
+    generated = PracticeGenerator(ctx).generate(artifact_id=source_id, item_id=item_id, practice_kind="variant")
+    question = ctx.get_artifact(generated["artifact_id"])["envelope"]["payload"]["questions"][0]
+    assert "def helper(" in question["reference"]
+    assert "def add_variant(" in question["reference"]
+
+
+def test_variant_falls_back_when_target_function_is_ambiguous(ctx):
+    artifact_id = OutputWriter(ctx).write_artifact(
+        kind="quiz", title="Ambiguous", payload={"questions": [{
+            "type":"code", "prompt":"Implement functions", "language":"python", "mode":"solve",
+            "reference":"def left(x):\n    return x\n\ndef right(x):\n    return x",
+            "test_code":"assert left(1) == 1\nassert right(1) == 1"
+        }]}
+    )["artifact_id"]
+    QuizService(ctx).activate_quiz(artifact_id)
+    item_id = QuizService(ctx).list_questions(artifact_id=artifact_id)[0]["item_id"]
+    result = PracticeGenerator(ctx).generate(artifact_id=artifact_id, item_id=item_id, practice_kind="variant")
+    assert result["generated"] is False
+    assert result["fallback"] == MODEL_DRAFT_REQUIRED

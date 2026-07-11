@@ -160,7 +160,8 @@ class PracticeGenerator:
         test_code = _text(question.get("test_code"))
         if not reference or not test_code:
             return None
-        name = self._top_level_function_name(reference)
+        starter_source = _text(question.get("starter"))
+        name = self._target_function_name(reference, starter_source, test_code)
         if not name:
             return None
         replacement = self._unused_variant_name(name, reference, test_code)
@@ -169,34 +170,49 @@ class PracticeGenerator:
         checked = run_python_grading(transformed_reference, transformed_test)
         if not checked["passed"]:
             return None
-        starter = self._rename_identifier(_text(question.get("starter")), name, replacement)
+        starter = self._rename_identifier(starter_source, name, replacement)
+        payload = {
+            "type": "code",
+            "prompt": f"Variant: implement `{replacement}` (renamed from `{name}`). {_text(question.get('prompt'), 700)}",
+            "language": "python",
+            "mode": "variant",
+            "test_code": transformed_test,
+            "reference": transformed_reference,
+            "variant_of": question["item_id"],
+            "tags": list(question.get("tags") or []),
+            "points": question.get("points", 1),
+        }
+        if starter:
+            payload["starter"] = starter
         return (
             _title("Variant", question.get("prompt")),
-            {
-                "type": "code",
-                "prompt": f"Variant: {_text(question.get('prompt'), 900)}",
-                "language": "python",
-                "mode": "variant",
-                "starter": starter,
-                "test_code": transformed_test,
-                "reference": transformed_reference,
-                "variant_of": question["item_id"],
-                "tags": list(question.get("tags") or []),
-                "points": question.get("points", 1),
-            },
+            payload,
             True,
         )
 
     @staticmethod
-    def _top_level_function_name(source: str) -> str:
+    def _top_level_function_names(source: str) -> set[str]:
         try:
             module = ast.parse(source)
         except SyntaxError:
+            return set()
+        return {node.name for node in module.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
+
+    @classmethod
+    def _target_function_name(cls, reference: str, starter: str, test_code: str) -> str:
+        available = cls._top_level_function_names(reference)
+        starter_names = cls._top_level_function_names(starter) & available
+        if len(starter_names) == 1:
+            return next(iter(starter_names))
+        try:
+            test_tree = ast.parse(test_code)
+        except SyntaxError:
             return ""
-        for node in module.body:
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                return node.name
-        return ""
+        called = {
+            node.func.id for node in ast.walk(test_tree)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+        } & available
+        return next(iter(called)) if len(called) == 1 else ""
 
     @staticmethod
     def _unused_variant_name(name: str, *sources: str) -> str:

@@ -19,9 +19,15 @@ def test_study_approve_and_reject_are_owned_and_deterministic(tmp_path, monkeypa
     try:
         ctx = LearningExecutionContext(store, study_commands.gateway_owner_id("telegram", "alice"))
         artifact_id = OutputWriter(ctx).write_artifact(
-            kind="tutoring_note", title="Hints", payload={"goal":"x", "hints":["h"]}
+            kind="flashcard_deck", title="Deck", payload={"cards":[{"front":"q", "back":"a"}]}
         )["artifact_id"]
     finally:
         store.close()
-    assert "awaiting" in study_commands.handle_study_command("telegram", "alice", f"approve {artifact_id}")
+    assert "approved" in study_commands.handle_study_command("telegram", "alice", f"approve {artifact_id}")
+    store = LearningStore(db_path=db)
+    try:
+        ctx = LearningExecutionContext(store, study_commands.gateway_owner_id("telegram", "alice"))
+        assert len(ctx.list_items(item_type="flashcard")) == 1
+    finally:
+        store.close()
     assert "failed" in study_commands.handle_study_command("telegram", "bob", f"reject {artifact_id}")

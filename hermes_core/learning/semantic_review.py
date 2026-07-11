@@ -31,5 +31,5 @@ class SemanticReviewService:
         except Exception:
             decision = None
         status = "passed" if decision is True else "failed" if decision is False else "pending"
-        self._ctx.set_artifact_review(artifact_id, status)
+        self._ctx.set_artifact_review(artifact_id, status, review_mode="semantic")
         return {"artifact_id": artifact_id, "status": status, "reviewed": decision is not None}

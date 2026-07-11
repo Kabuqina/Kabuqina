@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+import asyncio
 from contextlib import contextmanager
 from typing import Any, Dict, Iterator, Optional
 
@@ -280,12 +281,13 @@ async def study_source_audit(artifact_id: str):
         raise _http_error(exc) from exc
 
 @router.post("/api/desk/study/artifacts/{artifact_id}/semantic-review")
-async def study_semantic_review(artifact_id: str, body: Dict[str, Any]):
-    """Persist a trusted reviewer conclusion; missing/unavailable stays pending."""
-    raw = body.get("status")
-    decision = True if raw == "passed" else False if raw == "failed" else None
+async def study_semantic_review(artifact_id: str):
+    """Run the production LLM reviewer; unavailable/invalid output stays pending."""
+    from study_semantic_reviewer import review_artifact_with_model
     try:
         with _desktop_ctx() as ctx:
+            artifact = _require_artifact(ctx, artifact_id)
+            decision = await asyncio.to_thread(review_artifact_with_model, artifact)
             return SemanticReviewService(ctx, lambda _artifact: decision).review(artifact_id)
     except (ValueError, KeyError, ContractError) as exc:
         raise _http_error(exc) from exc

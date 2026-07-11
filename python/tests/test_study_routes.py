@@ -258,10 +258,10 @@ def test_m5_artifact_requires_semantic_approval_before_activation(study_client):
     assert blocked.status_code == 400
     assert "semantic review" in blocked.json()["detail"]
 
-    reviewed = client.post(
-        f"/api/desk/study/artifacts/{artifact_id}/semantic-review",
-        json={"status": "passed"}, headers=_headers(),
-    )
+    with patch("study_semantic_reviewer.review_artifact_with_model", return_value=True):
+        reviewed = client.post(
+            f"/api/desk/study/artifacts/{artifact_id}/semantic-review", headers=_headers(),
+        )
     assert reviewed.json()["status"] == "passed"
     activated = client.post(
         f"/api/desk/study/artifacts/{artifact_id}/activate", headers=_headers()

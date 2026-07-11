@@ -122,9 +122,10 @@ class LearningExecutionContext:
             self._owner_id, self._require_space(), artifact_id, new_status
         )
 
-    def set_artifact_review(self, artifact_id: str, review_status: str) -> None:
+    def set_artifact_review(self, artifact_id: str, review_status: str, *, review_mode: Optional[str] = None) -> None:
         self._store.update_artifact_review(
-            self._owner_id, self._require_space(), artifact_id, review_status
+            self._owner_id, self._require_space(), artifact_id, review_status,
+            review_mode=review_mode,
         )
 
     # ── items ─────────────────────────────────────────────────────────── #
