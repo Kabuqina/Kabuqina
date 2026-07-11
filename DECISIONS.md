@@ -859,3 +859,20 @@ against an empty owner scope, and deletion requires the exact destructive
 confirmation phrase. Migration failures retain only bounded error type/message
 diagnostics, while `source_refs` accept bounded scalar provenance fields rather
 than nested source-content dumps.
+
+**Brand asset pipeline: Tier 2 private overlay (A-R1b, 2026-07-11).** New brand
+artwork — starting with the v0.5 desk-scene assets (desk, bookstand, card box,
+whiteboard lesson visuals) — is authored only in the private repository
+`Kabuqina/kabuqina-mascot` and never enters the public monorepo. Official
+builds inject the real assets through a build-time overlay step (env-var
+pointed local checkout, load-package-style copy); without the overlay the
+public repository builds a fully functional app with neutral unbranded
+placeholder assets under the same filenames. The `Na_logo/` source tree
+(masters, generator scripts, exports) moves to the private repository and is
+untracked from public HEAD. Already-published artwork is explicitly NOT
+recalled: the mascot art in git history, the six dual-marked inline code files,
+and the CSS-rendered cup remain public under `LicenseRef-Kabuqina-Brand` legal
+protection plus the owner's trademark track — Tier 2's technical moat covers
+future artwork, not the past. Any new file that still embeds brand artwork in
+code keeps the mandatory `LicenseRef-Kabuqina-Brand` SPDX marker. Implementation:
+[Tier 2 overlay plan](docs/superpowers/plans/2026-07-11-brand-asset-tier2-overlay-plan.md).
