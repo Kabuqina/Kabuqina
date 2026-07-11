@@ -1,20 +1,104 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useI18n } from "../lib/i18n";
+import { RequestCoordinator } from "./loadable";
 import type { StudySpaces } from "./repository";
-import type { StudyPageSlug } from "./routeModel";
+import { useStudyRepository } from "./repositoryContext";
+import { studyPath, type StudyPageSlug } from "./routeModel";
+import { StudyLifecycleNav } from "./StudyLifecycleNav";
+import { StudyTopBar } from "./StudyTopBar";
+import { PlaceholderPage } from "./pages/PlaceholderPage";
 
-/** D-1 route scaffold; Task 4 fills the visual shell without changing route semantics. */
-export function StudyShell({ spaces, spaceId, page }: {
+const STUDY_LEARNING_EVENT = "study-learning-event";
+
+export function StudyShell({ spaces, spaceId, page, onRevalidate }: {
   spaces: StudySpaces;
   spaceId?: string;
   page?: StudyPageSlug;
+  onRevalidate?: () => void;
 }) {
-  const current = spaces.spaces.find((space) => space.id === spaceId);
-  return (
-    <main data-testid="study-shell">
-      <h1 tabIndex={-1}>{current?.title ?? "Study"}</h1>
-      {page ? <p>{page}</p> : <p>No study space yet.</p>}
-    </main>
-  );
+  const { t } = useI18n();
+  const repository = useStudyRepository();
+  const navigate = useNavigate();
+  const draftRequests = useRef(new RequestCoordinator());
+  const switchRequests = useRef(new RequestCoordinator());
+  const [draftCounts, setDraftCounts] = useState<Record<string, number>>({});
+  const [switching, setSwitching] = useState(false);
+  const [switchError, setSwitchError] = useState(false);
+
+  const loadDrafts = useCallback(() => {
+    if (!spaceId) { setDraftCounts({}); return; }
+    const request = draftRequests.current.begin();
+    void repository.listDrafts(request.signal).then((drafts) => {
+      if (!draftRequests.current.isCurrent(request.generation)) return;
+      setDraftCounts(drafts.reduce<Record<string, number>>((counts, draft) => {
+        counts[draft.kind] = (counts[draft.kind] ?? 0) + 1;
+        return counts;
+      }, {}));
+    }, () => {
+      if (draftRequests.current.isCurrent(request.generation)) setDraftCounts({});
+    });
+  }, [repository, spaceId]);
+
+  useEffect(() => {
+    const activeDraftRequests = draftRequests.current;
+    loadDrafts();
+    const refresh = () => { loadDrafts(); onRevalidate?.(); };
+    window.addEventListener(STUDY_LEARNING_EVENT, refresh);
+    return () => {
+      window.removeEventListener(STUDY_LEARNING_EVENT, refresh);
+      activeDraftRequests.cancel();
+    };
+  }, [loadDrafts, onRevalidate]);
+
+  const selectSpace = useCallback((nextSpaceId: string) => {
+    if (!page || switching || nextSpaceId === spaceId) return;
+    const request = switchRequests.current.begin();
+    setSwitching(true);
+    setSwitchError(false);
+    void repository.selectSpace(nextSpaceId, request.signal).then(() => {
+      if (!switchRequests.current.isCurrent(request.generation)) return;
+      setSwitching(false);
+      navigate(studyPath(nextSpaceId, page));
+      onRevalidate?.();
+    }, () => {
+      if (!switchRequests.current.isCurrent(request.generation)) return;
+      setSwitching(false);
+      setSwitchError(true);
+    });
+  }, [navigate, onRevalidate, page, repository, spaceId, switching]);
+
+  useEffect(() => () => switchRequests.current.cancel(), []);
+
+  const shell = useMemo(() => {
+    if (!spaceId || !page) {
+      return (
+        <main className="kq-study-empty">
+          <p className="kq-study-placeholder-kicker">{t("study.lifecycle")}</p>
+          <h1>{t("study.emptyTitle")}</h1>
+          <p>{t("study.emptyBody")}</p>
+          <Link className="kq-study-primary-link" to="/chat">{t("study.openLegacyStudy")}</Link>
+        </main>
+      );
+    }
+    return (
+      <>
+        <StudyTopBar
+          spaces={spaces.spaces}
+          currentSpaceId={spaceId}
+          draftCounts={draftCounts}
+          switching={switching}
+          switchError={switchError}
+          onSelectSpace={selectSpace}
+        />
+        <StudyLifecycleNav spaceId={spaceId} />
+        <div className="kq-study-page"><PlaceholderPage page={page} /></div>
+      </>
+    );
+  }, [draftCounts, page, selectSpace, spaceId, spaces.spaces, switchError, switching, t]);
+
+  return <div className="kq-study-shell" data-testid="study-shell">{shell}</div>;
 }

@@ -46,17 +46,17 @@ describe("StudyRoute", () => {
 
   it("renders all route-ready placeholder pages", async () => {
     renderRoute("/study/space-a/practice");
-    expect(await screen.findByTestId("study-shell")).toHaveTextContent("practice");
+    expect(await screen.findByTestId("study-shell")).toHaveTextContent("练习");
   });
 
   it("shows not-found for an invalid slug without redirecting", async () => {
     renderRoute("/study/space-a/wrong");
-    expect(await screen.findByRole("heading")).toHaveTextContent("study.notFoundTitle");
+    expect(await screen.findByRole("heading")).toHaveTextContent("找不到这个学习页面");
     expect(screen.getByTestId("location")).toHaveTextContent("/study/space-a/wrong");
   });
 
   it("does not reveal whether an unknown space belongs to someone else", async () => {
     renderRoute("/study/secret-space/learn");
-    expect(await screen.findByRole("heading")).toHaveTextContent("study.spaceUnavailableTitle");
+    expect(await screen.findByRole("heading")).toHaveTextContent("无法打开这个学习空间");
   });
 });

@@ -9,6 +9,7 @@ import { useStudyRepository } from "./repositoryContext";
 import type { StudySpaces } from "./repository";
 import { parseStudyPath, studyPath } from "./routeModel";
 import { StudyShell } from "./StudyShell";
+import { StudyRouteStatus } from "./StudyRouteStatus";
 
 export default function StudyRoute() {
   const repository = useStudyRepository();
@@ -34,8 +35,9 @@ export default function StudyRoute() {
   }, [repository]);
 
   useEffect(() => {
+    const activeCoordinator = coordinator.current;
     load();
-    return () => coordinator.current.cancel();
+    return () => activeCoordinator.cancel();
   }, [load]);
 
   if (spaces.status === "idle" || spaces.status === "loading") {
@@ -43,12 +45,12 @@ export default function StudyRoute() {
   }
   if (spaces.status === "error") {
     return (
-      <main className="kq-study-route-status" role="alert">
+      <StudyRouteStatus alert>
         <h1>{t("study.unavailableTitle")}</h1>
         <p>{t("study.unavailableBody")}</p>
         <button type="button" onClick={load}>{t("study.retry")}</button>
         <a href="/chat">{t("study.backToChat")}</a>
-      </main>
+      </StudyRouteStatus>
     );
   }
 
@@ -58,28 +60,28 @@ export default function StudyRoute() {
       ? route.spaceId
       : spaces.data.currentSpaceId;
     return (
-      <main className="kq-study-route-status">
+      <StudyRouteStatus>
         <h1>{t("study.notFoundTitle")}</h1>
         {fallbackId ? <a href={studyPath(fallbackId)}>{t("study.backToFlyleaf")}</a> : null}
         <a href="/chat">{t("study.backToChat")}</a>
-      </main>
+      </StudyRouteStatus>
     );
   }
   if (route.kind === "root") {
     return spaces.data.currentSpaceId
       ? <Navigate to={studyPath(spaces.data.currentSpaceId)} replace />
-      : <StudyShell spaces={spaces.data} />;
+      : <StudyShell spaces={spaces.data} onRevalidate={load} />;
   }
   if (!spaces.data.spaces.some((space) => space.id === route.spaceId)) {
     return (
-      <main className="kq-study-route-status">
+      <StudyRouteStatus>
         <h1>{t("study.spaceUnavailableTitle")}</h1>
         <p>{t("study.spaceUnavailableBody")}</p>
         <a href="/study">{t("study.openCurrentSpace")}</a>
         <a href="/chat">{t("study.backToChat")}</a>
-      </main>
+      </StudyRouteStatus>
     );
   }
   if (route.kind === "space") return <Navigate to={studyPath(route.spaceId)} replace />;
-  return <StudyShell spaces={spaces.data} spaceId={route.spaceId} page={route.page} />;
+  return <StudyShell spaces={spaces.data} spaceId={route.spaceId} page={route.page} onRevalidate={load} />;
 }
