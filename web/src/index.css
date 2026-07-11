@@ -313,6 +313,22 @@
 .kq-study-dialog [role="option"] { display: flex; justify-content: space-between; width: 100%; padding: 0.75rem; border-radius: 0.5rem; }
 .kq-study-dialog-close { position: absolute; top: 0.6rem; right: 0.6rem; padding: 0.45rem; border-radius: 999px; }
 .kq-study-dialog-close svg { width: 1rem; height: 1rem; }
+.kq-open-study-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0.25rem 0 0.75rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--kq-glass-border);
+  border-radius: 0.75rem;
+  background: var(--kq-glass-bg-subtle);
+  color: var(--kq-study-pencil);
+  font-weight: 650;
+  text-decoration: none;
+}
+.kq-open-study-link:hover { background: var(--kq-study-hover); }
+.kq-open-study-link svg { width: 1rem; height: 1rem; }
 
 @container (max-width: 639px) {
   .kq-study-topbar { grid-template-columns: auto minmax(0, 1fr); }

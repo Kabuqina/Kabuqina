@@ -29,6 +29,7 @@ import { PPT_VISUAL_MASTERS, type PptVisualMaster } from "./pptx/visualMasters";
 import { WorkspaceSection, WorkspaceActionButton } from "./workspaceSection";
 import { StudySection } from "./study/StudySection";
 import { ShellModal } from "../components/ShellModal";
+import { OpenStudyLink } from "./OpenStudyLink";
 
 export type WorkspaceItem = {
   id: string;
@@ -747,6 +748,7 @@ export function WorkspacePanel({
         </>
         ) : (
         <>
+        <OpenStudyLink />
         <StudySection onStartPrompt={onStartPrompt} />
         {/* Math & Code — learning functions, not conversion services; the
             sectionId keeps the old workspace.mathAbility so collapse

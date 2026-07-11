@@ -393,7 +393,7 @@ assert.match(
 // after the StudySection quick actions; the report branch keeps only PPT.
 assert.match(
   workspacePanelSource,
-  /<StudySection onStartPrompt=\{onStartPrompt\} \/>[\s\S]*workspace\.mathAbility/,
+  /<OpenStudyLink \/>[\s\S]*<StudySection onStartPrompt=\{onStartPrompt\} \/>[\s\S]*workspace\.mathAbility/,
   "Math & Code must live in the STUDY tab, below the study quick actions.",
 );
 assert.doesNotMatch(
@@ -1345,6 +1345,11 @@ assert.match(
   workspacePanelSource,
   /<StudySection\b/,
   "WorkspacePanel should render the STUDY module section.",
+);
+assert.match(
+  workspacePanelSource,
+  /<OpenStudyLink \/>[\s\S]*<StudySection\b/,
+  "WorkspacePanel should add the first-class study route entry without removing StudySection.",
 );
 assert.match(
   workspacePanelSource,
