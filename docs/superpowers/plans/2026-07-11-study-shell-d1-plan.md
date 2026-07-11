@@ -66,6 +66,12 @@ npm run build -- --manifest               # fresh /chat baseline; record raw + g
   evidence for review, **not** a green/red gate. If a required A-R2/B-1/M4
   commit or wire is absent, STOP here and report.
 
+**Task 1 evidence (2026-07-11):** gate passed on `a0312b01`; A-R2 landed as
+`b4c4176b` + `5e232eca`, M4/B-1 wires are present, and Style Tile remains at
+`b729a107`. `npm run test:components` passed (1 file / 2 tests). Fresh pre-D-1
+build: entry JS **1,564.67 kB raw / 470.20 kB gzip**, entry CSS **132.70 kB
+raw / 21.52 kB gzip**; manifest generated at `dist/.vite/manifest.json`.
+
 ### Task 2: Repository 层（先于任何组件）
 
 **Files:**
