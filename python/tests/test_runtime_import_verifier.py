@@ -51,6 +51,14 @@ class RuntimeImportVerifierTests(unittest.TestCase):
         self.assertIn("verify_runtime_imports.py", build_script)
         self.assertIn("verify_runtime_imports.py", sync_script)
 
+    def test_bundle_and_fast_sync_copy_desk_route_dependencies(self):
+        build_script = (ROOT / "python" / "build_bundle.ps1").read_text(encoding="utf-8")
+        sync_script = (ROOT / "scripts" / "sync-runtime-sources.ps1").read_text(encoding="utf-8")
+
+        for name in ("kabuqina_env.py", "study_review_reminder.py"):
+            self.assertIn(f"src\\{name}", build_script)
+            self.assertIn(f'"{name}"', sync_script)
+
 
 if __name__ == "__main__":
     unittest.main()
