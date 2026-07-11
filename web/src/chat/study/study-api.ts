@@ -66,6 +66,65 @@ export type StudyWrongbookResponse = {
   truncated: boolean;
 };
 
+export type StudyStudentStatePayload = {
+  course: string;
+  goals: string[];
+  preferences: Record<string, string>;
+  constraints: string[];
+  progress_notes: string[];
+  current_stage: string;
+  next_adjustment: string;
+};
+
+export type StudyStudentState = {
+  artifact_id: string;
+  status: string;
+  payload: StudyStudentStatePayload;
+};
+
+export type StudyPlanItem = {
+  item_id: string;
+  artifact_id: string;
+  phaseIndex: number;
+  phaseTitle: string;
+  taskIndex: number;
+  title: string;
+  order: number;
+  done_when: string;
+  status: "open" | "completed" | "skipped";
+  completedAt: string;
+  skippedAt: string;
+  note: string;
+  createdAt: string;
+};
+
+export type StudyEvaluationPayload = {
+  observations: string[];
+  weak_points: string[];
+  suggestions: string[];
+  evidence_refs?: Array<Record<string, string>>;
+};
+
+export type StudyEvaluationDetail = StudyArtifactSummary & {
+  payload: StudyEvaluationPayload;
+};
+
+export type StudyActivitySummary = {
+  activity_id: string;
+  activity_type: string;
+  artifact_id?: string | null;
+  item_id?: string | null;
+  created_at: string;
+};
+
+export type StudyActivitiesResponse = {
+  items: StudyActivitySummary[];
+  count: number;
+  returned: number;
+  limit: number;
+  truncated: boolean;
+};
+
 export type StudyLearningBundle = {
   version: 1;
   spaces?: unknown[];
@@ -229,19 +288,83 @@ export function cmdStudyArtifactSummaries(filters: {
   return invoke("cmd_study_artifact_summaries", filters);
 }
 
-export function cmdStudyArtifactDetail(artifactId: string): Promise<StudyArtifactDetailResponse> {
-  return invoke("cmd_study_artifact_detail", { artifactId });
+export function cmdStudyArtifactDetail(
+  spaceId: string,
+  artifactId: string,
+): Promise<StudyArtifactDetailResponse> {
+  return invoke("cmd_study_artifact_detail", { spaceId, artifactId });
 }
 
 export function cmdStudyArtifactStatus(
+  spaceId: string,
   artifactId: string,
   status: "active" | "rejected" | "archived",
 ): Promise<{ artifact_id: string; status: string }> {
-  return invoke("cmd_study_artifact_status", { artifactId, status });
+  return invoke("cmd_study_artifact_status", { spaceId, artifactId, status });
 }
 
-export function cmdStudyWrongbook(limit = 50): Promise<StudyWrongbookResponse> {
-  return invoke("cmd_study_wrongbook", { limit });
+export function cmdStudyWrongbook(spaceId: string, limit = 50): Promise<StudyWrongbookResponse> {
+  return invoke("cmd_study_wrongbook", { spaceId, limit });
+}
+
+export function cmdStudyActivities(spaceId: string, limit = 50): Promise<StudyActivitiesResponse> {
+  return invoke("cmd_study_activities", { spaceId, limit });
+}
+
+export function cmdStudyStudentState(spaceId: string): Promise<{ state: StudyStudentState | null }> {
+  return invoke("cmd_study_student_state_get", { spaceId });
+}
+
+export function cmdStudyStudentStatePut(
+  spaceId: string,
+  state: StudyStudentStatePayload,
+): Promise<{ state: StudyStudentState }> {
+  return invoke("cmd_study_student_state_put", { spaceId, state });
+}
+
+export function cmdStudyMigrateContext(
+  spaceId: string,
+  context: unknown,
+): Promise<{ migrated: boolean; student_state?: StudyStudentState; evaluation?: unknown }> {
+  return invoke("cmd_study_migrate_context", { spaceId, context });
+}
+
+export function cmdStudyEvaluations(spaceId: string): Promise<{ evaluations: StudyArtifactSummary[] }> {
+  return invoke("cmd_study_evaluations", { spaceId });
+}
+
+export function cmdStudyEvaluationDetail(
+  spaceId: string,
+  artifactId: string,
+): Promise<{ evaluation: StudyEvaluationDetail }> {
+  return invoke("cmd_study_evaluation_detail", { spaceId, artifactId });
+}
+
+export function cmdStudyLearningPlans(spaceId: string): Promise<{ plans: StudyArtifactSummary[] }> {
+  return invoke("cmd_study_learning_plans", { spaceId });
+}
+
+export function cmdStudyPlanItems(
+  spaceId: string,
+  artifactId: string,
+): Promise<{ items: StudyPlanItem[] }> {
+  return invoke("cmd_study_plan_items", { spaceId, artifactId });
+}
+
+export function cmdStudyPlanItemComplete(
+  spaceId: string,
+  itemId: string,
+  note = "",
+): Promise<StudyPlanItem> {
+  return invoke("cmd_study_plan_item_complete", { spaceId, itemId, note });
+}
+
+export function cmdStudyPlanItemSkip(
+  spaceId: string,
+  itemId: string,
+  note = "",
+): Promise<StudyPlanItem> {
+  return invoke("cmd_study_plan_item_skip", { spaceId, itemId, note });
 }
 
 export function cmdStudyDataExport(): Promise<{ bundle: StudyLearningBundle }> {

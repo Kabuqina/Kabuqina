@@ -42,6 +42,10 @@ def _desktop_ctx(space_id: Optional[str] = None) -> Iterator[Any]:
     store = LearningStore()
     try:
         with desktop_learning_scope(store, space_id=space_id) as ctx:
+            if space_id and not any(
+                row.get("space_id") == space_id for row in ctx.list_spaces()
+            ):
+                raise KeyError("learning space is unavailable")
             yield ctx
     finally:
         store.close()
@@ -325,9 +329,11 @@ async def study_flashcards(due_only: bool = Query(default=False)):
         raise _http_error(exc) from exc
 
 @router.get("/api/desk/study/artifacts/{artifact_id}")
-async def study_artifact_detail(artifact_id: str):
+async def study_artifact_detail(
+    artifact_id: str, space_id: Optional[str] = Query(default=None)
+):
     try:
-        with _desktop_ctx() as ctx:
+        with _desktop_ctx(space_id=space_id) as ctx:
             return {"artifact": _require_artifact(ctx, artifact_id)}
     except (ValueError, KeyError, ContractError) as exc:
         raise _http_error(exc) from exc
@@ -335,8 +341,9 @@ async def study_artifact_detail(artifact_id: str):
 @router.post("/api/desk/study/artifacts/{artifact_id}/status")
 async def study_artifact_status(artifact_id: str, body: Dict[str, Any]):
     requested = str(body.get("status") or "").strip()
+    space_id = str(body.get("space_id") or "").strip() or None
     try:
-        with _desktop_ctx() as ctx:
+        with _desktop_ctx(space_id=space_id) as ctx:
             artifact = _require_artifact(ctx, artifact_id)
             if requested == "active":
                 return _activate_artifact(ctx, artifact)
@@ -393,9 +400,12 @@ async def study_migration_failures_export():
         raise _http_error(exc) from exc
 
 @router.get("/api/desk/study/wrongbook")
-async def study_wrongbook(limit: int = Query(default=50, ge=1, le=100)):
+async def study_wrongbook(
+    space_id: Optional[str] = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=100),
+):
     try:
-        with _desktop_ctx() as ctx:
+        with _desktop_ctx(space_id=space_id) as ctx:
             if not ctx.current_space():
                 return {"weak_points": [], "evidence": [], "count": 0, "returned": 0, "limit": limit, "truncated": False}
             return WrongbookService(ctx).projection(limit=limit)
@@ -403,10 +413,35 @@ async def study_wrongbook(limit: int = Query(default=50, ge=1, le=100)):
         raise _http_error(exc) from exc
 
 
-@router.get("/api/desk/study/student-state")
-async def study_student_state():
+@router.get("/api/desk/study/activities")
+async def study_activities(
+    space_id: Optional[str] = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=100),
+):
     try:
-        with _desktop_ctx() as ctx:
+        with _desktop_ctx(space_id=space_id) as ctx:
+            if not ctx.current_space():
+                return {
+                    "items": [], "count": 0, "returned": 0,
+                    "limit": limit, "truncated": False,
+                }
+            page = ctx.activity_summary_page(limit=limit)
+            items = page["rows"]
+            return {
+                "items": items,
+                "count": page["count"],
+                "returned": len(items),
+                "limit": limit,
+                "truncated": page["count"] > len(items),
+            }
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+
+@router.get("/api/desk/study/student-state")
+async def study_student_state(space_id: Optional[str] = Query(default=None)):
+    try:
+        with _desktop_ctx(space_id=space_id) as ctx:
             if not ctx.current_space():
                 return {"state": None}
             return {"state": StudentStateService(ctx).get_current_state()}
@@ -437,8 +472,9 @@ async def study_semantic_review(artifact_id: str):
 
 @router.put("/api/desk/study/student-state")
 async def study_student_state_save(body: Dict[str, Any]):
+    space_id = str(body.get("space_id") or "").strip() or None
     try:
-        with _desktop_ctx() as ctx:
+        with _desktop_ctx(space_id=space_id) as ctx:
             _ensure_space(ctx)
             state = body.get("state") if isinstance(body.get("state"), dict) else {}
             return {"state": StudentStateService(ctx).save_state(state)}
@@ -448,8 +484,9 @@ async def study_student_state_save(body: Dict[str, Any]):
 
 @router.post("/api/desk/study/migrations/context")
 async def study_context_migrate(body: Dict[str, Any]):
+    space_id = str(body.get("space_id") or "").strip() or None
     try:
-        with _desktop_ctx() as ctx:
+        with _desktop_ctx(space_id=space_id) as ctx:
             if ctx.is_migrated(LEGACY_CONTEXT_MIGRATION_KEY):
                 return {"migrated": False}
             _ensure_space(ctx)
@@ -492,9 +529,9 @@ async def study_context_migrate(body: Dict[str, Any]):
 
 
 @router.get("/api/desk/study/evaluations")
-async def study_evaluations():
+async def study_evaluations(space_id: Optional[str] = Query(default=None)):
     try:
-        with _desktop_ctx() as ctx:
+        with _desktop_ctx(space_id=space_id) as ctx:
             if not ctx.current_space():
                 return {"evaluations": []}
             rows = EvaluationService(ctx).list_evaluations(status="active")
@@ -504,9 +541,11 @@ async def study_evaluations():
 
 
 @router.get("/api/desk/study/evaluations/{artifact_id}")
-async def study_evaluation_detail(artifact_id: str):
+async def study_evaluation_detail(
+    artifact_id: str, space_id: Optional[str] = Query(default=None)
+):
     try:
-        with _desktop_ctx() as ctx:
+        with _desktop_ctx(space_id=space_id) as ctx:
             artifact = EvaluationService(ctx).get_evaluation(artifact_id)
             return {
                 "evaluation": {
@@ -519,9 +558,9 @@ async def study_evaluation_detail(artifact_id: str):
 
 
 @router.get("/api/desk/study/learning-plans")
-async def study_learning_plans():
+async def study_learning_plans(space_id: Optional[str] = Query(default=None)):
     try:
-        with _desktop_ctx() as ctx:
+        with _desktop_ctx(space_id=space_id) as ctx:
             if not ctx.current_space():
                 return {"plans": []}
             rows = LearningPlanService(ctx).list_plans(status="active")
@@ -531,9 +570,11 @@ async def study_learning_plans():
 
 
 @router.get("/api/desk/study/learning-plans/{artifact_id}/items")
-async def study_learning_plan_items(artifact_id: str):
+async def study_learning_plan_items(
+    artifact_id: str, space_id: Optional[str] = Query(default=None)
+):
     try:
-        with _desktop_ctx() as ctx:
+        with _desktop_ctx(space_id=space_id) as ctx:
             artifact = _require_artifact(ctx, artifact_id)
             if artifact["kind"] != "learning_plan":
                 raise ValueError("artifact is not a learning_plan")
@@ -548,8 +589,9 @@ async def study_learning_plan_items(artifact_id: str):
 
 @router.post("/api/desk/study/learning-plans/items/{item_id}/complete")
 async def study_learning_plan_item_complete(item_id: str, body: Dict[str, Any]):
+    space_id = str(body.get("space_id") or "").strip() or None
     try:
-        with _desktop_ctx() as ctx:
+        with _desktop_ctx(space_id=space_id) as ctx:
             return LearningPlanService(ctx).complete_item(
                 item_id, note=str(body.get("note") or "")
             )
@@ -559,8 +601,9 @@ async def study_learning_plan_item_complete(item_id: str, body: Dict[str, Any]):
 
 @router.post("/api/desk/study/learning-plans/items/{item_id}/skip")
 async def study_learning_plan_item_skip(item_id: str, body: Dict[str, Any]):
+    space_id = str(body.get("space_id") or "").strip() or None
     try:
-        with _desktop_ctx() as ctx:
+        with _desktop_ctx(space_id=space_id) as ctx:
             return LearningPlanService(ctx).skip_item(
                 item_id, note=str(body.get("note") or "")
             )

@@ -1258,38 +1258,28 @@ assert.doesNotMatch(
 );
 assert.match(
   studySectionSource,
-  /workspaceBuildLearningProfile[\s\S]*workspaceBuildLearningPath[\s\S]*workspaceBuildCourseKnowledgeBase[\s\S]*workspaceBuildResourcePack[\s\S]*workspaceStartLearningTutor[\s\S]*workspaceEvaluateLearningEffect[\s\S]*workspaceReviewStudyContent/,
-  "StudySection should wire the seven learning quick actions in order.",
+  /workspaceBuildCourseKnowledgeBase[\s\S]*workspaceBuildResourcePack[\s\S]*workspaceStartLearningTutor[\s\S]*workspaceReviewStudyContent/,
+  "StudySection should retain only the D-3/D-4 learning quick actions in order.",
+);
+assert.doesNotMatch(
+  studySectionSource,
+  /workspaceBuildLearningProfile|workspaceBuildLearningPath|workspaceEvaluateLearningEffect/,
+  "D-2 should retire the legacy profile, plan, and evaluation write entries.",
 );
 assert.match(
   studySectionSource,
   /sectionId="workspace\.study"/,
   "StudySection should render under the workspace.study section id.",
 );
-assert.match(
+assert.doesNotMatch(
   studySectionSource,
-  /import \{ ShellModal \} from "\.\.\/\.\.\/components\/ShellModal"/,
-  "StudySection should use the shared shell modal for learning profile editing.",
-);
-assert.match(
-  studySectionSource,
-  /kq-study-profile-card[\s\S]*studyContextCardTitle[\s\S]*studyContextEdit[\s\S]*STUDY_ACTIONS\.map/,
-  "StudySection should pin the learning profile summary card above the learning actions.",
+  /ShellModal|profileEditorOpen|persistContext|resetContext/,
+  "D-2 should retire the legacy localStorage profile editor.",
 );
 assert.match(
   studySectionSource,
-  /profileEditorOpen[\s\S]*<ShellModal[\s\S]*fields\.map/,
-  "StudySection should keep the full study context form behind the edit modal.",
-);
-assert.match(
-  stringsSource,
-  /studyContextCardTitle:\s*"学习档案"[\s\S]*studyContextEdit:\s*"编辑"[\s\S]*studyContextEmpty:/,
-  "Study profile card should have localized zh copy.",
-);
-assert.match(
-  stringsSource,
-  /studyContextCardTitle:\s*"Learning profile"[\s\S]*studyContextEdit:\s*"Edit"[\s\S]*studyContextEmpty:/,
-  "Study profile card should have localized en copy.",
+  /kq-study-profile-card[\s\S]*studyContextCardTitle[\s\S]*to="\/study"[\s\S]*STUDY_ACTIONS\.map/,
+  "StudySection should keep a read-only legacy summary linked to the first-class study route.",
 );
 assert.match(
   studyStoreSource,
@@ -1308,13 +1298,13 @@ assert.match(
 );
 assert.match(
   studySectionSource,
-  /loadStudyContext[\s\S]*saveStudyContext[\s\S]*clearStudyContext[\s\S]*formatStudyContextForPrompt/,
-  "StudySection should wire persistent context into every learning action.",
+  /loadStudyContext[\s\S]*formatStudyContextForPrompt/,
+  "StudySection should read legacy context for the remaining transitional actions.",
 );
-assert.match(
+assert.doesNotMatch(
   studySectionSource,
-  /saveStatus[\s\S]*succeeded \? "saved" : "failed"[\s\S]*studyContextSaveFailed/,
-  "StudySection should surface local storage failures instead of reporting a false save success.",
+  /saveStudyContext|clearStudyContext|saveStatus/,
+  "StudySection should no longer write legacy profile context.",
 );
 assert.match(
   flashcardPanelSource,
@@ -1338,8 +1328,13 @@ assert.doesNotMatch(
 );
 assert.match(
   studySectionSource,
-  /studyContextCourse[\s\S]*studyContextGoal[\s\S]*studyContextProfile[\s\S]*studyContextWeakPoints[\s\S]*studyContextPreferences[\s\S]*studyContextProgress[\s\S]*studyContextEvidence[\s\S]*studyContextStage[\s\S]*studyContextResources[\s\S]*studyContextTutoring[\s\S]*studyContextEvaluationSummary[\s\S]*studyContextNextAdjustment/,
-  "StudySection should expose the persisted study context fields.",
+  /studyContextCourse[\s\S]*studyContextGoal[\s\S]*studyContextProfile[\s\S]*studyContextPreferences[\s\S]*studyContextProgress[\s\S]*studyContextStage/,
+  "StudySection should show a bounded read-only legacy summary without weak-point evidence.",
+);
+assert.doesNotMatch(
+  studySectionSource,
+  /key:\s*"weakPoints"/,
+  "The legacy sidebar summary must not fold weak-point evidence into the learner flyleaf/profile.",
 );
 assert.match(
   workspacePanelSource,

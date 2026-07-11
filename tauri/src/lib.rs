@@ -254,6 +254,7 @@ pub fn run() {
             study::cmd_study_artifact_detail,
             study::cmd_study_artifact_status,
             study::cmd_study_wrongbook,
+            study::cmd_study_activities,
             study::cmd_study_data_export,
             study::cmd_study_data_import,
             study::cmd_study_data_delete,

@@ -10,7 +10,7 @@ import { useStudyRepository } from "./repositoryContext";
 import { studyPath, type StudyPageSlug } from "./routeModel";
 import { StudyLifecycleNav } from "./StudyLifecycleNav";
 import { StudyTopBar } from "./StudyTopBar";
-import { PlaceholderPage } from "./pages/PlaceholderPage";
+import { StudyPageOutlet } from "./pages/StudyPageOutlet";
 
 const STUDY_LEARNING_EVENT = "study-learning-event";
 
@@ -99,7 +99,7 @@ export function StudyShell({ spaces, spaceId, page, onRevalidate, refreshing = f
             <button type="button" onClick={onRevalidate}>{t("study.retry")}</button>
           </div>
         ) : null}
-        <div className="kq-study-page"><PlaceholderPage page={page} /></div>
+        <div className="kq-study-page"><StudyPageOutlet spaceId={spaceId} page={page} /></div>
       </>
     );
   }, [draftCounts, onRevalidate, page, refreshFailed, refreshing, selectSpace, spaceId, spaces.spaces, switchError, switching, t]);

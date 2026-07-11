@@ -303,6 +303,142 @@
 .kq-study-placeholder-kicker { color: var(--kq-study-pencil); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
 .kq-study-primary-link { padding: 0.55rem 1rem; background: var(--kq-study-pencil); color: var(--kq-color-surface); }
 .kq-study-secondary-link { color: var(--kq-study-pencil); text-decoration: underline; text-underline-offset: 0.2rem; }
+.kq-study-content-page { display: grid; gap: 1rem; }
+.kq-study-page-heading { display: grid; gap: 0.45rem; }
+.kq-study-page-heading h1 { font-size: clamp(1.75rem, 5vw, 2.75rem); line-height: 1.1; }
+.kq-study-page-heading > p:last-child { max-width: 48rem; color: var(--kq-study-muted); }
+.kq-study-page-alert,
+.kq-study-page-empty {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--kq-glass-border);
+  border-radius: 0.85rem;
+  background: var(--kq-glass-bg-subtle);
+}
+.kq-study-page-alert { color: var(--kq-study-warn); }
+.kq-study-page-alert button,
+.kq-study-page-alert a { color: inherit; text-decoration: underline; text-underline-offset: 0.18rem; }
+.kq-study-page-empty { display: grid; justify-items: start; padding: clamp(1.25rem, 4vw, 2rem); }
+.kq-study-flyleaf-card {
+  display: grid;
+  gap: 1rem;
+  padding: clamp(1rem, 3vw, 1.5rem);
+  border: 1px solid var(--kq-glass-border);
+  border-radius: 1rem;
+  background: var(--kq-glass-bg-subtle);
+  box-shadow: var(--kq-shadow-card);
+}
+.kq-study-flyleaf-card.is-pencil { border-style: dashed; color: var(--kq-study-pencil); }
+.kq-study-card-title { display: flex; align-items: start; justify-content: space-between; gap: 1rem; }
+.kq-study-card-title p { color: var(--kq-study-muted); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+.kq-study-card-title h2 { font-size: 1.15rem; }
+.kq-study-inline-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.kq-study-inline-actions button {
+  min-height: 2.25rem;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--kq-glass-border);
+  border-radius: 0.65rem;
+  background: var(--kq-study-hover);
+}
+.kq-study-inline-actions button:disabled { opacity: 0.55; }
+.kq-study-flyleaf-rows { display: grid; }
+.kq-study-flyleaf-rows > div {
+  display: grid;
+  grid-template-columns: minmax(7rem, 0.32fr) minmax(0, 1fr);
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px dashed var(--kq-glass-border);
+}
+.kq-study-flyleaf-rows > div:last-child { border-bottom: 0; }
+.kq-study-flyleaf-rows dt { color: var(--kq-study-muted); font-size: 0.82rem; }
+.kq-study-flyleaf-rows dd { min-width: 0; overflow-wrap: anywhere; }
+.kq-study-page-error { color: var(--kq-study-warn); }
+.kq-study-plan-summary {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: clamp(1rem, 3vw, 1.5rem);
+  border: 1px solid var(--kq-glass-border);
+  border-radius: 1rem;
+  background: var(--kq-glass-bg-subtle);
+  box-shadow: var(--kq-shadow-card);
+}
+.kq-study-plan-summary p,
+.kq-study-plan-item-copy > span { color: var(--kq-study-muted); font-size: 0.78rem; }
+.kq-study-plan-summary h2 { margin-top: 0.2rem; font-size: 1.2rem; }
+.kq-study-bookmark {
+  display: grid;
+  gap: 0.2rem;
+  max-width: 18rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0 0 0.75rem 0.75rem;
+  background: var(--kq-study-warn);
+  color: var(--kq-color-surface);
+  text-align: left;
+  box-shadow: var(--kq-shadow-card);
+}
+.kq-study-bookmark small { opacity: 0.82; }
+.kq-study-phase-list { display: flex; flex-wrap: wrap; gap: 0.5rem; color: var(--kq-study-muted); font-size: 0.78rem; }
+.kq-study-phase-list > span:not(:first-child) { padding: 0.25rem 0.55rem; border-radius: 999px; background: var(--kq-study-hover); }
+.kq-study-plan-items { display: grid; gap: 0.75rem; list-style: none; }
+.kq-study-plan-items > li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--kq-glass-border);
+  border-radius: 0.85rem;
+  background: var(--kq-glass-bg-subtle);
+}
+.kq-study-plan-items > li:focus { outline: 2px solid var(--kq-study-pencil); outline-offset: 0.2rem; }
+.kq-study-plan-items > li.is-completed,
+.kq-study-plan-items > li.is-skipped { opacity: 0.7; }
+.kq-study-plan-item-copy { display: grid; gap: 0.25rem; min-width: 0; }
+.kq-study-plan-item-copy h3,
+.kq-study-plan-item-copy p { overflow-wrap: anywhere; }
+.kq-study-evaluate-section {
+  display: grid;
+  gap: 0.75rem;
+  padding: clamp(1rem, 3vw, 1.5rem);
+  border: 1px solid var(--kq-glass-border);
+  border-radius: 1rem;
+  background: var(--kq-glass-bg-subtle);
+  box-shadow: var(--kq-shadow-card);
+}
+.kq-study-evaluate-section > h2 { font-size: 1.15rem; }
+.kq-study-weak-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.kq-study-weak-tags span { padding: 0.25rem 0.55rem; border-radius: 999px; background: var(--kq-study-hover); font-size: 0.78rem; }
+.kq-study-wrongbook-list,
+.kq-study-activity-list { display: grid; gap: 0.65rem; list-style: none; }
+.kq-study-wrongbook-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.8rem 0;
+  border-bottom: 1px dashed var(--kq-glass-border);
+}
+.kq-study-wrongbook-list li:last-child { border-bottom: 0; }
+.kq-study-wrongbook-list p,
+.kq-study-wrongbook-list time,
+.kq-study-activity-list time { color: var(--kq-study-muted); font-size: 0.78rem; }
+.kq-study-wrongbook-list a { color: var(--kq-study-pencil); text-decoration: underline; text-underline-offset: 0.18rem; }
+.kq-study-evaluation-note { display: grid; gap: 0.55rem; }
+.kq-study-evaluation-note ul { padding-left: 1.25rem; list-style: disc; }
+.kq-study-activity-list li { display: grid; grid-template-columns: minmax(8rem, auto) 1fr; gap: 0.75rem; }
+@container (max-width: 39.99rem) {
+  .kq-study-card-title { display: grid; }
+  .kq-study-flyleaf-rows > div { grid-template-columns: 1fr; gap: 0.25rem; }
+  .kq-study-plan-summary,
+  .kq-study-plan-items > li { display: grid; grid-template-columns: 1fr; }
+  .kq-study-wrongbook-list li,
+  .kq-study-activity-list li { display: grid; grid-template-columns: 1fr; }
+}
 .kq-study-dialog-backdrop {
   position: fixed;
   inset: 0;

@@ -34,6 +34,15 @@ function renderShell(
       total: 2,
       kindCounts: { flashcard_deck: 1, quiz: 1 },
     }),
+    loadFlyleaf: vi.fn(),
+    migrateLegacyContext: vi.fn(),
+    setArtifactStatus: vi.fn(),
+    loadPlan: vi.fn(),
+    completePlanItem: vi.fn(),
+    skipPlanItem: vi.fn(),
+    loadWrongbook: vi.fn(),
+    loadLatestEvaluation: vi.fn(),
+    loadActivities: vi.fn(),
     ...repositoryOverrides,
   };
   render(

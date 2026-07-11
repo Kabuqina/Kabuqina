@@ -250,6 +250,34 @@ def test_record_and_list_activity_scoped(store):
     assert store.list_activities("owner-B", sid) == []
 
 
+def test_activity_summary_page_is_bounded_scoped_and_excludes_detail(store):
+    sid = store.create_space("owner-A", title="Algebra", space_id="s1")
+    other_sid = store.create_space(
+        "owner-A", title="Physics", space_id="s2", make_current=False
+    )
+    for index in range(3):
+        store.insert_activity(
+            "owner-A",
+            sid,
+            activity_type=f"event.{index}",
+            artifact_id=f"artifact-{index}",
+            detail={"answer": "SECRET"},
+        )
+    store.insert_activity("owner-A", other_sid, activity_type="other-space")
+
+    page = store.activity_summary_page("owner-A", sid, limit=2)
+
+    assert page["count"] == 3
+    assert len(page["rows"]) == 2
+    assert page["rows"][0]["activity_type"] == "event.2"
+    assert all("detail" not in row and "detail_json" not in row for row in page["rows"])
+    assert "SECRET" not in str(page)
+    assert store.activity_summary_page("owner-B", sid, limit=2) == {
+        "rows": [],
+        "count": 0,
+    }
+
+
 def test_migration_markers_owner_scoped(store):
     assert store.is_migrated("owner-A", "localStorage:flashcards") is False
     store.mark_migration("owner-A", "localStorage:flashcards", detail={"n": 3})

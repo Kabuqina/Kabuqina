@@ -1189,6 +1189,28 @@ class LearningStore:
             out.append(item)
         return out
 
+    def activity_summary_page(
+        self, owner_id: str, space_id: str, *, limit: int
+    ) -> Dict[str, Any]:
+        """Return a bounded newest-first activity page without detail content."""
+        _require(owner_id, "owner_id")
+        _require(space_id, "space_id")
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 100:
+            raise ValueError("limit must be within 1..100")
+        where = " FROM learning_activities WHERE owner_id = ? AND space_id = ?"
+        params = (owner_id, space_id)
+        total = self._conn.execute("SELECT COUNT(*)" + where, params).fetchone()[0]
+        rows = self._conn.execute(
+            "SELECT activity_id, activity_type, artifact_id, item_id, created_at"
+            + where
+            + " ORDER BY created_at DESC, activity_id DESC LIMIT ?",
+            (*params, limit),
+        ).fetchall()
+        return {
+            "rows": [dict(row) for row in rows],
+            "count": total,
+        }
+
     def quiz_attempt_page(
         self, owner_id: str, space_id: str, *, limit: int
     ) -> Dict[str, Any]:

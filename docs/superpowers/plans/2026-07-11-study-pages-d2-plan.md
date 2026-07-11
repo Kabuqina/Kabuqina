@@ -62,112 +62,122 @@ learning projections；Vitest/RTL + pytest。零新增 runtime dependency。
 
 **Core / Python:**
 
-- [ ] 在 `LearningStore` + `LearningExecutionContext` 增加 bounded activity
+- [x] 在 `LearningStore` + `LearningExecutionContext` 增加 bounded activity
   summary page：newest-first，字段仅 `activity_id / activity_type /
   artifact_id / item_id / created_at`，返回 `count / returned / limit /
   truncated`；不得读取或返回 `detail_json`。
-- [ ] 新增 desk `GET /api/desk/study/activities?space_id=&limit=`。
-- [ ] 以下 route 全部接受并注入显式 `space_id`：student-state GET/PUT、
+- [x] 新增 desk `GET /api/desk/study/activities?space_id=&limit=`。
+- [x] 以下 route 全部接受并注入显式 `space_id`：student-state GET/PUT、
   context migration、evaluations list/detail、learning-plans list/items、plan item
   complete/skip、wrongbook；generic artifact detail/status 也接受 `space_id`，
   供扉页就地审核 draft。
-- [ ] 未知/他人 space 对外保持同一 404，不泄露归属；所有已知异常统一
+- [x] 未知/他人 space 对外保持同一 404，不泄露归属；所有已知异常统一
   `_http_error`。
 
 **Rust / Web API:**
 
-- [ ] 对应 Tauri commands 增加 `space_id`，切换到 `DeskBridgeError` +
+- [x] 对应 Tauri commands 增加 `space_id`，切换到 `DeskBridgeError` +
   `desk_json_request_structured`；本地 id 校验失败返回 `invalid_study_id`。
-- [ ] `study-api.ts` 增加精确 response types 与 functions，不暴露 arbitrary
+- [x] `study-api.ts` 增加精确 response types 与 functions，不暴露 arbitrary
   `invoke`；所有 D-2 参数 camelCase→Tauri snake_case 由 invoke 正常映射。
-- [ ] `StudyRepository` 扩展 typed methods：flyleaf snapshot / legacy migrate /
+- [x] `StudyRepository` 扩展 typed methods：flyleaf snapshot / legacy migrate /
   draft activate/reject / plan snapshot / plan item mutation / evaluation snapshot。
   adapter 只映射 DTO，不缓存；所有方法带 `spaceId + AbortSignal`。
-- [ ] Python route tests 锁定 A/B deep-link scope、bounded activity projection、
+- [x] Python route tests 锁定 A/B deep-link scope、bounded activity projection、
   400/404/409；Rust tests 锁定结构化 HTTP payload；repository tests 锁定
   spaceId 透传和错误归一。
 
 ### Task 3: 页面状态地基与 outlet
 
-- [ ] `PlaceholderPage` 改为 `StudyPageOutlet`：flyleaf/plan/evaluate 渲染真实
+- [x] `PlaceholderPage` 改为 `StudyPageOutlet`：flyleaf/plan/evaluate 渲染真实
   页面；learn/practice 继续诚实占位。
-- [ ] 每页使用独立 request coordinator；mount、space change 与
+- [x] 每页使用独立 request coordinator；mount、space change 与
   `study-learning-event` revalidate；旧响应不得覆盖新 space。
-- [ ] 首次 loading 显示页面骨架；refresh 保留 previous data；refresh error
+- [x] 首次 loading 显示页面骨架；refresh 保留 previous data；refresh error
   显示 stale banner + retry，不卸载整页。
-- [ ] 页面 route 完成后焦点落 `h1[tabIndex=-1]`；错误/空态均保留返回聊天
+- [x] 页面 route 完成后焦点落 `h1[tabIndex=-1]`；错误/空态均保留返回聊天
   与 AskNana 逃生门。
-- [ ] 建立 D-2 实际使用的 `--kq-study-*` 语义 token/CSS；组件不写裸 hex，
+- [x] 建立 D-2 实际使用的 `--kq-study-*` 语义 token/CSS；组件不写裸 hex，
   200% zoom 与 `<640px` 单列布局不横向溢出。
 
 ### Task 4: FlyleafPage — 扉页
 
-- [ ] 加载 explicit-space active student state + newest student-state draft。
+- [x] 加载 explicit-space active student state + newest student-state draft。
   active 用 ink 语义，draft 用 pencil 语义；任何 weak-point 字段都不渲染。
-- [ ] active 字段只呈现可编辑自我设定语义：course、goals、preferences、
+- [x] active 字段只呈现可编辑自我设定语义：course、goals、preferences、
   constraints、progress notes、current stage、next adjustment；空字段不伪造。
-- [ ] draft 夹页提供“落墨/擦掉”：使用 generic artifact status，成功后 patch
+- [x] draft 夹页提供“落墨/擦掉”：使用 generic artifact status，成功后 patch
   view-model 再后台 revalidate；冲突以后端状态为准并解释。
-- [ ] 首次进入检测 legacy `kabuqina.study.context.v1`：有内容时调用显式
+- [x] 首次进入检测 legacy `kabuqina.study.context.v1`：有内容时调用显式
   space context migration；成功 revalidate，失败保留 localStorage 并显示
   非阻断提示。不得在页面加载时清除 legacy 数据。
-- [ ] empty state 引导返回聊天请小娜一起填写；不新建第二套自由表单。
-- [ ] 组件测试覆盖 active/draft、确认/拒绝、migration success/failure keeps
+- [x] empty state 引导返回聊天请小娜一起填写；不新建第二套自由表单。
+- [x] 组件测试覆盖 active/draft、确认/拒绝、migration success/failure keeps
   legacy、无 weak points、keyboard-only 与 stale refresh。
 
 ### Task 5: PlanPage — 计划与书签
 
-- [ ] 加载 explicit-space active plans，按 `updated_at + artifact_id` 选择最新
+- [x] 加载 explicit-space active plans，按 `updated_at + artifact_id` 选择最新
   current plan，再加载其 materialized items。
-- [ ] 页面显示 current phase、最近阶段和 items；首个 `status=open` item 是
+- [x] 页面显示 current phase、最近阶段和 items；首个 `status=open` item 是
   唯一“继续上次”书签来源，点击滚动/聚焦该 item，不伪造 checkpoint。
-- [ ] open item 提供完成/跳过；mutation pending 只锁当前 item，成功 patch
+- [x] open item 提供完成/跳过；mutation pending 只锁当前 item，成功 patch
   当前 VM 并 revalidate，失败保留原数据并显示可重试错误。
-- [ ] completed/skipped 只读展示，activity 由 core service 现有写路径产生；
+- [x] completed/skipped 只读展示，activity 由 core service 现有写路径产生；
   UI 不直接写 activity。
-- [ ] empty state 提供 AskNana 创建计划入口；无 active plan 时不读取 draft
+- [x] empty state 提供 AskNana 创建计划入口；无 active plan 时不读取 draft
   计划正文（D-4 统一草稿箱负责）。
-- [ ] 测试覆盖 current-plan 选择、resume focus、complete/skip、重复/冲突失败、
+- [x] 测试覆盖 current-plan 选择、resume focus、complete/skip、重复/冲突失败、
   快速切 space、empty/stale 与纯键盘。
 
 ### Task 6: EvaluatePage — 错题本 / 最近评估 / 学习日志
 
-- [ ] 并行加载 explicit-space wrongbook bounded projection、active evaluation
+- [x] 并行加载 explicit-space wrongbook bounded projection、active evaluation
   summaries + newest detail、activity summary page；任何一块失败只降级该块。
-- [ ] 错题卡只显示 score/max/percent、weak tags 与时间；不显示答案、response、
+- [x] 错题卡只显示 score/max/percent、weak tags 与时间；不显示答案、response、
   prompt 或任意 activity detail。
-- [ ] “再试一次”链接固定为
+- [x] “再试一次”链接固定为
   `/study/:spaceId/practice?source=wrongbook&activityId=<opaque-id>`；测试断言
   URL 不含学习内容。
-- [ ] 最近评估展示 observations / suggestions；weak points 与错题证据同页但
+- [x] 最近评估展示 observations / suggestions；weak points 与错题证据同页但
   不回流扉页。
-- [ ] 学习日志按 activity type + timestamp 形成见证式只读时间线，不下判断；
+- [x] 学习日志按 activity type + timestamp 形成见证式只读时间线，不下判断；
   未知 activity type 使用中性 fallback，不渲染 detail。
-- [ ] 测试覆盖三块独立 loading/error/empty、bounded/truncated、retry link、
+- [x] 测试覆盖三块独立 loading/error/empty、bounded/truncated、retry link、
   content exclusion、窄窗与 keyboard navigation。
 
 ### Task 7: 旧侧栏逐页退役与双写审计
 
-- [ ] `StudySection` 删除 profile edit modal、save/reset localStorage 写路径；
+- [x] `StudySection` 删除 profile edit modal、save/reset localStorage 写路径；
   profile card 改为指向 `/study` 的只读兼容摘要。
-- [ ] 移除旧 `learningProfile / learningPath / learningEvaluation` 快捷写入口；
+- [x] 移除旧 `learningProfile / learningPath / learningEvaluation` 快捷写入口；
   新页面的 AskNana link 是唯一入口，其他 D-3/D-4 actions 保留。
-- [ ] 旧 context 仍可只读注入剩余 prompt，直到 D-5；`startAction` 不再执行
+- [x] 旧 context 仍可只读注入剩余 prompt，直到 D-5；`startAction` 不再执行
   无变化的 `saveStudyContext`。
-- [ ] 更新 `chatUx.test.mjs`：断言旧 editor/write actions 已退役、剩余
+- [x] 更新 `chatUx.test.mjs`：断言旧 editor/write actions 已退役、剩余
   StudySection/FlashcardPanel/QuizPanel 未被越界删除。
-- [ ] 全仓 `rg` 双写审计并把残留分类写入 completion record。
+- [x] 全仓 `rg` 双写审计并把残留分类写入 completion record。
 
 ### Task 8: 质量门、体积与收口
 
-- [ ] Web：D-2 component tests + full `test:components` + `test:chat-ux` + lint +
+- [x] Web：D-2 component tests + full `test:components` + `test:chat-ux` + lint +
   production build。
-- [ ] Python：D-2 route tests、M4/M6 regression、core activity projection tests。
-- [ ] Rust：study bridge unit tests + `cargo test` relevant target；必要时
+- [x] Python：D-2 route tests、M4/M6 regression、core activity projection tests。
+- [x] Rust：study bridge unit tests + `cargo test` relevant target；必要时
   `cargo check`。
-- [ ] 记录 build manifest：`/chat` initial raw/gzip、StudyRoute/D-2 chunks；
+- [x] 记录 build manifest：`/chat` initial raw/gzip、StudyRoute/D-2 chunks；
   确认 `/chat` 初始依赖图未新增页面代码。
-- [ ] 更新 D-0 spec 与 master plan D-2 状态、测试数字、已知降级；
+- [x] 更新 D-0 spec 与 master plan D-2 状态、测试数字、已知降级；
+
+## Completion record（2026-07-11）
+
+D-2 automated implementation gate passed. Web: **10 files / 43 tests**, chat UX,
+lint, TypeScript, manifest build；Python M4/M6/core: **13 tests**；Rust：offline
+`cargo check` 与 study bridge validation test。Build：initial graph **1,711.14 kB
+raw / 495.07 kB gzip**，StudyRoute **29.54 / 7.48 kB gzip**。旧侧栏仍保留
+D-3/D-4 的 Flashcard/Quiz 与知识/资源/辅导/安全入口；profile editor、
+learningProfile、learningPath、learningEvaluation 写入口和 `startAction` 的
+legacy context 回写均已移除。desktop bundle/visual smoke 作为本轮集成烟测。
   `git diff --check`，本地提交，不 push。
 
 ---

@@ -207,6 +207,11 @@ class LearningExecutionContext:
     def list_activities(self) -> List[Dict[str, Any]]:
         return self._store.list_activities(self._owner_id, self._require_space())
 
+    def activity_summary_page(self, *, limit: int) -> Dict[str, Any]:
+        return self._store.activity_summary_page(
+            self._owner_id, self._require_space(), limit=limit
+        )
+
     def quiz_attempt_page(self, *, limit: int) -> Dict[str, Any]:
         return self._store.quiz_attempt_page(
             self._owner_id, self._require_space(), limit=limit

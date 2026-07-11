@@ -56,6 +56,56 @@ describe("StudyRepository", () => {
     await expect(pending).rejects.toMatchObject({ name: "AbortError" });
   });
 
+  it("loads flyleaf active and draft state from the requested URL space", async () => {
+    const studentState = vi.fn().mockResolvedValue({
+      state: { artifact_id: "active", status: "active", payload: { course: "Physics" } },
+    });
+    const studentDraftSummary = vi.fn().mockResolvedValue({
+      items: [{ artifact_id: "draft", kind: "student_state", title: "Draft", status: "draft" }],
+      count: 1,
+      counts: { draft: 1 },
+      kind_counts: { student_state: 1 },
+      returned: 1,
+      limit: 1,
+      offset: 0,
+      truncated: false,
+    });
+    const artifactDetail = vi.fn().mockResolvedValue({
+      artifact: {
+        artifact_id: "draft",
+        kind: "student_state",
+        title: "Draft",
+        version: 1,
+        status: "draft",
+        envelope: { payload: { course: "Draft physics" } },
+      },
+    });
+    const repository = createStudyRepository({ studentState, studentDraftSummary, artifactDetail });
+
+    await expect(repository.loadFlyleaf("space-b", new AbortController().signal)).resolves.toMatchObject({
+      active: { artifact_id: "active" },
+      draft: { artifact_id: "draft", payload: { course: "Draft physics" } },
+    });
+    expect(studentState).toHaveBeenCalledWith("space-b");
+    expect(studentDraftSummary).toHaveBeenCalledWith("space-b");
+    expect(artifactDetail).toHaveBeenCalledWith("space-b", "draft");
+  });
+
+  it("selects the newest active plan and scopes its item query", async () => {
+    const learningPlans = vi.fn().mockResolvedValue({ plans: [
+      { artifact_id: "older", kind: "learning_plan", title: "Old", status: "active", updated_at: "2026-01-01" },
+      { artifact_id: "newer", kind: "learning_plan", title: "New", status: "active", updated_at: "2026-02-01" },
+    ] });
+    const planItems = vi.fn().mockResolvedValue({ items: [{ item_id: "next" }] });
+    const repository = createStudyRepository({ learningPlans, planItems });
+
+    await expect(repository.loadPlan("space-b", new AbortController().signal)).resolves.toMatchObject({
+      plan: { artifact_id: "newer" },
+      items: [{ item_id: "next" }],
+    });
+    expect(planItems).toHaveBeenCalledWith("space-b", "newer");
+  });
+
   it("maps only stable error prefixes", () => {
     expect(normalizeRepositoryError("invalid study id").code).toBe("invalid");
     expect(normalizeRepositoryError("space_not_found: hidden detail").code).toBe("not-found");

@@ -18,8 +18,11 @@ for path in (SRC_DIR, CORE_DIR):
         sys.path.insert(0, str(path))
 
 from learning.learning_context import LearningExecutionContext  # noqa: E402
+from learning.evaluations import EvaluationService  # noqa: E402
+from learning.learning_plans import LearningPlanService  # noqa: E402
 from learning.learning_store import LearningStore  # noqa: E402
 from learning.output_writer import OutputWriter  # noqa: E402
+from learning.student_state import StudentStateService  # noqa: E402
 
 OWNER = "desktop:test-owner"
 SECRET = "study-m4-route-secret"
@@ -187,3 +190,85 @@ def test_review_reminder_routes_are_opt_in(study_client):
     )
     assert disabled.status_code == 200
     assert disabled.json()["enabled"] is False
+
+
+def test_d2_routes_honor_url_space_and_activity_projection_is_content_minimized(
+    study_client,
+):
+    client, db_path = study_client
+    store = LearningStore(db_path=db_path)
+    try:
+        current = LearningExecutionContext(store, owner_id=OWNER)
+        current.create_space(title="Current", space_id="space-a")
+        scoped = LearningExecutionContext(store, owner_id=OWNER, space_id="space-b")
+        scoped.create_space(title="Deep link", space_id="space-b", make_current=False)
+        StudentStateService(scoped).save_state({"course": "Physics", "goals": ["Pass"]})
+        writer = OutputWriter(scoped)
+        evaluation_id = writer.write_artifact(
+            kind="evaluation",
+            title="Physics evaluation",
+            payload={"observations": ["Needs review"], "weak_points": ["vectors"]},
+        )["artifact_id"]
+        EvaluationService(scoped).activate_evaluation(evaluation_id)
+        plan_id = writer.write_artifact(
+            kind="learning_plan",
+            title="Physics plan",
+            payload={
+                "phases": [
+                    {"title": "Mechanics", "tasks": [{"title": "Vectors", "order": 1}]}
+                ]
+            },
+        )["artifact_id"]
+        LearningPlanService(scoped).activate_plan(plan_id)
+        scoped.record_activity(
+            activity_type="quiz.attempt",
+            artifact_id="quiz-b",
+            detail={
+                "score": 0,
+                "maxScore": 1,
+                "percent": 0,
+                "weakTags": ["vectors"],
+                "response": "SECRET ANSWER",
+            },
+        )
+    finally:
+        store.close()
+
+    state = client.get(
+        "/api/desk/study/student-state?space_id=space-b", headers=_headers()
+    ).json()
+    assert state["state"]["payload"]["course"] == "Physics"
+    assert client.get(
+        "/api/desk/study/student-state?space_id=space-a", headers=_headers()
+    ).json() == {"state": None}
+
+    plans = client.get(
+        "/api/desk/study/learning-plans?space_id=space-b", headers=_headers()
+    ).json()
+    assert plans["plans"][0]["artifact_id"] == plan_id
+    evaluations = client.get(
+        "/api/desk/study/evaluations?space_id=space-b", headers=_headers()
+    ).json()
+    assert evaluations["evaluations"][0]["artifact_id"] == evaluation_id
+
+    activities = client.get(
+        "/api/desk/study/activities?space_id=space-b&limit=1", headers=_headers()
+    ).json()
+    assert activities["count"] == 1
+    assert activities["returned"] == 1
+    assert set(activities["items"][0]) == {
+        "activity_id", "activity_type", "artifact_id", "item_id", "created_at",
+    }
+    assert "SECRET" not in str(activities)
+
+    wrongbook = client.get(
+        "/api/desk/study/wrongbook?space_id=space-b&limit=1", headers=_headers()
+    ).json()
+    assert wrongbook["weak_points"] == ["vectors"]
+    assert "SECRET" not in str(wrongbook)
+
+    unavailable = client.get(
+        "/api/desk/study/student-state?space_id=missing", headers=_headers()
+    )
+    assert unavailable.status_code == 404
+    assert unavailable.json()["detail"]["code"] == "study_not_found"

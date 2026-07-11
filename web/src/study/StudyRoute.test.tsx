@@ -23,6 +23,15 @@ function renderRoute(path: string, repositoryOverrides: Partial<StudyRepository>
     listSpaces: vi.fn().mockResolvedValue(spaces),
     selectSpace: vi.fn().mockResolvedValue(spaces),
     listDrafts: vi.fn().mockResolvedValue({ total: 0, kindCounts: {} }),
+    loadFlyleaf: vi.fn().mockResolvedValue({ active: null, draft: null }),
+    migrateLegacyContext: vi.fn().mockResolvedValue(false),
+    setArtifactStatus: vi.fn().mockResolvedValue(undefined),
+    loadPlan: vi.fn().mockResolvedValue({ plan: null, items: [] }),
+    completePlanItem: vi.fn(),
+    skipPlanItem: vi.fn(),
+    loadWrongbook: vi.fn().mockResolvedValue({ weak_points: [], evidence: [], count: 0, returned: 0, limit: 50, truncated: false }),
+    loadLatestEvaluation: vi.fn().mockResolvedValue({ evaluation: null }),
+    loadActivities: vi.fn().mockResolvedValue({ items: [], count: 0, returned: 0, limit: 50, truncated: false }),
     ...repositoryOverrides,
   };
   render(
