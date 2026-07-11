@@ -30,6 +30,7 @@ Copied to `web/public/` on each run (except where noted).
 | `kabuqina_hero_scene.svg` | Chat empty-state composite — cup + hero coaster + ground/contact shadows + steam |
 | `kabuqina_pill_scene.svg` | Companion pill composite — cup + pill coaster + shadows + steam |
 | `kabuqina_social_preview.svg` | Social / OG banner — 1280×640, white background, no steam |
+| `kabuqina_social_preview_v2.svg` | **Hand-tuned master** (no generator writes it) — `web/public/kabuqina_boot.svg` is its transparent-background derivative used by the boot pill |
 
 **Note:** The live app still renders chat hero and companion pill with **CSS**
 (`CompanionCup.tsx`, `index.css`). Scene SVGs are **material / export** assets;
@@ -42,13 +43,10 @@ geometry is tuned in `generate_mascot_scenes.py` (`cup_foot_nudge_down_rem`, etc
 | `kabuqina_mascot_{64,128,256,512}.png` | Mascot PNGs (transparent) | `Na_logo/` + `web/public/` |
 | `kabuqina_na_{16,32,48,128,256}.png` | **Na** app-mark PNGs | `Na_logo/` + `web/public/` |
 | `kabuqina_na.ico` | Windows ICO (multi-size) | `Na_logo/` + `web/public/` |
-| `kabuqina_social_preview.png` | Social / OG raster (legacy reference) | `Na_logo/` only |
-| `mascot.png` | Legacy full mascot export | `Na_logo/` only |
-| `mascot_wide.png` | Wide-layout mascot export | `Na_logo/` only |
-| `mascot_round_coaster.png` | Round avatar / coaster crop | `Na_logo/` only |
-| `mascot_square_standard.png` | Square avatar — standard crop | `Na_logo/` only |
-| `mascot_square_strong.png` | Square avatar — tighter crop | `Na_logo/` only |
-| `mascot_squre_coaster.*` | Coaster-style square crop (`.jpg` in `Na_logo/`, `.png` in `web/public/`) | mixed |
+
+Legacy exports (`mascot*.png`, `kabuqina_social_preview.png`) were pruned on
+2026-07-11 ahead of the private-repo move; regenerate from the scripts below
+if ever needed.
 
 ## Generator scripts (`Na_logo/`) — All Rights Reserved
 
@@ -60,7 +58,6 @@ are **proprietary brand tooling**, not Apache-2.0-licensed application code:
 | `generate_mascot.py` | `kabuqina_mascot.svg` + `kabuqina_mascot_*.png` → copies to `web/public/` |
 | `generate_mascot_scenes.py` | All scene/coaster SVGs above + `kabuqina_social_preview.svg` → copies to `web/public/` |
 | `generate_na_mark.py` | `kabuqina_na_*.png` + `kabuqina_na.ico` → copies to `web/public/` |
-| `fix_mascot_png_alpha.py` | Remove checkerboard / flat backdrop from legacy mascot PNGs (in-place) |
 
 From repo root:
 
@@ -96,5 +93,5 @@ and replace the artwork data.
 
 ## UI screenshots
 
-Product screenshots (`Na_logo/chat_*.png`, etc.) are covered separately under
+Product screenshots (`assets/ui/chat_*.png`, etc.) are covered separately under
 [assets/ui/](../ui/) — also All Rights Reserved.
