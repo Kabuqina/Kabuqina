@@ -8,6 +8,7 @@ import { useI18n } from "../lib/i18n";
 export function DraftInboxButton({ counts }: { counts: Readonly<Record<string, number>> }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   const total = Object.values(counts).reduce((sum, count) => sum + count, 0);
   const displayCount = total > 99 ? "99+" : String(total);
@@ -24,8 +25,19 @@ export function DraftInboxButton({ counts }: { counts: Readonly<Record<string, n
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.target instanceof Node && !root.current?.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [open]);
+
   return (
-    <div className="kq-study-menu-root">
+    <div className="kq-study-menu-root" ref={root}>
       <button
         ref={button}
         type="button"

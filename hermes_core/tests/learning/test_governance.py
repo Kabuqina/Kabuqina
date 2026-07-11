@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 from learning.learning_context import LearningExecutionContext
 from learning.learning_store import LearningStore
 from learning.output_writer import OutputWriter
@@ -64,6 +66,36 @@ def test_import_is_atomic_and_rejects_orphan_references(tmp_path):
         except ValueError as exc:
             assert "unknown artifact" in str(exc)
         assert store.list_spaces("owner") == []
+    finally:
+        store.close()
+
+def test_import_rejects_duplicate_primary_keys_with_a_validation_error(tmp_path):
+    store = LearningStore(db_path=tmp_path / "learning.db")
+    try:
+        source = LearningExecutionContext(store, "source")
+        source.create_space(title="Course", space_id="s")
+        artifact_id = OutputWriter(source).write_artifact(
+            kind="tutoring_note", title="Note", payload={"goal": "g", "hints": ["h"]}
+        )["artifact_id"]
+        source.upsert_item(
+            item_id="item", item_type="note", artifact_id=artifact_id, state={}
+        )
+        source.record_activity(activity_type="note.open", artifact_id=artifact_id)
+        source.mark_migration("legacy:test")
+        bundle = source.export_owner_bundle()
+
+        for section in ("spaces", "artifacts", "items", "activities", "migrations"):
+            invalid = deepcopy(bundle)
+            invalid[section].append(deepcopy(invalid[section][0]))
+            target_owner = f"target-{section}"
+            target = LearningExecutionContext(store, target_owner)
+            try:
+                target.import_owner_bundle(invalid)
+                assert False
+            except ValueError as exc:
+                assert "duplicate" in str(exc)
+            assert store.list_spaces(target_owner) == []
+            assert store.list_migrations(target_owner) == []
     finally:
         store.close()
 

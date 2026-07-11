@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
-  cmdStudyDrafts,
+  cmdStudyArtifactSummaries,
   cmdStudySpaces,
   cmdStudySpaceSelect,
   type StudyDraftsResponse,
@@ -46,7 +46,7 @@ export class StudyRepositoryError extends Error {
 export interface StudyRepository {
   listSpaces(signal: AbortSignal): Promise<StudySpaces>;
   selectSpace(spaceId: string, signal: AbortSignal): Promise<StudySpaces>;
-  listDrafts(signal: AbortSignal): Promise<StudyDraftInbox>;
+  listDrafts(spaceId: string, signal: AbortSignal): Promise<StudyDraftInbox>;
 }
 
 type DeskBridgeErrorPayload = {
@@ -68,13 +68,17 @@ function isDeskBridgeErrorPayload(error: unknown): error is DeskBridgeErrorPaylo
 type StudyCommands = {
   spaces: () => Promise<StudySpacesResponse>;
   selectSpace: (spaceId: string) => Promise<StudySpacesResponse>;
-  drafts: (kind?: string) => Promise<StudyDraftsResponse>;
+  draftSummary: (spaceId: string) => Promise<StudyDraftsResponse>;
 };
 
 const defaultCommands: StudyCommands = {
   spaces: cmdStudySpaces,
   selectSpace: cmdStudySpaceSelect,
-  drafts: cmdStudyDrafts,
+  draftSummary: (spaceId) => cmdStudyArtifactSummaries({
+    spaceId,
+    status: "draft",
+    limit: 1,
+  }),
 };
 
 function abortError(): DOMException {
@@ -154,8 +158,8 @@ export function createStudyRepository(commands: StudyCommands = defaultCommands)
     async selectSpace(spaceId, signal) {
       return mapSpaces(await invokeWithSignal(signal, () => commands.selectSpace(spaceId)));
     },
-    async listDrafts(signal) {
-      const response = await invokeWithSignal(signal, () => commands.drafts());
+    async listDrafts(spaceId, signal) {
+      const response = await invokeWithSignal(signal, () => commands.draftSummary(spaceId));
       return { total: response.count, kindCounts: response.kind_counts };
     },
   };

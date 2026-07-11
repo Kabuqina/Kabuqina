@@ -1,4 +1,5 @@
 from __future__ import annotations
+from copy import deepcopy
 import os, sys
 from pathlib import Path
 from unittest.mock import patch
@@ -79,11 +80,34 @@ def test_export_delete_import_roundtrip(client):
     bundle = http.get("/api/desk/study/data/export", headers=headers()).json()["bundle"]
     denied = http.request("DELETE", "/api/desk/study/data", json={"confirm":"no"}, headers=headers())
     assert denied.status_code == 400
+    assert denied.json()["detail"]["code"] == "study_invalid_request"
     deleted = http.request("DELETE", "/api/desk/study/data", json={"confirm":"DELETE ALL LEARNING DATA"}, headers=headers())
     assert deleted.json()["deleted"] is True
+    invalid = deepcopy(bundle)
+    invalid["artifacts"].append(deepcopy(invalid["artifacts"][0]))
+    rejected = http.post("/api/desk/study/data/import", json={"bundle": invalid}, headers=headers())
+    assert rejected.status_code == 400
+    assert rejected.json()["detail"]["code"] == "study_invalid_request"
+    assert http.get("/api/desk/study/drafts", headers=headers()).json()["count"] == 0
     imported = http.post("/api/desk/study/data/import", json={"bundle":bundle}, headers=headers())
     assert imported.json()["imported"]["artifacts"] == 3
     assert http.get("/api/desk/study/drafts", headers=headers()).json()["count"] == 3
+
+def test_governance_routes_preserve_the_study_error_contract(client):
+    http, _db = client
+    with patch("desk_server.routes.study_routes._desktop_ctx", side_effect=ValueError("unavailable")):
+        responses = [
+            http.get("/api/desk/study/data/export", headers=headers()),
+            http.request("DELETE", "/api/desk/study/data", json={"confirm":"DELETE ALL LEARNING DATA"}, headers=headers()),
+            http.get("/api/desk/study/migrations/status", headers=headers()),
+            http.get("/api/desk/study/migrations/failures/export", headers=headers()),
+        ]
+    for response in responses:
+        assert response.status_code == 400
+        assert response.json()["detail"] == {
+            "code": "study_invalid_request",
+            "message": "unavailable",
+        }
 
 def test_failed_migration_is_exportable(client):
     http, _db = client

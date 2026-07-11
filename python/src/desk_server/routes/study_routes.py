@@ -349,8 +349,11 @@ async def study_artifact_status(artifact_id: str, body: Dict[str, Any]):
 
 @router.get("/api/desk/study/data/export")
 async def study_data_export():
-    with _desktop_ctx() as ctx:
-        return {"bundle": ctx.export_owner_bundle()}
+    try:
+        with _desktop_ctx() as ctx:
+            return {"bundle": ctx.export_owner_bundle()}
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
 
 @router.post("/api/desk/study/data/import")
 async def study_data_import(body: Dict[str, Any]):
@@ -363,22 +366,31 @@ async def study_data_import(body: Dict[str, Any]):
 
 @router.delete("/api/desk/study/data")
 async def study_data_delete(body: Dict[str, Any]):
-    if body.get("confirm") != "DELETE ALL LEARNING DATA":
-        raise HTTPException(status_code=400, detail="explicit delete confirmation required")
-    with _desktop_ctx() as ctx:
-        return {"deleted": True, "counts": ctx.delete_all_learning_data()}
+    try:
+        if body.get("confirm") != "DELETE ALL LEARNING DATA":
+            raise ValueError("explicit delete confirmation required")
+        with _desktop_ctx() as ctx:
+            return {"deleted": True, "counts": ctx.delete_all_learning_data()}
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
 
 @router.get("/api/desk/study/migrations/status")
 async def study_migration_status():
-    with _desktop_ctx() as ctx:
-        rows = ctx.list_migrations()
-        return {"migrations": rows, "count": len(rows)}
+    try:
+        with _desktop_ctx() as ctx:
+            rows = ctx.list_migrations()
+            return {"migrations": rows, "count": len(rows)}
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
 
 @router.get("/api/desk/study/migrations/failures/export")
 async def study_migration_failures_export():
-    with _desktop_ctx() as ctx:
-        rows = ctx.list_migrations(status="failed")
-        return {"version": 1, "failures": rows, "count": len(rows)}
+    try:
+        with _desktop_ctx() as ctx:
+            rows = ctx.list_migrations(status="failed")
+            return {"version": 1, "failures": rows, "count": len(rows)}
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
 
 @router.get("/api/desk/study/wrongbook")
 async def study_wrongbook(limit: int = Query(default=50, ge=1, le=100)):

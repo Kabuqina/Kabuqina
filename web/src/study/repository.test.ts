@@ -10,8 +10,8 @@ const spacesResponse = {
 };
 
 describe("StudyRepository", () => {
-  it("maps spaces and requests drafts without a kind filter", async () => {
-    const drafts = vi.fn().mockResolvedValue({
+  it("maps spaces and requests the draft summary for the requested space", async () => {
+    const draftSummary = vi.fn().mockResolvedValue({
       items: [
         { artifact_id: "d1", kind: "flashcard_deck", title: "private", version: 1, status: "draft" },
         { artifact_id: "d2", kind: "quiz", title: "private", version: 1, status: "draft" },
@@ -27,7 +27,7 @@ describe("StudyRepository", () => {
     const repository = createStudyRepository({
       spaces: vi.fn().mockResolvedValue(spacesResponse),
       selectSpace: vi.fn().mockResolvedValue(spacesResponse),
-      drafts,
+      draftSummary,
     });
     const signal = new AbortController().signal;
 
@@ -35,11 +35,11 @@ describe("StudyRepository", () => {
       currentSpaceId: "space-a",
       spaces: [{ id: "space-a", title: "Linear Algebra", status: "active", isCurrent: true }],
     });
-    await expect(repository.listDrafts(signal)).resolves.toEqual({
+    await expect(repository.listDrafts("space-b", signal)).resolves.toEqual({
       total: 2,
       kindCounts: { flashcard_deck: 1, quiz: 1 },
     });
-    expect(drafts).toHaveBeenCalledWith();
+    expect(draftSummary).toHaveBeenCalledWith("space-b");
   });
 
   it("does not commit a result after cancellation", async () => {
@@ -47,7 +47,7 @@ describe("StudyRepository", () => {
     const repository = createStudyRepository({
       spaces: () => new Promise((done) => { resolve = done; }),
       selectSpace: vi.fn(),
-      drafts: vi.fn(),
+      draftSummary: vi.fn(),
     });
     const controller = new AbortController();
     const pending = repository.listSpaces(controller.signal);

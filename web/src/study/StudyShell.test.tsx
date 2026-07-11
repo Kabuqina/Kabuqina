@@ -1,7 +1,7 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -20,7 +20,13 @@ const spaces = {
 
 function Location() { return <output data-testid="location">{useLocation().pathname}</output>; }
 
-function renderShell(repositoryOverrides: Partial<StudyRepository> = {}) {
+function renderShell(
+  repositoryOverrides: Partial<StudyRepository> = {},
+  { spaceId = "space-a", page = "learn" }: {
+    spaceId?: string;
+    page?: "flyleaf" | "plan" | "learn" | "practice" | "evaluate";
+  } = {},
+) {
   const repository: StudyRepository = {
     listSpaces: vi.fn().mockResolvedValue(spaces),
     selectSpace: vi.fn().mockResolvedValue({ ...spaces, currentSpaceId: "space-b" }),
@@ -33,9 +39,9 @@ function renderShell(repositoryOverrides: Partial<StudyRepository> = {}) {
   render(
     <I18nProvider>
       <StudyRepositoryProvider repository={repository}>
-        <MemoryRouter initialEntries={["/study/space-a/learn"]}>
+        <MemoryRouter initialEntries={[`/study/${spaceId}/${page}`]}>
           <Location />
-          <StudyShell spaces={spaces} spaceId="space-a" page="learn" />
+          <StudyShell spaces={spaces} spaceId={spaceId} page={page} />
         </MemoryRouter>
       </StudyRepositoryProvider>
     </I18nProvider>,
@@ -57,6 +63,17 @@ describe("StudyShell", () => {
     expect(popover).toHaveTextContent("flashcard deck");
     expect(popover).toHaveTextContent("quiz");
     expect(popover).not.toHaveTextContent("private");
+  });
+
+  it("uses the URL space for drafts when it differs from the backend current space", async () => {
+    const listDrafts = vi.fn().mockResolvedValue({
+      total: 1,
+      kindCounts: { quiz: 1 },
+    });
+    renderShell({ listDrafts }, { spaceId: "space-b" });
+
+    await screen.findByLabelText("1 个草稿");
+    expect(listDrafts).toHaveBeenCalledWith("space-b", expect.any(AbortSignal));
   });
 
   it("keeps route and data when selecting a space fails", async () => {
@@ -101,5 +118,21 @@ describe("StudyShell", () => {
     expect(close).toHaveFocus();
     await user.keyboard("{Escape}");
     await waitFor(() => expect(trigger).toHaveFocus());
+  });
+
+  it("closes wide popovers when a pointer starts outside", async () => {
+    const user = userEvent.setup();
+    renderShell();
+
+    await user.click(screen.getByRole("button", { name: /Linear Algebra/ }));
+    expect(screen.getByRole("listbox", { name: "切换学习空间" })).toBeInTheDocument();
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByRole("listbox", { name: "切换学习空间" })).not.toBeInTheDocument();
+
+    const drafts = await screen.findByLabelText("2 个草稿");
+    await user.click(drafts.closest("button")!);
+    expect(screen.getByRole("dialog", { name: "草稿箱" })).toBeInTheDocument();
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByRole("dialog", { name: "草稿箱" })).not.toBeInTheDocument();
   });
 });

@@ -34,6 +34,17 @@ export function SpaceSwitcher({ spaces, currentSpaceId, pending, error, onSelect
     if (open) firstFocusable.current?.focus();
   }, [open]);
 
+  useEffect(() => {
+    if (!open || narrow) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.target instanceof Node && !root.current?.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [narrow, open]);
+
   const close = () => {
     setOpen(false);
     requestAnimationFrame(() => trigger.current?.focus());

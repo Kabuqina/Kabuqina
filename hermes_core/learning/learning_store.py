@@ -1011,6 +1011,8 @@ class LearningStore:
                 if not isinstance(row, dict):
                     raise ValueError("bundle space must be an object")
                 sid = _require(row.get("space_id"), "space_id")
+                if sid in space_ids:
+                    raise ValueError("bundle contains duplicate space_id")
                 space_ids.add(sid)
                 is_current = int(bool(row.get("is_current")))
                 current_spaces += is_current
@@ -1030,7 +1032,7 @@ class LearningStore:
                 )
                 counts["spaces"] += 1
 
-            artifact_ids: set[str] = set()
+            artifact_keys: set[tuple[str, str]] = set()
             for row in rows_by_section["artifacts"]:
                 if not isinstance(row, dict):
                     raise ValueError("bundle artifact must be an object")
@@ -1042,7 +1044,10 @@ class LearningStore:
                     raise ValueError("artifact envelope must be an object")
                 env = validate_envelope({**envelope, "space_id": sid})
                 aid = _require(row.get("artifact_id"), "artifact_id")
-                artifact_ids.add(aid)
+                artifact_key = (sid, aid)
+                if artifact_key in artifact_keys:
+                    raise ValueError("bundle contains duplicate artifact_id within a space")
+                artifact_keys.add(artifact_key)
                 status = str(row.get("status") or "draft")
                 if status not in {"draft", "active", "rejected", "archived"}:
                     raise ValueError("invalid artifact status")
@@ -1067,6 +1072,7 @@ class LearningStore:
                 )
                 counts["artifacts"] += 1
 
+            item_keys: set[tuple[str, str]] = set()
             for row in rows_by_section["items"]:
                 if not isinstance(row, dict):
                     raise ValueError("bundle item must be an object")
@@ -1074,9 +1080,13 @@ class LearningStore:
                 if sid not in space_ids:
                     raise ValueError("item references unknown space")
                 artifact_id = row.get("artifact_id")
-                if artifact_id and artifact_id not in artifact_ids:
+                if artifact_id and (sid, artifact_id) not in artifact_keys:
                     raise ValueError("item references unknown artifact")
                 item_id = _require(row.get("item_id"), "item_id")
+                item_key = (sid, item_id)
+                if item_key in item_keys:
+                    raise ValueError("bundle contains duplicate item_id within a space")
+                item_keys.add(item_key)
                 state = row.get("state") or {}
                 if not isinstance(state, dict):
                     raise ValueError("item state must be an object")
@@ -1095,6 +1105,7 @@ class LearningStore:
                 )
                 counts["items"] += 1
 
+            activity_keys: set[tuple[str, str]] = set()
             for row in rows_by_section["activities"]:
                 if not isinstance(row, dict):
                     raise ValueError("bundle activity must be an object")
@@ -1103,6 +1114,11 @@ class LearningStore:
                     raise ValueError("activity references unknown space")
                 artifact_id = row.get("artifact_id")
                 item_id = row.get("item_id")
+                activity_id = _require(row.get("activity_id"), "activity_id")
+                activity_key = (sid, activity_id)
+                if activity_key in activity_keys:
+                    raise ValueError("bundle contains duplicate activity_id within a space")
+                activity_keys.add(activity_key)
                 # Activity evidence intentionally survives artifact/item cleanup,
                 # so these two references are weak and may be dangling in a
                 # valid exported bundle.
@@ -1114,7 +1130,7 @@ class LearningStore:
                     (
                         owner_id,
                         sid,
-                        _require(row.get("activity_id"), "activity_id"),
+                        activity_id,
                         _require(row.get("activity_type"), "activity_type"),
                         artifact_id,
                         item_id,
@@ -1124,6 +1140,7 @@ class LearningStore:
                 )
                 counts["activities"] += 1
 
+            migration_keys: set[str] = set()
             for row in rows_by_section["migrations"]:
                 if not isinstance(row, dict):
                     raise ValueError("bundle migration must be an object")
@@ -1133,11 +1150,15 @@ class LearningStore:
                 detail = row.get("detail") or {}
                 if not isinstance(detail, dict):
                     raise ValueError("migration detail must be an object")
+                migration_key = _require(row.get("migration_key"), "migration_key")
+                if migration_key in migration_keys:
+                    raise ValueError("bundle contains duplicate migration_key")
+                migration_keys.add(migration_key)
                 conn.execute(
                     "INSERT INTO learning_migrations (owner_id,migration_key,status,detail_json,created_at) VALUES (?,?,?,?,?)",
                     (
                         owner_id,
-                        _require(row.get("migration_key"), "migration_key"),
+                        migration_key,
                         status,
                         json.dumps(detail, ensure_ascii=False),
                         str(row.get("created_at") or _now()),

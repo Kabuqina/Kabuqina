@@ -34,7 +34,7 @@ export function StudyShell({ spaces, spaceId, page, onRevalidate, refreshing = f
   const loadDrafts = useCallback(() => {
     if (!spaceId) { setDraftCounts({}); return; }
     const request = draftRequests.current.begin();
-    void repository.listDrafts(request.signal).then((drafts) => {
+    void repository.listDrafts(spaceId, request.signal).then((drafts) => {
       if (!draftRequests.current.isCurrent(request.generation)) return;
       setDraftCounts({ ...drafts.kindCounts });
     }, () => undefined);

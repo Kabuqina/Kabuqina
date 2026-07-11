@@ -266,3 +266,11 @@ summary/count query 已接入草稿箱。
 返回。Python STUDY routes 为 400/404/409 提供稳定机器码，Web repository
 按 code/status 映射且不解析或渲染 detail。Rust 3 tests、Python route
 17 tests、Web 21 component tests 与 lint/TypeScript 均通过。
+
+**D-1.1 review closure（2026-07-11）：** 草稿摘要查询现在始终显式携带
+URL 的 `spaceId`，不会在可恢复深链中错误读取后端 current space，且不会因为
+打开 URL 隐式切换学习空间。数据导出、删除与迁移治理端点统一返回结构化 STUDY
+错误；导入会预先验证各表主键重复和 item 的同 space artifact 引用，把损坏 bundle
+稳定映射为 400 而非 SQLite 500。宽屏空间切换器和草稿箱支持外点关闭，Escape
+保留原有焦点归还行为。回归：前端定向 10 tests、core/desk 11 tests、完整
+component suite、chat UX、lint、TypeScript 与 production build 均通过。
