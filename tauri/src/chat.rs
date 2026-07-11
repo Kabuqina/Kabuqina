@@ -64,14 +64,96 @@ pub(crate) fn streaming_http_client() -> reqwest::Client {
         .expect("reqwest streaming client")
 }
 
+/// Stable error envelope for Tauri commands that proxy the trusted desk API.
+/// `status` is absent for transport/startup failures and preserved for HTTP
+/// failures. Web callers must branch on `code`, never parse `detail`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DeskBridgeError {
+    pub status: Option<u16>,
+    pub code: String,
+    pub detail: String,
+}
+
+impl DeskBridgeError {
+    pub(crate) fn new(
+        status: Option<u16>,
+        code: impl Into<String>,
+        detail: impl Into<String>,
+    ) -> Self {
+        Self {
+            status,
+            code: code.into(),
+            detail: detail.into(),
+        }
+    }
+
+    pub(crate) fn invalid(code: impl Into<String>, detail: impl Into<String>) -> Self {
+        Self::new(Some(400), code, detail)
+    }
+
+    fn from_http_payload(status: reqwest::StatusCode, payload: &Value) -> Self {
+        let detail_value = payload.get("detail");
+        let code = payload
+            .pointer("/error/code")
+            .and_then(Value::as_str)
+            .or_else(|| payload.get("error").and_then(Value::as_str))
+            .or_else(|| {
+                detail_value
+                    .and_then(|value| value.get("code"))
+                    .and_then(Value::as_str)
+            })
+            .map(str::to_string)
+            .unwrap_or_else(|| format!("http_{}", status.as_u16()));
+        let detail = payload
+            .pointer("/error/detail")
+            .and_then(Value::as_str)
+            .or_else(|| {
+                detail_value
+                    .and_then(|value| value.get("message"))
+                    .and_then(Value::as_str)
+            })
+            .or_else(|| detail_value.and_then(Value::as_str))
+            .unwrap_or("Desk request failed")
+            .to_string();
+        Self::new(Some(status.as_u16()), code, detail)
+    }
+}
+
+impl std::fmt::Display for DeskBridgeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.status {
+            Some(status) => write!(f, "{} (HTTP {status}): {}", self.code, self.detail),
+            None => write!(f, "{}: {}", self.code, self.detail),
+        }
+    }
+}
+
+impl std::error::Error for DeskBridgeError {}
+
 pub(crate) async fn desk_json_request(
     app: &AppHandle,
     method: reqwest::Method,
     path: &str,
     body: Option<Value>,
 ) -> Result<Value, String> {
-    let base = hermes_base(app).await?;
-    let token = desk_auth_header(app).await?;
+    desk_json_request_structured(app, method, path, body)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+pub(crate) async fn desk_json_request_structured(
+    app: &AppHandle,
+    method: reqwest::Method,
+    path: &str,
+    body: Option<Value>,
+) -> Result<Value, DeskBridgeError> {
+    let base = hermes_base(app)
+        .await
+        .map_err(|detail| DeskBridgeError::new(None, "desk_not_ready", detail))?;
+    let token = desk_auth_header(app)
+        .await
+        .map_err(|detail| DeskBridgeError::new(None, "desk_auth_not_ready", detail))?;
     let client = http_client();
     let mut req = client
         .request(method, format!("{base}{path}"))
@@ -82,20 +164,16 @@ pub(crate) async fn desk_json_request(
     if let Some(body) = body {
         req = req.header("Content-Type", "application/json").json(&body);
     }
-    let res = req.send().await.map_err(|e| e.to_string())?;
+    let res = req
+        .send()
+        .await
+        .map_err(|error| DeskBridgeError::new(None, "desk_transport_error", error.to_string()))?;
     let status = res.status();
-    let v = desk_response_json(res).await?;
+    let v = desk_response_json(res).await.map_err(|detail| {
+        DeskBridgeError::new(Some(status.as_u16()), "desk_invalid_response", detail)
+    })?;
     if !status.is_success() {
-        let err = v
-            .get("error")
-            .and_then(Value::as_str)
-            .unwrap_or("request_failed");
-        let detail = v.get("detail").and_then(Value::as_str).unwrap_or("");
-        return Err(if detail.is_empty() {
-            err.to_string()
-        } else {
-            format!("{err}: {detail}")
-        });
+        return Err(DeskBridgeError::from_http_payload(status, &v));
     }
     Ok(v)
 }
@@ -841,5 +919,46 @@ pub async fn cmd_get_kabuqina_boot_state(app: AppHandle) -> Result<KabuqinaBootS
             port: Some(port),
             warming: true,
         }),
+    }
+}
+
+#[cfg(test)]
+mod desk_bridge_error_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn preserves_http_status_code_and_safe_detail() {
+        let error = DeskBridgeError::from_http_payload(
+            reqwest::StatusCode::NOT_FOUND,
+            &json!({
+                "detail": {
+                    "code": "study_not_found",
+                    "message": "space was not found"
+                }
+            }),
+        );
+        assert_eq!(error.status, Some(404));
+        assert_eq!(error.code, "study_not_found");
+        assert_eq!(error.detail, "space was not found");
+        assert_eq!(
+            serde_json::to_value(error).unwrap(),
+            json!({
+                "status": 404,
+                "code": "study_not_found",
+                "detail": "space was not found"
+            })
+        );
+    }
+
+    #[test]
+    fn gives_legacy_http_errors_a_stable_fallback_code() {
+        let error = DeskBridgeError::from_http_payload(
+            reqwest::StatusCode::BAD_REQUEST,
+            &json!({"detail": "legacy detail"}),
+        );
+        assert_eq!(error.status, Some(400));
+        assert_eq!(error.code, "http_400");
+        assert_eq!(error.detail, "legacy detail");
     }
 }
