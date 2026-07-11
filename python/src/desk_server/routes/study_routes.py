@@ -18,6 +18,7 @@ from learning.learning_contract import ContractError
 from learning.learning_plans import LearningPlanService
 from learning.learning_store import LearningStore
 from learning.output_writer import OutputWriter
+from learning.practice_generator import PracticeGenerator
 from learning.quizzes import QuizService
 from learning.student_state import LEGACY_CONTEXT_MIGRATION_KEY, StudentStateService
 from learning_owner import desktop_learning_scope
@@ -511,6 +512,24 @@ async def study_quiz_submit(artifact_id: str, body: Dict[str, Any]):
         with _desktop_ctx() as ctx:
             responses = body.get("responses") if isinstance(body.get("responses"), dict) else {}
             return QuizService(ctx).submit_attempt(artifact_id, responses)
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+
+@router.post("/api/desk/study/quizzes/{artifact_id}/practice")
+async def study_quiz_generate_practice(artifact_id: str, body: Dict[str, Any]):
+    """Create a reviewable deterministic transcription or variant quiz draft."""
+    try:
+        with _desktop_ctx() as ctx:
+            item_id = _clean_text(body.get("item_id"))
+            practice_kind = _clean_text(body.get("practice_kind"))
+            if not item_id:
+                raise ValueError("item_id is required")
+            return PracticeGenerator(ctx).generate(
+                artifact_id=artifact_id,
+                item_id=item_id,
+                practice_kind=practice_kind,
+            )
     except (ValueError, KeyError, ContractError) as exc:
         raise _http_error(exc) from exc
 

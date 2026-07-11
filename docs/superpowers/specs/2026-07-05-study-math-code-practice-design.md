@@ -3,7 +3,8 @@
 **日期：** 2026-07-05
 
 **状态：** 已确认方向。结构性搬迁已进 v0.3.0（雏形）;v0.4.0 的后端
-练习契约与判分器已实施，交互面（B-3）仍待完成；完整梯子交互归 v0.5.0。
+练习契约、判分器和 B-3 的确定性草稿生成已实施；编辑器/推导板交互面
+（D-3）仍待完成，完整梯子交互归 v0.5.0。
 
 **范围：** ACADEMY 标签改名 REPORT;数学能力族迁入 STUDY 成为
 「数学与代码」;定义符合学习产品原则的练习系统（五级梯子）、练习数据
@@ -187,6 +188,13 @@ id 保持不变。D 类转换 capability 的现有 `available` 状态来自其�
 - 返回的 `perQuestion` 可供 UI 显示 `correct`、`earned`、`mode`、
   `timed_out`、`ungraded`、`gradable`、`ungraded_steps`、`failure_kind` 和
   UI-only `failure_summary`；不要把后者转交模型、写入 analytics 或缓存。
+- `POST /api/desk/study/quizzes/{artifact_id}/practice` 接收
+  `{"item_id": "...", "practice_kind": "transcribe|variant"}`，只接受
+  active 源题。成功返回一个待审核的 quiz draft；`variant` 目前只对具有
+  `reference` 和 `test_code` 的 Python 顶层函数启用，并在落库前运行变换后
+  的参考实现自检。模板无法安全适用时返回
+  `{"generated": false, "fallback": "model_draft_required"}`，由既有
+  `learning_draft_create` 路径承担模型兜底，绝不在 trusted route 内调用模型。
 
 ## 6. 交互演进
 

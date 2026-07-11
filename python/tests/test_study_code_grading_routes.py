@@ -102,3 +102,29 @@ def test_code_question_route_hides_secrets_and_runs_active_sandbox(study_client)
     assert result["maxScore"] == 2
     assert result["perQuestion"][0]["mode"] == "solve"
     assert result["perQuestion"][0]["timed_out"] is False
+
+
+def test_practice_route_creates_a_reviewable_self_checked_variant_draft(study_client):
+    client, db_path = study_client
+    artifact_id = _seed_code_quiz(db_path)
+    client.post(f"/api/desk/study/artifacts/{artifact_id}/activate", headers=_headers())
+    question = client.get(
+        f"/api/desk/study/quizzes/{artifact_id}/questions", headers=_headers()
+    ).json()["questions"][0]
+
+    generated = client.post(
+        f"/api/desk/study/quizzes/{artifact_id}/practice",
+        json={"item_id": question["item_id"], "practice_kind": "variant"},
+        headers=_headers(),
+    )
+
+    assert generated.status_code == 200
+    result = generated.json()
+    assert result["generated"] is True
+    assert result["status"] == "draft"
+    assert result["self_checked"] is True
+
+    drafts = client.get("/api/desk/study/drafts?kind=quiz", headers=_headers())
+    assert [draft["artifact_id"] for draft in drafts.json()["drafts"]] == [
+        result["artifact_id"]
+    ]
