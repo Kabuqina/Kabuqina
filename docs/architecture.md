@@ -116,7 +116,7 @@ Later   User opens full Hermes UI → navigate WebView to http://127.0.0.1:N/…
 ## Failure modes
 
 - **Python won't start:** `wait_for_port()` times out at 30s; we show a
-Tauri dialog with the last 50 lines of `hermesdesk.log` and a "Reopen"
+Tauri dialog with the last 50 lines of `kabuqina.log` and a "Reopen"
 button.
 - **No API key set:** Splash sees `cmd_has_secret == false` and routes to onboarding (unless the user previously chose “configure later”, which can land on `/chat` with limited behavior — see shell `apiKeyGate`).
 - **Provider rejects key:** Onboarding `validateKey` shows a friendly

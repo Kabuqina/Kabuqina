@@ -24,7 +24,7 @@ from typing import Any, Callable, Optional
 from urllib.parse import unquote, urljoin, urlparse
 from urllib.request import Request, urlopen
 
-log = logging.getLogger("hermesdesk.docling_math")
+log = logging.getLogger("kabuqina.docling_math")
 
 ProgressFn = Callable[[dict[str, Any]], None]
 

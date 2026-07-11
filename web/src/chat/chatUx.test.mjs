@@ -1089,42 +1089,42 @@ assert.match(indexCssSource, /kq-workspace-card[\s\S]*border-radius:\s*var\(--ra
 assert.match(indexCssSource, /hd-glass-subtle[\s\S]*border-radius:\s*var\(--radius-shell-lg\)/);
 
 const {
-  getCachedHermesReadiness,
+  getCachedKabuqinaReadiness,
   snapshotFromBootState,
-  updateHermesReadinessCache,
-} = await importTs("./hermesReadinessCache.ts");
-const useHermesReadinessSource = fs.readFileSync(
-  new URL("./hooks/useHermesReadiness.ts", import.meta.url),
+  updateKabuqinaReadinessCache,
+} = await importTs("./kabuqinaReadinessCache.ts");
+const useKabuqinaReadinessSource = fs.readFileSync(
+  new URL("./hooks/useKabuqinaReadiness.ts", import.meta.url),
   "utf8",
 );
 
-assert.deepEqual(getCachedHermesReadiness(), {
-  hermesReady: false,
-  hermesWarming: false,
+assert.deepEqual(getCachedKabuqinaReadiness(), {
+  kabuqinaReady: false,
+  kabuqinaWarming: false,
   bootErr: null,
 });
 
 assert.deepEqual(snapshotFromBootState({ port: 12345, warming: false }), {
-  hermesReady: true,
-  hermesWarming: false,
+  kabuqinaReady: true,
+  kabuqinaWarming: false,
   bootErr: null,
 });
 
-assert.deepEqual(updateHermesReadinessCache({ port: 12345, warming: false }, null), {
-  hermesReady: true,
-  hermesWarming: false,
+assert.deepEqual(updateKabuqinaReadinessCache({ port: 12345, warming: false }, null), {
+  kabuqinaReady: true,
+  kabuqinaWarming: false,
   bootErr: null,
 });
 
-assert.deepEqual(getCachedHermesReadiness(), {
-  hermesReady: true,
-  hermesWarming: false,
+assert.deepEqual(getCachedKabuqinaReadiness(), {
+  kabuqinaReady: true,
+  kabuqinaWarming: false,
   bootErr: null,
 });
 
 assert.match(
-  useHermesReadinessSource,
-  /getCachedHermesReadiness[\s\S]*updateHermesReadinessCache/,
+  useKabuqinaReadinessSource,
+  /getCachedKabuqinaReadiness[\s\S]*updateKabuqinaReadinessCache/,
   "Chat readiness hook should seed UI from a route-surviving cache.",
 );
 

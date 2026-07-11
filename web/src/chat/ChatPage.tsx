@@ -28,7 +28,7 @@ import { drainDesktopDeliveries } from "../lib/desktopDeliveryFeed";
 import { getAllowChatWithoutApi } from "../lib/apiKeyGate";
 import { ShellModal } from "../components/ShellModal";
 import { clearDraft } from "../lib/store";
-import { useHermesReadiness } from "./hooks/useHermesReadiness";
+import { useKabuqinaReadiness } from "./hooks/useKabuqinaReadiness";
 import { useSessions } from "./hooks/useSessions";
 import { useChatState } from "./hooks/useChatState";
 import { useSendMessage } from "./hooks/useSendMessage";
@@ -188,10 +188,10 @@ export function ChatPage() {
   // send button disabled and a "configure model" prompt.
   const [needsModelSetup, setNeedsModelSetup] = useState(false);
 
-  const { hermesReady, hermesWarming, bootErr } = useHermesReadiness();
+  const { kabuqinaReady, kabuqinaWarming, bootErr } = useKabuqinaReadiness();
   const inFlightTurns = useInFlightTurns();
   const { sessions, listLoading, loadSessions, deleteSession } = useSessions({
-    hermesReady: hermesReady && !hermesWarming,
+    kabuqinaReady: kabuqinaReady && !kabuqinaWarming,
   });
   const {
     activeSessionId,
@@ -236,7 +236,7 @@ export function ChatPage() {
     locale,
     inFlightTurns,
   });
-  const loadPackageDownloads = useLoadPackageDownloads(hermesReady && !hermesWarming);
+  const loadPackageDownloads = useLoadPackageDownloads(kabuqinaReady && !kabuqinaWarming);
   const workspace = useMemo(
     () => buildWorkspaceState(messages, pendingAttachments, progress, sending),
     [messages, pendingAttachments, progress, sending],
@@ -246,11 +246,11 @@ export function ChatPage() {
     if (isOpenReminderSession(location.state) || isFromOnboarding(location.state) || getDraftPrompt(location.state)) {
       return;
     }
-    if (!hermesReady || hermesWarming || listLoading || activeSessionId) {
+    if (!kabuqinaReady || kabuqinaWarming || listLoading || activeSessionId) {
       return;
     }
     restorePersistedSession(sessions);
-  }, [activeSessionId, hermesReady, hermesWarming, listLoading, location.state, restorePersistedSession, sessions]);
+  }, [activeSessionId, kabuqinaReady, kabuqinaWarming, listLoading, location.state, restorePersistedSession, sessions]);
 
   useEffect(() => {
     if (isOpenReminderSession(location.state)) {
@@ -261,12 +261,12 @@ export function ChatPage() {
     if (!takePendingOpenReminderSession()) {
       return;
     }
-    if (!hermesReady || hermesWarming) {
+    if (!kabuqinaReady || kabuqinaWarming) {
       armPendingOpenReminderSession();
       return;
     }
     void openReminderSession(t("cron.reminderLogEmpty"));
-  }, [hermesReady, hermesWarming, location.state, nav, openReminderSession, t]);
+  }, [kabuqinaReady, kabuqinaWarming, location.state, nav, openReminderSession, t]);
 
   useEffect(() => {
     if (isFromOnboarding(location.state)) {
@@ -321,7 +321,7 @@ export function ChatPage() {
 
   // Refresh sidebar + reminder transcript when cron/desktop deliveries arrive.
   useEffect(() => {
-    if (!hermesReady || hermesWarming) {
+    if (!kabuqinaReady || kabuqinaWarming) {
       return;
     }
     let cancelled = false;
@@ -350,7 +350,7 @@ export function ChatPage() {
       window.clearInterval(handle);
       unlisten.then((fn) => fn());
     };
-  }, [activeSessionId, hermesReady, hermesWarming, loadSessions, refreshActiveThread]);
+  }, [activeSessionId, kabuqinaReady, kabuqinaWarming, loadSessions, refreshActiveThread]);
 
   const handleOrganizeDesktop = useCallback(async () => {
     const ok = await confirm({
@@ -452,7 +452,7 @@ export function ChatPage() {
     );
   }
 
-  if (!hermesReady || hermesWarming) {
+  if (!kabuqinaReady || kabuqinaWarming) {
     return (
       <AppScaffold surface="chat" className="flex h-full flex-col items-center justify-center">
         <BootPill />

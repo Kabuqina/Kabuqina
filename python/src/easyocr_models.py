@@ -26,7 +26,7 @@ from typing import Any, Callable, Optional
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
-log = logging.getLogger("hermesdesk.easyocr")
+log = logging.getLogger("kabuqina.easyocr")
 
 ProgressFn = Callable[[dict[str, Any]], None]
 

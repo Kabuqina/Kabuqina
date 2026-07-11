@@ -199,7 +199,9 @@ LEARNING_KQ_KP_GUIDANCE = (
     "app renders it separately."
 )
 
-LEARNING_KQ_KP_PLATFORMS = frozenset({"hermesdesk"})
+# ``hermesdesk`` is retained for one release so an older desktop shell keeps
+# receiving the structured trailer while the product surface moves to Kabuqina.
+LEARNING_KQ_KP_PLATFORMS = frozenset({"kabuqina", "hermesdesk"})
 
 
 def build_learning_conduct_guidance(platform: Optional[str] = None) -> str:

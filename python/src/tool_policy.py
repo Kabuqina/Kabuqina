@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 import os
 
-log = logging.getLogger("hermesdesk.toolset")
+log = logging.getLogger("kabuqina.toolset")
 
 KEEP_LIST = [
     "web", "file", "vision", "image_gen", "tts", "skills", "clock", "todo", "browser",

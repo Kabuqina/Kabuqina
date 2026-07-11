@@ -583,7 +583,7 @@ Windows 上任何 `os.kill(pid, 0)` 调用都需要 catch `OSError`，不可仅�
 **Symptom**
 
 * Chat page shows **正在连接本机助手…** or **正在加载助手模块…** for 10–40+ seconds on first launch.
-* `%LOCALAPPDATA%\com.kabuqina.app\logs\hermesdesk.log` shows long gaps between `starting HermesDesk Python` and `bound port`.
+* `%LOCALAPPDATA%\com.kabuqina.app\logs\kabuqina.log` shows long gaps between `starting HermesDesk Python` and `bound port`.
 
 **Root cause**
 
@@ -595,7 +595,7 @@ Windows 上任何 `os.kill(pid, 0)` 调用都需要 catch `OSError`，不可仅�
 
 * Read segmented timings:
   * Rust: Tauri log lines `bootstrap bridge_ms=`, `bootstrap python_spawn_ms=`, `bootstrap port_wait_ms=`, `bootstrap total_ms=`.
-  * Python: `boot timing deps_ms=`, `overlays_ms=`, `desk_server_import_ms=`, `port_write_ms=` in `hermesdesk.log`.
+  * Python: `boot timing deps_ms=`, `overlays_ms=`, `desk_server_import_ms=`, `port_write_ms=` in `kabuqina.log`.
   * Web (dev): browser console `[kabuqina] hermes_ready_ms=`.
 * Desk-minimal mode (`HERMESDESK_DESK_MINIMAL=1`) defers tool/plugin discovery to a background warm thread; `/api/status` reports `desk_warming: true` until warm completes.
 * Release builds exclude `hermes_cli/web_dist` by default (`build_bundle.ps1` without `-BuildHermesDashboard`).

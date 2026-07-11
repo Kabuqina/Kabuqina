@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse
 from load_packages import delete_package, list_load_packages, package_status, start_download_package
 
 router = APIRouter()
-log = logging.getLogger("hermesdesk.load_packages")
+log = logging.getLogger("kabuqina.load_packages")
 
 
 def _error_response(code: str, exc: Exception, status_code: int = 500) -> JSONResponse:

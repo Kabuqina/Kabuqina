@@ -60,8 +60,8 @@ assert.ok(
 );
 
 assert.ok(
-  libSource.includes("cmd_get_hermes_desk_boot_state"),
-  "Shell boot UI should read desk warm state via cmd_get_hermes_desk_boot_state.",
+  libSource.includes("cmd_get_kabuqina_boot_state"),
+  "Shell boot UI should read desk warm state via cmd_get_kabuqina_boot_state.",
 );
 
 const pythonSupervisor = fs.readFileSync(

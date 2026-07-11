@@ -13,7 +13,7 @@ import logging
 import os
 import urllib.request
 
-log = logging.getLogger("hermesdesk.secret")
+log = logging.getLogger("kabuqina.secret")
 
 _PROVIDER_ENV: dict[str, str] = {
     "deepseek":   "DEEPSEEK_API_KEY",

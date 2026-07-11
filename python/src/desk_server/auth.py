@@ -84,9 +84,17 @@ def install_middleware(app) -> None:
         if path.startswith("/api/") and path not in PUBLIC_API_PATHS:
             if has_valid_session_token(request):
                 return await call_next(request)
-            bridge_secret = (os.environ.get("HERMESDESK_BRIDGE_SECRET") or "").strip()
+            bridge_secret = (
+                os.environ.get("KABUQINA_BRIDGE_SECRET")
+                or os.environ.get("HERMESDESK_BRIDGE_SECRET")
+                or ""
+            ).strip()
             if bridge_secret:
-                desk_auth = (request.headers.get("x-hermesdesk-auth") or "").strip()
+                desk_auth = (
+                    request.headers.get("x-kabuqina-auth")
+                    or request.headers.get("x-hermesdesk-auth")
+                    or ""
+                ).strip()
                 if desk_auth and hmac.compare_digest(
                     desk_auth.encode("utf-8"), bridge_secret.encode("utf-8")
                 ):

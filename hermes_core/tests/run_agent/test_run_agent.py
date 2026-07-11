@@ -904,7 +904,27 @@ class TestBuildSystemPrompt:
         assert "Learning conduct" in prompt
         assert "```kq-kp" not in prompt
 
-    def test_hermesdesk_platform_includes_kq_kp_protocol(self):
+    def test_kabuqina_platform_includes_kq_kp_protocol(self):
+        with (
+            patch("run_agent.get_tool_definitions", return_value=_make_tool_defs("web_search")),
+            patch("run_agent.check_toolset_requirements", return_value={}),
+            patch("run_agent.OpenAI"),
+        ):
+            agent = AIAgent(
+                api_key="test-k...7890",
+                base_url="https://openrouter.ai/api/v1",
+                quiet_mode=True,
+                skip_context_files=True,
+                skip_memory=True,
+                platform="kabuqina",
+            )
+
+        prompt = agent._build_system_prompt()
+
+        assert "Learning conduct" in prompt
+        assert "```kq-kp" in prompt
+
+    def test_legacy_hermesdesk_platform_keeps_kq_kp_protocol(self):
         with (
             patch("run_agent.get_tool_definitions", return_value=_make_tool_defs("web_search")),
             patch("run_agent.check_toolset_requirements", return_value={}),
@@ -919,10 +939,7 @@ class TestBuildSystemPrompt:
                 platform="hermesdesk",
             )
 
-        prompt = agent._build_system_prompt()
-
-        assert "Learning conduct" in prompt
-        assert "```kq-kp" in prompt
+        assert "```kq-kp" in agent._build_system_prompt()
 
     def test_learning_conduct_survives_custom_soul(self):
         # A user-customized SOUL.md replaces the identity slot but must not

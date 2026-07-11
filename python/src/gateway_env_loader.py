@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Iterable
 from urllib.parse import urlparse
 
-log = logging.getLogger("hermesdesk.gateway.env")
+log = logging.getLogger("kabuqina.gateway.env")
 
 _LOADED = False
 

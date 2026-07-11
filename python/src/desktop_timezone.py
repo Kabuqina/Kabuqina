@@ -27,7 +27,7 @@ import re
 import sys
 from pathlib import Path
 
-log = logging.getLogger("hermesdesk.timezone")
+log = logging.getLogger("kabuqina.timezone")
 
 _TZ_LINE = re.compile(r"^\s*timezone\s*:\s*(.+?)\s*$", re.IGNORECASE | re.MULTILINE)
 

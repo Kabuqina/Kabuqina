@@ -19,7 +19,7 @@ from typing import Any, Callable, Optional
 import docling_base_models as dbm
 import docling_math_models as dmm
 
-log = logging.getLogger("hermesdesk.load_packages")
+log = logging.getLogger("kabuqina.load_packages")
 
 StatusFn = Callable[[], dict[str, Any]]
 ProgressFn = Callable[[dict[str, Any]], None]

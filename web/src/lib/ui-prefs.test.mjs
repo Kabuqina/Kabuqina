@@ -15,11 +15,14 @@ const companionPillSource = fs.readFileSync(
 const mainSource = fs.readFileSync(new URL("../main.tsx", import.meta.url), "utf8");
 
 assert.match(uiPrefsSource, /export type ThemeMode = "system" \| "light" \| "dark"/);
-assert.match(uiPrefsSource, /export const THEME_MODE_KEY = "hermesdesk\.ui\.themeMode"/);
+assert.match(uiPrefsSource, /export const THEME_MODE_KEY = "kabuqina\.ui\.themeMode"/);
+assert.match(uiPrefsSource, /LEGACY_THEME_MODE_KEY = "hermesdesk\.ui\.themeMode"/);
+assert.match(uiPrefsSource, /readAndMigrate\(THEME_MODE_KEY, LEGACY_THEME_MODE_KEY\)/);
 assert.match(uiPrefsSource, /export function applyTheme/);
 assert.match(uiPrefsSource, /export function useThemeMode/);
 assert.match(uiPrefsSource, /prefers-color-scheme: dark/);
 
+assert.match(indexHtmlSource, /kabuqina\.ui\.themeMode/);
 assert.match(indexHtmlSource, /hermesdesk\.ui\.themeMode/);
 assert.match(indexHtmlSource, /dataset\.themeMode/);
 assert.match(indexHtmlSource, /dataset\.theme = dark \? "dark" : "light"/);
@@ -31,7 +34,8 @@ assert.match(settingsDisplaySource, /settings\.themeTitle/);
 assert.match(settingsDisplaySource, /onSetThemeMode/);
 assert.match(mainSource, /applyTheme\(\)/);
 
-assert.match(uiPrefsSource, /CUSTOM_COMPANION_IMAGE_KEY\s*=\s*"hermesdesk\.ui\.customCompanionImage"/);
+assert.match(uiPrefsSource, /CUSTOM_COMPANION_IMAGE_KEY\s*=\s*"kabuqina\.ui\.customCompanionImage"/);
+assert.match(uiPrefsSource, /LEGACY_CUSTOM_COMPANION_IMAGE_KEY = "hermesdesk\.ui\.customCompanionImage"/);
 assert.match(uiPrefsSource, /MAX_CUSTOM_COMPANION_IMAGE_BYTES\s*=\s*1024 \* 1024/);
 assert.match(uiPrefsSource, /validateCustomCompanionImageFile/);
 assert.match(uiPrefsSource, /image\/png[\s\S]*image\/webp[\s\S]*image\/svg\+xml/);

@@ -640,7 +640,7 @@ def _desk_chat_build_agent(session_id: str, db: Any, *, warmup: bool = False) ->
 
     kwargs: Dict[str, Any] = {
         "model": default_model,
-        "platform": "hermesdesk",
+        "platform": "kabuqina",
         "session_id": session_id,
         "session_db": db,
         "max_iterations": max_turns,

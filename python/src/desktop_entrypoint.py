@@ -5,7 +5,7 @@
 
 Spawned by the Tauri shell. Responsibilities:
 
-  1. Configure logging under ``HERMESDESK_DATA_DIR`` (Tauri: e.g. ``%LOCALAPPDATA%\\com.hermesdesk.app``).
+  1. Configure logging under ``HERMESDESK_DATA_DIR`` (Tauri: e.g. ``%LOCALAPPDATA%\\com.kabuqina.app``).
   2. Validate the Tauri <-> Python contract version.
   3. Build a typed ``DesktopConfig`` from env vars.
   4. Install runtime overlays (must happen before importing Hermes).
@@ -44,6 +44,8 @@ import time
 from pathlib import Path
 from typing import Optional
 
+from kabuqina_env import normalize as normalize_kabuqina_env
+
 _docling_warm_thread: Optional[threading.Thread] = None
 
 
@@ -81,7 +83,7 @@ def _setup_logging() -> None:
     log_dir = data_dir / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     handler = logging.handlers.RotatingFileHandler(
-        log_dir / "hermesdesk.log",
+        log_dir / "kabuqina.log",
         maxBytes=2_000_000, backupCount=3, encoding="utf-8",
     )
     handler.setFormatter(logging.Formatter(
@@ -371,8 +373,9 @@ def _verify_bundle_deps(log: logging.Logger) -> None:
 
 
 def main() -> int:
+    normalize_kabuqina_env()
     _setup_logging()
-    log = logging.getLogger("hermesdesk.entry")
+    log = logging.getLogger("kabuqina.entry")
     boot_t0 = time.monotonic()
     log.info("starting HermesDesk Python (pid=%d)", os.getpid())
 

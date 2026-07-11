@@ -66,6 +66,9 @@ pub async fn cmd_wecom_qr_start(
     }
     cmd.arg(&worker)
         .current_dir(&bundle)
+        .env("KABUQINA_BUNDLE_DIR", &bundle)
+        .env("KABUQINA_DATA_DIR", &data_dir)
+        .env("KABUQINA_WORKSPACE", &workspace)
         .env("HERMESDESK_BUNDLE_DIR", &bundle)
         .env("HERMESDESK_DATA_DIR", &data_dir)
         .env("HERMESDESK_WORKSPACE", &workspace)

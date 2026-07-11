@@ -11,9 +11,10 @@ Used by the entrypoint and will eventually be injected into policy objects
 from __future__ import annotations
 
 import enum
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from kabuqina_env import get, require
 
 
 class RuntimeMode(enum.Enum):
@@ -67,30 +68,30 @@ class DesktopConfig:
 
 def from_env() -> DesktopConfig:
     return DesktopConfig(
-        bundle_dir=Path(os.environ["HERMESDESK_BUNDLE_DIR"]),
-        data_dir=Path(os.environ["HERMESDESK_DATA_DIR"]),
-        workspace=Path(os.environ["HERMESDESK_WORKSPACE"]),
-        port_file=_opt_path("HERMESDESK_PORT_FILE"),
-        contract_version=int(os.environ.get("HERMESDESK_CONTRACT_VERSION", "0")),
-        provider=os.environ.get("HERMESDESK_PROVIDER", "openrouter"),
-        llm_host=os.environ.get("HERMESDESK_LLM_HOST", "openrouter.ai"),
-        api_base_url=_opt_str("HERMESDESK_API_BASE_URL"),
-        hermes_model=_opt_str("HERMESDESK_MODEL"),
-        inference_provider=_opt_str("HERMESDESK_INFERENCE_PROVIDER"),
-        secret_url=_opt_str("HERMESDESK_SECRET_URL"),
-        approval_url=_opt_str("HERMESDESK_APPROVAL_URL"),
-        bridge_secret=_opt_str("HERMESDESK_BRIDGE_SECRET"),
-        shell_chat_url=_opt_str("HERMESDESK_SHELL_CHAT_URL"),
-        power_user=os.environ.get("HERMESDESK_POWER_USER") == "1",
-        desk_minimal=os.environ.get("HERMESDESK_DESK_MINIMAL") == "1",
+        bundle_dir=Path(require("KABUQINA_BUNDLE_DIR")),
+        data_dir=Path(require("KABUQINA_DATA_DIR")),
+        workspace=Path(require("KABUQINA_WORKSPACE")),
+        port_file=_opt_path("KABUQINA_PORT_FILE"),
+        contract_version=int(get("KABUQINA_CONTRACT_VERSION", "0")),
+        provider=get("KABUQINA_PROVIDER", "openrouter"),
+        llm_host=get("KABUQINA_LLM_HOST", "openrouter.ai"),
+        api_base_url=_opt_str("KABUQINA_API_BASE_URL"),
+        hermes_model=_opt_str("KABUQINA_MODEL"),
+        inference_provider=_opt_str("KABUQINA_INFERENCE_PROVIDER"),
+        secret_url=_opt_str("KABUQINA_SECRET_URL"),
+        approval_url=_opt_str("KABUQINA_APPROVAL_URL"),
+        bridge_secret=_opt_str("KABUQINA_BRIDGE_SECRET"),
+        shell_chat_url=_opt_str("KABUQINA_SHELL_CHAT_URL"),
+        power_user=get("KABUQINA_POWER_USER") == "1",
+        desk_minimal=get("KABUQINA_DESK_MINIMAL") == "1",
     )
 
 
 def _opt_str(key: str) -> str | None:
-    v = os.environ.get(key, "").strip()
+    v = get(key).strip()
     return v if v else None
 
 
 def _opt_path(key: str) -> Path | None:
-    v = os.environ.get(key, "").strip()
+    v = get(key).strip()
     return Path(v) if v else None

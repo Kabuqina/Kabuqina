@@ -4,7 +4,7 @@
 import { startTransition, useCallback, useRef, useState } from "react";
 import {
   cmdGetSessionMessages,
-  cmdGetSessions,
+  cmdGetKabuqinaSessions,
   parseDeskUserContent,
   type MessageRow,
   type SessionRow,
@@ -15,7 +15,8 @@ import type { LoadSessionsOptions } from "./useSessions";
 import { mergeInFlightMessages, messageContentToString } from "../inFlightTurnUtils";
 import type { InFlightTurnsController } from "../inFlightTurns";
 
-const LAST_SESSION_KEY = "hermesdesk.shell.chat.lastSessionId";
+const LAST_SESSION_KEY = "kabuqina.shell.chat.lastSessionId";
+const LEGACY_LAST_SESSION_KEY = "hermesdesk.shell.chat.lastSessionId";
 
 function rowsToUiMessages(rows: MessageRow[], sessionModel: string): UiMsg[] {
   const out: UiMsg[] = [];
@@ -70,7 +71,9 @@ export function readPersistedSession(): string | null {
   if (typeof window === "undefined" || !window.localStorage) {
     return null;
   }
-  const id = window.localStorage.getItem(LAST_SESSION_KEY)?.trim() ?? "";
+  const id = (window.localStorage.getItem(LAST_SESSION_KEY)
+    ?? window.localStorage.getItem(LEGACY_LAST_SESSION_KEY))?.trim() ?? "";
+  if (id) window.localStorage.setItem(LAST_SESSION_KEY, id);
   return id || null;
 }
 
@@ -82,6 +85,7 @@ export function persistActiveSessionId(id: string | null) {
     window.localStorage.setItem(LAST_SESSION_KEY, id);
   } else {
     window.localStorage.removeItem(LAST_SESSION_KEY);
+    window.localStorage.removeItem(LEGACY_LAST_SESSION_KEY);
   }
 }
 
@@ -108,7 +112,7 @@ export function useChatState({
       try {
         const [r, list] = await Promise.all([
           cmdGetSessionMessages(sid),
-          cmdGetSessions(100, 0, "hermesdesk"),
+          cmdGetKabuqinaSessions(100, 0),
         ]);
         if (seq !== loadSeqRef.current) {
           return;
@@ -177,7 +181,7 @@ export function useChatState({
 
   const openReminderSession = useCallback(async (emptyHint?: string) => {
     try {
-      const list = await cmdGetSessions(100, 0, "hermesdesk");
+      const list = await cmdGetKabuqinaSessions(100, 0);
       const exists = (list.sessions ?? []).some((s: SessionRow) => s.id === REMINDER_SESSION_ID);
       if (exists) {
         await loadThread(REMINDER_SESSION_ID);

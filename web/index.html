@@ -15,8 +15,9 @@
     <title>Nana</title>
     <script>
       (function () {
-        var key = "hermesdesk.ui.themeMode";
-        var mode = localStorage.getItem(key) || "system";
+        var key = "kabuqina.ui.themeMode";
+        var mode = localStorage.getItem(key) || localStorage.getItem("hermesdesk.ui.themeMode") || "system";
+        if (mode && !localStorage.getItem(key)) localStorage.setItem(key, mode);
         if (mode !== "system" && mode !== "light" && mode !== "dark") {
           mode = "system";
         }

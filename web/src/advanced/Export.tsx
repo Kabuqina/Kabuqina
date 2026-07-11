@@ -19,8 +19,8 @@ import {
 } from "../chat/chatExport";
 import { HIGHLIGHT_CSS, renderChatMarkdownToHtml } from "../chat/chatExportHtml";
 import {
+  cmdGetKabuqinaSessions,
   cmdGetSessionMessages,
-  cmdGetSessions,
   type MessageRow,
   type SessionRow,
 } from "../chat/chat-api";
@@ -41,7 +41,7 @@ export function Export() {
     fetchedRef.current = true;
     (async () => {
       try {
-        const r = await cmdGetSessions(500, 0, "hermesdesk");
+        const r = await cmdGetKabuqinaSessions(500, 0);
         setSessions(r.sessions ?? []);
       } catch (e) {
         console.error(e);

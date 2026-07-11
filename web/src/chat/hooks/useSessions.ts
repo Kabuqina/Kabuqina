@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { cmdDeleteSession, cmdGetSessions, type SessionRow } from "../chat-api";
+import { cmdDeleteSession, cmdGetKabuqinaSessions, type SessionRow } from "../chat-api";
 
 export type LoadSessionsOptions = { silent?: boolean };
 
-export function useSessions({ hermesReady }: { hermesReady: boolean }) {
+export function useSessions({ kabuqinaReady }: { kabuqinaReady: boolean }) {
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [listLoading, setListLoading] = useState(true);
   const hasLoadedRef = useRef(false);
@@ -17,7 +17,7 @@ export function useSessions({ hermesReady }: { hermesReady: boolean }) {
       setListLoading(true);
     }
     try {
-      const r = await cmdGetSessions(50, 0, "hermesdesk");
+      const r = await cmdGetKabuqinaSessions(50, 0);
       setSessions(r.sessions ?? []);
       hasLoadedRef.current = true;
     } catch (e) {
@@ -31,11 +31,11 @@ export function useSessions({ hermesReady }: { hermesReady: boolean }) {
   }, []);
 
   useEffect(() => {
-    if (!hermesReady) {
+    if (!kabuqinaReady) {
       return;
     }
     void loadSessions();
-  }, [hermesReady, loadSessions]);
+  }, [kabuqinaReady, loadSessions]);
 
   const deleteSession = useCallback(async (id: string) => {
     try {

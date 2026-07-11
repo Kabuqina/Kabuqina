@@ -19,7 +19,7 @@ pub struct SpawnConfig {
     pub secret_url: String,
     pub approval_url: String,
     pub desktop_delivery_url: String,
-    /// Must match Tauri `X-HermesDesk-Auth` header for shell → Hermes HTTP.
+    /// Must match Tauri `X-Kabuqina-Auth` header for shell → Hermes HTTP.
     pub desk_auth_token: String,
     /// ``GET /shell-chat/{desk_auth_token}`` on the loopback bridge — "back to shell chat" in Hermes UI.
     pub shell_chat_back_url: String,
@@ -75,10 +75,7 @@ impl Supervisor {
                 "HERMESDESK_API_BASE_URL",
                 cfg.api_base_url.as_deref().unwrap_or(""),
             )
-            .env(
-                "HERMESDESK_API_MODE",
-                cfg.api_mode.as_deref().unwrap_or(""),
-            )
+            .env("HERMESDESK_API_MODE", cfg.api_mode.as_deref().unwrap_or(""))
             .env(
                 "HERMESDESK_MODEL",
                 cfg.hermes_model.as_deref().unwrap_or(""),
@@ -91,6 +88,7 @@ impl Supervisor {
             .env("HERMESDESK_APPROVAL_URL", &cfg.approval_url)
             .env("HERMESDESK_DESKTOP_DELIVERY_URL", &cfg.desktop_delivery_url)
             .env("HERMESDESK_BRIDGE_SECRET", &cfg.desk_auth_token)
+            .env("KABUQINA_BRIDGE_SECRET", &cfg.desk_auth_token)
             .env("HERMESDESK_SHELL_CHAT_URL", &cfg.shell_chat_back_url)
             .env(
                 "HERMESDESK_POWER_USER",
@@ -145,6 +143,35 @@ impl Supervisor {
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
+
+        // New product contract, mirrored to deprecated HERMESDESK_* above.
+        cmd.env("KABUQINA_BUNDLE_DIR", &cfg.bundle_dir)
+            .env("KABUQINA_DATA_DIR", &cfg.data_dir)
+            .env("KABUQINA_WORKSPACE", &cfg.workspace)
+            .env("KABUQINA_PORT_FILE", &port_file)
+            .env("KABUQINA_PROVIDER", &cfg.provider)
+            .env("KABUQINA_LLM_HOST", &cfg.llm_host)
+            .env(
+                "KABUQINA_API_BASE_URL",
+                cfg.api_base_url.as_deref().unwrap_or(""),
+            )
+            .env("KABUQINA_API_MODE", cfg.api_mode.as_deref().unwrap_or(""))
+            .env("KABUQINA_MODEL", cfg.hermes_model.as_deref().unwrap_or(""))
+            .env(
+                "KABUQINA_INFERENCE_PROVIDER",
+                cfg.inference_provider.as_deref().unwrap_or(""),
+            )
+            .env("KABUQINA_SECRET_URL", &cfg.secret_url)
+            .env("KABUQINA_APPROVAL_URL", &cfg.approval_url)
+            .env("KABUQINA_DESKTOP_DELIVERY_URL", &cfg.desktop_delivery_url)
+            .env("KABUQINA_SHELL_CHAT_URL", &cfg.shell_chat_back_url)
+            .env(
+                "KABUQINA_POWER_USER",
+                if cfg.power_user { "1" } else { "0" },
+            )
+            .env("KABUQINA_DESK_MINIMAL", "1")
+            .env("KABUQINA_CONTRACT_VERSION", "1")
+            .env("KABUQINA_OVERLAY_LENIENT", "0");
 
         // Hide the console window on Windows.
         // tokio::process::Command exposes `creation_flags` directly on Windows

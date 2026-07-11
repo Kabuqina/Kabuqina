@@ -52,7 +52,7 @@ pub struct Bridge {
     pub secret_url: String,
     pub approval_url: String,
     pub desktop_delivery_url: String,
-    /// Shared with Python `HERMESDESK_BRIDGE_SECRET` for `X-HermesDesk-Auth` on Hermes `/api/*`.
+    /// Shared with Python `HERMESDESK_BRIDGE_SECRET` for `X-Kabuqina-Auth` on Hermes `/api/*`.
     pub desk_auth_token: String,
 }
 
@@ -61,7 +61,7 @@ struct State {
     secret_token: String,
     approval_token: String,
     desktop_delivery_token: String,
-    /// Same as ``HERMESDESK_BRIDGE_SECRET`` / ``X-HermesDesk-Auth``
+    /// Same as ``HERMESDESK_BRIDGE_SECRET`` / ``X-Kabuqina-Auth``
     desk_auth_token: String,
     app: AppHandle,
     /// Pending desktop delivery messages (frontend polls via `cmd_desktop_messages`).

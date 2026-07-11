@@ -12,7 +12,7 @@
 | OS | Windows 10/11 |
 | Kabuqina | 可稳定启动的版本（安装包或 dev 模式） |
 | 监控工具 | 任务管理器（或 `Get-Process python` in PowerShell）可观察进程 |
-| 日志 | `hermesdesk.log` 可读，日志级别建议设为 DEBUG |
+| 日志 | `kabuqina.log` 可读，日志级别建议设为 DEBUG |
 | 前置配置 | Telegram Token 已配置（保证网关在启动条件满足时可自动启动） |
 
 ---
@@ -33,7 +33,7 @@
 3. 在 Kabuqina 设置页 → 消息网关区块，点击"停止网关"
 4. 观察状态指示器从"运行中"变为"未运行"（应在 3 秒内完成）
 5. 切换回任务管理器 → 确认 `python.exe`（gateway.run）进程已消失
-6. 打开 `hermesdesk.log` → 搜索 `[hermes-desklock]` → 应看到模块级 stderr 输出，确认锁文件已清理
+6. 打开 `kabuqina.log` → 搜索 `[hermes-desklock]` → 应看到模块级 stderr 输出，确认锁文件已清理
 7. 检查锁文件路径（通常在 `hermes-home/` 下）→ `.lock` 文件不应存在
 
 **预期日志输出（示例）：**
@@ -75,7 +75,7 @@ def test_stop_gateway_cleans_lock_file():
 2. 在设置页点击"启动网关"
 3. 观察状态指示器从"未运行" → "启动中" → "运行中"（应在 10 秒内完成）
 4. 任务管理器 → 确认新的 `python.exe`（gateway.run）进程已创建，PID 与之前不同
-5. 检查 `hermesdesk.log` → 确认无 `"Lock file already held"` / `"Another gateway instance is running"` 等错误
+5. 检查 `kabuqina.log` → 确认无 `"Lock file already held"` / `"Another gateway instance is running"` 等错误
 6. 发送一条 Telegram 测试消息 → 验证新网关进程正常响应
 
 ---

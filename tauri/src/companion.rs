@@ -17,9 +17,9 @@ const COMPACT_MIN_EDGE_LOGICAL: f64 = 48.0;
 const COMPACT_MAX_EDGE_LOGICAL: f64 = 512.0;
 const WINDOW_MIN_EDGE: f64 = 32.0;
 const COMPANION_MARGIN_LOGICAL: f64 = 20.0;
-const SETTING_COMPANION_X: &str = "hermesdesk.companion_x";
-const SETTING_COMPANION_Y: &str = "hermesdesk.companion_y";
-const SETTING_COMPANION_USER_PLACED: &str = "hermesdesk.companion_user_placed";
+const SETTING_COMPANION_X: &str = "kabuqina.companion_x";
+const SETTING_COMPANION_Y: &str = "kabuqina.companion_y";
+const SETTING_COMPANION_USER_PLACED: &str = "kabuqina.companion_user_placed";
 /// Ignore spurious Moved(0,0) and legacy bad saves near the desktop origin.
 const COMPANION_ORIGIN_GUARD_LOGICAL: f64 = 48.0;
 
@@ -67,7 +67,19 @@ fn read_setting(app: &AppHandle, key: &str) -> Option<String> {
     let data_dir = app.path().app_local_data_dir().ok()?;
     let raw = std::fs::read_to_string(data_dir.join("settings.json")).ok()?;
     let v: serde_json::Value = serde_json::from_str(&raw).ok()?;
-    v.get(key).and_then(|x| x.as_str()).map(|s| s.to_string())
+    let legacy_key = key
+        .strip_prefix("kabuqina.")
+        .map(|suffix| format!("hermesdesk.{suffix}"));
+    let value = v.get(key)
+        .or_else(|| legacy_key.as_ref().and_then(|legacy| v.get(legacy)))
+        .and_then(|x| x.as_str())
+        .map(|s| s.to_string());
+    if v.get(key).is_none() {
+        if let Some(ref migrated) = value {
+            let _ = write_setting(app, key, migrated);
+        }
+    }
+    value
 }
 
 fn write_setting(app: &AppHandle, key: &str, value: &str) -> Result<(), String> {

@@ -771,10 +771,7 @@ impl GatewaySupervisor {
                 "HERMESDESK_API_BASE_URL",
                 cfg.api_base_url.as_deref().unwrap_or(""),
             )
-            .env(
-                "HERMESDESK_API_MODE",
-                cfg.api_mode.as_deref().unwrap_or(""),
-            )
+            .env("HERMESDESK_API_MODE", cfg.api_mode.as_deref().unwrap_or(""))
             .env(
                 "HERMESDESK_MODEL",
                 cfg.hermes_model.as_deref().unwrap_or(""),
@@ -817,6 +814,31 @@ impl GatewaySupervisor {
             // Phase 3.5: never enable LangSmith tracing in shipped children.
             .env("LANGSMITH_TRACING", "false")
             .env("BROWSER_CDP_URL", crate::edge_browser::cdp_url());
+
+        cmd.env("KABUQINA_GATEWAY_PLATFORM", platform)
+            .env("KABUQINA_BUNDLE_DIR", &cfg.bundle_dir)
+            .env("KABUQINA_DATA_DIR", &cfg.data_dir)
+            .env("KABUQINA_WORKSPACE", &cfg.workspace)
+            .env("KABUQINA_PROVIDER", &cfg.provider)
+            .env("KABUQINA_LLM_HOST", &cfg.llm_host)
+            .env(
+                "KABUQINA_API_BASE_URL",
+                cfg.api_base_url.as_deref().unwrap_or(""),
+            )
+            .env("KABUQINA_API_MODE", cfg.api_mode.as_deref().unwrap_or(""))
+            .env("KABUQINA_MODEL", cfg.hermes_model.as_deref().unwrap_or(""))
+            .env(
+                "KABUQINA_INFERENCE_PROVIDER",
+                cfg.inference_provider.as_deref().unwrap_or(""),
+            )
+            .env("KABUQINA_SECRET_URL", &cfg.secret_url)
+            .env("KABUQINA_APPROVAL_URL", &cfg.approval_url)
+            .env("KABUQINA_BRIDGE_SECRET", &cfg.desk_auth_token)
+            .env("KABUQINA_SHELL_CHAT_URL", &cfg.shell_chat_back_url)
+            .env(
+                "KABUQINA_POWER_USER",
+                if cfg.power_user { "1" } else { "0" },
+            );
 
         // Inject the LLM API key from our vault so the upstream gateway
         // can authenticate with the LLM provider.  The web child fetches

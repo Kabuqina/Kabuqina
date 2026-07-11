@@ -44,7 +44,7 @@ Run this whole checklist on **both** OS images before tagging a release. Ideally
 - [ ] Optional: user chose **configure API later** → Splash may route to **`/chat`** without Credential Manager key (limited flows — see shell `apiKeyGate`)
 - [ ] No console window flashes or stays open
 - [ ] Tray icon appears
-- [ ] `%LOCALAPPDATA%\com.kabuqina.app\logs\hermesdesk.log` exists and contains a line like `python ready on port` with a port number (Hermes web stack is up)
+- [ ] `%LOCALAPPDATA%\com.kabuqina.app\logs\kabuqina.log` exists and contains a line like `python ready on port` with a port number (Hermes web stack is up)
 
 ## C. Onboarding wizard (zero-jargon happy path)
 

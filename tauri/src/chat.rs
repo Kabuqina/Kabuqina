@@ -4,7 +4,7 @@
 //! Shell → Hermes HTTP proxy (Tauri `invoke` → reqwest to 127.0.0.1).
 //!
 //! The webview cannot `fetch` Hermes directly (origin + session token). We use
-//! `X-HermesDesk-Auth` (shared with `HERMESDESK_BRIDGE_SECRET`) and the same
+//! `X-Kabuqina-Auth` (shared with `HERMESDESK_BRIDGE_SECRET`) and the same
 //! `Authorization: Bearer` as the dashboard: loaded from
 //! `hermes_web_session_token.txt` if present, else parsed from
 //! `GET /` (``__HERMES_SESSION_TOKEN__`` in ``index.html``) — no bundle step
@@ -75,7 +75,7 @@ pub(crate) async fn desk_json_request(
     let client = http_client();
     let mut req = client
         .request(method, format!("{base}{path}"))
-        .header("X-HermesDesk-Auth", &token);
+        .header("X-Kabuqina-Auth", &token);
     if let Some(b) = hermes_bearer_resolved(app).await {
         req = req.header("Authorization", format!("Bearer {b}"));
     }
@@ -317,7 +317,7 @@ pub async fn cmd_chat_send(
     let client = http_client();
     let mut req = client
         .post(format!("{base}/api/desk/chat-proto"))
-        .header("X-HermesDesk-Auth", &token)
+        .header("X-Kabuqina-Auth", &token)
         .header("Content-Type", "application/json");
     if let Some(b) = hermes_bearer_resolved(&app).await {
         req = req.header("Authorization", format!("Bearer {b}"));
@@ -351,7 +351,7 @@ pub async fn cmd_chat_send_stream(
     let client = streaming_http_client();
     let mut req = client
         .post(format!("{base}/api/desk/chat-stream"))
-        .header("X-HermesDesk-Auth", &token)
+        .header("X-Kabuqina-Auth", &token)
         .header("Content-Type", "application/json");
     if let Some(b) = hermes_bearer_resolved(&app).await {
         req = req.header("Authorization", format!("Bearer {b}"));
@@ -444,7 +444,7 @@ pub async fn cmd_chat_preview(
         "{base}/api/desk/chat-preview/{session_id}?since={}",
         since.unwrap_or(0)
     );
-    let mut req = client.get(&url).header("X-HermesDesk-Auth", &token);
+    let mut req = client.get(&url).header("X-Kabuqina-Auth", &token);
     if let Some(b) = hermes_bearer_resolved(&app).await {
         req = req.header("Authorization", format!("Bearer {b}"));
     }
@@ -466,7 +466,7 @@ pub async fn cmd_desk_stop(app: AppHandle, session_id: String) -> Result<Value, 
     let client = http_client();
     let mut req = client
         .post(format!("{base}/api/desk/stop"))
-        .header("X-HermesDesk-Auth", &token)
+        .header("X-Kabuqina-Auth", &token)
         .header("Content-Type", "application/json");
     if let Some(b) = hermes_bearer_resolved(&app).await {
         req = req.header("Authorization", format!("Bearer {b}"));
@@ -502,7 +502,7 @@ pub async fn cmd_interaction_response(
     let client = http_client();
     let mut req = client
         .post(format!("{base}/api/desk/interaction-response"))
-        .header("X-HermesDesk-Auth", &token)
+        .header("X-Kabuqina-Auth", &token)
         .header("Content-Type", "application/json");
     if let Some(b) = hermes_bearer_resolved(&app).await {
         req = req.header("Authorization", format!("Bearer {b}"));
@@ -534,7 +534,7 @@ pub async fn cmd_get_sessions(
         url.push_str(&format!("&source={}", src));
     }
     let client = http_client();
-    let mut req = client.get(&url).header("X-HermesDesk-Auth", &token);
+    let mut req = client.get(&url).header("X-Kabuqina-Auth", &token);
     if let Some(b) = hermes_bearer_resolved(&app).await {
         req = req.header("Authorization", format!("Bearer {b}"));
     }
@@ -554,7 +554,7 @@ pub async fn cmd_get_session_messages(app: AppHandle, id: String) -> Result<Valu
     let token = desk_auth_header(&app).await?;
     let url = format!("{base}/api/sessions/{id}/messages");
     let client = http_client();
-    let mut req = client.get(&url).header("X-HermesDesk-Auth", &token);
+    let mut req = client.get(&url).header("X-Kabuqina-Auth", &token);
     if let Some(b) = hermes_bearer_resolved(&app).await {
         req = req.header("Authorization", format!("Bearer {b}"));
     }
@@ -587,7 +587,7 @@ pub async fn cmd_transcribe(
     let client = http_client();
     let mut req = client
         .post(format!("{base}/api/desk/transcribe"))
-        .header("X-HermesDesk-Auth", &token)
+        .header("X-Kabuqina-Auth", &token)
         .header("Content-Type", "application/json");
     if let Some(b) = hermes_bearer_resolved(&app).await {
         req = req.header("Authorization", format!("Bearer {b}"));
@@ -634,7 +634,7 @@ pub async fn cmd_save_voice_setup(
     let client = http_client();
     let mut req = client
         .post(format!("{base}/api/desk/save-voice-setup"))
-        .header("X-HermesDesk-Auth", &token)
+        .header("X-Kabuqina-Auth", &token)
         .header("Content-Type", "application/json");
     if let Some(b) = hermes_bearer_resolved(&app).await {
         req = req.header("Authorization", format!("Bearer {b}"));
@@ -669,7 +669,7 @@ pub async fn cmd_tts_speak(app: AppHandle, text: String) -> Result<String, Strin
     let client = http_client();
     let mut req = client
         .post(format!("{base}/api/desk/tts"))
-        .header("X-HermesDesk-Auth", &token)
+        .header("X-Kabuqina-Auth", &token)
         .header("Content-Type", "application/json");
     if let Some(b) = hermes_bearer_resolved(&app).await {
         req = req.header("Authorization", format!("Bearer {b}"));
@@ -696,7 +696,7 @@ pub async fn cmd_stt_model_status(app: AppHandle) -> Result<Value, String> {
     let client = http_client();
     let mut req = client
         .get(format!("{base}/api/desk/stt-model/status"))
-        .header("X-HermesDesk-Auth", &token);
+        .header("X-Kabuqina-Auth", &token);
     if let Some(b) = hermes_bearer_resolved(&app).await {
         req = req.header("Authorization", format!("Bearer {b}"));
     }
@@ -730,7 +730,7 @@ pub async fn cmd_stt_model_download(app: AppHandle) -> Result<Value, String> {
     let client = http_client();
     let mut req = client
         .post(format!("{base}/api/desk/stt-model/download"))
-        .header("X-HermesDesk-Auth", &token)
+        .header("X-Kabuqina-Auth", &token)
         .header("Content-Type", "application/json")
         // Some stacks wait for a JSON body when Content-Type is
         // application/json; send an explicit empty object.
@@ -792,7 +792,7 @@ pub async fn cmd_delete_session(app: AppHandle, id: String) -> Result<Value, Str
     let token = desk_auth_header(&app).await?;
     let url = format!("{base}/api/sessions/{id}");
     let client = http_client();
-    let mut req = client.delete(&url).header("X-HermesDesk-Auth", &token);
+    let mut req = client.delete(&url).header("X-Kabuqina-Auth", &token);
     if let Some(b) = hermes_bearer_resolved(&app).await {
         req = req.header("Authorization", format!("Bearer {b}"));
     }
@@ -807,18 +807,18 @@ pub async fn cmd_delete_session(app: AppHandle, id: String) -> Result<Value, Str
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct HermesDeskBootState {
+pub struct KabuqinaBootState {
     pub port: Option<u16>,
     pub warming: bool,
 }
 
 /// Port + desk-minimal warm state for the shell boot UI.
 #[tauri::command]
-pub async fn cmd_get_hermes_desk_boot_state(app: AppHandle) -> Result<HermesDeskBootState, String> {
+pub async fn cmd_get_kabuqina_boot_state(app: AppHandle) -> Result<KabuqinaBootState, String> {
     let state: tauri::State<AppState> = app.state();
     let port = *state.hermes_port.lock().await;
     let Some(port) = port else {
-        return Ok(HermesDeskBootState {
+        return Ok(KabuqinaBootState {
             port: None,
             warming: false,
         });
@@ -832,12 +832,12 @@ pub async fn cmd_get_hermes_desk_boot_state(app: AppHandle) -> Result<HermesDesk
                 .get("desk_warming")
                 .and_then(Value::as_bool)
                 .unwrap_or(false);
-            Ok(HermesDeskBootState {
+            Ok(KabuqinaBootState {
                 port: Some(port),
                 warming,
             })
         }
-        _ => Ok(HermesDeskBootState {
+        _ => Ok(KabuqinaBootState {
             port: Some(port),
             warming: true,
         }),

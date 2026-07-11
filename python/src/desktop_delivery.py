@@ -19,7 +19,7 @@ import os
 import urllib.error
 import urllib.request
 
-log = logging.getLogger("hermesdesk.desktop.delivery")
+log = logging.getLogger("kabuqina.desktop.delivery")
 
 REMINDER_SESSION_ID = "hermesdesk-reminders"
 REMINDER_SESSION_TITLE = "小娜提醒"

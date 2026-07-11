@@ -20,7 +20,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-log = logging.getLogger("hermesdesk.approval")
+log = logging.getLogger("kabuqina.approval")
 
 _READ_COMMANDS = {"cat", "type", "more", "gc", "get-content"}
 _COPY_COMMANDS = {"cp", "copy", "copy-item"}

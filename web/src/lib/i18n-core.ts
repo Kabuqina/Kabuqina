@@ -5,11 +5,14 @@ import { MESSAGES } from "../locales/strings";
 
 export type Locale = "zh" | "en";
 
-const STORAGE_KEY = "hermesdesk.locale";
+const STORAGE_KEY = "kabuqina.locale";
+const LEGACY_STORAGE_KEY = "hermesdesk.locale";
 
 export function getLocale(): Locale {
   if (typeof window === "undefined" || !window.localStorage) return "zh";
-  return window.localStorage.getItem(STORAGE_KEY) === "en" ? "en" : "zh";
+  const value = window.localStorage.getItem(STORAGE_KEY) ?? window.localStorage.getItem(LEGACY_STORAGE_KEY);
+  if (value) window.localStorage.setItem(STORAGE_KEY, value);
+  return value === "en" ? "en" : "zh";
 }
 
 export function setStoredLocale(locale: Locale): void {

@@ -13,7 +13,7 @@ def _agent_dbg_stt(line: dict) -> None:
     """Append one NDJSON line for debug session 914e79.
 
     Tries several paths so logs are findable in dev vs MSI bundle:
-      * ``%HERMESDESK_DATA_DIR%/logs/`` (same folder as hermesdesk.log)
+      * ``%HERMESDESK_DATA_DIR%/logs/`` (same folder as kabuqina.log)
       * repo / runtime parent (legacy single-path behavior)
       * system temp as last resort
     """

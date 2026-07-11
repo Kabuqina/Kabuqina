@@ -49,7 +49,8 @@ export interface OnboardingDraft {
   wizardSelection?: WizardSectionSelections;
 }
 
-const KEY = "hermesdesk.onboarding-draft";
+const KEY = "kabuqina.onboarding-draft";
+const LEGACY_KEY = "hermesdesk.onboarding-draft";
 
 const initial: OnboardingDraft = {
   setupMode: null,
@@ -63,8 +64,9 @@ const initial: OnboardingDraft = {
 
 let state: OnboardingDraft = (() => {
   try {
-    const raw = sessionStorage.getItem(KEY);
+    const raw = sessionStorage.getItem(KEY) ?? sessionStorage.getItem(LEGACY_KEY);
     if (raw) {
+      sessionStorage.setItem(KEY, raw);
       const p = JSON.parse(raw) as Partial<OnboardingDraft>;
       const rawSetupMode = (p as { setupMode?: unknown }).setupMode;
       return {
@@ -115,6 +117,7 @@ export function clearDraft() {
   state = initial;
   try {
     sessionStorage.removeItem(KEY);
+    sessionStorage.removeItem(LEGACY_KEY);
   } catch {
     // ignore
   }

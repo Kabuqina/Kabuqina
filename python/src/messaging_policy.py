@@ -28,7 +28,7 @@ import threading
 import time
 from typing import Optional
 
-log = logging.getLogger("hermesdesk.policy.messaging")
+log = logging.getLogger("kabuqina.policy.messaging")
 
 
 class MessagingPolicy:

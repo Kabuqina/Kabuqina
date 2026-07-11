@@ -10,10 +10,10 @@ use serde_json::json;
 use std::path::{Component, Path, PathBuf};
 use tauri::{AppHandle, Manager};
 
-const SETTING_POWER_USER: &str = "hermesdesk.power_user";
-const SETTING_WORKSPACE: &str = "hermesdesk.workspace";
-const SETTING_SHOW_RECIPE_MARKET: &str = "hermesdesk.show_recipe_market";
-const SETTING_AUTO_GATEWAY: &str = "hermesdesk.auto_start_gateway";
+const SETTING_POWER_USER: &str = "kabuqina.power_user";
+const SETTING_WORKSPACE: &str = "kabuqina.workspace";
+const SETTING_SHOW_RECIPE_MARKET: &str = "kabuqina.show_recipe_market";
+const SETTING_AUTO_GATEWAY: &str = "kabuqina.auto_start_gateway";
 
 #[derive(Debug, Clone, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -63,7 +63,7 @@ pub fn ensure_data_dir(app: &AppHandle) -> Result<PathBuf> {
 /// (see `../python/dist/runtime` in `tauri.conf.json` for release bundles).
 /// In prod: `resources/runtime` next to the installed app.
 ///
-/// Set `HERMESDESK_RUNTIME_DIR` to an absolute path to force the bundle (e.g. after
+/// Set `KABUQINA_RUNTIME_DIR` to an absolute path to force the bundle (e.g. after
 /// `build_bundle.ps1` when automatic discovery fails).
 fn runtime_has_python(dir: &Path) -> bool {
     dir.join("python").join("python.exe").is_file()
@@ -95,13 +95,15 @@ fn runtime_candidates_from_exe(exe: &Path) -> Vec<PathBuf> {
 }
 
 pub fn resolve_runtime_dir(app: &AppHandle) -> Result<PathBuf> {
-    if let Ok(force) = std::env::var("HERMESDESK_RUNTIME_DIR") {
+    if let Ok(force) =
+        std::env::var("KABUQINA_RUNTIME_DIR").or_else(|_| std::env::var("HERMESDESK_RUNTIME_DIR"))
+    {
         let p = PathBuf::from(force.trim());
         if runtime_has_python(&p) {
             return Ok(p);
         }
         anyhow::bail!(
-            "HERMESDESK_RUNTIME_DIR is set but python.exe not found under {}",
+            "KABUQINA_RUNTIME_DIR is set but python.exe not found under {}",
             p.display()
         );
     }
@@ -170,7 +172,7 @@ pub fn set_auto_start_gateway_enabled(app: &AppHandle, enabled: bool) -> Result<
 /// Mirror the setting into the data dir so embedded Python can read `/api/status` without a process restart.
 pub fn sync_show_recipe_market_flag(app: &AppHandle) -> Result<()> {
     let dir = ensure_data_dir(app)?;
-    let path = dir.join("hermesdesk_show_recipe_market.txt");
+    let path = dir.join("kabuqina_show_recipe_market.txt");
     let bytes: &[u8] = if is_show_recipe_market(app) {
         b"1\n"
     } else {
@@ -180,14 +182,33 @@ pub fn sync_show_recipe_market_flag(app: &AppHandle) -> Result<()> {
     Ok(())
 }
 
-fn read_setting(app: &AppHandle, _key: &str) -> Option<String> {
+fn legacy_setting_key(key: &str) -> Option<String> {
+    key.strip_prefix("kabuqina.")
+        .map(|suffix| format!("hermesdesk.{suffix}"))
+}
+
+fn read_setting(app: &AppHandle, key: &str) -> Option<String> {
     // Tiny KV store backed by a JSON file under app_local_data_dir; we keep
     // the implementation here intentionally simple.
     let data_dir = app.path().app_local_data_dir().ok()?;
     let f = data_dir.join("settings.json");
     let raw = std::fs::read_to_string(f).ok()?;
     let v: serde_json::Value = serde_json::from_str(&raw).ok()?;
-    v.get(_key).and_then(|x| x.as_str()).map(|s| s.to_string())
+    let value = v
+        .get(key)
+        .or_else(|| {
+            legacy_setting_key(key)
+                .as_ref()
+                .and_then(|legacy| v.get(legacy))
+        })
+        .and_then(|x| x.as_str())
+        .map(|s| s.to_string());
+    if v.get(key).is_none() {
+        if let Some(ref migrated) = value {
+            let _ = write_setting(app, key, migrated);
+        }
+    }
+    value
 }
 
 /// Default product profile when settings are missing or unknown.
@@ -423,7 +444,7 @@ pub fn cmd_get_power_user(app: AppHandle) -> Result<bool, String> {
     Ok(is_power_user(&app))
 }
 
-/// Persist the flag; callers that need new `HERMESDESK_POWER_USER` in the child
+/// Persist the flag; callers that need new `KABUQINA_POWER_USER` in the child
 /// must restart embedded Python (see `lib::respawn_embedded_hermes_python`).
 pub fn set_power_user_enabled(app: &AppHandle, enabled: bool) -> Result<(), String> {
     write_setting(app, SETTING_POWER_USER, if enabled { "1" } else { "0" })
@@ -448,7 +469,7 @@ pub fn cmd_set_show_recipe_market(app: AppHandle, enabled: bool) -> Result<(), S
 
 #[tauri::command]
 pub fn cmd_set_personality(app: AppHandle, name: String) -> Result<(), String> {
-    write_setting(&app, "hermesdesk.personality", &name).map_err(|e| e.to_string())
+    write_setting(&app, "kabuqina.personality", &name).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

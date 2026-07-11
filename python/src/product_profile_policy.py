@@ -25,7 +25,7 @@ from __future__ import annotations
 import logging
 import os
 
-log = logging.getLogger("hermesdesk.product_profile")
+log = logging.getLogger("kabuqina.product_profile")
 
 MAINLAND_CN = "mainland_cn"
 SEA = "sea"

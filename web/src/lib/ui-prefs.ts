@@ -8,9 +8,12 @@ import { useCallback, useEffect, useState } from "react";
  * Root `font-size` scales `rem` used by Tailwind text utilities.
  */
 
-const FONT_SIZE_KEY = "hermesdesk.ui.fontSize";
-export const THEME_MODE_KEY = "hermesdesk.ui.themeMode";
-export const CUSTOM_COMPANION_IMAGE_KEY = "hermesdesk.ui.customCompanionImage";
+const FONT_SIZE_KEY = "kabuqina.ui.fontSize";
+const LEGACY_FONT_SIZE_KEY = "hermesdesk.ui.fontSize";
+export const THEME_MODE_KEY = "kabuqina.ui.themeMode";
+const LEGACY_THEME_MODE_KEY = "hermesdesk.ui.themeMode";
+export const CUSTOM_COMPANION_IMAGE_KEY = "kabuqina.ui.customCompanionImage";
+const LEGACY_CUSTOM_COMPANION_IMAGE_KEY = "hermesdesk.ui.customCompanionImage";
 export const MAX_CUSTOM_COMPANION_IMAGE_BYTES = 1024 * 1024;
 
 const CUSTOM_COMPANION_IMAGE_EVENT = "kabuqina-custom-companion-image";
@@ -31,11 +34,19 @@ const ROOT_PX: Record<FontSizeOption, string> = {
   large: "18px",
 };
 
+function readAndMigrate(key: string, legacyKey: string): string | null {
+  const value = window.localStorage.getItem(key);
+  if (value !== null) return value;
+  const legacy = window.localStorage.getItem(legacyKey);
+  if (legacy !== null) window.localStorage.setItem(key, legacy);
+  return legacy;
+}
+
 export function getStoredFontSize(): FontSizeOption {
   if (typeof window === "undefined" || !window.localStorage) {
     return "medium";
   }
-  const v = window.localStorage.getItem(FONT_SIZE_KEY);
+  const v = readAndMigrate(FONT_SIZE_KEY, LEGACY_FONT_SIZE_KEY);
   if (v === "small" || v === "medium" || v === "large") {
     return v;
   }
@@ -71,7 +82,7 @@ export function getStoredThemeMode(): ThemeMode {
   if (typeof window === "undefined" || !window.localStorage) {
     return "system";
   }
-  const v = window.localStorage.getItem(THEME_MODE_KEY);
+  const v = readAndMigrate(THEME_MODE_KEY, LEGACY_THEME_MODE_KEY);
   if (v === "system" || v === "light" || v === "dark") {
     return v;
   }
@@ -153,7 +164,7 @@ export function getCustomCompanionImage(): string | null {
   if (typeof window === "undefined" || !window.localStorage) {
     return null;
   }
-  const value = window.localStorage.getItem(CUSTOM_COMPANION_IMAGE_KEY);
+  const value = readAndMigrate(CUSTOM_COMPANION_IMAGE_KEY, LEGACY_CUSTOM_COMPANION_IMAGE_KEY);
   return value?.startsWith("data:image/") ? value : null;
 }
 

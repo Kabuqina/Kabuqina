@@ -14,7 +14,7 @@ import os
 from typing import Iterable
 from urllib.parse import urlparse
 
-log = logging.getLogger("hermesdesk.net")
+log = logging.getLogger("kabuqina.net")
 
 DEFAULT_ALLOW: set[str] = {
     "localhost",

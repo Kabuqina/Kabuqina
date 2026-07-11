@@ -34,7 +34,7 @@ import logging
 import os
 import threading
 
-log = logging.getLogger("hermesdesk.cron.runner")
+log = logging.getLogger("kabuqina.cron.runner")
 
 # Desktop polls more often than upstream gateway (60s) so due jobs are picked
 # up sooner.  Delivery still happens only after run_job() finishes (LLM time).

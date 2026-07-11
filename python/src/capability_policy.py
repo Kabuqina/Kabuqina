@@ -110,9 +110,9 @@ class CapabilityPolicy:
         if not data_dir:
             return False
         try:
-            raw = (Path(data_dir) / "hermesdesk_show_recipe_market.txt").read_text(
-                encoding="utf-8"
-            )
+            primary = Path(data_dir) / "kabuqina_show_recipe_market.txt"
+            legacy = Path(data_dir) / "hermesdesk_show_recipe_market.txt"
+            raw = (primary if primary.exists() else legacy).read_text(encoding="utf-8")
         except OSError:
             return False
         return _as_bool(raw)

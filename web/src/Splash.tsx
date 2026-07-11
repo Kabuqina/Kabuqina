@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { AppScaffold } from "./components/AppScaffold";
 import { BootPill } from "./components/BootPill";
-import { waitForHermesReadiness } from "./chat/hermesReadinessPoll";
+import { waitForKabuqinaReadiness } from "./chat/kabuqinaReadinessPoll";
 import { useI18n } from "./lib/i18n";
 import { clearAllowChatWithoutApi, getAllowChatWithoutApi } from "./lib/apiKeyGate";
 
@@ -31,7 +31,7 @@ export function Splash() {
           if (has) {
             clearAllowChatWithoutApi();
           }
-          await waitForHermesReadiness(t, () => cancelled);
+          await waitForKabuqinaReadiness(t, () => cancelled);
           if (cancelled) {
             return;
           }

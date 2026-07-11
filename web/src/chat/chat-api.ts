@@ -41,27 +41,43 @@ export type UiMsg = {
   model?: string;
 };
 
-export async function cmdGetHermesPort(): Promise<number | null> {
-  const p = await invoke<number | null>("cmd_get_hermes_port");
+export async function cmdGetKabuqinaPort(): Promise<number | null> {
+  const p = await invoke<number | null>("cmd_get_kabuqina_port");
   return p ?? null;
 }
 
-export type HermesDeskBootState = {
+export type KabuqinaBootState = {
   port: number | null;
   warming: boolean;
 };
 
-export async function cmdGetHermesDeskBootState(): Promise<HermesDeskBootState> {
-  return invoke<HermesDeskBootState>("cmd_get_hermes_desk_boot_state");
+export async function cmdGetKabuqinaBootState(): Promise<KabuqinaBootState> {
+  return invoke<KabuqinaBootState>("cmd_get_kabuqina_boot_state");
 }
 
-export async function cmdGetHermesBootstrapError(): Promise<string | null> {
-  const err = await invoke<string | null>("cmd_get_hermes_bootstrap_error");
+export async function cmdGetKabuqinaBootstrapError(): Promise<string | null> {
+  const err = await invoke<string | null>("cmd_get_kabuqina_bootstrap_error");
   return err?.trim() ? err : null;
 }
 
 export async function cmdGetSessions(limit = 50, offset = 0, source?: string): Promise<SessionsResponse> {
   return invoke<SessionsResponse>("cmd_get_sessions", { limit, offset, source: source ?? null });
+}
+
+/** Read current and legacy desktop sessions during the rename window. */
+export async function cmdGetKabuqinaSessions(limit = 50, offset = 0): Promise<SessionsResponse> {
+  const [current, legacy] = await Promise.all([
+    cmdGetSessions(limit, offset, "kabuqina"),
+    cmdGetSessions(limit, offset, "hermesdesk"),
+  ]);
+  const byId = new Map<string, SessionRow>();
+  for (const session of [...current.sessions, ...legacy.sessions]) {
+    byId.set(session.id, session);
+  }
+  const sessions = [...byId.values()].sort(
+    (left, right) => (right.last_active ?? 0) - (left.last_active ?? 0),
+  );
+  return { sessions, total: sessions.length };
 }
 
 export async function cmdGetSessionMessages(id: string): Promise<SessionMessagesResponse> {

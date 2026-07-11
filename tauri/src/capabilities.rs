@@ -14,7 +14,7 @@ async fn authed_get(app: &AppHandle, path: &str) -> Result<Value, String> {
     let client = chat::http_client();
     let mut req = client
         .get(format!("{base}{path}"))
-        .header("X-HermesDesk-Auth", &token);
+        .header("X-Kabuqina-Auth", &token);
     if let Some(bearer) = chat::hermes_bearer_resolved(app).await {
         req = req.header("Authorization", format!("Bearer {bearer}"));
     }
@@ -27,11 +27,11 @@ async fn authed_get(app: &AppHandle, path: &str) -> Result<Value, String> {
 
 #[tauri::command]
 pub async fn cmd_capabilities_catalog(app: AppHandle) -> Result<Value, String> {
-    authed_get(&app, "/api/hermesdesk/capabilities").await
+    authed_get(&app, "/api/kabuqina/capabilities").await
 }
 
 #[tauri::command]
 pub async fn cmd_capability_skill_detail(app: AppHandle, name: String) -> Result<Value, String> {
     let encoded: String = form_urlencoded::byte_serialize(name.as_bytes()).collect();
-    authed_get(&app, &format!("/api/hermesdesk/skills/{encoded}")).await
+    authed_get(&app, &format!("/api/kabuqina/skills/{encoded}")).await
 }

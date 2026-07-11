@@ -141,7 +141,7 @@ assert.match(
   "Approval dialog should handle optional model download confirmations.",
 );
 assert.match(splashSource, /BootPill/, "Splash should use the boot pill instead of staged splash copy.");
-assert.match(splashSource, /waitForHermesReadiness/, "Splash should wait for Hermes before entering chat.");
+assert.match(splashSource, /waitForKabuqinaReadiness/, "Splash should wait for Hermes before entering chat.");
 assert.match(
   chatPageSource,
   /BootPill/,
