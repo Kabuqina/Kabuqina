@@ -3,6 +3,7 @@
 
 //! Tauri proxy commands for the trusted STUDY desktop API.
 
+use crate::chat::DeskBridgeError;
 use serde_json::{json, Value};
 use tauri::AppHandle;
 
@@ -20,13 +21,22 @@ fn validate_study_path_id(id: &str) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn cmd_study_spaces(app: AppHandle) -> Result<Value, String> {
-    crate::chat::desk_json_request(&app, reqwest::Method::GET, "/api/desk/study/spaces", None).await
+pub async fn cmd_study_spaces(app: AppHandle) -> Result<Value, DeskBridgeError> {
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::GET,
+        "/api/desk/study/spaces",
+        None,
+    )
+    .await
 }
 
 #[tauri::command]
-pub async fn cmd_study_space_create(app: AppHandle, title: String) -> Result<Value, String> {
-    crate::chat::desk_json_request(
+pub async fn cmd_study_space_create(
+    app: AppHandle,
+    title: String,
+) -> Result<Value, DeskBridgeError> {
+    crate::chat::desk_json_request_structured(
         &app,
         reqwest::Method::POST,
         "/api/desk/study/spaces",
@@ -36,9 +46,13 @@ pub async fn cmd_study_space_create(app: AppHandle, title: String) -> Result<Val
 }
 
 #[tauri::command]
-pub async fn cmd_study_space_select(app: AppHandle, space_id: String) -> Result<Value, String> {
-    validate_study_path_id(&space_id)?;
-    crate::chat::desk_json_request(
+pub async fn cmd_study_space_select(
+    app: AppHandle,
+    space_id: String,
+) -> Result<Value, DeskBridgeError> {
+    validate_study_path_id(&space_id)
+        .map_err(|detail| DeskBridgeError::invalid("invalid_study_id", detail))?;
+    crate::chat::desk_json_request_structured(
         &app,
         reqwest::Method::POST,
         &format!("/api/desk/study/spaces/{space_id}/select"),
@@ -48,15 +62,19 @@ pub async fn cmd_study_space_select(app: AppHandle, space_id: String) -> Result<
 }
 
 #[tauri::command]
-pub async fn cmd_study_drafts(app: AppHandle, kind: Option<String>) -> Result<Value, String> {
+pub async fn cmd_study_drafts(
+    app: AppHandle,
+    kind: Option<String>,
+) -> Result<Value, DeskBridgeError> {
     let path = match kind {
         Some(k) if !k.trim().is_empty() => {
-            validate_study_path_id(k.trim())?;
+            validate_study_path_id(k.trim())
+                .map_err(|detail| DeskBridgeError::invalid("invalid_study_id", detail))?;
             format!("/api/desk/study/drafts?kind={}", k.trim())
         }
         _ => "/api/desk/study/drafts".to_string(),
     };
-    crate::chat::desk_json_request(&app, reqwest::Method::GET, &path, None).await
+    crate::chat::desk_json_request_structured(&app, reqwest::Method::GET, &path, None).await
 }
 
 #[tauri::command]

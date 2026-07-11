@@ -57,12 +57,17 @@ def _workspace_root() -> Optional[str]:
 
 def _http_error(exc: Exception) -> HTTPException:
     if isinstance(exc, ContractError):
-        return HTTPException(status_code=409, detail=str(exc))
-    if isinstance(exc, ValueError):
-        return HTTPException(status_code=400, detail=str(exc))
-    if isinstance(exc, KeyError):
-        return HTTPException(status_code=404, detail=str(exc))
-    return HTTPException(status_code=500, detail=str(exc))
+        status, code = 409, "study_conflict"
+    elif isinstance(exc, ValueError):
+        status, code = 400, "study_invalid_request"
+    elif isinstance(exc, KeyError):
+        status, code = 404, "study_not_found"
+    else:
+        status, code = 500, "study_internal_error"
+    return HTTPException(
+        status_code=status,
+        detail={"code": code, "message": str(exc)},
+    )
 
 
 def _artifact_ref(artifact: Dict[str, Any]) -> Dict[str, Any]:

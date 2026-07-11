@@ -148,6 +148,7 @@ def test_evaluation_and_learning_plan_routes(study_client):
         headers=_headers(),
     )
     assert repeated.status_code == 400
+    assert repeated.json()["detail"]["code"] == "study_invalid_request"
 
 
 def test_contract_errors_map_to_conflict(study_client):
@@ -161,6 +162,7 @@ def test_contract_errors_map_to_conflict(study_client):
         f"/api/desk/study/artifacts/{evaluation_id}/activate", headers=_headers()
     )
     assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "study_conflict"
 
 
 def test_review_reminder_routes_are_opt_in(study_client):

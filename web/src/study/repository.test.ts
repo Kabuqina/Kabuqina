@@ -56,4 +56,12 @@ describe("StudyRepository", () => {
     expect(normalizeRepositoryError("Hermes is not ready yet. Wait.").code).toBe("unavailable");
     expect(normalizeRepositoryError("request_failed: arbitrary prose").code).toBe("unknown");
   });
+
+  it("maps the structured desk bridge contract by code and status", () => {
+    expect(normalizeRepositoryError({ status: 400, code: "study_invalid_request", detail: "private" }).code).toBe("invalid");
+    expect(normalizeRepositoryError({ status: 404, code: "study_not_found", detail: "private" }).code).toBe("not-found");
+    expect(normalizeRepositoryError({ status: 409, code: "study_conflict", detail: "private" }).code).toBe("conflict");
+    expect(normalizeRepositoryError({ status: null, code: "desk_transport_error", detail: "private" }).code).toBe("unavailable");
+    expect(normalizeRepositoryError({ status: 503, code: "study_internal_error", detail: "private" }).code).toBe("unknown");
+  });
 });

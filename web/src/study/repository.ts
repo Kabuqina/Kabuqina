@@ -50,6 +50,22 @@ export interface StudyRepository {
   listDrafts(signal: AbortSignal): Promise<StudyDraftSummary[]>;
 }
 
+type DeskBridgeErrorPayload = {
+  status: number | null;
+  code: string;
+  detail: string;
+};
+
+function isDeskBridgeErrorPayload(error: unknown): error is DeskBridgeErrorPayload {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as Record<string, unknown>;
+  return (
+    (candidate.status === null || typeof candidate.status === "number") &&
+    typeof candidate.code === "string" &&
+    typeof candidate.detail === "string"
+  );
+}
+
 type StudyCommands = {
   spaces: () => Promise<StudySpacesResponse>;
   selectSpace: (spaceId: string) => Promise<StudySpacesResponse>;
@@ -94,6 +110,21 @@ function mapSpaces(response: StudySpacesResponse): StudySpaces {
 
 export function normalizeRepositoryError(error: unknown): StudyRepositoryError {
   if (error instanceof StudyRepositoryError) return error;
+  if (isDeskBridgeErrorPayload(error)) {
+    if (["desk_not_ready", "desk_auth_not_ready", "desk_transport_error"].includes(error.code)) {
+      return new StudyRepositoryError("unavailable", { cause: error });
+    }
+    if (error.code === "study_not_found" || error.status === 404) {
+      return new StudyRepositoryError("not-found", { cause: error });
+    }
+    if (error.code === "study_conflict" || error.status === 409) {
+      return new StudyRepositoryError("conflict", { cause: error });
+    }
+    if (["study_invalid_request", "invalid_study_id"].includes(error.code) || error.status === 400) {
+      return new StudyRepositoryError("invalid", { cause: error });
+    }
+    return new StudyRepositoryError("unknown", { cause: error });
+  }
   const message = error instanceof Error ? error.message : String(error);
   const stablePrefix = message.split(":", 1)[0].trim().toLowerCase();
 
