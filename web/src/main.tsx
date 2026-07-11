@@ -1,7 +1,7 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import React, { useEffect } from "react";
+import React, { lazy, Suspense, useEffect } from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -28,11 +28,14 @@ import { ScheduledTasksPage } from "./advanced/pages/ScheduledTasks";
 import { OverlayWindow } from "./capture/OverlayWindow";
 import { CompanionWindow } from "./companion/CompanionWindow";
 import { BrandSvgPreview } from "./components/brand/BrandSvgPreview";
+import { BootPill } from "./components/BootPill";
 import { applyFontSize, applyTheme } from "./lib/ui-prefs";
 import "./index.css";
 
 applyFontSize();
 applyTheme();
+
+const StudyRoute = lazy(() => import("./study/StudyRoute"));
 
 // --- Capture-overlay window: render the bare overlay, no shell chrome ---
 const windowLabel = (() => {
@@ -91,6 +94,10 @@ function MainWindowShell() {
               <Route path="/settings/wecom" element={<WeComPage />} />
               <Route path="/settings/cron" element={<ScheduledTasksPage />} />
               <Route path="/chat" element={<ChatPage />} />
+              <Route
+                path="/study/*"
+                element={<Suspense fallback={<BootPill />}><StudyRoute /></Suspense>}
+              />
               <Route path="/brand-svg-preview" element={<BrandSvgPreview />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
