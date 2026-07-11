@@ -4564,6 +4564,11 @@ class GatewayRunner:
         if canonical == "deny":
             return await self._handle_deny_command(event)
 
+        if canonical == "study":
+            from gateway.study_commands import handle_study_command
+            platform = source.platform.value if source.platform else ""
+            return handle_study_command(platform, source.user_id or "", event.get_command_args())
+
         if canonical == "update":
             return await self._handle_update_command(event)
 

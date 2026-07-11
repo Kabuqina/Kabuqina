@@ -238,6 +238,39 @@ def test_quiz_draft_activate_questions_and_submit_routes(study_client):
     assert submitted.json()["correctCount"] == 2
 
 
+def test_m5_artifact_requires_semantic_approval_before_activation(study_client):
+    client, db_path = study_client
+    store = LearningStore(db_path=db_path)
+    try:
+        ctx = LearningExecutionContext(store, owner_id=OWNER)
+        ctx.create_space(title="Algebra", space_id="s1")
+        artifact_id = OutputWriter(ctx).write_artifact(
+            kind="knowledge_base",
+            title="Concepts",
+            payload={"concepts": [{"term": "limit", "explanation": "approach"}]},
+        )["artifact_id"]
+    finally:
+        store.close()
+
+    blocked = client.post(
+        f"/api/desk/study/artifacts/{artifact_id}/activate", headers=_headers()
+    )
+    assert blocked.status_code == 400
+    assert "semantic review" in blocked.json()["detail"]
+
+    store = LearningStore(db_path=db_path)
+    try:
+        ctx = LearningExecutionContext(store, owner_id=OWNER)
+        ctx.select_space("s1")
+        ctx.set_artifact_review(artifact_id, "approved")
+    finally:
+        store.close()
+    activated = client.post(
+        f"/api/desk/study/artifacts/{artifact_id}/activate", headers=_headers()
+    )
+    assert activated.json()["status"] == "active"
+
+
 def test_legacy_quiz_migration_is_idempotent(study_client):
     client, _db_path = study_client
     payload = {

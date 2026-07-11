@@ -643,6 +643,23 @@ class LearningStore:
 
         self._execute_write(_op)
 
+    def update_artifact_review(
+        self, owner_id: str, space_id: str, artifact_id: str, review_status: str
+    ) -> None:
+        """Persist a trusted semantic-review conclusion for one owned draft."""
+        if review_status not in {"pending", "approved", "rejected"}:
+            raise ValueError("invalid review status")
+        now = _now()
+        def _op(conn: sqlite3.Connection) -> None:
+            cur = conn.execute(
+                "UPDATE learning_artifacts SET review_status = ?, updated_at = ? "
+                "WHERE owner_id = ? AND space_id = ? AND artifact_id = ?",
+                (review_status, now, owner_id, space_id, artifact_id),
+            )
+            if cur.rowcount != 1:
+                raise KeyError(f"artifact {artifact_id!r} not found")
+        self._execute_write(_op)
+
     # ── items ─────────────────────────────────────────────────────────── #
 
     def upsert_item(
