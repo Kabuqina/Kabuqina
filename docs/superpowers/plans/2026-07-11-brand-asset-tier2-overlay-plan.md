@@ -48,10 +48,10 @@ exists).
 
 ### Task 1: 私有仓库定型（owner 操作 + 结构约定）
 
-- [ ] **Step 1:** verify `Kabuqina/kabuqina-mascot` is **private** and owner
-  has a local checkout (suggested: `D:\project\kabuqina-mascot`). Record the
-  checkout path in progress notes.
-- [ ] **Step 2:** move the full `Na_logo/` tree (masters, generator scripts,
+- [x] **Step 1:** verify `Kabuqina/kabuqina-mascot` is **private** and owner
+  has a local checkout. *(2026-07-11: checkout at
+  `D:\project\kabuqina-mascot`.)*
+- [x] **Step 2:** move the full `Na_logo/` tree (masters, generator scripts,
   exports, screenshots) into the private repo, keeping
   `assets/brand/LICENSE` (All Rights Reserved) at its root, structured as:
 
@@ -65,9 +65,14 @@ kabuqina-mascot/
     tauri/icons/         #   generated icon set (cargo tauri icon output)
 ```
 
-- [ ] **Step 3:** regenerate/verify `overlay/` contents match today's shipped
+- [x] **Step 3:** regenerate/verify `overlay/` contents match today's shipped
   assets byte-for-byte (they are the current `web/public` + `tauri/icons`
   copies), so the first official overlay build is a no-op visually.
+  *(2026-07-11: overlay tree verified complete — 17 `web/public` files
+  including `kabuqina_boot.svg`, full `tauri/icons` set, no course-material
+  or `$RECYCLE.BIN` residue; copies were taken directly from the then-shipped
+  working tree before the placeholder swap. Legacy exports were pruned and
+  the tree was renamed `Na_logo/` → `masters/` during intake.)*
 
 ### Task 2: 公开仓库占位资产
 
@@ -121,10 +126,10 @@ kabuqina-mascot/
 
 ### Task 4: `Na_logo/` 退场与文档收口
 
-- [ ] **Step 1:** `git rm -r --cached Na_logo`（owner runs; classifier outage
-  blocked agent execution）. `.gitignore` already carries `/Na_logo/`. Local
-  tree stays until owner confirms the private-repo copy, then owner deletes
-  manually.
+- [x] **Step 1:** `git rm -r --cached Na_logo` + `/Na_logo/` in `.gitignore`.
+  *(2026-07-11: landed as `8b833bd1`; `git ls-files Na_logo` is empty. Local
+  tree stays until the owner confirms the private-repo copy, then deletes it
+  manually.)*
 - [x] **Step 2:** rewrite `assets/brand/README.md`（Tier 2 layout: private
   masters + public placeholders + overlay/branded-build runbooks）; `BRAND.md`
   asset-locations updated. `NOTICE` deliberately unchanged: its `Na_logo/`
