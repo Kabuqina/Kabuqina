@@ -139,9 +139,16 @@ kabuqina-mascot/
 
 ### Task 5: 验证轮
 
-- [ ] **Step 1:** clean-clone simulation（fresh worktree, no env var）:
+- [x] **Step 1:** clean-clone simulation（fresh worktree, no env var）:
   `npm run build` + `cargo tauri build` produce the placeholder app; grep
-  the bundle for absence of the real-asset hashes.
+  the bundle for absence of the real-asset hashes. *(2026-07-11: fresh
+  `a-r1b-task5-clean` worktree with no `KABUQINA_BRAND_DIR`; default Web
+  build passed and `apply-brand-overlay.ps1 -Check` passed. The 17 private
+  overlay Web assets had zero SHA-256 collisions with the 84 `web/dist`
+  files, and the mascot retained its `<title>Placeholder` sentinel. The
+  resulting `Kabuqina_0.3.0_x64-setup.exe` was installed and launched:
+  desktop icon, onboarding, and chat all displayed the grey, faceless neutral
+  mug placeholder; screenshots retained by the owner.)*
 - [ ] **Step 2:** branded round on owner machine: apply → build → restore;
   confirm working tree clean after restore and the artifact carries real
   branding. *(2026-07-11: apply → restore mechanics verified — banner shown,
