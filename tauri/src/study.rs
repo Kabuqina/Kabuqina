@@ -83,17 +83,19 @@ pub async fn cmd_study_drafts(
 #[tauri::command]
 pub async fn cmd_study_artifact_summaries(
     app: AppHandle,
-    space_id: Option<String>,
+    space_id: String,
     kind: Option<String>,
     status: Option<String>,
     limit: Option<u32>,
     offset: Option<u32>,
 ) -> Result<Value, DeskBridgeError> {
+    validate_structured_id(&space_id)?;
     let mut query = vec![
+        format!("space_id={space_id}"),
         format!("limit={}", limit.unwrap_or(50)),
         format!("offset={}", offset.unwrap_or(0)),
     ];
-    for (name, value) in [("space_id", space_id), ("kind", kind), ("status", status)] {
+    for (name, value) in [("kind", kind), ("status", status)] {
         if let Some(value) = value.filter(|v| !v.trim().is_empty()) {
             validate_study_path_id(value.trim())
                 .map_err(|detail| DeskBridgeError::invalid("invalid_study_id", detail))?;

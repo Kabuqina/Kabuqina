@@ -183,6 +183,13 @@ def _clean_text(value: Any) -> str:
     return value.strip()
 
 
+def _required_space_id(body: Dict[str, Any]) -> str:
+    space_id = str(body.get("space_id") or "").strip()
+    if not space_id:
+        raise ValueError("space_id is required")
+    return space_id
+
+
 def _normalized_front(value: Any) -> str:
     return _clean_text(value).casefold()
 
@@ -268,7 +275,7 @@ async def study_drafts(
 
 @router.get("/api/desk/study/artifacts")
 async def study_artifact_summaries(
-    space_id: Optional[str] = Query(default=None),
+    space_id: str = Query(...),
     kind: Optional[str] = Query(default=None),
     status: Optional[str] = Query(default=None),
     limit: int = Query(default=50, ge=1, le=100),
@@ -330,7 +337,7 @@ async def study_flashcards(due_only: bool = Query(default=False)):
 
 @router.get("/api/desk/study/artifacts/{artifact_id}")
 async def study_artifact_detail(
-    artifact_id: str, space_id: Optional[str] = Query(default=None)
+    artifact_id: str, space_id: str = Query(...)
 ):
     try:
         with _desktop_ctx(space_id=space_id) as ctx:
@@ -341,8 +348,8 @@ async def study_artifact_detail(
 @router.post("/api/desk/study/artifacts/{artifact_id}/status")
 async def study_artifact_status(artifact_id: str, body: Dict[str, Any]):
     requested = str(body.get("status") or "").strip()
-    space_id = str(body.get("space_id") or "").strip() or None
     try:
+        space_id = _required_space_id(body)
         with _desktop_ctx(space_id=space_id) as ctx:
             artifact = _require_artifact(ctx, artifact_id)
             if requested == "active":
@@ -401,7 +408,7 @@ async def study_migration_failures_export():
 
 @router.get("/api/desk/study/wrongbook")
 async def study_wrongbook(
-    space_id: Optional[str] = Query(default=None),
+    space_id: str = Query(...),
     limit: int = Query(default=50, ge=1, le=100),
 ):
     try:
@@ -415,7 +422,7 @@ async def study_wrongbook(
 
 @router.get("/api/desk/study/activities")
 async def study_activities(
-    space_id: Optional[str] = Query(default=None),
+    space_id: str = Query(...),
     limit: int = Query(default=50, ge=1, le=100),
 ):
     try:
@@ -439,7 +446,7 @@ async def study_activities(
 
 
 @router.get("/api/desk/study/student-state")
-async def study_student_state(space_id: Optional[str] = Query(default=None)):
+async def study_student_state(space_id: str = Query(...)):
     try:
         with _desktop_ctx(space_id=space_id) as ctx:
             if not ctx.current_space():
@@ -472,8 +479,8 @@ async def study_semantic_review(artifact_id: str):
 
 @router.put("/api/desk/study/student-state")
 async def study_student_state_save(body: Dict[str, Any]):
-    space_id = str(body.get("space_id") or "").strip() or None
     try:
+        space_id = _required_space_id(body)
         with _desktop_ctx(space_id=space_id) as ctx:
             _ensure_space(ctx)
             state = body.get("state") if isinstance(body.get("state"), dict) else {}
@@ -484,8 +491,8 @@ async def study_student_state_save(body: Dict[str, Any]):
 
 @router.post("/api/desk/study/migrations/context")
 async def study_context_migrate(body: Dict[str, Any]):
-    space_id = str(body.get("space_id") or "").strip() or None
     try:
+        space_id = _required_space_id(body)
         with _desktop_ctx(space_id=space_id) as ctx:
             if ctx.is_migrated(LEGACY_CONTEXT_MIGRATION_KEY):
                 return {"migrated": False}
@@ -529,20 +536,21 @@ async def study_context_migrate(body: Dict[str, Any]):
 
 
 @router.get("/api/desk/study/evaluations")
-async def study_evaluations(space_id: Optional[str] = Query(default=None)):
+async def study_evaluations(space_id: str = Query(...)):
     try:
         with _desktop_ctx(space_id=space_id) as ctx:
             if not ctx.current_space():
                 return {"evaluations": []}
-            rows = EvaluationService(ctx).list_evaluations(status="active")
-            return {"evaluations": [_artifact_ref(row) for row in rows]}
+            return {
+                "evaluations": EvaluationService(ctx).active_evaluation_projections()
+            }
     except (ValueError, KeyError, ContractError) as exc:
         raise _http_error(exc) from exc
 
 
 @router.get("/api/desk/study/evaluations/{artifact_id}")
 async def study_evaluation_detail(
-    artifact_id: str, space_id: Optional[str] = Query(default=None)
+    artifact_id: str, space_id: str = Query(...)
 ):
     try:
         with _desktop_ctx(space_id=space_id) as ctx:
@@ -558,7 +566,7 @@ async def study_evaluation_detail(
 
 
 @router.get("/api/desk/study/learning-plans")
-async def study_learning_plans(space_id: Optional[str] = Query(default=None)):
+async def study_learning_plans(space_id: str = Query(...)):
     try:
         with _desktop_ctx(space_id=space_id) as ctx:
             if not ctx.current_space():
@@ -571,7 +579,7 @@ async def study_learning_plans(space_id: Optional[str] = Query(default=None)):
 
 @router.get("/api/desk/study/learning-plans/{artifact_id}/items")
 async def study_learning_plan_items(
-    artifact_id: str, space_id: Optional[str] = Query(default=None)
+    artifact_id: str, space_id: str = Query(...)
 ):
     try:
         with _desktop_ctx(space_id=space_id) as ctx:
@@ -589,8 +597,8 @@ async def study_learning_plan_items(
 
 @router.post("/api/desk/study/learning-plans/items/{item_id}/complete")
 async def study_learning_plan_item_complete(item_id: str, body: Dict[str, Any]):
-    space_id = str(body.get("space_id") or "").strip() or None
     try:
+        space_id = _required_space_id(body)
         with _desktop_ctx(space_id=space_id) as ctx:
             return LearningPlanService(ctx).complete_item(
                 item_id, note=str(body.get("note") or "")
@@ -601,8 +609,8 @@ async def study_learning_plan_item_complete(item_id: str, body: Dict[str, Any]):
 
 @router.post("/api/desk/study/learning-plans/items/{item_id}/skip")
 async def study_learning_plan_item_skip(item_id: str, body: Dict[str, Any]):
-    space_id = str(body.get("space_id") or "").strip() or None
     try:
+        space_id = _required_space_id(body)
         with _desktop_ctx(space_id=space_id) as ctx:
             return LearningPlanService(ctx).skip_item(
                 item_id, note=str(body.get("note") or "")

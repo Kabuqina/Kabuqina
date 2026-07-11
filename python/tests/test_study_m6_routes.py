@@ -48,11 +48,11 @@ def test_bounded_drafts_and_wrongbook_routes(client):
     }
     assert drafts["items"][0]["review"] == {"mode": "deterministic", "status": "pending"}
     detail = http.get(
-        f"/api/desk/study/artifacts/{drafts['items'][0]['artifact_id']}",
+        f"/api/desk/study/artifacts/{drafts['items'][0]['artifact_id']}?space_id=s",
         headers=headers(),
     ).json()
     assert "secret-" in str(detail["artifact"]["envelope"])
-    wrong = http.get("/api/desk/study/wrongbook?limit=1", headers=headers()).json()
+    wrong = http.get("/api/desk/study/wrongbook?space_id=s&limit=1", headers=headers()).json()
     assert wrong["weak_points"] == ["algebra"]
     assert "SECRET" not in str(wrong)
 
@@ -66,12 +66,12 @@ def test_artifact_filter_and_status_transition(client):
     artifact_id = listed["items"][0]["artifact_id"]
     active = http.post(
         f"/api/desk/study/artifacts/{artifact_id}/status",
-        json={"status":"active"}, headers=headers(),
+        json={"space_id":"s", "status":"active"}, headers=headers(),
     )
     assert active.json()["status"] == "active"
     archived = http.post(
         f"/api/desk/study/artifacts/{artifact_id}/status",
-        json={"status":"archived"}, headers=headers(),
+        json={"space_id":"s", "status":"archived"}, headers=headers(),
     )
     assert archived.json()["status"] == "archived"
 

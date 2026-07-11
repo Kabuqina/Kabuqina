@@ -46,11 +46,9 @@ describe("EvaluatePage", () => {
         count: 2, returned: 1, limit: 1, truncated: true,
       }),
       loadLatestEvaluation: vi.fn().mockResolvedValue({ evaluation: {
-        artifact_id: "evaluation-1", kind: "evaluation", title: "Weekly note", status: "active",
-        payload: {
-          observations: ["Needs steadier vector work"], weak_points: ["vectors"],
-          suggestions: ["Retry one problem"], evidence_refs: [],
-        },
+        artifact_id: "evaluation-1", title: "Weekly note",
+        observations: ["Needs steadier vector work"], weak_points: ["vectors"],
+        suggestions: ["Retry one problem"], evidence_refs: [],
       } }),
       loadActivities: vi.fn().mockResolvedValue({
         items: [{
@@ -76,14 +74,26 @@ describe("EvaluatePage", () => {
     renderPage(repository({
       loadWrongbook: vi.fn().mockRejectedValue(new Error("offline")),
       loadLatestEvaluation: vi.fn().mockResolvedValue({ evaluation: {
-        artifact_id: "evaluation-1", kind: "evaluation", title: "Still visible", status: "active",
-        payload: { observations: ["Visible note"], weak_points: [], suggestions: [] },
+        artifact_id: "evaluation-1", title: "Still visible",
+        observations: ["Visible note"], weak_points: [], suggestions: [], evidence_refs: [],
       } }),
     }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("暂时无法读取");
     expect(await screen.findByText("Visible note")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "学习日志" })).toBeInTheDocument();
+  });
+
+  it("shows evaluation weak points even when there are no quiz attempts", async () => {
+    renderPage(repository({
+      loadWrongbook: vi.fn().mockResolvedValue({
+        weak_points: ["vector decomposition"], evidence: [],
+        count: 0, returned: 0, limit: 50, truncated: false,
+      }),
+    }));
+
+    expect(await screen.findByText("vector decomposition")).toBeInTheDocument();
+    expect(screen.queryByText(/错题本是空的/)).not.toBeInTheDocument();
   });
 
   it("renders three honest empty states and focuses the page heading", async () => {

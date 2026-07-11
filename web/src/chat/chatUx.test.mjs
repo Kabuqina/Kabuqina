@@ -1306,20 +1306,20 @@ assert.doesNotMatch(
   /saveStudyContext|clearStudyContext|saveStatus/,
   "StudySection should no longer write legacy profile context.",
 );
-assert.match(
+assert.doesNotMatch(
   flashcardPanelSource,
-  /const result = saveStudyContext\([\s\S]*setWroteBack\(result\.succeeded\)/,
-  "Flashcard progress write-back should only report success after storage succeeds.",
+  /saveStudyContext|wroteBack|flashcardWriteBack/,
+  "Flashcards should not write back to the read-only legacy study context.",
 );
 assert.doesNotMatch(
   flashcardPanelSource,
   /className="mt-[23] grid gap-/,
   "Flashcard panel stacks must use grid-cols-1 so long titles cannot widen the right rail.",
 );
-assert.match(
+assert.doesNotMatch(
   quizPanelSource,
-  /const saveResult = saveStudyContext\([\s\S]*setWroteBack\(saveResult\.succeeded\)/,
-  "Quiz result write-back should only report success after storage succeeds.",
+  /saveStudyContext|wroteBack|quizWriteBack/,
+  "Quizzes should not write back to the read-only legacy study context.",
 );
 assert.doesNotMatch(
   quizPanelSource,

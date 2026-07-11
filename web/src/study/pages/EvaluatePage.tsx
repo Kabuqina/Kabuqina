@@ -118,10 +118,10 @@ export function EvaluatePage({ spaceId }: { spaceId: string }) {
       <section className="kq-study-evaluate-section" aria-labelledby="wrongbook-title">
         <h2 id="wrongbook-title">{t("study.wrongbookTitle")}</h2>
         <SectionState state={wrongbook} retry={loadWrongbook} empty={<p>{t("study.wrongbookEmpty")}</p>}>
-          {(data) => data.evidence.length ? (
+          {(data) => data.evidence.length || data.weak_points.length ? (
             <>
               {data.weak_points.length ? <div className="kq-study-weak-tags">{data.weak_points.map((point) => <span key={point}>{point}</span>)}</div> : null}
-              <ol className="kq-study-wrongbook-list">
+              {data.evidence.length ? <ol className="kq-study-wrongbook-list">
                 {data.evidence.map((item) => (
                   <li key={item.activity_id}>
                     <div>
@@ -134,7 +134,7 @@ export function EvaluatePage({ spaceId }: { spaceId: string }) {
                     </Link>
                   </li>
                 ))}
-              </ol>
+              </ol> : null}
               {data.truncated ? <p className="kq-study-muted">{t("study.listTruncated", { count: data.returned, total: data.count })}</p> : null}
             </>
           ) : <p>{t("study.wrongbookEmpty")}</p>}
@@ -147,9 +147,9 @@ export function EvaluatePage({ spaceId }: { spaceId: string }) {
           {(data) => data.evaluation ? (
             <div className="kq-study-evaluation-note">
               <h3>{data.evaluation.title}</h3>
-              <ul>{data.evaluation.payload.observations.map((value) => <li key={value}>{value}</li>)}</ul>
-              {data.evaluation.payload.suggestions.length ? (
-                <><h4>{t("study.evaluationSuggestions")}</h4><ul>{data.evaluation.payload.suggestions.map((value) => <li key={value}>{value}</li>)}</ul></>
+              <ul>{data.evaluation.observations.map((value) => <li key={value}>{value}</li>)}</ul>
+              {data.evaluation.suggestions.length ? (
+                <><h4>{t("study.evaluationSuggestions")}</h4><ul>{data.evaluation.suggestions.map((value) => <li key={value}>{value}</li>)}</ul></>
               ) : null}
             </div>
           ) : <p>{t("study.latestEvaluationEmpty")}</p>}

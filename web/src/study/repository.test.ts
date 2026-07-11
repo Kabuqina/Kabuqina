@@ -106,6 +106,23 @@ describe("StudyRepository", () => {
     expect(planItems).toHaveBeenCalledWith("space-b", "newer");
   });
 
+  it("uses the server-bounded evaluation projection without a detail round trip", async () => {
+    const evaluations = vi.fn().mockResolvedValue({ evaluations: [{
+      artifact_id: "evaluation-newest",
+      title: "Bounded evaluation",
+      observations: ["Keep practising"],
+      weak_points: ["vectors"],
+      suggestions: ["Retry"],
+      evidence_refs: [],
+    }] });
+    const repository = createStudyRepository({ evaluations });
+
+    await expect(
+      repository.loadLatestEvaluation("space-b", new AbortController().signal),
+    ).resolves.toMatchObject({ evaluation: { artifact_id: "evaluation-newest" } });
+    expect(evaluations).toHaveBeenCalledWith("space-b");
+  });
+
   it("maps only stable error prefixes", () => {
     expect(normalizeRepositoryError("invalid study id").code).toBe("invalid");
     expect(normalizeRepositoryError("space_not_found: hidden detail").code).toBe("not-found");

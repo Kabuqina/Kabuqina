@@ -20,18 +20,12 @@ import { WorkspaceSection } from "../workspaceSection";
 import {
   STUDY_LEARNING_EVENT,
   backendCardsToQueue,
-  formatReviewSummary,
   legacyDeckToMigrationDeck,
   type ReviewQueueCard,
 } from "./flashcardLearningStore";
 import { loadDeck } from "./flashcardStore";
 import { FLASHCARD_GENERATION_PROMPT } from "./studyPrompts";
-import {
-  STUDY_CONTEXT_FIELD_LIMIT,
-  formatStudyContextForPrompt,
-  loadStudyContext,
-  saveStudyContext,
-} from "./studyStore";
+import { formatStudyContextForPrompt, loadStudyContext } from "./studyStore";
 import {
   cmdStudyArtifactActivate,
   cmdStudyArtifactReject,
@@ -67,7 +61,7 @@ export function FlashcardPanel({
 }: {
   onStartPrompt?: (prompt: string) => void;
 }) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const [spaces, setSpaces] = useState<StudySpace[]>([]);
   const [currentSpaceId, setCurrentSpaceId] = useState<string>("");
   const [newSpaceTitle, setNewSpaceTitle] = useState("");
@@ -78,9 +72,6 @@ export function FlashcardPanel({
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [status, setStatus] = useState("");
-  const [reviewedCount, setReviewedCount] = useState(0);
-  const [dueRemaining, setDueRemaining] = useState(0);
-  const [wroteBack, setWroteBack] = useState(false);
   const migratedRef = useRef(false);
 
   const refresh = useCallback(async () => {
@@ -194,9 +185,6 @@ export function FlashcardPanel({
       setQueue(nextQueue);
       setIndex(0);
       setRevealed(false);
-      setReviewedCount(0);
-      setDueRemaining(0);
-      setWroteBack(false);
       setMode("review");
     } catch (error) {
       setStatus(t("chat.flashcardBackendUnavailable"));
@@ -208,11 +196,7 @@ export function FlashcardPanel({
     if (!current) return;
     try {
       await cmdStudyFlashcardReview(current.itemId, value);
-      const reviewed = reviewedCount + 1;
-      setReviewedCount(reviewed);
       if (index + 1 >= queue.length) {
-        const due = await cmdStudyFlashcards(true);
-        setDueRemaining((due.cards || []).length);
         await refresh();
         setMode("done");
       } else {
@@ -223,21 +207,6 @@ export function FlashcardPanel({
       setStatus(t("chat.flashcardBackendUnavailable"));
       console.debug("study flashcard review failed:", error);
     }
-  };
-
-  const writeBack = () => {
-    const context = loadStudyContext();
-    const stamp = new Date().toISOString().slice(0, 10);
-    const line = `【${stamp}】${formatReviewSummary(
-      { reviewed: reviewedCount, dueRemaining },
-      locale === "en" ? "en" : "zh",
-    )}`;
-    const progressNotes = `${line}${context.progressNotes ? `\n${context.progressNotes}` : ""}`.slice(
-      0,
-      STUDY_CONTEXT_FIELD_LIMIT,
-    );
-    const result = saveStudyContext({ ...context, progressNotes });
-    setWroteBack(result.succeeded);
   };
 
   return (
@@ -331,7 +300,7 @@ export function FlashcardPanel({
       ) : null}
 
       {mode === "review" && current ? (
-        <div className="mt-3 grid grid-cols-1 gap-2">
+        <div className="mt-3">
           <div className="kq-workspace-card rounded-md px-3 py-3">
             <div className="whitespace-pre-wrap break-words text-[13px] font-medium text-[var(--kq-color-ink)]">
               {current.front}
@@ -381,15 +350,6 @@ export function FlashcardPanel({
           <div className="rounded-md bg-[var(--kq-color-surface-2)] px-3 py-2 text-[12.5px] text-[var(--kq-color-ink)]">
             {t("chat.flashcardReviewDone")}
           </div>
-          <button
-            type="button"
-            onClick={writeBack}
-            disabled={wroteBack}
-            className="kq-quick-action inline-flex items-center justify-center gap-1.5 rounded-[10px] px-2.5 py-2 text-[12.5px] leading-snug transition disabled:opacity-60"
-          >
-            <Check className="h-3.5 w-3.5" aria-hidden />
-            {wroteBack ? t("chat.flashcardWroteBack") : t("chat.flashcardWriteBack")}
-          </button>
         </div>
       ) : null}
 

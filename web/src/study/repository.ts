@@ -6,7 +6,6 @@ import {
   cmdStudyArtifactDetail,
   cmdStudyArtifactSummaries,
   cmdStudyArtifactStatus,
-  cmdStudyEvaluationDetail,
   cmdStudyEvaluations,
   cmdStudyLearningPlans,
   cmdStudyMigrateContext,
@@ -20,7 +19,7 @@ import {
   type StudyActivitiesResponse,
   type StudyArtifactSummary,
   type StudyDraftsResponse,
-  type StudyEvaluationDetail,
+  type StudyEvaluationProjection,
   type StudyPlanItem,
   type StudySpacesResponse,
   type StudyStudentState,
@@ -55,7 +54,7 @@ export type StudyPlanSnapshot = {
 };
 
 export type StudyEvaluationSnapshot = {
-  evaluation: StudyEvaluationDetail | null;
+  evaluation: StudyEvaluationProjection | null;
 };
 
 export type StudyRepositoryErrorCode =
@@ -126,7 +125,6 @@ type StudyCommands = {
   skipPlanItem: typeof cmdStudyPlanItemSkip;
   wrongbook: typeof cmdStudyWrongbook;
   evaluations: typeof cmdStudyEvaluations;
-  evaluationDetail: typeof cmdStudyEvaluationDetail;
   activities: typeof cmdStudyActivities;
 };
 
@@ -154,7 +152,6 @@ const defaultCommands: StudyCommands = {
   skipPlanItem: cmdStudyPlanItemSkip,
   wrongbook: cmdStudyWrongbook,
   evaluations: cmdStudyEvaluations,
-  evaluationDetail: cmdStudyEvaluationDetail,
   activities: cmdStudyActivities,
 };
 
@@ -302,15 +299,9 @@ export function createStudyRepository(commands: Partial<StudyCommands> = {}): St
       return invokeWithSignal(signal, () => resolved.wrongbook(spaceId));
     },
     async loadLatestEvaluation(spaceId, signal) {
-      return invokeWithSignal(signal, async () => {
-        const summaries = await resolved.evaluations(spaceId);
-        const latest = newestArtifact(summaries.evaluations);
-        return {
-          evaluation: latest
-            ? (await resolved.evaluationDetail(spaceId, latest.artifact_id)).evaluation
-            : null,
-        };
-      });
+      return invokeWithSignal(signal, async () => ({
+        evaluation: (await resolved.evaluations(spaceId)).evaluations[0] ?? null,
+      }));
     },
     loadActivities(spaceId, signal) {
       return invokeWithSignal(signal, () => resolved.activities(spaceId));

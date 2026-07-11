@@ -109,6 +109,11 @@ export type StudyEvaluationDetail = StudyArtifactSummary & {
   payload: StudyEvaluationPayload;
 };
 
+export type StudyEvaluationProjection = StudyEvaluationPayload & {
+  artifact_id: string;
+  title: string;
+};
+
 export type StudyActivitySummary = {
   activity_id: string;
   activity_type: string;
@@ -279,12 +284,12 @@ export function cmdStudyDrafts(kind?: string, limit = 50, offset = 0): Promise<S
 }
 
 export function cmdStudyArtifactSummaries(filters: {
-  spaceId?: string;
+  spaceId: string;
   kind?: string;
   status?: string;
   limit?: number;
   offset?: number;
-} = {}): Promise<StudyDraftsResponse> {
+}): Promise<StudyDraftsResponse> {
   return invoke("cmd_study_artifact_summaries", filters);
 }
 
@@ -329,7 +334,7 @@ export function cmdStudyMigrateContext(
   return invoke("cmd_study_migrate_context", { spaceId, context });
 }
 
-export function cmdStudyEvaluations(spaceId: string): Promise<{ evaluations: StudyArtifactSummary[] }> {
+export function cmdStudyEvaluations(spaceId: string): Promise<{ evaluations: StudyEvaluationProjection[] }> {
   return invoke("cmd_study_evaluations", { spaceId });
 }
 

@@ -72,20 +72,26 @@ def _seed_m4_drafts(db_path: Path):
 
 def test_student_state_save_and_context_migration_are_idempotent(study_client):
     client, _db_path = study_client
+    created = client.post(
+        "/api/desk/study/spaces",
+        json={"space_id": "s1", "title": "Algebra"},
+        headers=_headers(),
+    )
+    assert created.status_code == 200
     saved = client.put(
         "/api/desk/study/student-state",
-        json={"state": {"course": "Algebra", "goals": ["Midterm"]}},
+        json={"space_id": "s1", "state": {"course": "Algebra", "goals": ["Midterm"]}},
         headers=_headers(),
     )
     assert saved.status_code == 200
     assert saved.json()["state"]["payload"]["course"] == "Algebra"
 
-    loaded = client.get("/api/desk/study/student-state", headers=_headers())
+    loaded = client.get("/api/desk/study/student-state?space_id=s1", headers=_headers())
     assert loaded.json()["state"]["payload"]["goals"] == ["Midterm"]
 
     migrated = client.post(
         "/api/desk/study/migrations/context",
-        json={"context": {"course": "Calculus", "goal": "Pass", "weakPoints": "limits"}},
+        json={"space_id": "s1", "context": {"course": "Calculus", "goal": "Pass", "weakPoints": "limits"}},
         headers=_headers(),
     )
     assert migrated.status_code == 200
@@ -95,7 +101,7 @@ def test_student_state_save_and_context_migration_are_idempotent(study_client):
 
     second = client.post(
         "/api/desk/study/migrations/context",
-        json={"context": {"course": "Ignored"}},
+        json={"space_id": "s1", "context": {"course": "Ignored"}},
         headers=_headers(),
     )
     assert second.json() == {"migrated": False}
@@ -103,9 +109,15 @@ def test_student_state_save_and_context_migration_are_idempotent(study_client):
 
 def test_context_migration_omits_empty_evaluation(study_client):
     client, _db_path = study_client
+    created = client.post(
+        "/api/desk/study/spaces",
+        json={"space_id": "s1", "title": "Algebra"},
+        headers=_headers(),
+    )
+    assert created.status_code == 200
     migrated = client.post(
         "/api/desk/study/migrations/context",
-        json={"context": {"course": "Algebra", "goal": "Pass"}},
+        json={"space_id": "s1", "context": {"course": "Algebra", "goal": "Pass"}},
         headers=_headers(),
     )
     assert migrated.status_code == 200
@@ -120,10 +132,10 @@ def test_evaluation_and_learning_plan_routes(study_client):
         f"/api/desk/study/artifacts/{evaluation_id}/activate", headers=_headers()
     )
     assert activated_eval.status_code == 200
-    evaluations = client.get("/api/desk/study/evaluations", headers=_headers())
+    evaluations = client.get("/api/desk/study/evaluations?space_id=s1", headers=_headers())
     assert [row["artifact_id"] for row in evaluations.json()["evaluations"]] == [evaluation_id]
     detail = client.get(
-        f"/api/desk/study/evaluations/{evaluation_id}", headers=_headers()
+        f"/api/desk/study/evaluations/{evaluation_id}?space_id=s1", headers=_headers()
     )
     assert detail.json()["evaluation"]["payload"]["weak_points"] == ["prime numbers"]
 
@@ -132,22 +144,22 @@ def test_evaluation_and_learning_plan_routes(study_client):
     )
     assert activated_plan.status_code == 200
     assert activated_plan.json()["materialized"] == 1
-    plans = client.get("/api/desk/study/learning-plans", headers=_headers())
+    plans = client.get("/api/desk/study/learning-plans?space_id=s1", headers=_headers())
     assert [row["artifact_id"] for row in plans.json()["plans"]] == [plan_id]
     items = client.get(
-        f"/api/desk/study/learning-plans/{plan_id}/items", headers=_headers()
+        f"/api/desk/study/learning-plans/{plan_id}/items?space_id=s1", headers=_headers()
     )
     item_id = items.json()["items"][0]["item_id"]
     completed = client.post(
         f"/api/desk/study/learning-plans/items/{item_id}/complete",
-        json={"note": "done"},
+        json={"space_id": "s1", "note": "done"},
         headers=_headers(),
     )
     assert completed.status_code == 200
     assert completed.json()["status"] == "completed"
     repeated = client.post(
         f"/api/desk/study/learning-plans/items/{item_id}/complete",
-        json={},
+        json={"space_id": "s1"},
         headers=_headers(),
     )
     assert repeated.status_code == 400
@@ -250,6 +262,10 @@ def test_d2_routes_honor_url_space_and_activity_projection_is_content_minimized(
         "/api/desk/study/evaluations?space_id=space-b", headers=_headers()
     ).json()
     assert evaluations["evaluations"][0]["artifact_id"] == evaluation_id
+    assert set(evaluations["evaluations"][0]) == {
+        "artifact_id", "title", "observations", "weak_points", "suggestions",
+        "evidence_refs",
+    }
 
     activities = client.get(
         "/api/desk/study/activities?space_id=space-b&limit=1", headers=_headers()
@@ -272,3 +288,30 @@ def test_d2_routes_honor_url_space_and_activity_projection_is_content_minimized(
     )
     assert unavailable.status_code == 404
     assert unavailable.json()["detail"]["code"] == "study_not_found"
+
+
+def test_d2_routes_require_explicit_space_id(study_client):
+    client, _db_path = study_client
+    for path in (
+        "/api/desk/study/artifacts",
+        "/api/desk/study/artifacts/missing",
+        "/api/desk/study/wrongbook",
+        "/api/desk/study/activities",
+        "/api/desk/study/student-state",
+        "/api/desk/study/evaluations",
+        "/api/desk/study/evaluations/missing",
+        "/api/desk/study/learning-plans",
+        "/api/desk/study/learning-plans/missing/items",
+    ):
+        assert client.get(path, headers=_headers()).status_code == 422
+
+    for method, path, body in (
+        (client.put, "/api/desk/study/student-state", {"state": {}}),
+        (client.post, "/api/desk/study/migrations/context", {"context": {}}),
+        (client.post, "/api/desk/study/artifacts/missing/status", {"status": "active"}),
+        (client.post, "/api/desk/study/learning-plans/items/missing/complete", {}),
+        (client.post, "/api/desk/study/learning-plans/items/missing/skip", {}),
+    ):
+        response = method(path, json=body, headers=_headers())
+        assert response.status_code == 400
+        assert response.json()["detail"]["code"] == "study_invalid_request"

@@ -21,7 +21,6 @@ import { WorkspaceSection } from "../workspaceSection";
 import { STUDY_LEARNING_EVENT } from "./flashcardLearningStore";
 import {
   backendQuestionsToQuizRows,
-  formatQuizAttemptSummary,
   legacyQuizToMigrationQuiz,
   responsesToSubmitPayload,
   type QuizQuestionRow,
@@ -29,12 +28,7 @@ import {
 } from "./quizLearningStore";
 import { loadQuizState } from "./quizStore";
 import { QUIZ_GENERATION_PROMPT } from "./studyPrompts";
-import {
-  STUDY_CONTEXT_FIELD_LIMIT,
-  formatStudyContextForPrompt,
-  loadStudyContext,
-  saveStudyContext,
-} from "./studyStore";
+import { formatStudyContextForPrompt, loadStudyContext } from "./studyStore";
 import {
   cmdStudyArtifactActivate,
   cmdStudyArtifactReject,
@@ -68,7 +62,7 @@ export function QuizPanel({
 }: {
   onStartPrompt?: (prompt: string) => void;
 }) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const [spaces, setSpaces] = useState<StudySpace[]>([]);
   const [currentSpaceId, setCurrentSpaceId] = useState("");
   const [newSpaceTitle, setNewSpaceTitle] = useState("");
@@ -81,7 +75,6 @@ export function QuizPanel({
   const [index, setIndex] = useState(0);
   const [result, setResult] = useState<StudyQuizResult | null>(null);
   const [status, setStatus] = useState("");
-  const [wroteBack, setWroteBack] = useState(false);
   const migratedRef = useRef(false);
 
   const refresh = useCallback(async () => {
@@ -206,7 +199,6 @@ export function QuizPanel({
       setQuestions(rows);
       setResponses({});
       setResult(null);
-      setWroteBack(false);
       setIndex(0);
       setMode("taking");
     } catch (error) {
@@ -252,31 +244,7 @@ export function QuizPanel({
     setResponses({});
     setResult(null);
     setIndex(0);
-    setWroteBack(false);
     setMode("taking");
-  };
-
-  const writeBack = () => {
-    if (!result) return;
-    const context = loadStudyContext();
-    const stamp = new Date().toISOString().slice(0, 10);
-    const summary = `【${stamp}】${formatQuizAttemptSummary(
-      result,
-      locale === "en" ? "en" : "zh",
-    )}`;
-    const evaluationSummary = `${summary}${context.evaluationSummary ? `\n${context.evaluationSummary}` : ""}`.slice(
-      0,
-      STUDY_CONTEXT_FIELD_LIMIT,
-    );
-    const weak = result.weakTags?.length
-      ? [result.weakTags.join("、"), context.weakPoints].filter(Boolean).join("；")
-      : context.weakPoints;
-    const saveResult = saveStudyContext({
-      ...context,
-      evaluationSummary,
-      weakPoints: weak.slice(0, STUDY_CONTEXT_FIELD_LIMIT),
-    });
-    setWroteBack(saveResult.succeeded);
   };
 
   const typeLabel = (question: QuizQuestionRow) => {
@@ -570,15 +538,6 @@ export function QuizPanel({
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={writeBack}
-              disabled={wroteBack}
-              className="kq-quick-action inline-flex flex-1 items-center justify-center gap-1.5 rounded-[10px] px-2.5 py-2 text-[12.5px] leading-snug transition disabled:opacity-60"
-            >
-              <Check className="h-3.5 w-3.5" aria-hidden />
-              {wroteBack ? t("chat.quizWroteBack") : t("chat.quizWriteBack")}
-            </button>
             <button
               type="button"
               onClick={retry}
