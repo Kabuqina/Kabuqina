@@ -647,17 +647,23 @@ class LearningStore:
         self, owner_id: str, space_id: str, artifact_id: str, review_status: str
     ) -> None:
         """Persist a trusted semantic-review conclusion for one owned draft."""
-        if review_status not in {"pending", "approved", "rejected"}:
+        if review_status not in {"pending", "passed", "failed"}:
             raise ValueError("invalid review status")
         now = _now()
         def _op(conn: sqlite3.Connection) -> None:
-            cur = conn.execute(
-                "UPDATE learning_artifacts SET review_status = ?, updated_at = ? "
-                "WHERE owner_id = ? AND space_id = ? AND artifact_id = ?",
-                (review_status, now, owner_id, space_id, artifact_id),
-            )
-            if cur.rowcount != 1:
+            row = conn.execute(
+                "SELECT envelope_json FROM learning_artifacts WHERE owner_id = ? AND space_id = ? AND artifact_id = ?",
+                (owner_id, space_id, artifact_id),
+            ).fetchone()
+            if not row:
                 raise KeyError(f"artifact {artifact_id!r} not found")
+            envelope = json.loads(row["envelope_json"])
+            envelope["review"] = {**(envelope.get("review") or {}), "status": review_status}
+            conn.execute(
+                "UPDATE learning_artifacts SET review_status = ?, envelope_json = ?, updated_at = ? "
+                "WHERE owner_id = ? AND space_id = ? AND artifact_id = ?",
+                (review_status, json.dumps(envelope, ensure_ascii=False), now, owner_id, space_id, artifact_id),
+            )
         self._execute_write(_op)
 
     # ── items ─────────────────────────────────────────────────────────── #

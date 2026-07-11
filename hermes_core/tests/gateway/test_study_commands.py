@@ -23,5 +23,5 @@ def test_study_approve_and_reject_are_owned_and_deterministic(tmp_path, monkeypa
         )["artifact_id"]
     finally:
         store.close()
-    assert "approved" in study_commands.handle_study_command("telegram", "alice", f"approve {artifact_id}")
+    assert "awaiting" in study_commands.handle_study_command("telegram", "alice", f"approve {artifact_id}")
     assert "failed" in study_commands.handle_study_command("telegram", "bob", f"reject {artifact_id}")

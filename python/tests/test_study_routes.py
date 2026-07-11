@@ -258,17 +258,20 @@ def test_m5_artifact_requires_semantic_approval_before_activation(study_client):
     assert blocked.status_code == 400
     assert "semantic review" in blocked.json()["detail"]
 
-    store = LearningStore(db_path=db_path)
-    try:
-        ctx = LearningExecutionContext(store, owner_id=OWNER)
-        ctx.select_space("s1")
-        ctx.set_artifact_review(artifact_id, "approved")
-    finally:
-        store.close()
+    reviewed = client.post(
+        f"/api/desk/study/artifacts/{artifact_id}/semantic-review",
+        json={"status": "passed"}, headers=_headers(),
+    )
+    assert reviewed.json()["status"] == "passed"
     activated = client.post(
         f"/api/desk/study/artifacts/{artifact_id}/activate", headers=_headers()
     )
     assert activated.json()["status"] == "active"
+
+    audit = client.get(
+        f"/api/desk/study/artifacts/{artifact_id}/source-audit", headers=_headers()
+    )
+    assert audit.json() == {"artifact_id": artifact_id, "source_refs": []}
 
 
 def test_legacy_quiz_migration_is_idempotent(study_client):

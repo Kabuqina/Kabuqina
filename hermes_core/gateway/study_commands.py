@@ -42,13 +42,22 @@ def handle_study_command(platform: str, user_id: str, raw_args: str) -> str:
             if not argument:
                 return f"Usage: /study {action} <artifact-id>"
             if action == "approve":
-                ctx.set_artifact_review(argument, "approved")
+                artifact = ctx.get_artifact(argument)
+                if not artifact or artifact["review"]["status"] != "passed":
+                    return "Study draft is still awaiting a passed semantic review."
                 ctx.set_artifact_status(argument, "active")
                 return f"Study draft approved: {argument}"
-            ctx.set_artifact_review(argument, "rejected")
             ctx.set_artifact_status(argument, "rejected")
             return f"Study draft rejected: {argument}"
-        return "Usage: /study [list|new <name>|use <space-id>|drafts|approve <artifact-id>|reject <artifact-id>]"
+        if action == "audit":
+            if not argument:
+                return "Usage: /study audit <artifact-id>"
+            artifact = ctx.get_artifact(argument)
+            if not artifact:
+                return "Study audit failed: artifact not found."
+            refs = artifact["envelope"].get("source_refs") or []
+            return "No external source references." if not refs else "Source references:\n" + "\n".join(str(ref) for ref in refs)
+        return "Usage: /study [list|new <name>|use <space-id>|drafts|approve <artifact-id>|reject <artifact-id>|audit <artifact-id>]"
     except (KeyError, ValueError) as exc:
         return f"Study command failed: {exc}"
     finally:

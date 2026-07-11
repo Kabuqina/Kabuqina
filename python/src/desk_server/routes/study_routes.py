@@ -20,6 +20,8 @@ from learning.learning_store import LearningStore
 from learning.output_writer import OutputWriter
 from learning.practice_generator import PracticeGenerator
 from learning.quizzes import QuizService
+from learning.semantic_review import requires_semantic_review
+from learning.semantic_review import SemanticReviewService
 from learning.student_state import LEGACY_CONTEXT_MIGRATION_KEY, StudentStateService
 from learning_owner import desktop_learning_scope
 from study_review_reminder import StudyReviewReminderService
@@ -215,7 +217,7 @@ async def study_artifact_activate(artifact_id: str):
             if artifact["kind"] == "learning_plan":
                 return LearningPlanService(ctx).activate_plan(artifact_id)
             if artifact["kind"] in {"knowledge_base", "resource_pack", "tutoring_note"}:
-                if artifact.get("review", {}).get("status") != "approved":
+                if requires_semantic_review(artifact) and artifact.get("review", {}).get("status") != "passed":
                     raise ValueError("semantic review must be approved before activation")
                 ctx.set_artifact_status(artifact_id, "active")
                 return {"artifact_id": artifact_id, "status": "active"}
@@ -265,6 +267,26 @@ async def study_student_state():
             if not ctx.current_space():
                 return {"state": None}
             return {"state": StudentStateService(ctx).get_current_state()}
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+@router.get("/api/desk/study/artifacts/{artifact_id}/source-audit")
+async def study_source_audit(artifact_id: str):
+    try:
+        with _desktop_ctx() as ctx:
+            artifact = _require_artifact(ctx, artifact_id)
+            return {"artifact_id": artifact_id, "source_refs": artifact["envelope"].get("source_refs") or []}
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+@router.post("/api/desk/study/artifacts/{artifact_id}/semantic-review")
+async def study_semantic_review(artifact_id: str, body: Dict[str, Any]):
+    """Persist a trusted reviewer conclusion; missing/unavailable stays pending."""
+    raw = body.get("status")
+    decision = True if raw == "passed" else False if raw == "failed" else None
+    try:
+        with _desktop_ctx() as ctx:
+            return SemanticReviewService(ctx, lambda _artifact: decision).review(artifact_id)
     except (ValueError, KeyError, ContractError) as exc:
         raise _http_error(exc) from exc
 
