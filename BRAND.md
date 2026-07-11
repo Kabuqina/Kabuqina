@@ -20,12 +20,14 @@ Kabuqina uses a **dual license** model:
 ## Asset locations
 
 Since 2026-07-11 (Tier 2 pipeline, A-R1b) the artwork **masters live in the
-private `Kabuqina/kabuqina-mascot` repository**; this public repository ships
-neutral placeholder files in the build paths (`web/public/`, `tauri/icons/`)
-and official builds inject the real assets at build time
-(see [assets/brand/README.md](./assets/brand/README.md)). Real artwork that
-shipped before the split remains in git history (including the retired
-`Na_logo/` tree). Legal coverage is defined by
+private `Kabuqina/kabuqina-mascot` repository**. **This branch is an exception:**
+it carries the real Kabuqina brand assets as distribution copies in the
+build paths (`web/public/`, `tauri/icons/`) so the competition deliverable
+runs with the branded appearance. Those build-path copies are still
+proprietary and covered by [assets/brand/LICENSE](./assets/brand/LICENSE).
+
+Real artwork that shipped before the split also remains in git history
+(including the retired `Na_logo/` tree). Legal coverage is defined by
 [assets/brand/LICENSE](./assets/brand/LICENSE) — the covered directories, the
 `LicenseRef-Kabuqina-Brand` SPDX marker, and the artwork-as-a-work clause —
 not by directory name alone, and applies to the historical artwork wherever

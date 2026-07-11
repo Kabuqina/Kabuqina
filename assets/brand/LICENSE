@@ -9,28 +9,27 @@ repository, including but not limited to:
 - Scene and coaster vector composites (kabuqina_hero_scene.svg,
   kabuqina_pill_scene.svg, kabuqina_coaster_hero.svg, kabuqina_coaster_pill.svg,
   kabuqina_social_preview.svg, and related exports)
-- Product icons, favicons, social preview images, and app icon sets generated
-  from brand sources (historical tauri/icons/ contents, and the real icon sets
-  injected during official branded builds)
+- Product icons, favicons, social preview images, and app icon sets under
+  tauri/icons/ and web/public/ (these are real Kabuqina brand assets used as
+  distribution copies in this branch, not neutral placeholders)
 - Vector masters (e.g. kabuqina_mascot.svg) and raster distribution copies —
-  now maintained in the private Kabuqina/kabuqina-mascot repository; their
-  historical copies under Na_logo/ and web/public/ in this repository's git
-  history remain covered
+  authoritative masters now maintained in the private
+  Kabuqina/kabuqina-mascot repository; their historical copies under Na_logo/
+  and web/public/ in this repository's git history remain covered
 - Brand asset generator scripts (generate_mascot.py,
-  generate_mascot_scenes.py, generate_na_mark.py) — now in the private
-  repository's masters/ tree; historical copies under Na_logo/ remain
-  covered, including their geometry, palette definitions, export parameters,
-  and generated output
+  generate_mascot_scenes.py, generate_na_mark.py) — authoritative masters now
+  in the private repository's masters/ tree; historical copies under Na_logo/
+  remain covered, including their geometry, palette definitions, export
+  parameters, and generated output
 
 are proprietary and protected by copyright and trademark law.
 
 Coverage rule (in addition to the illustrative list above):
 
-1. ALL files under assets/brand/ and assets/ui/ are covered, EXCEPT
-   assets/brand/placeholder/: that directory contains neutral, unbranded
-   placeholder tooling and output licensed under Apache-2.0, and neither it
-   nor the placeholder assets it writes into build paths (web/public/,
-   tauri/icons/) are Kabuqina brand artwork.
+1. ALL files under assets/brand/, assets/ui/, web/public/kabuqina*, and
+   tauri/icons/ are covered. The files under web/public/ and tauri/icons/
+   are real Kabuqina brand distribution copies in this branch and remain
+   All Rights Reserved.
 2. The retired Na_logo/ tree is covered wherever it appears in this
    repository's git history. Its authoritative masters now live in the
    private Kabuqina/kabuqina-mascot repository, which is covered in its
@@ -43,11 +42,10 @@ Coverage rule (in addition to the illustrative list above):
    definitions, and scene compositions — is covered AS A WORK regardless of
    the file format or location in which it is expressed. This includes
    inline-vector and CSS renderings embedded in source-code files (for
-   example under web/src/components/), historical copies in build paths,
-   and the real assets injected into build paths during official branded
-   builds, even where the surrounding component CODE is licensed under
-   Apache-2.0. In such mixed files the code license grants no rights to the
-   embedded artwork.
+   example under web/src/components/) and copies in build paths
+   (web/public/, tauri/icons/), even where the surrounding component CODE is
+   licensed under Apache-2.0. In such mixed files the code license grants no
+   rights to the embedded artwork.
 
 They are NOT covered by the Apache License, Version 2.0 governing the Kabuqina
 source code in this repository. See the root LICENSE file and BRAND.md for the
