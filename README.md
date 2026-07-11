@@ -178,7 +178,9 @@ Built with Tauri 2, React 19/Vite, an embedded Python runtime, and an owned Herm
 
 双许可：**代码 Apache-2.0**（[LICENSE](LICENSE)），**品牌与视觉资产专有**
 （[assets/brand/LICENSE](assets/brand/LICENSE)，含小娜形象、logo、场景美术——
-无论它们以独立文件还是内联代码形式存在）。拆分细则见 [BRAND.md](BRAND.md)。
+无论它们以独立文件还是内联代码形式存在）。美术母版保存在私有仓库中；
+本仓库默认自带中性无品牌占位资产（Apache-2.0），从源码构建即为无品牌版，
+官方发行版在构建时注入真实品牌资产。拆分细则见 [BRAND.md](BRAND.md)。
 Apache-2.0 不授予商标权：fork 不得使用 Kabuqina / 卡布奇娜名称与咖啡杯形象
 作为产品标识。内置的 Hermes Agent core 为上游 MIT 许可
 （[hermes_core/LICENSE](hermes_core/LICENSE)）。
