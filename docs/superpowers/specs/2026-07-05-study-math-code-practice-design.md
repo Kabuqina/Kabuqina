@@ -2,8 +2,8 @@
 
 **日期：** 2026-07-05
 
-**状态：** 已确认方向。结构性搬迁进 v0.3.0（雏形）;练习系统分两级落在
-v0.4.0 / v0.5.0。
+**状态：** 已确认方向。结构性搬迁已进 v0.3.0（雏形）;v0.4.0 的后端
+练习契约与判分器已实施，交互面（B-3）仍待完成；完整梯子交互归 v0.5.0。
 
 **范围：** ACADEMY 标签改名 REPORT;数学能力族迁入 STUDY 成为
 「数学与代码」;定义符合学习产品原则的练习系统（五级梯子）、练习数据
@@ -86,9 +86,9 @@ Writer/PPT 管线、不动 `capability_registry` 的既有条目。
 
 公式↔代码双向转换是数学与代码合并成一个模块的产品理由:**同一知识点
 的两种表征**。能力族 id `math-expression-engineering` 与三个 capability
-id 保持不变（registry 不动,candidate 状态不变——D 类规格的升级规则
-本文照旧:有可执行 pipeline + 验收测试才升 available,而 §5 的判分器
-恰好将提供这个 pipeline,预计随 v0.4.0 达成升级条件）。
+id 保持不变。D 类转换 capability 的现有 `available` 状态来自其既有可执行
+转换管线及验收测试；本 B-2 判分器不以此为由重写 registry，只为 B-3 提供
+练习闭环。
 
 **answer-then-teach 的转化机制：** 用户直接要求"把这个公式转成代码"
 时,完整给出（铁律一）,随后附 kq-kp 知识点,并提供一个动作:
@@ -137,12 +137,17 @@ id 保持不变（registry 不动,candidate 状态不变——D 类规格的升�
   `solve`（③④通用）。
 - `derivation.cloze` 指定哪些步骤挖空让学习者补;`justification` 挖空
   即"临摹补理由"形态。
-- 判分结果进 `quiz.attempt` activity,附 `detail={"mode": ..., "passed":
-  ..., "failures": [...]}`;M4 的 weak_points 投影无需改动即可消费。
+- 数值检查使用可选 `expr_py`;它缺失时回退到规范化文本匹配，不尝试解析
+  LaTex。理由仅在提供 `accepted` 时确定性判分，否则该步标为 `ungraded`，
+  不进入分母。
+- 判分结果进 `quiz.attempt` activity，per-question detail 包含 `mode`、
+  `timed_out`、`ungraded_steps` 与固定 `failure_kind`；自由文本
+  `failure_summary` 只在本次 UI 返回值中存在，绝不持久化、进入 Learning
+  Index/H3 或 usage telemetry。M4 的 weak_points 投影仅消费 tags。
 - 尺寸上限沿用 contract 常量;`test_code`/`reference` 计入
   `MAX_ENVELOPE_BYTES`。
 
-## 5. 沙箱判分器（v0.4.0 唯一的新 core 能力,需单独安全评审）
+## 5. 沙箱判分器（v0.4.0 已实施；安全评审已签字接受剩余风险）
 
 代码判分 = 在**打包 CPython** 里执行 `starter+学习者代码+test_code`。
 被执行代码的作者是学习者本人或我们的模型（经 draft 审核）,但判分在
@@ -158,12 +163,30 @@ id 保持不变（registry 不动,candidate 状态不变——D 类规格的升�
 - 判分器只返回 pass/fail + 失败摘要,原始输出不直接进模型上下文
   （防 prompt injection from 输出）。
 
+实现补充：完成哨兵必须在测试代码之后由子进程输出，故 `os._exit(0)` /
+`SystemExit(0)` 等提前退出不会假通过；杀树或清理异常映射为有界非通过结果。
+这不是完整安全沙箱：当前 OS 用户的绝对路径访问、网络外连、进程创建及
+超时前的内存耗尽仍是已接受的 v1 残余风险，发布说明不得声称完全隔离。
+
 数学等价检查分两档：
 
 1. **基线（v0.4.0,零新依赖）:数值采样等价**——两个表达式在随机
    采样点上求值比对(打包 CPython 即可,复用同一沙箱);
 2. **升级（可选）:sympy 符号等价**——需先确认 sympy 是否已在
    bundle;不在则按 EasyOCR 先例做 load-package,不进 MSI。
+
+### B-3 UI wire handoff
+
+- `GET /api/desk/study/quizzes/{artifact_id}/questions` 对 `code` 题提供
+  `language`、`mode`、`starter`、`target_code` 与 `variant_of`，永不提供
+  `test_code`/`reference`；对 `derivation` 的 cloze 步清空 `expr` 和
+  `justification`，且不提供 `expr_py`/`accepted`。
+- 提交体为 `{"responses": {item_id: {"code": "..."}}}`，或推导题
+  `{"responses": {item_id: {"steps": {"0": {"expr": "...",
+  "expr_py": "...", "justification": "..."}}}}}`。
+- 返回的 `perQuestion` 可供 UI 显示 `correct`、`earned`、`mode`、
+  `timed_out`、`ungraded`、`gradable`、`ungraded_steps`、`failure_kind` 和
+  UI-only `failure_summary`；不要把后者转交模型、写入 analytics 或缓存。
 
 ## 6. 交互演进
 

@@ -835,3 +835,14 @@ the persisted desktop owner's active spaces, suppresses zero-count delivery,
 and is deleted on opt-out. Notebook UI remains D-track-owned. The default
 production learning DB root is protected by an audited current-user ACL so WAL
 sidecars inherit the same protection.
+
+**STUDY B-2 practice grader residual-risk sign-off (2026-07-11).** The owner
+accepted the v1 residual risks before QuizService dispatch was enabled:
+learner code and user-activated model-authored tests run as the current OS user,
+so absolute-path access, unrestricted network egress, process creation before
+tree kill, and memory exhaustion before the timeout remain possible. The
+grader uses isolated CPython, a temporary CWD, minimal environment, bounded
+streams, hard timeout/tree kill, and a post-test randomized completion sentinel;
+these are risk reductions, not a security boundary. `failure_summary` remains
+UI-only; durable activity detail and all model-visible projections retain only
+the fixed `failure_kind` classification.

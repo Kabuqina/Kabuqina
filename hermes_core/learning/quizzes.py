@@ -8,11 +8,14 @@ quiz attempts.
 
 from __future__ import annotations
 
+import ast
+import copy
 import unicodedata
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 from learning.learning_context import LearningExecutionContext
+from learning.code_grader import check_numeric_equivalence, run_python_grading
 
 QUIZ_QUESTION_ITEM_TYPE = "quiz_question"
 QUIZ_ATTEMPT_ACTIVITY = "quiz.attempt"
@@ -22,6 +25,8 @@ MAX_OPTION_TEXT = 600
 MAX_OPTIONS = 26
 MAX_TAGS = 8
 MAX_POINTS = 100
+MAX_CODE_TEXT = 20_000
+MAX_DERIVATION_STEPS = 50
 
 
 def _now_utc() -> datetime:
@@ -92,6 +97,68 @@ def normalize_short_answer(value: Any) -> str:
     text = _clean_text(value).lower()
     text = " ".join(text.split())
     return _edge_trim_punct_symbols(text)
+
+
+def _normalize_code(value: Any) -> str:
+    """Normalize harmless trailing whitespace while retaining code structure."""
+    text = _clean_text(value, MAX_CODE_TEXT)
+    lines: List[str] = []
+    previous_blank = False
+    for line in text.splitlines():
+        normalized = line.rstrip()
+        blank = not normalized
+        if blank and previous_blank:
+            continue
+        lines.append(normalized)
+        previous_blank = blank
+    return "\n".join(lines).strip()
+
+
+def _normalize_expression(value: Any) -> str:
+    text = unicodedata.normalize("NFKC", _clean_text(value, MAX_CODE_TEXT)).casefold()
+    return "".join(text.split())
+
+
+def _failure_kind(summary: str) -> str:
+    """Return the display-safe classifier part of an arbitrary failure string."""
+    return _clean_text(summary.split(":", 1)[0], 100)
+
+
+def _expression_variables(*expressions: str) -> List[str]:
+    """Extract public identifiers for the numeric-equivalence runner."""
+    names: set[str] = set()
+    try:
+        for expression in expressions:
+            tree = ast.parse(expression, mode="eval")
+            names.update(
+                node.id
+                for node in ast.walk(tree)
+                if isinstance(node, ast.Name) and node.id != "math" and not node.id.startswith("_")
+            )
+    except (SyntaxError, TypeError):
+        return []
+    return sorted(names)[:16]
+
+
+def _response_steps(response: Any) -> Dict[int, Dict[str, Any]]:
+    if not isinstance(response, dict):
+        return {}
+    raw = response.get("steps")
+    if isinstance(raw, list):
+        return {index: value for index, value in enumerate(raw) if isinstance(value, dict)}
+    if not isinstance(raw, dict):
+        return {}
+    out: Dict[int, Dict[str, Any]] = {}
+    for key, value in raw.items():
+        if not isinstance(value, dict):
+            continue
+        try:
+            index = int(key)
+        except (TypeError, ValueError):
+            continue
+        if index >= 0:
+            out[index] = value
+    return out
 
 
 def _answer_indices(answer: Any, option_count: int) -> List[int]:
@@ -207,11 +274,12 @@ class QuizService:
         for question in questions:
             response = responses.get(question["item_id"], {})
             graded = self._grade_question(question, response)
-            max_score += graded["points"]
-            if graded["correct"]:
+            if graded["scored"]:
+                max_score += graded["points"]
+            if graded["scored"] and graded["correct"]:
                 score += graded["points"]
                 correct_count += 1
-            else:
+            elif graded["scored"]:
                 for tag in question.get("tags") or []:
                     if tag not in seen_weak:
                         seen_weak.add(tag)
@@ -230,10 +298,14 @@ class QuizService:
             "weakTags": weak_tags,
             "perQuestion": per_question,
         }
+        activity_detail = {
+            **detail,
+            "perQuestion": self._activity_question_detail(per_question),
+        }
         activity_id = self._ctx.record_activity(
             activity_type=QUIZ_ATTEMPT_ACTIVITY,
             artifact_id=artifact_id,
-            detail=detail,
+            detail=activity_detail,
         )
         return {**detail, "activity_id": activity_id}
 
@@ -280,10 +352,44 @@ class QuizService:
             indices = _answer_indices(question.get("answer"), len(options))
             state["answer"] = indices if isinstance(question.get("answer"), list) else (indices[0] if indices else 0)
             state["multiple"] = len(indices) > 1
+        elif qtype == "code":
+            state.update(
+                {
+                    "language": _clean_text(question.get("language"), 40).casefold(),
+                    "mode": _clean_text(question.get("mode"), 40).casefold(),
+                    "starter": _clean_text(question.get("starter"), MAX_CODE_TEXT),
+                    "target_code": _clean_text(question.get("target_code"), MAX_CODE_TEXT),
+                    "test_code": _clean_text(question.get("test_code"), MAX_CODE_TEXT),
+                    "reference": _clean_text(question.get("reference"), MAX_CODE_TEXT),
+                    "variant_of": _clean_text(question.get("variant_of"), 200),
+                }
+            )
+        elif qtype == "derivation":
+            steps = question.get("steps") if isinstance(question.get("steps"), list) else []
+            state.update(
+                {
+                    "steps": [
+                        {
+                            "expr": _clean_text(step.get("expr"), MAX_CODE_TEXT),
+                            "expr_py": _clean_text(step.get("expr_py"), MAX_CODE_TEXT),
+                            "justification": _clean_text(step.get("justification"), MAX_TEXT),
+                            "accepted": _clean_str_list(step.get("accepted"), 200, 16),
+                        }
+                        for step in steps[:MAX_DERIVATION_STEPS]
+                        if isinstance(step, dict)
+                    ],
+                    "check": _clean_text(question.get("check"), 40).casefold(),
+                    "cloze": [
+                        index
+                        for index in (question.get("cloze") or [])
+                        if isinstance(index, int) and not isinstance(index, bool) and index >= 0
+                    ][:MAX_DERIVATION_STEPS],
+                }
+            )
         return state
 
     def _question_from_item(self, row: Dict[str, Any], *, include_answers: bool) -> Dict[str, Any]:
-        state = dict(row.get("state") or {})
+        state = copy.deepcopy(row.get("state") or {})
         out = {
             **state,
             "item_id": row["item_id"],
@@ -292,13 +398,45 @@ class QuizService:
         if not include_answers:
             out.pop("answer", None)
             out.pop("accepted", None)
+            if out.get("type") == "code":
+                out.pop("reference", None)
+                out.pop("test_code", None)
+            elif out.get("type") == "derivation":
+                cloze = set(out.get("cloze") or [])
+                for index, step in enumerate(out.get("steps") or []):
+                    if not isinstance(step, dict):
+                        continue
+                    step.pop("expr_py", None)
+                    step.pop("accepted", None)
+                    if index in cloze:
+                        step["expr"] = ""
+                        step["justification"] = ""
+                        step["cloze"] = True
         return out
+
+    @staticmethod
+    def _activity_question_detail(per_question: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Remove code-controlled free text before durable telemetry/index input."""
+        detail: List[Dict[str, Any]] = []
+        for grade in per_question:
+            safe = copy.deepcopy(grade)
+            safe.pop("failure_summary", None)
+            detail.append(safe)
+        return detail
 
     def _grade_question(self, question: Dict[str, Any], response: Any) -> Dict[str, Any]:
         qtype = question.get("type")
         points = _points(question.get("points"))
         correct = False
         normalized_response: Dict[str, Any] = {}
+        failure_summary = ""
+        failure_kind = ""
+        timed_out = False
+        ungraded_steps: List[int] = []
+        ungraded = False
+        gradable = True
+        scored = True
+        mode = ""
 
         if qtype == "choice":
             options = question.get("options") if isinstance(question.get("options"), list) else []
@@ -318,9 +456,85 @@ class QuizService:
             accepted = [a for a in accepted if a]
             correct = bool(normalized) and normalized in accepted
             normalized_response = {"text": _clean_text(text, 500), "normalized": normalized}
+        elif qtype == "code":
+            mode = _clean_text(question.get("mode"), 40).casefold()
+            language = _clean_text(question.get("language"), 40).casefold()
+            submitted = response.get("code") if isinstance(response, dict) else ""
+            normalized_response = {"code": _clean_text(submitted, MAX_CODE_TEXT)}
+            if language != "python":
+                gradable = False
+                scored = False
+                ungraded = True
+            elif mode == "transcribe":
+                correct = _normalize_code(submitted) == _normalize_code(question.get("target_code"))
+            elif mode in {"solve", "variant"}:
+                starter = _clean_text(question.get("starter"), MAX_CODE_TEXT)
+                learner_source = _clean_text(submitted, MAX_CODE_TEXT)
+                # B-3 may submit the whole editor buffer (including its starter)
+                # or just its learner-owned suffix; accept both without duplicating.
+                source = learner_source if _normalize_code(learner_source).startswith(_normalize_code(starter)) else "\n".join(
+                    part for part in (starter, learner_source) if part
+                )
+                result = run_python_grading(source, _clean_text(question.get("test_code"), MAX_CODE_TEXT))
+                correct = result["passed"]
+                failure_summary = result["failure_summary"]
+                failure_kind = _failure_kind(failure_summary)
+                timed_out = result["timed_out"]
+            else:
+                gradable = False
+                scored = False
+                ungraded = True
+        elif qtype == "derivation":
+            mode = _clean_text(question.get("check"), 40).casefold()
+            submitted_steps = _response_steps(response)
+            steps = question.get("steps") if isinstance(question.get("steps"), list) else []
+            cloze = [index for index in question.get("cloze") or [] if isinstance(index, int)]
+            graded_components = 0
+            failed_components = 0
+            response_detail: Dict[str, Dict[str, str]] = {}
+            for index in cloze:
+                if index < 0 or index >= len(steps) or not isinstance(steps[index], dict):
+                    continue
+                expected = steps[index]
+                submitted_step = submitted_steps.get(index, {})
+                expression = _clean_text(submitted_step.get("expr"), MAX_CODE_TEXT)
+                expression_py = _clean_text(submitted_step.get("expr_py"), MAX_CODE_TEXT)
+                response_detail[str(index)] = {"expr": expression, "expr_py": expression_py}
+                expected_py = _clean_text(expected.get("expr_py"), MAX_CODE_TEXT)
+                if mode == "numeric-equivalence" and expected_py and expression_py:
+                    equivalence = check_numeric_equivalence(
+                        expected_py,
+                        expression_py,
+                        _expression_variables(expected_py, expression_py),
+                    )
+                    if equivalence["needs_human_check"]:
+                        ungraded_steps.append(index)
+                    else:
+                        graded_components += 1
+                        if not equivalence["equivalent"]:
+                            failed_components += 1
+                else:
+                    graded_components += 1
+                    if not expression or _normalize_expression(expression) != _normalize_expression(expected.get("expr")):
+                        failed_components += 1
+
+                accepted = [normalize_short_answer(value) for value in expected.get("accepted") or []]
+                accepted = [value for value in accepted if value]
+                justification = _clean_text(submitted_step.get("justification"), MAX_TEXT)
+                response_detail[str(index)]["justification"] = justification
+                if accepted:
+                    graded_components += 1
+                    if normalize_short_answer(justification) not in accepted:
+                        failed_components += 1
+                elif index not in ungraded_steps:
+                    ungraded_steps.append(index)
+            normalized_response = {"steps": response_detail}
+            scored = graded_components > 0
+            ungraded = not scored
+            correct = scored and failed_components == 0
 
         answer = question.get("answer")
-        earned = points if correct else 0
+        earned = points if scored and correct else 0
         return {
             "item_id": question["item_id"],
             "prompt": question.get("prompt") or "",
@@ -328,6 +542,14 @@ class QuizService:
             "correct": correct,
             "earned": earned,
             "points": points,
+            "scored": scored,
+            "mode": mode,
+            "timed_out": timed_out,
+            "ungraded": ungraded,
+            "gradable": gradable,
+            "ungraded_steps": ungraded_steps,
+            "failure_summary": failure_summary,
+            "failure_kind": failure_kind,
             "answer": answer,
             "accepted": question.get("accepted") or [],
             "explanation": question.get("explanation") or "",
