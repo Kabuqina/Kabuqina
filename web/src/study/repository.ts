@@ -1,0 +1,138 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
+import {
+  cmdStudyDrafts,
+  cmdStudySpaces,
+  cmdStudySpaceSelect,
+  type StudyDraftsResponse,
+  type StudySpacesResponse,
+} from "../chat/study/study-api";
+
+export type StudySpaceSummary = {
+  id: string;
+  title: string;
+  status: string;
+  isCurrent: boolean;
+};
+
+export type StudySpaces = {
+  currentSpaceId: string | null;
+  spaces: StudySpaceSummary[];
+};
+
+export type StudyDraftSummary = {
+  id: string;
+  kind: string;
+  status: string;
+};
+
+export type StudyRepositoryErrorCode =
+  | "unavailable"
+  | "not-found"
+  | "conflict"
+  | "invalid"
+  | "unknown";
+
+export class StudyRepositoryError extends Error {
+  constructor(
+    public readonly code: StudyRepositoryErrorCode,
+    options?: { cause?: unknown },
+  ) {
+    super(`study repository: ${code}`, options);
+    this.name = "StudyRepositoryError";
+  }
+}
+
+export interface StudyRepository {
+  listSpaces(signal: AbortSignal): Promise<StudySpaces>;
+  selectSpace(spaceId: string, signal: AbortSignal): Promise<StudySpaces>;
+  listDrafts(signal: AbortSignal): Promise<StudyDraftSummary[]>;
+}
+
+type StudyCommands = {
+  spaces: () => Promise<StudySpacesResponse>;
+  selectSpace: (spaceId: string) => Promise<StudySpacesResponse>;
+  drafts: (kind?: string) => Promise<StudyDraftsResponse>;
+};
+
+const defaultCommands: StudyCommands = {
+  spaces: cmdStudySpaces,
+  selectSpace: cmdStudySpaceSelect,
+  drafts: cmdStudyDrafts,
+};
+
+function abortError(): DOMException {
+  return new DOMException("The operation was aborted", "AbortError");
+}
+
+async function invokeWithSignal<T>(signal: AbortSignal, invoke: () => Promise<T>): Promise<T> {
+  if (signal.aborted) throw abortError();
+  try {
+    const value = await invoke();
+    if (signal.aborted) throw abortError();
+    return value;
+  } catch (error) {
+    if (signal.aborted) throw abortError();
+    throw normalizeRepositoryError(error);
+  }
+}
+
+function mapSpaces(response: StudySpacesResponse): StudySpaces {
+  const spaces = response.spaces.map((space) => ({
+    id: space.space_id,
+    title: space.title,
+    status: space.status,
+    isCurrent: space.is_current,
+  }));
+  return {
+    currentSpaceId:
+      response.currentSpaceId ?? spaces.find((space) => space.isCurrent)?.id ?? null,
+    spaces,
+  };
+}
+
+export function normalizeRepositoryError(error: unknown): StudyRepositoryError {
+  if (error instanceof StudyRepositoryError) return error;
+  const message = error instanceof Error ? error.message : String(error);
+  const stablePrefix = message.split(":", 1)[0].trim().toLowerCase();
+
+  if (
+    stablePrefix === "desk_not_ready" ||
+    message.startsWith("Kabuqina is not ready yet") ||
+    message.startsWith("Hermes is not ready yet")
+  ) {
+    return new StudyRepositoryError("unavailable", { cause: error });
+  }
+  if (stablePrefix === "invalid study id" || stablePrefix === "invalid_study_id") {
+    return new StudyRepositoryError("invalid", { cause: error });
+  }
+  if (stablePrefix === "study_not_found" || stablePrefix === "space_not_found") {
+    return new StudyRepositoryError("not-found", { cause: error });
+  }
+  if (stablePrefix === "study_conflict") {
+    return new StudyRepositoryError("conflict", { cause: error });
+  }
+  return new StudyRepositoryError("unknown", { cause: error });
+}
+
+export function createStudyRepository(commands: StudyCommands = defaultCommands): StudyRepository {
+  return {
+    async listSpaces(signal) {
+      return mapSpaces(await invokeWithSignal(signal, commands.spaces));
+    },
+    async selectSpace(spaceId, signal) {
+      return mapSpaces(await invokeWithSignal(signal, () => commands.selectSpace(spaceId)));
+    },
+    async listDrafts(signal) {
+      const response = await invokeWithSignal(signal, () => commands.drafts());
+      return response.drafts.map((draft) => ({
+        id: draft.artifact_id,
+        kind: draft.kind,
+        status: draft.status,
+      }));
+    },
+  };
+}
+
+export const studyRepository = createStudyRepository();

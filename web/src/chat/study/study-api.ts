@@ -163,8 +163,8 @@ export function cmdStudySpaceSelect(spaceId: string): Promise<StudySpacesRespons
   return invoke("cmd_study_space_select", { spaceId });
 }
 
-export function cmdStudyDrafts(kind = "flashcard_deck"): Promise<StudyDraftsResponse> {
-  return invoke("cmd_study_drafts", { kind });
+export function cmdStudyDrafts(kind?: string): Promise<StudyDraftsResponse> {
+  return invoke("cmd_study_drafts", kind ? { kind } : {});
 }
 
 export function cmdStudyArtifactActivate(artifactId: string): Promise<unknown> {

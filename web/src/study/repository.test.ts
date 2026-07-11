@@ -1,0 +1,59 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
+import { describe, expect, it, vi } from "vitest";
+import { createStudyRepository, normalizeRepositoryError } from "./repository";
+
+const spacesResponse = {
+  currentSpaceId: "space-a",
+  spaces: [{ space_id: "space-a", title: "Linear Algebra", status: "active", is_current: true }],
+};
+
+describe("StudyRepository", () => {
+  it("maps spaces and requests drafts without a kind filter", async () => {
+    const drafts = vi.fn().mockResolvedValue({
+      drafts: [
+        { artifact_id: "d1", kind: "flashcard_deck", title: "private", version: 1, status: "draft" },
+        { artifact_id: "d2", kind: "quiz", title: "private", version: 1, status: "draft" },
+      ],
+    });
+    const repository = createStudyRepository({
+      spaces: vi.fn().mockResolvedValue(spacesResponse),
+      selectSpace: vi.fn().mockResolvedValue(spacesResponse),
+      drafts,
+    });
+    const signal = new AbortController().signal;
+
+    await expect(repository.listSpaces(signal)).resolves.toEqual({
+      currentSpaceId: "space-a",
+      spaces: [{ id: "space-a", title: "Linear Algebra", status: "active", isCurrent: true }],
+    });
+    await expect(repository.listDrafts(signal)).resolves.toEqual([
+      { id: "d1", kind: "flashcard_deck", status: "draft" },
+      { id: "d2", kind: "quiz", status: "draft" },
+    ]);
+    expect(drafts).toHaveBeenCalledWith();
+  });
+
+  it("does not commit a result after cancellation", async () => {
+    let resolve!: (value: typeof spacesResponse) => void;
+    const repository = createStudyRepository({
+      spaces: () => new Promise((done) => { resolve = done; }),
+      selectSpace: vi.fn(),
+      drafts: vi.fn(),
+    });
+    const controller = new AbortController();
+    const pending = repository.listSpaces(controller.signal);
+    controller.abort();
+    resolve(spacesResponse);
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  it("maps only stable error prefixes", () => {
+    expect(normalizeRepositoryError("invalid study id").code).toBe("invalid");
+    expect(normalizeRepositoryError("space_not_found: hidden detail").code).toBe("not-found");
+    expect(normalizeRepositoryError("study_conflict: hidden detail").code).toBe("conflict");
+    expect(normalizeRepositoryError("Hermes is not ready yet. Wait.").code).toBe("unavailable");
+    expect(normalizeRepositoryError("request_failed: arbitrary prose").code).toBe("unknown");
+  });
+});
