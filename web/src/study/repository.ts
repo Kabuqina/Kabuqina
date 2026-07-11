@@ -21,10 +21,9 @@ export type StudySpaces = {
   spaces: StudySpaceSummary[];
 };
 
-export type StudyDraftSummary = {
-  id: string;
-  kind: string;
-  status: string;
+export type StudyDraftInbox = {
+  total: number;
+  kindCounts: Readonly<Record<string, number>>;
 };
 
 export type StudyRepositoryErrorCode =
@@ -47,7 +46,7 @@ export class StudyRepositoryError extends Error {
 export interface StudyRepository {
   listSpaces(signal: AbortSignal): Promise<StudySpaces>;
   selectSpace(spaceId: string, signal: AbortSignal): Promise<StudySpaces>;
-  listDrafts(signal: AbortSignal): Promise<StudyDraftSummary[]>;
+  listDrafts(signal: AbortSignal): Promise<StudyDraftInbox>;
 }
 
 type DeskBridgeErrorPayload = {
@@ -157,11 +156,7 @@ export function createStudyRepository(commands: StudyCommands = defaultCommands)
     },
     async listDrafts(signal) {
       const response = await invokeWithSignal(signal, () => commands.drafts());
-      return response.items.map((draft) => ({
-        id: draft.artifact_id,
-        kind: draft.kind,
-        status: draft.status,
-      }));
+      return { total: response.count, kindCounts: response.kind_counts };
     },
   };
 }

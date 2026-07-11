@@ -57,6 +57,7 @@ class ArtifactLifecycleService:
             "items": items,
             "count": result["count"],
             "counts": counts,
+            "kind_counts": result["kind_counts"],
             "returned": len(items),
             "limit": limit,
             "offset": offset,

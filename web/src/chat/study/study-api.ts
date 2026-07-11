@@ -35,6 +35,7 @@ export type StudyDraftsResponse = {
   items: StudyArtifactSummary[];
   count: number;
   counts: Record<string, number>;
+  kind_counts: Record<string, number>;
   returned: number;
   limit: number;
   offset: number;

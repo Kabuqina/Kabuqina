@@ -18,6 +18,7 @@ describe("StudyRepository", () => {
       ],
       count: 2,
       counts: { active: 0, archived: 0, draft: 2, rejected: 0 },
+      kind_counts: { flashcard_deck: 1, quiz: 1 },
       returned: 2,
       limit: 100,
       offset: 0,
@@ -34,10 +35,10 @@ describe("StudyRepository", () => {
       currentSpaceId: "space-a",
       spaces: [{ id: "space-a", title: "Linear Algebra", status: "active", isCurrent: true }],
     });
-    await expect(repository.listDrafts(signal)).resolves.toEqual([
-      { id: "d1", kind: "flashcard_deck", status: "draft" },
-      { id: "d2", kind: "quiz", status: "draft" },
-    ]);
+    await expect(repository.listDrafts(signal)).resolves.toEqual({
+      total: 2,
+      kindCounts: { flashcard_deck: 1, quiz: 1 },
+    });
     expect(drafts).toHaveBeenCalledWith();
   });
 

@@ -15,16 +15,20 @@ def test_summaries_are_bounded_counted_and_hide_envelopes(tmp_path):
                 kind="tutoring_note", title=f"Note {index}",
                 payload={"goal":"g", "hints":["secret hint"]},
             )
+        OutputWriter(ctx).write_artifact(
+            kind="student_state", title="State", payload={},
+        )
         with patch.object(
             LearningExecutionContext,
             "list_artifacts",
             side_effect=AssertionError("summary query must not load full artifacts"),
         ):
             result = ArtifactLifecycleService(ctx).summaries(limit=2)
-        assert result["count"] == 3
+        assert result["count"] == 4
         assert result["returned"] == 2
         assert result["truncated"] is True
-        assert result["counts"]["draft"] == 3
+        assert result["counts"]["draft"] == 4
+        assert result["kind_counts"] == {"student_state": 1, "tutoring_note": 3}
         assert all("envelope" not in item for item in result["items"])
         assert "secret hint" not in str(result)
     finally:

@@ -40,6 +40,7 @@ def test_bounded_drafts_and_wrongbook_routes(client):
     http, db = client; seed(db)
     drafts = http.get("/api/desk/study/drafts?limit=2", headers=headers()).json()
     assert drafts["count"] == 3 and drafts["returned"] == 2 and drafts["truncated"] is True
+    assert drafts["kind_counts"] == {"tutoring_note": 3}
     assert "secret-" not in str(drafts)
     assert set(drafts["items"][0]) == {
         "artifact_id", "kind", "title", "status", "review", "updated_at",

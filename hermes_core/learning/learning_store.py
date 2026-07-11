@@ -641,6 +641,13 @@ class LearningStore:
         if status is not None:
             page_where += " AND status = ?"
             page_params.append(status)
+        kind_counts = {
+            row["kind"]: row["total"]
+            for row in self._conn.execute(
+                "SELECT kind, COUNT(*) AS total" + page_where + " GROUP BY kind",
+                page_params,
+            ).fetchall()
+        }
         rows = self._conn.execute(
             "SELECT artifact_id, kind, title, status, review_mode, "
             "review_status, updated_at"
@@ -653,6 +660,7 @@ class LearningStore:
             "rows": [dict(row) for row in rows],
             "count": total,
             "counts": counts,
+            "kind_counts": kind_counts,
         }
 
     def update_artifact_status(

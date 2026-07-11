@@ -155,6 +155,7 @@ def _empty_summary_page(*, limit: int, offset: int) -> Dict[str, Any]:
         "items": [],
         "count": 0,
         "counts": {name: 0 for name in sorted(LIFECYCLE_STATUSES)},
+        "kind_counts": {},
         "returned": 0,
         "limit": limit,
         "offset": offset,
