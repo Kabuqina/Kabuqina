@@ -109,10 +109,10 @@ kabuqina-mascot/
   `-Restore`：`git checkout -- web/public tauri/icons`. `-Check`：fails if
   the two paths differ from HEAD（the Task 2 Step 3 guard）. Missing/invalid
   dir with `-Apply` = hard error, never a silent placeholder build.
-- [ ] **Step 2:** wire the packaging entry points. *(portable: done — see
-  Step 3 sentinel. Remaining: document the official branded sequence
-  (apply → npm build → cargo tauri build → package -ExpectBranded → restore)
-  in the packaging docs; `dev.ps1` stays placeholder-only by default.)*
+- [x] **Step 2:** wire the packaging entry points. *(portable script gained
+  the sentinel + `-ExpectBranded`; the official branded sequence is documented
+  in `assets/brand/README.md` and the packaging script header; `dev.ps1`
+  stays placeholder-only by default.)*
 - [x] **Step 3:** smoke assertion in `package-portable-windows.ps1`: it reads
   `web/dist/kabuqina_mascot.svg`（what the exe build embedded）and matches the
   `<title>Placeholder` sentinel — default run refuses a branded tree,
@@ -121,15 +121,16 @@ kabuqina-mascot/
 
 ### Task 4: `Na_logo/` 退场与文档收口
 
-- [ ] **Step 1:** `git rm -r --cached Na_logo` + add `/Na_logo/` to
-  `.gitignore`（local tree stays until owner confirms the private-repo copy,
-  then owner deletes manually）.
-- [ ] **Step 2:** rewrite `assets/brand/README.md`: source tree now lives in
-  the private repo; document the placeholder story, the overlay step, and the
-  unchanged inline-marker rule. Update `BRAND.md` / `NOTICE` references to
-  `Na_logo/` paths accordingly.
-- [ ] **Step 3:** update the v0.4.0 plan §6 A-R1b row and §2 Ring 1b section
-  with a 完成记录 pointing at the DECISIONS.md entry and this plan.
+- [ ] **Step 1:** `git rm -r --cached Na_logo`（owner runs; classifier outage
+  blocked agent execution）. `.gitignore` already carries `/Na_logo/`. Local
+  tree stays until owner confirms the private-repo copy, then owner deletes
+  manually.
+- [x] **Step 2:** rewrite `assets/brand/README.md`（Tier 2 layout: private
+  masters + public placeholders + overlay/branded-build runbooks）; `BRAND.md`
+  asset-locations updated. `NOTICE` deliberately unchanged: its `Na_logo/`
+  coverage clause stays protective for historical checkouts.
+- [x] **Step 3:** v0.4.0 plan §6 A-R1b row and §2 Ring 1b updated with the
+  decision record（done in the A-R1b decision commit）.
 
 ### Task 5: 验证轮
 

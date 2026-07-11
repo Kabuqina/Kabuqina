@@ -4,6 +4,11 @@
 # Requires a release build: `cd tauri; cargo build --release` (or partial `cargo tauri build`
 # after the Rust link step succeeds, even if the WiX/MSI step fails).
 #
+# Official BRANDED release sequence (A-R1b Tier 2, see assets/brand/README.md):
+#   apply-brand-overlay.ps1 -Apply -> build web + exe -> this script with
+#   -ExpectBranded -> apply-brand-overlay.ps1 -Restore.
+# Without -ExpectBranded this script refuses to package a branded tree.
+#
 # Layout matches production resource resolution (`resource_dir()/runtime`): see tauri/src/paths.rs.
 
 [CmdletBinding()]

@@ -61,6 +61,10 @@ windows-port-report.txt
 /python/tests/_tmp_hermes_home/
 /assets/ppt/visual-masters/*/outputs/
 
+# Brand artwork masters moved to the private Kabuqina/kabuqina-mascot repo
+# (A-R1b Tier 2); a local copy may linger until the owner deletes it.
+/Na_logo/
+
 # Local brainstorming/mockup companion files
 .superpowers/
 .worktrees
