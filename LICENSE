@@ -4,12 +4,19 @@ The Apache License 2.0 below governs the Kabuqina SOURCE CODE in this
 repository, EXCEPT the Kabuqina brand and visual assets, which are
 proprietary (All Rights Reserved) and are NOT licensed under Apache-2.0:
 
-  - everything under assets/brand/, assets/ui/, and Na_logo/;
+  - everything under assets/brand/ and assets/ui/, EXCEPT
+    assets/brand/placeholder/ (neutral unbranded placeholder tooling and
+    output, licensed under Apache-2.0);
+  - the retired Na_logo/ tree wherever it appears in this repository's
+    git history (its masters now live in a private repository);
   - any file bearing the SPDX identifier "LicenseRef-Kabuqina-Brand"
     (alone or in an SPDX expression);
   - the Kabuqina brand artwork (mascot design, vector geometry, palette,
     scene compositions) as a work, in whatever file it is expressed —
-    including inline renderings inside otherwise Apache-2.0 code files.
+    including inline renderings inside otherwise Apache-2.0 code files,
+    historical copies in build paths (web/public/, tauri/icons/), and the
+    real assets injected into those paths during official branded builds.
+    The placeholder assets committed at those paths are Apache-2.0.
 
 See assets/brand/LICENSE and BRAND.md for the exact terms. The bundled
 Hermes Agent core is under its own MIT license (hermes_core/LICENSE).

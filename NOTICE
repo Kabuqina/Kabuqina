@@ -24,8 +24,13 @@ Brand Assets
 
 The Kabuqina / 卡布奇娜 name, logos, mascot, icons, wordmarks,
 and marketing screenshots are proprietary and are NOT licensed under
-Apache-2.0. Coverage: everything under assets/brand/, assets/ui/, and
-Na_logo/; any file bearing the SPDX identifier "LicenseRef-Kabuqina-Brand";
-and the brand artwork as a work wherever it is expressed, including inline
+Apache-2.0. Coverage: everything under assets/brand/ and assets/ui/
+(EXCEPT assets/brand/placeholder/, which is Apache-2.0 neutral placeholder
+tooling); the retired Na_logo/ tree wherever it appears in git history
+(masters now live in the private Kabuqina/kabuqina-mascot repository);
+any file bearing the SPDX identifier "LicenseRef-Kabuqina-Brand"; and the
+brand artwork as a work wherever it is expressed, including inline
 vector/CSS renderings inside Apache-2.0 code files (e.g. under
-web/src/components/). See BRAND.md and assets/brand/LICENSE for terms.
+web/src/components/) and the real assets injected into build paths during
+official branded builds. The default build paths carry Apache-2.0
+placeholder assets. See BRAND.md and assets/brand/LICENSE for terms.

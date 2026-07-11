@@ -5,7 +5,7 @@ Kabuqina uses a **dual license** model:
 | What | License | Where |
 | ---- | ------- | ----- |
 | **Kabuqina source code** (Rust, Python policy layer, web app, scripts, docs as text) | [Apache-2.0](./LICENSE) | Repository root |
-| **Brand assets** (name, logos, mascot, scene/coaster SVGs, icons, `Na_logo/` generator scripts) | [All Rights Reserved](./assets/brand/LICENSE) | [assets/brand/](./assets/brand/) |
+| **Brand assets** (name, logos, mascot, scene/coaster SVGs, icons, generator scripts) | [All Rights Reserved](./assets/brand/LICENSE) | [assets/brand/](./assets/brand/) + private `Kabuqina/kabuqina-mascot` repo |
 | **UI screenshots / promo images** | [All Rights Reserved](./assets/ui/LICENSE) | [assets/ui/](./assets/ui/) |
 | **Hermes Agent snapshot** | MIT (upstream, unchanged) | [hermes_core/LICENSE](./hermes_core/LICENSE) |
 
@@ -19,10 +19,17 @@ Kabuqina uses a **dual license** model:
 
 ## Asset locations
 
-Brand and UI files currently live in their build paths (`web/public/`, `Na_logo/`,
-`tauri/icons/`). Legal coverage is defined by [assets/brand/LICENSE](./assets/brand/LICENSE)
-— the covered directories, the `LicenseRef-Kabuqina-Brand` SPDX marker, and the
-artwork-as-a-work clause — not by directory name alone.
+Since 2026-07-11 (Tier 2 pipeline, A-R1b) the artwork **masters live in the
+private `Kabuqina/kabuqina-mascot` repository**; this public repository ships
+neutral placeholder files in the build paths (`web/public/`, `tauri/icons/`)
+and official builds inject the real assets at build time
+(see [assets/brand/README.md](./assets/brand/README.md)). Real artwork that
+shipped before the split remains in git history (including the retired
+`Na_logo/` tree). Legal coverage is defined by
+[assets/brand/LICENSE](./assets/brand/LICENSE) — the covered directories, the
+`LicenseRef-Kabuqina-Brand` SPDX marker, and the artwork-as-a-work clause —
+not by directory name alone, and applies to the historical artwork wherever
+it appears.
 
 The mascot's **inline renderings in code** (`web/src/components/brand/*`,
 `CompanionCup.tsx`, `CompanionPillScene.tsx`, and the `.kq-companion-cup*`

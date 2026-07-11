@@ -77,3 +77,7 @@ tauri/_icons_new/
 
 # Regenerable PPT render QA scratch (emitted by the renderer smoke test)
 /samples/
+
+# Brand artwork masters live in the private Kabuqina/kabuqina-mascot repository.
+# The student competition branch keeps the generated build-path assets only.
+/Na_logo/
