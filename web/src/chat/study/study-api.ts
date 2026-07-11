@@ -83,7 +83,7 @@ export type StudyQuizzesResponse = {
   quizzes: StudyArtifact[];
 };
 
-export type StudyQuizQuestionType = "choice" | "true_false" | "short_answer";
+export type StudyQuizQuestionType = "choice" | "true_false" | "short_answer" | "code" | "derivation";
 
 export type StudyQuizQuestion = {
   item_id: string;
@@ -95,6 +95,13 @@ export type StudyQuizQuestion = {
   explanation?: string;
   tags?: string[];
   points?: number;
+  language?: string;
+  mode?: string;
+  starter?: string;
+  target_code?: string;
+  variant_of?: string;
+  steps?: Array<{ expr?: string; justification?: string; cloze?: boolean }>;
+  target_steps?: Array<{ expr?: string; justification?: string }>;
 };
 
 export type StudyQuizQuestionsResponse = {
@@ -131,6 +138,17 @@ export type StudyQuizMigrationResponse = {
   artifact_id?: string;
   questions: number;
   status?: string;
+};
+
+export type StudyPracticeResponse = {
+  generated: boolean;
+  artifact_id?: string;
+  status?: "draft";
+  practice_kind?: "transcribe" | "variant";
+  source_item_id: string;
+  self_checked?: boolean;
+  fallback?: "model_draft_required";
+  reason?: string;
 };
 
 export function cmdStudySpaces(): Promise<StudySpacesResponse> {
@@ -183,6 +201,14 @@ export function cmdStudyQuizQuestions(artifactId: string): Promise<StudyQuizQues
 
 export function cmdStudyQuizSubmit(artifactId: string, responses: unknown): Promise<StudyQuizResult> {
   return invoke("cmd_study_quiz_submit", { artifactId, responses });
+}
+
+export function cmdStudyQuizGeneratePractice(
+  artifactId: string,
+  itemId: string,
+  practiceKind: "transcribe" | "variant",
+): Promise<StudyPracticeResponse> {
+  return invoke("cmd_study_quiz_generate_practice", { artifactId, itemId, practiceKind });
 }
 
 export function cmdStudyMigrateQuizzes(quiz: unknown): Promise<StudyQuizMigrationResponse> {

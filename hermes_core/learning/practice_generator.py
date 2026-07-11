@@ -9,7 +9,9 @@ The existing model-facing OutputWriter path remains the sole model fallback.
 from __future__ import annotations
 
 import ast
+import io
 import re
+import tokenize
 from typing import Any, Dict, Optional
 
 from learning.code_grader import run_python_grading
@@ -117,6 +119,7 @@ class PracticeGenerator:
             if not isinstance(steps, list) or not steps:
                 return None
             copied_steps = []
+            target_steps = []
             for step in steps:
                 if not isinstance(step, dict) or not _text(step.get("expr")):
                     return None
@@ -126,12 +129,16 @@ class PracticeGenerator:
                     copied["justification"] = justification
                     copied["accepted"] = [justification]
                 copied_steps.append(copied)
+                target_steps.append(
+                    {"expr": copied["expr"], "justification": justification}
+                )
             return (
                 _title("Transcribe", question.get("prompt")),
                 {
                     "type": "derivation",
                     "prompt": f"Transcribe: {_text(question.get('prompt'), 900)}",
                     "steps": copied_steps,
+                    "target_steps": target_steps,
                     "check": "normalized-match",
                     "cloze": list(range(len(copied_steps))),
                     "tags": list(question.get("tags") or []),
@@ -203,6 +210,17 @@ class PracticeGenerator:
 
     @staticmethod
     def _rename_identifier(source: str, old: str, new: str) -> str:
+        """Rename NAME tokens only; comments and string/docstring values stay literal."""
         if not source:
             return ""
-        return re.sub(rf"\b{re.escape(old)}\b", new, source)
+        try:
+            tokens = tokenize.generate_tokens(io.StringIO(source).readline)
+            rewritten = [
+                token._replace(string=new)
+                if token.type == tokenize.NAME and token.string == old
+                else token
+                for token in tokens
+            ]
+            return tokenize.untokenize(rewritten)
+        except (tokenize.TokenError, IndentationError):
+            return ""

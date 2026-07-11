@@ -384,6 +384,14 @@ class QuizService:
                         for index in (question.get("cloze") or [])
                         if isinstance(index, int) and not isinstance(index, bool) and index >= 0
                     ][:MAX_DERIVATION_STEPS],
+                    "target_steps": [
+                        {
+                            "expr": _clean_text(step.get("expr"), MAX_CODE_TEXT),
+                            "justification": _clean_text(step.get("justification"), MAX_TEXT),
+                        }
+                        for step in (question.get("target_steps") or [])[:MAX_DERIVATION_STEPS]
+                        if isinstance(step, dict)
+                    ],
                 }
             )
         return state

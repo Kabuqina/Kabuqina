@@ -315,6 +315,27 @@ pub async fn cmd_study_quiz_submit(
 }
 
 #[tauri::command]
+pub async fn cmd_study_quiz_generate_practice(
+    app: AppHandle,
+    artifact_id: String,
+    item_id: String,
+    practice_kind: String,
+) -> Result<Value, String> {
+    validate_study_path_id(&artifact_id)?;
+    validate_study_path_id(&item_id)?;
+    if !matches!(practice_kind.as_str(), "transcribe" | "variant") {
+        return Err("invalid practice kind".to_string());
+    }
+    crate::chat::desk_json_request(
+        &app,
+        reqwest::Method::POST,
+        &format!("/api/desk/study/quizzes/{artifact_id}/practice"),
+        Some(json!({ "item_id": item_id, "practice_kind": practice_kind })),
+    )
+    .await
+}
+
+#[tauri::command]
 pub async fn cmd_study_migrate_quizzes(app: AppHandle, quiz: Value) -> Result<Value, String> {
     crate::chat::desk_json_request(
         &app,

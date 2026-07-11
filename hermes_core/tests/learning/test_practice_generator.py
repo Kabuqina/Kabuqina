@@ -171,3 +171,27 @@ def test_derivation_transcription_turns_every_step_into_a_reason_cloze(ctx):
     question = ctx.get_artifact(generated["artifact_id"])["envelope"]["payload"]["questions"][0]
     assert question["cloze"] == [0, 1]
     assert question["steps"][1]["accepted"] == ["combine like terms"]
+    QuizService(ctx).activate_quiz(generated["artifact_id"])
+    public = QuizService(ctx).list_questions(artifact_id=generated["artifact_id"])[0]
+    assert [step["expr"] for step in public["steps"]] == ["", ""]
+    assert public["target_steps"] == [
+        {"expr": "x + x", "justification": "start"},
+        {"expr": "2 * x", "justification": "combine like terms"},
+    ]
+
+
+def test_identifier_renaming_does_not_change_strings_comments_or_docstrings(ctx):
+    source_id, item_id = _active_code_quiz(
+        ctx,
+        reference='def add(a, b):\n    "add docs"\n    # add comment\n    return "add" if False else a + b',
+    )
+
+    generated = PracticeGenerator(ctx).generate(
+        artifact_id=source_id, item_id=item_id, practice_kind="variant"
+    )
+
+    question = ctx.get_artifact(generated["artifact_id"])["envelope"]["payload"]["questions"][0]
+    assert "def add_variant(" in question["reference"]
+    assert '"add docs"' in question["reference"]
+    assert "# add comment" in question["reference"]
+    assert 'return "add"' in question["reference"]

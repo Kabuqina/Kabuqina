@@ -270,6 +270,7 @@ pub fn run() {
             study::cmd_study_quizzes,
             study::cmd_study_quiz_questions,
             study::cmd_study_quiz_submit,
+            study::cmd_study_quiz_generate_practice,
             study::cmd_study_migrate_quizzes,
             study::cmd_study_migrate_builtin_course,
             capture::cmd_capture_region,
