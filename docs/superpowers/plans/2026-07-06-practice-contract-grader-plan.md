@@ -31,7 +31,9 @@ Task 3 has not started. Owner sign-off is pending on the documented residual
 risks: unrestricted network egress, current-user absolute-path access, process
 creation before tree kill, and memory exhaustion before timeout. Public result
 shape exposes only bounded pass/fail metadata and a ≤240-character sanitized
-exception summary; stdout is never returned.
+exception summary; stdout is never returned. A random completion sentinel now
+prevents `os._exit(0)` from passing before tests run; timeout/tree-kill and
+temporary-directory cleanup also fail closed to a bounded non-pass result.
 
 ---
 
@@ -179,7 +181,11 @@ python -m pytest tests/learning/test_learning_contract.py -o "addopts=" -p no:ca
   - non-python `code` questions: recorded as `ungraded`, never fake-passed.
 - [ ] **Step 3:** `quiz.attempt` detail gains per-question
   `{"mode", "timed_out", "ungraded_steps"}` fields — additive, existing
-  consumers unaffected (assert M3 tests still green).
+  consumers unaffected (assert M3 tests still green). `failure_summary` is a
+  **UI-only** field: Learning Index, H3 ephemeral context, and usage telemetry
+  may consume only a fixed exception class / failure kind, never the free-text
+  suffix. Add T2 regression coverage proving this field cannot enter
+  `usage_events` or model-visible projections.
 - [ ] **Step 4: gate**
 
 ```powershell

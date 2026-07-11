@@ -17,14 +17,20 @@ CWD is containment-by-default, not an OS access-control boundary. Windows has
 no per-process network-deny primitive used here. Future hardening candidates
 are installer-managed firewall rules or a WASM/Pyodide execution backend.
 Release notes must retain these residual-risk statements.
+
+The empty ``__builtins__`` mapping used by numeric-equivalence ``eval`` is a
+robustness measure, not a security boundary: Python object-graph escapes can
+still reach runtime objects. Those expressions already run in this untrusted
+child process and this helper must never be reused as a "safe eval" primitive.
 """
 
 from __future__ import annotations
 
 import json
-import math
+import logging
 import os
 import re
+import secrets
 import signal
 import subprocess
 import sys
@@ -39,6 +45,9 @@ MAX_STREAM_BYTES = 64 * 1024
 MAX_SOURCE_CHARS = 20_000
 MAX_VARIABLES = 16
 _EQUIVALENCE_MARKER = "__KQ_EQ__"
+_COMPLETION_MARKER_PREFIX = "__KQ_GRADE_COMPLETE__"
+
+logger = logging.getLogger(__name__)
 
 
 def _timeout(value: float) -> float:
@@ -58,12 +67,24 @@ def _minimal_env(temp_dir: str) -> Dict[str, str]:
     return env
 
 
-def _drain(stream: Any, chunks: List[bytes], state: Dict[str, bool]) -> None:
+def _drain(
+    stream: Any,
+    chunks: List[bytes],
+    state: Dict[str, bool],
+    *,
+    completion_marker: bytes = b"",
+) -> None:
     stored = 0
+    marker_tail = b""
     while True:
         block = stream.read(8192)
         if not block:
             break
+        if completion_marker:
+            marker_window = marker_tail + block
+            if completion_marker in marker_window:
+                state["completed"] = True
+            marker_tail = marker_window[-max(0, len(completion_marker) - 1) :]
         remaining = MAX_STREAM_BYTES - stored
         if remaining > 0:
             kept = block[:remaining]
@@ -93,9 +114,19 @@ def _kill_process_tree(process: subprocess.Popen) -> None:
                 process.kill()
 
 
-def _execute_python(script: str, *, timeout_s: float) -> Dict[str, Any]:
+def _execute_python(
+    script: str,
+    *,
+    timeout_s: float,
+    completion_marker: str = "",
+) -> Dict[str, Any]:
     timeout = _timeout(timeout_s)
-    with tempfile.TemporaryDirectory(prefix="kabuqina-grade-") as temp_dir:
+    result: Dict[str, Any]
+    temp_path: Path | None = None
+    with tempfile.TemporaryDirectory(
+        prefix="kabuqina-grade-", ignore_cleanup_errors=True
+    ) as temp_dir:
+        temp_path = Path(temp_dir)
         script_path = Path(temp_dir) / "grade.py"
         script_path.write_text(script, encoding="utf-8", newline="\n")
         creationflags = 0
@@ -118,11 +149,12 @@ def _execute_python(script: str, *, timeout_s: float) -> Dict[str, Any]:
         )
         stdout_chunks: List[bytes] = []
         stderr_chunks: List[bytes] = []
-        stream_state = {"truncated": False}
+        stream_state = {"truncated": False, "completed": False}
         readers = [
             threading.Thread(
                 target=_drain,
                 args=(process.stdout, stdout_chunks, stream_state),
+                kwargs={"completion_marker": completion_marker.encode("utf-8")},
                 daemon=True,
             ),
             threading.Thread(
@@ -134,6 +166,7 @@ def _execute_python(script: str, *, timeout_s: float) -> Dict[str, Any]:
         for reader in readers:
             reader.start()
         timed_out = False
+        termination_failed = False
         try:
             returncode = process.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
@@ -142,8 +175,15 @@ def _execute_python(script: str, *, timeout_s: float) -> Dict[str, Any]:
             try:
                 returncode = process.wait(timeout=3)
             except subprocess.TimeoutExpired:
-                process.kill()
-                returncode = process.wait(timeout=3)
+                termination_failed = True
+                try:
+                    process.kill()
+                except (OSError, subprocess.SubprocessError):
+                    pass
+                try:
+                    returncode = process.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    returncode = None
         finally:
             for reader in readers:
                 reader.join(timeout=3)
@@ -151,13 +191,20 @@ def _execute_python(script: str, *, timeout_s: float) -> Dict[str, Any]:
                 process.stdout.close()
             if process.stderr:
                 process.stderr.close()
-        return {
+        result = {
             "returncode": returncode,
             "stdout": b"".join(stdout_chunks).decode("utf-8", errors="replace"),
             "stderr": b"".join(stderr_chunks).decode("utf-8", errors="replace"),
             "timed_out": timed_out,
             "truncated": stream_state["truncated"],
+            "completed": stream_state["completed"],
+            "termination_failed": termination_failed,
         }
+    cleanup_leaked = bool(temp_path and temp_path.exists())
+    if cleanup_leaked:
+        logger.warning("code grader temporary directory cleanup leaked: %s", temp_path)
+    result["cleanup_leaked"] = cleanup_leaked
+    return result
 
 
 def _safe_failure_summary(result: Dict[str, Any]) -> str:
@@ -192,9 +239,31 @@ def run_python_grading(
         raise ValueError("source and test_code must be strings")
     if len(source) > MAX_SOURCE_CHARS or len(test_code) > MAX_SOURCE_CHARS:
         raise ValueError(f"source and test_code must be <= {MAX_SOURCE_CHARS} chars")
-    script = f"# coding: utf-8\n{source.rstrip()}\n\n{test_code.rstrip()}\n"
-    result = _execute_python(script, timeout_s=timeout_s)
-    passed = result["returncode"] == 0 and not result["timed_out"]
+    completion_marker = f"{_COMPLETION_MARKER_PREFIX}{secrets.token_hex(16)}"
+    script = (
+        "# coding: utf-8\n"
+        "import sys as __kq_grader_sys\n"
+        f"{source.rstrip()}\n\n{test_code.rstrip()}\n\n"
+        f"__kq_grader_sys.stdout.write({completion_marker!r} + '\\n')\n"
+    )
+    try:
+        result = _execute_python(
+            script,
+            timeout_s=timeout_s,
+            completion_marker=completion_marker,
+        )
+    except (OSError, subprocess.SubprocessError, PermissionError) as exc:
+        return {
+            "passed": False,
+            "failure_summary": f"Grader unavailable: {type(exc).__name__}",
+            "timed_out": False,
+            "truncated": False,
+        }
+    passed = (
+        result["returncode"] == 0
+        and not result["timed_out"]
+        and result["completed"]
+    )
     return {
         "passed": passed,
         "failure_summary": "" if passed else _safe_failure_summary(result),
