@@ -12,10 +12,16 @@ const spacesResponse = {
 describe("StudyRepository", () => {
   it("maps spaces and requests drafts without a kind filter", async () => {
     const drafts = vi.fn().mockResolvedValue({
-      drafts: [
+      items: [
         { artifact_id: "d1", kind: "flashcard_deck", title: "private", version: 1, status: "draft" },
         { artifact_id: "d2", kind: "quiz", title: "private", version: 1, status: "draft" },
       ],
+      count: 2,
+      counts: { active: 0, archived: 0, draft: 2, rejected: 0 },
+      returned: 2,
+      limit: 100,
+      offset: 0,
+      truncated: false,
     });
     const repository = createStudyRepository({
       spaces: vi.fn().mockResolvedValue(spacesResponse),

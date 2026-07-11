@@ -125,6 +125,6 @@ def test_practice_route_creates_a_reviewable_self_checked_variant_draft(study_cl
     assert result["self_checked"] is True
 
     drafts = client.get("/api/desk/study/drafts?kind=quiz", headers=_headers())
-    assert [draft["artifact_id"] for draft in drafts.json()["drafts"]] == [
+    assert [draft["artifact_id"] for draft in drafts.json()["items"]] == [
         result["artifact_id"]
     ]

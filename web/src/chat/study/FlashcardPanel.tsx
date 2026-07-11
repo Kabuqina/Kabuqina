@@ -42,7 +42,7 @@ import {
   cmdStudySpaceCreate,
   cmdStudySpaceSelect,
   cmdStudySpaces,
-  type StudyArtifact,
+  type StudyArtifactSummary,
   type StudyFlashcard,
   type StudySpace,
 } from "./study-api";
@@ -71,7 +71,7 @@ export function FlashcardPanel({
   const [spaces, setSpaces] = useState<StudySpace[]>([]);
   const [currentSpaceId, setCurrentSpaceId] = useState<string>("");
   const [newSpaceTitle, setNewSpaceTitle] = useState("");
-  const [drafts, setDrafts] = useState<StudyArtifact[]>([]);
+  const [drafts, setDrafts] = useState<StudyArtifactSummary[]>([]);
   const [cards, setCards] = useState<StudyFlashcard[]>([]);
   const [mode, setMode] = useState<Mode>("idle");
   const [queue, setQueue] = useState<ReviewQueueCard[]>([]);
@@ -91,7 +91,7 @@ export function FlashcardPanel({
     ]);
     setSpaces(spaceRes.spaces || []);
     setCurrentSpaceId(spaceRes.currentSpaceId || "");
-    setDrafts(draftRes.drafts || []);
+    setDrafts(draftRes.items || []);
     setCards(cardRes.cards || []);
   }, []);
 

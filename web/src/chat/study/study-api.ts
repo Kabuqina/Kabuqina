@@ -26,8 +26,59 @@ export type StudyArtifact = {
   updated_at?: string;
 };
 
+export type StudyArtifactSummary = Pick<
+  StudyArtifact,
+  "artifact_id" | "kind" | "title" | "status" | "review" | "updated_at"
+>;
+
 export type StudyDraftsResponse = {
-  drafts: StudyArtifact[];
+  items: StudyArtifactSummary[];
+  count: number;
+  counts: Record<string, number>;
+  returned: number;
+  limit: number;
+  offset: number;
+  truncated: boolean;
+};
+
+export type StudyArtifactDetailResponse = {
+  artifact: StudyArtifact & { envelope: Record<string, unknown> };
+};
+
+export type StudyWrongbookEvidence = {
+  activity_id: string;
+  artifact_id: string;
+  activity_type: "quiz.attempt";
+  created_at: string;
+  score: number;
+  max_score: number;
+  percent: number;
+  weak_tags: string[];
+};
+
+export type StudyWrongbookResponse = {
+  weak_points: string[];
+  evidence: StudyWrongbookEvidence[];
+  count: number;
+  returned: number;
+  limit: number;
+  truncated: boolean;
+};
+
+export type StudyLearningBundle = {
+  version: 1;
+  spaces?: unknown[];
+  artifacts?: unknown[];
+  items?: unknown[];
+  activities?: unknown[];
+  migrations?: unknown[];
+};
+
+export type StudyMigrationRecord = {
+  migration_key: string;
+  status: "done" | "failed";
+  detail: Record<string, unknown>;
+  created_at: string;
 };
 
 export type StudyFlashcard = {
@@ -163,8 +214,57 @@ export function cmdStudySpaceSelect(spaceId: string): Promise<StudySpacesRespons
   return invoke("cmd_study_space_select", { spaceId });
 }
 
-export function cmdStudyDrafts(kind?: string): Promise<StudyDraftsResponse> {
-  return invoke("cmd_study_drafts", kind ? { kind } : {});
+export function cmdStudyDrafts(kind?: string, limit = 50, offset = 0): Promise<StudyDraftsResponse> {
+  return invoke("cmd_study_drafts", { kind, limit, offset });
+}
+
+export function cmdStudyArtifactSummaries(filters: {
+  spaceId?: string;
+  kind?: string;
+  status?: string;
+  limit?: number;
+  offset?: number;
+} = {}): Promise<StudyDraftsResponse> {
+  return invoke("cmd_study_artifact_summaries", filters);
+}
+
+export function cmdStudyArtifactDetail(artifactId: string): Promise<StudyArtifactDetailResponse> {
+  return invoke("cmd_study_artifact_detail", { artifactId });
+}
+
+export function cmdStudyArtifactStatus(
+  artifactId: string,
+  status: "active" | "rejected" | "archived",
+): Promise<{ artifact_id: string; status: string }> {
+  return invoke("cmd_study_artifact_status", { artifactId, status });
+}
+
+export function cmdStudyWrongbook(limit = 50): Promise<StudyWrongbookResponse> {
+  return invoke("cmd_study_wrongbook", { limit });
+}
+
+export function cmdStudyDataExport(): Promise<{ bundle: StudyLearningBundle }> {
+  return invoke("cmd_study_data_export");
+}
+
+export function cmdStudyDataImport(bundle: StudyLearningBundle): Promise<{ imported: Record<string, number> }> {
+  return invoke("cmd_study_data_import", { bundle });
+}
+
+export function cmdStudyDataDelete(confirm: string): Promise<{ deleted: boolean; counts: Record<string, number> }> {
+  return invoke("cmd_study_data_delete", { confirm });
+}
+
+export function cmdStudyMigrationStatus(): Promise<{ migrations: StudyMigrationRecord[]; count: number }> {
+  return invoke("cmd_study_migration_status");
+}
+
+export function cmdStudyMigrationFailuresExport(): Promise<{
+  version: 1;
+  failures: StudyMigrationRecord[];
+  count: number;
+}> {
+  return invoke("cmd_study_migration_failures_export");
 }
 
 export function cmdStudyArtifactActivate(artifactId: string): Promise<unknown> {

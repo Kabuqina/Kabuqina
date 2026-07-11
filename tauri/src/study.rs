@@ -21,22 +21,13 @@ fn validate_study_path_id(id: &str) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn cmd_study_spaces(app: AppHandle) -> Result<Value, DeskBridgeError> {
-    crate::chat::desk_json_request_structured(
-        &app,
-        reqwest::Method::GET,
-        "/api/desk/study/spaces",
-        None,
-    )
-    .await
+pub async fn cmd_study_spaces(app: AppHandle) -> Result<Value, String> {
+    crate::chat::desk_json_request(&app, reqwest::Method::GET, "/api/desk/study/spaces", None).await
 }
 
 #[tauri::command]
-pub async fn cmd_study_space_create(
-    app: AppHandle,
-    title: String,
-) -> Result<Value, DeskBridgeError> {
-    crate::chat::desk_json_request_structured(
+pub async fn cmd_study_space_create(app: AppHandle, title: String) -> Result<Value, String> {
+    crate::chat::desk_json_request(
         &app,
         reqwest::Method::POST,
         "/api/desk/study/spaces",
@@ -46,13 +37,9 @@ pub async fn cmd_study_space_create(
 }
 
 #[tauri::command]
-pub async fn cmd_study_space_select(
-    app: AppHandle,
-    space_id: String,
-) -> Result<Value, DeskBridgeError> {
-    validate_study_path_id(&space_id)
-        .map_err(|detail| DeskBridgeError::invalid("invalid_study_id", detail))?;
-    crate::chat::desk_json_request_structured(
+pub async fn cmd_study_space_select(app: AppHandle, space_id: String) -> Result<Value, String> {
+    validate_study_path_id(&space_id)?;
+    crate::chat::desk_json_request(
         &app,
         reqwest::Method::POST,
         &format!("/api/desk/study/spaces/{space_id}/select"),
@@ -65,16 +52,164 @@ pub async fn cmd_study_space_select(
 pub async fn cmd_study_drafts(
     app: AppHandle,
     kind: Option<String>,
+    limit: Option<u32>,
+    offset: Option<u32>,
 ) -> Result<Value, DeskBridgeError> {
     let path = match kind {
         Some(k) if !k.trim().is_empty() => {
             validate_study_path_id(k.trim())
                 .map_err(|detail| DeskBridgeError::invalid("invalid_study_id", detail))?;
-            format!("/api/desk/study/drafts?kind={}", k.trim())
+            format!(
+                "/api/desk/study/drafts?kind={}&limit={}&offset={}",
+                k.trim(),
+                limit.unwrap_or(50),
+                offset.unwrap_or(0)
+            )
         }
-        _ => "/api/desk/study/drafts".to_string(),
+        _ => format!(
+            "/api/desk/study/drafts?limit={}&offset={}",
+            limit.unwrap_or(50),
+            offset.unwrap_or(0)
+        ),
     };
     crate::chat::desk_json_request_structured(&app, reqwest::Method::GET, &path, None).await
+}
+
+#[tauri::command]
+pub async fn cmd_study_artifact_summaries(
+    app: AppHandle,
+    space_id: Option<String>,
+    kind: Option<String>,
+    status: Option<String>,
+    limit: Option<u32>,
+    offset: Option<u32>,
+) -> Result<Value, DeskBridgeError> {
+    let mut query = vec![
+        format!("limit={}", limit.unwrap_or(50)),
+        format!("offset={}", offset.unwrap_or(0)),
+    ];
+    for (name, value) in [("space_id", space_id), ("kind", kind), ("status", status)] {
+        if let Some(value) = value.filter(|v| !v.trim().is_empty()) {
+            validate_study_path_id(value.trim())
+                .map_err(|detail| DeskBridgeError::invalid("invalid_study_id", detail))?;
+            query.push(format!("{name}={}", value.trim()));
+        }
+    }
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::GET,
+        &format!("/api/desk/study/artifacts?{}", query.join("&")),
+        None,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_artifact_detail(
+    app: AppHandle,
+    artifact_id: String,
+) -> Result<Value, DeskBridgeError> {
+    validate_study_path_id(&artifact_id)
+        .map_err(|detail| DeskBridgeError::invalid("invalid_study_id", detail))?;
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::GET,
+        &format!("/api/desk/study/artifacts/{artifact_id}"),
+        None,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_artifact_status(
+    app: AppHandle,
+    artifact_id: String,
+    status: String,
+) -> Result<Value, DeskBridgeError> {
+    validate_study_path_id(&artifact_id)
+        .map_err(|detail| DeskBridgeError::invalid("invalid_study_id", detail))?;
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::POST,
+        &format!("/api/desk/study/artifacts/{artifact_id}/status"),
+        Some(json!({"status": status})),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_wrongbook(
+    app: AppHandle,
+    limit: Option<u32>,
+) -> Result<Value, DeskBridgeError> {
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::GET,
+        &format!("/api/desk/study/wrongbook?limit={}", limit.unwrap_or(50)),
+        None,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_data_export(app: AppHandle) -> Result<Value, DeskBridgeError> {
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::GET,
+        "/api/desk/study/data/export",
+        None,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_data_import(
+    app: AppHandle,
+    bundle: Value,
+) -> Result<Value, DeskBridgeError> {
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::POST,
+        "/api/desk/study/data/import",
+        Some(json!({"bundle": bundle})),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_data_delete(
+    app: AppHandle,
+    confirm: String,
+) -> Result<Value, DeskBridgeError> {
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::DELETE,
+        "/api/desk/study/data",
+        Some(json!({"confirm": confirm})),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_migration_status(app: AppHandle) -> Result<Value, DeskBridgeError> {
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::GET,
+        "/api/desk/study/migrations/status",
+        None,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_migration_failures_export(app: AppHandle) -> Result<Value, DeskBridgeError> {
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::GET,
+        "/api/desk/study/migrations/failures/export",
+        None,
+    )
+    .await
 }
 
 #[tauri::command]

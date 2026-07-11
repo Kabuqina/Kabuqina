@@ -15,8 +15,9 @@ from fastapi import APIRouter, HTTPException, Query
 from learning.builtin_course_seed import seed_builtin_course
 from learning.evaluations import EvaluationService
 from learning.flashcards import FlashcardService
-from learning.learning_contract import ContractError
+from learning.learning_contract import ContractError, LIFECYCLE_STATUSES
 from learning.learning_plans import LearningPlanService
+from learning.lifecycle import ArtifactLifecycleService
 from learning.learning_store import LearningStore
 from learning.output_writer import OutputWriter
 from learning.practice_generator import PracticeGenerator
@@ -24,6 +25,7 @@ from learning.quizzes import QuizService
 from learning.semantic_review import requires_semantic_review
 from learning.semantic_review import SemanticReviewService
 from learning.student_state import LEGACY_CONTEXT_MIGRATION_KEY, StudentStateService
+from learning.wrongbook import WrongbookService
 from learning_owner import desktop_learning_scope
 from study_review_reminder import StudyReviewReminderService
 
@@ -36,10 +38,10 @@ _SOURCE_KEYS = ("origin", "session_id", "source_label", "confidence", "gist")
 
 
 @contextmanager
-def _desktop_ctx() -> Iterator[Any]:
+def _desktop_ctx(space_id: Optional[str] = None) -> Iterator[Any]:
     store = LearningStore()
     try:
-        with desktop_learning_scope(store) as ctx:
+        with desktop_learning_scope(store, space_id=space_id) as ctx:
             yield ctx
     finally:
         store.close()
@@ -111,6 +113,53 @@ def _require_artifact(ctx, artifact_id: str) -> Dict[str, Any]:
     if not artifact:
         raise KeyError(f"artifact {artifact_id!r} not found")
     return artifact
+
+def _activate_artifact(ctx, artifact: Dict[str, Any]) -> Dict[str, Any]:
+    artifact_id, kind = artifact["artifact_id"], artifact["kind"]
+    if kind == "flashcard_deck":
+        return FlashcardService(ctx).activate_deck(artifact_id)
+    if kind == "quiz":
+        return QuizService(ctx).activate_quiz(artifact_id)
+    if kind == "student_state":
+        return StudentStateService(ctx).activate_state(artifact_id)
+    if kind == "evaluation":
+        return EvaluationService(ctx).activate_evaluation(artifact_id)
+    if kind == "learning_plan":
+        return LearningPlanService(ctx).activate_plan(artifact_id)
+    if kind in {"knowledge_base", "resource_pack", "tutoring_note"}:
+        if (
+            requires_semantic_review(artifact)
+            and artifact.get("review", {}).get("status") != "passed"
+        ):
+            raise ValueError("semantic review must be approved before activation")
+        ctx.set_artifact_status(artifact_id, "active")
+        return {"artifact_id": artifact_id, "status": "active"}
+    raise ValueError(f"unsupported artifact kind: {kind}")
+
+def _record_migration_failure(key: str, exc: Exception) -> None:
+    try:
+        with _desktop_ctx() as ctx:
+            ctx.mark_migration_failure(
+                key,
+                {
+                    "error_type": type(exc).__name__,
+                    "message": str(exc)[:300],
+                },
+            )
+    except Exception:
+        pass
+
+
+def _empty_summary_page(*, limit: int, offset: int) -> Dict[str, Any]:
+    return {
+        "items": [],
+        "count": 0,
+        "counts": {name: 0 for name in sorted(LIFECYCLE_STATUSES)},
+        "returned": 0,
+        "limit": limit,
+        "offset": offset,
+        "truncated": False,
+    }
 
 
 def _source_refs_from_body(body: Dict[str, Any]) -> list[Dict[str, str]]:
@@ -196,13 +245,37 @@ async def study_seed_builtin_course():
 
 
 @router.get("/api/desk/study/drafts")
-async def study_drafts(kind: Optional[str] = Query(default=None)):
+async def study_drafts(
+    kind: Optional[str] = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+):
     try:
         with _desktop_ctx() as ctx:
             if not ctx.current_space():
-                return {"drafts": []}
-            drafts = ctx.list_artifacts(kind=kind, status="draft")
-            return {"drafts": [_artifact_ref(item) for item in drafts]}
+                return _empty_summary_page(limit=limit, offset=offset)
+            return ArtifactLifecycleService(ctx).summaries(
+                kind=kind, status="draft", limit=limit, offset=offset
+            )
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+
+@router.get("/api/desk/study/artifacts")
+async def study_artifact_summaries(
+    space_id: Optional[str] = Query(default=None),
+    kind: Optional[str] = Query(default=None),
+    status: Optional[str] = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+):
+    try:
+        with _desktop_ctx(space_id=space_id) as ctx:
+            if not ctx.current_space():
+                return _empty_summary_page(limit=limit, offset=offset)
+            return ArtifactLifecycleService(ctx).summaries(
+                kind=kind, status=status, limit=limit, offset=offset
+            )
     except (ValueError, KeyError, ContractError) as exc:
         raise _http_error(exc) from exc
 
@@ -212,22 +285,7 @@ async def study_artifact_activate(artifact_id: str):
     try:
         with _desktop_ctx() as ctx:
             artifact = _require_artifact(ctx, artifact_id)
-            if artifact["kind"] == "flashcard_deck":
-                return FlashcardService(ctx).activate_deck(artifact_id)
-            if artifact["kind"] == "quiz":
-                return QuizService(ctx).activate_quiz(artifact_id)
-            if artifact["kind"] == "student_state":
-                return StudentStateService(ctx).activate_state(artifact_id)
-            if artifact["kind"] == "evaluation":
-                return EvaluationService(ctx).activate_evaluation(artifact_id)
-            if artifact["kind"] == "learning_plan":
-                return LearningPlanService(ctx).activate_plan(artifact_id)
-            if artifact["kind"] in {"knowledge_base", "resource_pack", "tutoring_note"}:
-                if requires_semantic_review(artifact) and artifact.get("review", {}).get("status") != "passed":
-                    raise ValueError("semantic review must be approved before activation")
-                ctx.set_artifact_status(artifact_id, "active")
-                return {"artifact_id": artifact_id, "status": "active"}
-            raise ValueError(f"unsupported artifact kind: {artifact['kind']}")
+            return _activate_artifact(ctx, artifact)
     except (ValueError, KeyError, ContractError) as exc:
         raise _http_error(exc) from exc
 
@@ -262,6 +320,72 @@ async def study_flashcards(due_only: bool = Query(default=False)):
             if not ctx.current_space():
                 return {"cards": []}
             return {"cards": FlashcardService(ctx).list_cards(due_only=due_only)}
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+@router.get("/api/desk/study/artifacts/{artifact_id}")
+async def study_artifact_detail(artifact_id: str):
+    try:
+        with _desktop_ctx() as ctx:
+            return {"artifact": _require_artifact(ctx, artifact_id)}
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+@router.post("/api/desk/study/artifacts/{artifact_id}/status")
+async def study_artifact_status(artifact_id: str, body: Dict[str, Any]):
+    requested = str(body.get("status") or "").strip()
+    try:
+        with _desktop_ctx() as ctx:
+            artifact = _require_artifact(ctx, artifact_id)
+            if requested == "active":
+                return _activate_artifact(ctx, artifact)
+            if requested in {"rejected", "archived"}:
+                ctx.set_artifact_status(artifact_id, requested)
+                return {"artifact_id": artifact_id, "status": requested}
+            raise ValueError("status must be active, rejected, or archived")
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+@router.get("/api/desk/study/data/export")
+async def study_data_export():
+    with _desktop_ctx() as ctx:
+        return {"bundle": ctx.export_owner_bundle()}
+
+@router.post("/api/desk/study/data/import")
+async def study_data_import(body: Dict[str, Any]):
+    try:
+        with _desktop_ctx() as ctx:
+            bundle = body.get("bundle") if isinstance(body.get("bundle"), dict) else {}
+            return {"imported": ctx.import_owner_bundle(bundle)}
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+@router.delete("/api/desk/study/data")
+async def study_data_delete(body: Dict[str, Any]):
+    if body.get("confirm") != "DELETE ALL LEARNING DATA":
+        raise HTTPException(status_code=400, detail="explicit delete confirmation required")
+    with _desktop_ctx() as ctx:
+        return {"deleted": True, "counts": ctx.delete_all_learning_data()}
+
+@router.get("/api/desk/study/migrations/status")
+async def study_migration_status():
+    with _desktop_ctx() as ctx:
+        rows = ctx.list_migrations()
+        return {"migrations": rows, "count": len(rows)}
+
+@router.get("/api/desk/study/migrations/failures/export")
+async def study_migration_failures_export():
+    with _desktop_ctx() as ctx:
+        rows = ctx.list_migrations(status="failed")
+        return {"version": 1, "failures": rows, "count": len(rows)}
+
+@router.get("/api/desk/study/wrongbook")
+async def study_wrongbook(limit: int = Query(default=50, ge=1, le=100)):
+    try:
+        with _desktop_ctx() as ctx:
+            if not ctx.current_space():
+                return {"weak_points": [], "evidence": [], "count": 0, "returned": 0, "limit": limit, "truncated": False}
+            return WrongbookService(ctx).projection(limit=limit)
     except (ValueError, KeyError, ContractError) as exc:
         raise _http_error(exc) from exc
 
@@ -350,6 +474,7 @@ async def study_context_migrate(body: Dict[str, Any]):
                 "evaluation": evaluation,
             }
     except (ValueError, KeyError, ContractError) as exc:
+        _record_migration_failure(LEGACY_CONTEXT_MIGRATION_KEY, exc)
         raise _http_error(exc) from exc
 
 
@@ -515,6 +640,7 @@ async def study_flashcards_migrate(body: Dict[str, Any]):
                 "status": result["status"],
             }
     except (ValueError, KeyError, ContractError) as exc:
+        _record_migration_failure(FLASHCARD_MIGRATION_KEY, exc)
         raise _http_error(exc) from exc
 
 
@@ -600,4 +726,5 @@ async def study_quizzes_migrate(body: Dict[str, Any]):
                 "status": result["status"],
             }
     except (ValueError, KeyError, ContractError) as exc:
+        _record_migration_failure(QUIZ_MIGRATION_KEY, exc)
         raise _http_error(exc) from exc

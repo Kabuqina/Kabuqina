@@ -608,6 +608,53 @@ class LearningStore:
             for r in self._conn.execute(sql, params).fetchall()
         ]
 
+    def artifact_summary_page(
+        self,
+        owner_id: str,
+        space_id: str,
+        *,
+        kind: Optional[str],
+        status: Optional[str],
+        limit: int,
+        offset: int,
+    ) -> Dict[str, Any]:
+        """Read one bounded page without loading artifact envelopes."""
+        _require(owner_id, "owner_id")
+        _require(space_id, "space_id")
+
+        base = " FROM learning_artifacts WHERE owner_id = ? AND space_id = ?"
+        base_params: List[Any] = [owner_id, space_id]
+        if kind is not None:
+            base += " AND kind = ?"
+            base_params.append(kind)
+
+        counts = {
+            row["status"]: row["total"]
+            for row in self._conn.execute(
+                "SELECT status, COUNT(*) AS total" + base + " GROUP BY status",
+                base_params,
+            ).fetchall()
+        }
+
+        page_where = base
+        page_params = list(base_params)
+        if status is not None:
+            page_where += " AND status = ?"
+            page_params.append(status)
+        rows = self._conn.execute(
+            "SELECT artifact_id, kind, title, status, review_mode, "
+            "review_status, updated_at"
+            + page_where
+            + " ORDER BY updated_at DESC, artifact_id DESC LIMIT ? OFFSET ?",
+            [*page_params, limit, offset],
+        ).fetchall()
+        total = counts.get(status, 0) if status is not None else sum(counts.values())
+        return {
+            "rows": [dict(row) for row in rows],
+            "count": total,
+            "counts": counts,
+        }
+
     def update_artifact_status(
         self, owner_id: str, space_id: str, artifact_id: str, new_status: str
     ) -> None:
@@ -848,3 +895,312 @@ class LearningStore:
             (owner_id, migration_key),
         ).fetchone()
         return row is not None
+
+    # ── owner governance / portability ───────────────────────────────── #
+
+    def export_owner_bundle(self, owner_id: str) -> Dict[str, Any]:
+        """Return a self-contained JSON-safe bundle without repeating owner_id."""
+        _require(owner_id, "owner_id")
+        tables = {
+            "spaces": (
+                "learning_spaces",
+                ("space_id", "title", "status", "is_current", "created_at", "updated_at"),
+            ),
+            "artifacts": (
+                "learning_artifacts",
+                (
+                    "space_id", "artifact_id", "kind", "title", "version", "status",
+                    "review_mode", "review_status", "envelope_json", "created_at",
+                    "updated_at",
+                ),
+            ),
+            "items": (
+                "learning_items",
+                (
+                    "space_id", "item_id", "artifact_id", "item_type", "state_json",
+                    "created_at", "updated_at",
+                ),
+            ),
+            "activities": (
+                "learning_activities",
+                (
+                    "space_id", "activity_id", "activity_type", "artifact_id", "item_id",
+                    "detail_json", "created_at",
+                ),
+            ),
+            "migrations": (
+                "learning_migrations",
+                ("migration_key", "status", "detail_json", "created_at"),
+            ),
+        }
+        bundle: Dict[str, Any] = {"version": 1}
+        for key, (table, columns) in tables.items():
+            sql = f"SELECT {', '.join(columns)} FROM {table} WHERE owner_id = ?"
+            rows = [dict(row) for row in self._conn.execute(sql, (owner_id,)).fetchall()]
+            for row in rows:
+                for field in ("envelope_json", "state_json", "detail_json"):
+                    if field in row:
+                        row[field.removesuffix("_json")] = json.loads(row.pop(field))
+            bundle[key] = rows
+        return bundle
+
+    def delete_owner_data(self, owner_id: str) -> Dict[str, int]:
+        _require(owner_id, "owner_id")
+        counts: Dict[str, int] = {}
+
+        def _op(conn: sqlite3.Connection) -> None:
+            for table in (
+                "learning_activities",
+                "learning_items",
+                "learning_artifacts",
+                "learning_spaces",
+                "learning_migrations",
+            ):
+                cur = conn.execute(f"DELETE FROM {table} WHERE owner_id = ?", (owner_id,))
+                counts[table] = cur.rowcount
+
+        self._execute_write(_op)
+        return counts
+
+    def import_owner_bundle(self, owner_id: str, bundle: Dict[str, Any]) -> Dict[str, int]:
+        """Restore a v1 owner bundle into an empty owner scope, forcing ownership."""
+        _require(owner_id, "owner_id")
+        if not isinstance(bundle, dict) or bundle.get("version") != 1:
+            raise ValueError("unsupported learning bundle")
+        if (
+            len(json.dumps(bundle, ensure_ascii=False).encode("utf-8"))
+            > 16 * 1024 * 1024
+        ):
+            raise ValueError("learning bundle exceeds 16 MiB")
+        sections = ("spaces", "artifacts", "items", "activities", "migrations")
+        rows_by_section: Dict[str, List[Any]] = {}
+        for section in sections:
+            rows = bundle.get(section, [])
+            if not isinstance(rows, list):
+                raise ValueError(f"bundle {section} must be an array")
+            rows_by_section[section] = rows
+        counts = {key: 0 for key in sections}
+
+        def _op(conn: sqlite3.Connection) -> None:
+            for table in (
+                "learning_spaces",
+                "learning_artifacts",
+                "learning_items",
+                "learning_activities",
+                "learning_migrations",
+            ):
+                if conn.execute(
+                    f"SELECT 1 FROM {table} WHERE owner_id = ? LIMIT 1",
+                    (owner_id,),
+                ).fetchone():
+                    raise ValueError(
+                        "owner already has learning data; delete it before import"
+                    )
+
+            space_ids: set[str] = set()
+            current_spaces = 0
+            for row in rows_by_section["spaces"]:
+                if not isinstance(row, dict):
+                    raise ValueError("bundle space must be an object")
+                sid = _require(row.get("space_id"), "space_id")
+                space_ids.add(sid)
+                is_current = int(bool(row.get("is_current")))
+                current_spaces += is_current
+                if current_spaces > 1:
+                    raise ValueError("bundle may contain at most one current space")
+                conn.execute(
+                    "INSERT INTO learning_spaces (owner_id,space_id,title,status,is_current,created_at,updated_at) VALUES (?,?,?,?,?,?,?)",
+                    (
+                        owner_id,
+                        sid,
+                        str(row.get("title") or "")[:300],
+                        str(row.get("status") or "active"),
+                        is_current,
+                        str(row.get("created_at") or _now()),
+                        str(row.get("updated_at") or _now()),
+                    ),
+                )
+                counts["spaces"] += 1
+
+            artifact_ids: set[str] = set()
+            for row in rows_by_section["artifacts"]:
+                if not isinstance(row, dict):
+                    raise ValueError("bundle artifact must be an object")
+                sid = _require(row.get("space_id"), "space_id")
+                if sid not in space_ids:
+                    raise ValueError("artifact references unknown space")
+                envelope = row.get("envelope") or {}
+                if not isinstance(envelope, dict):
+                    raise ValueError("artifact envelope must be an object")
+                env = validate_envelope({**envelope, "space_id": sid})
+                aid = _require(row.get("artifact_id"), "artifact_id")
+                artifact_ids.add(aid)
+                status = str(row.get("status") or "draft")
+                if status not in {"draft", "active", "rejected", "archived"}:
+                    raise ValueError("invalid artifact status")
+                env_dict = env.to_dict()
+                conn.execute(
+                    "INSERT INTO learning_artifacts (owner_id,space_id,artifact_id,kind,title,version,status,review_mode,review_status,envelope_json,source_refs_json,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (
+                        owner_id,
+                        sid,
+                        aid,
+                        env.kind,
+                        env.title,
+                        env.version,
+                        status,
+                        env.review["mode"],
+                        env.review["status"],
+                        json.dumps(env_dict, ensure_ascii=False),
+                        json.dumps(env.source_refs, ensure_ascii=False),
+                        str(row.get("created_at") or _now()),
+                        str(row.get("updated_at") or _now()),
+                    ),
+                )
+                counts["artifacts"] += 1
+
+            for row in rows_by_section["items"]:
+                if not isinstance(row, dict):
+                    raise ValueError("bundle item must be an object")
+                sid = _require(row.get("space_id"), "space_id")
+                if sid not in space_ids:
+                    raise ValueError("item references unknown space")
+                artifact_id = row.get("artifact_id")
+                if artifact_id and artifact_id not in artifact_ids:
+                    raise ValueError("item references unknown artifact")
+                item_id = _require(row.get("item_id"), "item_id")
+                state = row.get("state") or {}
+                if not isinstance(state, dict):
+                    raise ValueError("item state must be an object")
+                conn.execute(
+                    "INSERT INTO learning_items (owner_id,space_id,item_id,artifact_id,item_type,state_json,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)",
+                    (
+                        owner_id,
+                        sid,
+                        item_id,
+                        artifact_id,
+                        _require(row.get("item_type"), "item_type"),
+                        json.dumps(state, ensure_ascii=False),
+                        str(row.get("created_at") or _now()),
+                        str(row.get("updated_at") or _now()),
+                    ),
+                )
+                counts["items"] += 1
+
+            for row in rows_by_section["activities"]:
+                if not isinstance(row, dict):
+                    raise ValueError("bundle activity must be an object")
+                sid = _require(row.get("space_id"), "space_id")
+                if sid not in space_ids:
+                    raise ValueError("activity references unknown space")
+                artifact_id = row.get("artifact_id")
+                item_id = row.get("item_id")
+                # Activity evidence intentionally survives artifact/item cleanup,
+                # so these two references are weak and may be dangling in a
+                # valid exported bundle.
+                detail = row.get("detail") or {}
+                if not isinstance(detail, dict):
+                    raise ValueError("activity detail must be an object")
+                conn.execute(
+                    "INSERT INTO learning_activities (owner_id,space_id,activity_id,activity_type,artifact_id,item_id,detail_json,created_at) VALUES (?,?,?,?,?,?,?,?)",
+                    (
+                        owner_id,
+                        sid,
+                        _require(row.get("activity_id"), "activity_id"),
+                        _require(row.get("activity_type"), "activity_type"),
+                        artifact_id,
+                        item_id,
+                        json.dumps(detail, ensure_ascii=False),
+                        str(row.get("created_at") or _now()),
+                    ),
+                )
+                counts["activities"] += 1
+
+            for row in rows_by_section["migrations"]:
+                if not isinstance(row, dict):
+                    raise ValueError("bundle migration must be an object")
+                status = str(row.get("status") or "done")
+                if status not in {"done", "failed"}:
+                    raise ValueError("invalid migration status")
+                detail = row.get("detail") or {}
+                if not isinstance(detail, dict):
+                    raise ValueError("migration detail must be an object")
+                conn.execute(
+                    "INSERT INTO learning_migrations (owner_id,migration_key,status,detail_json,created_at) VALUES (?,?,?,?,?)",
+                    (
+                        owner_id,
+                        _require(row.get("migration_key"), "migration_key"),
+                        status,
+                        json.dumps(detail, ensure_ascii=False),
+                        str(row.get("created_at") or _now()),
+                    ),
+                )
+                counts["migrations"] += 1
+
+        self._execute_write(_op)
+        return counts
+
+    def list_migrations(
+        self, owner_id: str, *, status: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        _require(owner_id, "owner_id")
+        sql = (
+            "SELECT migration_key, status, detail_json, created_at "
+            "FROM learning_migrations WHERE owner_id = ?"
+        )
+        params: List[Any] = [owner_id]
+        if status:
+            sql += " AND status = ?"
+            params.append(status)
+        sql += " ORDER BY created_at DESC"
+        out = []
+        for row in self._conn.execute(sql, params).fetchall():
+            item = dict(row)
+            item["detail"] = json.loads(item.pop("detail_json"))
+            out.append(item)
+        return out
+
+    def quiz_attempt_page(
+        self, owner_id: str, space_id: str, *, limit: int
+    ) -> Dict[str, Any]:
+        """Return one newest-first bounded quiz-attempt evidence page."""
+        _require(owner_id, "owner_id")
+        _require(space_id, "space_id")
+        where = (
+            " FROM learning_activities WHERE owner_id = ? AND space_id = ? "
+            "AND activity_type = 'quiz.attempt'"
+        )
+        params = (owner_id, space_id)
+        total = self._conn.execute("SELECT COUNT(*)" + where, params).fetchone()[0]
+        rows = self._conn.execute(
+            "SELECT activity_id, artifact_id, created_at, detail_json"
+            + where
+            + " ORDER BY created_at DESC, activity_id DESC LIMIT ?",
+            (*params, limit),
+        ).fetchall()
+        return {
+            "rows": [
+                {
+                    "activity_id": row["activity_id"],
+                    "artifact_id": row["artifact_id"],
+                    "created_at": row["created_at"],
+                    "detail": json.loads(row["detail_json"]),
+                }
+                for row in rows
+            ],
+            "count": total,
+        }
+
+    def mark_migration_failure(
+        self, owner_id: str, migration_key: str, detail: Dict[str, Any]
+    ) -> None:
+        _require(owner_id, "owner_id")
+        _require(migration_key, "migration_key")
+        now = _now()
+
+        def _op(conn: sqlite3.Connection) -> None:
+            conn.execute(
+                "INSERT OR REPLACE INTO learning_migrations (owner_id, migration_key, status, detail_json, created_at) VALUES (?, ?, 'failed', ?, ?)",
+                (owner_id, migration_key, json.dumps(detail, ensure_ascii=False), now),
+            )
+        self._execute_write(_op)

@@ -116,6 +116,23 @@ class LearningExecutionContext:
             self._owner_id, self._require_space(), kind=kind, status=status
         )
 
+    def artifact_summary_page(
+        self,
+        *,
+        kind: Optional[str],
+        status: Optional[str],
+        limit: int,
+        offset: int,
+    ) -> Dict[str, Any]:
+        return self._store.artifact_summary_page(
+            self._owner_id,
+            self._require_space(),
+            kind=kind,
+            status=status,
+            limit=limit,
+            offset=offset,
+        )
+
     def set_artifact_status(self, artifact_id: str, new_status: str) -> None:
         """Trusted lifecycle transition — not exposed as a model tool."""
         self._store.update_artifact_status(
@@ -190,6 +207,11 @@ class LearningExecutionContext:
     def list_activities(self) -> List[Dict[str, Any]]:
         return self._store.list_activities(self._owner_id, self._require_space())
 
+    def quiz_attempt_page(self, *, limit: int) -> Dict[str, Any]:
+        return self._store.quiz_attempt_page(
+            self._owner_id, self._require_space(), limit=limit
+        )
+
     def mark_migration(
         self, migration_key: str, *, detail: Optional[Dict[str, Any]] = None
     ) -> None:
@@ -197,6 +219,21 @@ class LearningExecutionContext:
 
     def is_migrated(self, migration_key: str) -> bool:
         return self._store.is_migrated(self._owner_id, migration_key)
+
+    def export_owner_bundle(self) -> Dict[str, Any]:
+        return self._store.export_owner_bundle(self._owner_id)
+
+    def import_owner_bundle(self, bundle: Dict[str, Any]) -> Dict[str, int]:
+        return self._store.import_owner_bundle(self._owner_id, bundle)
+
+    def delete_all_learning_data(self) -> Dict[str, int]:
+        return self._store.delete_owner_data(self._owner_id)
+
+    def list_migrations(self, *, status: Optional[str] = None) -> List[Dict[str, Any]]:
+        return self._store.list_migrations(self._owner_id, status=status)
+
+    def mark_migration_failure(self, migration_key: str, detail: Dict[str, Any]) -> None:
+        self._store.mark_migration_failure(self._owner_id, migration_key, detail)
 
 
 # --------------------------------------------------------------------------- #

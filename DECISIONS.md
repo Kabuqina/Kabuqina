@@ -846,3 +846,16 @@ streams, hard timeout/tree kill, and a post-test randomized completion sentinel;
 these are risk reductions, not a security boundary. `failure_summary` remains
 UI-only; durable activity detail and all model-visible projections retain only
 the fixed `failure_kind` classification.
+
+**STUDY M6 lifecycle and governance boundary (2026-07-11).** Artifact collection
+APIs are content-minimized, bounded summary projections (hard maximum 100) with
+filtered totals and lifecycle counts. In particular, the legacy desktop
+`/study/drafts` response no longer carries complete artifact metadata or an
+envelope; callers fetch one artifact explicitly when its content is needed.
+Wrongbook evidence is likewise bounded and excludes learner responses and
+exception text. Learning-data portability uses a versioned owner bundle:
+exports omit `owner_id`, imports force the runtime owner and run atomically only
+against an empty owner scope, and deletion requires the exact destructive
+confirmation phrase. Migration failures retain only bounded error type/message
+diagnostics, while `source_refs` accept bounded scalar provenance fields rather
+than nested source-content dumps.

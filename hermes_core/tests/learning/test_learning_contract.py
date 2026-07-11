@@ -409,6 +409,25 @@ def test_evaluation_evidence_refs_are_valid():
     assert env.payload["evidence_refs"][0]["activity_id"] == "act-1"
 
 
+def test_source_refs_reject_nested_or_content_dump_values():
+    with pytest.raises(ContractError):
+        validate_envelope(
+            _envelope(
+                "tutoring_note",
+                {"goal": "g", "hints": ["h"]},
+                source_refs=[{"raw_chat": {"messages": []}}],
+            )
+        )
+    with pytest.raises(ContractError):
+        validate_envelope(
+            _envelope(
+                "tutoring_note",
+                {"goal": "g", "hints": ["h"]},
+                source_refs=[{"gist": "x" * 2001}],
+            )
+        )
+
+
 @pytest.mark.parametrize(
     "refs",
     [

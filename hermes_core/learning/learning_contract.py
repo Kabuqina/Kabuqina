@@ -73,6 +73,8 @@ DEFAULT_REVIEW_MODE: Dict[str, str] = {
 MAX_TITLE_LEN: int = 300
 MAX_STR_LEN: int = 20_000
 MAX_SOURCE_REFS: int = 200
+MAX_SOURCE_REF_TEXT: int = 2_000
+MAX_SOURCE_REF_FIELDS: int = 16
 MAX_LIST_ITEMS: int = 1_000
 MAX_QUIZ_QUESTIONS: int = 500
 MAX_CHOICE_OPTIONS: int = 26
@@ -513,6 +515,19 @@ def _validate_source_refs(refs: Any) -> List[Any]:
     for i, ref in enumerate(refs):
         if not isinstance(ref, (str, dict)):
             raise ContractError(f"source_refs[{i}] must be a string or object")
+        if isinstance(ref, str):
+            if not ref.strip() or len(ref) > MAX_SOURCE_REF_TEXT:
+                raise ContractError(f"source_refs[{i}] string must be non-empty and bounded")
+            continue
+        if len(ref) > MAX_SOURCE_REF_FIELDS:
+            raise ContractError(f"source_refs[{i}] has too many fields")
+        for key, value in ref.items():
+            if not isinstance(key, str) or not key or len(key) > 80:
+                raise ContractError(f"source_refs[{i}] keys must be bounded strings")
+            if not isinstance(value, (str, int, float, bool)) or (
+                isinstance(value, str) and len(value) > MAX_SOURCE_REF_TEXT
+            ):
+                raise ContractError(f"source_refs[{i}].{key} must be a bounded scalar")
     return copy.deepcopy(refs)
 
 

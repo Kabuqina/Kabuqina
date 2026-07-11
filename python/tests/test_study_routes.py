@@ -124,7 +124,9 @@ def test_flashcard_draft_activate_and_review_routes(study_client):
         headers=_headers(),
     )
     assert drafts.status_code == 200
-    assert [item["artifact_id"] for item in drafts.json()["drafts"]] == [artifact_id]
+    assert [item["artifact_id"] for item in drafts.json()["items"]] == [artifact_id]
+    assert drafts.json()["count"] == 1
+    assert all("envelope" not in item for item in drafts.json()["items"])
 
     activated = client.post(
         f"/api/desk/study/artifacts/{artifact_id}/activate",

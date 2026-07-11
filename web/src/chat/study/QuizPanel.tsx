@@ -47,6 +47,7 @@ import {
   cmdStudySpaceSelect,
   cmdStudySpaces,
   type StudyArtifact,
+  type StudyArtifactSummary,
   type StudyQuizPerQuestion,
   type StudyQuizResult,
   type StudySpace,
@@ -71,7 +72,7 @@ export function QuizPanel({
   const [spaces, setSpaces] = useState<StudySpace[]>([]);
   const [currentSpaceId, setCurrentSpaceId] = useState("");
   const [newSpaceTitle, setNewSpaceTitle] = useState("");
-  const [drafts, setDrafts] = useState<StudyArtifact[]>([]);
+  const [drafts, setDrafts] = useState<StudyArtifactSummary[]>([]);
   const [quizzes, setQuizzes] = useState<StudyArtifact[]>([]);
   const [selectedQuizId, setSelectedQuizId] = useState("");
   const [questions, setQuestions] = useState<QuizQuestionRow[]>([]);
@@ -92,7 +93,7 @@ export function QuizPanel({
     const active = quizRes.quizzes || [];
     setSpaces(spaceRes.spaces || []);
     setCurrentSpaceId(spaceRes.currentSpaceId || "");
-    setDrafts(draftRes.drafts || []);
+    setDrafts(draftRes.items || []);
     setQuizzes(active);
     setSelectedQuizId((prev) =>
       prev && active.some((quiz) => quiz.artifact_id === prev)
