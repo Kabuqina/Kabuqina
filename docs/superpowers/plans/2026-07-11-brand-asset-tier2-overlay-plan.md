@@ -78,9 +78,12 @@ kabuqina-mascot/
   `web/public/kabuqina_na_*.png`, `web/public/kabuqina_na.ico`,
   `tauri/icons/*`
 
-- [ ] **Step 1:** write the placeholder generator; outputs every filename the
+- [x] **Step 1:** write the placeholder generator; outputs every filename the
   app consumes today (enumerate from `assets/brand/README.md` tables). No new
-  filenames, no code edits.
+  filenames, no code edits. *(2026-07-11: generator at
+  `assets/brand/placeholder/generate_placeholder.py`; canvas sizes mirror the
+  shipped SVGs, geometry/palette all-new greyscale, `<title>Placeholder …` is
+  the machine-checkable sentinel.)*
 - [ ] **Step 2:** run it; regenerate `tauri/icons/` from the placeholder
   256-png via `cargo tauri icon`; commit the placeholder set. App must build
   and run showing the neutral identity.
@@ -94,21 +97,24 @@ kabuqina-mascot/
 - Add: `scripts/apply-brand-overlay.ps1`
 - Edit: `scripts/package-portable-windows.ps1`, MSI/build docs
 
-- [ ] **Step 1:** `apply-brand-overlay.ps1 -Apply`：requires
+- [x] **Step 1:** `apply-brand-overlay.ps1 -Apply`：requires
   `KABUQINA_BRAND_DIR`（or `-BrandDir`）；refuses if
   `git status --porcelain -- web/public tauri/icons` is non-empty；copies
-  `overlay/**` over the working tree；prints an explicit "OFFICIAL BRANDED
-  BUILD" banner. `-Restore`：`git checkout -- web/public tauri/icons`.
-  Missing/invalid dir with `-Apply` = hard error, never a silent placeholder
-  build.
-- [ ] **Step 2:** wire the packaging entry points: portable zip and MSI build
-  invocations gain an optional branded mode（apply → build → restore, restore
-  runs in `finally`）. Dev (`dev.ps1`) stays placeholder-only by default;
-  document `-Apply` for local visual checks.
-- [ ] **Step 3:** smoke assertions in the packaging script: branded mode
-  verifies a sentinel (e.g. hash of `kabuqina_mascot.svg` differs from
-  placeholder hash) before sealing the artifact; placeholder mode verifies the
-  opposite. Record both hashes in the script, not in docs.
+  exactly the files present under the private `overlay/` tree（whitelist by
+  construction — never a wildcard over the target dirs; `README.md`
+  excluded）；prints an explicit "OFFICIAL BRANDED BUILD" banner.
+  `-Restore`：`git checkout -- web/public tauri/icons`. `-Check`：fails if
+  the two paths differ from HEAD（the Task 2 Step 3 guard）. Missing/invalid
+  dir with `-Apply` = hard error, never a silent placeholder build.
+- [ ] **Step 2:** wire the packaging entry points. *(portable: done — see
+  Step 3 sentinel. Remaining: document the official branded sequence
+  (apply → npm build → cargo tauri build → package -ExpectBranded → restore)
+  in the packaging docs; `dev.ps1` stays placeholder-only by default.)*
+- [x] **Step 3:** smoke assertion in `package-portable-windows.ps1`: it reads
+  `web/dist/kabuqina_mascot.svg`（what the exe build embedded）and matches the
+  `<title>Placeholder` sentinel — default run refuses a branded tree,
+  `-ExpectBranded` refuses a placeholder tree. Title sentinel replaces the
+  originally planned hash bookkeeping（robuster across regeneration）.
 
 ### Task 4: `Na_logo/` 退场与文档收口
 

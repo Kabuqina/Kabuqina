@@ -12,7 +12,11 @@ param(
     # Fresh Python bundle from build_bundle.ps1 (preferred over stale tauri/target copy).
     [string]$PythonRuntimeDir = "",
     # Where to drop Kabuqina-<ver>-win64-portable.7z
-    [string]$OutDir = ""
+    [string]$OutDir = "",
+    # Official release: assert the frontend was built with the real brand
+    # overlay applied (scripts/apply-brand-overlay.ps1 -Apply). Default
+    # expects the committed placeholder assets.
+    [switch]$ExpectBranded
 )
 
 $ErrorActionPreference = "Stop"
@@ -102,6 +106,22 @@ $exe = Join-Path $RustReleaseDir "kabuqina.exe"
 if (-not (Test-Path -LiteralPath $exe)) {
     throw "kabuqina.exe not found under $RustReleaseDir - run: cd tauri; cargo build --release"
 }
+
+# Brand sentinel (A-R1b Tier 2): web/dist is what the exe build embedded, so
+# its mascot <title> tells which asset set went in. Placeholder SVGs carry a
+# "Placeholder" title; the private overlay's real artwork does not.
+$mascotDist = Join-Path $root "web\dist\kabuqina_mascot.svg"
+if (-not (Test-Path -LiteralPath $mascotDist)) {
+    throw "web/dist/kabuqina_mascot.svg missing - build the frontend first (cd web; npm run build) so the brand sentinel can be checked."
+}
+$isPlaceholderBuild = (Get-Content -Raw -LiteralPath $mascotDist) -match "<title>Placeholder"
+if ($ExpectBranded -and $isPlaceholderBuild) {
+    throw "Expected a branded build, but web/dist holds PLACEHOLDER assets. Run scripts/apply-brand-overlay.ps1 -Apply, rebuild the frontend and exe, then rerun with -ExpectBranded."
+}
+if (-not $ExpectBranded -and -not $isPlaceholderBuild) {
+    throw "web/dist holds REAL brand assets but -ExpectBranded was not passed. For an official release pass -ExpectBranded; otherwise run scripts/apply-brand-overlay.ps1 -Restore and rebuild."
+}
+Write-Host ("Brand sentinel: {0} build." -f ($(if ($isPlaceholderBuild) { "placeholder" } else { "BRANDED" }))) -ForegroundColor DarkGray
 
 $pyExe = Join-Path $PythonRuntimeDir "python\python.exe"
 if (-not (Test-Path -LiteralPath $pyExe)) {
