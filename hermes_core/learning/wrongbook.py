@@ -73,3 +73,32 @@ class WrongbookService:
             "limit": limit,
             "truncated": attempts["count"] > len(evidence),
         }
+
+    def retry_target(self, activity_id: str) -> Dict[str, Any]:
+        """Resolve an opaque wrongbook activity to a safe retry target.
+
+        The route deliberately exposes only artifact and item identifiers.  The
+        durable attempt detail is never returned to the desktop client.
+        """
+        row = self._ctx.quiz_attempt_by_id(activity_id)
+        if not row:
+            raise KeyError(f"quiz attempt {activity_id!r} not found")
+        artifact_id = str(row.get("artifact_id") or "").strip()
+        artifact = self._ctx.get_artifact(artifact_id) if artifact_id else None
+        if not artifact or artifact.get("kind") != "quiz" or artifact.get("status") != "active":
+            raise KeyError("quiz retry source is unavailable")
+
+        detail = row.get("detail") if isinstance(row.get("detail"), dict) else {}
+        per_question = detail.get("perQuestion") if isinstance(detail.get("perQuestion"), list) else []
+        item_ids: list[str] = []
+        seen: set[str] = set()
+        for result in per_question:
+            if not isinstance(result, dict) or result.get("correct") is True:
+                continue
+            item_id = str(result.get("item_id") or "").strip()
+            if item_id and item_id not in seen:
+                seen.add(item_id)
+                item_ids.append(item_id)
+            if len(item_ids) >= 50:
+                break
+        return {"artifact_id": artifact_id, "item_ids": item_ids}

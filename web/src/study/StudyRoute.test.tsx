@@ -32,6 +32,8 @@ function renderRoute(path: string, repositoryOverrides: Partial<StudyRepository>
     loadWrongbook: vi.fn().mockResolvedValue({ weak_points: [], evidence: [], count: 0, returned: 0, limit: 50, truncated: false }),
     loadLatestEvaluation: vi.fn().mockResolvedValue({ evaluation: null }),
     loadActivities: vi.fn().mockResolvedValue({ items: [], count: 0, returned: 0, limit: 50, truncated: false }),
+    loadPracticeHome: vi.fn(), loadQuizQuestions: vi.fn(), reviewFlashcard: vi.fn(),
+    submitQuiz: vi.fn(), generatePracticeDraft: vi.fn(), resolvePracticeSource: vi.fn(),
     ...repositoryOverrides,
   };
   render(

@@ -326,9 +326,11 @@ async def study_artifact_reject(artifact_id: str):
 
 
 @router.get("/api/desk/study/flashcards")
-async def study_flashcards(due_only: bool = Query(default=False)):
+async def study_flashcards(
+    space_id: str = Query(...), due_only: bool = Query(default=False)
+):
     try:
-        with _desktop_ctx() as ctx:
+        with _desktop_ctx(space_id=space_id) as ctx:
             if not ctx.current_space():
                 return {"cards": []}
             return {"cards": FlashcardService(ctx).list_cards(due_only=due_only)}
@@ -659,7 +661,8 @@ async def study_flashcard_capture(body: Dict[str, Any]):
 @router.post("/api/desk/study/flashcards/review")
 async def study_flashcard_review(body: Dict[str, Any]):
     try:
-        with _desktop_ctx() as ctx:
+        space_id = _required_space_id(body)
+        with _desktop_ctx(space_id=space_id) as ctx:
             item_id = str(body.get("item_id") or "").strip()
             grade = str(body.get("grade") or "").strip()
             return FlashcardService(ctx).review_card(item_id, grade)
@@ -709,9 +712,9 @@ async def study_flashcards_migrate(body: Dict[str, Any]):
 
 
 @router.get("/api/desk/study/quizzes")
-async def study_quizzes():
+async def study_quizzes(space_id: str = Query(...)):
     try:
-        with _desktop_ctx() as ctx:
+        with _desktop_ctx(space_id=space_id) as ctx:
             if not ctx.current_space():
                 return {"quizzes": []}
             quizzes = QuizService(ctx).list_quizzes(status="active")
@@ -721,9 +724,9 @@ async def study_quizzes():
 
 
 @router.get("/api/desk/study/quizzes/{artifact_id}/questions")
-async def study_quiz_questions(artifact_id: str):
+async def study_quiz_questions(artifact_id: str, space_id: str = Query(...)):
     try:
-        with _desktop_ctx() as ctx:
+        with _desktop_ctx(space_id=space_id) as ctx:
             artifact = _require_artifact(ctx, artifact_id)
             if artifact["kind"] != "quiz":
                 raise ValueError("artifact is not a quiz")
@@ -736,7 +739,8 @@ async def study_quiz_questions(artifact_id: str):
 @router.post("/api/desk/study/quizzes/{artifact_id}/submit")
 async def study_quiz_submit(artifact_id: str, body: Dict[str, Any]):
     try:
-        with _desktop_ctx() as ctx:
+        space_id = _required_space_id(body)
+        with _desktop_ctx(space_id=space_id) as ctx:
             responses = body.get("responses") if isinstance(body.get("responses"), dict) else {}
             return QuizService(ctx).submit_attempt(artifact_id, responses)
     except (ValueError, KeyError, ContractError) as exc:
@@ -747,7 +751,8 @@ async def study_quiz_submit(artifact_id: str, body: Dict[str, Any]):
 async def study_quiz_generate_practice(artifact_id: str, body: Dict[str, Any]):
     """Create a reviewable deterministic transcription or variant quiz draft."""
     try:
-        with _desktop_ctx() as ctx:
+        space_id = _required_space_id(body)
+        with _desktop_ctx(space_id=space_id) as ctx:
             item_id = _clean_text(body.get("item_id"))
             practice_kind = _clean_text(body.get("practice_kind"))
             if not item_id:
@@ -757,6 +762,17 @@ async def study_quiz_generate_practice(artifact_id: str, body: Dict[str, Any]):
                 item_id=item_id,
                 practice_kind=practice_kind,
             )
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+
+@router.get("/api/desk/study/practice-source")
+async def study_practice_source(
+    space_id: str = Query(...), activity_id: str = Query(...)
+):
+    try:
+        with _desktop_ctx(space_id=space_id) as ctx:
+            return {"source": WrongbookService(ctx).retry_target(activity_id)}
     except (ValueError, KeyError, ContractError) as exc:
         raise _http_error(exc) from exc
 

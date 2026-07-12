@@ -7,11 +7,18 @@ import {
   cmdStudyArtifactSummaries,
   cmdStudyArtifactStatus,
   cmdStudyEvaluations,
+  cmdStudyFlashcardReview,
+  cmdStudyFlashcards,
   cmdStudyLearningPlans,
   cmdStudyMigrateContext,
   cmdStudyPlanItemComplete,
   cmdStudyPlanItemSkip,
   cmdStudyPlanItems,
+  cmdStudyPracticeSource,
+  cmdStudyQuizGeneratePractice,
+  cmdStudyQuizQuestions,
+  cmdStudyQuizSubmit,
+  cmdStudyQuizzes,
   cmdStudySpaces,
   cmdStudySpaceSelect,
   cmdStudyStudentState,
@@ -20,7 +27,12 @@ import {
   type StudyArtifactSummary,
   type StudyDraftsResponse,
   type StudyEvaluationProjection,
+  type StudyFlashcard,
   type StudyPlanItem,
+  type StudyPracticeResponse,
+  type StudyPracticeSource,
+  type StudyQuizQuestion,
+  type StudyQuizResult,
   type StudySpacesResponse,
   type StudyStudentState,
   type StudyWrongbookResponse,
@@ -55,6 +67,13 @@ export type StudyPlanSnapshot = {
 
 export type StudyEvaluationSnapshot = {
   evaluation: StudyEvaluationProjection | null;
+};
+
+export type StudyPracticeHome = {
+  cards: StudyFlashcard[];
+  dueCards: StudyFlashcard[];
+  quizzes: StudyArtifactSummary[];
+  drafts: StudyArtifactSummary[];
 };
 
 export type StudyRepositoryErrorCode =
@@ -92,6 +111,32 @@ export interface StudyRepository {
   loadWrongbook(spaceId: string, signal: AbortSignal): Promise<StudyWrongbookResponse>;
   loadLatestEvaluation(spaceId: string, signal: AbortSignal): Promise<StudyEvaluationSnapshot>;
   loadActivities(spaceId: string, signal: AbortSignal): Promise<StudyActivitiesResponse>;
+  loadPracticeHome(spaceId: string, signal: AbortSignal): Promise<StudyPracticeHome>;
+  loadQuizQuestions(spaceId: string, artifactId: string, signal: AbortSignal): Promise<StudyQuizQuestion[]>;
+  reviewFlashcard(
+    spaceId: string,
+    itemId: string,
+    grade: "again" | "hard" | "good" | "easy",
+    signal: AbortSignal,
+  ): Promise<StudyFlashcard & { grade: string }>;
+  submitQuiz(
+    spaceId: string,
+    artifactId: string,
+    responses: unknown,
+    signal: AbortSignal,
+  ): Promise<StudyQuizResult>;
+  generatePracticeDraft(
+    spaceId: string,
+    artifactId: string,
+    itemId: string,
+    kind: "transcribe" | "variant",
+    signal: AbortSignal,
+  ): Promise<StudyPracticeResponse>;
+  resolvePracticeSource(
+    spaceId: string,
+    activityId: string,
+    signal: AbortSignal,
+  ): Promise<StudyPracticeSource>;
 }
 
 type DeskBridgeErrorPayload = {
@@ -126,6 +171,14 @@ type StudyCommands = {
   wrongbook: typeof cmdStudyWrongbook;
   evaluations: typeof cmdStudyEvaluations;
   activities: typeof cmdStudyActivities;
+  flashcards: typeof cmdStudyFlashcards;
+  flashcardReview: typeof cmdStudyFlashcardReview;
+  quizzes: typeof cmdStudyQuizzes;
+  quizQuestions: typeof cmdStudyQuizQuestions;
+  quizSubmit: typeof cmdStudyQuizSubmit;
+  quizGeneratePractice: typeof cmdStudyQuizGeneratePractice;
+  practiceSource: typeof cmdStudyPracticeSource;
+  practiceDrafts: (spaceId: string) => Promise<StudyDraftsResponse>;
 };
 
 const defaultCommands: StudyCommands = {
@@ -153,6 +206,18 @@ const defaultCommands: StudyCommands = {
   wrongbook: cmdStudyWrongbook,
   evaluations: cmdStudyEvaluations,
   activities: cmdStudyActivities,
+  flashcards: cmdStudyFlashcards,
+  flashcardReview: cmdStudyFlashcardReview,
+  quizzes: cmdStudyQuizzes,
+  quizQuestions: cmdStudyQuizQuestions,
+  quizSubmit: cmdStudyQuizSubmit,
+  quizGeneratePractice: cmdStudyQuizGeneratePractice,
+  practiceSource: cmdStudyPracticeSource,
+  practiceDrafts: (spaceId) => cmdStudyArtifactSummaries({
+    spaceId,
+    status: "draft",
+    limit: 50,
+  }),
 };
 
 function abortError(): DOMException {
@@ -305,6 +370,43 @@ export function createStudyRepository(commands: Partial<StudyCommands> = {}): St
     },
     loadActivities(spaceId, signal) {
       return invokeWithSignal(signal, () => resolved.activities(spaceId));
+    },
+    loadPracticeHome(spaceId, signal) {
+      return invokeWithSignal(signal, async () => {
+        const [cards, dueCards, quizzes, drafts] = await Promise.all([
+          resolved.flashcards(spaceId, false),
+          resolved.flashcards(spaceId, true),
+          resolved.quizzes(spaceId),
+          resolved.practiceDrafts(spaceId),
+        ]);
+        return {
+          cards: cards.cards,
+          dueCards: dueCards.cards,
+          quizzes: quizzes.quizzes,
+          drafts: drafts.items.filter((draft) => draft.kind === "flashcard_deck" || draft.kind === "quiz"),
+        };
+      });
+    },
+    loadQuizQuestions(spaceId, artifactId, signal) {
+      return invokeWithSignal(signal, async () => (
+        (await resolved.quizQuestions(spaceId, artifactId)).questions
+      ));
+    },
+    reviewFlashcard(spaceId, itemId, grade, signal) {
+      return invokeWithSignal(signal, () => resolved.flashcardReview(spaceId, itemId, grade));
+    },
+    submitQuiz(spaceId, artifactId, responses, signal) {
+      return invokeWithSignal(signal, () => resolved.quizSubmit(spaceId, artifactId, responses));
+    },
+    generatePracticeDraft(spaceId, artifactId, itemId, kind, signal) {
+      return invokeWithSignal(signal, () => (
+        resolved.quizGeneratePractice(spaceId, artifactId, itemId, kind)
+      ));
+    },
+    async resolvePracticeSource(spaceId, activityId, signal) {
+      return invokeWithSignal(signal, async () => (
+        (await resolved.practiceSource(spaceId, activityId)).source
+      ));
     },
   };
 }

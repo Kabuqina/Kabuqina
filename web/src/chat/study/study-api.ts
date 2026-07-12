@@ -267,6 +267,11 @@ export type StudyPracticeResponse = {
   reason?: string;
 };
 
+export type StudyPracticeSource = {
+  artifact_id: string;
+  item_ids: string[];
+};
+
 export function cmdStudySpaces(): Promise<StudySpacesResponse> {
   return invoke("cmd_study_spaces");
 }
@@ -404,40 +409,62 @@ export function cmdStudyArtifactReject(artifactId: string): Promise<unknown> {
   return invoke("cmd_study_artifact_reject", { artifactId });
 }
 
-export function cmdStudyFlashcards(dueOnly = false): Promise<StudyFlashcardsResponse> {
-  return invoke("cmd_study_flashcards", { dueOnly });
+export function cmdStudyFlashcards(
+  spaceId: string,
+  dueOnly = false,
+): Promise<StudyFlashcardsResponse> {
+  return invoke("cmd_study_flashcards", { spaceId, dueOnly });
 }
 
 export function cmdStudyFlashcardCapture(payload: StudyFlashcardCaptureRequest): Promise<StudyCaptureResponse> {
   return invoke("cmd_study_flashcard_capture", { body: payload });
 }
 
-export function cmdStudyFlashcardReview(itemId: string, grade: string): Promise<StudyFlashcard & { grade: string }> {
-  return invoke("cmd_study_flashcard_review", { itemId, grade });
+export function cmdStudyFlashcardReview(
+  spaceId: string,
+  itemId: string,
+  grade: string,
+): Promise<StudyFlashcard & { grade: string }> {
+  return invoke("cmd_study_flashcard_review", { spaceId, itemId, grade });
 }
 
 export function cmdStudyMigrateFlashcards(deck: unknown): Promise<StudyMigrationResponse> {
   return invoke("cmd_study_migrate_flashcards", { deck });
 }
 
-export function cmdStudyQuizzes(): Promise<StudyQuizzesResponse> {
-  return invoke("cmd_study_quizzes");
+export function cmdStudyQuizzes(spaceId: string): Promise<StudyQuizzesResponse> {
+  return invoke("cmd_study_quizzes", { spaceId });
 }
 
-export function cmdStudyQuizQuestions(artifactId: string): Promise<StudyQuizQuestionsResponse> {
-  return invoke("cmd_study_quiz_questions", { artifactId });
+export function cmdStudyQuizQuestions(
+  spaceId: string,
+  artifactId: string,
+): Promise<StudyQuizQuestionsResponse> {
+  return invoke("cmd_study_quiz_questions", { spaceId, artifactId });
 }
 
-export function cmdStudyQuizSubmit(artifactId: string, responses: unknown): Promise<StudyQuizResult> {
-  return invoke("cmd_study_quiz_submit", { artifactId, responses });
+export function cmdStudyQuizSubmit(
+  spaceId: string,
+  artifactId: string,
+  responses: unknown,
+): Promise<StudyQuizResult> {
+  return invoke("cmd_study_quiz_submit", { spaceId, artifactId, responses });
 }
 
 export function cmdStudyQuizGeneratePractice(
+  spaceId: string,
   artifactId: string,
   itemId: string,
   practiceKind: "transcribe" | "variant",
 ): Promise<StudyPracticeResponse> {
-  return invoke("cmd_study_quiz_generate_practice", { artifactId, itemId, practiceKind });
+  return invoke("cmd_study_quiz_generate_practice", { spaceId, artifactId, itemId, practiceKind });
+}
+
+export function cmdStudyPracticeSource(
+  spaceId: string,
+  activityId: string,
+): Promise<{ source: StudyPracticeSource }> {
+  return invoke("cmd_study_practice_source", { spaceId, activityId });
 }
 
 export function cmdStudyMigrateQuizzes(quiz: unknown): Promise<StudyQuizMigrationResponse> {

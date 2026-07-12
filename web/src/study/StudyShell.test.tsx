@@ -43,6 +43,8 @@ function renderShell(
     loadWrongbook: vi.fn(),
     loadLatestEvaluation: vi.fn(),
     loadActivities: vi.fn(),
+    loadPracticeHome: vi.fn(), loadQuizQuestions: vi.fn(), reviewFlashcard: vi.fn(),
+    submitQuiz: vi.fn(), generatePracticeDraft: vi.fn(), resolvePracticeSource: vi.fn(),
     ...repositoryOverrides,
   };
   render(

@@ -78,10 +78,11 @@ export function QuizPanel({
   const migratedRef = useRef(false);
 
   const refresh = useCallback(async () => {
-    const [spaceRes, draftRes, quizRes] = await Promise.all([
-      cmdStudySpaces(),
+    const spaceRes = await cmdStudySpaces();
+    const spaceId = spaceRes.currentSpaceId || "";
+    const [draftRes, quizRes] = await Promise.all([
       cmdStudyDrafts("quiz"),
-      cmdStudyQuizzes(),
+      spaceId ? cmdStudyQuizzes(spaceId) : Promise.resolve({ quizzes: [] }),
     ]);
     const active = quizRes.quizzes || [];
     setSpaces(spaceRes.spaces || []);
@@ -188,9 +189,9 @@ export function QuizPanel({
   };
 
   const startQuiz = async () => {
-    if (!selectedQuizId) return;
+    if (!selectedQuizId || !currentSpaceId) return;
     try {
-      const res = await cmdStudyQuizQuestions(selectedQuizId);
+      const res = await cmdStudyQuizQuestions(currentSpaceId, selectedQuizId);
       const rows = backendQuestionsToQuizRows(res.questions || []);
       if (!rows.length) {
         setStatus(t("chat.quizNoQuestions"));
@@ -225,9 +226,10 @@ export function QuizPanel({
   };
 
   const submit = async () => {
-    if (!selectedQuizId) return;
+    if (!selectedQuizId || !currentSpaceId) return;
     try {
       const graded = await cmdStudyQuizSubmit(
+        currentSpaceId,
         selectedQuizId,
         responsesToSubmitPayload(responses),
       );

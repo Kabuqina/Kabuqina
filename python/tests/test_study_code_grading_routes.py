@@ -79,7 +79,7 @@ def test_code_question_route_hides_secrets_and_runs_active_sandbox(study_client)
     assert activated.status_code == 200
 
     questions = client.get(
-        f"/api/desk/study/quizzes/{artifact_id}/questions", headers=_headers()
+        f"/api/desk/study/quizzes/{artifact_id}/questions?space_id=python", headers=_headers()
     )
     assert questions.status_code == 200
     question = questions.json()["questions"][0]
@@ -90,6 +90,7 @@ def test_code_question_route_hides_secrets_and_runs_active_sandbox(study_client)
     submitted = client.post(
         f"/api/desk/study/quizzes/{artifact_id}/submit",
         json={
+            "space_id": "python",
             "responses": {
                 question["item_id"]: {"code": "def add(a, b):\n    return a + b"}
             }
@@ -109,12 +110,12 @@ def test_practice_route_creates_a_reviewable_self_checked_variant_draft(study_cl
     artifact_id = _seed_code_quiz(db_path)
     client.post(f"/api/desk/study/artifacts/{artifact_id}/activate", headers=_headers())
     question = client.get(
-        f"/api/desk/study/quizzes/{artifact_id}/questions", headers=_headers()
+        f"/api/desk/study/quizzes/{artifact_id}/questions?space_id=python", headers=_headers()
     ).json()["questions"][0]
 
     generated = client.post(
         f"/api/desk/study/quizzes/{artifact_id}/practice",
-        json={"item_id": question["item_id"], "practice_kind": "variant"},
+        json={"space_id": "python", "item_id": question["item_id"], "practice_kind": "variant"},
         headers=_headers(),
     )
 

@@ -123,6 +123,38 @@ describe("StudyRepository", () => {
     expect(evaluations).toHaveBeenCalledWith("space-b");
   });
 
+  it("loads practice data and retry sources from the requested URL space", async () => {
+    const flashcards = vi.fn()
+      .mockResolvedValueOnce({ cards: [{ item_id: "card-all", front: "all", back: "a" }] })
+      .mockResolvedValueOnce({ cards: [{ item_id: "card-due", front: "due", back: "d" }] });
+    const quizzes = vi.fn().mockResolvedValue({ quizzes: [{
+      artifact_id: "quiz-1", kind: "quiz", title: "Private title", status: "active",
+    }] });
+    const practiceDrafts = vi.fn().mockResolvedValue({
+      items: [{ artifact_id: "draft-1", kind: "quiz", title: "Draft", status: "draft" }],
+      count: 1, counts: { draft: 1 }, kind_counts: { quiz: 1 },
+      returned: 1, limit: 50, offset: 0, truncated: false,
+    });
+    const practiceSource = vi.fn().mockResolvedValue({
+      source: { artifact_id: "quiz-1", item_ids: ["item-1"] },
+    });
+    const repository = createStudyRepository({ flashcards, quizzes, practiceDrafts, practiceSource });
+    const signal = new AbortController().signal;
+
+    await expect(repository.loadPracticeHome("space-b", signal)).resolves.toMatchObject({
+      dueCards: [{ item_id: "card-due" }],
+      drafts: [{ artifact_id: "draft-1" }],
+    });
+    await expect(repository.resolvePracticeSource("space-b", "activity-1", signal)).resolves.toEqual({
+      artifact_id: "quiz-1", item_ids: ["item-1"],
+    });
+    expect(flashcards).toHaveBeenNthCalledWith(1, "space-b", false);
+    expect(flashcards).toHaveBeenNthCalledWith(2, "space-b", true);
+    expect(quizzes).toHaveBeenCalledWith("space-b");
+    expect(practiceDrafts).toHaveBeenCalledWith("space-b");
+    expect(practiceSource).toHaveBeenCalledWith("space-b", "activity-1");
+  });
+
   it("maps only stable error prefixes", () => {
     expect(normalizeRepositoryError("invalid study id").code).toBe("invalid");
     expect(normalizeRepositoryError("space_not_found: hidden detail").code).toBe("not-found");

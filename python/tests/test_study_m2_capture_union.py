@@ -76,7 +76,8 @@ def test_legacy_flashcard_migration_skips_existing_capture_fronts(client):
     assert migrated.json()["migrated"] is True
     assert migrated.json()["cards"] == 1
 
-    cards = client.get("/api/desk/study/flashcards").json()["cards"]
+    space_id = client.get("/api/desk/study/spaces").json()["currentSpaceId"]
+    cards = client.get(f"/api/desk/study/flashcards?space_id={space_id}").json()["cards"]
     fronts = [card["front"] for card in cards]
     assert sorted(fronts, key=str.casefold) == ["Bayes theorem", "Gradient"]
     assert sum(1 for front in fronts if front.casefold() == "bayes theorem") == 1

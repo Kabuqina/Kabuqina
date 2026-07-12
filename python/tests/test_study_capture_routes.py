@@ -51,8 +51,7 @@ def client(tmp_path, monkeypatch):
 def test_flashcards_list_empty_when_no_space_exists(client):
     resp = client.get("/api/desk/study/flashcards")
 
-    assert resp.status_code == 200
-    assert resp.json() == {"cards": []}
+    assert resp.status_code == 422
 
 
 def test_flashcard_capture_auto_creates_space_and_lists_card(client):
@@ -80,7 +79,8 @@ def test_flashcard_capture_auto_creates_space_and_lists_card(client):
     assert data["artifact_id"]
     assert data["item_id"] == f"{data['artifact_id']}-0000"
 
-    cards_resp = client.get("/api/desk/study/flashcards")
+    space_id = client.get("/api/desk/study/spaces").json()["currentSpaceId"]
+    cards_resp = client.get(f"/api/desk/study/flashcards?space_id={space_id}")
     assert cards_resp.status_code == 200
     cards = cards_resp.json()["cards"]
     assert len(cards) == 1
@@ -101,7 +101,8 @@ def test_flashcard_capture_is_idempotent_by_front(client):
 
     assert second_resp.status_code == 200
     assert second_resp.json() == {"duplicate": True, "item_id": first["item_id"]}
-    assert len(client.get("/api/desk/study/flashcards").json()["cards"]) == 1
+    space_id = client.get("/api/desk/study/spaces").json()["currentSpaceId"]
+    assert len(client.get(f"/api/desk/study/flashcards?space_id={space_id}").json()["cards"]) == 1
 
 
 @pytest.mark.parametrize("payload", [{"front": "", "back": "A"}, {"front": "Q", "back": ""}])

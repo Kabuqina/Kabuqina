@@ -17,7 +17,10 @@ function repository(overrides: Partial<StudyRepository> = {}): StudyRepository {
     loadFlyleaf: vi.fn(), migrateLegacyContext: vi.fn(), setArtifactStatus: vi.fn(),
     loadPlan: vi.fn().mockResolvedValue({ plan: null, items: [] }),
     completePlanItem: vi.fn(), skipPlanItem: vi.fn(), loadWrongbook: vi.fn(),
-    loadLatestEvaluation: vi.fn(), loadActivities: vi.fn(), ...overrides,
+    loadLatestEvaluation: vi.fn(), loadActivities: vi.fn(),
+    loadPracticeHome: vi.fn(), loadQuizQuestions: vi.fn(), reviewFlashcard: vi.fn(),
+    submitQuiz: vi.fn(), generatePracticeDraft: vi.fn(), resolvePracticeSource: vi.fn(),
+    ...overrides,
   };
 }
 

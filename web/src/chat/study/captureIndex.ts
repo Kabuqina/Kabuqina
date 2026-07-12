@@ -20,7 +20,10 @@ function normalizeFront(front: unknown): string {
 
 async function defaultFetcher(): Promise<StudyFlashcardsResponse> {
   const api = await import("./study-api");
-  return api.cmdStudyFlashcards();
+  const spaces = await api.cmdStudySpaces();
+  return spaces.currentSpaceId
+    ? api.cmdStudyFlashcards(spaces.currentSpaceId)
+    : { cards: [] };
 }
 
 export function createCaptureIndex(options: CaptureIndexOptions = {}) {

@@ -75,10 +75,11 @@ export function FlashcardPanel({
   const migratedRef = useRef(false);
 
   const refresh = useCallback(async () => {
-    const [spaceRes, draftRes, cardRes] = await Promise.all([
-      cmdStudySpaces(),
+    const spaceRes = await cmdStudySpaces();
+    const spaceId = spaceRes.currentSpaceId || "";
+    const [draftRes, cardRes] = await Promise.all([
       cmdStudyDrafts("flashcard_deck"),
-      cmdStudyFlashcards(false),
+      spaceId ? cmdStudyFlashcards(spaceId, false) : Promise.resolve({ cards: [] }),
     ]);
     setSpaces(spaceRes.spaces || []);
     setCurrentSpaceId(spaceRes.currentSpaceId || "");
@@ -178,8 +179,9 @@ export function FlashcardPanel({
   };
 
   const startReview = async () => {
+    if (!currentSpaceId) return;
     try {
-      const due = await cmdStudyFlashcards(true);
+      const due = await cmdStudyFlashcards(currentSpaceId, true);
       const nextQueue = backendCardsToQueue(due.cards || []);
       if (!nextQueue.length) return;
       setQueue(nextQueue);
@@ -193,9 +195,9 @@ export function FlashcardPanel({
   };
 
   const grade = async (value: ReviewGrade) => {
-    if (!current) return;
+    if (!current || !currentSpaceId) return;
     try {
-      await cmdStudyFlashcardReview(current.itemId, value);
+      await cmdStudyFlashcardReview(currentSpaceId, current.itemId, value);
       if (index + 1 >= queue.length) {
         await refresh();
         setMode("done");

@@ -217,6 +217,11 @@ class LearningExecutionContext:
             self._owner_id, self._require_space(), limit=limit
         )
 
+    def quiz_attempt_by_id(self, activity_id: str) -> Optional[Dict[str, Any]]:
+        return self._store.quiz_attempt_by_id(
+            self._owner_id, self._require_space(), activity_id
+        )
+
     def mark_migration(
         self, migration_key: str, *, detail: Optional[Dict[str, Any]] = None
     ) -> None:

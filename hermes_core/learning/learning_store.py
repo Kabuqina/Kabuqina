@@ -1242,6 +1242,28 @@ class LearningStore:
             "count": total,
         }
 
+    def quiz_attempt_by_id(
+        self, owner_id: str, space_id: str, activity_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """Return one scoped quiz-attempt row for retry routing only."""
+        _require(owner_id, "owner_id")
+        _require(space_id, "space_id")
+        _require(activity_id, "activity_id")
+        row = self._conn.execute(
+            "SELECT activity_id, artifact_id, detail_json "
+            "FROM learning_activities "
+            "WHERE owner_id = ? AND space_id = ? AND activity_id = ? "
+            "AND activity_type = 'quiz.attempt'",
+            (owner_id, space_id, activity_id),
+        ).fetchone()
+        if not row:
+            return None
+        return {
+            "activity_id": row["activity_id"],
+            "artifact_id": row["artifact_id"],
+            "detail": json.loads(row["detail_json"]),
+        }
+
     def mark_migration_failure(
         self, owner_id: str, migration_key: str, detail: Dict[str, Any]
     ) -> None:

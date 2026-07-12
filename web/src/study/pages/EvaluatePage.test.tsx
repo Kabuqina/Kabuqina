@@ -21,6 +21,8 @@ function repository(overrides: Partial<StudyRepository> = {}): StudyRepository {
     loadActivities: vi.fn().mockResolvedValue({
       items: [], count: 0, returned: 0, limit: 50, truncated: false,
     }),
+    loadPracticeHome: vi.fn(), loadQuizQuestions: vi.fn(), reviewFlashcard: vi.fn(),
+    submitQuiz: vi.fn(), generatePracticeDraft: vi.fn(), resolvePracticeSource: vi.fn(),
     ...overrides,
   };
 }

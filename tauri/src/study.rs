@@ -449,13 +449,18 @@ pub async fn cmd_study_artifact_reject(
 }
 
 #[tauri::command]
-pub async fn cmd_study_flashcards(app: AppHandle, due_only: Option<bool>) -> Result<Value, String> {
+pub async fn cmd_study_flashcards(
+    app: AppHandle,
+    space_id: String,
+    due_only: Option<bool>,
+) -> Result<Value, DeskBridgeError> {
+    validate_structured_id(&space_id)?;
     let path = if due_only.unwrap_or(false) {
-        "/api/desk/study/flashcards?due_only=true"
+        format!("/api/desk/study/flashcards?space_id={space_id}&due_only=true")
     } else {
-        "/api/desk/study/flashcards"
+        format!("/api/desk/study/flashcards?space_id={space_id}")
     };
-    crate::chat::desk_json_request(&app, reqwest::Method::GET, path, None).await
+    crate::chat::desk_json_request_structured(&app, reqwest::Method::GET, &path, None).await
 }
 
 #[tauri::command]
@@ -472,15 +477,20 @@ pub async fn cmd_study_flashcard_capture(app: AppHandle, body: Value) -> Result<
 #[tauri::command]
 pub async fn cmd_study_flashcard_review(
     app: AppHandle,
+    space_id: String,
     item_id: String,
     grade: String,
-) -> Result<Value, String> {
-    validate_study_path_id(&item_id)?;
-    crate::chat::desk_json_request(
+) -> Result<Value, DeskBridgeError> {
+    validate_structured_id(&space_id)?;
+    validate_structured_id(&item_id)?;
+    if !matches!(grade.as_str(), "again" | "hard" | "good" | "easy") {
+        return Err(DeskBridgeError::invalid("study_invalid_request", "invalid review grade"));
+    }
+    crate::chat::desk_json_request_structured(
         &app,
         reqwest::Method::POST,
         "/api/desk/study/flashcards/review",
-        Some(json!({ "item_id": item_id, "grade": grade })),
+        Some(json!({ "space_id": space_id, "item_id": item_id, "grade": grade })),
     )
     .await
 }
@@ -497,21 +507,31 @@ pub async fn cmd_study_migrate_flashcards(app: AppHandle, deck: Value) -> Result
 }
 
 #[tauri::command]
-pub async fn cmd_study_quizzes(app: AppHandle) -> Result<Value, String> {
-    crate::chat::desk_json_request(&app, reqwest::Method::GET, "/api/desk/study/quizzes", None)
-        .await
+pub async fn cmd_study_quizzes(
+    app: AppHandle,
+    space_id: String,
+) -> Result<Value, DeskBridgeError> {
+    validate_structured_id(&space_id)?;
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::GET,
+        &format!("/api/desk/study/quizzes?space_id={space_id}"),
+        None,
+    ).await
 }
 
 #[tauri::command]
 pub async fn cmd_study_quiz_questions(
     app: AppHandle,
+    space_id: String,
     artifact_id: String,
-) -> Result<Value, String> {
-    validate_study_path_id(&artifact_id)?;
-    crate::chat::desk_json_request(
+) -> Result<Value, DeskBridgeError> {
+    validate_structured_id(&space_id)?;
+    validate_structured_id(&artifact_id)?;
+    crate::chat::desk_json_request_structured(
         &app,
         reqwest::Method::GET,
-        &format!("/api/desk/study/quizzes/{artifact_id}/questions"),
+        &format!("/api/desk/study/quizzes/{artifact_id}/questions?space_id={space_id}"),
         None,
     )
     .await
@@ -520,15 +540,17 @@ pub async fn cmd_study_quiz_questions(
 #[tauri::command]
 pub async fn cmd_study_quiz_submit(
     app: AppHandle,
+    space_id: String,
     artifact_id: String,
     responses: Value,
-) -> Result<Value, String> {
-    validate_study_path_id(&artifact_id)?;
-    crate::chat::desk_json_request(
+) -> Result<Value, DeskBridgeError> {
+    validate_structured_id(&space_id)?;
+    validate_structured_id(&artifact_id)?;
+    crate::chat::desk_json_request_structured(
         &app,
         reqwest::Method::POST,
         &format!("/api/desk/study/quizzes/{artifact_id}/submit"),
-        Some(json!({ "responses": responses })),
+        Some(json!({ "space_id": space_id, "responses": responses })),
     )
     .await
 }
@@ -536,20 +558,39 @@ pub async fn cmd_study_quiz_submit(
 #[tauri::command]
 pub async fn cmd_study_quiz_generate_practice(
     app: AppHandle,
+    space_id: String,
     artifact_id: String,
     item_id: String,
     practice_kind: String,
-) -> Result<Value, String> {
-    validate_study_path_id(&artifact_id)?;
-    validate_study_path_id(&item_id)?;
+) -> Result<Value, DeskBridgeError> {
+    validate_structured_id(&space_id)?;
+    validate_structured_id(&artifact_id)?;
+    validate_structured_id(&item_id)?;
     if !matches!(practice_kind.as_str(), "transcribe" | "variant") {
-        return Err("invalid practice kind".to_string());
+        return Err(DeskBridgeError::invalid("study_invalid_request", "invalid practice kind"));
     }
-    crate::chat::desk_json_request(
+    crate::chat::desk_json_request_structured(
         &app,
         reqwest::Method::POST,
         &format!("/api/desk/study/quizzes/{artifact_id}/practice"),
-        Some(json!({ "item_id": item_id, "practice_kind": practice_kind })),
+        Some(json!({ "space_id": space_id, "item_id": item_id, "practice_kind": practice_kind })),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_practice_source(
+    app: AppHandle,
+    space_id: String,
+    activity_id: String,
+) -> Result<Value, DeskBridgeError> {
+    validate_structured_id(&space_id)?;
+    validate_structured_id(&activity_id)?;
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::GET,
+        &format!("/api/desk/study/practice-source?space_id={space_id}&activity_id={activity_id}"),
+        None,
     )
     .await
 }

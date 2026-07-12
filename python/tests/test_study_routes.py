@@ -136,14 +136,14 @@ def test_flashcard_draft_activate_and_review_routes(study_client):
     assert activated.json()["status"] == "active"
     assert activated.json()["materialized"] == 1
 
-    cards = client.get("/api/desk/study/flashcards?due_only=true", headers=_headers())
+    cards = client.get("/api/desk/study/flashcards?space_id=s1&due_only=true", headers=_headers())
     assert cards.status_code == 200
     assert len(cards.json()["cards"]) == 1
     item_id = cards.json()["cards"][0]["item_id"]
 
     reviewed = client.post(
         "/api/desk/study/flashcards/review",
-        json={"item_id": item_id, "grade": "good"},
+        json={"space_id": "s1", "item_id": item_id, "grade": "good"},
         headers=_headers(),
     )
     assert reviewed.status_code == 200
@@ -162,7 +162,8 @@ def test_reject_route_keeps_draft_out_of_practice(study_client):
     assert rejected.status_code == 200
     assert rejected.json()["status"] == "rejected"
 
-    cards = client.get("/api/desk/study/flashcards", headers=_headers())
+    space_id = client.get("/api/desk/study/spaces", headers=_headers()).json()["currentSpaceId"]
+    cards = client.get(f"/api/desk/study/flashcards?space_id={space_id}", headers=_headers())
     assert cards.status_code == 200
     assert cards.json()["cards"] == []
 
@@ -195,7 +196,8 @@ def test_legacy_flashcard_migration_is_idempotent(study_client):
     assert second.status_code == 200
     assert second.json()["migrated"] is False
 
-    cards = client.get("/api/desk/study/flashcards", headers=_headers())
+    space_id = client.get("/api/desk/study/spaces", headers=_headers()).json()["currentSpaceId"]
+    cards = client.get(f"/api/desk/study/flashcards?space_id={space_id}", headers=_headers())
     assert [card["front"] for card in cards.json()["cards"]] == ["legacy q"]
 
 
@@ -211,12 +213,12 @@ def test_quiz_draft_activate_questions_and_submit_routes(study_client):
     assert activated.json()["status"] == "active"
     assert activated.json()["materialized"] == 2
 
-    quizzes = client.get("/api/desk/study/quizzes", headers=_headers())
+    quizzes = client.get("/api/desk/study/quizzes?space_id=s1", headers=_headers())
     assert quizzes.status_code == 200
     assert [item["artifact_id"] for item in quizzes.json()["quizzes"]] == [artifact_id]
 
     questions = client.get(
-        f"/api/desk/study/quizzes/{artifact_id}/questions",
+        f"/api/desk/study/quizzes/{artifact_id}/questions?space_id=s1",
         headers=_headers(),
     )
     assert questions.status_code == 200
@@ -227,6 +229,7 @@ def test_quiz_draft_activate_questions_and_submit_routes(study_client):
     submitted = client.post(
         f"/api/desk/study/quizzes/{artifact_id}/submit",
         json={
+            "space_id": "s1",
             "responses": {
                 rows[0]["item_id"]: {"selected": [1]},
                 rows[1]["item_id"]: {"text": " gd! "},
@@ -238,6 +241,41 @@ def test_quiz_draft_activate_questions_and_submit_routes(study_client):
     assert submitted.json()["score"] == 3
     assert submitted.json()["maxScore"] == 3
     assert submitted.json()["correctCount"] == 2
+
+
+def test_practice_source_resolves_wrongbook_attempt_without_content(study_client):
+    client, db_path = study_client
+    artifact_id = _seed_quiz_draft(db_path)
+    client.post(f"/api/desk/study/artifacts/{artifact_id}/activate", headers=_headers())
+    question = client.get(
+        f"/api/desk/study/quizzes/{artifact_id}/questions?space_id=s1",
+        headers=_headers(),
+    ).json()["questions"][0]
+
+    submitted = client.post(
+        f"/api/desk/study/quizzes/{artifact_id}/submit",
+        json={"space_id": "s1", "responses": {question["item_id"]: {"selected": [0]}}},
+        headers=_headers(),
+    )
+    activity_id = submitted.json()["activity_id"]
+    source = client.get(
+        f"/api/desk/study/practice-source?space_id=s1&activity_id={activity_id}",
+        headers=_headers(),
+    )
+    assert source.json() == {
+        "source": {
+            "artifact_id": artifact_id,
+            "item_ids": [question["item_id"], f"{artifact_id}-0001"],
+        }
+    }
+    assert "2+2" not in str(source.json())
+
+    missing = client.get(
+        "/api/desk/study/practice-source?space_id=s1&activity_id=missing",
+        headers=_headers(),
+    )
+    assert missing.status_code == 404
+    assert missing.json()["detail"]["code"] == "study_not_found"
 
 
 def test_m5_artifact_requires_semantic_approval_before_activation(study_client):
@@ -311,5 +349,6 @@ def test_legacy_quiz_migration_is_idempotent(study_client):
     assert second.status_code == 200
     assert second.json()["migrated"] is False
 
-    quizzes = client.get("/api/desk/study/quizzes", headers=_headers())
+    space_id = client.get("/api/desk/study/spaces", headers=_headers()).json()["currentSpaceId"]
+    quizzes = client.get(f"/api/desk/study/quizzes?space_id={space_id}", headers=_headers())
     assert [item["title"] for item in quizzes.json()["quizzes"]] == ["Legacy quiz"]
