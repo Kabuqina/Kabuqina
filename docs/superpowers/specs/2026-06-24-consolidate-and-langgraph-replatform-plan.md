@@ -1701,6 +1701,14 @@ they describe public behavior, and remove only loop-specific parametrization,
 fixtures, and selector tests. Before implementation, re-run a repository-wide
 reference inventory so this list remains exhaustive.
 
+**C-track remediation verification (2026-07-12, `d726797f`).** The real desktop
+gateway marker now rejects Goal Task creation; Goal-worker mutations are
+manifest-only and iteration-scoped; `PH35-FU-010` is recorded; and the removal
+scope above includes the remaining selector users. Focused core regression was
+153 passed / 1 skipped; Scheduled Tasks UI contract, web lint, and production
+build passed. This resolves the review's readiness blockers only — it does not
+begin the Step 5 deletion commit.
+
 Before this commit, create or designate the tracked cleanup/hook-normalization
 follow-up required by decision 4 and record its identifier in `DECISIONS.md`.
 
