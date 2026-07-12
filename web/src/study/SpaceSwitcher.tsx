@@ -3,6 +3,7 @@
 
 import { BookOpen, ChevronDown, Plus, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { useI18n } from "../lib/i18n";
 import type { StudySpaceSummary } from "./repository";
@@ -16,6 +17,7 @@ export function SpaceSwitcher({ spaces, currentSpaceId, pending, error, onSelect
 }) {
   const { t } = useI18n();
   const root = useRef<HTMLDivElement>(null);
+  const dialog = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const firstFocusable = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
@@ -53,7 +55,7 @@ export function SpaceSwitcher({ spaces, currentSpaceId, pending, error, onSelect
   const onKeyDown = (event: React.KeyboardEvent) => {
     if (event.key === "Escape") close();
     if (narrow && event.key === "Tab") {
-      const focusable = [...(root.current?.querySelectorAll<HTMLElement>("[data-study-focus]") ?? [])]
+      const focusable = [...(dialog.current?.querySelectorAll<HTMLElement>("[data-study-focus]") ?? [])]
         .filter((element) => !element.hasAttribute("disabled"));
       if (!focusable.length) return;
       const first = focusable[0];
@@ -77,20 +79,45 @@ export function SpaceSwitcher({ spaces, currentSpaceId, pending, error, onSelect
         <span>{current?.title ?? t("study.openSpace")}</span>
         <ChevronDown aria-hidden />
       </button>
-      {open ? (
+      {open && !narrow ? (
         <div
-          className={narrow ? "kq-study-dialog-backdrop" : "kq-study-popover"}
-          role={narrow ? "dialog" : undefined}
-          aria-modal={narrow || undefined}
+          className="kq-study-popover"
           aria-label={t("study.openSpace")}
         >
-          <div className={narrow ? "kq-study-dialog" : undefined}>
-            {narrow ? <button ref={firstFocusable} data-study-focus type="button" className="kq-study-dialog-close" onClick={close} aria-label={t("dialog.cancel")}><X aria-hidden /></button> : null}
+          <div role="listbox" aria-label={t("study.openSpace")}>
+            {spaces.map((space) => (
+              <button
+                data-study-focus
+                ref={space.id === firstSelectableSpaceId ? firstFocusable : undefined}
+                key={space.id}
+                type="button"
+                role="option"
+                aria-selected={space.id === currentSpaceId}
+                disabled={pending || space.id === currentSpaceId}
+                onClick={() => { onSelect(space.id); setOpen(false); }}
+              >
+                <span>{space.title}</span>{space.id === currentSpaceId ? <span aria-hidden>·</span> : null}
+              </button>
+            ))}
+          </div>
+          <Link data-study-focus className="kq-study-new-notebook" to="/chat" title={t("study.newNotebookHint")}>
+            <Plus aria-hidden />{t("study.newNotebook")}
+          </Link>
+        </div>
+      ) : null}
+      {open && narrow ? createPortal(
+        <div
+          className="kq-study-dialog-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("study.openSpace")}
+        >
+          <div className="kq-study-dialog" ref={dialog}>
+            <button ref={firstFocusable} data-study-focus type="button" className="kq-study-dialog-close" onClick={close} aria-label={t("dialog.cancel")}><X aria-hidden /></button>
             <div role="listbox" aria-label={t("study.openSpace")}>
               {spaces.map((space) => (
                 <button
                   data-study-focus
-                  ref={!narrow && space.id === firstSelectableSpaceId ? firstFocusable : undefined}
                   key={space.id}
                   type="button"
                   role="option"
@@ -106,7 +133,8 @@ export function SpaceSwitcher({ spaces, currentSpaceId, pending, error, onSelect
               <Plus aria-hidden />{t("study.newNotebook")}
             </Link>
           </div>
-        </div>
+        </div>,
+        document.body,
       ) : null}
       {pending ? <span className="kq-study-muted" role="status">{t("study.switching")}</span> : null}
       {error ? <span className="kq-study-error" role="alert">{t("study.switchFailed")}</span> : null}

@@ -116,7 +116,11 @@ describe("StudyShell", () => {
     renderShell();
     const trigger = screen.getByRole("button", { name: /Linear Algebra/ });
     await user.click(trigger);
-    expect(screen.getByRole("dialog", { name: "切换学习空间" })).toHaveAttribute("aria-modal", "true");
+    const modal = screen.getByRole("dialog", { name: "切换学习空间" });
+    expect(modal).toHaveAttribute("aria-modal", "true");
+    expect(modal.parentElement).toBe(document.body);
+    expect(modal.closest(".kq-study-topbar")).toBeNull();
+    expect(screen.getByRole("option", { name: "Linear Algebra" })).toBeDisabled();
     const close = screen.getByRole("button", { name: "取消" });
     expect(close).toHaveFocus();
     await user.tab();

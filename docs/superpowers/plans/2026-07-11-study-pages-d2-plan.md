@@ -178,7 +178,22 @@ raw / 495.07 kB gzip**，StudyRoute **29.54 / 7.48 kB gzip**。旧侧栏仍保�
 D-3/D-4 的 Flashcard/Quiz 与知识/资源/辅导/安全入口；profile editor、
 learningProfile、learningPath、learningEvaluation 写入口和 `startAction` 的
 legacy context 回写均已移除。desktop bundle/visual smoke 作为本轮集成烟测。
-  `git diff --check`，本地提交，不 push。
+`git diff --check`，本地提交，不 push。
+
+### D-2.1 review + GUI smoke closeout（2026-07-12）
+
+- Review 合同修复已提交为 `b0d53054`：旧 Quiz/Flashcard legacy context
+  写回退役；weak-point-only 错题本不再误报空态；评估页改用 bounded
+  projection；D-2 desk/Tauri wire 强制显式 URL `space_id`。
+- Windows WebView2 手工 smoke 已覆盖五页导航/URL、真实空态、草稿计数
+  popover、返回聊天/问小娜、窄窗与 200% zoom。当前内置课程没有 active
+  plan/evaluation/attempt 或 student-state draft，相关 mutation 正确记为 N/A，
+  其合同由 component/route tests 覆盖。
+- 烟测发现窄窗/200% 下课程 modal 被 sticky topbar 的 `backdrop-filter`
+  containing block 裁切；modal 改为 portal 到 `document.body`，课程列表、关闭
+  按钮与“开新本”在 bottom sheet 中完整可见，Escape/focus trap 保持有效。
+- 最终门：Web component **45/45**、chat UX、lint、TypeScript/production
+  build 全绿；用户复测确认 bottom sheet 行为正确。D-2/D-2.1 收口。
 
 ---
 
