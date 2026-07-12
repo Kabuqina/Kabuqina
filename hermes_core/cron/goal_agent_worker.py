@@ -233,6 +233,10 @@ class GoalAgentWorker:
             "authority."
         )
         lines.append(
+            "Use file_metadata for a file's SHA-256 and byte size, including "
+            "binary documents; do not read binary document bodies for a manifest."
+        )
+        lines.append(
             "Finish by calling the goal_report tool exactly once with: status "
             "('progress' | 'candidate_done' | 'blocked'), a short summary, "
             "relative artifact paths, structured evidence (small values only — "

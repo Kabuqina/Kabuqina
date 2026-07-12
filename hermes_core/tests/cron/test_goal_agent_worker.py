@@ -369,6 +369,7 @@ def test_system_message_carries_bounds_and_excludes_evidence_bodies(definition):
     assert "iteration: 3" in sysmsg.lower()
     assert definition.workdir.as_posix() in sysmsg
     assert "goal_report" in sysmsg
+    assert "file_metadata" in sysmsg
     # Compact carry-over only: the fingerprint and one-line summary, never a
     # raw evidence body.
     assert "deadbeef" in sysmsg

@@ -2,6 +2,7 @@
 """File Tools Module - LLM agent file manipulation tools."""
 
 import errno
+import hashlib
 import json
 import logging
 import os
@@ -667,6 +668,41 @@ def read_file_tool(path: str, offset: int = 1, limit: int = 500, task_id: str = 
 
 
 
+def file_metadata_tool(path: str, task_id: str = "default") -> str:
+    """Return byte size and SHA-256 for a regular file without returning contents.
+
+    Binary documents are intentionally supported: inventory jobs need their
+    manifest metadata, not the document body. The ordinary path and internal
+    read guards still apply, and a file changed during hashing is rejected.
+    """
+    if _is_blocked_device(path):
+        return tool_error(f"Cannot inspect metadata for device file '{path}'.")
+    try:
+        resolved = _resolve_path_for_task(path, task_id)
+        block_error = get_read_block_error(path)
+        if block_error:
+            return tool_error(block_error)
+        before = resolved.stat()
+        if not resolved.is_file():
+            return tool_error(f"Cannot inspect '{path}': it is not a regular file.")
+
+        digest = hashlib.sha256()
+        with resolved.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(65_536), b""):
+                digest.update(chunk)
+        after = resolved.stat()
+        if (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
+            return tool_error(
+                f"Cannot inspect '{path}': it changed while metadata was computed. Retry."
+            )
+        return json.dumps(
+            {"path": path, "size_bytes": after.st_size, "sha256": digest.hexdigest()},
+            ensure_ascii=False,
+        )
+    except OSError as exc:
+        return tool_error(f"Cannot inspect metadata for '{path}': {exc}")
+
+
 def reset_file_dedup(task_id: str = None):
     """Clear the deduplication cache for file reads.
 
@@ -1098,6 +1134,24 @@ SEARCH_FILES_SCHEMA = {
     }
 }
 
+FILE_METADATA_SCHEMA = {
+    "name": "file_metadata",
+    "description": (
+        "Get a regular file's byte size and SHA-256 digest without reading or "
+        "returning its contents. Use for binary documents and manifest inventories."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "path": {
+                "type": "string",
+                "description": "Path to the regular file to inspect",
+            }
+        },
+        "required": ["path"],
+    },
+}
+
 
 def _handle_read_file(args, **kw):
     tid = kw.get("task_id") or "default"
@@ -1128,7 +1182,13 @@ def _handle_search_files(args, **kw):
         output_mode=args.get("output_mode", "content"), context=args.get("context", 0), task_id=tid)
 
 
+def _handle_file_metadata(args, **kw):
+    tid = kw.get("task_id") or "default"
+    return file_metadata_tool(path=args.get("path", ""), task_id=tid)
+
+
 registry.register(name="read_file", toolset="file", schema=READ_FILE_SCHEMA, handler=_handle_read_file, check_fn=_check_file_reqs, emoji="📖", max_result_size_chars=float('inf'))
 registry.register(name="write_file", toolset="file", schema=WRITE_FILE_SCHEMA, handler=_handle_write_file, check_fn=_check_file_reqs, emoji="✍️", max_result_size_chars=100_000)
 registry.register(name="patch", toolset="file", schema=PATCH_SCHEMA, handler=_handle_patch, check_fn=_check_file_reqs, emoji="🔧", max_result_size_chars=100_000)
 registry.register(name="search_files", toolset="file", schema=SEARCH_FILES_SCHEMA, handler=_handle_search_files, check_fn=_check_file_reqs, emoji="🔎", max_result_size_chars=100_000)
+registry.register(name="file_metadata", toolset="file", schema=FILE_METADATA_SCHEMA, handler=_handle_file_metadata, check_fn=_check_file_reqs, emoji="🔐", max_result_size_chars=10_000)

@@ -5,15 +5,38 @@ handling without requiring a running terminal environment.
 """
 
 import json
+import hashlib
 import logging
 from unittest.mock import MagicMock, patch
 
 from tools.file_tools import (
+    FILE_METADATA_SCHEMA,
     READ_FILE_SCHEMA,
     WRITE_FILE_SCHEMA,
     PATCH_SCHEMA,
     SEARCH_FILES_SCHEMA,
 )
+
+
+class TestFileMetadataHandler:
+    def test_hashes_binary_file_without_returning_contents(self, tmp_path, monkeypatch):
+        from tools.file_tools import file_metadata_tool
+
+        content = b"PK\x03\x04pilot"
+        binary = tmp_path / "lesson.docx"
+        binary.write_bytes(content)
+        monkeypatch.setenv("TERMINAL_CWD", str(tmp_path))
+
+        result = json.loads(file_metadata_tool("lesson.docx"))
+
+        assert result == {
+            "path": "lesson.docx",
+            "size_bytes": len(content),
+            "sha256": hashlib.sha256(content).hexdigest(),
+        }
+
+    def test_schema_requires_only_path(self):
+        assert FILE_METADATA_SCHEMA["parameters"]["required"] == ["path"]
 
 
 class TestReadFileHandler:
@@ -321,6 +344,5 @@ class TestSearchHints:
         raw = search_tool(pattern="foo", offset=50, limit=50)
         assert "[Hint:" in raw
         assert "offset=100" in raw
-
 
 
