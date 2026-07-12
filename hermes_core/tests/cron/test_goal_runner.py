@@ -266,6 +266,41 @@ def test_missing_reported_artifact_pauses_without_creating_progress_fingerprint(
     assert result.transition.next_state.last_evidence_hash is None
 
 
+def test_confined_absolute_reported_artifact_is_canonicalized(definition):
+    report = _report(
+        "candidate_done",
+        artifacts=(str(definition.workdir / "manifest.json"),),
+    )
+    verifier = FakeVerifier()
+
+    result = run_goal_iteration(
+        definition,
+        worker=FakeWorker(_worker_observation(report=report)),
+        verifier=verifier,
+        now=NOW,
+    )
+
+    assert result.transition.next_state.status == "completed"
+    assert verifier.calls
+    assert result.transition.next_state.last_artifact_hash is not None
+
+
+def test_outside_absolute_reported_artifact_pauses(definition, tmp_path):
+    outside = tmp_path / "outside.txt"
+    outside.write_text("outside", encoding="utf-8")
+    report = _report("candidate_done", artifacts=(str(outside),))
+
+    result = run_goal_iteration(
+        definition,
+        worker=FakeWorker(_worker_observation(report=report)),
+        verifier=FakeVerifier(),
+        now=NOW,
+    )
+
+    assert result.transition.next_state.status == "paused"
+    assert result.transition.reason == "invalid_artifact"
+
+
 def test_unknown_cost_precedes_invalid_artifact_and_skips_verifier(definition):
     report = _report("candidate_done", artifacts=("missing-a.txt",))
     verifier = FakeVerifier()

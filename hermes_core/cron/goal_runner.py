@@ -107,9 +107,13 @@ def _artifact_fingerprints(
     artifacts: list[dict[str, JSONValue]] = []
     for value in report.artifacts:
         candidate = Path(value)
-        if candidate.is_absolute() or ".." in candidate.parts:
-            raise GoalRunnerError("reported artifact must be relative and confined")
-        resolved = (root / candidate).resolve()
+        if ".." in candidate.parts:
+            raise GoalRunnerError("reported artifact must be confined")
+        resolved = (
+            candidate.resolve()
+            if candidate.is_absolute()
+            else (root / candidate).resolve()
+        )
         try:
             relative = resolved.relative_to(root).as_posix()
         except ValueError as exc:
