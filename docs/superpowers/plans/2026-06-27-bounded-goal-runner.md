@@ -1265,8 +1265,9 @@ pause/resume/cancel controls display their consequences before confirmation.
 
 - [ ] **Step 3: run the read-mostly workspace inventory pilot**
 
-  *Synthetic half met 2026-07-12; human-selected disposable-workspace half
-  remains required.* The frozen fixture completed once under explicit `graph`
+  *Synthetic half met 2026-07-12; the first human-selected disposable-workspace
+  completion is recorded below; the three explicit restart cases remain
+  required.* The frozen fixture completed once under explicit `graph`
   (`0b7059146639`) and once under explicit `loop` (`1d76d83f1afb`). Both ran
   one iteration with complete usage accounting, `verified_complete` / verifier
   `pass`, and the same sanitized artifact hash
@@ -1276,6 +1277,24 @@ pause/resume/cancel controls display their consequences before confirmation.
   was recorded here. An earlier graph `cost_unknown` pause and a loop
   `worker_blocked` pause were retained as fail-closed diagnostic evidence and
   do not count as successful pilot executions.
+
+  **Human host result (2026-07-12).** A desktop-created task in the owner's
+  disposable local workspace (`2eb49562f793`; path omitted) first transitioned
+  `scheduled → running → paused` with `invalid_artifact` while its usage ledger
+  remained complete. The agent had updated the allowed manifest, but reported a
+  Windows absolute artifact path. Commit `00f3225c` canonically accepts an
+  absolute artifact only after it resolves inside the goal workdir; an outside
+  path remains a controlled pause. After a desktop restart loaded that repair,
+  the same task transitioned `paused → scheduled → running → completed` in
+  iteration 2 with `verified_complete`, verifier `pass`, complete cost
+  accounting, artifact hash
+  `9d460e6582b55825651797f04872e2c185f0c1b8d1b328c49766f4f86f39334a`, and
+  evidence hash
+  `160d8edc821e58ed8d980e505b1c86a78013fd0e5ba1cb84a542c8ef9d0fb585`.
+  The temporary host flag was restored to `false` immediately after each
+  single wake. This record intentionally omits prompts, document content,
+  report text, and credentials; it does not substitute for the scheduled,
+  running-recovery, and failed-verifier restart cases.
 
 Before Phase 3.5 removes its escape hatch, complete the synthetic workspace once
 with explicit `agent_engine="loop"` and once with explicit

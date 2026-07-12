@@ -716,6 +716,23 @@ The temporary host activation used while diagnosing the desktop route was
 restored to disabled; it did not count as an enablement decision or as the
 human-selected workspace pilot.
 
+**Human host result (2026-07-12).** A task created by the desktop against the
+owner-selected disposable workspace (`2eb49562f793`; workspace path omitted)
+completed its second bounded iteration through the desktop web child. The
+durable transition was `running → completed` with `verified_complete`; the
+ledger was complete; the verifier outcome was `pass`; the artifact hash was
+`9d460e6582b55825651797f04872e2c185f0c1b8d1b328c49766f4f86f39334a`; and the
+evidence hash was
+`160d8edc821e58ed8d980e505b1c86a78013fd0e5ba1cb84a542c8ef9d0fb585`. Its first
+iteration had safely paused as `invalid_artifact`: the worker reported a
+Windows absolute path for the in-workspace manifest. `00f3225c` normalizes
+only absolute paths that resolve inside the workdir, retains the outside-path
+rejection, and was loaded by restarting the desktop before iteration 2. The
+host feature gate was restored to disabled after every wake. This is valid
+human-workspace completion evidence, but does not satisfy the separate
+scheduled, running-recovery, and failed-verifier restart cases; no prompt,
+document content, report body, or credential is recorded here.
+
 ### Pilot exit criteria
 
 All must hold before enabling Goal Tasks outside a developer flag:

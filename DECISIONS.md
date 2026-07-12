@@ -888,10 +888,23 @@ default shipped configuration. Credentials remain confined to the desktop child;
 the pilot harness must not copy or print them.
 
 **Goal Runner Pilot 1 temporary activation outcome (2026-07-12).** The host
-flag was restored to `false` after one bounded desktop wake. The initial wake
+flag was restored to `false` after the initial bounded desktop wake. The initial wake
 paused `cost_unknown` rather than treating absent pricing as zero; that exposed
 the missing DeepSeek V4 Flash pricing mapping and was repaired before the
 synthetic evidence run. A later synthetic graph/loop pair completed with
 matching sanitized transitions, verifier outcomes, and artifact hashes. This is
 not general enablement: the default and gateway profiles remain disabled pending
 the separate Task 11 exit criteria and release smoke.
+
+**Goal Runner Pilot 1 human-host outcome (2026-07-12).** The desktop-created
+task `2eb49562f793` completed in the owner-selected disposable workspace after
+one bounded recovery. Its first host wake paused with `invalid_artifact` while
+cost accounting was complete: the worker reported a Windows absolute path for
+an otherwise confined manifest. `00f3225c` accepts only absolute artifact paths
+that resolve under the workdir and retains fail-closed rejection outside it.
+After a desktop restart loaded that fix, iteration 2 completed with
+`verified_complete`, verifier `pass`, complete accounting, and durable
+artifact/evidence hashes recorded in the Goal Runner design. The host flag was
+restored to `false` directly after each wake; gateway profiles stay disabled.
+This is pilot evidence rather than an enablement decision, and the three
+explicit restart cases remain outstanding.
