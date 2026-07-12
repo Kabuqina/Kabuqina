@@ -103,6 +103,8 @@ def test_code_question_route_hides_secrets_and_runs_active_sandbox(study_client)
     assert result["maxScore"] == 2
     assert result["perQuestion"][0]["mode"] == "solve"
     assert result["perQuestion"][0]["timed_out"] is False
+    assert "response" not in result["perQuestion"][0]
+    assert "answer" not in result["perQuestion"][0]
 
 
 def test_practice_route_creates_a_reviewable_self_checked_variant_draft(study_client):

@@ -5,11 +5,13 @@ import type { StudyPageSlug } from "../routeModel";
 import { EvaluatePage } from "./EvaluatePage";
 import { FlyleafPage } from "./FlyleafPage";
 import { PlanPage } from "./PlanPage";
+import { PracticePage } from "./PracticePage";
 import { PlaceholderPage } from "./PlaceholderPage";
 
 export function StudyPageOutlet({ spaceId, page }: { spaceId: string; page: StudyPageSlug }) {
   if (page === "flyleaf") return <FlyleafPage spaceId={spaceId} />;
   if (page === "plan") return <PlanPage spaceId={spaceId} />;
   if (page === "evaluate") return <EvaluatePage spaceId={spaceId} />;
+  if (page === "practice") return <PracticePage spaceId={spaceId} />;
   return <PlaceholderPage page={page} />;
 }

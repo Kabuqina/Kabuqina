@@ -431,6 +431,39 @@
 .kq-study-evaluation-note { display: grid; gap: 0.55rem; }
 .kq-study-evaluation-note ul { padding-left: 1.25rem; list-style: disc; }
 .kq-study-activity-list li { display: grid; grid-template-columns: minmax(8rem, auto) 1fr; gap: 0.75rem; }
+.kq-study-practice-home { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1rem; }
+.kq-study-practice-card,
+.kq-study-practice-surface { display: grid; gap: 0.75rem; padding: clamp(1rem, 3vw, 1.5rem); border: 1px solid var(--kq-glass-border); border-radius: 1rem; background: var(--kq-glass-bg-subtle); box-shadow: var(--kq-shadow-card); }
+.kq-study-practice-card > p:first-child,
+.kq-study-practice-surface > p:first-child { color: var(--kq-study-muted); font-size: 0.78rem; }
+.kq-study-practice-card h2,
+.kq-study-practice-surface h2 { overflow-wrap: anywhere; font-size: 1.25rem; }
+.kq-study-practice-card > strong { font-size: 1.6rem; color: var(--kq-study-pencil); }
+.kq-study-draft-row { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; min-width: 0; padding-top: 0.5rem; border-top: 1px dashed var(--kq-glass-border); }
+.kq-study-draft-row > div:first-child { display: grid; gap: 0.15rem; min-width: 0; overflow-wrap: anywhere; }
+.kq-study-draft-row > div:first-child span { color: var(--kq-study-muted); font-size: 0.78rem; }
+.kq-study-practice-card .kq-study-primary-link,
+.kq-study-practice-surface .kq-study-primary-link { width: fit-content; border: 0; border-radius: 999px; cursor: pointer; }
+.kq-study-practice-card .kq-study-primary-link:disabled { opacity: 0.55; cursor: not-allowed; }
+.kq-study-practice-answer { padding: 1rem; border-top: 1px dashed var(--kq-glass-border); white-space: pre-wrap; overflow-wrap: anywhere; }
+.kq-study-practice-options { display: grid; gap: 0.5rem; }
+.kq-study-practice-options button { min-height: 2.5rem; padding: 0.55rem 0.75rem; border: 1px solid var(--kq-glass-border); border-radius: 0.65rem; text-align: left; }
+.kq-study-practice-options button[aria-pressed="true"] { border-color: var(--kq-study-pencil); background: var(--kq-study-hover); }
+.kq-study-practice-surface textarea { min-height: 7rem; width: 100%; resize: vertical; padding: 0.75rem; border: 1px solid var(--kq-glass-border); border-radius: 0.65rem; background: var(--kq-color-surface); color: var(--kq-study-foreground); }
+.kq-study-code-practice { display: grid; gap: 0.75rem; min-width: 0; }
+.kq-study-code-target { max-height: 18rem; overflow: auto; padding: 0.75rem; border: 1px dashed var(--kq-glass-border); border-radius: 0.65rem; background: var(--kq-study-hover); white-space: pre; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 0.88rem; }
+.kq-study-code-editor { min-width: 0; overflow: auto; border: 1px solid var(--kq-glass-border); border-radius: 0.65rem; background: var(--kq-color-surface); }
+.kq-study-code-editor .cm-editor { min-height: 12rem; }
+.kq-study-code-editor .cm-scroller { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+.kq-study-code-mismatch { background: color-mix(in srgb, var(--kq-warning, #c27a28) 18%, transparent); border-bottom: 2px solid var(--kq-warning, #c27a28); }
+.kq-study-derivation { display: grid; gap: 0.75rem; list-style: decimal; padding-left: 1.5rem; }
+.kq-study-derivation li { display: grid; gap: 0.5rem; min-width: 0; }
+.kq-study-derivation input { min-height: 2.5rem; padding: 0.5rem 0.65rem; border: 1px solid var(--kq-glass-border); border-radius: 0.55rem; background: var(--kq-color-surface); color: var(--kq-study-foreground); }
+.kq-study-math-line { overflow-x: auto; padding: 0.45rem 0; }
+.kq-study-practice-feedback { display: grid; gap: 0.55rem; padding-left: 1.25rem; }
+.kq-study-practice-feedback li { display: grid; gap: 0.25rem; }
+.kq-study-practice-feedback span { color: var(--kq-study-muted); }
+.kq-study-practice-feedback details { overflow-wrap: anywhere; }
 @container (max-width: 39.99rem) {
   .kq-study-card-title { display: grid; }
   .kq-study-flyleaf-rows > div { grid-template-columns: 1fr; gap: 0.25rem; }

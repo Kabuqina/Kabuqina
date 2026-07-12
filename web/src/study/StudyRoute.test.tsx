@@ -32,7 +32,8 @@ function renderRoute(path: string, repositoryOverrides: Partial<StudyRepository>
     loadWrongbook: vi.fn().mockResolvedValue({ weak_points: [], evidence: [], count: 0, returned: 0, limit: 50, truncated: false }),
     loadLatestEvaluation: vi.fn().mockResolvedValue({ evaluation: null }),
     loadActivities: vi.fn().mockResolvedValue({ items: [], count: 0, returned: 0, limit: 50, truncated: false }),
-    loadPracticeHome: vi.fn(), loadQuizQuestions: vi.fn(), reviewFlashcard: vi.fn(),
+    loadPracticeHome: vi.fn().mockResolvedValue({ cards: [], dueCards: [], quizzes: [], drafts: [] }),
+    loadQuizQuestions: vi.fn(), reviewFlashcard: vi.fn(),
     submitQuiz: vi.fn(), generatePracticeDraft: vi.fn(), resolvePracticeSource: vi.fn(),
     ...repositoryOverrides,
   };
@@ -78,9 +79,11 @@ describe("StudyRoute", () => {
     expect(screen.queryByRole("navigation", { name: "学习阶段" })).not.toBeInTheDocument();
   });
 
-  it("renders all route-ready placeholder pages", async () => {
+  it("renders the practice page from its URL-scoped repository data", async () => {
     renderRoute("/study/space-a/practice");
-    expect(await screen.findByTestId("study-shell")).toHaveTextContent("练习");
+    expect(await screen.findByRole("heading", { name: "练习" })).toBeInTheDocument();
+    expect(await screen.findByText("卡片盒")).toBeInTheDocument();
+    expect(screen.getByText("0 张到期卡")).toBeInTheDocument();
   });
 
   it("shows not-found for an invalid slug without redirecting", async () => {

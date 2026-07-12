@@ -216,6 +216,7 @@ export type StudyQuizQuestion = {
   starter?: string;
   target_code?: string;
   variant_of?: string;
+  check?: "normalized-match" | "numeric-equivalence";
   steps?: Array<{ expr?: string; justification?: string; cloze?: boolean }>;
   target_steps?: Array<{ expr?: string; justification?: string }>;
 };
@@ -231,11 +232,16 @@ export type StudyQuizPerQuestion = {
   correct: boolean;
   earned: number;
   points: number;
-  answer?: unknown;
-  accepted?: string[];
   explanation?: string;
   tags?: string[];
-  response?: unknown;
+  mode?: string;
+  timed_out?: boolean;
+  ungraded?: boolean;
+  gradable?: boolean;
+  scored?: boolean;
+  ungraded_steps?: number[];
+  failure_kind?: string;
+  failure_summary?: string;
 };
 
 export type StudyQuizResult = {

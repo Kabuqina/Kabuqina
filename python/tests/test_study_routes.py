@@ -241,6 +241,8 @@ def test_quiz_draft_activate_questions_and_submit_routes(study_client):
     assert submitted.json()["score"] == 3
     assert submitted.json()["maxScore"] == 3
     assert submitted.json()["correctCount"] == 2
+    public_attempt = submitted.json()["perQuestion"]
+    assert all("answer" not in row and "accepted" not in row and "response" not in row for row in public_attempt)
 
 
 def test_practice_source_resolves_wrongbook_attempt_without_content(study_client):

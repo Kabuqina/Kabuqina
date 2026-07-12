@@ -21,8 +21,6 @@ import { useI18n } from "../../lib/i18n";
 import { WorkspaceActionButton, WorkspaceSection } from "../workspaceSection";
 import { cmdStudyMigrateBuiltinCourse } from "./study-api";
 import { STUDY_LEARNING_EVENT } from "./flashcardLearningStore";
-import { FlashcardPanel } from "./FlashcardPanel";
-import { QuizPanel } from "./QuizPanel";
 import { STUDY_PROMPTS, type StudyActionId } from "./studyPrompts";
 import {
   STUDY_CONTEXT_EVENT,
@@ -202,8 +200,32 @@ export function StudySection({
         </div>
       </WorkspaceSection>
 
-      <FlashcardPanel onStartPrompt={onStartPrompt} />
-      <QuizPanel onStartPrompt={onStartPrompt} />
+      <OpenPracticeCard onAskNana={() => startAction(STUDY_PROMPTS.learningTutor)} />
     </>
+  );
+}
+
+function OpenPracticeCard({ onAskNana }: { onAskNana: () => void }) {
+  const { t } = useI18n();
+  return (
+    <WorkspaceSection sectionId="workspace.practice" title={t("study.pagePractice")} dotColor="#2f9e8f">
+      <p className="mt-2 text-[12px] leading-snug text-[var(--kq-color-muted)]">
+        {t("study.practiceSidebarHandoff")}
+      </p>
+      <div className="mt-3 grid grid-cols-1 gap-2">
+        <Link
+          to="/study"
+          className="kq-quick-action justify-start rounded-[10px] px-2.5 py-2 text-left text-[13px] leading-snug transition"
+        >
+          <SquareArrowOutUpRight className="kq-color-icon-course mr-2 inline h-4 w-4" aria-hidden />
+          {t("study.openCurrentSpace")}
+        </Link>
+        <WorkspaceActionButton
+          onClick={onAskNana}
+          icon={<MessagesSquare className="kq-color-icon-course mr-2 inline h-4 w-4" aria-hidden />}
+          label={t("study.practiceAskNana")}
+        />
+      </div>
+    </WorkspaceSection>
   );
 }

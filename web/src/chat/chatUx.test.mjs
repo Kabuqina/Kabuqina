@@ -1140,8 +1140,6 @@ assert.match(chatPageReminderSource, /\/settings\/cron/);
 const { STUDY_PROMPTS } = await importTs("./study/studyPrompts.ts");
 const studySectionSource = fs.readFileSync(new URL("./study/StudySection.tsx", import.meta.url), "utf8");
 const studyStoreSource = fs.readFileSync(new URL("./study/studyStore.ts", import.meta.url), "utf8");
-const flashcardPanelSource = fs.readFileSync(new URL("./study/FlashcardPanel.tsx", import.meta.url), "utf8");
-const quizPanelSource = fs.readFileSync(new URL("./study/QuizPanel.tsx", import.meta.url), "utf8");
 
 assert.deepEqual(
   Object.keys(STUDY_PROMPTS),
@@ -1306,25 +1304,15 @@ assert.doesNotMatch(
   /saveStudyContext|clearStudyContext|saveStatus/,
   "StudySection should no longer write legacy profile context.",
 );
-assert.doesNotMatch(
-  flashcardPanelSource,
-  /saveStudyContext|wroteBack|flashcardWriteBack/,
-  "Flashcards should not write back to the read-only legacy study context.",
+assert.match(
+  studySectionSource,
+  /sectionId="workspace\.practice"[\s\S]*practiceSidebarHandoff[\s\S]*to="\/study"[\s\S]*practiceAskNana/,
+  "The sidebar should hand off practice to the URL-scoped notebook while retaining an Ask Nana entry.",
 );
 assert.doesNotMatch(
-  flashcardPanelSource,
-  /className="mt-[23] grid gap-/,
-  "Flashcard panel stacks must use grid-cols-1 so long titles cannot widen the right rail.",
-);
-assert.doesNotMatch(
-  quizPanelSource,
-  /saveStudyContext|wroteBack|quizWriteBack/,
-  "Quizzes should not write back to the read-only legacy study context.",
-);
-assert.doesNotMatch(
-  quizPanelSource,
-  /className="mt-[23] grid gap-/,
-  "Quiz panel stacks must use grid-cols-1 so long titles cannot widen the right rail.",
+  studySectionSource,
+  /FlashcardPanel|QuizPanel|cmdStudyFlashcardReview|cmdStudyQuizSubmit|cmdStudyQuizGeneratePractice/,
+  "The chat sidebar must not keep a second practice mutation surface.",
 );
 assert.match(
   studySectionSource,

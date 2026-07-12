@@ -89,6 +89,34 @@ def _artifact_ref(artifact: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _public_quiz_attempt(result: Dict[str, Any]) -> Dict[str, Any]:
+    """Keep one attempt result useful without exposing answer or grader internals."""
+    public_questions = []
+    for question in result.get("perQuestion") or []:
+        if not isinstance(question, dict):
+            continue
+        item = {
+            key: question[key]
+            for key in (
+                "item_id", "prompt", "type", "correct", "earned", "points",
+                "explanation", "tags", "mode", "timed_out", "ungraded",
+                "gradable", "scored", "ungraded_steps", "failure_kind",
+            )
+            if key in question
+        }
+        summary = question.get("failure_summary")
+        if isinstance(summary, str) and summary:
+            item["failure_summary"] = summary[:1200]
+        public_questions.append(item)
+    return {
+        key: result[key]
+        for key in (
+            "activity_id", "score", "maxScore", "percent", "correctCount", "total", "weakTags"
+        )
+        if key in result
+    } | {"perQuestion": public_questions}
+
+
 def _space_payload(ctx) -> Dict[str, Any]:
     current = ctx.current_space()
     return {
@@ -742,7 +770,7 @@ async def study_quiz_submit(artifact_id: str, body: Dict[str, Any]):
         space_id = _required_space_id(body)
         with _desktop_ctx(space_id=space_id) as ctx:
             responses = body.get("responses") if isinstance(body.get("responses"), dict) else {}
-            return QuizService(ctx).submit_attempt(artifact_id, responses)
+            return _public_quiz_attempt(QuizService(ctx).submit_attempt(artifact_id, responses))
     except (ValueError, KeyError, ContractError) as exc:
         raise _http_error(exc) from exc
 
