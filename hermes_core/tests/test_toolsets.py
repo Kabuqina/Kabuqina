@@ -192,6 +192,9 @@ class TestToolsetConsistency:
             assert "tools" in ts, f"{name} missing tools"
             assert "includes" in ts, f"{name} missing includes"
 
+    def test_file_toolset_exposes_binary_safe_metadata(self):
+        assert "file_metadata" in resolve_toolset("file")
+
     def test_all_includes_reference_existing_toolsets(self):
         for name, ts in TOOLSETS.items():
             for inc in ts["includes"]:
