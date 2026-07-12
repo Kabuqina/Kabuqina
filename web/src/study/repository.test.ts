@@ -155,6 +155,21 @@ describe("StudyRepository", () => {
     expect(practiceSource).toHaveBeenCalledWith("space-b", "activity-1");
   });
 
+  it("degrades only unavailable practice sections instead of hiding ready quizzes", async () => {
+    const repository = createStudyRepository({
+      flashcards: vi.fn().mockRejectedValue(new Error("offline")),
+      quizzes: vi.fn().mockResolvedValue({ quizzes: [{
+        artifact_id: "quiz-ready", kind: "quiz", title: "Ready", status: "active",
+      }] }),
+      practiceDrafts: vi.fn().mockRejectedValue(new Error("offline")),
+    });
+
+    await expect(repository.loadPracticeHome("space-b", new AbortController().signal)).resolves.toEqual({
+      cards: [], dueCards: [], quizzes: [{ artifact_id: "quiz-ready", kind: "quiz", title: "Ready", status: "active" }], drafts: [],
+      unavailable: ["cards", "drafts"],
+    });
+  });
+
   it("maps only stable error prefixes", () => {
     expect(normalizeRepositoryError("invalid study id").code).toBe("invalid");
     expect(normalizeRepositoryError("space_not_found: hidden detail").code).toBe("not-found");

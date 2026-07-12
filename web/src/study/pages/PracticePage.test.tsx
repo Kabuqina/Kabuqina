@@ -140,4 +140,36 @@ describe("PracticePage", () => {
     expect(screen.getByRole("link", { name: "返回聊天" })).toHaveAttribute("href", "/chat");
     expect(screen.queryByText("Write a function")).not.toBeInTheDocument();
   });
+
+  it("activates a quiz draft in the URL space, then re-reads and opens its questions", async () => {
+    const user = userEvent.setup();
+    const setArtifactStatus = vi.fn().mockResolvedValue(undefined);
+    const loadQuizQuestions = vi.fn().mockResolvedValue([
+      { item_id: "draft-question", artifact_id: "draft-quiz", type: "short_answer", prompt: "Fresh draft question" },
+    ] satisfies StudyQuizQuestion[]);
+    renderPage(repository({
+      loadPracticeHome: vi.fn().mockResolvedValue({
+        ...home,
+        drafts: [{ artifact_id: "draft-quiz", kind: "quiz", title: "New practice", status: "draft" }],
+      }),
+      setArtifactStatus,
+      loadQuizQuestions,
+    }));
+
+    await user.click(await screen.findByRole("button", { name: "落墨" }));
+    expect(await screen.findByRole("heading", { name: "Fresh draft question" })).toBeInTheDocument();
+    expect(setArtifactStatus).toHaveBeenCalledWith("space-b", "draft-quiz", "active", expect.any(AbortSignal));
+    expect(loadQuizQuestions).toHaveBeenCalledWith("space-b", "draft-quiz", expect.any(AbortSignal));
+  });
+
+  it("keeps ready quizzes reachable when other home sections are unavailable", async () => {
+    renderPage(repository({
+      loadPracticeHome: vi.fn().mockResolvedValue({
+        cards: [], dueCards: [], quizzes: [quiz], drafts: [], unavailable: ["cards", "drafts"],
+      }),
+    }));
+
+    expect(await screen.findByRole("button", { name: "Vectors quiz" })).toBeEnabled();
+    expect(screen.getAllByText("这一部分暂时无法读取，其他练习仍可继续。")).toHaveLength(2);
+  });
 });

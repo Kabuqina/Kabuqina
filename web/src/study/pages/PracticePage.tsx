@@ -218,7 +218,7 @@ export function PracticePage({ spaceId }: { spaceId: string }) {
     );
   };
 
-  const reviewDraft = (artifactId: string, status: "active" | "rejected") => {
+  const reviewDraft = (artifactId: string, status: "active" | "rejected", kind: string) => {
     if (pending) return;
     const request = mutations.current.begin();
     setPending(true);
@@ -228,6 +228,7 @@ export function PracticePage({ spaceId }: { spaceId: string }) {
         if (!mutations.current.isCurrent(request.generation)) return;
         setPending(false);
         window.dispatchEvent(new Event("study-learning-event"));
+        if (status === "active" && kind === "quiz") openQuiz(artifactId);
       },
       () => {
         if (!mutations.current.isCurrent(request.generation)) return;
@@ -281,16 +282,15 @@ export function PracticePage({ spaceId }: { spaceId: string }) {
           <article className="kq-study-practice-card">
             <p>{t("study.practiceCardsKicker")}</p>
             <h2>{t("study.practiceCardsTitle")}</h2>
-            <strong>{t("study.practiceDueCount", { count: data.dueCards.length })}</strong>
-            <span>{t("study.practiceCardsTotal", { count: data.cards.length })}</span>
-            <button type="button" className="kq-study-primary-link" disabled={!data.dueCards.length} onClick={openCards}>{t("study.practiceStartCards")}</button>
+            {data.unavailable?.includes("cards") ? <p role="status">{t("study.practiceSectionUnavailable")}</p> : <><strong>{t("study.practiceDueCount", { count: data.dueCards.length })}</strong><span>{t("study.practiceCardsTotal", { count: data.cards.length })}</span></>}
+            <button type="button" className="kq-study-primary-link" disabled={data.unavailable?.includes("cards") || !data.dueCards.length} onClick={openCards}>{t("study.practiceStartCards")}</button>
           </article>
           <article className="kq-study-practice-card">
             <p>{t("study.practiceQuizKicker")}</p>
             <h2>{t("study.practiceQuizTitle")}</h2>
-            {data.quizzes.length ? <div className="kq-study-inline-actions">{data.quizzes.map((quiz) => <button key={quiz.artifact_id} type="button" disabled={pending} onClick={() => openQuiz(quiz.artifact_id)}>{quiz.title}</button>)}</div> : <p>{t("study.practiceQuizEmpty")}</p>}
+            {data.unavailable?.includes("quizzes") ? <p role="status">{t("study.practiceSectionUnavailable")}</p> : data.quizzes.length ? <div className="kq-study-inline-actions">{data.quizzes.map((quiz) => <button key={quiz.artifact_id} type="button" disabled={pending} onClick={() => openQuiz(quiz.artifact_id)}>{quiz.title}</button>)}</div> : <p>{t("study.practiceQuizEmpty")}</p>}
           </article>
-          {data.drafts.length ? <article className="kq-study-practice-card"><p>{t("study.drafts")}</p>{data.drafts.map((draft) => <div key={draft.artifact_id} className="kq-study-draft-row"><div><strong>{draft.title}</strong><span>{draft.kind} · {draft.review?.status || draft.status}</span></div><div className="kq-study-inline-actions"><button type="button" disabled={pending} onClick={() => reviewDraft(draft.artifact_id, "active")}>{t("study.flyleafInk")}</button><button type="button" disabled={pending} onClick={() => reviewDraft(draft.artifact_id, "rejected")}>{t("study.flyleafErase")}</button></div></div>)}</article> : null}
+          {data.drafts.length || data.unavailable?.includes("drafts") ? <article className="kq-study-practice-card"><p>{t("study.drafts")}</p>{data.unavailable?.includes("drafts") ? <p role="status">{t("study.practiceSectionUnavailable")}</p> : data.drafts.map((draft) => <div key={draft.artifact_id} className="kq-study-draft-row"><div><strong>{draft.title}</strong><span>{draft.kind} · {draft.review?.status || draft.status}</span></div><div className="kq-study-inline-actions"><button type="button" disabled={pending} onClick={() => reviewDraft(draft.artifact_id, "active", draft.kind)}>{t("study.flyleafInk")}</button><button type="button" disabled={pending} onClick={() => reviewDraft(draft.artifact_id, "rejected", draft.kind)}>{t("study.flyleafErase")}</button></div></div>)}</article> : null}
         </div>
       ) : null}
 

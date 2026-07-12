@@ -74,6 +74,7 @@ export type StudyPracticeHome = {
   dueCards: StudyFlashcard[];
   quizzes: StudyArtifactSummary[];
   drafts: StudyArtifactSummary[];
+  unavailable?: Array<"cards" | "quizzes" | "drafts">;
 };
 
 export type StudyRepositoryErrorCode =
@@ -373,17 +374,24 @@ export function createStudyRepository(commands: Partial<StudyCommands> = {}): St
     },
     loadPracticeHome(spaceId, signal) {
       return invokeWithSignal(signal, async () => {
-        const [cards, dueCards, quizzes, drafts] = await Promise.all([
+        const [cardsResult, dueCardsResult, quizzesResult, draftsResult] = await Promise.allSettled([
           resolved.flashcards(spaceId, false),
           resolved.flashcards(spaceId, true),
           resolved.quizzes(spaceId),
           resolved.practiceDrafts(spaceId),
         ]);
+        const unavailable: Array<"cards" | "quizzes" | "drafts"> = [];
+        if (cardsResult.status !== "fulfilled" || dueCardsResult.status !== "fulfilled") unavailable.push("cards");
+        if (quizzesResult.status !== "fulfilled") unavailable.push("quizzes");
+        if (draftsResult.status !== "fulfilled") unavailable.push("drafts");
         return {
-          cards: cards.cards,
-          dueCards: dueCards.cards,
-          quizzes: quizzes.quizzes,
-          drafts: drafts.items.filter((draft) => draft.kind === "flashcard_deck" || draft.kind === "quiz"),
+          cards: cardsResult.status === "fulfilled" ? cardsResult.value.cards : [],
+          dueCards: dueCardsResult.status === "fulfilled" ? dueCardsResult.value.cards : [],
+          quizzes: quizzesResult.status === "fulfilled" ? quizzesResult.value.quizzes : [],
+          drafts: draftsResult.status === "fulfilled"
+            ? draftsResult.value.items.filter((draft) => draft.kind === "flashcard_deck" || draft.kind === "quiz")
+            : [],
+          ...(unavailable.length ? { unavailable } : {}),
         };
       });
     },
