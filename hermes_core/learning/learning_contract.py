@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Mapping
 
@@ -75,6 +76,7 @@ MAX_STR_LEN: int = 20_000
 MAX_SOURCE_REFS: int = 200
 MAX_SOURCE_REF_TEXT: int = 2_000
 MAX_SOURCE_REF_FIELDS: int = 16
+MAX_SOURCE_REF_NUMBER: int = 1_000_000_000_000_000
 MAX_LIST_ITEMS: int = 1_000
 MAX_QUIZ_QUESTIONS: int = 500
 MAX_CHOICE_OPTIONS: int = 26
@@ -549,6 +551,14 @@ def _validate_source_refs(refs: Any) -> List[Any]:
                 isinstance(value, str) and len(value) > MAX_SOURCE_REF_TEXT
             ):
                 raise ContractError(f"source_refs[{i}].{key} must be a bounded scalar")
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                if (
+                    isinstance(value, float)
+                    and not math.isfinite(value)
+                ) or abs(value) > MAX_SOURCE_REF_NUMBER:
+                    raise ContractError(
+                        f"source_refs[{i}].{key} must be a finite bounded number"
+                    )
     return copy.deepcopy(refs)
 
 

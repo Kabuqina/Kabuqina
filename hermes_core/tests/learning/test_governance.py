@@ -1,4 +1,5 @@
 from copy import deepcopy
+from pathlib import Path
 
 from learning.learning_context import LearningExecutionContext
 from learning.learning_store import LearningStore
@@ -111,3 +112,46 @@ def test_import_refuses_owner_with_migration_only(tmp_path):
             assert "already has" in str(exc)
     finally:
         store.close()
+
+
+def test_import_rejects_malformed_space_status_and_current_flag(tmp_path):
+    store = LearningStore(db_path=tmp_path / "learning.db")
+    try:
+        ctx = LearningExecutionContext(store, "owner")
+        for malformed in (
+            {"status": "CORRUPT", "is_current": False},
+            {"status": "active", "is_current": "false"},
+        ):
+            bundle = {
+                "version": 1,
+                "spaces": [{"space_id": "s", "title": "Course", **malformed}],
+            }
+            try:
+                ctx.import_owner_bundle(bundle)
+                assert False
+            except ValueError:
+                pass
+            assert store.list_spaces("owner") == []
+    finally:
+        store.close()
+
+
+def test_delete_owner_data_erases_private_bytes_from_sqlite_files(tmp_path):
+    db = tmp_path / "learning.db"
+    sentinel = b"B_TRACK_PRIVATE_DELETE_SENTINEL_7D8C"
+    store = LearningStore(db_path=db)
+    try:
+        ctx = LearningExecutionContext(store, "owner")
+        ctx.create_space(title="Course", space_id="s")
+        OutputWriter(ctx).write_artifact(
+            kind="tutoring_note",
+            title="Private note",
+            payload={"goal": sentinel.decode("ascii"), "hints": ["private"]},
+        )
+        ctx.delete_all_learning_data()
+    finally:
+        store.close()
+
+    for path in (db, Path(f"{db}-wal"), Path(f"{db}-shm")):
+        if path.exists():
+            assert sentinel not in path.read_bytes(), path

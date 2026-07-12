@@ -31,6 +31,7 @@ from hermes_constants import get_default_hermes_root
 from learning.learning_contract import (
     ContractError,
     INITIAL_STATUS,
+    LIFECYCLE_STATUSES,
     is_allowed_transition,
     validate_envelope,
 )
@@ -38,6 +39,7 @@ from learning.learning_contract import (
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
+SPACE_STATUSES = frozenset({"active", "archived"})
 
 _ACL_LOCK = threading.Lock()
 _ACL_SECURED_ROOTS: set[Path] = set()
@@ -258,6 +260,17 @@ def _require(value: Any, name: str) -> str:
     return value
 
 
+def _bundle_timestamp(row: Dict[str, Any], key: str) -> str:
+    value = row.get(key)
+    return _now() if value is None else _require(value, key)
+
+
+def _bundle_optional_id(value: Any, name: str) -> Optional[str]:
+    if value is None:
+        return None
+    return _require(value, name)
+
+
 class LearningStore:
     """SQLite-backed store for the learning spine.
 
@@ -316,6 +329,10 @@ class LearningStore:
             try:
                 self._conn.execute("PRAGMA journal_mode=WAL")
                 self._conn.execute("PRAGMA foreign_keys=ON")
+                # This is deliberately connection-local.  It makes DELETE and
+                # UPDATE overwrite removed cell content instead of leaving it
+                # recoverable in free pages or the WAL.
+                self._conn.execute("PRAGMA secure_delete=ON")
                 self._init_schema()
                 return
             except sqlite3.OperationalError as exc:
@@ -968,7 +985,41 @@ class LearningStore:
                 counts[table] = cur.rowcount
 
         self._execute_write(_op)
+        self._compact_after_sensitive_delete()
         return counts
+
+    def _compact_after_sensitive_delete(self) -> None:
+        """Remove deleted learning content from the database and WAL files.
+
+        ``secure_delete`` clears deleted cells, while the checkpoint/VACUUM/
+        checkpoint sequence removes historical WAL frames and free pages.  A
+        caller must not report a successful "delete all" until this completes.
+        """
+        last_err: Optional[Exception] = None
+        for attempt in range(self._WRITE_MAX_RETRIES):
+            try:
+                with self._lock:
+                    before = self._conn.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()
+                    if before and before[0] != 0:
+                        raise sqlite3.OperationalError("WAL checkpoint remained busy")
+                    self._conn.execute("VACUUM")
+                    after = self._conn.execute("PRAGMA wal_checkpoint(TRUNCATE)").fetchone()
+                    if after and after[0] != 0:
+                        raise sqlite3.OperationalError("WAL checkpoint remained busy")
+                return
+            except sqlite3.OperationalError as exc:
+                if attempt < self._WRITE_MAX_RETRIES - 1:
+                    last_err = exc
+                    time.sleep(
+                        random.uniform(
+                            self._WRITE_RETRY_MIN_S, self._WRITE_RETRY_MAX_S
+                        )
+                    )
+                    continue
+                raise RuntimeError(
+                    "learning data was deleted but physical database cleanup failed"
+                ) from exc
+        raise RuntimeError("learning database cleanup failed") from last_err
 
     def import_owner_bundle(self, owner_id: str, bundle: Dict[str, Any]) -> Dict[str, int]:
         """Restore a v1 owner bundle into an empty owner scope, forcing ownership."""
@@ -1014,7 +1065,19 @@ class LearningStore:
                 if sid in space_ids:
                     raise ValueError("bundle contains duplicate space_id")
                 space_ids.add(sid)
-                is_current = int(bool(row.get("is_current")))
+                title = _require(row.get("title"), "title")
+                if len(title) > 300:
+                    raise ValueError("title exceeds 300 chars")
+                status = row.get("status", "active")
+                if not isinstance(status, str) or status not in SPACE_STATUSES:
+                    raise ValueError("invalid space status")
+                raw_current = row.get("is_current", False)
+                if type(raw_current) is bool:
+                    is_current = int(raw_current)
+                elif type(raw_current) is int and raw_current in {0, 1}:
+                    is_current = raw_current
+                else:
+                    raise ValueError("is_current must be a boolean or 0/1")
                 current_spaces += is_current
                 if current_spaces > 1:
                     raise ValueError("bundle may contain at most one current space")
@@ -1023,11 +1086,11 @@ class LearningStore:
                     (
                         owner_id,
                         sid,
-                        str(row.get("title") or "")[:300],
-                        str(row.get("status") or "active"),
+                        title,
+                        status,
                         is_current,
-                        str(row.get("created_at") or _now()),
-                        str(row.get("updated_at") or _now()),
+                        _bundle_timestamp(row, "created_at"),
+                        _bundle_timestamp(row, "updated_at"),
                     ),
                 )
                 counts["spaces"] += 1
@@ -1048,9 +1111,18 @@ class LearningStore:
                 if artifact_key in artifact_keys:
                     raise ValueError("bundle contains duplicate artifact_id within a space")
                 artifact_keys.add(artifact_key)
-                status = str(row.get("status") or "draft")
-                if status not in {"draft", "active", "rejected", "archived"}:
+                status = row.get("status", INITIAL_STATUS)
+                if not isinstance(status, str) or status not in LIFECYCLE_STATUSES:
                     raise ValueError("invalid artifact status")
+                for key, expected in (
+                    ("kind", env.kind),
+                    ("title", env.title),
+                    ("version", env.version),
+                    ("review_mode", env.review["mode"]),
+                    ("review_status", env.review["status"]),
+                ):
+                    if key in row and row[key] != expected:
+                        raise ValueError(f"artifact {key} disagrees with envelope")
                 env_dict = env.to_dict()
                 conn.execute(
                     "INSERT INTO learning_artifacts (owner_id,space_id,artifact_id,kind,title,version,status,review_mode,review_status,envelope_json,source_refs_json,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
@@ -1066,8 +1138,8 @@ class LearningStore:
                         env.review["status"],
                         json.dumps(env_dict, ensure_ascii=False),
                         json.dumps(env.source_refs, ensure_ascii=False),
-                        str(row.get("created_at") or _now()),
-                        str(row.get("updated_at") or _now()),
+                        _bundle_timestamp(row, "created_at"),
+                        _bundle_timestamp(row, "updated_at"),
                     ),
                 )
                 counts["artifacts"] += 1
@@ -1079,7 +1151,7 @@ class LearningStore:
                 sid = _require(row.get("space_id"), "space_id")
                 if sid not in space_ids:
                     raise ValueError("item references unknown space")
-                artifact_id = row.get("artifact_id")
+                artifact_id = _bundle_optional_id(row.get("artifact_id"), "artifact_id")
                 if artifact_id and (sid, artifact_id) not in artifact_keys:
                     raise ValueError("item references unknown artifact")
                 item_id = _require(row.get("item_id"), "item_id")
@@ -1099,8 +1171,8 @@ class LearningStore:
                         artifact_id,
                         _require(row.get("item_type"), "item_type"),
                         json.dumps(state, ensure_ascii=False),
-                        str(row.get("created_at") or _now()),
-                        str(row.get("updated_at") or _now()),
+                        _bundle_timestamp(row, "created_at"),
+                        _bundle_timestamp(row, "updated_at"),
                     ),
                 )
                 counts["items"] += 1
@@ -1112,8 +1184,8 @@ class LearningStore:
                 sid = _require(row.get("space_id"), "space_id")
                 if sid not in space_ids:
                     raise ValueError("activity references unknown space")
-                artifact_id = row.get("artifact_id")
-                item_id = row.get("item_id")
+                artifact_id = _bundle_optional_id(row.get("artifact_id"), "artifact_id")
+                item_id = _bundle_optional_id(row.get("item_id"), "item_id")
                 activity_id = _require(row.get("activity_id"), "activity_id")
                 activity_key = (sid, activity_id)
                 if activity_key in activity_keys:
@@ -1135,7 +1207,7 @@ class LearningStore:
                         artifact_id,
                         item_id,
                         json.dumps(detail, ensure_ascii=False),
-                        str(row.get("created_at") or _now()),
+                        _bundle_timestamp(row, "created_at"),
                     ),
                 )
                 counts["activities"] += 1
@@ -1144,8 +1216,8 @@ class LearningStore:
             for row in rows_by_section["migrations"]:
                 if not isinstance(row, dict):
                     raise ValueError("bundle migration must be an object")
-                status = str(row.get("status") or "done")
-                if status not in {"done", "failed"}:
+                status = row.get("status", "done")
+                if not isinstance(status, str) or status not in {"done", "failed"}:
                     raise ValueError("invalid migration status")
                 detail = row.get("detail") or {}
                 if not isinstance(detail, dict):
@@ -1161,7 +1233,7 @@ class LearningStore:
                         migration_key,
                         status,
                         json.dumps(detail, ensure_ascii=False),
-                        str(row.get("created_at") or _now()),
+                        _bundle_timestamp(row, "created_at"),
                     ),
                 )
                 counts["migrations"] += 1

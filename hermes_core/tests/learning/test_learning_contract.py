@@ -429,6 +429,20 @@ def test_source_refs_reject_nested_or_content_dump_values():
 
 
 @pytest.mark.parametrize(
+    "value", [float("nan"), float("inf"), float("-inf"), 10**16, 10**1000]
+)
+def test_source_refs_reject_non_finite_or_unbounded_numbers(value):
+    with pytest.raises(ContractError):
+        validate_envelope(
+            _envelope(
+                "tutoring_note",
+                {"goal": "g", "hints": ["h"]},
+                source_refs=[{"line": value}],
+            )
+        )
+
+
+@pytest.mark.parametrize(
     "refs",
     [
         ["not an object"],

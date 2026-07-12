@@ -73,3 +73,9 @@
 打开前收紧父目录权限，使 SQLite `-wal` / `-shm` 继承同一策略；Windows
 移除继承 ACL 并仅授予当前登录主体 full-control，POSIX 使用目录 0700 / 文件
 0600。实效测试读取操作系统 ACL/模式，而不是只断言调用发生。
+
+**T3/T4 完成记录（2026-07-12）：** 一键删除在 SQL `DELETE` 后不会立即
+报告成功：数据库连接启用 SQLite `secure_delete`，再执行 WAL checkpoint/truncate、
+`VACUUM`、最终 WAL truncate；回归测试关闭连接后扫描主库、`-wal` 与 `-shm`，
+确认私密 sentinel 不残留。标准导入严格校验空间状态及 current 标志；`source_refs`
+的数值字段必须有限且有界，拒绝 NaN/Infinity。

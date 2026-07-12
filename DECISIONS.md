@@ -856,9 +856,11 @@ Wrongbook evidence is likewise bounded and excludes learner responses and
 exception text. Learning-data portability uses a versioned owner bundle:
 exports omit `owner_id`, imports force the runtime owner and run atomically only
 against an empty owner scope, and deletion requires the exact destructive
-confirmation phrase. Migration failures retain only bounded error type/message
-diagnostics, while `source_refs` accept bounded scalar provenance fields rather
-than nested source-content dumps.
+confirmation phrase. Successful deletion is physical as well as logical:
+SQLite `secure_delete` is enabled, then WAL is checkpointed/truncated, the DB
+is vacuumed, and WAL is truncated again before success is returned. Migration
+failures retain only bounded error type/message diagnostics, while `source_refs`
+accept bounded scalar provenance fields rather than nested source-content dumps.
 
 **Brand asset pipeline: Tier 2 private overlay (A-R1b, 2026-07-11).** New brand
 artwork — starting with the v0.5 desk-scene assets (desk, bookstand, card box,
