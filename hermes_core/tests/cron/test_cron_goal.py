@@ -457,31 +457,117 @@ class TestMarkGoalJobCrash:
         assert updated["goal_status"] == "state_error"
 
 
-class TestCronjobToolHidesGoalMode:
-    """Step 4: the public tool rejects mode:goal while G2 is closed."""
+class TestCronjobToolGoalContract:
+    """G2: the public Goal Task contract is strict and host-only."""
 
-    def test_create_rejects_goal_and_creates_no_job(self):
+    @staticmethod
+    def _kwargs(tmp_path):
+        workdir = tmp_path / "workspace"
+        workdir.mkdir(exist_ok=True)
+        return {
+            "action": "create",
+            "mode": "goal",
+            "name": "inventory",
+            "prompt": "Process one supported file and update the manifest.",
+            "goal": "Keep the local material manifest complete.",
+            "schedule": "every 10m",
+            "deliver": "local",
+            "workdir": str(workdir),
+            "enabled_toolsets": ["file"],
+            "verifier": {
+                "kind": "manifest_complete",
+                "config": {
+                    "manifest": "learning-materials.json",
+                    "roots": ["materials"],
+                    "extensions": [".pdf"],
+                },
+            },
+            "limits": {"max_runs": 40, "max_wall_seconds": 14_400, "max_cost_usd": "5.00"},
+            "approval_mode": "ask_before_external_side_effect",
+        }
+
+    def test_create_requires_the_full_goal_contract(self, tmp_path):
         from cron.jobs import load_jobs
         from tools.cronjob_tools import cronjob
 
         before = len(load_jobs())
-        result = cronjob(
-            action="create", schedule="every 1h", prompt="do it", mode="goal"
-        )
+        result = cronjob(action="create", schedule="every 10m", prompt="do it", mode="goal")
 
-        assert "goal" in result.lower()
-        # The rejected create must not persist anything.
+        assert "deliver" in result.lower()
         assert len(load_jobs()) == before
 
-    def test_update_rejects_goal_mode(self):
-        from cron.jobs import create_job
+    def test_create_persists_goal_and_initial_control_state(self, tmp_path):
+        from cron.goal_state import load_goal_state
+        from cron.jobs import get_job
         from tools.cronjob_tools import cronjob
 
-        job = create_job(prompt="hi", schedule="every 1h")
+        result = json.loads(cronjob(**self._kwargs(tmp_path)))
 
-        result = cronjob(action="update", job_id=job["id"], mode="goal")
+        assert result["success"] is True
+        job = get_job(result["job_id"])
+        assert job is not None
+        assert job["mode"] == "goal"
+        assert job["deliver"] == "local"
+        assert job["enabled_toolsets"] == ["file"]
+        state = load_goal_state(result["job_id"])
+        assert state is not None
+        assert state.status == "scheduled"
 
-        assert "goal" in result.lower()
+    def test_goal_controls_delegate_to_the_core_control_service(self, tmp_path):
+        from tools.cronjob_tools import cronjob
+
+        created = json.loads(cronjob(**self._kwargs(tmp_path)))
+        job_id = created["job_id"]
+
+        paused = json.loads(cronjob(action="pause", job_id=job_id))
+        assert paused["goal"]["status"] == "paused"
+        resumed = json.loads(cronjob(action="resume", job_id=job_id))
+        assert resumed["goal"]["status"] == "scheduled"
+        cancelled = json.loads(cronjob(action="cancel", job_id=job_id))
+        assert cancelled["goal"]["status"] == "cancelled"
+        deleted = json.loads(cronjob(action="delete", job_id=job_id))
+        assert deleted == {"success": True, "deleted": True, "job_id": job_id}
+
+    def test_goal_creation_rejects_gateway_and_nested_goal_contexts(self, tmp_path, monkeypatch):
+        from cron.goal_report import goal_report_scope
+        from cron.jobs import load_jobs
+        from tools.cronjob_tools import cronjob
+
+        before = len(load_jobs())
+        monkeypatch.setenv("HERMES_GATEWAY_SESSION", "1")
+        gateway = cronjob(**self._kwargs(tmp_path))
+        assert "gateway" in gateway.lower()
+        monkeypatch.delenv("HERMES_GATEWAY_SESSION")
+
+        with goal_report_scope("abc123def456", 1):
+            nested = cronjob(**self._kwargs(tmp_path))
+        assert "cannot create another" in nested.lower()
+        assert len(load_jobs()) == before
+
+    @pytest.mark.parametrize(
+        ("field", "value", "expected"),
+        [
+            ("deliver", "origin", "deliver='local'"),
+            ("enabled_toolsets", ["file", "terminal"], "enabled_toolsets=['file']"),
+            ("schedule", "2026-12-01T12:00:00+00:00", "recurring"),
+        ],
+    )
+    def test_goal_creation_rejects_pilot_boundary_expansion(self, tmp_path, field, value, expected):
+        from tools.cronjob_tools import cronjob
+
+        kwargs = self._kwargs(tmp_path)
+        kwargs[field] = value
+        result = cronjob(**kwargs)
+
+        assert expected in result
+
+    def test_goal_definition_cannot_be_changed_after_creation(self, tmp_path):
+        from tools.cronjob_tools import cronjob
+
+        created = json.loads(cronjob(**self._kwargs(tmp_path)))
+        result = cronjob(action="update", job_id=created["job_id"], prompt="change it")
+
+        assert "immutable" in result.lower()
 
 
 def _make_due(job_ids):
@@ -597,8 +683,12 @@ class TestTickRoutesGoalJobs:
         assert goal["state"] == "error"
         assert goal["goal_status"] == "state_error"
         assert goal["last_error"] == "goal_job_exception:RuntimeError"
-        # Committed goal state is left untouched (never ran → no state file).
-        assert load_goal_state(goal_job["id"]) is None
+        # Creation seeds the control state; a catastrophic scheduler exception
+        # must leave it untouched rather than fabricating progress or evidence.
+        state = load_goal_state(goal_job["id"])
+        assert state is not None
+        assert state.status == "scheduled"
+        assert state.iteration == 0
 
 
 class TestGoalDeliveryExactlyOnce:

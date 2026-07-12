@@ -7,8 +7,8 @@
     "frontendDist": "../web/dist",
     "devUrl": "http://localhost:5173",
     "beforeDevCommand": {
-      "cwd": "../web",
-      "script": "npm run dev"
+      "cwd": "..",
+      "script": "pwsh -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\tauri-before-dev.ps1"
     },
     "beforeBuildCommand": {
       "cwd": "../web",

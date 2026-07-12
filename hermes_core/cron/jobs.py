@@ -752,10 +752,28 @@ def create_job(
     # Goal jobs carry a namespaced spec; agent/notify records stay unchanged.
     if goal_spec is not None:
         job["goal"] = goal_spec
+        # The state file is the authoritative control surface.  Seed it during
+        # creation so a newly created Goal Task can be paused, resumed, or
+        # cancelled before its first scheduled wake.
+        job["goal_status"] = "scheduled"
 
     jobs = load_jobs()
     jobs.append(job)
     save_jobs(jobs)
+
+    if goal_spec is not None:
+        from cron.goal_state import new_goal_state, save_goal_state
+
+        try:
+            save_goal_state(new_goal_state(job_id, now=_hermes_now()))
+        except Exception:
+            # Do not leave a schedulable Goal Task without the authoritative
+            # state that its controls and scheduler require.  The identifier is
+            # fresh for this create call, so rolling back only this record is
+            # safe; preserve the original persistence error for the caller.
+            jobs = [existing for existing in load_jobs() if existing.get("id") != job_id]
+            save_jobs(jobs)
+            raise
 
     return job
 

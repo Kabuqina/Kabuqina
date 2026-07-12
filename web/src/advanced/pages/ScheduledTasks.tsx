@@ -49,6 +49,32 @@ interface CronJobListResponse {
   hasAny: boolean;
 }
 
+type GoalNotice = { tone: "success" | "error"; message: string };
+
+function goalPauseReasonLabel(reason: string, t: (key: string) => string): string {
+  const keys: Record<string, string> = {
+    user_paused: "cron.goalPauseReasonUser",
+    feature_disabled: "cron.goalPauseReasonFeatureDisabled",
+    cost_unknown: "cron.goalPauseReasonCostUnknown",
+    max_runs: "cron.goalPauseReasonMaxRuns",
+    max_cost_usd: "cron.goalPauseReasonMaxCost",
+    max_wall_seconds: "cron.goalPauseReasonMaxWall",
+    deadline: "cron.goalPauseReasonDeadline",
+    no_progress: "cron.goalPauseReasonNoProgress",
+    ambiguous_external_effect: "cron.goalPauseReasonAmbiguousEffect",
+    worker_blocked: "cron.goalPauseReasonWorkerBlocked",
+    verifier_error: "cron.goalPauseReasonVerifierError",
+    invalid_artifact: "cron.goalPauseReasonInvalidArtifact",
+    missing_report: "cron.goalPauseReasonMissingReport",
+    recovery_review: "cron.goalPauseReasonRecoveryReview",
+  };
+  return t(keys[reason] ?? "cron.goalPauseReasonOther");
+}
+
+function goalErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 function cronBackTarget(state: unknown): string | null {
   if (typeof state !== "object" || state === null) return null;
   const raw = (state as { cronBackTo?: unknown }).cronBackTo;
@@ -65,6 +91,9 @@ export function ScheduledTasksPage() {
   const [jobs, setJobs] = useState<CronJobEntry[]>([]);
   const [completed, setCompleted] = useState<CronJobEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [workspace, setWorkspace] = useState<string | null>(null);
+  const [goalBusy, setGoalBusy] = useState(false);
+  const [goalNotice, setGoalNotice] = useState<GoalNotice | null>(null);
 
   const fetchJobs = useCallback(async () => {
     try {
@@ -91,6 +120,41 @@ export function ScheduledTasksPage() {
       unlisten.then((fn) => fn());
     };
   }, [fetchJobs]);
+
+  useEffect(() => {
+    void invoke<string>("cmd_workspace_path")
+      .then(setWorkspace)
+      .catch(() => setWorkspace(null));
+  }, []);
+
+  const handleCreateGoalPilot = async () => {
+    if (!workspace) {
+      setGoalNotice({ tone: "error", message: t("cron.goalWorkspaceUnavailable") });
+      return;
+    }
+    const ok = await confirm({
+      title: t("cron.goalCreateTitle"),
+      message: t("cron.goalCreateAsk", { workspace }),
+      confirmLabel: t("cron.goalCreate"),
+      cancelLabel: t("dialog.cancel"),
+      tone: "warning",
+    });
+    if (!ok) return;
+    setGoalBusy(true);
+    setGoalNotice(null);
+    try {
+      await invoke("cmd_goal_create");
+      setGoalNotice({ tone: "success", message: t("cron.goalCreateSuccess") });
+      await fetchJobs();
+    } catch (e) {
+      setGoalNotice({
+        tone: "error",
+        message: t("cron.goalControlError", { message: goalErrorMessage(e) }),
+      });
+    } finally {
+      setGoalBusy(false);
+    }
+  };
 
   const handleToggle = async (jobId: string, currentPaused: boolean) => {
     try {
@@ -133,7 +197,25 @@ export function ScheduledTasksPage() {
     job: CronJobEntry,
     action: "pause" | "resume" | "cancel" | "delete",
   ) => {
-    if (action === "cancel") {
+    if (action === "pause") {
+      const ok = await confirm({
+        title: t("cron.goalPauseTitle"),
+        message: t("cron.goalPauseAsk", { name: job.name || job.id }),
+        confirmLabel: t("cron.goalPause"),
+        cancelLabel: t("dialog.cancel"),
+        tone: "warning",
+      });
+      if (!ok) return;
+    } else if (action === "resume") {
+      const ok = await confirm({
+        title: t("cron.goalResumeTitle"),
+        message: t("cron.goalResumeAsk", { name: job.name || job.id }),
+        confirmLabel: t("cron.goalResume"),
+        cancelLabel: t("dialog.cancel"),
+        tone: "warning",
+      });
+      if (!ok) return;
+    } else if (action === "cancel") {
       const ok = await confirm({
         title: t("cron.goalCancelTitle"),
         message: t("cron.goalCancelAsk", { name: job.name || job.id }),
@@ -144,19 +226,28 @@ export function ScheduledTasksPage() {
       if (!ok) return;
     } else if (action === "delete") {
       const ok = await confirm({
-        title: t("cron.deleteTitle"),
-        message: t("cron.deleteAsk", { name: job.name || job.id }),
+        title: t("cron.goalDeleteTitle"),
+        message: t("cron.goalDeleteAsk", { name: job.name || job.id }),
         confirmLabel: t("dialog.delete"),
         cancelLabel: t("dialog.cancel"),
         tone: "danger",
       });
       if (!ok) return;
     }
+    setGoalBusy(true);
+    setGoalNotice(null);
     try {
       await invoke(`cmd_goal_${action}`, { jobId: job.id });
-      void fetchJobs();
+      setGoalNotice({ tone: "success", message: t("cron.goalControlSuccess") });
+      await fetchJobs();
     } catch (e) {
       console.error(`cmd_goal_${action} failed:`, e);
+      setGoalNotice({
+        tone: "error",
+        message: t("cron.goalControlError", { message: goalErrorMessage(e) }),
+      });
+    } finally {
+      setGoalBusy(false);
     }
   };
 
@@ -201,7 +292,7 @@ export function ScheduledTasksPage() {
             {job.goalPauseReason && (
               <p>
                 <span className="font-medium">{t("cron.goalPauseReason")}:</span>{" "}
-                {job.goalPauseReason}
+                {goalPauseReasonLabel(job.goalPauseReason, t)}
               </p>
             )}
           </div>
@@ -214,22 +305,22 @@ export function ScheduledTasksPage() {
             return (
               <div className="mt-3 flex flex-wrap gap-2">
                 {isActive && (
-                  <Button variant="ghost" size="sm" onClick={() => handleGoalControl(job, "pause")}>
+                  <Button variant="ghost" size="sm" disabled={goalBusy} onClick={() => handleGoalControl(job, "pause")}>
                     {t("cron.goalPause")}
                   </Button>
                 )}
                 {isPaused && (
-                  <Button variant="ghost" size="sm" onClick={() => handleGoalControl(job, "resume")}>
+                  <Button variant="ghost" size="sm" disabled={goalBusy} onClick={() => handleGoalControl(job, "resume")}>
                     {t("cron.goalResume")}
                   </Button>
                 )}
                 {(isActive || isPaused) && (
-                  <Button variant="ghost" size="sm" onClick={() => handleGoalControl(job, "cancel")}>
+                  <Button variant="ghost" size="sm" disabled={goalBusy} onClick={() => handleGoalControl(job, "cancel")}>
                     {t("cron.goalCancel")}
                   </Button>
                 )}
                 {isTerminal && (
-                  <Button variant="ghost" size="sm" onClick={() => handleGoalControl(job, "delete")}>
+                  <Button variant="ghost" size="sm" disabled={goalBusy} onClick={() => handleGoalControl(job, "delete")}>
                     {t("cron.delete")}
                   </Button>
                 )}
@@ -369,6 +460,52 @@ export function ScheduledTasksPage() {
             {t("cron.createTip")}
           </p>
         </div>
+
+        <section className="hd-setting-card space-y-3 px-5 py-4" aria-labelledby="goal-pilot-title">
+          <div>
+            <h2 id="goal-pilot-title" className="text-sm font-semibold text-[var(--kq-color-strong)]">
+              {t("cron.goalPilotTitle")}
+            </h2>
+            <p className="mt-1 text-xs leading-relaxed text-[var(--kq-color-muted)]">
+              {t("cron.goalPilotLead")}
+            </p>
+          </div>
+          <dl className="grid gap-2 text-xs text-[var(--kq-color-muted)] sm:grid-cols-2">
+            <div>
+              <dt className="font-medium text-[var(--kq-color-strong)]">{t("cron.goalWorkspace")}</dt>
+              <dd className="mt-0.5 break-all">{workspace || t("cron.goalWorkspaceLoading")}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-[var(--kq-color-strong)]">{t("cron.goalCadence")}</dt>
+              <dd className="mt-0.5">{t("cron.goalCadenceValue")}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-[var(--kq-color-strong)]">{t("cron.goalBoundary")}</dt>
+              <dd className="mt-0.5">{t("cron.goalBoundaryValue")}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-[var(--kq-color-strong)]">{t("cron.goalLimits")}</dt>
+              <dd className="mt-0.5">{t("cron.goalLimitsValue")}</dd>
+            </div>
+          </dl>
+          <p className="text-xs leading-relaxed text-[var(--kq-color-muted)]">{t("cron.goalHostOnly")}</p>
+          <Button size="sm" disabled={!workspace || goalBusy} onClick={() => void handleCreateGoalPilot()}>
+            {goalBusy ? t("cron.goalWorking") : t("cron.goalCreate")}
+          </Button>
+        </section>
+
+        {goalNotice && (
+          <p
+            role={goalNotice.tone === "error" ? "alert" : "status"}
+            className={`rounded-[var(--radius-shell-lg)] border px-3.5 py-2.5 text-xs leading-relaxed ${
+              goalNotice.tone === "error"
+                ? "border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-900/70 dark:bg-rose-950/30 dark:text-rose-200"
+                : "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-900/70 dark:bg-emerald-950/30 dark:text-emerald-200"
+            }`}
+          >
+            {goalNotice.message}
+          </p>
+        )}
 
         {loading ? (
           <p className="text-sm text-[var(--kq-color-muted)]">{t("cron.loading")}</p>

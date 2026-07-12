@@ -182,6 +182,11 @@ def _install_messaging_wraps() -> None:
             workdir: str | None = None,
             mode: str | None = None,
             message: str | None = None,
+            goal: str | None = None,
+            verifier: dict[str, Any] | None = None,
+            limits: dict[str, Any] | None = None,
+            approval_mode: str | None = None,
+            progress_delivery_every: int | None = None,
             task_id: str | None = None,
         ) -> str:
             # Q2 smart default: for create/update with no explicit remote
@@ -189,14 +194,15 @@ def _install_messaging_wraps() -> None:
             # The expansion happens BEFORE approval so the dialog shows the
             # final target list.
             normalized_action = (action or "").strip().lower()
-            if normalized_action in ("create", "update"):
+            goal_mode = isinstance(mode, str) and mode.strip().lower() == "goal"
+            if normalized_action in ("create", "update") and not goal_mode:
                 deliver = expand_cron_default_deliver(deliver)
 
             if policy.needs_cron_approval(action):
                 result = _backend.ask_cron(
                     action=action or "",
                     schedule=schedule or "",
-                    description=(prompt or name or ""),
+                    description=(goal or prompt or name or ""),
                     delivery_target=deliver or "",
                 )
                 if result != "once":
@@ -223,6 +229,11 @@ def _install_messaging_wraps() -> None:
                 workdir=workdir,
                 mode=mode,
                 message=message,
+                goal=goal,
+                verifier=verifier,
+                limits=limits,
+                approval_mode=approval_mode,
+                progress_delivery_every=progress_delivery_every,
                 task_id=task_id,
             )
 
@@ -263,6 +274,11 @@ def _install_messaging_wraps() -> None:
                         workdir=args.get("workdir"),
                         mode=args.get("mode"),
                         message=args.get("message"),
+                        goal=args.get("goal"),
+                        verifier=args.get("verifier"),
+                        limits=args.get("limits"),
+                        approval_mode=args.get("approval_mode"),
+                        progress_delivery_every=args.get("progress_delivery_every"),
                         task_id=kw.get("task_id"),
                     )
                 entry.handler = _wrapped_handler

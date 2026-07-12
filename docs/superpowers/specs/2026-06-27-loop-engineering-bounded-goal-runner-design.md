@@ -637,6 +637,75 @@ Constraints:
 This pilot exercises durable state, restart recovery, budgets, verification,
 and UI without exposing irreversible external actions.
 
+#### Implemented G2 creation and control boundary (2026-07-12)
+
+The first exposed product surface is deliberately narrower than the generic
+core job record. The authenticated desktop route accepts no creation body: it
+derives the spawned web child's `HERMES_WORKSPACE` and calls
+`cron.goal_pilot.create_pilot_manifest_goal`. That core helper delegates to
+`create_job` with the frozen `manifest_complete` definition, `deliver: local`,
+the persisted `file` allowlist, 40-run/four-hour/USD 5.00 limits, and the
+standard no-progress/infrastructure thresholds. Rust proxies this through
+`cmd_goal_create`; the webview never receives a desk port, auth token, or a
+chance to provide arbitrary verifier JSON, a different workspace, a delivery
+target, or changed limits.
+
+Creating a Goal Task seeds its authoritative `scheduled` state before the first
+wake. Thus pause, resume, cancel, and terminal delete remain the core-owned
+`goal_controls` transitions even for a just-created task. The definition is
+immutable after creation. A public tool creation rejects an active
+`goal_internal` scope and gateway profiles; it accepts only local delivery and
+the persisted `file` toolset for Pilot 1. The desktop approval bridge continues
+to obtain the existing cron confirmation for agent-requested creation and
+preserves Goal fields without expanding local delivery to remote channels.
+
+The Scheduled Tasks card requires an explicit confirmation showing the selected
+workspace, one-iteration-per-wake cadence, file plus manifest boundary, limits,
+and host-only scope. Its pause/resume confirmation explains billing behavior;
+cancel preserves work; terminal delete removes the job definition/card but
+retains goal-run evidence. Control errors are visible in the card and durable
+pause reasons use localized user copy. These implementation checks do not count
+as Pilot 1 runtime evidence.
+
+### Pilot execution harness
+
+`hermes_core/scripts/run_goal_manifest_pilot.py` is the constrained harness for
+the synthetic half of Task 10. It accepts no arbitrary task definition: every
+run copies the frozen `goal_manifest_pilot` fixture into a new disposable
+directory, removes exactly the fixture's `materials/lesson.docx` manifest
+record, and persists a `file`-only Goal Task with the frozen
+`manifest_complete`, 40-run, four-hour, USD 5.00 limits.
+
+Prepare one independent profile/workspace for each engine, then wake each one
+once per intended scheduler wake. An optional `--config` copies only a selected
+non-secret `config.yaml`; the harness never copies `.env` or credentials. A
+real wake receives credentials only through the normal process environment.
+
+```powershell
+cd hermes_core
+python scripts/run_goal_manifest_pilot.py prepare `
+  --engine loop --run-dir $env:TEMP\kabuqina-goal-pilot\loop `
+  --config C:\path\to\disposable-config.yaml
+python scripts/run_goal_manifest_pilot.py prepare `
+  --engine graph --run-dir $env:TEMP\kabuqina-goal-pilot\graph `
+  --config C:\path\to\disposable-config.yaml
+
+# Only after G2 opens; repeat at most once for each intended scheduler wake.
+python scripts/run_goal_manifest_pilot.py wake `
+  --run-dir $env:TEMP\kabuqina-goal-pilot\loop
+python scripts/run_goal_manifest_pilot.py wake `
+  --run-dir $env:TEMP\kabuqina-goal-pilot\graph
+
+python scripts/run_goal_manifest_pilot.py compare `
+  --loop-run-dir $env:TEMP\kabuqina-goal-pilot\loop `
+  --graph-run-dir $env:TEMP\kabuqina-goal-pilot\graph
+```
+
+The comparison reads and emits only controller transition fields, verifier
+outcomes, and artifact hashes; it deliberately omits prompts, agent output,
+document contents, report summaries, and verifier evidence. It always requires
+manual review and does not itself declare pilot success.
+
 ### Pilot exit criteria
 
 All must hold before enabling Goal Tasks outside a developer flag:

@@ -1,6 +1,7 @@
 """Tests for cron/jobs.py — schedule parsing, job CRUD, and due-job detection."""
 
 import json
+import os
 import pytest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -24,6 +25,18 @@ from cron.jobs import (
     get_due_jobs,
     save_job_output,
 )
+
+
+def test_cron_store_paths_follow_the_per_test_hermes_home():
+    """Collection-time cron imports must not leak one worker's store to another."""
+    import cron.jobs as jobs_module
+
+    home = Path(os.environ["HERMES_HOME"]).resolve()
+
+    assert jobs_module.HERMES_DIR == home
+    assert jobs_module.CRON_DIR == home / "cron"
+    assert jobs_module.JOBS_FILE == home / "cron" / "jobs.json"
+    assert jobs_module.OUTPUT_DIR == home / "cron" / "output"
 
 
 # =========================================================================

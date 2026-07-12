@@ -52,6 +52,31 @@ assert.match(
   /handleGoalControl[\s\S]*invoke\(`cmd_goal_\$\{action\}`/,
   "Goal controls must proxy through the dedicated cmd_goal_* commands.",
 );
+assert.match(
+  pageSource,
+  /cmd_workspace_path[\s\S]*handleCreateGoalPilot[\s\S]*confirm\([\s\S]*goalCreateAsk[\s\S]*invoke\("cmd_goal_create"\)/,
+  "Pilot creation must show the selected desktop workspace in an explicit confirmation and use the constrained Tauri command.",
+);
+assert.doesNotMatch(
+  pageSource,
+  /invoke\("cmd_goal_create",\s*\{/,
+  "The webview must not send a workspace, verifier, limits, or delivery body to Goal Task creation.",
+);
+assert.match(
+  pageSource,
+  /goalPauseAsk[\s\S]*goalResumeAsk[\s\S]*goalCancelAsk[\s\S]*goalDeleteAsk/,
+  "Pause, resume, cancel, and delete should all explain their consequences before the control runs.",
+);
+assert.match(
+  pageSource,
+  /goalControlError[\s\S]*role=\{goalNotice\.tone === "error" \? "alert" : "status"\}/,
+  "Creation and control failures must be visible in the UI rather than console-only.",
+);
+assert.match(
+  pageSource,
+  /function goalPauseReasonLabel[\s\S]*cost_unknown[\s\S]*recovery_review/,
+  "Pause reason enums should map to localized user-facing copy.",
+);
 assert.doesNotMatch(
   goalCard,
   /job\.prompt|lastDeliveryError/,
@@ -74,3 +99,7 @@ assert.match(stringsSource, /goalPause:\s*"暂停"/);
 assert.match(stringsSource, /goalPause:\s*"Pause"/);
 assert.match(stringsSource, /goalResume:\s*"(继续|Resume)"/);
 assert.match(stringsSource, /goalCancel:\s*"(取消任务|Cancel task)"/);
+assert.match(stringsSource, /goalCreateAsk:\s*"将在/);
+assert.match(stringsSource, /goalCreateAsk:\s*"Create a local task in/);
+assert.match(stringsSource, /goalDeleteAsk:\s*"删除/);
+assert.match(stringsSource, /goalDeleteAsk:\s*"Delete the card and scheduled definition/);

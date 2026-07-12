@@ -19,6 +19,7 @@ try {
         Write-Host "Syncing runtime sources for dev..." -ForegroundColor DarkGray
         ./scripts/sync-runtime-sources.ps1
     }
+    $env:KABUQINA_RUNTIME_SYNCED = "1"
 
     if (-not (Test-Path "web\node_modules\.bin\vite.cmd")) {
         Write-Host "Installing web deps..." -ForegroundColor Cyan

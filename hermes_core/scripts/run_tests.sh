@@ -27,19 +27,33 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # Prefer a .venv in the current tree, fall back to the main checkout's venv
 # (useful for worktrees where we don't always duplicate the venv).
 VENV=""
+PYTHON=""
 for candidate in "$REPO_ROOT/.venv" "$REPO_ROOT/venv" "$HOME/.hermes/hermes-agent/venv"; do
   if [ -f "$candidate/bin/activate" ]; then
     VENV="$candidate"
+    PYTHON="$candidate/bin/python"
+    break
+  fi
+  # The Kabuqina desktop project is Windows-only.  Its source checkout may be
+  # driven from WSL/Git Bash, while the matching CPython venv uses the native
+  # Windows layout. Git Bash can execute Python.exe directly, but a WSL shell
+  # cannot reliably execute a native Windows venv binary; use the matching
+  # PowerShell runner in that case.
+  if [ -f "$candidate/Scripts/python.exe" ]; then
+    if [ "$(uname -s)" = "Linux" ]; then
+      echo "error: native Windows venv detected from WSL; run 'pwsh -File scripts/run_tests.ps1 ...' instead" >&2
+      exit 1
+    fi
+    VENV="$candidate"
+    PYTHON="$candidate/Scripts/python.exe"
     break
   fi
 done
 
 if [ -z "$VENV" ]; then
-  echo "error: no virtualenv found in $REPO_ROOT/.venv or $REPO_ROOT/venv" >&2
+  echo "error: no virtualenv found in $REPO_ROOT/.venv or $REPO_ROOT/venv (expected bin/python or Scripts/python.exe)" >&2
   exit 1
 fi
-
-PYTHON="$VENV/bin/python"
 
 # ── Ensure pytest-split is installed (required for shard-equivalent runs) ──
 if ! "$PYTHON" -c "import pytest_split" 2>/dev/null; then

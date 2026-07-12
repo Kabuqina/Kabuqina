@@ -242,6 +242,7 @@ pub fn run() {
             cron::cmd_cron_list,
             cron::cmd_cron_toggle,
             cron::cmd_cron_delete,
+            cron::cmd_goal_create,
             cron::cmd_goal_pause,
             cron::cmd_goal_resume,
             cron::cmd_goal_cancel,

@@ -14,6 +14,7 @@ __all__ = [
     "GoalReportError",
     "GoalReportCollector",
     "goal_report_scope",
+    "goal_report_scope_active",
     "record_active_goal_report",
 ]
 
@@ -137,6 +138,15 @@ def goal_report_scope(job_id: str, iteration: int) -> Iterator[GoalReportCollect
         yield collector
     finally:
         _active_goal_report.reset(token)
+
+
+def goal_report_scope_active() -> bool:
+    """Return whether this context is executing a bounded Goal Task iteration.
+
+    Tools can use this narrow signal to reject recursive Goal Task creation.
+    It deliberately exposes no job data and does not alter the collector.
+    """
+    return _active_goal_report.get() is not None
 
 
 def record_active_goal_report(payload: Mapping[str, object]) -> GoalReportCollector:

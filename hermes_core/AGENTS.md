@@ -678,9 +678,11 @@ def profile_env(tmp_path, monkeypatch):
 
 ## Testing
 
-**ALWAYS use `scripts/run_tests.sh`** — do not call `pytest` directly. The script enforces
-hermetic environment parity with CI (unset credential vars, TZ=UTC, LANG=C.UTF-8,
-4 xdist workers matching GHA ubuntu-latest). Direct `pytest` on a 16+ core
+**ALWAYS use the canonical test wrapper** — `scripts/run_tests.ps1` on native
+Windows and `scripts/run_tests.sh` on POSIX — do not call `pytest` directly. The
+wrappers enforce hermetic environment parity with CI (unset credential vars,
+TZ=UTC, LANG=C.UTF-8, 4 xdist workers matching GHA ubuntu-latest). Direct
+`pytest` on a 16+ core
 developer machine with API keys set diverges from CI in ways that have caused
 multiple "works locally, fails in CI" incidents (and the reverse).
 
@@ -689,6 +691,13 @@ scripts/run_tests.sh                                  # full suite, CI-parity
 scripts/run_tests.sh tests/gateway/                   # one directory
 scripts/run_tests.sh tests/agent/test_foo.py::test_x  # one test
 scripts/run_tests.sh -v --tb=long                     # pass-through pytest flags
+```
+
+```powershell
+.\scripts\run_tests.ps1                                  # full suite, CI-parity
+.\scripts\run_tests.ps1 tests\gateway\                   # one directory
+.\scripts\run_tests.ps1 tests\agent\test_foo.py::test_x  # one test
+.\scripts\run_tests.ps1 -v --tb=long                      # pass-through pytest flags
 ```
 
 ### Why the wrapper (and why the old "just call pytest" doesn't work)

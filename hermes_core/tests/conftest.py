@@ -271,6 +271,26 @@ def _hermetic_environment(tmp_path, monkeypatch):
     (fake_hermes_home / "skills").mkdir()
     monkeypatch.setenv("HERMES_HOME", str(fake_hermes_home))
 
+    # ``cron.jobs`` and ``cron.scheduler`` cache their profile paths at module
+    # import time for production, where HERMES_HOME is fixed before startup.
+    # Pytest-xdist instead imports test modules during collection and switches
+    # HERMES_HOME for every test. Rebind the cached paths after the per-test
+    # home is selected so workers never share the collector's cron store.
+    import cron as _cron_package
+    import cron.jobs as _cron_jobs
+    import cron.scheduler as _cron_scheduler
+
+    fake_cron_dir = fake_hermes_home / "cron"
+    fake_jobs_file = fake_cron_dir / "jobs.json"
+    monkeypatch.setattr(_cron_jobs, "HERMES_DIR", fake_hermes_home)
+    monkeypatch.setattr(_cron_jobs, "CRON_DIR", fake_cron_dir)
+    monkeypatch.setattr(_cron_jobs, "JOBS_FILE", fake_jobs_file)
+    monkeypatch.setattr(_cron_jobs, "OUTPUT_DIR", fake_cron_dir / "output")
+    monkeypatch.setattr(_cron_package, "JOBS_FILE", fake_jobs_file)
+    monkeypatch.setattr(_cron_scheduler, "_hermes_home", fake_hermes_home)
+    monkeypatch.setattr(_cron_scheduler, "_LOCK_DIR", fake_cron_dir)
+    monkeypatch.setattr(_cron_scheduler, "_LOCK_FILE", fake_cron_dir / ".tick.lock")
+
     # 4. Deterministic locale / timezone / hashseed. CI runs in UTC with
     #    C.UTF-8 locale; local dev often doesn't. Pin everything.
     monkeypatch.setenv("TZ", "UTC")

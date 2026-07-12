@@ -1112,13 +1112,13 @@ git commit -m "feat: integrate bounded goals with desktop profiles"
 
 ## G2 review gate — product exposure
 
-Do not expose `mode: goal` until (status as of 2026-07-10 — **2 of 5 met; G1
+Do not expose `mode: goal` until (status as of 2026-07-12 — **4 of 5 met; G1
 is open but G2 is not. NOTE: G2 opens on the Task 11 Step 4
 soak, NOT on loop removal (Step 5). Step 5 is a *later, downstream* "Removal"
 gate — see the LangGraph plan's gate table. There is no circular dependency;
 Step 5 waits on G2 → Goal Runner Task 10, never the reverse**):
 
-- [ ] Phase 3.5 Task 11 records a successful graph-default v0.3.0
+- [x] Phase 3.5 Task 11 records a successful graph-default v0.3.0
   release-acceptance soak.
   *(REOPENED, 2026-07-05. The 2026-07-03 owner waiver was rescinded; Step 4's
   substituted regression/hash evidence remains historical baseline evidence but
@@ -1132,7 +1132,10 @@ Step 5 waits on G2 → Goal Runner Task 10, never the reverse**):
   with the loop escape hatch still present, record release/manual smoke, observe
   a short post-release window of a few days with no obvious graph-attributable
   P0/P1 or unexplained result-shape, hook, persistence, or usage drift, then
-  close Step 4. This does not claim that a fixed artifact completed 14 days.)*
+  close Step 4. This does not claim that a fixed artifact completed 14 days.
+  **MET 2026-07-12:** after the short release observation window, the owner
+  explicitly accepted a clean result: no graph-attributable P0/P1 and no
+  unexplained result-shape, hook, persistence, or usage drift.)*
 - [x] The loop escape hatch still works, or its planned removal has not yet
   landed; Goal Runner passes with explicit `loop` and `graph` before removal.
   *(MET — the loop removal has NOT landed (Step 5 is downstream), and the escape
@@ -1142,8 +1145,9 @@ Step 5 waits on G2 → Goal Runner Task 10, never the reverse**):
   (Step 5)**, NOT of G2 — it is the Goal Runner Task 10 dual-engine pilot, which
   runs after G2 opens while the loop still exists. Do not read it as a G2
   blocker.)*
-- [ ] G1 tests pass in bundled CPython 3.11 and a release-equivalent desktop.
-  *(HALF met; bundled evidence refreshed 2026-07-10. **Bundled CPython 3.11 ✅**:
+- [x] G1 tests pass in bundled CPython 3.11 and a release-equivalent desktop.
+  *(MET; bundled evidence refreshed 2026-07-10 and installed-release smoke
+  confirmed by the owner on 2026-07-12. **Bundled CPython 3.11 ✅**:
   ran the G1 suite under the
   bundled interpreter `python/dist/runtime/python/python.exe` = Python 3.11.15
   (pytest installed to a temp `--target`, `PYTHONPATH` = runtime
@@ -1151,11 +1155,11 @@ Step 5 waits on G2 → Goal Runner Task 10, never the reverse**):
   goal_agent_worker, goal_profile_isolation, goal_runner, goal_state,
   goal_verifiers, goal_report, scheduler_lock) = **227 passed / 1 skipped**;
   `python/tests/test_goal_routes.py` = **8 passed** (benign starlette/httpx
-  deprecation warning only). REMAINING — **release-equivalent desktop**: install
-  and run the goal-control smoke (pause→resume→cancel→delete) on the installed
-  v0.3.0 *release* build. The owner confirmed installation and general
-  observation on 2026-07-10, but the goal-control chain itself is not yet
-  recorded; do not infer it from ordinary chat smoke.)*
+  deprecation warning only). **Release-equivalent desktop ✅**: the owner
+  confirmed the installed v0.3.0 goal-control smoke
+  (pause→resume→cancel→delete) completed on 2026-07-12. This is recorded
+  separately from ordinary chat observation so the control chain is not
+  inferred from general release smoke.)*
 - [x] Pilot 1's verifier and limits are frozen in fixtures.
   *(MET, 2026-07-10 —
   `hermes_core/tests/cron/fixtures/goal_manifest_pilot/pilot-definition.json`
@@ -1164,10 +1168,13 @@ Step 5 waits on G2 → Goal Runner Task 10, never the reverse**):
   infrastructure-failure thresholds. Fixture pass + content-drift failure and
   normalized job-contract tests pass under system and bundled Python:
   72 passed / 1 skipped.)*
-- [ ] Product copy, destructive controls, and approval boundaries receive human
+- [x] Product copy, destructive controls, and approval boundaries receive human
   review.
-  *(REVIEW PREPARED, 2026-07-10; owner review still required. Current status-only
-  UI is **NO-GO for exposure** until Task 10 addresses these findings: creation
+  *(MET, 2026-07-12 — the owner reviewed the bounded Pilot 1 control and
+  approval shape and found no blocking issue. This opens G2 for Task 10
+  implementation; it does **not** waive the following acceptance criteria.
+  Current status-only UI is **NO-GO for exposure** until Task 10 addresses these
+  findings: creation
   confirmation must show the selected workspace, one-iteration-per-wake model,
   `file` + manifest-write boundary, 40-run / four-hour / USD 5.00 caps, and
   host-only scope; pause/resume must explain when execution and billing stop or
@@ -1182,7 +1189,7 @@ Step 5 waits on G2 → Goal Runner Task 10, never the reverse**):
 Record the Phase 3.5 soak evidence here:
 
 ```text
-G2 opened: __________ at __________; reviewed by __________
+G2 opened: 2026-07-12; reviewed by owner
 ```
 
 ---
@@ -1192,19 +1199,39 @@ G2 opened: __________ at __________; reviewed by __________
 **Files:**
 
 - Modify: `hermes_core/tools/cronjob_tools.py`
+- Modify: `hermes_core/cron/jobs.py`
+- Modify: `hermes_core/cron/goal_report.py`
+- Create: `hermes_core/cron/goal_pilot.py`
 - Modify: `hermes_core/tests/cron/test_cron_goal.py`
 - Modify: `hermes_core/tests/cron/test_goal_verifiers.py`
-- Modify: `python/src/desk_server/goal_routes.py`
+- Modify: `python/src/desk_server/routes/goal_routes.py`
+- Modify: `python/overlays/approval_bridge.py`
 - Modify: `python/tests/test_goal_routes.py`
+- Create: `python/tests/test_approval_bridge_goal_contract.py`
 - Modify: `tauri/src/cron.rs`
 - Modify: `tauri/src/lib.rs`
 - Modify: `web/src/advanced/pages/ScheduledTasks.tsx`
 - Modify: `web/src/locales/strings.ts`
 - Modify: `web/src/advanced/scheduledTasksGoalUx.test.mjs`
+- Create: `hermes_core/scripts/run_goal_manifest_pilot.py`
+- Create: `hermes_core/tests/cron/test_goal_manifest_pilot_script.py`
 - Create: `hermes_core/tests/cron/fixtures/goal_manifest_pilot/`
 - Modify: `docs/superpowers/specs/2026-06-27-loop-engineering-bounded-goal-runner-design.md`
 
-- [ ] **Step 1: expose a strict `mode: goal` tool schema**
+- [x] **Step 1: expose a strict `mode: goal` tool schema**
+
+  *(MET, 2026-07-12 — `cronjob` now requires the complete Goal Task contract:
+  objective, iteration prompt, recurring schedule, confined existing workdir,
+  known verifier, finite limits, explicit local delivery, and the persisted
+  `file`-only toolset. The active Goal Task report scope rejects recursive
+  creation; `HERMES_GATEWAY_SESSION` rejects gateway-profile creation. New jobs
+  seed their authoritative `scheduled` state so controls work before the first
+  wake. Existing Goal Tasks accept only core-delegated pause, resume, cancel,
+  and terminal delete; their definition is immutable. The desktop approval
+  bridge preserves all Goal fields, asks for agent-requested creation through
+  the existing cron approval dialog, and does not expand Goal Task local
+  delivery to remote targets. Targeted core regression: 78 passed / 1 skipped
+  under four workers; goal controls/jobs isolation: 79 passed.)*
 
 The tool requires objective, per-iteration prompt, schedule, workdir, one known
 verifier config, finite limits, and delivery preference. It refuses nested Goal
@@ -1214,7 +1241,18 @@ existing messaging/cron policy when requested by an agent.
 Goal pause, resume, cancel, and delete actions delegate to `goal_controls.py`;
 the tool handler does not mutate goal state or job JSON itself.
 
-- [ ] **Step 2: add UI creation only after the core contract is stable**
+- [x] **Step 2: add UI creation only after the core contract is stable**
+
+  *(MET, 2026-07-12 — authenticated `POST /api/desk/goals` derives the spawned
+  desktop child's workspace and uses `cron.goal_pilot`'s frozen
+  `manifest_complete` template; it accepts no client workspace, verifier,
+  limits, or delivery override. `cmd_goal_create` proxies this route without
+  exposing the Python port/token. The Scheduled Tasks card shows the selected
+  workspace, one-wake iteration model, file/manifest boundary, 40-run/four-hour/
+  USD 5.00 caps, and host-only scope before an explicit confirmation. Pause,
+  resume, cancel, and delete explain their consequences; delete retains evidence;
+  scoped feedback is visible and pause reasons are localized. Route regression:
+  10 passed; UI contract test, lint, and production build pass.)*
 
 Add `POST /api/desk/goals` to the authenticated route module. It delegates to
 core `create_job` validation, returns the sanitized created record, and is
@@ -1232,6 +1270,14 @@ with explicit `agent_engine="loop"` and once with explicit
 `agent_engine="graph"`; compare controller transitions, verifier results, and
 sanitized artifacts, not raw inner transcripts. Then use a human-selected
 disposable local workspace. Enforce:
+
+The constrained helper
+`hermes_core/scripts/run_goal_manifest_pilot.py` is available to prepare the
+synthetic runs, perform exactly one explicit-engine wake per invocation, and
+compare only durable transition/verifier/artifact-hash metadata. `prepare` does
+not invoke a model; `wake` must not be run until G2 is opened by the separate
+human product/control/approval review. The helper neither exposes `mode: goal`
+nor replaces the desktop UI/approval work in Steps 1–2.
 
 - host profile only;
 - file read plus one manifest write;

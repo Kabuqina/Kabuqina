@@ -255,6 +255,67 @@ def _is_notify_mode(mode: Optional[str]) -> bool:
     return raw in ("notify", "static", "message")
 
 
+def _is_goal_mode(mode: Optional[str]) -> bool:
+    return isinstance(mode, str) and mode.strip().lower() == "goal"
+
+
+def _goal_state_result(state: Any) -> Dict[str, Any]:
+    """Format only the control-safe Goal Task state for a tool response."""
+    return {
+        "job_id": state.job_id,
+        "status": state.status,
+        "iteration": state.iteration,
+        "pause_reason": state.pause_reason,
+        "updated_at": state.updated_at.isoformat() if state.updated_at else None,
+    }
+
+
+def _validate_goal_create_boundary(
+    *,
+    schedule: Optional[str],
+    deliver: Any,
+    enabled_toolsets: Optional[List[str]],
+    script: Optional[str],
+    context_from: Optional[Union[str, List[str]]],
+    skill: Optional[str],
+    skills: Optional[List[str]],
+) -> Optional[str]:
+    """Enforce the public Pilot 1 creation boundary before writing a job.
+
+    ``create_job`` remains the generic, backward-compatible core validator.
+    This public-tool boundary is intentionally narrower: the first exposed
+    pilot is host-only, local-delivery, and file-only.  The runtime adapter adds
+    its non-default ``goal_internal`` reporting toolset itself.
+    """
+    if os.getenv("HERMES_GATEWAY_SESSION"):
+        return "Goal Tasks are host-profile only during Pilot 1; gateway-profile creation is disabled"
+
+    from cron.goal_report import goal_report_scope_active
+
+    if goal_report_scope_active():
+        return "A Goal Task iteration cannot create another Goal Task"
+
+    if not schedule:
+        return "schedule is required for Goal Task creation"
+    try:
+        parsed = parse_schedule(schedule)
+    except ValueError as exc:
+        return str(exc)
+    if parsed.get("kind") not in {"interval", "cron"}:
+        return "Goal Tasks require a recurring interval or cron schedule"
+
+    if not isinstance(deliver, str) or deliver.strip().lower() != "local":
+        return "Pilot 1 Goal Tasks require deliver='local'"
+
+    normalized_toolsets = [str(value).strip() for value in enabled_toolsets or []]
+    if normalized_toolsets != ["file"]:
+        return "Pilot 1 Goal Tasks require enabled_toolsets=['file']; goal_internal is added only at runtime"
+
+    if script or context_from or skill or skills:
+        return "Pilot 1 Goal Tasks do not allow scripts, chained context, or skills"
+    return None
+
+
 def cronjob(
     action: str,
     job_id: Optional[str] = None,
@@ -276,6 +337,11 @@ def cronjob(
     workdir: Optional[str] = None,
     mode: Optional[str] = None,
     message: Optional[str] = None,
+    goal: Optional[str] = None,
+    verifier: Optional[Dict[str, Any]] = None,
+    limits: Optional[Dict[str, Any]] = None,
+    approval_mode: Optional[str] = None,
+    progress_delivery_every: Optional[int] = None,
     task_id: str = None,
 ) -> str:
     """Unified cron job management tool."""
@@ -283,14 +349,11 @@ def cronjob(
 
     try:
         normalized = (action or "").strip().lower()
+        goal_mode = _is_goal_mode(mode)
 
-        # Bounded Goal Runner (mode:goal) stays hidden from the public tool
-        # until G2 opens — neither an agent nor a user may create or convert a
-        # job into a live Goal Task during the inner-engine soak. Core
-        # create_job still accepts the mode for internal tests.
-        if isinstance(mode, str) and mode.strip().lower() == "goal":
+        if goal_mode and normalized != "create":
             return tool_error(
-                "mode='goal' (Bounded Goal Runner) is not available via cronjob yet",
+                "Goal Tasks are immutable after creation; use pause, resume, cancel, or delete with the existing job_id",
                 success=False,
             )
 
@@ -299,7 +362,27 @@ def cronjob(
                 return tool_error("schedule is required for create", success=False)
             canonical_skills = _canonical_skills(skill, skills)
             notify_mode = _is_notify_mode(mode)
-            if notify_mode:
+            if goal_mode:
+                boundary_error = _validate_goal_create_boundary(
+                    schedule=schedule,
+                    deliver=deliver,
+                    enabled_toolsets=enabled_toolsets,
+                    script=script,
+                    context_from=context_from,
+                    skill=skill,
+                    skills=skills,
+                )
+                if boundary_error:
+                    return tool_error(boundary_error, success=False)
+                if not prompt:
+                    return tool_error("Goal Tasks require a non-empty iteration prompt", success=False)
+                if not goal:
+                    return tool_error("Goal Tasks require a non-empty objective (goal)", success=False)
+                if verifier is None:
+                    return tool_error("Goal Tasks require one known verifier configuration", success=False)
+                if limits is None:
+                    return tool_error("Goal Tasks require explicit finite limits", success=False)
+            elif notify_mode:
                 body = (message or prompt or "").strip()
                 if not body:
                     return tool_error(
@@ -352,6 +435,11 @@ def cronjob(
                 workdir=_normalize_optional_job_value(workdir),
                 mode=mode,
                 message=message,
+                goal=goal,
+                verifier=verifier,
+                limits=limits,
+                approval_mode=approval_mode,
+                progress_delivery_every=progress_delivery_every,
             )
             return json.dumps(
                 {
@@ -384,6 +472,41 @@ def cronjob(
                 {"success": False, "error": f"Job with ID '{job_id}' not found. Use cronjob(action='list') to inspect jobs."},
                 indent=2,
             )
+
+        if (job.get("mode") or "").strip().lower() == "goal":
+            from hermes_time import now as _hermes_now
+            from cron.goal_controls import (
+                GoalControlBusy,
+                GoalControlNotFound,
+                InvalidGoalControl,
+                cancel_goal,
+                delete_goal,
+                pause_goal,
+                resume_goal,
+            )
+
+            try:
+                if normalized == "pause":
+                    state = pause_goal(job_id, now=_hermes_now())
+                elif normalized == "resume":
+                    state = resume_goal(job_id, now=_hermes_now())
+                elif normalized == "cancel":
+                    state = cancel_goal(job_id, now=_hermes_now())
+                elif normalized in {"delete", "remove"}:
+                    deleted = delete_goal(job_id)
+                    return json.dumps({"success": True, "deleted": bool(deleted), "job_id": job_id}, indent=2)
+                else:
+                    return tool_error(
+                        "Goal Task definitions are immutable; supported actions are list, pause, resume, cancel, and delete",
+                        success=False,
+                    )
+            except GoalControlBusy:
+                return tool_error("Goal Task is busy; wait for the current wake to finish", success=False)
+            except GoalControlNotFound:
+                return tool_error("Goal Task state was not found", success=False)
+            except InvalidGoalControl as exc:
+                return tool_error(str(exc), success=False)
+            return json.dumps({"success": True, "goal": _goal_state_result(state)}, indent=2)
 
         if normalized == "remove":
             removed = remove_job(job_id)
@@ -503,8 +626,14 @@ CRONJOB_SCHEMA = {
 
 Use action='create' to schedule a new job from a prompt or one or more skills.
 Use mode='notify' with message (or prompt) for fixed-text reminders that deliver at schedule time without running the LLM.
+Use mode='goal' only for the bounded, host-only Pilot 1 Goal Task: it requires
+an objective, iteration prompt, recurring schedule, existing workdir, one
+known verifier, finite limits, deliver='local', and enabled_toolsets=['file'].
+The runtime adds its internal report tool; Goal Tasks cannot create Goal Tasks.
 Use action='list' to inspect jobs.
 Use action='update', 'pause', 'resume', 'remove', or 'run' to manage an existing job.
+For an existing Goal Task, use pause, resume, cancel, or delete (remove is an
+alias for delete); goal definitions are immutable after creation.
 
 To stop a job the user no longer wants: first action='list' to find the job_id, then action='remove' with that job_id. Never guess job IDs — always list first.
 
@@ -522,7 +651,7 @@ Important safety rule: cron-run sessions should not recursively schedule more cr
         "properties": {
             "action": {
                 "type": "string",
-                "description": "One of: create, list, update, pause, resume, remove, run"
+                "description": "One of: create, list, update, pause, resume, cancel, delete, remove, run"
             },
             "job_id": {
                 "type": "string",
@@ -530,7 +659,7 @@ Important safety rule: cron-run sessions should not recursively schedule more cr
             },
             "mode": {
                 "type": "string",
-                "description": "Job execution mode. Default 'agent' runs the LLM. 'notify' (aliases: static, message) delivers fixed text at schedule time with no LLM — use message or prompt as the body."
+                "description": "Job execution mode. Default 'agent' runs the LLM. 'notify' (aliases: static, message) delivers fixed text at schedule time with no LLM. Exact 'goal' creates the constrained host-only Pilot 1 Goal Task; it must use local delivery and the file-only toolset."
             },
             "message": {
                 "type": "string",
@@ -602,6 +731,26 @@ Important safety rule: cron-run sessions should not recursively schedule more cr
                 "type": "string",
                 "description": "Optional absolute path to run the job from. When set, AGENTS.md / CLAUDE.md / .cursorrules from that directory are injected into the system prompt, and the terminal/file/code_exec tools use it as their working directory — useful for running a job inside a specific project repo. Must be an absolute path that exists. When unset (default), preserves the original behaviour: no project context files, tools use the scheduler's cwd. On update, pass an empty string to clear. Jobs with workdir run sequentially (not parallel) to keep per-job directories isolated."
             },
+            "goal": {
+                "type": "string",
+                "description": "Required only when mode='goal': bounded objective for the persistent Goal Task. The agent must obtain the user's explicit confirmation before creating a Goal Task."
+            },
+            "verifier": {
+                "type": "object",
+                "description": "Required only when mode='goal': one known deterministic verifier with kind and config. The desktop Pilot UI does not expose arbitrary verifier JSON."
+            },
+            "limits": {
+                "type": "object",
+                "description": "Required only when mode='goal': explicit finite max_runs and max_wall_seconds, plus optional max_cost_usd, deadline, no_progress_limit, and max_infrastructure_failures."
+            },
+            "approval_mode": {
+                "type": "string",
+                "description": "Optional Goal Task side-effect policy: ask_before_external_side_effect (default) or always. Pilot 1 exposes file-only work and local delivery."
+            },
+            "progress_delivery_every": {
+                "type": "integer",
+                "description": "Optional positive Goal Task progress-delivery cadence. Pilot 1 local delivery normally leaves this unset."
+            },
         },
         "required": ["action"]
     }
@@ -651,6 +800,11 @@ registry.register(
         workdir=args.get("workdir"),
         mode=args.get("mode"),
         message=args.get("message"),
+        goal=args.get("goal"),
+        verifier=args.get("verifier"),
+        limits=args.get("limits"),
+        approval_mode=args.get("approval_mode"),
+        progress_delivery_every=args.get("progress_delivery_every"),
         task_id=kw.get("task_id"),
     ))(),
     check_fn=check_cronjob_requirements,

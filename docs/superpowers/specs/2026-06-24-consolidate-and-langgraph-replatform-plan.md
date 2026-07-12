@@ -1542,7 +1542,7 @@ Change `agent.engine` default from `loop` to `graph`. Retain explicit
 `agent.engine: loop` and `HERMES_AGENT_ENGINE=loop` for one release. Update user
 support documentation with the rollback setting.
 
-- [~] **Step 4: complete a release-cycle soak** *(REOPENED BY OWNER
+- [x] **Step 4: complete a release-cycle soak** *(REOPENED BY OWNER
   2026-07-05 — the 2026-07-03 waiver is rescinded. The historical early
   closure note remains below for audit, but it no longer satisfies G2.
   UPDATED BY OWNER 2026-07-08 — the fixed-artifact 14-day interpretation is
@@ -1623,15 +1623,34 @@ denial, not evidence of result-shape, hook, persistence, or usage drift.
 
 On 2026-07-10 the G1 goal suite was refreshed under the bundled CPython 3.11.15
 runtime (pytest installed only into ignored `.test-output`): goal core tests =
-227 passed / 1 skipped; desk goal routes = 8 passed. Step 4 remains open here
-until the short post-release window has elapsed and the owner explicitly records
-the clean observation outcome. This note records real release evidence without
-silently compressing the chosen acceptance window again.
+227 passed / 1 skipped; desk goal routes = 8 passed. This note records real
+release evidence without silently compressing the chosen acceptance window
+again.
 
-Until that post-release acceptance is recorded, G2 remains closed and Step 5
-must not start. Once it is recorded, re-evaluate G2 for Goal Runner Pilot 1 and
-then proceed toward Step 5 only after the Goal Runner dual-engine evidence is
-recorded or the Goal Runner runtime integration is explicitly deferred.
+**G2 environment evidence update — 2026-07-12.** The owner confirmed that the
+installed v0.3.0 release also completed its goal-control smoke
+(pause→resume→cancel→delete). This closes the release-equivalent desktop part
+of the G2 G1-test condition; it neither closes Step 4 nor substitutes for the
+separate clean-observation acceptance.
+
+**CLOSURE — owner release acceptance, 2026-07-12.** After the short
+post-release observation window, the owner explicitly confirmed that no
+graph-attributable P0/P1 and no unexplained result-shape, hook, persistence, or
+usage drift were observed. Step 4 is therefore closed under the 2026-07-08
+release-acceptance decision. This does not claim a fixed artifact completed the
+superseded 14-day soak.
+
+G2 must still remain closed until its separate human product-copy,
+destructive-control, and approval-boundary review completes. Step 5 must not
+start. After G2 opens, record the Goal Runner dual-engine evidence (or an
+explicit runtime-integration deferral) before proceeding toward Step 5.
+
+**G2 OPENED — 2026-07-12.** The owner completed the independent review of the
+bounded Goal Runner product copy, destructive controls, and approval boundaries
+with no blocking issue. Task 10 may now implement and run the host-only Pilot 1
+while the explicit loop escape hatch remains available. This gate does not
+authorize legacy-loop removal: Step 5 still waits for the dual-engine Pilot 1
+evidence (or an explicit runtime-integration deferral).
 
 Substituted evidence (gathered on merged `main` @ `76b1343f`, 2026-07-03):
 
@@ -1649,11 +1668,12 @@ Substituted evidence (gathered on merged `main` @ `76b1343f`, 2026-07-03):
       observation. Any graph regression found later must still land first as a
       loop fixture, then be fixed.
 
-This no longer satisfies G2 gate condition 1 after the 2026-07-05 waiver
-rescission and 2026-07-08 release-acceptance update. G2 remains closed; Task 10
-must not expose the host-only Pilot 1 on the strength of the waived Step 4
-evidence. Re-evaluate G2 only after the v0.3.0 release-acceptance record closes
-Step 4 while the loop escape hatch still exists.
+The waived historical evidence above remains insufficient on its own after the
+2026-07-05 waiver rescission. The separate 2026-07-12 owner
+release-acceptance record now satisfies G2 condition 1 while the loop escape
+hatch still exists. G2 nevertheless remains closed pending its independent
+human product/control/approval review; Task 10 must not expose the host-only
+Pilot 1 before that review is recorded.
 
 - [ ] **Step 5: remove the legacy loop in a dedicated commit**
 

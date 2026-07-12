@@ -564,8 +564,16 @@ pub fn cmd_cron_delete(app: AppHandle, job_id: String) -> Result<(), String> {
 // These commands validate the host-profile job id and forward to the desk
 // server's `/api/desk/goals/*` routes, which delegate to that core. The legacy
 // `cmd_cron_toggle`/`cmd_cron_delete` reject `mode: goal`, so these are the only
-// desktop path for pause/resume/cancel/delete of a Goal Task.
+// desktop path for creation/pause/resume/cancel/delete of a Goal Task.
 // ------------------------------------------------------------------
+
+#[tauri::command]
+pub async fn cmd_goal_create(app: AppHandle) -> Result<serde_json::Value, String> {
+    // The authenticated desk route derives the workspace from the host child
+    // and creates only the frozen Pilot 1 template.  Do not accept webview
+    // supplied verifier, limits, delivery, or path values here.
+    crate::chat::desk_json_request(&app, reqwest::Method::POST, "/api/desk/goals", None).await
+}
 
 fn validate_goal_job_id(job_id: &str) -> Result<(), String> {
     if job_id.len() == 12

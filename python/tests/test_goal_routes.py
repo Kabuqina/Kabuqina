@@ -28,6 +28,9 @@ NOW = datetime(2026, 6, 27, 12, 0, tzinfo=timezone.utc)
 @pytest.fixture
 def home(tmp_path, monkeypatch):
     monkeypatch.setenv("HERMES_HOME", str(tmp_path / "home"))
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    monkeypatch.setenv("HERMES_WORKSPACE", str(workspace))
     return tmp_path
 
 
@@ -73,6 +76,45 @@ def test_pause_returns_sanitized_paused_state(client, home):
     assert body["status"] == "paused"
     assert body["job_id"] == job["id"]
     assert set(body) == {"job_id", "status", "iteration", "pause_reason", "updated_at"}
+
+
+def test_create_pilot_goal_uses_the_host_workspace_and_frozen_contract(client, home):
+    from cron.goal_state import load_goal_state
+    from cron.jobs import get_job
+
+    resp = client.post("/api/desk/goals")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert set(body) == {
+        "job_id",
+        "name",
+        "mode",
+        "status",
+        "schedule",
+        "workdir",
+        "max_runs",
+        "max_wall_seconds",
+        "max_cost_usd",
+    }
+    assert body["mode"] == "goal"
+    assert body["status"] == "scheduled"
+    assert Path(body["workdir"]) == (home / "workspace").resolve()
+    assert (body["max_runs"], body["max_wall_seconds"], body["max_cost_usd"]) == (40, 14_400, "5.00")
+
+    job = get_job(body["job_id"])
+    assert job is not None
+    assert job["deliver"] == "local"
+    assert job["enabled_toolsets"] == ["file"]
+    assert job["goal"]["verifier"]["kind"] == "manifest_complete"
+    assert load_goal_state(body["job_id"]).status == "scheduled"
+
+
+def test_create_pilot_goal_does_not_accept_a_client_workspace_override(client, home):
+    resp = client.post("/api/desk/goals", json={"workdir": "C:/untrusted"})
+
+    assert resp.status_code == 200
+    assert Path(resp.json()["workdir"]) == (home / "workspace").resolve()
 
 
 def test_resume_returns_scheduled(client, home):

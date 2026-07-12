@@ -1,7 +1,7 @@
 # 学习 Agent 的运行时对齐：Harness 与 Graph 层评审
 
-> Status: **评审结论 + 排期分配**（2026-07-05 依 soak 重启更新）
-> Last updated: 2026-07-05
+> Status: **评审结论 + 排期分配**（2026-07-12 G2 开门后补充 contracts-only 审查）
+> Last updated: 2026-07-12
 > 前置阅读：[immersive-learning-redesign.md](immersive-learning-redesign.md)（原则与 M1 行为层）、
 > [四层学习管线设计](superpowers/specs/2026-07-01-study-four-layer-learning-pipeline-design.md)（数据层）
 >
@@ -129,7 +129,11 @@ churn + tracing 是重构的真实成本（重构备忘）;PlannerSpec 不许变
 
 ## 3. 排期分配
 
-**重构轨状态（2026-07-05）：** Task 11 Step 4 的 ≥14 天 soak 原被豁免,
+**重构轨状态（2026-07-12）：** Task 11 Step 4 已按 v0.3.0
+release-acceptance 关闭，G2 门也已打开；LG1/LG2/H2 的 requirements-only
+审查记录见 [Learning Graph contracts](superpowers/specs/2026-07-12-learning-graph-contract-requirements.md)。
+这次解冻只定义接口与不变量，不实现 tutor loop、checkpoint 或 interrupt
+节点。原先状态（2026-07-05）：Task 11 Step 4 的 ≥14 天 soak 原被豁免,
 但豁免合并进 main 后暴露多个 bug,soak 已**重启**,预计延续到
 v0.3.0 发布之后仍未结束。因此 phase 3.5 的 **G2 门**（gate,条件 1 =
 soak）保持关闭至 v0.3.0 之后;graph_engine 与其 contracts 在 soak 期间

@@ -1,9 +1,10 @@
 # Copyright 2026 Kabuqina Contributors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Desk routes for Goal Task human controls (Goal Runner Task 9, Step 4).
+"""Desk routes for Goal Task creation and human controls.
 
-These endpoints delegate *only* to the core `cron.goal_controls` service — no
+The creation endpoint derives the host workspace and calls the fixed Pilot 1
+core template. Control endpoints delegate *only* to `cron.goal_controls` — no
 goal-state transition logic lives here (nor in Rust or React). They validate the
 host-profile job id, map control errors to HTTP status, and return sanitized
 state. Authentication is handled by the shared desk auth middleware.
@@ -12,8 +13,10 @@ state. Authentication is handled by the shared desk auth middleware.
 from __future__ import annotations
 
 import logging
+import os
 import re
 from contextlib import contextmanager
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 
@@ -45,6 +48,36 @@ def _sanitized_state(state) -> dict:
     }
 
 
+def _desktop_workspace() -> str:
+    """Return the spawned desktop child's workspace, never client input."""
+    raw = (
+        os.environ.get("HERMESDESK_WORKSPACE")
+        or os.environ.get("HERMES_WORKSPACE")
+        or ""
+    ).strip()
+    if not raw:
+        raise ValueError("desktop workspace is not configured")
+    workspace = Path(raw).expanduser().resolve()
+    if not workspace.is_dir():
+        raise ValueError("desktop workspace is unavailable")
+    return str(workspace)
+
+
+def _sanitized_created_goal(job: dict) -> dict:
+    """Return the fixed Pilot 1 projection, never its prompt or verifier body."""
+    return {
+        "job_id": job["id"],
+        "name": job["name"],
+        "mode": "goal",
+        "status": "scheduled",
+        "schedule": job["schedule_display"],
+        "workdir": job["workdir"],
+        "max_runs": job["goal"]["limits"]["max_runs"],
+        "max_wall_seconds": job["goal"]["limits"]["max_wall_seconds"],
+        "max_cost_usd": job["goal"]["limits"]["max_cost_usd"],
+    }
+
+
 @contextmanager
 def _mapped(job_id: str):
     """Validate the id and map control errors to HTTP; a busy lock is 409."""
@@ -58,6 +91,22 @@ def _mapped(job_id: str):
         raise HTTPException(status_code=404, detail="goal not found") from exc
     except InvalidGoalControl as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/api/desk/goals")
+async def create_pilot_goal_route():
+    """Create the one fixed, host-only Goal Task template for Pilot 1.
+
+    There is intentionally no request body: the authenticated desktop route
+    derives its workspace from the spawned host process, and the core template
+    supplies the verifier, limits, local delivery, and file-only toolset.
+    """
+    try:
+        from cron.goal_pilot import create_pilot_manifest_goal
+
+        return _sanitized_created_goal(create_pilot_manifest_goal(_desktop_workspace()))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.post("/api/desk/goals/{job_id}/pause")
