@@ -1263,11 +1263,11 @@ Advanced arbitrary verifier JSON, terminal verifiers, and LLM-only completion
 are not exposed. UI creation is an explicit confirmed user action;
 pause/resume/cancel controls display their consequences before confirmation.
 
-- [ ] **Step 3: run the read-mostly workspace inventory pilot**
+- [x] **Step 3: run the read-mostly workspace inventory pilot**
 
-  *Synthetic half met 2026-07-12; the first human-selected disposable-workspace
-  completion is recorded below; the three explicit restart cases remain
-  required.* The frozen fixture completed once under explicit `graph`
+  *Completed 2026-07-12: explicit graph/loop synthetic parity, a
+  human-selected disposable-workspace completion, and all three restart cases
+  are recorded below.* The frozen fixture completed once under explicit `graph`
   (`0b7059146639`) and once under explicit `loop` (`1d76d83f1afb`). Both ran
   one iteration with complete usage accounting, `verified_complete` / verifier
   `pass`, and the same sanitized artifact hash
@@ -1293,8 +1293,27 @@ pause/resume/cancel controls display their consequences before confirmation.
   `160d8edc821e58ed8d980e505b1c86a78013fd0e5ba1cb84a542c8ef9d0fb585`.
   The temporary host flag was restored to `false` immediately after each
   single wake. This record intentionally omits prompts, document content,
-  report text, and credentials; it does not substitute for the scheduled,
-  running-recovery, and failed-verifier restart cases.
+  report text, and credentials.
+
+  **Restart cases (2026-07-12).** With the host gate disabled, task
+  `609b15088b8d` remained `scheduled` at iteration 0 across an automated
+  desktop restart: no model call occurred. The same file-only task was then
+  awakened once, observed at `running`, and its desktop process tree was
+  deliberately interrupted. After the restarted host was given one local tick
+  with the gate still disabled, it committed `running → paused` with
+  `recovery_review`, complete accounting, and an explicit refusal to replay;
+  it was then cancelled to retain evidence without another wake. For the
+  failed-verifier case, task `306ce3fba670` used the same bounded workspace and
+  toolset, with only its test verifier requiring an absent sentinel manifest.
+  Its first no-report pause was excluded. Its single controlled retry committed
+  `running → scheduled` with `verification_failed`, complete accounting,
+  verifier `fail`, artifact hash
+  `9d460e6582b55825651797f04872e2c185f0c1b8d1b328c49766f4f86f39334a`, and
+  evidence hash
+  `08fdf19654bc47fea1e544b211edbcb3022f30a030751cd973862bb8ab98025b`.
+  After the third automated desktop restart those fields were unchanged; the
+  task was then cancelled, preserving its evidence. All temporary host gates
+  were restored to `false` before the next wake.
 
 Before Phase 3.5 removes its escape hatch, complete the synthetic workspace once
 with explicit `agent_engine="loop"` and once with explicit
@@ -1323,7 +1342,14 @@ nor replaces the desktop UI/approval work in Steps 1–2.
 Record each pilot run's state transitions and verification command in the design
 document. Never record prompts, document contents, or secrets.
 
-- [ ] **Step 4: verify and commit**
+- [x] **Step 4: verify and commit**
+
+  *Verified 2026-07-12 after the completed host pilot: hermetic core focus
+  `tests/cron/test_cron_goal.py tests/cron/test_goal_verifiers.py` = 78 passed,
+  1 skipped; Scheduled Tasks UI contract passed; `npm run lint` and
+  `npm run build` passed. The host gate was confirmed false after the final
+  restart. Only Goal Runner source/evidence commits are included; unrelated
+  in-progress STUDY changes remain unstaged.*
 
 ```powershell
 cd hermes_core

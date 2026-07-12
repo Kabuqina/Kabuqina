@@ -906,5 +906,15 @@ After a desktop restart loaded that fix, iteration 2 completed with
 `verified_complete`, verifier `pass`, complete accounting, and durable
 artifact/evidence hashes recorded in the Goal Runner design. The host flag was
 restored to `false` directly after each wake; gateway profiles stay disabled.
-This is pilot evidence rather than an enablement decision, and the three
-explicit restart cases remain outstanding.
+This is pilot evidence rather than an enablement decision; the explicit restart
+cases are recorded below.
+
+**Goal Runner Pilot 1 restart outcome (2026-07-12).** The three required host
+restart cases are complete under the same temporary, default-false gate. A
+scheduled task survived a desktop restart without a model call. An intentionally
+interrupted in-flight task resumed only into `recovery_review`; it did not replay
+the prior turn. A bounded sentinel-verifier test preserved its complete-ledger
+`verification_failed` state, verifier outcome, and sanitized hashes through a
+subsequent desktop restart. Test jobs were cancelled after observation, retaining
+evidence. This closes the Task 10 pilot evidence, but is not a decision to
+generally enable Goal Tasks or gateway execution.

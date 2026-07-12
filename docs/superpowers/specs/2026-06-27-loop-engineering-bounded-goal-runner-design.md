@@ -728,10 +728,21 @@ iteration had safely paused as `invalid_artifact`: the worker reported a
 Windows absolute path for the in-workspace manifest. `00f3225c` normalizes
 only absolute paths that resolve inside the workdir, retains the outside-path
 rejection, and was loaded by restarting the desktop before iteration 2. The
-host feature gate was restored to disabled after every wake. This is valid
-human-workspace completion evidence, but does not satisfy the separate
-scheduled, running-recovery, and failed-verifier restart cases; no prompt,
-document content, report body, or credential is recorded here.
+host feature gate was restored to disabled after every wake. The remaining
+restart evidence was also completed in the same disposable workspace:
+`609b15088b8d` stayed `scheduled` at iteration 0 through a host restart with
+the gate disabled; after one deliberately interrupted `running` wake, the
+restarted host committed `running → paused` / `recovery_review` and refused
+automatic replay. `306ce3fba670` used the same file-only contract with a test
+verifier that required an absent sentinel manifest. Its reportless first wake
+was excluded; its single retry committed `verification_failed` with a complete
+ledger, verifier `fail`, artifact hash
+`9d460e6582b55825651797f04872e2c185f0c1b8d1b328c49766f4f86f39334a`, and
+evidence hash
+`08fdf19654bc47fea1e544b211edbcb3022f30a030751cd973862bb8ab98025b`. A final
+host restart preserved that failed-verifier state before the test tasks were
+cancelled. No prompt, document content, report body, or credential is recorded
+here.
 
 ### Pilot exit criteria
 
