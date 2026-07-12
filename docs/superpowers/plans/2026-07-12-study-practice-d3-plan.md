@@ -311,3 +311,34 @@ KaTeX；Vitest/RTL + pytest + Rust tests。
   reduced motion 和离开未提交作答均有真实测试。
 - `/chat` 初始图无 PracticePage/CodeMirror；Web/Python/Rust 门全绿，bundle +
   Windows WebView2 手工 smoke 完成。
+
+---
+
+## Progress update — 2026-07-12
+
+### Automated implementation and gates complete
+
+- URL-space D-3 bridge、wrongbook opaque retry source、structured desktop errors：
+  `353c5343`；
+- PracticePage、卡片 review、quiz attempt、CodeMirror/KaTeX surfaces、B-3 draft
+  generation、result wire minimization and legacy sidebar retirement：`d5133fd2`；
+- editor/derivation interaction coverage：`e8a70f60`；首页 section-level degraded
+  state and quiz-draft activation direct entry：`9aa6e8c5`。
+- Latest Web gates: `npm run test:components` (13 files / 57 tests),
+  `npm run test:chat-ux`, lint, TypeScript and production build all pass. The
+  production build keeps `StudyRoute` at 10.90 kB gzip and leaves CodeMirror
+  (121.59 kB gzip) and derivation/KaTeX (77.85 kB gzip) in independent lazy
+  chunks, outside the `/chat` initial JS. `npm audit --omit=dev --json`
+  reports zero production vulnerabilities.
+- Latest Python D-3 regression: 29 passing tests across study routes, code
+  grading, capture/M2, M4 and M6. The focused `WrongbookService` core and
+  Rust bridge checks passed with the D-3 bridge slice.
+
+### Remaining release evidence
+
+- Windows WebView2 manual smoke: current-space switching, card Space/1–4,
+  normal quiz, code transcription/variant, derivation cloze, wrongbook retry,
+  draft activate/reject, unavailable desk child, light/dark and Chinese/English;
+- run the normal package/bundle smoke appropriate to the release candidate;
+- record those observations here and in the master D-3 completion record, then
+  close D-3.
