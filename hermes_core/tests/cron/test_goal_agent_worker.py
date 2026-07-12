@@ -13,6 +13,7 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+import json
 import os
 
 import pytest
@@ -101,11 +102,20 @@ def _event(index=0, *, amount="0.01", status="actual", usage=True, outcome="succ
 class FakeAgent:
     """Stand-in for ``AIAgent``: emits usage events, optionally reports/raises."""
 
-    def __init__(self, *, report_payload=None, events=(), result=None, raise_exc=None):
+    def __init__(
+        self,
+        *,
+        report_payload=None,
+        events=(),
+        result=None,
+        raise_exc=None,
+        on_run=None,
+    ):
         self._report_payload = report_payload
         self._events = tuple(events)
         self._result = {"response": "done"} if result is None else result
         self._raise_exc = raise_exc
+        self._on_run = on_run
         self.sink = None
         self.run_calls = []
         self.close_calls = 0
@@ -120,6 +130,8 @@ class FakeAgent:
         )
         for event in self._events:
             self.sink.on_attempt(event)
+        if self._on_run is not None:
+            self._on_run()
         if self._raise_exc is not None:
             raise self._raise_exc
         if self._report_payload is not None:
@@ -210,6 +222,60 @@ def test_generates_fresh_session_id_each_iteration(definition):
     first, second = factory.calls[0]["session_id"], factory.calls[1]["session_id"]
     assert first != second
     assert first.startswith("goal-abc123def456-")
+
+
+def test_manifest_goal_scope_allows_one_manifest_write_only(definition, monkeypatch):
+    from tools import file_tools
+
+    scoped_definition = replace(
+        definition,
+        verifier_kind="manifest_complete",
+        verifier_config={"manifest": "learning-materials.json"},
+    )
+    monkeypatch.setenv("TERMINAL_CWD", str(scoped_definition.workdir))
+    writes = []
+
+    class Result:
+        def to_dict(self):
+            return {"status": "ok"}
+
+    class FileOps:
+        def write_file(self, path, content):
+            writes.append((path, content))
+            return Result()
+
+    def exercise_file_boundary():
+        blocked = json.loads(file_tools.write_file_tool("notes.txt", "no"))
+        assert "only the configured manifest" in blocked["error"]
+
+        allowed = json.loads(
+            file_tools.write_file_tool("learning-materials.json", "{}")
+        )
+        assert allowed["status"] == "ok"
+
+        repeated = json.loads(
+            file_tools.write_file_tool("learning-materials.json", "{}")
+        )
+        assert "only once" in repeated["error"]
+
+        patched = json.loads(
+            file_tools.patch_tool(
+                mode="replace",
+                path="learning-materials.json",
+                old_string="{}",
+                new_string="{}",
+            )
+        )
+        assert "patch blocked" in patched["error"]
+
+    monkeypatch.setattr(file_tools, "_get_file_ops", lambda task_id: FileOps())
+    agent = FakeAgent(report_payload=_REPORT_PAYLOAD, on_run=exercise_file_boundary)
+    worker = GoalAgentWorker(agent_engine="graph", agent_factory=RecordingFactory(agent))
+
+    observation = worker.run_iteration(scoped_definition, _running_state())
+
+    assert observation.report is not None
+    assert writes == [("learning-materials.json", "{}")]
 
 
 # --- report scope ---------------------------------------------------------

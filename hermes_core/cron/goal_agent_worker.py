@@ -42,6 +42,7 @@ from cron.goal_usage import (
     GoalUsageSnapshot,
     summarize_usage_events,
 )
+from tools.goal_file_scope import approved_manifest_path, goal_manifest_write_scope
 
 __all__ = ["GoalAgentWorker", "AgentFactory"]
 
@@ -142,12 +143,17 @@ class GoalAgentWorker:
         # --- Run phase: an exception after entry is conservatively ambiguous ---
         started = time.monotonic()
         try:
-            with goal_report_scope(definition.job_id, state.iteration) as collector:
-                result = agent.run_conversation(
-                    user_message=definition.iteration_prompt,
-                    system_message=system_message,
-                )
-                report = collector.report
+            with goal_manifest_write_scope(
+                workdir=definition.workdir,
+                verifier_kind=definition.verifier_kind,
+                verifier_config=definition.verifier_config,
+            ):
+                with goal_report_scope(definition.job_id, state.iteration) as collector:
+                    result = agent.run_conversation(
+                        user_message=definition.iteration_prompt,
+                        system_message=system_message,
+                    )
+                    report = collector.report
         except Exception as exc:
             return WorkerObservation(
                 report=None,
@@ -236,6 +242,21 @@ class GoalAgentWorker:
             "Use file_metadata for a file's SHA-256 and byte size, including "
             "binary documents; do not read binary document bodies for a manifest."
         )
+        manifest = approved_manifest_path(
+            workdir=definition.workdir,
+            verifier_kind=definition.verifier_kind,
+            verifier_config=definition.verifier_config,
+        )
+        if manifest is None:
+            lines.append(
+                "No file writes are permitted for this Goal Task iteration."
+            )
+        else:
+            relative_manifest = manifest.relative_to(definition.workdir.resolve())
+            lines.append(
+                "The only permitted mutation is one write_file call to "
+                f"{relative_manifest.as_posix()}; patch is blocked."
+            )
         lines.append(
             "Finish by calling the goal_report tool exactly once with: status "
             "('progress' | 'candidate_done' | 'blocked'), a short summary, "

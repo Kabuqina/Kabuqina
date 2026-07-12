@@ -17,6 +17,7 @@ from tools.file_operations import (
     normalize_search_pagination,
 )
 from tools import file_state
+from tools.goal_file_scope import goal_file_patch_error, goal_file_write_error
 from agent.redact import redact_sensitive_text
 
 logger = logging.getLogger(__name__)
@@ -837,6 +838,9 @@ def _check_file_staleness(filepath: str, task_id: str) -> str | None:
 
 def write_file_tool(path: str, content: str, task_id: str = "default") -> str:
     """Write content to a file."""
+    goal_error = goal_file_write_error(path)
+    if goal_error:
+        return tool_error(goal_error)
     sensitive_err = _check_sensitive_path(path, task_id)
     if sensitive_err:
         return tool_error(sensitive_err)
@@ -896,6 +900,9 @@ def patch_tool(mode: str = "replace", path: str = None, old_string: str = None,
                new_string: str = None, replace_all: bool = False, patch: str = None,
                task_id: str = "default") -> str:
     """Patch a file using replace mode or V4A patch format."""
+    goal_error = goal_file_patch_error()
+    if goal_error:
+        return tool_error(goal_error)
     # Check sensitive paths for both replace (explicit path) and V4A patch (extract paths)
     _paths_to_check = []
     if path:

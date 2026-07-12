@@ -287,7 +287,9 @@ def _validate_goal_create_boundary(
     pilot is host-only, local-delivery, and file-only.  The runtime adapter adds
     its non-default ``goal_internal`` reporting toolset itself.
     """
-    if os.getenv("HERMES_GATEWAY_SESSION"):
+    if os.getenv("HERMES_GATEWAY_SESSION") or os.getenv(
+        "HERMESDESK_GATEWAY_PLATFORM"
+    ):
         return "Goal Tasks are host-profile only during Pilot 1; gateway-profile creation is disabled"
 
     from cron.goal_report import goal_report_scope_active

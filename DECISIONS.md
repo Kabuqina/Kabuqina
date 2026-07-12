@@ -918,3 +918,21 @@ the prior turn. A bounded sentinel-verifier test preserved its complete-ledger
 subsequent desktop restart. Test jobs were cancelled after observation, retaining
 evidence. This closes the Task 10 pilot evidence, but is not a decision to
 generally enable Goal Tasks or gateway execution.
+
+**Goal Task gateway and write boundary remediation (2026-07-12).** Pilot 1
+host-only creation treats `HERMESDESK_GATEWAY_PLATFORM` as the authoritative
+desktop gateway-child marker, with the legacy `HERMES_GATEWAY_SESSION` retained
+as a defense-in-depth signal. During a bounded Goal worker iteration, the
+otherwise normal `file` toolset is constrained by an iteration-local policy:
+only one `write_file` attempt to the `manifest_complete` verifier's configured
+relative manifest is allowed; `patch`, all non-manifest writes, and writes for
+templates without an approved manifest are rejected. The policy is a core
+`ContextVar`, so concurrent workers cannot share permission state and desktop
+overlays are not part of this safety boundary.
+
+**PH35-FU-010 — post-removal cleanup/hook normalization (tracked 2026-07-12).**
+After the dedicated legacy-loop removal is released, normalize the frozen
+early-return cleanup, `post_llm_call`, and `on_session_end` behavior in a
+separate behavior-change commit with explicit tests and release notes. This
+follow-up is deliberately not bundled with loop deletion; it records Decision
+4's outstanding normalization work before that deletion commit is permitted.

@@ -528,16 +528,25 @@ class TestCronjobToolGoalContract:
         deleted = json.loads(cronjob(action="delete", job_id=job_id))
         assert deleted == {"success": True, "deleted": True, "job_id": job_id}
 
-    def test_goal_creation_rejects_gateway_and_nested_goal_contexts(self, tmp_path, monkeypatch):
+    @pytest.mark.parametrize(
+        ("gateway_env", "gateway_value"),
+        [
+            ("HERMES_GATEWAY_SESSION", "1"),
+            ("HERMESDESK_GATEWAY_PLATFORM", "discord"),
+        ],
+    )
+    def test_goal_creation_rejects_real_gateway_contexts(
+        self, tmp_path, monkeypatch, gateway_env, gateway_value
+    ):
         from cron.goal_report import goal_report_scope
         from cron.jobs import load_jobs
         from tools.cronjob_tools import cronjob
 
         before = len(load_jobs())
-        monkeypatch.setenv("HERMES_GATEWAY_SESSION", "1")
+        monkeypatch.setenv(gateway_env, gateway_value)
         gateway = cronjob(**self._kwargs(tmp_path))
         assert "gateway" in gateway.lower()
-        monkeypatch.delenv("HERMES_GATEWAY_SESSION")
+        monkeypatch.delenv(gateway_env)
 
         with goal_report_scope("abc123def456", 1):
             nested = cronjob(**self._kwargs(tmp_path))

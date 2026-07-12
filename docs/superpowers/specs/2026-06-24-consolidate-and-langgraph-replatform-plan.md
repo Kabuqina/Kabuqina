@@ -1687,12 +1687,28 @@ import-isolation test. Do not use `run_agent.py` line-count reduction as the
 success criterion; use branch coverage, exit-contract coverage, and dependency
 direction instead.
 
+**C-track Step 5 remediation (2026-07-12).** A pre-removal review found that
+the original file list was incomplete. The dedicated removal commit must also
+remove selector/explicit-engine handling from `cron/scheduler.py`,
+`cron/goal_agent_worker.py`, `python/src/desk_server/chat_core.py`, and
+`hermes_core/scripts/run_goal_manifest_pilot.py`; update their direct tests at
+the same time. The Goal Runner's already-recorded explicit loop/graph evidence
+is historical pre-removal evidence, not a runtime selector that survives the
+commit. Do **not** delete golden, exit-contract, usage, persistence, hook, or
+fixed-seed differential coverage wholesale: convert the engine-neutral
+contracts to graph-only execution, retain their assertions and fixtures where
+they describe public behavior, and remove only loop-specific parametrization,
+fixtures, and selector tests. Before implementation, re-run a repository-wide
+reference inventory so this list remains exhaustive.
+
 Before this commit, create or designate the tracked cleanup/hook-normalization
 follow-up required by decision 4 and record its identifier in `DECISIONS.md`.
 
 ```powershell
 git add hermes_core/run_agent.py hermes_core/agent/engine_selector.py `
-  hermes_core/hermes_cli/config_defaults.py hermes_core/tests DECISIONS.md `
+  hermes_core/hermes_cli/config_defaults.py hermes_core/cron/scheduler.py `
+  hermes_core/cron/goal_agent_worker.py python/src/desk_server/chat_core.py `
+  hermes_core/scripts/run_goal_manifest_pilot.py hermes_core/tests DECISIONS.md `
   docs/superpowers/specs/2026-06-24-consolidate-and-langgraph-replatform-plan.md
 git commit -m "refactor: remove legacy agent conversation loop"
 ```
