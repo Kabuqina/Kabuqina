@@ -60,6 +60,7 @@ _VALID_COST_STATUSES = frozenset({"actual", "estimated", "included", "unknown"})
 _COMPLETE_COST_STATUSES = frozenset({"actual", "estimated", "included"})
 
 AgentFactory = Callable[..., Any]
+RuntimeResolver = Callable[[str, str | None], Mapping[str, Any]]
 
 
 def _default_agent_factory(**kwargs: Any) -> Any:
@@ -80,6 +81,8 @@ class GoalAgentWorker:
     agent_engine: str
     agent_factory: AgentFactory = _default_agent_factory
     model: str = ""
+    runtime_provider: str | None = None
+    runtime_resolver: RuntimeResolver | None = None
     extra_agent_kwargs: Mapping[str, Any] = field(default_factory=dict)
 
     def run_iteration(
@@ -113,6 +116,14 @@ class GoalAgentWorker:
                 "skip_context_files": False,
                 "skip_memory": True,
             }
+            if self.runtime_resolver is not None:
+                agent_kwargs.update(
+                    self.runtime_resolver(self.model, self.runtime_provider)
+                )
+            elif self.agent_factory is _default_agent_factory:
+                agent_kwargs.update(
+                    _resolve_profile_runtime(self.model, self.runtime_provider)
+                )
             agent_kwargs.update(dict(self.extra_agent_kwargs))
             agent = self.agent_factory(
                 **agent_kwargs,
@@ -246,6 +257,68 @@ class GoalAgentWorker:
             complete=False,
             incomplete_reason=_incomplete_reason(snapshot),
         )
+
+
+def _resolve_profile_runtime(
+    requested_model: str, requested_provider: str | None
+) -> Mapping[str, Any]:
+    """Resolve a Goal worker's model and credentials from its active profile.
+
+    Normal cron jobs already do this before constructing ``AIAgent``. Goal
+    workers must use the same route: passing ``model=''`` makes the agent lose
+    the configured provider/model pair and turns a real provider failure into
+    an unpriced ``transport_error``. This helper is core-only and reads no
+    desktop bridge state; credentials are returned only to the in-process agent
+    constructor and are never logged or persisted in Goal evidence.
+    """
+    from hermes_cli.config import load_config
+    from hermes_cli.runtime_provider import resolve_runtime_provider
+
+    config = load_config() or {}
+    model_config = config.get("model") if isinstance(config, Mapping) else None
+    profile_model = ""
+    profile_provider: str | None = None
+    if isinstance(model_config, Mapping):
+        candidate = model_config.get("default") or model_config.get("model")
+        profile_model = candidate.strip() if isinstance(candidate, str) else ""
+        candidate_provider = model_config.get("provider")
+        if isinstance(candidate_provider, str) and candidate_provider.strip():
+            profile_provider = candidate_provider.strip()
+    elif isinstance(model_config, str):
+        profile_model = model_config.strip()
+
+    model = (
+        str(requested_model or "").strip()
+        or os.getenv("HERMES_MODEL", "").strip()
+        or profile_model
+    )
+    if not model:
+        raise RuntimeError("Goal Task requires a configured model")
+
+    provider = (
+        requested_provider.strip()
+        if isinstance(requested_provider, str) and requested_provider.strip()
+        else profile_provider
+    )
+    runtime = resolve_runtime_provider(requested=provider)
+    resolved: dict[str, Any] = {
+        "model": model,
+        "api_key": runtime.get("api_key"),
+        "base_url": runtime.get("base_url"),
+        "provider": runtime.get("provider"),
+        "api_mode": runtime.get("api_mode"),
+        "acp_command": runtime.get("command"),
+        "acp_args": runtime.get("args"),
+    }
+    if isinstance(model_config, Mapping):
+        if model_config.get("reasoning_config") is not None:
+            resolved["reasoning_config"] = model_config["reasoning_config"]
+        if model_config.get("max_tokens") is not None:
+            try:
+                resolved["max_tokens"] = int(model_config["max_tokens"])
+            except (TypeError, ValueError):
+                pass
+    return resolved
 
 
 def _extract_output(result: object) -> str:

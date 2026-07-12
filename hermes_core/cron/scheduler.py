@@ -896,6 +896,7 @@ def _run_goal_job(job: dict, *, worker=None, verifier=None, now=None):
         worker = GoalAgentWorker(
             agent_engine=resolve_agent_engine(None),
             model=(job.get("model") or ""),
+            runtime_provider=(job.get("provider") or None),
         )
     if verifier is None:
         from cron.goal_verifiers import RegistryVerifier

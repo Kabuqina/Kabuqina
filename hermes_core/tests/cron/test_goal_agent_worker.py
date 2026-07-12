@@ -171,6 +171,35 @@ def test_propagates_selected_engine(definition, engine):
     assert factory.calls[0]["agent_engine"] == engine
 
 
+def test_profile_runtime_resolver_supplies_model_and_provider(definition):
+    factory = RecordingFactory(FakeAgent(report_payload=_REPORT_PAYLOAD))
+    calls = []
+
+    def resolve_runtime(model, provider):
+        calls.append((model, provider))
+        return {
+            "model": "deepseek-v4-flash",
+            "provider": "deepseek",
+            "api_key": "test-only-key",
+            "base_url": "https://api.deepseek.example/v1",
+            "api_mode": "chat_completions",
+        }
+
+    worker = GoalAgentWorker(
+        agent_engine="graph",
+        agent_factory=factory,
+        runtime_provider="deepseek",
+        runtime_resolver=resolve_runtime,
+    )
+
+    worker.run_iteration(definition, _running_state())
+
+    assert calls == [("", "deepseek")]
+    assert factory.calls[0]["model"] == "deepseek-v4-flash"
+    assert factory.calls[0]["provider"] == "deepseek"
+    assert factory.calls[0]["api_mode"] == "chat_completions"
+
+
 def test_generates_fresh_session_id_each_iteration(definition):
     factory = RecordingFactory(FakeAgent(report_payload=_REPORT_PAYLOAD))
     worker = GoalAgentWorker(agent_engine="loop", agent_factory=factory)
