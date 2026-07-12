@@ -38,6 +38,18 @@ _RECORD_NAME = "pilot-run.json"
 _RECORD_VERSION = 1
 _ENGINES = frozenset({"loop", "graph"})
 _MISSING_FIXTURE_PATH = "materials/lesson.docx"
+_PUBLIC_ITERATION_PROMPT = (
+    "Inspect at most one new or changed supported file, then update "
+    "learning-materials.json with its normalized relative path, SHA-256, and "
+    "byte size. Do not write outside the selected workspace."
+)
+_SYNTHETIC_ITERATION_PROMPT = (
+    "Complete exactly the seeded manifest gap for materials/lesson.docx. "
+    "Do not call search_files: the synthetic candidate is already selected. "
+    "Read learning-materials.json, call file_metadata on "
+    "materials/lesson.docx, then update the manifest while preserving its "
+    "existing records. Finish by calling goal_report exactly once."
+)
 
 
 class PilotError(RuntimeError):
@@ -84,6 +96,8 @@ def _assert_frozen_fixture(definition: Mapping[str, Any]) -> None:
     limits = definition.get("limits")
     if definition.get("mode") != "goal":
         raise PilotError("Pilot 1 fixture must be a goal job")
+    if definition.get("prompt") != _PUBLIC_ITERATION_PROMPT:
+        raise PilotError("Pilot 1 public iteration prompt drifted")
     if definition.get("enabled_toolsets") != ["file"]:
         raise PilotError("Pilot 1 permits only the file toolset")
     if definition.get("deliver") != "local":
@@ -209,6 +223,8 @@ def _assert_persisted_job_contract(job: Mapping[str, Any], workspace: Path) -> N
         raise PilotError("persisted Pilot 1 limits changed")
     if goal.get("approval_mode") != definition["approval_mode"]:
         raise PilotError("persisted Pilot 1 approval policy changed")
+    if job.get("prompt") != _SYNTHETIC_ITERATION_PROMPT:
+        raise PilotError("persisted synthetic Pilot 1 prompt changed")
 
 
 def prepare_run(run_dir: Path, engine: str, config_path: Path | None = None) -> dict[str, Any]:
@@ -236,6 +252,12 @@ def prepare_run(run_dir: Path, engine: str, config_path: Path | None = None) -> 
     # The fixture's display name is part of the frozen public contract, but
     # each isolated run needs an engine-specific label for unambiguous evidence.
     creation_definition.pop("name", None)
+    # The dual-engine harness works against one intentionally incomplete
+    # fixture, so it supplies the known missing file rather than performing a
+    # broad filesystem search. This keeps the proof focused on the controller,
+    # verifier, and engine parity, while the public desktop template remains
+    # the generic bounded-inventory prompt above.
+    creation_definition["prompt"] = _SYNTHETIC_ITERATION_PROMPT
     job = create_job(
         name=f"Pilot 1 manifest inventory ({engine})",
         workdir=str(workspace.resolve()),

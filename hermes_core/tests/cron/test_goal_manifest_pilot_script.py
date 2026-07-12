@@ -94,6 +94,8 @@ def test_prepare_creates_fresh_isolated_file_only_pilot(tmp_path):
     assert record["engine"] == "loop"
     assert record["job_id"] == payload["job_id"]
     assert job["enabled_toolsets"] == ["file"]
+    assert "materials/lesson.docx" in job["prompt"]
+    assert "Do not call search_files" in job["prompt"]
     assert job["goal"]["limits"]["max_runs"] == 40
     assert job["goal"]["verifier"]["kind"] == "manifest_complete"
     assert [item["path"] for item in manifest["files"]] == ["materials/algebra.pdf"]
