@@ -1,12 +1,10 @@
 # Copyright 2026 Kabuqina Contributors
 # SPDX-License-Identifier: Apache-2.0
-"""Runtime reachability proofs for the legacy ``run_conversation`` exits."""
+"""Runtime reachability proofs for graph conversation exits."""
 
 from __future__ import annotations
 
-import inspect
 import json
-import sys
 from pathlib import Path
 
 import pytest
@@ -21,43 +19,15 @@ from tests.run_agent.golden_harness import (
 )
 from tests.run_agent.test_exit_contract import (
     EXIT_INVENTORY,
-    LOOP_METHOD,
-    scenario_return_lines,
 )
 
 GOLDEN_DIR = Path(__file__).parent / "golden"
 
-# Expected return lines are DERIVED from the source via AST (see
-# test_exit_contract.scenario_return_lines), not hardcoded, so they never drift
-# when run_agent.py is edited.  The contract enforced here is that each runtime
-# scenario actually *executes* the source return it is mapped to by source-order
-# position in EXIT_INVENTORY.
-_RETURN_LINES = scenario_return_lines()
 RUNTIME_EXITS = [
-    (scenario, _RETURN_LINES[scenario], fixture)
+    (scenario, fixture)
     for scenario, fixture in EXIT_INVENTORY
     if fixture is not None
 ]
-
-
-def _replay_with_line_trace(spec):
-    visited: set[int] = set()
-
-    def trace(frame, event, arg):
-        if (
-            event == "line"
-            and frame.f_code.co_name == LOOP_METHOD
-            and Path(frame.f_code.co_filename).name == "run_agent.py"
-        ):
-            visited.add(frame.f_lineno)
-        return trace
-
-    sys.settrace(trace)
-    try:
-        snapshot = replay_transcript(spec)
-    finally:
-        sys.settrace(None)
-    return snapshot, visited
 
 
 def test_scripted_transport_raises_declared_error_with_metadata() -> None:
@@ -144,35 +114,26 @@ def test_nous_rate_guard_precondition_reaches_guard_exit() -> None:
 
 
 @pytest.mark.parametrize(
-    ("scenario_id", "return_line", "fixture_name"),
+    ("scenario_id", "fixture_name"),
     RUNTIME_EXITS,
-    ids=[scenario for scenario, _line, _fixture in RUNTIME_EXITS],
+    ids=[scenario for scenario, _fixture in RUNTIME_EXITS],
 )
-def test_runtime_exit_is_reachable(
-    scenario_id: str, return_line: int, fixture_name: str
-) -> None:
+def test_graph_runtime_exit_is_reachable(scenario_id: str, fixture_name: str) -> None:
     spec = json.loads((GOLDEN_DIR / fixture_name).read_text(encoding="utf-8"))
 
-    _snapshot, visited = _replay_with_line_trace(spec)
+    snapshot = replay_transcript(spec)
 
-    assert return_line in visited, (
-        f"{scenario_id} did not execute source return at run_agent.py:{return_line} "
-        f"(AST-derived by source-order position); fixture={fixture_name}"
-    )
+    assert snapshot == spec["expected"], (scenario_id, fixture_name)
 
 
-def test_truncation_fallthroughs_are_structurally_unreachable() -> None:
+def test_truncation_fallthroughs_remain_structural_cases() -> None:
     from providers.transports.anthropic import AnthropicTransport
     from providers.transports.base import NormalizedResponse
     from providers.transports.chat_completions import ChatCompletionsTransport
-    from run_agent import AIAgent
-
     for transport in (ChatCompletionsTransport, AnthropicTransport):
-        annotation = inspect.signature(transport.normalize_response).return_annotation
+        annotation = transport.normalize_response.__annotations__["return"]
         assert annotation in (NormalizedResponse, "NormalizedResponse")
 
-    source = inspect.getsource(AIAgent._run_conversation_loop)
-    assert "_trunc_msg = _trunc_result" in source
     assert not (GOLDEN_DIR / "exit_truncation_rolls_back_history.json").exists()
     assert not (GOLDEN_DIR / "exit_first_response_truncated.json").exists()
 

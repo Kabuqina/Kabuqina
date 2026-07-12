@@ -3,14 +3,12 @@
 
 """G1 Task 7: a thin adapter from one bounded goal iteration to the public agent.
 
-This module connects the engine-neutral Goal Runner controller to the product's
+This module connects the Goal Runner controller to the product's graph-backed
 `AIAgent` through its *public* ``run_conversation`` seam. It is deliberately
 narrow:
 
-* It never imports ``langgraph``, ``agent.graph_engine``, ``GraphEngine``, or a
-  graph node, and it never calls ``_run_conversation_loop`` /
-  ``_run_conversation_graph`` directly. Which engine actually runs is the
-  selector's decision, propagated as an explicit ``agent_engine``.
+* It never imports graph internals or calls a private conversation method
+  directly; ``AIAgent.run_conversation`` is the stable graph-backed seam.
 * Cost is measured by an injected per-attempt :class:`UsageLedger`, never
   inferred from the presence or absence of result-dict keys. Any attempt whose
   cost is unknown yields an *incomplete* snapshot so the controller pauses
@@ -77,9 +75,7 @@ def _default_agent_factory(**kwargs: Any) -> Any:
 
 @dataclass
 class GoalAgentWorker:
-    """Adapt one iteration onto ``AIAgent.run_conversation`` (loop or graph)."""
-
-    agent_engine: str
+    """Adapt one iteration onto graph-backed ``AIAgent.run_conversation``."""
     agent_factory: AgentFactory = _default_agent_factory
     model: str = ""
     runtime_provider: str | None = None
@@ -112,7 +108,6 @@ class GoalAgentWorker:
                 "session_id": session_id,
                 "enabled_toolsets": list(enabled_toolsets),
                 "usage_sink": ledger,
-                "agent_engine": self.agent_engine,
                 "platform": "cron",
                 "skip_context_files": False,
                 "skip_memory": True,

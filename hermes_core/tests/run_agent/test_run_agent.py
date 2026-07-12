@@ -4885,7 +4885,7 @@ class TestMemoryNudgeCounterPersistence:
     def test_counters_not_reset_in_preamble(self):
         """The run_conversation preamble must not zero the nudge counters."""
         import inspect
-        src = inspect.getsource(AIAgent._run_conversation_loop)
+        src = inspect.getsource(AIAgent._run_conversation_graph)
         # The preamble resets many fields (retry counts, budget, etc.)
         # before the main loop. Find that reset block and verify our
         # counters aren't in it. The reset block ends at iteration_budget.
@@ -4900,7 +4900,8 @@ class TestDeadRetryCode:
 
     def test_no_unreachable_max_retries_after_backoff(self):
         import inspect
-        source = inspect.getsource(AIAgent._run_conversation_loop)
+        from run_agent import _GraphServicesAdapter
+        source = inspect.getsource(_GraphServicesAdapter)
         occurrences = source.count("if retry_count >= max_retries:")
         assert occurrences == 2, (
             f"Expected 2 occurrences of 'if retry_count >= max_retries:' "
@@ -4916,7 +4917,7 @@ class TestMemoryContextSanitization:
         a literal <memory-context> tag we don't silently delete their text.
         The streaming scrubber + plugin-side scrub cover real leak paths."""
         import inspect
-        src = inspect.getsource(AIAgent._run_conversation_loop)
+        src = inspect.getsource(AIAgent._run_conversation_graph)
         assert "sanitize_context(user_message)" not in src
         assert "sanitize_context(persist_user_message)" not in src
 
@@ -4941,28 +4942,15 @@ class TestMemoryContextSanitization:
         assert "how is the honcho working" in result
 
 
-class TestMemoryProviderTurnStart:
-    """run_conversation() must call memory_manager.on_turn_start() before prefetch_all().
+class TestMemoryProviderTurnLifecycle:
+    """The graph path must synchronize a completed memory turn before prefetch."""
 
-    Without this call, providers like Honcho never update _turn_count, so cadence
-    checks (contextCadence, dialecticCadence) are always satisfied — every turn
-    fires both context refresh and dialectic, ignoring the configured cadence.
-    """
-
-    def test_on_turn_start_called_before_prefetch(self):
-        """Source-level check: on_turn_start appears before prefetch_all in run_conversation."""
+    def test_sync_happens_before_prefetch(self):
         import inspect
-        src = inspect.getsource(AIAgent._run_conversation_loop)
-        # Find the actual method calls, not comments
-        idx_turn_start = src.index(".on_turn_start(")
-        idx_prefetch = src.index(".prefetch_all(")
-        assert idx_turn_start < idx_prefetch, (
-            "on_turn_start() must be called before prefetch_all() in run_conversation "
-            "so that memory providers have the correct turn count for cadence checks"
-        )
+        src = inspect.getsource(AIAgent._sync_external_memory_for_turn)
+        assert src.index(".sync_all(") < src.index(".queue_prefetch_all(")
 
-    def test_on_turn_start_uses_user_turn_count(self):
-        """Source-level check: on_turn_start receives self._user_turn_count."""
+    def test_prefetch_uses_the_completed_turn_session(self):
         import inspect
-        src = inspect.getsource(AIAgent._run_conversation_loop)
-        assert "on_turn_start(self._user_turn_count" in src
+        src = inspect.getsource(AIAgent._sync_external_memory_for_turn)
+        assert "session_id=self.session_id or \"\"" in src

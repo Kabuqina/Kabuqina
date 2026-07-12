@@ -937,6 +937,16 @@ separate behavior-change commit with explicit tests and release notes. This
 follow-up is deliberately not bundled with loop deletion; it records Decision
 4's outstanding normalization work before that deletion commit is permitted.
 
+**Task 11 Step 5 legacy-loop removal (2026-07-12).** After the Step 4 release
+acceptance and the bounded Goal Runner Pilot's recorded loop/graph evidence,
+the legacy conversation loop, runtime selector, config/environment escape
+hatch, and explicit-engine callers were removed in one dedicated commit. The
+public `AIAgent.run_conversation` seam is graph-backed unconditionally. Golden,
+exit, hook, persistence, usage, and fixed-seed replay contracts remain as
+graph-only tests; the historical dual-engine pilot evidence is retained but is
+not a supported runtime mode. This commit does not normalize graph cleanup or
+hook behavior; that behavior remains scoped to `PH35-FU-010`.
+
 **D-3 practice target disclosure boundary (2026-07-12).** Code `target_code`
 and derivation `target_steps` are public only when the question explicitly uses
 `mode: transcribe`. Derivation questions without a mode remain backward

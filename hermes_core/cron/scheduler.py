@@ -890,11 +890,9 @@ def _run_goal_job(job: dict, *, worker=None, verifier=None, now=None):
         )
 
     if worker is None:
-        from agent.engine_selector import resolve_agent_engine
         from cron.goal_agent_worker import GoalAgentWorker
 
         worker = GoalAgentWorker(
-            agent_engine=resolve_agent_engine(None),
             model=(job.get("model") or ""),
             runtime_provider=(job.get("provider") or None),
         )

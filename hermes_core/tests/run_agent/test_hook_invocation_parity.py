@@ -20,23 +20,21 @@ RUNTIME_FIXTURES = [
 ]
 
 
-@pytest.mark.parametrize("engine", ["loop", "graph"])
 @pytest.mark.parametrize(
     ("scenario_id", "fixture_name"),
     RUNTIME_FIXTURES,
     ids=[scenario for scenario, _fixture in RUNTIME_FIXTURES],
 )
 def test_exit_hook_cleanup_and_interrupt_policy_matches_frozen_snapshot(
-    scenario_id: str, fixture_name: str, engine: str
+    scenario_id: str, fixture_name: str
 ) -> None:
-    """Every reachable exit fires the same hooks, cleanup, and interrupt-clear
-    side effects under both the legacy loop and the Phase 3.5 graph engine."""
+    """Every reachable graph exit preserves hooks, cleanup, and interrupt policy."""
     spec = json.loads((GOLDEN_DIR / fixture_name).read_text(encoding="utf-8"))
     expected = spec.get("expected")
     assert expected is not None, f"{scenario_id} has not been recorded"
 
-    actual = replay_transcript(spec, engine=engine)
+    actual = replay_transcript(spec)
 
-    assert actual["hook_calls"] == expected["hook_calls"], (scenario_id, engine)
-    assert actual["cleanup_task_ids"] == expected["cleanup_task_ids"], (scenario_id, engine)
-    assert actual["clear_interrupt_calls"] == expected["clear_interrupt_calls"], (scenario_id, engine)
+    assert actual["hook_calls"] == expected["hook_calls"], scenario_id
+    assert actual["cleanup_task_ids"] == expected["cleanup_task_ids"], scenario_id
+    assert actual["clear_interrupt_calls"] == expected["clear_interrupt_calls"], scenario_id

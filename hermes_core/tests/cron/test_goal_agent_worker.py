@@ -31,8 +31,6 @@ from cron.goal_state import (
 
 NOW = datetime(2026, 6, 27, 12, 0, tzinfo=timezone.utc)
 JOB_ID = "abc123def456"
-ENGINES = ("loop", "graph")
-
 _REPORT_PAYLOAD = {
     "status": "progress",
     "summary": "processed one item",
@@ -161,11 +159,10 @@ class RecordingFactory:
 # --- lifecycle ------------------------------------------------------------
 
 
-@pytest.mark.parametrize("engine", ENGINES)
-def test_runs_one_agent_and_one_conversation_per_iteration(definition, engine):
+def test_runs_one_agent_and_one_conversation_per_iteration(definition):
     agent = FakeAgent(report_payload=_REPORT_PAYLOAD, events=[_event()])
     factory = RecordingFactory(agent)
-    worker = GoalAgentWorker(agent_engine=engine, agent_factory=factory)
+    worker = GoalAgentWorker(agent_factory=factory)
 
     worker.run_iteration(definition, _running_state(iteration=1))
 
@@ -173,14 +170,13 @@ def test_runs_one_agent_and_one_conversation_per_iteration(definition, engine):
     assert len(agent.run_calls) == 1
 
 
-@pytest.mark.parametrize("engine", ENGINES)
-def test_propagates_selected_engine(definition, engine):
+def test_does_not_pass_a_legacy_engine_selector_to_agent(definition):
     factory = RecordingFactory(FakeAgent(report_payload=_REPORT_PAYLOAD))
-    worker = GoalAgentWorker(agent_engine=engine, agent_factory=factory)
+    worker = GoalAgentWorker(agent_factory=factory)
 
     worker.run_iteration(definition, _running_state())
 
-    assert factory.calls[0]["agent_engine"] == engine
+    assert "agent_engine" not in factory.calls[0]
 
 
 def test_profile_runtime_resolver_supplies_model_and_provider(definition):
@@ -198,7 +194,6 @@ def test_profile_runtime_resolver_supplies_model_and_provider(definition):
         }
 
     worker = GoalAgentWorker(
-        agent_engine="graph",
         agent_factory=factory,
         runtime_provider="deepseek",
         runtime_resolver=resolve_runtime,
@@ -214,7 +209,7 @@ def test_profile_runtime_resolver_supplies_model_and_provider(definition):
 
 def test_generates_fresh_session_id_each_iteration(definition):
     factory = RecordingFactory(FakeAgent(report_payload=_REPORT_PAYLOAD))
-    worker = GoalAgentWorker(agent_engine="loop", agent_factory=factory)
+    worker = GoalAgentWorker(agent_factory=factory)
 
     worker.run_iteration(definition, _running_state(iteration=1))
     worker.run_iteration(definition, _running_state(iteration=2))
@@ -270,7 +265,7 @@ def test_manifest_goal_scope_allows_one_manifest_write_only(definition, monkeypa
 
     monkeypatch.setattr(file_tools, "_get_file_ops", lambda task_id: FileOps())
     agent = FakeAgent(report_payload=_REPORT_PAYLOAD, on_run=exercise_file_boundary)
-    worker = GoalAgentWorker(agent_engine="graph", agent_factory=RecordingFactory(agent))
+    worker = GoalAgentWorker(agent_factory=RecordingFactory(agent))
 
     observation = worker.run_iteration(scoped_definition, _running_state())
 
@@ -283,7 +278,7 @@ def test_manifest_goal_scope_allows_one_manifest_write_only(definition, monkeypa
 
 def test_captures_submitted_report(definition):
     factory = RecordingFactory(FakeAgent(report_payload=_REPORT_PAYLOAD))
-    worker = GoalAgentWorker(agent_engine="loop", agent_factory=factory)
+    worker = GoalAgentWorker(agent_factory=factory)
 
     observation = worker.run_iteration(definition, _running_state())
 
@@ -294,7 +289,7 @@ def test_captures_submitted_report(definition):
 
 def test_report_scope_is_closed_after_iteration(definition):
     factory = RecordingFactory(FakeAgent(report_payload=_REPORT_PAYLOAD))
-    worker = GoalAgentWorker(agent_engine="loop", agent_factory=factory)
+    worker = GoalAgentWorker(agent_factory=factory)
 
     worker.run_iteration(definition, _running_state())
 
@@ -305,7 +300,7 @@ def test_report_scope_is_closed_after_iteration(definition):
 
 def test_missing_report_yields_none_without_ambiguity(definition):
     factory = RecordingFactory(FakeAgent(report_payload=None, events=[_event()]))
-    worker = GoalAgentWorker(agent_engine="loop", agent_factory=factory)
+    worker = GoalAgentWorker(agent_factory=factory)
 
     observation = worker.run_iteration(definition, _running_state())
 
@@ -317,14 +312,13 @@ def test_missing_report_yields_none_without_ambiguity(definition):
 # --- usage accounting -----------------------------------------------------
 
 
-@pytest.mark.parametrize("engine", ENGINES)
-def test_complete_usage_is_summed(definition, engine):
+def test_complete_usage_is_summed(definition):
     agent = FakeAgent(
         report_payload=_REPORT_PAYLOAD,
         events=[_event(0, amount="0.01"), _event(1, amount="0.02")],
     )
     factory = RecordingFactory(agent)
-    worker = GoalAgentWorker(agent_engine=engine, agent_factory=factory)
+    worker = GoalAgentWorker(agent_factory=factory)
 
     observation = worker.run_iteration(definition, _running_state())
 
@@ -335,7 +329,7 @@ def test_complete_usage_is_summed(definition, engine):
 
 def test_no_transport_attempt_is_complete_zero_cost(definition):
     factory = RecordingFactory(FakeAgent(report_payload=_REPORT_PAYLOAD, events=[]))
-    worker = GoalAgentWorker(agent_engine="loop", agent_factory=factory)
+    worker = GoalAgentWorker(agent_factory=factory)
 
     observation = worker.run_iteration(definition, _running_state())
 
@@ -358,7 +352,7 @@ def test_any_unpriced_attempt_makes_usage_incomplete(definition, event, reason):
     # Re-index the second event so the ledger sees a clean attempt sequence.
     agent._events = (agent._events[0], replace(event, attempt_index=1))
     factory = RecordingFactory(agent)
-    worker = GoalAgentWorker(agent_engine="loop", agent_factory=factory)
+    worker = GoalAgentWorker(agent_factory=factory)
 
     observation = worker.run_iteration(definition, _running_state())
 
@@ -372,7 +366,7 @@ def test_any_unpriced_attempt_makes_usage_incomplete(definition, event, reason):
 
 def test_setup_exception_is_safe_infrastructure_failure(definition):
     factory = RecordingFactory(raise_exc=RuntimeError("no provider credentials"))
-    worker = GoalAgentWorker(agent_engine="loop", agent_factory=factory)
+    worker = GoalAgentWorker(agent_factory=factory)
 
     observation = worker.run_iteration(definition, _running_state())
 
@@ -386,7 +380,7 @@ def test_setup_exception_is_safe_infrastructure_failure(definition):
 def test_run_exception_after_entry_is_ambiguous(definition):
     agent = FakeAgent(events=[_event()], raise_exc=RuntimeError("crash mid-turn"))
     factory = RecordingFactory(agent)
-    worker = GoalAgentWorker(agent_engine="loop", agent_factory=factory)
+    worker = GoalAgentWorker(agent_factory=factory)
 
     observation = worker.run_iteration(definition, _running_state())
 
@@ -400,7 +394,7 @@ def test_run_exception_after_entry_is_ambiguous(definition):
 
 def test_enabled_toolsets_add_goal_internal_without_broadening(definition):
     factory = RecordingFactory(FakeAgent(report_payload=_REPORT_PAYLOAD))
-    worker = GoalAgentWorker(agent_engine="loop", agent_factory=factory)
+    worker = GoalAgentWorker(agent_factory=factory)
 
     worker.run_iteration(definition, _running_state())
 
@@ -411,7 +405,7 @@ def test_enabled_toolsets_add_goal_internal_without_broadening(definition):
 def test_goal_internal_not_duplicated_when_already_declared(definition):
     definition = replace(definition, enabled_toolsets=("goal_internal", "file"))
     factory = RecordingFactory(FakeAgent(report_payload=_REPORT_PAYLOAD))
-    worker = GoalAgentWorker(agent_engine="loop", agent_factory=factory)
+    worker = GoalAgentWorker(agent_factory=factory)
 
     worker.run_iteration(definition, _running_state())
 
@@ -423,7 +417,7 @@ def test_goal_internal_not_duplicated_when_already_declared(definition):
 def test_system_message_carries_bounds_and_excludes_evidence_bodies(definition):
     agent = FakeAgent(report_payload=_REPORT_PAYLOAD)
     factory = RecordingFactory(agent)
-    worker = GoalAgentWorker(agent_engine="loop", agent_factory=factory)
+    worker = GoalAgentWorker(agent_factory=factory)
 
     state = _running_state(
         iteration=3, last_summary="prev summary", last_evidence_hash="deadbeef"
@@ -446,7 +440,7 @@ def test_system_message_carries_bounds_and_excludes_evidence_bodies(definition):
 def test_user_message_is_the_iteration_prompt(definition):
     agent = FakeAgent(report_payload=_REPORT_PAYLOAD)
     factory = RecordingFactory(agent)
-    worker = GoalAgentWorker(agent_engine="loop", agent_factory=factory)
+    worker = GoalAgentWorker(agent_factory=factory)
 
     worker.run_iteration(definition, _running_state())
 
@@ -455,7 +449,7 @@ def test_user_message_is_the_iteration_prompt(definition):
 
 def test_agent_constructed_with_goal_workdir_context(definition):
     factory = RecordingFactory(FakeAgent(report_payload=_REPORT_PAYLOAD))
-    worker = GoalAgentWorker(agent_engine="loop", agent_factory=factory)
+    worker = GoalAgentWorker(agent_factory=factory)
 
     worker.run_iteration(definition, _running_state())
 
@@ -468,7 +462,7 @@ def test_agent_constructed_with_goal_workdir_context(definition):
 def test_goal_iteration_binds_and_restores_terminal_cwd(definition, monkeypatch):
     agent = FakeAgent(report_payload=_REPORT_PAYLOAD)
     factory = RecordingFactory(agent)
-    worker = GoalAgentWorker(agent_engine="loop", agent_factory=factory)
+    worker = GoalAgentWorker(agent_factory=factory)
     monkeypatch.setenv("TERMINAL_CWD", "D:\\prior")
 
     worker.run_iteration(definition, _running_state())
@@ -482,7 +476,7 @@ def test_goal_iteration_removes_terminal_cwd_when_previously_unset(
 ):
     agent = FakeAgent(report_payload=_REPORT_PAYLOAD)
     factory = RecordingFactory(agent)
-    worker = GoalAgentWorker(agent_engine="loop", agent_factory=factory)
+    worker = GoalAgentWorker(agent_factory=factory)
     monkeypatch.delenv("TERMINAL_CWD", raising=False)
 
     worker.run_iteration(definition, _running_state())
@@ -494,7 +488,7 @@ def test_goal_iteration_removes_terminal_cwd_when_previously_unset(
 def test_agent_is_closed_after_successful_iteration(definition):
     agent = FakeAgent(report_payload=_REPORT_PAYLOAD)
     factory = RecordingFactory(agent)
-    worker = GoalAgentWorker(agent_engine="loop", agent_factory=factory)
+    worker = GoalAgentWorker(agent_factory=factory)
 
     worker.run_iteration(definition, _running_state())
 
@@ -504,7 +498,7 @@ def test_agent_is_closed_after_successful_iteration(definition):
 def test_agent_is_closed_after_run_exception(definition):
     agent = FakeAgent(events=[_event()], raise_exc=RuntimeError("crash mid-turn"))
     factory = RecordingFactory(agent)
-    worker = GoalAgentWorker(agent_engine="loop", agent_factory=factory)
+    worker = GoalAgentWorker(agent_factory=factory)
 
     worker.run_iteration(definition, _running_state())
 

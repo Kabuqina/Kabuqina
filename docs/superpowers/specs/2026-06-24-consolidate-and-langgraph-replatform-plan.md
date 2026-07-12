@@ -1675,7 +1675,7 @@ hatch still exists. G2 nevertheless remains closed pending its independent
 human product/control/approval review; Task 10 must not expose the host-only
 Pilot 1 before that review is recorded.
 
-- [ ] **Step 5: remove the legacy loop in a dedicated commit**
+- [x] **Step 5: remove the legacy loop in a dedicated commit**
 
 After Step 4 closes through the v0.3.0 release-acceptance record, first require
 Goal Runner Task 10 to record one bounded synthetic pilot under explicit `loop`
@@ -1721,19 +1721,27 @@ git add hermes_core/run_agent.py hermes_core/agent/engine_selector.py `
 git commit -m "refactor: remove legacy agent conversation loop"
 ```
 
+**Completed (2026-07-12).** The dedicated removal commit deletes the legacy
+conversation body, selector module, configuration escape hatch, and every
+runtime caller that passed an explicit engine. Goal Runner's prior dual-engine
+Pilot 1 evidence remains historical evidence only; the pilot harness now accepts
+only `graph`. Golden, exit, usage, persistence, hook, and fixed-seed coverage
+remain and execute through the public graph-backed `AIAgent.run_conversation`
+seam. Cleanup and hook normalization remain explicitly deferred to
+`PH35-FU-010`; this removal does not alter those graph behaviors.
+
 ---
 
 ## Rollback rules
 
-- During the one-release escape window after the default flip, support may
-  set `agent.engine: loop` in the affected profile or launch with
-  `HERMES_AGENT_ENGINE=loop`, then restart the relevant child/app.
+- The legacy engine is removed; `agent.engine` and `HERMES_AGENT_ENGINE` are
+  not rollback controls.
 - A graph failure after any possible tool execution must return its graph error.
-  It must not retry through the loop because that can duplicate file writes,
-  shell commands, messages, or external API mutations.
-- If an unresolved graph-attributable P0/P1 appears during the soak, use the
-  explicit loop escape hatch, record the failing scenario, and pause release or
-  removal rather than silently crossing engines within a turn.
+  It must not retry through another engine because that can duplicate file
+  writes, shell commands, messages, or external API mutations.
+- If an unresolved graph-attributable P0/P1 appears, record the failing
+  scenario and use the normal release rollback process; do not add a hidden
+  per-process engine fallback.
 - If the dependency or bundle gate fails, remove the spike cleanly and write a
   separate owned finite-state-engine plan. Do not vendor LangGraph internals.
 

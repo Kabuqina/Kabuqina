@@ -1,12 +1,11 @@
 # Copyright 2026 Kabuqina Contributors
 # SPDX-License-Identifier: Apache-2.0
-"""Golden-transcript characterization tests for ``AIAgent.run_conversation``.
+"""Golden-transcript graph-contract tests for ``AIAgent.run_conversation``.
 
 Each ``golden/*.json`` fixture scripts a full conversation (see
 ``golden_harness`` for the schema and rationale) and stores the expected
 observable snapshot under ``"expected"``. The test replays the transcript and
-asserts the snapshot is unchanged — so any behavior drift in the loop during the
-phase-3 consolidate or phase-3.5 LangGraph re-platform shows up as a diff here.
+asserts the snapshot is unchanged — so graph behavior drift shows up as a diff.
 
 Recording / updating goldens (review the diff before committing!)::
 
@@ -48,33 +47,22 @@ def _fixtures():
     return sorted(GOLDEN_DIR.glob("*.json"))
 
 
-@pytest.mark.parametrize("engine", ["loop", "graph"])
 @pytest.mark.parametrize(
     "fixture_path", _fixtures(), ids=lambda p: p.stem
 )
-def test_golden_transcript(fixture_path: Path, engine: str):
-    """Replay each fixture under both engines and pin it to the frozen golden.
-
-    The ``loop`` parameterization is the legacy characterization gate; the
-    ``graph`` parameterization is the Phase 3.5 equivalence gate.  Both engines
-    are compared to the **same** committed ``expected`` snapshot (recorded from
-    the loop), so a graph divergence in result keys, messages, hooks, cleanup,
-    interrupt clearing, persistence, streaming, or usage shows up here.  Each
-    parameterization constructs its own fresh agent and scripted transport.
-    """
+def test_golden_transcript(fixture_path: Path):
+    """Replay each fixture through the public graph-only conversation seam."""
     spec = json.loads(fixture_path.read_text(encoding="utf-8"))
 
     if RECORD:
-        if engine != "loop":
-            pytest.skip("goldens are recorded from the loop only")
-        snapshot = replay_transcript(spec, engine="loop")
+        snapshot = replay_transcript(spec)
         spec["expected"] = snapshot
         fixture_path.write_text(
             json.dumps(spec, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
         )
         pytest.skip(f"recorded golden snapshot for {fixture_path.name}")
 
-    snapshot = replay_transcript(spec, engine=engine)
+    snapshot = replay_transcript(spec)
 
     expected = spec.get("expected")
     assert expected is not None, (

@@ -643,27 +643,13 @@ def _fallback_patch(fallback_model):
         yield
 
 
-def replay_transcript(
-    spec: Dict[str, Any], engine: str = "loop", usage_sink=None
-) -> Dict[str, Any]:
+def replay_transcript(spec: Dict[str, Any], usage_sink=None) -> Dict[str, Any]:
     """Replay one transcript against a real ``AIAgent`` and return the snapshot.
 
     ``usage_sink`` (optional) is wired onto the agent as its ``UsageEventSink``
-    so a test can assert the per-attempt usage events either engine emits.  It
-    does not appear in the returned snapshot — the goldens stay sink-agnostic.
-
-    ``engine`` selects the conversation driver:
-
-    * ``"loop"`` runs the legacy ``AIAgent.run_conversation`` body
-      (``_run_conversation_loop`` once Task 10 lands the selector);
-    * ``"graph"`` runs ``AIAgent._run_conversation_graph`` (Phase 3.5 LangGraph).
-
-    Both engines are constructed on a *fresh* agent and *fresh* scripted
-    transport — never the same instance — so a parameterized equivalence test
-    can compare their complete snapshots without sharing process-global state.
+    so a test can assert the per-attempt graph usage events. It does not appear
+    in the returned snapshot — the goldens stay sink-agnostic.
     """
-    if engine not in ("loop", "graph"):
-        raise ValueError(f"unknown engine {engine!r}; expected 'loop' or 'graph'")
     import run_agent
 
     _validate_retry_assumptions(spec.get("assumed_retry_counts", {}))
@@ -783,10 +769,8 @@ def replay_transcript(
         agent._cleanup_task_resources = _observed_cleanup
         agent.clear_interrupt = _observed_clear
 
-        # Observe turn-lifecycle side effects (Group A review remediation): the
-        # loop runs these at its turn prefix and finalizer; the graph must too.
-        # Counting them at their boundaries puts them in the frozen snapshot, so
-        # a graph that skips one (P1-1/P1-2) diverges from the loop here.
+        # Observe turn-lifecycle side effects at their boundaries. Counting them
+        # in the frozen graph snapshot guards cleanup and persistence contracts.
         lifecycle_calls = {
             "restore_primary_runtime": 0,
             "hydrate_todo_store": 0,
@@ -869,17 +853,8 @@ def replay_transcript(
                 stream_log.append(text)
                 callback_events.append({"channel": "stream", "text": text})
 
-            # Drive the engine bodies *directly* so the loop/graph
-            # parameterization is independent of the strangler selector
-            # (HERMES_AGENT_ENGINE / agent.engine), which the public
-            # run_conversation dispatcher consults.
-            _driver = (
-                agent._run_conversation_graph
-                if engine == "graph"
-                else agent._run_conversation_loop
-            )
             try:
-                result = _driver(
+                result = agent.run_conversation(
                     spec["user_message"],
                     conversation_history=conversation_history,
                     task_id=GOLDEN_TASK_ID,

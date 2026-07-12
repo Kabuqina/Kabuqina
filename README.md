@@ -141,7 +141,7 @@ Tauri 2 shell (Rust)
  └─ Python child: gateway.run              可选消息平台适配器
 ```
 
-- Agent core（`hermes_core/`）源自 [Hermes Agent](https://github.com/NousResearch/hermes-agent)（Nous Research，MIT），作为**自有 core** 在仓库内独立演进；推理循环已重平台到图引擎（`agent.engine=graph`），教学行为契约（节奏、answer-then-teach、知识点协议）注入在系统提示的规范层，用户自定义人设也无法剥离。
+- Agent core（`hermes_core/`）源自 [Hermes Agent](https://github.com/NousResearch/hermes-agent)（Nous Research，MIT），作为**自有 core** 在仓库内独立演进；对话运行时仅使用图引擎，教学行为契约（节奏、answer-then-teach、知识点协议）注入在系统提示的规范层，用户自定义人设也无法剥离。
 - 学习产物遵循统一契约：AI 内容 → 类型化草稿 → 确定性校验（+按类型的语义审核）→ 用户激活；owner 与课程空间双重隔离。
 
 | 路径 | 作用 |

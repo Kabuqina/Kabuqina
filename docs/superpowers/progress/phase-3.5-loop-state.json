@@ -1,10 +1,10 @@
 {
   "plan": "docs/superpowers/specs/2026-06-24-consolidate-and-langgraph-replatform-plan.md",
-  "current_task": "task11-step5-readiness-remediation",
-  "status": "awaiting_owner_direction",
+  "current_task": "task11-step5-loop-removal",
+  "status": "complete",
   "attempt": 1,
-  "worktree": "main",
-  "last_commit": "d726797f",
+  "worktree": "codex/task11-step5-loop-removal",
+  "last_commit": "current Step 5 dedicated removal commit",
   "last_verification": [
     "Task 11 Step 2 (graph smoke, both API modes): GO recorded 2026-07-03 - all 5 scenarios passed (chat_completions DeepSeek + anthropic_messages mimo-v2.5, interrupt/recovery, restart/resume, separate Weixin gateway process).",
     "Task 11 Step 3 (default flip loop->graph, d28e1614): selector+config 76 passed; default-graph and explicit-loop test_run_agent.py 296 each; graph goldens/parity/differential + usage/exit 303 passed; desktop Python suite 272 passed. Merged to main (b7b62886 -> 76b1343f).",
@@ -24,6 +24,6 @@
   ],
   "failed_approaches": [],
   "blocker": null,
-  "handoff_prompt": "Task 11 Steps 2-4 and Task 10 are complete on main. C-track Step 5 readiness blockers from the pre-removal review were closed in d726797f with focused core/web verification. The host gate remains default-false. Await explicit owner authorization before beginning the dedicated legacy-loop removal commit.",
-  "next_action": "Await explicit owner authorization to begin Task 11 Step 5. Before its deletion commit, re-run the selector-reference inventory and retain graph-only engine-independent contracts. Preserve the default-false host gate."
+  "handoff_prompt": "Task 11 Steps 2-5 and Task 10 are complete. The current dedicated Step 5 commit removes the legacy loop and selector; graph-only contracts passed, and the default-false host gate is unchanged. PH35-FU-010 remains the separate cleanup/hook-normalization follow-up.",
+  "next_action": "Integrate the dedicated Step 5 commit when ready; preserve the default-false host gate and handle cleanup/hook normalization only through PH35-FU-010."
 }

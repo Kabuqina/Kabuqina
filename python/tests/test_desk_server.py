@@ -175,12 +175,12 @@ class TestDeskCapabilityPrompt(unittest.TestCase):
                                 agent = chat_core._desk_chat_build_agent("desk-mode-log", db=object())
 
         self.assertIsNotNone(agent)
-        self.assertEqual(agent.kwargs.get("agent_engine"), "graph")
+        self.assertNotIn("agent_engine", agent.kwargs)
         joined = "\n".join(captured.output)
         self.assertIn("provider=custom", joined)
         self.assertIn("model=mimo-v2.5", joined)
         self.assertIn("api_mode=anthropic_messages", joined)
-        self.assertIn("engine=graph", joined)
+        self.assertNotIn("engine=", joined)
         self.assertNotIn("never-log-me", joined)
 
 

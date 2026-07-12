@@ -31,7 +31,8 @@ def _run_script(*args: str) -> tuple[dict, str]:
     return json.loads(result.stdout), result.stdout
 
 
-def _prepare(tmp_path: Path, engine: str) -> tuple[Path, dict]:
+def _prepare(tmp_path: Path) -> tuple[Path, dict]:
+    engine = "graph"
     run_dir = tmp_path / f"{engine}-pilot"
     payload, _ = _run_script(
         "prepare", "--run-dir", str(run_dir), "--engine", engine
@@ -39,45 +40,8 @@ def _prepare(tmp_path: Path, engine: str) -> tuple[Path, dict]:
     return run_dir, payload
 
 
-def _write_transition(run_dir: Path, *, artifact_hash: str) -> None:
-    record = json.loads((run_dir / "pilot-run.json").read_text(encoding="utf-8"))
-    iteration_dir = (
-        run_dir
-        / "hermes-home"
-        / "cron"
-        / "goal-runs"
-        / record["job_id"]
-        / "iterations"
-        / "000001"
-    )
-    iteration_dir.mkdir(parents=True)
-    (iteration_dir / "transition.json").write_text(
-        json.dumps(
-            {
-                "iteration": 1,
-                "previous_status": "scheduled",
-                "next_status": "completed",
-                "reason": "verified_complete",
-                "last_artifact_hash": artifact_hash,
-                "next_state": {"last_summary": "never expose this body"},
-            }
-        ),
-        encoding="utf-8",
-    )
-    (iteration_dir / "verification.json").write_text(
-        json.dumps(
-            {
-                "outcome": "pass",
-                "summary": "secret report body must not reach compare output",
-                "evidence": {"secret": "not-for-output"},
-            }
-        ),
-        encoding="utf-8",
-    )
-
-
 def test_prepare_creates_fresh_isolated_file_only_pilot(tmp_path):
-    run_dir, payload = _prepare(tmp_path, "loop")
+    run_dir, payload = _prepare(tmp_path)
 
     assert payload["status"] == "prepared"
     record = json.loads((run_dir / "pilot-run.json").read_text(encoding="utf-8"))
@@ -91,7 +55,7 @@ def test_prepare_creates_fresh_isolated_file_only_pilot(tmp_path):
         )
     )
 
-    assert record["engine"] == "loop"
+    assert record["engine"] == "graph"
     assert record["job_id"] == payload["job_id"]
     assert job["enabled_toolsets"] == ["file"]
     assert "materials/lesson.docx" in job["prompt"]
@@ -101,41 +65,22 @@ def test_prepare_creates_fresh_isolated_file_only_pilot(tmp_path):
     assert [item["path"] for item in manifest["files"]] == ["materials/algebra.pdf"]
 
 
-def test_compare_uses_only_sanitized_transition_and_verifier_metadata(tmp_path):
-    loop_dir, _ = _prepare(tmp_path, "loop")
-    graph_dir, _ = _prepare(tmp_path, "graph")
-    _write_transition(loop_dir, artifact_hash="a" * 64)
-    _write_transition(graph_dir, artifact_hash="a" * 64)
-
-    payload, stdout = _run_script(
-        "compare",
-        "--loop-run-dir",
-        str(loop_dir),
-        "--graph-run-dir",
-        str(graph_dir),
+def test_prepare_refuses_the_removed_loop_engine(tmp_path):
+    run_dir = tmp_path / "loop-pilot"
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), "prepare", "--run-dir", str(run_dir), "--engine", "loop"],
+        cwd=CORE_ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
     )
 
-    assert payload["comparison"] == {
-        "artifact_hash_equal": True,
-        "manual_review_required": True,
-        "transition_sequence_equal": True,
-        "verifier_outcomes_equal": True,
-    }
-    assert payload["loop"]["transitions"] == [
-        {
-            "artifact_hash": "a" * 64,
-            "iteration": 1,
-            "next_status": "completed",
-            "previous_status": "scheduled",
-            "reason": "verified_complete",
-        }
-    ]
-    assert "secret report body" not in stdout
-    assert "not-for-output" not in stdout
+    assert result.returncode != 0
+    assert not run_dir.exists()
 
 
 def test_prepare_refuses_to_reuse_existing_run_directory(tmp_path):
-    run_dir, _ = _prepare(tmp_path, "graph")
+    run_dir, _ = _prepare(tmp_path)
     result = subprocess.run(
         [
             sys.executable,

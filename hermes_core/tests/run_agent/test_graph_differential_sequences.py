@@ -1,19 +1,18 @@
 # Copyright 2026 Kabuqina Contributors
 # SPDX-License-Identifier: Apache-2.0
-"""Phase 3.5 Task 9: deterministic differential loop ≡ graph fuzzing.
+"""Phase 3.5 Task 11: deterministic graph replay fuzzing.
 
 The committed ``golden/*.json`` fixtures pin specific, hand-chosen exit paths.
 This module *supplements* them with a fixed-seed generator (stdlib ``random``
 only — no property-testing dependency) that builds many valid, bounded
-transport/tool/steer sequences and asserts the legacy loop and the LangGraph
-engine produce byte-identical observable snapshots on each one.  (Interrupt
-sequences are deliberately excluded — see ``_generate_spec`` — because their
-mid-turn timing is not deterministically reproducible against an async engine.)
+transport/tool/steer sequences and asserts the graph engine produces identical
+observable snapshots across fresh replays. (Interrupt sequences are deliberately
+excluded — see ``_generate_spec`` — because their mid-turn timing is not
+deterministically reproducible.)
 
-Each generated case is replayed on a **fresh** agent and a **fresh** scripted
-transport per engine (never shared), so the comparison cannot leak state.  On a
-mismatch the test prints the seed and the minimized failing spec so it can be
-promoted to a named regression fixture — this never rewrites a golden.
+Each generated case is replayed twice on fresh agents and scripted transports,
+so the determinism check cannot leak state. On a mismatch the test prints the
+seed and the failing spec so it can be promoted to a named regression fixture.
 """
 
 from __future__ import annotations
@@ -210,28 +209,28 @@ def _reset_interrupt_global() -> None:
 @pytest.mark.parametrize(
     "index", range(_NUM_SEQUENCES), ids=lambda i: f"seq{i:03d}"
 )
-def test_loop_graph_differential_sequence(index: int) -> None:
-    """Loop and graph produce identical snapshots on a generated sequence."""
+def test_graph_replay_is_deterministic(index: int) -> None:
+    """Fresh graph replays produce identical snapshots on a generated sequence."""
     spec = _generated_specs()[index]
 
     _reset_interrupt_global()
-    loop_snap = replay_transcript(spec, engine="loop")
+    first_snap = replay_transcript(spec)
     _reset_interrupt_global()
-    graph_snap = replay_transcript(spec, engine="graph")
+    second_snap = replay_transcript(spec)
 
-    if loop_snap != graph_snap:
-        # Surface the seed + minimized spec so this becomes a named fixture.
+    if first_snap != second_snap:
+        # Surface the seed + spec so this becomes a named fixture.
         diff_keys = sorted(
             k
-            for k in set(loop_snap) | set(graph_snap)
-            if loop_snap.get(k) != graph_snap.get(k)
+            for k in set(first_snap) | set(second_snap)
+            if first_snap.get(k) != second_snap.get(k)
         )
         diff = {
-            k: {"loop": loop_snap.get(k), "graph": graph_snap.get(k)}
+            k: {"first": first_snap.get(k), "second": second_snap.get(k)}
             for k in diff_keys
         }
         msg = (
-            f"loop/graph divergence on generated seq{index:03d}\n"
+            f"non-deterministic graph replay on generated seq{index:03d}\n"
             f"seed={_SEED:#x} index={index}\n"
             f"diff_keys={diff_keys}\n"
             f"diff={json.dumps(diff, ensure_ascii=False, default=str)}\n"

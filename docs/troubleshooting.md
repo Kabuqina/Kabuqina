@@ -718,43 +718,10 @@ Windows 上任何 `os.kill(pid, 0)` 调用都需要 catch `OSError`，不可仅�
 
 Task 11 起默认引擎是 `graph`。旧 `loop` 引擎在一个发布周期内仍作为显式回滚通道保留。
 
-首选持久化回滚：关闭 Kabuqina，在受影响配置的 `config.yaml` 中设置：
-
-```yaml
-agent:
-  engine: loop
-```
-
-桌面对话使用：
-
-```text
-%LOCALAPPDATA%\com.kabuqina.app\hermes-home\config.yaml
-```
-
-Gateway profile 使用：
-
-```text
-%LOCALAPPDATA%\com.kabuqina.app\hermes-home\profiles\<profile>\config.yaml
-```
-
-保存后重启整个应用；仅 Gateway 受影响时，至少重启对应 Gateway profile。恢复默认行为时删除该 `engine` 行，或改回 `graph`。
-
-也可从 PowerShell 临时按进程回滚，用于复现和支持诊断：
-
-```powershell
-$env:HERMES_AGENT_ENGINE = "loop"
-& "C:\path\to\Kabuqina.exe"  # 替换为实际安装路径
-```
-
-环境变量优先于 `config.yaml`，且只影响由该 PowerShell 启动的应用及其子进程。诊断结束后执行：
-
-```powershell
-Remove-Item Env:HERMES_AGENT_ENGINE
-```
-
-**Lesson**
-
-> 回滚引擎不需要回滚安装包或修改会话数据。先显式选择 `loop` 并重启受影响进程，再保留日志、Provider/API 格式和最小复现步骤供排查。
+自 v0.4.0 起，桌面和 Gateway 都只使用图运行时；`agent.engine` 与
+`HERMES_AGENT_ENGINE` 不再是受支持的配置或诊断入口。遇到图运行时问题时，
+请保留日志、Provider/API 格式和最小复现步骤，并按常规发布回退流程处理，
+不要尝试通过修改会话配置选择旧引擎。
 
 ---
 

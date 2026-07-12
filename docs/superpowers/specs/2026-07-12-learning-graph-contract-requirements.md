@@ -120,8 +120,8 @@ metadata.
 
 ### Non-goals and compatibility
 
-- No H2 behavior is added to `_run_conversation_loop`; the legacy loop stays
-  untouched until Task 11 Step 5.
+- H2 behavior is implemented only on the graph runtime; the removed legacy
+  loop is not a compatibility target.
 - No generic chat turn is converted into a tutor activity by intent detection.
   The user explicitly chooses a structured activity.
 - LG3/LG4/H4 implementation remains v0.5.0 tutor-loop work. This document

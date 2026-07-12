@@ -2,13 +2,13 @@
 # Copyright 2026 Kabuqina Contributors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Prepare, wake, and compare the bounded Goal Runner Pilot 1.
+"""Prepare and wake the bounded Goal Runner Pilot 1 through the graph runtime.
 
 This harness is deliberately narrower than the product Goal UI.  It accepts no
 arbitrary verifier, toolset, budget, or workspace definition: every run starts
 from the frozen ``goal_manifest_pilot`` fixture, uses only the ``file`` toolset,
-and records a single explicit ``loop`` *or* ``graph`` engine.  ``wake`` runs at
-most one agent iteration, preserving the one-iteration-per-wake contract.
+and records the graph runtime. ``wake`` runs at most one agent iteration,
+preserving the one-iteration-per-wake contract.
 
 The script never copies credentials.  When a real wake is intended, provide a
 disposable profile config with ``--config`` and supply credentials through the
@@ -36,7 +36,7 @@ PILOT_FIXTURE = (
 )
 _RECORD_NAME = "pilot-run.json"
 _RECORD_VERSION = 1
-_ENGINES = frozenset({"loop", "graph"})
+_ENGINES = frozenset({"graph"})
 _MISSING_FIXTURE_PATH = "materials/lesson.docx"
 _PUBLIC_ITERATION_PROMPT = (
     "Inspect at most one new or changed supported file, then update "
@@ -230,7 +230,7 @@ def _assert_persisted_job_contract(job: Mapping[str, Any], workspace: Path) -> N
 def prepare_run(run_dir: Path, engine: str, config_path: Path | None = None) -> dict[str, Any]:
     """Create one fresh, isolated, synthetic run without invoking a model."""
     if engine not in _ENGINES:
-        raise PilotError("engine must be loop or graph")
+        raise PilotError("engine must be graph")
     root, workspace, home = _run_paths(run_dir)
     if root.exists():
         raise PilotError("run directory must not already exist")
@@ -250,12 +250,12 @@ def prepare_run(run_dir: Path, engine: str, config_path: Path | None = None) -> 
     create_job, _, _, _, _, _ = _runtime_components()
     creation_definition = dict(definition)
     # The fixture's display name is part of the frozen public contract, but
-    # each isolated run needs an engine-specific label for unambiguous evidence.
+    # each isolated run carries an explicit graph label for unambiguous evidence.
     creation_definition.pop("name", None)
-    # The dual-engine harness works against one intentionally incomplete
-    # fixture, so it supplies the known missing file rather than performing a
+    # The graph harness works against one intentionally incomplete fixture, so
+    # it supplies the known missing file rather than performing a
     # broad filesystem search. This keeps the proof focused on the controller,
-    # verifier, and engine parity, while the public desktop template remains
+    # verifier, and graph execution, while the public desktop template remains
     # the generic bounded-inventory prompt above.
     creation_definition["prompt"] = _SYNTHETIC_ITERATION_PROMPT
     job = create_job(
@@ -303,7 +303,7 @@ def wake_run(run_dir: Path, model: str = "") -> dict[str, Any]:
     _assert_persisted_job_contract(job, workspace)
     definition = build_goal_definition(job)
     before = load_goal_state(definition.job_id)
-    worker = goal_agent_worker(agent_engine=record["engine"], model=model)
+    worker = goal_agent_worker(model=model)
     result = run_goal_iteration(
         definition,
         worker=worker,
@@ -381,26 +381,6 @@ def _transition_trace(run_dir: Path) -> dict[str, Any]:
     }
 
 
-def compare_runs(loop_run_dir: Path, graph_run_dir: Path) -> dict[str, Any]:
-    """Compare only durable, sanitized controller evidence from both engines."""
-    loop = _transition_trace(loop_run_dir)
-    graph = _transition_trace(graph_run_dir)
-    if loop["engine"] != "loop" or graph["engine"] != "graph":
-        raise PilotError("compare requires one loop run and one graph run")
-    return {
-        "loop": loop,
-        "graph": graph,
-        "comparison": {
-            "transition_sequence_equal": loop["transitions"] == graph["transitions"],
-            "verifier_outcomes_equal": (
-                loop["verifier_outcomes"] == graph["verifier_outcomes"]
-            ),
-            "artifact_hash_equal": loop["artifact_hash"] == graph["artifact_hash"],
-            "manual_review_required": True,
-        },
-    }
-
-
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -418,11 +398,6 @@ def _parser() -> argparse.ArgumentParser:
     wake.add_argument("--run-dir", type=Path, required=True)
     wake.add_argument("--model", default="", help="optional explicit model override")
 
-    compare = commands.add_parser(
-        "compare", help="compare sanitized loop and graph pilot evidence"
-    )
-    compare.add_argument("--loop-run-dir", type=Path, required=True)
-    compare.add_argument("--graph-run-dir", type=Path, required=True)
     return parser
 
 
@@ -433,8 +408,8 @@ def main(argv: list[str] | None = None) -> int:
             payload = prepare_run(args.run_dir, args.engine, args.config)
         elif args.command == "wake":
             payload = wake_run(args.run_dir, args.model)
-        else:
-            payload = compare_runs(args.loop_run_dir, args.graph_run_dir)
+        else:  # pragma: no cover - argparse limits commands to prepare/wake
+            raise PilotError(f"unsupported command: {args.command}")
     except (PilotError, OSError, ValueError) as exc:
         _json_line({"error": str(exc)})
         return 1

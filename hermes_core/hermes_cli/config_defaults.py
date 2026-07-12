@@ -17,13 +17,6 @@ DEFAULT_CONFIG = {
     "toolsets": ["hermes-cli"],
     "agent": {
         "max_turns": 90,
-        # Phase 3.5 strangler selector: which conversation engine
-        # AIAgent.run_conversation dispatches to. "graph" is the release
-        # default; "loop" is the legacy in-method rollback path retained for
-        # one release. Override per-process with
-        # HERMES_AGENT_ENGINE or per-call with AIAgent(agent_engine=...).
-        # Invalid values here log a warning and fall back to "graph".
-        "engine": "graph",
         # Inactivity timeout for gateway agent execution (seconds).
         # The agent can run indefinitely as long as it's actively calling
         # tools or receiving API responses.  Only fires when the agent has

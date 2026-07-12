@@ -207,10 +207,10 @@ def test_usage_ledger_unknown_cost_incomplete():
 #    engine-neutral loop emission (PH35-FU-007). ──────────────────────────────
 
 
-def _events_for(fixture: str, engine: str) -> List[UsageEvent]:
+def _events_for(fixture: str) -> List[UsageEvent]:
     spec = json.loads((GOLDEN_DIR / fixture).read_text(encoding="utf-8"))
     sink = _RecordingSink()
-    replay_transcript(spec, engine=engine, usage_sink=sink)
+    replay_transcript(spec, usage_sink=sink)
     return sink.events
 
 
@@ -222,7 +222,7 @@ def test_attempt_index_is_unique_and_monotonic_across_retries():
     collided (observed ``[0, 1, 1]``).  ``exit_api_retries`` drives the retry
     ladder to exhaustion, so it emits several attempts in one turn.
     """
-    events = _events_for("exit_api_retries.json", "graph")
+    events = _events_for("exit_api_retries.json")
     indices = [e.attempt_index for e in events]
     assert len(indices) >= 2, f"expected multiple transport attempts, got {indices}"
     assert indices == list(range(len(indices))), (
@@ -233,7 +233,7 @@ def test_attempt_index_is_unique_and_monotonic_across_retries():
 def test_aux_summary_event_records_real_usage():
     """Review P1-3: the max-iteration summary event carries the real aux-call
     usage, not a ``response=None`` placeholder (which lost the tokens)."""
-    events = _events_for("max_iterations.json", "graph")
+    events = _events_for("max_iterations.json")
     summary = [e for e in events if e.route == "summarize_on_budget"]
     assert len(summary) >= 1, f"no summary usage event; routes={[e.route for e in events]}"
     ev = summary[0]
@@ -243,23 +243,16 @@ def test_aux_summary_event_records_real_usage():
     assert ev.output_tokens == 14, ev.output_tokens
 
 
-def test_loop_and_graph_emit_matching_success_event():
-    """PH35-FU-007: with a sink wired, the legacy loop emits the same per-attempt
-    success event as the graph (shared ``_record_usage_attempt``), so a
-    ``UsageLedger`` can be compared across engines.  Without a sink the recorder
-    is a strict no-op, so the default path and the frozen result are unchanged.
-    """
-    loop_events = _events_for("plain_text.json", "loop")
-    graph_events = _events_for("plain_text.json", "graph")
+def test_graph_emits_a_complete_success_event():
+    events = _events_for("plain_text.json")
 
-    assert len(loop_events) == 1, [e.outcome for e in loop_events]
-    assert len(graph_events) == 1, [e.outcome for e in graph_events]
-    le, ge = loop_events[0], graph_events[0]
-    assert le.attempt_index == ge.attempt_index == 0
-    assert le.outcome == ge.outcome == "success"
-    assert le.route == ge.route == "call_transport"
-    assert le.usage == ge.usage
-    assert le.cost.status == ge.cost.status
+    assert len(events) == 1, [e.outcome for e in events]
+    event = events[0]
+    assert event.attempt_index == 0
+    assert event.outcome == "success"
+    assert event.route == "call_transport"
+    assert event.usage is not None
+    assert event.cost.status in {"actual", "estimated", "included", "unknown"}
 
 
 @pytest.mark.parametrize(
@@ -272,28 +265,12 @@ def test_loop_and_graph_emit_matching_success_event():
         "exit_context_stepdown.json",    # context-overflow step-down compression
     ],
 )
-def test_loop_and_graph_emit_matching_error_path_events(fixture):
-    """PH35-FU-007: with a sink wired, the legacy loop emits transport_error /
-    invalid_response / compression usage events on its error paths, matching the
-    graph's per-attempt sequence — so a ``UsageLedger`` is comparable across
-    engines on error exits, not only the success path.
-
-    Placement parity note: the loop's Anthropic 1M-tier context reduction also
-    compresses, but the graph has no compression handler for ``long_context_tier``
-    (it routes only ``payload_too_large`` and ``context_overflow`` to a
-    compression-emitting handler), so the loop intentionally does NOT emit there.
-    That structural gap is tracked under PH35-FU-009.
-    """
-    loop_seq = [(e.outcome, e.route) for e in _events_for(fixture, "loop")]
-    graph_seq = [(e.outcome, e.route) for e in _events_for(fixture, "graph")]
-    assert loop_seq == graph_seq, (
-        f"{fixture}: loop/graph usage-event sequence diverged\n"
-        f"  loop:  {loop_seq}\n  graph: {graph_seq}"
-    )
+def test_graph_emits_error_path_events(fixture):
+    sequence = [(e.outcome, e.route) for e in _events_for(fixture)]
     # Guard: the fixture must actually exercise an error path, else it is not
     # testing FU-007 (a success-only sequence would pass vacuously).
-    assert any(outcome != "success" for outcome, _ in loop_seq), (
-        f"{fixture} emitted no error-path usage event: {loop_seq}"
+    assert any(outcome != "success" for outcome, _ in sequence), (
+        f"{fixture} emitted no error-path usage event: {sequence}"
     )
 
 
