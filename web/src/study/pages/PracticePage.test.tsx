@@ -58,6 +58,8 @@ describe("PracticePage", () => {
     surface!.focus();
     fireEvent.keyDown(surface!, { key: " " });
     expect(screen.getByText("Back side")).toBeInTheDocument();
+    fireEvent.keyDown(surface!, { key: "3", repeat: true });
+    expect(reviewFlashcard).not.toHaveBeenCalled();
     fireEvent.keyDown(surface!, { key: "3" });
 
     await waitFor(() => expect(reviewFlashcard).toHaveBeenCalledWith(
@@ -119,5 +121,23 @@ describe("PracticePage", () => {
     ));
     expect(await screen.findByText(/已生成待审核练习/)).toBeInTheDocument();
     expect(setArtifactStatus).not.toHaveBeenCalled();
+  });
+
+  it("keeps an unsupported generated practice honest and offers only the chat handoff", async () => {
+    const user = userEvent.setup();
+    const codeQuestion: StudyQuizQuestion[] = [{
+      item_id: "code-1", artifact_id: "quiz-1", type: "code", prompt: "Write a function", language: "python", starter: "pass",
+    }];
+    renderPage(repository({
+      loadQuizQuestions: vi.fn().mockResolvedValue(codeQuestion),
+      generatePracticeDraft: vi.fn().mockResolvedValue({ generated: false, source_item_id: "code-1", fallback: "model_draft_required" }),
+    }));
+
+    await user.click(await screen.findByRole("button", { name: "Vectors quiz" }));
+    await user.click(await screen.findByRole("button", { name: "生成变式" }));
+
+    expect(await screen.findByText(/暂时不能自动生成练习草稿/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "返回聊天" })).toHaveAttribute("href", "/chat");
+    expect(screen.queryByText("Write a function")).not.toBeInTheDocument();
   });
 });

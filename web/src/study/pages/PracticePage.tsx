@@ -306,7 +306,7 @@ function PageError({ retry }: { retry: () => void }) { const { t } = useI18n(); 
 function Flashcard({ card, index, total, revealed, pending, error, onReveal, onGrade, onExit }: { card: StudyFlashcard; index: number; total: number; revealed: boolean; pending: boolean; error: string; onReveal: () => void; onGrade: (grade: Grade) => void; onExit: () => void }) {
   const { t } = useI18n();
   const onKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
-    if (event.target !== event.currentTarget || pending) return;
+    if (event.repeat || event.target !== event.currentTarget || document.activeElement !== event.currentTarget || pending) return;
     if (event.key === " ") { event.preventDefault(); if (!revealed) onReveal(); return; }
     const grade = ({ "1": "again", "2": "hard", "3": "good", "4": "easy" } as const)[event.key];
     if (revealed && grade) { event.preventDefault(); onGrade(grade); }
