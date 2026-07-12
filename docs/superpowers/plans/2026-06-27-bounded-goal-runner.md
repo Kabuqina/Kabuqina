@@ -1265,6 +1265,18 @@ pause/resume/cancel controls display their consequences before confirmation.
 
 - [ ] **Step 3: run the read-mostly workspace inventory pilot**
 
+  *Synthetic half met 2026-07-12; human-selected disposable-workspace half
+  remains required.* The frozen fixture completed once under explicit `graph`
+  (`0b7059146639`) and once under explicit `loop` (`1d76d83f1afb`). Both ran
+  one iteration with complete usage accounting, `verified_complete` / verifier
+  `pass`, and the same sanitized artifact hash
+  `37df380328a2215933f1a0a6b1fe7ad43f0d0d2fe4c451d6c5f353da6f68adcc`.
+  The harness comparison found equal transition sequences, verifier outcomes,
+  and artifact hashes. No prompt, document content, report body, or credential
+  was recorded here. An earlier graph `cost_unknown` pause and a loop
+  `worker_blocked` pause were retained as fail-closed diagnostic evidence and
+  do not count as successful pilot executions.
+
 Before Phase 3.5 removes its escape hatch, complete the synthetic workspace once
 with explicit `agent_engine="loop"` and once with explicit
 `agent_engine="graph"`; compare controller transitions, verifier results, and

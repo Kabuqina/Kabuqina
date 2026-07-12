@@ -886,3 +886,12 @@ USD 5.00 task contract, and must be reverted after the pilot evidence is
 captured. It neither makes Goal Tasks generally available nor changes the
 default shipped configuration. Credentials remain confined to the desktop child;
 the pilot harness must not copy or print them.
+
+**Goal Runner Pilot 1 temporary activation outcome (2026-07-12).** The host
+flag was restored to `false` after one bounded desktop wake. The initial wake
+paused `cost_unknown` rather than treating absent pricing as zero; that exposed
+the missing DeepSeek V4 Flash pricing mapping and was repaired before the
+synthetic evidence run. A later synthetic graph/loop pair completed with
+matching sanitized transitions, verifier outcomes, and artifact hashes. This is
+not general enablement: the default and gateway profiles remain disabled pending
+the separate Task 11 exit criteria and release smoke.

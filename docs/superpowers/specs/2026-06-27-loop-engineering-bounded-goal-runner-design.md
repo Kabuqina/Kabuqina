@@ -706,6 +706,16 @@ outcomes, and artifact hashes; it deliberately omits prompts, agent output,
 document contents, report summaries, and verifier evidence. It always requires
 manual review and does not itself declare pilot success.
 
+**Synthetic dual-engine result (2026-07-12).** The constrained fixture
+completed one explicit wake under graph (`0b7059146639`) and loop
+(`1d76d83f1afb`). Both transitions were `running → completed` with reason
+`verified_complete`; both verifier outcomes were `pass`; both emitted artifact
+hash `37df380328a2215933f1a0a6b1fe7ad43f0d0d2fe4c451d6c5f353da6f68adcc`; and
+both ledgers were complete. The comparison contains only these durable fields.
+The temporary host activation used while diagnosing the desktop route was
+restored to disabled; it did not count as an enablement decision or as the
+human-selected workspace pilot.
+
 ### Pilot exit criteria
 
 All must hold before enabling Goal Tasks outside a developer flag:
