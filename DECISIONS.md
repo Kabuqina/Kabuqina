@@ -876,3 +876,13 @@ protection plus the owner's trademark track — Tier 2's technical moat covers
 future artwork, not the past. Any new file that still embeds brand artwork in
 code keeps the mandatory `LicenseRef-Kabuqina-Brand` SPDX marker. Implementation:
 [Tier 2 overlay plan](docs/superpowers/plans/2026-07-11-brand-asset-tier2-overlay-plan.md).
+
+**Goal Runner Pilot 1 host-only temporary activation (2026-07-12).** The owner
+authorized one bounded Pilot 1 execution in the desktop host profile. Enable
+only `%LOCALAPPDATA%\com.kabuqina.app\hermes-home\config.yaml` at
+`cron.goal_loop.enabled`; gateway profiles remain disabled. The activation is
+temporary, uses the already frozen `file`-only, local-delivery, 40-run/four-hour/
+USD 5.00 task contract, and must be reverted after the pilot evidence is
+captured. It neither makes Goal Tasks generally available nor changes the
+default shipped configuration. Credentials remain confined to the desktop child;
+the pilot harness must not copy or print them.
