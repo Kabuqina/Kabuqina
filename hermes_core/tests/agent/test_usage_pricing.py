@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from decimal import Decimal
 
 from agent.usage_pricing import (
     CanonicalUsage,
@@ -23,6 +24,25 @@ def test_normalize_usage_anthropic_keeps_cache_buckets_separate():
     assert normalized.cache_read_tokens == 2000
     assert normalized.cache_write_tokens == 400
     assert normalized.prompt_tokens == 3400
+
+
+def test_deepseek_v4_flash_uses_official_input_output_and_cache_rates():
+    result = estimate_usage_cost(
+        "deepseek-v4-flash",
+        CanonicalUsage(
+            input_tokens=1_000,
+            output_tokens=500,
+            cache_read_tokens=100,
+        ),
+        provider="deepseek",
+        base_url="https://api.deepseek.com/v1",
+    )
+
+    assert result.status == "estimated"
+    assert result.source == "official_docs_snapshot"
+    # 1,000 × $0.14/M + 500 × $0.28/M + 100 × $0.0028/M.
+    assert result.amount_usd == Decimal("0.00028028")
+    assert result.pricing_version == "deepseek-v4-pricing-2026-07-12"
 
 
 def test_normalize_usage_openai_subtracts_cached_prompt_tokens():
