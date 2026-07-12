@@ -8,12 +8,13 @@ import { Link } from "react-router-dom";
 import { useI18n } from "../lib/i18n";
 import type { StudySpaceSummary } from "./repository";
 
-export function SpaceSwitcher({ spaces, currentSpaceId, pending, error, onSelect }: {
+export function SpaceSwitcher({ spaces, currentSpaceId, pending, error, onSelect, onNavigateAway }: {
   spaces: StudySpaceSummary[];
   currentSpaceId: string;
   pending: boolean;
   error: boolean;
   onSelect: (spaceId: string) => void;
+  onNavigateAway?: (to: string) => void;
 }) {
   const { t } = useI18n();
   const root = useRef<HTMLDivElement>(null);
@@ -100,7 +101,7 @@ export function SpaceSwitcher({ spaces, currentSpaceId, pending, error, onSelect
               </button>
             ))}
           </div>
-          <Link data-study-focus className="kq-study-new-notebook" to="/chat" title={t("study.newNotebookHint")}>
+          <Link data-study-focus className="kq-study-new-notebook" to="/chat" title={t("study.newNotebookHint")} onClick={(event) => { if (onNavigateAway) { event.preventDefault(); onNavigateAway("/chat"); } }}>
             <Plus aria-hidden />{t("study.newNotebook")}
           </Link>
         </div>
@@ -129,7 +130,7 @@ export function SpaceSwitcher({ spaces, currentSpaceId, pending, error, onSelect
                 </button>
               ))}
             </div>
-            <Link data-study-focus className="kq-study-new-notebook" to="/chat" title={t("study.newNotebookHint")}>
+            <Link data-study-focus className="kq-study-new-notebook" to="/chat" title={t("study.newNotebookHint")} onClick={(event) => { if (onNavigateAway) { event.preventDefault(); onNavigateAway("/chat"); } }}>
               <Plus aria-hidden />{t("study.newNotebook")}
             </Link>
           </div>

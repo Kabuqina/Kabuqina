@@ -601,6 +601,15 @@ def test_quiz_short_answer_accepted_list_is_valid():
             "cloze": [1],
             "tags": ["variance"],
         },
+        {
+            "type": "derivation",
+            "prompt": "Transcribe variance",
+            "mode": "transcribe",
+            "steps": [{"expr": "Var(X)"}],
+            "target_steps": [{"expr": "Var(X)", "justification": "definition"}],
+            "check": "normalized-match",
+            "cloze": [0],
+        },
     ],
 )
 def test_quiz_code_and_derivation_members_are_valid(question):
@@ -622,6 +631,10 @@ def test_quiz_code_and_derivation_members_are_valid(question):
         (
             {"type": "code", "prompt": "x", "language": "python", "mode": "solve"},
             "test_code",
+        ),
+        (
+            {"type": "code", "prompt": "x", "language": "javascript", "mode": "solve", "target_code": "secret"},
+            "only allowed",
         ),
         (
             {"type": "code", "prompt": "x", "language": "", "mode": "solve"},
@@ -657,6 +670,28 @@ def test_quiz_code_and_derivation_members_are_valid(question):
             },
             "50",
         ),
+        (
+            {
+                "type": "derivation",
+                "prompt": "x",
+                "steps": [{"expr": "x"}],
+                "target_steps": [{"expr": "secret"}],
+                "check": "normalized-match",
+                "cloze": [0],
+            },
+            "only allowed",
+        ),
+        (
+            {
+                "type": "derivation",
+                "prompt": "x",
+                "mode": "transcribe",
+                "steps": [{"expr": "x"}],
+                "check": "normalized-match",
+                "cloze": [0],
+            },
+            "target_steps",
+        ),
     ],
 )
 def test_quiz_code_and_derivation_invalid_rules_are_rejected(question, match):
@@ -672,7 +707,6 @@ def test_quiz_code_fields_use_contract_string_cap(field):
         "language": "python",
         "mode": "transcribe" if field == "target_code" else "solve",
         "test_code": "assert True",
-        "target_code": "pass",
         field: "x" * 20_001,
     }
     with pytest.raises(ContractError, match=field):

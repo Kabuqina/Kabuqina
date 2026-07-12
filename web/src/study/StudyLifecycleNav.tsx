@@ -17,7 +17,7 @@ export function pageLabelKey(page: StudyPageSlug): string {
   return PAGE_KEYS[page];
 }
 
-export function StudyLifecycleNav({ spaceId }: { spaceId: string }) {
+export function StudyLifecycleNav({ spaceId, currentPage, onNavigate }: { spaceId: string; currentPage?: StudyPageSlug; onNavigate?: (page: StudyPageSlug) => void }) {
   const { t } = useI18n();
   return (
     <nav className="kq-study-lifecycle" aria-label={t("study.lifecycle")}>
@@ -25,6 +25,11 @@ export function StudyLifecycleNav({ spaceId }: { spaceId: string }) {
         <NavLink
           key={page}
           to={studyPath(spaceId, page)}
+          onClick={(event) => {
+            if (!onNavigate || page === currentPage) return;
+            event.preventDefault();
+            onNavigate(page);
+          }}
           className={({ isActive }) => `kq-study-lifecycle-link${isActive ? " is-active" : ""}`}
         >
           {t(PAGE_KEYS[page])}

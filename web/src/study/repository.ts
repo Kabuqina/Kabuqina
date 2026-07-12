@@ -384,6 +384,11 @@ export function createStudyRepository(commands: Partial<StudyCommands> = {}): St
         if (cardsResult.status !== "fulfilled" || dueCardsResult.status !== "fulfilled") unavailable.push("cards");
         if (quizzesResult.status !== "fulfilled") unavailable.push("quizzes");
         if (draftsResult.status !== "fulfilled") unavailable.push("drafts");
+        if (unavailable.length === 3) {
+          const failure = [cardsResult, dueCardsResult, quizzesResult, draftsResult]
+            .find((result): result is PromiseRejectedResult => result.status === "rejected");
+          throw failure?.reason ?? new Error("practice home unavailable");
+        }
         return {
           cards: cardsResult.status === "fulfilled" ? cardsResult.value.cards : [],
           dueCards: dueCardsResult.status === "fulfilled" ? dueCardsResult.value.cards : [],

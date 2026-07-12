@@ -458,6 +458,8 @@
 .kq-study-code-mismatch { background: color-mix(in srgb, var(--kq-warning, #c27a28) 18%, transparent); border-bottom: 2px solid var(--kq-warning, #c27a28); }
 .kq-study-derivation { display: grid; gap: 0.75rem; list-style: decimal; padding-left: 1.5rem; }
 .kq-study-derivation li { display: grid; gap: 0.5rem; min-width: 0; }
+.kq-study-derivation-target { display: grid; gap: 0.35rem; padding: 0.65rem; border: 1px dashed var(--kq-glass-border); border-radius: 0.65rem; background: var(--kq-study-hover); }
+.kq-study-derivation-target p { color: var(--kq-study-muted); overflow-wrap: anywhere; }
 .kq-study-derivation input { min-height: 2.5rem; padding: 0.5rem 0.65rem; border: 1px solid var(--kq-glass-border); border-radius: 0.55rem; background: var(--kq-color-surface); color: var(--kq-study-foreground); }
 .kq-study-math-line { overflow-x: auto; padding: 0.45rem 0; }
 .kq-study-practice-feedback { display: grid; gap: 0.55rem; padding-left: 1.25rem; }

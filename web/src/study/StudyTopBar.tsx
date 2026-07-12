@@ -15,21 +15,23 @@ export function StudyTopBar(props: {
   switching: boolean;
   switchError: boolean;
   onSelectSpace: (spaceId: string) => void;
+  onNavigateAway?: (to: string) => void;
 }) {
   const { t } = useI18n();
   return (
     <header className="kq-study-topbar">
-      <Link className="kq-study-icon-link" to="/chat" aria-label={t("study.backToChat")}><ArrowLeft aria-hidden /></Link>
+      <Link className="kq-study-icon-link" to="/chat" aria-label={t("study.backToChat")} onClick={(event) => { if (props.onNavigateAway) { event.preventDefault(); props.onNavigateAway("/chat"); } }}><ArrowLeft aria-hidden /></Link>
       <SpaceSwitcher
         spaces={props.spaces}
         currentSpaceId={props.currentSpaceId}
         pending={props.switching}
         error={props.switchError}
         onSelect={props.onSelectSpace}
+        onNavigateAway={props.onNavigateAway}
       />
       <div className="kq-study-topbar-actions">
         <DraftInboxButton counts={props.draftCounts} />
-        <Link className="kq-study-top-action" to="/chat"><MessageCircle aria-hidden /><span>{t("study.askNana")}</span></Link>
+        <Link className="kq-study-top-action" to="/chat" onClick={(event) => { if (props.onNavigateAway) { event.preventDefault(); props.onNavigateAway("/chat"); } }}><MessageCircle aria-hidden /><span>{t("study.askNana")}</span></Link>
       </div>
     </header>
   );

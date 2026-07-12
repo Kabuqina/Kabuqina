@@ -366,8 +366,10 @@ class QuizService:
             )
         elif qtype == "derivation":
             steps = question.get("steps") if isinstance(question.get("steps"), list) else []
+            mode = _clean_text(question.get("mode"), 40).casefold() or "solve"
             state.update(
                 {
+                    "mode": mode,
                     "steps": [
                         {
                             "expr": _clean_text(step.get("expr"), MAX_CODE_TEXT),
@@ -409,7 +411,11 @@ class QuizService:
             if out.get("type") == "code":
                 out.pop("reference", None)
                 out.pop("test_code", None)
+                if out.get("mode") != "transcribe":
+                    out.pop("target_code", None)
             elif out.get("type") == "derivation":
+                if out.get("mode") != "transcribe":
+                    out.pop("target_steps", None)
                 cloze = set(out.get("cloze") or [])
                 for index, step in enumerate(out.get("steps") or []):
                     if not isinstance(step, dict):

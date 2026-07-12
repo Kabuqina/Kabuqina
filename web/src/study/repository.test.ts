@@ -170,6 +170,21 @@ describe("StudyRepository", () => {
     });
   });
 
+  it("rejects when every practice section is unavailable so the page can retry", async () => {
+    const unavailable = vi.fn().mockRejectedValue({
+      status: null, code: "desk_transport_error", detail: "private",
+    });
+    const repository = createStudyRepository({
+      flashcards: unavailable,
+      quizzes: unavailable,
+      practiceDrafts: unavailable,
+    });
+
+    await expect(repository.loadPracticeHome("space-b", new AbortController().signal)).rejects.toMatchObject({
+      code: "unavailable",
+    });
+  });
+
   it("maps only stable error prefixes", () => {
     expect(normalizeRepositoryError("invalid study id").code).toBe("invalid");
     expect(normalizeRepositoryError("space_not_found: hidden detail").code).toBe("not-found");

@@ -169,10 +169,12 @@ def test_derivation_transcription_turns_every_step_into_a_reason_cloze(ctx):
     )
 
     question = ctx.get_artifact(generated["artifact_id"])["envelope"]["payload"]["questions"][0]
+    assert question["mode"] == "transcribe"
     assert question["cloze"] == [0, 1]
     assert question["steps"][1]["accepted"] == ["combine like terms"]
     QuizService(ctx).activate_quiz(generated["artifact_id"])
     public = QuizService(ctx).list_questions(artifact_id=generated["artifact_id"])[0]
+    assert public["mode"] == "transcribe"
     assert [step["expr"] for step in public["steps"]] == ["", ""]
     assert public["target_steps"] == [
         {"expr": "x + x", "justification": "start"},

@@ -936,3 +936,13 @@ early-return cleanup, `post_llm_call`, and `on_session_end` behavior in a
 separate behavior-change commit with explicit tests and release notes. This
 follow-up is deliberately not bundled with loop deletion; it records Decision
 4's outstanding normalization work before that deletion commit is permitted.
+
+**D-3 practice target disclosure boundary (2026-07-12).** Code `target_code`
+and derivation `target_steps` are public only when the question explicitly uses
+`mode: transcribe`. Derivation questions without a mode remain backward
+compatible as `solve`; generated derivation transcriptions must persist
+`mode: transcribe`. The learning contract rejects target fields on ordinary
+questions, while `QuizService` also strips them defensively from the public
+question wire when mode is not transcribe. This keeps the visible transcription
+source available without allowing a normal quiz artifact to disclose its
+answer through target-shaped fields.

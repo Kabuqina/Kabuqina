@@ -23,7 +23,7 @@ const GRADES: Array<{ grade: Grade; key: "practiceAgain" | "practiceHard" | "pra
   { grade: "easy", key: "practiceEasy" },
 ];
 
-export function PracticePage({ spaceId }: { spaceId: string }) {
+export function PracticePage({ spaceId, onDirtyChange, onNavigateAway }: { spaceId: string; onDirtyChange?: (dirty: boolean) => void; onNavigateAway?: (to: string) => void }) {
   const { t } = useI18n();
   const repository = useStudyRepository();
   const heading = useRef<HTMLHeadingElement>(null);
@@ -44,6 +44,7 @@ export function PracticePage({ spaceId }: { spaceId: string }) {
   const [pending, setPending] = useState(false);
   const [actionError, setActionError] = useState("");
   const [generationNotice, setGenerationNotice] = useState<"draft" | "fallback" | null>(null);
+  const dirty = mode === "quiz" && result === null && Object.keys(responses).length > 0;
   const sourceActivityId = new URLSearchParams(location.search).get("source") === "wrongbook"
     ? new URLSearchParams(location.search).get("activityId")
     : null;
@@ -90,6 +91,18 @@ export function PracticePage({ spaceId }: { spaceId: string }) {
       sourceCoordinator.cancel();
     };
   }, [load]);
+
+  useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
+  useEffect(() => () => { onDirtyChange?.(false); }, [onDirtyChange]);
+  useEffect(() => {
+    if (!dirty) return;
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", beforeUnload);
+    return () => window.removeEventListener("beforeunload", beforeUnload);
+  }, [dirty]);
 
   useEffect(() => {
     if (!sourceActivityId) return;
@@ -248,7 +261,7 @@ export function PracticePage({ spaceId }: { spaceId: string }) {
       (next) => {
         if (!mutations.current.isCurrent(request.generation)) return;
         setPending(false);
-        setMode("home");
+        if (!Object.keys(responses).length) setMode("home");
         setGenerationNotice(next.generated ? "draft" : "fallback");
         window.dispatchEvent(new Event("study-learning-event"));
       },
@@ -275,22 +288,22 @@ export function PracticePage({ spaceId }: { spaceId: string }) {
       {snapshot.status === "error" && !data ? <PageError retry={load} /> : null}
       {snapshot.status === "error" && data ? <div className="kq-study-page-alert" role="alert"><span>{t("study.pageStale")}</span><button type="button" onClick={load}>{t("study.retry")}</button></div> : null}
       {mode === "home" && actionError ? <p role="alert" className="kq-study-page-error">{actionError}</p> : null}
-      {mode === "home" && generationNotice ? <div className="kq-study-page-alert" role="status"><span>{t(generationNotice === "draft" ? "study.practiceDraftCreated" : "study.practiceGenerationFallback")}</span>{generationNotice === "fallback" ? <Link to="/chat">{t("study.backToChat")}</Link> : null}</div> : null}
+      {generationNotice ? <div className="kq-study-page-alert" role="status"><span>{t(generationNotice === "draft" ? "study.practiceDraftCreated" : "study.practiceGenerationFallback")}</span>{generationNotice === "fallback" ? <Link to="/chat" onClick={(event) => { if (onNavigateAway) { event.preventDefault(); onNavigateAway("/chat"); } }}>{t("study.backToChat")}</Link> : null}</div> : null}
 
       {mode === "home" && data ? (
         <div className="kq-study-practice-home">
           <article className="kq-study-practice-card">
             <p>{t("study.practiceCardsKicker")}</p>
             <h2>{t("study.practiceCardsTitle")}</h2>
-            {data.unavailable?.includes("cards") ? <p role="status">{t("study.practiceSectionUnavailable")}</p> : <><strong>{t("study.practiceDueCount", { count: data.dueCards.length })}</strong><span>{t("study.practiceCardsTotal", { count: data.cards.length })}</span></>}
+            {data.unavailable?.includes("cards") ? <SectionUnavailable retry={load} /> : <><strong>{t("study.practiceDueCount", { count: data.dueCards.length })}</strong><span>{t("study.practiceCardsTotal", { count: data.cards.length })}</span></>}
             <button type="button" className="kq-study-primary-link" disabled={data.unavailable?.includes("cards") || !data.dueCards.length} onClick={openCards}>{t("study.practiceStartCards")}</button>
           </article>
           <article className="kq-study-practice-card">
             <p>{t("study.practiceQuizKicker")}</p>
             <h2>{t("study.practiceQuizTitle")}</h2>
-            {data.unavailable?.includes("quizzes") ? <p role="status">{t("study.practiceSectionUnavailable")}</p> : data.quizzes.length ? <div className="kq-study-inline-actions">{data.quizzes.map((quiz) => <button key={quiz.artifact_id} type="button" disabled={pending} onClick={() => openQuiz(quiz.artifact_id)}>{quiz.title}</button>)}</div> : <p>{t("study.practiceQuizEmpty")}</p>}
+            {data.unavailable?.includes("quizzes") ? <SectionUnavailable retry={load} /> : data.quizzes.length ? <div className="kq-study-inline-actions">{data.quizzes.map((quiz) => <button key={quiz.artifact_id} type="button" disabled={pending} onClick={() => openQuiz(quiz.artifact_id)}>{quiz.title}</button>)}</div> : <p>{t("study.practiceQuizEmpty")}</p>}
           </article>
-          {data.drafts.length || data.unavailable?.includes("drafts") ? <article className="kq-study-practice-card"><p>{t("study.drafts")}</p>{data.unavailable?.includes("drafts") ? <p role="status">{t("study.practiceSectionUnavailable")}</p> : data.drafts.map((draft) => <div key={draft.artifact_id} className="kq-study-draft-row"><div><strong>{draft.title}</strong><span>{draft.kind} · {draft.review?.status || draft.status}</span></div><div className="kq-study-inline-actions"><button type="button" disabled={pending} onClick={() => reviewDraft(draft.artifact_id, "active", draft.kind)}>{t("study.flyleafInk")}</button><button type="button" disabled={pending} onClick={() => reviewDraft(draft.artifact_id, "rejected", draft.kind)}>{t("study.flyleafErase")}</button></div></div>)}</article> : null}
+          {data.drafts.length || data.unavailable?.includes("drafts") ? <article className="kq-study-practice-card"><p>{t("study.drafts")}</p>{data.unavailable?.includes("drafts") ? <SectionUnavailable retry={load} /> : data.drafts.map((draft) => <div key={draft.artifact_id} className="kq-study-draft-row"><div><strong>{draft.title}</strong><span>{draft.kind} · {draft.review?.status || draft.status}</span></div><div className="kq-study-inline-actions"><button type="button" disabled={pending} onClick={() => reviewDraft(draft.artifact_id, "active", draft.kind)}>{t("study.flyleafInk")}</button><button type="button" disabled={pending} onClick={() => reviewDraft(draft.artifact_id, "rejected", draft.kind)}>{t("study.flyleafErase")}</button></div></div>)}</article> : null}
         </div>
       ) : null}
 
@@ -302,6 +315,8 @@ export function PracticePage({ spaceId }: { spaceId: string }) {
 }
 
 function PageError({ retry }: { retry: () => void }) { const { t } = useI18n(); return <div className="kq-study-page-alert" role="alert"><p>{t("study.pageLoadFailed")}</p><button type="button" onClick={retry}>{t("study.retry")}</button><Link to="/chat">{t("study.backToChat")}</Link></div>; }
+
+function SectionUnavailable({ retry }: { retry: () => void }) { const { t } = useI18n(); return <div role="status"><p>{t("study.practiceSectionUnavailable")}</p><button type="button" onClick={retry}>{t("study.retry")}</button></div>; }
 
 function Flashcard({ card, index, total, revealed, pending, error, onReveal, onGrade, onExit }: { card: StudyFlashcard; index: number; total: number; revealed: boolean; pending: boolean; error: string; onReveal: () => void; onGrade: (grade: Grade) => void; onExit: () => void }) {
   const { t } = useI18n();

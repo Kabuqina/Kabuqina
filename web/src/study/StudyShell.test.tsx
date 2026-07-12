@@ -1,11 +1,12 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../lib/i18n";
+import { answerConfirm, getConfirmSnapshot } from "../lib/confirmDialog";
 import type { StudyRepository } from "./repository";
 import { StudyRepositoryProvider } from "./repositoryContext";
 import { StudyShell } from "./StudyShell";
@@ -60,7 +61,10 @@ function renderShell(
   return repository;
 }
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  if (getConfirmSnapshot()) answerConfirm(false);
+  vi.unstubAllGlobals();
+});
 
 describe("StudyShell", () => {
   it("renders lifecycle links and privacy-bounded cross-kind draft counts", async () => {
@@ -149,5 +153,33 @@ describe("StudyShell", () => {
     expect(screen.getByRole("dialog", { name: "草稿箱" })).toBeInTheDocument();
     fireEvent.pointerDown(document.body);
     expect(screen.queryByRole("dialog", { name: "草稿箱" })).not.toBeInTheDocument();
+  });
+
+  it("requires confirmation before a dirty practice changes space or lifecycle page", async () => {
+    const user = userEvent.setup();
+    const repository = renderShell({
+      loadPracticeHome: vi.fn().mockResolvedValue({
+        cards: [], dueCards: [], drafts: [], quizzes: [{
+          artifact_id: "quiz-1", kind: "quiz", title: "Vectors quiz", status: "active",
+        }],
+      }),
+      loadQuizQuestions: vi.fn().mockResolvedValue([{
+        item_id: "question-1", artifact_id: "quiz-1", type: "choice", prompt: "Pick one", options: ["A", "B"],
+      }]),
+    }, { page: "practice" });
+    await user.click(await screen.findByRole("button", { name: "Vectors quiz" }));
+    await user.click(await screen.findByRole("button", { name: "B" }));
+
+    await user.click(screen.getByRole("button", { name: /Linear Algebra/ }));
+    await user.click(screen.getByRole("option", { name: "Physics" }));
+    expect(getConfirmSnapshot()?.title).toBe("放弃未提交的答案？");
+    await act(async () => answerConfirm(false));
+    expect(repository.selectSpace).not.toHaveBeenCalled();
+    expect(screen.getByTestId("location")).toHaveTextContent("/study/space-a/practice");
+
+    await user.click(screen.getByRole("link", { name: "评估" }));
+    expect(getConfirmSnapshot()?.message).toContain("清除尚未提交的答案");
+    await act(async () => answerConfirm(true));
+    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/study/space-a/evaluate"));
   });
 });

@@ -10,6 +10,7 @@ import { I18nProvider } from "../../lib/i18n";
 import type { StudyPracticeHome, StudyRepository } from "../repository";
 import { StudyRepositoryProvider } from "../repositoryContext";
 import { PracticePage } from "./PracticePage";
+import { StudyPageOutlet } from "./StudyPageOutlet";
 
 const card: StudyFlashcard = {
   item_id: "card-1", artifact_id: "deck-1", front: "Front side", back: "Back side",
@@ -38,10 +39,10 @@ function repository(overrides: Partial<StudyRepository> = {}): StudyRepository {
   };
 }
 
-function renderPage(repo: StudyRepository, entry = "/study/space-b/practice") {
+function renderPage(repo: StudyRepository, entry = "/study/space-b/practice", props: { onDirtyChange?: (dirty: boolean) => void; onNavigateAway?: (to: string) => void } = {}) {
   render(
     <I18nProvider><StudyRepositoryProvider repository={repo}>
-      <MemoryRouter initialEntries={[entry]}><PracticePage spaceId="space-b" /></MemoryRouter>
+      <MemoryRouter initialEntries={[entry]}><PracticePage spaceId="space-b" {...props} /></MemoryRouter>
     </StudyRepositoryProvider></I18nProvider>,
   );
 }
@@ -171,5 +172,68 @@ describe("PracticePage", () => {
 
     expect(await screen.findByRole("button", { name: "Vectors quiz" })).toBeEnabled();
     expect(screen.getAllByText("这一部分暂时无法读取，其他练习仍可继续。")).toHaveLength(2);
+  });
+
+  it("shows a retryable page error when every home section is unavailable", async () => {
+    const user = userEvent.setup();
+    const loadPracticeHome = vi.fn()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce(home);
+    renderPage(repository({ loadPracticeHome }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("这一页暂时无法读取");
+    await user.click(screen.getByRole("button", { name: "重试" }));
+    expect(await screen.findByRole("button", { name: "Vectors quiz" })).toBeEnabled();
+    expect(loadPracticeHome).toHaveBeenCalledTimes(2);
+  });
+
+  it("marks answers dirty until submission and protects window unload", async () => {
+    const user = userEvent.setup();
+    const onDirtyChange = vi.fn();
+    renderPage(repository({
+      loadQuizQuestions: vi.fn().mockResolvedValue([{
+        item_id: "question-1", artifact_id: "quiz-1", type: "choice", prompt: "Pick one", options: ["A", "B"],
+      }] satisfies StudyQuizQuestion[]),
+      submitQuiz: vi.fn().mockResolvedValue(result),
+    }), "/study/space-b/practice", { onDirtyChange });
+
+    await user.click(await screen.findByRole("button", { name: "Vectors quiz" }));
+    await user.click(await screen.findByRole("button", { name: "B" }));
+    await waitFor(() => expect(onDirtyChange).toHaveBeenLastCalledWith(true));
+    const blocked = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(blocked);
+    expect(blocked.defaultPrevented).toBe(true);
+
+    await user.click(screen.getByRole("button", { name: "提交并批改" }));
+    await screen.findByRole("heading", { name: "本次结果" });
+    await waitFor(() => expect(onDirtyChange).toHaveBeenLastCalledWith(false));
+    const allowed = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(allowed);
+    expect(allowed.defaultPrevented).toBe(false);
+  });
+
+  it("remounts the practice controller when the URL space changes", async () => {
+    const user = userEvent.setup();
+    const loadPracticeHome = vi.fn().mockImplementation(async (spaceId: string) => ({
+      cards: [], dueCards: [], drafts: [], quizzes: [{
+        artifact_id: `quiz-${spaceId}`, kind: "quiz", title: `Quiz ${spaceId}`, status: "active",
+      }],
+    }));
+    const loadQuizQuestions = vi.fn().mockImplementation(async (_spaceId: string, artifactId: string) => [{
+      item_id: `item-${artifactId}`, artifact_id: artifactId, type: "short_answer", prompt: `Question ${artifactId}`,
+    }]);
+    const repo = repository({ loadPracticeHome, loadQuizQuestions });
+    const tree = (spaceId: string) => <I18nProvider><StudyRepositoryProvider repository={repo}>
+      <MemoryRouter><StudyPageOutlet spaceId={spaceId} page="practice" /></MemoryRouter>
+    </StudyRepositoryProvider></I18nProvider>;
+    const view = render(tree("space-a"));
+
+    await user.click(await screen.findByRole("button", { name: "Quiz space-a" }));
+    expect(await screen.findByRole("heading", { name: "Question quiz-space-a" })).toBeInTheDocument();
+    view.rerender(tree("space-b"));
+
+    expect(await screen.findByRole("button", { name: "Quiz space-b" })).toBeInTheDocument();
+    expect(screen.queryByText("Question quiz-space-a")).not.toBeInTheDocument();
+    expect(loadPracticeHome).toHaveBeenCalledWith("space-b", expect.any(AbortSignal));
   });
 });

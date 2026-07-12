@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useI18n } from "../lib/i18n";
+import { confirm } from "../lib/confirmDialog";
 import { RequestCoordinator } from "./loadable";
 import type { StudySpaces } from "./repository";
 import { useStudyRepository } from "./repositoryContext";
@@ -30,6 +31,7 @@ export function StudyShell({ spaces, spaceId, page, onRevalidate, refreshing = f
   const [draftCounts, setDraftCounts] = useState<Record<string, number>>({});
   const [switching, setSwitching] = useState(false);
   const [switchError, setSwitchError] = useState(false);
+  const [practiceDirty, setPracticeDirty] = useState(false);
 
   const loadDrafts = useCallback(() => {
     if (!spaceId) { setDraftCounts({}); return; }
@@ -51,22 +53,44 @@ export function StudyShell({ spaces, spaceId, page, onRevalidate, refreshing = f
     };
   }, [loadDrafts, onRevalidate]);
 
+  const confirmPracticeLeave = useCallback(async () => {
+    if (!practiceDirty) return true;
+    const approved = await confirm({
+      title: t("study.practiceLeaveTitle"),
+      message: t("study.practiceLeaveBody"),
+      confirmLabel: t("study.practiceLeaveConfirm"),
+      cancelLabel: t("dialog.cancel"),
+      tone: "warning",
+    });
+    if (approved) setPracticeDirty(false);
+    return approved;
+  }, [practiceDirty, t]);
+
+  const navigateAway = useCallback((to: string) => {
+    void confirmPracticeLeave().then((approved) => {
+      if (approved) navigate(to);
+    });
+  }, [confirmPracticeLeave, navigate]);
+
   const selectSpace = useCallback((nextSpaceId: string) => {
     if (!page || switching || nextSpaceId === spaceId) return;
-    const request = switchRequests.current.begin();
-    setSwitching(true);
-    setSwitchError(false);
-    void repository.selectSpace(nextSpaceId, request.signal).then(() => {
-      if (!switchRequests.current.isCurrent(request.generation)) return;
-      setSwitching(false);
-      navigate(studyPath(nextSpaceId, page));
-      onRevalidate?.();
-    }, () => {
-      if (!switchRequests.current.isCurrent(request.generation)) return;
-      setSwitching(false);
-      setSwitchError(true);
+    void confirmPracticeLeave().then((approved) => {
+      if (!approved) return;
+      const request = switchRequests.current.begin();
+      setSwitching(true);
+      setSwitchError(false);
+      void repository.selectSpace(nextSpaceId, request.signal).then(() => {
+        if (!switchRequests.current.isCurrent(request.generation)) return;
+        setSwitching(false);
+        navigate(studyPath(nextSpaceId, page));
+        onRevalidate?.();
+      }, () => {
+        if (!switchRequests.current.isCurrent(request.generation)) return;
+        setSwitching(false);
+        setSwitchError(true);
+      });
     });
-  }, [navigate, onRevalidate, page, repository, spaceId, switching]);
+  }, [confirmPracticeLeave, navigate, onRevalidate, page, repository, spaceId, switching]);
 
   useEffect(() => () => switchRequests.current.cancel(), []);
 
@@ -90,8 +114,9 @@ export function StudyShell({ spaces, spaceId, page, onRevalidate, refreshing = f
           switching={switching}
           switchError={switchError}
           onSelectSpace={selectSpace}
+          onNavigateAway={navigateAway}
         />
-        <StudyLifecycleNav spaceId={spaceId} />
+        <StudyLifecycleNav spaceId={spaceId} currentPage={page} onNavigate={(nextPage) => navigateAway(studyPath(spaceId, nextPage))} />
         {refreshing ? <p className="kq-study-refresh-status" role="status">{t("study.refreshing")}</p> : null}
         {refreshFailed ? (
           <div className="kq-study-refresh-error" role="alert">
@@ -99,10 +124,10 @@ export function StudyShell({ spaces, spaceId, page, onRevalidate, refreshing = f
             <button type="button" onClick={onRevalidate}>{t("study.retry")}</button>
           </div>
         ) : null}
-        <div className="kq-study-page"><StudyPageOutlet spaceId={spaceId} page={page} /></div>
+        <div className="kq-study-page"><StudyPageOutlet spaceId={spaceId} page={page} onPracticeDirtyChange={setPracticeDirty} onPracticeNavigateAway={navigateAway} /></div>
       </>
     );
-  }, [draftCounts, onRevalidate, page, refreshFailed, refreshing, selectSpace, spaceId, spaces.spaces, switchError, switching, t]);
+  }, [draftCounts, navigateAway, onRevalidate, page, refreshFailed, refreshing, selectSpace, spaceId, spaces.spaces, switchError, switching, t]);
 
   return <div className="kq-study-shell" data-testid="study-shell">{shell}</div>;
 }

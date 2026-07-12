@@ -137,6 +137,7 @@ class PracticeGenerator:
                 {
                     "type": "derivation",
                     "prompt": f"Transcribe: {_text(question.get('prompt'), 900)}",
+                    "mode": "transcribe",
                     "steps": copied_steps,
                     "target_steps": target_steps,
                     "check": "normalized-match",

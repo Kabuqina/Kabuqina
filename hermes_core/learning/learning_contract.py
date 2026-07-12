@@ -86,6 +86,7 @@ QUIZ_QUESTION_TYPES: frozenset = frozenset(
     {"choice", "true_false", "short_answer", "code", "derivation"}
 )
 CODE_QUESTION_MODES: frozenset = frozenset({"solve", "transcribe", "variant"})
+DERIVATION_QUESTION_MODES: frozenset = frozenset({"solve", "transcribe"})
 DERIVATION_CHECKS: frozenset = frozenset(
     {"numeric-equivalence", "normalized-match"}
 )
@@ -304,6 +305,8 @@ def _v_quiz_code(q: Mapping[str, Any], ctx: str) -> None:
         isinstance(q.get("target_code"), str) and q["target_code"].strip()
     ):
         raise ContractError(f"{ctx}: transcribe code needs 'target_code'")
+    if mode != "transcribe" and "target_code" in q:
+        raise ContractError(f"{ctx}: 'target_code' is only allowed for transcribe code")
     if language == "python" and mode in {"solve", "variant"} and not (
         isinstance(q.get("test_code"), str) and q["test_code"].strip()
     ):
@@ -311,6 +314,11 @@ def _v_quiz_code(q: Mapping[str, Any], ctx: str) -> None:
 
 
 def _v_quiz_derivation(q: Mapping[str, Any], ctx: str) -> None:
+    mode = q.get("mode", "solve")
+    if mode not in DERIVATION_QUESTION_MODES:
+        raise ContractError(
+            f"{ctx}: derivation 'mode' must be one of {sorted(DERIVATION_QUESTION_MODES)}"
+        )
     steps = _req_nonempty_list(q, "steps", ctx)
     if len(steps) > MAX_DERIVATION_STEPS:
         raise ContractError(
@@ -342,6 +350,19 @@ def _v_quiz_derivation(q: Mapping[str, Any], ctx: str) -> None:
                 f"{ctx}: derivation 'cloze' must contain unique zero-based step indices"
             )
         seen.add(value)
+    if mode == "transcribe":
+        target_steps = _req_nonempty_list(q, "target_steps", ctx)
+        if len(target_steps) != len(steps):
+            raise ContractError(f"{ctx}: transcribe derivation 'target_steps' must match steps")
+        for i, step in enumerate(target_steps):
+            sctx = f"{ctx}.target_steps[{i}]"
+            sm = _mapping(step, sctx)
+            _req_str(sm, "expr", sctx)
+            _opt_str(sm, "justification", sctx)
+    elif "target_steps" in q:
+        raise ContractError(
+            f"{ctx}: 'target_steps' is only allowed for transcribe derivation"
+        )
     _opt_str_list(q, "tags", ctx)
 
 

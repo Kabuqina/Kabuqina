@@ -25,6 +25,7 @@ describe("DerivationPracticeSurface", () => {
 
     expect(document.querySelectorAll("ol > li")).toHaveLength(2);
     expect(screen.getByText("given")).toBeInTheDocument();
+    expect(screen.getByText("expand")).toBeInTheDocument();
     await user.type(screen.getByLabelText("Derivation step 2"), "(x+1)^2");
     await user.type(screen.getByLabelText("Machine expression 2"), "(x+1)**2");
     await user.type(screen.getByLabelText("Justification 2"), "expand");

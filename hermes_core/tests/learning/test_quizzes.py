@@ -233,9 +233,38 @@ def test_practice_questions_hide_grading_secrets_and_cloze_answers(ctx):
     assert code["starter"] == "# write your solution below"
     assert "test_code" not in code
     assert "reference" not in code
+    assert "target_code" not in code
     assert derivation["steps"][0]["expr"] == ""
     assert derivation["steps"][0]["justification"] == ""
     assert "expr_py" not in derivation["steps"][0]
+    assert "target_steps" not in derivation
+
+
+def test_public_questions_only_expose_targets_for_explicit_transcription(ctx):
+    payload = _practice_payload()
+    payload["questions"].extend(
+        [
+            {
+                "type": "derivation",
+                "prompt": "Transcribe expansion",
+                "mode": "transcribe",
+                "steps": [{"expr": "(x+1)^2", "justification": "given"}],
+                "target_steps": [{"expr": "(x+1)^2", "justification": "given"}],
+                "check": "normalized-match",
+                "cloze": [0],
+            }
+        ]
+    )
+    artifact_id = OutputWriter(ctx).write_artifact(kind="quiz", title="Targets", payload=payload)["artifact_id"]
+    service = QuizService(ctx, now=lambda: T0)
+    service.activate_quiz(artifact_id)
+
+    public = {question["prompt"]: question for question in service.list_questions(artifact_id=artifact_id)}
+
+    assert public["Transcribe add"]["target_code"] == "def add(a, b):\n    return a + b"
+    assert public["Transcribe expansion"]["target_steps"] == [
+        {"expr": "(x+1)^2", "justification": "given"}
+    ]
 
 
 def test_practice_dispatch_grades_python_transcribe_and_derivation(ctx):
