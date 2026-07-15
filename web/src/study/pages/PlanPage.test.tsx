@@ -14,6 +14,9 @@ import { PlanPage } from "./PlanPage";
 function repository(overrides: Partial<StudyRepository> = {}): StudyRepository {
   return {
     listSpaces: vi.fn(), selectSpace: vi.fn(), listDrafts: vi.fn(),
+    listDraftPage: vi.fn().mockResolvedValue({ items: [], total: 0, kindCounts: {}, returned: 0, limit: 50, offset: 0, truncated: false }),
+    loadLearnHome: vi.fn().mockResolvedValue({ artifacts: [], knowledgePoints: [] }),
+    loadArtifactDetail: vi.fn(), loadSourceAudit: vi.fn(), runSemanticReview: vi.fn(),
     loadFlyleaf: vi.fn(), migrateLegacyContext: vi.fn(), setArtifactStatus: vi.fn(),
     loadPlan: vi.fn().mockResolvedValue({ plan: null, items: [] }),
     completePlanItem: vi.fn(), skipPlanItem: vi.fn(), loadWrongbook: vi.fn(),

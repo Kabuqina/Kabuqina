@@ -35,6 +35,14 @@ function renderShell(
       total: 2,
       kindCounts: { flashcard_deck: 1, quiz: 1 },
     }),
+    listDraftPage: vi.fn().mockResolvedValue({
+      items: [
+        { artifact_id: "draft-deck", kind: "flashcard_deck", title: "Deck draft", status: "draft" },
+        { artifact_id: "draft-quiz", kind: "quiz", title: "Quiz draft", status: "draft" },
+      ], total: 2, kindCounts: { flashcard_deck: 1, quiz: 1 }, returned: 2, limit: 50, offset: 0, truncated: false,
+    }),
+    loadLearnHome: vi.fn().mockResolvedValue({ artifacts: [], knowledgePoints: [] }),
+    loadArtifactDetail: vi.fn(), loadSourceAudit: vi.fn(), runSemanticReview: vi.fn(),
     loadFlyleaf: vi.fn(),
     migrateLegacyContext: vi.fn(),
     setArtifactStatus: vi.fn(),
@@ -75,20 +83,20 @@ describe("StudyShell", () => {
     const drafts = await screen.findByLabelText("2 个草稿");
     await user.click(drafts.closest("button")!);
     const popover = screen.getByRole("dialog", { name: "草稿箱" });
-    expect(popover).toHaveTextContent("flashcard deck");
-    expect(popover).toHaveTextContent("quiz");
+    expect(popover).toHaveTextContent("Deck draft");
+    expect(popover).toHaveTextContent("Quiz draft");
     expect(popover).not.toHaveTextContent("private");
   });
 
   it("uses the URL space for drafts when it differs from the backend current space", async () => {
-    const listDrafts = vi.fn().mockResolvedValue({
-      total: 1,
-      kindCounts: { quiz: 1 },
+    const listDraftPage = vi.fn().mockResolvedValue({
+      items: [{ artifact_id: "draft-quiz", kind: "quiz", title: "Quiz draft", status: "draft" }],
+      total: 1, kindCounts: { quiz: 1 }, returned: 1, limit: 50, offset: 0, truncated: false,
     });
-    renderShell({ listDrafts }, { spaceId: "space-b" });
+    renderShell({ listDraftPage }, { spaceId: "space-b" });
 
     await screen.findByLabelText("1 个草稿");
-    expect(listDrafts).toHaveBeenCalledWith("space-b", expect.any(AbortSignal));
+    expect(listDraftPage).toHaveBeenCalledWith("space-b", 50, 0, expect.any(AbortSignal));
   });
 
   it("keeps route and data when selecting a space fails", async () => {
@@ -159,7 +167,7 @@ describe("StudyShell", () => {
     const user = userEvent.setup();
     const repository = renderShell({
       loadPracticeHome: vi.fn().mockResolvedValue({
-        cards: [], dueCards: [], drafts: [], quizzes: [{
+        cards: [], dueCards: [], quizzes: [{
           artifact_id: "quiz-1", kind: "quiz", title: "Vectors quiz", status: "active",
         }],
       }),

@@ -3,11 +3,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import type { StudyStudentStatePayload } from "../../chat/study/study-api";
+import type { StudyArtifactSummary, StudyStudentState, StudyStudentStatePayload } from "../../chat/study/study-api";
 import { loadStudyContext, type StudyContext } from "../../chat/study/studyStore";
 import { useI18n } from "../../lib/i18n";
 import { RequestCoordinator, type Loadable } from "../loadable";
 import { STUDY_LEARNING_EVENT } from "../learningEvent";
+import { useStudyDrafts } from "../DraftContext";
 import type { StudyFlyleafSnapshot } from "../repository";
 import { useStudyRepository } from "../repositoryContext";
 
@@ -33,16 +34,32 @@ function payloadRows(
   ].filter((row) => row.value.trim().length > 0);
 }
 
+function draftItems(snapshot: ReturnType<typeof useStudyDrafts>["snapshot"]): StudyArtifactSummary[] {
+  const data = snapshot.status === "ready"
+    ? snapshot.data
+    : snapshot.status === "loading" || snapshot.status === "error"
+      ? snapshot.previous
+      : undefined;
+  return (data?.items ?? []).filter((item) => item.kind === "student_state");
+}
+
+function draftState(detail: ReturnType<typeof useStudyDrafts>["details"][string] | undefined): StudyStudentState | null {
+  const value = detail?.status === "ready" ? detail.data : detail?.status === "loading" || detail?.status === "error" ? detail.previous : undefined;
+  const payload = value?.envelope.payload;
+  return value && payload && typeof payload === "object" && !Array.isArray(payload)
+    ? { artifact_id: value.artifactId, status: value.status, payload: payload as StudyStudentStatePayload }
+    : null;
+}
+
 export function FlyleafPage({ spaceId }: { spaceId: string }) {
   const { t } = useI18n();
   const repository = useStudyRepository();
+  const drafts = useStudyDrafts();
   const heading = useRef<HTMLHeadingElement>(null);
   const requests = useRef(new RequestCoordinator());
   const mutations = useRef(new RequestCoordinator());
   const migrationAttempted = useRef("");
   const [snapshot, setSnapshot] = useState<Loadable<StudyFlyleafSnapshot>>({ status: "idle" });
-  const [pendingDraft, setPendingDraft] = useState(false);
-  const [draftError, setDraftError] = useState(false);
   const [migrationError, setMigrationError] = useState(false);
 
   const load = useCallback(() => {
@@ -111,6 +128,10 @@ export function FlyleafPage({ spaceId }: { spaceId: string }) {
     : snapshot.status === "loading" || snapshot.status === "error"
       ? snapshot.previous
       : undefined;
+  const draftSummary = draftItems(drafts.snapshot)[0] ?? null;
+  const draft = draftSummary ? draftState(drafts.details[draftSummary.artifact_id]) : null;
+  const draftAction = draftSummary ? drafts.actions[draftSummary.artifact_id] : undefined;
+  const draftError = draftSummary ? drafts.actionErrors[draftSummary.artifact_id] : undefined;
   const labels = useMemo(() => ({
     course: t("study.flyleafCourse"),
     goals: t("study.flyleafGoals"),
@@ -121,32 +142,9 @@ export function FlyleafPage({ spaceId }: { spaceId: string }) {
     adjustment: t("study.flyleafAdjustment"),
   }), [t]);
 
-  const updateDraft = (status: "active" | "rejected") => {
-    if (!data?.draft || pendingDraft) return;
-    const draft = data.draft;
-    const request = mutations.current.begin();
-    setPendingDraft(true);
-    setDraftError(false);
-    void repository.setArtifactStatus(spaceId, draft.artifact_id, status, request.signal).then(
-      () => {
-        if (!mutations.current.isCurrent(request.generation)) return;
-        setPendingDraft(false);
-        setSnapshot({
-          status: "ready",
-          data: {
-            active: status === "active" ? { ...draft, status: "active" } : data.active,
-            draft: null,
-          },
-        });
-        window.dispatchEvent(new Event(STUDY_LEARNING_EVENT));
-      },
-      () => {
-        if (!mutations.current.isCurrent(request.generation)) return;
-        setPendingDraft(false);
-        setDraftError(true);
-      },
-    );
-  };
+  useEffect(() => {
+    if (draftSummary) drafts.openDetail(draftSummary.artifact_id);
+  }, [draftSummary, drafts]);
 
   return (
     <section className="kq-study-content-page" aria-labelledby="study-page-title">
@@ -177,7 +175,7 @@ export function FlyleafPage({ spaceId }: { spaceId: string }) {
         </div>
       ) : null}
 
-      {data?.draft ? (
+      {draft ? (
         <article className="kq-study-flyleaf-card is-pencil">
           <div className="kq-study-card-title">
             <div>
@@ -185,16 +183,16 @@ export function FlyleafPage({ spaceId }: { spaceId: string }) {
               <h2>{t("study.flyleafDraftTitle")}</h2>
             </div>
             <div className="kq-study-inline-actions">
-              <button type="button" disabled={pendingDraft} onClick={() => updateDraft("active")}>
+              <button type="button" disabled={Boolean(draftAction)} onClick={() => { void drafts.activate(draft.artifact_id); }}>
                 {t("study.flyleafInk")}
               </button>
-              <button type="button" disabled={pendingDraft} onClick={() => updateDraft("rejected")}>
+              <button type="button" disabled={Boolean(draftAction)} onClick={() => { void drafts.reject(draft.artifact_id); }}>
                 {t("study.flyleafErase")}
               </button>
             </div>
           </div>
           <dl className="kq-study-flyleaf-rows">
-            {payloadRows(data.draft.payload, labels).map((row) => (
+            {payloadRows(draft.payload, labels).map((row) => (
               <div key={row.key}><dt>{row.label}</dt><dd>{row.value}</dd></div>
             ))}
           </dl>
@@ -215,7 +213,7 @@ export function FlyleafPage({ spaceId }: { spaceId: string }) {
         </article>
       ) : null}
 
-      {data && !data.active && !data.draft ? (
+      {data && !data.active && !draft ? (
         <div className="kq-study-page-empty">
           <h2>{t("study.flyleafEmptyTitle")}</h2>
           <p>{t("study.flyleafEmptyBody")}</p>

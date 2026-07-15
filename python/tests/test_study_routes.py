@@ -22,6 +22,7 @@ for p in (SRC_DIR, CORE_DIR):
 from learning.learning_context import LearningExecutionContext  # noqa: E402
 from learning.learning_store import LearningStore  # noqa: E402
 from learning.output_writer import OutputWriter  # noqa: E402
+from learning.flashcards import FlashcardService  # noqa: E402
 
 
 OWNER = "desktop:test-owner"
@@ -303,7 +304,9 @@ def test_m5_artifact_requires_semantic_approval_before_activation(study_client):
 
     with patch("study_semantic_reviewer.review_artifact_with_model", return_value=True):
         reviewed = client.post(
-            f"/api/desk/study/artifacts/{artifact_id}/semantic-review", headers=_headers(),
+            f"/api/desk/study/artifacts/{artifact_id}/semantic-review",
+            json={"space_id": "s1"},
+            headers=_headers(),
         )
     assert reviewed.json()["status"] == "passed"
     activated = client.post(
@@ -312,9 +315,79 @@ def test_m5_artifact_requires_semantic_approval_before_activation(study_client):
     assert activated.json()["status"] == "active"
 
     audit = client.get(
-        f"/api/desk/study/artifacts/{artifact_id}/source-audit", headers=_headers()
+        f"/api/desk/study/artifacts/{artifact_id}/source-audit?space_id=s1", headers=_headers()
     )
     assert audit.json() == {"artifact_id": artifact_id, "source_refs": []}
+
+
+def test_m5_audit_and_review_are_scoped_to_url_space(study_client):
+    client, db_path = study_client
+    store = LearningStore(db_path=db_path)
+    try:
+        ctx = LearningExecutionContext(store, owner_id=OWNER)
+        ctx.create_space(title="Algebra", space_id="s1")
+        artifact_id = OutputWriter(ctx).write_artifact(
+            kind="knowledge_base",
+            title="Concepts",
+            payload={"concepts": [{"term": "limit", "explanation": "approach"}]},
+        )["artifact_id"]
+        ctx.create_space(title="Other", space_id="s2")
+    finally:
+        store.close()
+
+    wrong_audit = client.get(
+        f"/api/desk/study/artifacts/{artifact_id}/source-audit?space_id=s2", headers=_headers(),
+    )
+    assert wrong_audit.status_code == 404
+    assert wrong_audit.json()["detail"]["code"] == "study_not_found"
+    with patch("study_semantic_reviewer.review_artifact_with_model", return_value=True):
+        wrong_review = client.post(
+            f"/api/desk/study/artifacts/{artifact_id}/semantic-review",
+            json={"space_id": "s2"},
+            headers=_headers(),
+        )
+    assert wrong_review.status_code == 404
+    assert wrong_review.json()["detail"]["code"] == "study_not_found"
+
+
+def test_knowledge_points_projection_uses_trusted_source_ref(study_client):
+    client, db_path = study_client
+    store = LearningStore(db_path=db_path)
+    try:
+        ctx = LearningExecutionContext(store, owner_id=OWNER)
+        ctx.create_space(title="Algebra", space_id="s1")
+        FlashcardService(ctx).capture_card(
+            front="Limits",
+            back="Approach without reaching.",
+            tags=["not-a-provenance-contract"],
+            source_refs=[{"origin": "kq-kp", "confidence": "confirmed", "session_id": "private"}],
+        )
+        FlashcardService(ctx).capture_card(
+            front="Other",
+            back="Do not return this.",
+            tags=["知识点"],
+            source_refs=[{"origin": "manual"}],
+        )
+    finally:
+        store.close()
+
+    response = client.get(
+        "/api/desk/study/knowledge-points?space_id=s1", headers=_headers(),
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] == payload["returned"] == 1
+    assert payload["limit"] == 50 and payload["truncated"] is False
+    assert payload["items"][0] | {"item_id": "", "artifact_id": ""} == {
+        "item_id": "",
+        "artifact_id": "",
+        "front": "Limits",
+        "gist": "Approach without reaching.",
+        "captured": True,
+        "confidence": "confirmed",
+    }
+    assert payload["items"][0]["item_id"] and payload["items"][0]["artifact_id"]
+    assert "private" not in str(payload)
 
 
 def test_legacy_quiz_migration_is_idempotent(study_client):

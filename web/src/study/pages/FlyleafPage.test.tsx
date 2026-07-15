@@ -13,6 +13,7 @@ import {
 } from "../../chat/study/studyStore";
 import type { StudyRepository } from "../repository";
 import { StudyRepositoryProvider } from "../repositoryContext";
+import { StudyDraftProvider } from "../DraftContext";
 import { FlyleafPage } from "./FlyleafPage";
 
 function repository(overrides: Partial<StudyRepository> = {}): StudyRepository {
@@ -20,6 +21,9 @@ function repository(overrides: Partial<StudyRepository> = {}): StudyRepository {
     listSpaces: vi.fn(),
     selectSpace: vi.fn(),
     listDrafts: vi.fn(),
+    listDraftPage: vi.fn().mockResolvedValue({ items: [], total: 0, kindCounts: {}, returned: 0, limit: 50, offset: 0, truncated: false }),
+    loadLearnHome: vi.fn().mockResolvedValue({ artifacts: [], knowledgePoints: [] }),
+    loadArtifactDetail: vi.fn(), loadSourceAudit: vi.fn(), runSemanticReview: vi.fn(),
     loadFlyleaf: vi.fn().mockResolvedValue({ active: null, draft: null }),
     migrateLegacyContext: vi.fn().mockResolvedValue(false),
     setArtifactStatus: vi.fn().mockResolvedValue(undefined),
@@ -39,7 +43,7 @@ function renderPage(repo: StudyRepository) {
   render(
     <I18nProvider>
       <StudyRepositoryProvider repository={repo}>
-        <MemoryRouter><FlyleafPage spaceId="space-b" /></MemoryRouter>
+        <MemoryRouter><StudyDraftProvider spaceId="space-b"><FlyleafPage spaceId="space-b" /></StudyDraftProvider></MemoryRouter>
       </StudyRepositoryProvider>
     </I18nProvider>,
   );
@@ -72,18 +76,17 @@ describe("FlyleafPage", () => {
       payload: { ...active.payload, course: "Draft physics" },
     };
     const repo = repository({
-      loadFlyleaf: vi.fn()
-        .mockResolvedValueOnce({
-          active: { ...active, payload: { ...active.payload, weak_points: ["SECRET WEAKNESS"] } },
-          draft,
-        })
-        .mockResolvedValue({ active: { ...draft, status: "active" }, draft: null }),
+      loadFlyleaf: vi.fn().mockResolvedValue({ active: { ...active, payload: { ...active.payload, weak_points: ["SECRET WEAKNESS"] } } }),
+      listDraftPage: vi.fn()
+        .mockResolvedValueOnce({ items: [{ artifact_id: "draft-state", kind: "student_state", title: "Draft", status: "draft" }], total: 1, kindCounts: { student_state: 1 }, returned: 1, limit: 50, offset: 0, truncated: false })
+        .mockResolvedValue({ items: [], total: 0, kindCounts: {}, returned: 0, limit: 50, offset: 0, truncated: false }),
+      loadArtifactDetail: vi.fn().mockResolvedValue({ artifactId: "draft-state", kind: "student_state", title: "Draft", version: 1, status: "draft", review: {}, envelope: { payload: draft.payload } }),
       setArtifactStatus,
     });
     renderPage(repo);
 
     expect(await screen.findByRole("heading", { name: "我的学习设定" })).toBeInTheDocument();
-    expect(screen.getByText("Draft physics")).toBeInTheDocument();
+    expect(await screen.findByText("Draft physics")).toBeInTheDocument();
     expect(screen.queryByText("SECRET WEAKNESS")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "落墨" }));
@@ -111,8 +114,8 @@ describe("FlyleafPage", () => {
     saveStudyContext({ ...emptyStudyContext(), course: "Legacy physics" });
     const migrateLegacyContext = vi.fn().mockResolvedValue(true);
     const loadFlyleaf = vi.fn()
-      .mockResolvedValueOnce({ active: null, draft: null })
-      .mockResolvedValue({ active: { ...active, payload: { ...active.payload, course: "Legacy physics" } }, draft: null });
+      .mockResolvedValueOnce({ active: null })
+      .mockResolvedValue({ active: { ...active, payload: { ...active.payload, course: "Legacy physics" } } });
     renderPage(repository({ migrateLegacyContext, loadFlyleaf }));
 
     expect(await screen.findByText("Legacy physics")).toBeInTheDocument();
@@ -125,10 +128,14 @@ describe("FlyleafPage", () => {
     const user = userEvent.setup();
     const draft = { ...active, artifact_id: "draft-state", status: "draft" };
     const setArtifactStatus = vi.fn().mockResolvedValue(undefined);
-    const loadFlyleaf = vi.fn()
-      .mockResolvedValueOnce({ active: null, draft })
-      .mockResolvedValue({ active: null, draft: null });
-    renderPage(repository({ loadFlyleaf, setArtifactStatus }));
+    renderPage(repository({
+      loadFlyleaf: vi.fn().mockResolvedValue({ active: null }),
+      listDraftPage: vi.fn()
+        .mockResolvedValueOnce({ items: [{ artifact_id: "draft-state", kind: "student_state", title: "Draft", status: "draft" }], total: 1, kindCounts: { student_state: 1 }, returned: 1, limit: 50, offset: 0, truncated: false })
+        .mockResolvedValue({ items: [], total: 0, kindCounts: {}, returned: 0, limit: 50, offset: 0, truncated: false }),
+      loadArtifactDetail: vi.fn().mockResolvedValue({ artifactId: "draft-state", kind: "student_state", title: "Draft", version: 1, status: "draft", review: {}, envelope: { payload: draft.payload } }),
+      setArtifactStatus,
+    }));
 
     await user.click(await screen.findByRole("button", { name: "擦掉" }));
     expect(setArtifactStatus).toHaveBeenCalledWith(

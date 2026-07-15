@@ -4,7 +4,8 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useI18n } from "../../lib/i18n";
-import type { StudyFlashcard, StudyQuizQuestion, StudyQuizResult } from "../../chat/study/study-api";
+import type { StudyArtifactSummary, StudyFlashcard, StudyQuizQuestion, StudyQuizResult } from "../../chat/study/study-api";
+import { useStudyDrafts } from "../DraftContext";
 import { STUDY_LEARNING_EVENT } from "../learningEvent";
 import { RequestCoordinator, type Loadable } from "../loadable";
 import type { StudyPracticeHome } from "../repository";
@@ -24,9 +25,19 @@ const GRADES: Array<{ grade: Grade; key: "practiceAgain" | "practiceHard" | "pra
   { grade: "easy", key: "practiceEasy" },
 ];
 
+function practiceDrafts(snapshot: ReturnType<typeof useStudyDrafts>["snapshot"]): StudyArtifactSummary[] {
+  const data = snapshot.status === "ready"
+    ? snapshot.data
+    : snapshot.status === "loading" || snapshot.status === "error"
+      ? snapshot.previous
+      : undefined;
+  return (data?.items ?? []).filter((draft) => draft.kind === "flashcard_deck" || draft.kind === "quiz");
+}
+
 export function PracticePage({ spaceId, onDirtyChange, onNavigateAway }: { spaceId: string; onDirtyChange?: (dirty: boolean) => void; onNavigateAway?: (to: string) => void }) {
   const { t } = useI18n();
   const repository = useStudyRepository();
+  const drafts = useStudyDrafts();
   const heading = useRef<HTMLHeadingElement>(null);
   const requests = useRef(new RequestCoordinator());
   const mutations = useRef(new RequestCoordinator());
@@ -55,6 +66,7 @@ export function PracticePage({ spaceId, onDirtyChange, onNavigateAway }: { space
     : snapshot.status === "loading" || snapshot.status === "error"
       ? snapshot.previous
       : undefined;
+  const pageDrafts = practiceDrafts(drafts.snapshot);
 
   const load = useCallback(() => {
     const request = requests.current.begin();
@@ -234,22 +246,14 @@ export function PracticePage({ spaceId, onDirtyChange, onNavigateAway }: { space
 
   const reviewDraft = (artifactId: string, status: "active" | "rejected", kind: string) => {
     if (pending) return;
-    const request = mutations.current.begin();
-    setPending(true);
     setActionError("");
-    void repository.setArtifactStatus(spaceId, artifactId, status, request.signal).then(
-      () => {
-        if (!mutations.current.isCurrent(request.generation)) return;
-        setPending(false);
-        window.dispatchEvent(new Event(STUDY_LEARNING_EVENT));
-        if (status === "active" && kind === "quiz") openQuiz(artifactId);
-      },
-      () => {
-        if (!mutations.current.isCurrent(request.generation)) return;
-        setPending(false);
+    void (status === "active" ? drafts.activate(artifactId) : drafts.reject(artifactId)).then((applied) => {
+      if (!applied) {
         setActionError(t("study.practiceActionFailed"));
-      },
-    );
+        return;
+      }
+      if (status === "active" && kind === "quiz") openQuiz(artifactId);
+    });
   };
 
   const generatePractice = (itemId: string, kind: "transcribe" | "variant") => {
@@ -304,7 +308,7 @@ export function PracticePage({ spaceId, onDirtyChange, onNavigateAway }: { space
             <h2>{t("study.practiceQuizTitle")}</h2>
             {data.unavailable?.includes("quizzes") ? <SectionUnavailable retry={load} /> : data.quizzes.length ? <div className="kq-study-inline-actions">{data.quizzes.map((quiz) => <button key={quiz.artifact_id} type="button" disabled={pending} onClick={() => openQuiz(quiz.artifact_id)}>{quiz.title}</button>)}</div> : <p>{t("study.practiceQuizEmpty")}</p>}
           </article>
-          {data.drafts.length || data.unavailable?.includes("drafts") ? <article className="kq-study-practice-card"><p>{t("study.drafts")}</p>{data.unavailable?.includes("drafts") ? <SectionUnavailable retry={load} /> : data.drafts.map((draft) => <div key={draft.artifact_id} className="kq-study-draft-row"><div><strong>{draft.title}</strong><span>{draft.kind} · {draft.review?.status || draft.status}</span></div><div className="kq-study-inline-actions"><button type="button" disabled={pending} onClick={() => reviewDraft(draft.artifact_id, "active", draft.kind)}>{t("study.flyleafInk")}</button><button type="button" disabled={pending} onClick={() => reviewDraft(draft.artifact_id, "rejected", draft.kind)}>{t("study.flyleafErase")}</button></div></div>)}</article> : null}
+          {pageDrafts.length ? <article className="kq-study-practice-card"><p>{t("study.drafts")}</p>{pageDrafts.map((draft) => <div key={draft.artifact_id} className="kq-study-draft-row"><div><strong>{draft.title}</strong><span>{draft.kind} · {draft.review?.status || draft.status}</span></div><div className="kq-study-inline-actions"><button type="button" disabled={pending || Boolean(drafts.actions[draft.artifact_id])} onClick={() => reviewDraft(draft.artifact_id, "active", draft.kind)}>{t("study.flyleafInk")}</button><button type="button" disabled={pending || Boolean(drafts.actions[draft.artifact_id])} onClick={() => reviewDraft(draft.artifact_id, "rejected", draft.kind)}>{t("study.flyleafErase")}</button></div></div>)}</article> : null}
         </div>
       ) : null}
 

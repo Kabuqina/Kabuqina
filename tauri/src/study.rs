@@ -5,7 +5,10 @@
 
 use crate::chat::DeskBridgeError;
 use serde_json::{json, Value};
+use std::path::Path;
 use tauri::AppHandle;
+
+const STUDY_IMPORT_FILE_MAX_BYTES: u64 = 10 * 1024 * 1024;
 
 fn validate_study_path_id(id: &str) -> Result<(), String> {
     let ok = !id.is_empty()
@@ -147,6 +150,57 @@ pub async fn cmd_study_artifact_status(
 }
 
 #[tauri::command]
+pub async fn cmd_study_artifact_source_audit(
+    app: AppHandle,
+    artifact_id: String,
+    space_id: String,
+) -> Result<Value, DeskBridgeError> {
+    validate_structured_id(&artifact_id)?;
+    validate_structured_id(&space_id)?;
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::GET,
+        &format!("/api/desk/study/artifacts/{artifact_id}/source-audit?space_id={space_id}"),
+        None,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_artifact_semantic_review(
+    app: AppHandle,
+    artifact_id: String,
+    space_id: String,
+) -> Result<Value, DeskBridgeError> {
+    validate_structured_id(&artifact_id)?;
+    validate_structured_id(&space_id)?;
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::POST,
+        &format!("/api/desk/study/artifacts/{artifact_id}/semantic-review"),
+        Some(json!({ "space_id": space_id })),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_knowledge_points(
+    app: AppHandle,
+    space_id: String,
+    limit: Option<u32>,
+) -> Result<Value, DeskBridgeError> {
+    validate_structured_id(&space_id)?;
+    let limit = limit.unwrap_or(50).clamp(1, 100);
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::GET,
+        &format!("/api/desk/study/knowledge-points?space_id={space_id}&limit={limit}"),
+        None,
+    )
+    .await
+}
+
+#[tauri::command]
 pub async fn cmd_study_wrongbook(
     app: AppHandle,
     space_id: String,
@@ -207,6 +261,50 @@ pub async fn cmd_study_data_import(
         Some(json!({"bundle": bundle})),
     )
     .await
+}
+
+fn read_study_import_file(path_str: &str) -> Result<Value, DeskBridgeError> {
+    let path = Path::new(path_str);
+    if !path.is_absolute()
+        || !path
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("json"))
+    {
+        return Err(DeskBridgeError::invalid(
+            "study_invalid_import_file",
+            "choose an absolute .json backup file",
+        ));
+    }
+    let metadata = std::fs::metadata(path).map_err(|_| {
+        DeskBridgeError::invalid("study_invalid_import_file", "backup file cannot be read")
+    })?;
+    if !metadata.is_file() || metadata.len() > STUDY_IMPORT_FILE_MAX_BYTES {
+        return Err(DeskBridgeError::invalid(
+            "study_invalid_import_file",
+            "backup file is not a supported size",
+        ));
+    }
+    let text = std::fs::read_to_string(path).map_err(|_| {
+        DeskBridgeError::invalid("study_invalid_import_file", "backup file must be UTF-8")
+    })?;
+    let bundle: Value = serde_json::from_str(&text).map_err(|_| {
+        DeskBridgeError::invalid("study_invalid_import_file", "backup file is not valid JSON")
+    })?;
+    if !bundle.is_object() || bundle.get("version").and_then(Value::as_u64) != Some(1) {
+        return Err(DeskBridgeError::invalid(
+            "study_invalid_import_file",
+            "backup file must be a version 1 study bundle",
+        ));
+    }
+    Ok(bundle)
+}
+
+/// Read a backup chosen through the native dialog. This command intentionally
+/// returns only a validated v1 JSON object; it never writes or imports data.
+#[tauri::command]
+pub fn cmd_study_data_import_file(path_str: String) -> Result<Value, DeskBridgeError> {
+    read_study_import_file(&path_str)
 }
 
 #[tauri::command]
@@ -640,5 +738,23 @@ mod tests {
         assert_eq!(error.status, Some(400));
         assert_eq!(error.code, "invalid_study_id");
         assert_eq!(error.detail, "invalid study id");
+    }
+
+    #[test]
+    fn study_import_file_requires_a_small_v1_json_object() {
+        let root = std::env::temp_dir().join(format!("kabuqina-study-import-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        let valid = root.join("backup.json");
+        std::fs::write(&valid, r#"{"version":1,"spaces":[]}"#).unwrap();
+        assert!(read_study_import_file(&valid.display().to_string()).is_ok());
+
+        let invalid_version = root.join("invalid.json");
+        std::fs::write(&invalid_version, r#"{"version":2}"#).unwrap();
+        let error = read_study_import_file(&invalid_version.display().to_string()).unwrap_err();
+        assert_eq!(error.status, Some(400));
+        assert_eq!(error.code, "study_invalid_import_file");
+
+        let _ = std::fs::remove_dir_all(&root);
     }
 }

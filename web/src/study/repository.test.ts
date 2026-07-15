@@ -56,39 +56,51 @@ describe("StudyRepository", () => {
     await expect(pending).rejects.toMatchObject({ name: "AbortError" });
   });
 
-  it("loads flyleaf active and draft state from the requested URL space", async () => {
+  it("loads only flyleaf active state from the requested URL space", async () => {
     const studentState = vi.fn().mockResolvedValue({
       state: { artifact_id: "active", status: "active", payload: { course: "Physics" } },
     });
-    const studentDraftSummary = vi.fn().mockResolvedValue({
-      items: [{ artifact_id: "draft", kind: "student_state", title: "Draft", status: "draft" }],
-      count: 1,
-      counts: { draft: 1 },
-      kind_counts: { student_state: 1 },
-      returned: 1,
-      limit: 1,
-      offset: 0,
-      truncated: false,
-    });
-    const artifactDetail = vi.fn().mockResolvedValue({
-      artifact: {
-        artifact_id: "draft",
-        kind: "student_state",
-        title: "Draft",
-        version: 1,
-        status: "draft",
-        envelope: { payload: { course: "Draft physics" } },
-      },
-    });
-    const repository = createStudyRepository({ studentState, studentDraftSummary, artifactDetail });
+    const repository = createStudyRepository({ studentState });
 
     await expect(repository.loadFlyleaf("space-b", new AbortController().signal)).resolves.toMatchObject({
       active: { artifact_id: "active" },
-      draft: { artifact_id: "draft", payload: { course: "Draft physics" } },
     });
     expect(studentState).toHaveBeenCalledWith("space-b");
-    expect(studentDraftSummary).toHaveBeenCalledWith("space-b");
-    expect(artifactDetail).toHaveBeenCalledWith("space-b", "draft");
+  });
+
+  it("loads bounded M5 summaries and knowledge points independently", async () => {
+    const activeM5Summaries = vi.fn().mockResolvedValue({
+      items: [
+        { artifact_id: "kb", kind: "knowledge_base", title: "KB", status: "active" },
+        { artifact_id: "quiz", kind: "quiz", title: "Not learn content", status: "active" },
+      ], count: 2, counts: {}, kind_counts: {}, returned: 2, limit: 100, offset: 0, truncated: false,
+    });
+    const knowledgePoints = vi.fn().mockRejectedValue({ status: null, code: "desk_transport_error", detail: "private" });
+    const repository = createStudyRepository({ activeM5Summaries, knowledgePoints });
+
+    await expect(repository.loadLearnHome("space-b", new AbortController().signal)).resolves.toEqual({
+      artifacts: [{ artifact_id: "kb", kind: "knowledge_base", title: "KB", status: "active" }],
+      knowledgePoints: [], unavailable: ["knowledgePoints"],
+    });
+    expect(activeM5Summaries).toHaveBeenCalledWith("space-b");
+    expect(knowledgePoints).toHaveBeenCalledWith("space-b");
+  });
+
+  it("uses the explicit URL space for M5 detail, audit, and review", async () => {
+    const artifactDetail = vi.fn().mockResolvedValue({ artifact: {
+      artifact_id: "m5-a", kind: "knowledge_base", title: "Title", version: 1, status: "draft", review: { mode: "semantic", status: "pending" }, envelope: { payload: {} },
+    } });
+    const artifactSourceAudit = vi.fn().mockResolvedValue({ artifact_id: "m5-a", source_refs: [{ origin: "safe" }] });
+    const artifactSemanticReview = vi.fn().mockResolvedValue({ artifact_id: "m5-a", status: "passed", reviewed: true });
+    const repository = createStudyRepository({ artifactDetail, artifactSourceAudit, artifactSemanticReview });
+    const signal = new AbortController().signal;
+
+    await expect(repository.loadArtifactDetail("space-b", "m5-a", signal)).resolves.toMatchObject({ artifactId: "m5-a", kind: "knowledge_base" });
+    await expect(repository.loadSourceAudit("space-b", "m5-a", signal)).resolves.toEqual([{ origin: "safe" }]);
+    await expect(repository.runSemanticReview("space-b", "m5-a", signal)).resolves.toBe("passed");
+    expect(artifactDetail).toHaveBeenCalledWith("space-b", "m5-a");
+    expect(artifactSourceAudit).toHaveBeenCalledWith("space-b", "m5-a");
+    expect(artifactSemanticReview).toHaveBeenCalledWith("space-b", "m5-a");
   });
 
   it("selects the newest active plan and scopes its item query", async () => {
@@ -130,20 +142,14 @@ describe("StudyRepository", () => {
     const quizzes = vi.fn().mockResolvedValue({ quizzes: [{
       artifact_id: "quiz-1", kind: "quiz", title: "Private title", status: "active",
     }] });
-    const practiceDrafts = vi.fn().mockResolvedValue({
-      items: [{ artifact_id: "draft-1", kind: "quiz", title: "Draft", status: "draft" }],
-      count: 1, counts: { draft: 1 }, kind_counts: { quiz: 1 },
-      returned: 1, limit: 50, offset: 0, truncated: false,
-    });
     const practiceSource = vi.fn().mockResolvedValue({
       source: { artifact_id: "quiz-1", item_ids: ["item-1"] },
     });
-    const repository = createStudyRepository({ flashcards, quizzes, practiceDrafts, practiceSource });
+    const repository = createStudyRepository({ flashcards, quizzes, practiceSource });
     const signal = new AbortController().signal;
 
     await expect(repository.loadPracticeHome("space-b", signal)).resolves.toMatchObject({
       dueCards: [{ item_id: "card-due" }],
-      drafts: [{ artifact_id: "draft-1" }],
     });
     await expect(repository.resolvePracticeSource("space-b", "activity-1", signal)).resolves.toEqual({
       artifact_id: "quiz-1", item_ids: ["item-1"],
@@ -151,7 +157,6 @@ describe("StudyRepository", () => {
     expect(flashcards).toHaveBeenNthCalledWith(1, "space-b", false);
     expect(flashcards).toHaveBeenNthCalledWith(2, "space-b", true);
     expect(quizzes).toHaveBeenCalledWith("space-b");
-    expect(practiceDrafts).toHaveBeenCalledWith("space-b");
     expect(practiceSource).toHaveBeenCalledWith("space-b", "activity-1");
   });
 
@@ -161,12 +166,11 @@ describe("StudyRepository", () => {
       quizzes: vi.fn().mockResolvedValue({ quizzes: [{
         artifact_id: "quiz-ready", kind: "quiz", title: "Ready", status: "active",
       }] }),
-      practiceDrafts: vi.fn().mockRejectedValue(new Error("offline")),
     });
 
     await expect(repository.loadPracticeHome("space-b", new AbortController().signal)).resolves.toEqual({
-      cards: [], dueCards: [], quizzes: [{ artifact_id: "quiz-ready", kind: "quiz", title: "Ready", status: "active" }], drafts: [],
-      unavailable: ["cards", "drafts"],
+      cards: [], dueCards: [], quizzes: [{ artifact_id: "quiz-ready", kind: "quiz", title: "Ready", status: "active" }],
+      unavailable: ["cards"],
     });
   });
 
@@ -177,7 +181,6 @@ describe("StudyRepository", () => {
     const repository = createStudyRepository({
       flashcards: unavailable,
       quizzes: unavailable,
-      practiceDrafts: unavailable,
     });
 
     await expect(repository.loadPracticeHome("space-b", new AbortController().signal)).rejects.toMatchObject({

@@ -2,7 +2,7 @@
 
 > 日期：2026-07-15
 >
-> 状态：Ready to execute
+> 状态：Implemented — awaiting D-5 integrated WebView2 manual smoke
 >
 > 工作分支：`codex/study-d4`
 

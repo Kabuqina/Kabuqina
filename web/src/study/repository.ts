@@ -4,12 +4,15 @@
 import {
   cmdStudyActivities,
   cmdStudyArtifactDetail,
+  cmdStudyArtifactSemanticReview,
+  cmdStudyArtifactSourceAudit,
   cmdStudyArtifactSummaries,
   cmdStudyArtifactStatus,
   cmdStudyEvaluations,
   cmdStudyFlashcardReview,
   cmdStudyFlashcards,
   cmdStudyLearningPlans,
+  cmdStudyKnowledgePoints,
   cmdStudyMigrateContext,
   cmdStudyPlanItemComplete,
   cmdStudyPlanItemSkip,
@@ -28,12 +31,14 @@ import {
   type StudyDraftsResponse,
   type StudyEvaluationProjection,
   type StudyFlashcard,
+  type StudyKnowledgePoint,
   type StudyPlanItem,
   type StudyPracticeResponse,
   type StudyPracticeSource,
   type StudyQuizQuestion,
   type StudyQuizResult,
   type StudySpacesResponse,
+  type StudySourceRef,
   type StudyStudentState,
   type StudyWrongbookResponse,
 } from "../chat/study/study-api";
@@ -55,9 +60,38 @@ export type StudyDraftInbox = {
   kindCounts: Readonly<Record<string, number>>;
 };
 
+export type StudyDraftPage = {
+  items: StudyArtifactSummary[];
+  total: number;
+  kindCounts: Readonly<Record<string, number>>;
+  returned: number;
+  limit: number;
+  offset: number;
+  truncated: boolean;
+};
+
+export type StudyM5Kind = "knowledge_base" | "resource_pack" | "tutoring_note";
+
+export type StudyLearnHome = {
+  artifacts: StudyArtifactSummary[];
+  knowledgePoints: StudyKnowledgePoint[];
+  unavailable?: Array<"artifacts" | "knowledgePoints">;
+};
+
+export type StudyArtifactDetail = {
+  artifactId: string;
+  kind: string;
+  title: string;
+  version: number;
+  status: string;
+  review: { mode?: string; status?: string };
+  createdAt?: string;
+  updatedAt?: string;
+  envelope: Record<string, unknown>;
+};
+
 export type StudyFlyleafSnapshot = {
   active: StudyStudentState | null;
-  draft: StudyStudentState | null;
 };
 
 export type StudyPlanSnapshot = {
@@ -73,8 +107,7 @@ export type StudyPracticeHome = {
   cards: StudyFlashcard[];
   dueCards: StudyFlashcard[];
   quizzes: StudyArtifactSummary[];
-  drafts: StudyArtifactSummary[];
-  unavailable?: Array<"cards" | "quizzes" | "drafts">;
+  unavailable?: Array<"cards" | "quizzes">;
 };
 
 export type StudyRepositoryErrorCode =
@@ -98,12 +131,21 @@ export interface StudyRepository {
   listSpaces(signal: AbortSignal): Promise<StudySpaces>;
   selectSpace(spaceId: string, signal: AbortSignal): Promise<StudySpaces>;
   listDrafts(spaceId: string, signal: AbortSignal): Promise<StudyDraftInbox>;
+  listDraftPage(spaceId: string, limit: number, offset: number, signal: AbortSignal): Promise<StudyDraftPage>;
+  loadLearnHome(spaceId: string, signal: AbortSignal): Promise<StudyLearnHome>;
+  loadArtifactDetail(spaceId: string, artifactId: string, signal: AbortSignal): Promise<StudyArtifactDetail>;
+  loadSourceAudit(spaceId: string, artifactId: string, signal: AbortSignal): Promise<StudySourceRef[]>;
+  runSemanticReview(
+    spaceId: string,
+    artifactId: string,
+    signal: AbortSignal,
+  ): Promise<"pending" | "passed" | "failed">;
   loadFlyleaf(spaceId: string, signal: AbortSignal): Promise<StudyFlyleafSnapshot>;
   migrateLegacyContext(spaceId: string, context: unknown, signal: AbortSignal): Promise<boolean>;
   setArtifactStatus(
     spaceId: string,
     artifactId: string,
-    status: "active" | "rejected",
+    status: "active" | "rejected" | "archived",
     signal: AbortSignal,
   ): Promise<void>;
   loadPlan(spaceId: string, signal: AbortSignal): Promise<StudyPlanSnapshot>;
@@ -160,9 +202,13 @@ type StudyCommands = {
   spaces: () => Promise<StudySpacesResponse>;
   selectSpace: (spaceId: string) => Promise<StudySpacesResponse>;
   draftSummary: (spaceId: string) => Promise<StudyDraftsResponse>;
-  studentDraftSummary: (spaceId: string) => Promise<StudyDraftsResponse>;
+  drafts: (spaceId: string, limit: number, offset: number) => Promise<StudyDraftsResponse>;
+  activeM5Summaries: (spaceId: string) => Promise<StudyDraftsResponse>;
   artifactDetail: (spaceId: string, artifactId: string) => ReturnType<typeof cmdStudyArtifactDetail>;
   artifactStatus: typeof cmdStudyArtifactStatus;
+  artifactSourceAudit: typeof cmdStudyArtifactSourceAudit;
+  artifactSemanticReview: typeof cmdStudyArtifactSemanticReview;
+  knowledgePoints: typeof cmdStudyKnowledgePoints;
   studentState: typeof cmdStudyStudentState;
   migrateContext: typeof cmdStudyMigrateContext;
   learningPlans: typeof cmdStudyLearningPlans;
@@ -179,7 +225,6 @@ type StudyCommands = {
   quizSubmit: typeof cmdStudyQuizSubmit;
   quizGeneratePractice: typeof cmdStudyQuizGeneratePractice;
   practiceSource: typeof cmdStudyPracticeSource;
-  practiceDrafts: (spaceId: string) => Promise<StudyDraftsResponse>;
 };
 
 const defaultCommands: StudyCommands = {
@@ -190,14 +235,22 @@ const defaultCommands: StudyCommands = {
     status: "draft",
     limit: 1,
   }),
-  studentDraftSummary: (spaceId) => cmdStudyArtifactSummaries({
+  drafts: (spaceId, limit, offset) => cmdStudyArtifactSummaries({
     spaceId,
-    kind: "student_state",
     status: "draft",
-    limit: 1,
+    limit,
+    offset,
+  }),
+  activeM5Summaries: (spaceId) => cmdStudyArtifactSummaries({
+    spaceId,
+    status: "active",
+    limit: 100,
   }),
   artifactDetail: cmdStudyArtifactDetail,
   artifactStatus: cmdStudyArtifactStatus,
+  artifactSourceAudit: cmdStudyArtifactSourceAudit,
+  artifactSemanticReview: cmdStudyArtifactSemanticReview,
+  knowledgePoints: cmdStudyKnowledgePoints,
   studentState: cmdStudyStudentState,
   migrateContext: cmdStudyMigrateContext,
   learningPlans: cmdStudyLearningPlans,
@@ -214,11 +267,6 @@ const defaultCommands: StudyCommands = {
   quizSubmit: cmdStudyQuizSubmit,
   quizGeneratePractice: cmdStudyQuizGeneratePractice,
   practiceSource: cmdStudyPracticeSource,
-  practiceDrafts: (spaceId) => cmdStudyArtifactSummaries({
-    spaceId,
-    status: "draft",
-    limit: 50,
-  }),
 };
 
 function abortError(): DOMException {
@@ -298,6 +346,33 @@ function newestArtifact<T extends { artifact_id: string; updated_at?: string }>(
   )[0] ?? null;
 }
 
+function mapDraftPage(response: StudyDraftsResponse): StudyDraftPage {
+  return {
+    items: response.items,
+    total: response.count,
+    kindCounts: response.kind_counts,
+    returned: response.returned,
+    limit: response.limit,
+    offset: response.offset,
+    truncated: response.truncated,
+  };
+}
+
+function mapArtifactDetail(response: Awaited<ReturnType<typeof cmdStudyArtifactDetail>>): StudyArtifactDetail {
+  const artifact = response.artifact;
+  return {
+    artifactId: artifact.artifact_id,
+    kind: artifact.kind,
+    title: artifact.title,
+    version: artifact.version,
+    status: artifact.status,
+    review: artifact.review ?? {},
+    createdAt: artifact.created_at,
+    updatedAt: artifact.updated_at,
+    envelope: artifact.envelope,
+  };
+}
+
 export function createStudyRepository(commands: Partial<StudyCommands> = {}): StudyRepository {
   const resolved = { ...defaultCommands, ...commands };
   return {
@@ -311,24 +386,59 @@ export function createStudyRepository(commands: Partial<StudyCommands> = {}): St
       const response = await invokeWithSignal(signal, () => resolved.draftSummary(spaceId));
       return { total: response.count, kindCounts: response.kind_counts };
     },
+    async listDraftPage(spaceId, limit, offset, signal) {
+      return mapDraftPage(await invokeWithSignal(
+        signal,
+        () => resolved.drafts(spaceId, limit, offset),
+      ));
+    },
+    async loadLearnHome(spaceId, signal) {
+      return invokeWithSignal(signal, async () => {
+        const [artifactsResult, knowledgePointsResult] = await Promise.allSettled([
+          resolved.activeM5Summaries(spaceId),
+          resolved.knowledgePoints(spaceId),
+        ]);
+        if (artifactsResult.status === "rejected" && knowledgePointsResult.status === "rejected") {
+          throw artifactsResult.reason;
+        }
+        const unavailable: Array<"artifacts" | "knowledgePoints"> = [];
+        if (artifactsResult.status !== "fulfilled") unavailable.push("artifacts");
+        if (knowledgePointsResult.status !== "fulfilled") unavailable.push("knowledgePoints");
+        return {
+          artifacts: artifactsResult.status === "fulfilled"
+            ? artifactsResult.value.items.filter((artifact): artifact is StudyArtifactSummary => (
+              artifact.kind === "knowledge_base"
+              || artifact.kind === "resource_pack"
+              || artifact.kind === "tutoring_note"
+            ))
+            : [],
+          knowledgePoints: knowledgePointsResult.status === "fulfilled"
+            ? knowledgePointsResult.value.items
+            : [],
+          ...(unavailable.length ? { unavailable } : {}),
+        };
+      });
+    },
+    async loadArtifactDetail(spaceId, artifactId, signal) {
+      return mapArtifactDetail(await invokeWithSignal(
+        signal,
+        () => resolved.artifactDetail(spaceId, artifactId),
+      ));
+    },
+    async loadSourceAudit(spaceId, artifactId, signal) {
+      return invokeWithSignal(signal, async () => (
+        (await resolved.artifactSourceAudit(spaceId, artifactId)).source_refs
+      ));
+    },
+    async runSemanticReview(spaceId, artifactId, signal) {
+      return invokeWithSignal(signal, async () => (
+        (await resolved.artifactSemanticReview(spaceId, artifactId)).status
+      ));
+    },
     async loadFlyleaf(spaceId, signal) {
       return invokeWithSignal(signal, async () => {
-        const [activeResponse, draftResponse] = await Promise.all([
-          resolved.studentState(spaceId),
-          resolved.studentDraftSummary(spaceId),
-        ]);
-        const draftSummary = draftResponse.items[0];
-        const draftDetail = draftSummary
-          ? await resolved.artifactDetail(spaceId, draftSummary.artifact_id)
-          : null;
-        const draftArtifact = draftDetail?.artifact;
         return {
-          active: activeResponse.state,
-          draft: draftArtifact ? {
-            artifact_id: draftArtifact.artifact_id,
-            status: draftArtifact.status,
-            payload: draftArtifact.envelope.payload as StudyStudentState["payload"],
-          } : null,
+          active: (await resolved.studentState(spaceId)).state,
         };
       });
     },
@@ -374,18 +484,16 @@ export function createStudyRepository(commands: Partial<StudyCommands> = {}): St
     },
     loadPracticeHome(spaceId, signal) {
       return invokeWithSignal(signal, async () => {
-        const [cardsResult, dueCardsResult, quizzesResult, draftsResult] = await Promise.allSettled([
+        const [cardsResult, dueCardsResult, quizzesResult] = await Promise.allSettled([
           resolved.flashcards(spaceId, false),
           resolved.flashcards(spaceId, true),
           resolved.quizzes(spaceId),
-          resolved.practiceDrafts(spaceId),
         ]);
-        const unavailable: Array<"cards" | "quizzes" | "drafts"> = [];
+        const unavailable: Array<"cards" | "quizzes"> = [];
         if (cardsResult.status !== "fulfilled" || dueCardsResult.status !== "fulfilled") unavailable.push("cards");
         if (quizzesResult.status !== "fulfilled") unavailable.push("quizzes");
-        if (draftsResult.status !== "fulfilled") unavailable.push("drafts");
-        if (unavailable.length === 3) {
-          const failure = [cardsResult, dueCardsResult, quizzesResult, draftsResult]
+        if (unavailable.length === 2) {
+          const failure = [cardsResult, dueCardsResult, quizzesResult]
             .find((result): result is PromiseRejectedResult => result.status === "rejected");
           throw failure?.reason ?? new Error("practice home unavailable");
         }
@@ -393,9 +501,6 @@ export function createStudyRepository(commands: Partial<StudyCommands> = {}): St
           cards: cardsResult.status === "fulfilled" ? cardsResult.value.cards : [],
           dueCards: dueCardsResult.status === "fulfilled" ? dueCardsResult.value.cards : [],
           quizzes: quizzesResult.status === "fulfilled" ? quizzesResult.value.quizzes : [],
-          drafts: draftsResult.status === "fulfilled"
-            ? draftsResult.value.items.filter((draft) => draft.kind === "flashcard_deck" || draft.kind === "quiz")
-            : [],
           ...(unavailable.length ? { unavailable } : {}),
         };
       });

@@ -46,6 +46,25 @@ export type StudyArtifactDetailResponse = {
   artifact: StudyArtifact & { envelope: Record<string, unknown> };
 };
 
+export type StudySourceRef = Record<string, string>;
+
+export type StudyKnowledgePoint = {
+  item_id: string;
+  artifact_id: string;
+  front: string;
+  gist: string;
+  confidence?: string;
+  captured: true;
+};
+
+export type StudyKnowledgePointsResponse = {
+  items: StudyKnowledgePoint[];
+  count: number;
+  returned: number;
+  limit: number;
+  truncated: boolean;
+};
+
 export type StudyWrongbookEvidence = {
   activity_id: string;
   artifact_id: string;
@@ -319,6 +338,27 @@ export function cmdStudyArtifactStatus(
   return invoke("cmd_study_artifact_status", { spaceId, artifactId, status });
 }
 
+export function cmdStudyArtifactSourceAudit(
+  spaceId: string,
+  artifactId: string,
+): Promise<{ artifact_id: string; source_refs: StudySourceRef[] }> {
+  return invoke("cmd_study_artifact_source_audit", { spaceId, artifactId });
+}
+
+export function cmdStudyArtifactSemanticReview(
+  spaceId: string,
+  artifactId: string,
+): Promise<{ artifact_id: string; status: "pending" | "passed" | "failed"; reviewed: boolean }> {
+  return invoke("cmd_study_artifact_semantic_review", { spaceId, artifactId });
+}
+
+export function cmdStudyKnowledgePoints(
+  spaceId: string,
+  limit = 50,
+): Promise<StudyKnowledgePointsResponse> {
+  return invoke("cmd_study_knowledge_points", { spaceId, limit });
+}
+
 export function cmdStudyWrongbook(spaceId: string, limit = 50): Promise<StudyWrongbookResponse> {
   return invoke("cmd_study_wrongbook", { spaceId, limit });
 }
@@ -389,6 +429,10 @@ export function cmdStudyDataExport(): Promise<{ bundle: StudyLearningBundle }> {
 
 export function cmdStudyDataImport(bundle: StudyLearningBundle): Promise<{ imported: Record<string, number> }> {
   return invoke("cmd_study_data_import", { bundle });
+}
+
+export function cmdStudyDataImportFile(pathStr: string): Promise<StudyLearningBundle> {
+  return invoke("cmd_study_data_import_file", { pathStr });
 }
 
 export function cmdStudyDataDelete(confirm: string): Promise<{ deleted: boolean; counts: Record<string, number> }> {

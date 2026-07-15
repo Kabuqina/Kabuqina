@@ -10,6 +10,7 @@ import type { StudySpaces } from "./repository";
 import { parseStudyPath, studyPath } from "./routeModel";
 import { StudyShell } from "./StudyShell";
 import { StudyRouteStatus } from "./StudyRouteStatus";
+import { STUDY_LEARNING_EVENT } from "./learningEvent";
 
 export default function StudyRoute() {
   const repository = useStudyRepository();
@@ -42,7 +43,11 @@ export default function StudyRoute() {
   useEffect(() => {
     const activeCoordinator = coordinator.current;
     load();
-    return () => activeCoordinator.cancel();
+    window.addEventListener(STUDY_LEARNING_EVENT, load);
+    return () => {
+      window.removeEventListener(STUDY_LEARNING_EVENT, load);
+      activeCoordinator.cancel();
+    };
   }, [load]);
 
   if (spaces.status === "idle") {

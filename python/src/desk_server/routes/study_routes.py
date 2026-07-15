@@ -486,23 +486,83 @@ async def study_student_state(space_id: str = Query(...)):
         raise _http_error(exc) from exc
 
 @router.get("/api/desk/study/artifacts/{artifact_id}/source-audit")
-async def study_source_audit(artifact_id: str):
+async def study_source_audit(
+    artifact_id: str, space_id: str = Query(...)
+):
     try:
-        with _desktop_ctx() as ctx:
+        with _desktop_ctx(space_id=space_id) as ctx:
             artifact = _require_artifact(ctx, artifact_id)
             return {"artifact_id": artifact_id, "source_refs": artifact["envelope"].get("source_refs") or []}
     except (ValueError, KeyError, ContractError) as exc:
         raise _http_error(exc) from exc
 
 @router.post("/api/desk/study/artifacts/{artifact_id}/semantic-review")
-async def study_semantic_review(artifact_id: str):
+async def study_semantic_review(artifact_id: str, body: Dict[str, Any]):
     """Run the production LLM reviewer; unavailable/invalid output stays pending."""
     from study_semantic_reviewer import review_artifact_with_model
     try:
-        with _desktop_ctx() as ctx:
+        space_id = _required_space_id(body)
+        with _desktop_ctx(space_id=space_id) as ctx:
             artifact = _require_artifact(ctx, artifact_id)
             decision = await asyncio.to_thread(review_artifact_with_model, artifact)
             return SemanticReviewService(ctx, lambda _artifact: decision).review(artifact_id)
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+
+@router.get("/api/desk/study/knowledge-points")
+async def study_knowledge_points(
+    space_id: str = Query(...),
+    limit: int = Query(default=50, ge=1, le=100),
+):
+    """Return only cards explicitly captured from trusted ``kq-kp`` source refs.
+
+    The learning page needs a current-space projection for already captured
+    knowledge points.  It must not infer provenance from a localized card tag,
+    expose the source reference itself, or reconstruct capture details in Web.
+    """
+    try:
+        with _desktop_ctx(space_id=space_id) as ctx:
+            if not ctx.current_space():
+                return {
+                    "items": [], "count": 0, "returned": 0,
+                    "limit": limit, "truncated": False,
+                }
+            items = []
+            for card in FlashcardService(ctx).list_cards():
+                artifact = ctx.get_artifact(str(card.get("artifact_id") or ""))
+                if not artifact:
+                    continue
+                refs = artifact.get("envelope", {}).get("source_refs") or []
+                source = next(
+                    (
+                        ref for ref in refs
+                        if isinstance(ref, dict) and ref.get("origin") == "kq-kp"
+                    ),
+                    None,
+                )
+                if not source:
+                    continue
+                item = {
+                    "item_id": str(card.get("item_id") or ""),
+                    "artifact_id": str(card.get("artifact_id") or ""),
+                    "front": str(card.get("front") or ""),
+                    "gist": str(card.get("back") or ""),
+                    "captured": True,
+                }
+                confidence = source.get("confidence")
+                if isinstance(confidence, str) and confidence:
+                    item["confidence"] = confidence
+                items.append(item)
+            count = len(items)
+            page = items[:limit]
+            return {
+                "items": page,
+                "count": count,
+                "returned": len(page),
+                "limit": limit,
+                "truncated": count > len(page),
+            }
     except (ValueError, KeyError, ContractError) as exc:
         raise _http_error(exc) from exc
 

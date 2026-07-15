@@ -7,6 +7,7 @@ import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import type { StudyFlashcard, StudyQuizQuestion, StudyQuizResult } from "../../chat/study/study-api";
 import { I18nProvider } from "../../lib/i18n";
+import { StudyDraftProvider } from "../DraftContext";
 import type { StudyPracticeHome, StudyRepository } from "../repository";
 import { StudyRepositoryProvider } from "../repositoryContext";
 import { PracticePage } from "./PracticePage";
@@ -20,7 +21,7 @@ const quiz = {
   artifact_id: "quiz-1", kind: "quiz", title: "Vectors quiz", status: "active",
 };
 
-const home: StudyPracticeHome = { cards: [card], dueCards: [card], quizzes: [quiz], drafts: [] };
+const home: StudyPracticeHome = { cards: [card], dueCards: [card], quizzes: [quiz] };
 
 const result: StudyQuizResult = {
   score: 1, maxScore: 1, percent: 100, correctCount: 1, total: 1, perQuestion: [],
@@ -29,6 +30,9 @@ const result: StudyQuizResult = {
 function repository(overrides: Partial<StudyRepository> = {}): StudyRepository {
   return {
     listSpaces: vi.fn(), selectSpace: vi.fn(), listDrafts: vi.fn(),
+    listDraftPage: vi.fn().mockResolvedValue({ items: [], total: 0, kindCounts: {}, returned: 0, limit: 50, offset: 0, truncated: false }),
+    loadLearnHome: vi.fn().mockResolvedValue({ artifacts: [], knowledgePoints: [] }),
+    loadArtifactDetail: vi.fn(), loadSourceAudit: vi.fn(), runSemanticReview: vi.fn(),
     loadFlyleaf: vi.fn(), migrateLegacyContext: vi.fn(), setArtifactStatus: vi.fn(),
     loadPlan: vi.fn(), completePlanItem: vi.fn(), skipPlanItem: vi.fn(),
     loadWrongbook: vi.fn(), loadLatestEvaluation: vi.fn(), loadActivities: vi.fn(),
@@ -42,7 +46,7 @@ function repository(overrides: Partial<StudyRepository> = {}): StudyRepository {
 function renderPage(repo: StudyRepository, entry = "/study/space-b/practice", props: { onDirtyChange?: (dirty: boolean) => void; onNavigateAway?: (to: string) => void } = {}) {
   render(
     <I18nProvider><StudyRepositoryProvider repository={repo}>
-      <MemoryRouter initialEntries={[entry]}><PracticePage spaceId="space-b" {...props} /></MemoryRouter>
+      <MemoryRouter initialEntries={[entry]}><StudyDraftProvider spaceId="space-b"><PracticePage spaceId="space-b" {...props} /></StudyDraftProvider></MemoryRouter>
     </StudyRepositoryProvider></I18nProvider>,
   );
 }
@@ -149,9 +153,9 @@ describe("PracticePage", () => {
       { item_id: "draft-question", artifact_id: "draft-quiz", type: "short_answer", prompt: "Fresh draft question" },
     ] satisfies StudyQuizQuestion[]);
     renderPage(repository({
-      loadPracticeHome: vi.fn().mockResolvedValue({
-        ...home,
-        drafts: [{ artifact_id: "draft-quiz", kind: "quiz", title: "New practice", status: "draft" }],
+      listDraftPage: vi.fn().mockResolvedValue({
+        items: [{ artifact_id: "draft-quiz", kind: "quiz", title: "New practice", status: "draft" }],
+        total: 1, kindCounts: { quiz: 1 }, returned: 1, limit: 50, offset: 0, truncated: false,
       }),
       setArtifactStatus,
       loadQuizQuestions,
@@ -166,12 +170,12 @@ describe("PracticePage", () => {
   it("keeps ready quizzes reachable when other home sections are unavailable", async () => {
     renderPage(repository({
       loadPracticeHome: vi.fn().mockResolvedValue({
-        cards: [], dueCards: [], quizzes: [quiz], drafts: [], unavailable: ["cards", "drafts"],
+        cards: [], dueCards: [], quizzes: [quiz], unavailable: ["cards"],
       }),
     }));
 
     expect(await screen.findByRole("button", { name: "Vectors quiz" })).toBeEnabled();
-    expect(screen.getAllByText("这一部分暂时无法读取，其他练习仍可继续。")).toHaveLength(2);
+    expect(screen.getAllByText("这一部分暂时无法读取，其他练习仍可继续。")).toHaveLength(1);
   });
 
   it("shows a retryable page error when every home section is unavailable", async () => {
@@ -215,7 +219,7 @@ describe("PracticePage", () => {
   it("remounts the practice controller when the URL space changes", async () => {
     const user = userEvent.setup();
     const loadPracticeHome = vi.fn().mockImplementation(async (spaceId: string) => ({
-      cards: [], dueCards: [], drafts: [], quizzes: [{
+      cards: [], dueCards: [], quizzes: [{
         artifact_id: `quiz-${spaceId}`, kind: "quiz", title: `Quiz ${spaceId}`, status: "active",
       }],
     }));
@@ -224,7 +228,7 @@ describe("PracticePage", () => {
     }]);
     const repo = repository({ loadPracticeHome, loadQuizQuestions });
     const tree = (spaceId: string) => <I18nProvider><StudyRepositoryProvider repository={repo}>
-      <MemoryRouter><StudyPageOutlet spaceId={spaceId} page="practice" /></MemoryRouter>
+      <MemoryRouter><StudyDraftProvider spaceId={spaceId}><StudyPageOutlet spaceId={spaceId} page="practice" /></StudyDraftProvider></MemoryRouter>
     </StudyRepositoryProvider></I18nProvider>;
     const view = render(tree("space-a"));
 
