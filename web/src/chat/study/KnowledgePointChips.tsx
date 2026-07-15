@@ -75,12 +75,23 @@ export function KnowledgePointChips({ points }: { points: KnowledgePoint[] }) {
         const state = chipStates[front];
         const saving = state === "saving";
         const failed = state === "failed";
-        const unavailable = captureIndex.status() === "unavailable";
+        const indexStatus = captureIndex.status();
+        const unavailable = indexStatus === "unavailable";
+        const loading = indexStatus === "loading";
         const added = !failed && captureIndex.has(front);
+        const actionLabel = added
+          ? t("chat.kpAdded")
+          : loading
+            ? t("chat.kpRetrying")
+            : unavailable
+              ? t("chat.kpUnavailable")
+              : failed
+                ? t("chat.kpAddFailed")
+                : t("chat.kpAdd");
         const tooltip = [
           point.gist,
           point.confidence === "inferred" ? t("chat.kpInferred") : "",
-          unavailable ? t("chat.kpUnavailable") : failed ? t("chat.kpAddFailed") : added ? t("chat.kpAdded") : t("chat.kpAdd"),
+          actionLabel,
         ]
           .filter(Boolean)
           .join("\n");
@@ -88,16 +99,23 @@ export function KnowledgePointChips({ points }: { points: KnowledgePoint[] }) {
           <button
             key={point.name}
             type="button"
-            disabled={added || saving || unavailable}
-            onClick={() => void addPoint(point)}
+            disabled={added || saving || loading}
+            onClick={() => {
+              if (unavailable) {
+                void captureIndex.forceRefresh();
+                return;
+              }
+              void addPoint(point);
+            }}
             title={tooltip}
-            aria-label={`${point.name} — ${added ? t("chat.kpAdded") : t("chat.kpAdd")}`}
+            aria-label={`${point.name} — ${actionLabel}`}
+            aria-busy={loading || saving}
             className={cn(
               "inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-[12px] leading-snug transition",
               added
                 ? "cursor-default border-transparent bg-[var(--kq-hover-bg)] text-[var(--kq-color-muted)]"
                 : unavailable
-                  ? "cursor-not-allowed border-[var(--kq-glass-border)] text-[var(--kq-color-muted)] opacity-60"
+                  ? "border-[var(--kq-glass-border)] text-[var(--kq-color-muted)] opacity-60 hover:opacity-90"
                 : "border-[var(--kq-glass-border)] text-[var(--kq-color-ink)] hover:bg-[var(--kq-hover-bg)] hover:text-[var(--kq-color-strong)] active:scale-[0.98]",
             )}
           >

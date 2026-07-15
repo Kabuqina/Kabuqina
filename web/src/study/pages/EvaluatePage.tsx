@@ -12,8 +12,7 @@ import { RequestCoordinator, type Loadable } from "../loadable";
 import type { StudyEvaluationSnapshot } from "../repository";
 import { useStudyRepository } from "../repositoryContext";
 import { studyPath } from "../routeModel";
-
-const STUDY_LEARNING_EVENT = "study-learning-event";
+import { STUDY_LEARNING_EVENT } from "../learningEvent";
 
 function retained<T>(state: Loadable<T>): T | undefined {
   if (state.status === "ready") return state.data;

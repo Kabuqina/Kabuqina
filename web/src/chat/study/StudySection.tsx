@@ -20,7 +20,7 @@ import { Link } from "react-router-dom";
 import { useI18n } from "../../lib/i18n";
 import { WorkspaceActionButton, WorkspaceSection } from "../workspaceSection";
 import { cmdStudyMigrateBuiltinCourse } from "./study-api";
-import { STUDY_LEARNING_EVENT } from "./flashcardLearningStore";
+import { STUDY_LEARNING_EVENT } from "../../study/learningEvent";
 import { STUDY_PROMPTS, type StudyActionId } from "./studyPrompts";
 import {
   STUDY_CONTEXT_EVENT,

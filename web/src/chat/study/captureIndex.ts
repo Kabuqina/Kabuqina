@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { StudyFlashcardsResponse } from "./study-api";
+import { STUDY_LEARNING_EVENT } from "../../study/learningEvent";
 
-export const STUDY_LEARNING_EVENT = "study-learning-event";
+export { STUDY_LEARNING_EVENT } from "../../study/learningEvent";
 
 export type CaptureIndexStatus = "idle" | "loading" | "ready" | "unavailable";
 type Listener = () => void;
@@ -12,7 +13,11 @@ type Fetcher = () => Promise<StudyFlashcardsResponse>;
 type CaptureIndexOptions = {
   fetcher?: Fetcher;
   target?: EventTarget | null;
+  retryBackoffMs?: number;
+  now?: () => number;
 };
+
+const DEFAULT_RETRY_BACKOFF_MS = 15_000;
 
 function normalizeFront(front: unknown): string {
   return typeof front === "string" ? front.trim().toLowerCase() : "";
@@ -29,8 +34,11 @@ async function defaultFetcher(): Promise<StudyFlashcardsResponse> {
 export function createCaptureIndex(options: CaptureIndexOptions = {}) {
   const fetcher = options.fetcher ?? defaultFetcher;
   const target = options.target ?? (typeof window !== "undefined" ? window : null);
+  const retryBackoffMs = Math.max(0, options.retryBackoffMs ?? DEFAULT_RETRY_BACKOFF_MS);
+  const now = options.now ?? Date.now;
   let fronts = new Set<string>();
   let currentStatus: CaptureIndexStatus = "idle";
+  let lastFailureAt: number | null = null;
   let pending: Promise<void> | null = null;
   const listeners = new Set<Listener>();
 
@@ -45,17 +53,16 @@ export function createCaptureIndex(options: CaptureIndexOptions = {}) {
       const response = await fetcher();
       fronts = new Set((response.cards ?? []).map((card) => normalizeFront(card.front)).filter(Boolean));
       currentStatus = "ready";
+      lastFailureAt = null;
     } catch {
       fronts = new Set();
       currentStatus = "unavailable";
+      lastFailureAt = now();
     }
     notify();
   };
 
-  const initialize = () => {
-    if (currentStatus === "ready" || currentStatus === "unavailable") {
-      return Promise.resolve();
-    }
+  const startRefresh = () => {
     if (!pending) {
       pending = refresh().finally(() => {
         pending = null;
@@ -64,12 +71,21 @@ export function createCaptureIndex(options: CaptureIndexOptions = {}) {
     return pending;
   };
 
-  const forceRefresh = () => {
-    pending = refresh().finally(() => {
-      pending = null;
-    });
-    return pending;
+  const initialize = (): Promise<void> => {
+    if (currentStatus === "ready") {
+      return Promise.resolve();
+    }
+    if (
+      currentStatus === "unavailable"
+      && lastFailureAt !== null
+      && now() - lastFailureAt < retryBackoffMs
+    ) {
+      return Promise.resolve();
+    }
+    return startRefresh();
   };
+
+  const forceRefresh = (): Promise<void> => startRefresh();
 
   target?.addEventListener(STUDY_LEARNING_EVENT, () => {
     void forceRefresh();
@@ -77,6 +93,7 @@ export function createCaptureIndex(options: CaptureIndexOptions = {}) {
 
   return {
     initialize,
+    forceRefresh,
     has(front: string): boolean {
       if (currentStatus === "idle") void initialize();
       const key = normalizeFront(front);

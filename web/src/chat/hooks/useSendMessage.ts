@@ -21,7 +21,7 @@ import {
   type DeskAttachmentPayload,
   type UiMsg,
 } from "../chat-api";
-import { STUDY_LEARNING_EVENT } from "../study/flashcardLearningStore";
+import { STUDY_LEARNING_EVENT } from "../../study/learningEvent";
 import {
   applyEvents,
   emptyProgress,

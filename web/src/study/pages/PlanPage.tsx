@@ -5,10 +5,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useI18n } from "../../lib/i18n";
 import { RequestCoordinator, type Loadable } from "../loadable";
+import { STUDY_LEARNING_EVENT } from "../learningEvent";
 import type { StudyPlanSnapshot } from "../repository";
 import { useStudyRepository } from "../repositoryContext";
-
-const STUDY_LEARNING_EVENT = "study-learning-event";
 
 export function PlanPage({ spaceId }: { spaceId: string }) {
   const { t } = useI18n();

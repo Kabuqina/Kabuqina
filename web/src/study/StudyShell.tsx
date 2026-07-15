@@ -12,8 +12,7 @@ import { studyPath, type StudyPageSlug } from "./routeModel";
 import { StudyLifecycleNav } from "./StudyLifecycleNav";
 import { StudyTopBar } from "./StudyTopBar";
 import { StudyPageOutlet } from "./pages/StudyPageOutlet";
-
-const STUDY_LEARNING_EVENT = "study-learning-event";
+import { STUDY_LEARNING_EVENT } from "./learningEvent";
 
 export function StudyShell({ spaces, spaceId, page, onRevalidate, refreshing = false, refreshFailed = false }: {
   spaces: StudySpaces;

@@ -7,10 +7,9 @@ import type { StudyStudentStatePayload } from "../../chat/study/study-api";
 import { loadStudyContext, type StudyContext } from "../../chat/study/studyStore";
 import { useI18n } from "../../lib/i18n";
 import { RequestCoordinator, type Loadable } from "../loadable";
+import { STUDY_LEARNING_EVENT } from "../learningEvent";
 import type { StudyFlyleafSnapshot } from "../repository";
 import { useStudyRepository } from "../repositoryContext";
-
-const STUDY_LEARNING_EVENT = "study-learning-event";
 
 function hasLegacyContext(context: StudyContext): boolean {
   return Object.values(context).some((value) => value.trim().length > 0);

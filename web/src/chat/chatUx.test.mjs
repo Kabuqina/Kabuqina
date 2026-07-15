@@ -1255,6 +1255,21 @@ assert.doesNotMatch(
   "Knowledge-point chips should not write new cards to legacy localStorage.",
 );
 assert.match(
+  kpChipsSource,
+  /if \(unavailable\)[\s\S]*captureIndex\.forceRefresh\(\)/,
+  "Unavailable knowledge-point chips should offer an explicit storage retry.",
+);
+assert.match(
+  kpChipsSource,
+  /disabled=\{added \|\| saving \|\| loading\}/,
+  "Knowledge-point chips should block capture while the shared refresh is pending.",
+);
+assert.match(
+  kpChipsSource,
+  /aria-busy=\{loading \|\| saving\}/,
+  "Knowledge-point chips should expose retry/save progress to assistive technology.",
+);
+assert.match(
   studySectionSource,
   /workspaceBuildCourseKnowledgeBase[\s\S]*workspaceBuildResourcePack[\s\S]*workspaceStartLearningTutor[\s\S]*workspaceReviewStudyContent/,
   "StudySection should retain only the D-3/D-4 learning quick actions in order.",

@@ -4,8 +4,6 @@
 import type { FlashcardDeck } from "./flashcardStore";
 import type { StudyFlashcard } from "./study-api";
 
-export const STUDY_LEARNING_EVENT = "study-learning-event";
-
 export type MigrationDeck = {
   cards: Array<{ front: string; back: string; hint?: string; tags?: string[] }>;
 };

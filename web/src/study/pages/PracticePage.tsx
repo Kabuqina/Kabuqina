@@ -5,6 +5,7 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 import { Link, useLocation } from "react-router-dom";
 import { useI18n } from "../../lib/i18n";
 import type { StudyFlashcard, StudyQuizQuestion, StudyQuizResult } from "../../chat/study/study-api";
+import { STUDY_LEARNING_EVENT } from "../learningEvent";
 import { RequestCoordinator, type Loadable } from "../loadable";
 import type { StudyPracticeHome } from "../repository";
 import { useStudyRepository } from "../repositoryContext";
@@ -83,9 +84,9 @@ export function PracticePage({ spaceId, onDirtyChange, onNavigateAway }: { space
     heading.current?.focus();
     load();
     const refresh = () => load();
-    window.addEventListener("study-learning-event", refresh);
+    window.addEventListener(STUDY_LEARNING_EVENT, refresh);
     return () => {
-      window.removeEventListener("study-learning-event", refresh);
+      window.removeEventListener(STUDY_LEARNING_EVENT, refresh);
       requestCoordinator.cancel();
       mutationCoordinator.cancel();
       sourceCoordinator.cancel();
@@ -168,7 +169,7 @@ export function PracticePage({ spaceId, onDirtyChange, onNavigateAway }: { space
         setPending(false);
         if (cardIndex + 1 >= queue.length) {
           setMode("home");
-          window.dispatchEvent(new Event("study-learning-event"));
+          window.dispatchEvent(new Event(STUDY_LEARNING_EVENT));
         } else {
           setCardIndex((index) => index + 1);
           setRevealed(false);
@@ -221,7 +222,7 @@ export function PracticePage({ spaceId, onDirtyChange, onNavigateAway }: { space
         setPending(false);
         setResult(next);
         setMode("result");
-        window.dispatchEvent(new Event("study-learning-event"));
+        window.dispatchEvent(new Event(STUDY_LEARNING_EVENT));
       },
       () => {
         if (!mutations.current.isCurrent(request.generation)) return;
@@ -240,7 +241,7 @@ export function PracticePage({ spaceId, onDirtyChange, onNavigateAway }: { space
       () => {
         if (!mutations.current.isCurrent(request.generation)) return;
         setPending(false);
-        window.dispatchEvent(new Event("study-learning-event"));
+        window.dispatchEvent(new Event(STUDY_LEARNING_EVENT));
         if (status === "active" && kind === "quiz") openQuiz(artifactId);
       },
       () => {
@@ -263,7 +264,7 @@ export function PracticePage({ spaceId, onDirtyChange, onNavigateAway }: { space
         setPending(false);
         if (!Object.keys(responses).length) setMode("home");
         setGenerationNotice(next.generated ? "draft" : "fallback");
-        window.dispatchEvent(new Event("study-learning-event"));
+        window.dispatchEvent(new Event(STUDY_LEARNING_EVENT));
       },
       () => {
         if (!mutations.current.isCurrent(request.generation)) return;
