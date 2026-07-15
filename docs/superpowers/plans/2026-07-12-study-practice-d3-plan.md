@@ -334,11 +334,30 @@ KaTeX；Vitest/RTL + pytest + Rust tests。
   grading, capture/M2, M4 and M6. The focused `WrongbookService` core and
   Rust bridge checks passed with the D-3 bridge slice.
 
-### Remaining release evidence
+### Manual smoke and D-3 closeout — 2026-07-15
 
-- Windows WebView2 manual smoke: current-space switching, card Space/1–4,
-  normal quiz, code transcription/variant, derivation cloze, wrongbook retry,
-  draft activate/reject, unavailable desk child, light/dark and Chinese/English;
-- run the normal package/bundle smoke appropriate to the release candidate;
-- record those observations here and in the master D-3 completion record, then
-  close D-3.
+- User completed the normal Python bundle/package smoke before this pass. Windows
+  WebView2 smoke then passed current-space switching, card `Space`/`1..4`, normal
+  quiz submission/result, wrongbook retry, dirty-leave cancel/confirm, and A/B
+  state isolation. A dirty retry in the Python notebook did not leak its question,
+  answer, queue, or mode into the empty Hadoop notebook.
+- A disposable Hadoop quiz created through the trusted learning services exercised
+  Python CodeMirror solve, deterministic transcribe and variant generation, draft
+  activate/reject, trusted code grading, and derivation cloze. The activated
+  transcription scored `2/2`; the derivation expression scored correctly while
+  the reason remained explicitly human-check/ungraded. The two active smoke
+  artifacts were archived after the pass and the rejected variant no longer
+  appears in the product UI.
+- Light/dark and Chinese/English rendered correctly and the original light/Chinese
+  preference was restored. Force-stopping the desk child left the Tauri shell
+  alive and produced the honest “学习空间暂时不可用” retry/back-to-chat state;
+  the supported power-user restart path restored the child and the notebook.
+- Development-mode observation: the first CodeMirror and derivation lazy imports
+  under the Vite server triggered dependency pre-optimization and required one
+  page reload. After the reload both surfaces passed. The production build already
+  contains independent `CodePracticeSurface` and `DerivationPracticeSurface`
+  chunks, so this is recorded as a dev-server cold-load observation rather than a
+  release-bundle failure.
+
+Bundle evidence, automated gates, Windows WebView2 smoke, fixture cleanup, and the
+master-plan completion record are complete. D-3 is closed.
