@@ -74,7 +74,7 @@ export function LearnPage({ spaceId }: { spaceId: string }) {
   const [selectedId, setSelectedId] = useState("");
   const [selectedDraftId, setSelectedDraftId] = useState("");
   const data = pageData(snapshot);
-  const active = data?.artifacts ?? [];
+  const active = useMemo(() => data?.artifacts ?? [], [data?.artifacts]);
   const selected = active.find((artifact) => artifact.artifact_id === selectedId) ?? null;
   const selectedDetail = selected ? drafts.details[selected.artifact_id] : undefined;
   const selectedData = detailData(selectedDetail);

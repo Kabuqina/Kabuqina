@@ -203,7 +203,7 @@ type StudyCommands = {
   selectSpace: (spaceId: string) => Promise<StudySpacesResponse>;
   draftSummary: (spaceId: string) => Promise<StudyDraftsResponse>;
   drafts: (spaceId: string, limit: number, offset: number) => Promise<StudyDraftsResponse>;
-  activeM5Summaries: (spaceId: string) => Promise<StudyDraftsResponse>;
+  activeM5Summaries: (spaceId: string, kind: StudyM5Kind) => Promise<StudyDraftsResponse>;
   artifactDetail: (spaceId: string, artifactId: string) => ReturnType<typeof cmdStudyArtifactDetail>;
   artifactStatus: typeof cmdStudyArtifactStatus;
   artifactSourceAudit: typeof cmdStudyArtifactSourceAudit;
@@ -241,8 +241,9 @@ const defaultCommands: StudyCommands = {
     limit,
     offset,
   }),
-  activeM5Summaries: (spaceId) => cmdStudyArtifactSummaries({
+  activeM5Summaries: (spaceId, kind) => cmdStudyArtifactSummaries({
     spaceId,
+    kind,
     status: "active",
     limit: 100,
   }),
@@ -394,24 +395,26 @@ export function createStudyRepository(commands: Partial<StudyCommands> = {}): St
     },
     async loadLearnHome(spaceId, signal) {
       return invokeWithSignal(signal, async () => {
-        const [artifactsResult, knowledgePointsResult] = await Promise.allSettled([
-          resolved.activeM5Summaries(spaceId),
-          resolved.knowledgePoints(spaceId),
+        const kinds: StudyM5Kind[] = ["knowledge_base", "resource_pack", "tutoring_note"];
+        const [artifactResults, knowledgePointsResult] = await Promise.all([
+          Promise.allSettled(kinds.map((kind) => resolved.activeM5Summaries(spaceId, kind))),
+          Promise.resolve(resolved.knowledgePoints(spaceId)).then(
+            (value) => ({ status: "fulfilled" as const, value }),
+            (reason) => ({ status: "rejected" as const, reason }),
+          ),
         ]);
-        if (artifactsResult.status === "rejected" && knowledgePointsResult.status === "rejected") {
-          throw artifactsResult.reason;
+        const fulfilledArtifacts = artifactResults.filter(
+          (result): result is PromiseFulfilledResult<StudyDraftsResponse> => result.status === "fulfilled",
+        );
+        if (!fulfilledArtifacts.length && knowledgePointsResult.status === "rejected") {
+          throw artifactResults.find((result): result is PromiseRejectedResult => result.status === "rejected")?.reason
+            ?? knowledgePointsResult.reason;
         }
         const unavailable: Array<"artifacts" | "knowledgePoints"> = [];
-        if (artifactsResult.status !== "fulfilled") unavailable.push("artifacts");
+        if (fulfilledArtifacts.length !== kinds.length) unavailable.push("artifacts");
         if (knowledgePointsResult.status !== "fulfilled") unavailable.push("knowledgePoints");
         return {
-          artifacts: artifactsResult.status === "fulfilled"
-            ? artifactsResult.value.items.filter((artifact): artifact is StudyArtifactSummary => (
-              artifact.kind === "knowledge_base"
-              || artifact.kind === "resource_pack"
-              || artifact.kind === "tutoring_note"
-            ))
-            : [],
+          artifacts: fulfilledArtifacts.flatMap((result) => result.value.items),
           knowledgePoints: knowledgePointsResult.status === "fulfilled"
             ? knowledgePointsResult.value.items
             : [],

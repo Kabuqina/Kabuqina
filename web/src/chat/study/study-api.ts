@@ -46,7 +46,8 @@ export type StudyArtifactDetailResponse = {
   artifact: StudyArtifact & { envelope: Record<string, unknown> };
 };
 
-export type StudySourceRef = Record<string, string>;
+export type StudySourceScalar = string | number | boolean | null;
+export type StudySourceRef = string | Record<string, StudySourceScalar>;
 
 export type StudyKnowledgePoint = {
   item_id: string;

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useState } from "react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -21,14 +22,8 @@ const spaces = {
 
 function Location() { return <output data-testid="location">{useLocation().pathname}</output>; }
 
-function renderShell(
-  repositoryOverrides: Partial<StudyRepository> = {},
-  { spaceId = "space-a", page = "learn" }: {
-    spaceId?: string;
-    page?: "flyleaf" | "plan" | "learn" | "practice" | "evaluate";
-  } = {},
-) {
-  const repository: StudyRepository = {
+function makeRepository(repositoryOverrides: Partial<StudyRepository> = {}): StudyRepository {
+  return {
     listSpaces: vi.fn().mockResolvedValue(spaces),
     selectSpace: vi.fn().mockResolvedValue({ ...spaces, currentSpaceId: "space-b" }),
     listDrafts: vi.fn().mockResolvedValue({
@@ -56,6 +51,16 @@ function renderShell(
     submitQuiz: vi.fn(), generatePracticeDraft: vi.fn(), resolvePracticeSource: vi.fn(),
     ...repositoryOverrides,
   };
+}
+
+function renderShell(
+  repositoryOverrides: Partial<StudyRepository> = {},
+  { spaceId = "space-a", page = "learn" }: {
+    spaceId?: string;
+    page?: "flyleaf" | "plan" | "learn" | "practice" | "evaluate";
+  } = {},
+) {
+  const repository = makeRepository(repositoryOverrides);
   render(
     <I18nProvider>
       <StudyRepositoryProvider repository={repository}>
@@ -97,6 +102,27 @@ describe("StudyShell", () => {
 
     await screen.findByLabelText("1 个草稿");
     expect(listDraftPage).toHaveBeenCalledWith("space-b", 50, 0, expect.any(AbortSignal));
+  });
+
+  it("remounts the provider subtree before rendering a different URL space", async () => {
+    const user = userEvent.setup();
+    const repository = makeRepository({
+      listDraftPage: vi.fn().mockResolvedValue({ items: [], total: 0, kindCounts: {}, returned: 0, limit: 50, offset: 0, truncated: false }),
+      loadLearnHome: vi.fn().mockImplementation((spaceId: string) => spaceId === "space-a"
+        ? Promise.resolve({ artifacts: [{ artifact_id: "artifact-a", kind: "knowledge_base", title: "A knowledge", status: "active" }], knowledgePoints: [] })
+        : new Promise(() => undefined)),
+      loadArtifactDetail: vi.fn().mockResolvedValue({ artifactId: "artifact-a", kind: "knowledge_base", title: "A knowledge", version: 1, status: "active", review: {}, envelope: { payload: { concepts: [{ term: "A TERM", explanation: "A PRIVATE BODY" }] } } }),
+    });
+    function Harness() {
+      const [spaceId, setSpaceId] = useState("space-a");
+      return <MemoryRouter><button type="button" onClick={() => setSpaceId("space-b")}>test switch</button><StudyRepositoryProvider repository={repository}><StudyShell spaces={spaces} spaceId={spaceId} page="learn" /></StudyRepositoryProvider></MemoryRouter>;
+    }
+    render(<I18nProvider><Harness /></I18nProvider>);
+
+    expect(await screen.findByText("A PRIVATE BODY")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "test switch" }));
+    expect(screen.queryByText("A PRIVATE BODY")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "学习" })).toBeInTheDocument();
   });
 
   it("keeps route and data when selecting a space fails", async () => {

@@ -84,7 +84,7 @@ export function StudyShell({ spaces, spaceId, page, onRevalidate, refreshing = f
     }
     return (
       <>
-        <StudyDraftProvider spaceId={spaceId}>
+        <StudyDraftProvider key={spaceId} spaceId={spaceId}>
           <StudyTopBar
             spaces={spaces.spaces}
             currentSpaceId={spaceId}
@@ -106,7 +106,7 @@ export function StudyShell({ spaces, spaceId, page, onRevalidate, refreshing = f
         </StudyDraftProvider>
       </>
     );
-  }, [navigateAway, onRevalidate, page, refreshFailed, refreshing, selectSpace, spaceId, spaces.spaces, switchError, switching, t]);
+  }, [navigate, navigateAway, onRevalidate, page, refreshFailed, refreshing, selectSpace, spaceId, spaces.spaces, switchError, switching, t]);
 
   return <div className="kq-study-shell" data-testid="study-shell">{shell}</div>;
 }

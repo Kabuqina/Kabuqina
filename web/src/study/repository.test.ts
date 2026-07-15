@@ -69,12 +69,14 @@ describe("StudyRepository", () => {
   });
 
   it("loads bounded M5 summaries and knowledge points independently", async () => {
-    const activeM5Summaries = vi.fn().mockResolvedValue({
-      items: [
-        { artifact_id: "kb", kind: "knowledge_base", title: "KB", status: "active" },
-        { artifact_id: "quiz", kind: "quiz", title: "Not learn content", status: "active" },
-      ], count: 2, counts: {}, kind_counts: {}, returned: 2, limit: 100, offset: 0, truncated: false,
-    });
+    const activeM5Summaries = vi.fn().mockImplementation(async (_spaceId: string, kind: string) => ({
+      items: kind === "knowledge_base"
+        ? [{ artifact_id: "kb", kind: "knowledge_base", title: "KB", status: "active" }]
+        : [],
+      count: kind === "knowledge_base" ? 1 : 0,
+      counts: {}, kind_counts: {}, returned: kind === "knowledge_base" ? 1 : 0,
+      limit: 100, offset: 0, truncated: false,
+    }));
     const knowledgePoints = vi.fn().mockRejectedValue({ status: null, code: "desk_transport_error", detail: "private" });
     const repository = createStudyRepository({ activeM5Summaries, knowledgePoints });
 
@@ -82,7 +84,11 @@ describe("StudyRepository", () => {
       artifacts: [{ artifact_id: "kb", kind: "knowledge_base", title: "KB", status: "active" }],
       knowledgePoints: [], unavailable: ["knowledgePoints"],
     });
-    expect(activeM5Summaries).toHaveBeenCalledWith("space-b");
+    expect(activeM5Summaries.mock.calls).toEqual([
+      ["space-b", "knowledge_base"],
+      ["space-b", "resource_pack"],
+      ["space-b", "tutoring_note"],
+    ]);
     expect(knowledgePoints).toHaveBeenCalledWith("space-b");
   });
 

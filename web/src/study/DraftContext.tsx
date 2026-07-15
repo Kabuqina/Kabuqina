@@ -45,7 +45,6 @@ export function StudyDraftProvider({ spaceId, children }: { spaceId: string; chi
   const loadMoreRequests = useRef(new RequestCoordinator());
   const detailRequests = useRef(new Map<string, RequestCoordinator>());
   const actionRequests = useRef(new Map<string, RequestCoordinator>());
-  const refreshPending = useRef<{ spaceId: string; promise: Promise<void> } | null>(null);
   const currentSpaceId = useRef(spaceId);
   const [snapshot, setSnapshot] = useState<Loadable<StudyDraftPage>>({ status: "idle" });
   const [details, setDetails] = useState<Record<string, Loadable<StudyArtifactDetail>>>({});
@@ -53,14 +52,13 @@ export function StudyDraftProvider({ spaceId, children }: { spaceId: string; chi
   const [actionErrors, setActionErrors] = useState<Record<string, unknown>>({});
 
   const refresh = useCallback(() => {
-    if (refreshPending.current?.spaceId === spaceId) return;
     const request = listRequests.current.begin();
     setSnapshot((current) => ({
       status: "loading",
       ...(current.status === "ready" ? { previous: current.data } : {}),
       ...(current.status === "error" && current.previous ? { previous: current.previous } : {}),
     }));
-    const pending = repository.listDraftPage(spaceId, PAGE_SIZE, 0, request.signal).then(
+    void repository.listDraftPage(spaceId, PAGE_SIZE, 0, request.signal).then(
       (next) => {
         if (!listRequests.current.isCurrent(request.generation) || currentSpaceId.current !== spaceId) return;
         setSnapshot({ status: "ready", data: next });
@@ -74,10 +72,6 @@ export function StudyDraftProvider({ spaceId, children }: { spaceId: string; chi
         }));
       },
     );
-    refreshPending.current = { spaceId, promise: pending };
-    void pending.finally(() => {
-      if (refreshPending.current?.promise === pending) refreshPending.current = null;
-    });
   }, [repository, spaceId]);
 
   const loadMore = useCallback(() => {
@@ -175,16 +169,20 @@ export function StudyDraftProvider({ spaceId, children }: { spaceId: string; chi
         return false;
       },
     );
-  }, [actions, refresh, repository, spaceId]);
+  }, [actions, repository, spaceId]);
 
   useEffect(() => {
+    const activeListRequests = listRequests.current;
+    const activeLoadMoreRequests = loadMoreRequests.current;
+    const activeDetailRequests = detailRequests.current;
+    const activeActionRequests = actionRequests.current;
     currentSpaceId.current = spaceId;
-    listRequests.current.cancel();
-    loadMoreRequests.current.cancel();
-    detailRequests.current.forEach((requests) => requests.cancel());
-    actionRequests.current.forEach((requests) => requests.cancel());
-    detailRequests.current.clear();
-    actionRequests.current.clear();
+    activeListRequests.cancel();
+    activeLoadMoreRequests.cancel();
+    activeDetailRequests.forEach((requests) => requests.cancel());
+    activeActionRequests.forEach((requests) => requests.cancel());
+    activeDetailRequests.clear();
+    activeActionRequests.clear();
     setDetails({});
     setActions({});
     setActionErrors({});
@@ -194,10 +192,10 @@ export function StudyDraftProvider({ spaceId, children }: { spaceId: string; chi
     window.addEventListener(STUDY_LEARNING_EVENT, onLearningEvent);
     return () => {
       window.removeEventListener(STUDY_LEARNING_EVENT, onLearningEvent);
-      listRequests.current.cancel();
-      loadMoreRequests.current.cancel();
-      detailRequests.current.forEach((requests) => requests.cancel());
-      actionRequests.current.forEach((requests) => requests.cancel());
+      activeListRequests.cancel();
+      activeLoadMoreRequests.cancel();
+      activeDetailRequests.forEach((requests) => requests.cancel());
+      activeActionRequests.forEach((requests) => requests.cancel());
     };
   }, [refresh, spaceId]);
 
