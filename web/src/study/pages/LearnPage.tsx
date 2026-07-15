@@ -9,6 +9,7 @@ import type { StudyArtifactSummary } from "../../chat/study/study-api";
 import { ArtifactAdvancedPanel } from "../ArtifactAdvancedPanel";
 import { useStudyDrafts } from "../DraftContext";
 import { LearnArtifactContent } from "../LearnArtifactContent";
+import { STUDY_LEARNING_EVENT } from "../learningEvent";
 import { RequestCoordinator, type Loadable } from "../loadable";
 import type { StudyArtifactDetail, StudyLearnHome } from "../repository";
 import { useStudyRepository } from "../repositoryContext";
@@ -116,6 +117,11 @@ export function LearnPage({ spaceId }: { spaceId: string }) {
     load();
     return () => coordinator.cancel();
   }, [load, spaceId]);
+
+  useEffect(() => {
+    window.addEventListener(STUDY_LEARNING_EVENT, load);
+    return () => window.removeEventListener(STUDY_LEARNING_EVENT, load);
+  }, [load]);
 
   useEffect(() => {
     if (selectedId || !active.length) return;

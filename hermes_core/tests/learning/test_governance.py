@@ -2,7 +2,7 @@ from copy import deepcopy
 from pathlib import Path
 
 from learning.learning_context import LearningExecutionContext
-from learning.learning_store import LearningStore
+from learning.learning_store import LearningConflictError, LearningStore
 from learning.output_writer import OutputWriter
 
 def test_owner_bundle_roundtrip_and_complete_delete(tmp_path):
@@ -41,7 +41,7 @@ def test_import_refuses_to_overwrite_existing_owner(tmp_path):
         try:
             ctx.import_owner_bundle({"version":1,"spaces":[]})
             assert False
-        except ValueError as exc:
+        except LearningConflictError as exc:
             assert "already has" in str(exc)
     finally:
         store.close()
@@ -108,7 +108,7 @@ def test_import_refuses_owner_with_migration_only(tmp_path):
         try:
             ctx.import_owner_bundle({"version": 1})
             assert False
-        except ValueError as exc:
+        except LearningConflictError as exc:
             assert "already has" in str(exc)
     finally:
         store.close()

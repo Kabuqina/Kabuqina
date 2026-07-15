@@ -18,7 +18,7 @@ from learning.flashcards import FlashcardService
 from learning.learning_contract import ContractError, LIFECYCLE_STATUSES
 from learning.learning_plans import LearningPlanService
 from learning.lifecycle import ArtifactLifecycleService
-from learning.learning_store import LearningStore
+from learning.learning_store import LearningConflictError, LearningStore
 from learning.output_writer import OutputWriter
 from learning.practice_generator import PracticeGenerator
 from learning.quizzes import QuizService
@@ -62,7 +62,7 @@ def _workspace_root() -> Optional[str]:
 
 
 def _http_error(exc: Exception) -> HTTPException:
-    if isinstance(exc, ContractError):
+    if isinstance(exc, (ContractError, LearningConflictError)):
         status, code = 409, "study_conflict"
     elif isinstance(exc, ValueError):
         status, code = 400, "study_invalid_request"

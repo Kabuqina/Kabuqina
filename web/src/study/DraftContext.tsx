@@ -52,6 +52,9 @@ export function StudyDraftProvider({ spaceId, children }: { spaceId: string; chi
   const [actionErrors, setActionErrors] = useState<Record<string, unknown>>({});
 
   const refresh = useCallback(() => {
+    // A refreshed first page invalidates every pagination cursor derived from
+    // the previous snapshot. Abort those requests before replacing page one.
+    loadMoreRequests.current.cancel();
     const request = listRequests.current.begin();
     setSnapshot((current) => ({
       status: "loading",
@@ -75,7 +78,10 @@ export function StudyDraftProvider({ spaceId, children }: { spaceId: string; chi
   }, [repository, spaceId]);
 
   const loadMore = useCallback(() => {
-    const current = snapshotData(snapshot);
+    // Never derive an offset from `previous` while a first-page refresh is in
+    // flight: that cursor belongs to the snapshot being replaced.
+    if (snapshot.status !== "ready") return;
+    const current = snapshot.data;
     if (!current || !current.truncated) return;
     const request = loadMoreRequests.current.begin();
     void repository.listDraftPage(spaceId, PAGE_SIZE, current.items.length, request.signal).then(

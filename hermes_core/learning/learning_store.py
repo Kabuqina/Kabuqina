@@ -46,6 +46,10 @@ _ACL_SECURED_ROOTS: set[Path] = set()
 _ACL_SECURED_DATABASES: set[Path] = set()
 
 
+class LearningConflictError(ValueError):
+    """Raised when a valid learning operation conflicts with persisted state."""
+
+
 def _windows_identity() -> str:
     identity = subprocess.run(
         ["whoami"],
@@ -1052,7 +1056,7 @@ class LearningStore:
                     f"SELECT 1 FROM {table} WHERE owner_id = ? LIMIT 1",
                     (owner_id,),
                 ).fetchone():
-                    raise ValueError(
+                    raise LearningConflictError(
                         "owner already has learning data; delete it before import"
                     )
 

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Inbox, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useI18n } from "../lib/i18n";
@@ -71,15 +71,15 @@ export function DraftInboxButton() {
   const actionError = selected ? controller.actionErrors[selected.artifact_id] : undefined;
   const needsReview = openedDetail?.review.mode === "semantic" && openedDetail.review.status !== "passed";
 
-  const closeDialog = () => {
+  const closeDialog = useCallback(() => {
     setOpen(false);
     requestAnimationFrame(() => trigger.current?.focus());
-  };
+  }, []);
 
   useEffect(() => {
     if (!open) return;
     close.current?.focus();
-  }, [open]);
+  }, [closeDialog, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -90,7 +90,18 @@ export function DraftInboxButton() {
     };
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [open]);
+  }, [closeDialog, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocumentKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      event.preventDefault();
+      closeDialog();
+    };
+    document.addEventListener("keydown", onDocumentKeyDown);
+    return () => document.removeEventListener("keydown", onDocumentKeyDown);
+  }, [closeDialog, open]);
 
   useEffect(() => {
     if (!open || !selected) return;

@@ -719,6 +719,22 @@ pub async fn cmd_study_migrate_builtin_course(app: AppHandle) -> Result<Value, S
 mod tests {
     use super::*;
 
+    fn assert_invalid_import_file(result: Result<Value, DeskBridgeError>) {
+        let error = result.unwrap_err();
+        assert_eq!(error.status, Some(400));
+        assert_eq!(error.code, "study_invalid_import_file");
+    }
+
+    fn import_test_root(case: &str) -> std::path::PathBuf {
+        let root = std::env::temp_dir().join(format!(
+            "kabuqina-study-import-{}-{case}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        root
+    }
+
     #[test]
     fn study_path_id_validation_rejects_path_and_query_chars() {
         assert!(validate_study_path_id("abc123DEF-_:").is_ok());
@@ -742,18 +758,51 @@ mod tests {
 
     #[test]
     fn study_import_file_requires_a_small_v1_json_object() {
-        let root = std::env::temp_dir().join(format!("kabuqina-study-import-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&root);
-        std::fs::create_dir_all(&root).unwrap();
+        let root = import_test_root("valid-version");
         let valid = root.join("backup.json");
         std::fs::write(&valid, r#"{"version":1,"spaces":[]}"#).unwrap();
         assert!(read_study_import_file(&valid.display().to_string()).is_ok());
 
         let invalid_version = root.join("invalid.json");
         std::fs::write(&invalid_version, r#"{"version":2}"#).unwrap();
-        let error = read_study_import_file(&invalid_version.display().to_string()).unwrap_err();
-        assert_eq!(error.status, Some(400));
-        assert_eq!(error.code, "study_invalid_import_file");
+        assert_invalid_import_file(read_study_import_file(
+            &invalid_version.display().to_string(),
+        ));
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn study_import_file_rejects_relative_paths_and_non_json_extensions() {
+        assert_invalid_import_file(read_study_import_file("backup.json"));
+
+        let root = import_test_root("path-extension");
+        let wrong_extension = root.join("backup.txt");
+        std::fs::write(&wrong_extension, r#"{"version":1}"#).unwrap();
+        assert_invalid_import_file(read_study_import_file(
+            &wrong_extension.display().to_string(),
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn study_import_file_rejects_oversized_non_utf8_and_invalid_json_files() {
+        let root = import_test_root("content-validation");
+
+        let oversized = root.join("oversized.json");
+        std::fs::File::create(&oversized)
+            .unwrap()
+            .set_len(STUDY_IMPORT_FILE_MAX_BYTES + 1)
+            .unwrap();
+        assert_invalid_import_file(read_study_import_file(&oversized.display().to_string()));
+
+        let non_utf8 = root.join("non-utf8.json");
+        std::fs::write(&non_utf8, [0xff, 0xfe, 0xfd]).unwrap();
+        assert_invalid_import_file(read_study_import_file(&non_utf8.display().to_string()));
+
+        let invalid_json = root.join("invalid-json.json");
+        std::fs::write(&invalid_json, "not json").unwrap();
+        assert_invalid_import_file(read_study_import_file(&invalid_json.display().to_string()));
 
         let _ = std::fs::remove_dir_all(&root);
     }

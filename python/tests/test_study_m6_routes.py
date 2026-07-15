@@ -93,6 +93,20 @@ def test_export_delete_import_roundtrip(client):
     assert imported.json()["imported"]["artifacts"] == 3
     assert http.get("/api/desk/study/drafts", headers=headers()).json()["count"] == 3
 
+def test_import_nonempty_owner_returns_structured_conflict(client):
+    http, db = client
+    seed(db)
+    response = http.post(
+        "/api/desk/study/data/import",
+        json={"bundle": {"version": 1, "spaces": []}},
+        headers=headers(),
+    )
+    assert response.status_code == 409
+    assert response.json()["detail"] == {
+        "code": "study_conflict",
+        "message": "owner already has learning data; delete it before import",
+    }
+
 def test_governance_routes_preserve_the_study_error_contract(client):
     http, _db = client
     with patch("desk_server.routes.study_routes._desktop_ctx", side_effect=ValueError("unavailable")):

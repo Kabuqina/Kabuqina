@@ -25,6 +25,19 @@ JSON、迁移诊断与彻底删除。
 FastAPI / `learning.db` / Vitest + Testing Library + user-event / existing kq-glass
 tokens。D-4 不增加 runtime npm 依赖。
 
+## Progress / 收口记录（2026-07-16）
+
+- [x] D-4 学习页、统一草稿 controller/inbox、artifact audit 与 owner 治理实现落地；
+- [x] 两轮 review 收口：跨 space/artifact 状态隔离、refresh/latest-wins、M5 kind
+  有界查询、导入预检/a11y/source ref 合同，以及激活后 LearnPage 即时重载、
+  refresh/load-more 隔离、原子导入 structured 409；
+- [x] Web 自动门：ESLint、production build、19 个组件测试文件 / 75 项测试通过；
+- [x] Python/core 自动门：M6 route 7 项、governance 7 项通过；
+- [x] Rust import reader：absolute path、`.json`、10 MiB、UTF-8、JSON object、
+  `version=1` 共 3 项专项测试通过；
+- [ ] Windows WebView2 全组合手工轮按主计划并入 D-5；本项是唯一仍开放的 D-4
+  验收交接，不阻塞 D-4 代码合并。
+
 ## Scope
 
 ### 本轮必须完成
@@ -154,16 +167,16 @@ D-4 动工前审计确认：
   pending、成功后的列表移除/count 更新、失败保留与重试；
 - [ ] 切换 space 时立即清除旧 detail/mutation 状态并 abort 旧请求，防止 A 本正文或
   队列闪现在 B 本；
-- [ ] `study-learning-event` 只触发 controller refresh；连续事件合并/复用 pending
-  request，避免并发 refresh 风暴；
+- [x] `study-learning-event` 触发 controller refresh；refresh 采用 latest-wins，取消
+  旧首页及 load-more 请求，避免并发响应回灌旧 snapshot；
 - [ ] 所属页通过 kind selector 使用同一 snapshot/controller，不自行再次请求
   `/artifacts?status=draft`；
-- [ ] provider tests 固定同一 artifact 从 inbox 或 page 操作后的同步结果，证明没有
+- [x] provider tests 固定同一 artifact 从 inbox 或 page 操作后的同步结果，证明没有
   第二套状态机。
 
 ### Task 5: LearnPage 主内容
 
-- [ ] 新建 `LearnPage` 并接入 `StudyPageOutlet`；mount/space change 后焦点落 `h1`；
+- [x] 新建 `LearnPage` 并接入 `StudyPageOutlet`；mount/space change 后焦点落 `h1`；
 - [ ] 页面以“本课知识点 / 课程知识库 / 资源包 / 辅导笔记”组织，正文是主列；
   宽屏才启用轻量 aside，窄窗按普通文档顺序落回正文后；
 - [ ] 已捕获 kq-kp 显示为只读 chips/摘要并标明“已加入复习”；入口跳 PracticePage，
@@ -187,20 +200,20 @@ D-4 动工前审计确认：
   显示未通过但不自动拒绝；reviewer unavailable 继续 pending；
 - [ ] deterministic tutoring note 可直接由用户落墨；引用外部来源或包含答案而升级
   semantic 时服从 reviewer gate；
-- [ ] 落墨/抽走双击锁定，失败保留草稿和已展开正文；成功后共享 inbox/page 同步；
-- [ ] user-event 覆盖 review retry、blocked activation、pass→activate、reject、
+- [x] 落墨/抽走双击锁定，失败保留草稿和已展开正文；成功后共享 inbox/page 同步；
+- [x] user-event 覆盖 review retry、blocked activation、pass→activate、reject、
   double click、failure retry 与跨本隔离。
 
 ### Task 7: 壳级统一草稿箱
 
-- [ ] 将 `DraftInboxButton` 从 count popover 升级为可审核 dialog；桌面宽度可用居中
+- [x] 将 `DraftInboxButton` 从 count popover 升级为可审核 dialog；桌面宽度可用居中
   dialog，窄窗用底部 sheet，但 DOM/语义是同一组件；
-- [ ] 支持 all/kind 过滤、摘要分页/“加载更多”、review/status 标签和所属页跳转；
+- [x] 支持 all/kind 过滤、摘要分页/“加载更多”、review/status 标签和所属页跳转；
   count 始终来自同一 snapshot；
 - [ ] 选择草稿后复用 Task 6 的 detail/review actions，不复制 mutation handler；
 - [ ] 练习、扉页、计划、评估类草稿也可在 inbox 审核；跳到所属页时使用明确 kind→
   page 映射，未知 kind 留在 inbox 并显示 unsupported；
-- [ ] dialog 实现 focus trap、Escape、关闭后焦点归还、初始焦点、live status；关键
+- [x] dialog 实现 focus trap、Escape、关闭后焦点归还、初始焦点、live status；关键
   操作不依赖 hover；
 - [ ] 200% 缩放和窄窗下 header/filter/content/actions 各自单轴滚动，不出现双轴页面
   滚动，也不被 WebView 窗口底部裁掉。
@@ -223,10 +236,10 @@ D-4 动工前审计确认：
   导入、迁移状态/失败导出、彻底删除；系统设置仍留在 chrome；
 - [ ] 导出先显式告知包含私人学习内容，再调用 owner export、JSON pretty-print 与
   dialog save，复用已有安全 text writer；取消保存不算错误；
-- [ ] 导入经 dialog 选 `.json`，Rust reader 限制扩展名、大小、UTF-8、JSON object
+- [x] 导入经 dialog 选 `.json`，Rust reader 限制扩展名、大小、UTF-8、JSON object
   和 `version=1`；UI 先显示文件级摘要与 empty-owner 前置条件，确认后才调用原子
   import；
-- [ ] import 409 明示“当前学习数据非空，不能覆盖”，不提供暗中 merge/delete；
+- [x] import 409 明示“当前学习数据非空，不能覆盖”，不提供暗中 merge/delete；
 - [ ] 迁移状态默认只显示 key/status/time 与计数；失败 detail/raw export 由用户显式
   展开或另存，避免默认泄露旧内容；
 - [ ] 彻底删除要求二次确认并输入固定语句；成功后清除 repository/controller cache、
@@ -248,23 +261,23 @@ D-4 动工前审计确认：
 
 ### Task 11: 可访问性、体积、回归与收口
 
-- [ ] Web focused tests：repository/mappers、draft provider、LearnPage、DraftInbox、
+- [x] Web focused tests：repository/mappers、draft provider、LearnPage、DraftInbox、
   advanced audit/governance、StudyShell/route regressions；
-- [ ] Python focused tests：URL-space audit/review、knowledge-point projection、M5/M6
+- [x] Python focused tests：URL-space audit/review、knowledge-point projection、M5/M6
   regression、source_refs minimization、governance atomicity；
-- [ ] Rust tests：id/path/size/version validation、structured 400/404/409、new command
+- [x] Rust tests：id/path/size/version validation、structured 400/404/409、new command
   registration；运行 relevant `cargo test` 与 `cargo check`；
-- [ ] 运行 lint、`npm run test:components`、相关 node tests、`npm run build`，记录
+- [x] 运行 lint、`npm run test:components`、相关 node tests、`npm run build`，记录
   Learn/Draft dialog chunks 与 `/chat` initial graph；不得让 raw/governance UI 进入
   chat initial graph；
-- [ ] 自动 a11y 断言：heading focus、dialog trap/return、Escape、live status、label、
+- [x] 自动 a11y 断言：heading focus、dialog trap/return、Escape、live status、label、
   键盘可达、reduced motion；
 - [ ] Windows WebView2 手工轮：两个课程跨本隔离、active 内容、三种草稿 lifecycle、
   reviewer unavailable、来源/JSON、导出/取消、非空导入拒绝、空 owner roundtrip、
   删除确认、亮暗主题、中英双语、窄/中/宽窗、200% 缩放、纯键盘、desk child 失效；
 - [ ] 手工测试使用一次性 owner/fixture 或先导出可恢复备份；彻底删除测试不得作用于
   用户唯一真实学习数据；
-- [ ] 更新 master plan D-4 completion record、本计划 progress、必要的 troubleshooting；
+- [x] 更新 master plan D-4 completion record、本计划 progress、必要的 troubleshooting；
   D-4 完成后再开 D-5。
 
 ## Suggested commit slices
