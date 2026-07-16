@@ -37,6 +37,14 @@ function cleanStrings(value: unknown, limit: number, maxItems: number): string[]
   return strings;
 }
 
+function cleanIndexedStrings(value: unknown, limit: number, maxItems: number): string[] {
+  if (!Array.isArray(value) || value.length > maxItems) return [];
+  const strings = value.map((candidate) => cleanText(candidate, limit));
+  // Options carry positional meaning. Reject an invalid entry instead of filtering,
+  // deduplicating, or otherwise shifting the answer indexes around it.
+  return strings.some((candidate) => !candidate) ? [] : strings;
+}
+
 function flashcardPayload(candidate: unknown): { cards: unknown[] } | null {
   if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) return null;
   const source = candidate as Record<string, unknown>;
@@ -96,7 +104,7 @@ function quizPayload(candidate: unknown): { title: string; questions: unknown[] 
     const prompt = cleanText(raw.prompt, 800);
     if (!prompt) continue;
     if (raw.type === "single" || raw.type === "multiple") {
-      const options = cleanStrings(raw.options, 300, 8);
+      const options = cleanIndexedStrings(raw.options, 300, 8);
       const answers = cleanAnswerIndices(raw.answerIndices, options.length);
       if (options.length < 2 || answers.length === 0) continue;
       questions.push({

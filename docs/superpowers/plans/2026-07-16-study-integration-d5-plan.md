@@ -5,6 +5,7 @@
 > 起始基线：`codex/study-d4@fcc21cab`
 > 集成基线：`main@3b85a85a`（A-R3 最终 review 已收口）
 > 工作分支：`codex/study-d5`
+> 合并记录：D4→D5 十二提交链已 fast-forward 合入 `main@fc1f9e5a`
 > 安全指针：`codex/study-d5-pre-ar3@2fbe9e3a`；`codex/study-d5-pre-final-ar3@a71de2e7`
 > 正式依赖：D-2、D-3、D-4、A-R3 已完成；release 安装与升级证据仍待补
 
@@ -29,8 +30,9 @@
   也不转发旧 scheduling state 或 learner response。失败时旧 key 字节不变，只有后端
   成功或确认幂等 marker 后才清除 key。最终 pre-D5 升级样本仍须在 release bundle 复核。
 - A-R3 feature commit `5abea97c` 后，完整 D4→D5 链先完成一次 rebase；最终 review
-  以 `main@3b85a85a` 收口后，D4→D5 的十二个提交再次无冲突 rebase。main 未被修改；
-  两次 rebase 前指针均保留，便于审计。
+  以 `main@3b85a85a` 收口后，D4→D5 的十二个提交再次无冲突 rebase。rebase 期间
+  main 未被修改；随后该提交链已 fast-forward 合入 `main@fc1f9e5a`。两次 rebase
+  前指针均保留，便于审计。
 - post-A-R3 Web 自动门通过：components `22 files / 97 tests`、chat UX、capture-index、
   knowledge-points、ESLint、`tsc --noEmit` 与 Vite production build。manifest 审计为
   initial `1,700,943 raw / 491,705 gzip` bytes、StudyRoute own
@@ -45,7 +47,8 @@
 - review follow-up 修复 1 P1 / 2 P2：恢复 flashcard/quiz one-shot 升级入口；IA
   opt-out 在 storage 清理失败时仍 session hard-off，并分别尝试两个 key；shared seed
   不再绑定首个 mount signal。focused `4 files / 37 tests`、full components
-  `23 files / 105 tests`、ESLint、`tsc --noEmit` 与 production build 通过。复核后的
+  `23 files / 106 tests`；旧 quiz 重复选项的位置与答案索引原样保留。ESLint、
+  `tsc --noEmit` 与 production build 通过。复核后的
   manifest 为 initial `1,701,739 raw / 491,929 gzip` bytes、StudyRoute own
   `80,639 raw / 19,426 gzip` bytes；动态边界与既有 warning limit 保持不变。最终
   A-R3 rebase 后 focused `4 files / 37 tests`、`tsc --noEmit` 与增量 `cargo check` 通过。
@@ -77,12 +80,13 @@ D-4 的统一 `StudyDraftProvider`、M5 detail/audit/governance 与最终错误�
 ```text
 已完成：D4(fcc21cab) -> D5 独立 worktree（计划、合同、Web 收口）
 已完成：main 最终收口 A-R3(3b85a85a) -> 完整 D4→D5 链 rebase 到新 main
-进行中：自动门/冲突复核 -> Rust test -> release bundle -> WebView2/升级组合轮 -> 合入 D5
+已完成：完整 D4→D5 链 fast-forward 合入 main(fc1f9e5a)
+待完成：Rust test -> release bundle -> WebView2/升级组合轮 -> release ready
 ```
 
 已知 A-R3 与 D-5 的直接热点是 `DECISIONS.md`、`tauri/src/lib.rs` 和
 `web/src/locales/strings.ts`。rebase 未产生冲突，三个热点已按 hunk 复核，并由
-post-A-R3 Web/Python/core/Rust check 覆盖；D-5 仍未合入或修改 main。
+post-A-R3 Web/Python/core/Rust check 覆盖；D-4 与 D-5 现已进入 main。
 
 ## 3. 开工审计结论
 
@@ -303,7 +307,7 @@ Python/core/Rust：
 
 ### Task 7: A-R3 后集成审计
 
-- [x] 确认 A-R3 已在 main 收口；完整 D4→D5 链位于其上，main 保持不变；
+- [x] 确认 A-R3 已在 main 收口；完整 D4→D5 链已 rebase 并 fast-forward 合入 main；
 - [x] 对 `DECISIONS.md`、`tauri/src/lib.rs`、`strings.ts` 做 hunk 级复核；rebase 无冲突；
 - [x] 搜索旧 persistence/Study key 与 Tauri command：Web 生产代码仅保留隔离的
   context/flashcard/quiz one-shot readers；A-R3 的 `hermes-home`/`HERMES_HOME`
@@ -354,7 +358,7 @@ Python/core/Rust：
   default-off/opt-out、fixture safety；
 - [x] 记录 post-A-R3 自动测试数字、chunk raw+gzip、已知降级与 deferred cleanup；
 - [ ] 记录真实 bundle/import verifier 与 WebView2/升级矩阵的最终证据；
-- [ ] `git diff --check`、工作树 clean、review 通过后才允许 D-5 合入 main；
+- [x] `git diff --check`、工作树 clean 后，D4→D5 链已 fast-forward 合入 main；
 - [ ] D-5 frontend feature-complete 与最终 bundle smoke 至少隔一个稳定窗口，不能同日
   边改边宣告 release ready。
 

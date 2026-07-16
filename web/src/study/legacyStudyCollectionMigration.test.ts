@@ -81,6 +81,48 @@ describe("legacy study collection migration adapter", () => {
     expect(localStorage.getItem(LEGACY_QUIZ_STORAGE_KEY)).toBeNull();
   });
 
+  it("preserves duplicate option positions and their old answer indexes", async () => {
+    localStorage.setItem(LEGACY_QUIZ_STORAGE_KEY, JSON.stringify({
+      version: 1,
+      quiz: {
+        version: 1,
+        title: "Repeated options",
+        questions: [{
+          id: "q-duplicate",
+          type: "single",
+          prompt: "Choose the second A",
+          options: ["A", "A", "B"],
+          answerIndices: [1],
+          accepted: [],
+          explanation: "The duplicate position is intentional.",
+          tags: [],
+          points: 1,
+        }],
+      },
+      responses: {},
+      submitted: false,
+    }));
+    const quizzes = vi.fn().mockResolvedValue({ migrated: true, questions: 1 });
+
+    await expect(migrateLegacyStudyCollections({ flashcards: vi.fn(), quizzes })).resolves.toMatchObject({
+      changed: true,
+      retryNeeded: false,
+      quizzes: "confirmed",
+    });
+    expect(quizzes).toHaveBeenCalledWith({
+      title: "Repeated options",
+      questions: [{
+        type: "choice",
+        prompt: "Choose the second A",
+        options: ["A", "A", "B"],
+        answer: 1,
+        explanation: "The duplicate position is intentional.",
+        points: 1,
+      }],
+    });
+    expect(localStorage.getItem(LEGACY_QUIZ_STORAGE_KEY)).toBeNull();
+  });
+
   it("preserves malformed non-empty data instead of confirming an empty migration", async () => {
     const raw = JSON.stringify({ version: 1, cards: [{ front: "missing back" }] });
     localStorage.setItem(LEGACY_FLASHCARD_STORAGE_KEY, raw);
