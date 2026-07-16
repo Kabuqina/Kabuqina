@@ -14,7 +14,7 @@ import enum
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from kabuqina_env import get, require, resolve_desktop_home
+from kabuqina_env import get, require, resolve_child_home
 
 
 class RuntimeMode(enum.Enum):
@@ -63,7 +63,7 @@ class DesktopConfig:
 
     @property
     def kabuqina_home(self) -> Path:
-        return resolve_desktop_home(self.data_dir)
+        return resolve_child_home(self.data_dir)
 
     @property
     def hermes_home(self) -> Path:

@@ -218,11 +218,12 @@ pub fn provider_api_key_env(provider: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        bool_setting_value, clear_provider_secrets_with, credential_migration_message,
-        keyring_service_candidates, provider_api_key_env, read_and_migrate_provider_secret_with,
-        select_provider_secret_with, validate_provider_config_for_save, CopyForwardStatus,
-        ProviderConfig, SecretOrigin, LEGACY_SERVICE, LEGACY_VENDOR_LLM_DISABLED, SERVICE,
-        VENDOR_LLM_DISABLED,
+        bool_setting_value, clear_provider_secrets_with, clear_provider_state_with,
+        credential_migration_message, keyring_service_candidates,
+        normalize_credential_delete_result, provider_api_key_env,
+        read_and_migrate_provider_secret_with, select_provider_secret_with,
+        validate_provider_config_for_save, CopyForwardStatus, ProviderConfig, SecretOrigin,
+        LEGACY_SERVICE, LEGACY_VENDOR_LLM_DISABLED, SERVICE, VENDOR_LLM_DISABLED,
     };
 
     fn custom_config(api_mode: Option<&str>) -> ProviderConfig {
@@ -389,7 +390,7 @@ mod tests {
     #[test]
     fn explicit_clear_attempts_current_and_legacy_services() {
         let mut calls = Vec::new();
-        clear_provider_secrets_with("openrouter", |service, provider| {
+        let result = clear_provider_secrets_with("openrouter", |service, provider| {
             calls.push((service.to_string(), provider.to_string()));
             if service == SERVICE {
                 Err("canonical delete failed".to_string())
@@ -405,6 +406,48 @@ mod tests {
                 (LEGACY_SERVICE.to_string(), "openrouter".to_string()),
             ]
         );
+        assert!(result.unwrap_err().contains("canonical delete failed"));
+    }
+
+    #[test]
+    fn missing_keyring_entry_is_a_successful_delete() {
+        assert_eq!(
+            normalize_credential_delete_result(Err(keyring::Error::NoEntry)),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn explicit_clear_aggregates_both_delete_failures() {
+        let error = clear_provider_secrets_with("openrouter", |service, _provider| {
+            Err(format!("{service} backend unavailable"))
+        })
+        .unwrap_err();
+
+        assert!(error.contains("Kabuqina: Kabuqina backend unavailable"));
+        assert!(error.contains("HermesDesk: HermesDesk backend unavailable"));
+    }
+
+    #[test]
+    fn explicit_clear_preserves_provider_config_when_a_delete_fails() {
+        let mut config_cleared = false;
+        let result = clear_provider_state_with(
+            Some("openrouter"),
+            |service, _provider| {
+                if service == SERVICE {
+                    Err("credential backend unavailable".to_string())
+                } else {
+                    Ok(())
+                }
+            },
+            || {
+                config_cleared = true;
+                Ok(())
+            },
+        );
+
+        assert!(result.is_err());
+        assert!(!config_cleared);
     }
 
     #[test]
@@ -711,14 +754,48 @@ fn credential_migration_message(provider: &str, status: CopyForwardStatus) -> Op
     }
 }
 
-/// Attempt both service deletions even if one backend operation fails.
-fn clear_provider_secrets_with<F>(provider: &str, mut delete: F)
+/// Attempt both service deletions even if one backend operation fails, then
+/// return all failures so the renderer cannot report a false success.
+fn clear_provider_secrets_with<F>(provider: &str, mut delete: F) -> Result<(), String>
 where
     F: FnMut(&str, &str) -> Result<(), String>,
 {
+    let mut failures = Vec::new();
     for service in keyring_service_candidates() {
-        let _ = delete(service, provider);
+        if let Err(err) = delete(service, provider) {
+            failures.push(format!("{service}: {err}"));
+        }
     }
+    if failures.is_empty() {
+        Ok(())
+    } else {
+        Err(format!(
+            "failed to clear credentials for provider {provider}: {}",
+            failures.join("; ")
+        ))
+    }
+}
+
+fn normalize_credential_delete_result(result: Result<(), keyring::Error>) -> Result<(), String> {
+    match result {
+        Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+        Err(err) => Err(err.to_string()),
+    }
+}
+
+fn clear_provider_state_with<D, C>(
+    provider: Option<&str>,
+    delete: D,
+    mut clear_config: C,
+) -> Result<(), String>
+where
+    D: FnMut(&str, &str) -> Result<(), String>,
+    C: FnMut() -> Result<(), String>,
+{
+    if let Some(provider) = provider {
+        clear_provider_secrets_with(provider, delete)?;
+    }
+    clear_config()
 }
 
 fn entry_for_service(service: &str, provider: &str) -> Result<keyring::Entry, String> {
@@ -912,14 +989,15 @@ pub async fn cmd_has_secret(app: AppHandle) -> Result<bool, String> {
 
 #[tauri::command]
 pub async fn cmd_clear_secret(app: AppHandle) -> Result<(), String> {
-    if let Some(cfg) = read_provider_cfg(&app) {
-        clear_provider_secrets_with(&cfg.provider, |service, provider| {
-            entry_for_service(service, provider)?
-                .delete_credential()
-                .map_err(|err| err.to_string())
-        });
-    }
-    clear_provider_cfg(&app).map_err(|e| e.to_string())?;
+    let cfg = read_provider_cfg(&app);
+    clear_provider_state_with(
+        cfg.as_ref().map(|config| config.provider.as_str()),
+        |service, provider| {
+            let entry = entry_for_service(service, provider)?;
+            normalize_credential_delete_result(entry.delete_credential())
+        },
+        || clear_provider_cfg(&app).map_err(|err| err.to_string()),
+    )?;
     let _ = write_bool_setting(&app, VENDOR_LLM_DISABLED, true);
     crate::schedule_embedded_hermes_respawn(app);
     Ok(())

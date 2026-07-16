@@ -518,6 +518,7 @@ from gateway.config import (
     Platform,
     _BUILTIN_PLATFORM_VALUES,
     GatewayConfig,
+    SESSION_CONTINUITY_HEADER,
     load_gateway_config,
 )
 from gateway.session import (
@@ -10531,8 +10532,8 @@ class GatewayRunner:
         # Build messages in OpenAI chat format --------------------------
         #
         # The remote api_server can maintain session continuity via
-        # X-Kabuqina-Session-Id, so it loads its own history.  We only
-        # need to send the current user message.  If the remote has
+        # the shared session-continuity header, so it loads its own history.
+        # We only need to send the current user message.  If the remote has
         # no history for this session yet, include what we have locally
         # so the first exchange has context.
         #
@@ -10557,7 +10558,7 @@ class GatewayRunner:
         if proxy_key:
             headers["Authorization"] = f"Bearer {proxy_key}"
         if session_id:
-            headers["X-Kabuqina-Session-Id"] = session_id
+            headers[SESSION_CONTINUITY_HEADER] = session_id
 
         body = {
             "model": "kabuqina-agent",

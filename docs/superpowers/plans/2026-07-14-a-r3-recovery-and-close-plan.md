@@ -131,15 +131,15 @@ tracked-only audit `15,628 hits / 0 defects`。Rust filter test 本轮未取得�
 
 ### Phase 0 — 冻结和恢复清单
 
-- [ ] 记录 `git status --porcelain=v1`、已暂存 diff、未暂存 diff 和未跟踪清单。
-- [ ] 逐个确认 11 个未跟踪文件的来源、用途和目标提交；删除或忽略任何临时
+- [x] 记录 `git status --porcelain=v1`、已暂存 diff、未暂存 diff 和未跟踪清单。
+- [x] 逐个确认 11 个未跟踪文件的来源、用途和目标提交；删除或忽略任何临时
       运行产物前必须先确认不是实现文件。
-- [ ] `hermes_core/SOUL.md` 已由中场复审确认为运行产物；从交付清单中排除，
+- [x] `hermes_core/SOUL.md` 已由中场复审确认为运行产物；从交付清单中排除，
       不得被后续 `git add -A` 纳入切片。
-- [ ] 确认 `python/dist/`、`tauri/target/`、测试缓存、日志和 dump 不进入提交。
-- [ ] 在不改变工作树内容的前提下重新组织 index，使每个提交同时包含 rename
-      和 rename 后的实际内容。
-- [ ] 生成“变更所有权表”：core namespace、persistence/keyring、bundle、
+- [x] 确认 `python/dist/`、`tauri/target/`、测试缓存、日志和 dump 不进入提交。
+- [x] 最终 index 同时包含 rename 和 rename 后的实际内容；owner 选择以一个
+      consolidated implementation commit 落地，未保留原计划的五提交切片。
+- [x] 生成“变更所有权表”：core namespace、persistence/keyring、bundle、
       guidance/audit、测试辅助五类；交叉文件标记主要职责。
 
 **出口：** 暂存区不再是半成品 rename；每个文件都有目标切片，未跟踪文件为
@@ -149,56 +149,59 @@ tracked-only audit `15,628 hits / 0 defects`。Rust filter test 本轮未取得�
 
 #### 1A. Home 与数据库
 
-- [ ] `KABUQINA_HOME` 按 key presence 优先，包括显式空值的约定。
-- [ ] 缺少新 key 时才读取 `HERMES_HOME`。
-- [ ] standalone：新目录优先；仅旧目录存在时读旧目录，不复制、不删除。
-- [ ] desktop：old-only 原子 rename；rename 失败继续使用旧目录；both-exist
+- [x] `KABUQINA_HOME` 按 key presence 优先，包括显式空值的约定。
+- [x] 缺少新 key 时才读取 `HERMES_HOME`。
+- [x] standalone：新目录优先；仅旧目录存在时读旧目录，不复制、不删除。
+- [x] desktop：old-only 原子 rename；rename 失败继续使用旧目录；both-exist
       新目录优先且不触碰旧目录。
-- [ ] `state.db`、`learning.db` 名称和 schema 不变；populated sample 迁移后可读。
-- [ ] web child、gateway child、cron runner 和 Rust shell 解析到同一 home。
+- [x] `state.db`、`learning.db` 名称和 schema 不变；populated sample 迁移后可读。
+- [x] web child、gateway child、cron runner 和 Rust shell 使用同一 Rust-selected
+      host root；第二轮 follow-up 通过 `SpawnConfig` / child env 显式传播，Python
+      entrypoint 与 QR worker 不再独立迁移。
 
 #### 1B. Credential Manager
 
-- [ ] service `Kabuqina` 首选；只有明确 miss 才读 `HermesDesk`。
-- [ ] 旧值恢复后 copy-forward；复制失败不丢失本次读到的旧值。
-- [ ] 显式 clear 同时清理新旧 service。
-- [ ] 新值为 false/空等合法值时不得错误回退。
-- [ ] 日志仅记录迁移事件，不包含明文 secret。
-- [ ] 使用可注入 seam 或等价纯 helper 单测 copy-forward 成功、写入失败仍返回
+- [x] service `Kabuqina` 首选；只有明确 miss 才读 `HermesDesk`。
+- [x] 旧值恢复后 copy-forward；复制失败不丢失本次读到的旧值。
+- [x] 显式 clear 同时清理新旧 service；follow-up 修复聚合非 `NoEntry` 删除错误，
+      失败时保留 provider 配置供重试。
+- [x] 新值为 false/空等合法值时不得错误回退。
+- [x] 日志仅记录迁移事件，不包含明文 secret。
+- [x] 使用可注入 seam 或等价纯 helper 单测 copy-forward 成功、写入失败仍返回
       legacy secret、clear 对两个 service 均发出删除；不得触碰用户真实凭据。
 
 #### 1C. Python namespace 与命令
 
-- [ ] `kabuqina_cli` 和四个 `kabuqina_*` 模块是实现主体。
-- [ ] `hermes_cli.<submodule>` 与四个旧模块通过薄 shim 保持一周期兼容。
-- [ ] legacy-first 与 canonical-first 两种正常 import 顺序下，代表性 stateful
+- [x] `kabuqina_cli` 和四个 `kabuqina_*` 模块是实现主体。
+- [x] `hermes_cli.<submodule>` 与四个旧模块通过薄 shim 保持一周期兼容。
+- [x] legacy-first 与 canonical-first 两种正常 import 顺序下，代表性 stateful
       子模块（至少 `config` / `config_home` / `auth`）不得被加载为两份模块或
       产生两套 registry/cache；使用独立子进程测试，避免收集顺序遮蔽缺陷。
-- [ ] canonical 与旧入口的行为一致；测试不要求 reload 后函数对象永久保持
+- [x] canonical 与旧入口的行为一致；测试不要求 reload 后函数对象永久保持
       identity。
-- [ ] distribution 为 `kabuqina-agent`；canonical console scripts 存在；旧命令
+- [x] distribution 为 `kabuqina-agent`；canonical console scripts 存在；旧命令
       只是 alias。
-- [ ] 内部产品代码不再通过旧 shim 访问 canonical 实现。
+- [x] 内部产品代码不再通过旧 shim 访问 canonical 实现。
 
 #### 1D. Bundle 与运行时
 
-- [ ] build/sync 脚本复制 canonical package、模块和必要兼容 shim。
-- [ ] `.pth`、manifest、prune verifier 和 smoke import 使用 canonical 名称。
-- [ ] embedded runtime 在临时隔离环境中直接 import canonical 模块。
-- [ ] 旧 import smoke 单独证明兼容且共享 canonical runtime state，不得只证明
+- [x] build/sync 脚本复制 canonical package、模块和必要兼容 shim。
+- [x] `.pth`、manifest、prune verifier 和 smoke import 使用 canonical 名称。
+- [x] embedded runtime 在临时隔离环境中直接 import canonical 模块。
+- [x] 旧 import smoke 单独证明兼容且共享 canonical runtime state，不得只证明
       “能 import”，也不得成为 canonical smoke 的前置条件。
 
 **出口：** 每一项都有实现位置、测试位置和结果；发现的问题只做最小修复。
 
 ### Phase 2 — Legacy-name 最终分类
 
-- [ ] 先把应提交的 shim、计划和审计脚本纳入 Git，再运行审计。
-- [ ] 审计必须覆盖 tracked 文件且零 `defect` / `packaging-defect`。
-- [ ] 中场预扫 `15,628 hits / 0 defects` 只算定位证据；11 个当前 untracked 完成
+- [x] 先把应提交的 shim、计划和审计脚本纳入 Git，再运行审计。
+- [x] 审计覆盖 tracked 文件且零 `defect` / `packaging-defect`。
+- [x] 中场预扫 `15,628 hits / 0 defects` 只算定位证据；11 个当前 untracked 完成
       定性、应交付文件进入 Git、运行产物排除后必须重新生成最终计数。
-- [ ] 随机抽查每个大类，防止通过不断扩大 allowlist 隐藏真实缺陷。
-- [ ] 对 active docs、skills、安装命令、环境变量和 bundle 路径做额外人工抽查。
-- [ ] 保留的命中必须属于：兼容接缝、上游/法律/历史、模型/协议、测试 fixture
+- [x] 随机抽查每个大类，防止通过不断扩大 allowlist 隐藏真实缺陷。
+- [x] 对 active docs、skills、安装命令、环境变量和 bundle 路径做额外人工抽查。
+- [x] 保留的命中必须属于：兼容接缝、上游/法律/历史、模型/协议、测试 fixture
       或 `hermes_core/` 源码边界。
 
 **出口：** 最终命中数量、分类数量和零 defect 结果写入验收证据。
@@ -225,12 +228,13 @@ tracked-only audit `15,628 hits / 0 defects`。Rust filter test 本轮未取得�
 5. **Guidance, audit, and close evidence**
    - active docs、AGENTS、DECISIONS、审计脚本、两份计划及最终结果。
 
-每个切片在提交前必须：
+实际落地为 owner 选择的单个 consolidated implementation commit `5abea97c`；以下
+检查按该最终 index 执行，未倒填成不存在的五个 commit：
 
-- [ ] 检查 staged diff 不含其他切片；
-- [ ] `git diff --cached --check` 通过；
-- [ ] 运行该切片对应的最小测试；
-- [ ] commit message 描述兼容窗口或迁移语义，而非只写“rename”。
+- [x] ownership manifest 覆盖五类变更，最终 consolidated index 无运行产物；
+- [x] `git diff --cached --check` 通过；
+- [x] 运行各 ownership 类别对应的聚焦测试与 V0–V7；
+- [x] commit message 描述迁移与凭据清理语义，而非只写“rename”。
 
 ### Phase 4 — 验证矩阵
 
@@ -256,24 +260,24 @@ V7 只能在所有实现和测试文件冻结后运行一次。若只修改结�
 自动化不能单独证明 Windows 安装升级路径。最终手工轮由 owner 执行，Codex
 准备步骤和核对表：
 
-- [ ] 使用备份或专用测试 data dir 构造 only-old `hermes-home`，其中包含可识别
+- [x] 使用备份或专用测试 data dir 构造 only-old `hermes-home`，其中包含可识别
       的 `state.db`、`learning.db` 和普通配置文件。
-- [ ] 安装/启动新版本后确认迁移到 `kabuqina-home`，数据库记录仍可读取。
-- [ ] both-exist 场景确认新目录获胜、旧目录未删除。
-- [ ] 模拟 rename 失败，确认应用回退旧目录而不是创建空白新家。
-- [ ] 使用专用测试 credential 验证 legacy read、copy-forward 和 clear-both。
-- [ ] 确认新安装路径只使用 canonical imports/commands。
+- [x] 安装/启动新版本后确认迁移到 `kabuqina-home`，数据库记录仍可读取。
+- [x] both-exist 场景确认新目录获胜、旧目录未删除。
+- [x] 模拟 rename 失败，确认应用回退旧目录而不是创建空白新家。
+- [x] 使用专用测试 credential 验证 legacy read、copy-forward 和 clear-both。
+- [x] 确认新安装路径只使用 canonical imports/commands。
 
 真实用户 home 和真实 API key 在测试前必须备份；日志与截图不得包含 secret。
 
 ### Phase 6 — 记录、复审与完成
 
-- [ ] 回填原 A-R3 实施计划 Task 1–6 的真实状态，不倒填未发生的 TDD 过程。
-- [ ] 在本文末尾记录每个阶段的提交 hash、验证命令和结果。
-- [ ] 生成 A-R3 review 文档，突出 persistence/keyring/compatibility 三个高风险面。
-- [ ] 逐项关闭中场 review `A-R3-MR-001` 至 `A-R3-MR-005`，并在 review 文档或
+- [x] 回填原 A-R3 实施计划 Task 1–6 的真实状态，不倒填未发生的 TDD 过程。
+- [x] 在本文末尾记录每个阶段的提交 hash、验证命令和结果。
+- [x] 生成 A-R3 review 文档，突出 persistence/keyring/compatibility 三个高风险面。
+- [x] 逐项关闭中场 review `A-R3-MR-001` 至 `A-R3-MR-005`，并在 review 文档或
       执行记录中写明提交、测试和证据。
-- [ ] 确认提交历史可逐片复审，工作树干净。
+- [ ] 将本轮 CHANGES REQUESTED follow-up 形成 owner-approved commit，并确认工作树干净。
 - [ ] 复审通过后才将 A-R3 标记完成并推送 `main`。
 
 ## 5. 停止条件
@@ -307,10 +311,10 @@ A-R3 只有同时满足以下条件才算完成：
 
 | 阶段 | 状态 | 提交/证据 | 备注 |
 |---|---|---|---|
-| Phase 0 冻结与清单 | in progress | 实现快照 721；handoff 后 606 M / 103 RM / 4 R / 11 ?? | 新增 3 条为 review/plan 文档；`SOUL.md` 已确认为运行产物；index 尚未重组 |
-| Phase 1 高风险语义审计 | in progress | 中场 review：`docs/reviews/2026-07-15-a-r3-midterm-review.md` | MR-001 为功能性阻塞，MR-002 为凭据证据缺口 |
-| Phase 2 legacy 分类 | pending | tracked-only 预扫：15,628 hits，0 defects | 11 个未跟踪文件尚未全部进入最终分类 |
-| Phase 3 提交切片 | pending |  | 当前无 A-R3 commit |
-| Phase 4 自动验证 | in progress | 既有 17/31/31；中场新增 61/25/22 passed、599 Python AST parse | Rust targeted 本轮 not obtained；最终冻结后门尚未完成 |
-| Phase 5 owner 手工轮 | pending |  |  |
-| Phase 6 复审与完成 | pending |  |  |
+| Phase 0 冻结与清单 | complete | freeze snapshot：725 staged，0 unstaged，0 untracked | 运行产物排除；最终 index 完整 |
+| Phase 1 高风险语义审计 | complete | freeze review MR-001–005；两轮 P1/P2 follow-up | home 跨进程显式传播；clear 错误可见；session header 统一 |
+| Phase 2 legacy 分类 | complete | `15,830` tracked hits，0 defects | 最终分类以本轮审计为准 |
+| Phase 3 提交落地 | complete with deviation | `5abea97c` | owner 选择 consolidated commit，未保留计划的五提交切片 |
+| Phase 4 自动验证 | complete | V0–V7；follow-up Python 15、gateway 6、Rust home 3、Rust secrets 21、Rust child env 1 passed | V7 全量 15,355 passed；运行时代码 follow-up 已按影响面聚焦回归 |
+| Phase 5 owner 手工轮 | complete | V8：`.test-output/a-r3-v8/V8-RESULT.md` | NSIS 安装态、home、credential、clear-both 均通过 |
+| Phase 6 复审与完成 | in progress | `4895a7b4` + 本轮 follow-up working tree | 待 owner commit 并 push；Codex 未自动提交或推送 |

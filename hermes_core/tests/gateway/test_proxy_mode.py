@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from gateway.config import Platform, StreamingConfig
+from gateway.config import Platform, SESSION_CONTINUITY_HEADER, StreamingConfig
 from gateway.platforms.base import resolve_proxy_url
 from gateway.run import GatewayRunner
 from gateway.session import SessionSource
@@ -274,7 +274,7 @@ class TestRunAgentViaProxy:
         assert session.captured_headers["Authorization"] == "Bearer test-key-123"
 
         # Verify session ID header
-        assert session.captured_headers["X-Kabuqina-Session-Id"] == "session-abc"
+        assert session.captured_headers[SESSION_CONTINUITY_HEADER] == "session-abc"
 
         # Verify messages include system, history, and current message
         messages = session.captured_json["messages"]

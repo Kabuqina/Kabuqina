@@ -45,69 +45,78 @@ No implementation slice may be committed, merged, or pushed until
 - runtime artifacts, incomplete untracked coverage, mixed line endings, and
   missing Rust evidence must be resolved before the final gates.
 
+**Close update (2026-07-16):** The five findings were closed before the owner
+created consolidated implementation commit `5abea97c`; V8 evidence was recorded
+in `4895a7b4`. The planned five-commit split was not retained in history. This
+plan records that deviation instead of reconstructing commits after the fact.
+第二轮复审重新打开 cross-process home P1；follow-up 由 Rust `SpawnConfig` 固定并
+注入所有 Python child，Python 显式 home 路径不再自行迁移。
+
 ## Order
 
 ### Task 1 — Home resolver and migration contracts
 
-- [ ] Add canonical home/path APIs and deprecated aliases in core.
-- [ ] Add Python desktop resolver with atomic old-only migration and safe
+- [x] Add canonical home/path APIs and deprecated aliases in core.
+- [x] Add Python desktop resolver with atomic old-only migration and safe
   fallback.
-- [ ] Add Rust resolver with the same rules; route all desktop/gateway/cron
+- [x] Add Rust resolver with the same rules; route all desktop/gateway/cron
   paths through it.
-- [ ] Cover new-wins, old-env fallback, old-dir fallback, old-only migration,
+- [x] Cover new-wins, old-env fallback, old-dir fallback, old-only migration,
   both-exist, and populated `state.db` / `learning.db` samples.
 
 ### Task 2 — Credential migration
 
-- [ ] Add current-first legacy-service lookup and copy-on-read.
-- [ ] Delete both current and legacy credentials on explicit clear.
-- [ ] Unit-test selection and migration control flow without exposing secrets,
+- [x] Add current-first legacy-service lookup and copy-on-read.
+- [x] Delete both current and legacy credentials on explicit clear.
+- [x] Unit-test selection and migration control flow without exposing secrets,
   including copy-forward success, copy-forward write failure that still
   returns the legacy value, and clear attempts against both services.
 
 ### Task 3 — Canonical Python namespaces
 
-- [ ] Move `hermes_cli` implementation to `kabuqina_cli` and migrate internal
+- [x] Move `hermes_cli` implementation to `kabuqina_cli` and migrate internal
   imports.
-- [ ] Move the four top-level `hermes_*` modules to `kabuqina_*`; retain thin
+- [x] Move the four top-level `hermes_*` modules to `kabuqina_*`; retain thin
   deprecated wrappers.
-- [ ] Rename Kabuqina-owned classes/functions (`HermesCLI`, home/path helpers)
+- [x] Rename Kabuqina-owned classes/functions (`HermesCLI`, home/path helpers)
   and retain aliases only at compatibility seams.
-- [ ] Ensure `hermes_cli.<submodule>` cannot create a second module instance or
+- [x] Ensure `hermes_cli.<submodule>` cannot create a second module instance or
   separate registry/cache beside `kabuqina_cli.<submodule>`; cover legacy-first
   and canonical-first imports in isolated subprocesses.
-- [ ] Update focused import and state/session tests before broad core tests.
+- [x] Update focused import and state/session tests before broad core tests.
 
 ### Task 4 — Distribution and bundle
 
-- [ ] Rename pyproject distribution and canonical console scripts; retain old
+- [x] Rename pyproject distribution and canonical console scripts; retain old
   console aliases for one release.
-- [ ] Update self-referential extras, lock/packaging metadata, bundled source
+- [x] Update self-referential extras, lock/packaging metadata, bundled source
   destination, `.pth`, smoke imports, and bundle manifests.
-- [ ] Prove the embedded runtime imports canonical modules without relying on
+- [x] Prove the embedded runtime imports canonical modules without relying on
   compatibility shims.
-- [ ] Run a separate legacy runtime smoke that proves representative stateful
+- [x] Run a separate legacy runtime smoke that proves representative stateful
   submodules share canonical runtime state rather than merely importing.
 
 ### Task 5 — Guidance, scan, and observability
 
-- [ ] Update active skills and user-facing setup guidance to Kabuqina commands,
+- [x] Update active skills and user-facing setup guidance to Kabuqina commands,
   `KABUQINA_HOME`, and `~/.kabuqina`.
-- [ ] Add one INFO migration log for desktop home and one for legacy keyring
+- [x] Add one INFO migration log for desktop home and one for legacy keyring
   recovery; never include secret values.
-- [ ] Classify every remaining tracked `hermes` hit as a compatibility alias,
+- [x] Classify every remaining tracked `hermes` hit as a compatibility alias,
   upstream/legal/history reference, model/protocol name, or defect.
-- [ ] Record the persistence and compatibility decision in `DECISIONS.md`.
+- [x] Record the persistence and compatibility decision in `DECISIONS.md`.
 
 ### Task 6 — Verification and close
 
-- [ ] Run focused core/home/keyring tests, Python desktop tests, Web checks, and
+- [x] Run focused core/home/keyring tests, Python desktop tests, Web checks, and
   Rust tests/checks.
-- [ ] Build/verify the Python bundle and run the package/import smoke tests.
-- [ ] Remove generated runtime artifacts, normalize touched-file line endings,
+- [x] Build/verify the Python bundle and run the package/import smoke tests.
+- [x] Remove generated runtime artifacts, normalize touched-file line endings,
   run `git diff --check`, and run the final classified legacy-name scan only
   after all intended shim/audit files are tracked.
-- [ ] Commit A-R3 in reviewable slices, then record final evidence here.
+- [x] Record the actual consolidated implementation commit `5abea97c` and V8
+  evidence commit `4895a7b4`; the originally planned five-commit split was not
+  retained and is documented as an execution deviation above.
 
 ## Non-goals
 

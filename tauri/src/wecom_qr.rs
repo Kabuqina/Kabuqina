@@ -57,8 +57,10 @@ pub async fn cmd_wecom_qr_start(
 
     let workspace = crate::paths::ensure_workspace(&app).map_err(|e| e.to_string())?;
     let data_dir = crate::paths::ensure_data_dir(&app).map_err(|e| e.to_string())?;
+    let kabuqina_home = crate::gateway_supervisor::kabuqina_home_path(&data_dir);
 
     let mut cmd = tokio::process::Command::new(&py);
+    crate::python_supervisor::inject_kabuqina_home(&mut cmd, &kabuqina_home);
     #[cfg(windows)]
     {
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;

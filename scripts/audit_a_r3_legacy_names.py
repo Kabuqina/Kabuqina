@@ -96,6 +96,7 @@ COMPAT_IMPLEMENTATIONS = {
     "python/build_bundle.ps1",
     "scripts/sync-runtime-sources.ps1",
     "tauri/src/gateway_supervisor.rs",
+    "tauri/src/python_supervisor.rs",
     "tauri/src/secrets.rs",
 }
 
@@ -201,6 +202,8 @@ def classify(hit: Hit) -> str:
         or "x-hermes-session-id" in text.lower()
         or '"owned_by": "hermes"' in text
     ):
+        return "model-or-protocol"
+    if path == "hermes_core/gateway/config.py" and "x-hermes-session-id" in text.lower():
         return "model-or-protocol"
     if path.startswith(HISTORY_PREFIXES) or path in HISTORY_FILES:
         return "history"

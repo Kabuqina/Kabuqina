@@ -22,7 +22,7 @@ use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex as StdMutex, OnceLock};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
@@ -114,35 +114,58 @@ const MIGRATION_MARKER: &str = ".migrated";
 // Host-level helpers (unchanged from single-child model)
 // ---------------------------------------------------------------------------
 
-/// Resolve the host ``KABUQINA_HOME = <data_dir>/kabuqina-home``.
-///
-/// A legacy-only home is renamed atomically.  On failure we keep using it so
-/// upgrades cannot silently start with an empty session or learning database.
-/// If both directories exist, the canonical directory always wins.
-pub fn kabuqina_home_path(data_dir: &Path) -> PathBuf {
+// The first result for a data directory is cached for the process lifetime so
+// a transient migration failure cannot split one launch across two homes.
+static KABUQINA_HOME_PATHS: OnceLock<StdMutex<HashMap<PathBuf, PathBuf>>> = OnceLock::new();
+
+fn kabuqina_home_path_with<F>(data_dir: &Path, rename: F) -> PathBuf
+where
+    F: FnOnce(&Path, &Path) -> std::io::Result<()>,
+{
+    let cache = KABUQINA_HOME_PATHS.get_or_init(|| StdMutex::new(HashMap::new()));
+    let mut paths = cache
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Some(path) = paths.get(data_dir) {
+        return path.clone();
+    }
+
     let current = data_dir.join("kabuqina-home");
     let legacy = data_dir.join("hermes-home");
-    if current.exists() || !legacy.exists() {
-        return current;
-    }
-    match std::fs::rename(&legacy, &current) {
-        Ok(()) => {
-            eprintln!(
-                "Kabuqina: migrated legacy home {} -> {}",
-                legacy.display(),
-                current.display()
-            );
-            current
+    let resolved = if current.exists() || !legacy.exists() {
+        current
+    } else {
+        match rename(&legacy, &current) {
+            Ok(()) => {
+                eprintln!(
+                    "Kabuqina: migrated legacy home {} -> {}",
+                    legacy.display(),
+                    current.display()
+                );
+                current
+            }
+            Err(_err) if current.exists() => current,
+            Err(err) => {
+                eprintln!(
+                    "Kabuqina: failed to migrate legacy home {}; continuing there: {err}",
+                    legacy.display()
+                );
+                legacy
+            }
         }
-        Err(_err) if current.exists() => current,
-        Err(err) => {
-            eprintln!(
-                "Kabuqina: failed to migrate legacy home {}; continuing there: {err}",
-                legacy.display()
-            );
-            legacy
-        }
-    }
+    };
+    paths.insert(data_dir.to_path_buf(), resolved.clone());
+    resolved
+}
+
+/// Resolve the host ``KABUQINA_HOME = <data_dir>/kabuqina-home``.
+///
+/// A legacy-only home is renamed atomically. On failure we keep using it so
+/// upgrades cannot silently start with an empty session or learning database.
+/// If both directories exist, the canonical directory wins. The first result
+/// is fixed for the process lifetime.
+pub fn kabuqina_home_path(data_dir: &Path) -> PathBuf {
+    kabuqina_home_path_with(data_dir, |legacy, current| std::fs::rename(legacy, current))
 }
 
 /// One-release source compatibility for integrations using the old helper.
@@ -795,10 +818,9 @@ impl GatewaySupervisor {
         cleanup_stale_locks(&profile_dir);
 
         let mut cmd = Command::new(&py_exe);
+        crate::python_supervisor::inject_kabuqina_home(&mut cmd, &profile_dir);
         cmd.args(["-m", "gateway.run"])
             .current_dir(&cfg.bundle_dir)
-            .env("KABUQINA_HOME", &profile_dir)
-            .env("HERMES_HOME", &profile_dir)
             .env("HERMESDESK_GATEWAY_PLATFORM", platform)
             .env("HERMESDESK_BUNDLE_DIR", &cfg.bundle_dir)
             .env("HERMESDESK_DATA_DIR", &cfg.data_dir)
@@ -1398,6 +1420,30 @@ mod tests {
             b"current"
         );
         assert!(legacy.exists());
+        let _ = std::fs::remove_dir_all(data_dir);
+    }
+
+    #[test]
+    fn failed_host_home_migration_is_sticky_for_process_lifetime() {
+        let data_dir = temp_data_dir("home-failed-migration-sticky");
+        let current = data_dir.join("kabuqina-home");
+        let legacy = data_dir.join("hermes-home");
+        std::fs::create_dir_all(&legacy).expect("create legacy home");
+
+        let first = kabuqina_home_path_with(&data_dir, |_from, _to| {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "simulated locked directory",
+            ))
+        });
+        let second = kabuqina_home_path_with(&data_dir, |_from, _to| {
+            panic!("a cached home decision must not retry migration")
+        });
+
+        assert_eq!(first, legacy);
+        assert_eq!(second, legacy);
+        assert!(legacy.exists());
+        assert!(!current.exists());
         let _ = std::fs::remove_dir_all(data_dir);
     }
 

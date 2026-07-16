@@ -21,6 +21,9 @@ from utils import is_truthy_value
 
 logger = logging.getLogger(__name__)
 
+# Stable public API header shared by the gateway proxy client and API server.
+SESSION_CONTINUITY_HEADER = "X-Hermes-Session-Id"
+
 
 def _coerce_bool(value: Any, default: bool = True) -> bool:
     """Coerce bool-ish config values, preserving a caller-provided default."""

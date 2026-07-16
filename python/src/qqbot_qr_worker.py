@@ -21,7 +21,7 @@ import time
 import traceback
 from pathlib import Path
 
-from kabuqina_env import export_home, require, resolve_desktop_home
+from kabuqina_env import export_home, require, resolve_child_home
 
 _ORIGINAL_PRINT = builtins.print
 
@@ -85,7 +85,7 @@ def _create_bind_task_with_retry(
 def main() -> int:
     _wire_sys_path()
     data_dir = _data_dir()
-    kabuqina_home = resolve_desktop_home(data_dir)
+    kabuqina_home = resolve_child_home(data_dir)
     kabuqina_home.mkdir(parents=True, exist_ok=True)
     export_home(kabuqina_home)
 

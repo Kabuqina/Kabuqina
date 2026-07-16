@@ -3,8 +3,9 @@
 > **日期：** 2026-07-15
 > **基线：** `dce4159a`
 > **依据：** `docs/reviews/2026-07-15-a-r3-midterm-review.md`
-> **状态：** MR-001 至 MR-005 已关闭；V7、V8 均已通过；A-R3 可进入最终
-> diff/index 复核与提交。合并和推送仍需 owner 明确执行。
+> **状态：** MR-001 至 MR-005 已关闭；V7、V8 均已通过；实现已由 owner 提交。
+> 两轮 CHANGES REQUESTED 的问题已在工作树修复并完成影响面回归；本轮 follow-up
+> 的 commit / push 仍需 owner 明确执行。
 
 ## 1. MR 关闭说明
 
@@ -237,18 +238,18 @@ STT binaries 均通过。
 
 | 分类 | 数量 |
 |---|---:|
-| audit-tool | 123 |
+| audit-tool | 124 |
 | compatibility-documentation | 31 |
-| compatibility-implementation | 603 |
+| compatibility-implementation | 605 |
 | compatibility-shim | 2 |
-| compatibility-test-or-fixture | 3,355 |
-| desktop-compatibility | 716 |
-| history | 8,275 |
-| model-or-protocol | 697 |
+| compatibility-test-or-fixture | 3,352 |
+| desktop-compatibility | 718 |
+| history | 8,277 |
+| model-or-protocol | 692 |
 | retained-upstream-surface | 1,924 |
 | source-tree-boundary | 51 |
 | upstream-or-legal | 54 |
-| **合计** | **15,831** |
+| **合计** | **15,830** |
 | **defect / packaging-defect** | **0** |
 
 ## 5. V7 / V8 状态
@@ -329,5 +330,50 @@ V8 详细本地证据：`.test-output/a-r3-v8/V8-RESULT.md`。因此 A-R3 的运
 10935 deletions(-)`。`git diff --check HEAD`、`git diff --cached --check` 均 exit 0；
 changed-file mixed-EOL 为 `0`；`hermes_core/SOUL.md` 不存在。
 
-当前 `main` 仍停在基线提交 `dce4159a` 之后的 staged snapshot；本轮没有创建实现 commit，
-没有 merge，也没有 push。
+该冻结快照随后由 owner 落为 consolidated implementation commit `5abea97c`；V8
+结果由 `4895a7b4` 记录。原计划的五提交切片未保留，实际提交形态已在 recovery
+plan 中作为执行偏差记录。当前 `main` 相对 `origin/main` ahead 3；Codex 本轮没有
+创建 commit、merge 或 push。
+
+## 7. CHANGES REQUESTED follow-up（2026-07-16）
+
+安装态 V8 通过后，独立复审发现 2 个 P1、1 个 P2 和 1 个文档 P3。本轮按最小
+影响面修复：
+
+- Rust 与 Python desktop home resolver 对每个 data dir 缓存首次选择；首次 rename
+  失败后，即使条件恢复，本进程仍继续使用 legacy home，避免 child、cron、gateway
+  分裂状态；两端均增加“失败后恢复仍固定”的回归测试。
+- clear-both 始终尝试 current/legacy 两个 Credential Manager service；`NoEntry`
+  视为成功，其余错误聚合返回。任一删除失败时 provider 配置保持不变，UI 可显示
+  真实失败并允许重试。
+- gateway proxy 与 API server 共享稳定 session-continuity header 常量；代理与服务
+  端测试不再各自硬编码相反名称。
+- 两份计划按 `5abea97c`、`4895a7b4` 和实际 consolidated commit 形态回填，不再
+  保留“尚无实现 commit”的冻结前陈述。
+
+影响面回归：Python desktop bootstrap `14 passed`；gateway proxy/API contract
+`6 passed`；Rust home resolver `3 passed`；Rust secrets module `21 passed`。最终
+当时的 legacy-name 审计快照为 `15,826` tracked hits，`0 defects`；第二轮
+cross-process follow-up 后的最终数字见 Section 8。本 follow-up 尚未 commit / push。
+
+## 8. Cross-process home follow-up（2026-07-16）
+
+第二轮独立复审指出 Section 7 的 home 缓存只覆盖单个进程，P1 因而重新打开。
+本轮进一步建立 Rust shell → Python children 的唯一启动合同：
+
+- Rust bootstrap 在启动任何 child 前固定唯一 host home；`SpawnConfig` 从 process
+  cache 取得同一路径，并把它作为 `kabuqina_home` 字段传给主 Python child；重启
+  继续复用同一选择。
+- 主 Python、gateway profile 以及 Feishu、QQ Bot、WeCom、Weixin 四个 QR worker
+  全部经同一 Rust helper 注入 `KABUQINA_HOME` / `HERMES_HOME`，两个名称始终指向
+  同一个 Rust-selected path。
+- Python entrypoint、typed desktop config 和四个 QR worker 遇到显式 home 时直接
+  使用，不再独立执行 rename；只有脱离 Tauri 直接运行且没有显式 home 时，才保留
+  standalone migration fallback。
+- 新增 fresh Python subprocess 测试，构造“Rust 已选择 legacy、rename 当前可成功”
+  的条件，证明 child 仍使用 legacy 且不会创建 canonical 目录；Rust 单测钉住两个
+  env 名称的同值注入合同。
+
+影响面回归：Python desktop bootstrap `15 passed`；Rust child-home injection
+`1 passed`。最终 legacy-name 审计：`15,830` tracked hits，
+`0 defects`。该 P1 已重新关闭；follow-up 尚未 commit / push。

@@ -4,6 +4,7 @@
 """Integration tests for bootstrap modes (no Hermes import chain needed)."""
 
 import os
+import subprocess
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -129,6 +130,46 @@ class TestBoostrapModes(unittest.TestCase):
             legacy.mkdir()
             with patch.object(Path, "rename", side_effect=OSError("locked")):
                 self.assertEqual(resolve_desktop_home(data_dir), legacy)
+            # The filesystem condition has recovered, but this process must
+            # keep the first choice so one launch never splits its state.
+            self.assertEqual(resolve_desktop_home(data_dir), legacy)
+            self.assertTrue(legacy.exists())
+            self.assertFalse((data_dir / "kabuqina-home").exists())
+
+    def test_rust_selected_home_is_used_by_fresh_python_child(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temp:
+            data_dir = Path(temp)
+            legacy = data_dir / "hermes-home"
+            current = data_dir / "kabuqina-home"
+            legacy.mkdir()
+            env = os.environ.copy()
+            env.update(
+                {
+                    "KABUQINA_DATA_DIR": str(data_dir),
+                    "KABUQINA_HOME": str(legacy),
+                    "HERMES_HOME": str(legacy),
+                    "PYTHONPATH": _src,
+                }
+            )
+            script = (
+                "import os; from pathlib import Path; "
+                "from kabuqina_env import resolve_child_home; "
+                "print(resolve_child_home(Path(os.environ['KABUQINA_DATA_DIR'])))"
+            )
+
+            result = subprocess.run(
+                [sys.executable, "-c", script],
+                env=env,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+
+            self.assertEqual(Path(result.stdout.strip()), legacy)
+            self.assertTrue(legacy.exists())
+            self.assertFalse(current.exists())
 
     def test_missing_required_env_raises(self):
         with patch.dict(os.environ, {}, clear=True):

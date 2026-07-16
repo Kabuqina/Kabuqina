@@ -4,7 +4,7 @@
 //! Spawn and supervise the embedded Python child.
 
 use anyhow::{Context, Result};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::Duration;
 use tauri::AppHandle;
@@ -15,6 +15,8 @@ use tokio::process::{Child, Command};
 pub struct SpawnConfig {
     pub bundle_dir: PathBuf,
     pub data_dir: PathBuf,
+    /// Host home selected once by the Rust shell before any Python child starts.
+    pub kabuqina_home: PathBuf,
     pub workspace: PathBuf,
     pub secret_url: String,
     pub approval_url: String,
@@ -40,6 +42,12 @@ pub struct SpawnConfig {
     pub api_key_env_name: String,
 }
 
+/// Inject the Rust-selected home under both the canonical and one-release
+/// compatibility names. Every Python child spawn must use this helper.
+pub(crate) fn inject_kabuqina_home(cmd: &mut Command, home: &Path) {
+    cmd.env("KABUQINA_HOME", home).env("HERMES_HOME", home);
+}
+
 pub struct Supervisor {
     child: Child,
     port_file: PathBuf,
@@ -62,6 +70,7 @@ impl Supervisor {
         let _ = std::fs::remove_file(&port_file);
 
         let mut cmd = Command::new(&py_exe);
+        inject_kabuqina_home(&mut cmd, &cfg.kabuqina_home);
         cmd.arg(&entry)
             .env("HERMESDESK_BUNDLE_DIR", &cfg.bundle_dir)
             .env("HERMESDESK_DATA_DIR", &cfg.data_dir)
@@ -223,6 +232,32 @@ impl Supervisor {
         // Try graceful first, then kill.
         let _ = self.child.start_kill();
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::inject_kabuqina_home;
+    use std::ffi::OsStr;
+    use std::path::Path;
+    use tokio::process::Command;
+
+    #[test]
+    fn rust_selected_home_is_identical_under_both_child_env_names() {
+        let selected = Path::new(r"C:\data\hermes-home");
+        let mut cmd = Command::new("python.exe");
+
+        inject_kabuqina_home(&mut cmd, selected);
+
+        let env_value = |name: &str| {
+            cmd.as_std()
+                .get_envs()
+                .find(|(key, _value)| *key == OsStr::new(name))
+                .and_then(|(_key, value)| value.map(OsStr::to_os_string))
+        };
+        let selected = selected.as_os_str().to_os_string();
+        assert_eq!(env_value("KABUQINA_HOME"), Some(selected.clone()));
+        assert_eq!(env_value("HERMES_HOME"), Some(selected));
     }
 }
 

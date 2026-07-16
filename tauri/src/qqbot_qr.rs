@@ -64,8 +64,10 @@ pub async fn cmd_qqbot_qr_start(
 
     let workspace = crate::paths::ensure_workspace(&app).map_err(|e| e.to_string())?;
     let data_dir = crate::paths::ensure_data_dir(&app).map_err(|e| e.to_string())?;
+    let kabuqina_home = crate::gateway_supervisor::kabuqina_home_path(&data_dir);
 
     let mut cmd = tokio::process::Command::new(&py);
+    crate::python_supervisor::inject_kabuqina_home(&mut cmd, &kabuqina_home);
     cmd.arg(&worker)
         .current_dir(&bundle)
         .env("KABUQINA_BUNDLE_DIR", &bundle)

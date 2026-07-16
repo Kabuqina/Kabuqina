@@ -42,7 +42,7 @@ from kabuqina_env import (
     get as get_kabuqina_env,
     export_home,
     normalize as normalize_kabuqina_env,
-    resolve_desktop_home,
+    resolve_child_home,
 )
 
 _docling_warm_thread: Optional[threading.Thread] = None
@@ -279,9 +279,9 @@ def _redirect_kabuqina_home() -> Path:
     """Resolve Kabuqina's config/cache root inside the per-user data dir.
 
     The desktop shell owns this location instead of writing to the profile
-    root.  A populated legacy ``hermes-home`` directory is renamed atomically
-    to ``kabuqina-home``.  If that rename fails, the legacy directory remains
-    active so an upgrade cannot silently lose sessions or learning data.
+    root. Rust selects it once and injects both home env names before this
+    child starts. Direct standalone runs retain the old-only atomic migration
+    fallback; shipped children never make an independent migration decision.
 
       * uninstall is clean (one folder to delete),
       * the workspace jail can keep ``~/`` opaque,
@@ -291,7 +291,7 @@ def _redirect_kabuqina_home() -> Path:
     ``kabuqina_constants`` or ``kabuqina_cli.config``.
     """
     data_dir = Path(get_kabuqina_env("KABUQINA_DATA_DIR", "."))
-    home = resolve_desktop_home(data_dir, logger=logging.getLogger("kabuqina.entry"))
+    home = resolve_child_home(data_dir, logger=logging.getLogger("kabuqina.entry"))
     home.mkdir(parents=True, exist_ok=True)
     export_home(home)
     return home

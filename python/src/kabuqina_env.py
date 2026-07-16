@@ -7,7 +7,12 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 from pathlib import Path
+
+
+_desktop_home_lock = threading.Lock()
+_desktop_home_choice_by_root: dict[Path, str] = {}
 
 
 def legacy_name(name: str) -> str:
@@ -76,22 +81,51 @@ def resolve_desktop_home(
     wins and the old one is left untouched for manual recovery.
     """
     root = Path(data_dir)
-    current = root / "kabuqina-home"
-    legacy = root / "hermes-home"
-    if current.exists() or not legacy.exists():
-        return current
-    try:
-        legacy.rename(current)
-    except OSError as exc:
-        if current.exists():
-            return current
-        if logger is not None:
-            logger.warning(
-                "Kabuqina home migration failed; using legacy directory for "
-                "this launch: %s",
-                exc,
-            )
-        return legacy
-    if logger is not None:
-        logger.info("Migrated legacy desktop home to %s", current)
-    return current
+    cache_key = Path(os.path.abspath(os.fspath(root)))
+    with _desktop_home_lock:
+        cached = _desktop_home_choice_by_root.get(cache_key)
+        if cached is not None:
+            return root / cached
+
+        current = root / "kabuqina-home"
+        legacy = root / "hermes-home"
+        if current.exists() or not legacy.exists():
+            resolved = current
+        else:
+            try:
+                legacy.rename(current)
+            except OSError as exc:
+                if current.exists():
+                    resolved = current
+                else:
+                    if logger is not None:
+                        logger.warning(
+                            "Kabuqina home migration failed; using legacy directory for "
+                            "this launch: %s",
+                            exc,
+                        )
+                    resolved = legacy
+            else:
+                if logger is not None:
+                    logger.info("Migrated legacy desktop home to %s", current)
+                resolved = current
+
+        _desktop_home_choice_by_root[cache_key] = resolved.name
+        return resolved
+
+
+def resolve_child_home(
+    data_dir: str | os.PathLike[str],
+    *,
+    logger: logging.Logger | None = None,
+) -> Path:
+    """Use the shell-selected home, falling back to standalone migration.
+
+    Shipped desktop and QR children receive both home env names from Rust. A
+    child must never retry the directory rename independently because another
+    process could then choose a different home during the same app launch.
+    """
+    explicit = home()
+    if explicit:
+        return Path(explicit)
+    return resolve_desktop_home(data_dir, logger=logger)

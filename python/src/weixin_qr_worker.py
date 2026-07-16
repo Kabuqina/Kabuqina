@@ -20,7 +20,7 @@ import sys
 import traceback
 from pathlib import Path
 
-from kabuqina_env import export_home, require, resolve_desktop_home
+from kabuqina_env import export_home, require, resolve_child_home
 
 # Must keep a reference to the real ``print`` before we monkeypatch ``builtins.print``,
 # otherwise ``_real_print`` would call the patched function and recurse infinitely.
@@ -58,7 +58,7 @@ def _real_print(*args, **kwargs):
 def main() -> int:
     _wire_sys_path()
     data_dir = _data_dir()
-    kabuqina_home = resolve_desktop_home(data_dir)
+    kabuqina_home = resolve_child_home(data_dir)
     kabuqina_home.mkdir(parents=True, exist_ok=True)
     export_home(kabuqina_home)
 

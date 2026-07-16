@@ -394,6 +394,7 @@ async fn resolve_spawn_config_for_children(
     let workspace = paths::ensure_workspace(app).map_err(|e| e.to_string())?;
     let bundle_dir = paths::resolve_runtime_dir(app).map_err(|e| e.to_string())?;
     let data_dir = paths::ensure_data_dir(app).map_err(|e| e.to_string())?;
+    let kabuqina_home = gateway_supervisor::kabuqina_home_path(&data_dir);
     let llm = secrets::resolve_llm_spawn_params(app);
     let power_user = paths::is_power_user(app);
     let shell_chat_back_url = format!(
@@ -413,6 +414,7 @@ async fn resolve_spawn_config_for_children(
     Ok(python_supervisor::SpawnConfig {
         bundle_dir,
         data_dir,
+        kabuqina_home,
         workspace,
         secret_url,
         approval_url,
@@ -691,7 +693,11 @@ async fn bootstrap(app: tauri::AppHandle) -> anyhow::Result<()> {
     // 1. Workspace + data dirs (spawn config resolves paths again).
     if let Err(e) = (|| -> anyhow::Result<()> {
         paths::ensure_workspace(&app)?;
-        paths::ensure_data_dir(&app)?;
+        let data_dir = paths::ensure_data_dir(&app)?;
+        // Freeze the host-home decision before Edge or any Python/QR child can
+        // start. Later callers only read the process cache and propagate this
+        // exact path through SpawnConfig/child env.
+        let _selected_home = gateway_supervisor::kabuqina_home_path(&data_dir);
         paths::resolve_runtime_dir(&app)?;
         paths::sync_show_recipe_market_flag(&app)?;
         Ok(())

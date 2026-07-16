@@ -20,7 +20,7 @@ import time
 import traceback
 from pathlib import Path
 
-from kabuqina_env import export_home, require, resolve_desktop_home
+from kabuqina_env import export_home, require, resolve_child_home
 
 
 def _wire_sys_path() -> None:
@@ -50,7 +50,7 @@ def _write_result(obj: dict) -> None:
 def main() -> int:
     _wire_sys_path()
     data_dir = _data_dir()
-    kabuqina_home = resolve_desktop_home(data_dir)
+    kabuqina_home = resolve_child_home(data_dir)
     kabuqina_home.mkdir(parents=True, exist_ok=True)
     export_home(kabuqina_home)
 
