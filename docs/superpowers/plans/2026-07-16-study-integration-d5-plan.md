@@ -1,19 +1,21 @@
 # D-5 Implementation Plan — 集成观测、旧面退役与 WebView2 收口
 
 > 日期：2026-07-16
-> 状态：pre-A-R3 frontend implementation complete；等待 rebase、release bundle 与 WebView2/升级组合轮
+> 状态：post-A-R3 自动集成已完成主要门；等待 Rust test、release bundle 与 WebView2/升级组合轮
 > 起始基线：`codex/study-d4@fcc21cab`
+> 集成基线：`main@5abea97c`（A-R3 已收口）
 > 工作分支：`codex/study-d5`
-> 正式依赖：D-2、D-3、D-4 已完成；最终集成轮还需等待 A-R3 收口
+> 安全指针：`codex/study-d5-pre-ar3@2fbe9e3a`
+> 正式依赖：D-2、D-3、D-4、A-R3 已完成；release 安装与升级证据仍待补
 
-## 0. Pre-A-R3 实施记录（2026-07-16）
+## 0. 实施与集成记录（2026-07-16）
 
 - Transport Gate 选择 §5.4 方案 1：typed/injected sink + 本机 coarse aggregate；
   Settings 明示 opt-in，默认关闭，不新增 Tauri/network endpoint。关闭时清除本机计数，
   sink throw/reject 均 fail-open。IA 与 H5 `UsageEvent` 无 import/transport 依赖。
 - 开工基线在独立 worktree 记录为 Web components `19 files / 80 tests`；lint 与
   production build 沿用 D4 review 的通过状态。D5 未接触 dirty main/A-R3 index。
-- 当前 Web 自动门：components `21 files / 95 tests`（page-view 用例在 StrictMode 下运行，
+- pre-A-R3 Web 自动门：components `21 files / 95 tests`（page-view 用例在 StrictMode 下运行，
   并覆盖 learning-event revalidate 去重）、chat UX、capture-index、knowledge-points、
   ESLint、`tsc --noEmit` 与 Vite production build 通过。
 - manifest chunk 审计通过：initial `1,698,439 raw / 491,140 gzip` bytes；StudyRoute own
@@ -25,8 +27,19 @@
 - context 尚未满足完整升级发布周期门，因此没有删除兼容读取；它已收窄为独立
   `legacyStudyContextMigration.ts` one-shot adapter。失败时旧 key 字节不变，只有后端
   确认后才清除 key。最终 pre-D5 升级样本仍必须在 A-R3 release bundle 上复核。
-- 尚未完成且不得提前宣告：A-R3 后 rebase/冲突审计、full release bundle/import
-  verifier、Windows WebView2/老版本升级矩阵、最终 Rust 与全 Python 回归、稳定窗口。
+- A-R3 以 `main@5abea97c` 收口后，完整 D4→D5 的十个提交已无冲突 rebase 到该
+  基线；main 未被修改。旧提交保存在 `codex/study-d5-pre-ar3@2fbe9e3a`，便于审计。
+- post-A-R3 Web 自动门通过：components `22 files / 97 tests`、chat UX、capture-index、
+  knowledge-points、ESLint、`tsc --noEmit` 与 Vite production build。manifest 审计为
+  initial `1,700,943 raw / 491,705 gzip` bytes、StudyRoute own
+  `77,558 raw / 18,367 gzip` bytes；StudyRoute 保持 dynamic entry，未提高 warning limit。
+- post-A-R3 Python Study/runtime focused 回归为 `54 passed, 2 subtests passed`；core
+  learning/gateway/cron/usage contract 回归为 `255 passed`。Rust `cargo check` 在被忽略的
+  空 runtime 资源目录下通过，证明源码可编译；`cargo test` 在 604 秒后无失败日志超时，
+  不记作通过。
+- 尚未完成且不得提前宣告：真实 `build_bundle.ps1 -Verify` / runtime import verifier、
+  Rust test、Windows WebView2/老版本升级矩阵和稳定窗口。bundle 与正在进行的 NSIS
+  构建错峰执行，当前轮不启动。
 
 ## 1. 目标
 
@@ -48,20 +61,19 @@ D-5 是 v0.4.0 笔记本前端的收口切片，不再增加新的学习语义�
 D-4 的统一 `StudyDraftProvider`、M5 detail/audit/governance 与最终错误语义，因此
 从 `codex/study-d4@fcc21cab` 建链式分支是正确基线。
 
-当前 `main@bca84706` 正被 A-R3 的大规模 staged/unstaged 改动占用，不适合直接
-切分支或写 D-5。A-R3 不是 D-5 的正式产品依赖，但它会改变 core/persistence
-命名、最终 bundle 和老版本升级路径；D-5 的最终 WebView2/升级验收必须在 A-R3
-之后重跑。因此采用以下顺序：
+开工时 `main@bca84706` 正被 A-R3 的大规模 staged/unstaged 改动占用，因此 D-5
+从 D-4 建立独立 worktree。A-R3 会改变 core/persistence 命名、最终 bundle 和老版本
+升级路径，所以最终 WebView2/升级验收必须在 A-R3 之后重跑。实际执行结果为：
 
 ```text
-现在：D4(fcc21cab) -> D5 独立 worktree（计划、合同、Web 收口）
-稍后：main 收口 A-R3 -> 合入 D4 -> D5 rebase 到新 main
-最后：冲突复核 -> 全量自动门 -> release bundle -> WebView2/升级组合轮 -> 合入 D5
+已完成：D4(fcc21cab) -> D5 独立 worktree（计划、合同、Web 收口）
+已完成：main 收口 A-R3(5abea97c) -> 完整 D4→D5 链 rebase 到新 main
+进行中：自动门/冲突复核 -> Rust test -> release bundle -> WebView2/升级组合轮 -> 合入 D5
 ```
 
 已知 A-R3 与 D-5 的直接热点是 `DECISIONS.md`、`tauri/src/lib.rs` 和
-`web/src/locales/strings.ts`。D-5 在 A-R3 完成前可以改自己的独立模块，但不得
-提前合入 main，也不得用整文件覆盖方式解决这些共享文件。
+`web/src/locales/strings.ts`。rebase 未产生冲突，三个热点已按 hunk 复核，并由
+post-A-R3 Web/Python/core/Rust check 覆盖；D-5 仍未合入或修改 main。
 
 ## 3. 开工审计结论
 
@@ -192,7 +204,8 @@ D-5 实现事件生产前必须在 plan/progress 中明确选择并记录以下�
 - [ ] 记录 D-5 开工时 D4 full Web/Python/Rust/size 基线，不复用口头结果；
 - [x] 记录 A-R3 overlap 清单，禁止从 dirty main 复制整文件；
 - [x] 在 A-R3 合入前不把 D-5 合回 main；D-5 不修改 A-R3 工作树/index；
-- [ ] A-R3 + D4 进入 main 后 rebase D-5，并重做 diff/contract audit。
+- [x] A-R3 进入 main 后，把完整 D4→D5 提交链 rebase 到 `main@5abea97c`，并重做
+  diff/contract audit；D4 未被单独写入 main。
 
 ### Task 1: 先写 IA schema 与 T2 失败测试
 
@@ -274,14 +287,17 @@ Python/core/Rust：
 
 - [x] 只运行 D-5 实际触及边界的 focused tests；未新增 Tauri telemetry command；
 - [x] B-0/T2 测试扫描实际 serialized events，而不是只扫描 TypeScript type；
-- [ ] M4/M5/M6、migration、owner isolation、secure delete/source_refs 回归；
-- [ ] relevant `cargo test` / `cargo check`；A-R3 rebase 后重跑 bundle import verifier。
+- [x] M4/M5/M6、migration、owner isolation、secure delete/source_refs focused 回归；
+- [x] `cargo check`（空的 ignored runtime resource 仅用于源码编译检查）；
+- [ ] `cargo test`（604 秒无失败日志超时）；A-R3 rebase 后的真实 bundle import verifier。
 
 ### Task 7: A-R3 后集成审计
 
-- [ ] 确认 main 顺序为 A-R3 完成、D4 合入，再 rebase/merge D5；
-- [ ] 对 `DECISIONS.md`、`tauri/src/lib.rs`、`strings.ts` 做 hunk 级冲突复核；
-- [ ] 全仓搜索旧 `hermes*` persistence key、旧 Study localStorage key 和旧 Tauri command；
+- [x] 确认 A-R3 已在 main 收口；完整 D4→D5 链位于其上，main 保持不变；
+- [x] 对 `DECISIONS.md`、`tauri/src/lib.rs`、`strings.ts` 做 hunk 级复核；rebase 无冲突；
+- [x] 搜索旧 persistence/Study key 与 Tauri command：Web 生产代码仅保留隔离的
+  `kabuqina.study.context.v1` one-shot reader；A-R3 的 `hermes-home`/`HERMES_HOME`
+  命中均为有意兼容桥或 core 的一发布周期 alias，不做 D-5 机械删除；
 - [ ] 从真实 pre-A-R3/pre-D5 app-data 副本跑升级，不只测 clean install；
 - [ ] clean install、upgrade install、desk child restart、gateway child 存在时均启动正常；
 - [ ] 最终 release bundle 生成后再进入手工组合轮，不用 Vite dev 冒充发布验收。
@@ -326,7 +342,8 @@ Python/core/Rust：
   决策、学习数据宪章 T2 完成记录；
 - [x] 更新 QA/release checklist：Study route、WebView2 matrix、旧版本升级、telemetry
   default-off/opt-out、fixture safety；
-- [ ] 记录最终测试数字、bundle/chunk raw+gzip、已知降级与 deferred cleanup；
+- [x] 记录 post-A-R3 自动测试数字、chunk raw+gzip、已知降级与 deferred cleanup；
+- [ ] 记录真实 bundle/import verifier 与 WebView2/升级矩阵的最终证据；
 - [ ] `git diff --check`、工作树 clean、review 通过后才允许 D-5 合入 main；
 - [ ] D-5 frontend feature-complete 与最终 bundle smoke 至少隔一个稳定窗口，不能同日
   边改边宣告 release ready。
