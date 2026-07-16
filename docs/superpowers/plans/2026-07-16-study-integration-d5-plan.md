@@ -3,9 +3,9 @@
 > 日期：2026-07-16
 > 状态：post-A-R3 自动集成已完成主要门；等待 Rust test、release bundle 与 WebView2/升级组合轮
 > 起始基线：`codex/study-d4@fcc21cab`
-> 集成基线：`main@5abea97c`（A-R3 已收口）
+> 集成基线：`main@3b85a85a`（A-R3 最终 review 已收口）
 > 工作分支：`codex/study-d5`
-> 安全指针：`codex/study-d5-pre-ar3@2fbe9e3a`
+> 安全指针：`codex/study-d5-pre-ar3@2fbe9e3a`；`codex/study-d5-pre-final-ar3@a71de2e7`
 > 正式依赖：D-2、D-3、D-4、A-R3 已完成；release 安装与升级证据仍待补
 
 ## 0. 实施与集成记录（2026-07-16）
@@ -22,13 +22,15 @@
   `77,558 raw / 18,366 gzip` bytes。StudyRoute 仍是 dynamic entry，CodeMirror/KaTeX 未
   进入其基础 graph；未提高 warning limit。
 - legacy flashcard/quiz migration 的成功、幂等、capture 去重、failure export/status
-  证据共 `5 passed`。死 Web stores/helpers 已物理删除；Python migration diagnostics、
-  failure export 与 rollback API 保留。
-- context 尚未满足完整升级发布周期门，因此没有删除兼容读取；它已收窄为独立
-  `legacyStudyContextMigration.ts` one-shot adapter。失败时旧 key 字节不变，只有后端
-  确认后才清除 key。最终 pre-D5 升级样本仍必须在 A-R3 release bundle 上复核。
-- A-R3 以 `main@5abea97c` 收口后，完整 D4→D5 的十个提交已无冲突 rebase 到该
-  基线；main 未被修改。旧提交保存在 `codex/study-d5-pre-ar3@2fbe9e3a`，便于审计。
+  证据共 `5 passed`。完整 Web stores/learning helpers 已物理删除；Python migration
+  diagnostics、failure export 与 rollback API 保留。
+- context、flashcard、quiz 均尚未满足完整升级发布周期门，因此保留隔离 one-shot
+  adapter。collection adapter 只转换迁移所需的 bounded 内容，不恢复旧 UI/store，
+  也不转发旧 scheduling state 或 learner response。失败时旧 key 字节不变，只有后端
+  成功或确认幂等 marker 后才清除 key。最终 pre-D5 升级样本仍须在 release bundle 复核。
+- A-R3 feature commit `5abea97c` 后，完整 D4→D5 链先完成一次 rebase；最终 review
+  以 `main@3b85a85a` 收口后，D4→D5 的十二个提交再次无冲突 rebase。main 未被修改；
+  两次 rebase 前指针均保留，便于审计。
 - post-A-R3 Web 自动门通过：components `22 files / 97 tests`、chat UX、capture-index、
   knowledge-points、ESLint、`tsc --noEmit` 与 Vite production build。manifest 审计为
   initial `1,700,943 raw / 491,705 gzip` bytes、StudyRoute own
@@ -40,6 +42,13 @@
 - 尚未完成且不得提前宣告：真实 `build_bundle.ps1 -Verify` / runtime import verifier、
   Rust test、Windows WebView2/老版本升级矩阵和稳定窗口。bundle 与正在进行的 NSIS
   构建错峰执行，当前轮不启动。
+- review follow-up 修复 1 P1 / 2 P2：恢复 flashcard/quiz one-shot 升级入口；IA
+  opt-out 在 storage 清理失败时仍 session hard-off，并分别尝试两个 key；shared seed
+  不再绑定首个 mount signal。focused `4 files / 37 tests`、full components
+  `23 files / 105 tests`、ESLint、`tsc --noEmit` 与 production build 通过。复核后的
+  manifest 为 initial `1,701,739 raw / 491,929 gzip` bytes、StudyRoute own
+  `80,639 raw / 19,426 gzip` bytes；动态边界与既有 warning limit 保持不变。最终
+  A-R3 rebase 后 focused `4 files / 37 tests`、`tsc --noEmit` 与增量 `cargo check` 通过。
 
 ## 1. 目标
 
@@ -67,7 +76,7 @@ D-4 的统一 `StudyDraftProvider`、M5 detail/audit/governance 与最终错误�
 
 ```text
 已完成：D4(fcc21cab) -> D5 独立 worktree（计划、合同、Web 收口）
-已完成：main 收口 A-R3(5abea97c) -> 完整 D4→D5 链 rebase 到新 main
+已完成：main 最终收口 A-R3(3b85a85a) -> 完整 D4→D5 链 rebase 到新 main
 进行中：自动门/冲突复核 -> Rust test -> release bundle -> WebView2/升级组合轮 -> 合入 D5
 ```
 
@@ -204,7 +213,7 @@ D-5 实现事件生产前必须在 plan/progress 中明确选择并记录以下�
 - [ ] 记录 D-5 开工时 D4 full Web/Python/Rust/size 基线，不复用口头结果；
 - [x] 记录 A-R3 overlap 清单，禁止从 dirty main 复制整文件；
 - [x] 在 A-R3 合入前不把 D-5 合回 main；D-5 不修改 A-R3 工作树/index；
-- [x] A-R3 进入 main 后，把完整 D4→D5 提交链 rebase 到 `main@5abea97c`，并重做
+- [x] A-R3 最终 review 进入 main 后，把完整 D4→D5 提交链 rebase 到 `main@3b85a85a`，并重做
   diff/contract audit；D4 未被单独写入 main。
 
 ### Task 1: 先写 IA schema 与 T2 失败测试
@@ -263,8 +272,9 @@ D-5 实现事件生产前必须在 plan/progress 中明确选择并记录以下�
 - [ ] 用一次性旧版本 profile 构造 context/deck/quiz 三类样本，先导出/备份；
 - [x] 证明成功迁移幂等、跨本归属明确、失败时旧 key 原样保留、failure export 可用；
 - [x] 证明重复调用不会重复创建 artifact/card/quiz；
-- [x] 已无生产调用的 flashcard/quiz store 与 migration helper 物理删除，类型移到真实
-  API contract 或一并删除，不为测试保留死生产代码；
+- [x] flashcard/quiz 完整 store 与日常 learning helper 物理删除；只保留
+  `legacyStudyCollectionMigration.ts` bounded one-shot adapter 及真实 API wrapper，
+  不为测试恢复死生产状态机；
 - [ ] context migration 若满足“一发布周期 + rollback evidence”，删除
   `FlyleafPage` Web read 和 `studyStore.ts`；成功升级样本的旧 key 只在确认迁移后清除；
 - [x] 若周期门未满足，把读取收窄到独立 one-shot compat migrator，删除日常 UI/prompt
@@ -296,7 +306,7 @@ Python/core/Rust：
 - [x] 确认 A-R3 已在 main 收口；完整 D4→D5 链位于其上，main 保持不变；
 - [x] 对 `DECISIONS.md`、`tauri/src/lib.rs`、`strings.ts` 做 hunk 级复核；rebase 无冲突；
 - [x] 搜索旧 persistence/Study key 与 Tauri command：Web 生产代码仅保留隔离的
-  `kabuqina.study.context.v1` one-shot reader；A-R3 的 `hermes-home`/`HERMES_HOME`
+  context/flashcard/quiz one-shot readers；A-R3 的 `hermes-home`/`HERMES_HOME`
   命中均为有意兼容桥或 core 的一发布周期 alias，不做 D-5 机械删除；
 - [ ] 从真实 pre-A-R3/pre-D5 app-data 副本跑升级，不只测 clean install；
 - [ ] clean install、upgrade install、desk child restart、gateway child 存在时均启动正常；

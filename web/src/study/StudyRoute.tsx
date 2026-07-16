@@ -11,17 +11,38 @@ import { parseStudyPath, studyPath } from "./routeModel";
 import { StudyShell } from "./StudyShell";
 import { StudyRouteStatus } from "./StudyRouteStatus";
 import { STUDY_LEARNING_EVENT } from "./learningEvent";
+import type { LegacyStudyCollectionMigrationResult } from "./legacyStudyCollectionMigration";
 
 const builtinCourseBootstraps = new WeakMap<StudyRepository, Promise<boolean>>();
+const legacyCollectionBootstraps = new WeakMap<StudyRepository, Promise<LegacyStudyCollectionMigrationResult>>();
 
-export function seedBuiltinCourseOnce(repository: StudyRepository, signal: AbortSignal): Promise<boolean> {
+export function seedBuiltinCourseOnce(repository: StudyRepository): Promise<boolean> {
   const existing = builtinCourseBootstraps.get(repository);
-  if (existing) return existing.then(() => false);
-  const pending = repository.seedBuiltinCourse(signal).catch((error) => {
+  if (existing) return existing;
+  const pending = repository.seedBuiltinCourse(new AbortController().signal).catch((error) => {
     if (builtinCourseBootstraps.get(repository) === pending) builtinCourseBootstraps.delete(repository);
     throw error;
   });
   builtinCourseBootstraps.set(repository, pending);
+  return pending;
+}
+
+function migrateLegacyCollectionsOnce(repository: StudyRepository): Promise<LegacyStudyCollectionMigrationResult> {
+  const existing = legacyCollectionBootstraps.get(repository);
+  if (existing) return existing;
+  const pending = repository.migrateLegacyCollections(new AbortController().signal).then(
+    (result) => {
+      if (result.retryNeeded && legacyCollectionBootstraps.get(repository) === pending) {
+        legacyCollectionBootstraps.delete(repository);
+      }
+      return result;
+    },
+    (error) => {
+      if (legacyCollectionBootstraps.get(repository) === pending) legacyCollectionBootstraps.delete(repository);
+      throw error;
+    },
+  );
+  legacyCollectionBootstraps.set(repository, pending);
   return pending;
 }
 
@@ -60,13 +81,23 @@ export default function StudyRoute() {
     load();
     window.addEventListener(STUDY_LEARNING_EVENT, load);
     const bootstrap = activeBootstrapCoordinator.begin();
-    void seedBuiltinCourseOnce(repository, bootstrap.signal).then(
-      (seeded) => {
-        if (!activeBootstrapCoordinator.isCurrent(bootstrap.generation) || !seeded) return;
+    void (async () => {
+      let seeded = false;
+      let legacyChanged = false;
+      try {
+        seeded = await seedBuiltinCourseOnce(repository);
+      } catch {
+        // Retry on a later mount; legacy migration still gets its own attempt.
+      }
+      try {
+        legacyChanged = (await migrateLegacyCollectionsOnce(repository)).changed;
+      } catch {
+        // Both bootstraps fail open and retry on a later mount.
+      }
+      if (activeBootstrapCoordinator.isCurrent(bootstrap.generation) && (seeded || legacyChanged)) {
         window.dispatchEvent(new Event(STUDY_LEARNING_EVENT));
-      },
-      () => undefined,
-    );
+      }
+    })();
     return () => {
       window.removeEventListener(STUDY_LEARNING_EVENT, load);
       activeCoordinator.cancel();

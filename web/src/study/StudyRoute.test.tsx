@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { act, render, screen, waitFor } from "@testing-library/react";
+import { StrictMode } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../lib/i18n";
@@ -18,9 +19,12 @@ function Location() {
   return <output data-testid="location">{useLocation().pathname}</output>;
 }
 
-function renderRoute(path: string, repositoryOverrides: Partial<StudyRepository> = {}) {
+function renderRoute(path: string, repositoryOverrides: Partial<StudyRepository> = {}, strict = false) {
   const repository: StudyRepository = {
     seedBuiltinCourse: vi.fn().mockResolvedValue(false),
+    migrateLegacyCollections: vi.fn().mockResolvedValue({
+      changed: false, retryNeeded: false, flashcards: "absent", quizzes: "absent",
+    }),
     listSpaces: vi.fn().mockResolvedValue(spaces),
     selectSpace: vi.fn().mockResolvedValue(spaces),
     listDrafts: vi.fn().mockResolvedValue({ total: 0, kindCounts: {} }),
@@ -41,7 +45,7 @@ function renderRoute(path: string, repositoryOverrides: Partial<StudyRepository>
     submitQuiz: vi.fn(), generatePracticeDraft: vi.fn(), resolvePracticeSource: vi.fn(),
     ...repositoryOverrides,
   };
-  render(
+  const tree = (
     <I18nProvider>
       <StudyRepositoryProvider repository={repository}>
         <MemoryRouter initialEntries={[path]}>
@@ -49,8 +53,9 @@ function renderRoute(path: string, repositoryOverrides: Partial<StudyRepository>
           <Routes><Route path="/study/*" element={<StudyRoute />} /></Routes>
         </MemoryRouter>
       </StudyRepositoryProvider>
-    </I18nProvider>,
+    </I18nProvider>
   );
+  render(strict ? <StrictMode>{tree}</StrictMode> : tree);
   return repository;
 }
 
@@ -80,10 +85,23 @@ describe("StudyRoute", () => {
   it("does not repeat the bootstrap call for the same repository within a session", async () => {
     const seedBuiltinCourse = vi.fn().mockResolvedValue(false);
     const repository = { seedBuiltinCourse } as unknown as StudyRepository;
-    const signal = new AbortController().signal;
-    await expect(seedBuiltinCourseOnce(repository, signal)).resolves.toBe(false);
-    await expect(seedBuiltinCourseOnce(repository, signal)).resolves.toBe(false);
+    await expect(seedBuiltinCourseOnce(repository)).resolves.toBe(false);
+    await expect(seedBuiltinCourseOnce(repository)).resolves.toBe(false);
     expect(seedBuiltinCourse).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a deferred shared seed alive through StrictMode cleanup and refreshes after it settles", async () => {
+    const seed = deferred<boolean>();
+    const seedBuiltinCourse = vi.fn().mockImplementation(() => seed.promise);
+    const listSpaces = vi.fn().mockResolvedValue(spaces);
+    renderRoute("/study/space-a/learn", { seedBuiltinCourse, listSpaces }, true);
+
+    await waitFor(() => expect(seedBuiltinCourse).toHaveBeenCalledTimes(1));
+    expect(seedBuiltinCourse.mock.calls[0][0]).toBeInstanceOf(AbortSignal);
+    expect(seedBuiltinCourse.mock.calls[0][0].aborted).toBe(false);
+    await act(async () => { seed.resolve(true); });
+    await waitFor(() => expect(listSpaces.mock.calls.length).toBeGreaterThanOrEqual(3));
+    expect(seedBuiltinCourse.mock.calls[0][0].aborted).toBe(false);
   });
 
   it("canonicalizes the root to the current flyleaf", async () => {

@@ -662,6 +662,7 @@ export const MESSAGES = {
       studyIaDesc: "默认关闭。开启后只在本机记录页面和操作的粗粒度次数；不记录学习内容、标题、问题、答案或标识，也不会上传。",
       studyIaOn: "已开启本机计数。关闭后会同时清除已有计数。",
       studyIaOff: "当前未记录学习功能计数。",
+      studyIaSaveError: "本机存储更新不完整。本次运行已停止计数；请重试，关闭应用前确认旧计数已清除。",
       companionImageTitle: "桌面宠物外观",
       companionImageDesc: "替换缩小后的 pill 状态图片，做成你自己的桌面宠物。",
       companionImageSpec:
@@ -1943,6 +1944,7 @@ export const MESSAGES = {
       studyIaDesc: "Off by default. When enabled, only coarse page and action counts are stored on this device; learning content, titles, questions, answers, and identifiers are never recorded or uploaded.",
       studyIaOn: "Local counts are enabled. Turning this off also clears existing counts.",
       studyIaOff: "Study improvement counts are not being recorded.",
+      studyIaSaveError: "Local storage was not fully updated. Counting is off for this session; retry before closing the app and confirm old counts are cleared.",
       companionImageTitle: "Desktop pet appearance",
       companionImageDesc: "Replace the compact pill image and turn it into your own desktop pet.",
       companionImageSpec:

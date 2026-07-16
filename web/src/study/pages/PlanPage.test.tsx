@@ -16,6 +16,9 @@ import type { StudyIaSink } from "../iaEvents";
 function repository(overrides: Partial<StudyRepository> = {}): StudyRepository {
   return {
     seedBuiltinCourse: vi.fn().mockResolvedValue(false),
+    migrateLegacyCollections: vi.fn().mockResolvedValue({
+      changed: false, retryNeeded: false, flashcards: "absent", quizzes: "absent",
+    }),
     listSpaces: vi.fn(), selectSpace: vi.fn(), listDrafts: vi.fn(),
     listDraftPage: vi.fn().mockResolvedValue({ items: [], total: 0, kindCounts: {}, returned: 0, limit: 50, offset: 0, truncated: false }),
     loadLearnHome: vi.fn().mockResolvedValue({ artifacts: [], knowledgePoints: [] }),

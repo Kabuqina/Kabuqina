@@ -28,6 +28,7 @@ type StudyIaAggregate = {
 
 const PAGE_VALUES = new Set<StudyIaPage>(["flyleaf", "plan", "learn", "evaluate", "practice"]);
 const BUCKET_VALUES = new Set<StudyIaCountBucket>(["zero", "one", "two_to_five", "six_plus"]);
+let studyIaHardOff = false;
 
 function exactKeys(value: Record<string, unknown>, keys: readonly string[]): boolean {
   const present = Object.keys(value).sort();
@@ -102,6 +103,7 @@ function browserStorage(): Storage | null {
 }
 
 export function getStudyIaEnabled(storage: Storage | null = browserStorage()): boolean {
+  if (studyIaHardOff) return false;
   try {
     return storage?.getItem(STUDY_IA_ENABLED_KEY) === "true";
   } catch {
@@ -109,17 +111,40 @@ export function getStudyIaEnabled(storage: Storage | null = browserStorage()): b
   }
 }
 
-export function setStudyIaEnabled(enabled: boolean, storage: Storage | null = browserStorage()): void {
-  try {
-    if (!storage) return;
-    if (enabled) storage.setItem(STUDY_IA_ENABLED_KEY, "true");
-    else {
-      storage.removeItem(STUDY_IA_ENABLED_KEY);
-      storage.removeItem(STUDY_IA_AGGREGATE_KEY);
+export function setStudyIaEnabled(enabled: boolean, storage: Storage | null = browserStorage()): boolean {
+  if (enabled) {
+    if (!storage) {
+      studyIaHardOff = true;
+      return false;
     }
-  } catch {
-    // Preferences and measurement are always fail-open.
+    try {
+      storage.setItem(STUDY_IA_ENABLED_KEY, "true");
+      studyIaHardOff = false;
+      return true;
+    } catch {
+      studyIaHardOff = true;
+      return false;
+    }
   }
+
+  // Block the sink synchronously even when persistent cleanup is unavailable.
+  studyIaHardOff = true;
+  if (!storage) return false;
+  let enabledCleared = false;
+  let aggregateCleared = false;
+  try {
+    storage.removeItem(STUDY_IA_ENABLED_KEY);
+    enabledCleared = true;
+  } catch {
+    // Still attempt aggregate erasure below.
+  }
+  try {
+    storage.removeItem(STUDY_IA_AGGREGATE_KEY);
+    aggregateCleared = true;
+  } catch {
+    // The caller reports the partial cleanup and may offer a retry.
+  }
+  return enabledCleared && aggregateCleared;
 }
 
 function readAggregate(storage: Storage): StudyIaAggregate {

@@ -1,8 +1,12 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createStudyRepository, normalizeRepositoryError } from "./repository";
+import {
+  LEGACY_FLASHCARD_STORAGE_KEY,
+  LEGACY_QUIZ_STORAGE_KEY,
+} from "./legacyStudyCollectionMigration";
 
 const spacesResponse = {
   currentSpaceId: "space-a",
@@ -10,11 +14,40 @@ const spacesResponse = {
 };
 
 describe("StudyRepository", () => {
+  beforeEach(() => localStorage.clear());
+
   it("maps the built-in course command to a content-free seeded flag", async () => {
     const builtinCourse = vi.fn().mockResolvedValue({ seeded: true, title: "private title" });
     const repository = createStudyRepository({ builtinCourse });
     await expect(repository.seedBuiltinCourse(new AbortController().signal)).resolves.toBe(true);
     expect(builtinCourse).toHaveBeenCalledOnce();
+  });
+
+  it("wires old-version collection keys to the retained idempotent migration commands", async () => {
+    localStorage.setItem(LEGACY_FLASHCARD_STORAGE_KEY, JSON.stringify({
+      version: 1, cards: [{ front: "Legacy front", back: "Legacy back" }],
+    }));
+    localStorage.setItem(LEGACY_QUIZ_STORAGE_KEY, JSON.stringify({
+      version: 1,
+      quiz: { title: "Legacy quiz", questions: [{ type: "short", prompt: "P", accepted: ["A"] }] },
+      responses: { private: { text: "learner answer" } },
+    }));
+    const migrateFlashcards = vi.fn().mockResolvedValue({ migrated: false, cards: 0 });
+    const migrateQuizzes = vi.fn().mockResolvedValue({ migrated: false, questions: 0 });
+    const repository = createStudyRepository({ migrateFlashcards, migrateQuizzes });
+
+    await expect(repository.migrateLegacyCollections(new AbortController().signal)).resolves.toMatchObject({
+      changed: true,
+      retryNeeded: false,
+    });
+    expect(migrateFlashcards).toHaveBeenCalledWith({ cards: [{ front: "Legacy front", back: "Legacy back" }] });
+    expect(migrateQuizzes).toHaveBeenCalledWith({
+      title: "Legacy quiz",
+      questions: [{ type: "short_answer", prompt: "P", accepted: ["A"] }],
+    });
+    expect(JSON.stringify(migrateQuizzes.mock.calls)).not.toContain("learner answer");
+    expect(localStorage.getItem(LEGACY_FLASHCARD_STORAGE_KEY)).toBeNull();
+    expect(localStorage.getItem(LEGACY_QUIZ_STORAGE_KEY)).toBeNull();
   });
 
   it("maps spaces and requests the draft summary for the requested space", async () => {

@@ -15,6 +15,8 @@ import {
   cmdStudyKnowledgePoints,
   cmdStudyMigrateContext,
   cmdStudyMigrateBuiltinCourse,
+  cmdStudyMigrateFlashcards,
+  cmdStudyMigrateQuizzes,
   cmdStudyPlanItemComplete,
   cmdStudyPlanItemSkip,
   cmdStudyPlanItems,
@@ -43,6 +45,10 @@ import {
   type StudyStudentState,
   type StudyWrongbookResponse,
 } from "../chat/study/study-api";
+import {
+  migrateLegacyStudyCollections,
+  type LegacyStudyCollectionMigrationResult,
+} from "./legacyStudyCollectionMigration";
 
 export type StudySpaceSummary = {
   id: string;
@@ -131,6 +137,7 @@ export class StudyRepositoryError extends Error {
 
 export interface StudyRepository {
   seedBuiltinCourse(signal: AbortSignal): Promise<boolean>;
+  migrateLegacyCollections(signal: AbortSignal): Promise<LegacyStudyCollectionMigrationResult>;
   listSpaces(signal: AbortSignal): Promise<StudySpaces>;
   selectSpace(spaceId: string, signal: AbortSignal): Promise<StudySpaces>;
   listDrafts(spaceId: string, signal: AbortSignal): Promise<StudyDraftInbox>;
@@ -203,6 +210,8 @@ function isDeskBridgeErrorPayload(error: unknown): error is DeskBridgeErrorPaylo
 
 type StudyCommands = {
   builtinCourse: typeof cmdStudyMigrateBuiltinCourse;
+  migrateFlashcards: typeof cmdStudyMigrateFlashcards;
+  migrateQuizzes: typeof cmdStudyMigrateQuizzes;
   spaces: () => Promise<StudySpacesResponse>;
   selectSpace: (spaceId: string) => Promise<StudySpacesResponse>;
   draftSummary: (spaceId: string) => Promise<StudyDraftsResponse>;
@@ -233,6 +242,8 @@ type StudyCommands = {
 
 const defaultCommands: StudyCommands = {
   builtinCourse: cmdStudyMigrateBuiltinCourse,
+  migrateFlashcards: cmdStudyMigrateFlashcards,
+  migrateQuizzes: cmdStudyMigrateQuizzes,
   spaces: cmdStudySpaces,
   selectSpace: cmdStudySpaceSelect,
   draftSummary: (spaceId) => cmdStudyArtifactSummaries({
@@ -384,6 +395,12 @@ export function createStudyRepository(commands: Partial<StudyCommands> = {}): St
   return {
     async seedBuiltinCourse(signal) {
       return (await invokeWithSignal(signal, resolved.builtinCourse)).seeded;
+    },
+    migrateLegacyCollections(signal) {
+      return migrateLegacyStudyCollections({
+        flashcards: (deck) => invokeWithSignal(signal, () => resolved.migrateFlashcards(deck)),
+        quizzes: (quiz) => invokeWithSignal(signal, () => resolved.migrateQuizzes(quiz)),
+      });
     },
     async listSpaces(signal) {
       return mapSpaces(await invokeWithSignal(signal, resolved.spaces));

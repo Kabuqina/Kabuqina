@@ -76,6 +76,7 @@ export function SettingsDisplay({
   const [workspaceNotice, setWorkspaceNotice] = useState<string | null>(null);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const [studyIaEnabled, setStudyIaEnabledState] = useState(getStudyIaEnabled);
+  const [studyIaError, setStudyIaError] = useState(false);
 
   const handleCompanionImagePicked = (file: File | undefined) => {
     if (!file) return;
@@ -223,8 +224,9 @@ export function SettingsDisplay({
           <Toggle
             value={studyIaEnabled}
             onChange={(enabled) => {
-              setStudyIaEnabled(enabled);
-              setStudyIaEnabledState(enabled);
+              const persisted = setStudyIaEnabled(enabled);
+              setStudyIaEnabledState(enabled ? persisted : false);
+              setStudyIaError(!persisted);
             }}
             aria-label={t("settings.studyIaTitle")}
           />
@@ -233,6 +235,11 @@ export function SettingsDisplay({
         <p className="text-sm leading-relaxed text-[var(--kq-color-muted)]">
           {studyIaEnabled ? t("settings.studyIaOn") : t("settings.studyIaOff")}
         </p>
+        {studyIaError ? (
+          <p role="alert" className="text-sm leading-relaxed text-red-600 dark:text-red-400">
+            {t("settings.studyIaSaveError")}
+          </p>
+        ) : null}
       </Section>
 
       <Section

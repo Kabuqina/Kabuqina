@@ -1,9 +1,10 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   STUDY_IA_AGGREGATE_KEY,
+  STUDY_IA_ENABLED_KEY,
   createStudyIaRecorder,
   getStudyIaEnabled,
   localStudyIaSink,
@@ -14,7 +15,12 @@ import {
 } from "./iaEvents";
 
 describe("study IA events", () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    setStudyIaEnabled(true);
+    setStudyIaEnabled(false);
+  });
+  afterEach(() => vi.restoreAllMocks());
 
   it("serializes only the finite, content-free schema", () => {
     const events: StudyIaEvent[] = [
@@ -55,16 +61,52 @@ describe("study IA events", () => {
     localStudyIaSink({ name: "study.page.view", page: "flyleaf", action: "view" });
     expect(localStorage.getItem(STUDY_IA_AGGREGATE_KEY)).toBeNull();
 
-    setStudyIaEnabled(true);
+    expect(setStudyIaEnabled(true)).toBe(true);
     localStudyIaSink({ name: "study.page.view", page: "flyleaf", action: "view" });
     localStudyIaSink({ name: "study.page.view", page: "flyleaf", action: "view" });
     const stored = localStorage.getItem(STUDY_IA_AGGREGATE_KEY) ?? "";
     expect(stored).not.toContain("private-title-sentinel");
     expect(Object.values(JSON.parse(stored).counters)).toEqual([2]);
 
-    setStudyIaEnabled(false);
+    expect(setStudyIaEnabled(false)).toBe(true);
     expect(getStudyIaEnabled()).toBe(false);
     expect(localStorage.getItem(STUDY_IA_AGGREGATE_KEY)).toBeNull();
+  });
+
+  it("hard-disables recording and still erases the aggregate when enabled-key cleanup fails", () => {
+    expect(setStudyIaEnabled(true)).toBe(true);
+    localStudyIaSink({ name: "study.page.view", page: "flyleaf", action: "view" });
+    const originalRemove = Storage.prototype.removeItem;
+    const removals: string[] = [];
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(function removeItem(this: Storage, key) {
+      removals.push(key);
+      if (key === STUDY_IA_ENABLED_KEY) throw new Error("denied");
+      return originalRemove.call(this, key);
+    });
+
+    expect(setStudyIaEnabled(false)).toBe(false);
+    expect(removals).toEqual([STUDY_IA_ENABLED_KEY, STUDY_IA_AGGREGATE_KEY]);
+    expect(getStudyIaEnabled()).toBe(false);
+    expect(localStorage.getItem(STUDY_IA_AGGREGATE_KEY)).toBeNull();
+    localStudyIaSink({ name: "study.page.view", page: "flyleaf", action: "view" });
+    expect(localStorage.getItem(STUDY_IA_AGGREGATE_KEY)).toBeNull();
+  });
+
+  it("keeps the session hard-off when aggregate erasure fails", () => {
+    expect(setStudyIaEnabled(true)).toBe(true);
+    localStudyIaSink({ name: "study.page.view", page: "flyleaf", action: "view" });
+    const before = localStorage.getItem(STUDY_IA_AGGREGATE_KEY);
+    const originalRemove = Storage.prototype.removeItem;
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(function removeItem(this: Storage, key) {
+      if (key === STUDY_IA_AGGREGATE_KEY) throw new Error("denied");
+      return originalRemove.call(this, key);
+    });
+
+    expect(setStudyIaEnabled(false)).toBe(false);
+    expect(localStorage.getItem(STUDY_IA_ENABLED_KEY)).toBeNull();
+    expect(localStorage.getItem(STUDY_IA_AGGREGATE_KEY)).toBe(before);
+    localStudyIaSink({ name: "study.page.view", page: "flyleaf", action: "view" });
+    expect(localStorage.getItem(STUDY_IA_AGGREGATE_KEY)).toBe(before);
   });
 
   it("rejects invalid runtime events before they reach a sink", () => {

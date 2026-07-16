@@ -17,6 +17,9 @@ import { FlyleafPage } from "./FlyleafPage";
 function repository(overrides: Partial<StudyRepository> = {}): StudyRepository {
   return {
     seedBuiltinCourse: vi.fn().mockResolvedValue(false),
+    migrateLegacyCollections: vi.fn().mockResolvedValue({
+      changed: false, retryNeeded: false, flashcards: "absent", quizzes: "absent",
+    }),
     listSpaces: vi.fn(),
     selectSpace: vi.fn(),
     listDrafts: vi.fn(),

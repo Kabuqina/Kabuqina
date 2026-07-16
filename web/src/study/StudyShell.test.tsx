@@ -27,6 +27,9 @@ function Location() { return <output data-testid="location">{useLocation().pathn
 function makeRepository(repositoryOverrides: Partial<StudyRepository> = {}): StudyRepository {
   return {
     seedBuiltinCourse: vi.fn().mockResolvedValue(false),
+    migrateLegacyCollections: vi.fn().mockResolvedValue({
+      changed: false, retryNeeded: false, flashcards: "absent", quizzes: "absent",
+    }),
     listSpaces: vi.fn().mockResolvedValue(spaces),
     selectSpace: vi.fn().mockResolvedValue({ ...spaces, currentSpaceId: "space-b" }),
     listDrafts: vi.fn().mockResolvedValue({
