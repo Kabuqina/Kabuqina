@@ -33,7 +33,7 @@ tokens。D-4 不增加 runtime npm 依赖。
   refresh/load-more 隔离、原子导入 structured 409、kind 级独立降级和 audit 404
   stale 回收；
 - [x] Web 自动门：ESLint、production build、19 个组件测试文件 / 80 项测试通过；
-  `StudyRoute` 74.95 kB / gzip 17.50 kB；
+  `StudyRoute` 75.29 kB / gzip 17.61 kB；
 - [x] Python/core 自动门：M6 route 7 项、governance 7 项通过；
 - [x] Rust import reader：absolute path、`.json`、10 MiB、UTF-8、JSON object、
   `version=1` 共 3 项专项测试通过；
@@ -228,8 +228,9 @@ D-4 动工前审计确认：
   来源真实性保证；
 - [x] 原始 JSON 仅在用户点击后读取单条 detail，以只读 `<pre>`/copy-safe 方式显示，
   保留换行与横向内部滚动，不注入 HTML；
-- [x] source audit/detail 的 structured 404 视为 artifact stale：立即关闭 panel、清除
-  raw/audit/detail 状态并刷新所属 active/draft summary；
+- [x] source audit/detail 的 structured 404 视为 artifact stale：controller 的
+  `invalidateArtifact()` 取消 detail/action 请求、删除 detail/action/error cache，
+  panel 清除 raw/audit 状态，再通过统一 learning event 刷新 active/draft summary；
 - [x] 测试证明进入 LearnPage 或打开 inbox 不会自动调用 source audit/raw detail。
 
 ### Task 9: owner 级高级治理菜单

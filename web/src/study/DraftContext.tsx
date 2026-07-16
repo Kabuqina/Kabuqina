@@ -18,6 +18,7 @@ export type StudyDraftController = {
   refresh: () => void;
   loadMore: () => void;
   openDetail: (artifactId: string, options?: { force?: boolean }) => void;
+  invalidateArtifact: (artifactId: string) => void;
   activate: (artifactId: string) => Promise<boolean>;
   reject: (artifactId: string) => Promise<boolean>;
   archive: (artifactId: string) => Promise<boolean>;
@@ -107,6 +108,30 @@ export function StudyDraftProvider({ spaceId, children }: { spaceId: string; chi
     );
   }, [repository, snapshot, spaceId]);
 
+  const invalidateArtifact = useCallback((artifactId: string) => {
+    if (!artifactId) return;
+    detailRequests.current.get(artifactId)?.cancel();
+    detailRequests.current.delete(artifactId);
+    actionRequests.current.get(artifactId)?.cancel();
+    actionRequests.current.delete(artifactId);
+    setDetails((previous) => {
+      const next = { ...previous };
+      delete next[artifactId];
+      return next;
+    });
+    setActions((previous) => {
+      const next = { ...previous };
+      delete next[artifactId];
+      return next;
+    });
+    setActionErrors((previous) => {
+      const next = { ...previous };
+      delete next[artifactId];
+      return next;
+    });
+    window.dispatchEvent(new Event(STUDY_LEARNING_EVENT));
+  }, []);
+
   const openDetail = useCallback((artifactId: string, options?: { force?: boolean }) => {
     if (!artifactId) return;
     const current = details[artifactId];
@@ -123,11 +148,7 @@ export function StudyDraftProvider({ spaceId, children }: { spaceId: string; chi
       (error) => {
         if (!requests.isCurrent(request.generation) || currentSpaceId.current !== spaceId) return;
         if (normalizeRepositoryError(error).code === "not-found") {
-          setDetails((previous) => ({
-            ...previous,
-            [artifactId]: { status: "error", error },
-          }));
-          window.dispatchEvent(new Event(STUDY_LEARNING_EVENT));
+          invalidateArtifact(artifactId);
           return;
         }
         setDetails((previous) => {
@@ -143,7 +164,7 @@ export function StudyDraftProvider({ spaceId, children }: { spaceId: string; chi
         });
       },
     );
-  }, [details, repository, spaceId]);
+  }, [details, invalidateArtifact, repository, spaceId]);
 
   const mutate = useCallback((artifactId: string, action: DraftAction): Promise<boolean> => {
     if (!artifactId || actions[artifactId]) return Promise.resolve(false);
@@ -222,11 +243,12 @@ export function StudyDraftProvider({ spaceId, children }: { spaceId: string; chi
     refresh,
     loadMore,
     openDetail,
+    invalidateArtifact,
     activate: (artifactId) => mutate(artifactId, "activate"),
     reject: (artifactId) => mutate(artifactId, "reject"),
     archive: (artifactId) => mutate(artifactId, "archive"),
     review: (artifactId) => mutate(artifactId, "review"),
-  }), [actionErrors, actions, details, loadMore, mutate, openDetail, refresh, snapshot, spaceId]);
+  }), [actionErrors, actions, details, invalidateArtifact, loadMore, mutate, openDetail, refresh, snapshot, spaceId]);
 
   return <StudyDraftContext.Provider value={value}>{children}</StudyDraftContext.Provider>;
 }

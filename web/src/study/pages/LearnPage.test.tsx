@@ -6,7 +6,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../lib/i18n";
-import { StudyDraftProvider } from "../DraftContext";
+import { StudyDraftProvider, useStudyDrafts } from "../DraftContext";
 import { StudyRepositoryError, type StudyArtifactDetail, type StudyRepository } from "../repository";
 import { StudyRepositoryProvider } from "../repositoryContext";
 import { LearnPage } from "./LearnPage";
@@ -21,6 +21,11 @@ const detail = {
   review: { mode: "deterministic", status: "passed" },
   envelope: { payload: { concepts: [{ term: "Immediate concept", explanation: "Visible without navigation" }] } },
 } as StudyArtifactDetail;
+
+function DetailCacheProbe({ artifactId }: { artifactId: string }) {
+  const drafts = useStudyDrafts();
+  return <output data-testid="detail-cache">{drafts.details[artifactId]?.status ?? "missing"}</output>;
+}
 
 describe("LearnPage", () => {
   it("reloads active M5 content immediately after an inline draft activation", async () => {
@@ -103,11 +108,12 @@ describe("LearnPage", () => {
     } as unknown as StudyRepository;
     render(
       <I18nProvider><StudyRepositoryProvider repository={repository}><MemoryRouter>
-        <StudyDraftProvider spaceId="space-a"><LearnPage spaceId="space-a" /></StudyDraftProvider>
+        <StudyDraftProvider spaceId="space-a"><LearnPage spaceId="space-a" /><DetailCacheProbe artifactId="knowledge-1" /></StudyDraftProvider>
       </MemoryRouter></StudyRepositoryProvider></I18nProvider>,
     );
 
     expect(await screen.findByText("Visible without navigation")).toBeInTheDocument();
+    expect(screen.getByTestId("detail-cache")).toHaveTextContent("ready");
     await user.click(screen.getByRole("button", { name: "高级" }));
     await user.click(screen.getByRole("button", { name: "查看原始 JSON" }));
     expect(screen.getByText(/"Immediate concept"/)).toBeInTheDocument();
@@ -115,6 +121,7 @@ describe("LearnPage", () => {
 
     await waitFor(() => expect(loadLearnHome).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(screen.queryByText(/"Immediate concept"/)).not.toBeInTheDocument());
+    expect(screen.getByTestId("detail-cache")).toHaveTextContent("missing");
     expect(screen.queryByRole("button", { name: "Active knowledge" })).not.toBeInTheDocument();
   });
 });

@@ -13,7 +13,7 @@ const empty: StudyDraftPage = { items: [], total: 0, kindCounts: {}, returned: 0
 function Probe() {
   const drafts = useStudyDrafts();
   const data = drafts.snapshot.status === "ready" ? drafts.snapshot.data : drafts.snapshot.status === "loading" ? drafts.snapshot.previous : undefined;
-  return <><output data-testid="draft-items">{data?.items.map((item) => item.title).join(",") ?? "loading"}</output><button type="button" onClick={drafts.loadMore}>load more</button><button type="button" onClick={() => drafts.openDetail("draft-a")}>open detail</button><button type="button" onClick={() => { void drafts.activate("draft-a"); }}>activate</button></>;
+  return <><output data-testid="draft-items">{data?.items.map((item) => item.title).join(",") ?? "loading"}</output><output data-testid="draft-detail-cache">{drafts.details["draft-a"]?.status ?? "missing"}</output><button type="button" onClick={drafts.loadMore}>load more</button><button type="button" onClick={() => drafts.openDetail("draft-a")}>open detail</button><button type="button" onClick={() => { void drafts.activate("draft-a"); }}>activate</button></>;
 }
 
 describe("StudyDraftProvider", () => {
@@ -92,6 +92,7 @@ describe("StudyDraftProvider", () => {
     await user.click(screen.getByRole("button", { name: "open detail" }));
     await waitFor(() => expect(listDraftPage).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(screen.queryByText("Stale draft")).not.toBeInTheDocument());
+    expect(screen.getByTestId("draft-detail-cache")).toHaveTextContent("missing");
     expect(loadArtifactDetail).toHaveBeenCalledOnce();
   });
 });
