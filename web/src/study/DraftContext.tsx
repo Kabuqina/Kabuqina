@@ -4,7 +4,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { STUDY_LEARNING_EVENT } from "./learningEvent";
 import { RequestCoordinator, type Loadable } from "./loadable";
-import type { StudyArtifactDetail, StudyDraftPage } from "./repository";
+import { normalizeRepositoryError, type StudyArtifactDetail, type StudyDraftPage } from "./repository";
 import { useStudyRepository } from "./repositoryContext";
 
 type DraftAction = "activate" | "reject" | "archive" | "review";
@@ -110,7 +110,7 @@ export function StudyDraftProvider({ spaceId, children }: { spaceId: string; chi
   const openDetail = useCallback((artifactId: string, options?: { force?: boolean }) => {
     if (!artifactId) return;
     const current = details[artifactId];
-    if (!options?.force && (current?.status === "ready" || current?.status === "loading")) return;
+    if (!options?.force && (current?.status === "ready" || current?.status === "loading" || current?.status === "error")) return;
     const requests = detailRequests.current.get(artifactId) ?? new RequestCoordinator();
     detailRequests.current.set(artifactId, requests);
     const request = requests.begin();
@@ -122,6 +122,14 @@ export function StudyDraftProvider({ spaceId, children }: { spaceId: string; chi
       },
       (error) => {
         if (!requests.isCurrent(request.generation) || currentSpaceId.current !== spaceId) return;
+        if (normalizeRepositoryError(error).code === "not-found") {
+          setDetails((previous) => ({
+            ...previous,
+            [artifactId]: { status: "error", error },
+          }));
+          window.dispatchEvent(new Event(STUDY_LEARNING_EVENT));
+          return;
+        }
         setDetails((previous) => {
           const prior = previous[artifactId];
           return {

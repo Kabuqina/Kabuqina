@@ -75,7 +75,8 @@ export type StudyM5Kind = "knowledge_base" | "resource_pack" | "tutoring_note";
 export type StudyLearnHome = {
   artifacts: StudyArtifactSummary[];
   knowledgePoints: StudyKnowledgePoint[];
-  unavailable?: Array<"artifacts" | "knowledgePoints">;
+  unavailable?: Array<"knowledgePoints">;
+  unavailableKinds?: StudyM5Kind[];
 };
 
 export type StudyArtifactDetail = {
@@ -410,8 +411,10 @@ export function createStudyRepository(commands: Partial<StudyCommands> = {}): St
           throw artifactResults.find((result): result is PromiseRejectedResult => result.status === "rejected")?.reason
             ?? knowledgePointsResult.reason;
         }
-        const unavailable: Array<"artifacts" | "knowledgePoints"> = [];
-        if (fulfilledArtifacts.length !== kinds.length) unavailable.push("artifacts");
+        const unavailableKinds = kinds.filter(
+          (_kind, index) => artifactResults[index].status === "rejected",
+        );
+        const unavailable: Array<"knowledgePoints"> = [];
         if (knowledgePointsResult.status !== "fulfilled") unavailable.push("knowledgePoints");
         return {
           artifacts: fulfilledArtifacts.flatMap((result) => result.value.items),
@@ -419,6 +422,7 @@ export function createStudyRepository(commands: Partial<StudyCommands> = {}): St
             ? knowledgePointsResult.value.items
             : [],
           ...(unavailable.length ? { unavailable } : {}),
+          ...(unavailableKinds.length ? { unavailableKinds } : {}),
         };
       });
     },

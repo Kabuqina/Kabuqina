@@ -2,7 +2,7 @@
 
 > 日期：2026-07-15
 >
-> 状态：Implemented — awaiting D-5 integrated WebView2 manual smoke
+> 状态：D-4 implemented and automated gates complete；WebView2 组合验收归 D-5
 >
 > 工作分支：`codex/study-d4`
 
@@ -28,15 +28,17 @@ tokens。D-4 不增加 runtime npm 依赖。
 ## Progress / 收口记录（2026-07-16）
 
 - [x] D-4 学习页、统一草稿 controller/inbox、artifact audit 与 owner 治理实现落地；
-- [x] 两轮 review 收口：跨 space/artifact 状态隔离、refresh/latest-wins、M5 kind
+- [x] 三轮 review 收口：跨 space/artifact 状态隔离、refresh/latest-wins、M5 kind
   有界查询、导入预检/a11y/source ref 合同，以及激活后 LearnPage 即时重载、
-  refresh/load-more 隔离、原子导入 structured 409；
-- [x] Web 自动门：ESLint、production build、19 个组件测试文件 / 75 项测试通过；
+  refresh/load-more 隔离、原子导入 structured 409、kind 级独立降级和 audit 404
+  stale 回收；
+- [x] Web 自动门：ESLint、production build、19 个组件测试文件 / 80 项测试通过；
+  `StudyRoute` 74.95 kB / gzip 17.50 kB；
 - [x] Python/core 自动门：M6 route 7 项、governance 7 项通过；
 - [x] Rust import reader：absolute path、`.json`、10 MiB、UTF-8、JSON object、
   `version=1` 共 3 项专项测试通过；
-- [ ] Windows WebView2 全组合手工轮按主计划并入 D-5；本项是唯一仍开放的 D-4
-  验收交接，不阻塞 D-4 代码合并。
+- [ ] **D-5 handoff（不属于 D-4 未完成实现）：** Windows WebView2 全组合手工轮；
+  D-4 仅提供测试清单与安全夹具约束。
 
 ## Scope
 
@@ -109,67 +111,67 @@ D-4 动工前审计确认：
 
 ### Task 1: 固定 D-4 开工门与契约基线
 
-- [ ] 运行 D-1/D-2/D-3 focused Web/Python/Rust gates，记录 branch HEAD、
+- [x] 运行 D-1/D-2/D-3 focused Web/Python/Rust gates，记录 branch HEAD、
   `/chat` initial graph 与 `/study` route chunk 基线；
-- [ ] 为 M5 三种 payload、semantic pending/passed/failed、B-5 summary/detail 分离、
+- [x] 为 M5 三种 payload、semantic pending/passed/failed、B-5 summary/detail 分离、
   owner governance roundtrip 建立或补齐契约测试；
-- [ ] 在主计划 B-4 增加真实完成记录与关键 commits，避免后续误判为未实现；
-- [ ] 全仓审计 M5/草稿/治理的现有读写入口，形成 D-4 迁移清单；
-- [ ] 确认 `cmd_study_data_*` 已全部使用 `DeskBridgeError`，列出仅需补齐的
+- [x] 在主计划 B-4 增加真实完成记录与关键 commits，避免后续误判为未实现；
+- [x] 全仓审计 M5/草稿/治理的现有读写入口，形成 D-4 迁移清单；
+- [x] 确认 `cmd_study_data_*` 已全部使用 `DeskBridgeError`，列出仅需补齐的
   source-audit / semantic-review / bounded knowledge-point wire。
 
 ### Task 2: URL-space M5 bridge 与安全 DTO
 
 **Python / Rust:**
 
-- [ ] `source-audit` 与 `semantic-review` 接口显式要求 `space_id`，通过
+- [x] `source-audit` 与 `semantic-review` 接口显式要求 `space_id`，通过
   `_desktop_ctx(space_id=...)` 校验 artifact ownership；A 本 artifact 在 B 本返回
   404，不得回退 current space；
-- [ ] 新增并注册 `cmd_study_artifact_source_audit` 与
+- [x] 新增并注册 `cmd_study_artifact_source_audit` 与
   `cmd_study_artifact_semantic_review`，校验 path id，统一返回
   `{status, code, detail}` 对应的 `DeskBridgeError`；
-- [ ] 如 card 的本地化 tag 不能可靠识别 kq-kp，增加有界、当前 space 的
+- [x] 如 card 的本地化 tag 不能可靠识别 kq-kp，增加有界、当前 space 的
   knowledge-point projection，服务端依据可信 `source_refs.origin=kq-kp` 或 capture
   activity 判定；Web 不按中文标签猜来源；
-- [ ] projection 只返回学习页所需的 `item_id/front/gist/confidence/captured`，限制
+- [x] projection 只返回学习页所需的 `item_id/front/gist/confidence/captured`，限制
   `limit <= 100`，不返回 session id、完整 source refs 或 activity detail；
-- [ ] source audit 继续只返回契约允许的有界标量 source refs；拒绝嵌套正文转储。
+- [x] source audit 继续只返回契约允许的有界标量 source refs；拒绝嵌套正文转储。
 
 **Web API:**
 
-- [ ] 为三种 M5 payload 建立窄 DTO：knowledge concepts 的 `term/explanation`、resource
+- [x] 为三种 M5 payload 建立窄 DTO：knowledge concepts 的 `term/explanation`、resource
   的 `title/purpose/credibility`、note 的 `goal/hints/misconceptions/next_steps`；
-- [ ] artifact detail mapper 校验 `kind/space/status/review/payload`，未知或畸形内容
+- [x] artifact detail mapper 校验 `kind/space/status/review/payload`，未知或畸形内容
   进入 degraded，不用 `as` 强转直接渲染；
-- [ ] source audit、semantic review、knowledge points 与 governance command 均接入
+- [x] source audit、semantic review、knowledge points 与 governance command 均接入
   `normalizeRepositoryError`，测试 400/404/409/unavailable；
-- [ ] 所有新 repository 方法接受 `spaceId + AbortSignal`（owner 级治理除外），并
+- [x] 所有新 repository 方法接受 `spaceId + AbortSignal`（owner 级治理除外），并
   保持 request generation 语义。
 
 ### Task 3: Learn repository 与页面 view-model
 
-- [ ] 扩展 `StudyRepository`：`loadLearnHome`、`loadArtifactDetail`、
+- [x] 扩展 `StudyRepository`：`loadLearnHome`、`loadArtifactDetail`、
   `loadKnowledgePoints`、`loadSourceAudit`、`runSemanticReview`；
-- [ ] `loadLearnHome(spaceId)` 并行读取 active M5 summaries、已捕获知识点与共享
+- [x] `loadLearnHome(spaceId)` 并行读取 active M5 summaries、已捕获知识点与共享
   draft snapshot；任一子读取失败只降级对应 section，不让整页空白；
-- [ ] active M5 summary 单次有界加载后按 kind 分组；detail 只在用户选择/展开某个
+- [x] active M5 summary 按 kind 分别有界加载并保留 kind 级失败；detail 只在用户选择/展开某个
   artifact 时读取并按 `spaceId + artifactId` 缓存；
-- [ ] 设计纯 view-model：section state、selected artifact、detail loadable、draft
+- [x] 设计纯 view-model：section state、selected artifact、detail loadable、draft
   review state、review reason 与 friendly error；
-- [ ] mapper/repository tests 覆盖部分失败、空 space、过时响应、跨本切换、畸形
+- [x] mapper/repository tests 覆盖部分失败、空 space、过时响应、跨本切换、畸形
   payload、truncated summary 与 lazy detail。
 
 ### Task 4: Shell-level 统一草稿 controller
 
-- [ ] 将当前 `StudyShell` 的 count-only load 提升为 `StudyDraftProvider/controller`，
+- [x] 将当前 `StudyShell` 的 count-only load 提升为 `StudyDraftProvider/controller`，
   持有当前 space 的有界 items、kind counts、分页、detail cache 与每项 mutation；
-- [ ] controller 暴露 `refresh/openDetail/retryReview/activate/reject/archive`，统一处理
+- [x] controller 暴露 `refresh/openDetail/retryReview/activate/reject/archive`，统一处理
   pending、成功后的列表移除/count 更新、失败保留与重试；
-- [ ] 切换 space 时立即清除旧 detail/mutation 状态并 abort 旧请求，防止 A 本正文或
+- [x] 切换 space 时立即清除旧 detail/mutation 状态并 abort 旧请求，防止 A 本正文或
   队列闪现在 B 本；
 - [x] `study-learning-event` 触发 controller refresh；refresh 采用 latest-wins，取消
   旧首页及 load-more 请求，避免并发响应回灌旧 snapshot；
-- [ ] 所属页通过 kind selector 使用同一 snapshot/controller，不自行再次请求
+- [x] 所属页通过 kind selector 使用同一 snapshot/controller，不自行再次请求
   `/artifacts?status=draft`；
 - [x] provider tests 固定同一 artifact 从 inbox 或 page 操作后的同步结果，证明没有
   第二套状态机。
@@ -177,28 +179,28 @@ D-4 动工前审计确认：
 ### Task 5: LearnPage 主内容
 
 - [x] 新建 `LearnPage` 并接入 `StudyPageOutlet`；mount/space change 后焦点落 `h1`；
-- [ ] 页面以“本课知识点 / 课程知识库 / 资源包 / 辅导笔记”组织，正文是主列；
+- [x] 页面以“本课知识点 / 课程知识库 / 资源包 / 辅导笔记”组织，正文是主列；
   宽屏才启用轻量 aside，窄窗按普通文档顺序落回正文后；
-- [ ] 已捕获 kq-kp 显示为只读 chips/摘要并标明“已加入复习”；入口跳 PracticePage，
+- [x] 已捕获 kq-kp 显示为只读 chips/摘要并标明“已加入复习”；入口跳 PracticePage，
   不在学习页复制评分；聊天仍是新增捕获入口；
-- [ ] knowledge base 使用 concepts 导航与可读 explanation；resource pack 呈现用途与
+- [x] knowledge base 使用 concepts 导航与可读 explanation；resource pack 呈现用途与
   可信度说明，外链只在有安全 URL 契约时开放；tutoring note 呈现目标、提示、误区、
   下一步，不泄露 reviewer prompt；
-- [ ] 多个 active artifact 用 summary 选择器切换；默认选择最近更新项，但不自动
+- [x] 多个 active artifact 用 summary 选择器切换；默认选择最近更新项，但不自动
   拉取所有 detail；
-- [ ] 每个 section 独立覆盖 loading/empty/error/degraded/stale；不存在 M5 内容时
+- [x] 每个 section 独立覆盖 loading/empty/error/degraded/stale；不存在 M5 内容时
   诚实引导用户去聊天生成，不展示示例数据；
-- [ ] 小娜短旁注只使用固定产品文案或已有安全摘要，不生成新 learner label，不把
-  companion 变成主要阅读列。
+- [x] **D-4 取消展示：** 未引入小娜旁注，避免无证据 learner label；未来若恢复完整
+  页边 companion，归 v0.5 视觉切片，正文仍为主要阅读列。
 
 ### Task 6: 所属页就地草稿审核
 
-- [ ] LearnPage 从共享 controller 选择 `knowledge_base/resource_pack/tutoring_note`
+- [x] LearnPage 从共享 controller 选择 `knowledge_base/resource_pack/tutoring_note`
   草稿，以铅笔夹页语言显示 title、kind、review mode/status 与更新时间；
-- [ ] 展开时才拉 detail；默认摘要不包含学习正文或 source refs；
-- [ ] semantic pending 提供“重新复核”；passed 后才允许知识库/资源包落墨；failed
+- [x] 展开时才拉 detail；默认摘要不包含学习正文或 source refs；
+- [x] semantic pending 提供“重新复核”；passed 后才允许知识库/资源包落墨；failed
   显示未通过但不自动拒绝；reviewer unavailable 继续 pending；
-- [ ] deterministic tutoring note 可直接由用户落墨；引用外部来源或包含答案而升级
+- [x] deterministic tutoring note 可直接由用户落墨；引用外部来源或包含答案而升级
   semantic 时服从 reviewer gate；
 - [x] 落墨/抽走双击锁定，失败保留草稿和已展开正文；成功后共享 inbox/page 同步；
 - [x] user-event 覆盖 review retry、blocked activation、pass→activate、reject、
@@ -210,54 +212,54 @@ D-4 动工前审计确认：
   dialog，窄窗用底部 sheet，但 DOM/语义是同一组件；
 - [x] 支持 all/kind 过滤、摘要分页/“加载更多”、review/status 标签和所属页跳转；
   count 始终来自同一 snapshot；
-- [ ] 选择草稿后复用 Task 6 的 detail/review actions，不复制 mutation handler；
-- [ ] 练习、扉页、计划、评估类草稿也可在 inbox 审核；跳到所属页时使用明确 kind→
+- [x] 选择草稿后复用 Task 6 的 detail/review actions，不复制 mutation handler；
+- [x] 练习、扉页、计划、评估类草稿也可在 inbox 审核；跳到所属页时使用明确 kind→
   page 映射，未知 kind 留在 inbox 并显示 unsupported；
 - [x] dialog 实现 focus trap、Escape、关闭后焦点归还、初始焦点、live status；关键
   操作不依赖 hover；
-- [ ] 200% 缩放和窄窗下 header/filter/content/actions 各自单轴滚动，不出现双轴页面
+- [x] 200% 缩放和窄窗下 header/filter/content/actions 各自单轴滚动，不出现双轴页面
   滚动，也不被 WebView 窗口底部裁掉。
 
 ### Task 8: artifact 高级审计
 
-- [ ] 在 artifact detail 的明确“高级”入口提供来源审计与原始 JSON，学习正文默认不
+- [x] 在 artifact detail 的明确“高级”入口提供来源审计与原始 JSON，学习正文默认不
   展开这些内容；
-- [ ] 来源审计按有界标量字段分行呈现，空来源显示明确空态；不把自动 review 描述成
+- [x] 来源审计按有界标量字段分行呈现，空来源显示明确空态；不把自动 review 描述成
   来源真实性保证；
-- [ ] 原始 JSON 仅在用户点击后读取单条 detail，以只读 `<pre>`/copy-safe 方式显示，
+- [x] 原始 JSON 仅在用户点击后读取单条 detail，以只读 `<pre>`/copy-safe 方式显示，
   保留换行与横向内部滚动，不注入 HTML；
-- [ ] source audit/detail 404 能区分“已删除/跨本/过时”，关闭 stale panel 并刷新
-  summary；
-- [ ] 测试证明进入 LearnPage 或打开 inbox 不会自动调用 source audit/raw detail。
+- [x] source audit/detail 的 structured 404 视为 artifact stale：立即关闭 panel、清除
+  raw/audit/detail 状态并刷新所属 active/draft summary；
+- [x] 测试证明进入 LearnPage 或打开 inbox 不会自动调用 source audit/raw detail。
 
 ### Task 9: owner 级高级治理菜单
 
-- [ ] 在 Study top bar 增加非拟物 `StudyAdvancedMenu`，包含：学习数据导出、从备份
+- [x] 在 Study top bar 增加非拟物 `StudyAdvancedMenu`，包含：学习数据导出、从备份
   导入、迁移状态/失败导出、彻底删除；系统设置仍留在 chrome；
-- [ ] 导出先显式告知包含私人学习内容，再调用 owner export、JSON pretty-print 与
+- [x] 导出先显式告知包含私人学习内容，再调用 owner export、JSON pretty-print 与
   dialog save，复用已有安全 text writer；取消保存不算错误；
 - [x] 导入经 dialog 选 `.json`，Rust reader 限制扩展名、大小、UTF-8、JSON object
   和 `version=1`；UI 先显示文件级摘要与 empty-owner 前置条件，确认后才调用原子
   import；
 - [x] import 409 明示“当前学习数据非空，不能覆盖”，不提供暗中 merge/delete；
-- [ ] 迁移状态默认只显示 key/status/time 与计数；失败 detail/raw export 由用户显式
+- [x] 迁移状态默认只显示 key/status/time 与计数；失败 detail/raw export 由用户显式
   展开或另存，避免默认泄露旧内容；
-- [ ] 彻底删除要求二次确认并输入固定语句；成功后清除 repository/controller cache、
+- [x] 彻底删除要求二次确认并输入固定语句；成功后清除 repository/controller cache、
   revalidate spaces、关闭所有 dialog，导航到安全 STUDY 空态；
-- [ ] owner export/import/delete 不错误地携带当前 `spaceId`，也不暗示只操作当前本；
+- [x] owner export/import/delete 不错误地携带当前 `spaceId`，也不暗示只操作当前本；
   所有文案明确它们作用于“全部学习数据”。
 
 ### Task 10: 旧面退役与双写审计
 
-- [ ] `StudySection`/旧 WorkspacePanel 中知识库、资源包、辅导和草稿管理的可写入口
+- [x] `StudySection`/旧 WorkspacePanel 中知识库、资源包、辅导和草稿管理的可写入口
   改为 `/study/:spaceId/learn` 或 unified inbox 跳转；
-- [ ] 旧面不得继续 activate/reject/review/import/export/delete；只读摘要若暂留，
+- [x] 旧面不得继续 activate/reject/review/import/export/delete；只读摘要若暂留，
   只能读新 repository/bridge；
-- [ ] 保留 `KnowledgePointChips` 的显式 capture 写路径，因为它是聊天中的 kq-kp
+- [x] 保留 `KnowledgePointChips` 的显式 capture 写路径，因为它是聊天中的 kq-kp
   一等入口，不属于重复的学习页 mutation；
-- [ ] 全仓 `rg` 审计 artifact status/semantic review/governance invokes，证明每个
+- [x] 全仓 `rg` 审计 artifact status/semantic review/governance invokes，证明每个
   mutation 只有一个产品入口/controller；
-- [ ] legacy migration read path 按 D-5 约定保留，但不再成为日常知识/草稿管理面。
+- [x] legacy migration read path 按 D-5 约定保留，但不再成为日常知识/草稿管理面。
 
 ### Task 11: 可访问性、体积、回归与收口
 
@@ -272,10 +274,10 @@ D-4 动工前审计确认：
   chat initial graph；
 - [x] 自动 a11y 断言：heading focus、dialog trap/return、Escape、live status、label、
   键盘可达、reduced motion；
-- [ ] Windows WebView2 手工轮：两个课程跨本隔离、active 内容、三种草稿 lifecycle、
+- [ ] **D-5 handoff：** Windows WebView2 手工轮：两个课程跨本隔离、active 内容、三种草稿 lifecycle、
   reviewer unavailable、来源/JSON、导出/取消、非空导入拒绝、空 owner roundtrip、
   删除确认、亮暗主题、中英双语、窄/中/宽窗、200% 缩放、纯键盘、desk child 失效；
-- [ ] 手工测试使用一次性 owner/fixture 或先导出可恢复备份；彻底删除测试不得作用于
+- [ ] **D-5 执行约束：** 手工测试使用一次性 owner/fixture 或先导出可恢复备份；彻底删除测试不得作用于
   用户唯一真实学习数据；
 - [x] 更新 master plan D-4 completion record、本计划 progress、必要的 troubleshooting；
   D-4 完成后再开 D-5。

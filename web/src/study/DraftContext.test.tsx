@@ -5,7 +5,7 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { StudyDraftProvider, useStudyDrafts } from "./DraftContext";
-import type { StudyDraftPage, StudyRepository } from "./repository";
+import { StudyRepositoryError, type StudyDraftPage, type StudyRepository } from "./repository";
 import { StudyRepositoryProvider } from "./repositoryContext";
 
 const empty: StudyDraftPage = { items: [], total: 0, kindCounts: {}, returned: 0, limit: 50, offset: 0, truncated: false };
@@ -13,7 +13,7 @@ const empty: StudyDraftPage = { items: [], total: 0, kindCounts: {}, returned: 0
 function Probe() {
   const drafts = useStudyDrafts();
   const data = drafts.snapshot.status === "ready" ? drafts.snapshot.data : drafts.snapshot.status === "loading" ? drafts.snapshot.previous : undefined;
-  return <><output data-testid="draft-items">{data?.items.map((item) => item.title).join(",") ?? "loading"}</output><button type="button" onClick={drafts.loadMore}>load more</button><button type="button" onClick={() => { void drafts.activate("draft-a"); }}>activate</button></>;
+  return <><output data-testid="draft-items">{data?.items.map((item) => item.title).join(",") ?? "loading"}</output><button type="button" onClick={drafts.loadMore}>load more</button><button type="button" onClick={() => drafts.openDetail("draft-a")}>open detail</button><button type="button" onClick={() => { void drafts.activate("draft-a"); }}>activate</button></>;
 }
 
 describe("StudyDraftProvider", () => {
@@ -71,5 +71,27 @@ describe("StudyDraftProvider", () => {
       returned: 1,
     }));
     expect(screen.queryByText("STALE PAGE")).not.toBeInTheDocument();
+  });
+
+  it("refreshes summaries once when artifact detail returns not-found", async () => {
+    const user = userEvent.setup();
+    const firstPage = {
+      ...empty,
+      items: [{ artifact_id: "draft-a", kind: "quiz", title: "Stale draft", status: "draft" }],
+      total: 1,
+      returned: 1,
+    };
+    const listDraftPage = vi.fn()
+      .mockResolvedValueOnce(firstPage)
+      .mockResolvedValue(empty);
+    const loadArtifactDetail = vi.fn().mockRejectedValue(new StudyRepositoryError("not-found"));
+    const repository = { listDraftPage, loadArtifactDetail } as unknown as StudyRepository;
+    render(<StudyRepositoryProvider repository={repository}><StudyDraftProvider spaceId="space-a"><Probe /></StudyDraftProvider></StudyRepositoryProvider>);
+
+    expect(await screen.findByText("Stale draft")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "open detail" }));
+    await waitFor(() => expect(listDraftPage).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.queryByText("Stale draft")).not.toBeInTheDocument());
+    expect(loadArtifactDetail).toHaveBeenCalledOnce();
   });
 });

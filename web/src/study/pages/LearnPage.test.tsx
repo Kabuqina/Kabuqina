@@ -1,13 +1,13 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../lib/i18n";
 import { StudyDraftProvider } from "../DraftContext";
-import type { StudyArtifactDetail, StudyRepository } from "../repository";
+import { StudyRepositoryError, type StudyArtifactDetail, type StudyRepository } from "../repository";
 import { StudyRepositoryProvider } from "../repositoryContext";
 import { LearnPage } from "./LearnPage";
 
@@ -61,5 +61,60 @@ describe("LearnPage", () => {
     await waitFor(() => expect(loadLearnHome).toHaveBeenCalledTimes(2));
     expect(await screen.findByRole("button", { name: "Active knowledge" })).toBeInTheDocument();
     expect(await screen.findByText("Visible without navigation")).toBeInTheDocument();
+  });
+
+  it("renders an unavailable M5 kind in its own section instead of as an empty state", async () => {
+    const repository = {
+      listDraftPage: vi.fn().mockResolvedValue(emptyDrafts),
+      loadLearnHome: vi.fn().mockResolvedValue({
+        artifacts: [{ artifact_id: "knowledge-1", kind: "knowledge_base", title: "Active knowledge", status: "active" }],
+        knowledgePoints: [],
+        unavailableKinds: ["resource_pack"],
+      }),
+      loadArtifactDetail: vi.fn().mockResolvedValue(detail),
+      loadSourceAudit: vi.fn(),
+    } as unknown as StudyRepository;
+    render(
+      <I18nProvider><StudyRepositoryProvider repository={repository}><MemoryRouter>
+        <StudyDraftProvider spaceId="space-a"><LearnPage spaceId="space-a" /></StudyDraftProvider>
+      </MemoryRouter></StudyRepositoryProvider></I18nProvider>,
+    );
+
+    const resources = (await screen.findByRole("heading", { name: "资源包" })).closest("section")!;
+    expect(within(resources).getByRole("status")).toHaveTextContent("这一部分暂时无法读取");
+    expect(within(resources).queryByText("这一页还没有学习内容")).not.toBeInTheDocument();
+    const knowledge = screen.getByRole("heading", { name: "课程知识库" }).closest("section")!;
+    expect(within(knowledge).getByRole("button", { name: "Active knowledge" })).toBeInTheDocument();
+  });
+
+  it("refreshes active summaries and removes stale raw data after an audit 404", async () => {
+    const user = userEvent.setup();
+    const loadLearnHome = vi.fn()
+      .mockResolvedValueOnce({
+        artifacts: [{ artifact_id: "knowledge-1", kind: "knowledge_base", title: "Active knowledge", status: "active" }],
+        knowledgePoints: [],
+      })
+      .mockResolvedValue({ artifacts: [], knowledgePoints: [] });
+    const repository = {
+      listDraftPage: vi.fn().mockResolvedValue(emptyDrafts),
+      loadLearnHome,
+      loadArtifactDetail: vi.fn().mockResolvedValue(detail),
+      loadSourceAudit: vi.fn().mockRejectedValue(new StudyRepositoryError("not-found")),
+    } as unknown as StudyRepository;
+    render(
+      <I18nProvider><StudyRepositoryProvider repository={repository}><MemoryRouter>
+        <StudyDraftProvider spaceId="space-a"><LearnPage spaceId="space-a" /></StudyDraftProvider>
+      </MemoryRouter></StudyRepositoryProvider></I18nProvider>,
+    );
+
+    expect(await screen.findByText("Visible without navigation")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "高级" }));
+    await user.click(screen.getByRole("button", { name: "查看原始 JSON" }));
+    expect(screen.getByText(/"Immediate concept"/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "查看来源审计" }));
+
+    await waitFor(() => expect(loadLearnHome).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.queryByText(/"Immediate concept"/)).not.toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: "Active knowledge" })).not.toBeInTheDocument();
   });
 });

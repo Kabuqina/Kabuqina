@@ -196,7 +196,7 @@ export function DraftInboxButton() {
                     {openedDetail.kind === "knowledge_base" || openedDetail.kind === "resource_pack" || openedDetail.kind === "tutoring_note"
                       ? <LearnArtifactContent detail={openedDetail} />
                       : <p className="kq-study-draft-preview">{t("study.draftDetailPrivate")}</p>}
-                    <ArtifactAdvancedPanel spaceId={controller.spaceId} detail={openedDetail} />
+                    <ArtifactAdvancedPanel spaceId={controller.spaceId} detail={openedDetail} onArtifactStale={controller.refresh} />
                     {needsReview ? <p className="kq-study-page-alert" role="status">{t("study.draftReviewRequired")}</p> : null}
                     {actionError ? <p className="kq-study-page-error" role="alert">{t("study.draftActionFailed")}</p> : null}
                     <div className="kq-study-inline-actions">

@@ -4,11 +4,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { StudySourceRef } from "../chat/study/study-api";
 import { useI18n } from "../lib/i18n";
-import type { StudyArtifactDetail } from "./repository";
+import { normalizeRepositoryError, type StudyArtifactDetail } from "./repository";
 import { useStudyRepository } from "./repositoryContext";
 
 /** Explicit, per-artifact governance surface. It never loads audit data itself. */
-export function ArtifactAdvancedPanel({ spaceId, detail }: { spaceId: string; detail: StudyArtifactDetail }) {
+export function ArtifactAdvancedPanel({ spaceId, detail, onArtifactStale }: { spaceId: string; detail: StudyArtifactDetail; onArtifactStale?: () => void }) {
   const { t } = useI18n();
   const repository = useStudyRepository();
   const contextKey = `${spaceId}\u0000${detail.artifactId}`;
@@ -43,8 +43,14 @@ export function ArtifactAdvancedPanel({ spaceId, detail }: { spaceId: string; de
           ? { ...previous, refs: next, audit: "ready" }
           : previous);
       },
-      () => {
+      (error) => {
         if (controller.signal.aborted || request.current?.key !== contextKey) return;
+        if (normalizeRepositoryError(error).code === "not-found") {
+          request.current = null;
+          setState({ key: contextKey, open: false, raw: false, audit: "idle", refs: [] });
+          onArtifactStale?.();
+          return;
+        }
         setState((previous) => previous.key === contextKey
           ? { ...previous, audit: "error" }
           : previous);

@@ -11,12 +11,11 @@ import { useStudyDrafts } from "../DraftContext";
 import { LearnArtifactContent } from "../LearnArtifactContent";
 import { STUDY_LEARNING_EVENT } from "../learningEvent";
 import { RequestCoordinator, type Loadable } from "../loadable";
-import type { StudyArtifactDetail, StudyLearnHome } from "../repository";
+import type { StudyArtifactDetail, StudyLearnHome, StudyM5Kind } from "../repository";
 import { useStudyRepository } from "../repositoryContext";
 import { studyPath } from "../routeModel";
 
-const M5_KINDS = ["knowledge_base", "resource_pack", "tutoring_note"] as const;
-type M5Kind = (typeof M5_KINDS)[number];
+const M5_KINDS: readonly StudyM5Kind[] = ["knowledge_base", "resource_pack", "tutoring_note"];
 
 function pageData(snapshot: Loadable<StudyLearnHome>): StudyLearnHome | undefined {
   if (snapshot.status === "ready") return snapshot.data;
@@ -36,10 +35,10 @@ function draftItems(snapshot: ReturnType<typeof useStudyDrafts>["snapshot"]): St
     : snapshot.status === "loading" || snapshot.status === "error"
       ? snapshot.previous
       : undefined;
-  return (data?.items ?? []).filter((item) => M5_KINDS.includes(item.kind as M5Kind));
+  return (data?.items ?? []).filter((item) => M5_KINDS.includes(item.kind as StudyM5Kind));
 }
 
-function kindTitle(kind: M5Kind, t: (key: string) => string): string {
+function kindTitle(kind: StudyM5Kind, t: (key: string) => string): string {
   if (kind === "knowledge_base") return t("study.learnKnowledgeBase");
   if (kind === "resource_pack") return t("study.learnResources");
   return t("study.learnTutoringNotes");
@@ -48,19 +47,23 @@ function kindTitle(kind: M5Kind, t: (key: string) => string): string {
 function ArtifactChooser({
   kind,
   artifacts,
+  unavailable,
   selectedId,
   onSelect,
+  onRetry,
 }: {
-  kind: M5Kind;
+  kind: StudyM5Kind;
   artifacts: StudyArtifactSummary[];
+  unavailable: boolean;
   selectedId: string;
   onSelect: (artifactId: string) => void;
+  onRetry: () => void;
 }) {
   const { t } = useI18n();
   return (
     <section className="kq-study-learn-section" aria-labelledby={`learn-${kind}`}>
       <h2 id={`learn-${kind}`}>{kindTitle(kind, t)}</h2>
-      {artifacts.length ? <div className="kq-study-inline-actions">{artifacts.map((artifact) => <button key={artifact.artifact_id} type="button" aria-pressed={selectedId === artifact.artifact_id} onClick={() => onSelect(artifact.artifact_id)}>{artifact.title}</button>)}</div> : <p className="kq-study-muted">{t("study.learnEmptyTitle")}</p>}
+      {unavailable ? <div className="kq-study-page-alert" role="status"><span>{t("study.learnSectionUnavailable")}</span><button type="button" onClick={onRetry}>{t("study.retry")}</button></div> : artifacts.length ? <div className="kq-study-inline-actions">{artifacts.map((artifact) => <button key={artifact.artifact_id} type="button" aria-pressed={selectedId === artifact.artifact_id} onClick={() => onSelect(artifact.artifact_id)}>{artifact.title}</button>)}</div> : <p className="kq-study-muted">{t("study.learnEmptyTitle")}</p>}
     </section>
   );
 }
@@ -138,7 +141,7 @@ export function LearnPage({ spaceId }: { spaceId: string }) {
     drafts.openDetail(selectedDraft.artifact_id);
   }, [drafts, selectedDraft]);
 
-  const grouped = useMemo<Record<M5Kind, StudyArtifactSummary[]>>(() => ({
+  const grouped = useMemo<Record<StudyM5Kind, StudyArtifactSummary[]>>(() => ({
     knowledge_base: active.filter((artifact) => artifact.kind === "knowledge_base"),
     resource_pack: active.filter((artifact) => artifact.kind === "resource_pack"),
     tutoring_note: active.filter((artifact) => artifact.kind === "tutoring_note"),
@@ -155,24 +158,22 @@ export function LearnPage({ spaceId }: { spaceId: string }) {
       {snapshot.status === "loading" && !data ? <p role="status">{t("study.pageLoading")}</p> : null}
       {snapshot.status === "error" && !data ? <div className="kq-study-page-alert" role="alert"><span>{t("study.pageLoadFailed")}</span><button type="button" onClick={load}>{t("study.retry")}</button><Link to="/chat">{t("study.backToChat")}</Link></div> : null}
       {snapshot.status === "error" && data ? <div className="kq-study-page-alert" role="alert"><span>{t("study.pageStale")}</span><button type="button" onClick={load}>{t("study.retry")}</button></div> : null}
-      {data?.unavailable?.length ? <div className="kq-study-page-alert" role="status"><span>{t("study.learnSectionUnavailable")}</span><button type="button" onClick={load}>{t("study.retry")}</button></div> : null}
-
       <section className="kq-study-learn-section kq-study-knowledge-points" aria-labelledby="learn-knowledge-points">
         <div className="kq-study-card-title"><div><p>{t("study.lifecycle")}</p><h2 id="learn-knowledge-points">{t("study.learnKnowledgePoints")}</h2></div><Lightbulb aria-hidden /></div>
-        {data?.knowledgePoints.length ? <ul>{data.knowledgePoints.map((point) => <li key={point.item_id}><div><strong>{point.front}</strong><span>{point.gist}</span></div><span className="kq-study-chip"><BookOpen aria-hidden />{t("study.learnOpenPractice")}</span></li>)}</ul> : <p>{t("study.learnKnowledgePointsEmpty")}</p>}
+        {data?.unavailable?.includes("knowledgePoints") ? <div className="kq-study-page-alert" role="status"><span>{t("study.learnSectionUnavailable")}</span><button type="button" onClick={load}>{t("study.retry")}</button></div> : data?.knowledgePoints.length ? <ul>{data.knowledgePoints.map((point) => <li key={point.item_id}><div><strong>{point.front}</strong><span>{point.gist}</span></div><span className="kq-study-chip"><BookOpen aria-hidden />{t("study.learnOpenPractice")}</span></li>)}</ul> : <p>{t("study.learnKnowledgePointsEmpty")}</p>}
         {data?.knowledgePoints.length ? <Link className="kq-study-secondary-link" to={studyPath(spaceId, "practice")}>{t("study.learnOpenPractice")}</Link> : null}
       </section>
 
-      {data && !active.length ? <div className="kq-study-page-empty"><h2>{t("study.learnEmptyTitle")}</h2><p>{t("study.learnEmptyBody")}</p><Link className="kq-study-secondary-link" to="/chat">{t("study.backToChat")}</Link></div> : null}
-      {data && active.length ? <div className="kq-study-learn-grid">
+      {data && !active.length && !data.unavailableKinds?.length ? <div className="kq-study-page-empty"><h2>{t("study.learnEmptyTitle")}</h2><p>{t("study.learnEmptyBody")}</p><Link className="kq-study-secondary-link" to="/chat">{t("study.backToChat")}</Link></div> : null}
+      {data && (active.length || data.unavailableKinds?.length) ? <div className="kq-study-learn-grid">
         <div className="kq-study-learn-navigation">
-          {M5_KINDS.map((kind) => <ArtifactChooser key={kind} kind={kind} artifacts={grouped[kind]} selectedId={selectedId} onSelect={setSelectedId} />)}
+          {M5_KINDS.map((kind) => <ArtifactChooser key={kind} kind={kind} artifacts={grouped[kind]} unavailable={Boolean(data.unavailableKinds?.includes(kind))} selectedId={selectedId} onSelect={setSelectedId} onRetry={load} />)}
         </div>
         <article className="kq-study-learn-reading" aria-live="polite">
           {!selected ? <p className="kq-study-muted">{t("study.learnSelectArtifact")}</p> : null}
           {selected && selectedDetail?.status === "loading" && !selectedData ? <p role="status">{t("study.learnDetailLoading")}</p> : null}
           {selected && selectedDetail?.status === "error" && !selectedData ? <div className="kq-study-page-alert" role="alert"><span>{t("study.learnDetailFailed")}</span><button type="button" onClick={() => drafts.openDetail(selected.artifact_id, { force: true })}>{t("study.retry")}</button></div> : null}
-          {selected && selectedData ? <><h2>{selectedData.title}</h2><LearnArtifactContent detail={selectedData} /><ArtifactAdvancedPanel spaceId={spaceId} detail={selectedData} /></> : null}
+          {selected && selectedData ? <><h2>{selectedData.title}</h2><LearnArtifactContent detail={selectedData} /><ArtifactAdvancedPanel spaceId={spaceId} detail={selectedData} onArtifactStale={load} /></> : null}
         </article>
       </div> : null}
 
@@ -181,7 +182,7 @@ export function LearnPage({ spaceId }: { spaceId: string }) {
         <div className="kq-study-inline-actions">{pageDrafts.map((draft) => <button key={draft.artifact_id} type="button" aria-pressed={selectedDraftId === draft.artifact_id} onClick={() => setSelectedDraftId(draft.artifact_id)}>{draft.title}</button>)}</div>
         {selectedDraft && selectedDraftDetail?.status === "loading" && !selectedDraftData ? <p role="status">{t("study.learnDetailLoading")}</p> : null}
         {selectedDraft && selectedDraftDetail?.status === "error" && !selectedDraftData ? <div className="kq-study-page-alert" role="alert"><span>{t("study.learnDetailFailed")}</span><button type="button" onClick={() => drafts.openDetail(selectedDraft.artifact_id, { force: true })}>{t("study.retry")}</button></div> : null}
-        {selectedDraft && selectedDraftData ? <article className="kq-study-flyleaf-card is-pencil"><h3>{selectedDraftData.title}</h3><LearnArtifactContent detail={selectedDraftData} /><ArtifactAdvancedPanel spaceId={spaceId} detail={selectedDraftData} />{draftNeedsReview ? <p className="kq-study-page-alert" role="status">{t("study.draftReviewRequired")}</p> : null}{selectedDraftError ? <p className="kq-study-page-error" role="alert">{t("study.draftActionFailed")}</p> : null}<div className="kq-study-inline-actions">{draftNeedsReview ? <button type="button" disabled={Boolean(selectedDraftAction)} onClick={() => drafts.review(selectedDraft.artifact_id)}>{selectedDraftAction === "review" ? t("study.draftReviewing") : t("study.draftRetryReview")}</button> : null}<button type="button" disabled={Boolean(selectedDraftAction) || Boolean(draftNeedsReview)} onClick={() => drafts.activate(selectedDraft.artifact_id)}>{t("study.flyleafInk")}</button><button type="button" disabled={Boolean(selectedDraftAction)} onClick={() => drafts.reject(selectedDraft.artifact_id)}>{t("study.flyleafErase")}</button></div></article> : null}
+        {selectedDraft && selectedDraftData ? <article className="kq-study-flyleaf-card is-pencil"><h3>{selectedDraftData.title}</h3><LearnArtifactContent detail={selectedDraftData} /><ArtifactAdvancedPanel spaceId={spaceId} detail={selectedDraftData} onArtifactStale={drafts.refresh} />{draftNeedsReview ? <p className="kq-study-page-alert" role="status">{t("study.draftReviewRequired")}</p> : null}{selectedDraftError ? <p className="kq-study-page-error" role="alert">{t("study.draftActionFailed")}</p> : null}<div className="kq-study-inline-actions">{draftNeedsReview ? <button type="button" disabled={Boolean(selectedDraftAction)} onClick={() => drafts.review(selectedDraft.artifact_id)}>{selectedDraftAction === "review" ? t("study.draftReviewing") : t("study.draftRetryReview")}</button> : null}<button type="button" disabled={Boolean(selectedDraftAction) || Boolean(draftNeedsReview)} onClick={() => drafts.activate(selectedDraft.artifact_id)}>{t("study.flyleafInk")}</button><button type="button" disabled={Boolean(selectedDraftAction)} onClick={() => drafts.reject(selectedDraft.artifact_id)}>{t("study.flyleafErase")}</button></div></article> : null}
       </section> : null}
     </section>
   );

@@ -1,12 +1,12 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../lib/i18n";
 import { ArtifactAdvancedPanel } from "./ArtifactAdvancedPanel";
-import type { StudyArtifactDetail, StudyRepository } from "./repository";
+import { StudyRepositoryError, type StudyArtifactDetail, type StudyRepository } from "./repository";
 import { StudyRepositoryProvider } from "./repositoryContext";
 
 function detail(artifactId: string, marker: string): StudyArtifactDetail {
@@ -44,5 +44,24 @@ describe("ArtifactAdvancedPanel", () => {
     await act(async () => resolveA([{ origin: "STALE A" }]));
     expect(screen.queryByText("STALE A")).not.toBeInTheDocument();
     expect(screen.getByText("manual source")).toBeInTheDocument();
+  });
+
+  it("closes stale raw data and refreshes summaries when source audit returns 404", async () => {
+    const user = userEvent.setup();
+    const onArtifactStale = vi.fn();
+    const repository = {
+      loadSourceAudit: vi.fn().mockRejectedValue(new StudyRepositoryError("not-found")),
+    } as unknown as StudyRepository;
+    render(<I18nProvider><StudyRepositoryProvider repository={repository}><ArtifactAdvancedPanel spaceId="space-1" detail={detail("artifact-a", "STALE RAW")} onArtifactStale={onArtifactStale} /></StudyRepositoryProvider></I18nProvider>);
+
+    await user.click(screen.getByRole("button", { name: "高级" }));
+    await user.click(screen.getByRole("button", { name: "查看原始 JSON" }));
+    expect(screen.getByText(/STALE RAW/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "查看来源审计" }));
+
+    await waitFor(() => expect(onArtifactStale).toHaveBeenCalledOnce());
+    expect(screen.queryByText(/STALE RAW/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "查看来源审计" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "高级" })).toHaveAttribute("aria-expanded", "false");
   });
 });

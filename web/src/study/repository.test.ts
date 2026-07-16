@@ -92,6 +92,30 @@ describe("StudyRepository", () => {
     expect(knowledgePoints).toHaveBeenCalledWith("space-b");
   });
 
+  it("reports the exact M5 kind whose bounded query is unavailable", async () => {
+    const activeM5Summaries = vi.fn().mockImplementation(async (_spaceId: string, kind: string) => {
+      if (kind === "resource_pack") throw new Error("offline");
+      return {
+        items: kind === "knowledge_base"
+          ? [{ artifact_id: "kb", kind: "knowledge_base", title: "KB", status: "active" }]
+          : [],
+        count: kind === "knowledge_base" ? 1 : 0,
+        counts: {}, kind_counts: {}, returned: kind === "knowledge_base" ? 1 : 0,
+        limit: 100, offset: 0, truncated: false,
+      };
+    });
+    const repository = createStudyRepository({
+      activeM5Summaries,
+      knowledgePoints: vi.fn().mockResolvedValue({ items: [] }),
+    });
+
+    await expect(repository.loadLearnHome("space-b", new AbortController().signal)).resolves.toEqual({
+      artifacts: [{ artifact_id: "kb", kind: "knowledge_base", title: "KB", status: "active" }],
+      knowledgePoints: [],
+      unavailableKinds: ["resource_pack"],
+    });
+  });
+
   it("uses the explicit URL space for M5 detail, audit, and review", async () => {
     const artifactDetail = vi.fn().mockResolvedValue({ artifact: {
       artifact_id: "m5-a", kind: "knowledge_base", title: "Title", version: 1, status: "draft", review: { mode: "semantic", status: "pending" }, envelope: { payload: {} },
