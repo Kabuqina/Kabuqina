@@ -50,7 +50,8 @@ created consolidated implementation commit `5abea97c`; V8 evidence was recorded
 in `4895a7b4`. The planned five-commit split was not retained in history. This
 plan records that deviation instead of reconstructing commits after the fact.
 第二轮复审重新打开 cross-process home P1；follow-up 由 Rust `SpawnConfig` 固定并
-注入所有 Python child，Python 显式 home 路径不再自行迁移。
+注入所有 Python child，Python 显式 home 路径不再自行迁移。该 follow-up 已由 owner
+提交为 `cbfbdceb`，最终独立复审于 2026-07-16 确认 **A-R3 PASS**。
 
 ## Order
 

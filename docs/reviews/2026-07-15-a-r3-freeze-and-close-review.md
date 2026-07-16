@@ -3,9 +3,9 @@
 > **日期：** 2026-07-15
 > **基线：** `dce4159a`
 > **依据：** `docs/reviews/2026-07-15-a-r3-midterm-review.md`
-> **状态：** MR-001 至 MR-005 已关闭；V7、V8 均已通过；实现已由 owner 提交。
-> 两轮 CHANGES REQUESTED 的问题已在工作树修复并完成影响面回归；本轮 follow-up
-> 的 commit / push 仍需 owner 明确执行。
+> **状态：** **A-R3 PASS（2026-07-16）**。MR-001 至 MR-005、两轮
+> CHANGES REQUESTED 均已关闭；V7、V8 和 follow-up 影响面回归全部通过；owner-approved
+> follow-up commit 为 `cbfbdceb`。本地 slice 已关闭，`main` 推送仍待 owner 单独授权。
 
 ## 1. MR 关闭说明
 
@@ -354,7 +354,8 @@ plan 中作为执行偏差记录。当前 `main` 相对 `origin/main` ahead 3；
 影响面回归：Python desktop bootstrap `14 passed`；gateway proxy/API contract
 `6 passed`；Rust home resolver `3 passed`；Rust secrets module `21 passed`。最终
 当时的 legacy-name 审计快照为 `15,826` tracked hits，`0 defects`；第二轮
-cross-process follow-up 后的最终数字见 Section 8。本 follow-up 尚未 commit / push。
+cross-process follow-up 后的最终数字见 Section 8。本 follow-up 已由 owner-approved
+commit `cbfbdceb` 提交；尚未 push。
 
 ## 8. Cross-process home follow-up（2026-07-16）
 
@@ -376,4 +377,5 @@ cross-process follow-up 后的最终数字见 Section 8。本 follow-up 尚未 c
 
 影响面回归：Python desktop bootstrap `15 passed`；Rust child-home injection
 `1 passed`。最终 legacy-name 审计：`15,830` tracked hits，
-`0 defects`。该 P1 已重新关闭；follow-up 尚未 commit / push。
+`0 defects`。该 P1 已重新关闭；owner 确认最终独立复审 **A-R3 PASS**，follow-up
+已提交为 `cbfbdceb`。工作树干净，尚未 push。
