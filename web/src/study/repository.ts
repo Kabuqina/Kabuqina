@@ -14,6 +14,7 @@ import {
   cmdStudyLearningPlans,
   cmdStudyKnowledgePoints,
   cmdStudyMigrateContext,
+  cmdStudyMigrateBuiltinCourse,
   cmdStudyPlanItemComplete,
   cmdStudyPlanItemSkip,
   cmdStudyPlanItems,
@@ -129,6 +130,7 @@ export class StudyRepositoryError extends Error {
 }
 
 export interface StudyRepository {
+  seedBuiltinCourse(signal: AbortSignal): Promise<boolean>;
   listSpaces(signal: AbortSignal): Promise<StudySpaces>;
   selectSpace(spaceId: string, signal: AbortSignal): Promise<StudySpaces>;
   listDrafts(spaceId: string, signal: AbortSignal): Promise<StudyDraftInbox>;
@@ -200,6 +202,7 @@ function isDeskBridgeErrorPayload(error: unknown): error is DeskBridgeErrorPaylo
 }
 
 type StudyCommands = {
+  builtinCourse: typeof cmdStudyMigrateBuiltinCourse;
   spaces: () => Promise<StudySpacesResponse>;
   selectSpace: (spaceId: string) => Promise<StudySpacesResponse>;
   draftSummary: (spaceId: string) => Promise<StudyDraftsResponse>;
@@ -229,6 +232,7 @@ type StudyCommands = {
 };
 
 const defaultCommands: StudyCommands = {
+  builtinCourse: cmdStudyMigrateBuiltinCourse,
   spaces: cmdStudySpaces,
   selectSpace: cmdStudySpaceSelect,
   draftSummary: (spaceId) => cmdStudyArtifactSummaries({
@@ -378,6 +382,9 @@ function mapArtifactDetail(response: Awaited<ReturnType<typeof cmdStudyArtifactD
 export function createStudyRepository(commands: Partial<StudyCommands> = {}): StudyRepository {
   const resolved = { ...defaultCommands, ...commands };
   return {
+    async seedBuiltinCourse(signal) {
+      return (await invokeWithSignal(signal, resolved.builtinCourse)).seeded;
+    },
     async listSpaces(signal) {
       return mapSpaces(await invokeWithSignal(signal, resolved.spaces));
     },

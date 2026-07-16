@@ -10,6 +10,13 @@ const spacesResponse = {
 };
 
 describe("StudyRepository", () => {
+  it("maps the built-in course command to a content-free seeded flag", async () => {
+    const builtinCourse = vi.fn().mockResolvedValue({ seeded: true, title: "private title" });
+    const repository = createStudyRepository({ builtinCourse });
+    await expect(repository.seedBuiltinCourse(new AbortController().signal)).resolves.toBe(true);
+    expect(builtinCourse).toHaveBeenCalledOnce();
+  });
+
   it("maps spaces and requests the draft summary for the requested space", async () => {
     const draftSummary = vi.fn().mockResolvedValue({
       items: [

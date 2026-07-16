@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useI18n } from "../lib/i18n";
 import { confirm } from "../lib/confirmDialog";
 import { StudyDraftProvider } from "./DraftContext";
@@ -13,6 +13,7 @@ import { studyPath, type StudyPageSlug } from "./routeModel";
 import { StudyLifecycleNav } from "./StudyLifecycleNav";
 import { StudyTopBar } from "./StudyTopBar";
 import { StudyPageOutlet } from "./pages/StudyPageOutlet";
+import { useStudyIa } from "./StudyIaContext";
 
 export function StudyShell({ spaces, spaceId, page, onRevalidate, refreshing = false, refreshFailed = false }: {
   spaces: StudySpaces;
@@ -25,6 +26,8 @@ export function StudyShell({ spaces, spaceId, page, onRevalidate, refreshing = f
   const { t } = useI18n();
   const repository = useStudyRepository();
   const navigate = useNavigate();
+  const location = useLocation();
+  const recordIa = useStudyIa();
   const switchRequests = useRef(new RequestCoordinator());
   const [switching, setSwitching] = useState(false);
   const [switchError, setSwitchError] = useState(false);
@@ -59,15 +62,25 @@ export function StudyShell({ spaces, spaceId, page, onRevalidate, refreshing = f
       void repository.selectSpace(nextSpaceId, request.signal).then(() => {
         if (!switchRequests.current.isCurrent(request.generation)) return;
         setSwitching(false);
+        recordIa({ name: "study.space.switch", action: "switch", success: true });
         navigate(studyPath(nextSpaceId, page));
         onRevalidate?.();
       }, () => {
         if (!switchRequests.current.isCurrent(request.generation)) return;
         setSwitching(false);
         setSwitchError(true);
+        recordIa({ name: "study.space.switch", action: "switch", success: false });
       });
     });
-  }, [confirmPracticeLeave, navigate, onRevalidate, page, repository, spaceId, switching]);
+  }, [confirmPracticeLeave, navigate, onRevalidate, page, recordIa, repository, spaceId, switching]);
+
+  useEffect(() => {
+    if (!spaceId || !page) return;
+    recordIa(
+      { name: "study.page.view", page, action: "view" },
+      { dedupeKey: `study-page-view:${location.key}` },
+    );
+  }, [location.key, page, recordIa, spaceId]);
 
   useEffect(() => () => switchRequests.current.cancel(), []);
 

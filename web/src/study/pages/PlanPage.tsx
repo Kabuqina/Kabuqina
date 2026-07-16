@@ -8,10 +8,12 @@ import { RequestCoordinator, type Loadable } from "../loadable";
 import { STUDY_LEARNING_EVENT } from "../learningEvent";
 import type { StudyPlanSnapshot } from "../repository";
 import { useStudyRepository } from "../repositoryContext";
+import { useStudyIa } from "../StudyIaContext";
 
 export function PlanPage({ spaceId }: { spaceId: string }) {
   const { t } = useI18n();
   const repository = useStudyRepository();
+  const recordIa = useStudyIa();
   const heading = useRef<HTMLHeadingElement>(null);
   const requests = useRef(new RequestCoordinator());
   const mutations = useRef(new RequestCoordinator());
@@ -66,6 +68,7 @@ export function PlanPage({ spaceId }: { spaceId: string }) {
 
   const continueCurrent = () => {
     if (!currentItem) return;
+    recordIa({ name: "study.resume", page: "plan", action: "resume" });
     document.getElementById(`study-plan-item-${currentItem.item_id}`)?.focus();
   };
 

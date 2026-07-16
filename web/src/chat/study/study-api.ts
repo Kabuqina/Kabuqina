@@ -208,13 +208,6 @@ export type StudyCaptureResponse = {
   dueAt?: string;
 };
 
-export type StudyMigrationResponse = {
-  migrated: boolean;
-  artifact_id?: string;
-  cards: number;
-  status?: string;
-};
-
 export type StudyQuizzesResponse = {
   quizzes: StudyArtifact[];
 };
@@ -273,13 +266,6 @@ export type StudyQuizResult = {
   total: number;
   weakTags?: string[];
   perQuestion: StudyQuizPerQuestion[];
-};
-
-export type StudyQuizMigrationResponse = {
-  migrated: boolean;
-  artifact_id?: string;
-  questions: number;
-  status?: string;
 };
 
 export type StudyPracticeResponse = {
@@ -479,10 +465,6 @@ export function cmdStudyFlashcardReview(
   return invoke("cmd_study_flashcard_review", { spaceId, itemId, grade });
 }
 
-export function cmdStudyMigrateFlashcards(deck: unknown): Promise<StudyMigrationResponse> {
-  return invoke("cmd_study_migrate_flashcards", { deck });
-}
-
 export function cmdStudyQuizzes(spaceId: string): Promise<StudyQuizzesResponse> {
   return invoke("cmd_study_quizzes", { spaceId });
 }
@@ -516,10 +498,6 @@ export function cmdStudyPracticeSource(
   activityId: string,
 ): Promise<{ source: StudyPracticeSource }> {
   return invoke("cmd_study_practice_source", { spaceId, activityId });
-}
-
-export function cmdStudyMigrateQuizzes(quiz: unknown): Promise<StudyQuizMigrationResponse> {
-  return invoke("cmd_study_migrate_quizzes", { quiz });
 }
 
 export type StudyBuiltinCourseResponse = {

@@ -10,6 +10,8 @@ import { STUDY_LEARNING_EVENT } from "../learningEvent";
 import { RequestCoordinator, type Loadable } from "../loadable";
 import type { StudyPracticeHome } from "../repository";
 import { useStudyRepository } from "../repositoryContext";
+import { studyIaCountBucket } from "../iaEvents";
+import { useStudyIa } from "../StudyIaContext";
 
 const CodePracticeSurface = lazy(async () => ({ default: (await import("./CodePracticeSurface")).CodePracticeSurface }));
 const DerivationPracticeSurface = lazy(async () => ({ default: (await import("./DerivationPracticeSurface")).DerivationPracticeSurface }));
@@ -37,6 +39,7 @@ function practiceDrafts(snapshot: ReturnType<typeof useStudyDrafts>["snapshot"])
 export function PracticePage({ spaceId, onDirtyChange, onNavigateAway }: { spaceId: string; onDirtyChange?: (dirty: boolean) => void; onNavigateAway?: (to: string) => void }) {
   const { t } = useI18n();
   const repository = useStudyRepository();
+  const recordIa = useStudyIa();
   const drafts = useStudyDrafts();
   const heading = useRef<HTMLHeadingElement>(null);
   const requests = useRef(new RequestCoordinator());
@@ -161,6 +164,12 @@ export function PracticePage({ spaceId, onDirtyChange, onNavigateAway }: { space
 
   const openCards = () => {
     if (!data?.dueCards.length) return;
+    recordIa({
+      name: "study.review.start",
+      page: "practice",
+      action: "start",
+      count_bucket: studyIaCountBucket(data.dueCards.length),
+    });
     setQueue(data.dueCards);
     setCardIndex(0);
     setRevealed(false);
@@ -180,6 +189,12 @@ export function PracticePage({ spaceId, onDirtyChange, onNavigateAway }: { space
         if (!mutations.current.isCurrent(request.generation)) return;
         setPending(false);
         if (cardIndex + 1 >= queue.length) {
+          recordIa({
+            name: "study.review.complete",
+            page: "practice",
+            action: "complete",
+            count_bucket: studyIaCountBucket(queue.length),
+          });
           setMode("home");
           window.dispatchEvent(new Event(STUDY_LEARNING_EVENT));
         } else {

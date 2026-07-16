@@ -4,17 +4,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { StudyArtifactSummary, StudyStudentState, StudyStudentStatePayload } from "../../chat/study/study-api";
-import { loadStudyContext, type StudyContext } from "../../chat/study/studyStore";
 import { useI18n } from "../../lib/i18n";
 import { RequestCoordinator, type Loadable } from "../loadable";
 import { STUDY_LEARNING_EVENT } from "../learningEvent";
 import { useStudyDrafts } from "../DraftContext";
 import type { StudyFlyleafSnapshot } from "../repository";
 import { useStudyRepository } from "../repositoryContext";
-
-function hasLegacyContext(context: StudyContext): boolean {
-  return Object.values(context).some((value) => value.trim().length > 0);
-}
+import { migrateLegacyStudyContext } from "../legacyStudyContextMigration";
 
 function payloadRows(
   payload: StudyStudentStatePayload,
@@ -89,13 +85,13 @@ export function FlyleafPage({ spaceId }: { spaceId: string }) {
   }, [repository, spaceId]);
 
   const migrateLegacy = useCallback(() => {
-    const legacy = loadStudyContext();
-    if (!hasLegacyContext(legacy)) return;
     const request = mutations.current.begin();
     setMigrationError(false);
-    void repository.migrateLegacyContext(spaceId, legacy, request.signal).then(
-      () => {
-        if (!mutations.current.isCurrent(request.generation)) return;
+    void migrateLegacyStudyContext((legacy) => (
+      repository.migrateLegacyContext(spaceId, legacy, request.signal)
+    )).then(
+      (migrated) => {
+        if (!mutations.current.isCurrent(request.generation) || !migrated) return;
         load();
         window.dispatchEvent(new Event(STUDY_LEARNING_EVENT));
       },

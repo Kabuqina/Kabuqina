@@ -8,9 +8,9 @@
 // `kq-kp` at the end of teaching/answer replies, containing a JSON array of
 // the knowledge points the reply touched. This module strips those blocks
 // from the message body and parses the points so ChatMessage can render them
-// as chips that feed the spaced-repetition deck (see ./flashcardStore).
+// as chips that feed the repository-backed spaced-repetition deck.
 //
-// Like the sibling stores this file is dependency-free and treats all input
+// This parser is dependency-free and treats all input
 // as untrusted: any malformed block degrades silently to "no points" and the
 // block is still stripped from the rendered prose, never shown as raw JSON.
 
@@ -115,8 +115,8 @@ export function splitKnowledgePoints(text: unknown): SplitKnowledgePointsResult 
 }
 
 /**
- * Map a knowledge point onto a raw flashcard record accepted by
- * flashcardStore.normalizeCard — the entry path for "click chip → review deck".
+ * Map a knowledge point onto the repository capture contract used by
+ * "click chip → review deck".
  */
 export function knowledgePointToCardInput(point: KnowledgePoint): {
   front: string;

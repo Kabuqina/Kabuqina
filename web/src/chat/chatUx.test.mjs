@@ -390,11 +390,11 @@ assert.match(
 );
 // ACADEMY→REPORT reorg (docs/superpowers/specs/2026-07-05-study-math-code-practice-design.md §6.1):
 // math is a learning function, so its section renders inside the STUDY branch,
-// after the StudySection quick actions; the report branch keeps only PPT.
+// after the first-class notebook entry; the report branch keeps only PPT.
 assert.match(
   workspacePanelSource,
-  /<OpenStudyLink \/>[\s\S]*<StudySection onStartPrompt=\{onStartPrompt\} \/>[\s\S]*workspace\.mathAbility/,
-  "Math & Code must live in the STUDY tab, below the study quick actions.",
+  /<OpenStudyLink \/>[\s\S]*workspace\.mathAbility/,
+  "Math & Code must live in the STUDY tab, below the first-class notebook entry.",
 );
 assert.doesNotMatch(
   workspacePanelSource,
@@ -494,8 +494,8 @@ assert.match(
 );
 assert.match(
   workspacePanelSource,
-  /mode === "study"[\s\S]*<StudySection\b/,
-  "STUDY mode should show the learning-planning section.",
+  /mode === "study"[\s\S]*<OpenStudyLink \/>/,
+  "STUDY mode should show the first-class notebook entry.",
 );
 assert.match(
   workspacePanelSource,
@@ -1134,90 +1134,6 @@ assert.match(reminderSessionSource, /hermesdesk-reminders/);
 assert.match(chatPageReminderSource, /openReminderSession[\s\S]*REMINDER_SESSION_ID/);
 assert.match(chatPageReminderSource, /\/settings\/cron/);
 
-// ── STUDY module ────────────────────────────────────────────────────────────
-// The learning-planning quick actions live in their own module
-// (web/src/chat/study) and render as a section in the STUDY workspace panel.
-const { STUDY_PROMPTS } = await importTs("./study/studyPrompts.ts");
-const studySectionSource = fs.readFileSync(new URL("./study/StudySection.tsx", import.meta.url), "utf8");
-const studyStoreSource = fs.readFileSync(new URL("./study/studyStore.ts", import.meta.url), "utf8");
-
-assert.deepEqual(
-  Object.keys(STUDY_PROMPTS),
-  [
-    "learningProfile",
-    "learningPath",
-    "courseKnowledgeBase",
-    "learningResources",
-    "learningTutor",
-    "learningEvaluation",
-    "contentSafetyReview",
-  ],
-  "STUDY module should expose the ordered learning actions required by the product workflow.",
-);
-for (const [id, prompt] of Object.entries(STUDY_PROMPTS)) {
-  assert.ok(typeof prompt === "string" && prompt.length > 0, `${id} prompt should be a non-empty string`);
-  assert.match(prompt, /不要.*编造/, `${id} prompt should forbid fabricating unknown info`);
-  assert.match(prompt, /请不要使用 emoji/, `${id} prompt should keep the no-emoji style`);
-  // The immersive-learning redesign (docs/immersive-learning-redesign.md)
-  // turned these actions from report generators into guided conversations:
-  // no fixed multi-section output contracts.
-  assert.doesNotMatch(
-    prompt,
-    /输出格式请固定为/,
-    `${id} prompt must not demand a fixed report format (work-agent pattern)`,
-  );
-}
-// The six learning actions must pace the conversation: one question or one
-// step at a time, handing the turn back to the learner.
-for (const id of [
-  "learningProfile",
-  "learningPath",
-  "courseKnowledgeBase",
-  "learningResources",
-  "learningTutor",
-  "learningEvaluation",
-]) {
-  assert.match(
-    STUDY_PROMPTS[id],
-    /一次只|每次只/,
-    `${id} prompt should pace the dialogue one question/step at a time`,
-  );
-}
-assert.match(
-  STUDY_PROMPTS.learningProfile,
-  /画像[\s\S]*复述确认[\s\S]*已确认[\s\S]*推断/,
-  "Learning-profile prompt should co-build the profile conversationally with uncertainty labels.",
-);
-assert.match(
-  STUDY_PROMPTS.learningPath,
-  /阶段[\s\S]*只细化最近的一个阶段[\s\S]*写回学习上下文/,
-  "Learning-path prompt should confirm coarse stages first and only detail the nearest one.",
-);
-assert.match(
-  STUDY_PROMPTS.courseKnowledgeBase,
-  /一个单元或章节[\s\S]*前置知识[\s\S]*易错点[\s\S]*待确认/,
-  "Course-knowledge-base prompt should process one unit at a time with provenance labels.",
-);
-assert.match(
-  STUDY_PROMPTS.learningResources,
-  /每次只做一类[\s\S]*基础、进阶、应用[\s\S]*写回学习上下文/,
-  "Resource-pack prompt should deliver one resource type at a time with tiered exercises.",
-);
-assert.match(
-  STUDY_PROMPTS.learningTutor,
-  /一次只讲一个概念或一步推导[\s\S]*先给提示让我再试一次[\s\S]*明确要求直接给答案[\s\S]*完整给出/,
-  "Tutoring prompt should step through concepts, hint-first on practice, but never withhold demanded answers.",
-);
-assert.match(
-  STUDY_PROMPTS.learningEvaluation,
-  /一次只出一题[\s\S]*反馈[\s\S]*薄弱[\s\S]*写回学习上下文/,
-  "Evaluation prompt should quiz one item at a time and summarize weak points with evidence.",
-);
-assert.match(
-  STUDY_PROMPTS.contentSafetyReview,
-  /防幻觉与内容安全审核[\s\S]*版权[\s\S]*阻塞 \/ 需修改 \/ 建议优化[\s\S]*已确认 \/ 待确认 \/ 推断/,
-  "Safety-review prompt should cover hallucination, license checks, severity and evidence labels.",
-);
 
 // ── kq-kp knowledge-point protocol ──────────────────────────────────────────
 // Assistant messages strip the trailing kq-kp block from the prose (also for
@@ -1251,7 +1167,7 @@ assert.match(
 );
 assert.doesNotMatch(
   kpChipsSource,
-  /flashcardStore/,
+  /localStorage|FLASHCARD_STORAGE_KEY/,
   "Knowledge-point chips should not write new cards to legacy localStorage.",
 );
 assert.match(
@@ -1269,88 +1185,9 @@ assert.match(
   /aria-busy=\{loading \|\| saving\}/,
   "Knowledge-point chips should expose retry/save progress to assistive technology.",
 );
-assert.match(
-  studySectionSource,
-  /workspaceBuildCourseKnowledgeBase[\s\S]*workspaceBuildResourcePack[\s\S]*workspaceStartLearningTutor[\s\S]*workspaceReviewStudyContent/,
-  "StudySection should retain only the D-3/D-4 learning quick actions in order.",
-);
-assert.doesNotMatch(
-  studySectionSource,
-  /workspaceBuildLearningProfile|workspaceBuildLearningPath|workspaceEvaluateLearningEffect/,
-  "D-2 should retire the legacy profile, plan, and evaluation write entries.",
-);
-assert.match(
-  studySectionSource,
-  /sectionId="workspace\.study"/,
-  "StudySection should render under the workspace.study section id.",
-);
-assert.doesNotMatch(
-  studySectionSource,
-  /ShellModal|profileEditorOpen|persistContext|resetContext/,
-  "D-2 should retire the legacy localStorage profile editor.",
-);
-assert.match(
-  studySectionSource,
-  /kq-study-profile-card[\s\S]*studyContextCardTitle[\s\S]*to="\/study"[\s\S]*STUDY_ACTIONS\.map/,
-  "StudySection should keep a read-only legacy summary linked to the first-class study route.",
-);
-assert.match(
-  studyStoreSource,
-  /STUDY_CONTEXT_STORAGE_KEY\s*=\s*"kabuqina\.study\.context\.v1"/,
-  "Study context should persist under a versioned Kabuqina-specific localStorage key.",
-);
-assert.match(
-  studyStoreSource,
-  /STUDY_CONTEXT_FIELD_LIMIT\s*=\s*800/,
-  "Study context should cap field length for bounded prompt injection.",
-);
-assert.match(
-  studyStoreSource,
-  /normalizeStudyContext[\s\S]*loadStudyContext[\s\S]*saveStudyContext[\s\S]*clearStudyContext[\s\S]*formatStudyContextForPrompt/,
-  "Study store should normalize, persist, clear, and format context for prompts.",
-);
-assert.match(
-  studySectionSource,
-  /loadStudyContext[\s\S]*formatStudyContextForPrompt/,
-  "StudySection should read legacy context for the remaining transitional actions.",
-);
-assert.doesNotMatch(
-  studySectionSource,
-  /saveStudyContext|clearStudyContext|saveStatus/,
-  "StudySection should no longer write legacy profile context.",
-);
-assert.match(
-  studySectionSource,
-  /sectionId="workspace\.practice"[\s\S]*practiceSidebarHandoff[\s\S]*to="\/study"[\s\S]*practiceAskNana/,
-  "The sidebar should hand off practice to the URL-scoped notebook while retaining an Ask Nana entry.",
-);
-assert.doesNotMatch(
-  studySectionSource,
-  /FlashcardPanel|QuizPanel|cmdStudyFlashcardReview|cmdStudyQuizSubmit|cmdStudyQuizGeneratePractice/,
-  "The chat sidebar must not keep a second practice mutation surface.",
-);
-assert.match(
-  studySectionSource,
-  /studyContextCourse[\s\S]*studyContextGoal[\s\S]*studyContextProfile[\s\S]*studyContextPreferences[\s\S]*studyContextProgress[\s\S]*studyContextStage/,
-  "StudySection should show a bounded read-only legacy summary without weak-point evidence.",
-);
-assert.doesNotMatch(
-  studySectionSource,
-  /key:\s*"weakPoints"/,
-  "The legacy sidebar summary must not fold weak-point evidence into the learner flyleaf/profile.",
-);
+assert.doesNotMatch(workspacePanelSource, /StudySection/, "The duplicate legacy STUDY sidebar surface should be retired.");
 assert.match(
   workspacePanelSource,
-  /<StudySection\b/,
-  "WorkspacePanel should render the STUDY module section.",
-);
-assert.match(
-  workspacePanelSource,
-  /<OpenStudyLink \/>[\s\S]*<StudySection\b/,
-  "WorkspacePanel should add the first-class study route entry without removing StudySection.",
-);
-assert.match(
-  workspacePanelSource,
-  /mode === "study"[\s\S]*<StudySection\b/,
-  "STUDY module section should render only in STUDY mode.",
+  /mode === "study"[\s\S]*<OpenStudyLink \/>[\s\S]*workspace\.mathAbility/,
+  "STUDY mode should keep one first-class notebook entry followed by Math & Code.",
 );

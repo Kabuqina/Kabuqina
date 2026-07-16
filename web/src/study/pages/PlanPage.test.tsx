@@ -10,9 +10,12 @@ import type { StudyPlanItem } from "../../chat/study/study-api";
 import type { StudyRepository } from "../repository";
 import { StudyRepositoryProvider } from "../repositoryContext";
 import { PlanPage } from "./PlanPage";
+import { StudyIaProvider } from "../StudyIaContext";
+import type { StudyIaSink } from "../iaEvents";
 
 function repository(overrides: Partial<StudyRepository> = {}): StudyRepository {
   return {
+    seedBuiltinCourse: vi.fn().mockResolvedValue(false),
     listSpaces: vi.fn(), selectSpace: vi.fn(), listDrafts: vi.fn(),
     listDraftPage: vi.fn().mockResolvedValue({ items: [], total: 0, kindCounts: {}, returned: 0, limit: 50, offset: 0, truncated: false }),
     loadLearnHome: vi.fn().mockResolvedValue({ artifacts: [], knowledgePoints: [] }),
@@ -27,10 +30,10 @@ function repository(overrides: Partial<StudyRepository> = {}): StudyRepository {
   };
 }
 
-function renderPage(repo: StudyRepository) {
+function renderPage(repo: StudyRepository, sink: StudyIaSink = vi.fn()) {
   render(
     <I18nProvider><StudyRepositoryProvider repository={repo}>
-      <MemoryRouter><PlanPage spaceId="space-b" /></MemoryRouter>
+      <StudyIaProvider sink={sink}><MemoryRouter><PlanPage spaceId="space-b" /></MemoryRouter></StudyIaProvider>
     </StudyRepositoryProvider></I18nProvider>,
   );
 }
@@ -52,16 +55,18 @@ const plan = {
 describe("PlanPage", () => {
   it("uses the first open item as the only resume bookmark and focuses it", async () => {
     const user = userEvent.setup();
+    const sink = vi.fn();
     renderPage(repository({ loadPlan: vi.fn().mockResolvedValue({
       plan,
       items: [
         item({ item_id: "done", title: "Done", status: "completed" }),
         item({ item_id: "next", title: "Next task", taskIndex: 1, order: 2 }),
       ],
-    }) }));
+    }) }), sink);
 
     await user.click(await screen.findByRole("button", { name: /继续上次/ }));
     expect(screen.getByRole("heading", { name: "Next task" }).closest("li")).toHaveFocus();
+    expect(sink).toHaveBeenCalledWith({ name: "study.resume", page: "plan", action: "resume" });
   });
 
   it("completes one item through the URL-scoped repository and patches its state", async () => {

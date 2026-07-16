@@ -9,6 +9,7 @@ import {
   Languages,
   Moon,
   RotateCcw,
+  ScrollText,
   Shield,
   Type,
   Upload,
@@ -28,6 +29,7 @@ import {
   type ThemeMode,
 } from "../../lib/ui-prefs";
 import type { Status } from "../Settings";
+import { getStudyIaEnabled, setStudyIaEnabled } from "../../study/iaEvents";
 
 interface Props {
   status: Status | null;
@@ -73,6 +75,7 @@ export function SettingsDisplay({
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
   const [workspaceNotice, setWorkspaceNotice] = useState<string | null>(null);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
+  const [studyIaEnabled, setStudyIaEnabledState] = useState(getStudyIaEnabled);
 
   const handleCompanionImagePicked = (file: File | undefined) => {
     if (!file) return;
@@ -211,6 +214,26 @@ export function SettingsDisplay({
       </Section>
 
       <Section icon={Languages} title={t("settings.langTitle")} desc={t("settings.langDesc")} action={<LanguageToggle />} />
+
+      <Section
+        icon={ScrollText}
+        title={t("settings.studyIaTitle")}
+        desc={t("settings.studyIaDesc")}
+        action={(
+          <Toggle
+            value={studyIaEnabled}
+            onChange={(enabled) => {
+              setStudyIaEnabled(enabled);
+              setStudyIaEnabledState(enabled);
+            }}
+            aria-label={t("settings.studyIaTitle")}
+          />
+        )}
+      >
+        <p className="text-sm leading-relaxed text-[var(--kq-color-muted)]">
+          {studyIaEnabled ? t("settings.studyIaOn") : t("settings.studyIaOff")}
+        </p>
+      </Section>
 
       <Section
         icon={ImageIcon}

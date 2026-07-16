@@ -6,17 +6,31 @@ import { Navigate, useLocation } from "react-router-dom";
 import { useI18n } from "../lib/i18n";
 import { RequestCoordinator, type Loadable } from "./loadable";
 import { useStudyRepository } from "./repositoryContext";
-import type { StudySpaces } from "./repository";
+import type { StudyRepository, StudySpaces } from "./repository";
 import { parseStudyPath, studyPath } from "./routeModel";
 import { StudyShell } from "./StudyShell";
 import { StudyRouteStatus } from "./StudyRouteStatus";
 import { STUDY_LEARNING_EVENT } from "./learningEvent";
+
+const builtinCourseBootstraps = new WeakMap<StudyRepository, Promise<boolean>>();
+
+export function seedBuiltinCourseOnce(repository: StudyRepository, signal: AbortSignal): Promise<boolean> {
+  const existing = builtinCourseBootstraps.get(repository);
+  if (existing) return existing.then(() => false);
+  const pending = repository.seedBuiltinCourse(signal).catch((error) => {
+    if (builtinCourseBootstraps.get(repository) === pending) builtinCourseBootstraps.delete(repository);
+    throw error;
+  });
+  builtinCourseBootstraps.set(repository, pending);
+  return pending;
+}
 
 export default function StudyRoute() {
   const repository = useStudyRepository();
   const location = useLocation();
   const { t } = useI18n();
   const coordinator = useRef(new RequestCoordinator());
+  const bootstrapCoordinator = useRef(new RequestCoordinator());
   const [spaces, setSpaces] = useState<Loadable<StudySpaces>>({ status: "idle" });
 
   const load = useCallback(() => {
@@ -42,13 +56,23 @@ export default function StudyRoute() {
 
   useEffect(() => {
     const activeCoordinator = coordinator.current;
+    const activeBootstrapCoordinator = bootstrapCoordinator.current;
     load();
     window.addEventListener(STUDY_LEARNING_EVENT, load);
+    const bootstrap = activeBootstrapCoordinator.begin();
+    void seedBuiltinCourseOnce(repository, bootstrap.signal).then(
+      (seeded) => {
+        if (!activeBootstrapCoordinator.isCurrent(bootstrap.generation) || !seeded) return;
+        window.dispatchEvent(new Event(STUDY_LEARNING_EVENT));
+      },
+      () => undefined,
+    );
     return () => {
       window.removeEventListener(STUDY_LEARNING_EVENT, load);
       activeCoordinator.cancel();
+      activeBootstrapCoordinator.cancel();
     };
-  }, [load]);
+  }, [load, repository]);
 
   if (spaces.status === "idle") {
     return <div className="kq-study-route-status" role="status">{t("study.loading")}</div>;

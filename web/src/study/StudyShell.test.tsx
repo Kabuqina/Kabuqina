@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { useState } from "react";
+import { StrictMode, useState } from "react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -11,6 +11,8 @@ import { answerConfirm, getConfirmSnapshot } from "../lib/confirmDialog";
 import type { StudyRepository } from "./repository";
 import { StudyRepositoryProvider } from "./repositoryContext";
 import { StudyShell } from "./StudyShell";
+import { StudyIaProvider } from "./StudyIaContext";
+import type { StudyIaSink } from "./iaEvents";
 
 const spaces = {
   currentSpaceId: "space-a",
@@ -24,6 +26,7 @@ function Location() { return <output data-testid="location">{useLocation().pathn
 
 function makeRepository(repositoryOverrides: Partial<StudyRepository> = {}): StudyRepository {
   return {
+    seedBuiltinCourse: vi.fn().mockResolvedValue(false),
     listSpaces: vi.fn().mockResolvedValue(spaces),
     selectSpace: vi.fn().mockResolvedValue({ ...spaces, currentSpaceId: "space-b" }),
     listDrafts: vi.fn().mockResolvedValue({
@@ -59,18 +62,23 @@ function renderShell(
     spaceId?: string;
     page?: "flyleaf" | "plan" | "learn" | "practice" | "evaluate";
   } = {},
+  sink: StudyIaSink = vi.fn(),
+  strict = false,
 ) {
   const repository = makeRepository(repositoryOverrides);
-  render(
+  const tree = (
     <I18nProvider>
       <StudyRepositoryProvider repository={repository}>
-        <MemoryRouter initialEntries={[`/study/${spaceId}/${page}`]}>
-          <Location />
-          <StudyShell spaces={spaces} spaceId={spaceId} page={page} />
-        </MemoryRouter>
+        <StudyIaProvider sink={sink}>
+          <MemoryRouter initialEntries={[`/study/${spaceId}/${page}`]}>
+            <Location />
+            <StudyShell spaces={spaces} spaceId={spaceId} page={page} />
+          </MemoryRouter>
+        </StudyIaProvider>
       </StudyRepositoryProvider>
-    </I18nProvider>,
+    </I18nProvider>
   );
+  render(strict ? <StrictMode>{tree}</StrictMode> : tree);
   return repository;
 }
 
@@ -80,6 +88,13 @@ afterEach(() => {
 });
 
 describe("StudyShell", () => {
+  it("records one content-free page view for the routed lifecycle page", async () => {
+    const sink = vi.fn();
+    renderShell({}, { page: "learn" }, sink, true);
+    await waitFor(() => expect(sink).toHaveBeenCalledWith({ name: "study.page.view", page: "learn", action: "view" }));
+    expect(sink).toHaveBeenCalledTimes(1);
+  });
+
   it("renders lifecycle links and privacy-bounded cross-kind draft counts", async () => {
     const user = userEvent.setup();
     renderShell();
@@ -127,21 +142,25 @@ describe("StudyShell", () => {
 
   it("keeps route and data when selecting a space fails", async () => {
     const user = userEvent.setup();
-    renderShell({ selectSpace: vi.fn().mockRejectedValue(new Error("request_failed")) });
+    const sink = vi.fn();
+    renderShell({ selectSpace: vi.fn().mockRejectedValue(new Error("request_failed")) }, {}, sink);
     await user.click(screen.getByRole("button", { name: /Linear Algebra/ }));
     await user.click(screen.getByRole("option", { name: "Physics" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("原学习空间已保留");
     expect(screen.getByTestId("location")).toHaveTextContent("/study/space-a/learn");
     expect(screen.getByRole("heading", { name: "学习" })).toBeInTheDocument();
+    expect(sink).toHaveBeenCalledWith({ name: "study.space.switch", action: "switch", success: false });
   });
 
   it("moves to the selected space while preserving the current lifecycle page", async () => {
     const user = userEvent.setup();
-    const repository = renderShell();
+    const sink = vi.fn();
+    const repository = renderShell({}, {}, sink);
     await user.click(screen.getByRole("button", { name: /Linear Algebra/ }));
     await user.click(screen.getByRole("option", { name: "Physics" }));
     await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/study/space-b/learn"));
     expect(repository.selectSpace).toHaveBeenCalledWith("space-b", expect.any(AbortSignal));
+    expect(sink).toHaveBeenCalledWith({ name: "study.space.switch", action: "switch", success: true });
   });
 
   it("uses a modal presentation in a narrow container and restores trigger focus on Escape", async () => {

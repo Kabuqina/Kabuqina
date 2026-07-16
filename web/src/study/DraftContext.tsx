@@ -6,6 +6,7 @@ import { STUDY_LEARNING_EVENT } from "./learningEvent";
 import { RequestCoordinator, type Loadable } from "./loadable";
 import { normalizeRepositoryError, StudyRepositoryError, type StudyArtifactDetail, type StudyDraftPage } from "./repository";
 import { useStudyRepository } from "./repositoryContext";
+import { useStudyIa } from "./StudyIaContext";
 
 type DraftAction = "activate" | "reject" | "archive" | "review";
 
@@ -42,6 +43,7 @@ function detailLoading(current: Loadable<StudyArtifactDetail> | undefined): Load
 
 export function StudyDraftProvider({ spaceId, children }: { spaceId: string; children: ReactNode }) {
   const repository = useStudyRepository();
+  const recordIa = useStudyIa();
   const listRequests = useRef(new RequestCoordinator());
   const loadMoreRequests = useRef(new RequestCoordinator());
   const detailRequests = useRef(new Map<string, RequestCoordinator>());
@@ -196,6 +198,7 @@ export function StudyDraftProvider({ spaceId, children }: { spaceId: string; chi
           delete next[artifactId];
           return next;
         });
+        if (action === "review") recordIa({ name: "study.draft.reviewed", action: "reviewed", success: true });
         window.dispatchEvent(new Event(STUDY_LEARNING_EVENT));
         return true;
       },
@@ -203,10 +206,11 @@ export function StudyDraftProvider({ spaceId, children }: { spaceId: string; chi
         if (!requests.isCurrent(request.generation) || currentSpaceId.current !== spaceId) return false;
         setActions((previous) => ({ ...previous, [artifactId]: undefined }));
         setActionErrors((previous) => ({ ...previous, [artifactId]: error }));
+        if (action === "review") recordIa({ name: "study.draft.reviewed", action: "reviewed", success: false });
         return false;
       },
     );
-  }, [actions, repository, spaceId]);
+  }, [actions, recordIa, repository, spaceId]);
 
   useEffect(() => {
     const activeListRequests = listRequests.current;

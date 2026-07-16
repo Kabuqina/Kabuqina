@@ -12,6 +12,8 @@ import type { StudyPracticeHome, StudyRepository } from "../repository";
 import { StudyRepositoryProvider } from "../repositoryContext";
 import { PracticePage } from "./PracticePage";
 import { StudyPageOutlet } from "./StudyPageOutlet";
+import { StudyIaProvider } from "../StudyIaContext";
+import type { StudyIaSink } from "../iaEvents";
 
 const card: StudyFlashcard = {
   item_id: "card-1", artifact_id: "deck-1", front: "Front side", back: "Back side",
@@ -29,6 +31,7 @@ const result: StudyQuizResult = {
 
 function repository(overrides: Partial<StudyRepository> = {}): StudyRepository {
   return {
+    seedBuiltinCourse: vi.fn().mockResolvedValue(false),
     listSpaces: vi.fn(), selectSpace: vi.fn(), listDrafts: vi.fn(),
     listDraftPage: vi.fn().mockResolvedValue({ items: [], total: 0, kindCounts: {}, returned: 0, limit: 50, offset: 0, truncated: false }),
     loadLearnHome: vi.fn().mockResolvedValue({ artifacts: [], knowledgePoints: [] }),
@@ -43,10 +46,10 @@ function repository(overrides: Partial<StudyRepository> = {}): StudyRepository {
   };
 }
 
-function renderPage(repo: StudyRepository, entry = "/study/space-b/practice", props: { onDirtyChange?: (dirty: boolean) => void; onNavigateAway?: (to: string) => void } = {}) {
+function renderPage(repo: StudyRepository, entry = "/study/space-b/practice", props: { onDirtyChange?: (dirty: boolean) => void; onNavigateAway?: (to: string) => void } = {}, sink: StudyIaSink = vi.fn()) {
   render(
     <I18nProvider><StudyRepositoryProvider repository={repo}>
-      <MemoryRouter initialEntries={[entry]}><StudyDraftProvider spaceId="space-b"><PracticePage spaceId="space-b" {...props} /></StudyDraftProvider></MemoryRouter>
+      <StudyIaProvider sink={sink}><MemoryRouter initialEntries={[entry]}><StudyDraftProvider spaceId="space-b"><PracticePage spaceId="space-b" {...props} /></StudyDraftProvider></MemoryRouter></StudyIaProvider>
     </StudyRepositoryProvider></I18nProvider>,
   );
 }
@@ -54,8 +57,9 @@ function renderPage(repo: StudyRepository, entry = "/study/space-b/practice", pr
 describe("PracticePage", () => {
   it("reviews a due card with focus-scoped keyboard shortcuts", async () => {
     const user = userEvent.setup();
+    const sink = vi.fn();
     const reviewFlashcard = vi.fn().mockResolvedValue({ ...card, grade: "good" });
-    renderPage(repository({ reviewFlashcard }));
+    renderPage(repository({ reviewFlashcard }), "/study/space-b/practice", {}, sink);
 
     await user.click(await screen.findByRole("button", { name: "开始复习" }));
     const surface = screen.getByText("Front side").closest("article");
@@ -70,6 +74,12 @@ describe("PracticePage", () => {
     await waitFor(() => expect(reviewFlashcard).toHaveBeenCalledWith(
       "space-b", "card-1", "good", expect.any(AbortSignal),
     ));
+    expect(sink).toHaveBeenCalledWith({
+      name: "study.review.start", page: "practice", action: "start", count_bucket: "one",
+    });
+    expect(sink).toHaveBeenCalledWith({
+      name: "study.review.complete", page: "practice", action: "complete", count_bucket: "one",
+    });
   });
 
   it("submits a normal quiz only through the URL-scoped repository", async () => {

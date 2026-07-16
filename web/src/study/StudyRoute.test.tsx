@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../lib/i18n";
 import type { StudyRepository } from "./repository";
 import { StudyRepositoryProvider } from "./repositoryContext";
-import StudyRoute from "./StudyRoute";
+import StudyRoute, { seedBuiltinCourseOnce } from "./StudyRoute";
 
 const spaces = {
   currentSpaceId: "space-a",
@@ -20,6 +20,7 @@ function Location() {
 
 function renderRoute(path: string, repositoryOverrides: Partial<StudyRepository> = {}) {
   const repository: StudyRepository = {
+    seedBuiltinCourse: vi.fn().mockResolvedValue(false),
     listSpaces: vi.fn().mockResolvedValue(spaces),
     selectSpace: vi.fn().mockResolvedValue(spaces),
     listDrafts: vi.fn().mockResolvedValue({ total: 0, kindCounts: {} }),
@@ -64,6 +65,27 @@ function deferred<T>() {
 }
 
 describe("StudyRoute", () => {
+  it("owns the idempotent built-in course bootstrap and refreshes after a fresh seed", async () => {
+    const seedBuiltinCourse = vi.fn().mockResolvedValue(true);
+    const repository = renderRoute("/study/space-a/learn", { seedBuiltinCourse });
+    await waitFor(() => expect(seedBuiltinCourse).toHaveBeenCalledWith(expect.any(AbortSignal)));
+    await waitFor(() => expect(repository.listSpaces).toHaveBeenCalledTimes(2));
+  });
+
+  it("fails open when built-in course bootstrap is unavailable", async () => {
+    renderRoute("/study/space-a/learn", { seedBuiltinCourse: vi.fn().mockRejectedValue(new Error("offline")) });
+    expect(await screen.findByRole("heading", { name: "学习" })).toBeInTheDocument();
+  });
+
+  it("does not repeat the bootstrap call for the same repository within a session", async () => {
+    const seedBuiltinCourse = vi.fn().mockResolvedValue(false);
+    const repository = { seedBuiltinCourse } as unknown as StudyRepository;
+    const signal = new AbortController().signal;
+    await expect(seedBuiltinCourseOnce(repository, signal)).resolves.toBe(false);
+    await expect(seedBuiltinCourseOnce(repository, signal)).resolves.toBe(false);
+    expect(seedBuiltinCourse).toHaveBeenCalledTimes(1);
+  });
+
   it("canonicalizes the root to the current flyleaf", async () => {
     renderRoute("/study");
     await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/study/space-a/flyleaf"));

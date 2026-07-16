@@ -7,16 +7,31 @@ import { describe, expect, it, vi } from "vitest";
 import { StudyDraftProvider, useStudyDrafts } from "./DraftContext";
 import { StudyRepositoryError, type StudyDraftPage, type StudyRepository } from "./repository";
 import { StudyRepositoryProvider } from "./repositoryContext";
+import { StudyIaProvider } from "./StudyIaContext";
 
 const empty: StudyDraftPage = { items: [], total: 0, kindCounts: {}, returned: 0, limit: 50, offset: 0, truncated: false };
 
 function Probe() {
   const drafts = useStudyDrafts();
   const data = drafts.snapshot.status === "ready" ? drafts.snapshot.data : drafts.snapshot.status === "loading" ? drafts.snapshot.previous : undefined;
-  return <><output data-testid="draft-items">{data?.items.map((item) => item.title).join(",") ?? "loading"}</output><output data-testid="draft-detail-cache">{drafts.details["draft-a"]?.status ?? "missing"}</output><button type="button" onClick={drafts.loadMore}>load more</button><button type="button" onClick={() => drafts.openDetail("draft-a")}>open detail</button><button type="button" onClick={() => { void drafts.activate("draft-a"); }}>activate</button></>;
+  return <><output data-testid="draft-items">{data?.items.map((item) => item.title).join(",") ?? "loading"}</output><output data-testid="draft-detail-cache">{drafts.details["draft-a"]?.status ?? "missing"}</output><button type="button" onClick={drafts.loadMore}>load more</button><button type="button" onClick={() => drafts.openDetail("draft-a")}>open detail</button><button type="button" onClick={() => { void drafts.activate("draft-a"); }}>activate</button><button type="button" onClick={() => { void drafts.review("draft-a"); }}>review</button></>;
 }
 
 describe("StudyDraftProvider", () => {
+  it("records semantic review settlement without artifact content or ids", async () => {
+    const user = userEvent.setup();
+    const sink = vi.fn();
+    const repository = {
+      listDraftPage: vi.fn().mockResolvedValue(empty),
+      runSemanticReview: vi.fn().mockResolvedValue("passed"),
+    } as unknown as StudyRepository;
+    render(<StudyRepositoryProvider repository={repository}><StudyIaProvider sink={sink}><StudyDraftProvider spaceId="space-a"><Probe /></StudyDraftProvider></StudyIaProvider></StudyRepositoryProvider>);
+
+    await user.click(screen.getByRole("button", { name: "review" }));
+    await waitFor(() => expect(sink).toHaveBeenCalledWith({ name: "study.draft.reviewed", action: "reviewed", success: true }));
+    expect(JSON.stringify(sink.mock.calls)).not.toContain("draft-a");
+  });
+
   it("aborts an older list refresh when a mutation requests a newer snapshot", async () => {
     const user = userEvent.setup();
     let resolveOld!: (page: StudyDraftPage) => void;

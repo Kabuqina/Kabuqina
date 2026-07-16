@@ -13,6 +13,8 @@ import type { StudyEvaluationSnapshot } from "../repository";
 import { useStudyRepository } from "../repositoryContext";
 import { studyPath } from "../routeModel";
 import { STUDY_LEARNING_EVENT } from "../learningEvent";
+import { studyIaCountBucket } from "../iaEvents";
+import { useStudyIa } from "../StudyIaContext";
 
 function retained<T>(state: Loadable<T>): T | undefined {
   if (state.status === "ready") return state.data;
@@ -55,7 +57,9 @@ function shortTime(value: string): string {
 export function EvaluatePage({ spaceId }: { spaceId: string }) {
   const { t } = useI18n();
   const repository = useStudyRepository();
+  const recordIa = useStudyIa();
   const heading = useRef<HTMLHeadingElement>(null);
+  const wrongbookOpenSpace = useRef<string | null>(null);
   const wrongbookRequests = useRef(new RequestCoordinator());
   const evaluationRequests = useRef(new RequestCoordinator());
   const activityRequests = useRef(new RequestCoordinator());
@@ -67,10 +71,36 @@ export function EvaluatePage({ spaceId }: { spaceId: string }) {
     const request = wrongbookRequests.current.begin();
     setWrongbook((current) => ({ status: "loading", ...(retained(current) ? { previous: retained(current) } : {}) }));
     void repository.loadWrongbook(spaceId, request.signal).then(
-      (data) => { if (wrongbookRequests.current.isCurrent(request.generation)) setWrongbook({ status: "ready", data }); },
-      (error) => { if (wrongbookRequests.current.isCurrent(request.generation)) setWrongbook((current) => ({ status: "error", error, ...(retained(current) ? { previous: retained(current) } : {}) })); },
+      (data) => {
+        if (!wrongbookRequests.current.isCurrent(request.generation)) return;
+        setWrongbook({ status: "ready", data });
+        if (wrongbookOpenSpace.current !== spaceId) {
+          wrongbookOpenSpace.current = spaceId;
+          recordIa({
+            name: "study.wrongbook.open",
+            page: "evaluate",
+            action: "open",
+            success: true,
+            count_bucket: studyIaCountBucket(data.evidence.length + data.weak_points.length),
+          });
+        }
+      },
+      (error) => {
+        if (!wrongbookRequests.current.isCurrent(request.generation)) return;
+        setWrongbook((current) => ({ status: "error", error, ...(retained(current) ? { previous: retained(current) } : {}) }));
+        if (wrongbookOpenSpace.current !== spaceId) {
+          wrongbookOpenSpace.current = spaceId;
+          recordIa({
+            name: "study.wrongbook.open",
+            page: "evaluate",
+            action: "open",
+            success: false,
+            count_bucket: "zero",
+          });
+        }
+      },
     );
-  }, [repository, spaceId]);
+  }, [recordIa, repository, spaceId]);
 
   const loadEvaluation = useCallback(() => {
     const request = evaluationRequests.current.begin();
@@ -128,7 +158,10 @@ export function EvaluatePage({ spaceId }: { spaceId: string }) {
                       <p>{item.weak_tags.join(" · ") || t("study.wrongbookNoTags")}</p>
                       <time dateTime={item.created_at}>{shortTime(item.created_at)}</time>
                     </div>
-                    <Link to={`${studyPath(spaceId, "practice")}?source=wrongbook&activityId=${encodeURIComponent(item.activity_id)}`}>
+                    <Link
+                      to={`${studyPath(spaceId, "practice")}?source=wrongbook&activityId=${encodeURIComponent(item.activity_id)}`}
+                      onClick={() => recordIa({ name: "study.wrongbook.retry", page: "evaluate", action: "retry" })}
+                    >
                       {t("study.wrongbookRetry")}
                     </Link>
                   </li>

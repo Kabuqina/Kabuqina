@@ -7,10 +7,8 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../lib/i18n";
 import {
-  STUDY_CONTEXT_STORAGE_KEY,
-  emptyStudyContext,
-  saveStudyContext,
-} from "../../chat/study/studyStore";
+  LEGACY_STUDY_CONTEXT_STORAGE_KEY,
+} from "../legacyStudyContextMigration";
 import type { StudyRepository } from "../repository";
 import { StudyRepositoryProvider } from "../repositoryContext";
 import { StudyDraftProvider } from "../DraftContext";
@@ -18,6 +16,7 @@ import { FlyleafPage } from "./FlyleafPage";
 
 function repository(overrides: Partial<StudyRepository> = {}): StudyRepository {
   return {
+    seedBuiltinCourse: vi.fn().mockResolvedValue(false),
     listSpaces: vi.fn(),
     selectSpace: vi.fn(),
     listDrafts: vi.fn(),
@@ -65,6 +64,10 @@ const active = {
 
 afterEach(() => window.localStorage.clear());
 
+function saveLegacyStudyContext(values: Record<string, string>) {
+  window.localStorage.setItem(LEGACY_STUDY_CONTEXT_STORAGE_KEY, JSON.stringify(values));
+}
+
 describe("FlyleafPage", () => {
   it("renders active ink and pencil draft without leaking weak points", async () => {
     const user = userEvent.setup();
@@ -97,7 +100,7 @@ describe("FlyleafPage", () => {
   });
 
   it("keeps legacy local storage when migration fails", async () => {
-    saveStudyContext({ ...emptyStudyContext(), course: "Legacy calculus" });
+    saveLegacyStudyContext({ course: "Legacy calculus" });
     const migrateLegacyContext = vi.fn().mockRejectedValue(new Error("offline"));
     renderPage(repository({ migrateLegacyContext }));
 
@@ -107,11 +110,11 @@ describe("FlyleafPage", () => {
       expect.objectContaining({ course: "Legacy calculus" }),
       expect.any(AbortSignal),
     );
-    expect(window.localStorage.getItem(STUDY_CONTEXT_STORAGE_KEY)).toContain("Legacy calculus");
+    expect(window.localStorage.getItem(LEGACY_STUDY_CONTEXT_STORAGE_KEY)).toContain("Legacy calculus");
   });
 
   it("migrates legacy context into the URL space and refreshes the active state", async () => {
-    saveStudyContext({ ...emptyStudyContext(), course: "Legacy physics" });
+    saveLegacyStudyContext({ course: "Legacy physics" });
     const migrateLegacyContext = vi.fn().mockResolvedValue(true);
     const loadFlyleaf = vi.fn()
       .mockResolvedValueOnce({ active: null })
@@ -122,6 +125,7 @@ describe("FlyleafPage", () => {
     expect(migrateLegacyContext).toHaveBeenCalledWith(
       "space-b", expect.objectContaining({ course: "Legacy physics" }), expect.any(AbortSignal),
     );
+    expect(window.localStorage.getItem(LEGACY_STUDY_CONTEXT_STORAGE_KEY)).toBeNull();
   });
 
   it("erases a pencil draft through the scoped artifact mutation", async () => {
