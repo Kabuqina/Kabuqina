@@ -65,7 +65,7 @@
 | 项 | 内容 | 归属 |
 |----|------|------|
 | T1 | 验证 learning.db 的 ACL 实际生效（四层 §8.2 的设计承诺→实现核查） | B-1 或独立小补丁 |
-| T2 | 遥测「只计数不引用」测试断言（扫描 usage_events 事件字段，不得含学习内容） | 随 H5 消费侧 |
+| T2 | 遥测「只计数不引用」测试断言（扫描实际 serialized event，不得含学习内容） | H5 + D-5 lifecycle IA |
 | T3 | 一键彻底删除 + 标准导出入口 | B-5（M6 高级菜单） |
 | T4 | source_refs 摘录的最小化上限持续执行（自洽不等于囤积） | 契约既有,回归守护 |
 
@@ -79,3 +79,10 @@
 `VACUUM`、最终 WAL truncate；回归测试关闭连接后扫描主库、`-wal` 与 `-shm`，
 确认私密 sentinel 不残留。标准导入严格校验空间状态及 current 标志；`source_refs`
 的数值字段必须有限且有界，拒绝 NaN/Infinity。
+
+**T2 完成记录（2026-07-16，pre-A-R3）：** H5 的 agent `UsageEvent` 与 D-5 的
+Web lifecycle IA 保持两个独立事件族。D-5 运行时 serializer 只接受八个批准名称及
+`page`、`action`、`success`、`count_bucket` 白名单字段；未知名称/字段、对象/数组、
+title/answer/id/source_refs/prompt sentinel 均被拒绝。生产 sink 默认关闭，只在本机
+累加有限枚举计数，不调用 Tauri/network；opt-out 清除 aggregate，sink throw/reject
+不影响学习操作。最终 release bundle 仍需在 A-R3 后复核 test sink 未进入产物。

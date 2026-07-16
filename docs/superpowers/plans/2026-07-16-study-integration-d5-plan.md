@@ -1,10 +1,32 @@
 # D-5 Implementation Plan — 集成观测、旧面退役与 WebView2 收口
 
 > 日期：2026-07-16
-> 状态：plan ready，implementation not started
+> 状态：pre-A-R3 frontend implementation complete；等待 rebase、release bundle 与 WebView2/升级组合轮
 > 起始基线：`codex/study-d4@fcc21cab`
 > 工作分支：`codex/study-d5`
 > 正式依赖：D-2、D-3、D-4 已完成；最终集成轮还需等待 A-R3 收口
+
+## 0. Pre-A-R3 实施记录（2026-07-16）
+
+- Transport Gate 选择 §5.4 方案 1：typed/injected sink + 本机 coarse aggregate；
+  Settings 明示 opt-in，默认关闭，不新增 Tauri/network endpoint。关闭时清除本机计数，
+  sink throw/reject 均 fail-open。IA 与 H5 `UsageEvent` 无 import/transport 依赖。
+- 开工基线在独立 worktree 记录为 Web components `19 files / 80 tests`；lint 与
+  production build 沿用 D4 review 的通过状态。D5 未接触 dirty main/A-R3 index。
+- 当前 Web 自动门：components `21 files / 95 tests`（page-view 用例在 StrictMode 下运行，
+  并覆盖 learning-event revalidate 去重）、chat UX、capture-index、knowledge-points、
+  ESLint、`tsc --noEmit` 与 Vite production build 通过。
+- manifest chunk 审计通过：initial `1,698,439 raw / 491,140 gzip` bytes；StudyRoute own
+  `77,558 raw / 18,366 gzip` bytes。StudyRoute 仍是 dynamic entry，CodeMirror/KaTeX 未
+  进入其基础 graph；未提高 warning limit。
+- legacy flashcard/quiz migration 的成功、幂等、capture 去重、failure export/status
+  证据共 `5 passed`。死 Web stores/helpers 已物理删除；Python migration diagnostics、
+  failure export 与 rollback API 保留。
+- context 尚未满足完整升级发布周期门，因此没有删除兼容读取；它已收窄为独立
+  `legacyStudyContextMigration.ts` one-shot adapter。失败时旧 key 字节不变，只有后端
+  确认后才清除 key。最终 pre-D5 升级样本仍必须在 A-R3 release bundle 上复核。
+- 尚未完成且不得提前宣告：A-R3 后 rebase/冲突审计、full release bundle/import
+  verifier、Windows WebView2/老版本升级矩阵、最终 Rust 与全 Python 回归、稳定窗口。
 
 ## 1. 目标
 
@@ -168,8 +190,8 @@ D-5 实现事件生产前必须在 plan/progress 中明确选择并记录以下�
 
 - [x] 从 `codex/study-d4@fcc21cab` 创建 `codex/study-d5` 独立 worktree；
 - [ ] 记录 D-5 开工时 D4 full Web/Python/Rust/size 基线，不复用口头结果；
-- [ ] 记录 A-R3 overlap 清单，禁止从 dirty main 复制整文件；
-- [ ] 在 A-R3 合入前不把 D-5 合回 main；D-5 不修改 A-R3 工作树/index；
+- [x] 记录 A-R3 overlap 清单，禁止从 dirty main 复制整文件；
+- [x] 在 A-R3 合入前不把 D-5 合回 main；D-5 不修改 A-R3 工作树/index；
 - [ ] A-R3 + D4 进入 main 后 rebase D-5，并重做 diff/contract audit。
 
 ### Task 1: 先写 IA schema 与 T2 失败测试
@@ -182,77 +204,76 @@ D-5 实现事件生产前必须在 plan/progress 中明确选择并记录以下�
 
 测试先证明：
 
-- [ ] 未知 event name、未知字段、自由文本、对象/数组 payload 被拒绝；
-- [ ] event builder 只能产出 page/action/success/count_bucket；
-- [ ] sentinel title/answer/source_ref/id 即使传入上层对象也不会进入 serialized event；
-- [ ] disabled/no sink 时为同步 no-op，不产生 invoke/fetch；
-- [ ] sink reject/throw 不改变 route/mutation 结果；
-- [ ] H5 `UsageEvent` 测试不因 D-5 schema 改动，两个事件族没有 import 依赖。
+- [x] 未知 event name、未知字段、自由文本、对象/数组 payload 被拒绝；
+- [x] event builder 只能产出 page/action/success/count_bucket；
+- [x] sentinel title/answer/source_ref/id 即使传入上层对象也不会进入 serialized event；
+- [x] disabled/no sink 时为同步 no-op，不产生 invoke/fetch；
+- [x] sink reject/throw 不改变 route/mutation 结果；
+- [x] H5 `UsageEvent` 测试不因 D-5 schema 改动，两个事件族没有 import 依赖。
 
 ### Task 2: 落地 transport boundary
 
-- [ ] 先关闭 §5.4 Transport Gate，再写 production adapter；
-- [ ] opt-in/default-off 必须由单一可信设置读取，不能由页面各自猜测；
-- [ ] 本机 aggregate/queue（若采用）只存 event enum、允许字段和 bounded count；
-- [ ] 关闭采集后停止新事件，并按 owner 已确认的 retention/erase 语义处理旧队列；
-- [ ] adapter 不读取 learning repository，不接收完整 domain object；
-- [ ] 失败仅 debug 记录固定错误类别，不记录 payload 或学习内容。
+- [x] 先关闭 §5.4 Transport Gate，再写 production adapter；
+- [x] opt-in/default-off 必须由单一可信设置读取，不能由页面各自猜测；
+- [x] 本机 aggregate/queue（若采用）只存 event enum、允许字段和 bounded count；
+- [x] 关闭采集后停止新事件，并按 owner 已确认的 retention/erase 语义处理旧队列；
+- [x] adapter 不读取 learning repository，不接收完整 domain object；
+- [x] 失败不记录 payload 或学习内容（当前实现完全静默 fail-open）。
 
 ### Task 3: 在权威调用点接 IA 事件
 
-- [ ] `StudyRoute`：canonical `study.page.view`，redirect/reload 去重；
-- [ ] `StudyShell`：space switch success/failure；
-- [ ] `PlanPage`：显式 resume click；
-- [ ] `EvaluatePage`：wrongbook settle/open 与 retry click；
-- [ ] `PracticePage`：due review start 与最后一次成功 complete；
-- [ ] `DraftContext`：semantic review settle，只在共享 controller 发一次；
-- [ ] component tests 使用 fake sink 精确断言次数和 payload；
-- [ ] StrictMode/remount、请求重试、learning event revalidate 不重复计数。
+- [x] `StudyRoute`/`StudyShell`：canonical `study.page.view`，redirect/reload 去重；
+- [x] `StudyShell`：space switch success/failure；
+- [x] `PlanPage`：显式 resume click；
+- [x] `EvaluatePage`：wrongbook settle/open 与 retry click；
+- [x] `PracticePage`：due review start 与最后一次成功 complete；
+- [x] `DraftContext`：semantic review settle，只在共享 controller 发一次；
+- [x] component tests 使用 fake sink 精确断言次数和 payload；
+- [x] StrictMode/remount、请求重试、learning event revalidate 不重复计数。
 
 ### Task 4: 退役聊天侧栏重复面
 
-- [ ] 先把 `cmdStudyMigrateBuiltinCourse` 的 idempotent seed 移到一等 Study
+- [x] 先把 `cmdStudyMigrateBuiltinCourse` 的 idempotent seed 移到一等 Study
   bootstrap，并覆盖首次成功、失败降级、重复 mount 不重复副作用；
-- [ ] `WorkspacePanel` 保留一个 `<OpenStudyLink />`，移除 `<StudySection />`；
-- [ ] 删除 `StudySection.tsx`、重复 `OpenPracticeCard` 和只为过渡 quick action
+- [x] `WorkspacePanel` 保留一个 `<OpenStudyLink />`，移除 `<StudySection />`；
+- [x] 删除 `StudySection.tsx`、重复 `OpenPracticeCard` 和只为过渡 quick action
   服务的 prompt/i18n/test 代码（仅在 `rg` 证明无调用后）；
-- [ ] 保留 `KnowledgePointChips` capture + force refresh，它不是重复页面 mutation；
-- [ ] `/study` 各页保留 `/chat` Ask Nana/逃生门，且不会把内容塞进 URL；
-- [ ] 更新 `chatUx.test.mjs`：断言只有一个 STUDY 入口、无 legacy profile/practice
+- [x] 保留 `KnowledgePointChips` capture + force refresh，它不是重复页面 mutation；
+- [x] `/study` 各页保留 `/chat` Ask Nana/逃生门，且不会把内容塞进 URL；
+- [x] 更新 `chatUx.test.mjs`：断言只有一个 STUDY 入口、无 legacy profile/practice
   surface、无 Study repository mutation 从聊天侧栏发起。
 
 ### Task 5: legacy localStorage 迁移与物理删除门
 
-- [ ] 清点并分类 `studyStore.ts`、`flashcardStore.ts`、`quizStore.ts`、两个
+- [x] 清点并分类 `studyStore.ts`、`flashcardStore.ts`、`quizStore.ts`、两个
   `*LearningStore.ts` 的所有生产/测试调用者；
 - [ ] 用一次性旧版本 profile 构造 context/deck/quiz 三类样本，先导出/备份；
-- [ ] 证明成功迁移幂等、跨本归属明确、失败时旧 key 原样保留、failure export 可用；
-- [ ] 证明升级/重启后不会重复创建 artifact/card/quiz；
-- [ ] 已无生产调用的 flashcard/quiz store 与 migration helper 物理删除，类型移到真实
+- [x] 证明成功迁移幂等、跨本归属明确、失败时旧 key 原样保留、failure export 可用；
+- [x] 证明重复调用不会重复创建 artifact/card/quiz；
+- [x] 已无生产调用的 flashcard/quiz store 与 migration helper 物理删除，类型移到真实
   API contract 或一并删除，不为测试保留死生产代码；
 - [ ] context migration 若满足“一发布周期 + rollback evidence”，删除
   `FlyleafPage` Web read 和 `studyStore.ts`；成功升级样本的旧 key 只在确认迁移后清除；
-- [ ] 若周期门未满足，把读取收窄到独立 one-shot compat migrator，删除日常 UI/prompt
+- [x] 若周期门未满足，把读取收窄到独立 one-shot compat migrator，删除日常 UI/prompt
   读取，并在 master plan 明记 deferred physical deletion；不得提前清 key；
-- [ ] 后端 migration diagnostics/export 保留，除非独立证明已无 rollback 价值。
+- [x] 后端 migration diagnostics/export 保留，除非独立证明已无 rollback 价值。
 
 ### Task 6: 自动集成、隐私、a11y 与体积门
 
 Web：
 
-- [ ] IA pure/component tests、Study route/shell/pages、DraftContext、legacy retirement；
-- [ ] `test:components`、`test:chat-ux`、capture-index、study stores（剩余者）、lint；
-- [ ] `tsc --noEmit` + production build + `inspect-study-chunks.mjs`；
-- [ ] `/chat` initial graph 不引入 StudyRoute/CodeMirror/KaTeX/IA test sink；
-- [ ] 删除旧面后 route chunk 与 initial gzip 变化有记录，不能只提高 warning limit；
+- [x] IA pure/component tests、Study route/shell/pages、DraftContext、legacy retirement；
+- [x] `test:components`、`test:chat-ux`、capture-index、knowledge-points、lint；
+- [x] `tsc --noEmit` + production build + `inspect-study-chunks.mjs`；
+- [x] `/chat` initial graph 不引入 StudyRoute/CodeMirror/KaTeX/IA test sink；
+- [x] 删除旧面后 route chunk 与 initial gzip 变化有记录，不能只提高 warning limit；
 - [ ] heading focus、dialog trap/return、Escape、aria-current、纯键盘、200% zoom、
   reduced motion、离开未提交练习确认仍有组件级回归。
 
 Python/core/Rust：
 
-- [ ] 只运行 D-5 实际触及边界的 focused tests；若新增 Tauri telemetry command，
-  覆盖 allowlist/size/unknown-field/default-off/fail-open；
-- [ ] B-0/T2 测试扫描实际 serialized events，而不是只扫描 TypeScript type；
+- [x] 只运行 D-5 实际触及边界的 focused tests；未新增 Tauri telemetry command；
+- [x] B-0/T2 测试扫描实际 serialized events，而不是只扫描 TypeScript type；
 - [ ] M4/M5/M6、migration、owner isolation、secure delete/source_refs 回归；
 - [ ] relevant `cargo test` / `cargo check`；A-R3 rebase 后重跑 bundle import verifier。
 
@@ -301,9 +322,9 @@ Python/core/Rust：
 
 ### Task 9: 文档、发布门与收口
 
-- [ ] 更新 master plan D-5 completion record、`DECISIONS.md` 的 IA transport/retention
+- [x] 更新 master plan D-5 pre-A-R3 record、`DECISIONS.md` 的 IA transport/retention
   决策、学习数据宪章 T2 完成记录；
-- [ ] 更新 QA/release checklist：Study route、WebView2 matrix、旧版本升级、telemetry
+- [x] 更新 QA/release checklist：Study route、WebView2 matrix、旧版本升级、telemetry
   default-off/opt-out、fixture safety；
 - [ ] 记录最终测试数字、bundle/chunk raw+gzip、已知降级与 deferred cleanup；
 - [ ] `git diff --check`、工作树 clean、review 通过后才允许 D-5 合入 main；

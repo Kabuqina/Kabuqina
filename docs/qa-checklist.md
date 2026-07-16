@@ -124,6 +124,32 @@ Run this whole checklist on **both** OS images before tagging a release. Ideally
 - [ ] **Start gateway** — remains running ≥10s (no immediate exit **1**); if instant failure, verify **`embeddedGatewayStartupSurvival`** hint and **`python/build_bundle.ps1`** ([troubleshooting §12](troubleshooting.md))
 - [ ] Send a test message on that platform → assistant responds using configured LLM
 
+## M. Study notebook (D-5, v0.4.0+)
+
+Use a disposable owner/fixture. Export a recoverable backup before upgrade or delete tests;
+never run destructive smoke against the tester's real learning history.
+
+- [ ] `/study` canonicalizes root and space-only URLs to Flyleaf; direct links to Flyleaf,
+  Plan, Learn, Evaluate, and Practice survive restart and keep the URL-selected course.
+- [ ] With two courses, switch spaces and verify plan/drafts/detail/source audit/wrongbook/
+  practice never show the other course's title, body, ids, or counts.
+- [ ] Exercise the five lifecycle pages: plan resume/complete/skip; M5 content and draft
+  lifecycle; wrongbook retry; card review; quiz/code/derivation practice; draft semantic review.
+- [ ] Verify heading focus, `aria-current`, dialog focus trap/return, Escape, pure keyboard,
+  dirty-practice leave confirmation, 200% zoom, reduced motion, light/dark, and zh/en at
+  narrow, medium, and wide window sizes.
+- [ ] Settings → Study improvement counts starts **off**. With it off, use Study and confirm
+  no `kabuqina.telemetry.study-ia.aggregate.v1` value appears. Enable it and confirm stored
+  evidence contains only approved event/page/action/success/count buckets—never fixture
+  title/question/answer/id/source/URL. Disable it and confirm the aggregate is erased.
+- [ ] Start with pre-D5 profile/flashcard/quiz localStorage fixtures. Confirm successful
+  migration is idempotent across restart, failed profile migration preserves the old key,
+  and migration failure/status export remains available.
+- [ ] Confirm `/chat` STUDY mode has one notebook entry and no second profile/practice/draft
+  mutation surface; knowledge-point chips still capture and explicitly retry refresh.
+- [ ] Repeat the upgrade with A-R3's legacy app-data/config/credential names present; Study
+  migration and persistence rename must both complete without overwriting each other.
+
 ---
 
 ## Sign-off

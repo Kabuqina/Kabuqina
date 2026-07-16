@@ -75,6 +75,19 @@ Splash 路由逻辑见 `web/src/Splash.tsx`：有密钥或允许「稍后配置�
 - [ ] 「应用和功能」**卸载** 成功；**重装**后应用可启动
 - [ ] 若面向老用户：**从上一版升级**（覆盖安装），快捷方式与数据目录行为符合预期
 
+### 6.5 Study notebook / D-5
+
+- [ ] 使用一次性 owner/fixture；破坏性测试前已导出可恢复备份，未使用真实学习数据
+- [ ] `/study` 五个生命周期页面、两个课程隔离、deep link、草稿治理、错题重试与练习在
+  **release WebView2 bundle** 中通过（不能用 Vite dev 代替）
+- [ ] 窄/中/宽、亮/暗、中英、纯键盘、200% 缩放、reduced motion、offline 与 desk child
+  restart 组合轮通过
+- [ ] 学习功能改进计数默认关闭；开启后只有批准的 enum/coarse count，关闭后本机 aggregate
+  被清除；fixture title/question/answer/id/source_refs/URL 不出现在序列化事件或产物中
+- [ ] pre-D5 profile/flashcard/quiz 样本升级成功/失败/重启/幂等均通过；失败样本旧 key 保留，
+  migration diagnostics/failure export 可恢复
+- [ ] A-R3 persistence rename 与 D-5 Study migration 在同一份旧版 app-data 副本上同时通过
+
 ---
 
 ## 7. Shell 与 desk API
