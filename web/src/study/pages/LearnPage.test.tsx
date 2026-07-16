@@ -1,7 +1,7 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -24,7 +24,13 @@ const detail = {
 
 function DetailCacheProbe({ artifactId }: { artifactId: string }) {
   const drafts = useStudyDrafts();
-  return <output data-testid="detail-cache">{drafts.details[artifactId]?.status ?? "missing"}</output>;
+  const cached = drafts.details[artifactId];
+  return <output
+    data-testid="detail-cache"
+    data-has-data={String(Boolean(cached && "data" in cached))}
+    data-has-previous={String(Boolean(cached && "previous" in cached))}
+    data-has-envelope={String(JSON.stringify(cached ?? {}).includes("\"envelope\""))}
+  >{cached?.status ?? "missing"}</output>;
 }
 
 describe("LearnPage", () => {
@@ -94,16 +100,18 @@ describe("LearnPage", () => {
 
   it("refreshes active summaries and removes stale raw data after an audit 404", async () => {
     const user = userEvent.setup();
+    let resolveSummaryRefresh!: (home: { artifacts: []; knowledgePoints: [] }) => void;
     const loadLearnHome = vi.fn()
       .mockResolvedValueOnce({
         artifacts: [{ artifact_id: "knowledge-1", kind: "knowledge_base", title: "Active knowledge", status: "active" }],
         knowledgePoints: [],
       })
-      .mockResolvedValue({ artifacts: [], knowledgePoints: [] });
+      .mockImplementationOnce(() => new Promise<{ artifacts: []; knowledgePoints: [] }>((resolve) => { resolveSummaryRefresh = resolve; }));
+    const loadArtifactDetail = vi.fn().mockResolvedValue(detail);
     const repository = {
       listDraftPage: vi.fn().mockResolvedValue(emptyDrafts),
       loadLearnHome,
-      loadArtifactDetail: vi.fn().mockResolvedValue(detail),
+      loadArtifactDetail,
       loadSourceAudit: vi.fn().mockRejectedValue(new StudyRepositoryError("not-found")),
     } as unknown as StudyRepository;
     render(
@@ -121,7 +129,15 @@ describe("LearnPage", () => {
 
     await waitFor(() => expect(loadLearnHome).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(screen.queryByText(/"Immediate concept"/)).not.toBeInTheDocument());
-    expect(screen.getByTestId("detail-cache")).toHaveTextContent("missing");
-    expect(screen.queryByRole("button", { name: "Active knowledge" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Active knowledge" })).toBeInTheDocument();
+    expect(screen.getByTestId("detail-cache")).toHaveTextContent("error");
+    expect(screen.getByTestId("detail-cache")).toHaveAttribute("data-has-data", "false");
+    expect(screen.getByTestId("detail-cache")).toHaveAttribute("data-has-previous", "false");
+    expect(screen.getByTestId("detail-cache")).toHaveAttribute("data-has-envelope", "false");
+    expect(loadArtifactDetail).toHaveBeenCalledOnce();
+
+    await act(async () => resolveSummaryRefresh({ artifacts: [], knowledgePoints: [] }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Active knowledge" })).not.toBeInTheDocument());
+    expect(loadArtifactDetail).toHaveBeenCalledOnce();
   });
 });

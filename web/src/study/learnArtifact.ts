@@ -86,4 +86,3 @@ export function parseLearnArtifact(detail: StudyArtifactDetail): LearnArtifactCo
     nextSteps: textList(content.next_steps),
   };
 }
-

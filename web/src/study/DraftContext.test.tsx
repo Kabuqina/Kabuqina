@@ -73,8 +73,9 @@ describe("StudyDraftProvider", () => {
     expect(screen.queryByText("STALE PAGE")).not.toBeInTheDocument();
   });
 
-  it("refreshes summaries once when artifact detail returns not-found", async () => {
+  it("keeps a body-free tombstone while summaries refresh after detail returns not-found", async () => {
     const user = userEvent.setup();
+    let resolveRefresh!: (page: StudyDraftPage) => void;
     const firstPage = {
       ...empty,
       items: [{ artifact_id: "draft-a", kind: "quiz", title: "Stale draft", status: "draft" }],
@@ -83,7 +84,7 @@ describe("StudyDraftProvider", () => {
     };
     const listDraftPage = vi.fn()
       .mockResolvedValueOnce(firstPage)
-      .mockResolvedValue(empty);
+      .mockImplementationOnce(() => new Promise<StudyDraftPage>((resolve) => { resolveRefresh = resolve; }));
     const loadArtifactDetail = vi.fn().mockRejectedValue(new StudyRepositoryError("not-found"));
     const repository = { listDraftPage, loadArtifactDetail } as unknown as StudyRepository;
     render(<StudyRepositoryProvider repository={repository}><StudyDraftProvider spaceId="space-a"><Probe /></StudyDraftProvider></StudyRepositoryProvider>);
@@ -91,8 +92,12 @@ describe("StudyDraftProvider", () => {
     expect(await screen.findByText("Stale draft")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "open detail" }));
     await waitFor(() => expect(listDraftPage).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(screen.queryByText("Stale draft")).not.toBeInTheDocument());
-    expect(screen.getByTestId("draft-detail-cache")).toHaveTextContent("missing");
+    await waitFor(() => expect(screen.getByTestId("draft-detail-cache")).toHaveTextContent("error"));
+    expect(screen.getByText("Stale draft")).toBeInTheDocument();
     expect(loadArtifactDetail).toHaveBeenCalledOnce();
+
+    await act(async () => resolveRefresh(empty));
+    await waitFor(() => expect(screen.queryByText("Stale draft")).not.toBeInTheDocument());
+    expect(screen.getByTestId("draft-detail-cache")).toHaveTextContent("error");
   });
 });

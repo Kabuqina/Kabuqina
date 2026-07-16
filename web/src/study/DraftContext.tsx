@@ -4,7 +4,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { STUDY_LEARNING_EVENT } from "./learningEvent";
 import { RequestCoordinator, type Loadable } from "./loadable";
-import { normalizeRepositoryError, type StudyArtifactDetail, type StudyDraftPage } from "./repository";
+import { normalizeRepositoryError, StudyRepositoryError, type StudyArtifactDetail, type StudyDraftPage } from "./repository";
 import { useStudyRepository } from "./repositoryContext";
 
 type DraftAction = "activate" | "reject" | "archive" | "review";
@@ -114,11 +114,13 @@ export function StudyDraftProvider({ spaceId, children }: { spaceId: string; chi
     detailRequests.current.delete(artifactId);
     actionRequests.current.get(artifactId)?.cancel();
     actionRequests.current.delete(artifactId);
-    setDetails((previous) => {
-      const next = { ...previous };
-      delete next[artifactId];
-      return next;
-    });
+    // Keep a body-free tombstone until the stale summary disappears. Automatic
+    // detail effects will not retry an error entry, while explicit retries can
+    // still pass force: true.
+    setDetails((previous) => ({
+      ...previous,
+      [artifactId]: { status: "error", error: new StudyRepositoryError("not-found") },
+    }));
     setActions((previous) => {
       const next = { ...previous };
       delete next[artifactId];
