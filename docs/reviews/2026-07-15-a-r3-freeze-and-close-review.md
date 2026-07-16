@@ -3,8 +3,8 @@
 > **日期：** 2026-07-15
 > **基线：** `dce4159a`
 > **依据：** `docs/reviews/2026-07-15-a-r3-midterm-review.md`
-> **状态：** MR-001 至 MR-005 已关闭；V7 已通过；V8 未执行；不得提交、合并、
-> 推送或宣布 A-R3 完成。
+> **状态：** MR-001 至 MR-005 已关闭；V7、V8 均已通过；A-R3 可进入最终
+> diff/index 复核与提交。合并和推送仍需 owner 明确执行。
 
 ## 1. MR 关闭说明
 
@@ -291,13 +291,28 @@ voice 全文件 `60 passed`，base/SSH/voice 组合 `92 passed, 11 skipped`。
 最终受控全量：`15355 passed, 170 skipped, 199 warnings in 1975.99s
 (0:32:55)`，exit 0，零 failed、零 error。全程固定 2 workers、独占运行。
 
-### V8 — 未执行，不得登记为通过
+### V8 — 通过（2026-07-16）
 
-V8 必须由 owner 使用备份/专用测试 data dir 与专用测试 credential 执行升级轮。
-当前没有 V8 checklist 结果或截图，因此 A-R3 仍为 NO-GO 于最终提交、合并、推送
-和完成声明。
+owner 使用备份、专用测试 data dir 和唯一测试 provider/account
+`kabuqina-v8-owner-20260716` 完成安装态升级轮；测试 secret 为合成值，不是真实
+API key。升级轮覆盖并通过：
 
-## 6. 最终 index / porcelain 快照
+- old-only `hermes-home` 迁移，`state.db` / `learning.db` 标记保持可读；
+- both-exist 时 canonical `kabuqina-home` 胜出且 legacy 保持不变；
+- rename 失败时回退到 legacy home；
+- legacy credential 读取并 copy-forward 到 `Kabuqina` service；
+- canonical runtime imports / commands；
+- rebuilt NSIS 中 Settings > Model 的 clear-both 产品路径。
+
+clear-both 最终证据：当前与兼容 service 的两项合成凭据均返回 `NONE`，provider row
+已移除，Python child 从 PID `3908` 重启为 `15952`，日志中合成 secret 命中数为 `0`。
+UI 显示“凭据已清除，本机助手正在重启。”，重启后应用保持响应。测试前不存在的
+`settings.json` 已恢复为不存在，两项合成凭据均已清理。
+
+V8 详细本地证据：`.test-output/a-r3-v8/V8-RESULT.md`。因此 A-R3 的运行时验收门
+已解除，可进入最终 diff/index 复核与提交；本记录不授权自动 merge 或 push。
+
+## 6. V8 前冻结时 index / porcelain 快照
 
 最终 `git status --porcelain=v1` 为 `725` 条，全部在 index：
 
