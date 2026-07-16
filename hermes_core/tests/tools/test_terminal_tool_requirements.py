@@ -2,9 +2,27 @@
 
 import importlib
 
+import pytest
+
 from model_tools import get_tool_definitions
 
 terminal_tool_module = importlib.import_module("tools.terminal_tool")
+
+
+@pytest.fixture(autouse=True)
+def _clear_caches_for_imported_model_tools():
+    """Clear caches belonging to the exact module object imported above.
+
+    Some broad-suite tests deliberately reload ``model_tools``.  The root
+    fixture then clears the replacement module while this file still holds a
+    function from the original object.  Reach through that function's globals
+    so both memoization layers used by this test are reset deterministically.
+    """
+    module_globals = get_tool_definitions.__globals__
+    module_globals["_tool_defs_cache"].clear()
+    imported_registry = module_globals["registry"]
+    registry_globals = imported_registry.get_definitions.__globals__
+    registry_globals["invalidate_check_fn_cache"]()
 
 
 class TestTerminalRequirements:

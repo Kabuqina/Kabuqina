@@ -14,7 +14,7 @@ if _src not in sys.path:
     sys.path.insert(0, _src)
 
 from desktop_config import DesktopConfig, RuntimeMode, from_env
-from kabuqina_env import normalize
+from kabuqina_env import normalize, resolve_desktop_home
 
 
 class TestBoostrapModes(unittest.TestCase):
@@ -85,10 +85,50 @@ class TestBoostrapModes(unittest.TestCase):
             self.assertIsNone(cfg.approval_url)
             self.assertIsNone(cfg.bridge_secret)
 
-    def test_hermes_home_computed(self):
-        with patch.dict(os.environ, self._make_env()):
+    def test_kabuqina_home_computed(self):
+        with patch.dict(os.environ, self._make_env(), clear=True):
             cfg = from_env()
-            self.assertEqual(cfg.hermes_home, Path("/tmp/data") / "hermes-home")
+            self.assertEqual(cfg.kabuqina_home, Path("/tmp/data") / "kabuqina-home")
+            self.assertEqual(cfg.hermes_home, cfg.kabuqina_home)
+
+    def test_desktop_home_migrates_populated_legacy_directory(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temp:
+            data_dir = Path(temp)
+            legacy = data_dir / "hermes-home"
+            legacy.mkdir()
+            (legacy / "state.db").write_bytes(b"session-sample")
+            (legacy / "learning.db").write_bytes(b"learning-sample")
+
+            resolved = resolve_desktop_home(data_dir)
+
+            self.assertEqual(resolved, data_dir / "kabuqina-home")
+            self.assertFalse(legacy.exists())
+            self.assertEqual((resolved / "state.db").read_bytes(), b"session-sample")
+            self.assertEqual((resolved / "learning.db").read_bytes(), b"learning-sample")
+
+    def test_desktop_home_new_directory_wins_when_both_exist(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temp:
+            data_dir = Path(temp)
+            current = data_dir / "kabuqina-home"
+            legacy = data_dir / "hermes-home"
+            current.mkdir()
+            legacy.mkdir()
+            self.assertEqual(resolve_desktop_home(data_dir), current)
+            self.assertTrue(legacy.exists())
+
+    def test_desktop_home_falls_back_when_rename_fails(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temp:
+            data_dir = Path(temp)
+            legacy = data_dir / "hermes-home"
+            legacy.mkdir()
+            with patch.object(Path, "rename", side_effect=OSError("locked")):
+                self.assertEqual(resolve_desktop_home(data_dir), legacy)
 
     def test_missing_required_env_raises(self):
         with patch.dict(os.environ, {}, clear=True):

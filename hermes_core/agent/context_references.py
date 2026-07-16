@@ -19,7 +19,7 @@ REFERENCE_PATTERN = re.compile(
 )
 TRAILING_PUNCTUATION = ",.;!?"
 _SENSITIVE_HOME_DIRS = (".ssh", ".aws", ".gnupg", ".kube", ".docker", ".azure", ".config/gh")
-_SENSITIVE_HERMES_DIRS = (Path("skills") / ".hub",)
+_SENSITIVE_KABUQINA_DIRS = (Path("skills") / ".hub",)
 _SENSITIVE_HOME_FILES = (
     Path(".ssh") / "authorized_keys",
     Path(".ssh") / "id_rsa",
@@ -340,8 +340,8 @@ def _resolve_path(cwd: Path, target: str, *, allowed_root: Path | None = None) -
 
 
 def _ensure_reference_path_allowed(path: Path) -> None:
-    from hermes_constants import get_hermes_home
-    hermes_home = get_hermes_home().resolve()
+    from kabuqina_constants import get_kabuqina_home
+    kabuqina_home = get_kabuqina_home().resolve()
 
     homes = _sensitive_home_roots()
     blocked_exact = {
@@ -349,13 +349,13 @@ def _ensure_reference_path_allowed(path: Path) -> None:
         for home in homes
         for rel in _SENSITIVE_HOME_FILES
     }
-    blocked_exact.add(hermes_home / ".env")
+    blocked_exact.add(kabuqina_home / ".env")
     blocked_dirs = [
         home / rel
         for home in homes
         for rel in _SENSITIVE_HOME_DIRS
     ]
-    blocked_dirs.extend(hermes_home / rel for rel in _SENSITIVE_HERMES_DIRS)
+    blocked_dirs.extend(kabuqina_home / rel for rel in _SENSITIVE_KABUQINA_DIRS)
 
     if path in blocked_exact:
         raise ValueError("path is a sensitive credential file and cannot be attached")
@@ -365,7 +365,7 @@ def _ensure_reference_path_allowed(path: Path) -> None:
             path.relative_to(blocked_dir)
         except ValueError:
             continue
-        raise ValueError("path is a sensitive credential or internal Hermes path and cannot be attached")
+        raise ValueError("path is a sensitive credential or internal Kabuqina path and cannot be attached")
 
 
 def _sensitive_home_roots() -> list[Path]:

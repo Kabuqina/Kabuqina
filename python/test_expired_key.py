@@ -5,8 +5,8 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='repla
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 EXPIRED_KEY = "sk-0db8b09f9f1948bead92851c6f123dv3"
-HERMES_HOME = os.environ.get("HERMES_HOME", "")
-TOKEN_FILE = os.path.join(os.path.dirname(HERMES_HOME), "hermes_web_session_token.txt")
+KABUQINA_HOME = os.environ.get("KABUQINA_HOME", "")
+TOKEN_FILE = os.path.join(os.path.dirname(KABUQINA_HOME), "hermes_web_session_token.txt")
 PASS = "PASS"
 FAIL = "FAIL"
 
@@ -102,7 +102,7 @@ os.environ["OPENAI_API_KEY"] = EXPIRED_KEY
 
 try:
     from run_agent import AIAgent
-    from hermes_cli.config import load_config
+    from kabuqina_cli.config import load_config
     
     config = load_config()
     model = config.get("model", {}).get("model", "deepseek-chat")

@@ -3,7 +3,7 @@
 """Nous Portal runtime auth: device-code flow, token refresh, agent-key minting,
 pool snapshot, and SSL verification helpers.
 
-Extracted from hermes_cli.auth to keep the CLI facade thin.  hermes_cli.auth
+Extracted from kabuqina_cli.auth to keep the CLI facade thin.  kabuqina_cli.auth
 re-exports every public name so existing imports and test monkeypatches keep
 hitting the same objects.
 """
@@ -40,7 +40,7 @@ from providers.oauth_helpers import (
 )
 
 # Constants live in the zero-import leaf providers.auth_constants (NOT
-# hermes_cli.auth — importing the facade here would be a circular import, since
+# kabuqina_cli.auth — importing the facade here would be a circular import, since
 # the facade re-exports this module's functions).
 from providers.auth_constants import (
     ACCESS_TOKEN_REFRESH_SKEW_SECONDS,
@@ -232,22 +232,22 @@ def _refresh_access_token(
     # Detect the OAuth 2.1 "refresh token reuse" signal from the Nous portal
     # server and surface an actionable message.  This fires when an external
     # process (health-check script, monitoring tool, custom self-heal hook)
-    # called POST /api/oauth/token with Hermes's refresh_token without
+    # called POST /api/oauth/token with Kabuqina's refresh_token without
     # persisting the rotated token back to auth.json — the server then
-    # retires the original RT, Hermes's next refresh uses it, and the whole
+    # retires the original RT, Kabuqina's next refresh uses it, and the whole
     # session chain gets revoked as a token-theft signal (#15099).
     lowered = description.lower()
     if "reuse" in lowered or "reuse detected" in lowered:
         description = (
             "Nous Portal detected refresh-token reuse and revoked this session.\n"
             "This usually means an external process (monitoring script, "
-            "custom self-heal hook, or another Hermes install sharing "
-            "~/.hermes/auth.json) called POST /api/oauth/token with Hermes's "
+            "custom self-heal hook, or another Kabuqina install sharing "
+            "~/.kabuqina/auth.json) called POST /api/oauth/token with Kabuqina's "
             "refresh token without persisting the rotated token back.\n"
-            "Nous refresh tokens are single-use — only Hermes may call the "
-            "refresh endpoint. For health checks, use `hermes auth status` "
+            "Nous refresh tokens are single-use — only Kabuqina may call the "
+            "refresh endpoint. For health checks, use `kabuqina auth status` "
             "instead.\n"
-            "Re-authenticate with: hermes auth add nous"
+            "Re-authenticate with: kabuqina auth add nous"
         )
 
     raise AuthError(description, provider="nous", code=code, relogin_required=relogin)
@@ -322,7 +322,7 @@ def fetch_nous_models(
         model_id = item.get("id")
         if isinstance(model_id, str) and model_id.strip():
             mid = model_id.strip()
-            # Skip Hermes models — they're not reliable for agentic tool-calling
+            # Skip Kabuqina models — they're not reliable for agentic tool-calling
             if "hermes" in mid.lower():
                 continue
             model_ids.append(mid)
@@ -364,7 +364,7 @@ def resolve_nous_access_token(
 
         if not state:
             raise AuthError(
-                "Hermes is not logged into Nous Portal.",
+                "Kabuqina is not logged into Nous Portal.",
                 provider="nous",
                 relogin_required=True,
             )
@@ -531,7 +531,7 @@ def refresh_nous_oauth_from_state(
     return refresh_nous_oauth_pure(
         state.get("access_token", ""),
         state.get("refresh_token", ""),
-        state.get("client_id", "hermes-cli"),
+        state.get("client_id", "kabuqina-cli"),
         state.get("portal_base_url", DEFAULT_NOUS_PORTAL_URL),
         state.get("inference_base_url", DEFAULT_NOUS_INFERENCE_URL),
         token_type=state.get("token_type", "Bearer"),
@@ -567,7 +567,7 @@ def persist_nous_credentials(
       ``_seed_from_singletons()`` during pool load.
     - ``credential_pool.nous``: used by the runtime ``pool.select()`` path.
 
-    Historically ``hermes auth add nous`` wrote a ``manual:device_code`` pool
+    Historically ``kabuqina auth add nous`` wrote a ``manual:device_code`` pool
     entry only, skipping ``providers.nous``.  When the 24h agent_key TTL
     expired, the recovery path read the empty singleton state and raised
     ``AuthError`` silently (``logger.debug`` at INFO level).
@@ -578,7 +578,7 @@ def persist_nous_credentials(
     place; the pool never accumulates duplicate device_code rows.
 
     ``label`` is an optional user-chosen display name (from
-    ``hermes auth add nous --label <name>``).  It gets embedded in the
+    ``kabuqina auth add nous --label <name>``).  It gets embedded in the
     singleton state so that ``_seed_from_singletons`` uses it as the pool
     entry's label on every subsequent ``load_pool("nous")`` instead of the
     auto-derived token fingerprint.  When ``None``, the auto-derived label
@@ -631,7 +631,7 @@ def resolve_nous_runtime_credentials(
         state = _load_provider_state(auth_store, "nous")
 
         if not state:
-            raise AuthError("Hermes is not logged into Nous Portal.",
+            raise AuthError("Kabuqina is not logged into Nous Portal.",
                             provider="nous", relogin_required=True)
 
         portal_base_url = (

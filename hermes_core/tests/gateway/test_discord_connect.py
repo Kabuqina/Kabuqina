@@ -1,4 +1,5 @@
 import asyncio
+import os
 import sys
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
@@ -227,7 +228,11 @@ async def test_connect_does_not_wait_for_slash_sync(monkeypatch):
     monkeypatch.setattr(discord_platform.commands, "Bot", fake_bot_factory)
     monkeypatch.setattr(adapter, "_resolve_allowed_usernames", AsyncMock())
 
-    ok = await asyncio.wait_for(adapter.connect(), timeout=1.0)
+    # A fully loaded Windows xdist worker can spend more than a second merely
+    # scheduling the bot task.  Five seconds still proves connect does not wait
+    # for the deliberately slow (30 s) slash-command sync.
+    timeout = 5.0 if os.name == "nt" else 1.0
+    ok = await asyncio.wait_for(adapter.connect(), timeout=timeout)
 
     assert ok is True
     assert adapter._ready_event.is_set()

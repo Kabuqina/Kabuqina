@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from hermes_cli.config_defaults import DEFAULT_CONFIG
+from kabuqina_cli.config_defaults import DEFAULT_CONFIG
 
 
 PILOT_FIXTURE = Path(__file__).parent / "fixtures" / "goal_manifest_pilot"
@@ -33,16 +33,16 @@ class TestGoalLoopGateDefault:
         assert DEFAULT_CONFIG["cron"]["goal_loop"]["enabled"] is False
 
     def test_load_config_resolves_disabled_without_override(self):
-        from hermes_cli.config import load_config
+        from kabuqina_cli.config import load_config
 
         cfg = load_config()
 
         assert cfg["cron"]["goal_loop"]["enabled"] is False
 
     def test_gate_enables_per_profile_without_disturbing_cron_siblings(self):
-        from hermes_cli import config_loader
-        from hermes_cli.config import load_config
-        from hermes_constants import get_config_path
+        from kabuqina_cli import config_loader
+        from kabuqina_cli.config import load_config
+        from kabuqina_constants import get_config_path
 
         path = get_config_path()
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -61,8 +61,8 @@ class TestGoalLoopGateDefault:
 
     @pytest.mark.parametrize("value", ["false", "true", 1, 0])
     def test_runtime_gate_only_accepts_boolean_true(self, value, tmp_path):
-        from hermes_cli import config_loader
-        from hermes_constants import get_config_path
+        from kabuqina_cli import config_loader
+        from kabuqina_constants import get_config_path
         from cron.scheduler import _goal_loop_enabled
 
         path = get_config_path()
@@ -270,8 +270,8 @@ NOW = datetime(2026, 6, 27, 12, 0, tzinfo=timezone.utc)
 
 def _enable_goal_loop():
     import yaml
-    from hermes_cli import config_loader
-    from hermes_constants import get_config_path
+    from kabuqina_cli import config_loader
+    from kabuqina_constants import get_config_path
 
     path = get_config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -581,7 +581,7 @@ class TestCronjobToolGoalContract:
 
 def _make_due(job_ids):
     from cron.jobs import load_jobs, save_jobs
-    from hermes_time import now as _now
+    from kabuqina_time import now as _now
 
     past = (_now() - timedelta(minutes=1)).isoformat()
     jobs = load_jobs()

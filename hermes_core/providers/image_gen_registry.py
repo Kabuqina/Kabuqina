@@ -15,7 +15,7 @@ If unset, :func:`get_active_provider` applies fallback logic:
 2. Otherwise if a provider named ``fal`` is registered, use it (legacy
    default — matches pre-plugin behavior).
 3. Otherwise return ``None`` (the tool surfaces a helpful error pointing
-   the user at ``hermes tools``).
+   the user at ``kabuqina tools``).
 """
 
 from __future__ import annotations
@@ -80,7 +80,7 @@ def get_active_provider() -> Optional[ImageGenProvider]:
     """
     configured: Optional[str] = None
     try:
-        from hermes_cli.config import load_config
+        from kabuqina_cli.config import load_config
 
         cfg = load_config()
         section = cfg.get("image_gen") if isinstance(cfg, dict) else None

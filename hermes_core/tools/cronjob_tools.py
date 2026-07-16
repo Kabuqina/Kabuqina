@@ -1,5 +1,5 @@
 """
-Cron job management tools for Hermes Agent.
+Cron job management tools for Kabuqina.
 
 Expose a single compressed action-oriented tool to avoid schema/context bloat.
 Compatibility wrappers remain for direct Python callers and legacy tests.
@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from hermes_constants import display_hermes_home
+from kabuqina_constants import display_kabuqina_home
 
 logger = logging.getLogger(__name__)
 
@@ -120,7 +120,7 @@ def _resolve_model_override(model_obj: Optional[Dict[str, Any]]) -> tuple:
     """Resolve a model override object into (provider, model) for job storage.
 
     If provider is omitted, pins the current main provider from config so the
-    job doesn't drift when the user later changes their default via hermes model.
+    job doesn't drift when the user later changes their default via kabuqina model.
 
     Returns (provider_str_or_none, model_str_or_none).
     """
@@ -131,7 +131,7 @@ def _resolve_model_override(model_obj: Optional[Dict[str, Any]]) -> tuple:
     if model_name and not provider_name:
         # Pin to the current main provider so the job is stable
         try:
-            from hermes_cli.config import load_config
+            from kabuqina_cli.config import load_config
             cfg = load_config()
             model_cfg = cfg.get("model", {})
             if isinstance(model_cfg, dict):
@@ -183,23 +183,23 @@ def _validate_cron_script_path(script: Optional[str]) -> Optional[str]:
     if not script or not script.strip():
         return None  # empty/None = clearing the field, always OK
 
-    from hermes_constants import get_hermes_home
+    from kabuqina_constants import get_kabuqina_home
 
     raw = script.strip()
 
     # Reject absolute paths and ~ expansion at the API boundary.
-    # Only relative paths within ~/.hermes/scripts/ are allowed.
+    # Only relative paths within ~/.kabuqina/scripts/ are allowed.
     if raw.startswith(("/", "~")) or (len(raw) >= 2 and raw[1] == ":"):
         return (
-            f"Script path must be relative to ~/.hermes/scripts/. "
+            f"Script path must be relative to ~/.kabuqina/scripts/. "
             f"Got absolute or home-relative path: {raw!r}. "
-            f"Place scripts in ~/.hermes/scripts/ and use just the filename."
+            f"Place scripts in ~/.kabuqina/scripts/ and use just the filename."
         )
 
     # Validate containment after resolution
     from tools.path_security import validate_within_dir
 
-    scripts_dir = get_hermes_home() / "scripts"
+    scripts_dir = get_kabuqina_home() / "scripts"
     scripts_dir.mkdir(parents=True, exist_ok=True)
     containment_error = validate_within_dir(scripts_dir / raw, scripts_dir)
     if containment_error:
@@ -476,7 +476,7 @@ def cronjob(
             )
 
         if (job.get("mode") or "").strip().lower() == "goal":
-            from hermes_time import now as _hermes_now
+            from kabuqina_time import now as _kabuqina_now
             from cron.goal_controls import (
                 GoalControlBusy,
                 GoalControlNotFound,
@@ -489,11 +489,11 @@ def cronjob(
 
             try:
                 if normalized == "pause":
-                    state = pause_goal(job_id, now=_hermes_now())
+                    state = pause_goal(job_id, now=_kabuqina_now())
                 elif normalized == "resume":
-                    state = resume_goal(job_id, now=_hermes_now())
+                    state = resume_goal(job_id, now=_kabuqina_now())
                 elif normalized == "cancel":
-                    state = cancel_goal(job_id, now=_hermes_now())
+                    state = cancel_goal(job_id, now=_kabuqina_now())
                 elif normalized in {"delete", "remove"}:
                     deleted = delete_goal(job_id)
                     return json.dumps({"success": True, "deleted": bool(deleted), "job_id": job_id}, indent=2)
@@ -709,7 +709,7 @@ Important safety rule: cron-run sessions should not recursively schedule more cr
             },
             "script": {
                 "type": "string",
-                "description": f"Optional path to a Python script that runs before each cron job execution. Its stdout is injected into the prompt as context. Use for data collection and change detection. Relative paths resolve under {display_hermes_home()}/scripts/. On update, pass empty string to clear."
+                "description": f"Optional path to a Python script that runs before each cron job execution. Its stdout is injected into the prompt as context. Use for data collection and change detection. Relative paths resolve under {display_kabuqina_home()}/scripts/. On update, pass empty string to clear."
             },
             "context_from": {
                 "type": "array",

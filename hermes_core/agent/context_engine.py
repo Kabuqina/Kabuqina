@@ -126,7 +126,8 @@ class ContextEngine(ABC):
         """Called when a new conversation session begins.
 
         Use this to load persisted state (DAG, store) for the session.
-        kwargs may include hermes_home, platform, model, etc.
+        kwargs may include kabuqina_home, platform, model, etc. The legacy
+        hermes_home key remains available during the compatibility release.
         """
 
     def on_session_end(self, session_id: str, messages: List[Dict[str, Any]]) -> None:

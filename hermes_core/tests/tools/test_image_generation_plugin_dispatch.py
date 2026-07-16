@@ -37,9 +37,9 @@ class TestPluginDispatch:
     def test_dispatch_routes_to_sample_provider(self, monkeypatch, tmp_path):
         from tools import image_generation_tool
         from providers import image_gen_registry as registry_module
-        from hermes_cli import plugins as plugins_module
+        from kabuqina_cli import plugins as plugins_module
 
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("KABUQINA_HOME", str(tmp_path))
         (tmp_path / "config.yaml").write_text("image_gen:\n  provider: sample\n")
         image_gen_registry.register_provider(_FakeSampleProvider())
 
@@ -57,9 +57,9 @@ class TestPluginDispatch:
 
     def test_dispatch_reports_missing_registered_provider(self, monkeypatch, tmp_path):
         from tools import image_generation_tool
-        from hermes_cli import plugins as plugins_module
+        from kabuqina_cli import plugins as plugins_module
 
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("KABUQINA_HOME", str(tmp_path))
         (tmp_path / "config.yaml").write_text("image_gen:\n  provider: missing-sample\n")
 
         monkeypatch.setattr(image_generation_tool, "_read_configured_image_provider", lambda: "missing-sample")
@@ -74,10 +74,10 @@ class TestPluginDispatch:
 
     def test_dispatch_force_refreshes_plugins_when_provider_initially_missing(self, monkeypatch, tmp_path):
         from tools import image_generation_tool
-        from hermes_cli import plugins as plugins_module
+        from kabuqina_cli import plugins as plugins_module
         from providers import image_gen_registry as registry_module
 
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("KABUQINA_HOME", str(tmp_path))
         (tmp_path / "config.yaml").write_text("image_gen:\n  provider: sample\n")
 
         monkeypatch.setattr(image_generation_tool, "_read_configured_image_provider", lambda: "sample")

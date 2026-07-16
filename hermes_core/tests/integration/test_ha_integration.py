@@ -12,6 +12,7 @@ import asyncio
 import pytest
 
 pytestmark = pytest.mark.integration
+pytest.importorskip("aiohttp")
 
 from unittest.mock import AsyncMock
 

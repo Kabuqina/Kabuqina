@@ -1,4 +1,4 @@
-"""Tests for MiniMax OAuth provider (hermes_cli/auth.py).
+"""Tests for MiniMax OAuth provider (kabuqina_cli/auth.py).
 
 Covers:
 - PKCE pair generation (S256 challenge)
@@ -20,7 +20,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from hermes_cli.auth import (
+from kabuqina_cli.auth import (
     PROVIDER_REGISTRY,
     AuthError,
     MINIMAX_OAUTH_CLIENT_ID,
@@ -277,7 +277,7 @@ def test_poll_token_timeout_raises():
     pending_resp = _make_httpx_response(200, {"status": "pending"})
     client.post.return_value = pending_resp
 
-    import hermes_cli.auth as auth_module
+    import kabuqina_cli.auth as auth_module
     with patch.object(auth_module, "time") as mock_time_mod:
         # We need to patch the 'time' module used inside _minimax_poll_token
         # The function imports 'import time as _time' locally.
@@ -430,7 +430,7 @@ def test_provider_registry_contains_minimax_oauth():
 # ---------------------------------------------------------------------------
 
 def test_minimax_oauth_alias_resolves():
-    from hermes_cli.auth import resolve_provider
+    from kabuqina_cli.auth import resolve_provider
     # Only test that minimax-oauth itself resolves (alias resolution is tested in models)
     result = resolve_provider("minimax-oauth")
     assert result == "minimax-oauth"

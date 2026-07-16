@@ -283,7 +283,7 @@ class TestBuildApiKwargsNousPortal:
         messages = [{"role": "user", "content": "hi"}]
         kwargs = agent._build_api_kwargs(messages)
         extra = kwargs.get("extra_body", {})
-        assert extra.get("tags") == ["product=hermes-agent"]
+        assert extra.get("tags") == ["product=kabuqina-agent"]
 
     def test_uses_chat_completions_format(self, monkeypatch):
         agent = _make_agent(monkeypatch, "nous", base_url="https://inference-api.nousresearch.com/v1")
@@ -412,7 +412,7 @@ class TestAuxiliaryClientProviderPriority:
         monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
         from providers.chat_completions import get_text_auxiliary_client
         with patch("providers.chat_completions._read_nous_auth", return_value={"access_token": "nous-tok"}), \
-             patch("hermes_cli.models.get_nous_recommended_aux_model", return_value=None), \
+             patch("kabuqina_cli.models.get_nous_recommended_aux_model", return_value=None), \
              patch("providers.chat_completions.OpenAI") as mock:
             client, model = get_text_auxiliary_client()
         assert model == "google/gemini-3-flash-preview"

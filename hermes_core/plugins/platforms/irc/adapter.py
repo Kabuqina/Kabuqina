@@ -544,7 +544,7 @@ def interactive_setup() -> None:
     Lazy-imports retained CLI helpers so the plugin stays importable
     in non-CLI contexts (gateway runtime, tests).
     """
-    from hermes_cli.cli_output import (
+    from kabuqina_cli.cli_output import (
         prompt,
         prompt_yes_no,
         print_header,
@@ -552,7 +552,7 @@ def interactive_setup() -> None:
         print_warning,
         print_success,
     )
-    from hermes_cli.config import get_env_value, save_env_value
+    from kabuqina_cli.config import get_env_value, save_env_value
 
     print_header("IRC")
     existing_server = get_env_value("IRC_SERVER")
@@ -640,7 +640,7 @@ def interactive_setup() -> None:
             print_info("No nicks allowed — the bot will ignore all messages until you add nicks.")
 
     print()
-    print_success("IRC configuration saved to ~/.hermes/.env")
+    print_success("IRC configuration saved to ~/.kabuqina/.env")
     print_info("Restart the gateway for changes to take effect: hermes gateway restart")
 
 

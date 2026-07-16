@@ -291,8 +291,8 @@ def _resolve_profile_runtime(
     desktop bridge state; credentials are returned only to the in-process agent
     constructor and are never logged or persisted in Goal evidence.
     """
-    from hermes_cli.config import load_config
-    from hermes_cli.runtime_provider import resolve_runtime_provider
+    from kabuqina_cli.config import load_config
+    from kabuqina_cli.runtime_provider import resolve_runtime_provider
 
     config = load_config() or {}
     model_config = config.get("model") if isinstance(config, Mapping) else None

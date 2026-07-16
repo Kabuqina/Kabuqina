@@ -5,11 +5,11 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
-from hermes_constants import get_hermes_home
+from kabuqina_constants import get_kabuqina_home
 
 
 def get_camofox_state_dir() -> Path:
-    return get_hermes_home() / "browser_auth" / "camofox"
+    return get_kabuqina_home() / "browser_auth" / "camofox"
 
 
 def get_camofox_identity(task_id: str | None = None) -> dict[str, str]:

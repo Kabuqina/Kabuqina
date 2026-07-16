@@ -1,6 +1,6 @@
 # Copyright 2026 Kabuqina Contributors
 # SPDX-License-Identifier: Apache-2.0
-"""Auth-store persistence layer for ``~/.hermes/auth.json``.
+"""Auth-store persistence layer for ``~/.kabuqina/auth.json``.
 
 The provider-runtime-safe core of the credential store: file-path resolution,
 cross-process locking, load/save, per-provider state, the credential pool, and
@@ -8,8 +8,8 @@ source-suppression markers. It deliberately has **no** dependency on the CLI
 command surface or the provider registry, so provider runtime code can import
 it without pulling in argparse/printing wiring.
 
-``hermes_cli.auth`` re-exports every public name here for backward
-compatibility, so existing ``hermes_cli.auth.*`` imports and test monkeypatches
+``kabuqina_cli.auth`` re-exports every public name here for backward
+compatibility, so existing ``kabuqina_cli.auth.*`` imports and test monkeypatches
 keep hitting the same object.
 """
 
@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from hermes_cli.config import get_hermes_home
+from kabuqina_cli.config import get_kabuqina_home
 from utils import atomic_replace
 
 logger = logging.getLogger(__name__)
@@ -47,22 +47,25 @@ AUTH_LOCK_TIMEOUT_SECONDS = 15.0
 
 
 def _auth_file_path() -> Path:
-    path = get_hermes_home() / "auth.json"
-    # Seat belt: if pytest is running and HERMES_HOME resolves to the real
+    path = get_kabuqina_home() / "auth.json"
+    # Seat belt: if pytest resolves to a real current or legacy user store,
     # user's auth store, refuse rather than silently corrupt it. This catches
     # tests that forgot to monkeypatch HERMES_HOME, tests invoked without the
     # hermetic conftest, or sandbox escapes via threads/subprocesses. In
     # production (no PYTEST_CURRENT_TEST) this is a single dict lookup.
     if os.environ.get("PYTEST_CURRENT_TEST"):
-        real_home_auth = (Path.home() / ".hermes" / "auth.json").resolve(strict=False)
+        real_home_auth = {
+            (Path.home() / name / "auth.json").resolve(strict=False)
+            for name in (".kabuqina", ".hermes")
+        }
         try:
             resolved = path.resolve(strict=False)
         except Exception:
             resolved = path
-        if resolved == real_home_auth:
+        if resolved in real_home_auth:
             raise RuntimeError(
                 f"Refusing to touch real user auth store during test run: {path}. "
-                "Set HERMES_HOME to a tmp_path in your test fixture, or run "
+                "Set KABUQINA_HOME to a tmp_path in your test fixture, or run "
                 "via scripts/run_tests.sh for hermetic CI-parity env."
             )
     return path
@@ -307,7 +310,7 @@ def get_active_provider() -> Optional[str]:
 
 def clear_provider_auth(provider_id: Optional[str] = None) -> bool:
     """
-    Clear auth state for a provider. Used by `hermes logout`.
+    Clear auth state for a provider. Used by `kabuqina logout`.
     If provider_id is None, clears the active provider.
     Returns True if something was cleared.
     """

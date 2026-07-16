@@ -13,6 +13,11 @@ from pathlib import Path
 
 
 REQUIRED_IMPORTS = (
+    "kabuqina_constants",
+    "kabuqina_state",
+    "kabuqina_logging",
+    "kabuqina_time",
+    "kabuqina_cli.config",
     "desk_server",
     "desk_server.routes.study_routes",
     "desk_server.capabilities",
@@ -25,7 +30,7 @@ REQUIRED_IMPORTS = (
 def _add_runtime_paths(root: Path) -> None:
     for path in (
         root,
-        root / "hermes",
+        root / "kabuqina",
         root / "site-packages",
         root / "site-packages" / "win32",
         root / "site-packages" / "win32" / "lib",
@@ -37,11 +42,11 @@ def _add_runtime_paths(root: Path) -> None:
 
 def _seed_import_environment(root: Path) -> None:
     smoke_root = Path(tempfile.gettempdir()) / "kabuqina-runtime-import-smoke"
-    os.environ.setdefault("HERMESDESK_BUNDLE_DIR", str(root))
-    os.environ.setdefault("HERMESDESK_DATA_DIR", str(smoke_root / "data"))
-    os.environ.setdefault("HERMESDESK_WORKSPACE", str(smoke_root / "workspace"))
-    os.environ.setdefault("HERMES_HOME", str(smoke_root / "hermes-home"))
-    os.environ.setdefault("HERMESDESK_OVERLAY_LENIENT", "1")
+    os.environ.setdefault("KABUQINA_BUNDLE_DIR", str(root))
+    os.environ.setdefault("KABUQINA_DATA_DIR", str(smoke_root / "data"))
+    os.environ.setdefault("KABUQINA_WORKSPACE", str(smoke_root / "workspace"))
+    os.environ.setdefault("KABUQINA_HOME", str(smoke_root / "kabuqina-home"))
+    os.environ.setdefault("KABUQINA_OVERLAY_LENIENT", "1")
     os.environ.setdefault("PYTHONDONTWRITEBYTECODE", "1")
 
 

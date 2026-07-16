@@ -24,7 +24,7 @@ $HermesRoot = (Resolve-Path -LiteralPath $HermesRoot).ProviderPath
 $ErrorActionPreference = "Stop"
 
 if (-not (Test-Path $HermesRoot)) {
-    Write-Error "Hermes submodule not found at $HermesRoot. Run: git submodule update --init"
+    Write-Error "Kabuqina submodule not found at $HermesRoot. Run: git submodule update --init"
     exit 2
 }
 

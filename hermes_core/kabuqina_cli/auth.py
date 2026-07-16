@@ -1,0 +1,1404 @@
+"""
+Multi-provider authentication system for Kabuqina.
+
+Supports OAuth device code flows (Nous Portal) and
+traditional API key providers (OpenRouter, custom endpoints). Auth state
+is persisted in ~/.kabuqina/auth.json with cross-process file locking.
+
+Architecture:
+- ProviderConfig registry defines known OAuth providers
+- Auth store (auth.json) holds per-provider credential state
+- resolve_provider() picks the active provider via priority chain
+- resolve_*_runtime_credentials() handles token refresh and key minting
+- logout_command() is the CLI entry point for clearing auth
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import os
+import shutil
+import shlex
+import ssl
+import stat
+import sys
+import base64
+import hashlib
+import subprocess
+import threading
+import time
+import uuid
+import webbrowser
+from contextlib import contextmanager
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+from urllib.parse import parse_qs, urlencode, urlparse
+
+import httpx
+import yaml
+
+from kabuqina_cli.config import get_kabuqina_home, get_config_path, read_raw_config
+from kabuqina_constants import OPENROUTER_BASE_URL
+from utils import atomic_replace
+
+# Auth-store persistence primitives now live in providers.auth_store;
+# re-export them here so existing kabuqina_cli.auth.* imports and test
+# monkeypatches keep resolving to the same objects.
+from providers.auth_store import (  # noqa: E402,F401
+    _auth_file_path,
+    _auth_lock_holder,
+    _auth_lock_path,
+    AUTH_LOCK_TIMEOUT_SECONDS,
+    _auth_store_lock,
+    AUTH_STORE_VERSION,
+    clear_provider_auth,
+    deactivate_provider,
+    get_active_provider,
+    get_provider_auth_state,
+    is_source_suppressed,
+    _load_auth_store,
+    _load_provider_state,
+    read_credential_pool,
+    _save_auth_store,
+    _save_provider_state,
+    _store_provider_state,
+    suppress_credential_source,
+    unsuppress_credential_source,
+    write_credential_pool,
+)
+
+# API-key secret / base-URL helpers now live in providers.api_key_auth;
+# re-export them so existing kabuqina_cli.auth.* imports keep working.
+from providers.api_key_auth import (  # noqa: E402,F401
+    detect_zai_endpoint,
+    has_usable_secret,
+    KIMI_CODE_BASE_URL,
+    _PLACEHOLDER_SECRET_VALUES,
+    _resolve_api_key_provider_secret,
+    _resolve_kimi_base_url,
+    _resolve_zai_base_url,
+    ZAI_ENDPOINTS,
+)
+
+# Shared OAuth/JWT/timestamp helpers now live in providers.oauth_helpers;
+# re-export them so existing call sites keep working.
+from providers.oauth_helpers import (  # noqa: E402,F401
+    _coerce_ttl_seconds,
+    _decode_jwt_claims,
+    _is_expiring,
+    _oauth_trace,
+    _oauth_trace_enabled,
+    _optional_base_url,
+    _parse_iso_timestamp,
+    _token_fingerprint,
+)
+
+# Structured auth error + formatter now live in providers.auth_errors (a
+# zero-dep leaf so provider resolver modules can raise it without a cycle);
+# re-export them so existing kabuqina_cli.auth.* imports keep working.
+from providers.auth_errors import (  # noqa: E402,F401
+    AuthError,
+    format_auth_error,
+)
+
+logger = logging.getLogger(__name__)
+
+try:
+    import fcntl
+except Exception:
+    fcntl = None
+try:
+    import msvcrt
+except Exception:
+    msvcrt = None
+
+# =============================================================================
+# Constants
+# =============================================================================
+
+
+# Nous Portal defaults
+# Nous/MiniMax OAuth constants live in the zero-import leaf
+# providers.auth_constants (shared with providers.nous_auth / minimax_auth
+# without a circular import); re-export them so existing
+# kabuqina_cli.auth.* references keep working.
+from providers.auth_constants import (  # noqa: E402,F401
+    ACCESS_TOKEN_REFRESH_SKEW_SECONDS,
+    DEFAULT_AGENT_KEY_MIN_TTL_SECONDS,
+    DEFAULT_NOUS_CLIENT_ID,
+    DEFAULT_NOUS_INFERENCE_URL,
+    DEFAULT_NOUS_PORTAL_URL,
+    DEFAULT_NOUS_SCOPE,
+    DEVICE_AUTH_POLL_INTERVAL_CAP_SECONDS,
+    MINIMAX_OAUTH_CLIENT_ID,
+    MINIMAX_OAUTH_CN_BASE,
+    MINIMAX_OAUTH_CN_INFERENCE,
+    MINIMAX_OAUTH_GLOBAL_BASE,
+    MINIMAX_OAUTH_GLOBAL_INFERENCE,
+    MINIMAX_OAUTH_GRANT_TYPE,
+    MINIMAX_OAUTH_REFRESH_SKEW_SECONDS,
+    MINIMAX_OAUTH_SCOPE,
+)
+STEPFUN_STEP_PLAN_INTL_BASE_URL = "https://api.stepfun.ai/step_plan/v1"
+STEPFUN_STEP_PLAN_CN_BASE_URL = "https://api.stepfun.com/step_plan/v1"
+SERVICE_PROVIDER_NAMES: Dict[str, str] = {}
+
+# LM Studio's default no-auth mode still requires *some* non-empty bearer for
+# the API-key code paths (auxiliary_client, runtime resolver) to treat the
+# provider as configured. This sentinel is sent only to LM Studio, never to
+# any remote service.
+LMSTUDIO_NOAUTH_PLACEHOLDER = "dummy-lm-api-key"
+
+# Nous Portal runtime auth (device-code, refresh, mint, status) now lives in
+# providers.nous_auth; re-export so existing imports and monkeypatches keep
+# hitting the same objects.
+from providers.nous_auth import (  # noqa: E402,F401
+    _default_verify,
+    _resolve_verify,
+    _request_device_code,
+    _poll_for_token,
+    _refresh_access_token,
+    _mint_agent_key,
+    fetch_nous_models,
+    _agent_key_is_usable,
+    resolve_nous_access_token,
+    refresh_nous_oauth_pure,
+    refresh_nous_oauth_from_state,
+    NOUS_DEVICE_CODE_SOURCE,
+    persist_nous_credentials,
+    resolve_nous_runtime_credentials,
+    _empty_nous_auth_status,
+    _snapshot_nous_pool_status,
+    get_nous_auth_status,
+)
+
+# MiniMax OAuth runtime helpers now live in providers.minimax_auth; re-export
+# so existing imports keep working.
+from providers.minimax_auth import (  # noqa: E402,F401
+    _minimax_pkce_pair,
+    _minimax_request_user_code,
+    _minimax_poll_token,
+    _minimax_save_auth_state,
+    _refresh_minimax_oauth_state,
+    resolve_minimax_oauth_runtime_credentials,
+    get_minimax_oauth_auth_status,
+)
+
+
+# =============================================================================
+# Provider Registry
+# =============================================================================
+
+@dataclass
+class ProviderConfig:
+    """Describes a known inference provider."""
+    id: str
+    name: str
+    auth_type: str  # "oauth_device_code", "oauth_external", "oauth_minimax", or "api_key"
+    portal_base_url: str = ""
+    inference_base_url: str = ""
+    client_id: str = ""
+    scope: str = ""
+    extra: Dict[str, Any] = field(default_factory=dict)
+    # For API-key providers: env vars to check (in priority order)
+    api_key_env_vars: tuple = ()
+    # Optional env var for base URL override
+    base_url_env_var: str = ""
+
+
+PROVIDER_REGISTRY: Dict[str, ProviderConfig] = {
+    "nous": ProviderConfig(
+        id="nous",
+        name="Nous Portal",
+        auth_type="oauth_device_code",
+        portal_base_url=DEFAULT_NOUS_PORTAL_URL,
+        inference_base_url=DEFAULT_NOUS_INFERENCE_URL,
+        client_id=DEFAULT_NOUS_CLIENT_ID,
+        scope=DEFAULT_NOUS_SCOPE,
+    ),
+    "lmstudio": ProviderConfig(
+        id="lmstudio",
+        name="LM Studio",
+        auth_type="api_key",
+        inference_base_url="http://127.0.0.1:1234/v1",
+        api_key_env_vars=("LM_API_KEY",),
+        base_url_env_var="LM_BASE_URL",
+    ),
+    "gemini": ProviderConfig(
+        id="gemini",
+        name="Google AI Studio",
+        auth_type="api_key",
+        inference_base_url="https://generativelanguage.googleapis.com/v1beta",
+        api_key_env_vars=("GOOGLE_API_KEY", "GEMINI_API_KEY"),
+        base_url_env_var="GEMINI_BASE_URL",
+    ),
+    "zai": ProviderConfig(
+        id="zai",
+        name="Z.AI / GLM",
+        auth_type="api_key",
+        inference_base_url="https://api.z.ai/api/paas/v4",
+        api_key_env_vars=("GLM_API_KEY", "ZAI_API_KEY", "Z_AI_API_KEY"),
+        base_url_env_var="GLM_BASE_URL",
+    ),
+    "kimi-coding": ProviderConfig(
+        id="kimi-coding",
+        name="Kimi / Moonshot",
+        auth_type="api_key",
+        # Legacy platform.moonshot.ai keys use this endpoint (OpenAI-compat).
+        # sk-kimi- (Kimi Code) keys are auto-redirected to api.kimi.com/coding
+        # by _resolve_kimi_base_url() below.
+        inference_base_url="https://api.moonshot.ai/v1",
+        api_key_env_vars=("KIMI_API_KEY", "KIMI_CODING_API_KEY"),
+        base_url_env_var="KIMI_BASE_URL",
+    ),
+    "kimi-coding-cn": ProviderConfig(
+        id="kimi-coding-cn",
+        name="Kimi / Moonshot (China)",
+        auth_type="api_key",
+        inference_base_url="https://api.moonshot.cn/v1",
+        api_key_env_vars=("KIMI_CN_API_KEY",),
+    ),
+    "stepfun": ProviderConfig(
+        id="stepfun",
+        name="StepFun Step Plan",
+        auth_type="api_key",
+        inference_base_url=STEPFUN_STEP_PLAN_INTL_BASE_URL,
+        api_key_env_vars=("STEPFUN_API_KEY",),
+        base_url_env_var="STEPFUN_BASE_URL",
+    ),
+    "minimax": ProviderConfig(
+        id="minimax",
+        name="MiniMax",
+        auth_type="api_key",
+        inference_base_url="https://api.minimax.io/anthropic",
+        api_key_env_vars=("MINIMAX_API_KEY",),
+        base_url_env_var="MINIMAX_BASE_URL",
+    ),
+    "minimax-oauth": ProviderConfig(
+        id="minimax-oauth",
+        name="MiniMax (OAuth \u00b7 minimax.io)",
+        auth_type="oauth_minimax",
+        portal_base_url=MINIMAX_OAUTH_GLOBAL_BASE,
+        inference_base_url=MINIMAX_OAUTH_GLOBAL_INFERENCE,
+        client_id=MINIMAX_OAUTH_CLIENT_ID,
+        scope=MINIMAX_OAUTH_SCOPE,
+        extra={"region": "global", "cn_portal_base_url": MINIMAX_OAUTH_CN_BASE,
+               "cn_inference_base_url": MINIMAX_OAUTH_CN_INFERENCE},
+    ),
+    "anthropic": ProviderConfig(
+        id="anthropic",
+        name="Anthropic",
+        auth_type="api_key",
+        inference_base_url="https://api.anthropic.com",
+        api_key_env_vars=("ANTHROPIC_API_KEY", "ANTHROPIC_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN"),
+        base_url_env_var="ANTHROPIC_BASE_URL",
+    ),
+    "alibaba": ProviderConfig(
+        id="alibaba",
+        name="Alibaba Cloud (DashScope)",
+        auth_type="api_key",
+        inference_base_url="https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+        api_key_env_vars=("DASHSCOPE_API_KEY",),
+        base_url_env_var="DASHSCOPE_BASE_URL",
+    ),
+    "alibaba-coding-plan": ProviderConfig(
+        id="alibaba-coding-plan",
+        name="Alibaba Cloud (Coding Plan)",
+        auth_type="api_key",
+        inference_base_url="https://coding-intl.dashscope.aliyuncs.com/v1",
+        api_key_env_vars=("ALIBABA_CODING_PLAN_API_KEY", "DASHSCOPE_API_KEY"),
+        base_url_env_var="ALIBABA_CODING_PLAN_BASE_URL",
+    ),
+    "minimax-cn": ProviderConfig(
+        id="minimax-cn",
+        name="MiniMax (China)",
+        auth_type="api_key",
+        inference_base_url="https://api.minimaxi.com/anthropic",
+        api_key_env_vars=("MINIMAX_CN_API_KEY",),
+        base_url_env_var="MINIMAX_CN_BASE_URL",
+    ),
+    "deepseek": ProviderConfig(
+        id="deepseek",
+        name="DeepSeek",
+        auth_type="api_key",
+        inference_base_url="https://api.deepseek.com/v1",
+        api_key_env_vars=("DEEPSEEK_API_KEY",),
+        base_url_env_var="DEEPSEEK_BASE_URL",
+    ),
+    "xai": ProviderConfig(
+        id="xai",
+        name="xAI",
+        auth_type="api_key",
+        inference_base_url="https://api.x.ai/v1",
+        api_key_env_vars=("XAI_API_KEY",),
+        base_url_env_var="XAI_BASE_URL",
+    ),
+    "huggingface": ProviderConfig(
+        id="huggingface",
+        name="Hugging Face",
+        auth_type="api_key",
+        inference_base_url="https://router.huggingface.co/v1",
+        api_key_env_vars=("HF_TOKEN",),
+        base_url_env_var="HF_BASE_URL",
+    ),
+    "xiaomi": ProviderConfig(
+        id="xiaomi",
+        name="Xiaomi MiMo",
+        auth_type="api_key",
+        inference_base_url="https://api.xiaomimimo.com/v1",
+        api_key_env_vars=("XIAOMI_API_KEY",),
+        base_url_env_var="XIAOMI_BASE_URL",
+    ),
+    "tencent-tokenhub": ProviderConfig(
+        id="tencent-tokenhub",
+        name="Tencent TokenHub",
+        auth_type="api_key",
+        inference_base_url="https://tokenhub.tencentmaas.com/v1",
+        api_key_env_vars=("TOKENHUB_API_KEY",),
+        base_url_env_var="TOKENHUB_BASE_URL",
+    ),
+}
+
+
+# =============================================================================
+# Anthropic Key Helper
+# =============================================================================
+
+def get_anthropic_key() -> str:
+    """Return the first usable Anthropic credential, or ``""``.
+
+    Checks both the ``.env`` file (via ``get_env_value``) and the process
+    environment (``os.getenv``).  The fallback order mirrors the
+    ``PROVIDER_REGISTRY["anthropic"].api_key_env_vars`` tuple:
+
+        ANTHROPIC_API_KEY -> ANTHROPIC_TOKEN -> CLAUDE_CODE_OAUTH_TOKEN
+    """
+    from kabuqina_cli.config import get_env_value
+
+    for var in PROVIDER_REGISTRY["anthropic"].api_key_env_vars:
+        value = get_env_value(var) or os.getenv(var, "")
+        if value:
+            return value
+    return ""
+
+
+# =============================================================================
+# Auth provider lookups (registry-coupled)
+#
+# The auth.json persistence layer (load/save/lock, provider state, credential
+# pool, source suppression) now lives in ``providers.auth_store`` and is
+# re-exported at the top of this module. The helpers below stay here because
+# they depend on the in-module PROVIDER_REGISTRY / SERVICE_PROVIDER_NAMES.
+# =============================================================================
+
+
+def is_known_auth_provider(provider_id: str) -> bool:
+    normalized = (provider_id or "").strip().lower()
+    return normalized in PROVIDER_REGISTRY or normalized in SERVICE_PROVIDER_NAMES
+
+
+def get_auth_provider_display_name(provider_id: str) -> str:
+    normalized = (provider_id or "").strip().lower()
+    if normalized in PROVIDER_REGISTRY:
+        return PROVIDER_REGISTRY[normalized].name
+    return SERVICE_PROVIDER_NAMES.get(normalized, provider_id)
+
+
+def is_provider_explicitly_configured(provider_id: str) -> bool:
+    """Return True only if the user has explicitly configured this provider.
+
+    Checks:
+      1. active_provider in auth.json matches
+      2. model.provider in config.yaml matches
+      3. Provider-specific env vars are set (e.g. ANTHROPIC_API_KEY)
+
+    This is used to gate auto-discovery of external credentials (e.g.
+    Claude Code's ~/.claude/.credentials.json) so they are never used
+    without the user's explicit choice.  See PR #4210 for the same
+    pattern applied to the setup wizard gate.
+    """
+    normalized = (provider_id or "").strip().lower()
+
+    # 1. Check auth.json active_provider
+    try:
+        auth_store = _load_auth_store()
+        active = (auth_store.get("active_provider") or "").strip().lower()
+        if active and active == normalized:
+            return True
+    except Exception:
+        pass
+
+    # 2. Check config.yaml model.provider
+    try:
+        from kabuqina_cli.config import load_config
+        cfg = load_config()
+        model_cfg = cfg.get("model")
+        if isinstance(model_cfg, dict):
+            cfg_provider = (model_cfg.get("provider") or "").strip().lower()
+            if cfg_provider == normalized:
+                return True
+    except Exception:
+        pass
+
+    # 3. Check provider-specific env vars
+    # Exclude CLAUDE_CODE_OAUTH_TOKEN — it's set by Claude Code itself,
+    # not by the user explicitly configuring anthropic in Kabuqina.
+    _IMPLICIT_ENV_VARS = {"CLAUDE_CODE_OAUTH_TOKEN"}
+    pconfig = PROVIDER_REGISTRY.get(normalized)
+    if pconfig and pconfig.auth_type == "api_key":
+        for env_var in pconfig.api_key_env_vars:
+            if env_var in _IMPLICIT_ENV_VARS:
+                continue
+            if has_usable_secret(os.getenv(env_var, "")):
+                return True
+
+    return False
+
+
+# =============================================================================
+# Provider Resolution — picks which provider to use
+# =============================================================================
+
+
+def _get_config_hint_for_unknown_provider(provider_name: str) -> str:
+    """Return a helpful hint string when provider resolution fails.
+
+    Checks for common config.yaml mistakes (malformed custom_providers, etc.)
+    and returns a human-readable diagnostic, or empty string if nothing found.
+    """
+    try:
+        from kabuqina_cli.config import validate_config_structure
+        issues = validate_config_structure()
+        if not issues:
+            return ""
+
+        lines = ["Config issue detected — run 'kabuqina doctor' for full diagnostics:"]
+        for ci in issues:
+            prefix = "ERROR" if ci.severity == "error" else "WARNING"
+            lines.append(f"  [{prefix}] {ci.message}")
+            # Show first line of hint
+            first_hint = ci.hint.splitlines()[0] if ci.hint else ""
+            if first_hint:
+                lines.append(f"    → {first_hint}")
+        return "\n".join(lines)
+    except Exception:
+        return ""
+
+
+def resolve_provider(
+    requested: Optional[str] = None,
+    *,
+    explicit_api_key: Optional[str] = None,
+    explicit_base_url: Optional[str] = None,
+) -> str:
+    """
+    Determine which inference provider to use.
+
+    Priority (when requested="auto" or None):
+    1. active_provider in auth.json with valid credentials
+    2. Explicit CLI api_key/base_url -> OpenAI-compatible routing (internal id ``openrouter``)
+    3. OPENAI_API_KEY or OPENROUTER_API_KEY -> same OpenAI-compatible path
+    4. Other provider-specific keys from PROVIDER_REGISTRY (DeepSeek, GLM, Kimi, …)
+    6. Otherwise raises AuthError (no provider configured)
+    """
+    normalized = (requested or "auto").strip().lower()
+
+    # Normalize provider aliases
+    _PROVIDER_ALIASES = {
+        "glm": "zai", "z-ai": "zai", "z.ai": "zai", "zhipu": "zai",
+        "google": "gemini", "google-gemini": "gemini", "google-ai-studio": "gemini",
+        "x-ai": "xai", "x.ai": "xai", "grok": "xai",
+        "kimi": "kimi-coding", "kimi-for-coding": "kimi-coding", "moonshot": "kimi-coding",
+        "kimi-cn": "kimi-coding-cn", "moonshot-cn": "kimi-coding-cn",
+        "step": "stepfun", "stepfun-coding-plan": "stepfun",
+        "minimax-china": "minimax-cn", "minimax_cn": "minimax-cn",
+        "minimax-portal": "minimax-oauth", "minimax-global": "minimax-oauth", "minimax_oauth": "minimax-oauth",
+        "alibaba_coding": "alibaba-coding-plan", "alibaba-coding": "alibaba-coding-plan",
+        "alibaba_coding_plan": "alibaba-coding-plan",
+        "claude": "anthropic", "claude-code": "anthropic",
+        "hf": "huggingface", "hugging-face": "huggingface", "huggingface-hub": "huggingface",
+        "mimo": "xiaomi", "xiaomi-mimo": "xiaomi",
+        "tencent": "tencent-tokenhub", "tokenhub": "tencent-tokenhub",
+        "tencent-cloud": "tencent-tokenhub", "tencentmaas": "tencent-tokenhub",
+        "lmstudio": "lmstudio", "lm-studio": "lmstudio", "lm_studio": "lmstudio",
+        # Local server aliases — route through the generic custom provider
+        "ollama": "custom",
+        "vllm": "custom", "llamacpp": "custom",
+        "llama.cpp": "custom", "llama-cpp": "custom",
+    }
+    normalized = _PROVIDER_ALIASES.get(normalized, normalized)
+
+    if normalized == "openrouter":
+        return "openrouter"
+    if normalized == "custom":
+        return "custom"
+    if normalized in PROVIDER_REGISTRY:
+        return normalized
+    if normalized != "auto":
+        # Check for common config.yaml issues that cause this error
+        _config_hint = _get_config_hint_for_unknown_provider(normalized)
+        msg = f"Unknown provider '{normalized}'."
+        if _config_hint:
+            msg += f"\n\n{_config_hint}"
+        else:
+            msg += " Check 'kabuqina model' for available providers, or run 'kabuqina doctor' to diagnose config issues."
+        raise AuthError(msg, code="invalid_provider")
+
+    # Explicit one-off CLI creds always mean openrouter/custom
+    if explicit_api_key or explicit_base_url:
+        return "openrouter"
+
+    # Check auth store for an active OAuth provider
+    try:
+        auth_store = _load_auth_store()
+        active = auth_store.get("active_provider")
+        if active and active in PROVIDER_REGISTRY:
+            status = get_auth_status(active)
+            if status.get("logged_in"):
+                return active
+    except Exception as e:
+        logger.debug("Could not detect active auth provider: %s", e)
+
+    if has_usable_secret(os.getenv("OPENAI_API_KEY")) or has_usable_secret(os.getenv("OPENROUTER_API_KEY")):
+        return "openrouter"
+
+    # Auto-detect API-key providers by checking their env vars
+    for pid, pconfig in PROVIDER_REGISTRY.items():
+        if pconfig.auth_type != "api_key":
+            continue
+        # LM Studio is a local server whose availability isn't implied by
+        # LM_API_KEY presence (it may be offline, and the no-auth setup uses a
+        # placeholder value), so it requires explicit selection.
+        if pid == "lmstudio":
+            continue
+        for env_var in pconfig.api_key_env_vars:
+            if has_usable_secret(os.getenv(env_var, "")):
+                return pid
+
+    raise AuthError(
+        "No inference provider configured. Run 'kabuqina model' to choose a "
+        "provider and model, or set an API key (OPENROUTER_API_KEY, "
+        "OPENAI_API_KEY, etc.) in ~/.kabuqina/.env.",
+        code="no_provider_configured",
+    )
+
+
+# =============================================================================
+# Per-provider runtime credential resolvers
+#
+# Shared OAuth/JWT/timestamp leaf helpers used below now live in
+# providers.oauth_helpers (re-exported at the top of this module).
+# =============================================================================
+
+
+# =============================================================================
+# SSH / remote session detection
+# =============================================================================
+
+def _is_remote_session() -> bool:
+    """Detect if running in an SSH session where webbrowser.open() won't work."""
+    return bool(os.getenv("SSH_CLIENT") or os.getenv("SSH_TTY"))
+
+
+
+def get_api_key_provider_status(provider_id: str) -> Dict[str, Any]:
+    """Status snapshot for API-key providers (z.ai, Kimi, MiniMax)."""
+    pconfig = PROVIDER_REGISTRY.get(provider_id)
+    if not pconfig or pconfig.auth_type != "api_key":
+        return {"configured": False}
+
+    api_key = ""
+    key_source = ""
+    api_key, key_source = _resolve_api_key_provider_secret(provider_id, pconfig)
+
+    env_url = ""
+    if pconfig.base_url_env_var:
+        env_url = os.getenv(pconfig.base_url_env_var, "").strip()
+
+    if provider_id in ("kimi-coding", "kimi-coding-cn"):
+        base_url = _resolve_kimi_base_url(api_key, pconfig.inference_base_url, env_url)
+    elif env_url:
+        base_url = env_url
+    else:
+        base_url = pconfig.inference_base_url
+
+    return {
+        "configured": bool(api_key),
+        "provider": provider_id,
+        "name": pconfig.name,
+        "key_source": key_source,
+        "base_url": base_url,
+        "logged_in": bool(api_key),  # compat with OAuth status shape
+    }
+
+
+def get_auth_status(provider_id: Optional[str] = None) -> Dict[str, Any]:
+    """Generic auth status dispatcher."""
+    target = provider_id or get_active_provider()
+    if target == "nous":
+        return get_nous_auth_status()
+    # API-key providers
+    pconfig = PROVIDER_REGISTRY.get(target)
+    if pconfig and pconfig.auth_type == "api_key":
+        return get_api_key_provider_status(target)
+    return {"logged_in": False}
+
+
+def resolve_api_key_provider_credentials(provider_id: str) -> Dict[str, Any]:
+    """Resolve API key and base URL for an API-key provider.
+
+    Returns dict with: provider, api_key, base_url, source.
+    """
+    pconfig = PROVIDER_REGISTRY.get(provider_id)
+    if not pconfig or pconfig.auth_type != "api_key":
+        raise AuthError(
+            f"Provider '{provider_id}' is not an API-key provider.",
+            provider=provider_id,
+            code="invalid_provider",
+        )
+
+    api_key = ""
+    key_source = ""
+    api_key, key_source = _resolve_api_key_provider_secret(provider_id, pconfig)
+
+    # No-auth LM Studio: substitute a placeholder so runtime / auxiliary_client
+    # see the local server as configured. doctor still reports unconfigured
+    # because get_api_key_provider_status uses the raw secret resolver.
+    if not api_key and provider_id == "lmstudio":
+        api_key = LMSTUDIO_NOAUTH_PLACEHOLDER
+        key_source = key_source or "default"
+
+    env_url = ""
+    if pconfig.base_url_env_var:
+        env_url = os.getenv(pconfig.base_url_env_var, "").strip()
+
+    if provider_id in ("kimi-coding", "kimi-coding-cn"):
+        base_url = _resolve_kimi_base_url(api_key, pconfig.inference_base_url, env_url)
+    elif provider_id == "zai":
+        base_url = _resolve_zai_base_url(api_key, pconfig.inference_base_url, env_url)
+    elif env_url:
+        base_url = env_url.rstrip("/")
+    else:
+        base_url = pconfig.inference_base_url
+
+    return {
+        "provider": provider_id,
+        "api_key": api_key,
+        "base_url": base_url.rstrip("/"),
+        "source": key_source or "default",
+    }
+
+
+# =============================================================================
+# CLI Commands — login / logout
+# =============================================================================
+
+def _update_config_for_provider(
+    provider_id: str,
+    inference_base_url: str,
+    default_model: Optional[str] = None,
+) -> Path:
+    """Update config.yaml and auth.json to reflect the active provider.
+
+    When *default_model* is provided the function also writes it as the
+    ``model.default`` value.  This prevents a race condition where the
+    gateway (which re-reads config per-message) picks up the new provider
+    before the caller has finished model selection, resulting in a
+    mismatched model/provider (e.g. ``anthropic/claude-opus-4.6`` sent to
+    MiniMax's API).
+    """
+    # Set active_provider in auth.json so auto-resolution picks this provider
+    with _auth_store_lock():
+        auth_store = _load_auth_store()
+        auth_store["active_provider"] = provider_id
+        _save_auth_store(auth_store)
+
+    # Update config.yaml model section
+    config_path = get_config_path()
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+
+    config = read_raw_config()
+
+    current_model = config.get("model")
+    if isinstance(current_model, dict):
+        model_cfg = dict(current_model)
+    elif isinstance(current_model, str) and current_model.strip():
+        model_cfg = {"default": current_model.strip()}
+    else:
+        model_cfg = {}
+
+    model_cfg["provider"] = provider_id
+    if inference_base_url and inference_base_url.strip():
+        model_cfg["base_url"] = inference_base_url.rstrip("/")
+    else:
+        # Clear stale base_url to prevent contamination when switching providers
+        model_cfg.pop("base_url", None)
+
+    # Clear stale api_key/api_mode left over from a previous custom provider.
+    # When the user switches from e.g. a MiniMax custom endpoint
+    # (api_mode=anthropic_messages, api_key=mxp-...) to a built-in provider
+    # (e.g. OpenRouter), the stale api_key/api_mode would override the new
+    # provider's credentials and transport choice.
+    model_cfg.pop("api_key", None)
+    model_cfg.pop("api_mode", None)
+
+    # When switching to a non-OpenRouter provider, ensure model.default is
+    # valid for the new provider.  An OpenRouter-formatted name like
+    # "anthropic/claude-opus-4.6" will fail on direct-API providers.
+    if default_model:
+        cur_default = model_cfg.get("default", "")
+        if not cur_default or "/" in cur_default:
+            model_cfg["default"] = default_model
+
+    config["model"] = model_cfg
+
+    config_path.write_text(yaml.safe_dump(config, sort_keys=False))
+    return config_path
+
+
+def _get_config_provider() -> Optional[str]:
+    """Return model.provider from config.yaml, normalized, if present."""
+    try:
+        config = read_raw_config()
+    except Exception:
+        return None
+    if not config:
+        return None
+    model = config.get("model")
+    if not isinstance(model, dict):
+        return None
+    provider = model.get("provider")
+    if not isinstance(provider, str):
+        return None
+    provider = provider.strip().lower()
+    return provider or None
+
+
+def _config_provider_matches(provider_id: Optional[str]) -> bool:
+    """Return True when config.yaml currently selects *provider_id*."""
+    if not provider_id:
+        return False
+    return _get_config_provider() == provider_id.strip().lower()
+
+
+def _logout_default_provider_from_config() -> Optional[str]:
+    """Fallback logout target when auth.json has no active provider.
+
+    `kabuqina logout` historically keyed off auth.json.active_provider only.
+    That left users stuck when auth state had already been cleared but
+    config.yaml still selected an OAuth provider for the agent model: there
+    was no active auth provider to target, so logout printed
+    "No provider is currently logged in" and never reset model.provider.
+    """
+    provider = _get_config_provider()
+    if provider == "nous":
+        return provider
+    return None
+
+
+def _reset_config_provider() -> Path:
+    """Reset config.yaml provider back to auto after logout."""
+    config_path = get_config_path()
+    if not config_path.exists():
+        return config_path
+
+    config = read_raw_config()
+    if not config:
+        return config_path
+
+    model = config.get("model")
+    if isinstance(model, dict):
+        model["provider"] = "auto"
+        if "base_url" in model:
+            model["base_url"] = OPENROUTER_BASE_URL
+    config_path.write_text(yaml.safe_dump(config, sort_keys=False))
+    return config_path
+
+
+def _prompt_model_selection(
+    model_ids: List[str],
+    current_model: str = "",
+    pricing: Optional[Dict[str, Dict[str, str]]] = None,
+    unavailable_models: Optional[List[str]] = None,
+    portal_url: str = "",
+) -> Optional[str]:
+    """Interactive model selection. Puts current_model first with a marker. Returns chosen model ID or None.
+
+    If *pricing* is provided (``{model_id: {prompt, completion}}``), a compact
+    price indicator is shown next to each model in aligned columns.
+
+    If *unavailable_models* is provided, those models are shown grayed out
+    and unselectable, with an upgrade link to *portal_url*.
+    """
+    from kabuqina_cli.models import _format_price_per_mtok
+
+    _unavailable = unavailable_models or []
+
+    # Reorder: current model first, then the rest (deduplicated)
+    ordered = []
+    if current_model and current_model in model_ids:
+        ordered.append(current_model)
+    for mid in model_ids:
+        if mid not in ordered:
+            ordered.append(mid)
+
+    # All models for column-width computation (selectable + unavailable)
+    all_models = list(ordered) + list(_unavailable)
+
+    # Column-aligned labels when pricing is available
+    has_pricing = bool(pricing and any(pricing.get(m) for m in all_models))
+    name_col = max((len(m) for m in all_models), default=0) + 2 if has_pricing else 0
+
+    # Pre-compute formatted prices and dynamic column widths
+    _price_cache: dict[str, tuple[str, str, str]] = {}
+    price_col = 3  # minimum width
+    cache_col = 0  # only set if any model has cache pricing
+    has_cache = False
+    if has_pricing:
+        for mid in all_models:
+            p = pricing.get(mid)  # type: ignore[union-attr]
+            if p:
+                inp = _format_price_per_mtok(p.get("prompt", ""))
+                out = _format_price_per_mtok(p.get("completion", ""))
+                cache_read = p.get("input_cache_read", "")
+                cache = _format_price_per_mtok(cache_read) if cache_read else ""
+                if cache:
+                    has_cache = True
+            else:
+                inp, out, cache = "", "", ""
+            _price_cache[mid] = (inp, out, cache)
+            price_col = max(price_col, len(inp), len(out))
+            cache_col = max(cache_col, len(cache))
+        if has_cache:
+            cache_col = max(cache_col, 5)  # minimum: "Cache" header
+
+    def _label(mid):
+        if has_pricing:
+            inp, out, cache = _price_cache.get(mid, ("", "", ""))
+            price_part = f" {inp:>{price_col}}  {out:>{price_col}}"
+            if has_cache:
+                price_part += f"  {cache:>{cache_col}}"
+            base = f"{mid:<{name_col}}{price_part}"
+        else:
+            base = mid
+        if mid == current_model:
+            base += "  ← currently in use"
+        return base
+
+    # Default cursor on the current model (index 0 if it was reordered to top)
+    default_idx = 0
+
+    # Build a pricing header hint for the menu title
+    menu_title = "Select default model:"
+    if has_pricing:
+        # Align the header with the model column.
+        # Each choice is "  {label}" (2 spaces) and simple_term_menu prepends
+        # a 3-char cursor region ("-> " or "   "), so content starts at col 5.
+        pad = " " * 5
+        header = f"\n{pad}{'':>{name_col}} {'In':>{price_col}}  {'Out':>{price_col}}"
+        if has_cache:
+            header += f"  {'Cache':>{cache_col}}"
+        menu_title += header + "  /Mtok"
+
+    # ANSI escape for dim text
+    _DIM = "\033[2m"
+    _RESET = "\033[0m"
+
+    # Try arrow-key menu first, fall back to number input
+    try:
+        from simple_term_menu import TerminalMenu
+
+        choices = [f"  {_label(mid)}" for mid in ordered]
+        choices.append("  Enter custom model name")
+        choices.append("  Skip (keep current)")
+
+        # Print the unavailable block BEFORE the menu via regular print().
+        # simple_term_menu pads title lines to terminal width (causes wrapping),
+        # so we keep the title minimal and use stdout for the static block.
+        # clear_screen=False means our printed output stays visible above.
+        _upgrade_url = (portal_url or DEFAULT_NOUS_PORTAL_URL).rstrip("/")
+        if _unavailable:
+            print(menu_title)
+            print()
+            for mid in _unavailable:
+                print(f"{_DIM}     {_label(mid)}{_RESET}")
+            print()
+            print(f"{_DIM}  ── Upgrade at {_upgrade_url} for paid models ──{_RESET}")
+            print()
+            effective_title = "Available free models:"
+        else:
+            effective_title = menu_title
+
+        menu = TerminalMenu(
+            choices,
+            cursor_index=default_idx,
+            menu_cursor="-> ",
+            menu_cursor_style=("fg_green", "bold"),
+            menu_highlight_style=("fg_green",),
+            cycle_cursor=True,
+            clear_screen=False,
+            title=effective_title,
+        )
+        idx = menu.show()
+        from kabuqina_cli.curses_ui import flush_stdin
+        flush_stdin()
+        if idx is None:
+            return None
+        print()
+        if idx < len(ordered):
+            return ordered[idx]
+        elif idx == len(ordered):
+            custom = input("Enter model name: ").strip()
+            return custom if custom else None
+        return None
+    except (ImportError, NotImplementedError, OSError, subprocess.SubprocessError):
+        pass
+
+    # Fallback: numbered list
+    print(menu_title)
+    num_width = len(str(len(ordered) + 2))
+    for i, mid in enumerate(ordered, 1):
+        print(f"  {i:>{num_width}}. {_label(mid)}")
+    n = len(ordered)
+    print(f"  {n + 1:>{num_width}}. Enter custom model name")
+    print(f"  {n + 2:>{num_width}}. Skip (keep current)")
+
+    if _unavailable:
+        _upgrade_url = (portal_url or DEFAULT_NOUS_PORTAL_URL).rstrip("/")
+        print()
+        print(f"  {_DIM}── Unavailable models (requires paid tier — upgrade at {_upgrade_url}) ──{_RESET}")
+        for mid in _unavailable:
+            print(f"  {'':>{num_width}}  {_DIM}{_label(mid)}{_RESET}")
+    print()
+
+    while True:
+        try:
+            choice = input(f"Choice [1-{n + 2}] (default: skip): ").strip()
+            if not choice:
+                return None
+            idx = int(choice)
+            if 1 <= idx <= n:
+                return ordered[idx - 1]
+            elif idx == n + 1:
+                custom = input("Enter model name: ").strip()
+                return custom if custom else None
+            elif idx == n + 2:
+                return None
+            print(f"Please enter 1-{n + 2}")
+        except ValueError:
+            print("Please enter a number")
+        except (KeyboardInterrupt, EOFError):
+            return None
+
+
+def _save_model_choice(model_id: str) -> None:
+    """Save the selected model to config.yaml (single source of truth).
+
+    The model is stored in config.yaml only — NOT in .env.  This avoids
+    conflicts in multi-agent setups where env vars would stomp each other.
+    """
+    from kabuqina_cli.config import save_config, load_config
+
+    config = load_config()
+    # Always use dict format so provider/base_url can be stored alongside
+    if isinstance(config.get("model"), dict):
+        config["model"]["default"] = model_id
+    else:
+        config["model"] = {"default": model_id}
+    save_config(config)
+
+
+def login_command(args) -> None:
+    """Deprecated: use 'kabuqina model' or 'kabuqina setup' instead."""
+    print("The 'kabuqina login' command has been removed.")
+    print("Use 'kabuqina auth' to manage credentials,")
+    print("'kabuqina model' to select a provider, or 'kabuqina setup' for full setup.")
+    raise SystemExit(0)
+
+
+
+def _minimax_oauth_login(
+    *, region: str = "global", open_browser: bool = True,
+    timeout_seconds: float = 15.0,
+) -> Dict[str, Any]:
+    """Run MiniMax OAuth flow, persist tokens, return auth state dict."""
+    pconfig = PROVIDER_REGISTRY["minimax-oauth"]
+    if region == "cn":
+        portal_base_url = pconfig.extra["cn_portal_base_url"]
+        inference_base_url = pconfig.extra["cn_inference_base_url"]
+    else:
+        portal_base_url = pconfig.portal_base_url
+        inference_base_url = pconfig.inference_base_url
+
+    verifier, challenge, state = _minimax_pkce_pair()
+
+    if _is_remote_session():
+        open_browser = False
+
+    print(f"Starting Kabuqina login via MiniMax ({region}) OAuth...")
+    print(f"Portal: {portal_base_url}")
+
+    with httpx.Client(timeout=httpx.Timeout(timeout_seconds),
+                      headers={"Accept": "application/json"}) as client:
+        code_data = _minimax_request_user_code(
+            client, portal_base_url=portal_base_url,
+            client_id=pconfig.client_id,
+            code_challenge=challenge, state=state,
+        )
+        verification_url = str(code_data["verification_uri"])
+        user_code = str(code_data["user_code"])
+
+        print()
+        print("To continue:")
+        print(f"  1. Open: {verification_url}")
+        print(f"  2. If prompted, enter code: {user_code}")
+        if open_browser:
+            if webbrowser.open(verification_url):
+                print("  (Opened browser for verification)")
+            else:
+                print("  Could not open browser automatically -- use the URL above.")
+
+        interval_raw = code_data.get("interval")
+        interval_ms = int(interval_raw) if interval_raw is not None else None
+        print("Waiting for approval...")
+
+        token_data = _minimax_poll_token(
+            client, portal_base_url=portal_base_url,
+            client_id=pconfig.client_id,
+            user_code=user_code, code_verifier=verifier,
+            expired_in=int(code_data["expired_in"]),
+            interval_ms=interval_ms,
+        )
+
+    now = datetime.now(timezone.utc)
+    expires_in_s = int(token_data["expired_in"])
+    expires_at = now.timestamp() + expires_in_s
+
+    auth_state = {
+        "provider": "minimax-oauth",
+        "region": region,
+        "portal_base_url": portal_base_url,
+        "inference_base_url": inference_base_url,
+        "client_id": pconfig.client_id,
+        "scope": MINIMAX_OAUTH_SCOPE,
+        "token_type": token_data.get("token_type", "Bearer"),
+        "access_token": token_data["access_token"],
+        "refresh_token": token_data["refresh_token"],
+        "resource_url": token_data.get("resource_url"),
+        "obtained_at": now.isoformat(),
+        "expires_at": datetime.fromtimestamp(expires_at, tz=timezone.utc).isoformat(),
+        "expires_in": expires_in_s,
+    }
+
+    _minimax_save_auth_state(auth_state)
+    print("\u2713 MiniMax OAuth login successful.")
+    if msg := token_data.get("notification_message"):
+        print(f"Note from MiniMax: {msg}")
+    return auth_state
+
+
+
+def _login_minimax_oauth(args, pconfig: ProviderConfig) -> None:
+    """CLI entry for MiniMax OAuth login."""
+    region = getattr(args, "region", None) or "global"
+    open_browser = not getattr(args, "no_browser", False)
+    timeout = getattr(args, "timeout", None) or 15.0
+    try:
+        _minimax_oauth_login(
+            region=region, open_browser=open_browser, timeout_seconds=timeout,
+        )
+    except AuthError as exc:
+        print(format_auth_error(exc))
+        raise SystemExit(1)
+
+
+def _nous_device_code_login(
+    *,
+    portal_base_url: Optional[str] = None,
+    inference_base_url: Optional[str] = None,
+    client_id: Optional[str] = None,
+    scope: Optional[str] = None,
+    open_browser: bool = True,
+    timeout_seconds: float = 15.0,
+    insecure: bool = False,
+    ca_bundle: Optional[str] = None,
+    min_key_ttl_seconds: int = 5 * 60,
+) -> Dict[str, Any]:
+    """Run the Nous device-code flow and return full OAuth state without persisting."""
+    pconfig = PROVIDER_REGISTRY["nous"]
+    portal_base_url = (
+        portal_base_url
+        or os.getenv("HERMES_PORTAL_BASE_URL")
+        or os.getenv("NOUS_PORTAL_BASE_URL")
+        or pconfig.portal_base_url
+    ).rstrip("/")
+    requested_inference_url = (
+        inference_base_url
+        or os.getenv("NOUS_INFERENCE_BASE_URL")
+        or pconfig.inference_base_url
+    ).rstrip("/")
+    client_id = client_id or pconfig.client_id
+    scope = scope or pconfig.scope
+    timeout = httpx.Timeout(timeout_seconds)
+    verify: bool | str = False if insecure else (ca_bundle if ca_bundle else True)
+
+    if _is_remote_session():
+        open_browser = False
+
+    print(f"Starting Kabuqina login via {pconfig.name}...")
+    print(f"Portal: {portal_base_url}")
+    if insecure:
+        print("TLS verification: disabled (--insecure)")
+    elif ca_bundle:
+        print(f"TLS verification: custom CA bundle ({ca_bundle})")
+
+    with httpx.Client(timeout=timeout, headers={"Accept": "application/json"}, verify=verify) as client:
+        device_data = _request_device_code(
+            client=client,
+            portal_base_url=portal_base_url,
+            client_id=client_id,
+            scope=scope,
+        )
+
+        verification_url = str(device_data["verification_uri_complete"])
+        user_code = str(device_data["user_code"])
+        expires_in = int(device_data["expires_in"])
+        interval = int(device_data["interval"])
+
+        print()
+        print("To continue:")
+        print(f"  1. Open: {verification_url}")
+        print(f"  2. If prompted, enter code: {user_code}")
+
+        if open_browser:
+            opened = webbrowser.open(verification_url)
+            if opened:
+                print("  (Opened browser for verification)")
+            else:
+                print("  Could not open browser automatically — use the URL above.")
+
+        effective_interval = max(1, min(interval, DEVICE_AUTH_POLL_INTERVAL_CAP_SECONDS))
+        print(f"Waiting for approval (polling every {effective_interval}s)...")
+
+        token_data = _poll_for_token(
+            client=client,
+            portal_base_url=portal_base_url,
+            client_id=client_id,
+            device_code=str(device_data["device_code"]),
+            expires_in=expires_in,
+            poll_interval=interval,
+        )
+
+    now = datetime.now(timezone.utc)
+    token_expires_in = _coerce_ttl_seconds(token_data.get("expires_in", 0))
+    expires_at = now.timestamp() + token_expires_in
+    resolved_inference_url = (
+        _optional_base_url(token_data.get("inference_base_url"))
+        or requested_inference_url
+    )
+    if resolved_inference_url != requested_inference_url:
+        print(f"Using portal-provided inference URL: {resolved_inference_url}")
+
+    auth_state = {
+        "portal_base_url": portal_base_url,
+        "inference_base_url": resolved_inference_url,
+        "client_id": client_id,
+        "scope": token_data.get("scope") or scope,
+        "token_type": token_data.get("token_type", "Bearer"),
+        "access_token": token_data["access_token"],
+        "refresh_token": token_data.get("refresh_token"),
+        "obtained_at": now.isoformat(),
+        "expires_at": datetime.fromtimestamp(expires_at, tz=timezone.utc).isoformat(),
+        "expires_in": token_expires_in,
+        "tls": {
+            "insecure": verify is False,
+            "ca_bundle": verify if isinstance(verify, str) else None,
+        },
+        "agent_key": None,
+        "agent_key_id": None,
+        "agent_key_expires_at": None,
+        "agent_key_expires_in": None,
+        "agent_key_reused": None,
+        "agent_key_obtained_at": None,
+    }
+    try:
+        return refresh_nous_oauth_from_state(
+            auth_state,
+            min_key_ttl_seconds=min_key_ttl_seconds,
+            timeout_seconds=timeout_seconds,
+            force_refresh=False,
+            force_mint=True,
+        )
+    except AuthError as exc:
+        if exc.code == "subscription_required":
+            portal_url = auth_state.get(
+                "portal_base_url", DEFAULT_NOUS_PORTAL_URL
+            ).rstrip("/")
+            print()
+            print("Your Nous Portal account does not have an active subscription.")
+            print(f"  Subscribe here: {portal_url}/billing")
+            print()
+            print("After subscribing, run `kabuqina model` again to finish setup.")
+            raise SystemExit(1)
+        raise
+
+
+def _login_nous(args, pconfig: ProviderConfig) -> None:
+    """Nous Portal device authorization flow."""
+    timeout_seconds = getattr(args, "timeout", None) or 15.0
+    insecure = bool(getattr(args, "insecure", False))
+    ca_bundle = (
+        getattr(args, "ca_bundle", None)
+        or os.getenv("HERMES_CA_BUNDLE")
+        or os.getenv("SSL_CERT_FILE")
+    )
+
+    try:
+        auth_state = _nous_device_code_login(
+            portal_base_url=getattr(args, "portal_url", None),
+            inference_base_url=getattr(args, "inference_url", None),
+            client_id=getattr(args, "client_id", None) or pconfig.client_id,
+            scope=getattr(args, "scope", None) or pconfig.scope,
+            open_browser=not getattr(args, "no_browser", False),
+            timeout_seconds=timeout_seconds,
+            insecure=insecure,
+            ca_bundle=ca_bundle,
+            min_key_ttl_seconds=5 * 60,
+        )
+
+        inference_base_url = auth_state["inference_base_url"]
+
+        # Snapshot the prior active_provider BEFORE _save_provider_state
+        # overwrites it to "nous".  If the user picks "Skip (keep current)"
+        # during model selection below, we restore this so the user's previous
+        # provider (e.g. openrouter) is preserved.
+        with _auth_store_lock():
+            _prior_store = _load_auth_store()
+            prior_active_provider = _prior_store.get("active_provider")
+
+        with _auth_store_lock():
+            auth_store = _load_auth_store()
+            _save_provider_state(auth_store, "nous", auth_state)
+            saved_to = _save_auth_store(auth_store)
+
+        print()
+        print("Login successful!")
+        print(f"  Auth state: {saved_to}")
+
+        # Resolve model BEFORE writing provider to config.yaml so we never
+        # leave the config in a half-updated state (provider=nous but model
+        # still set to the previous provider's model, e.g. opus from
+        # OpenRouter).  The auth.json active_provider was already set above.
+        selected_model = None
+        try:
+            runtime_key = auth_state.get("agent_key") or auth_state.get("access_token")
+            if not isinstance(runtime_key, str) or not runtime_key:
+                raise AuthError(
+                    "No runtime API key available to fetch models",
+                    provider="nous",
+                    code="invalid_token",
+                )
+
+            from kabuqina_cli.models import (
+                get_curated_nous_model_ids, get_pricing_for_provider,
+                check_nous_free_tier, partition_nous_models_by_tier,
+            )
+            model_ids = get_curated_nous_model_ids()
+
+            print()
+            unavailable_models: list = []
+            if model_ids:
+                pricing = get_pricing_for_provider("nous")
+                free_tier = check_nous_free_tier()
+                if free_tier:
+                    model_ids, unavailable_models = partition_nous_models_by_tier(
+                        model_ids, pricing, free_tier=True,
+                    )
+            _portal = auth_state.get("portal_base_url", "")
+            if model_ids:
+                print(f"Showing {len(model_ids)} curated models — use \"Enter custom model name\" for others.")
+                selected_model = _prompt_model_selection(
+                    model_ids, pricing=pricing,
+                    unavailable_models=unavailable_models,
+                    portal_url=_portal,
+                )
+            elif unavailable_models:
+                _url = (_portal or DEFAULT_NOUS_PORTAL_URL).rstrip("/")
+                print("No free models currently available.")
+                print(f"Upgrade at {_url} to access paid models.")
+            else:
+                print("No curated models available for Nous Portal.")
+        except Exception as exc:
+            message = format_auth_error(exc) if isinstance(exc, AuthError) else str(exc)
+            print()
+            print(f"Login succeeded, but could not fetch available models. Reason: {message}")
+
+        # Write provider + model atomically so config is never mismatched.
+        # If no model was selected (user picked "Skip (keep current)",
+        # model list fetch failed, or no curated models were available),
+        # preserve the user's previous provider — don't silently switch
+        # them to Nous with a mismatched model.  The Nous OAuth tokens
+        # stay saved for future use.
+        if not selected_model:
+            # Restore the prior active_provider that _save_provider_state
+            # overwrote to "nous".  config.yaml model.provider is left
+            # untouched, so the user's previous provider is fully preserved.
+            with _auth_store_lock():
+                auth_store = _load_auth_store()
+                if prior_active_provider:
+                    auth_store["active_provider"] = prior_active_provider
+                else:
+                    auth_store.pop("active_provider", None)
+                _save_auth_store(auth_store)
+            print()
+            print("No provider change. Nous credentials saved for future use.")
+            print("  Run `kabuqina model` again to switch to Nous Portal.")
+            return
+
+        config_path = _update_config_for_provider(
+            "nous", inference_base_url, default_model=selected_model,
+        )
+        if selected_model:
+            _save_model_choice(selected_model)
+            print(f"Default model set to: {selected_model}")
+        print(f"  Config updated: {config_path} (model.provider=nous)")
+
+    except KeyboardInterrupt:
+        print("\nLogin cancelled.")
+        raise SystemExit(130)
+    except Exception as exc:
+        print(f"Login failed: {exc}")
+        raise SystemExit(1)
+
+
+def logout_command(args) -> None:
+    """Clear auth state for a provider."""
+    provider_id = getattr(args, "provider", None)
+
+    if provider_id and not is_known_auth_provider(provider_id):
+        print(f"Unknown provider: {provider_id}")
+        raise SystemExit(1)
+
+    active = get_active_provider()
+    target = provider_id or active or _logout_default_provider_from_config()
+
+    if not target:
+        print("No provider is currently logged in.")
+        return
+
+    config_matches = _config_provider_matches(target)
+    provider_name = get_auth_provider_display_name(target)
+
+    if clear_provider_auth(target) or config_matches:
+        _reset_config_provider()
+        print(f"Logged out of {provider_name}.")
+        if os.getenv("OPENROUTER_API_KEY"):
+            print("Kabuqina will use OpenRouter for inference.")
+        else:
+            print("Run `kabuqina model` or configure an API key to use Kabuqina.")
+    else:
+        print(f"No auth state found for {provider_name}.")

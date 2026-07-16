@@ -1,7 +1,7 @@
 # Copyright 2026 Kabuqina Contributors
 # SPDX-License-Identifier: Apache-2.0
 
-"""HermesDesk typed bootstrap configuration.
+"""Kabuqina typed bootstrap configuration.
 
 Reads from Tauri-provided env vars. No behavior dependencies — pure data.
 Used by the entrypoint and will eventually be injected into policy objects
@@ -14,7 +14,7 @@ import enum
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from kabuqina_env import get, require
+from kabuqina_env import get, require, resolve_desktop_home
 
 
 class RuntimeMode(enum.Enum):
@@ -62,8 +62,13 @@ class DesktopConfig:
     # ── computed convenience ────────────────────────────────────────────
 
     @property
+    def kabuqina_home(self) -> Path:
+        return resolve_desktop_home(self.data_dir)
+
+    @property
     def hermes_home(self) -> Path:
-        return self.data_dir / "hermes-home"
+        """Deprecated one-release alias for :attr:`kabuqina_home`."""
+        return self.kabuqina_home
 
 
 def from_env() -> DesktopConfig:

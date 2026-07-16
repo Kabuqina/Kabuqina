@@ -9,12 +9,12 @@ import pytest
 
 @pytest.fixture
 def skills_home(tmp_path, monkeypatch):
-    """Isolated HERMES_HOME with a clean skills/ dir for each test."""
+    """Isolated KABUQINA_HOME with a clean skills/ dir for each test."""
     home = tmp_path / ".hermes"
     home.mkdir()
     (home / "skills").mkdir()
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    monkeypatch.setenv("HERMES_HOME", str(home))
+    monkeypatch.setenv("KABUQINA_HOME", str(home))
     # Force skill_usage module to re-resolve paths per test
     import importlib
     import tools.skill_usage as mod

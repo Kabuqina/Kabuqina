@@ -1,7 +1,7 @@
 # Copyright 2026 Kabuqina Contributors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Load host ``hermes-home/.env`` and wire web-child cron/messaging egress.
+"""Load host ``kabuqina-home/.env`` and wire web-child cron/messaging egress.
 
 ``gateway.run`` loads dotenv at import time. The **web child** (cron ticker,
 ``send_message_tool`` standalone sends) must do the same or **every** remote
@@ -15,6 +15,8 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
+
+from kabuqina_env import home as kabuqina_home_env
 from typing import Iterable
 from urllib.parse import urlparse
 
@@ -125,26 +127,26 @@ def refresh_messaging_network_allowlist(extra_hosts: Iterable[str] | None = None
 
 
 def ensure_gateway_env_loaded() -> None:
-    """Idempotent: load ``HERMES_HOME/.env`` and refresh messaging egress allowlist."""
+    """Idempotent: load ``KABUQINA_HOME/.env`` and refresh messaging egress allowlist."""
     global _LOADED
     if _LOADED:
         return
-    home = (os.environ.get("HERMES_HOME") or "").strip()
+    home = kabuqina_home_env().strip()
     if not home:
         log.warning(
-            "gateway env: HERMES_HOME unset; cron/messaging remote delivery will fail "
+            "gateway env: KABUQINA_HOME unset; cron/messaging remote delivery will fail "
             "for all platforms"
         )
         _LOADED = True
         return
     try:
-        from hermes_cli.env_loader import load_hermes_dotenv
+        from kabuqina_cli.env_loader import load_kabuqina_dotenv
 
-        paths = load_hermes_dotenv(hermes_home=Path(home))
+        paths = load_kabuqina_dotenv(kabuqina_home=Path(home))
         if paths:
             log.info("gateway env: loaded %s", ", ".join(str(p) for p in paths))
     except Exception:
-        log.exception("gateway env: failed to load hermes-home .env")
+        log.exception("gateway env: failed to load kabuqina-home .env")
     refresh_messaging_network_allowlist()
     try:
         from desktop_timezone import apply_desktop_timezone
@@ -161,14 +163,14 @@ def ensure_gateway_env_for_delivery() -> None:
     Re-reads dotenv (cheap) so credentials saved after process start are visible.
     Always refreshes the messaging allowlist from current ``os.environ``.
     """
-    home = (os.environ.get("HERMES_HOME") or "").strip()
+    home = kabuqina_home_env().strip()
     if not home:
-        log.warning("gateway env: HERMES_HOME unset; skipping delivery prep")
+        log.warning("gateway env: KABUQINA_HOME unset; skipping delivery prep")
         return
     try:
-        from hermes_cli.env_loader import load_hermes_dotenv
+        from kabuqina_cli.env_loader import load_kabuqina_dotenv
 
-        load_hermes_dotenv(hermes_home=Path(home))
+        load_kabuqina_dotenv(kabuqina_home=Path(home))
     except Exception:
-        log.exception("gateway env: failed to reload hermes-home .env for delivery")
+        log.exception("gateway env: failed to reload kabuqina-home .env for delivery")
     refresh_messaging_network_allowlist()

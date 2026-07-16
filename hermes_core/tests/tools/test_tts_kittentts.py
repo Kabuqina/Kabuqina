@@ -182,7 +182,7 @@ class TestDispatcherBranch:
         """When provider=kittentts but package missing, return JSON error with setup hint."""
         import sys
         monkeypatch.setitem(sys.modules, "kittentts", None)
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("KABUQINA_HOME", str(tmp_path))
 
         from tools.tts_tool import text_to_speech_tool
 
@@ -195,4 +195,4 @@ class TestDispatcherBranch:
         result = json.loads(text_to_speech_tool(text="Hello"))
         assert result["success"] is False
         assert "kittentts" in result["error"].lower()
-        assert "hermes setup tts" in result["error"].lower()
+        assert "kabuqina setup tts" in result["error"].lower()

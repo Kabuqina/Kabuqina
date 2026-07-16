@@ -2,11 +2,12 @@
 
 ## One-paragraph summary
 
-Kabuqina is a thin Windows-native wrapper around the open-source
-[Hermes Agent](https://github.com/NousResearch/hermes-agent). A Tauri 2
+Kabuqina is a Windows-native desktop application with an owned agent core
+derived from a frozen [Hermes Agent](https://github.com/NousResearch/hermes-agent)
+snapshot. A Tauri 2
 shell (Rust + WebView2) supervises **one long-lived embedded Python 3.11
-process** (`desktop_entrypoint.py`) that runs a stripped, sandboxed Hermes
-core (`desk_server` on loopback — Kabuqina-owned HTTP API, not `hermes_cli.web_server`). The WebView2 window runs the **Kabuqina shell** (`web/` — Splash, onboarding, `/chat`, Settings, Capabilities) exclusively; all chat traffic uses `/api/desk/*` proxied through Tauri. Optionally, Tauri supervises a **second** Python child (`python -m gateway.run`) for messaging adapters when credentials exist under `hermes-home/.env`. Short-lived QR/token helper scripts may run as extra Python children during onboarding. LLM provider keys live in Windows Credential Manager (DPAPI); Hermes config is redirected to **`HERMES_HOME`** inside the app data dir (see `desktop_entrypoint.py`). File ops are jailed to a workspace folder and risky tools stay off until **power user** mode.
+process** (`desktop_entrypoint.py`) that runs the sandboxed Kabuqina core
+through `desk_server` on loopback. The WebView2 window runs the **Kabuqina shell** (`web/` — Splash, onboarding, `/chat`, Settings, Capabilities) exclusively; all chat traffic uses `/api/desk/*` proxied through Tauri. Optionally, Tauri supervises a **second** Python child (`python -m gateway.run`) for messaging adapters when credentials exist under `kabuqina-home/.env`. Short-lived QR/token helper scripts may run as extra Python children during onboarding. LLM provider keys live in Windows Credential Manager (DPAPI); config is rooted at **`KABUQINA_HOME`** inside the app data dir (see `desktop_entrypoint.py`). File ops are jailed to a workspace folder and risky tools stay off until **power user** mode.
 
 ## Process model
 
@@ -19,13 +20,13 @@ flowchart TD
   PySup --> PyChild["python.exe<br/>desktop_entrypoint.py"]
   PyChild --> Overlays["overlays.apply_all()"]
   Overlays --> DeskServer["desk_server"]
-  Hermes --> Loop["127.0.0.1:RANDOM<br/>/api/desk/*"]
+  DeskServer --> Loop["127.0.0.1:RANDOM<br/>/api/desk/*"]
   WebView -->|"Splash /chat /settings"| ShellUI["bundled shell UI<br/>web/"]
   Tauri --> GwSup["gateway_supervisor<br/>(optional)"]
   GwSup --> GwChild["python -m gateway.run<br/>messaging adapters"]
   GwChild --> MsgApis["channel APIs<br/>Weixin / QQ / Feishu / Telegram …"]
   Tauri --> QrWorkers["QR workers<br/>weixin / qqbot / feishu<br/>(short-lived)"]
-  QrWorkers -.->|"writes hermes-home/.env"| Hermes
+  QrWorkers -.->|"writes kabuqina-home/.env"| PyChild
   Tauri --> Bridge["loopback bridge<br/>(secret + approval)"]
   Bridge -.fetched once.-> PyChild
   Tauri --> Vault["Credential Manager<br/>(DPAPI)"]
@@ -36,24 +37,24 @@ flowchart TD
 
 ### Strip shims vs real gateway code
 
-The **Hermes web child** installs `strip_shims` so imports like `gateway.run.main` inside `web_server` load **no-op stubs** — the dashboard process must not accidentally become the messaging gateway entrypoint. The **`gateway/` tree still ships on disk** inside the bundle; the **gateway supervisor** runs **`python -m gateway.run`** as a **separate OS process**, which loads the real `gateway.run` module. See [python/overlays/strip_shims.py](../python/overlays/strip_shims.py).
+The **desktop web child** installs `strip_shims` so incidental gateway imports load **no-op stubs** — the desk API process must not accidentally become the messaging gateway entrypoint. The **`gateway/` tree still ships on disk** inside the bundle; the **gateway supervisor** runs **`python -m gateway.run`** as a **separate OS process**, which loads the real module. See [python/overlays/strip_shims.py](../python/overlays/strip_shims.py).
 
 ### Python runtime layers
 
 The Python side is split into two architectural layers:
 
-1. **agent_core** — the frozen Hermes Agent subtree (`hermes_core/`). Imported directly by `desktop_entrypoint.py` after overlays are applied. Never modified independently.
+1. **agent_core** — the owned core source tree (`hermes_core/`). Imported directly by `desktop_entrypoint.py` after overlays are applied and evolved in-tree under the core/overlay boundary rules.
 2. **desktop_policy** — Kabuqina-owned policy objects (`python/src/*_policy.py`). Each policy covers one surface (paths, secrets, network, tools, approval, gateway). They are injected at startup via `desktop_config.py` rather than monkey-patched.
 
-The 7 remaining overlays (`python/overlays/`) wire the policies into Hermes' import chain; they will be deleted as their corresponding policies become self-sufficient. See [python/overlays/__init__.py](../python/overlays/__init__.py) for the install order.
+The 7 remaining overlays (`python/overlays/`) wire the policies into the core import chain; they will be deleted as their corresponding policies become self-sufficient. See [python/overlays/__init__.py](../python/overlays/__init__.py) for the install order.
 
 ### Shell chat (`/chat`)
 
-The shell chat page calls Tauri **`invoke`** commands implemented in [tauri/src/chat.rs](../tauri/src/chat.rs). Rust proxies HTTP to the embedded Hermes loopback using **`X-HermesDesk-Auth`** plus the same **`Authorization: Bearer`** session token Hermes uses for its web UI (read from disk or scraped once from `index.html`). This avoids cross-origin `fetch` from the shell origin and keeps token handling in-process.
+The shell chat page calls Tauri **`invoke`** commands implemented in [tauri/src/chat.rs](../tauri/src/chat.rs). Rust proxies HTTP to the embedded Kabuqina loopback using the compatibility header **`X-HermesDesk-Auth`** plus the desk session bearer token. This avoids cross-origin `fetch` from the shell origin and keeps token handling in-process.
 
 ### Messaging gateway
 
-- **Supervisor:** [tauri/src/gateway_supervisor.rs](../tauri/src/gateway_supervisor.rs) — eligibility from `hermes-home/.env`, spawn env, diagnostics (`gateway_state.json`, log tail).
+- **Supervisor:** [tauri/src/gateway_supervisor.rs](../tauri/src/gateway_supervisor.rs) — eligibility from `kabuqina-home/.env`, spawn env, diagnostics (`gateway_state.json`, log tail).
 - **Credentials UX:** Settings + onboarding blocks call Rust commands (`weixin_qr`, `qqbot_qr`, `feishu_qr`, `telegram_*`, `pairing_*`). Desk-tested flows cover **Weixin**, **QQ Bot**, **Feishu/Lark**, and **Telegram** (token).
 - **LLM key for bots:** Gateway children reuse the desk **`secret_loader`** path so adapters call the configured model without a second vault UI.
 
@@ -78,10 +79,10 @@ Settings load-package management remains the storage/cache view. The Capability 
 
 | File                                                                    | Role                                                                                  |
 | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| [tauri/src/lib.rs](../tauri/src/lib.rs)                                 | Plugins, `bootstrap`, gateway commands, Hermes respawn, dashboard URL helpers          |
+| [tauri/src/lib.rs](../tauri/src/lib.rs)                                 | Plugins, `bootstrap`, gateway commands, Python child respawn                           |
 | [tauri/src/python_supervisor.rs](../tauri/src/python_supervisor.rs)     | Spawns and supervises `desktop_entrypoint.py`, waits for port handshake               |
 | [tauri/src/gateway_supervisor.rs](../tauri/src/gateway_supervisor.rs)   | Optional `gateway.run` child, `.env` eligibility, startup diagnostics                  |
-| [tauri/src/chat.rs](../tauri/src/chat.rs)                               | Shell `/chat` → loopback Hermes HTTP proxy (`invoke` + bearer resolution)               |
+| [tauri/src/chat.rs](../tauri/src/chat.rs)                               | Shell `/chat` → loopback Kabuqina HTTP proxy (`invoke` + bearer resolution)             |
 | [tauri/src/bridge.rs](../tauri/src/bridge.rs)                           | Loopback HTTP for one-shot secret handoff and shell approval                          |
 | [tauri/src/secrets.rs](../tauri/src/secrets.rs)                         | Provider config + DPAPI-backed key storage                                            |
 | [tauri/src/paths.rs](../tauri/src/paths.rs)                             | Workspace + bundle + data dir resolution; settings                                    |
@@ -107,10 +108,9 @@ T+250ms  python_supervisor::Supervisor::spawn() starts desktop_entrypoint.py
 T+500ms  Python: overlays.apply_all()
 T+700ms  Python: picks unused TCP port, writes port.txt
 T+750ms  Python: desk_server.start_server(host=127.0.0.1, port=N)
-T+800ms  Tauri: wait_for_port() reads port.txt → stores N (Hermes dashboard URL base)
+T+800ms  Tauri: wait_for_port() reads port.txt → stores the desk API port N
 T+820ms  If auto-start gateway enabled and .env has messaging keys → gateway_supervisor spawns gateway.run
-T+850ms  WebView stays on Tauri shell (Splash routes to /chat or onboarding — no forced jump to Hermes)
-Later   User opens full Hermes UI → navigate WebView to http://127.0.0.1:N/… (menu / onboarding action)
+T+850ms  WebView stays on the Tauri shell (Splash routes to /chat or onboarding)
 ```
 
 ## Failure modes

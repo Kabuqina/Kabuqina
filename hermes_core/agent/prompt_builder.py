@@ -12,7 +12,7 @@ import threading
 from collections import OrderedDict
 from pathlib import Path
 
-from hermes_constants import get_hermes_home, get_skills_dir, is_wsl
+from kabuqina_constants import get_kabuqina_home, get_skills_dir, is_wsl
 from typing import Optional
 
 from agent.skill_utils import (
@@ -26,7 +26,7 @@ from agent.skill_utils import (
 )
 from utils import atomic_json_write
 
-from hermes_cli.default_soul import DEFAULT_SOUL_MD as DEFAULT_AGENT_IDENTITY
+from kabuqina_cli.default_soul import DEFAULT_SOUL_MD as DEFAULT_AGENT_IDENTITY
 
 logger = logging.getLogger(__name__)
 
@@ -132,11 +132,11 @@ def _strip_yaml_frontmatter(content: str) -> str:
 # =========================================================================
 # Constants
 # =========================================================================
-# DEFAULT_AGENT_IDENTITY is imported from hermes_cli.default_soul (single source with seeded SOUL.md).
+# DEFAULT_AGENT_IDENTITY is imported from kabuqina_cli.default_soul (single source with seeded SOUL.md).
 
 HERMES_AGENT_HELP_GUIDANCE = (
-    "If the user asks about configuring, setting up, or using Hermes Agent "
-    "itself, load the `hermes-agent` skill with skill_view(name='hermes-agent') "
+    "If the user asks about configuring, setting up, or using Kabuqina "
+    "itself, load the `kabuqina-agent` skill with skill_view(name='kabuqina-agent') "
     "before answering. Docs: https://hermes-agent.nousresearch.com/docs"
 )
 
@@ -571,7 +571,7 @@ _SKILLS_SNAPSHOT_VERSION = 1
 
 
 def _skills_prompt_snapshot_path() -> Path:
-    return get_hermes_home() / ".skills_prompt_snapshot.json"
+    return get_kabuqina_home() / ".skills_prompt_snapshot.json"
 
 
 def clear_skills_system_prompt_cache(*, clear_snapshot: bool = False) -> None:
@@ -733,7 +733,7 @@ def build_skills_system_prompt(
     Falls back to a full filesystem scan when both layers miss.
 
     External skill directories (``skills.external_dirs`` in config.yaml) are
-    scanned alongside the local ``~/.hermes/skills/`` directory.  External dirs
+    scanned alongside the local ``~/.kabuqina/skills/`` directory.  External dirs
     are read-only — they appear in the index but new skills are always created
     in the local dir.  Local skills take precedence when names collide.
     """
@@ -927,10 +927,10 @@ def build_skills_system_prompt(
             "for tasks like code review, planning, and testing — load them even for tasks you "
             "already know how to do, because the skill defines how it should be done here.\n"
             "Whenever the user asks you to configure, set up, install, enable, disable, modify, "
-            "or troubleshoot Hermes Agent itself — its CLI, config, models, providers, tools, "
-            "skills, voice, gateway, plugins, or any feature — load the `hermes-agent` skill "
-            "first. It has the actual commands (e.g. `hermes config set …`, `hermes tools`, "
-            "`hermes setup`) so you don't have to guess or invent workarounds.\n"
+            "or troubleshoot Kabuqina itself — its CLI, config, models, providers, tools, "
+            "skills, voice, gateway, plugins, or any feature — load the `kabuqina-agent` skill "
+            "first. It has the actual commands (e.g. `kabuqina config set …`, `kabuqina tools`, "
+            "`kabuqina setup`) so you don't have to guess or invent workarounds.\n"
             "If a skill has issues, fix it with skill_manage(action='patch').\n"
             "After difficult/iterative tasks, offer to save as a skill. "
             "If a skill you loaded was missing steps, had wrong commands, or needed "
@@ -956,7 +956,7 @@ def build_skills_system_prompt(
 def build_nous_subscription_prompt(valid_tool_names: "set[str] | None" = None) -> str:
     """Build a compact Nous subscription capability block for the system prompt."""
     try:
-        from hermes_cli.nous_subscription import get_nous_subscription_features
+        from kabuqina_cli.nous_subscription import get_nous_subscription_features
         from tools.tool_backend_helpers import managed_nous_tools_enabled
     except Exception as exc:
         logger.debug("Failed to import Nous subscription helper: %s", exc)
@@ -1013,7 +1013,7 @@ def build_nous_subscription_prompt(valid_tool_names: "set[str] | None" = None) -
             "When a Nous-managed feature is active, do not ask the user for Firecrawl, FAL, OpenAI TTS, or Browser-Use API keys.",
             "If the user is not subscribed and asks for a capability that Nous subscription would unlock or simplify, suggest Nous subscription as one option alongside direct setup or local alternatives.",
             "Do not mention subscription unless the user asks about it or it directly solves the current missing capability.",
-            "Useful commands: hermes setup, hermes setup tools, hermes setup terminal, hermes status.",
+            "Useful commands: kabuqina setup, kabuqina setup tools, kabuqina setup terminal, kabuqina status.",
         ]
     )
     return "\n".join(lines)
@@ -1025,7 +1025,7 @@ def build_deliverable_planner_prompt(valid_tool_names: "set[str] | None" = None)
     This is the **planner layer of the file-generation pipeline**, sunk into the
     agent core so the web (desk) child and the gateway (messaging) child plan
     identically. It is self-gated on the presence of the writer tools, so a
-    vanilla Hermes session without these tools gets nothing.
+    vanilla Kabuqina session without these tools gets nothing.
 
     The vocabulary (slide types, layouts, per-structure outlines) is imported
     from ``tools/deliverable_contract.py`` — the same source the writer
@@ -1205,12 +1205,12 @@ def load_soul_md() -> Optional[str]:
     ``skip_soul=True`` so SOUL.md isn't injected twice.
     """
     try:
-        from hermes_cli.config import ensure_hermes_home
-        ensure_hermes_home()
+        from kabuqina_cli.config import ensure_kabuqina_home
+        ensure_kabuqina_home()
     except Exception as e:
         logger.debug("Could not ensure HERMES_HOME before loading SOUL.md: %s", e)
 
-    soul_path = get_hermes_home() / "SOUL.md"
+    soul_path = get_kabuqina_home() / "SOUL.md"
     if not soul_path.exists():
         return None
     try:

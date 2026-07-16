@@ -34,7 +34,7 @@ def sample_wav(tmp_path):
 @pytest.fixture
 def temp_voice_dir(tmp_path, monkeypatch):
     """Redirect _TEMP_DIR to a temporary path."""
-    voice_dir = tmp_path / "hermes_voice"
+    voice_dir = tmp_path / "kabuqina_voice"
     voice_dir.mkdir()
     monkeypatch.setattr("tools.voice_mode._TEMP_DIR", str(voice_dir))
     return voice_dir
@@ -792,7 +792,7 @@ class TestSilenceDetection:
         # Simulate sustained speech (multiple loud chunks to exceed min_speech_duration)
         loud_frame = np.full((1600, 1), 5000, dtype="int16")
         callback(loud_frame, 1600, None, None)
-        time.sleep(0.06)
+        recorder._speech_start -= recorder._min_speech_duration + 1.0
         callback(loud_frame, 1600, None, None)
         assert recorder._has_spoken is True
 
@@ -800,8 +800,8 @@ class TestSilenceDetection:
         silent_frame = np.zeros((1600, 1), dtype="int16")
         callback(silent_frame, 1600, None, None)
 
-        # Wait a bit past the silence duration, then send another silent frame
-        time.sleep(0.06)
+        # Advance the detector state without relying on wall-clock scheduling.
+        recorder._silence_start -= recorder._silence_duration + 1.0
         callback(silent_frame, 1600, None, None)
 
         # The callback should have been fired
@@ -1132,7 +1132,7 @@ class TestConfigurableSilenceParams:
         # Now send really loud audio (above 5000 threshold)
         very_loud = np.full((1600, 1), 8000, dtype="int16")
         callback(very_loud, 1600, None, None)
-        time.sleep(0.06)
+        recorder._speech_start -= recorder._min_speech_duration + 1.0
         callback(very_loud, 1600, None, None)
         assert recorder._has_spoken is True
 

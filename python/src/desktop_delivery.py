@@ -41,7 +41,7 @@ def persist_reminder_session(title: str, message: str) -> None:
     if not content.strip():
         return
     try:
-        from hermes_state import SessionDB
+        from kabuqina_state import SessionDB
 
         db = SessionDB()
         try:

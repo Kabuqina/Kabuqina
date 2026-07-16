@@ -39,7 +39,7 @@ picker in onboarding.
 
 ## Extended setup (optional messaging)
 
-Beyond the minimal **brain / access pass / vibe** path, the wizard may include **optional sections** (e.g. messaging gateway channels — Weixin, QQ Bot, Feishu/Lark, Telegram). Implementation lives under [`web/src/onboarding/`](../web/src/onboarding/) (`SetupMode`, `flowConfig`, `setupCatalog`, section placeholders). Users can skip channels they do not need; credentials land in **`hermes-home/.env`** and **Settings → Messaging gateway** controls the long-running **`gateway.run`** process. Product overview: [`gateway-desk-weixin-strategy.md`](gateway-desk-weixin-strategy.md), [`architecture.md`](architecture.md).
+Beyond the minimal **brain / access pass / vibe** path, the wizard may include **optional sections** (e.g. messaging gateway channels — Weixin, QQ Bot, Feishu/Lark, Telegram). Implementation lives under [`web/src/onboarding/`](../web/src/onboarding/) (`SetupMode`, `flowConfig`, `setupCatalog`, section placeholders). Users can skip channels they do not need; credentials land in **`kabuqina-home/.env`** and **Settings → Messaging gateway** controls the long-running **`gateway.run`** process. Product overview: [`gateway-desk-weixin-strategy.md`](gateway-desk-weixin-strategy.md), [`architecture.md`](architecture.md).
 
 ## Error wording
 

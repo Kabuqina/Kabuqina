@@ -26,7 +26,7 @@ def install() -> None:
     if os.environ.get("HERMESDESK_DESK_MINIMAL") != "1":
         return
 
-    from hermes_cli.plugins import LoadedPlugin, PluginManager
+    from kabuqina_cli.plugins import LoadedPlugin, PluginManager
 
     _orig_load = PluginManager._load_plugin
 

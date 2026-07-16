@@ -958,3 +958,24 @@ questions, while `QuizService` also strips them defensively from the public
 question wire when mode is not transcribe. This keeps the visible transcription
 source available without allowing a normal quiz artifact to disclose its
 answer through target-shaped fields.
+
+**A-R3 canonical core and persistence identity (2026-07-14).** Kabuqina is now
+the canonical installed/runtime identity: `kabuqina_cli`, the four
+`kabuqina_*` core modules, distribution `kabuqina-agent`, console commands
+`kabuqina` / `kabuqina-agent` / `kabuqina-acp`, `KABUQINA_HOME`, standalone
+`~/.kabuqina`, and desktop `kabuqina-home`. The source-tree boundary remains
+`hermes_core/` to preserve owned-fork lineage and avoid conflating a repository
+path with an installed namespace. For the v0.4 compatibility release, old
+Python imports and console aliases remain available; `KABUQINA_HOME` wins by
+key presence and otherwise falls back to `HERMES_HOME`; standalone old-only
+homes remain readable; desktop old-only `hermes-home` is atomically renamed,
+with failure falling back to the old directory and both-exist preferring the
+new directory without deletion. `state.db` and `learning.db` names/schemas do
+not change, so home migration carries them intact. Credential Manager reads
+service `Kabuqina` first, falls back only on an explicit miss to legacy service
+`HermesDesk`, copies recovered secrets forward, and clears both services on
+explicit sign-out. Secret values are never logged. Nous Hermes model names,
+ChatML/tool-call protocol identifiers, upstream/legal/history references,
+gateway owner IDs, and database schemas are deliberately unchanged. Removing
+the one-release shims is a separate post-v0.4 task; no engine selector is
+reintroduced under a new name.

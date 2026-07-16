@@ -22,11 +22,11 @@ class RuntimePrunedVerifierTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             runtime = Path(tmp)
-            residual = runtime / "hermes" / "plugins" / "spotify"
+            residual = runtime / "kabuqina" / "plugins" / "spotify"
             residual.mkdir(parents=True)
             template = (
                 runtime
-                / "hermes"
+                / "kabuqina"
                 / "skills"
                 / "creative"
                 / "popular-web-designs"
@@ -44,10 +44,10 @@ class RuntimePrunedVerifierTests(unittest.TestCase):
             )
 
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-        self.assertIn("forbidden runtime residual: hermes/plugins/spotify", result.stderr)
+        self.assertIn("forbidden runtime residual: kabuqina/plugins/spotify", result.stderr)
         self.assertIn(
             "forbidden runtime residual: "
-            "hermes/skills/creative/popular-web-designs/templates/spotify.md",
+            "kabuqina/skills/creative/popular-web-designs/templates/spotify.md",
             result.stderr,
         )
 
@@ -56,12 +56,12 @@ class RuntimePrunedVerifierTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             runtime = Path(tmp)
-            (runtime / "hermes" / "gateway" / "platforms" / "weixin").mkdir(parents=True)
-            (runtime / "hermes" / "plugins" / "image_gen").mkdir(parents=True)
-            toolsets = runtime / "hermes" / "toolsets.py"
+            (runtime / "kabuqina" / "gateway" / "platforms" / "weixin").mkdir(parents=True)
+            (runtime / "kabuqina" / "plugins" / "image_gen").mkdir(parents=True)
+            toolsets = runtime / "kabuqina" / "toolsets.py"
             toolsets.parent.mkdir(parents=True, exist_ok=True)
             toolsets.write_text("TOOLSETS = {}\n", encoding="utf-8")
-            tools_config = runtime / "hermes" / "hermes_cli" / "tools_config.py"
+            tools_config = runtime / "kabuqina" / "kabuqina_cli" / "tools_config.py"
             tools_config.parent.mkdir(parents=True)
             tools_config.write_text("CONFIGURABLE_TOOLSETS = []\n", encoding="utf-8")
 
@@ -80,7 +80,7 @@ class RuntimePrunedVerifierTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             runtime = Path(tmp)
-            toolsets = runtime / "hermes" / "toolsets.py"
+            toolsets = runtime / "kabuqina" / "toolsets.py"
             toolsets.parent.mkdir(parents=True)
             toolsets.write_text('TOOLSETS = {"spotify": {}}\n', encoding="utf-8")
 
@@ -93,7 +93,7 @@ class RuntimePrunedVerifierTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         self.assertIn(
-            "forbidden runtime content: hermes/toolsets.py contains 'spotify'",
+            "forbidden runtime content: kabuqina/toolsets.py contains 'spotify'",
             result.stderr,
         )
 

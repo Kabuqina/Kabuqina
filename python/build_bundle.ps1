@@ -116,7 +116,7 @@ $Root      = Resolve-Path (Join-Path $PSScriptRoot "..")
 $BuildDir  = Join-Path $PSScriptRoot "_build"
 $Download  = Join-Path $PSScriptRoot "_download"
 $Dist      = Join-Path $PSScriptRoot "dist\runtime"
-$HermesDir = Join-Path $Root "hermes_core"
+$CoreDir   = Join-Path $Root "hermes_core"
 
 function Test-BundleSentinels {
     param([string]$Runtime)
@@ -124,7 +124,7 @@ function Test-BundleSentinels {
     $required = @(
         "BUNDLE_INFO.json",
         "python\python.exe",
-        "hermes\run_agent.py",
+        "kabuqina\run_agent.py",
         "site-packages\yaml\__init__.py",
         "site-packages\fastapi\__init__.py",
         "site-packages\uvicorn\__init__.py",
@@ -182,7 +182,7 @@ if ($Clean) {
 
 New-Item -ItemType Directory -Force -Path $BuildDir, $Download, $Dist | Out-Null
 
-if (-not (Test-Path (Join-Path $HermesDir "pyproject.toml"))) {
+if (-not (Test-Path (Join-Path $CoreDir "pyproject.toml"))) {
     Write-Error "hermes_core/ directory not found. The frozen upstream source is missing."
     exit 2
 }
@@ -217,19 +217,23 @@ if (-not (Test-Path $Py)) {
 Write-Host "Using Python: " (& $Py --version)
 
 # Remove the .pth from any prior build before invoking pip.  Python processes
-# hermesdesk.pth on every startup; after Clear-BundleSitePackages wipes the
+# the runtime .pth on every startup; after Clear-BundleSitePackages wipes the
 # external site-packages, the "import pywin32_bootstrap" line in the .pth fails
 # with a noisy-but-non-fatal ModuleNotFoundError on every pip call.  The file
 # is rewritten unconditionally later in this script, so deleting it here is safe.
-Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $pyDir "Lib\site-packages\hermesdesk.pth")
+Remove-Item -Force -ErrorAction SilentlyContinue `
+    (Join-Path $pyDir "Lib\site-packages\kabuqina.pth"), `
+    (Join-Path $pyDir "Lib\site-packages\hermesdesk.pth")
 
 # ------------------------------------------------------------------ 2. pip
 & $Py -m pip install --upgrade pip wheel | Out-Null
 
-# ------------------------------------------------------------------ 3. Prune Hermes into the bundle
-$bundledHermes = Join-Path $Dist "hermes"
-Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $bundledHermes
-New-Item -ItemType Directory -Force -Path $bundledHermes | Out-Null
+# ------------------------------------------------------------------ 3. Prune the owned core into the bundle
+$bundledCore = Join-Path $Dist "kabuqina"
+$legacyBundledCore = Join-Path $Dist "hermes"
+Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $legacyBundledCore
+Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $bundledCore
+New-Item -ItemType Directory -Force -Path $bundledCore | Out-Null
 
 # Files / directories we copy.
 $keep = @(
@@ -237,7 +241,8 @@ $keep = @(
     "providers",                        # provider package (chat_completions, *_auth, transports) — agent/* are thin aliases into it; required for the inference path
     "tools",
     "gateway",                          # session_context, approval.py — required for terminal + desk
-    "hermes_cli",
+    "kabuqina_cli",
+    "hermes_cli",                       # one-release import compatibility shim
     "learning",
     "skills",
     "plugins",
@@ -248,7 +253,11 @@ $keep = @(
     "toolsets.py",
     "toolset_distributions.py",
     "trajectory_compressor.py",          # imported by agent code; harmless if unused
-    "hermes_constants.py",
+    "kabuqina_constants.py",
+    "kabuqina_state.py",
+    "kabuqina_time.py",
+    "kabuqina_logging.py",
+    "hermes_constants.py",              # one-release module shims
     "hermes_state.py",
     "hermes_time.py",
     "hermes_logging.py",
@@ -258,9 +267,9 @@ $keep = @(
 )
 
 foreach ($name in $keep) {
-    $src = Join-Path $HermesDir $name
+    $src = Join-Path $CoreDir $name
     if (Test-Path $src) {
-        Copy-Item -Recurse -Force $src (Join-Path $bundledHermes $name)
+        Copy-Item -Recurse -Force $src (Join-Path $bundledCore $name)
     } else {
         Write-Warning "keep-list item missing in upstream: $name"
     }
@@ -307,15 +316,15 @@ $drop = @(
     "skills\media\spotify"
 )
 foreach ($d in $drop) {
-    $f = Join-Path $bundledHermes $d
+    $f = Join-Path $bundledCore $d
     if (Test-Path $f) { Remove-Item -Force -Recurse -LiteralPath $f }
 }
 
 # Prevent implicit namespace package causing subthread import failures
 # (gateway/run.py spawns cron-ticker thread — from cron.scheduler import tick)
-$hermesInit = Join-Path $bundledHermes "__init__.py"
-if (-not (Test-Path $hermesInit)) {
-    "" | Set-Content -Path $hermesInit -Encoding ASCII
+$coreInit = Join-Path $bundledCore "__init__.py"
+if (-not (Test-Path $coreInit)) {
+    "" | Set-Content -Path $coreInit -Encoding ASCII
 }
 
 # ------------------------------------------------------------------ 5. Install deps into a target dir (no venv)
@@ -498,8 +507,10 @@ Copy-Item -Force (Join-Path $PSScriptRoot "src\product_profile_policy.py") (Join
 Copy-Item -Force (Join-Path $PSScriptRoot "src\capability_registry.py") (Join-Path $Dist "capability_registry.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\capability_status.py") (Join-Path $Dist "capability_status.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\capability_prompt.py") (Join-Path $Dist "capability_prompt.py")
-Copy-Item -Recurse -Force (Join-Path $PSScriptRoot "src\desk_server") (Join-Path $Dist "desk_server")
-foreach ($copiedTree in @($overlaysDest, $helpersDest, (Join-Path $Dist "desk_server"))) {
+$deskServerDest = Join-Path $Dist "desk_server"
+Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $deskServerDest
+Copy-Item -Recurse -Force (Join-Path $PSScriptRoot "src\desk_server") $deskServerDest
+foreach ($copiedTree in @($overlaysDest, $helpersDest, $deskServerDest)) {
     if (Test-Path $copiedTree) {
         Get-ChildItem -Path $copiedTree -Directory -Filter "__pycache__" -Recurse -ErrorAction SilentlyContinue |
             Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
@@ -529,17 +540,17 @@ Copy-Item -Recurse -Force $visualMastersSrc $visualMastersDest
 # per-master `outputs/` folders are generation junk that must not ship.
 Remove-VisualMasterGeneratedOutputs -VisualMastersPath $visualMastersDest
 
-# A pth file so the bundled hermes/ + site-packages are on sys.path
+# A pth file so the bundled Kabuqina core + site-packages are on sys.path
 $pthBody = @(
     "..\..\..",
-    "..\..\..\hermes",
+    "..\..\..\kabuqina",
     "..\..\..\site-packages",
     "..\..\..\site-packages\win32",
     "..\..\..\site-packages\win32\lib",
     "..\..\..\site-packages\pythonwin",
     "import pywin32_bootstrap"
 ) -join "`n"
-Set-Content -Path (Join-Path $pyDir "Lib\site-packages\hermesdesk.pth") -Value $pthBody -Encoding ASCII
+Set-Content -Path (Join-Path $pyDir "Lib\site-packages\kabuqina.pth") -Value $pthBody -Encoding ASCII
 
 # ------------------------------------------------------------------ 6b. Bundle whisper.cpp + ffmpeg for offline STT
 #
@@ -664,13 +675,13 @@ if (-not $Verify) {
 # ------------------------------------------------------------------ 8. Verify
 if ($Verify) {
     Write-Host "`n--- Smoke test ---" -ForegroundColor Cyan
-    $env:HERMESDESK_BUNDLE_DIR = $Dist
-    $env:HERMESDESK_DATA_DIR   = (Join-Path $env:TEMP "hermesdesk-smoke")
-    $env:HERMESDESK_WORKSPACE  = (Join-Path $env:TEMP "hermesdesk-smoke\workspace")
-    $env:HERMES_HOME           = (Join-Path $env:TEMP "hermesdesk-smoke\hermes-home")
-    $env:HERMESDESK_OVERLAY_LENIENT = "0"
+    $env:KABUQINA_BUNDLE_DIR = $Dist
+    $env:KABUQINA_DATA_DIR   = (Join-Path $env:TEMP "kabuqina-smoke")
+    $env:KABUQINA_WORKSPACE  = (Join-Path $env:TEMP "kabuqina-smoke\workspace")
+    $env:KABUQINA_HOME       = (Join-Path $env:TEMP "kabuqina-smoke\kabuqina-home")
+    $env:KABUQINA_OVERLAY_LENIENT = "0"
     $env:PYTHONDONTWRITEBYTECODE = "1"
-    New-Item -ItemType Directory -Force -Path $env:HERMESDESK_WORKSPACE, $env:HERMES_HOME | Out-Null
+    New-Item -ItemType Directory -Force -Path $env:KABUQINA_WORKSPACE, $env:KABUQINA_HOME | Out-Null
     $runtimePrunedScript = Join-Path $PSScriptRoot "tools\verify_runtime_pruned.py"
     & $Py $runtimePrunedScript $Dist
     if ($LASTEXITCODE -ne 0) {
@@ -681,6 +692,12 @@ if ($Verify) {
     & $Py $runtimeImportScript $Dist
     if ($LASTEXITCODE -ne 0) {
         Write-Error "smoke test FAILED"
+        exit $LASTEXITCODE
+    }
+    $legacyRuntimeImportScript = Join-Path $PSScriptRoot "tools\verify_legacy_runtime_imports.py"
+    & $Py $legacyRuntimeImportScript $Dist
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "legacy import identity smoke test FAILED"
         exit $LASTEXITCODE
     }
     Write-Host "smoke test passed" -ForegroundColor Green

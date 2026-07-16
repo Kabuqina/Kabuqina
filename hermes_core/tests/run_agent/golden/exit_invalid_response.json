@@ -73,12 +73,12 @@
       {
         "channel": "status",
         "kind": "lifecycle",
-        "message": "⚠ No auxiliary LLM provider configured — context compression will drop middle turns without a summary. Run `hermes setup` or set OPENROUTER_API_KEY."
+        "message": "⚠ No auxiliary LLM provider configured — context compression will drop middle turns without a summary. Run `kabuqina setup` or set OPENROUTER_API_KEY."
       },
       {
         "channel": "status",
         "kind": "lifecycle",
-        "message": "⚠ No auxiliary LLM provider configured — context compression will drop middle turns without a summary. Run `hermes setup` or set OPENROUTER_API_KEY."
+        "message": "⚠ No auxiliary LLM provider configured — context compression will drop middle turns without a summary. Run `kabuqina setup` or set OPENROUTER_API_KEY."
       },
       {
         "channel": "status",

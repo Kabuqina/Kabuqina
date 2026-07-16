@@ -32,11 +32,11 @@ class TestWrapCommand:
         assert "source" in wrapped
         assert "cd /tmp" in wrapped or "cd '/tmp'" in wrapped
         assert "eval 'echo hello'" in wrapped
-        assert "__hermes_ec=$?" in wrapped
+        assert "__kabuqina_ec=$?" in wrapped
         assert "export -p >" in wrapped
         assert "pwd -P >" in wrapped
         assert env._cwd_marker in wrapped
-        assert "exit $__hermes_ec" in wrapped
+        assert "exit $__kabuqina_ec" in wrapped
 
     def test_no_snapshot_skips_source(self):
         env = _TestableEnv()
@@ -146,6 +146,17 @@ class TestEmbedStdinHeredoc:
 
 
 class TestInitSessionFailure:
+    def test_wait_for_process_accepts_iterator_stdout(self):
+        env = _TestableEnv()
+        proc = MagicMock()
+        proc.poll.return_value = 0
+        proc.returncode = 0
+        proc.stdout = iter(["captured output\n"])
+
+        result = env._wait_for_process(proc)
+
+        assert result == {"output": "captured output\n", "returncode": 0}
+
     def test_snapshot_ready_false_on_failure(self):
         env = _TestableEnv()
 

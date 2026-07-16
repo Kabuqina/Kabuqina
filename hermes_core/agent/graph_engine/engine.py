@@ -54,7 +54,7 @@ class GraphEngine:
         Returns:
             The exact ``LegacyRunResult`` dictionary frozen by Task 2.
         """
-        # LangGraph's recursion limit is only a safety ceiling — Hermes
+        # LangGraph's recursion limit is only a safety ceiling — Kabuqina
         # ``iteration_budget`` is the user-visible authority (enforced in the
         # prepare_request node).  Size it from ``max_iterations`` with headroom
         # for the retry/compression/continuation sub-steps within an iteration.

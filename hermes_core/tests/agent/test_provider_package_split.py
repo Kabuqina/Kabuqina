@@ -62,9 +62,9 @@ def test_canonical_provider_modules_import(module_name):
     assert importlib.import_module(module_name) is not None
 
 
-# Auth-store persistence primitives moved from hermes_cli.auth into
-# providers.auth_store. hermes_cli.auth must re-export every name so existing
-# imports and monkeypatches of hermes_cli.auth.* keep hitting the same object.
+# Auth-store persistence primitives moved from kabuqina_cli.auth into
+# providers.auth_store. kabuqina_cli.auth must re-export every name so existing
+# imports and monkeypatches of kabuqina_cli.auth.* keep hitting the same object.
 _AUTH_STORE_PRIMITIVES = (
     "AUTH_STORE_VERSION",
     "AUTH_LOCK_TIMEOUT_SECONDS",
@@ -96,20 +96,20 @@ def test_auth_store_primitives_live_in_providers_package():
         assert hasattr(auth_store, name), f"providers.auth_store missing {name}"
 
 
-def test_hermes_cli_auth_reexports_auth_store_primitives():
-    import hermes_cli.auth as auth
+def test_kabuqina_cli_auth_reexports_auth_store_primitives():
+    import kabuqina_cli.auth as auth
     import providers.auth_store as auth_store
 
     for name in _AUTH_STORE_PRIMITIVES:
         assert getattr(auth, name) is getattr(auth_store, name), (
-            f"hermes_cli.auth.{name} must re-export providers.auth_store.{name}"
+            f"kabuqina_cli.auth.{name} must re-export providers.auth_store.{name}"
         )
 
 
-# API-key secret / base-URL resolution helpers moved from hermes_cli.auth into
+# API-key secret / base-URL resolution helpers moved from kabuqina_cli.auth into
 # providers.api_key_auth. The registry-coupled callers (get_anthropic_key,
 # resolve_api_key_provider_credentials, resolve_external_process_provider_credentials)
-# stay in hermes_cli.auth and reach these via re-export.
+# stay in kabuqina_cli.auth and reach these via re-export.
 _API_KEY_AUTH_PRIMITIVES = (
     "KIMI_CODE_BASE_URL",
     "ZAI_ENDPOINTS",
@@ -129,19 +129,19 @@ def test_api_key_auth_helpers_live_in_providers_package():
         assert hasattr(api_key_auth, name), f"providers.api_key_auth missing {name}"
 
 
-def test_hermes_cli_auth_reexports_api_key_auth_helpers():
-    import hermes_cli.auth as auth
+def test_kabuqina_cli_auth_reexports_api_key_auth_helpers():
+    import kabuqina_cli.auth as auth
     import providers.api_key_auth as api_key_auth
 
     for name in _API_KEY_AUTH_PRIMITIVES:
         assert getattr(auth, name) is getattr(api_key_auth, name), (
-            f"hermes_cli.auth.{name} must re-export providers.api_key_auth.{name}"
+            f"kabuqina_cli.auth.{name} must re-export providers.api_key_auth.{name}"
         )
 
 
-# Shared OAuth / JWT / timestamp leaf helpers moved from hermes_cli.auth into
+# Shared OAuth / JWT / timestamp leaf helpers moved from kabuqina_cli.auth into
 # providers.oauth_helpers (stdlib-only; importable by any provider module
-# without a cycle). hermes_cli.auth re-exports them for existing call sites.
+# without a cycle). kabuqina_cli.auth re-exports them for existing call sites.
 _OAUTH_HELPERS = (
     "_token_fingerprint",
     "_oauth_trace_enabled",
@@ -161,13 +161,13 @@ def test_oauth_helpers_live_in_providers_package():
         assert hasattr(oauth_helpers, name), f"providers.oauth_helpers missing {name}"
 
 
-def test_hermes_cli_auth_reexports_oauth_helpers():
-    import hermes_cli.auth as auth
+def test_kabuqina_cli_auth_reexports_oauth_helpers():
+    import kabuqina_cli.auth as auth
     import providers.oauth_helpers as oauth_helpers
 
     for name in _OAUTH_HELPERS:
         assert getattr(auth, name) is getattr(oauth_helpers, name), (
-            f"hermes_cli.auth.{name} must re-export providers.oauth_helpers.{name}"
+            f"kabuqina_cli.auth.{name} must re-export providers.oauth_helpers.{name}"
         )
 
 
@@ -183,18 +183,18 @@ def test_auth_errors_live_in_providers_package():
         assert hasattr(auth_errors, name), f"providers.auth_errors missing {name}"
 
 
-def test_hermes_cli_auth_reexports_auth_errors():
-    import hermes_cli.auth as auth
+def test_kabuqina_cli_auth_reexports_auth_errors():
+    import kabuqina_cli.auth as auth
     import providers.auth_errors as auth_errors
 
     for name in _AUTH_ERROR_NAMES:
         assert getattr(auth, name) is getattr(auth_errors, name), (
-            f"hermes_cli.auth.{name} must re-export providers.auth_errors.{name}"
+            f"kabuqina_cli.auth.{name} must re-export providers.auth_errors.{name}"
         )
 
 
 # Nous Portal runtime auth (device-code, refresh, mint, status) moved from
-# hermes_cli.auth into providers.nous_auth.  hermes_cli.auth re-exports every
+# kabuqina_cli.auth into providers.nous_auth.  kabuqina_cli.auth re-exports every
 # name so existing imports and monkeypatches keep hitting the same objects.
 _NOUS_AUTH_PRIMITIVES = (
     "_default_verify",
@@ -224,18 +224,18 @@ def test_nous_auth_primitives_live_in_providers_package():
         assert hasattr(nous_auth, name), f"providers.nous_auth missing {name}"
 
 
-def test_hermes_cli_auth_reexports_nous_auth_primitives():
-    import hermes_cli.auth as auth
+def test_kabuqina_cli_auth_reexports_nous_auth_primitives():
+    import kabuqina_cli.auth as auth
     import providers.nous_auth as nous_auth
 
     for name in _NOUS_AUTH_PRIMITIVES:
         assert getattr(auth, name) is getattr(nous_auth, name), (
-            f"hermes_cli.auth.{name} must re-export providers.nous_auth.{name}"
+            f"kabuqina_cli.auth.{name} must re-export providers.nous_auth.{name}"
         )
 
 
-# MiniMax OAuth runtime helpers moved from hermes_cli.auth into
-# providers.minimax_auth.  hermes_cli.auth re-exports every name so existing
+# MiniMax OAuth runtime helpers moved from kabuqina_cli.auth into
+# providers.minimax_auth.  kabuqina_cli.auth re-exports every name so existing
 # imports and monkeypatches keep hitting the same objects.
 _MINIMAX_AUTH_PRIMITIVES = (
     "_minimax_pkce_pair",
@@ -255,11 +255,11 @@ def test_minimax_auth_primitives_live_in_providers_package():
         assert hasattr(minimax_auth, name), f"providers.minimax_auth missing {name}"
 
 
-def test_hermes_cli_auth_reexports_minimax_auth_primitives():
-    import hermes_cli.auth as auth
+def test_kabuqina_cli_auth_reexports_minimax_auth_primitives():
+    import kabuqina_cli.auth as auth
     import providers.minimax_auth as minimax_auth
 
     for name in _MINIMAX_AUTH_PRIMITIVES:
         assert getattr(auth, name) is getattr(minimax_auth, name), (
-            f"hermes_cli.auth.{name} must re-export providers.minimax_auth.{name}"
+            f"kabuqina_cli.auth.{name} must re-export providers.minimax_auth.{name}"
         )

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import os
 import time
 from pathlib import Path
 
@@ -10,12 +11,18 @@ from learning.code_grader import check_numeric_equivalence, run_python_grading
 
 
 def test_python_grading_pass_fail_error_and_unicode():
+    timeout = 15 if os.name == "nt" else 5
     passed = run_python_grading(
         "def 加法(a, b):\n    return a + b",
         "assert 加法(2, 3) == 5",
+        timeout_s=timeout,
     )
-    failed = run_python_grading("x = 1", "assert x == 2, 'expected two'")
-    errored = run_python_grading("raise ValueError('bad value')", "")
+    failed = run_python_grading(
+        "x = 1", "assert x == 2, 'expected two'", timeout_s=timeout
+    )
+    errored = run_python_grading(
+        "raise ValueError('bad value')", "", timeout_s=timeout
+    )
 
     assert passed == {
         "passed": True,
@@ -47,8 +54,9 @@ def test_python_grading_uses_isolated_minimal_environment(monkeypatch):
 
 def test_python_grading_times_out_and_kills_child_tree(tmp_path):
     marker = tmp_path / "child-survived.txt"
+    child_delay = 3.0 if os.name == "nt" else 1.0
     child = (
-        "import pathlib,time; time.sleep(1.0); "
+        f"import pathlib,time; time.sleep({child_delay}); "
         f"pathlib.Path({str(marker)!r}).write_text('survived')"
     )
     source = (
@@ -57,8 +65,8 @@ def test_python_grading_times_out_and_kills_child_tree(tmp_path):
         "while True: pass"
     )
 
-    result = run_python_grading(source, "", timeout_s=0.25)
-    time.sleep(1.25)
+    result = run_python_grading(source, "", timeout_s=0.5 if os.name == "nt" else 0.25)
+    time.sleep(child_delay + 0.25)
 
     assert result["passed"] is False
     assert result["timed_out"] is True

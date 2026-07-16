@@ -14,6 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 VERIFIER = ROOT / "python" / "tools" / "verify_runtime_imports.py"
+LEGACY_VERIFIER = ROOT / "python" / "tools" / "verify_legacy_runtime_imports.py"
 
 
 class RuntimeImportVerifierTests(unittest.TestCase):
@@ -50,6 +51,28 @@ class RuntimeImportVerifierTests(unittest.TestCase):
 
         self.assertIn("verify_runtime_imports.py", build_script)
         self.assertIn("verify_runtime_imports.py", sync_script)
+        self.assertIn("verify_legacy_runtime_imports.py", build_script)
+        self.assertIn("verify_legacy_runtime_imports.py", sync_script)
+
+    def test_legacy_verifier_checks_stateful_modules_in_both_orders(self):
+        text = LEGACY_VERIFIER.read_text(encoding="utf-8")
+
+        for module in ("config", "config_home", "auth"):
+            self.assertIn(f'"{module}"', text)
+        self.assertIn('("legacy-first", "canonical-first")', text)
+        self.assertIn("PROVIDER_REGISTRY", text)
+
+    def test_bundle_replaces_desk_server_tree_before_copy(self):
+        build_script = (ROOT / "python" / "build_bundle.ps1").read_text(encoding="utf-8")
+
+        destination = '$deskServerDest = Join-Path $Dist "desk_server"'
+        remove = "Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $deskServerDest"
+        copy = (
+            'Copy-Item -Recurse -Force (Join-Path $PSScriptRoot "src\\desk_server") '
+            "$deskServerDest"
+        )
+        self.assertIn(destination, build_script)
+        self.assertLess(build_script.index(remove), build_script.index(copy))
 
     def test_bundle_and_fast_sync_copy_desk_route_dependencies(self):
         build_script = (ROOT / "python" / "build_bundle.ps1").read_text(encoding="utf-8")

@@ -17,7 +17,7 @@ from ctypes import wintypes
 from pathlib import Path
 from typing import Optional
 
-from hermes_constants import get_hermes_home
+from kabuqina_constants import get_kabuqina_home
 
 _kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
 
@@ -37,7 +37,7 @@ _SYNCHRONIZE = 0x00100000
 # (per-platform gateway child), the platform name is appended so that
 # multiple gateway children (one per platform) can coexist without
 # competing for the same kernel object.
-_MUTEX_NAME_BASE = "Global\\hermes-gateway-runtime-lock"
+_MUTEX_NAME_BASE = "Global\\kabuqina-gateway-runtime-lock"
 
 _gateway_mutex_handle: Optional[int] = None
 _gateway_mutex_metadata_path: Optional[Path] = None
@@ -45,7 +45,7 @@ _mutex_name_cache: Optional[str] = None
 
 
 def _get_gateway_lock_path() -> Path:
-    return get_hermes_home() / "gateway.lock"
+    return get_kabuqina_home() / "gateway.lock"
 
 
 def _build_pid_record() -> dict:
@@ -55,7 +55,7 @@ def _build_pid_record() -> dict:
     except Exception:
         return {
             "pid": os.getpid(),
-            "kind": "hermes-gateway",
+            "kind": "kabuqina-gateway",
             "argv": list(sys.argv),
             "start_time": None,
         }

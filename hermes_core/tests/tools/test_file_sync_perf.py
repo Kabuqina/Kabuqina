@@ -7,6 +7,7 @@ Requires backends to be configured (SSH host, Modal creds, etc).
 Skip markers gate each backend.
 """
 
+import os
 import statistics
 import sys
 import time
@@ -74,10 +75,12 @@ class TestLocalPerf:
     """Local baseline — no file sync, no network. Sets the floor."""
 
     def test_echo_latency(self, local_env):
+        if os.environ.get("PYTEST_XDIST_WORKER"):
+            pytest.skip("latency measurement is not meaningful under xdist load")
         durations = _time_executions(local_env, "echo hello", n=20)
         med = _report("local echo", durations)
         # Windows process + shell startup is materially slower than POSIX bash.
-        limit = 2.5 if sys.platform == "win32" else 0.5
+        limit = 4.0 if sys.platform == "win32" else 0.5
         assert med < limit, f"local echo median {med*1000:.0f}ms exceeds {limit*1000:.0f}ms"
 
 

@@ -35,10 +35,10 @@ GOLDEN_DIR = Path(__file__).parent / "golden"
 RETRY_CONTRACT: dict[str, tuple[int, str]] = {
     "api_max_retries": (3, r'_agent_section\.get\(\s*"api_max_retries",\s*3\s*\)'),
     "max_compression_attempts": (3, r"\bmax_compression_attempts\s*=\s*3\b"),
-    "text_continuation_attempts": (3, r"\blength_continue_retries\s*<\s*3\b"),
-    "truncated_tool_call_retries": (1, r"\btruncated_tool_call_retries\s*<\s*1\b"),
-    "incomplete_scratchpad_retries": (2, r"self\._incomplete_scratchpad_retries\s*<=\s*2\b"),
-    "unknown_tool_retries": (3, r"self\._invalid_tool_retries\s*>=\s*3\b"),
+    "text_continuation_attempts": (3, r"self\._length_continue_retries\s*<\s*3\b"),
+    "truncated_tool_call_retries": (1, r"self\._truncated_tool_call_retries\s*<\s*1\b"),
+    "incomplete_scratchpad_retries": (2, r"agent\._incomplete_scratchpad_retries\s*<=\s*2\b"),
+    "unknown_tool_retries": (3, r"agent\._invalid_tool_retries\s*>=\s*3\b"),
 }
 
 # Single source of truth for fixtures' ``assumed_retry_counts``.

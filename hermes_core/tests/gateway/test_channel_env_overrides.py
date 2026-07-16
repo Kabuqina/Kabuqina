@@ -9,7 +9,7 @@ from gateway.config import Platform, load_gateway_config
 
 @pytest.fixture
 def hermes_home(tmp_path, monkeypatch):
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("KABUQINA_HOME", str(tmp_path))
     # Minimal layout some code paths may expect.
     (tmp_path / "sessions").mkdir(parents=True)
 

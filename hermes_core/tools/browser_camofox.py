@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 
 import requests
 
-from hermes_cli.config import load_config
+from kabuqina_cli.config import load_config
 from tools.browser_camofox_state import get_camofox_identity
 
 _sessions: dict[str, dict[str, Any]] = {}

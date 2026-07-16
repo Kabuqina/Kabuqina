@@ -4,7 +4,7 @@ Skill Manager Tool -- Agent-Managed Skill Creation & Editing
 
 Allows the agent to create, update, and delete skills, turning successful
 approaches into reusable procedural knowledge. New skills are created in
-~/.hermes/skills/. Existing skills (bundled, hub-installed, or user-created)
+~/.kabuqina/skills/. Existing skills (bundled, hub-installed, or user-created)
 can be modified or deleted wherever they live.
 
 Skills are the agent's procedural memory: they capture *how to do a specific
@@ -20,7 +20,7 @@ Actions:
   remove_file-- Remove a supporting file from a user skill
 
 Directory layout for user skills:
-    ~/.hermes/skills/
+    ~/.kabuqina/skills/
     ├── my-skill/
     │   ├── SKILL.md
     │   ├── references/
@@ -39,11 +39,11 @@ import re
 import shutil
 import tempfile
 from pathlib import Path
-from hermes_constants import get_hermes_home, display_hermes_home
+from kabuqina_constants import get_kabuqina_home, display_kabuqina_home
 from typing import Dict, Any, Optional, Tuple
 
 from utils import atomic_replace
-from hermes_cli.config import cfg_get
+from kabuqina_cli.config import cfg_get
 
 logger = logging.getLogger(__name__)
 
@@ -62,10 +62,10 @@ def _guard_agent_created_enabled() -> bool:
     Off by default because the agent can already execute the same code
     paths via terminal() with no gate, so the scan adds friction without
     meaningful security.  Users who want belt-and-suspenders can turn it
-    on via `hermes config set skills.guard_agent_created true`.
+    on via `kabuqina config set skills.guard_agent_created true`.
     """
     try:
-        from hermes_cli.config import load_config
+        from kabuqina_cli.config import load_config
         cfg = load_config()
         return bool(cfg_get(cfg, "skills", "guard_agent_created", default=False))
     except Exception:
@@ -101,9 +101,9 @@ def _security_scan_skill(skill_dir: Path) -> Optional[str]:
 import yaml
 
 
-# All skills live in ~/.hermes/skills/ (single source of truth)
-HERMES_HOME = get_hermes_home()
-SKILLS_DIR = HERMES_HOME / "skills"
+# All skills live in ~/.kabuqina/skills/ (single source of truth)
+KABUQINA_HOME = get_kabuqina_home()
+SKILLS_DIR = KABUQINA_HOME / "skills"
 
 MAX_NAME_LENGTH = 64
 MAX_DESCRIPTION_LENGTH = 1024
@@ -136,7 +136,7 @@ def _pinned_guard(name: str) -> Optional[str]:
 
     Pinned skills are off-limits to the agent's skill_manage tool.  The only
     way to modify one is for the user to unpin it via
-    ``hermes curator unpin <name>`` (or edit it directly by hand).  This
+    ``kabuqina curator unpin <name>`` (or edit it directly by hand).  This
     mirrors the curator's own pinned-skip behavior but extends the guard
     to tool-driven writes as well, giving users a hard fence against
     accidental agent edits.
@@ -151,7 +151,7 @@ def _pinned_guard(name: str) -> Optional[str]:
             return (
                 f"Skill '{name}' is pinned and cannot be modified by "
                 f"skill_manage. Ask the user to run "
-                f"`hermes curator unpin {name}` if they want the change."
+                f"`kabuqina curator unpin {name}` if they want the change."
             )
     except Exception:
         logger.debug("pinned-guard lookup failed for %s", name, exc_info=True)
@@ -276,7 +276,7 @@ def _find_skill(name: str) -> Optional[Dict[str, Any]]:
     """
     Find a skill by name across all skill directories.
 
-    Searches the local skills dir (~/.hermes/skills/) first, then any
+    Searches the local skills dir (~/.kabuqina/skills/) first, then any
     external dirs configured via skills.external_dirs.  Returns
     {"path": Path} or None.
     """
@@ -770,7 +770,7 @@ SKILL_MANAGE_SCHEMA = {
     "description": (
         "Manage skills (create, update, delete). Skills are your procedural "
         "memory — reusable approaches for recurring task types. "
-        f"New skills go to {display_hermes_home()}/skills/; existing skills can be modified wherever they live.\n\n"
+        f"New skills go to {display_kabuqina_home()}/skills/; existing skills can be modified wherever they live.\n\n"
         "Actions: create (full SKILL.md + optional category), "
         "patch (old_string/new_string — preferred for fixes), "
         "edit (full SKILL.md rewrite — major overhauls only), "
@@ -786,7 +786,7 @@ SKILL_MANAGE_SCHEMA = {
         "Good skills: trigger conditions, numbered steps with exact commands, "
         "pitfalls section, verification steps. Use skill_view() to see format examples.\n\n"
         "Pinned skills are off-limits — all write actions refuse with a message "
-        "pointing the user to `hermes curator unpin <name>`. Don't try to route "
+        "pointing the user to `kabuqina curator unpin <name>`. Don't try to route "
         "around this by renaming or recreating."
     ),
     "parameters": {

@@ -1,7 +1,7 @@
 # Copyright 2026 Kabuqina Contributors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Kabuqina-owned facade over the legacy Hermes core during migration.
+"""Kabuqina-owned facade over the legacy Kabuqina core during migration.
 
 Phase A (v0.3.0 slim & focus) introduces only the agent facade, as a cheap
 guardrail that the retained agent entrypoint keeps importing. The config /

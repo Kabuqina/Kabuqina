@@ -3,10 +3,10 @@
 """Provider OAuth constants (Nous Portal, MiniMax) — a zero-import leaf.
 
 Shared by the provider runtime resolver modules (``providers.nous_auth``,
-``providers.minimax_auth``) and the ``hermes_cli.auth`` facade. Living here (with
+``providers.minimax_auth``) and the ``kabuqina_cli.auth`` facade. Living here (with
 no imports of its own) lets both sides import these values *downward* without
-``providers.*_auth`` and ``hermes_cli.auth`` importing each other at module load
-(which is a circular import). ``hermes_cli.auth`` re-exports every name.
+``providers.*_auth`` and ``kabuqina_cli.auth`` importing each other at module load
+(which is a circular import). ``kabuqina_cli.auth`` re-exports every name.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from __future__ import annotations
 # Nous Portal defaults
 DEFAULT_NOUS_PORTAL_URL = "https://portal.nousresearch.com"
 DEFAULT_NOUS_INFERENCE_URL = "https://inference-api.nousresearch.com/v1"
-DEFAULT_NOUS_CLIENT_ID = "hermes-cli"
+DEFAULT_NOUS_CLIENT_ID = "kabuqina-cli"
 DEFAULT_NOUS_SCOPE = "inference:mint_agent_key"
 DEFAULT_AGENT_KEY_MIN_TTL_SECONDS = 30 * 60  # 30 minutes
 ACCESS_TOKEN_REFRESH_SKEW_SECONDS = 120       # refresh 2 min before expiry

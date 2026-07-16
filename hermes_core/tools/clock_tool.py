@@ -2,7 +2,7 @@
 """
 Clock tool — timezone-aware current time without terminal access.
 
-Uses ``hermes_time.now()`` (HERMES_TIMEZONE env → config.yaml → server local).
+Uses ``kabuqina_time.now()`` (HERMES_TIMEZONE env → config.yaml → server local).
 """
 
 from __future__ import annotations
@@ -10,12 +10,12 @@ from __future__ import annotations
 import json
 from typing import Any, Dict
 
-from hermes_time import get_timezone, now as hermes_now
+from kabuqina_time import get_timezone, now as kabuqina_now
 
 
 def get_current_time_tool() -> str:
     """Return the configured wall-clock time as JSON."""
-    dt = hermes_now()
+    dt = kabuqina_now()
     tz = get_timezone()
     tz_name = str(tz) if tz is not None else "local"
     formatted = dt.strftime("%A, %B %d, %Y %I:%M %p")

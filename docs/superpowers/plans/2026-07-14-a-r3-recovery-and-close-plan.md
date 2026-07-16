@@ -79,6 +79,39 @@ A-R3 在专门实施计划获确认前已经开始，随后才补写了目标、
 - 不并行运行 core 全量、bundle 构建、Rust 编译或 Web build；
 - 机器再次出现系统级异常时立即停止验证，不把强行重跑视为收口进展。
 
+### 2.4 中场复审增量（2026-07-15）
+
+中场复审结论与给 A 轨 agent 的完整指令见
+`docs/reviews/2026-07-15-a-r3-midterm-review.md`。当前 HEAD 为
+`dce4159a`，两份 plan 已提交；实现仍全部位于工作树。中场审查开始时的
+porcelain 快照仍为 721 条，构成为：
+
+- `604` 个 ` M`；
+- `103` 个 `RM`；
+- `4` 个 `R `；
+- `10` 个 `??`。
+
+本次 handoff 随后新增 1 个 review 文档并修改这 2 个 plan；因此交给 A 轨 agent
+时的预期状态为 `606 M / 103 RM / 4 R / 11 ??`，合计 724 条。新增 3 条均属于
+guidance/review 切片，不是新增运行时实现。
+
+复审登记五项：
+
+1. `A-R3-MR-001`（P1）：顶层 `hermes_cli` alias 不会自动统一
+   `hermes_cli.<submodule>`；已复现 `auth` / `config` 双模块和双 registry/cache；
+2. `A-R3-MR-002`（P2）：keyring copy-forward 成功/失败与 clear-both 缺少控制流
+   单测；
+3. `A-R3-MR-003`（P2）：`git diff --check` 因
+   `docs/troubleshooting.md` 的 36 个换行/空白问题失败；
+4. `A-R3-MR-004`（P2）：`hermes_core/SOUL.md` 已确认为 2026-07-14 生成的运行
+   产物，不得提交；
+5. `A-R3-MR-005`（Gate）：tracked-only audit 与 Rust targeted 都还不是最终证据。
+
+中场新增证据：compatibility/config `61 passed`；core home/state `25 passed`；
+desktop migration/timezone `22 passed`；599 个变更 Python 文件 AST parse 零失败；
+tracked-only audit `15,628 hits / 0 defects`。Rust filter test 本轮未取得结果，必须
+登记为 `not obtained`，不得写成 passed。
+
 ## 3. 收口原则
 
 1. **数据安全优先于改名完整度。** 新名不能以删除旧目录、覆盖旧库或清空旧
@@ -101,6 +134,8 @@ A-R3 在专门实施计划获确认前已经开始，随后才补写了目标、
 - [ ] 记录 `git status --porcelain=v1`、已暂存 diff、未暂存 diff 和未跟踪清单。
 - [ ] 逐个确认 11 个未跟踪文件的来源、用途和目标提交；删除或忽略任何临时
       运行产物前必须先确认不是实现文件。
+- [ ] `hermes_core/SOUL.md` 已由中场复审确认为运行产物；从交付清单中排除，
+      不得被后续 `git add -A` 纳入切片。
 - [ ] 确认 `python/dist/`、`tauri/target/`、测试缓存、日志和 dump 不进入提交。
 - [ ] 在不改变工作树内容的前提下重新组织 index，使每个提交同时包含 rename
       和 rename 后的实际内容。
@@ -129,11 +164,16 @@ A-R3 在专门实施计划获确认前已经开始，随后才补写了目标、
 - [ ] 显式 clear 同时清理新旧 service。
 - [ ] 新值为 false/空等合法值时不得错误回退。
 - [ ] 日志仅记录迁移事件，不包含明文 secret。
+- [ ] 使用可注入 seam 或等价纯 helper 单测 copy-forward 成功、写入失败仍返回
+      legacy secret、clear 对两个 service 均发出删除；不得触碰用户真实凭据。
 
 #### 1C. Python namespace 与命令
 
 - [ ] `kabuqina_cli` 和四个 `kabuqina_*` 模块是实现主体。
 - [ ] `hermes_cli.<submodule>` 与四个旧模块通过薄 shim 保持一周期兼容。
+- [ ] legacy-first 与 canonical-first 两种正常 import 顺序下，代表性 stateful
+      子模块（至少 `config` / `config_home` / `auth`）不得被加载为两份模块或
+      产生两套 registry/cache；使用独立子进程测试，避免收集顺序遮蔽缺陷。
 - [ ] canonical 与旧入口的行为一致；测试不要求 reload 后函数对象永久保持
       identity。
 - [ ] distribution 为 `kabuqina-agent`；canonical console scripts 存在；旧命令
@@ -145,7 +185,8 @@ A-R3 在专门实施计划获确认前已经开始，随后才补写了目标、
 - [ ] build/sync 脚本复制 canonical package、模块和必要兼容 shim。
 - [ ] `.pth`、manifest、prune verifier 和 smoke import 使用 canonical 名称。
 - [ ] embedded runtime 在临时隔离环境中直接 import canonical 模块。
-- [ ] 旧 import smoke 单独证明兼容，不得成为 canonical smoke 的前置条件。
+- [ ] 旧 import smoke 单独证明兼容且共享 canonical runtime state，不得只证明
+      “能 import”，也不得成为 canonical smoke 的前置条件。
 
 **出口：** 每一项都有实现位置、测试位置和结果；发现的问题只做最小修复。
 
@@ -153,6 +194,8 @@ A-R3 在专门实施计划获确认前已经开始，随后才补写了目标、
 
 - [ ] 先把应提交的 shim、计划和审计脚本纳入 Git，再运行审计。
 - [ ] 审计必须覆盖 tracked 文件且零 `defect` / `packaging-defect`。
+- [ ] 中场预扫 `15,628 hits / 0 defects` 只算定位证据；11 个当前 untracked 完成
+      定性、应交付文件进入 Git、运行产物排除后必须重新生成最终计数。
 - [ ] 随机抽查每个大类，防止通过不断扩大 allowlist 隐藏真实缺陷。
 - [ ] 对 active docs、skills、安装命令、环境变量和 bundle 路径做额外人工抽查。
 - [ ] 保留的命中必须属于：兼容接缝、上游/法律/历史、模型/协议、测试 fixture
@@ -161,6 +204,9 @@ A-R3 在专门实施计划获确认前已经开始，随后才补写了目标、
 **出口：** 最终命中数量、分类数量和零 defect 结果写入验收证据。
 
 ### Phase 3 — 可审查提交切片
+
+进入本阶段前必须关闭中场 review 的 `A-R3-MR-001` 至 `A-R3-MR-005`；不得用
+“先提交再补证据”绕过该入口门。
 
 建议切片如下；若依赖关系迫使合并或调序，必须在计划结果区说明原因，不能
 静默变成一个大提交。
@@ -193,7 +239,7 @@ A-R3 在专门实施计划获确认前已经开始，随后才补写了目标、
 | 门 | 内容 | 并发约束 | 证据 |
 |---|---|---|---|
 | V0 | `git diff --check`、最终 legacy scan | 单进程 | 命令与分类摘要 |
-| V1 | canonical/legacy import、home、DB、keyring 聚焦测试 | pytest `-n 0` | 每组 passed/failed |
+| V1 | canonical/legacy import（含双顺序 stateful submodule）、home、DB、keyring 聚焦测试 | pytest `-n 0` | 每组 passed/failed |
 | V2 | xdist reload/identity 组合 | pytest `-n 2`，只跑已定义组合 | 已有 `31 passed`，冻结后确认一次 |
 | V3 | Python desktop unittest | 单进程 | 汇总与失败明细 |
 | V4 | Rust targeted tests、`cargo test`、`cargo check` | 不与其他构建并行 | 汇总 |
@@ -225,6 +271,8 @@ V7 只能在所有实现和测试文件冻结后运行一次。若只修改结�
 - [ ] 回填原 A-R3 实施计划 Task 1–6 的真实状态，不倒填未发生的 TDD 过程。
 - [ ] 在本文末尾记录每个阶段的提交 hash、验证命令和结果。
 - [ ] 生成 A-R3 review 文档，突出 persistence/keyring/compatibility 三个高风险面。
+- [ ] 逐项关闭中场 review `A-R3-MR-001` 至 `A-R3-MR-005`，并在 review 文档或
+      执行记录中写明提交、测试和证据。
 - [ ] 确认提交历史可逐片复审，工作树干净。
 - [ ] 复审通过后才将 A-R3 标记完成并推送 `main`。
 
@@ -259,10 +307,10 @@ A-R3 只有同时满足以下条件才算完成：
 
 | 阶段 | 状态 | 提交/证据 | 备注 |
 |---|---|---|---|
-| Phase 0 冻结与清单 | pending |  |  |
-| Phase 1 高风险语义审计 | pending |  |  |
-| Phase 2 legacy 分类 | pending | tracked-only 预扫：15,602 hits，0 defects | 未跟踪文件尚未纳入 |
+| Phase 0 冻结与清单 | in progress | 实现快照 721；handoff 后 606 M / 103 RM / 4 R / 11 ?? | 新增 3 条为 review/plan 文档；`SOUL.md` 已确认为运行产物；index 尚未重组 |
+| Phase 1 高风险语义审计 | in progress | 中场 review：`docs/reviews/2026-07-15-a-r3-midterm-review.md` | MR-001 为功能性阻塞，MR-002 为凭据证据缺口 |
+| Phase 2 legacy 分类 | pending | tracked-only 预扫：15,628 hits，0 defects | 11 个未跟踪文件尚未全部进入最终分类 |
 | Phase 3 提交切片 | pending |  | 当前无 A-R3 commit |
-| Phase 4 自动验证 | in progress | core 全量仅余 1 个契约失败；修复后聚焦 17/31/31 passed | 最终冻结后门尚未完成 |
+| Phase 4 自动验证 | in progress | 既有 17/31/31；中场新增 61/25/22 passed、599 Python AST parse | Rust targeted 本轮 not obtained；最终冻结后门尚未完成 |
 | Phase 5 owner 手工轮 | pending |  |  |
 | Phase 6 复审与完成 | pending |  |  |

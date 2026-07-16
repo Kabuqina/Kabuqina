@@ -67,7 +67,7 @@ forever. Python read times out; bridge never accepts.
   .env_remove("NO_PROXY").env_remove("no_proxy")
   .env("NO_PROXY", "127.0.0.1,localhost,::1")
   ```
-* (Future, when we wire `httpx` for LLM calls inside Hermes:) construct
+* (Future, when we wire `httpx` for LLM calls inside Kabuqina:) construct
   the `httpx.Client` with `proxies=None` for any loopback URL, even
   though we don't currently make loopback `httpx` calls.
 
@@ -191,12 +191,12 @@ our keep-list.
 We tried to monkey-patch `toolset_distributions.get_default_toolset()` —
 a function that doesn't exist. `toolset_distributions` is for RL data
 generation, not runtime selection. The actual source of truth is
-`platform_toolsets.cli` in `~/.hermes/config.yaml`, maintained by the
-interactive `hermes tools` CLI command.
+`platform_toolsets.cli` in `~/.kabuqina/config.yaml`, maintained by the
+interactive `kabuqina tools` CLI command.
 
 **Fix** — `python/overlays/default_toolset.py` now *writes* the desired
-toolset directly into Hermes' config file at startup, using
-`hermes_cli.config.{load_config, save_config}`. It only overwrites if
+toolset directly into Kabuqina' config file at startup, using
+`kabuqina_cli.config.{load_config, save_config}`. It only overwrites if
 the value differs from the desired set, so the user can still toggle
 individual toolsets in the Settings UI without us stomping on every
 launch.
@@ -205,7 +205,7 @@ launch.
 
 > Before patching a function, **grep upstream for actual call sites of
 > that function**. If nothing calls it, you're patching dead code.
-> Hermes' real surface for "what's enabled" is the YAML, not a Python
+> Kabuqina' real surface for "what's enabled" is the YAML, not a Python
 > entry point.
 
 ---
@@ -239,34 +239,34 @@ should re-confirm every dangerous command).
 > 2. **Match the upstream signature exactly**, including kw-only
 >    args, even if you ignore them — otherwise upstream callers will
 >    `TypeError`.
-> 3. **Pin the upstream commit** (`hermes` submodule SHA) so a silent
->    rename doesn't bypass the patch undetected.
+> 3. **Record the frozen upstream baseline** so a silent rename does not
+>    bypass the wrapper undetected.
 
 ---
 
-## 6. `HERMES_HOME` collided with workspace jail
+## 6. `KABUQINA_HOME` collided with workspace jail
 
 **Symptom**
 
 * Smoke test logs `Failed to load permanent allowlist: …` alongside
-  **`Kabuqina path policy blocked`** messages when Hermes tries to write
+  **`Kabuqina path policy blocked`** messages when Kabuqina tries to write
   under legacy paths such as `C:\Users\X13\.hermes`.
-* Hermes silently falls back to defaults; user-configured allowlist
+* Kabuqina silently falls back to defaults; user-configured allowlist
   doesn't persist.
 
 **Root cause**
 
-Hermes defaults `HERMES_HOME` to `~/.hermes`. Our workspace jail
+Kabuqina defaults `KABUQINA_HOME` to `~/.kabuqina`. Our workspace jail
 correctly blocks writes outside `%USERPROFILE%\Documents\KabuqinaWork`,
-which excludes `~/.hermes`.
+which excludes `~/.kabuqina`.
 
 **Fix** — two-part:
 
 * `python/src/desktop_entrypoint.py` — set
-  `os.environ["HERMES_HOME"] = "%LOCALAPPDATA%\com.kabuqina.app\\hermes-home"`
-  *before* importing anything from `hermes_cli` (the import reads it
-  via `hermes_constants.get_hermes_home()`).
-* `python/overlays/workspace_jail.py` — add `HERMES_HOME` to the
+  `os.environ["KABUQINA_HOME"] = "%LOCALAPPDATA%\com.kabuqina.app\\kabuqina-home"`
+  *before* importing anything from `kabuqina_cli` (the import reads it
+  via `kabuqina_constants.get_kabuqina_home()`).
+* `python/overlays/workspace_jail.py` — add `KABUQINA_HOME` to the
   writable extras list so the jail recognises it as legitimate.
 
 **Lesson**
@@ -278,44 +278,12 @@ which excludes `~/.hermes`.
 
 ---
 
-## 7. Hermes SPA was not built / not bundled
+## 7. Historical: upstream SPA was not built / not bundled
 
-**Symptom**
-
-* Tauri window opens, but `GET http://127.0.0.1:<port>/` returns
-  `{"error":"Frontend not built. Run: cd web && npm run build"}`.
-* `/api/status` returns 200 (so the API is up) — only the SPA mount
-  is empty.
-
-**Root cause**
-
-`hermes_cli/web_server.py:mount_spa()` checks `WEB_DIST.exists()` at
-**module import time** (where `WEB_DIST = hermes_cli/web_dist/`). If
-the directory is missing, it registers a 404-returning catch-all
-*instead of* the real SPA. Re-creating the directory at runtime is
-useless — the FastAPI route table is frozen.
-
-We had no step in `python/build_bundle.ps1` that invoked
-`hermes/web`'s vite build, so the bundled `hermes_cli/web_dist/`
-was always empty.
-
-**Fix** — `python/build_bundle.ps1` step **4b** now:
-
-1. If `hermes/hermes_cli/web_dist/index.html` is missing,
-2. Runs `npm install` in `hermes/web/` (only if `node_modules` absent),
-3. Runs `npm run build` (vite outputs to `../hermes_cli/web_dist`),
-4. Hard-fails the bundle if `index.html` still doesn't exist.
-
-The built SPA is then copied into `runtime/hermes/hermes_cli/web_dist/`
-along with the rest of upstream Hermes.
-
-**Lesson**
-
-> When wrapping an upstream project that has its own frontend build,
-> treat that build as a **first-class step in your bundler**, not a
-> developer prerequisite. Otherwise CI on a fresh checkout will ship
-> a blank UI and you won't notice until the smoke test reaches HTTP
-> probing — which most smoke tests don't.
+This incident applied to the pre-desk-server architecture. Current bundles do
+not build or copy the upstream dashboard SPA. Build `web/` for the Tauri shell
+and verify `desk_server` imports instead; see
+[`embedded-python-bundled.md`](embedded-python-bundled.md).
 
 ---
 
@@ -323,12 +291,12 @@ along with the rest of upstream Hermes.
 
 **Symptom**
 
-* `ModuleNotFoundError: No module named 'hermes_cli'` even though
-  `runtime\hermes\hermes_cli\__init__.py` clearly exists on disk.
+* `ModuleNotFoundError: No module named 'kabuqina_cli'` even though
+  `runtime\kabuqina\kabuqina_cli\__init__.py` clearly exists on disk.
 
 **Root cause**
 
-We shipped a `hermesdesk.pth` file containing `..\hermes` and
+An old bundle shipped a `.pth` file containing `..\hermes` and
 `..\site-packages`. `.pth` files resolve relative to the
 `site-packages` directory they live in
 (`runtime\python\Lib\site-packages\`), which means `..\hermes`
@@ -343,7 +311,7 @@ because Python always adds the script directory to `sys.path[0]`:
 ```python
 def _wire_sys_path() -> None:
     here = Path(__file__).resolve().parent  # = runtime/
-    for sub in ("hermes", "site-packages"):
+    for sub in ("kabuqina", "site-packages"):
         p = here / sub
         if p.is_dir():
             sys.path.insert(0, str(p))
@@ -449,7 +417,7 @@ With **`embedBootstrapper`**, the WiX step **downloads** the WebView2 bootstrapp
 **Symptom**
 
 * Kabuqina **Settings → Messaging gateway** shows **Start failed: Gateway exited during startup (exit code: 1)** (often within a few seconds of clicking **Start gateway**).
-* Hermes **Keys (/env)** already lists several `WEIXIN_*` variables and the desk UI may show Weixin as **configured** — but the gateway child still dies immediately.
+* Kabuqina **Keys (/env)** already lists several `WEIXIN_*` variables and the desk UI may show Weixin as **configured** — but the gateway child still dies immediately.
 
 **Root cause (most common on a dev machine)**
 
@@ -457,9 +425,9 @@ Kabuqina spawns a **second** embedded Python process:
 
 `python.exe -m gateway.run`
 
-with **`HERMES_HOME`** pointing at **`%LOCALAPPDATA%\…\hermes-home`**, **`PYTHONPATH`** including **`runtime/site-packages`** and **`runtime/hermes`** (see `tauri/src/gateway_supervisor.rs`). That process loads **`hermes/gateway/run.py` from the copied runtime** under `python/dist/runtime/hermes/` (or the dev mirror under `tauri/target/debug/runtime/`), **not** from your git checkout of `hermes/` until you re-run **`python/build_bundle.ps1`**.
+with **`KABUQINA_HOME`** pointing at **`%LOCALAPPDATA%\…\kabuqina-home`**, **`PYTHONPATH`** including **`runtime/site-packages`** and **`runtime/kabuqina`** (see `tauri/src/gateway_supervisor.rs`). That process loads the copied **`gateway/run.py`** under `python/dist/runtime/kabuqina/` (or the dev mirror under `tauri/target/debug/runtime/`), **not** from your `hermes_core/` checkout until you re-run **`python/build_bundle.ps1`**.
 
-Upstream fixes (e.g. *keep the gateway process alive after retryable first-connect failures* so Weixin/iLink can warm up) **do not affect the desk** until the bundle’s `hermes/gateway/run.py` is refreshed. An older file often exits `start_gateway()` with **code 1** right after the first failed connect attempt — which looks like a “mystery” failure even when `.env` is perfect.
+Upstream fixes (e.g. *keep the gateway process alive after retryable first-connect failures* so Weixin/iLink can warm up) **do not affect the desk** until the bundle’s `hermes_core/gateway/run.py` is refreshed. An older file often exits `start_gateway()` with **code 1** right after the first failed connect attempt — which looks like a “mystery” failure even when `.env` is perfect.
 
 **Fix**
 
@@ -467,7 +435,7 @@ Upstream fixes (e.g. *keep the gateway process alive after retryable first-conne
 2. From repo root: **`.\python\build_bundle.ps1`**
 3. Rebuild / relaunch Kabuqina so it uses the refreshed `python/dist/runtime`.
 
-Then read **`hermes-home/logs/gateway.log`** and **`hermes-home/gateway_state.json`** if anything still fails (wrong `WEIXIN_BASE_URL`, token revoked, duplicate gateway PID file, etc.).
+Then read **`kabuqina-home/logs/gateway.log`** and **`kabuqina-home/gateway_state.json`** if anything still fails (wrong `WEIXIN_BASE_URL`, token revoked, duplicate gateway PID file, etc.).
 
 **Permanent guards / UX**
 
@@ -476,7 +444,7 @@ Then read **`hermes-home/logs/gateway.log`** and **`hermes-home/gateway_state.js
 
 **Lesson**
 
-> Treat **`hermes/` submodule edits** and **desk-shipped Python** as two artefacts. After any meaningful `hermes/gateway/` change, **`build_bundle.ps1` is part of the edit**, not an optional optimisation.
+> Treat **`hermes_core/` owned tree edits** and **desk-shipped Python** as two artefacts. After any meaningful `hermes_core/gateway/` change, **`build_bundle.ps1` is part of the edit**, not an optional optimisation.
 
 ---
 
@@ -484,17 +452,17 @@ Then read **`hermes-home/logs/gateway.log`** and **`hermes-home/gateway_state.js
 
 **Symptom**
 
-* After Kabuqina **Route C** QR login (or CLI `hermes gateway setup` Weixin flow), the gateway still behaves like the **previous** Weixin account or token.
+* After Kabuqina **Route C** QR login (or CLI `kabuqina gateway setup` Weixin flow), the gateway still behaves like the **previous** Weixin account or token.
 
 **Root cause**
 
-1. **`save_env_value` only replaces the first line** that starts with `KEY=` in `hermes-home/.env`. A **second** `WEIXIN_TOKEN=` / `WEIXIN_ACCOUNT_ID=` line left in the file can still supply the old value when parsers or tools read “all assignments”.
-2. Copy-paste tutorials sometimes add **official-account style** variables (`WEIXIN_APP_ID`, `WEIXIN_APP_SECRET`, …) that are **not** used by Hermes iLink but sit next to iLink vars and confuse operators.
+1. **`save_env_value` only replaces the first line** that starts with `KEY=` in `kabuqina-home/.env`. A **second** `WEIXIN_TOKEN=` / `WEIXIN_ACCOUNT_ID=` line left in the file can still supply the old value when parsers or tools read “all assignments”.
+2. Copy-paste tutorials sometimes add **official-account style** variables (`WEIXIN_APP_ID`, `WEIXIN_APP_SECRET`, …) that are **not** used by Kabuqina iLink but sit next to iLink vars and confuse operators.
 
 **Fix (implemented)**
 
 * **`python/src/weixin_qr_worker.py`** — after a successful `qr_login`, **remove** `WEIXIN_APP_ID`, `WEIXIN_APP_SECRET` (best-effort), then **remove all lines** for `WEIXIN_ACCOUNT_ID` and `WEIXIN_TOKEN` via `remove_env_value`, then **write** the new credentials with `save_env_value` (single canonical lines).
-* **`hermes/hermes_cli/gateway.py`** — same sequence in **`_setup_weixin`** after QR success so CLI and desk stay consistent.
+* The retained gateway setup path applies the same sequence after QR success so CLI and desk stay consistent.
 
 **Manual workaround** (if you edit `.env` by hand)
 
@@ -502,7 +470,7 @@ Then read **`hermes-home/logs/gateway.log`** and **`hermes-home/gateway_state.js
 
 **Lesson**
 
-> Treat `.env` as a **single source of truth per key** — duplicates are not supported by the Hermes save helper and are a common foot-gun when switching bots.
+> Treat `.env` as a **single source of truth per key** — duplicates are not supported by the Kabuqina save helper and are a common foot-gun when switching bots.
 
 ---
 
@@ -510,24 +478,24 @@ Then read **`hermes-home/logs/gateway.log`** and **`hermes-home/gateway_state.js
 
 **Symptom**
 
-- **Start gateway** fails immediately with stderr mentioning **`No module named`** … (`gateway`, `yaml`, `hermes_cli`, etc.).
+- **Start gateway** fails immediately with stderr mentioning **`No module named`** … (`gateway`, `yaml`, `kabuqina_cli`, etc.).
 - Often **`gateway.log`** never appears.
 
 **Root cause**
 
-The gateway child does **not** run `desktop_entrypoint.py`; it relies on **`PYTHONPATH`** (and `cwd`) set in **`gateway_supervisor.rs`**. Older desk builds or forked shells sometimes omitted **`site-packages`** or **`hermes/`**, so `-m gateway.run` could not resolve imports.
+The gateway child does **not** run `desktop_entrypoint.py`; it relies on **`PYTHONPATH`** (and `cwd`) set in **`gateway_supervisor.rs`**. Older desk builds or forked shells sometimes omitted **`site-packages`** or the bundled core directory, so `-m gateway.run` could not resolve imports.
 
 **Fix**
 
-1. Confirm **`tauri/src/gateway_supervisor.rs`** sets **`PYTHONPATH`** to **`bundle_dir/site-packages`** **and** **`bundle_dir/hermes`** (join order as in source).
+1. Confirm **`tauri/src/gateway_supervisor.rs`** sets **`PYTHONPATH`** to **`bundle_dir/site-packages`** **and** **`bundle_dir/kabuqina`** (join order as in source).
 2. Re-run **`.\python\build_bundle.ps1`** so **`python/dist/runtime`** layout matches expectations.
 3. Manual probe:
 
 ```powershell
 $rt = "D:\project\Kabuqina\python\dist\runtime"
-$env:PYTHONPATH = "$rt\site-packages;$rt\hermes"
+$env:PYTHONPATH = "$rt\site-packages;$rt\kabuqina"
 Set-Location $rt
-.\python\python.exe -c "import gateway.run; import hermes_cli; print('OK')"
+.\python\python.exe -c "import gateway.run; import kabuqina_cli; print('OK')"
 ```
 
 ---
@@ -548,8 +516,8 @@ Python `os.kill(pid, 0)` 在 Windows 上对已退出/无效 PID 抛出 **`OSErro
 
 **Fix**
 
-1. `hermes/gateway/status.py:579`：`except (ProcessLookupError, PermissionError)` → `except (ProcessLookupError, PermissionError, OSError)`
-2. 删除 `{hermes-home}/gateway.pid` 和 `{hermes-home}/gateway_state.json`
+1. `hermes_core/gateway/status.py:579`：`except (ProcessLookupError, PermissionError)` → `except (ProcessLookupError, PermissionError, OSError)`
+2. 删除 `{kabuqina-home}/gateway.pid` 和 `{kabuqina-home}/gateway_state.json`
 
 ---
 
@@ -569,8 +537,8 @@ QQ Bot 连接时调用 `_acquire_platform_lock("qqbot-appid", ...)`，检测到 
 
 **Fix**
 
-1. `hermes/gateway/status.py:344`：同样补 catch `OSError`
-2. 删除 `%USERPROFILE%\.local\state\hermes\gateway-locks\qqbot-appid-*.lock`
+1. `hermes_core/gateway/status.py:344`：同样补 catch `OSError`
+2. 删除 `%USERPROFILE%\.local\state\kabuqina\gateway-locks\qqbot-appid-*.lock`
 
 **Lesson**
 
@@ -583,11 +551,11 @@ Windows 上任何 `os.kill(pid, 0)` 调用都需要 catch `OSError`，不可仅�
 **Symptom**
 
 * Chat page shows **正在连接本机助手…** or **正在加载助手模块…** for 10–40+ seconds on first launch.
-* `%LOCALAPPDATA%\com.kabuqina.app\logs\kabuqina.log` shows long gaps between `starting HermesDesk Python` and `bound port`.
+* `%LOCALAPPDATA%\com.kabuqina.app\logs\kabuqina.log` shows long gaps between the Python start and `bound port` log lines.
 
 **Root cause**
 
-* Embedded Python imports `desk_server` (not the full `hermes_cli.web_server` dashboard monolith) before writing `port.txt`. Tool/plugin discovery runs in a background warm thread.
+* Embedded Python imports `desk_server` (not the full `kabuqina_cli.web_server` dashboard monolith) before writing `port.txt`. Tool/plugin discovery runs in a background warm thread.
 * Windows Defender real-time scanning on `tauri\target\debug\runtime` adds seconds on dev builds.
 * Headless Edge CDP startup used to block Python spawn (fixed: Edge now starts in parallel).
 
@@ -596,9 +564,9 @@ Windows 上任何 `os.kill(pid, 0)` 调用都需要 catch `OSError`，不可仅�
 * Read segmented timings:
   * Rust: Tauri log lines `bootstrap bridge_ms=`, `bootstrap python_spawn_ms=`, `bootstrap port_wait_ms=`, `bootstrap total_ms=`.
   * Python: `boot timing deps_ms=`, `overlays_ms=`, `desk_server_import_ms=`, `port_write_ms=` in `kabuqina.log`.
-  * Web (dev): browser console `[kabuqina] hermes_ready_ms=`.
+  * Web (dev): browser console `[kabuqina] kabuqina_ready_ms=`.
 * Desk-minimal mode (`HERMESDESK_DESK_MINIMAL=1`) defers tool/plugin discovery to a background warm thread; `/api/status` reports `desk_warming: true` until warm completes.
-* Release builds exclude `hermes_cli/web_dist` by default (`build_bundle.ps1` without `-BuildHermesDashboard`).
+* Release builds package the desktop Web shell separately; the Python runtime has no bundled dashboard SPA.
 * For dev loops, add Defender exclusion for `%LOCALAPPDATA%\com.kabuqina.app` and the repo `python\dist\runtime` tree.
 
 ---
@@ -747,23 +715,23 @@ Get-NetTCPConnection -LocalPort 5173 -State Listen -ErrorAction SilentlyContinue
 #    Look in the Tauri log for: "bridge accepted conn from 127.0.0.1:..."
 Select-String -Path .tauri-dev.log -Pattern "bridge accepted|bridge req"
 
-# 4. Did Hermes' SPA build land where mount_spa() expects?
-Test-Path D:\project\Kabuqina\hermes\hermes_cli\web_dist\index.html
+# 4. Did the canonical core package land in the embedded runtime?
+Test-Path D:\project\Kabuqina\python\dist\runtime\kabuqina\kabuqina_cli\__init__.py
 
-# 5. Probe Hermes directly (bypass Tauri to isolate UI vs API issues)
+# 5. Probe Kabuqina directly (bypass Tauri to isolate UI vs API issues)
 $port = (Select-String -Path .tauri-dev.log -Pattern "loading http://127.0.0.1:(\d+)").Matches.Groups[1].Value
 Invoke-WebRequest "http://127.0.0.1:$port/api/status" -UseBasicParsing -Proxy $null
 
 # 6. Does the *bundled* gateway include the first-connect survival patch?
-#    (Kabuqina checks for these substrings in hermes/gateway/run.py — both must be present.)
-$runPy = Join-Path (Get-Location) "python\dist\runtime\hermes\gateway\run.py"
+#    (Kabuqina checks for these substrings in hermes_core/gateway/run.py — both must be present.)
+$runPy = Join-Path (Get-Location) "python\dist\runtime\kabuqina\gateway\run.py"
 $r = Get-Content -Raw -LiteralPath $runPy -ErrorAction SilentlyContinue
 [bool]($r -and ($r.Contains("keep the process alive") -and $r.Contains("_platform_reconnect_watcher")))
 
-# 7. Tail the gateway log under the desk hermes-home (adjust HERMESDESK_DATA_DIR if you override it)
+# 7. Tail the gateway log under the desk kabuqina-home (adjust HERMESDESK_DATA_DIR if you override it)
 # Typical per-user path (Tauri `identifier` com.kabuqina.app → under %LOCALAPPDATA%).
 # If unsure, open Settings with Power user mode and read the workspace/data paths shown there.
-$hh = Join-Path $env:LOCALAPPDATA "com.kabuqina.app\hermes-home"
+$hh = Join-Path $env:LOCALAPPDATA "com.kabuqina.app\kabuqina-home"
 Get-Content -LiteralPath (Join-Path $hh "logs\gateway.log") -Tail 40 -ErrorAction SilentlyContinue
 ```
 

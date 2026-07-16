@@ -32,7 +32,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Literal, Mapping, Sequence, Union
 
-from hermes_constants import get_hermes_home
+from kabuqina_constants import get_kabuqina_home
 
 __all__ = [
     "JSONValue",
@@ -166,7 +166,7 @@ def _validate_job_id(job_id: str) -> str:
 
 
 def _goal_runs_root() -> Path:
-    return (get_hermes_home() / "cron" / "goal-runs").resolve()
+    return (get_kabuqina_home() / "cron" / "goal-runs").resolve()
 
 
 def goal_run_dir(job_id: str) -> Path:

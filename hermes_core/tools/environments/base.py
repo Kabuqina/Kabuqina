@@ -1,4 +1,4 @@
-"""Base class for all Hermes execution environment backends.
+"""Base class for all Kabuqina execution environment backends.
 
 Unified spawn-per-call model: every command spawns a fresh ``bash -c`` process.
 A session snapshot (env vars, functions, aliases) is captured once at init and
@@ -20,7 +20,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import IO, Callable, Protocol
 
-from hermes_constants import get_hermes_home
+from kabuqina_constants import get_kabuqina_home
 from tools.interrupt import is_interrupted
 
 logger = logging.getLogger(__name__)
@@ -88,7 +88,7 @@ def get_sandbox_dir() -> Path:
     if custom:
         p = Path(custom)
     else:
-        p = get_hermes_home() / "sandboxes"
+        p = get_kabuqina_home() / "sandboxes"
     p.mkdir(parents=True, exist_ok=True)
     return p
 
@@ -270,7 +270,7 @@ def _cwd_marker(session_id: str) -> str:
 
 
 class BaseEnvironment(ABC):
-    """Common interface and unified execution flow for all Hermes backends.
+    """Common interface and unified execution flow for all Kabuqina backends.
 
     Subclasses implement ``_run_bash()`` and ``cleanup()``.  The base class
     provides ``execute()`` with session snapshot sourcing, CWD tracking,
@@ -418,7 +418,7 @@ class BaseEnvironment(ABC):
 
         # Run the actual command
         parts.append(f"eval '{escaped}'")
-        parts.append("__hermes_ec=$?")
+        parts.append("__kabuqina_ec=$?")
 
         # Re-dump env vars to snapshot (last-writer-wins for concurrent calls)
         if self._snapshot_ready:
@@ -433,7 +433,7 @@ class BaseEnvironment(ABC):
         parts.append(
             f"printf '\\n{self._cwd_marker}%s{self._cwd_marker}\\n' \"$(pwd -P)\""
         )
-        parts.append("exit $__hermes_ec")
+        parts.append("exit $__kabuqina_ec")
 
         return "\n".join(parts)
 
@@ -501,9 +501,30 @@ class BaseEnvironment(ABC):
         # U+FFFD substitution rather than clobbering the whole buffer.
         decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
 
+        def _drain_iterable_stdout() -> None:
+            """Drain SDK/test handles that expose iteration but no file descriptor."""
+            try:
+                for chunk in proc.stdout:
+                    if isinstance(chunk, bytes):
+                        output_chunks.append(decoder.decode(chunk))
+                    else:
+                        output_chunks.append(str(chunk))
+            except (TypeError, ValueError, OSError):
+                pass
+            try:
+                tail = decoder.decode(b"", final=True)
+                if tail:
+                    output_chunks.append(tail)
+            except Exception:
+                pass
+
         if os.name == "nt":
             def _drain():
-                fd = proc.stdout.fileno()
+                try:
+                    fd = proc.stdout.fileno()
+                except (AttributeError, TypeError, ValueError, OSError):
+                    _drain_iterable_stdout()
+                    return
                 try:
                     while True:
                         chunk = os.read(fd, 4096)
@@ -520,7 +541,11 @@ class BaseEnvironment(ABC):
                     pass
         else:
             def _drain():
-                fd = proc.stdout.fileno()
+                try:
+                    fd = proc.stdout.fileno()
+                except (AttributeError, TypeError, ValueError, OSError):
+                    _drain_iterable_stdout()
+                    return
                 idle_after_exit = 0
                 try:
                     while True:
@@ -815,4 +840,3 @@ class BaseEnvironment(ABC):
         from tools.terminal_tool import _transform_sudo_command
 
         return _transform_sudo_command(command)
-

@@ -11,34 +11,34 @@ from pathlib import Path
 
 FORBIDDEN_RUNTIME_PATHS = (
     # v0.3.0 global-cut gateway adapters.
-    "hermes/gateway/platforms/api_server.py",
-    "hermes/gateway/platforms/bluebubbles.py",
-    "hermes/gateway/platforms/homeassistant.py",
-    "hermes/gateway/platforms/matrix.py",
-    "hermes/gateway/platforms/mattermost.py",
-    "hermes/gateway/platforms/signal.py",
-    "hermes/gateway/platforms/signal_rate_limit.py",
-    "hermes/gateway/platforms/slack.py",
-    "hermes/gateway/platforms/sms.py",
-    "hermes/gateway/platforms/webhook.py",
-    "hermes/gateway/platforms/yuanbao.py",
-    "hermes/gateway/platforms/yuanbao_media.py",
-    "hermes/gateway/platforms/yuanbao_proto.py",
-    "hermes/gateway/platforms/yuanbao_sticker.py",
+    "kabuqina/gateway/platforms/api_server.py",
+    "kabuqina/gateway/platforms/bluebubbles.py",
+    "kabuqina/gateway/platforms/homeassistant.py",
+    "kabuqina/gateway/platforms/matrix.py",
+    "kabuqina/gateway/platforms/mattermost.py",
+    "kabuqina/gateway/platforms/signal.py",
+    "kabuqina/gateway/platforms/signal_rate_limit.py",
+    "kabuqina/gateway/platforms/slack.py",
+    "kabuqina/gateway/platforms/sms.py",
+    "kabuqina/gateway/platforms/webhook.py",
+    "kabuqina/gateway/platforms/yuanbao.py",
+    "kabuqina/gateway/platforms/yuanbao_media.py",
+    "kabuqina/gateway/platforms/yuanbao_proto.py",
+    "kabuqina/gateway/platforms/yuanbao_sticker.py",
     # v0.3.0 global-cut bundled plugins and late-discovered platform plugins.
-    "hermes/plugins/disk-cleanup",
-    "hermes/plugins/platforms",
-    "hermes/plugins/spotify",
+    "kabuqina/plugins/disk-cleanup",
+    "kabuqina/plugins/platforms",
+    "kabuqina/plugins/spotify",
     # v0.3.0 global-cut or non-product skills.
-    "hermes/skills/creative/popular-web-designs/templates/spotify.md",
-    "hermes/skills/dogfood",
-    "hermes/skills/media/spotify",
+    "kabuqina/skills/creative/popular-web-designs/templates/spotify.md",
+    "kabuqina/skills/dogfood",
+    "kabuqina/skills/media/spotify",
 )
 
 FORBIDDEN_RUNTIME_CONTENT = (
-    ("hermes/hermes_cli/auth.py", "spotify"),
-    ("hermes/toolsets.py", "spotify"),
-    ("hermes/hermes_cli/tools_config.py", "spotify"),
+    ("kabuqina/kabuqina_cli/auth.py", "spotify"),
+    ("kabuqina/toolsets.py", "spotify"),
+    ("kabuqina/kabuqina_cli/tools_config.py", "spotify"),
 )
 
 

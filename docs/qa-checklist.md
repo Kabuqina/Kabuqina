@@ -4,7 +4,7 @@ Run this whole checklist on **both** OS images before tagging a release. Ideally
 
 ## Before you test (repo & build)
 
-- [ ] **Hermes submodule** is present and at the commit expected for this build. After clone, run `git submodule update --init --recursive`. Release notes and `CHANGES_*.md` may call out a specific **hermes** revision; a mismatch can break the Python bundle or the embedded web UI.
+- [ ] The owned **`hermes_core/`** tree is present at the release commit; it is not a submodule. A source/runtime mismatch can break the Python bundle.
 - [ ] If you build from source, use the same **tag or branch** the release is cut from, not a random main checkout.
 - [ ] **Windows Defender / real-time scan** can hold file locks during bundling or first run (symptoms: `os error 32`, failed copy, or `python.exe` / build scripts failing to overwrite files). For **local dev** or **repeated bundle builds**, add exclusions for the repo path and, if needed, `%LOCALAPPDATA%\com.kabuqina.app` and your `python\dist` build output—then retry from a clean tree if a run was interrupted mid-write.
 
@@ -18,10 +18,10 @@ Run this whole checklist on **both** OS images before tagging a release. Ideally
 
 ## What you are testing (current product)
 
-- **Shell (Tauri + `web/`)**: Splash routing, onboarding (minimal + optional messaging sections), **`/chat`** shell chat, Settings (power user, proxy, **messaging gateway**, Telegram / Feishu / QQ / Weixin blocks, pairing). The shell **does not** auto-navigate to the Hermes dashboard on cold start; user opens it when ready.
-- **Embedded Hermes web** (`http://127.0.0.1:<port>/`): Full dashboard (Keys, sessions, desk chat inside Hermes web, Skills, etc.).
+- **Shell (Tauri + `web/`)**: Splash routing, onboarding (minimal + optional messaging sections), **`/chat`** shell chat, Settings (power user, proxy, **messaging gateway**, Telegram / Feishu / QQ / Weixin blocks, pairing). This is the only shipped UI.
+- **Embedded desk API** (`http://127.0.0.1:<port>/api/desk/*`): Kabuqina-owned loopback service used by the shell; no upstream dashboard is bundled.
 - **Messaging gateway**: Second supervised Python process **`python -m gateway.run`** when `.env` has channel credentials — **Settings → Messaging gateway** plus [`docs/troubleshooting.md`](troubleshooting.md) §12 if startup fails.
-- **Language**: Opening the dashboard from the shell passes `hermesdesk_lang=zh|en` where applicable.
+- **Language**: Shell copy follows the selected application language.
 
 ## A. Install
 
@@ -39,12 +39,12 @@ Run this whole checklist on **both** OS images before tagging a release. Ideally
 ## B. First launch (cold)
 
 - [ ] App opens within a few seconds (Splash visible)
-- [ ] If no API key yet: routes to **onboarding** (no forced Hermes web navigation)
-- [ ] If a key already exists: Splash routes to **`/chat`** (Hermes dashboard not auto-loaded)
+- [ ] If no API key yet: routes to **onboarding**
+- [ ] If a key already exists: Splash routes to **`/chat`**
 - [ ] Optional: user chose **configure API later** → Splash may route to **`/chat`** without Credential Manager key (limited flows — see shell `apiKeyGate`)
 - [ ] No console window flashes or stays open
 - [ ] Tray icon appears
-- [ ] `%LOCALAPPDATA%\com.kabuqina.app\logs\kabuqina.log` exists and contains a line like `python ready on port` with a port number (Hermes web stack is up)
+- [ ] `%LOCALAPPDATA%\com.kabuqina.app\logs\kabuqina.log` exists and contains a line like `python ready on port` with a port number (desk API is up)
 
 ## C. Onboarding wizard (zero-jargon happy path)
 
@@ -59,11 +59,10 @@ Run this whole checklist on **both** OS images before tagging a release. Ideally
 - [ ] "Open workspace folder" opens `Documents\KabuqinaWork` in Explorer
 - [ ] Done primary CTA opens **`/chat`** or **dashboard** per build UX; extended wizard optionally completes **one** messaging channel (Weixin / QQ / Feishu / Telegram)
 
-## D. Hermes web + shell `/chat` sanity
+## D. Desk API + shell `/chat` sanity
 
-- [ ] From shell menu/action: **Open dashboard** loads Hermes UI at `http://127.0.0.1:<port>/` (not blank). Retry if Hermes was still warming up.
-- [ ] **`/chat`**: send a short message and receive an assistant reply (same LLM key as dashboard).
-- [ ] **Smoke**: From Hermes UI, load status / Keys / minimal model-backed flow supported by bundled Hermes revision.
+- [ ] **`/chat`**: send a short message and receive an assistant reply using the configured Credential Manager key.
+- [ ] **Smoke**: Settings status, sessions, and one minimal model-backed flow work through the bundled desk API.
 - [ ] (When applicable) Drop a `.txt` file into the workspace folder and confirm workspace-scoped tools behave per jail rules.
 - [ ] (When applicable) Ask for an action that should be **jailed** to the workspace; out-of-workspace paths should be denied with a clear error.
 
@@ -120,8 +119,8 @@ Run this whole checklist on **both** OS images before tagging a release. Ideally
 ## L. Messaging gateway smoke
 
 - [ ] **Settings → Messaging gateway**: Start / Stop responds; status text updates (poll every few seconds while on page)
-- [ ] With **no** messaging vars in `hermes-home/.env`: gateway section explains eligibility / points to Keys or onboarding
-- [ ] Configure **one** channel (Telegram token fastest; or QQ/Feishu/Weixin QR if test accounts exist); confirm `.env` keys appear (Hermes Keys)
+- [ ] With **no** messaging vars in `kabuqina-home/.env`: gateway section explains eligibility / points to Settings or onboarding
+- [ ] Configure **one** channel (Telegram token fastest; or QQ/Feishu/Weixin QR if test accounts exist); confirm `.env` keys appear
 - [ ] **Start gateway** — remains running ≥10s (no immediate exit **1**); if instant failure, verify **`embeddedGatewayStartupSurvival`** hint and **`python/build_bundle.ps1`** ([troubleshooting §12](troubleshooting.md))
 - [ ] Send a test message on that platform → assistant responds using configured LLM
 

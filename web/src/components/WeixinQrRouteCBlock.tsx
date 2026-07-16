@@ -30,9 +30,9 @@ export type WeixinQrStatusPayload = {
 
 export type WeixinEnvSnapshot = {
   configured: boolean;
-  /** Non-empty ``WEIXIN_ACCOUNT_ID`` in hermes-home/.env */
+  /** Non-empty ``WEIXIN_ACCOUNT_ID`` in kabuqina-home/.env */
   hasAccountId?: boolean;
-  /** Non-empty ``WEIXIN_TOKEN`` in hermes-home/.env */
+  /** Non-empty ``WEIXIN_TOKEN`` in kabuqina-home/.env */
   hasToken?: boolean;
   accountIdHint?: string | null;
 };

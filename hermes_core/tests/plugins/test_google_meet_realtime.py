@@ -22,7 +22,7 @@ pytest.importorskip("plugins.google_meet", reason="google_meet plugin is not bun
 def _isolate_home(tmp_path, monkeypatch):
     hermes_home = tmp_path / ".hermes"
     hermes_home.mkdir()
-    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+    monkeypatch.setenv("KABUQINA_HOME", str(hermes_home))
     yield hermes_home
 
 

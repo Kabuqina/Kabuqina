@@ -10,7 +10,7 @@ router = APIRouter()
 @router.get("/api/sessions")
 async def get_sessions(limit: int = 20, offset: int = 0, source: str = None):
     try:
-        from hermes_state import SessionDB
+        from kabuqina_state import SessionDB
         db = SessionDB()
         try:
             sessions = db.list_sessions_rich(limit=limit, offset=offset, source=source)
@@ -30,7 +30,7 @@ async def get_sessions(limit: int = 20, offset: int = 0, source: str = None):
 
 @router.get("/api/sessions/{session_id}")
 async def get_session_detail(session_id: str):
-    from hermes_state import SessionDB
+    from kabuqina_state import SessionDB
     db = SessionDB()
     try:
         sid = db.resolve_session_id(session_id)
@@ -44,7 +44,7 @@ async def get_session_detail(session_id: str):
 
 @router.get("/api/sessions/{session_id}/messages")
 async def get_session_messages(session_id: str):
-    from hermes_state import SessionDB
+    from kabuqina_state import SessionDB
     db = SessionDB()
     try:
         sid = db.resolve_session_id(session_id)
@@ -58,7 +58,7 @@ async def get_session_messages(session_id: str):
 
 @router.delete("/api/sessions/{session_id}")
 async def delete_session_endpoint(session_id: str):
-    from hermes_state import SessionDB
+    from kabuqina_state import SessionDB
     db = SessionDB()
     try:
         if not db.delete_session(session_id):

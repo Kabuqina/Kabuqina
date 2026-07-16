@@ -6,7 +6,7 @@ from __future__ import annotations
 import asyncio, base64, json, logging, os, sys, tempfile, time, traceback
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-from hermes_cli.config import get_hermes_home, load_config, save_config, save_env_value
+from kabuqina_cli.config import get_kabuqina_home, load_config, save_config, save_env_value
 log = logging.getLogger(__name__)
 # region agent log
 def _agent_dbg_stt(line: dict) -> None:
@@ -33,7 +33,7 @@ def _agent_dbg_stt(line: dict) -> None:
     except Exception:
         pass
     try:
-        candidates.append(get_hermes_home() / "logs" / "debug-914e79.log")
+        candidates.append(get_kabuqina_home() / "logs" / "debug-914e79.log")
     except Exception:
         pass
     candidates.append(Path(tempfile.gettempdir()) / "hermesdesk-debug-914e79.log")
@@ -81,13 +81,13 @@ def _desk_stt_model_path() -> Path:
     dvm = _desk_voice_paths_mod()
     if dvm is not None:
         return dvm.canonical_stt_model_path(
-            _DESK_STT_MODEL_FILENAME, no_env_fallback_dir=get_hermes_home()
+            _DESK_STT_MODEL_FILENAME, no_env_fallback_dir=get_kabuqina_home()
         )
     data_dir = os.environ.get("HERMESDESK_DATA_DIR") or os.environ.get(
         "LOCALAPPDATA"
     )
     if not data_dir:
-        return get_hermes_home() / "stt-models" / _DESK_STT_MODEL_FILENAME
+        return get_kabuqina_home() / "stt-models" / _DESK_STT_MODEL_FILENAME
     base = Path(data_dir)
     if "LOCALAPPDATA" in os.environ and base == Path(os.environ["LOCALAPPDATA"]):
         base = base / "HermesDesk"
@@ -98,7 +98,7 @@ def _desk_stt_model_resolved() -> tuple[Path, bool]:
     """Return ``(path, downloaded)`` for status: on-disk file if any, else canonical."""
     dvm = _desk_voice_paths_mod()
     if dvm is not None:
-        home = get_hermes_home()
+        home = get_kabuqina_home()
         found = dvm.resolve_existing_stt_model(
             _DESK_STT_MODEL_FILENAME, no_env_fallback_dir=home
         )

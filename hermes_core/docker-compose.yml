@@ -4,7 +4,7 @@
 # Usage:
 #   HERMES_UID=$(id -u) HERMES_GID=$(id -g) docker compose up -d
 #
-# Set HERMES_UID / HERMES_GID to the host user that owns ~/.hermes so
+# Set HERMES_UID / HERMES_GID to the host user that owns ~/.kabuqina so
 # files created inside the container stay readable/writable on the host.
 # The entrypoint remaps the internal `hermes` user to these values via
 # usermod/groupmod + gosu.
@@ -26,7 +26,7 @@ services:
     restart: unless-stopped
     network_mode: host
     volumes:
-      - ~/.hermes:/opt/data
+      - ~/.kabuqina:/opt/data
     environment:
       - HERMES_UID=${HERMES_UID:-10000}
       - HERMES_GID=${HERMES_GID:-10000}
@@ -51,7 +51,7 @@ services:
     depends_on:
       - gateway
     volumes:
-      - ~/.hermes:/opt/data
+      - ~/.kabuqina:/opt/data
     environment:
       - HERMES_UID=${HERMES_UID:-10000}
       - HERMES_GID=${HERMES_GID:-10000}

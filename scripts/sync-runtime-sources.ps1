@@ -1,5 +1,5 @@
-# Sync edited Python/Hermes sources into python/dist/runtime for dev.
-# Full dependency or Hermes tree changes still need: .\python\build_bundle.ps1
+# Sync edited Python/Kabuqina sources into python/dist/runtime for dev.
+# Full dependency or Kabuqina tree changes still need: .\python\build_bundle.ps1
 
 [CmdletBinding()]
 param(
@@ -102,13 +102,18 @@ Sync-Directory ([IO.Path]::Combine([string]$root, "assets", "ppt", "visual-maste
 $vmDest = [IO.Path]::Combine([string]$dist, "assets", "ppt", "visual-masters")
 Remove-VisualMasterGeneratedOutputs -VisualMastersPath $vmDest
 
-$hermesCore = Join-Path $root "hermes_core"
-$hermesDest = Join-Path $dist "hermes"
-$hermesKeep = @(
+$coreSource = Join-Path $root "hermes_core"
+$coreDest = Join-Path $dist "kabuqina"
+$legacyCoreDest = Join-Path $dist "hermes"
+if (Test-Path -LiteralPath $legacyCoreDest) {
+    Remove-Item -Recurse -Force -LiteralPath $legacyCoreDest
+}
+$coreKeep = @(
     "agent",
     "providers",
     "tools",
     "gateway",
+    "kabuqina_cli",
     "hermes_cli",
     "learning",
     "plugins",
@@ -118,6 +123,10 @@ $hermesKeep = @(
     "toolsets.py",
     "toolset_distributions.py",
     "trajectory_compressor.py",
+    "kabuqina_constants.py",
+    "kabuqina_state.py",
+    "kabuqina_time.py",
+    "kabuqina_logging.py",
     "hermes_constants.py",
     "hermes_state.py",
     "hermes_time.py",
@@ -125,14 +134,14 @@ $hermesKeep = @(
     "utils.py"
 )
 if ($IncludeSkills) {
-    $hermesKeep += "skills"
+    $coreKeep += "skills"
 } else {
     Write-Host "Skipping hermes_core/skills in fast sync (use -IncludeSkills after editing skills)." -ForegroundColor DarkGray
 }
 
-foreach ($name in $hermesKeep) {
-    $src = Join-Path $hermesCore $name
-    $dest = Join-Path $hermesDest $name
+foreach ($name in $coreKeep) {
+    $src = Join-Path $coreSource $name
+    $dest = Join-Path $coreDest $name
     if (-not (Test-Path $src)) {
         continue
     }
@@ -182,7 +191,7 @@ $runtimeDrop = @(
     "skills\media\spotify"
 )
 foreach ($d in $runtimeDrop) {
-    $target = Join-Path $hermesDest $d
+    $target = Join-Path $coreDest $d
     if (Test-Path $target) {
         Remove-Item -Recurse -Force -LiteralPath $target
     }
@@ -199,6 +208,12 @@ $verifyRuntimeImports = Join-Path $root "python\tools\verify_runtime_imports.py"
 & $py $verifyRuntimeImports $dist
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Runtime import verification failed after source sync."
+    exit $LASTEXITCODE
+}
+$verifyLegacyRuntimeImports = Join-Path $root "python\tools\verify_legacy_runtime_imports.py"
+& $py $verifyLegacyRuntimeImports $dist
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Legacy runtime identity verification failed after source sync."
     exit $LASTEXITCODE
 }
 

@@ -81,7 +81,7 @@ class TestChatCompletionsBuildKwargs:
     def test_nous_tags(self, transport):
         msgs = [{"role": "user", "content": "Hi"}]
         kw = transport.build_kwargs(model="gpt-4o", messages=msgs, is_nous=True)
-        assert kw["extra_body"]["tags"] == ["product=hermes-agent"]
+        assert kw["extra_body"]["tags"] == ["product=kabuqina-agent"]
 
     def test_reasoning_default(self, transport):
         msgs = [{"role": "user", "content": "Hi"}]

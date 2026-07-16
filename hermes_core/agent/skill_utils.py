@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from hermes_constants import get_config_path, get_skills_dir
+from kabuqina_constants import get_config_path, get_skills_dir
 
 logger = logging.getLogger(__name__)
 
@@ -176,7 +176,7 @@ def get_external_skills_dirs() -> List[Path]:
 
     Each entry is expanded (``~`` and ``${VAR}``) and resolved to an absolute
     path.  Only directories that actually exist are returned.  Duplicates and
-    paths that resolve to the local ``~/.hermes/skills/`` are silently skipped.
+    paths that resolve to the local ``~/.kabuqina/skills/`` are silently skipped.
     """
     config_path = get_config_path()
     if not config_path.exists():
@@ -200,9 +200,9 @@ def get_external_skills_dirs() -> List[Path]:
     if not isinstance(raw_dirs, list):
         return []
 
-    from hermes_constants import get_hermes_home
+    from kabuqina_constants import get_kabuqina_home
 
-    hermes_home = get_hermes_home()
+    kabuqina_home = get_kabuqina_home()
     local_skills = get_skills_dir().resolve()
     seen: Set[Path] = set()
     result: List[Path] = []
@@ -216,7 +216,7 @@ def get_external_skills_dirs() -> List[Path]:
         p = Path(expanded)
         # Resolve relative paths against HERMES_HOME, not cwd
         if not p.is_absolute():
-            p = (hermes_home / p).resolve()
+            p = (kabuqina_home / p).resolve()
         else:
             p = p.resolve()
         if p == local_skills:
@@ -233,7 +233,7 @@ def get_external_skills_dirs() -> List[Path]:
 
 
 def get_all_skills_dirs() -> List[Path]:
-    """Return all skill directories: local ``~/.hermes/skills/`` first, then external.
+    """Return all skill directories: local ``~/.kabuqina/skills/`` first, then external.
 
     The local dir is always first (and always included even if it doesn't exist
     yet — callers handle that).  External dirs follow in config order.
@@ -252,14 +252,14 @@ def extract_skill_conditions(frontmatter: Dict[str, Any]) -> Dict[str, List]:
     # Handle cases where metadata is not a dict (e.g., a string from malformed YAML)
     if not isinstance(metadata, dict):
         metadata = {}
-    hermes = metadata.get("hermes") or {}
-    if not isinstance(hermes, dict):
-        hermes = {}
+    skill_meta = metadata.get("hermes") or {}
+    if not isinstance(skill_meta, dict):
+        skill_meta = {}
     return {
-        "fallback_for_toolsets": hermes.get("fallback_for_toolsets", []),
-        "requires_toolsets": hermes.get("requires_toolsets", []),
-        "fallback_for_tools": hermes.get("fallback_for_tools", []),
-        "requires_tools": hermes.get("requires_tools", []),
+        "fallback_for_toolsets": skill_meta.get("fallback_for_toolsets", []),
+        "requires_toolsets": skill_meta.get("requires_toolsets", []),
+        "fallback_for_tools": skill_meta.get("fallback_for_tools", []),
+        "requires_tools": skill_meta.get("requires_tools", []),
     }
 
 
@@ -285,10 +285,10 @@ def extract_skill_config_vars(frontmatter: Dict[str, Any]) -> List[Dict[str, Any
     metadata = frontmatter.get("metadata")
     if not isinstance(metadata, dict):
         return []
-    hermes = metadata.get("hermes")
-    if not isinstance(hermes, dict):
+    skill_meta = metadata.get("hermes")
+    if not isinstance(skill_meta, dict):
         return []
-    raw = hermes.get("config")
+    raw = skill_meta.get("config")
     if not raw:
         return []
     if isinstance(raw, dict):

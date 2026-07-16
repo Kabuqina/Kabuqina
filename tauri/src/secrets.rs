@@ -22,6 +22,7 @@ use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 
 const SERVICE: &str = "Kabuqina";
+const LEGACY_SERVICE: &str = "HermesDesk";
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct ProviderConfig {
@@ -217,8 +218,11 @@ pub fn provider_api_key_env(provider: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        bool_setting_value, provider_api_key_env, validate_provider_config_for_save,
-        ProviderConfig, LEGACY_VENDOR_LLM_DISABLED, VENDOR_LLM_DISABLED,
+        bool_setting_value, clear_provider_secrets_with, credential_migration_message,
+        keyring_service_candidates, provider_api_key_env, read_and_migrate_provider_secret_with,
+        select_provider_secret_with, validate_provider_config_for_save, CopyForwardStatus,
+        ProviderConfig, SecretOrigin, LEGACY_SERVICE, LEGACY_VENDOR_LLM_DISABLED, SERVICE,
+        VENDOR_LLM_DISABLED,
     };
 
     fn custom_config(api_mode: Option<&str>) -> ProviderConfig {
@@ -263,6 +267,170 @@ mod tests {
         let settings = serde_json::json!({LEGACY_VENDOR_LLM_DISABLED: true});
 
         assert_eq!(bool_setting_value(&settings, VENDOR_LLM_DISABLED), None);
+    }
+
+    #[test]
+    fn keyring_lookup_uses_current_service_before_legacy() {
+        assert_eq!(keyring_service_candidates(), [SERVICE, LEGACY_SERVICE]);
+    }
+
+    #[test]
+    fn keyring_selection_prefers_current_and_does_not_read_legacy() {
+        let mut calls = Vec::new();
+        let selected = select_provider_secret_with("openrouter", |service, provider| {
+            calls.push((service.to_string(), provider.to_string()));
+            Ok(Some("current-secret".to_string()))
+        })
+        .unwrap();
+
+        assert_eq!(
+            selected,
+            Some(("current-secret".to_string(), SecretOrigin::Current))
+        );
+        assert_eq!(calls, vec![(SERVICE.to_string(), "openrouter".to_string())]);
+    }
+
+    #[test]
+    fn keyring_selection_falls_back_only_on_explicit_miss() {
+        let mut calls = Vec::new();
+        let selected = select_provider_secret_with("anthropic", |service, provider| {
+            calls.push((service.to_string(), provider.to_string()));
+            if service == SERVICE {
+                Ok(None)
+            } else {
+                Ok(Some("legacy-secret".to_string()))
+            }
+        })
+        .unwrap();
+
+        assert_eq!(
+            selected,
+            Some(("legacy-secret".to_string(), SecretOrigin::Legacy))
+        );
+        assert_eq!(
+            calls,
+            vec![
+                (SERVICE.to_string(), "anthropic".to_string()),
+                (LEGACY_SERVICE.to_string(), "anthropic".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn keyring_selection_does_not_mask_current_read_failure() {
+        let mut calls = Vec::new();
+        let result = select_provider_secret_with("openrouter", |service, _provider| {
+            calls.push(service.to_string());
+            Err("backend unavailable".to_string())
+        });
+
+        assert_eq!(result, Err("backend unavailable".to_string()));
+        assert_eq!(calls, vec![SERVICE.to_string()]);
+    }
+
+    #[test]
+    fn keyring_legacy_secret_is_copied_forward_to_current_service() {
+        let mut writes = Vec::new();
+        let selected = read_and_migrate_provider_secret_with(
+            "anthropic",
+            |service, _provider| {
+                if service == SERVICE {
+                    Ok(None)
+                } else {
+                    Ok(Some("legacy-secret".to_string()))
+                }
+            },
+            |service, provider, secret| {
+                writes.push((
+                    service.to_string(),
+                    provider.to_string(),
+                    secret.to_string(),
+                ));
+                Ok(())
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            selected,
+            Some(("legacy-secret".to_string(), CopyForwardStatus::Copied))
+        );
+        assert_eq!(
+            writes,
+            vec![(
+                SERVICE.to_string(),
+                "anthropic".to_string(),
+                "legacy-secret".to_string()
+            )]
+        );
+    }
+
+    #[test]
+    fn keyring_copy_forward_failure_still_returns_legacy_secret() {
+        let selected = read_and_migrate_provider_secret_with(
+            "openrouter",
+            |service, _provider| {
+                if service == SERVICE {
+                    Ok(None)
+                } else {
+                    Ok(Some("legacy-secret".to_string()))
+                }
+            },
+            |_service, _provider, _secret| Err("backend unavailable".to_string()),
+        )
+        .unwrap();
+
+        assert_eq!(
+            selected,
+            Some(("legacy-secret".to_string(), CopyForwardStatus::Failed))
+        );
+    }
+
+    #[test]
+    fn explicit_clear_attempts_current_and_legacy_services() {
+        let mut calls = Vec::new();
+        clear_provider_secrets_with("openrouter", |service, provider| {
+            calls.push((service.to_string(), provider.to_string()));
+            if service == SERVICE {
+                Err("canonical delete failed".to_string())
+            } else {
+                Ok(())
+            }
+        });
+
+        assert_eq!(
+            calls,
+            vec![
+                (SERVICE.to_string(), "openrouter".to_string()),
+                (LEGACY_SERVICE.to_string(), "openrouter".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn keyring_migration_errors_and_logs_do_not_contain_secret() {
+        let secret = "super-secret-marker";
+        let selected = read_and_migrate_provider_secret_with(
+            "openrouter",
+            |service, _provider| {
+                if service == SERVICE {
+                    Ok(None)
+                } else {
+                    Ok(Some(secret.to_string()))
+                }
+            },
+            |_service, _provider, copied_secret| {
+                Err(format!("write failed while handling {copied_secret}"))
+            },
+        )
+        .unwrap()
+        .unwrap();
+
+        assert_eq!(selected.0, secret);
+        assert_eq!(selected.1, CopyForwardStatus::Failed);
+        let message = credential_migration_message("openrouter", selected.1).unwrap();
+        assert!(!message.contains(secret));
+        assert!(!format!("{:?}", selected.1).contains(secret));
     }
 
     #[test]
@@ -356,7 +524,7 @@ mod tests {
 /// Keyring entry only (bridge may still fall back to compile-time vendor key).
 pub fn read_user_secret(app: &AppHandle) -> Option<String> {
     let cfg = read_provider_cfg(app)?;
-    entry_for(&cfg.provider).ok()?.get_password().ok()
+    read_provider_secret(&cfg.provider)
 }
 
 /// Resolved LLM parameters for the Python child (provider allowlist + Hermes env).
@@ -468,8 +636,134 @@ fn clear_provider_cfg(app: &AppHandle) -> Result<()> {
     Ok(())
 }
 
+fn keyring_service_candidates() -> [&'static str; 2] {
+    [SERVICE, LEGACY_SERVICE]
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SecretOrigin {
+    Current,
+    Legacy,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CopyForwardStatus {
+    NotNeeded,
+    Copied,
+    Failed,
+}
+
+/// Pure selection seam used by the keyring adapter and unit tests. A failed
+/// current lookup is not treated as a miss: only an explicit missing entry may
+/// fall back to the legacy service.
+fn select_provider_secret_with<F>(
+    provider: &str,
+    mut read: F,
+) -> Result<Option<(String, SecretOrigin)>, String>
+where
+    F: FnMut(&str, &str) -> Result<Option<String>, String>,
+{
+    if let Some(secret) = read(SERVICE, provider)? {
+        return Ok(Some((secret, SecretOrigin::Current)));
+    }
+    if let Some(secret) = read(LEGACY_SERVICE, provider)? {
+        return Ok(Some((secret, SecretOrigin::Legacy)));
+    }
+    Ok(None)
+}
+
+/// Read a credential and copy a legacy-only value into the canonical service.
+/// Copy failures are reduced to a status so backend error strings can never
+/// accidentally include the secret in a caller's log message.
+fn read_and_migrate_provider_secret_with<R, W>(
+    provider: &str,
+    read: R,
+    mut write: W,
+) -> Result<Option<(String, CopyForwardStatus)>, String>
+where
+    R: FnMut(&str, &str) -> Result<Option<String>, String>,
+    W: FnMut(&str, &str, &str) -> Result<(), String>,
+{
+    let Some((secret, origin)) = select_provider_secret_with(provider, read)? else {
+        return Ok(None);
+    };
+    if origin == SecretOrigin::Current {
+        return Ok(Some((secret, CopyForwardStatus::NotNeeded)));
+    }
+
+    let status = if write(SERVICE, provider, &secret).is_ok() {
+        CopyForwardStatus::Copied
+    } else {
+        CopyForwardStatus::Failed
+    };
+    Ok(Some((secret, status)))
+}
+
+fn credential_migration_message(provider: &str, status: CopyForwardStatus) -> Option<String> {
+    match status {
+        CopyForwardStatus::NotNeeded => None,
+        CopyForwardStatus::Copied => Some(format!(
+            "migrated legacy credential for provider {provider}"
+        )),
+        CopyForwardStatus::Failed => Some(format!(
+            "cannot migrate legacy credential for provider {provider}"
+        )),
+    }
+}
+
+/// Attempt both service deletions even if one backend operation fails.
+fn clear_provider_secrets_with<F>(provider: &str, mut delete: F)
+where
+    F: FnMut(&str, &str) -> Result<(), String>,
+{
+    for service in keyring_service_candidates() {
+        let _ = delete(service, provider);
+    }
+}
+
+fn entry_for_service(service: &str, provider: &str) -> Result<keyring::Entry, String> {
+    keyring::Entry::new(service, provider).map_err(|e| e.to_string())
+}
+
 fn entry_for(provider: &str) -> Result<keyring::Entry, String> {
-    keyring::Entry::new(SERVICE, provider).map_err(|e| e.to_string())
+    entry_for_service(SERVICE, provider)
+}
+
+/// Read the canonical credential first. A legacy-only credential is copied to
+/// the current service before being returned; failures never log the secret.
+fn read_provider_secret(provider: &str) -> Option<String> {
+    let selected = match read_and_migrate_provider_secret_with(
+        provider,
+        |service, provider| {
+            let entry = entry_for_service(service, provider)?;
+            match entry.get_password() {
+                Ok(secret) => Ok(Some(secret)),
+                Err(keyring::Error::NoEntry) => Ok(None),
+                Err(err) => Err(err.to_string()),
+            }
+        },
+        |service, provider, secret| {
+            entry_for_service(service, provider)?
+                .set_password(secret)
+                .map_err(|err| err.to_string())
+        },
+    ) {
+        Ok(selected) => selected,
+        Err(err) => {
+            log::warn!("cannot read credential for provider {provider}: {err}");
+            return None;
+        }
+    };
+
+    let (secret, status) = selected?;
+    if let Some(message) = credential_migration_message(provider, status) {
+        if status == CopyForwardStatus::Copied {
+            log::info!("{message}");
+        } else {
+            log::warn!("{message}");
+        }
+    }
+    Some(secret)
 }
 
 fn vendor_secret_fallback_enabled(app: &AppHandle) -> bool {
@@ -619,11 +913,15 @@ pub async fn cmd_has_secret(app: AppHandle) -> Result<bool, String> {
 #[tauri::command]
 pub async fn cmd_clear_secret(app: AppHandle) -> Result<(), String> {
     if let Some(cfg) = read_provider_cfg(&app) {
-        let _ =
-            entry_for(&cfg.provider).and_then(|e| e.delete_credential().map_err(|e| e.to_string()));
+        clear_provider_secrets_with(&cfg.provider, |service, provider| {
+            entry_for_service(service, provider)?
+                .delete_credential()
+                .map_err(|err| err.to_string())
+        });
     }
     clear_provider_cfg(&app).map_err(|e| e.to_string())?;
     let _ = write_bool_setting(&app, VENDOR_LLM_DISABLED, true);
+    crate::schedule_embedded_hermes_respawn(app);
     Ok(())
 }
 

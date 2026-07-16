@@ -57,7 +57,7 @@ class TestConfigEnvOverrides(unittest.TestCase):
         self.assertIsNotNone(home)
         self.assertEqual(home.chat_id, "user@test.com")
 
-    @patch.dict(os.environ, {"HERMES_HOME": "."}, clear=True)
+    @patch.dict(os.environ, {"KABUQINA_HOME": "."}, clear=True)
     def test_email_not_loaded_without_env(self):
         from gateway.config import GatewayConfig, Platform, _apply_env_overrides
         config = GatewayConfig()
@@ -65,7 +65,7 @@ class TestConfigEnvOverrides(unittest.TestCase):
         self.assertNotIn(Platform.EMAIL, config.platforms)
 
     @patch.dict(os.environ, {
-        "HERMES_HOME": ".",
+        "KABUQINA_HOME": ".",
         "EMAIL_ADDRESS": "hermes@test.com",
         "EMAIL_AUTH_MODE": "oauth2",
         "EMAIL_OAUTH2_ACCESS_TOKEN": "access-token",
@@ -617,7 +617,7 @@ class TestThreadContext(unittest.TestCase):
             self.assertFalse(send_call["Subject"].startswith("Re: Re:"))
 
     def test_no_thread_context_uses_default_subject(self):
-        """Without thread context, subject should be 'Re: Hermes Agent'."""
+        """Without thread context, subject should use the canonical product name."""
         adapter = self._make_adapter()
 
         with patch("smtplib.SMTP") as mock_smtp:
@@ -627,7 +627,7 @@ class TestThreadContext(unittest.TestCase):
             adapter._send_email("newuser@test.com", "Hello!", None)
 
             send_call = mock_server.send_message.call_args[0][0]
-            self.assertEqual(send_call["Subject"], "Re: Hermes Agent")
+            self.assertEqual(send_call["Subject"], "Re: Kabuqina")
             self.assertIn("Date", send_call)
 
 
@@ -1060,7 +1060,7 @@ class TestSendEmailStandalone(unittest.TestCase):
             _, kwargs = mock_server.starttls.call_args
             self.assertIsInstance(kwargs["context"], ssl.SSLContext)
             send_call = mock_server.send_message.call_args[0][0]
-            self.assertEqual(send_call["Subject"], "Hermes Agent")
+            self.assertEqual(send_call["Subject"], "Kabuqina")
             self.assertIn("Date", send_call)
             self.assertEqual(send_call["To"], "user@test.com")
             self.assertEqual(send_call["From"], "hermes@test.com")

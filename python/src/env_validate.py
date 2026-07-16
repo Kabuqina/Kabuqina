@@ -4,7 +4,7 @@
 """Shared validation helpers for security-sensitive inputs.
 
 Used by QR workers to reject control characters in platform credentials
-before they are written to ``hermes-home/.env``.
+before they are written to ``kabuqina-home/.env``.
 """
 
 import re

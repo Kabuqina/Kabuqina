@@ -7,7 +7,7 @@ import json, logging, os, sys, time
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-from hermes_cli.config import load_config
+from kabuqina_cli.config import load_config
 log = logging.getLogger(__name__)
 
 _DESK_SRC = Path(__file__).resolve().parents[1]
@@ -57,7 +57,7 @@ def _strip_internal_plugin_fields(plugin: Dict[str, Any]) -> Dict[str, Any]:
 
 def _desk_catalog_skills(policy) -> List[Dict[str, Any]]:
     from tools.skills_tool import _find_all_skills
-    from hermes_cli.skills_config import get_disabled_skills
+    from kabuqina_cli.skills_config import get_disabled_skills
 
     profile_policy = _product_profile_policy()
     config = load_config()
@@ -100,7 +100,7 @@ def _resolve_toolset_names_cached(name: str) -> Tuple[str, ...]:
 
 
 def _desk_catalog_toolsets(policy) -> List[Dict[str, Any]]:
-    from hermes_cli.tools_config import (
+    from kabuqina_cli.tools_config import (
         _get_effective_configurable_toolsets,
         _get_platform_tools,
         _toolset_has_keys,
@@ -227,7 +227,7 @@ def _always_on_toolset_names() -> set[str]:
     """
     try:
         from tool_policy import ToolPolicy
-        from hermes_cli.tools_config import CONFIGURABLE_TOOLSETS
+        from kabuqina_cli.tools_config import CONFIGURABLE_TOOLSETS
 
         configurable = {key for key, _, _ in CONFIGURABLE_TOOLSETS}
         resolved = {str(name) for name in ToolPolicy.resolve(ToolPolicy.is_power_user())}

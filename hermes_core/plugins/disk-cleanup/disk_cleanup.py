@@ -15,8 +15,8 @@ Rules:
   - chrome-profile→ prompt after 14 days (deep only)
   - >500 MB files → prompt always (deep only)
 
-Scope: strictly HERMES_HOME and /tmp/hermes-*
-Never touches: ~/.hermes/logs/ or any system directory.
+Scope: strictly KABUQINA_HOME and Kabuqina-owned temp files.
+Never touches system directories.
 """
 
 from __future__ import annotations
@@ -29,13 +29,17 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 try:
-    from hermes_constants import get_hermes_home
+    from kabuqina_constants import get_kabuqina_home
 except Exception:  # pragma: no cover — plugin may load before constants resolves
     import os
 
-    def get_hermes_home() -> Path:  # type: ignore[no-redef]
-        val = (os.environ.get("HERMES_HOME") or "").strip()
-        return Path(val).resolve() if val else (Path.home() / ".hermes").resolve()
+    def get_kabuqina_home() -> Path:  # type: ignore[no-redef]
+        val = (
+            os.environ["KABUQINA_HOME"]
+            if "KABUQINA_HOME" in os.environ
+            else os.environ.get("HERMES_HOME", "")
+        ).strip()
+        return Path(val).resolve() if val else (Path.home() / ".kabuqina").resolve()
 
 
 logger = logging.getLogger(__name__)
@@ -47,7 +51,7 @@ logger = logging.getLogger(__name__)
 
 def get_state_dir() -> Path:
     """State dir — separate from ``$HERMES_HOME/logs/``."""
-    return get_hermes_home() / "disk-cleanup"
+    return get_kabuqina_home() / "disk-cleanup"
 
 
 def get_tracked_file() -> Path:
@@ -68,7 +72,7 @@ def is_safe_path(path: Path) -> bool:
 
     Rejects Windows mounts (``/mnt/c`` etc.) and any system directory.
     """
-    hermes_home = get_hermes_home()
+    hermes_home = get_kabuqina_home()
     try:
         path.resolve().relative_to(hermes_home)
         return True
@@ -294,7 +298,7 @@ def quick() -> Dict[str, Any]:
     # Remove empty dirs under HERMES_HOME (but leave HERMES_HOME itself and
     # a short list of well-known top-level state dirs alone — a fresh install
     # has these empty, and deleting them would surprise the user).
-    hermes_home = get_hermes_home()
+    hermes_home = get_kabuqina_home()
     _PROTECTED_TOP_LEVEL = {
         "logs", "memories", "sessions", "cron", "cronjobs",
         "cache", "skills", "plugins", "disk-cleanup", "optional-skills",
@@ -470,7 +474,7 @@ def guess_category(path: Path) -> Optional[str]:
         return None
 
     # Skip the state dir itself, logs, memory files, sessions, config.
-    hermes_home = get_hermes_home()
+    hermes_home = get_kabuqina_home()
     try:
         rel = path.resolve().relative_to(hermes_home)
         top = rel.parts[0] if rel.parts else ""

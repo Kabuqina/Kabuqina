@@ -3,9 +3,9 @@
 """Structured auth error type and its user-facing formatter.
 
 Zero-dependency leaf: a provider runtime module can ``raise AuthError(...)``
-without importing the CLI ``hermes_cli.auth`` facade, so the per-provider
+without importing the CLI ``kabuqina_cli.auth`` facade, so the per-provider
 credential resolvers can live in their own ``providers/*`` modules without an
-import cycle. ``hermes_cli.auth`` re-exports both names for existing callers.
+import cycle. ``kabuqina_cli.auth`` re-exports both names for existing callers.
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ def format_auth_error(error: Exception) -> str:
         return str(error)
 
     if error.relogin_required:
-        return f"{error} Run `hermes model` to re-authenticate."
+        return f"{error} Run `kabuqina model` to re-authenticate."
 
     if error.code == "subscription_required":
         return (

@@ -15,18 +15,18 @@ def test_matrix_extra_linux_only_in_all():
     """mautrix[encryption] depends on python-olm which is upstream-broken on
     modern macOS (archived libolm, C++ errors with Clang 21+).  The [matrix]
     extra is included in [all] but gated to Linux via a platform marker so
-    that ``hermes update`` doesn't fail on macOS."""
+    that ``kabuqina update`` doesn't fail on macOS."""
     optional_dependencies = _load_optional_dependencies()
 
     assert "matrix" in optional_dependencies
     # Must NOT be unconditional — python-olm has no macOS wheels.
-    assert "hermes-agent[matrix]" not in optional_dependencies["all"]
+    assert "kabuqina-agent[matrix]" not in optional_dependencies["all"]
     # Must be present with a Linux platform marker.
     linux_gated = [
         dep for dep in optional_dependencies["all"]
         if "matrix" in dep and "linux" in dep
     ]
-    assert linux_gated, "expected hermes-agent[matrix] with sys_platform=='linux' marker in [all]"
+    assert linux_gated, "expected kabuqina-agent[matrix] with Linux marker in [all]"
 
 
 def test_messaging_extra_includes_qrcode_for_weixin_setup():
@@ -37,7 +37,7 @@ def test_messaging_extra_includes_qrcode_for_weixin_setup():
 
 
 def test_dingtalk_extra_includes_qrcode_for_qr_auth():
-    """DingTalk's QR-code device-flow auth (hermes_cli/dingtalk_auth.py)
+    """DingTalk's QR-code device-flow auth (kabuqina_cli/dingtalk_auth.py)
     needs the qrcode package."""
     optional_dependencies = _load_optional_dependencies()
 

@@ -7,7 +7,7 @@ import asyncio, base64, json, logging, os, tempfile, traceback
 from typing import Any, Dict, List, Optional, Tuple
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
-from hermes_cli.config import load_config, save_config, save_env_value
+from kabuqina_cli.config import load_config, save_config, save_env_value
 from desk_server.voice_helpers import *
 log = logging.getLogger(__name__)
 router = APIRouter()
@@ -113,7 +113,7 @@ async def desk_transcribe(request: Request):
                 {
                     "error": "no_stt_provider",
                     "detail": (
-                        "未检测到可用的语音识别后端。请在 hermes-home/.env 或控制台 Keys 中配置 "
+                        "未检测到可用的语音识别后端。请在 kabuqina-home/.env 或控制台 Keys 中配置 "
                         "GROQ_API_KEY、OPENAI_API_KEY（或 VOICE_TOOLS_OPENAI_KEY）、MISTRAL_API_KEY、"
                         "XAI_API_KEY 之一，或运行 python/build_bundle.ps1 打入 whisper.cpp 本地转写。"
                     ),
@@ -183,7 +183,7 @@ async def desk_save_voice_setup(request: Request):
       ``<section>.provider``; a value of ``null`` leaves the existing setting
       untouched (e.g. user picked "skip").
     - ``env`` entries are written via ``save_env_value`` (which both updates
-      ``hermes-home/.env`` on disk and refreshes ``os.environ`` so the running
+      ``kabuqina-home/.env`` on disk and refreshes ``os.environ`` so the running
       process picks them up without a restart). Keys outside an internal
       allow-list are silently dropped; empty values are skipped (we never
       accidentally clear a saved key with a blank field).

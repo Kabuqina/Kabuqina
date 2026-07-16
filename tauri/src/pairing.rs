@@ -3,7 +3,7 @@
 
 //! DM pairing management — read / approve / revoke pairing codes from the desktop UI.
 //!
-//! Pairing data lives in ``hermes-home/pairing/`` as JSON files:
+//! Pairing data lives in ``kabuqina-home/pairing/`` as JSON files:
 //!   - ``{platform}-pending.json``  — pending pairing requests
 //!   - ``{platform}-approved.json`` — approved (paired) users
 //!
@@ -62,7 +62,7 @@ pub struct PairingSnapshot {
 // ---- helpers ----
 
 fn pairing_dir(data_dir: &std::path::Path) -> PathBuf {
-    let hh = crate::gateway_supervisor::hermes_home_path(data_dir);
+    let hh = crate::gateway_supervisor::kabuqina_home_path(data_dir);
     // Match Python's PAIRING_DIR = get_hermes_dir("platforms/pairing", "pairing")
     let legacy = hh.join("pairing");
     if legacy.exists() {

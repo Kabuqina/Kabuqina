@@ -6,12 +6,12 @@ from datetime import timedelta
 
 import pytest
 
-import hermes_time
+import kabuqina_time
 from tools.clock_tool import get_current_time_tool
 
 
 def _reset_tz_cache():
-    hermes_time.reset_cache()
+    kabuqina_time.reset_cache()
     os.environ.pop("HERMES_TIMEZONE", None)
 
 
@@ -24,7 +24,7 @@ class TestGetCurrentTimeTool:
 
     def test_returns_json_with_timezone(self):
         os.environ["HERMES_TIMEZONE"] = "Australia/Perth"
-        hermes_time.reset_cache()
+        kabuqina_time.reset_cache()
         raw = get_current_time_tool()
         data = json.loads(raw)
         assert data["timezone"] == "Australia/Perth"
@@ -37,7 +37,7 @@ class TestGetCurrentTimeTool:
 
     def test_perth_offset(self):
         os.environ["HERMES_TIMEZONE"] = "Australia/Perth"
-        hermes_time.reset_cache()
+        kabuqina_time.reset_cache()
         data = json.loads(get_current_time_tool())
         from datetime import datetime
 

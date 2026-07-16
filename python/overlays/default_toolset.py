@@ -7,7 +7,7 @@
 # Target replacement: ``python/src/tool_policy.py``
 
 Hermes selects the active toolsets by reading
-``~/.hermes/config.yaml`` (under HERMES_HOME) at the
+``~/.kabuqina/config.yaml`` (under KABUQINA_HOME) at the
 ``platform_toolsets["cli"]`` key. The CLI's `hermes tools` configurator
 maintains it interactively. There is no programmatic "default" function
 to monkey-patch; the source of truth is the file.
@@ -53,9 +53,9 @@ def install() -> None:
     wrote = False
 
     try:
-        from hermes_cli.config import load_config, save_config  # type: ignore
+        from kabuqina_cli.config import load_config, save_config  # type: ignore
     except Exception as e:
-        log.warning("hermes_cli.config not importable; skipping toolset seed (%s)", e)
+        log.warning("kabuqina_cli.config not importable; skipping toolset seed (%s)", e)
         return
 
     try:
@@ -81,7 +81,7 @@ def install() -> None:
     # Force all gateway platform toolset keys to non-power-user keep-list.
     # Gateway bots (weixin, feishu, qqbot, etc.) never get expanded tools.
     try:
-        from hermes_cli.platforms import PLATFORMS as _PLATFORMS
+        from kabuqina_cli.platforms import PLATFORMS as _PLATFORMS
         gw_list = ToolPolicy.gateway_keep_list()
         for key in _PLATFORMS.keys():
             if key == "cli":

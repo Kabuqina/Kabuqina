@@ -131,19 +131,20 @@ class CronSchedulerRunner:
 
                     ensure_gateway_env_for_delivery()
                 except ImportError:
-                    import os
                     from pathlib import Path
 
-                    home = (os.environ.get("HERMES_HOME") or "").strip()
+                    from kabuqina_env import home as kabuqina_home_env
+
+                    home = kabuqina_home_env().strip()
                     if home:
                         try:
-                            from hermes_cli.env_loader import load_hermes_dotenv
+                            from kabuqina_cli.env_loader import load_kabuqina_dotenv
 
-                            load_hermes_dotenv(hermes_home=Path(home))
+                            load_kabuqina_dotenv(kabuqina_home=Path(home))
                         except Exception:
                             log.exception(
                                 "cron ticker: gateway_env_loader missing and "
-                                "failed to load hermes-home .env"
+                                "failed to load kabuqina-home .env"
                             )
                 from cron.scheduler import tick as cron_tick
 

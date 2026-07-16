@@ -10,7 +10,7 @@ Covers the engine-neutral persistence contract:
   - immutable, exclusive-create iteration record files
 
 These tests never touch the real profile: they monkeypatch
-``cron.goal_state.get_hermes_home`` at a per-test tmp dir, as the plan mandates.
+``cron.goal_state.get_kabuqina_home`` at a per-test tmp dir, as the plan mandates.
 """
 
 from __future__ import annotations
@@ -26,10 +26,10 @@ import pytest
 
 @pytest.fixture()
 def goal_home(tmp_path, monkeypatch):
-    """Point goal_state at an isolated HERMES_HOME for the test."""
+    """Point goal_state at an isolated KABUQINA_HOME for the test."""
     home = tmp_path / "ghome"
     home.mkdir()
-    monkeypatch.setattr("cron.goal_state.get_hermes_home", lambda: home)
+    monkeypatch.setattr("cron.goal_state.get_kabuqina_home", lambda: home)
     return home
 
 

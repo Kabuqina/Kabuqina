@@ -7,7 +7,7 @@ timestamp, and JWT-claim parsing used across the provider runtime credential
 resolvers. No dependency on the CLI command surface, the provider registry, or
 the auth store, so any provider module can import these without a cycle.
 
-``hermes_cli.auth`` re-exports them so existing call sites keep working.
+``kabuqina_cli.auth`` re-exports them so existing call sites keep working.
 """
 
 from __future__ import annotations

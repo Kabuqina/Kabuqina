@@ -51,9 +51,9 @@ def _apply_api_mode(model_block: dict, raw_mode: str) -> str | None:
 def _apply_deepseek_desk_seed(model: str, api_base: str, api_mode: str) -> None:
     """Write DeepSeek-oriented ``model`` block including default reasoning (high)."""
     try:
-        from hermes_cli.config import load_config, save_config  # type: ignore
+        from kabuqina_cli.config import load_config, save_config  # type: ignore
     except Exception as e:
-        log.warning("hermes_cli.config not importable; skipping deepseek seed (%s)", e)
+        log.warning("kabuqina_cli.config not importable; skipping deepseek seed (%s)", e)
         return
 
     try:
@@ -133,9 +133,9 @@ def install() -> None:
         return
 
     try:
-        from hermes_cli.config import load_config, save_config  # type: ignore
+        from kabuqina_cli.config import load_config, save_config  # type: ignore
     except Exception as e:
-        log.warning("hermes_cli.config not importable; skipping model seed (%s)", e)
+        log.warning("kabuqina_cli.config not importable; skipping model seed (%s)", e)
         return
 
     try:

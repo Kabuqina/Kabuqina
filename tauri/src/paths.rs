@@ -252,7 +252,7 @@ pub fn cmd_open_workspace(app: AppHandle) -> Result<(), String> {
 /// inside a directory Kabuqina manages. The path must exist on disk and sit
 /// under one of:
 ///   * the user workspace (where document writers — pptx/docx/pdf/html — save), or
-///   * the app's Hermes home (`<data_dir>/hermes-home`), where generated
+///   * the app's Hermes home (`<data_dir>/kabuqina-home`), where generated
 ///     artifacts that are not deliverables-proper land — notably browser
 ///     screenshots at `cache/screenshots/*.png`.
 ///
@@ -270,7 +270,7 @@ fn resolve_openable_path(app: &AppHandle, path: &str) -> Result<PathBuf, String>
         roots.push(std::fs::canonicalize(&workspace).unwrap_or(workspace));
     }
     if let Ok(data_dir) = ensure_data_dir(app) {
-        let home = crate::gateway_supervisor::hermes_home_path(&data_dir);
+        let home = crate::gateway_supervisor::kabuqina_home_path(&data_dir);
         if let Ok(home_canon) = std::fs::canonicalize(&home) {
             roots.push(home_canon);
         }
@@ -484,9 +484,9 @@ pub fn cmd_set_auto_start_gateway(app: AppHandle, enabled: bool) -> Result<(), S
 
 // ---- Shared user preferences (host-only write, bot-read-only) ----------------
 
-/// ``<data_dir>/hermes-home/shared/USER_PREFS.md``
+/// ``<data_dir>/kabuqina-home/shared/USER_PREFS.md``
 fn shared_prefs_path(data_dir: &PathBuf) -> PathBuf {
-    let home = data_dir.join("hermes-home");
+    let home = crate::gateway_supervisor::kabuqina_home_path(data_dir);
     home.join("shared").join("USER_PREFS.md")
 }
 

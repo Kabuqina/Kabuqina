@@ -3,12 +3,12 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "hermes-agent"
+name = "kabuqina-agent"
 version = "0.11.0"
-description = "The self-improving AI agent — creates skills from experience, improves them during use, and runs anywhere"
+description = "The Kabuqina-owned agent core for the Kabuqina Windows desktop app"
 readme = "README.md"
 requires-python = ">=3.11"
-authors = [{ name = "Nous Research" }]
+authors = [{ name = "Kabuqina Contributors" }]
 license = { text = "MIT" }
 dependencies = [
   # Core — pinned to known-good ranges to limit supply chain attack surface
@@ -46,7 +46,20 @@ dependencies = [
 modal = ["modal>=1.0.0,<2"]
 daytona = ["daytona>=0.148.0,<1"]
 vercel = ["vercel>=0.5.7,<0.6.0"]
-dev = ["debugpy>=1.8.0,<2", "pytest>=9.0.2,<10", "pytest-asyncio>=1.3.0,<2", "pytest-xdist>=3.0,<4", "mcp>=1.2.0,<2", "ty>=0.0.1a29,<0.0.22", "ruff"]
+dev = [
+  "debugpy>=1.8.0,<2",
+  "pytest>=9.0.2,<10",
+  "pytest-asyncio>=1.3.0,<2",
+  "pytest-xdist>=3.0,<4",
+  "mcp>=1.2.0,<2",
+  "Pillow>=11.0.0,<12",
+  "python-docx>=1.1.2,<2",
+  "pypdf>=5.1.0,<6",
+  "sympy>=1.13,<2",
+  "numpy>=1.26,<3",
+  "ty>=0.0.1a29,<0.0.22",
+  "ruff",
+]
 messaging = ["python-telegram-bot[webhooks]>=22.6,<23", "discord.py[voice]>=2.7.1,<3", "aiohttp>=3.13.3,<4", "slack-bolt>=1.18.0,<2", "slack-sdk>=3.27.0,<4", "qrcode>=7.0,<8"]
 cron = []  # croniter is now a core dependency; this extra kept for back-compat
 slack = ["slack-bolt>=1.18.0,<2", "slack-sdk>=3.27.0,<4"]
@@ -74,11 +87,11 @@ termux = [
   # non-Android wheels (notably faster-whisper -> ctranslate2 via the voice
   # extra).
   "python-telegram-bot[webhooks]>=22.6,<23",
-  "hermes-agent[cron]",
-  "hermes-agent[pty]",
-  "hermes-agent[mcp]",
-  "hermes-agent[honcho]",
-  "hermes-agent[acp]",
+  "kabuqina-agent[cron]",
+  "kabuqina-agent[pty]",
+  "kabuqina-agent[mcp]",
+  "kabuqina-agent[honcho]",
+  "kabuqina-agent[acp]",
 ]
 dingtalk = ["dingtalk-stream>=0.20,<1", "alibabacloud-dingtalk>=2.0.0", "qrcode>=7.0,<8"]
 feishu = ["lark-oapi>=1.5.3,<2", "qrcode>=7.0,<8"]
@@ -102,41 +115,46 @@ rl = [
 ]
 yc-bench = ["yc-bench @ git+https://github.com/collinear-ai/yc-bench.git@bfb0c88062450f46341bd9a5298903fc2e952a5c ; python_version >= '3.12'"]
 all = [
-  "hermes-agent[modal]",
-  "hermes-agent[daytona]",
-  "hermes-agent[vercel]",
-  "hermes-agent[messaging]",
+  "kabuqina-agent[modal]",
+  "kabuqina-agent[daytona]",
+  "kabuqina-agent[vercel]",
+  "kabuqina-agent[messaging]",
   # matrix: python-olm (required by matrix-nio[e2e]) is upstream-broken on
   # modern macOS (archived libolm, C++ errors with Clang 21+).  On Linux the
   # [matrix] extra's own marker pulls in the [e2e] variant automatically.
-  "hermes-agent[matrix]; sys_platform == 'linux'",
-  "hermes-agent[cron]",
-  "hermes-agent[dev]",
-  "hermes-agent[tts-premium]",
-  "hermes-agent[slack]",
-  "hermes-agent[pty]",
-  "hermes-agent[honcho]",
-  "hermes-agent[mcp]",
-  "hermes-agent[homeassistant]",
-  "hermes-agent[sms]",
-  "hermes-agent[acp]",
-  "hermes-agent[voice]",
-  "hermes-agent[dingtalk]",
-  "hermes-agent[feishu]",
-  "hermes-agent[google]",
-  "hermes-agent[mistral]",
-  "hermes-agent[web]",
+  "kabuqina-agent[matrix]; sys_platform == 'linux'",
+  "kabuqina-agent[cron]",
+  "kabuqina-agent[dev]",
+  "kabuqina-agent[tts-premium]",
+  "kabuqina-agent[slack]",
+  "kabuqina-agent[pty]",
+  "kabuqina-agent[honcho]",
+  "kabuqina-agent[mcp]",
+  "kabuqina-agent[homeassistant]",
+  "kabuqina-agent[sms]",
+  "kabuqina-agent[acp]",
+  "kabuqina-agent[voice]",
+  "kabuqina-agent[dingtalk]",
+  "kabuqina-agent[feishu]",
+  "kabuqina-agent[google]",
+  "kabuqina-agent[mistral]",
+  "kabuqina-agent[web]",
 ]
 
 [project.scripts]
+kabuqina = "run_agent:main"
+kabuqina-agent = "run_agent:main"
+kabuqina-acp = "acp_adapter.entry:main"
+# One-release aliases for existing automation.
+hermes = "run_agent:main"
 hermes-agent = "run_agent:main"
 hermes-acp = "acp_adapter.entry:main"
 
 [tool.setuptools]
-py-modules = ["run_agent", "model_tools", "toolsets", "batch_runner", "trajectory_compressor", "toolset_distributions", "hermes_constants", "hermes_state", "hermes_time", "hermes_logging", "rl_cli", "utils"]
+py-modules = ["run_agent", "model_tools", "toolsets", "batch_runner", "trajectory_compressor", "toolset_distributions", "kabuqina_constants", "kabuqina_state", "kabuqina_time", "kabuqina_logging", "hermes_constants", "hermes_state", "hermes_time", "hermes_logging", "rl_cli", "utils"]
 
 [tool.setuptools.packages.find]
-include = ["agent", "agent.*", "tools", "tools.*", "hermes_cli", "gateway", "gateway.*", "cron", "acp_adapter", "plugins", "plugins.*", "learning", "learning.*"]
+include = ["agent", "agent.*", "tools", "tools.*", "kabuqina_cli", "kabuqina_cli.*", "hermes_cli", "hermes_cli.*", "gateway", "gateway.*", "cron", "acp_adapter", "plugins", "plugins.*", "learning", "learning.*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

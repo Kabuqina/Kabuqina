@@ -50,12 +50,17 @@ class TestParseTimezoneFromPrefs(unittest.TestCase):
 class TestResolveDesktopTimezone(unittest.TestCase):
     def setUp(self):
         self._env_pop = os.environ.pop("HERMES_TIMEZONE", None)
+        self._current_env_pop = os.environ.pop("KABUQINA_TIMEZONE", None)
 
     def tearDown(self):
         if self._env_pop is not None:
             os.environ["HERMES_TIMEZONE"] = self._env_pop
         else:
             os.environ.pop("HERMES_TIMEZONE", None)
+        if self._current_env_pop is not None:
+            os.environ["KABUQINA_TIMEZONE"] = self._current_env_pop
+        else:
+            os.environ.pop("KABUQINA_TIMEZONE", None)
 
     def test_prefs_win_over_stale_config(self):
         with tempfile.TemporaryDirectory() as td:
@@ -94,6 +99,7 @@ class TestResolveDesktopTimezone(unittest.TestCase):
             ):
                 iana = apply_desktop_timezone(home)
             self.assertEqual(iana, "Asia/Shanghai")
+            self.assertEqual(os.environ.get("KABUQINA_TIMEZONE"), "Asia/Shanghai")
             self.assertEqual(os.environ.get("HERMES_TIMEZONE"), "Asia/Shanghai")
 
 

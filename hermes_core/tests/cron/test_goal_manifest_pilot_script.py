@@ -18,7 +18,7 @@ SCRIPT = CORE_ROOT / "scripts" / "run_goal_manifest_pilot.py"
 
 def _run_script(*args: str) -> tuple[dict, str]:
     env = dict(os.environ)
-    env.pop("HERMES_HOME", None)
+    env.pop("KABUQINA_HOME", None)
     result = subprocess.run(
         [sys.executable, str(SCRIPT), *args],
         cwd=CORE_ROOT,

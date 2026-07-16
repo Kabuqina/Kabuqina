@@ -34,8 +34,8 @@ class TestDisableImageGenBackends(unittest.TestCase):
         saved = {}
         load = MagicMock(return_value={})
         save = MagicMock(side_effect=lambda cfg: saved.update(cfg))
-        with patch("hermes_cli.config.load_config", load), patch(
-            "hermes_cli.config.save_config", save
+        with patch("kabuqina_cli.config.load_config", load), patch(
+            "kabuqina_cli.config.save_config", save
         ):
             mod = _fresh_overlay()
             mod.install()
@@ -49,8 +49,8 @@ class TestDisableImageGenBackends(unittest.TestCase):
         existing = {"plugins": {"disabled": ["some-user-plugin", "image_gen/openai"]}}
         load = MagicMock(return_value=existing)
         save = MagicMock(side_effect=lambda cfg: saved.update(cfg))
-        with patch("hermes_cli.config.load_config", load), patch(
-            "hermes_cli.config.save_config", save
+        with patch("kabuqina_cli.config.load_config", load), patch(
+            "kabuqina_cli.config.save_config", save
         ):
             mod = _fresh_overlay()
             mod.install()
@@ -68,8 +68,8 @@ class TestDisableImageGenBackends(unittest.TestCase):
         existing = {"plugins": {"disabled": list(_EXPECTED)}}
         load = MagicMock(return_value=existing)
         save = MagicMock()
-        with patch("hermes_cli.config.load_config", load), patch(
-            "hermes_cli.config.save_config", save
+        with patch("kabuqina_cli.config.load_config", load), patch(
+            "kabuqina_cli.config.save_config", save
         ):
             mod = _fresh_overlay()
             mod.install()
@@ -82,8 +82,8 @@ class TestDisableImageGenBackends(unittest.TestCase):
         existing = {"plugins": "not-a-dict"}
         load = MagicMock(return_value=existing)
         save = MagicMock(side_effect=lambda cfg: saved.update(cfg))
-        with patch("hermes_cli.config.load_config", load), patch(
-            "hermes_cli.config.save_config", save
+        with patch("kabuqina_cli.config.load_config", load), patch(
+            "kabuqina_cli.config.save_config", save
         ):
             mod = _fresh_overlay()
             mod.install()

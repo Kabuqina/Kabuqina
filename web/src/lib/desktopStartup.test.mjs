@@ -112,7 +112,7 @@ const secretsSource = fs.readFileSync(
   new URL("../../../tauri/src/secrets.rs", import.meta.url),
   "utf8",
 );
-for (const commandName of ["cmd_save_secret", "cmd_update_llm_config"]) {
+for (const commandName of ["cmd_save_secret", "cmd_update_llm_config", "cmd_clear_secret"]) {
   const start = secretsSource.indexOf(`pub async fn ${commandName}`);
   assert.ok(start >= 0, `${commandName} should exist.`);
   const nextCommand = secretsSource.indexOf("#[tauri::command]", start + 1);

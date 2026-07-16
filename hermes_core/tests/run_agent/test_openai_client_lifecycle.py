@@ -1,4 +1,5 @@
 import sys
+import os
 import threading
 import types
 from types import SimpleNamespace
@@ -153,8 +154,12 @@ def test_concurrent_requests_do_not_break_each_other_when_one_client_closes(monk
     thread_two = threading.Thread(target=run_call, args=("second",), daemon=True)
     thread_one.start()
     thread_two.start()
-    thread_one.join(timeout=5)
-    thread_two.join(timeout=5)
+    join_timeout = 15 if os.name == "nt" else 5
+    thread_one.join(timeout=join_timeout)
+    thread_two.join(timeout=join_timeout)
+
+    assert not thread_one.is_alive()
+    assert not thread_two.is_alive()
 
     values = list(results.values())
     assert sum(isinstance(value, APIConnectionError) for value in values) == 1

@@ -81,7 +81,7 @@ def test_ocr_image_reports_missing_model_dir(tmp_path, monkeypatch):
 def test_ocr_image_registered_and_in_vision_toolset():
     import tools.ocr_tools  # noqa: F401
     from tools.registry import registry
-    from toolsets import TOOLSETS, _HERMES_CORE_TOOLS
+    from toolsets import TOOLSETS, _KABUQINA_CORE_TOOLS
 
     entry = registry._tools.get("ocr_image")
 
@@ -89,4 +89,4 @@ def test_ocr_image_registered_and_in_vision_toolset():
     assert entry.toolset == "vision"
     assert entry.schema["name"] == "ocr_image"
     assert "ocr_image" in TOOLSETS["vision"]["tools"]
-    assert "ocr_image" in _HERMES_CORE_TOOLS
+    assert "ocr_image" in _KABUQINA_CORE_TOOLS

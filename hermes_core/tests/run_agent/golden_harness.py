@@ -464,7 +464,7 @@ def _normalize_callback_events(events: List[Dict[str, Any]]) -> List[Dict[str, A
 
 
 class _HookRecorder:
-    """Wraps ``hermes_cli.plugins.invoke_hook`` to record ``{hook, payload}`` in
+    """Wraps ``kabuqina_cli.plugins.invoke_hook`` to record ``{hook, payload}`` in
     call order while delegating to the real dispatcher — which no-ops with no
     plugins registered, and crucially still returns the iterable that the
     ``pre_llm_call`` site consumes. Replacing (instead of wrapping) would change
@@ -557,7 +557,7 @@ def _snapshot(
 @contextlib.contextmanager
 def _patches(tool_names, tool_stub, api_mode, preconditions=None):
     import run_agent
-    import hermes_cli.plugins as _plugins
+    import kabuqina_cli.plugins as _plugins
 
     preconditions = preconditions or {}
     stack = contextlib.ExitStack()
@@ -607,7 +607,7 @@ def _patches(tool_names, tool_stub, api_mode, preconditions=None):
             )
         )
     # Observe (don't replace) the plugin-hook dispatcher. Each call site does a
-    # runtime ``from hermes_cli.plugins import invoke_hook``, so patching the
+    # runtime ``from kabuqina_cli.plugins import invoke_hook``, so patching the
     # module attribute is seen by all six hooks.
     hook_recorder = _HookRecorder(_plugins.invoke_hook)
     stack.enter_context(patch.object(_plugins, "invoke_hook", hook_recorder))

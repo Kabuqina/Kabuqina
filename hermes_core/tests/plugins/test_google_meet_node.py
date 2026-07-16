@@ -23,7 +23,7 @@ pytest.importorskip("plugins.google_meet", reason="google_meet plugin is not bun
 def _isolate_home(tmp_path, monkeypatch):
     hermes_home = tmp_path / ".hermes"
     hermes_home.mkdir()
-    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+    monkeypatch.setenv("KABUQINA_HOME", str(hermes_home))
     yield hermes_home
 
 
@@ -214,10 +214,10 @@ def test_registry_resolve_by_name(tmp_path):
     assert r.resolve("ghost") is None
 
 
-def test_registry_defaults_to_hermes_home(tmp_path, monkeypatch):
+def test_registry_defaults_to_kabuqina_home(tmp_path, monkeypatch):
     from plugins.google_meet.node.registry import NodeRegistry
 
-    # _isolate_home already set HERMES_HOME to tmp_path/.hermes; the
+    # _isolate_home already set KABUQINA_HOME to tmp_path/.hermes; the
     # registry default path must live inside that tree.
     r = NodeRegistry()
     r.add("x", "ws://x", "t")

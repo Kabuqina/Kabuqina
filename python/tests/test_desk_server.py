@@ -91,12 +91,12 @@ class TestDeskCapabilityPrompt(unittest.TestCase):
                 captured.update(kwargs)
 
         with patch.dict("sys.modules", {"run_agent": type("RunAgent", (), {"AIAgent": FakeAgent})}):
-            with patch("hermes_cli.config.load_config", return_value={"model": {"default": "fake-model"}}):
+            with patch("kabuqina_cli.config.load_config", return_value={"model": {"default": "fake-model"}}):
                 with patch(
-                    "hermes_cli.runtime_provider.resolve_runtime_provider",
+                    "kabuqina_cli.runtime_provider.resolve_runtime_provider",
                     return_value={"provider": "openai", "api_key": "sk-test"},
                 ):
-                    with patch("hermes_cli.tools_config._get_platform_tools", return_value={"file"}):
+                    with patch("kabuqina_cli.tools_config._get_platform_tools", return_value={"file"}):
                         with patch.object(
                             chat_core,
                             "current_capability_prompt_summary",
@@ -118,17 +118,17 @@ class TestDeskCapabilityPrompt(unittest.TestCase):
 
         with patch.dict("sys.modules", {"run_agent": type("RunAgent", (), {"AIAgent": FakeAgent})}):
             with patch(
-                "hermes_cli.config.load_config",
+                "kabuqina_cli.config.load_config",
                 return_value={
                     "model": {"default": "fake-model"},
                     "agent": {"system_prompt": "Configured desk personality."},
                 },
             ):
                 with patch(
-                    "hermes_cli.runtime_provider.resolve_runtime_provider",
+                    "kabuqina_cli.runtime_provider.resolve_runtime_provider",
                     return_value={"provider": "openai", "api_key": "sk-test"},
                 ):
-                    with patch("hermes_cli.tools_config._get_platform_tools", return_value={"file"}):
+                    with patch("kabuqina_cli.tools_config._get_platform_tools", return_value={"file"}):
                         with patch.object(
                             chat_core,
                             "current_capability_prompt_summary",
@@ -150,14 +150,14 @@ class TestDeskCapabilityPrompt(unittest.TestCase):
 
         with patch.dict("sys.modules", {"run_agent": type("RunAgent", (), {"AIAgent": FakeAgent})}):
             with patch(
-                "hermes_cli.config.load_config",
+                "kabuqina_cli.config.load_config",
                 return_value={
                     "model": {"default": "mimo-v2.5", "provider": "custom"},
                     "agent": {},
                 },
             ):
                 with patch(
-                    "hermes_cli.runtime_provider.resolve_runtime_provider",
+                    "kabuqina_cli.runtime_provider.resolve_runtime_provider",
                     return_value={
                         "provider": "custom",
                         "api_mode": "anthropic_messages",
@@ -165,7 +165,7 @@ class TestDeskCapabilityPrompt(unittest.TestCase):
                         "api_key": "never-log-me",
                     },
                 ):
-                    with patch("hermes_cli.tools_config._get_platform_tools", return_value={"file"}):
+                    with patch("kabuqina_cli.tools_config._get_platform_tools", return_value={"file"}):
                         with patch.object(
                             chat_core,
                             "current_capability_prompt_summary",

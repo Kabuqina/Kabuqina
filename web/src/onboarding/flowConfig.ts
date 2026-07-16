@@ -5,7 +5,7 @@ import type { SetupMode } from "../lib/store";
 
 /**
  * Shell wizard step ids (same order as post-model sections in
- * `hermes/hermes_cli/setup.py` SETUP_SECTIONS: tts, terminal, gateway, tools, agent),
+ * `hermes/kabuqina_cli/setup.py` SETUP_SECTIONS: tts, terminal, gateway, tools, agent),
  * with preamble: welcome, brain, pass.
  */
 export const SHELL_WIZARD_STEPS = [

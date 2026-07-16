@@ -41,7 +41,7 @@ import tempfile
 import time as _time
 from contextlib import contextmanager
 from pathlib import Path
-from hermes_constants import get_hermes_home
+from kabuqina_constants import get_kabuqina_home
 from typing import Dict, Any, List, Optional
 
 from utils import atomic_replace
@@ -65,7 +65,7 @@ logger = logging.getLogger(__name__)
 # happened after the first import.
 def get_memory_dir() -> Path:
     """Return the profile-scoped memories directory."""
-    return get_hermes_home() / "memories"
+    return get_kabuqina_home() / "memories"
 
 ENTRY_DELIMITER = "\n§\n"
 
@@ -127,7 +127,7 @@ _MEMORY_THREAT_PATTERNS = [
     # Persistence via shell rc
     (r'authorized_keys', "ssh_backdoor"),
     (r'\$HOME/\.ssh|\~/\.ssh', "ssh_access"),
-    (r'\$HOME/\.hermes/\.env|\~/\.hermes/\.env', "hermes_env"),
+    (r'\$HOME/\.(?:kabuqina|hermes)/\.env|\~/\.(?:kabuqina|hermes)/\.env', "kabuqina_env"),
 ]
 
 # Subset of invisible chars for injection detection
@@ -232,7 +232,7 @@ class MemoryStore:
         # Not present in group chats (privacy).
         self._host_prefs = ""
         if not self._is_group:
-            prefs_path = get_hermes_home() / "_host_prefs.md"
+            prefs_path = get_kabuqina_home() / "_host_prefs.md"
             try:
                 raw = prefs_path.read_text(encoding="utf-8").strip()
                 if raw:
@@ -738,7 +738,6 @@ registry.register(
     check_fn=check_memory_requirements,
     emoji="🧠",
 )
-
 
 
 

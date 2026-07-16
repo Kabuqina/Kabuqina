@@ -35,7 +35,7 @@ class TestCompressionBoundaryHook:
             )
 
     def test_on_session_start_called_with_compression_boundary(self):
-        from hermes_state import SessionDB
+        from kabuqina_state import SessionDB
 
         with tempfile.TemporaryDirectory() as tmpdir:
             with SessionDB(db_path=Path(tmpdir) / "test.db") as db:
@@ -125,7 +125,7 @@ class TestCompressionBoundaryHook:
 
     def test_hook_failure_does_not_break_compression(self):
         """If the context engine raises from on_session_start, compression still completes."""
-        from hermes_state import SessionDB
+        from kabuqina_state import SessionDB
 
         with tempfile.TemporaryDirectory() as tmpdir:
             with SessionDB(db_path=Path(tmpdir) / "test.db") as db:

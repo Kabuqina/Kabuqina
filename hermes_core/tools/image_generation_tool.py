@@ -3,7 +3,7 @@
 Image Generation Tools Module
 
 Provides image generation via FAL.ai. Multiple FAL models are supported and
-selectable via ``hermes tools`` → Image Generation; the active model is
+selectable via ``kabuqina tools`` → Image Generation; the active model is
 persisted to ``image_gen.model`` in ``config.yaml``.
 
 Architecture:
@@ -464,7 +464,7 @@ def _submit_fal_request(model: str, arguments: Dict[str, Any]):
                 f"(HTTP {status}). This model may not yet be enabled on "
                 f"the Nous Portal's FAL proxy. Either:\n"
                 f"  • Set FAL_KEY in your environment to use FAL.ai directly, or\n"
-                f"  • Pick a different model via `hermes tools` → Image Generation."
+                f"  • Pick a different model via `kabuqina tools` → Image Generation."
             ) from exc
         raise
 
@@ -498,7 +498,7 @@ def _resolve_fal_model() -> tuple:
     """
     model_id = ""
     try:
-        from hermes_cli.config import load_config
+        from kabuqina_cli.config import load_config
         cfg = load_config()
         img_cfg = cfg.get("image_gen") if isinstance(cfg, dict) else None
         if isinstance(img_cfg, dict):
@@ -787,7 +787,7 @@ def check_image_generation_requirements() -> bool:
     2. Any plugin-registered provider whose ``is_available()`` returns True.
 
     Plugins win only when the in-tree FAL path is NOT ready, which matches
-    the historical behavior: shipping hermes with a FAL key configured
+    the historical behavior: shipping Kabuqina with a FAL key configured
     should still expose the tool. The active selection among ready
     providers is resolved per-call by ``image_gen.provider``.
     """
@@ -800,7 +800,7 @@ def check_image_generation_requirements() -> bool:
     # Probe plugin providers. Discovery is idempotent and cheap.
     try:
         from providers.image_gen_registry import list_providers
-        from hermes_cli.plugins import _ensure_plugins_discovered
+        from kabuqina_cli.plugins import _ensure_plugins_discovered
 
         _ensure_plugins_discovered()
         for provider in list_providers():
@@ -892,7 +892,7 @@ def _read_configured_image_provider():
     for other features but never asked for OpenAI image gen).
     """
     try:
-        from hermes_cli.config import load_config
+        from kabuqina_cli.config import load_config
         cfg = load_config()
         section = cfg.get("image_gen") if isinstance(cfg, dict) else None
         if isinstance(section, dict):
@@ -923,7 +923,7 @@ def _dispatch_to_plugin_provider(prompt: str, aspect_ratio: str):
         # Import locally so plugin discovery isn't triggered just by
         # importing this module (tests rely on that).
         from providers.image_gen_registry import get_provider
-        from hermes_cli.plugins import _ensure_plugins_discovered
+        from kabuqina_cli.plugins import _ensure_plugins_discovered
 
         _ensure_plugins_discovered()
         provider = get_provider(configured)
@@ -947,7 +947,7 @@ def _dispatch_to_plugin_provider(prompt: str, aspect_ratio: str):
             "image": None,
             "error": (
                 f"image_gen.provider='{configured}' is set but no plugin "
-                f"registered that name. Run `hermes plugins list` to see "
+                f"registered that name. Run `kabuqina plugins list` to see "
                 f"available image gen backends."
             ),
             "error_type": "provider_not_registered",

@@ -18,6 +18,7 @@ import threading
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from kabuqina_constants import get_kabuqina_home
 from tools.registry import registry, tool_error
 from tools.document.common import (
     DocumentSpecError, Rgb, _PDF_BLOCK_TYPES, _PDF_TEMPLATES,
@@ -142,9 +143,14 @@ def _document_kind(path: Path) -> str:
 
 
 def _read_cache_root() -> Path:
+    data_dir = (
+        os.environ["KABUQINA_DATA_DIR"]
+        if "KABUQINA_DATA_DIR" in os.environ
+        else os.environ.get("HERMESDESK_DATA_DIR", "")
+    )
     raw = (
-        os.environ.get("HERMESDESK_DATA_DIR")
-        or os.environ.get("HERMES_HOME")
+        data_dir
+        or str(get_kabuqina_home())
         or os.environ.get("LOCALAPPDATA")
         or tempfile.gettempdir()
     )

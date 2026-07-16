@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-HermesDesk: run QQ Bot scan-to-configure in a short-lived child process.
+Kabuqina: run QQ Bot scan-to-configure in a short-lived child process.
 
 Spawned by Tauri with the same bundled ``python.exe`` as ``desktop_entrypoint.py``.
 Writes ``qqbot_qr_progress.json`` and ``qqbot_qr_result.json`` under ``HERMESDESK_DATA_DIR``.
@@ -21,14 +21,14 @@ import time
 import traceback
 from pathlib import Path
 
-from kabuqina_env import require
+from kabuqina_env import export_home, require, resolve_desktop_home
 
 _ORIGINAL_PRINT = builtins.print
 
 
 def _wire_sys_path() -> None:
     here = Path(__file__).resolve().parent
-    for sub in ("hermes", "site-packages"):
+    for sub in ("kabuqina", "hermes", "site-packages"):
         p = here / sub
         if p.is_dir():
             sys.path.insert(0, str(p))
@@ -85,9 +85,9 @@ def _create_bind_task_with_retry(
 def main() -> int:
     _wire_sys_path()
     data_dir = _data_dir()
-    hermes_home = data_dir / "hermes-home"
-    hermes_home.mkdir(parents=True, exist_ok=True)
-    os.environ["HERMES_HOME"] = str(hermes_home)
+    kabuqina_home = resolve_desktop_home(data_dir)
+    kabuqina_home.mkdir(parents=True, exist_ok=True)
+    export_home(kabuqina_home)
 
     _write_progress({"phase": "starting", "qr_url": None, "message": None})
     captured_url: list[str] = []
@@ -122,7 +122,7 @@ def main() -> int:
         from gateway.platforms.qqbot.onboard import BindStatus
         from gateway.platforms.qqbot.crypto import decrypt_secret
         from gateway.platforms.qqbot.constants import ONBOARD_POLL_INTERVAL
-        from hermes_cli.config import get_env_value, remove_env_value, save_env_value
+        from kabuqina_cli.config import get_env_value, remove_env_value, save_env_value
 
         # 1. Create bind task → get task_id and AES key
         try:

@@ -155,11 +155,11 @@ class TestNotFoundAndBusy:
 
     @pytest.mark.skipif(not _HAS_PRIMITIVE, reason="no OS file-lock primitive")
     def test_busy_lock_raises_and_writes_nothing(self, tmp_path):
-        from hermes_constants import get_hermes_home
+        from kabuqina_constants import get_kabuqina_home
         from cron.scheduler_lock import tick_lock
 
         job = _make_goal(tmp_path, "scheduled")
-        lock_file = get_hermes_home() / "cron" / ".tick.lock"
+        lock_file = get_kabuqina_home() / "cron" / ".tick.lock"
 
         with tick_lock(lock_file) as held:
             assert held
@@ -176,7 +176,7 @@ class TestCrashSafety:
 
         # Crash between the state write and the mirror disable. Restore the
         # specific attr (not monkeypatch.undo(), which would also revert the
-        # conftest's HERMES_HOME isolation on the shared monkeypatch).
+        # conftest's KABUQINA_HOME isolation on the shared monkeypatch).
         real_update_job = gc.update_job
         monkeypatch.setattr(gc, "update_job", _raise)
         with pytest.raises(RuntimeError):

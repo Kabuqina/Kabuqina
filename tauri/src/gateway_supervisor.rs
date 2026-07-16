@@ -1,17 +1,17 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-//! Messaging gateway child processes — one per platform with per-profile HERMES_HOME.
+//! Messaging gateway child processes — one per platform with per-profile KABUQINA_HOME.
 //!
 //! Each gateway platform (Telegram, Weixin, …) runs in its own OS child with
-//! ``HERMES_HOME = <data_dir>/hermes-home/profiles/<platform>/`` for hard filesystem
+//! ``KABUQINA_HOME = <data_dir>/kabuqina-home/profiles/<platform>/`` for hard filesystem
 //! isolation of memories, sessions, and credentials.
 //!
 //! Migration: on first launch after upgrading to this model, ``ensure_migration()``
 //! creates ``profiles/<platform>/`` directories for every platform found in the
-//! host ``hermes-home/.env``, plus an empty ``shared/USER_PREFS.md``.
+//! host ``kabuqina-home/.env``, plus an empty ``shared/USER_PREFS.md``.
 //!
-//! Identity: host ``hermes-home/SOUL.md`` is mirrored into each platform profile
+//! Identity: host ``kabuqina-home/SOUL.md`` is mirrored into each platform profile
 //! at spawn time so bots share the same persona as the main desktop agent.
 //!
 //! Shared preferences: the host-only ``shared/USER_PREFS.md`` is copied into each
@@ -114,26 +114,63 @@ const MIGRATION_MARKER: &str = ".migrated";
 // Host-level helpers (unchanged from single-child model)
 // ---------------------------------------------------------------------------
 
-/// Host ``HERMES_HOME = <data_dir>/hermes-home``.
+/// Resolve the host ``KABUQINA_HOME = <data_dir>/kabuqina-home``.
+///
+/// A legacy-only home is renamed atomically.  On failure we keep using it so
+/// upgrades cannot silently start with an empty session or learning database.
+/// If both directories exist, the canonical directory always wins.
+pub fn kabuqina_home_path(data_dir: &Path) -> PathBuf {
+    let current = data_dir.join("kabuqina-home");
+    let legacy = data_dir.join("hermes-home");
+    if current.exists() || !legacy.exists() {
+        return current;
+    }
+    match std::fs::rename(&legacy, &current) {
+        Ok(()) => {
+            eprintln!(
+                "Kabuqina: migrated legacy home {} -> {}",
+                legacy.display(),
+                current.display()
+            );
+            current
+        }
+        Err(_err) if current.exists() => current,
+        Err(err) => {
+            eprintln!(
+                "Kabuqina: failed to migrate legacy home {}; continuing there: {err}",
+                legacy.display()
+            );
+            legacy
+        }
+    }
+}
+
+/// One-release source compatibility for integrations using the old helper.
+#[allow(dead_code)]
+#[deprecated(note = "use kabuqina_home_path")]
 pub fn hermes_home_path(data_dir: &Path) -> PathBuf {
-    data_dir.join("hermes-home")
+    kabuqina_home_path(data_dir)
 }
 
-/// Per-profile ``HERMES_HOME = <data_dir>/hermes-home/profiles/<platform>/``.
+/// Per-profile ``KABUQINA_HOME = <data_dir>/kabuqina-home/profiles/<platform>/``.
 pub fn profile_home_path(data_dir: &Path, platform: &str) -> PathBuf {
-    hermes_home_path(data_dir).join(PROFILES_DIR).join(platform)
+    kabuqina_home_path(data_dir)
+        .join(PROFILES_DIR)
+        .join(platform)
 }
 
-/// ``<data_dir>/hermes-home/shared/<filename>``.
+/// ``<data_dir>/kabuqina-home/shared/<filename>``.
 fn shared_path(data_dir: &Path, filename: &str) -> PathBuf {
-    hermes_home_path(data_dir).join("shared").join(filename)
+    kabuqina_home_path(data_dir).join("shared").join(filename)
 }
 
-/// True when the shipped ``hermes/gateway/run.py`` contains the first-connect
+/// True when the shipped core ``gateway/run.py`` contains the first-connect
 /// "stay alive for reconnect watcher" path.
 pub fn bundled_gateway_has_startup_survival(bundle_dir: &Path) -> bool {
-    let p = bundle_dir.join("hermes").join("gateway").join("run.py");
-    let Ok(s) = std::fs::read_to_string(&p) else {
+    let current = bundle_dir.join("kabuqina").join("gateway").join("run.py");
+    let legacy = bundle_dir.join("hermes").join("gateway").join("run.py");
+    let Ok(s) = std::fs::read_to_string(&current).or_else(|_| std::fs::read_to_string(&legacy))
+    else {
         return false;
     };
     s.contains("_platform_reconnect_watcher")
@@ -236,7 +273,7 @@ pub fn parse_dotenv_upper(home: &Path) -> HashMap<String, String> {
     keys
 }
 
-/// Heuristic: host ``hermes-home/.env`` has at least one messaging platform the gateway can connect.
+/// Heuristic: host ``kabuqina-home/.env`` has at least one messaging platform the gateway can connect.
 pub fn dotenv_suggests_messaging_gateway(home: &Path) -> bool {
     let keys = parse_dotenv_upper(home);
     email_configured_from_keys(&keys) || dotenv_suggests_non_email_messaging_gateway(&keys)
@@ -534,7 +571,7 @@ pub fn discover_configured_platforms(keys: &HashMap<String, String>) -> Vec<Stri
 
 // ---------------------------------------------------------------------------
 // Migration
-/// Read the host ``hermes-home/config.yaml`` and return the ``llm:`` section
+/// Read the host ``kabuqina-home/config.yaml`` and return the ``llm:`` section
 /// lines (everything from ``llm:`` to the next top-level key).  Returns
 /// ``None`` if the file is missing or has no ``llm:`` key.
 fn extract_llm_config_section(host_home: &Path) -> Option<String> {
@@ -570,7 +607,7 @@ fn extract_llm_config_section(host_home: &Path) -> Option<String> {
 ///
 /// Safe to call repeatedly — checks for the ``.migrated`` marker file.
 pub fn ensure_migration(data_dir: &Path) -> Result<()> {
-    let host_home = hermes_home_path(data_dir);
+    let host_home = kabuqina_home_path(data_dir);
     let profiles_dir = host_home.join(PROFILES_DIR);
     let marker = profiles_dir.join(MIGRATION_MARKER);
 
@@ -651,7 +688,7 @@ impl GatewaySupervisor {
     /// Spawn one gateway child per configured platform.
     ///
     /// Each child gets its own ``HERMES_HOME`` pointing to
-    /// ``<data_dir>/hermes-home/profiles/<platform>/``.
+    /// ``<data_dir>/kabuqina-home/profiles/<platform>/``.
     pub async fn spawn_all(cfg: &SpawnConfig) -> Result<Self> {
         // 0. On Windows, kill any orphan gateway Python processes that
         //    survived a crash of the Tauri process (Ctrl+C, dev restart).
@@ -662,7 +699,7 @@ impl GatewaySupervisor {
         // 1. Ensure migration has run.
         ensure_migration(&cfg.data_dir)?;
 
-        let host_home = hermes_home_path(&cfg.data_dir);
+        let host_home = kabuqina_home_path(&cfg.data_dir);
         let host_keys = parse_dotenv_upper(&host_home);
         let discovered = discover_configured_platforms(&host_keys);
         let platforms = filter_autostart_platforms(&cfg.product_profile, discovered.clone());
@@ -760,6 +797,7 @@ impl GatewaySupervisor {
         let mut cmd = Command::new(&py_exe);
         cmd.args(["-m", "gateway.run"])
             .current_dir(&cfg.bundle_dir)
+            .env("KABUQINA_HOME", &profile_dir)
             .env("HERMES_HOME", &profile_dir)
             .env("HERMESDESK_GATEWAY_PLATFORM", platform)
             .env("HERMESDESK_BUNDLE_DIR", &cfg.bundle_dir)
@@ -806,7 +844,7 @@ impl GatewaySupervisor {
                 "PYTHONPATH",
                 std::env::join_paths([
                     cfg.bundle_dir.join("site-packages"),
-                    cfg.bundle_dir.join("hermes"),
+                    cfg.bundle_dir.join("kabuqina"),
                 ])
                 .map_err(|e| anyhow::anyhow!("PYTHONPATH: {e}"))?,
             )
@@ -1118,12 +1156,12 @@ fn write_profile_dotenv(
     Ok(())
 }
 
-/// Copy the host ``hermes-home/config.yaml`` into the profile directory.
+/// Copy the host ``kabuqina-home/config.yaml`` into the profile directory.
 /// The profile needs the host's LLM config (provider, model, credential_pool)
 /// so the upstream gateway can authenticate.  If the host config is missing
 /// the copy is silently skipped (the gateway falls back to defaults).
 fn copy_host_config(data_dir: &Path, profile_dir: &Path) {
-    let src = hermes_home_path(data_dir).join("config.yaml");
+    let src = kabuqina_home_path(data_dir).join("config.yaml");
     let dst = profile_dir.join("config.yaml");
     if src.exists() {
         if let Err(e) = std::fs::copy(&src, &dst) {
@@ -1132,11 +1170,11 @@ fn copy_host_config(data_dir: &Path, profile_dir: &Path) {
     }
 }
 
-/// Mirror host ``hermes-home/SOUL.md`` into the profile directory.
+/// Mirror host ``kabuqina-home/SOUL.md`` into the profile directory.
 /// If the host identity file is missing or empty, remove any stale profile copy
 /// so the gateway does not keep an older persona after the main agent changes.
 fn copy_host_soul(data_dir: &Path, profile_dir: &Path) -> Result<()> {
-    let src = hermes_home_path(data_dir).join("SOUL.md");
+    let src = kabuqina_home_path(data_dir).join("SOUL.md");
     let dst = profile_dir.join("SOUL.md");
 
     match std::fs::read_to_string(&src) {
@@ -1188,8 +1226,7 @@ fn cleanup_stale_locks(profile_dir: &Path) {
 
     // Clean up system-level token-scoped locks from previous gateway instances.
     // The upstream platform adapters (Telegram, Weixin, etc.) call
-    // acquire_scoped_lock() which writes to ~/.local/state/hermes/gateway-locks/.
-    // These are NOT inside HERMES_HOME — they live in the XDG state path.
+    // acquire_scoped_lock() writes to the XDG state path, outside KABUQINA_HOME.
     let sys_lock_base = std::env::var("XDG_STATE_HOME")
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|_| {
@@ -1198,8 +1235,8 @@ fn cleanup_stale_locks(profile_dir: &Path) {
                 .unwrap_or_default();
             home.join(".local").join("state")
         });
-    let sys_lock_dir = sys_lock_base.join("hermes").join("gateway-locks");
-    if sys_lock_dir.exists() {
+    for product_dir in ["kabuqina", "hermes"] {
+        let sys_lock_dir = sys_lock_base.join(product_dir).join("gateway-locks");
         if let Ok(entries) = std::fs::read_dir(&sys_lock_dir) {
             for entry in entries.flatten() {
                 let p = entry.path();
@@ -1318,9 +1355,50 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .expect("system time")
             .as_nanos();
-        let dir = std::env::temp_dir().join(format!("hermesdesk-{name}-{nanos}"));
+        let dir = std::env::temp_dir().join(format!("kabuqina-{name}-{nanos}"));
         std::fs::create_dir_all(&dir).expect("create temp dir");
         dir
+    }
+
+    #[test]
+    fn host_home_migrates_legacy_databases_without_copying() {
+        let data_dir = temp_data_dir("home-migrate");
+        let legacy = data_dir.join("hermes-home");
+        std::fs::create_dir_all(&legacy).expect("create legacy home");
+        std::fs::write(legacy.join("state.db"), b"state").expect("write state");
+        std::fs::write(legacy.join("learning.db"), b"learning").expect("write learning");
+
+        let resolved = kabuqina_home_path(&data_dir);
+
+        assert_eq!(resolved, data_dir.join("kabuqina-home"));
+        assert_eq!(std::fs::read(resolved.join("state.db")).unwrap(), b"state");
+        assert_eq!(
+            std::fs::read(resolved.join("learning.db")).unwrap(),
+            b"learning"
+        );
+        assert!(!legacy.exists());
+        let _ = std::fs::remove_dir_all(data_dir);
+    }
+
+    #[test]
+    fn canonical_host_home_wins_when_both_directories_exist() {
+        let data_dir = temp_data_dir("home-both");
+        let current = data_dir.join("kabuqina-home");
+        let legacy = data_dir.join("hermes-home");
+        std::fs::create_dir_all(&current).expect("create current home");
+        std::fs::create_dir_all(&legacy).expect("create legacy home");
+        std::fs::write(current.join("state.db"), b"current").expect("write current");
+        std::fs::write(legacy.join("state.db"), b"legacy").expect("write legacy");
+
+        let resolved = kabuqina_home_path(&data_dir);
+
+        assert_eq!(resolved, current);
+        assert_eq!(
+            std::fs::read(resolved.join("state.db")).unwrap(),
+            b"current"
+        );
+        assert!(legacy.exists());
+        let _ = std::fs::remove_dir_all(data_dir);
     }
 
     #[test]
@@ -1360,7 +1438,7 @@ mod tests {
     #[test]
     fn copy_host_soul_overwrites_profile_soul() {
         let data_dir = temp_data_dir("soul-copy");
-        let host_home = hermes_home_path(&data_dir);
+        let host_home = kabuqina_home_path(&data_dir);
         let profile_dir = profile_home_path(&data_dir, "telegram");
         std::fs::create_dir_all(&host_home).expect("create host home");
         std::fs::create_dir_all(&profile_dir).expect("create profile dir");
@@ -1396,7 +1474,7 @@ mod tests {
     #[test]
     fn email_credentials_make_gateway_eligible() {
         let data_dir = temp_data_dir("email-eligible");
-        let host_home = hermes_home_path(&data_dir);
+        let host_home = kabuqina_home_path(&data_dir);
         std::fs::create_dir_all(&host_home).expect("create host home");
         std::fs::write(
             host_home.join(".env"),
@@ -1419,7 +1497,7 @@ mod tests {
     #[test]
     fn email_oauth2_credentials_make_gateway_eligible() {
         let data_dir = temp_data_dir("email-oauth2-eligible");
-        let host_home = hermes_home_path(&data_dir);
+        let host_home = kabuqina_home_path(&data_dir);
         std::fs::create_dir_all(&host_home).expect("create host home");
         std::fs::write(
             host_home.join(".env"),

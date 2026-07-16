@@ -1,7 +1,7 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-//! Read / write Telegram bot env in ``hermes-home/.env`` (bot token never returned in full).
+//! Read / write Telegram bot env in ``kabuqina-home/.env`` (bot token never returned in full).
 
 use std::path::PathBuf;
 use tauri::AppHandle;
@@ -11,7 +11,7 @@ pub fn cmd_telegram_env_status(
     app: AppHandle,
 ) -> Result<crate::gateway_supervisor::TelegramEnvSnapshot, String> {
     let data_dir = crate::paths::ensure_data_dir(&app).map_err(|e| e.to_string())?;
-    let hh = crate::gateway_supervisor::hermes_home_path(&data_dir);
+    let hh = crate::gateway_supervisor::kabuqina_home_path(&data_dir);
     Ok(crate::gateway_supervisor::read_telegram_env_snapshot(&hh))
 }
 
@@ -24,7 +24,7 @@ pub fn cmd_telegram_save_token(app: AppHandle, token: String) -> Result<(), Stri
     crate::validation::validate_env_value(&token)?;
 
     let data_dir = crate::paths::ensure_data_dir(&app).map_err(|e| e.to_string())?;
-    let hh = crate::gateway_supervisor::hermes_home_path(&data_dir);
+    let hh = crate::gateway_supervisor::kabuqina_home_path(&data_dir);
     std::fs::create_dir_all(&hh).map_err(|e| e.to_string())?;
 
     let env_path: PathBuf = hh.join(".env");
@@ -65,7 +65,7 @@ const TELEGRAM_ENV_PREFIXES: &[&str] = &[
 #[tauri::command]
 pub fn cmd_telegram_remove_config(app: AppHandle) -> Result<(), String> {
     let data_dir = crate::paths::ensure_data_dir(&app).map_err(|e| e.to_string())?;
-    let hh = crate::gateway_supervisor::hermes_home_path(&data_dir);
+    let hh = crate::gateway_supervisor::kabuqina_home_path(&data_dir);
     let env_path: PathBuf = hh.join(".env");
 
     let content = std::fs::read_to_string(&env_path).unwrap_or_default();

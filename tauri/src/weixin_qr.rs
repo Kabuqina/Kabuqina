@@ -23,21 +23,21 @@ fn result_path(app: &AppHandle) -> Result<PathBuf, String> {
         .join(RESULT_FILE))
 }
 
-/// Whether ``hermes-home/.env`` already has ``WEIXIN_ACCOUNT_ID`` + ``WEIXIN_TOKEN`` (no secrets returned).
+/// Whether ``kabuqina-home/.env`` already has ``WEIXIN_ACCOUNT_ID`` + ``WEIXIN_TOKEN`` (no secrets returned).
 #[tauri::command]
 pub fn cmd_weixin_env_status(
     app: AppHandle,
 ) -> Result<crate::gateway_supervisor::WeixinEnvSnapshot, String> {
     let data_dir = crate::paths::ensure_data_dir(&app).map_err(|e| e.to_string())?;
-    let hh = crate::gateway_supervisor::hermes_home_path(&data_dir);
+    let hh = crate::gateway_supervisor::kabuqina_home_path(&data_dir);
     Ok(crate::gateway_supervisor::read_weixin_env_snapshot(&hh))
 }
 
-/// Remove Weixin env vars from ``hermes-home/.env``.
+/// Remove Weixin env vars from ``kabuqina-home/.env``.
 #[tauri::command]
 pub fn cmd_weixin_env_remove(app: AppHandle) -> Result<(), String> {
     let data_dir = crate::paths::ensure_data_dir(&app).map_err(|e| e.to_string())?;
-    let hh = crate::gateway_supervisor::hermes_home_path(&data_dir);
+    let hh = crate::gateway_supervisor::kabuqina_home_path(&data_dir);
     let env_path = hh.join(".env");
     let content = std::fs::read_to_string(&env_path).unwrap_or_default();
     let lines: Vec<String> = content

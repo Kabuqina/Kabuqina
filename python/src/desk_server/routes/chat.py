@@ -160,7 +160,7 @@ async def desk_chat_stream(request: Request):
         if slash_payload is not None:
             return _desk_slash_streaming_response(slash_payload)
 
-    from hermes_state import SessionDB
+    from kabuqina_state import SessionDB
 
     db = SessionDB()
     try:
@@ -366,7 +366,7 @@ async def desk_chat_proto(request: Request):
         if slash_payload is not None:
             return JSONResponse(slash_payload)
 
-    from hermes_state import SessionDB
+    from kabuqina_state import SessionDB
 
     db = SessionDB()
     try:

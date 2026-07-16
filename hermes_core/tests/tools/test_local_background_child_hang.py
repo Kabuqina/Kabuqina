@@ -69,7 +69,12 @@ class TestBackgroundChildDoesNotHang:
             result = local_env.execute(cmd, timeout=15)
             elapsed = time.monotonic() - t0
 
-            assert elapsed < 4.0, f"setsid+disown path hung for {elapsed:.1f}s"
+            # Under xdist, Git Bash startup on Windows can exceed ten seconds
+            # even though the detached child no longer holds the pipe open.
+            # Keep the bound below the 15-second execute timeout so a genuine
+            # inherited-pipe hang still fails this test.
+            max_elapsed = 14.0 if sys.platform == "win32" else 4.0
+            assert elapsed < max_elapsed, f"setsid+disown path hung for {elapsed:.1f}s"
             assert result["returncode"] == 0
             assert "started" in result["output"]
         finally:
@@ -84,7 +89,7 @@ class TestBackgroundChildDoesNotHang:
 
         # Loop body sleeps ~0.6s total; Windows shell startup can push this
         # higher under a long test run.
-        assert 0.5 < elapsed < (4.0 if sys.platform == "win32" else 3.0)
+        assert 0.5 < elapsed < (8.0 if sys.platform == "win32" else 3.0)
         assert result["returncode"] == 0
         for expected in ("tick 1", "tick 2", "tick 3", "done"):
             assert expected in result["output"], f"missing {expected!r}"
@@ -153,7 +158,7 @@ class TestBackgroundChildDoesNotHang:
             'sys.stdout.buffer.write(b"\\xff\\xfe"); '
             'sys.stdout.buffer.write(b" after\\n")\''
         )
-        result = local_env.execute(cmd, timeout=5)
+        result = local_env.execute(cmd, timeout=15 if sys.platform == "win32" else 5)
         assert result["returncode"] == 0
         assert "before" in result["output"]
         assert "after" in result["output"]

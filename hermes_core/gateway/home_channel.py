@@ -72,7 +72,7 @@ def maybe_auto_set_home_channel(
 
     chat_id = str(source.chat_id)
     if save_env_value is None:
-        from hermes_cli.config import save_env_value as _save_env_value
+        from kabuqina_cli.config import save_env_value as _save_env_value
 
         save_env_value = _save_env_value
 

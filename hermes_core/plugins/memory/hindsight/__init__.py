@@ -41,9 +41,9 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 from agent.memory_provider import MemoryProvider
-from hermes_constants import get_hermes_home
+from kabuqina_constants import get_kabuqina_home
 from tools.registry import tool_error
-from hermes_cli.config import cfg_get
+from kabuqina_cli.config import cfg_get
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +68,7 @@ _PROVIDER_DEFAULT_MODELS = {
 
 def _select_choice(question: str, items: list, default: int = 0) -> int:
     """Prompt for a setup choice without depending on the deleted CLI wizard."""
-    from hermes_cli.cli_output import prompt_choice
+    from kabuqina_cli.cli_output import prompt_choice
 
     choices = []
     for item in items:
@@ -220,7 +220,7 @@ def _load_config() -> dict:
     from pathlib import Path
 
     # Profile-scoped path (preferred)
-    profile_path = get_hermes_home() / "hindsight" / "config.json"
+    profile_path = get_kabuqina_home() / "hindsight" / "config.json"
     if profile_path.exists():
         try:
             return json.loads(profile_path.read_text(encoding="utf-8"))
@@ -550,7 +550,7 @@ class HindsightMemoryProvider(MemoryProvider):
         import sys
         from pathlib import Path
 
-        from hermes_cli.config import save_config
+        from kabuqina_cli.config import save_config
 
         print("\n  Configuring Hindsight memory:\n")
 
@@ -1088,7 +1088,7 @@ class HindsightMemoryProvider(MemoryProvider):
         if self._mode == "local_embedded":
             def _start_daemon():
                 import traceback
-                log_dir = get_hermes_home() / "logs"
+                log_dir = get_kabuqina_home() / "logs"
                 log_dir.mkdir(parents=True, exist_ok=True)
                 log_path = log_dir / "hindsight-embed.log"
                 try:

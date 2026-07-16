@@ -91,7 +91,7 @@ class TestRunJobNotifySkipsAgent:
 
 class TestCreateJobNotify:
     def test_stores_mode_and_message(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("KABUQINA_HOME", str(tmp_path))
         job = create_job(
             prompt="",
             schedule="every 1h",
@@ -105,6 +105,6 @@ class TestCreateJobNotify:
         assert job["prompt"] == "喝水"
 
     def test_notify_requires_body(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        monkeypatch.setenv("KABUQINA_HOME", str(tmp_path))
         with pytest.raises(ValueError, match="non-empty"):
             create_job(prompt="", schedule="every 1h", mode="notify")

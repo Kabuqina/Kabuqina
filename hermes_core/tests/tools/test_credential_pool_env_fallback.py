@@ -20,7 +20,7 @@ def _make_pconfig(provider_id="deepseek", env_vars=None):
     Default provider_id is 'deepseek' because it's a real api_key provider
     in PROVIDER_REGISTRY (needed for _seed_from_env's generic path).
     """
-    from hermes_cli.auth import ProviderConfig
+    from kabuqina_cli.auth import ProviderConfig
     return ProviderConfig(
         id=provider_id,
         name=provider_id.title(),
@@ -30,15 +30,15 @@ def _make_pconfig(provider_id="deepseek", env_vars=None):
 
 
 @pytest.fixture
-def isolated_hermes_home(tmp_path, monkeypatch):
-    """Point HERMES_HOME at a temp dir and clear known API key env vars.
+def isolated_kabuqina_home(tmp_path, monkeypatch):
+    """Point KABUQINA_HOME at a temp dir and clear known API key env vars.
 
     Also invalidates any cached get_env_value state by patching Path.home().
     """
     home = tmp_path / ".hermes"
     home.mkdir()
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    monkeypatch.setenv("HERMES_HOME", str(home))
+    monkeypatch.setenv("KABUQINA_HOME", str(home))
 
     # Clear all known API key env vars so get_env_value falls through to .env
     for key in [
@@ -62,12 +62,12 @@ class TestCredentialPoolSeedsFromDotEnv:
 
     This is the load-bearing behaviour for the fix: when a user adds a key to
     .env mid-session or via a non-CLI entry point that doesn't run
-    load_hermes_dotenv, the credential pool must still discover it.
+    load_kabuqina_dotenv, the credential pool must still discover it.
     """
 
-    def test_deepseek_key_from_dotenv_only(self, isolated_hermes_home):
+    def test_deepseek_key_from_dotenv_only(self, isolated_kabuqina_home):
         """Key in .env but not os.environ → _seed_from_env adds a pool entry."""
-        _write_env_file(isolated_hermes_home, DEEPSEEK_API_KEY="sk-dotenv-only-12345")
+        _write_env_file(isolated_kabuqina_home, DEEPSEEK_API_KEY="sk-dotenv-only-12345")
         assert "DEEPSEEK_API_KEY" not in os.environ
 
         from providers.credential_pool import _seed_from_env
@@ -82,9 +82,9 @@ class TestCredentialPoolSeedsFromDotEnv:
             for e in entries
         ), f"Expected seeded entry with dotenv key, got: {[(e.source, e.access_token) for e in entries]}"
 
-    def test_openrouter_key_from_dotenv_only(self, isolated_hermes_home):
+    def test_openrouter_key_from_dotenv_only(self, isolated_kabuqina_home):
         """OpenRouter path has its own branch — verify it also reads .env."""
-        _write_env_file(isolated_hermes_home, OPENROUTER_API_KEY="sk-or-dotenv-abc")
+        _write_env_file(isolated_kabuqina_home, OPENROUTER_API_KEY="sk-or-dotenv-abc")
         assert "OPENROUTER_API_KEY" not in os.environ
 
         from providers.credential_pool import _seed_from_env
@@ -97,7 +97,7 @@ class TestCredentialPoolSeedsFromDotEnv:
             e.access_token == "sk-or-dotenv-abc" for e in entries
         )
 
-    def test_empty_dotenv_no_entries(self, isolated_hermes_home):
+    def test_empty_dotenv_no_entries(self, isolated_kabuqina_home):
         """No .env file, no env vars → no entries seeded (and no crash)."""
         from providers.credential_pool import _seed_from_env
         entries = []
@@ -106,9 +106,9 @@ class TestCredentialPoolSeedsFromDotEnv:
         assert active_sources == set()
         assert entries == []
 
-    def test_os_environ_still_wins_over_dotenv(self, isolated_hermes_home, monkeypatch):
+    def test_os_environ_still_wins_over_dotenv(self, isolated_kabuqina_home, monkeypatch):
         """get_env_value checks os.environ first — verify seeding picks that up."""
-        _write_env_file(isolated_hermes_home, DEEPSEEK_API_KEY="sk-dotenv-stale")
+        _write_env_file(isolated_kabuqina_home, DEEPSEEK_API_KEY="sk-dotenv-stale")
         monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-env-fresh-xyz")
 
         from providers.credential_pool import _seed_from_env
@@ -124,12 +124,12 @@ class TestCredentialPoolSeedsFromDotEnv:
 class TestAuthResolvesFromDotEnv:
     """_resolve_api_key_provider_secret must also read from ~/.hermes/.env."""
 
-    def test_key_from_dotenv_only(self, isolated_hermes_home):
+    def test_key_from_dotenv_only(self, isolated_kabuqina_home):
         """Key in .env but not os.environ → _resolve returns it with the env var source."""
-        _write_env_file(isolated_hermes_home, DEEPSEEK_API_KEY="sk-dotenv-resolve-789")
+        _write_env_file(isolated_kabuqina_home, DEEPSEEK_API_KEY="sk-dotenv-resolve-789")
         assert "DEEPSEEK_API_KEY" not in os.environ
 
-        from hermes_cli.auth import _resolve_api_key_provider_secret
+        from kabuqina_cli.auth import _resolve_api_key_provider_secret
         key, source = _resolve_api_key_provider_secret(
             provider_id="deepseek",
             pconfig=_make_pconfig(),
@@ -141,7 +141,7 @@ class TestAuthResolvesFromDotEnv:
 class TestAuthCredentialPoolFallback:
     """_resolve_api_key_provider_secret falls back to credential pool when env + dotenv are empty."""
 
-    def test_credential_pool_fallback_structure(self, isolated_hermes_home):
+    def test_credential_pool_fallback_structure(self, isolated_kabuqina_home):
         """Empty env + empty .env → auth falls back to credential pool."""
         mock_entry = MagicMock()
         mock_entry.access_token = "test-pool-key-12345"
@@ -151,7 +151,7 @@ class TestAuthCredentialPoolFallback:
         mock_pool.has_credentials.return_value = True
         mock_pool.peek.return_value = mock_entry
 
-        from hermes_cli.auth import _resolve_api_key_provider_secret
+        from kabuqina_cli.auth import _resolve_api_key_provider_secret
         with patch("providers.credential_pool.load_pool", return_value=mock_pool):
             key, source = _resolve_api_key_provider_secret(
                 provider_id="deepseek",
@@ -160,12 +160,12 @@ class TestAuthCredentialPoolFallback:
         assert "test-pool-key-12345" in key
         assert "credential_pool" in source
 
-    def test_credential_pool_empty_returns_empty(self, isolated_hermes_home):
+    def test_credential_pool_empty_returns_empty(self, isolated_kabuqina_home):
         """Empty env + empty .env + empty pool → empty string."""
         mock_pool = MagicMock()
         mock_pool.has_credentials.return_value = False
 
-        from hermes_cli.auth import _resolve_api_key_provider_secret
+        from kabuqina_cli.auth import _resolve_api_key_provider_secret
         with patch("providers.credential_pool.load_pool", return_value=mock_pool):
             key, source = _resolve_api_key_provider_secret(
                 provider_id="deepseek",
@@ -173,14 +173,14 @@ class TestAuthCredentialPoolFallback:
             )
         assert key == ""
 
-    def test_env_var_takes_priority_over_pool(self, isolated_hermes_home, monkeypatch):
+    def test_env_var_takes_priority_over_pool(self, isolated_kabuqina_home, monkeypatch):
         """os.environ key wins — credential pool is NEVER consulted."""
         monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-env-key-first-abc123")
 
         mock_pool = MagicMock()
         mock_pool.has_credentials.return_value = True
 
-        from hermes_cli.auth import _resolve_api_key_provider_secret
+        from kabuqina_cli.auth import _resolve_api_key_provider_secret
         with patch("providers.credential_pool.load_pool", return_value=mock_pool) as mp:
             key, source = _resolve_api_key_provider_secret(
                 provider_id="deepseek",
@@ -191,15 +191,15 @@ class TestAuthCredentialPoolFallback:
         # Pool should not even have been loaded — env var satisfied the request first
         mp.assert_not_called()
 
-    def test_dotenv_takes_priority_over_pool(self, isolated_hermes_home):
+    def test_dotenv_takes_priority_over_pool(self, isolated_kabuqina_home):
         """Key in .env beats credential pool — pool only fires when both env sources are empty."""
-        _write_env_file(isolated_hermes_home, DEEPSEEK_API_KEY="sk-dotenv-priority-xyz")
+        _write_env_file(isolated_kabuqina_home, DEEPSEEK_API_KEY="sk-dotenv-priority-xyz")
         assert "DEEPSEEK_API_KEY" not in os.environ
 
         mock_pool = MagicMock()
         mock_pool.has_credentials.return_value = True
 
-        from hermes_cli.auth import _resolve_api_key_provider_secret
+        from kabuqina_cli.auth import _resolve_api_key_provider_secret
         with patch("providers.credential_pool.load_pool", return_value=mock_pool) as mp:
             key, source = _resolve_api_key_provider_secret(
                 provider_id="deepseek",

@@ -22,7 +22,7 @@ export type { PostPassSectionId };
 
 /**
  * Map a UI catalog row id to the canonical ``tts.provider`` string Hermes
- * expects in ``config.yaml`` (see ``hermes_cli/config.py`` DEFAULT_CONFIG.tts).
+ * expects in ``config.yaml`` (see ``kabuqina_cli/config.py`` DEFAULT_CONFIG.tts).
  * Rows that don't correspond to a writable ``tts.provider`` value (e.g. the
  * Nous-subscription routing row, which is handled via subscription state, not
  * by writing a provider string) map to ``null`` so we only persist env vars

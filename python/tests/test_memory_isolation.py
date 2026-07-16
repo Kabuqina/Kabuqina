@@ -122,7 +122,7 @@ class TestMemoryHostPrefs(unittest.TestCase):
 
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
-        # Set HERMES_HOME to tmp so get_hermes_home() returns it
+        # Set HERMES_HOME to tmp so get_kabuqina_home() returns it
         self.env_patcher = patch.dict(os.environ, {"HERMES_HOME": str(self.tmp)})
         self.env_patcher.start()
         self.addCleanup(self.env_patcher.stop)

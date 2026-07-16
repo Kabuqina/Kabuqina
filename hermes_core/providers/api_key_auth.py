@@ -6,8 +6,8 @@ Registry-independent pieces of the API-key auth path: usable-secret detection,
 the per-key Kimi/Z.AI base-URL resolution (including the Z.AI endpoint probe and
 its auth.json cache), and the shared secret resolver. The registry-coupled
 callers (get_anthropic_key, resolve_api_key_provider_credentials,
-resolve_external_process_provider_credentials) stay in hermes_cli.auth and reach
-these via re-export, so existing hermes_cli.auth.* imports keep working.
+resolve_external_process_provider_credentials) stay in kabuqina_cli.auth and reach
+these via re-export, so existing kabuqina_cli.auth.* imports keep working.
 """
 
 from __future__ import annotations
@@ -24,8 +24,8 @@ from providers.auth_store import (
     _save_provider_state,
 )
 
-if TYPE_CHECKING:  # avoid a runtime import cycle with hermes_cli.auth
-    from hermes_cli.auth import ProviderConfig
+if TYPE_CHECKING:  # avoid a runtime import cycle with kabuqina_cli.auth
+    from kabuqina_cli.auth import ProviderConfig
 
 logger = logging.getLogger(__name__)
 
@@ -94,9 +94,9 @@ def _resolve_api_key_provider_secret(
     provider_id: str, pconfig: ProviderConfig
 ) -> tuple[str, str]:
     """Resolve an API-key provider's token and indicate where it came from."""
-    from hermes_cli.config import get_env_value
+    from kabuqina_cli.config import get_env_value
     for env_var in pconfig.api_key_env_vars:
-        # Check both os.environ and ~/.hermes/.env file
+        # Check both os.environ and ~/.kabuqina/.env file
         val = (get_env_value(env_var) or "").strip()
         if has_usable_secret(val):
             return val, env_var

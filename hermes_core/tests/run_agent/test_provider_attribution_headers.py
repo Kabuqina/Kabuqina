@@ -20,7 +20,7 @@ def test_openrouter_base_url_applies_or_headers(mock_openai):
 
     headers = agent._client_kwargs["default_headers"]
     assert headers["HTTP-Referer"] == "https://hermes-agent.nousresearch.com"
-    assert headers["X-OpenRouter-Title"] == "Hermes Agent"
+    assert headers["X-OpenRouter-Title"] == "Kabuqina"
 
 
 @patch("run_agent.OpenAI")
@@ -38,7 +38,7 @@ def test_routermint_base_url_applies_user_agent_header(mock_openai):
     agent._apply_client_headers_for_base_url("https://api.routermint.com/v1")
 
     headers = agent._client_kwargs["default_headers"]
-    assert headers["User-Agent"].startswith("HermesAgent/")
+    assert headers["User-Agent"].startswith("KabuqinaAgent/")
 
 
 @patch("run_agent.OpenAI")

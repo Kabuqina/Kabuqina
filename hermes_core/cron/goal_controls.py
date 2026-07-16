@@ -30,7 +30,7 @@ from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 
-from hermes_constants import get_hermes_home
+from kabuqina_constants import get_kabuqina_home
 from cron.goal_state import GoalRunState, load_goal_state, save_goal_state
 from cron.jobs import compute_next_run, get_job, remove_job, update_job
 from cron.scheduler_lock import tick_lock
@@ -69,7 +69,7 @@ class InvalidGoalControl(GoalControlError):
 
 def _lock_file() -> Path:
     """The active profile's scheduler lock — the same file ``tick`` uses."""
-    return get_hermes_home() / "cron" / ".tick.lock"
+    return get_kabuqina_home() / "cron" / ".tick.lock"
 
 
 def _require_state(job_id: str) -> GoalRunState:

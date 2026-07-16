@@ -59,8 +59,8 @@ _SENSITIVE_BODY_KEYS = frozenset({
 # `export HERMES_REDACT_SECRETS=true`) cannot enable/disable redaction
 # mid-session.  OFF by default — user must opt in via
 # `security.redact_secrets: true` in config.yaml (bridged to this env var
-# in hermes_cli/main.py and gateway/run.py) or `HERMES_REDACT_SECRETS=true`
-# in ~/.hermes/.env.
+# in kabuqina_cli/main.py and gateway/run.py) or `HERMES_REDACT_SECRETS=true`
+# in ~/.kabuqina/.env.
 _REDACT_ENABLED = os.getenv("HERMES_REDACT_SECRETS", "").lower() in ("1", "true", "yes", "on")
 
 # Known API key prefixes -- match the prefix + contiguous token chars
@@ -195,8 +195,8 @@ def mask_secret(
 ) -> str:
     """Mask a secret for display, preserving ``head`` and ``tail`` characters.
 
-    Canonical helper for display-time redaction across Hermes — used by
-    ``hermes config``, ``hermes status``, ``hermes dump``, and anywhere
+    Canonical helper for display-time redaction across Kabuqina — used by
+    ``kabuqina config``, ``kabuqina status``, ``kabuqina dump``, and anywhere
     a secret needs to be shown truncated for debuggability while still
     keeping the bulk hidden.
 

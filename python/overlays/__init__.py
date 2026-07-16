@@ -17,7 +17,7 @@ gets:
     - Tauri-routed shell approval      (approval_bridge.py)
 
 Order matters: `apply_all()` enforces it. Call exactly once, before
-importing anything from `hermes_cli`, `agent`, `tools`, or `gateway`.
+importing anything from `kabuqina_cli`, `agent`, `tools`, or `gateway`.
 
 Phase 3 extracted the core logic into ``python/src/*_policy.py`` files.
 The overlays that remain do essential monkey-patch wiring that Phase 4 has

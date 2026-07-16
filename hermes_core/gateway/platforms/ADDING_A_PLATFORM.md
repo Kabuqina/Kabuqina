@@ -1,13 +1,13 @@
 # Adding a New Messaging Platform
 
-There are two ways to add a platform to the Hermes gateway:
+There are two ways to add a platform to the Kabuqina gateway:
 
 ## Plugin Path (Recommended for Community/Third-Party)
 
-Create a plugin directory in `~/.hermes/plugins/` with a `PLUGIN.yaml` and
+Create a plugin directory in `~/.kabuqina/plugins/` with a `PLUGIN.yaml` and
 `adapter.py`.  The adapter inherits from `BasePlatformAdapter` and registers
 via `ctx.register_platform()` in the `register(ctx)` entry point.  This
-requires **zero changes to core Hermes code**.
+requires **zero changes to core Kabuqina code**.
 
 The plugin system automatically handles: adapter creation, config parsing,
 user authorization, cron delivery, send_message routing, system prompt hints,
@@ -21,7 +21,7 @@ plugin guide with code examples.
 
 ## Built-in Path (Core Contributors Only)
 
-Checklist for integrating a platform directly into the Hermes core.
+Checklist for integrating a platform directly into the Kabuqina core.
 Use this as a reference when building a built-in adapter — every item here
 is a real integration point. Missing any of them will cause broken
 functionality, missing features, or inconsistent behavior.
@@ -166,18 +166,18 @@ inappropriate formatting (e.g., markdown on platforms that don't render it).
 Add a named toolset for your platform:
 
 ```python
-"hermes-your-platform": {
+"kabuqina-your-platform": {
     "description": "Your Platform bot toolset",
-    "tools": _HERMES_CORE_TOOLS,
+    "tools": _KABUQINA_CORE_TOOLS,
     "includes": []
 },
 ```
 
-And add it to the `hermes-gateway` composite:
+And add it to the `kabuqina-gateway` composite:
 
 ```python
-"hermes-gateway": {
-    "includes": [..., "hermes-your-platform"]
+"kabuqina-gateway": {
+    "includes": [..., "kabuqina-your-platform"]
 }
 ```
 
@@ -242,7 +242,7 @@ for plat_name in ("telegram", "whatsapp", "signal", "your_platform"):
 
 ---
 
-## 12. Status Display (`hermes_cli/status.py`)
+## 12. Status Display (`kabuqina_cli/status.py`)
 
 Add to the `platforms` dict in the Messaging Platforms section:
 
@@ -255,7 +255,7 @@ platforms = {
 
 ---
 
-## 13. Gateway Setup Wizard (`hermes_cli/gateway.py`)
+## 13. Gateway Setup Wizard (`kabuqina_cli/gateway.py`)
 
 Add to the `_PLATFORMS` list:
 

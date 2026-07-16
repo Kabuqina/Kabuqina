@@ -7,7 +7,7 @@ from typing import Any, Optional
 import httpx
 
 from providers.anthropic import _is_oauth_token, resolve_anthropic_token
-from hermes_cli.runtime_provider import resolve_runtime_provider
+from kabuqina_cli.runtime_provider import resolve_runtime_provider
 
 
 def _utc_now() -> datetime:

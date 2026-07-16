@@ -1,14 +1,14 @@
 # Copyright 2026 Kabuqina Contributors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Desktop timezone bootstrap for HermesDesk web + gateway children.
+"""Desktop timezone bootstrap for Kabuqina web + gateway children.
 
-Hermes resolves wall clock via ``HERMES_TIMEZONE`` env, then ``config.yaml``
+Kabuqina resolves wall clock via ``KABUQINA_TIMEZONE`` env, then ``config.yaml``
 ``timezone``, then server-local. Kabuqina users often have a stale
 ``config.yaml`` or English placeholder ``timezone: America/New_York`` in
 ``shared/USER_PREFS.md`` while the PC is set to China Standard Time.
 
-Resolution order when seeding ``HERMES_TIMEZONE`` (only if not already set
+Resolution order when seeding ``KABUQINA_TIMEZONE`` (only if not already set
 in the process environment, e.g. from ``.env``):
 
   1. ``shared/USER_PREFS.md`` ``timezone:`` line (Settings → Shared prefs)
@@ -16,7 +16,7 @@ in the process environment, e.g. from ``.env``):
   3. ``config.yaml`` ``timezone`` key
 
 Also copies non-empty ``USER_PREFS.md`` → ``_host_prefs.md`` under host
-``HERMES_HOME`` so the web child agent sees the same prefs as gateway bots.
+``KABUQINA_HOME`` so the web child agent sees the same prefs as gateway bots.
 """
 
 from __future__ import annotations
@@ -26,6 +26,8 @@ import os
 import re
 import sys
 from pathlib import Path
+
+from kabuqina_env import home as kabuqina_home_env
 
 log = logging.getLogger("kabuqina.timezone")
 
@@ -125,7 +127,7 @@ def _write_config_timezone(hermes_home: Path, iana: str) -> None:
     if not iana:
         return
     try:
-        from hermes_cli.config import load_config, save_config
+        from kabuqina_cli.config import load_config, save_config
 
         cfg = load_config() or {}
         if (cfg.get("timezone") or "").strip() == iana:
@@ -166,27 +168,31 @@ def sync_host_prefs_from_shared(hermes_home: Path) -> None:
         log.warning("failed to write _host_prefs.md", exc_info=True)
 
 
-def _reset_hermes_time_cache() -> None:
+def _reset_kabuqina_time_cache() -> None:
     try:
-        import hermes_time
+        import kabuqina_time
 
-        if hasattr(hermes_time, "reset_cache"):
-            hermes_time.reset_cache()
+        if hasattr(kabuqina_time, "reset_cache"):
+            kabuqina_time.reset_cache()
             return
-        hermes_time._cached_tz = None
-        hermes_time._cached_tz_name = None
-        hermes_time._cache_resolved = False
+        kabuqina_time._cached_tz = None
+        kabuqina_time._cached_tz_name = None
+        kabuqina_time._cache_resolved = False
     except Exception:
         pass
 
 
-def resolve_desktop_timezone(hermes_home: Path) -> str:
+def resolve_desktop_timezone(kabuqina_home: Path) -> str:
     """Pick IANA timezone without mutating the environment."""
-    if os.environ.get("HERMES_TIMEZONE", "").strip():
-        return _validate_iana(os.environ["HERMES_TIMEZONE"].strip())
+    if "KABUQINA_TIMEZONE" in os.environ:
+        configured = os.environ["KABUQINA_TIMEZONE"].strip()
+    else:
+        configured = os.environ.get("HERMES_TIMEZONE", "").strip()
+    if configured:
+        return _validate_iana(configured)
 
     prefs_tz = ""
-    prefs_path = hermes_home / "shared" / "USER_PREFS.md"
+    prefs_path = kabuqina_home / "shared" / "USER_PREFS.md"
     if prefs_path.is_file():
         try:
             prefs_tz = parse_timezone_from_prefs(prefs_path.read_text(encoding="utf-8"))
@@ -195,7 +201,7 @@ def resolve_desktop_timezone(hermes_home: Path) -> str:
             prefs_tz = ""
 
     win_tz = windows_iana_timezone()
-    cfg_tz = _read_config_timezone(hermes_home)
+    cfg_tz = _read_config_timezone(kabuqina_home)
 
     if prefs_tz and prefs_tz not in _PLACEHOLDER_TZ:
         return prefs_tz
@@ -213,34 +219,42 @@ def resolve_desktop_timezone(hermes_home: Path) -> str:
     return cfg_tz
 
 
-def apply_desktop_timezone(hermes_home: Path | None = None) -> str:
-    """Seed ``HERMES_TIMEZONE``, sync prefs, align ``config.yaml``. Returns chosen IANA."""
-    home_s = (os.environ.get("HERMES_HOME") or "").strip()
-    home = hermes_home or (Path(home_s) if home_s else None)
+def apply_desktop_timezone(kabuqina_home: Path | None = None) -> str:
+    """Seed Kabuqina timezone env, sync prefs, and align ``config.yaml``."""
+    home_s = kabuqina_home_env().strip()
+    home = kabuqina_home or (Path(home_s) if home_s else None)
     if home is None:
-        log.debug("apply_desktop_timezone: HERMES_HOME unset")
+        log.debug("apply_desktop_timezone: KABUQINA_HOME unset")
         return ""
 
     sync_host_prefs_from_shared(home)
 
-    existing = os.environ.get("HERMES_TIMEZONE", "").strip()
+    existing = (
+        os.environ["KABUQINA_TIMEZONE"].strip()
+        if "KABUQINA_TIMEZONE" in os.environ
+        else os.environ.get("HERMES_TIMEZONE", "").strip()
+    )
     if existing:
         iana = _validate_iana(existing)
         if iana:
-            _reset_hermes_time_cache()
-            log.info("HERMES_TIMEZONE already set: %s", iana)
+            _reset_kabuqina_time_cache()
+            os.environ["KABUQINA_TIMEZONE"] = iana
+            os.environ["HERMES_TIMEZONE"] = iana
+            log.info("KABUQINA_TIMEZONE already set: %s", iana)
             return iana
-        log.warning("HERMES_TIMEZONE invalid (%r); re-resolving", existing)
+        log.warning("KABUQINA_TIMEZONE invalid (%r); re-resolving", existing)
+        os.environ.pop("KABUQINA_TIMEZONE", None)
         os.environ.pop("HERMES_TIMEZONE", None)
 
     iana = resolve_desktop_timezone(home)
     if not iana:
-        _reset_hermes_time_cache()
+        _reset_kabuqina_time_cache()
         log.info("desktop timezone: none configured; using server-local clock")
         return ""
 
+    os.environ["KABUQINA_TIMEZONE"] = iana
     os.environ["HERMES_TIMEZONE"] = iana
     _write_config_timezone(home, iana)
-    _reset_hermes_time_cache()
-    log.info("HERMES_TIMEZONE -> %s (wall clock for agent/cron)", iana)
+    _reset_kabuqina_time_cache()
+    log.info("KABUQINA_TIMEZONE -> %s (wall clock for agent/cron)", iana)
     return iana

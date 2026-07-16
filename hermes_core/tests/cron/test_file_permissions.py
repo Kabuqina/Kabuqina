@@ -89,9 +89,9 @@ class TestConfigFilePermissions(unittest.TestCase):
 
     def test_save_config_sets_0600(self):
         config_path = Path(self.tmpdir) / "config.yaml"
-        with patch("hermes_cli.config_loader.get_config_path", return_value=config_path), \
-             patch("hermes_cli.config_loader.ensure_hermes_home"):
-            from hermes_cli.config import save_config
+        with patch("kabuqina_cli.config_loader.get_config_path", return_value=config_path), \
+             patch("kabuqina_cli.config_loader.ensure_kabuqina_home"):
+            from kabuqina_cli.config import save_config
             save_config({"model": "test/model"})
 
             file_mode = stat.S_IMODE(os.stat(config_path).st_mode)
@@ -99,19 +99,19 @@ class TestConfigFilePermissions(unittest.TestCase):
 
     def test_save_env_value_sets_0600(self):
         env_path = Path(self.tmpdir) / ".env"
-        with patch("hermes_cli.config_env.get_env_path", return_value=env_path), \
-             patch("hermes_cli.config_env.ensure_hermes_home"):
-            from hermes_cli.config import save_env_value
+        with patch("kabuqina_cli.config_env.get_env_path", return_value=env_path), \
+             patch("kabuqina_cli.config_env.ensure_kabuqina_home"):
+            from kabuqina_cli.config import save_env_value
             save_env_value("TEST_KEY", "test_value")
 
             file_mode = stat.S_IMODE(os.stat(env_path).st_mode)
             self.assertEqual(file_mode, 0o600)
 
-    def test_ensure_hermes_home_sets_0700(self):
+    def test_ensure_kabuqina_home_sets_0700(self):
         home = Path(self.tmpdir) / ".hermes"
-        with patch("hermes_cli.config_home.get_hermes_home", return_value=home):
-            from hermes_cli.config import ensure_hermes_home
-            ensure_hermes_home()
+        with patch("kabuqina_cli.config_home.get_kabuqina_home", return_value=home):
+            from kabuqina_cli.config import ensure_kabuqina_home
+            ensure_kabuqina_home()
 
             home_mode = stat.S_IMODE(os.stat(home).st_mode)
             self.assertEqual(home_mode, 0o700)

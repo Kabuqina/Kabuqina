@@ -1,7 +1,7 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-//! Read / write EMAIL_* env vars in ``hermes-home/.env``.
+//! Read / write EMAIL_* env vars in ``kabuqina-home/.env``.
 
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -48,7 +48,7 @@ const EMAIL_ENV_PREFIXES: &[&str] = &[
 
 fn hh(app: &AppHandle) -> Result<PathBuf, String> {
     let data_dir = crate::paths::ensure_data_dir(app).map_err(|e| e.to_string())?;
-    Ok(crate::gateway_supervisor::hermes_home_path(&data_dir))
+    Ok(crate::gateway_supervisor::kabuqina_home_path(&data_dir))
 }
 
 #[derive(serde::Serialize)]

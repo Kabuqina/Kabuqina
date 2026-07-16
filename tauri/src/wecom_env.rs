@@ -1,7 +1,7 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-//! Read / write WeCom (企业微信) bot credentials in ``hermes-home/.env``.
+//! Read / write WeCom (企业微信) bot credentials in ``kabuqina-home/.env``.
 
 use std::path::PathBuf;
 use tauri::AppHandle;
@@ -11,14 +11,14 @@ pub fn cmd_wecom_env_status(
     app: AppHandle,
 ) -> Result<crate::gateway_supervisor::WeComEnvSnapshot, String> {
     let data_dir = crate::paths::ensure_data_dir(&app).map_err(|e| e.to_string())?;
-    let hh = crate::gateway_supervisor::hermes_home_path(&data_dir);
+    let hh = crate::gateway_supervisor::kabuqina_home_path(&data_dir);
     Ok(crate::gateway_supervisor::read_wecom_env_snapshot(&hh))
 }
 
 #[tauri::command]
 pub fn cmd_wecom_env_remove(app: AppHandle) -> Result<(), String> {
     let data_dir = crate::paths::ensure_data_dir(&app).map_err(|e| e.to_string())?;
-    let hh = crate::gateway_supervisor::hermes_home_path(&data_dir);
+    let hh = crate::gateway_supervisor::kabuqina_home_path(&data_dir);
     let env_path: PathBuf = hh.join(".env");
     let content = std::fs::read_to_string(&env_path).unwrap_or_default();
     let lines: Vec<String> = content
@@ -51,7 +51,7 @@ pub fn cmd_wecom_save_config(
     crate::validation::validate_env_value(s)?;
 
     let data_dir = crate::paths::ensure_data_dir(&app).map_err(|e| e.to_string())?;
-    let hh = crate::gateway_supervisor::hermes_home_path(&data_dir);
+    let hh = crate::gateway_supervisor::kabuqina_home_path(&data_dir);
     std::fs::create_dir_all(&hh).map_err(|e| e.to_string())?;
 
     let env_path: PathBuf = hh.join(".env");

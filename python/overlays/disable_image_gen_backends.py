@@ -46,9 +46,9 @@ def install() -> None:
         return
 
     try:
-        from hermes_cli.config import load_config, save_config  # type: ignore
+        from kabuqina_cli.config import load_config, save_config  # type: ignore
     except Exception as e:  # pragma: no cover - import wiring guard
-        log.warning("hermes_cli.config not importable; skipping image_gen disable (%s)", e)
+        log.warning("kabuqina_cli.config not importable; skipping image_gen disable (%s)", e)
         return
 
     try:

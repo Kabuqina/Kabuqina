@@ -1,35 +1,29 @@
 # Copyright 2026 Kabuqina Contributors
 # SPDX-License-Identifier: Apache-2.0
 
-"""HermesDesk Python entrypoint.
+"""Kabuqina Python entrypoint.
 
 Spawned by the Tauri shell. Responsibilities:
 
   1. Configure logging under ``HERMESDESK_DATA_DIR`` (Tauri: e.g. ``%LOCALAPPDATA%\\com.kabuqina.app``).
   2. Validate the Tauri <-> Python contract version.
   3. Build a typed ``DesktopConfig`` from env vars.
-  4. Install runtime overlays (must happen before importing Hermes).
+  4. Install runtime overlays (must happen before importing the agent core).
   5. Pick a free localhost port, write it to a handshake file the
      Tauri shell is polling.
-  6. Launch Hermes' built-in web server bound to 127.0.0.1:PORT.
+  6. Launch Kabuqina's desktop server bound to 127.0.0.1:PORT.
   7. Forward SIGTERM cleanly so closing the window closes the agent.
 
 Tauri sets these env vars before spawn:
 
-    HERMESDESK_BUNDLE_DIR        install dir (read-only)
-    HERMESDESK_DATA_DIR          per-user state (writable)
-    HERMESDESK_WORKSPACE         workspace folder
-    HERMESDESK_PORT_FILE         path where we write the chosen port
-    HERMESDESK_PROVIDER          e.g. "openrouter" or "custom"
-    HERMESDESK_LLM_HOST          LLM hostname for the network allowlist
-    HERMESDESK_API_BASE_URL      optional OpenAI-compatible base URL (custom vendor)
-    HERMESDESK_MODEL             optional default model id (Hermes config seed)
-    HERMESDESK_INFERENCE_PROVIDER  optional Hermes routing hint (e.g. "custom")
-    HERMESDESK_SECRET_URL        one-shot loopback URL to fetch the API key
-    HERMESDESK_APPROVAL_URL      loopback URL the approval bridge POSTs to
-    HERMESDESK_BRIDGE_SECRET     shared with Tauri X-HermesDesk-Auth (shell /api)
-    HERMESDESK_POWER_USER        "1" enables shell/code/browser/mcp tools
-    HERMESDESK_CONTRACT_VERSION  must match desktop_contract.CONTRACT_VERSION
+    KABUQINA_BUNDLE_DIR          install dir (read-only)
+    KABUQINA_DATA_DIR            per-user state (writable)
+    KABUQINA_WORKSPACE           workspace folder
+    KABUQINA_PORT_FILE           path where we write the chosen port
+    KABUQINA_*                   remaining desktop bridge and model settings
+
+Legacy ``HERMESDESK_*`` names are accepted for one compatibility release by
+``kabuqina_env``; new names always take precedence, including explicit empties.
 """
 
 from __future__ import annotations
@@ -44,7 +38,12 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from kabuqina_env import normalize as normalize_kabuqina_env
+from kabuqina_env import (
+    get as get_kabuqina_env,
+    export_home,
+    normalize as normalize_kabuqina_env,
+    resolve_desktop_home,
+)
 
 _docling_warm_thread: Optional[threading.Thread] = None
 
@@ -79,7 +78,7 @@ def _prime_torch_main_thread(log: logging.Logger) -> bool:
 
 
 def _setup_logging() -> None:
-    data_dir = Path(os.environ.get("HERMESDESK_DATA_DIR", "."))
+    data_dir = Path(get_kabuqina_env("KABUQINA_DATA_DIR", "."))
     log_dir = data_dir / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     handler = logging.handlers.RotatingFileHandler(
@@ -99,7 +98,7 @@ def _free_port() -> int:
 
 
 def _write_handshake(port: int) -> None:
-    path = os.environ.get("HERMESDESK_PORT_FILE")
+    path = get_kabuqina_env("KABUQINA_PORT_FILE")
     if not path:
         return
     Path(path).write_text(str(port), encoding="utf-8")
@@ -138,7 +137,7 @@ def _wire_tts_voice(log: logging.Logger) -> None:
     # Write to config.yaml only if voice is still the English default.
     # If the user has explicitly set a voice we respect it.
     try:
-        from hermes_cli.config import load_config, save_config
+        from kabuqina_cli.config import load_config, save_config
 
         cfg = load_config() or {}
         tts = cfg.setdefault("tts", {})
@@ -276,38 +275,38 @@ def _wire_local_stt(log: logging.Logger) -> None:
         log.info("PATH += %s (for bundled ffmpeg)", bin_dir)
 
 
-def _redirect_hermes_home() -> Path:
-    """Force Hermes' config/cache root inside the per-user data dir.
+def _redirect_kabuqina_home() -> Path:
+    """Resolve Kabuqina's config/cache root inside the per-user data dir.
 
-    Hermes defaults to ``~/.hermes`` for ``HERMES_HOME`` (see
-    ``hermes_constants.get_hermes_home``). On HermesDesk we don't want
-    Hermes to write to the user's profile root; we want everything in
-    ``%LOCALAPPDATA%\\HermesDesk\\hermes-home`` so:
+    The desktop shell owns this location instead of writing to the profile
+    root.  A populated legacy ``hermes-home`` directory is renamed atomically
+    to ``kabuqina-home``.  If that rename fails, the legacy directory remains
+    active so an upgrade cannot silently lose sessions or learning data.
 
       * uninstall is clean (one folder to delete),
       * the workspace jail can keep ``~/`` opaque,
       * profile separation per Windows user is automatic.
 
     Set the env var BEFORE overlays import anything that touches
-    ``hermes_constants`` or ``hermes_cli.config``.
+    ``kabuqina_constants`` or ``kabuqina_cli.config``.
     """
-    data_dir = Path(os.environ.get("HERMESDESK_DATA_DIR", "."))
-    home = data_dir / "hermes-home"
+    data_dir = Path(get_kabuqina_env("KABUQINA_DATA_DIR", "."))
+    home = resolve_desktop_home(data_dir, logger=logging.getLogger("kabuqina.entry"))
     home.mkdir(parents=True, exist_ok=True)
-    os.environ["HERMES_HOME"] = str(home)
+    export_home(home)
     return home
 
 
 def _wire_sys_path() -> None:
-    """Make `overlays/`, `hermes/`, and `site-packages/` importable.
+    """Make overlays, the bundled core, and site-packages importable.
 
     The bundled layout under ``HERMESDESK_BUNDLE_DIR`` is::
 
         runtime/
             desktop_entrypoint.py     <- this file
             overlays/                 <- our monkey patches
-            hermes/                   <- upstream Hermes Agent (cloned subtree)
-                hermes_cli/
+            kabuqina/                 <- Kabuqina-owned agent core
+                kabuqina_cli/
                 agent/
                 tools/
                 ...
@@ -316,13 +315,14 @@ def _wire_sys_path() -> None:
 
     Python auto-adds the script's directory (``runtime/``) to ``sys.path[0]``
     when launched as ``python.exe runtime\\desktop_entrypoint.py``, which
-    makes ``overlays`` importable. ``hermes/`` and ``site-packages/`` need
+    makes ``overlays`` importable. The core and ``site-packages/`` need
     to be added manually — the build does ship a ``.pth`` shim, but the
     relative paths in it are fragile across dev vs bundled layouts. Doing
     it here makes the launcher self-contained.
     """
     here = Path(__file__).resolve().parent
-    for sub in ("hermes", "site-packages"):
+    # ``hermes`` remains a one-release fallback for already-built runtimes.
+    for sub in ("kabuqina", "hermes", "site-packages"):
         p = here / sub
         if p.is_dir():
             sys.path.insert(0, str(p))
@@ -377,7 +377,7 @@ def main() -> int:
     _setup_logging()
     log = logging.getLogger("kabuqina.entry")
     boot_t0 = time.monotonic()
-    log.info("starting HermesDesk Python (pid=%d)", os.getpid())
+    log.info("starting Kabuqina Python (pid=%d)", os.getpid())
 
     # Mark this process as an interactive session BEFORE any Hermes import.
     # Upstream gates two distinct behaviors on HERMES_INTERACTIVE:
@@ -394,18 +394,18 @@ def main() -> int:
     t_deps = time.monotonic()
     _verify_bundle_deps(log)
     _prime_torch_main_thread(log)
-    hermes_home = _redirect_hermes_home()
-    log.info("HERMES_HOME -> %s", hermes_home)
+    kabuqina_home = _redirect_kabuqina_home()
+    log.info("KABUQINA_HOME -> %s", kabuqina_home)
     try:
         from gateway_env_loader import ensure_gateway_env_loaded
 
         ensure_gateway_env_loaded()
     except Exception:
-        log.exception("failed to load hermes-home .env for messaging/cron delivery")
+        log.exception("failed to load kabuqina-home .env for messaging/cron delivery")
     try:
         from desktop_timezone import apply_desktop_timezone
 
-        apply_desktop_timezone(hermes_home)
+        apply_desktop_timezone(kabuqina_home)
     except Exception:
         log.exception("failed to apply desktop timezone")
     _wire_local_stt(log)
@@ -420,7 +420,7 @@ def main() -> int:
         log.error(
             "Contract version mismatch: Tauri shell sent v%d, Python expects v%d. "
             "Rebuild the Python bundle (python/build_bundle.ps1) so the bundled "
-            "hermes_cli matches the Tauri shell's contract.",
+            "kabuqina_cli matches the Tauri shell's contract.",
             _got, _EXPECTED_CONTRACT,
         )
         return 5

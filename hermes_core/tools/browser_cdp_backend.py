@@ -1,8 +1,8 @@
-"""CDP browser backend for HermesDesk — drives Edge via DevTools Protocol.
+"""CDP browser backend for Kabuqina — drives Edge via DevTools Protocol.
 
 Provides high-level operations (navigate, snapshot, vision, click, type, etc.)
 over a CDP WebSocket connection.  Used by ``browser_tool.py`` when
-``BROWSER_CDP_URL`` is set (HermesDesk auto-launches Edge with
+``BROWSER_CDP_URL`` is set (Kabuqina auto-launches Edge with
 ``--remote-debugging-port=9222``).
 
 All Page.* / Runtime.* / Input.* / DOM.* commands require a **page-level
@@ -23,6 +23,8 @@ import time
 import uuid
 from pathlib import Path
 from typing import Any, Dict, Optional
+
+from kabuqina_constants import get_kabuqina_home
 
 logger = logging.getLogger(__name__)
 
@@ -345,10 +347,7 @@ def vision(question: str, annotate: bool = False) -> str:
             return _json("Screenshot returned empty data", success=False)
 
         # Always save screenshot to disk first, regardless of vision outcome
-        hermes_home = Path(os.environ.get("HERMES_HOME", ""))
-        if not hermes_home.is_dir():
-            hermes_home = Path.home() / ".hermes"
-        screenshots_dir = hermes_home / "cache" / "screenshots"
+        screenshots_dir = get_kabuqina_home() / "cache" / "screenshots"
         screenshots_dir.mkdir(parents=True, exist_ok=True)
         path = screenshots_dir / f"cdp_screenshot_{uuid.uuid4().hex}.png"
         path.write_bytes(base64.b64decode(b64))

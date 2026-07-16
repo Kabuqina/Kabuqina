@@ -56,7 +56,7 @@ from urllib.parse import urlparse, parse_qs, urlunparse
 from datetime import datetime
 from pathlib import Path
 
-from hermes_constants import get_hermes_home
+from kabuqina_constants import get_kabuqina_home
 
 
 _OPENAI_CLS_CACHE: Optional[type] = None
@@ -88,17 +88,17 @@ class _OpenAIProxy:
 
 OpenAI = _OpenAIProxy()
 
-# Load .env from ~/.hermes/.env first, then project root as dev fallback.
+# Load .env from ~/.kabuqina/.env first, then project root as dev fallback.
 # User-managed env files should override stale shell exports on restart.
-from hermes_cli.env_loader import load_hermes_dotenv
-from hermes_cli.timeouts import (
+from kabuqina_cli.env_loader import load_kabuqina_dotenv
+from kabuqina_cli.timeouts import (
     get_provider_request_timeout,
     get_provider_stale_timeout,
 )
 
-_hermes_home = get_hermes_home()
+_kabuqina_home = get_kabuqina_home()
 _project_env = Path(__file__).parent / '.env'
-_loaded_env_paths = load_hermes_dotenv(hermes_home=_hermes_home, project_env=_project_env)
+_loaded_env_paths = load_kabuqina_dotenv(kabuqina_home=_kabuqina_home, project_env=_project_env)
 if _loaded_env_paths:
     for _env_path in _loaded_env_paths:
         logger.info("Loaded environment variables from %s", _env_path)
@@ -165,7 +165,7 @@ from agent.trajectory import (
     save_trajectory as _save_trajectory_to_file,
 )
 from utils import atomic_json_write, base_url_host_matches, base_url_hostname, env_var_enabled, normalize_proxy_url
-from hermes_cli.config import cfg_get
+from kabuqina_cli.config import cfg_get
 
 
 def _summarize_user_message_for_log(value: Any, limit: int = 120) -> str:
@@ -178,7 +178,7 @@ def _summarize_user_message_for_log(value: Any, limit: int = 120) -> str:
 class _SafeWriter:
     """Transparent stdio wrapper that catches OSError/ValueError from broken pipes.
 
-    When hermes-agent runs as a systemd service, Docker container, or headless
+    When kabuqina-agent runs as a systemd service, Docker container, or headless
     daemon, the stdout/stderr pipe can become unavailable (idle timeout, buffer
     exhaustion, socket reset). Any print() call then raises
     ``OSError: [Errno 5] Input/output error``, which can crash agent setup or
@@ -875,10 +875,10 @@ def _sanitize_structure_non_ascii(payload: Any) -> bool:
 
 def _routermint_headers() -> dict:
     """Return the User-Agent RouterMint needs to avoid Cloudflare 1010 blocks."""
-    from hermes_cli import __version__ as _HERMES_VERSION
+    from kabuqina_cli import __version__ as _KABUQINA_VERSION
 
     return {
-        "User-Agent": f"HermesAgent/{_HERMES_VERSION}",
+        "User-Agent": f"KabuqinaAgent/{_KABUQINA_VERSION}",
     }
 
 
@@ -916,7 +916,7 @@ class AIAgent:
     """
 
     _TOOL_CALL_ARGUMENTS_CORRUPTION_MARKER = (
-        "[hermes-agent: tool call arguments were corrupted in this session and "
+        "[kabuqina-agent: tool call arguments were corrupted in this session and "
         "have been dropped to keep the conversation alive. See issue #15236.]"
     )
 
@@ -1040,7 +1040,7 @@ class AIAgent:
             skip_context_files (bool): If True, skip auto-injection of SOUL.md, AGENTS.md, and .cursorrules
                 into the system prompt. Use this for batch processing and data generation to avoid
                 polluting trajectories with user-specific persona or project instructions.
-            load_soul_identity (bool): If True, still use ~/.hermes/SOUL.md as the primary
+            load_soul_identity (bool): If True, still use ~/.kabuqina/SOUL.md as the primary
                 identity even when skip_context_files=True. Project context files from the cwd
                 remain skipped.
         """
@@ -1107,7 +1107,7 @@ class AIAgent:
             pass  # Non-fatal — transport may not exist for all modes yet
 
         try:
-            from hermes_cli.model_normalize import (
+            from kabuqina_cli.model_normalize import (
                 _AGGREGATOR_PROVIDERS,
                 normalize_model_for_provider,
             )
@@ -1218,7 +1218,7 @@ class AIAgent:
         # sessions with >5-minute pauses between turns (#14971).
         self._cache_ttl = "5m"
         try:
-            from hermes_cli.config import load_config as _load_pc_cfg
+            from kabuqina_cli.config import load_config as _load_pc_cfg
 
             _pc_cfg = _load_pc_cfg().get("prompt_caching", {}) or {}
             _ttl = _pc_cfg.get("cache_ttl", "5m")
@@ -1250,10 +1250,10 @@ class AIAgent:
         self._rate_limit_state: Optional["RateLimitState"] = None
 
         # Centralized logging — agent.log (INFO+) and errors.log (WARNING+)
-        # both live under ~/.hermes/logs/.  Idempotent, so gateway mode
+        # both live under ~/.kabuqina/logs/.  Idempotent, so gateway mode
         # (which creates a new AIAgent per message) won't duplicate handlers.
-        from hermes_logging import setup_logging, setup_verbose_logging
-        setup_logging(hermes_home=_hermes_home)
+        from kabuqina_logging import setup_logging, setup_verbose_logging
+        setup_logging(kabuqina_home=_kabuqina_home)
 
         if self.verbose_logging:
             setup_verbose_logging()
@@ -1269,7 +1269,7 @@ class AIAgent:
                     'run_agent',            # agent runner internals
                     'trajectory_compressor',
                     'cron',                 # scheduler (only relevant in daemon mode)
-                    'hermes_cli',           # CLI helpers
+                    'kabuqina_cli',           # CLI helpers
                 ]:
                     logging.getLogger(quiet_logger).setLevel(logging.ERROR)
         
@@ -1364,7 +1364,7 @@ class AIAgent:
                 if base_url_host_matches(effective_base, "openrouter.ai"):
                     client_kwargs["default_headers"] = {
                         "HTTP-Referer": "https://hermes-agent.nousresearch.com",
-                        "X-OpenRouter-Title": "Hermes Agent",
+                        "X-OpenRouter-Title": "Kabuqina",
                         "X-OpenRouter-Categories": "productivity,cli-agent",
                     }
                 elif base_url_host_matches(effective_base, "api.routermint.com"):
@@ -1399,7 +1399,7 @@ class AIAgent:
                         # (e.g. alibaba → DASHSCOPE_API_KEY, not ALIBABA_API_KEY).
                         _env_hint = f"{_explicit.upper()}_API_KEY"
                         try:
-                            from hermes_cli.auth import PROVIDER_REGISTRY
+                            from kabuqina_cli.auth import PROVIDER_REGISTRY
                             _pcfg = PROVIDER_REGISTRY.get(_explicit)
                             if _pcfg and _pcfg.api_key_env_vars:
                                 _env_hint = _pcfg.api_key_env_vars[0]
@@ -1408,12 +1408,12 @@ class AIAgent:
                         raise RuntimeError(
                             f"Provider '{_explicit}' is set in config.yaml but no API key "
                             f"was found. Set the {_env_hint} environment "
-                            f"variable, or switch to a different provider with `hermes model`."
+                            f"variable, or switch to a different provider with `kabuqina model`."
                         )
                     # No provider configured — reject with a clear message.
                     raise RuntimeError(
-                        "No LLM provider configured. Run `hermes model` to "
-                        "select a provider, or run `hermes setup` for first-time "
+                        "No LLM provider configured. Run `kabuqina model` to "
+                        "select a provider, or run `kabuqina setup` for first-time "
                         "configuration."
                     )
             
@@ -1539,9 +1539,9 @@ class AIAgent:
             short_uuid = uuid.uuid4().hex[:6]
             self.session_id = f"{timestamp_str}_{short_uuid}"
         
-        # Session logs go into ~/.hermes/sessions/ alongside gateway sessions
-        hermes_home = get_hermes_home()
-        self.logs_dir = hermes_home / "sessions"
+        # Session logs go into ~/.kabuqina/sessions/ alongside gateway sessions
+        kabuqina_home = get_kabuqina_home()
+        self.logs_dir = kabuqina_home / "sessions"
         self.logs_dir.mkdir(parents=True, exist_ok=True)
         self.session_log_file = self.logs_dir / f"session_{self.session_id}.json"
         
@@ -1595,7 +1595,7 @@ class AIAgent:
         
         # Load config once for memory, skills, and compression sections
         try:
-            from hermes_cli.config import load_config as _load_agent_config
+            from kabuqina_cli.config import load_config as _load_agent_config
             _agent_cfg = _load_agent_config()
         except Exception:
             _agent_cfg = {}
@@ -1650,7 +1650,7 @@ class AIAgent:
                         _init_kwargs = {
                             "session_id": self.session_id,
                             "platform": platform or "cli",
-                            "hermes_home": str(get_hermes_home()),
+                            "hermes_home": str(get_kabuqina_home()),
                             "agent_context": "primary",
                         }
                         # Thread session title for memory provider scoping
@@ -1680,7 +1680,7 @@ class AIAgent:
                             _init_kwargs["gateway_session_key"] = self._gateway_session_key
                         # Profile identity for per-profile provider scoping
                         try:
-                            from hermes_cli.profiles import get_active_profile_name
+                            from kabuqina_cli.profiles import get_active_profile_name
                             _profile = get_active_profile_name()
                             _init_kwargs["agent_identity"] = _profile
                             _init_kwargs["agent_workspace"] = "hermes"
@@ -1799,7 +1799,7 @@ class AIAgent:
         # Resolve custom_providers list once for reuse below (startup
         # context-length override and plugin context-engine init).
         try:
-            from hermes_cli.config import get_compatible_custom_providers
+            from kabuqina_cli.config import get_compatible_custom_providers
             _custom_providers = get_compatible_custom_providers(_agent_cfg)
         except Exception:
             _custom_providers = _agent_cfg.get("custom_providers")
@@ -1809,7 +1809,7 @@ class AIAgent:
         # Check custom_providers per-model context_length
         if _config_context_length is None and _custom_providers:
             try:
-                from hermes_cli.config import get_custom_provider_context_length
+                from kabuqina_cli.config import get_custom_provider_context_length
                 _cp_ctx_resolved = get_custom_provider_context_length(
                     model=self.model,
                     base_url=self.base_url,
@@ -1887,7 +1887,7 @@ class AIAgent:
             # Try general plugin system as fallback
             if _selected_engine is None:
                 try:
-                    from hermes_cli.plugins import get_plugin_context_engine
+                    from kabuqina_cli.plugins import get_plugin_context_engine
                     _candidate = get_plugin_context_engine()
                     if _candidate and _candidate.name == _engine_name:
                         _selected_engine = _candidate
@@ -1947,7 +1947,7 @@ class AIAgent:
             raise ValueError(
                 f"Model {self.model} has a context window of {_ctx:,} tokens, "
                 f"which is below the minimum {MINIMUM_CONTEXT_LENGTH:,} required "
-                f"by Hermes Agent.  Choose a model with at least "
+                f"by Kabuqina.  Choose a model with at least "
                 f"{MINIMUM_CONTEXT_LENGTH // 1000}K context, or set "
                 f"model.context_length in config.yaml to override."
             )
@@ -1983,7 +1983,7 @@ class AIAgent:
             try:
                 self.context_compressor.on_session_start(
                     self.session_id,
-                    hermes_home=str(get_hermes_home()),
+                    kabuqina_home=str(get_kabuqina_home()),
                     platform=self.platform or "cli",
                     model=self.model,
                     context_length=getattr(self.context_compressor, "context_length", 0),
@@ -2138,13 +2138,13 @@ class AIAgent:
 
     def _ensure_lmstudio_runtime_loaded(self, config_context_length: Optional[int] = None) -> None:
         """
-        Preload the LM Studio model with at least Hermes' minimum context.
+        Preload the LM Studio model with at least Kabuqina' minimum context.
         """
         if (self.provider or "").strip().lower() != "lmstudio":
             return
         try:
             from providers.model_metadata import MINIMUM_CONTEXT_LENGTH
-            from hermes_cli.models import ensure_lmstudio_model_loaded
+            from kabuqina_cli.models import ensure_lmstudio_model_loaded
             if config_context_length is None:
                 config_context_length = getattr(self, "_config_context_length", None)
             target_ctx = max(config_context_length or 0, MINIMUM_CONTEXT_LENGTH)
@@ -2183,7 +2183,7 @@ class AIAgent:
         change persists across turns (unlike fallback which is
         turn-scoped).
         """
-        from hermes_cli.providers import determine_api_mode
+        from kabuqina_cli.providers import determine_api_mode
 
         # ── Determine api_mode if not provided ──
         if not api_mode:
@@ -2262,7 +2262,7 @@ class AIAgent:
             # custom provider mid-session (closes #15779).
             _sm_custom_providers = None
             try:
-                from hermes_cli.config import load_config, get_compatible_custom_providers
+                from kabuqina_cli.config import load_config, get_compatible_custom_providers
                 _sm_cfg = load_config()
                 _sm_custom_providers = get_compatible_custom_providers(_sm_cfg)
             except Exception:
@@ -2372,7 +2372,7 @@ class AIAgent:
         all non-forced output is suppressed.
 
         ``suppress_status_output`` is a stricter CLI automation mode used by
-        parseable single-query flows such as ``hermes chat -q``. In that mode,
+        parseable single-query flows such as ``kabuqina chat -q``. In that mode,
         all status/diagnostic prints routed through ``_vprint`` are suppressed
         so stdout stays machine-readable.
         """
@@ -2517,7 +2517,7 @@ class AIAgent:
                 msg = (
                     "⚠ No auxiliary LLM provider configured — context "
                     "compression will drop middle turns without a summary. "
-                    "Run `hermes setup` or set OPENROUTER_API_KEY."
+                    "Run `kabuqina setup` or set OPENROUTER_API_KEY."
                 )
                 self._compression_warning = msg
                 self._emit_status(msg)
@@ -2548,7 +2548,7 @@ class AIAgent:
                 raise ValueError(
                     f"Auxiliary compression model {aux_model} has a context "
                     f"window of {aux_context:,} tokens, which is below the "
-                    f"minimum {MINIMUM_CONTEXT_LENGTH:,} required by Hermes "
+                    f"minimum {MINIMUM_CONTEXT_LENGTH:,} required by Kabuqina "
                     f"Agent.  Choose a compression model with at least "
                     f"{MINIMUM_CONTEXT_LENGTH // 1000}K context (set "
                     f"auxiliary.compression.model in config.yaml), or set "
@@ -4734,7 +4734,7 @@ class AIAgent:
         # user-customized SOUL.md (persona is editable, conduct is canonical).
         prompt_parts.append(build_learning_conduct_guidance(self.platform))
 
-        # Pointer to the hermes-agent skill + docs for user questions about Hermes itself.
+        # Pointer to the kabuqina-agent skill + docs for user questions about Kabuqina itself.
         prompt_parts.append(HERMES_AGENT_HELP_GUIDANCE)
 
         # Tool-aware behavioral guidance: only inject when the tools are loaded
@@ -4848,7 +4848,7 @@ class AIAgent:
 
         if not self.skip_context_files:
             # Use TERMINAL_CWD for context file discovery when set (gateway
-            # mode).  The gateway process runs from the hermes-agent install
+            # mode).  The gateway process runs from the kabuqina-agent install
             # dir, so os.getcwd() would pick up the repo's AGENTS.md and
             # other dev files — inflating token usage by ~10k for no benefit.
             _context_cwd = os.getenv("TERMINAL_CWD") or None
@@ -4859,9 +4859,9 @@ class AIAgent:
 
         timestamp_lines = []
         if self.include_session_start_time:
-            from hermes_time import now as _hermes_now
+            from kabuqina_time import now as _kabuqina_now
 
-            now = _hermes_now()
+            now = _kabuqina_now()
             timestamp_lines.append(
                 f"Conversation started: {now.strftime('%A, %B %d, %Y %I:%M %p')} "
                 "(session start only — use get_current_time for the live clock)"
@@ -5669,7 +5669,7 @@ class AIAgent:
             return False
 
         try:
-            from hermes_cli.auth import resolve_nous_runtime_credentials
+            from kabuqina_cli.auth import resolve_nous_runtime_credentials
 
             creds = resolve_nous_runtime_credentials(
                 min_key_ttl_seconds=max(60, int(os.getenv("HERMES_NOUS_MIN_KEY_TTL_SECONDS", "1800"))),
@@ -6973,7 +6973,7 @@ class AIAgent:
                     fb_provider)
                 return self._try_activate_fallback()  # try next in chain
             try:
-                from hermes_cli.model_normalize import normalize_model_for_provider
+                from kabuqina_cli.model_normalize import normalize_model_for_provider
 
                 fb_model = normalize_model_for_provider(fb_model, fb_provider)
             except Exception:
@@ -7534,7 +7534,7 @@ class AIAgent:
                     "image/jpeg": ".jpg", "image/jpg": ".jpg", "image/bmp": ".bmp",
                 }.get(mime, ".jpg")
                 tmp = tempfile.NamedTemporaryFile(
-                    prefix="hermes_shrink_", suffix=suffix, delete=False,
+                    prefix="kabuqina_shrink_", suffix=suffix, delete=False,
                 )
                 try:
                     tmp.write(raw)
@@ -7778,7 +7778,7 @@ class AIAgent:
             if opts or (_time.monotonic() - ts) < 60:
                 return opts
         try:
-            from hermes_cli.models import lmstudio_model_reasoning_options
+            from kabuqina_cli.models import lmstudio_model_reasoning_options
             opts = lmstudio_model_reasoning_options(
                 self.model, self.base_url, getattr(self, "api_key", ""),
             )
@@ -8422,7 +8422,7 @@ class AIAgent:
         # Check plugin hooks for a block directive before executing anything.
         block_message: Optional[str] = None
         try:
-            from hermes_cli.plugins import get_pre_tool_call_block_message
+            from kabuqina_cli.plugins import get_pre_tool_call_block_message
             block_message = get_pre_tool_call_block_message(
                 function_name, function_args, task_id=effective_task_id or "",
             )
@@ -8903,7 +8903,7 @@ class AIAgent:
             # Check plugin hooks for a block directive before executing.
             _block_msg: Optional[str] = None
             try:
-                from hermes_cli.plugins import get_pre_tool_call_block_message
+                from kabuqina_cli.plugins import get_pre_tool_call_block_message
                 _block_msg = get_pre_tool_call_block_message(
                     function_name, function_args, task_id=effective_task_id or "",
                 )
@@ -9361,7 +9361,7 @@ class AIAgent:
                         "effort": "medium"
                     }
             if _is_nous:
-                summary_extra_body["tags"] = ["product=hermes-agent"]
+                summary_extra_body["tags"] = ["product=kabuqina-agent"]
 
             summary_kwargs = {
                 "model": self.model,
@@ -9780,7 +9780,7 @@ class _GraphServicesAdapter:
         # ── Turn prefix side effects the loop runs before the tool loop
         # (run_agent.py:9483-9536) that the graph previously skipped (P1-1). ──
         # Tag log records on this thread with the session id.
-        from hermes_logging import set_session_context
+        from kabuqina_logging import set_session_context
         set_session_context(agent.session_id)
         # Restore the primary runtime if a previous turn fell back, so a cached
         # agent (gateway/CLI session reuse) doesn't stay pinned to the fallback
@@ -9877,7 +9877,7 @@ class _GraphServicesAdapter:
             else:
                 agent._cached_system_prompt = agent._build_system_prompt(system_message)
                 try:
-                    from hermes_cli.plugins import invoke_hook as _invoke_hook
+                    from kabuqina_cli.plugins import invoke_hook as _invoke_hook
                     _invoke_hook(
                         "on_session_start",
                         session_id=agent.session_id,
@@ -9944,7 +9944,7 @@ class _GraphServicesAdapter:
         # is preserved.
         _plugin_user_context = ""
         try:
-            from hermes_cli.plugins import invoke_hook as _invoke_hook
+            from kabuqina_cli.plugins import invoke_hook as _invoke_hook
             _pre_results = _invoke_hook(
                 "pre_llm_call",
                 session_id=agent.session_id,
@@ -11915,7 +11915,7 @@ class _GraphServicesAdapter:
         agent = self._agent
         api_messages = self._api_messages or []
         try:
-            from hermes_cli.plugins import invoke_hook as _invoke_hook
+            from kabuqina_cli.plugins import invoke_hook as _invoke_hook
             # Match the loop's request-size estimate (run_agent.py:10037) so any
             # plugin reading these volatile fields sees the same numbers.
             _total_chars = sum(len(str(msg)) for msg in api_messages)
@@ -11947,7 +11947,7 @@ class _GraphServicesAdapter:
         agent = self._agent
         api_messages = self._api_messages or []
         try:
-            from hermes_cli.plugins import invoke_hook as _invoke_hook
+            from kabuqina_cli.plugins import invoke_hook as _invoke_hook
             _tool_calls = getattr(normalized, "tool_calls", None) or []
             _text = getattr(normalized, "content", None) or ""
             _invoke_hook(
@@ -11975,7 +11975,7 @@ class _GraphServicesAdapter:
         """Fire ``post_llm_call`` on a completed, non-interrupted turn (loop :12581)."""
         agent = self._agent
         try:
-            from hermes_cli.plugins import invoke_hook as _invoke_hook
+            from kabuqina_cli.plugins import invoke_hook as _invoke_hook
             _invoke_hook(
                 "post_llm_call",
                 session_id=agent.session_id,
@@ -11992,7 +11992,7 @@ class _GraphServicesAdapter:
         """Fire ``on_session_end`` at the end of a finalized turn (loop :12683)."""
         agent = self._agent
         try:
-            from hermes_cli.plugins import invoke_hook as _invoke_hook
+            from kabuqina_cli.plugins import invoke_hook as _invoke_hook
             _invoke_hook(
                 "on_session_end",
                 session_id=agent.session_id,

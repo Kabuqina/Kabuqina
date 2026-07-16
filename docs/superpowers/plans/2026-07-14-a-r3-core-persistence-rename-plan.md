@@ -28,6 +28,23 @@ loop and `HERMES_AGENT_ENGINE`; commit `5613d688` records the C-track close.
 would obscure upstream lineage and churn every build/document path without
 changing the product contract.
 
+## Midterm review gate (2026-07-15)
+
+The implementation is under freeze-and-close review. The authoritative
+midterm findings and handoff are recorded in
+`docs/reviews/2026-07-15-a-r3-midterm-review.md`.
+
+No implementation slice may be committed, merged, or pushed until
+`A-R3-MR-001` through `A-R3-MR-005` in that review are closed. In particular:
+
+- legacy `hermes_cli.<submodule>` imports must not load a second copy of a
+  stateful canonical module; both legacy-first and canonical-first import order
+  require subprocess tests;
+- keyring tests must cover copy-forward success, copy-forward failure returning
+  the already-read legacy secret, and clear-both behavior;
+- runtime artifacts, incomplete untracked coverage, mixed line endings, and
+  missing Rust evidence must be resolved before the final gates.
+
 ## Order
 
 ### Task 1 — Home resolver and migration contracts
@@ -44,7 +61,9 @@ changing the product contract.
 
 - [ ] Add current-first legacy-service lookup and copy-on-read.
 - [ ] Delete both current and legacy credentials on explicit clear.
-- [ ] Unit-test selection/migration control flow without exposing secrets.
+- [ ] Unit-test selection and migration control flow without exposing secrets,
+  including copy-forward success, copy-forward write failure that still
+  returns the legacy value, and clear attempts against both services.
 
 ### Task 3 — Canonical Python namespaces
 
@@ -54,6 +73,9 @@ changing the product contract.
   deprecated wrappers.
 - [ ] Rename Kabuqina-owned classes/functions (`HermesCLI`, home/path helpers)
   and retain aliases only at compatibility seams.
+- [ ] Ensure `hermes_cli.<submodule>` cannot create a second module instance or
+  separate registry/cache beside `kabuqina_cli.<submodule>`; cover legacy-first
+  and canonical-first imports in isolated subprocesses.
 - [ ] Update focused import and state/session tests before broad core tests.
 
 ### Task 4 — Distribution and bundle
@@ -64,6 +86,8 @@ changing the product contract.
   destination, `.pth`, smoke imports, and bundle manifests.
 - [ ] Prove the embedded runtime imports canonical modules without relying on
   compatibility shims.
+- [ ] Run a separate legacy runtime smoke that proves representative stateful
+  submodules share canonical runtime state rather than merely importing.
 
 ### Task 5 — Guidance, scan, and observability
 
@@ -80,7 +104,9 @@ changing the product contract.
 - [ ] Run focused core/home/keyring tests, Python desktop tests, Web checks, and
   Rust tests/checks.
 - [ ] Build/verify the Python bundle and run the package/import smoke tests.
-- [ ] Run `git diff --check` and the final classified legacy-name scan.
+- [ ] Remove generated runtime artifacts, normalize touched-file line endings,
+  run `git diff --check`, and run the final classified legacy-name scan only
+  after all intended shim/audit files are tracked.
 - [ ] Commit A-R3 in reviewable slices, then record final evidence here.
 
 ## Non-goals

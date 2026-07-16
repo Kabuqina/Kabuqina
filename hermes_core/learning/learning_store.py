@@ -1,6 +1,6 @@
 """Isolated ``learning.db`` store for the STUDY learning foundation.
 
-A separate SQLite database under the *common* Hermes root (not ``state.db`` and
+A separate SQLite database under the *common* Kabuqina root (not ``state.db`` and
 not the profile-specific ``HERMES_HOME``), so Desktop and Gateway share one
 learning spine. Reuses SessionDB's concurrency principles: WAL journal, short
 SQLite timeout with application-level ``BEGIN IMMEDIATE`` + jittered retry, and
@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, TypeVar
 
-from hermes_constants import get_default_hermes_root
+from kabuqina_constants import get_default_kabuqina_root
 from learning.learning_contract import (
     ContractError,
     INITIAL_STATUS,
@@ -60,12 +60,12 @@ def _windows_identity() -> str:
 
 
 def default_learning_db_path() -> Path:
-    """Path to the shared ``learning.db`` under the common Hermes root.
+    """Path to the shared ``learning.db`` under the common Kabuqina root.
 
-    Uses :func:`get_default_hermes_root` (not ``HERMES_HOME``) so Desktop and
+    Uses :func:`get_default_kabuqina_root` (not ``HERMES_HOME``) so Desktop and
     Gateway profiles converge on one database — see design §8.2.
     """
-    return get_default_hermes_root() / "learning.db"
+    return get_default_kabuqina_root() / "learning.db"
 
 
 def secure_default_learning_db(db_path: Path) -> None:

@@ -46,14 +46,14 @@ class TestRegisterCredentialFiles:
         hermes_home.mkdir()
         (hermes_home / "token.json").write_text("{}")
 
-        with patch.dict(os.environ, {"HERMES_HOME": str(hermes_home)}):
+        with patch.dict(os.environ, {"KABUQINA_HOME": str(hermes_home)}):
             missing = register_credential_files([{"path": "token.json"}])
 
         assert missing == []
         mounts = get_credential_file_mounts()
         assert len(mounts) == 1
         assert mounts[0]["host_path"] == str(hermes_home / "token.json")
-        assert mounts[0]["container_path"] == "/root/.hermes/token.json"
+        assert mounts[0]["container_path"] == "/root/.kabuqina/token.json"
 
     def test_dict_with_name_key_fallback(self, tmp_path):
         """Skills use 'name' instead of 'path' — both should work."""
@@ -61,7 +61,7 @@ class TestRegisterCredentialFiles:
         hermes_home.mkdir()
         (hermes_home / "google_token.json").write_text("{}")
 
-        with patch.dict(os.environ, {"HERMES_HOME": str(hermes_home)}):
+        with patch.dict(os.environ, {"KABUQINA_HOME": str(hermes_home)}):
             missing = register_credential_files([
                 {"name": "google_token.json", "description": "OAuth token"},
             ])
@@ -76,7 +76,7 @@ class TestRegisterCredentialFiles:
         hermes_home.mkdir()
         (hermes_home / "secret.key").write_text("key")
 
-        with patch.dict(os.environ, {"HERMES_HOME": str(hermes_home)}):
+        with patch.dict(os.environ, {"KABUQINA_HOME": str(hermes_home)}):
             missing = register_credential_files(["secret.key"])
 
         assert missing == []
@@ -87,7 +87,7 @@ class TestRegisterCredentialFiles:
         hermes_home = tmp_path / ".hermes"
         hermes_home.mkdir()
 
-        with patch.dict(os.environ, {"HERMES_HOME": str(hermes_home)}):
+        with patch.dict(os.environ, {"KABUQINA_HOME": str(hermes_home)}):
             missing = register_credential_files([
                 {"name": "does_not_exist.json"},
             ])
@@ -101,7 +101,7 @@ class TestRegisterCredentialFiles:
         hermes_home.mkdir()
         (hermes_home / "real.json").write_text("{}")
 
-        with patch.dict(os.environ, {"HERMES_HOME": str(hermes_home)}):
+        with patch.dict(os.environ, {"KABUQINA_HOME": str(hermes_home)}):
             missing = register_credential_files([
                 {"path": "real.json", "name": "wrong.json"},
             ])
@@ -119,18 +119,18 @@ class TestSkillsDirectoryMount:
         (skills_dir / "test-skill").mkdir()
         (skills_dir / "test-skill" / "SKILL.md").write_text("# test")
 
-        with patch.dict(os.environ, {"HERMES_HOME": str(hermes_home)}):
+        with patch.dict(os.environ, {"KABUQINA_HOME": str(hermes_home)}):
             mounts = get_skills_directory_mount()
 
         assert len(mounts) >= 1
         assert mounts[0]["host_path"] == str(skills_dir)
-        assert mounts[0]["container_path"] == "/root/.hermes/skills"
+        assert mounts[0]["container_path"] == "/root/.kabuqina/skills"
 
     def test_returns_none_when_no_skills_dir(self, tmp_path):
         hermes_home = tmp_path / ".hermes"
         hermes_home.mkdir()
 
-        with patch.dict(os.environ, {"HERMES_HOME": str(hermes_home)}):
+        with patch.dict(os.environ, {"KABUQINA_HOME": str(hermes_home)}):
             mounts = get_skills_directory_mount()
 
         # No local skills dir → no local mount (external dirs may still appear)
@@ -141,7 +141,7 @@ class TestSkillsDirectoryMount:
         hermes_home = tmp_path / ".hermes"
         (hermes_home / "skills").mkdir(parents=True)
 
-        with patch.dict(os.environ, {"HERMES_HOME": str(hermes_home)}):
+        with patch.dict(os.environ, {"KABUQINA_HOME": str(hermes_home)}):
             mounts = get_skills_directory_mount(container_base="/home/user/.hermes")
 
         assert mounts[0]["container_path"] == "/home/user/.hermes/skills"
@@ -157,7 +157,7 @@ class TestSkillsDirectoryMount:
         secret.write_text("TOP SECRET")
         _symlink_or_skip(skills_dir / "evil_link", secret)
 
-        with patch.dict(os.environ, {"HERMES_HOME": str(hermes_home)}):
+        with patch.dict(os.environ, {"KABUQINA_HOME": str(hermes_home)}):
             mounts = get_skills_directory_mount()
 
         assert len(mounts) >= 1
@@ -178,7 +178,7 @@ class TestSkillsDirectoryMount:
         skills_dir.mkdir(parents=True)
         (skills_dir / "skill.md").write_text("ok")
 
-        with patch.dict(os.environ, {"HERMES_HOME": str(hermes_home)}):
+        with patch.dict(os.environ, {"KABUQINA_HOME": str(hermes_home)}):
             mounts = get_skills_directory_mount()
 
         assert mounts[0]["host_path"] == str(skills_dir)
@@ -197,12 +197,12 @@ class TestIterSkillsFiles:
         secret.write_text("nope")
         _symlink_or_skip(skills_dir / "cat" / "myskill" / "evil", secret)
 
-        with patch.dict(os.environ, {"HERMES_HOME": str(hermes_home)}):
+        with patch.dict(os.environ, {"KABUQINA_HOME": str(hermes_home)}):
             files = iter_skills_files()
 
         paths = {f["container_path"] for f in files}
-        assert "/root/.hermes/skills/cat/myskill/SKILL.md" in paths
-        assert "/root/.hermes/skills/cat/myskill/scripts/run.sh" in paths
+        assert "/root/.kabuqina/skills/cat/myskill/SKILL.md" in paths
+        assert "/root/.kabuqina/skills/cat/myskill/scripts/run.sh" in paths
         # Symlink should be excluded
         assert not any("evil" in f["container_path"] for f in files)
 
@@ -210,7 +210,7 @@ class TestIterSkillsFiles:
         hermes_home = tmp_path / ".hermes"
         hermes_home.mkdir()
 
-        with patch.dict(os.environ, {"HERMES_HOME": str(hermes_home)}):
+        with patch.dict(os.environ, {"KABUQINA_HOME": str(hermes_home)}):
             assert iter_skills_files() == []
 
 class TestPathTraversalSecurity:
@@ -226,8 +226,8 @@ class TestPathTraversalSecurity:
     """
 
     def test_dotdot_traversal_rejected(self, tmp_path, monkeypatch):
-        """'../sensitive' must not escape HERMES_HOME."""
-        monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".hermes"))
+        """'../sensitive' must not escape KABUQINA_HOME."""
+        monkeypatch.setenv("KABUQINA_HOME", str(tmp_path / ".hermes"))
         (tmp_path / ".hermes").mkdir()
 
         # Create a sensitive file one level above hermes_home
@@ -243,7 +243,7 @@ class TestPathTraversalSecurity:
         """'../../etc/passwd' style traversal must be rejected."""
         hermes_home = tmp_path / ".hermes"
         hermes_home.mkdir()
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+        monkeypatch.setenv("KABUQINA_HOME", str(hermes_home))
 
         # Create a fake sensitive file outside hermes_home
         ssh_dir = tmp_path / ".ssh"
@@ -259,7 +259,7 @@ class TestPathTraversalSecurity:
         """Absolute paths must be rejected regardless of whether they exist."""
         hermes_home = tmp_path / ".hermes"
         hermes_home.mkdir()
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+        monkeypatch.setenv("KABUQINA_HOME", str(hermes_home))
 
         # Create a file at an absolute path
         sensitive = tmp_path / "absolute.json"
@@ -271,10 +271,10 @@ class TestPathTraversalSecurity:
         assert get_credential_file_mounts() == []
 
     def test_legitimate_file_still_works(self, tmp_path, monkeypatch):
-        """Normal files inside HERMES_HOME must still be registered."""
+        """Normal files inside KABUQINA_HOME must still be registered."""
         hermes_home = tmp_path / ".hermes"
         hermes_home.mkdir()
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+        monkeypatch.setenv("KABUQINA_HOME", str(hermes_home))
         (hermes_home / "token.json").write_text('{"token": "abc"}')
 
         result = register_credential_file("token.json")
@@ -284,24 +284,24 @@ class TestPathTraversalSecurity:
         assert len(mounts) == 1
         assert "token.json" in mounts[0]["container_path"]
 
-    def test_nested_subdir_inside_hermes_home_allowed(self, tmp_path, monkeypatch):
-        """Files in subdirectories of HERMES_HOME must be allowed."""
+    def test_nested_subdir_inside_kabuqina_home_allowed(self, tmp_path, monkeypatch):
+        """Files in subdirectories of KABUQINA_HOME must be allowed."""
         hermes_home = tmp_path / ".hermes"
         hermes_home.mkdir()
         subdir = hermes_home / "creds"
         subdir.mkdir()
         (subdir / "oauth.json").write_text("{}")
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+        monkeypatch.setenv("KABUQINA_HOME", str(hermes_home))
 
         result = register_credential_file("creds/oauth.json")
 
         assert result is True
 
     def test_symlink_traversal_rejected(self, tmp_path, monkeypatch):
-        """A symlink inside HERMES_HOME pointing outside must be rejected."""
+        """A symlink inside KABUQINA_HOME pointing outside must be rejected."""
         hermes_home = tmp_path / ".hermes"
         hermes_home.mkdir()
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+        monkeypatch.setenv("KABUQINA_HOME", str(hermes_home))
 
         # Create a sensitive file outside hermes_home
         sensitive = tmp_path / "sensitive.json"
@@ -316,7 +316,7 @@ class TestPathTraversalSecurity:
 
         result = register_credential_file("evil_link.json")
 
-        # The resolved path escapes HERMES_HOME — must be rejected
+        # The resolved path escapes KABUQINA_HOME — must be rejected
         assert result is False
         assert get_credential_file_mounts() == []
 
@@ -334,10 +334,10 @@ class TestConfigPathTraversal:
         config_path.write_text(yaml.dump({"terminal": {"credential_files": cred_files}}))
 
     def test_config_traversal_rejected(self, tmp_path, monkeypatch):
-        """'../secret' in config.yaml must not escape HERMES_HOME."""
+        """'../secret' in config.yaml must not escape KABUQINA_HOME."""
         hermes_home = tmp_path / ".hermes"
         hermes_home.mkdir()
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+        monkeypatch.setenv("KABUQINA_HOME", str(hermes_home))
 
         sensitive = tmp_path / "secret.json"
         sensitive.write_text("{}")
@@ -352,7 +352,7 @@ class TestConfigPathTraversal:
         """Absolute paths in config.yaml must be rejected."""
         hermes_home = tmp_path / ".hermes"
         hermes_home.mkdir()
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+        monkeypatch.setenv("KABUQINA_HOME", str(hermes_home))
 
         sensitive = tmp_path / "abs.json"
         sensitive.write_text("{}")
@@ -362,10 +362,10 @@ class TestConfigPathTraversal:
         assert mounts == []
 
     def test_config_legitimate_file_works(self, tmp_path, monkeypatch):
-        """Normal files inside HERMES_HOME via config must still mount."""
+        """Normal files inside KABUQINA_HOME via config must still mount."""
         hermes_home = tmp_path / ".hermes"
         hermes_home.mkdir()
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+        monkeypatch.setenv("KABUQINA_HOME", str(hermes_home))
 
         (hermes_home / "oauth.json").write_text("{}")
         self._write_config(hermes_home, ["oauth.json"])
@@ -388,12 +388,12 @@ class TestCacheDirectoryMounts:
         hermes_home.mkdir()
         (hermes_home / "cache" / "documents").mkdir(parents=True)
         (hermes_home / "cache" / "audio").mkdir(parents=True)
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+        monkeypatch.setenv("KABUQINA_HOME", str(hermes_home))
 
         mounts = get_cache_directory_mounts()
         paths = {m["container_path"] for m in mounts}
-        assert "/root/.hermes/cache/documents" in paths
-        assert "/root/.hermes/cache/audio" in paths
+        assert "/root/.kabuqina/cache/documents" in paths
+        assert "/root/.kabuqina/cache/audio" in paths
 
     def test_skips_nonexistent_dirs(self, tmp_path, monkeypatch):
         """Dirs that don't exist on disk are not returned."""
@@ -401,20 +401,20 @@ class TestCacheDirectoryMounts:
         hermes_home.mkdir()
         # Create only one cache dir
         (hermes_home / "cache" / "documents").mkdir(parents=True)
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+        monkeypatch.setenv("KABUQINA_HOME", str(hermes_home))
 
         mounts = get_cache_directory_mounts()
         assert len(mounts) == 1
-        assert mounts[0]["container_path"] == "/root/.hermes/cache/documents"
+        assert mounts[0]["container_path"] == "/root/.kabuqina/cache/documents"
 
     def test_legacy_dir_names_resolved(self, tmp_path, monkeypatch):
         """Old-style dir names (e.g. document_cache) are resolved correctly."""
         hermes_home = tmp_path / ".hermes"
         hermes_home.mkdir()
-        # Use legacy dir name — get_hermes_dir prefers old if it exists
+        # Use legacy dir name — get_kabuqina_dir prefers old if it exists
         (hermes_home / "document_cache").mkdir()
         (hermes_home / "image_cache").mkdir()
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+        monkeypatch.setenv("KABUQINA_HOME", str(hermes_home))
 
         mounts = get_cache_directory_mounts()
         host_paths = {m["host_path"] for m in mounts}
@@ -422,14 +422,14 @@ class TestCacheDirectoryMounts:
         assert str(hermes_home / "image_cache") in host_paths
         # Container paths always use the new layout
         container_paths = {m["container_path"] for m in mounts}
-        assert "/root/.hermes/cache/documents" in container_paths
-        assert "/root/.hermes/cache/images" in container_paths
+        assert "/root/.kabuqina/cache/documents" in container_paths
+        assert "/root/.kabuqina/cache/images" in container_paths
 
-    def test_empty_hermes_home(self, tmp_path, monkeypatch):
+    def test_empty_kabuqina_home(self, tmp_path, monkeypatch):
         """No cache dirs → empty list."""
         hermes_home = tmp_path / ".hermes"
         hermes_home.mkdir()
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+        monkeypatch.setenv("KABUQINA_HOME", str(hermes_home))
 
         assert get_cache_directory_mounts() == []
 
@@ -444,7 +444,7 @@ class TestIterCacheFiles:
         doc_dir.mkdir(parents=True)
         (doc_dir / "upload.zip").write_bytes(b"PK\x03\x04")
         (doc_dir / "report.pdf").write_bytes(b"%PDF-1.4")
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+        monkeypatch.setenv("KABUQINA_HOME", str(hermes_home))
 
         entries = iter_cache_files()
         names = {Path(e["container_path"]).name for e in entries}
@@ -459,7 +459,7 @@ class TestIterCacheFiles:
         real_file = doc_dir / "real.txt"
         real_file.write_text("content")
         _symlink_or_skip(doc_dir / "link.txt", real_file)
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+        monkeypatch.setenv("KABUQINA_HOME", str(hermes_home))
 
         entries = iter_cache_files()
         names = [Path(e["container_path"]).name for e in entries]
@@ -473,16 +473,16 @@ class TestIterCacheFiles:
         sub = ss_dir / "session_abc"
         sub.mkdir(parents=True)
         (sub / "screen1.png").write_bytes(b"PNG")
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+        monkeypatch.setenv("KABUQINA_HOME", str(hermes_home))
 
         entries = iter_cache_files()
         assert len(entries) == 1
-        assert entries[0]["container_path"] == "/root/.hermes/cache/screenshots/session_abc/screen1.png"
+        assert entries[0]["container_path"] == "/root/.kabuqina/cache/screenshots/session_abc/screen1.png"
 
     def test_empty_cache(self, tmp_path, monkeypatch):
         """No cache dirs → empty list."""
         hermes_home = tmp_path / ".hermes"
         hermes_home.mkdir()
-        monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+        monkeypatch.setenv("KABUQINA_HOME", str(hermes_home))
 
         assert iter_cache_files() == []

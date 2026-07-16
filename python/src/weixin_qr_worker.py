@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-HermesDesk Route C: run Weixin iLink ``qr_login`` in a short-lived child process.
+Kabuqina Route C: run Weixin iLink ``qr_login`` in a short-lived child process.
 
 Spawned by Tauri with the same bundled ``python.exe`` as ``desktop_entrypoint.py``.
 Writes ``weixin_qr_progress.json`` and ``weixin_qr_result.json`` under ``HERMESDESK_DATA_DIR``.
@@ -20,7 +20,7 @@ import sys
 import traceback
 from pathlib import Path
 
-from kabuqina_env import require
+from kabuqina_env import export_home, require, resolve_desktop_home
 
 # Must keep a reference to the real ``print`` before we monkeypatch ``builtins.print``,
 # otherwise ``_real_print`` would call the patched function and recurse infinitely.
@@ -29,7 +29,7 @@ _ORIGINAL_PRINT = builtins.print
 
 def _wire_sys_path() -> None:
     here = Path(__file__).resolve().parent
-    for sub in ("hermes", "site-packages"):
+    for sub in ("kabuqina", "hermes", "site-packages"):
         p = here / sub
         if p.is_dir():
             sys.path.insert(0, str(p))
@@ -58,9 +58,9 @@ def _real_print(*args, **kwargs):
 def main() -> int:
     _wire_sys_path()
     data_dir = _data_dir()
-    hermes_home = data_dir / "hermes-home"
-    hermes_home.mkdir(parents=True, exist_ok=True)
-    os.environ["HERMES_HOME"] = str(hermes_home)
+    kabuqina_home = resolve_desktop_home(data_dir)
+    kabuqina_home.mkdir(parents=True, exist_ok=True)
+    export_home(kabuqina_home)
 
     _write_progress({"phase": "starting", "liteapp_url": None, "message": None})
     captured_url: list[str] = []
@@ -90,11 +90,11 @@ def main() -> int:
 
         from env_validate import validate_env_value
         from gateway.platforms.weixin import qr_login
-        from hermes_cli.config import get_env_value, remove_env_value, save_env_value
+        from kabuqina_cli.config import get_env_value, remove_env_value, save_env_value
 
         _write_progress({"phase": "connecting", "liteapp_url": captured_url[0] if captured_url else None, "message": None})
 
-        creds = asyncio.run(qr_login(str(hermes_home)))
+        creds = asyncio.run(qr_login(str(kabuqina_home)))
         if not creds:
             _write_result({"ok": False, "error": "qr_login returned no credentials (timeout or cancelled)"})
             return 1

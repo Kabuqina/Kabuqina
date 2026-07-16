@@ -55,7 +55,7 @@ def _build_patched(orig):
         delivery_error: str | None = None,
     ) -> None:
         try:
-            from hermes_time import now as _hermes_now  # type: ignore[import-untyped]
+            from kabuqina_time import now as _hermes_now  # type: ignore[import-untyped]
         except ImportError:
             from datetime import datetime, timezone
 

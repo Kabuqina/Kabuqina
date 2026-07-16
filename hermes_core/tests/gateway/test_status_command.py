@@ -255,7 +255,7 @@ async def test_first_run_slack_dm_auto_sets_home_without_onboarding_prompt(monke
     monkeypatch.delenv("SLACK_HOME_CHANNEL", raising=False)
     saved: dict[str, str] = {}
     monkeypatch.setattr(
-        "hermes_cli.config.save_env_value",
+        "kabuqina_cli.config.save_env_value",
         lambda key, value: saved.__setitem__(key, value),
     )
     monkeypatch.setattr(gateway_run, "_resolve_runtime_agent_kwargs", lambda: {"api_key": "***"})
@@ -303,7 +303,7 @@ async def test_first_run_non_slack_dm_auto_sets_home_without_onboarding_prompt(m
     monkeypatch.delenv("TELEGRAM_HOME_CHANNEL", raising=False)
     saved: dict[str, str] = {}
     monkeypatch.setattr(
-        "hermes_cli.config.save_env_value",
+        "kabuqina_cli.config.save_env_value",
         lambda key, value: saved.__setitem__(key, value),
     )
     monkeypatch.setattr(gateway_run, "_resolve_runtime_agent_kwargs", lambda: {"api_key": "***"})
@@ -509,7 +509,7 @@ async def test_profile_command_reports_custom_root_profile(monkeypatch, tmp_path
     runner = _make_runner(session_entry)
     profile_home = tmp_path / "profiles" / "coder"
 
-    monkeypatch.setenv("HERMES_HOME", str(profile_home))
+    monkeypatch.setenv("KABUQINA_HOME", str(profile_home))
     monkeypatch.setattr(Path, "home", lambda: tmp_path / "unrelated-home")
 
     result = await runner._handle_profile_command(_make_event("/profile"))

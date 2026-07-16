@@ -35,6 +35,10 @@ class TestGetToolset:
     def test_unknown_returns_none(self):
         assert get_toolset("nonexistent") is None
 
+    def test_legacy_builtin_prefix_resolves_to_canonical_toolset(self):
+        assert get_toolset("hermes-cli") is get_toolset("kabuqina-cli")
+        assert resolve_toolset("hermes-cli") == resolve_toolset("kabuqina-cli")
+
 
 class TestResolveToolset:
     def test_leaf_toolset(self):
@@ -204,10 +208,10 @@ class TestToolsetConsistency:
         """All hermes-* platform toolsets share the same core tools.
 
         Platform-specific additions (e.g. ``discord`` / ``discord_admin``
-        on hermes-discord, gated on DISCORD_BOT_TOKEN) are allowed on top —
+        on kabuqina-discord, gated on DISCORD_BOT_TOKEN) are allowed on top —
         the invariant is that the core set is identical across platforms.
         """
-        platforms = ["hermes-cli", "hermes-telegram", "hermes-discord", "hermes-whatsapp", "hermes-slack", "hermes-signal", "hermes-homeassistant"]
+        platforms = ["kabuqina-cli", "kabuqina-telegram", "kabuqina-discord", "kabuqina-whatsapp", "kabuqina-slack", "kabuqina-signal", "kabuqina-homeassistant"]
         tool_sets = [set(TOOLSETS[p]["tools"]) for p in platforms]
         # All platforms must contain the shared core; platform-specific
         # extras are OK (subset check, not equality).

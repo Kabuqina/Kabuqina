@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 
 from gateway import run as gateway_run
-from hermes_cli import runtime_provider
+from kabuqina_cli import runtime_provider
 
 
 def test_gateway_logs_resolved_mode_without_secret(monkeypatch, caplog):

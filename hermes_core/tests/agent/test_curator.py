@@ -16,11 +16,11 @@ import pytest
 
 @pytest.fixture
 def curator_env(tmp_path, monkeypatch):
-    """Isolated HERMES_HOME + freshly reloaded curator + skill_usage modules."""
+    """Isolated KABUQINA_HOME + freshly reloaded curator + skill_usage modules."""
     home = tmp_path / ".hermes"
     (home / "skills").mkdir(parents=True)
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    monkeypatch.setenv("HERMES_HOME", str(home))
+    monkeypatch.setenv("KABUQINA_HOME", str(home))
 
     import tools.skill_usage as usage
     importlib.reload(usage)
@@ -453,8 +453,8 @@ def test_curator_review_prompt_offers_support_file_actions():
 
 
 def test_cli_unpin_refuses_bundled_skill(curator_env, capsys):
-    """hermes curator unpin must refuse bundled/hub skills too (matches pin)."""
-    from hermes_cli import curator as cli
+    """kabuqina curator unpin must refuse bundled/hub skills too (matches pin)."""
+    from kabuqina_cli import curator as cli
     skills_dir = curator_env["home"] / "skills"
     _write_skill(skills_dir, "ship-skill")
     (skills_dir / ".bundled_manifest").write_text(
@@ -471,7 +471,7 @@ def test_cli_unpin_refuses_bundled_skill(curator_env, capsys):
 
 
 def test_cli_pin_refuses_bundled_skill(curator_env, capsys):
-    from hermes_cli import curator as cli
+    from kabuqina_cli import curator as cli
     skills_dir = curator_env["home"] / "skills"
     _write_skill(skills_dir, "ship-skill")
     (skills_dir / ".bundled_manifest").write_text(
@@ -491,7 +491,7 @@ def test_cli_pin_refuses_bundled_skill(curator_env, capsys):
 # curator review-model resolution (canonical auxiliary.curator slot)
 #
 # Curator was unified with the rest of the aux task system in Apr 2026 so
-# `hermes model` → auxiliary picker, the dashboard Models tab, and the full
+# `kabuqina model` → auxiliary picker, the dashboard Models tab, and the full
 # per-task config (timeout, base_url, api_key, extra_body) all work for it.
 # Voscko report: curator.auxiliary.{provider,model} was advertised but never
 # read. Fix wires curator through auxiliary.curator with a legacy fallback.
@@ -608,7 +608,7 @@ def test_review_model_handles_missing_sections(curator_env):
 
 def test_curator_slot_is_canonical_aux_task():
     """Curator must be a first-class slot in the canonical auxiliary config."""
-    from hermes_cli.config import DEFAULT_CONFIG
+    from kabuqina_cli.config import DEFAULT_CONFIG
 
     assert "curator" in DEFAULT_CONFIG["auxiliary"], \
         "curator missing from DEFAULT_CONFIG['auxiliary']"

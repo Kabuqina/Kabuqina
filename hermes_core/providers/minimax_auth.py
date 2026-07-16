@@ -3,7 +3,7 @@
 """MiniMax OAuth runtime auth: PKCE, user-code flow, token polling, refresh,
 and status helpers.
 
-Extracted from hermes_cli.auth to keep the CLI facade thin.  hermes_cli.auth
+Extracted from kabuqina_cli.auth to keep the CLI facade thin.  kabuqina_cli.auth
 re-exports every public name so existing imports and test monkeypatches keep
 hitting the same objects.
 """
@@ -30,7 +30,7 @@ from providers.auth_store import (
 )
 
 # Constants live in the zero-import leaf providers.auth_constants (NOT
-# hermes_cli.auth — importing the facade here would be a circular import, since
+# kabuqina_cli.auth — importing the facade here would be a circular import, since
 # the facade re-exports this module's functions).
 from providers.auth_constants import (
     MINIMAX_OAUTH_GRANT_TYPE,
@@ -161,7 +161,7 @@ def _minimax_poll_token(
 
 
 def _minimax_save_auth_state(auth_state: Dict[str, Any]) -> None:
-    """Persist MiniMax OAuth state to Hermes auth store (~/.hermes/auth.json)."""
+    """Persist MiniMax OAuth state to Kabuqina auth store (~/.kabuqina/auth.json)."""
     with _auth_store_lock():
         auth_store = _load_auth_store()
         _save_provider_state(auth_store, "minimax-oauth", auth_state)
@@ -238,7 +238,7 @@ def resolve_minimax_oauth_runtime_credentials(
     state = get_provider_auth_state("minimax-oauth")
     if not state or not state.get("access_token"):
         raise AuthError(
-            "Not logged into MiniMax OAuth. Run `hermes model` and select "
+            "Not logged into MiniMax OAuth. Run `kabuqina model` and select "
             "MiniMax (OAuth).",
             provider="minimax-oauth", code="not_logged_in", relogin_required=True,
         )

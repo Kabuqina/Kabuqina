@@ -1,4 +1,4 @@
-"""One-off audit: which hermes_cli / cli modules are reachable from the
+"""One-off audit: which kabuqina_cli / cli modules are reachable from the
 retained desktop+gateway+cron runtime. Static AST import trace (includes lazy
 imports inside functions). Conservative: anything imported anywhere in a
 reachable module counts as reachable (kept). The complement is delete-safe.
@@ -22,9 +22,9 @@ CORE = Path("hermes_core").resolve()
 ROOTS = [
     "run_agent", "toolsets", "model_tools", "tools.registry",
     "gateway.run", "cron.scheduler",
-    "hermes_cli.config", "hermes_cli.tools_config", "hermes_cli.skills_config",
-    "hermes_cli.plugins", "tools.document_tools", "tools.skills_tool",
-    "desktop_contract", "hermes_constants", "hermes_logging", "hermes_state", "hermes_time",
+    "kabuqina_cli.config", "kabuqina_cli.tools_config", "kabuqina_cli.skills_config",
+    "kabuqina_cli.plugins", "tools.document_tools", "tools.skills_tool",
+    "desktop_contract", "hermes_constants", "kabuqina_logging", "kabuqina_state", "kabuqina_time",
 ]
 
 
@@ -74,7 +74,7 @@ def imported_modules(path: Path) -> set[str]:
 # Entrypoints we intend to delete — do NOT traverse into them, so we see what
 # the runtime needs *without* the upstream CLI god-modules. Reaching one of
 # these from a kept module is a "hook to sever".
-BLOCK = {"cli", "hermes_cli.main", "hermes_cli.setup", "hermes_cli.web_server"}
+BLOCK = {"cli", "kabuqina_cli.main", "kabuqina_cli.setup", "kabuqina_cli.web_server"}
 
 
 def main() -> None:
@@ -97,8 +97,8 @@ def main() -> None:
     if mod_to_file("cli") is not None:
         cli_mods.append("cli")
     cli_mods.extend(
-        "hermes_cli." + p.stem
-        for p in sorted((CORE / "hermes_cli").glob("*.py"))
+        "kabuqina_cli." + p.stem
+        for p in sorted((CORE / "kabuqina_cli").glob("*.py"))
         if p.stem != "__init__"
     )
     kept = [m for m in cli_mods if m in reachable]
@@ -107,8 +107,8 @@ def main() -> None:
     delset = set(deletable) | BLOCK
     total_del_lines = 0
     print(f"reachable core modules (CLI entrypoints blocked): {len(reachable)}")
-    print(f"\n=== KEEP: hermes_cli modules the runtime truly needs [{len(kept)}] ===")
-    print("   " + ", ".join(m.replace("hermes_cli.", "") for m in kept))
+    print(f"\n=== KEEP: kabuqina_cli modules the runtime truly needs [{len(kept)}] ===")
+    print("   " + ", ".join(m.replace("kabuqina_cli.", "") for m in kept))
     print(f"\n=== DELETABLE cluster once hooks severed [{len(deletable)}] ===")
     for m in deletable:
         f = mod_to_file(m)

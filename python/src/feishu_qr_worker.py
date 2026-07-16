@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-HermesDesk Route C: run Feishu / Lark scan-to-create QR flow in a short-lived child process.
+Kabuqina Route C: run Feishu / Lark scan-to-create QR flow in a short-lived child process.
 
 Spawned by Tauri with the same bundled ``python.exe`` as ``desktop_entrypoint.py``.
 Writes ``feishu_qr_progress.json`` and ``feishu_qr_result.json`` under ``HERMESDESK_DATA_DIR``.
@@ -20,12 +20,12 @@ import time
 import traceback
 from pathlib import Path
 
-from kabuqina_env import require
+from kabuqina_env import export_home, require, resolve_desktop_home
 
 
 def _wire_sys_path() -> None:
     here = Path(__file__).resolve().parent
-    for sub in ("hermes", "site-packages"):
+    for sub in ("kabuqina", "hermes", "site-packages"):
         p = here / sub
         if p.is_dir():
             sys.path.insert(0, str(p))
@@ -50,9 +50,9 @@ def _write_result(obj: dict) -> None:
 def main() -> int:
     _wire_sys_path()
     data_dir = _data_dir()
-    hermes_home = data_dir / "hermes-home"
-    hermes_home.mkdir(parents=True, exist_ok=True)
-    os.environ["HERMES_HOME"] = str(hermes_home)
+    kabuqina_home = resolve_desktop_home(data_dir)
+    kabuqina_home.mkdir(parents=True, exist_ok=True)
+    export_home(kabuqina_home)
 
     _write_progress({"phase": "starting", "qr_url": None, "message": None})
 
@@ -66,7 +66,7 @@ def main() -> int:
             _poll_registration,
             probe_bot,
         )
-        from hermes_cli.config import get_env_value, save_env_value
+        from kabuqina_cli.config import get_env_value, save_env_value
 
         _ORIGINAL_PRINT = _builtins.print
 

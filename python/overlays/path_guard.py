@@ -127,9 +127,11 @@ def install(workspace=None):
     _extra_write: list[Path] = []
     _extra_read: list[Path] = []
 
-    _hermes_home = os.environ.get("HERMES_HOME")
-    if _hermes_home:
-        _extra_write.append(Path(_hermes_home))
+    from kabuqina_env import home as _kabuqina_home_env
+
+    _kabuqina_home = _kabuqina_home_env()
+    if _kabuqina_home:
+        _extra_write.append(Path(_kabuqina_home))
 
     _data_dir = os.environ.get("HERMESDESK_DATA_DIR")
     if _data_dir:

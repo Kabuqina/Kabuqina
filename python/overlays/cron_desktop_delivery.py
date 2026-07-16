@@ -10,7 +10,7 @@ Upstream behavior:
     to ``cron/output/{job_id}/{ts}.md`` for posterity, but the user never
     sees it.
 
-For HermesDesk we want every cron firing to surface in the /chat window and
+For Kabuqina we want every cron firing to surface in the /chat window and
 fire a Windows toast.  The cleanest hook is ``cron.scheduler._deliver_result``:
 we wrap it so that for ``deliver in {"local", "desktop", ""}`` we POST to the
 Tauri desktop_delivery bridge.  Any non-local target (feishu, weixin, …) is
@@ -29,13 +29,13 @@ import sys
 from pathlib import Path
 from typing import Any
 
-log = logging.getLogger("hermesdesk.cron.delivery")
+log = logging.getLogger("kabuqina.cron.delivery")
 
 _INSTALLED = False
 
 
 def _ensure_gateway_env_loaded_for_delivery() -> None:
-    """Load ``HERMES_HOME/.env`` + messaging API hosts before remote cron delivery."""
+    """Load ``KABUQINA_HOME/.env`` + messaging hosts before remote delivery."""
     try:
         from gateway_env_loader import ensure_gateway_env_for_delivery
 
@@ -43,20 +43,20 @@ def _ensure_gateway_env_loaded_for_delivery() -> None:
         return
     except ImportError:
         pass
-    import os
+    from kabuqina_env import home as kabuqina_home_env
 
-    home = (os.environ.get("HERMES_HOME") or "").strip()
+    home = kabuqina_home_env().strip()
     if not home:
-        log.warning("cron delivery: HERMES_HOME unset; all remote bots will fail")
+        log.warning("cron delivery: KABUQINA_HOME unset; all remote bots will fail")
         return
     try:
-        from hermes_cli.env_loader import load_hermes_dotenv
+        from kabuqina_cli.env_loader import load_kabuqina_dotenv
 
-        paths = load_hermes_dotenv(hermes_home=Path(home))
+        paths = load_kabuqina_dotenv(kabuqina_home=Path(home))
         if paths:
             log.info("cron delivery: loaded %s", ", ".join(str(p) for p in paths))
     except Exception:
-        log.exception("cron delivery: failed to load hermes-home .env")
+        log.exception("cron delivery: failed to load kabuqina-home .env")
 
 
 def _resolve_desktop_targets(deliver_value: str) -> tuple[bool, str]:
@@ -164,7 +164,7 @@ def install() -> None:
                 if not targets:
                     log.error(
                         "Job '%s': no remote targets resolved for deliver=%r — "
-                        "set *_HOME_CHANNEL in hermes-home/.env or use "
+                        "set *_HOME_CHANNEL in kabuqina-home/.env or use "
                         "deliver=\"platform:chat_id\"",
                         job.get("id", "?"),
                         remaining,

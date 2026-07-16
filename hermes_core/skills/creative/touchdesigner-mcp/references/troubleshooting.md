@@ -133,11 +133,11 @@ n.cook(force=True)
 actual = str(n.width) + 'x' + str(n.height)
 ```
 
-## 5. Hermes Configuration
+## 5. Kabuqina Configuration
 
 ### Config location
 
-`$HERMES_HOME/config.yaml` (defaults to `~/.hermes/config.yaml` when `HERMES_HOME` is unset)
+`$KABUQINA_HOME/config.yaml` (defaults to `~/.kabuqina/config.yaml` when `KABUQINA_HOME` is unset)
 
 ### MCP entry format
 

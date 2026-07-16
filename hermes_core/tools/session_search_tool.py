@@ -30,7 +30,7 @@ MAX_SUMMARY_TOKENS = 10000
 def _get_session_search_max_concurrency(default: int = 3) -> int:
     """Read auxiliary.session_search.max_concurrency with sane bounds."""
     try:
-        from hermes_cli.config import load_config
+        from kabuqina_cli.config import load_config
         config = load_config()
     except ImportError:
         return default
@@ -520,7 +520,7 @@ def session_search(
 def check_session_search_requirements() -> bool:
     """Requires SQLite state database and an auxiliary text model."""
     try:
-        from hermes_state import DEFAULT_DB_PATH
+        from kabuqina_state import DEFAULT_DB_PATH
         return DEFAULT_DB_PATH.parent.exists()
     except ImportError:
         return False

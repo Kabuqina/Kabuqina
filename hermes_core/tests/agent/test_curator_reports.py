@@ -16,17 +16,17 @@ import pytest
 
 @pytest.fixture
 def curator_env(tmp_path, monkeypatch):
-    """Isolated HERMES_HOME with a skills/ dir + reset curator module state."""
+    """Isolated KABUQINA_HOME with a skills/ dir + reset curator module state."""
     home = tmp_path / ".hermes"
     home.mkdir()
     (home / "skills").mkdir()
     (home / "logs").mkdir()
-    monkeypatch.setenv("HERMES_HOME", str(home))
+    monkeypatch.setenv("KABUQINA_HOME", str(home))
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
 
     import importlib
-    import hermes_constants
-    importlib.reload(hermes_constants)
+    import kabuqina_constants
+    importlib.reload(kabuqina_constants)
     from agent import curator
     importlib.reload(curator)
     from tools import skill_usage

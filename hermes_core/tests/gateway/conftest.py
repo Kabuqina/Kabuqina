@@ -38,6 +38,15 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from tests.gateway._discord_test_stub import ensure_comprehensive_discord_stub
+from tests.gateway._telegram_test_stub import ensure_comprehensive_telegram_stub
+
+
+def _is_real_imported_module(name: str) -> bool:
+    """Distinguish an installed module from permissive ``MagicMock`` stubs."""
+    module = sys.modules.get(name)
+    return isinstance(getattr(module, "__file__", None), (str, bytes, Path))
+
 
 def _ensure_telegram_mock() -> None:
     """Install a comprehensive telegram mock in sys.modules.
@@ -47,7 +56,7 @@ def _ensure_telegram_mock() -> None:
     ``setdefault`` so it wins even if a partial/broken import
     already cached a module with ``ChatType = None``.
     """
-    if "telegram" in sys.modules and hasattr(sys.modules["telegram"], "__file__"):
+    if _is_real_imported_module("telegram"):
         return  # Real library is installed — nothing to mock
 
     mod = MagicMock()
@@ -96,7 +105,7 @@ def _ensure_discord_mock() -> None:
     this function (it short-circuits when already present) rather than
     maintaining their own mock setup.
     """
-    if "discord" in sys.modules and hasattr(sys.modules["discord"], "__file__"):
+    if _is_real_imported_module("discord"):
         return  # Real library is installed — nothing to mock
 
     from types import SimpleNamespace
@@ -215,9 +224,10 @@ def _ensure_discord_mock() -> None:
     sys.modules["discord.ext.commands"] = commands_mod
 
 
-# Run at collection time — before any test file's module-level imports.
-_ensure_telegram_mock()
-_ensure_discord_mock()
+# Run at collection time — before any test file's module-level imports.  The
+# shared helpers preserve one module object across gateway/e2e conftest order.
+ensure_comprehensive_telegram_stub()
+ensure_comprehensive_discord_stub()
 
 
 # ---------------------------------------------------------------------------
@@ -342,4 +352,3 @@ def pytest_configure(config):
             + "\n\n"
             + _GUARD_HINT
         )
-

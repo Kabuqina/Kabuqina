@@ -18,6 +18,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from tests.gateway._discord_test_stub import ensure_comprehensive_discord_stub
+from tests.gateway._telegram_test_stub import ensure_comprehensive_telegram_stub
+
 from gateway.config import GatewayConfig, Platform, PlatformConfig
 from gateway.platforms.base import MessageEvent, SendResult
 from gateway.session import SessionEntry, SessionSource, build_session_key
@@ -110,8 +113,8 @@ def _ensure_slack_mock():
         sys.modules.setdefault(name, mod)
 
 
-_ensure_telegram_mock()
-_ensure_discord_mock()
+ensure_comprehensive_telegram_stub()
+ensure_comprehensive_discord_stub()
 _ensure_slack_mock()
 
 import discord  # noqa: E402 — mocked above

@@ -9,7 +9,7 @@ This is NOT a tool — the LLM never sees it.  It's transparent infrastructure
 controlled by the ``checkpoints`` config flag or ``--checkpoints`` CLI flag.
 
 Architecture:
-    ~/.hermes/checkpoints/{sha256(abs_dir)[:16]}/   — shadow git repo
+    ~/.kabuqina/checkpoints/{sha256(abs_dir)[:16]}/   — shadow git repo
         HEAD, refs/, objects/                        — standard git internals
         HERMES_WORKDIR                               — original dir path
         info/exclude                                 — default excludes
@@ -25,7 +25,7 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
-from hermes_constants import get_hermes_home
+from kabuqina_constants import get_kabuqina_home
 from typing import Dict, List, Optional, Set
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-CHECKPOINT_BASE = get_hermes_home() / "checkpoints"
+CHECKPOINT_BASE = get_kabuqina_home() / "checkpoints"
 
 DEFAULT_EXCLUDES = [
     "node_modules/",
@@ -128,7 +128,7 @@ def _shadow_repo_path(working_dir: str) -> Path:
 def _git_env(shadow_repo: Path, working_dir: str) -> dict:
     """Build env dict that redirects git to the shadow repo.
 
-    The shadow repo is internal Hermes infrastructure — it must NOT inherit
+    The shadow repo is internal Kabuqina infrastructure — it must NOT inherit
     the user's global or system git config.  User-level settings like
     ``commit.gpgsign = true``, signing hooks, or credential helpers would
     either break background snapshots or, worse, spawn interactive prompts
@@ -231,8 +231,8 @@ def _init_shadow_repo(shadow_repo: Path, working_dir: str) -> Optional[str]:
     if not ok:
         return f"Shadow repo init failed: {err}"
 
-    _run_git(["config", "user.email", "hermes@local"], shadow_repo, working_dir)
-    _run_git(["config", "user.name", "Hermes Checkpoint"], shadow_repo, working_dir)
+    _run_git(["config", "user.email", "kabuqina@local"], shadow_repo, working_dir)
+    _run_git(["config", "user.name", "Kabuqina Checkpoint"], shadow_repo, working_dir)
     # Explicitly disable commit/tag signing in the shadow repo.  _git_env
     # already isolates from the user's global config, but writing these into
     # the shadow's own config is belt-and-suspenders — it guarantees the
@@ -796,7 +796,7 @@ def maybe_auto_prune_checkpoints(
     Writes ``CHECKPOINT_BASE/.last_prune`` on completion so subsequent
     calls within ``min_interval_hours`` short-circuit.  Designed to be
     called once per CLI/gateway process startup; the marker keeps costs
-    bounded regardless of how many times hermes is invoked per day.
+    bounded regardless of how many times Kabuqina is invoked per day.
 
     Returns ``{"skipped": bool, "result": prune_checkpoints-dict,
     "error": optional str}``.
@@ -851,4 +851,3 @@ def maybe_auto_prune_checkpoints(
         out["error"] = str(exc)
 
     return out
-

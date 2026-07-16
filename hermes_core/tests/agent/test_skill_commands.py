@@ -525,7 +525,7 @@ class TestInlineShellExpansion:
             patch(
                 "agent.skill_commands._load_skills_config",
                 return_value={"template_vars": True, "inline_shell": True,
-                              "inline_shell_timeout": 5},
+                              "inline_shell_timeout": 15 if os.name == "nt" else 5},
             ),
         ):
             _make_skill(

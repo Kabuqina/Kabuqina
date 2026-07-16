@@ -21,7 +21,7 @@ from utils import base_url_host_matches
 
 
 def _build_gemini_thinking_config(model: str, reasoning_config: dict | None) -> dict | None:
-    """Translate Hermes/OpenRouter-style reasoning config to Gemini thinkingConfig."""
+    """Translate Kabuqina/OpenRouter-style reasoning config to Gemini thinkingConfig."""
     if reasoning_config is None or not isinstance(reasoning_config, dict):
         return None
 
@@ -48,7 +48,7 @@ def _build_gemini_thinking_config(model: str, reasoning_config: dict | None) -> 
 
     thinking_config: Dict[str, Any] = {"includeThoughts": True}
 
-    # Gemini 2.5 accepts thinkingBudget; don't guess a budget from Hermes'
+    # Gemini 2.5 accepts thinkingBudget; don't guess a budget from Kabuqina'
     # coarse effort levels. ``includeThoughts`` alone is enough to surface
     # thought parts without risking request validation errors.
     if normalized_model.startswith("gemini-2.5-"):
@@ -58,7 +58,7 @@ def _build_gemini_thinking_config(model: str, reasoning_config: dict | None) -> 
         effort = "medium"
 
     # Gemini 3 Flash documents low/medium/high thinking levels; Gemini 3 Pro
-    # is stricter (low/high). Clamp Hermes' wider effort set to what each
+    # is stricter (low/high). Clamp Kabuqina' wider effort set to what each
     # family accepts so we never forward an undocumented level verbatim.
     if normalized_model.startswith(("gemini-3", "gemini-3.1")):
         if "flash" in normalized_model:
@@ -305,7 +305,7 @@ class ChatCompletionsTransport(ProviderTransport):
 
         # DeepSeek native API (OpenAI-compatible): top-level ``reasoning_effort``.
         # ``supports_reasoning`` gates OpenRouter-style ``extra_body.reasoning`` only,
-        # so DeepSeek needs an explicit branch (# TC-AB-001 HermesDesk).
+        # so DeepSeek needs an explicit branch (# TC-AB-001 Kabuqina).
         is_deepseek_native = provider_name == "deepseek" or base_url_host_matches(
             base_url or "", "api.deepseek.com"
         )
@@ -358,7 +358,7 @@ class ChatCompletionsTransport(ProviderTransport):
                     extra_body["reasoning"] = {"enabled": True, "effort": "medium"}
 
         if is_nous:
-            extra_body["tags"] = ["product=hermes-agent"]
+            extra_body["tags"] = ["product=kabuqina-agent"]
 
         # Ollama num_ctx
         ollama_ctx = params.get("ollama_num_ctx")

@@ -149,7 +149,12 @@ export function Settings() {
             </>
           )}
 
-          {tab === "model" && <SettingsLlmConfig />}
+          {tab === "model" && (
+            <SettingsLlmConfig
+              hasSecret={!!status?.hasSecret}
+              onCredentialChanged={refreshStatus}
+            />
+          )}
 
           {tab === "gateway" && (
             <SettingsGateway

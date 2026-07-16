@@ -1,6 +1,6 @@
 """Vercel Sandbox execution environment.
 
-Uses the Vercel Python SDK to run commands in cloud sandboxes through Hermes'
+Uses the Vercel Python SDK to run commands in cloud sandboxes through Kabuqina'
 shared ``BaseEnvironment`` shell contract. When persistence is enabled, the
 backend stores task-scoped snapshot metadata under ``HERMES_HOME`` and restores
 new sandboxes from those snapshots on later task reuse.
@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
-from hermes_constants import get_hermes_home
+from kabuqina_constants import get_kabuqina_home
 from tools.environments.base import (
     BaseEnvironment,
     _ThreadedProcessHandle,
@@ -140,7 +140,7 @@ def _extract_result_returncode(result: Any) -> int:
 
 
 def _snapshot_store_path() -> Path:
-    return get_hermes_home() / _SNAPSHOT_STORE_NAME
+    return get_kabuqina_home() / _SNAPSHOT_STORE_NAME
 
 
 def _load_snapshots() -> dict:
@@ -323,9 +323,9 @@ class VercelSandboxEnvironment(BaseEnvironment):
         self._remote_home = self._detect_remote_home()
 
         if self._remote_home == "/":
-            container_base = "/.hermes"
+            container_base = "/.kabuqina"
         else:
-            container_base = f"{self._remote_home.rstrip('/')}/.hermes"
+            container_base = f"{self._remote_home.rstrip('/')}/.kabuqina"
         self._sync_manager = FileSyncManager(
             get_files_fn=lambda: iter_sync_files(container_base),
             upload_fn=self._vercel_upload,
@@ -528,13 +528,13 @@ class VercelSandboxEnvironment(BaseEnvironment):
             )
 
     def _vercel_bulk_download(self, dest_tar_path: Path) -> None:
-        remote_hermes = (
-            "/.hermes"
+        remote_kabuqina = (
+            "/.kabuqina"
             if self._remote_home == "/"
-            else f"{self._remote_home.rstrip('/')}/.hermes"
+            else f"{self._remote_home.rstrip('/')}/.kabuqina"
         )
-        archive_member = remote_hermes.lstrip("/")
-        remote_tar = f"/tmp/.hermes_sync.{os.getpid()}.tar"
+        archive_member = remote_kabuqina.lstrip("/")
+        remote_tar = f"/tmp/.kabuqina_sync.{os.getpid()}.tar"
         sandbox = self._sandbox
         if sandbox is None:
             raise RuntimeError("Vercel sandbox is not attached")

@@ -27,4 +27,4 @@ Quick map of **`docs/`** (repo root). Prefer **`architecture.md`** + **`README.m
 | [code-signing.md](code-signing.md) | Installer signing |
 | [user-research/2026-05-25-student-pilot-feedback.md](user-research/2026-05-25-student-pilot-feedback.md) | 学生内测定性反馈纪要（安装/UI/课程场景） |
 
-Supporting / incident docs (titles vary): `hermesdesk_gateway_bug_report.md`, etc.
+Supporting / historical incident docs retain their original filenames (for example `hermesdesk_gateway_bug_report.md`).

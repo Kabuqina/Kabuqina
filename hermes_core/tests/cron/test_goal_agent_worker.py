@@ -44,7 +44,7 @@ _REPORT_PAYLOAD = {
 @pytest.fixture(autouse=True)
 def isolated_home(tmp_path, monkeypatch):
     home = tmp_path / "hermes-home"
-    monkeypatch.setattr(goal_state, "get_hermes_home", lambda: home)
+    monkeypatch.setattr(goal_state, "get_kabuqina_home", lambda: home)
     return home
 
 

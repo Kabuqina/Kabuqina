@@ -5,11 +5,11 @@ Hermetic-test invariants enforced here (see AGENTS.md for rationale):
 1. **No credential env vars.** All provider/credential-shaped env vars
    (ending in _API_KEY, _TOKEN, _SECRET, _PASSWORD, _CREDENTIALS, etc.)
    are unset before every test. Local developer keys cannot leak in.
-2. **Isolated HERMES_HOME.** HERMES_HOME points to a per-test tempdir so
-   code reading ``~/.hermes/*`` via ``get_hermes_home()`` can't see the
+2. **Isolated KABUQINA_HOME.** KABUQINA_HOME points to a per-test tempdir so
+   code reading ``~/.kabuqina/*`` via ``get_kabuqina_home()`` can't see the
    real one. (We do NOT also redirect HOME — that broke subprocesses in
-   CI. Code using ``Path.home() / ".hermes"`` instead of the canonical
-   ``get_hermes_home()`` is a bug to fix at the callsite.)
+   CI. Code using ``Path.home() / ".kabuqina"`` instead of the canonical
+   ``get_kabuqina_home()`` is a bug to fix at the callsite.)
 3. **Deterministic runtime.** TZ=UTC, LANG=C.UTF-8, PYTHONHASHSEED=0.
 4. **No HERMES_SESSION_* inheritance** — the agent's current gateway
    session must not leak into tests.
@@ -156,6 +156,10 @@ def _looks_like_credential(name: str) -> bool:
 # HERMES_* vars that change test behavior by being set. Unset all of these
 # unconditionally — individual tests that need them set do so explicitly.
 _HERMES_BEHAVIORAL_VARS = frozenset({
+    "KABUQINA_HOME",
+    "HERMES_HOME",
+    "KABUQINA_HOME_MODE",
+    "KABUQINA_TIMEZONE",
     "HERMES_YOLO_MODE",
     "HERMES_INTERACTIVE",
     "HERMES_QUIET",
@@ -182,7 +186,7 @@ _HERMES_BEHAVIORAL_VARS = frozenset({
     "HERMES_REDACT_SECRETS",
     "HERMES_BACKGROUND_NOTIFICATIONS",
     "HERMES_EXEC_ASK",
-    "HERMES_HOME_MODE",
+    "KABUQINA_HOME_MODE",
     "TERMINAL_CWD",
     "TERMINAL_ENV",
     "TERMINAL_VERCEL_RUNTIME",
@@ -191,6 +195,11 @@ _HERMES_BEHAVIORAL_VARS = frozenset({
     "TERMINAL_CONTAINER_MEMORY",
     "TERMINAL_CONTAINER_PERSISTENT",
     "TERMINAL_DOCKER_RUN_AS_HOST_USER",
+    # Optional telephony routing values are not credentials, but they change
+    # diagnose/default-number behavior and must not leak between tests.
+    "TWILIO_PHONE_NUMBER",
+    "TWILIO_PHONE_NUMBER_SID",
+    "VAPI_PHONE_NUMBER_ID",
     "BROWSER_CDP_URL",
     "CAMOFOX_URL",
     # Platform allowlists — not credentials, but if set from any source
@@ -240,8 +249,8 @@ _HERMES_BEHAVIORAL_VARS = frozenset({
 def _hermetic_environment(tmp_path, monkeypatch):
     """Blank out all credential/behavioral env vars so local and CI match.
 
-    Also redirects HOME and HERMES_HOME to per-test tempdirs so code that
-    reads ``~/.hermes/*`` can't touch the real one, and pins TZ/LANG so
+    Also redirects HOME and KABUQINA_HOME to per-test tempdirs so code that
+    reads ``~/.kabuqina/*`` can't touch the real one, and pins TZ/LANG so
     datetime/locale-sensitive tests are deterministic.
     """
     # 1. Blank every credential-shaped env var that's currently set.
@@ -253,41 +262,42 @@ def _hermetic_environment(tmp_path, monkeypatch):
     for name in _HERMES_BEHAVIORAL_VARS:
         monkeypatch.delenv(name, raising=False)
 
-    # 3. Redirect HERMES_HOME to a per-test tempdir. Code that reads
-    #    ``~/.hermes/*`` via ``get_hermes_home()`` now gets the tempdir.
+    # 3. Redirect KABUQINA_HOME to a per-test tempdir. Code that reads
+    #    ``~/.kabuqina/*`` via ``get_kabuqina_home()`` now gets the tempdir.
     #
     #    NOTE: We do NOT also redirect HOME. Doing so broke CI because
     #    some tests (and their transitive deps) spawn subprocesses that
     #    inherit HOME and expect it to be stable. If a test genuinely
     #    needs HOME isolated, it should set it explicitly in its own
-    #    fixture. Any code in the codebase reading ``~/.hermes/*`` via
-    #    ``Path.home() / ".hermes"`` instead of ``get_hermes_home()``
+    #    fixture. Any code in the codebase reading ``~/.kabuqina/*`` via
+    #    ``Path.home() / ".kabuqina"`` instead of ``get_kabuqina_home()``
     #    is a bug to fix at the callsite.
-    fake_hermes_home = tmp_path / "hermes_test"
-    fake_hermes_home.mkdir()
-    (fake_hermes_home / "sessions").mkdir()
-    (fake_hermes_home / "cron").mkdir()
-    (fake_hermes_home / "memories").mkdir()
-    (fake_hermes_home / "skills").mkdir()
-    monkeypatch.setenv("HERMES_HOME", str(fake_hermes_home))
+    fake_kabuqina_home = tmp_path / "kabuqina_test"
+    fake_kabuqina_home.mkdir()
+    (fake_kabuqina_home / "sessions").mkdir()
+    (fake_kabuqina_home / "cron").mkdir()
+    (fake_kabuqina_home / "memories").mkdir()
+    (fake_kabuqina_home / "skills").mkdir()
+    monkeypatch.setenv("KABUQINA_HOME", str(fake_kabuqina_home))
 
     # ``cron.jobs`` and ``cron.scheduler`` cache their profile paths at module
-    # import time for production, where HERMES_HOME is fixed before startup.
+    # import time for production, where KABUQINA_HOME is fixed before startup.
     # Pytest-xdist instead imports test modules during collection and switches
-    # HERMES_HOME for every test. Rebind the cached paths after the per-test
+    # KABUQINA_HOME for every test. Rebind the cached paths after the per-test
     # home is selected so workers never share the collector's cron store.
     import cron as _cron_package
     import cron.jobs as _cron_jobs
     import cron.scheduler as _cron_scheduler
 
-    fake_cron_dir = fake_hermes_home / "cron"
+    fake_cron_dir = fake_kabuqina_home / "cron"
     fake_jobs_file = fake_cron_dir / "jobs.json"
-    monkeypatch.setattr(_cron_jobs, "HERMES_DIR", fake_hermes_home)
+    monkeypatch.setattr(_cron_jobs, "KABUQINA_DIR", fake_kabuqina_home)
+    monkeypatch.setattr(_cron_jobs, "HERMES_DIR", fake_kabuqina_home)
     monkeypatch.setattr(_cron_jobs, "CRON_DIR", fake_cron_dir)
     monkeypatch.setattr(_cron_jobs, "JOBS_FILE", fake_jobs_file)
     monkeypatch.setattr(_cron_jobs, "OUTPUT_DIR", fake_cron_dir / "output")
     monkeypatch.setattr(_cron_package, "JOBS_FILE", fake_jobs_file)
-    monkeypatch.setattr(_cron_scheduler, "_hermes_home", fake_hermes_home)
+    monkeypatch.setattr(_cron_scheduler, "_kabuqina_home", fake_kabuqina_home)
     monkeypatch.setattr(_cron_scheduler, "_LOCK_DIR", fake_cron_dir)
     monkeypatch.setattr(_cron_scheduler, "_LOCK_FILE", fake_cron_dir / ".tick.lock")
 
@@ -308,10 +318,10 @@ def _hermetic_environment(tmp_path, monkeypatch):
     monkeypatch.setenv("AWS_METADATA_SERVICE_NUM_ATTEMPTS", "1")
 
     # 5. Reset plugin singleton so tests don't leak plugins from
-    #    ~/.hermes/plugins/ (which, per step 3, is now empty — but the
+    #    ~/.kabuqina/plugins/ (which, per step 3, is now empty — but the
     #    singleton might still be cached from a previous test).
     try:
-        import hermes_cli.plugins as _plugins_mod
+        import kabuqina_cli.plugins as _plugins_mod
         monkeypatch.setattr(_plugins_mod, "_plugin_manager", None)
     except Exception:
         pass
@@ -319,7 +329,7 @@ def _hermetic_environment(tmp_path, monkeypatch):
 # Backward-compat alias — old tests reference this fixture name. Keep it
 # as a no-op wrapper so imports don't break.
 @pytest.fixture(autouse=True)
-def _isolate_hermes_home(_hermetic_environment):
+def _isolate_kabuqina_home(_hermetic_environment):
     """Alias preserved for any test that yields this name explicitly."""
     return None
 
@@ -350,7 +360,7 @@ def _reset_module_state():
     """
     # --- logging — quiet/one-shot paths mutate process-global logger state ---
     logging.disable(logging.NOTSET)
-    for _logger_name in ("tools", "run_agent", "trajectory_compressor", "cron", "hermes_cli"):
+    for _logger_name in ("tools", "run_agent", "trajectory_compressor", "cron", "kabuqina_cli"):
         _logger = logging.getLogger(_logger_name)
         _logger.disabled = False
         _logger.setLevel(logging.NOTSET)
@@ -461,7 +471,7 @@ def tmp_dir(tmp_path):
 
 @pytest.fixture()
 def mock_config():
-    """Return a minimal hermes config dict suitable for unit tests."""
+    """Return a minimal kabuqina config dict suitable for unit tests."""
     return {
         "model": "test/mock-model",
         "toolsets": ["terminal", "file"],

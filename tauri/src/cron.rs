@@ -17,11 +17,15 @@ use tauri::AppHandle;
 /// (Windows) on ``cron/.tick.lock``.  For read-heavy metadata listing we
 /// don't contend with the tick lock; for writes we take the same lock.
 fn cron_lock_path(data_dir: &std::path::Path) -> PathBuf {
-    data_dir.join("hermes-home").join("cron").join(".tick.lock")
+    crate::gateway_supervisor::kabuqina_home_path(data_dir)
+        .join("cron")
+        .join(".tick.lock")
 }
 
 fn jobs_path(data_dir: &std::path::Path) -> PathBuf {
-    data_dir.join("hermes-home").join("cron").join("jobs.json")
+    crate::gateway_supervisor::kabuqina_home_path(data_dir)
+        .join("cron")
+        .join("jobs.json")
 }
 
 /// A cron job as stored in jobs.json (subset of fields we surface).
@@ -142,7 +146,7 @@ fn write_jobs_raw(app: &AppHandle, jobs: &[serde_json::Value]) -> Result<(), Str
 }
 
 /// ISO-8601 timestamp with offset, matching Python's
-/// ``hermes_time.now().isoformat()`` output (e.g. ``2026-05-10T23:55:51.708931+08:00``).
+/// ``kabuqina_time.now().isoformat()`` output (e.g. ``2026-05-10T23:55:51.708931+08:00``).
 fn chrono_iso_now() -> String {
     // Use SystemTime + chrono-free formatting to avoid pulling in chrono
     // just for a timestamp. Local time with millisecond precision is fine
@@ -247,7 +251,9 @@ fn sanitized_pause_reason(reason: Option<String>) -> Option<String> {
 }
 
 fn canonical_goal_state_path(data_dir: &std::path::Path, job_id: &str) -> Option<PathBuf> {
-    let root = data_dir.join("hermes-home").join("cron").join("goal-runs");
+    let root = crate::gateway_supervisor::kabuqina_home_path(data_dir)
+        .join("cron")
+        .join("goal-runs");
     let canonical_root = std::fs::canonicalize(&root).ok()?;
     let state_path = std::fs::canonicalize(root.join(job_id).join("state.json")).ok()?;
     state_path
@@ -729,7 +735,7 @@ mod tests {
     fn goal_projection_reads_only_sanitized_host_state() {
         let data_dir = temp_data_dir("goal");
         let run_dir = data_dir
-            .join("hermes-home")
+            .join("kabuqina-home")
             .join("cron")
             .join("goal-runs")
             .join("abc123def456");
@@ -774,7 +780,7 @@ mod tests {
     fn malformed_goal_state_marks_only_that_entry_as_state_error() {
         let data_dir = temp_data_dir("malformed");
         let run_dir = data_dir
-            .join("hermes-home")
+            .join("kabuqina-home")
             .join("cron")
             .join("goal-runs")
             .join("abc123def456");
@@ -823,7 +829,10 @@ mod tests {
     #[test]
     fn goal_projection_rejects_goal_run_link_outside_host_root() {
         let data_dir = temp_data_dir("goal-path-escape");
-        let goal_runs_root = data_dir.join("hermes-home").join("cron").join("goal-runs");
+        let goal_runs_root = data_dir
+            .join("kabuqina-home")
+            .join("cron")
+            .join("goal-runs");
         std::fs::create_dir_all(&goal_runs_root).unwrap();
         let outside_run_dir = data_dir.join("gateway-profile").join("abc123def456");
         write_valid_goal_state(&outside_run_dir, "2026-06-27T12:00:00+00:00");
@@ -840,7 +849,7 @@ mod tests {
     fn goal_projection_rejects_non_rfc3339_updated_at() {
         let data_dir = temp_data_dir("goal-invalid-updated-at");
         let run_dir = data_dir
-            .join("hermes-home")
+            .join("kabuqina-home")
             .join("cron")
             .join("goal-runs")
             .join("abc123def456");

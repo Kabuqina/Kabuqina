@@ -28,9 +28,9 @@ def main() -> int:
         print(f"missing site-packages: {sp}", file=sys.stderr)
         return 1
     sys.path.insert(0, str(sp))
-    hermes = root / "hermes"
-    if hermes.is_dir():
-        sys.path.insert(0, str(hermes))
+    core = root / "kabuqina"
+    if core.is_dir():
+        sys.path.insert(0, str(core))
     import yaml
 
     if not hasattr(yaml, "safe_load"):

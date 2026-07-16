@@ -15,7 +15,7 @@ export interface VoiceSetupResult {
 /**
  * Persist the wizard's choice for a voice section: writes the picked
  * provider to ``config.yaml`` (`<section>.provider`) and the supplied env
- * pairs to ``hermes-home/.env`` (which also refreshes ``os.environ`` so the
+ * pairs to ``kabuqina-home/.env`` (which also refreshes ``os.environ`` so the
  * running Python process picks up the new key without a restart).
  *
  * - ``provider = null`` leaves the existing setting untouched (used when the

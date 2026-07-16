@@ -1,7 +1,7 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-//! Read/write arbitrary gateway-related keys in the host ``hermes-home/.env``.
+//! Read/write arbitrary gateway-related keys in the host ``kabuqina-home/.env``.
 //! Used by Settings UI for per-channel behavior (connection mode, DM policy, …).
 
 use serde::Deserialize;
@@ -9,7 +9,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use tauri::AppHandle;
 
-use crate::gateway_supervisor::{hermes_home_path, parse_dotenv_upper};
+use crate::gateway_supervisor::{kabuqina_home_path, parse_dotenv_upper};
 use crate::validation::validate_env_value;
 
 #[derive(Debug, Clone, Deserialize)]
@@ -35,14 +35,14 @@ fn validate_env_key(key: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Read selected keys from host ``~hermes-home/.env``. Omits keys that are unset or empty.
+/// Read selected keys from host ``~kabuqina-home/.env``. Omits keys that are unset or empty.
 #[tauri::command]
 pub fn cmd_gateway_host_env_get(
     app: AppHandle,
     keys: Vec<String>,
 ) -> Result<HashMap<String, String>, String> {
     let data_dir = crate::paths::ensure_data_dir(&app).map_err(|e| e.to_string())?;
-    let hh = hermes_home_path(&data_dir);
+    let hh = kabuqina_home_path(&data_dir);
     let map = parse_dotenv_upper(&hh);
     let mut out = HashMap::new();
     for k in keys {
@@ -71,7 +71,7 @@ pub fn cmd_gateway_host_env_patch(
     }
 
     let data_dir = crate::paths::ensure_data_dir(&app).map_err(|e| e.to_string())?;
-    let hh = hermes_home_path(&data_dir);
+    let hh = kabuqina_home_path(&data_dir);
     std::fs::create_dir_all(&hh).map_err(|e| e.to_string())?;
 
     let env_path: PathBuf = hh.join(".env");

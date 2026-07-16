@@ -437,7 +437,7 @@ _DESK_COMMAND_DESCRIPTION_ZH: Dict[str, str] = {
 
 
 def _desk_command_lines() -> List[str]:
-    from hermes_cli.commands import COMMAND_REGISTRY
+    from kabuqina_cli.commands import COMMAND_REGISTRY
 
     lines: List[str] = []
     for cmd in COMMAND_REGISTRY:
@@ -457,7 +457,7 @@ def _desk_command_lines() -> List[str]:
 
 def _desk_persist_slash_response(session_id: str, command_text: str, response_text: str) -> None:
     try:
-        from hermes_state import SessionDB
+        from kabuqina_state import SessionDB
 
         db = SessionDB()
         try:
@@ -581,9 +581,9 @@ def _desk_refresh_learning_ephemeral_prompt(agent: Any, context: Any) -> None:
 def _desk_chat_build_agent(session_id: str, db: Any, *, warmup: bool = False) -> Any:
     """Construct AIAgent using the same config + credentials as the CLI."""
     from run_agent import AIAgent
-    from hermes_cli.config import load_config
-    from hermes_cli.runtime_provider import resolve_runtime_provider
-    from hermes_cli.tools_config import _get_platform_tools
+    from kabuqina_cli.config import load_config
+    from kabuqina_cli.runtime_provider import resolve_runtime_provider
+    from kabuqina_cli.tools_config import _get_platform_tools
 
     try:
         from tools.terminal_tool import register_task_env_overrides
@@ -623,7 +623,7 @@ def _desk_chat_build_agent(session_id: str, db: Any, *, warmup: bool = False) ->
     api_key = str(runtime.get("api_key") or "").strip()
     if not api_key:
         raise ValueError(
-            "No API credentials available. Configure a model key in Hermes (Settings / Keys or ~/.hermes)."
+            "No API credentials available. Configure a model key in Kabuqina (Settings / Keys or ~/.kabuqina)."
         )
 
     log.info(

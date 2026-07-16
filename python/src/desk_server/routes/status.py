@@ -10,8 +10,8 @@ import time
 from fastapi import APIRouter
 
 from desk_server.warm import desk_is_warming
-from hermes_cli import __release_date__, __version__
-from hermes_cli.config import check_config_version, get_config_path, get_env_path, get_hermes_home
+from kabuqina_cli import __release_date__, __version__
+from kabuqina_cli.config import check_config_version, get_config_path, get_env_path, get_kabuqina_home
 from gateway.status import get_running_pid
 
 log = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ async def get_status():
 
     active_sessions = 0
     try:
-        from hermes_state import SessionDB
+        from kabuqina_state import SessionDB
 
         db = SessionDB()
         try:
@@ -46,7 +46,7 @@ async def get_status():
     return {
         "version": __version__,
         "release_date": __release_date__,
-        "hermes_home": str(get_hermes_home()),
+        "hermes_home": str(get_kabuqina_home()),
         "config_path": str(get_config_path()),
         "env_path": str(get_env_path()),
         "config_version": current_ver,

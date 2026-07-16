@@ -20,7 +20,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 
-from hermes_time import now as _hermes_now
+from kabuqina_time import now as _hermes_now
 from cron.goal_controls import (
     GoalControlBusy,
     GoalControlNotFound,

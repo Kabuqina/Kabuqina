@@ -24,7 +24,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterator, Mapping, Optional
 
-from hermes_constants import get_default_hermes_root
+from kabuqina_constants import get_default_kabuqina_root
 from learning.learning_context import (
     LearningExecutionContext,
     learning_context_scope,
@@ -38,7 +38,7 @@ _GATEWAY_HASH_LEN = 16
 
 
 def _owner_id_path(root: Optional[Path] = None) -> Path:
-    base = Path(root) if root is not None else get_default_hermes_root()
+    base = Path(root) if root is not None else get_default_kabuqina_root()
     return base / _OWNER_ID_FILENAME
 
 

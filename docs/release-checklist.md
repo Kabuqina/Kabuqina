@@ -28,7 +28,7 @@
 
 仓库约定顺序：[AGENTS.md](../AGENTS.md)「构建流程」一节。
 
-1. [ ] **`.\python\build_bundle.ps1 -Verify`**（含 Hermes SPA、runtime）
+1. [ ] **`.\python\build_bundle.ps1 -Verify`**（canonical Kabuqina runtime；不含上游 SPA）
 2. [ ] **`cd web` → `npm ci` → `npm run build`**
 3. [ ] **`cd tauri` → `cargo tauri build`**（`bundle.targets` 含 **nsis**；完整 bundle ~2GB 超出 WiX MSI 单 cab 上限，故用 NSIS）
 
@@ -77,9 +77,9 @@ Splash 路由逻辑见 `web/src/Splash.tsx`：有密钥或允许「稍后配置�
 
 ---
 
-## 7. Hermes shell 跳转
+## 7. Shell 与 desk API
 
-- [ ] Web shell 跳转至 **`http://127.0.0.1:<port>`** 的 Hermes dashboard 仍可打开；控制台无 CSP / 连接类报错
+- [ ] Web shell 的 `/chat`、Settings 与 sessions 均能通过随机 loopback 端口访问 desk API；控制台无 CSP / 连接类报错
 
 ---
 

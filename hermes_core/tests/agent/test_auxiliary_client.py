@@ -218,7 +218,7 @@ class TestAuxiliaryPoolAwareness:
 
         with (
             patch("providers.chat_completions.load_pool", return_value=_Pool()),
-            patch("hermes_cli.models.get_nous_recommended_aux_model", return_value=None),
+            patch("kabuqina_cli.models.get_nous_recommended_aux_model", return_value=None),
             patch("providers.chat_completions.OpenAI") as mock_openai,
         ):
             from providers.chat_completions import _try_nous
@@ -236,7 +236,7 @@ class TestAuxiliaryPoolAwareness:
         with (
             patch("providers.chat_completions._read_nous_auth", return_value={"access_token": "***"}),
             patch("providers.chat_completions._resolve_nous_runtime_api", return_value=("fresh-agent-key", fresh_base)),
-            patch("hermes_cli.models.get_nous_recommended_aux_model", return_value="minimax/minimax-m2.7") as mock_rec,
+            patch("kabuqina_cli.models.get_nous_recommended_aux_model", return_value="minimax/minimax-m2.7") as mock_rec,
             patch("providers.chat_completions.OpenAI") as mock_openai,
         ):
             from providers.chat_completions import _try_nous
@@ -254,7 +254,7 @@ class TestAuxiliaryPoolAwareness:
         with (
             patch("providers.chat_completions._read_nous_auth", return_value={"access_token": "***"}),
             patch("providers.chat_completions._resolve_nous_runtime_api", return_value=("fresh-agent-key", fresh_base)),
-            patch("hermes_cli.models.get_nous_recommended_aux_model", return_value="google/gemini-3-flash-preview") as mock_rec,
+            patch("kabuqina_cli.models.get_nous_recommended_aux_model", return_value="google/gemini-3-flash-preview") as mock_rec,
             patch("providers.chat_completions.OpenAI"),
         ):
             from providers.chat_completions import _try_nous
@@ -270,7 +270,7 @@ class TestAuxiliaryPoolAwareness:
         with (
             patch("providers.chat_completions._read_nous_auth", return_value={"access_token": "***"}),
             patch("providers.chat_completions._resolve_nous_runtime_api", return_value=("fresh-agent-key", fresh_base)),
-            patch("hermes_cli.models.get_nous_recommended_aux_model", side_effect=RuntimeError("portal down")),
+            patch("kabuqina_cli.models.get_nous_recommended_aux_model", side_effect=RuntimeError("portal down")),
             patch("providers.chat_completions.OpenAI"),
         ):
             from providers.chat_completions import _try_nous
@@ -481,7 +481,7 @@ class TestCallLlmPaymentFallback:
 def test_resolve_api_key_provider_skips_unconfigured_anthropic(monkeypatch):
     """_resolve_api_key_provider must not try anthropic when user never configured it."""
     from collections import OrderedDict
-    from hermes_cli.auth import ProviderConfig
+    from kabuqina_cli.auth import ProviderConfig
 
     # Build a minimal registry with only "anthropic" so the loop is guaranteed
     # to reach it without being short-circuited by earlier providers.
@@ -502,9 +502,9 @@ def test_resolve_api_key_provider_skips_unconfigured_anthropic(monkeypatch):
         return None, None
 
     monkeypatch.setattr("providers.chat_completions._try_anthropic", mock_try_anthropic)
-    monkeypatch.setattr("hermes_cli.auth.PROVIDER_REGISTRY", fake_registry)
+    monkeypatch.setattr("kabuqina_cli.auth.PROVIDER_REGISTRY", fake_registry)
     monkeypatch.setattr(
-        "hermes_cli.auth.is_provider_explicitly_configured",
+        "kabuqina_cli.auth.is_provider_explicitly_configured",
         lambda pid: False,
     )
 
@@ -748,7 +748,7 @@ class TestAuxiliaryTaskExtraBody:
             }
         }
 
-        with patch("hermes_cli.config.load_config", return_value=config), patch(
+        with patch("kabuqina_cli.config.load_config", return_value=config), patch(
             "providers.chat_completions._get_cached_client",
             return_value=(client, "glm-4.5-air"),
         ):
@@ -779,7 +779,7 @@ class TestAuxiliaryTaskExtraBody:
             }
         }
 
-        with patch("hermes_cli.config.load_config", return_value=config), patch(
+        with patch("kabuqina_cli.config.load_config", return_value=config), patch(
             "providers.chat_completions._get_cached_client",
             return_value=(client, "glm-4.5-air"),
         ):

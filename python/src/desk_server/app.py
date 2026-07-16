@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from desk_server.auth import install_middleware
 from desk_server.routes import capabilities_routes, chat, export, goal_routes, load_packages, sessions, status, study_routes, voice
-from hermes_cli import __version__
+from kabuqina_cli import __version__
 
 
 def create_app() -> FastAPI:

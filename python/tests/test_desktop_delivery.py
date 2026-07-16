@@ -30,7 +30,7 @@ class TestDesktopDelivery(unittest.TestCase):
             "**⏰ 喝水**\n\n该喝水啦",
         )
 
-    @patch("hermes_state.SessionDB")
+    @patch("kabuqina_state.SessionDB")
     def test_persist_reminder_session_writes_history(self, session_db_cls):
         db = MagicMock()
         session_db_cls.return_value = db

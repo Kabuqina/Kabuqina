@@ -160,7 +160,7 @@ def install() -> None:
 
     # Gateway children (bots) must NOT get the full data_dir in extra_write —
     # that would allow cross-profile reads/writes via the file tool.  They only
-    # get their own HERMES_HOME (a per-platform profile), set by the Rust
+    # get their own KABUQINA_HOME (a per-platform profile), set by the Rust
     # supervisor at spawn time.  The host (desktop agent) gets the full
     # data_dir as before.
     is_gateway_child = bool(os.environ.get("HERMESDESK_GATEWAY_PLATFORM"))
@@ -170,10 +170,12 @@ def install() -> None:
     # Hermes' own config/cache root (set by desktop_entrypoint to a path
     # inside HERMESDESK_DATA_DIR). Without this Hermes can't persist its
     # config.yaml, sessions, or permanent allowlist.
-    # For gateway children HERMES_HOME is set to <data_dir>/hermes-home/profiles/<platform>/.
-    hermes_home = os.environ.get("HERMES_HOME")
-    if hermes_home:
-        extra_write.append(Path(hermes_home))
+    # For gateway children KABUQINA_HOME is a per-platform profile directory.
+    from kabuqina_env import home as kabuqina_home_env
+
+    kabuqina_home = kabuqina_home_env()
+    if kabuqina_home:
+        extra_write.append(Path(kabuqina_home))
 
     # Allow reading/writing in temp; many libs (httpx caches, fal-client) need it
     extra_write.append(Path(os.environ.get("TEMP", os.environ.get("TMP", "C:/Windows/Temp"))))

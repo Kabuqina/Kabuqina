@@ -21,7 +21,7 @@ Or manually:
 ```bash
 hermes config set memory.provider byterover
 # Optional cloud sync:
-echo "BRV_API_KEY=your-key" >> ~/.hermes/.env
+echo "BRV_API_KEY=your-key" >> ~/.kabuqina/.env
 ```
 
 ## Config

@@ -3,7 +3,7 @@
 
 """Goal Runner Task 9 Step 2 — per-profile isolation.
 
-Host and gateway profiles are distinct `HERMES_HOME` trees. The same job id in
+Host and gateway profiles are distinct `KABUQINA_HOME` trees. The same job id in
 two homes must resolve, lock, and project only its active home, and Pilot 1
 must not execute a goal in a gateway-shaped profile (its `cron.goal_loop` gate
 stays disabled) even if a goal job file is copied there.
@@ -24,9 +24,9 @@ JOB_ID = "abc123def456"
 
 
 def _use_home(monkeypatch, home):
-    from hermes_cli import config_loader
+    from kabuqina_cli import config_loader
 
-    monkeypatch.setenv("HERMES_HOME", str(home))
+    monkeypatch.setenv("KABUQINA_HOME", str(home))
     config_loader._LOAD_CONFIG_CACHE.clear()
 
 

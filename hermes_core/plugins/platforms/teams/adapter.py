@@ -586,7 +586,7 @@ class TeamsAdapter(BasePlatformAdapter):
 
 def interactive_setup() -> None:
     """Guide the user through Teams setup using the Teams CLI."""
-    from hermes_cli.config import (
+    from kabuqina_cli.config import (
         get_env_value,
         save_env_value,
         prompt,
@@ -648,7 +648,7 @@ def interactive_setup() -> None:
         print_warning("⚠️  Open access — anyone who can message the bot can command it.")
 
     print()
-    print_success("Teams configuration saved to ~/.hermes/.env")
+    print_success("Teams configuration saved to ~/.kabuqina/.env")
     print_info("Install the app in Teams:  teams app install --id <teamsAppId>")
     print_info("Restart the gateway:       hermes gateway restart")
 

@@ -28,7 +28,7 @@ class TestSkipGatewayPlatformPlugins(unittest.TestCase):
             importlib.reload(sgpp)
             sgpp.install()
 
-            from hermes_cli.plugins import PluginManager, PluginManifest
+            from kabuqina_cli.plugins import PluginManager, PluginManifest
 
             mgr = PluginManager()
             manifest = PluginManifest(
@@ -48,7 +48,7 @@ class TestSkipGatewayPlatformPlugins(unittest.TestCase):
         with patch.dict(os.environ, env, clear=True):
             import importlib
             import overlays.skip_gateway_platform_plugins as sgpp
-            from hermes_cli.plugins import PluginManager
+            from kabuqina_cli.plugins import PluginManager
 
             orig = PluginManager._load_plugin
             sgpp._INSTALLED = False

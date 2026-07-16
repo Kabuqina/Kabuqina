@@ -19,7 +19,7 @@ hermes memory setup    # generic picker, also works
 Or manually:
 ```bash
 hermes config set memory.provider honcho
-echo "HONCHO_API_KEY=***" >> ~/.hermes/.env
+echo "HONCHO_API_KEY=***" >> ~/.kabuqina/.env
 ```
 
 ## Architecture Overview
@@ -106,7 +106,7 @@ Config is read from the first file that exists:
 | Priority | Path | Scope |
 |----------|------|-------|
 | 1 | `$HERMES_HOME/honcho.json` | Profile-local (isolated Hermes instances) |
-| 2 | `~/.hermes/honcho.json` | Default profile (shared host blocks) |
+| 2 | `~/.kabuqina/honcho.json` | Default profile (shared host blocks) |
 | 3 | `~/.honcho/config.json` | Global (cross-app interop) |
 
 Host key is derived from the active Hermes profile: `hermes` (default) or `hermes.<profile>`.

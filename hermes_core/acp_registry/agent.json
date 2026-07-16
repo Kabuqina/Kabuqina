@@ -6,7 +6,7 @@
   "icon": "icon.svg",
   "distribution": {
     "type": "command",
-    "command": "hermes",
+    "command": "kabuqina",
     "args": ["acp"]
   }
 }

@@ -17,16 +17,16 @@ from overlays import desktop_llm_config
 class DesktopLlmConfigApiModeTests(unittest.TestCase):
     def run_install(self, *, initial: dict, env: dict[str, str]) -> dict:
         saved: list[dict] = []
-        fake_package = types.ModuleType("hermes_cli")
+        fake_package = types.ModuleType("kabuqina_cli")
         fake_package.__path__ = []  # type: ignore[attr-defined]
-        fake_config = types.ModuleType("hermes_cli.config")
+        fake_config = types.ModuleType("kabuqina_cli.config")
         fake_config.load_config = lambda: copy.deepcopy(initial)  # type: ignore[attr-defined]
         fake_config.save_config = lambda value: saved.append(copy.deepcopy(value))  # type: ignore[attr-defined]
 
         with (
             patch.dict(
                 sys.modules,
-                {"hermes_cli": fake_package, "hermes_cli.config": fake_config},
+                {"kabuqina_cli": fake_package, "kabuqina_cli.config": fake_config},
             ),
             patch.dict(os.environ, env, clear=True),
         ):

@@ -57,7 +57,7 @@ cd tauri; cargo tauri dev
 
 ## Overlays（`python/overlays/`）
 
-Python entrypoint 会在导入任何 Hermes 模块前调用 `overlays.apply_all()`。七个 overlay 按固定顺序安装：
+Python entrypoint 会在导入任何 agent core 模块前调用 `overlays.apply_all()`。七个 overlay 按固定顺序安装：
 
 | 顺序 | Overlay | 效果 |
 |------|---------|------|
@@ -99,7 +99,7 @@ Kabuqina 是 monorepo：**agent / gateway / cron / tools 的语义与实现**归
 
 | 层 | 路径 | 职责（放这里） | 不要放这里 |
 |----|------|----------------|------------|
-| **Agent core** | `hermes_core/` | 对话循环、`run_agent`、工具与 toolset、cron 调度语义（如 `mode: notify`）、gateway 平台适配、provider、session、skills | Tauri/DPAPI、loopback HMAC、`HERMES_HOME` 重定向、Windows toast |
+| **Agent core** | `hermes_core/` | 对话循环、`run_agent`、工具与 toolset、cron 调度语义（如 `mode: notify`）、gateway 平台适配、provider、session、skills | Tauri/DPAPI、loopback HMAC、`KABUQINA_HOME` 重定向、Windows toast |
 | **Policy（目标形态）** | `python/src/*_policy.py` | 可测试、可注入的策略对象（路径、网络、工具集、审批后端） | 大块 monkey-patch；长期应减少 overlay 包装 |
 | **Overlays（集成胶水）** | `python/overlays/` | 启动顺序、`strip_shims`、从 Tauri 拉密钥、桌面 LLM 种子、**cron → 桌面通知桥**、审批 UI 桥、gateway 平台插件裁剪 | 与上游等价的 cron「是否跑 LLM」分支（应在 `cron/scheduler.py`） |
 | **桌面 Python 服务** | `python/src/`（`desk_server/`、`desktop_entrypoint.py` 等） | loopback API、时区引导、`gateway_env_loader`、bundle 入口 | 复制一份 scheduler |
@@ -111,7 +111,7 @@ Kabuqina 是 monorepo：**agent / gateway / cron / tools 的语义与实现**归
 1. **web child 与 gateway child 都应一致的行为** → 优先改 **`hermes_core`**（单处实现，避免 web 装了 overlay、gateway 漏装）。
 2. **仅 Kabuqina 桌面存在**（toast、Tauri 审批、`desktop_delivery` POST）→ **`python/overlays/` 或 `python/src/`**。
 3. **能写成 policy 注入、且不必改上游函数体** → 先 **`python/src/` policy**；稳定后删对应 `# DEPRECATED` overlay。
-4. **必须 wrap 已导入的 Hermes 函数且短期无法下沉** → overlay，但 issue/注释里写**迁往 core 或 policy 的条件**。
+4. **必须 wrap 已导入的 core 函数且短期无法下沉** → overlay，但 issue/注释里写**迁往 core 或 policy 的条件**。
 
 ### 谨慎修改 `hermes_core` 的 checklist
 
@@ -170,8 +170,8 @@ cd tauri; cargo tauri icon ..\web\public\kabuqina_na_256.png
 | Path | 用途 |
 |------|------|
 | `python/dist/runtime/` | Bundled Python + hermes_core + overlays + site-packages |
-| `%LOCALAPPDATA%\com.kabuqina.app\` | 用户级 app data（logs、HERMES_HOME、workspace state） |
-| `%LOCALAPPDATA%\com.kabuqina.app\hermes-home\` | Hermes config root（从 `~/.hermes` 重定向） |
+| `%LOCALAPPDATA%\com.kabuqina.app\` | 用户级 app data（logs、KABUQINA_HOME、workspace state） |
+| `%LOCALAPPDATA%\com.kabuqina.app\kabuqina-home\` | Kabuqina config root（旧 `hermes-home` 会在首启安全迁移） |
 | `%USERPROFILE%\Documents\KabuqinaWork\` | 默认 workspace（可配置） |
 | `tauri/target/release/bundle/msi/` | MSI installer 输出 |
 
@@ -288,7 +288,7 @@ Kabuqina is a monorepo: **agent / gateway / cron / tools semantics** live in `he
 
 | Layer | Path | Put here | Do not put here |
 |-------|------|----------|-----------------|
-| **Agent core** | `hermes_core/` | Conversation loop, `run_agent`, tools/toolsets, cron semantics (e.g. `mode: notify`), gateway adapters, providers, sessions, skills | Tauri/DPAPI, loopback HMAC, `HERMES_HOME` redirect, Windows toasts |
+| **Agent core** | `hermes_core/` | Conversation loop, `run_agent`, tools/toolsets, cron semantics (e.g. `mode: notify`), gateway adapters, providers, sessions, skills | Tauri/DPAPI, loopback HMAC, `KABUQINA_HOME` redirect, Windows toasts |
 | **Policy (target shape)** | `python/src/*_policy.py` | Testable injectable policies (paths, network, toolsets, approval backend) | Large monkey-patches; shrink overlays over time |
 | **Overlays (glue)** | `python/overlays/` | Boot order, `strip_shims`, Tauri secret fetch, desktop LLM seed, **cron → desktop notify bridge**, approval UI bridge, gateway plugin trimming | Upstream-equivalent “skip LLM” cron branches (belong in `cron/scheduler.py`) |
 | **Desktop Python** | `python/src/` (`desk_server/`, `desktop_entrypoint.py`, …) | Loopback API, timezone bootstrap, `gateway_env_loader`, bundle entrypoints | A second scheduler copy |
@@ -299,7 +299,7 @@ Kabuqina is a monorepo: **agent / gateway / cron / tools semantics** live in `he
 
 1. **Same behavior in web child and gateway child** → prefer **`hermes_core`** (one implementation; avoids overlay only on web).
 2. **Desktop-only** (toast, Tauri approval, `desktop_delivery` POST) → **`python/overlays/` or `python/src/`**.
-3. **Injectable policy without editing Hermes bodies** → **`python/src/` policy** first; delete matching `# DEPRECATED` overlay when stable.
+3. **Injectable policy without editing core function bodies** → **`python/src/` policy** first; delete matching `# DEPRECATED` overlay when stable.
 4. **Must monkey-patch an imported symbol short-term** → overlay, with a note on **when to move to core or policy**.
 
 ### Checklist for low-risk `hermes_core` changes
@@ -359,8 +359,8 @@ cd tauri; cargo tauri icon ..\web\public\kabuqina_na_256.png
 | Path | Purpose |
 |------|---------|
 | `python/dist/runtime/` | Bundled Python + hermes_core + overlays + site-packages |
-| `%LOCALAPPDATA%\com.kabuqina.app\` | Per-user app data (logs, HERMES_HOME, workspace state) |
-| `%LOCALAPPDATA%\com.kabuqina.app\hermes-home\` | Hermes config root (redirected from `~/.hermes`) |
+| `%LOCALAPPDATA%\com.kabuqina.app\` | Per-user app data (logs, KABUQINA_HOME, workspace state) |
+| `%LOCALAPPDATA%\com.kabuqina.app\kabuqina-home\` | Kabuqina config root (legacy `hermes-home` is migrated safely on first launch) |
 | `%USERPROFILE%\Documents\KabuqinaWork\` | Default workspace (configurable) |
 | `tauri/target/release/bundle/msi/` | MSI installer output |
 

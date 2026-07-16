@@ -18,7 +18,7 @@ sufficient to compromise the user's machine.
 ## L1 — OS / Tauri capabilities
 
 - Per-user install under `%LOCALAPPDATA%\com.kabuqina.app`. **No admin elevation
-  is ever requested.** Anything Hermes can break, the user's normal
+  is ever requested.** Anything Kabuqina can break, the user's normal
   privileges can already break.
 - The Tauri WebView has a tight CSP (`tauri.conf.json#app.security.csp`)
   and an explicit capability allowlist
@@ -50,7 +50,7 @@ Implemented by [`python/overlays/network_allowlist.py`](../python/overlays/netwo
 Wraps `httpx.Client.send` (and async equivalent), plus `requests`'
 `HTTPAdapter.send`. Every outbound URL is checked against an allowlist:
 
-- `127.0.0.1` / `localhost` (Hermes' own loopback)
+- `127.0.0.1` / `localhost` (Kabuqina's own loopback)
 - The configured LLM provider host
 - Skills hub: `agentskills.io`, `raw.githubusercontent.com`,
   `github.com`, `api.github.com`
@@ -126,12 +126,12 @@ this document.
 - A user who flips Power-user on, then approves a destructive command in
   the modal. We assume informed consent.
 - A malicious skill the user installs from outside the official skill hub.
-  Skills run as Python; they have the same privileges as Hermes itself.
+  Skills run as Python; they have the same privileges as Kabuqina itself.
   The skill hub has its own review process.
 - A compromised LLM provider host. We don't pin certificates beyond the
   system trust store.
 - Side-channel data exfiltration through the LLM (the LLM provider sees
-  whatever Hermes sends them). Use a self-hosted endpoint if this matters.
+  whatever Kabuqina sends them). Use a self-hosted endpoint if this matters.
 - A gateway bot that is itself the direct exfiltration path — memory tagging
   prevents the LLM from reading desktop entries, but if the LLM already
   knows a fact from earlier in the conversation, it can still repeat it.

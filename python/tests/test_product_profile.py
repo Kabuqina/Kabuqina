@@ -143,9 +143,9 @@ class GlobalStudentCutTests(unittest.TestCase):
             self.assertIn(name, GLOBAL_STUDENT_CUT)
 
     def test_cut_providers_absent_from_active_provider_surfaces(self):
-        from hermes_cli.auth import AuthError, PROVIDER_REGISTRY, resolve_provider
-        from hermes_cli.models import CANONICAL_PROVIDERS, _PROVIDER_MODELS
-        from hermes_cli.providers import ALIASES, HERMES_OVERLAYS
+        from kabuqina_cli.auth import AuthError, PROVIDER_REGISTRY, resolve_provider
+        from kabuqina_cli.models import CANONICAL_PROVIDERS, _PROVIDER_MODELS
+        from kabuqina_cli.providers import ALIASES, HERMES_OVERLAYS
         from secret_store import _PROVIDER_ENV
 
         registry_ids = {

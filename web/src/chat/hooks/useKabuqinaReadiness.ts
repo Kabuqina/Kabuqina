@@ -29,7 +29,7 @@ export function useKabuqinaReadiness() {
       setHermesWarming(cachedSnap.kabuqinaWarming);
       setBootErr(cachedSnap.bootErr);
       if (import.meta.env.DEV && bootT0 > 0 && snap.kabuqinaReady && !snap.kabuqinaWarming) {
-        console.info(`[kabuqina] hermes_ready_ms=${Math.round(performance.now() - bootT0)}`);
+        console.info(`[kabuqina] kabuqina_ready_ms=${Math.round(performance.now() - bootT0)}`);
       }
     })();
     return () => {

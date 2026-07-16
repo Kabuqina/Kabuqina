@@ -66,7 +66,7 @@ pub struct AppState {
     /// Edge CDP browser instance for browser automation (Windows only).
     pub edge_browser: Arc<crate::edge_browser::EdgeSupervisor>,
     pub supervisor: Arc<Mutex<Option<python_supervisor::Supervisor>>>,
-    /// Optional ``hermes gateway run`` child (messaging adapters).
+    /// Optional ``kabuqina gateway run`` child (messaging adapters).
     pub gateway_supervisor: Arc<Mutex<Option<gateway_supervisor::GatewaySupervisor>>>,
     /// Optional Weixin QR login child (`weixin_qr_worker.py`); separate from the long-lived Hermes process.
     pub weixin_qr_child: Arc<Mutex<Option<tokio::process::Child>>>,
@@ -445,7 +445,7 @@ async fn stop_gateway_service(app: &tauri::AppHandle) {
         Ok(d) => d,
         Err(_) => return,
     };
-    let host_home = gateway_supervisor::hermes_home_path(&data_dir);
+    let host_home = gateway_supervisor::kabuqina_home_path(&data_dir);
     let profiles_dir = host_home.join("profiles");
     if let Ok(entries) = std::fs::read_dir(&profiles_dir) {
         for entry in entries.flatten() {
@@ -466,7 +466,7 @@ async fn maybe_auto_start_gateway_service(
     if !paths::is_auto_start_gateway(app) {
         return;
     }
-    let hh = gateway_supervisor::hermes_home_path(&cfg.data_dir);
+    let hh = gateway_supervisor::kabuqina_home_path(&cfg.data_dir);
     if !gateway_supervisor::dotenv_suggests_messaging_gateway(&hh) {
         return;
     }
@@ -508,7 +508,7 @@ async fn ensure_gateway_after_hermes_respawn(
         log::info!("messaging gateway remains stopped after Hermes respawn (manual start only)");
         return;
     }
-    let hh = gateway_supervisor::hermes_home_path(&cfg.data_dir);
+    let hh = gateway_supervisor::kabuqina_home_path(&cfg.data_dir);
     if !gateway_supervisor::dotenv_suggests_messaging_gateway(&hh) {
         return;
     }
@@ -549,7 +549,7 @@ pub struct GatewayStatusPayload {
 #[tauri::command]
 async fn cmd_gateway_status(app: tauri::AppHandle) -> Result<GatewayStatusPayload, String> {
     let data_dir = paths::ensure_data_dir(&app).map_err(|e| e.to_string())?;
-    let hh = gateway_supervisor::hermes_home_path(&data_dir);
+    let hh = gateway_supervisor::kabuqina_home_path(&data_dir);
     let eligible = gateway_supervisor::dotenv_suggests_messaging_gateway(&hh);
 
     let embedded_gateway_startup_survival = match resolve_spawn_config_for_children(&app).await {
@@ -603,10 +603,10 @@ async fn cmd_gateway_status(app: tauri::AppHandle) -> Result<GatewayStatusPayloa
 #[tauri::command]
 async fn cmd_gateway_start(app: tauri::AppHandle) -> Result<(), String> {
     let cfg = resolve_spawn_config_for_children(&app).await?;
-    let hh = gateway_supervisor::hermes_home_path(&cfg.data_dir);
+    let hh = gateway_supervisor::kabuqina_home_path(&cfg.data_dir);
     if !gateway_supervisor::dotenv_suggests_messaging_gateway(&hh) {
         return Err(
-            "No messaging credentials found in hermes-home/.env. Open Keys in Hermes and save tokens first."
+            "No messaging credentials found in kabuqina-home/.env. Open Keys in Kabuqina and save tokens first."
                 .into(),
         );
     }
@@ -659,7 +659,7 @@ async fn cmd_gateway_start(app: tauri::AppHandle) -> Result<(), String> {
             parts.push(format!("stderr (captured): {capped}"));
         }
         parts.push(
-            "If this persists: run python/build_bundle.ps1 so hermes-home picks up the latest gateway (first-connect retry fix), then relaunch Kabuqina."
+            "If this persists: run python/build_bundle.ps1 so kabuqina-home picks up the latest gateway (first-connect retry fix), then relaunch Kabuqina."
                 .into(),
         );
         if !gateway_supervisor::bundled_gateway_has_startup_survival(&cfg.bundle_dir) {
