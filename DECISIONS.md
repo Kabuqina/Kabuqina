@@ -24,7 +24,7 @@ The "Kabuqina" name is provisional. Trademark check is pending — see
 |----------|----------|
 | Product relationship | **Independent.** Kabuqina is a standalone monorepo. The upstream `NousResearch/hermes-agent` is frozen at `hermes_core/`. |
 | Upstream sync | **Cherry-pick only.** Security advisories, CVEs, and provider API breaking changes are manually cherry-picked and logged in this file. No batch merges. |
-| Gateway platforms | Student runtime keeps Weixin, QQ Bot, Feishu/Lark, Telegram, and WeCom. DingTalk is temporarily disabled because `dingtalk-stream` requires legacy `websockets<13`, which conflicts with Browser/CDP; revisit for the office-oriented edition or after the SDK supports modern websockets. Weixin and Feishu remain feature-flagged at the `GatewayPolicy` level. |
+| Gateway platforms | Profile allowlists are exact: `mainland_cn` keeps Weixin, QQ Bot, and DingTalk; `sea` keeps Telegram, WhatsApp, and Email. Desktop/Tauri is the product shell for both profiles, not a gateway adapter. WeCom, Feishu/Lark, Discord, all other built-in long-tail adapters, and bundled IRC/Teams platform plugins are deleted in v0.5. |
 | Architecture | `agent_core` (frozen Hermes) + `desktop_policy` (6 injected policy objects). Overlays are transitional and tagged `# DEPRECATED`. |
 
 ## Desk-minimal runtime (2026-05-21)
@@ -981,3 +981,20 @@ ChatML/tool-call protocol identifiers, upstream/legal/history references,
 gateway owner IDs, and database schemas are deliberately unchanged. Removing
 the one-release shims is a separate post-v0.4 task; no engine selector is
 reintroduced under a new name.
+
+**v0.5 gateway profile contraction (2026-07-17).** This decision supersedes
+the gateway retention assumptions recorded on 2026-05-03 and in the v0.3
+mainland pruning section above. Desktop/Tauri remains the product shell for
+both profiles and is recorded separately from gateway adapters. The exact
+external gateway allowlists are `mainland_cn = {weixin, qqbot, dingtalk}` and
+`sea = {telegram, whatsapp, email}`. WeCom (including callback/crypto),
+Feishu/Lark, Discord, SMS/Twilio, Slack, Signal, Matrix, Mattermost,
+BlueBubbles, Home Assistant, Yuanbao, Webhook, API Server, and the bundled
+IRC/Teams platform plugins are physical deletion targets; Git history is the
+recovery path. Bundled `kind: platform` plugins do not receive a retention
+exception merely because they register dynamically. DingTalk must be upgraded
+off its legacy conflicting SDK/transport before mainland release, and SEA must
+gain a real isolated profile implementation instead of falling back to the
+mainland mapping. Removed credentials/profile data are not silently executed
+or recursively deleted, and removed home-channel/cron targets are never
+silently rerouted to another person or channel.
