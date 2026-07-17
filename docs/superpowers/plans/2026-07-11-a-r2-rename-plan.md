@@ -1,5 +1,9 @@
 # A-R2 desktop / web internal rename plan
 
+**Status:** complete（2026-07-11）。实现提交为 `b4c4176b`，compatibility follow-up
+为 `5e232eca`；D-1 readiness gate 在 `a0312b01` 上复核 A-R2 已落地且 closing audit
+通过。
+
 ## Scope
 
 Rename the Kabuqina-owned desktop and web identifiers from `hermesdesk` /

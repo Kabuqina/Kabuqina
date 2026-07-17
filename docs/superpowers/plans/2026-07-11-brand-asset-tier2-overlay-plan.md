@@ -45,7 +45,9 @@ exists).
   art files themselves go only to the private repo.
 - Placeholder art must be genuinely neutral (generic mug/geometric mark, no
   Kabuqina geometry/palette) and Apache-2.0.
-- Commit locally per task; do NOT push; stop for review at plan end.
+- During execution, commit locally per task; do NOT push; stop for review at
+  plan end. Owner accepted the branded installation round and authorized final
+  A-track closure on 2026-07-17, satisfying this review gate.
 
 ---
 

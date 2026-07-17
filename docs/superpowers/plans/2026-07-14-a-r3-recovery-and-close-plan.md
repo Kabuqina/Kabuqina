@@ -280,7 +280,7 @@ V7 只能在所有实现和测试文件冻结后运行一次。若只修改结�
 - [x] 将本轮 CHANGES REQUESTED follow-up 形成 owner-approved commit `cbfbdceb`，并
       确认工作树干净。
 - [x] 最终独立复审确认 **A-R3 PASS**，将 A-R3 本地 slice 标记完成。
-- [ ] 推送 `main`（独立的仓库同步动作，仍待 owner 明确授权）。
+- [x] owner 授权并推送 `main`；A-R3 最终收口已同步到 `origin/main@3b85a85a`。
 
 ## 5. 停止条件
 
@@ -319,4 +319,4 @@ A-R3 只有同时满足以下条件才算完成：
 | Phase 3 提交落地 | complete with deviation | `5abea97c` | owner 选择 consolidated commit，未保留计划的五提交切片 |
 | Phase 4 自动验证 | complete | V0–V7；follow-up Python 15、gateway 6、Rust home 3、Rust secrets 21、Rust child env 1 passed | V7 全量 15,355 passed；运行时代码 follow-up 已按影响面聚焦回归 |
 | Phase 5 owner 手工轮 | complete | V8：`.test-output/a-r3-v8/V8-RESULT.md` | NSIS 安装态、home、credential、clear-both 均通过 |
-| Phase 6 复审与完成 | complete (local) | `4895a7b4` + `cbfbdceb` + owner A-R3 PASS | 本地 slice 已关闭、工作树干净；仅剩 owner 授权后 push `main` |
+| Phase 6 复审与完成 | complete | `4895a7b4` + `cbfbdceb` + `3b85a85a` + owner A-R3 PASS | 工作树干净；最终收口已推送到 `origin/main` |
