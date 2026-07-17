@@ -14,6 +14,9 @@ real assets via a build-time overlay step.
 **Slice id:** A-R1b of the
 [v0.4.0 development plan](2026-07-06-v0.4.0-development-plan.md).
 
+**Status:** complete（2026-07-17）。默认占位构建与正式品牌 overlay 构建均已完成
+安装态验证；私有品牌资产未进入公开仓库。
+
 **Non-goals:** recalling already-published artwork (git history, the six
 dual-marked inline code files, the CSS cup — they stay, protected by
 `LicenseRef-Kabuqina-Brand` + the owner's trademark track); any v0.5 scene art
@@ -149,10 +152,21 @@ kabuqina-mascot/
   resulting `Kabuqina_0.3.0_x64-setup.exe` was installed and launched:
   desktop icon, onboarding, and chat all displayed the grey, faceless neutral
   mug placeholder; screenshots retained by the owner.)*
-- [ ] **Step 2:** branded round on owner machine: apply → build → restore;
+- [x] **Step 2:** branded round on owner machine: apply → build → restore;
   confirm working tree clean after restore and the artifact carries real
-  branding. *(2026-07-11: apply → restore mechanics verified — banner shown,
-  tree clean after restore; the full round with a rebuild in between is still
-  owed at release time.)*
-- [ ] **Step 3:** record both rounds' evidence in progress notes; this plan's
-  completion gates the start of any v0.5 scene-art production.
+  branding. *(2026-07-17: `-Apply` injected 71 real assets; Web build contained
+  no `<title>Placeholder` sentinel. The resulting
+  `Kabuqina_0.3.0_x64-setup.exe` was 296,491,048 bytes with SHA-256
+  `28D6F5D4B7A4940E237EDD953F09241AD37B5BB3BEE651397C87328324A6F54F`.
+  Owner-installed onboarding showed the real mascot; title bar, taskbar and
+  Start menu showed the purple `Na` icon. Direct extraction from the release
+  and installed executables also returned the purple icon. A manually-created
+  desktop shortcut briefly showed the old grey icon because Windows cached the
+  previous executable path; the installed executable itself was verified
+  branded. `-Restore` then restored all 71 public placeholder files, `-Check`
+  passed, and `main` was clean.)*
+- [x] **Step 3:** record both rounds' evidence in progress notes; this plan's
+  completion gates the start of any v0.5 scene-art production. *(The default
+  placeholder round is recorded in Step 1 and the official branded round in
+  Step 2. Screenshots are retained by the owner and are not committed to the
+  public repository.)*
