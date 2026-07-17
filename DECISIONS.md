@@ -994,7 +994,12 @@ private key requires two independent recoverable copies, while its password is
 stored separately in a password manager; CI secrets are delivery copies, not
 the only backup. Local Tauri builds and release CI fail closed while the retired
 public key remains configured, versions/endpoints disagree, or signing secrets
-are absent.
+are absent. Because the public repository intentionally contains unbranded
+placeholder assets, pushing a tag must not automatically build the official
+installer. Official v0.4 artifacts are owner-built after applying the private
+Tier 2 brand overlay; the GitHub workflow is manual-only and produces an
+explicitly labeled unbranded CI candidate. The release operator creates the
+official draft and uploads the owner-built signed artifacts separately.
 
 **D-track closeout and legacy Study NSIS waiver (2026-07-17).** D-1 through
 D-5 are closed after the post-A-R3 integration/review chain, the installed

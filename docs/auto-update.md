@@ -62,8 +62,9 @@ version. CI additionally rejects missing signing secrets.
    .\scripts\check_updater_release.ps1 -ExpectedVersion v0.4.0
    ```
 
-3. Build the Python bundle, Web shell, and signed NSIS package in the order
-   documented in `AGENTS.md`. Tauri produces `*-setup.exe`,
+3. For an official release, the owner applies the private Tier 2 brand overlay,
+   then builds the Python bundle, Web shell, and signed NSIS package in the
+   order documented in `AGENTS.md`. Tauri produces `*-setup.exe`,
    `*-setup.nsis.zip`, and `*-setup.nsis.zip.sig` because
    `bundle.createUpdaterArtifacts=true`.
 4. Generate the COS manifest and upload it as `latest-v2.json` together with
@@ -76,10 +77,10 @@ version. CI additionally rejects missing signing secrets.
      -Out latest-v2.cos.json
    ```
 
-5. Add `docs/releases/vX.Y.Z.md`, then push the matching tag. The release
-   workflow generates the GitHub manifest as `latest-v2.json` and attaches it
-   with the same artifacts to a **draft** GitHub Release. For a manual release,
-   generate it explicitly:
+5. Add `docs/releases/vX.Y.Z.md`, generate the GitHub manifest, create the
+   matching tag and **draft** GitHub Release, and upload the owner-built branded
+   artifacts. The repository workflow is manual-only and creates an explicitly
+   labeled unbranded CI candidate; it is not the official branded build.
 
    ```powershell
    .\scripts\make_updater_manifest.ps1 `
@@ -87,7 +88,8 @@ version. CI additionally rejects missing signing secrets.
      -Out latest-v2.github.json
    ```
 
-6. Install and smoke-test the draft artifacts, upload the matching COS
+6. Restore the committed placeholder assets after the local build, then install
+   and smoke-test the draft artifacts and upload the matching COS
    artifacts and COS manifest, then publish the GitHub draft only after those
    gates pass.
 

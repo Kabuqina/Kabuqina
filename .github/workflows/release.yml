@@ -1,9 +1,12 @@
-name: release
+name: unbranded release candidate
 
 on:
-  push:
-    tags:
-      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Existing vX.Y.Z tag to build as an unbranded CI candidate"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -13,6 +16,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_tag }}
 
       - name: Verify updater release configuration
         shell: pwsh
@@ -20,7 +25,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_UPDATER_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_UPDATER_PRIVATE_KEY_PASSWORD }}
         run: |
-          ./scripts/check_updater_release.ps1 -ExpectedVersion "${{ github.ref_name }}"
+          ./scripts/check_updater_release.ps1 -ExpectedVersion "${{ inputs.release_tag }}"
           if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY)) {
             throw "GitHub secret TAURI_UPDATER_PRIVATE_KEY is missing"
           }
@@ -74,13 +79,14 @@ jobs:
 
       - name: Generate updater manifest (latest-v2.json)
         shell: pwsh
-        run: ./scripts/make_updater_manifest.ps1 -Version "${{ github.ref_name }}"
+        run: ./scripts/make_updater_manifest.ps1 -Version "${{ inputs.release_tag }}"
 
       - name: Upload to release
         uses: softprops/action-gh-release@v3
         with:
-          name: Kabuqina ${{ github.ref_name }}
-          body_path: docs/releases/${{ github.ref_name }}.md
+          tag_name: ${{ inputs.release_tag }}
+          name: Kabuqina ${{ inputs.release_tag }} (unbranded CI candidate)
+          body_path: docs/releases/${{ inputs.release_tag }}.md
           draft: true
           files: |
             tauri/target/release/bundle/nsis/*-setup.exe
