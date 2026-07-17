@@ -28,7 +28,9 @@
 - context、flashcard、quiz 均尚未满足完整升级发布周期门，因此保留隔离 one-shot
   adapter。collection adapter 只转换迁移所需的 bounded 内容，不恢复旧 UI/store，
   也不转发旧 scheduling state 或 learner response。失败时旧 key 字节不变，只有后端
-  成功或确认幂等 marker 后才清除 key。最终 pre-D5 升级样本仍须在 release bundle 复核。
+  成功或确认幂等 marker 后才清除 key。最终 pre-D5 升级样本仍须在 release bundle
+  复核（截至 2026-07-16；该要求后由下方 2026-07-17 owner accepted degradation
+  决定取代）。
 - A-R3 feature commit `5abea97c` 后，完整 D4→D5 链先完成一次 rebase；最终 review
   以 `main@3b85a85a` 收口后，D4→D5 的十二个提交再次无冲突 rebase。rebase 期间
   main 未被修改；随后该提交链已 fast-forward 合入 `main@fc1f9e5a`。两次 rebase
