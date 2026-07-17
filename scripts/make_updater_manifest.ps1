@@ -1,6 +1,6 @@
 # scripts/make_updater_manifest.ps1
 #
-# Produces latest.json for Tauri's updater plugin. Must be uploaded to the
+# Produces latest-v2.json for Tauri's updater plugin. Must be uploaded to the
 # release alongside the *-setup.exe and the *-setup.nsis.zip(.sig).
 #
 # Schema: https://v2.tauri.app/plugin/updater/#static-json-file
@@ -11,25 +11,43 @@ param(
     [string]$Notes = "See release notes on GitHub.",
     [string]$Repo = $env:GITHUB_REPOSITORY,            # set by Actions
     [string]$AssetBaseUrl = "",
-    [string]$Out = "latest.json"
+    [string]$Out = "latest-v2.json"
 )
 
 $ErrorActionPreference = "Stop"
 
 if (-not $Repo) { $Repo = "Kabuqina/Kabuqina" }
 
-$zip = Get-ChildItem -Path $BundleDir -Filter "*-setup.nsis.zip" | Select-Object -First 1
-$sig = Get-ChildItem -Path $BundleDir -Filter "*-setup.nsis.zip.sig" | Select-Object -First 1
-if (-not $zip) { throw "no *-setup.nsis.zip found in $BundleDir (enable bundle.createUpdaterArtifacts)" }
-if (-not $sig) { throw "no *-setup.nsis.zip.sig found in $BundleDir (configure tauri updater signing key)" }
-
 $cleanVer = $Version.TrimStart('v')
+if ($cleanVer -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$') {
+    throw "Version must be a semantic version such as v0.4.0: $Version"
+}
+
+$artifactPattern = "*_${cleanVer}_*-setup"
+$installers = @(Get-ChildItem -Path $BundleDir -Filter "$artifactPattern.exe")
+$zips = @(Get-ChildItem -Path $BundleDir -Filter "$artifactPattern.nsis.zip")
+if ($installers.Count -ne 1) {
+    throw "expected exactly one v$cleanVer *-setup.exe in $BundleDir, found $($installers.Count)"
+}
+if ($zips.Count -ne 1) {
+    throw "expected exactly one v$cleanVer *-setup.nsis.zip in $BundleDir, found $($zips.Count)"
+}
+
+$zip = $zips[0]
+$sigPath = "$($zip.FullName).sig"
+if (-not (Test-Path -LiteralPath $sigPath)) {
+    throw "missing updater signature for $($zip.Name): $($zip.Name).sig"
+}
+
 if (-not $AssetBaseUrl) {
     $AssetBaseUrl = "https://github.com/$Repo/releases/download/$Version"
 }
 $AssetBaseUrl = $AssetBaseUrl.TrimEnd('/')
 $url = "$AssetBaseUrl/$($zip.Name)"
-$signature = (Get-Content -Raw $sig.FullName).Trim()
+$signature = (Get-Content -Raw -LiteralPath $sigPath).Trim()
+if ([string]::IsNullOrWhiteSpace($signature)) {
+    throw "updater signature is empty: $($zip.Name).sig"
+}
 
 $manifest = [ordered]@{
     version    = $cleanVer

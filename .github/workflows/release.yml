@@ -14,6 +14,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Verify updater release configuration
+        shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_UPDATER_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_UPDATER_PRIVATE_KEY_PASSWORD }}
+        run: |
+          ./scripts/check_updater_release.ps1 -ExpectedVersion "${{ github.ref_name }}"
+          if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY)) {
+            throw "GitHub secret TAURI_UPDATER_PRIVATE_KEY is missing"
+          }
+          if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD)) {
+            throw "GitHub secret TAURI_UPDATER_PRIVATE_KEY_PASSWORD is missing"
+          }
+
       - uses: actions/setup-node@v4
         with: { node-version: "20" }
       - uses: actions/setup-python@v5
@@ -35,18 +49,21 @@ jobs:
         run: npm ci
 
       - name: Decode signing cert
-        if: ${{ secrets.WIN_PFX_BASE64 != '' }}
         shell: pwsh
         env:
           PFX: ${{ secrets.WIN_PFX_BASE64 }}
         run: |
+          if ([string]::IsNullOrWhiteSpace($env:PFX)) {
+            Write-Host "WIN_PFX_BASE64 is not configured; skipping Authenticode certificate setup"
+            exit 0
+          }
           [IO.File]::WriteAllBytes("$env:RUNNER_TEMP\cert.pfx",
             [Convert]::FromBase64String("$env:PFX"))
           $thumb = (certutil -dump "$env:RUNNER_TEMP\cert.pfx" |
             Select-String -Pattern "Cert Hash\(sha1\):").Line.Split(":")[1].Trim()
           "WIN_CERT_THUMBPRINT=$thumb" >> $env:GITHUB_ENV
 
-      - name: Build signed MSI
+      - name: Build signed NSIS
         working-directory: tauri
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_UPDATER_PRIVATE_KEY }}
@@ -55,15 +72,18 @@ jobs:
           cargo install tauri-cli --version "^2" --locked
           cargo tauri build
 
-      - name: Generate updater manifest (latest.json)
+      - name: Generate updater manifest (latest-v2.json)
         shell: pwsh
         run: ./scripts/make_updater_manifest.ps1 -Version "${{ github.ref_name }}"
 
       - name: Upload to release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
+          name: Kabuqina ${{ github.ref_name }}
+          body_path: docs/releases/${{ github.ref_name }}.md
+          draft: true
           files: |
             tauri/target/release/bundle/nsis/*-setup.exe
             tauri/target/release/bundle/nsis/*-setup.nsis.zip
             tauri/target/release/bundle/nsis/*-setup.nsis.zip.sig
-            latest.json
+            latest-v2.json

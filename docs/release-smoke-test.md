@@ -13,7 +13,7 @@
 ## 0. 测试准备
 
 - [ ] 使用本次 Release 产物：
-  `tauri/target/release/bundle/nsis/Kabuqina_0.3.0_x64-setup.exe`
+  `tauri/target/release/bundle/nsis/Kabuqina_0.4.0_x64-setup.exe`
 - [ ] 准备一个可用的 LLM Provider API Key。
 - [ ] 准备一个测试工作区，例如：
   `%USERPROFILE%\Documents\KabuqinaReleaseSmoke`
@@ -30,7 +30,7 @@
 
 ## 1. NSIS 安装与启动（必测）
 
-- [ ] 双击 `Kabuqina_0.3.0_x64-setup.exe`。
+- [ ] 双击 `Kabuqina_0.4.0_x64-setup.exe`。
 - [ ] 安装流程能完成，无 NSIS 报错。
 - [ ] 开始菜单或桌面入口能启动 Kabuqina。
 - [ ] Windows「应用和功能」中能看到 Kabuqina。
@@ -171,6 +171,15 @@
 - [ ] 重装后应用能启动。
 - [ ] 若保留用户数据，已有 workspace / key 状态表现符合预期；若已清理数据，应重新进入 Quick Start。
 
+### 8.1 v0.4 updater 信任链切换（必测）
+
+- [ ] 在一份安装过 v0.2/v0.3 且含可识别测试数据的环境上，手工运行 v0.4 NSIS 覆盖安装。
+- [ ] 安装后版本显示为 v0.4.0，旧 workspace、设置、会话和 Study 数据按迁移契约保留。
+- [ ] 应用 updater endpoint 指向 `latest-v2.json`；旧 `latest.json` 不被新 key 产物覆盖。
+- [ ] Release Note 明确旧用户必须手工安装 v0.4 一次。
+- [ ] 不把“v0.3 自动升级到 v0.4”列为通过条件；旧私钥不可恢复，因此该链路不可能成立。
+- [ ] 将 v0.4 自动升级到一个更高的受控版本作为新信任链的独立验收，最迟在 v0.5 正式发布前完成。
+
 ---
 
 ## 9. Release 判定
@@ -186,6 +195,7 @@
 - [ ] Markdown 文件能生成并打开。
 - [ ] PPTX 文件能生成并打开。
 - [ ] 读材料后生成 PPTX 的闭环能走通。
+- [ ] v0.2/v0.3 → v0.4 手工覆盖安装后，用户数据保留且应用能启动。
 - [ ] 没有白屏、闪退、Python child fatal crash、文件损坏等阻断问题。
 
 ### 暂缓发布

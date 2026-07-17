@@ -1,7 +1,7 @@
 {
   "name": "kabuqina-web",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.4.0",
   "type": "module",
   "description": "Kabuqina onboarding wizard + UI overlays. Loaded by the Tauri shell before handing off to the local dashboard.",
   "license": "Apache-2.0",

@@ -1,6 +1,6 @@
-# Kabuqina — Release checklist（Windows MSI）
+# Kabuqina — Release checklist（Windows NSIS）
 
-面向 **MSI / `cargo tauri build`** 的发布前自检。前置要求与工作流概要见仓库根目录 [AGENTS.md](../AGENTS.md)。
+面向 **NSIS / `cargo tauri build`** 的发布前自检。前置要求与工作流概要见仓库根目录 [AGENTS.md](../AGENTS.md)。
 
 ---
 
@@ -16,6 +16,8 @@
 
 - [ ] [tauri/tauri.conf.json](../tauri/tauri.conf.json)：根级 `version`
 - [ ] [tauri/Cargo.toml](../tauri/Cargo.toml)：`package.version`（与上面对齐）
+- [ ] [web/package.json](../web/package.json)、[web/package-lock.json](../web/package-lock.json) 版本一致；运行 `scripts/check_updater_release.ps1 -ExpectedVersion vX.Y.Z`
+- [ ] [docs/releases](releases/) 下存在与 tag 同名的 `vX.Y.Z.md` Release Note；tag workflow 先创建 **Draft Release**，不要跳过人工验收直接公开
 - [ ] `identifier`：**`com.kabuqina.app`** — 不要随意修改；与用户数据 `%LOCALAPPDATA%\com.kabuqina.app\` 绑定
 - [ ] **`productName`**：保持 **ASCII**（如 `Kabuqina`），否则 WiX `light.exe` 可能无法生成 `.msi`（中文输出路径会失败）
 - [ ] **快捷方式 /「应用和功能」中文名**：由 [tauri/wix/main.wxs](../tauri/wix/main.wxs) 自定义模板设置（如 **卡布奇娜**）；改显示名时改该模板，不要改 `productName` 为中文
@@ -84,9 +86,11 @@ Splash 路由逻辑见 `web/src/Splash.tsx`：有密钥或允许「稍后配置�
   restart 组合轮通过
 - [ ] 学习功能改进计数默认关闭；开启后只有批准的 enum/coarse count，关闭后本机 aggregate
   被清除；fixture title/question/answer/id/source_refs/URL 不出现在序列化事件或产物中
-- [ ] pre-D5 profile/flashcard/quiz 样本升级成功/失败/重启/幂等均通过；失败样本旧 key 保留，
-  migration diagnostics/failure export 可恢复
-- [ ] A-R3 persistence rename 与 D-5 Study migration 在同一份旧版 app-data 副本上同时通过
+- [ ] **D-5 accepted degradation 核对**：v0.4 未执行 pre-D5 profile/flashcard/quiz 的
+  installed-NSIS 旧样本升级专测，不得在 Release Note/测试报告中写成已通过；确认隔离
+  one-shot adapters、失败保留旧 key、migration diagnostics/failure export 仍在产物中
+- [ ] 后续若要删除任一 legacy Study reader/adapter，必须先补真实旧 app-data 的
+  成功/失败/重启/幂等，以及与 A-R3 persistence migration 同时发生的 installed 升级证据
 
 ---
 
@@ -98,12 +102,14 @@ Splash 路由逻辑见 `web/src/Splash.tsx`：有密钥或允许「稍后配置�
 
 ## 8. 发布物与对外说明
 
-- [ ] **腾讯 COS 主源**：上传同版本 **`*-setup.exe`**、**`*-setup.nsis.zip`**、**`*-setup.nsis.zip.sig`**，并将 COS 版 manifest 上传为 **`latest.json`**
-- [ ] **GitHub Release 备份/归档**：附上 **`*-setup.exe`**、**`*-setup.nsis.zip`**、**`*-setup.nsis.zip.sig`**、**`latest.json`**（GitHub 版 manifest）
-- [ ] **Updater key**：`tauri/tauri.conf.json#plugins.updater.pubkey` 与本次签名私钥匹配；私钥只存在于本机安全位置或 CI secret
-- [ ] **Updater endpoint smoke**：发布前手动打开 COS `latest.json` 与 GitHub `latest.json`，确认两者版本一致、URL 可下载、signature 非空；应用内更新应优先命中 COS
+- [ ] **腾讯 COS 主源**：上传同版本 **`*-setup.exe`**、**`*-setup.nsis.zip`**、**`*-setup.nsis.zip.sig`**，并将 COS 版 manifest 上传为 **`latest-v2.json`**；不得用新 key 的 manifest 覆盖旧 `latest.json`
+- [ ] **GitHub Draft Release**：附上 **`*-setup.exe`**、**`*-setup.nsis.zip`**、**`*-setup.nsis.zip.sig`**、**`latest-v2.json`**（GitHub 版 manifest）；完成安装冒烟、覆盖升级和 COS 同步后再 Publish
+- [ ] **Updater key**：`tauri/tauri.conf.json#plugins.updater.pubkey` 与本次签名私钥匹配；加密私钥至少有两份独立备份，密码单独保存在密码管理器，GitHub secrets 不是唯一备份
+- [ ] **Updater key 恢复演练**：从备份恢复 key，在干净 shell 中使用保存的密码成功生成 `*-setup.nsis.zip.sig`；记录通过结果但不记录秘密
+- [ ] **Updater endpoint smoke**：发布前手动打开 COS `latest-v2.json` 与 GitHub `latest-v2.json`，确认两者版本一致、URL 可下载、signature 非空；应用内更新应优先命中 COS
+- [ ] **v0.4 信任链切换**：Release Note 明确 v0.2/v0.3 用户需手工安装 v0.4 一次；覆盖安装保留 app data；v0.5（或更高的受控测试版本）验证新链自动升级
 - [ ] **校验和 / 签名说明**写入 Release Note（按需）
-- [ ] [README.md](../README.md) 或其它对外文档若写死 MSI 文件名，与当前 `productName` / WiX language 后缀一致
+- [ ] [README.md](../README.md) 或其它对外文档若写死 NSIS 文件名，与当前 `productName` / 架构后缀一致
 
 ---
 

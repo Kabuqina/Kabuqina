@@ -1,6 +1,6 @@
 [package]
 name = "kabuqina"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 description = "Kabuqina — friendly Windows AI assistant powered by Hermes Agent"
 license = "Apache-2.0"

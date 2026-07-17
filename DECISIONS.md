@@ -982,6 +982,34 @@ gateway owner IDs, and database schemas are deliberately unchanged. Removing
 the one-release shims is a separate post-v0.4 task; no engine selector is
 reintroduced under a new name.
 
+**v0.4 updater trust-root reset (2026-07-17).** The updater private key used by
+the pre-v0.4 release line is no longer recoverable, so v0.4 is the explicit
+start of a replacement updater trust chain. Existing v0.2/v0.3 installations
+must install v0.4 manually once; v0.4 embeds the replacement public key, and
+v0.5 and later releases must remain signed by its retained encrypted private
+key. The old `latest.json` channel is retired and must not receive new-key
+artifacts; the replacement COS and GitHub endpoints use `latest-v2.json` so old
+clients cannot be offered an update they can never authenticate. The encrypted
+private key requires two independent recoverable copies, while its password is
+stored separately in a password manager; CI secrets are delivery copies, not
+the only backup. Local Tauri builds and release CI fail closed while the retired
+public key remains configured, versions/endpoints disagree, or signing secrets
+are absent.
+
+**D-track closeout and legacy Study NSIS waiver (2026-07-17).** D-1 through
+D-5 are closed after the post-A-R3 integration/review chain, the installed
+current-data WebView2 round, Web components (23 files / 106 tests), focused Web
+scripts, production/chunk checks, all three real bundled-runtime verifiers, and
+Rust tests (97 passed / 0 failed). The owner explicitly chose not to run the
+installed-NSIS upgrade matrix for pre-D5 profile/flashcard/quiz localStorage
+fixtures. This is an accepted validation gap, not a passing result. The isolated
+one-shot readers/adapters, preserve-old-key-on-failure behavior, migration
+diagnostics, and failure export therefore remain part of v0.4. No future cleanup
+may physically delete them until real old-app-data success/failure/restart/
+idempotency evidence, including coexistence with A-R3 persistence migration,
+has been collected. General installer, updater trust-root, and release-artifact
+checks stay in the release runbook and do not reopen the D feature track.
+
 **v0.5 gateway profile contraction (2026-07-17).** This decision supersedes
 the gateway retention assumptions recorded on 2026-05-03 and in the v0.3
 mainland pruning section above. Desktop/Tauri remains the product shell for
