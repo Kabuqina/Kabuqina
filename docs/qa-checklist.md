@@ -142,13 +142,15 @@ never run destructive smoke against the tester's real learning history.
   no `kabuqina.telemetry.study-ia.aggregate.v1` value appears. Enable it and confirm stored
   evidence contains only approved event/page/action/success/count buckets—never fixture
   title/question/answer/id/source/URL. Disable it and confirm the aggregate is erased.
-- [ ] Start with pre-D5 profile/flashcard/quiz localStorage fixtures. Confirm successful
-  migration is idempotent across restart, failed profile migration preserves the old key,
-  and migration failure/status export remains available.
+- [ ] For v0.4, audit the accepted degradation honestly: the installed-NSIS pre-D5
+  profile/flashcard/quiz fixture upgrade was not run. Confirm the isolated one-shot readers,
+  preserve-on-failure behavior, and migration failure/status export remain present; do not
+  report the omitted manual matrix as passing.
 - [ ] Confirm `/chat` STUDY mode has one notebook entry and no second profile/practice/draft
   mutation surface; knowledge-point chips still capture and explicitly retry refresh.
-- [ ] Repeat the upgrade with A-R3's legacy app-data/config/credential names present; Study
-  migration and persistence rename must both complete without overwriting each other.
+- [ ] Before any future legacy Study reader/adapter removal, run the deferred installed upgrade
+  matrix with A-R3 legacy app-data/config/credential names present and prove both migrations
+  complete without overwriting each other. This is not a v0.4 D-track release gate.
 
 ---
 

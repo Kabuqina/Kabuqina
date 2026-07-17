@@ -1,13 +1,13 @@
 # D-5 Implementation Plan — 集成观测、旧面退役与 WebView2 收口
 
 > 日期：2026-07-16
-> 状态：post-A-R3 自动集成已完成主要门；等待 Rust test、release bundle 与 WebView2/升级组合轮
+> 状态：**已完成（2026-07-17）**；旧 Study localStorage 的 installed-NSIS 升级专测由 owner 明确接受降级，未伪记通过
 > 起始基线：`codex/study-d4@fcc21cab`
 > 集成基线：`main@3b85a85a`（A-R3 最终 review 已收口）
 > 工作分支：`codex/study-d5`
 > 合并记录：D4→D5 十二提交链已 fast-forward 合入 `main@fc1f9e5a`
 > 安全指针：`codex/study-d5-pre-ar3@2fbe9e3a`；`codex/study-d5-pre-final-ar3@a71de2e7`
-> 正式依赖：D-2、D-3、D-4、A-R3 已完成；release 安装与升级证据仍待补
+> 正式依赖：D-2、D-3、D-4、A-R3 已完成；D-5 代码、自动门、runtime verifier 与当前数据 installed-WebView 轮已收口
 
 ## 0. 实施与集成记录（2026-07-16）
 
@@ -41,7 +41,7 @@
   learning/gateway/cron/usage contract 回归为 `255 passed`。Rust `cargo check` 在被忽略的
   空 runtime 资源目录下通过，证明源码可编译；`cargo test` 在 604 秒后无失败日志超时，
   不记作通过。
-- 尚未完成且不得提前宣告：真实 `build_bundle.ps1 -Verify` / runtime import verifier、
+- 当时尚未完成且不得提前宣告：真实 `build_bundle.ps1 -Verify` / runtime import verifier、
   Rust test、Windows WebView2/老版本升级矩阵和稳定窗口。bundle 与正在进行的 NSIS
   构建错峰执行，当前轮不启动。
 - review follow-up 修复 1 P1 / 2 P2：恢复 flashcard/quiz one-shot 升级入口；IA
@@ -52,6 +52,19 @@
   manifest 为 initial `1,701,739 raw / 491,929 gzip` bytes、StudyRoute own
   `80,639 raw / 19,426 gzip` bytes；动态边界与既有 warning limit 保持不变。最终
   A-R3 rebase 后 focused `4 files / 37 tests`、`tsc --noEmit` 与增量 `cargo check` 通过。
+
+**D 轨最终收口（2026-07-17）。** Owner-led installed NSIS/current-data WebView2
+组合轮已完成；唯一放弃的是 pre-D5 profile/flashcard/quiz localStorage 在 installed
+NSIS 中的旧样本升级专测。该项明确记录为 accepted degradation，不记作测试通过：
+隔离 one-shot adapters、失败保留旧 key、migration diagnostics/failure export 均继续
+保留，后续不得在没有真实旧样本证据时物理删除。当天重新核对真实 bundled runtime
+（CPython 3.11.15，`BUNDLE_INFO.json` 记录 1396.9 MB）：runtime pruning、canonical
+imports、legacy identity verifier 全绿；`cargo test --locked` 在完整 runtime resource
+扫描后取得 `97 passed / 0 failed`，耗时 10m27s。Web components `23 files / 106 tests`、
+chat/capture/knowledge focused scripts、ESLint、production build 与 manifest chunk audit
+全绿；当前 chunk 为 initial `1,701,739 raw / 491,929 gzip`，StudyRoute own
+`80,751 raw / 19,461 gzip`，动态边界未回归。D-1..D-5 至此关闭；通用 v0.4
+发布安装、updater trust-root 与发布物检查留在 release runbook，不重新打开 D 轨。
 
 ## 1. 目标
 
@@ -81,7 +94,8 @@ D-4 的统一 `StudyDraftProvider`、M5 detail/audit/governance 与最终错误�
 已完成：D4(fcc21cab) -> D5 独立 worktree（计划、合同、Web 收口）
 已完成：main 最终收口 A-R3(3b85a85a) -> 完整 D4→D5 链 rebase 到新 main
 已完成：完整 D4→D5 链 fast-forward 合入 main(fc1f9e5a)
-待完成：Rust test -> release bundle -> WebView2/升级组合轮 -> release ready
+已关闭：Rust test + real runtime verifier + installed current-data WebView2；旧 Study
+        installed-NSIS 升级样本按 2026-07-17 owner 决策接受降级并保留 compat adapters
 ```
 
 已知 A-R3 与 D-5 的直接热点是 `DECISIONS.md`、`tauri/src/lib.rs` 和
@@ -214,7 +228,7 @@ D-5 实现事件生产前必须在 plan/progress 中明确选择并记录以下�
 ### Task 0: 固定分支、基线与集成门
 
 - [x] 从 `codex/study-d4@fcc21cab` 创建 `codex/study-d5` 独立 worktree；
-- [ ] 记录 D-5 开工时 D4 full Web/Python/Rust/size 基线，不复用口头结果；
+- [x] D-5 开工与 pre/post-A-R3 Web/Python/Rust/size 基线已在 §0 固定记录；
 - [x] 记录 A-R3 overlap 清单，禁止从 dirty main 复制整文件；
 - [x] 在 A-R3 合入前不把 D-5 合回 main；D-5 不修改 A-R3 工作树/index；
 - [x] A-R3 最终 review 进入 main 后，把完整 D4→D5 提交链 rebase 到 `main@3b85a85a`，并重做
@@ -273,14 +287,15 @@ D-5 实现事件生产前必须在 plan/progress 中明确选择并记录以下�
 
 - [x] 清点并分类 `studyStore.ts`、`flashcardStore.ts`、`quizStore.ts`、两个
   `*LearningStore.ts` 的所有生产/测试调用者；
-- [ ] 用一次性旧版本 profile 构造 context/deck/quiz 三类样本，先导出/备份；
+- [x] Owner 决定不再执行 installed-NSIS 的旧 profile/deck/quiz 样本专测；未记作通过，
+  自动成功/失败/幂等/failure-export 证据保留，兼容 adapter 不删除；
 - [x] 证明成功迁移幂等、跨本归属明确、失败时旧 key 原样保留、failure export 可用；
 - [x] 证明重复调用不会重复创建 artifact/card/quiz；
 - [x] flashcard/quiz 完整 store 与日常 learning helper 物理删除；只保留
   `legacyStudyCollectionMigration.ts` bounded one-shot adapter 及真实 API wrapper，
   不为测试恢复死生产状态机；
-- [ ] context migration 若满足“一发布周期 + rollback evidence”，删除
-  `FlyleafPage` Web read 和 `studyStore.ts`；成功升级样本的旧 key 只在确认迁移后清除；
+- [x] context migration 未满足“一发布周期 + rollback evidence”，因此未删除 one-shot
+  Web reader；成功才清 key、失败保留旧值的边界继续保留，物理删除延期到真实证据齐备；
 - [x] 若周期门未满足，把读取收窄到独立 one-shot compat migrator，删除日常 UI/prompt
   读取，并在 master plan 明记 deferred physical deletion；不得提前清 key；
 - [x] 后端 migration diagnostics/export 保留，除非独立证明已无 rollback 价值。
@@ -294,8 +309,8 @@ Web：
 - [x] `tsc --noEmit` + production build + `inspect-study-chunks.mjs`；
 - [x] `/chat` initial graph 不引入 StudyRoute/CodeMirror/KaTeX/IA test sink；
 - [x] 删除旧面后 route chunk 与 initial gzip 变化有记录，不能只提高 warning limit；
-- [ ] heading focus、dialog trap/return、Escape、aria-current、纯键盘、200% zoom、
-  reduced motion、离开未提交练习确认仍有组件级回归。
+- [x] heading focus、dialog trap/return、Escape、aria-current、纯键盘、200% zoom、
+  reduced motion、离开未提交练习确认由组件回归与 installed current-data WebView 轮覆盖；
 
 Python/core/Rust：
 
@@ -303,7 +318,8 @@ Python/core/Rust：
 - [x] B-0/T2 测试扫描实际 serialized events，而不是只扫描 TypeScript type；
 - [x] M4/M5/M6、migration、owner isolation、secure delete/source_refs focused 回归；
 - [x] `cargo check`（空的 ignored runtime resource 仅用于源码编译检查）；
-- [ ] `cargo test`（604 秒无失败日志超时）；A-R3 rebase 后的真实 bundle import verifier。
+- [x] `cargo test --locked`：97 passed / 0 failed（10m27s）；真实 bundled runtime 的
+  pruning、canonical imports、legacy identity verifier 全部通过。
 
 ### Task 7: A-R3 后集成审计
 
@@ -312,9 +328,11 @@ Python/core/Rust：
 - [x] 搜索旧 persistence/Study key 与 Tauri command：Web 生产代码仅保留隔离的
   context/flashcard/quiz one-shot readers；A-R3 的 `hermes-home`/`HERMES_HOME`
   命中均为有意兼容桥或 core 的一发布周期 alias，不做 D-5 机械删除；
-- [ ] 从真实 pre-A-R3/pre-D5 app-data 副本跑升级，不只测 clean install；
-- [ ] clean install、upgrade install、desk child restart、gateway child 存在时均启动正常；
-- [ ] 最终 release bundle 生成后再进入手工组合轮，不用 Vite dev 冒充发布验收。
+- [x] pre-A-R3/pre-D5 Study app-data 升级专测由 owner 明确放弃；未声称通过，兼容
+  readers/adapters 与 rollback diagnostics 保留，未来删除前仍须补真实样本证据；
+- [x] installed current-data NSIS 的启动、Study 主路径与 child restart 组合轮完成；旧
+  Study 数据 upgrade 不在本条中偷换为已验证；
+- [x] 手工组合轮使用实际 installed NSIS/WebView2，不以 Vite dev 冒充发布验收。
 
 ### Task 8: Windows WebView2 组合手工轮
 
@@ -322,33 +340,34 @@ Python/core/Rust：
 
 #### 8.1 布局、主题与输入矩阵
 
-- [ ] 窄 `<640px`、中 `640..959px`、宽 `>=960px`；
-- [ ] 100% 与 200% 缩放，无页面双轴滚动；
-- [ ] light/dark/system，中文/英文；
-- [ ] mouse + 纯键盘，focus 顺序、返回焦点、Space/1..4 focus exclusion；
-- [ ] Windows reduced motion 开启时无位移/翻转依赖。
+- [x] 窄 `<640px`、中 `640..959px`、宽 `>=960px`；
+- [x] 100% 与 200% 缩放，无页面双轴滚动；
+- [x] light/dark/system，中文/英文；
+- [x] mouse + 纯键盘，focus 顺序、返回焦点、Space/1..4 focus exclusion；
+- [x] Windows reduced motion 开启时无位移/翻转依赖。
 
 采用 pairwise matrix 覆盖主题×语言×宽度，200% 和纯键盘各有独立完整路径；不要把
 所有组合乘成不可执行的笛卡尔积，但每个维度至少与两个其他维度交叉一次。
 
 #### 8.2 生命周期与跨本
 
-- [ ] 两个课程 A/B：deep link、space switch、draft count、detail/audit 不串本；
-- [ ] Flyleaf active/draft、Plan resume/complete/skip、Evaluate wrongbook/retry；
-- [ ] Practice cards/quiz/code/derivation、未提交离开确认、draft activate/reject；
-- [ ] Learn 三种 M5 active kind、独立 unavailable/retry、source/raw 按需展开；
-- [ ] unified inbox 的三种 lifecycle、semantic reviewer unavailable、显式 retry；
-- [ ] telemetry fake/local evidence 只有允许 enum/count，不含本轮 fixture 文本/id。
+- [x] 两个课程 A/B：deep link、space switch、draft count、detail/audit 不串本；
+- [x] Flyleaf active/draft、Plan resume/complete/skip、Evaluate wrongbook/retry；
+- [x] Practice cards/quiz/code/derivation、未提交离开确认、draft activate/reject；
+- [x] Learn 三种 M5 active kind、独立 unavailable/retry、source/raw 按需展开；
+- [x] unified inbox 的三种 lifecycle、semantic reviewer unavailable、显式 retry；
+- [x] telemetry fake/local evidence 只有允许 enum/count，不含本轮 fixture 文本/id。
 
 #### 8.3 治理、降级与升级
 
-- [ ] export 与取消；非空 owner import 拒绝；空 owner roundtrip；
-- [ ] migration diagnostics/failure export；删除强确认与成功后 cache 清空；
-- [ ] offline、desk child unavailable/restart、请求超时、previous/stale 保留；
-- [ ] v0.3/pre-D5 localStorage 样本升级，成功/失败/重启/幂等均验证；
-- [ ] A-R3 persistence rename 的旧目录/配置/凭据迁移与 D-5 Study migration 同时存在时
-  不互相覆盖；
-- [ ] 真实用户数据未用于 destructive smoke，fixture 与临时文件最终清理。
+- [x] export 与取消；非空 owner import 拒绝；空 owner roundtrip；
+- [x] migration diagnostics/failure export；删除强确认与成功后 cache 清空；
+- [x] offline、desk child unavailable/restart、请求超时、previous/stale 保留；
+- [x] v0.3/pre-D5 localStorage installed-NSIS 样本升级由 owner 接受不执行；自动
+  成功/失败/重启/幂等合同已覆盖，但本项不记作手工测试通过，adapter 继续保留；
+- [x] 同一旧 app-data 上的 A-R3 + Study 联合升级随上述旧 Study 专测一并接受不执行；
+  A-R3 独立迁移证据有效，两套兼容路径均不得因本次收口删除；
+- [x] 真实用户数据未用于 destructive smoke，fixture 与临时文件最终清理。
 
 ### Task 9: 文档、发布门与收口
 
@@ -357,10 +376,11 @@ Python/core/Rust：
 - [x] 更新 QA/release checklist：Study route、WebView2 matrix、旧版本升级、telemetry
   default-off/opt-out、fixture safety；
 - [x] 记录 post-A-R3 自动测试数字、chunk raw+gzip、已知降级与 deferred cleanup；
-- [ ] 记录真实 bundle/import verifier 与 WebView2/升级矩阵的最终证据；
+- [x] 记录真实 runtime verifier、installed current-data WebView2 证据与旧 Study 升级
+  专测的 owner accepted degradation；
 - [x] `git diff --check`、工作树 clean 后，D4→D5 链已 fast-forward 合入 main；
-- [ ] D-5 frontend feature-complete 与最终 bundle smoke 至少隔一个稳定窗口，不能同日
-  边改边宣告 release ready。
+- [x] D-5 frontend feature-complete（2026-07-16）与最终收口（2026-07-17）已隔稳定窗口，
+  未在同日边改边宣告完成。
 
 ## 7. Suggested commit slices
 
@@ -395,3 +415,9 @@ Python/core/Rust：
    `/chat` initial graph 没有 Study 重内容或 telemetry test sink 回归。
 10. D-5 与 A-R3/D4 合入顺序、冲突处置、测试数字、隐私决定和剩余 cleanup 均在文档中
     可追溯，工作树 clean 后再合并。
+
+**Acceptance closeout（2026-07-17）：** 1–6、9–10 完整满足；7–8 的 installed
+current-data WebView2 部分满足。唯一缺口是旧 Study localStorage 的 installed-NSIS
+升级样本，owner 明确接受为降级而非通过；因此保留 one-shot adapters 和 rollback
+diagnostics，并把它们的物理删除继续绑定到未来真实旧样本证据。该降级不影响 D 轨
+feature close，但必须作为 v0.4 已知验证缺口保留记录。
