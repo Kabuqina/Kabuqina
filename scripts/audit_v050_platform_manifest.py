@@ -111,6 +111,51 @@ REQUIRED_SIGNOFF_ROLES = {
     "Web Settings",
     "Bundle/release",
 }
+ALLOWED_SIGNOFF_STATUSES = {"pending", "approved", "changes_requested"}
+
+# C-0 is an inventory gate, so a merely non-empty curated ledger is not enough.
+# These IDs are the reviewed closed sets. Adding or removing an inventory record
+# requires an intentional contract change here as well as in the manifest.
+EXPECTED_DEPENDENCY_IDS = {
+    "node-whatsapp-bridge",
+    "py-aiohttp-shared",
+    "py-certifi-weixin",
+    "py-cryptography-shared",
+    "py-dingtalk-openapi",
+    "py-dingtalk-stream",
+    "py-discord-voice",
+    "py-httpx-socks-shared",
+    "py-lark-oapi",
+    "py-mautrix-stack",
+    "py-pillow-shared",
+    "py-qrcode-shared",
+    "py-slack-sdk",
+    "py-telegram-sdk",
+    "py-websockets-shared-conflict",
+    "qq-audio-external-tools",
+}
+EXPECTED_PERSISTED_RECORD_IDS = {
+    "channel-directory",
+    "cron-jobs-delivery-targets",
+    "desktop-state-databases",
+    "feishu-runtime-files",
+    "gateway-config-primary-legacy",
+    "gateway-runtime-state",
+    "gateway-session-origin",
+    "host-gateway-env",
+    "pairing-stores",
+    "platform-thread-maps",
+    "profile-config-and-host-prefs",
+    "profile-env",
+    "removed-qr-state",
+    "retained-qr-state",
+    "shared-media-caches",
+    "telegram-sticker-cache",
+    "weixin-account-state",
+    "whatsapp-auth-session",
+    "whatsapp-bridge-log-cache",
+    "windows-credential-manager",
+}
 
 REMOVED_SURFACE_NAMES = {
     "discord",
@@ -1089,9 +1134,24 @@ def validate_contract(
             errors.append(f"dependency {record_id}.users must be non-empty")
         if not isinstance(record.get("known_gaps"), list):
             errors.append(f"dependency {record_id}.known_gaps must be a list")
+        unknown_surfaces = set(record.get("platform_surfaces", [])) - names
+        if unknown_surfaces:
+            errors.append(
+                f"dependency {record_id}.platform_surfaces has unknown surfaces "
+                f"{sorted(unknown_surfaces)}"
+            )
         for claim in record.get("declaration_paths", []):
             if not isinstance(claim, str) or not _claim_has_match(root, claim):
                 errors.append(f"dependency {record_id}: declaration path has no match: {claim}")
+        for claim in record.get("users", []):
+            if not isinstance(claim, str) or not _claim_has_match(root, claim):
+                errors.append(f"dependency {record_id}: user path has no match: {claim}")
+    if dependency_ids != EXPECTED_DEPENDENCY_IDS:
+        errors.append(
+            "dependency_graph ids differ from the reviewed C-0 closed set: "
+            f"missing={sorted(EXPECTED_DEPENDENCY_IDS - dependency_ids)}, "
+            f"extra={sorted(dependency_ids - EXPECTED_DEPENDENCY_IDS)}"
+        )
 
     credential_graph = manifest.get("credential_data_graph")
     if not isinstance(credential_graph, dict):
@@ -1140,8 +1200,27 @@ def validate_contract(
             errors.append(f"duplicate persisted record id: {record_id}")
         else:
             persisted_ids.add(record_id)
+        raw_surfaces = record.get("surface")
+        if not isinstance(raw_surfaces, str) or not raw_surfaces.strip():
+            errors.append(f"persisted record {record_id}.surface must be non-empty")
+        else:
+            record_surfaces = {
+                surface.strip() for surface in raw_surfaces.split(",") if surface.strip()
+            }
+            unknown_surfaces = record_surfaces - names
+            if unknown_surfaces:
+                errors.append(
+                    f"persisted record {record_id}.surface has unknown surfaces "
+                    f"{sorted(unknown_surfaces)}"
+                )
         if not isinstance(record.get("known_gaps"), list):
             errors.append(f"persisted record {record_id}.known_gaps must be a list")
+    if persisted_ids != EXPECTED_PERSISTED_RECORD_IDS:
+        errors.append(
+            "persisted record ids differ from the reviewed C-0 closed set: "
+            f"missing={sorted(EXPECTED_PERSISTED_RECORD_IDS - persisted_ids)}, "
+            f"extra={sorted(persisted_ids - EXPECTED_PERSISTED_RECORD_IDS)}"
+        )
 
     verification_records = manifest.get("verification_records")
     if not isinstance(verification_records, list) or not verification_records:
@@ -1257,10 +1336,40 @@ def validate_contract(
                 f"surface_reference_links.{surface_name} has unknown ids {sorted(unknown_ids)}"
             )
 
-    signoffs = manifest.get("review_signoff", [])
-    signoff_roles = {
-        item.get("role") for item in signoffs if isinstance(item, dict) and item.get("role")
-    }
+    signoffs = manifest.get("review_signoff")
+    if not isinstance(signoffs, list):
+        errors.append("review_signoff must be a list")
+        signoffs = []
+    signoff_roles: set[str] = set()
+    for index, item in enumerate(signoffs):
+        if not isinstance(item, dict):
+            errors.append(f"review_signoff[{index}] must be an object")
+            continue
+        role = item.get("role")
+        status = item.get("status")
+        if not isinstance(role, str) or not role:
+            errors.append(f"review_signoff[{index}].role must be non-empty")
+        elif role in signoff_roles:
+            errors.append(f"duplicate review_signoff role: {role}")
+        else:
+            signoff_roles.add(role)
+        if status not in ALLOWED_SIGNOFF_STATUSES:
+            errors.append(
+                f"review_signoff[{index}].status must be one of "
+                f"{sorted(ALLOWED_SIGNOFF_STATUSES)}, got {status!r}"
+            )
+        if status == "approved":
+            for field in ("reviewer", "evidence"):
+                if not isinstance(item.get(field), str) or not item.get(field):
+                    errors.append(
+                        f"review_signoff[{index}].{field} must be non-empty when approved"
+                    )
+        if status == "changes_requested" and (
+            not isinstance(item.get("findings"), list) or not item.get("findings")
+        ):
+            errors.append(
+                f"review_signoff[{index}].findings must be non-empty when changes_requested"
+            )
     if signoff_roles != REQUIRED_SIGNOFF_ROLES:
         errors.append(
             "review_signoff roles differ from the cross-layer gate: "

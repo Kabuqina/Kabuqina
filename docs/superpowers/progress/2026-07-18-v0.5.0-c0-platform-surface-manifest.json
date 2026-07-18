@@ -58,7 +58,7 @@
     "authority_snapshots": [
       {
         "path": "docs/superpowers/plans/2026-07-18-v0.5.0-execution-control-board.md",
-        "sha256": "a9342f672f5ed0179e63ba5efd9f035c7a02ca31cfd7c6de44f66b044aceeece",
+        "sha256": "410c78938c16a4f8ea8f720296f614f499c9d960b8330d66a8b87c18ddefe661",
         "git_state": "clean"
       },
       {
@@ -1414,7 +1414,7 @@
       "declaration_paths": ["hermes_core/pyproject.toml", "hermes_core/uv.lock", "python/requirements-desktop.txt"],
       "version_constraint": ">=11.0.0,<12",
       "platform_surfaces": ["gateway_kernel", "qqbot", "weixin", "feishu_lark", "wecom_family"],
-      "users": ["hermes_core/gateway/platforms/base.py", "hermes_core/gateway/platforms/qqbot/audio.py"],
+      "users": ["hermes_core/gateway/platforms/base.py", "hermes_core/tools/vision_tools.py", "python/helpers/image_batch.py"],
       "usage_class": "shared_retained_media",
       "bundle_presence": "present and directly declared in desktop",
       "target_action": "retain; removed QR/media paths must not remove shared image support",

@@ -89,6 +89,21 @@ class V050PlatformManifestTests(unittest.TestCase):
             errors,
         )
 
+    def test_deleted_dependency_record_is_rejected_by_full_scan(self) -> None:
+        mutated = copy.deepcopy(self.manifest)
+        removed = mutated["dependency_graph"].pop()
+
+        errors = audit.validate_contract(mutated, ROOT)
+
+        self.assertTrue(
+            any(
+                "dependency_graph ids differ from the reviewed C-0 closed set" in error
+                and removed["id"] in error
+                for error in errors
+            ),
+            errors,
+        )
+
     def test_credential_key_missing_exact_sources_is_rejected(self) -> None:
         mutated = copy.deepcopy(self.manifest)
         mutated["credential_data_graph"]["environment_key_edges"][0][
@@ -112,6 +127,32 @@ class V050PlatformManifestTests(unittest.TestCase):
 
         self.assertTrue(
             any("persisted_records[0] missing fields" in error for error in errors),
+            errors,
+        )
+
+    def test_deleted_persisted_record_is_rejected_by_full_scan(self) -> None:
+        mutated = copy.deepcopy(self.manifest)
+        removed = mutated["credential_data_graph"]["persisted_records"].pop()
+
+        errors = audit.validate_contract(mutated, ROOT)
+
+        self.assertTrue(
+            any(
+                "persisted record ids differ from the reviewed C-0 closed set" in error
+                and removed["id"] in error
+                for error in errors
+            ),
+            errors,
+        )
+
+    def test_illegal_review_signoff_status_is_rejected(self) -> None:
+        mutated = copy.deepcopy(self.manifest)
+        mutated["review_signoff"][0]["status"] = "signed"
+
+        errors = audit.validate_contract(mutated, ROOT, scan_repository=False)
+
+        self.assertTrue(
+            any("review_signoff[0].status must be one of" in error for error in errors),
             errors,
         )
 
