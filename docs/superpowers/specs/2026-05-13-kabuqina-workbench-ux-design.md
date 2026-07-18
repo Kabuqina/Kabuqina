@@ -1,10 +1,17 @@
 # Kabuqina Workbench UX Design
 
+> **Authority note（2026-07-18）：** 本文保留为 Chat 三列布局与 workbench interaction 的
+> 历史实现基线；“个人 AI 工作台”、Chat-first、Capability 一级导航以及
+> `WORK / REPORT / STUDY` 同级模式不再是 v0.5 产品架构权威。当前产品承诺、一级 IA、
+> surface 职责与跨面合同以
+> [v0.5.0 产品全景与体验架构计划](../plans/2026-07-18-v0.5.0-product-experience-architecture-plan.md)
+> 为准。复用本文组件/三列原则时必须经过 Gate E1/E2，不得把旧结构直接美化为最终 IA。
+
 | 属性 | 值 |
 |------|-----|
 | **Version** | 1.1 |
 | **Date** | 2026-05-13 |
-| **Status** | Draft |
+| **Status** | Historical implementation baseline; product positioning superseded |
 | **Priority** | P1 |
 | **Related Docs** | [Companion Window Design](./2026-05-14-kabuqina-companion-window-design.md) |
 

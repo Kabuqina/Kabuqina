@@ -4,8 +4,10 @@
 > “视觉母版/背景资产”放在同一张地图中，但不把全部工作承诺给 v0.5.0；每个进入
 > 实现的切片仍须另出 just-in-time plan。
 >
-> **状态：** Draft v1（2026-07-17）。已根据学生反馈完成首轮 scope 裁决：
-> v0.5.0 仍以 STUDY 为重心，只接一个可安全延期的 PPT 视觉薄切片。
+> **状态：** Draft v3（2026-07-18）。已根据学生反馈完成首轮 scope 裁决，并接入
+> 产品体验架构上游：为支付 U-24 的明确替换成本，v0.5.0 baseline 只保留 A-0/A-1
+> 研究；两套母版实现移至 v0.5.x。只有全部产品脊柱与 STUDY Must 已关闭、并以等量
+> scope 交换时，owner 才能恢复 §7 条件薄切片。
 
 ## 0. 决策摘要
 
@@ -25,21 +27,25 @@
 
 | 版本 | 承诺范围 | 明确不做 | 阻塞关系 |
 |---|---|---|---|
-| **v0.5.0** | A-0/A-1；新增 2 套艺术化母版；同源真实样张；背景资产渲染管线；仅在 Web 现有 metadata 足够时修正“重生成沿用原母版” | 逐页编辑器、真实图片/图表、局部重生成、真实第三方 `.pptx` 复用 | **Should，非 release blocker**；未过视觉门则整项延期，不挤压 STUDY Must |
-| **v0.5.x** | 补齐 4 套艺术化母版；G-1～G-6 的结构化请求、故事板、素材、预检、预览和局部修改 | 通用 PPT 画布、任意模板可靠复用 | 独立 JIT slices，按用户反馈排序 |
+| **v0.5.0 baseline** | A-0/A-1：moodboard、shipping license ledger、固定样张、background contract；不接 production assets | 两套母版实现、逐页编辑器、真实图片/图表、局部重生成、真实第三方 `.pptx` 复用、Report Center/Library | 研究可并行，**无 release claim**；U-24/Study Must 优先 |
+| **v0.5.x** | 先做 2 套、再按证据补齐其余 4 套艺术化母版；G-1～G-6 的结构化请求、故事板、素材、预检、预览和局部修改 | 通用 PPT 画布、任意模板可靠复用 | 独立 JIT slices，按用户反馈排序 |
 | **v0.6 候选** | 真实学校/公司 PPT 模板复用 MVP；模板角色识别、安全回退；更完整版本历史 | PowerPoint 的完整替代品、动画设计器、模板市场 | 复用既有模板路线，经重新技术评审后决定 |
 
-若 v0.5.0 code freeze 时两套艺术化母版未同时满足授权、视觉和兼容门，产品继续保留
-现有五套稳定母版，release notes 不宣称本项完成；不得为赶版本降低 STUDY、升级安全
-或渠道裁剪的验收标准。
+v0.5.0 默认继续保留现有五套稳定母版，release notes 不宣称新母版完成；不得为赶版本
+降低产品体验脊柱、STUDY、升级安全或渠道裁剪的验收标准。
 
-**v0.5 工程预算上限：** 默认只允许修改 `web/src/chat/pptx/`、母版选择器、静态资产、
+**若恢复 §7，v0.5 工程预算上限：** 只允许修改 `web/src/chat/pptx/`、E-4 冻结的母版
+选择面、静态资产、
 测试和文档；不新增依赖、模型调用、`hermes_core`/Python/Rust schema 或 migration。
 “沿用原母版”若不能利用现有 artifact metadata 在 Web 层完成，整项进入 v0.5.x，
 不得为了顺手修正扩大 v0.5 hot files。
 
 ## 1. 与其他计划的边界
 
+- [v0.5.0 产品全景与体验架构计划](2026-07-18-v0.5.0-product-experience-architecture-plan.md)
+  决定 Create/Report 在产品中的位置、材料/成果归属、context、return 与 restart；本计划
+  只负责生成请求/审稿能力和导出演示文稿的视觉母版，不新造一级 Report route、Library
+  或另一套 deliverable 真值。
 - [v0.5.0 开发计划](2026-07-17-v0.5.0-development-plan.md) 决定版本优先级和
   release gates；本计划不是第八个 v0.5 支柱。
 - [v0.5.0 UX 交互设计计划](2026-07-17-v0.5.0-ux-interaction-design-plan.md)
@@ -79,8 +85,9 @@
    字体”；质量警告不得伪装成已自动修复。
 6. **授权先于美观。** moodboard 可以广泛收集，进入安装包/生成文件的每个资产必须
    有可追踪的修改、商业使用和再分发依据。
-7. **STUDY 优先。** PPT Should 不得占用 Tutor、练习④⑤、Learning Space 或升级安全
-   的 Must 预算；v0.5 切片可以整体关闭并安全回退。
+7. **产品脊柱与 STUDY 优先。** PPT Should 不得占用 E-I shell/context/deliverable、
+   Tutor、练习④⑤、Learning Space 或升级安全的 Must 预算；v0.5 切片可以整体关闭并
+   安全回退。
 
 ## 4. 成功指标与样张矩阵
 
@@ -102,7 +109,7 @@
 - **成本与性能：** 不新增隐式模型调用，背景资产不造成不可接受的 bundle/PPTX 体积。
 
 视觉验收至少包含 owner、2 名目标学生和 1 名非项目设计/产品人员的盲选；记录样本
-很小，不把它包装成统计显著性。v0.5 两套新母版须在同内容对照中被多数参与者认为
+很小，不把它包装成统计显著性。条件恢复/v0.5.x 的前两套新母版须在同内容对照中被多数参与者认为
 比当前 flat masters 更适合直接汇报，且没有可读性 P0/P1。
 
 ## 5. G 轨 · 生成结构、审稿与修改闭环
@@ -237,15 +244,15 @@ candidate 台账和拒绝清单经 owner review；未过授权门不进入设计
 
 | ID（暂定） | 场景 | 视觉母题 | 首发版本 |
 |---|---|---|---|
-| `academic_paper` | 论文/文献汇报 | 纸张颗粒、页码、编辑批注线、书刊排版 | **v0.5.0** |
-| `tech_blueprint` | 课设/代码答辩 | 蓝图网格、电路/节点线、柔和光晕 | **v0.5.0** |
+| `academic_paper` | 论文/文献汇报 | 纸张颗粒、页码、编辑批注线、书刊排版 | **v0.5.x 首批 / v0.5 条件恢复** |
+| `tech_blueprint` | 课设/代码答辩 | 蓝图网格、电路/节点线、柔和光晕 | **v0.5.x 首批 / v0.5 条件恢复** |
 | `campus_editorial` | 社团/课程/综合展示 | 校园刊物、图片拼贴、版面标记 | v0.5.x |
 | `notebook_study` | 课程学习汇报 | 笔记纸、便签、胶带、克制手绘符号 | v0.5.x |
 | `business_topography` | 沙盘/商业分析 | 等高线、路线、金融坐标和数据纹理 | v0.5.x |
 | `organic_science` | 科学/通用清新 | 有机曲线、植物/细胞轮廓、颗粒渐变 | v0.5.x |
 
 每个 direction 至少产出六 role backgrounds、title/body/data palette、字体栈、装饰组件、
-三页真实样张和禁止组合。v0.5 新增两个新 ID，不就地改变既有五个 ID 的外观，避免
+三页真实样张和禁止组合。首批新增两个新 ID，不就地改变既有五个 ID 的外观，避免
 旧 deck/回归样张发生不可解释漂移；后续可把旧五套标记为“经典/简洁”，根据使用与
 反馈决定保留、升级或退场。
 
@@ -285,9 +292,12 @@ manifest，展示 cover + content + data 三页缩略样张，并标注适用场
 
 **Gate A5：** 固定样张截图、兼容矩阵、学生盲选、体积/性能 delta 和授权清单均通过。
 
-## 7. v0.5.0 薄切片实施包
+## 7. v0.5.0 条件恢复薄切片 / v0.5.x 首批实施包
 
-本节是 scope contract，不直接授权 mega diff。建议拆为四个小提交/JIT slice：
+本节不是 v0.5 baseline，也不直接授权 mega diff。**前置：Gate E4 + 全部 U-24/Study
+Must 已关闭 + owner 记录等量 scope swap**；未恢复时整体作为 v0.5.x 首批包。E 轨先冻结
+Create surface 与成果归属；本薄切片不得顺带新增 Report route、作品库或 artifact center。
+建议拆为四个小提交/JIT slice：
 
 ### Slice 5A · 资产合同与 renderer 背景层
 
@@ -315,7 +325,8 @@ manifest，展示 cover + content + data 三页缩略样张，并标注适用场
 
 **主要文件：**
 
-- Modify: `web/src/chat/WorkspacePanel.tsx`
+- Modify: E-4 冻结的 Create/visual-master selector surface（当前实现审计可包含
+  `web/src/chat/WorkspacePanel.tsx`，但不得把现有 WORK/REPORT/STUDY tab 当目标 IA）
 - Reuse/Create: `web/src/chat/pptx/masterPreview.ts`
 - Test: `web/src/chat/chatUx.test.mjs` + 组件交互测试
 
@@ -325,14 +336,14 @@ manifest，展示 cover + content + data 三页缩略样张，并标注适用场
 
 **主要文件：**
 
-- Modify: `web/src/chat/WorkspacePanel.tsx`
+- Modify: E-4 冻结的 Create/deliverable surface；不得恢复已否决的默认 REPORT 右栏
 - Test: 原母版保持、显式换肤、旧 artifact fallback
 
 **完成：** JIT plan 先审计真实保存边界；只有现有 metadata 足够时，重新生成才在
-v0.5 默认使用原母版。若不足，记录延期而不加 schema。无论条件项是否进入，两套新
+条件恢复包默认使用原母版。若不足，记录延期而不加 schema。无论条件项是否进入，两套新
 母版都必须完成 A-5 矩阵；release notes 只描述实际进入安装包的能力和限制。
 
-### 7.1 v0.5 stop rule
+### 7.1 恢复门与 stop rule
 
 以下任一发生即停在现有五母版并把 5A～5D 整体移入 v0.5.x：
 
@@ -340,7 +351,10 @@ v0.5 默认使用原母版。若不足，记录延期而不加 schema。无论�
 - 需要修改稳定 planner/writer schema 才能显示背景；
 - Web/PPTX/bundle 体积或生成耗时超过 A-0 冻结预算且无法局部优化；
 - PowerPoint/WPS 出现损坏、不可读或难以安全回退；
-- 占用 STUDY Must owner/hot files，导致 Tutor/Practice/Learning Space gate 延迟。
+- E-4 未冻结，或接入需要先发明 Report route/Library/deliverable schema；
+- U-24/Study 任一 Must 未关闭，或没有记录等量 displaced scope；
+- 占用产品脊柱或 STUDY Must owner/hot files，导致 E-I、Tutor/Practice/Learning Space gate
+  延迟。
 
 ## 8. v0.5.x 与 v0.6 排序
 
@@ -396,14 +410,14 @@ bundle/PPTX size delta、生成耗时、许可快照和学生盲选记录。没�
 | 新母版与上传模板 palette 冲突 | SVG token 重着色；raster 明示限制；低对比则回退 flat master |
 | 实际输出与 selector 预览不一致 | preview 与 renderer 共用 manifest/asset/token，不维护第二套 CSS 假预览 |
 | 母版数量增加但质量仍普通 | 两套先做深；固定样张盲选；不过门不以数量交差 |
-| PPT 工作挤压 STUDY | v0.5 Should、stop rule、独立 owner/hot-file 审计、可整体延期 |
+| PPT 工作挤压产品脊柱/STUDY | baseline v0.5.x、条件恢复门、独立 owner/hot-file 审计 |
 | 逐页编辑演变成完整 PowerPoint | storyboard 只编辑结构/内容/布局意图；不做自由画布和任意对象操作 |
 | 自动质量检查擅自改写内容 | preflight 默认 warning；确定性层只阻断损坏/安全错误 |
 | 真实模板能力被营销提前承诺 | UI/release notes 明确“视觉母版”与“仅提取配色/字体” |
 
 ## 11. 完成定义
 
-### v0.5.0 slice 完成
+### 条件恢复 slice / v0.5.x 首批完成
 
 - 两套新母版每套六种 role，有完整 license/hash/attribution/fallback；
 - selector 展示与 renderer 同源的三页真实样张；
@@ -431,5 +445,7 @@ bundle/PPTX size delta、生成耗时、许可快照和学生盲选记录。没�
 2. 建立 A-0 moodboard 表和 shipping license ledger 模板，不先下载资产进仓库；
 3. 用当前四类 PPT 各导出一份基线，形成同内容母版对照；
 4. 冻结 `academic_paper` 与 `tech_blueprint` 的 art brief、role safe zones 和验收样张；
-5. 为 Slice 5A 写 JIT implementation plan；确认背景层可以完全在 Web renderer 内增量实现；
-6. 5A 过门后才生产/接入两套母版；任何 stop rule 命中即延期，不改 STUDY 排期。
+5. baseline 只完成 A-0/A-1 文档证据；若 owner 完成 scope swap，再为 Slice 5A 写 JIT
+   implementation plan，确认背景层可以完全在 Web renderer 内增量实现；
+6. 只有恢复门通过后才生产/接入两套母版；任何 stop rule 命中即保留为 v0.5.x，不改
+   产品脊柱/STUDY 排期。

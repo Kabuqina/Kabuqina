@@ -1,7 +1,13 @@
 # Learning Layer
 
-> Status: **Product architecture proposal**  
-> Last updated: 2026-05-31
+> Status: **Domain architecture reference; product-surface wording superseded**
+> Last updated: 2026-07-18
+>
+> 本文关于 Learning 与 document/report pipeline 不应互相吞并的领域原则继续有效；
+> “second product surface”不再决定 v0.5 的一级 IA。当前 Study-first 产品承诺、
+> Chat/Create 角色、共同对象和跨面往返以
+> [v0.5.0 产品全景与体验架构计划](superpowers/plans/2026-07-18-v0.5.0-product-experience-architecture-plan.md)
+> 为准。
 
 Kabuqina should not collapse into a pure academic document generator.
 

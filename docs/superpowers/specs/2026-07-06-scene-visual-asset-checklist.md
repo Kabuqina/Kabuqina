@@ -6,6 +6,12 @@
 [前端愿景](2026-07-06-desk-notebook-frontend-vision.md)（隐喻映射表 §3 =
 本清单的"撒谎检查表"：每个素材必须对应真实功能/数据）。
 
+> **2026-07-18 delta：** 全局书桌 first viewport 不重排原母版，只在笔记本前缘/下层新增
+> 共用的制作/成果工作夹；Activity/Recent 留在 product chrome，不新增桌上票据。详细
+> 构图和状态以
+> [v0.5.0 UI 美术设计计划](../plans/2026-07-17-v0.5.0-ui-art-design-plan.md) V-0A/V-2
+> 为准。它们必须有 DOM/CSS 中性占位，不能等待私有插画才可用。
+
 **两条纪律（先读）：**
 
 1. **许可**：所有产出文件回库时必须带 `LicenseRef-Kabuqina-Brand` SPDX
@@ -49,21 +55,27 @@ v0.4 生命周期首项已由“设置”裁决为“扉页”；小娜杯仅保
 | 8b | 扉页版式 | 纸上表单的克制设计;**铅笔字迹(draft) / 墨水字迹(active)** 两种状态的字体/颜色语言 | student_state(M4) |
 | 8c | 夹页(草稿)形态 | 夹在本子里的铅笔活页：夹入 / 落墨粘合(激活) / 抽走(拒绝) 三态;M6 统一草稿箱 = 活页合集 | 草稿审核 |
 
-## P1 · v0.5.0 书桌场景主体（A-R1b 决策后投产）
+## P1 · v0.5.0 书桌场景丰富资产（A-R1b 决策后投产）
+
+这里的 P1 指**品牌/插画丰富度**。全局书桌的空间结构、文字入口、五类组合 fixture 与中性
+DOM/CSS/SVG placeholder 已提升为产品 P0，不依赖本节私有资产；P1 未就绪时不能退回旧
+Workbench 或通用 Dashboard。
 
 | # | 素材 | 变体/状态 | 数据映射 |
 |---|------|----------|---------|
 | 9 | 桌面台面 | light/dark；材质用 CSS 渐变+SVG 噪点表达,设计稿给出参数化描述而非位图 | 场景容器 |
 | 10 | 摊开的笔记本主体 | 空白页 / 有内容页的**框架**（不是成品插画）；装订、页边区、纸纹强度 | learning_space |
-| 11 | 笔记本封面 ×N | 一课一本：4-6 种封面色/纹理变体 + 书脊标题区;**外加一款素色"杂记本"封面**(常驻默认空间,视觉上须与课程本可区分) | 课程空间切换 + 默认空间 |
-| 12 | 桌角书堆 | 2-3 本叠放组合；单本"打开阅读"态框架 | READ 材料/知识库 |
+| 11 | 笔记本封面 ×N | 一课一本：4-6 种封面色/纹理变体 + 书脊标题区；可有一款素色“杂记本”封面，但只用于用户显式创建/选择的自由 space，不是自动 default/capture target | 课程/自由 space 切换 |
+| 12 | 桌角书堆 | 2-3 本叠放组合；单本“打开阅读”态框架；只呈现当前 space canonical source_refs 已关联材料 | 本课已引用材料 query |
 | 13 | 白板 | 白板框 + 笔槽托盘（Excalidraw 容器的边框语言）；进入/退出白板课的过渡关键帧示意 | tutor loop（v0.5） |
-| 14 | 小娜杯子全状态集（吸收原 P0 #7） | idle / speaking / thinking / notify(轻微,克制) / sleeping(久置,热气消失) / celebrating(复习完成,小幅)；在现有 mascot 上演化，**新版本即带新许可标记** | companion 全场景 |
+| 14 | 小娜杯 Chat anchor | v0.5 只做现有 fallback 可承载的静态/idle 形态 + “问小娜”DOM 文字与 provider/context badge；speaking/thinking/notify/sleeping/celebrating 六态、吸收 CompanionWindow 与跨 surface 合并移至 v0.5.x/scope swap | Chat semantic action；不新建 companion state |
 | 15 | 翻页/换本转场关键帧 | 分页切换、换课程(换本)两组；配合 View Transitions 的起止形态 | 导航转场 |
 | 16 | 卡片盒完整版 | 打开态(抽卡)、盒内分格(Leitner 档位)的示意 | SRS 档位可视化 |
 | 16b | 书签 | 夹在本中露头的书签：默认 / 高亮("继续上次"悬停) 两态;颜色随本 | 当前计划项 / checkpoint |
 | 16c | 书立(合上的本子) | 3-5 本立放、书脊朝外;末端一本空白本("开新本") | 课程空间切换 |
 | 16d | 学习日志页版式 | 只读时间线的纸面版式;事件行(答题/复习/完成)的小图标 | learning_activities |
+| 16e | 制作/成果薄工作夹 | 从笔记本前缘/下层只露出“＋制作 / 成果”DOM 标签；单 selected activity、多任务摘要+数量及成果 empty/available/missing；不得遮挡本页或卡片盒 | CreateActivity query + DeliverableRecord/Version |
+| 16f | Product chrome Activity/Recent | 非家具的 empty/count/attention 组件；waiting/blocked/running 的 icon 只作辅助，完整文字与列表由 DOM 呈现 | ActivitySummary 查询投影 |
 
 ## P2 · 锦上添花（有余力再做）
 
