@@ -17,7 +17,8 @@
       "656 tracked cross-layer producer/consumer/reference paths typed across runtime, CLI, policy, Rust, Web, build, tests, active docs and licenses",
       "20 dependency groups plus exact per-surface coverage and bundled-plugin import discovery record declarations, constraints, bundle presence, users, target action, license and advisory status",
       "678 literal environment accesses and 396 structured exact declarations are discovered before mapping across owned runtime roots; unknown keys fail closed",
-      "776 exact environment/config key edges, 32 separately modeled wildcard namespaces and 20 persisted-data records classify secrets, config, host expansion, stale aliases, compatibility and cleanup",
+      "796 exact environment/config key edges, 32 separately modeled wildcard namespaces, 2 computed environment-key templates and 20 persisted-data records classify secrets, config, host expansion, stale aliases, compatibility and cleanup",
+      "Computed {PLATFORM}_HOME_CHANNEL and {PLATFORM}_HOME_CHANNEL_NAME templates expand every known built-in and bundled plugin into exact edges; unclassified bundled plugins fail closed and runtime plugins remain prohibited until classified",
       "Every mixed field separates observed_current, target_contract and known_gaps",
       "Verification records have accepted accountable ownership and executable command/expected/evidence/status"
     ],
@@ -26,7 +27,7 @@
       "Gateway/core, Python policy, Rust shell, Web Settings and Bundle/release independent signoffs",
       "A non-author Gate reviewer marks CTL-C01 DONE"
     ],
-    "warning": "Technical evidence 23c6cc1c is REVIEW-ready after structured exact-key and namespace discovery and is recorded by the follow-up authority anchor. Five independent signoffs and a non-author DONE decision remain open; CTL-C02 remains prohibited."
+    "warning": "Refreshed technical evidence is locally REVIEW-ready after computed home-channel template expansion; the follow-up authority anchor will record the new evidence commit. Five independent signoffs and a non-author DONE decision remain open; CTL-C02 remains prohibited."
   },
   "base": {
     "git_commit": "62fe63c72b88c750ac4d60c52d3a788941877fc4",
@@ -16521,6 +16522,33 @@
         ]
       },
       {
+        "key": "API_SERVER_HOME_CHANNEL",
+        "surface": "api_server",
+        "primary_role": "home_target",
+        "source_paths": [
+          "hermes_core/gateway/home_channel.py",
+          "hermes_core/gateway/run.py"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "API_SERVER_HOME_CHANNEL_NAME",
+        "surface": "api_server",
+        "primary_role": "home_target",
+        "source_paths": [
+          "hermes_core/gateway/home_channel.py"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
         "key": "API_SERVER_HOST",
         "surface": "api_server",
         "primary_role": "network_host_expander",
@@ -16862,6 +16890,8 @@
         "source_paths": [
           "hermes_core/cron/scheduler.py",
           "hermes_core/gateway/config.py",
+          "hermes_core/gateway/home_channel.py",
+          "hermes_core/gateway/run.py",
           "hermes_core/kabuqina_cli/config_env.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
@@ -16876,6 +16906,7 @@
         "primary_role": "home_target",
         "source_paths": [
           "hermes_core/gateway/config.py",
+          "hermes_core/gateway/home_channel.py",
           "hermes_core/kabuqina_cli/config_env.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
@@ -17443,6 +17474,8 @@
         "source_paths": [
           "hermes_core/cron/scheduler.py",
           "hermes_core/gateway/config.py",
+          "hermes_core/gateway/home_channel.py",
+          "hermes_core/gateway/run.py",
           "hermes_core/kabuqina_cli/config_env.py",
           "web/src/lib/gatewayPlatformSettingsRegistry.ts"
         ],
@@ -17456,6 +17489,7 @@
         "primary_role": "home_target",
         "source_paths": [
           "hermes_core/gateway/config.py",
+          "hermes_core/gateway/home_channel.py",
           "hermes_core/kabuqina_cli/config_env.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
@@ -17691,6 +17725,8 @@
         "source_paths": [
           "hermes_core/cron/scheduler.py",
           "hermes_core/gateway/config.py",
+          "hermes_core/gateway/home_channel.py",
+          "hermes_core/gateway/run.py",
           "hermes_core/kabuqina_cli/config_env.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
@@ -17705,6 +17741,7 @@
         "primary_role": "home_target",
         "source_paths": [
           "hermes_core/gateway/config.py",
+          "hermes_core/gateway/home_channel.py",
           "hermes_core/kabuqina_cli/config_env.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
@@ -17982,6 +18019,29 @@
         "source_paths": [
           "hermes_core/gateway/config.py",
           "tauri/src/email_env.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "retain_profile_scoped",
+        "known_gaps": []
+      },
+      {
+        "key": "EMAIL_HOME_CHANNEL",
+        "surface": "email",
+        "primary_role": "home_target",
+        "source_paths": [
+          "hermes_core/gateway/home_channel.py",
+          "hermes_core/gateway/run.py"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "retain_profile_scoped",
+        "known_gaps": []
+      },
+      {
+        "key": "EMAIL_HOME_CHANNEL_NAME",
+        "surface": "email",
+        "primary_role": "home_target",
+        "source_paths": [
+          "hermes_core/gateway/home_channel.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -18405,6 +18465,8 @@
         "source_paths": [
           "hermes_core/cron/scheduler.py",
           "hermes_core/gateway/config.py",
+          "hermes_core/gateway/home_channel.py",
+          "hermes_core/gateway/run.py",
           "hermes_core/kabuqina_cli/config_env.py",
           "web/src/lib/gatewayPlatformSettingsRegistry.ts"
         ],
@@ -18420,6 +18482,7 @@
         "primary_role": "home_target",
         "source_paths": [
           "hermes_core/gateway/config.py",
+          "hermes_core/gateway/home_channel.py",
           "hermes_core/kabuqina_cli/config_env.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
@@ -21191,6 +21254,33 @@
         "known_gaps": []
       },
       {
+        "key": "HOMEASSISTANT_HOME_CHANNEL",
+        "surface": "home_assistant",
+        "primary_role": "home_target",
+        "source_paths": [
+          "hermes_core/gateway/home_channel.py",
+          "hermes_core/gateway/run.py"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "HOMEASSISTANT_HOME_CHANNEL_NAME",
+        "surface": "home_assistant",
+        "primary_role": "home_target",
+        "source_paths": [
+          "hermes_core/gateway/home_channel.py"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
         "key": "HONCHO_API_KEY",
         "surface": "gateway_kernel",
         "primary_role": "secret",
@@ -21344,6 +21434,33 @@
         "primary_role": "non_secret_config",
         "source_paths": [
           "hermes_core/optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "IRC_HOME_CHANNEL",
+        "surface": "irc_plugin",
+        "primary_role": "home_target",
+        "source_paths": [
+          "hermes_core/gateway/home_channel.py",
+          "hermes_core/gateway/run.py"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "IRC_HOME_CHANNEL_NAME",
+        "surface": "irc_plugin",
+        "primary_role": "home_target",
+        "source_paths": [
+          "hermes_core/gateway/home_channel.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -22155,6 +22272,29 @@
         "known_gaps": []
       },
       {
+        "key": "LOCAL_HOME_CHANNEL",
+        "surface": "local_delivery",
+        "primary_role": "home_target",
+        "source_paths": [
+          "hermes_core/gateway/home_channel.py",
+          "hermes_core/gateway/run.py"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "retain_profile_scoped",
+        "known_gaps": []
+      },
+      {
+        "key": "LOCAL_HOME_CHANNEL_NAME",
+        "surface": "local_delivery",
+        "primary_role": "home_target",
+        "source_paths": [
+          "hermes_core/gateway/home_channel.py"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "retain_profile_scoped",
+        "known_gaps": []
+      },
+      {
         "key": "MATRIX_ACCESS_TOKEN",
         "surface": "matrix",
         "primary_role": "secret",
@@ -22321,6 +22461,33 @@
         "known_gaps": [
           "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
           "Configured URL/host values require fail-closed network-policy validation; key presence is not an allowlist."
+        ]
+      },
+      {
+        "key": "MATRIX_HOME_CHANNEL",
+        "surface": "matrix",
+        "primary_role": "home_target",
+        "source_paths": [
+          "hermes_core/gateway/home_channel.py",
+          "hermes_core/gateway/run.py"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "MATRIX_HOME_CHANNEL_NAME",
+        "surface": "matrix",
+        "primary_role": "home_target",
+        "source_paths": [
+          "hermes_core/gateway/home_channel.py"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
         ]
       },
       {
@@ -22505,6 +22672,8 @@
         "source_paths": [
           "hermes_core/cron/scheduler.py",
           "hermes_core/gateway/config.py",
+          "hermes_core/gateway/home_channel.py",
+          "hermes_core/gateway/run.py",
           "hermes_core/kabuqina_cli/config_env.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
@@ -22519,6 +22688,7 @@
         "primary_role": "home_target",
         "source_paths": [
           "hermes_core/gateway/config.py",
+          "hermes_core/gateway/home_channel.py",
           "hermes_core/kabuqina_cli/config_env.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
@@ -23337,6 +23507,8 @@
         "source_paths": [
           "hermes_core/cron/scheduler.py",
           "hermes_core/gateway/config.py",
+          "hermes_core/gateway/home_channel.py",
+          "hermes_core/gateway/run.py",
           "hermes_core/kabuqina_cli/config_env.py",
           "hermes_core/kabuqina_cli/config_env_schema.py",
           "python/src/qqbot_qr_worker.py",
@@ -23352,6 +23524,7 @@
         "primary_role": "home_target",
         "source_paths": [
           "hermes_core/gateway/config.py",
+          "hermes_core/gateway/home_channel.py",
           "hermes_core/kabuqina_cli/config_env.py",
           "hermes_core/kabuqina_cli/config_env_schema.py"
         ],
@@ -23709,6 +23882,8 @@
         "source_paths": [
           "hermes_core/cron/scheduler.py",
           "hermes_core/gateway/config.py",
+          "hermes_core/gateway/home_channel.py",
+          "hermes_core/gateway/run.py",
           "hermes_core/kabuqina_cli/config_env.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
@@ -23723,6 +23898,7 @@
         "primary_role": "home_target",
         "source_paths": [
           "hermes_core/gateway/config.py",
+          "hermes_core/gateway/home_channel.py",
           "hermes_core/kabuqina_cli/config_env.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
@@ -23858,6 +24034,8 @@
         "source_paths": [
           "hermes_core/cron/scheduler.py",
           "hermes_core/gateway/config.py",
+          "hermes_core/gateway/home_channel.py",
+          "hermes_core/gateway/run.py",
           "hermes_core/kabuqina_cli/config_env.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
@@ -23872,6 +24050,7 @@
         "primary_role": "home_target",
         "source_paths": [
           "hermes_core/gateway/config.py",
+          "hermes_core/gateway/home_channel.py",
           "hermes_core/kabuqina_cli/config_env.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
@@ -23955,6 +24134,8 @@
         "source_paths": [
           "hermes_core/cron/scheduler.py",
           "hermes_core/gateway/config.py",
+          "hermes_core/gateway/home_channel.py",
+          "hermes_core/gateway/run.py",
           "hermes_core/kabuqina_cli/config_env.py",
           "web/src/lib/gatewayPlatformSettingsRegistry.ts"
         ],
@@ -23970,6 +24151,7 @@
         "primary_role": "home_target",
         "source_paths": [
           "hermes_core/gateway/config.py",
+          "hermes_core/gateway/home_channel.py",
           "hermes_core/kabuqina_cli/config_env.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
@@ -24329,6 +24511,33 @@
         ]
       },
       {
+        "key": "TEAMS_HOME_CHANNEL",
+        "surface": "teams_plugin",
+        "primary_role": "home_target",
+        "source_paths": [
+          "hermes_core/gateway/home_channel.py",
+          "hermes_core/gateway/run.py"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "TEAMS_HOME_CHANNEL_NAME",
+        "surface": "teams_plugin",
+        "primary_role": "home_target",
+        "source_paths": [
+          "hermes_core/gateway/home_channel.py"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
         "key": "TEAMS_PORT",
         "surface": "teams_plugin",
         "primary_role": "non_secret_config",
@@ -24469,6 +24678,8 @@
         "source_paths": [
           "hermes_core/cron/scheduler.py",
           "hermes_core/gateway/config.py",
+          "hermes_core/gateway/home_channel.py",
+          "hermes_core/gateway/run.py",
           "hermes_core/kabuqina_cli/config_env.py",
           "tauri/src/gateway_supervisor.rs",
           "tauri/src/telegram_env.rs"
@@ -24483,6 +24694,7 @@
         "primary_role": "home_target",
         "source_paths": [
           "hermes_core/gateway/config.py",
+          "hermes_core/gateway/home_channel.py",
           "hermes_core/kabuqina_cli/config_env.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
@@ -25577,6 +25789,33 @@
         ]
       },
       {
+        "key": "WEBHOOK_HOME_CHANNEL",
+        "surface": "webhook",
+        "primary_role": "home_target",
+        "source_paths": [
+          "hermes_core/gateway/home_channel.py",
+          "hermes_core/gateway/run.py"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "WEBHOOK_HOME_CHANNEL_NAME",
+        "surface": "webhook",
+        "primary_role": "home_target",
+        "source_paths": [
+          "hermes_core/gateway/home_channel.py"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
         "key": "WEBHOOK_PORT",
         "surface": "webhook",
         "primary_role": "non_secret_config",
@@ -25764,6 +26003,33 @@
         ]
       },
       {
+        "key": "WECOM_CALLBACK_HOME_CHANNEL",
+        "surface": "wecom_family",
+        "primary_role": "home_target",
+        "source_paths": [
+          "hermes_core/gateway/home_channel.py",
+          "hermes_core/gateway/run.py"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "WECOM_CALLBACK_HOME_CHANNEL_NAME",
+        "surface": "wecom_family",
+        "primary_role": "home_target",
+        "source_paths": [
+          "hermes_core/gateway/home_channel.py"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
         "key": "WECOM_CALLBACK_HOST",
         "surface": "wecom_family",
         "primary_role": "network_host_expander",
@@ -25842,6 +26108,8 @@
         "source_paths": [
           "hermes_core/cron/scheduler.py",
           "hermes_core/gateway/config.py",
+          "hermes_core/gateway/home_channel.py",
+          "hermes_core/gateway/run.py",
           "hermes_core/kabuqina_cli/config_env.py",
           "web/src/lib/gatewayPlatformSettingsRegistry.ts"
         ],
@@ -25857,6 +26125,7 @@
         "primary_role": "home_target",
         "source_paths": [
           "hermes_core/gateway/config.py",
+          "hermes_core/gateway/home_channel.py",
           "hermes_core/kabuqina_cli/config_env.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
@@ -26075,6 +26344,8 @@
         "source_paths": [
           "hermes_core/cron/scheduler.py",
           "hermes_core/gateway/config.py",
+          "hermes_core/gateway/home_channel.py",
+          "hermes_core/gateway/run.py",
           "hermes_core/kabuqina_cli/config_env.py",
           "hermes_core/tools/send_message_tool.py",
           "python/src/weixin_qr_worker.py",
@@ -26090,6 +26361,7 @@
         "primary_role": "home_target",
         "source_paths": [
           "hermes_core/gateway/config.py",
+          "hermes_core/gateway/home_channel.py",
           "hermes_core/kabuqina_cli/config_env.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
@@ -26252,6 +26524,29 @@
         "source_paths": [
           "hermes_core/gateway/config.py",
           "hermes_core/gateway/platforms/whatsapp.py"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "retain_profile_scoped",
+        "known_gaps": []
+      },
+      {
+        "key": "WHATSAPP_HOME_CHANNEL",
+        "surface": "whatsapp",
+        "primary_role": "home_target",
+        "source_paths": [
+          "hermes_core/gateway/home_channel.py",
+          "hermes_core/gateway/run.py"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "retain_profile_scoped",
+        "known_gaps": []
+      },
+      {
+        "key": "WHATSAPP_HOME_CHANNEL_NAME",
+        "surface": "whatsapp",
+        "primary_role": "home_target",
+        "source_paths": [
+          "hermes_core/gateway/home_channel.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -26598,7 +26893,9 @@
         "primary_role": "home_target",
         "source_paths": [
           "hermes_core/gateway/config.py",
+          "hermes_core/gateway/home_channel.py",
           "hermes_core/gateway/platforms/yuanbao.py",
+          "hermes_core/gateway/run.py",
           "hermes_core/kabuqina_cli/config_env.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
@@ -26613,6 +26910,7 @@
         "primary_role": "home_target",
         "source_paths": [
           "hermes_core/gateway/config.py",
+          "hermes_core/gateway/home_channel.py",
           "hermes_core/kabuqina_cli/config_env.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
@@ -26714,8 +27012,9 @@
         "process.env"
       ],
       "unknown_mapping": "validation_error",
-      "dynamic_exact_declarations": "uppercase keys are extracted only from environment/credential registration structures and envKey properties; mapping happens after discovery",
+      "dynamic_exact_declarations": "uppercase keys are extracted only from environment/credential registration structures, envKey properties and computed environment-key templates with a finite built-in/bundled-plugin expansion; mapping happens after discovery",
       "namespace_declarations": "wildcard prefixes are recorded in environment_namespace_edges and never inserted into the exact-key ledger",
+      "computed_template_declarations": "computed keys such as {PLATFORM}_HOME_CHANNEL and its _NAME companion are recorded in environment_dynamic_key_templates; every statically known built-in/bundled plugin expansion must also exist as an exact edge, while unclassified runtime plugins remain prohibited",
       "ordinary_uppercase_literals": "ignored unless they occur in a real access or declaration structure"
     },
     "environment_namespace_edges": [
@@ -27150,6 +27449,135 @@
           "Wildcard namespace membership does not prove that any particular exact key exists; consumers must continue to validate exact keys."
         ]
       }
+    ],
+    "environment_dynamic_key_templates": [
+      {
+        "template": "{PLATFORM}_HOME_CHANNEL",
+        "pattern": "^[A-Z][A-Z0-9_]*_HOME_CHANNEL$",
+        "known_platforms": [
+          "api_server",
+          "bluebubbles",
+          "dingtalk",
+          "discord",
+          "email",
+          "feishu",
+          "homeassistant",
+          "irc",
+          "local",
+          "matrix",
+          "mattermost",
+          "qqbot",
+          "signal",
+          "slack",
+          "sms",
+          "teams",
+          "telegram",
+          "webhook",
+          "wecom",
+          "wecom_callback",
+          "weixin",
+          "whatsapp",
+          "yuanbao"
+        ],
+        "exact_expansion": [
+          "API_SERVER_HOME_CHANNEL",
+          "BLUEBUBBLES_HOME_CHANNEL",
+          "DINGTALK_HOME_CHANNEL",
+          "DISCORD_HOME_CHANNEL",
+          "EMAIL_HOME_CHANNEL",
+          "FEISHU_HOME_CHANNEL",
+          "HOMEASSISTANT_HOME_CHANNEL",
+          "IRC_HOME_CHANNEL",
+          "LOCAL_HOME_CHANNEL",
+          "MATRIX_HOME_CHANNEL",
+          "MATTERMOST_HOME_CHANNEL",
+          "QQBOT_HOME_CHANNEL",
+          "SIGNAL_HOME_CHANNEL",
+          "SLACK_HOME_CHANNEL",
+          "SMS_HOME_CHANNEL",
+          "TEAMS_HOME_CHANNEL",
+          "TELEGRAM_HOME_CHANNEL",
+          "WEBHOOK_HOME_CHANNEL",
+          "WECOM_HOME_CHANNEL",
+          "WECOM_CALLBACK_HOME_CHANNEL",
+          "WEIXIN_HOME_CHANNEL",
+          "WHATSAPP_HOME_CHANNEL",
+          "YUANBAO_HOME_CHANNEL"
+        ],
+        "source_paths": [
+          "hermes_core/gateway/home_channel.py",
+          "hermes_core/gateway/run.py"
+        ],
+        "observed_current": "A computed environment key is produced or consumed by the tracked runtime paths; all statically known platform values are expanded into the exact ledger.",
+        "target_contract": "Every built-in or bundled plugin expansion must map to a classified surface and appear as an exact edge; any new bundled plugin fails closed until classified.",
+        "dynamic_namespace_contract": "Runtime-registered plugin names are not a wildcard retention allowlist. unknown_platform_policy.runtime_plugin_platforms_allowed=false requires classification before this template may be instantiated.",
+        "known_gaps": [
+          "User/project/pip runtime plugin names are not statically enumerable; the current target contract prohibits them until an explicit manifest classification is reviewed."
+        ]
+      },
+      {
+        "template": "{PLATFORM}_HOME_CHANNEL_NAME",
+        "pattern": "^[A-Z][A-Z0-9_]*_HOME_CHANNEL_NAME$",
+        "known_platforms": [
+          "api_server",
+          "bluebubbles",
+          "dingtalk",
+          "discord",
+          "email",
+          "feishu",
+          "homeassistant",
+          "irc",
+          "local",
+          "matrix",
+          "mattermost",
+          "qqbot",
+          "signal",
+          "slack",
+          "sms",
+          "teams",
+          "telegram",
+          "webhook",
+          "wecom",
+          "wecom_callback",
+          "weixin",
+          "whatsapp",
+          "yuanbao"
+        ],
+        "exact_expansion": [
+          "API_SERVER_HOME_CHANNEL_NAME",
+          "BLUEBUBBLES_HOME_CHANNEL_NAME",
+          "DINGTALK_HOME_CHANNEL_NAME",
+          "DISCORD_HOME_CHANNEL_NAME",
+          "EMAIL_HOME_CHANNEL_NAME",
+          "FEISHU_HOME_CHANNEL_NAME",
+          "HOMEASSISTANT_HOME_CHANNEL_NAME",
+          "IRC_HOME_CHANNEL_NAME",
+          "LOCAL_HOME_CHANNEL_NAME",
+          "MATRIX_HOME_CHANNEL_NAME",
+          "MATTERMOST_HOME_CHANNEL_NAME",
+          "QQBOT_HOME_CHANNEL_NAME",
+          "SIGNAL_HOME_CHANNEL_NAME",
+          "SLACK_HOME_CHANNEL_NAME",
+          "SMS_HOME_CHANNEL_NAME",
+          "TEAMS_HOME_CHANNEL_NAME",
+          "TELEGRAM_HOME_CHANNEL_NAME",
+          "WEBHOOK_HOME_CHANNEL_NAME",
+          "WECOM_HOME_CHANNEL_NAME",
+          "WECOM_CALLBACK_HOME_CHANNEL_NAME",
+          "WEIXIN_HOME_CHANNEL_NAME",
+          "WHATSAPP_HOME_CHANNEL_NAME",
+          "YUANBAO_HOME_CHANNEL_NAME"
+        ],
+        "source_paths": [
+          "hermes_core/gateway/home_channel.py"
+        ],
+        "observed_current": "A computed environment key is produced or consumed by the tracked runtime paths; all statically known platform values are expanded into the exact ledger.",
+        "target_contract": "Every built-in or bundled plugin expansion must map to a classified surface and appear as an exact edge; any new bundled plugin fails closed until classified.",
+        "dynamic_namespace_contract": "Runtime-registered plugin names are not a wildcard retention allowlist. unknown_platform_policy.runtime_plugin_platforms_allowed=false requires classification before this template may be instantiated.",
+        "known_gaps": [
+          "User/project/pip runtime plugin names are not statically enumerable; the current target contract prohibits them until an explicit manifest classification is reviewed."
+        ]
+      }
     ]
   },
   "generated_ledger_metadata": {
@@ -27157,8 +27585,9 @@
     "reference_path_count": 656,
     "literal_environment_key_count": 678,
     "dynamic_environment_key_declaration_count": 396,
-    "environment_key_count": 776,
+    "environment_key_count": 796,
     "environment_namespace_count": 32,
+    "environment_dynamic_template_count": 2,
     "historical_docs_policy": "docs/superpowers history is excluded from the active-doc reference scan; the three authority plans are hash-pinned separately."
   }
 }

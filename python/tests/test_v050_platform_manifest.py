@@ -289,6 +289,88 @@ for key in RUNTIME_ENV_KEYS:
             ):
                 audit.collect_environment_namespace_edges(scan_root)
 
+    def test_computed_home_channel_keys_expand_via_real_scan(self) -> None:
+        platform_values = {
+            "whatsapp",
+            "email",
+            "matrix",
+            "homeassistant",
+            "wecom_callback",
+            "irc",
+            "teams",
+        }
+        files = {
+            "hermes_core/gateway/config.py": """
+from enum import Enum
+class Platform(Enum):
+    WHATSAPP = "whatsapp"
+    EMAIL = "email"
+    MATRIX = "matrix"
+    HOMEASSISTANT = "homeassistant"
+    WECOM_CALLBACK = "wecom_callback"
+""",
+            "hermes_core/gateway/home_channel.py": """
+import os
+def home_channel_env_key(platform):
+    return f"{platform.value.upper().replace('-', '_')}_HOME_CHANNEL"
+def load_home(platform):
+    env_key = home_channel_env_key(platform)
+    return os.getenv(env_key), os.getenv(f"{env_key}_NAME", "Home")
+""",
+            "hermes_core/plugins/platforms/irc/plugin.yaml": "name: irc\n",
+            "hermes_core/plugins/platforms/irc/__init__.py": "",
+            "hermes_core/plugins/platforms/teams/plugin.yaml": "name: teams\n",
+            "hermes_core/plugins/platforms/teams/__init__.py": "",
+        }
+        with _tracked_scan_root(files) as scan_root:
+            edges = {
+                record["key"]: record
+                for record in audit.collect_credential_key_edges(scan_root)
+            }
+            templates = audit.collect_environment_dynamic_template_edges(scan_root)
+
+        expected = {
+            f"{platform.upper()}_HOME_CHANNEL{suffix}"
+            for platform in platform_values
+            for suffix in ("", "_NAME")
+        }
+        self.assertEqual(set(), expected - set(edges))
+        self.assertEqual(
+            {"{PLATFORM}_HOME_CHANNEL", "{PLATFORM}_HOME_CHANNEL_NAME"},
+            {record["template"] for record in templates},
+        )
+        for key in expected:
+            self.assertIn("hermes_core/gateway/home_channel.py", edges[key]["source_paths"])
+        for record in templates:
+            self.assertIn(
+                "runtime_plugin_platforms_allowed=false",
+                record["dynamic_namespace_contract"],
+            )
+
+    def test_unclassified_computed_plugin_home_key_fails_closed_via_scan(self) -> None:
+        files = {
+            "hermes_core/gateway/config.py": """
+from enum import Enum
+class Platform(Enum):
+    TELEGRAM = "telegram"
+""",
+            "hermes_core/gateway/home_channel.py": """
+import os
+def home_channel_env_key(platform):
+    return f"{platform.value.upper().replace('-', '_')}_HOME_CHANNEL"
+def load_home(platform):
+    env_key = home_channel_env_key(platform)
+    return os.getenv(env_key), os.getenv(f"{env_key}_NAME", "Home")
+""",
+            "hermes_core/plugins/platforms/future_chat/plugin.yaml": "name: future_chat\n",
+            "hermes_core/plugins/platforms/future_chat/__init__.py": "",
+        }
+        with _tracked_scan_root(files) as scan_root:
+            with self.assertRaisesRegex(
+                ValueError, "FUTURE_CHAT_HOME_CHANNEL"
+            ):
+                audit.collect_credential_key_edges(scan_root)
+
     def test_surface_dependency_coverage_cannot_omit_runtime_dependency(self) -> None:
         mutated = copy.deepcopy(self.manifest)
         mutated["surface_dependency_coverage"] = [

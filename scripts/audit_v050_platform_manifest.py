@@ -192,6 +192,7 @@ ENV_PREFIX_TO_SURFACE = {
     "HOME_ASSISTANT": "home_assistant",
     "HASS": "home_assistant",
     "IRC": "irc_plugin",
+    "LOCAL": "local_delivery",
     "MATRIX": "matrix",
     "MATTERMOST": "mattermost",
     "QQBOT": "qqbot",
@@ -414,8 +415,9 @@ ENVIRONMENT_DISCOVERY_CONTRACT = {
     ],
     "web_accesses": ["import.meta.env", "process.env"],
     "unknown_mapping": "validation_error",
-    "dynamic_exact_declarations": "uppercase keys are extracted only from environment/credential registration structures and envKey properties; mapping happens after discovery",
+    "dynamic_exact_declarations": "uppercase keys are extracted only from environment/credential registration structures, envKey properties and computed environment-key templates with a finite built-in/bundled-plugin expansion; mapping happens after discovery",
     "namespace_declarations": "wildcard prefixes are recorded in environment_namespace_edges and never inserted into the exact-key ledger",
+    "computed_template_declarations": "computed keys such as {PLATFORM}_HOME_CHANNEL and its _NAME companion are recorded in environment_dynamic_key_templates; every statically known built-in/bundled plugin expansion must also exist as an exact edge, while unclassified runtime plugins remain prohibited",
     "ordinary_uppercase_literals": "ignored unless they occur in a real access or declaration structure",
 }
 
@@ -542,6 +544,17 @@ REQUIRED_ENVIRONMENT_NAMESPACE_EDGE_FIELDS = {
     "source_paths",
     "observed_current",
     "target_contract",
+    "known_gaps",
+}
+REQUIRED_ENVIRONMENT_DYNAMIC_TEMPLATE_FIELDS = {
+    "template",
+    "pattern",
+    "known_platforms",
+    "exact_expansion",
+    "source_paths",
+    "observed_current",
+    "target_contract",
+    "dynamic_namespace_contract",
     "known_gaps",
 }
 REQUIRED_PERSISTED_RECORD_FIELDS = {
@@ -1173,6 +1186,148 @@ def _web_environment_declarations(text: str) -> tuple[set[str], set[str]]:
     return exact, namespaces
 
 
+def _joined_string_suffix(node: ast.JoinedStr) -> tuple[ast.FormattedValue | None, str]:
+    """Return the last formatted value and the literal suffix following it."""
+
+    suffix = ""
+    for value in reversed(node.values):
+        if isinstance(value, ast.Constant) and isinstance(value.value, str):
+            suffix = value.value + suffix
+            continue
+        if isinstance(value, ast.FormattedValue):
+            return value, suffix
+        break
+    return None, suffix
+
+
+def _python_computed_environment_templates(path: Path) -> set[str]:
+    """Discover computed keys only when an f-string is in an env-key context."""
+
+    tree = ast.parse(path.read_text(encoding="utf-8", errors="ignore"), filename=str(path))
+    parents = {
+        child: parent
+        for parent in ast.walk(tree)
+        for child in ast.iter_child_nodes(parent)
+    }
+
+    def formatted_names(formatted: ast.FormattedValue) -> set[str]:
+        return {
+            child.id
+            for child in ast.walk(formatted.value)
+            if isinstance(child, ast.Name)
+        }
+
+    def has_env_key_context(node: ast.JoinedStr) -> bool:
+        current: ast.AST | None = node
+        while current is not None:
+            parent = parents.get(current)
+            if isinstance(parent, (ast.Assign, ast.AnnAssign)):
+                targets = parent.targets if isinstance(parent, ast.Assign) else [parent.target]
+                if any(
+                    isinstance(target, ast.Name)
+                    and "env_key" in target.id.lower()
+                    for target in targets
+                ):
+                    return True
+            if isinstance(parent, ast.Call):
+                function_name = ""
+                if isinstance(parent.func, ast.Name):
+                    function_name = parent.func.id
+                elif isinstance(parent.func, ast.Attribute):
+                    function_name = parent.func.attr
+                if function_name in {
+                    "getenv",
+                    "putenv",
+                    "unsetenv",
+                    "save_env_value",
+                    "get_env_value",
+                    "remove_env_value",
+                }:
+                    return True
+            if isinstance(parent, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                return "env_key" in parent.name.lower()
+            current = parent
+        return False
+
+    templates: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.JoinedStr) or not has_env_key_context(node):
+            continue
+        formatted, suffix = _joined_string_suffix(node)
+        if formatted is None:
+            continue
+        names = formatted_names(formatted)
+        if suffix == "_HOME_CHANNEL" and any("platform" in name.lower() for name in names):
+            templates.add("{PLATFORM}_HOME_CHANNEL")
+        elif suffix == "_NAME" and any("env_key" in name.lower() for name in names):
+            templates.add("{PLATFORM}_HOME_CHANNEL_NAME")
+    return templates
+
+
+@lru_cache(maxsize=None)
+def discover_environment_dynamic_key_templates(
+    root: Path = ROOT,
+) -> dict[str, list[str]]:
+    """Find computed environment-key templates before expanding their domain."""
+
+    sources: dict[str, set[str]] = {}
+    for relative in _tracked_files(root):
+        if not _is_environment_scan_path(relative):
+            continue
+        path = root / relative
+        if path.suffix != ".py" or not path.is_file():
+            continue
+        for template in _python_computed_environment_templates(path):
+            sources.setdefault(template, set()).add(relative)
+    return {template: sorted(paths) for template, paths in sorted(sources.items())}
+
+
+def _environment_platform_domain(root: Path) -> list[str]:
+    return sorted(
+        set(discover_core_platforms(root)) | set(discover_bundled_platform_plugins(root))
+    )
+
+
+def _platform_environment_name(platform: str) -> str:
+    return platform.upper().replace("-", "_").replace(" ", "_")
+
+
+def _expand_environment_template(template: str, platform: str) -> str:
+    return template.replace("{PLATFORM}", _platform_environment_name(platform))
+
+
+@lru_cache(maxsize=None)
+def collect_environment_dynamic_template_edges(
+    root: Path = ROOT,
+) -> list[dict[str, Any]]:
+    templates = discover_environment_dynamic_key_templates(root)
+    if not templates:
+        return []
+    platforms = _environment_platform_domain(root)
+    records: list[dict[str, Any]] = []
+    for template, source_paths in templates.items():
+        suffix = re.escape(template.removeprefix("{PLATFORM}"))
+        exact_expansion = [
+            _expand_environment_template(template, platform) for platform in platforms
+        ]
+        records.append(
+            {
+                "template": template,
+                "pattern": rf"^[A-Z][A-Z0-9_]*{suffix}$",
+                "known_platforms": platforms,
+                "exact_expansion": exact_expansion,
+                "source_paths": source_paths,
+                "observed_current": "A computed environment key is produced or consumed by the tracked runtime paths; all statically known platform values are expanded into the exact ledger.",
+                "target_contract": "Every built-in or bundled plugin expansion must map to a classified surface and appear as an exact edge; any new bundled plugin fails closed until classified.",
+                "dynamic_namespace_contract": "Runtime-registered plugin names are not a wildcard retention allowlist. unknown_platform_policy.runtime_plugin_platforms_allowed=false requires classification before this template may be instantiated.",
+                "known_gaps": [
+                    "User/project/pip runtime plugin names are not statically enumerable; the current target contract prohibits them until an explicit manifest classification is reviewed."
+                ],
+            }
+        )
+    return records
+
+
 def _is_environment_scan_path(relative: str) -> bool:
     if not relative.startswith(ENVIRONMENT_SCAN_ROOTS):
         return False
@@ -1258,6 +1413,9 @@ def collect_environment_key_sources(root: Path = ROOT) -> dict[str, list[str]]:
     declarations = discover_environment_declarations(root)["exact_keys"]
     for key, paths in declarations.items():
         sources.setdefault(key, set()).update(paths)
+    for record in collect_environment_dynamic_template_edges(root):
+        for key in record["exact_expansion"]:
+            sources.setdefault(key, set()).update(record["source_paths"])
     return {key: sorted(paths) for key, paths in sorted(sources.items())}
 
 
@@ -1374,6 +1532,7 @@ def credential_environment_ledger_issues(
     try:
         actual_keys = collect_credential_key_edges(root)
         actual_namespaces = collect_environment_namespace_edges(root)
+        actual_templates = collect_environment_dynamic_template_edges(root)
     except ValueError as exc:
         return [
             f"{exc}; add an explicit exact key or namespace-to-surface mapping"
@@ -1410,6 +1569,22 @@ def credential_environment_ledger_issues(
             f"extra={sorted(set(tracked_by_prefix) - set(actual_by_prefix))}; run "
             "scripts/audit_v050_platform_manifest.py --refresh-generated-ledgers"
         )
+    tracked_templates = credential_graph.get("environment_dynamic_key_templates", [])
+    if tracked_templates != actual_templates:
+        tracked_by_template = {
+            record.get("template"): record
+            for record in tracked_templates
+            if isinstance(record, dict)
+        }
+        actual_by_template = {
+            record["template"]: record for record in actual_templates
+        }
+        errors.append(
+            "credential dynamic environment-template ledger drift: "
+            f"missing={sorted(set(actual_by_template) - set(tracked_by_template))}, "
+            f"extra={sorted(set(tracked_by_template) - set(actual_by_template))}; run "
+            "scripts/audit_v050_platform_manifest.py --refresh-generated-ledgers"
+        )
     return errors
 
 
@@ -1419,11 +1594,13 @@ def refresh_generated_ledgers(manifest: dict[str, Any], root: Path = ROOT) -> No
     dynamic_declarations = discover_environment_declarations(root)
     credential_edges = collect_credential_key_edges(root)
     namespace_edges = collect_environment_namespace_edges(root)
+    dynamic_template_edges = collect_environment_dynamic_template_edges(root)
     manifest["typed_reference_ledger"] = references
     credential_graph = manifest.setdefault("credential_data_graph", {})
     credential_graph["environment_discovery"] = ENVIRONMENT_DISCOVERY_CONTRACT
     credential_graph["environment_key_edges"] = credential_edges
     credential_graph["environment_namespace_edges"] = namespace_edges
+    credential_graph["environment_dynamic_key_templates"] = dynamic_template_edges
     manifest["generated_ledger_metadata"] = {
         "generator": "scripts/audit_v050_platform_manifest.py --refresh-generated-ledgers",
         "reference_path_count": len(references),
@@ -1433,6 +1610,7 @@ def refresh_generated_ledgers(manifest: dict[str, Any], root: Path = ROOT) -> No
         ),
         "environment_key_count": len(credential_edges),
         "environment_namespace_count": len(namespace_edges),
+        "environment_dynamic_template_count": len(dynamic_template_edges),
         "historical_docs_policy": "docs/superpowers history is excluded from the active-doc reference scan; the three authority plans are hash-pinned separately.",
     }
 
@@ -2230,6 +2408,47 @@ def validate_contract(
         if not isinstance(record.get("known_gaps"), list):
             errors.append(f"environment namespace {prefix}.known_gaps must be a list")
 
+    dynamic_templates = credential_graph.get("environment_dynamic_key_templates")
+    if not isinstance(dynamic_templates, list) or not dynamic_templates:
+        errors.append(
+            "credential_data_graph.environment_dynamic_key_templates must be non-empty"
+        )
+        dynamic_templates = []
+    environment_templates: set[str] = set()
+    for index, record in enumerate(dynamic_templates):
+        if not isinstance(record, dict):
+            errors.append(f"environment_dynamic_key_templates[{index}] must be an object")
+            continue
+        missing = REQUIRED_ENVIRONMENT_DYNAMIC_TEMPLATE_FIELDS - set(record)
+        if missing:
+            errors.append(
+                f"environment_dynamic_key_templates[{index}] missing fields {sorted(missing)}"
+            )
+        template = record.get("template")
+        if not isinstance(template, str) or "{PLATFORM}" not in template:
+            errors.append(
+                f"environment_dynamic_key_templates[{index}].template must contain {{PLATFORM}}"
+            )
+        elif template in environment_templates:
+            errors.append(f"duplicate dynamic environment template: {template}")
+        else:
+            environment_templates.add(template)
+        known_platforms = record.get("known_platforms")
+        exact_expansion = record.get("exact_expansion")
+        if not isinstance(known_platforms, list) or not known_platforms:
+            errors.append(f"dynamic environment template {template}.known_platforms must be non-empty")
+        if not isinstance(exact_expansion, list) or not exact_expansion:
+            errors.append(f"dynamic environment template {template}.exact_expansion must be non-empty")
+        elif set(exact_expansion) - credential_keys:
+            errors.append(
+                f"dynamic environment template {template} has expansions missing from exact ledger: "
+                f"{sorted(set(exact_expansion) - credential_keys)}"
+            )
+        if not isinstance(record.get("source_paths"), list) or not record.get("source_paths"):
+            errors.append(f"dynamic environment template {template}.source_paths must be non-empty")
+        if not isinstance(record.get("known_gaps"), list):
+            errors.append(f"dynamic environment template {template}.known_gaps must be a list")
+
     generated_metadata = manifest.get("generated_ledger_metadata")
     if not isinstance(generated_metadata, dict):
         errors.append("generated_ledger_metadata must be an object")
@@ -2248,6 +2467,13 @@ def validate_contract(
         errors.append(
             "generated_ledger_metadata.environment_namespace_count must equal the "
             "environment-namespace ledger length"
+        )
+    if generated_metadata.get("environment_dynamic_template_count") != len(
+        dynamic_templates
+    ):
+        errors.append(
+            "generated_ledger_metadata.environment_dynamic_template_count must equal "
+            "the dynamic environment-template ledger length"
         )
     for count_field in (
         "literal_environment_key_count",
@@ -3141,7 +3367,9 @@ def main(argv: list[str] | None = None) -> int:
                 "environment_keys="
                 f"{len(manifest['credential_data_graph']['environment_key_edges'])} "
                 "environment_namespaces="
-                f"{len(manifest['credential_data_graph']['environment_namespace_edges'])}"
+                f"{len(manifest['credential_data_graph']['environment_namespace_edges'])} "
+                "environment_dynamic_templates="
+                f"{len(manifest['credential_data_graph']['environment_dynamic_key_templates'])}"
             )
         errors = validate_contract(manifest, ROOT)
         if args.check_observed:
