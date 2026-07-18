@@ -17,13 +17,11 @@ import {
   ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useI18n } from "../../lib/i18n";
 import { ShellModal } from "../../components/ShellModal";
 import { WorkspaceActionButton, WorkspaceSection } from "../workspaceSection";
-import { cmdStudyMigrateBuiltinCourse } from "./study-api";
-import { STUDY_LEARNING_EVENT } from "./flashcardLearningStore";
 import { EvaluationPanel } from "./EvaluationPanel";
 import { FlashcardPanel } from "./FlashcardPanel";
 import { LearningPathPanel } from "./LearningPathPanel";
@@ -102,21 +100,6 @@ export function StudySection({
   const [context, setContext] = useState<StudyContext>(emptyStudyContext);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saved" | "failed">("idle");
   const [profileEditorOpen, setProfileEditorOpen] = useState(false);
-  const builtinSeededRef = useRef(false);
-
-  // Seed the built-in course once per session mount. The backend is idempotent
-  // (guarded by a migration key), so this is a no-op after the first install.
-  // On a fresh seed, notify the flashcard/quiz panels to refresh.
-  useEffect(() => {
-    if (builtinSeededRef.current) return;
-    builtinSeededRef.current = true;
-    void cmdStudyMigrateBuiltinCourse()
-      .then((res) => {
-        if (res?.seeded) window.dispatchEvent(new Event(STUDY_LEARNING_EVENT));
-      })
-      .catch((error) => console.debug("builtin course seed failed:", error));
-  }, []);
-
   useEffect(() => {
     const sync = () => {
       setContext(loadStudyContext());

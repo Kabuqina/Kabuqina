@@ -1151,6 +1151,12 @@ const studyStoreSource = fs.readFileSync(new URL("./study/studyStore.ts", import
 const flashcardPanelSource = fs.readFileSync(new URL("./study/FlashcardPanel.tsx", import.meta.url), "utf8");
 const quizPanelSource = fs.readFileSync(new URL("./study/QuizPanel.tsx", import.meta.url), "utf8");
 
+assert.doesNotMatch(
+  studySectionSource,
+  /cmdStudyMigrateBuiltinCourse|builtin course seed/,
+  "A fresh STUDY workspace must not auto-seed demo courses, plans, resources, cards, or quizzes.",
+);
+
 assert.deepEqual(
   Object.keys(STUDY_PROMPTS),
   [
