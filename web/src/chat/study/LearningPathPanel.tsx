@@ -12,6 +12,7 @@ import { cn } from "../../lib/cn";
 import { WorkspaceSection } from "../workspaceSection";
 import { STUDY_LEARNING_EVENT } from "./flashcardLearningStore";
 import { LEARNING_PATH_PROMPT } from "./studyPrompts";
+import { pickCurrentStudyArtifact } from "./studyArtifactState";
 import {
   cmdStudyArtifactActivate,
   cmdStudyArtifactReject,
@@ -20,14 +21,6 @@ import {
   type LearningPlanTask,
   type StudyArtifact,
 } from "./study-api";
-
-function pickCurrent(items: StudyArtifact[]): StudyArtifact | null {
-  if (!Array.isArray(items) || items.length === 0) return null;
-  const byRecent = [...items].sort((a, b) =>
-    String(b.updated_at || "").localeCompare(String(a.updated_at || "")),
-  );
-  return byRecent.find((a) => a.status === "active") || byRecent[0];
-}
 
 function normalizedStatus(phase: LearningPlanPhase, index: number): "pending" | "active" | "done" {
   const raw = String(phase.status || "").toLowerCase();
@@ -57,7 +50,7 @@ export function LearningPathPanel({ onStartPrompt }: { onStartPrompt?: (prompt: 
   const refresh = useCallback(async () => {
     try {
       const res = await cmdStudyDrafts("learning_plan");
-      setPlan(pickCurrent(res.drafts || []));
+      setPlan(pickCurrentStudyArtifact(res.drafts || []));
     } catch (error) {
       setStatus("后端暂不可用");
       console.debug("learning_plan refresh failed:", error);

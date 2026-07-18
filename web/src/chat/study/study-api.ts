@@ -3,6 +3,14 @@
 
 import { invoke } from "@tauri-apps/api/core";
 
+import { notifyStudyLearningChanged } from "./flashcardLearningStore";
+
+async function invokeStudyMutation<T>(command: string, args?: Record<string, unknown>): Promise<T> {
+  const result = await invoke<T>(command, args);
+  notifyStudyLearningChanged({ command, result });
+  return result;
+}
+
 export type StudySpace = {
   space_id: string;
   title: string;
@@ -196,11 +204,11 @@ export function cmdStudySpaces(): Promise<StudySpacesResponse> {
 }
 
 export function cmdStudySpaceCreate(title: string): Promise<StudySpacesResponse & { space_id: string }> {
-  return invoke("cmd_study_space_create", { title });
+  return invokeStudyMutation<StudySpacesResponse & { space_id: string }>("cmd_study_space_create", { title });
 }
 
 export function cmdStudySpaceSelect(spaceId: string): Promise<StudySpacesResponse & { space_id: string }> {
-  return invoke("cmd_study_space_select", { spaceId });
+  return invokeStudyMutation<StudySpacesResponse & { space_id: string }>("cmd_study_space_select", { spaceId });
 }
 
 export function cmdStudyDrafts(kind = "flashcard_deck"): Promise<StudyDraftsResponse> {
@@ -208,11 +216,11 @@ export function cmdStudyDrafts(kind = "flashcard_deck"): Promise<StudyDraftsResp
 }
 
 export function cmdStudyArtifactActivate(artifactId: string): Promise<unknown> {
-  return invoke("cmd_study_artifact_activate", { artifactId });
+  return invokeStudyMutation<unknown>("cmd_study_artifact_activate", { artifactId });
 }
 
 export function cmdStudyArtifactReject(artifactId: string): Promise<unknown> {
-  return invoke("cmd_study_artifact_reject", { artifactId });
+  return invokeStudyMutation<unknown>("cmd_study_artifact_reject", { artifactId });
 }
 
 export function cmdStudyFlashcards(dueOnly = false): Promise<StudyFlashcardsResponse> {
@@ -220,15 +228,15 @@ export function cmdStudyFlashcards(dueOnly = false): Promise<StudyFlashcardsResp
 }
 
 export function cmdStudyFlashcardCapture(payload: StudyFlashcardCaptureRequest): Promise<StudyCaptureResponse> {
-  return invoke("cmd_study_flashcard_capture", { body: payload });
+  return invokeStudyMutation<StudyCaptureResponse>("cmd_study_flashcard_capture", { body: payload });
 }
 
 export function cmdStudyFlashcardReview(itemId: string, grade: string): Promise<StudyFlashcard & { grade: string }> {
-  return invoke("cmd_study_flashcard_review", { itemId, grade });
+  return invokeStudyMutation<StudyFlashcard & { grade: string }>("cmd_study_flashcard_review", { itemId, grade });
 }
 
 export function cmdStudyMigrateFlashcards(deck: unknown): Promise<StudyMigrationResponse> {
-  return invoke("cmd_study_migrate_flashcards", { deck });
+  return invokeStudyMutation<StudyMigrationResponse>("cmd_study_migrate_flashcards", { deck });
 }
 
 export function cmdStudyQuizzes(): Promise<StudyQuizzesResponse> {
@@ -240,11 +248,11 @@ export function cmdStudyQuizQuestions(artifactId: string): Promise<StudyQuizQues
 }
 
 export function cmdStudyQuizSubmit(artifactId: string, responses: unknown): Promise<StudyQuizResult> {
-  return invoke("cmd_study_quiz_submit", { artifactId, responses });
+  return invokeStudyMutation<StudyQuizResult>("cmd_study_quiz_submit", { artifactId, responses });
 }
 
 export function cmdStudyMigrateQuizzes(quiz: unknown): Promise<StudyQuizMigrationResponse> {
-  return invoke("cmd_study_migrate_quizzes", { quiz });
+  return invokeStudyMutation<StudyQuizMigrationResponse>("cmd_study_migrate_quizzes", { quiz });
 }
 
 export type StudyBuiltinCourseResponse = {
@@ -257,5 +265,5 @@ export type StudyBuiltinCourseResponse = {
 };
 
 export function cmdStudyMigrateBuiltinCourse(): Promise<StudyBuiltinCourseResponse> {
-  return invoke("cmd_study_migrate_builtin_course");
+  return invokeStudyMutation<StudyBuiltinCourseResponse>("cmd_study_migrate_builtin_course");
 }

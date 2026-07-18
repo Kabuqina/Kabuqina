@@ -1148,13 +1148,46 @@ const studySectionSource = fs.readFileSync(new URL("./study/StudySection.tsx", i
 const learningPathPanelSource = fs.readFileSync(new URL("./study/LearningPathPanel.tsx", import.meta.url), "utf8");
 const evaluationPanelSource = fs.readFileSync(new URL("./study/EvaluationPanel.tsx", import.meta.url), "utf8");
 const studyStoreSource = fs.readFileSync(new URL("./study/studyStore.ts", import.meta.url), "utf8");
+const studyApiSource = fs.readFileSync(new URL("./study/study-api.ts", import.meta.url), "utf8");
+const flashcardLearningStoreSource = fs.readFileSync(
+  new URL("./study/flashcardLearningStore.ts", import.meta.url),
+  "utf8",
+);
 const flashcardPanelSource = fs.readFileSync(new URL("./study/FlashcardPanel.tsx", import.meta.url), "utf8");
 const quizPanelSource = fs.readFileSync(new URL("./study/QuizPanel.tsx", import.meta.url), "utf8");
+const { pickCurrentStudyArtifact } = await importTs("./study/studyArtifactState.ts");
 
 assert.doesNotMatch(
   studySectionSource,
   /cmdStudyMigrateBuiltinCourse|builtin course seed/,
   "A fresh STUDY workspace must not auto-seed demo courses, plans, resources, cards, or quizzes.",
+);
+const previousActiveProfile = {
+  artifact_id: "profile-active",
+  version: 1,
+  status: "active",
+  updated_at: "2026-07-01T08:00:00Z",
+};
+const pendingProfileUpdate = {
+  artifact_id: "profile-update",
+  version: 2,
+  status: "draft",
+  updated_at: "2026-07-02T08:00:00Z",
+};
+assert.equal(
+  pickCurrentStudyArtifact([previousActiveProfile, pendingProfileUpdate])?.artifact_id,
+  "profile-update",
+  "A newer reviewable profile update must not be hidden by the previous active snapshot.",
+);
+assert.match(
+  studyApiSource,
+  /invokeStudyMutation[\s\S]*notifyStudyLearningChanged/,
+  "Successful STUDY mutations should notify every mounted panel to refresh shared state.",
+);
+assert.match(
+  flashcardLearningStoreSource,
+  /notifyStudyLearningChanged[\s\S]*CustomEvent\(STUDY_LEARNING_EVENT/,
+  "The STUDY refresh event should carry mutation details through one shared dispatcher.",
 );
 
 assert.deepEqual(

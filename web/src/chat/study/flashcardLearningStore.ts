@@ -6,6 +6,11 @@ import type { StudyFlashcard } from "./study-api";
 
 export const STUDY_LEARNING_EVENT = "study-learning-event";
 
+export function notifyStudyLearningChanged(detail?: unknown): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(STUDY_LEARNING_EVENT, { detail }));
+}
+
 export type MigrationDeck = {
   cards: Array<{ front: string; back: string; hint?: string; tags?: string[] }>;
 };

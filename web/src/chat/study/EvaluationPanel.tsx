@@ -12,6 +12,7 @@ import { cn } from "../../lib/cn";
 import { WorkspaceSection } from "../workspaceSection";
 import { STUDY_LEARNING_EVENT } from "./flashcardLearningStore";
 import { LEARNING_EVALUATION_PROMPT, LEARNING_PATH_PROMPT } from "./studyPrompts";
+import { pickCurrentStudyArtifact } from "./studyArtifactState";
 import {
   STUDY_CONTEXT_FIELD_LIMIT,
   loadStudyContext,
@@ -23,14 +24,6 @@ import {
   cmdStudyDrafts,
   type StudyArtifact,
 } from "./study-api";
-
-function pickCurrent(items: StudyArtifact[]): StudyArtifact | null {
-  if (!Array.isArray(items) || items.length === 0) return null;
-  const byRecent = [...items].sort((a, b) =>
-    String(b.updated_at || "").localeCompare(String(a.updated_at || "")),
-  );
-  return byRecent.find((a) => a.status === "active") || byRecent[0];
-}
 
 function asText(value: unknown): string {
   if (typeof value === "string") return value.trim();
@@ -59,7 +52,7 @@ export function EvaluationPanel({ onStartPrompt }: { onStartPrompt?: (prompt: st
   const refresh = useCallback(async () => {
     try {
       const res = await cmdStudyDrafts("evaluation");
-      setEvaluation(pickCurrent(res.drafts || []));
+      setEvaluation(pickCurrentStudyArtifact(res.drafts || []));
     } catch (error) {
       setStatus("后端暂不可用");
       console.debug("evaluation refresh failed:", error);

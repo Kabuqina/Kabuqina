@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { WorkspaceSection } from "../workspaceSection";
 import { STUDY_LEARNING_EVENT } from "./flashcardLearningStore";
 import { LEARNING_PROFILE_PROMPT } from "./studyPrompts";
+import { pickCurrentStudyArtifact } from "./studyArtifactState";
 import {
   cmdStudyArtifactActivate,
   cmdStudyArtifactReject,
@@ -42,14 +43,6 @@ function point(axisIndex: number, ratio: number): [number, number] {
 
 function polygon(ratios: number[]): string {
   return ratios.map((r, i) => point(i, r).join(",")).join(" ");
-}
-
-function pickCurrent(items: StudyArtifact[]): StudyArtifact | null {
-  if (!Array.isArray(items) || items.length === 0) return null;
-  const byRecent = [...items].sort((a, b) =>
-    String(b.updated_at || "").localeCompare(String(a.updated_at || "")),
-  );
-  return byRecent.find((a) => a.status === "active") || byRecent[0];
 }
 
 function ProfileRadar({ dims }: { dims: Record<string, ProfileDimension> }) {
@@ -109,7 +102,7 @@ export function ProfilePanel({ onStartPrompt }: { onStartPrompt?: (prompt: strin
   const refresh = useCallback(async () => {
     try {
       const res = await cmdStudyDrafts("student_state");
-      setProfile(pickCurrent(res.drafts || []));
+      setProfile(pickCurrentStudyArtifact(res.drafts || []));
     } catch (error) {
       setStatus("后端暂不可用");
       console.debug("profile refresh failed:", error);
