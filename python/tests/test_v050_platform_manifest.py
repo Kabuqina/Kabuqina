@@ -7,6 +7,7 @@ import importlib.util
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -137,6 +138,97 @@ class V050PlatformManifestTests(unittest.TestCase):
                 "hermes_core/plugins/platforms/teams/adapter.py",
                 edges[key]["source_paths"],
             )
+
+    def _assert_removed_environment_group_is_rejected(
+        self, keys: set[str]
+    ) -> dict[str, dict]:
+        tracked = {
+            record["key"]: record
+            for record in self.manifest["credential_data_graph"][
+                "environment_key_edges"
+            ]
+        }
+        self.assertEqual(set(), keys - set(tracked))
+
+        mutated = copy.deepcopy(self.manifest)
+        mutated["credential_data_graph"]["environment_key_edges"] = [
+            record
+            for record in mutated["credential_data_graph"]["environment_key_edges"]
+            if record["key"] not in keys
+        ]
+        errors = audit.credential_environment_ledger_issues(mutated, ROOT)
+
+        self.assertTrue(
+            any(
+                "credential environment-key ledger drift" in error
+                and all(key in error for key in keys)
+                for error in errors
+            ),
+            errors,
+        )
+        return tracked
+
+    def test_home_assistant_environment_group_cannot_be_omitted(self) -> None:
+        tracked = self._assert_removed_environment_group_is_rejected(
+            {"HASS_TOKEN", "HASS_URL"}
+        )
+
+        for key in ("HASS_TOKEN", "HASS_URL"):
+            self.assertEqual("home_assistant", tracked[key]["surface"])
+            self.assertIn(
+                "hermes_core/gateway/platforms/homeassistant.py",
+                tracked[key]["source_paths"],
+            )
+
+    def test_email_oauth_environment_group_cannot_be_omitted(self) -> None:
+        key = "KABUQINA_MICROSOFT_OAUTH_CLIENT_ID"
+        tracked = self._assert_removed_environment_group_is_rejected({key})
+
+        self.assertEqual("email", tracked[key]["surface"])
+        self.assertIn("tauri/src/email_oauth.rs", tracked[key]["source_paths"])
+
+    def test_desktop_bridge_environment_group_cannot_be_omitted(self) -> None:
+        keys = {
+            "HERMESDESK_APPROVAL_URL",
+            "HERMESDESK_BRIDGE_SECRET",
+            "HERMESDESK_DESKTOP_DELIVERY_URL",
+            "HERMESDESK_SECRET_URL",
+            "HERMESDESK_SHELL_CHAT_URL",
+            "KABUQINA_APPROVAL_URL",
+            "KABUQINA_BRIDGE_SECRET",
+            "KABUQINA_DESKTOP_DELIVERY_URL",
+            "KABUQINA_SECRET_URL",
+            "KABUQINA_SHELL_CHAT_URL",
+        }
+        tracked = self._assert_removed_environment_group_is_rejected(keys)
+
+        for key in keys:
+            self.assertEqual("desktop", tracked[key]["surface"])
+        self.assertIn(
+            "tauri/src/python_supervisor.rs",
+            tracked["KABUQINA_BRIDGE_SECRET"]["source_paths"],
+        )
+        self.assertIn(
+            "python/src/approval_backend.py",
+            tracked["KABUQINA_APPROVAL_URL"]["source_paths"],
+        )
+
+    def test_unmapped_discovered_environment_key_fails_closed(self) -> None:
+        with patch.object(
+            audit,
+            "discover_environment_key_accesses",
+            return_value={"FUTURE_UNKNOWN_TOKEN": ["python/src/future_runtime.py"]},
+        ):
+            errors = audit.credential_environment_ledger_issues(self.manifest, ROOT)
+
+        self.assertTrue(
+            any(
+                "unmapped discovered environment keys" in error
+                and "FUTURE_UNKNOWN_TOKEN" in error
+                for error in errors
+            ),
+            errors,
+        )
 
     def test_surface_dependency_coverage_cannot_omit_runtime_dependency(self) -> None:
         mutated = copy.deepcopy(self.manifest)

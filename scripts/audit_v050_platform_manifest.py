@@ -20,7 +20,7 @@ import json
 import re
 import subprocess
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Iterable
 
 
@@ -189,6 +189,7 @@ ENV_PREFIX_TO_SURFACE = {
     "LARK": "feishu_lark",
     "HOMEASSISTANT": "home_assistant",
     "HOME_ASSISTANT": "home_assistant",
+    "HASS": "home_assistant",
     "IRC": "irc_plugin",
     "MATRIX": "matrix",
     "MATTERMOST": "mattermost",
@@ -205,6 +206,169 @@ ENV_PREFIX_TO_SURFACE = {
     "WEIXIN": "weixin",
     "WHATSAPP": "whatsapp",
     "YUANBAO": "yuanbao",
+}
+
+# Non-platform environment namespaces are still part of the exact C-0 surface.
+# Discovery happens before this mapping is applied; a new namespace therefore
+# fails closed instead of being silently omitted from the ledger.
+NON_PLATFORM_ENV_PREFIX_TO_SURFACE = {
+    "ANTHROPIC": "gateway_kernel",
+    "API": "gateway_kernel",
+    "APPTAINER": "gateway_kernel",
+    "AUXILIARY": "gateway_kernel",
+    "AZURE": "gateway_kernel",
+    "BASE": "gateway_kernel",
+    "BROWSER": "gateway_kernel",
+    "BROWSERBASE": "gateway_kernel",
+    "CAMOFOX": "gateway_kernel",
+    "CANVAS": "gateway_kernel",
+    "CLAUDE": "gateway_kernel",
+    "COMFY": "gateway_kernel",
+    "CUSTOM": "gateway_kernel",
+    "DAYTONA": "gateway_kernel",
+    "DELEGATION": "gateway_kernel",
+    "EDITOR": "gateway_kernel",
+    "ELEVENLABS": "gateway_kernel",
+    "EXA": "gateway_kernel",
+    "FAL": "gateway_kernel",
+    "FIRECRAWL": "gateway_kernel",
+    "GATEWAY": "gateway_kernel",
+    "GEMINI": "gateway_kernel",
+    "GIT": "gateway_kernel",
+    "GITHUB": "gateway_kernel",
+    "GOOGLE": "gateway_kernel",
+    "GROQ": "gateway_kernel",
+    "HERMES": "gateway_kernel",
+    "HF": "gateway_kernel",
+    "HINDSIGHT": "gateway_kernel",
+    "HONCHO": "gateway_kernel",
+    "KABUQINA": "desktop",
+    "HERMESDESK": "desktop",
+    "LANGSMITH": "gateway_kernel",
+    "MESSAGING": "gateway_kernel",
+    "MEM0": "gateway_kernel",
+    "MINIMAX": "gateway_kernel",
+    "MISTRAL": "gateway_kernel",
+    "MODAL": "gateway_kernel",
+    "NOUS": "gateway_kernel",
+    "OPENAI": "gateway_kernel",
+    "OPENROUTER": "gateway_kernel",
+    "OPENVIKING": "gateway_kernel",
+    "OAUTHLIB": "gateway_kernel",
+    "OSV": "gateway_kernel",
+    "PARALLEL": "gateway_kernel",
+    "RETAINDB": "gateway_kernel",
+    "SESSION": "gateway_kernel",
+    "SOLANA": "gateway_kernel",
+    "SSH": "gateway_kernel",
+    "SSL": "gateway_kernel",
+    "SQLITE": "gateway_kernel",
+    "STT": "gateway_kernel",
+    "SUPERMEMORY": "gateway_kernel",
+    "TAVILY": "gateway_kernel",
+    "TERMINAL": "gateway_kernel",
+    "TINKER": "gateway_kernel",
+    "TIRITH": "gateway_kernel",
+    "TOOL": "gateway_kernel",
+    "USER": "gateway_kernel",
+    "USDA": "gateway_kernel",
+    "VERCEL": "gateway_kernel",
+    "VISUAL": "gateway_kernel",
+    "VOICE": "gateway_kernel",
+    "WANDB": "gateway_kernel",
+    "XAI": "gateway_kernel",
+    "XDG": "gateway_kernel",
+    "YC": "gateway_kernel",
+    "YOLO": "gateway_kernel",
+}
+
+EXACT_ENV_KEY_TO_SURFACE = {
+    "BROWSER_CDP_URL": "desktop",
+    "DEV": "desktop",
+    "DATABASE_URL": "gateway_kernel",
+    "DISPLAY": "gateway_kernel",
+    "DOCLING_ARTIFACTS_PATH": "gateway_kernel",
+    "DOCLING_HF_MAX_WORKERS": "desktop",
+    "DOCLING_HF_RETRIES": "desktop",
+    "GH_TOKEN": "gateway_kernel",
+    "HOME": "gateway_kernel",
+    "HERMES_HOME": "desktop",
+    "INVOCATION_ID": "gateway_kernel",
+    "KABUQINA_MICROSOFT_OAUTH_CLIENT_ID": "email",
+    "LM_API_KEY": "gateway_kernel",
+    "LM_BASE_URL": "gateway_kernel",
+    "LOCALAPPDATA": "desktop",
+    "MIGRATION_JSON_OUTPUT": "gateway_kernel",
+    "NO_COLOR": "gateway_kernel",
+    "NO_PROXY": "desktop",
+    "PATH": "desktop",
+    "PATHEXT": "gateway_kernel",
+    "PLAYWRIGHT_BROWSERS_PATH": "gateway_kernel",
+    "PREFIX": "gateway_kernel",
+    "PULSE_SERVER": "gateway_kernel",
+    "PYTHONIOENCODING": "desktop",
+    "PYTHONPATH": "desktop",
+    "PYTHONUNBUFFERED": "desktop",
+    "PYTHONUTF8": "desktop",
+    "PYTEST_CURRENT_TEST": "gateway_kernel",
+    "REQUESTS_CA_BUNDLE": "gateway_kernel",
+    "SHELL": "gateway_kernel",
+    "SUDO_PASSWORD": "gateway_kernel",
+    "TEMP": "desktop",
+    "TERM": "gateway_kernel",
+    "TERMUX_VERSION": "gateway_kernel",
+    "TMP": "desktop",
+    "USERPROFILE": "desktop",
+    "WAYLAND_DISPLAY": "gateway_kernel",
+}
+
+ENVIRONMENT_SCAN_ROOTS = (
+    "hermes_core/",
+    "python/src/",
+    "python/overlays/",
+    "tauri/src/",
+    "web/src/",
+)
+ENVIRONMENT_SCAN_EXCLUDED_PREFIXES = (
+    "hermes_core/.github/",
+    "hermes_core/.plans/",
+    "hermes_core/assets/",
+    "hermes_core/datagen-config-examples/",
+    "hermes_core/plans/",
+    "hermes_core/web/",
+    "hermes_core/website/",
+)
+ENVIRONMENT_DYNAMIC_DECLARATION_ROOTS = (
+    "hermes_core/gateway/",
+    "hermes_core/cron/",
+    "hermes_core/plugins/platforms/",
+    "hermes_core/tools/",
+    "hermes_core/kabuqina_cli/",
+    "python/src/",
+    "python/overlays/",
+    "tauri/src/",
+    "web/src/",
+)
+ENVIRONMENT_DISCOVERY_CONTRACT = {
+    "mode": "discovery_first_fail_closed",
+    "runtime_roots": list(ENVIRONMENT_SCAN_ROOTS),
+    "excluded_source_classes": [
+        "tests directories",
+        *ENVIRONMENT_SCAN_EXCLUDED_PREFIXES,
+    ],
+    "python_accesses": [
+        "os.getenv/putenv/unsetenv",
+        "os.environ get/setdefault/pop/subscript",
+        "literal wrapper calls and os.environ.get aliases",
+    ],
+    "rust_accesses": [
+        "std::env/env var/var_os/set_var/remove_var",
+        "Command.env",
+        "option_env!/env!",
+    ],
+    "web_accesses": ["import.meta.env", "process.env"],
+    "unknown_mapping": "validation_error",
+    "dynamic_declarations": "mapped uppercase literals under explicit runtime declaration roots supplement discovered accesses",
 }
 
 REFERENCE_ALIASES = {
@@ -536,38 +700,173 @@ def _credential_key_role(key: str) -> str:
     return "non_secret_config"
 
 
+def _try_credential_surface(key: str) -> str | None:
+    if key in EXACT_ENV_KEY_TO_SURFACE:
+        return EXACT_ENV_KEY_TO_SURFACE[key]
+    prefixes = {**ENV_PREFIX_TO_SURFACE, **NON_PLATFORM_ENV_PREFIX_TO_SURFACE}
+    for prefix in sorted(prefixes, key=len, reverse=True):
+        if key == prefix or key.startswith(f"{prefix}_"):
+            return prefixes[prefix]
+    return None
+
+
 def _credential_surface(key: str) -> str:
-    for prefix in sorted(ENV_PREFIX_TO_SURFACE, key=len, reverse=True):
-        if key.startswith(f"{prefix}_"):
-            return ENV_PREFIX_TO_SURFACE[prefix]
-    raise ValueError(f"unclassified platform key: {key}")
+    surface = _try_credential_surface(key)
+    if surface is None:
+        raise ValueError(f"unmapped discovered environment key: {key}")
+    return surface
 
 
-def collect_credential_key_edges(root: Path = ROOT) -> list[dict[str, Any]]:
-    prefixes = "|".join(
-        sorted((re.escape(prefix) for prefix in ENV_PREFIX_TO_SURFACE), key=len, reverse=True)
+def _is_os_environ(node: ast.expr) -> bool:
+    return (
+        isinstance(node, ast.Attribute)
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "os"
+        and node.attr == "environ"
+    ) or (isinstance(node, ast.Name) and node.id == "environ")
+
+
+def _python_environment_accesses(path: Path) -> set[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8", errors="ignore"), filename=str(path))
+    aliases: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            continue
+        value = node.value
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        if (
+            isinstance(value, ast.Attribute)
+            and value.attr in {"get", "getenv"}
+            and _is_os_environ(value.value)
+        ):
+            aliases.update(
+                target.id for target in targets if isinstance(target, ast.Name)
+            )
+
+    keys: set[str] = set()
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Subscript)
+            and _is_os_environ(node.value)
+            and isinstance(node.slice, ast.Constant)
+            and isinstance(node.slice.value, str)
+        ):
+            keys.add(node.slice.value)
+            continue
+        if not isinstance(node, ast.Call) or not node.args:
+            continue
+        function_name = ""
+        is_environment_call = False
+        if isinstance(node.func, ast.Name):
+            function_name = node.func.id
+            is_environment_call = function_name in {
+                "getenv",
+                "get_env_value",
+                "save_env_value",
+                "putenv",
+                "unsetenv",
+                "_opt_str",
+            } | aliases
+        elif isinstance(node.func, ast.Attribute):
+            function_name = node.func.attr
+            is_environment_call = (
+                function_name in {"get", "setdefault", "pop"}
+                and _is_os_environ(node.func.value)
+            ) or (
+                function_name in {"getenv", "putenv", "unsetenv"}
+                and isinstance(node.func.value, ast.Name)
+                and node.func.value.id == "os"
+            )
+        first = node.args[0]
+        if (
+            is_environment_call
+            and isinstance(first, ast.Constant)
+            and isinstance(first.value, str)
+        ):
+            keys.add(first.value)
+    return {key for key in keys if re.fullmatch(r"[A-Z][A-Z0-9_]+", key)}
+
+
+def _rust_environment_accesses(text: str) -> set[str]:
+    patterns = (
+        r"\.env\(\s*\"([A-Z][A-Z0-9_]+)\"",
+        r"(?:(?:std::)?env::(?:var|var_os|set_var|remove_var)|option_env!|env!)"
+        r"\(\s*\"([A-Z][A-Z0-9_]+)\"",
     )
-    pattern = re.compile(rf"[\"']((?:{prefixes})_[A-Z0-9_]+)[\"']")
-    runtime_roots = (
-        "hermes_core/gateway/",
-        "hermes_core/cron/",
-        "hermes_core/plugins/platforms/",
-        "hermes_core/tools/",
-        "hermes_core/kabuqina_cli/",
-        "python/src/",
-        "python/overlays/",
-        "tauri/src/",
-        "web/src/",
+    return {key for pattern in patterns for key in re.findall(pattern, text)}
+
+
+def _web_environment_accesses(text: str) -> set[str]:
+    dotted = re.findall(
+        r"(?:import\.meta\.env|process\.env)\.([A-Z][A-Z0-9_]+)", text
     )
+    bracketed = re.findall(
+        r"(?:import\.meta\.env|process\.env)\[[\"']([A-Z][A-Z0-9_]+)[\"']\]",
+        text,
+    )
+    return set(dotted) | set(bracketed)
+
+
+def _is_environment_scan_path(relative: str) -> bool:
+    if not relative.startswith(ENVIRONMENT_SCAN_ROOTS):
+        return False
+    if relative.startswith(ENVIRONMENT_SCAN_EXCLUDED_PREFIXES):
+        return False
+    return "tests" not in PurePosixPath(relative).parts
+
+
+def discover_environment_key_accesses(root: Path = ROOT) -> dict[str, list[str]]:
+    """Discover literal environment access before applying any surface map."""
+
     sources: dict[str, set[str]] = {}
     for relative in _tracked_files(root):
-        if not relative.startswith(runtime_roots):
+        if not _is_environment_scan_path(relative):
             continue
         path = root / relative
         if not path.is_file():
             continue
-        for key in pattern.findall(path.read_text(encoding="utf-8", errors="ignore")):
+        keys: set[str] = set()
+        if path.suffix == ".py":
+            keys = _python_environment_accesses(path)
+        elif path.suffix == ".rs":
+            keys = _rust_environment_accesses(
+                path.read_text(encoding="utf-8", errors="ignore")
+            )
+        elif path.suffix in {".ts", ".tsx", ".js", ".mjs"}:
+            keys = _web_environment_accesses(
+                path.read_text(encoding="utf-8", errors="ignore")
+            )
+        for key in keys:
             sources.setdefault(key, set()).add(relative)
+    return {key: sorted(paths) for key, paths in sorted(sources.items())}
+
+
+def collect_environment_key_sources(root: Path = ROOT) -> dict[str, list[str]]:
+    """Collect discovered accesses plus mapped dynamic config declarations."""
+
+    discovered = discover_environment_key_accesses(root)
+    sources = {key: set(paths) for key, paths in discovered.items()}
+    quoted_key_pattern = re.compile(r"[\"']([A-Z][A-Z0-9_]+)[\"']")
+    for relative in _tracked_files(root):
+        if not relative.startswith(ENVIRONMENT_DYNAMIC_DECLARATION_ROOTS):
+            continue
+        if not _is_environment_scan_path(relative):
+            continue
+        path = root / relative
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        for key in quoted_key_pattern.findall(text):
+            if _try_credential_surface(key) is not None:
+                sources.setdefault(key, set()).add(relative)
+    return {key: sorted(paths) for key, paths in sorted(sources.items())}
+
+
+def collect_credential_key_edges(root: Path = ROOT) -> list[dict[str, Any]]:
+    sources = collect_environment_key_sources(root)
+    unmapped = [key for key in sources if _try_credential_surface(key) is None]
+    if unmapped:
+        raise ValueError(f"unmapped discovered environment keys: {sorted(unmapped)}")
 
     special_actions = {
         "QQBOT_APP_ID": "remove_stale_alias",
@@ -593,7 +892,10 @@ def collect_credential_key_edges(root: Path = ROOT) -> list[dict[str, Any]]:
         if role == "network_host_expander":
             gaps.append("Configured URL/host values require fail-closed network-policy validation; key presence is not an allowlist.")
         if role == "secret":
-            gaps.append("Gateway secrets currently traverse host/profile .env files; CTL-C07 owns explicit cleanup/export and upgrade safety.")
+            if surface == "desktop":
+                gaps.append("Desktop bridge/runtime secrets must remain ephemeral process inputs and must not be exported or persisted by cleanup flows.")
+            else:
+                gaps.append("Gateway secrets currently traverse host/profile .env files; CTL-C07 owns explicit cleanup/export and upgrade safety.")
         if key in special_actions:
             gaps.append("This is an observed stale/legacy alias and must not become a target allowlist entry.")
         records.append(
@@ -601,8 +903,8 @@ def collect_credential_key_edges(root: Path = ROOT) -> list[dict[str, Any]]:
                 "key": key,
                 "surface": surface,
                 "primary_role": role,
-                "source_paths": sorted(sources[key]),
-                "observed_current": "Exact quoted environment/config key referenced by the listed tracked runtime producers or consumers.",
+                "source_paths": sources[key],
+                "observed_current": "Literal environment access or mapped dynamic config producer/consumer discovered in the listed tracked runtime paths.",
                 "target_contract": action,
                 "known_gaps": gaps,
             }
@@ -610,15 +912,42 @@ def collect_credential_key_edges(root: Path = ROOT) -> list[dict[str, Any]]:
     return records
 
 
+def credential_environment_ledger_issues(
+    manifest: dict[str, Any], root: Path = ROOT
+) -> list[str]:
+    try:
+        actual = collect_credential_key_edges(root)
+    except ValueError as exc:
+        return [
+            f"{exc}; add an explicit exact key or namespace-to-surface mapping"
+        ]
+    tracked = manifest.get("credential_data_graph", {}).get("environment_key_edges", [])
+    if tracked != actual:
+        tracked_by_key = {
+            record.get("key"): record for record in tracked if isinstance(record, dict)
+        }
+        actual_by_key = {record["key"]: record for record in actual}
+        return [
+            "credential environment-key ledger drift: "
+            f"missing={sorted(set(actual_by_key) - set(tracked_by_key))}, "
+            f"extra={sorted(set(tracked_by_key) - set(actual_by_key))}; run "
+            "scripts/audit_v050_platform_manifest.py --refresh-generated-ledgers"
+        ]
+    return []
+
+
 def refresh_generated_ledgers(manifest: dict[str, Any], root: Path = ROOT) -> None:
     references = collect_typed_reference_ledger(root)
+    discovered_environment_keys = discover_environment_key_accesses(root)
     credential_edges = collect_credential_key_edges(root)
     manifest["typed_reference_ledger"] = references
     credential_graph = manifest.setdefault("credential_data_graph", {})
+    credential_graph["environment_discovery"] = ENVIRONMENT_DISCOVERY_CONTRACT
     credential_graph["environment_key_edges"] = credential_edges
     manifest["generated_ledger_metadata"] = {
         "generator": "scripts/audit_v050_platform_manifest.py --refresh-generated-ledgers",
         "reference_path_count": len(references),
+        "discovered_environment_key_count": len(discovered_environment_keys),
         "environment_key_count": len(credential_edges),
         "historical_docs_policy": "docs/superpowers history is excluded from the active-doc reference scan; the three authority plans are hash-pinned separately.",
     }
@@ -1350,6 +1679,11 @@ def validate_contract(
     if not isinstance(credential_graph, dict):
         errors.append("credential_data_graph must be an object")
         credential_graph = {}
+    if credential_graph.get("environment_discovery") != ENVIRONMENT_DISCOVERY_CONTRACT:
+        errors.append(
+            "credential_data_graph.environment_discovery must match the exact "
+            "discovery-first fail-closed contract"
+        )
     credential_edges = credential_graph.get("environment_key_edges")
     if not isinstance(credential_edges, list) or not credential_edges:
         errors.append("credential_data_graph.environment_key_edges must be non-empty")
@@ -1373,6 +1707,27 @@ def validate_contract(
             errors.append(f"environment key {key}.source_paths must be non-empty")
         if not isinstance(record.get("known_gaps"), list):
             errors.append(f"environment key {key}.known_gaps must be a list")
+
+    generated_metadata = manifest.get("generated_ledger_metadata")
+    if not isinstance(generated_metadata, dict):
+        errors.append("generated_ledger_metadata must be an object")
+        generated_metadata = {}
+    if generated_metadata.get("reference_path_count") != len(references):
+        errors.append(
+            "generated_ledger_metadata.reference_path_count must equal the typed "
+            "reference ledger length"
+        )
+    if generated_metadata.get("environment_key_count") != len(credential_edges):
+        errors.append(
+            "generated_ledger_metadata.environment_key_count must equal the exact "
+            "environment-key ledger length"
+        )
+    discovered_count = generated_metadata.get("discovered_environment_key_count")
+    if not isinstance(discovered_count, int) or discovered_count <= 0:
+        errors.append(
+            "generated_ledger_metadata.discovered_environment_key_count must be a "
+            "positive integer"
+        )
 
     persisted_records = credential_graph.get("persisted_records")
     if not isinstance(persisted_records, list) or not persisted_records:
@@ -1470,11 +1825,18 @@ def validate_contract(
                 "typed_reference_ledger drift: run "
                 "scripts/audit_v050_platform_manifest.py --refresh-generated-ledgers"
             )
-        actual_credentials = collect_credential_key_edges(root)
-        if credential_edges != actual_credentials:
+        errors.extend(credential_environment_ledger_issues(manifest, root))
+        actual_discovered_environment_count = len(
+            discover_environment_key_accesses(root)
+        )
+        if (
+            generated_metadata.get("discovered_environment_key_count")
+            != actual_discovered_environment_count
+        ):
             errors.append(
-                "credential environment-key ledger drift: run "
-                "scripts/audit_v050_platform_manifest.py --refresh-generated-ledgers"
+                "generated discovered environment-key count drift: "
+                f"recorded={generated_metadata.get('discovered_environment_key_count')}, "
+                f"actual={actual_discovered_environment_count}"
             )
 
     shared_inventory = manifest.get("shared_cross_layer_inventory")
