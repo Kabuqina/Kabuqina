@@ -26,7 +26,7 @@
       "Gateway/core, Python policy, Rust shell, Web Settings and Bundle/release independent signoffs",
       "A non-author Gate reviewer marks CTL-C01 DONE"
     ],
-    "warning": "Technical evidence is REVIEW-ready after discovery-first environment scanning and fail-closed mapping. Five independent signoffs and a non-author DONE decision remain open; CTL-C02 remains prohibited."
+    "warning": "Technical evidence is REVIEW-ready at commit 8dfee3d7 after discovery-first environment scanning and fail-closed mapping. Five independent signoffs and a non-author DONE decision remain open; CTL-C02 remains prohibited."
   },
   "base": {
     "git_commit": "62fe63c72b88c750ac4d60c52d3a788941877fc4",
@@ -37,7 +37,7 @@
     "activation": {
       "accountable_owner": "Codex / current CTL-C01 task",
       "owner_status": "accepted_by_product_owner_2026-07-18",
-      "evidence_commit": "800e5e4855af745eaa9aa5b83da5154e840bf210",
+      "evidence_commit": "8dfee3d77e6f110c7015099f2ab2954b29b28dfd",
       "branch": "codex/v050-c01-platform-manifest",
       "worktree": "D:/project/Kabuqina/.worktrees/c-track-c01",
       "allowed_paths": [
@@ -59,7 +59,7 @@
     "authority_snapshots": [
       {
         "path": "docs/superpowers/plans/2026-07-18-v0.5.0-execution-control-board.md",
-        "sha256": "a276b2aafbb8249f65f038e6675a31161032046c6c51fa5089bf4148ddda27d3",
+        "sha256": "f8b2dcf83824fd3e24c1161ce6bbdb6b87a2daa21d42fc3d89fd74283fd19ccc",
         "git_state": "clean"
       },
       {
