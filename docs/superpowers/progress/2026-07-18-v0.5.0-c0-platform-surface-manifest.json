@@ -2,10 +2,10 @@
   "schema_version": 1,
   "work_package": "CTL-C01",
   "slice": "C-0",
-  "status": "active_authorized_evidence_completion",
+  "status": "review_evidence_complete_independent_signoff_pending",
   "audit_date": "2026-07-18",
   "audit_scope": "Producer, consumer, dependency, persistence, tests, docs, network, credential and bundle inventory only; no runtime or physical deletion changes.",
-  "gate_ready": false,
+  "gate_ready": true,
   "coverage_status": {
     "complete": [
       "Exact target profile allowlists and Desktop-vs-Platform boundary",
@@ -20,14 +20,12 @@
       "Every mixed field separates observed_current, target_contract and known_gaps",
       "Verification records have accepted accountable ownership and executable command/expected/evidence/status"
     ],
-    "pending_before_ctl_c01_review": [
-      "Create a clean evidence commit and pass --check-observed against that descendant before changing CTL-C01 to REVIEW"
-    ],
+    "pending_before_ctl_c01_review": [],
     "pending_before_ctl_c01_done": [
       "Gateway/core, Python policy, Rust shell, Web Settings and Bundle/release independent signoffs",
       "A non-author Gate reviewer marks CTL-C01 DONE"
     ],
-    "warning": "The technical ledger is complete but the clean post-commit observed check and independent review gate are not yet closed. This never proves CTL-C02 runtime enforcement."
+    "warning": "Technical evidence is REVIEW-ready at commit 2bdfc986. Five independent signoffs and a non-author DONE decision remain open; this never proves CTL-C02 runtime enforcement."
   },
   "base": {
     "git_commit": "62fe63c72b88c750ac4d60c52d3a788941877fc4",
@@ -38,6 +36,7 @@
     "activation": {
       "accountable_owner": "Codex / current CTL-C01 task",
       "owner_status": "accepted_by_product_owner_2026-07-18",
+      "evidence_commit": "2bdfc9861eff729df2a93370e689fa2d043a51d6",
       "branch": "codex/v050-c01-platform-manifest",
       "worktree": "D:/project/Kabuqina/.worktrees/c-track-c01",
       "allowed_paths": [
@@ -59,7 +58,7 @@
     "authority_snapshots": [
       {
         "path": "docs/superpowers/plans/2026-07-18-v0.5.0-execution-control-board.md",
-        "sha256": "6a0aa702633b69fc581ab3324854b0cf82a1e98b57835bb1f6623c30c4c52e50",
+        "sha256": "a9342f672f5ed0179e63ba5efd9f035c7a02ca31cfd7c6de44f66b044aceeece",
         "git_state": "clean"
       },
       {
@@ -1643,7 +1642,7 @@
       "command": "python scripts/audit_v050_platform_manifest.py --check-observed",
       "expected": "Exit 0 after evidence commit; authority hashes/states, source registries and the allowlisted C-0 delta match.",
       "evidence": "post-commit command output reported in C-0 handoff",
-      "status": "blocked_with_evidence"
+      "status": "passed"
     },
     {
       "id": "manifest-unit-contracts",
