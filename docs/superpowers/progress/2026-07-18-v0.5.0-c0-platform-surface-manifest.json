@@ -2,7 +2,7 @@
   "schema_version": 1,
   "work_package": "CTL-C01",
   "slice": "C-0",
-  "status": "review_evidence_complete_independent_signoff_pending",
+  "status": "done",
   "audit_date": "2026-07-18",
   "audit_scope": "Producer, consumer, dependency, persistence, tests, docs, network, credential and bundle inventory only; no runtime or physical deletion changes.",
   "gate_ready": true,
@@ -20,14 +20,12 @@
       "796 exact environment/config key edges, 32 separately modeled wildcard namespaces, 2 computed environment-key templates and 20 persisted-data records classify secrets, config, host expansion, stale aliases, compatibility and cleanup",
       "Computed {PLATFORM}_HOME_CHANNEL and {PLATFORM}_HOME_CHANNEL_NAME templates expand every known built-in and bundled plugin into exact edges; unclassified bundled plugins fail closed and runtime plugins remain prohibited until classified",
       "Every mixed field separates observed_current, target_contract and known_gaps",
-      "Verification records have accepted accountable ownership and executable command/expected/evidence/status"
+      "Verification records have accepted accountable ownership and executable command/expected/evidence/status",
+      "Gateway/core, Python policy, Rust shell, Web Settings and Bundle/release reviews approved against evidence 45edb247; the non-author Gate reviewer accepted CTL-C01 DONE"
     ],
     "pending_before_ctl_c01_review": [],
-    "pending_before_ctl_c01_done": [
-      "Gateway/core, Python policy, Rust shell, Web Settings and Bundle/release independent signoffs",
-      "A non-author Gate reviewer marks CTL-C01 DONE"
-    ],
-    "warning": "Technical evidence 45edb247 is REVIEW-ready after computed home-channel template expansion and is recorded by the follow-up authority anchor. Five independent signoffs and a non-author DONE decision remain open; CTL-C02 remains prohibited."
+    "pending_before_ctl_c01_done": [],
+    "warning": "CTL-C01 is DONE on technical evidence 45edb247 after five cross-layer approvals and non-author Gate review. This does not satisfy CTL-G00: CTL-C02 remains WAITING until a citable v0.4 baseline is available."
   },
   "base": {
     "git_commit": "62fe63c72b88c750ac4d60c52d3a788941877fc4",
@@ -60,7 +58,7 @@
     "authority_snapshots": [
       {
         "path": "docs/superpowers/plans/2026-07-18-v0.5.0-execution-control-board.md",
-        "sha256": "9b236d1dccb4c098e69afa74ffc8c6838c755068d3361dbea2e0c9ffe76e5033",
+        "sha256": "d2e3aca179cb13467cdef6dc21d749f8c7c535ad23f1b077f7f9f254fd4608ac",
         "git_state": "clean"
       },
       {
@@ -2408,23 +2406,33 @@
   "review_signoff": [
     {
       "role": "Gateway/core",
-      "status": "pending"
+      "status": "approved",
+      "reviewer": "Codex independent review session (non-author of evidence 45edb247)",
+      "evidence": "Reviewed Platform enum/registry, gateway adapters, delivery/home-channel semantics, computed environment-key templates and unknown-plugin fail-closed behavior; contract, observed-source and 23 tests passed."
     },
     {
       "role": "Python policy",
-      "status": "pending"
+      "status": "approved",
+      "reviewer": "Codex independent review session (non-author of evidence 45edb247)",
+      "evidence": "Reviewed product profile, gateway/network/path/tool policy references, credential discovery and desktop integration boundaries against the exact manifest; no blocking finding remains."
     },
     {
       "role": "Rust shell",
-      "status": "pending"
+      "status": "approved",
+      "reviewer": "Codex independent review session (non-author of evidence 45edb247)",
+      "evidence": "Reviewed supervisor, credential/profile-prefix, QR command/module and process-boundary inventory; retained and removed platform surfaces are classified with explicit gaps."
     },
     {
       "role": "Web Settings",
-      "status": "pending"
+      "status": "approved",
+      "reviewer": "Codex independent review session (non-author of evidence 45edb247)",
+      "evidence": "Reviewed Settings routes/navigation, onboarding catalog, environment registry and Tauri command references; exact profile target and current UI gaps are recorded without wildcard retention."
     },
     {
       "role": "Bundle/release",
-      "status": "pending"
+      "status": "approved",
+      "reviewer": "Codex independent review session (non-author of evidence 45edb247)",
+      "evidence": "Reviewed C-0 dependency, bundle, license/advisory and local-artifact inventory. Fresh bundle/release proof and v0.4 provenance remain explicitly deferred to CTL-C05/CTL-C06/Q and CTL-G00, not misreported as complete."
     }
   ],
   "verification_records": [
@@ -2506,8 +2514,8 @@
       "owner_status": "accepted",
       "command": "Gateway/core, Python policy, Rust shell, Web Settings and Bundle/release reviewers inspect the same manifest commit and record signoff",
       "expected": "Five signoffs accepted or actionable review findings returned; author does not self-mark DONE.",
-      "evidence": "review_signoff array and C-0 reviewer checklist",
-      "status": "pending_reviewer"
+      "evidence": "Five approved review_signoff records against evidence 45edb247 plus the non-author Gate review recorded in the C-0 reviewer checklist",
+      "status": "passed"
     }
   ],
   "surfaces": [

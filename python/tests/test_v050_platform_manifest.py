@@ -452,6 +452,33 @@ def load_home(platform):
             errors,
         )
 
+    def test_done_manifest_requires_every_cross_layer_signoff(self) -> None:
+        mutated = copy.deepcopy(self.manifest)
+        mutated["review_signoff"][0] = {
+            "role": "Gateway/core",
+            "status": "pending",
+        }
+
+        errors = audit.validate_contract(mutated, ROOT, scan_repository=False)
+
+        self.assertTrue(
+            any("status=done requires all cross-layer review_signoff roles approved" in error for error in errors),
+            errors,
+        )
+
+    def test_done_manifest_cannot_keep_pending_done_items(self) -> None:
+        mutated = copy.deepcopy(self.manifest)
+        mutated["coverage_status"]["pending_before_ctl_c01_done"] = [
+            "stale pending reviewer"
+        ]
+
+        errors = audit.validate_contract(mutated, ROOT, scan_repository=False)
+
+        self.assertIn(
+            "status=done requires pending_before_ctl_c01_done to be empty",
+            errors,
+        )
+
     def test_review_ready_manifest_cannot_keep_pre_review_work(self) -> None:
         mutated = copy.deepcopy(self.manifest)
         mutated["gate_ready"] = True

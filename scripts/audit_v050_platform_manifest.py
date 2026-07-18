@@ -113,6 +113,10 @@ REQUIRED_SIGNOFF_ROLES = {
     "Bundle/release",
 }
 ALLOWED_SIGNOFF_STATUSES = {"pending", "approved", "changes_requested"}
+ALLOWED_WORK_PACKAGE_STATUSES = {
+    "review_evidence_complete_independent_signoff_pending",
+    "done",
+}
 
 # C-0 is an inventory gate, so a merely non-empty curated ledger is not enough.
 # These IDs are the reviewed closed sets. Adding or removing an inventory record
@@ -1924,6 +1928,12 @@ def validate_contract(
         errors.append("schema_version must be 1")
     if manifest.get("work_package") != "CTL-C01" or manifest.get("slice") != "C-0":
         errors.append("manifest must identify work_package=CTL-C01 and slice=C-0")
+    work_package_status = manifest.get("status")
+    if work_package_status not in ALLOWED_WORK_PACKAGE_STATUSES:
+        errors.append(
+            "status must be one of "
+            f"{sorted(ALLOWED_WORK_PACKAGE_STATUSES)}, got {work_package_status!r}"
+        )
     if manifest.get("profiles") != TARGET_PROFILES:
         errors.append("profiles do not match the exact mainland_cn/sea product contract")
     if not isinstance(manifest.get("gate_ready"), bool):
@@ -2695,6 +2705,31 @@ def validate_contract(
             "review_signoff roles differ from the cross-layer gate: "
             f"missing={sorted(REQUIRED_SIGNOFF_ROLES - signoff_roles)}, "
             f"extra={sorted(signoff_roles - REQUIRED_SIGNOFF_ROLES)}"
+        )
+    approved_roles = {
+        item.get("role")
+        for item in signoffs
+        if isinstance(item, dict) and item.get("status") == "approved"
+    }
+    pending_done_items = (
+        coverage.get("pending_before_ctl_c01_done", [])
+        if isinstance(coverage, dict)
+        else []
+    )
+    if work_package_status == "done":
+        if approved_roles != REQUIRED_SIGNOFF_ROLES:
+            errors.append(
+                "status=done requires all cross-layer review_signoff roles approved: "
+                f"missing={sorted(REQUIRED_SIGNOFF_ROLES - approved_roles)}"
+            )
+        if pending_done_items:
+            errors.append(
+                "status=done requires pending_before_ctl_c01_done to be empty"
+            )
+    elif approved_roles == REQUIRED_SIGNOFF_ROLES and not pending_done_items:
+        errors.append(
+            "all cross-layer signoffs are approved with no pending DONE items; "
+            "status must be done"
         )
 
     if manifest.get("base", {}).get("git_commit") != manifest.get("baseline", {}).get(
