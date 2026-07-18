@@ -120,6 +120,7 @@ EXPECTED_DEPENDENCY_IDS = {
     "node-whatsapp-bridge",
     "py-aiohttp-shared",
     "py-certifi-weixin",
+    "py-croniter",
     "py-cryptography-shared",
     "py-dingtalk-openapi",
     "py-dingtalk-stream",
@@ -127,12 +128,15 @@ EXPECTED_DEPENDENCY_IDS = {
     "py-httpx-socks-shared",
     "py-lark-oapi",
     "py-mautrix-stack",
+    "py-microsoft-teams-apps",
     "py-pillow-shared",
     "py-qrcode-shared",
     "py-slack-sdk",
     "py-telegram-sdk",
     "py-websockets-shared-conflict",
     "qq-audio-external-tools",
+    "rust-reqwest-shared",
+    "py-fastapi-uvicorn",
 }
 EXPECTED_PERSISTED_RECORD_IDS = {
     "channel-directory",
@@ -339,6 +343,30 @@ REQUIRED_VERIFICATION_FIELDS = {
     "evidence",
     "status",
 }
+REQUIRED_SURFACE_DEPENDENCY_COVERAGE_FIELDS = {
+    "surface",
+    "runtime_dependency",
+    "dependency_ids",
+    "exemption",
+}
+REQUIRED_PLUGIN_IMPORT_COVERAGE_FIELDS = {
+    "surface",
+    "import_root",
+    "dependency_id",
+}
+ALLOWED_DEPENDENCY_EXEMPTION_KINDS = {
+    "behavioral_observation",
+    "bundled_runtime",
+    "external_service",
+    "host_framework",
+    "stdlib",
+    "system_component",
+}
+BUNDLED_PLUGIN_SURFACES = {
+    "irc": "irc_plugin",
+    "teams": "teams_plugin",
+}
+LOCAL_IMPORT_ROOTS = {"gateway", "hermes_core", "kabuqina_cli", "tools"}
 
 
 def load_manifest(path: Path = DEFAULT_MANIFEST) -> dict[str, Any]:
@@ -523,6 +551,7 @@ def collect_credential_key_edges(root: Path = ROOT) -> list[dict[str, Any]]:
     runtime_roots = (
         "hermes_core/gateway/",
         "hermes_core/cron/",
+        "hermes_core/plugins/platforms/",
         "hermes_core/tools/",
         "hermes_core/kabuqina_cli/",
         "python/src/",
@@ -649,6 +678,44 @@ def discover_bundled_platform_plugins(root: Path = ROOT) -> list[str]:
         for path in base.glob(pattern)
     }
     return sorted(names)
+
+
+def collect_bundled_plugin_external_imports(
+    root: Path = ROOT,
+) -> list[dict[str, str]]:
+    """Return third-party import roots observed in bundled platform plugins."""
+
+    records: set[tuple[str, str]] = set()
+    base = root / "hermes_core" / "plugins" / "platforms"
+    for plugin in discover_bundled_platform_plugins(root):
+        surface = BUNDLED_PLUGIN_SURFACES.get(plugin)
+        if surface is None:
+            raise ValueError(f"bundled plugin has no surface mapping: {plugin}")
+        for path in sorted((base / plugin).rglob("*.py")):
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            for node in ast.walk(tree):
+                import_root: str | None = None
+                if isinstance(node, ast.Import):
+                    for alias in node.names:
+                        candidate = alias.name.split(".", 1)[0]
+                        if (
+                            candidate not in sys.stdlib_module_names
+                            and candidate not in LOCAL_IMPORT_ROOTS
+                        ):
+                            records.add((surface, candidate))
+                    continue
+                if isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                    import_root = node.module.split(".", 1)[0]
+                if (
+                    import_root
+                    and import_root not in sys.stdlib_module_names
+                    and import_root not in LOCAL_IMPORT_ROOTS
+                ):
+                    records.add((surface, import_root))
+    return [
+        {"surface": surface, "import_root": import_root}
+        for surface, import_root in sorted(records)
+    ]
 
 
 def _source_claim_matches(claim: str, relative_path: str) -> bool:
@@ -899,6 +966,7 @@ def validate_contract(
     names: set[str] = set()
     classified: dict[str, str] = {}
     product_shells: set[str] = set()
+    declared_runtime_dependency_pairs: set[tuple[str, str]] = set()
     for index, surface in enumerate(surfaces):
         if not isinstance(surface, dict):
             errors.append(f"surfaces[{index}] must be an object")
@@ -927,6 +995,13 @@ def validate_contract(
         ):
             if not isinstance(surface.get(field), list):
                 errors.append(f"{name}.{field} must be a list")
+        for runtime_dependency in surface.get("runtime_dependencies", []):
+            if not isinstance(runtime_dependency, str) or not runtime_dependency:
+                errors.append(
+                    f"{name}.runtime_dependencies entries must be non-empty strings"
+                )
+                continue
+            declared_runtime_dependency_pairs.add((name, runtime_dependency))
         if not isinstance(surface.get("jobs/home_channel"), dict):
             errors.append(f"{name}.jobs/home_channel must be an object")
         if surface.get("decision") not in ALLOWED_DECISIONS:
@@ -1108,6 +1183,7 @@ def validate_contract(
         errors.append("dependency_graph must be a non-empty list")
         dependencies = []
     dependency_ids: set[str] = set()
+    dependency_by_id: dict[str, dict[str, Any]] = {}
     for index, record in enumerate(dependencies):
         if not isinstance(record, dict):
             errors.append(f"dependency_graph[{index}] must be an object")
@@ -1122,6 +1198,7 @@ def validate_contract(
             errors.append(f"duplicate dependency id: {record_id}")
         else:
             dependency_ids.add(record_id)
+            dependency_by_id[record_id] = record
         if not isinstance(record.get("declaration_paths"), list) or not record.get(
             "declaration_paths"
         ):
@@ -1152,6 +1229,122 @@ def validate_contract(
             f"missing={sorted(EXPECTED_DEPENDENCY_IDS - dependency_ids)}, "
             f"extra={sorted(dependency_ids - EXPECTED_DEPENDENCY_IDS)}"
         )
+
+    dependency_coverage = manifest.get("surface_dependency_coverage")
+    if not isinstance(dependency_coverage, list):
+        errors.append("surface_dependency_coverage must be a list")
+        dependency_coverage = []
+    covered_runtime_dependency_pairs: set[tuple[str, str]] = set()
+    for index, record in enumerate(dependency_coverage):
+        if not isinstance(record, dict):
+            errors.append(f"surface_dependency_coverage[{index}] must be an object")
+            continue
+        missing = REQUIRED_SURFACE_DEPENDENCY_COVERAGE_FIELDS - set(record)
+        if missing:
+            errors.append(
+                f"surface_dependency_coverage[{index}] missing fields {sorted(missing)}"
+            )
+        surface_name = record.get("surface")
+        runtime_dependency = record.get("runtime_dependency")
+        pair = (surface_name, runtime_dependency)
+        if surface_name not in names:
+            errors.append(
+                f"surface_dependency_coverage[{index}].surface is unknown: {surface_name!r}"
+            )
+        if not isinstance(runtime_dependency, str) or not runtime_dependency:
+            errors.append(
+                f"surface_dependency_coverage[{index}].runtime_dependency must be non-empty"
+            )
+        elif pair in covered_runtime_dependency_pairs:
+            errors.append(f"duplicate surface dependency coverage: {pair!r}")
+        else:
+            covered_runtime_dependency_pairs.add(pair)
+
+        dependency_refs = record.get("dependency_ids")
+        exemption = record.get("exemption")
+        if not isinstance(dependency_refs, list):
+            errors.append(
+                f"surface_dependency_coverage[{index}].dependency_ids must be a list"
+            )
+            dependency_refs = []
+        if bool(dependency_refs) == (exemption is not None):
+            errors.append(
+                f"surface dependency {pair!r} must use exactly one of dependency_ids or exemption"
+            )
+        for dependency_id in dependency_refs:
+            dependency_record = dependency_by_id.get(dependency_id)
+            if dependency_record is None:
+                errors.append(
+                    f"surface dependency {pair!r} references unknown dependency {dependency_id!r}"
+                )
+            elif surface_name not in dependency_record.get("platform_surfaces", []):
+                errors.append(
+                    f"surface dependency {pair!r} references {dependency_id!r}, but the "
+                    "dependency graph does not include that surface"
+                )
+        if exemption is not None:
+            if not isinstance(exemption, dict) or set(exemption) != {"kind", "reason"}:
+                errors.append(
+                    f"surface dependency {pair!r}.exemption must contain kind/reason"
+                )
+            else:
+                if exemption.get("kind") not in ALLOWED_DEPENDENCY_EXEMPTION_KINDS:
+                    errors.append(
+                        f"surface dependency {pair!r} has unsupported exemption kind "
+                        f"{exemption.get('kind')!r}"
+                    )
+                if not isinstance(exemption.get("reason"), str) or not exemption.get("reason"):
+                    errors.append(
+                        f"surface dependency {pair!r}.exemption.reason must be non-empty"
+                    )
+    if covered_runtime_dependency_pairs != declared_runtime_dependency_pairs:
+        errors.append(
+            "surface_dependency_coverage differs from surfaces[*].runtime_dependencies: "
+            f"missing={sorted(declared_runtime_dependency_pairs - covered_runtime_dependency_pairs)}, "
+            f"extra={sorted(covered_runtime_dependency_pairs - declared_runtime_dependency_pairs)}"
+        )
+
+    plugin_import_coverage = manifest.get("bundled_plugin_dependency_imports")
+    if not isinstance(plugin_import_coverage, list):
+        errors.append("bundled_plugin_dependency_imports must be a list")
+        plugin_import_coverage = []
+    covered_plugin_imports: set[tuple[str, str]] = set()
+    for index, record in enumerate(plugin_import_coverage):
+        if not isinstance(record, dict):
+            errors.append(f"bundled_plugin_dependency_imports[{index}] must be an object")
+            continue
+        missing = REQUIRED_PLUGIN_IMPORT_COVERAGE_FIELDS - set(record)
+        if missing:
+            errors.append(
+                f"bundled_plugin_dependency_imports[{index}] missing fields {sorted(missing)}"
+            )
+        pair = (record.get("surface"), record.get("import_root"))
+        if pair in covered_plugin_imports:
+            errors.append(f"duplicate bundled plugin import coverage: {pair!r}")
+        else:
+            covered_plugin_imports.add(pair)
+        dependency_id = record.get("dependency_id")
+        dependency_record = dependency_by_id.get(dependency_id)
+        if dependency_record is None:
+            errors.append(
+                f"bundled plugin import {pair!r} references unknown dependency {dependency_id!r}"
+            )
+        elif pair[0] not in dependency_record.get("platform_surfaces", []):
+            errors.append(
+                f"bundled plugin import {pair!r} references {dependency_id!r}, but the "
+                "dependency graph does not include that surface"
+            )
+    if scan_repository:
+        observed_plugin_imports = {
+            (record["surface"], record["import_root"])
+            for record in collect_bundled_plugin_external_imports(root)
+        }
+        if covered_plugin_imports != observed_plugin_imports:
+            errors.append(
+                "bundled plugin dependency imports differ from observed source: "
+                f"missing={sorted(observed_plugin_imports - covered_plugin_imports)}, "
+                f"extra={sorted(covered_plugin_imports - observed_plugin_imports)}"
+            )
 
     credential_graph = manifest.get("credential_data_graph")
     if not isinstance(credential_graph, dict):

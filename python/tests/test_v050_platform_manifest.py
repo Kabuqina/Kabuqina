@@ -117,6 +117,69 @@ class V050PlatformManifestTests(unittest.TestCase):
             errors,
         )
 
+    def test_bundled_plugin_credential_keys_are_scanned(self) -> None:
+        edges = {
+            record["key"]: record for record in audit.collect_credential_key_edges(ROOT)
+        }
+        expected = {
+            "TEAMS_ALLOWED_USERS",
+            "TEAMS_ALLOW_ALL_USERS",
+            "TEAMS_CLIENT_ID",
+            "TEAMS_CLIENT_SECRET",
+            "TEAMS_PORT",
+            "TEAMS_TENANT_ID",
+        }
+
+        self.assertEqual(set(), expected - set(edges))
+        for key in expected:
+            self.assertEqual("teams_plugin", edges[key]["surface"])
+            self.assertIn(
+                "hermes_core/plugins/platforms/teams/adapter.py",
+                edges[key]["source_paths"],
+            )
+
+    def test_surface_dependency_coverage_cannot_omit_runtime_dependency(self) -> None:
+        mutated = copy.deepcopy(self.manifest)
+        mutated["surface_dependency_coverage"] = [
+            record
+            for record in mutated["surface_dependency_coverage"]
+            if not (
+                record["surface"] == "teams_plugin"
+                and record["runtime_dependency"] == "microsoft-teams-apps"
+            )
+        ]
+
+        errors = audit.validate_contract(mutated, ROOT, scan_repository=False)
+
+        self.assertTrue(
+            any(
+                "surface_dependency_coverage differs from "
+                "surfaces[*].runtime_dependencies" in error
+                and "microsoft-teams-apps" in error
+                for error in errors
+            ),
+            errors,
+        )
+
+    def test_bundled_plugin_import_without_coverage_is_rejected_by_full_scan(self) -> None:
+        mutated = copy.deepcopy(self.manifest)
+        mutated["bundled_plugin_dependency_imports"] = [
+            record
+            for record in mutated["bundled_plugin_dependency_imports"]
+            if record["import_root"] != "microsoft_teams"
+        ]
+
+        errors = audit.validate_contract(mutated, ROOT)
+
+        self.assertTrue(
+            any(
+                "bundled plugin dependency imports differ from observed source" in error
+                and "microsoft_teams" in error
+                for error in errors
+            ),
+            errors,
+        )
+
     def test_persisted_record_missing_cleanup_mode_is_rejected(self) -> None:
         mutated = copy.deepcopy(self.manifest)
         del mutated["credential_data_graph"]["persisted_records"][0][

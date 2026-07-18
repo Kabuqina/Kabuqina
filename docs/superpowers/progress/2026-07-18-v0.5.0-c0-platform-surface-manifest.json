@@ -15,8 +15,8 @@
       "Current Python/Rust/Web high-level product registries and local artifact baseline captured",
       "Three v0.5 authority documents frozen together at commit 62fe63c72b88c750ac4d60c52d3a788941877fc4",
       "656 tracked cross-layer producer/consumer/reference paths typed across runtime, CLI, policy, Rust, Web, build, tests, active docs and licenses",
-      "16 dependency groups record declarations, constraints, bundle presence, users, target action, license and advisory status",
-      "255 exact environment/config key edges and 20 persisted-data records classify secrets, config, host expansion, stale aliases, compatibility and cleanup",
+      "20 dependency groups plus exact per-surface coverage and bundled-plugin import discovery record declarations, constraints, bundle presence, users, target action, license and advisory status",
+      "261 exact environment/config key edges and 20 persisted-data records classify secrets, config, host expansion, stale aliases, compatibility and cleanup",
       "Every mixed field separates observed_current, target_contract and known_gaps",
       "Verification records have accepted accountable ownership and executable command/expected/evidence/status"
     ],
@@ -1361,15 +1361,125 @@
       "exit": "No silent reroute or recursive deletion; old jobs remain list/edit/delete capable and v0.4 upgrade is explainable."
     }
   ],
+  "surface_dependency_coverage": [
+    {"surface": "desktop", "runtime_dependency": "CPython 3.11", "dependency_ids": [], "exemption": {"kind": "bundled_runtime", "reason": "The standalone interpreter is pinned and verified as a bundle artifact rather than a package edge."}},
+    {"surface": "desktop", "runtime_dependency": "FastAPI/Uvicorn", "dependency_ids": ["py-fastapi-uvicorn"], "exemption": null},
+    {"surface": "desktop", "runtime_dependency": "Tauri 2", "dependency_ids": [], "exemption": {"kind": "host_framework", "reason": "The application framework is the Rust workspace host, not a leaf messaging dependency."}},
+    {"surface": "desktop", "runtime_dependency": "WebView2", "dependency_ids": [], "exemption": {"kind": "system_component", "reason": "WebView2 availability is a Windows prerequisite/bundle verification concern."}},
+    {"surface": "gateway_kernel", "runtime_dependency": "aiohttp", "dependency_ids": ["py-aiohttp-shared"], "exemption": null},
+    {"surface": "gateway_kernel", "runtime_dependency": "httpx", "dependency_ids": ["py-httpx-socks-shared"], "exemption": null},
+    {"surface": "gateway_kernel", "runtime_dependency": "cryptography", "dependency_ids": ["py-cryptography-shared"], "exemption": null},
+    {"surface": "gateway_kernel", "runtime_dependency": "Pillow", "dependency_ids": ["py-pillow-shared"], "exemption": null},
+    {"surface": "cron_delivery", "runtime_dependency": "croniter", "dependency_ids": ["py-croniter"], "exemption": null},
+    {"surface": "weixin", "runtime_dependency": "aiohttp", "dependency_ids": ["py-aiohttp-shared"], "exemption": null},
+    {"surface": "weixin", "runtime_dependency": "cryptography", "dependency_ids": ["py-cryptography-shared"], "exemption": null},
+    {"surface": "weixin", "runtime_dependency": "certifi", "dependency_ids": ["py-certifi-weixin"], "exemption": null},
+    {"surface": "qqbot", "runtime_dependency": "aiohttp/httpx", "dependency_ids": ["py-aiohttp-shared", "py-httpx-socks-shared"], "exemption": null},
+    {"surface": "qqbot", "runtime_dependency": "cryptography", "dependency_ids": ["py-cryptography-shared"], "exemption": null},
+    {"surface": "qqbot", "runtime_dependency": "optional qrcode", "dependency_ids": ["py-qrcode-shared"], "exemption": null},
+    {"surface": "qqbot", "runtime_dependency": "optional pilk for SILK audio", "dependency_ids": ["qq-audio-external-tools"], "exemption": null},
+    {"surface": "qqbot", "runtime_dependency": "external ffmpeg fallback", "dependency_ids": ["qq-audio-external-tools"], "exemption": null},
+    {"surface": "dingtalk", "runtime_dependency": "dingtalk-stream", "dependency_ids": ["py-dingtalk-stream"], "exemption": null},
+    {"surface": "dingtalk", "runtime_dependency": "alibabacloud-dingtalk", "dependency_ids": ["py-dingtalk-openapi"], "exemption": null},
+    {"surface": "dingtalk", "runtime_dependency": "Tea SDKs", "dependency_ids": ["py-dingtalk-openapi"], "exemption": null},
+    {"surface": "dingtalk", "runtime_dependency": "qrcode", "dependency_ids": ["py-qrcode-shared"], "exemption": null},
+    {"surface": "telegram", "runtime_dependency": "python-telegram-bot[webhooks]>=22.6,<23", "dependency_ids": ["py-telegram-sdk"], "exemption": null},
+    {"surface": "telegram", "runtime_dependency": "aiohttp/httpx", "dependency_ids": ["py-aiohttp-shared", "py-httpx-socks-shared"], "exemption": null},
+    {"surface": "whatsapp", "runtime_dependency": "Node.js runtime", "dependency_ids": ["node-whatsapp-bridge"], "exemption": null},
+    {"surface": "whatsapp", "runtime_dependency": "git-pinned @whiskeysockets/baileys", "dependency_ids": ["node-whatsapp-bridge"], "exemption": null},
+    {"surface": "whatsapp", "runtime_dependency": "express", "dependency_ids": ["node-whatsapp-bridge"], "exemption": null},
+    {"surface": "whatsapp", "runtime_dependency": "pino", "dependency_ids": ["node-whatsapp-bridge"], "exemption": null},
+    {"surface": "whatsapp", "runtime_dependency": "qrcode-terminal", "dependency_ids": ["node-whatsapp-bridge"], "exemption": null},
+    {"surface": "whatsapp", "runtime_dependency": "platform-specific native npm packages", "dependency_ids": ["node-whatsapp-bridge"], "exemption": null},
+    {"surface": "whatsapp", "runtime_dependency": "current adapter runs npm install --silent at runtime when node_modules is missing", "dependency_ids": [], "exemption": {"kind": "behavioral_observation", "reason": "This is an unsafe runtime-install behavior to remove, not an additional package identity."}},
+    {"surface": "email", "runtime_dependency": "Python IMAP/SMTP/email/SSL standard library", "dependency_ids": [], "exemption": {"kind": "stdlib", "reason": "The transport uses Python standard-library modules rather than a distributable package."}},
+    {"surface": "email", "runtime_dependency": "Rust reqwest for the Tauri OAuth device flow", "dependency_ids": ["rust-reqwest-shared"], "exemption": null},
+    {"surface": "discord", "runtime_dependency": "discord.py[voice]", "dependency_ids": ["py-discord-voice"], "exemption": null},
+    {"surface": "discord", "runtime_dependency": "PyNaCl/Opus voice stack", "dependency_ids": ["py-discord-voice"], "exemption": null},
+    {"surface": "feishu_lark", "runtime_dependency": "lark-oapi/lark_oapi", "dependency_ids": ["py-lark-oapi"], "exemption": null},
+    {"surface": "feishu_lark", "runtime_dependency": "qrcode", "dependency_ids": ["py-qrcode-shared"], "exemption": null},
+    {"surface": "wecom_family", "runtime_dependency": "aiohttp/httpx", "dependency_ids": ["py-aiohttp-shared", "py-httpx-socks-shared"], "exemption": null},
+    {"surface": "wecom_family", "runtime_dependency": "cryptography", "dependency_ids": ["py-cryptography-shared"], "exemption": null},
+    {"surface": "wecom_family", "runtime_dependency": "qrcode", "dependency_ids": ["py-qrcode-shared"], "exemption": null},
+    {"surface": "sms_twilio", "runtime_dependency": "aiohttp", "dependency_ids": ["py-aiohttp-shared"], "exemption": null},
+    {"surface": "sms_twilio", "runtime_dependency": "Twilio REST transport", "dependency_ids": ["py-aiohttp-shared"], "exemption": null},
+    {"surface": "slack", "runtime_dependency": "slack-bolt", "dependency_ids": ["py-slack-sdk"], "exemption": null},
+    {"surface": "slack", "runtime_dependency": "slack-sdk", "dependency_ids": ["py-slack-sdk"], "exemption": null},
+    {"surface": "signal", "runtime_dependency": "signal-cli-rest-api external service", "dependency_ids": [], "exemption": {"kind": "external_service", "reason": "The service is separately deployed and not bundled as a Kabuqina package."}},
+    {"surface": "matrix", "runtime_dependency": "mautrix[encryption]", "dependency_ids": ["py-mautrix-stack"], "exemption": null},
+    {"surface": "matrix", "runtime_dependency": "Markdown", "dependency_ids": ["py-mautrix-stack"], "exemption": null},
+    {"surface": "matrix", "runtime_dependency": "aiosqlite", "dependency_ids": ["py-mautrix-stack"], "exemption": null},
+    {"surface": "matrix", "runtime_dependency": "asyncpg", "dependency_ids": ["py-mautrix-stack"], "exemption": null},
+    {"surface": "matrix", "runtime_dependency": "aiohttp-socks", "dependency_ids": ["py-mautrix-stack"], "exemption": null},
+    {"surface": "mattermost", "runtime_dependency": "aiohttp/httpx", "dependency_ids": ["py-aiohttp-shared", "py-httpx-socks-shared"], "exemption": null},
+    {"surface": "bluebubbles", "runtime_dependency": "aiohttp/httpx", "dependency_ids": ["py-aiohttp-shared", "py-httpx-socks-shared"], "exemption": null},
+    {"surface": "home_assistant", "runtime_dependency": "aiohttp", "dependency_ids": ["py-aiohttp-shared"], "exemption": null},
+    {"surface": "yuanbao", "runtime_dependency": "websockets", "dependency_ids": ["py-websockets-shared-conflict"], "exemption": null},
+    {"surface": "yuanbao", "runtime_dependency": "httpx", "dependency_ids": ["py-httpx-socks-shared"], "exemption": null},
+    {"surface": "webhook", "runtime_dependency": "aiohttp", "dependency_ids": ["py-aiohttp-shared"], "exemption": null},
+    {"surface": "api_server", "runtime_dependency": "aiohttp", "dependency_ids": ["py-aiohttp-shared"], "exemption": null},
+    {"surface": "irc_plugin", "runtime_dependency": "Python asyncio/SSL standard library", "dependency_ids": [], "exemption": {"kind": "stdlib", "reason": "The bundled IRC plugin explicitly uses only Python standard-library networking."}},
+    {"surface": "teams_plugin", "runtime_dependency": "microsoft-teams-apps", "dependency_ids": ["py-microsoft-teams-apps"], "exemption": null},
+    {"surface": "teams_plugin", "runtime_dependency": "aiohttp", "dependency_ids": ["py-aiohttp-shared"], "exemption": null}
+  ],
+  "bundled_plugin_dependency_imports": [
+    {"surface": "teams_plugin", "import_root": "aiohttp", "dependency_id": "py-aiohttp-shared"},
+    {"surface": "teams_plugin", "import_root": "microsoft_teams", "dependency_id": "py-microsoft-teams-apps"}
+  ],
   "dependency_graph": [
+    {
+      "id": "py-fastapi-uvicorn",
+      "package": "FastAPI and Uvicorn[standard]",
+      "ecosystem": "PyPI",
+      "declaration_paths": ["hermes_core/pyproject.toml", "hermes_core/uv.lock", "python/requirements-desktop.txt"],
+      "version_constraint": "FastAPI >=0.104.0,<1; Uvicorn[standard] >=0.24.0,<1",
+      "platform_surfaces": ["desktop"],
+      "users": ["python/src/desktop_entrypoint.py", "python/src/desk_server"],
+      "usage_class": "desktop_loopback_server",
+      "bundle_presence": "directly declared and required by the desktop child",
+      "target_action": "retain and verify in every desktop bundle",
+      "license_status": "FastAPI MIT and Uvicorn BSD-family metadata known; final SBOM reconciliation deferred to CTL-C05",
+      "advisory_status": "fresh advisory scan required at CTL-C05/Q",
+      "known_gaps": []
+    },
+    {
+      "id": "py-croniter",
+      "package": "croniter",
+      "ecosystem": "PyPI",
+      "declaration_paths": ["hermes_core/pyproject.toml", "hermes_core/uv.lock", "python/requirements-desktop.txt"],
+      "version_constraint": ">=6.0.0,<7",
+      "platform_surfaces": ["cron_delivery"],
+      "users": ["hermes_core/cron/jobs.py"],
+      "usage_class": "shared_cron_scheduler",
+      "bundle_presence": "directly declared in desktop requirements",
+      "target_action": "retain for cron expression scheduling",
+      "license_status": "MIT metadata known; final SBOM reconciliation deferred to CTL-C05",
+      "advisory_status": "fresh advisory scan required at CTL-C05/Q",
+      "known_gaps": []
+    },
+    {
+      "id": "rust-reqwest-shared",
+      "package": "reqwest",
+      "ecosystem": "Cargo",
+      "declaration_paths": ["tauri/Cargo.toml"],
+      "version_constraint": "0.13 with json/native-tls/stream features",
+      "platform_surfaces": ["desktop", "email"],
+      "users": ["tauri/src/chat.rs", "tauri/src/email_oauth.rs"],
+      "usage_class": "shared_rust_http_and_email_oauth",
+      "bundle_presence": "compiled into the Tauri shell",
+      "target_action": "retain shared loopback client and profile-scoped Email OAuth flow",
+      "license_status": "MIT OR Apache-2.0 metadata known; final Cargo SBOM deferred to CTL-C05",
+      "advisory_status": "cargo advisory scan required at CTL-C05/Q",
+      "known_gaps": ["Cargo.lock is not tracked, so the exact resolved transitive set is not frozen."]
+    },
     {
       "id": "py-aiohttp-shared",
       "package": "aiohttp",
       "ecosystem": "PyPI",
       "declaration_paths": ["hermes_core/pyproject.toml", "hermes_core/uv.lock"],
       "version_constraint": ">=3.13.3,<4 in core messaging; not direct in desktop requirements",
-      "platform_surfaces": ["gateway_kernel", "weixin", "qqbot", "telegram", "whatsapp", "feishu_lark", "wecom_family", "sms_twilio", "matrix", "bluebubbles", "home_assistant"],
-      "users": ["hermes_core/gateway/platforms/base.py", "hermes_core/gateway/platforms/weixin.py", "hermes_core/gateway/platforms/telegram.py", "hermes_core/gateway/platforms/whatsapp.py"],
+      "platform_surfaces": ["gateway_kernel", "weixin", "qqbot", "telegram", "whatsapp", "feishu_lark", "wecom_family", "sms_twilio", "matrix", "mattermost", "bluebubbles", "home_assistant", "webhook", "api_server", "teams_plugin"],
+      "users": ["hermes_core/gateway/platforms/base.py", "hermes_core/gateway/platforms/weixin.py", "hermes_core/gateway/platforms/telegram.py", "hermes_core/gateway/platforms/whatsapp.py", "hermes_core/plugins/platforms/teams/adapter.py"],
       "usage_class": "shared_retained_transport",
       "bundle_presence": "present in observed stale local runtime; desktop direct declaration absent",
       "target_action": "retain and make direct desktop dependency if retained adapter imports require it",
@@ -1383,7 +1493,7 @@
       "ecosystem": "PyPI",
       "declaration_paths": ["hermes_core/pyproject.toml", "hermes_core/uv.lock", "python/requirements-desktop.txt"],
       "version_constraint": ">=0.28.1,<1",
-      "platform_surfaces": ["gateway_kernel", "qqbot", "telegram", "dingtalk", "email", "discord", "feishu_lark", "wecom_family", "signal", "matrix", "mattermost", "yuanbao"],
+      "platform_surfaces": ["gateway_kernel", "qqbot", "telegram", "dingtalk", "email", "discord", "feishu_lark", "wecom_family", "signal", "matrix", "mattermost", "bluebubbles", "yuanbao"],
       "users": ["hermes_core/gateway/platforms/base.py", "hermes_core/tools/send_message_tool.py"],
       "usage_class": "shared_retained_http_client",
       "bundle_presence": "present in observed stale local runtime and directly declared for desktop",
@@ -1398,7 +1508,7 @@
       "ecosystem": "PyPI",
       "declaration_paths": ["hermes_core/pyproject.toml", "hermes_core/uv.lock", "python/requirements-desktop.txt"],
       "version_constraint": "indirect through PyJWT[crypto] in desktop; platform code imports it directly",
-      "platform_surfaces": ["gateway_kernel", "weixin", "wecom_family"],
+      "platform_surfaces": ["gateway_kernel", "weixin", "qqbot", "wecom_family"],
       "users": ["hermes_core/gateway/platforms/weixin.py", "hermes_core/gateway/platforms/wecom.py", "hermes_core/gateway/platforms/wecom_crypto.py"],
       "usage_class": "shared_retained_crypto",
       "bundle_presence": "present in observed stale local runtime",
@@ -1443,7 +1553,7 @@
       "ecosystem": "PyPI",
       "declaration_paths": ["hermes_core/pyproject.toml", "hermes_core/uv.lock"],
       "version_constraint": ">=7.0,<8 in core extras; absent from desktop requirements",
-      "platform_surfaces": ["weixin", "dingtalk", "feishu_lark", "wecom_family"],
+      "platform_surfaces": ["weixin", "qqbot", "dingtalk", "feishu_lark", "wecom_family"],
       "users": ["hermes_core/gateway/platforms/weixin.py", "hermes_core/gateway/platforms/dingtalk.py", "hermes_core/gateway/platforms/feishu.py", "hermes_core/gateway/platforms/wecom.py"],
       "usage_class": "mixed_retained_removed_qr",
       "bundle_presence": "absent in observed stale local runtime",
@@ -1586,6 +1696,21 @@
       "license_status": "BSD-3-Clause metadata known; final SBOM deferred to CTL-C05",
       "advisory_status": "fresh advisory scan required at CTL-C05/Q",
       "known_gaps": ["DingTalk retained readiness is blocked until its SDK works with the modern range or uses a separate transport."]
+    },
+    {
+      "id": "py-microsoft-teams-apps",
+      "package": "microsoft-teams-apps",
+      "ecosystem": "PyPI",
+      "declaration_paths": ["hermes_core/plugins/platforms/teams/plugin.yaml", "hermes_core/plugins/platforms/teams/adapter.py"],
+      "version_constraint": "unversioned install hint; absent from core and desktop dependency declarations",
+      "platform_surfaces": ["teams_plugin"],
+      "users": ["hermes_core/plugins/platforms/teams/adapter.py"],
+      "usage_class": "removed_bundled_plugin_exclusive",
+      "bundle_presence": "not declared for or proven in the desktop bundle",
+      "target_action": "remove the Teams plugin/import/install hint without affecting shared aiohttp",
+      "license_status": "package and transitive license ledger not captured; record removal delta at CTL-C05",
+      "advisory_status": "record removal delta; no retained runtime justification",
+      "known_gaps": ["The bundled plugin imports the SDK but no package version is pinned anywhere in the repository."]
     },
     {
       "id": "qq-audio-external-tools",
@@ -16748,7 +16873,8 @@
         "surface": "irc_plugin",
         "primary_role": "non_secret_config",
         "source_paths": [
-          "hermes_core/gateway/platform_registry.py"
+          "hermes_core/gateway/platform_registry.py",
+          "hermes_core/plugins/platforms/irc/adapter.py"
         ],
         "observed_current": "Exact quoted environment/config key referenced by the listed tracked runtime producers or consumers.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -16761,7 +16887,8 @@
         "surface": "irc_plugin",
         "primary_role": "non_secret_config",
         "source_paths": [
-          "hermes_core/gateway/platform_registry.py"
+          "hermes_core/gateway/platform_registry.py",
+          "hermes_core/plugins/platforms/irc/adapter.py"
         ],
         "observed_current": "Exact quoted environment/config key referenced by the listed tracked runtime producers or consumers.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -16775,7 +16902,8 @@
         "primary_role": "non_secret_config",
         "source_paths": [
           "hermes_core/kabuqina_cli/config_env.py",
-          "hermes_core/kabuqina_cli/config_env_schema.py"
+          "hermes_core/kabuqina_cli/config_env_schema.py",
+          "hermes_core/plugins/platforms/irc/adapter.py"
         ],
         "observed_current": "Exact quoted environment/config key referenced by the listed tracked runtime producers or consumers.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -16789,7 +16917,8 @@
         "primary_role": "non_secret_config",
         "source_paths": [
           "hermes_core/kabuqina_cli/config_env.py",
-          "hermes_core/kabuqina_cli/config_env_schema.py"
+          "hermes_core/kabuqina_cli/config_env_schema.py",
+          "hermes_core/plugins/platforms/irc/adapter.py"
         ],
         "observed_current": "Exact quoted environment/config key referenced by the listed tracked runtime producers or consumers.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -16803,7 +16932,8 @@
         "primary_role": "secret",
         "source_paths": [
           "hermes_core/kabuqina_cli/config_env.py",
-          "hermes_core/kabuqina_cli/config_env_schema.py"
+          "hermes_core/kabuqina_cli/config_env_schema.py",
+          "hermes_core/plugins/platforms/irc/adapter.py"
         ],
         "observed_current": "Exact quoted environment/config key referenced by the listed tracked runtime producers or consumers.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -16817,7 +16947,8 @@
         "surface": "irc_plugin",
         "primary_role": "non_secret_config",
         "source_paths": [
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "hermes_core/plugins/platforms/irc/adapter.py"
         ],
         "observed_current": "Exact quoted environment/config key referenced by the listed tracked runtime producers or consumers.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -16832,7 +16963,8 @@
         "source_paths": [
           "hermes_core/gateway/platform_registry.py",
           "hermes_core/kabuqina_cli/config_env.py",
-          "hermes_core/kabuqina_cli/config_env_schema.py"
+          "hermes_core/kabuqina_cli/config_env_schema.py",
+          "hermes_core/plugins/platforms/irc/adapter.py"
         ],
         "observed_current": "Exact quoted environment/config key referenced by the listed tracked runtime producers or consumers.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -16846,7 +16978,8 @@
         "primary_role": "secret",
         "source_paths": [
           "hermes_core/kabuqina_cli/config_env.py",
-          "hermes_core/kabuqina_cli/config_env_schema.py"
+          "hermes_core/kabuqina_cli/config_env_schema.py",
+          "hermes_core/plugins/platforms/irc/adapter.py"
         ],
         "observed_current": "Exact quoted environment/config key referenced by the listed tracked runtime producers or consumers.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -16860,7 +16993,8 @@
         "surface": "irc_plugin",
         "primary_role": "non_secret_config",
         "source_paths": [
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "hermes_core/plugins/platforms/irc/adapter.py"
         ],
         "observed_current": "Exact quoted environment/config key referenced by the listed tracked runtime producers or consumers.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -17948,6 +18082,85 @@
         "known_gaps": [
           "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
           "Configured URL/host values require fail-closed network-policy validation; key presence is not an allowlist."
+        ]
+      },
+      {
+        "key": "TEAMS_ALLOWED_USERS",
+        "surface": "teams_plugin",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "hermes_core/plugins/platforms/teams/adapter.py"
+        ],
+        "observed_current": "Exact quoted environment/config key referenced by the listed tracked runtime producers or consumers.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "TEAMS_ALLOW_ALL_USERS",
+        "surface": "teams_plugin",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "hermes_core/plugins/platforms/teams/adapter.py"
+        ],
+        "observed_current": "Exact quoted environment/config key referenced by the listed tracked runtime producers or consumers.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "TEAMS_CLIENT_ID",
+        "surface": "teams_plugin",
+        "primary_role": "identifier",
+        "source_paths": [
+          "hermes_core/plugins/platforms/teams/adapter.py"
+        ],
+        "observed_current": "Exact quoted environment/config key referenced by the listed tracked runtime producers or consumers.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "TEAMS_CLIENT_SECRET",
+        "surface": "teams_plugin",
+        "primary_role": "secret",
+        "source_paths": [
+          "hermes_core/plugins/platforms/teams/adapter.py"
+        ],
+        "observed_current": "Exact quoted environment/config key referenced by the listed tracked runtime producers or consumers.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
+          "Gateway secrets currently traverse host/profile .env files; CTL-C07 owns explicit cleanup/export and upgrade safety."
+        ]
+      },
+      {
+        "key": "TEAMS_PORT",
+        "surface": "teams_plugin",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "hermes_core/plugins/platforms/teams/adapter.py"
+        ],
+        "observed_current": "Exact quoted environment/config key referenced by the listed tracked runtime producers or consumers.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "TEAMS_TENANT_ID",
+        "surface": "teams_plugin",
+        "primary_role": "identifier",
+        "source_paths": [
+          "hermes_core/plugins/platforms/teams/adapter.py"
+        ],
+        "observed_current": "Exact quoted environment/config key referenced by the listed tracked runtime producers or consumers.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
         ]
       },
       {
@@ -19179,7 +19392,7 @@
   "generated_ledger_metadata": {
     "generator": "scripts/audit_v050_platform_manifest.py --refresh-generated-ledgers",
     "reference_path_count": 656,
-    "environment_key_count": 255,
+    "environment_key_count": 261,
     "historical_docs_policy": "docs/superpowers history is excluded from the active-doc reference scan; the three authority plans are hash-pinned separately."
   }
 }
