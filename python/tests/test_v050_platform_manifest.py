@@ -479,6 +479,79 @@ def load_home(platform):
             errors,
         )
 
+    def test_authority_text_hash_is_checkout_line_ending_stable(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            lf_path = root / "authority-lf.md"
+            crlf_path = root / "authority-crlf.md"
+            lf_path.write_bytes(b"# Authority\n\nStable text\n")
+            crlf_path.write_bytes(b"# Authority\r\n\r\nStable text\r\n")
+
+            self.assertEqual(
+                audit.sha256_lf_normalized_text(lf_path),
+                audit.sha256_lf_normalized_text(crlf_path),
+            )
+
+    def test_activation_delta_stops_at_reviewed_gate_commit(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+
+            def commit_all(message: str) -> str:
+                subprocess.run(["git", "add", "--", "."], cwd=root, check=True)
+                subprocess.run(
+                    [
+                        "git",
+                        "-c",
+                        "user.name=C0 Test",
+                        "-c",
+                        "user.email=c0@example.invalid",
+                        "commit",
+                        "-q",
+                        "-m",
+                        message,
+                    ],
+                    cwd=root,
+                    check=True,
+                )
+                return subprocess.run(
+                    ["git", "rev-parse", "HEAD"],
+                    cwd=root,
+                    check=True,
+                    text=True,
+                    stdout=subprocess.PIPE,
+                ).stdout.strip()
+
+            (root / "README.md").write_text("base\n", encoding="utf-8")
+            base_commit = commit_all("base")
+            allowed = root / "scripts" / "audit_v050_platform_manifest.py"
+            allowed.parent.mkdir(parents=True)
+            allowed.write_text("# reviewed C-0 delta\n", encoding="utf-8")
+            gate_commit = commit_all("gate")
+            unrelated = root / "docs" / "parallel-track.md"
+            unrelated.parent.mkdir(parents=True)
+            unrelated.write_text("parallel main work\n", encoding="utf-8")
+            head_commit = commit_all("parallel work after gate")
+
+            scoped_manifest = {
+                "base": {
+                    "git_commit": base_commit,
+                    "activation": {
+                        "evidence_commit": gate_commit,
+                        "gate_commit": gate_commit,
+                    },
+                }
+            }
+            self.assertEqual(
+                [], audit._activation_scope_issues(scoped_manifest, root)
+            )
+
+            scoped_manifest["base"]["activation"]["gate_commit"] = head_commit
+            errors = audit._activation_scope_issues(scoped_manifest, root)
+            self.assertTrue(
+                any("parallel-track.md" in error for error in errors), errors
+            )
+
     def test_review_ready_manifest_cannot_keep_pre_review_work(self) -> None:
         mutated = copy.deepcopy(self.manifest)
         mutated["gate_ready"] = True

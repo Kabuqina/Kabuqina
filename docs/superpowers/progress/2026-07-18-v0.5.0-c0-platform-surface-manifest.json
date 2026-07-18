@@ -21,7 +21,8 @@
       "Computed {PLATFORM}_HOME_CHANNEL and {PLATFORM}_HOME_CHANNEL_NAME templates expand every known built-in and bundled plugin into exact edges; unclassified bundled plugins fail closed and runtime plugins remain prohibited until classified",
       "Every mixed field separates observed_current, target_contract and known_gaps",
       "Verification records have accepted accountable ownership and executable command/expected/evidence/status",
-      "Gateway/core, Python policy, Rust shell, Web Settings and Bundle/release reviews approved against evidence 45edb247; the non-author Gate reviewer accepted CTL-C01 DONE"
+      "Gateway/core, Python policy, Rust shell, Web Settings and Bundle/release reviews approved against evidence 45edb247; the non-author Gate reviewer accepted CTL-C01 DONE",
+      "Post-merge audit pins the reviewed delta through gate commit 2d04a3ca and hashes authority text with LF normalization so parallel main commits and checkout line endings cannot create false drift"
     ],
     "pending_before_ctl_c01_review": [],
     "pending_before_ctl_c01_done": [],
@@ -37,6 +38,7 @@
       "accountable_owner": "Codex / current CTL-C01 task",
       "owner_status": "accepted_by_product_owner_2026-07-18",
       "evidence_commit": "45edb247983a0bb6bf6be2f250f99b7f603f7c68",
+      "gate_commit": "2d04a3ca9817bec98d9354b0bd466d2c20d8459b",
       "branch": "codex/v050-c01-platform-manifest",
       "worktree": "D:/project/Kabuqina/.worktrees/c-track-c01",
       "allowed_paths": [
@@ -58,17 +60,20 @@
     "authority_snapshots": [
       {
         "path": "docs/superpowers/plans/2026-07-18-v0.5.0-execution-control-board.md",
-        "sha256": "d2e3aca179cb13467cdef6dc21d749f8c7c535ad23f1b077f7f9f254fd4608ac",
+        "sha256": "c6eeb58735d700f7405cddc796073fc06ebd951d6cad02e4dd303754a3ce3308",
+        "hash_mode": "sha256_lf_normalized_text",
         "git_state": "clean"
       },
       {
         "path": "docs/superpowers/plans/2026-07-17-v0.5.0-development-plan.md",
-        "sha256": "69c09a72f3861aff9fa0a165fc9711f9af1cfedd1640c0280c7474e8ea9f6694",
+        "sha256": "659c5093bfdc6d9270aceb2b73135f35475a3ec01b76402ccda5da05ca5bd960",
+        "hash_mode": "sha256_lf_normalized_text",
         "git_state": "clean"
       },
       {
         "path": "docs/superpowers/plans/2026-07-17-v0.5.0-product-pruning-plan.md",
-        "sha256": "41d4e084f24744c86b284774642a13ab22d55aa59bbe6698b658f963b7959081",
+        "sha256": "30af4230f65125c0f7eccfeb5554dc827831af2c677bb1cf6f0a620fe31e01b6",
+        "hash_mode": "sha256_lf_normalized_text",
         "git_state": "clean"
       }
     ]

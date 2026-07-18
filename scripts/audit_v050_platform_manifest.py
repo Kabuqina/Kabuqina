@@ -619,6 +619,13 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def sha256_lf_normalized_text(path: Path) -> str:
+    """Hash tracked authority text independently of checkout line endings."""
+
+    content = path.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return hashlib.sha256(content).hexdigest()
+
+
 @lru_cache(maxsize=None)
 def _tracked_files(root: Path = ROOT) -> list[str]:
     result = _run_git(root, "ls-files")
@@ -3126,6 +3133,68 @@ def _claim_has_match(root: Path, claim: str) -> bool:
     return (root / normalized).exists()
 
 
+def _activation_scope_issues(
+    manifest: dict[str, Any], root: Path = ROOT
+) -> list[str]:
+    """Validate only the reviewed C-0 branch delta, even after it is merged."""
+
+    errors: list[str] = []
+    base = manifest.get("base", {})
+    activation = base.get("activation", {})
+    base_commit = base.get("git_commit")
+    evidence_commit = activation.get("evidence_commit")
+    gate_commit = activation.get("gate_commit") or evidence_commit
+    head = _run_git(root, "rev-parse", "HEAD")
+    if head.returncode != 0:
+        return [f"cannot resolve git HEAD: {head.stderr.strip()}"]
+    actual_head = head.stdout.strip()
+    for label, commit in (
+        ("base", base_commit),
+        ("evidence", evidence_commit),
+        ("gate", gate_commit),
+    ):
+        if not isinstance(commit, str) or not commit:
+            errors.append(f"C-0 {label} commit must be recorded")
+            return errors
+    ancestry_checks = (
+        (base_commit, evidence_commit, "base is not an ancestor of evidence"),
+        (evidence_commit, gate_commit, "evidence is not an ancestor of gate"),
+        (gate_commit, actual_head, "gate is not an ancestor of HEAD"),
+    )
+    for ancestor_commit, descendant_commit, message in ancestry_checks:
+        ancestor = _run_git(
+            root,
+            "merge-base",
+            "--is-ancestor",
+            str(ancestor_commit),
+            str(descendant_commit),
+        )
+        if ancestor.returncode != 0:
+            errors.append(
+                f"C-0 {message}: ancestor={ancestor_commit} "
+                f"descendant={descendant_commit}"
+            )
+    if errors:
+        return errors
+    changed = _run_git(
+        root, "diff", "--name-only", f"{base_commit}..{gate_commit}"
+    )
+    if changed.returncode != 0:
+        return [f"cannot list C-0 activation delta: {changed.stderr.strip()}"]
+    changed_paths = {
+        line.strip().replace("\\", "/")
+        for line in changed.stdout.splitlines()
+        if line.strip()
+    }
+    unexpected = changed_paths - ACTIVATION_ALLOWED_PATHS
+    if unexpected:
+        errors.append(
+            "C-0 activation delta escaped allowed audit paths: "
+            f"{sorted(unexpected)}"
+        )
+    return errors
+
+
 def validate_observed_snapshot(
     manifest: dict[str, Any], root: Path = ROOT
 ) -> list[str]:
@@ -3164,7 +3233,13 @@ def validate_observed_snapshot(
         if not path.is_file():
             errors.append(f"authority document missing: {relative}")
             continue
-        actual_hash = sha256_file(path)
+        hash_mode = snapshot.get("hash_mode")
+        if hash_mode != "sha256_lf_normalized_text":
+            errors.append(
+                f"authority document {relative} must use sha256_lf_normalized_text"
+            )
+            continue
+        actual_hash = sha256_lf_normalized_text(path)
         if actual_hash.lower() != str(snapshot.get("sha256", "")).lower():
             errors.append(
                 f"authority document hash drift: {relative} "
@@ -3177,34 +3252,7 @@ def validate_observed_snapshot(
                 f"expected={snapshot.get('git_state')} actual={actual_state}"
             )
 
-    head = _run_git(root, "rev-parse", "HEAD")
-    if head.returncode != 0:
-        errors.append(f"cannot resolve git HEAD: {head.stderr.strip()}")
-    else:
-        actual_head = head.stdout.strip()
-        base_commit = manifest.get("base", {}).get("git_commit")
-        ancestor = _run_git(root, "merge-base", "--is-ancestor", str(base_commit), actual_head)
-        if ancestor.returncode != 0:
-            errors.append(
-                "C-0 base is not an ancestor of HEAD: "
-                f"base={base_commit} actual={actual_head}"
-            )
-        elif actual_head != base_commit:
-            changed = _run_git(root, "diff", "--name-only", f"{base_commit}..{actual_head}")
-            if changed.returncode != 0:
-                errors.append(f"cannot list C-0 activation delta: {changed.stderr.strip()}")
-            else:
-                changed_paths = {
-                    line.strip().replace("\\", "/")
-                    for line in changed.stdout.splitlines()
-                    if line.strip()
-                }
-                unexpected = changed_paths - ACTIVATION_ALLOWED_PATHS
-                if unexpected:
-                    errors.append(
-                        "C-0 activation delta escaped allowed audit paths: "
-                        f"{sorted(unexpected)}"
-                    )
+    errors.extend(_activation_scope_issues(manifest, root))
     return errors
 
 
