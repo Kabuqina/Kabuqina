@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Kabuqina v0.5.0 Study ↔ Chat 可验证低保真原型</title>
+  <title>Kabuqina v0.5.0 Study ↔ Chat 决策原型 · NOT FINAL</title>
   <style>
     :root {
       color-scheme: light;
@@ -112,6 +112,9 @@
     .ghost { color: var(--ghost-ink); }
 
     .lab-bar {
+      position: sticky;
+      z-index: 100;
+      top: 0;
       display: flex;
       align-items: end;
       gap: 12px;
@@ -133,6 +136,60 @@
       color: var(--muted-ink);
       font-size: 12px;
     }
+
+    .decision-status {
+      flex-basis: 100%;
+      display: grid;
+      grid-template-columns: minmax(260px, 1.3fr) repeat(3, minmax(190px, 1fr));
+      gap: 1px;
+      border: 2px solid var(--line-strong);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      background: var(--line-strong);
+    }
+
+    .decision-status > div {
+      min-width: 0;
+      padding: 8px 10px;
+      background: var(--paper);
+    }
+
+    .decision-status strong,
+    .decision-status span { display: block; }
+
+    .decision-status strong {
+      margin-bottom: 2px;
+      font-size: 12px;
+      letter-spacing: .02em;
+    }
+
+    .decision-status span {
+      color: var(--muted-ink);
+      font-size: 11px;
+    }
+
+    .decision-identity { background: #ececef !important; }
+
+    .scope-ledger {
+      flex-basis: 100%;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(220px, 1fr));
+      gap: 8px;
+      padding: 9px 10px;
+      border: 1px dashed var(--line-strong);
+      border-radius: var(--radius-sm);
+      background: var(--paper-soft);
+      font-size: 11px;
+    }
+
+    .scope-ledger strong,
+    .scope-ledger span { display: block; }
+
+    .scope-ledger strong { margin-bottom: 3px; }
+
+    .scope-ledger span { color: var(--muted-ink); }
+
+    .scope-ledger .scope-out { border-left: 3px solid var(--line-strong); padding-left: 9px; }
 
     .lab-control {
       display: grid;
@@ -194,23 +251,23 @@
 
     .frame-chip {
       position: absolute;
-      z-index: 40;
+      z-index: 80;
       top: 8px;
-      right: 8px;
+      left: 8px;
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      max-width: 330px;
+      max-width: calc(100% - 16px);
       min-height: 28px;
       padding: 5px 8px;
-      border: 1px solid var(--line-strong);
-      border-radius: 999px;
-      background: var(--paper);
-      color: var(--ink);
+      border: 2px solid var(--paper);
+      border-radius: var(--radius-sm);
+      background: var(--ink);
+      color: var(--paper);
       font-size: 12px;
       font-weight: 600;
+      line-height: 1.25;
       box-shadow: 0 2px 6px rgba(24, 24, 27, .12);
-      display: none;
     }
 
     .product-shell {
@@ -404,6 +461,105 @@
       font-size: 12px;
     }
 
+    .knowledge-count {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+      font-size: 12px;
+    }
+
+    .knowledge-quick-label {
+      display: inline-flex;
+      min-height: 24px;
+      align-items: center;
+      padding: 3px 8px;
+      border: 1px solid var(--line-strong);
+      border-radius: 999px;
+      background: var(--paper-soft);
+      font-size: 11px;
+      font-weight: 650;
+    }
+
+    .knowledge-drawer {
+      position: absolute;
+      z-index: 24;
+      top: 108px;
+      left: 20px;
+      width: min(460px, calc(100% - 40px));
+      max-height: calc(100% - 128px);
+      overflow-y: auto;
+      padding: 18px;
+      border: 2px solid var(--line-strong);
+      border-radius: var(--radius-lg);
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+
+    .knowledge-drawer-head,
+    .knowledge-section-head,
+    .knowledge-item {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .knowledge-drawer-head h2,
+    .knowledge-drawer-head p { margin: 0; }
+
+    .knowledge-drawer-head p,
+    .knowledge-drawer-note,
+    .knowledge-selection {
+      color: var(--muted-ink);
+      font-size: 12px;
+    }
+
+    .knowledge-section {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+    }
+
+    .knowledge-section-head { margin-bottom: 9px; }
+
+    .knowledge-list {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .knowledge-item {
+      padding: 10px;
+      border-left: 3px solid var(--line-strong);
+      background: var(--paper-soft);
+    }
+
+    .knowledge-item span { min-width: 0; }
+
+    .knowledge-category-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .knowledge-category-grid button {
+      min-width: 0;
+      min-height: 62px;
+      white-space: normal;
+    }
+
+    .knowledge-selection {
+      min-height: 38px;
+      margin: 10px 0 0;
+      padding: 8px 10px;
+      border: 1px dashed var(--line-strong);
+      background: var(--paper-soft);
+    }
+
     .center-desk {
       min-width: 0;
       display: grid;
@@ -446,6 +602,95 @@
     .notebook-head p {
       margin: 0;
       color: var(--muted-ink);
+    }
+
+    .lifecycle-host { margin: -4px 0 18px; }
+
+    .study-lifecycle-nav {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 6px;
+      padding: 6px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
+      background: var(--paper-soft);
+    }
+
+    .study-lifecycle-link {
+      min-width: 0;
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 7px 8px;
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      color: var(--muted-ink);
+      text-align: center;
+      text-decoration: none;
+      line-height: 1.2;
+    }
+
+    .study-lifecycle-link:hover { background: var(--paper); }
+
+    .study-lifecycle-link[aria-current="page"] {
+      border-color: var(--ink);
+      background: var(--ink);
+      color: var(--paper);
+      font-weight: 650;
+    }
+
+    .study-lifecycle-link:focus-visible {
+      outline: 3px solid var(--focus);
+      outline-offset: 2px;
+    }
+
+    .lifecycle-route-meta {
+      margin: 6px 4px 0;
+      color: var(--muted-ink);
+      font-family: "Cascadia Mono", Consolas, monospace;
+      font-size: 11px;
+    }
+
+    .study-page-surface { min-height: 344px; }
+
+    .study-page-surface h2 { margin-bottom: 10px; }
+
+    .practice-reference {
+      padding: 12px;
+      border: 1px dashed var(--line-strong);
+      border-radius: var(--radius-sm);
+      background: var(--paper-soft);
+    }
+
+    .practice-reference h2::after {
+      content: " · 与当前题绑定";
+      color: var(--muted-ink);
+      font-size: 12px;
+      font-weight: 400;
+    }
+
+    .page-ownership-note {
+      margin-bottom: 12px;
+      padding: 8px 10px;
+      border-left: 3px solid var(--line-strong);
+      background: var(--paper-soft);
+      color: var(--muted-ink);
+      font-size: 12px;
+    }
+
+    .study-page-list {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .study-page-list li {
+      padding: 9px 10px;
+      border-left: 3px solid var(--line-strong);
+      background: var(--paper-soft);
     }
 
     .bookmark {
@@ -506,6 +751,85 @@
     }
 
     .exercise-work p:last-child { margin-bottom: 0; }
+
+    .baseline-reference {
+      margin-bottom: 12px;
+      padding: 8px 10px;
+      border: 2px solid var(--line-strong);
+      border-radius: var(--radius-sm);
+      background: #ececef;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .03em;
+    }
+
+    .practice-surface,
+    .narrow-practice-surface { min-width: 0; }
+
+    .ordinary-response-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .ordinary-response-card,
+    .practice-runtime-note,
+    .derivation-step {
+      padding: 10px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius-sm);
+      background: var(--paper-soft);
+    }
+
+    .ordinary-response-card fieldset {
+      display: grid;
+      gap: 7px;
+      margin: 0;
+      padding: 0;
+      border: 0;
+    }
+
+    .ordinary-response-card legend {
+      margin-bottom: 7px;
+      font-weight: 650;
+    }
+
+    .practice-runtime-note {
+      margin-bottom: 10px;
+      color: var(--muted-ink);
+      font-size: 11px;
+    }
+
+    .code-transcription {
+      max-height: 92px;
+      overflow: auto;
+      margin: 0 0 10px;
+      padding: 10px;
+      border: 1px dashed var(--line-strong);
+      background: #f7f7f8;
+      font-family: "Cascadia Mono", Consolas, monospace;
+      white-space: pre-wrap;
+    }
+
+    .code-reference-editor {
+      min-height: 142px;
+      font-family: "Cascadia Mono", Consolas, monospace;
+      tab-size: 2;
+    }
+
+    .derivation-list {
+      display: grid;
+      gap: 9px;
+      margin: 0;
+      padding-left: 24px;
+    }
+
+    .derivation-step label { display: block; margin-top: 7px; }
+
+    .derivation-formula {
+      display: block;
+      margin: 4px 0;
+      font-family: "Cascadia Mono", Consolas, monospace;
+    }
 
     .safe-overview {
       margin-top: 16px;
@@ -646,6 +970,36 @@
       background: var(--paper);
       border-left: 2px solid var(--line-strong);
       box-shadow: -12px 0 28px rgba(24, 24, 27, .18);
+    }
+
+    .practice-leave-layer {
+      position: absolute;
+      z-index: 90;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      background: rgba(24, 24, 27, .48);
+    }
+
+    .practice-leave-dialog {
+      width: min(100%, 440px);
+      padding: 18px;
+      border: 2px solid var(--line-strong);
+      border-radius: var(--radius-lg);
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+
+    .practice-leave-dialog h2 { margin-bottom: 8px; }
+
+    .practice-leave-dialog p { color: var(--muted-ink); }
+
+    .practice-leave-actions {
+      display: flex;
+      justify-content: end;
+      gap: 8px;
+      flex-wrap: wrap;
     }
 
     .chat-surface {
@@ -898,13 +1252,50 @@
 
     .product-viewport.vp-narrow .narrow-study {
       display: grid;
-      gap: 10px;
-      padding-bottom: 76px;
+      gap: 12px;
+      width: min(100%, 760px);
+      margin: 0 auto;
+      padding-bottom: 28px;
+    }
+
+    .product-viewport.vp-narrow .lifecycle-host {
+      margin: 0;
+    }
+
+    .product-viewport.vp-narrow .study-lifecycle-nav {
+      gap: 4px;
+      padding: 4px;
+    }
+
+    .product-viewport.vp-narrow .study-lifecycle-link {
+      min-height: 44px;
+      padding: 6px 3px;
+      font-size: 12px;
+      overflow-wrap: anywhere;
+      white-space: normal;
+    }
+
+    .product-viewport.vp-narrow .lifecycle-route-meta {
+      overflow-wrap: anywhere;
+    }
+
+    .product-viewport.vp-narrow .knowledge-drawer {
+      inset: 94px 0 0;
+      width: 100%;
+      max-height: none;
+      border-inline: 0;
+      border-bottom: 0;
+      border-radius: 0;
+    }
+
+    .product-viewport.vp-narrow .knowledge-category-grid {
+      grid-template-columns: 1fr;
     }
 
     .flat-section {
-      padding: 12px;
-      border-bottom: 1px solid var(--line);
+      padding: 14px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
       background: var(--paper);
     }
 
@@ -917,6 +1308,126 @@
     .flat-section ul { margin-bottom: 0; }
     .flat-section ul { padding-left: 20px; }
 
+    .narrow-context-head,
+    .narrow-task-head,
+    .narrow-support-row,
+    .narrow-priority-actions,
+    .narrow-activity-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .narrow-context-head h1,
+    .narrow-task-head h2 { margin: 0; }
+
+    .narrow-context-head h1 { font-size: 20px; }
+
+    .narrow-state-chip,
+    .priority-kicker {
+      display: inline-flex;
+      width: fit-content;
+      min-height: 24px;
+      align-items: center;
+      padding: 3px 8px;
+      border: 1px solid var(--line-strong);
+      border-radius: 999px;
+      background: var(--paper-soft);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .narrow-course-meta {
+      margin-top: 8px;
+      color: var(--muted-ink);
+      font-size: 12px;
+    }
+
+    .narrow-priority {
+      margin-top: 12px;
+      padding: 12px;
+      border-left: 4px solid var(--line-strong);
+      background: var(--paper-soft);
+    }
+
+    .narrow-priority p { margin: 7px 0 10px; }
+
+    .narrow-primary-action {
+      border-width: 2px;
+      background: var(--ink);
+      color: var(--paper);
+    }
+
+    .narrow-primary-action:hover:not(:disabled) { background: #303036; }
+
+    .narrow-task-copy {
+      margin: 10px 0;
+      padding: 10px 12px;
+      border: 1px dashed var(--line-strong);
+      background: var(--paper-soft);
+    }
+
+    .narrow-answer {
+      min-height: 92px;
+      margin-top: 7px;
+    }
+
+    .narrow-status-panel {
+      margin: 10px 0;
+      padding: 10px 12px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius-sm);
+      background: #f5f5f6;
+    }
+
+    .narrow-status-panel[data-state="dirty"] {
+      border-width: 2px;
+      background: #eeeeef;
+    }
+
+    .narrow-status-panel p { margin: 4px 0 0; }
+
+    .narrow-feedback {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius-sm);
+      background: var(--paper-soft);
+    }
+
+    .narrow-due-summary {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .narrow-due-summary p { margin: 3px 0 0; }
+
+    .narrow-support-row + .narrow-support-row {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid var(--line);
+    }
+
+    .narrow-support details { width: 100%; }
+
+    .narrow-support summary {
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .narrow-support ul { margin-top: 10px; }
+
+    .narrow-study .formula,
+    .narrow-study pre,
+    .narrow-study table {
+      max-width: 100%;
+      overflow-x: auto;
+    }
+
     .product-viewport.vp-narrow .cup-button {
       position: static;
       width: 100%;
@@ -926,8 +1437,9 @@
     }
 
     .product-viewport.vp-narrow .frame-chip {
-      top: 102px;
+      top: 4px;
       max-width: calc(100% - 16px);
+      font-size: 10px;
     }
 
     .product-viewport.vp-narrow .narrow-route-host .chat-header,
@@ -957,39 +1469,41 @@
     .product-viewport.vp-zoom .chat-surface { min-height: 100%; }
 
     .product-viewport.vp-zoom .product-chrome {
-      min-height: 60px;
-      height: 60px;
-      grid-template-columns: 170px 1fr auto;
-      grid-template-areas: none;
+      height: auto;
+      min-height: 94px;
+      grid-template-columns: 1fr auto;
+      grid-template-areas:
+        "brand utility"
+        "nav nav";
       align-content: center;
-      padding: 6px 12px;
+      gap: 7px 8px;
+      padding: 8px 10px;
     }
 
-    .product-viewport.vp-zoom .brand,
-    .product-viewport.vp-zoom .primary-nav,
-    .product-viewport.vp-zoom .chrome-utilities {
-      grid-area: auto;
-    }
+    .product-viewport.vp-zoom .brand { grid-area: brand; }
+
+    .product-viewport.vp-zoom .chrome-utilities { grid-area: utility; }
 
     .product-viewport.vp-zoom .primary-nav {
-      justify-content: center;
+      grid-area: nav;
+      justify-content: start;
     }
 
     .product-viewport.vp-zoom .narrow-route-host {
-      top: 60px;
+      top: 94px;
     }
 
     .product-viewport.vp-zoom .narrow-route-host .chat-header {
-      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-columns: 1fr;
       padding: 8px 12px;
     }
 
     .product-viewport.vp-zoom .chat-header-actions {
-      justify-content: end;
+      justify-content: start;
     }
 
     .product-viewport.vp-zoom .chat-context {
-      align-items: center;
+      align-items: start;
       padding: 6px 12px;
     }
 
@@ -1003,6 +1517,15 @@
 
     .product-viewport.vp-zoom textarea {
       min-height: 52px;
+    }
+
+    @media (max-width: 1100px) {
+      .decision-status { grid-template-columns: 1fr 1fr; }
+      .scope-ledger { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 620px) {
+      .decision-status { grid-template-columns: 1fr; }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -1020,16 +1543,23 @@
 <body>
   <header class="lab-bar" id="prototype-controls" aria-label="原型验证控制">
     <div class="lab-title">
-      <strong>Study ↔ Chat · revision fixture</strong>
-      <span>HTML 为规划原型；sidecar 仍是 TO-TEST</span>
+      <strong>Kabuqina v0.5.0 Study ↔ Chat 决策原型</strong>
+      <span>Decision Prototype · NOT FINAL</span>
     </div>
     <label class="lab-control" for="frame-select">
       Frame
       <select id="frame-select">
+        <option value="S01">S01 · Study lifecycle nav states</option>
+        <option value="W01-P">W01-P · Wide Practice</option>
+        <option value="P01-N">P01-N · Practice normal · baseline reference</option>
+        <option value="P01-C">P01-C · Practice CodeMirror · baseline reference</option>
+        <option value="P01-D">P01-D · Practice Derivation · baseline reference</option>
+        <option value="W01-L">W01-L · Wide Learn</option>
+        <option value="K01">K01 · Knowledge base expanded</option>
         <option value="W01">W01 · Wide Desk Idle</option>
         <option value="W02">W02 · Cup Focused</option>
-        <option value="W03A">W03A · Sidecar Overlay</option>
-        <option value="W03B">W03B · Sidecar Compress</option>
+        <option value="W03A">W03A · Sidecar Candidate · Overlay</option>
+        <option value="W03B">W03B · Sidecar Candidate · Compress</option>
         <option value="W04">W04 · Streaming + Stop + scrolled up</option>
         <option value="W05A">W05A · Provider Blocked</option>
         <option value="W05B">W05B · Network Error</option>
@@ -1037,10 +1567,19 @@
         <option value="W06">W06 · Same-session Full Chat</option>
         <option value="W07">W07 · Returned exact Study focus</option>
         <option value="W07b">W07b · Missing Return Target</option>
-        <option value="W08">W08 · Direct Full Chat fallback</option>
+        <option value="W08">W08 · Direct Full Chat · Baseline/Fallback</option>
         <option value="M01">M01 · Medium modal drawer</option>
-        <option value="N01">N01 · Narrow full route</option>
-        <option value="Z01">Z01 · Real 200% equivalent</option>
+        <option value="N-O1">N-O1 · Narrow Desk Overview</option>
+        <option value="N-A1">N-A1 · Narrow Active Study</option>
+        <option value="N-A2">N-A2 · Dirty Recovery + Due</option>
+        <option value="NP01-N">NP01-N · Narrow Practice normal · baseline</option>
+        <option value="NP01-C">NP01-C · Narrow Practice CodeMirror · baseline</option>
+        <option value="NP01-D">NP01-D · Narrow Practice Derivation · baseline</option>
+        <option value="N-C1">N-C1 · Narrow Full Chat + Exact Return</option>
+        <option value="N-S01">N-S01 · Narrow lifecycle nav</option>
+        <option value="N-K01">N-K01 · Narrow knowledge base</option>
+        <option value="N01">N01 · 390px Stress / A11Y Proxy</option>
+        <option value="Z01">Z01 · Min Window 720px @ 200%</option>
         <option value="G01">G01 · Ordinary Chat comparison</option>
       </select>
     </label>
@@ -1059,7 +1598,39 @@
       </select>
     </label>
     <button type="button" class="lab-reset" id="reset-frame">重置 frame</button>
-    <output class="geometry" id="geometry-readout" aria-live="polite"></output>
+    <output class="geometry" id="geometry-readout" aria-live="off"></output>
+    <section class="decision-status" aria-label="决策原型身份与冻结边界">
+      <div class="decision-identity">
+        <strong>当前身份</strong>
+        <span>CANDIDATE / DECISION TOOL / TO-TEST；用于 Chat 呈现、往返、窄屏与恢复，不是完整 Study UI 或 production freeze</span>
+      </div>
+      <div>
+        <strong>BASELINE / FALLBACK</strong>
+        <span>Direct full course Chat + exact return</span>
+      </div>
+      <div>
+        <strong>CANDIDATE / TO-TEST</strong>
+        <span>Contextual sidecar（wide only）</span>
+      </div>
+      <div>
+        <strong>FROZEN INVARIANTS</strong>
+        <span>Same session/context/transcript/composer/pending + explicit return</span>
+      </div>
+    </section>
+    <section class="scope-ledger" aria-label="candidate、baseline 与原型范围边界">
+      <div>
+        <strong>CANDIDATE DECISIONS</strong>
+        <span>Chat presentation、打开/关闭、exact return、narrow/recovery；仍需实测，不写成最终方案。</span>
+      </div>
+      <div>
+        <strong>BASELINE INHERITED · NOT A CANDIDATE DECISION</strong>
+        <span>五页 lifecycle、dirty guard、普通作答、CodeMirror 6、DOM + KaTeX Derivation；省略不等于 production 移除。</span>
+      </div>
+      <div class="scope-out">
+        <strong>OUT OF PROTOTYPE SCOPE</strong>
+        <span>Tutor 与 Whiteboard 独立设计包。Excalidraw 尚未实现、无可用入口；Derivation 不是自由白板。</span>
+      </div>
+    </section>
   </header>
 
   <main class="preview-host" id="preview-host">
@@ -1087,7 +1658,7 @@
             <div class="session-strip" id="kq-session-strip">
               <span class="context-chip" id="desk-context-chip">高等数学 · 极限</span>
               <span class="session-id">S-0317</span>
-              <span class="session-note">当前上下文：练习 3 · 第 2 步</span>
+              <span class="session-note" id="desk-session-note">当前页：练习 /practice · 活动：练习 3 · 第 2 步</span>
             </div>
 
             <main class="study-stage" id="kq-study-stage">
@@ -1101,14 +1672,18 @@
                       <button type="button" id="kq-bookstand-new">开新本</button>
                     </div>
                   </section>
-                  <section class="materials" id="kq-materials">
-                    <h2>本课已引用材料</h2>
-                    <p>仅来自当前课程 canonical source_refs</p>
+                  <section class="materials" id="kq-knowledge-summary">
+                    <h2>知识库</h2>
+                    <div class="knowledge-count">
+                      <strong>高等数学 · 12 项</strong>
+                      <span class="knowledge-quick-label">当前引用 2</span>
+                    </div>
                     <ul>
                       <li>教材 §2.3</li>
                       <li>微积分习题集 p.41</li>
                     </ul>
-                    <p class="materials-footnote">不在这里列出其他课程。</p>
+                    <p class="materials-footnote">“当前引用”是快捷视图，仅来自本课 canonical source_refs；父级仍是知识库。</p>
+                    <button type="button" id="kq-knowledge-open" aria-controls="kq-knowledge-drawer" aria-expanded="false">打开知识库</button>
                   </section>
                 </aside>
 
@@ -1120,27 +1695,123 @@
                         <p>课程笔记本 · 最近保存 13:42</p>
                       </div>
                       <div class="bookmark" id="kq-bookmark">
-                        <strong>书签 · 下一步</strong>
-                        <span>练习 3 · 第 2 步：解释为什么不能直接代入。</span>
+                        <strong id="bookmark-title">书签 · 练习</strong>
+                        <span id="bookmark-copy">练习 3 · 第 2 步：解释为什么不能直接代入。</span>
                       </div>
                     </header>
-                    <div class="notebook-content">
-                      <section class="page" aria-labelledby="concept-title">
-                        <h2 id="concept-title">本页概念</h2>
+                    <div class="lifecycle-host" id="wide-lifecycle-host">
+                      <nav class="study-lifecycle-nav" id="kq-study-lifecycle" aria-label="课程笔记本生命周期">
+                        <a class="study-lifecycle-link" href="/study/space-math/flyleaf" data-study-page="flyleaf">扉页</a>
+                        <a class="study-lifecycle-link" href="/study/space-math/plan" data-study-page="plan">计划</a>
+                        <a class="study-lifecycle-link" href="/study/space-math/learn" data-study-page="learn">学习</a>
+                        <a class="study-lifecycle-link" href="/study/space-math/practice" data-study-page="practice">练习</a>
+                        <a class="study-lifecycle-link" href="/study/space-math/evaluate" data-study-page="evaluate">评估</a>
+                      </nav>
+                      <p class="lifecycle-route-meta" id="lifecycle-route-meta">/study/space-math/practice · 当前页唯一</p>
+                    </div>
+
+                    <div class="notebook-content study-page-surface" id="kq-practice-page" data-study-page-surface="practice" tabindex="-1">
+                      <section class="page practice-reference" aria-labelledby="concept-title">
+                        <h2 id="concept-title">本题参考</h2>
                         <p>当直接代入得到未定式时，先识别表达式的结构，再选择等价变形。</p>
                         <div class="formula">lim (x² − 1) / (x − 1), x → 1</div>
-                        <p>已记下：约去因子之前，需要先说明定义域与极限过程。</p>
+                        <p>这段提示只服务当前题；完整知识正文、资源和辅导笔记归“学习”。</p>
                         <button type="button" class="safe-overview" id="kq-safe-overview">高等数学安全概览</button>
                       </section>
                       <section class="page" aria-labelledby="exercise-title">
                         <h2 id="exercise-title" class="sr-only">当前练习</h2>
                         <button type="button" class="return-target" id="kq-step-2" data-return-target="exercise-3-step-2" aria-current="step">练习 3 · 第 2 步</button>
-                        <div class="exercise-work">
+                        <div class="exercise-work practice-surface" data-practice-surface="normal">
+                          <div class="baseline-reference">BASELINE INHERITED · ORDINARY RESPONSE · NOT A CANDIDATE DECISION</div>
                           <p><strong>当前任务：</strong>把“不能直接代入”的原因写成一句可检查的解释。</p>
-                          <p>我的草稿：代入后分子和分母同时为 0，所以需要先变形。</p>
-                          <button type="button">检查这一步</button>
+                          <div class="ordinary-response-grid" aria-label="v0.4 普通作答类型基线">
+                            <div class="ordinary-response-card">
+                              <fieldset>
+                                <legend>选择题</legend>
+                                <label><input type="radio" name="wide-choice"> 0/0 是未定式，需要继续分析</label>
+                                <label><input type="radio" name="wide-choice"> 0/0 等于 0</label>
+                              </fieldset>
+                            </div>
+                            <div class="ordinary-response-card">
+                              <fieldset>
+                                <legend>判断题</legend>
+                                <label><input type="radio" name="wide-true-false"> 正确</label>
+                                <label><input type="radio" name="wide-true-false"> 错误</label>
+                              </fieldset>
+                            </div>
+                          </div>
+                          <label for="kq-wide-practice-answer"><strong>我的答案</strong></label>
+                          <textarea id="kq-wide-practice-answer">代入后分子和分母同时为 0，所以需要先变形。</textarea>
+                          <p class="muted" id="wide-practice-status" role="status">草稿已保存 · 离页保护可用</p>
+                          <button type="button" id="kq-wide-check">检查这一步</button>
+                        </div>
+                        <div class="exercise-work practice-surface" data-practice-surface="code" hidden>
+                          <div class="baseline-reference">BASELINE INHERITED · CODEMIRROR 6 · NOT A CANDIDATE DECISION</div>
+                          <p class="practice-runtime-note"><strong>REFERENCE ONLY：</strong>production truth 是 <code>CodePracticeSurface</code> / CodeMirror 6（行号、history、Python、line wrapping、可选 transcription mismatch）；此低保真 HTML 不实例化第二套编辑器 runtime。</p>
+                          <label for="kq-code-transcription"><strong>题目转录目标</strong></label>
+                          <pre class="code-transcription" id="kq-code-transcription">def limit_value(x):
+    # x 接近 1 时返回等价表达式的值
+    ...</pre>
+                          <label for="kq-wide-code-answer"><strong>代码答案 · 结构参考</strong></label>
+                          <textarea class="code-reference-editor" id="kq-wide-code-answer" spellcheck="false">def limit_value(x):
+    return x + 1</textarea>
+                          <div class="button-row"><button type="button">运行检查</button><button type="button">提交代码</button></div>
+                        </div>
+                        <div class="exercise-work practice-surface" data-practice-surface="derivation" hidden>
+                          <div class="baseline-reference">BASELINE INHERITED · DOM + KaTeX DERIVATION · NOT WHITEBOARD</div>
+                          <p class="practice-runtime-note"><strong>REFERENCE ONLY：</strong>production truth 是 <code>DerivationPracticeSurface</code> 的语义 DOM 有序步骤与 KaTeX 数学渲染；这里记录结构，不冒充 Excalidraw 自由白板。</p>
+                          <ol class="derivation-list" aria-label="结构化推导步骤">
+                            <li class="derivation-step"><strong>识别未定式</strong><span class="derivation-formula">lim (x² − 1) / (x − 1), x → 1 → 0/0</span><label for="kq-derivation-cloze">补全：0/0 是 <input id="kq-derivation-cloze" value="未定式"></label></li>
+                            <li class="derivation-step"><strong>因式分解</strong><span class="derivation-formula">x² − 1 = (x − 1)(x + 1)</span><label for="kq-derivation-reason">理由</label><input id="kq-derivation-reason" value="平方差公式"></li>
+                            <li class="derivation-step"><strong>去心邻域等价</strong><span class="derivation-formula">(x² − 1)/(x − 1) = x + 1, x ≠ 1</span></li>
+                          </ol>
+                          <div class="button-row"><button type="button">检查推导</button><button type="button">提交步骤</button></div>
                         </div>
                       </section>
+                    </div>
+
+                    <div class="notebook-content study-page-surface" id="kq-learn-page" data-study-page-surface="learn" tabindex="-1" hidden>
+                      <section class="page" aria-labelledby="learn-content-title">
+                        <h2 id="learn-content-title">知识正文 · 未定式与极限</h2>
+                        <p class="page-ownership-note">Learn 所有：知识正文、资源、辅导笔记；这里不判分，也不接管未提交练习答案。</p>
+                        <p>直接代入得到 0/0 时，0/0 是未定式，不是极限值。下一步应在去心邻域内寻找等价表达式。</p>
+                        <div class="formula">(x² − 1) / (x − 1) = x + 1，x ≠ 1</div>
+                      </section>
+                      <section class="page" aria-labelledby="learn-resource-title">
+                        <h2 id="learn-resource-title">资源与辅导笔记</h2>
+                        <ul class="study-page-list">
+                          <li><strong>教材 §2.3</strong> · 极限与未定式</li>
+                          <li><strong>微积分习题集 p.41</strong> · 因式分解练习</li>
+                          <li><strong>小娜旁注</strong> · 约分改变点值，但不改变去心邻域中的极限</li>
+                        </ul>
+                      </section>
+                    </div>
+
+                    <div class="notebook-content study-page-surface" id="kq-flyleaf-page" data-study-page-surface="flyleaf" tabindex="-1" hidden>
+                      <section class="page">
+                        <h2>扉页 · 我的学习设定</h2>
+                        <p class="page-ownership-note">Flyleaf 所有：本课目标、偏好与约束。</p>
+                        <ul class="study-page-list"><li>目标：理解极限中的未定式</li><li>偏好：先看例子，再自己解释</li></ul>
+                      </section>
+                      <section class="page"><h2>当前阶段</h2><p>第 2 周 · 代数变形与去心邻域。</p></section>
+                    </div>
+
+                    <div class="notebook-content study-page-surface" id="kq-plan-page" data-study-page-surface="plan" tabindex="-1" hidden>
+                      <section class="page">
+                        <h2>计划 · 本周路径</h2>
+                        <p class="page-ownership-note">Plan 所有：active plan、阶段、计划项和继续上次。</p>
+                        <ul class="study-page-list"><li>识别未定式</li><li>完成因式分解练习</li><li>在评估页回看证据</li></ul>
+                      </section>
+                      <section class="page"><h2>继续上次</h2><p>练习 3 · 第 2 步。</p></section>
+                    </div>
+
+                    <div class="notebook-content study-page-surface" id="kq-evaluate-page" data-study-page-surface="evaluate" tabindex="-1" hidden>
+                      <section class="page">
+                        <h2>评估 · 有界学习证据</h2>
+                        <p class="page-ownership-note">Evaluate 所有：错题证据、最近评估与只读活动日志。</p>
+                        <ul class="study-page-list"><li>0/0 未定式解释：待补充</li><li>因式分解：2 / 3 次正确</li></ul>
+                      </section>
+                      <section class="page"><h2>最近活动</h2><p>只读：13:42 保存练习草稿。</p></section>
                     </div>
                   </article>
                   <section class="folio" id="kq-folio">
@@ -1172,66 +1843,210 @@
                 </aside>
               </div>
 
-              <div class="narrow-study" id="kq-narrow-study" aria-label="窄屏学习平铺流程">
-                <section class="flat-section">
-                  <h2>1 · 当前上下文</h2>
-                  <p>高等数学 · 极限 · S-0317</p>
+              <div class="narrow-study" id="kq-narrow-study" aria-label="窄屏 Study；桌面窄窗与 200% reflow，不是移动端">
+                <section class="flat-section" aria-labelledby="narrow-course-title">
+                  <div class="narrow-context-head">
+                    <h1 id="narrow-course-title">高等数学 · 极限</h1>
+                    <span class="narrow-state-chip" id="narrow-state-chip">NARROW DESK OVERVIEW</span>
+                  </div>
+                  <p class="narrow-course-meta" id="narrow-course-meta">课程 S-0317 · /study/space-math/practice · Activity / Recent 在顶部 shell 一步可达</p>
                 </section>
-                <section class="flat-section">
-                  <h2>2 · 下一步 / 恢复</h2>
-                  <button type="button" class="return-target" id="kq-step-2-narrow" data-return-target="exercise-3-step-2">练习 3 · 第 2 步</button>
-                  <button type="button" id="kq-safe-overview-narrow">高等数学安全概览</button>
-                </section>
-                <section class="flat-section">
-                  <h2>3 · 今天复习</h2>
-                  <p><strong>本课到期 6</strong>：极限未定式 3、等价变形 2、定义域检查 1。</p>
-                </section>
-                <section class="flat-section">
-                  <h2>4 · Activity / Recent</h2>
-                  <p>最近继续：练习 3；最近保存：13:42。</p>
-                </section>
-                <section class="flat-section">
-                  <h2>5 · Study</h2>
-                  <p>代入为 0/0 时，先识别结构，再选择等价变形。</p>
-                </section>
-                <section class="flat-section">
-                  <h2>6 · 材料 / 草稿</h2>
-                  <ul>
-                    <li>教材 §2.3</li>
-                    <li>微积分习题集 p.41</li>
-                    <li>草稿：先说明定义域与极限过程。</li>
-                  </ul>
-                </section>
-                <section class="flat-section">
-                  <h2>7 · 制作 / 成果</h2>
+
+                <div class="lifecycle-host" id="narrow-lifecycle-host"></div>
+
+                <section class="flat-section" id="narrow-overview" aria-labelledby="narrow-overview-title">
+                  <div class="narrow-task-head">
+                    <div>
+                      <span class="priority-kicker">当前主动作 · due-now</span>
+                      <h2 id="narrow-overview-title">回到这门课</h2>
+                    </div>
+                    <span class="due-badge">本课到期 6</span>
+                  </div>
+                  <div class="narrow-priority">
+                    <strong>今天先复习本课到期卡片</strong>
+                    <p>真实 scheduler queue：极限未定式 3、等价变形 2、定义域检查 1。</p>
+                    <div class="narrow-priority-actions">
+                      <button type="button" class="narrow-primary-action" id="kq-review-narrow">开始本课复习</button>
+                      <button type="button" id="kq-next-narrow" data-return-target="exercise-3-step-2">普通下一步：练习 3 · 第 2 步</button>
+                    </div>
+                  </div>
+                  <div class="narrow-task-copy">
+                    <strong>Study 概览</strong>
+                    <p>直接代入得到 0/0 时，先识别结构，再选择等价变形。上次保存 13:42。</p>
+                  </div>
                   <div class="button-row">
-                    <button type="button">＋制作</button>
-                    <button type="button">成果</button>
+                    <button type="button" id="kq-safe-overview-narrow">高等数学安全概览</button>
+                    <button type="button" id="kq-ask-narrow-overview">结合本课问小娜</button>
                   </div>
                 </section>
-                <section class="flat-section">
-                  <h2>8 · Chat</h2>
-                  <button type="button" class="cup-button" id="kq-cup-narrow" aria-expanded="false" aria-controls="kq-chat">
-                    <i data-lucide="coffee" aria-hidden="true"></i>
-                    <span>问小娜</span>
-                  </button>
-                </section>
-              </div>
 
-              <button type="button" class="cup-button" id="kq-cup" aria-expanded="false" aria-controls="kq-chat">
-                <i data-lucide="coffee" aria-hidden="true"></i>
-                <span>问小娜 <span class="cup-unread" id="kq-cup-unread" hidden>有新回答</span></span>
-              </button>
+                <section class="flat-section" id="narrow-active" aria-labelledby="narrow-active-title" hidden>
+                  <div class="narrow-task-head">
+                    <div>
+                      <span class="priority-kicker" id="narrow-active-priority">当前活动 · action-required</span>
+                      <h2 id="narrow-active-title" tabindex="-1">练习 3 · 第 2 步</h2>
+                    </div>
+                    <span class="narrow-state-chip">进度 2 / 3</span>
+                  </div>
+                  <div class="narrow-practice-surface" data-narrow-practice-surface="normal">
+                    <div class="baseline-reference">BASELINE INHERITED · ORDINARY RESPONSE</div>
+                    <p class="narrow-task-copy"><strong>任务：</strong>把“不能直接代入”的原因写成一句可检查的解释。</p>
+                    <label for="kq-narrow-answer"><strong>我的答案</strong></label>
+                    <textarea class="narrow-answer" id="kq-narrow-answer" data-return-target="exercise-3-step-2">代入后分子和分母同时为 0，所以需要先变形。</textarea>
+                    <div class="narrow-status-panel" id="narrow-activity-status" role="status" data-state="ready">
+                      <strong id="narrow-status-title">未提交 · 可以检查</strong>
+                      <p id="narrow-status-copy">答案保留在当前活动；本课 due 不会在答题中自动打断。</p>
+                      <p class="muted">固定状态位：dirty / pending / error / feedback / result；切换状态不移动题目、答案或主动作。</p>
+                    </div>
+                    <div class="narrow-activity-actions">
+                      <button type="button" class="narrow-primary-action" id="kq-active-primary">检查这一步</button>
+                      <button type="button" id="kq-check-step-narrow">检查这一步</button>
+                      <button type="button" id="kq-ask-narrow-active" aria-controls="kq-chat">问小娜</button>
+                    </div>
+                    <div class="narrow-feedback" id="narrow-feedback" role="status" tabindex="-1" hidden>
+                      <strong>反馈</strong>
+                      <p>起点正确；再补充“0/0 是未定式，不是答案”，即可继续。</p>
+                    </div>
+                  </div>
+                  <div class="narrow-practice-surface" data-narrow-practice-surface="code" hidden>
+                    <div class="baseline-reference">BASELINE INHERITED · CODEMIRROR 6 · NARROW REFLOW</div>
+                    <p class="practice-runtime-note"><strong>REFERENCE ONLY：</strong>production 使用 lazy CodeMirror 6；窄窗保持全宽可编辑区、转录目标与检查动作，不降级成静态截图。</p>
+                    <pre class="code-transcription">def limit_value(x):
+    ...</pre>
+                    <label for="kq-narrow-code-answer"><strong>代码答案 · 结构参考</strong></label>
+                    <textarea class="code-reference-editor" id="kq-narrow-code-answer" data-return-target="exercise-3-step-2" spellcheck="false">def limit_value(x):
+    return x + 1</textarea>
+                    <div class="narrow-activity-actions"><button type="button">运行检查</button><button type="button">提交代码</button></div>
+                  </div>
+                  <div class="narrow-practice-surface" data-narrow-practice-surface="derivation" hidden>
+                    <div class="baseline-reference">BASELINE INHERITED · DOM + KaTeX DERIVATION · NOT WHITEBOARD</div>
+                    <p class="practice-runtime-note"><strong>REFERENCE ONLY：</strong>窄窗按语义步骤垂直 reflow；不使用 canvas，也不把结构化推导称为自由白板。</p>
+                    <ol class="derivation-list">
+                      <li class="derivation-step"><strong>未定式</strong><span class="derivation-formula">0/0</span></li>
+                      <li class="derivation-step"><strong>因式分解</strong><span class="derivation-formula">x² − 1 = (x − 1)(x + 1)</span><label for="kq-narrow-derivation-reason">理由</label><input id="kq-narrow-derivation-reason" data-return-target="exercise-3-step-2" value="平方差公式"></li>
+                      <li class="derivation-step"><strong>等价表达式</strong><span class="derivation-formula">x + 1, x ≠ 1</span></li>
+                    </ol>
+                    <div class="narrow-activity-actions"><button type="button">检查推导</button><button type="button">提交步骤</button></div>
+                  </div>
+                </section>
+
+                <section class="flat-section" id="narrow-page-surface" aria-labelledby="narrow-page-title" tabindex="-1" hidden>
+                  <span class="priority-kicker" id="narrow-page-kicker">学习页 · canonical route</span>
+                  <h2 id="narrow-page-title">知识正文 · 未定式与极限</h2>
+                  <p class="page-ownership-note" id="narrow-page-ownership">Learn 所有：知识正文、资源与辅导笔记；不接管练习判分或未提交答案。</p>
+                  <p id="narrow-page-copy">0/0 是未定式，不是极限值；在去心邻域内可以继续做等价变形。</p>
+                  <ul class="study-page-list" id="narrow-page-list">
+                    <li>教材 §2.3 · 极限与未定式</li>
+                    <li>小娜旁注 · 点值变化不等于极限变化</li>
+                  </ul>
+                </section>
+
+                <section class="flat-section narrow-due-summary" aria-labelledby="narrow-due-title">
+                  <div>
+                    <h2 id="narrow-due-title">本课 due / 今日复习</h2>
+                    <p id="narrow-due-copy"><strong>due-now · 6 张</strong>。当前活动进行中时保持为次级入口，到安全 checkpoint 后再重算主动作。</p>
+                  </div>
+                  <button type="button" id="kq-due-compact">查看 6 张</button>
+                </section>
+
+                <section class="flat-section narrow-support" aria-labelledby="narrow-support-title">
+                  <h2 id="narrow-support-title">知识库、制作与成果</h2>
+                  <div class="narrow-support-row">
+                    <details open id="narrow-knowledge-summary">
+                      <summary>知识库 · 高等数学 · 12 项</summary>
+                      <p><span class="knowledge-quick-label">当前引用 2</span></p>
+                      <ul>
+                        <li>教材 §2.3</li>
+                        <li>微积分习题集 p.41</li>
+                      </ul>
+                      <div class="button-row" aria-label="本课知识库分类">
+                        <button type="button" data-knowledge-kind="knowledge_base">课程知识</button>
+                        <button type="button" data-knowledge-kind="resource_pack">课程资料</button>
+                        <button type="button" data-knowledge-kind="tutoring_note">辅导笔记</button>
+                      </div>
+                      <p class="materials-footnote">当前引用默认展开；其他分类一步可达。未提交练习草稿仍属于 Practice。</p>
+                      <button type="button" id="kq-knowledge-open-narrow" aria-controls="kq-knowledge-drawer" aria-expanded="false">打开知识库</button>
+                    </details>
+                  </div>
+                  <div class="narrow-support-row">
+                    <span>一步可达入口</span>
+                    <div class="button-row">
+                      <button type="button">＋制作</button>
+                      <button type="button">成果</button>
+                    </div>
+                  </div>
+                </section>
+
+                <button type="button" class="cup-button sr-only" id="kq-cup-narrow" aria-expanded="false" aria-controls="kq-chat">问小娜</button>
+              </div>
 
               <div class="return-notice" id="return-notice" role="status" hidden></div>
             </main>
+
+            <button type="button" class="cup-button" id="kq-cup" aria-expanded="false" aria-controls="kq-chat">
+              <i data-lucide="coffee" aria-hidden="true"></i>
+              <span>问小娜 <span class="cup-unread" id="kq-cup-unread" hidden>有新回答</span></span>
+            </button>
           </div>
+
+          <section class="knowledge-drawer" id="kq-knowledge-drawer" role="region" aria-labelledby="knowledge-drawer-title" hidden>
+            <header class="knowledge-drawer-head">
+              <div>
+                <span class="mode-badge">当前课程 Learn artifacts</span>
+                <h2 id="knowledge-drawer-title">知识库 · 高等数学</h2>
+                <p>12 项 · 跟随书立中的当前课程切换</p>
+              </div>
+              <button type="button" id="kq-knowledge-close">关闭</button>
+            </header>
+
+            <section class="knowledge-section" aria-labelledby="knowledge-current-title">
+              <div class="knowledge-section-head">
+                <h3 id="knowledge-current-title">快捷视图：当前引用</h3>
+                <span class="knowledge-quick-label">canonical source_refs · 2</span>
+              </div>
+              <ul class="knowledge-list">
+                <li class="knowledge-item"><span><strong>教材 §2.3</strong><br>极限与未定式</span><button type="button" data-knowledge-select="教材 §2.3">显式选择</button></li>
+                <li class="knowledge-item"><span><strong>微积分习题集 p.41</strong><br>因式分解练习</span><button type="button" data-knowledge-select="微积分习题集 p.41">显式选择</button></li>
+              </ul>
+              <p class="knowledge-drawer-note">这里只是上下文快捷视图；不会混入 workspace 的未关联文件。</p>
+            </section>
+
+            <section class="knowledge-section" aria-labelledby="knowledge-course-title">
+              <div class="knowledge-section-head">
+                <h3 id="knowledge-course-title">本课内容</h3>
+                <span class="muted">不另建一级中心</span>
+              </div>
+              <div class="knowledge-category-grid">
+                <button type="button" data-knowledge-kind="knowledge_base"><strong>课程知识</strong><br><span>knowledge_base · 5</span></button>
+                <button type="button" data-knowledge-kind="resource_pack"><strong>课程资料</strong><br><span>resource_pack · 4</span></button>
+                <button type="button" data-knowledge-kind="tutoring_note"><strong>辅导笔记</strong><br><span>tutoring_note · 3</span></button>
+              </div>
+              <p class="knowledge-selection" id="knowledge-selection" role="status">当前查看：当前引用。Create/PPT 只带入显式选择的项目，不自动携带整个知识库。</p>
+            </section>
+
+            <div class="button-row knowledge-section">
+              <button type="button" class="narrow-primary-action" id="kq-knowledge-learn">前往当前课程学习页</button>
+              <span class="knowledge-drawer-note">目标：/study/space-math/learn 或等价 Learn drawer/sheet</span>
+            </div>
+          </section>
 
           <aside class="sidecar-host" id="sidecar-host" data-placement="overlay" hidden></aside>
           <section class="full-route-host" id="full-route-host" hidden></section>
           <section class="narrow-route-host" id="narrow-route-host" hidden></section>
           <div class="modal-layer" id="modal-layer" hidden>
             <div class="modal-panel" id="modal-panel"></div>
+          </div>
+
+          <div class="practice-leave-layer" id="practice-leave-layer" hidden>
+            <section class="practice-leave-dialog" id="practice-leave-dialog" role="dialog" aria-modal="true" aria-labelledby="practice-leave-title" aria-describedby="practice-leave-copy">
+              <span class="mode-badge">v0.4 lifecycle guard</span>
+              <h2 id="practice-leave-title">放弃未提交的答案？</h2>
+              <p id="practice-leave-copy">离开“练习”会清除尚未提交的答案。课程、当前页与 Chat 会话不会被静默改写。</p>
+              <div class="practice-leave-actions">
+                <button type="button" id="practice-leave-cancel">留在练习</button>
+                <button type="button" class="narrow-primary-action" id="practice-leave-confirm">放弃并前往学习</button>
+              </div>
+            </section>
           </div>
 
           <section class="chat-surface" id="kq-chat" role="region" aria-labelledby="kq-chat-heading" hidden>
@@ -1250,6 +2065,7 @@
             <div class="chat-context" id="chat-context-row">
               <span class="context-chip" id="chat-context-chip">高数 · 极限 · 练习 3</span>
               <span class="session-id" id="chat-session-id">S-0317</span>
+              <span class="context-chip" id="chat-page-chip">space-math · practice</span>
               <span class="context-chip" id="chat-focus-chip">练习 3 · 第 2 步</span>
               <span class="compressed-due" id="compressed-due" hidden>本课到期 6 · 卡片盒退让</span>
             </div>
@@ -1262,7 +2078,7 @@
                 <p>原位置不可恢复。课程上下文、会话和草稿仍保留。</p>
                 <button type="button" id="kq-safe-return">返回高等数学概览</button>
               </div>
-              <div class="transcript" id="kq-transcript" role="log" aria-label="与小娜的消息记录"></div>
+              <div class="transcript" id="kq-transcript" role="region" aria-live="off" aria-label="与小娜的消息记录；流式正文不逐段播报" tabindex="-1"></div>
               <button type="button" class="jump-latest" id="kq-latest" hidden>跳到最新消息（0）</button>
             </div>
             <form class="composer" id="kq-composer">
@@ -1274,8 +2090,9 @@
                 <button type="submit" class="primary-action" id="kq-send">发送问题</button>
               </div>
             </form>
-            <div class="live-line" id="kq-live-status" role="status" aria-live="polite">就绪</div>
+            <div class="live-line" id="kq-live-status" aria-live="off">就绪</div>
           </section>
+          <div class="sr-only" id="kq-announcer" role="status" aria-live="polite" aria-atomic="true"></div>
         </section>
       </div>
     </div>
@@ -1301,7 +2118,17 @@
         productShell: $("#kq-product-shell"),
         productChrome: $("#kq-product-chrome"),
         sessionStrip: $("#kq-session-strip"),
+        deskSessionNote: $("#desk-session-note"),
         studyStage: $("#kq-study-stage"),
+        wideLifecycleHost: $("#wide-lifecycle-host"),
+        narrowLifecycleHost: $("#narrow-lifecycle-host"),
+        lifecycleNav: $("#kq-study-lifecycle"),
+        lifecycleRouteMeta: $("#lifecycle-route-meta"),
+        bookmarkTitle: $("#bookmark-title"),
+        bookmarkCopy: $("#bookmark-copy"),
+        widePracticeAnswer: $("#kq-wide-practice-answer"),
+        widePracticeStatus: $("#wide-practice-status"),
+        wideCheck: $("#kq-wide-check"),
         sidecarHost: $("#sidecar-host"),
         fullHost: $("#full-route-host"),
         narrowHost: $("#narrow-route-host"),
@@ -1312,6 +2139,7 @@
         modeCopy: $("#chat-mode-copy"),
         contextRow: $("#chat-context-row"),
         contextChip: $("#chat-context-chip"),
+        chatPageChip: $("#chat-page-chip"),
         focusChip: $("#chat-focus-chip"),
         compressedDue: $("#compressed-due"),
         transcript: $("#kq-transcript"),
@@ -1329,31 +2157,132 @@
         missingPanel: $("#missing-target-panel"),
         safeReturn: $("#kq-safe-return"),
         live: $("#kq-live-status"),
+        announcer: $("#kq-announcer"),
         cup: $("#kq-cup"),
         cupNarrow: $("#kq-cup-narrow"),
         cupUnread: $("#kq-cup-unread"),
         navStudy: $("#kq-primary-study"),
         navChat: $("#kq-primary-chat"),
-        returnNotice: $("#return-notice")
+        returnNotice: $("#return-notice"),
+        narrowOverview: $("#narrow-overview"),
+        narrowActive: $("#narrow-active"),
+        narrowPageSurface: $("#narrow-page-surface"),
+        narrowPageKicker: $("#narrow-page-kicker"),
+        narrowPageTitle: $("#narrow-page-title"),
+        narrowPageOwnership: $("#narrow-page-ownership"),
+        narrowPageCopy: $("#narrow-page-copy"),
+        narrowPageList: $("#narrow-page-list"),
+        narrowCourseMeta: $("#narrow-course-meta"),
+        narrowStateChip: $("#narrow-state-chip"),
+        narrowAnswer: $("#kq-narrow-answer"),
+        narrowActivePriority: $("#narrow-active-priority"),
+        narrowActivityStatus: $("#narrow-activity-status"),
+        narrowStatusTitle: $("#narrow-status-title"),
+        narrowStatusCopy: $("#narrow-status-copy"),
+        narrowActivePrimary: $("#kq-active-primary"),
+        narrowCheck: $("#kq-check-step-narrow"),
+        narrowAskActive: $("#kq-ask-narrow-active"),
+        narrowAskOverview: $("#kq-ask-narrow-overview"),
+        narrowNext: $("#kq-next-narrow"),
+        narrowReview: $("#kq-review-narrow"),
+        narrowDue: $("#kq-due-compact"),
+        narrowDueTitle: $("#narrow-due-title"),
+        narrowDueCopy: $("#narrow-due-copy"),
+        narrowFeedback: $("#narrow-feedback"),
+        knowledgeOpen: $("#kq-knowledge-open"),
+        knowledgeOpenNarrow: $("#kq-knowledge-open-narrow"),
+        knowledgeDrawer: $("#kq-knowledge-drawer"),
+        knowledgeClose: $("#kq-knowledge-close"),
+        knowledgeLearn: $("#kq-knowledge-learn"),
+        knowledgeSelection: $("#knowledge-selection"),
+        leaveLayer: $("#practice-leave-layer"),
+        leaveDialog: $("#practice-leave-dialog"),
+        leaveCancel: $("#practice-leave-cancel"),
+        leaveConfirm: $("#practice-leave-confirm")
       };
 
       const FRAME = {
-        W01: { label: "W01 · Wide Desk Idle", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "none" },
-        W02: { label: "W02 · Cup Focused", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "none", focusCup: true },
-        W03A: { label: "W03A · Sidecar Overlay", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "sidecar", placement: "overlay" },
-        W03B: { label: "W03B · Sidecar Compress", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "sidecar", placement: "compress" },
-        W04: { label: "W04 · Streaming + Stop + user scrolled up", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "sidecar", placement: "overlay", streamingFixture: true },
-        W05A: { label: "W05A · Provider Blocked", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "sidecar", fault: "blocked" },
-        W05B: { label: "W05B · Network Error", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "sidecar", fault: "network" },
-        W05C: { label: "W05C · Focus / return target missing", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "full", targetMissing: true },
-        W06: { label: "W06 · Same-session Full Chat", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "full", expanded: true },
-        W07: { label: "W07 · Returned to exact Study focus", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "none", returned: true },
-        W07b: { label: "W07b · Missing Return Target", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "none", targetMissing: true, returned: true },
-        W08: { label: "W08 · Direct Full Chat · BASELINE/FALLBACK", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "full", entryPath: "direct" },
-        M01: { label: "M01 · Medium full-height modal drawer", width: 900, height: 800, scale: 1, viewportClass: "medium", presentation: "modal", entryPath: "sidecar" },
-        N01: { label: "N01 · Narrow full route", width: 390, height: 844, scale: 1, viewportClass: "narrow", presentation: "narrow", entryPath: "sidecar" },
-        Z01: { label: "Z01 · 200% equivalent · CSS 640×450 × 2", width: 640, height: 450, scale: 2, viewportClass: "narrow", presentation: "narrow", entryPath: "sidecar" },
-        G01: { label: "G01 · Ordinary Chat · 未绑定课程", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "full", ordinary: true }
+        S01: { label: "S01 · Study lifecycle nav states", badge: "S01 · STUDY LIFECYCLE NAV · V0.4 CONTINUITY", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "none", studyPage: "practice", focusLifecycle: true },
+        "W01-P": { label: "W01-P · Wide Practice", badge: "W01-P · PRACTICE OWNERSHIP + DIRTY GUARD", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "none", studyPage: "practice", practiceDirty: true },
+        "P01-N": { label: "P01-N · Practice normal · baseline reference", badge: "P01-N · BASELINE INHERITED · ORDINARY RESPONSE · NOT CANDIDATE", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "none", studyPage: "practice", practiceSurface: "normal" },
+        "P01-C": { label: "P01-C · Practice CodeMirror · baseline reference", badge: "P01-C · BASELINE INHERITED · CODEMIRROR 6 · REFERENCE ONLY", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "none", studyPage: "practice", practiceSurface: "code" },
+        "P01-D": { label: "P01-D · Practice Derivation · baseline reference", badge: "P01-D · BASELINE INHERITED · DOM + KATEX · NOT WHITEBOARD", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "none", studyPage: "practice", practiceSurface: "derivation" },
+        "W01-L": { label: "W01-L · Wide Learn", badge: "W01-L · LEARN OWNERSHIP · CANONICAL ROUTE", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "none", studyPage: "learn" },
+        K01: { label: "K01 · Knowledge base expanded", badge: "K01 · KNOWLEDGE BASE · CURRENT COURSE / LEARN ARTIFACTS", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "none", studyPage: "learn", knowledgeOpen: true },
+        W01: { label: "W01 · Wide Desk Idle", badge: "W01 · DECISION PROTOTYPE · NOT FINAL", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "none", studyPage: "practice" },
+        W02: { label: "W02 · Cup Focused", badge: "W02 · DECISION PROTOTYPE · NOT FINAL", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "none", studyPage: "practice", focusCup: true },
+        W03A: { label: "W03A · Sidecar Overlay", badge: "W03A · SIDECAR CANDIDATE · TO-TEST · OVERLAY", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "sidecar", placement: "overlay", studyPage: "practice", practiceDirty: true },
+        W03B: { label: "W03B · Sidecar Compress", badge: "W03B · SIDECAR CANDIDATE · TO-TEST · COMPRESS", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "sidecar", placement: "compress", studyPage: "practice", practiceDirty: true },
+        W04: { label: "W04 · Streaming + Stop + user scrolled up", badge: "W04 · SIDECAR CANDIDATE · TO-TEST · STREAMING", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "sidecar", placement: "overlay", streamingFixture: true },
+        W05A: { label: "W05A · Provider Blocked", badge: "W05A · SIDECAR CANDIDATE · TO-TEST · BLOCKED", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "sidecar", fault: "blocked" },
+        W05B: { label: "W05B · Network Error", badge: "W05B · SIDECAR CANDIDATE · TO-TEST · ERROR", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "sidecar", fault: "network" },
+        W05C: { label: "W05C · Focus / return target missing", badge: "W05C · RETURN CONTRACT · TO-TEST", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "full", targetMissing: true },
+        W06: { label: "W06 · Same-session Full Chat", badge: "W06 · SIDECAR EXPANSION · TO-TEST", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "full", expanded: true },
+        W07: { label: "W07 · Returned to exact Study focus", badge: "W07 · EXACT RETURN + PRACTICE PAGE PRESERVED · TO-TEST", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "none", studyPage: "practice", practiceDirty: true, returned: true },
+        W07b: { label: "W07b · Missing Return Target", badge: "W07b · SAFE RETURN CONTRACT · TO-TEST", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "none", targetMissing: true, returned: true },
+        W08: { label: "W08 · Direct Full Chat · BASELINE/FALLBACK", badge: "W08 · DIRECT FULL CHAT · SHIPPING BASELINE/FALLBACK", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "full", entryPath: "direct" },
+        M01: { label: "M01 · Medium full-height modal drawer", badge: "M01 · MEDIUM FALLBACK · TO-TEST", width: 900, height: 800, scale: 1, viewportClass: "medium", presentation: "modal", entryPath: "sidecar" },
+        "N-S01": { label: "N-S01 · Narrow lifecycle nav", badge: "N-S01 · LIFECYCLE NAV · 720px / 200% READY", width: 720, height: 800, scale: 1, viewportClass: "narrow", presentation: "none", narrowMode: "overview", studyPage: "practice", focusLifecycle: true },
+        "N-K01": { label: "N-K01 · Narrow knowledge base", badge: "N-K01 · KNOWLEDGE BASE · CURRENT REFERENCES DEFAULT", width: 720, height: 800, scale: 1, viewportClass: "narrow", presentation: "none", narrowMode: "overview", studyPage: "learn", knowledgeOpen: true },
+        "N-O1": { label: "N-O1 · Narrow Desk Overview · clean next + due", badge: "N-O1 · NARROW DESK OVERVIEW · TO-TEST", width: 720, height: 800, scale: 1, viewportClass: "narrow", presentation: "none", narrowMode: "overview", studyPage: "practice" },
+        "N-A1": { label: "N-A1 · Narrow Active Study · action-required", badge: "N-A1 · NARROW ACTIVE STUDY · TO-TEST", width: 720, height: 800, scale: 1, viewportClass: "narrow", presentation: "none", narrowMode: "active", returnFocusId: "kq-narrow-answer", returnLabel: "练习 3 · 第 2 步答案" },
+        "N-A2": { label: "N-A2 · Dirty Recovery + Due", badge: "N-A2 · DIRTY RECOVERY + DUE · TO-TEST", width: 720, height: 800, scale: 1, viewportClass: "narrow", presentation: "none", narrowMode: "active", dirtyRecovery: true, returnFocusId: "kq-narrow-answer", returnLabel: "未提交答案" },
+        "NP01-N": { label: "NP01-N · Narrow Practice normal · baseline", badge: "NP01-N · BASELINE INHERITED · ORDINARY RESPONSE · NARROW", width: 720, height: 800, scale: 1, viewportClass: "narrow", presentation: "none", narrowMode: "active", studyPage: "practice", practiceSurface: "normal", returnFocusId: "kq-narrow-answer", returnLabel: "普通作答" },
+        "NP01-C": { label: "NP01-C · Narrow Practice CodeMirror · baseline", badge: "NP01-C · BASELINE INHERITED · CODEMIRROR 6 · NARROW REFLOW", width: 720, height: 800, scale: 1, viewportClass: "narrow", presentation: "none", narrowMode: "active", studyPage: "practice", practiceSurface: "code", returnFocusId: "kq-narrow-code-answer", returnLabel: "代码答案" },
+        "NP01-D": { label: "NP01-D · Narrow Practice Derivation · baseline", badge: "NP01-D · BASELINE INHERITED · DOM + KATEX · NOT WHITEBOARD", width: 720, height: 800, scale: 1, viewportClass: "narrow", presentation: "none", narrowMode: "active", studyPage: "practice", practiceSurface: "derivation", returnFocusId: "kq-narrow-derivation-reason", returnLabel: "推导步骤" },
+        "N-C1": { label: "N-C1 · Narrow Full Chat → exact active focus", badge: "N-C1 · NARROW FULL CHAT + EXACT RETURN · TO-TEST", width: 720, height: 800, scale: 1, viewportClass: "narrow", presentation: "narrow", narrowMode: "active", entryPath: "direct", returnFocusId: "kq-narrow-answer", returnLabel: "练习 3 · 第 2 步答案" },
+        N01: { label: "N01 · 390px Stress / A11Y Proxy", badge: "N01 · 390px STRESS / A11Y PROXY · NOT MOBILE", width: 390, height: 844, scale: 1, viewportClass: "narrow", presentation: "none", narrowMode: "active", returnFocusId: "kq-narrow-answer", returnLabel: "练习 3 · 第 2 步答案" },
+        Z01: { label: "Z01 · Min window 720px @ 200% → 360 CSS px", badge: "Z01 · MIN WINDOW 720px @ 200% REFLOW · TO-TEST", width: 360, height: 450, scale: 2, viewportClass: "narrow", presentation: "none", narrowMode: "active", returnFocusId: "kq-narrow-answer", returnLabel: "练习 3 · 第 2 步答案" },
+        G01: { label: "G01 · Ordinary Chat · 未绑定课程", badge: "G01 · ORDINARY CHAT COMPARISON · NOT FINAL", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "full", ordinary: true }
+      };
+
+      const STUDY_PAGES = ["flyleaf", "plan", "learn", "practice", "evaluate"];
+      const STUDY_PAGE_META = {
+        flyleaf: {
+          label: "扉页",
+          bookmark: "我的学习设定",
+          focusId: "kq-flyleaf-page",
+          title: "扉页 · 我的学习设定",
+          ownership: "Flyleaf 所有：本课目标、偏好与约束。",
+          copy: "目标：理解极限中的未定式；偏好：先看例子，再自己解释。",
+          items: ["目标 · 理解极限中的未定式", "当前阶段 · 第 2 周"]
+        },
+        plan: {
+          label: "计划",
+          bookmark: "本周学习路径",
+          focusId: "kq-plan-page",
+          title: "计划 · 本周路径",
+          ownership: "Plan 所有：active plan、阶段、计划项和继续上次。",
+          copy: "识别未定式 → 完成因式分解练习 → 在评估页回看证据。",
+          items: ["计划项 · 识别未定式", "继续上次 · 练习 3 第 2 步"]
+        },
+        learn: {
+          label: "学习",
+          bookmark: "知识正文 · 未定式与极限",
+          focusId: "kq-learn-page",
+          title: "知识正文 · 未定式与极限",
+          ownership: "Learn 所有：知识正文、资源与辅导笔记；不接管练习判分或未提交答案。",
+          copy: "0/0 是未定式，不是极限值；在去心邻域内可以继续做等价变形。",
+          items: ["教材 §2.3 · 极限与未定式", "小娜旁注 · 点值变化不等于极限变化"]
+        },
+        practice: {
+          label: "练习",
+          bookmark: "练习 3 · 第 2 步：解释为什么不能直接代入。",
+          focusId: "kq-step-2",
+          title: "练习 3 · 第 2 步",
+          ownership: "Practice 所有：当前任务、答案草稿与检查；本题参考只绑定当前题。",
+          copy: "把“不能直接代入”的原因写成一句可检查的解释。",
+          items: ["当前任务 · 写出可检查解释", "本题参考 · 仅绑定练习 3 第 2 步"]
+        },
+        evaluate: {
+          label: "评估",
+          bookmark: "有界学习证据",
+          focusId: "kq-evaluate-page",
+          title: "评估 · 有界学习证据",
+          ownership: "Evaluate 所有：错题证据、最近评估与只读活动日志。",
+          copy: "回看练习证据，不在这里编辑或提交练习答案。",
+          items: ["0/0 未定式解释 · 待补充", "因式分解 · 2 / 3 次正确"]
+        }
       };
 
       const baseMessages = () => [
@@ -1392,12 +2321,31 @@
         presentation: "none",
         entryPath: "sidecar",
         placement: "overlay",
+        narrowMode: "overview",
+        dirtyRecovery: false,
+        spaceId: "space-math",
+        currentStudyPage: "practice",
+        practiceSurface: "normal",
+        practiceDirty: false,
+        pendingStudyPage: null,
+        pendingStudyInvoker: null,
+        leaveDialogOpen: false,
+        knowledgeOpen: false,
+        knowledgeKind: "current",
+        knowledgeSelectedLabel: null,
+        knowledgeInvokerId: "kq-knowledge-open",
+        studyAnchor: { page: "practice", focusId: "kq-step-2", offsetWithin: 0 },
+        transcriptAnchor: { messageId: "m-01", offsetWithin: 0 },
+        announcement: "",
+        lastAnnounced: "",
+        narrowFeedback: false,
         sessionId: "S-0317",
-        context: { kind: "course", courseTitle: "高等数学", focusId: "exercise-3-step-2", focusLabel: "练习 3 · 第 2 步" },
+        context: { kind: "course", courseTitle: "高等数学", spaceId: "space-math", page: "practice", activityId: "exercise-3-step-2", focusId: "exercise-3-step-2", focusLabel: "练习 3 · 第 2 步" },
         returnTarget: { status: "valid", focusId: "exercise-3-step-2", label: "练习 3 · 第 2 步" },
         messages: baseMessages(),
         partial: null,
         draft: "为什么这里不能直接把极限代进去？请结合我刚才这一步解释。",
+        studyAnswer: "代入后分子和分母同时为 0，所以需要先变形。",
         streaming: false,
         fault: "none",
         unreadIds: [],
@@ -1438,11 +2386,38 @@
         state.presentation = config.presentation;
         state.entryPath = config.entryPath || (frameId === "W08" ? "direct" : elements.entrySelect.value);
         state.placement = config.placement || elements.placementSelect.value;
+        state.narrowMode = config.narrowMode || "overview";
+        state.dirtyRecovery = Boolean(config.dirtyRecovery);
+        state.spaceId = "space-math";
+        state.currentStudyPage = config.studyPage || "practice";
+        state.practiceSurface = config.practiceSurface || "normal";
+        state.practiceDirty = Boolean(config.practiceDirty || config.dirtyRecovery);
+        state.pendingStudyPage = null;
+        state.pendingStudyInvoker = null;
+        state.leaveDialogOpen = false;
+        state.knowledgeOpen = Boolean(config.knowledgeOpen);
+        state.knowledgeKind = "current";
+        state.knowledgeSelectedLabel = null;
+        state.knowledgeInvokerId = state.viewportClass === "narrow" ? "kq-knowledge-open-narrow" : "kq-knowledge-open";
+        const pageMeta = STUDY_PAGE_META[state.currentStudyPage];
+        state.studyAnchor = {
+          page: state.currentStudyPage,
+          focusId: config.returnFocusId || (state.currentStudyPage === "practice" ? (state.viewportClass === "narrow" ? "kq-narrow-answer" : "kq-step-2") : pageMeta.focusId),
+          offsetWithin: 0
+        };
+        state.transcriptAnchor = { messageId: config.ordinary ? "g-01" : "m-01", offsetWithin: 0 };
+        state.announcement = "";
+        state.lastAnnounced = "";
+        state.narrowFeedback = false;
         state.sessionId = "S-0317";
         state.context = config.ordinary
-          ? { kind: "ordinary", courseTitle: "", focusId: null, focusLabel: "" }
-          : { kind: "course", courseTitle: "高等数学", focusId: "exercise-3-step-2", focusLabel: "练习 3 · 第 2 步" };
-        state.returnTarget = { status: config.ordinary ? "none" : (config.targetMissing ? "missing" : "valid"), focusId: "exercise-3-step-2", label: "练习 3 · 第 2 步" };
+          ? { kind: "ordinary", courseTitle: "", spaceId: null, page: null, activityId: null, focusId: null, focusLabel: "" }
+          : { kind: "course", courseTitle: "高等数学", spaceId: "space-math", page: state.currentStudyPage, activityId: state.currentStudyPage === "practice" ? "exercise-3-step-2" : null, focusId: state.currentStudyPage === "practice" ? "exercise-3-step-2" : pageMeta.focusId, focusLabel: state.currentStudyPage === "practice" ? "练习 3 · 第 2 步" : pageMeta.label + "页" };
+        state.returnTarget = {
+          status: config.ordinary ? "none" : (config.targetMissing ? "missing" : "valid"),
+          focusId: config.returnFocusId || (state.currentStudyPage === "practice" ? "kq-step-2" : pageMeta.focusId),
+          label: config.returnLabel || (state.currentStudyPage === "practice" ? "练习 3 · 第 2 步" : pageMeta.label + "页")
+        };
         state.messages = config.ordinary
           ? [{ id: "g-01", role: "assistant", text: "这是普通对话，目前未绑定课程。若需要课程内容，请显式选择课程上下文。", status: "complete" }]
           : (config.streamingFixture ? longFixtureMessages() : baseMessages());
@@ -1452,6 +2427,7 @@
         state.draft = config.ordinary
           ? "帮我整理今天的想法，但先不要绑定到任何课程。"
           : "为什么这里不能直接把极限代进去？请结合我刚才这一步解释。";
+        state.studyAnswer = "代入后分子和分母同时为 0，所以需要先变形。";
         state.streaming = Boolean(config.streamingFixture);
         state.fault = config.fault || "none";
         state.unreadIds = config.streamingFixture ? ["m-stream-01", "m-long-8"] : [];
@@ -1459,25 +2435,44 @@
         state.hasNewAnswer = false;
         state.composing = false;
         state.liveMessage = config.streamingFixture ? "正在生成；用户已向上阅读，未自动滚到底部。" : "就绪";
+        state.announcement = config.streamingFixture ? "回答正在生成。" : "";
         state.returnNotice = "";
-        state.invokerId = state.viewportClass === "narrow" || state.viewportClass === "zoom" ? "kq-cup-narrow" : "kq-cup";
+        state.invokerId = state.narrowMode === "active"
+          ? "kq-ask-narrow-active"
+          : state.viewportClass === "narrow" || state.viewportClass === "zoom"
+            ? "kq-ask-narrow-overview"
+            : "kq-cup";
         state.runId += 1;
         elements.entrySelect.value = state.entryPath;
         elements.placementSelect.value = state.placement;
         render();
 
         requestAnimationFrame(() => {
+          elements.viewport.scrollTop = 0;
           if (config.streamingFixture) {
             elements.transcript.scrollTop = 24;
             state.atBottom = false;
+            state.transcriptAnchor = captureTranscriptAnchor();
             renderUnread();
           }
           if (config.focusCup) {
             elements.cup.classList.add("force-focus-ring");
             elements.cup.focus({ preventScroll: true });
           }
+          if (config.focusLifecycle) {
+            const activeLink = elements.lifecycleNav.querySelector('[data-study-page="' + state.currentStudyPage + '"]');
+            if (activeLink) {
+              activeLink.focus({ preventScroll: true });
+            }
+          }
+          if (config.knowledgeOpen) {
+            elements.knowledgeClose.focus({ preventScroll: true });
+          }
           if (config.fault) {
             elements.recover.focus({ preventScroll: true });
+          }
+          if (state.presentation === "none") {
+            state.studyAnchor = captureStudyAnchor();
           }
           if (config.returned) {
             performReturn({ missing: Boolean(config.targetMissing), fromFixture: true });
@@ -1514,6 +2509,7 @@
         elements.productShell.removeAttribute("aria-hidden");
         elements.sessionStrip.hidden = chatIsRoute;
         elements.studyStage.hidden = chatIsRoute;
+        elements.cup.hidden = chatIsRoute;
       }
 
       function clearHosts() {
@@ -1567,6 +2563,193 @@
         elements.cupNarrow.setAttribute("aria-expanded", state.presentation === "narrow" ? "true" : "false");
       }
 
+      function studyPath(page) {
+        return "/study/" + state.spaceId + "/" + page;
+      }
+
+      function renderStudyLifecycle() {
+        const narrow = state.viewportClass === "narrow" || state.viewportClass === "zoom";
+        (narrow ? elements.narrowLifecycleHost : elements.wideLifecycleHost).prepend(elements.lifecycleNav);
+        elements.lifecycleNav.querySelectorAll("[data-study-page]").forEach((link) => {
+          const page = link.dataset.studyPage;
+          link.href = studyPath(page);
+          if (page === state.currentStudyPage) {
+            link.setAttribute("aria-current", "page");
+          } else {
+            link.removeAttribute("aria-current");
+          }
+        });
+        const currentMeta = STUDY_PAGE_META[state.currentStudyPage];
+        elements.lifecycleRouteMeta.textContent = studyPath(state.currentStudyPage)
+          + " · 当前页唯一"
+          + (state.practiceDirty ? " · 练习草稿未提交" : "");
+        elements.deskSessionNote.textContent = "当前页：" + currentMeta.label + " /" + state.currentStudyPage
+          + (state.currentStudyPage === "practice" ? " · 活动：练习 3 · 第 2 步" : " · 生命周期页保持可见");
+        elements.narrowCourseMeta.textContent = "课程 S-0317 · " + studyPath(state.currentStudyPage) + " · Activity / Recent 在顶部 shell 一步可达";
+      }
+
+      function renderWideStudyPage() {
+        const meta = STUDY_PAGE_META[state.currentStudyPage];
+        document.querySelectorAll("[data-study-page-surface]").forEach((surface) => {
+          surface.hidden = surface.dataset.studyPageSurface !== state.currentStudyPage;
+        });
+        document.querySelectorAll("[data-practice-surface]").forEach((surface) => {
+          surface.hidden = surface.dataset.practiceSurface !== state.practiceSurface;
+        });
+        elements.bookmarkTitle.textContent = "书签 · " + meta.label;
+        elements.bookmarkCopy.textContent = meta.bookmark;
+        if (document.activeElement !== elements.widePracticeAnswer) {
+          elements.widePracticeAnswer.value = state.studyAnswer;
+        }
+        elements.widePracticeStatus.textContent = state.practiceDirty
+          ? "未提交草稿 · 离开练习前必须确认"
+          : state.narrowFeedback
+            ? "已检查 · 答案与反馈仍属于练习页"
+            : "草稿已保存 · 离页保护可用";
+      }
+
+      function renderNarrowStudy() {
+        const practice = state.currentStudyPage === "practice";
+        const active = practice && state.narrowMode === "active";
+        elements.narrowOverview.hidden = !practice || active;
+        elements.narrowActive.hidden = !active;
+        elements.narrowPageSurface.hidden = practice;
+        elements.narrowStateChip.textContent = practice
+          ? (active ? "练习 / PRACTICE · ACTIVE" : "练习 / PRACTICE · OVERVIEW")
+          : STUDY_PAGE_META[state.currentStudyPage].label + " / " + state.currentStudyPage.toUpperCase();
+        document.querySelectorAll("[data-narrow-practice-surface]").forEach((surface) => {
+          surface.hidden = surface.dataset.narrowPracticeSurface !== state.practiceSurface;
+        });
+
+        if (!practice) {
+          const meta = STUDY_PAGE_META[state.currentStudyPage];
+          elements.narrowPageKicker.textContent = meta.label + "页 · canonical route";
+          elements.narrowPageTitle.textContent = meta.title;
+          elements.narrowPageOwnership.textContent = meta.ownership;
+          elements.narrowPageCopy.textContent = meta.copy;
+          elements.narrowPageList.replaceChildren(...meta.items.map((item) => {
+            const li = document.createElement("li");
+            li.textContent = item;
+            return li;
+          }));
+          elements.narrowDueTitle.textContent = "练习页 / due 入口";
+          elements.narrowDueCopy.innerHTML = "题目、答案草稿与检查仍归 <strong>练习</strong>；切换生命周期页不会把它们搬到“" + meta.label + "”。";
+          elements.narrowDue.textContent = "打开练习";
+          return;
+        }
+
+        elements.narrowDueTitle.textContent = "本课 due / 今日复习";
+        elements.narrowDueCopy.innerHTML = "<strong>due-now · 6 张</strong>。当前活动进行中时保持为次级入口，到安全 checkpoint 后再重算主动作。";
+        elements.narrowDue.textContent = "查看 6 张";
+        if (!active) {
+          return;
+        }
+
+        if (document.activeElement !== elements.narrowAnswer) {
+          elements.narrowAnswer.value = state.studyAnswer;
+        }
+        elements.narrowFeedback.hidden = !state.narrowFeedback;
+        elements.narrowActivityStatus.dataset.state = state.practiceDirty ? "dirty" : "ready";
+
+        if (state.dirtyRecovery) {
+          elements.narrowActivePriority.textContent = "当前主动作 · dirty/interrupted recovery";
+          elements.narrowStatusTitle.textContent = "未提交草稿 · 需要恢复";
+          elements.narrowStatusCopy.textContent = "上次离开前答案未提交；本课 due 仍在下方同屏保留，不会覆盖恢复动作。";
+          elements.narrowActivePrimary.textContent = "恢复练习并回到答案";
+          elements.narrowCheck.hidden = false;
+        } else {
+          elements.narrowActivePriority.textContent = "当前活动 · action-required";
+          elements.narrowStatusTitle.textContent = state.narrowFeedback ? "已检查 · 需要补充" : (state.practiceDirty ? "未提交草稿 · 可以检查" : "未提交 · 可以检查");
+          elements.narrowStatusCopy.textContent = state.narrowFeedback
+            ? "反馈与答案仍在同一活动面；修改后可再次检查。"
+            : "答案保留在当前活动；本课 due 不会在答题中自动打断。";
+          elements.narrowActivePrimary.textContent = "检查这一步";
+          elements.narrowCheck.hidden = true;
+        }
+      }
+
+      const KNOWLEDGE_KIND_META = {
+        current: "当前查看：当前引用。只展示本课 canonical source_refs。",
+        knowledge_base: "当前查看：课程知识（knowledge_base · 5）。承接 Learn 的结构化知识，不复制到新的一级中心。",
+        resource_pack: "当前查看：课程资料（resource_pack · 4）。只含明确关联当前课程的来源。",
+        tutoring_note: "当前查看：辅导笔记（tutoring_note · 3）。继续归 Learn artifacts。"
+      };
+
+      function renderKnowledge() {
+        const visible = state.knowledgeOpen && state.presentation === "none";
+        elements.knowledgeDrawer.hidden = !visible;
+        elements.knowledgeOpen.setAttribute("aria-expanded", visible ? "true" : "false");
+        elements.knowledgeOpenNarrow.setAttribute("aria-expanded", visible ? "true" : "false");
+        document.querySelectorAll("[data-knowledge-kind]").forEach((button) => {
+          button.setAttribute("aria-pressed", button.dataset.knowledgeKind === state.knowledgeKind ? "true" : "false");
+        });
+        elements.knowledgeSelection.textContent = state.knowledgeSelectedLabel
+          ? "已显式选择：“" + state.knowledgeSelectedLabel + "”。Create/PPT 只带入选中项目，不自动携带整个知识库。"
+          : (KNOWLEDGE_KIND_META[state.knowledgeKind] || KNOWLEDGE_KIND_META.current)
+            + " Create/PPT 只带入显式选择的项目，不自动携带整个知识库。";
+      }
+
+      function openKnowledge(invoker) {
+        state.knowledgeOpen = true;
+        state.knowledgeInvokerId = invoker && invoker.id ? invoker.id : state.knowledgeInvokerId;
+        render();
+        elements.knowledgeClose.focus({ preventScroll: true });
+      }
+
+      function closeKnowledge(options = {}) {
+        const restoreFocus = options.restoreFocus !== false;
+        const invoker = document.getElementById(state.knowledgeInvokerId);
+        state.knowledgeOpen = false;
+        render();
+        if (restoreFocus && invoker) {
+          invoker.focus({ preventScroll: true });
+        }
+      }
+
+      function selectKnowledgeKind(kind, invoker) {
+        if (!Object.prototype.hasOwnProperty.call(KNOWLEDGE_KIND_META, kind)) {
+          return;
+        }
+        state.knowledgeKind = kind;
+        state.knowledgeSelectedLabel = null;
+        if (!state.knowledgeOpen) {
+          openKnowledge(invoker);
+        } else {
+          renderKnowledge();
+        }
+      }
+
+      function openKnowledgeLearn() {
+        const visibleInvoker = document.getElementById(state.knowledgeInvokerId) || elements.knowledgeOpen;
+        state.knowledgeOpen = false;
+        if (state.currentStudyPage === "learn") {
+          render();
+          requestAnimationFrame(() => {
+            const target = state.viewportClass === "narrow" ? elements.narrowPageSurface : document.getElementById("kq-learn-page");
+            target.focus({ preventScroll: true });
+          });
+          return;
+        }
+        requestStudyPage("learn", visibleInvoker);
+      }
+
+      function renderLeaveDialog() {
+        elements.leaveLayer.hidden = !state.leaveDialogOpen;
+        if (state.leaveDialogOpen) {
+          const target = STUDY_PAGE_META[state.pendingStudyPage];
+          elements.leaveConfirm.textContent = "放弃并前往" + target.label;
+          elements.productShell.inert = true;
+          elements.productShell.setAttribute("aria-hidden", "true");
+          elements.controls.inert = true;
+          elements.controls.setAttribute("aria-hidden", "true");
+          elements.chat.inert = true;
+          elements.chat.setAttribute("aria-hidden", "true");
+        } else {
+          elements.chat.inert = false;
+          elements.chat.removeAttribute("aria-hidden");
+        }
+      }
+
       function renderChrome() {
         const chatActive = state.presentation === "full" || state.presentation === "narrow" || state.context.kind === "ordinary";
         if (chatActive) {
@@ -1590,39 +2773,43 @@
           elements.modeBadge.textContent = "普通对话 · 未绑定课程";
           elements.modeCopy.textContent = "不会隐式继承当前书桌课程；需要时请显式选择课程上下文。";
           elements.contextChip.textContent = "普通对话";
+          elements.chatPageChip.textContent = "未绑定 space / page";
           elements.focusChip.textContent = "未绑定课程";
         } else if (isDirect) {
           elements.modeBadge.textContent = "BASELINE / FALLBACK · Direct full course Chat";
           elements.modeCopy.textContent = "从 Study 直接进入完整课程 Chat；明确返回同一练习位置。";
           elements.contextChip.textContent = "高数 · 极限 · 课程 Chat";
-          elements.focusChip.textContent = state.returnTarget.status === "missing" ? "原位置不可恢复" : "练习 3 · 第 2 步";
+          elements.focusChip.textContent = state.returnTarget.status === "missing" ? "原位置不可恢复" : state.returnTarget.label;
         } else if (isExpanded) {
           elements.modeBadge.textContent = "SAME SESSION · Expanded from sidecar";
           elements.modeCopy.textContent = "transcript、草稿、pending、scroll anchor 与 return target 均沿用。";
           elements.contextChip.textContent = "高数 · 极限 · 课程 Chat";
-          elements.focusChip.textContent = state.returnTarget.status === "missing" ? "原位置不可恢复" : "练习 3 · 第 2 步";
+          elements.focusChip.textContent = state.returnTarget.status === "missing" ? "原位置不可恢复" : state.returnTarget.label;
         } else if (isModal) {
           elements.modeBadge.textContent = "TO-TEST · Medium modal drawer";
           elements.modeCopy.textContent = "全高 modal drawer；Escape 关闭并回到调用它的小娜杯。";
           elements.contextChip.textContent = "高数 · 极限 · 课程 Chat";
-          elements.focusChip.textContent = state.returnTarget.status === "missing" ? "原位置不可恢复" : "练习 3 · 第 2 步";
+          elements.focusChip.textContent = state.returnTarget.status === "missing" ? "原位置不可恢复" : state.returnTarget.label;
         } else if (isNarrow) {
-          const zoomPrefix = state.frameId === "Z01" ? "200% EQUIVALENT · " : "";
-          elements.modeBadge.textContent = zoomPrefix + "Narrow full route";
-          elements.modeCopy.textContent = "不是 modal；返回由显式 context/return helper 完成，不猜浏览器历史。";
+          elements.modeBadge.textContent = "N-C1 · NARROW FULL CHAT · TO-TEST";
+          elements.modeCopy.textContent = "完整 route；返回真实活动单元与原答案焦点，不猜浏览器历史。";
           elements.contextChip.textContent = "高数 · 极限 · 课程 Chat";
-          elements.focusChip.textContent = state.returnTarget.status === "missing" ? "原位置不可恢复" : "练习 3 · 第 2 步";
+          elements.focusChip.textContent = state.returnTarget.status === "missing" ? "原位置不可恢复" : state.returnTarget.label;
         } else {
           const placementLabel = state.placement === "compress" ? "Compress right region" : "Overlay right region";
           elements.modeBadge.textContent = "TO-TEST · " + placementLabel;
           elements.modeCopy.textContent = "contextual sidecar 尚未冻结；direct full Chat 始终保留为 fallback。";
           elements.contextChip.textContent = "高数 · 极限 · 课程 Chat";
-          elements.focusChip.textContent = state.returnTarget.status === "missing" ? "原位置不可恢复" : "练习 3 · 第 2 步";
+          elements.focusChip.textContent = state.returnTarget.status === "missing" ? "原位置不可恢复" : state.returnTarget.label;
+        }
+
+        if (!isOrdinary) {
+          elements.chatPageChip.textContent = state.spaceId + " · " + state.currentStudyPage + " · " + (state.context.activityId || "no-activity");
         }
 
         elements.expand.hidden = state.presentation !== "sidecar";
         elements.returnButton.hidden = state.presentation === "sidecar" || state.presentation === "modal" || isOrdinary;
-        elements.returnButton.textContent = state.returnTarget.status === "missing" ? "返回高等数学概览" : "返回练习 3 · 第 2 步";
+        elements.returnButton.textContent = state.returnTarget.status === "missing" ? "返回高等数学概览" : "返回" + state.returnTarget.label;
         elements.close.textContent = state.presentation === "modal"
           ? "关闭"
           : state.presentation === "sidecar"
@@ -1649,6 +2836,40 @@
         return node;
       }
 
+      function captureTranscriptAnchor() {
+        const containerRect = elements.transcript.getBoundingClientRect();
+        const messages = [...elements.transcript.querySelectorAll("[data-message-id]")];
+        const anchorNode = messages.find((node) => node.getBoundingClientRect().bottom > containerRect.top + 1);
+        if (!anchorNode || !anchorNode.dataset.messageId) {
+          return state.transcriptAnchor;
+        }
+        const nodeRect = anchorNode.getBoundingClientRect();
+        const anchor = {
+          messageId: anchorNode.dataset.messageId,
+          offsetWithin: containerRect.top - nodeRect.top
+        };
+        state.transcriptAnchor = anchor;
+        elements.transcript.dataset.anchorMessage = anchor.messageId;
+        elements.transcript.dataset.anchorOffset = String(Math.round(anchor.offsetWithin));
+        return anchor;
+      }
+
+      function restoreTranscriptAnchor(anchor) {
+        if (!anchor || !anchor.messageId) {
+          return;
+        }
+        const node = elements.transcript.querySelector('[data-message-id="' + CSS.escape(anchor.messageId) + '"]');
+        if (!node) {
+          return;
+        }
+        const containerRect = elements.transcript.getBoundingClientRect();
+        const nodeRect = node.getBoundingClientRect();
+        elements.transcript.scrollTop += nodeRect.top - containerRect.top + anchor.offsetWithin;
+        state.transcriptAnchor = anchor;
+        elements.transcript.dataset.anchorMessage = anchor.messageId;
+        elements.transcript.dataset.anchorOffset = String(Math.round(anchor.offsetWithin));
+      }
+
       function patchMessages() {
         const desired = [...state.messages];
         if (state.partial) {
@@ -1656,7 +2877,7 @@
         }
         const desiredIds = new Set(desired.map((message) => message.id));
         const wasAtBottom = state.atBottom;
-        const previousScrollTop = elements.transcript.scrollTop;
+        const semanticAnchor = wasAtBottom ? null : state.transcriptAnchor;
 
         desired.forEach((message) => {
           const node = ensureMessageNode(message);
@@ -1698,7 +2919,7 @@
           if (wasAtBottom && state.presentation !== "none") {
             elements.transcript.scrollTop = elements.transcript.scrollHeight;
           } else {
-            elements.transcript.scrollTop = previousScrollTop;
+            restoreTranscriptAnchor(semanticAnchor);
           }
         });
       }
@@ -1738,6 +2959,18 @@
         elements.live.textContent = state.liveMessage;
       }
 
+      function renderAnnouncement() {
+        if (!state.announcement || state.announcement === state.lastAnnounced) {
+          return;
+        }
+        const message = state.announcement;
+        state.lastAnnounced = message;
+        elements.announcer.textContent = "";
+        requestAnimationFrame(() => {
+          elements.announcer.textContent = message;
+        });
+      }
+
       function renderReturnNotice() {
         elements.returnNotice.hidden = !state.returnNotice;
         elements.returnNotice.textContent = state.returnNotice;
@@ -1745,23 +2978,94 @@
 
       function render() {
         applyViewport();
-        elements.frameChip.textContent = FRAME[state.frameId].label;
+        elements.frameChip.textContent = FRAME[state.frameId].badge || FRAME[state.frameId].label;
         elements.viewport.dataset.frame = state.frameId;
         elements.viewport.dataset.presentation = state.presentation;
         elements.viewport.dataset.sidecarMode = state.placement;
+        elements.viewport.dataset.studyPage = state.currentStudyPage;
         elements.cup.classList.remove("force-focus-ring");
         renderPresentation();
+        renderStudyLifecycle();
+        renderWideStudyPage();
+        renderNarrowStudy();
+        renderKnowledge();
+        renderLeaveDialog();
         renderChrome();
         renderChatHeader();
         renderFault();
         patchMessages();
         renderUnread();
         renderComposer();
+        renderAnnouncement();
         renderReturnNotice();
         requestAnimationFrame(updateGeometry);
       }
 
+      function navigateStudyPage(page) {
+        if (!STUDY_PAGES.includes(page)) {
+          return;
+        }
+        state.currentStudyPage = page;
+        state.context.page = page;
+        state.pendingStudyPage = null;
+        state.leaveDialogOpen = false;
+        state.returnNotice = "已打开：" + STUDY_PAGE_META[page].label + " · " + studyPath(page);
+        state.returnTarget = page === "practice"
+          ? { status: "valid", focusId: state.viewportClass === "narrow" ? "kq-narrow-answer" : "kq-step-2", label: "练习 3 · 第 2 步" }
+          : { status: "valid", focusId: state.viewportClass === "narrow" ? "narrow-page-surface" : STUDY_PAGE_META[page].focusId, label: STUDY_PAGE_META[page].label + "页" };
+        render();
+        requestAnimationFrame(() => {
+          const targetId = state.viewportClass === "narrow" && page !== "practice" ? "narrow-page-surface" : STUDY_PAGE_META[page].focusId;
+          const target = document.getElementById(targetId);
+          if (target && target.getClientRects().length) {
+            target.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "auto" });
+            target.focus({ preventScroll: true });
+          }
+        });
+      }
+
+      function requestStudyPage(page, invoker) {
+        if (page === state.currentStudyPage || !STUDY_PAGES.includes(page)) {
+          return;
+        }
+        if (state.currentStudyPage === "practice" && state.practiceDirty) {
+          state.pendingStudyPage = page;
+          state.pendingStudyInvoker = invoker || null;
+          state.leaveDialogOpen = true;
+          render();
+          requestAnimationFrame(() => elements.leaveCancel.focus({ preventScroll: true }));
+          return;
+        }
+        navigateStudyPage(page);
+      }
+
+      function cancelPracticeLeave() {
+        const invoker = state.pendingStudyInvoker;
+        state.pendingStudyPage = null;
+        state.pendingStudyInvoker = null;
+        state.leaveDialogOpen = false;
+        render();
+        requestAnimationFrame(() => {
+          if (invoker) {
+            invoker.focus({ preventScroll: true });
+          }
+        });
+      }
+
+      function confirmPracticeLeave() {
+        const page = state.pendingStudyPage;
+        state.practiceDirty = false;
+        state.dirtyRecovery = false;
+        state.studyAnswer = "";
+        state.pendingStudyInvoker = null;
+        navigateStudyPage(page);
+      }
+
       function visibleReturnTarget() {
+        const exactTarget = document.getElementById(state.returnTarget.focusId);
+        if (exactTarget && exactTarget.getClientRects().length > 0) {
+          return exactTarget;
+        }
         const targets = [...document.querySelectorAll('[data-return-target="exercise-3-step-2"]')];
         return targets.find((target) => target.getClientRects().length > 0) || null;
       }
@@ -1771,20 +3075,56 @@
         return candidates.find((target) => target && target.getClientRects().length > 0) || $("#kq-safe-overview");
       }
 
+      function captureStudyAnchor() {
+        const target = visibleReturnTarget();
+        if (!target || !target.id) {
+          return state.studyAnchor;
+        }
+        const viewportRect = elements.viewport.getBoundingClientRect();
+        const targetRect = target.getBoundingClientRect();
+        const anchor = {
+          page: state.currentStudyPage,
+          focusId: target.id,
+          offsetWithin: viewportRect.top - targetRect.top
+        };
+        state.studyAnchor = anchor;
+        elements.viewport.dataset.studyAnchor = anchor.page + ":" + anchor.focusId;
+        elements.viewport.dataset.studyAnchorOffset = String(Math.round(anchor.offsetWithin));
+        return anchor;
+      }
+
+      function restoreStudyAnchor(options = {}) {
+        const missing = Boolean(options.missing);
+        const anchor = state.studyAnchor;
+        const target = missing
+          ? safeOverviewTarget()
+          : document.getElementById(anchor && anchor.focusId) || visibleReturnTarget();
+        if (!target) {
+          return;
+        }
+        if (missing) {
+          target.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
+        } else if (anchor && anchor.page === state.currentStudyPage) {
+          const viewportRect = elements.viewport.getBoundingClientRect();
+          const targetRect = target.getBoundingClientRect();
+          elements.viewport.scrollTop += targetRect.top - viewportRect.top + anchor.offsetWithin;
+        }
+        target.focus({ preventScroll: true });
+      }
+
       function performReturn(options = {}) {
         const missing = Object.prototype.hasOwnProperty.call(options, "missing") ? options.missing : state.returnTarget.status === "missing";
         const fromFixture = Boolean(options.fromFixture);
+        if (!state.atBottom) {
+          state.transcriptAnchor = captureTranscriptAnchor();
+        }
         state.presentation = "none";
         state.returnTarget.status = missing ? "missing" : "valid";
-        state.returnNotice = missing ? "原位置不可恢复，已返回高等数学概览。" : "已返回：练习 3 · 第 2 步";
+        state.returnNotice = missing ? "原位置不可恢复，已返回高等数学概览。" : "已返回：" + state.returnTarget.label;
         state.liveMessage = state.returnNotice;
         render();
         requestAnimationFrame(() => {
-          const target = missing ? safeOverviewTarget() : visibleReturnTarget();
-          if (target) {
-            target.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
-            target.focus({ preventScroll: true });
-          }
+          restoreStudyAnchor({ missing });
           if (!fromFixture) {
             window.setTimeout(() => {
               state.returnNotice = "";
@@ -1796,6 +3136,9 @@
 
       function initialChatFocus() {
         requestAnimationFrame(() => {
+          if (state.presentation === "none") {
+            return;
+          }
           if (state.fault !== "none") {
             elements.recover.focus({ preventScroll: true });
           } else if (state.returnTarget.status === "missing") {
@@ -1808,6 +3151,13 @@
 
       function openFromCup(invokerId) {
         state.invokerId = invokerId;
+        state.knowledgeOpen = false;
+        state.studyAnchor = captureStudyAnchor();
+        if (state.context.kind === "course") {
+          state.context.spaceId = state.spaceId;
+          state.context.page = state.currentStudyPage;
+          state.context.activityId = state.currentStudyPage === "practice" ? "exercise-3-step-2" : null;
+        }
         const shouldStickToBottom = state.atBottom;
         if (state.viewportClass === "narrow" || state.viewportClass === "zoom") {
           state.presentation = "narrow";
@@ -1828,6 +3178,9 @@
       }
 
       function closeInnermost() {
+        if (state.presentation !== "none" && !state.atBottom) {
+          state.transcriptAnchor = captureTranscriptAnchor();
+        }
         if (state.presentation === "sidecar" || state.presentation === "modal") {
           const invoker = document.getElementById(state.invokerId) || elements.cup;
           state.presentation = "none";
@@ -1837,10 +3190,13 @@
         }
         if (state.context.kind === "ordinary") {
           state.presentation = "none";
-          state.context = { kind: "course", courseTitle: "高等数学", focusId: "exercise-3-step-2", focusLabel: "练习 3 · 第 2 步" };
+          state.context = { kind: "course", courseTitle: "高等数学", spaceId: state.spaceId, page: state.currentStudyPage, activityId: state.currentStudyPage === "practice" ? "exercise-3-step-2" : null, focusId: "exercise-3-step-2", focusLabel: "练习 3 · 第 2 步" };
           state.returnTarget.status = "valid";
           render();
-          requestAnimationFrame(() => elements.navStudy.focus({ preventScroll: true }));
+          requestAnimationFrame(() => {
+            restoreStudyAnchor();
+            elements.navStudy.focus({ preventScroll: true });
+          });
           return;
         }
         performReturn();
@@ -1860,18 +3216,25 @@
         if (!question) {
           elements.question.focus();
           state.liveMessage = "请输入问题后再发送。";
+          state.announcement = "请输入问题后再发送。";
           renderComposer();
+          renderAnnouncement();
           return;
         }
+        const shouldFocusStop = document.activeElement === elements.send || document.activeElement === elements.sendStop;
         state.draft = elements.question.value;
         state.messages.push({ id: "m-user-" + Date.now(), role: "user", text: question, status: "complete" });
         const messageId = "m-assistant-" + Date.now();
         state.partial = { id: messageId, role: "assistant", text: "", status: "streaming" };
         state.streaming = true;
         state.liveMessage = "小娜正在回答；消息区不会逐 token 播报。";
+        state.announcement = "回答开始。";
         const runId = ++state.runId;
         let chunkIndex = 0;
         render();
+        if (shouldFocusStop) {
+          elements.sendStop.focus({ preventScroll: true });
+        }
         state.timer = window.setInterval(() => {
           if (runId !== state.runId || !state.streaming || state.fault !== "none" || !state.partial) {
             return;
@@ -1884,6 +3247,7 @@
           patchMessages();
           renderUnread();
           if (chunkIndex >= answerChunks.length) {
+            const shouldFocusSend = document.activeElement === elements.sendStop;
             window.clearInterval(state.timer);
             state.timer = null;
             const completed = { ...state.partial, status: "complete" };
@@ -1891,10 +3255,14 @@
             state.partial = null;
             state.streaming = false;
             state.liveMessage = "回答完成。";
+            state.announcement = state.presentation === "none" || !state.atBottom ? "回答完成，有新消息。" : "回答完成。";
             if (state.presentation === "none") {
               state.hasNewAnswer = true;
             }
             render();
+            if (shouldFocusSend) {
+              elements.send.focus({ preventScroll: true });
+            }
           }
         }, 620);
       }
@@ -1904,6 +3272,7 @@
           startGeneration();
           return;
         }
+        const shouldFocusSend = document.activeElement === elements.sendStop;
         const partialText = state.partial && state.partial.text.trim() ? state.partial.text : "回答在首段内容出现前已停止。";
         const stopped = {
           id: state.partial ? state.partial.id : "m-stopped-" + Date.now(),
@@ -1916,7 +3285,11 @@
         state.partial = null;
         state.streaming = false;
         state.liveMessage = "回答已停止；已展示内容已保留。";
+        state.announcement = "回答已停止。已展示内容已保留。";
         render();
+        if (shouldFocusSend) {
+          elements.send.focus({ preventScroll: true });
+        }
       }
 
       function injectFault(fault) {
@@ -1944,15 +3317,19 @@
         const previousScrollBehavior = elements.transcript.style.scrollBehavior;
         elements.transcript.style.scrollBehavior = "auto";
         elements.transcript.scrollTop = elements.transcript.scrollHeight;
+        elements.transcript.focus({ preventScroll: true });
         requestAnimationFrame(() => {
           elements.transcript.style.scrollBehavior = previousScrollBehavior;
+          captureTranscriptAnchor();
         });
         state.atBottom = true;
         state.unreadIds = [];
         state.hasNewAnswer = false;
         state.liveMessage = "已跳到最新消息。";
+        state.announcement = "已跳到最新消息。";
         renderUnread();
         renderComposer();
+        renderAnnouncement();
       }
 
       function focusableInModal() {
@@ -1984,10 +3361,13 @@
       function updateGeometry() {
         const canvas = elements.viewport.getBoundingClientRect();
         const chatRect = elements.chat.hidden ? null : elements.chat.getBoundingClientRect();
+        const cupRect = elements.cup.hidden ? null : elements.cup.getBoundingClientRect();
         const notebook = $("#kq-notebook").getBoundingClientRect();
         const scaleRatio = canvas.width / state.logicalWidth || 1;
         const logicalChatWidth = chatRect ? chatRect.width / scaleRatio : 0;
         const logicalNotebookWidth = notebook.width / scaleRatio;
+        const visibleCupWidth = cupRect ? Math.max(0, Math.min(cupRect.right, canvas.right) - Math.max(cupRect.left, canvas.left)) / scaleRatio : 0;
+        const visibleCupHeight = cupRect ? Math.max(0, Math.min(cupRect.bottom, canvas.bottom) - Math.max(cupRect.top, canvas.top)) / scaleRatio : 0;
         const overflow = elements.viewport.scrollWidth > elements.viewport.clientWidth;
         elements.geometry.textContent = [
           "logical " + state.logicalWidth + "×" + state.logicalHeight,
@@ -1995,8 +3375,57 @@
           "actual canvas " + Math.round(canvas.width) + "×" + Math.round(canvas.height),
           chatRect ? "Chat " + Math.round(logicalChatWidth) + "px" : "Chat closed",
           "Study notebook " + Math.round(logicalNotebookWidth) + "px",
+          cupRect ? "Chat entry visible " + Math.round(visibleCupWidth) + "×" + Math.round(visibleCupHeight) + "px" : "Chat entry hidden on Chat route",
+          "route " + studyPath(state.currentStudyPage),
+          "Knowledge " + (state.knowledgeOpen ? "drawer open · " + state.knowledgeKind : "current references shortcut"),
+          "Study anchor " + state.studyAnchor.page + ":" + state.studyAnchor.focusId + "@" + Math.round(state.studyAnchor.offsetWithin) + "px",
+          "Message anchor " + state.transcriptAnchor.messageId + "@" + Math.round(state.transcriptAnchor.offsetWithin) + "px",
           "horizontal overflow " + (overflow ? "FAIL" : "none")
         ].join(" · ");
+      }
+
+      function announceFixture(message) {
+        state.returnNotice = message;
+        renderReturnNotice();
+        window.setTimeout(() => {
+          if (state.returnNotice === message) {
+            state.returnNotice = "";
+            renderReturnNotice();
+          }
+        }, 2200);
+      }
+
+      function enterNarrowActivity() {
+        if (state.currentStudyPage !== "practice") {
+          requestStudyPage("practice", elements.narrowNext);
+          return;
+        }
+        state.narrowMode = "active";
+        state.dirtyRecovery = false;
+        state.returnTarget = { status: "valid", focusId: "kq-narrow-answer", label: "练习 3 · 第 2 步答案" };
+        render();
+        requestAnimationFrame(() => elements.narrowAnswer.focus({ preventScroll: false }));
+      }
+
+      function checkNarrowStep() {
+        state.studyAnswer = elements.narrowAnswer.value;
+        state.dirtyRecovery = false;
+        state.practiceDirty = false;
+        state.narrowFeedback = true;
+        render();
+        requestAnimationFrame(() => {
+          elements.narrowFeedback.scrollIntoView({ block: "nearest", behavior: "auto" });
+          elements.narrowFeedback.focus({ preventScroll: true });
+        });
+      }
+
+      function openNarrowCourseChat(invokerId, focusId, label) {
+        state.returnTarget = { status: "valid", focusId, label };
+        state.context.spaceId = state.spaceId;
+        state.context.page = state.currentStudyPage;
+        state.context.activityId = "exercise-3-step-2";
+        state.entryPath = "direct";
+        openFromCup(invokerId);
       }
 
       elements.frameSelect.addEventListener("change", () => resetState(elements.frameSelect.value));
@@ -2015,7 +3444,79 @@
       });
       elements.cup.addEventListener("click", () => openFromCup("kq-cup"));
       elements.cupNarrow.addEventListener("click", () => openFromCup("kq-cup-narrow"));
+      elements.knowledgeOpen.addEventListener("click", () => openKnowledge(elements.knowledgeOpen));
+      elements.knowledgeOpenNarrow.addEventListener("click", () => openKnowledge(elements.knowledgeOpenNarrow));
+      elements.knowledgeClose.addEventListener("click", () => closeKnowledge());
+      elements.knowledgeLearn.addEventListener("click", openKnowledgeLearn);
+      document.querySelectorAll("[data-knowledge-kind]").forEach((button) => {
+        button.addEventListener("click", () => selectKnowledgeKind(button.dataset.knowledgeKind, button));
+      });
+      document.querySelectorAll("[data-knowledge-select]").forEach((button) => {
+        button.addEventListener("click", () => {
+          state.knowledgeKind = "current";
+          state.knowledgeSelectedLabel = button.dataset.knowledgeSelect;
+          renderKnowledge();
+        });
+      });
+      elements.lifecycleNav.querySelectorAll("[data-study-page]").forEach((link) => {
+        link.addEventListener("click", (event) => {
+          event.preventDefault();
+          requestStudyPage(link.dataset.studyPage, link);
+        });
+      });
+      elements.widePracticeAnswer.addEventListener("input", () => {
+        state.studyAnswer = elements.widePracticeAnswer.value;
+        state.practiceDirty = true;
+        renderStudyLifecycle();
+        renderWideStudyPage();
+      });
+      elements.wideCheck.addEventListener("click", () => {
+        state.studyAnswer = elements.widePracticeAnswer.value;
+        state.practiceDirty = false;
+        state.narrowFeedback = true;
+        state.returnNotice = "已检查这一步；练习答案与反馈仍保留在 /practice。";
+        render();
+      });
+      elements.leaveCancel.addEventListener("click", cancelPracticeLeave);
+      elements.leaveConfirm.addEventListener("click", confirmPracticeLeave);
+      elements.narrowNext.addEventListener("click", enterNarrowActivity);
+      elements.narrowReview.addEventListener("click", () => announceFixture("已进入本课 6 张 due 队列（决策原型）。"));
+      elements.narrowDue.addEventListener("click", () => {
+        if (state.currentStudyPage !== "practice") {
+          requestStudyPage("practice", elements.narrowDue);
+        } else {
+          announceFixture("本课 due 保持一步可达；当前活动不会被打断。");
+        }
+      });
+      elements.narrowAnswer.addEventListener("input", () => {
+        state.studyAnswer = elements.narrowAnswer.value;
+        state.practiceDirty = true;
+        if (!state.dirtyRecovery) {
+          state.dirtyRecovery = true;
+          renderNarrowStudy();
+        }
+      });
+      elements.narrowActivePrimary.addEventListener("click", () => {
+        if (state.dirtyRecovery) {
+          state.dirtyRecovery = false;
+          renderNarrowStudy();
+          elements.narrowAnswer.focus({ preventScroll: true });
+        } else {
+          checkNarrowStep();
+        }
+      });
+      elements.narrowCheck.addEventListener("click", checkNarrowStep);
+      elements.narrowAskActive.addEventListener("click", () => {
+        state.studyAnswer = elements.narrowAnswer.value;
+        openNarrowCourseChat("kq-ask-narrow-active", "kq-narrow-answer", "练习 3 · 第 2 步答案");
+      });
+      elements.narrowAskOverview.addEventListener("click", () => {
+        openNarrowCourseChat("kq-ask-narrow-overview", "kq-next-narrow", "练习 3 · 第 2 步入口");
+      });
       elements.expand.addEventListener("click", () => {
+        if (!state.atBottom) {
+          state.transcriptAnchor = captureTranscriptAnchor();
+        }
         state.presentation = "full";
         render();
         initialChatFocus();
@@ -2049,6 +3550,9 @@
       elements.transcript.addEventListener("scroll", () => {
         const distance = elements.transcript.scrollHeight - elements.transcript.clientHeight - elements.transcript.scrollTop;
         state.atBottom = distance <= 24;
+        if (!state.atBottom) {
+          state.transcriptAnchor = captureTranscriptAnchor();
+        }
         if (state.atBottom && state.unreadIds.length) {
           state.unreadIds = [];
           renderUnread();
@@ -2068,7 +3572,9 @@
       });
       elements.navChat.addEventListener("click", () => {
         cancelGeneration();
-        state.context = { kind: "ordinary", courseTitle: "", focusId: null, focusLabel: "" };
+        state.knowledgeOpen = false;
+        state.studyAnchor = captureStudyAnchor();
+        state.context = { kind: "ordinary", courseTitle: "", spaceId: null, page: null, activityId: null, focusId: null, focusLabel: "" };
         state.returnTarget.status = "none";
         state.entryPath = "direct";
         state.presentation = state.viewportClass === "narrow" || state.viewportClass === "zoom" ? "narrow" : "full";
@@ -2082,6 +3588,28 @@
       });
 
       document.addEventListener("keydown", (event) => {
+        if (state.leaveDialogOpen && event.key === "Tab") {
+          const first = elements.leaveCancel;
+          const last = elements.leaveConfirm;
+          if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+          }
+          return;
+        }
+        if (state.leaveDialogOpen && event.key === "Escape") {
+          event.preventDefault();
+          cancelPracticeLeave();
+          return;
+        }
+        if (state.knowledgeOpen && event.key === "Escape") {
+          event.preventDefault();
+          closeKnowledge();
+          return;
+        }
         if (state.presentation === "modal" && event.key === "Tab") {
           trapModalFocus(event);
           return;
@@ -2100,7 +3628,7 @@
       if (window.lucide) {
         window.lucide.createIcons({ attrs: { width: 22, height: 22, "stroke-width": 2 } });
       }
-      resetState("W01");
+      resetState(elements.frameSelect.value);
     })();
   </script>
 </body>
