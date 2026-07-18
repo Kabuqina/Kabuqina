@@ -20,6 +20,7 @@ import json
 import re
 import subprocess
 import sys
+from functools import lru_cache
 from pathlib import Path, PurePosixPath
 from typing import Any, Iterable
 
@@ -212,12 +213,16 @@ ENV_PREFIX_TO_SURFACE = {
 # Discovery happens before this mapping is applied; a new namespace therefore
 # fails closed instead of being silently omitted from the ledger.
 NON_PLATFORM_ENV_PREFIX_TO_SURFACE = {
+    "AGENT_BROWSER": "gateway_kernel",
+    "AIRTABLE": "gateway_kernel",
+    "ALIBABA": "gateway_kernel",
     "ANTHROPIC": "gateway_kernel",
     "API": "gateway_kernel",
     "APPTAINER": "gateway_kernel",
     "AUXILIARY": "gateway_kernel",
     "AZURE": "gateway_kernel",
     "BASE": "gateway_kernel",
+    "BLAND": "gateway_kernel",
     "BROWSER": "gateway_kernel",
     "BROWSERBASE": "gateway_kernel",
     "CAMOFOX": "gateway_kernel",
@@ -226,37 +231,51 @@ NON_PLATFORM_ENV_PREFIX_TO_SURFACE = {
     "COMFY": "gateway_kernel",
     "CUSTOM": "gateway_kernel",
     "DAYTONA": "gateway_kernel",
+    "DASHSCOPE": "gateway_kernel",
+    "DEEPSEEK": "gateway_kernel",
     "DELEGATION": "gateway_kernel",
+    "DOCLING": "gateway_kernel",
     "EDITOR": "gateway_kernel",
     "ELEVENLABS": "gateway_kernel",
     "EXA": "gateway_kernel",
     "FAL": "gateway_kernel",
     "FIRECRAWL": "gateway_kernel",
+    "FIREWORKS": "gateway_kernel",
     "GATEWAY": "gateway_kernel",
     "GEMINI": "gateway_kernel",
     "GIT": "gateway_kernel",
     "GITHUB": "gateway_kernel",
     "GOOGLE": "gateway_kernel",
     "GROQ": "gateway_kernel",
+    "GLM": "gateway_kernel",
     "HERMES": "gateway_kernel",
     "HF": "gateway_kernel",
     "HINDSIGHT": "gateway_kernel",
     "HONCHO": "gateway_kernel",
     "KABUQINA": "desktop",
     "HERMESDESK": "desktop",
+    "KIMI": "gateway_kernel",
+    "IMAGE": "gateway_kernel",
     "LANGSMITH": "gateway_kernel",
+    "LANGFUSE": "gateway_kernel",
+    "LINEAR": "gateway_kernel",
     "MESSAGING": "gateway_kernel",
     "MEM0": "gateway_kernel",
     "MINIMAX": "gateway_kernel",
     "MISTRAL": "gateway_kernel",
+    "MSTEAMS": "teams_plugin",
     "MODAL": "gateway_kernel",
+    "MOA": "gateway_kernel",
     "NOUS": "gateway_kernel",
+    "NOSTR": "gateway_kernel",
+    "NOTION": "gateway_kernel",
     "OPENAI": "gateway_kernel",
     "OPENROUTER": "gateway_kernel",
     "OPENVIKING": "gateway_kernel",
     "OAUTHLIB": "gateway_kernel",
     "OSV": "gateway_kernel",
     "PARALLEL": "gateway_kernel",
+    "PHONE": "gateway_kernel",
     "RETAINDB": "gateway_kernel",
     "SESSION": "gateway_kernel",
     "SOLANA": "gateway_kernel",
@@ -264,39 +283,59 @@ NON_PLATFORM_ENV_PREFIX_TO_SURFACE = {
     "SSL": "gateway_kernel",
     "SQLITE": "gateway_kernel",
     "STT": "gateway_kernel",
+    "STEPFUN": "gateway_kernel",
     "SUPERMEMORY": "gateway_kernel",
     "TAVILY": "gateway_kernel",
+    "TENOR": "gateway_kernel",
     "TERMINAL": "gateway_kernel",
     "TINKER": "gateway_kernel",
     "TIRITH": "gateway_kernel",
     "TOOL": "gateway_kernel",
+    "TOGETHER": "gateway_kernel",
+    "TOKENHUB": "gateway_kernel",
+    "TWITCH": "gateway_kernel",
     "USER": "gateway_kernel",
     "USDA": "gateway_kernel",
     "VERCEL": "gateway_kernel",
+    "VAPI": "gateway_kernel",
     "VISUAL": "gateway_kernel",
     "VOICE": "gateway_kernel",
+    "VISION": "gateway_kernel",
     "WANDB": "gateway_kernel",
+    "WEB": "gateway_kernel",
     "XAI": "gateway_kernel",
+    "XIAOMI": "gateway_kernel",
     "XDG": "gateway_kernel",
     "YC": "gateway_kernel",
     "YOLO": "gateway_kernel",
+    "ZAI": "gateway_kernel",
+    "Z_AI": "gateway_kernel",
 }
 
 EXACT_ENV_KEY_TO_SURFACE = {
     "BROWSER_CDP_URL": "desktop",
+    "ALL_PROXY": "gateway_kernel",
     "DEV": "desktop",
     "DATABASE_URL": "gateway_kernel",
+    "COLUMNS": "gateway_kernel",
+    "COMSPEC": "desktop",
+    "CONDA_PREFIX": "gateway_kernel",
     "DISPLAY": "gateway_kernel",
     "DOCLING_ARTIFACTS_PATH": "gateway_kernel",
     "DOCLING_HF_MAX_WORKERS": "desktop",
     "DOCLING_HF_RETRIES": "desktop",
     "GH_TOKEN": "gateway_kernel",
     "HOME": "gateway_kernel",
+    "HTTP_PROXY": "gateway_kernel",
+    "HTTPS_PROXY": "gateway_kernel",
     "HERMES_HOME": "desktop",
     "INVOCATION_ID": "gateway_kernel",
     "KABUQINA_MICROSOFT_OAUTH_CLIENT_ID": "email",
     "LM_API_KEY": "gateway_kernel",
     "LM_BASE_URL": "gateway_kernel",
+    "LLM_MODEL": "gateway_kernel",
+    "LANG": "gateway_kernel",
+    "LC_ALL": "gateway_kernel",
     "LOCALAPPDATA": "desktop",
     "MIGRATION_JSON_OUTPUT": "gateway_kernel",
     "NO_COLOR": "gateway_kernel",
@@ -307,6 +346,7 @@ EXACT_ENV_KEY_TO_SURFACE = {
     "PREFIX": "gateway_kernel",
     "PULSE_SERVER": "gateway_kernel",
     "PYTHONIOENCODING": "desktop",
+    "PYTHONDONTWRITEBYTECODE": "gateway_kernel",
     "PYTHONPATH": "desktop",
     "PYTHONUNBUFFERED": "desktop",
     "PYTHONUTF8": "desktop",
@@ -314,11 +354,17 @@ EXACT_ENV_KEY_TO_SURFACE = {
     "REQUESTS_CA_BUNDLE": "gateway_kernel",
     "SHELL": "gateway_kernel",
     "SUDO_PASSWORD": "gateway_kernel",
+    "SYSTEMROOT": "desktop",
     "TEMP": "desktop",
     "TERM": "gateway_kernel",
     "TERMUX_VERSION": "gateway_kernel",
     "TMP": "desktop",
+    "TMPDIR": "gateway_kernel",
     "USERPROFILE": "desktop",
+    "TZ": "gateway_kernel",
+    "VIRTUAL_ENV": "gateway_kernel",
+    "WINDIR": "desktop",
+    "LINES": "gateway_kernel",
     "WAYLAND_DISPLAY": "gateway_kernel",
 }
 
@@ -338,17 +384,17 @@ ENVIRONMENT_SCAN_EXCLUDED_PREFIXES = (
     "hermes_core/web/",
     "hermes_core/website/",
 )
-ENVIRONMENT_DYNAMIC_DECLARATION_ROOTS = (
-    "hermes_core/gateway/",
-    "hermes_core/cron/",
-    "hermes_core/plugins/platforms/",
-    "hermes_core/tools/",
-    "hermes_core/kabuqina_cli/",
-    "python/src/",
-    "python/overlays/",
-    "tauri/src/",
-    "web/src/",
-)
+ENVIRONMENT_NAMESPACE_SURFACE_OVERRIDES = {
+    "_HERMES_FORCE_": "gateway_kernel",
+    "CONDA": "gateway_kernel",
+    "LANG": "gateway_kernel",
+    "LC_": "gateway_kernel",
+    "LOGNAME": "gateway_kernel",
+    "SYSTEMROOT": "desktop",
+    "TMPDIR": "gateway_kernel",
+    "VIRTUAL_ENV": "gateway_kernel",
+    "WINDIR": "desktop",
+}
 ENVIRONMENT_DISCOVERY_CONTRACT = {
     "mode": "discovery_first_fail_closed",
     "runtime_roots": list(ENVIRONMENT_SCAN_ROOTS),
@@ -368,7 +414,9 @@ ENVIRONMENT_DISCOVERY_CONTRACT = {
     ],
     "web_accesses": ["import.meta.env", "process.env"],
     "unknown_mapping": "validation_error",
-    "dynamic_declarations": "mapped uppercase literals under explicit runtime declaration roots supplement discovered accesses",
+    "dynamic_exact_declarations": "uppercase keys are extracted only from environment/credential registration structures and envKey properties; mapping happens after discovery",
+    "namespace_declarations": "wildcard prefixes are recorded in environment_namespace_edges and never inserted into the exact-key ledger",
+    "ordinary_uppercase_literals": "ignored unless they occur in a real access or declaration structure",
 }
 
 REFERENCE_ALIASES = {
@@ -487,6 +535,15 @@ REQUIRED_CREDENTIAL_EDGE_FIELDS = {
     "target_contract",
     "known_gaps",
 }
+REQUIRED_ENVIRONMENT_NAMESPACE_EDGE_FIELDS = {
+    "prefix",
+    "pattern",
+    "surface",
+    "source_paths",
+    "observed_current",
+    "target_contract",
+    "known_gaps",
+}
 REQUIRED_PERSISTED_RECORD_FIELDS = {
     "id",
     "surface",
@@ -545,6 +602,7 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+@lru_cache(maxsize=None)
 def _tracked_files(root: Path = ROOT) -> list[str]:
     result = _run_git(root, "ls-files")
     if result.returncode != 0:
@@ -728,62 +786,171 @@ def _is_os_environ(node: ast.expr) -> bool:
 
 def _python_environment_accesses(path: Path) -> set[str]:
     tree = ast.parse(path.read_text(encoding="utf-8", errors="ignore"), filename=str(path))
+    environment_functions = {
+        "getenv",
+        "get_env_value",
+        "save_env_value",
+        "remove_env_value",
+        "putenv",
+        "unsetenv",
+        "get_session_env",
+        "lookup",
+        "_opt_str",
+    }
+    name_values: dict[str, set[str]] = {}
+
+    def literal_upper_values(node: ast.AST) -> set[str]:
+        if isinstance(node, ast.Constant):
+            return (
+                {node.value}
+                if isinstance(node.value, str)
+                and re.fullmatch(r"[A-Z][A-Z0-9_]+", node.value)
+                else set()
+            )
+        if isinstance(node, (ast.Tuple, ast.List, ast.Set)):
+            return {
+                value
+                for element in node.elts
+                for value in literal_upper_values(element)
+            }
+        if isinstance(node, ast.Dict):
+            return {
+                value
+                for element in [*node.keys, *node.values]
+                if element is not None
+                for value in literal_upper_values(element)
+            }
+        return set()
+
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Assign, ast.AnnAssign)) and node.value is not None:
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            values = literal_upper_values(node.value)
+            for target in targets:
+                if isinstance(target, ast.Name) and values:
+                    name_values.setdefault(target.id, set()).update(values)
+        elif isinstance(node, ast.For) and isinstance(node.target, ast.Name):
+            values = literal_upper_values(node.iter)
+            if values:
+                name_values.setdefault(node.target.id, set()).update(values)
+        elif isinstance(node, ast.comprehension) and isinstance(node.target, ast.Name):
+            values = literal_upper_values(node.iter)
+            if values:
+                name_values.setdefault(node.target.id, set()).update(values)
+
+    def is_environment_call(node: ast.Call, names: set[str]) -> bool:
+        if isinstance(node.func, ast.Name):
+            return node.func.id in names or bool(
+                re.match(r"^_?env_", node.func.id, re.IGNORECASE)
+            )
+        if not isinstance(node.func, ast.Attribute):
+            return False
+        return (
+            node.func.attr in {"get", "setdefault", "pop"}
+            and (
+                _is_os_environ(node.func.value)
+                or (
+                    isinstance(node.func.value, ast.Name)
+                    and (
+                        node.func.value.id == "env"
+                        or node.func.value.id.endswith("_env")
+                    )
+                )
+            )
+        ) or (
+            node.func.attr in {"getenv", "putenv", "unsetenv"}
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == "os"
+        )
+
+    changed = True
+    while changed:
+        changed = False
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            parameters = {argument.arg for argument in node.args.args}
+            if not parameters or node.name in environment_functions:
+                continue
+            if any(
+                isinstance(child, ast.Call)
+                and child.args
+                and isinstance(child.args[0], ast.Name)
+                and child.args[0].id in parameters
+                and is_environment_call(child, environment_functions)
+                for child in ast.walk(node)
+            ):
+                environment_functions.add(node.name)
+                changed = True
+
     aliases: set[str] = set()
     for node in ast.walk(tree):
-        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+        if isinstance(node, ast.ImportFrom):
+            for imported in node.names:
+                if imported.name in environment_functions or node.module == "kabuqina_env":
+                    aliases.add(imported.asname or imported.name)
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)) or node.value is None:
             continue
-        value = node.value
         targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-        if (
+        value = node.value
+        is_alias = (
             isinstance(value, ast.Attribute)
             and value.attr in {"get", "getenv"}
             and _is_os_environ(value.value)
-        ):
-            aliases.update(
-                target.id for target in targets if isinstance(target, ast.Name)
-            )
+        ) or (isinstance(value, ast.Name) and value.id in environment_functions)
+        if is_alias:
+            aliases.update(target.id for target in targets if isinstance(target, ast.Name))
+    environment_functions.update(aliases)
 
     keys: set[str] = set()
     for node in ast.walk(tree):
+        if isinstance(node, ast.Compare) and isinstance(node.left, ast.Constant):
+            if (
+                isinstance(node.left.value, str)
+                and any(_is_os_environ(comparator) for comparator in node.comparators)
+            ):
+                keys.add(node.left.value)
+                continue
         if (
             isinstance(node, ast.Subscript)
-            and _is_os_environ(node.value)
-            and isinstance(node.slice, ast.Constant)
-            and isinstance(node.slice.value, str)
+            and (
+                _is_os_environ(node.value)
+                or (
+                    isinstance(node.value, ast.Name)
+                    and (
+                        node.value.id == "env"
+                        or node.value.id.endswith("_env")
+                    )
+                )
+            )
         ):
-            keys.add(node.slice.value)
-            continue
+            if isinstance(node.slice, ast.Constant) and isinstance(node.slice.value, str):
+                keys.add(node.slice.value)
+                continue
+            if isinstance(node.slice, ast.Name) and node.slice.id in name_values:
+                keys.update(name_values[node.slice.id])
+                continue
         if not isinstance(node, ast.Call) or not node.args:
             continue
-        function_name = ""
-        is_environment_call = False
-        if isinstance(node.func, ast.Name):
-            function_name = node.func.id
-            is_environment_call = function_name in {
-                "getenv",
-                "get_env_value",
-                "save_env_value",
-                "putenv",
-                "unsetenv",
-                "_opt_str",
-            } | aliases
-        elif isinstance(node.func, ast.Attribute):
-            function_name = node.func.attr
-            is_environment_call = (
-                function_name in {"get", "setdefault", "pop"}
-                and _is_os_environ(node.func.value)
-            ) or (
-                function_name in {"getenv", "putenv", "unsetenv"}
-                and isinstance(node.func.value, ast.Name)
-                and node.func.value.id == "os"
-            )
         first = node.args[0]
-        if (
-            is_environment_call
-            and isinstance(first, ast.Constant)
-            and isinstance(first.value, str)
-        ):
-            keys.add(first.value)
+        if is_environment_call(node, environment_functions):
+            if isinstance(first, ast.Constant) and isinstance(first.value, str):
+                keys.add(first.value)
+            elif isinstance(first, ast.Name) and first.id in name_values:
+                keys.update(name_values[first.id])
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Constant) or not isinstance(node.value, str):
+            continue
+        if "os.environ" not in node.value and "os.getenv" not in node.value:
+            continue
+        keys.update(
+            re.findall(
+                r"(?:os\.getenv|os\.environ\.get|os\.environ\[)"
+                r"\s*[\"']([A-Z][A-Z0-9_]+)[\"']",
+                node.value,
+            )
+        )
     return {key for key in keys if re.fullmatch(r"[A-Z][A-Z0-9_]+", key)}
 
 
@@ -807,6 +974,205 @@ def _web_environment_accesses(text: str) -> set[str]:
     return set(dotted) | set(bracketed)
 
 
+def _is_environment_declaration_name(name: str) -> bool:
+    upper = name.upper()
+    normalized = name.lstrip("_")
+    is_constant_name = bool(normalized) and normalized == normalized.upper()
+    is_structured_local = bool(
+        re.search(
+            r"(?:^|_)env(?:_(?:map|names|keys|vars|requirements))?$",
+            normalized,
+            re.IGNORECASE,
+        )
+        or re.fullmatch(r"platform_.+_map", normalized, re.IGNORECASE)
+        or re.fullmatch(r"(?:api|credential)_keys", normalized, re.IGNORECASE)
+        or bool(re.search(r"env_.+(?:blocklist|allowlist)$", normalized, re.IGNORECASE))
+    )
+    if not (is_constant_name or is_structured_local):
+        return False
+    if any(marker in upper for marker in ("SUFFIX", "REGEX")) or upper.endswith("_RE"):
+        return False
+    if is_structured_local:
+        return True
+    return bool(re.search(r"(?:^|_)ENV(?:IRONMENT)?(?:_|$)", upper)) or any(
+        marker in upper
+        for marker in (
+            "CREDENTIAL",
+            "PLATFORM_EXTRA_KEYS",
+            "TOOLSET_ENV_REQUIREMENTS",
+        )
+    )
+
+
+def _classify_environment_declaration_tokens(
+    tokens: Iterable[str], *, force_namespace: bool = False
+) -> tuple[set[str], set[str]]:
+    exact: set[str] = set()
+    namespaces: set[str] = set()
+    for raw in tokens:
+        if not isinstance(raw, str):
+            continue
+        delimiter_form = raw.endswith("=") or raw.endswith(" ")
+        token = raw.rstrip("= ")
+        if not re.fullmatch(r"[A-Z_][A-Z0-9_]*", token):
+            continue
+        if not delimiter_form and (force_namespace or token.endswith("_")):
+            namespaces.add(token)
+        else:
+            exact.add(token)
+    return exact, namespaces
+
+
+def _python_environment_declarations(path: Path) -> tuple[set[str], set[str]]:
+    tree = ast.parse(path.read_text(encoding="utf-8", errors="ignore"), filename=str(path))
+    exact: set[str] = set()
+    namespaces: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.For):
+            continue
+        environment_items = node.iter
+        if (
+            isinstance(environment_items, ast.Call)
+            and isinstance(environment_items.func, ast.Name)
+            and environment_items.func.id in {"list", "tuple"}
+            and environment_items.args
+        ):
+            environment_items = environment_items.args[0]
+        if not (
+            isinstance(environment_items, ast.Call)
+            and isinstance(environment_items.func, ast.Attribute)
+            and environment_items.func.attr == "items"
+            and _is_os_environ(environment_items.func.value)
+        ):
+            continue
+        if not isinstance(node.target, (ast.Tuple, ast.List)) or not node.target.elts:
+            continue
+        key_target = node.target.elts[0]
+        if not isinstance(key_target, ast.Name):
+            continue
+        for child in ast.walk(node):
+            if not (
+                isinstance(child, ast.Call)
+                and isinstance(child.func, ast.Attribute)
+                and child.func.attr == "startswith"
+                and isinstance(child.func.value, ast.Name)
+                and child.func.value.id == key_target.id
+                and child.args
+                and isinstance(child.args[0], ast.Constant)
+                and isinstance(child.args[0].value, str)
+            ):
+                continue
+            _, discovered_namespaces = _classify_environment_declaration_tokens(
+                [child.args[0].value], force_namespace=True
+            )
+            namespaces.update(discovered_namespaces)
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        if not _is_environment_declaration_name(node.name):
+            continue
+        tokens = [
+            child.value
+            for child in ast.walk(node)
+            if isinstance(child, ast.Constant) and isinstance(child.value, str)
+        ]
+        declared_exact, declared_namespaces = _classify_environment_declaration_tokens(
+            tokens,
+            force_namespace="PREFIX" in node.name.upper(),
+        )
+        exact.update(declared_exact)
+        namespaces.update(declared_namespaces)
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.keyword) or not node.arg:
+            continue
+        keyword_name = node.arg.lower()
+        if "env" not in keyword_name or "suffix" in keyword_name:
+            continue
+        tokens = [
+            child.value
+            for child in ast.walk(node.value)
+            if isinstance(child, ast.Constant) and isinstance(child.value, str)
+        ]
+        declared_exact, declared_namespaces = _classify_environment_declaration_tokens(
+            tokens,
+            force_namespace="prefix" in keyword_name,
+        )
+        exact.update(declared_exact)
+        namespaces.update(declared_namespaces)
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.Assign, ast.AnnAssign)):
+            continue
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+        names = [target.id for target in targets if isinstance(target, ast.Name)]
+        declaration_names = [name for name in names if _is_environment_declaration_name(name)]
+        if not declaration_names or node.value is None:
+            continue
+        tokens = [
+            child.value
+            for child in ast.walk(node.value)
+            if isinstance(child, ast.Constant) and isinstance(child.value, str)
+        ]
+        declared_exact, declared_namespaces = _classify_environment_declaration_tokens(
+            tokens,
+            force_namespace=any("PREFIX" in name.upper() for name in declaration_names),
+        )
+        exact.update(declared_exact)
+        namespaces.update(declared_namespaces)
+    return exact, namespaces
+
+
+def _rust_environment_declarations(text: str) -> tuple[set[str], set[str]]:
+    exact: set[str] = set()
+    namespaces: set[str] = set()
+    declaration_blocks: list[tuple[str, str]] = []
+    for match in re.finditer(
+        r"\bconst\s+([A-Z][A-Z0-9_]*)\b[^=]*=\s*&?\[(.*?)\];",
+        text,
+        re.DOTALL,
+    ):
+        name, body = match.groups()
+        if _is_environment_declaration_name(name):
+            declaration_blocks.append((name, body))
+    for match in re.finditer(
+        r"\bfn\s+(platform_env_prefixes)\b.*?^\}",
+        text,
+        re.DOTALL | re.MULTILINE,
+    ):
+        declaration_blocks.append((match.group(1), match.group(0)))
+    for name, body in declaration_blocks:
+        tokens = re.findall(r'"([A-Z_][A-Z0-9_]*(?:[= ])?)"', body)
+        declared_exact, declared_namespaces = _classify_environment_declaration_tokens(
+            tokens,
+            force_namespace="PREFIX" in name.upper(),
+        )
+        exact.update(declared_exact)
+        namespaces.update(declared_namespaces)
+    return exact, namespaces
+
+
+def _web_environment_declarations(text: str) -> tuple[set[str], set[str]]:
+    exact = set(
+        re.findall(r"\benvKey\s*:\s*[\"']([A-Z][A-Z0-9_]*)[\"']", text)
+    )
+    namespaces: set[str] = set()
+    for match in re.finditer(
+        r"\b(?:const|let|var)\s+([A-Z][A-Z0-9_]*)\b[^=]*=\s*(.*?);",
+        text,
+        re.DOTALL,
+    ):
+        name, body = match.groups()
+        if not _is_environment_declaration_name(name):
+            continue
+        tokens = re.findall(r"[\"']([A-Z_][A-Z0-9_]*)[\"']", body)
+        declared_exact, declared_namespaces = _classify_environment_declaration_tokens(
+            tokens,
+            force_namespace="PREFIX" in name,
+        )
+        exact.update(declared_exact)
+        namespaces.update(declared_namespaces)
+    return exact, namespaces
+
+
 def _is_environment_scan_path(relative: str) -> bool:
     if not relative.startswith(ENVIRONMENT_SCAN_ROOTS):
         return False
@@ -815,6 +1181,7 @@ def _is_environment_scan_path(relative: str) -> bool:
     return "tests" not in PurePosixPath(relative).parts
 
 
+@lru_cache(maxsize=None)
 def discover_environment_key_accesses(root: Path = ROOT) -> dict[str, list[str]]:
     """Discover literal environment access before applying any surface map."""
 
@@ -841,27 +1208,73 @@ def discover_environment_key_accesses(root: Path = ROOT) -> dict[str, list[str]]
     return {key: sorted(paths) for key, paths in sorted(sources.items())}
 
 
-def collect_environment_key_sources(root: Path = ROOT) -> dict[str, list[str]]:
-    """Collect discovered accesses plus mapped dynamic config declarations."""
+@lru_cache(maxsize=None)
+def discover_environment_declarations(
+    root: Path = ROOT,
+) -> dict[str, dict[str, list[str]]]:
+    """Discover exact keys and wildcard namespaces from real registration structures."""
 
-    discovered = discover_environment_key_accesses(root)
-    sources = {key: set(paths) for key, paths in discovered.items()}
-    quoted_key_pattern = re.compile(r"[\"']([A-Z][A-Z0-9_]+)[\"']")
+    exact_sources: dict[str, set[str]] = {}
+    namespace_sources: dict[str, set[str]] = {}
     for relative in _tracked_files(root):
-        if not relative.startswith(ENVIRONMENT_DYNAMIC_DECLARATION_ROOTS):
-            continue
         if not _is_environment_scan_path(relative):
             continue
         path = root / relative
         if not path.is_file():
             continue
-        text = path.read_text(encoding="utf-8", errors="ignore")
-        for key in quoted_key_pattern.findall(text):
-            if _try_credential_surface(key) is not None:
-                sources.setdefault(key, set()).add(relative)
+        if path.suffix == ".py":
+            exact, namespaces = _python_environment_declarations(path)
+        elif path.suffix == ".rs":
+            exact, namespaces = _rust_environment_declarations(
+                path.read_text(encoding="utf-8", errors="ignore")
+            )
+        elif path.suffix in {".ts", ".tsx", ".js", ".mjs"}:
+            exact, namespaces = _web_environment_declarations(
+                path.read_text(encoding="utf-8", errors="ignore")
+            )
+        else:
+            continue
+        for key in exact:
+            exact_sources.setdefault(key, set()).add(relative)
+        for prefix in namespaces:
+            namespace_sources.setdefault(prefix, set()).add(relative)
+    return {
+        "exact_keys": {
+            key: sorted(paths) for key, paths in sorted(exact_sources.items())
+        },
+        "namespace_prefixes": {
+            prefix: sorted(paths)
+            for prefix, paths in sorted(namespace_sources.items())
+        },
+    }
+
+
+@lru_cache(maxsize=None)
+def collect_environment_key_sources(root: Path = ROOT) -> dict[str, list[str]]:
+    """Collect literal accesses plus structured exact-key declarations."""
+
+    discovered = discover_environment_key_accesses(root)
+    sources = {key: set(paths) for key, paths in discovered.items()}
+    declarations = discover_environment_declarations(root)["exact_keys"]
+    for key, paths in declarations.items():
+        sources.setdefault(key, set()).update(paths)
     return {key: sorted(paths) for key, paths in sorted(sources.items())}
 
 
+@lru_cache(maxsize=None)
+def collect_environment_namespace_sources(
+    root: Path = ROOT,
+) -> dict[str, list[str]]:
+    return discover_environment_declarations(root)["namespace_prefixes"]
+
+
+def _try_environment_namespace_surface(prefix: str) -> str | None:
+    if prefix in ENVIRONMENT_NAMESPACE_SURFACE_OVERRIDES:
+        return ENVIRONMENT_NAMESPACE_SURFACE_OVERRIDES[prefix]
+    return _try_credential_surface(prefix.rstrip("_"))
+
+
+@lru_cache(maxsize=None)
 def collect_credential_key_edges(root: Path = ROOT) -> list[dict[str, Any]]:
     sources = collect_environment_key_sources(root)
     unmapped = [key for key in sources if _try_credential_surface(key) is None]
@@ -904,7 +1317,50 @@ def collect_credential_key_edges(root: Path = ROOT) -> list[dict[str, Any]]:
                 "surface": surface,
                 "primary_role": role,
                 "source_paths": sources[key],
-                "observed_current": "Literal environment access or mapped dynamic config producer/consumer discovered in the listed tracked runtime paths.",
+                "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+                "target_contract": action,
+                "known_gaps": gaps,
+            }
+        )
+    return records
+
+
+@lru_cache(maxsize=None)
+def collect_environment_namespace_edges(root: Path = ROOT) -> list[dict[str, Any]]:
+    sources = collect_environment_namespace_sources(root)
+    unmapped = [
+        prefix
+        for prefix in sources
+        if _try_environment_namespace_surface(prefix) is None
+    ]
+    if unmapped:
+        raise ValueError(
+            f"unmapped discovered environment namespaces: {sorted(unmapped)}"
+        )
+    records: list[dict[str, Any]] = []
+    for prefix in sorted(sources):
+        surface = _try_environment_namespace_surface(prefix)
+        if surface is None:
+            raise AssertionError(f"validated namespace became unmapped: {prefix}")
+        action = (
+            "stop_producing_then_explicit_cleanup"
+            if surface in REMOVED_SURFACE_NAMES
+            else "retain_declared_namespace_boundary"
+        )
+        gaps = [
+            "Wildcard namespace membership does not prove that any particular exact key exists; consumers must continue to validate exact keys."
+        ]
+        if surface in REMOVED_SURFACE_NAMES:
+            gaps.append(
+                "Removed-surface namespace consumers remain live until the owning removal slice and explicit CTL-C07 cleanup."
+            )
+        records.append(
+            {
+                "prefix": prefix,
+                "pattern": f"{prefix}*",
+                "surface": surface,
+                "source_paths": sources[prefix],
+                "observed_current": "Structured wildcard environment namespace declaration discovered in the listed tracked runtime paths.",
                 "target_contract": action,
                 "known_gaps": gaps,
             }
@@ -916,39 +1372,67 @@ def credential_environment_ledger_issues(
     manifest: dict[str, Any], root: Path = ROOT
 ) -> list[str]:
     try:
-        actual = collect_credential_key_edges(root)
+        actual_keys = collect_credential_key_edges(root)
+        actual_namespaces = collect_environment_namespace_edges(root)
     except ValueError as exc:
         return [
             f"{exc}; add an explicit exact key or namespace-to-surface mapping"
         ]
-    tracked = manifest.get("credential_data_graph", {}).get("environment_key_edges", [])
-    if tracked != actual:
+    credential_graph = manifest.get("credential_data_graph", {})
+    tracked_keys = credential_graph.get("environment_key_edges", [])
+    errors: list[str] = []
+    if tracked_keys != actual_keys:
         tracked_by_key = {
-            record.get("key"): record for record in tracked if isinstance(record, dict)
+            record.get("key"): record
+            for record in tracked_keys
+            if isinstance(record, dict)
         }
-        actual_by_key = {record["key"]: record for record in actual}
-        return [
+        actual_by_key = {record["key"]: record for record in actual_keys}
+        errors.append(
             "credential environment-key ledger drift: "
             f"missing={sorted(set(actual_by_key) - set(tracked_by_key))}, "
             f"extra={sorted(set(tracked_by_key) - set(actual_by_key))}; run "
             "scripts/audit_v050_platform_manifest.py --refresh-generated-ledgers"
-        ]
-    return []
+        )
+    tracked_namespaces = credential_graph.get("environment_namespace_edges", [])
+    if tracked_namespaces != actual_namespaces:
+        tracked_by_prefix = {
+            record.get("prefix"): record
+            for record in tracked_namespaces
+            if isinstance(record, dict)
+        }
+        actual_by_prefix = {
+            record["prefix"]: record for record in actual_namespaces
+        }
+        errors.append(
+            "credential environment-namespace ledger drift: "
+            f"missing={sorted(set(actual_by_prefix) - set(tracked_by_prefix))}, "
+            f"extra={sorted(set(tracked_by_prefix) - set(actual_by_prefix))}; run "
+            "scripts/audit_v050_platform_manifest.py --refresh-generated-ledgers"
+        )
+    return errors
 
 
 def refresh_generated_ledgers(manifest: dict[str, Any], root: Path = ROOT) -> None:
     references = collect_typed_reference_ledger(root)
-    discovered_environment_keys = discover_environment_key_accesses(root)
+    literal_environment_keys = discover_environment_key_accesses(root)
+    dynamic_declarations = discover_environment_declarations(root)
     credential_edges = collect_credential_key_edges(root)
+    namespace_edges = collect_environment_namespace_edges(root)
     manifest["typed_reference_ledger"] = references
     credential_graph = manifest.setdefault("credential_data_graph", {})
     credential_graph["environment_discovery"] = ENVIRONMENT_DISCOVERY_CONTRACT
     credential_graph["environment_key_edges"] = credential_edges
+    credential_graph["environment_namespace_edges"] = namespace_edges
     manifest["generated_ledger_metadata"] = {
         "generator": "scripts/audit_v050_platform_manifest.py --refresh-generated-ledgers",
         "reference_path_count": len(references),
-        "discovered_environment_key_count": len(discovered_environment_keys),
+        "literal_environment_key_count": len(literal_environment_keys),
+        "dynamic_environment_key_declaration_count": len(
+            dynamic_declarations["exact_keys"]
+        ),
         "environment_key_count": len(credential_edges),
+        "environment_namespace_count": len(namespace_edges),
         "historical_docs_policy": "docs/superpowers history is excluded from the active-doc reference scan; the three authority plans are hash-pinned separately.",
     }
 
@@ -1708,6 +2192,44 @@ def validate_contract(
         if not isinstance(record.get("known_gaps"), list):
             errors.append(f"environment key {key}.known_gaps must be a list")
 
+    namespace_edges = credential_graph.get("environment_namespace_edges")
+    if not isinstance(namespace_edges, list) or not namespace_edges:
+        errors.append(
+            "credential_data_graph.environment_namespace_edges must be non-empty"
+        )
+        namespace_edges = []
+    environment_prefixes: set[str] = set()
+    for index, record in enumerate(namespace_edges):
+        if not isinstance(record, dict):
+            errors.append(f"environment_namespace_edges[{index}] must be an object")
+            continue
+        missing = REQUIRED_ENVIRONMENT_NAMESPACE_EDGE_FIELDS - set(record)
+        if missing:
+            errors.append(
+                f"environment_namespace_edges[{index}] missing fields {sorted(missing)}"
+            )
+        prefix = record.get("prefix")
+        if not isinstance(prefix, str) or not prefix:
+            errors.append(
+                f"environment_namespace_edges[{index}].prefix must be non-empty"
+            )
+        elif prefix in environment_prefixes:
+            errors.append(f"duplicate environment namespace edge: {prefix}")
+        else:
+            environment_prefixes.add(prefix)
+        if record.get("pattern") != f"{prefix}*":
+            errors.append(
+                f"environment namespace {prefix}.pattern must be the exact prefix plus '*'"
+            )
+        if not isinstance(record.get("source_paths"), list) or not record.get(
+            "source_paths"
+        ):
+            errors.append(
+                f"environment namespace {prefix}.source_paths must be non-empty"
+            )
+        if not isinstance(record.get("known_gaps"), list):
+            errors.append(f"environment namespace {prefix}.known_gaps must be a list")
+
     generated_metadata = manifest.get("generated_ledger_metadata")
     if not isinstance(generated_metadata, dict):
         errors.append("generated_ledger_metadata must be an object")
@@ -1722,12 +2244,20 @@ def validate_contract(
             "generated_ledger_metadata.environment_key_count must equal the exact "
             "environment-key ledger length"
         )
-    discovered_count = generated_metadata.get("discovered_environment_key_count")
-    if not isinstance(discovered_count, int) or discovered_count <= 0:
+    if generated_metadata.get("environment_namespace_count") != len(namespace_edges):
         errors.append(
-            "generated_ledger_metadata.discovered_environment_key_count must be a "
-            "positive integer"
+            "generated_ledger_metadata.environment_namespace_count must equal the "
+            "environment-namespace ledger length"
         )
+    for count_field in (
+        "literal_environment_key_count",
+        "dynamic_environment_key_declaration_count",
+    ):
+        count = generated_metadata.get(count_field)
+        if not isinstance(count, int) or count <= 0:
+            errors.append(
+                f"generated_ledger_metadata.{count_field} must be a positive integer"
+            )
 
     persisted_records = credential_graph.get("persisted_records")
     if not isinstance(persisted_records, list) or not persisted_records:
@@ -1826,17 +2356,26 @@ def validate_contract(
                 "scripts/audit_v050_platform_manifest.py --refresh-generated-ledgers"
             )
         errors.extend(credential_environment_ledger_issues(manifest, root))
-        actual_discovered_environment_count = len(
-            discover_environment_key_accesses(root)
+        actual_literal_environment_count = len(discover_environment_key_accesses(root))
+        actual_dynamic_environment_count = len(
+            discover_environment_declarations(root)["exact_keys"]
         )
-        if (
-            generated_metadata.get("discovered_environment_key_count")
-            != actual_discovered_environment_count
+        if generated_metadata.get("literal_environment_key_count") != (
+            actual_literal_environment_count
         ):
             errors.append(
-                "generated discovered environment-key count drift: "
-                f"recorded={generated_metadata.get('discovered_environment_key_count')}, "
-                f"actual={actual_discovered_environment_count}"
+                "generated literal environment-key count drift: "
+                f"recorded={generated_metadata.get('literal_environment_key_count')}, "
+                f"actual={actual_literal_environment_count}"
+            )
+        if generated_metadata.get("dynamic_environment_key_declaration_count") != (
+            actual_dynamic_environment_count
+        ):
+            errors.append(
+                "generated dynamic environment-key declaration count drift: "
+                "recorded="
+                f"{generated_metadata.get('dynamic_environment_key_declaration_count')}, "
+                f"actual={actual_dynamic_environment_count}"
             )
 
     shared_inventory = manifest.get("shared_cross_layer_inventory")
@@ -2600,7 +3139,9 @@ def main(argv: list[str] | None = None) -> int:
                 "Refreshed generated C-0 ledgers: "
                 f"references={len(manifest['typed_reference_ledger'])} "
                 "environment_keys="
-                f"{len(manifest['credential_data_graph']['environment_key_edges'])}"
+                f"{len(manifest['credential_data_graph']['environment_key_edges'])} "
+                "environment_namespaces="
+                f"{len(manifest['credential_data_graph']['environment_namespace_edges'])}"
             )
         errors = validate_contract(manifest, ROOT)
         if args.check_observed:

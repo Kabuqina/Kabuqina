@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import copy
 import importlib.util
+import subprocess
 import sys
+import tempfile
 import unittest
+from contextlib import contextmanager
 from pathlib import Path
-from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -25,6 +27,31 @@ def _load_audit_module():
 
 
 audit = _load_audit_module()
+
+
+@contextmanager
+def _tracked_scan_root(files: dict[str, str]):
+    with tempfile.TemporaryDirectory() as temporary_directory:
+        root = Path(temporary_directory)
+        for relative, content in files.items():
+            path = root / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content, encoding="utf-8")
+        subprocess.run(
+            ["git", "init", "-q"],
+            cwd=root,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        subprocess.run(
+            ["git", "add", "--", "."],
+            cwd=root,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        yield root
 
 
 class V050PlatformManifestTests(unittest.TestCase):
@@ -213,22 +240,54 @@ class V050PlatformManifestTests(unittest.TestCase):
             tracked["KABUQINA_APPROVAL_URL"]["source_paths"],
         )
 
-    def test_unmapped_discovered_environment_key_fails_closed(self) -> None:
-        with patch.object(
-            audit,
-            "discover_environment_key_accesses",
-            return_value={"FUTURE_UNKNOWN_TOKEN": ["python/src/future_runtime.py"]},
-        ):
-            errors = audit.credential_environment_ledger_issues(self.manifest, ROOT)
+    def test_structured_dynamic_environment_scan_ignores_uppercase_copy(self) -> None:
+        files = {
+            "python/src/runtime_env.py": """
+import os
+RUNTIME_ENV_KEYS = {"HASS_TOKEN", "KABUQINA_BRIDGE_SECRET"}
+RUNTIME_ENV_PREFIXES = ("HASS_",)
+for key in RUNTIME_ENV_KEYS:
+    os.getenv(key)
+""",
+            "web/src/locales/strings.ts": 'export const apiLabel = "API";\n',
+            "web/src/chat/pptx/renderDeck.ts": 'const signalShape = "SIGNAL";\n',
+        }
+        with _tracked_scan_root(files) as scan_root:
+            declarations = audit.discover_environment_declarations(scan_root)
+            exact_sources = audit.collect_environment_key_sources(scan_root)
 
-        self.assertTrue(
-            any(
-                "unmapped discovered environment keys" in error
-                and "FUTURE_UNKNOWN_TOKEN" in error
-                for error in errors
-            ),
-            errors,
+        self.assertEqual(
+            {"HASS_TOKEN", "KABUQINA_BRIDGE_SECRET"},
+            set(declarations["exact_keys"]),
         )
+        self.assertEqual({"HASS_"}, set(declarations["namespace_prefixes"]))
+        self.assertNotIn("API", exact_sources)
+        self.assertNotIn("SIGNAL", exact_sources)
+        self.assertNotIn("HASS_", exact_sources)
+
+    def test_unmapped_dynamic_exact_declaration_fails_closed_via_scan(self) -> None:
+        files = {
+            "python/src/future_runtime.py": (
+                'RUNTIME_ENV_KEYS = {"FUTURE_UNKNOWN_TOKEN"}\n'
+            )
+        }
+        with _tracked_scan_root(files) as scan_root:
+            with self.assertRaisesRegex(
+                ValueError, "FUTURE_UNKNOWN_TOKEN"
+            ):
+                audit.collect_credential_key_edges(scan_root)
+
+    def test_unmapped_dynamic_namespace_fails_closed_via_scan(self) -> None:
+        files = {
+            "python/src/future_runtime.py": (
+                'RUNTIME_ENV_PREFIXES = ("FUTURE_UNKNOWN_",)\n'
+            )
+        }
+        with _tracked_scan_root(files) as scan_root:
+            with self.assertRaisesRegex(
+                ValueError, "FUTURE_UNKNOWN_"
+            ):
+                audit.collect_environment_namespace_edges(scan_root)
 
     def test_surface_dependency_coverage_cannot_omit_runtime_dependency(self) -> None:
         mutated = copy.deepcopy(self.manifest)
