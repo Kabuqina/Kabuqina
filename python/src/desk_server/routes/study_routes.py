@@ -14,6 +14,7 @@ from fastapi import APIRouter, HTTPException, Query
 from learning.builtin_course_seed import seed_builtin_course
 from learning.evaluations import EvaluationService
 from learning.flashcards import FlashcardService
+from learning.knowledge_graph import KnowledgeGraphService
 from learning.learning_contract import ContractError
 from learning.learning_plans import LearningPlanService
 from learning.learning_store import LearningStore
@@ -74,7 +75,13 @@ def _artifact_ref(artifact: Dict[str, Any]) -> Dict[str, Any]:
     # Reviewable STUDY panels carry their payload so the UI can render content
     # without a second round-trip, and active items remain visible after trust
     # transition.
-    if artifact.get("kind") in ("resource_pack", "student_state", "learning_plan", "evaluation"):
+    if artifact.get("kind") in (
+        "resource_pack",
+        "knowledge_base",
+        "student_state",
+        "learning_plan",
+        "evaluation",
+    ):
         ref["payload"] = (artifact.get("envelope") or {}).get("payload")
     return ref
 
@@ -375,11 +382,51 @@ async def study_drafts(kind: Optional[str] = Query(default=None)):
             # Panel-rendered artifacts have no separate "active" surface like
             # flashcards/quizzes, so return draft + active together — activation
             # should keep them visible, not hide them.
-            statuses = ("draft", "active") if kind in ("resource_pack", "student_state", "learning_plan", "evaluation") else ("draft",)
+            statuses = (
+                ("draft", "active")
+                if kind
+                in (
+                    "resource_pack",
+                    "knowledge_base",
+                    "student_state",
+                    "learning_plan",
+                    "evaluation",
+                )
+                else ("draft",)
+            )
             items = []
             for st in statuses:
                 items.extend(ctx.list_artifacts(kind=kind, status=st))
             return {"drafts": [_artifact_ref(item) for item in items]}
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+
+@router.get("/api/desk/study/knowledge-graph")
+async def study_knowledge_graph():
+    """Project the current course space's reviewed knowledge bases as a graph."""
+    try:
+        with _desktop_ctx() as ctx:
+            if not ctx.current_space():
+                return {"nodes": [], "edges": [], "courses": []}
+            return KnowledgeGraphService(ctx).build()
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+
+@router.get(
+    "/api/desk/study/knowledge-concepts/{artifact_id}/{concept_index}"
+)
+async def study_knowledge_concept(artifact_id: str, concept_index: int):
+    """Read one reviewed concept in the authenticated owner's current space."""
+    try:
+        with _desktop_ctx() as ctx:
+            if not ctx.current_space():
+                raise KeyError("concept not found")
+            concept = KnowledgeGraphService(ctx).get_concept(
+                artifact_id, concept_index
+            )
+            return {"concept": concept}
     except (ValueError, KeyError, ContractError) as exc:
         raise _http_error(exc) from exc
 

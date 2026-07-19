@@ -120,6 +120,37 @@ def _seed_resource_pack(db_path: Path, *, status: str = "draft") -> str:
         store.close()
 
 
+def _write_knowledge_base(
+    ctx: LearningExecutionContext,
+    *,
+    title: str,
+    term: str,
+    status: str = "draft",
+    prerequisites: list[str] | None = None,
+) -> str:
+    artifact_id = OutputWriter(ctx).write_artifact(
+        kind="knowledge_base",
+        title=title,
+        payload={
+            "course": "Computer Science",
+            "specialty": "Artificial Intelligence",
+            "concepts": [
+                {
+                    "term": term,
+                    "module": title,
+                    "explanation": f"An explanation of {term}.",
+                    "content_markdown": f"# {term}\n\nDetailed notes for {term}.",
+                    "prerequisites": prerequisites or [],
+                    "related": [],
+                }
+            ],
+        },
+    )["artifact_id"]
+    if status == "active":
+        ctx.set_artifact_status(artifact_id, "active")
+    return artifact_id
+
+
 def test_space_routes_create_list_and_select(study_client):
     client, _db_path = study_client
 
@@ -254,6 +285,110 @@ def test_resource_artifact_detail_is_scoped_to_current_space(study_client):
         headers=_headers(),
     )
     assert visible.status_code == 200
+
+
+def test_knowledge_graph_projects_active_bases_and_keeps_reviewable_bases_visible(
+    study_client,
+):
+    client, db_path = study_client
+    store = LearningStore(db_path=db_path)
+    try:
+        ctx = LearningExecutionContext(store, owner_id=OWNER)
+        ctx.create_space(title="Computer Science", space_id="s1")
+        active_id = _write_knowledge_base(
+            ctx, title="Programming", term="Algorithms", status="active"
+        )
+        draft_id = _write_knowledge_base(
+            ctx, title="Unreviewed", term="Hidden draft", status="draft"
+        )
+    finally:
+        store.close()
+
+    graph = client.get("/api/desk/study/knowledge-graph", headers=_headers())
+
+    assert graph.status_code == 200
+    assert [node["label"] for node in graph.json()["nodes"]] == ["Algorithms"]
+    assert graph.json()["courses"] == ["Computer Science"]
+
+    drafts = client.get(
+        "/api/desk/study/drafts?kind=knowledge_base", headers=_headers()
+    )
+    assert drafts.status_code == 200
+    assert {item["artifact_id"] for item in drafts.json()["drafts"]} == {
+        active_id,
+        draft_id,
+    }
+    assert all("payload" in item for item in drafts.json()["drafts"])
+
+
+def test_knowledge_graph_is_scoped_to_current_space_and_owner(study_client):
+    client, db_path = study_client
+    store = LearningStore(db_path=db_path)
+    try:
+        owner_ctx = LearningExecutionContext(store, owner_id=OWNER)
+        owner_ctx.create_space(title="First", space_id="s1")
+        _write_knowledge_base(
+            owner_ctx, title="First", term="Visible in first", status="active"
+        )
+        owner_ctx.create_space(title="Second", space_id="s2")
+        _write_knowledge_base(
+            owner_ctx, title="Second", term="Visible in second", status="active"
+        )
+
+        other_ctx = LearningExecutionContext(store, owner_id="desktop:other-owner")
+        other_ctx.create_space(title="Second", space_id="s2")
+        _write_knowledge_base(
+            other_ctx, title="Other", term="Other owner's concept", status="active"
+        )
+    finally:
+        store.close()
+
+    second = client.get("/api/desk/study/knowledge-graph", headers=_headers())
+    assert second.status_code == 200
+    assert [node["label"] for node in second.json()["nodes"]] == [
+        "Visible in second"
+    ]
+
+    selected = client.post("/api/desk/study/spaces/s1/select", headers=_headers())
+    assert selected.status_code == 200
+    first = client.get("/api/desk/study/knowledge-graph", headers=_headers())
+    assert [node["label"] for node in first.json()["nodes"]] == [
+        "Visible in first"
+    ]
+
+
+def test_knowledge_concept_detail_requires_active_current_space(study_client):
+    client, db_path = study_client
+    store = LearningStore(db_path=db_path)
+    try:
+        ctx = LearningExecutionContext(store, owner_id=OWNER)
+        ctx.create_space(title="Computer Science", space_id="s1")
+        active_id = _write_knowledge_base(
+            ctx, title="AI", term="Graph search", status="active"
+        )
+        draft_id = _write_knowledge_base(
+            ctx, title="Draft", term="Unreviewed search", status="draft"
+        )
+    finally:
+        store.close()
+
+    detail = client.get(
+        f"/api/desk/study/knowledge-concepts/{active_id}/0", headers=_headers()
+    )
+    assert detail.status_code == 200
+    concept = detail.json()["concept"]
+    assert concept["artifact_id"] == active_id
+    assert concept["term"] == "Graph search"
+    assert concept["content_markdown"].startswith("# Graph search")
+
+    unreviewed = client.get(
+        f"/api/desk/study/knowledge-concepts/{draft_id}/0", headers=_headers()
+    )
+    assert unreviewed.status_code == 404
+    missing = client.get(
+        f"/api/desk/study/knowledge-concepts/{active_id}/99", headers=_headers()
+    )
+    assert missing.status_code == 404
 
 
 def test_legacy_flashcard_migration_is_idempotent(study_client):

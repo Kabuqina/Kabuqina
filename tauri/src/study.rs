@@ -24,6 +24,13 @@ fn study_artifact_detail_path(artifact_id: &str) -> Result<String, String> {
     Ok(format!("/api/desk/study/artifacts/{artifact_id}"))
 }
 
+fn study_knowledge_concept_path(artifact_id: &str, concept_index: u32) -> Result<String, String> {
+    validate_study_path_id(artifact_id)?;
+    Ok(format!(
+        "/api/desk/study/knowledge-concepts/{artifact_id}/{concept_index}"
+    ))
+}
+
 #[tauri::command]
 pub async fn cmd_study_spaces(app: AppHandle) -> Result<Value, String> {
     crate::chat::desk_json_request(&app, reqwest::Method::GET, "/api/desk/study/spaces", None).await
@@ -70,6 +77,27 @@ pub async fn cmd_study_artifact_detail(
     artifact_id: String,
 ) -> Result<Value, String> {
     let path = study_artifact_detail_path(&artifact_id)?;
+    crate::chat::desk_json_request(&app, reqwest::Method::GET, &path, None).await
+}
+
+#[tauri::command]
+pub async fn cmd_study_knowledge_graph(app: AppHandle) -> Result<Value, String> {
+    crate::chat::desk_json_request(
+        &app,
+        reqwest::Method::GET,
+        "/api/desk/study/knowledge-graph",
+        None,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_knowledge_concept(
+    app: AppHandle,
+    artifact_id: String,
+    concept_index: u32,
+) -> Result<Value, String> {
+    let path = study_knowledge_concept_path(&artifact_id, concept_index)?;
     crate::chat::desk_json_request(&app, reqwest::Method::GET, &path, None).await
 }
 
@@ -369,5 +397,15 @@ mod tests {
             "/api/desk/study/artifacts/resource-pack_01"
         );
         assert!(study_artifact_detail_path("../resource-pack").is_err());
+    }
+
+    #[test]
+    fn knowledge_concept_path_is_validated_before_proxying() {
+        assert_eq!(
+            study_knowledge_concept_path("knowledge-base_01", 7).unwrap(),
+            "/api/desk/study/knowledge-concepts/knowledge-base_01/7"
+        );
+        assert!(study_knowledge_concept_path("../knowledge-base", 0).is_err());
+        assert!(study_knowledge_concept_path("knowledge-base?draft=1", 0).is_err());
     }
 }

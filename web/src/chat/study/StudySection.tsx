@@ -7,7 +7,6 @@
 // STUDY_ACTIONS.
 
 import {
-  BookMarked,
   BrainCircuit,
   Eraser,
   Layers3,
@@ -25,6 +24,7 @@ import { WorkspaceActionButton, WorkspaceSection } from "../workspaceSection";
 import { EvaluationPanel } from "./EvaluationPanel";
 import { FlashcardPanel } from "./FlashcardPanel";
 import { LearningPathPanel } from "./LearningPathPanel";
+import { KnowledgeBasePanel } from "./KnowledgeBasePanel";
 import { QuizPanel } from "./QuizPanel";
 import { ProfilePanel } from "./ProfilePanel";
 import { STUDY_LEARNING_EVENT } from "./flashcardLearningStore";
@@ -62,12 +62,6 @@ const STUDY_ACTIONS: StudyAction[] = [
   // 「构建学习画像」已由顶部「学习画像（6 维）」面板承载，此处不再重复。
   // 「学习路径」已由专属面板承载，此处不再重复。
   // 「学习效果评估」已由专属面板承载，此处不再重复。
-  {
-    id: "courseKnowledgeBase",
-    icon: BookMarked,
-    labelKey: "chat.workspaceBuildCourseKnowledgeBase",
-    prompt: STUDY_PROMPTS.courseKnowledgeBase,
-  },
   {
     id: "learningResources",
     icon: Layers3,
@@ -280,6 +274,7 @@ export function StudySection({
   return (
     <>
       <ProfilePanel onStartPrompt={onStartPrompt} />
+      <KnowledgeBasePanel onStartPrompt={onStartPrompt} />
       <LearningPathPanel onStartPrompt={onStartPrompt} />
       <EvaluationPanel onStartPrompt={onStartPrompt} />
       <WorkspaceSection

@@ -228,12 +228,18 @@ def _v_student_state(p: Mapping[str, Any]) -> None:
 
 
 def _v_knowledge_base(p: Mapping[str, Any]) -> None:
+    _opt_str(p, "course", "knowledge_base")
+    _opt_str(p, "specialty", "knowledge_base")
     concepts = _req_nonempty_list(p, "concepts", "knowledge_base")
     for i, c in enumerate(concepts):
         ctx = f"knowledge_base.concepts[{i}]"
         cm = _mapping(c, ctx)
         _req_str(cm, "term", ctx)
         _req_str(cm, "explanation", ctx)
+        _opt_str(cm, "module", ctx)
+        _opt_str(cm, "content_markdown", ctx)
+        _opt_str_list(cm, "prerequisites", ctx)
+        _opt_str_list(cm, "related", ctx)
 
 
 def _v_learning_plan(p: Mapping[str, Any]) -> None:

@@ -494,6 +494,7 @@ export function ChatPage() {
           width={workbench.leftWidth}
           onResize={workbench.setLeftWidth}
           onNewChat={onNewChat}
+          onOpenKnowledgeGraph={() => nav("/study/knowledge-graph")}
           onOpenScheduledTasks={() => nav("/settings/cron", { state: { cronBackTo: "/chat" } })}
           onOpenWorkspace={() => void invoke("cmd_open_workspace")}
           onOrganizeDesktop={handleOrganizeDesktop}

@@ -1145,6 +1145,7 @@ assert.match(chatPageReminderSource, /\/settings\/cron/);
 // (web/src/chat/study) and render as a section in the STUDY workspace panel.
 const { STUDY_PROMPTS } = await importTs("./study/studyPrompts.ts");
 const studySectionSource = fs.readFileSync(new URL("./study/StudySection.tsx", import.meta.url), "utf8");
+const knowledgeBasePanelSource = fs.readFileSync(new URL("./study/KnowledgeBasePanel.tsx", import.meta.url), "utf8");
 const learningPathPanelSource = fs.readFileSync(new URL("./study/LearningPathPanel.tsx", import.meta.url), "utf8");
 const evaluationPanelSource = fs.readFileSync(new URL("./study/EvaluationPanel.tsx", import.meta.url), "utf8");
 const studyStoreSource = fs.readFileSync(new URL("./study/studyStore.ts", import.meta.url), "utf8");
@@ -1312,8 +1313,13 @@ assert.doesNotMatch(
 );
 assert.match(
   studySectionSource,
-  /workspaceBuildCourseKnowledgeBase[\s\S]*workspaceBuildResourcePack[\s\S]*workspaceStartLearningTutor[\s\S]*workspaceStartFeynmanTutor[\s\S]*workspaceReviewStudyContent/,
+  /workspaceBuildResourcePack[\s\S]*workspaceStartLearningTutor[\s\S]*workspaceStartFeynmanTutor[\s\S]*workspaceReviewStudyContent/,
   "StudySection should wire the remaining shared learning quick actions in order.",
+);
+assert.doesNotMatch(
+  studySectionSource,
+  /workspaceBuildCourseKnowledgeBase/,
+  "Course knowledge-base generation should live in its dedicated review panel.",
 );
 assert.doesNotMatch(
   studySectionSource,
@@ -1322,9 +1328,16 @@ assert.doesNotMatch(
 );
 assert.match(
   studySectionSource,
-  /<ProfilePanel onStartPrompt=\{onStartPrompt\} \/>[\s\S]*<LearningPathPanel onStartPrompt=\{onStartPrompt\} \/>[\s\S]*<EvaluationPanel onStartPrompt=\{onStartPrompt\} \/>/,
-  "LearningPathPanel and EvaluationPanel should render below the profile panel in STUDY.",
+  /<ProfilePanel onStartPrompt=\{onStartPrompt\} \/>[\s\S]*<KnowledgeBasePanel onStartPrompt=\{onStartPrompt\} \/>[\s\S]*<LearningPathPanel onStartPrompt=\{onStartPrompt\} \/>[\s\S]*<EvaluationPanel onStartPrompt=\{onStartPrompt\} \/>/,
+  "Knowledge, path, and evaluation panels should render below the profile panel in STUDY.",
 );
+assert.match(
+  knowledgeBasePanelSource,
+  /cmdStudyDrafts\("knowledge_base"\)/,
+  "The knowledge-base panel should review drafts and open the trusted graph projection.",
+);
+assert.match(knowledgeBasePanelSource, /cmdStudyArtifactActivate/);
+assert.match(knowledgeBasePanelSource, /\/study\/knowledge-graph/);
 assert.match(
   learningPathPanelSource,
   /cmdStudyDrafts\("learning_plan"\)[\s\S]*cmdStudyArtifactActivate[\s\S]*cmdStudyArtifactReject/,
@@ -1357,7 +1370,7 @@ assert.match(
 );
 assert.match(
   chatMarkdownSource,
-  /import\("mermaid"\)[\s\S]*language-\",\s*""\)[\s\S]*lang === "mermaid"[\s\S]*<MermaidBlock/,
+  /import\("mermaid"\)[\s\S]*language-",\s*""\)[\s\S]*lang === "mermaid"[\s\S]*<MermaidBlock/,
   "ChatMarkdown should lazily render fenced mermaid diagrams.",
 );
 assert.match(

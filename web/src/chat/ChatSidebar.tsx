@@ -10,6 +10,7 @@ import {
   Image as ImageIcon,
   type LucideIcon,
   MessageCircle,
+  Network,
   PanelLeft,
   Plus,
   Trash2,
@@ -28,6 +29,7 @@ export interface ChatSidebarProps {
   collapsed?: boolean;
   onToggleCollapsed: () => void;
   onNewChat: () => void;
+  onOpenKnowledgeGraph: () => void;
   onOpenScheduledTasks: () => void;
   onOpenWorkspace: () => void;
   onOrganizeDesktop: () => void;
@@ -113,6 +115,7 @@ export function ChatSidebar({
   collapsed = false,
   onToggleCollapsed,
   onNewChat,
+  onOpenKnowledgeGraph,
   onOpenScheduledTasks,
   onOpenWorkspace,
   onOrganizeDesktop,
@@ -312,6 +315,13 @@ export function ChatSidebar({
         ))}
       </div>
       <div className={cn("kq-sidebar-common-actions shrink-0 border-t border-[var(--kq-glass-border)] py-1.5", collapsed ? "px-2" : "px-2")}>
+        <SidebarCommonActionButton
+          onClick={onOpenKnowledgeGraph}
+          icon={Network}
+          iconClassName="kq-color-icon-course"
+          label={locale === "zh" ? "知识图谱" : "Knowledge graph"}
+          collapsed={collapsed}
+        />
         <SidebarCommonActionButton
           onClick={onOpenWorkspace}
           icon={FolderOpen}

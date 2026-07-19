@@ -33,7 +33,7 @@ export type StudyArtifact = {
   created_at?: string;
   updated_at?: string;
   // Panel-rendered drafts carry their payload (see study_routes._artifact_ref)
-  payload?: ResourcePackPayload & StudentStatePayload & LearningPlanPayload & EvaluationPayload;
+  payload?: ResourcePackPayload & StudentStatePayload & LearningPlanPayload & EvaluationPayload & KnowledgeBasePayload;
 };
 
 // M1 6-dimension learning profile (rendered by ProfilePanel radar).
@@ -86,6 +86,61 @@ export type ResourcePackResource = {
 export type ResourcePackPayload = {
   resource_type?: string;
   resources?: ResourcePackResource[];
+};
+
+export type KnowledgeBaseConcept = {
+  term: string;
+  explanation: string;
+  module?: string;
+  content_markdown?: string;
+  prerequisites?: string[];
+  related?: string[];
+};
+
+export type KnowledgeBasePayload = {
+  specialty?: string;
+  course?: string;
+  concepts?: KnowledgeBaseConcept[];
+};
+
+export type KnowledgeGraphNode = {
+  id: string;
+  artifact_id: string;
+  concept_index: number;
+  label: string;
+  module: string;
+  summary: string;
+};
+
+export type KnowledgeGraphEdge = {
+  id: string;
+  source: string;
+  target: string;
+  kind: "prerequisite" | "related";
+};
+
+export type StudyKnowledgeGraphResponse = {
+  nodes: KnowledgeGraphNode[];
+  edges: KnowledgeGraphEdge[];
+  courses: string[];
+};
+
+export type KnowledgeConceptDetail = {
+  artifact_id: string;
+  concept_index: number;
+  knowledge_base_title: string;
+  specialty: string;
+  course: string;
+  term: string;
+  module: string;
+  explanation: string;
+  content_markdown: string;
+  prerequisites: string[];
+  related: string[];
+};
+
+export type StudyKnowledgeConceptResponse = {
+  concept: KnowledgeConceptDetail;
 };
 
 // M4 personalized learning path (rendered by LearningPathPanel).
@@ -273,6 +328,17 @@ export function cmdStudyDrafts(kind = "flashcard_deck"): Promise<StudyDraftsResp
 
 export function cmdStudyArtifactDetail(artifactId: string): Promise<StudyArtifactDetailResponse> {
   return invoke("cmd_study_artifact_detail", { artifactId });
+}
+
+export function cmdStudyKnowledgeGraph(): Promise<StudyKnowledgeGraphResponse> {
+  return invoke("cmd_study_knowledge_graph");
+}
+
+export function cmdStudyKnowledgeConcept(
+  artifactId: string,
+  conceptIndex: number,
+): Promise<StudyKnowledgeConceptResponse> {
+  return invoke("cmd_study_knowledge_concept", { artifactId, conceptIndex });
 }
 
 export function cmdStudyArtifactActivate(artifactId: string): Promise<unknown> {

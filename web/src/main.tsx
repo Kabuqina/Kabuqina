@@ -17,6 +17,8 @@ import { Export } from "./advanced/Export";
 import { Splash } from "./Splash";
 import { ChatPage } from "./chat/ChatPage";
 import { ResourceDetailPage } from "./study/ResourceDetailPage";
+import { KnowledgeConceptPage } from "./study/KnowledgeConceptPage";
+import { KnowledgeGraphPage } from "./study/KnowledgeGraphPage";
 import { FeishuPage } from "./advanced/pages/FeishuPage";
 import { CapabilitiesPage } from "./advanced/pages/CapabilitiesPage";
 import { LoadPackagesPage } from "./advanced/pages/LoadPackagesPage";
@@ -93,6 +95,8 @@ function MainWindowShell() {
               <Route path="/settings/cron" element={<ScheduledTasksPage />} />
               <Route path="/chat" element={<ChatPage />} />
               <Route path="/study/resources/:artifactId" element={<ResourceDetailPage />} />
+              <Route path="/study/knowledge-graph" element={<KnowledgeGraphPage />} />
+              <Route path="/study/knowledge/:artifactId/:conceptIndex" element={<KnowledgeConceptPage />} />
               <Route path="/brand-svg-preview" element={<BrandSvgPreview />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
