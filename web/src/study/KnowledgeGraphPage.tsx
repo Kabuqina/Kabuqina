@@ -58,6 +58,7 @@ function KnowledgeGraphCanvas({
   edges: KnowledgeGraphEdge[];
   onOpenNode: (node: KnowledgeGraphNode) => void;
 }) {
+  const { locale } = useI18n();
   const svgRef = useRef<SVGSVGElement | null>(null);
   const gestureRef = useRef<Gesture | null>(null);
   const initialPositions = useMemo(() => layoutKnowledgeNodes(nodes), [nodes]);
@@ -348,8 +349,8 @@ function KnowledgeGraphCanvas({
         </button>
       </div>
       <div className="pointer-events-none absolute bottom-3 left-3 rounded-xl border border-[var(--kq-color-border)] bg-[var(--kq-glass-bg)] px-3 py-2 text-xs text-[var(--kq-color-muted)] backdrop-blur">
-        <span className="mr-3">→ prerequisite</span>
-        <span>┄ related</span>
+        <span className="mr-3">{locale === "zh" ? "→ 前置关系" : "→ prerequisite"}</span>
+        <span>{locale === "zh" ? "┄ 关联关系" : "┄ related"}</span>
       </div>
     </div>
   );

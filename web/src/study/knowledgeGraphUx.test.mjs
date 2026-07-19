@@ -20,6 +20,8 @@ assert.match(graphPage, /collectGraphNeighborhood/, "hover, focus, and drag emph
 assert.match(graphPage, /draggingNodeId[\s\S]*settlingNodeId/, "node drag has distinct lifted and release states");
 assert.match(graphPage, /motion-reduce:transition-none/, "graph transitions respect reduced-motion preferences");
 assert.match(graphPage, /motion-reduce:animate-none/, "drag emphasis does not pulse when reduced motion is requested");
+assert.match(graphPage, /→ 前置关系/, "the prerequisite legend is localized for Chinese learners");
+assert.match(graphPage, /┄ 关联关系/, "the related-link legend is localized for Chinese learners");
 assert.match(graphPage, /cmdStudyKnowledgeGraph/, "graph loads owner-scoped backend projection");
 assert.match(graphPage, /\/study\/knowledge\/\$\{encodeURIComponent\(node\.artifact_id\)\}/, "node opens its document route");
 assert.match(conceptPage, /<ChatMarkdown text=\{articleBody\} variant="article"/, "concept document uses the full article reader");
