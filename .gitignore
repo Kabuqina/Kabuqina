@@ -81,3 +81,7 @@ tauri/_icons_new/
 # Brand artwork masters live in the private Kabuqina/kabuqina-mascot repository.
 # The student competition branch keeps the generated build-path assets only.
 /Na_logo/
+
+# Local course source packs (kept on the development machine, never pushed)
+/course0-Advanced-Programming-of-Python/
+/course1-C-Programming/
