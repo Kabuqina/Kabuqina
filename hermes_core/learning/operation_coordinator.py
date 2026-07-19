@@ -29,7 +29,6 @@ MAX_RECOVERED_OPERATIONS = 100
 MAX_ROLLBACK_MANIFEST_BYTES = 64 * 1024
 OPERATION_KINDS = frozenset({"delete", "full_import", "runtime_restore"})
 
-_OPAQUE_ID_RE = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
 _PHASE_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _ACL_LOCK = threading.Lock()
@@ -116,7 +115,15 @@ def _require_owner_id(value: Any) -> str:
 def _require_space_id(value: Any) -> str:
     if value == "":
         return ""
-    if not isinstance(value, str) or not _OPAQUE_ID_RE.fullmatch(value):
+    # Coordination also guards learning.db rows created by v0.4, whose space
+    # IDs predate the stricter Tutor public-wire alphabet.  Keep this internal
+    # scope key backward-compatible; Tutor activity keys validate separately.
+    if (
+        not isinstance(value, str)
+        or not value
+        or len(value) > 512
+        or "\x00" in value
+    ):
         raise ValueError("space_id is invalid")
     return value
 
@@ -710,4 +717,3 @@ __all__ = [
     "OperationLease",
     "secure_coordination_db",
 ]
-
