@@ -5,10 +5,14 @@
 
 use crate::chat::DeskBridgeError;
 use serde_json::{json, Value};
-use std::path::Path;
+use sha2::{Digest, Sha256};
+use std::fs::{File, OpenOptions};
+use std::io::Write;
+use std::path::{Path, PathBuf};
 use tauri::AppHandle;
+use uuid::Uuid;
 
-const STUDY_IMPORT_FILE_MAX_BYTES: u64 = 10 * 1024 * 1024;
+const STUDY_BUNDLE_FILE_MAX_BYTES: u64 = 24 * 1024 * 1024;
 
 fn validate_study_path_id(id: &str) -> Result<(), String> {
     let ok = !id.is_empty()
@@ -26,6 +30,33 @@ fn validate_study_path_id(id: &str) -> Result<(), String> {
 fn validate_structured_id(id: &str) -> Result<(), DeskBridgeError> {
     validate_study_path_id(id)
         .map_err(|detail| DeskBridgeError::invalid("invalid_study_id", detail))
+}
+
+fn validate_activity_kind(kind: &str) -> Result<(), DeskBridgeError> {
+    if matches!(kind, "tutor" | "review" | "practice") {
+        Ok(())
+    } else {
+        Err(DeskBridgeError::invalid(
+            "study_activity_invalid_request",
+            "invalid activity kind",
+        ))
+    }
+}
+
+fn validate_activity_wire_id(id: &str) -> Result<(), DeskBridgeError> {
+    let valid = !id.is_empty()
+        && id.len() <= 128
+        && id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b':' | b'-'));
+    if valid {
+        Ok(())
+    } else {
+        Err(DeskBridgeError::invalid(
+            "study_activity_invalid_request",
+            "invalid Tutor activity id",
+        ))
+    }
 }
 
 #[tauri::command]
@@ -239,6 +270,110 @@ pub async fn cmd_study_activities(
 }
 
 #[tauri::command]
+pub async fn cmd_study_activity_start(
+    app: AppHandle,
+    body: Value,
+) -> Result<Value, DeskBridgeError> {
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::POST,
+        "/api/desk/study/activity-runs",
+        Some(body),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_activity_get(
+    app: AppHandle,
+    space_id: String,
+    activity_kind: String,
+    activity_id: String,
+) -> Result<Value, DeskBridgeError> {
+    validate_activity_wire_id(&space_id)?;
+    validate_activity_kind(&activity_kind)?;
+    validate_activity_wire_id(&activity_id)?;
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::GET,
+        &format!("/api/desk/study/activity-runs/{activity_kind}/{activity_id}?space_id={space_id}"),
+        None,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_activity_list(
+    app: AppHandle,
+    space_id: String,
+    activity_kind: String,
+    status: Option<String>,
+    limit: Option<u32>,
+) -> Result<Value, DeskBridgeError> {
+    validate_activity_wire_id(&space_id)?;
+    validate_activity_kind(&activity_kind)?;
+    let limit = limit.unwrap_or(100);
+    if !(1..=100).contains(&limit) {
+        return Err(DeskBridgeError::invalid(
+            "study_activity_invalid_request",
+            "limit must be within 1..100",
+        ));
+    }
+    let mut query = vec![
+        format!("space_id={space_id}"),
+        format!("activity_kind={activity_kind}"),
+        format!("limit={limit}"),
+    ];
+    if let Some(status) = status.filter(|value| !value.trim().is_empty()) {
+        validate_activity_wire_id(status.trim())?;
+        query.push(format!("status={}", status.trim()));
+    }
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::GET,
+        &format!("/api/desk/study/activity-runs?{}", query.join("&")),
+        None,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_activity_resume(
+    app: AppHandle,
+    activity_kind: String,
+    activity_id: String,
+    body: Value,
+) -> Result<Value, DeskBridgeError> {
+    validate_activity_kind(&activity_kind)?;
+    validate_activity_wire_id(&activity_id)?;
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::POST,
+        &format!("/api/desk/study/activity-runs/{activity_kind}/{activity_id}/resume"),
+        Some(body),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_activity_cancel(
+    app: AppHandle,
+    activity_kind: String,
+    activity_id: String,
+    body: Value,
+) -> Result<Value, DeskBridgeError> {
+    validate_activity_kind(&activity_kind)?;
+    validate_activity_wire_id(&activity_id)?;
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::POST,
+        &format!("/api/desk/study/activity-runs/{activity_kind}/{activity_id}/cancel"),
+        Some(body),
+    )
+    .await
+}
+
+#[tauri::command]
 pub async fn cmd_study_data_export(app: AppHandle) -> Result<Value, DeskBridgeError> {
     crate::chat::desk_json_request_structured(
         &app,
@@ -253,12 +388,16 @@ pub async fn cmd_study_data_export(app: AppHandle) -> Result<Value, DeskBridgeEr
 pub async fn cmd_study_data_import(
     app: AppHandle,
     bundle: Value,
+    mode: Option<String>,
 ) -> Result<Value, DeskBridgeError> {
     crate::chat::desk_json_request_structured(
         &app,
         reqwest::Method::POST,
         "/api/desk/study/data/import",
-        Some(json!({"bundle": bundle})),
+        Some(json!({
+            "bundle": bundle,
+            "mode": mode.unwrap_or_else(|| "replace_empty_owner".to_string())
+        })),
     )
     .await
 }
@@ -276,10 +415,13 @@ fn read_study_import_file(path_str: &str) -> Result<Value, DeskBridgeError> {
             "choose an absolute .json backup file",
         ));
     }
-    let metadata = std::fs::metadata(path).map_err(|_| {
+    let link_metadata = std::fs::symlink_metadata(path).map_err(|_| {
         DeskBridgeError::invalid("study_invalid_import_file", "backup file cannot be read")
     })?;
-    if !metadata.is_file() || metadata.len() > STUDY_IMPORT_FILE_MAX_BYTES {
+    if link_metadata.file_type().is_symlink()
+        || !link_metadata.is_file()
+        || link_metadata.len() > STUDY_BUNDLE_FILE_MAX_BYTES
+    {
         return Err(DeskBridgeError::invalid(
             "study_invalid_import_file",
             "backup file is not a supported size",
@@ -291,20 +433,214 @@ fn read_study_import_file(path_str: &str) -> Result<Value, DeskBridgeError> {
     let bundle: Value = serde_json::from_str(&text).map_err(|_| {
         DeskBridgeError::invalid("study_invalid_import_file", "backup file is not valid JSON")
     })?;
-    if !bundle.is_object() || bundle.get("version").and_then(Value::as_u64) != Some(1) {
+    if !bundle.is_object() || !matches!(bundle.get("version").and_then(Value::as_u64), Some(1 | 2))
+    {
         return Err(DeskBridgeError::invalid(
             "study_invalid_import_file",
-            "backup file must be a version 1 study bundle",
+            "backup file must be a version 1 or 2 study bundle",
         ));
     }
     Ok(bundle)
 }
 
 /// Read a backup chosen through the native dialog. This command intentionally
-/// returns only a validated v1 JSON object; it never writes or imports data.
+/// returns only a validated v1/v2 JSON object; it never writes or imports data.
 #[tauri::command]
 pub fn cmd_study_data_import_file(path_str: String) -> Result<Value, DeskBridgeError> {
     read_study_import_file(&path_str)
+}
+
+fn bundle_sha256(bundle: &Value) -> Result<String, DeskBridgeError> {
+    let bytes = serde_json::to_vec(bundle).map_err(|_| {
+        DeskBridgeError::invalid(
+            "study_downgrade_backup_failed",
+            "backup bundle cannot be serialized",
+        )
+    })?;
+    Ok(hex::encode(Sha256::digest(bytes)))
+}
+
+fn validate_backup_destination(path_str: &str) -> Result<PathBuf, DeskBridgeError> {
+    let path = PathBuf::from(path_str);
+    if !path.is_absolute()
+        || !path
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("json"))
+    {
+        return Err(DeskBridgeError::invalid(
+            "study_downgrade_backup_failed",
+            "choose an absolute .json backup path",
+        ));
+    }
+    let parent = path.parent().ok_or_else(|| {
+        DeskBridgeError::invalid(
+            "study_downgrade_backup_failed",
+            "backup path has no parent directory",
+        )
+    })?;
+    if !parent.is_dir() {
+        return Err(DeskBridgeError::invalid(
+            "study_downgrade_backup_failed",
+            "backup parent directory is unavailable",
+        ));
+    }
+    if let Ok(metadata) = std::fs::symlink_metadata(&path) {
+        if metadata.file_type().is_symlink() || !metadata.is_file() {
+            return Err(DeskBridgeError::invalid(
+                "study_downgrade_backup_failed",
+                "backup destination must be a regular file",
+            ));
+        }
+    }
+    Ok(path)
+}
+
+fn write_verified_backup_with_hooks<W, H>(
+    path_str: &str,
+    bundle: &Value,
+    expected_sha256: &str,
+    mut write_bytes: W,
+    after_replace: H,
+) -> Result<(), DeskBridgeError>
+where
+    W: FnMut(&mut File, &[u8]) -> std::io::Result<()>,
+    H: FnOnce(&Path) -> std::io::Result<()>,
+{
+    if expected_sha256.len() != 64
+        || !expected_sha256
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
+        || bundle_sha256(bundle)? != expected_sha256
+    {
+        return Err(DeskBridgeError::invalid(
+            "study_downgrade_backup_failed",
+            "prepared bundle hash is invalid",
+        ));
+    }
+    let path = validate_backup_destination(path_str)?;
+    let bytes = serde_json::to_vec(bundle).map_err(|_| {
+        DeskBridgeError::invalid(
+            "study_downgrade_backup_failed",
+            "backup bundle cannot be serialized",
+        )
+    })?;
+    if bytes.len() as u64 > STUDY_BUNDLE_FILE_MAX_BYTES {
+        return Err(DeskBridgeError::invalid(
+            "study_downgrade_backup_failed",
+            "backup bundle exceeds 24 MiB",
+        ));
+    }
+    let file_name = path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .unwrap_or("study-backup.json");
+    let temp_path = path.with_file_name(format!(".{file_name}.{}.tmp", Uuid::new_v4().simple()));
+    let result = (|| -> std::io::Result<()> {
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temp_path)?;
+        write_bytes(&mut file, &bytes)?;
+        file.flush()?;
+        file.sync_all()?;
+        drop(file);
+        std::fs::rename(&temp_path, &path)?;
+        after_replace(&path)?;
+        Ok(())
+    })();
+    if result.is_err() {
+        let _ = std::fs::remove_file(&temp_path);
+        return Err(DeskBridgeError::invalid(
+            "study_downgrade_backup_failed",
+            "backup file could not be written safely",
+        ));
+    }
+    let readback = read_study_import_file(path_str).map_err(|_| {
+        DeskBridgeError::invalid(
+            "study_downgrade_backup_failed",
+            "backup readback validation failed",
+        )
+    })?;
+    if bundle_sha256(&readback)? != expected_sha256 {
+        return Err(DeskBridgeError::invalid(
+            "study_downgrade_backup_failed",
+            "backup readback hash mismatch",
+        ));
+    }
+    Ok(())
+}
+
+fn write_verified_backup(
+    path_str: &str,
+    bundle: &Value,
+    expected_sha256: &str,
+) -> Result<(), DeskBridgeError> {
+    write_verified_backup_with_hooks(
+        path_str,
+        bundle,
+        expected_sha256,
+        |file, bytes| file.write_all(bytes),
+        |_| Ok(()),
+    )
+}
+
+#[tauri::command]
+pub async fn cmd_study_prepare_downgrade(
+    app: AppHandle,
+    path_str: String,
+) -> Result<Value, DeskBridgeError> {
+    let prepared = crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::POST,
+        "/api/desk/study/data/prepare-downgrade",
+        Some(json!({})),
+    )
+    .await?;
+    let bundle = prepared.get("bundle").cloned().ok_or_else(|| {
+        DeskBridgeError::new(
+            None,
+            "study_downgrade_backup_failed",
+            "prepare response omitted bundle",
+        )
+    })?;
+    let expected_sha256 = prepared
+        .get("bundle_sha256")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .ok_or_else(|| {
+            DeskBridgeError::new(
+                None,
+                "study_downgrade_backup_failed",
+                "prepare response omitted bundle hash",
+            )
+        })?;
+    let write_path = path_str.clone();
+    let write_hash = expected_sha256.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        write_verified_backup(&write_path, &bundle, &write_hash)
+    })
+    .await
+    .map_err(|_| {
+        DeskBridgeError::new(
+            None,
+            "study_downgrade_backup_failed",
+            "backup writer did not complete",
+        )
+    })??;
+
+    let committed = crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::POST,
+        "/api/desk/study/data/prepare-downgrade/commit",
+        Some(json!({"bundle_sha256": expected_sha256})),
+    )
+    .await?;
+    Ok(json!({
+        "path": path_str,
+        "bundleSha256": expected_sha256,
+        "committed": committed,
+    }))
 }
 
 #[tauri::command]
@@ -757,14 +1093,16 @@ mod tests {
     }
 
     #[test]
-    fn study_import_file_requires_a_small_v1_json_object() {
+    fn study_import_file_accepts_v1_and_v2_json_objects() {
         let root = import_test_root("valid-version");
-        let valid = root.join("backup.json");
-        std::fs::write(&valid, r#"{"version":1,"spaces":[]}"#).unwrap();
-        assert!(read_study_import_file(&valid.display().to_string()).is_ok());
+        for version in [1, 2] {
+            let valid = root.join(format!("backup-v{version}.json"));
+            std::fs::write(&valid, format!(r#"{{"version":{version}}}"#)).unwrap();
+            assert!(read_study_import_file(&valid.display().to_string()).is_ok());
+        }
 
         let invalid_version = root.join("invalid.json");
-        std::fs::write(&invalid_version, r#"{"version":2}"#).unwrap();
+        std::fs::write(&invalid_version, r#"{"version":3}"#).unwrap();
         assert_invalid_import_file(read_study_import_file(
             &invalid_version.display().to_string(),
         ));
@@ -792,7 +1130,7 @@ mod tests {
         let oversized = root.join("oversized.json");
         std::fs::File::create(&oversized)
             .unwrap()
-            .set_len(STUDY_IMPORT_FILE_MAX_BYTES + 1)
+            .set_len(STUDY_BUNDLE_FILE_MAX_BYTES + 1)
             .unwrap();
         assert_invalid_import_file(read_study_import_file(&oversized.display().to_string()));
 
@@ -804,6 +1142,155 @@ mod tests {
         std::fs::write(&invalid_json, "not json").unwrap();
         assert_invalid_import_file(read_study_import_file(&invalid_json.display().to_string()));
 
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn study_import_file_accepts_legacy_16_mib_and_near_24_mib_v2() {
+        let root = import_test_root("bundle-boundaries");
+        let legacy = root.join("legacy.json");
+        let legacy_padding = "x".repeat(12 * 1024 * 1024);
+        std::fs::write(
+            &legacy,
+            serde_json::to_vec(&json!({"version": 1, "padding": legacy_padding})).unwrap(),
+        )
+        .unwrap();
+        assert!(read_study_import_file(&legacy.display().to_string()).is_ok());
+
+        let v2 = root.join("v2.json");
+        let v2_padding = "x".repeat(STUDY_BUNDLE_FILE_MAX_BYTES as usize - 256);
+        std::fs::write(
+            &v2,
+            serde_json::to_vec(&json!({"version": 2, "padding": v2_padding})).unwrap(),
+        )
+        .unwrap();
+        assert!(read_study_import_file(&v2.display().to_string()).is_ok());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn study_import_rejects_symlink_or_non_file() {
+        let root = import_test_root("symlink-nonfile");
+        assert_invalid_import_file(read_study_import_file(&root.display().to_string()));
+
+        let target = root.join("target.json");
+        let link = root.join("link.json");
+        std::fs::write(&target, r#"{"version":2}"#).unwrap();
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(&target, &link).unwrap();
+            assert_invalid_import_file(read_study_import_file(&link.display().to_string()));
+        }
+        #[cfg(windows)]
+        {
+            if std::os::windows::fs::symlink_file(&target, &link).is_ok() {
+                assert_invalid_import_file(read_study_import_file(&link.display().to_string()));
+            }
+        }
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn verified_backup_atomically_replaces_and_round_trips_hash() {
+        let root = import_test_root("safe-replace");
+        let path = root.join("backup.json");
+        std::fs::write(&path, r#"{"version":1}"#).unwrap();
+        let bundle = json!({"version": 2, "manifest": {"schema_version": 1}});
+        let hash = bundle_sha256(&bundle).unwrap();
+        write_verified_backup(&path.display().to_string(), &bundle, &hash).unwrap();
+        assert_eq!(
+            read_study_import_file(&path.display().to_string()).unwrap(),
+            bundle
+        );
+        assert_eq!(bundle_sha256(&bundle).unwrap(), hash);
+        assert_eq!(
+            std::fs::read_dir(&root)
+                .unwrap()
+                .filter_map(Result::ok)
+                .count(),
+            1
+        );
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn bundle_hash_matches_the_python_canonical_json_vector() {
+        let bundle = json!({
+            "version": 2,
+            "learning_v1": {
+                "version": 1,
+                "spaces": [{"title": "数学", "space_id": "s.1"}],
+            },
+            "tutor_runtime": {"schema_version": 1, "runs": []},
+            "manifest": {"schema_version": 1},
+        });
+        assert_eq!(
+            bundle_sha256(&bundle).unwrap(),
+            "29bbb599d6ecc59132d4b5372d39f8b81a139f3d262f487ffe4d0b91d6acf5fd"
+        );
+    }
+
+    #[test]
+    fn backup_hash_drift_and_invalid_destination_fail_before_commit() {
+        let root = import_test_root("hash-drift");
+        let path = root.join("backup.json");
+        let bundle = json!({"version": 2});
+        let mut commit_called = false;
+        let result = write_verified_backup(&path.display().to_string(), &bundle, &"0".repeat(64));
+        if result.is_ok() {
+            commit_called = true;
+        }
+        assert!(result.is_err());
+        assert!(!commit_called);
+        assert!(!path.exists());
+
+        let directory_target = root.join("directory.json");
+        std::fs::create_dir(&directory_target).unwrap();
+        assert!(write_verified_backup(
+            &directory_target.display().to_string(),
+            &bundle,
+            &bundle_sha256(&bundle).unwrap(),
+        )
+        .is_err());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn backup_write_and_readback_failures_do_not_reach_commit() {
+        let root = import_test_root("failure-ordering");
+        let bundle = json!({"version": 2, "payload": "safe"});
+        let hash = bundle_sha256(&bundle).unwrap();
+
+        let write_path = root.join("write-failure.json");
+        let mut write_commit_called = false;
+        let write_result = write_verified_backup_with_hooks(
+            &write_path.display().to_string(),
+            &bundle,
+            &hash,
+            |_, _| Err(std::io::Error::other("injected write failure")),
+            |_| Ok(()),
+        );
+        if write_result.is_ok() {
+            write_commit_called = true;
+        }
+        assert!(write_result.is_err());
+        assert!(!write_commit_called);
+        assert!(!write_path.exists());
+
+        let readback_path = root.join("readback-failure.json");
+        let mut readback_commit_called = false;
+        let readback_result = write_verified_backup_with_hooks(
+            &readback_path.display().to_string(),
+            &bundle,
+            &hash,
+            |file, bytes| file.write_all(bytes),
+            |path| std::fs::write(path, r#"{"version":2,"payload":"corrupt"}"#),
+        );
+        if readback_result.is_ok() {
+            readback_commit_called = true;
+        }
+        assert!(readback_result.is_err());
+        assert!(!readback_commit_called);
         let _ = std::fs::remove_dir_all(&root);
     }
 }
