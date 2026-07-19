@@ -328,6 +328,109 @@ def test_crashed_delete_keeps_fence_and_recovery_finishes(service, monkeypatch):
     assert service.coordinator.recover_operations() == ()
 
 
+@pytest.mark.parametrize(
+    "crash_phase",
+    ["fenced", "learning_deleted", "runtime_deleted", "compacted"],
+)
+def test_delete_restart_recovery_phase_matrix(tmp_path, crash_phase):
+    root = tmp_path / crash_phase
+    owner = "owner-1"
+    original = CompositeLearningDataService.from_root(root)
+    _seed_space(original, owner, "space-1")
+    lease = original.coordinator.begin_operation(owner, "", "delete")
+    current = lease
+    if crash_phase != "fenced":
+        original.learning_store.delete_owner_data(owner, operation_lease=current)
+        current = original.coordinator.advance_operation(
+            current, "learning_deleted", {"injected_crash_phase": crash_phase}
+        )
+    if crash_phase in {"runtime_deleted", "compacted"}:
+        original.runtime_store.delete_owner_data(owner, operation_lease=current)
+        current = original.coordinator.advance_operation(
+            current, "runtime_deleted", {"injected_crash_phase": crash_phase}
+        )
+    if crash_phase == "compacted":
+        original.runtime_store.compact(owner, operation_lease=current)
+        original.coordinator.advance_operation(
+            current, "compacted", {"injected_crash_phase": crash_phase}
+        )
+    original.close()
+
+    restarted = CompositeLearningDataService.from_root(root)
+    try:
+        assert restarted.recover_operations() == 1
+        assert restarted.learning_store.export_owner_bundle(owner) == {
+            "version": 1,
+            "spaces": [],
+            "artifacts": [],
+            "items": [],
+            "activities": [],
+            "migrations": [],
+        }
+        assert restarted.runtime_store.owner_is_empty(owner)
+        assert restarted.coordinator.recover_operations() == ()
+    finally:
+        restarted.close()
+
+
+@pytest.mark.parametrize(
+    "crash_phase",
+    ["fenced", "validated_empty", "learning_imported", "runtime_imported"],
+)
+def test_full_import_restart_rollback_phase_matrix(tmp_path, crash_phase):
+    owner = "owner-1"
+    source = CompositeLearningDataService.from_root(tmp_path / "source")
+    target_root = tmp_path / f"target-{crash_phase}"
+    target = CompositeLearningDataService.from_root(target_root)
+    try:
+        _seed_space(source, owner, "space-1")
+        bundle = source.export_owner_bundle(owner)
+        lease = target.coordinator.begin_operation(
+            owner, "", "full_import", target.bundle_sha256(bundle)
+        )
+        current = lease
+        if crash_phase != "fenced":
+            current = target.coordinator.advance_operation(
+                current, "validated_empty", {"target_was_empty": True}
+            )
+        if crash_phase in {"learning_imported", "runtime_imported"}:
+            target.learning_store.import_owner_bundle(
+                owner, bundle["learning_v1"], operation_lease=current
+            )
+            current = target.coordinator.advance_operation(
+                current, "learning_imported", {"target_was_empty": True}
+            )
+        if crash_phase == "runtime_imported":
+            target.runtime_store.import_owner_bundle(
+                owner,
+                bundle["tutor_runtime"],
+                mode="replace_empty_owner",
+                operation_lease=current,
+            )
+            target.coordinator.advance_operation(
+                current, "runtime_imported", {"target_was_empty": True}
+            )
+    finally:
+        source.close()
+        target.close()
+
+    restarted = CompositeLearningDataService.from_root(target_root)
+    try:
+        assert restarted.recover_operations() == 1
+        assert restarted.learning_store.export_owner_bundle(owner) == {
+            "version": 1,
+            "spaces": [],
+            "artifacts": [],
+            "items": [],
+            "activities": [],
+            "migrations": [],
+        }
+        assert restarted.runtime_store.owner_is_empty(owner)
+        assert restarted.coordinator.recover_operations() == ()
+    finally:
+        restarted.close()
+
+
 def test_near_cap_12_checkpoints_and_1000_terminal_summaries_round_trip(service):
     owner = "owner-1"
     _seed_space(service, owner, "space-1")
