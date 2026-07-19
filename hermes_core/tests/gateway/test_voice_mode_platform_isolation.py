@@ -25,19 +25,19 @@ class TestVoiceKeyHelper:
         runner = _make_runner()
         assert runner._voice_key(Platform.TELEGRAM, "123") == "telegram:123"
         assert runner._voice_key(Platform.SLACK, "456") == "slack:456"
-        assert runner._voice_key(Platform.DISCORD, "789") == "discord:789"
+        assert runner._voice_key(Platform.WEIXIN, "789") == "weixin:789"
 
     def test_voice_key_different_platforms_same_chat_id(self):
         """Same chat_id on different platforms yields different keys."""
         runner = _make_runner()
         key_telegram = runner._voice_key(Platform.TELEGRAM, "123")
         key_slack = runner._voice_key(Platform.SLACK, "123")
-        key_discord = runner._voice_key(Platform.DISCORD, "123")
+        key_weixin = runner._voice_key(Platform.WEIXIN, "123")
         assert key_telegram != key_slack
-        assert key_slack != key_discord
+        assert key_slack != key_weixin
         assert key_telegram == "telegram:123"
         assert key_slack == "slack:123"
-        assert key_discord == "discord:123"
+        assert key_weixin == "weixin:123"
 
 
 class TestVoiceModePlatformIsolation:
@@ -102,7 +102,7 @@ class TestLegacyKeyMigration:
         persisted_data = {
             "telegram:123": "all",
             "slack:456": "voice_only",
-            "discord:789": "off",
+            "weixin:789": "off",
         }
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -114,7 +114,7 @@ class TestLegacyKeyMigration:
 
         assert result.get("telegram:123") == "all"
         assert result.get("slack:456") == "voice_only"
-        assert result.get("discord:789") == "off"
+        assert result.get("weixin:789") == "off"
 
     def test_load_voice_modes_invalid_modes_filtered(self):
         """_load_voice_modes filters out invalid mode values."""
@@ -150,7 +150,7 @@ class TestSyncVoiceModeStateToAdapter:
             "telegram:123": "off",      # Should sync
             "telegram:456": "all",       # Should NOT sync (mode is not "off")
             "slack:123": "off",          # Should NOT sync (different platform)
-            "discord:789": "off",        # Should NOT sync (different platform)
+            "weixin:789": "off",         # Should NOT sync (different platform)
         }
 
         # Create a mock Telegram adapter

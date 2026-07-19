@@ -4,7 +4,6 @@ Tests for ``send_multiple_images`` native batching across platforms.
 Covers:
     - Base default loop (per-image fallback for platforms without native batching)
     - Telegram: ``bot.send_media_group`` with chunking at 10
-    - Discord: ``channel.send(files=[...])`` with chunking at 10
     - Slack: ``files_upload_v2(file_uploads=[...])`` with chunking at 10
     - Mattermost: single post with ``file_ids`` list (chunk at 5)
     - Email: single email with multiple MIME attachments
@@ -196,80 +195,6 @@ class TestTelegramMultiImage:
     def test_empty_noop(self, adapter):
         _run(adapter.send_multiple_images("12345", []))
         adapter._bot.send_media_group.assert_not_called()
-
-
-# ---------------------------------------------------------------------------
-# Discord
-# ---------------------------------------------------------------------------
-
-
-def _ensure_discord_mock():
-    if "discord" in sys.modules and hasattr(sys.modules["discord"], "__file__"):
-        return
-    discord_mod = MagicMock()
-    discord_mod.Intents.default.return_value = MagicMock()
-    discord_mod.Client = MagicMock
-    discord_mod.File = MagicMock
-    for name in ("discord", "discord.ext", "discord.ext.commands"):
-        sys.modules.setdefault(name, discord_mod)
-
-
-_ensure_discord_mock()
-
-from gateway.platforms.discord import DiscordAdapter  # noqa: E402
-
-
-class TestDiscordMultiImage:
-    @pytest.fixture
-    def adapter(self):
-        config = PlatformConfig(enabled=True, token="fake-token")
-        a = DiscordAdapter(config)
-        a._client = MagicMock()
-        return a
-
-    def test_single_batch_of_local_files_sends_once(self, adapter, tmp_path):
-        """3 local images → one channel.send with files=[...] of length 3."""
-        paths = []
-        for i in range(3):
-            p = tmp_path / f"img_{i}.png"
-            p.write_bytes(b"\x89PNG" + b"\x00" * 20)
-            paths.append(p)
-
-        mock_channel = MagicMock()
-        mock_channel.send = AsyncMock(return_value=MagicMock(id=1))
-        adapter._client.get_channel = MagicMock(return_value=mock_channel)
-        # Non-forum channel
-        adapter._is_forum_parent = MagicMock(return_value=False)
-
-        images = [(f"file://{p}", "") for p in paths]
-        _run(adapter.send_multiple_images("67890", images))
-
-        mock_channel.send.assert_awaited_once()
-        assert len(mock_channel.send.call_args.kwargs["files"]) == 3
-
-    def test_batch_over_10_chunks_into_two_messages(self, adapter, tmp_path):
-        """15 local images → two channel.send calls (10 + 5)."""
-        paths = []
-        for i in range(15):
-            p = tmp_path / f"img_{i}.png"
-            p.write_bytes(b"\x89PNG" + b"\x00" * 10)
-            paths.append(p)
-
-        mock_channel = MagicMock()
-        mock_channel.send = AsyncMock(return_value=MagicMock(id=1))
-        adapter._client.get_channel = MagicMock(return_value=mock_channel)
-        adapter._is_forum_parent = MagicMock(return_value=False)
-
-        images = [(f"file://{p}", "") for p in paths]
-        _run(adapter.send_multiple_images("67890", images))
-
-        assert mock_channel.send.await_count == 2
-        sizes = [len(c.kwargs["files"]) for c in mock_channel.send.await_args_list]
-        assert sizes == [10, 5]
-
-    def test_empty_noop(self, adapter):
-        adapter._client = MagicMock()
-        _run(adapter.send_multiple_images("67890", []))
 
 
 # ---------------------------------------------------------------------------
