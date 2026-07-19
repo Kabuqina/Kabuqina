@@ -38,6 +38,7 @@ from .operation_coordinator import (
 )
 from .tutor_contract import (
     ACTIVITY_KINDS,
+    ACTIVITY_STATUSES,
     TERMINAL_ACTIVITY_STATUSES,
     LearningActivityKeyV1,
     LearningActivityStartV1,
@@ -350,8 +351,9 @@ class TutorRuntimeStore:
         db_path: Path | str | None = None,
         *,
         coordinator: LearningOperationCoordinator | None = None,
+        secure_permissions: bool | None = None,
     ) -> None:
-        is_default = db_path is None
+        is_default = db_path is None if secure_permissions is None else secure_permissions
         self.db_path = Path(db_path or default_tutor_runtime_db_path()).resolve()
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         expected_coordination = self.db_path.parent / "learning_coordination.db"
@@ -1867,6 +1869,86 @@ class TutorRuntimeStore:
             lambda connection: (
                 dict(row) if (row := self._fetch_run(connection, key)) else None
             ),
+            operation_lease=operation_lease,
+        )
+
+    def load_projection_source(
+        self,
+        key: LearningActivityKeyV1,
+        *,
+        operation_lease: OperationLease | None = None,
+    ) -> tuple[LearningActivityRecordV1, dict[str, Any]] | None:
+        """Load checkpoint truth and run metadata in one coordinated snapshot."""
+
+        def _op(connection: sqlite3.Connection):
+            run = self._fetch_run(connection, key)
+            if run is None:
+                return None
+            return (
+                self._record(run, self._fetch_checkpoint(connection, key)),
+                dict(run),
+            )
+
+        return self._read(
+            key.owner_id,
+            key.space_id,
+            _op,
+            operation_lease=operation_lease,
+        )
+
+    def list_projection_sources(
+        self,
+        owner_id: str,
+        space_id: str,
+        activity_kind: str,
+        *,
+        status: str | None = None,
+        limit: int = 100,
+        operation_lease: OperationLease | None = None,
+    ) -> list[tuple[LearningActivityRecordV1, dict[str, Any]]]:
+        """List projection inputs without exposing checkpoint content to callers."""
+
+        if activity_kind not in ACTIVITY_KINDS:
+            raise TutorContractError("activity_kind is invalid")
+        if status is not None and status not in ACTIVITY_STATUSES:
+            raise TutorContractError("activity status is invalid")
+        if type(limit) is not int or not 1 <= limit <= 100:
+            raise TutorContractError("limit must be within 1..100")
+
+        def _op(connection: sqlite3.Connection):
+            sql = (
+                "SELECT * FROM tutor_activity_runs WHERE owner_id=? AND space_id=? "
+                "AND activity_kind=?"
+            )
+            params: list[Any] = [owner_id, space_id, activity_kind]
+            if status is not None:
+                sql += " AND status=?"
+                params.append(status)
+            sql += " ORDER BY updated_at DESC,activity_id DESC LIMIT ?"
+            params.append(limit)
+            return [
+                (
+                    self._record(
+                        run,
+                        self._fetch_checkpoint(
+                            connection,
+                            LearningActivityKeyV1(
+                                run["owner_id"],
+                                run["space_id"],
+                                run["activity_kind"],
+                                run["activity_id"],
+                            ),
+                        ),
+                    ),
+                    dict(run),
+                )
+                for run in connection.execute(sql, params).fetchall()
+            ]
+
+        return self._read(
+            owner_id,
+            space_id,
+            _op,
             operation_lease=operation_lease,
         )
 

@@ -38,6 +38,12 @@ def _learning_capability() -> dict:
     raise AssertionError("student-learning-foundation missing")
 
 
+def _tutor_capability() -> dict:
+    from capability_registry import get_capability_def
+
+    return get_capability_def("student-tutor-runtime")
+
+
 class LearningCapabilityDriftTests(unittest.TestCase):
     def test_learning_capability_is_registered(self):
         caps = _learning_capabilities()
@@ -56,6 +62,19 @@ class LearningCapabilityDriftTests(unittest.TestCase):
         self.assertEqual(status["lifecycle"], "candidate")
         self.assertTrue(status["pipelines"])
         self.assertTrue(all(pipeline["ready"] is False for pipeline in status["pipelines"]))
+
+    def test_tutor_runtime_is_a_separate_not_ready_candidate(self):
+        from capability_status import build_capability_status
+
+        foundation = _learning_capability()
+        tutor = _tutor_capability()
+        self.assertEqual(tutor["lifecycle"], "candidate")
+        self.assertEqual(tutor["family"], foundation["family"])
+        self.assertNotIn("learning_output_kinds", tutor)
+        status = build_capability_status(tutor, {}, enabled_toolsets={"learning"})
+        self.assertEqual(status["status"], "candidate")
+        self.assertTrue(status["pipelines"])
+        self.assertTrue(all(item["ready"] is False for item in status["pipelines"]))
 
     def test_referenced_planner_ids_exist(self):
         from learning.planner_registry import planner_ids

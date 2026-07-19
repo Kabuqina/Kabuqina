@@ -17,15 +17,24 @@ from learning.evaluations import EvaluationService
 from learning.flashcards import FlashcardService
 from learning.learning_contract import ContractError, LIFECYCLE_STATUSES
 from learning.learning_plans import LearningPlanService
+from learning.learning_data_service import CompositeLearningDataService
 from learning.lifecycle import ArtifactLifecycleService
-from learning.learning_store import LearningConflictError, LearningStore
+from learning.learning_store import (
+    LearningConflictError,
+    LearningStore,
+    default_learning_db_path,
+)
+from learning.operation_coordinator import LearningCoordinationError
 from learning.output_writer import OutputWriter
 from learning.practice_generator import PracticeGenerator
 from learning.quizzes import QuizService
 from learning.semantic_review import requires_semantic_review
 from learning.semantic_review import SemanticReviewService
 from learning.student_state import LEGACY_CONTEXT_MIGRATION_KEY, StudentStateService
+from learning.tutor_contract import TutorConflictError, TutorContractError
+from learning.tutor_runtime_store import TutorRuntimeError, TutorRuntimeStore
 from learning.wrongbook import WrongbookService
+import learning_owner
 from learning_owner import desktop_learning_scope
 from study_review_reminder import StudyReviewReminderService
 
@@ -51,6 +60,28 @@ def _desktop_ctx(space_id: Optional[str] = None) -> Iterator[Any]:
         store.close()
 
 
+@contextmanager
+def _desktop_data_service() -> Iterator[tuple[str, CompositeLearningDataService]]:
+    learning_store = LearningStore()
+    runtime_store: TutorRuntimeStore | None = None
+    try:
+        runtime_store = TutorRuntimeStore(
+            learning_store.db_path.parent / "tutor_runtime.db",
+            coordinator=learning_store.coordinator,
+            secure_permissions=(
+                learning_store.db_path == default_learning_db_path().resolve()
+            ),
+        )
+        service = CompositeLearningDataService(
+            learning_store, runtime_store, learning_store.coordinator
+        )
+        yield learning_owner.desktop_owner_id(), service
+    finally:
+        if runtime_store is not None:
+            runtime_store.close()
+        learning_store.close()
+
+
 def _workspace_root() -> Optional[str]:
     """Workspace root for materials, mirroring load_packages._workspace_root."""
     raw = (
@@ -62,7 +93,11 @@ def _workspace_root() -> Optional[str]:
 
 
 def _http_error(exc: Exception) -> HTTPException:
-    if isinstance(exc, (ContractError, LearningConflictError)):
+    if isinstance(exc, (TutorConflictError, LearningCoordinationError, TutorRuntimeError)):
+        status, code = 409, "study_conflict"
+    elif isinstance(exc, TutorContractError):
+        status, code = 400, "study_invalid_request"
+    elif isinstance(exc, (ContractError, LearningConflictError)):
         status, code = 409, "study_conflict"
     elif isinstance(exc, ValueError):
         status, code = 400, "study_invalid_request"
@@ -394,28 +429,67 @@ async def study_artifact_status(artifact_id: str, body: Dict[str, Any]):
 @router.get("/api/desk/study/data/export")
 async def study_data_export():
     try:
-        with _desktop_ctx() as ctx:
-            return {"bundle": ctx.export_owner_bundle()}
-    except (ValueError, KeyError, ContractError) as exc:
+        with _desktop_data_service() as (owner_id, service):
+            return {"bundle": service.export_owner_bundle(owner_id)}
+    except Exception as exc:
         raise _http_error(exc) from exc
 
 @router.post("/api/desk/study/data/import")
 async def study_data_import(body: Dict[str, Any]):
     try:
-        with _desktop_ctx() as ctx:
-            bundle = body.get("bundle") if isinstance(body.get("bundle"), dict) else {}
-            return {"imported": ctx.import_owner_bundle(bundle)}
-    except (ValueError, KeyError, ContractError) as exc:
+        if "owner_id" in body:
+            raise ValueError("public import request must not contain owner_id")
+        bundle = body.get("bundle") if isinstance(body.get("bundle"), dict) else {}
+        mode = str(body.get("mode") or "replace_empty_owner")
+        with _desktop_data_service() as (owner_id, service):
+            return {
+                "imported": service.import_owner_bundle(
+                    owner_id, bundle, mode=mode
+                )
+            }
+    except Exception as exc:
         raise _http_error(exc) from exc
 
 @router.delete("/api/desk/study/data")
 async def study_data_delete(body: Dict[str, Any]):
     try:
+        if "owner_id" in body:
+            raise ValueError("public delete request must not contain owner_id")
         if body.get("confirm") != "DELETE ALL LEARNING DATA":
             raise ValueError("explicit delete confirmation required")
-        with _desktop_ctx() as ctx:
-            return {"deleted": True, "counts": ctx.delete_all_learning_data()}
-    except (ValueError, KeyError, ContractError) as exc:
+        with _desktop_data_service() as (owner_id, service):
+            return {
+                "deleted": True,
+                "counts": service.delete_owner_data(owner_id),
+            }
+    except Exception as exc:
+        raise _http_error(exc) from exc
+
+
+@router.post("/api/desk/study/data/prepare-downgrade")
+async def study_data_prepare_downgrade(body: Dict[str, Any]):
+    try:
+        if body:
+            raise ValueError("prepare-downgrade request body must be empty")
+        with _desktop_data_service() as (owner_id, service):
+            return service.prepare_downgrade(owner_id)
+    except Exception as exc:
+        raise _http_error(exc) from exc
+
+
+@router.post("/api/desk/study/data/prepare-downgrade/commit")
+async def study_data_prepare_downgrade_commit(body: Dict[str, Any]):
+    try:
+        if "owner_id" in body:
+            raise ValueError("public downgrade request must not contain owner_id")
+        if set(body) != {"bundle_sha256"}:
+            raise ValueError("bundle_sha256 is required")
+        expected = body.get("bundle_sha256")
+        if not isinstance(expected, str):
+            raise ValueError("bundle_sha256 must be a string")
+        with _desktop_data_service() as (owner_id, service):
+            return service.commit_prepare_downgrade(owner_id, expected)
+    except Exception as exc:
         raise _http_error(exc) from exc
 
 @router.get("/api/desk/study/migrations/status")

@@ -86,7 +86,9 @@ class CompositeLearningDataService:
             learning_path, coordinator=coordinator
         )
         runtime_store = TutorRuntimeStore(
-            learning_path.parent / "tutor_runtime.db", coordinator=coordinator
+            learning_path.parent / "tutor_runtime.db",
+            coordinator=coordinator,
+            secure_permissions=secure,
         )
         return cls(
             learning_store,

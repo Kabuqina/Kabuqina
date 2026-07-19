@@ -8,7 +8,18 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from desk_server.auth import install_middleware
-from desk_server.routes import capabilities_routes, chat, export, goal_routes, load_packages, sessions, status, study_routes, voice
+from desk_server.routes import (
+    capabilities_routes,
+    chat,
+    export,
+    goal_routes,
+    load_packages,
+    sessions,
+    status,
+    study_activity_routes,
+    study_routes,
+    voice,
+)
 from kabuqina_cli import __version__
 
 
@@ -24,7 +35,18 @@ def create_app() -> FastAPI:
 
     install_middleware(app)
 
-    for mod in (status, chat, sessions, voice, load_packages, capabilities_routes, export, goal_routes, study_routes):
+    for mod in (
+        status,
+        chat,
+        sessions,
+        voice,
+        load_packages,
+        capabilities_routes,
+        export,
+        goal_routes,
+        study_routes,
+        study_activity_routes,
+    ):
         app.include_router(mod.router)
 
     return app
