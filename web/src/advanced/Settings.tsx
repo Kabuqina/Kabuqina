@@ -19,6 +19,7 @@ import { SettingsLoadPackages } from "./settings/SettingsLoadPackages";
 import { SettingsLlmConfig } from "./settings/SettingsLlmConfig";
 import { SettingsVoice } from "./settings/SettingsVoice";
 import { SettingsUpdate } from "./settings/SettingsUpdate";
+import { SettingsCache } from "./settings/SettingsCache";
 
 export interface Status {
   workspace: string;
@@ -172,6 +173,7 @@ export function Settings() {
           {tab === "advanced" && (
             <>
               <SettingsLoadPackages />
+              <SettingsCache />
               <SettingsSharedPrefs />
             </>
           )}

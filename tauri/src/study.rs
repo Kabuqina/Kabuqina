@@ -197,6 +197,17 @@ pub async fn cmd_study_migrate_builtin_course(app: AppHandle) -> Result<Value, S
 }
 
 #[tauri::command]
+pub async fn cmd_study_cache_clear(app: AppHandle) -> Result<Value, String> {
+    crate::chat::desk_json_request(
+        &app,
+        reqwest::Method::POST,
+        "/api/desk/study/cache/clear",
+        None,
+    )
+    .await
+}
+
+#[tauri::command]
 pub async fn cmd_study_student_state(app: AppHandle) -> Result<Value, String> {
     crate::chat::desk_json_request(
         &app,

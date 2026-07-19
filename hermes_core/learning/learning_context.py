@@ -201,6 +201,10 @@ class LearningExecutionContext:
     def is_migrated(self, migration_key: str) -> bool:
         return self._store.is_migrated(self._owner_id, migration_key)
 
+    def clear_owner_data(self) -> Dict[str, int]:
+        """Trusted cache cleanup for this injected owner identity."""
+        return self._store.clear_owner_data(self._owner_id)
+
 
 # --------------------------------------------------------------------------- #
 # Active-context scope — the runtime injects the resolved context here so that

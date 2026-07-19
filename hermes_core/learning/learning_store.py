@@ -801,3 +801,36 @@ class LearningStore:
             (owner_id, migration_key),
         ).fetchone()
         return row is not None
+
+    def clear_owner_data(self, owner_id: str) -> Dict[str, int]:
+        """Delete one owner's learning history without touching shared config.
+
+        The learning database is shared by Desktop and Gateway identities, so
+        cache cleanup must never unlink the database or delete another owner.
+        All related rows are counted and removed in one write transaction.
+        """
+        _require(owner_id, "owner_id")
+        tables = (
+            "learning_activities",
+            "learning_items",
+            "learning_artifacts",
+            "learning_spaces",
+            "learning_migrations",
+        )
+
+        def _op(conn: sqlite3.Connection) -> Dict[str, int]:
+            counts: Dict[str, int] = {}
+            for table in tables:
+                row = conn.execute(
+                    f'SELECT COUNT(*) FROM "{table}" WHERE owner_id = ?',
+                    (owner_id,),
+                ).fetchone()
+                counts[table] = int(row[0] if row else 0)
+            for table in tables:
+                conn.execute(
+                    f'DELETE FROM "{table}" WHERE owner_id = ?',
+                    (owner_id,),
+                )
+            return counts
+
+        return self._execute_write(_op)

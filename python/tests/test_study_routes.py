@@ -396,3 +396,33 @@ def test_learning_plan_activation_archives_previous_and_materializes_items(study
         assert store.get_artifact(OWNER, "s1", ids[1])["review"]["status"] == "passed"
     finally:
         store.close()
+
+
+def test_cache_clear_removes_only_desktop_owner_learning_data(study_client):
+    client, db_path = study_client
+    _seed_draft(db_path, status="active")
+    other_owner = "gateway:discord:other"
+    store = LearningStore(db_path=db_path)
+    try:
+        other_ctx = LearningExecutionContext(store, owner_id=other_owner)
+        other_ctx.create_space(title="Other", space_id="other-space")
+        OutputWriter(other_ctx).write_artifact(
+            kind="flashcard_deck",
+            title="Other deck",
+            payload={"cards": [{"front": "safe", "back": "kept"}]},
+        )
+    finally:
+        store.close()
+
+    response = client.post("/api/desk/study/cache/clear", headers=_headers())
+
+    assert response.status_code == 200
+    assert response.json()["cleared"] is True
+    assert response.json()["counts"]["learning_artifacts"] == 1
+    store = LearningStore(db_path=db_path)
+    try:
+        assert store.list_spaces(OWNER) == []
+        assert len(store.list_spaces(other_owner)) == 1
+        assert len(store.list_artifacts(other_owner, "other-space")) == 1
+    finally:
+        store.close()

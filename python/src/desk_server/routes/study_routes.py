@@ -201,6 +201,16 @@ async def study_seed_builtin_course():
         raise _http_error(exc) from exc
 
 
+@router.post("/api/desk/study/cache/clear")
+async def study_cache_clear():
+    """Clear only the authenticated desktop owner's learning cache."""
+    try:
+        with _desktop_ctx() as ctx:
+            return {"cleared": True, "counts": ctx.clear_owner_data()}
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+
 @router.get("/api/desk/study/student-state")
 async def study_student_state():
     try:

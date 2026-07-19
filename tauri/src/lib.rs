@@ -261,6 +261,7 @@ pub fn run() {
             study::cmd_study_quiz_submit,
             study::cmd_study_migrate_quizzes,
             study::cmd_study_migrate_builtin_course,
+            study::cmd_study_cache_clear,
             study::cmd_study_student_state,
             study::cmd_study_student_state_save,
             study::cmd_study_migrate_context,

@@ -261,6 +261,35 @@ def test_migration_markers_owner_scoped(store):
     assert store.is_migrated("owner-B", "localStorage:flashcards") is False
 
 
+def test_clear_owner_data_is_transactional_and_keeps_other_owners(store):
+    for owner in ("desktop:local", "gateway:discord:other"):
+        sid = store.create_space(owner, title="Course", space_id=f"space-{owner}")
+        artifact = store.insert_artifact(owner, sid, _flashcard_envelope(space_id=sid))
+        store.upsert_item(
+            owner,
+            sid,
+            item_id=f"item-{owner}",
+            item_type="flashcard",
+            artifact_id=artifact["artifact_id"],
+            state={"front": "q"},
+        )
+        store.insert_activity(owner, sid, activity_type="flashcard.review")
+        store.mark_migration(owner, "legacy")
+
+    counts = store.clear_owner_data("desktop:local")
+
+    assert counts == {
+        "learning_activities": 1,
+        "learning_items": 1,
+        "learning_artifacts": 1,
+        "learning_spaces": 1,
+        "learning_migrations": 1,
+    }
+    assert store.list_spaces("desktop:local") == []
+    assert len(store.list_spaces("gateway:discord:other")) == 1
+    assert store.is_migrated("gateway:discord:other", "legacy") is True
+
+
 def test_learning_items_are_owner_and_space_scoped(store):
     store.upsert_item(
         "owner-A",
