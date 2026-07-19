@@ -21,7 +21,6 @@ class PlatformInfo(NamedTuple):
 PLATFORMS: OrderedDict[str, PlatformInfo] = OrderedDict([
     ("cli",            PlatformInfo(label="🖥️  CLI",            default_toolset="kabuqina-cli")),
     ("telegram",       PlatformInfo(label="📱 Telegram",        default_toolset="kabuqina-telegram")),
-    ("discord",        PlatformInfo(label="💬 Discord",         default_toolset="kabuqina-discord")),
     ("slack",          PlatformInfo(label="💼 Slack",           default_toolset="kabuqina-slack")),
     ("whatsapp",       PlatformInfo(label="📱 WhatsApp",        default_toolset="kabuqina-whatsapp")),
     ("signal",         PlatformInfo(label="📡 Signal",          default_toolset="kabuqina-signal")),

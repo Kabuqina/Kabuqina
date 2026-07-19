@@ -134,7 +134,7 @@ TOOLSETS = {
     },
     
     "messaging": {
-        "description": "Cross-platform messaging: send messages to Telegram, Discord, Slack, SMS, etc.",
+        "description": "Cross-platform messaging: send messages to Telegram, Slack, SMS, etc.",
         "tools": ["send_message"],
         "includes": []
     },
@@ -224,18 +224,6 @@ TOOLSETS = {
         "description": "Home Assistant smart home control and monitoring",
         "tools": ["ha_list_entities", "ha_get_state", "ha_list_services", "ha_call_service"],
         "includes": []
-    },
-
-    "discord": {
-        "description": "Discord read and participate tools (fetch messages, search members, create threads)",
-        "tools": ["discord"],
-        "includes": [],
-    },
-
-    "discord_admin": {
-        "description": "Discord server management (list channels/roles, pin messages, assign roles)",
-        "tools": ["discord_admin"],
-        "includes": [],
     },
 
     "yuanbao": {
@@ -361,15 +349,6 @@ TOOLSETS = {
         "includes": []
     },
     
-    "kabuqina-discord": {
-        "description": "Discord bot toolset - full access (terminal has safety checks via dangerous command approval)",
-        "tools": _KABUQINA_CORE_TOOLS + [
-            "discord",
-            "discord_admin",
-        ],
-        "includes": []
-    },
-    
     "kabuqina-whatsapp": {
         "description": "WhatsApp bot toolset - similar to Telegram (personal messaging, more trusted)",
         "tools": _KABUQINA_CORE_TOOLS,
@@ -488,7 +467,7 @@ TOOLSETS = {
     "kabuqina-gateway": {
         "description": "Gateway toolset - union of all messaging platform tools",
         "tools": [],
-        "includes": ["kabuqina-telegram", "kabuqina-discord", "kabuqina-whatsapp", "kabuqina-slack", "kabuqina-signal", "kabuqina-bluebubbles", "kabuqina-homeassistant", "kabuqina-email", "kabuqina-sms", "kabuqina-mattermost", "kabuqina-matrix", "kabuqina-dingtalk", "kabuqina-feishu", "kabuqina-wecom", "kabuqina-wecom-callback", "kabuqina-weixin", "kabuqina-qqbot", "kabuqina-webhook", "kabuqina-yuanbao"]
+        "includes": ["kabuqina-telegram", "kabuqina-whatsapp", "kabuqina-slack", "kabuqina-signal", "kabuqina-bluebubbles", "kabuqina-homeassistant", "kabuqina-email", "kabuqina-sms", "kabuqina-mattermost", "kabuqina-matrix", "kabuqina-dingtalk", "kabuqina-feishu", "kabuqina-wecom", "kabuqina-wecom-callback", "kabuqina-weixin", "kabuqina-qqbot", "kabuqina-webhook", "kabuqina-yuanbao"]
     }
 }
 

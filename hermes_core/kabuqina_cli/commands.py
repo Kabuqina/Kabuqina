@@ -414,9 +414,7 @@ def _iter_plugin_command_entries() -> list[tuple[str, str, str]]:
     Plugin commands are registered via
     :func:`kabuqina_cli.plugins.PluginContext.register_command`. They behave
     like ``CommandDef`` entries for gateway surfacing: they appear in the
-    Telegram command menu, in Slack's ``/hermes`` subcommand mapping, and
-    (via :func:`gateway.platforms.discord._register_slash_commands`) in
-    Discord's native slash command picker.
+    Telegram command menu and in Slack's ``/hermes`` subcommand mapping.
 
     Lookup is lazy so importing this module never forces plugin discovery
     (which can trigger filesystem scans and environment-dependent
@@ -552,7 +550,7 @@ def _collect_gateway_skill_entries(
 
     Args:
         platform: Platform identifier for per-platform skill filtering
-            (``"telegram"``, ``"discord"``, etc.).
+            (``"telegram"``, ``"slack"``, etc.).
         max_slots: Maximum number of entries to return (remaining slots after
             built-in/core commands).
         reserved_names: Names already taken by built-in commands.  Mutated
@@ -681,153 +679,6 @@ def telegram_menu_commands(max_commands: int = 100) -> tuple[list[tuple[str, str
     return all_commands[:max_commands], hidden_count
 
 
-def discord_skill_commands(
-    max_slots: int,
-    reserved_names: set[str],
-) -> tuple[list[tuple[str, str, str]], int]:
-    """Return skill entries for Discord slash command registration.
-
-    Same priority and filtering logic as :func:`telegram_menu_commands`
-    (plugins > skills, hub excluded, per-platform disabled excluded), but
-    adapted for Discord's constraints:
-
-    - Hyphens are allowed in names (no ``-`` → ``_`` sanitization)
-    - Descriptions capped at 100 chars (Discord's per-field max)
-
-    Args:
-        max_slots: Available command slots (100 minus existing built-in count).
-        reserved_names: Names of already-registered built-in commands.
-
-    Returns:
-        ``(entries, hidden_count)`` where *entries* is a list of
-        ``(discord_name, description, cmd_key)`` triples.  ``cmd_key`` is
-        the original ``/skill-name`` key needed for the slash handler callback.
-    """
-    return _collect_gateway_skill_entries(
-        platform="discord",
-        max_slots=max_slots,
-        reserved_names=set(reserved_names),  # copy — don't mutate caller's set
-        desc_limit=100,
-    )
-
-
-def discord_skill_commands_by_category(
-    reserved_names: set[str],
-) -> tuple[dict[str, list[tuple[str, str, str]]], list[tuple[str, str, str]], int]:
-    """Return skill entries organized by category for Discord ``/skill`` subcommand groups.
-
-    Skills whose directory is nested at least 2 levels under ``SKILLS_DIR``
-    (e.g. ``creative/ascii-art/SKILL.md``) are grouped by their top-level
-    category.  Root-level skills (e.g. ``dogfood/SKILL.md``) are returned as
-    *uncategorized* — the caller should register them as direct subcommands
-    of the ``/skill`` group.
-
-    The same filtering as :func:`discord_skill_commands` is applied: hub
-    skills excluded, per-platform disabled excluded, names clamped.
-
-    Returns:
-        ``(categories, uncategorized, hidden_count)``
-
-        - *categories*: ``{category_name: [(name, description, cmd_key), ...]}``
-        - *uncategorized*: ``[(name, description, cmd_key), ...]``
-        - *hidden_count*: skills dropped due to Discord group limits
-          (25 subcommand groups, 25 subcommands per group)
-    """
-    from pathlib import Path as _P
-
-    _platform_disabled: set[str] = set()
-    try:
-        from agent.skill_utils import get_disabled_skill_names
-        _platform_disabled = get_disabled_skill_names(platform="discord")
-    except Exception:
-        pass
-
-    # Collect raw skill data --------------------------------------------------
-    categories: dict[str, list[tuple[str, str, str]]] = {}
-    uncategorized: list[tuple[str, str, str]] = []
-    _names_used: set[str] = set(reserved_names)
-    hidden = 0
-
-    try:
-        from agent.skill_commands import get_skill_commands
-        from tools.skills_tool import SKILLS_DIR
-        _skills_dir = SKILLS_DIR.resolve()
-        _hub_dir = (SKILLS_DIR / ".hub").resolve()
-        skill_cmds = get_skill_commands()
-
-        for cmd_key in sorted(skill_cmds):
-            info = skill_cmds[cmd_key]
-            skill_path = info.get("skill_md_path", "")
-            if not skill_path:
-                continue
-            sp = _P(skill_path).resolve()
-            # Skip skills outside SKILLS_DIR or from the hub
-            if not str(sp).startswith(str(_skills_dir)):
-                continue
-            if str(sp).startswith(str(_hub_dir)):
-                continue
-
-            skill_name = info.get("name", "")
-            if skill_name in _platform_disabled:
-                continue
-
-            raw_name = cmd_key.lstrip("/")
-            # Clamp to 32 chars (Discord limit)
-            discord_name = raw_name[:32]
-            if discord_name in _names_used:
-                continue
-            _names_used.add(discord_name)
-
-            desc = info.get("description", "")
-            if len(desc) > 100:
-                desc = desc[:97] + "..."
-
-            # Determine category from the relative path within SKILLS_DIR.
-            # e.g. creative/ascii-art/SKILL.md → parts = ("creative", "ascii-art")
-            try:
-                rel = sp.parent.relative_to(_skills_dir)
-            except ValueError:
-                continue
-            parts = rel.parts
-            if len(parts) >= 2:
-                cat = parts[0]
-                categories.setdefault(cat, []).append((discord_name, desc, cmd_key))
-            else:
-                uncategorized.append((discord_name, desc, cmd_key))
-    except Exception:
-        pass
-
-    # Enforce Discord limits: 25 subcommand groups, 25 subcommands each ------
-    _MAX_GROUPS = 25
-    _MAX_PER_GROUP = 25
-
-    trimmed_categories: dict[str, list[tuple[str, str, str]]] = {}
-    group_count = 0
-    for cat in sorted(categories):
-        if group_count >= _MAX_GROUPS:
-            hidden += len(categories[cat])
-            continue
-        entries = categories[cat][:_MAX_PER_GROUP]
-        hidden += max(0, len(categories[cat]) - _MAX_PER_GROUP)
-        trimmed_categories[cat] = entries
-        group_count += 1
-
-    # Uncategorized skills also count against the 25 top-level limit
-    remaining_slots = _MAX_GROUPS - group_count
-    if len(uncategorized) > remaining_slots:
-        hidden += len(uncategorized) - remaining_slots
-        uncategorized = uncategorized[:remaining_slots]
-
-    return trimmed_categories, uncategorized, hidden
-
-
-# ---------------------------------------------------------------------------
-# Slack native slash commands
-# ---------------------------------------------------------------------------
-
-# Slack slash command name constraints: lowercase a-z, 0-9, hyphens,
-# underscores. Max 32 chars. Slack app manifest accepts up to 50 slash
-# commands per app.
 _SLACK_MAX_SLASH_COMMANDS = 50
 _SLACK_NAME_LIMIT = 32
 _SLACK_INVALID_CHARS = re.compile(r"[^a-z0-9_\-]")

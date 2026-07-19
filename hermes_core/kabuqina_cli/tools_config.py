@@ -71,27 +71,23 @@ CONFIGURABLE_TOOLSETS = [
     ("documents",       "📄 Document Tools",             "precise PDF/document read, material index, PDF/PPT write"),
     ("rl",              "🧪 RL Training",               "Tinker-Atropos training tools"),
     ("homeassistant",    "🏠 Home Assistant",           "smart home device control"),
-    ("discord",         "💬 Discord (read/participate)", "fetch messages, search members, create thread"),
-    ("discord_admin",   "🛡️  Discord Server Admin",    "list channels/roles, pin, assign roles"),
     ("yuanbao",          "🤖 Yuanbao",                  "group info, member queries, DM"),
 ]
 
 # Toolsets that are OFF by default for new installs.
 # They're still in _KABUQINA_CORE_TOOLS (available at runtime if enabled),
 # but the setup checklist won't pre-select them for first-time users.
-_DEFAULT_OFF_TOOLSETS = {"moa", "homeassistant", "rl", "discord", "discord_admin"}
+_DEFAULT_OFF_TOOLSETS = {"moa", "homeassistant", "rl"}
+_REMOVED_TOOLSETS = frozenset({"discord", "discord_admin"})
 
 # Platform-scoped toolsets: only appear in the `kabuqina tools` checklist for
 # these platforms, and only resolve/save for these platforms.  A toolset
 # absent from this map is available on every platform (current behaviour).
 #
-# Use this for tools whose APIs only make sense on one platform (Discord
-# server admin, Slack workspace admin, etc.).  Keeps every other platform's
+# Use this for tools whose APIs only make sense on one platform (for example
+# Slack workspace admin). Keeps every other platform's
 # checklist from filling up with irrelevant toggles.
-_TOOLSET_PLATFORM_RESTRICTIONS: Dict[str, Set[str]] = {
-    "discord": {"discord"},
-    "discord_admin": {"discord"},
-}
+_TOOLSET_PLATFORM_RESTRICTIONS: Dict[str, Set[str]] = {}
 
 
 def _toolset_allowed_for_platform(ts_key: str, platform: str) -> bool:
@@ -99,6 +95,8 @@ def _toolset_allowed_for_platform(ts_key: str, platform: str) -> bool:
 
     Toolsets without a restriction entry are allowed everywhere (the default).
     """
+    if ts_key in _REMOVED_TOOLSETS:
+        return False
     allowed = _TOOLSET_PLATFORM_RESTRICTIONS.get(ts_key)
     return allowed is None or platform in allowed
 
@@ -718,8 +716,6 @@ def _get_enabled_platforms() -> List[str]:
     enabled = ["cli"]
     if get_env_value("TELEGRAM_BOT_TOKEN"):
         enabled.append("telegram")
-    if get_env_value("DISCORD_BOT_TOKEN"):
-        enabled.append("discord")
     if get_env_value("SLACK_BOT_TOKEN"):
         enabled.append("slack")
     if get_env_value("WHATSAPP_ENABLED"):
@@ -897,6 +893,7 @@ def _get_platform_tools(
         if ts not in configurable_keys
         and ts not in plugin_ts_keys
         and ts not in platform_default_keys
+        and ts not in _REMOVED_TOOLSETS
     }
 
     # MCP servers are expected to be available on all platforms by default.
@@ -935,6 +932,7 @@ def _get_platform_tools(
         disabled_set = {str(ts) for ts in disabled_toolsets}
         enabled_toolsets -= disabled_set
 
+    enabled_toolsets -= _REMOVED_TOOLSETS
     return enabled_toolsets
 
 

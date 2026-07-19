@@ -299,7 +299,7 @@ class TestLoadGatewayConfig:
 
         assert config.always_log_local is False
 
-    def test_bridges_discord_channel_prompts_from_config_yaml(self, tmp_path, monkeypatch):
+    def test_ignores_removed_discord_config_from_config_yaml(self, tmp_path, monkeypatch):
         hermes_home = tmp_path / ".hermes"
         hermes_home.mkdir()
         config_path = hermes_home / "config.yaml"
@@ -315,10 +315,7 @@ class TestLoadGatewayConfig:
 
         config = load_gateway_config()
 
-        assert config.platforms[Platform.DISCORD].extra["channel_prompts"] == {
-            "123": "Research mode",
-            "456": "Therapist mode",
-        }
+        assert Platform.DISCORD not in config.platforms
 
     def test_bridges_telegram_channel_prompts_from_config_yaml(self, tmp_path, monkeypatch):
         hermes_home = tmp_path / ".hermes"

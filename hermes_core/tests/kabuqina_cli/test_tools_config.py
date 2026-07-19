@@ -792,37 +792,34 @@ def test_get_platform_tools_discord_both_off_by_default():
     assert "discord_admin" not in enabled
 
 
-def test_discord_toolsets_in_configurable_toolsets():
+def test_removed_discord_toolsets_absent_from_configurable_toolsets():
     keys = {ts_key for ts_key, _, _ in CONFIGURABLE_TOOLSETS}
-    assert "discord" in keys
-    assert "discord_admin" in keys
+    assert "discord" not in keys
+    assert "discord_admin" not in keys
 
 
-def test_discord_toolsets_in_default_off():
-    assert "discord" in _DEFAULT_OFF_TOOLSETS
-    assert "discord_admin" in _DEFAULT_OFF_TOOLSETS
+def test_removed_discord_toolsets_absent_from_default_off():
+    assert "discord" not in _DEFAULT_OFF_TOOLSETS
+    assert "discord_admin" not in _DEFAULT_OFF_TOOLSETS
 
 
-def test_discord_toolsets_not_available_on_other_platforms():
+def test_removed_discord_toolsets_not_available_on_any_platform():
     """Platform-scoping: discord / discord_admin should not appear on CLI,
     Telegram, etc. — not even as an opt-in."""
     from kabuqina_cli.tools_config import _toolset_allowed_for_platform
-    for plat in ["cli", "telegram", "slack", "whatsapp", "signal"]:
+    for plat in ["cli", "telegram", "slack", "whatsapp", "signal", "discord"]:
         assert not _toolset_allowed_for_platform("discord", plat), (
             f"`discord` toolset leaked onto {plat}"
         )
         assert not _toolset_allowed_for_platform("discord_admin", plat), (
             f"`discord_admin` toolset leaked onto {plat}"
         )
-    assert _toolset_allowed_for_platform("discord", "discord")
-    assert _toolset_allowed_for_platform("discord_admin", "discord")
 
 
-def test_discord_toolsets_user_enabled_are_honored():
-    """When the user opts in via `kabuqina tools`, the toolset appears."""
+def test_removed_discord_toolsets_user_enabled_are_ignored():
     config = {"platform_toolsets": {"discord": ["web", "terminal", "discord"]}}
     enabled = _get_platform_tools(config, "discord")
-    assert "discord" in enabled
+    assert "discord" not in enabled
     assert "discord_admin" not in enabled
 
 

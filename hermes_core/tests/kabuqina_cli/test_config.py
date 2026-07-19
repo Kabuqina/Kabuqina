@@ -649,11 +649,11 @@ class TestInterimAssistantMessageConfig:
         assert raw["display"]["interim_assistant_messages"] is True
 
 
-class TestDiscordChannelPromptsConfig:
-    def test_default_config_includes_discord_channel_prompts(self):
-        assert DEFAULT_CONFIG["discord"]["channel_prompts"] == {}
+class TestRemovedDiscordConfigCompatibility:
+    def test_default_config_omits_removed_discord_platform(self):
+        assert "discord" not in DEFAULT_CONFIG
 
-    def test_migrate_adds_discord_channel_prompts_default(self, tmp_path):
+    def test_migrate_preserves_legacy_block_without_adding_defaults(self, tmp_path):
         config_path = tmp_path / "config.yaml"
         config_path.write_text(
             yaml.safe_dump({"_config_version": 17, "discord": {"auto_thread": True}}),
@@ -667,7 +667,7 @@ class TestDiscordChannelPromptsConfig:
         from kabuqina_cli.config import DEFAULT_CONFIG
         assert raw["_config_version"] == DEFAULT_CONFIG["_config_version"]
         assert raw["discord"]["auto_thread"] is True
-        assert raw["discord"]["channel_prompts"] == {}
+        assert "channel_prompts" not in raw["discord"]
 
 
 class TestUserMessagePreviewConfig:

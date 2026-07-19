@@ -78,14 +78,14 @@ class TestResolveChannelName:
 
     def test_exact_match(self, tmp_path):
         platforms = {
-            "discord": [
-                {"id": "111", "name": "bot-home", "guild": "MyServer", "type": "channel"},
-                {"id": "222", "name": "general", "guild": "MyServer", "type": "channel"},
+            "slack": [
+                {"id": "C01", "name": "bot-home", "type": "channel"},
+                {"id": "C02", "name": "general", "type": "channel"},
             ]
         }
         with self._setup(tmp_path, platforms):
-            assert resolve_channel_name("discord", "bot-home") == "111"
-            assert resolve_channel_name("discord", "#bot-home") == "111"
+            assert resolve_channel_name("slack", "bot-home") == "C01"
+            assert resolve_channel_name("slack", "#bot-home") == "C01"
 
     def test_case_insensitive(self, tmp_path):
         platforms = {
@@ -95,7 +95,7 @@ class TestResolveChannelName:
             assert resolve_channel_name("slack", "engineering") == "C01"
             assert resolve_channel_name("slack", "ENGINEERING") == "C01"
 
-    def test_guild_qualified_match(self, tmp_path):
+    def test_removed_discord_entries_are_not_resolved(self, tmp_path):
         platforms = {
             "discord": [
                 {"id": "111", "name": "general", "guild": "ServerA", "type": "channel"},
@@ -103,8 +103,8 @@ class TestResolveChannelName:
             ]
         }
         with self._setup(tmp_path, platforms):
-            assert resolve_channel_name("discord", "ServerA/general") == "111"
-            assert resolve_channel_name("discord", "ServerB/general") == "222"
+            assert resolve_channel_name("discord", "general") is None
+            assert resolve_channel_name("discord", "ServerA/general") is None
 
     def test_prefix_match_unambiguous(self, tmp_path):
         platforms = {
@@ -290,7 +290,7 @@ class TestFormatDirectoryForDisplay:
         assert "telegram:Dev Group" in result
         assert "telegram:Coaching Chat / topic 17585" in result
 
-    def test_discord_grouped_by_guild(self, tmp_path):
+    def test_removed_discord_entries_are_not_displayed(self, tmp_path):
         cache_file = _write_directory(tmp_path, {
             "discord": [
                 {"id": "1", "name": "general", "guild": "Server1", "type": "channel"},
@@ -301,9 +301,8 @@ class TestFormatDirectoryForDisplay:
         with patch("gateway.channel_directory.DIRECTORY_PATH", cache_file):
             result = format_directory_for_display()
 
-        assert "Discord (Server1):" in result
-        assert "Discord (Server2):" in result
-        assert "discord:#general" in result
+        assert "Discord" not in result
+        assert "discord:#general" not in result
 
 
 class TestLookupChannelType:
@@ -313,21 +312,21 @@ class TestLookupChannelType:
 
     def test_forum_channel(self, tmp_path):
         platforms = {
-            "discord": [
-                {"id": "100", "name": "ideas", "guild": "Server1", "type": "forum"},
+            "slack": [
+                {"id": "C01", "name": "ideas", "type": "forum"},
             ]
         }
         with self._setup(tmp_path, platforms):
-            assert lookup_channel_type("discord", "100") == "forum"
+            assert lookup_channel_type("slack", "C01") == "forum"
 
     def test_regular_channel(self, tmp_path):
         platforms = {
-            "discord": [
-                {"id": "200", "name": "general", "guild": "Server1", "type": "channel"},
+            "slack": [
+                {"id": "C02", "name": "general", "type": "channel"},
             ]
         }
         with self._setup(tmp_path, platforms):
-            assert lookup_channel_type("discord", "200") == "channel"
+            assert lookup_channel_type("slack", "C02") == "channel"
 
     def test_unknown_chat_id_returns_none(self, tmp_path):
         platforms = {
@@ -344,12 +343,12 @@ class TestLookupChannelType:
 
     def test_channel_without_type_key_returns_none(self, tmp_path):
         platforms = {
-            "discord": [
-                {"id": "300", "name": "general", "guild": "Server1"},
+            "slack": [
+                {"id": "C03", "name": "general"},
             ]
         }
         with self._setup(tmp_path, platforms):
-            assert lookup_channel_type("discord", "300") is None
+            assert lookup_channel_type("slack", "C03") is None
 
 
 def _make_slack_adapter(team_clients):

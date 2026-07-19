@@ -198,34 +198,7 @@ _PII_SAFE_PLATFORMS = frozenset({
     Platform.TELEGRAM,
     Platform.BLUEBUBBLES,
 })
-"""Platforms where user IDs can be safely redacted (no in-message mention system
-that requires raw IDs).  Discord is excluded because mentions use ``<@user_id>``
-and the LLM needs the real ID to tag users."""
-
-
-def _discord_tools_loaded() -> bool:
-    """True iff the agent will actually have Discord tools this session.
-
-    Two conditions must hold:
-      1. The `discord` or `discord_admin` toolset is enabled for the
-         Discord platform via `kabuqina tools` (opt-in, default OFF).
-      2. `DISCORD_BOT_TOKEN` is set — the tool's `check_fn` gates on it
-         at registry time, so the toolset being enabled in config is not
-         enough if the token isn't configured.
-
-    Returns False (safe default — keeps the stale-API disclaimer) on any
-    error so a bad config can't silently promise tools the agent lacks.
-    """
-    if not (os.environ.get("DISCORD_BOT_TOKEN") or "").strip():
-        return False
-    try:
-        from kabuqina_cli.config import load_config
-        from kabuqina_cli.tools_config import _get_platform_tools
-        cfg = load_config()
-        enabled = _get_platform_tools(cfg, "discord", include_default_mcp_servers=False)
-        return "discord" in enabled or "discord_admin" in enabled
-    except Exception:
-        return False
+"""Platforms where user IDs can be safely redacted without breaking mentions."""
 
 
 def build_session_context_prompt(
@@ -244,7 +217,6 @@ def build_session_context_prompt(
     When *redact_pii* is True **and** the source platform is in
     ``_PII_SAFE_PLATFORMS``, phone numbers are stripped and user/chat IDs
     are replaced with deterministic hashes before being sent to the LLM.
-    Platforms like Discord are excluded because mentions need real IDs.
     Routing still uses the original values (they stay in SessionSource).
     """
     # Only apply redaction on platforms where IDs aren't needed for mentions.
@@ -325,34 +297,6 @@ def build_session_context_prompt(
             "current message's Slack block/attachment payload when available, but "
             "you still cannot call Slack APIs yourself."
         )
-    elif context.source.platform == Platform.DISCORD:
-        # Inject the Discord IDs block only when the agent actually has
-        # Discord tools loaded this session — i.e. the user opted into
-        # `discord` / `discord_admin` via `kabuqina tools` AND the bot
-        # token is configured.  Otherwise keep the stale-API disclaimer
-        # honest so we never promise tools the agent lacks.
-        if _discord_tools_loaded():
-            src = context.source
-            id_lines = ["", "**Discord IDs (for the `discord` / `discord_admin` tools):**"]
-            if src.guild_id:
-                id_lines.append(f"  - Guild: `{src.guild_id}`")
-            if src.thread_id and src.parent_chat_id:
-                id_lines.append(f"  - Parent channel: `{src.parent_chat_id}`")
-                id_lines.append(f"  - Thread: `{src.thread_id}` (use as `channel_id` for fetch_messages etc.)")
-            else:
-                id_lines.append(f"  - Channel: `{src.chat_id}`")
-            if src.message_id:
-                id_lines.append(f"  - Triggering message: `{src.message_id}`")
-            lines.extend(id_lines)
-        else:
-            lines.append("")
-            lines.append(
-                "**Platform notes:** You are running inside Discord. "
-                "You do NOT have access to Discord-specific APIs — you cannot search "
-                "channel history, pin messages, manage roles, or list server members. "
-                "Do not promise to perform these actions. If the user asks, explain "
-                "that you can only read messages sent directly to you and respond."
-            )
     elif context.source.platform == Platform.BLUEBUBBLES:
         lines.append("")
         lines.append(

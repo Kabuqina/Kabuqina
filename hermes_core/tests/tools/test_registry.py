@@ -300,7 +300,6 @@ class TestBuiltinDiscovery:
             "tools.cronjob_tools",
             "tools.delegate_tool",
             "tools.document_tools",
-            "tools.discord_tool",
             "tools.feishu_doc_tool",
             "tools.feishu_drive_tool",
             "tools.file_tools",

@@ -207,11 +207,10 @@ class TestToolsetConsistency:
     def test_hermes_platforms_share_core_tools(self):
         """All hermes-* platform toolsets share the same core tools.
 
-        Platform-specific additions (e.g. ``discord`` / ``discord_admin``
-        on kabuqina-discord, gated on DISCORD_BOT_TOKEN) are allowed on top —
-        the invariant is that the core set is identical across platforms.
+        Platform-specific additions are allowed on top; the invariant is that
+        the core set is identical across retained platforms.
         """
-        platforms = ["kabuqina-cli", "kabuqina-telegram", "kabuqina-discord", "kabuqina-whatsapp", "kabuqina-slack", "kabuqina-signal", "kabuqina-homeassistant"]
+        platforms = ["kabuqina-cli", "kabuqina-telegram", "kabuqina-whatsapp", "kabuqina-slack", "kabuqina-signal", "kabuqina-homeassistant"]
         tool_sets = [set(TOOLSETS[p]["tools"]) for p in platforms]
         # All platforms must contain the shared core; platform-specific
         # extras are OK (subset check, not equality).

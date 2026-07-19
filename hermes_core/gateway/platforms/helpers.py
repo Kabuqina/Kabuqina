@@ -201,11 +201,11 @@ class ThreadParticipationTracker:
 
     Replaces the identical ``_load/_save_participated_threads`` +
     ``_mark_thread_participated`` pattern previously duplicated in
-    discord.py and matrix.py.
+    multiple threaded platform adapters.
 
     Usage::
 
-        self._threads = ThreadParticipationTracker("discord")
+        self._threads = ThreadParticipationTracker("matrix")
 
         # Check membership:
         if thread_id in self._threads:

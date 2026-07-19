@@ -1,21 +1,20 @@
 ---
 sidebar_position: 1
 title: "Messaging Gateway"
-description: "Chat with Hermes from Telegram, Discord, Slack, WhatsApp, Signal, SMS, Email, Home Assistant, Mattermost, Matrix, DingTalk, Yuanbao, Webhooks, or any OpenAI-compatible frontend via the API server — architecture and setup overview"
+description: "Chat with Hermes from Telegram, Slack, WhatsApp, Signal, SMS, Email, Home Assistant, Mattermost, Matrix, DingTalk, Yuanbao, Webhooks, or any OpenAI-compatible frontend via the API server — architecture and setup overview"
 ---
 
 # Messaging Gateway
 
-Chat with Hermes from Telegram, Discord, Slack, WhatsApp, Signal, SMS, Email, Home Assistant, Mattermost, Matrix, DingTalk, Feishu/Lark, WeCom, Weixin, BlueBubbles (iMessage), QQ, Yuanbao, or your browser. The gateway is a single background process that connects to all your configured platforms, handles sessions, runs cron jobs, and delivers voice messages.
+Chat with Hermes from Telegram, Slack, WhatsApp, Signal, SMS, Email, Home Assistant, Mattermost, Matrix, DingTalk, Feishu/Lark, WeCom, Weixin, BlueBubbles (iMessage), QQ, Yuanbao, or your browser. The gateway is a single background process that connects to all your configured platforms, handles sessions, runs cron jobs, and delivers voice messages.
 
-For the full voice feature set — including CLI microphone mode, spoken replies in messaging, and Discord voice-channel conversations — see [Voice Mode](/docs/user-guide/features/voice-mode) and [Use Voice Mode with Hermes](/docs/guides/use-voice-mode-with-hermes).
+For the full voice feature set — including CLI microphone mode and spoken replies in messaging — see [Voice Mode](/docs/user-guide/features/voice-mode) and [Use Voice Mode with Hermes](/docs/guides/use-voice-mode-with-hermes).
 
 ## Platform Comparison
 
 | Platform | Voice | Images | Files | Threads | Reactions | Typing | Streaming |
 |----------|:-----:|:------:|:-----:|:-------:|:---------:|:------:|:---------:|
 | Telegram | ✅ | ✅ | ✅ | ✅ | — | ✅ | ✅ |
-| Discord | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Slack | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | WhatsApp | — | ✅ | ✅ | — | — | ✅ | ✅ |
 | Signal | — | ✅ | ✅ | — | — | ✅ | ✅ |
@@ -42,7 +41,6 @@ flowchart TB
     subgraph Gateway["Hermes Gateway"]
         subgraph Adapters["Platform adapters"]
             tg[Telegram]
-            dc[Discord]
             wa[WhatsApp]
             sl[Slack]
             sig[Signal]
@@ -69,7 +67,6 @@ flowchart TB
     end
 
     tg --> store
-    dc --> store
     wa --> store
     sl --> store
     sig --> store
@@ -137,7 +134,7 @@ hermes gateway status --system         # Linux only: inspect the system service 
 | `/usage` | Show token usage for this session |
 | `/insights [days]` | Show usage insights and analytics |
 | `/reasoning [level\|show\|hide]` | Change reasoning effort or toggle reasoning display |
-| `/voice [on\|off\|tts\|join\|leave\|status]` | Control messaging voice replies and Discord voice-channel behavior |
+| `/voice [on\|off\|tts\|status]` | Control messaging voice replies |
 | `/rollback [number]` | List or restore filesystem checkpoints |
 | `/background <prompt>` | Run a prompt in a separate background session |
 | `/reload-mcp` | Reload MCP servers from config |
@@ -167,7 +164,7 @@ Configure per-platform overrides in `~/.hermes/gateway.json`:
 {
   "reset_by_platform": {
     "telegram": { "mode": "idle", "idle_minutes": 240 },
-    "discord": { "mode": "idle", "idle_minutes": 60 }
+    "slack": { "mode": "idle", "idle_minutes": 60 }
   }
 }
 ```
@@ -179,7 +176,6 @@ Configure per-platform overrides in `~/.hermes/gateway.json`:
 ```bash
 # Restrict to specific users (recommended):
 TELEGRAM_ALLOWED_USERS=123456789,987654321
-DISCORD_ALLOWED_USERS=123456789012345678
 SIGNAL_ALLOWED_USERS=+155****4567,+155****6543
 SMS_ALLOWED_USERS=+155****4567,+155****6543
 EMAIL_ALLOWED_USERS=trusted@example.com,colleague@work.com
@@ -373,7 +369,6 @@ Each platform has its own toolset:
 |----------|---------|--------------|
 | CLI | `hermes-cli` | Full access |
 | Telegram | `hermes-telegram` | Full tools including terminal |
-| Discord | `hermes-discord` | Full tools including terminal |
 | WhatsApp | `hermes-whatsapp` | Full tools including terminal |
 | Slack | `hermes-slack` | Full tools including terminal |
 | Signal | `hermes-signal` | Full tools including terminal |
@@ -396,7 +391,6 @@ Each platform has its own toolset:
 ## Next Steps
 
 - [Telegram Setup](telegram.md)
-- [Discord Setup](discord.md)
 - [Slack Setup](slack.md)
 - [WhatsApp Setup](whatsapp.md)
 - [Signal Setup](signal.md)

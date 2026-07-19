@@ -438,35 +438,6 @@ def _compute_tool_definitions(
                 filtered_tools[i] = {"type": "function", "function": dynamic_schema}
                 break
 
-    # Rebuild discord / discord_admin schemas based on the bot's privileged
-    # intents (detected from GET /applications/@me) and the user's action
-    # allowlist in config.  Hides actions the bot's intents don't support so
-    # the model never attempts them, and annotates fetch_messages when the
-    # MESSAGE_CONTENT intent is missing.
-    _discord_schema_fns = {
-        "discord": "get_dynamic_schema_core",
-        "discord_admin": "get_dynamic_schema_admin",
-    }
-    for discord_tool_name in _discord_schema_fns:
-        if discord_tool_name in available_tool_names:
-            try:
-                from tools import discord_tool as _dt
-                schema_fn = getattr(_dt, _discord_schema_fns[discord_tool_name])
-                dynamic = schema_fn()
-            except Exception:
-                dynamic = None
-            if dynamic is None:
-                filtered_tools = [
-                    t for t in filtered_tools
-                    if t.get("function", {}).get("name") != discord_tool_name
-                ]
-                available_tool_names.discard(discord_tool_name)
-            else:
-                for i, td in enumerate(filtered_tools):
-                    if td.get("function", {}).get("name") == discord_tool_name:
-                        filtered_tools[i] = {"type": "function", "function": dynamic}
-                        break
-
     # Strip web tool cross-references from browser_navigate description when
     # web_search / web_extract are not available.  The static schema says
     # "prefer web_search or web_extract" which causes the model to hallucinate

@@ -2,7 +2,7 @@
 Gateway configuration management.
 
 Handles loading and validating configuration for:
-- Connected platforms (Telegram, Discord, WhatsApp)
+- Connected messaging platforms
 - Home channels for each platform
 - Session reset policies
 - Delivery preferences
@@ -229,7 +229,7 @@ class SessionResetPolicy:
 class PlatformConfig:
     """Configuration for a single messaging platform."""
     enabled: bool = False
-    token: Optional[str] = None  # Bot token (Telegram, Discord)
+    token: Optional[str] = None  # Bot token (for example, Telegram)
     api_key: Optional[str] = None  # API key if different from token
     home_channel: Optional[HomeChannel] = None
     
@@ -320,7 +320,7 @@ class StreamingConfig:
 # -----------------------------------------------------------------------------
 # Each callable receives a ``PlatformConfig`` and returns ``True`` when the
 # platform is sufficiently configured to be considered "connected".  Platforms
-# that rely on the generic ``token or api_key`` check (Telegram, Discord,
+# that rely on the generic ``token or api_key`` check (Telegram,
 # Slack, Matrix, Mattermost, HomeAssistant) do not need an entry here.
 _PLATFORM_CONNECTED_CHECKERS: dict[Platform, Callable[[PlatformConfig], bool]] = {
     Platform.WEIXIN: lambda cfg: bool(
@@ -420,7 +420,7 @@ class GatewayConfig:
                 and (config.token or config.extra.get("token"))
             )
 
-        # Generic token/api_key auth covers Telegram, Discord, Slack, etc.
+        # Generic token/api_key auth covers Telegram, Slack, etc.
         if config.token or config.api_key:
             return True
 
@@ -499,6 +499,9 @@ class GatewayConfig:
     def from_dict(cls, data: Dict[str, Any]) -> "GatewayConfig":
         platforms = {}
         for platform_name, platform_data in data.get("platforms", {}).items():
+            if platform_name == "discord":
+                logger.info("Ignoring removed Discord gateway configuration")
+                continue
             try:
                 platform = Platform(platform_name)
                 platforms[platform] = PlatformConfig.from_dict(platform_data)
@@ -511,6 +514,8 @@ class GatewayConfig:
         
         reset_by_platform = {}
         for platform_name, policy_data in data.get("reset_by_platform", {}).items():
+            if platform_name == "discord":
+                continue
             try:
                 platform = Platform(platform_name)
                 reset_by_platform[platform] = SessionResetPolicy.from_dict(policy_data)
@@ -708,7 +713,7 @@ def load_gateway_config() -> GatewayConfig:
                     bridged["group_policy"] = platform_cfg["group_policy"]
                 if "group_allow_from" in platform_cfg:
                     bridged["group_allow_from"] = platform_cfg["group_allow_from"]
-                if plat in (Platform.DISCORD, Platform.SLACK) and "channel_skill_bindings" in platform_cfg:
+                if plat == Platform.SLACK and "channel_skill_bindings" in platform_cfg:
                     bridged["channel_skill_bindings"] = platform_cfg["channel_skill_bindings"]
                 if "channel_prompts" in platform_cfg:
                     channel_prompts = platform_cfg["channel_prompts"]
@@ -749,53 +754,6 @@ def load_gateway_config() -> GatewayConfig:
                     os.environ["SLACK_FREE_RESPONSE_CHANNELS"] = str(frc)
                 if "reactions" in slack_cfg and not os.getenv("SLACK_REACTIONS"):
                     os.environ["SLACK_REACTIONS"] = str(slack_cfg["reactions"]).lower()
-
-            # Discord settings → env vars (env vars take precedence)
-            discord_cfg = yaml_cfg.get("discord", {})
-            if isinstance(discord_cfg, dict):
-                if "require_mention" in discord_cfg and not os.getenv("DISCORD_REQUIRE_MENTION"):
-                    os.environ["DISCORD_REQUIRE_MENTION"] = str(discord_cfg["require_mention"]).lower()
-                frc = discord_cfg.get("free_response_channels")
-                if frc is not None and not os.getenv("DISCORD_FREE_RESPONSE_CHANNELS"):
-                    if isinstance(frc, list):
-                        frc = ",".join(str(v) for v in frc)
-                    os.environ["DISCORD_FREE_RESPONSE_CHANNELS"] = str(frc)
-                if "auto_thread" in discord_cfg and not os.getenv("DISCORD_AUTO_THREAD"):
-                    os.environ["DISCORD_AUTO_THREAD"] = str(discord_cfg["auto_thread"]).lower()
-                if "reactions" in discord_cfg and not os.getenv("DISCORD_REACTIONS"):
-                    os.environ["DISCORD_REACTIONS"] = str(discord_cfg["reactions"]).lower()
-                # ignored_channels: channels where bot never responds (even when mentioned)
-                ic = discord_cfg.get("ignored_channels")
-                if ic is not None and not os.getenv("DISCORD_IGNORED_CHANNELS"):
-                    if isinstance(ic, list):
-                        ic = ",".join(str(v) for v in ic)
-                    os.environ["DISCORD_IGNORED_CHANNELS"] = str(ic)
-                # allowed_channels: if set, bot ONLY responds in these channels (whitelist)
-                ac = discord_cfg.get("allowed_channels")
-                if ac is not None and not os.getenv("DISCORD_ALLOWED_CHANNELS"):
-                    if isinstance(ac, list):
-                        ac = ",".join(str(v) for v in ac)
-                    os.environ["DISCORD_ALLOWED_CHANNELS"] = str(ac)
-                # no_thread_channels: channels where bot responds directly without creating thread
-                ntc = discord_cfg.get("no_thread_channels")
-                if ntc is not None and not os.getenv("DISCORD_NO_THREAD_CHANNELS"):
-                    if isinstance(ntc, list):
-                        ntc = ",".join(str(v) for v in ntc)
-                    os.environ["DISCORD_NO_THREAD_CHANNELS"] = str(ntc)
-                # allow_mentions: granular control over what the bot can ping.
-                # Safe defaults (no @everyone/roles) are applied in the adapter;
-                # these YAML keys only override when set and let users opt back
-                # into unsafe modes (e.g. roles=true) if they actually want it.
-                allow_mentions_cfg = discord_cfg.get("allow_mentions")
-                if isinstance(allow_mentions_cfg, dict):
-                    for yaml_key, env_key in (
-                        ("everyone", "DISCORD_ALLOW_MENTION_EVERYONE"),
-                        ("roles", "DISCORD_ALLOW_MENTION_ROLES"),
-                        ("users", "DISCORD_ALLOW_MENTION_USERS"),
-                        ("replied_user", "DISCORD_ALLOW_MENTION_REPLIED_USER"),
-                    ):
-                        if yaml_key in allow_mentions_cfg and not os.getenv(env_key):
-                            os.environ[env_key] = str(allow_mentions_cfg[yaml_key]).lower()
 
             # Telegram settings → env vars (env vars take precedence)
             telegram_cfg = yaml_cfg.get("telegram", {})
@@ -1001,7 +959,6 @@ def _validate_gateway_config(config: "GatewayConfig") -> None:
     # won't connect and the cause can be confusing without a log line.
     _token_env_names = {
         Platform.TELEGRAM: "TELEGRAM_BOT_TOKEN",
-        Platform.DISCORD: "DISCORD_BOT_TOKEN",
         Platform.SLACK: "SLACK_BOT_TOKEN",
         Platform.MATTERMOST: "MATTERMOST_TOKEN",
         Platform.MATRIX: "MATRIX_ACCESS_TOKEN",
@@ -1078,29 +1035,6 @@ def _apply_env_overrides(config: GatewayConfig) -> None:
             chat_id=telegram_home,
             name=os.getenv("TELEGRAM_HOME_CHANNEL_NAME", "Home"),
         )
-    
-    # Discord
-    discord_token = os.getenv("DISCORD_BOT_TOKEN")
-    if discord_token:
-        if Platform.DISCORD not in config.platforms:
-            config.platforms[Platform.DISCORD] = PlatformConfig()
-        config.platforms[Platform.DISCORD].enabled = True
-        config.platforms[Platform.DISCORD].token = discord_token
-    
-    discord_home = os.getenv("DISCORD_HOME_CHANNEL")
-    if discord_home and Platform.DISCORD in config.platforms:
-        config.platforms[Platform.DISCORD].home_channel = HomeChannel(
-            platform=Platform.DISCORD,
-            chat_id=discord_home,
-            name=os.getenv("DISCORD_HOME_CHANNEL_NAME", "Home"),
-        )
-    
-    # Reply threading mode for Discord (off/first/all)
-    discord_reply_mode = os.getenv("DISCORD_REPLY_TO_MODE", "").lower()
-    if discord_reply_mode in ("off", "first", "all"):
-        if Platform.DISCORD not in config.platforms:
-            config.platforms[Platform.DISCORD] = PlatformConfig()
-        config.platforms[Platform.DISCORD].reply_to_mode = discord_reply_mode
     
     # WhatsApp (typically uses different auth mechanism)
     whatsapp_enabled = os.getenv("WHATSAPP_ENABLED", "").lower() in ("true", "1", "yes")

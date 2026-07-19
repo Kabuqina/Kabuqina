@@ -514,7 +514,6 @@ const sidebars: SidebarsConfig = {
       items: [
         'user-guide/messaging/index',
         'user-guide/messaging/telegram',
-        'user-guide/messaging/discord',
         'user-guide/messaging/slack',
         'user-guide/messaging/whatsapp',
         'user-guide/messaging/signal',

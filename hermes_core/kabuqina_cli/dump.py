@@ -2,7 +2,7 @@
 Dump command for the Kabuqina CLI.
 
 Outputs a compact, plain-text summary of the user's Kabuqina setup
-that can be copy-pasted into Discord/GitHub/Telegram for support context.
+that can be copy-pasted into GitHub/Telegram for support context.
 No ANSI colors, no checkmarks — just data.
 """
 
@@ -93,7 +93,6 @@ def _configured_platforms() -> list[str]:
     """Return list of configured messaging platform names."""
     checks = {
         "telegram": "TELEGRAM_BOT_TOKEN",
-        "discord": "DISCORD_BOT_TOKEN",
         "slack": "SLACK_BOT_TOKEN",
         "whatsapp": "WHATSAPP_ENABLED",
         "signal": "SIGNAL_HTTP_URL",

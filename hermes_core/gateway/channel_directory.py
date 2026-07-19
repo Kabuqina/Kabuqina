@@ -26,9 +26,7 @@ def _normalize_channel_query(value: str) -> str:
 def _channel_target_name(platform_name: str, channel: Dict[str, Any]) -> str:
     """Return the human-facing target label shown to users for a channel entry."""
     name = channel["name"]
-    if platform_name == "discord" and channel.get("guild"):
-        return f"#{name}"
-    if platform_name != "discord" and channel.get("type"):
+    if channel.get("type"):
         return f"{name} ({channel['type']})"
     return name
 
@@ -69,9 +67,7 @@ async def build_channel_directory(adapters: Dict[Any, Any]) -> Dict[str, Any]:
 
     for platform, adapter in adapters.items():
         try:
-            if platform == Platform.DISCORD:
-                platforms["discord"] = _build_discord(adapter)
-            elif platform == Platform.SLACK:
+            if platform == Platform.SLACK:
                 platforms["slack"] = await _build_slack(adapter)
         except Exception as e:
             logger.warning("Channel directory: failed to build %s: %s", platform.value, e)
@@ -79,7 +75,7 @@ async def build_channel_directory(adapters: Dict[Any, Any]) -> Dict[str, Any]:
     # Platforms that don't support direct channel enumeration get session-based
     # discovery automatically.  Skip infrastructure entries that aren't messaging
     # platforms — everything else falls through to _build_from_sessions().
-    _SKIP_SESSION_DISCOVERY = frozenset({"local", "api_server", "webhook"})
+    _SKIP_SESSION_DISCOVERY = frozenset({"local", "api_server", "webhook", "discord"})
     for plat in Platform:
         plat_name = plat.value
         if plat_name in _SKIP_SESSION_DISCOVERY or plat_name in platforms:
@@ -107,43 +103,6 @@ async def build_channel_directory(adapters: Dict[Any, Any]) -> Dict[str, Any]:
         logger.warning("Channel directory: failed to write: %s", e)
 
     return directory
-
-
-def _build_discord(adapter) -> List[Dict[str, str]]:
-    """Enumerate all text channels and forum channels the Discord bot can see."""
-    channels = []
-    client = getattr(adapter, "_client", None)
-    if not client:
-        return channels
-
-    try:
-        import discord as _discord  # noqa: F401 — SDK presence check
-    except ImportError:
-        return channels
-
-    for guild in client.guilds:
-        for ch in guild.text_channels:
-            channels.append({
-                "id": str(ch.id),
-                "name": ch.name,
-                "guild": guild.name,
-                "type": "channel",
-            })
-        # Forum channels (type 15) — creating a message auto-spawns a thread post.
-        forums = getattr(guild, "forum_channels", None) or []
-        for ch in forums:
-            channels.append({
-                "id": str(ch.id),
-                "name": ch.name,
-                "guild": guild.name,
-                "type": "forum",
-            })
-        # Also include DM-capable users we've interacted with is not
-        # feasible via guild enumeration; those come from sessions.
-
-    # Merge any DMs from session history
-    channels.extend(_build_from_sessions("discord"))
-    return channels
 
 
 async def _build_slack(adapter) -> List[Dict[str, Any]]:
@@ -250,7 +209,13 @@ def load_directory() -> Dict[str, Any]:
         return {"updated_at": None, "platforms": {}}
     try:
         with open(DIRECTORY_PATH, encoding="utf-8") as f:
-            return json.load(f)
+            directory = json.load(f)
+        platforms = directory.get("platforms")
+        if isinstance(platforms, dict):
+            # Preserve the on-disk compatibility record for CTL-C07, but never
+            # expose the removed Discord target through the live directory.
+            platforms.pop("discord", None)
+        return directory
     except Exception:
         return {"updated_at": None, "platforms": {}}
 
@@ -269,7 +234,6 @@ def resolve_channel_name(platform_name: str, name: str) -> Optional[str]:
     Resolve a human-friendly channel name to a numeric ID.
 
     Matching strategy (case-insensitive, first match wins):
-    - Discord: "bot-home", "#bot-home", "GuildName/bot-home"
     - Telegram: display name or group name
     - Slack: "engineering", "#engineering"
     """
@@ -295,15 +259,7 @@ def resolve_channel_name(platform_name: str, name: str) -> Optional[str]:
         if _normalize_channel_query(_channel_target_name(platform_name, ch)) == query:
             return ch["id"]
 
-    # 2. Guild-qualified match for Discord ("GuildName/channel")
-    if "/" in query:
-        guild_part, ch_part = query.rsplit("/", 1)
-        for ch in channels:
-            guild = ch.get("guild", "").strip().lower()
-            if guild == guild_part and _normalize_channel_query(ch["name"]) == ch_part:
-                return ch["id"]
-
-    # 3. Partial prefix match (only if unambiguous)
+    # 2. Partial prefix match (only if unambiguous)
     matches = [ch for ch in channels if _normalize_channel_query(ch["name"]).startswith(query)]
     if len(matches) == 1:
         return matches[0]["id"]
@@ -325,31 +281,10 @@ def format_directory_for_display() -> str:
         if not channels:
             continue
 
-        # Group Discord channels by guild
-        if plat_name == "discord":
-            guilds: Dict[str, List] = {}
-            dms: List = []
-            for ch in channels:
-                guild = ch.get("guild")
-                if guild:
-                    guilds.setdefault(guild, []).append(ch)
-                else:
-                    dms.append(ch)
-
-            for guild_name, guild_channels in sorted(guilds.items()):
-                lines.append(f"Discord ({guild_name}):")
-                for ch in sorted(guild_channels, key=lambda c: c["name"]):
-                    lines.append(f"  discord:{_channel_target_name(plat_name, ch)}")
-            if dms:
-                lines.append("Discord (DMs):")
-                for ch in dms:
-                    lines.append(f"  discord:{_channel_target_name(plat_name, ch)}")
-            lines.append("")
-        else:
-            lines.append(f"{plat_name.title()}:")
-            for ch in channels:
-                lines.append(f"  {plat_name}:{_channel_target_name(plat_name, ch)}")
-            lines.append("")
+        lines.append(f"{plat_name.title()}:")
+        for ch in channels:
+            lines.append(f"  {plat_name}:{_channel_target_name(plat_name, ch)}")
+        lines.append("")
 
     lines.append('Use these as the "target" parameter when sending.')
     lines.append('Bare platform name (e.g. "telegram") sends to home channel.')
