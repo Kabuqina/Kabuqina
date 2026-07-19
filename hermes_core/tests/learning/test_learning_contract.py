@@ -353,6 +353,46 @@ def test_knowledge_base_missing_explanation_rejected():
         )
 
 
+def test_knowledge_base_accepts_optional_atomic_review_metadata():
+    env = validate_envelope(
+        _envelope(
+            "knowledge_base",
+            {
+                "concepts": [
+                    {
+                        "term": "Pointer dereference",
+                        "explanation": "Read or write the object addressed by a pointer.",
+                        "source_section": "Chapter 5 / 5.2 Pointer operators",
+                        "source_locator": "c-language.pdf, p. 83, paragraph 2",
+                        "review_prompt": "What does unary * do when applied to a valid pointer?",
+                    }
+                ]
+            },
+        )
+    )
+
+    assert env.payload["concepts"][0]["source_section"].startswith("Chapter 5")
+
+
+@pytest.mark.parametrize("field", ["source_section", "source_locator", "review_prompt"])
+def test_knowledge_base_atomic_review_metadata_must_be_text(field):
+    with pytest.raises(ContractError):
+        validate_envelope(
+            _envelope(
+                "knowledge_base",
+                {
+                    "concepts": [
+                        {
+                            "term": "Pointer dereference",
+                            "explanation": "Read the addressed object.",
+                            field: ["not", "text"],
+                        }
+                    ]
+                },
+            )
+        )
+
+
 def test_learning_plan_requires_phases():
     with pytest.raises(ContractError):
         validate_envelope(_envelope("learning_plan", {"goals": ["x"]}))

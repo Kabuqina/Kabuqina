@@ -93,6 +93,9 @@ export type KnowledgeBaseConcept = {
   explanation: string;
   module?: string;
   content_markdown?: string;
+  source_section?: string;
+  source_locator?: string;
+  review_prompt?: string;
   prerequisites?: string[];
   related?: string[];
 };
@@ -135,6 +138,9 @@ export type KnowledgeConceptDetail = {
   module: string;
   explanation: string;
   content_markdown: string;
+  source_section: string;
+  source_locator: string;
+  review_prompt: string;
   prerequisites: string[];
   related: string[];
 };

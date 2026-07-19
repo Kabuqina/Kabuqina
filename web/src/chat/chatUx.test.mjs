@@ -1247,8 +1247,8 @@ assert.match(
 );
 assert.match(
   STUDY_PROMPTS.courseKnowledgeBase,
-  /一个单元或章节[\s\S]*前置知识[\s\S]*易错点[\s\S]*待确认/,
-  "Course-knowledge-base prompt should process one unit at a time with provenance labels.",
+  /一个单元或章节[\s\S]*最小可独立复习单元[\s\S]*source_section[\s\S]*逐字准确名称[\s\S]*待确认/,
+  "Course-knowledge-base prompt should atomize uploaded documents with source locations and exact relation terms.",
 );
 assert.match(
   STUDY_PROMPTS.learningResources,

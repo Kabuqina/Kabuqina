@@ -88,6 +88,9 @@ def test_concept_detail_requires_active_owner_scoped_knowledge(graph_env):
                 "term": "Search",
                 "explanation": "Explore states.",
                 "content_markdown": "# Search\n\nExplore states.",
+                "source_section": "Chapter 3 / State-space search",
+                "source_locator": "ai-notes.pdf, p. 41",
+                "review_prompt": "Why does a frontier determine search order?",
                 "prerequisites": ["Algorithms"],
             }
         ],
@@ -101,5 +104,23 @@ def test_concept_detail_requires_active_owner_scoped_knowledge(graph_env):
 
     assert detail["term"] == "Search"
     assert detail["content_markdown"].startswith("# Search")
+    assert detail["source_section"] == "Chapter 3 / State-space search"
+    assert detail["source_locator"] == "ai-notes.pdf, p. 41"
+    assert detail["review_prompt"].startswith("Why does a frontier")
     with pytest.raises(KeyError):
         service.get_concept(artifact_id, 9)
+
+
+def test_legacy_concept_detail_defaults_atomic_review_metadata(graph_env):
+    artifact_id = _write_base(
+        graph_env,
+        "Legacy",
+        [{"term": "Array", "explanation": "A contiguous sequence."}],
+    )
+    graph_env.set_artifact_status(artifact_id, "active")
+
+    detail = KnowledgeGraphService(graph_env).get_concept(artifact_id, 0)
+
+    assert detail["source_section"] == ""
+    assert detail["source_locator"] == ""
+    assert detail["review_prompt"] == ""

@@ -238,6 +238,9 @@ def _v_knowledge_base(p: Mapping[str, Any]) -> None:
         _req_str(cm, "explanation", ctx)
         _opt_str(cm, "module", ctx)
         _opt_str(cm, "content_markdown", ctx)
+        _opt_str(cm, "source_section", ctx)
+        _opt_str(cm, "source_locator", ctx)
+        _opt_str(cm, "review_prompt", ctx)
         _opt_str_list(cm, "prerequisites", ctx)
         _opt_str_list(cm, "related", ctx)
 

@@ -14,6 +14,7 @@ import {
   type StudyKnowledgeGraphResponse,
 } from "../chat/study/study-api";
 import {
+  collectGraphNeighborhood,
   GRAPH_VIEWBOX_HEIGHT,
   GRAPH_VIEWBOX_WIDTH,
   layoutKnowledgeNodes,
@@ -62,13 +63,46 @@ function KnowledgeGraphCanvas({
   const initialPositions = useMemo(() => layoutKnowledgeNodes(nodes), [nodes]);
   const [positions, setPositions] = useState<Record<string, GraphPoint>>(initialPositions);
   const [transform, setTransform] = useState<GraphTransform>({ x: 0, y: 0, scale: 1 });
+  const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
+  const [settlingNodeId, setSettlingNodeId] = useState<string | null>(null);
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [keyboardNodeId, setKeyboardNodeId] = useState<string | null>(null);
+  const [isPanning, setIsPanning] = useState(false);
+  const settleTimerRef = useRef<number | null>(null);
   const nodeById = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
+  const interactionNodeId = draggingNodeId || settlingNodeId || keyboardNodeId || hoveredNodeId;
+  const interactionNeighborhood = useMemo(
+    () => collectGraphNeighborhood(interactionNodeId, edges),
+    [edges, interactionNodeId],
+  );
 
   useEffect(() => setPositions(initialPositions), [initialPositions]);
+  useEffect(() => () => {
+    if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current);
+  }, []);
+
+  const finishNodeDrag = useCallback((nodeId: string) => {
+    setDraggingNodeId(null);
+    setSettlingNodeId(nodeId);
+    if (settleTimerRef.current !== null) window.clearTimeout(settleTimerRef.current);
+    settleTimerRef.current = window.setTimeout(() => {
+      setSettlingNodeId((current) => current === nodeId ? null : current);
+      settleTimerRef.current = null;
+    }, 320);
+  }, []);
 
   const resetView = useCallback(() => {
     setPositions(initialPositions);
     setTransform({ x: 0, y: 0, scale: 1 });
+    setDraggingNodeId(null);
+    setSettlingNodeId(null);
+    setHoveredNodeId(null);
+    setKeyboardNodeId(null);
+    setIsPanning(false);
+    if (settleTimerRef.current !== null) {
+      window.clearTimeout(settleTimerRef.current);
+      settleTimerRef.current = null;
+    }
   }, [initialPositions]);
 
   const zoomAt = useCallback((factor: number, anchor = { x: GRAPH_VIEWBOX_WIDTH / 2, y: GRAPH_VIEWBOX_HEIGHT / 2 }) => {
@@ -85,6 +119,7 @@ function KnowledgeGraphCanvas({
       origin: { x: transform.x, y: transform.y },
       moved: false,
     };
+    setIsPanning(true);
     event.currentTarget.setPointerCapture(event.pointerId);
   };
 
@@ -104,6 +139,13 @@ function KnowledgeGraphCanvas({
       scale: transform.scale,
       moved: false,
     };
+    if (settleTimerRef.current !== null) {
+      window.clearTimeout(settleTimerRef.current);
+      settleTimerRef.current = null;
+    }
+    setHoveredNodeId(null);
+    setSettlingNodeId(null);
+    setDraggingNodeId(nodeId);
     svg.setPointerCapture(event.pointerId);
   };
 
@@ -130,19 +172,31 @@ function KnowledgeGraphCanvas({
     const gesture = gestureRef.current;
     if (!gesture || gesture.pointerId !== event.pointerId) return;
     gestureRef.current = null;
+    setIsPanning(false);
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
-    if (gesture.kind === "node" && !gesture.moved) {
-      const node = nodeById.get(gesture.nodeId);
-      if (node) onOpenNode(node);
+    if (gesture.kind === "node") {
+      finishNodeDrag(gesture.nodeId);
+      if (!gesture.moved) {
+        const node = nodeById.get(gesture.nodeId);
+        if (node) onOpenNode(node);
+      }
     }
+  };
+
+  const clearCapturedGesture = (event: React.PointerEvent<SVGSVGElement>) => {
+    const gesture = gestureRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    gestureRef.current = null;
+    setIsPanning(false);
+    if (gesture.kind === "node") finishNodeDrag(gesture.nodeId);
   };
 
   const cancelGesture = (event: React.PointerEvent<SVGSVGElement>) => {
     const gesture = gestureRef.current;
     if (!gesture || gesture.pointerId !== event.pointerId) return;
-    gestureRef.current = null;
+    clearCapturedGesture(event);
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
@@ -153,13 +207,14 @@ function KnowledgeGraphCanvas({
       <svg
         ref={svgRef}
         viewBox={`0 0 ${GRAPH_VIEWBOX_WIDTH} ${GRAPH_VIEWBOX_HEIGHT}`}
-        className="h-full min-h-[520px] w-full touch-none select-none"
+        className={`h-full min-h-[520px] w-full touch-none select-none ${isPanning ? "cursor-grabbing" : "cursor-grab"}`}
         role="application"
         aria-label="Knowledge graph"
         onPointerDown={beginPan}
         onPointerMove={moveGesture}
         onPointerUp={endGesture}
         onPointerCancel={cancelGesture}
+        onLostPointerCapture={clearCapturedGesture}
         onWheel={(event) => {
           event.preventDefault();
           const svg = svgRef.current;
@@ -174,6 +229,9 @@ function KnowledgeGraphCanvas({
           <marker id="knowledge-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
             <path d="M0,0 L8,4 L0,8 Z" fill="var(--kq-color-muted)" opacity="0.7" />
           </marker>
+          <marker id="knowledge-arrow-focused" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+            <path d="M0,0 L8,4 L0,8 Z" fill="var(--kq-color-primary)" opacity="0.95" />
+          </marker>
         </defs>
         <rect width="100%" height="100%" fill="url(#knowledge-grid)" pointerEvents="none" />
         <g transform={`translate(${transform.x} ${transform.y}) scale(${transform.scale})`}>
@@ -182,6 +240,9 @@ function KnowledgeGraphCanvas({
             const source = positions[edge.source];
             const target = positions[edge.target];
             if (!source || !target) return null;
+            const isFocused = interactionNodeId !== null
+              && (edge.source === interactionNodeId || edge.target === interactionNodeId);
+            const isDimmed = interactionNodeId !== null && !isFocused;
             return (
               <line
                 key={edge.id}
@@ -189,11 +250,14 @@ function KnowledgeGraphCanvas({
                 y1={source.y}
                 x2={target.x}
                 y2={target.y}
-                stroke="var(--kq-color-muted)"
-                strokeWidth={edge.kind === "prerequisite" ? 1.7 : 1.2}
+                className="transition-[opacity,stroke,stroke-width] duration-200 motion-reduce:transition-none"
+                stroke={isFocused ? "var(--kq-color-primary)" : "var(--kq-color-muted)"}
+                strokeWidth={isFocused ? 2.5 : edge.kind === "prerequisite" ? 1.7 : 1.2}
                 strokeDasharray={edge.kind === "related" ? "5 6" : undefined}
-                opacity={edge.kind === "prerequisite" ? 0.62 : 0.42}
-                markerEnd={edge.kind === "prerequisite" ? "url(#knowledge-arrow)" : undefined}
+                opacity={isDimmed ? 0.09 : isFocused ? 0.92 : edge.kind === "prerequisite" ? 0.62 : 0.42}
+                markerEnd={edge.kind === "prerequisite"
+                  ? isFocused ? "url(#knowledge-arrow-focused)" : "url(#knowledge-arrow)"
+                  : undefined}
               />
             );
           })}
@@ -203,6 +267,11 @@ function KnowledgeGraphCanvas({
             if (!point) return null;
             const color = moduleColor(node.module || "Other");
             const label = node.label.length > 20 ? `${node.label.slice(0, 19)}…` : node.label;
+            const isDragging = draggingNodeId === node.id;
+            const isSettling = settlingNodeId === node.id;
+            const isPrimary = interactionNodeId === node.id;
+            const isConnected = interactionNodeId === null || interactionNeighborhood.has(node.id);
+            const nodeScale = isDragging ? 1.16 : isSettling ? 1.03 : isPrimary ? 1.07 : 1;
             return (
               <g
                 key={node.id}
@@ -212,6 +281,12 @@ function KnowledgeGraphCanvas({
                 tabIndex={0}
                 aria-label={node.label}
                 onPointerDown={(event) => beginNodeDrag(event, node.id)}
+                onPointerEnter={() => {
+                  if (!draggingNodeId) setHoveredNodeId(node.id);
+                }}
+                onPointerLeave={() => setHoveredNodeId((current) => current === node.id ? null : current)}
+                onFocus={() => setKeyboardNodeId(node.id)}
+                onBlur={() => setKeyboardNodeId((current) => current === node.id ? null : current)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();
@@ -220,21 +295,42 @@ function KnowledgeGraphCanvas({
                 }}
               >
                 <title>{`${node.label}\n${node.summary}`}</title>
-                <circle r="18" fill={color} opacity="0.16" />
-                <circle r="7" fill={color} stroke="white" strokeWidth="2" />
-                <text
-                  x="13"
-                  y="4"
-                  fill="var(--kq-color-strong)"
-                  fontSize="13"
-                  fontWeight="600"
-                  paintOrder="stroke"
-                  stroke="var(--kq-color-surface,white)"
-                  strokeWidth="4"
-                  strokeLinejoin="round"
+                <g
+                  className="transition-[opacity,filter,transform] duration-300 motion-reduce:transition-none"
+                  style={{
+                    opacity: isConnected ? 1 : 0.24,
+                    filter: isDragging
+                      ? `drop-shadow(0 7px 9px color-mix(in srgb, ${color} 48%, transparent))`
+                      : isPrimary
+                        ? `drop-shadow(0 3px 5px color-mix(in srgb, ${color} 35%, transparent))`
+                        : "none",
+                    transform: `scale(${nodeScale})`,
+                    transformOrigin: "0px 0px",
+                    transitionTimingFunction: "cubic-bezier(0.2, 1.35, 0.35, 1)",
+                  }}
                 >
-                  {label}
-                </text>
+                  <circle
+                    r="25"
+                    fill={color}
+                    opacity={isDragging ? 0.2 : isPrimary ? 0.11 : 0}
+                    className={isDragging ? "animate-pulse motion-reduce:animate-none" : undefined}
+                  />
+                  <circle r="18" fill={color} opacity="0.16" />
+                  <circle r="7" fill={color} stroke="white" strokeWidth="2" />
+                  <text
+                    x="13"
+                    y="4"
+                    fill="var(--kq-color-strong)"
+                    fontSize="13"
+                    fontWeight="600"
+                    paintOrder="stroke"
+                    stroke="var(--kq-color-surface,white)"
+                    strokeWidth="4"
+                    strokeLinejoin="round"
+                  >
+                    {label}
+                  </text>
+                </g>
               </g>
             );
           })}

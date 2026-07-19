@@ -34,7 +34,9 @@ export const LEARNING_PATH_PROMPT = [
 export const COURSE_KNOWLEDGE_BASE_PROMPT = [
   "请和我一起为高校专业或完整课程构造初始知识库。不要编造我没有提供的培养方案、教材、论文或课程内容；先确认专业方向、课程范围和可用材料，一次只问一个问题。",
   "梳理时每次只处理一个单元或章节（构建完整专业知识库时，可对应一门基础课、专业核心课或方向课）：列出核心知识点、准确解释、前置知识、关联知识和典型易错点，并注明来源（我的材料，还是你的推断）。完成一个模块后停下来，请我确认或修正，再继续下一个。",
-  "信息足够或我说“可以了”时，使用 STUDY learning 工具调用 learning_draft_create 创建 kind=knowledge_base 草稿。payload 使用 {specialty, course, concepts}；每个 concept 必须含 term、explanation，可含 module、prerequisites、related、content_markdown。prerequisites 与 related 必须使用同一知识库中 term 的准确名称，以便系统自动生成关系图谱；content_markdown 用于知识点详情文档。",
+  "当用户发送或上传文档时，必须按文档的标题层级逐节读取并拆分，不要把整章、整节或并列概念合成一个节点。一个 concept 应是最小可独立复习单元：能用一张卡片或一个自测问题在 2 到 5 分钟内回忆与检验。定义、语法规则、运算步骤、边界条件、典型错误和应用判断若可分别出题，就分别建节点；只合并同义名称或无法分离理解的内容。章节标题仅作为 module，不应替代具体知识点。",
+  "信息足够或我说“可以了”时，使用 STUDY learning 工具调用 learning_draft_create 创建 kind=knowledge_base 草稿。payload 使用 {specialty, course, concepts}；每个 concept 必须含唯一且准确的 term、explanation，可含 module、prerequisites、related、content_markdown、source_section、source_locator、review_prompt。source_section 保留原文的章/节层级，source_locator 写文件名及原文已有的页码、标题或段落定位（原文没有就留空，禁止猜页码），review_prompt 是只检验该原子知识点的一道简短回忆题；content_markdown 用于知识点详情文档。草稿 envelope 的 source_refs 同时保留用户文档引用。",
+  "全部 term 确定后再做一次关系校对：prerequisites 与 related 只能使用同一知识库中 term 的逐字准确名称，不使用章节名、模糊别名或未建节点的词；前置关系表示理解目标节点确实必需，普通延伸只放 related，以便系统稳定生成关系图谱。",
   "来源不明的内容标为待确认，放在待采集清单里，不要写成课程事实。创建草稿后只简短告诉我已生成，并提醒我在“课程知识库”面板审核激活；只有已激活知识才进入图谱。",
   "请不要使用 emoji，保持清晰、克制、温和的导师风格。",
 ].join("\n\n");

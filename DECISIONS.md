@@ -814,3 +814,13 @@ history. A trusted activate/reject transition also writes `review_status` as
 `passed`/`failed`, so lifecycle and review surfaces cannot disagree. The Web
 copy remains only a compatibility/offline mirror and all 12 editor fields
 round-trip through the backend state.
+
+**STUDY atomic document concepts (2026-07-19).** Knowledge-base concepts may
+carry optional `source_section`, `source_locator`, and `review_prompt` strings.
+They keep uploaded-document provenance and one focused recall question beside
+the smallest independently reviewable concept; old knowledge bases remain
+valid and project empty strings for these fields. Relation terms still resolve
+only against exact concept names, and only owner/space-scoped active knowledge
+bases enter the graph. The graph interaction layer may visually lift a dragged
+node and focus its direct neighbourhood, but persisted graph coordinates and
+the active-only trust boundary do not change.

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 export type GraphLayoutNode = { id: string; module?: string };
+export type GraphLayoutEdge = { source: string; target: string };
 export type GraphPoint = { x: number; y: number };
 export type GraphTransform = GraphPoint & { scale: number };
 
@@ -25,6 +26,21 @@ export function zoomGraphAt(
     x: anchor.x - worldX * scale,
     y: anchor.y - worldY * scale,
   };
+}
+
+/** Return the focused node and its direct neighbours for interaction highlighting. */
+export function collectGraphNeighborhood(
+  nodeId: string | null,
+  edges: GraphLayoutEdge[],
+): Set<string> {
+  const connected = new Set<string>();
+  if (!nodeId) return connected;
+  connected.add(nodeId);
+  for (const edge of edges) {
+    if (edge.source === nodeId) connected.add(edge.target);
+    if (edge.target === nodeId) connected.add(edge.source);
+  }
+  return connected;
 }
 
 function keepNodeVisible(point: GraphPoint): GraphPoint {

@@ -169,6 +169,9 @@ class KnowledgeGraphService:
             "module": _text(concept.get("module"), 300),
             "explanation": explanation,
             "content_markdown": _text(concept.get("content_markdown")) or explanation,
+            "source_section": _text(concept.get("source_section"), 500),
+            "source_locator": _text(concept.get("source_locator"), 1_000),
+            "review_prompt": _text(concept.get("review_prompt"), 2_000),
             "prerequisites": _strings(concept.get("prerequisites")),
             "related": _strings(concept.get("related")),
         }

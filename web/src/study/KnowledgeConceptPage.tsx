@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useEffect, useState } from "react";
-import { BookOpenText, Network } from "lucide-react";
+import { BookOpenText, Brain, MapPin, Network } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { AppScaffold } from "../components/AppScaffold";
 import { BackButton } from "../components/ui/BackButton";
@@ -79,6 +79,29 @@ export function KnowledgeConceptPage() {
             <p className="mt-4 max-w-3xl text-base leading-7 text-[var(--kq-color-muted)]">
               {concept.explanation}
             </p>
+
+            {concept.source_section || concept.source_locator ? (
+              <div className="mt-5 flex max-w-3xl items-start gap-2 rounded-xl border border-[var(--kq-color-border)] bg-[var(--kq-glass-bg-subtle)] px-3.5 py-3 text-sm text-[var(--kq-color-muted)]">
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[var(--kq-color-primary)]" />
+                <div>
+                  <span className="font-medium text-[var(--kq-color-strong)]">
+                    {locale === "zh" ? "来源定位" : "Source location"}
+                  </span>
+                  {concept.source_section ? <span className="ml-2">{concept.source_section}</span> : null}
+                  {concept.source_locator ? <span className="ml-2">· {concept.source_locator}</span> : null}
+                </div>
+              </div>
+            ) : null}
+
+            {concept.review_prompt ? (
+              <section className="mt-6 max-w-3xl rounded-2xl border border-violet-300/50 bg-violet-500/8 p-4 dark:border-violet-400/25">
+                <div className="flex items-center gap-2 text-sm font-semibold text-violet-700 dark:text-violet-300">
+                  <Brain className="h-4 w-4" />
+                  <h2>{locale === "zh" ? "快速复习" : "Quick review"}</h2>
+                </div>
+                <p className="mt-2 text-sm leading-6 text-[var(--kq-color-strong)]">{concept.review_prompt}</p>
+              </section>
+            ) : null}
 
             {concept.prerequisites.length || concept.related.length ? (
               <div className="mt-7 grid gap-4 rounded-2xl border border-[var(--kq-color-border)] bg-[var(--kq-glass-bg-subtle)] p-4 sm:grid-cols-2">

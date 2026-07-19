@@ -31,6 +31,17 @@ const worldAfter = {
 };
 assert.deepEqual(worldAfter, worldBefore, "zoom keeps the pointer anchor fixed in world space");
 
+assert.deepEqual(
+  [...layout.collectGraphNeighborhood("middle", [
+    { source: "before", target: "middle" },
+    { source: "middle", target: "after" },
+    { source: "elsewhere", target: "detached" },
+  ])].sort(),
+  ["after", "before", "middle"],
+  "interaction focus includes the dragged node and only its direct neighbours",
+);
+assert.deepEqual([...layout.collectGraphNeighborhood(null, [])], []);
+
 const crowded = Array.from({ length: 80 }, (_, index) => ({ id: `node-${index}`, module: `module-${index % 12}` }));
 for (const point of Object.values(layout.layoutKnowledgeNodes(crowded))) {
   assert.ok(point.x >= 55 && point.x <= layout.GRAPH_VIEWBOX_WIDTH - 190);
