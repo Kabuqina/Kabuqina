@@ -149,6 +149,7 @@ pub fn run() {
             secrets::cmd_validate_endpoint,
             python_supervisor::cmd_python_status,
             paths::cmd_workspace_path,
+            paths::cmd_product_profile_contract,
             paths::cmd_open_workspace,
             paths::cmd_open_path,
             paths::cmd_reveal_path,
@@ -473,7 +474,7 @@ async fn maybe_auto_start_gateway_service(
         return;
     }
     let hh = gateway_supervisor::kabuqina_home_path(&cfg.data_dir);
-    if !gateway_supervisor::dotenv_suggests_messaging_gateway(&hh) {
+    if !gateway_supervisor::dotenv_suggests_messaging_gateway(&hh, &cfg.product_profile) {
         return;
     }
     let state: tauri::State<AppState> = app.state();
@@ -515,7 +516,7 @@ async fn ensure_gateway_after_hermes_respawn(
         return;
     }
     let hh = gateway_supervisor::kabuqina_home_path(&cfg.data_dir);
-    if !gateway_supervisor::dotenv_suggests_messaging_gateway(&hh) {
+    if !gateway_supervisor::dotenv_suggests_messaging_gateway(&hh, &cfg.product_profile) {
         return;
     }
     match gateway_supervisor::GatewaySupervisor::spawn_all(cfg).await {
@@ -556,7 +557,8 @@ pub struct GatewayStatusPayload {
 async fn cmd_gateway_status(app: tauri::AppHandle) -> Result<GatewayStatusPayload, String> {
     let data_dir = paths::ensure_data_dir(&app).map_err(|e| e.to_string())?;
     let hh = gateway_supervisor::kabuqina_home_path(&data_dir);
-    let eligible = gateway_supervisor::dotenv_suggests_messaging_gateway(&hh);
+    let product_profile = paths::resolve_product_profile(&app);
+    let eligible = gateway_supervisor::dotenv_suggests_messaging_gateway(&hh, &product_profile);
 
     let embedded_gateway_startup_survival = match resolve_spawn_config_for_children(&app).await {
         Ok(cfg) => gateway_supervisor::bundled_gateway_has_startup_survival(&cfg.bundle_dir),
@@ -577,6 +579,7 @@ async fn cmd_gateway_status(app: tauri::AppHandle) -> Result<GatewayStatusPayloa
         // Read per-profile state files for each known platform.
         let configured = gateway_supervisor::discover_configured_platforms(
             &gateway_supervisor::parse_dotenv_upper(&hh),
+            &product_profile,
         );
         for platform in &configured {
             let profile_home = gateway_supervisor::profile_home_path(&data_dir, platform);
@@ -610,7 +613,7 @@ async fn cmd_gateway_status(app: tauri::AppHandle) -> Result<GatewayStatusPayloa
 async fn cmd_gateway_start(app: tauri::AppHandle) -> Result<(), String> {
     let cfg = resolve_spawn_config_for_children(&app).await?;
     let hh = gateway_supervisor::kabuqina_home_path(&cfg.data_dir);
-    if !gateway_supervisor::dotenv_suggests_messaging_gateway(&hh) {
+    if !gateway_supervisor::dotenv_suggests_messaging_gateway(&hh, &cfg.product_profile) {
         return Err(
             "No messaging credentials found in kabuqina-home/.env. Open Keys in Kabuqina and save tokens first."
                 .into(),
@@ -618,7 +621,7 @@ async fn cmd_gateway_start(app: tauri::AppHandle) -> Result<(), String> {
     }
     stop_gateway_service(&app).await;
     // Ensure migration first.
-    gateway_supervisor::ensure_migration(&cfg.data_dir)
+    gateway_supervisor::ensure_migration(&cfg.data_dir, &cfg.product_profile)
         .map_err(|e| format!("migration failed: {e}"))?;
     let gw = gateway_supervisor::GatewaySupervisor::spawn_all(&cfg)
         .await

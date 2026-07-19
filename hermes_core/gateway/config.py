@@ -915,11 +915,65 @@ def load_gateway_config() -> GatewayConfig:
 
     # Override with environment variables
     _apply_env_overrides(config)
+
+    # Tauri launches one gateway child per retained platform. Enforce that
+    # identity after YAML, environment, and plugin discovery have all merged,
+    # so stale host config or inherited credentials cannot re-enable another
+    # adapter inside the child.
+    _enforce_desktop_single_platform(config)
     
     # --- Validate loaded values ---
     _validate_gateway_config(config)
 
     return config
+
+
+def _enforce_desktop_single_platform(config: "GatewayConfig") -> None:
+    selected = (
+        os.getenv("KABUQINA_GATEWAY_PLATFORM")
+        or os.getenv("HERMESDESK_GATEWAY_PLATFORM")
+        or ""
+    ).strip().lower()
+    if not selected:
+        return
+
+    profile = (
+        os.getenv("KABUQINA_PRODUCT_PROFILE")
+        or os.getenv("HERMESDESK_PRODUCT_PROFILE")
+        or ""
+    ).strip().lower()
+    from gateway.delivery_contract import PROFILE_PLATFORMS
+
+    allowed = PROFILE_PLATFORMS.get(profile)
+    if allowed is None:
+        raise RuntimeError(
+            "platform_unavailable [kabuqina.platform-surface/v1]: "
+            f"gateway child has unknown product profile {profile!r}"
+        )
+    if selected not in allowed:
+        raise RuntimeError(
+            "platform_unavailable [kabuqina.platform-surface/v1]: "
+            f"gateway platform {selected!r} is not allowed for profile {profile!r}"
+        )
+    try:
+        platform = Platform(selected)
+    except (ValueError, KeyError) as exc:
+        raise RuntimeError(
+            "platform_unavailable [kabuqina.platform-surface/v1]: "
+            f"gateway platform {selected!r} is not registered"
+        ) from exc
+
+    selected_config = config.platforms.get(platform)
+    config.platforms = {platform: selected_config} if selected_config is not None else {}
+    config.reset_by_platform = {
+        key: value for key, value in config.reset_by_platform.items() if key == platform
+    }
+    logger.info(
+        "desktop gateway profile=%s platform=%s; isolated adapter set size=%d",
+        profile,
+        selected,
+        len(config.platforms),
+    )
 
 
 def _validate_gateway_config(config: "GatewayConfig") -> None:

@@ -42,8 +42,8 @@ _ENV_FALLBACK = "HERMESDESK_PRODUCT_PROFILE"
 # Single runtime source of truth for region cuts. Policy consumers read these
 # instead of hardcoding their own region checks. The authoritative human lists
 # live in docs/superpowers/specs/2026-06-19-mainland-profile-code-pruning-design.md;
-# keep the two in sync. ``sea`` is reserved and falls back to ``mainland_cn``
-# until a SEA design defines it.
+# keep the two in sync. Gateway visibility/autostart is the CTL-C01 manifest
+# contract and never falls back across regions.
 
 _VISIBLE_PROVIDERS: dict[str, tuple[str, ...]] = {
     MAINLAND_CN: (
@@ -54,14 +54,16 @@ _VISIBLE_PROVIDERS: dict[str, tuple[str, ...]] = {
 
 _VISIBLE_GATEWAYS: dict[str, tuple[str, ...]] = {
     # ``desktop`` is the Tauri shell, not a gateway platform — excluded here.
-    MAINLAND_CN: ("weixin", "qqbot", "feishu", "wecom"),
+    MAINLAND_CN: ("weixin", "qqbot", "dingtalk"),
+    SEA: ("telegram", "whatsapp", "email"),
 }
 
 # Gateways whose stale ``.env`` keys are allowed to auto-start the gateway
 # child. Mirrors ``_VISIBLE_GATEWAYS`` for ``mainland_cn`` but kept separate so
 # a profile can show a platform without making it auto-start.
 _AUTOSTART_GATEWAYS: dict[str, tuple[str, ...]] = {
-    MAINLAND_CN: ("weixin", "qqbot", "feishu", "wecom"),
+    MAINLAND_CN: ("weixin", "qqbot", "dingtalk"),
+    SEA: ("telegram", "whatsapp", "email"),
 }
 
 # Toolsets hidden from the desktop capability catalog for the profile, and also
@@ -130,6 +132,13 @@ def _for_profile(mapping: dict[str, tuple[str, ...]], profile: str) -> tuple[str
     return mapping.get(profile) or mapping[DEFAULT_PROFILE]
 
 
+def _exact_for_profile(mapping: dict[str, tuple[str, ...]], profile: str | None) -> tuple[str, ...]:
+    """Return an exact profile value; unknown/missing profiles fail closed."""
+    if profile not in KNOWN_PROFILES:
+        return ()
+    return mapping.get(profile, ())
+
+
 class ProductProfilePolicy:
     """Resolve the active product profile from the runtime environment."""
 
@@ -159,6 +168,21 @@ class ProductProfilePolicy:
         return raw
 
     @staticmethod
+    def resolve_gateway_profile() -> str | None:
+        """Resolve a profile for gateway-producing boundaries.
+
+        Missing values keep the installed default. A set-but-unknown value is
+        not allowed to inherit another region's gateway surface.
+        """
+        raw = (os.environ.get(_ENV_PRIMARY) or os.environ.get(_ENV_FALLBACK) or "").strip().lower()
+        if not raw:
+            return DEFAULT_PROFILE
+        if raw not in KNOWN_PROFILES:
+            log.error("Unknown gateway product profile %r; gateway surface disabled", raw)
+            return None
+        return raw
+
+    @staticmethod
     def is_mainland_cn() -> bool:
         return ProductProfilePolicy.resolve_profile() == MAINLAND_CN
 
@@ -177,11 +201,13 @@ class ProductProfilePolicy:
 
     @classmethod
     def visible_gateways(cls, profile: str | None = None) -> tuple[str, ...]:
-        return _for_profile(_VISIBLE_GATEWAYS, cls._profile(profile))
+        resolved = cls.resolve_gateway_profile() if profile is None else profile
+        return _exact_for_profile(_VISIBLE_GATEWAYS, resolved)
 
     @classmethod
     def autostart_gateways(cls, profile: str | None = None) -> frozenset[str]:
-        return frozenset(_for_profile(_AUTOSTART_GATEWAYS, cls._profile(profile)))
+        resolved = cls.resolve_gateway_profile() if profile is None else profile
+        return frozenset(_exact_for_profile(_AUTOSTART_GATEWAYS, resolved))
 
     @classmethod
     def hidden_toolsets(cls, profile: str | None = None) -> frozenset[str]:

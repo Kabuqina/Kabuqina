@@ -172,6 +172,13 @@ def _handle_send(args):
 
     parts = target.split(":", 1)
     platform_name = parts[0].strip().lower()
+
+    # Validate before directory/config/adapter imports or any network path.
+    from gateway.delivery_contract import unsupported_delivery_reason
+    unsupported = unsupported_delivery_reason(target)
+    if unsupported:
+        return tool_error(unsupported)
+
     target_ref = parts[1].strip() if len(parts) > 1 else None
     chat_id = None
     thread_id = None

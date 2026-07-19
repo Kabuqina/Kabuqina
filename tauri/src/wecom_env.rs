@@ -39,6 +39,7 @@ pub fn cmd_wecom_save_config(
     secret: String,
     open_access: Option<bool>,
 ) -> Result<(), String> {
+    crate::paths::ensure_profile_platform_visible(&app, "wecom")?;
     let bid = bot_id.trim();
     let s = secret.trim();
     if bid.is_empty() {

@@ -203,13 +203,7 @@ export const CATALOG_TERMINAL: SetupCatalogOption[] = [
 
 export const CATALOG_GATEWAY: SetupCatalogOption[] = [
   {
-    id: "feishu",
-    name: L("飞书", "飞书"),
-    defaultHint: L("扫码一键创建并绑定", "Scan to create & bind"),
-    configUi: "feishu_route_c",
-  },
-  {
-    id: "qq",
+    id: "qqbot",
     name: L("QQ", "QQ"),
     defaultHint: L("扫码绑定机器人", "Scan to bind bot"),
     configUi: "qqbot_route_c",
@@ -221,12 +215,43 @@ export const CATALOG_GATEWAY: SetupCatalogOption[] = [
     configUi: "weixin_route_c",
   },
   {
-    id: "wecom",
-    name: L("企微", "企微"),
-    defaultHint: L("扫码创建或手动填写", "Scan to create or enter manually"),
-    configUi: "wecom_route_c",
+    id: "dingtalk",
+    name: L("钉钉", "DingTalk"),
+    defaultHint: L("填写应用凭据", "Enter app credentials"),
+    configFields: [
+      F("DINGTALK_CLIENT_ID", L("Client ID", "Client ID"), L("AppKey", "AppKey")),
+      F("DINGTALK_CLIENT_SECRET", L("Client Secret", "Client Secret"), L("AppSecret", "AppSecret"), "password"),
+    ],
+  },
+  {
+    id: "telegram",
+    name: L("Telegram", "Telegram"),
+    defaultHint: L("Bot Token", "Bot token"),
+    configFields: [F("TELEGRAM_BOT_TOKEN", L("Bot Token", "Bot token"), L("BotFather token", "BotFather token"), "password")],
+  },
+  {
+    id: "whatsapp",
+    name: L("WhatsApp", "WhatsApp"),
+    defaultHint: L("启用本机桥", "Enable local bridge"),
+    configFields: [F("WHATSAPP_ENABLED", L("启用", "Enabled"), L("true", "true"))],
+  },
+  {
+    id: "email",
+    name: L("Email", "Email"),
+    defaultHint: L("IMAP / SMTP", "IMAP / SMTP"),
+    configFields: [
+      F("EMAIL_ADDRESS", L("邮箱", "Address"), L("name@example.com", "name@example.com")),
+      F("EMAIL_PASSWORD", L("密码", "Password"), L("应用密码", "App password"), "password"),
+      F("EMAIL_IMAP_HOST", L("IMAP", "IMAP host"), L("imap.example.com", "imap.example.com")),
+      F("EMAIL_SMTP_HOST", L("SMTP", "SMTP host"), L("smtp.example.com", "smtp.example.com")),
+    ],
   },
 ];
+
+export function gatewayCatalogFor(visibleGateways: readonly string[]): SetupCatalogOption[] {
+  const allowed = new Set(visibleGateways);
+  return CATALOG_GATEWAY.filter((item) => allowed.has(item.id));
+}
 
 export const CATALOG_TOOLS: SetupCatalogOption[] = [
   {

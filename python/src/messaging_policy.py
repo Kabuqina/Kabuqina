@@ -141,13 +141,15 @@ def expand_cron_default_deliver(current_deliver: Optional[str]) -> str:
         from gateway.config import load_gateway_config  # type: ignore[import-untyped]
 
         cfg = load_gateway_config()
+        from product_profile_policy import ProductProfilePolicy
+        allowed = ProductProfilePolicy.autostart_gateways()
         for platform_enum, pconfig in cfg.platforms.items():
             if not getattr(pconfig, "enabled", True):
                 continue
             if not getattr(pconfig, "home_channel", None):
                 continue
             name = getattr(platform_enum, "value", str(platform_enum)).lower()
-            if name and name not in parts:
+            if name in allowed and name not in parts:
                 parts.append(name)
     except Exception:
         # Gateway config not available — desktop-only is a safe default.

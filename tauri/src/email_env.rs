@@ -129,6 +129,7 @@ pub fn cmd_email_save_config(
     oauth2_token_url: Option<String>,
     oauth2_scope: Option<String>,
 ) -> Result<(), String> {
+    crate::paths::ensure_profile_platform_visible(&app, "email")?;
     let address = address.trim().to_string();
     let password = password.trim().to_string();
     let imap_host = imap_host.trim().to_string();

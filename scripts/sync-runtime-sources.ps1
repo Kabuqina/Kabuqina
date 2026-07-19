@@ -210,6 +210,12 @@ if ($LASTEXITCODE -ne 0) {
     Write-Error "Runtime import verification failed after source sync."
     exit $LASTEXITCODE
 }
+$verifyProfilePlatformImports = Join-Path $root "python\tools\verify_profile_platform_imports.py"
+& $py $verifyProfilePlatformImports $dist
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Profile platform import verification failed after source sync."
+    exit $LASTEXITCODE
+}
 $verifyLegacyRuntimeImports = Join-Path $root "python\tools\verify_legacy_runtime_imports.py"
 & $py $verifyLegacyRuntimeImports $dist
 if ($LASTEXITCODE -ne 0) {

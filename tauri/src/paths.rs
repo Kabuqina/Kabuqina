@@ -215,15 +215,89 @@ fn read_setting(app: &AppHandle, key: &str) -> Option<String> {
 pub const DEFAULT_PRODUCT_PROFILE: &str = "mainland_cn";
 
 /// Resolve the active region product profile from `settings.json` (flat
-/// `product_profile` key). Missing or unknown values resolve to
-/// `mainland_cn`. Mirrors the Python `ProductProfilePolicy.resolve_profile`.
+/// `product_profile` key). Missing values resolve to `mainland_cn`; an
+/// explicitly unknown value is preserved as `invalid` so gateway-producing
+/// boundaries fail closed rather than inheriting another region.
 pub fn resolve_product_profile(app: &AppHandle) -> String {
     let raw = read_setting(app, "product_profile").unwrap_or_default();
-    match raw.trim().to_lowercase().as_str() {
+    let normalized = raw.trim().to_lowercase();
+    match normalized.as_str() {
+        "" => DEFAULT_PRODUCT_PROFILE.to_string(),
         "mainland_cn" => "mainland_cn".to_string(),
         "sea" => "sea".to_string(),
-        _ => DEFAULT_PRODUCT_PROFILE.to_string(),
+        _ => "invalid".to_string(),
     }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProductProfileContract {
+    pub contract_version: &'static str,
+    pub profile: String,
+    pub visible_gateways: Vec<&'static str>,
+}
+
+#[tauri::command]
+pub fn cmd_product_profile_contract(app: AppHandle) -> ProductProfileContract {
+    let profile = resolve_product_profile(&app);
+    let visible_gateways = match profile.as_str() {
+        "mainland_cn" => vec!["weixin", "qqbot", "dingtalk"],
+        "sea" => vec!["telegram", "whatsapp", "email"],
+        _ => Vec::new(),
+    };
+    ProductProfileContract {
+        contract_version: "kabuqina.platform-surface/v1",
+        profile,
+        visible_gateways,
+    }
+}
+
+pub fn ensure_profile_platform_visible(app: &AppHandle, platform: &str) -> Result<(), String> {
+    let profile = resolve_product_profile(app);
+    if profile_allows_platform(&profile, platform) {
+        Ok(())
+    } else {
+        Err(format!(
+            "platform_unavailable [kabuqina.platform-surface/v1]: {platform:?} is not available in product profile {profile:?}"
+        ))
+    }
+}
+
+pub fn profile_allows_platform(profile: &str, platform: &str) -> bool {
+    match profile {
+        "mainland_cn" => matches!(platform, "weixin" | "qqbot" | "dingtalk"),
+        "sea" => matches!(platform, "telegram" | "whatsapp" | "email"),
+        _ => false,
+    }
+}
+
+pub fn gateway_platform_for_env_key(key: &str) -> Option<&'static str> {
+    let key = key.trim().to_ascii_uppercase();
+    if key.starts_with("WEIXIN_") {
+        Some("weixin")
+    } else if key.starts_with("QQ_") || key.starts_with("QQBOT_") {
+        Some("qqbot")
+    } else if key.starts_with("DINGTALK_") {
+        Some("dingtalk")
+    } else if key.starts_with("TELEGRAM_") {
+        Some("telegram")
+    } else if key.starts_with("WHATSAPP_") {
+        Some("whatsapp")
+    } else if key.starts_with("EMAIL_") {
+        Some("email")
+    } else {
+        None
+    }
+}
+
+pub fn ensure_profile_env_key_writable(app: &AppHandle, key: &str) -> Result<(), String> {
+    let platform = gateway_platform_for_env_key(key).ok_or_else(|| {
+        format!(
+            "platform_unavailable [kabuqina.platform-surface/v1]: env key {:?} is not writable by the gateway settings boundary",
+            key.trim()
+        )
+    })?;
+    ensure_profile_platform_visible(app, platform)
 }
 
 // ---- IPC commands ---------------------------------------------------------
@@ -674,9 +748,9 @@ pub fn cmd_save_shared_prefs(app: AppHandle, content: String) -> Result<(), Stri
 #[cfg(test)]
 mod tests {
     use super::{
-        cmd_write_text_file, is_reserved_windows_device_name, migrate_workspace_contents,
-        parse_auto_start_gateway_setting, runtime_candidates_from_exe, validate_pdf_export_path,
-        validate_text_export_path,
+        cmd_write_text_file, gateway_platform_for_env_key, is_reserved_windows_device_name,
+        migrate_workspace_contents, parse_auto_start_gateway_setting, profile_allows_platform,
+        runtime_candidates_from_exe, validate_pdf_export_path, validate_text_export_path,
     };
 
     fn unique_temp_path(name: &str) -> std::path::PathBuf {
@@ -824,5 +898,44 @@ mod tests {
         assert!(!new.exists());
 
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn gateway_profile_platform_matrix_is_exact_and_unknown_is_closed() {
+        assert!(profile_allows_platform("mainland_cn", "weixin"));
+        assert!(profile_allows_platform("mainland_cn", "qqbot"));
+        assert!(profile_allows_platform("mainland_cn", "dingtalk"));
+        assert!(!profile_allows_platform("mainland_cn", "telegram"));
+        assert!(profile_allows_platform("sea", "telegram"));
+        assert!(profile_allows_platform("sea", "whatsapp"));
+        assert!(profile_allows_platform("sea", "email"));
+        assert!(!profile_allows_platform("sea", "weixin"));
+        assert!(!profile_allows_platform("invalid", "email"));
+    }
+
+    #[test]
+    fn gateway_env_key_mapping_rejects_removed_and_generic_namespaces() {
+        assert_eq!(
+            gateway_platform_for_env_key("WEIXIN_HOME_CHANNEL"),
+            Some("weixin")
+        );
+        assert_eq!(
+            gateway_platform_for_env_key("QQBOT_HOME_CHANNEL"),
+            Some("qqbot")
+        );
+        assert_eq!(
+            gateway_platform_for_env_key("EMAIL_ALLOWED_USERS"),
+            Some("email")
+        );
+        for removed in [
+            "FEISHU_APP_ID",
+            "WECOM_SECRET",
+            "DISCORD_BOT_TOKEN",
+            "SMS_HOME_CHANNEL",
+            "GATEWAY_ALLOW_ALL_USERS",
+            "MALICIOUS_API_URL",
+        ] {
+            assert_eq!(gateway_platform_for_env_key(removed), None, "{removed}");
+        }
     }
 }

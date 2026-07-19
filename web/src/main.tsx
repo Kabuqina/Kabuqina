@@ -22,8 +22,9 @@ import { LoadPackagesPage } from "./advanced/pages/LoadPackagesPage";
 import { QqPage } from "./advanced/pages/QqPage";
 import { WeixinPage } from "./advanced/pages/WeixinPage";
 import { WeComPage } from "./advanced/pages/WeComPage";
-// DingTalkPage / EmailPage routes are cut from the mainland_cn product surface
-// (v0.3.0). Source kept under advanced/pages for the future sea profile.
+import { DingTalkPage } from "./advanced/pages/DingTalkPage";
+import { EmailPage } from "./advanced/pages/EmailPage";
+import { PlatformRouteGuard, RetainedPlatformPendingPage } from "./advanced/pages/PlatformRouteGuard";
 import { ScheduledTasksPage } from "./advanced/pages/ScheduledTasks";
 import { OverlayWindow } from "./capture/OverlayWindow";
 import { CompanionWindow } from "./companion/CompanionWindow";
@@ -88,10 +89,14 @@ function MainWindowShell() {
               <Route path="/settings/load-packages" element={<LoadPackagesPage />} />
               <Route path="/capabilities" element={<CapabilitiesPage />} />
               <Route path="/export" element={<Export />} />
-              <Route path="/settings/feishu" element={<FeishuPage />} />
-              <Route path="/settings/qq" element={<QqPage />} />
-              <Route path="/settings/weixin" element={<WeixinPage />} />
-              <Route path="/settings/wecom" element={<WeComPage />} />
+              <Route path="/settings/feishu" element={<PlatformRouteGuard platform="feishu"><FeishuPage /></PlatformRouteGuard>} />
+              <Route path="/settings/qq" element={<PlatformRouteGuard platform="qqbot"><QqPage /></PlatformRouteGuard>} />
+              <Route path="/settings/weixin" element={<PlatformRouteGuard platform="weixin"><WeixinPage /></PlatformRouteGuard>} />
+              <Route path="/settings/wecom" element={<PlatformRouteGuard platform="wecom"><WeComPage /></PlatformRouteGuard>} />
+              <Route path="/settings/dingtalk" element={<PlatformRouteGuard platform="dingtalk"><DingTalkPage /></PlatformRouteGuard>} />
+              <Route path="/settings/email" element={<PlatformRouteGuard platform="email"><EmailPage /></PlatformRouteGuard>} />
+              <Route path="/settings/telegram" element={<PlatformRouteGuard platform="telegram"><RetainedPlatformPendingPage platform="Telegram" /></PlatformRouteGuard>} />
+              <Route path="/settings/whatsapp" element={<PlatformRouteGuard platform="whatsapp"><RetainedPlatformPendingPage platform="WhatsApp" /></PlatformRouteGuard>} />
               <Route path="/settings/cron" element={<ScheduledTasksPage />} />
               <Route path="/chat" element={<ChatPage />} />
               <Route

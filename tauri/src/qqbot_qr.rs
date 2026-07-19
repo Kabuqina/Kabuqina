@@ -41,6 +41,7 @@ pub async fn cmd_qqbot_qr_start(
     app: AppHandle,
     state: tauri::State<'_, crate::AppState>,
 ) -> Result<(), String> {
+    crate::paths::ensure_profile_platform_visible(&app, "qqbot")?;
     let _ = tokio::fs::remove_file(progress_path(&app)?).await;
     let _ = tokio::fs::remove_file(result_path(&app)?).await;
 
@@ -67,12 +68,14 @@ pub async fn cmd_qqbot_qr_start(
     let kabuqina_home = crate::gateway_supervisor::kabuqina_home_path(&data_dir);
 
     let mut cmd = tokio::process::Command::new(&py);
+    let product_profile = crate::paths::resolve_product_profile(&app);
     crate::python_supervisor::inject_kabuqina_home(&mut cmd, &kabuqina_home);
     cmd.arg(&worker)
         .current_dir(&bundle)
         .env("KABUQINA_BUNDLE_DIR", &bundle)
         .env("KABUQINA_DATA_DIR", &data_dir)
         .env("KABUQINA_WORKSPACE", &workspace)
+        .env("KABUQINA_PRODUCT_PROFILE", &product_profile)
         .env("HERMESDESK_BUNDLE_DIR", &bundle)
         .env("HERMESDESK_DATA_DIR", &data_dir)
         .env("HERMESDESK_WORKSPACE", &workspace)

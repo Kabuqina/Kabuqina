@@ -15,6 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 VERIFIER = ROOT / "python" / "tools" / "verify_runtime_imports.py"
 LEGACY_VERIFIER = ROOT / "python" / "tools" / "verify_legacy_runtime_imports.py"
+PROFILE_PLATFORM_VERIFIER = ROOT / "python" / "tools" / "verify_profile_platform_imports.py"
 
 
 class RuntimeImportVerifierTests(unittest.TestCase):
@@ -53,6 +54,22 @@ class RuntimeImportVerifierTests(unittest.TestCase):
         self.assertIn("verify_runtime_imports.py", sync_script)
         self.assertIn("verify_legacy_runtime_imports.py", build_script)
         self.assertIn("verify_legacy_runtime_imports.py", sync_script)
+        self.assertIn("verify_profile_platform_imports.py", build_script)
+        self.assertIn("verify_profile_platform_imports.py", sync_script)
+
+    def test_profile_verifier_has_exact_retained_and_removed_contracts(self):
+        text = PROFILE_PLATFORM_VERIFIER.read_text(encoding="utf-8")
+        for module in (
+            "gateway.platforms.weixin", "gateway.platforms.qqbot.adapter",
+            "gateway.platforms.dingtalk", "gateway.platforms.telegram",
+            "gateway.platforms.whatsapp", "gateway.platforms.email",
+        ):
+            self.assertIn(module, text)
+        for removed in ("feishu", "wecom", "discord", "yuanbao", "api_server"):
+            self.assertIn(f'"{removed}"', text)
+        self.assertIn("_enforce_desktop_single_platform", text)
+        self.assertIn('os.environ["KABUQINA_PRODUCT_PROFILE"] = "mainland_cn"', text)
+        self.assertIn('os.environ["KABUQINA_GATEWAY_PLATFORM"] = "weixin"', text)
 
     def test_legacy_verifier_checks_stateful_modules_in_both_orders(self):
         text = LEGACY_VERIFIER.read_text(encoding="utf-8")

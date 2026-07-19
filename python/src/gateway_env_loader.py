@@ -24,24 +24,22 @@ log = logging.getLogger("kabuqina.gateway.env")
 
 _LOADED = False
 
-# Env suffixes that hold outbound API base URLs (any platform).
-_URL_ENV_SUFFIXES = (
-    "_BASE_URL",
-    "_SERVER_URL",
-    "_API_URL",
-    "_WEBHOOK_URL",
-    "_WEBSOCKET_URL",
-)
+_PROFILE_URL_KEYS: dict[str, tuple[str, ...]] = {
+    "mainland_cn": ("WEIXIN_BASE_URL", "WEIXIN_CDN_BASE_URL", "DINGTALK_WEBHOOK_URL"),
+    "sea": ("TELEGRAM_PROXY", "EMAIL_OAUTH2_TOKEN_URL"),
+}
 
-# When credentials are present, allow known API hosts (httpx-based send paths).
-_CREDENTIAL_API_HOSTS: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
-    (("FEISHU_APP_ID", "FEISHU_APP_SECRET"), ("open.feishu.cn", "open.larkoffice.com")),
-    (("WECOM_BOT_ID", "WECOM_SECRET"), ("qyapi.weixin.qq.com",)),
-    (("WECOM_CALLBACK_CORP_ID", "WECOM_CALLBACK_CORP_SECRET"), ("qyapi.weixin.qq.com",)),
-    (("WEIXIN_TOKEN",), ()),  # hosts come from WEIXIN_BASE_URL / CDN env
-    (("WEIXIN_ACCOUNT_ID",), ()),
-    (("QQBOT_APP_ID", "QQBOT_CLIENT_SECRET"), ("api.sgroup.qq.com",)),
-)
+_PROFILE_CREDENTIAL_HOSTS: dict[str, tuple[tuple[tuple[str, ...], tuple[str, ...]], ...]] = {
+    "mainland_cn": (
+        (("QQ_APP_ID", "QQ_CLIENT_SECRET"), ("api.sgroup.qq.com",)),
+        (("DINGTALK_CLIENT_ID", "DINGTALK_CLIENT_SECRET"), (
+            "api.dingtalk.com", "oapi.dingtalk.com", "wss-open-connection.dingtalk.com",
+        )),
+    ),
+    "sea": (
+        (("TELEGRAM_BOT_TOKEN",), ("api.telegram.org",)),
+    ),
+}
 
 
 def _host_from_value(value: str) -> str | None:
@@ -58,28 +56,24 @@ def _host_from_value(value: str) -> str | None:
 
 def collect_messaging_hosts_from_environ() -> set[str]:
     """Collect API hosts for configured messaging platforms from ``os.environ``."""
+    from product_profile_policy import ProductProfilePolicy
+
     hosts: set[str] = set()
+    profile = ProductProfilePolicy.resolve_gateway_profile()
+    if profile is None:
+        return hosts
 
-    for key, value in os.environ.items():
-        if not value:
-            continue
-        ku = key.upper()
-        if any(ku.endswith(suffix) for suffix in _URL_ENV_SUFFIXES):
-            h = _host_from_value(value)
-            if h:
-                hosts.add(h)
-        # MATRIX_HOMESERVER may be a bare URL without suffix match above
-        if ku == "MATRIX_HOMESERVER":
-            h = _host_from_value(value)
-            if h:
-                hosts.add(h)
+    for key in _PROFILE_URL_KEYS.get(profile, ()):
+        h = _host_from_value(os.getenv(key, ""))
+        if h:
+            hosts.add(h)
 
-    for cred_keys, api_hosts in _CREDENTIAL_API_HOSTS:
+    for cred_keys, api_hosts in _PROFILE_CREDENTIAL_HOSTS.get(profile, ()):
         if all(os.getenv(k) for k in cred_keys):
             hosts.update(api_hosts)
 
     # Weixin iLink defaults when token present but URL env omitted
-    if os.getenv("WEIXIN_TOKEN") or os.getenv("WEIXIN_ACCOUNT_ID"):
+    if profile == "mainland_cn" and os.getenv("WEIXIN_TOKEN") and os.getenv("WEIXIN_ACCOUNT_ID"):
         for default in (
             os.getenv("WEIXIN_BASE_URL", ""),
             os.getenv("WEIXIN_CDN_BASE_URL", ""),
@@ -99,7 +93,7 @@ def refresh_messaging_network_allowlist(extra_hosts: Iterable[str] | None = None
         return
     hosts = set(collect_messaging_hosts_from_environ())
     if extra_hosts:
-        hosts.update(h.lower() for h in extra_hosts if h)
+        log.warning("Ignoring caller-supplied messaging hosts; CTL-C02 requires profile-derived hosts")
 
     if not hosts:
         return

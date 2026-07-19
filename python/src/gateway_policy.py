@@ -29,13 +29,13 @@ class GatewayPolicy:
     """Central policy for the messaging gateway subsystem."""
 
     enabled: bool = False              # True when gateway child is spawned
-    weixin_enabled: bool = True        # product feature flag
-    feishu_enabled: bool = True        # product feature flag
-    dingtalk_enabled: bool = False     # student runtime: disabled until SDK supports modern websockets
+    platforms: dict[str, PlatformConfig] = field(default_factory=dict)
 
-    platforms: dict[str, PlatformConfig] = field(default_factory=lambda: {
-        "weixin": PlatformConfig(owner_default="open"),
-        "feishu": PlatformConfig(owner_default="open"),
-        "qqbot": PlatformConfig(owner_default="open"),
-        "wecom": PlatformConfig(owner_default="open"),
-    })
+    def __post_init__(self) -> None:
+        if self.platforms:
+            return
+        from product_profile_policy import ProductProfilePolicy
+        self.platforms = {
+            name: PlatformConfig(owner_default="open")
+            for name in ProductProfilePolicy.visible_gateways()
+        }

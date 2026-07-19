@@ -163,21 +163,18 @@ def _resolve_single_delivery_target(job: dict, deliver_value: str) -> Optional[d
                 "chat_id": str(origin["chat_id"]),
                 "thread_id": origin.get("thread_id"),
             }
-        # Origin missing (e.g. job created via API/script) — try each
-        # platform's home channel as a fallback instead of silently dropping.
-        for platform_name in _HOME_TARGET_ENV_VARS:
-            chat_id = _get_home_target_chat_id(platform_name)
-            if chat_id:
-                logger.info(
-                    "Job '%s' has deliver=origin but no origin; falling back to %s home channel",
-                    job.get("name", job.get("id", "?")),
-                    platform_name,
-                )
-                return {
-                    "platform": platform_name,
-                    "chat_id": chat_id,
-                    "thread_id": None,
-                }
+        # The desktop product profile never reroutes an origin-less persisted
+        # job to an arbitrary home. Keep standalone core compatibility when no
+        # desktop profile is injected.
+        if not os.getenv("KABUQINA_PRODUCT_PROFILE", "").strip():
+            for platform_name in _HOME_TARGET_ENV_VARS:
+                chat_id = _get_home_target_chat_id(platform_name)
+                if chat_id:
+                    return {
+                        "platform": platform_name,
+                        "chat_id": chat_id,
+                        "thread_id": None,
+                    }
         return None
 
     if ":" in deliver_value:
@@ -342,6 +339,12 @@ def _deliver_result(job: dict, content: str, adapters=None, loop=None) -> Option
 
     Returns None on success, or an error string on failure.
     """
+    from gateway.delivery_contract import unsupported_delivery_reason
+    unsupported = unsupported_delivery_reason(job.get("deliver", "local"), origin=job.get("origin"))
+    if unsupported:
+        logger.warning("Job '%s': %s", job.get("id", "?"), unsupported)
+        return unsupported
+
     targets = _resolve_delivery_targets(job)
     if not targets:
         if job.get("deliver", "local") != "local":

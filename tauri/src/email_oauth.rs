@@ -109,6 +109,7 @@ pub async fn cmd_email_oauth_device_start(
     tenant: Option<String>,
     scope: Option<String>,
 ) -> Result<EmailOAuthDeviceStart, String> {
+    crate::paths::ensure_profile_platform_visible(&app, "email")?;
     let client_id = resolve_client_id(client_id)?;
     crate::validation::validate_env_value(&client_id)?;
     let tenant = normalize_tenant(tenant);
@@ -176,6 +177,7 @@ pub async fn cmd_email_oauth_device_finish(
     interval: Option<u64>,
     expires_in: Option<u64>,
 ) -> Result<(), String> {
+    crate::paths::ensure_profile_platform_visible(&app, "email")?;
     let client_id = resolve_client_id(client_id)?;
     let device_code = device_code.trim().to_string();
     if device_code.is_empty() {

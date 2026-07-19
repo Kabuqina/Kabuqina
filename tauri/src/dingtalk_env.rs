@@ -38,6 +38,7 @@ pub fn cmd_dingtalk_save_config(
     client_id: String,
     client_secret: String,
 ) -> Result<(), String> {
+    crate::paths::ensure_profile_platform_visible(&app, "dingtalk")?;
     let cid = client_id.trim();
     let csec = client_secret.trim();
     if cid.is_empty() {

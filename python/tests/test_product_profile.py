@@ -82,8 +82,13 @@ class MainlandContractTests(unittest.TestCase):
     def test_visible_gateways_equal_whitelist(self):
         self.assertEqual(
             ProductProfilePolicy.visible_gateways(MAINLAND_CN),
-            ("weixin", "qqbot", "feishu", "wecom"),
+            ("weixin", "qqbot", "dingtalk"),
         )
+
+    def test_sea_visible_and_autostart_gateways_equal_manifest(self):
+        expected = ("telegram", "whatsapp", "email")
+        self.assertEqual(ProductProfilePolicy.visible_gateways(SEA), expected)
+        self.assertEqual(ProductProfilePolicy.autostart_gateways(SEA), frozenset(expected))
 
     def test_hidden_toolsets_include_hard_cuts(self):
         hidden = ProductProfilePolicy.hidden_toolsets(MAINLAND_CN)
@@ -110,9 +115,16 @@ class MainlandContractTests(unittest.TestCase):
     def test_cut_gateways_are_not_visible_or_autostart(self):
         visible = ProductProfilePolicy.visible_gateways(MAINLAND_CN)
         autostart = ProductProfilePolicy.autostart_gateways(MAINLAND_CN)
-        for name in ("telegram", "discord", "dingtalk", "email", "slack", "webhook"):
+        for name in ("telegram", "discord", "feishu", "wecom", "email", "slack", "webhook"):
             self.assertNotIn(name, visible)
             self.assertNotIn(name, autostart)
+
+    def test_unknown_gateway_profile_fails_closed(self):
+        self.assertEqual(ProductProfilePolicy.visible_gateways("antarctica"), ())
+        self.assertEqual(ProductProfilePolicy.autostart_gateways("antarctica"), frozenset())
+        with patch.dict(os.environ, {"KABUQINA_PRODUCT_PROFILE": "antarctica"}, clear=True):
+            self.assertIsNone(ProductProfilePolicy.resolve_gateway_profile())
+            self.assertEqual(ProductProfilePolicy.visible_gateways(), ())
 
 
 class GlobalStudentCutTests(unittest.TestCase):

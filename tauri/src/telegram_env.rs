@@ -17,6 +17,7 @@ pub fn cmd_telegram_env_status(
 
 #[tauri::command]
 pub fn cmd_telegram_save_token(app: AppHandle, token: String) -> Result<(), String> {
+    crate::paths::ensure_profile_platform_visible(&app, "telegram")?;
     let token = token.trim().to_string();
     if token.is_empty() {
         return Err("Bot token must not be empty".into());

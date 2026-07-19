@@ -5,15 +5,18 @@ import { useNavigate } from "react-router-dom";
 import { useI18n } from "../../lib/i18n";
 import {
   Bot,
-  Building2,
   ChevronRight,
   MessageCircle,
   QrCode,
+  Mail,
+  Send,
+  Store,
 } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { Section } from "../../components/ui/Section";
 import type { Status } from "../Settings";
 import type { GatewayStatus } from "../../features/gateway/useGatewayStatus";
+import { useProductProfileContract } from "../../lib/productProfileContract";
 
 interface Props {
   gatewayStatus: GatewayStatus;
@@ -23,21 +26,23 @@ interface Props {
 
 function platformLabel(key: string): string {
   const map: Record<string, string> = {
-    feishu: "飞书",
     qqbot: "QQ",
     weixin: "微信",
-    wecom: "企微",
+    dingtalk: "钉钉",
+    telegram: "Telegram",
+    whatsapp: "WhatsApp",
+    email: "Email",
   };
   return map[key] ?? key;
 }
 
-// Email and DingTalk are cut from the mainland_cn gateway surface (v0.3.0);
-// their pages/source stay for the future sea profile but are not navigable.
 const platformItems = [
-  { key: "feishu", label: "飞书", icon: Building2, path: "/settings/feishu" },
-  { key: "qq", label: "QQ", icon: Bot, path: "/settings/qq" },
+  { key: "qqbot", label: "QQ", icon: Bot, path: "/settings/qq" },
   { key: "weixin", label: "微信", icon: QrCode, path: "/settings/weixin" },
-  { key: "wecom", label: "企微", icon: Building2, path: "/settings/wecom" },
+  { key: "dingtalk", label: "钉钉", icon: Store, path: "/settings/dingtalk" },
+  { key: "telegram", label: "Telegram", icon: Send, path: "/settings/telegram" },
+  { key: "whatsapp", label: "WhatsApp", icon: MessageCircle, path: "/settings/whatsapp" },
+  { key: "email", label: "Email", icon: Mail, path: "/settings/email" },
 ];
 
 export function SettingsGateway({
@@ -45,6 +50,7 @@ export function SettingsGateway({
 }: Props) {
   const { t } = useI18n();
   const nav = useNavigate();
+  const profileContract = useProductProfileContract();
   const {
     running: gatewayRunning,
     eligible: gatewayEligible,
@@ -148,7 +154,7 @@ export function SettingsGateway({
 
       <Section title={t("settings.platformTitle")}>
         <div className="space-y-1">
-          {platformItems.map(({ key, label, icon: Icon, path }) => (
+          {platformItems.filter(({ key }) => profileContract.visibleGateways.includes(key)).map(({ key, label, icon: Icon, path }) => (
             <button
               key={key}
               type="button"

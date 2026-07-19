@@ -34,6 +34,7 @@ pub async fn cmd_wecom_qr_start(
     app: AppHandle,
     state: tauri::State<'_, crate::AppState>,
 ) -> Result<(), String> {
+    crate::paths::ensure_profile_platform_visible(&app, "wecom")?;
     let _ = tokio::fs::remove_file(progress_path(&app)?).await;
     let _ = tokio::fs::remove_file(result_path(&app)?).await;
 

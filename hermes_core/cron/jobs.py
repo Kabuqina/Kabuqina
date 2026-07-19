@@ -675,6 +675,10 @@ def create_job(
     if deliver is None:
         deliver = "origin" if origin else "local"
 
+    # CTL-C02: reject before allocating an id or writing jobs.json.
+    from gateway.delivery_contract import validate_new_delivery
+    validate_new_delivery(deliver, origin=origin)
+
     job_id = uuid.uuid4().hex[:12]
     now = _kabuqina_now().isoformat()
 
@@ -804,6 +808,16 @@ def update_job(job_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]
     for i, job in enumerate(jobs):
         if job["id"] != job_id:
             continue
+
+        # Existing unsupported target text remains list/edit/delete capable.
+        # Only a caller that writes/replaces delivery routing crosses the new
+        # contract boundary.
+        if "deliver" in updates or "origin" in updates:
+            from gateway.delivery_contract import validate_new_delivery
+            validate_new_delivery(
+                updates.get("deliver", job.get("deliver")),
+                origin=updates.get("origin", job.get("origin")),
+            )
 
         # Validate / normalize workdir if present in updates.  Empty string or
         # None both mean "clear the field" (restore old behaviour).

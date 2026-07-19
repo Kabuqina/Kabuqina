@@ -1031,3 +1031,26 @@ gain a real isolated profile implementation instead of falling back to the
 mainland mapping. Removed credentials/profile data are not silently executed
 or recursively deleted, and removed home-channel/cron targets are never
 silently rerouted to another person or channel.
+
+**CTL-C02 stop-producing boundary (2026-07-19).** The profile contraction is
+enforced before state creation, not merely hidden in Web. The versioned
+contracts are `kabuqina.platform-surface/v1` and `kabuqina.delivery/v1`.
+`mainland_cn` admits only Weixin, QQ Bot, and DingTalk; `sea` admits only
+Telegram, WhatsApp, and Email. An explicitly unknown profile admits no gateway.
+Rust validates the profile/platform before migration, profile-directory writes,
+QR launch, config save, or child spawn. Python messaging egress derives hosts
+only from exact active-profile keys; wildcard `*_URL` discovery and removed
+credential-derived hosts are forbidden. New cron/send targets outside the
+active profile fail with `unsupported_delivery` before config/adapter/network
+loading. Existing removed target text remains list/edit/delete capable, but
+execution reports `unsupported_delivery` without rerouting; independent Core
+usage without the desktop profile variable retains its legacy behavior.
+Each Tauri gateway child receives the canonical product profile and one
+platform identity. Its config is reconstructed with exactly that platform
+instead of copying the host YAML verbatim, and Core repeats the filter after
+all YAML/env/plugin inputs merge. Generic env upserts and every retained or
+legacy config/QR producer validate the profile before writing, contacting an
+OAuth endpoint, or launching a worker; read, remove, and cancel operations stay
+available for legacy cleanup.
+Physical adapter/dependency deletion remains CTL-C03/C04, retained-channel
+readiness remains CTL-C06, and explicit legacy cleanup/upgrade remains CTL-C07.

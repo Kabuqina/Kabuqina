@@ -48,10 +48,12 @@ class TestGatewayEnvLoader(unittest.TestCase):
         with patch.dict(
             os.environ,
             {
+                "KABUQINA_PRODUCT_PROFILE": "mainland_cn",
                 "WEIXIN_TOKEN": "t",
+                "WEIXIN_ACCOUNT_ID": "a",
                 "WEIXIN_BASE_URL": "https://ilink.example.com",
             },
-            clear=False,
+            clear=True,
         ):
             hosts = gel.collect_messaging_hosts_from_environ()
         self.assertIn("ilink.example.com", hosts)
@@ -64,10 +66,16 @@ class TestGatewayEnvLoader(unittest.TestCase):
         with patch.dict(
             os.environ,
             {
+                "KABUQINA_PRODUCT_PROFILE": "mainland_cn",
                 "DISCORD_BOT_TOKEN": "discord-token",
                 "SLACK_BOT_TOKEN": "slack-token",
+                "FEISHU_APP_ID": "x",
+                "FEISHU_APP_SECRET": "y",
+                "WECOM_BOT_ID": "b",
+                "WECOM_SECRET": "s",
+                "MALICIOUS_API_URL": "https://evil.example.test/api",
             },
-            clear=False,
+            clear=True,
         ):
             hosts = gel.collect_messaging_hosts_from_environ()
 
@@ -75,6 +83,9 @@ class TestGatewayEnvLoader(unittest.TestCase):
         self.assertNotIn("gateway.discord.gg", hosts)
         self.assertNotIn("slack.com", hosts)
         self.assertNotIn("files.slack.com", hosts)
+        self.assertNotIn("open.feishu.cn", hosts)
+        self.assertNotIn("qyapi.weixin.qq.com", hosts)
+        self.assertNotIn("evil.example.test", hosts)
 
     def test_refresh_extends_network_policy(self):
         import gateway_env_loader as gel
@@ -83,9 +94,31 @@ class TestGatewayEnvLoader(unittest.TestCase):
 
         na._policy = NetworkPolicy(llm_host="")
         na._net_open = False
-        with patch.dict(os.environ, {"FEISHU_APP_ID": "x", "FEISHU_APP_SECRET": "y"}, clear=False):
+        with patch.dict(os.environ, {
+            "KABUQINA_PRODUCT_PROFILE": "mainland_cn",
+            "QQ_APP_ID": "x",
+            "QQ_CLIENT_SECRET": "y",
+        }, clear=True):
             gel.refresh_messaging_network_allowlist()
-        self.assertIn("open.feishu.cn", na._policy.allowed_hosts)
+        self.assertIn("api.sgroup.qq.com", na._policy.allowed_hosts)
+
+    def test_sea_hosts_are_exact_and_unknown_profile_is_closed(self):
+        import gateway_env_loader as gel
+
+        with patch.dict(os.environ, {
+            "KABUQINA_PRODUCT_PROFILE": "sea",
+            "TELEGRAM_BOT_TOKEN": "t",
+            "FEISHU_APP_ID": "x",
+            "FEISHU_APP_SECRET": "y",
+        }, clear=True):
+            self.assertEqual(gel.collect_messaging_hosts_from_environ(), {"api.telegram.org"})
+        with patch.dict(os.environ, {
+            "KABUQINA_PRODUCT_PROFILE": "antarctica",
+            "TELEGRAM_BOT_TOKEN": "t",
+            "WEIXIN_TOKEN": "t",
+            "WEIXIN_ACCOUNT_ID": "a",
+        }, clear=True):
+            self.assertEqual(gel.collect_messaging_hosts_from_environ(), set())
 
 
 if __name__ == "__main__":

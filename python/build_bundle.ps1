@@ -694,6 +694,12 @@ if ($Verify) {
         Write-Error "smoke test FAILED"
         exit $LASTEXITCODE
     }
+    $profilePlatformImportScript = Join-Path $PSScriptRoot "tools\verify_profile_platform_imports.py"
+    & $Py $profilePlatformImportScript $Dist
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "profile platform import smoke test FAILED"
+        exit $LASTEXITCODE
+    }
     $legacyRuntimeImportScript = Join-Path $PSScriptRoot "tools\verify_legacy_runtime_imports.py"
     & $Py $legacyRuntimeImportScript $Dist
     if ($LASTEXITCODE -ne 0) {

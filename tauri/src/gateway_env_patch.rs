@@ -63,6 +63,7 @@ pub fn cmd_gateway_host_env_patch(
     remove_keys: Vec<String>,
 ) -> Result<(), String> {
     for kv in &upserts {
+        crate::paths::ensure_profile_env_key_writable(&app, &kv.key)?;
         validate_env_key(&kv.key)?;
         validate_env_value(&kv.value)?;
     }

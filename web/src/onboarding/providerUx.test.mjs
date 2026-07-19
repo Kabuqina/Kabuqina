@@ -171,10 +171,12 @@ assert.match(stringsSource, /skipTitle:\s*"跳过"/);
 assert.match(stringsSource, /skipTitle:\s*"Skip"/);
 
 const settingsGatewaySource = fs.readFileSync(new URL("../advanced/settings/SettingsGateway.tsx", import.meta.url), "utf8");
-const expectedGatewayLabels = ["飞书", "QQ", "微信", "企微"];
+const expectedGatewayLabels = ["QQ", "微信", "钉钉", "Telegram", "WhatsApp", "Email"];
 for (const label of expectedGatewayLabels) {
   assert.match(settingsGatewaySource, new RegExp(`label:\\s*"${label}"`));
 }
 const gatewayCatalogSource = optionDataSource.match(/export const CATALOG_GATEWAY[\s\S]*?export const CATALOG_TOOLS/)?.[0] ?? "";
 const gatewayLabels = [...gatewayCatalogSource.matchAll(/name:\s*L\("([^"]+)"/g)].map((match) => match[1]);
 assert.deepEqual(gatewayLabels, expectedGatewayLabels);
+assert.doesNotMatch(gatewayCatalogSource, /飞书|企微|Discord|Slack/);
+assert.match(optionDataSource, /gatewayCatalogFor\(visibleGateways/);

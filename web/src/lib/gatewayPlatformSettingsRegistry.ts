@@ -33,12 +33,12 @@ export type GatewayPlatformRegistryEntry = {
 };
 
 export const HOST_ENV_PREFIXES: Record<string, string[]> = {
-  feishu: ["FEISHU_"],
   qqbot: ["QQ_", "QQBOT_"],
   weixin: ["WEIXIN_"],
-  wecom: ["WECOM_"],
   dingtalk: ["DINGTALK_"],
-  email: ["EMAIL_", "SMS_"],
+  telegram: ["TELEGRAM_"],
+  whatsapp: ["WHATSAPP_"],
+  email: ["EMAIL_"],
 };
 
 const GW = "settings.channelEnv";

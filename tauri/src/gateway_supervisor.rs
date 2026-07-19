@@ -36,17 +36,13 @@ use crate::python_supervisor::SpawnConfig;
 /// Known platforms and the minimum credential keys that must be present
 /// (non-empty) in `.env` for the platform to be considered "configured".
 const PLATFORM_CREDENTIAL_KEYS: &[(&str, &[&str])] = &[
-    // Telegram disabled — removed from Kabuqina product scope (codex/student-deliverables)
-    // ("telegram", &["TELEGRAM_BOT_TOKEN"]),
+    ("telegram", &["TELEGRAM_BOT_TOKEN"]),
     ("weixin", &["WEIXIN_ACCOUNT_ID", "WEIXIN_TOKEN"]),
-    ("feishu", &["FEISHU_APP_ID", "FEISHU_APP_SECRET"]),
     ("qqbot", &["QQ_APP_ID", "QQ_CLIENT_SECRET"]),
-    // DingTalk is temporarily not spawned in the student-focused runtime.
-    // Its SDK requires legacy websockets<13, which conflicts with Browser/CDP.
-    ("wecom", &["WECOM_BOT_ID", "WECOM_SECRET"]),
-    ("discord", &["DISCORD_BOT_TOKEN"]),
-    ("slack", &["SLACK_BOT_TOKEN"]),
-    ("signal", &["SIGNAL_HTTP_URL"]),
+    (
+        "dingtalk",
+        &["DINGTALK_CLIENT_ID", "DINGTALK_CLIENT_SECRET"],
+    ),
     // Email gateway adapter (not a messaging platform per se, but runs in the gateway child).
     (
         "email",
@@ -62,22 +58,18 @@ const PLATFORM_CREDENTIAL_KEYS: &[(&str, &[&str])] = &[
 /// Additional per-platform env keys to carry into the profile `.env` (not required
 /// for "configured" detection, but needed for full operation).
 const PLATFORM_EXTRA_KEYS: &[(&str, &[&str])] = &[
-    // Telegram disabled — removed from Kabuqina product scope (codex/student-deliverables)
-    // (
-    //     "telegram",
-    //     &[
-    //         "TELEGRAM_ALLOWED_USERS",
-    //         "TELEGRAM_HOME_CHANNEL",
-    //         "TELEGRAM_BOT_USERNAME",
-    //     ],
-    // ),
+    (
+        "telegram",
+        &[
+            "TELEGRAM_ALLOWED_USERS",
+            "TELEGRAM_HOME_CHANNEL",
+            "TELEGRAM_BOT_USERNAME",
+        ],
+    ),
     ("weixin", &[]),
-    ("feishu", &[]),
     ("qqbot", &[]),
-    ("wecom", &["WECOM_SETUP_METHOD"]),
-    ("discord", &[]),
-    ("slack", &[]),
-    ("signal", &[]),
+    ("dingtalk", &[]),
+    ("whatsapp", &[]),
     ("email", &[]),
 ];
 
@@ -86,13 +78,18 @@ const PLATFORM_EXTRA_KEYS: &[(&str, &[&str])] = &[
 /// `discover_configured_platforms` still detects other platforms whose keys are
 /// present (e.g. a stale `discord`/`email`/`slack` `.env`), but they must not
 /// make the mainland build look gateway-ready, so they are filtered here.
-const AUTOSTART_ALLOWED_MAINLAND_CN: &[&str] = &["weixin", "qqbot", "feishu", "wecom"];
+const AUTOSTART_ALLOWED_MAINLAND_CN: &[&str] = &["weixin", "qqbot", "dingtalk"];
+const AUTOSTART_ALLOWED_SEA: &[&str] = &["telegram", "whatsapp", "email"];
 
 /// Return the auto-start-eligible platform allowlist for a product profile.
 /// `sea` is reserved and inherits the mainland set until a SEA profile defines
 /// its own.
-fn autostart_allowed_platforms(_profile: &str) -> &'static [&'static str] {
-    AUTOSTART_ALLOWED_MAINLAND_CN
+fn autostart_allowed_platforms(profile: &str) -> &'static [&'static str] {
+    match profile {
+        "mainland_cn" => AUTOSTART_ALLOWED_MAINLAND_CN,
+        "sea" => AUTOSTART_ALLOWED_SEA,
+        _ => &[],
+    }
 }
 
 /// Drop discovered platforms that the active profile does not allow to
@@ -108,7 +105,7 @@ fn filter_autostart_platforms(profile: &str, platforms: Vec<String>) -> Vec<Stri
 /// Name of the profile subdirectory.
 const PROFILES_DIR: &str = "profiles";
 /// Marker file written after first migration.
-const MIGRATION_MARKER: &str = ".migrated";
+const MIGRATION_MARKER_PREFIX: &str = ".migrated-";
 
 // ---------------------------------------------------------------------------
 // Host-level helpers (unchanged from single-child model)
@@ -297,33 +294,9 @@ pub fn parse_dotenv_upper(home: &Path) -> HashMap<String, String> {
 }
 
 /// Heuristic: host ``kabuqina-home/.env`` has at least one messaging platform the gateway can connect.
-pub fn dotenv_suggests_messaging_gateway(home: &Path) -> bool {
+pub fn dotenv_suggests_messaging_gateway(home: &Path, product_profile: &str) -> bool {
     let keys = parse_dotenv_upper(home);
-    email_configured_from_keys(&keys) || dotenv_suggests_non_email_messaging_gateway(&keys)
-}
-
-fn dotenv_suggests_non_email_messaging_gateway(keys: &HashMap<String, String>) -> bool {
-    let nonempty = |k: &str| keys.get(k).map(|s| !s.is_empty()).unwrap_or(false);
-
-    if nonempty("WEIXIN_ACCOUNT_ID") && nonempty("WEIXIN_TOKEN") {
-        return true;
-    }
-    if nonempty("DISCORD_BOT_TOKEN") || nonempty("SLACK_BOT_TOKEN") || nonempty("SIGNAL_HTTP_URL") {
-        return true;
-    }
-    if nonempty("FEISHU_APP_ID") && nonempty("FEISHU_APP_SECRET") {
-        return true;
-    }
-    if nonempty("WECOM_BOT_ID") && nonempty("WECOM_SECRET") {
-        return true;
-    }
-    if nonempty("QQ_APP_ID") && nonempty("QQ_CLIENT_SECRET") {
-        return true;
-    }
-    if nonempty("DINGTALK_CLIENT_ID") && nonempty("DINGTALK_CLIENT_SECRET") {
-        return true;
-    }
-    false
+    !discover_configured_platforms(&keys, product_profile).is_empty()
 }
 
 fn email_configured_from_keys(keys: &HashMap<String, String>) -> bool {
@@ -575,10 +548,17 @@ pub fn read_wecom_env_snapshot(home: &Path) -> WeComEnvSnapshot {
 
 /// Return the list of platform names whose credential keys are all present
 /// and non-empty in the given dotenv key map.
-pub fn discover_configured_platforms(keys: &HashMap<String, String>) -> Vec<String> {
+pub fn discover_configured_platforms(
+    keys: &HashMap<String, String>,
+    product_profile: &str,
+) -> Vec<String> {
     let nonempty = |k: &str| keys.get(k).map(|s| !s.is_empty()).unwrap_or(false);
+    let allowed = autostart_allowed_platforms(product_profile);
     let mut platforms: Vec<String> = Vec::new();
     for &(name, creds) in PLATFORM_CREDENTIAL_KEYS {
+        if !allowed.contains(&name) {
+            continue;
+        }
         if name == "email" {
             if email_configured_from_keys(keys) {
                 platforms.push(name.to_string());
@@ -588,6 +568,16 @@ pub fn discover_configured_platforms(keys: &HashMap<String, String>) -> Vec<Stri
         if creds.iter().all(|k| nonempty(k)) {
             platforms.push(name.to_string());
         }
+    }
+    if allowed.contains(&"whatsapp")
+        && keys.get("WHATSAPP_ENABLED").is_some_and(|v| {
+            matches!(
+                v.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes" | "on"
+            )
+        })
+    {
+        platforms.push("whatsapp".to_string());
     }
     platforms
 }
@@ -629,10 +619,19 @@ fn extract_llm_config_section(host_home: &Path) -> Option<String> {
 /// currently-configured platform, plus ``shared/USER_PREFS.md``.
 ///
 /// Safe to call repeatedly — checks for the ``.migrated`` marker file.
-pub fn ensure_migration(data_dir: &Path) -> Result<()> {
+pub fn ensure_migration(data_dir: &Path, product_profile: &str) -> Result<()> {
     let host_home = kabuqina_home_path(data_dir);
+    let keys = parse_dotenv_upper(&host_home);
+    let platforms = discover_configured_platforms(&keys, product_profile);
+    if platforms.is_empty() {
+        log::info!(
+            "[gateway_migration] no eligible platforms for profile {}; no state created",
+            product_profile
+        );
+        return Ok(());
+    }
     let profiles_dir = host_home.join(PROFILES_DIR);
-    let marker = profiles_dir.join(MIGRATION_MARKER);
+    let marker = profiles_dir.join(format!("{MIGRATION_MARKER_PREFIX}{product_profile}"));
 
     if marker.exists() {
         return Ok(());
@@ -651,9 +650,6 @@ pub fn ensure_migration(data_dir: &Path) -> Result<()> {
     }
 
     // Create per-platform profile dirs.
-    let keys = parse_dotenv_upper(&host_home);
-    let platforms = discover_configured_platforms(&keys);
-
     // Read the host LLM config section so every profile inherits the
     // user's LLM provider/model/endpoint settings.
     let host_llm_lines = extract_llm_config_section(&host_home);
@@ -670,7 +666,7 @@ pub fn ensure_migration(data_dir: &Path) -> Result<()> {
             let mut config = format!(
                 r#"platforms:
   {}:
-    enable: true
+    enabled: true
 
 "#,
                 platform
@@ -720,11 +716,11 @@ impl GatewaySupervisor {
         kill_orphan_gateway_processes();
 
         // 1. Ensure migration has run.
-        ensure_migration(&cfg.data_dir)?;
+        ensure_migration(&cfg.data_dir, &cfg.product_profile)?;
 
         let host_home = kabuqina_home_path(&cfg.data_dir);
         let host_keys = parse_dotenv_upper(&host_home);
-        let discovered = discover_configured_platforms(&host_keys);
+        let discovered = discover_configured_platforms(&host_keys, &cfg.product_profile);
         let platforms = filter_autostart_platforms(&cfg.product_profile, discovered.clone());
         let dropped: Vec<&String> = discovered
             .iter()
@@ -775,6 +771,11 @@ impl GatewaySupervisor {
         platform: &str,
         host_keys: &HashMap<String, String>,
     ) -> Result<PlatformChild> {
+        anyhow::ensure!(
+            autostart_allowed_platforms(&cfg.product_profile).contains(&platform),
+            "platform {platform:?} is not allowed for product profile {:?}",
+            cfg.product_profile
+        );
         let py_exe = cfg.bundle_dir.join("python").join("python.exe");
         anyhow::ensure!(
             py_exe.exists(),
@@ -785,11 +786,10 @@ impl GatewaySupervisor {
         let profile_dir = profile_home_path(&cfg.data_dir, platform);
         std::fs::create_dir_all(&profile_dir).context("create profile dir")?;
 
-        // Copy the host config.yaml into the profile so the upstream
-        // gateway finds its llm/credential_pool/credentials sections.
-        // Without this, the gateway can't authenticate with the LLM
-        // provider and falls back to upstream defaults (Qwen → 401).
-        copy_host_config(&cfg.data_dir, &profile_dir);
+        // Preserve host-wide LLM/session settings while replacing every
+        // platform block with one exact child platform. Never copy the host
+        // config verbatim: stale platform blocks could start extra adapters.
+        write_single_platform_config(&cfg.data_dir, &profile_dir, platform)?;
 
         // Copy the host SOUL.md into the platform profile so gateway bots
         // share the same identity/persona as the main desktop agent.
@@ -819,9 +819,11 @@ impl GatewaySupervisor {
 
         let mut cmd = Command::new(&py_exe);
         crate::python_supervisor::inject_kabuqina_home(&mut cmd, &profile_dir);
+        for (key, value) in gateway_identity_env(&cfg.product_profile, platform) {
+            cmd.env(key, value);
+        }
         cmd.args(["-m", "gateway.run"])
             .current_dir(&cfg.bundle_dir)
-            .env("HERMESDESK_GATEWAY_PLATFORM", platform)
             .env("HERMESDESK_BUNDLE_DIR", &cfg.bundle_dir)
             .env("HERMESDESK_DATA_DIR", &cfg.data_dir)
             .env("HERMESDESK_WORKSPACE", &cfg.workspace)
@@ -875,8 +877,7 @@ impl GatewaySupervisor {
             .env("LANGSMITH_TRACING", "false")
             .env("BROWSER_CDP_URL", crate::edge_browser::cdp_url());
 
-        cmd.env("KABUQINA_GATEWAY_PLATFORM", platform)
-            .env("KABUQINA_BUNDLE_DIR", &cfg.bundle_dir)
+        cmd.env("KABUQINA_BUNDLE_DIR", &cfg.bundle_dir)
             .env("KABUQINA_DATA_DIR", &cfg.data_dir)
             .env("KABUQINA_WORKSPACE", &cfg.workspace)
             .env("KABUQINA_PROVIDER", &cfg.provider)
@@ -1093,13 +1094,10 @@ fn platform_env_prefixes(platform: &str) -> &'static [&'static str] {
     match platform {
         "telegram" => &["TELEGRAM_"],
         "weixin" => &["WEIXIN_"],
-        "feishu" => &["FEISHU_"],
         "qqbot" => &["QQ_", "QQBOT_"],
-        "wecom" => &["WECOM_"],
-        "discord" => &["DISCORD_"],
-        "slack" => &["SLACK_"],
-        "signal" => &["SIGNAL_"],
-        "email" => &["EMAIL_", "SMS_", "TWILIO_"],
+        "dingtalk" => &["DINGTALK_"],
+        "whatsapp" => &["WHATSAPP_"],
+        "email" => &["EMAIL_"],
         _ => &[],
     }
 }
@@ -1182,14 +1180,90 @@ fn write_profile_dotenv(
 /// The profile needs the host's LLM config (provider, model, credential_pool)
 /// so the upstream gateway can authenticate.  If the host config is missing
 /// the copy is silently skipped (the gateway falls back to defaults).
-fn copy_host_config(data_dir: &Path, profile_dir: &Path) {
-    let src = kabuqina_home_path(data_dir).join("config.yaml");
-    let dst = profile_dir.join("config.yaml");
-    if src.exists() {
-        if let Err(e) = std::fs::copy(&src, &dst) {
-            log::warn!("[gateway_spawn] copy host config.yaml: {e}");
+const CONFIG_PLATFORM_KEYS: &[&str] = &[
+    "telegram",
+    "discord",
+    "slack",
+    "whatsapp",
+    "signal",
+    "matrix",
+    "mattermost",
+    "homeassistant",
+    "dingtalk",
+    "feishu",
+    "wecom",
+    "wecom_callback",
+    "weixin",
+    "sms",
+    "email",
+    "webhook",
+    "bluebubbles",
+    "qqbot",
+    "yuanbao",
+    "api_server",
+    "local",
+];
+
+fn top_level_yaml_key(line: &str) -> Option<&str> {
+    if line.starts_with(char::is_whitespace) {
+        return None;
+    }
+    let trimmed = line.trim();
+    if trimmed.is_empty() || trimmed.starts_with('#') || trimmed == "---" {
+        return None;
+    }
+    let (raw_key, _) = trimmed.split_once(':')?;
+    let key = raw_key.trim();
+    if key.is_empty()
+        || !key
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+    {
+        return None;
+    }
+    Some(key)
+}
+
+fn render_single_platform_config(host_config: &str, platform: &str) -> String {
+    let mut retained = Vec::new();
+    let mut skip_block = false;
+    for line in host_config.lines() {
+        if let Some(key) = top_level_yaml_key(line) {
+            skip_block = key == "platforms" || CONFIG_PLATFORM_KEYS.contains(&key);
+        }
+        if !skip_block && line.trim() != "---" {
+            retained.push(line);
         }
     }
+    while retained.first().is_some_and(|line| line.trim().is_empty()) {
+        retained.remove(0);
+    }
+    let suffix = retained.join("\n");
+    if suffix.trim().is_empty() {
+        format!("platforms:\n  {platform}:\n    enabled: true\n")
+    } else {
+        format!("platforms:\n  {platform}:\n    enabled: true\n\n{suffix}\n")
+    }
+}
+
+fn write_single_platform_config(data_dir: &Path, profile_dir: &Path, platform: &str) -> Result<()> {
+    let src = kabuqina_home_path(data_dir).join("config.yaml");
+    let host_config = std::fs::read_to_string(&src).unwrap_or_default();
+    let rendered = render_single_platform_config(&host_config, platform);
+    std::fs::write(profile_dir.join("config.yaml"), rendered)
+        .context("write single-platform profile config")
+}
+
+fn gateway_identity_env<'a>(
+    product_profile: &'a str,
+    platform: &'a str,
+) -> [(&'static str, &'a str); 4] {
+    [
+        ("KABUQINA_PRODUCT_PROFILE", product_profile),
+        ("HERMESDESK_PRODUCT_PROFILE", product_profile),
+        ("KABUQINA_GATEWAY_PLATFORM", platform),
+        ("HERMESDESK_GATEWAY_PLATFORM", platform),
+    ]
 }
 
 /// Mirror host ``kabuqina-home/SOUL.md`` into the profile directory.
@@ -1454,12 +1528,12 @@ mod tests {
             "discord".to_string(),
             "email".to_string(),
             "slack".to_string(),
-            "feishu".to_string(),
+            "dingtalk".to_string(),
             "qqbot".to_string(),
             "wecom".to_string(),
         ];
         let allowed = filter_autostart_platforms("mainland_cn", discovered);
-        assert_eq!(allowed, vec!["weixin", "feishu", "qqbot", "wecom"]);
+        assert_eq!(allowed, vec!["weixin", "dingtalk", "qqbot"]);
     }
 
     #[test]
@@ -1467,18 +1541,17 @@ mod tests {
         let discovered = vec![
             "weixin".to_string(),
             "qqbot".to_string(),
-            "feishu".to_string(),
-            "wecom".to_string(),
+            "dingtalk".to_string(),
         ];
         let allowed = filter_autostart_platforms("mainland_cn", discovered.clone());
         assert_eq!(allowed, discovered);
     }
 
     #[test]
-    fn unknown_profile_falls_back_to_mainland_allowlist() {
+    fn unknown_profile_fails_closed() {
         let discovered = vec!["weixin".to_string(), "discord".to_string()];
         let allowed = filter_autostart_platforms("antarctica", discovered);
-        assert_eq!(allowed, vec!["weixin"]);
+        assert!(allowed.is_empty());
     }
 
     #[test]
@@ -1535,7 +1608,11 @@ mod tests {
         )
         .expect("write dotenv");
 
-        assert!(dotenv_suggests_messaging_gateway(&host_home));
+        assert!(!dotenv_suggests_messaging_gateway(
+            &host_home,
+            "mainland_cn"
+        ));
+        assert!(dotenv_suggests_messaging_gateway(&host_home, "sea"));
 
         let _ = std::fs::remove_dir_all(data_dir);
     }
@@ -1559,7 +1636,11 @@ mod tests {
         )
         .expect("write dotenv");
 
-        assert!(dotenv_suggests_messaging_gateway(&host_home));
+        assert!(!dotenv_suggests_messaging_gateway(
+            &host_home,
+            "mainland_cn"
+        ));
+        assert!(dotenv_suggests_messaging_gateway(&host_home, "sea"));
 
         let _ = std::fs::remove_dir_all(data_dir);
     }
@@ -1579,5 +1660,84 @@ mod tests {
         assert!(!profile_env.contains("GATEWAY_ALLOW_ALL_USERS="));
 
         let _ = std::fs::remove_dir_all(data_dir);
+    }
+
+    #[test]
+    fn stale_removed_credentials_create_no_migration_state() {
+        let data_dir = temp_data_dir("stale-creds-no-state");
+        let host_home = kabuqina_home_path(&data_dir);
+        std::fs::create_dir_all(&host_home).expect("create host home");
+        std::fs::write(
+            host_home.join(".env"),
+            "FEISHU_APP_ID=old\nFEISHU_APP_SECRET=old\nDISCORD_BOT_TOKEN=old\n",
+        )
+        .expect("write dotenv");
+
+        ensure_migration(&data_dir, "mainland_cn").expect("migration must no-op");
+
+        assert!(!host_home.join("profiles").exists());
+        assert!(!host_home.join("shared").exists());
+        let _ = std::fs::remove_dir_all(data_dir);
+    }
+
+    #[test]
+    fn profile_discovery_is_exact() {
+        let mut keys = HashMap::new();
+        keys.insert("WEIXIN_ACCOUNT_ID".to_string(), "a".to_string());
+        keys.insert("WEIXIN_TOKEN".to_string(), "t".to_string());
+        keys.insert("TELEGRAM_BOT_TOKEN".to_string(), "t".to_string());
+        keys.insert("FEISHU_APP_ID".to_string(), "old".to_string());
+        keys.insert("FEISHU_APP_SECRET".to_string(), "old".to_string());
+
+        assert_eq!(
+            discover_configured_platforms(&keys, "mainland_cn"),
+            vec!["weixin"]
+        );
+        assert_eq!(
+            discover_configured_platforms(&keys, "sea"),
+            vec!["telegram"]
+        );
+        assert!(discover_configured_platforms(&keys, "unknown").is_empty());
+    }
+
+    #[test]
+    fn single_platform_config_removes_all_host_platform_blocks() {
+        let host = r#"---
+llm:
+  provider: deepseek
+platforms:
+  feishu:
+    enabled: true
+  weixin:
+    enabled: true
+discord:
+  enabled: true
+telegram:
+  enabled: true
+credential_pool:
+  enabled: true
+"#;
+        let rendered = render_single_platform_config(host, "weixin");
+
+        assert!(rendered.starts_with("platforms:\n  weixin:\n    enabled: true\n"));
+        assert!(rendered.contains("llm:\n  provider: deepseek"));
+        assert!(rendered.contains("credential_pool:\n  enabled: true"));
+        assert!(!rendered.contains("feishu"));
+        assert!(!rendered.contains("discord"));
+        assert!(!rendered.contains("telegram"));
+    }
+
+    #[test]
+    fn gateway_child_identity_includes_profile_and_single_platform() {
+        let env = gateway_identity_env("sea", "telegram");
+        assert_eq!(
+            env,
+            [
+                ("KABUQINA_PRODUCT_PROFILE", "sea"),
+                ("HERMESDESK_PRODUCT_PROFILE", "sea"),
+                ("KABUQINA_GATEWAY_PLATFORM", "telegram"),
+                ("HERMESDESK_GATEWAY_PLATFORM", "telegram"),
+            ]
+        );
     }
 }

@@ -15113,41 +15113,19 @@
         "runtime_consumer"
       ],
       "platform_surfaces": [
-        "feishu_lark",
-        "matrix",
+        "dingtalk",
+        "email",
         "qqbot",
-        "wecom_family",
+        "telegram",
         "weixin"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.feishu_lark",
-        "surface_known_gaps.matrix",
+        "surface_known_gaps.dingtalk",
+        "surface_known_gaps.email",
         "surface_known_gaps.qqbot",
-        "surface_known_gaps.wecom_family",
-        "surface_known_gaps.weixin"
-      ]
-    },
-    {
-      "path": "python/src/gateway_policy.py",
-      "layer": "python_policy",
-      "edge_types": [
-        "policy_producer",
-        "runtime_consumer"
-      ],
-      "platform_surfaces": [
-        "feishu_lark",
-        "qqbot",
-        "wecom_family",
-        "weixin"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.feishu_lark",
-        "surface_known_gaps.qqbot",
-        "surface_known_gaps.wecom_family",
+        "surface_known_gaps.telegram",
         "surface_known_gaps.weixin"
       ]
     },
@@ -15195,17 +15173,19 @@
       "platform_surfaces": [
         "api_server",
         "bluebubbles",
+        "dingtalk",
         "discord",
-        "feishu_lark",
+        "email",
         "home_assistant",
         "matrix",
         "mattermost",
         "qqbot",
         "signal",
         "slack",
+        "telegram",
         "webhook",
-        "wecom_family",
         "weixin",
+        "whatsapp",
         "yuanbao"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
@@ -15213,17 +15193,19 @@
       "known_gaps": [
         "surface_known_gaps.api_server",
         "surface_known_gaps.bluebubbles",
+        "surface_known_gaps.dingtalk",
         "surface_known_gaps.discord",
-        "surface_known_gaps.feishu_lark",
+        "surface_known_gaps.email",
         "surface_known_gaps.home_assistant",
         "surface_known_gaps.matrix",
         "surface_known_gaps.mattermost",
         "surface_known_gaps.qqbot",
         "surface_known_gaps.signal",
         "surface_known_gaps.slack",
+        "surface_known_gaps.telegram",
         "surface_known_gaps.webhook",
-        "surface_known_gaps.wecom_family",
         "surface_known_gaps.weixin",
+        "surface_known_gaps.whatsapp",
         "surface_known_gaps.yuanbao"
       ]
     },
@@ -15375,7 +15357,10 @@
       "platform_surfaces": [
         "discord",
         "feishu_lark",
+        "qqbot",
         "slack",
+        "telegram",
+        "wecom_family",
         "weixin"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
@@ -15383,7 +15368,10 @@
       "known_gaps": [
         "surface_known_gaps.discord",
         "surface_known_gaps.feishu_lark",
+        "surface_known_gaps.qqbot",
         "surface_known_gaps.slack",
+        "surface_known_gaps.telegram",
+        "surface_known_gaps.wecom_family",
         "surface_known_gaps.weixin"
       ]
     },
@@ -15486,6 +15474,41 @@
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
         "surface_known_gaps.qqbot"
+      ]
+    },
+    {
+      "path": "python/tests/test_runtime_import_verifier.py",
+      "layer": "tests",
+      "edge_types": [
+        "verification_consumer"
+      ],
+      "platform_surfaces": [
+        "api_server",
+        "dingtalk",
+        "discord",
+        "email",
+        "feishu_lark",
+        "qqbot",
+        "telegram",
+        "wecom_family",
+        "weixin",
+        "whatsapp",
+        "yuanbao"
+      ],
+      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
+      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
+      "known_gaps": [
+        "surface_known_gaps.api_server",
+        "surface_known_gaps.dingtalk",
+        "surface_known_gaps.discord",
+        "surface_known_gaps.email",
+        "surface_known_gaps.feishu_lark",
+        "surface_known_gaps.qqbot",
+        "surface_known_gaps.telegram",
+        "surface_known_gaps.wecom_family",
+        "surface_known_gaps.weixin",
+        "surface_known_gaps.whatsapp",
+        "surface_known_gaps.yuanbao"
       ]
     },
     {
@@ -15654,30 +15677,50 @@
         "process_consumer"
       ],
       "platform_surfaces": [
+        "api_server",
+        "bluebubbles",
         "dingtalk",
         "discord",
         "email",
         "feishu_lark",
+        "home_assistant",
+        "local_delivery",
+        "matrix",
+        "mattermost",
         "qqbot",
         "signal",
         "slack",
+        "sms_twilio",
         "telegram",
+        "webhook",
         "wecom_family",
-        "weixin"
+        "weixin",
+        "whatsapp",
+        "yuanbao"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
+        "surface_known_gaps.api_server",
+        "surface_known_gaps.bluebubbles",
         "surface_known_gaps.dingtalk",
         "surface_known_gaps.discord",
         "surface_known_gaps.email",
         "surface_known_gaps.feishu_lark",
+        "surface_known_gaps.home_assistant",
+        "surface_known_gaps.local_delivery",
+        "surface_known_gaps.matrix",
+        "surface_known_gaps.mattermost",
         "surface_known_gaps.qqbot",
         "surface_known_gaps.signal",
         "surface_known_gaps.slack",
+        "surface_known_gaps.sms_twilio",
         "surface_known_gaps.telegram",
+        "surface_known_gaps.webhook",
         "surface_known_gaps.wecom_family",
-        "surface_known_gaps.weixin"
+        "surface_known_gaps.weixin",
+        "surface_known_gaps.whatsapp",
+        "surface_known_gaps.yuanbao"
       ]
     },
     {
@@ -15688,12 +15731,32 @@
         "process_consumer"
       ],
       "platform_surfaces": [
-        "local_delivery"
+        "dingtalk",
+        "discord",
+        "email",
+        "feishu_lark",
+        "local_delivery",
+        "qqbot",
+        "sms_twilio",
+        "telegram",
+        "wecom_family",
+        "weixin",
+        "whatsapp"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.local_delivery"
+        "surface_known_gaps.dingtalk",
+        "surface_known_gaps.discord",
+        "surface_known_gaps.email",
+        "surface_known_gaps.feishu_lark",
+        "surface_known_gaps.local_delivery",
+        "surface_known_gaps.qqbot",
+        "surface_known_gaps.sms_twilio",
+        "surface_known_gaps.telegram",
+        "surface_known_gaps.wecom_family",
+        "surface_known_gaps.weixin",
+        "surface_known_gaps.whatsapp"
       ]
     },
     {
@@ -15896,16 +15959,22 @@
         "command_consumer"
       ],
       "platform_surfaces": [
-        "feishu_lark",
-        "wecom_family",
-        "weixin"
+        "dingtalk",
+        "email",
+        "qqbot",
+        "telegram",
+        "weixin",
+        "whatsapp"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.feishu_lark",
-        "surface_known_gaps.wecom_family",
-        "surface_known_gaps.weixin"
+        "surface_known_gaps.dingtalk",
+        "surface_known_gaps.email",
+        "surface_known_gaps.qqbot",
+        "surface_known_gaps.telegram",
+        "surface_known_gaps.weixin",
+        "surface_known_gaps.whatsapp"
       ]
     },
     {
@@ -16067,6 +16136,55 @@
       ]
     },
     {
+      "path": "web/src/main.tsx",
+      "layer": "web_shell",
+      "edge_types": [
+        "settings_producer",
+        "command_consumer"
+      ],
+      "platform_surfaces": [
+        "dingtalk",
+        "email",
+        "feishu_lark",
+        "qqbot",
+        "telegram",
+        "wecom_family",
+        "weixin",
+        "whatsapp"
+      ],
+      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
+      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
+      "known_gaps": [
+        "surface_known_gaps.dingtalk",
+        "surface_known_gaps.email",
+        "surface_known_gaps.feishu_lark",
+        "surface_known_gaps.qqbot",
+        "surface_known_gaps.telegram",
+        "surface_known_gaps.wecom_family",
+        "surface_known_gaps.weixin",
+        "surface_known_gaps.whatsapp"
+      ]
+    },
+    {
+      "path": "web/src/onboarding/providerUx.test.mjs",
+      "layer": "tests",
+      "edge_types": [
+        "verification_consumer"
+      ],
+      "platform_surfaces": [
+        "email",
+        "telegram",
+        "whatsapp"
+      ],
+      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
+      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
+      "known_gaps": [
+        "surface_known_gaps.email",
+        "surface_known_gaps.telegram",
+        "surface_known_gaps.whatsapp"
+      ]
+    },
+    {
       "path": "web/src/onboarding/setupCatalog/optionData.ts",
       "layer": "web_shell",
       "edge_types": [
@@ -16074,18 +16192,24 @@
         "command_consumer"
       ],
       "platform_surfaces": [
-        "feishu_lark",
+        "dingtalk",
+        "email",
         "local_delivery",
-        "wecom_family",
-        "weixin"
+        "qqbot",
+        "telegram",
+        "weixin",
+        "whatsapp"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.feishu_lark",
+        "surface_known_gaps.dingtalk",
+        "surface_known_gaps.email",
         "surface_known_gaps.local_delivery",
-        "surface_known_gaps.wecom_family",
-        "surface_known_gaps.weixin"
+        "surface_known_gaps.qqbot",
+        "surface_known_gaps.telegram",
+        "surface_known_gaps.weixin",
+        "surface_known_gaps.whatsapp"
       ]
     }
   ],
@@ -17447,7 +17571,9 @@
         "source_paths": [
           "hermes_core/gateway/config.py",
           "hermes_core/gateway/platforms/dingtalk.py",
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "python/src/gateway_env_loader.py",
+          "tauri/src/gateway_supervisor.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -17460,7 +17586,9 @@
         "source_paths": [
           "hermes_core/gateway/config.py",
           "hermes_core/gateway/platforms/dingtalk.py",
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "python/src/gateway_env_loader.py",
+          "tauri/src/gateway_supervisor.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -17694,8 +17822,7 @@
           "hermes_core/kabuqina_cli/config_env_schema.py",
           "hermes_core/kabuqina_cli/tools_config.py",
           "hermes_core/scripts/discord-voice-doctor.py",
-          "hermes_core/tools/discord_tool.py",
-          "tauri/src/gateway_supervisor.rs"
+          "hermes_core/tools/discord_tool.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -18338,9 +18465,7 @@
           "hermes_core/gateway/config.py",
           "hermes_core/gateway/platforms/feishu.py",
           "hermes_core/kabuqina_cli/config_env.py",
-          "python/src/feishu_qr_worker.py",
-          "python/src/gateway_env_loader.py",
-          "tauri/src/gateway_supervisor.rs"
+          "python/src/feishu_qr_worker.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -18356,9 +18481,7 @@
           "hermes_core/gateway/config.py",
           "hermes_core/gateway/platforms/feishu.py",
           "hermes_core/kabuqina_cli/config_env.py",
-          "python/src/feishu_qr_worker.py",
-          "python/src/gateway_env_loader.py",
-          "tauri/src/gateway_supervisor.rs"
+          "python/src/feishu_qr_worker.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -19331,13 +19454,13 @@
         "surface": "desktop",
         "primary_role": "non_secret_config",
         "source_paths": [
+          "hermes_core/gateway/config.py",
           "hermes_core/gateway/lock_win32.py",
           "hermes_core/providers/chat_completions.py",
           "hermes_core/providers/model_metadata.py",
           "hermes_core/tools/cronjob_tools.py",
           "python/overlays/workspace_jail.py",
-          "python/src/path_policy.py",
-          "tauri/src/gateway_supervisor.rs"
+          "python/src/path_policy.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -19460,6 +19583,7 @@
         "surface": "desktop",
         "primary_role": "non_secret_config",
         "source_paths": [
+          "hermes_core/gateway/config.py",
           "python/src/product_profile_policy.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
@@ -21741,7 +21865,7 @@
         "surface": "desktop",
         "primary_role": "non_secret_config",
         "source_paths": [
-          "tauri/src/gateway_supervisor.rs"
+          "hermes_core/gateway/config.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -21885,8 +22009,12 @@
         "surface": "desktop",
         "primary_role": "non_secret_config",
         "source_paths": [
+          "hermes_core/cron/scheduler.py",
+          "hermes_core/gateway/config.py",
           "python/src/product_profile_policy.py",
-          "tauri/src/python_supervisor.rs"
+          "tauri/src/python_supervisor.rs",
+          "tauri/src/qqbot_qr.rs",
+          "tauri/src/weixin_qr.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -23487,33 +23615,6 @@
         "known_gaps": []
       },
       {
-        "key": "QQBOT_APP_ID",
-        "surface": "qqbot",
-        "primary_role": "identifier",
-        "source_paths": [
-          "python/src/gateway_env_loader.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "remove_stale_alias",
-        "known_gaps": [
-          "This is an observed stale/legacy alias and must not become a target allowlist entry."
-        ]
-      },
-      {
-        "key": "QQBOT_CLIENT_SECRET",
-        "surface": "qqbot",
-        "primary_role": "secret",
-        "source_paths": [
-          "python/src/gateway_env_loader.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "remove_stale_alias",
-        "known_gaps": [
-          "Gateway secrets currently traverse host/profile .env files; CTL-C07 owns explicit cleanup/export and upgrade safety.",
-          "This is an observed stale/legacy alias and must not become a target allowlist entry."
-        ]
-      },
-      {
         "key": "QQBOT_HOME_CHANNEL",
         "surface": "qqbot",
         "primary_role": "home_target",
@@ -23587,6 +23688,7 @@
           "hermes_core/kabuqina_cli/config_env_schema.py",
           "hermes_core/kabuqina_cli/tools_config.py",
           "hermes_core/tools/send_message_tool.py",
+          "python/src/gateway_env_loader.py",
           "python/src/qqbot_qr_worker.py",
           "tauri/src/gateway_supervisor.rs"
         ],
@@ -23604,6 +23706,7 @@
           "hermes_core/kabuqina_cli/config_env.py",
           "hermes_core/kabuqina_cli/config_env_schema.py",
           "hermes_core/tools/send_message_tool.py",
+          "python/src/gateway_env_loader.py",
           "python/src/qqbot_qr_worker.py",
           "tauri/src/gateway_supervisor.rs"
         ],
@@ -23927,8 +24030,7 @@
         "source_paths": [
           "hermes_core/gateway/config.py",
           "hermes_core/gateway/platforms/signal.py",
-          "hermes_core/kabuqina_cli/config_env.py",
-          "tauri/src/gateway_supervisor.rs"
+          "hermes_core/kabuqina_cli/config_env.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -24016,8 +24118,7 @@
           "hermes_core/gateway/config.py",
           "hermes_core/kabuqina_cli/config.py",
           "hermes_core/kabuqina_cli/config_env_schema.py",
-          "hermes_core/kabuqina_cli/tools_config.py",
-          "tauri/src/gateway_supervisor.rs"
+          "hermes_core/kabuqina_cli/tools_config.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -24613,6 +24714,7 @@
           "hermes_core/kabuqina_cli/config.py",
           "hermes_core/kabuqina_cli/config_env_schema.py",
           "hermes_core/kabuqina_cli/tools_config.py",
+          "python/src/gateway_env_loader.py",
           "tauri/src/gateway_supervisor.rs",
           "tauri/src/telegram_env.rs"
         ],
@@ -25919,9 +26021,7 @@
           "hermes_core/gateway/config.py",
           "hermes_core/gateway/platforms/wecom.py",
           "hermes_core/kabuqina_cli/config_env.py",
-          "python/src/gateway_env_loader.py",
-          "python/src/wecom_qr_worker.py",
-          "tauri/src/gateway_supervisor.rs"
+          "python/src/wecom_qr_worker.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -25975,8 +26075,7 @@
         "primary_role": "identifier",
         "source_paths": [
           "hermes_core/gateway/config.py",
-          "hermes_core/kabuqina_cli/config_env.py",
-          "python/src/gateway_env_loader.py"
+          "hermes_core/kabuqina_cli/config_env.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -25990,8 +26089,7 @@
         "primary_role": "secret",
         "source_paths": [
           "hermes_core/gateway/config.py",
-          "hermes_core/kabuqina_cli/config_env.py",
-          "python/src/gateway_env_loader.py"
+          "hermes_core/kabuqina_cli/config_env.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -26155,9 +26253,7 @@
           "hermes_core/gateway/config.py",
           "hermes_core/gateway/platforms/wecom.py",
           "hermes_core/kabuqina_cli/config_env.py",
-          "python/src/gateway_env_loader.py",
-          "python/src/wecom_qr_worker.py",
-          "tauri/src/gateway_supervisor.rs"
+          "python/src/wecom_qr_worker.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -26171,8 +26267,7 @@
         "surface": "wecom_family",
         "primary_role": "non_secret_config",
         "source_paths": [
-          "python/src/wecom_qr_worker.py",
-          "tauri/src/gateway_supervisor.rs"
+          "python/src/wecom_qr_worker.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -27049,26 +27144,13 @@
         "pattern": "DINGTALK_*",
         "surface": "dingtalk",
         "source_paths": [
+          "tauri/src/gateway_supervisor.rs",
           "web/src/lib/gatewayPlatformSettingsRegistry.ts"
         ],
         "observed_current": "Structured wildcard environment namespace declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_declared_namespace_boundary",
         "known_gaps": [
           "Wildcard namespace membership does not prove that any particular exact key exists; consumers must continue to validate exact keys."
-        ]
-      },
-      {
-        "prefix": "DISCORD_",
-        "pattern": "DISCORD_*",
-        "surface": "discord",
-        "source_paths": [
-          "tauri/src/gateway_supervisor.rs"
-        ],
-        "observed_current": "Structured wildcard environment namespace declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Wildcard namespace membership does not prove that any particular exact key exists; consumers must continue to validate exact keys.",
-          "Removed-surface namespace consumers remain live until the owning removal slice and explicit CTL-C07 cleanup."
         ]
       },
       {
@@ -27083,21 +27165,6 @@
         "target_contract": "retain_declared_namespace_boundary",
         "known_gaps": [
           "Wildcard namespace membership does not prove that any particular exact key exists; consumers must continue to validate exact keys."
-        ]
-      },
-      {
-        "prefix": "FEISHU_",
-        "pattern": "FEISHU_*",
-        "surface": "feishu_lark",
-        "source_paths": [
-          "tauri/src/gateway_supervisor.rs",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
-        ],
-        "observed_current": "Structured wildcard environment namespace declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Wildcard namespace membership does not prove that any particular exact key exists; consumers must continue to validate exact keys.",
-          "Removed-surface namespace consumers remain live until the owning removal slice and explicit CTL-C07 cleanup."
         ]
       },
       {
@@ -27259,54 +27326,12 @@
         ]
       },
       {
-        "prefix": "SIGNAL_",
-        "pattern": "SIGNAL_*",
-        "surface": "signal",
-        "source_paths": [
-          "tauri/src/gateway_supervisor.rs"
-        ],
-        "observed_current": "Structured wildcard environment namespace declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Wildcard namespace membership does not prove that any particular exact key exists; consumers must continue to validate exact keys.",
-          "Removed-surface namespace consumers remain live until the owning removal slice and explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "prefix": "SLACK_",
-        "pattern": "SLACK_*",
-        "surface": "slack",
-        "source_paths": [
-          "tauri/src/gateway_supervisor.rs"
-        ],
-        "observed_current": "Structured wildcard environment namespace declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Wildcard namespace membership does not prove that any particular exact key exists; consumers must continue to validate exact keys.",
-          "Removed-surface namespace consumers remain live until the owning removal slice and explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "prefix": "SMS_",
-        "pattern": "SMS_*",
-        "surface": "sms_twilio",
-        "source_paths": [
-          "tauri/src/gateway_supervisor.rs",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
-        ],
-        "observed_current": "Structured wildcard environment namespace declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Wildcard namespace membership does not prove that any particular exact key exists; consumers must continue to validate exact keys.",
-          "Removed-surface namespace consumers remain live until the owning removal slice and explicit CTL-C07 cleanup."
-        ]
-      },
-      {
         "prefix": "TELEGRAM_",
         "pattern": "TELEGRAM_*",
         "surface": "telegram",
         "source_paths": [
-          "tauri/src/gateway_supervisor.rs"
+          "tauri/src/gateway_supervisor.rs",
+          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
         ],
         "observed_current": "Structured wildcard environment namespace declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_declared_namespace_boundary",
@@ -27367,20 +27392,6 @@
         ]
       },
       {
-        "prefix": "TWILIO_",
-        "pattern": "TWILIO_*",
-        "surface": "sms_twilio",
-        "source_paths": [
-          "tauri/src/gateway_supervisor.rs"
-        ],
-        "observed_current": "Structured wildcard environment namespace declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Wildcard namespace membership does not prove that any particular exact key exists; consumers must continue to validate exact keys.",
-          "Removed-surface namespace consumers remain live until the owning removal slice and explicit CTL-C07 cleanup."
-        ]
-      },
-      {
         "prefix": "USER",
         "pattern": "USER*",
         "surface": "gateway_kernel",
@@ -27407,24 +27418,23 @@
         ]
       },
       {
-        "prefix": "WECOM_",
-        "pattern": "WECOM_*",
-        "surface": "wecom_family",
+        "prefix": "WEIXIN_",
+        "pattern": "WEIXIN_*",
+        "surface": "weixin",
         "source_paths": [
           "tauri/src/gateway_supervisor.rs",
           "web/src/lib/gatewayPlatformSettingsRegistry.ts"
         ],
         "observed_current": "Structured wildcard environment namespace declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
+        "target_contract": "retain_declared_namespace_boundary",
         "known_gaps": [
-          "Wildcard namespace membership does not prove that any particular exact key exists; consumers must continue to validate exact keys.",
-          "Removed-surface namespace consumers remain live until the owning removal slice and explicit CTL-C07 cleanup."
+          "Wildcard namespace membership does not prove that any particular exact key exists; consumers must continue to validate exact keys."
         ]
       },
       {
-        "prefix": "WEIXIN_",
-        "pattern": "WEIXIN_*",
-        "surface": "weixin",
+        "prefix": "WHATSAPP_",
+        "pattern": "WHATSAPP_*",
+        "surface": "whatsapp",
         "source_paths": [
           "tauri/src/gateway_supervisor.rs",
           "web/src/lib/gatewayPlatformSettingsRegistry.ts"
@@ -27595,11 +27605,11 @@
   },
   "generated_ledger_metadata": {
     "generator": "scripts/audit_v050_platform_manifest.py --refresh-generated-ledgers",
-    "reference_path_count": 656,
+    "reference_path_count": 658,
     "literal_environment_key_count": 678,
-    "dynamic_environment_key_declaration_count": 396,
-    "environment_key_count": 796,
-    "environment_namespace_count": 32,
+    "dynamic_environment_key_declaration_count": 393,
+    "environment_key_count": 794,
+    "environment_namespace_count": 26,
     "environment_dynamic_template_count": 2,
     "historical_docs_policy": "docs/superpowers history is excluded from the active-doc reference scan; the three authority plans are hash-pinned separately."
   }

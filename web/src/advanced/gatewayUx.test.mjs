@@ -35,14 +35,20 @@ assert.match(
 
 assert.match(
   settingsGatewaySource,
-  /platformItems\s*=\s*\[[\s\S]*feishu[\s\S]*qq[\s\S]*weixin[\s\S]*wecom[\s\S]*\]/,
-  "Messaging platform settings should expose the mainland profile entries.",
+  /platformItems\s*=\s*\[[\s\S]*qqbot[\s\S]*weixin[\s\S]*dingtalk[\s\S]*telegram[\s\S]*whatsapp[\s\S]*email[\s\S]*\]/,
+  "Messaging platform settings should contain the exact retained entries for both profiles.",
 );
 
 assert.doesNotMatch(
   settingsGatewaySource,
-  /platformItems\s*=\s*\[[\s\S]*(email|dingtalk)[\s\S]*\]/i,
-  "Mainland profile gateway navigation should not expose Email or DingTalk.",
+  /platformItems\s*=\s*\[[\s\S]*(feishu|wecom|discord|slack)[\s\S]*\]/i,
+  "Gateway navigation must not contain removed platform entries.",
+);
+
+assert.match(
+  settingsGatewaySource,
+  /platformItems\.filter\(\(\{ key \}\) => profileContract\.visibleGateways\.includes\(key\)\)/,
+  "Gateway navigation should be filtered by the trusted product-profile contract.",
 );
 
 assert.match(
