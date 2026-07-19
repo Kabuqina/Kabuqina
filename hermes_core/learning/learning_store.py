@@ -294,6 +294,7 @@ def _coordinated_read(*, owner_wide: bool = False):
         def _wrapped(self, *args, **kwargs):
             call_kwargs = dict(kwargs)
             operation_lease = call_kwargs.pop("operation_lease", None)
+            coordination_guard = call_kwargs.pop("coordination_guard", None)
             owner_id = args[0] if args else call_kwargs.get("owner_id")
             if owner_wide:
                 space_id = ""
@@ -304,6 +305,7 @@ def _coordinated_read(*, owner_wide: bool = False):
                 space_id,
                 lambda _connection: method(self, *args, **call_kwargs),
                 operation_lease=operation_lease,
+                coordination_guard=coordination_guard,
             )
 
         return _wrapped
@@ -528,14 +530,22 @@ class LearningStore:
         fn: Callable[[sqlite3.Connection], T],
         *,
         operation_lease: Optional[OperationLease] = None,
+        coordination_guard: Optional[LearningOperationGuard] = None,
     ) -> T:
         """Run a scoped snapshot read while holding the coordination guard."""
+        if coordination_guard is not None and (
+            coordination_guard.owner_id != owner_id
+            or coordination_guard.space_id != space_id
+            or coordination_guard.mode != "read"
+        ):
+            raise ValueError("coordination guard scope does not match read")
         last_err: Optional[Exception] = None
         for attempt in range(self._WRITE_MAX_RETRIES):
             try:
-                with self.coordinator.begin_read(
+                guard = coordination_guard or self.coordinator.begin_read(
                     owner_id, space_id, operation_lease=operation_lease
-                ):
+                )
+                try:
                     with self._lock:
                         self._conn.execute("BEGIN")
                         try:
@@ -548,6 +558,9 @@ class LearningStore:
                                 pass
                             raise
                     return result
+                finally:
+                    if coordination_guard is None:
+                        guard.close()
             except sqlite3.OperationalError as exc:
                 msg = str(exc).lower()
                 if (
@@ -1057,6 +1070,72 @@ class LearningStore:
         self._execute_write(owner_id, space_id, _op, operation_lease=operation_lease)
         return activity_id
 
+    def insert_projection_activity_once(
+        self,
+        owner_id: str,
+        space_id: str,
+        *,
+        projection_event_id: str,
+        activity_kind: str,
+        source_activity_id: str,
+        outcome: str,
+        terminal_code: str,
+        operation_lease: Optional[OperationLease] = None,
+    ) -> bool:
+        """Idempotently append a bounded Tutor terminal projection.
+
+        ``learning.db`` remains schema v1, so the stable projection event ID is
+        also used as the deterministic activity primary-key component.  The
+        coordinator plus ``BEGIN IMMEDIATE`` makes check/insert one serialized
+        operation across desk/Gateway/cron processes.
+        """
+        _require(owner_id, "owner_id")
+        _require(space_id, "space_id")
+        _require(projection_event_id, "projection_event_id")
+        detail = {
+            "projection_event_id": projection_event_id,
+            "activity_kind": activity_kind,
+            "source_activity_id": source_activity_id,
+            "outcome": outcome,
+            "terminal_code": terminal_code,
+        }
+        created_at = _now()
+
+        def _op(connection: sqlite3.Connection) -> bool:
+            existing = connection.execute(
+                "SELECT detail_json FROM learning_activities "
+                "WHERE owner_id=? AND space_id=? AND activity_id=?",
+                (owner_id, space_id, projection_event_id),
+            ).fetchone()
+            if existing is not None:
+                existing_detail = json.loads(existing["detail_json"])
+                if existing_detail.get("projection_event_id") != projection_event_id:
+                    raise LearningConflictError("projection activity id conflict")
+                return False
+            connection.execute(
+                """
+                INSERT INTO learning_activities
+                    (owner_id,space_id,activity_id,activity_type,artifact_id,
+                     item_id,detail_json,created_at)
+                VALUES (?,?,?,'tutor.terminal',NULL,NULL,?,?)
+                """,
+                (
+                    owner_id,
+                    space_id,
+                    projection_event_id,
+                    json.dumps(detail, ensure_ascii=False, sort_keys=True),
+                    created_at,
+                ),
+            )
+            return True
+
+        return self._execute_write(
+            owner_id,
+            space_id,
+            _op,
+            operation_lease=operation_lease,
+        )
+
     @_coordinated_read()
     def list_activities(
         self,
@@ -1128,6 +1207,7 @@ class LearningStore:
         owner_id: str,
         *,
         operation_lease: Optional[OperationLease] = None,
+        coordination_guard: Optional[LearningOperationGuard] = None,
     ) -> Dict[str, Any]:
         """Return a self-contained JSON-safe bundle without repeating owner_id."""
         _require(owner_id, "owner_id")
@@ -1199,6 +1279,40 @@ class LearningStore:
         ) as guard:
             self._execute_write(
                 owner_id, "", _op, coordination_guard=guard
+            )
+            self._compact_after_sensitive_delete()
+        return counts
+
+    def delete_space_data(
+        self,
+        owner_id: str,
+        space_id: str,
+        *,
+        operation_lease: Optional[OperationLease] = None,
+    ) -> Dict[str, int]:
+        """Delete one exact learning space while preserving owner migrations."""
+        _require(owner_id, "owner_id")
+        _require(space_id, "space_id")
+        counts: Dict[str, int] = {}
+
+        def _op(conn: sqlite3.Connection) -> None:
+            for table in (
+                "learning_activities",
+                "learning_items",
+                "learning_artifacts",
+                "learning_spaces",
+            ):
+                cursor = conn.execute(
+                    f"DELETE FROM {table} WHERE owner_id=? AND space_id=?",
+                    (owner_id, space_id),
+                )
+                counts[table] = cursor.rowcount
+
+        with self.coordinator.begin_write(
+            owner_id, space_id, operation_lease=operation_lease
+        ) as guard:
+            self._execute_write(
+                owner_id, space_id, _op, coordination_guard=guard
             )
             self._compact_after_sensitive_delete()
         return counts
