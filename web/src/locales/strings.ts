@@ -1827,7 +1827,7 @@ export const MESSAGES = {
       },
       gateway: {
         title: "Messaging",
-        lead: "For apps like Discord or WeChat, pick here; otherwise skip.",
+        lead: "For apps like WeChat or Telegram, pick here; otherwise skip.",
       },
       tools: {
         title: "Online tools",

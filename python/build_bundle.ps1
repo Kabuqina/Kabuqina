@@ -301,11 +301,9 @@ $drop = @(
     "tools\browser_camofox.py",
     "tools\browser_camofox_state.py",
     "tools\mixture_of_agents_tool.py",
-    # v0.3.0 mainland_cn cut (Phase E). discord is kept in source for the future
-    # sea profile but not shipped in the student runtime; yuanbao is a global cut.
+    # v0.3.0 mainland_cn cut (Phase E). Yuanbao is a global cut.
     # The tool registry discovers tools/*.py by glob and skips missing ones, so
     # the gateway adapters (cut/non-eligible in mainland) degrade gracefully.
-    "tools\discord_tool.py",
     "tools\yuanbao_tools.py",
     # v0.3.0 student runtime plugin/skill cuts.
     "plugins\disk-cleanup",

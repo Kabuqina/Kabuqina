@@ -2265,22 +2265,20 @@
         "hermes_core/uv.lock",
         "python/requirements-desktop.txt"
       ],
-      "version_constraint": ">=2.7.1,<3 in core messaging extra; intentionally absent from desktop",
+      "version_constraint": "removed from the core messaging extra and lock by CTL-C03a",
       "platform_surfaces": [
         "discord"
       ],
       "users": [
-        "hermes_core/gateway/platforms/discord.py",
-        "hermes_core/tools/discord_tool.py"
+        "python/tools/verify_runtime_pruned.py",
+        "python/tests/test_runtime_pruned_verifier.py"
       ],
-      "usage_class": "removed_exclusive_with_shared_media_tests",
-      "bundle_presence": "absent in observed stale local runtime",
-      "target_action": "remove source/extras/lock reachability; transfer neutral media coverage to retained adapters",
-      "license_status": "record lock/native license delta at CTL-C05",
-      "advisory_status": "record removal delta; no retained runtime justification",
-      "known_gaps": [
-        "Discord voice tests currently carry some shared media expectations."
-      ]
+      "usage_class": "removed_exclusive; retained media tests are platform-neutral",
+      "bundle_presence": "absent in the CTL-C03a fresh verified runtime",
+      "target_action": "completed: source/extras/lock/runtime reachability removed; runtime absence is verified",
+      "license_status": "discord.py, PyNaCl, audioop-lts and davey removed from the lock; CTL-C05 consumes the delta",
+      "advisory_status": "removal delta recorded; no retained runtime justification",
+      "known_gaps": []
     },
     {
       "id": "py-slack-sdk",
@@ -4481,6 +4479,34 @@
       ]
     },
     {
+      "path": "hermes_core/gateway/delivery_contract.py",
+      "layer": "core_runtime",
+      "edge_types": [
+        "contract_producer",
+        "runtime_consumer"
+      ],
+      "platform_surfaces": [
+        "dingtalk",
+        "email",
+        "local_delivery",
+        "qqbot",
+        "telegram",
+        "weixin",
+        "whatsapp"
+      ],
+      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
+      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
+      "known_gaps": [
+        "surface_known_gaps.dingtalk",
+        "surface_known_gaps.email",
+        "surface_known_gaps.local_delivery",
+        "surface_known_gaps.qqbot",
+        "surface_known_gaps.telegram",
+        "surface_known_gaps.weixin",
+        "surface_known_gaps.whatsapp"
+      ]
+    },
+    {
       "path": "hermes_core/gateway/display_config.py",
       "layer": "core_runtime",
       "edge_types": [
@@ -4491,7 +4517,6 @@
         "api_server",
         "bluebubbles",
         "dingtalk",
-        "discord",
         "email",
         "feishu_lark",
         "home_assistant",
@@ -4512,7 +4537,6 @@
         "surface_known_gaps.api_server",
         "surface_known_gaps.bluebubbles",
         "surface_known_gaps.dingtalk",
-        "surface_known_gaps.discord",
         "surface_known_gaps.email",
         "surface_known_gaps.feishu_lark",
         "surface_known_gaps.home_assistant",
@@ -4667,22 +4691,6 @@
       ]
     },
     {
-      "path": "hermes_core/gateway/platforms/discord.py",
-      "layer": "core_adapter",
-      "edge_types": [
-        "runtime_producer",
-        "runtime_consumer"
-      ],
-      "platform_surfaces": [
-        "discord"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.discord"
-      ]
-    },
-    {
       "path": "hermes_core/gateway/platforms/email.py",
       "layer": "core_adapter",
       "edge_types": [
@@ -4756,12 +4764,12 @@
         "runtime_consumer"
       ],
       "platform_surfaces": [
-        "discord"
+        "matrix"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.discord"
+        "surface_known_gaps.matrix"
       ]
     },
     {
@@ -5016,7 +5024,6 @@
       "platform_surfaces": [
         "bluebubbles",
         "dingtalk",
-        "discord",
         "email",
         "feishu_lark",
         "home_assistant",
@@ -5038,7 +5045,6 @@
       "known_gaps": [
         "surface_known_gaps.bluebubbles",
         "surface_known_gaps.dingtalk",
-        "surface_known_gaps.discord",
         "surface_known_gaps.email",
         "surface_known_gaps.feishu_lark",
         "surface_known_gaps.home_assistant",
@@ -5211,7 +5217,6 @@
         "api_server",
         "bluebubbles",
         "dingtalk",
-        "discord",
         "email",
         "feishu_lark",
         "home_assistant",
@@ -5235,7 +5240,6 @@
         "surface_known_gaps.api_server",
         "surface_known_gaps.bluebubbles",
         "surface_known_gaps.dingtalk",
-        "surface_known_gaps.discord",
         "surface_known_gaps.email",
         "surface_known_gaps.feishu_lark",
         "surface_known_gaps.home_assistant",
@@ -5263,7 +5267,6 @@
       ],
       "platform_surfaces": [
         "bluebubbles",
-        "discord",
         "local_delivery",
         "signal",
         "slack",
@@ -5275,7 +5278,6 @@
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
         "surface_known_gaps.bluebubbles",
-        "surface_known_gaps.discord",
         "surface_known_gaps.local_delivery",
         "surface_known_gaps.signal",
         "surface_known_gaps.slack",
@@ -5308,13 +5310,13 @@
         "config_consumer"
       ],
       "platform_surfaces": [
-        "discord",
+        "slack",
         "telegram"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.discord",
+        "surface_known_gaps.slack",
         "surface_known_gaps.telegram"
       ]
     },
@@ -5326,7 +5328,6 @@
         "config_consumer"
       ],
       "platform_surfaces": [
-        "discord",
         "local_delivery",
         "slack",
         "telegram"
@@ -5334,7 +5335,6 @@
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.discord",
         "surface_known_gaps.local_delivery",
         "surface_known_gaps.slack",
         "surface_known_gaps.telegram"
@@ -5348,7 +5348,6 @@
         "config_consumer"
       ],
       "platform_surfaces": [
-        "discord",
         "local_delivery",
         "mattermost",
         "slack",
@@ -5358,7 +5357,6 @@
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.discord",
         "surface_known_gaps.local_delivery",
         "surface_known_gaps.mattermost",
         "surface_known_gaps.slack",
@@ -5376,7 +5374,6 @@
       "platform_surfaces": [
         "bluebubbles",
         "dingtalk",
-        "discord",
         "feishu_lark",
         "irc_plugin",
         "matrix",
@@ -5396,7 +5393,6 @@
       "known_gaps": [
         "surface_known_gaps.bluebubbles",
         "surface_known_gaps.dingtalk",
-        "surface_known_gaps.discord",
         "surface_known_gaps.feishu_lark",
         "surface_known_gaps.irc_plugin",
         "surface_known_gaps.matrix",
@@ -5422,7 +5418,6 @@
       "platform_surfaces": [
         "api_server",
         "bluebubbles",
-        "discord",
         "irc_plugin",
         "matrix",
         "mattermost",
@@ -5437,7 +5432,6 @@
       "known_gaps": [
         "surface_known_gaps.api_server",
         "surface_known_gaps.bluebubbles",
-        "surface_known_gaps.discord",
         "surface_known_gaps.irc_plugin",
         "surface_known_gaps.matrix",
         "surface_known_gaps.mattermost",
@@ -5489,7 +5483,6 @@
       ],
       "platform_surfaces": [
         "dingtalk",
-        "discord",
         "email",
         "feishu_lark",
         "home_assistant",
@@ -5509,7 +5502,6 @@
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
         "surface_known_gaps.dingtalk",
-        "surface_known_gaps.discord",
         "surface_known_gaps.email",
         "surface_known_gaps.feishu_lark",
         "surface_known_gaps.home_assistant",
@@ -5569,7 +5561,6 @@
         "api_server",
         "bluebubbles",
         "dingtalk",
-        "discord",
         "email",
         "feishu_lark",
         "home_assistant",
@@ -5591,7 +5582,6 @@
         "surface_known_gaps.api_server",
         "surface_known_gaps.bluebubbles",
         "surface_known_gaps.dingtalk",
-        "surface_known_gaps.discord",
         "surface_known_gaps.email",
         "surface_known_gaps.feishu_lark",
         "surface_known_gaps.home_assistant",
@@ -6099,6 +6089,23 @@
       ]
     },
     {
+      "path": "hermes_core/tests/cron/test_delivery_contract.py",
+      "layer": "tests",
+      "edge_types": [
+        "verification_consumer"
+      ],
+      "platform_surfaces": [
+        "local_delivery",
+        "weixin"
+      ],
+      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
+      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
+      "known_gaps": [
+        "surface_known_gaps.local_delivery",
+        "surface_known_gaps.weixin"
+      ]
+    },
+    {
       "path": "hermes_core/tests/cron/test_jobs.py",
       "layer": "tests",
       "edge_types": [
@@ -6169,14 +6176,12 @@
         "verification_consumer"
       ],
       "platform_surfaces": [
-        "discord",
         "slack",
         "telegram"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.discord",
         "surface_known_gaps.slack",
         "surface_known_gaps.telegram"
       ]
@@ -6227,21 +6232,6 @@
       ]
     },
     {
-      "path": "hermes_core/tests/e2e/test_discord_adapter.py",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "discord"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.discord"
-      ]
-    },
-    {
       "path": "hermes_core/tests/e2e/test_platform_commands.py",
       "layer": "tests",
       "edge_types": [
@@ -6254,21 +6244,6 @@
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
         "surface_known_gaps.telegram"
-      ]
-    },
-    {
-      "path": "hermes_core/tests/gateway/_discord_test_stub.py",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "discord"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.discord"
       ]
     },
     {
@@ -6308,13 +6283,11 @@
         "verification_consumer"
       ],
       "platform_surfaces": [
-        "discord",
         "telegram"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.discord",
         "surface_known_gaps.telegram"
       ]
     },
@@ -6839,6 +6812,44 @@
       ]
     },
     {
+      "path": "hermes_core/tests/gateway/test_delivery_contract.py",
+      "layer": "tests",
+      "edge_types": [
+        "verification_consumer"
+      ],
+      "platform_surfaces": [
+        "local_delivery"
+      ],
+      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
+      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
+      "known_gaps": [
+        "surface_known_gaps.local_delivery"
+      ]
+    },
+    {
+      "path": "hermes_core/tests/gateway/test_desktop_platform_filter.py",
+      "layer": "tests",
+      "edge_types": [
+        "verification_consumer"
+      ],
+      "platform_surfaces": [
+        "discord",
+        "feishu_lark",
+        "local_delivery",
+        "telegram",
+        "weixin"
+      ],
+      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
+      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
+      "known_gaps": [
+        "surface_known_gaps.discord",
+        "surface_known_gaps.feishu_lark",
+        "surface_known_gaps.local_delivery",
+        "surface_known_gaps.telegram",
+        "surface_known_gaps.weixin"
+      ]
+    },
+    {
       "path": "hermes_core/tests/gateway/test_dingtalk.py",
       "layer": "tests",
       "edge_types": [
@@ -6851,338 +6862,6 @@
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
         "surface_known_gaps.dingtalk"
-      ]
-    },
-    {
-      "path": "hermes_core/tests/gateway/test_discord_allowed_channels.py",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "discord"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.discord"
-      ]
-    },
-    {
-      "path": "hermes_core/tests/gateway/test_discord_allowed_mentions.py",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "discord"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.discord"
-      ]
-    },
-    {
-      "path": "hermes_core/tests/gateway/test_discord_attachment_download.py",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "discord"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.discord"
-      ]
-    },
-    {
-      "path": "hermes_core/tests/gateway/test_discord_bot_auth_bypass.py",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "discord",
-        "telegram"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.discord",
-        "surface_known_gaps.telegram"
-      ]
-    },
-    {
-      "path": "hermes_core/tests/gateway/test_discord_bot_filter.py",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "discord"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.discord"
-      ]
-    },
-    {
-      "path": "hermes_core/tests/gateway/test_discord_channel_controls.py",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "discord"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.discord"
-      ]
-    },
-    {
-      "path": "hermes_core/tests/gateway/test_discord_channel_prompts.py",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "discord"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.discord"
-      ]
-    },
-    {
-      "path": "hermes_core/tests/gateway/test_discord_channel_skills.py",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "discord"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.discord"
-      ]
-    },
-    {
-      "path": "hermes_core/tests/gateway/test_discord_connect.py",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "discord"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.discord"
-      ]
-    },
-    {
-      "path": "hermes_core/tests/gateway/test_discord_document_handling.py",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "discord"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.discord"
-      ]
-    },
-    {
-      "path": "hermes_core/tests/gateway/test_discord_free_response.py",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "discord"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.discord"
-      ]
-    },
-    {
-      "path": "hermes_core/tests/gateway/test_discord_imports.py",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "discord"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.discord"
-      ]
-    },
-    {
-      "path": "hermes_core/tests/gateway/test_discord_media_metadata.py",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "discord"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.discord"
-      ]
-    },
-    {
-      "path": "hermes_core/tests/gateway/test_discord_model_picker.py",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "discord"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.discord"
-      ]
-    },
-    {
-      "path": "hermes_core/tests/gateway/test_discord_opus.py",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "discord"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.discord"
-      ]
-    },
-    {
-      "path": "hermes_core/tests/gateway/test_discord_race_polish.py",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "discord"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.discord"
-      ]
-    },
-    {
-      "path": "hermes_core/tests/gateway/test_discord_reactions.py",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "discord"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.discord"
-      ]
-    },
-    {
-      "path": "hermes_core/tests/gateway/test_discord_reply_mode.py",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "discord"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.discord"
-      ]
-    },
-    {
-      "path": "hermes_core/tests/gateway/test_discord_send.py",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "discord"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.discord"
-      ]
-    },
-    {
-      "path": "hermes_core/tests/gateway/test_discord_slash_commands.py",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "discord"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.discord"
-      ]
-    },
-    {
-      "path": "hermes_core/tests/gateway/test_discord_system_messages.py",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "discord"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.discord"
-      ]
-    },
-    {
-      "path": "hermes_core/tests/gateway/test_discord_thread_persistence.py",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "discord"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.discord"
       ]
     },
     {
@@ -8100,14 +7779,12 @@
         "verification_consumer"
       ],
       "platform_surfaces": [
-        "discord",
         "slack",
         "telegram"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.discord",
         "surface_known_gaps.slack",
         "surface_known_gaps.telegram"
       ]
@@ -8119,7 +7796,6 @@
         "verification_consumer"
       ],
       "platform_surfaces": [
-        "discord",
         "email",
         "local_delivery",
         "mattermost",
@@ -8129,7 +7805,6 @@
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.discord",
         "surface_known_gaps.email",
         "surface_known_gaps.local_delivery",
         "surface_known_gaps.mattermost",
@@ -8550,7 +8225,6 @@
       ],
       "platform_surfaces": [
         "dingtalk",
-        "discord",
         "feishu_lark",
         "matrix",
         "mattermost",
@@ -8562,7 +8236,6 @@
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
         "surface_known_gaps.dingtalk",
-        "surface_known_gaps.discord",
         "surface_known_gaps.feishu_lark",
         "surface_known_gaps.matrix",
         "surface_known_gaps.mattermost",
@@ -8865,7 +8538,6 @@
         "verification_consumer"
       ],
       "platform_surfaces": [
-        "discord",
         "feishu_lark",
         "matrix",
         "telegram",
@@ -8874,7 +8546,6 @@
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.discord",
         "surface_known_gaps.feishu_lark",
         "surface_known_gaps.matrix",
         "surface_known_gaps.telegram",
@@ -9023,15 +8694,11 @@
         "verification_consumer"
       ],
       "platform_surfaces": [
-        "discord",
-        "slack",
         "telegram"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.discord",
-        "surface_known_gaps.slack",
         "surface_known_gaps.telegram"
       ]
     },
@@ -9042,16 +8709,16 @@
         "verification_consumer"
       ],
       "platform_surfaces": [
-        "discord",
         "slack",
-        "telegram"
+        "telegram",
+        "weixin"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.discord",
         "surface_known_gaps.slack",
-        "surface_known_gaps.telegram"
+        "surface_known_gaps.telegram",
+        "surface_known_gaps.weixin"
       ]
     },
     {
@@ -9062,7 +8729,6 @@
       ],
       "platform_surfaces": [
         "api_server",
-        "discord",
         "matrix",
         "slack",
         "telegram"
@@ -9071,7 +8737,6 @@
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
         "surface_known_gaps.api_server",
-        "surface_known_gaps.discord",
         "surface_known_gaps.matrix",
         "surface_known_gaps.slack",
         "surface_known_gaps.telegram"
@@ -9340,21 +9005,6 @@
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
         "surface_known_gaps.home_assistant"
-      ]
-    },
-    {
-      "path": "hermes_core/tests/integration/test_voice_channel_flow.py",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "discord"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.discord"
       ]
     },
     {
@@ -9931,21 +9581,6 @@
       ]
     },
     {
-      "path": "hermes_core/tests/tools/test_discord_tool.py",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "discord"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.discord"
-      ]
-    },
-    {
       "path": "hermes_core/tests/tools/test_document_tools.py",
       "layer": "tests",
       "edge_types": [
@@ -10242,7 +9877,6 @@
         "verification_consumer"
       ],
       "platform_surfaces": [
-        "discord",
         "matrix",
         "signal",
         "slack",
@@ -10253,7 +9887,6 @@
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.discord",
         "surface_known_gaps.matrix",
         "surface_known_gaps.signal",
         "surface_known_gaps.slack",
@@ -10561,22 +10194,6 @@
       ]
     },
     {
-      "path": "hermes_core/tools/discord_tool.py",
-      "layer": "core_runtime",
-      "edge_types": [
-        "contract_producer",
-        "runtime_consumer"
-      ],
-      "platform_surfaces": [
-        "discord"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.discord"
-      ]
-    },
-    {
       "path": "hermes_core/tools/document/pptx_writer.py",
       "layer": "core_runtime",
       "edge_types": [
@@ -10696,7 +10313,6 @@
       "platform_surfaces": [
         "bluebubbles",
         "dingtalk",
-        "discord",
         "email",
         "feishu_lark",
         "home_assistant",
@@ -10718,7 +10334,6 @@
       "known_gaps": [
         "surface_known_gaps.bluebubbles",
         "surface_known_gaps.dingtalk",
-        "surface_known_gaps.discord",
         "surface_known_gaps.email",
         "surface_known_gaps.feishu_lark",
         "surface_known_gaps.home_assistant",
@@ -12801,29 +12416,6 @@
       ]
     },
     {
-      "path": "hermes_core/website/docs/user-guide/messaging/discord.md",
-      "layer": "active_docs",
-      "edge_types": [
-        "documentation_consumer"
-      ],
-      "platform_surfaces": [
-        "discord",
-        "local_delivery",
-        "slack",
-        "teams_plugin",
-        "webhook"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.discord",
-        "surface_known_gaps.local_delivery",
-        "surface_known_gaps.slack",
-        "surface_known_gaps.teams_plugin",
-        "surface_known_gaps.webhook"
-      ]
-    },
-    {
       "path": "hermes_core/website/docs/user-guide/messaging/email.md",
       "layer": "active_docs",
       "edge_types": [
@@ -12890,7 +12482,6 @@
         "api_server",
         "bluebubbles",
         "dingtalk",
-        "discord",
         "email",
         "feishu_lark",
         "home_assistant",
@@ -12913,7 +12504,6 @@
         "surface_known_gaps.api_server",
         "surface_known_gaps.bluebubbles",
         "surface_known_gaps.dingtalk",
-        "surface_known_gaps.discord",
         "surface_known_gaps.email",
         "surface_known_gaps.feishu_lark",
         "surface_known_gaps.home_assistant",
@@ -15518,11 +15108,13 @@
         "verification_consumer"
       ],
       "platform_surfaces": [
+        "discord",
         "weixin"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
+        "surface_known_gaps.discord",
         "surface_known_gaps.weixin"
       ]
     },
@@ -17675,199 +17267,13 @@
         ]
       },
       {
-        "key": "DISCORD_ALLOWED_CHANNELS",
-        "surface": "discord",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/config.py",
-          "hermes_core/gateway/platforms/discord.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "DISCORD_ALLOWED_ROLES",
-        "surface": "discord",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/platforms/discord.py",
-          "hermes_core/gateway/run.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "DISCORD_ALLOWED_USERS",
-        "surface": "discord",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/platforms/discord.py",
-          "hermes_core/gateway/run.py",
-          "hermes_core/kabuqina_cli/config_env_schema.py",
-          "hermes_core/scripts/discord-voice-doctor.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "DISCORD_ALLOW_ALL_USERS",
-        "surface": "discord",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/run.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "DISCORD_ALLOW_BOTS",
-        "surface": "discord",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/platforms/discord.py",
-          "hermes_core/gateway/run.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "DISCORD_ALLOW_MENTION_EVERYONE",
-        "surface": "discord",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/platforms/discord.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "DISCORD_ALLOW_MENTION_REPLIED_USER",
-        "surface": "discord",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/platforms/discord.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "DISCORD_ALLOW_MENTION_ROLES",
-        "surface": "discord",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/platforms/discord.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "DISCORD_ALLOW_MENTION_USERS",
-        "surface": "discord",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/platforms/discord.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "DISCORD_AUTO_THREAD",
-        "surface": "discord",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/config.py",
-          "hermes_core/gateway/platforms/discord.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "DISCORD_BOT_TOKEN",
-        "surface": "discord",
-        "primary_role": "secret",
-        "source_paths": [
-          "hermes_core/gateway/config.py",
-          "hermes_core/gateway/session.py",
-          "hermes_core/kabuqina_cli/config.py",
-          "hermes_core/kabuqina_cli/config_env_schema.py",
-          "hermes_core/kabuqina_cli/tools_config.py",
-          "hermes_core/scripts/discord-voice-doctor.py",
-          "hermes_core/tools/discord_tool.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
-          "Gateway secrets currently traverse host/profile .env files; CTL-C07 owns explicit cleanup/export and upgrade safety."
-        ]
-      },
-      {
-        "key": "DISCORD_COMMAND_SYNC_POLICY",
-        "surface": "discord",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/platforms/discord.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "DISCORD_FREE_RESPONSE_CHANNELS",
-        "surface": "discord",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/config.py",
-          "hermes_core/gateway/platforms/discord.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
         "key": "DISCORD_HOME_CHANNEL",
         "surface": "discord",
         "primary_role": "home_target",
         "source_paths": [
           "hermes_core/cron/scheduler.py",
-          "hermes_core/gateway/config.py",
           "hermes_core/gateway/home_channel.py",
-          "hermes_core/gateway/run.py",
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/gateway/run.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -17880,107 +17286,7 @@
         "surface": "discord",
         "primary_role": "home_target",
         "source_paths": [
-          "hermes_core/gateway/config.py",
-          "hermes_core/gateway/home_channel.py",
-          "hermes_core/kabuqina_cli/config_env.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "DISCORD_IGNORED_CHANNELS",
-        "surface": "discord",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/config.py",
-          "hermes_core/gateway/platforms/discord.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "DISCORD_IGNORE_NO_MENTION",
-        "surface": "discord",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/platforms/discord.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "DISCORD_NO_THREAD_CHANNELS",
-        "surface": "discord",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/config.py",
-          "hermes_core/gateway/platforms/discord.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "DISCORD_PROXY",
-        "surface": "discord",
-        "primary_role": "network_host_expander",
-        "source_paths": [
-          "hermes_core/gateway/platforms/discord.py",
-          "hermes_core/tools/send_message_tool.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
-          "Configured URL/host values require fail-closed network-policy validation; key presence is not an allowlist."
-        ]
-      },
-      {
-        "key": "DISCORD_REACTIONS",
-        "surface": "discord",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/config.py",
-          "hermes_core/gateway/platforms/discord.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "DISCORD_REPLY_TO_MODE",
-        "surface": "discord",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/config.py",
-          "hermes_core/kabuqina_cli/config_env_schema.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "DISCORD_REQUIRE_MENTION",
-        "surface": "discord",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/config.py",
-          "hermes_core/gateway/platforms/discord.py"
+          "hermes_core/gateway/home_channel.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -18075,7 +17381,6 @@
           "hermes_core/kabuqina_cli/config_env_schema.py",
           "hermes_core/kabuqina_cli/dump.py",
           "hermes_core/kabuqina_cli/nous_subscription.py",
-          "hermes_core/scripts/discord-voice-doctor.py",
           "hermes_core/tools/tts_tool.py",
           "python/src/desk_server/routes/voice.py"
         ],
@@ -19130,7 +18435,6 @@
         "surface": "gateway_kernel",
         "primary_role": "secret",
         "source_paths": [
-          "hermes_core/scripts/discord-voice-doctor.py",
           "hermes_core/tools/transcription_tools.py",
           "python/src/desk_server/routes/voice.py",
           "python/src/desk_server/voice_helpers.py",
@@ -20032,28 +19336,6 @@
         "known_gaps": []
       },
       {
-        "key": "HERMES_DISCORD_TEXT_BATCH_DELAY_SECONDS",
-        "surface": "gateway_kernel",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/platforms/discord.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "retain_profile_scoped",
-        "known_gaps": []
-      },
-      {
-        "key": "HERMES_DISCORD_TEXT_BATCH_SPLIT_DELAY_SECONDS",
-        "surface": "gateway_kernel",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/platforms/discord.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "retain_profile_scoped",
-        "known_gaps": []
-      },
-      {
         "key": "HERMES_DOCKER_BINARY",
         "surface": "gateway_kernel",
         "primary_role": "non_secret_config",
@@ -20273,7 +19555,6 @@
           "hermes_core/plugins/disk-cleanup/disk_cleanup.py",
           "hermes_core/scripts/build_model_catalog.py",
           "hermes_core/scripts/build_skills_index.py",
-          "hermes_core/scripts/discord-voice-doctor.py",
           "hermes_core/scripts/run_goal_manifest_pilot.py",
           "hermes_core/skills/productivity/google-workspace/scripts/_kabuqina_home.py",
           "python/src/kabuqina_env.py",
@@ -22011,6 +21292,7 @@
         "source_paths": [
           "hermes_core/cron/scheduler.py",
           "hermes_core/gateway/config.py",
+          "hermes_core/gateway/delivery_contract.py",
           "python/src/product_profile_policy.py",
           "tauri/src/python_supervisor.rs",
           "tauri/src/qqbot_qr.rs",
@@ -23043,7 +22325,6 @@
         "source_paths": [
           "hermes_core/kabuqina_cli/config_env_schema.py",
           "hermes_core/kabuqina_cli/nous_subscription.py",
-          "hermes_core/scripts/discord-voice-doctor.py",
           "hermes_core/tools/transcription_tools.py",
           "hermes_core/tools/tts_tool.py",
           "python/src/desk_server/routes/voice.py",
@@ -27605,10 +26886,10 @@
   },
   "generated_ledger_metadata": {
     "generator": "scripts/audit_v050_platform_manifest.py --refresh-generated-ledgers",
-    "reference_path_count": 658,
-    "literal_environment_key_count": 678,
-    "dynamic_environment_key_declaration_count": 393,
-    "environment_key_count": 794,
+    "reference_path_count": 633,
+    "literal_environment_key_count": 656,
+    "dynamic_environment_key_declaration_count": 386,
+    "environment_key_count": 772,
     "environment_namespace_count": 26,
     "environment_dynamic_template_count": 2,
     "historical_docs_policy": "docs/superpowers history is excluded from the active-doc reference scan; the three authority plans are hash-pinned separately."

@@ -181,7 +181,6 @@ $runtimeDrop = @(
     "tools\browser_camofox.py",
     "tools\browser_camofox_state.py",
     "tools\mixture_of_agents_tool.py",
-    "tools\discord_tool.py",
     "tools\yuanbao_tools.py",
     "plugins\disk-cleanup",
     "plugins\platforms",

@@ -51,6 +51,40 @@ class RuntimePrunedVerifierTests(unittest.TestCase):
             result.stderr,
         )
 
+    def test_verifier_reports_removed_discord_source_and_packages(self):
+        self.assertTrue(VERIFIER.exists(), "missing verify_runtime_pruned.py")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = Path(tmp)
+            source = runtime / "kabuqina" / "gateway" / "platforms" / "discord.py"
+            source.parent.mkdir(parents=True)
+            source.write_text("# removed adapter\n", encoding="utf-8")
+            package = runtime / "site-packages" / "discord"
+            package.mkdir(parents=True)
+            dist_info = runtime / "site-packages" / "discord_py-2.7.1.dist-info"
+            dist_info.mkdir()
+            nacl = runtime / "site-packages" / "nacl"
+            nacl.mkdir()
+            pynacl_info = runtime / "site-packages" / "PyNaCl-1.5.0.dist-info"
+            pynacl_info.mkdir()
+
+            result = subprocess.run(
+                [sys.executable, str(VERIFIER), str(runtime)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        for residual in (
+            "kabuqina/gateway/platforms/discord.py",
+            "site-packages/discord",
+            "site-packages/discord_py-2.7.1.dist-info",
+            "site-packages/nacl",
+            "site-packages/PyNaCl-1.5.0.dist-info",
+        ):
+            self.assertIn(f"forbidden runtime residual: {residual}", result.stderr)
+
     def test_verifier_accepts_clean_runtime(self):
         self.assertTrue(VERIFIER.exists(), "missing verify_runtime_pruned.py")
 

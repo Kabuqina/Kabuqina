@@ -1054,3 +1054,18 @@ OAuth endpoint, or launching a worker; read, remove, and cancel operations stay
 available for legacy cleanup.
 Physical adapter/dependency deletion remains CTL-C03/C04, retained-channel
 readiness remains CTL-C06, and explicit legacy cleanup/upgrade remains CTL-C07.
+
+**CTL-C03a Discord physical removal (2026-07-19).** The owned Discord adapter,
+direct-send/admin tool, voice doctor, Discord-only tests/stubs, active messaging
+route, CLI/toolset/config exposure, and model-tool schema branch are removed.
+The core messaging extra and lock no longer contain `discord.py[voice]`;
+`PyNaCl`, `audioop-lts`, and `davey` were removed mechanically as orphaned
+dependencies. Fresh-runtime verification rejects the removed source paths,
+Discord package/dist-info, and NaCl package/dist-info. Generic media,
+transcription, TTS, voice-mode, session/thread fields, and retained platform
+contracts remain. `Platform.DISCORD`, exact stale-config filtering, C02
+unsupported-delivery tombstones, and stored legacy text remain compatibility
+records only: they cannot register an adapter, open a network connection, or
+reroute delivery. No credentials, profiles, sessions, jobs, channel-directory
+files, or home targets are deleted; CTL-C07 owns explicit cleanup and upgrade
+evidence. Other platform leaves and release approval remain independent gates.

@@ -65,7 +65,6 @@ websockets>=15,<17             # Browser/CDP supervisor requires the modern asyn
 # faster-whisper      ~200 MB; cloud STT only at v1
 # sounddevice         pulls portaudio; deferred with voice mode
 # scipy               deferred; add when math tools need special functions / linear algebra solvers
-# discord.py          ; gateway/ stripped (add if needed)
 # slack-bolt          ; gateway/ stripped (add if needed)
 # mautrix             ; gateway/ stripped (add if needed)
 # modal               ; remote terminal backend stripped

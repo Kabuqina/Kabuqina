@@ -25,6 +25,10 @@ FORBIDDEN_RUNTIME_PATHS = (
     "kabuqina/gateway/platforms/yuanbao_media.py",
     "kabuqina/gateway/platforms/yuanbao_proto.py",
     "kabuqina/gateway/platforms/yuanbao_sticker.py",
+    # v0.5.0 CTL-C03a removed owned Discord surfaces.
+    "kabuqina/gateway/platforms/discord.py",
+    "kabuqina/tools/discord_tool.py",
+    "kabuqina/scripts/discord-voice-doctor.py",
     # v0.3.0 global-cut bundled plugins and late-discovered platform plugins.
     "kabuqina/plugins/disk-cleanup",
     "kabuqina/plugins/platforms",
@@ -33,6 +37,14 @@ FORBIDDEN_RUNTIME_PATHS = (
     "kabuqina/skills/creative/popular-web-designs/templates/spotify.md",
     "kabuqina/skills/dogfood",
     "kabuqina/skills/media/spotify",
+)
+
+FORBIDDEN_RUNTIME_GLOBS = (
+    # CTL-C03a direct dependency and its voice-only orphan.
+    "site-packages/discord",
+    "site-packages/discord_py-*.dist-info",
+    "site-packages/nacl",
+    "site-packages/PyNaCl-*.dist-info",
 )
 
 FORBIDDEN_RUNTIME_CONTENT = (
@@ -48,6 +60,14 @@ def find_forbidden_runtime_paths(root: Path) -> list[str]:
         if (root / Path(rel)).exists():
             found.append(rel)
     return found
+
+
+def find_forbidden_runtime_globs(root: Path) -> list[str]:
+    found: set[str] = set()
+    for pattern in FORBIDDEN_RUNTIME_GLOBS:
+        for path in root.glob(pattern):
+            found.add(path.relative_to(root).as_posix())
+    return sorted(found)
 
 
 def find_forbidden_runtime_content(root: Path) -> list[tuple[str, str]]:
@@ -72,6 +92,7 @@ def main(argv: list[str]) -> int:
         return 2
 
     path_residuals = find_forbidden_runtime_paths(root)
+    path_residuals.extend(find_forbidden_runtime_globs(root))
     content_residuals = find_forbidden_runtime_content(root)
     if path_residuals or content_residuals:
         for rel in path_residuals:
