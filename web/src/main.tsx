@@ -16,6 +16,7 @@ import { Settings } from "./advanced/Settings";
 import { Export } from "./advanced/Export";
 import { Splash } from "./Splash";
 import { ChatPage } from "./chat/ChatPage";
+import { ResourceDetailPage } from "./study/ResourceDetailPage";
 import { FeishuPage } from "./advanced/pages/FeishuPage";
 import { CapabilitiesPage } from "./advanced/pages/CapabilitiesPage";
 import { LoadPackagesPage } from "./advanced/pages/LoadPackagesPage";
@@ -91,6 +92,7 @@ function MainWindowShell() {
               <Route path="/settings/wecom" element={<WeComPage />} />
               <Route path="/settings/cron" element={<ScheduledTasksPage />} />
               <Route path="/chat" element={<ChatPage />} />
+              <Route path="/study/resources/:artifactId" element={<ResourceDetailPage />} />
               <Route path="/brand-svg-preview" element={<BrandSvgPreview />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

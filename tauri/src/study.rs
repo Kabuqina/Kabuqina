@@ -19,6 +19,11 @@ fn validate_study_path_id(id: &str) -> Result<(), String> {
     }
 }
 
+fn study_artifact_detail_path(artifact_id: &str) -> Result<String, String> {
+    validate_study_path_id(artifact_id)?;
+    Ok(format!("/api/desk/study/artifacts/{artifact_id}"))
+}
+
 #[tauri::command]
 pub async fn cmd_study_spaces(app: AppHandle) -> Result<Value, String> {
     crate::chat::desk_json_request(&app, reqwest::Method::GET, "/api/desk/study/spaces", None).await
@@ -56,6 +61,15 @@ pub async fn cmd_study_drafts(app: AppHandle, kind: Option<String>) -> Result<Va
         }
         _ => "/api/desk/study/drafts".to_string(),
     };
+    crate::chat::desk_json_request(&app, reqwest::Method::GET, &path, None).await
+}
+
+#[tauri::command]
+pub async fn cmd_study_artifact_detail(
+    app: AppHandle,
+    artifact_id: String,
+) -> Result<Value, String> {
+    let path = study_artifact_detail_path(&artifact_id)?;
     crate::chat::desk_json_request(&app, reqwest::Method::GET, &path, None).await
 }
 
@@ -346,5 +360,14 @@ mod tests {
         assert!(validate_study_path_id("abc/def").is_err());
         assert!(validate_study_path_id("abc?kind=x").is_err());
         assert!(validate_study_path_id("abc def").is_err());
+    }
+
+    #[test]
+    fn artifact_detail_path_is_validated_before_proxying() {
+        assert_eq!(
+            study_artifact_detail_path("resource-pack_01").unwrap(),
+            "/api/desk/study/artifacts/resource-pack_01"
+        );
+        assert!(study_artifact_detail_path("../resource-pack").is_err());
     }
 }

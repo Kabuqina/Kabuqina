@@ -79,6 +79,18 @@ def _artifact_ref(artifact: Dict[str, Any]) -> Dict[str, Any]:
     return ref
 
 
+def _resource_artifact_detail(artifact: Dict[str, Any]) -> Dict[str, Any]:
+    """Return the trusted desktop projection for one resource-pack artifact."""
+    if artifact.get("kind") != "resource_pack":
+        raise ValueError("artifact is not a resource_pack")
+    envelope = artifact.get("envelope") or {}
+    detail = _artifact_ref(artifact)
+    detail["space_id"] = artifact["space_id"]
+    detail["payload"] = envelope.get("payload") or {}
+    detail["source_refs"] = envelope.get("source_refs") or []
+    return detail
+
+
 def _space_payload(ctx) -> Dict[str, Any]:
     current = ctx.current_space()
     return {
@@ -368,6 +380,17 @@ async def study_drafts(kind: Optional[str] = Query(default=None)):
             for st in statuses:
                 items.extend(ctx.list_artifacts(kind=kind, status=st))
             return {"drafts": [_artifact_ref(item) for item in items]}
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+
+@router.get("/api/desk/study/artifacts/{artifact_id}")
+async def study_artifact_detail(artifact_id: str):
+    """Read one resource pack in the authenticated owner's current space."""
+    try:
+        with _desktop_ctx() as ctx:
+            artifact = _require_artifact(ctx, artifact_id)
+            return {"artifact": _resource_artifact_detail(artifact)}
     except (ValueError, KeyError, ContractError) as exc:
         raise _http_error(exc) from exc
 

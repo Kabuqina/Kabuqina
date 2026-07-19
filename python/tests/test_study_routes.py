@@ -93,6 +93,33 @@ def _seed_quiz_draft(db_path: Path) -> str:
         store.close()
 
 
+def _seed_resource_pack(db_path: Path, *, status: str = "draft") -> str:
+    store = LearningStore(db_path=db_path)
+    try:
+        ctx = LearningExecutionContext(store, owner_id=OWNER)
+        ctx.create_space(title="Algebra", space_id="s1")
+        artifact_id = OutputWriter(ctx).write_artifact(
+            kind="resource_pack",
+            title="Limits study pack",
+            payload={
+                "resource_type": "doc",
+                "resources": [
+                    {
+                        "title": "Limits explained",
+                        "purpose": "Build an intuitive model of a limit.",
+                        "content_markdown": "## Core idea\n\n```python\nlimit = 2\n```",
+                    }
+                ],
+            },
+            source_refs=[{"origin": "course_notes", "source_label": "Chapter 1"}],
+        )["artifact_id"]
+        if status == "active":
+            ctx.set_artifact_status(artifact_id, "active")
+        return artifact_id
+    finally:
+        store.close()
+
+
 def test_space_routes_create_list_and_select(study_client):
     client, _db_path = study_client
 
@@ -163,6 +190,70 @@ def test_reject_route_keeps_draft_out_of_practice(study_client):
     cards = client.get("/api/desk/study/flashcards", headers=_headers())
     assert cards.status_code == 200
     assert cards.json()["cards"] == []
+
+
+@pytest.mark.parametrize("status", ["draft", "active"])
+def test_resource_artifact_detail_is_available_before_and_after_activation(
+    study_client, status
+):
+    client, db_path = study_client
+    artifact_id = _seed_resource_pack(db_path, status=status)
+
+    response = client.get(
+        f"/api/desk/study/artifacts/{artifact_id}",
+        headers=_headers(),
+    )
+
+    assert response.status_code == 200
+    artifact = response.json()["artifact"]
+    assert artifact["artifact_id"] == artifact_id
+    assert artifact["space_id"] == "s1"
+    assert artifact["kind"] == "resource_pack"
+    assert artifact["status"] == status
+    assert artifact["payload"]["resources"][0]["content_markdown"].startswith(
+        "## Core idea"
+    )
+    assert artifact["source_refs"] == [
+        {"origin": "course_notes", "source_label": "Chapter 1"}
+    ]
+
+
+def test_resource_artifact_detail_rejects_other_artifact_kinds(study_client):
+    client, db_path = study_client
+    artifact_id = _seed_draft(db_path)
+
+    response = client.get(
+        f"/api/desk/study/artifacts/{artifact_id}",
+        headers=_headers(),
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "artifact is not a resource_pack"
+
+
+def test_resource_artifact_detail_is_scoped_to_current_space(study_client):
+    client, db_path = study_client
+    artifact_id = _seed_resource_pack(db_path)
+    store = LearningStore(db_path=db_path)
+    try:
+        ctx = LearningExecutionContext(store, owner_id=OWNER)
+        ctx.create_space(title="Geometry", space_id="s2")
+    finally:
+        store.close()
+
+    hidden = client.get(
+        f"/api/desk/study/artifacts/{artifact_id}",
+        headers=_headers(),
+    )
+    assert hidden.status_code == 404
+
+    selected = client.post("/api/desk/study/spaces/s1/select", headers=_headers())
+    assert selected.status_code == 200
+    visible = client.get(
+        f"/api/desk/study/artifacts/{artifact_id}",
+        headers=_headers(),
+    )
+    assert visible.status_code == 200
 
 
 def test_legacy_flashcard_migration_is_idempotent(study_client):

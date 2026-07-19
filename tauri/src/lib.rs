@@ -250,6 +250,7 @@ pub fn run() {
             study::cmd_study_space_create,
             study::cmd_study_space_select,
             study::cmd_study_drafts,
+            study::cmd_study_artifact_detail,
             study::cmd_study_artifact_activate,
             study::cmd_study_artifact_reject,
             study::cmd_study_flashcards,

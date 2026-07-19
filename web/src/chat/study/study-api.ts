@@ -62,9 +62,16 @@ export type StudyStudentStateResponse = {
 // M3 备课组 resource_pack subtypes (rendered by ResourcePackPanel).
 export type ResourceMindmapNode = { label?: string; title?: string; children?: ResourceMindmapNode[] };
 export type ResourceVideoScene = { narration?: string; visual?: string; caption?: string };
+export type ResourceImage = {
+  src?: string;
+  url?: string;
+  alt?: string;
+  caption?: string;
+};
 export type ResourcePackResource = {
   title?: string;
   purpose?: string;
+  content_markdown?: string;
   credibility?: string;
   resource_type?: string;
   difficulty?: string;
@@ -73,6 +80,7 @@ export type ResourcePackResource = {
   outline?: ResourceMindmapNode | ResourceMindmapNode[];
   mermaid?: string;
   scenes?: ResourceVideoScene[];
+  images?: Array<ResourceImage | string>;
   [key: string]: unknown;
 };
 export type ResourcePackPayload = {
@@ -131,6 +139,17 @@ export type StudyLearningPlanItemsResponse = { items: StudyLearningPlanItem[] };
 
 export type StudyDraftsResponse = {
   drafts: StudyArtifact[];
+};
+
+export type StudyResourceArtifact = StudyArtifact & {
+  kind: "resource_pack";
+  space_id: string;
+  payload: ResourcePackPayload;
+  source_refs: Array<string | Record<string, unknown>>;
+};
+
+export type StudyArtifactDetailResponse = {
+  artifact: StudyResourceArtifact;
 };
 
 export type StudyFlashcard = {
@@ -250,6 +269,10 @@ export function cmdStudySpaceSelect(spaceId: string): Promise<StudySpacesRespons
 
 export function cmdStudyDrafts(kind = "flashcard_deck"): Promise<StudyDraftsResponse> {
   return invoke("cmd_study_drafts", { kind });
+}
+
+export function cmdStudyArtifactDetail(artifactId: string): Promise<StudyArtifactDetailResponse> {
+  return invoke("cmd_study_artifact_detail", { artifactId });
 }
 
 export function cmdStudyArtifactActivate(artifactId: string): Promise<unknown> {

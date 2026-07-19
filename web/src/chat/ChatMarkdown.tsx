@@ -49,6 +49,7 @@ type ReadCalloutMarker = keyof typeof READ_CALLOUTS;
 type Props = {
   text: string;
   className?: string;
+  variant?: "chat" | "article";
 };
 
 type HastNode = {
@@ -169,11 +170,13 @@ async function copyToClipboard(text: string): Promise<void> {
 }
 
 function CodeBlock({
+  article,
   children,
   code,
   isDark,
   lang,
 }: {
+  article: boolean;
   children: React.ReactNode;
   code: string;
   isDark: boolean;
@@ -228,7 +231,8 @@ function CodeBlock({
       </div>
       <pre
         className={cn(
-          "overflow-x-auto p-4 font-mono text-xs leading-relaxed",
+          "overflow-x-auto font-mono",
+          article ? "p-5 text-[13px] leading-7 sm:text-sm" : "p-4 text-xs leading-relaxed",
           isDark
             ? "bg-[var(--kq-color-surface)] text-[var(--kq-color-ink)]"
             : "bg-zinc-50 text-zinc-800"
@@ -342,9 +346,10 @@ function MarkdownCallout({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function ChatMarkdown({ text, className = "" }: Props) {
+export default function ChatMarkdown({ text, className = "", variant = "chat" }: Props) {
   const { t } = useI18n();
   const isDark = useResolvedTheme() === "dark";
+  const article = variant === "article";
 
   const handleMarkdownClick = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
@@ -392,7 +397,11 @@ export default function ChatMarkdown({ text, className = "" }: Props) {
 
   return (
     <div
-      className={`chat-md min-w-0 max-w-full text-sm leading-[1.6] text-[var(--kq-color-ink)] [overflow-wrap:anywhere] ${className}`}
+      className={cn(
+        "chat-md min-w-0 max-w-full text-[var(--kq-color-ink)] [overflow-wrap:anywhere]",
+        article ? "text-[15px] leading-[1.8] sm:text-base" : "text-sm leading-[1.6]",
+        className,
+      )}
       onClick={handleMarkdownClick}
     >
       <ReactMarkdown
@@ -414,24 +423,29 @@ export default function ChatMarkdown({ text, className = "" }: Props) {
             </a>
           ),
           p: ({ children }) => (
-            <p className="mb-2 last:mb-0 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+            <p
+              className={cn(
+                "last:mb-0 whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
+                article ? "mb-4" : "mb-2",
+              )}
+            >
               {children}
             </p>
           ),
           ul: ({ children }) => (
-            <ul className="list-disc pl-4 mb-2 space-y-1">{children}</ul>
+            <ul className={cn("list-disc", article ? "mb-5 space-y-2 pl-6" : "mb-2 space-y-1 pl-4")}>{children}</ul>
           ),
           ol: ({ children }) => (
-            <ol className="list-decimal pl-4 mb-2 space-y-1">{children}</ol>
+            <ol className={cn("list-decimal", article ? "mb-5 space-y-2 pl-6" : "mb-2 space-y-1 pl-4")}>{children}</ol>
           ),
           h1: ({ children }) => (
-            <h1 className="text-base font-semibold mt-2 mb-1">{children}</h1>
+            <h1 className={cn("font-semibold text-[var(--kq-color-strong)]", article ? "mb-5 mt-2 text-3xl tracking-tight" : "mb-1 mt-2 text-base")}>{children}</h1>
           ),
           h2: ({ children }) => (
-            <h2 className="text-sm font-semibold mt-2 mb-1">{children}</h2>
+            <h2 className={cn("font-semibold text-[var(--kq-color-strong)]", article ? "mb-3 mt-9 text-xl tracking-tight" : "mb-1 mt-2 text-sm")}>{children}</h2>
           ),
           h3: ({ children }) => (
-            <h3 className="text-sm font-medium mt-2 mb-0.5">{children}</h3>
+            <h3 className={cn("font-medium text-[var(--kq-color-strong)]", article ? "mb-2 mt-7 text-lg" : "mb-0.5 mt-2 text-sm")}>{children}</h3>
           ),
           pre: ({ children }) => {
             const codeEl = React.Children.toArray(children).find(
@@ -443,7 +457,7 @@ export default function ChatMarkdown({ text, className = "" }: Props) {
               return <MermaidBlock code={code} isDark={isDark} />;
             }
             return (
-              <CodeBlock code={code} isDark={isDark} lang={lang}>
+              <CodeBlock article={article} code={code} isDark={isDark} lang={lang}>
                 {children}
               </CodeBlock>
             );
@@ -482,6 +496,18 @@ export default function ChatMarkdown({ text, className = "" }: Props) {
           td: ({ children }) => (
             <td className="px-3 py-2 whitespace-pre-wrap break-words text-[var(--kq-color-ink)]">{children}</td>
           ),
+          img: ({ src, alt }) =>
+            src ? (
+              <img
+                src={src}
+                alt={alt ?? ""}
+                loading="lazy"
+                className={cn(
+                  "block h-auto max-w-full rounded-xl border border-[var(--kq-glass-border)] bg-white object-contain shadow-sm",
+                  article ? "mx-auto my-6 max-h-[70vh]" : "my-3 max-h-96",
+                )}
+              />
+            ) : null,
           blockquote: ({ children }) => <MarkdownCallout>{children}</MarkdownCallout>,
         }}
       >
