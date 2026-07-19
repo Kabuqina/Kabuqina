@@ -196,6 +196,130 @@ pub async fn cmd_study_migrate_builtin_course(app: AppHandle) -> Result<Value, S
     .await
 }
 
+#[tauri::command]
+pub async fn cmd_study_student_state(app: AppHandle) -> Result<Value, String> {
+    crate::chat::desk_json_request(
+        &app,
+        reqwest::Method::GET,
+        "/api/desk/study/student-state",
+        None,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_student_state_save(
+    app: AppHandle,
+    state: Value,
+    evaluation: Option<Value>,
+) -> Result<Value, String> {
+    crate::chat::desk_json_request(
+        &app,
+        reqwest::Method::PUT,
+        "/api/desk/study/student-state",
+        Some(json!({ "state": state, "evaluation": evaluation })),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_migrate_context(
+    app: AppHandle,
+    context: Value,
+) -> Result<Value, String> {
+    crate::chat::desk_json_request(
+        &app,
+        reqwest::Method::POST,
+        "/api/desk/study/migrations/context",
+        Some(json!({ "context": context })),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_evaluations(app: AppHandle) -> Result<Value, String> {
+    crate::chat::desk_json_request(
+        &app,
+        reqwest::Method::GET,
+        "/api/desk/study/evaluations",
+        None,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_evaluation_detail(
+    app: AppHandle,
+    artifact_id: String,
+) -> Result<Value, String> {
+    validate_study_path_id(&artifact_id)?;
+    crate::chat::desk_json_request(
+        &app,
+        reqwest::Method::GET,
+        &format!("/api/desk/study/evaluations/{artifact_id}"),
+        None,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_learning_plans(app: AppHandle) -> Result<Value, String> {
+    crate::chat::desk_json_request(
+        &app,
+        reqwest::Method::GET,
+        "/api/desk/study/learning-plans",
+        None,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_learning_plan_items(
+    app: AppHandle,
+    artifact_id: String,
+) -> Result<Value, String> {
+    validate_study_path_id(&artifact_id)?;
+    crate::chat::desk_json_request(
+        &app,
+        reqwest::Method::GET,
+        &format!("/api/desk/study/learning-plans/{artifact_id}/items"),
+        None,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_learning_plan_item_complete(
+    app: AppHandle,
+    item_id: String,
+    note: String,
+) -> Result<Value, String> {
+    validate_study_path_id(&item_id)?;
+    crate::chat::desk_json_request(
+        &app,
+        reqwest::Method::POST,
+        &format!("/api/desk/study/learning-plans/items/{item_id}/complete"),
+        Some(json!({ "note": note })),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_learning_plan_item_skip(
+    app: AppHandle,
+    item_id: String,
+    note: String,
+) -> Result<Value, String> {
+    validate_study_path_id(&item_id)?;
+    crate::chat::desk_json_request(
+        &app,
+        reqwest::Method::POST,
+        &format!("/api/desk/study/learning-plans/items/{item_id}/skip"),
+        Some(json!({ "note": note })),
+    )
+    .await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -205,6 +329,7 @@ mod tests {
         assert!(validate_study_path_id("abc123DEF-_:").is_ok());
         assert!(validate_study_path_id("deck-0001").is_ok());
         assert!(validate_study_path_id("quiz_01:question-0001").is_ok());
+        assert!(validate_study_path_id("plan_01:phase-00:task-01").is_ok());
         assert!(validate_study_path_id("").is_err());
         assert!(validate_study_path_id("../etc/passwd").is_err());
         assert!(validate_study_path_id("abc/def").is_err());

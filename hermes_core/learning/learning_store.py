@@ -138,6 +138,18 @@ def _require(value: Any, name: str) -> str:
     return value
 
 
+def _envelope_with_review_status(envelope_json: str, review_status: str) -> str:
+    """Return an envelope JSON snapshot synchronized with its indexed review."""
+    envelope = json.loads(envelope_json or "{}")
+    if not isinstance(envelope, dict):
+        raise ContractError("stored artifact envelope must be an object")
+    review = envelope.get("review")
+    review = dict(review) if isinstance(review, dict) else {}
+    review["status"] = review_status
+    envelope["review"] = review
+    return json.dumps(envelope, ensure_ascii=False)
+
+
 class LearningStore:
     """SQLite-backed store for the learning spine.
 
@@ -499,7 +511,7 @@ class LearningStore:
 
         def _op(conn: sqlite3.Connection) -> None:
             row = conn.execute(
-                "SELECT status FROM learning_artifacts "
+                "SELECT status, review_status, envelope_json FROM learning_artifacts "
                 "WHERE owner_id = ? AND space_id = ? AND artifact_id = ?",
                 (owner_id, space_id, artifact_id),
             ).fetchone()
@@ -510,10 +522,102 @@ class LearningStore:
                 raise ContractError(
                     f"illegal transition {current!r} -> {new_status!r}"
                 )
+            review_status = {
+                "active": "passed",
+                "rejected": "failed",
+                "archived": "passed",
+            }.get(new_status, row["review_status"])
+            envelope_json = _envelope_with_review_status(
+                row["envelope_json"], review_status
+            )
             conn.execute(
-                "UPDATE learning_artifacts SET status = ?, updated_at = ? "
+                "UPDATE learning_artifacts SET status = ?, review_status = ?, "
+                "envelope_json = ?, updated_at = ? "
                 "WHERE owner_id = ? AND space_id = ? AND artifact_id = ?",
-                (new_status, now, owner_id, space_id, artifact_id),
+                (
+                    new_status,
+                    review_status,
+                    envelope_json,
+                    now,
+                    owner_id,
+                    space_id,
+                    artifact_id,
+                ),
+            )
+
+        self._execute_write(_op)
+
+    def activate_singleton_artifact(
+        self,
+        owner_id: str,
+        space_id: str,
+        artifact_id: str,
+        *,
+        kind: str,
+    ) -> None:
+        """Atomically activate one artifact and archive active peers of its kind.
+
+        ``student_state`` and ``learning_plan`` are singleton projections within
+        one owner/space. Keeping both transitions in one transaction prevents a
+        crash or competing desktop child from leaving two current artifacts.
+        """
+        _require(owner_id, "owner_id")
+        _require(space_id, "space_id")
+        _require(artifact_id, "artifact_id")
+        _require(kind, "kind")
+        now = _now()
+
+        def _op(conn: sqlite3.Connection) -> None:
+            target = conn.execute(
+                "SELECT status, kind, envelope_json "
+                "FROM learning_artifacts "
+                "WHERE owner_id = ? AND space_id = ? AND artifact_id = ?",
+                (owner_id, space_id, artifact_id),
+            ).fetchone()
+            if not target:
+                raise KeyError(f"artifact {artifact_id!r} not found for owner/space")
+            if target["kind"] != kind:
+                raise ValueError(f"artifact is not a {kind}")
+            if target["status"] != "active" and not is_allowed_transition(
+                target["status"], "active"
+            ):
+                raise ContractError(
+                    f"illegal transition {target['status']!r} -> 'active'"
+                )
+
+            active_peers = conn.execute(
+                "SELECT artifact_id, envelope_json FROM learning_artifacts "
+                "WHERE owner_id = ? AND space_id = ? AND kind = ? "
+                "AND status = 'active' AND artifact_id <> ?",
+                (owner_id, space_id, kind, artifact_id),
+            ).fetchall()
+            for peer in active_peers:
+                conn.execute(
+                    "UPDATE learning_artifacts SET status = 'archived', "
+                    "review_status = 'passed', envelope_json = ?, updated_at = ? "
+                    "WHERE owner_id = ? AND space_id = ? AND artifact_id = ?",
+                    (
+                        _envelope_with_review_status(
+                            peer["envelope_json"], "passed"
+                        ),
+                        now,
+                        owner_id,
+                        space_id,
+                        peer["artifact_id"],
+                    ),
+                )
+
+            conn.execute(
+                "UPDATE learning_artifacts SET status = 'active', "
+                "review_status = 'passed', envelope_json = ?, updated_at = ? "
+                "WHERE owner_id = ? AND space_id = ? AND artifact_id = ?",
+                (
+                    _envelope_with_review_status(target["envelope_json"], "passed"),
+                    now,
+                    owner_id,
+                    space_id,
+                    artifact_id,
+                ),
             )
 
         self._execute_write(_op)

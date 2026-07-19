@@ -202,9 +202,27 @@ def test_status_transition_allowed(store):
     sid = store.create_space("owner-A", title="Algebra")
     res = store.insert_artifact("owner-A", sid, _flashcard_envelope(space_id=sid))
     store.update_artifact_status("owner-A", sid, res["artifact_id"], "active")
-    assert store.get_artifact("owner-A", sid, res["artifact_id"])["status"] == "active"
+    active = store.get_artifact("owner-A", sid, res["artifact_id"])
+    assert active["status"] == "active"
+    assert active["review"]["status"] == "passed"
+    assert active["envelope"]["review"]["status"] == "passed"
     store.update_artifact_status("owner-A", sid, res["artifact_id"], "archived")
-    assert store.get_artifact("owner-A", sid, res["artifact_id"])["status"] == "archived"
+    archived = store.get_artifact("owner-A", sid, res["artifact_id"])
+    assert archived["status"] == "archived"
+    assert archived["review"]["status"] == "passed"
+    assert archived["envelope"]["review"]["status"] == "passed"
+
+
+def test_rejected_transition_synchronizes_failed_review(store):
+    sid = store.create_space("owner-A", title="Algebra")
+    res = store.insert_artifact("owner-A", sid, _flashcard_envelope(space_id=sid))
+
+    store.update_artifact_status("owner-A", sid, res["artifact_id"], "rejected")
+
+    rejected = store.get_artifact("owner-A", sid, res["artifact_id"])
+    assert rejected["status"] == "rejected"
+    assert rejected["review"]["status"] == "failed"
+    assert rejected["envelope"]["review"]["status"] == "failed"
 
 
 def test_status_transition_illegal_rejected(store):

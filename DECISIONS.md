@@ -802,3 +802,14 @@ Frontend/prompt-layer only: no capability-registry change (the
 `math-expression-engineering` ids stay candidates), no backend routes, no
 engine change (soak-safe). `workspace.mathAbility` keeps its sectionId so
 collapse preferences survive the move.
+
+**STUDY mutable snapshot lifecycle (2026-07-19).** Learner-edited profile
+context is durable, owner/space-scoped `student_state`, not an independent Web
+localStorage authority. The legacy `kabuqina.study.context.v1` value migrates
+once and an empty value never creates a course space or artifact. Saving a new
+`student_state` or activating a new `learning_plan` archives the previous
+active artifact of the same kind; evaluations remain append-only active
+history. A trusted activate/reject transition also writes `review_status` as
+`passed`/`failed`, so lifecycle and review surfaces cannot disagree. The Web
+copy remains only a compatibility/offline mirror and all 12 editor fields
+round-trip through the backend state.

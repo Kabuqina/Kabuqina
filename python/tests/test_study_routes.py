@@ -274,3 +274,125 @@ def test_legacy_quiz_migration_is_idempotent(study_client):
 
     quizzes = client.get("/api/desk/study/quizzes", headers=_headers())
     assert [item["title"] for item in quizzes.json()["quizzes"]] == ["Legacy quiz"]
+
+
+def test_empty_context_migration_does_not_seed_learning_data(study_client):
+    client, db_path = study_client
+
+    migrated = client.post(
+        "/api/desk/study/migrations/context",
+        json={"context": {}},
+        headers=_headers(),
+    )
+
+    assert migrated.status_code == 200
+    assert migrated.json() == {
+        "migrated": True,
+        "student_state": None,
+        "evaluation": None,
+    }
+    store = LearningStore(db_path=db_path)
+    try:
+        assert store.list_spaces(OWNER) == []
+    finally:
+        store.close()
+
+
+def test_student_state_save_persists_canonical_context_and_archives_old(study_client):
+    client, db_path = study_client
+    first = client.put(
+        "/api/desk/study/student-state",
+        json={"state": {"course": "Algebra", "goals": ["Pass"]}},
+        headers=_headers(),
+    )
+    assert first.status_code == 200
+
+    state = {
+        "course": "Calculus",
+        "goals": ["Master limits"],
+        "preferences": {
+            "profile_summary": "Visual learner",
+            "study_preferences": "Daily examples",
+        },
+        "progress_notes": ["Chapter 1 complete", "Limits guide"],
+        "current_stage": "Practice",
+        "next_adjustment": "Add mixed exercises",
+    }
+    evaluation = {
+        "observations": [
+            "Concepts improving",
+            "Quiz 7/10",
+            "Review epsilon-delta",
+        ],
+        "weak_points": ["one-sided limits"],
+        "suggestions": ["Add mixed exercises"],
+        "evidence_refs": [{"origin": "study_profile_editor"}],
+    }
+    second = client.put(
+        "/api/desk/study/student-state",
+        json={"state": state, "evaluation": evaluation},
+        headers=_headers(),
+    )
+    assert second.status_code == 200
+    assert second.json()["state"]["payload"] == {**state, "constraints": []}
+    assert second.json()["evaluation"]["status"] == "active"
+
+    loaded = client.get("/api/desk/study/student-state", headers=_headers())
+    assert loaded.status_code == 200
+    assert loaded.json()["state"]["payload"]["progress_notes"] == [
+        "Chapter 1 complete",
+        "Limits guide",
+    ]
+
+    store = LearningStore(db_path=db_path)
+    try:
+        sid = store.get_current_space(OWNER)
+        active = store.list_artifacts(OWNER, sid, kind="student_state", status="active")
+        archived = store.list_artifacts(OWNER, sid, kind="student_state", status="archived")
+        assert len(active) == 1
+        assert len(archived) == 1
+        assert active[0]["review"]["status"] == "passed"
+    finally:
+        store.close()
+
+
+def test_learning_plan_activation_archives_previous_and_materializes_items(study_client):
+    client, db_path = study_client
+    store = LearningStore(db_path=db_path)
+    try:
+        ctx = LearningExecutionContext(store, owner_id=OWNER)
+        ctx.create_space(title="Algebra", space_id="s1")
+        ids = [
+            OutputWriter(ctx).write_artifact(
+                kind="learning_plan",
+                title=title,
+                payload={
+                    "phases": [
+                        {"title": "Phase", "tasks": [{"title": "Practice", "order": 1}]}
+                    ]
+                },
+            )["artifact_id"]
+            for title in ("First", "Second")
+        ]
+    finally:
+        store.close()
+
+    first = client.post(f"/api/desk/study/artifacts/{ids[0]}/activate", headers=_headers())
+    second = client.post(f"/api/desk/study/artifacts/{ids[1]}/activate", headers=_headers())
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert second.json()["materialized"] == 1
+
+    store = LearningStore(db_path=db_path)
+    try:
+        assert [
+            row["artifact_id"]
+            for row in store.list_artifacts(OWNER, "s1", kind="learning_plan", status="active")
+        ] == [ids[1]]
+        assert [
+            row["artifact_id"]
+            for row in store.list_artifacts(OWNER, "s1", kind="learning_plan", status="archived")
+        ] == [ids[0]]
+        assert store.get_artifact(OWNER, "s1", ids[1])["review"]["status"] == "passed"
+    finally:
+        store.close()

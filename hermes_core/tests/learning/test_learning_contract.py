@@ -391,6 +391,45 @@ def test_evaluation_requires_observations():
         validate_envelope(_envelope("evaluation", {"suggestions": ["study more"]}))
 
 
+def test_evaluation_evidence_refs_are_valid():
+    env = validate_envelope(
+        _envelope(
+            "evaluation",
+            {
+                "observations": ["Quiz score improved."],
+                "weak_points": ["prime numbers"],
+                "suggestions": ["Add mixed drills"],
+                "evidence_refs": [
+                    {"activity_id": "act-1", "activity_type": "quiz.attempt"},
+                    {"artifact_id": "quiz-1"},
+                ],
+            },
+        )
+    )
+
+    assert env.payload["evidence_refs"][0]["activity_id"] == "act-1"
+
+
+@pytest.mark.parametrize(
+    "refs",
+    [
+        "not a list",
+        ["not an object"],
+        [{"activity_id": 42}],
+        [{"activity_id": "x" * 20_001}],
+        [{}] * 201,
+    ],
+)
+def test_evaluation_evidence_refs_must_be_bounded_string_map_list(refs):
+    with pytest.raises(ContractError):
+        validate_envelope(
+            _envelope(
+                "evaluation",
+                {"observations": ["x"], "evidence_refs": refs},
+            )
+        )
+
+
 # --------------------------------------------------------------------------- #
 # Quiz discriminated union — each question type has its own sub-schema.
 # --------------------------------------------------------------------------- #

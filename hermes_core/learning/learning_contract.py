@@ -181,6 +181,24 @@ _FIXED_LABEL_KEYS: frozenset = frozenset(
 )
 
 
+def _opt_evidence_refs(obj: Mapping[str, Any], ctx: str) -> None:
+    refs = obj.get("evidence_refs")
+    if refs is None:
+        return
+    if not isinstance(refs, list) or len(refs) > MAX_SOURCE_REFS:
+        raise ContractError(f"{ctx}: 'evidence_refs' must be a bounded list")
+    for i, ref in enumerate(refs):
+        rctx = f"{ctx}.evidence_refs[{i}]"
+        rm = _mapping(ref, rctx)
+        for key, value in rm.items():
+            if not isinstance(key, str) or not isinstance(value, str):
+                raise ContractError(f"{rctx}: keys and values must be strings")
+            if len(key) > MAX_STR_LEN or len(value) > MAX_STR_LEN:
+                raise ContractError(
+                    f"{rctx}: keys and values must not exceed {MAX_STR_LEN} chars"
+                )
+
+
 def _v_student_state(p: Mapping[str, Any]) -> None:
     _forbid_keys(p, _FIXED_LABEL_KEYS, "student_state")
     if "preferences" in p and not isinstance(p["preferences"], (dict, list)):
@@ -347,8 +365,10 @@ def _v_tutoring_note(p: Mapping[str, Any]) -> None:
 def _v_evaluation(p: Mapping[str, Any]) -> None:
     _forbid_keys(p, _FIXED_LABEL_KEYS, "evaluation")
     _req_nonempty_list(p, "observations", "evaluation")
+    _opt_str_list(p, "observations", "evaluation")
     _opt_str_list(p, "weak_points", "evaluation")
     _opt_str_list(p, "suggestions", "evaluation")
+    _opt_evidence_refs(p, "evaluation")
 
 
 _PAYLOAD_VALIDATORS: Dict[str, Callable[[Mapping[str, Any]], None]] = {

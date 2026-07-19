@@ -122,6 +122,15 @@ class LearningExecutionContext:
             self._owner_id, self._require_space(), artifact_id, new_status
         )
 
+    def activate_singleton_artifact(self, artifact_id: str, *, kind: str) -> None:
+        """Atomically activate one current artifact and archive same-kind peers."""
+        self._store.activate_singleton_artifact(
+            self._owner_id,
+            self._require_space(),
+            artifact_id,
+            kind=kind,
+        )
+
     # ── items ─────────────────────────────────────────────────────────── #
 
     def upsert_item(

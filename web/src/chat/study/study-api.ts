@@ -40,8 +40,23 @@ export type StudyArtifact = {
 export type ProfileDimension = { key: string; label?: string; level?: number; summary?: string };
 export type StudentStatePayload = {
   dimensions?: ProfileDimension[];
+  course?: string;
   goals?: string[];
   constraints?: string[];
+  preferences?: Record<string, string>;
+  progress_notes?: string[];
+  current_stage?: string;
+  generated_resources?: string[];
+  tutoring_notes?: string[];
+  weak_points?: string[];
+  assessment_evidence?: string[];
+  evaluation_summary?: string;
+  next_adjustment?: string;
+};
+
+export type StudyStudentStateResponse = {
+  state: null | { artifact_id: string; status: string; payload: StudentStatePayload };
+  evaluation?: null | { artifact_id: string; status: string };
 };
 
 // M3 备课组 resource_pack subtypes (rendered by ResourcePackPanel).
@@ -89,8 +104,30 @@ export type EvaluationPayload = {
   observations?: unknown[];
   weak_points?: string[];
   suggestions?: string[];
+  evidence_refs?: Array<Record<string, string>>;
+  evaluation_summary?: string;
+  assessment_evidence?: string[];
   [key: string]: unknown;
 };
+
+export type StudyEvaluationsResponse = { evaluations: StudyArtifact[] };
+export type StudyEvaluationDetailResponse = { evaluation: StudyArtifact };
+export type StudyLearningPlansResponse = { plans: StudyArtifact[] };
+
+export type StudyLearningPlanItem = {
+  item_id: string;
+  artifact_id: string;
+  phaseIndex: number;
+  phaseTitle?: string;
+  taskIndex: number;
+  title: string;
+  order?: number;
+  done_when?: string;
+  status: "open" | "completed" | "skipped";
+  note?: string;
+};
+
+export type StudyLearningPlanItemsResponse = { items: StudyLearningPlanItem[] };
 
 export type StudyDraftsResponse = {
   drafts: StudyArtifact[];
@@ -266,4 +303,43 @@ export type StudyBuiltinCourseResponse = {
 
 export function cmdStudyMigrateBuiltinCourse(): Promise<StudyBuiltinCourseResponse> {
   return invokeStudyMutation<StudyBuiltinCourseResponse>("cmd_study_migrate_builtin_course");
+}
+
+export function cmdStudyStudentState(): Promise<StudyStudentStateResponse> {
+  return invoke("cmd_study_student_state");
+}
+
+export function cmdStudyStudentStateSave(
+  state: StudentStatePayload,
+  evaluation: EvaluationPayload | null = null,
+): Promise<StudyStudentStateResponse> {
+  return invokeStudyMutation<StudyStudentStateResponse>("cmd_study_student_state_save", { state, evaluation });
+}
+
+export function cmdStudyMigrateContext(context: unknown): Promise<unknown> {
+  return invokeStudyMutation<unknown>("cmd_study_migrate_context", { context });
+}
+
+export function cmdStudyEvaluations(): Promise<StudyEvaluationsResponse> {
+  return invoke("cmd_study_evaluations");
+}
+
+export function cmdStudyEvaluationDetail(artifactId: string): Promise<StudyEvaluationDetailResponse> {
+  return invoke("cmd_study_evaluation_detail", { artifactId });
+}
+
+export function cmdStudyLearningPlans(): Promise<StudyLearningPlansResponse> {
+  return invoke("cmd_study_learning_plans");
+}
+
+export function cmdStudyLearningPlanItems(artifactId: string): Promise<StudyLearningPlanItemsResponse> {
+  return invoke("cmd_study_learning_plan_items", { artifactId });
+}
+
+export function cmdStudyLearningPlanItemComplete(itemId: string, note = ""): Promise<StudyLearningPlanItem> {
+  return invokeStudyMutation<StudyLearningPlanItem>("cmd_study_learning_plan_item_complete", { itemId, note });
+}
+
+export function cmdStudyLearningPlanItemSkip(itemId: string, note = ""): Promise<StudyLearningPlanItem> {
+  return invokeStudyMutation<StudyLearningPlanItem>("cmd_study_learning_plan_item_skip", { itemId, note });
 }

@@ -17,7 +17,7 @@ import {
   ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { useI18n } from "../../lib/i18n";
 import { ShellModal } from "../../components/ShellModal";
@@ -27,12 +27,25 @@ import { FlashcardPanel } from "./FlashcardPanel";
 import { LearningPathPanel } from "./LearningPathPanel";
 import { QuizPanel } from "./QuizPanel";
 import { ProfilePanel } from "./ProfilePanel";
+import { STUDY_LEARNING_EVENT } from "./flashcardLearningStore";
+import {
+  cmdStudyEvaluations,
+  cmdStudyMigrateContext,
+  cmdStudyStudentState,
+  cmdStudyStudentStateSave,
+} from "./study-api";
+import {
+  backendPayloadsToStudyContext,
+  studyContextToEvaluation,
+  studyContextToStudentState,
+} from "./studyContextMapper";
 import { STUDY_PROMPTS, type StudyActionId } from "./studyPrompts";
 import {
   STUDY_CONTEXT_EVENT,
   clearStudyContext,
   emptyStudyContext,
   formatStudyContextForPrompt,
+  hasStudyContext,
   loadStudyContext,
   saveStudyContext,
   type StudyContext,
@@ -100,29 +113,74 @@ export function StudySection({
   const [context, setContext] = useState<StudyContext>(emptyStudyContext);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saved" | "failed">("idle");
   const [profileEditorOpen, setProfileEditorOpen] = useState(false);
+
+  const refreshBackendContext = useCallback(async () => {
+    const [stateResult, evaluationResult] = await Promise.all([
+      cmdStudyStudentState(),
+      cmdStudyEvaluations(),
+    ]);
+    if (!stateResult.state?.payload) return;
+    const activeEvaluations = evaluationResult.evaluations || [];
+    const latestEvaluation = activeEvaluations.at(-1)?.payload;
+    setContext(backendPayloadsToStudyContext(stateResult.state.payload, latestEvaluation));
+  }, []);
+
   useEffect(() => {
     const sync = () => {
       setContext(loadStudyContext());
       setSaveStatus("idle");
     };
-    sync();
+    const legacy = loadStudyContext();
+    setContext(legacy);
+    void (async () => {
+      try {
+        if (hasStudyContext(legacy)) {
+          await cmdStudyMigrateContext(legacy);
+        } else {
+          await refreshBackendContext();
+        }
+      } catch (error) {
+        console.debug("backend study context refresh failed:", error);
+      }
+    })();
+    const onLearning = (event: Event) => {
+      const command = (event as CustomEvent<{ command?: string }>).detail?.command;
+      if (command === "cmd_study_space_select" || command === "cmd_study_space_create") {
+        void refreshBackendContext().catch(() => undefined);
+      }
+    };
     window.addEventListener("storage", sync);
     window.addEventListener(STUDY_CONTEXT_EVENT, sync);
+    window.addEventListener(STUDY_LEARNING_EVENT, onLearning);
     return () => {
       window.removeEventListener("storage", sync);
       window.removeEventListener(STUDY_CONTEXT_EVENT, sync);
+      window.removeEventListener(STUDY_LEARNING_EVENT, onLearning);
     };
-  }, []);
+  }, [refreshBackendContext]);
 
   const updateContext = (key: keyof StudyContext, value: string) => {
     setSaveStatus("idle");
     setContext((current) => ({ ...current, [key]: value }));
   };
 
-  const persistContext = () => {
+  const persistContext = async () => {
     const result = saveStudyContext(context);
     setContext(result.context);
-    setSaveStatus(result.succeeded ? "saved" : "failed");
+    if (!result.succeeded) {
+      setSaveStatus("failed");
+      return;
+    }
+    try {
+      const saved = await cmdStudyStudentStateSave(
+        studyContextToStudentState(result.context),
+        studyContextToEvaluation(result.context),
+      );
+      setSaveStatus(saved.state ? "saved" : "failed");
+    } catch (error) {
+      setSaveStatus("failed");
+      console.debug("student state save failed:", error);
+    }
   };
 
   const resetContext = () => {
@@ -131,10 +189,21 @@ export function StudySection({
     setSaveStatus(result.succeeded ? "idle" : "failed");
   };
 
-  const startAction = (prompt: string) => {
+  const startAction = async (prompt: string) => {
     const result = saveStudyContext(context);
     setContext(result.context);
     setSaveStatus(result.succeeded ? "saved" : "failed");
+    if (result.succeeded) {
+      try {
+        await cmdStudyStudentStateSave(
+          studyContextToStudentState(result.context),
+          studyContextToEvaluation(result.context),
+        );
+      } catch (error) {
+        setSaveStatus("failed");
+        console.debug("student state preflight save failed:", error);
+      }
+    }
     const contextPrompt = formatStudyContextForPrompt(result.context);
     onStartPrompt?.([contextPrompt, prompt].filter(Boolean).join("\n\n"));
   };
@@ -257,7 +326,7 @@ export function StudySection({
             return (
               <WorkspaceActionButton
                 key={action.id}
-                onClick={() => startAction(action.prompt)}
+                onClick={() => void startAction(action.prompt)}
                 icon={<Icon className="kq-color-icon-course mr-2 inline h-4 w-4" aria-hidden />}
                 label={t(action.labelKey)}
               />
@@ -304,7 +373,7 @@ export function StudySection({
             </button>
             <button
               type="button"
-              onClick={persistContext}
+              onClick={() => void persistContext()}
               className="kq-quick-action inline-flex items-center justify-center gap-1.5 rounded-[10px] px-3 py-2 text-sm leading-snug transition"
             >
               <Save className="h-3.5 w-3.5" aria-hidden />
