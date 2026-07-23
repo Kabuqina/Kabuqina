@@ -175,6 +175,26 @@ class RuntimePrunedVerifierTests(unittest.TestCase):
         self.assertIn("verify_runtime_pruned.py", build_script)
         self.assertIn("verify_runtime_pruned.py", sync_script)
 
+    def test_bundle_does_not_copy_removed_feishu_worker(self):
+        build_script = (ROOT / "python" / "build_bundle.ps1").read_text(encoding="utf-8")
+
+        self.assertNotIn(
+            'Join-Path $PSScriptRoot "src\\feishu_qr_worker.py"',
+            build_script,
+        )
+
+    def test_lark_dependency_is_absent_from_desktop_core_and_lock(self):
+        sources = (
+            ROOT / "python" / "requirements-desktop.txt",
+            ROOT / "hermes_core" / "pyproject.toml",
+            ROOT / "hermes_core" / "uv.lock",
+        )
+
+        for source in sources:
+            text = source.read_text(encoding="utf-8").lower()
+            self.assertNotIn("lark-oapi", text, source)
+            self.assertNotIn("lark_oapi", text, source)
+
 
 if __name__ == "__main__":
     unittest.main()
