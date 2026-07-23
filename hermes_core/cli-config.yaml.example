@@ -128,7 +128,7 @@ model:
 # -----------------------------------------------------------------------------
 # Working directory behavior:
 #   - CLI (`kabuqina` command): Uses "." (current directory where you run kabuqina)
-#   - Messaging (Telegram/Discord): Uses MESSAGING_CWD from .env (default: home)
+#   - Messaging platforms: Uses MESSAGING_CWD from .env (default: home)
 terminal:
   backend: "local"
   cwd: "."  # For local backend: "." = current directory. Ignored for remote backends unless a backend documents otherwise.
@@ -417,7 +417,7 @@ memory:
 # =============================================================================
 # Session Reset Policy (Messaging Platforms)
 # =============================================================================
-# Controls when messaging sessions (Telegram, Discord, WhatsApp, Slack) are
+# Controls when messaging sessions (Telegram, WhatsApp, Slack) are
 # automatically cleared. Without resets, conversation context grows indefinitely
 # which increases API costs with every message.
 #
@@ -452,7 +452,7 @@ group_sessions_per_user: true
 # ─────────────────────────────────────────────────────────────────────────────
 # Stream tokens to messaging platforms in real-time. The bot sends a message
 # on first token, then progressively edits it as more tokens arrive.
-# Disabled by default — enable to try the streaming UX on Telegram/Discord/Slack.
+# Disabled by default — enable to try the streaming UX on Telegram/Slack.
 streaming:
   enabled: false
   # transport: edit           # "edit" = progressive editMessageText
@@ -554,7 +554,7 @@ agent:
 #   - A preset like "kabuqina-cli" or "kabuqina-telegram" (curated tool set)
 #   - A list of individual toolsets to compose your own (see list below)
 #
-# Supported platform keys: cli, telegram, discord, whatsapp, slack, qqbot, teams
+# Supported platform keys: cli, telegram, whatsapp, slack, qqbot, teams
 #
 # Examples:
 #
@@ -571,14 +571,9 @@ agent:
 #   platform_toolsets:
 #     cli: [web, terminal, file, skills, todo, tts, cronjob]
 #
-#   # Restrictive: Discord gets read-only tools only:
-#   platform_toolsets:
-#     discord: [web, vision, skills, todo]
-#
 # If not set, defaults are:
 #   cli:           kabuqina-cli            (everything + cronjob management)
 #   telegram:      kabuqina-telegram       (terminal, file, web, vision, image, tts, browser, skills, todo, cronjob, messaging)
-#   discord:       kabuqina-discord        (same as telegram)
 #   whatsapp:      kabuqina-whatsapp       (same as telegram)
 #   slack:         kabuqina-slack          (same as telegram)
 #   signal:        kabuqina-signal         (same as telegram)
@@ -589,7 +584,6 @@ agent:
 platform_toolsets:
   cli: [kabuqina-cli]
   telegram: [kabuqina-telegram]
-  discord: [kabuqina-discord]
   whatsapp: [kabuqina-whatsapp]
   slack: [kabuqina-slack]
   signal: [kabuqina-signal]
@@ -639,7 +633,6 @@ platform_toolsets:
 #   kabuqina-cli       - All of the above except rl + send_message
 #   kabuqina-telegram  - terminal, file, web, vision, image_gen, tts, browser,
 #                      skills, todo, cronjob, send_message
-#   kabuqina-discord   - Same as kabuqina-telegram
 #   kabuqina-whatsapp  - Same as kabuqina-telegram
 #   kabuqina-slack     - Same as kabuqina-telegram
 #
@@ -848,7 +841,7 @@ display:
 
   # Background process notifications (gateway/messaging only).
   # Controls how chatty the process watcher is when you use
-  # terminal(background=true, notify_on_complete=true) from Telegram/Discord/etc.
+  # terminal(background=true, notify_on_complete=true) from Telegram/Slack/etc.
   #   off:     No watcher messages at all
   #   result:  Only the final completion message
   #   error:   Only the final message when exit code != 0

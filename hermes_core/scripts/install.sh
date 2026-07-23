@@ -1366,7 +1366,7 @@ maybe_start_gateway() {
     fi
 
     HAS_MESSAGING=false
-    for VAR in TELEGRAM_BOT_TOKEN DISCORD_BOT_TOKEN SLACK_BOT_TOKEN SLACK_APP_TOKEN WHATSAPP_ENABLED; do
+    for VAR in TELEGRAM_BOT_TOKEN SLACK_BOT_TOKEN SLACK_APP_TOKEN WHATSAPP_ENABLED; do
         VAL=$(grep "^${VAR}=" "$ENV_FILE" 2>/dev/null | cut -d'=' -f2-)
         if [ -n "$VAL" ] && [ "$VAL" != "your-token-here" ]; then
             HAS_MESSAGING=true

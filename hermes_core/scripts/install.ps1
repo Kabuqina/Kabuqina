@@ -768,7 +768,7 @@ function Start-GatewayIfConfigured {
 
     $hasMessaging = $false
     $content = Get-Content $envPath -ErrorAction SilentlyContinue
-    foreach ($var in @("TELEGRAM_BOT_TOKEN", "DISCORD_BOT_TOKEN", "SLACK_BOT_TOKEN", "SLACK_APP_TOKEN", "WHATSAPP_ENABLED")) {
+    foreach ($var in @("TELEGRAM_BOT_TOKEN", "SLACK_BOT_TOKEN", "SLACK_APP_TOKEN", "WHATSAPP_ENABLED")) {
         $match = $content | Where-Object { $_ -match "^${var}=.+" -and $_ -notmatch "your-token-here" }
         if ($match) { $hasMessaging = $true; break }
     }
@@ -856,7 +856,7 @@ function Write-Completion {
     Write-Host "   hermes config edit  " -NoNewline -ForegroundColor Green
     Write-Host "Open config in editor"
     Write-Host "   hermes gateway      " -NoNewline -ForegroundColor Green
-    Write-Host "Start messaging gateway (Telegram, Discord, etc.)"
+    Write-Host "Start messaging gateway (Telegram, Slack, WhatsApp, etc.)"
     Write-Host "   hermes update       " -NoNewline -ForegroundColor Green
     Write-Host "Update to latest version"
     Write-Host ""
