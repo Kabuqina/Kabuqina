@@ -18,7 +18,7 @@ Run this whole checklist on **both** OS images before tagging a release. Ideally
 
 ## What you are testing (current product)
 
-- **Shell (Tauri + `web/`)**: Splash routing, onboarding (minimal + optional messaging sections), **`/chat`** shell chat, Settings (power user, proxy, **messaging gateway**, Telegram / Feishu / QQ / Weixin blocks, pairing). This is the only shipped UI.
+- **Shell (Tauri + `web/`)**: Splash routing, onboarding (minimal + optional messaging sections), **`/chat`** shell chat, Settings (power user, proxy, **messaging gateway**, Telegram / QQ / Weixin blocks, pairing). This is the only shipped UI.
 - **Embedded desk API** (`http://127.0.0.1:<port>/api/desk/*`): Kabuqina-owned loopback service used by the shell; no upstream dashboard is bundled.
 - **Messaging gateway**: Second supervised Python process **`python -m gateway.run`** when `.env` has channel credentials — **Settings → Messaging gateway** plus [`docs/troubleshooting.md`](troubleshooting.md) §12 if startup fails.
 - **Language**: Shell copy follows the selected application language.
@@ -57,7 +57,7 @@ Run this whole checklist on **both** OS images before tagging a release. Ideally
   - [ ] `cmdkey /list:Kabuqina*` lists the credential
 - [ ] Pick a vibe -> **Done** page renders
 - [ ] "Open workspace folder" opens `Documents\KabuqinaWork` in Explorer
-- [ ] Done primary CTA opens **`/chat`** or **dashboard** per build UX; extended wizard optionally completes **one** messaging channel (Weixin / QQ / Feishu / Telegram)
+- [ ] Done primary CTA opens **`/chat`** or **dashboard** per build UX; extended wizard optionally completes **one** messaging channel (Weixin / QQ / Telegram)
 
 ## D. Desk API + shell `/chat` sanity
 
@@ -120,7 +120,7 @@ Run this whole checklist on **both** OS images before tagging a release. Ideally
 
 - [ ] **Settings → Messaging gateway**: Start / Stop responds; status text updates (poll every few seconds while on page)
 - [ ] With **no** messaging vars in `kabuqina-home/.env`: gateway section explains eligibility / points to Settings or onboarding
-- [ ] Configure **one** channel (Telegram token fastest; or QQ/Feishu/Weixin QR if test accounts exist); confirm `.env` keys appear
+- [ ] Configure **one** channel (Telegram token fastest; or QQ/Weixin QR if test accounts exist); confirm `.env` keys appear
 - [ ] **Start gateway** — remains running ≥10s (no immediate exit **1**); if instant failure, verify **`embeddedGatewayStartupSurvival`** hint and **`python/build_bundle.ps1`** ([troubleshooting §12](troubleshooting.md))
 - [ ] Send a test message on that platform → assistant responds using configured LLM
 

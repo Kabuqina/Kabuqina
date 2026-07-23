@@ -40,9 +40,9 @@ hermes_core/
 ├── tools/                # Tool implementations — auto-discovered via tools/registry.py
 │   └── environments/     # Terminal backends (local, docker, ssh, modal, daytona, singularity)
 ├── gateway/              # Messaging gateway — run.py + session.py + platforms/
-│   ├── platforms/        # Adapter per platform (telegram, discord, slack, whatsapp,
+│   ├── platforms/        # Adapter per platform (telegram, slack, whatsapp,
 │   │                     #   homeassistant, signal, matrix, mattermost, email, sms,
-│   │                     #   dingtalk, wecom, weixin, feishu, qqbot, bluebubbles,
+│   │                     #   dingtalk, wecom, weixin, qqbot, bluebubbles,
 │   │                     #   webhook, api_server, ...). See ADDING_A_PLATFORM.md.
 │   └── builtin_hooks/    # Extension point for always-registered gateway hooks (none shipped)
 ├── plugins/              # Plugin system (see "Plugins" section below)

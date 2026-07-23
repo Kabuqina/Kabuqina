@@ -14,7 +14,7 @@ Kabuqina today includes:
 
 - **Dedicated shell chat** at **`/chat`** (`web/src/chat/*`), backed by Tauri **`invoke`** commands that proxy to the embedded Hermes loopback (`tauri/src/chat.rs`). Sessions list / messages / stop mirror Hermes desk APIs.
 - **Messaging gateway** as a **second supervised Python process** (`python -m gateway.run`, `tauri/src/gateway_supervisor.rs`), auto-start optional on cold launch when `hermes-home/.env` contains messaging credentials, manual controls in Settings.
-- **Onboarding / Settings UX** for **Weixin**, **QQ Bot**, **Feishu/Lark**, and **Telegram** (token), plus pairing helpers where Hermes requires them (`pairing.rs`, shell blocks).
+- **Onboarding / Settings UX** for **Weixin**, **QQ Bot**, and **Telegram** (token), plus pairing helpers where Core requires them (`pairing.rs`, shell blocks).
 
 The **`strip_shims`** overlay still stubs **`gateway.run.main`** inside the **Hermes web child** so the dashboard never accidentally hosts the gateway entrypoint; the **real** gateway module loads only in the **separate** gateway OS process. See `docs/architecture.md` §Process model.
 
@@ -115,7 +115,7 @@ Deliverable foundations.
 
 ## 简体中文摘要
 
-**壳内 `/chat` 与消息网关** 已在当前桌面产品中落地：`invoke` → Rust → Hermes loopback；网关为独立 **`gateway.run`** 子进程；微信 / QQ / 飞书·Lark / Telegram 的配置入口在引导与设置中。**strip_shims** 仅阻止「Hermes Web 主进程」误跑网关入口，与第二条网关进程并存——详见 **`docs/architecture.md`**。
+**壳内 `/chat` 与消息网关** 已在当前桌面产品中落地：`invoke` → Rust → Desk loopback；网关为独立 **`gateway.run`** 子进程；微信 / QQ / Telegram 的配置入口在引导与设置中。**strip_shims** 仅阻止 Desk API 子进程误跑网关入口，与第二条网关进程并存——详见 **`docs/architecture.md`**。
 
 当前学生工作台方向按三阶段推进：**Live Presentation → Generated Deliverables → Learning**。先把聊天里的 Markdown、公式、代码、表格、来源引用、读取警告与长任务展示做好；再推进 PPT / 报告 / 文档生成；最后在可靠展示和生成基础上发展解释、提示、测验、推导、公式代码互转等学习交互。不要把 onboarding / Keyring 等问题与 chat / gateway 缺陷混成同一类「顺带修」。
 

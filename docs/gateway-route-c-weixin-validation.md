@@ -1,11 +1,11 @@
 # 路线 C（Desk 调内嵌 Python）— 个人微信验证说明
 
-Kabuqina **已产品化路线 C**：微信扫码走 **`weixin_qr_worker.py`** + `WeixinQrRouteCBlock`；同类「bundle 内 Python + Tauri IPC」模式亦用于 **QQ**（`qqbot_qr_worker.py`）、**飞书/Lark**（`feishu_qr_worker.py`）。Telegram 为 **token 表单**，不走扫码 worker。总览见 [gateway-desk-weixin-strategy.md](gateway-desk-weixin-strategy.md)。
+Kabuqina **已产品化路线 C**：微信扫码走 **`weixin_qr_worker.py`** + `WeixinQrRouteCBlock`；同类「bundle 内 Python + Tauri IPC」模式亦用于 **QQ**（`qqbot_qr_worker.py`）。Telegram 为 **token 表单**，不走扫码 worker。总览见 [gateway-desk-weixin-strategy.md](gateway-desk-weixin-strategy.md)。
 
 本文档仍专注于 **个微 / iLink**，完成两件事的 **结论与可复现步骤**：
 
 1. **打包 / 运行可行性**：用仓库内脚本 + 与安装包一致的解释器验证「能否 import + 打到 iLink」。
-2. **iLink `get_bot_qrcode` 返回的数据形态**：以 Hermes 上游实现为准，避免凭猜测做前端。（QQ/飞书的开放平台字段见上游与本仓库 Settings 文案。）
+2. **iLink `get_bot_qrcode` 返回的数据形态**：以 owned Core 实现为准，避免凭猜测做前端。（QQ 的开放平台字段见 Core 与本仓库 Settings 文案。）
 
 若两项均通过，个微绑定可走路线 C；若解释器侧 import/网络/体积异常，再评估 **路线 B**（在 `web_server` 增加薄 HTTP）。Desk 当前默认 **不采用路线 B**。
 

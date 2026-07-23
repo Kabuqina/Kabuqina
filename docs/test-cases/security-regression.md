@@ -1,4 +1,4 @@
-# 安全防护 — 10 条修复专项回归测试
+# 安全防护 — 9 条修复专项回归测试
 
 > 对应 test-plan.md §2（独立回归套件）
 > 每条安全修复至少 1 个正例（修复生效）+ 1 个反例（关闭/绕过时不生效）
@@ -25,12 +25,11 @@
 | 2 | TC-SR-02 | `/yolo` 命令白名单 | P0 |
 | 3 | TC-SR-03 | 文件沙箱越界写入拦截 | P0 |
 | 4 | TC-SR-04 | `GATEWAY_SHELL_ENABLED` 开关 | P0 |
-| 5 | TC-SR-05 | 飞书 Webhook encrypt_key 警告 | P1 |
-| 6 | TC-SR-06 | `GATEWAY_OWNER_IDS` 管理员命令限制 | P0 |
-| 7 | TC-SR-07 | `GATEWAY_ALLOW_ALL_USERS` SECURITY 警告 | P1 |
-| 8 | TC-SR-08 | `.env` 文件权限保护 | P1 |
-| 9 | TC-SR-09 | Webhook 时间戳超时拒绝 | P1 |
-| 10 | TC-SR-10 | `thread_sessions_per_user` Session 隔离 | P1 |
+| 5 | TC-SR-06 | `GATEWAY_OWNER_IDS` 管理员命令限制 | P0 |
+| 6 | TC-SR-07 | `GATEWAY_ALLOW_ALL_USERS` SECURITY 警告 | P1 |
+| 7 | TC-SR-08 | `.env` 文件权限保护 | P1 |
+| 8 | TC-SR-09 | Webhook 时间戳超时拒绝 | P1 |
+| 9 | TC-SR-10 | `thread_sessions_per_user` Session 隔离 | P1 |
 
 ---
 
@@ -90,18 +89,6 @@
 - [ ] `terminal` 工具集不可用（默认关闭时）
 - [ ] `exec` 工具集不可用
 - [ ] `code_execution` 工具集不可用
-
----
-
-## TC-SR-05 [P1] 飞书 Webhook encrypt_key 警告
-
-**背景**：未配置 encrypt_key 时飞书 Webhook 消息加密验证被禁用，需提醒用户。
-
-| 场景 | 步骤 | 预期 |
-|------|------|------|
-| **正例** | 1. 飞书配置中 `encrypt_key` 留空<br>2. 启动网关 | 日志/控制台输出：`WARNING: Feishu webhook encrypt_key not configured, message encryption verification disabled` |
-| **反例** | 填写 `encrypt_key` 后启动 | 无上述 WARNING |
-| **日志级别** | — | 确认是 `WARNING` 级别（非 DEBUG/INFO） |
 
 ---
 
@@ -165,7 +152,7 @@
 
 ```bash
 # 超时请求示例（时间戳为10分钟前）
-curl -X POST http://localhost:<port>/webhook/feishu \
+curl -X POST http://localhost:<port>/webhooks/test-route \
   -H "X-Webhook-Timestamp: $(($(date +%s) - 400))" \
   -H "X-Webhook-Signature: <valid_sig>" \
   -d '{"event": "test"}'
@@ -306,7 +293,6 @@ TC-SR-01 [ ] PASS [ ] FAIL  备注: ___________
 TC-SR-02 [ ] PASS [ ] FAIL  备注: ___________
 TC-SR-03 [ ] PASS [ ] FAIL  备注: ___________
 TC-SR-04 [ ] PASS [ ] FAIL  备注: ___________
-TC-SR-05 [ ] PASS [ ] FAIL  备注: ___________
 TC-SR-06 [ ] PASS [ ] FAIL  备注: ___________
 TC-SR-07 [ ] PASS [ ] FAIL  备注: ___________
 TC-SR-08 [ ] PASS [ ] FAIL  备注: ___________
@@ -322,7 +308,6 @@ TC-SR-10 [ ] PASS [ ] FAIL  备注: ___________
 | TC-SR-02 | ✗ SKIP | 同上 |
 | TC-SR-03 | ✓ PASS | 同 TC-GM-S03 — AI 尝试写系统路径被拦截 |
 | TC-SR-04 | ✓ PASS | 同 TC-GM-S04 — shell 工具默认不可用 |
-| TC-SR-05 | ✗ SKIP | 需要飞书配置 |
 | TC-SR-06 | ✗ SKIP | 需要 Telegram Owner/非Owner 账号 |
 | TC-SR-07 | ✗ SKIP | 需要实际测试 |
 | TC-SR-08 | ✗ SKIP | Windows上无需验证 |

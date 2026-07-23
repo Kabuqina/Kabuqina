@@ -113,7 +113,7 @@ Which tools trigger approval is defined upstream in Hermes (`tools/approval.py` 
 |------|-------------|
 | **Lifecycle** | Tauri supervises **`python.exe -m gateway.run`** when **`hermes-home/.env`** contains messaging credentials (manual Start/Stop + optional cold-start auto-start). Distinct from **`desktop_entrypoint.py`** (Hermes web). |
 | **`strip_shims` boundary** | The **web child** stubs `gateway.run.main` so the dashboard never hosts the gateway entrypoint; the **gateway child** loads the real module. See [`strip_shims.py`](../python/overlays/strip_shims.py), [`architecture.md`](architecture.md). |
-| **Desk UX** | Onboarding / Settings blocks + **`cmd_gateway_*`**; QR/token flows in [`web/src/advanced/Settings.tsx`](../web/src/advanced/Settings.tsx). Channels shipped in Desk: **Weixin**, **QQ Bot**, **Feishu/Lark**, **Telegram** (token). |
+| **Desk UX** | Onboarding / Settings blocks + **`cmd_gateway_*`**; QR/token flows in [`web/src/advanced/Settings.tsx`](../web/src/advanced/Settings.tsx). Channels shipped in Desk: **Weixin**, **QQ Bot**, **Telegram** (token). |
 | **LLM for bots** | Gateway reuse **`secret_loader`** / Credential Manager injection — same provider key as shell chat. |
 
 ---

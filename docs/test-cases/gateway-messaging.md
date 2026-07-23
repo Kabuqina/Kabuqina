@@ -11,11 +11,10 @@
 |----|------|
 | OS | Windows 10/11（测试网关进程管理） |
 | Kabuqina | 最新安装包或 `cargo tauri dev` 启动 |
-| 网络 | 可访问 Telegram API / 微信服务器 / 飞书服务器 / QQ 服务器 |
+| 网络 | 可访问 Telegram API / 微信服务器 / QQ 服务器 |
 | 测试账号 | `[待填写: Telegram Test Bot Token]` |
 | | `[待填写: 微信 Route C Test QR 绑定账号]` |
 | | `[待填写: QQ Bot Test 账号]` |
-| | `[待填写: 飞书 Test App ID & App Secret]` |
 | | `[待填写: DeepSeek API Key]` |
 | 配置文件 | `hermes-home/.env` 已备份，测试后可还原 |
 
@@ -143,20 +142,6 @@ assert hermesdesk_pending_list_contains(new_user_id)
 
 ---
 
-### TC-GM-008 [P1] 飞书 WebSocket 连接
-
-| 属性 | 内容 |
-|------|------|
-| **Given** | 飞书 App ID / App Secret / Encrypt Key 已配置；网络稳定 |
-| **When** | 启动网关 → 飞书适配器初始化 |
-| **Then** | WebSocket 连接建立成功；日志输出 `feishu websocket connected` |
-
-**异常场景：**
-- **断线重连**：手动断开网络 30 秒后恢复 → `_platform_reconnect_watcher` 触发，自动重连成功
-- **Webhook 模式签名验证**：Webhook URL 收到请求时，无 `encrypt_key` 的请求返回 403
-
----
-
 ### TC-GM-009 [P2] Telegram 网络不通时 fallback IP
 
 | 属性 | 内容 |
@@ -169,7 +154,7 @@ assert hermesdesk_pending_list_contains(new_user_id)
 
 ---
 
-### TC-GM-010 [P3] 钉钉 / WhatsApp / Discord / Mattermost 基础连接验证
+### TC-GM-010 [P3] 钉钉 / WhatsApp / Mattermost 基础连接验证
 
 | 属性 | 内容 |
 |------|------|
@@ -261,18 +246,6 @@ assert hermesdesk_pending_list_contains(new_user_id)
 
 ---
 
-### TC-GM-S05 [P1] 飞书 Webhook encrypt_key 警告
-
-| 属性 | 内容 |
-|------|------|
-| **Given** | 飞书配置中未填写 `encrypt_key` |
-| **When** | 启动网关 |
-| **Then** | 控制台/日志输出 WARNING 级别日志：`"Feishu webhook encrypt_key not configured, message encryption verification disabled"` |
-
-**反例**：配置 `encrypt_key` 后 → 启动无此 WARNING
-
----
-
 ### TC-GM-S06 [P0] `GATEWAY_OWNER_IDS` 限制管理员命令
 
 | 属性 | 内容 |
@@ -315,7 +288,7 @@ assert hermesdesk_pending_list_contains(new_user_id)
 
 | 属性 | 内容 |
 |------|------|
-| **Given** | 飞书/Telegram Webhook 请求包含 `X-Webhook-Timestamp` 头 |
+| **Given** | 通用 Webhook 请求包含 `X-Webhook-Timestamp` 头 |
 | **When** | 时间戳与当前服务器时间差 > 300 秒（默认容差） |
 | **Then** | 请求被拒绝，返回 HTTP 401/403 |
 
@@ -418,9 +391,6 @@ assert hermesdesk_pending_list_contains(new_user_id)
 [待填写: 微信 Route C QR 测试账号]    = ________________
 [待填写: QQ Bot AppID]               = ________________
 [待填写: QQ Bot Token]               = ________________
-[待填写: 飞书 App ID]                = ________________
-[待填写: 飞书 App Secret]            = ________________
-[待填写: 飞书 Encrypt Key]           = ________________
 [待填写: DeepSeek API Key]           = ________________
 [待填写: YOLO_ALLOWED_USERS]         = ________________
 [待填写: GATEWAY_OWNER_IDS]          = ________________
@@ -472,9 +442,9 @@ class TestPairingApproval:
 
 | 用例 | 结果 | 备注 |
 |------|------|------|
-| TC-GM-001~012 | ✗ SKIP | 需要实际 Telegram/微信/QQ/飞书 测试账号 |
+| TC-GM retained connectivity cases | ✗ SKIP | 需要实际 Telegram/微信/QQ 测试账号 |
 | TC-GM-S01~S02 | ✗ SKIP | 同上 |
 | TC-GM-S03 | ✓ PASS | 通过 API 测试：AI 尝试写入 `C:\Windows\Temp` 被沙箱拦截，返回 exit 126 / PermissionError |
 | TC-GM-S04 | ✓ PASS | 通过 API 测试：shell/exec 工具默认不可用，AI 明确回复 "terminal tools are unavailable" |
-| TC-GM-S05~S10 | ✗ SKIP | 需平台凭证 + 实际请求构造 |
+| TC-GM-S06~S10 | ✗ SKIP | 需平台凭证 + 实际请求构造 |
 | TC-GM-P01~P06 | ✗ SKIP | 需实际配对审批交互 |

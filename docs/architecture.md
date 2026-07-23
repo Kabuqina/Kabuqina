@@ -24,8 +24,8 @@ flowchart TD
   WebView -->|"Splash /chat /settings"| ShellUI["bundled shell UI<br/>web/"]
   Tauri --> GwSup["gateway_supervisor<br/>(optional)"]
   GwSup --> GwChild["python -m gateway.run<br/>messaging adapters"]
-  GwChild --> MsgApis["channel APIs<br/>Weixin / QQ / Feishu / Telegram …"]
-  Tauri --> QrWorkers["QR workers<br/>weixin / qqbot / feishu<br/>(short-lived)"]
+  GwChild --> MsgApis["channel APIs<br/>Weixin / QQ / Telegram / DingTalk …"]
+  Tauri --> QrWorkers["QR workers<br/>weixin / qqbot<br/>(short-lived)"]
   QrWorkers -.->|"writes kabuqina-home/.env"| PyChild
   Tauri --> Bridge["loopback bridge<br/>(secret + approval)"]
   Bridge -.fetched once.-> PyChild
@@ -55,7 +55,7 @@ The shell chat page calls Tauri **`invoke`** commands implemented in [tauri/src/
 ### Messaging gateway
 
 - **Supervisor:** [tauri/src/gateway_supervisor.rs](../tauri/src/gateway_supervisor.rs) — eligibility from `kabuqina-home/.env`, spawn env, diagnostics (`gateway_state.json`, log tail).
-- **Credentials UX:** Settings + onboarding blocks call Rust commands (`weixin_qr`, `qqbot_qr`, `feishu_qr`, `telegram_*`, `pairing_*`). Desk-tested flows cover **Weixin**, **QQ Bot**, **Feishu/Lark**, and **Telegram** (token).
+- **Credentials UX:** Settings + onboarding blocks call Rust commands (`weixin_qr`, `qqbot_qr`, `telegram_*`, `pairing_*`). Desk-tested flows cover **Weixin**, **QQ Bot**, and **Telegram** (token).
 - **LLM key for bots:** Gateway children reuse the desk **`secret_loader`** path so adapters call the configured model without a second vault UI.
 
 Further product notes: [gateway-desk-weixin-strategy.md](gateway-desk-weixin-strategy.md), [gateway-route-c-weixin-validation.md](gateway-route-c-weixin-validation.md).
@@ -93,7 +93,7 @@ Settings load-package management remains the storage/cache view. The Capability 
 | [python/overlays/](../python/overlays/)                                 | Runtime monkey-patches wrapping policy objects (to be removed per-policy)               |
 | [web/src/main.tsx](../web/src/main.tsx)                                 | Shell router: Splash, onboarding, `/chat`, `/settings`                               |
 | [web/src/onboarding/](../web/src/onboarding/)                           | Wizard + gateway/setup sections                                                       |
-| [web/src/advanced/Settings.tsx](../web/src/advanced/Settings.tsx)       | Power user, gateway controls, Telegram/Feishu/QQ/Weixin blocks, proxy               |
+| [web/src/advanced/Settings.tsx](../web/src/advanced/Settings.tsx)       | Power user, gateway controls, Telegram/QQ/Weixin blocks, proxy                      |
 
 
 ## Startup sequence

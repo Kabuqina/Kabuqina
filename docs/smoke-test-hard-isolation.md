@@ -43,7 +43,7 @@
 ## M3: Multiple Platforms
 
 **操作：**
-1. 配置第二个平台凭据（如 Weixin/Feishu/DingTalk）
+1. 配置第二个平台凭据（如 Weixin/DingTalk）
 2. 确保两个平台都有完整凭据
 3. 重启 Kabuqina
 
