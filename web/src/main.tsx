@@ -37,7 +37,7 @@ applyTheme();
 
 const StudyRoute = lazy(() => import("./study/StudyRoute"));
 const DeskScenePreview = import.meta.env.DEV
-  ? lazy(() => import("./study/desk/DeskScene"))
+  ? lazy(() => import("./study/desk/DeskScenePreview"))
   : null;
 const isStandaloneDeskPreview =
   import.meta.env.DEV && window.location.pathname === "/__dev/desk";

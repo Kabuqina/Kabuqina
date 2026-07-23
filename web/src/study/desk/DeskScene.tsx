@@ -3,9 +3,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { StudyPageSlug } from "../routeModel";
-import { createFixtureDeskAdapter, type DeskAdapter } from "./deskAdapter";
+import type { DeskAdapter } from "./deskAdapter";
 import { defaultDeskArtAssets, type DeskArtAssets } from "./artAssets";
-import { completedResult, needsRevisionResult } from "./deskFixtures";
 import { DeskChrome } from "./DeskChrome";
 import { DeskCup } from "./DeskCup";
 import { DeskNotebook } from "./DeskNotebook";
@@ -14,20 +13,8 @@ import type { CheckResult, DeskData, DeskDensity, StudyActivity } from "./types"
 import "./desk.css";
 
 const SAVE_DEBOUNCE_MS = 260;
-const COMPLETED_FIXTURE_ANSWER =
-  "代入后得到 0/0。0/0 是未定式，不是极限值，所以还需要继续分析并做等价变形。";
 const FUTURE_FEATURE_MESSAGE = "该功能将在后续版本开放。";
 const FUTURE_CHAT_MESSAGE = "课程对话将在后续版本开放。";
-
-type FixtureId = "d0" | "n0" | "a1" | "f0" | "f1";
-
-function readFixtureParam(): FixtureId | null {
-  if (!import.meta.env.DEV || typeof window === "undefined") return null;
-  const value = new URLSearchParams(window.location.search).get("fixture");
-  return value === "d0" || value === "n0" || value === "a1" || value === "f0" || value === "f1"
-    ? value
-    : null;
-}
 
 function stepSpeech(kicker: string): string {
   return kicker.replace(/ · /g, " ");
@@ -65,7 +52,13 @@ function Announcer({ announcement }: { announcement: Announcement | null }) {
 }
 
 export interface DeskSceneProps {
-  adapter?: DeskAdapter;
+  adapter: DeskAdapter;
+  initialSnapshot?: {
+    density?: DeskDensity;
+    activity?: StudyActivity;
+    answer?: string;
+    checkResult?: CheckResult | null;
+  };
   art?: Partial<DeskArtAssets>;
   currentPage?: StudyPageSlug;
   onNavigatePage?: (page: StudyPageSlug) => void;
@@ -81,6 +74,7 @@ export interface DeskSceneProps {
 
 export default function DeskScene({
   adapter,
+  initialSnapshot,
   art,
   currentPage = "practice",
   onNavigatePage,
@@ -93,7 +87,7 @@ export default function DeskScene({
   onNewBook,
   onDirtyChange,
 }: DeskSceneProps) {
-  const deskAdapter = useMemo(() => adapter ?? createFixtureDeskAdapter(), [adapter]);
+  const deskAdapter = adapter;
   const icons = useMemo<DeskArtAssets>(() => ({ ...defaultDeskArtAssets, ...art }), [art]);
 
   const [data, setData] = useState<DeskData | null>(null);
@@ -182,30 +176,15 @@ export default function DeskScene({
       setStepIndex(initialIndex);
       deskAdapter.markCurrentStep?.(step.id);
 
-      const fixture = readFixtureParam();
-      setDensity(fixture === null || fixture === "d0" ? "overview" : "focused");
-      setActivity(
-        fixture === "a1"
-          ? "dirty"
-          : fixture === "f0"
-            ? "needs_revision"
-            : fixture === "f1"
-              ? "completed"
-              : "ready",
-      );
-      setAnswer(fixture === "f1" ? COMPLETED_FIXTURE_ANSWER : step.initialDraft);
-      setCheckResult(
-        fixture === "f0"
-          ? needsRevisionResult
-          : fixture === "f1"
-            ? completedResult
-            : null,
-      );
+      setDensity(initialSnapshot?.density ?? "overview");
+      setActivity(initialSnapshot?.activity ?? "ready");
+      setAnswer(initialSnapshot?.answer ?? step.initialDraft);
+      setCheckResult(initialSnapshot?.checkResult ?? null);
     }).catch((error) => {
       if (!controller.signal.aborted && !isAbortError(error)) setLoadError(true);
     });
     return () => controller.abort();
-  }, [deskAdapter, reloadGeneration]);
+  }, [deskAdapter, initialSnapshot, reloadGeneration]);
 
   const shouldProtectLeave =
     activity === "dirty" || activity === "checking" || activity === "needs_revision";

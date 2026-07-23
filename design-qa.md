@@ -152,10 +152,10 @@ final result: passed (Phase 1 preview only)
 
 ## FE-02 production Study integration — 2026-07-23
 
-Control status: `CTL-A06a REVIEW · P3 FOLLOW-UPS ACCEPTED · NOT DONE`.
-Independent code review has closed all P1/P2 findings. Real Tauri route/function
-acceptance and production fixture cleanup remain required before `DONE` or any
-higher-Gate claim.
+Control status: `CTL-A06a REVIEW · TAURI MATRIX DEFERRED TO PRE-ART GATE · NOT DONE`.
+Independent code review has closed all P1/P2 findings. Production fixture cleanup
+is complete. Real Tauri route/function acceptance remains required before `DONE`
+or any higher-Gate claim and will run once after the pre-art frontend is complete.
 Review scope and exit format are defined in
 `docs/superpowers/handoffs/2026-07-23-v0.5.0-study-desk-production-review.md`.
 
@@ -204,6 +204,6 @@ Review scope and exit format are defined in
 - Core quiz contract: `11 passed`; Desktop Study HTTP routes: `12 passed`; Rust Study bridge: `15 passed / 0 failed`.
 - Web lint and production build passed; `/__dev/desk` remains absent from the production bundle.
 - Real Tauri manual acceptance remains pending. The latest start attempt stopped during ignored-runtime synchronization after `1168 / 3658` files and never opened the application window; the next attempt must let synchronization finish. No manual route, five-question-type, restart, native 200%, or failure-injection claim is made here.
-- [P3, accepted follow-up] Production removes the `/__dev/desk` route, but the fixed fixture answer remains in the production `StudyRoute` chunk and still requires cleanup.
+- [P3, closed 2026-07-24] `DeskScene` now requires a production adapter. The fixture adapter, fixture snapshots, fixture course IDs, and fixed completed answer live only behind the DEV preview module. `npm run build` scans all production JavaScript assets and fails if these markers or `/__dev/desk` leak back into the bundle.
 
-final result: accepted for REVIEW (P3 follow-ups block DONE and higher Gates)
+final result: accepted for continued pre-art frontend development (the deferred real Tauri matrix blocks DONE and higher Gates)

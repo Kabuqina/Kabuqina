@@ -5,7 +5,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DeskAdapter } from "./deskAdapter";
-import { deskFixtureData, needsRevisionResult } from "./deskFixtures";
+import { completedResult, deskFixtureData, needsRevisionResult } from "./deskFixtures";
 import DeskScene from "./DeskScene";
 
 function createAdapter(overrides: Partial<DeskAdapter> = {}): DeskAdapter {
@@ -68,9 +68,18 @@ describe("DeskScene FE-01 preview", () => {
   });
 
   it("supports deterministic completed-state capture and advances to the next step", async () => {
-    window.history.replaceState({}, "", "/?fixture=f1");
     const user = userEvent.setup();
-    render(<DeskScene adapter={createAdapter()} />);
+    render(
+      <DeskScene
+        adapter={createAdapter()}
+        initialSnapshot={{
+          density: "focused",
+          activity: "completed",
+          answer: "代入后得到 0/0。0/0 是未定式，不是极限值，所以还需要继续分析并做等价变形。",
+          checkResult: completedResult,
+        }}
+      />,
+    );
 
     expect(await screen.findByRole("heading", { name: "页边批注 · 本步完成" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "继续下一步" }));
