@@ -156,10 +156,44 @@ function Test-RecentCompletedBundle {
         return $false
     }
 
+    # A -Verify invocation may only reuse a bundle whose success marker was
+    # written after the verification phase. Older markers (and pre-fix failed
+    # runs) have no ``verified`` property and must rebuild.
+    if ($Verify) {
+        $verifiedProperty = $info.PSObject.Properties["verified"]
+        if ($null -eq $verifiedProperty -or $verifiedProperty.Value -ne $true) {
+            return $false
+        }
+    }
+
     $ageMinutes = ([DateTimeOffset]::UtcNow - $builtAt.ToUniversalTime()).TotalMinutes
     if ($ageMinutes -lt 0 -or $ageMinutes -gt 30) { return $false }
 
     return $true
+}
+
+function Remove-BundlePathStrict {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+        [string]$Label = "bundle path"
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) { return }
+
+    $lastError = $null
+    for ($attempt = 1; $attempt -le 6; $attempt++) {
+        try {
+            Remove-Item -Recurse -Force -LiteralPath $Path -ErrorAction Stop
+        } catch {
+            $lastError = $_
+        }
+        if (-not (Test-Path -LiteralPath $Path)) { return }
+        Start-Sleep -Milliseconds 500
+    }
+
+    $detail = if ($null -ne $lastError) { $lastError.Exception.Message } else { "path still exists" }
+    throw "Cannot remove stale $Label at $Path. Close any process using the runtime and retry. Last error: $detail"
 }
 
 function Invoke-BundleSuccessPause {
@@ -176,6 +210,12 @@ if (-not $Clean -and -not $Force -and (Test-RecentCompletedBundle -Runtime $Dist
     Write-Host "[bundle] Pass -Force or -Clean to rebuild anyway." -ForegroundColor Yellow
     exit 0
 }
+
+# A previous failed -Verify run must never leave a success sentinel that makes
+# the next invocation look complete. The marker is recreated only after every
+# requested verifier succeeds.
+$bundleInfoPath = Join-Path $Dist "BUNDLE_INFO.json"
+Remove-BundlePathStrict -Path $bundleInfoPath -Label "bundle success marker"
 
 if ($Clean) {
     Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $BuildDir, $Dist
@@ -232,9 +272,17 @@ Remove-Item -Force -ErrorAction SilentlyContinue `
 # ------------------------------------------------------------------ 3. Prune the owned core into the bundle
 $bundledCore = Join-Path $Dist "kabuqina"
 $legacyBundledCore = Join-Path $Dist "hermes"
-Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $legacyBundledCore
-Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $bundledCore
+Remove-BundlePathStrict -Path $legacyBundledCore -Label "legacy bundled core"
+Remove-BundlePathStrict -Path $bundledCore -Label "bundled core"
 New-Item -ItemType Directory -Force -Path $bundledCore | Out-Null
+
+# Root-level workers removed from source do not live under the bundled core,
+# so replacing ``runtime/kabuqina`` cannot retire them.
+foreach ($retiredRootPath in @("feishu_qr_worker.py")) {
+    Remove-BundlePathStrict `
+        -Path (Join-Path $Dist $retiredRootPath) `
+        -Label "retired runtime artifact"
+}
 
 # Files / directories we copy.
 $keep = @(
@@ -282,6 +330,7 @@ $drop = @(
     # retained mainland adapters (weixin, qqbot, wecom).
     "gateway\platforms\api_server.py",
     "gateway\platforms\bluebubbles.py",
+    "gateway\platforms\discord.py",
     "gateway\platforms\feishu.py",
     "gateway\platforms\feishu_comment.py",
     "gateway\platforms\feishu_comment_rules.py",
@@ -298,6 +347,7 @@ $drop = @(
     "gateway\platforms\yuanbao_proto.py",
     "gateway\platforms\yuanbao_sticker.py",
     # Keep tools/environments/file_sync.py — ssh/modal/daytona import it; dropping it breaks agent init.
+    "tools\discord_tool.py",
     "tools\rl_training_tool.py",
     "tools\feishu_doc_tool.py",
     "tools\feishu_drive_tool.py",
@@ -319,7 +369,7 @@ $drop = @(
 )
 foreach ($d in $drop) {
     $f = Join-Path $bundledCore $d
-    if (Test-Path $f) { Remove-Item -Force -Recurse -LiteralPath $f }
+    Remove-BundlePathStrict -Path $f -Label "retired bundled-core artifact"
 }
 
 # Prevent implicit namespace package causing subthread import failures
@@ -658,22 +708,6 @@ Write-Host "STT binaries staged at $SttBinDir" -ForegroundColor DarkGray
 
 Remove-BundleGeneratedJunk -RootPath $Dist
 
-# ------------------------------------------------------------------ 7. Bundle metadata
-$info = @{
-    pythonVersion  = $PythonVersion
-    pbsRelease     = $PbsRelease
-    builtAt        = (Get-Date).ToString("o")
-    frozenCommit   = "90b304b7c (v2026.4.23 — frozen upstream snapshot)"
-    bundleSizeMb   = [math]::Round(((Get-ChildItem -Recurse $Dist | Measure-Object Length -Sum).Sum / 1MB), 1)
-}
-$info | ConvertTo-Json | Set-Content -Path (Join-Path $Dist "BUNDLE_INFO.json") -Encoding UTF8
-
-Write-Host ""
-Write-Host "Bundle ready at $Dist  ($($info.bundleSizeMb) MB)" -ForegroundColor Green
-if (-not $Verify) {
-    Invoke-BundleSuccessPause
-}
-
 # ------------------------------------------------------------------ 8. Verify
 if ($Verify) {
     Write-Host "`n--- Smoke test ---" -ForegroundColor Cyan
@@ -754,5 +788,21 @@ if ($Verify) {
         }
     }
     Write-Host "STT binaries OK" -ForegroundColor Green
-    Invoke-BundleSuccessPause
 }
+
+# ------------------------------------------------------------------ success metadata
+# Write this only after all requested verifiers pass. Test-RecentCompletedBundle
+# treats BUNDLE_INFO.json as the completed-build sentinel.
+$info = @{
+    pythonVersion  = $PythonVersion
+    pbsRelease     = $PbsRelease
+    builtAt        = (Get-Date).ToString("o")
+    verified       = [bool]$Verify
+    frozenCommit   = "90b304b7c (v2026.4.23 — frozen upstream snapshot)"
+    bundleSizeMb   = [math]::Round(((Get-ChildItem -Recurse $Dist | Measure-Object Length -Sum).Sum / 1MB), 1)
+}
+$info | ConvertTo-Json | Set-Content -Path $bundleInfoPath -Encoding UTF8
+
+Write-Host ""
+Write-Host "Bundle ready at $Dist  ($($info.bundleSizeMb) MB)" -ForegroundColor Green
+Invoke-BundleSuccessPause

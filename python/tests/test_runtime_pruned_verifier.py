@@ -182,6 +182,10 @@ class RuntimePrunedVerifierTests(unittest.TestCase):
             'Join-Path $PSScriptRoot "src\\feishu_qr_worker.py"',
             build_script,
         )
+        self.assertIn(
+            'foreach ($retiredRootPath in @("feishu_qr_worker.py"))',
+            build_script,
+        )
 
     def test_lark_dependency_is_absent_from_desktop_core_and_lock(self):
         sources = (

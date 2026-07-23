@@ -29,6 +29,8 @@ class BuildBundleConsoleContractTests(unittest.TestCase):
 
         self.assertIn("[switch]$Force", text)
         self.assertIn("Test-BundleSentinels", text)
+        self.assertIn('$info.PSObject.Properties["verified"]', text)
+        self.assertIn("verified       = [bool]$Verify", text)
         self.assertIn("Skipping immediate duplicate bundle run", text)
         self.assertIn("Pass -Force or -Clean", text)
         self.assertNotIn("Test-BundleSourcesNewerThan", text)
@@ -48,6 +50,33 @@ class BuildBundleConsoleContractTests(unittest.TestCase):
         ready_line = 'Write-Host "Bundle ready at $Dist  ($($info.bundleSizeMb) MB)"'
         pause_call = "Invoke-BundleSuccessPause"
         self.assertLess(text.index(ready_line), text.rindex(pause_call))
+
+    def test_failed_verification_cannot_publish_or_reuse_success_marker(self):
+        text = (ROOT / "python" / "build_bundle.ps1").read_text(encoding="utf-8")
+
+        invalidate = (
+            'Remove-BundlePathStrict -Path $bundleInfoPath '
+            '-Label "bundle success marker"'
+        )
+        write_marker = (
+            "$info | ConvertTo-Json | "
+            "Set-Content -Path $bundleInfoPath -Encoding UTF8"
+        )
+
+        self.assertLess(text.index("Test-RecentCompletedBundle"), text.index(invalidate))
+        self.assertLess(text.index('Write-Host "STT binaries OK"'), text.index(write_marker))
+        self.assertLess(text.index(write_marker), text.index('Write-Host "Bundle ready at $Dist'))
+
+    def test_rebuild_strictly_replaces_core_and_retires_root_worker(self):
+        text = (ROOT / "python" / "build_bundle.ps1").read_text(encoding="utf-8")
+
+        self.assertIn(
+            'Remove-BundlePathStrict -Path $bundledCore -Label "bundled core"',
+            text,
+        )
+        self.assertIn('foreach ($retiredRootPath in @("feishu_qr_worker.py"))', text)
+        self.assertIn('"gateway\\platforms\\discord.py"', text)
+        self.assertIn('"gateway\\platforms\\feishu.py"', text)
 
 
 if __name__ == "__main__":
