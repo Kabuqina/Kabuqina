@@ -122,8 +122,11 @@ def expand_cron_default_deliver(current_deliver: Optional[str]) -> str:
 
     Product decision (Q2: smart default): if the agent doesn't explicitly
     target a remote platform, fan-out to desktop AND every messaging channel
-    the user has configured a home channel for (Weixin, Feishu, WeCom, ...).
-    The user can still narrow it: ``deliver="feishu"`` is respected as-is.
+    the user has configured a profile-allowed home channel for (Weixin,
+    WeCom, ...). An explicit legacy removed target such as
+    ``deliver="feishu"`` is preserved as-is at this compatibility boundary so
+    downstream removed-platform policy can fail it closed; it is never
+    rerouted to a retained channel.
 
     Triggers expansion when ``current_deliver`` is one of:
       - ``None`` / empty string  (agent didn't specify)
@@ -164,9 +167,9 @@ def expand_cron_default_deliver(current_deliver: Optional[str]) -> str:
 def _extract_platform(target: str) -> str:
     """Extract the platform portion from a target string.
 
-    ``feishu:#channel`` → ``feishu``
+    ``weixin:contact``    → ``weixin``
     ``desktop``           → ``desktop``
-    ``feishu:oc_xxx``    → ``feishu``
+    ``feishu:oc_xxx``     → ``feishu`` (legacy removed target, fail closed later)
     """
     t = (target or "").strip()
     if not t:

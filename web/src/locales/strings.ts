@@ -547,7 +547,7 @@ export const MESSAGES = {
       },
       gateway: {
         title: "消息平台",
-        lead: "想让我接微信或飞书，就在这里选。",
+        lead: "按当前地区版本选择可用的消息平台。",
       },
       tools: {
         title: "联网工具",
@@ -736,7 +736,7 @@ export const MESSAGES = {
       },
       gatewayTitle: "消息网关",
       platformTitle: "消息平台",
-      gatewayLead: "连接微信、飞书等平台收发消息。",
+      gatewayLead: "连接当前产品版本支持的消息平台收发消息。",
       gatewayOpenKeys: "打开控制台 Keys（/env）",
       gatewayAuto: "自动启动消息网关",
       gatewayStart: "启动网关",

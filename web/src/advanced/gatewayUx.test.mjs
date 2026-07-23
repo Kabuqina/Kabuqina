@@ -23,6 +23,10 @@ const platformEnvStatusSource = fs.readFileSync(
   new URL("../onboarding/hooks/usePlatformEnvStatus.ts", import.meta.url),
   "utf8",
 );
+const localeStringsSource = fs.readFileSync(
+  new URL("../locales/strings.ts", import.meta.url),
+  "utf8",
+);
 const weixinSource = fs.readFileSync(
   new URL("../components/WeixinQrRouteCBlock.tsx", import.meta.url),
   "utf8",
@@ -68,10 +72,11 @@ for (const [source, label] of [
   [gatewayRegistrySource, "gateway settings registry"],
   [configModalSource, "onboarding config modal"],
   [platformEnvStatusSource, "onboarding env-status hook"],
+  [localeStringsSource, "visible locale copy"],
 ]) {
   assert.doesNotMatch(
     source,
-    /feishu|lark|FEISHU_/i,
+    /feishu|飞书|lark|FEISHU_/i,
     `The ${label} must not expose Feishu configuration or commands.`,
   );
 }
