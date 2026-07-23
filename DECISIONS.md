@@ -1088,3 +1088,11 @@ profiles, QR/comment state, sessions, jobs, channel-directory records and home
 targets are not deleted. A fresh `build_bundle.ps1 -Verify` run remains a
 mandatory operator-provided Gate artifact before C03b review/sign-off; CTL-C05,
 C07 and G01 retain their separate closeout responsibilities.
+
+C03b also freezes the bundle-completion contract: an in-place rebuild must
+strictly replace the bundled Core and explicitly remove retired root artifacts
+instead of merging over stale files. `BUNDLE_INFO.json` is the success
+sentinel, is invalidated before mutation, carries `verified: true` only for a
+successful `-Verify` run, and is written after pruning, runtime/profile/legacy
+imports and STT executable checks pass. A failed verifier must never print or
+leave a reusable completed-bundle marker.
