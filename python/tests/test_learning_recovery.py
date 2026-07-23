@@ -243,6 +243,16 @@ class LearningRecoveryEntrypointTests(unittest.TestCase):
         self.assertNotEqual(process.returncode, 0)
         return ready
 
+    def test_desktop_wires_recovery_before_port_handshake(self):
+        source = (ROOT / "python" / "src" / "desktop_entrypoint.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertLess(
+            source.index("recover_learning_operations_once()"),
+            source.index("_write_handshake(port)"),
+        )
+        self.assertIn("_learning_recovery_runner.start()", source)
+
     def test_delete_restart_entrypoint_recovers_every_durable_phase(self):
         for phase in ("fenced", "learning_deleted", "runtime_deleted", "compacted"):
             with self.subTest(phase=phase):
