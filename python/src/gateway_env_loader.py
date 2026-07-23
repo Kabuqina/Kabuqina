@@ -5,7 +5,7 @@
 
 ``gateway.run`` loads dotenv at import time. The **web child** (cron ticker,
 ``send_message_tool`` standalone sends) must do the same or **every** remote
-bot delivery fails the same way — missing ``WEIXIN_*`` / ``FEISHU_*`` in
+bot delivery fails the same way — missing platform credentials in
 ``os.environ``, unresolved ``*_HOME_CHANNEL``, and (for httpx-based platforms)
 network-allowlist blocks on API hosts.
 """

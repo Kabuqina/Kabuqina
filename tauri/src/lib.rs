@@ -26,8 +26,6 @@ mod dingtalk_env;
 mod edge_browser;
 mod email_env;
 mod email_oauth;
-mod feishu_env;
-mod feishu_qr;
 mod gateway_env_patch;
 mod gateway_supervisor;
 mod pairing;
@@ -72,8 +70,6 @@ pub struct AppState {
     pub weixin_qr_child: Arc<Mutex<Option<tokio::process::Child>>>,
     /// Optional QQ Bot QR login child (`qqbot_qr_worker.py`); separate from the long-lived Hermes process.
     pub qqbot_qr_child: Arc<Mutex<Option<tokio::process::Child>>>,
-    /// Optional Feishu / Lark QR login child (`feishu_qr_worker.py`); separate from the long-lived Hermes process.
-    pub feishu_qr_child: Arc<Mutex<Option<tokio::process::Child>>>,
     /// Optional WeCom QR login child (`wecom_qr_worker.py`); separate from the long-lived Hermes process.
     pub wecom_qr_child: Arc<Mutex<Option<tokio::process::Child>>>,
     pub bridge_addr: Arc<Mutex<Option<std::net::SocketAddr>>>,
@@ -111,7 +107,6 @@ pub fn run() {
         gateway_supervisor: Arc::new(Mutex::new(None)),
         weixin_qr_child: Arc::new(Mutex::new(None)),
         qqbot_qr_child: Arc::new(Mutex::new(None)),
-        feishu_qr_child: Arc::new(Mutex::new(None)),
         wecom_qr_child: Arc::new(Mutex::new(None)),
         bridge_addr: bridge_addr.clone(),
         bridge_secret_url: Arc::new(Mutex::new(None)),
@@ -202,13 +197,11 @@ pub fn run() {
             weixin_qr::cmd_weixin_qr_status,
             weixin_qr::cmd_weixin_env_status,
             qq_env::cmd_qq_env_status,
-            feishu_env::cmd_feishu_env_status,
             telegram_env::cmd_telegram_env_status,
             telegram_env::cmd_telegram_save_token,
             telegram_env::cmd_telegram_remove_config,
             weixin_qr::cmd_weixin_env_remove,
             qq_env::cmd_qq_env_remove,
-            feishu_env::cmd_feishu_env_remove,
             dingtalk_env::cmd_dingtalk_env_status,
             dingtalk_env::cmd_dingtalk_env_remove,
             dingtalk_env::cmd_dingtalk_save_config,
@@ -229,9 +222,6 @@ pub fn run() {
             qqbot_qr::cmd_qqbot_qr_start,
             qqbot_qr::cmd_qqbot_qr_status,
             qqbot_qr::cmd_qqbot_qr_cancel,
-            feishu_qr::cmd_feishu_qr_start,
-            feishu_qr::cmd_feishu_qr_status,
-            feishu_qr::cmd_feishu_qr_cancel,
             gateway_env_patch::cmd_gateway_host_env_get,
             gateway_env_patch::cmd_gateway_host_env_patch,
             pairing::cmd_pairing_list,
@@ -326,7 +316,6 @@ pub fn run() {
                 let gateway = state.gateway_supervisor.clone();
                 let weixin_qr = state.weixin_qr_child.clone();
                 let qqbot_qr = state.qqbot_qr_child.clone();
-                let feishu_qr = state.feishu_qr_child.clone();
                 let last_pid = state.python_child_pid.lock().ok().and_then(|g| *g);
                 std::mem::drop(state);
                 let sup_lock = supervisor.try_lock();
@@ -352,12 +341,6 @@ pub fn run() {
                 let qq_lock = qqbot_qr.try_lock();
                 if let Ok(mut qq) = qq_lock {
                     if let Some(mut c) = qq.take() {
-                        let _ = c.start_kill();
-                    }
-                }
-                let fq_lock = feishu_qr.try_lock();
-                if let Ok(mut fq) = fq_lock {
-                    if let Some(mut c) = fq.take() {
                         let _ = c.start_kill();
                     }
                 }

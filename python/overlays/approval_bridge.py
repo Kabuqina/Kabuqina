@@ -16,7 +16,7 @@ clicks Allow / Deny in a native Tauri WebView dialog.
 Since the HermesDesk scheduled-tasks feature, this overlay ALSO wraps
 ``send_message_tool`` and ``cronjob`` so that:
 
-  - Remote sends (feishu, weixin, …) show a Tauri approval dialog (standard user).
+  - Remote sends (weixin, qqbot, …) show a Tauri approval dialog (standard user).
   - Cron job creation shows a Tauri approval dialog (standard user).
   - Desktop-local sends and cron-triggered delivery skip the dialog.
 

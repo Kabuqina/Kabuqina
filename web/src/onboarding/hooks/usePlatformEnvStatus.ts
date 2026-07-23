@@ -6,13 +6,11 @@ import { invoke } from "@tauri-apps/api/core";
 import type { SetupCatalogOption } from "../setupCatalog/optionTypes";
 import type { WeixinEnvSnapshot } from "../../components/WeixinQrRouteCBlock";
 import type { QqEnvSnapshot } from "../../components/QqbotQrRouteBlock";
-import type { FeishuEnvSnapshot } from "../../components/FeishuQrRouteBlock";
 import type { WeComEnvSnapshot } from "../../components/WeComSettingsBlock";
 
 export function usePlatformEnvStatus(items: SetupCatalogOption[]) {
   const [weixinEnv, setWeixinEnv] = useState<WeixinEnvSnapshot | null>(null);
   const [qqEnv, setQqEnv] = useState<QqEnvSnapshot | null>(null);
-  const [feishuEnv, setFeishuEnv] = useState<FeishuEnvSnapshot | null>(null);
   const [wecomEnv, setWecomEnv] = useState<WeComEnvSnapshot | null>(null);
 
   useEffect(() => {
@@ -28,16 +26,10 @@ export function usePlatformEnvStatus(items: SetupCatalogOption[]) {
   }, [items]);
 
   useEffect(() => {
-    if (items.some((r) => r.configUi === "feishu_route_c")) {
-      invoke<FeishuEnvSnapshot>("cmd_feishu_env_status").then(setFeishuEnv).catch(() => setFeishuEnv(null));
-    }
-  }, [items]);
-
-  useEffect(() => {
     if (items.some((r) => r.configUi === "wecom_route_c")) {
       invoke<WeComEnvSnapshot>("cmd_wecom_env_status").then(setWecomEnv).catch(() => setWecomEnv(null));
     }
   }, [items]);
 
-  return { weixinEnv, qqEnv, feishuEnv, wecomEnv } as const;
+  return { weixinEnv, qqEnv, wecomEnv } as const;
 }

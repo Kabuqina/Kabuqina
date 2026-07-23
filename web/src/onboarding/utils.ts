@@ -6,7 +6,6 @@ import type { LocaleKey, Localized } from "./setupCatalog/optionTypes";
 const ROUTE_C_UIS = new Set([
   "weixin_route_c",
   "qqbot_route_c",
-  "feishu_route_c",
   "wecom_route_c",
 ]);
 

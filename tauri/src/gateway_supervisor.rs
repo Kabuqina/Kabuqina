@@ -343,15 +343,6 @@ pub struct QqEnvSnapshot {
 
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct FeishuEnvSnapshot {
-    pub configured: bool,
-    pub has_app_id: bool,
-    pub has_app_secret: bool,
-    pub app_id_hint: Option<String>,
-}
-
-#[derive(Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
 pub struct TelegramEnvSnapshot {
     pub configured: bool,
     pub has_bot_token: bool,
@@ -455,26 +446,6 @@ pub fn read_qq_env_snapshot(home: &Path) -> QqEnvSnapshot {
         configured,
         has_app_id,
         has_client_secret,
-        app_id_hint,
-    }
-}
-
-pub fn read_feishu_env_snapshot(home: &Path) -> FeishuEnvSnapshot {
-    let keys = parse_dotenv_upper(home);
-    let app_id = keys.get("FEISHU_APP_ID").cloned();
-    let has_app_secret = keys
-        .get("FEISHU_APP_SECRET")
-        .map(|s| !s.is_empty())
-        .unwrap_or(false);
-    let has_app_id = app_id.as_ref().map(|s| !s.is_empty()).unwrap_or(false);
-    let configured = has_app_id && has_app_secret;
-    let app_id_hint = app_id
-        .map(|id| qq_app_id_display_hint(&id))
-        .filter(|s| !s.is_empty());
-    FeishuEnvSnapshot {
-        configured,
-        has_app_id,
-        has_app_secret,
         app_id_hint,
     }
 }
@@ -1088,8 +1059,8 @@ impl Drop for GatewaySupervisor {
 // ---------------------------------------------------------------------------
 
 /// Env key prefixes copied from the host ``.env`` into a platform profile.
-/// Any host key starting with one of these prefixes is included (so Settings
-/// can persist behavior keys like ``FEISHU_CONNECTION_MODE`` alongside creds).
+/// Any host key starting with one of these prefixes is included so Settings
+/// can persist behavior keys alongside credentials.
 fn platform_env_prefixes(platform: &str) -> &'static [&'static str] {
     match platform {
         "telegram" => &["TELEGRAM_"],

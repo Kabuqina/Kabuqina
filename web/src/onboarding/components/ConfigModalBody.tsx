@@ -3,7 +3,6 @@
 
 import { WeixinQrRouteCBlock } from "../../components/WeixinQrRouteCBlock";
 import { QqbotQrRouteBlock } from "../../components/QqbotQrRouteBlock";
-import { FeishuQrRouteBlock } from "../../components/FeishuQrRouteBlock";
 import { WeComSettingsBlock } from "../../components/WeComSettingsBlock";
 import { getDraftSnapshot, updateDraft } from "../../lib/store";
 import { useI18n } from "../../lib/i18n";
@@ -77,41 +76,6 @@ export function ConfigModalBody({ editing, section, loc, form, setForm, onClose,
                 [section]: {
                   ...prevSec,
                   [editing.id]: { ...slice, QQ_APP_ID: appId },
-                },
-              },
-            });
-          }}
-        />
-        <div className="flex flex-wrap justify-end gap-2 border-t border-[var(--kq-color-border)] pt-4">
-          <button
-            type="button"
-            className="kq-btn-secondary rounded-[var(--radius-shell-lg)] px-4 py-2 text-sm"
-            onClick={onClose}
-          >
-            {t("setupOptions.cancelConfig")}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (editing.configUi === "feishu_route_c") {
-    return (
-      <div className="space-y-4">
-        <p className="text-xs leading-relaxed text-[var(--kq-color-muted)]">{t("settings.feishuLead")}</p>
-        <FeishuQrRouteBlock
-          key={editing.id}
-          onSuccess={({ appId }) => {
-            const d = getDraftSnapshot();
-            const w = d.wizardConfig ?? {};
-            const prevSec = w[section] ?? {};
-            const slice = getSlice(w, section, editing.id);
-            updateDraft({
-              wizardConfig: {
-                ...w,
-                [section]: {
-                  ...prevSec,
-                  [editing.id]: { ...slice, FEISHU_APP_ID: appId },
                 },
               },
             });

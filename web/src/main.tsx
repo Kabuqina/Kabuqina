@@ -16,7 +16,6 @@ import { Settings } from "./advanced/Settings";
 import { Export } from "./advanced/Export";
 import { Splash } from "./Splash";
 import { ChatPage } from "./chat/ChatPage";
-import { FeishuPage } from "./advanced/pages/FeishuPage";
 import { CapabilitiesPage } from "./advanced/pages/CapabilitiesPage";
 import { LoadPackagesPage } from "./advanced/pages/LoadPackagesPage";
 import { QqPage } from "./advanced/pages/QqPage";
@@ -89,7 +88,6 @@ function MainWindowShell() {
               <Route path="/settings/load-packages" element={<LoadPackagesPage />} />
               <Route path="/capabilities" element={<CapabilitiesPage />} />
               <Route path="/export" element={<Export />} />
-              <Route path="/settings/feishu" element={<PlatformRouteGuard platform="feishu"><FeishuPage /></PlatformRouteGuard>} />
               <Route path="/settings/qq" element={<PlatformRouteGuard platform="qqbot"><QqPage /></PlatformRouteGuard>} />
               <Route path="/settings/weixin" element={<PlatformRouteGuard platform="weixin"><WeixinPage /></PlatformRouteGuard>} />
               <Route path="/settings/wecom" element={<PlatformRouteGuard platform="wecom"><WeComPage /></PlatformRouteGuard>} />

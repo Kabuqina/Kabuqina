@@ -10,6 +10,19 @@ const settingsGatewaySource = fs.readFileSync(
   new URL("./settings/SettingsGateway.tsx", import.meta.url),
   "utf8",
 );
+const mainSource = fs.readFileSync(new URL("../main.tsx", import.meta.url), "utf8");
+const gatewayRegistrySource = fs.readFileSync(
+  new URL("../lib/gatewayPlatformSettingsRegistry.ts", import.meta.url),
+  "utf8",
+);
+const configModalSource = fs.readFileSync(
+  new URL("../onboarding/components/ConfigModalBody.tsx", import.meta.url),
+  "utf8",
+);
+const platformEnvStatusSource = fs.readFileSync(
+  new URL("../onboarding/hooks/usePlatformEnvStatus.ts", import.meta.url),
+  "utf8",
+);
 const weixinSource = fs.readFileSync(
   new URL("../components/WeixinQrRouteCBlock.tsx", import.meta.url),
   "utf8",
@@ -44,6 +57,35 @@ assert.doesNotMatch(
   /platformItems\s*=\s*\[[\s\S]*(feishu|wecom|discord|slack)[\s\S]*\]/i,
   "Gateway navigation must not contain removed platform entries.",
 );
+
+assert.doesNotMatch(
+  mainSource,
+  /FeishuPage|settings\/feishu/,
+  "The removed Feishu settings route must not remain reachable.",
+);
+
+for (const [source, label] of [
+  [gatewayRegistrySource, "gateway settings registry"],
+  [configModalSource, "onboarding config modal"],
+  [platformEnvStatusSource, "onboarding env-status hook"],
+]) {
+  assert.doesNotMatch(
+    source,
+    /feishu|lark|FEISHU_/i,
+    `The ${label} must not expose Feishu configuration or commands.`,
+  );
+}
+
+for (const relativePath of [
+  "../components/FeishuQrRouteBlock.tsx",
+  "./pages/FeishuPage.tsx",
+]) {
+  assert.equal(
+    fs.existsSync(new URL(relativePath, import.meta.url)),
+    false,
+    `${relativePath} must be physically absent.`,
+  );
+}
 
 assert.match(
   settingsGatewaySource,

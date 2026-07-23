@@ -5,7 +5,7 @@ Vite + React app embedded in the Tauri shell. Routes (`main.tsx`):
 - **`/`** — Splash (routes to onboarding or **`/chat`**)
 - **`/onboarding/*`** — Wizard (minimal LLM path + optional messaging sections)
 - **`/chat`** — Shell chat (Tauri `invoke` → Hermes loopback — see `src/chat/`)
-- **`/settings`** — Power user, proxy, messaging gateway, Telegram / Feishu / QQ / Weixin blocks, pairing
+- **`/settings`** — Power user, proxy, messaging gateway, Telegram / DingTalk / QQ / Weixin blocks, pairing
 
 Opening the **full Hermes dashboard** uses `window.location.replace` (or equivalent navigation) to `http://127.0.0.1:<port>/` — that UI is built from **`hermes/web`** and shipped inside the Python bundle; styling may be trimmed via overlays in `desktop_entrypoint.py`.
 
