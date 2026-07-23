@@ -6,6 +6,7 @@
 use crate::chat::DeskBridgeError;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
+use std::collections::HashSet;
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -484,6 +485,40 @@ fn canonical_bundle_value(value: &Value) -> Result<Value, DeskBridgeError> {
             Ok(Value::Object(normalized))
         }
     }
+}
+
+fn validate_quiz_item_ids(item_ids: Option<&[String]>) -> Result<(), DeskBridgeError> {
+    let Some(ids) = item_ids else {
+        return Ok(());
+    };
+    if ids.is_empty() {
+        return Err(DeskBridgeError::invalid(
+            "study_invalid_request",
+            "itemIds must not be empty",
+        ));
+    }
+    let mut seen = HashSet::with_capacity(ids.len());
+    for item_id in ids {
+        validate_structured_id(item_id)?;
+        if !seen.insert(item_id.as_str()) {
+            return Err(DeskBridgeError::invalid(
+                "study_invalid_request",
+                "itemIds must not contain duplicates",
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn quiz_submit_body(space_id: String, responses: Value, item_ids: Option<Vec<String>>) -> Value {
+    let mut body = json!({
+        "space_id": space_id,
+        "responses": responses,
+    });
+    if let Some(ids) = item_ids {
+        body["item_ids"] = json!(ids);
+    }
+    body
 }
 
 fn canonical_bundle_bytes(bundle: &Value) -> Result<Vec<u8>, DeskBridgeError> {
@@ -1017,14 +1052,16 @@ pub async fn cmd_study_quiz_submit(
     space_id: String,
     artifact_id: String,
     responses: Value,
+    item_ids: Option<Vec<String>>,
 ) -> Result<Value, DeskBridgeError> {
     validate_structured_id(&space_id)?;
     validate_structured_id(&artifact_id)?;
+    validate_quiz_item_ids(item_ids.as_deref())?;
     crate::chat::desk_json_request_structured(
         &app,
         reqwest::Method::POST,
         &format!("/api/desk/study/quizzes/{artifact_id}/submit"),
-        Some(json!({ "space_id": space_id, "responses": responses })),
+        Some(quiz_submit_body(space_id, responses, item_ids)),
     )
     .await
 }
@@ -1130,6 +1167,31 @@ mod tests {
         assert_eq!(error.status, Some(400));
         assert_eq!(error.code, "invalid_study_id");
         assert_eq!(error.detail, "invalid study id");
+    }
+
+    #[test]
+    fn quiz_item_ids_reject_empty_and_duplicate_lists() {
+        assert!(validate_quiz_item_ids(None).is_ok());
+        assert!(validate_quiz_item_ids(Some(&[])).is_err());
+        let valid = vec!["question-1".to_string(), "question-2".to_string()];
+        assert!(validate_quiz_item_ids(Some(&valid)).is_ok());
+        let duplicate = vec!["question-1".to_string(), "question-1".to_string()];
+        let error = validate_quiz_item_ids(Some(&duplicate)).unwrap_err();
+        assert_eq!(error.status, Some(400));
+        assert_eq!(error.code, "study_invalid_request");
+    }
+
+    #[test]
+    fn quiz_submit_body_omits_default_subset_and_serializes_explicit_ids() {
+        let full = quiz_submit_body("space-1".to_string(), json!({"q": {}}), None);
+        assert!(full.get("item_ids").is_none());
+
+        let subset = quiz_submit_body(
+            "space-1".to_string(),
+            json!({"q": {}}),
+            Some(vec!["question-1".to_string()]),
+        );
+        assert_eq!(subset["item_ids"], json!(["question-1"]));
     }
 
     #[test]

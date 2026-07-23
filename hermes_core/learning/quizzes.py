@@ -256,7 +256,13 @@ class QuizService:
         )
         return [self._question_from_item(row, include_answers=include_answers) for row in rows]
 
-    def submit_attempt(self, artifact_id: str, responses: Dict[str, Any]) -> Dict[str, Any]:
+    def submit_attempt(
+        self,
+        artifact_id: str,
+        responses: Dict[str, Any],
+        *,
+        item_ids: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
         artifact = self._require_quiz(artifact_id)
         if artifact["status"] != "active":
             raise ValueError("quiz is not active")
@@ -264,6 +270,25 @@ class QuizService:
             responses = {}
 
         questions = self.list_questions(artifact_id=artifact_id, include_answers=True)
+        if item_ids is not None:
+            requested_list: List[str] = []
+            seen_requested: set[str] = set()
+            for item_id in item_ids:
+                if not isinstance(item_id, str) or not item_id.strip():
+                    raise ValueError("item_ids must name questions in this quiz")
+                normalized = item_id.strip()
+                if normalized in seen_requested:
+                    raise ValueError("item_ids must not contain duplicates")
+                seen_requested.add(normalized)
+                requested_list.append(normalized)
+            requested = set(requested_list)
+            available = {question["item_id"] for question in questions}
+            if not requested or not requested.issubset(available):
+                raise ValueError("item_ids must name questions in this quiz")
+            questions = [
+                question for question in questions
+                if question["item_id"] in requested
+            ]
         per_question: List[Dict[str, Any]] = []
         weak_tags: List[str] = []
         seen_weak: set[str] = set()

@@ -230,6 +230,39 @@ describe("StudyRepository", () => {
     expect(practiceSource).toHaveBeenCalledWith("space-b", "activity-1");
   });
 
+  it("preserves full-quiz submission while forwarding an explicit desk step subset", async () => {
+    const result = {
+      score: 0,
+      maxScore: 0,
+      percent: 0,
+      correctCount: 0,
+      total: 0,
+      perQuestion: [],
+    };
+    const quizSubmit = vi.fn().mockResolvedValue(result);
+    const repository = createStudyRepository({ quizSubmit });
+    const signal = new AbortController().signal;
+    const responses = { "question-1": { text: "answer" } };
+
+    await repository.submitQuiz("space-b", "quiz-1", responses, signal);
+    expect(quizSubmit).toHaveBeenNthCalledWith(1, "space-b", "quiz-1", responses);
+
+    await repository.submitQuiz(
+      "space-b",
+      "quiz-1",
+      responses,
+      signal,
+      ["question-1"],
+    );
+    expect(quizSubmit).toHaveBeenNthCalledWith(
+      2,
+      "space-b",
+      "quiz-1",
+      responses,
+      ["question-1"],
+    );
+  });
+
   it("degrades only unavailable practice sections instead of hiding ready quizzes", async () => {
     const repository = createStudyRepository({
       flashcards: vi.fn().mockRejectedValue(new Error("offline")),

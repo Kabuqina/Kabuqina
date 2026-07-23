@@ -177,6 +177,7 @@ export interface StudyRepository {
     artifactId: string,
     responses: unknown,
     signal: AbortSignal,
+    itemIds?: string[],
   ): Promise<StudyQuizResult>;
   generatePracticeDraft(
     spaceId: string,
@@ -544,8 +545,13 @@ export function createStudyRepository(commands: Partial<StudyCommands> = {}): St
     reviewFlashcard(spaceId, itemId, grade, signal) {
       return invokeWithSignal(signal, () => resolved.flashcardReview(spaceId, itemId, grade));
     },
-    submitQuiz(spaceId, artifactId, responses, signal) {
-      return invokeWithSignal(signal, () => resolved.quizSubmit(spaceId, artifactId, responses));
+    submitQuiz(spaceId, artifactId, responses, signal, itemIds) {
+      return invokeWithSignal(
+        signal,
+        () => itemIds
+          ? resolved.quizSubmit(spaceId, artifactId, responses, itemIds)
+          : resolved.quizSubmit(spaceId, artifactId, responses),
+      );
     },
     generatePracticeDraft(spaceId, artifactId, itemId, kind, signal) {
       return invokeWithSignal(signal, () => (

@@ -904,7 +904,19 @@ async def study_quiz_submit(artifact_id: str, body: Dict[str, Any]):
         space_id = _required_space_id(body)
         with _desktop_ctx(space_id=space_id) as ctx:
             responses = body.get("responses") if isinstance(body.get("responses"), dict) else {}
-            return _public_quiz_attempt(QuizService(ctx).submit_attempt(artifact_id, responses))
+            raw_item_ids = body.get("item_ids")
+            if raw_item_ids is not None and not (
+                isinstance(raw_item_ids, list)
+                and all(isinstance(item_id, str) for item_id in raw_item_ids)
+            ):
+                raise ValueError("item_ids must be a list of question ids")
+            return _public_quiz_attempt(
+                QuizService(ctx).submit_attempt(
+                    artifact_id,
+                    responses,
+                    item_ids=raw_item_ids,
+                )
+            )
     except (ValueError, KeyError, ContractError) as exc:
         raise _http_error(exc) from exc
 

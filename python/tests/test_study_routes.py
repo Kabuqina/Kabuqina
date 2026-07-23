@@ -246,6 +246,62 @@ def test_quiz_draft_activate_questions_and_submit_routes(study_client):
     assert all("answer" not in row and "accepted" not in row and "response" not in row for row in public_attempt)
 
 
+def test_quiz_submit_can_grade_one_step_without_marking_future_questions_wrong(study_client):
+    client, db_path = study_client
+    artifact_id = _seed_quiz_draft(db_path)
+    client.post(f"/api/desk/study/artifacts/{artifact_id}/activate", headers=_headers())
+    rows = client.get(
+        f"/api/desk/study/quizzes/{artifact_id}/questions?space_id=s1",
+        headers=_headers(),
+    ).json()["questions"]
+
+    submitted = client.post(
+        f"/api/desk/study/quizzes/{artifact_id}/submit",
+        json={
+            "space_id": "s1",
+            "responses": {rows[0]["item_id"]: {"selected": [1]}},
+            "item_ids": [rows[0]["item_id"]],
+        },
+        headers=_headers(),
+    )
+
+    assert submitted.status_code == 200
+    assert submitted.json()["total"] == 1
+    assert submitted.json()["correctCount"] == 1
+    assert [item["item_id"] for item in submitted.json()["perQuestion"]] == [
+        rows[0]["item_id"]
+    ]
+
+
+def test_quiz_submit_rejects_duplicate_step_ids_without_recording_activity(study_client):
+    client, db_path = study_client
+    artifact_id = _seed_quiz_draft(db_path)
+    client.post(f"/api/desk/study/artifacts/{artifact_id}/activate", headers=_headers())
+    question = client.get(
+        f"/api/desk/study/quizzes/{artifact_id}/questions?space_id=s1",
+        headers=_headers(),
+    ).json()["questions"][0]
+
+    submitted = client.post(
+        f"/api/desk/study/quizzes/{artifact_id}/submit",
+        json={
+            "space_id": "s1",
+            "responses": {question["item_id"]: {"selected": [1]}},
+            "item_ids": [question["item_id"], question["item_id"]],
+        },
+        headers=_headers(),
+    )
+
+    assert submitted.status_code == 400
+    assert submitted.json()["detail"]["code"] == "study_invalid_request"
+    activities = client.get(
+        "/api/desk/study/activities?space_id=s1",
+        headers=_headers(),
+    )
+    assert activities.status_code == 200
+    assert activities.json()["count"] == 0
+
+
 def test_practice_source_resolves_wrongbook_attempt_without_content(study_client):
     client, db_path = study_client
     artifact_id = _seed_quiz_draft(db_path)

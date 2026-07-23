@@ -492,8 +492,14 @@ export function cmdStudyQuizSubmit(
   spaceId: string,
   artifactId: string,
   responses: unknown,
+  itemIds?: string[],
 ): Promise<StudyQuizResult> {
-  return invoke("cmd_study_quiz_submit", { spaceId, artifactId, responses });
+  return invoke("cmd_study_quiz_submit", {
+    spaceId,
+    artifactId,
+    responses,
+    ...(itemIds ? { itemIds } : {}),
+  });
 }
 
 export function cmdStudyQuizGeneratePractice(

@@ -153,6 +153,59 @@ def test_submit_attempt_scores_deterministically_and_records_activity(ctx):
     assert activities[0]["detail"]["weakTags"] == ["prime"]
 
 
+def test_submit_attempt_can_check_one_question_without_grading_future_steps(ctx):
+    artifact_id = _draft_quiz(ctx)
+    service = QuizService(ctx, now=lambda: T0)
+    service.activate_quiz(artifact_id)
+    questions = service.list_questions()
+    target = questions[0]
+
+    result = service.submit_attempt(
+        artifact_id,
+        {target["item_id"]: {"selected": [1]}},
+        item_ids=[target["item_id"]],
+    )
+
+    assert result["score"] == 2
+    assert result["maxScore"] == 2
+    assert result["correctCount"] == 1
+    assert result["total"] == 1
+    assert result["weakTags"] == []
+    assert [item["item_id"] for item in result["perQuestion"]] == [target["item_id"]]
+
+    activities = ctx.list_activities()
+    assert len(activities) == 1
+    assert activities[0]["detail"]["total"] == 1
+    assert [item["item_id"] for item in activities[0]["detail"]["perQuestion"]] == [
+        target["item_id"]
+    ]
+
+
+def test_submit_attempt_rejects_unknown_target_question(ctx):
+    artifact_id = _draft_quiz(ctx)
+    service = QuizService(ctx, now=lambda: T0)
+    service.activate_quiz(artifact_id)
+
+    with pytest.raises(ValueError, match="item_ids"):
+        service.submit_attempt(artifact_id, {}, item_ids=["another-quiz-question"])
+
+
+def test_submit_attempt_rejects_duplicate_target_questions_without_activity(ctx):
+    artifact_id = _draft_quiz(ctx)
+    service = QuizService(ctx, now=lambda: T0)
+    service.activate_quiz(artifact_id)
+    target_id = service.list_questions()[0]["item_id"]
+
+    with pytest.raises(ValueError, match="duplicates"):
+        service.submit_attempt(
+            artifact_id,
+            {target_id: {"selected": [1]}},
+            item_ids=[target_id, target_id],
+        )
+
+    assert ctx.list_activities() == []
+
+
 def test_list_questions_can_include_answers_for_result_views(ctx):
     artifact_id = _draft_quiz(ctx)
     service = QuizService(ctx, now=lambda: T0)
