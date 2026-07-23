@@ -217,7 +217,20 @@ def _active_runtime_bundle(
     }
 
 
-def _terminal_runtime_bundle(template, *, count, prefix, outbox_per_run=0):
+def _terminal_event_id(owner_id, run):
+    identity = (
+        owner_id,
+        run["space_id"],
+        run["activity_kind"],
+        run["activity_id"],
+    )
+    return "tproj_" + hashlib.sha256("\x1f".join(identity).encode("utf-8")).hexdigest()
+
+
+def _terminal_runtime_bundle(
+    template, *, count, prefix, outbox_per_run=0, owner_id="owner-1"
+):
+    assert outbox_per_run in {0, 1}
     terminal_run = copy.deepcopy(template["runs"][0])
     terminal_event = copy.deepcopy(template["outbox"][0])
     runs = []
@@ -235,11 +248,11 @@ def _terminal_runtime_bundle(template, *, count, prefix, outbox_per_run=0):
             }
         )
         runs.append(run)
-        for event_index in range(outbox_per_run):
+        for _event_index in range(outbox_per_run):
             event = copy.deepcopy(terminal_event)
             event.update(
                 {
-                    "event_id": f"{prefix}-event-{index:04d}-{event_index:02d}",
+                    "event_id": _terminal_event_id(owner_id, run),
                     "activity_id": activity_id,
                 }
             )
@@ -444,6 +457,152 @@ def test_runtime_merge_conflict_rolls_back_whole_batch(service):
     assert service.coordinator.recover_operations() == ()
 
 
+@pytest.mark.parametrize(
+    ("mutation", "reason_code"),
+    [
+        (
+            lambda bundle: bundle["outbox"][0].update(
+                {"event_id": "tproj_" + "f" * 64}
+            ),
+            "runtime_outbox_event_id_mismatch",
+        ),
+        (
+            lambda bundle: bundle["outbox"][0].update(
+                {"event_type": "tutor.terminal.forged"}
+            ),
+            "runtime_outbox_event_type_mismatch",
+        ),
+        (
+            lambda bundle: bundle["outbox"][0]["payload"].update(
+                {"terminal_code": "provider_timeout"}
+            ),
+            "runtime_outbox_payload_mismatch",
+        ),
+        (
+            lambda bundle: bundle["outbox"][0]["payload"]["budget_summary"].update(
+                {"nodes_used": 999}
+            ),
+            "runtime_outbox_payload_mismatch",
+        ),
+        (
+            lambda bundle: bundle["outbox"][0].update(
+                {"created_at": "2099-01-01T00:00:00Z"}
+            ),
+            "runtime_outbox_created_at_mismatch",
+        ),
+    ],
+)
+def test_runtime_merge_rejects_forged_terminal_outbox_without_new_history(
+    service, mutation, reason_code
+):
+    owner = "owner-1"
+    _, request = _seed_space(service, owner, "space-1")
+    service.runtime_store.cancel(request.key, expected_revision=0)
+    forged = service.runtime_store.export_owner_bundle(owner)
+    before = copy.deepcopy(forged)
+    mutation(forged)
+
+    with pytest.raises(TutorConflictError) as caught:
+        service.runtime_store.import_owner_bundle(
+            owner, forged, mode="tutor_runtime_merge"
+        )
+    assert caught.value.reason_code == reason_code
+    assert service.runtime_store.export_owner_bundle(owner) == before
+    assert len(service.runtime_store.list_pending_outbox(owner)) == 1
+    assert service.project_pending_outbox(owner) == 1
+    projections = [
+        row
+        for row in service.learning_store.list_activities(owner, "space-1")
+        if row["activity_type"] == "tutor.terminal"
+    ]
+    assert [row["detail"]["source_activity_id"] for row in projections] == [
+        request.key.activity_id
+    ]
+
+
+def test_runtime_import_rejects_outbox_for_nonterminal_run(service):
+    owner = "owner-1"
+    _, request = _seed_space(service, owner, "space-1")
+    bundle = service.runtime_store.export_owner_bundle(owner)
+    run = bundle["runs"][0]
+    bundle["outbox"] = [
+        {
+            "event_id": _terminal_event_id(owner, run),
+            "space_id": run["space_id"],
+            "activity_kind": run["activity_kind"],
+            "activity_id": run["activity_id"],
+            "event_type": "tutor.terminal",
+            "payload": {
+                "schema_version": 1,
+                "outcome": "cancelled",
+                "terminal_code": "user_cancelled",
+                "completion_basis": None,
+                "remediation_count": 0,
+                "budget_summary": {
+                    "nodes_used": 0,
+                    "attempts_used": 0,
+                    "reserved_input_tokens": 0,
+                    "reserved_output_tokens": 0,
+                    "reserved_wall_ms": 0,
+                    "active_elapsed_ms": 0,
+                },
+            },
+            "created_at": run["updated_at"],
+            "delivered_at": None,
+        }
+    ]
+    service.runtime_store.delete_owner_data(owner)
+
+    with pytest.raises(TutorConflictError) as caught:
+        service.runtime_store.import_owner_bundle(
+            owner, bundle, mode="tutor_runtime_merge"
+        )
+    assert caught.value.reason_code == "runtime_outbox_requires_terminal_run"
+    assert service.runtime_store.owner_is_empty(owner)
+
+
+def test_runtime_merge_terminal_outbox_retry_uses_one_projection_identity(service):
+    owner = "owner-1"
+    _, request = _seed_space(service, owner, "space-1")
+    service.runtime_store.cancel(request.key, expected_revision=0)
+    backup = service.runtime_store.export_owner_bundle(owner)
+    service.runtime_store.delete_owner_data(owner)
+
+    first = service.runtime_store.import_owner_bundle(
+        owner, backup, mode="tutor_runtime_merge"
+    )
+    assert first == {"runs": 1, "checkpoints": 0, "attempts": 0, "outbox": 1}
+    repeated_pending = service.runtime_store.import_owner_bundle(
+        owner, backup, mode="tutor_runtime_merge"
+    )
+    assert repeated_pending == {
+        "runs": 0,
+        "checkpoints": 0,
+        "attempts": 0,
+        "outbox": 0,
+    }
+    assert service.project_pending_outbox(owner) == 1
+
+    repeated_delivered = service.runtime_store.import_owner_bundle(
+        owner, backup, mode="tutor_runtime_merge"
+    )
+    assert repeated_delivered == {
+        "runs": 0,
+        "checkpoints": 0,
+        "attempts": 0,
+        "outbox": 1,
+    }
+    assert service.project_pending_outbox(owner) == 1
+    projections = [
+        row
+        for row in service.learning_store.list_activities(owner, "space-1")
+        if row["activity_type"] == "tutor.terminal"
+    ]
+    assert [row["detail"]["source_activity_id"] for row in projections] == [
+        request.key.activity_id
+    ]
+
+
 def test_runtime_merge_rejects_combined_owner_and_space_nonterminal_quota(service):
     owner = "owner-1"
     _seed_space(service, owner, "template-space")
@@ -616,22 +775,15 @@ def test_runtime_merge_rejects_combined_terminal_and_outbox_quotas(service):
 
     service.runtime_store.delete_owner_data(owner)
     outbox_cap = _terminal_runtime_bundle(
-        template,
-        count=1,
-        prefix="outbox-cap",
-        outbox_per_run=44,
+        template, count=44, prefix="outbox-cap", outbox_per_run=1
     )
     service.runtime_store.import_owner_bundle(
         owner, outbox_cap, mode="replace_empty_owner"
     )
     before = service.runtime_store.export_owner_bundle(owner)
-    outbox_overflow = copy.deepcopy(outbox_cap)
-    outbox_overflow["outbox"] = [
-        {
-            **copy.deepcopy(outbox_cap["outbox"][0]),
-            "event_id": "outbox-overflow-event",
-        }
-    ]
+    outbox_overflow = _terminal_runtime_bundle(
+        template, count=1, prefix="outbox-overflow", outbox_per_run=1
+    )
     with pytest.raises(TutorConflictError) as caught:
         service.runtime_store.import_owner_bundle(
             owner, outbox_overflow, mode="tutor_runtime_merge"

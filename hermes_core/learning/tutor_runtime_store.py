@@ -1523,6 +1523,50 @@ class TutorRuntimeStore:
         digest = hashlib.sha256("\x1f".join(key.as_tuple()).encode("utf-8")).hexdigest()
         return f"tproj_{digest}"
 
+    @staticmethod
+    def _terminal_event_payload(
+        *,
+        outcome: str,
+        terminal_code: str,
+        completion_basis: str | None,
+        remediation_count: int,
+        budget_summary: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        return {
+            "schema_version": 1,
+            "outcome": outcome,
+            "terminal_code": terminal_code,
+            "completion_basis": completion_basis,
+            "remediation_count": remediation_count,
+            "budget_summary": {
+                "nodes_used": budget_summary["nodes_used"],
+                "attempts_used": budget_summary["attempts_used"],
+                "reserved_input_tokens": budget_summary["reserved_input_tokens"],
+                "reserved_output_tokens": budget_summary["reserved_output_tokens"],
+                "reserved_wall_ms": budget_summary["reserved_wall_ms"],
+                "active_elapsed_ms": budget_summary["active_elapsed_ms"],
+            },
+        }
+
+    @classmethod
+    def _terminal_event_payload_from_run(
+        cls, run: Mapping[str, Any]
+    ) -> dict[str, Any]:
+        return cls._terminal_event_payload(
+            outcome=run["status"],
+            terminal_code=run["terminal_code"],
+            completion_basis=run["completion_basis"],
+            remediation_count=run["remediation_count"],
+            budget_summary={
+                "nodes_used": run["budget_nodes_used"],
+                "attempts_used": run["budget_attempts_used"],
+                "reserved_input_tokens": run["budget_reserved_input_tokens"],
+                "reserved_output_tokens": run["budget_reserved_output_tokens"],
+                "reserved_wall_ms": run["budget_reserved_wall_ms"],
+                "active_elapsed_ms": run["budget_active_elapsed_ms"],
+            },
+        )
+
     def _commit_terminal_tx(
         self,
         connection: sqlite3.Connection,
@@ -1640,14 +1684,13 @@ class TutorRuntimeStore:
             "AND activity_kind=? AND activity_id=?",
             key.as_tuple(),
         )
-        payload = {
-            "schema_version": 1,
-            "outcome": outcome,
-            "terminal_code": terminal_code,
-            "completion_basis": completion_basis,
-            "remediation_count": remediation_count,
-            "budget_summary": normalized,
-        }
+        payload = self._terminal_event_payload(
+            outcome=outcome,
+            terminal_code=terminal_code,
+            completion_basis=completion_basis,
+            remediation_count=remediation_count,
+            budget_summary=normalized,
+        )
         payload_json = canonical_json_bytes(payload).decode("utf-8")
         if len(payload_json.encode("utf-8")) > MAX_OUTBOX_PAYLOAD_BYTES:
             raise TutorConflictError("outbox_payload_too_large")
@@ -2351,7 +2394,10 @@ class TutorRuntimeStore:
                 event["activity_kind"],
                 event["activity_id"],
             )
-            if (key.space_id, key.activity_kind, key.activity_id) not in run_by_key:
+            run = run_by_key.get(
+                (key.space_id, key.activity_kind, key.activity_id)
+            )
+            if run is None:
                 raise TutorConflictError("runtime_outbox_identity_conflict")
             if not isinstance(event["event_id"], str) or not _ID_RE.fullmatch(
                 event["event_id"]
@@ -2360,10 +2406,22 @@ class TutorRuntimeStore:
             if event["event_id"] in outbox_ids:
                 raise TutorConflictError("runtime_duplicate_outbox_event")
             outbox_ids.add(event["event_id"])
+            if event["event_id"] != self._terminal_event_id(key):
+                raise TutorConflictError("runtime_outbox_event_id_mismatch")
+            if run["status"] not in TERMINAL_ACTIVITY_STATUSES:
+                raise TutorConflictError("runtime_outbox_requires_terminal_run")
+            if event["event_type"] != "tutor.terminal":
+                raise TutorConflictError("runtime_outbox_event_type_mismatch")
             if not isinstance(event["payload"], dict) or len(
                 canonical_json_bytes(event["payload"])
             ) > MAX_OUTBOX_PAYLOAD_BYTES:
                 raise TutorConflictError("outbox_payload_too_large")
+            if canonical_json_bytes(event["payload"]) != canonical_json_bytes(
+                self._terminal_event_payload_from_run(run)
+            ):
+                raise TutorConflictError("runtime_outbox_payload_mismatch")
+            if event["created_at"] != run["terminal_at"]:
+                raise TutorConflictError("runtime_outbox_created_at_mismatch")
             if event["delivered_at"] is not None:
                 raise TutorContractError("delivered outbox rows must not be bundled")
         return normalized
