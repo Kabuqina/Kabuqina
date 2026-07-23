@@ -30,6 +30,7 @@ $pyFiles = @(
     "messaging_policy.py",
     "kabuqina_env.py",
     "learning_owner.py",
+    "learning_recovery.py",
     "study_review_reminder.py",
     "cron_scheduler_runner.py",
     "gateway_env_loader.py",

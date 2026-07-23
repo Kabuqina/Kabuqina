@@ -29,6 +29,7 @@ class RuntimeImportVerifierTests(unittest.TestCase):
             "product_profile_policy",
             "learning.flashcards",
             "learning_owner",
+            "learning_recovery",
         ):
             self.assertIn(module, text)
 
@@ -95,7 +96,11 @@ class RuntimeImportVerifierTests(unittest.TestCase):
         build_script = (ROOT / "python" / "build_bundle.ps1").read_text(encoding="utf-8")
         sync_script = (ROOT / "scripts" / "sync-runtime-sources.ps1").read_text(encoding="utf-8")
 
-        for name in ("kabuqina_env.py", "study_review_reminder.py"):
+        for name in (
+            "kabuqina_env.py",
+            "learning_recovery.py",
+            "study_review_reminder.py",
+        ):
             self.assertIn(f"src\\{name}", build_script)
             self.assertIn(f'"{name}"', sync_script)
 

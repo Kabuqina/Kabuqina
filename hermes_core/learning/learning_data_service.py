@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import logging
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -21,6 +22,7 @@ LEARNING_SECTION_MAX_BYTES = 16 * 1024 * 1024
 RUNTIME_SECTION_MAX_BYTES = 6 * 1024 * 1024
 BUNDLE_OVERHEAD_MAX_BYTES = 1 * 1024 * 1024
 OWNER_BUNDLE_MAX_BYTES = 24 * 1024 * 1024
+logger = logging.getLogger(__name__)
 
 
 def canonical_sha256(value: Any) -> str:
@@ -101,6 +103,7 @@ class CompositeLearningDataService:
         if self._owns_stores:
             self.runtime_store.close()
             self.learning_store.close()
+            self.coordinator.close()
             self._owns_stores = False
 
     def _export_sections(
@@ -502,25 +505,31 @@ class CompositeLearningDataService:
     def project_pending_outbox(self, owner_id: str, *, limit: int = 32) -> int:
         if type(limit) is not int or not 1 <= limit <= 32:
             raise TutorContractError("outbox projection limit must be within 1..32")
-        events = self.runtime_store.list_pending_outbox(owner_id)[:limit]
-        delivered = 0
-        for event in events:
-            payload = event["payload_json"]
-            payload = payload if isinstance(payload, dict) else json.loads(payload)
-            self.learning_store.insert_projection_activity_once(
-                owner_id,
-                event["space_id"],
-                projection_event_id=event["event_id"],
-                activity_kind=event["activity_kind"],
-                source_activity_id=event["activity_id"],
-                outcome=payload["outcome"],
-                terminal_code=payload["terminal_code"],
-            )
-            if self.runtime_store.mark_outbox_delivered(
-                owner_id, event["event_id"]
-            ):
-                delivered += 1
-        return delivered
+        with self.coordinator.begin_write(owner_id, "") as guard:
+            events = self.runtime_store.list_pending_outbox(
+                owner_id, coordination_guard=guard
+            )[:limit]
+            delivered = 0
+            for event in events:
+                payload = event["payload_json"]
+                payload = payload if isinstance(payload, dict) else json.loads(payload)
+                self.learning_store.insert_projection_activity_once(
+                    owner_id,
+                    event["space_id"],
+                    projection_event_id=event["event_id"],
+                    activity_kind=event["activity_kind"],
+                    source_activity_id=event["activity_id"],
+                    outcome=payload["outcome"],
+                    terminal_code=payload["terminal_code"],
+                    coordination_guard=guard,
+                )
+                if self.runtime_store.mark_outbox_delivered(
+                    owner_id,
+                    event["event_id"],
+                    coordination_guard=guard,
+                ):
+                    delivered += 1
+            return delivered
 
     def commit_prepare_downgrade(
         self, owner_id: str, expected_bundle_sha256: str
@@ -553,35 +562,49 @@ class CompositeLearningDataService:
     def recover_operations(self) -> int:
         recovered = 0
         for lease in self.coordinator.recover_operations():
-            if lease.operation == "delete":
-                self._continue_delete(lease)
-                recovered += 1
-                continue
-            if lease.operation == "full_import":
-                if lease.phase == "fenced":
-                    # No write is allowed before validated_empty is durable.
+            try:
+                if lease.operation == "delete":
+                    self._continue_delete(lease)
+                elif lease.operation == "full_import":
+                    if lease.phase == "fenced":
+                        # No write is allowed before validated_empty is durable.
+                        self.coordinator.finish_operation(lease)
+                    else:
+                        self.runtime_store.delete_owner_data(
+                            lease.owner_id, operation_lease=lease
+                        )
+                        self.learning_store.delete_owner_data(
+                            lease.owner_id, operation_lease=lease
+                        )
+                        self.runtime_store.compact(
+                            lease.owner_id, operation_lease=lease
+                        )
+                        self.coordinator.finish_operation(lease)
+                elif lease.operation == "runtime_restore":
+                    # Merge is one runtime transaction; prepare cleanup is also
+                    # a committed valid state. Clearing the journal exposes
+                    # either the complete before or complete after state.
                     self.coordinator.finish_operation(lease)
                 else:
-                    self.runtime_store.delete_owner_data(
-                        lease.owner_id, operation_lease=lease
-                    )
-                    self.learning_store.delete_owner_data(
-                        lease.owner_id, operation_lease=lease
-                    )
-                    self.runtime_store.compact(
-                        lease.owner_id, operation_lease=lease
-                    )
-                    self.coordinator.finish_operation(lease)
-                recovered += 1
-                continue
-            if lease.operation == "runtime_restore":
-                # Merge is one runtime transaction; prepare cleanup is also a
-                # committed valid state.  Clearing the journal exposes either
-                # the complete before or complete after state, never a batch.
-                self.coordinator.finish_operation(lease)
-                recovered += 1
-                continue
-            raise TutorConflictError("unknown_learning_operation")
+                    raise TutorConflictError("unknown_learning_operation")
+            except BaseException as exc:
+                logger.warning(
+                    "learning operation recovery failed operation_id=%s "
+                    "kind=%s phase=%s reason=%s",
+                    lease.operation_id,
+                    lease.operation,
+                    lease.phase,
+                    getattr(exc, "reason_code", type(exc).__name__),
+                )
+                raise
+            logger.info(
+                "learning operation recovery completed operation_id=%s "
+                "kind=%s phase=%s",
+                lease.operation_id,
+                lease.operation,
+                lease.phase,
+            )
+            recovered += 1
         return recovered
 
 

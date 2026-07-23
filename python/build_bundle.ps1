@@ -130,7 +130,8 @@ function Test-BundleSentinels {
         "site-packages\uvicorn\__init__.py",
         "site-packages\click\__init__.py",
         "overlays\__init__.py",
-        "desktop_entrypoint.py"
+        "desktop_entrypoint.py",
+        "learning_recovery.py"
     )
 
     foreach ($rel in $required) {
@@ -494,6 +495,7 @@ Copy-Item -Force (Join-Path $PSScriptRoot "src\load_packages.py") (Join-Path $Di
 Copy-Item -Force (Join-Path $PSScriptRoot "src\messaging_policy.py") (Join-Path $Dist "messaging_policy.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\kabuqina_env.py") (Join-Path $Dist "kabuqina_env.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\learning_owner.py") (Join-Path $Dist "learning_owner.py")
+Copy-Item -Force (Join-Path $PSScriptRoot "src\learning_recovery.py") (Join-Path $Dist "learning_recovery.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\study_review_reminder.py") (Join-Path $Dist "study_review_reminder.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\cron_scheduler_runner.py") (Join-Path $Dist "cron_scheduler_runner.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\gateway_env_loader.py") (Join-Path $Dist "gateway_env_loader.py")
