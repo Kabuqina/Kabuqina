@@ -58,6 +58,9 @@ MAX_NONTERMINAL_PER_SPACE = 6
 MAX_OWNER_CHECKPOINT_BYTES = 3 * 1024 * 1024
 MAX_TERMINAL_RUNS_PER_OWNER = 1_000
 MAX_PENDING_OUTBOX_FOR_START = 32
+MAX_PENDING_OUTBOX_PER_OWNER = (
+    MAX_PENDING_OUTBOX_FOR_START + MAX_NONTERMINAL_PER_OWNER
+)
 MAX_OUTBOX_PAYLOAD_BYTES = 512
 MAX_PROVIDER_ATTEMPTS_PER_ACTIVITY = 2
 MAX_RESERVED_INPUT_TOKENS_PER_ATTEMPT = 16_384
@@ -495,7 +498,16 @@ class TutorRuntimeStore:
         function: Callable[[sqlite3.Connection], T],
         *,
         operation_lease: OperationLease | None = None,
+        coordination_guard: LearningOperationGuard | None = None,
     ) -> T:
+        if coordination_guard is not None:
+            if (
+                coordination_guard.owner_id != owner_id
+                or coordination_guard.space_id not in {"", space_id}
+                or coordination_guard.mode != "write"
+            ):
+                raise ValueError("coordination guard scope does not match runtime write")
+            return self._sqlite_write(function)
         with self.coordinator.begin_write(
             owner_id, space_id, operation_lease=operation_lease
         ):
@@ -512,8 +524,8 @@ class TutorRuntimeStore:
     ) -> T:
         if coordination_guard is not None and (
             coordination_guard.owner_id != owner_id
-            or coordination_guard.space_id != space_id
-            or coordination_guard.mode != "read"
+            or coordination_guard.space_id not in {"", space_id}
+            or coordination_guard.mode not in {"read", "write"}
         ):
             raise ValueError("coordination guard scope does not match runtime read")
         guard = coordination_guard or self.coordinator.begin_read(
@@ -1511,6 +1523,50 @@ class TutorRuntimeStore:
         digest = hashlib.sha256("\x1f".join(key.as_tuple()).encode("utf-8")).hexdigest()
         return f"tproj_{digest}"
 
+    @staticmethod
+    def _terminal_event_payload(
+        *,
+        outcome: str,
+        terminal_code: str,
+        completion_basis: str | None,
+        remediation_count: int,
+        budget_summary: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        return {
+            "schema_version": 1,
+            "outcome": outcome,
+            "terminal_code": terminal_code,
+            "completion_basis": completion_basis,
+            "remediation_count": remediation_count,
+            "budget_summary": {
+                "nodes_used": budget_summary["nodes_used"],
+                "attempts_used": budget_summary["attempts_used"],
+                "reserved_input_tokens": budget_summary["reserved_input_tokens"],
+                "reserved_output_tokens": budget_summary["reserved_output_tokens"],
+                "reserved_wall_ms": budget_summary["reserved_wall_ms"],
+                "active_elapsed_ms": budget_summary["active_elapsed_ms"],
+            },
+        }
+
+    @classmethod
+    def _terminal_event_payload_from_run(
+        cls, run: Mapping[str, Any]
+    ) -> dict[str, Any]:
+        return cls._terminal_event_payload(
+            outcome=run["status"],
+            terminal_code=run["terminal_code"],
+            completion_basis=run["completion_basis"],
+            remediation_count=run["remediation_count"],
+            budget_summary={
+                "nodes_used": run["budget_nodes_used"],
+                "attempts_used": run["budget_attempts_used"],
+                "reserved_input_tokens": run["budget_reserved_input_tokens"],
+                "reserved_output_tokens": run["budget_reserved_output_tokens"],
+                "reserved_wall_ms": run["budget_reserved_wall_ms"],
+                "active_elapsed_ms": run["budget_active_elapsed_ms"],
+            },
+        )
+
     def _commit_terminal_tx(
         self,
         connection: sqlite3.Connection,
@@ -1628,14 +1684,13 @@ class TutorRuntimeStore:
             "AND activity_kind=? AND activity_id=?",
             key.as_tuple(),
         )
-        payload = {
-            "schema_version": 1,
-            "outcome": outcome,
-            "terminal_code": terminal_code,
-            "completion_basis": completion_basis,
-            "remediation_count": remediation_count,
-            "budget_summary": normalized,
-        }
+        payload = self._terminal_event_payload(
+            outcome=outcome,
+            terminal_code=terminal_code,
+            completion_basis=completion_basis,
+            remediation_count=remediation_count,
+            budget_summary=normalized,
+        )
         payload_json = canonical_json_bytes(payload).decode("utf-8")
         if len(payload_json.encode("utf-8")) > MAX_OUTBOX_PAYLOAD_BYTES:
             raise TutorConflictError("outbox_payload_too_large")
@@ -1978,6 +2033,7 @@ class TutorRuntimeStore:
         owner_id: str,
         *,
         operation_lease: OperationLease | None = None,
+        coordination_guard: LearningOperationGuard | None = None,
     ) -> list[dict[str, Any]]:
         return self._read(
             owner_id,
@@ -1991,6 +2047,7 @@ class TutorRuntimeStore:
                 ).fetchall()
             ],
             operation_lease=operation_lease,
+            coordination_guard=coordination_guard,
         )
 
     @staticmethod
@@ -2128,7 +2185,7 @@ class TutorRuntimeStore:
             "runs": MAX_TERMINAL_RUNS_PER_OWNER + MAX_NONTERMINAL_PER_OWNER,
             "checkpoints": MAX_NONTERMINAL_PER_OWNER,
             "attempts": MAX_NONTERMINAL_PER_OWNER * MAX_PROVIDER_ATTEMPTS_PER_ACTIVITY,
-            "outbox": MAX_PENDING_OUTBOX_FOR_START + MAX_NONTERMINAL_PER_OWNER,
+            "outbox": MAX_PENDING_OUTBOX_PER_OWNER,
         }
         normalized: dict[str, list[dict[str, Any]]] = {}
         field_sets = {
@@ -2337,7 +2394,10 @@ class TutorRuntimeStore:
                 event["activity_kind"],
                 event["activity_id"],
             )
-            if (key.space_id, key.activity_kind, key.activity_id) not in run_by_key:
+            run = run_by_key.get(
+                (key.space_id, key.activity_kind, key.activity_id)
+            )
+            if run is None:
                 raise TutorConflictError("runtime_outbox_identity_conflict")
             if not isinstance(event["event_id"], str) or not _ID_RE.fullmatch(
                 event["event_id"]
@@ -2346,10 +2406,22 @@ class TutorRuntimeStore:
             if event["event_id"] in outbox_ids:
                 raise TutorConflictError("runtime_duplicate_outbox_event")
             outbox_ids.add(event["event_id"])
+            if event["event_id"] != self._terminal_event_id(key):
+                raise TutorConflictError("runtime_outbox_event_id_mismatch")
+            if run["status"] not in TERMINAL_ACTIVITY_STATUSES:
+                raise TutorConflictError("runtime_outbox_requires_terminal_run")
+            if event["event_type"] != "tutor.terminal":
+                raise TutorConflictError("runtime_outbox_event_type_mismatch")
             if not isinstance(event["payload"], dict) or len(
                 canonical_json_bytes(event["payload"])
             ) > MAX_OUTBOX_PAYLOAD_BYTES:
                 raise TutorConflictError("outbox_payload_too_large")
+            if canonical_json_bytes(event["payload"]) != canonical_json_bytes(
+                self._terminal_event_payload_from_run(run)
+            ):
+                raise TutorConflictError("runtime_outbox_payload_mismatch")
+            if event["created_at"] != run["terminal_at"]:
+                raise TutorConflictError("runtime_outbox_created_at_mismatch")
             if event["delivered_at"] is not None:
                 raise TutorContractError("delivered outbox rows must not be bundled")
         return normalized
@@ -2430,6 +2502,107 @@ class TutorRuntimeStore:
                 (owner_id, *(attempt[field] for field in _ATTEMPT_EXPORT_FIELDS)),
             )
 
+    @staticmethod
+    def _validate_merged_quotas_tx(
+        connection: sqlite3.Connection,
+        owner_id: str,
+        new_groups: list[Mapping[str, Any]],
+        new_events: list[Mapping[str, Any]],
+    ) -> None:
+        """Validate the post-merge state inside the importing write transaction."""
+
+        if not new_groups and not new_events:
+            return
+        existing_nonterminal = int(
+            connection.execute(
+                "SELECT COUNT(*) FROM tutor_activity_runs WHERE owner_id=? "
+                f"AND status IN ({_NONTERMINAL_SQL})",
+                (owner_id,),
+            ).fetchone()[0]
+        )
+        added_nonterminal = sum(
+            group["run"]["status"] not in TERMINAL_ACTIVITY_STATUSES
+            for group in new_groups
+        )
+        if existing_nonterminal + added_nonterminal > MAX_NONTERMINAL_PER_OWNER:
+            raise TutorConflictError("activity_quota_exceeded")
+
+        existing_by_space = {
+            row["space_id"]: int(row["count"])
+            for row in connection.execute(
+                "SELECT space_id,COUNT(*) AS count FROM tutor_activity_runs "
+                f"WHERE owner_id=? AND status IN ({_NONTERMINAL_SQL}) "
+                "GROUP BY space_id",
+                (owner_id,),
+            ).fetchall()
+        }
+        for group in new_groups:
+            run = group["run"]
+            if run["status"] in TERMINAL_ACTIVITY_STATUSES:
+                continue
+            space_id = run["space_id"]
+            existing_by_space[space_id] = existing_by_space.get(space_id, 0) + 1
+        if any(
+            count > MAX_NONTERMINAL_PER_SPACE
+            for count in existing_by_space.values()
+        ):
+            raise TutorConflictError("activity_quota_exceeded")
+
+        existing_terminal = int(
+            connection.execute(
+                "SELECT COUNT(*) FROM tutor_activity_runs WHERE owner_id=? "
+                "AND status IN ('completed','blocked','cancelled')",
+                (owner_id,),
+            ).fetchone()[0]
+        )
+        added_terminal = sum(
+            group["run"]["status"] in TERMINAL_ACTIVITY_STATUSES
+            for group in new_groups
+        )
+        if existing_terminal + added_terminal > MAX_TERMINAL_RUNS_PER_OWNER:
+            raise TutorConflictError("terminal_run_quota")
+
+        existing_checkpoint_bytes = int(
+            connection.execute(
+                "SELECT COALESCE(SUM(length(CAST(state_json AS BLOB))),0) "
+                "FROM tutor_checkpoints WHERE owner_id=?",
+                (owner_id,),
+            ).fetchone()[0]
+        )
+        added_checkpoint_bytes = sum(
+            len(canonical_json_bytes(group["checkpoint"]["state"]))
+            for group in new_groups
+            if group["checkpoint"] is not None
+        )
+        if (
+            existing_checkpoint_bytes + added_checkpoint_bytes
+            > MAX_OWNER_CHECKPOINT_BYTES
+        ):
+            raise TutorConflictError("checkpoint_owner_quota")
+
+        existing_attempts = int(
+            connection.execute(
+                "SELECT COUNT(*) FROM tutor_provider_attempts WHERE owner_id=?",
+                (owner_id,),
+            ).fetchone()[0]
+        )
+        added_attempts = sum(len(group["attempts"]) for group in new_groups)
+        if (
+            existing_attempts + added_attempts
+            > MAX_NONTERMINAL_PER_OWNER * MAX_PROVIDER_ATTEMPTS_PER_ACTIVITY
+        ):
+            raise TutorConflictError("tutor_runtime_attempts_quota")
+
+        existing_outbox = int(
+            connection.execute(
+                "SELECT COUNT(*) FROM tutor_projection_outbox "
+                "WHERE owner_id=? AND delivered_at IS NULL",
+                (owner_id,),
+            ).fetchone()[0]
+        )
+        if existing_outbox + len(new_events) > MAX_PENDING_OUTBOX_PER_OWNER:
+            raise TutorConflictError("tutor_runtime_outbox_quota")
+
     def import_owner_bundle(
         self,
         owner_id: str,
@@ -2456,6 +2629,7 @@ class TutorRuntimeStore:
                         raise TutorConflictError("runtime_owner_not_empty")
             inserted = {"runs": 0, "checkpoints": 0, "attempts": 0, "outbox": 0}
             skipped_keys: set[tuple[str, str, str]] = set()
+            new_groups: list[dict[str, Any]] = []
             for run in normalized["runs"]:
                 short_key = (run["space_id"], run["activity_kind"], run["activity_id"])
                 key = LearningActivityKeyV1(owner_id, *short_key)
@@ -2491,11 +2665,42 @@ class TutorRuntimeStore:
                     skipped_keys.add(short_key)
                     continue
                 group = self._incoming_group(normalized, short_key)
+                new_groups.append(group)
+            new_events: list[dict[str, Any]] = []
+            for event in normalized["outbox"]:
+                existing_event = connection.execute(
+                    "SELECT * FROM tutor_projection_outbox WHERE event_id=?",
+                    (event["event_id"],),
+                ).fetchone()
+                if existing_event is not None:
+                    existing_payload = {
+                        field: (
+                            json.loads(existing_event["payload_json"])
+                            if field == "payload"
+                            else existing_event[field]
+                        )
+                        for field in _OUTBOX_EXPORT_FIELDS
+                    }
+                    if (
+                        existing_event["owner_id"] != owner_id
+                        or canonical_json_bytes(existing_payload)
+                        != canonical_json_bytes(event)
+                    ):
+                        raise TutorConflictError("runtime_merge_outbox_conflict")
+                    continue
+                new_events.append(event)
+
+            if mode == "tutor_runtime_merge":
+                self._validate_merged_quotas_tx(
+                    connection, owner_id, new_groups, new_events
+                )
+
+            for group in new_groups:
                 self._insert_import_group_tx(connection, owner_id, group)
                 inserted["runs"] += 1
                 inserted["checkpoints"] += int(group["checkpoint"] is not None)
                 inserted["attempts"] += len(group["attempts"])
-            for event in normalized["outbox"]:
+            for event in new_events:
                 cursor = connection.execute(
                     """
                     INSERT OR IGNORE INTO tutor_projection_outbox
@@ -2621,6 +2826,7 @@ class TutorRuntimeStore:
         event_id: str,
         *,
         operation_lease: OperationLease | None = None,
+        coordination_guard: LearningOperationGuard | None = None,
     ) -> bool:
         if not isinstance(event_id, str) or not _ID_RE.fullmatch(event_id):
             raise TutorContractError("event_id is invalid")
@@ -2634,7 +2840,11 @@ class TutorRuntimeStore:
             return cursor.rowcount == 1
 
         return self._write(
-            owner_id, "", _op, operation_lease=operation_lease
+            owner_id,
+            "",
+            _op,
+            operation_lease=operation_lease,
+            coordination_guard=coordination_guard,
         )
 
 

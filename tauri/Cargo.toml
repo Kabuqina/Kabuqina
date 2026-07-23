@@ -47,6 +47,7 @@ rand        = "0.8"
 base64      = "0.22"
 sha2        = "0.10"
 hex         = "0.4"
+unicode-normalization = "0.1"
 reqwest = { version = "0.13", default-features = false, features = ["json", "native-tls", "stream"] }
 url     = "2"
 futures-util = "0.3"

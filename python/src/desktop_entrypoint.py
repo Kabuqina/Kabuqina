@@ -446,6 +446,25 @@ def main() -> int:
     log.info("boot timing overlays_ms=%.0f", (time.monotonic() - t_overlays) * 1000)
     _warm_docling_async(log)
 
+    # 1a. The desktop child is the sole recovery owner. Tauri does not start
+    # Gateway children until this process writes its port handshake, and the
+    # coordinator's OS liveness lock prevents takeover from any writer process
+    # that is still alive. Failures leave the durable fence/journal intact.
+    from learning_recovery import (
+        LearningRecoveryRunner,
+        recover_learning_operations_once,
+    )
+
+    try:
+        recover_learning_operations_once()
+    except BaseException as exc:
+        log.warning(
+            "startup learning recovery deferred reason=%s",
+            getattr(exc, "reason_code", type(exc).__name__),
+        )
+    _learning_recovery_runner = LearningRecoveryRunner()
+    _learning_recovery_runner.start()
+
     # 1b. Eager-load real ``gateway.session_context`` so ``tools/approval`` + terminal
     #     use ContextVar state (not a stale stub left in sys.modules).
     try:

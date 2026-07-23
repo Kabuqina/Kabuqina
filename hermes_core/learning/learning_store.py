@@ -513,7 +513,7 @@ class LearningStore:
         if coordination_guard is not None:
             if (
                 coordination_guard.owner_id != owner_id
-                or coordination_guard.space_id != space_id
+                or coordination_guard.space_id not in {"", space_id}
                 or coordination_guard.mode != "write"
             ):
                 raise ValueError("coordination guard scope does not match write")
@@ -535,8 +535,8 @@ class LearningStore:
         """Run a scoped snapshot read while holding the coordination guard."""
         if coordination_guard is not None and (
             coordination_guard.owner_id != owner_id
-            or coordination_guard.space_id != space_id
-            or coordination_guard.mode != "read"
+            or coordination_guard.space_id not in {"", space_id}
+            or coordination_guard.mode not in {"read", "write"}
         ):
             raise ValueError("coordination guard scope does not match read")
         last_err: Optional[Exception] = None
@@ -1081,6 +1081,7 @@ class LearningStore:
         outcome: str,
         terminal_code: str,
         operation_lease: Optional[OperationLease] = None,
+        coordination_guard: Optional[LearningOperationGuard] = None,
     ) -> bool:
         """Idempotently append a bounded Tutor terminal projection.
 
@@ -1134,6 +1135,7 @@ class LearningStore:
             space_id,
             _op,
             operation_lease=operation_lease,
+            coordination_guard=coordination_guard,
         )
 
     @_coordinated_read()

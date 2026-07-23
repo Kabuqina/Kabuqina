@@ -450,14 +450,54 @@ pub fn cmd_study_data_import_file(path_str: String) -> Result<Value, DeskBridgeE
     read_study_import_file(&path_str)
 }
 
-fn bundle_sha256(bundle: &Value) -> Result<String, DeskBridgeError> {
-    let bytes = serde_json::to_vec(bundle).map_err(|_| {
+fn canonical_bundle_value(value: &Value) -> Result<Value, DeskBridgeError> {
+    use unicode_normalization::UnicodeNormalization;
+
+    match value {
+        Value::Null | Value::Bool(_) => Ok(value.clone()),
+        Value::String(text) => Ok(Value::String(text.nfc().collect())),
+        Value::Number(number) if number.is_i64() || number.is_u64() => {
+            Ok(Value::Number(number.clone()))
+        }
+        Value::Number(_) => Err(DeskBridgeError::invalid(
+            "study_downgrade_backup_failed",
+            "backup bundle contains an unsupported JSON number",
+        )),
+        Value::Array(items) => Ok(Value::Array(
+            items
+                .iter()
+                .map(canonical_bundle_value)
+                .collect::<Result<Vec<_>, _>>()?,
+        )),
+        Value::Object(object) => {
+            let mut normalized = serde_json::Map::new();
+            for (key, item) in object {
+                let normalized_key: String = key.nfc().collect();
+                if normalized.contains_key(&normalized_key) {
+                    return Err(DeskBridgeError::invalid(
+                        "study_downgrade_backup_failed",
+                        "backup bundle contains duplicate normalized keys",
+                    ));
+                }
+                normalized.insert(normalized_key, canonical_bundle_value(item)?);
+            }
+            Ok(Value::Object(normalized))
+        }
+    }
+}
+
+fn canonical_bundle_bytes(bundle: &Value) -> Result<Vec<u8>, DeskBridgeError> {
+    let normalized = canonical_bundle_value(bundle)?;
+    serde_json::to_vec(&normalized).map_err(|_| {
         DeskBridgeError::invalid(
             "study_downgrade_backup_failed",
             "backup bundle cannot be serialized",
         )
-    })?;
-    Ok(hex::encode(Sha256::digest(bytes)))
+    })
+}
+
+fn bundle_sha256(bundle: &Value) -> Result<String, DeskBridgeError> {
+    Ok(hex::encode(Sha256::digest(canonical_bundle_bytes(bundle)?)))
 }
 
 fn validate_backup_destination(path_str: &str) -> Result<PathBuf, DeskBridgeError> {
@@ -1228,6 +1268,47 @@ mod tests {
             bundle_sha256(&bundle).unwrap(),
             "29bbb599d6ecc59132d4b5372d39f8b81a139f3d262f487ffe4d0b91d6acf5fd"
         );
+    }
+
+    #[test]
+    fn shared_python_rust_canonical_fixtures_match() {
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../hermes_core/tests/fixtures/tutor_canonical_json_vectors.json"
+        ))
+        .unwrap();
+        for vector in fixture["equivalent_pairs"].as_array().unwrap() {
+            let expected = vector["sha256"].as_str().unwrap();
+            assert_eq!(bundle_sha256(&vector["left"]).unwrap(), expected);
+            assert_eq!(bundle_sha256(&vector["right"]).unwrap(), expected);
+        }
+        for vector in fixture["canonical_values"].as_array().unwrap() {
+            assert_eq!(
+                bundle_sha256(&vector["value"]).unwrap(),
+                vector["sha256"].as_str().unwrap()
+            );
+        }
+        let collision = &fixture["normalized_key_collision"];
+        assert!(bundle_sha256(collision).is_err());
+    }
+
+    #[test]
+    fn unicode_bundle_v2_writes_reads_and_hashes_canonically() {
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../hermes_core/tests/fixtures/tutor_canonical_json_vectors.json"
+        ))
+        .unwrap();
+        let root = import_test_root("unicode-canonical");
+        let path = root.join("backup.json");
+        let bundle = json!({
+            "version": 2,
+            "payload": fixture["canonical_values"][0]["value"].clone(),
+            "decomposed": fixture["equivalent_pairs"][0]["right"].clone(),
+        });
+        let hash = bundle_sha256(&bundle).unwrap();
+        write_verified_backup(&path.display().to_string(), &bundle, &hash).unwrap();
+        let readback = read_study_import_file(&path.display().to_string()).unwrap();
+        assert_eq!(bundle_sha256(&readback).unwrap(), hash);
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]

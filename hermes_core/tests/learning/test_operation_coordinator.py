@@ -38,6 +38,13 @@ def _spawn_begin_and_crash(db_path: str, ready) -> None:
     # view: the fence and journal must remain durable.
 
 
+def _spawn_hold_live_operation(db_path: str, ready, release) -> None:
+    coordinator = LearningOperationCoordinator(Path(db_path))
+    lease = coordinator.begin_operation("owner-1", "space-1", "delete")
+    ready.put((lease.operation_id, lease.phase))
+    release.wait(10)
+
+
 def _coordinator(tmp_path, *, timeout=0.5):
     return LearningOperationCoordinator(
         tmp_path / "learning_coordination.db", timeout_s=timeout
@@ -184,6 +191,33 @@ def test_spawned_process_crash_leaves_recoverable_fence_and_journal(tmp_path):
     assert recovered_by_new_process_owner[0].operation_id == operation_id
     assert recovered_by_new_process_owner[0].phase == phase == "fenced"
     recovery_coordinator.finish_operation(recovered_by_new_process_owner[0])
+
+
+def test_second_process_cannot_recover_operation_while_writer_is_alive(tmp_path):
+    path = tmp_path / "learning_coordination.db"
+    context = multiprocessing.get_context("spawn")
+    ready = context.Queue()
+    release = context.Event()
+    process = context.Process(
+        target=_spawn_hold_live_operation,
+        args=(str(path), ready, release),
+    )
+    process.start()
+    operation_id, phase = ready.get(timeout=10)
+
+    recovery_coordinator = LearningOperationCoordinator(path)
+    assert recovery_coordinator.recover_operations() == ()
+    with pytest.raises(LearningOperationInProgressError):
+        recovery_coordinator.begin_write("owner-1", "space-1")
+
+    release.set()
+    process.join(10)
+    assert process.exitcode == 0
+    recovered = recovery_coordinator.recover_operations()
+    assert [(lease.operation_id, lease.phase) for lease in recovered] == [
+        (operation_id, phase)
+    ]
+    recovery_coordinator.finish_operation(recovered[0])
 
 
 def test_operation_waits_for_already_started_guard_without_check_then_write_gap(tmp_path):

@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "equivalent_pairs": [
+    {
+      "name": "nfc_nfd_strings_and_nested_keys",
+      "left": {
+        "version": 2,
+        "title": "Café",
+        "nested": {
+          "键": "组合😀"
+        }
+      },
+      "right": {
+        "nested": {
+          "键": "组合😀"
+        },
+        "title": "Café",
+        "version": 2
+      },
+      "sha256": "35a547414638900c3b853726c657038cb941e8ecae05b5912d8f50e4271c38cd"
+    },
+    {
+      "name": "object_key_order",
+      "left": {
+        "b": 2,
+        "a": 1
+      },
+      "right": {
+        "a": 1,
+        "b": 2
+      },
+      "sha256": "43258cff783fe7036d8a43033f830adfc60ec037382473548ac742b888292777"
+    }
+  ],
+  "canonical_values": [
+    {
+      "name": "multilingual_combining_emoji",
+      "value": {
+        "文本": "漢字かな한글",
+        "accent": "Ångström",
+        "emoji": "🧪📚"
+      },
+      "sha256": "3531b1f8be8a9fefad05f370f2e289e83397761a1ce75b7c37deed36b5bd0cac"
+    }
+  ],
+  "normalized_key_collision": {
+    "Café": 1,
+    "Café": 2
+  }
+}

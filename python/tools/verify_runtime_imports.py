@@ -24,6 +24,7 @@ REQUIRED_IMPORTS = (
     "product_profile_policy",
     "learning.flashcards",
     "learning_owner",
+    "learning_recovery",
 )
 
 

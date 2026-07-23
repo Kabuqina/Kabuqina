@@ -102,6 +102,70 @@ class LearningOperationConflictError(LearningCoordinationError):
         super().__init__(reason_code, reason_code=reason_code)
 
 
+class _OperationLivenessLock:
+    """Kernel-released proof that the operation's writer process is alive."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        self._file = None
+
+    def try_acquire(self) -> bool:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        handle = self.path.open("a+b")
+        try:
+            handle.seek(0, os.SEEK_END)
+            if handle.tell() == 0:
+                handle.write(b"\0")
+                handle.flush()
+            handle.seek(0)
+            if os.name == "nt":
+                import msvcrt
+
+                try:
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+                except OSError:
+                    handle.close()
+                    return False
+            else:
+                import fcntl
+
+                try:
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except BlockingIOError:
+                    handle.close()
+                    return False
+            self._file = handle
+            return True
+        except BaseException:
+            handle.close()
+            raise
+
+    def release(self, *, unlink: bool) -> None:
+        handle = self._file
+        if handle is None:
+            return
+        try:
+            handle.seek(0)
+            if os.name == "nt":
+                import msvcrt
+
+                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+        finally:
+            handle.close()
+            self._file = None
+        if unlink:
+            try:
+                self.path.unlink(missing_ok=True)
+            except OSError:
+                # A stale empty sidecar is harmless; only the kernel lock is
+                # authoritative and a later recovery can reuse the same file.
+                pass
+
+
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
@@ -342,6 +406,9 @@ class LearningOperationCoordinator:
         self.db_path = Path(db_path).expanduser().resolve()
         self.timeout_s = float(timeout_s)
         self._issuer_token = secrets.token_hex(32)
+        self._operation_locks: dict[str, _OperationLivenessLock] = {}
+        self._operation_locks_guard = threading.Lock()
+        self._lock_dir = self.db_path.parent / ".learning-operation-locks"
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         if secure_permissions:
             # Protect the directory before SQLite can create WAL/SHM files.
@@ -349,6 +416,40 @@ class LearningOperationCoordinator:
         self._initialize()
         if secure_permissions:
             secure_coordination_db(self.db_path)
+
+    def _liveness_lock_path(self, operation_id: str) -> Path:
+        return self._lock_dir / f"{operation_id}.lock"
+
+    def _try_claim_liveness(self, operation_id: str) -> bool:
+        with self._operation_locks_guard:
+            if operation_id in self._operation_locks:
+                return True
+            lock = _OperationLivenessLock(self._liveness_lock_path(operation_id))
+            if not lock.try_acquire():
+                return False
+            self._operation_locks[operation_id] = lock
+            return True
+
+    def _release_liveness(self, operation_id: str, *, unlink: bool) -> None:
+        with self._operation_locks_guard:
+            lock = self._operation_locks.pop(operation_id, None)
+        if lock is not None:
+            lock.release(unlink=unlink)
+
+    def close(self) -> None:
+        """Release process-liveness claims without altering durable journals."""
+
+        with self._operation_locks_guard:
+            locks = list(self._operation_locks.values())
+            self._operation_locks.clear()
+        for lock in locks:
+            lock.release(unlink=False)
+
+    def __del__(self) -> None:
+        try:
+            self.close()
+        except Exception:
+            pass
 
     @classmethod
     def from_learning_db_path(
@@ -558,11 +659,14 @@ class LearningOperationCoordinator:
         if kind not in OPERATION_KINDS:
             raise ValueError("operation kind is invalid")
         bundle_sha256 = _require_bundle_sha256(bundle_sha256)
-        connection = self._acquire_connection()
+        operation_id = f"lop_{uuid.uuid4().hex}"
+        if not self._try_claim_liveness(operation_id):
+            raise LearningOperationConflictError("operation_liveness_lock_unavailable")
+        connection: sqlite3.Connection | None = None
         try:
+            connection = self._acquire_connection()
             if self._matching_fence(connection, owner_id, space_id) is not None:
                 raise LearningOperationInProgressError()
-            operation_id = f"lop_{uuid.uuid4().hex}"
             now = _utc_now()
             connection.execute(
                 """
@@ -597,10 +701,13 @@ class LearningOperationCoordinator:
             connection.commit()
             return self._issue_from_row(row, {})
         except Exception:
-            connection.rollback()
+            if connection is not None:
+                connection.rollback()
+            self._release_liveness(operation_id, unlink=True)
             raise
         finally:
-            connection.close()
+            if connection is not None:
+                connection.close()
 
     def advance_operation(
         self,
@@ -667,6 +774,7 @@ class LearningOperationCoordinator:
             if cursor.rowcount != 1:
                 raise LearningOperationConflictError("stale_operation_phase")
             connection.commit()
+            self._release_liveness(lease.operation_id, unlink=True)
         except Exception:
             connection.rollback()
             raise
@@ -694,6 +802,11 @@ class LearningOperationCoordinator:
                         "operation_journal_phase_mismatch"
                     )
                 manifest = json.loads(row["rollback_manifest_json"])
+                # The operation creator holds this OS lock until finish or
+                # process death. A second child can inspect the durable row,
+                # but cannot claim or mutate a live writer's operation.
+                if not self._try_claim_liveness(row["operation_id"]):
+                    continue
                 leases.append(self._issue_from_row(row, manifest))
             connection.commit()
             return tuple(leases)
