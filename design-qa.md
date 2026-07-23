@@ -117,3 +117,93 @@ No actionable P0, P1, or P2 findings remain.
 - [P3] A later motion pass may add a restrained cup “receiving” motion and page-return transition while respecting reduced motion.
 
 final result: passed
+
+---
+
+## FE-01 rescue preview — 2026-07-23
+
+### Comparison target
+
+- Frozen source: `D:\project\Kabuqina\docs\superpowers\prototypes\2026-07-23-v0.5.0-desk-canonical.html`.
+- React implementation: `D:\project\Kabuqina\web\src\study\desk\`.
+- Development-only entry: `http://127.0.0.1:4175/__dev/desk`.
+- Same-state product-canvas comparison: `D:\project\Kabuqina\.test-output\fe01-desk-rescue-2026-07-23\comparison-f0-product-1280x720.png`.
+- Wide evidence: `05-react-d0-standalone.png`, `04-react-f1-standalone.png`, and `07-react-f0-canonical-1280x720.png` in `D:\project\Kabuqina\.test-output\fe01-desk-rescue-2026-07-23\`.
+- Narrow evidence: `06-react-f0-narrow-720.png` in the same folder.
+- Viewports: `1280 × 720` for canonical product-canvas comparison, `1440 × 900` for wide-window smoke, and `720 × 900` for the narrow contract.
+
+### Findings and fixes
+
+- [P1, fixed] The first preview entry rendered inside the existing main-window shell. This added a second title bar, loaded unrelated Tauri notification/approval listeners in a normal browser, and produced console errors. Direct loads of `/__dev/desk` now render a standalone dev-only surface; the existing `/study/*` product path is untouched.
+- [P1, fixed] Handwritten SVG path components were replaced with the repository's existing Lucide icon set. The CSS-only paper noise remains the frozen material token, not product artwork.
+- The `1280 × 720` same-state comparison preserves the frozen furniture map, notebook scale, paper/desk/glass palette, three-part feedback, fixed action rail, work folder, due box, and coffee-cup presence. No actionable P0, P1, or P2 visual drift remains in the Phase 1 preview.
+- At `720 × 900`, `scrollWidth = clientWidth = 720`. “修改答案” and “让小娜陪我补这一步” remain uniquely addressable, and activating “修改答案” restores focus to the original textarea.
+- A clean browser tab reported no console errors. The standalone surface begins at `top = 0` and does not contain the existing `.kq-titlebar`.
+- Component coverage now exercises `overview → focused → dirty → checking → needs_revision` and the `completed → next step` transition. The full component baseline is `24 files / 108 tests`.
+- Lint and production build pass. Because the preview import and direct entry are guarded by `import.meta.env.DEV`, DeskScene preview assets are absent from the production output.
+
+### Scope boundary
+
+This pass deliberately does not replace `StudyRoute`, connect the production study repository, or claim the full Chat/exact-return lifecycle. Those are Phase 2 integration tasks; the rescue preview is a controlled, testable implementation base.
+
+final result: passed (Phase 1 preview only)
+
+---
+
+## FE-02 production Study integration — 2026-07-23
+
+Control status: `CTL-A06a REVIEW · P3 FOLLOW-UPS ACCEPTED · NOT DONE`.
+Independent code review has closed all P1/P2 findings. Real Tauri route/function
+acceptance and production fixture cleanup remain required before `DONE` or any
+higher-Gate claim.
+Review scope and exit format are defined in
+`docs/superpowers/handoffs/2026-07-23-v0.5.0-study-desk-production-review.md`.
+
+### Comparison target
+
+- Frozen visual source: `D:\project\Kabuqina\docs\superpowers\prototypes\2026-07-23-v0.5.0-desk-canonical.html`.
+- Production route owner: `StudyRoute → StudyShell → StudyDeskPage → DeskScene`.
+- Production data owner: the existing `StudyRepository`, quiz service, activity store, and `STUDY_LEARNING_EVENT`.
+- Recovery-only draft cache: `kabuqina.study.desk-draft.v1:<spaceId>:<artifactId>`; it is not submitted learning evidence.
+- Browser evidence: `01-desk-overview.png`, `02-desk-completed.png`, and `03-desk-overview-1280x720.png` in `D:\project\Kabuqina\.test-output\fe02-desk-integration-2026-07-23\`.
+- Same-state, same-viewport comparison: `D:\project\Kabuqina\.test-output\fe02-desk-integration-2026-07-23\comparison-phase1-phase2-overview-1280x720.png`.
+
+### Findings and integration checks
+
+- The Phase 2 overview is visually unchanged from the Phase 1 standalone source at the same `1280 × 720` viewport. Furniture positions, notebook scale, paper/desk/glass palette, work folder, course books, card box, and coffee-cup placement show no actionable P0, P1, or P2 drift.
+- `/study/:spaceId/practice` now gives the desk ownership of product chrome and suppresses the outer Tauri title bar on that route. Other Study pages retain the existing top bar and lifecycle navigation.
+- Notebook page tabs, course books, Chat, Activity, Settings, materials, and “开新本” now route through the existing navigation and dirty-leave guard. Current course selection is disabled instead of producing a no-op announcement.
+- Choice, true/false, short-answer, code, and derivation questions render through the desk. CodeMirror and derivation surfaces reuse the existing production Study components.
+- “检查这一步” first flushes the current recovery draft and then submits only the current question ID. The optional backend `item_ids` subset is validated against the quiz; omitting it preserves full-quiz behavior. Future unanswered questions are not graded or recorded by the step check.
+- A successful check records the existing Study activity, emits the existing learning event, keeps the learner answer visible, and renders the canonical completed page annotation. Failed save/check paths preserve the answer and expose a retry-safe inline error.
+- Loads, saves, and checks are abortable and guarded against stale completion. The restored bookmark and drafts select the correct step; advancing records the new bookmark; completing the last step returns to the overview rather than looping on the same page.
+- Browser path `overview → focused → dirty → checking → completed` passed. The final DOM exposed “本步学习证据已保存”, “页边批注 · 本步完成”, and “继续下一步”; browser error/warning logs were empty.
+
+### Verification
+
+- Web production build: passed.
+- Web lint: passed.
+- Web component suite: focused `4 files / 29 tests`; latest full `25 files / 116 tests` passed.
+- Core quiz contract: `11 passed`.
+- Desktop Study HTTP routes: `12 passed`.
+- Rust Study bridge: `15 passed / 0 failed`.
+- The first independent review reproduced a full-suite DeskScene timeout. After replacing timing-heavy interaction setup with contract-level events and avoiding Rust build-script contention, three consecutive standard full-Web runs passed; the final-code run is included.
+
+### Remaining boundary
+
+- Tutor conversation/exact-return remains a later integration phase. In Phase 2 the coffee cup uses the real `/chat` destination but does not yet carry a structured return context.
+- Art resources and restrained motion remain later polish; neither blocks the real Study learning loop.
+
+### Independent Review remediation
+
+- [P1, fixed] Equal-value spaces revalidation no longer reconstructs the production adapter or clears completed feedback. Only a `completed` step removes its submitted answer from recovery before the learning event.
+- [P1, second review fixed] Incorrect and ungraded results retain the original answer for reload and later modification. `needs_revision` now participates in dirty-leave and `beforeunload` protection, and the leave copy describes all unfinished answers rather than only unsubmitted ones.
+- [P2, fixed] Duplicate `item_ids` fail closed before activity creation in Core and the Rust bridge; default full-quiz calls omit the field and explicit subsets serialize unchanged.
+- [P2, fixed] Answer changes synchronously update recovery storage before the debounced save. Dirty/checking states restore `beforeunload`; confirmed navigation explicitly preserves the recovery draft in both Chinese and English copy.
+- [P2, fixed] The standard Web component gate passed the earlier three consecutive full runs and the latest second-review run at `25 files / 116 tests`. Focused desk/route/shell coverage is `4 files / 29 tests`.
+- Core quiz contract: `11 passed`; Desktop Study HTTP routes: `12 passed`; Rust Study bridge: `15 passed / 0 failed`.
+- Web lint and production build passed; `/__dev/desk` remains absent from the production bundle.
+- Real Tauri manual acceptance remains pending. The latest start attempt stopped during ignored-runtime synchronization after `1168 / 3658` files and never opened the application window; the next attempt must let synchronization finish. No manual route, five-question-type, restart, native 200%, or failure-injection claim is made here.
+- [P3, accepted follow-up] Production removes the `/__dev/desk` route, but the fixed fixture answer remains in the production `StudyRoute` chunk and still requires cleanup.
+
+final result: accepted for REVIEW (P3 follow-ups block DONE and higher Gates)

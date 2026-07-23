@@ -1096,3 +1096,24 @@ sentinel, is invalidated before mutation, carries `verified: true` only for a
 successful `-Verify` run, and is written after pruning, runtime/profile/legacy
 imports and STT executable checks pass. A failed verifier must never print or
 leave a reusable completed-bundle marker.
+
+**v0.5 desk step-scoped quiz checks (2026-07-23).** The production study desk
+uses the existing Study repository, quiz service, activity store, and learning
+event as its only submitted-learning truth. `QuizService.submit_attempt` and
+the desktop HTTP/Tauri/Web bridge accept an optional `item_ids` subset: when
+absent, the historical full-quiz behavior is unchanged; when present, the
+service validates that every ID belongs to the quiz, preserves quiz order, and
+grades and records only that subset. This prevents the desk's “check this
+step” action from marking unanswered future questions wrong. Unsubmitted desk
+answers and the current bookmark are a versioned local recovery cache only;
+they are not learning evidence, do not replace Study persistence, and become
+canonical only after the checked attempt is recorded by the backend. An
+explicit `item_ids` subset must be a non-empty list of unique question IDs;
+duplicates, unknown IDs, blanks, and invalid IDs fail before an activity is
+written. After a check whose mapped verdict is `completed`, the submitted
+answer is removed from the recovery cache before `STUDY_LEARNING_EVENT` is
+emitted, while the visible answer and completed annotation remain mounted.
+Incorrect or ungraded answers map to `needs_revision`, remain in recovery
+storage, and continue to activate dirty-leave and `beforeunload` protection.
+Unfinished input is persisted synchronously for refresh recovery; confirmed
+in-app navigation preserves that recovery draft and says so explicitly.
