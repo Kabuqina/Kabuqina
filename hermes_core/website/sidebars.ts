@@ -523,8 +523,6 @@ const sidebars: SidebarsConfig = {
         'user-guide/messaging/mattermost',
         'user-guide/messaging/matrix',
         'user-guide/messaging/dingtalk',
-        'user-guide/messaging/wecom',
-        'user-guide/messaging/wecom-callback',
         'user-guide/messaging/weixin',
         'user-guide/messaging/bluebubbles',
         'user-guide/messaging/qqbot',

@@ -42,7 +42,6 @@ Each session is tagged with its source platform:
 | `email` | Email (IMAP/SMTP) |
 | `sms` | SMS via Twilio |
 | `dingtalk` | DingTalk messenger |
-| `wecom` | WeCom (WeChat Work) |
 | `weixin` | Weixin (personal WeChat) |
 | `bluebubbles` | Apple iMessage via BlueBubbles macOS server |
 | `qqbot` | QQ Bot (Tencent QQ) via Official API v2 |

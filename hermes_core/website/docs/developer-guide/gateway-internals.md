@@ -158,7 +158,6 @@ gateway/platforms/
 ├── email.py             # Email via IMAP/SMTP
 ├── sms.py               # SMS via Twilio
 ├── dingtalk.py          # DingTalk WebSocket
-├── wecom.py             # WeCom (WeChat Work) callback
 ├── weixin.py            # Weixin (personal WeChat) via iLink Bot API
 ├── bluebubbles.py       # Apple iMessage via BlueBubbles macOS server
 ├── qqbot.py             # QQ Bot (Tencent QQ) via Official API v2

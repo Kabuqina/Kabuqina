@@ -165,7 +165,7 @@ hermes gateway status       Check status
 hermes gateway setup        Configure platforms
 ```
 
-Supported platforms: Telegram, Slack, WhatsApp, Signal, Email, SMS, Matrix, Mattermost, Home Assistant, DingTalk, WeCom, BlueBubbles (iMessage), Weixin (WeChat), QQ Bot, API Server, and Webhooks. Open WebUI connects via the API Server adapter.
+Supported platforms: Telegram, Slack, WhatsApp, Signal, Email, SMS, Matrix, Mattermost, Home Assistant, DingTalk, BlueBubbles (iMessage), Weixin (WeChat), QQ Bot, API Server, and Webhooks. Open WebUI connects via the API Server adapter.
 
 Platform docs: https://hermes-agent.nousresearch.com/docs/user-guide/messaging/
 

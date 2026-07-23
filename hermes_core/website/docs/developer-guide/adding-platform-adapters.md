@@ -4,7 +4,7 @@ sidebar_position: 9
 
 # Adding a Platform Adapter
 
-This guide covers adding a new messaging platform to the Hermes gateway. A platform adapter connects Hermes to an external messaging service (Telegram, Discord, WeCom, etc.) so users can interact with the agent through that service.
+This guide covers adding a new messaging platform to the Hermes gateway. A platform adapter connects Hermes to an external messaging service so users can interact with the agent through that service.
 
 :::tip
 There are two ways to add a platform:
@@ -359,7 +359,7 @@ async def _poll_loop(self):
 
 ### Callback/Webhook Adapters
 
-If the platform pushes messages to your endpoint (like WeCom Callback), run an HTTP server:
+If the platform pushes messages to your endpoint, run an HTTP server:
 
 ```python
 async def connect(self):
@@ -374,7 +374,7 @@ async def _handle_callback(self, request):
     return web.Response(text="success")  # Acknowledge immediately
 ```
 
-For platforms with tight response deadlines (e.g., WeCom's 5-second limit), always acknowledge immediately and deliver the agent's reply proactively via API later. Agent sessions run 3–30 minutes — inline replies within a callback response window are not feasible.
+For platforms with tight response deadlines, always acknowledge immediately and deliver the agent's reply proactively via API later. Agent sessions run 3–30 minutes — inline replies within a callback response window are not feasible.
 
 ### Token Locks
 
@@ -399,5 +399,4 @@ async def disconnect(self):
 |---------|---------|------------|-------------------|
 | `bluebubbles.py` | REST + webhook | Medium | Simple REST API integration |
 | `weixin.py` | Long-poll + CDN | High | Media handling, encryption |
-| `wecom_callback.py` | Callback/webhook | Medium | HTTP server, AES crypto, multi-app |
 | `telegram.py` | Long-poll + Bot API | High | Full-featured adapter with groups, threads |

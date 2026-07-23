@@ -311,7 +311,11 @@ class TestLoadGatewayConfig:
             "feishu:\n"
             "  enabled: true\n"
             "  channel_prompts:\n"
-            "    oc_old: Legacy mode\n",
+            "    oc_old: Legacy mode\n"
+            "wecom:\n"
+            "  enabled: true\n"
+            "wecom_callback:\n"
+            "  enabled: true\n",
             encoding="utf-8",
         )
 
@@ -321,6 +325,8 @@ class TestLoadGatewayConfig:
 
         assert Platform.DISCORD not in config.platforms
         assert Platform.FEISHU not in config.platforms
+        assert Platform.WECOM not in config.platforms
+        assert Platform.WECOM_CALLBACK not in config.platforms
 
     def test_removed_feishu_env_does_not_create_platform_state(self):
         config = GatewayConfig()
@@ -336,6 +342,23 @@ class TestLoadGatewayConfig:
             _apply_env_overrides(config)
 
         assert Platform.FEISHU not in config.platforms
+
+    def test_removed_wecom_env_does_not_create_platform_state(self):
+        config = GatewayConfig()
+        with patch.dict(
+            os.environ,
+            {
+                "WECOM_BOT_ID": "bot_old",
+                "WECOM_SECRET": "secret_old",
+                "WECOM_CALLBACK_CORP_ID": "corp_old",
+                "WECOM_CALLBACK_CORP_SECRET": "callback_secret_old",
+            },
+            clear=True,
+        ):
+            _apply_env_overrides(config)
+
+        assert Platform.WECOM not in config.platforms
+        assert Platform.WECOM_CALLBACK not in config.platforms
 
     def test_bridges_telegram_channel_prompts_from_config_yaml(self, tmp_path, monkeypatch):
         hermes_home = tmp_path / ".hermes"

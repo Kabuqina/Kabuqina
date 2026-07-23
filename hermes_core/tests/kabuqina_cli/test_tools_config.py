@@ -848,6 +848,22 @@ def test_removed_feishu_toolsets_user_enabled_are_ignored():
     assert "feishu_drive" not in enabled
 
 
+def test_removed_wecom_toolsets_user_enabled_are_ignored():
+    """A hand-edited pre-C03c config cannot re-enable deleted toolsets."""
+    config = {
+        "platform_toolsets": {
+            "cli": ["web", "terminal", "wecom", "wecom_callback"],
+        },
+    }
+
+    enabled = _get_platform_tools(config, "cli")
+
+    assert "web" in enabled
+    assert "terminal" in enabled
+    assert "wecom" not in enabled
+    assert "wecom_callback" not in enabled
+
+
 def test_save_platform_tools_strips_restricted_toolsets():
     """Hand-edited or all-platforms checklist with `discord` selected for
     Telegram must be stripped at save time."""

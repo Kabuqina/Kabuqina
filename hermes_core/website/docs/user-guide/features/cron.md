@@ -232,7 +232,6 @@ When scheduling jobs, you specify where the output goes:
 | `"sms"` | SMS via Twilio | |
 | `"homeassistant"` | Home Assistant | |
 | `"dingtalk"` | DingTalk | |
-| `"wecom"` | WeCom | |
 | `"weixin"` | Weixin (WeChat) | |
 | `"bluebubbles"` | BlueBubbles (iMessage) | |
 | `"qqbot"` | QQ Bot (Tencent QQ) | |

@@ -31,6 +31,8 @@ def test_all_builtins_have_checker_or_generic_token_path():
     compatibility_only_values = {
         Platform.DISCORD.value,
         Platform.FEISHU.value,
+        Platform.WECOM.value,
+        Platform.WECOM_CALLBACK.value,
     }
 
     # Platforms with a bespoke checker
@@ -87,10 +89,6 @@ def test_checker_returns_true_when_configured(platform, checker, monkeypatch):
         mock_config.extra = {}
     elif platform in (Platform.API_SERVER, Platform.WEBHOOK, Platform.WHATSAPP):
         mock_config.extra = {}
-    elif platform == Platform.WECOM:
-        mock_config.extra = {"bot_id": "bot"}
-    elif platform == Platform.WECOM_CALLBACK:
-        mock_config.extra = {"corp_id": "corp"}
     elif platform == Platform.BLUEBUBBLES:
         mock_config.extra = {"server_url": "http://bb:1234", "password": "pw"}
     elif platform == Platform.QQBOT:

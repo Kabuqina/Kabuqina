@@ -400,18 +400,6 @@ TOOLSETS = {
         "includes": []
     },
 
-    "kabuqina-wecom": {
-        "description": "WeCom bot toolset - enterprise WeChat messaging (full access)",
-        "tools": _KABUQINA_CORE_TOOLS,
-        "includes": []
-    },
-
-    "kabuqina-wecom-callback": {
-        "description": "WeCom callback toolset - enterprise self-built app messaging (full access)",
-        "tools": _KABUQINA_CORE_TOOLS,
-        "includes": []
-    },
-
     "kabuqina-yuanbao": {
         "description": "Yuanbao Bot 元宝消息平台工具集 - 群信息、成员查询、私聊、贴纸表情",
         "tools": _KABUQINA_CORE_TOOLS + [
@@ -440,7 +428,7 @@ TOOLSETS = {
     "kabuqina-gateway": {
         "description": "Gateway toolset - union of all messaging platform tools",
         "tools": [],
-        "includes": ["kabuqina-telegram", "kabuqina-whatsapp", "kabuqina-slack", "kabuqina-signal", "kabuqina-bluebubbles", "kabuqina-homeassistant", "kabuqina-email", "kabuqina-sms", "kabuqina-mattermost", "kabuqina-matrix", "kabuqina-dingtalk", "kabuqina-wecom", "kabuqina-wecom-callback", "kabuqina-weixin", "kabuqina-qqbot", "kabuqina-webhook", "kabuqina-yuanbao"]
+        "includes": ["kabuqina-telegram", "kabuqina-whatsapp", "kabuqina-slack", "kabuqina-signal", "kabuqina-bluebubbles", "kabuqina-homeassistant", "kabuqina-email", "kabuqina-sms", "kabuqina-mattermost", "kabuqina-matrix", "kabuqina-dingtalk", "kabuqina-weixin", "kabuqina-qqbot", "kabuqina-webhook", "kabuqina-yuanbao"]
     }
 }
 

@@ -6,10 +6,10 @@ description: "Connect Hermes Agent to personal WeChat accounts via the iLink Bot
 
 # Weixin (WeChat)
 
-Connect Hermes to [WeChat](https://weixin.qq.com/) (微信), Tencent's personal messaging platform. The adapter uses Tencent's **iLink Bot API** for personal WeChat accounts — this is distinct from WeCom (Enterprise WeChat). Messages are delivered via long-polling, so no public endpoint or webhook is required.
+Connect Hermes to [WeChat](https://weixin.qq.com/) (微信), Tencent's personal messaging platform. The adapter uses Tencent's **iLink Bot API** for personal WeChat accounts. Messages are delivered via long-polling, so no public endpoint or webhook is required.
 
 :::info
-This adapter is for **personal WeChat accounts** (微信). If you need enterprise/corporate WeChat, see the [WeCom adapter](./wecom.md) instead.
+This adapter is for **personal WeChat accounts** (微信).
 :::
 
 :::warning iLink bot identity — ordinary WeChat groups may not work
@@ -160,7 +160,7 @@ WEIXIN_GROUP_ALLOWED_USERS=group_id_1,group_id_2
 ```
 
 :::note
-The default group policy is `disabled` for Weixin (unlike WeCom where it defaults to `open`). This is intentional — personal WeChat accounts may be in many groups, and iLink bot identities typically can't receive ordinary WeChat group messages at all. The gateway logs a `WARNING` at startup if you set `WEIXIN_GROUP_POLICY` to anything other than `disabled`.
+The default group policy is `disabled` for Weixin. This is intentional — personal WeChat accounts may be in many groups, and iLink bot identities typically can't receive ordinary WeChat group messages at all. The gateway logs a `WARNING` at startup if you set `WEIXIN_GROUP_POLICY` to anything other than `disabled`.
 :::
 
 ## Media Support

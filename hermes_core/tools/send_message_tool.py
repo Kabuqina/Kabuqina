@@ -589,8 +589,6 @@ async def _send_to_platform(platform, pconfig, chat_id, message, thread_id=None,
             result = await _send_homeassistant(pconfig.token, pconfig.extra, chat_id, chunk)
         elif platform == Platform.DINGTALK:
             result = await _send_dingtalk(pconfig.extra, chat_id, chunk)
-        elif platform == Platform.WECOM:
-            result = await _send_wecom(pconfig.extra, chat_id, chunk)
         elif platform == Platform.BLUEBUBBLES:
             result = await _send_bluebubbles(pconfig.extra, chat_id, chunk)
         elif platform == Platform.QQBOT:
@@ -1266,33 +1264,6 @@ async def _send_dingtalk(extra, chat_id, message):
         return {"success": True, "platform": "dingtalk", "chat_id": chat_id}
     except Exception as e:
         return _error(f"DingTalk send failed: {e}")
-
-
-async def _send_wecom(extra, chat_id, message):
-    """Send via WeCom using the adapter's WebSocket send pipeline."""
-    try:
-        from gateway.platforms.wecom import WeComAdapter, check_wecom_requirements
-        if not check_wecom_requirements():
-            return {"error": "WeCom requirements not met. Need aiohttp + WECOM_BOT_ID/SECRET."}
-    except ImportError:
-        return {"error": "WeCom adapter not available."}
-
-    try:
-        from gateway.config import PlatformConfig
-        pconfig = PlatformConfig(extra=extra)
-        adapter = WeComAdapter(pconfig)
-        connected = await adapter.connect()
-        if not connected:
-            return _error(f"WeCom: failed to connect - {adapter.fatal_error_message or 'unknown error'}")
-        try:
-            result = await adapter.send(chat_id, message)
-            if not result.success:
-                return _error(f"WeCom send failed: {result.error}")
-            return {"success": True, "platform": "wecom", "chat_id": chat_id, "message_id": result.message_id}
-        finally:
-            await adapter.disconnect()
-    except Exception as e:
-        return _error(f"WeCom send failed: {e}")
 
 
 async def _send_weixin(pconfig, chat_id, message, media_files=None):
