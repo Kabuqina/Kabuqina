@@ -176,7 +176,6 @@ Cron job results can be delivered to any supported platform:
 | SMS | `sms` | Deliver via SMS |
 | Home Assistant | `homeassistant` | Deliver to HA conversation |
 | DingTalk | `dingtalk` | Deliver to DingTalk |
-| Feishu | `feishu` | Deliver to Feishu |
 | WeCom | `wecom` | Deliver to WeCom |
 | Weixin | `weixin` | Deliver to Weixin (WeChat) |
 | BlueBubbles | `bluebubbles` | Deliver to iMessage via BlueBubbles |

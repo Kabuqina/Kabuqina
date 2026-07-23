@@ -119,7 +119,7 @@ hermes-agent/
 │   ├── builtin_hooks/        # Extension point for always-registered hooks (none shipped)
 │   └── platforms/            # 20 adapters: telegram, discord, slack, whatsapp,
 │                             #   signal, matrix, mattermost, email, sms,
-│                             #   dingtalk, feishu, wecom, wecom_callback, weixin,
+│                             #   dingtalk, wecom, wecom_callback, weixin,
 │                             #   bluebubbles, qqbot, homeassistant, webhook, api_server,
 │                             #   yuanbao
 │
