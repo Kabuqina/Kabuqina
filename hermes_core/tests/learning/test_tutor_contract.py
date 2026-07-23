@@ -1,6 +1,9 @@
 """Contract tests for the versioned Tutor activity wire model."""
 
 import copy
+import hashlib
+import json
+from pathlib import Path
 
 import pytest
 
@@ -14,11 +17,19 @@ from learning.tutor_contract import (
     LearningInterruptV1,
     TutorContractError,
     TutorConflictError,
+    canonical_json_bytes,
     canonical_request_fingerprint,
     is_allowed_activity_transition,
     validate_cancel_request,
     validate_resume_request,
     validate_start_request,
+)
+
+
+CANONICAL_FIXTURE = (
+    Path(__file__).resolve().parents[1]
+    / "fixtures"
+    / "tutor_canonical_json_vectors.json"
 )
 
 
@@ -153,6 +164,19 @@ def test_start_rejects_unknown_version_caps_and_invalid_refs(body, match):
 def test_canonical_json_subset_rejects_float_values():
     with pytest.raises(TutorContractError, match="number"):
         canonical_request_fingerprint(_start(input_refs=[{"kind": "item", "id": "x", "version": 1.5}]))
+
+
+def test_shared_canonical_json_fixture_matches_python_contract():
+    fixture = json.loads(CANONICAL_FIXTURE.read_text(encoding="utf-8"))
+    for vector in fixture["equivalent_pairs"]:
+        left = hashlib.sha256(canonical_json_bytes(vector["left"])).hexdigest()
+        right = hashlib.sha256(canonical_json_bytes(vector["right"])).hexdigest()
+        assert left == right == vector["sha256"], vector["name"]
+    for vector in fixture["canonical_values"]:
+        actual = hashlib.sha256(canonical_json_bytes(vector["value"])).hexdigest()
+        assert actual == vector["sha256"], vector["name"]
+    with pytest.raises(TutorContractError, match="duplicate normalized keys"):
+        canonical_json_bytes(fixture["normalized_key_collision"])
 
 
 def test_resume_answer_and_recover_are_a_strict_discriminated_union():
