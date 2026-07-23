@@ -610,7 +610,7 @@ class TestSessionStoreSwitchSession:
         store._loaded = True
 
         source = SessionSource(
-            platform=Platform.FEISHU,
+            platform=Platform.TELEGRAM,
             chat_id="chat-1",
             chat_type="dm",
             user_id="user-1",
@@ -620,7 +620,7 @@ class TestSessionStoreSwitchSession:
         current_session_id = current_entry.session_id
 
         target_session_id = "old_session_abc"
-        db.create_session(target_session_id, source="feishu", user_id="user-1")
+        db.create_session(target_session_id, source="telegram", user_id="user-1")
         db.end_session(target_session_id, end_reason="user_exit")
         assert db.get_session(target_session_id)["ended_at"] is not None
 

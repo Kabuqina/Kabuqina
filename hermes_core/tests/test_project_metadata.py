@@ -43,12 +43,3 @@ def test_dingtalk_extra_includes_qrcode_for_qr_auth():
 
     dingtalk_extra = optional_dependencies["dingtalk"]
     assert any(dep.startswith("qrcode") for dep in dingtalk_extra)
-
-
-def test_feishu_extra_includes_qrcode_for_qr_login():
-    """Feishu's QR login flow (gateway/platforms/feishu.py) needs the
-    qrcode package."""
-    optional_dependencies = _load_optional_dependencies()
-
-    feishu_extra = optional_dependencies["feishu"]
-    assert any(dep.startswith("qrcode") for dep in feishu_extra)

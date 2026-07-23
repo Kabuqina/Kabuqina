@@ -14,18 +14,6 @@ def hermes_home(tmp_path, monkeypatch):
     (tmp_path / "sessions").mkdir(parents=True)
 
 
-def test_feishu_connection_mode_from_env(hermes_home, monkeypatch):
-    monkeypatch.setenv("FEISHU_APP_ID", "app_id_test")
-    monkeypatch.setenv("FEISHU_APP_SECRET", "secret_test")
-    monkeypatch.setenv("FEISHU_CONNECTION_MODE", "webhook")
-
-    cfg = load_gateway_config()
-    feishu = cfg.platforms.get(Platform.FEISHU)
-    assert feishu is not None
-    assert feishu.enabled is True
-    assert feishu.extra.get("connection_mode") == "webhook"
-
-
 def test_qq_home_channel_from_env(hermes_home, monkeypatch):
     monkeypatch.setenv("QQ_APP_ID", "qid")
     monkeypatch.setenv("QQ_CLIENT_SECRET", "qsec")

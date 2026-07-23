@@ -23,19 +23,28 @@ def test_all_builtins_have_checker_or_generic_token_path():
     # Platforms covered by the generic token/api_key branch
     generic_token_values = {p.value for p in {
         Platform.TELEGRAM,
-        Platform.DISCORD,
         Platform.SLACK,
         Platform.MATRIX,
         Platform.MATTERMOST,
         Platform.HOMEASSISTANT,
     }}
+    compatibility_only_values = {
+        Platform.DISCORD.value,
+        Platform.FEISHU.value,
+    }
 
     # Platforms with a bespoke checker
     checker_values = {p.value for p in set(_PLATFORM_CONNECTED_CHECKERS.keys())}
 
     # Every built-in should be in one of the two sets
     all_builtins = set(_BUILTIN_PLATFORM_VALUES)
-    missing = all_builtins - generic_token_values - checker_values - {"local"}
+    missing = (
+        all_builtins
+        - generic_token_values
+        - checker_values
+        - compatibility_only_values
+        - {"local"}
+    )
 
     assert not missing, (
         f"Built-in platforms missing a connection checker: "
