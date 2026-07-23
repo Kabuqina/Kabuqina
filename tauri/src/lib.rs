@@ -38,8 +38,6 @@ mod study;
 mod telegram_env;
 mod tray;
 mod validation;
-mod wecom_env;
-mod wecom_qr;
 mod weixin_qr;
 #[cfg(windows)]
 mod windows_notification;
@@ -70,8 +68,6 @@ pub struct AppState {
     pub weixin_qr_child: Arc<Mutex<Option<tokio::process::Child>>>,
     /// Optional QQ Bot QR login child (`qqbot_qr_worker.py`); separate from the long-lived Hermes process.
     pub qqbot_qr_child: Arc<Mutex<Option<tokio::process::Child>>>,
-    /// Optional WeCom QR login child (`wecom_qr_worker.py`); separate from the long-lived Hermes process.
-    pub wecom_qr_child: Arc<Mutex<Option<tokio::process::Child>>>,
     pub bridge_addr: Arc<Mutex<Option<std::net::SocketAddr>>>,
     /// Cached from `bridge::Bridge` for respawning Python without a second `bridge::spawn`.
     pub bridge_secret_url: Arc<Mutex<Option<String>>>,
@@ -107,7 +103,6 @@ pub fn run() {
         gateway_supervisor: Arc::new(Mutex::new(None)),
         weixin_qr_child: Arc::new(Mutex::new(None)),
         qqbot_qr_child: Arc::new(Mutex::new(None)),
-        wecom_qr_child: Arc::new(Mutex::new(None)),
         bridge_addr: bridge_addr.clone(),
         bridge_secret_url: Arc::new(Mutex::new(None)),
         bridge_approval_url: Arc::new(Mutex::new(None)),
@@ -211,12 +206,6 @@ pub fn run() {
             email_oauth::cmd_email_oauth_status,
             email_oauth::cmd_email_oauth_device_start,
             email_oauth::cmd_email_oauth_device_finish,
-            wecom_env::cmd_wecom_env_status,
-            wecom_env::cmd_wecom_env_remove,
-            wecom_env::cmd_wecom_save_config,
-            wecom_qr::cmd_wecom_qr_start,
-            wecom_qr::cmd_wecom_qr_status,
-            wecom_qr::cmd_wecom_qr_cancel,
             weixin_qr::cmd_weixin_qr_cancel,
             weixin_qr::cmd_restart_embedded_hermes,
             qqbot_qr::cmd_qqbot_qr_start,

@@ -165,6 +165,9 @@ $runtimeDrop = @(
     "gateway\platforms\feishu.py",
     "gateway\platforms\feishu_comment.py",
     "gateway\platforms\feishu_comment_rules.py",
+    "gateway\platforms\wecom.py",
+    "gateway\platforms\wecom_callback.py",
+    "gateway\platforms\wecom_crypto.py",
     "gateway\platforms\homeassistant.py",
     "gateway\platforms\matrix.py",
     "gateway\platforms\mattermost.py",
@@ -203,9 +206,11 @@ foreach ($d in $runtimeDrop) {
 # bundle rebuild remains authoritative for dependency installation, but this
 # cleanup keeps an existing developer runtime aligned with removed sources and
 # allows the pruning verifier below to fail closed.
-$retiredRootArtifact = Join-Path $dist "feishu_qr_worker.py"
-if (Test-Path -LiteralPath $retiredRootArtifact) {
-    Remove-Item -Force -LiteralPath $retiredRootArtifact
+foreach ($retiredRootName in @("feishu_qr_worker.py", "wecom_qr_worker.py")) {
+    $retiredRootArtifact = Join-Path $dist $retiredRootName
+    if (Test-Path -LiteralPath $retiredRootArtifact) {
+        Remove-Item -Force -LiteralPath $retiredRootArtifact
+    }
 }
 $sitePackages = Join-Path $dist "site-packages"
 if (Test-Path -LiteralPath $sitePackages -PathType Container) {

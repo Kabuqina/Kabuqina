@@ -36,6 +36,11 @@ FORBIDDEN_RUNTIME_PATHS = (
     "kabuqina/gateway/platforms/feishu_comment_rules.py",
     "kabuqina/tools/feishu_doc_tool.py",
     "kabuqina/tools/feishu_drive_tool.py",
+    # v0.5.0 CTL-C03c removed owned WeCom bot/callback surfaces.
+    "wecom_qr_worker.py",
+    "kabuqina/gateway/platforms/wecom.py",
+    "kabuqina/gateway/platforms/wecom_callback.py",
+    "kabuqina/gateway/platforms/wecom_crypto.py",
     # v0.3.0 global-cut bundled plugins and late-discovered platform plugins.
     "kabuqina/plugins/disk-cleanup",
     "kabuqina/plugins/platforms",

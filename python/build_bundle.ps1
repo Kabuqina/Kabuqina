@@ -278,7 +278,7 @@ New-Item -ItemType Directory -Force -Path $bundledCore | Out-Null
 
 # Root-level workers removed from source do not live under the bundled core,
 # so replacing ``runtime/kabuqina`` cannot retire them.
-foreach ($retiredRootPath in @("feishu_qr_worker.py")) {
+foreach ($retiredRootPath in @("feishu_qr_worker.py", "wecom_qr_worker.py")) {
     Remove-BundlePathStrict `
         -Path (Join-Path $Dist $retiredRootPath) `
         -Label "retired runtime artifact"
@@ -327,13 +327,16 @@ foreach ($name in $keep) {
 # Drop unwanted subtrees that snuck in through broad package copies.
 $drop = @(
     # v0.3.0 global-cut gateway adapters. Keep gateway/base helpers and the
-    # retained mainland adapters (weixin, qqbot, wecom).
+    # retained mainland adapters (weixin, qqbot, dingtalk).
     "gateway\platforms\api_server.py",
     "gateway\platforms\bluebubbles.py",
     "gateway\platforms\discord.py",
     "gateway\platforms\feishu.py",
     "gateway\platforms\feishu_comment.py",
     "gateway\platforms\feishu_comment_rules.py",
+    "gateway\platforms\wecom.py",
+    "gateway\platforms\wecom_callback.py",
+    "gateway\platforms\wecom_crypto.py",
     "gateway\platforms\homeassistant.py",
     "gateway\platforms\matrix.py",
     "gateway\platforms\mattermost.py",

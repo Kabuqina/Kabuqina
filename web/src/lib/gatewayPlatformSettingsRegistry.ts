@@ -180,54 +180,6 @@ export const GATEWAY_PLATFORM_REGISTRY: GatewayPlatformRegistryEntry[] = [
     ],
   },
   {
-    platform: "wecom",
-    sections: [
-      {
-        id: "dm",
-        titleKey: `${GW}.sectionDm`,
-        fields: [
-          {
-            envKey: "WECOM_DM_POLICY",
-            labelKey: `${GW}.wecomDmPolicy`,
-            descriptionKey: `${GW}.wecomDmPolicyDesc`,
-            type: "enum",
-            enumValues: ["pairing", "open", "disabled"],
-            recommended: "pairing",
-          },
-          {
-            envKey: "WECOM_ALLOW_ALL_USERS",
-            labelKey: `${GW}.wecomAllowAll`,
-            descriptionKey: `${GW}.wecomAllowAllDesc`,
-            type: "bool",
-          },
-          {
-            envKey: "GATEWAY_ALLOW_ALL_USERS",
-            labelKey: `${GW}.gatewayAllowAll`,
-            descriptionKey: `${GW}.gatewayAllowAllDesc`,
-            type: "bool",
-            advanced: true,
-          },
-          {
-            envKey: "WECOM_ALLOWED_USERS",
-            labelKey: `${GW}.wecomAllowedUsers`,
-            type: "string",
-          },
-        ],
-      },
-      {
-        id: "home",
-        titleKey: `${GW}.sectionHome`,
-        fields: [
-          {
-            envKey: "WECOM_HOME_CHANNEL",
-            labelKey: `${GW}.wecomHome`,
-            type: "string",
-          },
-        ],
-      },
-    ],
-  },
-  {
     platform: "dingtalk",
     sections: [
       {

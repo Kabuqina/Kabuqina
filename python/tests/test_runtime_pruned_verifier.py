@@ -120,6 +120,33 @@ class RuntimePrunedVerifierTests(unittest.TestCase):
         ):
             self.assertIn(f"forbidden runtime residual: {residual}", result.stderr)
 
+    def test_verifier_reports_removed_wecom_sources_and_worker(self):
+        self.assertTrue(VERIFIER.exists(), "missing verify_runtime_pruned.py")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = Path(tmp)
+            residuals = (
+                "wecom_qr_worker.py",
+                "kabuqina/gateway/platforms/wecom.py",
+                "kabuqina/gateway/platforms/wecom_callback.py",
+                "kabuqina/gateway/platforms/wecom_crypto.py",
+            )
+            for residual in residuals:
+                path = runtime / residual
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("# removed WeCom surface\n", encoding="utf-8")
+
+            result = subprocess.run(
+                [sys.executable, str(VERIFIER), str(runtime)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        for residual in residuals:
+            self.assertIn(f"forbidden runtime residual: {residual}", result.stderr)
+
     def test_verifier_accepts_clean_runtime(self):
         self.assertTrue(VERIFIER.exists(), "missing verify_runtime_pruned.py")
 
@@ -183,7 +210,7 @@ class RuntimePrunedVerifierTests(unittest.TestCase):
             build_script,
         )
         self.assertIn(
-            'foreach ($retiredRootPath in @("feishu_qr_worker.py"))',
+            'foreach ($retiredRootPath in @("feishu_qr_worker.py", "wecom_qr_worker.py"))',
             build_script,
         )
 

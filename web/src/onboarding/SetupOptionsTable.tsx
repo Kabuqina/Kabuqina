@@ -66,7 +66,7 @@ export function SetupOptionsTable({
 
   const [editing, setEditing] = useState<SetupCatalogOption | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
-  const { weixinEnv, qqEnv, wecomEnv } = usePlatformEnvStatus(items);
+  const { weixinEnv, qqEnv } = usePlatformEnvStatus(items);
 
   const selRaw = draft.wizardSelection?.[section];
   const sel: SectionSelection | undefined =
@@ -102,7 +102,6 @@ export function SetupOptionsTable({
   function isEnvConfigured(row: SetupCatalogOption): boolean {
     if (row.configUi === "weixin_route_c") return weixinEnv?.configured ?? false;
     if (row.configUi === "qqbot_route_c") return qqEnv?.configured ?? false;
-    if (row.configUi === "wecom_route_c") return wecomEnv?.configured ?? false;
     return false;
   }
 

@@ -359,16 +359,6 @@ pub struct DingTalkEnvSnapshot {
     pub client_id_hint: Option<String>,
 }
 
-#[derive(Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct WeComEnvSnapshot {
-    pub configured: bool,
-    pub has_bot_id: bool,
-    pub has_secret: bool,
-    pub bot_id_hint: Option<String>,
-    pub setup_method: Option<String>,
-}
-
 fn telegram_token_hint(raw: &str) -> String {
     let s = raw.trim();
     if s.is_empty() {
@@ -488,28 +478,6 @@ pub fn read_dingtalk_env_snapshot(home: &Path) -> DingTalkEnvSnapshot {
         has_client_id,
         has_client_secret,
         client_id_hint,
-    }
-}
-
-pub fn read_wecom_env_snapshot(home: &Path) -> WeComEnvSnapshot {
-    let keys = parse_dotenv_upper(home);
-    let bot_id = keys.get("WECOM_BOT_ID").cloned();
-    let has_secret = keys
-        .get("WECOM_SECRET")
-        .map(|s| !s.is_empty())
-        .unwrap_or(false);
-    let has_bot_id = bot_id.as_ref().map(|s| !s.is_empty()).unwrap_or(false);
-    let configured = has_bot_id && has_secret;
-    let bot_id_hint = bot_id
-        .map(|id| qq_app_id_display_hint(&id))
-        .filter(|s| !s.is_empty());
-    let setup_method = keys.get("WECOM_SETUP_METHOD").cloned();
-    WeComEnvSnapshot {
-        configured,
-        has_bot_id,
-        has_secret,
-        bot_id_hint,
-        setup_method,
     }
 }
 

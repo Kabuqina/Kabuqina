@@ -74,9 +74,15 @@ class BuildBundleConsoleContractTests(unittest.TestCase):
             'Remove-BundlePathStrict -Path $bundledCore -Label "bundled core"',
             text,
         )
-        self.assertIn('foreach ($retiredRootPath in @("feishu_qr_worker.py"))', text)
+        self.assertIn(
+            'foreach ($retiredRootPath in @("feishu_qr_worker.py", "wecom_qr_worker.py"))',
+            text,
+        )
         self.assertIn('"gateway\\platforms\\discord.py"', text)
         self.assertIn('"gateway\\platforms\\feishu.py"', text)
+        self.assertIn('"gateway\\platforms\\wecom.py"', text)
+        self.assertIn('"gateway\\platforms\\wecom_callback.py"', text)
+        self.assertIn('"gateway\\platforms\\wecom_crypto.py"', text)
 
 
 if __name__ == "__main__":
