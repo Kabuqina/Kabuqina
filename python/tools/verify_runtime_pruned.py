@@ -29,6 +29,13 @@ FORBIDDEN_RUNTIME_PATHS = (
     "kabuqina/gateway/platforms/discord.py",
     "kabuqina/tools/discord_tool.py",
     "kabuqina/scripts/discord-voice-doctor.py",
+    # v0.5.0 CTL-C03b removed owned Feishu/Lark surfaces.
+    "feishu_qr_worker.py",
+    "kabuqina/gateway/platforms/feishu.py",
+    "kabuqina/gateway/platforms/feishu_comment.py",
+    "kabuqina/gateway/platforms/feishu_comment_rules.py",
+    "kabuqina/tools/feishu_doc_tool.py",
+    "kabuqina/tools/feishu_drive_tool.py",
     # v0.3.0 global-cut bundled plugins and late-discovered platform plugins.
     "kabuqina/plugins/disk-cleanup",
     "kabuqina/plugins/platforms",
@@ -45,6 +52,9 @@ FORBIDDEN_RUNTIME_GLOBS = (
     "site-packages/discord_py-*.dist-info",
     "site-packages/nacl",
     "site-packages/PyNaCl-*.dist-info",
+    # CTL-C03b direct dependency.
+    "site-packages/lark_oapi",
+    "site-packages/lark_oapi-*.dist-info",
 )
 
 FORBIDDEN_RUNTIME_CONTENT = (

@@ -78,7 +78,12 @@ CONFIGURABLE_TOOLSETS = [
 # They're still in _KABUQINA_CORE_TOOLS (available at runtime if enabled),
 # but the setup checklist won't pre-select them for first-time users.
 _DEFAULT_OFF_TOOLSETS = {"moa", "homeassistant", "rl"}
-_REMOVED_TOOLSETS = frozenset({"discord", "discord_admin"})
+_REMOVED_TOOLSETS = frozenset({
+    "discord",
+    "discord_admin",
+    "feishu_doc",
+    "feishu_drive",
+})
 
 # Platform-scoped toolsets: only appear in the `kabuqina tools` checklist for
 # these platforms, and only resolve/save for these platforms.  A toolset

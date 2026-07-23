@@ -94,7 +94,6 @@ termux = [
   "kabuqina-agent[acp]",
 ]
 dingtalk = ["dingtalk-stream>=0.20,<1", "alibabacloud-dingtalk>=2.0.0", "qrcode>=7.0,<8"]
-feishu = ["lark-oapi>=1.5.3,<2", "qrcode>=7.0,<8"]
 google = [
   # Required by the google-workspace skill (Gmail, Calendar, Drive, Contacts,
   # Sheets, Docs).  Declared here so packagers (Nix, Homebrew) ship them with
@@ -135,7 +134,6 @@ all = [
   "kabuqina-agent[acp]",
   "kabuqina-agent[voice]",
   "kabuqina-agent[dingtalk]",
-  "kabuqina-agent[feishu]",
   "kabuqina-agent[google]",
   "kabuqina-agent[mistral]",
   "kabuqina-agent[web]",

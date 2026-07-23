@@ -279,9 +279,12 @@ foreach ($name in $keep) {
 # Drop unwanted subtrees that snuck in through broad package copies.
 $drop = @(
     # v0.3.0 global-cut gateway adapters. Keep gateway/base helpers and the
-    # retained mainland adapters (weixin, qqbot, feishu, wecom).
+    # retained mainland adapters (weixin, qqbot, wecom).
     "gateway\platforms\api_server.py",
     "gateway\platforms\bluebubbles.py",
+    "gateway\platforms\feishu.py",
+    "gateway\platforms\feishu_comment.py",
+    "gateway\platforms\feishu_comment_rules.py",
     "gateway\platforms\homeassistant.py",
     "gateway\platforms\matrix.py",
     "gateway\platforms\mattermost.py",
@@ -520,7 +523,6 @@ Copy-Item -Force (Join-Path $PSScriptRoot "src\gateway_policy.py") (Join-Path $D
 Copy-Item -Force (Join-Path $PSScriptRoot "src\weixin_qr_worker.py") (Join-Path $Dist "weixin_qr_worker.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\qqbot_qr_worker.py") (Join-Path $Dist "qqbot_qr_worker.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\env_validate.py") (Join-Path $Dist "env_validate.py")
-Copy-Item -Force (Join-Path $PSScriptRoot "src\feishu_qr_worker.py") (Join-Path $Dist "feishu_qr_worker.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\stt_wrapper.py") (Join-Path $Dist "stt_wrapper.py")
 
 # PPT visual masters are loaded at runtime by hermes/tools/document_tools.py.

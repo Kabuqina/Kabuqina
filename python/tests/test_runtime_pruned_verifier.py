@@ -85,6 +85,41 @@ class RuntimePrunedVerifierTests(unittest.TestCase):
         ):
             self.assertIn(f"forbidden runtime residual: {residual}", result.stderr)
 
+    def test_verifier_reports_removed_feishu_sources_worker_and_package(self):
+        self.assertTrue(VERIFIER.exists(), "missing verify_runtime_pruned.py")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = Path(tmp)
+            residuals = (
+                "feishu_qr_worker.py",
+                "kabuqina/gateway/platforms/feishu.py",
+                "kabuqina/gateway/platforms/feishu_comment.py",
+                "kabuqina/gateway/platforms/feishu_comment_rules.py",
+                "kabuqina/tools/feishu_doc_tool.py",
+                "kabuqina/tools/feishu_drive_tool.py",
+            )
+            for residual in residuals:
+                path = runtime / residual
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("# removed Feishu/Lark surface\n", encoding="utf-8")
+            (runtime / "site-packages" / "lark_oapi").mkdir(parents=True)
+            (runtime / "site-packages" / "lark_oapi-1.7.1.dist-info").mkdir()
+
+            result = subprocess.run(
+                [sys.executable, str(VERIFIER), str(runtime)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        for residual in (
+            *residuals,
+            "site-packages/lark_oapi",
+            "site-packages/lark_oapi-1.7.1.dist-info",
+        ):
+            self.assertIn(f"forbidden runtime residual: {residual}", result.stderr)
+
     def test_verifier_accepts_clean_runtime(self):
         self.assertTrue(VERIFIER.exists(), "missing verify_runtime_pruned.py")
 

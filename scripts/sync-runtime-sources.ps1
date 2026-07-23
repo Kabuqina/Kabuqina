@@ -48,7 +48,6 @@ $pyFiles = @(
     "weixin_qr_worker.py",
     "qqbot_qr_worker.py",
     "env_validate.py",
-    "feishu_qr_worker.py",
     "stt_wrapper.py"
 )
 
@@ -163,6 +162,9 @@ foreach ($name in $coreKeep) {
 $runtimeDrop = @(
     "gateway\platforms\api_server.py",
     "gateway\platforms\bluebubbles.py",
+    "gateway\platforms\feishu.py",
+    "gateway\platforms\feishu_comment.py",
+    "gateway\platforms\feishu_comment_rules.py",
     "gateway\platforms\homeassistant.py",
     "gateway\platforms\matrix.py",
     "gateway\platforms\mattermost.py",
@@ -195,6 +197,32 @@ foreach ($d in $runtimeDrop) {
     if (Test-Path $target) {
         Remove-Item -Recurse -Force -LiteralPath $target
     }
+}
+
+# Source sync must also retire stale C03b root/package artifacts. A full
+# bundle rebuild remains authoritative for dependency installation, but this
+# cleanup keeps an existing developer runtime aligned with removed sources and
+# allows the pruning verifier below to fail closed.
+$retiredRootArtifact = Join-Path $dist "feishu_qr_worker.py"
+if (Test-Path -LiteralPath $retiredRootArtifact) {
+    Remove-Item -Force -LiteralPath $retiredRootArtifact
+}
+$sitePackages = Join-Path $dist "site-packages"
+if (Test-Path -LiteralPath $sitePackages -PathType Container) {
+    Get-ChildItem -LiteralPath $sitePackages -Force -ErrorAction Stop |
+        Where-Object {
+            $_.Name -eq "lark_oapi" -or
+            $_.Name -like "lark_oapi-*.dist-info"
+        } |
+        ForEach-Object {
+            $targetFull = [IO.Path]::GetFullPath($_.FullName)
+            $sitePackagesFull = [IO.Path]::GetFullPath($sitePackages).TrimEnd('\', '/')
+            $sitePackagesPrefix = $sitePackagesFull + [IO.Path]::DirectorySeparatorChar
+            if (-not $targetFull.StartsWith($sitePackagesPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+                throw "Refusing to delete retired dependency outside runtime site-packages: $targetFull"
+            }
+            Remove-Item -Recurse -Force -LiteralPath $targetFull
+        }
 }
 
 $py = Join-Path $dist "python\python.exe"

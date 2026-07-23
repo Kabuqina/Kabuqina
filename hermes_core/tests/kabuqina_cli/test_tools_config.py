@@ -823,6 +823,31 @@ def test_removed_discord_toolsets_user_enabled_are_ignored():
     assert "discord_admin" not in enabled
 
 
+def test_removed_feishu_toolsets_not_available_on_any_platform():
+    """Deleted Feishu document toolsets remain denied as legacy config input."""
+    from kabuqina_cli.tools_config import _toolset_allowed_for_platform
+
+    for platform in ["cli", "cron", "telegram", "dingtalk", "feishu"]:
+        assert not _toolset_allowed_for_platform("feishu_doc", platform)
+        assert not _toolset_allowed_for_platform("feishu_drive", platform)
+
+
+def test_removed_feishu_toolsets_user_enabled_are_ignored():
+    """A hand-edited pre-C03b config cannot re-enable deleted toolsets."""
+    config = {
+        "platform_toolsets": {
+            "cli": ["web", "terminal", "feishu_doc", "feishu_drive"],
+        },
+    }
+
+    enabled = _get_platform_tools(config, "cli")
+
+    assert "web" in enabled
+    assert "terminal" in enabled
+    assert "feishu_doc" not in enabled
+    assert "feishu_drive" not in enabled
+
+
 def test_save_platform_tools_strips_restricted_toolsets():
     """Hand-edited or all-platforms checklist with `discord` selected for
     Telegram must be stripped at save time."""

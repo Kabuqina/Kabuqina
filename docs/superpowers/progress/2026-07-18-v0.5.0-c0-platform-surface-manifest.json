@@ -1655,14 +1655,6 @@
       "exemption": null
     },
     {
-      "surface": "feishu_lark",
-      "runtime_dependency": "qrcode",
-      "dependency_ids": [
-        "py-qrcode-shared"
-      ],
-      "exemption": null
-    },
-    {
       "surface": "wecom_family",
       "runtime_dependency": "aiohttp/httpx",
       "dependency_ids": [
@@ -2111,18 +2103,16 @@
         "weixin",
         "qqbot",
         "dingtalk",
-        "feishu_lark",
         "wecom_family"
       ],
       "users": [
         "hermes_core/gateway/platforms/weixin.py",
         "hermes_core/gateway/platforms/dingtalk.py",
-        "hermes_core/gateway/platforms/feishu.py",
         "hermes_core/gateway/platforms/wecom.py"
       ],
       "usage_class": "mixed_retained_removed_qr",
       "bundle_presence": "absent in observed stale local runtime",
-      "target_action": "retain only if mainland Weixin/DingTalk release path imports it; remove Feishu/WeCom-only use",
+      "target_action": "retain only if mainland Weixin/DingTalk release path imports it; remove WeCom-only use",
       "license_status": "BSD-family metadata known; exact installed-distribution license deferred to CTL-C05",
       "advisory_status": "fresh advisory scan required at CTL-C05/Q",
       "known_gaps": [
@@ -2239,21 +2229,21 @@
         "hermes_core/uv.lock",
         "python/requirements-desktop.txt"
       ],
-      "version_constraint": ">=1.5.3,<2",
+      "version_constraint": "removed from desktop requirements, Core extra and lock by CTL-C03b",
       "platform_surfaces": [
         "feishu_lark"
       ],
       "users": [
-        "hermes_core/gateway/platforms/feishu.py",
-        "hermes_core/gateway/platforms/feishu_comment.py"
+        "python/tools/verify_runtime_pruned.py",
+        "python/tests/test_runtime_pruned_verifier.py"
       ],
       "usage_class": "removed_exclusive",
-      "bundle_presence": "present in observed stale local runtime and directly declared in desktop",
-      "target_action": "remove declaration, lock/runtime distribution and license/advisory surface with Feishu/Lark",
-      "license_status": "capture installed metadata before removal to record SBOM delta",
+      "bundle_presence": "absent after source-sync cleanup; fresh verified bundle evidence pending release operator run",
+      "target_action": "source, dependency declarations and lock removal completed; fresh bundle absence remains the C03b review gate",
+      "license_status": "lark-oapi removed from the lock; CTL-C05 consumes the removal delta",
       "advisory_status": "record removal delta; no retained runtime justification",
       "known_gaps": [
-        "Current desktop dependency contradicts the frozen removal contract."
+        "Fresh python/build_bundle.ps1 -Verify evidence must be supplied before C03b sign-off."
       ]
     },
     {
@@ -2340,17 +2330,15 @@
       "platform_surfaces": [
         "desktop",
         "dingtalk",
-        "feishu_lark",
         "yuanbao"
       ],
       "users": [
         "python/requirements-desktop.txt",
-        "hermes_core/gateway/platforms/feishu.py",
         "hermes_core/gateway/platforms/yuanbao.py"
       ],
       "usage_class": "shared_desktop_transport_with_adapter_conflict",
       "bundle_presence": "15.x present in observed stale local runtime",
-      "target_action": "retain modern Browser/CDP requirement; remove Feishu/Yuanbao users and resolve DingTalk compatibility",
+      "target_action": "retain modern Browser/CDP requirement; remove Yuanbao users and resolve DingTalk compatibility",
       "license_status": "BSD-3-Clause metadata known; final SBOM deferred to CTL-C05",
       "advisory_status": "fresh advisory scan required at CTL-C05/Q",
       "known_gaps": [
@@ -3197,8 +3185,7 @@
         "hermes_core/website/docs/user-guide/messaging/feishu.md"
       ],
       "runtime_dependencies": [
-        "lark-oapi/lark_oapi",
-        "qrcode"
+        "lark-oapi/lark_oapi"
       ],
       "persisted_data": [
         "feishu_seen_message_ids.json",
@@ -3955,13 +3942,17 @@
       ],
       "platform_surfaces": [
         "email",
-        "local_delivery"
+        "local_delivery",
+        "telegram",
+        "whatsapp"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
         "surface_known_gaps.email",
-        "surface_known_gaps.local_delivery"
+        "surface_known_gaps.local_delivery",
+        "surface_known_gaps.telegram",
+        "surface_known_gaps.whatsapp"
       ]
     },
     {
@@ -3990,7 +3981,6 @@
         "documentation_consumer"
       ],
       "platform_surfaces": [
-        "feishu_lark",
         "local_delivery",
         "qqbot",
         "telegram",
@@ -3999,7 +3989,6 @@
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.local_delivery",
         "surface_known_gaps.qqbot",
         "surface_known_gaps.telegram",
@@ -4013,7 +4002,7 @@
         "documentation_consumer"
       ],
       "platform_surfaces": [
-        "feishu_lark",
+        "dingtalk",
         "local_delivery",
         "qqbot",
         "telegram",
@@ -4022,7 +4011,7 @@
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.feishu_lark",
+        "surface_known_gaps.dingtalk",
         "surface_known_gaps.local_delivery",
         "surface_known_gaps.qqbot",
         "surface_known_gaps.telegram",
@@ -4051,7 +4040,6 @@
         "documentation_consumer"
       ],
       "platform_surfaces": [
-        "feishu_lark",
         "qqbot",
         "signal",
         "telegram",
@@ -4060,7 +4048,6 @@
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.qqbot",
         "surface_known_gaps.signal",
         "surface_known_gaps.telegram",
@@ -4074,7 +4061,6 @@
         "documentation_consumer"
       ],
       "platform_surfaces": [
-        "feishu_lark",
         "local_delivery",
         "matrix",
         "telegram",
@@ -4083,7 +4069,6 @@
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.local_delivery",
         "surface_known_gaps.matrix",
         "surface_known_gaps.telegram",
@@ -4167,8 +4152,6 @@
         "documentation_consumer"
       ],
       "platform_surfaces": [
-        "discord",
-        "feishu_lark",
         "mattermost",
         "qqbot",
         "telegram",
@@ -4178,8 +4161,6 @@
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.discord",
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.mattermost",
         "surface_known_gaps.qqbot",
         "surface_known_gaps.telegram",
@@ -4194,14 +4175,12 @@
         "documentation_consumer"
       ],
       "platform_surfaces": [
-        "feishu_lark",
         "telegram",
         "webhook"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.telegram",
         "surface_known_gaps.webhook"
       ]
@@ -4516,7 +4495,6 @@
         "bluebubbles",
         "dingtalk",
         "email",
-        "feishu_lark",
         "home_assistant",
         "matrix",
         "mattermost",
@@ -4536,7 +4514,6 @@
         "surface_known_gaps.bluebubbles",
         "surface_known_gaps.dingtalk",
         "surface_known_gaps.email",
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.home_assistant",
         "surface_known_gaps.matrix",
         "surface_known_gaps.mattermost",
@@ -4702,56 +4679,6 @@
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
         "surface_known_gaps.email"
-      ]
-    },
-    {
-      "path": "hermes_core/gateway/platforms/feishu.py",
-      "layer": "core_adapter",
-      "edge_types": [
-        "runtime_producer",
-        "runtime_consumer"
-      ],
-      "platform_surfaces": [
-        "feishu_lark",
-        "webhook"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.feishu_lark",
-        "surface_known_gaps.webhook"
-      ]
-    },
-    {
-      "path": "hermes_core/gateway/platforms/feishu_comment.py",
-      "layer": "core_adapter",
-      "edge_types": [
-        "runtime_producer",
-        "runtime_consumer"
-      ],
-      "platform_surfaces": [
-        "feishu_lark"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.feishu_lark"
-      ]
-    },
-    {
-      "path": "hermes_core/gateway/platforms/feishu_comment_rules.py",
-      "layer": "core_adapter",
-      "edge_types": [
-        "runtime_producer",
-        "runtime_consumer"
-      ],
-      "platform_surfaces": [
-        "feishu_lark"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.feishu_lark"
       ]
     },
     {
@@ -5023,7 +4950,6 @@
         "bluebubbles",
         "dingtalk",
         "email",
-        "feishu_lark",
         "home_assistant",
         "matrix",
         "mattermost",
@@ -5044,7 +4970,6 @@
         "surface_known_gaps.bluebubbles",
         "surface_known_gaps.dingtalk",
         "surface_known_gaps.email",
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.home_assistant",
         "surface_known_gaps.matrix",
         "surface_known_gaps.mattermost",
@@ -5216,7 +5141,6 @@
         "bluebubbles",
         "dingtalk",
         "email",
-        "feishu_lark",
         "home_assistant",
         "local_delivery",
         "matrix",
@@ -5239,7 +5163,6 @@
         "surface_known_gaps.bluebubbles",
         "surface_known_gaps.dingtalk",
         "surface_known_gaps.email",
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.home_assistant",
         "surface_known_gaps.local_delivery",
         "surface_known_gaps.matrix",
@@ -5372,7 +5295,6 @@
       "platform_surfaces": [
         "bluebubbles",
         "dingtalk",
-        "feishu_lark",
         "irc_plugin",
         "matrix",
         "mattermost",
@@ -5391,7 +5313,6 @@
       "known_gaps": [
         "surface_known_gaps.bluebubbles",
         "surface_known_gaps.dingtalk",
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.irc_plugin",
         "surface_known_gaps.matrix",
         "surface_known_gaps.mattermost",
@@ -5482,7 +5403,6 @@
       "platform_surfaces": [
         "dingtalk",
         "email",
-        "feishu_lark",
         "home_assistant",
         "local_delivery",
         "matrix",
@@ -5501,7 +5421,6 @@
       "known_gaps": [
         "surface_known_gaps.dingtalk",
         "surface_known_gaps.email",
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.home_assistant",
         "surface_known_gaps.local_delivery",
         "surface_known_gaps.matrix",
@@ -5560,7 +5479,6 @@
         "bluebubbles",
         "dingtalk",
         "email",
-        "feishu_lark",
         "home_assistant",
         "matrix",
         "mattermost",
@@ -5581,7 +5499,6 @@
         "surface_known_gaps.bluebubbles",
         "surface_known_gaps.dingtalk",
         "surface_known_gaps.email",
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.home_assistant",
         "surface_known_gaps.matrix",
         "surface_known_gaps.mattermost",
@@ -6329,7 +6246,6 @@
         "dingtalk",
         "discord",
         "email",
-        "feishu_lark",
         "matrix",
         "mattermost",
         "signal",
@@ -6345,7 +6261,6 @@
         "surface_known_gaps.dingtalk",
         "surface_known_gaps.discord",
         "surface_known_gaps.email",
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.matrix",
         "surface_known_gaps.mattermost",
         "surface_known_gaps.signal",
@@ -6636,17 +6551,13 @@
         "verification_consumer"
       ],
       "platform_surfaces": [
-        "feishu_lark",
         "qqbot",
-        "webhook",
         "wecom_family"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.qqbot",
-        "surface_known_gaps.webhook",
         "surface_known_gaps.wecom_family"
       ]
     },
@@ -6736,6 +6647,7 @@
         "dingtalk",
         "discord",
         "email",
+        "feishu_lark",
         "matrix",
         "mattermost",
         "signal",
@@ -6751,6 +6663,7 @@
         "surface_known_gaps.dingtalk",
         "surface_known_gaps.discord",
         "surface_known_gaps.email",
+        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.matrix",
         "surface_known_gaps.mattermost",
         "surface_known_gaps.signal",
@@ -6873,7 +6786,6 @@
         "dingtalk",
         "discord",
         "email",
-        "feishu_lark",
         "home_assistant",
         "matrix",
         "mattermost",
@@ -6893,7 +6805,6 @@
         "surface_known_gaps.dingtalk",
         "surface_known_gaps.discord",
         "surface_known_gaps.email",
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.home_assistant",
         "surface_known_gaps.matrix",
         "surface_known_gaps.mattermost",
@@ -6980,83 +6891,6 @@
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
         "surface_known_gaps.telegram"
-      ]
-    },
-    {
-      "path": "hermes_core/tests/gateway/test_feishu.py",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "feishu_lark",
-        "webhook"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.feishu_lark",
-        "surface_known_gaps.webhook"
-      ]
-    },
-    {
-      "path": "hermes_core/tests/gateway/test_feishu_approval_buttons.py",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "feishu_lark"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.feishu_lark"
-      ]
-    },
-    {
-      "path": "hermes_core/tests/gateway/test_feishu_comment.py",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "feishu_lark"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.feishu_lark"
-      ]
-    },
-    {
-      "path": "hermes_core/tests/gateway/test_feishu_comment_rules.py",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "feishu_lark"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.feishu_lark"
-      ]
-    },
-    {
-      "path": "hermes_core/tests/gateway/test_feishu_onboard.py",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "feishu_lark"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.feishu_lark"
       ]
     },
     {
@@ -7431,15 +7265,15 @@
       ],
       "platform_surfaces": [
         "discord",
-        "feishu_lark",
-        "telegram"
+        "telegram",
+        "whatsapp"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
         "surface_known_gaps.discord",
-        "surface_known_gaps.feishu_lark",
-        "surface_known_gaps.telegram"
+        "surface_known_gaps.telegram",
+        "surface_known_gaps.whatsapp"
       ]
     },
     {
@@ -7834,7 +7668,6 @@
       "platform_surfaces": [
         "bluebubbles",
         "discord",
-        "feishu_lark",
         "local_delivery",
         "slack",
         "telegram",
@@ -7845,7 +7678,6 @@
       "known_gaps": [
         "surface_known_gaps.bluebubbles",
         "surface_known_gaps.discord",
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.local_delivery",
         "surface_known_gaps.slack",
         "surface_known_gaps.telegram",
@@ -8223,7 +8055,6 @@
       ],
       "platform_surfaces": [
         "dingtalk",
-        "feishu_lark",
         "matrix",
         "mattermost",
         "slack",
@@ -8234,7 +8065,6 @@
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
         "surface_known_gaps.dingtalk",
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.matrix",
         "surface_known_gaps.mattermost",
         "surface_known_gaps.slack",
@@ -8536,7 +8366,6 @@
         "verification_consumer"
       ],
       "platform_surfaces": [
-        "feishu_lark",
         "matrix",
         "telegram",
         "wecom_family"
@@ -8544,7 +8373,6 @@
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.matrix",
         "surface_known_gaps.telegram",
         "surface_known_gaps.wecom_family"
@@ -8607,7 +8435,6 @@
         "dingtalk",
         "discord",
         "email",
-        "feishu_lark",
         "matrix",
         "mattermost",
         "qqbot",
@@ -8624,7 +8451,6 @@
         "surface_known_gaps.dingtalk",
         "surface_known_gaps.discord",
         "surface_known_gaps.email",
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.matrix",
         "surface_known_gaps.mattermost",
         "surface_known_gaps.qqbot",
@@ -9160,6 +8986,7 @@
       ],
       "platform_surfaces": [
         "api_server",
+        "dingtalk",
         "discord",
         "feishu_lark",
         "home_assistant",
@@ -9173,6 +9000,7 @@
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
         "surface_known_gaps.api_server",
+        "surface_known_gaps.dingtalk",
         "surface_known_gaps.discord",
         "surface_known_gaps.feishu_lark",
         "surface_known_gaps.home_assistant",
@@ -9340,14 +9168,12 @@
       ],
       "platform_surfaces": [
         "dingtalk",
-        "feishu_lark",
         "matrix"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
         "surface_known_gaps.dingtalk",
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.matrix"
       ]
     },
@@ -9623,21 +9449,6 @@
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
         "surface_known_gaps.local_delivery"
-      ]
-    },
-    {
-      "path": "hermes_core/tests/tools/test_feishu_tools.py",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "feishu_lark"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.feishu_lark"
       ]
     },
     {
@@ -10255,38 +10066,6 @@
       ]
     },
     {
-      "path": "hermes_core/tools/feishu_doc_tool.py",
-      "layer": "core_runtime",
-      "edge_types": [
-        "contract_producer",
-        "runtime_consumer"
-      ],
-      "platform_surfaces": [
-        "feishu_lark"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.feishu_lark"
-      ]
-    },
-    {
-      "path": "hermes_core/tools/feishu_drive_tool.py",
-      "layer": "core_runtime",
-      "edge_types": [
-        "contract_producer",
-        "runtime_consumer"
-      ],
-      "platform_surfaces": [
-        "feishu_lark"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.feishu_lark"
-      ]
-    },
-    {
       "path": "hermes_core/tools/file_tools.py",
       "layer": "core_runtime",
       "edge_types": [
@@ -10329,7 +10108,6 @@
         "bluebubbles",
         "dingtalk",
         "email",
-        "feishu_lark",
         "home_assistant",
         "local_delivery",
         "matrix",
@@ -10350,7 +10128,6 @@
         "surface_known_gaps.bluebubbles",
         "surface_known_gaps.dingtalk",
         "surface_known_gaps.email",
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.home_assistant",
         "surface_known_gaps.local_delivery",
         "surface_known_gaps.matrix",
@@ -10487,7 +10264,6 @@
       ],
       "platform_surfaces": [
         "dingtalk",
-        "feishu_lark",
         "home_assistant",
         "matrix",
         "slack",
@@ -10497,7 +10273,6 @@
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
         "surface_known_gaps.dingtalk",
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.home_assistant",
         "surface_known_gaps.matrix",
         "surface_known_gaps.slack",
@@ -10560,7 +10335,6 @@
         "dingtalk",
         "discord",
         "email",
-        "feishu_lark",
         "home_assistant",
         "local_delivery",
         "matrix",
@@ -10584,7 +10358,6 @@
         "surface_known_gaps.dingtalk",
         "surface_known_gaps.discord",
         "surface_known_gaps.email",
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.home_assistant",
         "surface_known_gaps.local_delivery",
         "surface_known_gaps.matrix",
@@ -10684,7 +10457,6 @@
         "dingtalk",
         "discord",
         "email",
-        "feishu_lark",
         "home_assistant",
         "local_delivery",
         "matrix",
@@ -10705,7 +10477,6 @@
         "surface_known_gaps.dingtalk",
         "surface_known_gaps.discord",
         "surface_known_gaps.email",
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.home_assistant",
         "surface_known_gaps.local_delivery",
         "surface_known_gaps.matrix",
@@ -10749,7 +10520,6 @@
         "dingtalk",
         "discord",
         "email",
-        "feishu_lark",
         "home_assistant",
         "matrix",
         "mattermost",
@@ -10771,7 +10541,6 @@
         "surface_known_gaps.dingtalk",
         "surface_known_gaps.discord",
         "surface_known_gaps.email",
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.home_assistant",
         "surface_known_gaps.matrix",
         "surface_known_gaps.mattermost",
@@ -11031,20 +10800,12 @@
         "documentation_consumer"
       ],
       "platform_surfaces": [
-        "discord",
-        "feishu_lark",
-        "local_delivery",
-        "slack",
-        "telegram"
+        "local_delivery"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.discord",
-        "surface_known_gaps.feishu_lark",
-        "surface_known_gaps.local_delivery",
-        "surface_known_gaps.slack",
-        "surface_known_gaps.telegram"
+        "surface_known_gaps.local_delivery"
       ]
     },
     {
@@ -11075,7 +10836,6 @@
         "dingtalk",
         "discord",
         "email",
-        "feishu_lark",
         "home_assistant",
         "local_delivery",
         "matrix",
@@ -11097,7 +10857,6 @@
         "surface_known_gaps.dingtalk",
         "surface_known_gaps.discord",
         "surface_known_gaps.email",
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.home_assistant",
         "surface_known_gaps.local_delivery",
         "surface_known_gaps.matrix",
@@ -11377,7 +11136,6 @@
         "dingtalk",
         "discord",
         "email",
-        "feishu_lark",
         "home_assistant",
         "local_delivery",
         "matrix",
@@ -11387,6 +11145,7 @@
         "sms_twilio",
         "telegram",
         "wecom_family",
+        "weixin",
         "whatsapp"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
@@ -11396,7 +11155,6 @@
         "surface_known_gaps.dingtalk",
         "surface_known_gaps.discord",
         "surface_known_gaps.email",
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.home_assistant",
         "surface_known_gaps.local_delivery",
         "surface_known_gaps.matrix",
@@ -11406,6 +11164,7 @@
         "surface_known_gaps.sms_twilio",
         "surface_known_gaps.telegram",
         "surface_known_gaps.wecom_family",
+        "surface_known_gaps.weixin",
         "surface_known_gaps.whatsapp"
       ]
     },
@@ -11421,7 +11180,6 @@
         "dingtalk",
         "discord",
         "email",
-        "feishu_lark",
         "home_assistant",
         "local_delivery",
         "matrix",
@@ -11443,7 +11201,6 @@
         "surface_known_gaps.dingtalk",
         "surface_known_gaps.discord",
         "surface_known_gaps.email",
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.home_assistant",
         "surface_known_gaps.local_delivery",
         "surface_known_gaps.matrix",
@@ -11518,7 +11275,6 @@
         "dingtalk",
         "discord",
         "email",
-        "feishu_lark",
         "home_assistant",
         "local_delivery",
         "matrix",
@@ -11542,7 +11298,6 @@
         "surface_known_gaps.dingtalk",
         "surface_known_gaps.discord",
         "surface_known_gaps.email",
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.home_assistant",
         "surface_known_gaps.local_delivery",
         "surface_known_gaps.matrix",
@@ -11684,9 +11439,7 @@
       ],
       "platform_surfaces": [
         "discord",
-        "feishu_lark",
         "home_assistant",
-        "local_delivery",
         "telegram",
         "whatsapp",
         "yuanbao"
@@ -11695,9 +11448,7 @@
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
         "surface_known_gaps.discord",
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.home_assistant",
-        "surface_known_gaps.local_delivery",
         "surface_known_gaps.telegram",
         "surface_known_gaps.whatsapp",
         "surface_known_gaps.yuanbao"
@@ -11714,7 +11465,6 @@
         "dingtalk",
         "discord",
         "email",
-        "feishu_lark",
         "home_assistant",
         "matrix",
         "mattermost",
@@ -11736,7 +11486,6 @@
         "surface_known_gaps.dingtalk",
         "surface_known_gaps.discord",
         "surface_known_gaps.email",
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.home_assistant",
         "surface_known_gaps.matrix",
         "surface_known_gaps.mattermost",
@@ -11780,7 +11529,6 @@
         "dingtalk",
         "discord",
         "email",
-        "feishu_lark",
         "home_assistant",
         "local_delivery",
         "matrix",
@@ -11801,7 +11549,6 @@
         "surface_known_gaps.dingtalk",
         "surface_known_gaps.discord",
         "surface_known_gaps.email",
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.home_assistant",
         "surface_known_gaps.local_delivery",
         "surface_known_gaps.matrix",
@@ -11994,7 +11741,6 @@
         "dingtalk",
         "discord",
         "email",
-        "feishu_lark",
         "home_assistant",
         "local_delivery",
         "matrix",
@@ -12015,7 +11761,6 @@
         "surface_known_gaps.dingtalk",
         "surface_known_gaps.discord",
         "surface_known_gaps.email",
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.home_assistant",
         "surface_known_gaps.local_delivery",
         "surface_known_gaps.matrix",
@@ -12446,27 +12191,6 @@
       ]
     },
     {
-      "path": "hermes_core/website/docs/user-guide/messaging/feishu.md",
-      "layer": "active_docs",
-      "edge_types": [
-        "documentation_consumer"
-      ],
-      "platform_surfaces": [
-        "feishu_lark",
-        "local_delivery",
-        "telegram",
-        "webhook"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.feishu_lark",
-        "surface_known_gaps.local_delivery",
-        "surface_known_gaps.telegram",
-        "surface_known_gaps.webhook"
-      ]
-    },
-    {
       "path": "hermes_core/website/docs/user-guide/messaging/homeassistant.md",
       "layer": "active_docs",
       "edge_types": [
@@ -12498,7 +12222,6 @@
         "bluebubbles",
         "dingtalk",
         "email",
-        "feishu_lark",
         "home_assistant",
         "matrix",
         "mattermost",
@@ -12520,7 +12243,6 @@
         "surface_known_gaps.bluebubbles",
         "surface_known_gaps.dingtalk",
         "surface_known_gaps.email",
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.home_assistant",
         "surface_known_gaps.matrix",
         "surface_known_gaps.mattermost",
@@ -12702,7 +12424,6 @@
       ],
       "platform_surfaces": [
         "discord",
-        "feishu_lark",
         "local_delivery",
         "matrix",
         "signal",
@@ -12715,7 +12436,6 @@
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
         "surface_known_gaps.discord",
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.local_delivery",
         "surface_known_gaps.matrix",
         "surface_known_gaps.signal",
@@ -12736,7 +12456,6 @@
         "dingtalk",
         "discord",
         "email",
-        "feishu_lark",
         "home_assistant",
         "matrix",
         "mattermost",
@@ -12757,7 +12476,6 @@
         "surface_known_gaps.dingtalk",
         "surface_known_gaps.discord",
         "surface_known_gaps.email",
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.home_assistant",
         "surface_known_gaps.matrix",
         "surface_known_gaps.mattermost",
@@ -12929,7 +12647,6 @@
         "dingtalk",
         "discord",
         "email",
-        "feishu_lark",
         "home_assistant",
         "matrix",
         "mattermost",
@@ -12951,7 +12668,6 @@
         "surface_known_gaps.dingtalk",
         "surface_known_gaps.discord",
         "surface_known_gaps.email",
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.home_assistant",
         "surface_known_gaps.matrix",
         "surface_known_gaps.mattermost",
@@ -13018,11 +12734,11 @@
         "dingtalk",
         "discord",
         "email",
-        "feishu_lark",
         "home_assistant",
         "local_delivery",
         "matrix",
         "mattermost",
+        "qqbot",
         "signal",
         "slack",
         "sms_twilio",
@@ -13040,11 +12756,11 @@
         "surface_known_gaps.dingtalk",
         "surface_known_gaps.discord",
         "surface_known_gaps.email",
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.home_assistant",
         "surface_known_gaps.local_delivery",
         "surface_known_gaps.matrix",
         "surface_known_gaps.mattermost",
+        "surface_known_gaps.qqbot",
         "surface_known_gaps.signal",
         "surface_known_gaps.slack",
         "surface_known_gaps.sms_twilio",
@@ -14695,22 +14411,6 @@
       ]
     },
     {
-      "path": "python/src/feishu_qr_worker.py",
-      "layer": "python_policy",
-      "edge_types": [
-        "policy_producer",
-        "runtime_consumer"
-      ],
-      "platform_surfaces": [
-        "feishu_lark"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.feishu_lark"
-      ]
-    },
-    {
       "path": "python/src/gateway_env_loader.py",
       "layer": "python_policy",
       "edge_types": [
@@ -15245,38 +14945,6 @@
       ]
     },
     {
-      "path": "tauri/src/feishu_env.rs",
-      "layer": "rust_shell",
-      "edge_types": [
-        "credential_producer",
-        "process_consumer"
-      ],
-      "platform_surfaces": [
-        "feishu_lark"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.feishu_lark"
-      ]
-    },
-    {
-      "path": "tauri/src/feishu_qr.rs",
-      "layer": "rust_shell",
-      "edge_types": [
-        "credential_producer",
-        "process_consumer"
-      ],
-      "platform_surfaces": [
-        "feishu_lark"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.feishu_lark"
-      ]
-    },
-    {
       "path": "tauri/src/gateway_supervisor.rs",
       "layer": "rust_shell",
       "edge_types": [
@@ -15479,22 +15147,6 @@
       ]
     },
     {
-      "path": "web/src/advanced/pages/FeishuPage.tsx",
-      "layer": "web_shell",
-      "edge_types": [
-        "settings_producer",
-        "command_consumer"
-      ],
-      "platform_surfaces": [
-        "feishu_lark"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.feishu_lark"
-      ]
-    },
-    {
       "path": "web/src/advanced/pages/QqPage.tsx",
       "layer": "web_shell",
       "edge_types": [
@@ -15649,22 +15301,6 @@
       ]
     },
     {
-      "path": "web/src/components/FeishuQrRouteBlock.tsx",
-      "layer": "web_shell",
-      "edge_types": [
-        "settings_producer",
-        "command_consumer"
-      ],
-      "platform_surfaces": [
-        "feishu_lark"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.feishu_lark"
-      ]
-    },
-    {
       "path": "web/src/components/QqbotQrRouteBlock.tsx",
       "layer": "web_shell",
       "edge_types": [
@@ -15706,10 +15342,8 @@
       "platform_surfaces": [
         "dingtalk",
         "email",
-        "feishu_lark",
         "qqbot",
         "sms_twilio",
-        "webhook",
         "wecom_family",
         "weixin"
       ],
@@ -15718,10 +15352,8 @@
       "known_gaps": [
         "surface_known_gaps.dingtalk",
         "surface_known_gaps.email",
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.qqbot",
         "surface_known_gaps.sms_twilio",
-        "surface_known_gaps.webhook",
         "surface_known_gaps.wecom_family",
         "surface_known_gaps.weixin"
       ]
@@ -15752,7 +15384,6 @@
       "platform_surfaces": [
         "dingtalk",
         "email",
-        "feishu_lark",
         "qqbot",
         "telegram",
         "wecom_family",
@@ -15764,7 +15395,6 @@
       "known_gaps": [
         "surface_known_gaps.dingtalk",
         "surface_known_gaps.email",
-        "surface_known_gaps.feishu_lark",
         "surface_known_gaps.qqbot",
         "surface_known_gaps.telegram",
         "surface_known_gaps.wecom_family",
@@ -17747,184 +17377,13 @@
         ]
       },
       {
-        "key": "FEISHU_ALLOWED_USERS",
-        "surface": "feishu_lark",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/platforms/feishu.py",
-          "hermes_core/gateway/run.py",
-          "python/src/feishu_qr_worker.py",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "FEISHU_ALLOW_ALL_USERS",
-        "surface": "feishu_lark",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/run.py",
-          "python/src/feishu_qr_worker.py",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "FEISHU_APP_ID",
-        "surface": "feishu_lark",
-        "primary_role": "identifier",
-        "source_paths": [
-          "hermes_core/gateway/config.py",
-          "hermes_core/gateway/platforms/feishu.py",
-          "hermes_core/kabuqina_cli/config_env.py",
-          "python/src/feishu_qr_worker.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "FEISHU_APP_SECRET",
-        "surface": "feishu_lark",
-        "primary_role": "secret",
-        "source_paths": [
-          "hermes_core/gateway/config.py",
-          "hermes_core/gateway/platforms/feishu.py",
-          "hermes_core/kabuqina_cli/config_env.py",
-          "python/src/feishu_qr_worker.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
-          "Gateway secrets currently traverse host/profile .env files; CTL-C07 owns explicit cleanup/export and upgrade safety."
-        ]
-      },
-      {
-        "key": "FEISHU_BOT_NAME",
-        "surface": "feishu_lark",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/platforms/feishu.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "FEISHU_BOT_OPEN_ID",
-        "surface": "feishu_lark",
-        "primary_role": "identifier",
-        "source_paths": [
-          "hermes_core/gateway/platforms/feishu.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "FEISHU_BOT_USER_ID",
-        "surface": "feishu_lark",
-        "primary_role": "identifier",
-        "source_paths": [
-          "hermes_core/gateway/platforms/feishu.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "FEISHU_CONNECTION_MODE",
-        "surface": "feishu_lark",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/config.py",
-          "hermes_core/gateway/platforms/feishu.py",
-          "python/src/feishu_qr_worker.py",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "FEISHU_DOMAIN",
-        "surface": "feishu_lark",
-        "primary_role": "network_host_expander",
-        "source_paths": [
-          "hermes_core/gateway/config.py",
-          "hermes_core/gateway/platforms/feishu.py",
-          "python/src/feishu_qr_worker.py",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
-          "Configured URL/host values require fail-closed network-policy validation; key presence is not an allowlist."
-        ]
-      },
-      {
-        "key": "FEISHU_ENCRYPT_KEY",
-        "surface": "feishu_lark",
-        "primary_role": "secret",
-        "source_paths": [
-          "hermes_core/gateway/config.py",
-          "hermes_core/gateway/platforms/feishu.py",
-          "hermes_core/kabuqina_cli/config_env.py",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
-          "Gateway secrets currently traverse host/profile .env files; CTL-C07 owns explicit cleanup/export and upgrade safety."
-        ]
-      },
-      {
-        "key": "FEISHU_GROUP_POLICY",
-        "surface": "feishu_lark",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/platforms/feishu.py",
-          "python/src/feishu_qr_worker.py",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
         "key": "FEISHU_HOME_CHANNEL",
         "surface": "feishu_lark",
         "primary_role": "home_target",
         "source_paths": [
           "hermes_core/cron/scheduler.py",
-          "hermes_core/gateway/config.py",
           "hermes_core/gateway/home_channel.py",
-          "hermes_core/gateway/run.py",
-          "hermes_core/kabuqina_cli/config_env.py",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "hermes_core/gateway/run.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -17937,79 +17396,7 @@
         "surface": "feishu_lark",
         "primary_role": "home_target",
         "source_paths": [
-          "hermes_core/gateway/config.py",
-          "hermes_core/gateway/home_channel.py",
-          "hermes_core/kabuqina_cli/config_env.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "FEISHU_REACTIONS",
-        "surface": "feishu_lark",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/platforms/feishu.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "FEISHU_VERIFICATION_TOKEN",
-        "surface": "feishu_lark",
-        "primary_role": "secret",
-        "source_paths": [
-          "hermes_core/gateway/config.py",
-          "hermes_core/gateway/platforms/feishu.py",
-          "hermes_core/kabuqina_cli/config_env.py",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
-          "Gateway secrets currently traverse host/profile .env files; CTL-C07 owns explicit cleanup/export and upgrade safety."
-        ]
-      },
-      {
-        "key": "FEISHU_WEBHOOK_HOST",
-        "surface": "feishu_lark",
-        "primary_role": "network_host_expander",
-        "source_paths": [
-          "hermes_core/gateway/platforms/feishu.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
-          "Configured URL/host values require fail-closed network-policy validation; key presence is not an allowlist."
-        ]
-      },
-      {
-        "key": "FEISHU_WEBHOOK_PATH",
-        "surface": "feishu_lark",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/platforms/feishu.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "FEISHU_WEBHOOK_PORT",
-        "surface": "feishu_lark",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/platforms/feishu.py"
+          "hermes_core/gateway/home_channel.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -18581,7 +17968,6 @@
           "python/src/docling_base_models.py",
           "python/src/docling_math_models.py",
           "python/src/easyocr_models.py",
-          "tauri/src/feishu_qr.rs",
           "tauri/src/gateway_supervisor.rs",
           "tauri/src/python_supervisor.rs",
           "tauri/src/qqbot_qr.rs",
@@ -18641,7 +18027,6 @@
           "python/src/docling_math_models.py",
           "python/src/easyocr_models.py",
           "python/src/stt_wrapper.py",
-          "tauri/src/feishu_qr.rs",
           "tauri/src/gateway_supervisor.rs",
           "tauri/src/python_supervisor.rs",
           "tauri/src/qqbot_qr.rs",
@@ -19025,7 +18410,6 @@
           "python/src/desk_server/routes/goal_routes.py",
           "python/src/desk_server/routes/study_routes.py",
           "python/src/desk_voice_paths.py",
-          "tauri/src/feishu_qr.rs",
           "tauri/src/gateway_supervisor.rs",
           "tauri/src/python_supervisor.rs",
           "tauri/src/qqbot_qr.rs",
@@ -19405,72 +18789,6 @@
           "hermes_core/gateway/run.py",
           "hermes_core/tools/approval.py",
           "hermes_core/tools/cronjob_tools.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "retain_profile_scoped",
-        "known_gaps": []
-      },
-      {
-        "key": "HERMES_FEISHU_DEDUP_CACHE_SIZE",
-        "surface": "gateway_kernel",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/platforms/feishu.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "retain_profile_scoped",
-        "known_gaps": []
-      },
-      {
-        "key": "HERMES_FEISHU_MEDIA_BATCH_DELAY_SECONDS",
-        "surface": "gateway_kernel",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/platforms/feishu.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "retain_profile_scoped",
-        "known_gaps": []
-      },
-      {
-        "key": "HERMES_FEISHU_TEXT_BATCH_DELAY_SECONDS",
-        "surface": "gateway_kernel",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/platforms/feishu.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "retain_profile_scoped",
-        "known_gaps": []
-      },
-      {
-        "key": "HERMES_FEISHU_TEXT_BATCH_MAX_CHARS",
-        "surface": "gateway_kernel",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/platforms/feishu.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "retain_profile_scoped",
-        "known_gaps": []
-      },
-      {
-        "key": "HERMES_FEISHU_TEXT_BATCH_MAX_MESSAGES",
-        "surface": "gateway_kernel",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/platforms/feishu.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "retain_profile_scoped",
-        "known_gaps": []
-      },
-      {
-        "key": "HERMES_FEISHU_TEXT_BATCH_SPLIT_DELAY_SECONDS",
-        "surface": "gateway_kernel",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/platforms/feishu.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -21071,7 +20389,6 @@
         "source_paths": [
           "python/src/desktop_config.py",
           "python/src/load_packages.py",
-          "tauri/src/feishu_qr.rs",
           "tauri/src/gateway_supervisor.rs",
           "tauri/src/python_supervisor.rs",
           "tauri/src/qqbot_qr.rs",
@@ -21103,12 +20420,10 @@
           "python/src/capability_policy.py",
           "python/src/desktop_config.py",
           "python/src/desktop_entrypoint.py",
-          "python/src/feishu_qr_worker.py",
           "python/src/load_packages.py",
           "python/src/qqbot_qr_worker.py",
           "python/src/wecom_qr_worker.py",
           "python/src/weixin_qr_worker.py",
-          "tauri/src/feishu_qr.rs",
           "tauri/src/gateway_supervisor.rs",
           "tauri/src/python_supervisor.rs",
           "tauri/src/qqbot_qr.rs",
@@ -21452,7 +20767,6 @@
           "python/src/approval_backend.py",
           "python/src/desktop_config.py",
           "python/src/load_packages.py",
-          "tauri/src/feishu_qr.rs",
           "tauri/src/gateway_supervisor.rs",
           "tauri/src/python_supervisor.rs",
           "tauri/src/qqbot_qr.rs",
@@ -26901,10 +26215,10 @@
   },
   "generated_ledger_metadata": {
     "generator": "scripts/audit_v050_platform_manifest.py --refresh-generated-ledgers",
-    "reference_path_count": 634,
-    "literal_environment_key_count": 656,
-    "dynamic_environment_key_declaration_count": 386,
-    "environment_key_count": 772,
+    "reference_path_count": 617,
+    "literal_environment_key_count": 632,
+    "dynamic_environment_key_declaration_count": 376,
+    "environment_key_count": 750,
     "environment_namespace_count": 26,
     "environment_dynamic_template_count": 2,
     "historical_docs_policy": "docs/superpowers history is excluded from the active-doc reference scan; the three authority plans are hash-pinned separately."

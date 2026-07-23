@@ -2225,7 +2225,6 @@ all = [
     { name = "google-auth-httplib2" },
     { name = "google-auth-oauthlib" },
     { name = "honcho-ai" },
-    { name = "lark-oapi" },
     { name = "markdown", marker = "sys_platform == 'linux'" },
     { name = "mautrix", extra = ["encryption"], marker = "sys_platform == 'linux'" },
     { name = "mcp" },
@@ -2271,10 +2270,6 @@ dev = [
 dingtalk = [
     { name = "alibabacloud-dingtalk" },
     { name = "dingtalk-stream" },
-    { name = "qrcode" },
-]
-feishu = [
-    { name = "lark-oapi" },
     { name = "qrcode" },
 ]
 google = [
@@ -2394,7 +2389,6 @@ requires-dist = [
     { name = "kabuqina-agent", extras = ["daytona"], marker = "extra == 'all'" },
     { name = "kabuqina-agent", extras = ["dev"], marker = "extra == 'all'" },
     { name = "kabuqina-agent", extras = ["dingtalk"], marker = "extra == 'all'" },
-    { name = "kabuqina-agent", extras = ["feishu"], marker = "extra == 'all'" },
     { name = "kabuqina-agent", extras = ["google"], marker = "extra == 'all'" },
     { name = "kabuqina-agent", extras = ["homeassistant"], marker = "extra == 'all'" },
     { name = "kabuqina-agent", extras = ["honcho"], marker = "extra == 'all'" },
@@ -2414,7 +2408,6 @@ requires-dist = [
     { name = "kabuqina-agent", extras = ["voice"], marker = "extra == 'all'" },
     { name = "kabuqina-agent", extras = ["web"], marker = "extra == 'all'" },
     { name = "langgraph", specifier = "==1.2.6" },
-    { name = "lark-oapi", marker = "extra == 'feishu'", specifier = ">=1.5.3,<2" },
     { name = "markdown", marker = "extra == 'matrix'", specifier = ">=3.6,<4" },
     { name = "mautrix", extras = ["encryption"], marker = "extra == 'matrix'", specifier = ">=0.20,<1" },
     { name = "mcp", marker = "extra == 'dev'", specifier = ">=1.2.0,<2" },
@@ -2441,7 +2434,6 @@ requires-dist = [
     { name = "pywinpty", marker = "sys_platform == 'win32' and extra == 'pty'", specifier = ">=2.0.0,<3" },
     { name = "pyyaml", specifier = ">=6.0.2,<7" },
     { name = "qrcode", marker = "extra == 'dingtalk'", specifier = ">=7.0,<8" },
-    { name = "qrcode", marker = "extra == 'feishu'", specifier = ">=7.0,<8" },
     { name = "qrcode", marker = "extra == 'messaging'", specifier = ">=7.0,<8" },
     { name = "requests", specifier = ">=2.33.0,<3" },
     { name = "rich", specifier = ">=14.3.3,<15" },
@@ -2461,7 +2453,7 @@ requires-dist = [
     { name = "wandb", marker = "extra == 'rl'", specifier = ">=0.15.0,<1" },
     { name = "yc-bench", marker = "python_full_version >= '3.12' and extra == 'yc-bench'", git = "https://github.com/collinear-ai/yc-bench.git?rev=bfb0c88062450f46341bd9a5298903fc2e952a5c" },
 ]
-provides-extras = ["modal", "daytona", "vercel", "dev", "messaging", "cron", "slack", "matrix", "tts-premium", "voice", "pty", "honcho", "mcp", "homeassistant", "sms", "acp", "mistral", "termux", "dingtalk", "feishu", "google", "web", "rl", "yc-bench", "all"]
+provides-extras = ["modal", "daytona", "vercel", "dev", "messaging", "cron", "slack", "matrix", "tts-premium", "voice", "pty", "honcho", "mcp", "homeassistant", "sms", "acp", "mistral", "termux", "dingtalk", "google", "web", "rl", "yc-bench", "all"]
 
 [[package]]
 name = "kiwisolver"
@@ -2683,21 +2675,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/0c/68/8d8471233ee0cd82c2af946d76f80a01aeb8bb04160c392c1229fddf5d3d/langsmith-0.9.8.tar.gz", hash = "sha256:8c3d6a6d5246a3ea6d439b726d59edefba31dfb251de9eedb256119bbea4439e", size = 4710812, upload-time = "2026-07-06T19:06:10.866Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/4a/67/a85caaa99117bbc988a0df7faa39e7f68344361854638d86bcce0ffe3619/langsmith-0.9.8-py3-none-any.whl", hash = "sha256:098da9fc6c184284f17913cb813a41e28c5ab1508e90bd50db40c28166681017", size = 671148, upload-time = "2026-07-06T19:06:08.911Z" },
-]
-
-[[package]]
-name = "lark-oapi"
-version = "1.5.3"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "httpx" },
-    { name = "pycryptodome" },
-    { name = "requests" },
-    { name = "requests-toolbelt" },
-    { name = "websockets" },
-]
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/bf/ff/2ece5d735ebfa2af600a53176f2636ae47af2bf934e08effab64f0d1e047/lark_oapi-1.5.3-py3-none-any.whl", hash = "sha256:fda6b32bb38d21b6bdaae94979c600b94c7c521e985adade63a54e4b3e20cc36", size = 6993016, upload-time = "2026-01-27T08:21:49.307Z" },
 ]
 
 [[package]]
