@@ -1655,31 +1655,6 @@
       "exemption": null
     },
     {
-      "surface": "wecom_family",
-      "runtime_dependency": "aiohttp/httpx",
-      "dependency_ids": [
-        "py-aiohttp-shared",
-        "py-httpx-socks-shared"
-      ],
-      "exemption": null
-    },
-    {
-      "surface": "wecom_family",
-      "runtime_dependency": "cryptography",
-      "dependency_ids": [
-        "py-cryptography-shared"
-      ],
-      "exemption": null
-    },
-    {
-      "surface": "wecom_family",
-      "runtime_dependency": "qrcode",
-      "dependency_ids": [
-        "py-qrcode-shared"
-      ],
-      "exemption": null
-    },
-    {
       "surface": "sms_twilio",
       "runtime_dependency": "aiohttp",
       "dependency_ids": [
@@ -2020,17 +1995,14 @@
       "platform_surfaces": [
         "gateway_kernel",
         "weixin",
-        "qqbot",
-        "wecom_family"
+        "qqbot"
       ],
       "users": [
-        "hermes_core/gateway/platforms/weixin.py",
-        "hermes_core/gateway/platforms/wecom.py",
-        "hermes_core/gateway/platforms/wecom_crypto.py"
+        "hermes_core/gateway/platforms/weixin.py"
       ],
       "usage_class": "shared_retained_crypto",
       "bundle_presence": "present in observed stale local runtime",
-      "target_action": "retain for Weixin; prove WeCom removal does not remove the shared wheel",
+      "target_action": "retain for Weixin and QQ; WeCom consumers are removed",
       "license_status": "Apache-2.0 OR BSD-3-Clause metadata known; final SBOM deferred to CTL-C05",
       "advisory_status": "fresh advisory scan required at CTL-C05/Q",
       "known_gaps": [
@@ -2102,17 +2074,15 @@
       "platform_surfaces": [
         "weixin",
         "qqbot",
-        "dingtalk",
-        "wecom_family"
+        "dingtalk"
       ],
       "users": [
         "hermes_core/gateway/platforms/weixin.py",
-        "hermes_core/gateway/platforms/dingtalk.py",
-        "hermes_core/gateway/platforms/wecom.py"
+        "hermes_core/gateway/platforms/dingtalk.py"
       ],
-      "usage_class": "mixed_retained_removed_qr",
+      "usage_class": "shared_retained_qr",
       "bundle_presence": "absent in observed stale local runtime",
-      "target_action": "retain only if mainland Weixin/DingTalk release path imports it; remove WeCom-only use",
+      "target_action": "retain for mainland Weixin/DingTalk release paths",
       "license_status": "BSD-family metadata known; exact installed-distribution license deferred to CTL-C05",
       "advisory_status": "fresh advisory scan required at CTL-C05/Q",
       "known_gaps": [
@@ -3245,11 +3215,7 @@
         "hermes_core/website/docs/user-guide/messaging/wecom.md",
         "hermes_core/website/docs/user-guide/messaging/wecom-callback.md"
       ],
-      "runtime_dependencies": [
-        "aiohttp/httpx",
-        "cryptography",
-        "qrcode"
-      ],
+      "runtime_dependencies": [],
       "persisted_data": [
         "HERMESDESK_DATA_DIR/wecom_qr_progress.json",
         "HERMESDESK_DATA_DIR/wecom_qr_result.json",
@@ -4503,7 +4469,6 @@
         "sms_twilio",
         "telegram",
         "webhook",
-        "wecom_family",
         "weixin",
         "whatsapp"
       ],
@@ -4522,7 +4487,6 @@
         "surface_known_gaps.sms_twilio",
         "surface_known_gaps.telegram",
         "surface_known_gaps.webhook",
-        "surface_known_gaps.wecom_family",
         "surface_known_gaps.weixin",
         "surface_known_gaps.whatsapp"
       ]
@@ -4959,7 +4923,6 @@
         "sms_twilio",
         "telegram",
         "webhook",
-        "wecom_family",
         "weixin",
         "whatsapp",
         "yuanbao"
@@ -4979,58 +4942,9 @@
         "surface_known_gaps.sms_twilio",
         "surface_known_gaps.telegram",
         "surface_known_gaps.webhook",
-        "surface_known_gaps.wecom_family",
         "surface_known_gaps.weixin",
         "surface_known_gaps.whatsapp",
         "surface_known_gaps.yuanbao"
-      ]
-    },
-    {
-      "path": "hermes_core/gateway/platforms/wecom.py",
-      "layer": "core_adapter",
-      "edge_types": [
-        "runtime_producer",
-        "runtime_consumer"
-      ],
-      "platform_surfaces": [
-        "wecom_family"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.wecom_family"
-      ]
-    },
-    {
-      "path": "hermes_core/gateway/platforms/wecom_callback.py",
-      "layer": "core_adapter",
-      "edge_types": [
-        "runtime_producer",
-        "runtime_consumer"
-      ],
-      "platform_surfaces": [
-        "wecom_family"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.wecom_family"
-      ]
-    },
-    {
-      "path": "hermes_core/gateway/platforms/wecom_crypto.py",
-      "layer": "core_adapter",
-      "edge_types": [
-        "runtime_producer",
-        "runtime_consumer"
-      ],
-      "platform_surfaces": [
-        "wecom_family"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.wecom_family"
       ]
     },
     {
@@ -5151,7 +5065,6 @@
         "sms_twilio",
         "telegram",
         "webhook",
-        "wecom_family",
         "weixin",
         "whatsapp",
         "yuanbao"
@@ -5173,7 +5086,6 @@
         "surface_known_gaps.sms_twilio",
         "surface_known_gaps.telegram",
         "surface_known_gaps.webhook",
-        "surface_known_gaps.wecom_family",
         "surface_known_gaps.weixin",
         "surface_known_gaps.whatsapp",
         "surface_known_gaps.yuanbao"
@@ -5303,7 +5215,6 @@
         "slack",
         "sms_twilio",
         "telegram",
-        "wecom_family",
         "weixin",
         "whatsapp",
         "yuanbao"
@@ -5321,7 +5232,6 @@
         "surface_known_gaps.slack",
         "surface_known_gaps.sms_twilio",
         "surface_known_gaps.telegram",
-        "surface_known_gaps.wecom_family",
         "surface_known_gaps.weixin",
         "surface_known_gaps.whatsapp",
         "surface_known_gaps.yuanbao"
@@ -5412,7 +5322,6 @@
         "slack",
         "sms_twilio",
         "telegram",
-        "wecom_family",
         "weixin",
         "whatsapp"
       ],
@@ -5430,7 +5339,6 @@
         "surface_known_gaps.slack",
         "surface_known_gaps.sms_twilio",
         "surface_known_gaps.telegram",
-        "surface_known_gaps.wecom_family",
         "surface_known_gaps.weixin",
         "surface_known_gaps.whatsapp"
       ]
@@ -5487,7 +5395,6 @@
         "slack",
         "telegram",
         "webhook",
-        "wecom_family",
         "weixin",
         "whatsapp",
         "yuanbao"
@@ -5507,7 +5414,6 @@
         "surface_known_gaps.slack",
         "surface_known_gaps.telegram",
         "surface_known_gaps.webhook",
-        "surface_known_gaps.wecom_family",
         "surface_known_gaps.weixin",
         "surface_known_gaps.whatsapp",
         "surface_known_gaps.yuanbao"
@@ -5591,6 +5497,7 @@
         "qqbot",
         "slack",
         "telegram",
+        "wecom_family",
         "whatsapp",
         "yuanbao"
       ],
@@ -5603,6 +5510,7 @@
         "surface_known_gaps.qqbot",
         "surface_known_gaps.slack",
         "surface_known_gaps.telegram",
+        "surface_known_gaps.wecom_family",
         "surface_known_gaps.whatsapp",
         "surface_known_gaps.yuanbao"
       ]
@@ -6252,7 +6160,6 @@
         "slack",
         "sms_twilio",
         "telegram",
-        "wecom_family",
         "whatsapp"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
@@ -6267,7 +6174,6 @@
         "surface_known_gaps.slack",
         "surface_known_gaps.sms_twilio",
         "surface_known_gaps.telegram",
-        "surface_known_gaps.wecom_family",
         "surface_known_gaps.whatsapp"
       ]
     },
@@ -6551,14 +6457,12 @@
         "verification_consumer"
       ],
       "platform_surfaces": [
-        "qqbot",
-        "wecom_family"
+        "qqbot"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.qqbot",
-        "surface_known_gaps.wecom_family"
+        "surface_known_gaps.qqbot"
       ]
     },
     {
@@ -6654,6 +6558,7 @@
         "slack",
         "sms_twilio",
         "telegram",
+        "wecom_family",
         "whatsapp"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
@@ -6670,6 +6575,7 @@
         "surface_known_gaps.slack",
         "surface_known_gaps.sms_twilio",
         "surface_known_gaps.telegram",
+        "surface_known_gaps.wecom_family",
         "surface_known_gaps.whatsapp"
       ]
     },
@@ -6794,7 +6700,6 @@
         "sms_twilio",
         "telegram",
         "webhook",
-        "wecom_family",
         "weixin",
         "whatsapp"
       ],
@@ -6813,7 +6718,6 @@
         "surface_known_gaps.sms_twilio",
         "surface_known_gaps.telegram",
         "surface_known_gaps.webhook",
-        "surface_known_gaps.wecom_family",
         "surface_known_gaps.weixin",
         "surface_known_gaps.whatsapp"
       ]
@@ -8367,15 +8271,13 @@
       ],
       "platform_surfaces": [
         "matrix",
-        "telegram",
-        "wecom_family"
+        "telegram"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
         "surface_known_gaps.matrix",
-        "surface_known_gaps.telegram",
-        "surface_known_gaps.wecom_family"
+        "surface_known_gaps.telegram"
       ]
     },
     {
@@ -8442,7 +8344,6 @@
         "slack",
         "sms_twilio",
         "telegram",
-        "wecom_family",
         "whatsapp"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
@@ -8458,7 +8359,6 @@
         "surface_known_gaps.slack",
         "surface_known_gaps.sms_twilio",
         "surface_known_gaps.telegram",
-        "surface_known_gaps.wecom_family",
         "surface_known_gaps.whatsapp"
       ]
     },
@@ -8647,36 +8547,6 @@
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
         "surface_known_gaps.webhook"
-      ]
-    },
-    {
-      "path": "hermes_core/tests/gateway/test_wecom.py",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "wecom_family"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.wecom_family"
-      ]
-    },
-    {
-      "path": "hermes_core/tests/gateway/test_wecom_callback.py",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "wecom_family"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.wecom_family"
       ]
     },
     {
@@ -8994,6 +8864,7 @@
         "signal",
         "slack",
         "telegram",
+        "wecom_family",
         "whatsapp"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
@@ -9008,6 +8879,7 @@
         "surface_known_gaps.signal",
         "surface_known_gaps.slack",
         "surface_known_gaps.telegram",
+        "surface_known_gaps.wecom_family",
         "surface_known_gaps.whatsapp"
       ]
     },
@@ -10117,7 +9989,6 @@
         "slack",
         "sms_twilio",
         "telegram",
-        "wecom_family",
         "weixin",
         "whatsapp",
         "yuanbao"
@@ -10137,7 +10008,6 @@
         "surface_known_gaps.slack",
         "surface_known_gaps.sms_twilio",
         "surface_known_gaps.telegram",
-        "surface_known_gaps.wecom_family",
         "surface_known_gaps.weixin",
         "surface_known_gaps.whatsapp",
         "surface_known_gaps.yuanbao"
@@ -10287,22 +10157,18 @@
       ],
       "platform_surfaces": [
         "bluebubbles",
-        "discord",
         "irc_plugin",
         "telegram",
         "webhook",
-        "wecom_family",
         "weixin"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
         "surface_known_gaps.bluebubbles",
-        "surface_known_gaps.discord",
         "surface_known_gaps.irc_plugin",
         "surface_known_gaps.telegram",
         "surface_known_gaps.webhook",
-        "surface_known_gaps.wecom_family",
         "surface_known_gaps.weixin"
       ]
     },
@@ -10345,7 +10211,6 @@
         "sms_twilio",
         "telegram",
         "webhook",
-        "wecom_family",
         "weixin",
         "whatsapp",
         "yuanbao"
@@ -10368,7 +10233,6 @@
         "surface_known_gaps.sms_twilio",
         "surface_known_gaps.telegram",
         "surface_known_gaps.webhook",
-        "surface_known_gaps.wecom_family",
         "surface_known_gaps.weixin",
         "surface_known_gaps.whatsapp",
         "surface_known_gaps.yuanbao"
@@ -10466,7 +10330,6 @@
         "slack",
         "sms_twilio",
         "telegram",
-        "wecom_family",
         "weixin",
         "whatsapp"
       ],
@@ -10486,7 +10349,6 @@
         "surface_known_gaps.slack",
         "surface_known_gaps.sms_twilio",
         "surface_known_gaps.telegram",
-        "surface_known_gaps.wecom_family",
         "surface_known_gaps.weixin",
         "surface_known_gaps.whatsapp"
       ]
@@ -10529,7 +10391,6 @@
         "sms_twilio",
         "telegram",
         "webhook",
-        "wecom_family",
         "weixin",
         "whatsapp"
       ],
@@ -10550,7 +10411,6 @@
         "surface_known_gaps.sms_twilio",
         "surface_known_gaps.telegram",
         "surface_known_gaps.webhook",
-        "surface_known_gaps.wecom_family",
         "surface_known_gaps.weixin",
         "surface_known_gaps.whatsapp"
       ]
@@ -10846,7 +10706,6 @@
         "sms_twilio",
         "telegram",
         "webhook",
-        "wecom_family",
         "weixin",
         "whatsapp"
       ],
@@ -10867,7 +10726,6 @@
         "surface_known_gaps.sms_twilio",
         "surface_known_gaps.telegram",
         "surface_known_gaps.webhook",
-        "surface_known_gaps.wecom_family",
         "surface_known_gaps.weixin",
         "surface_known_gaps.whatsapp"
       ]
@@ -11144,7 +11002,6 @@
         "slack",
         "sms_twilio",
         "telegram",
-        "wecom_family",
         "weixin",
         "whatsapp"
       ],
@@ -11163,7 +11020,6 @@
         "surface_known_gaps.slack",
         "surface_known_gaps.sms_twilio",
         "surface_known_gaps.telegram",
-        "surface_known_gaps.wecom_family",
         "surface_known_gaps.weixin",
         "surface_known_gaps.whatsapp"
       ]
@@ -11189,7 +11045,6 @@
         "slack",
         "sms_twilio",
         "telegram",
-        "wecom_family",
         "weixin",
         "whatsapp"
       ],
@@ -11210,7 +11065,6 @@
         "surface_known_gaps.slack",
         "surface_known_gaps.sms_twilio",
         "surface_known_gaps.telegram",
-        "surface_known_gaps.wecom_family",
         "surface_known_gaps.weixin",
         "surface_known_gaps.whatsapp"
       ]
@@ -11286,7 +11140,6 @@
         "teams_plugin",
         "telegram",
         "webhook",
-        "wecom_family",
         "weixin",
         "whatsapp"
       ],
@@ -11309,7 +11162,6 @@
         "surface_known_gaps.teams_plugin",
         "surface_known_gaps.telegram",
         "surface_known_gaps.webhook",
-        "surface_known_gaps.wecom_family",
         "surface_known_gaps.weixin",
         "surface_known_gaps.whatsapp"
       ]
@@ -11474,7 +11326,6 @@
         "sms_twilio",
         "telegram",
         "webhook",
-        "wecom_family",
         "weixin",
         "whatsapp",
         "yuanbao"
@@ -11495,7 +11346,6 @@
         "surface_known_gaps.sms_twilio",
         "surface_known_gaps.telegram",
         "surface_known_gaps.webhook",
-        "surface_known_gaps.wecom_family",
         "surface_known_gaps.weixin",
         "surface_known_gaps.whatsapp",
         "surface_known_gaps.yuanbao"
@@ -11538,7 +11388,6 @@
         "slack",
         "sms_twilio",
         "telegram",
-        "wecom_family",
         "weixin",
         "whatsapp"
       ],
@@ -11558,7 +11407,6 @@
         "surface_known_gaps.slack",
         "surface_known_gaps.sms_twilio",
         "surface_known_gaps.telegram",
-        "surface_known_gaps.wecom_family",
         "surface_known_gaps.weixin",
         "surface_known_gaps.whatsapp"
       ]
@@ -11750,7 +11598,6 @@
         "slack",
         "sms_twilio",
         "telegram",
-        "wecom_family",
         "weixin",
         "whatsapp"
       ],
@@ -11770,7 +11617,6 @@
         "surface_known_gaps.slack",
         "surface_known_gaps.sms_twilio",
         "surface_known_gaps.telegram",
-        "surface_known_gaps.wecom_family",
         "surface_known_gaps.weixin",
         "surface_known_gaps.whatsapp"
       ]
@@ -12231,7 +12077,6 @@
         "sms_twilio",
         "telegram",
         "webhook",
-        "wecom_family",
         "weixin",
         "whatsapp",
         "yuanbao"
@@ -12252,7 +12097,6 @@
         "surface_known_gaps.sms_twilio",
         "surface_known_gaps.telegram",
         "surface_known_gaps.webhook",
-        "surface_known_gaps.wecom_family",
         "surface_known_gaps.weixin",
         "surface_known_gaps.whatsapp",
         "surface_known_gaps.yuanbao"
@@ -12465,7 +12309,6 @@
         "sms_twilio",
         "telegram",
         "webhook",
-        "wecom_family",
         "weixin",
         "whatsapp"
       ],
@@ -12485,47 +12328,8 @@
         "surface_known_gaps.sms_twilio",
         "surface_known_gaps.telegram",
         "surface_known_gaps.webhook",
-        "surface_known_gaps.wecom_family",
         "surface_known_gaps.weixin",
         "surface_known_gaps.whatsapp"
-      ]
-    },
-    {
-      "path": "hermes_core/website/docs/user-guide/messaging/wecom-callback.md",
-      "layer": "active_docs",
-      "edge_types": [
-        "documentation_consumer"
-      ],
-      "platform_surfaces": [
-        "webhook",
-        "wecom_family",
-        "weixin"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.webhook",
-        "surface_known_gaps.wecom_family",
-        "surface_known_gaps.weixin"
-      ]
-    },
-    {
-      "path": "hermes_core/website/docs/user-guide/messaging/wecom.md",
-      "layer": "active_docs",
-      "edge_types": [
-        "documentation_consumer"
-      ],
-      "platform_surfaces": [
-        "webhook",
-        "wecom_family",
-        "weixin"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.webhook",
-        "surface_known_gaps.wecom_family",
-        "surface_known_gaps.weixin"
       ]
     },
     {
@@ -12538,7 +12342,6 @@
         "local_delivery",
         "signal",
         "webhook",
-        "wecom_family",
         "weixin"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
@@ -12547,7 +12350,6 @@
         "surface_known_gaps.local_delivery",
         "surface_known_gaps.signal",
         "surface_known_gaps.webhook",
-        "surface_known_gaps.wecom_family",
         "surface_known_gaps.weixin"
       ]
     },
@@ -12656,7 +12458,6 @@
         "sms_twilio",
         "telegram",
         "webhook",
-        "wecom_family",
         "weixin",
         "whatsapp"
       ],
@@ -12677,7 +12478,6 @@
         "surface_known_gaps.sms_twilio",
         "surface_known_gaps.telegram",
         "surface_known_gaps.webhook",
-        "surface_known_gaps.wecom_family",
         "surface_known_gaps.weixin",
         "surface_known_gaps.whatsapp"
       ]
@@ -12744,7 +12544,6 @@
         "sms_twilio",
         "telegram",
         "webhook",
-        "wecom_family",
         "weixin",
         "whatsapp"
       ],
@@ -12766,7 +12565,6 @@
         "surface_known_gaps.sms_twilio",
         "surface_known_gaps.telegram",
         "surface_known_gaps.webhook",
-        "surface_known_gaps.wecom_family",
         "surface_known_gaps.weixin",
         "surface_known_gaps.whatsapp"
       ]
@@ -14547,22 +14345,6 @@
       ]
     },
     {
-      "path": "python/src/wecom_qr_worker.py",
-      "layer": "python_policy",
-      "edge_types": [
-        "policy_producer",
-        "runtime_consumer"
-      ],
-      "platform_surfaces": [
-        "wecom_family"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.wecom_family"
-      ]
-    },
-    {
       "path": "python/src/weixin_qr_worker.py",
       "layer": "python_policy",
       "edge_types": [
@@ -15067,38 +14849,6 @@
       ]
     },
     {
-      "path": "tauri/src/wecom_env.rs",
-      "layer": "rust_shell",
-      "edge_types": [
-        "credential_producer",
-        "process_consumer"
-      ],
-      "platform_surfaces": [
-        "wecom_family"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.wecom_family"
-      ]
-    },
-    {
-      "path": "tauri/src/wecom_qr.rs",
-      "layer": "rust_shell",
-      "edge_types": [
-        "credential_producer",
-        "process_consumer"
-      ],
-      "platform_surfaces": [
-        "wecom_family"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.wecom_family"
-      ]
-    },
-    {
       "path": "tauri/src/weixin_qr.rs",
       "layer": "rust_shell",
       "edge_types": [
@@ -15176,22 +14926,6 @@
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
         "surface_known_gaps.local_delivery"
-      ]
-    },
-    {
-      "path": "web/src/advanced/pages/WeComPage.tsx",
-      "layer": "web_shell",
-      "edge_types": [
-        "settings_producer",
-        "command_consumer"
-      ],
-      "platform_surfaces": [
-        "wecom_family"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.wecom_family"
       ]
     },
     {
@@ -15344,7 +15078,6 @@
         "email",
         "qqbot",
         "sms_twilio",
-        "wecom_family",
         "weixin"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
@@ -15354,24 +15087,7 @@
         "surface_known_gaps.email",
         "surface_known_gaps.qqbot",
         "surface_known_gaps.sms_twilio",
-        "surface_known_gaps.wecom_family",
         "surface_known_gaps.weixin"
-      ]
-    },
-    {
-      "path": "web/src/locales/strings.ts",
-      "layer": "web_i18n",
-      "edge_types": [
-        "copy_producer",
-        "ui_consumer"
-      ],
-      "platform_surfaces": [
-        "wecom_family"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.wecom_family"
       ]
     },
     {
@@ -15386,7 +15102,6 @@
         "email",
         "qqbot",
         "telegram",
-        "wecom_family",
         "weixin",
         "whatsapp"
       ],
@@ -15397,7 +15112,6 @@
         "surface_known_gaps.email",
         "surface_known_gaps.qqbot",
         "surface_known_gaps.telegram",
-        "surface_known_gaps.wecom_family",
         "surface_known_gaps.weixin",
         "surface_known_gaps.whatsapp"
       ]
@@ -17496,8 +17210,7 @@
         "primary_role": "non_secret_config",
         "source_paths": [
           "hermes_core/gateway/run.py",
-          "hermes_core/kabuqina_cli/config_env_schema.py",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "hermes_core/kabuqina_cli/config_env_schema.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -17971,7 +17684,6 @@
           "tauri/src/gateway_supervisor.rs",
           "tauri/src/python_supervisor.rs",
           "tauri/src/qqbot_qr.rs",
-          "tauri/src/wecom_qr.rs",
           "tauri/src/weixin_qr.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
@@ -18030,7 +17742,6 @@
           "tauri/src/gateway_supervisor.rs",
           "tauri/src/python_supervisor.rs",
           "tauri/src/qqbot_qr.rs",
-          "tauri/src/wecom_qr.rs",
           "tauri/src/weixin_qr.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
@@ -18413,7 +18124,6 @@
           "tauri/src/gateway_supervisor.rs",
           "tauri/src/python_supervisor.rs",
           "tauri/src/qqbot_qr.rs",
-          "tauri/src/wecom_qr.rs",
           "tauri/src/weixin_qr.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
@@ -19675,28 +19385,6 @@
         "known_gaps": []
       },
       {
-        "key": "HERMES_WECOM_TEXT_BATCH_DELAY_SECONDS",
-        "surface": "gateway_kernel",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/platforms/wecom.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "retain_profile_scoped",
-        "known_gaps": []
-      },
-      {
-        "key": "HERMES_WECOM_TEXT_BATCH_SPLIT_DELAY_SECONDS",
-        "surface": "gateway_kernel",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/platforms/wecom.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "retain_profile_scoped",
-        "known_gaps": []
-      },
-      {
         "key": "HERMES_WORKSPACE",
         "surface": "gateway_kernel",
         "primary_role": "non_secret_config",
@@ -20392,7 +20080,6 @@
           "tauri/src/gateway_supervisor.rs",
           "tauri/src/python_supervisor.rs",
           "tauri/src/qqbot_qr.rs",
-          "tauri/src/wecom_qr.rs",
           "tauri/src/weixin_qr.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
@@ -20422,12 +20109,10 @@
           "python/src/desktop_entrypoint.py",
           "python/src/load_packages.py",
           "python/src/qqbot_qr_worker.py",
-          "python/src/wecom_qr_worker.py",
           "python/src/weixin_qr_worker.py",
           "tauri/src/gateway_supervisor.rs",
           "tauri/src/python_supervisor.rs",
           "tauri/src/qqbot_qr.rs",
-          "tauri/src/wecom_qr.rs",
           "tauri/src/weixin_qr.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
@@ -20770,7 +20455,6 @@
           "tauri/src/gateway_supervisor.rs",
           "tauri/src/python_supervisor.rs",
           "tauri/src/qqbot_qr.rs",
-          "tauri/src/wecom_qr.rs",
           "tauri/src/weixin_qr.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
@@ -22181,8 +21865,7 @@
         "primary_role": "non_secret_config",
         "source_paths": [
           "tauri/src/gateway_supervisor.rs",
-          "tauri/src/python_supervisor.rs",
-          "tauri/src/wecom_qr.rs"
+          "tauri/src/python_supervisor.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -24594,136 +24277,6 @@
         "known_gaps": []
       },
       {
-        "key": "WECOM_ALLOWED_USERS",
-        "surface": "wecom_family",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/run.py",
-          "python/src/wecom_qr_worker.py",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "WECOM_ALLOW_ALL_USERS",
-        "surface": "wecom_family",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/run.py",
-          "python/src/wecom_qr_worker.py",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "WECOM_BOT_ID",
-        "surface": "wecom_family",
-        "primary_role": "identifier",
-        "source_paths": [
-          "hermes_core/gateway/config.py",
-          "hermes_core/gateway/platforms/wecom.py",
-          "hermes_core/kabuqina_cli/config_env.py",
-          "python/src/wecom_qr_worker.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "WECOM_CALLBACK_AGENT_ID",
-        "surface": "wecom_family",
-        "primary_role": "identifier",
-        "source_paths": [
-          "hermes_core/gateway/config.py",
-          "hermes_core/kabuqina_cli/config_env.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "WECOM_CALLBACK_ALLOWED_USERS",
-        "surface": "wecom_family",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/run.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "WECOM_CALLBACK_ALLOW_ALL_USERS",
-        "surface": "wecom_family",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/run.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "WECOM_CALLBACK_CORP_ID",
-        "surface": "wecom_family",
-        "primary_role": "identifier",
-        "source_paths": [
-          "hermes_core/gateway/config.py",
-          "hermes_core/kabuqina_cli/config_env.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "WECOM_CALLBACK_CORP_SECRET",
-        "surface": "wecom_family",
-        "primary_role": "secret",
-        "source_paths": [
-          "hermes_core/gateway/config.py",
-          "hermes_core/kabuqina_cli/config_env.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
-          "Gateway secrets currently traverse host/profile .env files; CTL-C07 owns explicit cleanup/export and upgrade safety."
-        ]
-      },
-      {
-        "key": "WECOM_CALLBACK_ENCODING_AES_KEY",
-        "surface": "wecom_family",
-        "primary_role": "secret",
-        "source_paths": [
-          "hermes_core/gateway/config.py",
-          "hermes_core/kabuqina_cli/config_env.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
-          "Gateway secrets currently traverse host/profile .env files; CTL-C07 owns explicit cleanup/export and upgrade safety."
-        ]
-      },
-      {
         "key": "WECOM_CALLBACK_HOME_CHANNEL",
         "surface": "wecom_family",
         "primary_role": "home_target",
@@ -24751,88 +24304,13 @@
         ]
       },
       {
-        "key": "WECOM_CALLBACK_HOST",
-        "surface": "wecom_family",
-        "primary_role": "network_host_expander",
-        "source_paths": [
-          "hermes_core/gateway/config.py",
-          "hermes_core/kabuqina_cli/config_env.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
-          "Configured URL/host values require fail-closed network-policy validation; key presence is not an allowlist."
-        ]
-      },
-      {
-        "key": "WECOM_CALLBACK_PORT",
-        "surface": "wecom_family",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/config.py",
-          "hermes_core/kabuqina_cli/config_env.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "WECOM_CALLBACK_TOKEN",
-        "surface": "wecom_family",
-        "primary_role": "secret",
-        "source_paths": [
-          "hermes_core/gateway/config.py",
-          "hermes_core/kabuqina_cli/config_env.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
-          "Gateway secrets currently traverse host/profile .env files; CTL-C07 owns explicit cleanup/export and upgrade safety."
-        ]
-      },
-      {
-        "key": "WECOM_DM_POLICY",
-        "surface": "wecom_family",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/platforms/wecom.py",
-          "python/src/wecom_qr_worker.py",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "WECOM_GROUP_POLICY",
-        "surface": "wecom_family",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "hermes_core/gateway/platforms/wecom.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
         "key": "WECOM_HOME_CHANNEL",
         "surface": "wecom_family",
         "primary_role": "home_target",
         "source_paths": [
           "hermes_core/cron/scheduler.py",
-          "hermes_core/gateway/config.py",
           "hermes_core/gateway/home_channel.py",
-          "hermes_core/gateway/run.py",
-          "hermes_core/kabuqina_cli/config_env.py",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "hermes_core/gateway/run.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -24845,59 +24323,12 @@
         "surface": "wecom_family",
         "primary_role": "home_target",
         "source_paths": [
-          "hermes_core/gateway/config.py",
-          "hermes_core/gateway/home_channel.py",
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/gateway/home_channel.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
         "known_gaps": [
           "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "WECOM_SECRET",
-        "surface": "wecom_family",
-        "primary_role": "secret",
-        "source_paths": [
-          "hermes_core/gateway/config.py",
-          "hermes_core/gateway/platforms/wecom.py",
-          "hermes_core/kabuqina_cli/config_env.py",
-          "python/src/wecom_qr_worker.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
-          "Gateway secrets currently traverse host/profile .env files; CTL-C07 owns explicit cleanup/export and upgrade safety."
-        ]
-      },
-      {
-        "key": "WECOM_SETUP_METHOD",
-        "surface": "wecom_family",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "python/src/wecom_qr_worker.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
-        ]
-      },
-      {
-        "key": "WECOM_WEBSOCKET_URL",
-        "surface": "wecom_family",
-        "primary_role": "network_host_expander",
-        "source_paths": [
-          "hermes_core/gateway/config.py",
-          "hermes_core/gateway/platforms/wecom.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "stop_producing_then_explicit_cleanup",
-        "known_gaps": [
-          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
-          "Configured URL/host values require fail-closed network-policy validation; key presence is not an allowlist."
         ]
       },
       {
@@ -26215,10 +25646,10 @@
   },
   "generated_ledger_metadata": {
     "generator": "scripts/audit_v050_platform_manifest.py --refresh-generated-ledgers",
-    "reference_path_count": 617,
-    "literal_environment_key_count": 632,
-    "dynamic_environment_key_declaration_count": 376,
-    "environment_key_count": 750,
+    "reference_path_count": 605,
+    "literal_environment_key_count": 613,
+    "dynamic_environment_key_declaration_count": 361,
+    "environment_key_count": 731,
     "environment_namespace_count": 26,
     "environment_dynamic_template_count": 2,
     "historical_docs_policy": "docs/superpowers history is excluded from the active-doc reference scan; the three authority plans are hash-pinned separately."
