@@ -4272,7 +4272,6 @@
         "documentation_consumer"
       ],
       "platform_surfaces": [
-        "discord",
         "home_assistant",
         "local_delivery",
         "signal",
@@ -4283,7 +4282,6 @@
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.discord",
         "surface_known_gaps.home_assistant",
         "surface_known_gaps.local_delivery",
         "surface_known_gaps.signal",
@@ -9351,6 +9349,23 @@
         "surface_known_gaps.dingtalk",
         "surface_known_gaps.feishu_lark",
         "surface_known_gaps.matrix"
+      ]
+    },
+    {
+      "path": "hermes_core/tests/test_removed_platform_install_contract.py",
+      "layer": "tests",
+      "edge_types": [
+        "verification_consumer"
+      ],
+      "platform_surfaces": [
+        "discord",
+        "telegram"
+      ],
+      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
+      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
+      "known_gaps": [
+        "surface_known_gaps.discord",
+        "surface_known_gaps.telegram"
       ]
     },
     {
@@ -26886,7 +26901,7 @@
   },
   "generated_ledger_metadata": {
     "generator": "scripts/audit_v050_platform_manifest.py --refresh-generated-ledgers",
-    "reference_path_count": 633,
+    "reference_path_count": 634,
     "literal_environment_key_count": 656,
     "dynamic_environment_key_declaration_count": 386,
     "environment_key_count": 772,
