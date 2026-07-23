@@ -1071,3 +1071,20 @@ records only: they cannot register an adapter, open a network connection, or
 reroute delivery. No credentials, profiles, sessions, jobs, channel-directory
 files, or home targets are deleted; CTL-C07 owns explicit cleanup and upgrade
 evidence. Other platform leaves and release approval remain independent gates.
+
+**CTL-C03b Feishu/Lark physical removal (2026-07-23).** The owned Feishu/Lark
+adapter, comment automation, document/drive tools, QR worker, Rust commands and
+child state, Web route/settings/onboarding producers, Feishu-only tests and
+active messaging route are removed. `lark-oapi` is removed from desktop
+requirements, the Core extra/`all` extra and the mechanically regenerated
+lock. Runtime pruning rejects the worker, adapter/comment/tool paths,
+`lark_oapi` package and dist-info; source sync also removes those stale
+artifacts from an existing developer runtime. Legacy `feishu_doc` and
+`feishu_drive` toolset names are permanently denied as removed config input.
+`Platform.FEISHU`, C02 unsupported-delivery behavior, stale config filtering
+and stored old target text remain compatibility-only and cannot register an
+adapter, expand network trust or reroute delivery. Existing credentials,
+profiles, QR/comment state, sessions, jobs, channel-directory records and home
+targets are not deleted. A fresh `build_bundle.ps1 -Verify` run remains a
+mandatory operator-provided Gate artifact before C03b review/sign-off; CTL-C05,
+C07 and G01 retain their separate closeout responsibilities.
