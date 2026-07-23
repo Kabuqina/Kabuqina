@@ -8,6 +8,7 @@ model, and every read/write is constrained by both ``owner_id`` and ``space_id``
 Every test points the store at ``tmp_path`` — never the real Hermes root.
 """
 
+import multiprocessing
 import sqlite3
 import threading
 
@@ -15,6 +16,18 @@ import pytest
 
 from learning.learning_contract import ContractError
 from learning.learning_store import LearningStore
+from learning.operation_coordinator import LearningOperationInProgressError
+
+
+def _spawn_learning_store_write(db_path: str, output) -> None:
+    child_store = LearningStore(db_path=db_path)
+    try:
+        child_store.create_space("owner-A", title="Gateway write", space_id="s1")
+        output.put(("ok", None))
+    except Exception as exc:  # process boundary: stable error data only
+        output.put((type(exc).__name__, getattr(exc, "reason_code", None)))
+    finally:
+        child_store.close()
 
 
 def test_default_learning_db_acl_is_effective(tmp_path, monkeypatch):
@@ -102,6 +115,136 @@ def test_startup_reconciles_missing_column(tmp_path):
     assert "review_status" in cols
 
 
+def test_store_derives_shared_coordinator_from_resolved_learning_db_path(tmp_path):
+    path = tmp_path / "nested" / ".." / "learning.db"
+    st = LearningStore(db_path=path)
+    try:
+        assert st.coordinator.db_path == (
+            tmp_path / "learning_coordination.db"
+        ).resolve()
+    finally:
+        st.close()
+
+
+def test_owner_fence_blocks_all_matching_store_reads_and_writes(store):
+    store.create_space("owner-A", title="Algebra", space_id="s1")
+    artifact_id = store.insert_artifact(
+        "owner-A", "s1", _flashcard_envelope()
+    )["artifact_id"]
+    store.upsert_item(
+        "owner-A", "s1", item_id="item-1", item_type="fixture", state={}
+    )
+    activity_id = store.insert_activity(
+        "owner-A", "s1", activity_type="quiz.attempt", detail={}
+    )
+    store.mark_migration("owner-A", "migration-1")
+    lease = store.coordinator.begin_operation("owner-A", "", "delete")
+    try:
+        reads = (
+            lambda: store.get_space("owner-A", "s1"),
+            lambda: store.list_spaces("owner-A"),
+            lambda: store.get_current_space("owner-A"),
+            lambda: store.get_artifact("owner-A", "s1", artifact_id),
+            lambda: store.list_artifacts("owner-A", "s1"),
+            lambda: store.artifact_summary_page(
+                "owner-A", "s1", kind=None, status=None, limit=10, offset=0
+            ),
+            lambda: store.list_items("owner-A", "s1"),
+            lambda: store.list_activities("owner-A", "s1"),
+            lambda: store.is_migrated("owner-A", "migration-1"),
+            lambda: store.export_owner_bundle("owner-A"),
+            lambda: store.list_migrations("owner-A"),
+            lambda: store.activity_summary_page("owner-A", "s1", limit=10),
+            lambda: store.quiz_attempt_page("owner-A", "s1", limit=10),
+            lambda: store.quiz_attempt_by_id("owner-A", "s1", activity_id),
+        )
+        writes = (
+            lambda: store.create_space("owner-A", title="Blocked", space_id="s2"),
+            lambda: store.set_current_space("owner-A", "s1"),
+            lambda: store.insert_artifact(
+                "owner-A", "s1", _flashcard_envelope(title="Blocked")
+            ),
+            lambda: store.update_artifact_status(
+                "owner-A", "s1", artifact_id, "active"
+            ),
+            lambda: store.update_artifact_review(
+                "owner-A", "s1", artifact_id, "passed"
+            ),
+            lambda: store.upsert_item(
+                "owner-A", "s1", item_id="item-2", item_type="fixture"
+            ),
+            lambda: store.update_item_state(
+                "owner-A", "s1", "item-1", {"changed": True}
+            ),
+            lambda: store.insert_activity(
+                "owner-A", "s1", activity_type="gateway.fixture"
+            ),
+            lambda: store.mark_migration("owner-A", "migration-2"),
+            lambda: store.mark_migration_failure("owner-A", "migration-2", {}),
+            lambda: store.import_owner_bundle(
+                "owner-A",
+                {
+                    "version": 1,
+                    "spaces": [],
+                    "artifacts": [],
+                    "items": [],
+                    "activities": [],
+                    "migrations": [],
+                },
+            ),
+            lambda: store.delete_owner_data("owner-A"),
+        )
+        for operation in (*reads, *writes):
+            with pytest.raises(LearningOperationInProgressError):
+                operation()
+        assert store.list_spaces("owner-B") == []
+    finally:
+        store.coordinator.finish_operation(lease)
+
+
+def test_exact_space_fence_blocks_exact_scope_but_not_sibling_space(store):
+    store.create_space("owner-A", title="One", space_id="s1")
+    store.create_space("owner-A", title="Two", space_id="s2", make_current=False)
+    lease = store.coordinator.begin_operation("owner-A", "s1", "delete")
+    try:
+        with pytest.raises(LearningOperationInProgressError):
+            store.list_artifacts("owner-A", "s1")
+        store.insert_activity("owner-A", "s2", activity_type="allowed.fixture")
+        assert len(store.list_activities("owner-A", "s2")) == 1
+    finally:
+        store.coordinator.finish_operation(lease)
+
+
+def test_matching_operation_lease_allows_guarded_owner_delete(store):
+    store.create_space("owner-A", title="Algebra", space_id="s1")
+    lease = store.coordinator.begin_operation("owner-A", "", "delete")
+    counts = store.delete_owner_data("owner-A", operation_lease=lease)
+    assert counts["learning_spaces"] == 1
+    assert store.list_spaces("owner-A", operation_lease=lease) == []
+    store.coordinator.finish_operation(lease)
+    assert store.list_spaces("owner-A") == []
+
+
+def test_spawned_learning_store_writer_obeys_persistent_fence(store):
+    lease = store.coordinator.begin_operation("owner-A", "s1", "delete")
+    context = multiprocessing.get_context("spawn")
+    output = context.Queue()
+    process = context.Process(
+        target=_spawn_learning_store_write,
+        args=(str(store.db_path), output),
+    )
+    process.start()
+    process.join(10)
+    try:
+        assert process.exitcode == 0
+        assert output.get(timeout=2) == (
+            "LearningOperationInProgressError",
+            "learning_operation_in_progress",
+        )
+    finally:
+        store.coordinator.finish_operation(lease)
+
+
 # --------------------------------------------------------------------------- #
 # Spaces
 # --------------------------------------------------------------------------- #
@@ -118,6 +261,14 @@ def test_space_is_owner_scoped(store):
     sid = store.create_space("owner-A", title="Algebra")
     assert store.get_space("owner-B", sid) is None
     assert store.list_spaces("owner-B") == []
+
+
+def test_coordination_guard_preserves_legacy_learning_space_ids(store):
+    # v0.4 LearningStore accepted any bounded non-empty string.  Tutor public
+    # IDs are stricter, but the coordinator must still fence/read old rows.
+    legacy_space_id = "Legacy Course 中文"
+    store.create_space("owner-A", title="Legacy", space_id=legacy_space_id)
+    assert store.get_space("owner-A", legacy_space_id)["title"] == "Legacy"
 
 
 def test_empty_owner_id_rejected(store):

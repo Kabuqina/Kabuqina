@@ -1188,6 +1188,51 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
         ],
     },
     {
+        "id": "student-tutor-runtime",
+        "title": "Resumable Tutor runtime",
+        "description": (
+            "Persisted Tutor activity lifecycle, learner checkpoints, recovery, "
+            "and deterministic terminal summaries. B02 exposes candidate data "
+            "and API contracts; executable tutoring arrives in a later slice."
+        ),
+        "category": "learning",
+        "family": "student-learning",
+        "lifecycle": "candidate",
+        "agent_hint": (
+            "Tutor activity execution is not available yet. Existing imported "
+            "activity records may be inspected or cancelled through trusted "
+            "desktop controls; do not emulate Tutor runs with ordinary chat."
+        ),
+        "tools": [],
+        "required_toolsets": [],
+        "pipelines": [
+            {
+                "id": "tutor-lifecycle-v1",
+                "primary": True,
+                "stages": ["reader", "planner", "writer"],
+                "steps": [
+                    {
+                        "id": "load-tutor-checkpoint",
+                        "stage": "reader",
+                        "outputs": ["tutor_checkpoint"],
+                    },
+                    {
+                        "id": "advance-deterministic-tutor-graph",
+                        "stage": "planner",
+                        "inputs": ["tutor_checkpoint"],
+                        "outputs": ["tutor_transition"],
+                    },
+                    {
+                        "id": "commit-tutor-transition",
+                        "stage": "writer",
+                        "inputs": ["tutor_transition"],
+                        "outputs": ["tutor_activity_snapshot"],
+                    },
+                ],
+            }
+        ],
+    },
+    {
         # STUDY learning foundation (M1). References the learning Planner id and
         # learning artifact kinds by STABLE ID only — no prompt/schema is
         # duplicated here; the drift test in tests/test_capability_registry_learning.py

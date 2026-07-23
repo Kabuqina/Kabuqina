@@ -24,6 +24,7 @@ import threading
 import time
 import uuid
 from datetime import datetime, timezone
+from functools import wraps
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, TypeVar
 
@@ -34,6 +35,11 @@ from learning.learning_contract import (
     LIFECYCLE_STATUSES,
     is_allowed_transition,
     validate_envelope,
+)
+from learning.operation_coordinator import (
+    LearningOperationCoordinator,
+    LearningOperationGuard,
+    OperationLease,
 )
 
 logger = logging.getLogger(__name__)
@@ -275,6 +281,38 @@ def _bundle_optional_id(value: Any, name: str) -> Optional[str]:
     return _require(value, name)
 
 
+def _coordinated_read(*, owner_wide: bool = False):
+    """Route a public business read through ``LearningStore._execute_read``.
+
+    All guarded methods use ``owner_id`` as their first argument and, unless
+    owner-wide, ``space_id`` as their second.  ``operation_lease`` is consumed
+    by this wrapper so composite services can read while holding their fence.
+    """
+
+    def _decorate(method):
+        @wraps(method)
+        def _wrapped(self, *args, **kwargs):
+            call_kwargs = dict(kwargs)
+            operation_lease = call_kwargs.pop("operation_lease", None)
+            coordination_guard = call_kwargs.pop("coordination_guard", None)
+            owner_id = args[0] if args else call_kwargs.get("owner_id")
+            if owner_wide:
+                space_id = ""
+            else:
+                space_id = args[1] if len(args) > 1 else call_kwargs.get("space_id")
+            return self._execute_read(
+                owner_id,
+                space_id,
+                lambda _connection: method(self, *args, **call_kwargs),
+                operation_lease=operation_lease,
+                coordination_guard=coordination_guard,
+            )
+
+        return _wrapped
+
+    return _decorate
+
+
 class LearningStore:
     """SQLite-backed store for the learning spine.
 
@@ -286,12 +324,29 @@ class LearningStore:
     _WRITE_RETRY_MIN_S = 0.020
     _WRITE_RETRY_MAX_S = 0.150
 
-    def __init__(self, db_path: Optional[Path] = None):
+    def __init__(
+        self,
+        db_path: Optional[Path] = None,
+        *,
+        coordinator: Optional[LearningOperationCoordinator] = None,
+    ):
         is_default_path = db_path is None
-        self.db_path = Path(db_path) if db_path else default_learning_db_path()
+        self.db_path = (
+            Path(db_path) if db_path else default_learning_db_path()
+        ).expanduser().resolve()
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         if is_default_path:
             secure_default_learning_db(self.db_path)
+
+        expected_coordination_path = self.db_path.parent / "learning_coordination.db"
+        if coordinator is None:
+            coordinator = LearningOperationCoordinator.from_learning_db_path(
+                self.db_path,
+                secure_permissions=is_default_path,
+            )
+        elif coordinator.db_path != expected_coordination_path.resolve():
+            raise ValueError("coordinator path does not match resolved learning.db path")
+        self.coordinator = coordinator
 
         self._lock = threading.Lock()
         self._conn = sqlite3.connect(
@@ -419,8 +474,8 @@ class LearningStore:
 
     # ── write helper ───────────────────────────────────────────────────── #
 
-    def _execute_write(self, fn: Callable[[sqlite3.Connection], T]) -> T:
-        """Run a write inside ``BEGIN IMMEDIATE`` with jittered retry on lock."""
+    def _execute_sqlite_write(self, fn: Callable[[sqlite3.Connection], T]) -> T:
+        """Run one already-coordinated SQLite write with bounded busy retry."""
         last_err: Optional[Exception] = None
         for attempt in range(self._WRITE_MAX_RETRIES):
             try:
@@ -445,6 +500,85 @@ class LearningStore:
                 raise
         raise last_err or sqlite3.OperationalError("database is locked after max retries")
 
+    def _execute_write(
+        self,
+        owner_id: str,
+        space_id: str,
+        fn: Callable[[sqlite3.Connection], T],
+        *,
+        operation_lease: Optional[OperationLease] = None,
+        coordination_guard: Optional[LearningOperationGuard] = None,
+    ) -> T:
+        """Run a write in fixed lock order: coordination then learning DB."""
+        if coordination_guard is not None:
+            if (
+                coordination_guard.owner_id != owner_id
+                or coordination_guard.space_id != space_id
+                or coordination_guard.mode != "write"
+            ):
+                raise ValueError("coordination guard scope does not match write")
+            return self._execute_sqlite_write(fn)
+        with self.coordinator.begin_write(
+            owner_id, space_id, operation_lease=operation_lease
+        ):
+            return self._execute_sqlite_write(fn)
+
+    def _execute_read(
+        self,
+        owner_id: str,
+        space_id: str,
+        fn: Callable[[sqlite3.Connection], T],
+        *,
+        operation_lease: Optional[OperationLease] = None,
+        coordination_guard: Optional[LearningOperationGuard] = None,
+    ) -> T:
+        """Run a scoped snapshot read while holding the coordination guard."""
+        if coordination_guard is not None and (
+            coordination_guard.owner_id != owner_id
+            or coordination_guard.space_id != space_id
+            or coordination_guard.mode != "read"
+        ):
+            raise ValueError("coordination guard scope does not match read")
+        last_err: Optional[Exception] = None
+        for attempt in range(self._WRITE_MAX_RETRIES):
+            try:
+                guard = coordination_guard or self.coordinator.begin_read(
+                    owner_id, space_id, operation_lease=operation_lease
+                )
+                try:
+                    with self._lock:
+                        self._conn.execute("BEGIN")
+                        try:
+                            result = fn(self._conn)
+                            self._conn.commit()
+                        except BaseException:
+                            try:
+                                self._conn.rollback()
+                            except Exception:
+                                pass
+                            raise
+                    return result
+                finally:
+                    if coordination_guard is None:
+                        guard.close()
+            except sqlite3.OperationalError as exc:
+                msg = str(exc).lower()
+                if (
+                    ("locked" in msg or "busy" in msg)
+                    and attempt < self._WRITE_MAX_RETRIES - 1
+                ):
+                    last_err = exc
+                    time.sleep(
+                        random.uniform(
+                            self._WRITE_RETRY_MIN_S, self._WRITE_RETRY_MAX_S
+                        )
+                    )
+                    continue
+                raise
+        raise last_err or sqlite3.OperationalError(
+            "database is locked after max read retries"
+        )
+
     # ── spaces ─────────────────────────────────────────────────────────── #
 
     def create_space(
@@ -454,6 +588,7 @@ class LearningStore:
         title: str,
         space_id: Optional[str] = None,
         make_current: bool = True,
+        operation_lease: Optional[OperationLease] = None,
     ) -> str:
         _require(owner_id, "owner_id")
         _require(title, "title")
@@ -479,9 +614,16 @@ class LearningStore:
                 )
             return sid
 
-        return self._execute_write(_op)
+        return self._execute_write(owner_id, "", _op, operation_lease=operation_lease)
 
-    def get_space(self, owner_id: str, space_id: str) -> Optional[Dict[str, Any]]:
+    @_coordinated_read()
+    def get_space(
+        self,
+        owner_id: str,
+        space_id: str,
+        *,
+        operation_lease: Optional[OperationLease] = None,
+    ) -> Optional[Dict[str, Any]]:
         _require(owner_id, "owner_id")
         _require(space_id, "space_id")
         row = self._conn.execute(
@@ -490,7 +632,13 @@ class LearningStore:
         ).fetchone()
         return dict(row) if row else None
 
-    def list_spaces(self, owner_id: str) -> List[Dict[str, Any]]:
+    @_coordinated_read(owner_wide=True)
+    def list_spaces(
+        self,
+        owner_id: str,
+        *,
+        operation_lease: Optional[OperationLease] = None,
+    ) -> List[Dict[str, Any]]:
         _require(owner_id, "owner_id")
         return [
             dict(r)
@@ -500,7 +648,13 @@ class LearningStore:
             ).fetchall()
         ]
 
-    def set_current_space(self, owner_id: str, space_id: str) -> None:
+    def set_current_space(
+        self,
+        owner_id: str,
+        space_id: str,
+        *,
+        operation_lease: Optional[OperationLease] = None,
+    ) -> None:
         _require(owner_id, "owner_id")
         _require(space_id, "space_id")
 
@@ -521,9 +675,15 @@ class LearningStore:
                 (owner_id, space_id),
             )
 
-        self._execute_write(_op)
+        self._execute_write(owner_id, "", _op, operation_lease=operation_lease)
 
-    def get_current_space(self, owner_id: str) -> Optional[str]:
+    @_coordinated_read(owner_wide=True)
+    def get_current_space(
+        self,
+        owner_id: str,
+        *,
+        operation_lease: Optional[OperationLease] = None,
+    ) -> Optional[str]:
         _require(owner_id, "owner_id")
         row = self._conn.execute(
             "SELECT space_id FROM learning_spaces "
@@ -535,7 +695,12 @@ class LearningStore:
     # ── artifacts ──────────────────────────────────────────────────────── #
 
     def insert_artifact(
-        self, owner_id: str, space_id: str, envelope: Dict[str, Any]
+        self,
+        owner_id: str,
+        space_id: str,
+        envelope: Dict[str, Any],
+        *,
+        operation_lease: Optional[OperationLease] = None,
     ) -> Dict[str, Any]:
         """Validate + persist a new artifact as ``draft`` under (owner, space).
 
@@ -575,7 +740,7 @@ class LearningStore:
                 ),
             )
 
-        self._execute_write(_op)
+        self._execute_write(owner_id, space_id, _op, operation_lease=operation_lease)
         return {"artifact_id": artifact_id, "version": 1}
 
     def _row_to_artifact(self, row: sqlite3.Row) -> Dict[str, Any]:
@@ -592,8 +757,14 @@ class LearningStore:
             "updated_at": row["updated_at"],
         }
 
+    @_coordinated_read()
     def get_artifact(
-        self, owner_id: str, space_id: str, artifact_id: str
+        self,
+        owner_id: str,
+        space_id: str,
+        artifact_id: str,
+        *,
+        operation_lease: Optional[OperationLease] = None,
     ) -> Optional[Dict[str, Any]]:
         _require(owner_id, "owner_id")
         _require(space_id, "space_id")
@@ -605,6 +776,7 @@ class LearningStore:
         ).fetchone()
         return self._row_to_artifact(row) if row else None
 
+    @_coordinated_read()
     def list_artifacts(
         self,
         owner_id: str,
@@ -612,6 +784,7 @@ class LearningStore:
         *,
         kind: Optional[str] = None,
         status: Optional[str] = None,
+        operation_lease: Optional[OperationLease] = None,
     ) -> List[Dict[str, Any]]:
         _require(owner_id, "owner_id")
         _require(space_id, "space_id")
@@ -629,6 +802,7 @@ class LearningStore:
             for r in self._conn.execute(sql, params).fetchall()
         ]
 
+    @_coordinated_read()
     def artifact_summary_page(
         self,
         owner_id: str,
@@ -638,6 +812,7 @@ class LearningStore:
         status: Optional[str],
         limit: int,
         offset: int,
+        operation_lease: Optional[OperationLease] = None,
     ) -> Dict[str, Any]:
         """Read one bounded page without loading artifact envelopes."""
         _require(owner_id, "owner_id")
@@ -685,7 +860,13 @@ class LearningStore:
         }
 
     def update_artifact_status(
-        self, owner_id: str, space_id: str, artifact_id: str, new_status: str
+        self,
+        owner_id: str,
+        space_id: str,
+        artifact_id: str,
+        new_status: str,
+        *,
+        operation_lease: Optional[OperationLease] = None,
     ) -> None:
         """Enforce an allowed lifecycle transition on an owned artifact.
 
@@ -717,11 +898,13 @@ class LearningStore:
                 (new_status, now, owner_id, space_id, artifact_id),
             )
 
-        self._execute_write(_op)
+        self._execute_write(owner_id, space_id, _op, operation_lease=operation_lease)
 
     def update_artifact_review(
         self, owner_id: str, space_id: str, artifact_id: str, review_status: str,
-        *, review_mode: Optional[str] = None,
+        *,
+        review_mode: Optional[str] = None,
+        operation_lease: Optional[OperationLease] = None,
     ) -> None:
         """Persist a trusted semantic-review conclusion for one owned draft."""
         if review_status not in {"pending", "passed", "failed"}:
@@ -743,7 +926,7 @@ class LearningStore:
                 "WHERE owner_id = ? AND space_id = ? AND artifact_id = ?",
                 (mode, review_status, json.dumps(envelope, ensure_ascii=False), now, owner_id, space_id, artifact_id),
             )
-        self._execute_write(_op)
+        self._execute_write(owner_id, space_id, _op, operation_lease=operation_lease)
 
     # ── items ─────────────────────────────────────────────────────────── #
 
@@ -756,6 +939,7 @@ class LearningStore:
         item_type: str,
         artifact_id: Optional[str] = None,
         state: Optional[Dict[str, Any]] = None,
+        operation_lease: Optional[OperationLease] = None,
     ) -> str:
         _require(owner_id, "owner_id")
         _require(space_id, "space_id")
@@ -786,7 +970,7 @@ class LearningStore:
                 ),
             )
 
-        self._execute_write(_op)
+        self._execute_write(owner_id, space_id, _op, operation_lease=operation_lease)
         return item_id
 
     def _row_to_item(self, row: sqlite3.Row) -> Dict[str, Any]:
@@ -794,6 +978,7 @@ class LearningStore:
         d["state"] = json.loads(d.pop("state_json") or "{}")
         return d
 
+    @_coordinated_read()
     def list_items(
         self,
         owner_id: str,
@@ -801,6 +986,7 @@ class LearningStore:
         *,
         item_type: Optional[str] = None,
         artifact_id: Optional[str] = None,
+        operation_lease: Optional[OperationLease] = None,
     ) -> List[Dict[str, Any]]:
         _require(owner_id, "owner_id")
         _require(space_id, "space_id")
@@ -824,6 +1010,8 @@ class LearningStore:
         space_id: str,
         item_id: str,
         state: Dict[str, Any],
+        *,
+        operation_lease: Optional[OperationLease] = None,
     ) -> None:
         _require(owner_id, "owner_id")
         _require(space_id, "space_id")
@@ -840,7 +1028,7 @@ class LearningStore:
             if cur.rowcount == 0:
                 raise KeyError(f"item {item_id!r} not found for owner/space")
 
-        self._execute_write(_op)
+        self._execute_write(owner_id, space_id, _op, operation_lease=operation_lease)
 
     # ── activities ─────────────────────────────────────────────────────── #
 
@@ -853,6 +1041,7 @@ class LearningStore:
         artifact_id: Optional[str] = None,
         item_id: Optional[str] = None,
         detail: Optional[Dict[str, Any]] = None,
+        operation_lease: Optional[OperationLease] = None,
     ) -> str:
         _require(owner_id, "owner_id")
         _require(space_id, "space_id")
@@ -878,10 +1067,83 @@ class LearningStore:
                 ),
             )
 
-        self._execute_write(_op)
+        self._execute_write(owner_id, space_id, _op, operation_lease=operation_lease)
         return activity_id
 
-    def list_activities(self, owner_id: str, space_id: str) -> List[Dict[str, Any]]:
+    def insert_projection_activity_once(
+        self,
+        owner_id: str,
+        space_id: str,
+        *,
+        projection_event_id: str,
+        activity_kind: str,
+        source_activity_id: str,
+        outcome: str,
+        terminal_code: str,
+        operation_lease: Optional[OperationLease] = None,
+    ) -> bool:
+        """Idempotently append a bounded Tutor terminal projection.
+
+        ``learning.db`` remains schema v1, so the stable projection event ID is
+        also used as the deterministic activity primary-key component.  The
+        coordinator plus ``BEGIN IMMEDIATE`` makes check/insert one serialized
+        operation across desk/Gateway/cron processes.
+        """
+        _require(owner_id, "owner_id")
+        _require(space_id, "space_id")
+        _require(projection_event_id, "projection_event_id")
+        detail = {
+            "projection_event_id": projection_event_id,
+            "activity_kind": activity_kind,
+            "source_activity_id": source_activity_id,
+            "outcome": outcome,
+            "terminal_code": terminal_code,
+        }
+        created_at = _now()
+
+        def _op(connection: sqlite3.Connection) -> bool:
+            existing = connection.execute(
+                "SELECT detail_json FROM learning_activities "
+                "WHERE owner_id=? AND space_id=? AND activity_id=?",
+                (owner_id, space_id, projection_event_id),
+            ).fetchone()
+            if existing is not None:
+                existing_detail = json.loads(existing["detail_json"])
+                if existing_detail.get("projection_event_id") != projection_event_id:
+                    raise LearningConflictError("projection activity id conflict")
+                return False
+            connection.execute(
+                """
+                INSERT INTO learning_activities
+                    (owner_id,space_id,activity_id,activity_type,artifact_id,
+                     item_id,detail_json,created_at)
+                VALUES (?,?,?,'tutor.terminal',NULL,NULL,?,?)
+                """,
+                (
+                    owner_id,
+                    space_id,
+                    projection_event_id,
+                    json.dumps(detail, ensure_ascii=False, sort_keys=True),
+                    created_at,
+                ),
+            )
+            return True
+
+        return self._execute_write(
+            owner_id,
+            space_id,
+            _op,
+            operation_lease=operation_lease,
+        )
+
+    @_coordinated_read()
+    def list_activities(
+        self,
+        owner_id: str,
+        space_id: str,
+        *,
+        operation_lease: Optional[OperationLease] = None,
+    ) -> List[Dict[str, Any]]:
         _require(owner_id, "owner_id")
         _require(space_id, "space_id")
         rows = self._conn.execute(
@@ -899,7 +1161,12 @@ class LearningStore:
     # ── migrations ─────────────────────────────────────────────────────── #
 
     def mark_migration(
-        self, owner_id: str, migration_key: str, *, detail: Optional[Dict[str, Any]] = None
+        self,
+        owner_id: str,
+        migration_key: str,
+        *,
+        detail: Optional[Dict[str, Any]] = None,
+        operation_lease: Optional[OperationLease] = None,
     ) -> None:
         _require(owner_id, "owner_id")
         _require(migration_key, "migration_key")
@@ -913,9 +1180,16 @@ class LearningStore:
                 (owner_id, migration_key, json.dumps(detail or {}, ensure_ascii=False), now),
             )
 
-        self._execute_write(_op)
+        self._execute_write(owner_id, "", _op, operation_lease=operation_lease)
 
-    def is_migrated(self, owner_id: str, migration_key: str) -> bool:
+    @_coordinated_read(owner_wide=True)
+    def is_migrated(
+        self,
+        owner_id: str,
+        migration_key: str,
+        *,
+        operation_lease: Optional[OperationLease] = None,
+    ) -> bool:
         _require(owner_id, "owner_id")
         _require(migration_key, "migration_key")
         row = self._conn.execute(
@@ -927,7 +1201,14 @@ class LearningStore:
 
     # ── owner governance / portability ───────────────────────────────── #
 
-    def export_owner_bundle(self, owner_id: str) -> Dict[str, Any]:
+    @_coordinated_read(owner_wide=True)
+    def export_owner_bundle(
+        self,
+        owner_id: str,
+        *,
+        operation_lease: Optional[OperationLease] = None,
+        coordination_guard: Optional[LearningOperationGuard] = None,
+    ) -> Dict[str, Any]:
         """Return a self-contained JSON-safe bundle without repeating owner_id."""
         _require(owner_id, "owner_id")
         tables = {
@@ -973,7 +1254,12 @@ class LearningStore:
             bundle[key] = rows
         return bundle
 
-    def delete_owner_data(self, owner_id: str) -> Dict[str, int]:
+    def delete_owner_data(
+        self,
+        owner_id: str,
+        *,
+        operation_lease: Optional[OperationLease] = None,
+    ) -> Dict[str, int]:
         _require(owner_id, "owner_id")
         counts: Dict[str, int] = {}
 
@@ -988,8 +1274,47 @@ class LearningStore:
                 cur = conn.execute(f"DELETE FROM {table} WHERE owner_id = ?", (owner_id,))
                 counts[table] = cur.rowcount
 
-        self._execute_write(_op)
-        self._compact_after_sensitive_delete()
+        with self.coordinator.begin_write(
+            owner_id, "", operation_lease=operation_lease
+        ) as guard:
+            self._execute_write(
+                owner_id, "", _op, coordination_guard=guard
+            )
+            self._compact_after_sensitive_delete()
+        return counts
+
+    def delete_space_data(
+        self,
+        owner_id: str,
+        space_id: str,
+        *,
+        operation_lease: Optional[OperationLease] = None,
+    ) -> Dict[str, int]:
+        """Delete one exact learning space while preserving owner migrations."""
+        _require(owner_id, "owner_id")
+        _require(space_id, "space_id")
+        counts: Dict[str, int] = {}
+
+        def _op(conn: sqlite3.Connection) -> None:
+            for table in (
+                "learning_activities",
+                "learning_items",
+                "learning_artifacts",
+                "learning_spaces",
+            ):
+                cursor = conn.execute(
+                    f"DELETE FROM {table} WHERE owner_id=? AND space_id=?",
+                    (owner_id, space_id),
+                )
+                counts[table] = cursor.rowcount
+
+        with self.coordinator.begin_write(
+            owner_id, space_id, operation_lease=operation_lease
+        ) as guard:
+            self._execute_write(
+                owner_id, space_id, _op, coordination_guard=guard
+            )
+            self._compact_after_sensitive_delete()
         return counts
 
     def _compact_after_sensitive_delete(self) -> None:
@@ -1025,7 +1350,13 @@ class LearningStore:
                 ) from exc
         raise RuntimeError("learning database cleanup failed") from last_err
 
-    def import_owner_bundle(self, owner_id: str, bundle: Dict[str, Any]) -> Dict[str, int]:
+    def import_owner_bundle(
+        self,
+        owner_id: str,
+        bundle: Dict[str, Any],
+        *,
+        operation_lease: Optional[OperationLease] = None,
+    ) -> Dict[str, int]:
         """Restore a v1 owner bundle into an empty owner scope, forcing ownership."""
         _require(owner_id, "owner_id")
         if not isinstance(bundle, dict) or bundle.get("version") != 1:
@@ -1242,11 +1573,16 @@ class LearningStore:
                 )
                 counts["migrations"] += 1
 
-        self._execute_write(_op)
+        self._execute_write(owner_id, "", _op, operation_lease=operation_lease)
         return counts
 
+    @_coordinated_read(owner_wide=True)
     def list_migrations(
-        self, owner_id: str, *, status: Optional[str] = None
+        self,
+        owner_id: str,
+        *,
+        status: Optional[str] = None,
+        operation_lease: Optional[OperationLease] = None,
     ) -> List[Dict[str, Any]]:
         _require(owner_id, "owner_id")
         sql = (
@@ -1265,8 +1601,14 @@ class LearningStore:
             out.append(item)
         return out
 
+    @_coordinated_read()
     def activity_summary_page(
-        self, owner_id: str, space_id: str, *, limit: int
+        self,
+        owner_id: str,
+        space_id: str,
+        *,
+        limit: int,
+        operation_lease: Optional[OperationLease] = None,
     ) -> Dict[str, Any]:
         """Return a bounded newest-first activity page without detail content."""
         _require(owner_id, "owner_id")
@@ -1287,8 +1629,14 @@ class LearningStore:
             "count": total,
         }
 
+    @_coordinated_read()
     def quiz_attempt_page(
-        self, owner_id: str, space_id: str, *, limit: int
+        self,
+        owner_id: str,
+        space_id: str,
+        *,
+        limit: int,
+        operation_lease: Optional[OperationLease] = None,
     ) -> Dict[str, Any]:
         """Return one newest-first bounded quiz-attempt evidence page."""
         _require(owner_id, "owner_id")
@@ -1318,8 +1666,14 @@ class LearningStore:
             "count": total,
         }
 
+    @_coordinated_read()
     def quiz_attempt_by_id(
-        self, owner_id: str, space_id: str, activity_id: str
+        self,
+        owner_id: str,
+        space_id: str,
+        activity_id: str,
+        *,
+        operation_lease: Optional[OperationLease] = None,
     ) -> Optional[Dict[str, Any]]:
         """Return one scoped quiz-attempt row for retry routing only."""
         _require(owner_id, "owner_id")
@@ -1341,7 +1695,12 @@ class LearningStore:
         }
 
     def mark_migration_failure(
-        self, owner_id: str, migration_key: str, detail: Dict[str, Any]
+        self,
+        owner_id: str,
+        migration_key: str,
+        detail: Dict[str, Any],
+        *,
+        operation_lease: Optional[OperationLease] = None,
     ) -> None:
         _require(owner_id, "owner_id")
         _require(migration_key, "migration_key")
@@ -1352,4 +1711,4 @@ class LearningStore:
                 "INSERT OR REPLACE INTO learning_migrations (owner_id, migration_key, status, detail_json, created_at) VALUES (?, ?, 'failed', ?, ?)",
                 (owner_id, migration_key, json.dumps(detail, ensure_ascii=False), now),
             )
-        self._execute_write(_op)
+        self._execute_write(owner_id, "", _op, operation_lease=operation_lease)

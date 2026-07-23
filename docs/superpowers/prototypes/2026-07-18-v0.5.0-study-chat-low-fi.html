@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Kabuqina v0.5.0 Study ↔ Chat 决策原型 · NOT FINAL</title>
+  <title>Kabuqina v0.5.0 书桌学习 Canonical 低保真原型 · NOT FINAL</title>
   <style>
     :root {
       color-scheme: light;
@@ -135,6 +135,31 @@
     .lab-title span {
       color: var(--muted-ink);
       font-size: 12px;
+    }
+
+    .lab-toggle {
+      min-width: 118px;
+      margin-left: auto;
+    }
+
+    .lab-bar.is-collapsed {
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+    }
+
+    .lab-bar.is-collapsed .lab-title {
+      min-width: 0;
+      margin-right: 0;
+    }
+
+    .lab-bar.is-collapsed .lab-title strong {
+      font-size: 13px;
+    }
+
+    .lab-bar.is-collapsed .lab-title span,
+    .lab-bar.is-collapsed [data-lab-detail] {
+      display: none !important;
     }
 
     .decision-status {
@@ -1519,6 +1544,697 @@
       min-height: 52px;
     }
 
+    /* Canonical v0.5.0 desk flow. Style Tile tokens are applied as CSS-only
+       paper, glass and desk materials so the semantic learning surfaces stay crisp. */
+    .canonical-root {
+      --c-desk-a: #efe9dd;
+      --c-desk: #e8dfd2;
+      --c-desk-b: #e4dacb;
+      --c-desk-line: #d4c6b2;
+      --c-paper: #fbf8f1;
+      --c-paper-edge: #e7e0d2;
+      --c-ink-strong: #49385e;
+      --c-ink: #5a4a6a;
+      --c-pencil: #7d61a0;
+      --c-muted: #7a6494;
+      --c-accent: #6b5580;
+      --c-accent-2: #8f75a8;
+      --c-accent-soft: #f5effa;
+      --c-warm: #d4b080;
+      --c-warn: #a8472f;
+      --c-card: #fff;
+      --c-glass: rgba(255, 255, 255, .72);
+      --c-glass-border: rgba(232, 224, 237, .86);
+      --c-shadow-near: 0 2px 6px rgba(90, 74, 106, .10);
+      --c-shadow-far: 0 14px 34px rgba(90, 74, 106, .08);
+      --c-noise: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxODAiIGhlaWdodD0iMTgwIj48ZmlsdGVyIGlkPSJuIj48ZmVUdXJidWxlbmNlIHR5cGU9ImZyYWN0YWxOb2lzZSIgYmFzZUZyZXF1ZW5jeT0iMC45IiBudW1PY3RhdmVzPSIyIi8+PGZlQ29sb3JNYXRyaXggdmFsdWVzPSIwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwLjAzNSAwIi8+PC9maWx0ZXI+PHJlY3Qgd2lkdGg9IjE4MCIgaGVpZ2h0PSIxODAiIGZpbHRlcj0idXJsKCNuKSIvPjwvc3ZnPg==');
+      height: 100%;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: 50px minmax(0, 1fr);
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 9% 5%, rgba(255, 250, 229, .92), transparent 24%),
+        linear-gradient(180deg, var(--c-desk-a) 0%, var(--c-desk) 55%, var(--c-desk-b) 100%);
+      color: var(--c-ink);
+      font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .canonical-root[hidden] { display: none !important; }
+
+    .canonical-root button {
+      min-height: 40px;
+      border-color: rgba(107, 85, 128, .42);
+      border-radius: 8px;
+      color: var(--c-ink-strong);
+      font-size: 13.5px;
+      font-weight: 600;
+    }
+
+    .canonical-root .c-primary {
+      background: linear-gradient(135deg, var(--c-accent), var(--c-accent-2));
+      color: #fff;
+      border-color: var(--c-accent);
+      box-shadow: 0 4px 12px rgba(90, 74, 106, .20);
+    }
+
+    .canonical-root .c-primary:hover:not(:disabled) { background: #59456d; }
+
+    .c-product-chrome {
+      position: relative;
+      z-index: 20;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 20px;
+      padding: 6px 16px;
+      border-bottom: 1px solid var(--c-glass-border);
+      background: var(--c-glass);
+      box-shadow: 0 1px 0 rgba(255, 255, 255, .82), 0 5px 18px rgba(90, 74, 106, .08);
+      backdrop-filter: blur(14px);
+    }
+
+    .c-brand,
+    .c-top-nav,
+    .c-utilities,
+    .c-inline-actions,
+    .c-feedback-actions,
+    .c-chat-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .c-brand-mark {
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      border: 1px solid var(--c-accent-2);
+      border-radius: 50%;
+      background: linear-gradient(145deg, #fff, var(--c-accent-soft));
+      color: var(--c-accent);
+      font-weight: 700;
+    }
+
+    .c-brand strong { font-size: 15px; }
+    .c-top-nav { justify-self: center; }
+
+    .c-top-nav button,
+    .c-utilities button {
+      min-height: 34px;
+      padding: 5px 10px;
+      border-color: transparent;
+      background: transparent;
+    }
+
+    .c-top-nav button[aria-current="page"] {
+      border-color: rgba(107, 85, 128, .35);
+      background: rgba(255, 255, 255, .9);
+      color: var(--c-accent);
+    }
+
+    .c-canvas {
+      min-height: 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .c-desk {
+      height: 100%;
+      min-height: 0;
+      box-sizing: border-box;
+      display: grid;
+      grid-template-columns: minmax(150px, 17%) minmax(540px, 1fr) minmax(145px, 16%);
+      gap: 18px;
+      padding: 14px 18px 16px;
+      align-items: stretch;
+      overflow: hidden;
+    }
+
+    .c-left-objects,
+    .c-right-objects {
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .c-left-objects { grid-column: 1; grid-row: 1; }
+    .c-center-stage { grid-column: 2; grid-row: 1; }
+    .c-right-objects { grid-column: 3; grid-row: 1; }
+
+    .c-object {
+      min-width: 0;
+      border: 1px solid var(--c-paper-edge);
+      background: rgba(255, 255, 255, .88);
+      box-shadow: var(--c-shadow-near), var(--c-shadow-far);
+    }
+
+    .c-object h2,
+    .c-object h3 { font-size: 15px; margin-bottom: 4px; color: var(--c-ink-strong); }
+    .c-object p { margin-bottom: 8px; color: var(--c-muted); font-size: 13px; }
+
+    .c-bookstand {
+      padding: 12px;
+      border-radius: 5px 5px 10px 10px;
+    }
+
+    .c-book-row { display: grid; gap: 6px; margin: 10px 0; }
+
+    .c-book-row button,
+    .c-materials button,
+    .c-card-box button {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-align: left;
+      background: #f8f7f4;
+    }
+
+    .c-book-row button[aria-current="true"] {
+      border-width: 2px;
+      border-left-width: 8px;
+      border-left-color: var(--c-accent);
+      background: var(--c-accent-soft);
+    }
+
+    .c-materials {
+      margin-top: auto;
+      padding: 12px;
+      border-radius: 5px;
+      transform: rotate(-.35deg);
+    }
+
+    .c-material-list { display: grid; gap: 6px; }
+
+    .c-center-stage {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) 38px;
+      position: relative;
+    }
+
+    .c-notebook {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr);
+      border: 1px solid var(--c-paper-edge);
+      border-left-width: 12px;
+      border-radius: 8px 13px 13px 8px;
+      background: var(--c-paper);
+      background-image: var(--c-noise);
+      box-shadow: 0 2px 5px rgba(90, 74, 106, .18), 9px 13px 26px rgba(90, 74, 106, .14);
+      overflow: hidden;
+      transition: transform 180ms ease, width 180ms ease;
+    }
+
+    .canonical-root[data-phase="C-D0"] .c-notebook {
+      width: 94%;
+      height: calc(100% - 20px);
+      align-self: center;
+      justify-self: center;
+      transform: rotate(.25deg);
+    }
+
+    .c-notebook::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 7px;
+      z-index: 4;
+      width: 1px;
+      background: rgba(143, 117, 168, .26);
+      box-shadow: 5px 0 0 rgba(143, 117, 168, .08);
+      pointer-events: none;
+    }
+
+    .c-notebook-head {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 13px 18px 9px;
+      border-bottom: 1px solid var(--c-paper-edge);
+    }
+
+    .c-notebook-head h1 { margin: 0 0 3px; font-size: 20px; color: var(--c-ink-strong); }
+    .c-notebook-head p { margin: 0; color: var(--c-muted); font-size: 13px; }
+
+    .c-bookmark-button {
+      position: relative;
+      z-index: 2;
+      width: min(238px, 42%);
+      display: grid;
+      gap: 2px;
+      text-align: left;
+      border-radius: 4px 4px 8px 8px !important;
+      border-top-width: 5px !important;
+      background: linear-gradient(180deg, #f7eedf, #ecdbc2) !important;
+      border-color: rgba(168, 71, 47, .34) !important;
+    }
+
+    .c-bookmark-button > span { font-size: 13px; color: var(--c-muted); }
+    .c-bookmark-button strong span { font-size: inherit; color: inherit; }
+
+    .c-page-tabs {
+      display: flex;
+      gap: 4px;
+      padding: 0 20px;
+      border-bottom: 1px solid var(--c-paper-edge);
+    }
+
+    .c-page-tabs button {
+      min-height: 34px;
+      padding: 5px 10px;
+      border: 0;
+      border-bottom: 3px solid transparent;
+      border-radius: 0;
+      background: transparent;
+      font-size: 13px;
+    }
+
+    .c-page-tabs button[aria-current="page"] {
+      border-bottom-color: var(--c-accent);
+      color: var(--c-accent);
+      font-weight: 600;
+    }
+
+    .c-page-body {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 14px;
+      padding: 14px 18px 16px;
+      overflow: hidden;
+    }
+
+    .c-overview-copy {
+      align-self: center;
+      max-width: 520px;
+    }
+
+    .c-overview-copy h2 { font-size: 23px; margin-bottom: 8px; color: var(--c-ink-strong); }
+    .c-overview-copy p { font-size: 15px; color: var(--c-ink); }
+
+    .c-resume-list {
+      display: grid;
+      gap: 8px;
+      margin: 18px 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .c-resume-list li {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--c-ink);
+    }
+
+    .c-page-main {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) auto;
+      overflow: hidden;
+    }
+
+    .c-task-scroll {
+      min-height: 0;
+      overflow: auto;
+      padding: 1px 8px 3px 1px;
+      scrollbar-gutter: stable;
+      overscroll-behavior: contain;
+    }
+
+    .c-page-kicker { margin: 0 0 3px; color: var(--c-muted); font-size: 13px; }
+    .c-task-title { margin: 0 0 8px; font-size: 20px; color: var(--c-ink-strong); }
+
+    .c-standard {
+      margin: 0 0 14px;
+      padding: 9px 11px;
+      border-left: 3px solid var(--c-accent-2);
+      background: var(--c-accent-soft);
+      color: var(--c-ink);
+      font-size: 14px;
+    }
+
+    .c-prompt {
+      margin: 0 0 16px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--c-paper-edge);
+      font-size: 15px;
+    }
+
+    .c-answer-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 6px;
+    }
+
+    .c-answer-label span { color: var(--c-muted); font-size: 13px; font-weight: 600; }
+
+    .c-answer {
+      min-height: 116px;
+      border-color: rgba(107, 85, 128, .48);
+      background: #fffefb;
+      font-family: "KaiTi", "STKaiti", "Segoe UI", sans-serif;
+      font-size: 17px;
+      line-height: 1.65;
+      color: var(--c-ink-strong);
+      box-shadow: inset 0 1px 3px rgba(90, 74, 106, .08);
+    }
+
+    .c-save-status { margin: 7px 0 14px; color: var(--c-muted); font-size: 13px; }
+
+    .c-reference-fold {
+      align-self: start;
+      width: 150px;
+      padding: 0;
+      border: 1px solid var(--c-paper-edge);
+      background: #fffdf8;
+      box-shadow: var(--c-shadow-near);
+    }
+
+    .c-reference-fold summary {
+      cursor: pointer;
+      padding: 10px;
+      font-weight: 600;
+    }
+
+    .c-reference-fold div { padding: 0 10px 10px; font-size: 13px; color: var(--c-ink); }
+    .c-reference-fold p:last-child { margin-bottom: 0; }
+
+    .c-feedback {
+      margin-top: 14px;
+      padding: 14px;
+      border: 1px solid rgba(107, 85, 128, .32);
+      border-left-width: 4px;
+      border-left-color: var(--c-accent);
+      background: linear-gradient(180deg, #fff, var(--c-accent-soft));
+      color: var(--c-ink);
+    }
+
+    .c-feedback h3 { margin-bottom: 10px; font-size: 15px; }
+
+    .c-feedback-row {
+      display: grid;
+      grid-template-columns: 22px 1fr;
+      gap: 8px;
+      padding: 8px 0;
+      border-top: 1px solid rgba(107, 85, 128, .16);
+      font-size: 14px;
+    }
+
+    .c-feedback-row:first-of-type { border-top: 0; }
+    .c-feedback-row p { margin: 0; }
+    .c-feedback-row strong { display: block; margin-bottom: 2px; }
+
+    .c-return-hint {
+      margin: 0 0 12px;
+      padding: 10px 12px;
+      border: 1px dashed var(--c-accent-2);
+      background: var(--c-accent-soft);
+      color: var(--c-ink);
+      font-size: 14px;
+    }
+
+    #c-task-actions {
+      position: relative;
+      z-index: 3;
+      min-height: 56px;
+      margin: 8px -2px -2px;
+      padding: 10px 2px 2px;
+      border-top: 1px solid var(--c-paper-edge);
+      background: linear-gradient(180deg, rgba(251, 248, 241, .86), var(--c-paper) 24%);
+      flex-wrap: wrap;
+      box-shadow: 0 -7px 16px rgba(251, 248, 241, .95);
+    }
+
+    #c-task-actions .c-primary {
+      min-width: 132px;
+    }
+
+    .c-work-folder {
+      align-self: center;
+      width: min(72%, 520px);
+      min-height: 38px !important;
+      margin-top: -2px;
+      border-radius: 0 0 8px 8px !important;
+      border-top: 0 !important;
+      background: linear-gradient(180deg, #f8f3ea, #eadcc8) !important;
+      border-color: rgba(212, 176, 128, .56) !important;
+      color: var(--c-ink-strong);
+      text-align: left;
+    }
+
+    .c-card-box {
+      padding: 13px;
+      border-radius: 8px 8px 14px 14px;
+      background:
+        linear-gradient(90deg, transparent 10px, rgba(143, 117, 168, .12) 10px 11px, transparent 11px),
+        rgba(255, 255, 255, .9);
+    }
+    .c-due-count { font-size: 30px; line-height: 1; margin: 10px 0 3px; color: var(--c-ink-strong); }
+
+    .c-cup-zone {
+      margin-top: auto;
+      display: grid;
+      justify-items: end;
+      gap: 8px;
+    }
+
+    .c-cup-button {
+      width: 132px;
+      min-height: 92px !important;
+      display: grid;
+      place-items: center;
+      gap: 5px;
+      border: 2px solid var(--c-accent-2) !important;
+      border-radius: 42px 42px 12px 12px !important;
+      background:
+        radial-gradient(ellipse at 50% 22%, #f7ead7 0 22%, #e8cfa8 23% 31%, transparent 32%),
+        linear-gradient(180deg, #fff, #f4edf8 76%) !important;
+      box-shadow: 0 2px 5px rgba(90, 74, 106, .18), 7px 11px 22px rgba(90, 74, 106, .14);
+      color: var(--c-accent);
+      font-weight: 600;
+      transition: transform 160ms ease, box-shadow 160ms ease;
+    }
+
+    .c-cup-button svg { width: 30px; height: 30px; }
+    .c-cup-button:hover,
+    .canonical-root[data-phase="C-C0"] .c-cup-button {
+      transform: translateY(-3px);
+      box-shadow: 0 3px 6px rgba(90, 74, 106, .2), 9px 15px 26px rgba(90, 74, 106, .18);
+    }
+    .c-cup-status { min-height: 20px; color: var(--c-muted); font-size: 13px; font-weight: 600; text-align: right; }
+
+    .c-invoke-card {
+      position: absolute;
+      z-index: 10;
+      right: 20px;
+      bottom: 18px;
+      width: min(380px, 36vw);
+      padding: 16px;
+      border: 1px solid var(--c-glass-border);
+      border-top: 4px solid var(--c-accent);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, .94);
+      box-shadow: 0 4px 12px rgba(90, 74, 106, .16), 0 20px 44px rgba(90, 74, 106, .18);
+      backdrop-filter: blur(14px);
+      color: var(--c-ink);
+    }
+
+    .c-invoke-card h2 { font-size: 18px; margin-bottom: 5px; color: var(--c-ink-strong); }
+    .c-context-preview { margin: 12px 0; padding: 10px; border: 1px solid rgba(107, 85, 128, .26); background: var(--c-accent-soft); }
+    .c-context-preview strong,
+    .c-context-preview span { display: block; }
+    .c-context-preview span { margin-top: 3px; color: var(--c-muted); font-size: 12px; }
+
+    .c-chat-route {
+      height: 100%;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      background:
+        radial-gradient(circle at 8% 0%, rgba(255, 250, 229, .86), transparent 25%),
+        linear-gradient(180deg, var(--c-desk-a), var(--c-desk));
+    }
+
+    .c-chat-return-anchor {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 10px 18px;
+      border-bottom: 1px solid var(--c-glass-border);
+      background: var(--c-glass);
+      backdrop-filter: blur(14px);
+    }
+
+    .c-chat-return-anchor strong,
+    .c-chat-return-anchor span { display: block; }
+    .c-chat-return-anchor span { color: var(--c-muted); font-size: 13px; }
+
+    .c-chat-main {
+      width: min(780px, calc(100% - 40px));
+      min-height: 0;
+      margin: 0 auto;
+      padding: 20px 0;
+      overflow: auto;
+    }
+
+    .c-chat-heading { margin-bottom: 16px; }
+    .c-chat-heading h1 { margin-bottom: 4px; font-size: 22px; color: var(--c-ink-strong); }
+    .c-chat-heading p { margin: 0; color: var(--c-muted); font-size: 14px; }
+
+    .c-message {
+      max-width: 82%;
+      margin: 0 0 12px;
+      padding: 12px 14px;
+      border: 1px solid rgba(107, 85, 128, .24);
+      border-radius: 12px;
+      background: var(--c-card);
+      box-shadow: var(--c-shadow-near);
+      font-size: 15px;
+      color: var(--c-ink);
+    }
+
+    .c-message.is-user { margin-left: auto; background: var(--c-accent-soft); }
+    .c-message strong { display: block; margin-bottom: 4px; }
+    .c-message p:last-child { margin-bottom: 0; }
+
+    .c-help-levels {
+      margin: 16px 0 0;
+      padding: 12px 14px;
+      border: 1px dashed var(--c-accent-2);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, .78);
+    }
+
+    .c-help-levels p { margin-bottom: 8px; color: var(--c-muted); font-size: 13px; }
+
+    .c-explanation-steps {
+      display: grid;
+      gap: 9px;
+      margin-top: 4px;
+    }
+
+    .c-explanation-step {
+      display: grid;
+      grid-template-columns: 28px minmax(0, 1fr);
+      gap: 9px;
+      padding: 9px 10px;
+      border: 1px solid rgba(107, 85, 128, .18);
+      border-radius: 10px;
+      background: linear-gradient(135deg, #fff, var(--c-accent-soft));
+    }
+
+    .c-explanation-step > span {
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--c-accent);
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .c-explanation-step strong { margin: 0 0 2px; color: var(--c-ink-strong); }
+    .c-explanation-step p { margin: 0; font-size: 14px; line-height: 1.55; }
+
+    .c-composer {
+      padding: 12px 18px 16px;
+      border-top: 1px solid var(--c-glass-border);
+      background: rgba(255, 255, 255, .9);
+    }
+
+    .c-composer-inner {
+      width: min(780px, 100%);
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+    }
+
+    .c-composer textarea { min-height: 48px; resize: none; }
+
+    .canonical-root.is-narrow {
+      grid-template-rows: auto minmax(0, 1fr);
+      overflow: auto;
+    }
+
+    .canonical-root.is-narrow .c-product-chrome {
+      grid-template-columns: 1fr auto;
+    }
+
+    .canonical-root.is-narrow .c-top-nav { justify-self: start; order: 3; grid-column: 1 / -1; }
+    .canonical-root.is-narrow .c-brand-copy,
+    .canonical-root.is-narrow .c-utilities .c-hide-narrow { display: none; }
+
+    .canonical-root.is-narrow .c-canvas { overflow: visible; }
+    .canonical-root.is-narrow .c-desk {
+      height: auto;
+      min-height: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 14px;
+      overflow: visible;
+    }
+
+    .canonical-root.is-narrow .c-center-stage { order: 1; display: block; }
+    .canonical-root.is-narrow .c-right-objects { order: 2; display: grid; grid-template-columns: 1fr 1fr; }
+    .canonical-root.is-narrow .c-left-objects { order: 3; display: grid; grid-template-columns: 1fr 1fr; }
+    .canonical-root.is-narrow .c-materials { margin-top: 0; transform: none; }
+    .canonical-root.is-narrow .c-notebook,
+    .canonical-root.is-narrow[data-phase="C-D0"] .c-notebook {
+      width: 100%;
+      height: auto;
+      min-height: 0;
+      overflow: visible;
+      transform: none;
+    }
+    .canonical-root.is-narrow .c-notebook-head { display: grid; padding: 14px; }
+    .canonical-root.is-narrow .c-bookmark-button { width: 100%; }
+    .canonical-root.is-narrow .c-page-tabs { overflow-x: auto; padding: 0 10px; }
+    .canonical-root.is-narrow .c-page-body { grid-template-columns: 1fr; padding: 14px; overflow: visible; }
+    .canonical-root.is-narrow .c-page-main { overflow: visible; }
+    .canonical-root.is-narrow .c-task-scroll { overflow: visible; padding-right: 0; }
+    .canonical-root.is-narrow #c-task-actions {
+      position: sticky;
+      bottom: 0;
+      margin: 8px -8px -8px;
+      padding: 10px 8px 8px;
+      background: rgba(251, 248, 241, .96);
+      box-shadow: 0 -8px 18px rgba(90, 74, 106, .12);
+    }
+    .canonical-root.is-narrow .c-reference-fold { width: 100%; }
+    .canonical-root.is-narrow .c-work-folder { width: 90%; }
+    .canonical-root.is-narrow .c-cup-zone { margin-top: 0; justify-items: stretch; }
+    .canonical-root.is-narrow .c-cup-button { width: 100%; min-height: 78px !important; }
+    .canonical-root.is-narrow .c-cup-status { text-align: left; }
+    .canonical-root.is-narrow .c-invoke-card { position: static; width: auto; margin: 0 14px 14px; }
+    .canonical-root.is-narrow .c-inline-actions,
+    .canonical-root.is-narrow .c-feedback-actions,
+    .canonical-root.is-narrow .c-chat-actions { flex-wrap: wrap; }
+    .canonical-root.is-narrow .c-chat-main { width: 100%; padding: 14px; }
+    .canonical-root.is-narrow .c-message { max-width: 94%; }
+    .canonical-root.is-narrow .c-chat-return-anchor { align-items: flex-start; padding: 10px 12px; }
+    .canonical-root.is-narrow .c-composer { padding: 10px 12px 12px; }
+    .canonical-root.is-narrow .c-composer-inner { grid-template-columns: 1fr; }
+
     @media (max-width: 1100px) {
       .decision-status { grid-template-columns: 1fr 1fr; }
       .scope-ledger { grid-template-columns: 1fr; }
@@ -1541,14 +2257,28 @@
   </style>
 </head>
 <body>
-  <header class="lab-bar" id="prototype-controls" aria-label="原型验证控制">
+  <header class="lab-bar is-collapsed" id="prototype-controls" aria-label="原型验证控制">
     <div class="lab-title">
-      <strong>Kabuqina v0.5.0 Study ↔ Chat 决策原型</strong>
-      <span>Decision Prototype · NOT FINAL</span>
+      <strong>Kabuqina v0.5.0 书桌学习 Canonical 低保真原型</strong>
+      <span>Canonical Flow Proposal · NOT IMPLEMENTATION FREEZE</span>
     </div>
-    <label class="lab-control" for="frame-select">
+    <button type="button" class="lab-toggle" id="toggle-lab" aria-expanded="false" aria-controls="prototype-controls">展开原型控制</button>
+    <label class="lab-control" for="frame-select" data-lab-detail>
       Frame
       <select id="frame-select">
+        <optgroup label="Canonical 学生主路径">
+          <option value="C-D0" selected>C-D0 · 书桌总览</option>
+          <option value="C-N0">C-N0 · 笔记本聚焦</option>
+          <option value="C-A1">C-A1 · 学生作答中</option>
+          <option value="C-F0">C-F0 · 检查后需要修改</option>
+          <option value="C-C0">C-C0 · 碰杯求助</option>
+          <option value="C-H1">C-H1 · 小娜一级提示</option>
+          <option value="C-H2">C-H2 · 显式完整解释</option>
+          <option value="C-R0">C-R0 · 精确返回原页</option>
+          <option value="C-F1">C-F1 · 本步完成</option>
+          <option value="C-NARROW">C-NARROW · 720px / 200% 路径</option>
+        </optgroup>
+        <optgroup label="旧 Study ↔ Chat 决策帧（保留作回归 fixture）">
         <option value="S01">S01 · Study lifecycle nav states</option>
         <option value="W01-P">W01-P · Wide Practice</option>
         <option value="P01-N">P01-N · Practice normal · baseline reference</option>
@@ -1581,54 +2311,55 @@
         <option value="N01">N01 · 390px Stress / A11Y Proxy</option>
         <option value="Z01">Z01 · Min Window 720px @ 200%</option>
         <option value="G01">G01 · Ordinary Chat comparison</option>
+        </optgroup>
       </select>
     </label>
-    <label class="lab-control" for="entry-select">
+    <label class="lab-control" for="entry-select" data-lab-detail>
       Course Chat entry
       <select id="entry-select">
         <option value="sidecar">Contextual sidecar · TO-TEST</option>
         <option value="direct">Direct full Chat · BASELINE</option>
       </select>
     </label>
-    <label class="lab-control" for="placement-select">
+    <label class="lab-control" for="placement-select" data-lab-detail>
       Wide sidecar placement
       <select id="placement-select">
         <option value="overlay">Overlay right region</option>
         <option value="compress">Compress right region</option>
       </select>
     </label>
-    <button type="button" class="lab-reset" id="reset-frame">重置 frame</button>
-    <output class="geometry" id="geometry-readout" aria-live="off"></output>
-    <section class="decision-status" aria-label="决策原型身份与冻结边界">
+    <button type="button" class="lab-reset" id="reset-frame" data-lab-detail>重置 frame</button>
+    <output class="geometry" id="geometry-readout" aria-live="off" data-lab-detail></output>
+    <section class="decision-status" aria-label="决策原型身份与冻结边界" data-lab-detail>
       <div class="decision-identity">
         <strong>当前身份</strong>
-        <span>CANDIDATE / DECISION TOOL / TO-TEST；用于 Chat 呈现、往返、窄屏与恢复，不是完整 Study UI 或 production freeze</span>
+        <span>CANONICAL FLOW PROPOSAL；用于冻结书桌主路径与连续状态，不是 production freeze</span>
       </div>
       <div>
-        <strong>BASELINE / FALLBACK</strong>
-        <span>Direct full course Chat + exact return</span>
+        <strong>P0 CANONICAL</strong>
+        <span>完整 course Chat + exact return</span>
       </div>
       <div>
-        <strong>CANDIDATE / TO-TEST</strong>
-        <span>Contextual sidecar（wide only）</span>
+        <strong>学生主体</strong>
+        <span>答案、检查反馈与修改始终留在纸页</span>
       </div>
       <div>
         <strong>FROZEN INVARIANTS</strong>
-        <span>Same session/context/transcript/composer/pending + explicit return</span>
+        <span>同一 session/context/transcript/composer/pending + exact return</span>
       </div>
     </section>
-    <section class="scope-ledger" aria-label="candidate、baseline 与原型范围边界">
+    <section class="scope-ledger" aria-label="candidate、baseline 与原型范围边界" data-lab-detail>
       <div>
-        <strong>CANDIDATE DECISIONS</strong>
-        <span>Chat presentation、打开/关闭、exact return、narrow/recovery；仍需实测，不写成最终方案。</span>
+        <strong>本轮校准</strong>
+        <span>书桌空间、单一作答面、三段式反馈、hint ladder、full Chat / return。</span>
       </div>
       <div>
-        <strong>BASELINE INHERITED · NOT A CANDIDATE DECISION</strong>
-        <span>五页 lifecycle、dirty guard、普通作答、CodeMirror 6、DOM + KaTeX Derivation；省略不等于 production 移除。</span>
+        <strong>保留的回归能力</strong>
+        <span>旧 frame、同一会话、生成/停止、错误恢复、dirty guard 与窄屏 fixture 仍可在下拉框中检查。</span>
       </div>
       <div class="scope-out">
-        <strong>OUT OF PROTOTYPE SCOPE</strong>
-        <span>Tutor 与 Whiteboard 独立设计包。Excalidraw 尚未实现、无可用入口；Derivation 不是自由白板。</span>
+        <strong>仍待后续设计门</strong>
+        <span>sidecar 是否保留、Tutor 完整状态机、白板课与 Create / 成果详细流程。</span>
       </div>
     </section>
   </header>
@@ -1638,6 +2369,226 @@
       <div class="user-scale-layer" id="user-scale-layer">
         <section class="product-viewport" id="product-viewport" aria-label="Kabuqina 产品逻辑画布">
           <div class="frame-chip" id="frame-chip">W01 · Wide Desk Idle</div>
+
+          <section class="canonical-root" id="canonical-root" data-phase="C-D0" aria-label="书桌学习 canonical 原型" hidden>
+            <header class="c-product-chrome">
+              <div class="c-brand">
+                <span class="c-brand-mark" aria-hidden="true">K</span>
+                <strong class="c-brand-copy">Kabuqina</strong>
+              </div>
+              <nav class="c-top-nav" aria-label="一级目的地">
+                <button type="button" id="c-nav-study" aria-current="page">学习</button>
+                <button type="button" id="c-nav-chat">对话</button>
+              </nav>
+              <div class="c-utilities">
+                <button type="button" class="c-hide-narrow">Activity</button>
+                <button type="button" aria-label="设置"><i data-lucide="settings" aria-hidden="true"></i></button>
+              </div>
+            </header>
+
+            <div class="c-canvas" id="c-canvas">
+              <main class="c-desk" id="c-desk">
+                <section class="c-center-stage" aria-label="当前课程笔记本">
+                  <article class="c-notebook" id="c-notebook">
+                    <header class="c-notebook-head">
+                      <div>
+                        <h1>高等数学 · 极限</h1>
+                        <p>我的课程笔记本 · 最近保存 13:42</p>
+                      </div>
+                      <button type="button" class="c-bookmark-button" id="c-bookmark">
+                        <strong><i data-lucide="bookmark" aria-hidden="true"></i> <span id="c-bookmark-title">继续：练习 3 · 第 2 步</span></strong>
+                        <span id="c-bookmark-copy">解释为什么不能直接代入</span>
+                      </button>
+                    </header>
+
+                    <nav class="c-page-tabs" aria-label="笔记本分页">
+                      <button type="button">扉页</button>
+                      <button type="button">计划</button>
+                      <button type="button">学习</button>
+                      <button type="button" aria-current="page">练习</button>
+                      <button type="button">评估</button>
+                    </nav>
+
+                    <div class="c-page-body">
+                      <section class="c-overview-copy" id="c-overview-surface">
+                        <p class="c-page-kicker">上次学习 · 今天 13:42</p>
+                        <h2>从“0/0 是什么”继续</h2>
+                        <p>你已经写下直接代入的结果。下一步是把它解释成一句可以检查的话。</p>
+                        <ul class="c-resume-list">
+                          <li><i data-lucide="circle-check" aria-hidden="true"></i> 已识别分子、分母同时趋近 0</li>
+                          <li><i data-lucide="circle-dot" aria-hidden="true"></i> 待说明：0/0 是未定式，不是极限值</li>
+                        </ul>
+                        <button type="button" class="c-primary" id="c-resume">继续这一步 <i data-lucide="arrow-right" aria-hidden="true"></i></button>
+                      </section>
+
+                      <section class="c-page-main" id="c-task-surface" tabindex="-1" hidden>
+                        <div class="c-task-scroll" id="c-task-scroll">
+                          <p class="c-page-kicker" id="c-step-kicker">练习 3 · 第 2 步</p>
+                          <h2 class="c-task-title" id="c-task-title">解释为什么不能直接代入</h2>
+                          <p class="c-standard" id="c-standard"><strong>完成标准：</strong>区分“得到 0/0”与“得到极限值”，并指出下一步需要继续分析。</p>
+                          <p class="c-prompt" id="c-prompt">计算 <strong>lim (x² − 1) / (x − 1)，x → 1</strong>。为什么不能把直接代入得到的 0/0 当作答案？</p>
+
+                          <div class="c-return-hint" id="c-return-hint" hidden>
+                            <strong>小娜留在页边的提示：</strong>先补清“0/0 是未定式，不是极限值”。这只是建议，不会写进你的答案。
+                          </div>
+
+                          <label class="c-answer-label" for="c-answer">
+                            <strong>我的答案</strong>
+                            <span id="c-answer-state">已保存的草稿</span>
+                          </label>
+                          <textarea class="c-answer" id="c-answer">代入后分子和分母同时为 0，所以需要先变形。</textarea>
+                          <p class="c-save-status" id="c-save-status" role="status">草稿已保存在这本笔记本中</p>
+
+                          <div class="c-feedback" id="c-feedback" tabindex="-1" hidden>
+                            <h3 id="c-feedback-title">页边批注 · 需要修改</h3>
+                            <div class="c-feedback-row" id="c-feedback-good">
+                              <i data-lucide="check" aria-hidden="true"></i>
+                              <p><strong>已经说明清楚</strong>代入后分子、分母都趋近 0。</p>
+                            </div>
+                            <div class="c-feedback-row" id="c-feedback-gap">
+                              <i data-lucide="circle" aria-hidden="true"></i>
+                              <p><strong>还差一步</strong>说明 0/0 是未定式，不是极限值。</p>
+                            </div>
+                            <div class="c-feedback-row" id="c-feedback-next">
+                              <i data-lucide="arrow-right" aria-hidden="true"></i>
+                              <p><strong>接下来试试</strong>把这句话补进你的解释，再检查一次。</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div class="c-inline-actions" id="c-task-actions">
+                          <button type="button" class="c-primary" id="c-start-writing">继续作答</button>
+                          <button type="button" class="c-primary" id="c-check">检查这一步</button>
+                          <button type="button" id="c-modify">修改答案</button>
+                          <button type="button" id="c-ask-inline"><i data-lucide="coffee" aria-hidden="true"></i> 让小娜陪我补这一步</button>
+                          <button type="button" class="c-primary" id="c-next-step">继续下一步</button>
+                        </div>
+                      </section>
+
+                      <details class="c-reference-fold" id="c-reference">
+                        <summary>本题参考</summary>
+                        <div>
+                          <p>直接代入得到未定式时，先识别结构，再选择等价变形。</p>
+                          <p><strong>提示：</strong>x² − 1 = (x − 1)(x + 1)</p>
+                        </div>
+                      </details>
+                    </div>
+                  </article>
+
+                  <button type="button" class="c-work-folder"><i data-lucide="folder-plus" aria-hidden="true"></i> ＋ 制作 / 成果</button>
+                </section>
+
+                <aside class="c-right-objects" aria-label="复习卡片与小娜">
+                  <section class="c-object c-card-box">
+                    <h2><i data-lucide="archive" aria-hidden="true"></i> 本课卡片盒</h2>
+                    <div class="c-due-count">6</div>
+                    <p>张今日到期 · 不打断当前练习</p>
+                    <button type="button">到安全节点后复习</button>
+                  </section>
+
+                  <div class="c-cup-zone">
+                    <button type="button" class="c-cup-button" id="c-cup" aria-controls="c-invoke" aria-expanded="false">
+                      <i data-lucide="coffee" aria-hidden="true"></i>
+                      <span>碰杯问小娜</span>
+                    </button>
+                    <span class="c-cup-status" id="c-cup-status">安静陪着你</span>
+                  </div>
+                </aside>
+
+                <aside class="c-left-objects" aria-label="课程与本课材料">
+                  <section class="c-object c-bookstand">
+                    <h2><i data-lucide="library" aria-hidden="true"></i> 我的课程本</h2>
+                    <p>换课就是换一本本子。</p>
+                    <div class="c-book-row">
+                      <button type="button" aria-current="true"><i data-lucide="book" aria-hidden="true"></i> 高等数学</button>
+                      <button type="button"><i data-lucide="book" aria-hidden="true"></i> 大学物理</button>
+                    </div>
+                    <button type="button"><i data-lucide="plus" aria-hidden="true"></i> 开新本</button>
+                  </section>
+
+                  <section class="c-object c-materials">
+                    <h2><i data-lucide="layers" aria-hidden="true"></i> 本课材料</h2>
+                    <p>平放在这本高数笔记本旁。</p>
+                    <div class="c-material-list">
+                      <button type="button">教材 §2.3</button>
+                      <button type="button">习题集 p.41</button>
+                    </div>
+                  </section>
+                </aside>
+              </main>
+
+              <section class="c-invoke-card" id="c-invoke" aria-labelledby="c-invoke-title" hidden>
+                <h2 id="c-invoke-title">结合当前这一步问小娜</h2>
+                <p>她会带上你正在看的题、刚写的答案和“还差一步”，不会替你改答案。</p>
+                <div class="c-context-preview">
+                  <strong>高等数学 · 练习 3 · 第 2 步</strong>
+                  <span>返回位置：我的答案与页边批注</span>
+                </div>
+                <label for="c-invoke-question"><strong>我卡在哪里？</strong></label>
+                <textarea id="c-invoke-question">我知道代入后是 0/0，但不知道为什么这还不是答案。</textarea>
+                <div class="c-inline-actions">
+                  <button type="button" class="c-primary" id="c-open-chat">开始提问</button>
+                  <button type="button" id="c-cancel-invoke">先不问</button>
+                </div>
+              </section>
+
+              <section class="c-chat-route" id="c-chat-route" aria-label="高等数学课程对话" hidden>
+                <header class="c-chat-return-anchor">
+                  <div>
+                    <strong>高等数学 · 练习 3 · 第 2 步</strong>
+                    <span>同一课程会话 · 返回“我的答案与页边批注”</span>
+                  </div>
+                  <button type="button" id="c-return-top"><i data-lucide="arrow-left" aria-hidden="true"></i> 返回这一步</button>
+                </header>
+                <div class="c-chat-main" id="c-chat-main" tabindex="-1">
+                  <header class="c-chat-heading">
+                    <h1>小娜陪你看当前这一步</h1>
+                    <p>默认先给一个可以自己尝试的提示；完整解释由你决定。</p>
+                  </header>
+                  <div class="c-message is-user">
+                    <strong>我</strong>
+                    <p id="c-user-question">我知道代入后是 0/0，但不知道为什么这还不是答案。</p>
+                  </div>
+                  <div class="c-message" id="c-hint-message">
+                    <strong>小娜</strong>
+                    <p id="c-hint-copy">你已经找到卡点了。先只补一句：数学里“0/0”不是一个确定的数，而是在提醒我们还要继续分析。试着把“未定式”这个词放进你的原句里。</p>
+                    <div class="c-explanation-steps" id="c-explanation-steps" hidden>
+                      <section class="c-explanation-step">
+                        <span aria-hidden="true">1</span>
+                        <div><strong>先判断它是什么</strong><p>直接代入只得到 0/0。它是未定式，不是极限值；这说明还要继续分析。</p></div>
+                      </section>
+                      <section class="c-explanation-step">
+                        <span aria-hidden="true">2</span>
+                        <div><strong>再看接近 1 时的结构</strong><p>当 x≠1 时，x²−1=(x−1)(x+1)，约去共同因子后等价为 x+1，所以极限为 2。</p></div>
+                      </section>
+                      <section class="c-explanation-step">
+                        <span aria-hidden="true">3</span>
+                        <div><strong>回到你当前要补的这一步</strong><p>先把“0/0 是未定式，不是极限值”补进原答案；小娜不会自动替你写入。</p></div>
+                      </section>
+                    </div>
+                  </div>
+                  <div class="c-help-levels">
+                    <p id="c-help-level-copy">当前是一级提示：只给你下一步，不直接写完整解法。</p>
+                    <div class="c-chat-actions">
+                      <button type="button" class="c-primary" id="c-try-first">我先试试</button>
+                      <button type="button" id="c-more-hint">再提示一点</button>
+                      <button type="button" id="c-full-explain">直接看完整解释</button>
+                      <button type="button" class="c-primary" id="c-return-step">回到这一步</button>
+                    </div>
+                  </div>
+                </div>
+                <form class="c-composer" id="c-composer">
+                  <div class="c-composer-inner">
+                    <label class="sr-only" for="c-chat-question">继续问小娜</label>
+                    <textarea id="c-chat-question" placeholder="继续问这一步…"></textarea>
+                    <button type="submit">发送</button>
+                  </div>
+                </form>
+              </section>
+            </div>
+
+            <div class="sr-only" id="c-announcer" role="status" aria-live="polite"></div>
+          </section>
 
           <div class="product-shell" id="kq-product-shell">
             <header class="product-chrome" id="kq-product-chrome">
@@ -2105,6 +3056,7 @@
       const $ = (selector) => document.querySelector(selector);
       const elements = {
         controls: $("#prototype-controls"),
+        labToggle: $("#toggle-lab"),
         frameSelect: $("#frame-select"),
         entrySelect: $("#entry-select"),
         placementSelect: $("#placement-select"),
@@ -2115,6 +3067,56 @@
         scaleLayer: $("#user-scale-layer"),
         viewport: $("#product-viewport"),
         frameChip: $("#frame-chip"),
+        canonicalRoot: $("#canonical-root"),
+        canonicalCanvas: $("#c-canvas"),
+        canonicalDesk: $("#c-desk"),
+        canonicalOverview: $("#c-overview-surface"),
+        canonicalTask: $("#c-task-surface"),
+        canonicalTaskScroll: $("#c-task-scroll"),
+        canonicalBookmark: $("#c-bookmark"),
+        canonicalBookmarkTitle: $("#c-bookmark-title"),
+        canonicalBookmarkCopy: $("#c-bookmark-copy"),
+        canonicalStepKicker: $("#c-step-kicker"),
+        canonicalTaskTitle: $("#c-task-title"),
+        canonicalStandard: $("#c-standard"),
+        canonicalPrompt: $("#c-prompt"),
+        canonicalResume: $("#c-resume"),
+        canonicalStart: $("#c-start-writing"),
+        canonicalAnswer: $("#c-answer"),
+        canonicalAnswerState: $("#c-answer-state"),
+        canonicalSaveStatus: $("#c-save-status"),
+        canonicalCheck: $("#c-check"),
+        canonicalModify: $("#c-modify"),
+        canonicalAskInline: $("#c-ask-inline"),
+        canonicalNextStep: $("#c-next-step"),
+        canonicalFeedback: $("#c-feedback"),
+        canonicalFeedbackTitle: $("#c-feedback-title"),
+        canonicalFeedbackGood: $("#c-feedback-good"),
+        canonicalFeedbackGap: $("#c-feedback-gap"),
+        canonicalFeedbackNext: $("#c-feedback-next"),
+        canonicalReturnHint: $("#c-return-hint"),
+        canonicalCup: $("#c-cup"),
+        canonicalCupStatus: $("#c-cup-status"),
+        canonicalInvoke: $("#c-invoke"),
+        canonicalInvokeQuestion: $("#c-invoke-question"),
+        canonicalOpenChat: $("#c-open-chat"),
+        canonicalCancelInvoke: $("#c-cancel-invoke"),
+        canonicalChatRoute: $("#c-chat-route"),
+        canonicalChatMain: $("#c-chat-main"),
+        canonicalUserQuestion: $("#c-user-question"),
+        canonicalHintCopy: $("#c-hint-copy"),
+        canonicalExplanation: $("#c-explanation-steps"),
+        canonicalHelpLevelCopy: $("#c-help-level-copy"),
+        canonicalTryFirst: $("#c-try-first"),
+        canonicalMoreHint: $("#c-more-hint"),
+        canonicalFullExplain: $("#c-full-explain"),
+        canonicalReturnStep: $("#c-return-step"),
+        canonicalReturnTop: $("#c-return-top"),
+        canonicalComposer: $("#c-composer"),
+        canonicalChatQuestion: $("#c-chat-question"),
+        canonicalAnnouncer: $("#c-announcer"),
+        canonicalNavStudy: $("#c-nav-study"),
+        canonicalNavChat: $("#c-nav-chat"),
         productShell: $("#kq-product-shell"),
         productChrome: $("#kq-product-chrome"),
         sessionStrip: $("#kq-session-strip"),
@@ -2202,6 +3204,16 @@
       };
 
       const FRAME = {
+        "C-D0": { label: "C-D0 · 书桌总览", badge: "C-D0", width: 1280, height: 720, scale: 1, viewportClass: "wide", presentation: "none", canonical: true },
+        "C-N0": { label: "C-N0 · 笔记本聚焦", badge: "C-N0", width: 1280, height: 720, scale: 1, viewportClass: "wide", presentation: "none", canonical: true },
+        "C-A1": { label: "C-A1 · 学生作答中", badge: "C-A1", width: 1280, height: 720, scale: 1, viewportClass: "wide", presentation: "none", canonical: true },
+        "C-F0": { label: "C-F0 · 检查后需要修改", badge: "C-F0", width: 1280, height: 720, scale: 1, viewportClass: "wide", presentation: "none", canonical: true },
+        "C-C0": { label: "C-C0 · 碰杯求助", badge: "C-C0", width: 1280, height: 720, scale: 1, viewportClass: "wide", presentation: "none", canonical: true },
+        "C-H1": { label: "C-H1 · 小娜一级提示", badge: "C-H1", width: 1280, height: 720, scale: 1, viewportClass: "wide", presentation: "none", canonical: true },
+        "C-H2": { label: "C-H2 · 显式完整解释", badge: "C-H2", width: 1280, height: 720, scale: 1, viewportClass: "wide", presentation: "none", canonical: true },
+        "C-R0": { label: "C-R0 · 精确返回原页", badge: "C-R0", width: 1280, height: 720, scale: 1, viewportClass: "wide", presentation: "none", canonical: true },
+        "C-F1": { label: "C-F1 · 本步完成", badge: "C-F1", width: 1280, height: 720, scale: 1, viewportClass: "wide", presentation: "none", canonical: true },
+        "C-NARROW": { label: "C-NARROW · 720px / 200%", badge: "C-NARROW", width: 360, height: 450, scale: 2, viewportClass: "narrow", presentation: "none", canonical: true },
         S01: { label: "S01 · Study lifecycle nav states", badge: "S01 · STUDY LIFECYCLE NAV · V0.4 CONTINUITY", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "none", studyPage: "practice", focusLifecycle: true },
         "W01-P": { label: "W01-P · Wide Practice", badge: "W01-P · PRACTICE OWNERSHIP + DIRTY GUARD", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "none", studyPage: "practice", practiceDirty: true },
         "P01-N": { label: "P01-N · Practice normal · baseline reference", badge: "P01-N · BASELINE INHERITED · ORDINARY RESPONSE · NOT CANDIDATE", width: 1280, height: 800, scale: 1, viewportClass: "wide", presentation: "none", studyPage: "practice", practiceSurface: "normal" },
@@ -2313,9 +3325,9 @@
       };
 
       const state = {
-        frameId: "W01",
+        frameId: "C-D0",
         logicalWidth: 1280,
-        logicalHeight: 800,
+        logicalHeight: 720,
         userScale: 1,
         viewportClass: "wide",
         presentation: "none",
@@ -2355,6 +3367,14 @@
         liveMessage: "就绪",
         returnNotice: "",
         invokerId: "kq-cup",
+        canonicalPhase: "C-D0",
+        canonicalStep: 2,
+        canonicalAnswer: "代入后分子和分母同时为 0，所以需要先变形。",
+        canonicalQuestion: "我知道代入后是 0/0，但不知道为什么这还不是答案。",
+        canonicalLastHint: false,
+        canonicalReturnPhase: "C-F0",
+        canonicalHintVariant: "first",
+        canonicalCheckingTimer: null,
         runId: 0,
         timer: null
       };
@@ -2373,12 +3393,32 @@
           window.clearInterval(state.timer);
           state.timer = null;
         }
+        if (state.canonicalCheckingTimer !== null) {
+          window.clearTimeout(state.canonicalCheckingTimer);
+          state.canonicalCheckingTimer = null;
+        }
+      }
+
+      function setLabExpanded(expanded) {
+        elements.controls.classList.toggle("is-collapsed", !expanded);
+        elements.labToggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+        elements.labToggle.textContent = expanded ? "收起原型控制" : "展开原型控制";
       }
 
       function resetState(frameId) {
         cancelGeneration();
         const config = FRAME[frameId];
         state.frameId = frameId;
+        state.canonicalPhase = frameId;
+        state.canonicalStep = 2;
+        state.canonicalAnswer = frameId === "C-F1"
+          ? "代入后得到 0/0。0/0 是未定式，不是极限值，所以还需要继续分析并做等价变形。"
+          : "代入后分子和分母同时为 0，所以需要先变形。";
+        state.canonicalQuestion = "我知道代入后是 0/0，但不知道为什么这还不是答案。";
+        state.canonicalLastHint = frameId === "C-R0";
+        state.canonicalReturnPhase = "C-F0";
+        state.canonicalHintVariant = "first";
+        elements.canonicalAnnouncer.textContent = "";
         state.logicalWidth = config.width;
         state.logicalHeight = config.height;
         state.userScale = config.scale;
@@ -2976,6 +4016,160 @@
         elements.returnNotice.textContent = state.returnNotice;
       }
 
+      function isCanonicalFrame() {
+        return Boolean(FRAME[state.frameId] && FRAME[state.frameId].canonical);
+      }
+
+      function canonicalEffectivePhase() {
+        return state.canonicalPhase === "C-NARROW" ? "C-A1" : state.canonicalPhase;
+      }
+
+      function announceCanonical(message) {
+        elements.canonicalAnnouncer.textContent = "";
+        requestAnimationFrame(() => {
+          elements.canonicalAnnouncer.textContent = message;
+        });
+      }
+
+      function setCanonicalPhase(phase, options = {}) {
+        const keepNarrow = state.frameId === "C-NARROW";
+        state.canonicalPhase = phase;
+        if (!keepNarrow && FRAME[phase] && FRAME[phase].canonical) {
+          state.frameId = phase;
+          elements.frameSelect.value = phase;
+        }
+        render();
+        const focusId = options.focusId;
+        if (focusId) {
+          requestAnimationFrame(() => {
+            const target = document.getElementById(focusId);
+            if (target) {
+              target.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "auto" });
+              target.focus({ preventScroll: true });
+            }
+          });
+        }
+        if (options.announcement) {
+          announceCanonical(options.announcement);
+        }
+      }
+
+      function renderCanonical() {
+        const phase = canonicalEffectivePhase();
+        const isOverview = phase === "C-D0";
+        const isFocused = phase === "C-N0";
+        const isAnswering = phase === "C-A1";
+        const isChecking = phase === "C-K0";
+        const needsRevision = phase === "C-F0";
+        const isInvoked = phase === "C-C0";
+        const isHintOne = phase === "C-H1";
+        const isHintTwo = phase === "C-H2";
+        const isReturned = phase === "C-R0";
+        const isCompleted = phase === "C-F1";
+        const isChat = isHintOne || isHintTwo;
+
+        elements.frameChip.hidden = true;
+        elements.productShell.hidden = true;
+        elements.productShell.setAttribute("aria-hidden", "true");
+        elements.canonicalRoot.hidden = false;
+        elements.canonicalRoot.removeAttribute("aria-hidden");
+        elements.canonicalRoot.classList.toggle("is-narrow", state.viewportClass === "narrow");
+        elements.canonicalRoot.dataset.phase = phase;
+
+        elements.canonicalDesk.hidden = isChat;
+        elements.canonicalChatRoute.hidden = !isChat;
+        elements.canonicalInvoke.hidden = !isInvoked;
+        elements.canonicalOverview.hidden = !isOverview;
+        elements.canonicalTask.hidden = isOverview;
+
+        elements.canonicalNavStudy.setAttribute("aria-current", isChat ? "false" : "page");
+        elements.canonicalNavChat.setAttribute("aria-current", isChat ? "page" : "false");
+        elements.canonicalCup.setAttribute("aria-expanded", isInvoked ? "true" : "false");
+        elements.canonicalCupStatus.textContent = isInvoked
+          ? "咖啡杯已接住这一步"
+          : isChat
+            ? "正在课程对话中"
+            : state.canonicalLastHint
+              ? "提示已留在页边"
+              : "安静陪着你";
+
+        const isNextStep = state.canonicalStep === 3;
+        elements.canonicalBookmarkTitle.textContent = isNextStep ? "继续：练习 3 · 第 3 步" : "继续：练习 3 · 第 2 步";
+        elements.canonicalBookmarkCopy.textContent = isNextStep ? "用等价变形求出极限" : "解释为什么不能直接代入";
+        elements.canonicalStepKicker.textContent = isNextStep ? "练习 3 · 第 3 步" : "练习 3 · 第 2 步";
+        elements.canonicalTaskTitle.textContent = isNextStep ? "用等价变形求出极限" : "解释为什么不能直接代入";
+        elements.canonicalStandard.innerHTML = isNextStep
+          ? "<strong>完成标准：</strong>写出因式分解，说明约分只在 x≠1 时成立，并得到极限值。"
+          : "<strong>完成标准：</strong>区分“得到 0/0”与“得到极限值”，并指出下一步需要继续分析。";
+        elements.canonicalPrompt.innerHTML = isNextStep
+          ? "继续上一步：当 <strong>x≠1</strong> 时怎样化简 <strong>(x² − 1) / (x − 1)</strong>，并求出 x → 1 的极限？"
+          : "计算 <strong>lim (x² − 1) / (x − 1)，x → 1</strong>。为什么不能把直接代入得到的 0/0 当作答案？";
+
+        const hasDraft = Boolean(state.canonicalAnswer.trim());
+        elements.canonicalAnswer.value = state.canonicalAnswer;
+        elements.canonicalAnswer.readOnly = !isAnswering;
+        elements.canonicalAnswerState.textContent = isCompleted
+          ? "已落墨"
+          : isChecking
+            ? "保持原答案"
+            : isReturned
+              ? "原答案未改写"
+              : isAnswering || needsRevision || isInvoked
+              ? "我的草稿"
+              : hasDraft
+                ? "已保存的草稿"
+                : "尚未开始";
+        elements.canonicalSaveStatus.textContent = isChecking
+          ? "正在检查这一步…答案仍留在原位"
+          : isReturned
+            ? "已准确返回：原答案与页边批注都在原位"
+          : isCompleted
+            ? "本步学习证据已保存"
+            : !hasDraft && isFocused
+              ? "这一步还没有草稿"
+              : "草稿已保存在这本笔记本中";
+
+        elements.canonicalStart.hidden = !isFocused;
+        elements.canonicalStart.textContent = hasDraft ? "继续作答" : "开始作答";
+        elements.canonicalCheck.hidden = !(isAnswering || isChecking);
+        elements.canonicalCheck.disabled = isChecking;
+        elements.canonicalCheck.textContent = isChecking ? "正在检查…" : "检查这一步";
+        elements.canonicalModify.hidden = !(needsRevision || isReturned);
+        elements.canonicalModify.classList.toggle("c-primary", needsRevision || isReturned);
+        elements.canonicalAskInline.hidden = !(needsRevision || isReturned);
+        elements.canonicalNextStep.hidden = !isCompleted;
+        elements.canonicalReturnHint.hidden = !isReturned;
+
+        const invokedFromFeedback = isInvoked && state.canonicalReturnPhase === "C-F0";
+        elements.canonicalFeedback.hidden = !(needsRevision || invokedFromFeedback || isReturned || isCompleted);
+        elements.canonicalFeedbackTitle.textContent = isCompleted ? "页边批注 · 本步完成" : "页边批注 · 需要修改";
+        elements.canonicalFeedbackGood.querySelector("p").innerHTML = isCompleted
+          ? "<strong>这一点已经说明清楚</strong>你区分了“得到未定式”和“得到极限值”。"
+          : "<strong>已经说明清楚</strong>代入后分子、分母都趋近 0。";
+        elements.canonicalFeedbackGap.hidden = isCompleted;
+        elements.canonicalFeedbackNext.hidden = isCompleted;
+
+        elements.canonicalUserQuestion.textContent = state.canonicalQuestion;
+        elements.canonicalHintCopy.hidden = isHintTwo;
+        elements.canonicalExplanation.hidden = !isHintTwo;
+        elements.canonicalHintCopy.textContent = state.canonicalHintVariant === "second"
+          ? "再给一点结构：把句子写成“代入得到 0/0；它是____，不是____；所以要继续____”。先自己填这三个空，再回到纸页。"
+          : "你已经找到卡点了。先只补一句：数学里“0/0”不是一个确定的数，而是在提醒我们还要继续分析。试着把“未定式”这个词放进你的原句里。";
+        elements.canonicalHelpLevelCopy.textContent = isHintTwo
+          ? "这是你显式请求的完整解释；它不会自动写入答案，也不替代纸页上的检查结果。"
+          : state.canonicalHintVariant === "second"
+            ? "当前是二级提示：给出句子结构，仍由你完成答案。"
+            : "当前是一级提示：只给你下一步，不直接写完整解法。";
+        elements.canonicalTryFirst.hidden = isHintTwo;
+        elements.canonicalMoreHint.hidden = isHintTwo;
+        elements.canonicalFullExplain.hidden = isHintTwo;
+        elements.canonicalReturnStep.hidden = !isHintTwo;
+
+        if (isInvoked) {
+          elements.canonicalInvokeQuestion.value = state.canonicalQuestion;
+        }
+      }
+
       function render() {
         applyViewport();
         elements.frameChip.textContent = FRAME[state.frameId].badge || FRAME[state.frameId].label;
@@ -2983,6 +4177,16 @@
         elements.viewport.dataset.presentation = state.presentation;
         elements.viewport.dataset.sidecarMode = state.placement;
         elements.viewport.dataset.studyPage = state.currentStudyPage;
+        if (isCanonicalFrame()) {
+          renderCanonical();
+          requestAnimationFrame(updateGeometry);
+          return;
+        }
+        elements.canonicalRoot.hidden = true;
+        elements.canonicalRoot.setAttribute("aria-hidden", "true");
+        elements.productShell.hidden = false;
+        elements.productShell.removeAttribute("aria-hidden");
+        elements.frameChip.hidden = false;
         elements.cup.classList.remove("force-focus-ring");
         renderPresentation();
         renderStudyLifecycle();
@@ -3360,6 +4564,21 @@
 
       function updateGeometry() {
         const canvas = elements.viewport.getBoundingClientRect();
+        if (isCanonicalFrame()) {
+          const notebookRect = elements.canonicalNotebook
+            ? elements.canonicalNotebook.getBoundingClientRect()
+            : document.getElementById("c-notebook").getBoundingClientRect();
+          const overflow = elements.canonicalCanvas.scrollWidth > elements.canonicalCanvas.clientWidth;
+          elements.geometry.textContent = [
+            "logical " + state.logicalWidth + "×" + state.logicalHeight,
+            "canonical " + canonicalEffectivePhase(),
+            "notebook " + Math.round(notebookRect.width) + "px",
+            "answer preserved",
+            "session S-0317 · exact return",
+            "horizontal overflow " + (overflow ? "FAIL" : "none")
+          ].join(" · ");
+          return;
+        }
         const chatRect = elements.chat.hidden ? null : elements.chat.getBoundingClientRect();
         const cupRect = elements.cup.hidden ? null : elements.cup.getBoundingClientRect();
         const notebook = $("#kq-notebook").getBoundingClientRect();
@@ -3428,7 +4647,129 @@
         openFromCup(invokerId);
       }
 
+      function beginCanonicalInvoke(returnPhase, source = "cup") {
+        state.canonicalAnswer = elements.canonicalAnswer.value;
+        state.canonicalReturnPhase = returnPhase || canonicalEffectivePhase();
+        setCanonicalPhase("C-C0", {
+          focusId: "c-invoke-question",
+          announcement: source === "page"
+            ? "右下角的小娜咖啡杯已接住这一步，并带上当前答案与批注。"
+            : "已带上高等数学练习 3 第 2 步与当前答案。"
+        });
+      }
+
+      function checkCanonicalStep() {
+        state.canonicalAnswer = elements.canonicalAnswer.value;
+        setCanonicalPhase("C-K0", { announcement: "正在检查这一步。" });
+        state.canonicalCheckingTimer = window.setTimeout(() => {
+          state.canonicalCheckingTimer = null;
+          const normalized = state.canonicalAnswer.replace(/\s/g, "");
+          const passed = normalized.includes("未定式") && (normalized.includes("不是极限") || normalized.includes("不是一个确定"));
+          if (passed) {
+            state.canonicalLastHint = false;
+          }
+          setCanonicalPhase(passed ? "C-F1" : "C-F0", {
+            focusId: "c-feedback",
+            announcement: passed ? "本步完成。" : "需要修改：还差一步。"
+          });
+        }, 650);
+      }
+
+      elements.canonicalBookmark.addEventListener("click", () => {
+        setCanonicalPhase("C-N0", { focusId: "c-task-surface", announcement: "已翻到练习 3 第 2 步。" });
+      });
+      elements.canonicalResume.addEventListener("click", () => {
+        setCanonicalPhase("C-N0", { focusId: "c-task-surface", announcement: "已翻到练习 3 第 2 步。" });
+      });
+      elements.canonicalStart.addEventListener("click", () => {
+        setCanonicalPhase("C-A1", { focusId: "c-answer", announcement: "可以继续写这一步。" });
+      });
+      elements.canonicalAnswer.addEventListener("input", () => {
+        state.canonicalAnswer = elements.canonicalAnswer.value;
+        elements.canonicalAnswerState.textContent = "我的草稿";
+        elements.canonicalSaveStatus.textContent = "正在保存草稿…";
+        window.setTimeout(() => {
+          if (isCanonicalFrame()) {
+            elements.canonicalSaveStatus.textContent = "草稿已保存在这本笔记本中";
+          }
+        }, 260);
+      });
+      elements.canonicalCheck.addEventListener("click", checkCanonicalStep);
+      elements.canonicalModify.addEventListener("click", () => {
+        setCanonicalPhase("C-A1", { focusId: "c-answer", announcement: "继续修改原答案。" });
+      });
+      elements.canonicalAskInline.addEventListener("click", () => {
+        const phase = canonicalEffectivePhase();
+        beginCanonicalInvoke(phase === "C-R0" ? "C-R0" : "C-F0", "page");
+      });
+      elements.canonicalCup.addEventListener("click", () => {
+        const phase = canonicalEffectivePhase();
+        beginCanonicalInvoke(phase === "C-D0" || phase === "C-N0" ? "C-A1" : phase, "cup");
+      });
+      elements.canonicalCancelInvoke.addEventListener("click", () => {
+        setCanonicalPhase(state.canonicalReturnPhase || "C-A1", {
+          focusId: state.canonicalReturnPhase === "C-F0" ? "c-modify" : "c-answer",
+          announcement: "已回到原来的纸页。"
+        });
+      });
+      elements.canonicalOpenChat.addEventListener("click", () => {
+        state.canonicalQuestion = elements.canonicalInvokeQuestion.value.trim() || state.canonicalQuestion;
+        state.canonicalHintVariant = "first";
+        setCanonicalPhase("C-H1", { focusId: "c-chat-main", announcement: "小娜给出一级提示。" });
+      });
+      elements.canonicalTryFirst.addEventListener("click", () => {
+        state.canonicalLastHint = true;
+        setCanonicalPhase("C-R0", { focusId: "c-answer", announcement: "已返回练习 3 第 2 步。" });
+      });
+      elements.canonicalMoreHint.addEventListener("click", () => {
+        state.canonicalHintVariant = "second";
+        render();
+        requestAnimationFrame(() => elements.canonicalHintCopy.closest(".c-message").focus?.({ preventScroll: true }));
+        announceCanonical("已给出二级提示。");
+      });
+      elements.canonicalFullExplain.addEventListener("click", () => {
+        setCanonicalPhase("C-H2", { focusId: "c-return-step", announcement: "已按你的选择给出完整解释。" });
+      });
+      [elements.canonicalReturnStep, elements.canonicalReturnTop].forEach((button) => {
+        button.addEventListener("click", () => {
+          state.canonicalLastHint = true;
+          setCanonicalPhase("C-R0", { focusId: "c-answer", announcement: "已返回练习 3 第 2 步。" });
+        });
+      });
+      elements.canonicalNextStep.addEventListener("click", () => {
+        state.canonicalStep = 3;
+        state.canonicalAnswer = "";
+        state.canonicalLastHint = false;
+        setCanonicalPhase("C-N0", { focusId: "c-task-surface", announcement: "已进入练习 3 第 3 步。" });
+      });
+      elements.canonicalComposer.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const followup = elements.canonicalChatQuestion.value.trim();
+        if (!followup) {
+          elements.canonicalChatQuestion.focus();
+          return;
+        }
+        state.canonicalQuestion = followup;
+        state.canonicalHintVariant = "first";
+        elements.canonicalChatQuestion.value = "";
+        setCanonicalPhase("C-H1", { focusId: "c-chat-main", announcement: "小娜根据当前这一步给出提示。" });
+      });
+      elements.canonicalNavStudy.addEventListener("click", () => {
+        if (canonicalEffectivePhase() === "C-H1" || canonicalEffectivePhase() === "C-H2") {
+          state.canonicalLastHint = true;
+          setCanonicalPhase("C-R0", { focusId: "c-answer", announcement: "已返回练习 3 第 2 步。" });
+        }
+      });
+      elements.canonicalNavChat.addEventListener("click", () => {
+        if (canonicalEffectivePhase() !== "C-H1" && canonicalEffectivePhase() !== "C-H2") {
+          beginCanonicalInvoke(canonicalEffectivePhase());
+        }
+      });
+
       elements.frameSelect.addEventListener("change", () => resetState(elements.frameSelect.value));
+      elements.labToggle.addEventListener("click", () => {
+        setLabExpanded(elements.labToggle.getAttribute("aria-expanded") !== "true");
+      });
       elements.reset.addEventListener("click", () => resetState(elements.frameSelect.value));
       elements.entrySelect.addEventListener("change", () => {
         state.entryPath = elements.entrySelect.value;
@@ -3588,6 +4929,18 @@
       });
 
       document.addEventListener("keydown", (event) => {
+        if (isCanonicalFrame() && event.key === "Escape") {
+          const phase = canonicalEffectivePhase();
+          if (phase === "C-C0") {
+            event.preventDefault();
+            setCanonicalPhase(state.canonicalReturnPhase || "C-A1", { focusId: "c-cup" });
+          } else if (phase === "C-H1" || phase === "C-H2") {
+            event.preventDefault();
+            state.canonicalLastHint = true;
+            setCanonicalPhase("C-R0", { focusId: "c-answer", announcement: "已返回练习 3 第 2 步。" });
+          }
+          return;
+        }
         if (state.leaveDialogOpen && event.key === "Tab") {
           const first = elements.leaveCancel;
           const last = elements.leaveConfirm;

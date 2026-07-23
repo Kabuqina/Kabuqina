@@ -84,13 +84,15 @@ def test_export_delete_import_roundtrip(client):
     deleted = http.request("DELETE", "/api/desk/study/data", json={"confirm":"DELETE ALL LEARNING DATA"}, headers=headers())
     assert deleted.json()["deleted"] is True
     invalid = deepcopy(bundle)
-    invalid["artifacts"].append(deepcopy(invalid["artifacts"][0]))
+    invalid["learning_v1"]["artifacts"].append(
+        deepcopy(invalid["learning_v1"]["artifacts"][0])
+    )
     rejected = http.post("/api/desk/study/data/import", json={"bundle": invalid}, headers=headers())
-    assert rejected.status_code == 400
-    assert rejected.json()["detail"]["code"] == "study_invalid_request"
+    assert rejected.status_code == 409
+    assert rejected.json()["detail"]["code"] == "study_conflict"
     assert http.get("/api/desk/study/drafts", headers=headers()).json()["count"] == 0
     imported = http.post("/api/desk/study/data/import", json={"bundle":bundle}, headers=headers())
-    assert imported.json()["imported"]["artifacts"] == 3
+    assert imported.json()["imported"]["learning"]["artifacts"] == 3
     assert http.get("/api/desk/study/drafts", headers=headers()).json()["count"] == 3
 
 def test_import_nonempty_owner_returns_structured_conflict(client):
@@ -98,18 +100,26 @@ def test_import_nonempty_owner_returns_structured_conflict(client):
     seed(db)
     response = http.post(
         "/api/desk/study/data/import",
-        json={"bundle": {"version": 1, "spaces": []}},
+        json={"bundle": {
+            "version": 1,
+            "spaces": [],
+            "artifacts": [],
+            "items": [],
+            "activities": [],
+            "migrations": [],
+        }},
         headers=headers(),
     )
     assert response.status_code == 409
-    assert response.json()["detail"] == {
-        "code": "study_conflict",
-        "message": "owner already has learning data; delete it before import",
-    }
+    assert response.json()["detail"]["code"] == "study_conflict"
+    assert "not empty" in response.json()["detail"]["message"]
 
 def test_governance_routes_preserve_the_study_error_contract(client):
     http, _db = client
-    with patch("desk_server.routes.study_routes._desktop_ctx", side_effect=ValueError("unavailable")):
+    with patch("desk_server.routes.study_routes._desktop_ctx", side_effect=ValueError("unavailable")), patch(
+        "desk_server.routes.study_routes._desktop_data_service",
+        side_effect=ValueError("unavailable"),
+    ):
         responses = [
             http.get("/api/desk/study/data/export", headers=headers()),
             http.request("DELETE", "/api/desk/study/data", json={"confirm":"DELETE ALL LEARNING DATA"}, headers=headers()),
