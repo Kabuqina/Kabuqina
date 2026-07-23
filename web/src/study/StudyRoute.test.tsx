@@ -1,7 +1,7 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { StrictMode } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -123,10 +123,94 @@ describe("StudyRoute", () => {
   });
 
   it("renders the practice page from its URL-scoped repository data", async () => {
-    renderRoute("/study/space-a/practice");
-    expect(await screen.findByRole("heading", { name: "练习" })).toBeInTheDocument();
-    expect(await screen.findByText("卡片盒")).toBeInTheDocument();
-    expect(screen.getByText("0 张到期卡")).toBeInTheDocument();
+    const loadQuizQuestions = vi.fn().mockResolvedValue([{
+      item_id: "question-1",
+      artifact_id: "quiz-1",
+      type: "short_answer",
+      prompt: "Explain the vector length",
+      tags: ["vectors"],
+    }]);
+    renderRoute("/study/space-a/practice", {
+      loadPracticeHome: vi.fn().mockResolvedValue({
+        cards: [],
+        dueCards: [],
+        quizzes: [{
+          artifact_id: "quiz-1",
+          kind: "quiz",
+          title: "Vector practice",
+          status: "active",
+        }],
+      }),
+      loadQuizQuestions,
+    });
+    expect(await screen.findByRole("heading", { name: "Linear Algebra" })).toBeInTheDocument();
+    expect(screen.getByText("Vector practice · 1 步")).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "笔记本分页" })).toBeInTheDocument();
+    expect(loadQuizQuestions).toHaveBeenCalledWith(
+      "space-a",
+      "quiz-1",
+      expect.any(AbortSignal),
+    );
+  });
+
+  it("keeps completed feedback mounted when its learning event revalidates equal spaces", async () => {
+    const listSpaces = vi.fn().mockImplementation(async () => ({
+      ...spaces,
+      spaces: spaces.spaces.map((space) => ({ ...space })),
+    }));
+    const loadQuizQuestions = vi.fn().mockResolvedValue([{
+      item_id: "question-1",
+      artifact_id: "quiz-1",
+      type: "short_answer",
+      prompt: "Explain the vector length",
+      tags: ["vectors"],
+    }]);
+    const submitQuiz = vi.fn().mockResolvedValue({
+      activity_id: "activity-1",
+      score: 1,
+      maxScore: 1,
+      percent: 100,
+      correctCount: 1,
+      total: 1,
+      weakTags: [],
+      perQuestion: [{
+        item_id: "question-1",
+        prompt: "Explain the vector length",
+        type: "short_answer",
+        correct: true,
+        earned: 1,
+        points: 1,
+        explanation: "Length is one.",
+      }],
+    });
+    renderRoute("/study/space-a/practice", {
+      listSpaces,
+      loadPracticeHome: vi.fn().mockResolvedValue({
+        cards: [],
+        dueCards: [],
+        quizzes: [{
+          artifact_id: "quiz-1",
+          kind: "quiz",
+          title: "Vector practice",
+          status: "active",
+        }],
+      }),
+      loadQuizQuestions,
+      submitQuiz,
+    });
+
+    fireEvent.click(await screen.findByRole("button", { name: /继续这一步/ }));
+    fireEvent.click(screen.getByRole("button", { name: "开始作答" }));
+    fireEvent.change(screen.getByRole("textbox", { name: /我的答案/ }), {
+      target: { value: "The vector length is one." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "检查这一步" }));
+
+    expect(await screen.findByRole("heading", { name: "页边批注 · 本步完成" })).toBeInTheDocument();
+    await waitFor(() => expect(listSpaces).toHaveBeenCalledTimes(2));
+    expect(screen.getByRole("heading", { name: "页边批注 · 本步完成" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "返回练习总览" })).toBeInTheDocument();
+    expect(loadQuizQuestions).toHaveBeenCalledTimes(1);
   });
 
   it("shows not-found for an invalid slug without redirecting", async () => {

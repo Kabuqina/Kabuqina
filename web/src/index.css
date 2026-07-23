@@ -155,6 +155,7 @@
   color: var(--kq-study-foreground);
   background: var(--kq-chat-pane-bg);
 }
+.kq-study-shell[data-desk="true"] { overflow: hidden; }
 .kq-study-topbar {
   position: sticky;
   top: 0;

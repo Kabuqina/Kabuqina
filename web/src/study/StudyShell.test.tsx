@@ -223,18 +223,18 @@ describe("StudyShell", () => {
         item_id: "question-1", artifact_id: "quiz-1", type: "choice", prompt: "Pick one", options: ["A", "B"],
       }]),
     }, { page: "practice" });
-    await user.click(await screen.findByRole("button", { name: "Vectors quiz" }));
+    await user.click(await screen.findByRole("button", { name: /继续这一步/ }));
+    await user.click(screen.getByRole("button", { name: "开始作答" }));
     await user.click(await screen.findByRole("button", { name: "B" }));
 
-    await user.click(screen.getByRole("button", { name: /Linear Algebra/ }));
-    await user.click(screen.getByRole("option", { name: "Physics" }));
-    expect(getConfirmSnapshot()?.title).toBe("放弃未提交的答案？");
+    await user.click(screen.getByRole("button", { name: /Physics/ }));
+    expect(getConfirmSnapshot()?.title).toBe("离开当前练习？");
     await act(async () => answerConfirm(false));
     expect(repository.selectSpace).not.toHaveBeenCalled();
     expect(screen.getByTestId("location")).toHaveTextContent("/study/space-a/practice");
 
-    await user.click(screen.getByRole("link", { name: "评估" }));
-    expect(getConfirmSnapshot()?.message).toContain("清除尚未提交的答案");
+    await user.click(screen.getByRole("button", { name: "评估" }));
+    expect(getConfirmSnapshot()?.message).toContain("尚未完成的答案");
     await act(async () => answerConfirm(true));
     await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/study/space-a/evaluate"));
   });

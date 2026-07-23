@@ -3,7 +3,7 @@
 
 import React, { lazy, Suspense, useEffect } from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { WindowTitleBar } from "./components/WindowTitleBar";
 import { ApprovalDialogHost } from "./components/ApprovalDialogHost";
@@ -36,6 +36,11 @@ applyFontSize();
 applyTheme();
 
 const StudyRoute = lazy(() => import("./study/StudyRoute"));
+const DeskScenePreview = import.meta.env.DEV
+  ? lazy(() => import("./study/desk/DeskScene"))
+  : null;
+const isStandaloneDeskPreview =
+  import.meta.env.DEV && window.location.pathname === "/__dev/desk";
 
 // --- Capture-overlay window: render the bare overlay, no shell chrome ---
 const windowLabel = (() => {
@@ -72,44 +77,58 @@ function revealMainWindowAfterShellPaint() {
   };
 }
 
+function MainWindowContent() {
+  const location = useLocation();
+  const deskOwnsChrome = /^\/study\/[^/]+\/practice\/?$/.test(location.pathname);
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      {deskOwnsChrome ? null : <WindowTitleBar />}
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <Routes>
+          <Route path="/" element={<Splash />} />
+          <Route path="/onboarding/*" element={<Wizard />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/settings/load-packages" element={<LoadPackagesPage />} />
+          <Route path="/capabilities" element={<CapabilitiesPage />} />
+          <Route path="/export" element={<Export />} />
+          <Route path="/settings/qq" element={<PlatformRouteGuard platform="qqbot"><QqPage /></PlatformRouteGuard>} />
+          <Route path="/settings/weixin" element={<PlatformRouteGuard platform="weixin"><WeixinPage /></PlatformRouteGuard>} />
+          <Route path="/settings/wecom" element={<PlatformRouteGuard platform="wecom"><WeComPage /></PlatformRouteGuard>} />
+          <Route path="/settings/dingtalk" element={<PlatformRouteGuard platform="dingtalk"><DingTalkPage /></PlatformRouteGuard>} />
+          <Route path="/settings/email" element={<PlatformRouteGuard platform="email"><EmailPage /></PlatformRouteGuard>} />
+          <Route path="/settings/telegram" element={<PlatformRouteGuard platform="telegram"><RetainedPlatformPendingPage platform="Telegram" /></PlatformRouteGuard>} />
+          <Route path="/settings/whatsapp" element={<PlatformRouteGuard platform="whatsapp"><RetainedPlatformPendingPage platform="WhatsApp" /></PlatformRouteGuard>} />
+          <Route path="/settings/cron" element={<ScheduledTasksPage />} />
+          <Route path="/chat" element={<ChatPage />} />
+          <Route
+            path="/study/*"
+            element={<Suspense fallback={<BootPill />}><StudyRoute /></Suspense>}
+          />
+          {DeskScenePreview ? (
+            <Route
+              path="/__dev/desk"
+              element={<Suspense fallback={<BootPill />}><DeskScenePreview /></Suspense>}
+            />
+          ) : null}
+          <Route path="/brand-svg-preview" element={<BrandSvgPreview />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+        <DesktopDeliveryNotifier />
+        <ApprovalDialogHost />
+        <ConfirmDialogHost />
+        <DesktopDeliveryPoller />
+      </div>
+    </div>
+  );
+}
+
 function MainWindowShell() {
   useEffect(() => revealMainWindowAfterShellPaint(), []);
 
   return (
     <I18nProvider>
       <BrowserRouter>
-        <div className="flex h-full min-h-0 flex-col">
-          <WindowTitleBar />
-          <div className="min-h-0 flex-1 overflow-hidden">
-            <Routes>
-              <Route path="/" element={<Splash />} />
-              <Route path="/onboarding/*" element={<Wizard />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/settings/load-packages" element={<LoadPackagesPage />} />
-              <Route path="/capabilities" element={<CapabilitiesPage />} />
-              <Route path="/export" element={<Export />} />
-              <Route path="/settings/qq" element={<PlatformRouteGuard platform="qqbot"><QqPage /></PlatformRouteGuard>} />
-              <Route path="/settings/weixin" element={<PlatformRouteGuard platform="weixin"><WeixinPage /></PlatformRouteGuard>} />
-              <Route path="/settings/wecom" element={<PlatformRouteGuard platform="wecom"><WeComPage /></PlatformRouteGuard>} />
-              <Route path="/settings/dingtalk" element={<PlatformRouteGuard platform="dingtalk"><DingTalkPage /></PlatformRouteGuard>} />
-              <Route path="/settings/email" element={<PlatformRouteGuard platform="email"><EmailPage /></PlatformRouteGuard>} />
-              <Route path="/settings/telegram" element={<PlatformRouteGuard platform="telegram"><RetainedPlatformPendingPage platform="Telegram" /></PlatformRouteGuard>} />
-              <Route path="/settings/whatsapp" element={<PlatformRouteGuard platform="whatsapp"><RetainedPlatformPendingPage platform="WhatsApp" /></PlatformRouteGuard>} />
-              <Route path="/settings/cron" element={<ScheduledTasksPage />} />
-              <Route path="/chat" element={<ChatPage />} />
-              <Route
-                path="/study/*"
-                element={<Suspense fallback={<BootPill />}><StudyRoute /></Suspense>}
-              />
-              <Route path="/brand-svg-preview" element={<BrandSvgPreview />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-            <DesktopDeliveryNotifier />
-            <ApprovalDialogHost />
-            <ConfirmDialogHost />
-            <DesktopDeliveryPoller />
-          </div>
-        </div>
+        <MainWindowContent />
       </BrowserRouter>
     </I18nProvider>
   );
@@ -127,6 +146,16 @@ if (windowLabel === "capture-overlay") {
     <React.StrictMode>
       <I18nProvider>
         <CompanionWindow />
+      </I18nProvider>
+    </React.StrictMode>,
+  );
+} else if (isStandaloneDeskPreview && DeskScenePreview) {
+  ReactDOM.createRoot(document.getElementById("root")!).render(
+    <React.StrictMode>
+      <I18nProvider>
+        <Suspense fallback={<BootPill />}>
+          <DeskScenePreview />
+        </Suspense>
       </I18nProvider>
     </React.StrictMode>,
   );

@@ -14,6 +14,7 @@ import { StudyLifecycleNav } from "./StudyLifecycleNav";
 import { StudyTopBar } from "./StudyTopBar";
 import { StudyPageOutlet } from "./pages/StudyPageOutlet";
 import { useStudyIa } from "./StudyIaContext";
+import { StudyDeskPage } from "./desk/StudyDeskPage";
 
 export function StudyShell({ spaces, spaceId, page, onRevalidate, refreshing = false, refreshFailed = false }: {
   spaces: StudySpaces;
@@ -95,6 +96,19 @@ export function StudyShell({ spaces, spaceId, page, onRevalidate, refreshing = f
         </main>
       );
     }
+    if (page === "practice") {
+      return (
+        <StudyDraftProvider key={spaceId} spaceId={spaceId}>
+          <StudyDeskPage
+            spaceId={spaceId}
+            spaces={spaces.spaces}
+            onDirtyChange={setPracticeDirty}
+            onNavigateAway={navigateAway}
+            onSelectSpace={selectSpace}
+          />
+        </StudyDraftProvider>
+      );
+    }
     return (
       <>
         <StudyDraftProvider key={spaceId} spaceId={spaceId}>
@@ -121,5 +135,13 @@ export function StudyShell({ spaces, spaceId, page, onRevalidate, refreshing = f
     );
   }, [navigate, navigateAway, onRevalidate, page, refreshFailed, refreshing, selectSpace, spaceId, spaces.spaces, switchError, switching, t]);
 
-  return <div className="kq-study-shell" data-testid="study-shell">{shell}</div>;
+  return (
+    <div
+      className="kq-study-shell"
+      data-desk={spaceId && page === "practice" ? "true" : undefined}
+      data-testid="study-shell"
+    >
+      {shell}
+    </div>
+  );
 }
