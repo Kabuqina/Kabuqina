@@ -1,9 +1,9 @@
 """
 QQBot scan-to-configure (QR code onboard) module.
 
-Mirrors the Feishu onboarding pattern: synchronous HTTP + a single public
-entry-point ``qr_register()`` that handles the full flow (create task →
-display QR code → poll → decrypt credentials).
+Uses synchronous HTTP plus a single public entry-point ``qr_register()`` that
+handles the full flow (create task → display QR code → poll → decrypt
+credentials).
 
 Calls the ``q.qq.com`` ``create_bind_task`` / ``poll_bind_result`` APIs to
 generate a QR-code URL and poll for scan completion.  On success the caller
@@ -77,7 +77,7 @@ def _render_qr(url: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Synchronous HTTP helpers (mirrors Feishu _post_registration pattern)
+# Synchronous HTTP helpers
 # ---------------------------------------------------------------------------
 
 
@@ -156,8 +156,8 @@ _MAX_REFRESHES = 3
 def qr_register(timeout_seconds: int = 600) -> Optional[dict]:
     """Run the QQBot scan-to-configure QR registration flow.
 
-    Mirrors ``feishu.qr_register()``: handles create → display → poll →
-    decrypt in one call.  Unexpected errors propagate to the caller.
+    Handles create → display → poll → decrypt in one call. Unexpected errors
+    propagate to the caller.
 
     :returns:
         ``{"app_id": ..., "client_secret": ..., "user_openid": ...}`` on

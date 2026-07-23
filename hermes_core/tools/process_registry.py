@@ -836,8 +836,7 @@ class ProcessRegistry:
         If the direct `Popen` child has exited but a descendant process (e.g.
         a daemon spawned by `kabuqina update` restarting the gateway) is still
         holding the stdout pipe open, the reader blocks forever and poll()
-        keeps returning "running" indefinitely (issue #17327 — 74 polls over
-        7 minutes on Feishu).
+        keeps returning "running" indefinitely (issue #17327).
 
         This helper closes that window: when `session.exited` is still False
         but the direct child's `Popen.poll()` reports an exit code, drain any

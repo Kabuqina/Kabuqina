@@ -30,7 +30,6 @@ PLATFORMS: OrderedDict[str, PlatformInfo] = OrderedDict([
     ("mattermost",     PlatformInfo(label="💬 Mattermost",      default_toolset="kabuqina-mattermost")),
     ("matrix",         PlatformInfo(label="💬 Matrix",          default_toolset="kabuqina-matrix")),
     ("dingtalk",       PlatformInfo(label="💬 DingTalk",        default_toolset="kabuqina-dingtalk")),
-    ("feishu",         PlatformInfo(label="🪽 Feishu",          default_toolset="kabuqina-feishu")),
     ("wecom",          PlatformInfo(label="💬 WeCom",           default_toolset="kabuqina-wecom")),
     ("wecom_callback", PlatformInfo(label="💬 WeCom Callback",  default_toolset="kabuqina-wecom-callback")),
     ("weixin",         PlatformInfo(label="💬 Weixin",          default_toolset="kabuqina-weixin")),

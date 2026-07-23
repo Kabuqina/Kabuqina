@@ -299,7 +299,7 @@ class TestLoadGatewayConfig:
 
         assert config.always_log_local is False
 
-    def test_ignores_removed_discord_config_from_config_yaml(self, tmp_path, monkeypatch):
+    def test_ignores_removed_platform_config_from_config_yaml(self, tmp_path, monkeypatch):
         hermes_home = tmp_path / ".hermes"
         hermes_home.mkdir()
         config_path = hermes_home / "config.yaml"
@@ -307,7 +307,11 @@ class TestLoadGatewayConfig:
             "discord:\n"
             "  channel_prompts:\n"
             "    \"123\": Research mode\n"
-            "    456: Therapist mode\n",
+            "    456: Therapist mode\n"
+            "feishu:\n"
+            "  enabled: true\n"
+            "  channel_prompts:\n"
+            "    oc_old: Legacy mode\n",
             encoding="utf-8",
         )
 
@@ -316,6 +320,22 @@ class TestLoadGatewayConfig:
         config = load_gateway_config()
 
         assert Platform.DISCORD not in config.platforms
+        assert Platform.FEISHU not in config.platforms
+
+    def test_removed_feishu_env_does_not_create_platform_state(self):
+        config = GatewayConfig()
+        with patch.dict(
+            os.environ,
+            {
+                "FEISHU_APP_ID": "cli_old",
+                "FEISHU_APP_SECRET": "secret_old",
+                "FEISHU_HOME_CHANNEL": "oc_old",
+            },
+            clear=True,
+        ):
+            _apply_env_overrides(config)
+
+        assert Platform.FEISHU not in config.platforms
 
     def test_bridges_telegram_channel_prompts_from_config_yaml(self, tmp_path, monkeypatch):
         hermes_home = tmp_path / ".hermes"

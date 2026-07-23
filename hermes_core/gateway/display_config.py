@@ -83,7 +83,6 @@ _PLATFORM_DEFAULTS: dict[str, dict[str, Any]] = {
     "slack":           {**_TIER_MEDIUM, "tool_progress": "off"},
     "mattermost":      _TIER_MEDIUM,
     "matrix":          _TIER_MEDIUM,
-    "feishu":          _TIER_MEDIUM,
 
     # Tier 3 — no edit support, progress messages are permanent
     "signal":          _TIER_LOW,

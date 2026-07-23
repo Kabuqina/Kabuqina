@@ -836,19 +836,6 @@ def test_save_platform_tools_strips_restricted_toolsets():
     assert "terminal" in saved
 
 
-def test_get_platform_tools_feishu_includes_doc_and_drive():
-    enabled = _get_platform_tools({}, "feishu")
-    assert "feishu_doc" in enabled
-    assert "feishu_drive" in enabled
-
-
-def test_get_platform_tools_feishu_tools_not_on_other_platforms():
-    for plat in ["cli", "telegram", "discord"]:
-        enabled = _get_platform_tools({}, plat)
-        assert "feishu_doc" not in enabled, f"feishu_doc leaked onto {plat}"
-        assert "feishu_drive" not in enabled, f"feishu_drive leaked onto {plat}"
-
-
 def test_get_effective_configurable_toolsets_has_unique_keys():
     """The effective list must not show duplicate rows."""
     from kabuqina_cli.tools_config import _get_effective_configurable_toolsets

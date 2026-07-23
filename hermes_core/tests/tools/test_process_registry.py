@@ -111,11 +111,10 @@ class TestGetAndPoll:
 class TestOrphanedPipeReconciliation:
     """Regression tests for issue #17327.
 
-    `kabuqina update` in Feishu spawned a background subprocess that restarted
-    the gateway; the direct child exited quickly but a descendant daemon
-    held the stdout pipe open. `_reader_loop.finally` never ran, so
-    `session.exited` stayed False and the agent polled 74 times over 7
-    minutes, all returning `status: running`.
+    A gateway update spawned a background subprocess that restarted the
+    gateway; the direct child exited quickly but a descendant daemon held the
+    stdout pipe open. `_reader_loop.finally` never ran, so `session.exited`
+    stayed False and the agent kept returning `status: running`.
 
     The fix is `_reconcile_local_exit()`: poll() and wait() now check the
     direct `Popen.poll()` before trusting `session.exited`.

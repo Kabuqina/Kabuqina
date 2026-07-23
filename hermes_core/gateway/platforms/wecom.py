@@ -1497,7 +1497,7 @@ def qr_scan_for_bot_info(
     Note: the ``work.weixin.qq.com/ai/qc/{generate,query_result}`` endpoints
     used here are not part of WeCom's public developer API — they back the
     admin-console web UI's bot-creation flow and may change without notice.
-    The same pattern is used by the feishu/dingtalk QR setup wizards.
+    Treat this flow as best-effort because it depends on internal endpoints.
     """
     try:
         import urllib.request

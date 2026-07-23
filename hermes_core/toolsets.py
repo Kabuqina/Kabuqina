@@ -238,21 +238,6 @@ TOOLSETS = {
         "includes": []
     },
 
-    "feishu_doc": {
-        "description": "Read Feishu/Lark document content",
-        "tools": ["feishu_doc_read"],
-        "includes": []
-    },
-
-    "feishu_drive": {
-        "description": "Feishu/Lark document comment operations (list, reply, add)",
-        "tools": [
-            "feishu_drive_list_comments", "feishu_drive_list_comment_replies",
-            "feishu_drive_reply_comment", "feishu_drive_add_comment",
-        ],
-        "includes": []
-    },
-
     # Scenario-specific toolsets
     
     "debugging": {
@@ -403,18 +388,6 @@ TOOLSETS = {
         "includes": []
     },
 
-    "kabuqina-feishu": {
-        "description": "Feishu/Lark bot toolset - enterprise messaging via Feishu/Lark (full access)",
-        "tools": _KABUQINA_CORE_TOOLS + [
-            "feishu_doc_read",
-            "feishu_drive_list_comments",
-            "feishu_drive_list_comment_replies",
-            "feishu_drive_reply_comment",
-            "feishu_drive_add_comment",
-        ],
-        "includes": []
-    },
-
     "kabuqina-weixin": {
         "description": "Weixin bot toolset - personal WeChat messaging via iLink (full access)",
         "tools": _KABUQINA_CORE_TOOLS,
@@ -467,7 +440,7 @@ TOOLSETS = {
     "kabuqina-gateway": {
         "description": "Gateway toolset - union of all messaging platform tools",
         "tools": [],
-        "includes": ["kabuqina-telegram", "kabuqina-whatsapp", "kabuqina-slack", "kabuqina-signal", "kabuqina-bluebubbles", "kabuqina-homeassistant", "kabuqina-email", "kabuqina-sms", "kabuqina-mattermost", "kabuqina-matrix", "kabuqina-dingtalk", "kabuqina-feishu", "kabuqina-wecom", "kabuqina-wecom-callback", "kabuqina-weixin", "kabuqina-qqbot", "kabuqina-webhook", "kabuqina-yuanbao"]
+        "includes": ["kabuqina-telegram", "kabuqina-whatsapp", "kabuqina-slack", "kabuqina-signal", "kabuqina-bluebubbles", "kabuqina-homeassistant", "kabuqina-email", "kabuqina-sms", "kabuqina-mattermost", "kabuqina-matrix", "kabuqina-dingtalk", "kabuqina-wecom", "kabuqina-wecom-callback", "kabuqina-weixin", "kabuqina-qqbot", "kabuqina-webhook", "kabuqina-yuanbao"]
     }
 }
 

@@ -2517,8 +2517,7 @@ class TestProgressMessageThread:
 
 class TestSlackReplyToText:
     """Ensure MessageEvent.reply_to_text is populated on thread replies so
-    gateway.run can inject a ``[Replying to: "..."]`` prefix (parity with
-    Telegram/Discord/Feishu/WeCom)."""
+    gateway.run can inject a ``[Replying to: "..."]`` prefix."""
 
     @pytest.mark.asyncio
     async def test_slack_reply_to_text_set_on_thread_reply(self, adapter):

@@ -1471,8 +1471,8 @@ class BasePlatformAdapter(ABC):
         acknowledge — the current caller is ``/reload-mcp``, which
         invalidates the provider prompt cache.
 
-        Platforms with inline-button support (Telegram, Discord, Slack,
-        Matrix, Feishu) should override this to render three buttons:
+        Platforms with inline-button support should override this to render
+        three buttons:
         Approve Once / Always Approve / Cancel.  Button callbacks MUST be
         routed back through the gateway by calling
         ``GatewayRunner._resolve_slash_confirm(confirm_id, choice)`` where
