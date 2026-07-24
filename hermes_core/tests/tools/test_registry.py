@@ -302,7 +302,6 @@ class TestBuiltinDiscovery:
             "tools.document_tools",
             "tools.file_tools",
             "tools.goal_report_tool",
-            "tools.homeassistant_tool",
             "tools.image_generation_tool",
             "tools.learning_tools",
             "tools.material_index_tools",
@@ -322,7 +321,6 @@ class TestBuiltinDiscovery:
             "tools.user_interaction_tool",
             "tools.vision_tools",
             "tools.web_tools",
-            "tools.yuanbao_tools",
         }
 
         with patch("tools.registry.importlib.import_module"):

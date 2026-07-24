@@ -250,24 +250,6 @@ class TestLoadGatewayConfig:
 
         assert config.thread_sessions_per_user is False
 
-    def test_bridges_quoted_false_platform_enabled_from_config_yaml(self, tmp_path, monkeypatch):
-        hermes_home = tmp_path / ".hermes"
-        hermes_home.mkdir()
-        config_path = hermes_home / "config.yaml"
-        config_path.write_text(
-            "platforms:\n"
-            "  api_server:\n"
-            "    enabled: \"false\"\n",
-            encoding="utf-8",
-        )
-
-        monkeypatch.setenv("KABUQINA_HOME", str(hermes_home))
-
-        config = load_gateway_config()
-
-        assert config.platforms[Platform.API_SERVER].enabled is False
-        assert Platform.API_SERVER not in config.get_connected_platforms()
-
     def test_bridges_quoted_false_session_notify_from_config_yaml(self, tmp_path, monkeypatch):
         hermes_home = tmp_path / ".hermes"
         hermes_home.mkdir()
@@ -381,25 +363,6 @@ class TestLoadGatewayConfig:
             "789": "Creative writing",
         }
 
-    def test_bridges_slack_channel_prompts_from_config_yaml(self, tmp_path, monkeypatch):
-        hermes_home = tmp_path / ".hermes"
-        hermes_home.mkdir()
-        config_path = hermes_home / "config.yaml"
-        config_path.write_text(
-            "slack:\n"
-            "  channel_prompts:\n"
-            '    "C01ABC": Code review mode\n',
-            encoding="utf-8",
-        )
-
-        monkeypatch.setenv("KABUQINA_HOME", str(hermes_home))
-
-        config = load_gateway_config()
-
-        assert config.platforms[Platform.SLACK].extra["channel_prompts"] == {
-            "C01ABC": "Code review mode",
-        }
-
     def test_invalid_quick_commands_in_config_yaml_are_ignored(self, tmp_path, monkeypatch):
         hermes_home = tmp_path / ".hermes"
         hermes_home.mkdir()
@@ -487,69 +450,23 @@ class TestHomeChannelEnvOverrides:
     """Home channel env vars should apply even when the platform was already
     configured via config.yaml (not just when credential env vars create it)."""
 
-    def test_existing_platform_configs_accept_home_channel_env_overrides(self):
-        cases = [
-            (
-                Platform.SLACK,
-                PlatformConfig(enabled=True, token="xoxb-from-config"),
-                {"SLACK_HOME_CHANNEL": "C123", "SLACK_HOME_CHANNEL_NAME": "Ops"},
-                ("C123", "Ops"),
-            ),
-            (
-                Platform.SIGNAL,
-                PlatformConfig(
-                    enabled=True,
-                    extra={"http_url": "http://localhost:9090", "account": "+15551234567"},
-                ),
-                {"SIGNAL_HOME_CHANNEL": "+1555000", "SIGNAL_HOME_CHANNEL_NAME": "Phone"},
-                ("+1555000", "Phone"),
-            ),
-            (
-                Platform.MATTERMOST,
-                PlatformConfig(
-                    enabled=True,
-                    token="mm-token",
-                    extra={"url": "https://mm.example.com"},
-                ),
-                {"MATTERMOST_HOME_CHANNEL": "ch_abc123", "MATTERMOST_HOME_CHANNEL_NAME": "General"},
-                ("ch_abc123", "General"),
-            ),
-            (
-                Platform.MATRIX,
-                PlatformConfig(
-                    enabled=True,
-                    token="syt_abc123",
-                    extra={"homeserver": "https://matrix.example.org"},
-                ),
-                {"MATRIX_HOME_ROOM": "!room123:example.org", "MATRIX_HOME_ROOM_NAME": "Bot Room"},
-                ("!room123:example.org", "Bot Room"),
-            ),
-            (
-                Platform.EMAIL,
-                PlatformConfig(
-                    enabled=True,
-                    extra={
-                        "address": "hermes@test.com",
-                        "imap_host": "imap.test.com",
-                        "smtp_host": "smtp.test.com",
-                    },
-                ),
-                {"EMAIL_HOME_ADDRESS": "user@test.com", "EMAIL_HOME_ADDRESS_NAME": "Inbox"},
-                ("user@test.com", "Inbox"),
-            ),
-            (
-                Platform.SMS,
-                PlatformConfig(enabled=True, api_key="token_abc"),
-                {"SMS_HOME_CHANNEL": "+15559876543", "SMS_HOME_CHANNEL_NAME": "My Phone"},
-                ("+15559876543", "My Phone"),
-            ),
-        ]
+    def test_existing_email_config_accepts_home_channel_env_override(self):
+        platform_config = PlatformConfig(
+            enabled=True,
+            extra={
+                "address": "hermes@test.com",
+                "imap_host": "imap.test.com",
+                "smtp_host": "smtp.test.com",
+            },
+        )
+        config = GatewayConfig(platforms={Platform.EMAIL: platform_config})
+        env = {
+            "EMAIL_HOME_ADDRESS": "user@test.com",
+            "EMAIL_HOME_ADDRESS_NAME": "Inbox",
+        }
+        with patch.dict(os.environ, env, clear=True):
+            _apply_env_overrides(config)
 
-        for platform, platform_config, env, expected in cases:
-            config = GatewayConfig(platforms={platform: platform_config})
-            with patch.dict(os.environ, env, clear=True):
-                _apply_env_overrides(config)
-
-            home = config.platforms[platform].home_channel
-            assert home is not None, f"{platform.value}: home_channel should not be None"
-            assert (home.chat_id, home.name) == expected, platform.value
+        home = config.platforms[Platform.EMAIL].home_channel
+        assert home is not None
+        assert (home.chat_id, home.name) == ("user@test.com", "Inbox")

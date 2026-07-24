@@ -72,12 +72,6 @@ def apply_all() -> None:
     _run("default_toolset",     lambda: __import__(__name__ + ".default_toolset",   fromlist=["install"]).install())
     _run("builtin_helpers",     lambda: __import__(__name__ + ".builtin_helpers",   fromlist=["install"]).install())
     _run("approval_bridge",     lambda: __import__(__name__ + ".approval_bridge",   fromlist=["install"]).install())
-    _run(
-        "skip_gateway_platform_plugins",
-        lambda: __import__(
-            __name__ + ".skip_gateway_platform_plugins", fromlist=["install"]
-        ).install(),
-    )
     # cron.scheduler is part of the bundled hermes tree and only becomes
     # importable after _wire_sys_path() in desktop_entrypoint. The first
     # call here is best-effort (likely no-op); desktop_entrypoint runs

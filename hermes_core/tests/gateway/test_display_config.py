@@ -182,42 +182,45 @@ class TestPlatformDefaults:
         """Telegram and Discord default to 'all' tool progress."""
         from gateway.display_config import resolve_display_setting
 
-        for plat in ("telegram", "discord"):
+        for plat in ("telegram",):
             assert resolve_display_setting({}, plat, "tool_progress") == "all", plat
 
     def test_medium_tier_platforms(self):
-        """Mattermost, Matrix and WhatsApp default to 'new' tool progress."""
+        """WhatsApp defaults to 'new' tool progress."""
         from gateway.display_config import resolve_display_setting
 
-        for plat in ("mattermost", "matrix", "whatsapp"):
+        for plat in ("whatsapp",):
             assert resolve_display_setting({}, plat, "tool_progress") == "new", plat
 
-    def test_slack_defaults_tool_progress_off(self):
-        """Slack defaults to quiet tool progress (permanent chat noise otherwise)."""
-        from gateway.display_config import resolve_display_setting
-
-        assert resolve_display_setting({}, "slack", "tool_progress") == "off"
-
     def test_low_tier_platforms(self):
-        """Signal, BlueBubbles, etc. default to 'off' tool progress."""
+        """Retained non-editing chat platforms default to quiet progress."""
         from gateway.display_config import resolve_display_setting
 
-        for plat in ("signal", "bluebubbles", "weixin", "dingtalk"):
+        for plat in ("weixin", "dingtalk"):
             assert resolve_display_setting({}, plat, "tool_progress") == "off", plat
 
     def test_minimal_tier_platforms(self):
-        """Email, SMS, webhook default to 'off' tool progress."""
+        """Email defaults to 'off' tool progress."""
         from gateway.display_config import resolve_display_setting
 
-        for plat in ("email", "sms", "webhook", "homeassistant"):
+        for plat in ("email",):
             assert resolve_display_setting({}, plat, "tool_progress") == "off", plat
 
     def test_low_tier_streaming_defaults_to_false(self):
         """Low-tier platforms default streaming to False."""
         from gateway.display_config import resolve_display_setting
 
-        assert resolve_display_setting({}, "signal", "streaming") is False
+        assert resolve_display_setting({}, "weixin", "streaming") is False
         assert resolve_display_setting({}, "email", "streaming") is False
+
+    def test_removed_platforms_have_no_product_defaults(self):
+        from gateway.display_config import _PLATFORM_DEFAULTS
+
+        removed = {
+            "slack", "signal", "matrix", "mattermost", "sms",
+            "homeassistant", "webhook", "bluebubbles", "yuanbao",
+        }
+        assert removed.isdisjoint(_PLATFORM_DEFAULTS)
 
     def test_high_tier_streaming_defaults_to_none(self):
         """High-tier platforms default streaming to None (follow global)."""

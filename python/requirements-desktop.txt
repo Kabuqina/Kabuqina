@@ -2,7 +2,7 @@
 #
 # Mirrors the [project] core deps from upstream pyproject.toml, minus
 # the heavy/incompatible extras (RL, voice STT, multi-platform messaging,
-# matrix, etc.). Keep version pins aligned with upstream.
+# messaging adapters). Keep version pins aligned with upstream.
 
 # --- Core (mirrors upstream [project].dependencies) -----------------------
 openai>=2.21.0,<3
@@ -64,8 +64,6 @@ websockets>=15,<17             # Browser/CDP supervisor requires the modern asyn
 # faster-whisper      ~200 MB; cloud STT only at v1
 # sounddevice         pulls portaudio; deferred with voice mode
 # scipy               deferred; add when math tools need special functions / linear algebra solvers
-# slack-bolt          ; gateway/ stripped (add if needed)
-# mautrix             ; gateway/ stripped (add if needed)
 # modal               ; remote terminal backend stripped
 # daytona             ; remote terminal backend stripped
 # atroposlib, tinker  ; RL stripped

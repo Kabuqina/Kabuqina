@@ -99,7 +99,6 @@ TIPS = [
     "kabuqina update syncs new bundled skills to ALL profiles automatically.",
     "kabuqina gateway install sets up Kabuqina as a system service (systemd/launchd).",
     "kabuqina memory setup lets you configure an external memory provider (Honcho, Mem0, etc.).",
-    "kabuqina webhook subscribe creates event-driven webhook routes with HMAC validation.",
     "Save money: kabuqina tools disables unused tools, kabuqina skills config trims skills down.",
     "/reasoning low or /reasoning minimal cuts thinking depth below the default (medium) — faster, cheaper responses.",
     "kabuqina models routes vision, compression, and aux tasks to cheaper models — cuts token cost 85%+ without downgrading your main chat model.",
@@ -179,7 +178,7 @@ TIPS = [
 
     # --- Cron & Scheduling ---
     "Cron jobs can attach skills: kabuqina cron add --skill blogwatcher \"Check for new posts\".",
-    "Cron delivery targets include telegram, slack, email, sms, and many more platforms.",
+    "Cron delivery targets can use the retained Telegram, WhatsApp, email, DingTalk, Weixin, and QQBot adapters.",
     "If a cron response starts with [SILENT], delivery is suppressed — useful for monitoring-only jobs.",
     "Cron supports relative delays (30m), intervals (every 2h), cron expressions, and ISO timestamps.",
     "Cron jobs run in completely fresh agent sessions — prompts must be self-contained.",
@@ -189,14 +188,12 @@ TIPS = [
     "Five TTS providers available: Edge TTS (free), ElevenLabs, OpenAI, NeuTTS (free local), MiniMax.",
     "/voice on enables voice mode in the CLI. Ctrl+B toggles push-to-talk recording.",
     "Streaming TTS plays sentences as they generate — you don't wait for the full response.",
-    "Voice messages on Telegram, WhatsApp, and Slack are auto-transcribed.",
+    "Voice messages on Telegram and WhatsApp are auto-transcribed.",
 
     # --- Gateway & Messaging ---
-    "Kabuqina supports Telegram, Slack, WhatsApp, Signal, Matrix, email, and more.",
+    "Kabuqina supports Telegram, WhatsApp, email, DingTalk, Weixin, and QQBot.",
     "kabuqina gateway install sets it up as a system service that starts on boot.",
     "DingTalk uses Stream Mode — no webhooks or public URL needed.",
-    "BlueBubbles brings iMessage to Kabuqina via a local macOS server.",
-    "Webhook routes support HMAC validation, rate limiting, and event filtering.",
     "The API server exposes an OpenAI-compatible endpoint compatible with Open WebUI and LibreChat.",
     "group_sessions_per_user: true gives each person their own session in group chats.",
     "/sethome marks a chat as the home channel for cron job deliveries.",

@@ -204,7 +204,7 @@ Only after the base chat works. Pick what you need:
 hermes gateway setup    # Interactive platform configuration
 ```
 
-Connect [Telegram](/docs/user-guide/messaging/telegram), [Discord](/docs/user-guide/messaging/discord), [Slack](/docs/user-guide/messaging/slack), [WhatsApp](/docs/user-guide/messaging/whatsapp), [Signal](/docs/user-guide/messaging/signal), [Email](/docs/user-guide/messaging/email), or [Home Assistant](/docs/user-guide/messaging/homeassistant).
+Connect [Telegram](/docs/user-guide/messaging/telegram), [WhatsApp](/docs/user-guide/messaging/whatsapp), [Email](/docs/user-guide/messaging/email), [DingTalk](/docs/user-guide/messaging/dingtalk), [Weixin](/docs/user-guide/messaging/weixin), or [QQBot](/docs/user-guide/messaging/qqbot), subject to the active product profile.
 
 ### Automation and tools
 

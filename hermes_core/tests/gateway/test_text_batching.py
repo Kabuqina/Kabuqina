@@ -4,7 +4,7 @@ When a user sends a long message, the messaging client splits it at the
 platform's character limit.  Each adapter should buffer rapid successive
 text messages from the same session and aggregate them before dispatching.
 
-Covers: Matrix and the adaptive delay logic for Telegram.
+Covers the adaptive delay logic for Telegram.
 """
 
 import asyncio
@@ -32,87 +32,6 @@ def _make_event(
         message_type=msg_type,
         source=SessionSource(platform=platform, chat_id=chat_id, chat_type="dm"),
     )
-def _make_matrix_adapter():
-    """Create a minimal MatrixAdapter for testing text batching."""
-    from gateway.platforms.matrix import MatrixAdapter
-
-    config = PlatformConfig(enabled=True, token="test-token")
-    adapter = object.__new__(MatrixAdapter)
-    adapter._platform = Platform.MATRIX
-    adapter.config = config
-    adapter._pending_text_batches = {}
-    adapter._pending_text_batch_tasks = {}
-    adapter._text_batch_delay_seconds = 0.1
-    adapter._text_batch_split_delay_seconds = 0.3
-    adapter._active_sessions = {}
-    adapter._pending_messages = {}
-    adapter._message_handler = AsyncMock()
-    adapter.handle_message = AsyncMock()
-    return adapter
-
-
-class TestMatrixTextBatching:
-    @pytest.mark.asyncio
-    async def test_single_message_dispatched_after_delay(self):
-        adapter = _make_matrix_adapter()
-        event = _make_event("hello world", Platform.MATRIX)
-
-        adapter._enqueue_text_event(event)
-
-        adapter.handle_message.assert_not_called()
-        await asyncio.sleep(0.2)
-
-        adapter.handle_message.assert_called_once()
-        assert adapter.handle_message.call_args[0][0].text == "hello world"
-
-    @pytest.mark.asyncio
-    async def test_split_messages_aggregated(self):
-        adapter = _make_matrix_adapter()
-
-        adapter._enqueue_text_event(_make_event("first part", Platform.MATRIX))
-        await asyncio.sleep(0.02)
-        adapter._enqueue_text_event(_make_event("second part", Platform.MATRIX))
-
-        adapter.handle_message.assert_not_called()
-        await asyncio.sleep(0.2)
-
-        adapter.handle_message.assert_called_once()
-        text = adapter.handle_message.call_args[0][0].text
-        assert "first part" in text
-        assert "second part" in text
-
-    @pytest.mark.asyncio
-    async def test_different_rooms_not_merged(self):
-        adapter = _make_matrix_adapter()
-
-        adapter._enqueue_text_event(_make_event("room A", Platform.MATRIX, chat_id="!aaa:matrix.org"))
-        adapter._enqueue_text_event(_make_event("room B", Platform.MATRIX, chat_id="!bbb:matrix.org"))
-
-        await asyncio.sleep(0.2)
-
-        assert adapter.handle_message.call_count == 2
-
-    @pytest.mark.asyncio
-    async def test_adaptive_delay_for_near_limit_chunk(self):
-        """Chunks near the 4000-char limit should trigger longer delay."""
-        adapter = _make_matrix_adapter()
-        long_text = "x" * 3950
-        adapter._enqueue_text_event(_make_event(long_text, Platform.MATRIX))
-
-        await asyncio.sleep(0.15)
-        adapter.handle_message.assert_not_called()
-
-        await asyncio.sleep(0.25)
-        adapter.handle_message.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_batch_cleans_up_after_flush(self):
-        adapter = _make_matrix_adapter()
-        adapter._enqueue_text_event(_make_event("test", Platform.MATRIX))
-        await asyncio.sleep(0.2)
-        assert len(adapter._pending_text_batches) == 0
-
-
 # =====================================================================
 # Telegram adaptive delay (PR #6891)
 # =====================================================================

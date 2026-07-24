@@ -1,31 +1,8 @@
-"""
-Platform Adapter Registry
+"""Compatibility registry for product-owned platform metadata.
 
-Allows platform adapters (built-in and plugin) to self-register so the gateway
-can discover and instantiate them without hardcoded if/elif chains.
-
-Built-in adapters continue to use the existing if/elif in _create_adapter()
-for now.  Plugin adapters register here via PluginContext.register_platform()
-and are looked up first -- if nothing is found the gateway falls through to
-the legacy code path.
-
-Usage (plugin side):
-
-    from gateway.platform_registry import platform_registry, PlatformEntry
-
-    platform_registry.register(PlatformEntry(
-        name="irc",
-        label="IRC",
-        adapter_factory=lambda cfg: IRCAdapter(cfg),
-        check_fn=check_requirements,
-        validate_config=lambda cfg: bool(cfg.extra.get("server")),
-        required_env=["IRC_SERVER"],
-        install_hint="pip install irc",
-    ))
-
-Usage (gateway side):
-
-    adapter = platform_registry.create_adapter("irc", platform_config)
+Third-party platform adapters are intentionally unsupported.  Product
+platforms are selected by the fixed gateway registry and cannot be added or
+overridden by bundled, user, project, or installed-package plugins.
 """
 
 import logging
@@ -122,19 +99,11 @@ class PlatformRegistry:
         self._entries: dict[str, PlatformEntry] = {}
 
     def register(self, entry: PlatformEntry) -> None:
-        """Register a platform adapter entry.
-
-        If an entry with the same name exists, it is replaced (last writer
-        wins -- this lets plugins override built-in adapters if desired).
-        """
+        """Register product-owned metadata; reject plugin platform adapters."""
+        if entry.source != "builtin":
+            raise ValueError("platform plugins are not supported")
         if entry.name in self._entries:
-            prev = self._entries[entry.name]
-            logger.info(
-                "Platform '%s' re-registered (was %s, now %s)",
-                entry.name,
-                prev.source,
-                entry.source,
-            )
+            raise ValueError(f"platform {entry.name!r} is already registered")
         self._entries[entry.name] = entry
         logger.debug("Registered platform adapter: %s (%s)", entry.name, entry.source)
 

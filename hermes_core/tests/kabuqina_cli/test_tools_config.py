@@ -105,40 +105,19 @@ def test_vision_toolset_configured_check_does_not_resolve_client(monkeypatch):
     ) is True
 
 
-def test_get_platform_tools_homeassistant_platform_keeps_homeassistant_toolset():
-    enabled = _get_platform_tools({}, "homeassistant")
-
-    assert "homeassistant" in enabled
-
-
-def test_get_platform_tools_homeassistant_toolset_enabled_for_cron_when_hass_token_set(monkeypatch):
-    """HA toolset is runtime-gated by check_fn (requires HASS_TOKEN).
-
-    When HASS_TOKEN is set, the user has explicitly opted in — _DEFAULT_OFF_TOOLSETS
-    shouldn't also strip HA from platforms (like cron) that run through
-    _get_platform_tools without an explicit saved toolset list.
-
-    Regression guard for Norbert's HA cron breakage after #14798 made cron
-    honor per-platform tool config.
-    """
+def test_removed_platform_toolsets_stay_disabled_with_legacy_credentials(monkeypatch):
     monkeypatch.setenv("HASS_TOKEN", "fake-test-token")
+    config = {
+        "platform_toolsets": {
+            "cli": ["web", "homeassistant", "yuanbao", "slack"],
+            "homeassistant": ["web", "homeassistant"],
+        },
+    }
 
-    cron_enabled = _get_platform_tools({}, "cron")
-    assert "homeassistant" in cron_enabled
-    # moa must stay off — the original goal of #14798
-    assert "moa" not in cron_enabled
-
-    cli_enabled = _get_platform_tools({}, "cli")
-    assert "homeassistant" in cli_enabled
-
-
-def test_get_platform_tools_homeassistant_toolset_off_for_cron_when_hass_token_missing(monkeypatch):
-    """Without HASS_TOKEN, HA stays off by default — preserves #14798's behavior
-    for users who never configured HA."""
-    monkeypatch.delenv("HASS_TOKEN", raising=False)
-
-    cron_enabled = _get_platform_tools({}, "cron")
-    assert "homeassistant" not in cron_enabled
+    assert {"homeassistant", "yuanbao", "slack"}.isdisjoint(
+        _get_platform_tools(config, "cli")
+    )
+    assert _get_platform_tools(config, "homeassistant") == {"web"}
 
 
 def test_get_platform_tools_preserves_explicit_empty_selection():
@@ -164,14 +143,14 @@ def test_apply_toolset_change_from_default_does_not_enable_default_off_toolsets(
     assert saved.isdisjoint(_DEFAULT_OFF_TOOLSETS)
 
 
-def test_apply_toolset_change_can_enable_default_off_toolset_from_default():
+def test_apply_toolset_change_cannot_enable_removed_toolset():
     config = {}
 
     with patch("kabuqina_cli.tools_config.save_config"):
         _apply_toolset_change(config, "cli", ["homeassistant"], "enable")
 
     saved = set(config["platform_toolsets"]["cli"])
-    assert "homeassistant" in saved
+    assert "homeassistant" not in saved
     assert "terminal" in saved
 
 

@@ -27,7 +27,6 @@ description: "Build an automated AI code reviewer that monitors your repos, revi
 This guide uses **cron jobs** to poll for PRs on a schedule — no server or public endpoint needed. Works behind NAT and firewalls.
 
 :::tip Want real-time reviews instead?
-If you have a public endpoint available, check out [Automated GitHub PR Comments with Webhooks](./webhook-github-pr-review.md) — GitHub pushes events to Hermes instantly when PRs are opened or updated.
 :::
 
 ---
@@ -296,7 +295,6 @@ GitHub allows 5,000 API requests/hour for authenticated users. Each PR review us
 
 ## What's Next?
 
-- **[Webhook-Based PR Reviews](./webhook-github-pr-review.md)** — get instant reviews when PRs are opened (requires a public endpoint)
 - **[Daily Briefing Bot](/docs/guides/daily-briefing-bot)** — combine PR reviews with your morning news digest
 - **[Build a Plugin](/docs/guides/build-a-hermes-plugin)** — wrap the review logic into a shareable plugin
 - **[Profiles](/docs/user-guide/profiles)** — run a dedicated reviewer profile with its own memory and config

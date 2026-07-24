@@ -367,7 +367,7 @@ DEFAULT_CONFIG = {
         "tool_progress_command": False,  # Enable /verbose command in messaging gateway
         "tool_progress_overrides": {},  # DEPRECATED — use display.platforms instead
         "tool_preview_length": 0,  # Max chars for tool call previews (0 = no limit, show full paths/commands)
-        "platforms": {},  # Per-platform display overrides: {"telegram": {"tool_progress": "all"}, "slack": {"tool_progress": "off"}}
+        "platforms": {},  # Per-platform display overrides.
         # Gateway runtime-metadata footer appended to the FINAL message of a turn
         # (disabled by default to keep replies minimal). When enabled, renders
         # e.g. `model · 68% · ~/projects/hermes`. Per-platform overrides go under
@@ -613,16 +613,6 @@ DEFAULT_CONFIG = {
     "telegram": {
         "reactions": False,            # Add 👀/✅/❌ reactions to messages during processing
         "channel_prompts": {},         # Per-chat/topic ephemeral system prompts (topics inherit from parent group)
-    },
-
-    # Slack platform settings (gateway mode)
-    "slack": {
-        "channel_prompts": {},         # Per-channel ephemeral system prompts
-    },
-
-    # Mattermost platform settings (gateway mode)
-    "mattermost": {
-        "channel_prompts": {},         # Per-channel ephemeral system prompts
     },
 
     # Approval mode for dangerous commands:

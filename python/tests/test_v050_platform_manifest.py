@@ -145,7 +145,7 @@ class V050PlatformManifestTests(unittest.TestCase):
             errors,
         )
 
-    def test_bundled_plugin_credential_keys_are_scanned(self) -> None:
+    def test_removed_bundled_plugin_credential_keys_are_absent(self) -> None:
         edges = {
             record["key"]: record for record in audit.collect_credential_key_edges(ROOT)
         }
@@ -158,13 +158,7 @@ class V050PlatformManifestTests(unittest.TestCase):
             "TEAMS_TENANT_ID",
         }
 
-        self.assertEqual(set(), expected - set(edges))
-        for key in expected:
-            self.assertEqual("teams_plugin", edges[key]["surface"])
-            self.assertIn(
-                "hermes_core/plugins/platforms/teams/adapter.py",
-                edges[key]["source_paths"],
-            )
+        self.assertTrue(expected.isdisjoint(edges))
 
     def _assert_removed_environment_group_is_rejected(
         self, keys: set[str]

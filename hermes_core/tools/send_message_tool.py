@@ -1,7 +1,7 @@
 """Send Message Tool -- cross-channel messaging via platform APIs.
 
-Sends a message to a user or channel on any connected messaging platform
-(for example Telegram or Slack). Supports listing available targets and resolving
+Sends a message to a user or channel on a retained messaging platform.
+Supports listing available targets and resolving
 human-friendly channel names to IDs. Works in both CLI and gateway contexts.
 """
 
@@ -11,28 +11,14 @@ import logging
 import os
 import re
 import ssl
-import time
 
 from agent.redact import redact_sensitive_text
 
 logger = logging.getLogger(__name__)
 
 _TELEGRAM_TOPIC_TARGET_RE = re.compile(r"^\s*(-?\d+)(?::(\d+))?\s*$")
-# Slack conversation IDs: C (public channel), G (private/group channel), D (DM).
-# Must be uppercase alphanumeric, 9+ chars. User IDs (U...) and workspace IDs
-# (W...) are NOT valid chat.postMessage channel values — posting to them fails
-# because the API requires a conversation ID. To DM a user you must first call
-# conversations.open to obtain a D... ID. Without this gate, Slack IDs fall
-# through to channel-name resolution, which only matches by name and fails.
-_SLACK_TARGET_RE = re.compile(r"^\s*([CGD][A-Z0-9]{8,})\s*$")
 _WEIXIN_TARGET_RE = re.compile(r"^\s*((?:wxid|gh|v\d+|wm|wb)_[A-Za-z0-9_-]+|[A-Za-z0-9._-]+@chatroom|filehelper)\s*$")
-_YUANBAO_TARGET_RE = re.compile(r"^\s*((?:group|direct):[^:]+)\s*$")
-# Platforms that address recipients by phone number and accept E.164 format
-# (with a leading '+'). Without this, "+15551234567" fails the isdigit() check
-# below and falls through to channel-name resolution, which has no way to
-# resolve a raw phone number. Keeping the '+' preserves the E.164 form that
-# downstream adapters (signal, etc.) expect.
-_PHONE_PLATFORMS = frozenset({"signal", "sms", "whatsapp"})
+# WhatsApp addresses recipients by phone number and accepts E.164 format.
 _E164_TARGET_RE = re.compile(r"^\s*\+(\d{7,15})\s*$")
 _IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 _VIDEO_EXTS = {".mp4", ".mov", ".avi", ".mkv", ".3gp"}
@@ -128,7 +114,7 @@ SEND_MESSAGE_SCHEMA = {
             },
             "target": {
                 "type": "string",
-                "description": "Delivery target. Format: 'platform' (uses home channel), 'platform:#channel-name', 'platform:chat_id', or 'platform:chat_id:thread_id' for supported threaded platforms. Examples: 'telegram', 'telegram:-1001234567890:17585', 'slack:#engineering', 'signal:+155****4567', 'matrix:!roomid:server.org', 'matrix:@user:server.org', 'yuanbao:direct:<account_id>' (DM), 'yuanbao:group:<group_code>' (group chat)"
+                "description": "Delivery target. Format: 'platform' (uses home channel), 'platform:#channel-name', 'platform:chat_id', or 'platform:chat_id:thread_id' for supported threaded platforms. Examples: 'telegram', 'telegram:-1001234567890:17585', 'whatsapp:+155****4567'"
             },
             "message": {
                 "type": "string",
@@ -212,8 +198,7 @@ def _handle_send(args):
     except Exception as e:
         return json.dumps(_error(f"Failed to load gateway config: {e}"))
 
-    # Accept any platform name — built-in names resolve to their enum
-    # member, plugin platform names create dynamic members via _missing_().
+    # Accept only fixed product platform names.
     try:
         platform = Platform(platform_name)
     except (ValueError, KeyError):
@@ -316,31 +301,15 @@ def _parse_target_ref(platform_name: str, target_ref: str):
         match = _TELEGRAM_TOPIC_TARGET_RE.fullmatch(target_ref)
         if match:
             return match.group(1), match.group(2), True
-    if platform_name == "slack":
-        match = _SLACK_TARGET_RE.fullmatch(target_ref)
-        if match:
-            return match.group(1), None, True
     if platform_name == "weixin":
         match = _WEIXIN_TARGET_RE.fullmatch(target_ref)
         if match:
             return match.group(1), None, True
-    if platform_name == "yuanbao":
-        match = _YUANBAO_TARGET_RE.fullmatch(target_ref)
-        if match:
-            return match.group(1), None, True
-        if target_ref.strip().isdigit():
-            return f"group:{target_ref.strip()}", None, True
-        return None, None, False
-    if platform_name in _PHONE_PLATFORMS:
+    if platform_name == "whatsapp":
         match = _E164_TARGET_RE.fullmatch(target_ref)
         if match:
-            # Preserve the leading '+' — signal-cli and sms/whatsapp adapters
-            # expect E.164 format for direct recipients.
             return target_ref.strip(), None, True
     if target_ref.lstrip("-").isdigit():
-        return target_ref, None, True
-    # Matrix room IDs (start with !) and user IDs (start with @) are explicit
-    if platform_name == "matrix" and (target_ref.startswith("!") or target_ref.startswith("@")):
         return target_ref, None, True
     return None, None, False
 
@@ -410,27 +379,6 @@ def _maybe_skip_cron_duplicate_send(platform_name: str, chat_id: str, thread_id:
     }
 
 
-async def _send_via_adapter(platform, pconfig, chat_id, chunk):
-    """Send a message via a live gateway adapter (for plugin platforms).
-
-    Falls back to error if no adapter is connected for this platform.
-    """
-    try:
-        from gateway.run import _gateway_runner_ref
-        runner = _gateway_runner_ref()
-        if runner:
-            adapter = runner.adapters.get(platform)
-            if adapter:
-                from gateway.platforms.base import SendResult
-                result = await adapter.send(chat_id=chat_id, content=chunk)
-                if result.success:
-                    return {"success": True, "message_id": result.message_id}
-                return {"error": f"Adapter send failed: {result.error}"}
-    except Exception as e:
-        return {"error": f"Plugin platform send failed: {e}"}
-    return {"error": f"No live adapter for platform '{platform.value}'. Is the gateway running with this platform connected?"}
-
-
 async def _send_to_platform(platform, pconfig, chat_id, message, thread_id=None, media_files=None):
     """Route a message to the appropriate platform sender.
 
@@ -440,7 +388,6 @@ async def _send_to_platform(platform, pconfig, chat_id, message, thread_id=None,
     """
     from gateway.config import Platform
     from gateway.platforms.base import BasePlatformAdapter, utf16_len
-    from gateway.platforms.slack import SlackAdapter
 
     # Telegram adapter import is optional (requires python-telegram-bot)
     try:
@@ -451,27 +398,10 @@ async def _send_to_platform(platform, pconfig, chat_id, message, thread_id=None,
 
     media_files = media_files or []
 
-    if platform == Platform.SLACK and message:
-        try:
-            slack_adapter = SlackAdapter.__new__(SlackAdapter)
-            message = slack_adapter.format_message(message)
-        except Exception:
-            logger.debug("Failed to apply Slack mrkdwn formatting in _send_to_platform", exc_info=True)
-
     # Platform message length limits (from adapter class attributes)
     _MAX_LENGTHS = {
         Platform.TELEGRAM: TelegramAdapter.MAX_MESSAGE_LENGTH if _telegram_available else 4096,
-        Platform.SLACK: SlackAdapter.MAX_MESSAGE_LENGTH,
     }
-    # Check plugin registry for max_message_length
-    if platform not in _MAX_LENGTHS:
-        try:
-            from gateway.platform_registry import platform_registry
-            entry = platform_registry.get(platform.value)
-            if entry and entry.max_message_length > 0:
-                _MAX_LENGTHS[platform] = entry.max_message_length
-        except Exception:
-            pass
 
     # Smart-chunk the message to fit within platform limits.
     # For short messages or platforms without a known limit this is a no-op.
@@ -506,59 +436,11 @@ async def _send_to_platform(platform, pconfig, chat_id, message, thread_id=None,
     if platform == Platform.WEIXIN:
         return await _send_weixin(pconfig, chat_id, message, media_files=media_files)
 
-    # --- Matrix: use the native adapter helper when media is present ---
-    if platform == Platform.MATRIX and media_files:
-        last_result = None
-        for i, chunk in enumerate(chunks):
-            is_last = (i == len(chunks) - 1)
-            result = await _send_matrix_via_adapter(
-                pconfig,
-                chat_id,
-                chunk,
-                media_files=media_files if is_last else [],
-                thread_id=thread_id,
-            )
-            if isinstance(result, dict) and result.get("error"):
-                return result
-            last_result = result
-        return last_result
-
-    # --- Signal: native attachment support via JSON-RPC attachments param ---
-    if platform == Platform.SIGNAL and media_files:
-        last_result = None
-        for i, chunk in enumerate(chunks):
-            is_last = (i == len(chunks) - 1)
-            result = await _send_signal(
-                pconfig.extra,
-                chat_id,
-                chunk,
-                media_files=media_files if is_last else [],
-            )
-            if isinstance(result, dict) and result.get("error"):
-                return result
-            last_result = result
-        return last_result
-
-    # --- Yuanbao: native media attachment support via running gateway adapter ---
-    if platform == Platform.YUANBAO and media_files:
-        last_result = None
-        for i, chunk in enumerate(chunks):
-            is_last = (i == len(chunks) - 1)
-            result = await _send_yuanbao(
-                chat_id,
-                chunk,
-                media_files=media_files if is_last else None,
-            )
-            if isinstance(result, dict) and result.get("error"):
-                return result
-            last_result = result
-        return last_result
-
     # --- Non-media platforms ---
     if media_files and not message.strip():
         return {
             "error": (
-                f"send_message MEDIA delivery is currently only supported for telegram, matrix, weixin, signal and yuanbao; "
+                f"send_message MEDIA delivery is currently only supported for telegram and weixin; "
                 f"target {platform.value} had only media attachments"
             )
         }
@@ -566,39 +448,21 @@ async def _send_to_platform(platform, pconfig, chat_id, message, thread_id=None,
     if media_files:
         warning = (
             f"MEDIA attachments were omitted for {platform.value}; "
-            "native send_message media delivery is currently only supported for telegram, matrix, weixin, signal and yuanbao"
+            "native send_message media delivery is currently only supported for telegram and weixin"
         )
 
     last_result = None
     for chunk in chunks:
-        if platform == Platform.SLACK:
-            result = await _send_slack(pconfig.token, chat_id, chunk)
-        elif platform == Platform.WHATSAPP:
+        if platform == Platform.WHATSAPP:
             result = await _send_whatsapp(pconfig.extra, chat_id, chunk)
-        elif platform == Platform.SIGNAL:
-            result = await _send_signal(pconfig.extra, chat_id, chunk)
         elif platform == Platform.EMAIL:
             result = await _send_email(pconfig.extra, chat_id, chunk)
-        elif platform == Platform.SMS:
-            result = await _send_sms(pconfig.api_key, chat_id, chunk)
-        elif platform == Platform.MATTERMOST:
-            result = await _send_mattermost(pconfig.token, pconfig.extra, chat_id, chunk)
-        elif platform == Platform.MATRIX:
-            result = await _send_matrix(pconfig.token, pconfig.extra, chat_id, chunk)
-        elif platform == Platform.HOMEASSISTANT:
-            result = await _send_homeassistant(pconfig.token, pconfig.extra, chat_id, chunk)
         elif platform == Platform.DINGTALK:
             result = await _send_dingtalk(pconfig.extra, chat_id, chunk)
-        elif platform == Platform.BLUEBUBBLES:
-            result = await _send_bluebubbles(pconfig.extra, chat_id, chunk)
         elif platform == Platform.QQBOT:
             result = await _send_qqbot(pconfig, chat_id, chunk)
-        elif platform == Platform.YUANBAO:
-            result = await _send_yuanbao(chat_id, chunk)
         else:
-            # Plugin platform — route through the gateway's live adapter
-            # if available, otherwise report the error.
-            result = await _send_via_adapter(platform, pconfig, chat_id, chunk)
+            result = {"error": f"Unsupported messaging platform: {platform.value}"}
 
         if isinstance(result, dict) and result.get("error"):
             return result
@@ -740,29 +604,6 @@ async def _send_telegram(token, chat_id, message, media_files=None, thread_id=No
         return _error(f"Telegram send failed: {e}")
 
 
-async def _send_slack(token, chat_id, message):
-    """Send via Slack Web API."""
-    try:
-        import aiohttp
-    except ImportError:
-        return {"error": "aiohttp not installed. Run: pip install aiohttp"}
-    try:
-        from gateway.platforms.base import resolve_proxy_url, proxy_kwargs_for_aiohttp
-        _proxy = resolve_proxy_url()
-        _sess_kw, _req_kw = proxy_kwargs_for_aiohttp(_proxy)
-        url = "https://slack.com/api/chat.postMessage"
-        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30), **_sess_kw) as session:
-            payload = {"channel": chat_id, "text": message, "mrkdwn": True}
-            async with session.post(url, headers=headers, json=payload, **_req_kw) as resp:
-                data = await resp.json()
-                if data.get("ok"):
-                    return {"success": True, "platform": "slack", "chat_id": chat_id, "message_id": data.get("ts")}
-                return _error(f"Slack API error: {data.get('error', 'unknown')}")
-    except Exception as e:
-        return _error(f"Slack send failed: {e}")
-
-
 async def _send_whatsapp(extra, chat_id, message):
     """Send via the local WhatsApp bridge HTTP API."""
     try:
@@ -789,187 +630,6 @@ async def _send_whatsapp(extra, chat_id, message):
                 return _error(f"WhatsApp bridge error ({resp.status}): {body}")
     except Exception as e:
         return _error(f"WhatsApp send failed: {e}")
-
-
-async def _send_signal(extra, chat_id, message, media_files=None):
-    """Send via signal-cli JSON-RPC API.
-
-    Supports both text-only and text-with-attachments (images/audio/documents).
-    Multi-attachment sends are chunked into batches of
-    SIGNAL_MAX_ATTACHMENTS_PER_MSG and metered by the process-wide
-    SignalAttachmentScheduler — same bucket the gateway adapter uses, so
-    sends from this tool and inbound-driven replies share rate-limit state.
-    """
-    try:
-        import httpx
-    except ImportError:
-        return {"error": "httpx not installed"}
-
-    from gateway.platforms.signal_rate_limit import (
-        SIGNAL_BATCH_PACING_NOTICE_THRESHOLD,
-        SIGNAL_MAX_ATTACHMENTS_PER_MSG,
-        SIGNAL_RATE_LIMIT_MAX_ATTEMPTS,
-        _extract_retry_after_seconds,
-        _format_wait,
-        _is_signal_rate_limit_error,
-        _signal_send_timeout,
-        get_scheduler,
-    )
-
-    try:
-        http_url = extra.get("http_url", "http://127.0.0.1:8080").rstrip("/")
-        account = extra.get("account", "")
-        if not account:
-            return {"error": "Signal account not configured"}
-
-        valid_media = media_files or []
-        attachment_paths = []
-        for media_path, _is_voice in valid_media:
-            if os.path.exists(media_path):
-                attachment_paths.append(media_path)
-            else:
-                logger.warning("Signal media file not found, skipping: %s", media_path)
-
-        # Chunk attachments. With no attachments we still emit one batch
-        # (text only). With attachments, the text rides on batch #0 so the
-        # caption isn't repeated across every chunk.
-        if attachment_paths:
-            att_batches = [
-                attachment_paths[i:i + SIGNAL_MAX_ATTACHMENTS_PER_MSG]
-                for i in range(0, len(attachment_paths), SIGNAL_MAX_ATTACHMENTS_PER_MSG)
-            ]
-        else:
-            att_batches = [[]]
-
-        async def _post(batch_attachments, batch_message):
-            params = {"account": account, "message": batch_message}
-            if chat_id.startswith("group:"):
-                params["groupId"] = chat_id[6:]
-            else:
-                params["recipient"] = [chat_id]
-            if batch_attachments:
-                params["attachments"] = batch_attachments
-
-            payload = {
-                "jsonrpc": "2.0",
-                "method": "send",
-                "params": params,
-                "id": f"send_{int(time.time() * 1000)}",
-            }
-            timeout = _signal_send_timeout(len(batch_attachments) if batch_attachments else 0)
-            async with httpx.AsyncClient(timeout=timeout) as client:
-                resp = await client.post(f"{http_url}/api/v1/rpc", json=payload)
-                resp.raise_for_status()
-                return resp.json()
-
-        async def _send_inline_notice(text: str) -> None:
-            """Best-effort one-shot RPC for a user-facing pacing notice."""
-            notice_params = {"account": account, "message": text}
-            if chat_id.startswith("group:"):
-                notice_params["groupId"] = chat_id[6:]
-            else:
-                notice_params["recipient"] = [chat_id]
-            try:
-                async with httpx.AsyncClient(timeout=30.0) as _client:
-                    await _client.post(
-                        f"{http_url}/api/v1/rpc",
-                        json={
-                            "jsonrpc": "2.0",
-                            "method": "send",
-                            "params": notice_params,
-                            "id": f"notice_{int(time.time() * 1000)}",
-                        },
-                    )
-            except Exception as _e:
-                logger.warning("Signal: inline notice failed: %s", _e)
-
-        scheduler = get_scheduler()
-        logger.info(
-            "send_message Signal: scheduler state=%s, %d attachment(s) in %d batch(es)",
-            scheduler.state(), len(attachment_paths), len(att_batches),
-        )
-        failed_batches: list[int] = []
-        for idx, att_batch in enumerate(att_batches):
-            n = len(att_batch)
-            if n > 0:
-                estimated = scheduler.estimate_wait(n)
-                if estimated >= SIGNAL_BATCH_PACING_NOTICE_THRESHOLD:
-                    await _send_inline_notice(
-                        f"(More images coming — pausing ~{_format_wait(estimated)} "
-                        f"for Signal rate limit, batch {idx + 1}/{len(att_batches)}.)"
-                    )
-
-            batch_message = message if idx == 0 else ""
-
-            for attempt in range(1, SIGNAL_RATE_LIMIT_MAX_ATTEMPTS + 1):
-                try:
-                    await scheduler.acquire(n)
-                    _rpc_t0 = time.monotonic()
-                    data = await _post(att_batch, batch_message)
-                    _rpc_duration = time.monotonic() - _rpc_t0
-                    if "error" not in data:
-                        await scheduler.report_rpc_duration(_rpc_duration, n)
-                        break
-
-                    err = data["error"]
-
-                    if not _is_signal_rate_limit_error(err):
-                        return _error(f"Signal RPC error on batch {idx + 1}/{len(att_batches)}: {err}")
-
-                    server_retry_after = _extract_retry_after_seconds(err)
-                    scheduler.feedback(server_retry_after, n)
-
-                    if attempt >= SIGNAL_RATE_LIMIT_MAX_ATTEMPTS:
-                        failed_batches.append(idx + 1)
-                        logger.error(
-                            "Signal: rate-limit retries exhausted on batch %d/%d "
-                            "(%d attachments lost, server retry_after=%s)",
-                            idx + 1, len(att_batches), n,
-                            f"{server_retry_after:.0f}s" if server_retry_after else "unknown",
-                        )
-                        break
-                    logger.warning(
-                        "Signal: rate-limited on batch %d/%d "
-                        "(attempt %d/%d, server retry_after=%s); "
-                        "scheduler will pace the retry",
-                        idx + 1, len(att_batches),
-                        attempt, SIGNAL_RATE_LIMIT_MAX_ATTEMPTS,
-                        f"{server_retry_after:.0f}s" if server_retry_after else "unknown",
-                    )
-                except Exception as e:
-                    if attempt >= SIGNAL_RATE_LIMIT_MAX_ATTEMPTS:
-                        failed_batches.append(idx + 1)
-                        logger.error(
-                            "Signal: send error on batch %d/%d after %d attempts: %s",
-                            idx + 1, len(att_batches), attempt, str(e)
-                        )
-                        break
-                    logger.warning(
-                        "Signal: transient error on batch %d/%d (attempt %d/%d): %s; will retry",
-                        idx + 1, len(att_batches), attempt, SIGNAL_RATE_LIMIT_MAX_ATTEMPTS, str(e)
-                    )
-
-        warnings = []
-        if len(attachment_paths) < len(valid_media):
-            warnings.append("Some media files were skipped (not found on disk)")
-        if failed_batches:
-            warnings.append(
-                f"Signal rate-limited {len(failed_batches)} batch(es) "
-                f"(#{', #'.join(str(b) for b in failed_batches)})"
-            )
-
-        if failed_batches and len(failed_batches) == len(att_batches):
-            return _error(
-                f"Signal: every batch ({len(att_batches)}) hit rate limit; "
-                f"no attachments delivered"
-            )
-
-        result = {"success": True, "platform": "signal", "chat_id": chat_id}
-        if warnings:
-            result["warnings"] = warnings
-        return result
-    except Exception as e:
-        return _error(f"Signal send failed: {e}")
 
 
 async def _send_email(extra, chat_id, message):
@@ -1028,213 +688,6 @@ async def _send_email(extra, chat_id, message):
         return _error(f"Email send failed: {e}")
 
 
-async def _send_sms(auth_token, chat_id, message):
-    """Send a single SMS via Twilio REST API.
-
-    Uses HTTP Basic auth (Account SID : Auth Token) and form-encoded POST.
-    Chunking is handled by _send_to_platform() before this is called.
-    """
-    try:
-        import aiohttp
-    except ImportError:
-        return {"error": "aiohttp not installed. Run: pip install aiohttp"}
-
-    import base64
-
-    account_sid = os.getenv("TWILIO_ACCOUNT_SID", "")
-    from_number = os.getenv("TWILIO_PHONE_NUMBER", "")
-    if not account_sid or not auth_token or not from_number:
-        return {"error": "SMS not configured (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER required)"}
-
-    # Strip markdown — SMS renders it as literal characters
-    message = re.sub(r"\*\*(.+?)\*\*", r"\1", message, flags=re.DOTALL)
-    message = re.sub(r"\*(.+?)\*", r"\1", message, flags=re.DOTALL)
-    message = re.sub(r"__(.+?)__", r"\1", message, flags=re.DOTALL)
-    message = re.sub(r"_(.+?)_", r"\1", message, flags=re.DOTALL)
-    message = re.sub(r"```[a-z]*\n?", "", message)
-    message = re.sub(r"`(.+?)`", r"\1", message)
-    message = re.sub(r"^#{1,6}\s+", "", message, flags=re.MULTILINE)
-    message = re.sub(r"\[([^\]]+)\]\([^\)]+\)", r"\1", message)
-    message = re.sub(r"\n{3,}", "\n\n", message)
-    message = message.strip()
-
-    try:
-        from gateway.platforms.base import resolve_proxy_url, proxy_kwargs_for_aiohttp
-        _proxy = resolve_proxy_url()
-        _sess_kw, _req_kw = proxy_kwargs_for_aiohttp(_proxy)
-        creds = f"{account_sid}:{auth_token}"
-        encoded = base64.b64encode(creds.encode("ascii")).decode("ascii")
-        url = f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json"
-        headers = {"Authorization": f"Basic {encoded}"}
-
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30), **_sess_kw) as session:
-            form_data = aiohttp.FormData()
-            form_data.add_field("From", from_number)
-            form_data.add_field("To", chat_id)
-            form_data.add_field("Body", message)
-
-            async with session.post(url, data=form_data, headers=headers, **_req_kw) as resp:
-                body = await resp.json()
-                if resp.status >= 400:
-                    error_msg = body.get("message", str(body))
-                    return _error(f"Twilio API error ({resp.status}): {error_msg}")
-                msg_sid = body.get("sid", "")
-                return {"success": True, "platform": "sms", "chat_id": chat_id, "message_id": msg_sid}
-    except Exception as e:
-        return _error(f"SMS send failed: {e}")
-
-
-async def _send_mattermost(token, extra, chat_id, message):
-    """Send via Mattermost REST API."""
-    try:
-        import aiohttp
-    except ImportError:
-        return {"error": "aiohttp not installed. Run: pip install aiohttp"}
-    try:
-        base_url = (extra.get("url") or os.getenv("MATTERMOST_URL", "")).rstrip("/")
-        token = token or os.getenv("MATTERMOST_TOKEN", "")
-        if not base_url or not token:
-            return {"error": "Mattermost not configured (MATTERMOST_URL, MATTERMOST_TOKEN required)"}
-        url = f"{base_url}/api/v4/posts"
-        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
-            async with session.post(url, headers=headers, json={"channel_id": chat_id, "message": message}) as resp:
-                if resp.status not in (200, 201):
-                    body = await resp.text()
-                    return _error(f"Mattermost API error ({resp.status}): {body}")
-                data = await resp.json()
-        return {"success": True, "platform": "mattermost", "chat_id": chat_id, "message_id": data.get("id")}
-    except Exception as e:
-        return _error(f"Mattermost send failed: {e}")
-
-
-async def _send_matrix(token, extra, chat_id, message):
-    """Send via Matrix Client-Server API.
-
-    Converts markdown to HTML for rich rendering in Matrix clients.
-    Falls back to plain text if the ``markdown`` library is not installed.
-    """
-    try:
-        import aiohttp
-    except ImportError:
-        return {"error": "aiohttp not installed. Run: pip install aiohttp"}
-    try:
-        homeserver = (extra.get("homeserver") or os.getenv("MATRIX_HOMESERVER", "")).rstrip("/")
-        token = token or os.getenv("MATRIX_ACCESS_TOKEN", "")
-        if not homeserver or not token:
-            return {"error": "Matrix not configured (MATRIX_HOMESERVER, MATRIX_ACCESS_TOKEN required)"}
-        txn_id = f"kabuqina_{int(time.time() * 1000)}_{os.urandom(4).hex()}"
-        from urllib.parse import quote
-        encoded_room = quote(chat_id, safe="")
-        url = f"{homeserver}/_matrix/client/v3/rooms/{encoded_room}/send/m.room.message/{txn_id}"
-        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-
-        # Build message payload with optional HTML formatted_body.
-        payload = {"msgtype": "m.text", "body": message}
-        try:
-            import markdown as _md
-            html = _md.markdown(message, extensions=["fenced_code", "tables"])
-            # Convert h1-h6 to bold for Element X compatibility.
-            html = re.sub(r"<h[1-6]>(.*?)</h[1-6]>", r"<strong>\1</strong>", html)
-            payload["format"] = "org.matrix.custom.html"
-            payload["formatted_body"] = html
-        except ImportError:
-            pass
-
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
-            async with session.put(url, headers=headers, json=payload) as resp:
-                if resp.status not in (200, 201):
-                    body = await resp.text()
-                    return _error(f"Matrix API error ({resp.status}): {body}")
-                data = await resp.json()
-        return {"success": True, "platform": "matrix", "chat_id": chat_id, "message_id": data.get("event_id")}
-    except Exception as e:
-        return _error(f"Matrix send failed: {e}")
-
-
-async def _send_matrix_via_adapter(pconfig, chat_id, message, media_files=None, thread_id=None):
-    """Send via the Matrix adapter so native Matrix media uploads are preserved."""
-    try:
-        from gateway.platforms.matrix import MatrixAdapter
-    except ImportError:
-        return {"error": "Matrix dependencies not installed. Run: pip install 'mautrix[encryption]'"}
-
-    media_files = media_files or []
-
-    try:
-        adapter = MatrixAdapter(pconfig)
-        connected = await adapter.connect()
-        if not connected:
-            return _error("Matrix connect failed")
-
-        metadata = {"thread_id": thread_id} if thread_id else None
-        last_result = None
-
-        if message.strip():
-            last_result = await adapter.send(chat_id, message, metadata=metadata)
-            if not last_result.success:
-                return _error(f"Matrix send failed: {last_result.error}")
-
-        for media_path, is_voice in media_files:
-            if not os.path.exists(media_path):
-                return _error(f"Media file not found: {media_path}")
-
-            ext = os.path.splitext(media_path)[1].lower()
-            if ext in _IMAGE_EXTS:
-                last_result = await adapter.send_image_file(chat_id, media_path, metadata=metadata)
-            elif ext in _VIDEO_EXTS:
-                last_result = await adapter.send_video(chat_id, media_path, metadata=metadata)
-            elif ext in _VOICE_EXTS and is_voice:
-                last_result = await adapter.send_voice(chat_id, media_path, metadata=metadata)
-            elif ext in _AUDIO_EXTS:
-                last_result = await adapter.send_voice(chat_id, media_path, metadata=metadata)
-            else:
-                last_result = await adapter.send_document(chat_id, media_path, metadata=metadata)
-
-            if not last_result.success:
-                return _error(f"Matrix media send failed: {last_result.error}")
-
-        if last_result is None:
-            return {"error": "No deliverable text or media remained after processing MEDIA tags"}
-
-        return {
-            "success": True,
-            "platform": "matrix",
-            "chat_id": chat_id,
-            "message_id": last_result.message_id,
-        }
-    except Exception as e:
-        return _error(f"Matrix send failed: {e}")
-    finally:
-        try:
-            await adapter.disconnect()
-        except Exception:
-            pass
-
-
-async def _send_homeassistant(token, extra, chat_id, message):
-    """Send via Home Assistant notify service."""
-    try:
-        import aiohttp
-    except ImportError:
-        return {"error": "aiohttp not installed. Run: pip install aiohttp"}
-    try:
-        hass_url = (extra.get("url") or os.getenv("HASS_URL", "")).rstrip("/")
-        token = token or os.getenv("HASS_TOKEN", "")
-        if not hass_url or not token:
-            return {"error": "Home Assistant not configured (HASS_URL, HASS_TOKEN required)"}
-        url = f"{hass_url}/api/services/notify/notify"
-        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
-            async with session.post(url, headers=headers, json={"message": message, "target": chat_id}) as resp:
-                if resp.status not in (200, 201):
-                    body = await resp.text()
-                    return _error(f"Home Assistant API error ({resp.status}): {body}")
-        return {"success": True, "platform": "homeassistant", "chat_id": chat_id}
-    except Exception as e:
-        return _error(f"Home Assistant send failed: {e}")
-
-
 async def _send_dingtalk(extra, chat_id, message):
     """Send via DingTalk robot webhook.
 
@@ -1285,33 +738,6 @@ async def _send_weixin(pconfig, chat_id, message, media_files=None):
         )
     except Exception as e:
         return _error(f"Weixin send failed: {e}")
-
-
-async def _send_bluebubbles(extra, chat_id, message):
-    """Send via BlueBubbles iMessage server using the adapter's REST API."""
-    try:
-        from gateway.platforms.bluebubbles import BlueBubblesAdapter, check_bluebubbles_requirements
-        if not check_bluebubbles_requirements():
-            return {"error": "BlueBubbles requirements not met (need aiohttp + httpx)."}
-    except ImportError:
-        return {"error": "BlueBubbles adapter not available."}
-
-    try:
-        from gateway.config import PlatformConfig
-        pconfig = PlatformConfig(extra=extra)
-        adapter = BlueBubblesAdapter(pconfig)
-        connected = await adapter.connect()
-        if not connected:
-            return _error("BlueBubbles: failed to connect to server")
-        try:
-            result = await adapter.send(chat_id, message)
-            if not result.success:
-                return _error(f"BlueBubbles send failed: {result.error}")
-            return {"success": True, "platform": "bluebubbles", "chat_id": chat_id, "message_id": result.message_id}
-        finally:
-            await adapter.disconnect()
-    except Exception as e:
-        return _error(f"BlueBubbles send failed: {e}")
 
 
 def _check_send_message():
@@ -1377,35 +803,6 @@ async def _send_qqbot(pconfig, chat_id, message):
                 return _error(f"QQBot send failed: {resp.status_code} {resp.text}")
     except Exception as e:
         return _error(f"QQBot send failed: {e}")
-
-
-async def _send_yuanbao(chat_id, message, media_files=None):
-    """Send via Yuanbao using the running gateway adapter's WebSocket connection.
-
-    Yuanbao uses a persistent WebSocket — unlike HTTP-based platforms, we
-    cannot create a throwaway client.  We obtain the running singleton from
-    the adapter module itself (``get_active_adapter``).
-
-    chat_id format:
-      - Group: "group:<group_code>"
-      - DM:    "direct:<account_id>" or just "<account_id>"
-    """
-    try:
-        from gateway.platforms.yuanbao import get_active_adapter, send_yuanbao_direct
-    except ImportError:
-        return _error("Yuanbao adapter module not available.")
-
-    adapter = get_active_adapter()
-    if adapter is None:
-        return _error(
-            "Yuanbao adapter is not running. "
-            "Start the gateway with yuanbao platform enabled first."
-        )
-
-    try:
-        return await send_yuanbao_direct(adapter, chat_id, message, media_files=media_files)
-    except Exception as e:
-        return _error(f"Yuanbao send failed: {e}")
 
 
 # --- Registry ---

@@ -517,6 +517,7 @@ if _env_path.exists():
 from gateway.config import (
     Platform,
     _BUILTIN_PLATFORM_VALUES,
+    _REMOVED_PLATFORM_VALUES,
     GatewayConfig,
     SESSION_CONTINUITY_HEADER,
     load_gateway_config,
@@ -879,7 +880,7 @@ def _format_gateway_process_notification(evt: dict) -> "str | None":
 
 # Module-level weak reference to the active GatewayRunner instance.
 # Used by tools (e.g. send_message) that need to route through a live
-# adapter for plugin platforms.  Set in GatewayRunner.__init__().
+# product adapter. Set in GatewayRunner.__init__().
 import weakref as _weakref
 _gateway_runner_ref: _weakref.ref = lambda: None
 
@@ -1089,7 +1090,7 @@ class GatewayRunner:
             return
 
         connected = self.config.get_connected_platforms()
-        messaging_platforms = [p for p in connected if p not in {Platform.LOCAL, Platform.API_SERVER, Platform.WEBHOOK}]
+        messaging_platforms = [p for p in connected if p != Platform.LOCAL]
         if not messaging_platforms:
             return
 
@@ -2492,53 +2493,26 @@ class GatewayRunner:
         # Warn if no user allowlists are configured and open access is not opted in
         _builtin_allowed_vars = (
             "TELEGRAM_ALLOWED_USERS",
-            "WHATSAPP_ALLOWED_USERS", "SLACK_ALLOWED_USERS",
-            "SIGNAL_ALLOWED_USERS", "SIGNAL_GROUP_ALLOWED_USERS",
+            "WHATSAPP_ALLOWED_USERS",
             "TELEGRAM_GROUP_ALLOWED_USERS",
             "TELEGRAM_GROUP_ALLOWED_CHATS",
             "EMAIL_ALLOWED_USERS",
-            "SMS_ALLOWED_USERS", "MATTERMOST_ALLOWED_USERS",
-            "MATRIX_ALLOWED_USERS", "DINGTALK_ALLOWED_USERS",
+            "DINGTALK_ALLOWED_USERS",
             "WEIXIN_ALLOWED_USERS",
-            "BLUEBUBBLES_ALLOWED_USERS",
             "QQ_ALLOWED_USERS",
-            "YUANBAO_ALLOWED_USERS",
             "GATEWAY_ALLOWED_USERS",
         )
         _builtin_allow_all_vars = (
             "TELEGRAM_ALLOW_ALL_USERS",
-            "WHATSAPP_ALLOW_ALL_USERS", "SLACK_ALLOW_ALL_USERS",
-            "SIGNAL_ALLOW_ALL_USERS", "EMAIL_ALLOW_ALL_USERS",
-            "SMS_ALLOW_ALL_USERS", "MATTERMOST_ALLOW_ALL_USERS",
-            "MATRIX_ALLOW_ALL_USERS", "DINGTALK_ALLOW_ALL_USERS",
+            "WHATSAPP_ALLOW_ALL_USERS", "EMAIL_ALLOW_ALL_USERS",
+            "DINGTALK_ALLOW_ALL_USERS",
             "WEIXIN_ALLOW_ALL_USERS",
-            "BLUEBUBBLES_ALLOW_ALL_USERS",
             "QQ_ALLOW_ALL_USERS",
-            "YUANBAO_ALLOW_ALL_USERS",
         )
-        # Also pick up plugin-registered platforms - each entry can declare
-        # its own allowed_users_env / allow_all_env, so the warning stays
-        # accurate as plugins like IRC come online.
-        _plugin_allowed_vars: tuple = ()
-        _plugin_allow_all_vars: tuple = ()
-        try:
-            from gateway.platform_registry import platform_registry
-            _plugin_allowed_vars = tuple(
-                e.allowed_users_env for e in platform_registry.plugin_entries()
-                if e.allowed_users_env
-            )
-            _plugin_allow_all_vars = tuple(
-                e.allow_all_env for e in platform_registry.plugin_entries()
-                if e.allow_all_env
-            )
-        except Exception:
-            pass
-        _any_allowlist = any(
-            os.getenv(v) for v in _builtin_allowed_vars + _plugin_allowed_vars
-        )
+        _any_allowlist = any(os.getenv(v) for v in _builtin_allowed_vars)
         _allow_all = os.getenv("GATEWAY_ALLOW_ALL_USERS", "").lower() in ("true", "1", "yes") or any(
             os.getenv(v, "").lower() in ("true", "1", "yes")
-            for v in _builtin_allow_all_vars + _plugin_allow_all_vars
+            for v in _builtin_allow_all_vars
         )
         if not _any_allowlist and not _allow_all:
             logger.warning(
@@ -3418,11 +3392,7 @@ class GatewayRunner:
         platform: Platform, 
         config: Any
     ) -> Optional[BasePlatformAdapter]:
-        """Create the appropriate adapter for a platform.
-
-        Checks the platform_registry first (plugin adapters), then falls
-        through to the built-in if/elif chain for core platforms.
-        """
+        """Create an adapter for a retained product platform."""
         if hasattr(config, "extra") and isinstance(config.extra, dict):
             config.extra.setdefault(
                 "group_sessions_per_user",
@@ -3432,25 +3402,6 @@ class GatewayRunner:
                 "thread_sessions_per_user",
                 getattr(self.config, "thread_sessions_per_user", False),
             )
-
-        # ── Plugin-registered platforms (checked first) ───────────────────
-        try:
-            from gateway.platform_registry import platform_registry
-            if platform_registry.is_registered(platform.value):
-                adapter = platform_registry.create_adapter(platform.value, config)
-                if adapter is not None:
-                    return adapter
-                # Registered but failed to instantiate - don't silently fall
-                # through to built-ins (there are none for plugin platforms).
-                logger.error(
-                    "Platform '%s' is registered but adapter creation failed "
-                    "(check dependencies and config)",
-                    platform.value,
-                )
-                return None
-        except Exception as e:
-            logger.debug("Platform registry lookup for '%s' failed: %s", platform.value, e)
-        # Fall through to built-in adapters below
 
         if platform == Platform.TELEGRAM:
             from gateway.platforms.telegram import TelegramAdapter, check_telegram_requirements
@@ -3466,40 +3417,12 @@ class GatewayRunner:
                 return None
             return WhatsAppAdapter(config)
         
-        elif platform == Platform.SLACK:
-            from gateway.platforms.slack import SlackAdapter, check_slack_requirements
-            if not check_slack_requirements():
-                logger.warning("Slack: slack-bolt not installed. Run: pip install 'kabuqina-agent[slack]'")
-                return None
-            return SlackAdapter(config)
-
-        elif platform == Platform.SIGNAL:
-            from gateway.platforms.signal import SignalAdapter, check_signal_requirements
-            if not check_signal_requirements():
-                logger.warning("Signal: SIGNAL_HTTP_URL or SIGNAL_ACCOUNT not configured")
-                return None
-            return SignalAdapter(config)
-
-        elif platform == Platform.HOMEASSISTANT:
-            from gateway.platforms.homeassistant import HomeAssistantAdapter, check_ha_requirements
-            if not check_ha_requirements():
-                logger.warning("HomeAssistant: aiohttp not installed or HASS_TOKEN not set")
-                return None
-            return HomeAssistantAdapter(config)
-
         elif platform == Platform.EMAIL:
             from gateway.platforms.email import EmailAdapter, check_email_requirements
             if not check_email_requirements():
                 logger.warning("Email: address, IMAP/SMTP hosts, or selected auth credentials not set")
                 return None
             return EmailAdapter(config)
-
-        elif platform == Platform.SMS:
-            from gateway.platforms.sms import SmsAdapter, check_sms_requirements
-            if not check_sms_requirements():
-                logger.warning("SMS: aiohttp not installed or TWILIO_ACCOUNT_SID/TWILIO_AUTH_TOKEN not set")
-                return None
-            return SmsAdapter(config)
 
         elif platform == Platform.DINGTALK:
             from gateway.platforms.dingtalk import DingTalkAdapter, check_dingtalk_requirements
@@ -3515,56 +3438,12 @@ class GatewayRunner:
                 return None
             return WeixinAdapter(config)
 
-        elif platform == Platform.MATTERMOST:
-            from gateway.platforms.mattermost import MattermostAdapter, check_mattermost_requirements
-            if not check_mattermost_requirements():
-                logger.warning("Mattermost: MATTERMOST_TOKEN or MATTERMOST_URL not set, or aiohttp missing")
-                return None
-            return MattermostAdapter(config)
-
-        elif platform == Platform.MATRIX:
-            from gateway.platforms.matrix import MatrixAdapter, check_matrix_requirements
-            if not check_matrix_requirements():
-                logger.warning("Matrix: mautrix not installed or credentials not set. Run: pip install 'mautrix[encryption]'")
-                return None
-            return MatrixAdapter(config)
-
-        elif platform == Platform.API_SERVER:
-            from gateway.platforms.api_server import APIServerAdapter, check_api_server_requirements
-            if not check_api_server_requirements():
-                logger.warning("API Server: aiohttp not installed")
-                return None
-            return APIServerAdapter(config)
-
-        elif platform == Platform.WEBHOOK:
-            from gateway.platforms.webhook import WebhookAdapter, check_webhook_requirements
-            if not check_webhook_requirements():
-                logger.warning("Webhook: aiohttp not installed")
-                return None
-            adapter = WebhookAdapter(config)
-            adapter.gateway_runner = self  # For cross-platform delivery
-            return adapter
-
-        elif platform == Platform.BLUEBUBBLES:
-            from gateway.platforms.bluebubbles import BlueBubblesAdapter, check_bluebubbles_requirements
-            if not check_bluebubbles_requirements():
-                logger.warning("BlueBubbles: aiohttp/httpx missing or BLUEBUBBLES_SERVER_URL/BLUEBUBBLES_PASSWORD not configured")
-                return None
-            return BlueBubblesAdapter(config)
-
         elif platform == Platform.QQBOT:
             from gateway.platforms.qqbot import QQAdapter, check_qq_requirements
             if not check_qq_requirements():
                 logger.warning("QQBot: aiohttp/httpx missing or QQ_APP_ID/QQ_CLIENT_SECRET not configured")
                 return None
             return QQAdapter(config)
-
-        elif platform == Platform.YUANBAO:
-            from gateway.platforms.yuanbao import YuanbaoAdapter, WEBSOCKETS_AVAILABLE
-            if not WEBSOCKETS_AVAILABLE:
-                logger.warning("Yuanbao: websockets not installed. Run: pip install websockets")
-                return None
-            return YuanbaoAdapter(config)
 
         return None
     def _is_user_authorized(self, source: SessionSource) -> bool:
@@ -3578,14 +3457,6 @@ class GatewayRunner:
         4. Global allow-all (GATEWAY_ALLOW_ALL_USERS=true)
         5. Default: deny
         """
-        # Home Assistant events are system-generated (state changes), not
-        # user-initiated messages.  The HASS_TOKEN already authenticates the
-        # connection, so HA events are always authorized.
-        # Webhook events are authenticated via HMAC signature validation in
-        # the adapter itself - no user allowlist applies.
-        if source.platform in (Platform.HOMEASSISTANT, Platform.WEBHOOK):
-            return True
-
         user_id = source.user_id
         if not user_id:
             return False
@@ -3593,17 +3464,10 @@ class GatewayRunner:
         platform_env_map = {
             Platform.TELEGRAM: "TELEGRAM_ALLOWED_USERS",
             Platform.WHATSAPP: "WHATSAPP_ALLOWED_USERS",
-            Platform.SLACK: "SLACK_ALLOWED_USERS",
-            Platform.SIGNAL: "SIGNAL_ALLOWED_USERS",
             Platform.EMAIL: "EMAIL_ALLOWED_USERS",
-            Platform.SMS: "SMS_ALLOWED_USERS",
-            Platform.MATTERMOST: "MATTERMOST_ALLOWED_USERS",
-            Platform.MATRIX: "MATRIX_ALLOWED_USERS",
             Platform.DINGTALK: "DINGTALK_ALLOWED_USERS",
             Platform.WEIXIN: "WEIXIN_ALLOWED_USERS",
-            Platform.BLUEBUBBLES: "BLUEBUBBLES_ALLOWED_USERS",
             Platform.QQBOT: "QQ_ALLOWED_USERS",
-            Platform.YUANBAO: "YUANBAO_ALLOWED_USERS",
         }
         platform_group_user_env_map = {
             Platform.TELEGRAM: "TELEGRAM_GROUP_ALLOWED_USERS",
@@ -3615,31 +3479,11 @@ class GatewayRunner:
         platform_allow_all_map = {
             Platform.TELEGRAM: "TELEGRAM_ALLOW_ALL_USERS",
             Platform.WHATSAPP: "WHATSAPP_ALLOW_ALL_USERS",
-            Platform.SLACK: "SLACK_ALLOW_ALL_USERS",
-            Platform.SIGNAL: "SIGNAL_ALLOW_ALL_USERS",
             Platform.EMAIL: "EMAIL_ALLOW_ALL_USERS",
-            Platform.SMS: "SMS_ALLOW_ALL_USERS",
-            Platform.MATTERMOST: "MATTERMOST_ALLOW_ALL_USERS",
-            Platform.MATRIX: "MATRIX_ALLOW_ALL_USERS",
             Platform.DINGTALK: "DINGTALK_ALLOW_ALL_USERS",
             Platform.WEIXIN: "WEIXIN_ALLOW_ALL_USERS",
-            Platform.BLUEBUBBLES: "BLUEBUBBLES_ALLOW_ALL_USERS",
             Platform.QQBOT: "QQ_ALLOW_ALL_USERS",
-            Platform.YUANBAO: "YUANBAO_ALLOW_ALL_USERS",
         }
-
-        # Plugin platforms: check the registry for auth env var names
-        if source.platform not in platform_env_map:
-            try:
-                from gateway.platform_registry import platform_registry
-                entry = platform_registry.get(source.platform.value)
-                if entry:
-                    if entry.allowed_users_env:
-                        platform_env_map[source.platform] = entry.allowed_users_env
-                    if entry.allow_all_env:
-                        platform_allow_all_map[source.platform] = entry.allow_all_env
-            except Exception:
-                pass
 
         # Per-platform allow-all flag.
         platform_allow_all_var = platform_allow_all_map.get(source.platform, "")
@@ -3775,15 +3619,9 @@ class GatewayRunner:
             platform_env_map = {
                 Platform.TELEGRAM: "TELEGRAM_ALLOWED_USERS",
                 Platform.WHATSAPP: "WHATSAPP_ALLOWED_USERS",
-                Platform.SLACK:    "SLACK_ALLOWED_USERS",
-                Platform.SIGNAL:   "SIGNAL_ALLOWED_USERS",
                 Platform.EMAIL:    "EMAIL_ALLOWED_USERS",
-                Platform.SMS:      "SMS_ALLOWED_USERS",
-                Platform.MATTERMOST: "MATTERMOST_ALLOWED_USERS",
-                Platform.MATRIX:   "MATRIX_ALLOWED_USERS",
                 Platform.DINGTALK: "DINGTALK_ALLOWED_USERS",
                 Platform.WEIXIN:   "WEIXIN_ALLOWED_USERS",
-                Platform.BLUEBUBBLES: "BLUEBUBBLES_ALLOWED_USERS",
                 Platform.QQBOT:    "QQ_ALLOWED_USERS",
             }
             platform_group_env_map = {
@@ -5369,28 +5207,19 @@ class GatewayRunner:
                 "Keep the introduction concise -- one or two sentences max.]"
             )
         
-        # One-time prompt if no home channel is set for this platform
-        # Skip for webhooks - they deliver directly to configured targets (github_comment, etc.)
-        if not history and source.platform and source.platform != Platform.LOCAL and source.platform != Platform.WEBHOOK:
+        # One-time prompt if no home channel is set for this platform.
+        if not history and source.platform and source.platform != Platform.LOCAL:
             platform_name = source.platform.value
             env_key = f"{platform_name.upper()}_HOME_CHANNEL"
             if not os.getenv(env_key):
                 adapter = self.adapters.get(source.platform)
                 if adapter:
-                    # Slack dispatches all Kabuqina commands through a single
-                    # parent slash command `/hermes`; bare `/sethome` is not
-                    # registered and would fail with "app did not respond".
-                    sethome_cmd = (
-                        "/hermes sethome"
-                        if source.platform == Platform.SLACK
-                        else "/sethome"
-                    )
                     await adapter.send(
                         source.chat_id,
                         f"📬 No home channel is set for {platform_name.title()}. "
                         f"A home channel is where Xiao Na delivers reminder results "
                         f"and cross-platform messages.\n\n"
-                        f"Type {sethome_cmd} to make this chat your home channel, "
+                        f"Type /sethome to make this chat your home channel, "
                         f"or ignore to skip."
                     )
         
@@ -8794,13 +8623,10 @@ class GatewayRunner:
         logger.info("User denied %d dangerous command(s) via /deny", count)
         return f"❌ Command{'s' if count > 1 else ''} denied{count_msg}."
 
-    # Platforms where /update is allowed.  ACP, API server, and webhooks are
-    # programmatic interfaces that should not trigger system updates.
+    # Platforms where /update is allowed.
     _UPDATE_ALLOWED_PLATFORMS = frozenset({
-        Platform.TELEGRAM, Platform.SLACK, Platform.WHATSAPP,
-        Platform.SIGNAL, Platform.MATTERMOST, Platform.MATRIX,
-        Platform.HOMEASSISTANT, Platform.EMAIL, Platform.SMS, Platform.DINGTALK,
-        Platform.WEIXIN, Platform.BLUEBUBBLES, Platform.QQBOT, Platform.LOCAL,
+        Platform.TELEGRAM, Platform.WHATSAPP, Platform.EMAIL,
+        Platform.DINGTALK, Platform.WEIXIN, Platform.QQBOT, Platform.LOCAL,
     })
 
     async def _handle_debug_command(self, event: MessageEvent) -> str:
@@ -8868,18 +8694,10 @@ class GatewayRunner:
         from datetime import datetime
         from kabuqina_cli.config import is_managed, format_managed_message
 
-        # Block non-messaging platforms (API server, webhooks, ACP)
+        # Block non-product messaging platforms.
         platform = event.source.platform
-        _allowed = self._UPDATE_ALLOWED_PLATFORMS
-        # Plugin platforms with allow_update_command=True are also allowed
-        if platform not in _allowed:
-            try:
-                from gateway.platform_registry import platform_registry
-                entry = platform_registry.get(platform.value)
-                if not entry or not entry.allow_update_command:
-                    return "✗ /update 只能在消息平台里使用。请在桌面端更新卡布奇娜。"
-            except Exception:
-                return "✗ /update 只能在消息平台里使用。请在桌面端更新卡布奇娜。"
+        if platform not in self._UPDATE_ALLOWED_PLATFORMS:
+            return "✗ /update 只能在消息平台里使用。请在桌面端更新卡布奇娜。"
 
         if is_managed():
             return f"✗ {format_managed_message('update Kabuqina')}"
@@ -9539,16 +9357,11 @@ class GatewayRunner:
 
         try:
             platform = Platform(platform_name)
-            # Reject arbitrary strings that create dynamic pseudo-members.
-            # Built-in platforms are always valid; plugin platforms must be
-            # registered in the platform registry.
-            if platform.value not in _BUILTIN_PLATFORM_VALUES:
-                try:
-                    from gateway.platform_registry import platform_registry
-                    if not platform_registry.is_registered(platform.value):
-                        raise ValueError(platform_name)
-                except Exception:
-                    raise ValueError(platform_name)
+            if (
+                platform.value not in _BUILTIN_PLATFORM_VALUES
+                or platform.value in _REMOVED_PLATFORM_VALUES
+            ):
+                raise ValueError(platform_name)
         except Exception:
             logger.warning(
                 "Synthetic process event has invalid platform metadata: %r",
@@ -10237,9 +10050,8 @@ class GatewayRunner:
         (encryption, threading, media) and delegates all agent work to the
         remote server via ``POST /v1/chat/completions`` with SSE streaming.
 
-        This lets a Docker container handle Matrix E2EE while the actual
-        agent runs on the host with full access to local files, memory,
-        skills, and a unified session store.
+        This lets a gateway process delegate agent work to a host with full
+        access to local files, memory, skills, and a unified session store.
         """
         try:
             from aiohttp import ClientSession as _AioClientSession, ClientTimeout
@@ -10269,7 +10081,7 @@ class GatewayRunner:
 
         # Build messages in OpenAI chat format --------------------------
         #
-        # The remote api_server can maintain session continuity via
+        # The remote endpoint can maintain session continuity via
         # the shared session-continuity header, so it loads its own history.
         # We only need to send the current user message.  If the remote has
         # no history for this session yet, include what we have locally
@@ -10336,12 +10148,9 @@ class GatewayRunner:
                     _adapter_supports_edit = getattr(_adapter, "SUPPORTS_MESSAGE_EDITING", True)
                     _effective_cursor = _scfg.cursor if _adapter_supports_edit else ""
                     _buffer_only = False
-                    if source.platform == Platform.MATRIX:
-                        _effective_cursor = ""
-                        _buffer_only = True
                     # Fresh-final applies to Telegram only - other
                     # platforms either edit in place cheaply (Telegram,
-                    # Slack) or don't have the timestamp-on-edit
+                    # other platforms) or don't have the timestamp-on-edit
                     # problem.  (Ported from openclaw/openclaw#72038.)
                     _fresh_final_secs = (
                         float(getattr(_scfg, "fresh_final_after_seconds", 0.0) or 0.0)
@@ -10600,16 +10409,13 @@ class GatewayRunner:
             if _env_tp and not _tool_progress_configured
             else (_resolved_tp or _env_tp or "all")
         )
-        # Disable tool progress for webhooks - they don't support message editing,
-        # so each progress line would be sent as a separate message.
         from gateway.config import Platform
-        tool_progress_enabled = progress_mode != "off" and source.platform != Platform.WEBHOOK
+        tool_progress_enabled = progress_mode != "off"
         # Natural assistant status messages are intentionally independent from
         # tool progress and token streaming. Users can keep tool_progress quiet
         # in chat platforms while opting into concise mid-turn updates.
         interim_assistant_messages_enabled = (
-            source.platform != Platform.WEBHOOK
-            and is_truthy_value(
+            is_truthy_value(
                 display_config.get("interim_assistant_messages"),
                 default=True,
             )
@@ -10735,15 +10541,10 @@ class GatewayRunner:
         # Background task to send progress messages
         # Accumulates tool lines into a single message that gets edited.
         #
-        # Threading metadata is platform-specific:
-        # - Slack DM threading needs event_message_id fallback (reply thread)
-        # - Telegram uses message_thread_id only for forum topics; passing a
+        # Telegram uses message_thread_id only for forum topics; passing a
         #   normal DM/group message id as thread_id causes send failures
         # - Other platforms should use explicit source.thread_id only
-        if source.platform == Platform.SLACK:
-            _progress_thread_id = source.thread_id or event_message_id
-        else:
-            _progress_thread_id = source.thread_id
+        _progress_thread_id = source.thread_id
         _progress_metadata = {"thread_id": _progress_thread_id} if _progress_thread_id else None
 
         async def send_progress_messages():
@@ -10755,7 +10556,7 @@ class GatewayRunner:
                 return
 
             # Skip tool progress for platforms that don't support message
-            # editing (e.g. iMessage/BlueBubbles) - each progress update
+            # editing - each progress update
             # would become a separate message bubble, which is noisy.
             if type(adapter).edit_message is BasePlatformAdapter.edit_message:
                 while not progress_queue.empty():
@@ -11083,13 +10884,7 @@ class GatewayRunner:
                         if not _adapter_supports_edit:
                             raise RuntimeError("skip streaming for non-editable platform")
                         _effective_cursor = _scfg.cursor
-                        # Some Matrix clients render the streaming cursor
-                        # as a visible tofu/white-box artifact.  Keep
-                        # streaming text on Matrix, but suppress the cursor.
                         _buffer_only = False
-                        if source.platform == Platform.MATRIX:
-                            _effective_cursor = ""
-                            _buffer_only = True
                         # Fresh-final applies to Telegram only - other
                         # platforms either edit in place cheaply or don't
                         # have the edit-timestamp-stays-stale problem.
@@ -12349,7 +12144,7 @@ def _start_cron_ticker(stop_event: threading.Event, adapters=None, loop=None, in
             try:
                 from gateway.channel_directory import build_channel_directory
                 if loop is not None:
-                    # build_channel_directory is async (Slack web calls), and
+                    # build_channel_directory is async, and
                     # this ticker runs in a background thread. Schedule onto
                     # the gateway event loop and wait briefly for completion
                     # so refresh failures are still logged via the except.

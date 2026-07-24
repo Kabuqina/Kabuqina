@@ -121,7 +121,7 @@ GLOBAL_STUDENT_CUT: frozenset[str] = frozenset({
     "opencode-go", "kilo", "nvidia", "arcee", "gmi", "ollama-cloud",
     # gateway/platform surfaces
     "homeassistant", "slack", "signal", "matrix", "mattermost",
-    "bluebubbles", "webhook", "api_server", "yuanbao",
+    "bluebubbles", "webhook", "api_server", "yuanbao", "sms", "irc", "teams",
     # toolsets/tools
     "rl", "discord_admin", "spotify", "moa",
 })

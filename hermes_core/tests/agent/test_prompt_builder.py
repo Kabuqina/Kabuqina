@@ -870,11 +870,15 @@ class TestPromptBuilderConstants:
         assert len(DEFAULT_AGENT_IDENTITY) > 50
 
     def test_platform_hints_known_platforms(self):
-        assert "whatsapp" in PLATFORM_HINTS
-        assert "telegram" in PLATFORM_HINTS
-        assert "discord" in PLATFORM_HINTS
-        assert "cron" in PLATFORM_HINTS
-        assert "cli" in PLATFORM_HINTS
+        assert {
+            "whatsapp",
+            "telegram",
+            "email",
+            "weixin",
+            "qqbot",
+            "cron",
+            "cli",
+        }.issubset(PLATFORM_HINTS)
 
     def test_cli_hint_does_not_suggest_media_tags(self):
         # Regression: MEDIA:/path tags are intercepted only by messaging
@@ -894,23 +898,25 @@ class TestPromptBuilderConstants:
         # check that this test is calibrated correctly).
         assert "include MEDIA:" in PLATFORM_HINTS["telegram"]
 
-    def test_platform_hints_mattermost(self):
-        hint = PLATFORM_HINTS["mattermost"]
-        assert "Mattermost" in hint
-        assert "MEDIA:" in hint
-        assert "Markdown" in hint
-
-    def test_platform_hints_matrix(self):
-        hint = PLATFORM_HINTS["matrix"]
-        assert "Matrix" in hint
-        assert "MEDIA:" in hint
-        assert "Markdown" in hint
-
-    def test_platform_hints_feishu(self):
-        hint = PLATFORM_HINTS["feishu"]
-        assert "Feishu" in hint
-        assert "MEDIA:" in hint
-        assert "Markdown" in hint
+    def test_removed_platform_hints_are_absent(self):
+        removed = {
+            "discord",
+            "feishu",
+            "wecom",
+            "slack",
+            "signal",
+            "matrix",
+            "mattermost",
+            "homeassistant",
+            "sms",
+            "api_server",
+            "webhook",
+            "bluebubbles",
+            "yuanbao",
+            "irc",
+            "teams",
+        }
+        assert removed.isdisjoint(PLATFORM_HINTS)
 
 
 # =========================================================================

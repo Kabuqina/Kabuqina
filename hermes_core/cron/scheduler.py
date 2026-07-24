@@ -46,7 +46,7 @@ def _resolve_cron_enabled_toolsets(job: dict, cfg: dict) -> list[str] | None:
     3. ``None`` on any lookup failure — AIAgent loads the full default set
        (legacy behavior before this change, preserved as the safety net).
 
-    _DEFAULT_OFF_TOOLSETS ({moa, homeassistant, rl}) are removed by
+    _DEFAULT_OFF_TOOLSETS ({moa, rl}) are removed by
     ``_get_platform_tools`` for unconfigured platforms, so fresh installs
     get cron WITHOUT ``moa`` by default (issue reported by Norbert —
     surprise $4.63 run).
@@ -67,28 +67,16 @@ def _resolve_cron_enabled_toolsets(job: dict, cfg: dict) -> list[str] | None:
 # Valid delivery platforms — used to validate user-supplied platform names
 # in cron delivery targets, preventing env var enumeration via crafted names.
 _KNOWN_DELIVERY_PLATFORMS = frozenset({
-    "telegram", "discord", "slack", "whatsapp", "signal",
-    "matrix", "mattermost", "homeassistant", "dingtalk", "feishu",
-    "wecom", "wecom_callback", "weixin", "sms", "email", "webhook", "bluebubbles",
-    "qqbot", "yuanbao",
+    "telegram", "whatsapp", "dingtalk", "weixin", "email", "qqbot",
 })
 
 # Platforms that support a configured cron/notification home target, mapped to
 # the environment variable used by gateway setup/runtime config.
 _HOME_TARGET_ENV_VARS = {
-    "matrix": "MATRIX_HOME_ROOM",
     "telegram": "TELEGRAM_HOME_CHANNEL",
-    "discord": "DISCORD_HOME_CHANNEL",
-    "slack": "SLACK_HOME_CHANNEL",
-    "signal": "SIGNAL_HOME_CHANNEL",
-    "mattermost": "MATTERMOST_HOME_CHANNEL",
-    "sms": "SMS_HOME_CHANNEL",
     "email": "EMAIL_HOME_ADDRESS",
     "dingtalk": "DINGTALK_HOME_CHANNEL",
-    "feishu": "FEISHU_HOME_CHANNEL",
-    "wecom": "WECOM_HOME_CHANNEL",
     "weixin": "WEIXIN_HOME_CHANNEL",
-    "bluebubbles": "BLUEBUBBLES_HOME_CHANNEL",
     "qqbot": "QQBOT_HOME_CHANNEL",
 }
 
@@ -158,6 +146,8 @@ def _resolve_single_delivery_target(job: dict, deliver_value: str) -> Optional[d
 
     if deliver_value == "origin":
         if origin:
+            if str(origin["platform"]).lower() not in _KNOWN_DELIVERY_PLATFORMS:
+                return None
             return {
                 "platform": origin["platform"],
                 "chat_id": str(origin["chat_id"]),
@@ -180,6 +170,8 @@ def _resolve_single_delivery_target(job: dict, deliver_value: str) -> Optional[d
     if ":" in deliver_value:
         platform_name, rest = deliver_value.split(":", 1)
         platform_key = platform_name.lower()
+        if platform_key not in _KNOWN_DELIVERY_PLATFORMS:
+            return None
 
         from tools.send_message_tool import _parse_target_ref
 
@@ -211,6 +203,9 @@ def _resolve_single_delivery_target(job: dict, deliver_value: str) -> Optional[d
         }
 
     platform_name = deliver_value
+    if platform_name.lower() not in _KNOWN_DELIVERY_PLATFORMS:
+        return None
+
     if origin and origin.get("platform") == platform_name:
         return {
             "platform": platform_name,
@@ -218,8 +213,6 @@ def _resolve_single_delivery_target(job: dict, deliver_value: str) -> Optional[d
             "thread_id": origin.get("thread_id"),
         }
 
-    if platform_name.lower() not in _KNOWN_DELIVERY_PLATFORMS:
-        return None
     chat_id = _get_home_target_chat_id(platform_name)
     if not chat_id:
         return None
@@ -333,8 +326,7 @@ def _deliver_result(job: dict, content: str, adapters=None, loop=None) -> Option
     Deliver job output to the configured target(s) (origin chat, specific platform, etc.).
 
     When ``adapters`` and ``loop`` are provided (gateway is running), tries to
-    use the live adapter first — this supports E2EE rooms (e.g. Matrix) where
-    the standalone HTTP path cannot encrypt.  Falls back to standalone send if
+    use the live adapter first, then falls back to standalone send if
     the adapter path fails or is unavailable.
 
     Returns None on success, or an error string on failure.
@@ -412,8 +404,6 @@ def _deliver_result(job: dict, content: str, adapters=None, loop=None) -> Option
                 job["id"], platform_name, chat_id, thread_id,
             )
 
-        # Built-in names resolve to their enum member; plugin platform names
-        # create dynamic members via Platform._missing_().
         try:
             platform = Platform(platform_name.lower())
         except (ValueError, KeyError):
@@ -429,8 +419,7 @@ def _deliver_result(job: dict, content: str, adapters=None, loop=None) -> Option
             delivery_errors.append(msg)
             continue
 
-        # Prefer the live adapter when the gateway is running — this supports E2EE
-        # rooms (e.g. Matrix) where the standalone HTTP path cannot encrypt.
+        # Prefer the live adapter when the gateway is running.
         runtime_adapter = (adapters or {}).get(platform)
         delivered = False
         if runtime_adapter is not None and loop is not None and getattr(loop, "is_running", lambda: False)():

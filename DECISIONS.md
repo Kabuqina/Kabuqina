@@ -1140,3 +1140,18 @@ integration before bundle on 2026-07-24: a fresh `build_bundle.ps1 -Verify`
 run on merged `main` remains operator-provided Gate evidence before final
 sign-off, but no longer blocks merge. C04/C05/C07/G01 remain separate
 controls.
+
+**CTL-C04 long-tail platform removal (2026-07-24).** SMS/Twilio, Slack,
+Signal, Matrix, Mattermost, BlueBubbles, Home Assistant, Yuanbao, gateway
+Webhook/API Server, and the bundled IRC/Teams platform plugins are removed as
+one owner-authorized integration batch. Their adapters, platform-only tools,
+plugin source, dedicated tests/docs and exclusive dependency reachability are
+deleted. Product platform discovery is now fixed: third-party plugins cannot
+register or override a gateway platform, and adapter/config/toolset/cron/direct
+send paths recognize only Weixin, QQBot, DingTalk, Telegram, WhatsApp and
+Email. Removed enum values remain compatibility tokens solely to read and
+reject old state; they do not create adapters, network trust or delivery
+targets. Persisted credentials, sessions, jobs and home targets are not
+deleted; CTL-C07 owns cleanup/upgrade. The owner reserved bundle execution, so
+fresh integrated runtime, shared dependency/license/SBOM and distribution
+proof remain CTL-C05/G01 gates rather than repeated C04 leaf bundles.

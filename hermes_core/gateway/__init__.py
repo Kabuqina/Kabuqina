@@ -2,7 +2,8 @@
 Kabuqina Gateway - Multi-platform messaging integration.
 
 This module provides a unified gateway for connecting the Kabuqina agent
-to various messaging platforms (Telegram, Slack, WhatsApp) with:
+to retained messaging platforms (Telegram, WhatsApp, email, DingTalk, Weixin,
+and QQBot) with:
 - Session management (persistent conversations with reset policies)
 - Dynamic context injection (agent knows where messages come from)
 - Delivery routing (cron job outputs to appropriate channels)

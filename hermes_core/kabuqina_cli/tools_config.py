@@ -70,14 +70,12 @@ CONFIGURABLE_TOOLSETS = [
     ("messaging",       "📨 Cross-Platform Messaging",  "send_message"),
     ("documents",       "📄 Document Tools",             "precise PDF/document read, material index, PDF/PPT write"),
     ("rl",              "🧪 RL Training",               "Tinker-Atropos training tools"),
-    ("homeassistant",    "🏠 Home Assistant",           "smart home device control"),
-    ("yuanbao",          "🤖 Yuanbao",                  "group info, member queries, DM"),
 ]
 
 # Toolsets that are OFF by default for new installs.
 # They're still in _KABUQINA_CORE_TOOLS (available at runtime if enabled),
 # but the setup checklist won't pre-select them for first-time users.
-_DEFAULT_OFF_TOOLSETS = {"moa", "homeassistant", "rl"}
+_DEFAULT_OFF_TOOLSETS = {"moa", "rl"}
 _REMOVED_TOOLSETS = frozenset({
     "discord",
     "discord_admin",
@@ -85,15 +83,24 @@ _REMOVED_TOOLSETS = frozenset({
     "feishu_drive",
     "wecom",
     "wecom_callback",
+    "slack",
+    "signal",
+    "bluebubbles",
+    "homeassistant",
+    "mattermost",
+    "matrix",
+    "yuanbao",
+    "sms",
+    "webhook",
+    "api_server",
+    "api-server",
 })
 
 # Platform-scoped toolsets: only appear in the `kabuqina tools` checklist for
 # these platforms, and only resolve/save for these platforms.  A toolset
 # absent from this map is available on every platform (current behaviour).
 #
-# Use this for tools whose APIs only make sense on one platform (for example
-# Slack workspace admin). Keeps every other platform's
-# checklist from filling up with irrelevant toggles.
+# Use this for tools whose APIs only make sense on one platform.
 _TOOLSET_PLATFORM_RESTRICTIONS: Dict[str, Set[str]] = {}
 
 
@@ -394,20 +401,6 @@ TOOL_CATEGORIES = {
                 ],
                 "browser_provider": "camofox",
                 "post_setup": "camofox",
-            },
-        ],
-    },
-    "homeassistant": {
-        "name": "Smart Home",
-        "icon": "🏠",
-        "providers": [
-            {
-                "name": "Home Assistant",
-                "tag": "REST API integration",
-                "env_vars": [
-                    {"key": "HASS_TOKEN", "prompt": "Home Assistant Long-Lived Access Token"},
-                    {"key": "HASS_URL", "prompt": "Home Assistant URL", "default": "http://homeassistant.local:8123"},
-                ],
             },
         ],
     },
@@ -723,8 +716,6 @@ def _get_enabled_platforms() -> List[str]:
     enabled = ["cli"]
     if get_env_value("TELEGRAM_BOT_TOKEN"):
         enabled.append("telegram")
-    if get_env_value("SLACK_BOT_TOKEN"):
-        enabled.append("slack")
     if get_env_value("WHATSAPP_ENABLED"):
         enabled.append("whatsapp")
     if get_env_value("QQ_APP_ID"):
@@ -782,8 +773,7 @@ def _get_platform_tools(
         if plat_info:
             default_ts = plat_info["default_toolset"]
         else:
-            # Plugin platform — derive toolset name from platform key
-            default_ts = f"kabuqina-{platform}"
+            return set()
         toolset_names = [default_ts]
 
     # YAML may parse bare numeric names (e.g. ``12306:``) as int.
@@ -823,21 +813,9 @@ def _get_platform_tools(
 
         default_off = set(_DEFAULT_OFF_TOOLSETS)
         # Legacy safety: if the platform's own name matches a default-off
-        # toolset (e.g. `homeassistant` platform + `homeassistant` toolset),
-        # keep that toolset enabled on first install.  Skip this dodge for
-        # platform-restricted toolsets — those are always opt-in even on
-        # their own platform (e.g. `discord` + `discord` should stay OFF).
+        # toolset, keep that toolset enabled on first install.
         if platform in default_off and platform not in _TOOLSET_PLATFORM_RESTRICTIONS:
             default_off.remove(platform)
-        # Home Assistant is already runtime-gated by its check_fn (requires
-        # HASS_TOKEN to register any tools). When a user has configured
-        # HASS_TOKEN, they've explicitly opted in — don't also strip it via
-        # _DEFAULT_OFF_TOOLSETS, which would silently drop HA from platforms
-        # (e.g. cron) that run through _get_platform_tools without an
-        # explicit saved toolset list. Without this, Norbert's HA cron jobs
-        # regressed after #14798 made cron honor per-platform tool config.
-        if "homeassistant" in default_off and os.getenv("HASS_TOKEN"):
-            default_off.remove("homeassistant")
         enabled_toolsets -= default_off
 
     # Recover non-configurable platform toolsets. These are part of the
@@ -847,7 +825,9 @@ def _get_platform_tools(
     # otherwise saving via `kabuqina tools` (which flips has_explicit_config
     # to True) silently drops them.
     _plat_info = PLATFORMS.get(platform)
-    _default_ts = _plat_info["default_toolset"] if _plat_info else f"kabuqina-{platform}"
+    if not _plat_info:
+        return enabled_toolsets
+    _default_ts = _plat_info["default_toolset"]
     platform_tool_universe = set(resolve_toolset(_default_ts))
     configurable_tool_universe = set()
     for ck in configurable_keys:

@@ -434,7 +434,7 @@ You've got a working team Telegram assistant. Here are some next steps:
 - **[Scheduled Tasks](/docs/user-guide/features/cron)** — advanced cron scheduling with delivery options and cron expressions
 - **[Context Files](/docs/user-guide/features/context-files)** — AGENTS.md, SOUL.md, and .cursorrules for project knowledge
 - **[Personality](/docs/user-guide/features/personality)** — built-in personality presets and custom persona definitions
-- **Add more platforms** — the same gateway can simultaneously run [Discord](/docs/user-guide/messaging/discord), [Slack](/docs/user-guide/messaging/slack), and [WhatsApp](/docs/user-guide/messaging/whatsapp)
+- **Add another retained platform** — the available set depends on the active product profile.
 
 ---
 
