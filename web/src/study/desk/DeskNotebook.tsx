@@ -356,7 +356,7 @@ export function DeskNotebook({
               {activity === "needs_revision" && (
                 <>
                   <button type="button" className="kd-primary" onClick={onModify}>修改答案</button>
-                  <button type="button" onClick={onAskTutor}>
+                  <button id="kd-inline-chat" type="button" onClick={onAskTutor}>
                     <Coffee /> 让小娜陪我补这一步
                   </button>
                 </>

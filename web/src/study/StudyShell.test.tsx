@@ -5,9 +5,10 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { StrictMode, useState } from "react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../lib/i18n";
 import { answerConfirm, getConfirmSnapshot } from "../lib/confirmDialog";
+import { readPendingStudyHandoff } from "../lib/studyChatHandoff";
 import type { StudyRepository } from "./repository";
 import { StudyRepositoryProvider } from "./repositoryContext";
 import { StudyShell } from "./StudyShell";
@@ -22,7 +23,15 @@ const spaces = {
   ],
 };
 
-function Location() { return <output data-testid="location">{useLocation().pathname}</output>; }
+function Location() {
+  const location = useLocation();
+  return (
+    <>
+      <output data-testid="location">{location.pathname}</output>
+      <output data-testid="location-state">{JSON.stringify(location.state)}</output>
+    </>
+  );
+}
 
 function makeRepository(repositoryOverrides: Partial<StudyRepository> = {}): StudyRepository {
   return {
@@ -84,6 +93,8 @@ function renderShell(
   render(strict ? <StrictMode>{tree}</StrictMode> : tree);
   return repository;
 }
+
+beforeEach(() => localStorage.clear());
 
 afterEach(() => {
   if (getConfirmSnapshot()) answerConfirm(false);
@@ -237,5 +248,47 @@ describe("StudyShell", () => {
     expect(getConfirmSnapshot()?.message).toContain("尚未完成的答案");
     await act(async () => answerConfirm(true));
     await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/study/space-a/evaluate"));
+  });
+
+  it("opens a reviewed course Chat handoff instead of a bare route jump", async () => {
+    renderShell({
+      loadPracticeHome: vi.fn().mockResolvedValue({
+        cards: [],
+        dueCards: [],
+        quizzes: [{
+          artifact_id: "quiz-1", kind: "quiz", title: "Vectors quiz", status: "active",
+        }],
+      }),
+      loadQuizQuestions: vi.fn().mockResolvedValue([{
+        item_id: "question-1",
+        artifact_id: "quiz-1",
+        type: "short_answer",
+        prompt: "Explain the vector length",
+        tags: ["vectors"],
+      }]),
+    }, { page: "practice" });
+
+    fireEvent.click(await screen.findByRole("button", { name: "碰杯问小娜" }));
+    expect(screen.getByRole("heading", { name: "结合当前这一步问小娜" })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("我卡在哪里？"), {
+      target: { value: "先提示我应该检查哪个定义。" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "开始提问" }));
+
+    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/chat"));
+    const locationState = JSON.parse(screen.getByTestId("location-state").textContent || "{}");
+    expect(locationState.studyHandoff).toMatchObject({
+      version: 1,
+      spaceId: "space-a",
+      spaceTitle: "Linear Algebra",
+      focusId: "question-1",
+      question: "先提示我应该检查哪个定义。",
+      returnTarget: { path: "/study/space-a/practice", focus: "answer" },
+    });
+    expect(locationState.draftPrompt).toContain("我的问题：先提示我应该检查哪个定义。");
+    expect(readPendingStudyHandoff()).toMatchObject({
+      spaceId: "space-a",
+      focusId: "question-1",
+    });
   });
 });

@@ -1,7 +1,8 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import type { CheckResult, DeskData } from "./types";
+import type { StudyFlashcard } from "../../chat/study/study-api";
+import type { CheckResult, DeskActivityRecord, DeskData } from "./types";
 
 /**
  * Seam between the desk UI and its data source. Production supplies the Study
@@ -14,5 +15,11 @@ export interface DeskAdapter {
   persistDraft?(stepId: string, answer: string): void;
   saveDraft(stepId: string, answer: string, signal: AbortSignal): Promise<void>;
   checkAnswer(stepId: string, answer: string, signal: AbortSignal): Promise<CheckResult>;
+  reviewCard?(
+    itemId: string,
+    grade: "again" | "hard" | "good" | "easy",
+    signal: AbortSignal,
+  ): Promise<StudyFlashcard>;
+  loadActivities?(signal: AbortSignal): Promise<DeskActivityRecord[]>;
   markCurrentStep?(stepId: string): void;
 }

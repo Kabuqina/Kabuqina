@@ -178,6 +178,16 @@ function mapCheckResult(grade: StudyQuizPerQuestion): CheckResult {
   };
 }
 
+function mapActivities(items: Awaited<ReturnType<StudyRepository["loadActivities"]>>["items"]) {
+  return items.slice(0, 20).map((item) => ({
+    id: item.activity_id,
+    type: item.activity_type,
+    ...(item.artifact_id ? { artifactId: item.artifact_id } : {}),
+    ...(item.item_id ? { itemId: item.item_id } : {}),
+    createdAt: item.created_at,
+  }));
+}
+
 export function createStudyDeskAdapter(options: {
   repository: StudyRepository;
   spaceId: string;
@@ -223,13 +233,21 @@ export function createStudyDeskAdapter(options: {
       if (signal.aborted) throw abortError();
       const quiz = home.quizzes[0];
       if (!quiz) throw new Error("study desk: no active quiz");
-      const questions = await repository.loadQuizQuestions(
-        spaceId,
-        quiz.artifact_id,
-        signal,
-      );
+      const [questionsResult, learnResult, activitiesResult] = await Promise.allSettled([
+        repository.loadQuizQuestions(spaceId, quiz.artifact_id, signal),
+        repository.loadLearnHome(spaceId, signal),
+        repository.loadActivities(spaceId, signal),
+      ]);
       if (signal.aborted) throw abortError();
+      if (questionsResult.status !== "fulfilled") throw questionsResult.reason;
+      const questions = questionsResult.value;
       if (!questions.length) throw new Error("study desk: active quiz has no questions");
+      const learn = learnResult.status === "fulfilled" && learnResult.value?.artifacts
+        ? learnResult.value
+        : null;
+      const activities = activitiesResult.status === "fulfilled" && activitiesResult.value?.items
+        ? activitiesResult.value
+        : null;
 
       artifactId = quiz.artifact_id;
       questionsById = new Map(questions.map((question) => [question.item_id, question]));
@@ -283,9 +301,21 @@ export function createStudyDeskAdapter(options: {
         },
         materials: {
           title: "本课材料",
-          hint: "当前练习与课程资料保持在同一本笔记本旁。",
-          items: home.quizzes.slice(0, 3).map((item) => item.title),
+          hint: learn?.artifacts.length
+            ? "选择材料后，可以带着明确来源请小娜协助制作。"
+            : "还没有可选材料；先在学习页整理课程资料。",
+          items: (learn?.artifacts ?? []).slice(0, 8).map((item) => ({
+            id: item.artifact_id,
+            title: item.title,
+            kind: item.kind,
+            status: item.status,
+          })),
+          unavailable: !learn,
         },
+        activities: mapActivities(activities?.items ?? []),
+        activitiesUnavailable: !activities,
+        dueCards: home.dueCards,
+        cardsUnavailable: home.unavailable?.includes("cards"),
         dueCount: home.dueCards.length,
       };
       return data;
@@ -317,6 +347,19 @@ export function createStudyDeskAdapter(options: {
       if (checkResult.verdict === "completed") clearSubmittedAnswer(stepId);
       window.dispatchEvent(new Event(STUDY_LEARNING_EVENT));
       return checkResult;
+    },
+
+    async reviewCard(itemId, grade, signal) {
+      const reviewed = await repository.reviewFlashcard(spaceId, itemId, grade, signal);
+      if (signal.aborted) throw abortError();
+      window.dispatchEvent(new Event(STUDY_LEARNING_EVENT));
+      return reviewed;
+    },
+
+    async loadActivities(signal) {
+      const response = await repository.loadActivities(spaceId, signal);
+      if (signal.aborted) throw abortError();
+      return mapActivities(response.items);
     },
 
     markCurrentStep(stepId) {

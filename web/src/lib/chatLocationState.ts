@@ -1,6 +1,8 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import type { StudyChatHandoff } from "./studyChatHandoff";
+
 /**
  * When navigating to `/chat` right after the setup wizard completed saving the key,
  * pass this state so `ChatPage` can skip the immediate `cmd_has_secret` gate (avoids
@@ -42,6 +44,8 @@ export type ChatLocationState = {
   fromOnboarding?: boolean;
   draftPrompt?: string;
   openReminderSession?: boolean;
+  studyHandoff?: StudyChatHandoff;
+  openSessionId?: string;
 };
 
 export function isOpenReminderSession(state: unknown): boolean {
@@ -64,4 +68,12 @@ export function getDraftPrompt(state: unknown): string | null {
   if (typeof state !== "object" || state === null) return null;
   const draft = (state as ChatLocationState).draftPrompt;
   return typeof draft === "string" && draft.trim() ? draft : null;
+}
+
+export function getOpenSessionId(state: unknown): string | null {
+  if (typeof state !== "object" || state === null) return null;
+  const sessionId = (state as ChatLocationState).openSessionId;
+  return typeof sessionId === "string" && sessionId.trim() && sessionId.length <= 256
+    ? sessionId.trim()
+    : null;
 }

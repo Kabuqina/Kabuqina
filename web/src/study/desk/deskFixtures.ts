@@ -54,8 +54,23 @@ export const deskFixtureData: DeskData = {
   materials: {
     title: "本课材料",
     hint: "平放在这本高数笔记本旁。",
-    items: ["教材 §2.3", "习题集 p.41"],
+    items: [
+      { id: "material-1", title: "教材 §2.3", kind: "resource_pack", status: "active" },
+      { id: "material-2", title: "习题集 p.41", kind: "knowledge_base", status: "active" },
+    ],
   },
+  activities: [{
+    id: "activity-1",
+    type: "quiz.attempt",
+    artifactId: "quiz-1",
+    createdAt: "2026-07-24T13:42:00+08:00",
+  }],
+  dueCards: Array.from({ length: 6 }, (_, index) => ({
+    item_id: `card-${index + 1}`,
+    artifact_id: "cards-1",
+    front: `极限卡片 ${index + 1}`,
+    back: "先识别未定式，再选择等价变形。",
+  })),
   dueCount: 6,
 };
 

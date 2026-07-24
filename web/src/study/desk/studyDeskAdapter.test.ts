@@ -19,6 +19,27 @@ function repository(overrides: Partial<StudyRepository> = {}): StudyRepository {
         status: "active",
       }],
     }),
+    loadLearnHome: vi.fn().mockResolvedValue({
+      artifacts: [{
+        artifact_id: "material-1",
+        kind: "resource_pack",
+        title: "向量讲义",
+        status: "active",
+      }],
+      knowledgePoints: [],
+    }),
+    loadActivities: vi.fn().mockResolvedValue({
+      items: [{
+        activity_id: "activity-1",
+        activity_type: "quiz.attempt",
+        artifact_id: "quiz-1",
+        created_at: "2026-07-24T08:00:00Z",
+      }],
+      count: 1,
+      returned: 1,
+      limit: 50,
+      truncated: false,
+    }),
     loadQuizQuestions: vi.fn().mockResolvedValue([
       {
         item_id: "question-1",
@@ -68,6 +89,8 @@ describe("Study desk adapter", () => {
       initialDraft: "",
     });
     expect(first.dueCount).toBe(2);
+    expect(first.materials.items[0]).toMatchObject({ id: "material-1", title: "向量讲义" });
+    expect(first.activities[0]).toMatchObject({ id: "activity-1", type: "quiz.attempt" });
 
     await adapter.saveDraft("question-1", "[1]", signal);
     adapter.markCurrentStep?.("question-1");

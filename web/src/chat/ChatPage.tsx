@@ -1,7 +1,7 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Maximize2, PanelRight } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
@@ -19,6 +19,7 @@ import {
   armPendingChatSecretGateBypass,
   armPendingOpenReminderSession,
   getDraftPrompt,
+  getOpenSessionId,
   isFromOnboarding,
   isOpenReminderSession,
   takePendingOpenReminderSession,
@@ -30,7 +31,7 @@ import { ShellModal } from "../components/ShellModal";
 import { clearDraft } from "../lib/store";
 import { useKabuqinaReadiness } from "./hooks/useKabuqinaReadiness";
 import { useSessions } from "./hooks/useSessions";
-import { useChatState } from "./hooks/useChatState";
+import { persistActiveSessionId, useChatState } from "./hooks/useChatState";
 import { useSendMessage } from "./hooks/useSendMessage";
 import { useLoadPackageDownloads } from "./hooks/useLoadPackageDownloads";
 import { useWorkbenchLayout } from "./hooks/useWorkbenchLayout";
@@ -39,6 +40,17 @@ import { type CaptureDonePayload } from "../capture/capture-api";
 import type { AgentProgressState } from "./hooks/useAgentProgress";
 import type { DeskAttachmentPayload, UiMsg } from "./chat-api";
 import { REMINDER_SESSION_ID } from "./reminderSession";
+import {
+  bindStudyHandoff,
+  buildStudyChatPrompt,
+  clearPendingStudyHandoff,
+  clearSessionStudyHandoff,
+  getStudyChatHandoffFromLocation,
+  readPendingStudyHandoff,
+  readSessionStudyHandoff,
+  type StudyChatHandoff,
+} from "../lib/studyChatHandoff";
+import { StudyChatContextBar } from "./StudyChatContextBar";
 
 type WorkspaceState = {
   goal: string | null;
@@ -182,6 +194,11 @@ export function ChatPage() {
   const nav = useNavigate();
   const location = useLocation();
   const workbench = useWorkbenchLayout();
+  const incomingStudyHandoff = getStudyChatHandoffFromLocation(location.state);
+  const [studyHandoff, setStudyHandoff] = useState<StudyChatHandoff | null>(
+    () => incomingStudyHandoff ?? readPendingStudyHandoff(),
+  );
+  const handledStudyHandoffRef = useRef("");
   // True when chat is reached without a model configured. We no longer force
   // unconfigured users back to the wizard (onboarding auto-triggers on first
   // launch and Settings covers config) — instead we keep them on chat with the
@@ -243,7 +260,13 @@ export function ChatPage() {
   );
 
   useEffect(() => {
-    if (isOpenReminderSession(location.state) || isFromOnboarding(location.state) || getDraftPrompt(location.state)) {
+    if (
+      isOpenReminderSession(location.state)
+      || isFromOnboarding(location.state)
+      || getDraftPrompt(location.state)
+      || getStudyChatHandoffFromLocation(location.state)
+      || getOpenSessionId(location.state)
+    ) {
       return;
     }
     if (!kabuqinaReady || kabuqinaWarming || listLoading || activeSessionId) {
@@ -251,6 +274,64 @@ export function ChatPage() {
     }
     restorePersistedSession(sessions);
   }, [activeSessionId, kabuqinaReady, kabuqinaWarming, listLoading, location.state, restorePersistedSession, sessions]);
+
+  useEffect(() => {
+    if (!activeSessionId) return;
+    setStudyHandoff((current) => (
+      current?.sessionId === activeSessionId
+        ? current
+        : readSessionStudyHandoff(activeSessionId)
+    ));
+  }, [activeSessionId]);
+
+  useEffect(() => {
+    if (
+      studyHandoff
+      && sessions.some((session) => session.id === studyHandoff.sessionId)
+    ) {
+      clearPendingStudyHandoff();
+    }
+  }, [sessions, studyHandoff]);
+
+  useEffect(() => {
+    const locationHandoff = getStudyChatHandoffFromLocation(location.state);
+    const handoff = locationHandoff ?? readPendingStudyHandoff();
+    if (!handoff || listLoading) return;
+    const identity = `${handoff.sessionId}:${handoff.createdAt}`;
+    if (handledStudyHandoffRef.current === identity) return;
+    handledStudyHandoffRef.current = identity;
+    bindStudyHandoff(handoff);
+    setStudyHandoff(handoff);
+    const existing = sessions.some((session) => session.id === handoff.sessionId);
+    if (existing) {
+      onPickSession(handoff.sessionId);
+    } else {
+      onNewChat();
+      setActiveSessionId(handoff.sessionId);
+      persistActiveSessionId(handoff.sessionId);
+    }
+    const draft = getDraftPrompt(location.state) ?? buildStudyChatPrompt(handoff);
+    setInput(draft);
+    nav("/chat", { replace: true, state: {} });
+  }, [
+    listLoading,
+    location.state,
+    nav,
+    onNewChat,
+    onPickSession,
+    sessions,
+    setActiveSessionId,
+    setInput,
+  ]);
+
+  useEffect(() => {
+    const sessionId = getOpenSessionId(location.state);
+    if (!sessionId || listLoading) return;
+    if (sessions.some((session) => session.id === sessionId)) {
+      onPickSession(sessionId);
+    }
+    nav("/chat", { replace: true, state: {} });
+  }, [listLoading, location.state, nav, onPickSession, sessions]);
 
   useEffect(() => {
     if (isOpenReminderSession(location.state)) {
@@ -303,7 +384,7 @@ export function ChatPage() {
 
   useEffect(() => {
     const draft = getDraftPrompt(location.state);
-    if (!draft) return;
+    if (!draft || getStudyChatHandoffFromLocation(location.state)) return;
     setInput(draft);
     nav("/chat", { replace: true, state: {} });
   }, [location.state, nav, setInput]);
@@ -421,11 +502,48 @@ export function ChatPage() {
     try {
       await deleteSession(id);
       await onDeleteSession(id);
+      if (studyHandoff?.sessionId === id) {
+        clearSessionStudyHandoff(id);
+        setStudyHandoff(null);
+      }
     } catch (err) {
       console.error(err);
       setSendErr(t("chat.errDelete"));
     }
   };
+
+  const handleNewChat = useCallback(() => {
+    clearPendingStudyHandoff();
+    setStudyHandoff(null);
+    onNewChat();
+  }, [onNewChat]);
+
+  const handlePickSession = useCallback((id: string) => {
+    setStudyHandoff(readSessionStudyHandoff(id));
+    onPickSession(id);
+  }, [onPickSession]);
+
+  const returnToStudy = useCallback(() => {
+    if (!studyHandoff) return;
+    nav(studyHandoff.returnTarget.path || studyHandoff.returnTarget.fallbackPath, {
+      state: {
+        studyReturn: {
+          version: 1,
+          stepId: studyHandoff.focusId,
+          focus: studyHandoff.returnTarget.focus,
+          ...(studyHandoff.deskSnapshot
+            ? { deskSnapshot: studyHandoff.deskSnapshot }
+            : {}),
+        },
+      },
+    });
+  }, [nav, studyHandoff]);
+
+  const unbindStudyContext = useCallback(() => {
+    if (studyHandoff) clearSessionStudyHandoff(studyHandoff.sessionId);
+    clearPendingStudyHandoff();
+    setStudyHandoff(null);
+  }, [studyHandoff]);
 
   const openWorkspace = () => {
     if (workbench.focusMode && workbench.rightOpen) {
@@ -495,15 +613,22 @@ export function ChatPage() {
           loading={listLoading}
           collapsed={!workbench.leftOpen || workbench.isNarrow}
           onToggleCollapsed={workbench.toggleLeft}
-          onNewChat={onNewChat}
+          onNewChat={handleNewChat}
           onOpenScheduledTasks={() => nav("/settings/cron", { state: { cronBackTo: "/chat" } })}
           onOpenWorkspace={() => void invoke("cmd_open_workspace")}
           onOrganizeDesktop={handleOrganizeDesktop}
           onExport={() => nav("/export")}
-          onSelectSession={onPickSession}
+          onSelectSession={handlePickSession}
           onDeleteSession={handleDelete}
         />
         <main className="flex min-w-0 flex-1 flex-col">
+          {studyHandoff ? (
+            <StudyChatContextBar
+              handoff={studyHandoff}
+              onReturn={returnToStudy}
+              onUnbind={unbindStudyContext}
+            />
+          ) : null}
           <div className="kq-chat-topbar flex h-11 shrink-0 items-center justify-end border-b px-3">
             <div className="flex items-center gap-1">
               {!workbench.showRightPanel && (

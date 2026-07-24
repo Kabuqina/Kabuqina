@@ -207,3 +207,47 @@ Review scope and exit format are defined in
 - [P3, closed 2026-07-24] `DeskScene` now requires a production adapter. The fixture adapter, fixture snapshots, fixture course IDs, and fixed completed answer live only behind the DEV preview module. `npm run build` scans all production JavaScript assets and fails if these markers or `/__dev/desk` leak back into the bundle.
 
 final result: accepted for continued pre-art frontend development (the deferred real Tauri matrix blocks DONE and higher Gates)
+
+---
+
+## FE-03 pre-art complete frontend — 2026-07-24
+
+Control status:
+`CTL-A06b IMPLEMENTED · AUTHOR VERIFIED · UNCOMMITTED · REVIEW READY · NOT DONE`.
+集中审查入口为
+`docs/superpowers/handoffs/2026-07-24-v0.5.0-pre-art-frontend-review.md`。
+
+### Product/interaction findings
+
+- Course Chat 现在有可见、可解绑的上下文条；杯子与页内求助先显示学生可审核的问题，再把
+  structured handoff 交给真实 Chat，不自动发送。
+- exact return 在宽屏和窄屏恢复原课程、题目、答案、反馈和焦点；invalid target 安全回
+  overview。未发送的 handoff/prompt 在真实 Tauri 重启后仍恢复。
+- 制作工作夹要求显式选择真实课程材料；成果没有 typed truth 时显示空态，不从聊天文本或
+  路径伪造。
+- Activity 真实读取 Study activity；Chat 只展示有当前 course binding 的 sessions。两个
+  read model 分别提供 loading/error/empty/retry。
+- due-card surface 使用真实队列并支持 reveal/1–4/Space；失败保留当前卡。
+- wide、720px 与 360px 下，Activity 不再被隐藏，utility actions 保持右对齐，工作夹和
+  course invoke 可达。干净浏览器页面 console error/warning 为空。
+
+### Verification
+
+- TypeScript：passed。
+- Web components：`30 files / 133 tests` passed。
+- Lint：passed。
+- Production build 与 fixture leakage gate：passed。
+- Browser：wide / 720 / 360、work folder、Activity、card、invoke、exact return passed。
+- Runtime sync：完整通过。
+- 真实 Tauri：实际课程 route、真实 7-step quiz/10 due cards、Chat visible context/prompt、
+  exact return、Activity/workfolder/card reveal、应用重启后 pending handoff recovery passed。
+
+### Remaining acceptance boundary
+
+- 为避免污染真实学习证据，作者未在人工 Tauri 轮中逐个提交五题型或真实卡片评分；
+  自动化覆盖不能替代指定 reviewer 的真实数据矩阵。
+- 未修改 Windows 系统缩放到原生 200%；360px 是 reflow proxy。
+- 保存/检查失败和慢请求仍待人工故障注入。
+- 最终插画、材质精修和克制动效不在 FE-03；现有 DOM/CSS surface 已可直接接入这些资产。
+
+final result: pre-art frontend implementation passed author verification; durable commit and independent acceptance remain required

@@ -30,7 +30,7 @@ export function DeskChrome({
         <button type="button" aria-current="false" onClick={onOpenChat ?? onFutureFeature}>对话</button>
       </nav>
       <div className="kd-utilities">
-        <button type="button" className="kd-hide-narrow" onClick={onOpenActivity ?? onFutureFeature}>Activity</button>
+        <button type="button" onClick={onOpenActivity ?? onFutureFeature}>Activity</button>
         <button type="button" aria-label="设置" onClick={onOpenSettings ?? onFutureFeature}>
           <SettingsIcon />
         </button>

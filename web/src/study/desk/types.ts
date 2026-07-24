@@ -6,6 +6,7 @@
 // MUST NOT copy the prototype's single phase enum.
 
 import type { StudyQuizQuestionType } from "../../chat/study/study-api";
+import type { StudyFlashcard } from "../../chat/study/study-api";
 
 /** Spatial density of the desk. `overview` = D0 desk overview; `focused` = N0+ notebook focus. */
 export type DeskDensity = "overview" | "focused";
@@ -73,7 +74,21 @@ export interface DeskBookstand {
 export interface DeskMaterials {
   title: string;
   hint: string;
-  items: string[];
+  items: Array<{
+    id: string;
+    title: string;
+    kind: string;
+    status: string;
+  }>;
+  unavailable?: boolean;
+}
+
+export interface DeskActivityRecord {
+  id: string;
+  type: string;
+  artifactId?: string;
+  itemId?: string;
+  createdAt: string;
 }
 
 export interface DeskData {
@@ -83,5 +98,9 @@ export interface DeskData {
   overview: DeskOverview;
   bookstand: DeskBookstand;
   materials: DeskMaterials;
+  activities: DeskActivityRecord[];
+  activitiesUnavailable?: boolean;
+  dueCards: StudyFlashcard[];
+  cardsUnavailable?: boolean;
   dueCount: number;
 }

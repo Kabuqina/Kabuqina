@@ -5,6 +5,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useI18n } from "../lib/i18n";
 import { confirm } from "../lib/confirmDialog";
+import {
+  getStudyChatHandoffFromLocation,
+  persistPendingStudyHandoff,
+} from "../lib/studyChatHandoff";
 import { StudyDraftProvider } from "./DraftContext";
 import { RequestCoordinator } from "./loadable";
 import type { StudySpaces } from "./repository";
@@ -47,9 +51,12 @@ export function StudyShell({ spaces, spaceId, page, onRevalidate, refreshing = f
     return approved;
   }, [practiceDirty, t]);
 
-  const navigateAway = useCallback((to: string) => {
+  const navigateAway = useCallback((to: string, state?: unknown) => {
     void confirmPracticeLeave().then((approved) => {
-      if (approved) navigate(to);
+      if (!approved) return;
+      const handoff = getStudyChatHandoffFromLocation(state);
+      if (handoff) persistPendingStudyHandoff(handoff);
+      navigate(to, { state });
     });
   }, [confirmPracticeLeave, navigate]);
 

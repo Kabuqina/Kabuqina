@@ -57,6 +57,14 @@ function createFixtureDeskAdapter(latencyMs = 650): DeskAdapter {
         && (normalized.includes("不是极限") || normalized.includes("不是一个确定"));
       return passed ? completedResult : needsRevisionResult;
     },
+    async reviewCard(_itemId, _grade, signal) {
+      await delay(latencyMs, signal);
+      return deskFixtureData.dueCards[0];
+    },
+    async loadActivities(signal) {
+      await delay(latencyMs, signal);
+      return deskFixtureData.activities;
+    },
   };
 }
 

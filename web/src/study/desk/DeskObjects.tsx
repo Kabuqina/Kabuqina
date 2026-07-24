@@ -11,7 +11,7 @@ export interface DeskObjectsProps {
   dueCount: number;
   onFutureFeature: () => void;
   onSelectSpace?: (spaceId: string) => void;
-  onOpenMaterials?: () => void;
+  onOpenMaterials?: (materialId?: string) => void;
   onReviewCards?: () => void;
   onNewBook?: () => void;
 }
@@ -61,8 +61,12 @@ export function DeskLeftObjects({
         <p>{materials.hint}</p>
         <div className="kd-material-list">
           {materials.items.map((item) => (
-            <button key={item} type="button" onClick={onOpenMaterials ?? onFutureFeature}>{item}</button>
+            <button key={item.id} type="button" onClick={() => {
+              if (onOpenMaterials) onOpenMaterials(item.id);
+              else onFutureFeature();
+            }}>{item.title}</button>
           ))}
+          {!materials.items.length ? <span>{materials.unavailable ? "材料暂时无法读取" : "还没有课程材料"}</span> : null}
         </div>
       </section>
     </aside>
@@ -76,7 +80,9 @@ export function DeskRightObjects({ art, dueCount, onFutureFeature, onReviewCards
       <h2><Archive /> 本课卡片盒</h2>
       <div className="kd-due-count">{dueCount}</div>
       <p>张今日到期 · 不打断当前练习</p>
-      <button type="button" onClick={onReviewCards ?? onFutureFeature}>到安全节点后复习</button>
+      <button type="button" disabled={!dueCount} onClick={onReviewCards ?? onFutureFeature}>
+        {dueCount ? "到安全节点后复习" : "今天已复习完"}
+      </button>
     </section>
   );
 }

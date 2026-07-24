@@ -105,4 +105,96 @@ describe("DeskScene FE-01 preview", () => {
     window.dispatchEvent(blocked);
     expect(blocked.defaultPrevented).toBe(true);
   });
+
+  it("reviews the current answer and feedback before starting one course Chat", async () => {
+    const onStartCourseChat = vi.fn();
+    render(
+      <DeskScene
+        adapter={createAdapter()}
+        initialSnapshot={{
+          density: "focused",
+          activity: "needs_revision",
+          answer: "代入得到 0/0。",
+          checkResult: needsRevisionResult,
+        }}
+        onStartCourseChat={onStartCourseChat}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: "页边批注 · 需要修改" });
+    fireEvent.click(screen.getByRole("button", { name: /让小娜陪我补这一步/ }));
+    expect(screen.getByRole("heading", { name: "结合当前这一步问小娜" })).toBeInTheDocument();
+    expect(screen.getByText("代入得到 0/0。")).toBeInTheDocument();
+    const question = screen.getByLabelText("我卡在哪里？");
+    fireEvent.change(question, { target: { value: "为什么未定式还要继续分析？" } });
+    fireEvent.click(screen.getByRole("button", { name: "开始提问" }));
+
+    expect(onStartCourseChat).toHaveBeenCalledWith(expect.objectContaining({
+      focusId: "ex3-step2",
+      answer: "代入得到 0/0。",
+      question: "为什么未定式还要继续分析？",
+      activity: "needs_revision",
+      checkResult: needsRevisionResult,
+    }));
+  });
+
+  it("restores the exact step, answer, feedback, and answer focus after Chat", async () => {
+    render(
+      <DeskScene
+        adapter={createAdapter()}
+        returnFocus={{
+          version: 1,
+          stepId: "ex3-step2",
+          focus: "answer",
+          deskSnapshot: {
+            activity: "needs_revision",
+            answer: "原答案仍然在这里。",
+            checkResult: needsRevisionResult,
+          },
+        }}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { name: "页边批注 · 需要修改" })).toBeInTheDocument();
+    const answer = screen.getByRole("textbox", { name: /我的答案/ });
+    expect(answer).toHaveValue("原答案仍然在这里。");
+    await waitFor(() => expect(answer).toHaveFocus());
+  });
+
+  it("falls back to the safe overview when the returned step no longer exists", async () => {
+    const { container } = render(
+      <DeskScene
+        adapter={createAdapter()}
+        returnFocus={{
+          version: 1,
+          stepId: "removed-step",
+          focus: "answer",
+          deskSnapshot: {
+            activity: "dirty",
+            answer: "不应恢复到别的题目",
+          },
+        }}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { name: "从“0/0 是什么”继续" })).toBeInTheDocument();
+    expect(container.querySelector(".kq-desk")).toHaveAttribute("data-density", "overview");
+    expect(screen.queryByDisplayValue("不应恢复到别的题目")).not.toBeInTheDocument();
+  });
+
+  it("reviews due cards through the canonical adapter and returns to the desk", async () => {
+    const reviewCard = vi.fn().mockResolvedValue(deskFixtureData.dueCards[0]);
+    render(<DeskScene adapter={createAdapter({ reviewCard })} />);
+    await screen.findByRole("heading", { name: "高等数学 · 极限" });
+    fireEvent.click(screen.getByRole("button", { name: "到安全节点后复习" }));
+    expect(screen.getByRole("heading", { name: "极限卡片 1" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /显示答案/ }));
+    fireEvent.click(screen.getByRole("button", { name: /掌握/ }));
+    await waitFor(() => expect(reviewCard).toHaveBeenCalledWith(
+      "card-1",
+      "good",
+      expect.any(AbortSignal),
+    ));
+    expect(await screen.findByRole("heading", { name: "极限卡片 2" })).toBeInTheDocument();
+  });
 });

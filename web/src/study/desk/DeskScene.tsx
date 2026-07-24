@@ -6,10 +6,15 @@ import type { StudyPageSlug } from "../routeModel";
 import type { DeskAdapter } from "./deskAdapter";
 import { defaultDeskArtAssets, type DeskArtAssets } from "./artAssets";
 import { DeskChrome } from "./DeskChrome";
+import { DeskActivityPanel } from "./DeskActivityPanel";
+import { DeskCardReview, type DeskCardGrade } from "./DeskCardReview";
 import { DeskCup } from "./DeskCup";
 import { DeskNotebook } from "./DeskNotebook";
 import { DeskLeftObjects, DeskRightObjects } from "./DeskObjects";
+import { DeskTutorInvoke, type DeskCourseChatRequest } from "./DeskTutorInvoke";
+import { DeskWorkFolder, type DeskCreateChatRequest } from "./DeskWorkFolder";
 import type { CheckResult, DeskData, DeskDensity, StudyActivity } from "./types";
+import type { StudyReturnState } from "../../lib/studyChatHandoff";
 import "./desk.css";
 
 const SAVE_DEBOUNCE_MS = 260;
@@ -63,6 +68,9 @@ export interface DeskSceneProps {
   currentPage?: StudyPageSlug;
   onNavigatePage?: (page: StudyPageSlug) => void;
   onOpenChat?: () => void;
+  onOpenChatSession?: (sessionId: string) => void;
+  onStartCourseChat?: (request: DeskCourseChatRequest) => void;
+  onStartCreateChat?: (request: DeskCreateChatRequest) => void;
   onOpenActivity?: () => void;
   onOpenSettings?: () => void;
   onSelectSpace?: (spaceId: string) => void;
@@ -70,6 +78,7 @@ export interface DeskSceneProps {
   onReviewCards?: () => void;
   onNewBook?: () => void;
   onDirtyChange?: (dirty: boolean) => void;
+  returnFocus?: StudyReturnState | null;
 }
 
 export default function DeskScene({
@@ -79,6 +88,9 @@ export default function DeskScene({
   currentPage = "practice",
   onNavigatePage,
   onOpenChat,
+  onOpenChatSession,
+  onStartCourseChat,
+  onStartCreateChat,
   onOpenActivity,
   onOpenSettings,
   onSelectSpace,
@@ -86,6 +98,7 @@ export default function DeskScene({
   onReviewCards,
   onNewBook,
   onDirtyChange,
+  returnFocus,
 }: DeskSceneProps) {
   const deskAdapter = adapter;
   const icons = useMemo<DeskArtAssets>(() => ({ ...defaultDeskArtAssets, ...art }), [art]);
@@ -101,6 +114,15 @@ export default function DeskScene({
   const [saving, setSaving] = useState(false);
   const [operationError, setOperationError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState<Announcement | null>(null);
+  const [invokeOpen, setInvokeOpen] = useState(false);
+  const [tutorQuestion, setTutorQuestion] = useState("");
+  const [panel, setPanel] = useState<"work" | "activity" | "cards" | null>(null);
+  const [initialMaterialId, setInitialMaterialId] = useState<string | null>(null);
+  const [cardIndex, setCardIndex] = useState(0);
+  const [cardPending, setCardPending] = useState(false);
+  const [cardError, setCardError] = useState<string | null>(null);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityLoadError, setActivityLoadError] = useState(false);
 
   const taskSurfaceRef = useRef<HTMLElement>(null);
   const answerRef = useRef<HTMLDivElement>(null);
@@ -108,8 +130,12 @@ export default function DeskScene({
   const saveTimerRef = useRef<number | null>(null);
   const saveControllerRef = useRef<AbortController | null>(null);
   const checkControllerRef = useRef<AbortController | null>(null);
+  const cardControllerRef = useRef<AbortController | null>(null);
+  const activityControllerRef = useRef<AbortController | null>(null);
   const saveGenerationRef = useRef(0);
   const announcementIdRef = useRef(0);
+  const tutorInvokerIdRef = useRef("kd-cup-chat");
+  const returnFocusHandledRef = useRef(false);
 
   const announce = useCallback((text: string) => {
     announcementIdRef.current += 1;
@@ -163,8 +189,11 @@ export default function DeskScene({
     setOperationError(null);
     void deskAdapter.loadDesk(controller.signal).then((deskData) => {
       if (controller.signal.aborted) return;
+      const requestedIndex = returnFocus
+        ? deskData.steps.findIndex((candidate) => candidate.id === returnFocus.stepId)
+        : -1;
       const initialIndex = Math.min(
-        Math.max(deskData.initialStepIndex ?? 0, 0),
+        Math.max(requestedIndex >= 0 ? requestedIndex : deskData.initialStepIndex ?? 0, 0),
         deskData.steps.length - 1,
       );
       const step = deskData.steps[initialIndex];
@@ -176,15 +205,34 @@ export default function DeskScene({
       setStepIndex(initialIndex);
       deskAdapter.markCurrentStep?.(step.id);
 
-      setDensity(initialSnapshot?.density ?? "overview");
-      setActivity(initialSnapshot?.activity ?? "ready");
-      setAnswer(initialSnapshot?.answer ?? step.initialDraft);
-      setCheckResult(initialSnapshot?.checkResult ?? null);
+      const returnedSnapshot = requestedIndex >= 0 ? returnFocus?.deskSnapshot : undefined;
+      setDensity(returnFocus && requestedIndex >= 0 ? "focused" : initialSnapshot?.density ?? "overview");
+      setActivity(returnedSnapshot?.activity ?? initialSnapshot?.activity ?? "ready");
+      setAnswer(returnedSnapshot?.answer ?? initialSnapshot?.answer ?? step.initialDraft);
+      setCheckResult(returnedSnapshot?.checkResult ?? initialSnapshot?.checkResult ?? null);
+      if (returnFocus && requestedIndex >= 0 && !returnFocusHandledRef.current) {
+        returnFocusHandledRef.current = true;
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            if (returnFocus.focus === "answer") focusAnswerAfterPaint();
+            else focusAfterPaint(taskSurfaceRef);
+            announce(`已返回${stepSpeech(step.kicker)}，原答案仍在原位。`);
+          });
+        });
+      }
     }).catch((error) => {
       if (!controller.signal.aborted && !isAbortError(error)) setLoadError(true);
     });
     return () => controller.abort();
-  }, [deskAdapter, initialSnapshot, reloadGeneration]);
+  }, [
+    announce,
+    deskAdapter,
+    focusAfterPaint,
+    focusAnswerAfterPaint,
+    initialSnapshot,
+    reloadGeneration,
+    returnFocus,
+  ]);
 
   const shouldProtectLeave =
     activity === "dirty" || activity === "checking" || activity === "needs_revision";
@@ -207,11 +255,116 @@ export default function DeskScene({
     clearSaveTimer();
     saveControllerRef.current?.abort();
     checkControllerRef.current?.abort();
+    cardControllerRef.current?.abort();
+    activityControllerRef.current?.abort();
     onDirtyChange?.(false);
   }, [clearSaveTimer, onDirtyChange]);
 
   const announceFutureFeature = useCallback(() => announce(FUTURE_FEATURE_MESSAGE), [announce]);
   const announceFutureChat = useCallback(() => announce(FUTURE_CHAT_MESSAGE), [announce]);
+
+  const openTutorInvoke = useCallback((invokerId: string) => {
+    if (activity === "checking") {
+      announce("请等这一步检查完成后再问小娜。");
+      return;
+    }
+    tutorInvokerIdRef.current = invokerId;
+    setTutorQuestion(
+      activity === "needs_revision"
+        ? "我想继续自己完成，但还不确定应该先检查哪里。请先给我一个提示。"
+        : "请结合当前这一步，先给我一个可以自己继续尝试的提示。",
+    );
+    setInvokeOpen(true);
+    announce("已打开课程提问卡；确认问题后进入同一课程对话。");
+  }, [activity, announce]);
+
+  const cancelTutorInvoke = useCallback(() => {
+    setInvokeOpen(false);
+    announce("已回到原来的学习位置。");
+    requestAnimationFrame(() => document.getElementById(tutorInvokerIdRef.current)?.focus());
+  }, [announce]);
+
+  const closePanel = useCallback(() => {
+    cardControllerRef.current?.abort();
+    setCardPending(false);
+    setCardError(null);
+    setPanel(null);
+    announce("已回到书桌。");
+    requestAnimationFrame(() => document.getElementById("kd-notebook-surface")?.focus());
+  }, [announce]);
+
+  const openWorkFolder = useCallback((materialId?: string) => {
+    setInitialMaterialId(materialId ?? null);
+    setPanel("work");
+    announce("已打开工作夹；先确认材料与制作目标。");
+  }, [announce]);
+
+  const refreshActivities = useCallback(() => {
+    if (!deskAdapter.loadActivities) return;
+    activityControllerRef.current?.abort();
+    const controller = new AbortController();
+    activityControllerRef.current = controller;
+    setActivityLoading(true);
+    setActivityLoadError(false);
+    void deskAdapter.loadActivities(controller.signal).then((items) => {
+      if (controller.signal.aborted) return;
+      setActivityLoading(false);
+      setData((current) => current ? {
+        ...current,
+        activities: items,
+        activitiesUnavailable: false,
+      } : current);
+    }).catch((error) => {
+      if (isAbortError(error)) return;
+      setActivityLoading(false);
+      setActivityLoadError(true);
+    });
+  }, [deskAdapter]);
+
+  const openActivityPanel = useCallback(() => {
+    setPanel("activity");
+    announce("已打开这本课程的学习动态。");
+    refreshActivities();
+  }, [announce, refreshActivities]);
+
+  const openCardReview = useCallback(() => {
+    if (!data?.dueCards.length || data.cardsUnavailable) {
+      announce(data?.cardsUnavailable ? "复习卡片暂时无法读取。" : "今天没有到期卡片。");
+      return;
+    }
+    setCardIndex(0);
+    setCardError(null);
+    setPanel("cards");
+    announce(`开始复习，共 ${data.dueCards.length} 张到期卡片。`);
+  }, [announce, data]);
+
+  const reviewCard = useCallback((grade: DeskCardGrade) => {
+    const card = data?.dueCards[cardIndex];
+    if (!card || cardPending || !deskAdapter.reviewCard) return;
+    const controller = new AbortController();
+    cardControllerRef.current?.abort();
+    cardControllerRef.current = controller;
+    setCardPending(true);
+    setCardError(null);
+    void deskAdapter.reviewCard(card.item_id, grade, controller.signal).then(() => {
+      if (controller.signal.aborted) return;
+      setCardPending(false);
+      if (!data) return;
+      if (cardIndex + 1 >= data.dueCards.length) {
+        setData({ ...data, dueCards: [], dueCount: 0 });
+        setPanel(null);
+        announce("今日到期卡片已经复习完成。");
+        requestAnimationFrame(() => document.getElementById("kd-notebook-surface")?.focus());
+      } else {
+        setCardIndex((index) => index + 1);
+        announce("复习结果已保存，进入下一张。");
+      }
+    }).catch((error) => {
+      if (isAbortError(error)) return;
+      setCardPending(false);
+      setCardError("复习结果暂时没有保存，请重试；当前卡片仍在原位。");
+    });
+  }, [announce, cardIndex, cardPending, data, deskAdapter]);
 
   const handleResume = useCallback(() => {
     setDensity("focused");
@@ -321,7 +474,7 @@ export default function DeskScene({
       art={icons}
       onFutureFeature={announceFutureFeature}
       onOpenChat={onOpenChat}
-      onOpenActivity={onOpenActivity}
+      onOpenActivity={openActivityPanel}
       onOpenSettings={onOpenSettings}
     />
   );
@@ -382,6 +535,98 @@ export default function DeskScene({
             ? "这一步还没有草稿"
             : "草稿已保存在这本笔记本中";
 
+  if (invokeOpen) {
+    return (
+      <div className="kq-desk" data-density="focused">
+        {chrome}
+        <div className="kd-canvas">
+          <DeskTutorInvoke
+            courseName={data.course.name}
+            step={step}
+            answer={answer}
+            activity={activity === "checking" ? "dirty" : activity}
+            checkResult={checkResult}
+            question={tutorQuestion}
+            onQuestionChange={setTutorQuestion}
+            onSubmit={(request) => {
+              if (onStartCourseChat) onStartCourseChat(request);
+              else announceFutureChat();
+            }}
+            onCancel={cancelTutorInvoke}
+          />
+        </div>
+        <Announcer announcement={announcement} />
+      </div>
+    );
+  }
+
+  if (panel === "work") {
+    return (
+      <div className="kq-desk" data-density="focused">
+        {chrome}
+        <div className="kd-canvas">
+          <DeskWorkFolder
+            courseName={data.course.name}
+            materials={data.materials}
+            initialSourceId={initialMaterialId}
+            onCreate={(request) => {
+              if (onStartCreateChat) onStartCreateChat({ ...request, focusId: step.id });
+              else announceFutureChat();
+            }}
+            onOpenMaterials={onOpenMaterials}
+            onClose={closePanel}
+          />
+        </div>
+        <Announcer announcement={announcement} />
+      </div>
+    );
+  }
+
+  if (panel === "activity") {
+    return (
+      <div className="kq-desk" data-density="focused">
+        {chrome}
+        <div className="kd-canvas">
+          <DeskActivityPanel
+            activities={data.activities}
+            unavailable={data.activitiesUnavailable}
+            loading={activityLoading}
+            error={activityLoadError}
+            spaceId={data.bookstand.books.find((book) => book.current)?.id ?? ""}
+            onOpenFull={onOpenActivity}
+            onOpenChatSession={onOpenChatSession}
+            onRetryStudy={() => {
+              refreshActivities();
+            }}
+            onClose={closePanel}
+          />
+        </div>
+        <Announcer announcement={announcement} />
+      </div>
+    );
+  }
+
+  const reviewCardData = data.dueCards[cardIndex];
+  if (panel === "cards" && reviewCardData) {
+    return (
+      <div className="kq-desk" data-density="focused">
+        {chrome}
+        <div className="kd-canvas">
+          <DeskCardReview
+            card={reviewCardData}
+            index={cardIndex}
+            total={data.dueCards.length}
+            pending={cardPending}
+            error={cardError}
+            onGrade={reviewCard}
+            onClose={closePanel}
+          />
+        </div>
+        <Announcer announcement={announcement} />
+      </div>
+    );
+  }
+
   return (
     <div className="kq-desk" data-density={density}>
       {chrome}
@@ -410,12 +655,12 @@ export default function DeskScene({
               onAnswerChange={handleAnswerChange}
               onCheck={handleCheck}
               onModify={handleModify}
-              onAskTutor={onOpenChat ?? announceFutureChat}
+              onAskTutor={() => openTutorInvoke("kd-inline-chat")}
               onNextStep={handleNextStep}
               onNavigatePage={onNavigatePage}
               onFutureFeature={announceFutureFeature}
             />
-            <button type="button" className="kd-work-folder" onClick={announceFutureFeature}>
+            <button type="button" className="kd-work-folder" onClick={() => openWorkFolder()}>
               <icons.folderPlus /> ＋ 制作 / 成果
             </button>
           </section>
@@ -426,9 +671,9 @@ export default function DeskScene({
               materials={data.materials}
               dueCount={data.dueCount}
               onFutureFeature={announceFutureFeature}
-              onReviewCards={onReviewCards}
+              onReviewCards={onReviewCards ?? openCardReview}
             />
-            <DeskCup art={icons} onAskTutor={onOpenChat ?? announceFutureChat} />
+            <DeskCup art={icons} onAskTutor={() => openTutorInvoke("kd-cup-chat")} />
           </aside>
           <DeskLeftObjects
             art={icons}
@@ -437,7 +682,7 @@ export default function DeskScene({
             dueCount={data.dueCount}
             onFutureFeature={announceFutureFeature}
             onSelectSpace={onSelectSpace}
-            onOpenMaterials={onOpenMaterials}
+            onOpenMaterials={openWorkFolder}
             onNewBook={onNewBook}
           />
         </main>
