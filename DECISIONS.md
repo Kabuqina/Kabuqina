@@ -1114,6 +1114,8 @@ deletion. `cryptography`, `aiohttp`, `httpx` and `qrcode` remain shared
 runtime dependencies because retained Weixin, QQ Bot, DingTalk or common
 runtime paths still consume them; C03c removes only the WeCom dependency
 edges. Runtime pruning and source sync reject all three retired Core WeCom
-modules and the retired root QR worker. A fresh `build_bundle.ps1 -Verify`
-run remains operator-provided Gate evidence before independent review and
-sign-off; C04/C05/C07/G01 remain separate controls.
+modules and the retired root QR worker. The owner authorized source
+integration before bundle on 2026-07-24: a fresh `build_bundle.ps1 -Verify`
+run on merged `main` remains operator-provided Gate evidence before final
+sign-off, but no longer blocks merge. C04/C05/C07/G01 remain separate
+controls.
