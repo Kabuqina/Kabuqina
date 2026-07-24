@@ -71,7 +71,6 @@ Speech-to-text supports six providers: local faster-whisper (free, runs on-devic
 
 ## Programmatic Access
 
-- **[API Server](/docs/user-guide/features/api-server)** — Expose Hermes as an OpenAI-compatible HTTP endpoint. Any frontend that speaks the OpenAI format — Open WebUI, LobeChat, LibreChat, NextChat, ChatBox — can connect and use Hermes as a backend with its full toolset.
 
 ## Memory & Personalization
 
@@ -82,13 +81,12 @@ Speech-to-text supports six providers: local faster-whisper (free, runs on-devic
 
 Hermes runs as a gateway bot on 15+ messaging platforms, all configured through the same `gateway` subsystem:
 
-- **[Telegram](/docs/user-guide/messaging/telegram)**, **[Slack](/docs/user-guide/messaging/slack)**, **[WhatsApp](/docs/user-guide/messaging/whatsapp)**, **[Signal](/docs/user-guide/messaging/signal)**, **[Matrix](/docs/user-guide/messaging/matrix)**, **[Mattermost](/docs/user-guide/messaging/mattermost)**, **[Email](/docs/user-guide/messaging/email)**, **[SMS](/docs/user-guide/messaging/sms)**, **[DingTalk](/docs/user-guide/messaging/dingtalk)**, **[Weixin](/docs/user-guide/messaging/weixin)**, **[BlueBubbles](/docs/user-guide/messaging/bluebubbles)**, **[QQ Bot](/docs/user-guide/messaging/qqbot)**, **[Home Assistant](/docs/user-guide/messaging/homeassistant)**, **[Webhooks](/docs/user-guide/messaging/webhooks)**
+- **[Telegram](/docs/user-guide/messaging/telegram)**, **[WhatsApp](/docs/user-guide/messaging/whatsapp)**, **[Email](/docs/user-guide/messaging/email)**, **[DingTalk](/docs/user-guide/messaging/dingtalk)**, **[Weixin](/docs/user-guide/messaging/weixin)**, and **[QQ Bot](/docs/user-guide/messaging/qqbot)**
 
 See the [Messaging Gateway overview](/docs/user-guide/messaging) for the platform comparison table and setup guide.
 
 ## Home Automation
 
-- **[Home Assistant](/docs/user-guide/messaging/homeassistant)** — Control smart home devices via four dedicated tools (`ha_list_entities`, `ha_get_state`, `ha_list_services`, `ha_call_service`). The Home Assistant toolset activates automatically when `HASS_TOKEN` is configured.
 
 ## Plugins
 

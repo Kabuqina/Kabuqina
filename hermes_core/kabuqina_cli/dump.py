@@ -93,14 +93,8 @@ def _configured_platforms() -> list[str]:
     """Return list of configured messaging platform names."""
     checks = {
         "telegram": "TELEGRAM_BOT_TOKEN",
-        "slack": "SLACK_BOT_TOKEN",
         "whatsapp": "WHATSAPP_ENABLED",
-        "signal": "SIGNAL_HTTP_URL",
         "email": "EMAIL_ADDRESS",
-        "sms": "TWILIO_ACCOUNT_SID",
-        "matrix": "MATRIX_HOMESERVER_URL",
-        "mattermost": "MATTERMOST_URL",
-        "homeassistant": "HASS_TOKEN",
         "dingtalk": "DINGTALK_CLIENT_ID",
         "weixin": "WEIXIN_ACCOUNT_ID",
         "qqbot": "QQ_APP_ID",

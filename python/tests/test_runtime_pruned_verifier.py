@@ -1,7 +1,7 @@
 # Copyright 2026 Kabuqina Contributors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Contract tests for v0.3.0 runtime residual pruning."""
+"""Contract tests for runtime residual pruning."""
 
 from __future__ import annotations
 
@@ -17,6 +17,43 @@ VERIFIER = ROOT / "python" / "tools" / "verify_runtime_pruned.py"
 
 
 class RuntimePrunedVerifierTests(unittest.TestCase):
+    def test_verifier_reports_c04_sources_tools_and_dependencies(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = Path(tmp)
+            residuals = (
+                "kabuqina/gateway/platforms/slack.py",
+                "kabuqina/gateway/platforms/yuanbao.py",
+                "kabuqina/tools/homeassistant_tool.py",
+                "kabuqina/tools/yuanbao_tools.py",
+                "kabuqina/plugins/platforms/irc/plugin.yaml",
+                "site-packages/slack_sdk",
+                "site-packages/slack_bolt-1.23.0.dist-info",
+                "site-packages/mautrix",
+            )
+            for residual in residuals:
+                path = runtime / residual
+                if path.suffix:
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text("removed", encoding="utf-8")
+                else:
+                    path.mkdir(parents=True, exist_ok=True)
+
+            result = subprocess.run(
+                [sys.executable, str(VERIFIER), str(runtime)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        for residual in residuals:
+            expected = (
+                "kabuqina/plugins/platforms"
+                if residual.startswith("kabuqina/plugins/platforms/")
+                else residual
+            )
+            self.assertIn(f"forbidden runtime residual: {expected}", result.stderr)
+
     def test_verifier_reports_cut_runtime_residuals(self):
         self.assertTrue(VERIFIER.exists(), "missing verify_runtime_pruned.py")
 

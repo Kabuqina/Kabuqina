@@ -1,7 +1,7 @@
 """Slash command definitions and autocomplete for the Kabuqina CLI.
 
 Central registry for all slash commands. Every consumer -- CLI help, gateway
-dispatch, Telegram BotCommands, Slack subcommand mapping, autocomplete --
+dispatch, Telegram BotCommands, and autocomplete --
 derives its data from ``COMMAND_REGISTRY``.
 
 To add a command: add a ``CommandDef`` entry to ``COMMAND_REGISTRY``.
@@ -677,132 +677,6 @@ def telegram_menu_commands(max_commands: int = 100) -> tuple[list[tuple[str, str
     # Drop the cmd_key — Telegram only needs (name, desc) pairs.
     all_commands.extend((n, d) for n, d, _k in entries)
     return all_commands[:max_commands], hidden_count
-
-
-_SLACK_MAX_SLASH_COMMANDS = 50
-_SLACK_NAME_LIMIT = 32
-_SLACK_INVALID_CHARS = re.compile(r"[^a-z0-9_\-]")
-
-
-def _sanitize_slack_name(raw: str) -> str:
-    """Convert a command name to a valid Slack slash command name.
-
-    Slack allows lowercase a-z, digits, hyphens, and underscores. Max 32
-    chars. Uppercase is lowercased; invalid chars are stripped.
-    """
-    name = raw.lower()
-    name = _SLACK_INVALID_CHARS.sub("", name)
-    name = name.strip("-_")
-    return name[:_SLACK_NAME_LIMIT]
-
-
-def slack_native_slashes() -> list[tuple[str, str, str]]:
-    """Return (slash_name, description, usage_hint) triples for Slack.
-
-    Every gateway-available command in ``COMMAND_REGISTRY`` is surfaced as
-    a standalone Slack slash command (e.g. ``/btw``, ``/stop``, ``/model``),
-    matching Discord's and Telegram's model where every command is a
-    first-class slash and not a ``/kabuqina <verb>`` subcommand.
-
-    Both canonical names and aliases are included so users can type any
-    documented form (e.g. ``/background``, ``/bg``, and ``/btw`` all work).
-    Plugin-registered slash commands are included too.
-
-    Results are clamped to Slack's 50-command limit with duplicate-name
-    avoidance. ``/kabuqina`` is the canonical first entry; the legacy
-    ``/hermes <subcommand>`` form is retained for one release so it keeps
-    working for anything that
-    gets dropped by the clamp or for free-form questions.
-    """
-    overrides = _resolve_config_gates()
-    entries: list[tuple[str, str, str]] = []
-    seen: set[str] = set()
-
-    # Reserve the canonical and one-release legacy catch-all commands.
-    entries.append(("kabuqina", "Talk to Kabuqina or run a subcommand", "[subcommand] [args]"))
-    entries.append(("hermes", "Legacy alias for /kabuqina", "[subcommand] [args]"))
-    seen.update({"kabuqina", "hermes"})
-
-    def _add(name: str, desc: str, hint: str) -> None:
-        slack_name = _sanitize_slack_name(name)
-        if not slack_name or slack_name in seen:
-            return
-        if len(entries) >= _SLACK_MAX_SLASH_COMMANDS:
-            return
-        # Slack description cap is 2000 chars; keep it short.
-        entries.append((slack_name, desc[:140], hint[:100]))
-        seen.add(slack_name)
-
-    # First pass: canonical names (so they win slots if we hit the cap).
-    for cmd in COMMAND_REGISTRY:
-        if not _is_gateway_available(cmd, overrides):
-            continue
-        _add(cmd.name, cmd.description, cmd.args_hint or "")
-
-    # Second pass: aliases.
-    for cmd in COMMAND_REGISTRY:
-        if not _is_gateway_available(cmd, overrides):
-            continue
-        for alias in cmd.aliases:
-            # Skip aliases that only differ from canonical by case/punctuation
-            # normalization (already covered by _add dedup).
-            _add(alias, f"Alias for /{cmd.name} — {cmd.description}", cmd.args_hint or "")
-
-    # Third pass: plugin commands.
-    for name, description, args_hint in _iter_plugin_command_entries():
-        _add(name, description, args_hint or "")
-
-    return entries
-
-
-def slack_app_manifest(request_url: str = "https://kabuqina.local/slack/commands") -> dict[str, Any]:
-    """Generate a Slack app manifest with all gateway commands as slashes.
-
-    ``request_url`` is required by Slack's manifest schema for every slash
-    command, but in Socket Mode (which we use) Slack ignores it and routes
-    the command event through the WebSocket. A placeholder URL is fine.
-
-    The returned dict is the ``features.slash_commands`` portion only —
-    callers compose it into a full manifest (or merge into an existing
-    one). Keeping it narrow avoids coupling us to the rest of the manifest
-    schema (display_information, oauth_config, settings, etc.) which users
-    set up once in the Slack UI and rarely change.
-    """
-    slashes = []
-    for name, desc, usage in slack_native_slashes():
-        entry = {
-            "command": f"/{name}",
-            "description": desc or f"Run /{name}",
-            "should_escape": False,
-            "url": request_url,
-        }
-        if usage:
-            entry["usage_hint"] = usage
-        slashes.append(entry)
-    return {"features": {"slash_commands": slashes}}
-
-
-def slack_subcommand_map() -> dict[str, str]:
-    """Return subcommand -> /command mapping for Slack catch-all handlers.
-
-    Maps both canonical names and aliases so /hermes bg do stuff works
-    the same as /hermes background do stuff.
-
-    Plugin-registered slash commands are included so ``/hermes <plugin-cmd>``
-    routes through the plugin handler.
-    """
-    overrides = _resolve_config_gates()
-    mapping: dict[str, str] = {}
-    for cmd in COMMAND_REGISTRY:
-        if not _is_gateway_available(cmd, overrides):
-            continue
-        mapping[cmd.name] = f"/{cmd.name}"
-        for alias in cmd.aliases:
-            mapping[alias] = f"/{alias}"
-    for name, _description, _args_hint in _iter_plugin_command_entries():
-        if name not in mapping:
-            mapping[name] = f"/{name}"
-    return mapping
 
 
 # ---------------------------------------------------------------------------

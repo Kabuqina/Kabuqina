@@ -131,10 +131,10 @@ class TestVerboseCommand:
 
     @pytest.mark.asyncio
     async def test_per_platform_isolation(self, tmp_path, monkeypatch):
-        """Cycling /verbose on Telegram doesn't change Slack's setting.
+        """Cycling /verbose is isolated between retained platforms.
 
         Without a global tool_progress, each platform uses its built-in
-        default: Telegram = 'all' (high tier), Slack = 'off' (quiet Slack default).
+        default: Telegram = 'all' (high tier), Email = 'off' (minimal tier).
         """
         hermes_home = tmp_path / "hermes"
         hermes_home.mkdir()
@@ -152,17 +152,17 @@ class TestVerboseCommand:
         await runner._handle_verbose_command(
             _make_event(platform=Platform.TELEGRAM)
         )
-        # Cycle on Slack
+        # Cycle on Email
         await runner._handle_verbose_command(
-            _make_event(platform=Platform.SLACK)
+            _make_event(platform=Platform.EMAIL)
         )
 
         saved = yaml.safe_load(config_path.read_text(encoding="utf-8"))
         platforms = saved["display"]["platforms"]
         # Telegram: all -> verbose (high tier default = all)
         assert platforms["telegram"]["tool_progress"] == "verbose"
-        # Slack: off -> new (first /verbose cycle from quiet default)
-        assert platforms["slack"]["tool_progress"] == "new"
+        # Email: off -> new (first /verbose cycle from quiet default)
+        assert platforms["email"]["tool_progress"] == "new"
 
     @pytest.mark.asyncio
     async def test_no_config_file_returns_disabled(self, tmp_path, monkeypatch):

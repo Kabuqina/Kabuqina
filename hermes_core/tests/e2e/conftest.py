@@ -1,4 +1,4 @@
-"""Shared fixtures for gateway e2e tests (Telegram, Slack).
+"""Shared fixtures for retained Telegram gateway e2e tests.
 
 These tests exercise the full async message flow:
     adapter.handle_message(event)
@@ -57,39 +57,9 @@ def _ensure_telegram_mock():
         sys.modules.setdefault(name, telegram_mod)
 
 
-def _ensure_slack_mock():
-    """Install mock slack modules so SlackAdapter can be imported."""
-    if "slack_bolt" in sys.modules and hasattr(sys.modules["slack_bolt"], "__file__"):
-        return  # Real library installed
-
-    slack_bolt = MagicMock()
-    slack_bolt.async_app.AsyncApp = MagicMock
-    slack_bolt.adapter.socket_mode.async_handler.AsyncSocketModeHandler = MagicMock
-
-    slack_sdk = MagicMock()
-    slack_sdk.web.async_client.AsyncWebClient = MagicMock
-
-    for name, mod in [
-        ("slack_bolt", slack_bolt),
-        ("slack_bolt.async_app", slack_bolt.async_app),
-        ("slack_bolt.adapter", slack_bolt.adapter),
-        ("slack_bolt.adapter.socket_mode", slack_bolt.adapter.socket_mode),
-        ("slack_bolt.adapter.socket_mode.async_handler", slack_bolt.adapter.socket_mode.async_handler),
-        ("slack_sdk", slack_sdk),
-        ("slack_sdk.web", slack_sdk.web),
-        ("slack_sdk.web.async_client", slack_sdk.web.async_client),
-    ]:
-        sys.modules.setdefault(name, mod)
-
-
 ensure_comprehensive_telegram_stub()
-_ensure_slack_mock()
 
 from gateway.platforms.telegram import TelegramAdapter  # noqa: E402
-
-import gateway.platforms.slack as _slack_mod  # noqa: E402
-_slack_mod.SLACK_AVAILABLE = True
-from gateway.platforms.slack import SlackAdapter  # noqa: E402
 
 
 # Platform-generic factories
@@ -205,12 +175,8 @@ def make_adapter(platform: Platform, runner=None):
 
     config = PlatformConfig(enabled=True, token="e2e-test-token")
 
-    if platform == Platform.SLACK:
-        adapter = SlackAdapter(config)
-        platform_key = Platform.SLACK
-    else:
-        adapter = TelegramAdapter(config)
-        platform_key = Platform.TELEGRAM
+    adapter = TelegramAdapter(config)
+    platform_key = Platform.TELEGRAM
 
     adapter.send = AsyncMock(return_value=SendResult(success=True, message_id="e2e-resp-1"))
     adapter.send_typing = AsyncMock()
@@ -231,7 +197,7 @@ async def send_and_capture(adapter, text: str, platform: Platform, **event_kwarg
 
 
 # Parametrized fixtures for platform-generic tests
-@pytest.fixture(params=[Platform.TELEGRAM, Platform.SLACK], ids=["telegram", "slack"])
+@pytest.fixture(params=[Platform.TELEGRAM], ids=["telegram"])
 def platform(request):
     return request.param
 

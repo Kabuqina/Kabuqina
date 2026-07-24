@@ -13,7 +13,7 @@ Provides speech-to-text transcription with six providers:
     Inverse Text Normalization, diarization, 21 languages.
 
 Used by the messaging gateway to automatically transcribe voice messages
-sent by users on Telegram, Discord, WhatsApp, Slack, and Signal.
+sent by users on retained voice-capable messaging platforms.
 
 Supported input formats: mp3, mp4, mpeg, mpga, m4a, wav, webm, ogg, aac
 

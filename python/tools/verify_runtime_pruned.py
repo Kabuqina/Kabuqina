@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 FORBIDDEN_RUNTIME_PATHS = (
-    # v0.3.0 global-cut gateway adapters.
+    # v0.5.0 CTL-C04 removed gateway adapters and platform-only tools.
     "kabuqina/gateway/platforms/api_server.py",
     "kabuqina/gateway/platforms/bluebubbles.py",
     "kabuqina/gateway/platforms/homeassistant.py",
@@ -25,6 +25,8 @@ FORBIDDEN_RUNTIME_PATHS = (
     "kabuqina/gateway/platforms/yuanbao_media.py",
     "kabuqina/gateway/platforms/yuanbao_proto.py",
     "kabuqina/gateway/platforms/yuanbao_sticker.py",
+    "kabuqina/tools/homeassistant_tool.py",
+    "kabuqina/tools/yuanbao_tools.py",
     # v0.5.0 CTL-C03a removed owned Discord surfaces.
     "kabuqina/gateway/platforms/discord.py",
     "kabuqina/tools/discord_tool.py",
@@ -60,6 +62,13 @@ FORBIDDEN_RUNTIME_GLOBS = (
     # CTL-C03b direct dependency.
     "site-packages/lark_oapi",
     "site-packages/lark_oapi-*.dist-info",
+    # CTL-C04b platform-exclusive dependencies.
+    "site-packages/slack_bolt",
+    "site-packages/slack_bolt-*.dist-info",
+    "site-packages/slack_sdk",
+    "site-packages/slack_sdk-*.dist-info",
+    "site-packages/mautrix",
+    "site-packages/mautrix-*.dist-info",
 )
 
 FORBIDDEN_RUNTIME_CONTENT = (

@@ -83,6 +83,11 @@ class BuildBundleConsoleContractTests(unittest.TestCase):
         self.assertIn('"gateway\\platforms\\wecom.py"', text)
         self.assertIn('"gateway\\platforms\\wecom_callback.py"', text)
         self.assertIn('"gateway\\platforms\\wecom_crypto.py"', text)
+        self.assertIn('"gateway\\platforms\\slack.py"', text)
+        self.assertIn('"gateway\\platforms\\yuanbao.py"', text)
+        self.assertIn('"tools\\homeassistant_tool.py"', text)
+        self.assertIn('"tools\\yuanbao_tools.py"', text)
+        self.assertIn('"plugins\\platforms"', text)
 
 
 if __name__ == "__main__":

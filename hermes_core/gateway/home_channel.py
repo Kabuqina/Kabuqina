@@ -10,10 +10,13 @@ from gateway.session import SessionSource
 logger = logging.getLogger(__name__)
 
 
-_AUTO_HOME_EXCLUDED_PLATFORMS = {
-    Platform.LOCAL,
-    Platform.API_SERVER,
-    Platform.WEBHOOK,
+_AUTO_HOME_ALLOWED_PLATFORMS = {
+    Platform.TELEGRAM,
+    Platform.WHATSAPP,
+    Platform.EMAIL,
+    Platform.DINGTALK,
+    Platform.WEIXIN,
+    Platform.QQBOT,
 }
 
 
@@ -50,7 +53,7 @@ def maybe_auto_set_home_channel(
     group chat to become home.
     """
     platform = source.platform
-    if platform is None or platform in _AUTO_HOME_EXCLUDED_PLATFORMS:
+    if platform not in _AUTO_HOME_ALLOWED_PLATFORMS:
         return False
     if source.chat_type != "dm" or not source.chat_id:
         return False

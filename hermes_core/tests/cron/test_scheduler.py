@@ -67,14 +67,8 @@ class TestResolveDeliveryTarget:
     @pytest.mark.parametrize(
         ("platform", "env_var", "chat_id"),
         [
-            ("matrix", "MATRIX_HOME_ROOM", "!bot-room:example.org"),
-            ("signal", "SIGNAL_HOME_CHANNEL", "+15551234567"),
-            ("mattermost", "MATTERMOST_HOME_CHANNEL", "team-town-square"),
-            ("sms", "SMS_HOME_CHANNEL", "+15557654321"),
             ("email", "EMAIL_HOME_ADDRESS", "home@example.com"),
             ("dingtalk", "DINGTALK_HOME_CHANNEL", "cidNNN"),
-            ("feishu", "FEISHU_HOME_CHANNEL", "oc_home"),
-            ("wecom", "WECOM_HOME_CHANNEL", "wecom-home"),
             ("weixin", "WEIXIN_HOME_CHANNEL", "wxid_home"),
             ("qqbot", "QQ_HOME_CHANNEL", "group-openid-home"),
         ],
@@ -105,16 +99,6 @@ class TestResolveDeliveryTarget:
         assert _resolve_delivery_target({"deliver": "origin"}) == {
             "platform": platform,
             "chat_id": chat_id,
-            "thread_id": None,
-        }
-
-    def test_bare_matrix_delivery_uses_matrix_home_room(self, monkeypatch):
-        monkeypatch.delenv("MATRIX_HOME_CHANNEL", raising=False)
-        monkeypatch.setenv("MATRIX_HOME_ROOM", "!room123:example.org")
-
-        assert _resolve_delivery_target({"deliver": "matrix"}) == {
-            "platform": "matrix",
-            "chat_id": "!room123:example.org",
             "thread_id": None,
         }
 
@@ -245,39 +229,24 @@ class TestResolveDeliveryTarget:
             "thread_id": None,
         }
 
-    def test_explicit_discord_topic_target_with_thread_id(self):
-        """deliver: 'discord:chat_id:thread_id' parses correctly."""
-        job = {
-            "deliver": "discord:-1001234567890:17585",
-        }
-        assert _resolve_delivery_target(job) == {
-            "platform": "discord",
-            "chat_id": "-1001234567890",
-            "thread_id": "17585",
-        }
-
-    def test_explicit_discord_chat_id_without_thread_id(self):
-        """deliver: 'discord:chat_id' sets thread_id to None."""
-        job = {
-            "deliver": "discord:9876543210",
-        }
-        assert _resolve_delivery_target(job) == {
-            "platform": "discord",
-            "chat_id": "9876543210",
-            "thread_id": None,
-        }
-
-    def test_explicit_discord_channel_without_thread(self):
-        """deliver: 'discord:1001234567890' resolves via explicit platform:chat_id path."""
-        job = {
-            "deliver": "discord:1001234567890",
-        }
-        result = _resolve_delivery_target(job)
-        assert result == {
-            "platform": "discord",
-            "chat_id": "1001234567890",
-            "thread_id": None,
-        }
+    @pytest.mark.parametrize(
+        "target",
+        [
+            "discord:1001234567890",
+            "slack:C123",
+            "matrix:!room:example.org",
+            "signal:+15551234567",
+            "sms:+15557654321",
+            "homeassistant:conversation",
+            "webhook:hook",
+            "bluebubbles:iMessage;-;user@example.com",
+            "yuanbao:group",
+            "irc:#general",
+            "teams:channel",
+        ],
+    )
+    def test_removed_explicit_delivery_target_is_rejected(self, target):
+        assert _resolve_delivery_target({"deliver": target}) is None
 
     def test_list_form_deliver_is_normalized(self, monkeypatch):
         """deliver=['telegram'] (Python list) should resolve like 'telegram' string.
@@ -299,8 +268,8 @@ class TestResolveDeliveryTarget:
             "thread_id": None,
         }
 
-    def test_list_form_multiple_platforms_normalized(self, monkeypatch):
-        """deliver=['telegram', 'discord'] resolves to multiple targets."""
+    def test_list_form_multiple_platforms_filters_removed_targets(self, monkeypatch):
+        """Removed targets never survive list-form normalization."""
         from cron.scheduler import _resolve_delivery_targets
 
         monkeypatch.setenv("TELEGRAM_HOME_CHANNEL", "-111")
@@ -309,7 +278,7 @@ class TestResolveDeliveryTarget:
 
         targets = _resolve_delivery_targets(job)
         platforms = sorted(t["platform"] for t in targets)
-        assert platforms == ["discord", "telegram"]
+        assert platforms == ["telegram"]
 
     def test_empty_list_form_deliver_resolves_to_local(self):
         """deliver=[] is treated as local (no delivery)."""
@@ -424,7 +393,7 @@ class TestDeliverResultWrapping:
 
     def test_live_adapter_sends_media_as_attachments(self):
         """When a live adapter is available, MEDIA files should be sent as native
-        platform attachments (e.g., Discord voice, Telegram audio) rather than
+        platform attachments (for example, Telegram audio) rather than
         as literal 'MEDIA:/path' text."""
         from gateway.config import Platform
         from concurrent.futures import Future
@@ -436,7 +405,7 @@ class TestDeliverResultWrapping:
         pconfig = MagicMock()
         pconfig.enabled = True
         mock_cfg = MagicMock()
-        mock_cfg.platforms = {Platform.DISCORD: pconfig}
+        mock_cfg.platforms = {Platform.TELEGRAM: pconfig}
 
         loop = MagicMock()
         loop.is_running.return_value = True
@@ -451,7 +420,7 @@ class TestDeliverResultWrapping:
         job = {
             "id": "tts-job",
             "deliver": "origin",
-            "origin": {"platform": "discord", "chat_id": "9876"},
+            "origin": {"platform": "telegram", "chat_id": "9876"},
         }
 
         with patch("gateway.config.load_gateway_config", return_value=mock_cfg), \
@@ -460,7 +429,7 @@ class TestDeliverResultWrapping:
             _deliver_result(
                 job,
                 "Here is TTS\nMEDIA:/tmp/cron-voice.mp3",
-                adapters={Platform.DISCORD: adapter},
+                adapters={Platform.TELEGRAM: adapter},
                 loop=loop,
             )
 
@@ -487,7 +456,7 @@ class TestDeliverResultWrapping:
         pconfig = MagicMock()
         pconfig.enabled = True
         mock_cfg = MagicMock()
-        mock_cfg.platforms = {Platform.DISCORD: pconfig}
+        mock_cfg.platforms = {Platform.TELEGRAM: pconfig}
 
         loop = MagicMock()
         loop.is_running.return_value = True
@@ -501,7 +470,7 @@ class TestDeliverResultWrapping:
         job = {
             "id": "img-job",
             "deliver": "origin",
-            "origin": {"platform": "discord", "chat_id": "1234"},
+            "origin": {"platform": "telegram", "chat_id": "1234"},
         }
 
         with patch("gateway.config.load_gateway_config", return_value=mock_cfg), \
@@ -510,7 +479,7 @@ class TestDeliverResultWrapping:
             _deliver_result(
                 job,
                 "Chart attached\nMEDIA:/tmp/chart.png",
-                adapters={Platform.DISCORD: adapter},
+                adapters={Platform.TELEGRAM: adapter},
                 loop=loop,
             )
 

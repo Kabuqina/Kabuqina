@@ -1,5 +1,5 @@
 """
-Verify that every gateway platform — built-in and plugin — has a connection
+Verify that every retained gateway platform has a connection
 checker so ``GatewayConfig.get_connected_platforms()`` doesn't silently drop
 platforms with bespoke auth requirements.
 """
@@ -20,19 +20,22 @@ def test_all_builtins_have_checker_or_generic_token_path():
     This guarantees ``get_connected_platforms()`` doesn't silently ignore
     a built-in just because nobody added it to the checker dict.
     """
-    # Platforms covered by the generic token/api_key branch
-    generic_token_values = {p.value for p in {
-        Platform.TELEGRAM,
-        Platform.SLACK,
-        Platform.MATRIX,
-        Platform.MATTERMOST,
-        Platform.HOMEASSISTANT,
-    }}
+    generic_token_values = {Platform.TELEGRAM.value}
     compatibility_only_values = {
         Platform.DISCORD.value,
         Platform.FEISHU.value,
         Platform.WECOM.value,
         Platform.WECOM_CALLBACK.value,
+        Platform.SLACK.value,
+        Platform.SIGNAL.value,
+        Platform.MATTERMOST.value,
+        Platform.MATRIX.value,
+        Platform.HOMEASSISTANT.value,
+        Platform.SMS.value,
+        Platform.API_SERVER.value,
+        Platform.WEBHOOK.value,
+        Platform.BLUEBUBBLES.value,
+        Platform.YUANBAO.value,
     }
 
     # Platforms with a bespoke checker
@@ -80,21 +83,12 @@ def test_checker_returns_true_when_configured(platform, checker, monkeypatch):
     # Set up platform-specific mock extra fields so the checker succeeds
     if platform == Platform.WEIXIN:
         mock_config.extra = {"account_id": "123", "token": "***"}
-    elif platform == Platform.SIGNAL:
-        mock_config.extra = {"http_url": "http://signal:8080"}
     elif platform == Platform.EMAIL:
         mock_config.extra = {"address": "hermes@example.com"}
-    elif platform == Platform.SMS:
-        monkeypatch.setenv("TWILIO_ACCOUNT_SID", "ACtest")
+    elif platform == Platform.WHATSAPP:
         mock_config.extra = {}
-    elif platform in (Platform.API_SERVER, Platform.WEBHOOK, Platform.WHATSAPP):
-        mock_config.extra = {}
-    elif platform == Platform.BLUEBUBBLES:
-        mock_config.extra = {"server_url": "http://bb:1234", "password": "pw"}
     elif platform == Platform.QQBOT:
         mock_config.extra = {"app_id": "app", "client_secret": "sec"}
-    elif platform == Platform.YUANBAO:
-        mock_config.extra = {"app_id": "app", "app_secret": "sec"}
     elif platform == Platform.DINGTALK:
         mock_config.extra = {"client_id": "id", "client_secret": "sec"}
     else:

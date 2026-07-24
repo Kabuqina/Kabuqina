@@ -194,58 +194,18 @@ class TestBuildSessionContextPrompt:
         assert "Telegram" in prompt
         assert "Home Chat" in prompt
 
-    def test_bluebubbles_prompt_mentions_short_conversational_i_message_format(self):
-        config = GatewayConfig(
-            platforms={
-                Platform.BLUEBUBBLES: PlatformConfig(enabled=True, extra={"server_url": "http://localhost:1234", "password": "secret"}),
-            },
-        )
-        source = SessionSource(
-            platform=Platform.BLUEBUBBLES,
-            chat_id="iMessage;-;user@example.com",
-            chat_name="Ben",
-            chat_type="dm",
-        )
-        ctx = build_session_context(source, config)
-        prompt = build_session_context_prompt(ctx)
-
-        assert "responding via iMessage" in prompt
-        assert "short and conversational" in prompt
-        assert "blank line" in prompt
-
-    def test_slack_prompt_includes_platform_notes(self):
-        config = GatewayConfig(
-            platforms={
-                Platform.SLACK: PlatformConfig(enabled=True, token="fake"),
-            },
-        )
-        source = SessionSource(
-            platform=Platform.SLACK,
-            chat_id="C123",
-            chat_name="general",
-            chat_type="group",
-            user_name="bob",
-        )
-        ctx = build_session_context(source, config)
-        prompt = build_session_context_prompt(ctx)
-
-        assert "Slack" in prompt
-        assert "cannot search" in prompt.lower()
-        assert "pin" in prompt.lower()
-        assert "current message's slack block/attachment payload" in prompt.lower()
-
-    def test_slack_prompt_with_channel_topic(self):
+    def test_retained_platform_prompt_with_channel_topic(self):
         """Channel topic should appear in the session context prompt."""
         config = GatewayConfig(
             platforms={
-                Platform.SLACK: PlatformConfig(
+                Platform.TELEGRAM: PlatformConfig(
                     enabled=True,
-                    token="fake-slack-token",
+                    token="fake-telegram-token",
                 ),
             },
         )
         source = SessionSource(
-            platform=Platform.SLACK,
+            platform=Platform.TELEGRAM,
             chat_id="guild-123",
             chat_name="Server / #project-planning",
             chat_type="group",
@@ -255,21 +215,21 @@ class TestBuildSessionContextPrompt:
         ctx = build_session_context(source, config)
         prompt = build_session_context_prompt(ctx)
 
-        assert "Slack" in prompt
+        assert "Telegram" in prompt
         assert "**Channel Topic:** Planning and coordination for Project X" in prompt
 
     def test_prompt_omits_channel_topic_when_none(self):
         """Channel Topic line should NOT appear when chat_topic is None."""
         config = GatewayConfig(
             platforms={
-                Platform.SLACK: PlatformConfig(
+                Platform.TELEGRAM: PlatformConfig(
                     enabled=True,
-                    token="fake-slack-token",
+                    token="fake-telegram-token",
                 ),
             },
         )
         source = SessionSource(
-            platform=Platform.SLACK,
+            platform=Platform.TELEGRAM,
             chat_id="guild-123",
             chat_name="Server / #general",
             chat_type="group",

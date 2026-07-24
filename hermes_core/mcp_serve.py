@@ -437,8 +437,7 @@ def create_mcp_server(event_bridge: Optional[EventBridge] = None) -> "FastMCP":
         "kabuqina",
         instructions=(
             "Kabuqina messaging bridge. Use these tools to interact with "
-            "conversations across Telegram, Discord, Slack, WhatsApp, Signal, "
-            "Matrix, and other connected platforms."
+            "conversations across the retained product messaging platforms."
         ),
     )
 
@@ -458,7 +457,7 @@ def create_mcp_server(event_bridge: Optional[EventBridge] = None) -> "FastMCP":
         platform, chat type, display name, and last activity time.
 
         Args:
-            platform: Filter by platform name (telegram, discord, slack, etc.)
+            platform: Filter by retained platform name
             limit: Maximum number of conversations to return (default 50)
             search: Optional text to filter conversations by name
         """
@@ -710,8 +709,7 @@ def create_mcp_server(event_bridge: Optional[EventBridge] = None) -> "FastMCP":
 
         Examples:
             target="telegram:6308981865"
-            target="discord:#general"
-            target="slack:#engineering"
+            target="whatsapp:+15551234567"
 
         Args:
             target: Platform target in "platform:identifier" format
@@ -741,7 +739,7 @@ def create_mcp_server(event_bridge: Optional[EventBridge] = None) -> "FastMCP":
         returned here can be used directly with the messages_send tool.
 
         Args:
-            platform: Filter by platform name (telegram, discord, slack, etc.)
+            platform: Filter by retained platform name
         """
         directory = _load_channel_directory()
         if not directory:

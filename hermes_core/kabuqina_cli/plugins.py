@@ -477,45 +477,9 @@ class PluginContext:
         install_hint: str = "",
         **entry_kwargs: Any,
     ) -> None:
-        """Register a gateway platform adapter.
-
-        The adapter_factory receives a ``PlatformConfig`` and returns a
-        ``BasePlatformAdapter`` subclass instance.  The gateway calls
-        ``check_fn()`` before instantiation to verify dependencies.
-
-        Extra keyword arguments are forwarded to ``PlatformEntry`` (e.g.
-        ``setup_fn``, ``emoji``, ``allowed_users_env``, ``platform_hint``).
-        Unknown keys raise TypeError from the dataclass constructor.
-
-        Example::
-
-            ctx.register_platform(
-                name="irc",
-                label="IRC",
-                adapter_factory=lambda cfg: IRCAdapter(cfg),
-                check_fn=lambda: True,
-                emoji="💬",
-                setup_fn=irc_interactive_setup,
-            )
-        """
-        from gateway.platform_registry import platform_registry, PlatformEntry
-
-        entry_kwargs.setdefault("plugin_name", self.manifest.name)
-        entry = PlatformEntry(
-            name=name,
-            label=label,
-            adapter_factory=adapter_factory,
-            check_fn=check_fn,
-            validate_config=validate_config,
-            required_env=required_env or [],
-            install_hint=install_hint,
-            source="plugin",
-            **entry_kwargs,
-        )
-        platform_registry.register(entry)
-        self._manager._plugin_platform_names.add(name)
-        logger.debug(
-            "Plugin %s registered platform: %s",
+        """Reject platform plugins while keeping older plugins loadable."""
+        logger.warning(
+            "Plugin '%s' tried to register platform '%s'; platform plugins are unsupported",
             self.manifest.name,
             name,
         )
@@ -640,9 +604,8 @@ class PluginManager:
         #   - flat: ``plugins/disk-cleanup/plugin.yaml`` (standalone)
         #   - category: ``plugins/image_gen/openai/plugin.yaml`` (backend)
         #
-        # ``memory/`` and ``context_engine/`` are skipped at the top level —
-        # they have their own discovery systems. ``platforms/`` is a category
-        # holding platform adapters (scanned one level deeper below).
+        # ``memory/``, ``context_engine/``, and the retired ``platforms/``
+        # category are skipped at the top level.
         repo_plugins = get_bundled_plugins_dir()
         manifests.extend(
             self._scan_directory(
@@ -651,10 +614,6 @@ class PluginManager:
                 skip_names={"memory", "context_engine", "platforms"},
             )
         )
-        manifests.extend(
-            self._scan_directory(repo_plugins / "platforms", source="bundled")
-        )
-
         # 2. User plugins (~/.kabuqina/plugins/)
         user_dir = get_kabuqina_home() / "plugins"
         manifests.extend(self._scan_directory(user_dir, source="user"))

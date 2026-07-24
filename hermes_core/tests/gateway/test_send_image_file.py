@@ -173,69 +173,6 @@ class TestTelegramSendImageFile:
 # ---------------------------------------------------------------------------
 
 
-def _ensure_slack_mock():
-    """Install mock slack_bolt module so SlackAdapter can be imported."""
-    if "slack_bolt" in sys.modules and hasattr(sys.modules["slack_bolt"], "__file__"):
-        return
-
-    slack_mod = MagicMock()
-    for name in ("slack_bolt", "slack_bolt.async_app", "slack_sdk", "slack_sdk.web.async_client"):
-        sys.modules.setdefault(name, slack_mod)
-
-
-_ensure_slack_mock()
-
-from gateway.platforms.slack import SlackAdapter  # noqa: E402
-
-
-class TestSlackSendImageFile:
-    @pytest.fixture
-    def adapter(self):
-        config = PlatformConfig(enabled=True, token="xoxb-fake")
-        a = SlackAdapter(config)
-        a._app = MagicMock()
-        return a
-
-    def test_sends_local_image_via_upload(self, adapter, tmp_path):
-        """send_image_file should call files_upload_v2 with the local path."""
-        img = tmp_path / "screenshot.png"
-        img.write_bytes(b"\x89PNG" + b"\x00" * 50)
-
-        mock_result = MagicMock()
-        adapter._app.client.files_upload_v2 = AsyncMock(return_value=mock_result)
-
-        result = _run(
-            adapter.send_image_file(chat_id="C12345", image_path=str(img))
-        )
-        assert result.success
-        adapter._app.client.files_upload_v2.assert_awaited_once()
-
-        call_kwargs = adapter._app.client.files_upload_v2.call_args.kwargs
-        assert call_kwargs["file"] == str(img)
-        assert call_kwargs["filename"] == "screenshot.png"
-        assert call_kwargs["channel"] == "C12345"
-
-    def test_returns_error_when_file_missing(self, adapter):
-        result = _run(
-            adapter.send_image_file(chat_id="C12345", image_path="/nonexistent.png")
-        )
-        assert not result.success
-        assert "not found" in result.error
-
-    def test_returns_error_when_not_connected(self, adapter):
-        adapter._app = None
-        result = _run(
-            adapter.send_image_file(chat_id="C12345", image_path="/tmp/img.png")
-        )
-        assert not result.success
-        assert "Not connected" in result.error
-
-
-# ---------------------------------------------------------------------------
-# browser_vision screenshot cleanup tests
-# ---------------------------------------------------------------------------
-
-
 class TestScreenshotCleanup:
     def test_cleanup_removes_old_screenshots(self, tmp_path):
         """_cleanup_old_screenshots should remove files older than max_age_hours."""

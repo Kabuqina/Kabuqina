@@ -77,26 +77,15 @@ _PLATFORM_DEFAULTS: dict[str, dict[str, Any]] = {
     # Tier 1 — full edit support, personal/team use
     "telegram":    _TIER_HIGH,
 
-    # Tier 2 — edit support, often customer/workspace channels
-    # Slack: tool_progress off by default — Bolt posts cannot be edited like CLI;
-    # "new"/"all" spam permanent lines in channels (kabuqina-agent#14663).
-    "slack":           {**_TIER_MEDIUM, "tool_progress": "off"},
-    "mattermost":      _TIER_MEDIUM,
-    "matrix":          _TIER_MEDIUM,
+    # Tier 2 — edit support
+    "whatsapp":        _TIER_MEDIUM,  # Baileys bridge supports /edit
 
     # Tier 3 — no edit support, progress messages are permanent
-    "signal":          _TIER_LOW,
-    "whatsapp":        _TIER_MEDIUM,  # Baileys bridge supports /edit
-    "bluebubbles":     _TIER_LOW,
     "weixin":          _TIER_LOW,
     "dingtalk":        _TIER_LOW,
 
     # Tier 4 — batch or non-interactive delivery
     "email":           _TIER_MINIMAL,
-    "sms":             _TIER_MINIMAL,
-    "webhook":         _TIER_MINIMAL,
-    "homeassistant":   _TIER_MINIMAL,
-    "api_server":      {**_TIER_HIGH, "tool_preview_length": 0},
 }
 
 # Canonical set of per-platform overrideable keys (for validation).
@@ -116,7 +105,7 @@ def resolve_display_setting(
     user_config : dict
         The full parsed config.yaml dict.
     platform_key : str
-        Platform config key (e.g. ``"telegram"``, ``"slack"``).  Use
+        Platform config key (e.g. ``"telegram"`` or ``"weixin"``). Use
         ``_platform_config_key(source.platform)`` from gateway/run.py.
     setting : str
         Display setting name (e.g. ``"tool_progress"``, ``"show_reasoning"``).

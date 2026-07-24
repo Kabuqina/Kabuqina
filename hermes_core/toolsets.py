@@ -60,8 +60,6 @@ _KABUQINA_CORE_TOOLS = [
     "cronjob",
     # Cross-platform messaging (gated on gateway running via check_fn)
     "send_message",
-    # Home Assistant smart home control (gated on HASS_TOKEN via check_fn)
-    "ha_list_entities", "ha_get_state", "ha_list_services", "ha_call_service",
 ]
 
 # One-release compatibility for third-party plugins importing the old private
@@ -134,7 +132,7 @@ TOOLSETS = {
     },
     
     "messaging": {
-        "description": "Cross-platform messaging: send messages to Telegram, Slack, SMS, etc.",
+        "description": "Cross-platform messaging for retained product adapters",
         "tools": ["send_message"],
         "includes": []
     },
@@ -220,24 +218,6 @@ TOOLSETS = {
     # "honcho" toolset removed — Honcho is now a memory provider plugin.
     # Tools are injected via MemoryManager, not the toolset system.
 
-    "homeassistant": {
-        "description": "Home Assistant smart home control and monitoring",
-        "tools": ["ha_list_entities", "ha_get_state", "ha_list_services", "ha_call_service"],
-        "includes": []
-    },
-
-    "yuanbao": {
-        "description": "Yuanbao platform tools - group info, member queries, DM, stickers",
-        "tools": [
-            "yb_query_group_info",
-            "yb_query_group_members",
-            "yb_send_dm",
-            "yb_search_sticker",
-            "yb_send_sticker",
-        ],
-        "includes": []
-    },
-
     # Scenario-specific toolsets
     
     "debugging": {
@@ -278,39 +258,6 @@ TOOLSETS = {
         "includes": []
     },
 
-    "kabuqina-api-server": {
-        "description": "OpenAI-compatible API server — full agent tools accessible via HTTP (no interactive UI tools like clarify or send_message)",
-        "tools": [
-            # Web
-            "web_search", "web_extract",
-            # Terminal + process management
-            "terminal", "process",
-            # File manipulation
-            "read_file", "write_file", "patch", "search_files", "file_metadata",
-            # Vision + image generation
-            "vision_analyze", "image_generate",
-            # Skills
-            "skills_list", "skill_view", "skill_manage",
-            # Browser automation
-            "browser_navigate", "browser_snapshot", "browser_click",
-            "browser_type", "browser_scroll", "browser_back",
-            "browser_press", "browser_get_images",
-            "browser_vision", "browser_console", "browser_cdp", "browser_dialog",
-            # Planning & memory
-            "todo", "memory",
-            # Session history search
-            "session_search",
-            # Code execution + delegation
-            "execute_code", "delegate_task",
-            # Cronjob management
-            "cronjob",
-            # Home Assistant smart home control (gated on HASS_TOKEN via check_fn)
-            "ha_list_entities", "ha_get_state", "ha_list_services", "ha_call_service",
-
-        ],
-        "includes": []
-    },
-    
     "kabuqina-cli": {
         "description": "Full interactive CLI toolset - all default tools plus cronjob management",
         "tools": _KABUQINA_CORE_TOOLS,
@@ -321,7 +268,7 @@ TOOLSETS = {
         # Mirrors kabuqina-cli so cron's "default" toolset is the same set of
         # core tools users see interactively — then `hermes tools` filters
         # them down per the platform config. _DEFAULT_OFF_TOOLSETS (moa,
-        # homeassistant, rl) are excluded by _get_platform_tools() unless
+        # rl) are excluded by _get_platform_tools() unless
         # the user explicitly enables them.
         "description": "Default cron toolset - same core tools as kabuqina-cli; gated by `hermes tools`",
         "tools": _KABUQINA_CORE_TOOLS,
@@ -340,44 +287,8 @@ TOOLSETS = {
         "includes": []
     },
     
-    "kabuqina-slack": {
-        "description": "Slack bot toolset - full access for workspace use (terminal has safety checks)",
-        "tools": _KABUQINA_CORE_TOOLS,
-        "includes": []
-    },
-    
-    "kabuqina-signal": {
-        "description": "Signal bot toolset - encrypted messaging platform (full access)",
-        "tools": _KABUQINA_CORE_TOOLS,
-        "includes": []
-    },
-
-    "kabuqina-bluebubbles": {
-        "description": "BlueBubbles iMessage bot toolset - Apple iMessage via local BlueBubbles server",
-        "tools": _KABUQINA_CORE_TOOLS,
-        "includes": []
-    },
-
-    "kabuqina-homeassistant": {
-        "description": "Home Assistant bot toolset - smart home event monitoring and control",
-        "tools": _KABUQINA_CORE_TOOLS,
-        "includes": []
-    },
-
     "kabuqina-email": {
         "description": "Email bot toolset - interact with Kabuqina via email (IMAP/SMTP)",
-        "tools": _KABUQINA_CORE_TOOLS,
-        "includes": []
-    },
-
-    "kabuqina-mattermost": {
-        "description": "Mattermost bot toolset - self-hosted team messaging (full access)",
-        "tools": _KABUQINA_CORE_TOOLS,
-        "includes": []
-    },
-
-    "kabuqina-matrix": {
-        "description": "Matrix bot toolset - decentralized encrypted messaging (full access)",
         "tools": _KABUQINA_CORE_TOOLS,
         "includes": []
     },
@@ -400,35 +311,10 @@ TOOLSETS = {
         "includes": []
     },
 
-    "kabuqina-yuanbao": {
-        "description": "Yuanbao Bot 元宝消息平台工具集 - 群信息、成员查询、私聊、贴纸表情",
-        "tools": _KABUQINA_CORE_TOOLS + [
-            "yb_query_group_info",
-            "yb_query_group_members",
-            "yb_send_dm",
-            "yb_search_sticker",
-            "yb_send_sticker",
-        ],
-        "module": "tools.yuanbao_tools",
-        "includes": []
-    },
-
-    "kabuqina-sms": {
-        "description": "SMS bot toolset - interact with Kabuqina via SMS (Twilio)",
-        "tools": _KABUQINA_CORE_TOOLS,
-        "includes": []
-    },
-
-    "kabuqina-webhook": {
-        "description": "Webhook toolset - receive and process external webhook events",
-        "tools": _KABUQINA_CORE_TOOLS,
-        "includes": []
-    },
-
     "kabuqina-gateway": {
         "description": "Gateway toolset - union of all messaging platform tools",
         "tools": [],
-        "includes": ["kabuqina-telegram", "kabuqina-whatsapp", "kabuqina-slack", "kabuqina-signal", "kabuqina-bluebubbles", "kabuqina-homeassistant", "kabuqina-email", "kabuqina-sms", "kabuqina-mattermost", "kabuqina-matrix", "kabuqina-dingtalk", "kabuqina-weixin", "kabuqina-qqbot", "kabuqina-webhook", "kabuqina-yuanbao"]
+        "includes": ["kabuqina-telegram", "kabuqina-whatsapp", "kabuqina-email", "kabuqina-dingtalk", "kabuqina-weixin", "kabuqina-qqbot"]
     }
 }
 
@@ -528,29 +414,6 @@ def resolve_toolset(name: str, visited: Set[str] = None) -> List[str]:
     # Get toolset definition
     toolset = get_toolset(name)
     if not toolset:
-        # Auto-generate a toolset for plugin platforms. The old prefix remains
-        # accepted for one release so existing config.yaml files keep working.
-        # Gives them _KABUQINA_CORE_TOOLS plus any tools the plugin registered
-        # into a toolset matching the platform name.
-        if name.startswith(("kabuqina-", "hermes-")):
-            prefix = "kabuqina-" if name.startswith("kabuqina-") else "hermes-"
-            platform_name = name[len(prefix):]
-            try:
-                from gateway.platform_registry import platform_registry
-                if platform_registry.is_registered(platform_name):
-                    plugin_tools = set(_KABUQINA_CORE_TOOLS)
-                    try:
-                        from tools.registry import registry
-                        plugin_tools.update(
-                            e.name for e in registry._tools.values()
-                            if e.toolset == platform_name
-                        )
-                    except Exception:
-                        pass
-                    return list(plugin_tools)
-            except Exception:
-                pass
-
         return []
 
     # Collect direct tools

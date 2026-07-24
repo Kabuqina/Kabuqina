@@ -126,9 +126,4 @@ def install_aiohttp_stub(monkeypatch):
     monkeypatch.setitem(sys.modules, "aiohttp", aiohttp)
     monkeypatch.setitem(sys.modules, "aiohttp.web", web)
 
-    api_server = sys.modules.get("gateway.platforms.api_server")
-    if api_server is not None:
-        monkeypatch.setattr(api_server, "web", web, raising=False)
-        monkeypatch.setattr(api_server, "AIOHTTP_AVAILABLE", True, raising=False)
-
     return aiohttp

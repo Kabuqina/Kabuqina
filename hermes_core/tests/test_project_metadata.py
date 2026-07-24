@@ -11,22 +11,15 @@ def _load_optional_dependencies():
     return project["optional-dependencies"]
 
 
-def test_matrix_extra_linux_only_in_all():
-    """mautrix[encryption] depends on python-olm which is upstream-broken on
-    modern macOS (archived libolm, C++ errors with Clang 21+).  The [matrix]
-    extra is included in [all] but gated to Linux via a platform marker so
-    that ``kabuqina update`` doesn't fail on macOS."""
+def test_removed_platform_extras_are_absent():
     optional_dependencies = _load_optional_dependencies()
+    removed = {"slack", "matrix", "homeassistant", "sms"}
 
-    assert "matrix" in optional_dependencies
-    # Must NOT be unconditional — python-olm has no macOS wheels.
-    assert "kabuqina-agent[matrix]" not in optional_dependencies["all"]
-    # Must be present with a Linux platform marker.
-    linux_gated = [
-        dep for dep in optional_dependencies["all"]
-        if "matrix" in dep and "linux" in dep
-    ]
-    assert linux_gated, "expected kabuqina-agent[matrix] with Linux marker in [all]"
+    assert removed.isdisjoint(optional_dependencies)
+    assert not any(
+        any(name in dep.lower() for name in removed)
+        for dep in optional_dependencies["all"]
+    )
 
 
 def test_messaging_extra_includes_qrcode_for_weixin_setup():
