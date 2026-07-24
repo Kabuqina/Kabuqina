@@ -52,15 +52,3 @@ def test_qq_advanced_flags_from_env(hermes_home, monkeypatch):
     assert q is not None
     assert q.extra.get("markdown_support") is False
     assert q.extra.get("sandbox") is True
-
-
-def test_wecom_bot_credentials_from_env(hermes_home, monkeypatch):
-    monkeypatch.setenv("WECOM_BOT_ID", "bot_1")
-    monkeypatch.setenv("WECOM_SECRET", "sec_1")
-
-    cfg = load_gateway_config()
-    w = cfg.platforms.get(Platform.WECOM)
-    assert w is not None
-    assert w.enabled is True
-    assert w.extra.get("bot_id") == "bot_1"
-    assert w.extra.get("secret") == "sec_1"

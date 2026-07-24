@@ -208,7 +208,7 @@ class WebhookAdapter(BasePlatformAdapter):
         _BUILTIN_DELIVER_PLATFORMS = {
             "telegram", "slack", "signal", "sms", "whatsapp",
             "matrix", "mattermost", "homeassistant", "email", "dingtalk",
-            "wecom", "wecom_callback", "weixin", "bluebubbles",
+            "weixin", "bluebubbles",
             "qqbot", "yuanbao",
         }
         _is_known_platform = deliver_type in _BUILTIN_DELIVER_PLATFORMS

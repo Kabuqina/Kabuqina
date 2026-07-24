@@ -293,20 +293,6 @@ For cloud sandbox backends, persistence is filesystem-oriented. `TERMINAL_LIFETI
 | `DINGTALK_CLIENT_ID` | DingTalk bot AppKey from developer portal ([open.dingtalk.com](https://open.dingtalk.com)) |
 | `DINGTALK_CLIENT_SECRET` | DingTalk bot AppSecret from developer portal |
 | `DINGTALK_ALLOWED_USERS` | Comma-separated DingTalk user IDs allowed to message the bot |
-| `WECOM_BOT_ID` | WeCom AI Bot ID from admin console |
-| `WECOM_SECRET` | WeCom AI Bot secret |
-| `WECOM_WEBSOCKET_URL` | Custom WebSocket URL (default: `wss://openws.work.weixin.qq.com`) |
-| `WECOM_ALLOWED_USERS` | Comma-separated WeCom user IDs allowed to message the bot |
-| `WECOM_HOME_CHANNEL` | WeCom chat ID for cron delivery and notifications |
-| `WECOM_CALLBACK_CORP_ID` | WeCom enterprise Corp ID for callback self-built app |
-| `WECOM_CALLBACK_CORP_SECRET` | Corp secret for the self-built app |
-| `WECOM_CALLBACK_AGENT_ID` | Agent ID of the self-built app |
-| `WECOM_CALLBACK_TOKEN` | Callback verification token |
-| `WECOM_CALLBACK_ENCODING_AES_KEY` | AES key for callback encryption |
-| `WECOM_CALLBACK_HOST` | Callback server bind address (default: `0.0.0.0`) |
-| `WECOM_CALLBACK_PORT` | Callback server port (default: `8645`) |
-| `WECOM_CALLBACK_ALLOWED_USERS` | Comma-separated user IDs for allowlist |
-| `WECOM_CALLBACK_ALLOW_ALL_USERS` | Set `true` to allow all users without an allowlist |
 | `WEIXIN_ACCOUNT_ID` | Weixin account ID obtained via QR login through iLink Bot API |
 | `WEIXIN_TOKEN` | Weixin authentication token obtained via QR login through iLink Bot API |
 | `WEIXIN_BASE_URL` | Override Weixin iLink Bot API base URL (default: `https://ilinkai.weixin.qq.com`) |
@@ -390,7 +376,6 @@ Advanced per-platform knobs for throttling the outbound message batcher. Most us
 | `HERMES_DISCORD_TEXT_BATCH_DELAY_SECONDS` | Grace window before flushing a queued Discord text chunk (default: `0.6`). |
 | `HERMES_DISCORD_TEXT_BATCH_SPLIT_DELAY_SECONDS` | Delay between split chunks when a Discord message exceeds the length limit (default: `2.0`). |
 | `HERMES_MATRIX_TEXT_BATCH_DELAY_SECONDS` / `_SPLIT_DELAY_SECONDS` | Matrix equivalents of the Telegram batch knobs. |
-| `HERMES_WECOM_TEXT_BATCH_DELAY_SECONDS` / `_SPLIT_DELAY_SECONDS` | WeCom batcher tuning. |
 | `HERMES_VISION_DOWNLOAD_TIMEOUT` | Timeout in seconds for downloading an image before handing it to vision models (default: `30`). |
 | `HERMES_RESTART_DRAIN_TIMEOUT` | Gateway: seconds to wait for active runs to drain on `/restart` before forcing the restart (default: `900`). |
 | `HERMES_GATEWAY_PLATFORM_CONNECT_TIMEOUT` | Per-platform connect timeout during gateway startup (seconds). |

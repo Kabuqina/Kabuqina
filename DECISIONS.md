@@ -1117,3 +1117,26 @@ Incorrect or ungraded answers map to `needs_revision`, remain in recovery
 storage, and continue to activate dirty-leave and `beforeunload` protection.
 Unfinished input is persisted synchronously for refresh recovery; confirmed
 in-app navigation preserves that recovery draft and says so explicitly.
+
+**CTL-C03c WeCom physical removal (2026-07-23).** The owned WeCom bot,
+callback listener/crypto, QR worker, Rust commands and child state, Web
+route/settings/onboarding producers, direct-send/toolset/config branches,
+WeCom-only tests and active messaging documentation are removed. Existing
+`Platform.WECOM` and `Platform.WECOM_CALLBACK` enum values, exact stale-config
+filtering, removed-toolset denial, unsupported-delivery records and persisted
+credential/profile/QR/session/job/home text remain compatibility-only: they
+cannot create an adapter, child, network allowlist or rerouted delivery.
+Existing data is not recursively deleted; CTL-C07 owns explicit cleanup and
+upgrade evidence.
+
+Weixin is a retained, separate adapter and does not import WeCom callback
+crypto. Its QR, account, media and crypto tests remain required after the
+deletion. `cryptography`, `aiohttp`, `httpx` and `qrcode` remain shared
+runtime dependencies because retained Weixin, QQ Bot, DingTalk or common
+runtime paths still consume them; C03c removes only the WeCom dependency
+edges. Runtime pruning and source sync reject all three retired Core WeCom
+modules and the retired root QR worker. The owner authorized source
+integration before bundle on 2026-07-24: a fresh `build_bundle.ps1 -Verify`
+run on merged `main` remains operator-provided Gate evidence before final
+sign-off, but no longer blocks merge. C04/C05/C07/G01 remain separate
+controls.

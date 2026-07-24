@@ -83,6 +83,8 @@ _REMOVED_TOOLSETS = frozenset({
     "discord_admin",
     "feishu_doc",
     "feishu_drive",
+    "wecom",
+    "wecom_callback",
 })
 
 # Platform-scoped toolsets: only appear in the `kabuqina tools` checklist for

@@ -100,8 +100,6 @@ Platform toolsets define the complete tool configuration for a deployment target
 | `hermes-bluebubbles` | Same as `hermes-cli`. |
 | `hermes-dingtalk` | Same as `hermes-cli`. |
 | `hermes-qqbot` | Same as `hermes-cli`. |
-| `hermes-wecom` | Same as `hermes-cli`. |
-| `hermes-wecom-callback` | Same as `hermes-cli`. |
 | `hermes-weixin` | Same as `hermes-cli`. |
 | `hermes-yuanbao` | Adds the five `yb_*` tools (DM/group/sticker) on top of `hermes-cli`. |
 | `hermes-homeassistant` | Same as `hermes-cli` (the Home Assistant tools are already present by default and activate when `HASS_TOKEN` is set). |

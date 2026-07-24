@@ -20,7 +20,6 @@ import { CapabilitiesPage } from "./advanced/pages/CapabilitiesPage";
 import { LoadPackagesPage } from "./advanced/pages/LoadPackagesPage";
 import { QqPage } from "./advanced/pages/QqPage";
 import { WeixinPage } from "./advanced/pages/WeixinPage";
-import { WeComPage } from "./advanced/pages/WeComPage";
 import { DingTalkPage } from "./advanced/pages/DingTalkPage";
 import { EmailPage } from "./advanced/pages/EmailPage";
 import { PlatformRouteGuard, RetainedPlatformPendingPage } from "./advanced/pages/PlatformRouteGuard";
@@ -93,7 +92,6 @@ function MainWindowContent() {
           <Route path="/export" element={<Export />} />
           <Route path="/settings/qq" element={<PlatformRouteGuard platform="qqbot"><QqPage /></PlatformRouteGuard>} />
           <Route path="/settings/weixin" element={<PlatformRouteGuard platform="weixin"><WeixinPage /></PlatformRouteGuard>} />
-          <Route path="/settings/wecom" element={<PlatformRouteGuard platform="wecom"><WeComPage /></PlatformRouteGuard>} />
           <Route path="/settings/dingtalk" element={<PlatformRouteGuard platform="dingtalk"><DingTalkPage /></PlatformRouteGuard>} />
           <Route path="/settings/email" element={<PlatformRouteGuard platform="email"><EmailPage /></PlatformRouteGuard>} />
           <Route path="/settings/telegram" element={<PlatformRouteGuard platform="telegram"><RetainedPlatformPendingPage platform="Telegram" /></PlatformRouteGuard>} />

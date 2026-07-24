@@ -3,7 +3,6 @@
 
 import { WeixinQrRouteCBlock } from "../../components/WeixinQrRouteCBlock";
 import { QqbotQrRouteBlock } from "../../components/QqbotQrRouteBlock";
-import { WeComSettingsBlock } from "../../components/WeComSettingsBlock";
 import { getDraftSnapshot, updateDraft } from "../../lib/store";
 import { useI18n } from "../../lib/i18n";
 import type { LocaleKey, OptionConfigField, SetupCatalogOption } from "../setupCatalog/optionTypes";
@@ -81,24 +80,6 @@ export function ConfigModalBody({ editing, section, loc, form, setForm, onClose,
             });
           }}
         />
-        <div className="flex flex-wrap justify-end gap-2 border-t border-[var(--kq-color-border)] pt-4">
-          <button
-            type="button"
-            className="kq-btn-secondary rounded-[var(--radius-shell-lg)] px-4 py-2 text-sm"
-            onClick={onClose}
-          >
-            {t("setupOptions.cancelConfig")}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (editing.configUi === "wecom_route_c") {
-    return (
-      <div className="space-y-4">
-        <p className="text-xs leading-relaxed text-[var(--kq-color-muted)]">{t("settings.wecomLead")}</p>
-        <WeComSettingsBlock key={editing.id} />
         <div className="flex flex-wrap justify-end gap-2 border-t border-[var(--kq-color-border)] pt-4">
           <button
             type="button"

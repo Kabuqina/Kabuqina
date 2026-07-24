@@ -53,6 +53,8 @@ def _verify_desktop_child_filter() -> None:
             Platform.WEIXIN: PlatformConfig(enabled=True),
             Platform.FEISHU: PlatformConfig(enabled=True),
             Platform.DISCORD: PlatformConfig(enabled=True),
+            Platform.WECOM: PlatformConfig(enabled=True),
+            Platform.WECOM_CALLBACK: PlatformConfig(enabled=True),
         })
         _enforce_desktop_single_platform(config)
         if list(config.platforms) != [Platform.WEIXIN]:

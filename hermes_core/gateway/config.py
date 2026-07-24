@@ -332,10 +332,6 @@ _PLATFORM_CONNECTED_CHECKERS: dict[Platform, Callable[[PlatformConfig], bool]] =
     Platform.SMS: lambda cfg: bool(os.getenv("TWILIO_ACCOUNT_SID")),
     Platform.API_SERVER: lambda cfg: True,
     Platform.WEBHOOK: lambda cfg: True,
-    Platform.WECOM: lambda cfg: bool(cfg.extra.get("bot_id")),
-    Platform.WECOM_CALLBACK: lambda cfg: bool(
-        cfg.extra.get("corp_id") or cfg.extra.get("apps")
-    ),
     Platform.BLUEBUBBLES: lambda cfg: bool(
         cfg.extra.get("server_url") and cfg.extra.get("password")
     ),
@@ -498,7 +494,7 @@ class GatewayConfig:
     def from_dict(cls, data: Dict[str, Any]) -> "GatewayConfig":
         platforms = {}
         for platform_name, platform_data in data.get("platforms", {}).items():
-            if platform_name in ("discord", "feishu"):
+            if platform_name in ("discord", "feishu", "wecom", "wecom_callback"):
                 logger.info("Ignoring removed %s gateway configuration", platform_name)
                 continue
             try:
@@ -513,7 +509,7 @@ class GatewayConfig:
         
         reset_by_platform = {}
         for platform_name, policy_data in data.get("reset_by_platform", {}).items():
-            if platform_name in ("discord", "feishu"):
+            if platform_name in ("discord", "feishu", "wecom", "wecom_callback"):
                 continue
             try:
                 platform = Platform(platform_name)
@@ -1258,45 +1254,6 @@ def _apply_env_overrides(config: GatewayConfig) -> None:
                 chat_id=dingtalk_home,
                 name=os.getenv("DINGTALK_HOME_CHANNEL_NAME", "Home"),
             )
-
-    # WeCom (Enterprise WeChat)
-    wecom_bot_id = os.getenv("WECOM_BOT_ID")
-    wecom_secret = os.getenv("WECOM_SECRET")
-    if wecom_bot_id and wecom_secret:
-        if Platform.WECOM not in config.platforms:
-            config.platforms[Platform.WECOM] = PlatformConfig()
-        config.platforms[Platform.WECOM].enabled = True
-        config.platforms[Platform.WECOM].extra.update({
-            "bot_id": wecom_bot_id,
-            "secret": wecom_secret,
-        })
-        wecom_ws_url = os.getenv("WECOM_WEBSOCKET_URL", "")
-        if wecom_ws_url:
-            config.platforms[Platform.WECOM].extra["websocket_url"] = wecom_ws_url
-        wecom_home = os.getenv("WECOM_HOME_CHANNEL")
-        if wecom_home:
-            config.platforms[Platform.WECOM].home_channel = HomeChannel(
-                platform=Platform.WECOM,
-                chat_id=wecom_home,
-                name=os.getenv("WECOM_HOME_CHANNEL_NAME", "Home"),
-            )
-
-    # WeCom callback mode (self-built apps)
-    wecom_callback_corp_id = os.getenv("WECOM_CALLBACK_CORP_ID")
-    wecom_callback_corp_secret = os.getenv("WECOM_CALLBACK_CORP_SECRET")
-    if wecom_callback_corp_id and wecom_callback_corp_secret:
-        if Platform.WECOM_CALLBACK not in config.platforms:
-            config.platforms[Platform.WECOM_CALLBACK] = PlatformConfig()
-        config.platforms[Platform.WECOM_CALLBACK].enabled = True
-        config.platforms[Platform.WECOM_CALLBACK].extra.update({
-            "corp_id": wecom_callback_corp_id,
-            "corp_secret": wecom_callback_corp_secret,
-            "agent_id": os.getenv("WECOM_CALLBACK_AGENT_ID", ""),
-            "token": os.getenv("WECOM_CALLBACK_TOKEN", ""),
-            "encoding_aes_key": os.getenv("WECOM_CALLBACK_ENCODING_AES_KEY", ""),
-            "host": os.getenv("WECOM_CALLBACK_HOST", "0.0.0.0"),
-            "port": int(os.getenv("WECOM_CALLBACK_PORT", "8645")),
-        })
 
     # Weixin (personal WeChat via iLink Bot API)
     weixin_token = os.getenv("WEIXIN_TOKEN")
