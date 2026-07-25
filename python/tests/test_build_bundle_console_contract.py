@@ -30,7 +30,7 @@ class BuildBundleConsoleContractTests(unittest.TestCase):
         self.assertIn("[switch]$Force", text)
         self.assertIn("Test-BundleSentinels", text)
         self.assertIn('$info.PSObject.Properties["verified"]', text)
-        self.assertIn("verified       = [bool]$Verify", text)
+        self.assertRegex(text, r"verified\s+= \[bool\]\$Verify")
         self.assertIn("Skipping immediate duplicate bundle run", text)
         self.assertIn("Pass -Force or -Clean", text)
         self.assertNotIn("Test-BundleSourcesNewerThan", text)

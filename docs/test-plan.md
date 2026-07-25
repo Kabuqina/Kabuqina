@@ -15,9 +15,8 @@
 | P0 | 微信 bot 私聊：收发消息正常 | 微信回复超长文本截断；图片/语音消息处理 |
 | P1 | 微信 Route C 扫码绑定流程 | 扫码超时、重复扫码、已绑定账号换绑 |
 | P1 | QQ bot 私聊/群聊 | 沙盒模式 vs 生产模式差异 |
-| P1 | 飞书 WebSocket 连接 | 断线重连（`_platform_reconnect_watcher`）；Webhook 模式签名验证 |
 | P2 | Telegram 网络不通时 fallback IP | `telegram_network.py` DoH 解析 + seed IP 回退 |
-| P3 | 钉钉 / WhatsApp / Discord / Mattermost 等 | 仅验证连接，不需深度测试 |
+| P3 | 钉钉 / WhatsApp / Weixin / QQBot / Email | 按 profile 验证基础连接 |
 
 ---
 

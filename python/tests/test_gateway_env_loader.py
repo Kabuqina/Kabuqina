@@ -57,8 +57,6 @@ class TestGatewayEnvLoader(unittest.TestCase):
         ):
             hosts = gel.collect_messaging_hosts_from_environ()
         self.assertIn("ilink.example.com", hosts)
-        # Telegram disabled — removed from Kabuqina product scope (codex/student-deliverables)
-        # self.assertIn("api.telegram.org", hosts)
 
     def test_collect_messaging_hosts_ignores_removed_platform_credentials(self):
         import gateway_env_loader as gel

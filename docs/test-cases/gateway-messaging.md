@@ -154,7 +154,7 @@ assert hermesdesk_pending_list_contains(new_user_id)
 
 ---
 
-### TC-GM-010 [P3] 钉钉 / WhatsApp / Mattermost 基础连接验证
+### TC-GM-010 [P3] 钉钉 / WhatsApp / Email 基础连接验证
 
 | 属性 | 内容 |
 |------|------|

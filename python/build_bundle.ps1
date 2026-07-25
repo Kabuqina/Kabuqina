@@ -6,8 +6,8 @@
 # Output: python/dist/runtime/
 #   ├── python/                   <- standalone CPython 3.11 (python.exe etc.)
 #   ├── site-packages/            <- pruned Hermes + its deps
-#   ├── hermes/                   <- the upstream submodule, prune-copied in
-#   ├── overlays/                 <- HermesDesk runtime overlays
+#   ├── kabuqina/                 <- the owned core, prune-copied in
+#   ├── overlays/                 <- Kabuqina runtime overlays
 #   ├── desktop_entrypoint.py     <- Tauri spawns this
 #   ├── weixin_qr_worker.py       <- optional Route C Weixin QR child
 #   └── BUNDLE_INFO.json          <- versions + hashes for the updater
@@ -114,7 +114,16 @@ $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 $Root      = Resolve-Path (Join-Path $PSScriptRoot "..")
 $BuildDir  = Join-Path $PSScriptRoot "_build"
-$Download  = Join-Path $PSScriptRoot "_download"
+$LegacyDownload = Join-Path $PSScriptRoot "_download"
+if ($env:KABUQINA_BUNDLE_CACHE) {
+    $Download = [IO.Path]::GetFullPath($env:KABUQINA_BUNDLE_CACHE)
+} elseif ($env:LOCALAPPDATA) {
+    # A worktree-local cache caused every leaf worktree to download the same
+    # fixed CPython/STT archives again. Keep one machine cache across worktrees.
+    $Download = Join-Path $env:LOCALAPPDATA "Kabuqina\bundle-cache"
+} else {
+    $Download = $LegacyDownload
+}
 $Dist      = Join-Path $PSScriptRoot "dist\runtime"
 $CoreDir   = Join-Path $Root "hermes_core"
 
@@ -123,12 +132,21 @@ function Test-BundleSentinels {
 
     $required = @(
         "BUNDLE_INFO.json",
+        "DEPENDENCY_INVENTORY.json",
         "python\python.exe",
         "kabuqina\run_agent.py",
         "site-packages\yaml\__init__.py",
         "site-packages\fastapi\__init__.py",
         "site-packages\uvicorn\__init__.py",
         "site-packages\click\__init__.py",
+        "site-packages\telegram\__init__.py",
+        "site-packages\aiohttp\__init__.py",
+        "site-packages\certifi\__init__.py",
+        "site-packages\cryptography\__init__.py",
+        "site-packages\qrcode\__init__.py",
+        "kabuqina\scripts\whatsapp-bridge\bridge.js",
+        "kabuqina\scripts\whatsapp-bridge\package-lock.json",
+        "kabuqina\scripts\whatsapp-bridge\node_modules\@whiskeysockets\baileys\package.json",
         "overlays\__init__.py",
         "desktop_entrypoint.py",
         "learning_recovery.py"
@@ -222,6 +240,15 @@ if ($Clean) {
 }
 
 New-Item -ItemType Directory -Force -Path $BuildDir, $Download, $Dist | Out-Null
+if (
+    $LegacyDownload -ne $Download -and
+    (Test-Path -LiteralPath $LegacyDownload -PathType Container)
+) {
+    # One-time, non-destructive migration: preserve already downloaded assets
+    # when switching an existing checkout to the shared worktree cache.
+    Copy-Item -Path (Join-Path $LegacyDownload "*") -Destination $Download `
+        -Recurse -Force -ErrorAction SilentlyContinue
+}
 
 if (-not (Test-Path (Join-Path $CoreDir "pyproject.toml"))) {
     Write-Error "hermes_core/ directory not found. The frozen upstream source is missing."
@@ -324,10 +351,59 @@ foreach ($name in $keep) {
     }
 }
 
+# WhatsApp is retained for the SEA profile. Its locked Node bridge is a runtime
+# input, but broad ``scripts/`` copying would reintroduce unrelated tooling.
+# Cache ``npm ci`` by package-lock hash so fixed dependencies are downloaded
+# once per machine instead of once per worktree/bundle.
+$whatsappBridgeSource = Join-Path $CoreDir "scripts\whatsapp-bridge"
+$whatsappBridgeDest = Join-Path $bundledCore "scripts\whatsapp-bridge"
+$whatsappLock = Join-Path $whatsappBridgeSource "package-lock.json"
+if (-not (Test-Path -LiteralPath $whatsappLock -PathType Leaf)) {
+    throw "Retained WhatsApp bridge lock missing: $whatsappLock"
+}
+$whatsappLockHash = (Get-FileHash -LiteralPath $whatsappLock -Algorithm SHA256).Hash.ToLowerInvariant()
+$whatsappInstallCache = Join-Path $Download "whatsapp-bridge\$whatsappLockHash"
+$whatsappCacheSentinels = @(
+    "node_modules\@whiskeysockets\baileys\package.json",
+    "node_modules\express\package.json",
+    "node_modules\pino\package.json",
+    "node_modules\qrcode-terminal\package.json"
+)
+$whatsappCacheReady = -not ($whatsappCacheSentinels | Where-Object {
+    -not (Test-Path -LiteralPath (Join-Path $whatsappInstallCache $_) -PathType Leaf)
+})
+if (-not $whatsappCacheReady) {
+    $npmCommand = Get-Command npm.cmd -ErrorAction SilentlyContinue
+    if (-not $npmCommand) {
+        throw "npm.cmd is required to stage the retained WhatsApp bridge dependencies."
+    }
+    Remove-BundlePathStrict -Path $whatsappInstallCache -Label "WhatsApp dependency cache"
+    New-Item -ItemType Directory -Force -Path $whatsappInstallCache | Out-Null
+    Copy-Item -Path (Join-Path $whatsappBridgeSource "*") `
+        -Destination $whatsappInstallCache -Recurse -Force
+    Write-Host "[bundle] Installing locked WhatsApp bridge dependencies (cache miss)..." -ForegroundColor Cyan
+    # Install scripts are required by the locked Baileys/sharp payload; the
+    # committed lock and HTTPS commit pins are the executable input boundary.
+    & $npmCommand.Source ci --omit=dev --no-audit --no-fund `
+        --cache (Join-Path $Download "npm") --prefix $whatsappInstallCache
+    $whatsappCacheReady = -not ($whatsappCacheSentinels | Where-Object {
+        -not (Test-Path -LiteralPath (Join-Path $whatsappInstallCache $_) -PathType Leaf)
+    })
+    if ($LASTEXITCODE -ne 0 -or -not $whatsappCacheReady) {
+        throw "Locked WhatsApp bridge dependency install failed."
+    }
+} else {
+    Write-Host "[bundle] Reusing cached WhatsApp bridge dependencies." -ForegroundColor DarkGray
+}
+New-Item -ItemType Directory -Force -Path (Split-Path $whatsappBridgeDest -Parent) | Out-Null
+Copy-Item -Recurse -Force $whatsappBridgeSource $whatsappBridgeDest
+Copy-Item -Recurse -Force (Join-Path $whatsappInstallCache "node_modules") `
+    (Join-Path $whatsappBridgeDest "node_modules")
+
 # Drop unwanted subtrees that snuck in through broad package copies.
 $drop = @(
-    # v0.3.0 global-cut gateway adapters. Keep gateway/base helpers and the
-    # retained mainland adapters (weixin, qqbot, dingtalk).
+    # v0.3.0/v0.5.0 removed gateway adapters. Keep gateway/base helpers and
+    # the exact retained profile adapters.
     "gateway\platforms\api_server.py",
     "gateway\platforms\bluebubbles.py",
     "gateway\platforms\discord.py",
@@ -402,10 +478,10 @@ function Clear-BundleSitePackages {
         Move-Item -LiteralPath $Path -Destination $stale -Force -ErrorAction Stop
         Write-Host "Note: could not delete site-packages in place (files locked). Renamed to:" -ForegroundColor Yellow
         Write-Host "  $stale" -ForegroundColor Yellow
-        Write-Host "Quit HermesDesk / kill any python.exe using this runtime, then delete that folder manually." -ForegroundColor Yellow
+        Write-Host "Quit Kabuqina / kill any python.exe using this runtime, then delete that folder manually." -ForegroundColor Yellow
         return
     } catch {
-        $hint = "Usually a .pyd is still loaded: close HermesDesk, end any python.exe under:`n  $Dist`nthen rerun: .\python\build_bundle.ps1"
+        $hint = "Usually a .pyd is still loaded: close Kabuqina, end any python.exe under:`n  $Dist`nthen rerun: .\python\build_bundle.ps1"
         throw ("Cannot remove or rename site-packages: " + $lastErr.Exception.Message + "`n`n" + $hint)
     }
 }
@@ -609,14 +685,14 @@ Set-Content -Path (Join-Path $pyDir "Lib\site-packages\kabuqina.pth") -Value $pt
 
 # ------------------------------------------------------------------ 6b. Bundle whisper.cpp + ffmpeg for offline STT
 #
-# Ships the binaries needed for the local-command STT path so HermesDesk can
+# Ships the binaries needed for the local-command STT path so Kabuqina can
 # transcribe audio without an API key. The model itself (~57 MB) is NOT
 # bundled — it is lazy-downloaded on first use (see desk_stt_model_*
 # endpoints in desk_server). Default:
 # ``HERMESDESK_WORKSPACE\.hermesdesk\stt-models\``; when workspace is unset,
 # ``HERMESDESK_DATA_DIR\stt-models`` or ``%LOCALAPPDATA%\HermesDesk\stt-models``.
 #
-# Cached in python/_download/ alongside the CPython tarball. SHA-256 verified
+# Cached in the shared machine bundle cache. SHA-256 verified
 # against pinned constants. Net add to bundle: ~37 MB.
 #
 # To bump versions: update the URL + SHA below, run with -Clean once to
@@ -711,6 +787,18 @@ Write-Host "STT binaries staged at $SttBinDir" -ForegroundColor DarkGray
 
 Remove-BundleGeneratedJunk -RootPath $Dist
 
+# Freeze the exact installed Python/Node versions and their published license
+# metadata into the artifact. C05/G01 review this report instead of inferring
+# the shipped set from mutable requirement ranges.
+$dependencyInventoryScript = Join-Path $PSScriptRoot "tools\generate_dependency_inventory.py"
+& $Py $dependencyInventoryScript $Dist `
+    (Join-Path $PSScriptRoot "requirements-desktop.txt") `
+    $whatsappLock
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "dependency inventory generation FAILED"
+    exit $LASTEXITCODE
+}
+
 # ------------------------------------------------------------------ 8. Verify
 if ($Verify) {
     Write-Host "`n--- Smoke test ---" -ForegroundColor Cyan
@@ -797,12 +885,16 @@ if ($Verify) {
 # Write this only after all requested verifiers pass. Test-RecentCompletedBundle
 # treats BUNDLE_INFO.json as the completed-build sentinel.
 $info = @{
-    pythonVersion  = $PythonVersion
-    pbsRelease     = $PbsRelease
-    builtAt        = (Get-Date).ToString("o")
-    verified       = [bool]$Verify
-    frozenCommit   = "90b304b7c (v2026.4.23 — frozen upstream snapshot)"
-    bundleSizeMb   = [math]::Round(((Get-ChildItem -Recurse $Dist | Measure-Object Length -Sum).Sum / 1MB), 1)
+    pythonVersion              = $PythonVersion
+    pbsRelease                 = $PbsRelease
+    builtAt                    = (Get-Date).ToString("o")
+    verified                   = [bool]$Verify
+    frozenCommit               = "90b304b7c (v2026.4.23 — frozen upstream snapshot)"
+    dependencyInventorySha256  = (Get-FileHash -LiteralPath (Join-Path $Dist "DEPENDENCY_INVENTORY.json") -Algorithm SHA256).Hash.ToLowerInvariant()
+    desktopRequirementsSha256  = (Get-FileHash -LiteralPath (Join-Path $PSScriptRoot "requirements-desktop.txt") -Algorithm SHA256).Hash.ToLowerInvariant()
+    whatsappLockSha256         = $whatsappLockHash
+    cargoLockSha256            = (Get-FileHash -LiteralPath (Join-Path $Root "tauri\Cargo.lock") -Algorithm SHA256).Hash.ToLowerInvariant()
+    bundleSizeMb               = [math]::Round(((Get-ChildItem -Recurse $Dist | Measure-Object Length -Sum).Sum / 1MB), 1)
 }
 $info | ConvertTo-Json | Set-Content -Path $bundleInfoPath -Encoding UTF8
 

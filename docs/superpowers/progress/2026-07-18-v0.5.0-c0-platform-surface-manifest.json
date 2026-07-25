@@ -221,23 +221,22 @@
       "DINGTALK_WEBHOOK_URL belongs to the shared direct-send path and must be threat-modeled separately from stream credentials."
     ],
     "telegram": [
-      "Source and Rust env commands exist, but dependency, Web Settings/onboarding and current runtime support are absent."
+      "Source/profile/Web/desktop dependency truth is closed; real credential and Windows transport smoke remains CTL-C06."
     ],
     "whatsapp": [
-      "The bridge tree is not copied into the runtime; runtime npm install is incompatible with offline/clean release expectations.",
+      "C05 stages the locked bridge and forbids runtime npm install, but Node executable ownership and real transport proof remain CTL-C06.",
       "Adapter, identity reader and Node bridge disagree on canonical profile/session/cache paths.",
       "WHATSAPP_HOME_CHANNEL is produced but not consistently consumed by config/scheduler."
     ],
     "email": [
-      "SEA spawn is blocked by the current Rust profile allowlist and Web route/onboarding is absent.",
-      "Generic /sethome produces EMAIL_HOME_CHANNEL while canonical runtime consumes EMAIL_HOME_ADDRESS; Web currently writes SMS_HOME_CHANNEL.",
-      "Rust Email profile copying SMS_/TWILIO_ keys couples retained Email to the removed SMS family."
+      "Profile spawn, Web route and EMAIL_HOME_ADDRESS producer truth are closed; OAuth/IMAP/SMTP credential smoke remains CTL-C06.",
+      "Generic legacy /sethome compatibility and old mismatched home keys remain CTL-C07."
     ],
     "irc_plugin": [
-      "Dynamic bundled/user/project/pip registration and override paths remain active; generic /sethome may produce an unconsumed IRC_HOME_CHANNEL key."
+      "Bundled plugin/runtime registration is removed; explicit legacy credential/job/home cleanup remains CTL-C07."
     ],
     "teams_plugin": [
-      "Dynamic bundled/user/project/pip registration and override paths remain active; generic /sethome may produce an unconsumed TEAMS_HOME_CHANNEL key."
+      "Bundled plugin/runtime registration is removed; explicit legacy credential/job/home cleanup remains CTL-C07."
     ]
   },
   "observed_state": {
@@ -981,8 +980,8 @@
         "hermes_core/website/docs/user-guide/features/plugins.md",
         "hermes_core/website/docs/user-guide/features/api-server.md"
       ],
-      "verification": "Known-token hit ledger now; removed-token negative scan and active-doc review at CTL-C05",
-      "evidence_status": "typed_reference_ledger_generated_review_pending"
+      "verification": "Generated typed ledger plus scripts/audit_active_platform_docs.py; the audit covers Kabuqina product docs, exact messaging pages, environment keys, toolsets, CLI and cron targets",
+      "evidence_status": "c05_product_documentation_negative_audit_passed"
     }
   ],
   "surface_reference_links": {
@@ -1841,8 +1840,8 @@
       "usage_class": "desktop_loopback_server",
       "bundle_presence": "directly declared and required by the desktop child",
       "target_action": "retain and verify in every desktop bundle",
-      "license_status": "FastAPI MIT and Uvicorn BSD-family metadata known; final SBOM reconciliation deferred to CTL-C05",
-      "advisory_status": "fresh advisory scan required at CTL-C05/Q",
+      "license_status": "FastAPI MIT and Uvicorn BSD-family metadata known; exact installed metadata is emitted in DEPENDENCY_INVENTORY.json",
+      "advisory_status": "fresh advisory scan remains required at G01/Q against the artifact inventory",
       "known_gaps": []
     },
     {
@@ -1864,8 +1863,8 @@
       "usage_class": "shared_cron_scheduler",
       "bundle_presence": "directly declared in desktop requirements",
       "target_action": "retain for cron expression scheduling",
-      "license_status": "MIT metadata known; final SBOM reconciliation deferred to CTL-C05",
-      "advisory_status": "fresh advisory scan required at CTL-C05/Q",
+      "license_status": "MIT metadata known; exact installed metadata is emitted in DEPENDENCY_INVENTORY.json",
+      "advisory_status": "fresh advisory scan remains required at G01/Q against the artifact inventory",
       "known_gaps": []
     },
     {
@@ -1873,7 +1872,8 @@
       "package": "reqwest",
       "ecosystem": "Cargo",
       "declaration_paths": [
-        "tauri/Cargo.toml"
+        "tauri/Cargo.toml",
+        "tauri/Cargo.lock"
       ],
       "version_constraint": "0.13 with json/native-tls/stream features",
       "platform_surfaces": [
@@ -1887,11 +1887,9 @@
       "usage_class": "shared_rust_http_and_email_oauth",
       "bundle_presence": "compiled into the Tauri shell",
       "target_action": "retain shared loopback client and profile-scoped Email OAuth flow",
-      "license_status": "MIT OR Apache-2.0 metadata known; final Cargo SBOM deferred to CTL-C05",
-      "advisory_status": "cargo advisory scan required at CTL-C05/Q",
-      "known_gaps": [
-        "Cargo.lock is not tracked, so the exact resolved transitive set is not frozen."
-      ]
+      "license_status": "MIT OR Apache-2.0 metadata known; the exact transitive set is frozen by the tracked Cargo.lock and final artifact reconciliation remains G01/Q",
+      "advisory_status": "fresh cargo advisory scan remains required at G01/Q against the tracked lock",
+      "known_gaps": []
     },
     {
       "id": "py-aiohttp-shared",
@@ -1899,9 +1897,10 @@
       "ecosystem": "PyPI",
       "declaration_paths": [
         "hermes_core/pyproject.toml",
-        "hermes_core/uv.lock"
+        "hermes_core/uv.lock",
+        "python/requirements-desktop.txt"
       ],
-      "version_constraint": ">=3.13.3,<4 in core messaging; not direct in desktop requirements",
+      "version_constraint": ">=3.13.3,<4 in core messaging and desktop requirements",
       "platform_surfaces": [
         "gateway_kernel",
         "weixin",
@@ -1926,13 +1925,11 @@
         "hermes_core/gateway/platforms/whatsapp.py"
       ],
       "usage_class": "shared_retained_transport",
-      "bundle_presence": "present in observed stale local runtime; desktop direct declaration absent",
-      "target_action": "retain and make direct desktop dependency if retained adapter imports require it",
-      "license_status": "Apache-2.0 metadata known; final distribution/SBOM reconciliation deferred to CTL-C05",
-      "advisory_status": "fresh advisory scan required at CTL-C05/Q; stale runtime is not release evidence",
-      "known_gaps": [
-        "A shared retained dependency must not be deleted with a removed adapter leaf."
-      ]
+      "bundle_presence": "direct desktop requirement; C05 verifier requires module and dist-info in every verified runtime",
+      "target_action": "retain as a direct shared dependency for retained gateway transports",
+      "license_status": "Apache-2.0 metadata known; exact installed metadata is emitted in DEPENDENCY_INVENTORY.json",
+      "advisory_status": "fresh advisory scan remains required at G01/Q against the artifact inventory",
+      "known_gaps": []
     },
     {
       "id": "py-httpx-socks-shared",
@@ -1966,8 +1963,8 @@
       "usage_class": "shared_retained_http_client",
       "bundle_presence": "present in observed stale local runtime and directly declared for desktop",
       "target_action": "retain; platform-specific uses disappear only with their adapter",
-      "license_status": "BSD-3-Clause metadata known; final distribution/SBOM reconciliation deferred to CTL-C05",
-      "advisory_status": "fresh advisory scan required at CTL-C05/Q",
+      "license_status": "BSD-3-Clause metadata known; exact installed metadata is emitted in DEPENDENCY_INVENTORY.json",
+      "advisory_status": "fresh advisory scan remains required at G01/Q against the artifact inventory",
       "known_gaps": []
     },
     {
@@ -1979,7 +1976,7 @@
         "hermes_core/uv.lock",
         "python/requirements-desktop.txt"
       ],
-      "version_constraint": "indirect through PyJWT[crypto] in desktop; platform code imports it directly",
+      "version_constraint": ">=43,<47 direct in desktop; also required through PyJWT[crypto]",
       "platform_surfaces": [
         "gateway_kernel",
         "weixin",
@@ -1989,13 +1986,11 @@
         "hermes_core/gateway/platforms/weixin.py"
       ],
       "usage_class": "shared_retained_crypto",
-      "bundle_presence": "present in observed stale local runtime",
+      "bundle_presence": "direct desktop requirement and exact installed metadata is inventoried",
       "target_action": "retain for Weixin and QQ; WeCom consumers are removed",
-      "license_status": "Apache-2.0 OR BSD-3-Clause metadata known; final SBOM deferred to CTL-C05",
-      "advisory_status": "fresh advisory scan required at CTL-C05/Q",
-      "known_gaps": [
-        "Desktop declaration is indirect although retained Weixin imports cryptography directly."
-      ]
+      "license_status": "Apache-2.0 OR BSD-3-Clause metadata known; exact installed metadata is emitted in DEPENDENCY_INVENTORY.json",
+      "advisory_status": "fresh advisory scan remains required at G01/Q against the artifact inventory",
+      "known_gaps": []
     },
     {
       "id": "py-pillow-shared",
@@ -2022,8 +2017,8 @@
       "usage_class": "shared_retained_media",
       "bundle_presence": "present and directly declared in desktop",
       "target_action": "retain; removed QR/media paths must not remove shared image support",
-      "license_status": "HPND metadata known; final distribution/SBOM reconciliation deferred to CTL-C05",
-      "advisory_status": "fresh advisory scan required at CTL-C05/Q",
+      "license_status": "HPND metadata known; exact installed metadata is emitted in DEPENDENCY_INVENTORY.json",
+      "advisory_status": "fresh advisory scan remains required at G01/Q against the artifact inventory",
       "known_gaps": []
     },
     {
@@ -2032,9 +2027,10 @@
       "ecosystem": "PyPI",
       "declaration_paths": [
         "hermes_core/uv.lock",
-        "hermes_core/gateway/platforms/weixin.py"
+        "hermes_core/gateway/platforms/weixin.py",
+        "python/requirements-desktop.txt"
       ],
-      "version_constraint": "transitive/unpinned in desktop",
+      "version_constraint": ">=2024.8.30,<2027 direct in desktop",
       "platform_surfaces": [
         "weixin"
       ],
@@ -2042,13 +2038,11 @@
         "hermes_core/gateway/platforms/weixin.py"
       ],
       "usage_class": "retained_adapter_direct_import",
-      "bundle_presence": "present transitively in observed stale local runtime",
-      "target_action": "retain and make direct if clean-bundle import proof requires it",
-      "license_status": "MPL-2.0 metadata known; final SBOM deferred to CTL-C05",
-      "advisory_status": "fresh advisory scan required at CTL-C05/Q",
-      "known_gaps": [
-        "Direct retained import is not represented in python/requirements-desktop.txt."
-      ]
+      "bundle_presence": "direct desktop requirement and exact installed metadata is inventoried",
+      "target_action": "retain as the explicit trust-store dependency for Weixin",
+      "license_status": "MPL-2.0 metadata known; exact installed metadata is emitted in DEPENDENCY_INVENTORY.json",
+      "advisory_status": "fresh advisory scan remains required at G01/Q against the artifact inventory",
+      "known_gaps": []
     },
     {
       "id": "py-qrcode-shared",
@@ -2056,9 +2050,10 @@
       "ecosystem": "PyPI",
       "declaration_paths": [
         "hermes_core/pyproject.toml",
-        "hermes_core/uv.lock"
+        "hermes_core/uv.lock",
+        "python/requirements-desktop.txt"
       ],
-      "version_constraint": ">=7.0,<8 in core extras; absent from desktop requirements",
+      "version_constraint": ">=7.0,<8 in core extras and desktop requirements",
       "platform_surfaces": [
         "weixin",
         "qqbot",
@@ -2069,13 +2064,11 @@
         "hermes_core/gateway/platforms/dingtalk.py"
       ],
       "usage_class": "shared_retained_qr",
-      "bundle_presence": "absent in observed stale local runtime",
+      "bundle_presence": "direct desktop requirement; C05 verifier requires module and dist-info in every verified runtime",
       "target_action": "retain for mainland Weixin/DingTalk release paths",
-      "license_status": "BSD-family metadata known; exact installed-distribution license deferred to CTL-C05",
-      "advisory_status": "fresh advisory scan required at CTL-C05/Q",
-      "known_gaps": [
-        "Retained source imports qrcode while the current desktop bundle lacks it."
-      ]
+      "license_status": "BSD-family metadata known; exact installed metadata is emitted in DEPENDENCY_INVENTORY.json",
+      "advisory_status": "fresh advisory scan remains required at G01/Q against the artifact inventory",
+      "known_gaps": []
     },
     {
       "id": "py-telegram-sdk",
@@ -2086,7 +2079,7 @@
         "hermes_core/uv.lock",
         "python/requirements-desktop.txt"
       ],
-      "version_constraint": ">=22.6,<23 in core; commented out in desktop requirements",
+      "version_constraint": ">=22.6,<23 in core and desktop requirements",
       "platform_surfaces": [
         "telegram"
       ],
@@ -2095,13 +2088,11 @@
         "hermes_core/gateway/platforms/telegram_network.py"
       ],
       "usage_class": "retained_sea_exclusive",
-      "bundle_presence": "absent in observed stale local runtime",
-      "target_action": "add pinned Windows-compatible desktop dependency for SEA",
-      "license_status": "LGPL-3.0 metadata known; redistribution review and final SBOM required at CTL-C05",
-      "advisory_status": "fresh advisory scan required before retained readiness",
-      "known_gaps": [
-        "Desktop requirements currently claim Telegram is removed, contradicting the frozen SEA profile."
-      ]
+      "bundle_presence": "direct desktop requirement; C05 verifier requires module and dist-info in every verified runtime",
+      "target_action": "retain the pinned Windows-compatible SEA dependency",
+      "license_status": "LGPL-3.0 metadata known; exact installed metadata is emitted in DEPENDENCY_INVENTORY.json for redistribution review",
+      "advisory_status": "fresh advisory scan remains required at G01/Q against the artifact inventory",
+      "known_gaps": []
     },
     {
       "id": "py-dingtalk-stream",
@@ -2147,7 +2138,7 @@
       "usage_class": "retained_mainland_exclusive",
       "bundle_presence": "absent in observed stale local runtime",
       "target_action": "pin and bundle only with the retained DingTalk adapter",
-      "license_status": "package/transitive license ledger pending CTL-C05",
+      "license_status": "DingTalk packages are intentionally absent from the C05 artifact inventory; license ledger is blocked on CTL-C06 version selection",
       "advisory_status": "fresh advisory scan required after version selection",
       "known_gaps": [
         "No clean Windows import or runtime smoke evidence."
@@ -2159,7 +2150,8 @@
       "ecosystem": "npm/git",
       "declaration_paths": [
         "hermes_core/scripts/whatsapp-bridge/package.json",
-        "hermes_core/scripts/whatsapp-bridge/package-lock.json"
+        "hermes_core/scripts/whatsapp-bridge/package-lock.json",
+        "python/build_bundle.ps1"
       ],
       "version_constraint": "Baileys pinned to git commit 01047de; other direct dependencies use lock-resolved ranges",
       "platform_surfaces": [
@@ -2170,12 +2162,12 @@
         "hermes_core/gateway/platforms/whatsapp.py"
       ],
       "usage_class": "retained_sea_exclusive_external_process",
-      "bundle_presence": "bridge and node_modules absent from observed stale desktop runtime",
-      "target_action": "bundle immutable offline bridge/runtime; prohibit runtime npm install",
-      "license_status": "lock contains mixed MIT/BSD/Apache/LGPL metadata; complete redistributed-file notice review required at CTL-C05",
-      "advisory_status": "npm audit and git-dependency review required on the release lock",
+      "bundle_presence": "C05 stages bridge source plus lock-resolved node_modules; verified runtime requires all four direct packages",
+      "target_action": "completed for bridge payload: immutable build-time install, lock-hash cache and no runtime npm install",
+      "license_status": "lock contains mixed MIT/BSD/Apache/LGPL metadata; exact Node package metadata is emitted in DEPENDENCY_INVENTORY.json for redistribution review",
+      "advisory_status": "npm audit and pinned git-dependency review remain required at G01/Q against the release lock",
       "known_gaps": [
-        "No pinned Node runtime contract and no offline clean-install proof."
+        "No bundled/pinned Node executable contract or real WhatsApp transport proof; retained readiness belongs to CTL-C06."
       ]
     },
     {
@@ -2198,7 +2190,7 @@
       "usage_class": "removed_exclusive",
       "bundle_presence": "absent after source-sync cleanup; fresh verified bundle evidence pending release operator run",
       "target_action": "source, dependency declarations and lock removal completed; fresh bundle absence remains the C03b review gate",
-      "license_status": "lark-oapi removed from the lock; CTL-C05 consumes the removal delta",
+      "license_status": "lark-oapi removed from the lock; C05 artifact inventory/pruning consumes the removal delta",
       "advisory_status": "record removal delta; no retained runtime justification",
       "known_gaps": [
         "Fresh python/build_bundle.ps1 -Verify evidence must be supplied before C03b sign-off."
@@ -2224,7 +2216,7 @@
       "usage_class": "removed_exclusive; retained media tests are platform-neutral",
       "bundle_presence": "absent in the CTL-C03a fresh verified runtime",
       "target_action": "completed: source/extras/lock/runtime reachability removed; runtime absence is verified",
-      "license_status": "discord.py, PyNaCl, audioop-lts and davey removed from the lock; CTL-C05 consumes the delta",
+      "license_status": "discord.py, PyNaCl, audioop-lts and davey removed from the lock; C05 artifact inventory/pruning consumes the delta",
       "advisory_status": "removal delta recorded; no retained runtime justification",
       "known_gaps": []
     },
@@ -2248,7 +2240,7 @@
       "usage_class": "removed_exclusive",
       "bundle_presence": "forbidden by the runtime pruning verifier; fresh integrated bundle evidence is deferred",
       "target_action": "completed: adapter, extra and lock reachability removed",
-      "license_status": "slack-bolt and slack-sdk removed from the lock; CTL-C05 consumes the removal delta",
+      "license_status": "slack-bolt and slack-sdk removed from the lock; C05 artifact inventory/pruning consumes the removal delta",
       "advisory_status": "record removal delta; no retained runtime justification",
       "known_gaps": []
     },
@@ -2272,7 +2264,7 @@
       "usage_class": "removed_exclusive_except_shared_http",
       "bundle_presence": "mautrix is forbidden by the runtime pruning verifier; shared aiohttp/httpx remain",
       "target_action": "completed: Matrix-exclusive extra, lock reachability and source removed while neutral shared clients remain",
-      "license_status": "mautrix and its exclusive transitive stack removed from the lock; CTL-C05 consumes the removal delta",
+      "license_status": "mautrix and its exclusive transitive stack removed from the lock; C05 artifact inventory/pruning consumes the removal delta",
       "advisory_status": "record removal delta; no retained runtime justification",
       "known_gaps": [
         "Shared aiohttp/httpx/aiohttp-socks ownership must be reviewed before lock closeout."
@@ -2298,8 +2290,8 @@
       "usage_class": "shared_desktop_transport_with_adapter_conflict",
       "bundle_presence": "15.x present in observed stale local runtime",
       "target_action": "retain modern Browser/CDP requirement; remove Yuanbao users and resolve DingTalk compatibility",
-      "license_status": "BSD-3-Clause metadata known; final SBOM deferred to CTL-C05",
-      "advisory_status": "fresh advisory scan required at CTL-C05/Q",
+      "license_status": "BSD-3-Clause metadata known; exact installed metadata is emitted in DEPENDENCY_INVENTORY.json",
+      "advisory_status": "fresh advisory scan remains required at G01/Q against the artifact inventory",
       "known_gaps": [
         "DingTalk retained readiness is blocked until its SDK works with the modern range or uses a separate transport."
       ]
@@ -2323,7 +2315,7 @@
       "usage_class": "removed_bundled_plugin_exclusive",
       "bundle_presence": "the complete bundled platform plugin directory is forbidden from the desktop runtime",
       "target_action": "completed: Teams plugin/import/install hint removed without affecting shared aiohttp",
-      "license_status": "package was never locked for desktop; CTL-C05 records the removed declaration delta",
+      "license_status": "package was never locked for desktop; C05 artifact inventory records no retained distribution",
       "advisory_status": "record removal delta; no retained runtime justification",
       "known_gaps": []
     },
@@ -2443,9 +2435,9 @@
       "id": "dependency-license-advisory-release-proof",
       "owner": "Codex / C integrator",
       "owner_status": "accepted",
-      "command": "fresh CTL-C05 bundle SBOM/license/advisory scan plus npm audit for the locked WhatsApp bridge",
+      "command": "owner runs python/build_bundle.ps1 -Verify on merged main, reviews DEPENDENCY_INVENTORY.json, then G01/Q runs fresh Python/npm/Cargo advisory scans against the recorded hashes",
       "expected": "Retained dependency distributions and notices are complete; removed SDKs are absent; accepted advisories are documented.",
-      "evidence": "dependency_graph license_status/advisory_status and C-0 known gaps",
+      "evidence": "docs/superpowers/progress/2026-07-25-v0.5.0-ctl-c05-shared-closeout-evidence.md; source inventory/hash generation implemented, owner artifact and external advisory scans pending",
       "status": "blocked_with_evidence"
     },
     {
@@ -3979,12 +3971,16 @@
         "documentation_consumer"
       ],
       "platform_surfaces": [
-        "matrix"
+        "local_delivery",
+        "matrix",
+        "whatsapp"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.matrix"
+        "surface_known_gaps.local_delivery",
+        "surface_known_gaps.matrix",
+        "surface_known_gaps.whatsapp"
       ]
     },
     {
@@ -4036,20 +4032,26 @@
         "documentation_consumer"
       ],
       "platform_surfaces": [
-        "discord",
+        "dingtalk",
+        "email",
         "local_delivery",
         "matrix",
+        "qqbot",
         "telegram",
-        "weixin"
+        "weixin",
+        "whatsapp"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.discord",
+        "surface_known_gaps.dingtalk",
+        "surface_known_gaps.email",
         "surface_known_gaps.local_delivery",
         "surface_known_gaps.matrix",
+        "surface_known_gaps.qqbot",
         "surface_known_gaps.telegram",
-        "surface_known_gaps.weixin"
+        "surface_known_gaps.weixin",
+        "surface_known_gaps.whatsapp"
       ]
     },
     {
@@ -4106,7 +4108,7 @@
         "documentation_consumer"
       ],
       "platform_surfaces": [
-        "mattermost",
+        "email",
         "qqbot",
         "telegram",
         "webhook",
@@ -4115,7 +4117,7 @@
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.mattermost",
+        "surface_known_gaps.email",
         "surface_known_gaps.qqbot",
         "surface_known_gaps.telegram",
         "surface_known_gaps.webhook",
@@ -4146,21 +4148,21 @@
         "documentation_consumer"
       ],
       "platform_surfaces": [
-        "discord",
-        "mattermost",
+        "email",
         "qqbot",
         "telegram",
         "webhook",
+        "weixin",
         "whatsapp"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.discord",
-        "surface_known_gaps.mattermost",
+        "surface_known_gaps.email",
         "surface_known_gaps.qqbot",
         "surface_known_gaps.telegram",
         "surface_known_gaps.webhook",
+        "surface_known_gaps.weixin",
         "surface_known_gaps.whatsapp"
       ]
     },
@@ -4205,21 +4207,23 @@
         "documentation_consumer"
       ],
       "platform_surfaces": [
-        "home_assistant",
+        "dingtalk",
+        "email",
         "local_delivery",
-        "signal",
-        "slack",
+        "qqbot",
         "telegram",
+        "weixin",
         "whatsapp"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.home_assistant",
+        "surface_known_gaps.dingtalk",
+        "surface_known_gaps.email",
         "surface_known_gaps.local_delivery",
-        "surface_known_gaps.signal",
-        "surface_known_gaps.slack",
+        "surface_known_gaps.qqbot",
         "surface_known_gaps.telegram",
+        "surface_known_gaps.weixin",
         "surface_known_gaps.whatsapp"
       ]
     },
@@ -9788,29 +9792,21 @@
         "documentation_consumer"
       ],
       "platform_surfaces": [
-        "discord",
         "feishu_lark",
         "local_delivery",
-        "matrix",
-        "mattermost",
-        "signal",
-        "slack",
         "telegram",
         "webhook",
+        "weixin",
         "whatsapp"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.discord",
         "surface_known_gaps.feishu_lark",
         "surface_known_gaps.local_delivery",
-        "surface_known_gaps.matrix",
-        "surface_known_gaps.mattermost",
-        "surface_known_gaps.signal",
-        "surface_known_gaps.slack",
         "surface_known_gaps.telegram",
         "surface_known_gaps.webhook",
+        "surface_known_gaps.weixin",
         "surface_known_gaps.whatsapp"
       ]
     },
@@ -9821,20 +9817,11 @@
         "documentation_consumer"
       ],
       "platform_surfaces": [
-        "api_server",
-        "bluebubbles",
         "dingtalk",
-        "discord",
         "email",
-        "home_assistant",
         "local_delivery",
-        "matrix",
-        "mattermost",
         "qqbot",
-        "signal",
-        "slack",
         "sms_twilio",
-        "teams_plugin",
         "telegram",
         "webhook",
         "weixin",
@@ -9843,20 +9830,11 @@
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.api_server",
-        "surface_known_gaps.bluebubbles",
         "surface_known_gaps.dingtalk",
-        "surface_known_gaps.discord",
         "surface_known_gaps.email",
-        "surface_known_gaps.home_assistant",
         "surface_known_gaps.local_delivery",
-        "surface_known_gaps.matrix",
-        "surface_known_gaps.mattermost",
         "surface_known_gaps.qqbot",
-        "surface_known_gaps.signal",
-        "surface_known_gaps.slack",
         "surface_known_gaps.sms_twilio",
-        "surface_known_gaps.teams_plugin",
         "surface_known_gaps.telegram",
         "surface_known_gaps.webhook",
         "surface_known_gaps.weixin",
@@ -10008,42 +9986,22 @@
         "documentation_consumer"
       ],
       "platform_surfaces": [
-        "bluebubbles",
         "dingtalk",
-        "discord",
         "email",
-        "home_assistant",
-        "matrix",
-        "mattermost",
         "qqbot",
-        "signal",
-        "slack",
-        "sms_twilio",
         "telegram",
-        "webhook",
         "weixin",
-        "whatsapp",
-        "yuanbao"
+        "whatsapp"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.bluebubbles",
         "surface_known_gaps.dingtalk",
-        "surface_known_gaps.discord",
         "surface_known_gaps.email",
-        "surface_known_gaps.home_assistant",
-        "surface_known_gaps.matrix",
-        "surface_known_gaps.mattermost",
         "surface_known_gaps.qqbot",
-        "surface_known_gaps.signal",
-        "surface_known_gaps.slack",
-        "surface_known_gaps.sms_twilio",
         "surface_known_gaps.telegram",
-        "surface_known_gaps.webhook",
         "surface_known_gaps.weixin",
-        "surface_known_gaps.whatsapp",
-        "surface_known_gaps.yuanbao"
+        "surface_known_gaps.whatsapp"
       ]
     },
     {
@@ -10261,18 +10219,10 @@
         "documentation_consumer"
       ],
       "platform_surfaces": [
-        "bluebubbles",
         "dingtalk",
-        "discord",
         "email",
-        "home_assistant",
         "local_delivery",
-        "matrix",
-        "mattermost",
         "qqbot",
-        "signal",
-        "slack",
-        "sms_twilio",
         "telegram",
         "weixin",
         "whatsapp"
@@ -10280,18 +10230,10 @@
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.bluebubbles",
         "surface_known_gaps.dingtalk",
-        "surface_known_gaps.discord",
         "surface_known_gaps.email",
-        "surface_known_gaps.home_assistant",
         "surface_known_gaps.local_delivery",
-        "surface_known_gaps.matrix",
-        "surface_known_gaps.mattermost",
         "surface_known_gaps.qqbot",
-        "surface_known_gaps.signal",
-        "surface_known_gaps.slack",
-        "surface_known_gaps.sms_twilio",
         "surface_known_gaps.telegram",
         "surface_known_gaps.weixin",
         "surface_known_gaps.whatsapp"
@@ -10543,18 +10485,16 @@
         "documentation_consumer"
       ],
       "platform_surfaces": [
-        "discord",
-        "home_assistant",
         "local_delivery",
-        "telegram"
+        "telegram",
+        "weixin"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.discord",
-        "surface_known_gaps.home_assistant",
         "surface_known_gaps.local_delivery",
-        "surface_known_gaps.telegram"
+        "surface_known_gaps.telegram",
+        "surface_known_gaps.weixin"
       ]
     },
     {
@@ -10657,23 +10597,15 @@
       ],
       "platform_surfaces": [
         "dingtalk",
-        "discord",
         "local_delivery",
-        "slack",
-        "telegram",
-        "webhook",
-        "whatsapp"
+        "webhook"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
         "surface_known_gaps.dingtalk",
-        "surface_known_gaps.discord",
         "surface_known_gaps.local_delivery",
-        "surface_known_gaps.slack",
-        "surface_known_gaps.telegram",
-        "surface_known_gaps.webhook",
-        "surface_known_gaps.whatsapp"
+        "surface_known_gaps.webhook"
       ]
     },
     {
@@ -10738,11 +10670,8 @@
         "documentation_consumer"
       ],
       "platform_surfaces": [
-        "discord",
         "local_delivery",
-        "matrix",
         "signal",
-        "slack",
         "telegram",
         "webhook",
         "whatsapp"
@@ -10750,11 +10679,8 @@
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.discord",
         "surface_known_gaps.local_delivery",
-        "surface_known_gaps.matrix",
         "surface_known_gaps.signal",
-        "surface_known_gaps.slack",
         "surface_known_gaps.telegram",
         "surface_known_gaps.webhook",
         "surface_known_gaps.whatsapp"
@@ -10788,9 +10714,7 @@
         "documentation_consumer"
       ],
       "platform_surfaces": [
-        "discord",
         "local_delivery",
-        "signal",
         "sms_twilio",
         "telegram",
         "whatsapp"
@@ -10798,9 +10722,7 @@
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.discord",
         "surface_known_gaps.local_delivery",
-        "surface_known_gaps.signal",
         "surface_known_gaps.sms_twilio",
         "surface_known_gaps.telegram",
         "surface_known_gaps.whatsapp"
@@ -10813,21 +10735,23 @@
         "documentation_consumer"
       ],
       "platform_surfaces": [
-        "discord",
+        "dingtalk",
+        "email",
         "local_delivery",
-        "signal",
-        "slack",
+        "qqbot",
         "telegram",
+        "weixin",
         "whatsapp"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.discord",
+        "surface_known_gaps.dingtalk",
+        "surface_known_gaps.email",
         "surface_known_gaps.local_delivery",
-        "surface_known_gaps.signal",
-        "surface_known_gaps.slack",
+        "surface_known_gaps.qqbot",
         "surface_known_gaps.telegram",
+        "surface_known_gaps.weixin",
         "surface_known_gaps.whatsapp"
       ]
     },

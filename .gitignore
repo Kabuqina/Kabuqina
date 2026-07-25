@@ -1,6 +1,5 @@
 # Rust / Tauri
 /tauri/target/
-/tauri/Cargo.lock
 /tauri/gen/
 **/*.rs.bk
 

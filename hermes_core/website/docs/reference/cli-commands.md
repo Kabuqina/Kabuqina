@@ -42,12 +42,10 @@ hermes [global-options] <command> [subcommand/options]
 | `hermes gateway` | Run or manage the messaging gateway service. |
 | `hermes setup` | Interactive setup wizard for all or part of the configuration. |
 | `hermes whatsapp` | Configure and pair the WhatsApp bridge. |
-| `hermes slack` | Slack helpers (currently: generate the app manifest with every command as a native slash). |
 | `hermes auth` | Manage credentials — add, list, remove, reset, set strategy. Handles OAuth flows for Codex/Nous/Anthropic. |
 | `hermes login` / `logout` | **Deprecated** — use `hermes auth` instead. |
 | `hermes status` | Show agent, auth, and platform status. |
 | `hermes cron` | Inspect and tick the cron scheduler. |
-| `hermes webhook` | Manage dynamic webhook subscriptions for event-driven activation. |
 | `hermes hooks` | Inspect, approve, or remove shell-script hooks declared in `config.yaml`. |
 | `hermes doctor` | Diagnose config and dependency issues. |
 | `hermes dump` | Copy-pasteable setup summary for support/debugging. |
@@ -258,33 +256,6 @@ hermes whatsapp
 
 Runs the WhatsApp pairing/setup flow, including mode selection and QR-code pairing.
 
-## `hermes slack`
-
-```bash
-hermes slack manifest              # print manifest to stdout
-hermes slack manifest --write      # write to ~/.hermes/slack-manifest.json
-hermes slack manifest --slashes-only  # just the features.slash_commands array
-```
-
-Generates a Slack app manifest that registers every gateway command in
-`COMMAND_REGISTRY` (`/btw`, `/stop`, `/model`, …) as a first-class
-Slack slash command — matching Discord and Telegram parity. Paste the
-output into your Slack app config at
-[https://api.slack.com/apps](https://api.slack.com/apps) → your app →
-**Features → App Manifest → Edit**, then **Save**. Slack prompts for
-reinstall if scopes or slash commands changed.
-
-| Flag | Default | Purpose |
-|------|---------|---------|
-| `--write [PATH]` | stdout | Write to a file instead of stdout. Bare `--write` writes `$HERMES_HOME/slack-manifest.json`. |
-| `--name NAME` | `Hermes` | Bot display name in Slack. |
-| `--description DESC` | default blurb | Bot description shown in the Slack app directory. |
-| `--slashes-only` | off | Emit only `features.slash_commands` for merging into a manually-maintained manifest. |
-
-Run `hermes slack manifest --write` again after `hermes update` to pick
-up any new commands.
-
-
 ## `hermes login` / `hermes logout` *(Deprecated)*
 
 :::caution
@@ -336,39 +307,6 @@ hermes cron <list|create|edit|pause|resume|run|remove|status|tick>
 | `status` | Check whether the cron scheduler is running. |
 | `tick` | Run due jobs once and exit. |
 
-## `hermes webhook`
-
-```bash
-hermes webhook <subscribe|list|remove|test>
-```
-
-Manage dynamic webhook subscriptions for event-driven agent activation. Requires the webhook platform to be enabled in config — if not configured, prints setup instructions.
-
-| Subcommand | Description |
-|------------|-------------|
-| `subscribe` / `add` | Create a webhook route. Returns the URL and HMAC secret to configure on your service. |
-| `list` / `ls` | Show all agent-created subscriptions. |
-| `remove` / `rm` | Delete a dynamic subscription. Static routes from config.yaml are not affected. |
-| `test` | Send a test POST to verify a subscription is working. |
-
-### `hermes webhook subscribe`
-
-```bash
-hermes webhook subscribe <name> [options]
-```
-
-| Option | Description |
-|--------|-------------|
-| `--prompt` | Prompt template with `{dot.notation}` payload references. |
-| `--events` | Comma-separated event types to accept (e.g. `issues,pull_request`). Empty = all. |
-| `--description` | Human-readable description. |
-| `--skills` | Comma-separated skill names to load for the agent run. |
-| `--deliver` | Delivery target: `log` (default), `telegram`, `discord`, `slack`, `github_comment`. |
-| `--deliver-chat-id` | Target chat/channel ID for cross-platform delivery. |
-| `--secret` | Custom HMAC secret. Auto-generated if omitted. |
-
-Subscriptions persist to `~/.hermes/webhook_subscriptions.json` and are hot-reloaded by the webhook adapter without a gateway restart.
-
 ## `hermes doctor`
 
 ```bash
@@ -385,7 +323,7 @@ hermes doctor [--fix]
 hermes dump [--show-keys]
 ```
 
-Outputs a compact, plain-text summary of your entire Hermes setup. Designed to be copy-pasted into Discord, GitHub issues, or Telegram when asking for support — no ANSI colors, no special formatting, just data.
+Outputs a compact, plain-text summary of your entire Hermes setup. Designed to be pasted into GitHub issues or a retained messaging channel when asking for support — no ANSI colors, no special formatting, just data.
 
 | Option | Description |
 |--------|-------------|
@@ -433,7 +371,7 @@ features:
   mcp_servers:        0
   memory_provider:    built-in
   gateway:            running (systemd)
-  platforms:          telegram, discord
+  platforms:          telegram, whatsapp
   cron_jobs:          3 active / 5 total
   skills:             42
 
@@ -447,7 +385,7 @@ config_overrides:
 ### When to use
 
 - Reporting a bug on GitHub — paste the dump into your issue
-- Asking for help in Discord — share it in a code block
+- Asking for help in a messaging channel — share it in a code block
 - Comparing your setup to someone else's
 - Quick sanity check when something isn't working
 
@@ -857,7 +795,7 @@ hermes insights [--days N] [--source platform]
 | Option | Description |
 |--------|-------------|
 | `--days <n>` | Analyze the last `n` days (default: 30). |
-| `--source <platform>` | Filter by source such as `cli`, `telegram`, or `discord`. |
+| `--source <platform>` | Filter by source such as `cli`, `telegram`, or `weixin`. |
 
 ## `hermes claw`
 
@@ -883,7 +821,7 @@ Migrate your OpenClaw setup to Hermes. Reads from `~/.openclaw` (or a custom pat
 
 The migration covers 30+ categories across persona, memory, skills, model providers, messaging platforms, agent behavior, session policies, MCP servers, TTS, and more. Items are either **directly imported** into Hermes equivalents or **archived** for manual review.
 
-**Directly imported:** SOUL.md, MEMORY.md, USER.md, AGENTS.md, skills (4 source directories), default model, custom providers, MCP servers, messaging platform tokens and allowlists (Telegram, Discord, Slack, WhatsApp, Signal, Matrix, Mattermost), agent defaults (reasoning effort, compression, human delay, timezone, sandbox), session reset policies, approval rules, TTS config, browser settings, tool settings, exec timeout, command allowlist, gateway config, and API keys from 3 sources.
+**Directly imported:** SOUL.md, MEMORY.md, USER.md, AGENTS.md, skills (4 source directories), default model, custom providers, MCP servers, retained messaging-platform tokens and allowlists, agent defaults (reasoning effort, compression, human delay, timezone, sandbox), session reset policies, approval rules, TTS config, browser settings, tool settings, exec timeout, command allowlist, gateway config, and API keys from 3 sources. Removed-platform records are preserved for explicit compatibility review rather than re-enabled.
 
 **Archived for manual review:** Cron jobs, plugins, hooks/webhooks, memory backend (QMD), skills registry config, UI/identity, logging, multi-agent setup, channel bindings, IDENTITY.md, TOOLS.md, HEARTBEAT.md, BOOTSTRAP.md.
 
