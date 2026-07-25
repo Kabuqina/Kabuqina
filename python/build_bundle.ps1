@@ -362,35 +362,120 @@ if (-not (Test-Path -LiteralPath $whatsappLock -PathType Leaf)) {
     throw "Retained WhatsApp bridge lock missing: $whatsappLock"
 }
 $whatsappLockHash = (Get-FileHash -LiteralPath $whatsappLock -Algorithm SHA256).Hash.ToLowerInvariant()
-$whatsappInstallCache = Join-Path $Download "whatsapp-bridge\$whatsappLockHash"
+$whatsappCacheParent = Join-Path $Download "whatsapp-bridge"
+$whatsappInstallCache = Join-Path $whatsappCacheParent $whatsappLockHash
+$whatsappCompletionMarkerName = ".kabuqina-cache-complete.json"
 $whatsappCacheSentinels = @(
     "node_modules\@whiskeysockets\baileys\package.json",
     "node_modules\express\package.json",
     "node_modules\pino\package.json",
     "node_modules\qrcode-terminal\package.json"
 )
-$whatsappCacheReady = -not ($whatsappCacheSentinels | Where-Object {
-    -not (Test-Path -LiteralPath (Join-Path $whatsappInstallCache $_) -PathType Leaf)
-})
+
+function Test-WhatsAppInstallCacheReady {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+        [Parameter(Mandatory = $true)]
+        [string]$LockHash
+    )
+
+    $markerPath = Join-Path $Path $whatsappCompletionMarkerName
+    if (-not (Test-Path -LiteralPath $markerPath -PathType Leaf)) {
+        return $false
+    }
+    try {
+        $marker = Get-Content -LiteralPath $markerPath -Raw |
+            ConvertFrom-Json -ErrorAction Stop
+    } catch {
+        return $false
+    }
+    if (
+        $marker.schemaVersion -ne 1 -or
+        $marker.lockSha256 -ne $LockHash -or
+        $marker.validation -ne "npm ls --omit=dev --all"
+    ) {
+        return $false
+    }
+    return -not ($whatsappCacheSentinels | Where-Object {
+        -not (Test-Path -LiteralPath (Join-Path $Path $_) -PathType Leaf)
+    })
+}
+
+New-Item -ItemType Directory -Force -Path $whatsappCacheParent | Out-Null
+$whatsappCacheReady = Test-WhatsAppInstallCacheReady `
+    -Path $whatsappInstallCache -LockHash $whatsappLockHash
 if (-not $whatsappCacheReady) {
     $npmCommand = Get-Command npm.cmd -ErrorAction SilentlyContinue
     if (-not $npmCommand) {
         throw "npm.cmd is required to stage the retained WhatsApp bridge dependencies."
     }
-    Remove-BundlePathStrict -Path $whatsappInstallCache -Label "WhatsApp dependency cache"
-    New-Item -ItemType Directory -Force -Path $whatsappInstallCache | Out-Null
-    Copy-Item -Path (Join-Path $whatsappBridgeSource "*") `
-        -Destination $whatsappInstallCache -Recurse -Force
-    Write-Host "[bundle] Installing locked WhatsApp bridge dependencies (cache miss)..." -ForegroundColor Cyan
-    # Install scripts are required by the locked Baileys/sharp payload; the
-    # committed lock and HTTPS commit pins are the executable input boundary.
-    & $npmCommand.Source ci --omit=dev --no-audit --no-fund `
-        --cache (Join-Path $Download "npm") --prefix $whatsappInstallCache
-    $whatsappCacheReady = -not ($whatsappCacheSentinels | Where-Object {
-        -not (Test-Path -LiteralPath (Join-Path $whatsappInstallCache $_) -PathType Leaf)
-    })
-    if ($LASTEXITCODE -ne 0 -or -not $whatsappCacheReady) {
-        throw "Locked WhatsApp bridge dependency install failed."
+    $whatsappInstallTemp = Join-Path $whatsappCacheParent (
+        ".$whatsappLockHash.incomplete-$PID-$([Guid]::NewGuid().ToString('N'))"
+    )
+    try {
+        New-Item -ItemType Directory -Force -Path $whatsappInstallTemp | Out-Null
+        Copy-Item -Path (Join-Path $whatsappBridgeSource "*") `
+            -Destination $whatsappInstallTemp -Recurse -Force
+        Write-Host "[bundle] Installing locked WhatsApp bridge dependencies (cache miss)..." -ForegroundColor Cyan
+        # Install scripts are required by the locked Baileys/sharp payload; the
+        # committed lock and HTTPS commit pins are the executable input boundary.
+        & $npmCommand.Source ci --omit=dev --no-audit --no-fund `
+            --cache (Join-Path $Download "npm") --prefix $whatsappInstallTemp
+        if ($LASTEXITCODE -ne 0) {
+            throw "Locked WhatsApp bridge dependency install failed."
+        }
+
+        # Direct package sentinels are insufficient: npm may have written them
+        # before an interrupted transitive install. Validate the complete
+        # lock-resolved production tree before publishing any reusable marker.
+        & $npmCommand.Source ls --omit=dev --all --json `
+            --prefix $whatsappInstallTemp *> $null
+        if ($LASTEXITCODE -ne 0) {
+            throw "Locked WhatsApp bridge dependency tree validation failed."
+        }
+        $missingWhatsAppInputs = @($whatsappCacheSentinels | Where-Object {
+            -not (Test-Path -LiteralPath (Join-Path $whatsappInstallTemp $_) -PathType Leaf)
+        })
+        if ($missingWhatsAppInputs.Count -gt 0) {
+            throw (
+                "Locked WhatsApp bridge dependency install is incomplete: " +
+                ($missingWhatsAppInputs -join ", ")
+            )
+        }
+
+        @{
+            schemaVersion = 1
+            lockSha256 = $whatsappLockHash
+            validation = "npm ls --omit=dev --all"
+        } | ConvertTo-Json | Set-Content -LiteralPath (
+            Join-Path $whatsappInstallTemp $whatsappCompletionMarkerName
+        ) -Encoding UTF8
+
+        # The marker and complete tree become visible together via a same-volume
+        # directory rename. Any prior interrupted directory has no valid marker.
+        if (Test-Path -LiteralPath $whatsappInstallCache) {
+            if (-not (Test-WhatsAppInstallCacheReady `
+                -Path $whatsappInstallCache -LockHash $whatsappLockHash)) {
+                Remove-BundlePathStrict `
+                    -Path $whatsappInstallCache `
+                    -Label "incomplete WhatsApp dependency cache"
+            }
+        }
+        if (-not (Test-WhatsAppInstallCacheReady `
+            -Path $whatsappInstallCache -LockHash $whatsappLockHash)) {
+            Move-Item -LiteralPath $whatsappInstallTemp `
+                -Destination $whatsappInstallCache -ErrorAction Stop
+        }
+    } finally {
+        Remove-BundlePathStrict `
+            -Path $whatsappInstallTemp `
+            -Label "temporary WhatsApp dependency cache"
+    }
+    $whatsappCacheReady = Test-WhatsAppInstallCacheReady `
+        -Path $whatsappInstallCache -LockHash $whatsappLockHash
+    if (-not $whatsappCacheReady) {
+        throw "Locked WhatsApp bridge dependency cache publication failed."
     }
 } else {
     Write-Host "[bundle] Reusing cached WhatsApp bridge dependencies." -ForegroundColor DarkGray

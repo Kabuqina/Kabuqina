@@ -121,6 +121,21 @@ class RuntimeImportVerifierTests(unittest.TestCase):
         self.assertIn("whatsappLockHash", build_script)
         self.assertIn("Reusing cached WhatsApp bridge dependencies", build_script)
 
+    def test_whatsapp_cache_is_validated_and_atomically_published(self):
+        build_script = (ROOT / "python" / "build_bundle.ps1").read_text(encoding="utf-8")
+
+        marker = '$whatsappCompletionMarkerName = ".kabuqina-cache-complete.json"'
+        install = "$npmCommand.Source ci --omit=dev --no-audit --no-fund"
+        validate = "$npmCommand.Source ls --omit=dev --all --json"
+        publish = "Move-Item -LiteralPath $whatsappInstallTemp"
+        self.assertIn(marker, build_script)
+        self.assertIn(".incomplete-$PID-", build_script)
+        self.assertIn(install, build_script)
+        self.assertIn(validate, build_script)
+        self.assertIn("Test-WhatsAppInstallCacheReady", build_script)
+        self.assertLess(build_script.index(install), build_script.index(validate))
+        self.assertLess(build_script.index(validate), build_script.index(publish))
+
     def test_bundle_cache_is_shared_across_worktrees(self):
         build_script = (ROOT / "python" / "build_bundle.ps1").read_text(encoding="utf-8")
 

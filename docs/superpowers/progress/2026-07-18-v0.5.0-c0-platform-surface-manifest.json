@@ -4111,7 +4111,6 @@
         "email",
         "qqbot",
         "telegram",
-        "webhook",
         "whatsapp"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
@@ -4120,7 +4119,6 @@
         "surface_known_gaps.email",
         "surface_known_gaps.qqbot",
         "surface_known_gaps.telegram",
-        "surface_known_gaps.webhook",
         "surface_known_gaps.whatsapp"
       ]
     },
@@ -4151,7 +4149,6 @@
         "email",
         "qqbot",
         "telegram",
-        "webhook",
         "weixin",
         "whatsapp"
       ],
@@ -4161,7 +4158,6 @@
         "surface_known_gaps.email",
         "surface_known_gaps.qqbot",
         "surface_known_gaps.telegram",
-        "surface_known_gaps.webhook",
         "surface_known_gaps.weixin",
         "surface_known_gaps.whatsapp"
       ]
@@ -12663,6 +12659,25 @@
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
         "surface_known_gaps.weixin"
+      ]
+    },
+    {
+      "path": "python/tests/test_active_platform_docs.py",
+      "layer": "tests",
+      "edge_types": [
+        "verification_consumer"
+      ],
+      "platform_surfaces": [
+        "feishu_lark",
+        "webhook",
+        "wecom_family"
+      ],
+      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
+      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
+      "known_gaps": [
+        "surface_known_gaps.feishu_lark",
+        "surface_known_gaps.webhook",
+        "surface_known_gaps.wecom_family"
       ]
     },
     {
@@ -22874,7 +22889,7 @@
   },
   "generated_ledger_metadata": {
     "generator": "scripts/audit_v050_platform_manifest.py --refresh-generated-ledgers",
-    "reference_path_count": 522,
+    "reference_path_count": 523,
     "literal_environment_key_count": 518,
     "dynamic_environment_key_declaration_count": 325,
     "environment_key_count": 660,

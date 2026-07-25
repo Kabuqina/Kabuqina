@@ -21,9 +21,52 @@ MESSAGING_DOCS = (
     ROOT / "hermes_core" / "website" / "docs" / "user-guide" / "messaging"
 )
 
+REMOVED_DISPLAY_ALIASES = {
+    "discord": ("Discord",),
+    "feishu": ("Feishu", "feishu", "Lark", "lark", "飞书"),
+    "wecom": ("WeCom", "wecom", "企业微信", "企微"),
+    "wecom_callback": ("WeCom Callback", "企业微信回调", "企微回调"),
+    "sms": ("SMS", "Twilio", "短信"),
+    "slack": ("Slack",),
+    "signal": ("Signal",),
+    "matrix": ("Matrix",),
+    "mattermost": ("Mattermost",),
+    "bluebubbles": ("BlueBubbles",),
+    "homeassistant": ("Home Assistant", "家庭助理"),
+    "yuanbao": ("Yuanbao", "元宝"),
+    "webhook": ("Webhook", "webhook", "Web Hook", "web hook", "网络钩子"),
+    "api_server": ("API Server", "API 服务器"),
+    "irc": ("IRC",),
+    "teams": ("Microsoft Teams", "Teams", "微软 Teams"),
+}
+
 
 def _read(relative: str) -> str:
     return (ROOT / relative).read_text(encoding="utf-8")
+
+
+def find_removed_platform_aliases(
+    text: str,
+    removed_names: set[str],
+) -> list[tuple[str, str]]:
+    """Return removed platform aliases advertised by active prose.
+
+    ASCII-only word boundaries are used deliberately: ``\b`` is easy to get
+    wrong when an alias is Chinese, while raw substring matching would turn
+    identifiers such as ``signal_handler`` into platform advertisements.
+    """
+
+    matches: list[tuple[str, str]] = []
+    for name in sorted(removed_names):
+        aliases = REMOVED_DISPLAY_ALIASES.get(
+            name,
+            (name.replace("_", " ").title(),),
+        )
+        for alias in aliases:
+            pattern = rf"(?<![A-Za-z0-9_]){re.escape(alias)}(?![A-Za-z0-9_])"
+            if re.search(pattern, text):
+                matches.append((name, alias))
+    return matches
 
 
 def audit() -> list[str]:
@@ -108,27 +151,13 @@ def audit() -> list[str]:
         "docs/test-plan.md",
         "docs/test-cases/gateway-messaging.md",
     )
-    display_names = (
-        "Discord",
-        "Slack",
-        "Signal",
-        "Matrix",
-        "Mattermost",
-        "Feishu",
-        "Lark",
-        "WeCom",
-        "BlueBubbles",
-        "Yuanbao",
-        "Home Assistant",
-    )
     for relative in active_product_docs:
         text = _read(relative)
-        for display_name in display_names:
-            if re.search(rf"\b{re.escape(display_name)}\b", text):
-                errors.append(
-                    f"active product doc advertises removed platform: "
-                    f"{relative}: {display_name}"
-                )
+        for name, alias in find_removed_platform_aliases(text, removed_names):
+            errors.append(
+                "active product doc advertises removed platform: "
+                f"{relative}: {name} via {alias!r}"
+            )
     return errors
 
 

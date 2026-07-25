@@ -20,7 +20,7 @@
 
 ---
 
-## 2. Gateway — 安全防护（10 条修复）
+## 2. Gateway — 安全防护（8 条现行合同）
 
 | # | 测试项 | 边界 / 异常 |
 |---|--------|------------|
@@ -28,12 +28,10 @@
 | 2 | `/yolo` 命令：未在 `YOLO_ALLOWED_USERS` 中的用户执行 → 拒绝 | 在白名单中的用户正常开关 |
 | 3 | 网关文件沙箱：agent 尝试写 `/etc/` 或 `C:\Windows\` → PermissionError | 读写工作目录外任意路径均被拦截 |
 | 4 | `GATEWAY_SHELL_ENABLED` 未设置时 terminal / exec / code_execution 工具集不可用 | 设置后恢复可用 |
-| 5 | 飞书 Webhook 未配 `encrypt_key` → 启动打印 WARNING | 配置后不再警告 |
-| 6 | `GATEWAY_OWNER_IDS` 限制：非 owner 执行 `/restart` `/model` `/personality` `/sethome` `/debug` `/update` `/reload-mcp` `/stop` → 拒绝 | 空字符串 = 不限制（兼容旧行为） |
-| 7 | `GATEWAY_ALLOW_ALL_USERS` 激活 → 启动时打印 SECURITY 级别 WARNING | 关闭后无警告 |
-| 8 | 网关启动时对 `.env` 执行 `chmod 0600`（POSIX） | Windows 上 no-op 不报错 |
-| 9 | Webhook 含 `X-Webhook-Timestamp` → 超时请求被拒绝（默认 300s 容差） | 无 timestamp 头时正常通过（仅签名验证） |
-| 10 | `thread_sessions_per_user` 默认 `True` → 群话题中不同用户 session 隔离 | 设置为 `False` 后共享 |
+| 5 | `GATEWAY_OWNER_IDS` 限制：非 owner 执行 `/restart` `/model` `/personality` `/sethome` `/debug` `/update` `/reload-mcp` `/stop` → 拒绝 | 空字符串 = 不限制（兼容旧行为） |
+| 6 | `GATEWAY_ALLOW_ALL_USERS` 激活 → 启动时打印 SECURITY 级别 WARNING | 关闭后无警告 |
+| 7 | 网关启动时对 `.env` 执行 `chmod 0600`（POSIX） | Windows 上 no-op 不报错 |
+| 8 | `thread_sessions_per_user` 默认 `True` → 群话题中不同用户 session 隔离 | 设置为 `False` 后共享 |
 
 ---
 
@@ -86,12 +84,12 @@
 
 ---
 
-## 7. 前端 — Telegram / 微信 / QQ / 飞书配置
+## 7. 前端 — Telegram / 微信 / QQ / 钉钉 / WhatsApp / Email 配置
 
 | 优先级 | 测试项 | 边界 / 异常 |
 |--------|--------|------------|
 | P1 | Telegram 配置块：保存 Token → 重启 Hermes → 已配置状态 | Token 验证失败时显示错误 |
-| P1 | 飞书 QR 扫码流程 | 扫码超时取消、重复扫码换绑 |
+| P1 | 钉钉 / WhatsApp / Email 配置流程 | 缺少必填凭据时失败关闭；保存后按当前 profile 启动 |
 | P1 | QQ QR 扫码流程 | 同上 |
 | P1 | 微信 Route C 扫码流程 | 同上 |
 | P2 | 设置页 → 消息网关启动/停止 | 状态指示器正确（运行中 / 未运行 / 启动中） |
@@ -129,7 +127,7 @@
 | `sync_upstream.ps1` 无 CI 集成 | 每次手动执行前先 `-DryRun` |
 | 前端 ChatPage / Settings 无组件测试 | 可后续引入 vitest + React Testing Library |
 | 锁清理逻辑无有效回归测试 | 手动停止 → 启动 3 次验证 `[hermes-desklock]` stderr 输出 |
-| 10 条安全修复无专项安全测试 | 至少每条 1 个手动验证 |
+| 现行安全合同无专项安全测试 | 至少每条 1 个手动验证 |
 | `build_bundle.ps1` patch 流程无回归测试 | 模拟脏工作树 + 干净工作树两种场景 |
 
 ---
@@ -139,16 +137,16 @@
 | 阶段 | 用例数 | 通过 | 失败 | 跳过 | 待实现 |
 |------|--------|------|------|------|--------|
 | §1 Gateway 消息渠道 | 12 | 0 | 0 | 12 | 0 |
-| §2 Gateway 安全 | 10 | 2 | 0 | 8 | 0 |
+| §2 Gateway 安全 | 8 | 2 | 0 | 6 | 0 |
 | §3 Gateway 配对 | 6 | 0 | 0 | 6 | 0 |
 | §4 Gateway 生命周期 | 6 | 4 | 0 | 1 | 1 |
 | §5/6/7 前端 | 15 | 1 | 0 | 14 | 0 |
 | §8 API/LLM | 6 | 3 | 0 | 3 | 0 |
 | §9 构建 | 4 | 2 | 0 | 2 | 0 |
-| **合计** | **59** | **12** | **0** | **46** | **1** |
+| **合计** | **57** | **12** | **0** | **44** | **1** |
 
 **关键发现**：
 - TC-GL-002 FAIL：网关首轮连接失败退出 → **已修复** `gateway/run.py:2774-2784` + `tauri/src/lib.rs`/`gateway_supervisor.rs`（文件清理）
 - TC-GL-001/002/003 **已全部 PASS**
 - TC-GL-004 NOT IMPL：Rust 侧无进程级 crash 重启
-- 大量 SKIP 用例需要实际平台凭证（Telegram/微信/QQ/飞书 Token）
+- 大量 SKIP 用例需要实际平台凭证（Telegram/微信/QQ/钉钉/WhatsApp/Email）
