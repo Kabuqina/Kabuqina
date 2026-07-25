@@ -20,6 +20,14 @@ MANIFEST = (
 MESSAGING_DOCS = (
     ROOT / "hermes_core" / "website" / "docs" / "user-guide" / "messaging"
 )
+ACTIVE_PRODUCT_DOC_ANCHORS = frozenset({
+    "README.md",
+    "hermes_core/README.md",
+    "hermes_core/website/docs/user-guide/profiles.md",
+    "hermes_core/website/docs/user-guide/features/tools.md",
+    "docs/safety.md",
+    "docs/test-plan.md",
+})
 
 REMOVED_DISPLAY_ALIASES = {
     "discord": ("Discord",),
@@ -67,6 +75,45 @@ def find_removed_platform_aliases(
             if re.search(pattern, text):
                 matches.append((name, alias))
     return matches
+
+
+def active_product_doc_paths(manifest: dict[str, object]) -> tuple[str, ...]:
+    """Derive executable/product documentation inputs from the C0 ledger.
+
+    All manifest-classified test cases are product acceptance material and must
+    be scanned. Stable product entry points remain explicit anchors, but the
+    test-case set is never maintained as a second hard-coded file list.
+    """
+
+    active_docs = {
+        str(record["path"])
+        for record in manifest.get("typed_reference_ledger", [])
+        if isinstance(record, dict)
+        and record.get("layer") == "active_docs"
+        and isinstance(record.get("path"), str)
+    }
+    product_docs = active_docs & ACTIVE_PRODUCT_DOC_ANCHORS
+    product_docs.update(
+        path for path in active_docs
+        if path.startswith("docs/test-cases/")
+    )
+    return tuple(sorted(product_docs))
+
+
+def audit_active_product_docs(
+    manifest: dict[str, object],
+    removed_names: set[str],
+    read_text=_read,
+) -> list[str]:
+    errors: list[str] = []
+    for relative in active_product_doc_paths(manifest):
+        text = read_text(relative)
+        for name, alias in find_removed_platform_aliases(text, removed_names):
+            errors.append(
+                "active product doc advertises removed platform: "
+                f"{relative}: {name} via {alias!r}"
+            )
+    return errors
 
 
 def audit() -> list[str]:
@@ -143,21 +190,7 @@ def audit() -> list[str]:
         if re.search(rf"`hermes {command}(?:\s|`)", cli, re.IGNORECASE):
             errors.append(f"active CLI reference advertises hermes {command}")
 
-    active_product_docs = (
-        "hermes_core/README.md",
-        "hermes_core/website/docs/user-guide/profiles.md",
-        "hermes_core/website/docs/user-guide/features/tools.md",
-        "docs/safety.md",
-        "docs/test-plan.md",
-        "docs/test-cases/gateway-messaging.md",
-    )
-    for relative in active_product_docs:
-        text = _read(relative)
-        for name, alias in find_removed_platform_aliases(text, removed_names):
-            errors.append(
-                "active product doc advertises removed platform: "
-                f"{relative}: {name} via {alias!r}"
-            )
+    errors.extend(audit_active_product_docs(manifest, removed_names))
     return errors
 
 

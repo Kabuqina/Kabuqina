@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import subprocess
 import sys
 import unittest
@@ -50,6 +51,49 @@ class ActivePlatformDocsTests(unittest.TestCase):
             "hermes_core/README.md",
         ):
             self.assertIn(surface, text)
+
+    def test_audit_discovers_all_manifest_active_test_cases(self):
+        module = _load_audit_module()
+        manifest = json.loads(module.MANIFEST.read_text(encoding="utf-8"))
+        expected = {
+            record["path"]
+            for record in manifest["typed_reference_ledger"]
+            if record.get("layer") == "active_docs"
+            and record["path"].startswith("docs/test-cases/")
+        }
+        discovered = set(module.active_product_doc_paths(manifest))
+
+        self.assertEqual(
+            expected,
+            {
+                path for path in discovered
+                if path.startswith("docs/test-cases/")
+            },
+        )
+        self.assertIn("docs/test-cases/security-regression.md", discovered)
+
+        manifest["typed_reference_ledger"].append({
+            "path": "docs/test-cases/future-platform-regression.md",
+            "layer": "active_docs",
+        })
+        self.assertIn(
+            "docs/test-cases/future-platform-regression.md",
+            module.active_product_doc_paths(manifest),
+        )
+        errors = module.audit_active_product_docs(
+            manifest,
+            {"webhook"},
+            read_text=lambda path: (
+                "Run the Webhook timestamp test"
+                if path == "docs/test-cases/future-platform-regression.md"
+                else ""
+            ),
+        )
+        self.assertIn(
+            "docs/test-cases/future-platform-regression.md: "
+            "webhook via 'Webhook'",
+            "\n".join(errors),
+        )
 
     def test_audit_detects_english_and_chinese_removed_platform_aliases(self):
         module = _load_audit_module()

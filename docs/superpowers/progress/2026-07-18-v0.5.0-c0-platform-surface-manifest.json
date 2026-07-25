@@ -4076,12 +4076,16 @@
         "documentation_consumer"
       ],
       "platform_surfaces": [
-        "telegram"
+        "email",
+        "telegram",
+        "whatsapp"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.telegram"
+        "surface_known_gaps.email",
+        "surface_known_gaps.telegram",
+        "surface_known_gaps.whatsapp"
       ]
     },
     {
@@ -4129,14 +4133,12 @@
         "documentation_consumer"
       ],
       "platform_surfaces": [
-        "telegram",
-        "webhook"
+        "telegram"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.telegram",
-        "surface_known_gaps.webhook"
+        "surface_known_gaps.telegram"
       ]
     },
     {
