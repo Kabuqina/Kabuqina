@@ -68,6 +68,7 @@ pub fn cmd_gateway_host_env_patch(
         validate_env_value(&kv.value)?;
     }
     for k in &remove_keys {
+        crate::paths::ensure_profile_env_key_writable(&app, k)?;
         validate_env_key(k)?;
     }
 

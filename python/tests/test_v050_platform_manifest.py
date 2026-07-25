@@ -189,17 +189,13 @@ class V050PlatformManifestTests(unittest.TestCase):
         )
         return tracked
 
-    def test_home_assistant_environment_group_cannot_be_omitted(self) -> None:
-        tracked = self._assert_removed_environment_group_is_rejected(
-            {"HASS_TOKEN", "HASS_URL"}
-        )
+    def test_removed_home_assistant_environment_keys_are_absent(self) -> None:
+        edges = {
+            record["key"]: record
+            for record in audit.collect_credential_key_edges(ROOT)
+        }
 
-        for key in ("HASS_TOKEN", "HASS_URL"):
-            self.assertEqual("home_assistant", tracked[key]["surface"])
-            self.assertIn(
-                "hermes_core/gateway/platforms/homeassistant.py",
-                tracked[key]["source_paths"],
-            )
+        self.assertTrue({"HASS_TOKEN", "HASS_URL"}.isdisjoint(edges))
 
     def test_email_oauth_environment_group_cannot_be_omitted(self) -> None:
         key = "KABUQINA_MICROSOFT_OAUTH_CLIENT_ID"
@@ -388,23 +384,17 @@ def load_home(platform):
             errors,
         )
 
-    def test_bundled_plugin_import_without_coverage_is_rejected_by_full_scan(self) -> None:
-        mutated = copy.deepcopy(self.manifest)
-        mutated["bundled_plugin_dependency_imports"] = [
-            record
-            for record in mutated["bundled_plugin_dependency_imports"]
-            if record["import_root"] != "microsoft_teams"
-        ]
+    def test_removed_teams_plugin_import_is_absent(self) -> None:
+        observed = audit.collect_bundled_plugin_external_imports(ROOT)
+        tracked = self.manifest["bundled_plugin_dependency_imports"]
 
-        errors = audit.validate_contract(mutated, ROOT)
-
-        self.assertTrue(
-            any(
-                "bundled plugin dependency imports differ from observed source" in error
-                and "microsoft_teams" in error
-                for error in errors
-            ),
-            errors,
+        self.assertNotIn(
+            "microsoft_teams",
+            {record["import_root"] for record in observed},
+        )
+        self.assertNotIn(
+            "microsoft_teams",
+            {record["import_root"] for record in tracked},
         )
 
     def test_persisted_record_missing_cleanup_mode_is_rejected(self) -> None:

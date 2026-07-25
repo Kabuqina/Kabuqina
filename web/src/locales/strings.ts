@@ -992,7 +992,7 @@ export const MESSAGES = {
         emailOauth2TokenUrl: "OAuth2 token URL",
         emailOauth2Scope: "OAuth2 scope",
         emailAllowedSenders: "允许的寄件邮箱（逗号分隔）",
-        smsHomeChannel: "短信 Home 号码（E.164，可选）",
+        emailHomeAddress: "Email Home 地址（可选）",
       },
     },
     cron: {
@@ -2194,7 +2194,7 @@ export const MESSAGES = {
         emailOauth2TokenUrl: "OAuth2 token URL",
         emailOauth2Scope: "OAuth2 scope",
         emailAllowedSenders: "Allowed sender emails (comma-separated)",
-        smsHomeChannel: "SMS home phone (E.164, optional)",
+        emailHomeAddress: "Email home address (optional)",
       },
     },
     cron: {

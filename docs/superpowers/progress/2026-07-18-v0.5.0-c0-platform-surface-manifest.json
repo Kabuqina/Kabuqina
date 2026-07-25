@@ -4294,7 +4294,6 @@
       ],
       "platform_surfaces": [
         "dingtalk",
-        "discord",
         "email",
         "qqbot",
         "telegram",
@@ -4305,7 +4304,6 @@
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
         "surface_known_gaps.dingtalk",
-        "surface_known_gaps.discord",
         "surface_known_gaps.email",
         "surface_known_gaps.qqbot",
         "surface_known_gaps.telegram",
@@ -5810,14 +5808,16 @@
       "platform_surfaces": [
         "discord",
         "slack",
-        "telegram"
+        "telegram",
+        "wecom_family"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
         "surface_known_gaps.discord",
         "surface_known_gaps.slack",
-        "surface_known_gaps.telegram"
+        "surface_known_gaps.telegram",
+        "surface_known_gaps.wecom_family"
       ]
     },
     {
@@ -13246,6 +13246,21 @@
       ]
     },
     {
+      "path": "web/src/advanced/gatewayUx.test.mjs",
+      "layer": "tests",
+      "edge_types": [
+        "verification_consumer"
+      ],
+      "platform_surfaces": [
+        "email"
+      ],
+      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
+      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
+      "known_gaps": [
+        "surface_known_gaps.email"
+      ]
+    },
+    {
       "path": "web/src/advanced/pages/DingTalkPage.tsx",
       "layer": "web_shell",
       "edge_types": [
@@ -13458,7 +13473,6 @@
         "dingtalk",
         "email",
         "qqbot",
-        "sms_twilio",
         "weixin"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
@@ -13467,7 +13481,6 @@
         "surface_known_gaps.dingtalk",
         "surface_known_gaps.email",
         "surface_known_gaps.qqbot",
-        "surface_known_gaps.sms_twilio",
         "surface_known_gaps.weixin"
       ]
     },
@@ -15007,7 +15020,8 @@
         "source_paths": [
           "hermes_core/cron/scheduler.py",
           "hermes_core/gateway/config.py",
-          "tauri/src/email_env.rs"
+          "tauri/src/email_env.rs",
+          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -20247,8 +20261,7 @@
         "source_paths": [
           "hermes_core/gateway/home_channel.py",
           "hermes_core/gateway/run.py",
-          "hermes_core/kabuqina_cli/config_env.py",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "hermes_core/kabuqina_cli/config_env.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -22937,7 +22950,7 @@
   },
   "generated_ledger_metadata": {
     "generator": "scripts/audit_v050_platform_manifest.py --refresh-generated-ledgers",
-    "reference_path_count": 521,
+    "reference_path_count": 522,
     "literal_environment_key_count": 518,
     "dynamic_environment_key_declaration_count": 325,
     "environment_key_count": 660,

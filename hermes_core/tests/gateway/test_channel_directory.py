@@ -40,6 +40,17 @@ class TestLoadDirectory:
             result = load_directory()
         assert result["platforms"]["telegram"][0]["name"] == "John"
 
+    def test_removed_platforms_are_filtered_from_stale_cache(self, tmp_path):
+        cache_file = _write_directory(tmp_path, {
+            "telegram": [{"id": "123", "name": "John", "type": "dm"}],
+            "slack": [{"id": "C01", "name": "Engineering", "type": "channel"}],
+            "wecom": [{"id": "W01", "name": "Operations", "type": "group"}],
+        })
+        with patch("gateway.channel_directory.DIRECTORY_PATH", cache_file):
+            result = load_directory()
+
+        assert set(result["platforms"]) == {"telegram"}
+
     def test_corrupt_file(self, tmp_path):
         cache_file = tmp_path / "channel_directory.json"
         cache_file.write_text("{bad json")
@@ -76,54 +87,58 @@ class TestResolveChannelName:
 
     def test_exact_match(self, tmp_path):
         platforms = {
-            "slack": [
+            "telegram": [
                 {"id": "C01", "name": "bot-home", "type": "channel"},
                 {"id": "C02", "name": "general", "type": "channel"},
             ]
         }
         with self._setup(tmp_path, platforms):
-            assert resolve_channel_name("slack", "bot-home") == "C01"
-            assert resolve_channel_name("slack", "#bot-home") == "C01"
+            assert resolve_channel_name("telegram", "bot-home") == "C01"
+            assert resolve_channel_name("telegram", "#bot-home") == "C01"
 
     def test_case_insensitive(self, tmp_path):
         platforms = {
-            "slack": [{"id": "C01", "name": "Engineering", "type": "channel"}]
+            "telegram": [{"id": "C01", "name": "Engineering", "type": "channel"}]
         }
         with self._setup(tmp_path, platforms):
-            assert resolve_channel_name("slack", "engineering") == "C01"
-            assert resolve_channel_name("slack", "ENGINEERING") == "C01"
+            assert resolve_channel_name("telegram", "engineering") == "C01"
+            assert resolve_channel_name("telegram", "ENGINEERING") == "C01"
 
-    def test_removed_discord_entries_are_not_resolved(self, tmp_path):
+    def test_removed_platform_entries_are_not_resolved(self, tmp_path):
         platforms = {
             "discord": [
                 {"id": "111", "name": "general", "guild": "ServerA", "type": "channel"},
                 {"id": "222", "name": "general", "guild": "ServerB", "type": "channel"},
-            ]
+            ],
+            "slack": [{"id": "C01", "name": "engineering", "type": "channel"}],
+            "wecom": [{"id": "W01", "name": "operations", "type": "group"}],
         }
         with self._setup(tmp_path, platforms):
             assert resolve_channel_name("discord", "general") is None
             assert resolve_channel_name("discord", "ServerA/general") is None
+            assert resolve_channel_name("slack", "engineering") is None
+            assert resolve_channel_name("wecom", "operations") is None
 
     def test_prefix_match_unambiguous(self, tmp_path):
         platforms = {
-            "slack": [
+            "telegram": [
                 {"id": "C01", "name": "engineering-backend", "type": "channel"},
                 {"id": "C02", "name": "design-team", "type": "channel"},
             ]
         }
         with self._setup(tmp_path, platforms):
             # "engineering" prefix matches only one channel
-            assert resolve_channel_name("slack", "engineering") == "C01"
+            assert resolve_channel_name("telegram", "engineering") == "C01"
 
     def test_prefix_match_ambiguous_returns_none(self, tmp_path):
         platforms = {
-            "slack": [
+            "telegram": [
                 {"id": "C01", "name": "eng-backend", "type": "channel"},
                 {"id": "C02", "name": "eng-frontend", "type": "channel"},
             ]
         }
         with self._setup(tmp_path, platforms):
-            assert resolve_channel_name("slack", "eng") is None
+            assert resolve_channel_name("telegram", "eng") is None
 
     def test_no_channels_returns_none(self, tmp_path):
         with self._setup(tmp_path, {}):
@@ -145,18 +160,18 @@ class TestResolveChannelName:
 
     def test_id_match_takes_precedence_over_name(self, tmp_path):
         """A raw channel ID resolves to itself, even when a different
-        channel happens to be named the same string. Case-sensitive: Slack
+        channel happens to be named the same string. Case-sensitive: platform
         IDs are uppercase and must not be normalized away."""
         platforms = {
-            "slack": [
+            "telegram": [
                 {"id": "C0B0QV5434G", "name": "engineering", "type": "channel"},
                 {"id": "C99", "name": "c0b0qv5434g", "type": "channel"},
             ]
         }
         with self._setup(tmp_path, platforms):
-            assert resolve_channel_name("slack", "C0B0QV5434G") == "C0B0QV5434G"
+            assert resolve_channel_name("telegram", "C0B0QV5434G") == "C0B0QV5434G"
             # Lowercase still falls through to name matching (case-insensitive)
-            assert resolve_channel_name("slack", "c0b0qv5434g") == "C99"
+            assert resolve_channel_name("telegram", "c0b0qv5434g") == "C99"
 
     def test_display_label_with_type_suffix_resolves(self, tmp_path):
         platforms = {
@@ -288,19 +303,25 @@ class TestFormatDirectoryForDisplay:
         assert "telegram:Dev Group" in result
         assert "telegram:Coaching Chat / topic 17585" in result
 
-    def test_removed_discord_entries_are_not_displayed(self, tmp_path):
+    def test_removed_platform_entries_are_not_displayed(self, tmp_path):
         cache_file = _write_directory(tmp_path, {
             "discord": [
                 {"id": "1", "name": "general", "guild": "Server1", "type": "channel"},
                 {"id": "2", "name": "bot-home", "guild": "Server1", "type": "channel"},
                 {"id": "3", "name": "chat", "guild": "Server2", "type": "channel"},
-            ]
+            ],
+            "slack": [{"id": "C01", "name": "engineering", "type": "channel"}],
+            "wecom": [{"id": "W01", "name": "operations", "type": "group"}],
         })
         with patch("gateway.channel_directory.DIRECTORY_PATH", cache_file):
             result = format_directory_for_display()
 
         assert "Discord" not in result
         assert "discord:#general" not in result
+        assert "Slack" not in result
+        assert "slack:engineering" not in result
+        assert "Wecom" not in result
+        assert "wecom:operations" not in result
 
 
 class TestLookupChannelType:

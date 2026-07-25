@@ -291,8 +291,8 @@ export const GATEWAY_PLATFORM_REGISTRY: GatewayPlatformRegistryEntry[] = [
         titleKey: `${GW}.sectionHome`,
         fields: [
           {
-            envKey: "SMS_HOME_CHANNEL",
-            labelKey: `${GW}.smsHomeChannel`,
+            envKey: "EMAIL_HOME_ADDRESS",
+            labelKey: `${GW}.emailHomeAddress`,
             type: "string",
             advanced: true,
           },
