@@ -25,7 +25,10 @@ once without deleting the old files.
 
 WhatsApp dependencies are installed during the build from the committed
 `package-lock.json` and cached by its SHA-256. The desktop runtime never runs
-`npm install`.
+`npm install`. A cache miss installs into a unique temporary directory and
+must pass `npm ls --omit=dev --all`; the completion marker is written only
+after that full-tree validation, then the directory is renamed into the
+lock-hash cache path. An interrupted or marker-less install is never reused.
 
 ## Dependency evidence
 

@@ -284,21 +284,7 @@ assert hermesdesk_pending_list_contains(new_user_id)
 
 ---
 
-### TC-GM-S09 [P1] Webhook 时间戳超时拒绝
-
-| 属性 | 内容 |
-|------|------|
-| **Given** | 通用 Webhook 请求包含 `X-Webhook-Timestamp` 头 |
-| **When** | 时间戳与当前服务器时间差 > 300 秒（默认容差） |
-| **Then** | 请求被拒绝，返回 HTTP 401/403 |
-
-**反例**：
-- 时间戳在 300 秒内 → 请求正常通过
-- 无 `X-Webhook-Timestamp` 头 → 仅做签名验证，正常通过
-
----
-
-### TC-GM-S10 [P1] `thread_sessions_per_user` 用户 Session 隔离
+### TC-GM-S09 [P1] `thread_sessions_per_user` 用户 Session 隔离
 
 | 属性 | 内容 |
 |------|------|

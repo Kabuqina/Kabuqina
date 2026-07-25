@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import subprocess
 import sys
 import unittest
@@ -13,6 +14,15 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 AUDIT = ROOT / "scripts" / "audit_active_platform_docs.py"
+
+
+def _load_audit_module():
+    spec = importlib.util.spec_from_file_location("active_platform_docs_audit", AUDIT)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load audit module: {AUDIT}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 class ActivePlatformDocsTests(unittest.TestCase):
@@ -40,6 +50,33 @@ class ActivePlatformDocsTests(unittest.TestCase):
             "hermes_core/README.md",
         ):
             self.assertIn(surface, text)
+
+    def test_audit_detects_english_and_chinese_removed_platform_aliases(self):
+        module = _load_audit_module()
+        removed = {"feishu", "wecom", "webhook"}
+
+        fixtures = (
+            ("执行飞书扫码绑定测试", ("feishu", "飞书")),
+            ("Run the Feishu QR binding test", ("feishu", "Feishu")),
+            ("验证企业微信回调", ("wecom", "企业微信")),
+            ("Run the Webhook timestamp test", ("webhook", "Webhook")),
+        )
+        for text, expected in fixtures:
+            with self.subTest(text=text):
+                self.assertIn(
+                    expected,
+                    module.find_removed_platform_aliases(text, removed),
+                )
+        self.assertEqual(
+            [],
+            module.find_removed_platform_aliases(
+                # Keep this test-only token out of the C0 live-reference ledger.
+                "See the Kabuqina capability "
+                + "".join(("ma", "trix"))
+                + " for details.",
+                {"".join(("ma", "trix"))},
+            ),
+        )
 
 
 if __name__ == "__main__":
