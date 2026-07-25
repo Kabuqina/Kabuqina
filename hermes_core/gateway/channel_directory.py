@@ -17,6 +17,14 @@ from utils import atomic_json_write
 logger = logging.getLogger(__name__)
 
 DIRECTORY_PATH = get_kabuqina_home() / "channel_directory.json"
+RETAINED_PLATFORMS = (
+    "telegram",
+    "whatsapp",
+    "email",
+    "dingtalk",
+    "weixin",
+    "qqbot",
+)
 
 
 def _normalize_channel_query(value: str) -> str:
@@ -61,17 +69,9 @@ async def build_channel_directory(adapters: Dict[Any, Any]) -> Dict[str, Any]:
 
     Returns the directory dict and writes it to DIRECTORY_PATH.
     """
-    retained_platforms = (
-        "telegram",
-        "whatsapp",
-        "email",
-        "dingtalk",
-        "weixin",
-        "qqbot",
-    )
     platforms = {
         platform_name: _build_from_sessions(platform_name)
-        for platform_name in retained_platforms
+        for platform_name in RETAINED_PLATFORMS
     }
 
     directory = {
@@ -131,9 +131,15 @@ def load_directory() -> Dict[str, Any]:
             directory = json.load(f)
         platforms = directory.get("platforms")
         if isinstance(platforms, dict):
-            # Preserve the on-disk compatibility record for CTL-C07, but never
-            # expose the removed Discord target through the live directory.
-            platforms.pop("discord", None)
+            # Preserve stale on-disk compatibility records for CTL-C07, but
+            # never expose removed platforms through live resolution/display.
+            directory["platforms"] = {
+                name: channels
+                for name, channels in platforms.items()
+                if name in RETAINED_PLATFORMS
+            }
+        else:
+            directory["platforms"] = {}
         return directory
     except Exception:
         return {"updated_at": None, "platforms": {}}

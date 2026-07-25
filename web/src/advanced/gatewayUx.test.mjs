@@ -81,6 +81,18 @@ for (const [source, label] of [
   );
 }
 
+assert.doesNotMatch(
+  gatewayRegistrySource,
+  /SMS_HOME_CHANNEL|smsHomeChannel/,
+  "Email advanced settings must not expose or remove legacy SMS home data.",
+);
+
+assert.match(
+  gatewayRegistrySource,
+  /platform:\s*"email"[\s\S]*envKey:\s*"EMAIL_HOME_ADDRESS"/,
+  "Email advanced settings should use the canonical email home address key.",
+);
+
 for (const relativePath of [
   "../components/FeishuQrRouteBlock.tsx",
   "./pages/FeishuPage.tsx",
