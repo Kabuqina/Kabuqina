@@ -12,10 +12,13 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 
 - Materiality-first (owner direction, 2026-07-25): design must be guided by 物化 —
   interface elements are desk objects with position, material, and small behaviors —
-  not deferred to a later art pass. The 2026-07-07 `notebook-ia.html` prototype is the
-  object-vocabulary source of truth (bookend course tabs, lamp, bookmark, looseleaf,
-  card stack, branded Nana cup); this canonical prototype remains the IA and boundary
-  source of truth. Reconcile the two rather than choosing one.
+  not deferred to a later art pass. **Every object is registered in
+  `docs/superpowers/plans/2026-07-25-v0.5.0-materiality-vocabulary.md`** with its material,
+  the meaning it carries, and what the user would misread without it. Read it before
+  changing any surface, and register new objects there *before* writing their styles —
+  the prototype alone cannot tell a reader that a dashed border means "carbon copy".
+  The 2026-07-07 `notebook-ia.html` prototype is where the Study object vocabulary
+  originated; this canonical prototype remains the IA and boundary source of truth.
 - Desk lamp = theme switch (owner confirmed): the lamp sits top-right in the shell and
   toggles light/dark; dark mode reads as "night with the lamp on" (warm glow falls on
   the desk from the lamp corner). Settings carries an equivalent mirror control. All
@@ -31,6 +34,10 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 - Preserve the 2026-07-23 Study desk composition and warm paper / muted purple
   visual language as the source of truth; this prototype extends it rather than
   replacing it.
+- Study has no outbound exit. 学习就是纯粹的学习 — the Study desk and course Chat offer no
+  "send to Studio" affordance at all. Cross-domain sourcing is always initiated from Studio
+  ("从 Study 取素材"). Free Chat is the one exception: it is not Study, so its messages may be
+  sent to Studio explicitly.
 - Study and Studio are the two product domains and primary destinations:
   Study owns input/internalization and learning evidence; Studio owns
   output/expression and projects. Chat is a cross-domain interaction layer and

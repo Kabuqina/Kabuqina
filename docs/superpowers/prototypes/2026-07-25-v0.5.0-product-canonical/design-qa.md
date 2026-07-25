@@ -324,6 +324,65 @@ rebuild + browser re-verification; see the iteration log.
   type selector; after saving, only the saved message shows 「已留下，待审核」.
   `npm run build` and `npm run test:sites` (4/4) pass.
 
+### Iteration 12 — 杂记本 moves right; Study loses its outbound exit
+
+- Bookend order: the scratch book leaves the course group and is pushed to the far right
+  (`margin-left: auto`), so 「高等数学 大学物理 開新本 ⟶gap⟶ 杂记本」. Its right inset is now an
+  explicit `padding-right: 16px` clearing the notebook's top-right radius, replacing the
+  accidental 15px that came from a reserved scrollbar gutter (0 on overlay-scrollbar
+  platforms, so the tab would otherwise have collided with the corner there). Verified the
+  active tab still overlaps the paper by `-1px`.
+- Owner decision: **Study has no outbound exit.** 学习就是纯粹的学习; Studio already pulls what
+  it needs. Removed the notebook's 「选择内容，发送到 Studio」 tab (and its CSS), the narrow
+  toolbar's Studio button, and — same reasoning, since a course conversation is Study — the
+  「发送到 Studio」 action in course chat. The Study desk now contains zero occurrences of the
+  word "Studio".
+- Sourcing therefore only starts from Studio's existing 「从 Study 选择来源」; the transfer modal
+  is retitled 「从 Study 取素材」 when it opens from there. J4 was rewritten to start on the
+  Studio surface, since its old Study-side entry point no longer exists.
+- Free Chat keeps 「发送到 Studio」 — it is not Study.
+- Bonus fix while editing the narrow toolbar: it offered 课程/卡片/Studio but never 小娜, who is
+  otherwise unreachable at ≤860px because the whole review rail is hidden. It is now 卡片 + 小娜
+  (卡片 alone drops out in 杂记本, which has no cards), laid out with flex so one or two buttons
+  both fill the bar.
+- Plans updated to match: §2.1 (Study is a source Studio may draw from, not a pusher), §3.2
+  (bookend master, no outbound exit), §4.1 (renamed 显式取材, direction reversed, free-Chat
+  exception stated). `npm run build` and `npm run test:sites` (4/4) pass.
+
+### Iteration 13 — Studio materialized on the four-layer framework
+
+- Grounded in the real framework rather than a guess: `DECISIONS.md` defines
+  `Read → Material Index → Deliverable Planner → File Writer`, with a *parallel* learning path
+  (`Learning Index → Learning Planner → Output Writer`). Both domains share the skeleton — but
+  Study never exposes its four layers as destinations, so Studio must not either. Weighting
+  adopted: 素材 is a place, the index is a label on the pile, Planner is the only work surface,
+  Writer is an action.
+- Vertical folder tabs (owner): projects are tabs down the left edge, radius on the left, the
+  active one taking the folder's own paper colour and overlapping its edge by `-1px`. Same
+  merge technique as Study's bookend, mirrored — 本立着露顶边，夹插着露侧边. The desk grid's
+  column gap had to go to 0 (a gap breaks the merge); the sources rail now offsets itself.
+- Work surface: a Brief slip clipped at the front (always visible, because every ordering
+  judgement returns to 讲给谁/要他们明白什么), then 观点卡 — **one card = one thing I want to
+  say**, with its backing source beneath it — in a movable sequence where **the order is the
+  structure**. Bottom bar binds: 「按这个顺序成件」 with 「形式到这一步才选」, so choosing a format
+  early is physically impossible.
+- SourceSnapshot is now a **photocopy** — 复印件, not 复写件: a carbon copy is made *with* the
+  original, whereas a snapshot is taken later from an original that already exists, and carries
+  a revision ("this is the copy as of when you took it"). Rendered as a dashed edge plus
+  原件在高等数学, which let the P3
+  「写入边界」 explainer card be deleted — the read-only semantics are carried by the material.
+  The 「Studio 不等于 PPT」 card and 「整体布局阶段」 pill went with it.
+- Removed a name collision: the deleted legacy work-folder modal had left a `.folder-tabs`
+  rule behind, which the new vertical tabs would have inherited.
+- Verified at 1280×900: tabs stack vertically, active tab background equals the workspace paper
+  in both themes (`rgb(251,248,241)` / `rgb(50,45,54)`), merge gap `-1px`, reordering renumbers
+  correctly and disables the boundary buttons, the pile index opens with per-entry provenance,
+  carbon copies compute `dashed`. At 390×844 the tabs turn into a scrollable row with no
+  horizontal overflow. `npm run build` and `npm run test:sites` (4/4) pass.
+- **Documented**: all of the above, plus the Study vocabulary accumulated this session, is now
+  registered in `docs/superpowers/plans/2026-07-25-v0.5.0-materiality-vocabulary.md` — the
+  prototype alone cannot tell a reader that a dashed border means "carbon copy".
+
 ## Primary interactions tested
 
 - J1: empty first run → create course → enter Study.

@@ -33,7 +33,7 @@ const JOURNEYS = [
   { id: "J1", label: "首次建课", detail: "第一次进入 → 开新本 → 开始学习" },
   { id: "J2", label: "学习问小娜", detail: "Study → 课程 Chat → 精确返回" },
   { id: "J3", label: "保存到课程", detail: "Chat → 待审核草稿 → Study" },
-  { id: "J4", label: "转交到 Studio", detail: "Study → 来源快照 → Studio Project" },
+  { id: "J4", label: "Studio 取材", detail: "Studio → 从 Study 选素材 → 来源快照" },
   { id: "J5", label: "恢复现场", detail: "Study + Studio → 重启 → 安全恢复" },
 ];
 
@@ -51,6 +51,13 @@ const COURSE_BOOKS = [
 ];
 
 // 杂记本＝留白：不催、不计数、不安排；归本是安静的可选动作
+// Planner 层：一张卡＝我要说的一件事，素材作为依据挂在它下面
+const INITIAL_POINTS = [
+  { id: "p1", say: "直接代入会得到 0/0", backing: "教材 §2.3" },
+  { id: "p2", say: "0/0 不是一个数，是“还要继续分析”的信号", backing: "教材 §2.3" },
+  { id: "p3", say: "所以要先化简，再求极限", backing: null },
+];
+
 const INITIAL_SCRATCH_NOTES = [
   {
     id: "s1",
@@ -266,27 +273,46 @@ function AppHeader({
   );
 }
 
-// 书立：课程名长在本子的标签上，换课＝换一本本子
+function BookPill({ book, active, onSelect }) {
+  return (
+    <button
+      className={`nb-pill ${book.kind === "scratch" ? "nb-pill--scratch" : ""}`}
+      type="button"
+      aria-current={active ? "page" : undefined}
+      onClick={() => onSelect(book)}
+    >
+      <span className="spine" aria-hidden="true" />
+      {book.title}
+    </button>
+  );
+}
+
+// 书立：课程名长在本子的标签上，换课＝换一本本子。
+// 杂记本不是课程，所以离开课程那一组，单独待在最右边。
 function Bookend({ hasCourse, activeCourse, onSelectCourse, onCreateCourse }) {
+  const scratch = COURSE_BOOKS.find((book) => book.kind === "scratch");
   return (
     <nav className="bookend" aria-label="课程本">
       {hasCourse &&
-        COURSE_BOOKS.map((book) => (
-          <button
-            className={`nb-pill ${book.kind === "scratch" ? "nb-pill--scratch" : ""}`}
-            type="button"
+        COURSE_BOOKS.filter((book) => book.kind !== "scratch").map((book) => (
+          <BookPill
             key={book.id}
-            aria-current={book.id === activeCourse ? "page" : undefined}
-            onClick={() => onSelectCourse(book)}
-          >
-            <span className="spine" aria-hidden="true" />
-            {book.title}
-          </button>
+            book={book}
+            active={book.id === activeCourse}
+            onSelect={onSelectCourse}
+          />
         ))}
       <button className="nb-pill nb-pill--new" type="button" onClick={onCreateCourse}>
         <AppIcon icon={Plus} size={14} />
         开新本
       </button>
+      {hasCourse && (
+        <BookPill
+          book={scratch}
+          active={scratch.id === activeCourse}
+          onSelect={onSelectCourse}
+        />
+      )}
     </nav>
   );
 }
@@ -544,7 +570,6 @@ function StudyNotebook({
   onNavigatePage,
   onAsk,
   onCheck,
-  onOpenWork,
   flyleafDraftVisible,
   onInkFlyleaf,
   onEraseFlyleaf,
@@ -712,10 +737,6 @@ function StudyNotebook({
           <EvaluatePage onRetry={onRetryWrongbook} />
         )}
       </article>
-      <button className="send-studio-tab" type="button" onClick={onOpenWork}>
-        <AppIcon icon={ArrowRight} />
-        <span>选择内容，发送到 Studio</span>
-      </button>
     </section>
   );
 }
@@ -836,13 +857,15 @@ function StudyDesk(props) {
         onAsk={props.onAsk}
       />
       <nav className="narrow-desk-tools" aria-label="窄窗书桌工具">
-        <button type="button" onClick={props.onReview}>
-          <AppIcon icon={Inbox} />
-          卡片
-        </button>
-        <button type="button" onClick={props.onOpenWork}>
-          <AppIcon icon={ArrowRight} />
-          Studio
+        {!isScratch && (
+          <button type="button" onClick={props.onReview}>
+            <AppIcon icon={Inbox} />
+            卡片
+          </button>
+        )}
+        <button type="button" onClick={props.onAsk}>
+          <AppIcon icon={Coffee} />
+          小娜
         </button>
       </nav>
     </main>
@@ -959,10 +982,13 @@ function ChatPaper({
                       <AppIcon icon={BookOpen} />
                       {savedMessages.includes(messageId) ? "已留下，待审核" : "留到本子里"}
                     </button>
-                    <button type="button" onClick={() => onOpenCreate(messageId)}>
-                      <AppIcon icon={ArrowRight} />
-                      发送到 Studio
-                    </button>
+                    {/* 课程会话属于 Study，学习就是纯粹的学习；取材由 Studio 那边发起 */}
+                    {!isCourse && (
+                      <button type="button" onClick={() => onOpenCreate(messageId)}>
+                        <AppIcon icon={ArrowRight} />
+                        发送到 Studio
+                      </button>
+                    )}
                   </div>
                 )}
               </article>
@@ -1090,158 +1116,163 @@ function StudioDesk({
   onOpenTransfer,
   onReturnSource,
   onToast,
+  points,
+  onMovePoint,
+  indexOpen,
+  onToggleIndex,
 }) {
   return (
     <main className="studio-desk" data-testid="studio-desk">
-      <aside className="studio-rail studio-rail--projects" aria-label="Studio 项目册">
-        <header>
-          <div>
-            <span className="eyebrow">输出与表达</span>
-            <h2>我的项目册</h2>
-          </div>
-          <button type="button" aria-label="新建 Studio Project" onClick={onNewProject}>
-            <AppIcon icon={Plus} />
+      {/* 夹子的标签是纵向的：本立着露顶边，夹插着露侧边 */}
+      <nav className="folder-tabs" aria-label="我的工作夹">
+        {connected && (
+          <button className="folder-tab" type="button" aria-current="page">
+            <span className="folder-spine" aria-hidden="true" />
+            极限概念分享
           </button>
-        </header>
-        {connected ? (
-          <button className="studio-project-row is-active" type="button">
-            <span className="session-icon session-icon--studio">
-              <FolderOpen aria-hidden="true" />
-            </span>
-            <span>
-              <strong>极限概念分享</strong>
-              <small>来源 2 项 · Brief 待澄清</small>
-            </span>
-          </button>
-        ) : (
-          <p className="studio-rail-empty">还没有项目。可以新建空项目，或从 Study 显式转交材料。</p>
         )}
-        <section className="studio-boundary-note">
-          <ShieldCheck aria-hidden="true" />
-          <p>
-            <strong>Studio 不等于 PPT。</strong>
-            具体工作面和输出形式将在整体布局冻结后单独设计。
-          </p>
-        </section>
-      </aside>
+        <button className="folder-tab folder-tab--new" type="button" onClick={onNewProject}>
+          <AppIcon icon={Plus} size={14} />
+          新建夹
+        </button>
+      </nav>
 
       <section className="studio-workspace" aria-label="当前 Studio Project">
-        <header className="studio-workspace__header">
-          <div>
-            <span className="eyebrow">Studio · 输出域</span>
-            <h1>{connected ? "极限概念分享" : "建立一个表达项目"}</h1>
-            <p>
-              {connected
-                ? "先确定受众、目的和来源，再决定最终表达形式。"
-                : "Studio 以 Project 为容器，不以某一种文件格式为入口。"}
-            </p>
-          </div>
-          <StatusPill tone="prototype">整体布局阶段</StatusPill>
-        </header>
-
         {connected ? (
-          <div className="studio-overview">
-            <section className="studio-brief-card">
-              <span className="eyebrow">Project Brief</span>
-              <h2>把“0/0 是未定式”讲给刚接触极限的同学</h2>
-              <div className="studio-brief-grid">
-                <p>
-                  <span>受众</span>
-                  <strong>刚开始学习极限的同学</strong>
-                </p>
-                <p>
-                  <span>目标</span>
-                  <strong>理解为什么 0/0 只是继续分析的信号</strong>
-                </p>
-                <p>
-                  <span>形式</span>
-                  <strong>尚未决定</strong>
-                </p>
-              </div>
-            </section>
-            <section className="studio-stage-card">
-              <header>
-                <div>
-                  <span className="eyebrow">当前阶段</span>
-                  <h2>澄清表达目标</h2>
-                </div>
-                <StatusPill tone="info">下一步</StatusPill>
-              </header>
-              <p>
-                当前只有来源快照和初始目标。先与小娜梳理受众、结构与完成标准，不提前选择 PPT、
-                文档或其他工具。
-              </p>
-              <div className="inline-actions">
-                <button className="primary-action" type="button" onClick={onOpenChat}>
-                  <AppIcon icon={MessageCircle} />
-                  与小娜梳理
-                </button>
-                <button type="button" onClick={() => onToast("Studio 详细工具将在整体布局冻结后设计")}>
-                  查看项目边界
-                </button>
-              </div>
-            </section>
-          </div>
+          <>
+            {/* Brief：别在夹子最前面的一张便条，所有排序判断都要回到它 */}
+            <header className="brief-slip">
+              <span className="eyebrow">讲给谁 · 要他们明白什么</span>
+              <h1>把“0/0 是未定式”讲给刚接触极限的同学</h1>
+              <dl>
+                <div><dt>受众</dt><dd>刚开始学极限的同学</dd></div>
+                <div><dt>完成标准</dt><dd>他们能自己说出 0/0 为什么只是信号</dd></div>
+              </dl>
+            </header>
+
+            <div className="point-stack">
+              {points.map((point, index) => (
+                <article className="point-card" key={point.id}>
+                  <span className="point-order">{index + 1}</span>
+                  <div>
+                    <strong>{point.say}</strong>
+                    <small>
+                      {point.backing
+                        ? `依据：${point.backing}`
+                        : "还没有依据 · 从素材里找一份"}
+                    </small>
+                  </div>
+                  <span className="point-move">
+                    <button
+                      type="button"
+                      aria-label={`把“${point.say}”往前挪`}
+                      disabled={index === 0}
+                      onClick={() => onMovePoint(index, -1)}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`把“${point.say}”往后挪`}
+                      disabled={index === points.length - 1}
+                      onClick={() => onMovePoint(index, 1)}
+                    >
+                      ↓
+                    </button>
+                  </span>
+                </article>
+              ))}
+              <button
+                className="point-add"
+                type="button"
+                onClick={() => onToast("原型：新增一张观点卡")}
+              >
+                <AppIcon icon={Plus} size={15} />
+                再加一件要说的事
+              </button>
+            </div>
+
+            {/* Writer 不是地方，是动作：顺序定了才成件，这时才选格式 */}
+            <footer className="bind-bar">
+              <button
+                className="primary-action"
+                type="button"
+                onClick={() => onToast("原型：这一步才选 PPT / 文档 / 讲义")}
+              >
+                按这个顺序成件
+                <AppIcon icon={ArrowRight} />
+              </button>
+              <span>形式到这一步才选</span>
+            </footer>
+          </>
         ) : (
           <div className="studio-empty">
             <FolderOpen aria-hidden="true" />
-            <span className="eyebrow">独立输出空间</span>
-            <h2>项目从表达目标开始，不从文件格式开始</h2>
-            <p>
-              你可以建立空项目，也可以把 Study 中明确选择的材料、笔记或学习记录作为只读来源快照发送过来。
-            </p>
+            <h2>先说清要讲给谁</h2>
+            <p>夹子从表达目标开始，不从文件格式开始。</p>
             <div className="inline-actions">
               <button className="primary-action" type="button" onClick={onNewProject}>
                 <AppIcon icon={Plus} />
-                新建项目
+                新建夹
               </button>
               <button type="button" onClick={onOpenTransfer}>
                 <AppIcon icon={ArrowLeft} />
-                从 Study 选择来源
+                从 Study 取素材
               </button>
             </div>
           </div>
         )}
       </section>
 
-      <aside className="studio-rail studio-rail--sources" aria-label="Studio 来源与连接">
-        <section className="desk-card">
-          <h2>
-            <AppIcon icon={Layers3} />
-            来源快照
-          </h2>
+      <aside className="studio-rail studio-rail--sources" aria-label="素材">
+        <section className="material-pile">
+          <header>
+            <h2>
+              <AppIcon icon={Layers3} />
+              素材
+            </h2>
+            <button type="button" onClick={() => onToast("原型：上传本地材料")}>
+              <AppIcon icon={Plus} size={15} />
+            </button>
+          </header>
           {connected ? (
             <>
-              <button type="button" onClick={onReturnSource}>
+              <button className="material-slip material-slip--copy" type="button" onClick={onReturnSource}>
                 当前练习与反馈
+                <small>复印件 · 原件在高等数学</small>
               </button>
-              <button type="button" onClick={onReturnSource}>
+              <button className="material-slip material-slip--copy" type="button" onClick={onReturnSource}>
                 教材 §2.3
+                <small>复印件 · 原件在高等数学</small>
               </button>
-              <p>来自高等数学 · 可返回原位置</p>
+              {/* Material Index 不是一个去处，是这堆素材自己的目录 */}
+              <button className="pile-index" type="button" onClick={onToggleIndex}>
+                <AppIcon icon={FileText} size={14} />
+                这堆里有什么
+              </button>
+              {indexOpen && (
+                <ul className="pile-index-list">
+                  <li>未定式的定义 <span>教材 §2.3</span></li>
+                  <li>可约因子的例题 3 则 <span>教材 §2.3</span></li>
+                  <li>我写错的那一步 <span>练习与反馈</span></li>
+                </ul>
+              )}
             </>
           ) : (
-            <p>来源由用户显式选择；Studio 不读取隐式 current course。</p>
+            <p className="quiet-copy">还没有素材。可以上传，也可以从 Study 取。</p>
           )}
-        </section>
-        <section className="desk-card studio-write-boundary">
-          <h2>
-            <AppIcon icon={ShieldCheck} />
-            写入边界
-          </h2>
-          <p>Studio 的项目、版本和交付物不会修改 Study 的掌握度、计划或练习。</p>
         </section>
         <button
           className="cup-anchor studio-cup-anchor"
           type="button"
-          aria-label="碰杯问小娜，讨论当前 Studio Project"
+          aria-label="碰杯问小娜，讨论当前工作夹"
           onClick={onOpenChat}
         >
           <span>
             <Coffee size={25} aria-hidden="true" />
           </span>
           <strong>碰杯问小娜</strong>
-          <small>{connected ? "一起梳理这个 Project" : "先聊清表达目标"}</small>
+          <small>{connected ? "一起理这个顺序" : "先聊清讲给谁"}</small>
         </button>
       </aside>
     </main>
@@ -1473,7 +1504,12 @@ function StudioTransferModal({ onClose, step, setStep, onAccept, origin }) {
   };
 
   return (
-    <ModalShell title="发送到 Studio" eyebrow="J4 · 显式跨域连接" onClose={onClose} wide>
+    <ModalShell
+      title={origin === "chat" ? "发送到 Studio" : "从 Study 取素材"}
+      eyebrow="显式跨域连接"
+      onClose={onClose}
+      wide
+    >
       {step === "select" ? (
         <>
           <div className="stepper">
@@ -1833,6 +1869,8 @@ export function App() {
   const [scratchDraft, setScratchDraft] = useState("");
   const [scratchNotes, setScratchNotes] = useState(INITIAL_SCRATCH_NOTES);
   const [filingId, setFilingId] = useState(null);
+  const [points, setPoints] = useState(INITIAL_POINTS);
+  const [indexOpen, setIndexOpen] = useState(false);
   const [planItems, setPlanItems] = useState(INITIAL_PLAN_ITEMS);
   const [chatKind, setChatKind] = useState("general");
   const [activeChatSession, setActiveChatSession] = useState("new");
@@ -1971,14 +2009,13 @@ export function App() {
       return;
     }
     if (id === "J4") {
-      setSurface("study");
+      setSurface("studio");
       setStudyState("overview");
       setStudyPage("learn");
       setTransferStep("select");
       setStudioConnected(false);
       setTransferOrigin("study");
-      setOverlay("studio-transfer");
-      setProductStatus("J4 ready · Study 选择来源 → 审核快照 → Studio Project");
+      setProductStatus("J4 ready · 由 Studio 发起取材；Study 侧没有向外的出口");
       return;
     }
     setSurface("study");
@@ -2110,7 +2147,6 @@ export function App() {
               setStudyState("returned");
               setToast("检查完成：还差一步");
             }}
-            onOpenWork={() => openStudioTransfer("study")}
             onReview={() => setOverlay("review-card")}
             reviewDone={reviewDone}
             flyleafDraftVisible={flyleafDraftVisible}
@@ -2188,6 +2224,17 @@ export function App() {
               setToast("已回到高等数学 · 原来源位置");
             }}
             onToast={setToast}
+            points={points}
+            onMovePoint={(index, delta) => {
+              setPoints((items) => {
+                const next = [...items];
+                const [moved] = next.splice(index, 1);
+                next.splice(index + delta, 0, moved);
+                return next;
+              });
+            }}
+            indexOpen={indexOpen}
+            onToggleIndex={() => setIndexOpen((open) => !open)}
           />
         ) : (
           <ChatDesk

@@ -421,7 +421,14 @@ p {
   gap: 4px;
   min-width: 0;
   overflow-x: auto;
+  /* 右侧留出本子右上角圆角的宽度，而不是依赖滚动条预留槽这种平台相关的偶然值 */
+  padding-right: 16px;
   padding-left: 10px;
+  scrollbar-width: none;
+}
+
+.bookend::-webkit-scrollbar {
+  display: none;
 }
 
 .nb-pill {
@@ -468,9 +475,10 @@ p {
   opacity: 1;
 }
 
-/* 杂记本：牛皮纸，不是象牙色的课程本 */
+/* 杂记本：牛皮纸，不是象牙色的课程本；也不站在课程那一组里 */
 .nb-pill--scratch,
 .nb-pill--scratch[aria-current="page"] {
+  margin-left: auto;
   border-color: var(--manila-line);
   background: var(--manila);
 }
@@ -1157,26 +1165,6 @@ p {
 .primary-action:hover {
   border-color: var(--purple-dark);
   background: var(--purple-dark);
-}
-
-.send-studio-tab {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 67%;
-  min-height: 42px;
-  margin-left: -1px;
-  padding: 8px 14px;
-  border: 1px solid var(--manila-line);
-  border-bottom: 0;
-  border-radius: 0 7px 0 0;
-  color: var(--ink-strong);
-  background: var(--manila);
-  font-weight: 800;
-}
-
-.send-studio-tab:hover {
-  background: var(--manila-hover);
 }
 
 .completion-standard {
@@ -2046,218 +2034,359 @@ p {
 
 .studio-desk {
   display: grid;
-  grid-template-columns: 230px minmax(520px, 1fr) 230px;
-  gap: 18px;
+  grid-template-columns: 150px minmax(520px, 1fr) 230px;
+  /* 列间距为 0：标签必须贴住夹子才能连成一体；右栏用外边距自己让开 */
+  gap: 0;
   min-height: 670px;
   padding: 14px 18px 16px;
   background: transparent;
 }
 
+.studio-rail--sources {
+  margin-left: 18px;
+}
+
 .studio-rail {
   min-width: 0;
-  border: 1px solid var(--line-warm);
-  border-radius: 8px;
-  background: rgba(255, 253, 248, 0.95);
-  box-shadow: var(--shadow-soft);
 }
 
-.studio-rail--projects {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 14px 10px;
-}
-
-.studio-rail--projects > header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 0 4px 6px;
-}
-
-.studio-rail h2,
 .studio-workspace h1,
 .studio-workspace h2 {
   color: var(--ink-strong);
 }
 
-.studio-rail--projects h2 {
-  margin: 2px 0 0;
-  font-size: 18px;
-}
-
-.studio-rail--projects > header button {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-}
-
-.studio-project-row {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 9px;
-  width: 100%;
-  padding: 10px;
-  text-align: left;
-}
-
-.studio-project-row.is-active {
-  border-color: var(--lavender);
-  background: var(--purple-pale);
-}
-
-.studio-project-row span:last-child {
-  display: grid;
+/* 工作夹的标签是纵向的：本立着露顶边，夹插着露侧边 */
+.folder-tabs {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
   min-width: 0;
+  padding: 20px 0 20px 4px;
 }
 
-.studio-project-row small {
+.folder-tab {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 8px 10px 8px 13px;
+  text-align: left;
+  border: 1px solid var(--manila-line);
+  border-right: 0;
+  border-radius: 9px 0 0 9px;
+  color: var(--ink-mid);
+  background: var(--manila);
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: inset -7px 0 9px -9px rgba(80, 65, 40, 0.5);
+}
+
+.folder-tab:hover {
+  color: var(--ink-strong);
+}
+
+.folder-tab[aria-current="page"] {
+  margin-right: -1px;
+  padding-right: 14px;
+  color: var(--ink-strong);
+  background: var(--paper);
+  box-shadow: none;
+}
+
+.folder-spine {
+  flex: 0 0 auto;
+  width: 4px;
+  height: 20px;
+  border-radius: 2px;
+  background: var(--lavender);
+  opacity: 0.6;
+}
+
+.folder-tab[aria-current="page"] .folder-spine {
+  background: var(--purple);
+  opacity: 1;
+}
+
+.folder-tab--new {
+  border-style: dashed;
+  border-right: 0;
   color: var(--ink-soft);
-  font-size: 11px;
+  background: transparent;
+  box-shadow: none;
+  font-weight: 700;
 }
 
-.studio-rail-empty {
-  margin: 4px;
-  padding: 12px;
-  border: 1px dashed var(--line-cool);
-  border-radius: 7px;
-  color: var(--ink-soft);
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-.studio-boundary-note {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 9px;
-  margin-top: auto;
-  padding: 11px;
-  border: 1px solid var(--line-warm);
-  border-radius: 7px;
-  color: var(--ink-soft);
-  background: var(--paper-soft);
-}
-
-.studio-boundary-note svg {
-  width: 17px;
-  color: var(--purple);
-}
-
-.studio-boundary-note p {
-  margin: 0;
-  font-size: 11px;
-  line-height: 1.55;
-}
-
-.studio-boundary-note strong {
-  display: block;
-  color: var(--ink);
+.folder-tab--new:hover {
+  background: var(--veil);
 }
 
 .studio-workspace {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
   min-width: 0;
   overflow: hidden;
-  border: 1px solid var(--paper-edge);
-  border-radius: 10px;
+  border: 1px solid var(--line-warm);
+  border-radius: 0 10px 10px 0;
   background: var(--paper);
   box-shadow: var(--shadow);
 }
 
-.studio-workspace__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 18px 22px;
+/* Brief：别在夹子最前面的便条，所有排序判断都回到它 */
+.brief-slip {
+  padding: 20px 26px 16px;
   border-bottom: 1px solid var(--line-warm);
-}
-
-.studio-workspace__header h1 {
-  margin: 2px 0 3px;
-  font-size: 24px;
-}
-
-.studio-workspace__header p {
-  margin: 0;
-  color: var(--ink-soft);
-}
-
-.studio-overview {
-  display: grid;
-  align-content: start;
-  gap: 16px;
-  padding: 28px 32px;
-}
-
-.studio-brief-card,
-.studio-stage-card {
-  padding: 20px;
-  border: 1px solid var(--line-warm);
-  border-radius: 8px;
   background: var(--paper-strong);
 }
 
-.studio-brief-card {
-  border-top: 4px solid var(--lavender);
-}
-
-.studio-brief-card h2 {
+.brief-slip h1 {
+  margin: 4px 0 12px;
   max-width: 620px;
-  margin: 6px 0 18px;
-  font-size: 24px;
+  font-size: 23px;
   line-height: 1.35;
 }
 
-.studio-brief-grid {
-  display: grid;
-  grid-template-columns: 1fr 1.4fr 0.8fr;
-  gap: 12px;
-}
-
-.studio-brief-grid p {
+.brief-slip dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 26px;
   margin: 0;
-  padding: 11px;
-  border: 1px solid var(--line-warm);
-  border-radius: 6px;
-  background: var(--paper-soft);
 }
 
-.studio-brief-grid span,
-.snapshot-review span {
-  display: block;
-  margin-bottom: 3px;
+.brief-slip dl > div {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.brief-slip dt {
   color: var(--ink-soft);
   font-size: 11px;
 }
 
-.studio-brief-grid strong {
-  display: block;
+.brief-slip dd {
+  margin: 0;
+  color: var(--ink);
   font-size: 12px;
+  font-weight: 700;
+}
+
+/* Planner：一张卡＝我要说的一件事，顺序就是结构 */
+.point-stack {
+  display: grid;
+  align-content: start;
+  gap: 9px;
+  min-height: 0;
+  overflow: auto;
+  padding: 22px 26px;
+}
+
+.point-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 13px;
+  padding: 13px 15px;
+  border: 1px solid var(--line-cool);
+  border-radius: 7px;
+  background: var(--paper-strong);
+  box-shadow: 0 2px 8px rgba(82, 61, 74, 0.05);
+}
+
+.point-order {
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  border-radius: 13px;
+  color: var(--purple-dark);
+  background: var(--purple-pale);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.point-card strong {
+  display: block;
+  color: var(--ink-strong);
+  font-size: 15px;
   line-height: 1.5;
 }
 
-.studio-stage-card > header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.studio-stage-card h2 {
-  margin: 3px 0 0;
-  font-size: 20px;
-}
-
-.studio-stage-card > p {
-  max-width: 650px;
+.point-card small {
+  display: block;
+  margin-top: 3px;
   color: var(--ink-soft);
-  line-height: 1.7;
+  font-size: 11px;
+}
+
+.point-move {
+  display: inline-flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.point-card:hover .point-move,
+.point-move:focus-within {
+  opacity: 1;
+}
+
+.point-move button {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line-cool);
+  border-radius: 6px;
+  color: var(--ink-mid);
+  background: var(--surface);
+  font-size: 13px;
+}
+
+.point-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 42px;
+  border: 1px dashed var(--line-cool);
+  border-radius: 7px;
+  color: var(--ink-soft);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.point-add:hover {
+  border-color: var(--lavender);
+  color: var(--purple);
+  background: var(--purple-faint);
+}
+
+/* Writer 不是地方，是动作：顺序定了才成件，这一步才选格式 */
+.bind-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 26px;
+  border-top: 1px solid var(--line-warm);
+  background: var(--paper-soft);
+}
+
+.bind-bar span {
+  color: var(--ink-soft);
+  font-size: 11px;
+}
+
+/* 素材堆：从 Study 取来的是复写件，原件还在本子里 */
+.material-pile {
+  padding: 14px;
+  border: 1px solid var(--line-warm);
+  border-radius: 8px;
+  background: var(--veil-strong);
+  box-shadow: var(--shadow-soft);
+}
+
+.material-pile > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.material-pile h2 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  color: var(--ink-strong);
+  font-size: 14px;
+}
+
+.material-pile > header button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--line-cool);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.material-slip {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 9px 10px;
+  text-align: left;
+  border: 1px solid var(--line-warm);
+  border-radius: 6px;
+  background: var(--paper-strong);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.material-slip small {
+  color: var(--ink-soft);
+  font-size: 10px;
+  font-weight: 400;
+}
+
+/* 复印件：事后另取的一份，带"截至取用那一刻"的版本语义；原件仍在课程本里 */
+.material-slip--copy {
+  border-style: dashed;
+  background: var(--paper-soft);
+}
+
+.material-slip--copy:hover {
+  border-color: var(--lavender);
+  background: var(--purple-faint);
+}
+
+.pile-index {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 4px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--ink-soft);
+  background: transparent;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.pile-index:hover {
+  color: var(--purple);
+  background: var(--purple-faint);
+}
+
+.pile-index-list {
+  display: grid;
+  gap: 6px;
+  margin: 4px 0 0;
+  padding: 10px;
+  border-radius: 6px;
+  background: var(--paper-soft);
+  list-style: none;
+}
+
+.pile-index-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--ink-mid);
+  font-size: 11px;
+}
+
+.pile-index-list span {
+  flex: 0 0 auto;
+  color: var(--ink-soft);
+  font-size: 10px;
 }
 
 .studio-empty {
@@ -2293,23 +2422,7 @@ p {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.studio-rail--sources .desk-card {
-  padding: 14px;
-}
-
-.studio-rail--sources .desk-card button {
-  width: 100%;
-  margin-top: 8px;
-  text-align: left;
-}
-
-.studio-write-boundary {
-  margin-top: 0;
+  padding-top: 20px;
 }
 
 .studio-cup-anchor {
@@ -2566,41 +2679,6 @@ label.form-stack > span,
   border-radius: 6px;
   background: var(--surface);
   font-size: 11px;
-}
-
-.folder-tabs {
-  display: flex;
-  gap: 4px;
-  margin-top: 13px;
-  border-bottom: 1px solid var(--line-warm);
-}
-
-.folder-tabs button {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  min-height: 42px;
-  padding: 8px 12px;
-  border: 0;
-  border-bottom: 3px solid transparent;
-  background: transparent;
-  font-weight: 800;
-}
-
-.folder-tabs button[aria-current="page"] {
-  color: var(--purple);
-  border-bottom-color: var(--purple);
-}
-
-.folder-tabs b {
-  display: grid;
-  place-items: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  color: var(--surface);
-  background: var(--purple);
-  font-size: 9px;
 }
 
 .create-flow,
@@ -3415,8 +3493,27 @@ label.form-stack > span,
     margin-top: 10px;
   }
 
-  .studio-write-boundary {
-    margin-top: 0;
+  .folder-tabs {
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 0 0 4px;
+  }
+
+  .folder-tab,
+  .folder-tab[aria-current="page"] {
+    flex: 0 0 auto;
+    margin-right: 0;
+    border-right: 1px solid var(--manila-line);
+    border-radius: 9px;
+    box-shadow: none;
+  }
+
+  .folder-tab--new {
+    border-right-style: dashed;
+  }
+
+  .studio-workspace {
+    border-radius: 10px;
   }
 
   .studio-cup-anchor {
@@ -3459,8 +3556,7 @@ label.form-stack > span,
     right: 10px;
     bottom: 10px;
     left: 10px;
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    display: flex;
     gap: 7px;
     padding: 7px;
     border: 1px solid var(--line-cool);
@@ -3471,6 +3567,7 @@ label.form-stack > span,
 
   .narrow-desk-tools button {
     display: flex;
+    flex: 1;
     align-items: center;
     justify-content: center;
     gap: 6px;
@@ -3611,24 +3708,20 @@ label.form-stack > span,
     font-size: 22px;
   }
 
-  .send-studio-tab {
-    width: 88%;
-  }
-
-  .studio-workspace__header {
-    display: grid;
+  .brief-slip {
     padding: 15px;
   }
 
-  .studio-overview {
-    padding: 18px 14px;
+  .point-stack {
+    padding: 16px 14px;
   }
 
-  .studio-brief-grid {
-    grid-template-columns: 1fr;
+  .bind-bar {
+    flex-wrap: wrap;
+    padding: 12px 14px;
   }
 
-  .studio-brief-card h2,
+  .brief-slip h1,
   .studio-empty h2 {
     font-size: 21px;
   }
