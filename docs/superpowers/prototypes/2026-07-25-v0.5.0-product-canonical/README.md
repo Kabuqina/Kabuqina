@@ -1,0 +1,74 @@
+# Kabuqina v0.5.0 全产品 Canonical 原型
+
+这是一份独立于 `2026-07-23-v0.5.0-desk-canonical.html` 的完整产品原型。旧文件继续作为冻结的 Study 书桌行为基线；本目录把相同设计语言扩展到完整产品闭环。
+
+## 覆盖的关键旅程
+
+- J1：第一次进入 → 开第一本课程本 → 开始学习
+- J2：Study 当前步骤 → 课程 Chat → 一级提示 → 精确返回原答案与页边批注
+- J3：普通 Chat → 显式选课与类型 → 待审核草稿 → Activity → Study
+- J4：Study 选择来源 → 审核只读快照 → 打开 Studio Project
+- J5：Study 与 Studio 多个可恢复现场 → 用户选择 → 安全恢复
+
+## 产品内核
+
+- Study：输入与内化，以 Course 为容器；完整承接扉页、计划、学习、练习、评估五个页面
+- Studio：输出与表达，以 Project 为容器，产生作品和交付物
+- Chat：跨域交互层，拥有普通、课程和 Studio 项目三种显式作用域
+- Activity：跨域状态层，负责运行、等待、中断和恢复
+
+## Study 五页
+
+五项分页继承 0.4.0 已有的职责边界，但重新放进 0.5.0 的 Study / Studio 整体布局：
+
+- 扉页：课程目标、学习偏好与约束；铅笔草稿需显式“落墨”后生效
+- 计划：当前行动队列、继续上次位置、完成与跳过
+- 学习：可追溯知识正文、课程资源和待审核辅导笔记，不负责判分
+- 练习：题目、答案草稿、检查反馈和带定位点的课程 Chat
+- 评估：有来源的最近评估、下一调整、错题回访和只读学习日志
+
+练习草稿尚未检查时，切换到其他 Study 生命周期页会先出现离开确认；进入 Chat 或
+Studio 则保留当前页与草稿，便于精确返回。
+
+## Chat 重设计
+
+Chat 是横跨 Study 与 Studio 的交互层，并延续书桌、稿纸和紫色铅笔的视觉语言：
+
+- 采用单张居中对话纸；从全局入口进入时，默认开始未绑定 Course / Project 的自由会话
+- 不设“普通 / 课程 / Studio”并列作用域标签；三类会话进入同一份历史列表，来源只用低强调标签辨认
+- 历史会话收进按需打开的抽屉，用户主动选中某条历史后才进入对应作用域
+- 选中课程 / Studio 会话时，仅在标题行显示来源标签与一个返回动作，不展开课程、项目或进度面板
+- 课程对话支持精确返回，且不改写用户答案
+- 普通对话写入 Study 前必须审核课程、内容类型和来源
+- Chat 回复可显式发送到 Studio，但不会隐式写入课程或项目
+- Study / Studio 右下角“碰杯问小娜”打开轻量上下文聊天框，与完整 Chat 复用同一会话真值；打开完整视图始终是显式动作
+
+## Studio 边界
+
+本轮只确定 Studio 在整体布局中的位置、Project 容器、来源快照、写入边界和与 Chat/Activity
+的连接。Studio 不等于 PPT；编辑器、画布、时间线、输出形式等详细设计将在整体布局确定后
+单独开展。
+
+Studio 右下角复用 Study 的“碰杯问小娜”入口：空项目时先澄清表达目标，已有 Project
+时直接进入绑定该 Project 的极简 Chat。
+
+上游产品架构：
+`docs/superpowers/plans/2026-07-25-v0.5.0-study-studio-product-architecture.md`
+
+## 运行
+
+```powershell
+npm install
+npm run dev
+```
+
+生产构建与模板自检：
+
+```powershell
+npm run build
+npm run test:sites
+```
+
+## 产品边界
+
+这是可走通的前端交互原型。`SourceSnapshot`、Studio Project、重启恢复等均为有标签的模拟行为，不代表 Tutor、Studio authoring、provider、gateway 或 release 后端已经交付。

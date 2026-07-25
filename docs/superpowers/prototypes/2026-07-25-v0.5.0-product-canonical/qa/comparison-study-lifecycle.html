@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kabuqina Study Lifecycle QA</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 24px;
+        color: #49385e;
+        background: #eceaee;
+        font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+      }
+      h1 { margin: 0 0 6px; font-size: 24px; }
+      p { margin: 0 0 22px; color: #75677e; }
+      section { margin-bottom: 28px; }
+      h2 { margin: 0 0 10px; font-size: 17px; }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        align-items: start;
+        gap: 16px;
+      }
+      figure {
+        margin: 0;
+        overflow: hidden;
+        border: 1px solid #cfc7d0;
+        background: #fff;
+        box-shadow: 0 8px 24px rgba(73, 56, 94, 0.08);
+      }
+      figcaption {
+        padding: 10px 12px;
+        border-bottom: 1px solid #e4dfe5;
+        font-size: 13px;
+        font-weight: 700;
+      }
+      img { display: block; width: 100%; height: auto; }
+    </style>
+  </head>
+  <body>
+    <h1>Kabuqina v0.5.0 · Study 五页 QA</h1>
+    <p>视觉基线沿用冻结的暖色书桌与课程笔记本；五页继承 0.4.0 的职责边界，并补成可走查的完整状态。</p>
+    <section>
+      <h2>基线与输入起点</h2>
+      <div class="grid">
+        <figure>
+          <figcaption>Source · 冻结 Study 书桌</figcaption>
+          <img src="./implementation-study-wide.png" alt="Frozen Study desk baseline" />
+        </figure>
+        <figure>
+          <figcaption>Implementation · 扉页</figcaption>
+          <img src="./implementation-study-flyleaf-wide.png" alt="Study flyleaf page" />
+        </figure>
+        <figure>
+          <figcaption>Implementation · 计划</figcaption>
+          <img src="./implementation-study-plan-wide.png" alt="Study plan page" />
+        </figure>
+      </div>
+    </section>
+    <section>
+      <h2>输入主流程与学习证据</h2>
+      <div class="grid">
+        <figure>
+          <figcaption>Implementation · 学习</figcaption>
+          <img src="./implementation-study-learn-wide.png" alt="Study learn page" />
+        </figure>
+        <figure>
+          <figcaption>Implementation · 练习</figcaption>
+          <img src="./implementation-study-practice-wide.png" alt="Study practice page" />
+        </figure>
+        <figure>
+          <figcaption>Implementation · 评估</figcaption>
+          <img src="./implementation-study-evaluate-wide.png" alt="Study evaluate page" />
+        </figure>
+      </div>
+    </section>
+  </body>
+</html>

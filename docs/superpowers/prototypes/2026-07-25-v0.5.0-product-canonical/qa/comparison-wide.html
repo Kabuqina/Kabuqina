@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kabuqina v0.5.0 · Design QA comparison</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 24px;
+        background: #eceaee;
+        color: #49385e;
+        font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+      }
+      h1 { margin: 0 0 8px; font-size: 24px; }
+      p { margin: 0 0 24px; color: #75677e; }
+      section { margin-bottom: 28px; }
+      h2 { margin: 0 0 10px; font-size: 17px; }
+      .pair {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      figure {
+        margin: 0;
+        overflow: hidden;
+        border: 1px solid #cfc7d0;
+        background: #fff;
+        box-shadow: 0 8px 24px rgba(73, 56, 94, 0.08);
+      }
+      figcaption {
+        padding: 10px 12px;
+        border-bottom: 1px solid #e4dfe5;
+        font-size: 13px;
+        font-weight: 700;
+      }
+      img { display: block; width: 100%; height: auto; }
+    </style>
+  </head>
+  <body>
+    <h1>Kabuqina v0.5.0 · Design QA</h1>
+    <p>两侧产品画布均为逻辑 1280 × 720；全景截图保留各自的原型控制栏。左侧为 2026-07-23 冻结基线，右侧为 2026-07-25 全产品原型。</p>
+    <section>
+      <h2>全景：Study 书桌</h2>
+      <div class="pair">
+        <figure>
+          <figcaption>Source · Study</figcaption>
+          <img src="./source-reference-wide.png" alt="Study source" />
+        </figure>
+        <figure>
+          <figcaption>Implementation · Study</figcaption>
+          <img src="./implementation-study-wide.png" alt="Study implementation" />
+        </figure>
+      </div>
+    </section>
+    <section>
+      <h2>重点：课程 Chat</h2>
+      <div class="pair">
+        <figure>
+          <figcaption>Source · Course Chat</figcaption>
+          <img src="./source-chat-wide.png" alt="Chat source" />
+        </figure>
+        <figure>
+          <figcaption>Implementation · Course Chat</figcaption>
+          <img src="./implementation-course-chat-wide.png" alt="Chat implementation" />
+        </figure>
+      </div>
+    </section>
+  </body>
+</html>

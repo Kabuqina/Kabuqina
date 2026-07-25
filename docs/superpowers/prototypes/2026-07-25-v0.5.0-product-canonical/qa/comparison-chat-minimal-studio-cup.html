@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kabuqina Chat / Studio QA</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 24px;
+        color: #49385e;
+        background: #eceaee;
+        font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+      }
+      h1 { margin: 0 0 6px; font-size: 24px; }
+      p { margin: 0 0 22px; color: #75677e; }
+      section { margin-bottom: 28px; }
+      h2 { margin: 0 0 10px; font-size: 17px; }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+      }
+      figure {
+        margin: 0;
+        overflow: hidden;
+        border: 1px solid #cfc7d0;
+        background: #fff;
+        box-shadow: 0 8px 24px rgba(73, 56, 94, 0.08);
+      }
+      figcaption {
+        padding: 10px 12px;
+        border-bottom: 1px solid #e4dfe5;
+        font-size: 13px;
+        font-weight: 700;
+      }
+      img { display: block; width: 100%; height: auto; }
+    </style>
+  </head>
+  <body>
+    <h1>Kabuqina v0.5.0 · Chat 极简化 / Studio 小娜入口</h1>
+    <p>Chat 主动降低信息密度；Studio 复用 Study 右下角同款小娜入口，并保留明确的 Project 作用域。</p>
+    <section>
+      <h2>Chat：复杂工作台 → 留白对话画布</h2>
+      <div class="grid">
+        <figure>
+          <figcaption>Source · 三栏 Chat</figcaption>
+          <img src="./source-chat-before-minimal-wide.png" alt="Chat before simplification" />
+        </figure>
+        <figure>
+          <figcaption>Implementation · 极简课程 Chat</figcaption>
+          <img src="./implementation-chat-minimal-course-wide.png" alt="Minimal course chat" />
+        </figure>
+        <figure>
+          <figcaption>Implementation · 极简普通 Chat</figcaption>
+          <img src="./implementation-chat-minimal-general-wide.png" alt="Minimal general chat" />
+        </figure>
+      </div>
+    </section>
+    <section>
+      <h2>小娜入口：Study 基线 → Studio 补齐</h2>
+      <div class="grid">
+        <figure>
+          <figcaption>Source · Study 右下角小娜</figcaption>
+          <img src="./source-study-cup-wide.png" alt="Study Nana cup anchor" />
+        </figure>
+        <figure>
+          <figcaption>Source · Studio 改造前</figcaption>
+          <img src="./source-studio-before-cup-wide.png" alt="Studio before Nana cup anchor" />
+        </figure>
+        <figure>
+          <figcaption>Implementation · Studio Project 小娜</figcaption>
+          <img src="./implementation-studio-cup-connected-wide.png" alt="Studio Nana cup anchor" />
+        </figure>
+      </div>
+    </section>
+  </body>
+</html>

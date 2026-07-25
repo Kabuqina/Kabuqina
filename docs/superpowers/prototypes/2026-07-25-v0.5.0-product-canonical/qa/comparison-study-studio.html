@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kabuqina Study / Studio Design QA</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 24px;
+        color: #49385e;
+        background: #eceaee;
+        font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+      }
+      h1 { margin: 0 0 6px; font-size: 24px; }
+      p { margin: 0 0 22px; color: #75677e; }
+      section { margin-bottom: 28px; }
+      h2 { margin: 0 0 10px; font-size: 17px; }
+      .pair {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      figure {
+        margin: 0;
+        overflow: hidden;
+        border: 1px solid #cfc7d0;
+        background: #fff;
+        box-shadow: 0 8px 24px rgba(73, 56, 94, 0.08);
+      }
+      figcaption {
+        padding: 10px 12px;
+        border-bottom: 1px solid #e4dfe5;
+        font-size: 13px;
+        font-weight: 700;
+      }
+      img { display: block; width: 100%; height: auto; }
+    </style>
+  </head>
+  <body>
+    <h1>Kabuqina v0.5.0 · Study / Studio QA</h1>
+    <p>视觉基线沿用冻结 Study 书桌；本轮只重构产品层级、Studio 整体布局和跨域连接。</p>
+    <section>
+      <h2>Product Shell：重构前 / 重构后</h2>
+      <div class="pair">
+        <figure>
+          <figcaption>Source · Study / Chat shell</figcaption>
+          <img src="./implementation-study-wide.png" alt="Previous Study and Chat shell" />
+        </figure>
+        <figure>
+          <figcaption>Implementation · Study / Studio shell</figcaption>
+          <img src="./implementation-study-studio-shell-wide.png" alt="New Study and Studio shell" />
+        </figure>
+      </div>
+    </section>
+    <section>
+      <h2>Studio：空项目 / 已连接 Project</h2>
+      <div class="pair">
+        <figure>
+          <figcaption>Empty Studio · layout boundary</figcaption>
+          <img src="./implementation-studio-empty-wide.png" alt="Empty Studio" />
+        </figure>
+        <figure>
+          <figcaption>Connected Project · SourceSnapshot</figcaption>
+          <img src="./implementation-studio-project-wide.png" alt="Connected Studio Project" />
+        </figure>
+      </div>
+    </section>
+    <section>
+      <h2>Chat：课程作用域 / Studio Project 作用域</h2>
+      <div class="pair">
+        <figure>
+          <figcaption>Course Chat source language</figcaption>
+          <img src="./implementation-course-chat-wide.png" alt="Course Chat" />
+        </figure>
+        <figure>
+          <figcaption>Studio Chat implementation</figcaption>
+          <img src="./implementation-studio-chat-wide.png" alt="Studio Chat" />
+        </figure>
+      </div>
+    </section>
+  </body>
+</html>
