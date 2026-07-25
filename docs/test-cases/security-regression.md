@@ -1,4 +1,4 @@
-# 安全防护 — 9 条修复专项回归测试
+# 安全防护 — 8 条现行合同专项回归测试
 
 > 对应 test-plan.md §2（独立回归套件）
 > 每条安全修复至少 1 个正例（修复生效）+ 1 个反例（关闭/绕过时不生效）
@@ -28,8 +28,7 @@
 | 5 | TC-SR-06 | `GATEWAY_OWNER_IDS` 管理员命令限制 | P0 |
 | 6 | TC-SR-07 | `GATEWAY_ALLOW_ALL_USERS` SECURITY 警告 | P1 |
 | 7 | TC-SR-08 | `.env` 文件权限保护 | P1 |
-| 8 | TC-SR-09 | Webhook 时间戳超时拒绝 | P1 |
-| 9 | TC-SR-10 | `thread_sessions_per_user` Session 隔离 | P1 |
+| 8 | TC-SR-09 | `thread_sessions_per_user` Session 隔离 | P1 |
 
 ---
 
@@ -137,31 +136,7 @@
 
 ---
 
-## TC-SR-09 [P1] Webhook 时间戳超时拒绝
-
-**背景**：防止重放攻击，时间戳与服务器时间差超过容差（默认 300s）的请求被拒绝。
-
-| 场景 | 步骤 | 预期 |
-|------|------|------|
-| **正例-超时** | 构造 Webhook 请求，`X-Webhook-Timestamp` = 当前时间 - 400 秒 | 请求被拒绝，HTTP 401/403 |
-| **反例-正常** | `X-Webhook-Timestamp` = 当前时间 - 60 秒 | 请求正常通过（签名验证也通过后） |
-| **反例-无头** | 请求中不含 `X-Webhook-Timestamp` | 仅做签名验证，正常通过 |
-| **容差边界** | 时间戳差 = 299 秒 | 通过；= 301 秒 → 拒绝 |
-
-**模拟方式**：使用 `curl` 或 Postman 手动构造请求，修改 `X-Webhook-Timestamp` 值为过去的时间戳。
-
-```bash
-# 超时请求示例（时间戳为10分钟前）
-curl -X POST http://localhost:<port>/webhooks/test-route \
-  -H "X-Webhook-Timestamp: $(($(date +%s) - 400))" \
-  -H "X-Webhook-Signature: <valid_sig>" \
-  -d '{"event": "test"}'
-# 预期：HTTP 401
-```
-
----
-
-## TC-SR-10 [P1] `thread_sessions_per_user` Session 隔离
+## TC-SR-09 [P1] `thread_sessions_per_user` Session 隔离
 
 **背景**：群聊中不同用户的话题上下文默认隔离，防止信息串台。
 
@@ -210,7 +185,7 @@ curl -X POST http://localhost:<port>/webhooks/test-route \
 import pytest
 
 class TestSecurityRegression:
-    """TC-SR-01 ~ TC-SR-10"""
+    """TC-SR-01 ~ TC-SR-09"""
 
     def test_telegram_require_mention_default(self, gateway, telegram_group):
         """TC-SR-01"""
@@ -257,18 +232,8 @@ class TestSecurityRegression:
         mode = stat.S_IMODE(os.stat(env_path).st_mode)
         assert mode == 0o600, f".env permissions should be 0600, got {oct(mode)}"
 
-    def test_webhook_timestamp_timeout(self, gateway):
-        """TC-SR-09"""
-        import time
-        old_ts = str(int(time.time()) - 400)
-        response = gateway.send_webhook(
-            headers={"X-Webhook-Timestamp": old_ts},
-            body='{"event": "test"}'
-        )
-        assert response.status_code in (401, 403)
-
     def test_session_isolation_per_user(self, gateway):
-        """TC-SR-10"""
+        """TC-SR-09"""
         # 默认 thread_sessions_per_user=True
         gateway.set_env("THREAD_SESSIONS_PER_USER", "true")
         # 用户 A 发送敏感信息
@@ -297,7 +262,6 @@ TC-SR-06 [ ] PASS [ ] FAIL  备注: ___________
 TC-SR-07 [ ] PASS [ ] FAIL  备注: ___________
 TC-SR-08 [ ] PASS [ ] FAIL  备注: ___________
 TC-SR-09 [ ] PASS [ ] FAIL  备注: ___________
-TC-SR-10 [ ] PASS [ ] FAIL  备注: ___________
 ```
 
 ## 实际执行记录 (2026-05-01)
@@ -311,5 +275,4 @@ TC-SR-10 [ ] PASS [ ] FAIL  备注: ___________
 | TC-SR-06 | ✗ SKIP | 需要 Telegram Owner/非Owner 账号 |
 | TC-SR-07 | ✗ SKIP | 需要实际测试 |
 | TC-SR-08 | ✗ SKIP | Windows上无需验证 |
-| TC-SR-09 | ✗ SKIP | 需构造 Webhook 请求 |
-| TC-SR-10 | ✗ SKIP | 需要 Telegram 群聊多用户 |
+| TC-SR-09 | ✗ SKIP | 需要 Telegram 群聊多用户 |

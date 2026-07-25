@@ -323,7 +323,7 @@ class TestGatewayLifecycle:
 | 用例 | 结果 | 备注 |
 |------|------|------|
 | TC-GL-001 | ✓ PASS | 点停止 → 状态变为"未运行"，显示"stopped"；`gateway.lock`、`gateway.pid` 清理 |
-| TC-GL-002 | ✓ PASS | 停止后启动 → 约 1 分钟完成启动，飞书 bot 正常回复（Telegram 超时未影响）<br>修复验证：`gateway/run.py:2774-2784`（首轮连接失败不退出）<br>修复验证：`tauri/src/lib.rs` + `gateway_supervisor.rs`（停止时清理锁文件 + state） |
+| TC-GL-002 | ✓ PASS | 停止后启动 → 约 1 分钟完成启动，保留平台 bot 正常回复（Telegram 超时未影响）<br>修复验证：`gateway/run.py:2774-2784`（首轮连接失败不退出）<br>修复验证：`tauri/src/lib.rs` + `gateway_supervisor.rs`（停止时清理锁文件 + state） |
 | TC-GL-003 | ✓ PASS | 等价覆盖—停止一次后启动正常工作，锁文件被 spawn 阶段自动清理 |
 | TC-GL-004 | ✗ NOT IMPL | Rust `GatewaySupervisor` 无进程监控重启逻辑，需后续实现 |
 | TC-GL-005 | ✗ SKIP | 开发环境正常 |
