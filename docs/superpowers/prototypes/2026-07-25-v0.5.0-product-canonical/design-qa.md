@@ -163,6 +163,167 @@ rebuild + browser re-verification; see the iteration log.
   and both Nana panel states (the review browser pane was not compositing frames, so screenshots
   could not be taken; geometry was verified numerically instead).
 
+### Iteration 6 — desk lamp / dual-theme tokens (implementation landed, owner walkthrough pending)
+
+- Owner direction: materiality guides design (not deferred to art); the desk lamp from the
+  2026-07-07 notebook-ia prototype is confirmed as the light/dark switch.
+- Token consolidation: all ~140 hardcoded hex values in `src/styles.css` were mapped onto a
+  ~45-token semantic palette (`:root`, uppercase hex) — ink scale, paper/surface scale, four
+  line weights, purple family, manila/tan warm family, semantic status colors, desk gradient
+  stops, and veils. Zero color literals remain outside the token definitions (verified by
+  regex sweep).
+- Dark theme: a single `[data-theme="dark"]` token block restyles the whole product — warm
+  dark desk, ink-on-dark paper, lightened purple family, `color-scheme: dark`. The app-frame
+  swaps its daylight wash for a warm lamp glow anchored at the top-right (lamp corner), and
+  `--shadow` / `--shadow-soft` deepen.
+- Lamp object: `LampDesk` button in the shell utility area toggles the theme
+  (`aria-pressed`, state-dependent labels 开台灯/台灯已开); when on, the icon warms and glows
+  (`--lamp-glow`). Settings gains a mirror row (台灯 · 外观, 开灯/关灯). Theme persists via
+  `localStorage` with a pre-paint script in `index.html` (respects `prefers-color-scheme` on
+  first visit); `prefers-reduced-motion` suppresses the transitions.
+- Verified so far: page renders with zero console errors after all changes (HMR); the lamp
+  button is present with correct semantics; token sweep is clean.
+- Pending: interactive owner walkthrough of both themes across Study / Studio / Chat / modals
+  (the review browser pane was not compositing frames, so synthetic clicks and screenshots
+  were unreliable in the authoring session), dark-mode contrast spot-checks, `npm run build`
+  + `npm run test:sites`, and refreshed QA captures in both themes.
+
+### Iteration 7 — Study learn page: reader → reconstruction loop
+
+- Upstream: the owner's mechanism revision (architecture doc §0.1) — Study is not mechanical
+  input; the learner rebuilds knowledge in their own mind. The learn page must therefore lead
+  with one knowledge core and then guide a generative act, not present readable prose.
+- Redesign: the page is now one loop — **知识核 → 我自己的说法 → 对照**.
+  - The knowledge core is a single sentence with its source, and it is the page heading; the
+    old `page-intro` (which restated the core and explained the page's own role) was deleted
+    as a duplication and P3 leak.
+  - The generative prompt ("先别看解释——用你自己的话说说…") plus the learner's own field is
+    the P0 body. The field reuses the practice `answer-field` (KaiTi — the learner's own hand).
+  - After they write, the reference is revealed **beside** their words, never replacing them:
+    「我自己的说法」/「教材 §2.3 的说法」side by side, with a margin note reading
+    "这里只对照，不判分" and a self-check question. The learn page still does not grade.
+  - Escape hatch honors answer-then-teach: 「先看教材的说法」 reveals the reference without
+    writing, and the primary action then becomes 「现在用自己的话说一遍」 — the answer is given,
+    the reconstruction is still invited.
+  - Materials dropped from a permanent two-card grid to one quiet on-demand line
+    (`material-call`), per "材料只作按需参考，不作铺开的主线".
+  - The pending tutoring-note draft renders only when one exists; the previous "还没有待审核
+    笔记" placeholder was cut as P2.
+- Verified live at `http://localhost:5173` (React-faithful input events; the review pane does
+  not composite frames, so synthetic clicks/screenshots were not usable): seed → contrast shows
+  the learner's words verbatim; 补一句 returns to writing with the draft preserved (learn state
+  lives in `App`, so flipping notebook pages does not discard it); 对照看看 stays disabled while
+  empty; the reveal path shows the invitation copy and the reconstruct-first primary action. At
+  `390 × 844` the contrast pair collapses to one column with no horizontal overflow.
+- `npm run build` and `npm run test:sites` (4/4) pass.
+
+### Iteration 8 — bookend course tabs (amends the frozen Study desk master)
+
+- Owner-level change: course identity moves from a permanent left rail onto the notebook's own
+  tabs, restoring the 2026-07-07 notebook-ia object vocabulary. 换课＝换一本本子.
+- Desk layout: `.desk-scene` drops from three columns to two, with a `bookend` row above the
+  notebook and the review rail spanning both rows (`gap: 0 18px` so the tabs meet the paper).
+  The active tab uses the notebook's own paper color and overlaps its top border by `1px`, so
+  it reads as attached to the book; idle tabs sit lower with an inset shadow and a muted spine.
+- Deletions this enables (both previously failed the principles' own tests): the permanent
+  「我的课程本」card, and the 「本课材料」card, which duplicated the learn page's on-demand
+  material line. The notebook header no longer repeats the course name — the tab carries
+  identity, the header carries position (`极限与连续 · 最近保存 …`).
+- Narrow: the bookend stays visible and horizontally scrollable (it is the course switcher, not
+  a rail), so the narrow tool bar drops its 课程 button and collapses to two.
+- Verified at `1280 × 900`: active tab background equals notebook paper exactly
+  (`rgb(251,248,241)`), tab-to-notebook gap is `-1px`, left rail gone, no horizontal overflow.
+  In dark theme the same identity holds (`rgb(50,45,54)` on both) with idle tabs distinguished
+  by a darker fill and muted text. At `390 × 844` all three tabs remain reachable with no
+  overflow. `npm run build` and `npm run test:sites` (4/4) pass.
+- Consequence for the plans: `2026-07-25-v0.5.0-study-studio-product-architecture.md` §3.2 still
+  describes the left rail as 课程本与材料 and must be updated when this amendment is accepted.
+
+### Iteration 9 — copy density pass across the five Study pages
+
+- Owner: every one of the five notebook pages was still information-dense; the copy needs
+  cutting, not restyling.
+- Removed the `page-intro` block (eyebrow + heading + explanatory paragraph) from 扉页, 计划,
+  and 评估. In each case the paragraph explained the page's own scope rules ("这里只保存课程目标
+  ……不会写进扉页", "计划只描述下一步学习动作……不伪装成草稿", "不给学习者贴人格或能力标签")
+  — P3 product commentary aimed at reviewers, not learners. The notebook tab already names the
+  page; the sheets already name themselves. `.page-intro` CSS deleted with its last use.
+- De-duplicated against the new bookend/notebook header: the flyleaf's 「高等数学 · 极限与连续」
+  heading and the plan's 「极限与未定式」 heading both restated identity the tab and header now
+  carry.
+- Removed doubled state signals: 铅笔草稿 sheet no longer also carries a 待确认 pill (dashed
+  pencil styling plus the header already say it); 已落墨 sheet no longer also carries an
+  Active pill.
+- Practice page: 我的答案 lost its redundant sub-label; save status shortened to 「草稿已保存」/
+  「回到原处，答案没被改动」 (was prototype-proving copy about return targets); the feedback card
+  header dropped 「· 需要修改」 (the 还差一步 pill says it) and its third row 「接下来试试……」
+  (the 修改答案 button is that action).
+- Fixed a real duplication the trim exposed: 小娜's margin note and the feedback card printed
+  the *same sentence* ("0/0 是未定式，不是极限值"). The margin note is now a method hint
+  (「试试把“未定式”这个词，放进你原来那句话里」) and the card keeps the diagnostic, so the two
+  divide labor instead of repeating.
+- Measured body copy per page after the pass (notebook page innerText, whitespace stripped):
+  扉页 134, 计划 96, 评估 103, 练习 191 (feedback state, the heaviest), 学习 already lean from
+  iteration 7. `npm run build` and `npm run test:sites` (4/4) pass.
+
+### Iteration 10 — 杂记本 as 留白
+
+- Owner correction to the earlier proposal: 杂记本 is **留白**, not a triage inbox. The first
+  design gave every item an outbound 归本 action and worried about hoarding — that was still
+  manufacturing tasks, just in a new place. A desk cannot be courses, plans, and evidence
+  everywhere; one book has to ask nothing of you.
+- Built accordingly: a kraft-paper book at the end of the bookend. Selecting it replaces the
+  course notebook with **one page** — a free writing pad (KaiTi, the learner's own hand) plus
+  whatever landed there from Chat. Explicitly absent: the five lifecycle tabs, any plan,
+  any count or badge, any 待整理 label, the card box (a scratch pad has no flashcards), and the
+  notebook header. 小娜 stays.
+- Filing is quiet and optional: one low-emphasis 「归到某一本」 per note reveals the course books
+  inline (plus 算了); choosing one removes the note and toasts that it still awaits review in
+  that course, so invariant 1 holds. Nothing pushes the user to empty the book.
+- Write path: the J3 review modal's 保存到 list now offers 「杂记本 · 还不属于哪门课」, so a
+  reviewed save no longer has to be forced into a course it does not belong to.
+- Verified: kraft tab and kraft page share one color (`rgb(245,234,216)`) so the active book
+  merges with its tab, distinct from the ivory course books; no lifecycle tabs and no card box
+  in scratch; filing empties the page to genuine blank; switching back to 高等数学 restores the
+  five pages, the card box, and the 极限与连续 header. In dark theme scratch (`rgb(73,61,45)`)
+  stays distinguishable from course books (`rgb(43,39,49)`). No horizontal overflow.
+  `npm run build` and `npm run test:sites` (4/4) pass.
+- Deliberately not built: search, tags, sorting, bulk actions, counts, and any pressure to
+  file. Open: whether 保存到 should *default* to 杂记本 for unbound conversations (the honest
+  option — the system would stop guessing a course), which would change the scripted J3 demo.
+
+### Iteration 11 — message actions: appearance conditions defined
+
+- The two per-message buttons had no designed trigger: `canSave: true` was hardcoded on one
+  seeded assistant reply. Owner asked what should govern them; auto-detection ("小娜 spots a
+  knowledge point and offers to save") was rejected — it manufactures input accumulation, takes
+  the categorization judgment away from the learner, and its cost is asymmetric (a missed
+  capture is recoverable from history; a false prompt interrupts thinking). Rule adopted:
+  **detection may speed up an action the user has already started, never start one.**
+- Appearance: actions rest at `opacity: 0` and appear on `.message:hover` or
+  `.message-actions:focus-within`. Deliberately not `display: none` — the buttons stay in the
+  DOM, the tab order, and the accessibility tree, so keyboard and screen-reader users keep the
+  capability that hover-only would deny them.
+- Availability: every message now carries them, **including the learner's own** — under the
+  reconstruction thesis the learner's own sentence is the more valuable evidence, and the old
+  code offered saving only on 小娜's replies.
+- Scope rules: 自由会话 and 课程会话 show both actions; **Studio 会话 shows neither** — 留到本子里
+  would cross the write boundary in §2.3, and 发送到 Studio is meaningless inside a project.
+- Renamed 「保存到课程」 → 「留到本子里」: the destination can be 杂记本, which is not a course, and
+  both destinations are 本子 in the notebook metaphor.
+- Fixed two modeling defects the rule exposed:
+  - Course chat was not merely skipping the course picker, it was **blocked** — `openDraftReview`
+    returned a toast and saved nothing. It now saves, skipping only the course step; the modal
+    reads 「审核后留进高等数学」 and keeps the type review.
+  - Saved state was one global boolean, so saving anything disabled the button on every message.
+    It is now per-message (`savedMessages`).
+- Verified live: 自由会话 shows both actions on both roles at resting opacity 0 while remaining
+  focusable; focus-within computes `opacity: 1` (confirmed with transitions disabled — the
+  review pane does not composite frames, so an in-flight transition otherwise reads as 0);
+  Studio 会话 renders zero action nodes; course chat opens the bound-course modal with only the
+  type selector; after saving, only the saved message shows 「已留下，待审核」.
+  `npm run build` and `npm run test:sites` (4/4) pass.
+
 ## Primary interactions tested
 
 - J1: empty first run → create course → enter Study.
@@ -210,4 +371,6 @@ rebuild + browser re-verification; see the iteration log.
 - [P3] Purge the now-dead CSS left behind by the removed legacy-J4 modals (`folder-tabs`,
   `create-flow`, `generation-card`, `result-*`, `activity-timeline`, etc.).
 
-final result: iteration 5 passed build, packaging tests, and live walkthrough; QA captures pending
+final result: iteration 5 passed build, packaging tests, and live walkthrough (QA captures
+pending); iteration 6 (lamp + dual-theme tokens) implemented, awaiting owner walkthrough,
+rebuild, and captures

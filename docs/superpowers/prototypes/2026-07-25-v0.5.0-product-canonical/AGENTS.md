@@ -10,6 +10,24 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 
 ## Kabuqina v0.5.0 product prototype decisions
 
+- Materiality-first (owner direction, 2026-07-25): design must be guided by 物化 —
+  interface elements are desk objects with position, material, and small behaviors —
+  not deferred to a later art pass. The 2026-07-07 `notebook-ia.html` prototype is the
+  object-vocabulary source of truth (bookend course tabs, lamp, bookmark, looseleaf,
+  card stack, branded Nana cup); this canonical prototype remains the IA and boundary
+  source of truth. Reconcile the two rather than choosing one.
+- Desk lamp = theme switch (owner confirmed): the lamp sits top-right in the shell and
+  toggles light/dark; dark mode reads as "night with the lamp on" (warm glow falls on
+  the desk from the lamp corner). Settings carries an equivalent mirror control. All
+  colors must go through the dual-theme design tokens in `src/styles.css` — no new
+  hardcoded hex values in either theme.
+- Agreed in principle, awaiting their own design pass (do not implement casually):
+  bookend course tabs replacing the permanent left course/material rail (this amends
+  the frozen Study desk master); a 杂记本 course-less Study container for reviewed
+  saves that fit no course yet (explicit save only, narrowly defined); restoring the
+  branded CSS Nana cup art; Anki key bindings in review; looseleaf physicality for
+  pencil drafts; a per-object truth-source table as an engineering norm.
+
 - Preserve the 2026-07-23 Study desk composition and warm paper / muted purple
   visual language as the source of truth; this prototype extends it rather than
   replacing it.

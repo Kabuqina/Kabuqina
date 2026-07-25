@@ -4,7 +4,6 @@ import {
   AlertCircle,
   ArrowLeft,
   ArrowRight,
-  Book,
   BookOpen,
   Bookmark,
   Check,
@@ -17,8 +16,8 @@ import {
   FolderPlus,
   GraduationCap,
   Inbox,
+  LampDesk,
   Layers3,
-  Library,
   MessageCircle,
   PencilLine,
   Plus,
@@ -45,6 +44,21 @@ const COURSE = {
   savedAt: "今天 13:42",
 };
 
+const COURSE_BOOKS = [
+  { id: "calculus", title: "高等数学" },
+  { id: "physics", title: "大学物理" },
+  { id: "scratch", title: "杂记本", kind: "scratch" },
+];
+
+// 杂记本＝留白：不催、不计数、不安排；归本是安静的可选动作
+const INITIAL_SCRATCH_NOTES = [
+  {
+    id: "s1",
+    text: "读到一句：数学里的等号，是在说两个不同的写法，指的是同一个东西。",
+    meta: "昨天 · 来自对话",
+  },
+];
+
 const STUDY_PAGES = [
   { id: "flyleaf", label: "扉页" },
   { id: "plan", label: "计划" },
@@ -60,6 +74,17 @@ const INITIAL_PLAN_ITEMS = [
 ];
 
 const INITIAL_ANSWER = "代入后分子和分母同时为 0，所以需要先变形。";
+
+// 学习页的一步 = 一个知识核 + 一次学习者自己的重构 + 一次对照
+const LEARN_SEED = {
+  index: "01",
+  source: "教材 §2.3",
+  core: "0/0 是未定式，不是一个确定的数。",
+  prompt: "先别看解释——用你自己的话说说：为什么代入得到 0/0，还不能算求出了极限？",
+  reference:
+    "直接代入只说明原式还需要继续分析。不同函数都可能得到 0/0，但它们的极限可以不同，所以还要继续化简，或者换一种分析方法。",
+  contrastHint: "对照看看：你的说法里，点出“不同函数都可能得到 0/0，结果却不同”了吗？",
+};
 
 const GENERAL_MESSAGES = [
   {
@@ -183,6 +208,8 @@ function AppHeader({
   onOpenActivity,
   onOpenSettings,
   activityCount,
+  theme,
+  onToggleTheme,
 }) {
   return (
     <header className="app-header">
@@ -222,6 +249,15 @@ function AppHeader({
           <span>Activity</span>
           {activityCount > 0 && <b>{activityCount}</b>}
         </button>
+        <button
+          type="button"
+          className={`lamp-toggle ${theme === "dark" ? "is-on" : ""}`}
+          aria-label={theme === "dark" ? "台灯已开，切换回白天" : "开台灯，进入夜晚"}
+          aria-pressed={theme === "dark"}
+          onClick={onToggleTheme}
+        >
+          <AppIcon icon={LampDesk} size={21} />
+        </button>
         <button type="button" aria-label="设置" onClick={onOpenSettings}>
           <AppIcon icon={Settings} size={21} />
         </button>
@@ -230,61 +266,34 @@ function AppHeader({
   );
 }
 
-function CourseBooks({ hasCourse, onCreateCourse, onSelectCourse }) {
+// 书立：课程名长在本子的标签上，换课＝换一本本子
+function Bookend({ hasCourse, activeCourse, onSelectCourse, onCreateCourse }) {
   return (
-    <aside className="desk-rail desk-rail--books" aria-label="课程与材料">
-      <section className="desk-card course-card">
-        <h2>
-          <AppIcon icon={Library} />
-          我的课程本
-        </h2>
-        <p>换课就是换一本本子。</p>
-        <div className="course-list">
-          {hasCourse && (
-            <>
-              <button type="button" aria-current="true" onClick={onSelectCourse}>
-                <AppIcon icon={Book} />
-                高等数学
-              </button>
-              <button type="button">
-                <AppIcon icon={Book} />
-                大学物理
-              </button>
-            </>
-          )}
-        </div>
-        <button className="secondary-action" type="button" onClick={onCreateCourse}>
-          <AppIcon icon={Plus} />
-          开新本
-        </button>
-      </section>
-      <section className="desk-card material-card">
-        <h2>
-          <AppIcon icon={Layers3} />
-          本课材料
-        </h2>
-        {hasCourse ? (
-          <>
-            <p>平放在这本高数笔记本旁。</p>
-            <button type="button">教材 §2.3</button>
-            <button type="button">习题集 p.41</button>
-          </>
-        ) : (
-          <p>建课后，材料会跟着课程归位。</p>
-        )}
-      </section>
-    </aside>
+    <nav className="bookend" aria-label="课程本">
+      {hasCourse &&
+        COURSE_BOOKS.map((book) => (
+          <button
+            className={`nb-pill ${book.kind === "scratch" ? "nb-pill--scratch" : ""}`}
+            type="button"
+            key={book.id}
+            aria-current={book.id === activeCourse ? "page" : undefined}
+            onClick={() => onSelectCourse(book)}
+          >
+            <span className="spine" aria-hidden="true" />
+            {book.title}
+          </button>
+        ))}
+      <button className="nb-pill nb-pill--new" type="button" onClick={onCreateCourse}>
+        <AppIcon icon={Plus} size={14} />
+        开新本
+      </button>
+    </nav>
   );
 }
 
 function FlyleafPage({ draftVisible, onInk, onErase }) {
   return (
     <div className="lifecycle-page lifecycle-page--flyleaf">
-      <header className="page-intro">
-        <span className="eyebrow">本课扉页 · 我的学习设定</span>
-        <h2>这本课程本属于我</h2>
-        <p>这里只保存课程目标、偏好与约束；薄弱点和系统设置不会写进扉页。</p>
-      </header>
       {draftVisible && (
         <section className="study-sheet study-sheet--pencil">
           <header>
@@ -292,9 +301,7 @@ function FlyleafPage({ draftVisible, onInk, onErase }) {
               <PencilLine aria-hidden="true" />
               铅笔草稿
             </span>
-            <StatusPill tone="warning">待确认</StatusPill>
           </header>
-          <h3>更新后的学习设定</h3>
           <dl className="flyleaf-rows">
             <div><dt>目标</dt><dd>能解释极限的核心概念，并独立完成基础题。</dd></div>
             <div><dt>偏好</dt><dd>先看一个直观例子，再自己动手推导。</dd></div>
@@ -315,13 +322,11 @@ function FlyleafPage({ draftVisible, onInk, onErase }) {
             <BookOpen aria-hidden="true" />
             已落墨
           </span>
-          <StatusPill tone="success">Active</StatusPill>
         </header>
-        <h3>高等数学 · 极限与连续</h3>
         <dl className="flyleaf-rows">
-          <div><dt>本课目标</dt><dd>理解极限、导数与积分，并完成本学期练习。</dd></div>
+          <div><dt>本课目标</dt><dd>理解极限、导数与积分，完成本学期练习。</dd></div>
           <div><dt>当前阶段</dt><dd>第 2 周 · 极限与未定式</dd></div>
-          <div><dt>下一调整</dt><dd>增加“为什么不能直接代入”的解释练习。</dd></div>
+          <div><dt>下一调整</dt><dd>加“为什么不能直接代入”的解释练习。</dd></div>
         </dl>
       </section>
     </div>
@@ -332,11 +337,6 @@ function PlanPage({ items, onUpdate, onContinue }) {
   const completed = items.filter((item) => item.status === "done").length;
   return (
     <div className="lifecycle-page lifecycle-page--plan">
-      <header className="page-intro">
-        <span className="eyebrow">Active Plan · 第 2 周</span>
-        <h2>极限与未定式</h2>
-        <p>计划只描述下一步学习动作；完成和跳过会成为活动证据，不伪装成草稿。</p>
-      </header>
       <button className="plan-bookmark" type="button" onClick={onContinue}>
         <Bookmark aria-hidden="true" />
         <span>
@@ -378,49 +378,117 @@ function PlanPage({ items, onUpdate, onContinue }) {
   );
 }
 
-function LearnPage({ draftSaved, onOpenDraft, onContinue }) {
+function LearnPage({
+  step,
+  draft,
+  onDraft,
+  onContrast,
+  onReveal,
+  onRewrite,
+  onContinue,
+  draftSaved,
+  onOpenDraft,
+}) {
+  const wrote = draft.trim().length > 0;
   return (
     <div className="lifecycle-page lifecycle-page--learn">
-      <header className="page-intro">
-        <span className="eyebrow">知识正文 · 来源可追溯</span>
-        <h2>从“0/0 是什么”继续</h2>
-        <p>学习页承接知识库、资源包和辅导笔记；它帮助理解，但不判分、不接管练习答案。</p>
-      </header>
       <section className="learn-concept">
-        <span className="concept-index">01</span>
+        <span className="concept-index">{LEARN_SEED.index}</span>
         <div>
-          <span className="eyebrow">知识点 · 教材 §2.3</span>
-          <h3>0/0 是未定式，不是一个确定的数</h3>
-          <p>直接代入只说明原式还需要继续分析。不同函数都可能得到 0/0，但它们的极限可以不同。</p>
+          <span className="eyebrow">这一步的知识核 · {LEARN_SEED.source}</span>
+          <h3>{LEARN_SEED.core}</h3>
         </div>
       </section>
-      <div className="learn-grid">
-        <section className="study-sheet">
-          <header><span><Layers3 aria-hidden="true" />课程资源</span></header>
-          <button className="resource-row" type="button">
-            <FileText aria-hidden="true" />
-            <span><strong>教材 §2.3 · 极限的运算法则</strong><small>可信来源 · 本地材料</small></span>
-          </button>
-          <button className="resource-row" type="button">
-            <FileText aria-hidden="true" />
-            <span><strong>例题：可约因子的极限</strong><small>资源包 · 3 个逐步例子</small></span>
-          </button>
-        </section>
-        <section className="study-sheet">
-          <header><span><PencilLine aria-hidden="true" />辅导笔记</span></header>
-          {draftSaved ? (
-            <button className="draft-row" type="button" onClick={onOpenDraft}>
-              <span><strong>“0/0 未定式”辅导笔记</strong><small>待审核 · 不改变课程真值</small></span>
-              <StatusPill tone="warning">草稿</StatusPill>
+
+      {step === "contrast" ? (
+        <>
+          <div className="learn-grid">
+            <section className="study-sheet study-sheet--ink">
+              <header>
+                <span>
+                  <PencilLine aria-hidden="true" />
+                  我自己的说法
+                </span>
+              </header>
+              {wrote ? (
+                <p className="own-words">{draft}</p>
+              ) : (
+                <p className="quiet-copy">
+                  这一步你先看了教材。看完再用自己的话说一遍，它才真正长在你身上。
+                </p>
+              )}
+            </section>
+            <section className="study-sheet">
+              <header>
+                <span>
+                  <FileText aria-hidden="true" />
+                  教材 §2.3 的说法
+                </span>
+              </header>
+              <p className="quiet-copy">{LEARN_SEED.reference}</p>
+            </section>
+          </div>
+          <aside className="margin-note">
+            <Coffee aria-hidden="true" />
+            <div>
+              <strong>这里只对照，不判分</strong>
+              <p>{LEARN_SEED.contrastHint}</p>
+            </div>
+          </aside>
+          <div className="inline-actions">
+            <button className="primary-action" type="button" onClick={onRewrite}>
+              <AppIcon icon={PencilLine} />
+              {wrote ? "补一句我的说法" : "现在用自己的话说一遍"}
             </button>
-          ) : (
-            <p className="quiet-copy">还没有待审核笔记。普通 Chat 内容不会自动写进课程。</p>
-          )}
-        </section>
-      </div>
-      <button className="primary-action" type="button" onClick={onContinue}>
-        去练习中验证理解
-        <AppIcon icon={ArrowRight} />
+            <button type="button" onClick={onContinue}>
+              去练习中验证
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="reconstruct-prompt">{LEARN_SEED.prompt}</p>
+          <label className="answer-field">
+            <span>
+              <strong>我自己的说法</strong>
+              <small>小娜不替你写</small>
+            </span>
+            <textarea
+              value={draft}
+              onChange={(event) => onDraft(event.target.value)}
+              placeholder="不用完整，写你现在想到的那一句就好…"
+            />
+          </label>
+          <div className="inline-actions">
+            <button
+              className="primary-action"
+              type="button"
+              disabled={!wrote}
+              onClick={onContrast}
+            >
+              写完了，对照看看
+              <AppIcon icon={ArrowRight} />
+            </button>
+            <button type="button" onClick={onReveal}>
+              先看教材的说法
+            </button>
+          </div>
+        </>
+      )}
+
+      {draftSaved && (
+        <button className="draft-row" type="button" onClick={onOpenDraft}>
+          <span>
+            <strong>“0/0 未定式”辅导笔记</strong>
+            <small>待审核 · 不改变课程真值</small>
+          </span>
+          <StatusPill tone="warning">草稿</StatusPill>
+        </button>
+      )}
+
+      <button className="material-call" type="button">
+        <AppIcon icon={Layers3} size={15} />
+        需要时翻材料：教材 §2.3 · 例题三则
       </button>
     </div>
   );
@@ -429,21 +497,16 @@ function LearnPage({ draftSaved, onOpenDraft, onContinue }) {
 function EvaluatePage({ onRetry }) {
   return (
     <div className="lifecycle-page lifecycle-page--evaluate">
-      <header className="page-intro">
-        <span className="eyebrow">有界学习证据</span>
-        <h2>评估与回访</h2>
-        <p>这里只展示能回到来源的学习证据，不给学习者贴人格或能力标签。</p>
-      </header>
       <div className="evaluation-summary">
         <section>
           <span>最近评估</span>
           <strong>基础概念基本达标</strong>
-          <p>证据来自 6 次练习、1 次卡片复习和最近一次解释题。</p>
+          <p>来自 6 次练习和 1 次复习</p>
         </section>
         <section>
           <span>下一调整</span>
           <strong>继续练习“解释理由”</strong>
-          <p>先修正未定式的表述，再进入更复杂的化简方法。</p>
+          <p>先修正未定式的表述</p>
         </section>
       </div>
       <section className="study-sheet">
@@ -454,14 +517,14 @@ function EvaluatePage({ onRetry }) {
         <article className="wrongbook-row">
           <div>
             <strong>0/0 能不能直接作为极限值？</strong>
-            <small>来源：练习 3 · 第 2 步 · 今天 13:42</small>
+            <small>练习 3 · 第 2 步</small>
           </div>
           <button className="primary-action" type="button" onClick={onRetry}>再试一次</button>
         </article>
         <article className="wrongbook-row">
           <div>
             <strong>什么时候可以先约分再求极限？</strong>
-            <small>来源：练习 2 · 昨天</small>
+            <small>练习 2 · 昨天</small>
           </div>
           <button type="button" onClick={onRetry}>打开来源</button>
         </article>
@@ -490,6 +553,12 @@ function StudyNotebook({
   draftSaved,
   onOpenDraft,
   onRetryWrongbook,
+  learnStep,
+  learnDraft,
+  onLearnDraft,
+  onLearnContrast,
+  onLearnReveal,
+  onLearnRewrite,
 }) {
   if (!hasCourse) {
     return (
@@ -516,8 +585,8 @@ function StudyNotebook({
     <section className="notebook" aria-label="当前课程笔记本">
       <header className="notebook-header">
         <div>
-          <h1>{COURSE.title} · 极限</h1>
-          <p>我的课程笔记本 · 最近保存 13:42</p>
+          <h1>{COURSE.subtitle}</h1>
+          <p>最近保存 {COURSE.savedAt}</p>
         </div>
         <button className="bookmark-card" type="button" onClick={onContinue}>
           <AppIcon icon={Bookmark} />
@@ -552,6 +621,12 @@ function StudyNotebook({
         )}
         {studyPage === "learn" && (
           <LearnPage
+            step={learnStep}
+            draft={learnDraft}
+            onDraft={onLearnDraft}
+            onContrast={onLearnContrast}
+            onReveal={onLearnReveal}
+            onRewrite={onLearnRewrite}
             draftSaved={draftSaved}
             onOpenDraft={onOpenDraft}
             onContinue={onContinue}
@@ -563,7 +638,7 @@ function StudyNotebook({
             <h2>解释为什么不能直接代入</h2>
             <p className="completion-standard">
               <strong>完成标准：</strong>
-              区分“得到 0/0”与“得到极限值”，并指出下一步需要继续分析。
+              说清“得到 0/0”不等于“得到极限值”，并指出下一步。
             </p>
             <p>
               计算 <strong>lim (x² − 1) / (x − 1)，x → 1</strong>。为什么不能把直接代入得到的
@@ -573,50 +648,40 @@ function StudyNotebook({
               <aside className="margin-note">
                 <Coffee aria-hidden="true" />
                 <div>
-                  <strong>小娜留在页边的提示</strong>
-                  <p>先补清“0/0 是未定式，不是极限值”。这只是建议，不会写进你的答案。</p>
+                  <strong>小娜留在页边</strong>
+                  <p>试试把“未定式”这个词，放进你原来那句话里。</p>
                 </div>
               </aside>
             )}
             <label className="answer-field">
               <span>
                 <strong>我的答案</strong>
-                <small>{studyState === "returned" ? "原答案未改写" : "我的草稿"}</small>
               </span>
               <textarea value={answer} onChange={(event) => onAnswer(event.target.value)} />
             </label>
             <p className="save-status">
               <ShieldCheck size={16} aria-hidden="true" />
-              {studyState === "returned"
-                ? "已准确返回：原答案、反馈与返回位置都在原位"
-                : "草稿已保存在这本笔记本中"}
+              {studyState === "returned" ? "回到原处，答案没被改动" : "草稿已保存"}
             </p>
             {studyState === "returned" ? (
               <section className="feedback-card" aria-label="检查结果">
                 <header>
-                  <strong>页边批注 · 需要修改</strong>
+                  <strong>页边批注</strong>
                   <StatusPill tone="warning">还差一步</StatusPill>
                 </header>
                 <div className="feedback-grid">
                   <p>
                     <Check size={16} aria-hidden="true" />
                     <span>
-                      <strong>已经说明清楚</strong>
+                      <strong>已说清</strong>
                       代入后分子、分母都趋近 0。
                     </span>
                   </p>
                   <p>
                     <Circle size={16} aria-hidden="true" />
                     <span>
-                      <strong>还差一步</strong>
-                      说明 0/0 是未定式，不是极限值。
-                    </span>
-                  </p>
-                  <p>
-                    <ArrowRight size={16} aria-hidden="true" />
-                    <span>
-                      <strong>接下来试试</strong>
-                      把这句话补进解释，再检查一次。
+                      <strong>还差这句</strong>
+                      0/0 是未定式，不是极限值。
                     </span>
                   </p>
                 </div>
@@ -655,20 +720,22 @@ function StudyNotebook({
   );
 }
 
-function ReviewCards({ hasCourse, onReview, reviewDone, onAsk }) {
+function ReviewCards({ hasCourse, isScratch, onReview, reviewDone, onAsk }) {
   return (
     <aside className="desk-rail desk-rail--review" aria-label="复习卡片与小娜">
-      <section className="desk-card review-card">
-        <h2>
-          <AppIcon icon={Inbox} />
-          本课卡片盒
-        </h2>
-        <strong className="due-number">{reviewDone ? "5" : "6"}</strong>
-        <p>张今日到期 · 不打断当前练习</p>
-        <button type="button" onClick={onReview} disabled={!hasCourse}>
-          {reviewDone ? "已复习 1 张" : "到安全节点后复习"}
-        </button>
-      </section>
+      {!isScratch && (
+        <section className="desk-card review-card">
+          <h2>
+            <AppIcon icon={Inbox} />
+            本课卡片盒
+          </h2>
+          <strong className="due-number">{reviewDone ? "5" : "6"}</strong>
+          <p>张今日到期 · 不打断当前练习</p>
+          <button type="button" onClick={onReview} disabled={!hasCourse}>
+            {reviewDone ? "已复习 1 张" : "到安全节点后复习"}
+          </button>
+        </section>
+      )}
       <button
         className="cup-anchor"
         type="button"
@@ -686,26 +753,89 @@ function ReviewCards({ hasCourse, onReview, reviewDone, onAsk }) {
   );
 }
 
+function ScratchNotebook({
+  draft,
+  onDraft,
+  notes,
+  filingId,
+  onStartFiling,
+  onCancelFiling,
+  onFile,
+}) {
+  return (
+    <section className="notebook notebook--scratch" aria-label="杂记本">
+      <div className="scratch-page">
+        <textarea
+          className="scratch-pad"
+          aria-label="随手写"
+          value={draft}
+          onChange={(event) => onDraft(event.target.value)}
+          placeholder="随便写点什么…"
+        />
+        {notes.map((note) => (
+          <article className="scratch-note" key={note.id}>
+            <p>{note.text}</p>
+            <div className="scratch-note__foot">
+              <span>{note.meta}</span>
+              {filingId === note.id ? (
+                <span className="scratch-file-choice">
+                  {COURSE_BOOKS.filter((book) => book.kind !== "scratch").map((book) => (
+                    <button type="button" key={book.id} onClick={() => onFile(note, book)}>
+                      {book.title}
+                    </button>
+                  ))}
+                  <button type="button" onClick={onCancelFiling}>
+                    算了
+                  </button>
+                </span>
+              ) : (
+                <button
+                  className="scratch-file"
+                  type="button"
+                  onClick={() => onStartFiling(note.id)}
+                >
+                  归到某一本
+                </button>
+              )}
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function StudyDesk(props) {
+  const isScratch = props.activeBook === "scratch";
   return (
     <main className="desk-scene" data-testid="study-desk">
-      <CourseBooks
+      <Bookend
         hasCourse={props.hasCourse}
+        activeCourse={props.activeBook}
         onCreateCourse={props.onCreateCourse}
-        onSelectCourse={() => props.onToast("已打开高等数学课程本")}
+        onSelectCourse={props.onSelectBook}
       />
-      <StudyNotebook {...props} />
+      {isScratch ? (
+        <ScratchNotebook
+          draft={props.scratchDraft}
+          onDraft={props.onScratchDraft}
+          notes={props.scratchNotes}
+          filingId={props.filingId}
+          onStartFiling={props.onStartFiling}
+          onCancelFiling={props.onCancelFiling}
+          onFile={props.onFileNote}
+        />
+      ) : (
+        <StudyNotebook {...props} />
+      )}
       <ReviewCards
         hasCourse={props.hasCourse}
+        isScratch={isScratch}
         onReview={props.onReview}
         reviewDone={props.reviewDone}
         onAsk={props.onAsk}
       />
       <nav className="narrow-desk-tools" aria-label="窄窗书桌工具">
-        <button type="button" onClick={props.onCreateCourse}>
-          <AppIcon icon={Library} />
-          课程
-        </button>
         <button type="button" onClick={props.onReview}>
           <AppIcon icon={Inbox} />
           卡片
@@ -767,7 +897,7 @@ function ChatPaper({
   onReturn,
   onSaveDraft,
   onOpenCreate,
-  draftSaved,
+  savedMessages,
 }) {
   const isCourse = chatKind === "course";
   const isStudio = chatKind === "studio";
@@ -809,28 +939,35 @@ function ChatPaper({
             <p>从一个问题，或一个还没想清楚的念头开始。</p>
           </section>
         ) : (
-          messages.map((message, index) => (
-            <article
-              className={`message message--${message.role}`}
-              key={`${message.role}-${index}`}
-            >
-              <div className="message-author">{message.role === "user" ? "我" : "小娜"}</div>
-              <p>{message.text}</p>
-              {message.meta && <small>{message.meta}</small>}
-              {message.canSave && (
-                <div className="message-actions">
-                  <button type="button" onClick={onSaveDraft} disabled={draftSaved}>
-                    <AppIcon icon={BookOpen} />
-                    {draftSaved ? "已生成待审核草稿" : "保存到课程"}
-                  </button>
-                  <button type="button" onClick={onOpenCreate}>
-                    <AppIcon icon={ArrowRight} />
-                    发送到 Studio
-                  </button>
-                </div>
-              )}
-            </article>
-          ))
+          messages.map((message, index) => {
+            const messageId = `${activeSession}-${index}`;
+            return (
+              <article
+                className={`message message--${message.role}`}
+                key={`${message.role}-${index}`}
+              >
+                <div className="message-author">{message.role === "user" ? "我" : "小娜"}</div>
+                <p>{message.text}</p>
+                {message.meta && <small>{message.meta}</small>}
+                {!isStudio && (
+                  <div className="message-actions">
+                    <button
+                      type="button"
+                      onClick={() => onSaveDraft(messageId)}
+                      disabled={savedMessages.includes(messageId)}
+                    >
+                      <AppIcon icon={BookOpen} />
+                      {savedMessages.includes(messageId) ? "已留下，待审核" : "留到本子里"}
+                    </button>
+                    <button type="button" onClick={() => onOpenCreate(messageId)}>
+                      <AppIcon icon={ArrowRight} />
+                      发送到 Studio
+                    </button>
+                  </div>
+                )}
+              </article>
+            );
+          })
         )}
       </div>
 
@@ -1254,9 +1391,14 @@ function AskPreviewModal({ onClose, onStart }) {
   );
 }
 
-function DraftReviewModal({ onClose, onAccept }) {
+function DraftReviewModal({ onClose, onAccept, boundCourse }) {
   return (
-    <ModalShell title="审核后再保存到课程" eyebrow="J3 · Chat → Study" onClose={onClose} wide>
+    <ModalShell
+      title={boundCourse ? `审核后留进${boundCourse}` : "审核后再留到本子里"}
+      eyebrow="Chat → Study"
+      onClose={onClose}
+      wide
+    >
       <div className="draft-review-layout">
         <section>
           <h3>待审核内容</h3>
@@ -1276,13 +1418,16 @@ function DraftReviewModal({ onClose, onAccept }) {
           </div>
         </section>
         <aside>
-          <label>
-            <span>保存到</span>
-            <select defaultValue="calculus">
-              <option value="calculus">高等数学</option>
-              <option value="physics">大学物理</option>
-            </select>
-          </label>
+          {!boundCourse && (
+            <label>
+              <span>留到</span>
+              <select defaultValue="calculus">
+                <option value="calculus">高等数学</option>
+                <option value="physics">大学物理</option>
+                <option value="scratch">杂记本 · 还不属于哪门课</option>
+              </select>
+            </label>
+          )}
           <label>
             <span>作为</span>
             <select defaultValue="note">
@@ -1591,10 +1736,22 @@ function RecoveryModal({ onClose, onResumeStudy, onResumeStudio }) {
   );
 }
 
-function SettingsModal({ onClose }) {
+function SettingsModal({ onClose, theme, onToggleTheme }) {
   return (
     <ModalShell title="设置" eyebrow="诚实的能力状态" onClose={onClose}>
       <section className="settings-list">
+        <div>
+          <span className="settings-icon">
+            <LampDesk aria-hidden="true" />
+          </span>
+          <span>
+            <strong>台灯 · 外观</strong>
+            <small>深浅模式跟随桌上的台灯；右上角随时可切换</small>
+          </span>
+          <button className="theme-mirror" type="button" onClick={onToggleTheme}>
+            {theme === "dark" ? "关灯" : "开灯"}
+          </button>
+        </div>
         <div>
           <span className="settings-icon">
             <Sparkles aria-hidden="true" />
@@ -1670,6 +1827,12 @@ export function App() {
   const [practiceDirty, setPracticeDirty] = useState(false);
   const [pendingStudyPage, setPendingStudyPage] = useState(null);
   const [flyleafDraftVisible, setFlyleafDraftVisible] = useState(true);
+  const [learnStep, setLearnStep] = useState("seed");
+  const [learnDraft, setLearnDraft] = useState("");
+  const [activeBook, setActiveBook] = useState(COURSE.id);
+  const [scratchDraft, setScratchDraft] = useState("");
+  const [scratchNotes, setScratchNotes] = useState(INITIAL_SCRATCH_NOTES);
+  const [filingId, setFilingId] = useState(null);
   const [planItems, setPlanItems] = useState(INITIAL_PLAN_ITEMS);
   const [chatKind, setChatKind] = useState("general");
   const [activeChatSession, setActiveChatSession] = useState("new");
@@ -1678,15 +1841,29 @@ export function App() {
   const [chatDraft, setChatDraft] = useState("");
   const [overlay, setOverlay] = useState(null);
   const [draftSaved, setDraftSaved] = useState(false);
+  const [savedMessages, setSavedMessages] = useState([]);
+  const [pendingSaveId, setPendingSaveId] = useState(null);
   const [draftActivated, setDraftActivated] = useState(false);
   const [reviewDone, setReviewDone] = useState(false);
   const [transferStep, setTransferStep] = useState("select");
   const [studioConnected, setStudioConnected] = useState(false);
   const [transferOrigin, setTransferOrigin] = useState("study");
   const [toast, setToast] = useState("");
+  const [theme, setTheme] = useState(() =>
+    document.documentElement.dataset.theme === "dark" ? "dark" : "light",
+  );
   const [productStatus, setProductStatus] = useState(
     "J2 ready · 书桌 → 课程 Chat → 精确返回",
   );
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try {
+      window.localStorage.setItem("kabuqina-theme", theme);
+    } catch {
+      /* 无持久化环境时静默 */
+    }
+  }, [theme]);
 
   const activityCount = useMemo(() => {
     let count = 1;
@@ -1753,6 +1930,11 @@ export function App() {
     setAnswer(INITIAL_ANSWER);
     setFlyleafDraftVisible(true);
     setPlanItems(INITIAL_PLAN_ITEMS);
+    setLearnStep("seed");
+    setLearnDraft("");
+    setActiveBook(COURSE.id);
+    setScratchNotes(INITIAL_SCRATCH_NOTES);
+    setFilingId(null);
     if (id === "J1") {
       setSurface("study");
       setHasCourse(false);
@@ -1808,11 +1990,9 @@ export function App() {
     setProductStatus("J5 ready · Study 与 Studio 现场并存，由用户选择恢复");
   };
 
-  const openDraftReview = () => {
-    if (chatKind === "course") {
-      setToast("课程对话已经有明确上下文，无需重新绑定");
-      return;
-    }
+  // 课程会话已有明确课程：照存，只跳过选课程那一步，内容与类型仍需审核
+  const openDraftReview = (messageId) => {
+    setPendingSaveId(messageId);
     setOverlay("draft-review");
   };
 
@@ -1840,6 +2020,8 @@ export function App() {
 
   const acceptDraft = () => {
     setDraftSaved(true);
+    if (pendingSaveId) setSavedMessages((ids) => [...ids, pendingSaveId]);
+    setPendingSaveId(null);
     setOverlay(null);
     setProductStatus("J3 complete · 草稿已进入高等数学待审核区，未改变掌握度");
     setToast("已保存为待审核草稿");
@@ -1899,6 +2081,8 @@ export function App() {
           onOpenActivity={() => setOverlay("activity")}
           onOpenSettings={() => setOverlay("settings")}
           activityCount={activityCount}
+          theme={theme}
+          onToggleTheme={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
         />
         {surface === "study" ? (
           <StudyDesk
@@ -1940,6 +2124,39 @@ export function App() {
             }}
             planItems={planItems}
             onUpdatePlan={updatePlanItem}
+            activeBook={activeBook}
+            onSelectBook={(book) => {
+              setActiveBook(book.id);
+              setFilingId(null);
+              setProductStatus(
+                book.kind === "scratch"
+                  ? "Study · 杂记本：不属于任何课程的一页"
+                  : `Study · 已翻到${book.title}`,
+              );
+            }}
+            scratchDraft={scratchDraft}
+            onScratchDraft={setScratchDraft}
+            scratchNotes={scratchNotes}
+            filingId={filingId}
+            onStartFiling={setFilingId}
+            onCancelFiling={() => setFilingId(null)}
+            onFileNote={(note, book) => {
+              setScratchNotes((items) => items.filter((item) => item.id !== note.id));
+              setFilingId(null);
+              setToast(`已归到${book.title}，等你审核后才进课程`);
+            }}
+            learnStep={learnStep}
+            learnDraft={learnDraft}
+            onLearnDraft={setLearnDraft}
+            onLearnContrast={() => {
+              setLearnStep("contrast");
+              setProductStatus("Study · 学习页对照：你的说法与教材并排，不判分");
+            }}
+            onLearnReveal={() => {
+              setLearnStep("contrast");
+              setToast("已展开教材说法；看完仍建议自己说一遍");
+            }}
+            onLearnRewrite={() => setLearnStep("seed")}
             draftSaved={draftSaved && !draftActivated}
             onOpenDraft={openDraftFromActivity}
             onRetryWrongbook={() => {
@@ -2014,7 +2231,7 @@ export function App() {
             }}
             onSaveDraft={openDraftReview}
             onOpenCreate={() => openStudioTransfer("chat")}
-            draftSaved={draftSaved}
+            savedMessages={savedMessages}
           />
         )}
 
@@ -2073,7 +2290,11 @@ export function App() {
           />
         )}
         {overlay === "draft-review" && (
-          <DraftReviewModal onClose={() => setOverlay(null)} onAccept={acceptDraft} />
+          <DraftReviewModal
+            onClose={() => setOverlay(null)}
+            onAccept={acceptDraft}
+            boundCourse={chatKind === "course" ? COURSE.title : null}
+          />
         )}
         {overlay === "studio-transfer" && (
           <StudioTransferModal
@@ -2126,7 +2347,13 @@ export function App() {
             }}
           />
         )}
-        {overlay === "settings" && <SettingsModal onClose={() => setOverlay(null)} />}
+        {overlay === "settings" && (
+          <SettingsModal
+            onClose={() => setOverlay(null)}
+            theme={theme}
+            onToggleTheme={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
+          />
+        )}
         {overlay === "review-card" && (
           <CardReviewModal
             onClose={() => setOverlay(null)}
