@@ -147,10 +147,21 @@ rebuild + browser re-verification; see the iteration log.
     `2026-07-25-v0.5.0-interface-information-principles.md` (§3, §5.1).
   - `ModalShell` now traps Tab focus inside the dialog; the closed history drawer is removed
     from the tab order and accessibility tree via `visibility`.
-- Pending before sign-off: `npm run build`, `npm run test:sites`, full J1–J5 browser
-  walkthrough, and fresh wide / narrow captures for the drawer, empty state, scoped sessions,
-  and both Nana panel states. (Blocked in the authoring session by an environment outage that
-  prevented running commands; styles were verified statically against the JSX class inventory.)
+- Post-fix verification (same day, after the environment outage cleared):
+  - `npm run build`: passed; `dist/` regenerated from the fifth generation
+    (`index-BeL-jfer.css` now contains `chat-history` and `context-chat-panel`, replacing the
+    stale fourth-generation bundle).
+  - `npm run test:sites`: 4 / 4 passed.
+  - Live walkthrough at `http://localhost:5173`, no console errors. Global Chat opens an unbound
+    free conversation ("和小娜聊聊"); the history drawer holds all four sessions in one list with
+    low-emphasis Study / Studio origin tags and no tag on free conversations; no scope tabs
+    remain. Closed drawer computes `visibility: hidden` (inherited by its buttons), so it leaves
+    the tab order and the accessibility tree. The Study Nana panel renders `330 × 378` anchored
+    bottom-right inside the app frame, with scope line, transcript, composer, and the explicit
+    "在完整 Chat 中打开" action. No horizontal page overflow at `1280 × 900` or `800 × 455`.
+- Still pending: fresh wide / narrow QA captures for the drawer, empty state, scoped sessions,
+  and both Nana panel states (the review browser pane was not compositing frames, so screenshots
+  could not be taken; geometry was verified numerically instead).
 
 ## Primary interactions tested
 
@@ -199,4 +210,4 @@ rebuild + browser re-verification; see the iteration log.
 - [P3] Purge the now-dead CSS left behind by the removed legacy-J4 modals (`folder-tabs`,
   `create-flow`, `generation-card`, `result-*`, `activity-timeline`, etc.).
 
-final result: iteration 5 pending re-verification (build + browser walkthrough + captures)
+final result: iteration 5 passed build, packaging tests, and live walkthrough; QA captures pending
