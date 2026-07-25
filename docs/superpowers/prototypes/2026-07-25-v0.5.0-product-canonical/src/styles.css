@@ -2334,15 +2334,17 @@ p {
   font-weight: 400;
 }
 
-/* 复印件：事后另取的一份，带"截至取用那一刻"的版本语义；原件仍在课程本里 */
+/* 复印件：偏灰、略失真、底下垫着一层——是另一张纸，不是"未生效"。
+   虚线一律留给铅笔家族（未生效），复印件不得再用虚线。 */
 .material-slip--copy {
-  border-style: dashed;
   background: var(--paper-soft);
+  filter: saturate(0.55);
+  box-shadow: 3px 3px 0 -1px var(--wash);
 }
 
 .material-slip--copy:hover {
   border-color: var(--lavender);
-  background: var(--purple-faint);
+  filter: saturate(0.8);
 }
 
 .pile-index {
