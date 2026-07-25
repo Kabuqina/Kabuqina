@@ -71,6 +71,63 @@ class RuntimeImportVerifierTests(unittest.TestCase):
         self.assertIn("_enforce_desktop_single_platform", text)
         self.assertIn('os.environ["KABUQINA_PRODUCT_PROFILE"] = "mainland_cn"', text)
         self.assertIn('os.environ["KABUQINA_GATEWAY_PLATFORM"] = "weixin"', text)
+        for retained_input in (
+            "site-packages/aiohttp/__init__.py",
+            "site-packages/certifi/__init__.py",
+            "site-packages/cryptography/__init__.py",
+            "site-packages/qrcode/__init__.py",
+            "site-packages/telegram/__init__.py",
+            "site-packages/python_telegram_bot-*.dist-info",
+            "kabuqina/scripts/whatsapp-bridge/bridge.js",
+            "kabuqina/scripts/whatsapp-bridge/package-lock.json",
+            "node_modules/@whiskeysockets/baileys/package.json",
+        ):
+            self.assertIn(retained_input, text)
+
+    def test_profile_verifier_fails_before_imports_when_retained_inputs_are_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = Path(tmp)
+            (runtime / "site-packages").mkdir()
+            result = subprocess.run(
+                [sys.executable, str(PROFILE_PLATFORM_VERIFIER), str(runtime)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn(
+            "missing retained runtime input: site-packages/telegram/__init__.py",
+            result.stderr,
+        )
+        self.assertIn(
+            "missing retained runtime input: "
+            "kabuqina/scripts/whatsapp-bridge/package-lock.json",
+            result.stderr,
+        )
+
+    def test_whatsapp_dependencies_are_build_time_only(self):
+        adapter = (
+            ROOT / "hermes_core" / "gateway" / "platforms" / "whatsapp.py"
+        ).read_text(encoding="utf-8")
+        build_script = (ROOT / "python" / "build_bundle.ps1").read_text(encoding="utf-8")
+
+        self.assertNotIn('["npm", "install"', adapter)
+        self.assertIn("Bundled WhatsApp bridge dependencies are missing", adapter)
+        self.assertIn("npmCommand.Source ci --omit=dev --no-audit", build_script)
+        self.assertNotIn("git+ssh://git@github.com", (
+            ROOT / "hermes_core" / "scripts" / "whatsapp-bridge" / "package-lock.json"
+        ).read_text(encoding="utf-8"))
+        self.assertIn("whatsappLockHash", build_script)
+        self.assertIn("Reusing cached WhatsApp bridge dependencies", build_script)
+
+    def test_bundle_cache_is_shared_across_worktrees(self):
+        build_script = (ROOT / "python" / "build_bundle.ps1").read_text(encoding="utf-8")
+
+        self.assertIn("KABUQINA_BUNDLE_CACHE", build_script)
+        self.assertIn('Join-Path $env:LOCALAPPDATA "Kabuqina\\bundle-cache"', build_script)
+        self.assertIn("$LegacyDownload", build_script)
+        self.assertIn("One-time, non-destructive migration", build_script)
 
     def test_legacy_verifier_checks_stateful_modules_in_both_orders(self):
         text = LEGACY_VERIFIER.read_text(encoding="utf-8")

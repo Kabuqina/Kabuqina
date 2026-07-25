@@ -1155,3 +1155,29 @@ targets. Persisted credentials, sessions, jobs and home targets are not
 deleted; CTL-C07 owns cleanup/upgrade. The owner reserved bundle execution, so
 fresh integrated runtime, shared dependency/license/SBOM and distribution
 proof remain CTL-C05/G01 gates rather than repeated C04 leaf bundles.
+
+**CTL-C05 deterministic shared bundle inputs (2026-07-25).** The exact
+retained profile set remains mainland `weixin`/`qqbot`/`dingtalk` and SEA
+`telegram`/`whatsapp`/`email`. Desktop requirements directly declare the
+Python packages imported by those retained paths (`aiohttp`, `certifi`,
+`cryptography`, `qrcode`, and `python-telegram-bot`); DingTalk SDK selection
+and its `websockets` conflict remain an explicit CTL-C06 readiness problem,
+not a hidden optional import.
+
+The retained WhatsApp bridge is now a build input. `build_bundle.ps1` runs
+`npm ci` against the committed lock, caches the result by lock hash in the
+machine-wide bundle cache, and copies both bridge source and `node_modules`
+into the runtime. The adapter fails closed when that payload is missing and
+never performs `npm install` at application runtime. This closes mutable,
+network-dependent runtime installation without claiming that the system Node
+executable or real WhatsApp transport is release-ready; CTL-C06 owns those
+proofs.
+
+Fixed CPython/STT archives and locked bridge dependencies use a shared
+`%LOCALAPPDATA%\Kabuqina\bundle-cache` (or
+`KABUQINA_BUNDLE_CACHE`) so worktrees do not download identical inputs again.
+Every build emits `DEPENDENCY_INVENTORY.json` with the exact installed
+Python/Node versions, input hashes and published license metadata. Tauri's
+`Cargo.lock` is tracked from C05 onward so Rust resolution is reproducible;
+fresh external advisory scans and final redistributed-file reconciliation
+remain G01/Q checks against these frozen inputs.

@@ -1,8 +1,7 @@
-# HermesDesk pruned Python dependencies.
+# Kabuqina desktop Python runtime dependencies.
 #
-# Mirrors the [project] core deps from upstream pyproject.toml, minus
-# the heavy/incompatible extras (RL, voice STT, multi-platform messaging,
-# messaging adapters). Keep version pins aligned with upstream.
+# Mirrors the owned Core where appropriate, plus direct desktop requirements
+# for the exact retained platform profiles. Heavy/incompatible extras stay out.
 
 # --- Core (mirrors upstream [project].dependencies) -----------------------
 openai>=2.21.0,<3
@@ -54,10 +53,14 @@ numpy>=1.26,<3                  # lambdify numeric reference / validation (SciPy
 mcp>=1.2.0,<2
 
 # --- Messaging platform adapters kept for desktop --------------------------
-# Telegram disabled — removed from Kabuqina product scope (codex/student-deliverables)
-# python-telegram-bot[webhooks]>=22.6,<23  # Telegram bot adapter
-# dingtalk-stream intentionally not bundled in the student-focused runtime:
-# it pins legacy websockets APIs and breaks the Browser/CDP toolchain.
+aiohttp>=3.13.3,<4              # Shared retained gateway transport (Weixin/Telegram/WhatsApp).
+certifi>=2024.8.30,<2027        # Direct Weixin TLS trust-store import.
+cryptography>=43,<47            # Direct retained Weixin/QQ crypto import.
+qrcode>=7.0,<8                  # Retained mainland QR flows (Weixin/QQBot/DingTalk).
+python-telegram-bot[webhooks]>=22.6,<23  # Retained SEA Telegram adapter.
+# dingtalk-stream intentionally not bundled in the current desktop runtime:
+# its current release pins legacy websockets APIs and breaks Browser/CDP.
+# CTL-C06 must resolve that transport conflict before mainland release readiness.
 websockets>=15,<17             # Browser/CDP supervisor requires the modern asyncio client API.
 
 # --- Explicitly NOT installed in v1 ---------------------------------------

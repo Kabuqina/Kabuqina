@@ -124,7 +124,7 @@ DINGTALK_ALLOWED_USERS=user-id-1
 # Multiple allowed users (comma-separated)
 # DINGTALK_ALLOWED_USERS=user-id-1,user-id-2
 
-# Optional: group-chat gating (mirrors Slack/Telegram/Discord/WhatsApp)
+# Optional: group-chat gating shared by retained messaging adapters
 # DINGTALK_REQUIRE_MENTION=true
 # DINGTALK_FREE_RESPONSE_CHATS=cidABC==,cidDEF==
 # DINGTALK_MENTION_PATTERNS=^小马
@@ -141,7 +141,7 @@ gateway:
   platforms:
     dingtalk:
       extra:
-        # Require @mention in groups before the bot replies (parity with Slack/Telegram/Discord).
+        # Require @mention in groups before the bot replies.
         # DMs ignore this — the bot always replies in 1:1 chats.
         require_mention: true
 

@@ -221,20 +221,12 @@ When scheduling jobs, you specify where the output goes:
 | `"telegram"` | Telegram home channel | Uses `TELEGRAM_HOME_CHANNEL` |
 | `"telegram:123456"` | Specific Telegram chat by ID | Direct delivery |
 | `"telegram:-100123:17585"` | Specific Telegram topic | `chat_id:thread_id` format |
-| `"discord"` | Discord home channel | Uses `DISCORD_HOME_CHANNEL` |
-| `"discord:#engineering"` | Specific Discord channel | By channel name |
-| `"slack"` | Slack home channel | |
 | `"whatsapp"` | WhatsApp home | |
-| `"signal"` | Signal | |
-| `"matrix"` | Matrix home room | |
-| `"mattermost"` | Mattermost home channel | |
 | `"email"` | Email | |
-| `"sms"` | SMS via Twilio | |
-| `"homeassistant"` | Home Assistant | |
 | `"dingtalk"` | DingTalk | |
 | `"weixin"` | Weixin (WeChat) | |
-| `"bluebubbles"` | BlueBubbles (iMessage) | |
 | `"qqbot"` | QQ Bot (Tencent QQ) | |
+| `"desktop"` | Kabuqina desktop activity/toast delivery | |
 
 The agent's final response is automatically delivered. You do not need to call `send_message` in the cron prompt.
 
@@ -371,7 +363,7 @@ Cron runs each job in a fresh agent session with no chat platform attached. By d
 ```bash
 hermes tools
 # → pick the "cron" platform in the curses UI
-# → toggle toolsets on/off just like you would for Telegram/Discord/etc.
+# → toggle toolsets on/off for the cron runtime
 ```
 
 Tighter per-job control is available via the `enabled_toolsets` field on `cronjob.create` (or on an existing job via `cronjob.update`):

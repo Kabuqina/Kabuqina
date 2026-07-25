@@ -28,6 +28,41 @@ REMOVED_MODULES = frozenset({
     "yuanbao", "webhook", "api_server",
 })
 
+REQUIRED_RUNTIME_FILES = (
+    "site-packages/aiohttp/__init__.py",
+    "site-packages/certifi/__init__.py",
+    "site-packages/cryptography/__init__.py",
+    "site-packages/qrcode/__init__.py",
+    "site-packages/telegram/__init__.py",
+    "kabuqina/scripts/whatsapp-bridge/bridge.js",
+    "kabuqina/scripts/whatsapp-bridge/package.json",
+    "kabuqina/scripts/whatsapp-bridge/package-lock.json",
+    "kabuqina/scripts/whatsapp-bridge/node_modules/@whiskeysockets/baileys/package.json",
+    "kabuqina/scripts/whatsapp-bridge/node_modules/express/package.json",
+    "kabuqina/scripts/whatsapp-bridge/node_modules/pino/package.json",
+    "kabuqina/scripts/whatsapp-bridge/node_modules/qrcode-terminal/package.json",
+)
+
+REQUIRED_DISTRIBUTION_GLOBS = (
+    "site-packages/aiohttp-*.dist-info",
+    "site-packages/certifi-*.dist-info",
+    "site-packages/cryptography-*.dist-info",
+    "site-packages/qrcode-*.dist-info",
+    "site-packages/python_telegram_bot-*.dist-info",
+)
+
+
+def _missing_retained_runtime_inputs(root: Path) -> list[str]:
+    missing = [
+        rel for rel in REQUIRED_RUNTIME_FILES
+        if not (root / Path(rel)).is_file()
+    ]
+    missing.extend(
+        pattern for pattern in REQUIRED_DISTRIBUTION_GLOBS
+        if not any(root.glob(pattern))
+    )
+    return missing
+
 
 def _verify_desktop_child_filter() -> None:
     from gateway.config import (
@@ -75,6 +110,11 @@ def main(argv: list[str]) -> int:
     if not root.is_dir():
         print(f"runtime root not found: {root}", file=sys.stderr)
         return 2
+    missing_inputs = _missing_retained_runtime_inputs(root)
+    if missing_inputs:
+        for item in missing_inputs:
+            print(f"missing retained runtime input: {item}", file=sys.stderr)
+        return 1
     _add_runtime_paths(root)
     _seed_import_environment(root)
     try:

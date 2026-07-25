@@ -103,7 +103,7 @@ WHATSAPP_ALLOWED_USERS=15551234567         # Comma-separated phone numbers (with
 
 :::tip Allow-all shorthand
 Setting `WHATSAPP_ALLOWED_USERS=*` allows **all** senders (equivalent to `WHATSAPP_ALLOW_ALL_USERS=true`).
-This is consistent with [Signal group allowlists](/docs/reference/environment-variables).
+This uses the same fail-closed allowlist model as the other retained adapters.
 To use the pairing flow instead, remove both variables and rely on the
 [DM pairing system](/docs/user-guide/security#dm-pairing-system).
 :::
@@ -176,7 +176,7 @@ whatsapp:
 
 ## Message Formatting & Delivery
 
-WhatsApp supports **streaming (progressive) responses** — the bot edits its message in real-time as the AI generates text, just like Discord and Telegram. Internally, WhatsApp is classified as a TIER_MEDIUM platform for delivery capabilities.
+WhatsApp supports **streaming (progressive) responses** — the bot edits its message in real-time as the AI generates text, like Telegram. Internally, WhatsApp is classified as a TIER_MEDIUM platform for delivery capabilities.
 
 ### Chunking
 

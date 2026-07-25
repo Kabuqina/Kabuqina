@@ -141,7 +141,7 @@ assistant gateway start       # starts assistant's gateway (separate process)
 
 ### Different bot tokens
 
-Each profile has its own `.env` file. Configure a different Telegram/Discord/Slack bot token in each:
+Each profile has its own `.env` file. Configure distinct retained-platform credentials in each:
 
 ```bash
 # Edit coder's tokens
@@ -153,7 +153,7 @@ nano ~/.hermes/profiles/assistant/.env
 
 ### Safety: token locks
 
-If two profiles accidentally use the same bot token, the second gateway will be blocked with a clear error naming the conflicting profile. Supported for Telegram, Discord, Slack, WhatsApp, and Signal.
+If two profiles accidentally use the same retained-platform credential, the second gateway is blocked with a clear error naming the conflicting profile. This applies to the configured Weixin, QQBot, DingTalk, Telegram, WhatsApp, and Email identities.
 
 ### Persistent services
 

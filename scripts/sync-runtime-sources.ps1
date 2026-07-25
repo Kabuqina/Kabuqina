@@ -159,6 +159,16 @@ foreach ($name in $coreKeep) {
     }
 }
 
+# The full bundle owns locked Node dependency installation. Fast source sync
+# updates the retained WhatsApp bridge code without deleting its bundled
+# node_modules tree.
+$whatsappBridgeSource = Join-Path $coreSource "scripts\whatsapp-bridge"
+$whatsappBridgeDest = Join-Path $coreDest "scripts\whatsapp-bridge"
+New-Item -ItemType Directory -Force -Path $whatsappBridgeDest | Out-Null
+foreach ($name in @("bridge.js", "allowlist.js", "allowlist.test.mjs", "package.json", "package-lock.json")) {
+    Copy-Item -Force (Join-Path $whatsappBridgeSource $name) (Join-Path $whatsappBridgeDest $name)
+}
+
 $runtimeDrop = @(
     "gateway\platforms\api_server.py",
     "gateway\platforms\bluebubbles.py",

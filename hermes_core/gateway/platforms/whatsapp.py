@@ -374,25 +374,18 @@ class WhatsAppAdapter(BasePlatformAdapter):
             logger.warning("[%s] Could not acquire session lock (non-fatal): %s", self.name, e)
 
         try:
-            # Auto-install npm dependencies if node_modules doesn't exist
+            # Release bundles stage the lock-resolved bridge dependencies at
+            # build time. Runtime network installs are deliberately forbidden:
+            # they are non-deterministic, mutate the signed app payload, and
+            # make an offline desktop start unexpectedly reach npm/GitHub.
             bridge_dir = bridge_path.parent
             if not (bridge_dir / "node_modules").exists():
-                print(f"[{self.name}] Installing WhatsApp bridge dependencies...")
-                try:
-                    install_result = subprocess.run(
-                        ["npm", "install", "--silent"],
-                        cwd=str(bridge_dir),
-                        capture_output=True,
-                        text=True,
-                        timeout=60,
-                    )
-                    if install_result.returncode != 0:
-                        print(f"[{self.name}] npm install failed: {install_result.stderr}")
-                        return False
-                    print(f"[{self.name}] Dependencies installed")
-                except Exception as e:
-                    print(f"[{self.name}] Failed to install dependencies: {e}")
-                    return False
+                logger.error(
+                    "[%s] Bundled WhatsApp bridge dependencies are missing: %s",
+                    self.name,
+                    bridge_dir / "node_modules",
+                )
+                return False
 
             # Ensure session directory exists
             self._session_path.mkdir(parents=True, exist_ok=True)

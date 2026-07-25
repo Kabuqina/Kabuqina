@@ -80,8 +80,9 @@ approval bridge**: every command is shown to the user in a native Windows
 dialog before it runs. There is no "always allow" — every command is
 re-confirmed.
 
-**Gateway toolset lock:** All gateway platform toolset keys (``telegram``,
-``weixin``, ``discord``, etc.) are forced to the non-power-user keep-list
+**Gateway toolset lock:** All retained gateway platform toolset keys
+(``weixin``, ``qqbot``, ``dingtalk``, ``telegram``, ``whatsapp``, ``email``)
+are forced to the non-power-user keep-list
 regardless of the toggle. See ``default_toolset.py`` and
 ``ToolPolicy.gateway_keep_list()``.
 
