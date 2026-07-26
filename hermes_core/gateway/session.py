@@ -17,7 +17,7 @@ import uuid
 from pathlib import Path
 from datetime import datetime, timedelta
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Union
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +67,29 @@ from .whatsapp_identity import (
 from utils import atomic_replace
 
 
+@dataclass(frozen=True)
+class PersistedPlatformValue:
+    """Opaque platform token read from history, never a live adapter identity.
+
+    Runtime registration remains closed. This value exists only so an older or
+    plugin-created session can be listed, exported and deleted without losing
+    its original ``origin.platform`` text or coercing it to ``local``.
+    """
+
+    value: str
+
+
+SessionPlatform = Union[Platform, PersistedPlatformValue]
+
+
+def _persisted_platform(value: Any) -> SessionPlatform:
+    raw = str(value or "").strip().lower()
+    try:
+        return Platform(raw)
+    except ValueError:
+        return PersistedPlatformValue(raw or "unknown")
+
+
 @dataclass
 class SessionSource:
     """
@@ -77,7 +100,7 @@ class SessionSource:
     2. Inject context into the system prompt
     3. Track origin for cron job delivery
     """
-    platform: Platform
+    platform: SessionPlatform
     chat_id: str
     chat_name: Optional[str] = None
     chat_type: str = "dm"  # "dm", "group", "channel", "thread"
@@ -97,6 +120,8 @@ class SessionSource:
         """Human-readable description of the source."""
         if self.platform == Platform.LOCAL:
             return "CLI terminal"
+        if isinstance(self.platform, PersistedPlatformValue):
+            return f"Historical unavailable channel ({self.platform.value})"
         
         parts = []
         if self.chat_type == "dm":
@@ -139,7 +164,7 @@ class SessionSource:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "SessionSource":
         return cls(
-            platform=Platform(data["platform"]),
+            platform=_persisted_platform(data.get("platform")),
             chat_id=str(data["chat_id"]),
             chat_name=data.get("chat_name"),
             chat_type=data.get("chat_type", "dm"),
@@ -339,7 +364,7 @@ class SessionEntry:
     
     # Display metadata
     display_name: Optional[str] = None
-    platform: Optional[Platform] = None
+    platform: Optional[SessionPlatform] = None
     chat_type: str = "dm"
     
     # Token tracking
@@ -420,12 +445,7 @@ class SessionEntry:
         if "origin" in data and data["origin"]:
             origin = SessionSource.from_dict(data["origin"])
         
-        platform = None
-        if data.get("platform"):
-            try:
-                platform = Platform(data["platform"])
-            except ValueError as e:
-                logger.debug("Unknown platform value %r: %s", data["platform"], e)
+        platform = _persisted_platform(data["platform"]) if data.get("platform") else None
 
         last_resume_marked_at = None
         _lrma = data.get("last_resume_marked_at")

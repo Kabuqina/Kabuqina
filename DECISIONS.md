@@ -1219,3 +1219,27 @@ single owner `build_bundle.ps1 -Verify` run and profile-isolated real-account
 smoke for all six retained adapters remain explicit pending evidence. Legacy
 credential/profile/session/job/home cleanup remains C07, and installer,
 advisory, redistributed-license and final release approval remain G01/Q.
+
+**CTL-C07 explicit legacy-channel cleanup (2026-07-26).** v0.4 messaging
+state is never silently mapped to a retained channel. Removed and unknown cron
+targets remain raw, visible records and are labelled unavailable; non-delivery
+edits and deletion remain possible, while execution continues through the
+existing `unsupported_delivery` preflight. Unknown historical session platform
+tokens are represented by an opaque persistence-only value instead of being
+coerced to `local` or dynamically registered as a live `Platform`.
+
+The desktop exposes one bounded legacy-data boundary. Inventory returns names,
+paths and counts but no secret values. Cleanup requires an immediately
+verifiable, content-addressed local export and the exact confirmation token;
+an incomplete export or malformed JSON record fails before any rewrite.
+Only the frozen exact env-key list, removed entries under known config/channel
+maps, removed pairing rate-limit keys and a finite exact-file list can change.
+Production cleanup contains no directory walk or recursive deletion. Jobs,
+sessions, media, unknown files and old profile directories remain user-owned.
+Legacy `QQ_HOME_CHANNEL{,_NAME}` values copy to their `QQBOT_` canonical keys
+only during this explicit action and only when the canonical key is absent;
+no other removed platform receives a replacement destination.
+
+The v0.4 source fixture proves this source-level contract. Official installed
+v0.4 → v0.5 update execution, final artifact provenance and uninstall behavior
+remain CTL-G01/Q and are not claimed by C07.

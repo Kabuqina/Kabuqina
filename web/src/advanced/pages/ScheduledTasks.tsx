@@ -19,6 +19,7 @@ interface CronJobEntry {
   schedule: string;
   prompt: string;
   deliver: string;
+  deliveryUnavailable: boolean;
   paused: boolean;
   nextRunAt: string | null;
   lastRunAt: string | null;
@@ -364,6 +365,11 @@ export function ScheduledTasksPage() {
             <span className="font-medium">{t("cron.deliver")}:</span>{" "}
             {formatDeliverLabel(job.deliver, t)}
           </p>
+          {job.deliveryUnavailable && (
+            <p className="mt-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+              {t("cron.unsupportedDelivery")}
+            </p>
+          )}
           {job.lastDeliveryError && (
             <p className="mt-0.5 text-xs text-rose-600 dark:text-rose-400">
               <span className="font-medium">{t("cron.deliveryError")}:</span>{" "}

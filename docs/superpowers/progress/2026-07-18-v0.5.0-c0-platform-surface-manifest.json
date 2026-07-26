@@ -13498,6 +13498,7 @@
         "email",
         "qqbot",
         "telegram",
+        "wecom_family",
         "weixin",
         "whatsapp"
       ],
@@ -13508,6 +13509,7 @@
         "surface_known_gaps.email",
         "surface_known_gaps.qqbot",
         "surface_known_gaps.telegram",
+        "surface_known_gaps.wecom_family",
         "surface_known_gaps.weixin",
         "surface_known_gaps.whatsapp"
       ]

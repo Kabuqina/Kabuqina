@@ -1,0 +1,14 @@
+{
+  "source": "v0.4.0 source-contract characterization",
+  "files": {
+    ".env": "FEISHU_APP_ID=cli_old\nFEISHU_APP_SECRET=secret_old\nQQ_HOME_CHANNEL=qq-old-home\nTELEGRAM_BOT_TOKEN=telegram-keep\n",
+    "config.yaml": "platforms:\n  feishu:\n    enabled: true\n  weixin:\n    enabled: true\nllm:\n  provider: keep\n",
+    "gateway.json": "{\"platforms\":{\"wecom\":{\"enabled\":true},\"weixin\":{\"enabled\":true}}}",
+    "channel_directory.json": "{\"updated_at\":\"2026-01-01\",\"platforms\":{\"slack\":[{\"id\":\"C01\",\"name\":\"old\"}],\"telegram\":[{\"id\":\"1\",\"name\":\"keep\"}]}}",
+    "cron/jobs.json": "{\"jobs\":[{\"id\":\"old-job\",\"name\":\"Old delivery\",\"deliver\":\"feishu:oc_old\"}]}",
+    "sessions/sessions.json": "{\"old-session\":{\"origin\":{\"platform\":\"retired_plugin\",\"chat_id\":\"opaque\"},\"platform\":\"retired_plugin\"}}",
+    "feishu_seen_message_ids.json": "[\"om_old\"]",
+    "profiles/discord/.env": "DISCORD_BOT_TOKEN=old-token\n",
+    "profiles/discord/sessions/old.jsonl": "{\"role\":\"user\",\"content\":\"history remains\"}\n"
+  }
+}
