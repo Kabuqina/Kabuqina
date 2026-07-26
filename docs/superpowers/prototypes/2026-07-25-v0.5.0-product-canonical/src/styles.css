@@ -2255,35 +2255,10 @@ p {
 }
 
 .brief-slip h1 {
-  margin: 4px 0 12px;
+  margin: 0;
   max-width: 620px;
   font-size: 23px;
   line-height: 1.35;
-}
-
-.brief-slip dl {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 26px;
-  margin: 0;
-}
-
-.brief-slip dl > div {
-  display: flex;
-  gap: 8px;
-  align-items: baseline;
-}
-
-.brief-slip dt {
-  color: var(--ink-soft);
-  font-size: 11px;
-}
-
-.brief-slip dd {
-  margin: 0;
-  color: var(--ink);
-  font-size: 12px;
-  font-weight: 700;
 }
 
 /* Planner：一张卡＝我要说的一件事，顺序就是结构 */
@@ -2425,26 +2400,7 @@ p {
   background: var(--purple-faint);
 }
 
-.brief-clarify {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 12px;
-  padding: 5px 9px;
-  border: 0;
-  border-radius: 6px;
-  color: var(--ink-soft);
-  background: transparent;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.brief-clarify:hover {
-  color: var(--purple);
-  background: var(--purple-faint);
-}
-
-/* Writer 不是地方，是动作：顺序定了才成件，这一步才选格式 */
+/* Writer 不是地方，是动作：顺序定了才装订，这一步才选格式 */
 .bind-bar {
   display: flex;
   align-items: center;

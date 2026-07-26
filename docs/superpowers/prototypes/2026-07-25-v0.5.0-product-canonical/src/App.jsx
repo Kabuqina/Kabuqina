@@ -1210,17 +1210,9 @@ function StudioDesk({
         {connected ? (
           <>
             {/* Brief：别在夹子最前面的一张便条，所有排序判断都要回到它 */}
+            {/* 标题本身已含受众与目的，不再另立字段；理清 Brief 走右下角那只杯子 */}
             <header className="brief-slip">
-              <span className="eyebrow">这次要做的</span>
               <h1>把“0/0 是未定式”讲给刚接触极限的同学</h1>
-              <dl>
-                <div><dt>受众</dt><dd>刚开始学极限的同学</dd></div>
-                <div><dt>完成标准</dt><dd>他们能自己说出 0/0 为什么只是信号</dd></div>
-              </dl>
-              <button className="brief-clarify" type="button" onClick={onOpenChat}>
-                <AppIcon icon={Coffee} size={14} />
-                和小娜一起理清
-              </button>
             </header>
 
             <div className="point-stack">
@@ -1306,12 +1298,10 @@ function StudioDesk({
                 按这个顺序做出来
                 <AppIcon icon={ArrowRight} />
               </button>
-              {/* 锁住时必须说清怎么解锁，用词与卡片上的按钮一致 */}
-              <span>
-                {pencilCount > 0
-                  ? `还有 ${pencilCount} 条要你定：要，还是抽走`
-                  : "形式到这一步才选"}
-              </span>
+              {/* 只在锁住时说话，并说清怎么解锁；用词与卡片上的按钮一致 */}
+              {pencilCount > 0 && (
+                <span>还有 {pencilCount} 条要你定：要，还是抽走</span>
+              )}
             </footer>
           </>
         ) : (
