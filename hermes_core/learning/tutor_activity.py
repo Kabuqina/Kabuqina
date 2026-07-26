@@ -115,23 +115,34 @@ def _snapshot(
 
 
 class TutorActivityService:
-    """B02 lifecycle service with a deliberately closed execution gate."""
+    """Public Tutor lifecycle service; execution remains injectable."""
 
-    def __init__(self, runtime_store: TutorRuntimeStore) -> None:
+    def __init__(self, runtime_store: TutorRuntimeStore, executor: Any = None) -> None:
         self.runtime_store = runtime_store
+        self.executor = executor
 
     def start(
         self, owner_id: str, body: Mapping[str, Any]
     ) -> LearningActivitySnapshotV1:
-        # Validate before readiness so malformed/public-owner requests never
-        # get disguised as transient availability failures.  Validation has no
-        # persistence side effects.
-        validate_start_request(
+        request = validate_start_request(
             body,
             owner_id=owner_id,
             activity_id=f"tact_{uuid.uuid4().hex}",
         )
-        raise TutorActivityNotReadyError()
+        if self.executor is None or request.key.activity_kind != "tutor":
+            raise TutorActivityNotReadyError()
+        from agent.graph_engine.tutor_ports import TutorProviderUnavailableError
+
+        try:
+            record = self.executor.start(request)
+        except TutorProviderUnavailableError as exc:
+            # Provider readiness is checked before create, so a 503 never
+            # leaves a row that pretends an executable Tutor exists.
+            raise TutorActivityNotReadyError() from exc
+        source = self.runtime_store.load_projection_source(record.key)
+        if source is None:
+            raise TutorActivityNotFoundError()
+        return _snapshot(*source)
 
     def resume(
         self,
@@ -146,7 +157,13 @@ class TutorActivityService:
         )
         if self.runtime_store.load_projection_source(key) is None:
             raise TutorActivityNotFoundError()
-        raise TutorActivityNotReadyError()
+        if self.executor is None or activity_kind != "tutor":
+            raise TutorActivityNotReadyError()
+        self.executor.resume(key, request)
+        source = self.runtime_store.load_projection_source(key)
+        if source is None:
+            raise TutorActivityNotFoundError()
+        return _snapshot(*source)
 
     def get(
         self,
