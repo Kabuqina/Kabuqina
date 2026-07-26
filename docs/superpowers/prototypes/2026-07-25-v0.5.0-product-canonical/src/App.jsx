@@ -1924,6 +1924,14 @@ function SettingsModal({ onClose, theme, onToggleTheme }) {
 
 function CardReviewModal({ onClose, onGrade }) {
   const [revealed, setRevealed] = useState(false);
+  const shownAt = useRef(Date.now());
+  const thinkingMs = useRef(null);
+
+  const reveal = () => {
+    thinkingMs.current = Date.now() - shownAt.current;
+    setRevealed(true);
+  };
+
   return (
     <ModalShell title="到安全节点后复习" eyebrow="本课卡片盒" onClose={onClose}>
       <section className="flashcard">
@@ -1934,19 +1942,32 @@ function CardReviewModal({ onClose, onGrade }) {
             因为 0/0 是未定式：不同函数都可能在代入时得到 0/0，但极限结果可能不同，需要继续分析。
           </p>
         ) : (
-          <button className="primary-action" type="button" onClick={() => setRevealed(true)}>
+          <button className="primary-action" type="button" onClick={reveal}>
             显示答案
           </button>
         )}
       </section>
       {revealed && (
-        <div className="grade-grid">
-          {["1 忘了", "2 困难", "3 记得", "4 熟练"].map((grade) => (
-            <button type="button" key={grade} onClick={() => onGrade(grade)}>
-              {grade}
+        <>
+          {/* 只问学习者能可靠回答的那一个问题：想起来了没有。
+              两个按钮等重——把"想起来了"做成主动作会诱导不诚实的自评，
+              调度器拿到的就是垃圾。难度不问，用翻面耗时去量。 */}
+          <div className="recall-grid">
+            <button type="button" onClick={() => onGrade("想起来了", thinkingMs.current)}>
+              想起来了
             </button>
-          ))}
-        </div>
+            <button type="button" onClick={() => onGrade("没想起来", thinkingMs.current)}>
+              没想起来
+            </button>
+          </div>
+          <button
+            className="too-easy"
+            type="button"
+            onClick={() => onGrade("太简单", thinkingMs.current)}
+          >
+            这张太简单了，别再常来
+          </button>
+        </>
       )}
     </ModalShell>
   );
@@ -2531,10 +2552,14 @@ export function App() {
         {overlay === "review-card" && (
           <CardReviewModal
             onClose={() => setOverlay(null)}
-            onGrade={(grade) => {
+            onGrade={(grade, thinkingMs) => {
               setReviewDone(true);
               setOverlay(null);
               setToast(`已记录：${grade}`);
+              // 难度是量出来的，不是问出来的；这里只在原型评审栏显示，不进产品界面
+              setProductStatus(
+                `Study · 复习记录「${grade}」，翻面耗时 ${(thinkingMs / 1000).toFixed(1)}s（难度信号来自实测，不来自自评）`,
+              );
             }}
           />
         )}

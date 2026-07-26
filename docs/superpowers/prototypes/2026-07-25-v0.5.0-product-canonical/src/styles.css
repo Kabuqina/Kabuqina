@@ -3401,19 +3401,44 @@ label.form-stack > span,
   line-height: 1.7;
 }
 
-.grade-grid {
+/* 两个等重按钮：把其中一个做成主动作会诱导不诚实的自评 */
+.recall-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-  margin-top: 10px;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
 }
 
-.grade-grid button {
-  min-height: 41px;
-  border: 1px solid var(--line-cool);
-  border-radius: 6px;
+.recall-grid button {
+  min-height: 46px;
+  border: 1px solid var(--purple-line);
+  border-radius: 7px;
+  color: var(--ink-strong);
   background: var(--surface);
+  font-size: 15px;
   font-weight: 700;
+}
+
+.recall-grid button:hover {
+  background: var(--purple-faint);
+}
+
+.too-easy {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 7px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--ink-soft);
+  background: transparent;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.too-easy:hover {
+  color: var(--purple);
+  background: var(--purple-faint);
 }
 
 .result-preview {
@@ -4011,9 +4036,6 @@ label.form-stack > span,
     grid-column: 1 / -1;
   }
 
-  .grade-grid {
-    grid-template-columns: 1fr 1fr;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

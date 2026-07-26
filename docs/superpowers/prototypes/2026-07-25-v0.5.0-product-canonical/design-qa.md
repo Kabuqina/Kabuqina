@@ -415,6 +415,31 @@ rebuild + browser re-verification; see the iteration log.
   proposal re-locks it, the stack index opens with provenance, spines stay distinct from the
   rail in dark, no horizontal overflow. `npm run build` and `npm run test:sites` (4/4) pass.
 
+### Iteration 15 — flashcard grading: four levels down to one honest question
+
+- Owner noticed the 1 忘了 / 2 困难 / 3 记得 / 4 熟练 row looked purposeless. It is not — SM-2
+  needs a grade to set the next interval, and the prototype merely toasted it. But the right
+  question was never "do we need grading", it was **"why four levels"**, and four is inherited
+  from Anki rather than designed.
+- The cost of four: the learner must make a *second* judgement after recalling — "was that 困难
+  or 记得?" — which is slow, low-confidence (people confuse *slow to recall* with *poorly known*),
+  and paid dozens of times a day. By this session's own standard it is also not a reconstruction
+  trace; it is an opinion about one.
+- Now two: **想起来了 / 没想起来**, the only judgement a learner can make reliably and instantly,
+  plus a low-emphasis 「这张太简单了，别再常来」 preserving the genuine "let this one go" need
+  without a third peer button.
+- **The two buttons are deliberately equal weight** — same fill, size, and border. Styling
+  「想起来了」 as the primary action would make it read as the good answer and pressure dishonest
+  self-report, and the scheduler would be fed garbage. Verified equal in the DOM.
+- **Difficulty is measured, not asked**: time from card shown to answer revealed is captured and
+  passed with the grade. It is a real behavioural signal, consistent with 「真实行为直接记录」,
+  and costs the learner nothing. It surfaces only in the prototype review rail, never in the
+  product UI.
+- Verified at 1280×900 and 390×844, light and dark: buttons compute identical styles, the
+  two-column layout holds at narrow, elapsed time is captured, no horizontal overflow. The old
+  `.grade-grid` rules (including its narrow override) are deleted. `npm run build` and
+  `npm run test:sites` (4/4) pass.
+
 ## Primary interactions tested
 
 - J1: empty first run → create course → enter Study.
