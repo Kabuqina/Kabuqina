@@ -264,6 +264,26 @@ class _RuntimeGraphServices:
             self._copy_persisted_budget(state, settled)
             self._persist_failed_node(state)
             raise
+        except Exception as exc:
+            # Client construction/import failures and non-conforming provider
+            # adapters still consume the durable reservation. Settle before
+            # returning a stable blocked reason; BaseException remains the
+            # intentional crash path and is reconciled to unknown on restart.
+            settled = self.store.settle_provider_attempt(
+                self.key,
+                attempt_id=reservation.attempt_id,
+                expected_revision=self.expected_revision,
+                status="failed",
+                actual_latency_ms=min(
+                    reservation.reserved_wall_ms,
+                    max(0, self._elapsed_ms()),
+                ),
+                reason_code="provider_unavailable",
+            )
+            self.expected_revision = settled.revision
+            self._copy_persisted_budget(state, settled)
+            self._persist_failed_node(state)
+            raise _TutorExecutionBlocked("provider_unavailable") from exc
         settled = self.store.settle_provider_attempt(
             self.key,
             attempt_id=reservation.attempt_id,
@@ -391,6 +411,8 @@ class TutorActivityExecutor:
         ),
         monotonic: Callable[[], float] = time.monotonic,
         utc_now: Callable[[], str] = _utc_now,
+        execution_started: Callable[[str], None] = lambda _execution_id: None,
+        execution_finished: Callable[[str], None] = lambda _execution_id: None,
     ) -> None:
         self.store = store
         self.resolver = resolver or TutorProviderResolver()
@@ -398,6 +420,8 @@ class TutorActivityExecutor:
         self.provider_factory = provider_factory
         self.monotonic = monotonic
         self.utc_now = utc_now
+        self.execution_started = execution_started
+        self.execution_finished = execution_finished
 
     def _run(
         self,
@@ -467,17 +491,21 @@ class TutorActivityExecutor:
         if not created:
             return record
         execution_id = f"texec_{uuid.uuid4().hex}"
-        claimed = self.store.claim_execution(
-            request.key,
-            expected_revision=record.revision,
-            execution_id=execution_id,
-        )
-        return self._run(
-            claimed,
-            segment_kind="start",
-            execution_id=execution_id,
-            binding=binding,
-        )
+        self.execution_started(execution_id)
+        try:
+            claimed = self.store.claim_execution(
+                request.key,
+                expected_revision=record.revision,
+                execution_id=execution_id,
+            )
+            return self._run(
+                claimed,
+                segment_kind="start",
+                execution_id=execution_id,
+                binding=binding,
+            )
+        finally:
+            self.execution_finished(execution_id)
 
     def resume(
         self, key: LearningActivityKeyV1, request: LearningActivityResumeV1
@@ -490,25 +518,29 @@ class TutorActivityExecutor:
             # checkpoint must not be left in a synthetic running state.
             validate_tutor_state(existing.checkpoint.state)
         execution_id = f"texec_{uuid.uuid4().hex}"
-        if request.mode == "answer":
-            claimed = self.store.claim_answer(
-                key,
-                expected_revision=request.expected_revision,
+        self.execution_started(execution_id)
+        try:
+            if request.mode == "answer":
+                claimed = self.store.claim_answer(
+                    key,
+                    expected_revision=request.expected_revision,
+                    execution_id=execution_id,
+                    interrupt_id=request.interrupt_id,
+                    answer=request.answer,
+                )
+            else:
+                claimed = self.store.claim_execution(
+                    key,
+                    expected_revision=request.expected_revision,
+                    execution_id=execution_id,
+                )
+            return self._run(
+                claimed,
+                segment_kind="resume",
                 execution_id=execution_id,
-                interrupt_id=request.interrupt_id,
-                answer=request.answer,
             )
-        else:
-            claimed = self.store.claim_execution(
-                key,
-                expected_revision=request.expected_revision,
-                execution_id=execution_id,
-            )
-        return self._run(
-            claimed,
-            segment_kind="resume",
-            execution_id=execution_id,
-        )
+        finally:
+            self.execution_finished(execution_id)
 
 
 __all__ = ["TutorActivityExecutor", "TutorGraphEngine"]

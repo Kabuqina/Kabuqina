@@ -109,3 +109,22 @@ def test_provider_plan_hash_excludes_credentials_and_is_stable() -> None:
     }
     assert len(plan.plan_hash) == 64
     assert plan.plan_hash == _plan().plan_hash
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "https://user:password@example.invalid/v1",
+        "https://example.invalid/v1?api_key=secret",
+        "https://example.invalid/v1?token=secret",
+        "file:///tmp/provider",
+    ],
+)
+def test_provider_plan_rejects_secret_bearing_or_non_http_endpoint(endpoint) -> None:
+    with pytest.raises(TutorContractError):
+        TutorProviderPlanV1(
+            provider_id="custom",
+            model_id="model-1",
+            api_mode="chat_completions",
+            endpoint_identity=endpoint,
+        )

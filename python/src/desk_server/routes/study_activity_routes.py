@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+import threading
 from typing import Any, Dict, Iterator, Optional
 
 from fastapi import APIRouter, HTTPException, Query
@@ -20,12 +21,33 @@ import learning_owner
 
 
 router = APIRouter()
+_LIVE_EXECUTIONS: set[str] = set()
+_LIVE_EXECUTIONS_LOCK = threading.Lock()
+
+
+def _execution_started(execution_id: str) -> None:
+    with _LIVE_EXECUTIONS_LOCK:
+        _LIVE_EXECUTIONS.add(execution_id)
+
+
+def _execution_finished(execution_id: str) -> None:
+    with _LIVE_EXECUTIONS_LOCK:
+        _LIVE_EXECUTIONS.discard(execution_id)
+
+
+def _live_execution_snapshot() -> set[str]:
+    with _LIVE_EXECUTIONS_LOCK:
+        return set(_LIVE_EXECUTIONS)
 
 
 def _build_tutor_executor(runtime_store: TutorRuntimeStore):
     from agent.graph_engine.tutor_engine import TutorActivityExecutor
 
-    return TutorActivityExecutor(runtime_store)
+    return TutorActivityExecutor(
+        runtime_store,
+        execution_started=_execution_started,
+        execution_finished=_execution_finished,
+    )
 
 
 @contextmanager
@@ -40,7 +62,13 @@ def _desktop_activity_service() -> Iterator[tuple[str, TutorActivityService]]:
                 learning_store.db_path == default_learning_db_path().resolve()
             ),
         )
-        yield learning_owner.desktop_owner_id(), TutorActivityService(
+        owner_id = learning_owner.desktop_owner_id()
+        # The set is process-local by design. After a desktop restart it is
+        # empty, so the first trusted activity request conservatively charges
+        # and interrupts abandoned running segments. Concurrent live requests
+        # in this process are preserved by their registered execution_id.
+        runtime_store.reconcile_abandoned(owner_id, _live_execution_snapshot())
+        yield owner_id, TutorActivityService(
             runtime_store,
             _build_tutor_executor(runtime_store),
         )
@@ -75,7 +103,7 @@ def _http_error(exc: Exception) -> HTTPException:
 
 
 @router.post("/api/desk/study/activity-runs")
-async def study_activity_start(body: Dict[str, Any]):
+def study_activity_start(body: Dict[str, Any]):
     try:
         with _desktop_activity_service() as (owner_id, service):
             return service.start(owner_id, body).to_public_dict()
@@ -128,7 +156,7 @@ async def study_activity_get(
 @router.post(
     "/api/desk/study/activity-runs/{activity_kind}/{activity_id}/resume"
 )
-async def study_activity_resume(
+def study_activity_resume(
     activity_kind: str,
     activity_id: str,
     body: Dict[str, Any],

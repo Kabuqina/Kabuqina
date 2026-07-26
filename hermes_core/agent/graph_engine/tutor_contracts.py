@@ -14,6 +14,7 @@ import copy
 from dataclasses import dataclass
 import hashlib
 from typing import Any, Literal, Mapping, TypedDict
+from urllib.parse import parse_qsl, urlsplit
 
 from learning.tutor_contract import (
     LearningActivityKeyV1,
@@ -120,7 +121,15 @@ class TutorProviderPlanV1:
         endpoint = _bounded_text(
             self.endpoint_identity, "endpoint_identity", maximum=2_048
         ).rstrip("/")
-        if "@" in endpoint or "api_key=" in endpoint.lower():
+        parsed = urlsplit(endpoint)
+        secret_query_keys = {"api_key", "apikey", "key", "token", "secret", "access_token"}
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+            or any(key.lower() in secret_query_keys for key, _value in parse_qsl(parsed.query))
+        ):
             raise TutorContractError("endpoint_identity must not contain credentials")
         object.__setattr__(self, "endpoint_identity", endpoint)
 

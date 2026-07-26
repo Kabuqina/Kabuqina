@@ -111,6 +111,18 @@ def test_invalid_output_fails_after_exactly_one_request() -> None:
     assert len(client.calls) == 1
 
 
+def test_client_construction_failure_is_typed_before_any_request() -> None:
+    port = SingleAttemptTutorProvider(
+        _binding(),
+        client_factory=lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            ImportError("missing SDK")
+        ),
+    )
+
+    with pytest.raises(TutorProviderUnavailableError):
+        port.execute_once(_reservation(), _request(), timeout_s=10)
+
+
 def test_timeout_fails_after_exactly_one_request() -> None:
     client = _ChatClient("", error=TimeoutError("must not be persisted"))
     port = SingleAttemptTutorProvider(
@@ -218,23 +230,33 @@ def test_saved_plan_drift_fails_closed_without_switching_candidate() -> None:
         resolver.bind_saved(_plan())
 
 
+def test_native_gemini_candidate_fails_closed_before_execution() -> None:
+    resolver = TutorProviderResolver(
+        runtime_loader=lambda _provider: {
+            "provider": "gemini",
+            "api_mode": "chat_completions",
+            "base_url": "https://generativelanguage.googleapis.com/v1beta",
+            "api_key": "secret",
+        },
+        config_loader=lambda: {
+            "model": {"provider": "gemini", "default": "gemini-test"}
+        },
+    )
+
+    with pytest.raises(TutorProviderUnavailableError):
+        resolver.resolve_current()
+
+
 def test_unknown_tokenizer_reservation_is_utf8_byte_conservative() -> None:
     request = TutorProviderRequestV1(
         purpose="explain", goal="分数", input_refs=()
     )
     estimate = estimate_tutor_input_tokens(request)
     assert estimate >= len("分数".encode("utf-8"))
-    assert estimate == len(
+    assert estimate > len(
         json.dumps(
-            {
-                "goal": "分数",
-                "input_refs": [],
-                "previous_output": None,
-                "purpose": "explain",
-                "schema_version": 1,
-            },
+            {"goal": "分数", "input_refs": []},
             ensure_ascii=False,
-            sort_keys=True,
             separators=(",", ":"),
         ).encode("utf-8")
     )

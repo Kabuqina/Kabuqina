@@ -23,6 +23,7 @@ from learning.tutor_contract import validate_start_request  # noqa: E402
 from agent.graph_engine.tutor_contracts import (  # noqa: E402
     TutorProviderPlanV1,
     TutorProviderResult,
+    new_tutor_state,
 )
 from agent.graph_engine.tutor_engine import TutorActivityExecutor  # noqa: E402
 from agent.graph_engine.tutor_ports import (  # noqa: E402
@@ -243,6 +244,66 @@ class StudyActivityRouteTests(unittest.TestCase):
             self.assertEqual(service.runtime_store.list(OWNER, "space-1", "tutor"), [])
         finally:
             service.close()
+
+    def test_route_reconciliation_preserves_live_execution_then_interrupts_abandoned(self):
+        from desk_server.routes import study_activity_routes
+
+        execution_id = "texec_live-route"
+        service = self._service()
+        try:
+            request = validate_start_request(
+                {
+                    "schema_version": 1,
+                    "space_id": "space-1",
+                    "activity_kind": "tutor",
+                    "idempotency_key": "live-route-1",
+                    "goal": "Learn quadratics",
+                    "input_refs": [],
+                },
+                owner_id=OWNER,
+                activity_id="activity-live",
+            )
+            plan = _Resolver().binding.plan
+            state = new_tutor_state(
+                request.key,
+                goal=request.goal,
+                input_refs=request.input_refs,
+                provider_plan=plan,
+            )
+            service.runtime_store.create(
+                request,
+                LearningCheckpointV1(request.key, 0, "created", state),
+                provider_plan_hash=plan.plan_hash,
+            )
+            service.runtime_store.claim_execution(
+                request.key,
+                expected_revision=0,
+                execution_id=execution_id,
+            )
+        finally:
+            service.close()
+
+        study_activity_routes._execution_started(execution_id)
+        try:
+            live = self.client.get(
+                "/api/desk/study/activity-runs/tutor/activity-live?space_id=space-1",
+                headers=self.headers(),
+            )
+            self.assertEqual(live.status_code, 200)
+            self.assertEqual(live.json()["status"], "running")
+        finally:
+            study_activity_routes._execution_finished(execution_id)
+
+        abandoned = self.client.get(
+            "/api/desk/study/activity-runs/tutor/activity-live?space_id=space-1",
+            headers=self.headers(),
+        )
+        self.assertEqual(abandoned.status_code, 200)
+        self.assertEqual(abandoned.json()["status"], "interrupted")
+        self.assertEqual(
+            abandoned.json()["revision"],
+            live.json()["revision"] + 1,
+        )
 
     def test_get_list_cancel_use_persisted_scoped_truth(self):
         self._seed()

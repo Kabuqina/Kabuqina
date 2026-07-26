@@ -56,9 +56,25 @@ class TutorProviderBinding:
 
 
 def _load_runtime(requested: str | None) -> Mapping[str, Any]:
-    from kabuqina_cli.runtime_provider import resolve_runtime_provider
+    from kabuqina_cli.runtime_provider import (
+        resolve_requested_provider,
+        resolve_runtime_provider,
+    )
 
-    return resolve_runtime_provider(requested=requested)
+    # ``resolve_requested_provider`` reads config/auth/env only.  OAuth
+    # providers whose usable inference credential may require a network mint
+    # are deliberately rejected before ``resolve_runtime_provider``; Tutor
+    # create is not allowed to hide a credential refresh HTTP request outside
+    # its durable attempt budget.
+    concrete = resolve_requested_provider(requested)
+    if concrete in {"nous", "minimax-oauth"}:
+        raise TutorProviderUnavailableError(
+            "Tutor requires an already-local single-attempt credential"
+        )
+    runtime = resolve_runtime_provider(requested=concrete)
+    if runtime.get("command"):
+        raise TutorProviderUnavailableError("Command providers are unsupported for Tutor")
+    return runtime
 
 
 def _load_config() -> Mapping[str, Any]:
@@ -110,6 +126,14 @@ class TutorProviderResolver:
             )
         except TutorContractError as exc:
             raise TutorProviderUnavailableError() from exc
+        if (
+            plan.provider_id == "gemini"
+            and "generativelanguage.googleapis.com" in plan.endpoint_identity.lower()
+            and not plan.endpoint_identity.lower().endswith("/openai")
+        ):
+            raise TutorProviderUnavailableError(
+                "Native Gemini transport is unsupported for Tutor v1"
+            )
         return TutorProviderBinding(plan=plan, api_key=api_key)
 
     def resolve_current(self) -> TutorProviderBinding:
@@ -136,14 +160,15 @@ class TutorProviderResolver:
 def estimate_tutor_input_tokens(request: TutorProviderRequestV1) -> int:
     """Unknown-tokenizer conservative reservation: canonical UTF-8 byte count."""
 
-    payload = {
-        "schema_version": request.schema_version,
-        "purpose": request.purpose,
-        "goal": request.goal,
-        "input_refs": list(request.input_refs),
-        "previous_output": request.previous_output,
-    }
-    return len(canonical_json_bytes(payload))
+    system, user = _prompt(request)
+    return len(
+        canonical_json_bytes(
+            [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ]
+        )
+    )
 
 
 def _prompt(request: TutorProviderRequestV1) -> tuple[str, str]:
@@ -251,9 +276,14 @@ class SingleAttemptTutorProvider:
         self._validate_reservation(reservation)
         if not isinstance(timeout_s, (int, float)) or not 0 < timeout_s <= 35:
             raise TutorProviderTimeoutError("Tutor provider timeout is invalid")
-        client = self._client_factory(
-            self.binding, timeout_s=float(timeout_s), max_retries=0
-        )
+        try:
+            client = self._client_factory(
+                self.binding, timeout_s=float(timeout_s), max_retries=0
+            )
+        except TutorProviderError:
+            raise
+        except Exception as exc:
+            raise TutorProviderUnavailableError() from exc
         system, user = _prompt(request)
         started = self._monotonic()
         try:

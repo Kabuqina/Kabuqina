@@ -70,11 +70,13 @@ def runtime(tmp_path):
     store.close()
 
 
-def _service(runtime, provider):
+def _service(runtime, provider, *, started=None, finished=None):
     executor = TutorActivityExecutor(
         runtime,
         resolver=_Resolver(),
         provider_factory=lambda _binding: provider,
+        execution_started=(started or (lambda _execution_id: None)),
+        execution_finished=(finished or (lambda _execution_id: None)),
     )
     return TutorActivityService(runtime, executor)
 
@@ -169,6 +171,18 @@ def test_provider_invalid_output_becomes_durable_blocked_terminal(runtime) -> No
     assert len(provider.calls) == 1
 
 
+def test_nonconforming_provider_error_is_settled_before_block(runtime) -> None:
+    provider = _Provider(error=ValueError("must not escape or remain reserved"))
+    service = _service(runtime, provider)
+
+    blocked = service.start("owner-1", _body())
+
+    assert blocked.status == "blocked"
+    assert blocked.terminal["reason_code"] == "provider_unavailable"
+    assert blocked.terminal["budget_summary"]["attempts_used"] == 1
+    assert runtime.list_attempts(blocked.key) == []
+
+
 def test_idempotent_start_returns_existing_activity_without_second_call(runtime) -> None:
     provider = _Provider()
     service = _service(runtime, provider)
@@ -185,7 +199,14 @@ def test_crash_after_reservation_is_unknown_and_recover_cannot_reissue(runtime) 
         pass
 
     provider = _Provider(error=SimulatedProcessCrash())
-    service = _service(runtime, provider)
+    started = []
+    finished = []
+    service = _service(
+        runtime,
+        provider,
+        started=started.append,
+        finished=finished.append,
+    )
 
     with pytest.raises(SimulatedProcessCrash):
         service.start("owner-1", _body())
@@ -195,6 +216,8 @@ def test_crash_after_reservation_is_unknown_and_recover_cannot_reissue(runtime) 
     [reserved] = runtime.list_attempts(running.key)
     assert reserved["status"] == "reserved"
     assert len(provider.calls) == 1
+    assert started == finished
+    assert len(started) == 1
 
     assert runtime.reconcile_abandoned("owner-1", set()) == 1
     interrupted = runtime.load(running.key)
