@@ -217,7 +217,7 @@ class QuizService:
             artifact = self._require_quiz(artifact_id)
 
         existing = {
-            row["item_id"]
+            row["item_id"]: row
             for row in self._ctx.list_items(
                 item_type=QUIZ_QUESTION_ITEM_TYPE,
                 artifact_id=artifact_id,
@@ -228,6 +228,12 @@ class QuizService:
         for index, question in enumerate(self._quiz_questions(artifact)):
             iid = _item_id(artifact_id, index)
             if iid in existing:
+                self._backfill_v04_provenance(
+                    existing[iid],
+                    question,
+                    artifact_id=artifact_id,
+                    artifact_version=int(artifact.get("version") or 1),
+                )
                 continue
             self._ctx.upsert_item(
                 item_id=iid,
@@ -243,6 +249,54 @@ class QuizService:
             )
             created += 1
         return {"artifact_id": artifact_id, "status": "active", "materialized": created}
+
+    def _backfill_v04_provenance(
+        self,
+        item: Dict[str, Any],
+        question: Dict[str, Any],
+        *,
+        artifact_id: str,
+        artifact_version: int,
+    ) -> None:
+        """Upgrade an exact v0.4 materialization without guessing grader truth."""
+        current = copy.deepcopy(item.get("state") or {})
+        if "artifact_version" in current or "grader_provenance" in current:
+            # Current or partially modified states are validated by Tutor. Never
+            # turn malformed provenance into trusted truth during activation.
+            return
+
+        created_at = current.get("createdAt")
+        if not isinstance(created_at, str) or not created_at:
+            raise ValueError("legacy quiz item has no stable creation time")
+        upgraded = self._initial_state(
+            question,
+            item_id=str(item["item_id"]),
+            artifact_id=artifact_id,
+            artifact_version=artifact_version,
+            now=created_at,
+        )
+        expected_v04 = copy.deepcopy(upgraded)
+        for field in (
+            "artifact_version",
+            "grader_provenance",
+            "hint_ladder",
+            "explanation_rubric",
+            "explanation_rubric_sha256",
+        ):
+            expected_v04.pop(field, None)
+        if current != expected_v04:
+            raise ValueError(
+                "legacy quiz item does not match the active artifact; "
+                "deterministic provenance was not added"
+            )
+        if not self._ctx.compare_and_update_item_state(
+            str(item["item_id"]),
+            current,
+            upgraded,
+        ):
+            raise ValueError(
+                "legacy quiz item changed during provenance migration; retry activation"
+            )
 
     def reject_quiz(self, artifact_id: str) -> Dict[str, Any]:
         artifact = self._require_quiz(artifact_id)

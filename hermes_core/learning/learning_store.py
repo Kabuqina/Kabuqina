@@ -1057,6 +1057,51 @@ class LearningStore:
 
     # ── activities ─────────────────────────────────────────────────────── #
 
+    def compare_and_update_item_state(
+        self,
+        owner_id: str,
+        space_id: str,
+        item_id: str,
+        expected_state: Dict[str, Any],
+        state: Dict[str, Any],
+        *,
+        operation_lease: Optional[OperationLease] = None,
+    ) -> bool:
+        """Replace one item state only while its decoded state is unchanged."""
+        _require(owner_id, "owner_id")
+        _require(space_id, "space_id")
+        _require(item_id, "item_id")
+        state_json = json.dumps(state or {}, ensure_ascii=False)
+        now = _now()
+
+        def _op(conn: sqlite3.Connection) -> bool:
+            row = conn.execute(
+                "SELECT item_type, state_json FROM learning_items WHERE owner_id=? "
+                "AND space_id=? AND item_id=?",
+                (owner_id, space_id, item_id),
+            ).fetchone()
+            if row is None:
+                raise KeyError(f"item {item_id!r} not found for owner/space")
+            if row["item_type"] == "whiteboard_working":
+                raise ContractError(
+                    "whiteboard_working must be written through WhiteboardService"
+                )
+            if json.loads(row["state_json"] or "{}") != (expected_state or {}):
+                return False
+            conn.execute(
+                "UPDATE learning_items SET state_json = ?, updated_at = ? "
+                "WHERE owner_id = ? AND space_id = ? AND item_id = ?",
+                (state_json, now, owner_id, space_id, item_id),
+            )
+            return True
+
+        return self._execute_write(
+            owner_id,
+            space_id,
+            _op,
+            operation_lease=operation_lease,
+        )
+
     def insert_activity(
         self,
         owner_id: str,

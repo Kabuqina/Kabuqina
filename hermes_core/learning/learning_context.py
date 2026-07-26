@@ -187,6 +187,20 @@ class LearningExecutionContext:
 
     # ── activities + migrations ────────────────────────────────────────── #
 
+    def compare_and_update_item_state(
+        self,
+        item_id: str,
+        expected_state: Dict[str, Any],
+        state: Dict[str, Any],
+    ) -> bool:
+        return self._store.compare_and_update_item_state(
+            self._owner_id,
+            self._require_space(),
+            item_id,
+            expected_state,
+            state,
+        )
+
     def record_activity(
         self,
         *,

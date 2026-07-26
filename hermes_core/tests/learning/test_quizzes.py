@@ -16,6 +16,8 @@ from learning.learning_index import LearningIndex
 from learning.learning_store import LearningStore
 from learning.output_writer import OutputWriter
 from learning.quizzes import QUIZ_ATTEMPT_ACTIVITY, QuizService
+from learning.tutor_contract import TutorContractError
+from learning.tutor_practice import TutorPracticeAdapter
 
 
 T0 = datetime(2026, 1, 1, tzinfo=timezone.utc)
@@ -482,7 +484,7 @@ def test_submit_result_exposes_pinned_outcome_provenance_without_hidden_truth(ct
     assert "options" not in result["grader_provenance"]
 
 
-def test_old_materialized_question_without_provenance_still_grades(ctx):
+def test_v04_materialized_question_is_backfilled_for_deterministic_tutor(ctx):
     artifact_id = _draft_quiz(ctx)
     service = QuizService(ctx, now=lambda: T0)
     service.activate_quiz(artifact_id)
@@ -492,14 +494,88 @@ def test_old_materialized_question_without_provenance_still_grades(ctx):
     state.pop("artifact_version")
     ctx.update_item_state(item["item_id"], state)
 
-    result = service.submit_attempt(
-        artifact_id,
-        {item["item_id"]: {"selected": [1]}},
-        item_ids=[item["item_id"]],
-    )["perQuestion"][0]
+    result = service.activate_quiz(artifact_id)
+    migrated = ctx.list_items(artifact_id=artifact_id)[0]["state"]
+    resolved = TutorPracticeAdapter(ctx).resolve_check(
+        artifact_id=artifact_id,
+        item_id=item["item_id"],
+    )
 
-    assert result["outcome"] == "correct"
-    assert result["grader_provenance"]["artifact_version"] == 1
+    assert result["materialized"] == 0
+    assert migrated["createdAt"] == state["createdAt"]
+    assert migrated["artifact_version"] == 1
+    assert migrated["grader_provenance"]["artifact_version"] == 1
+    assert resolved.check_spec.evaluation_mode == "deterministic"
+
+
+def test_v04_backfill_rejects_truth_drift_and_remains_untrusted(ctx):
+    artifact_id = _draft_quiz(ctx)
+    service = QuizService(ctx, now=lambda: T0)
+    service.activate_quiz(artifact_id)
+    item = ctx.list_items(artifact_id=artifact_id)[0]
+    state = dict(item["state"])
+    state.pop("grader_provenance")
+    state.pop("artifact_version")
+    state["prompt"] = "tampered prompt"
+    ctx.update_item_state(item["item_id"], state)
+
+    with pytest.raises(ValueError, match="does not match the active artifact"):
+        service.activate_quiz(artifact_id)
+    with pytest.raises(TutorContractError) as exc_info:
+        TutorPracticeAdapter(ctx).resolve_check(
+            artifact_id=artifact_id,
+            item_id=item["item_id"],
+        )
+
+    assert exc_info.value.reason_code == "source_untrusted"
+    unchanged = ctx.list_items(artifact_id=artifact_id)[0]["state"]
+    assert unchanged["prompt"] == "tampered prompt"
+    assert "grader_provenance" not in unchanged
+
+
+def test_v04_backfill_does_not_repair_partial_provenance(ctx):
+    artifact_id = _draft_quiz(ctx)
+    service = QuizService(ctx, now=lambda: T0)
+    service.activate_quiz(artifact_id)
+    item = ctx.list_items(artifact_id=artifact_id)[0]
+    state = dict(item["state"])
+    state.pop("grader_provenance")
+    ctx.update_item_state(item["item_id"], state)
+
+    assert service.activate_quiz(artifact_id)["materialized"] == 0
+    with pytest.raises(TutorContractError) as exc_info:
+        TutorPracticeAdapter(ctx).resolve_check(
+            artifact_id=artifact_id,
+            item_id=item["item_id"],
+        )
+
+    assert exc_info.value.reason_code == "source_untrusted"
+    assert "grader_provenance" not in ctx.list_items(artifact_id=artifact_id)[0][
+        "state"
+    ]
+
+
+def test_v04_backfill_fails_if_item_changes_before_atomic_write(ctx, monkeypatch):
+    artifact_id = _draft_quiz(ctx)
+    service = QuizService(ctx, now=lambda: T0)
+    service.activate_quiz(artifact_id)
+    item = ctx.list_items(artifact_id=artifact_id)[0]
+    state = dict(item["state"])
+    state.pop("grader_provenance")
+    state.pop("artifact_version")
+    ctx.update_item_state(item["item_id"], state)
+    monkeypatch.setattr(
+        LearningExecutionContext,
+        "compare_and_update_item_state",
+        lambda *_args: False,
+    )
+
+    with pytest.raises(ValueError, match="changed during provenance migration"):
+        service.activate_quiz(artifact_id)
+
+    unchanged = ctx.list_items(artifact_id=artifact_id)[0]["state"]
+    assert "artifact_version" not in unchanged
+    assert "grader_provenance" not in unchanged
 
 
 def test_code_grader_unavailable_is_not_recorded_as_wrong_answer(ctx, monkeypatch):

@@ -15,6 +15,7 @@ import threading
 import pytest
 
 from learning.learning_contract import ContractError
+from learning.learning_context import LearningExecutionContext
 from learning.learning_store import LearningStore
 from learning.operation_coordinator import LearningOperationInProgressError
 
@@ -42,7 +43,6 @@ def test_default_learning_db_acl_is_effective(tmp_path, monkeypatch):
     store.close()
 
     assert store_module.audit_default_learning_db_acl(db_path) is True
-from learning.learning_context import LearningExecutionContext
 
 
 V1_TABLES = {
@@ -464,6 +464,33 @@ def test_learning_items_are_owner_and_space_scoped(store):
     updated = store.list_items("owner-A", "space-1", item_type="flashcard")[0]
     assert updated["state"]["repetitions"] == 1
     assert updated["state"]["dueAt"].startswith("2026-01-02")
+
+
+def test_item_state_compare_and_update_is_atomic(store):
+    original = {"front": "q", "revision": 1}
+    store.upsert_item(
+        "owner-A",
+        "space-1",
+        item_id="card-cas",
+        item_type="flashcard",
+        state=original,
+    )
+
+    assert store.compare_and_update_item_state(
+        "owner-A",
+        "space-1",
+        "card-cas",
+        original,
+        {"front": "q", "revision": 2},
+    ) is True
+    assert store.compare_and_update_item_state(
+        "owner-A",
+        "space-1",
+        "card-cas",
+        original,
+        {"front": "q", "revision": 3},
+    ) is False
+    assert store.list_items("owner-A", "space-1")[0]["state"]["revision"] == 2
 
 
 # --------------------------------------------------------------------------- #
