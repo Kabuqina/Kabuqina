@@ -17,6 +17,8 @@ from learning.tutor_activity import (
 )
 from learning.tutor_contract import TutorConflictError, TutorContractError
 from learning.tutor_runtime_store import TutorRuntimeError, TutorRuntimeStore
+from learning.tutor_whiteboard import TutorWhiteboardPort
+from learning.whiteboard import WhiteboardService
 import learning_owner
 
 
@@ -95,6 +97,36 @@ def _desktop_activity_service() -> Iterator[tuple[str, TutorActivityService]]:
         learning_store.close()
 
 
+@contextmanager
+def _desktop_tutor_whiteboard(
+    space_id: str,
+) -> Iterator[tuple[str, TutorRuntimeStore, TutorWhiteboardPort]]:
+    learning_store = LearningStore()
+    runtime_store: TutorRuntimeStore | None = None
+    try:
+        runtime_store = TutorRuntimeStore(
+            learning_store.db_path.parent / "tutor_runtime.db",
+            coordinator=learning_store.coordinator,
+            secure_permissions=(
+                learning_store.db_path == default_learning_db_path().resolve()
+            ),
+        )
+        owner_id = learning_owner.desktop_owner_id()
+        runtime_store.reconcile_abandoned(owner_id, _live_execution_snapshot())
+        yield (
+            owner_id,
+            runtime_store,
+            TutorWhiteboardPort(
+                runtime_store,
+                WhiteboardService(learning_store, owner_id, space_id),
+            ),
+        )
+    finally:
+        if runtime_store is not None:
+            runtime_store.close()
+        learning_store.close()
+
+
 def _http_error(exc: Exception) -> HTTPException:
     if isinstance(exc, TutorActivityNotReadyError):
         status, code, message = 503, exc.reason_code, str(exc)
@@ -124,6 +156,33 @@ def _http_error(exc: Exception) -> HTTPException:
     )
 
 
+def _exact_body(body: Dict[str, Any], fields: set[str]) -> None:
+    if not isinstance(body, dict) or set(body) != fields:
+        raise TutorContractError("Tutor whiteboard request fields are invalid")
+
+
+def _whiteboard_error(
+    exc: Exception,
+    port: TutorWhiteboardPort,
+    key,
+) -> HTTPException:
+    error = _http_error(exc)
+    detail = dict(error.detail) if isinstance(error.detail, dict) else {}
+    try:
+        detail["fallback"] = port.fallback_projection(key)
+    except Exception:
+        pass
+    return HTTPException(status_code=error.status_code, detail=detail)
+
+
+def _whiteboard_key(owner_id: str, space_id: str, activity_id: str):
+    from learning.tutor_contract import LearningActivityKeyV1
+
+    return LearningActivityKeyV1(
+        owner_id, space_id, "tutor", activity_id
+    )
+
+
 @router.post("/api/desk/study/activity-runs")
 def study_activity_start(body: Dict[str, Any]):
     try:
@@ -131,6 +190,166 @@ def study_activity_start(body: Dict[str, Any]):
             return service.start(owner_id, body).to_public_dict()
     except Exception as exc:
         raise _http_error(exc) from exc
+
+
+def _tutor_whiteboard_call(
+    activity_id: str,
+    body: Dict[str, Any],
+    fields: set[str],
+    invoke,
+):
+    try:
+        _exact_body(body, fields)
+    except Exception as exc:
+        raise _http_error(exc) from exc
+    with _desktop_tutor_whiteboard(body["space_id"]) as (
+        owner_id,
+        _runtime,
+        port,
+    ):
+        key = _whiteboard_key(owner_id, body["space_id"], activity_id)
+        try:
+            return invoke(port, key)
+        except Exception as exc:
+            raise _whiteboard_error(exc, port, key) from exc
+
+
+@router.post(
+    "/api/desk/study/activity-runs/tutor/{activity_id}/whiteboard/preview"
+)
+def study_tutor_whiteboard_preview(activity_id: str, body: Dict[str, Any]):
+    return _tutor_whiteboard_call(
+        activity_id,
+        body,
+        {
+            "space_id",
+            "expected_tutor_revision",
+            "expected_working_revision",
+            "command_batch",
+        },
+        lambda port, key: port.preview(
+            key,
+            expected_tutor_revision=body["expected_tutor_revision"],
+            expected_working_revision=body["expected_working_revision"],
+            command_batch=body["command_batch"],
+        ),
+    )
+
+
+@router.post(
+    "/api/desk/study/activity-runs/tutor/{activity_id}/whiteboard/apply"
+)
+def study_tutor_whiteboard_apply(activity_id: str, body: Dict[str, Any]):
+    return _tutor_whiteboard_call(
+        activity_id,
+        body,
+        {
+            "space_id",
+            "expected_tutor_revision",
+            "expected_working_revision",
+            "command_batch",
+            "preview_sha256",
+            "idempotency_key",
+        },
+        lambda port, key: port.apply(
+            key,
+            expected_tutor_revision=body["expected_tutor_revision"],
+            expected_working_revision=body["expected_working_revision"],
+            command_batch=body["command_batch"],
+            preview_sha256=body["preview_sha256"],
+            idempotency_key=body["idempotency_key"],
+        ),
+    )
+
+
+@router.post(
+    "/api/desk/study/activity-runs/tutor/{activity_id}/whiteboard/snapshot"
+)
+def study_tutor_whiteboard_snapshot(activity_id: str, body: Dict[str, Any]):
+    return _tutor_whiteboard_call(
+        activity_id,
+        body,
+        {
+            "space_id",
+            "expected_tutor_revision",
+            "expected_working_revision",
+            "idempotency_key",
+        },
+        lambda port, key: port.snapshot(
+            key,
+            expected_tutor_revision=body["expected_tutor_revision"],
+            expected_working_revision=body["expected_working_revision"],
+            idempotency_key=body["idempotency_key"],
+        ),
+    )
+
+
+@router.post(
+    "/api/desk/study/activity-runs/tutor/{activity_id}/whiteboard/"
+    "snapshots/{artifact_id}/attach"
+)
+def study_tutor_whiteboard_attach(
+    activity_id: str, artifact_id: str, body: Dict[str, Any]
+):
+    return _tutor_whiteboard_call(
+        activity_id,
+        body,
+        {"space_id", "expected_tutor_revision", "idempotency_key"},
+        lambda port, key: port.attach(
+            key,
+            artifact_id,
+            expected_tutor_revision=body["expected_tutor_revision"],
+            idempotency_key=body["idempotency_key"],
+        ),
+    )
+
+
+@router.post(
+    "/api/desk/study/activity-runs/tutor/{activity_id}/whiteboard/"
+    "snapshots/{artifact_id}/recover"
+)
+def study_tutor_whiteboard_recover(
+    activity_id: str, artifact_id: str, body: Dict[str, Any]
+):
+    return _tutor_whiteboard_call(
+        activity_id,
+        body,
+        {
+            "space_id",
+            "expected_tutor_revision",
+            "expected_working_revision",
+            "idempotency_key",
+        },
+        lambda port, key: port.recover(
+            key,
+            artifact_id,
+            expected_tutor_revision=body["expected_tutor_revision"],
+            expected_working_revision=body["expected_working_revision"],
+            idempotency_key=body["idempotency_key"],
+        ),
+    )
+
+
+@router.post(
+    "/api/desk/study/activity-runs/tutor/{activity_id}/whiteboard/cancel"
+)
+def study_tutor_whiteboard_cancel(activity_id: str, body: Dict[str, Any]):
+    return _tutor_whiteboard_call(
+        activity_id,
+        body,
+        {
+            "space_id",
+            "expected_tutor_revision",
+            "expected_working_revision",
+            "idempotency_key",
+        },
+        lambda port, key: port.cancel(
+            key,
+            expected_tutor_revision=body["expected_tutor_revision"],
+            expected_working_revision=body["expected_working_revision"],
+            idempotency_key=body["idempotency_key"],
+        ),
+    )
 
 
 @router.get("/api/desk/study/activity-runs")

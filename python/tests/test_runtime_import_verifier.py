@@ -46,6 +46,7 @@ class RuntimeImportVerifierTests(unittest.TestCase):
             "learning.practice_evaluation",
             "learning.whiteboard_contract",
             "learning.whiteboard",
+            "learning.tutor_whiteboard",
         ):
             self.assertIn(module, text)
 

@@ -41,6 +41,7 @@ REQUIRED_IMPORTS = (
     "learning.practice_evaluation",
     "learning.whiteboard_contract",
     "learning.whiteboard",
+    "learning.tutor_whiteboard",
 )
 
 

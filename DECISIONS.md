@@ -1482,3 +1482,30 @@ restore/attach/canonical-JSON export/delete without accepting owner, file path,
 renderer or browser truth. There is no Web editor, canvas framework, PNG truth,
 package or bundle change in S-2. S-3 may consume only this validated scene and
 revision seam; S-1/S-4 remain dependency-bound.
+
+**CTL-B06 S-3 constrained Tutor whiteboard port (2026-07-26).** Tutor
+whiteboard mutation has one dedicated host port and no second activity graph.
+The exact v1 command batch allows at most 32 `put_element`/`delete_element`
+operations. Every element and the complete prospective scene pass the S-2
+allowlist; unknown fields/operations, duplicate targets, missing deletes,
+no-ops, external/executable content and quota overflow are rejected.
+
+Preview is a zero-write operation. Its canonical fingerprint binds the Tutor
+owner/space/activity and checkpoint revision to the whiteboard base/result
+revision, command hash and result scene hash. Apply must echo that fingerprint;
+under the shared cross-process write fence it rechecks both Tutor revision and
+whiteboard CAS before committing only `learning.db`. Exact retries use a
+stable idempotency identity derived from Tutor revision, caller key and command
+hash; command drift cannot replay. The port never advances Tutor checkpoint
+truth, so rejection preserves the whole checkpoint, including a previously
+claimed learner answer.
+
+Snapshot, attach, recover and whiteboard cancel are host-only lifecycle calls
+through the same fence and Tutor identity. Snapshot provenance explicitly pins
+the Tutor checkpoint revision; all operations reuse the Tutor activity id and
+S-2 lineage/evidence paths. Trusted Desktop API/Tauri commands accept no owner
+and return a sanitized readable Tutor output/check fallback on whiteboard
+failure. The existing provider response remains exact typed Markdown and has
+no canvas/JS/tool bypass; any later model proposal must enter through this
+versioned command port. No Web, scene, package, bundle or Gateway path changes
+in S-3.

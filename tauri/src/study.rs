@@ -374,6 +374,96 @@ pub async fn cmd_study_activity_cancel(
     .await
 }
 
+async fn tutor_whiteboard_action(
+    app: &AppHandle,
+    activity_id: &str,
+    suffix: &str,
+    body: Value,
+) -> Result<Value, DeskBridgeError> {
+    validate_activity_wire_id(activity_id)?;
+    crate::chat::desk_json_request_structured(
+        app,
+        reqwest::Method::POST,
+        &format!("/api/desk/study/activity-runs/tutor/{activity_id}/whiteboard/{suffix}"),
+        Some(body),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_tutor_whiteboard_preview(
+    app: AppHandle,
+    activity_id: String,
+    body: Value,
+) -> Result<Value, DeskBridgeError> {
+    tutor_whiteboard_action(&app, &activity_id, "preview", body).await
+}
+
+#[tauri::command]
+pub async fn cmd_study_tutor_whiteboard_apply(
+    app: AppHandle,
+    activity_id: String,
+    body: Value,
+) -> Result<Value, DeskBridgeError> {
+    tutor_whiteboard_action(&app, &activity_id, "apply", body).await
+}
+
+#[tauri::command]
+pub async fn cmd_study_tutor_whiteboard_snapshot(
+    app: AppHandle,
+    activity_id: String,
+    body: Value,
+) -> Result<Value, DeskBridgeError> {
+    tutor_whiteboard_action(&app, &activity_id, "snapshot", body).await
+}
+
+#[tauri::command]
+pub async fn cmd_study_tutor_whiteboard_cancel(
+    app: AppHandle,
+    activity_id: String,
+    body: Value,
+) -> Result<Value, DeskBridgeError> {
+    tutor_whiteboard_action(&app, &activity_id, "cancel", body).await
+}
+
+async fn tutor_whiteboard_snapshot_action(
+    app: &AppHandle,
+    activity_id: &str,
+    artifact_id: &str,
+    action: &str,
+    body: Value,
+) -> Result<Value, DeskBridgeError> {
+    validate_activity_wire_id(activity_id)?;
+    validate_structured_id(artifact_id)?;
+    tutor_whiteboard_action(
+        app,
+        activity_id,
+        &format!("snapshots/{artifact_id}/{action}"),
+        body,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_tutor_whiteboard_attach(
+    app: AppHandle,
+    activity_id: String,
+    artifact_id: String,
+    body: Value,
+) -> Result<Value, DeskBridgeError> {
+    tutor_whiteboard_snapshot_action(&app, &activity_id, &artifact_id, "attach", body).await
+}
+
+#[tauri::command]
+pub async fn cmd_study_tutor_whiteboard_recover(
+    app: AppHandle,
+    activity_id: String,
+    artifact_id: String,
+    body: Value,
+) -> Result<Value, DeskBridgeError> {
+    tutor_whiteboard_snapshot_action(&app, &activity_id, &artifact_id, "recover", body).await
+}
+
 #[tauri::command]
 pub async fn cmd_study_whiteboards(
     app: AppHandle,

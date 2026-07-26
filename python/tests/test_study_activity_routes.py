@@ -233,6 +233,93 @@ class StudyActivityRouteTests(unittest.TestCase):
             "study_activity_invalid_request",
         )
 
+    def test_tutor_whiteboard_preview_apply_and_failure_fallback(self):
+        service = self._service()
+        try:
+            LearningExecutionContext(service.learning_store, OWNER).create_space(
+                title="Algebra", space_id="space-1"
+            )
+        finally:
+            service.close()
+        started = self.client.post(
+            "/api/desk/study/activity-runs",
+            json={
+                "schema_version": 1,
+                "space_id": "space-1",
+                "activity_kind": "tutor",
+                "idempotency_key": "whiteboard-start-1",
+                "goal": "Explain a line",
+                "input_refs": [],
+            },
+            headers=self.headers(),
+        ).json()
+        element = {
+            "element_id": "e1",
+            "type": "text",
+            "x": 10,
+            "y": 20,
+            "tone": "ink",
+            "stroke_width": 1,
+            "width": 240,
+            "height": 50,
+            "content": "A bounded explanation",
+        }
+        command_batch = {
+            "schema_version": 1,
+            "commands": [{"op": "put_element", "element": element}],
+        }
+        common = {
+            "space_id": "space-1",
+            "expected_tutor_revision": started["revision"],
+            "expected_working_revision": 0,
+            "command_batch": command_batch,
+        }
+        base = (
+            f"/api/desk/study/activity-runs/tutor/{started['activity_id']}"
+            "/whiteboard"
+        )
+        preview = self.client.post(
+            f"{base}/preview", json=common, headers=self.headers()
+        )
+        self.assertEqual(preview.status_code, 200, preview.text)
+        applied = self.client.post(
+            f"{base}/apply",
+            json={
+                **common,
+                "preview_sha256": preview.json()["preview_sha256"],
+                "idempotency_key": "apply-1",
+            },
+            headers=self.headers(),
+        )
+        self.assertEqual(applied.status_code, 200, applied.text)
+        self.assertEqual(applied.json()["working"]["revision"], 1)
+
+        rejected = self.client.post(
+            f"{base}/preview",
+            json={
+                **common,
+                "expected_working_revision": 1,
+                "command_batch": {
+                    "schema_version": 1,
+                    "commands": [
+                        {
+                            "op": "put_element",
+                            "element": {**element, "content": "javascript:alert(1)"},
+                        }
+                    ],
+                },
+            },
+            headers=self.headers(),
+        )
+        self.assertEqual(rejected.status_code, 400, rejected.text)
+        fallback = rejected.json()["detail"]["fallback"]
+        self.assertEqual(fallback["tutor_revision"], started["revision"])
+        self.assertEqual(
+            fallback["latest_output"]["markdown"], "Initial explanation"
+        )
+        self.assertEqual(fallback["pending_interrupt"]["kind"], "learner_check")
+        self.assertNotIn("owner_id", str(rejected.json()))
+
     def test_deterministic_practice_route_uses_learning_store_truth(self):
         artifact_id, item_id = self._seed_practice()
         response = self.client.post(

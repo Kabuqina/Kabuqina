@@ -18,6 +18,7 @@ from typing import Any, Mapping, Sequence
 
 from learning.learning_contract import validate_envelope
 from learning.learning_store import LearningStore
+from learning.operation_coordinator import LearningOperationGuard
 from learning.whiteboard_contract import (
     MAX_WHITEBOARD_ACTIVITY_BYTES,
     MAX_WHITEBOARD_ENVELOPE_BYTES,
@@ -579,6 +580,7 @@ class WhiteboardService:
         expected_revision: int,
         idempotency_key: str,
         scene: Any,
+        coordination_guard: LearningOperationGuard | None = None,
     ) -> dict[str, Any]:
         activity_id = require_opaque_id(activity_id, "activity_id")
         lineage_id = require_opaque_id(lineage_id, "lineage_id")
@@ -609,9 +611,19 @@ class WhiteboardService:
                 source_artifact_id=None,
             )
 
-        return self.store._execute_write(self.owner_id, self.space_id, _op)
+        return self.store._execute_write(
+            self.owner_id,
+            self.space_id,
+            _op,
+            coordination_guard=coordination_guard,
+        )
 
-    def load_working(self, activity_id: str) -> dict[str, Any] | None:
+    def load_working(
+        self,
+        activity_id: str,
+        *,
+        coordination_guard: LearningOperationGuard | None = None,
+    ) -> dict[str, Any] | None:
         activity_id = require_opaque_id(activity_id, "activity_id")
 
         def _op(connection: sqlite3.Connection) -> dict[str, Any] | None:
@@ -629,7 +641,12 @@ class WhiteboardService:
                 },
             }
 
-        return self.store._execute_read(self.owner_id, self.space_id, _op)
+        return self.store._execute_read(
+            self.owner_id,
+            self.space_id,
+            _op,
+            coordination_guard=coordination_guard,
+        )
 
     def list_working(self, *, limit: int = 50) -> list[dict[str, Any]]:
         if type(limit) is not int or not 1 <= limit <= 50:
@@ -672,11 +689,17 @@ class WhiteboardService:
         activity_id: str,
         expected_working_revision: int,
         idempotency_key: str,
+        tutor_checkpoint_revision: int | None = None,
+        coordination_guard: LearningOperationGuard | None = None,
     ) -> dict[str, Any]:
         activity_id = require_opaque_id(activity_id, "activity_id")
         expected = _require_expected_revision(expected_working_revision)
         if expected == 0:
             raise WhiteboardContractError("snapshot requires a committed working state")
+        if tutor_checkpoint_revision is not None:
+            tutor_checkpoint_revision = _require_expected_revision(
+                tutor_checkpoint_revision
+            )
         idempotency_key = require_opaque_id(idempotency_key, "idempotency_key")
         artifact_id = _derived_id(
             "wbs", self.space_id, "snapshot", idempotency_key
@@ -697,6 +720,8 @@ class WhiteboardService:
                     ref.get("operation") != "snapshot"
                     or ref.get("activity_id") != activity_id
                     or ref.get("working_revision") != expected
+                    or ref.get("tutor_checkpoint_revision")
+                    != tutor_checkpoint_revision
                 ):
                     raise WhiteboardConflictError("whiteboard idempotency conflict")
                 return self._snapshot_summary(snapshot, replayed=True)
@@ -771,6 +796,7 @@ class WhiteboardService:
                             "activity_id": activity_id,
                             "request_sha256": request_sha256,
                             "working_revision": expected,
+                            "tutor_checkpoint_revision": tutor_checkpoint_revision,
                         }
                     ],
                     "payload": payload,
@@ -810,7 +836,12 @@ class WhiteboardService:
             ).fetchone()
             return self._snapshot_summary(_snapshot_from_row(row), replayed=False)
 
-        return self.store._execute_write(self.owner_id, self.space_id, _op)
+        return self.store._execute_write(
+            self.owner_id,
+            self.space_id,
+            _op,
+            coordination_guard=coordination_guard,
+        )
 
     @staticmethod
     def _snapshot_summary(
@@ -854,7 +885,12 @@ class WhiteboardService:
 
         return self.store._execute_read(self.owner_id, self.space_id, _op)
 
-    def get_snapshot(self, artifact_id: str) -> dict[str, Any]:
+    def get_snapshot(
+        self,
+        artifact_id: str,
+        *,
+        coordination_guard: LearningOperationGuard | None = None,
+    ) -> dict[str, Any]:
         artifact_id = require_opaque_id(artifact_id, "artifact_id")
 
         def _op(connection: sqlite3.Connection) -> dict[str, Any]:
@@ -867,7 +903,12 @@ class WhiteboardService:
                 raise KeyError("whiteboard snapshot is unavailable")
             return _snapshot_from_row(row)
 
-        return self.store._execute_read(self.owner_id, self.space_id, _op)
+        return self.store._execute_read(
+            self.owner_id,
+            self.space_id,
+            _op,
+            coordination_guard=coordination_guard,
+        )
 
     def restore_snapshot(
         self,
@@ -875,6 +916,7 @@ class WhiteboardService:
         *,
         expected_working_revision: int,
         idempotency_key: str,
+        coordination_guard: LearningOperationGuard | None = None,
     ) -> dict[str, Any]:
         artifact_id = require_opaque_id(artifact_id, "artifact_id")
         expected = _require_expected_revision(expected_working_revision)
@@ -912,10 +954,19 @@ class WhiteboardService:
                 source_artifact_id=artifact_id,
             )
 
-        return self.store._execute_write(self.owner_id, self.space_id, _op)
+        return self.store._execute_write(
+            self.owner_id,
+            self.space_id,
+            _op,
+            coordination_guard=coordination_guard,
+        )
 
     def attach_snapshot(
-        self, artifact_id: str, *, idempotency_key: str
+        self,
+        artifact_id: str,
+        *,
+        idempotency_key: str,
+        coordination_guard: LearningOperationGuard | None = None,
     ) -> dict[str, Any]:
         artifact_id = require_opaque_id(artifact_id, "artifact_id")
         idempotency_key = require_opaque_id(idempotency_key, "idempotency_key")
@@ -989,7 +1040,12 @@ class WhiteboardService:
             )
             return {"artifact_id": artifact_id, "status": "active", "replayed": False}
 
-        return self.store._execute_write(self.owner_id, self.space_id, _op)
+        return self.store._execute_write(
+            self.owner_id,
+            self.space_id,
+            _op,
+            coordination_guard=coordination_guard,
+        )
 
     def export_snapshot(self, artifact_id: str) -> dict[str, Any]:
         snapshot = self.get_snapshot(artifact_id)
@@ -1183,6 +1239,7 @@ class WhiteboardService:
         *,
         expected_revision: int,
         idempotency_key: str,
+        coordination_guard: LearningOperationGuard | None = None,
     ) -> dict[str, Any]:
         activity_id = require_opaque_id(activity_id, "activity_id")
         expected = _require_expected_revision(expected_revision)
@@ -1245,6 +1302,15 @@ class WhiteboardService:
             )
             return {"activity_id": activity_id, "deleted": True, "replayed": False}
 
+        if coordination_guard is not None:
+            result = self.store._execute_write(
+                self.owner_id,
+                self.space_id,
+                _op,
+                coordination_guard=coordination_guard,
+            )
+            self.store._compact_after_sensitive_delete()
+            return result
         with self.store.coordinator.begin_write(
             self.owner_id, self.space_id
         ) as guard:

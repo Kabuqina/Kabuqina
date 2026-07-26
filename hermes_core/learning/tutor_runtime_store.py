@@ -866,12 +866,14 @@ class TutorRuntimeStore:
         key: LearningActivityKeyV1,
         *,
         operation_lease: OperationLease | None = None,
+        coordination_guard: LearningOperationGuard | None = None,
     ) -> LearningActivityRecordV1 | None:
         return self._read(
             key.owner_id,
             key.space_id,
             lambda connection: self._record_by_key_tx(connection, key),
             operation_lease=operation_lease,
+            coordination_guard=coordination_guard,
         )
 
     def load_idempotent(
@@ -2004,6 +2006,7 @@ class TutorRuntimeStore:
         key: LearningActivityKeyV1,
         *,
         operation_lease: OperationLease | None = None,
+        coordination_guard: LearningOperationGuard | None = None,
     ) -> tuple[LearningActivityRecordV1, dict[str, Any]] | None:
         """Load checkpoint truth and run metadata in one coordinated snapshot."""
 
@@ -2021,6 +2024,7 @@ class TutorRuntimeStore:
             key.space_id,
             _op,
             operation_lease=operation_lease,
+            coordination_guard=coordination_guard,
         )
 
     def list_projection_sources(
