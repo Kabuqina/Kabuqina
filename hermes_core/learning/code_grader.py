@@ -254,6 +254,7 @@ def run_python_grading(
         )
     except (OSError, subprocess.SubprocessError, PermissionError) as exc:
         return {
+            "status": "unavailable",
             "passed": False,
             "failure_summary": f"Grader unavailable: {type(exc).__name__}",
             "timed_out": False,
@@ -265,6 +266,15 @@ def run_python_grading(
         and result["completed"]
     )
     return {
+        "status": (
+            "passed"
+            if passed
+            else "timeout"
+            if result["timed_out"]
+            else "unavailable"
+            if result["termination_failed"] or result["cleanup_leaked"]
+            else "failed"
+        ),
         "passed": passed,
         "failure_summary": "" if passed else _safe_failure_summary(result),
         "timed_out": result["timed_out"],

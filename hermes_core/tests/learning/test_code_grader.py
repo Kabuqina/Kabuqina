@@ -25,14 +25,17 @@ def test_python_grading_pass_fail_error_and_unicode():
     )
 
     assert passed == {
+        "status": "passed",
         "passed": True,
         "failure_summary": "",
         "timed_out": False,
         "truncated": False,
     }
     assert failed["passed"] is False
+    assert failed["status"] == "failed"
     assert failed["failure_summary"] == "AssertionError: expected two"
     assert errored["failure_summary"] == "ValueError: bad value"
+    assert errored["status"] == "failed"
 
 
 def test_clean_exit_before_tests_is_not_a_pass():
@@ -70,6 +73,7 @@ def test_python_grading_times_out_and_kills_child_tree(tmp_path):
 
     assert result["passed"] is False
     assert result["timed_out"] is True
+    assert result["status"] == "timeout"
     assert result["failure_summary"] == "Execution timed out"
     assert not marker.exists()
 

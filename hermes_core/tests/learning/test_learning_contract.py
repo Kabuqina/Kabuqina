@@ -573,6 +573,72 @@ def test_quiz_short_answer_accepted_list_is_valid():
     assert env.kind == "quiz"
 
 
+def test_quiz_question_accepts_versioned_hint_and_explanation_rubric():
+    question = {
+        "type": "short_answer",
+        "prompt": "Why?",
+        "answer": "definition",
+        "hint_ladder": {
+            "schema_version": 1,
+            "direction": "Start from the definition.",
+            "full_solution": "Apply the definition directly.",
+        },
+        "explanation_rubric": {
+            "schema_version": 1,
+            "criteria": [
+                {
+                    "criterion_id": "definition",
+                    "description": "Connect the result to the definition.",
+                    "tags": ["reasoning"],
+                }
+            ],
+        },
+    }
+
+    envelope = validate_envelope(_envelope("quiz", {"questions": [question]}))
+
+    assert envelope.payload["questions"][0]["hint_ladder"]["direction"]
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("hint_ladder", {"schema_version": 1}),
+        (
+            "hint_ladder",
+            {"schema_version": 1, "direction": "x", "answer": "leak"},
+        ),
+        (
+            "explanation_rubric",
+            {"schema_version": 1, "criteria": []},
+        ),
+        (
+            "explanation_rubric",
+            {
+                "schema_version": 1,
+                "criteria": [
+                    {
+                        "criterion_id": "c1",
+                        "description": "d",
+                        "tags": [],
+                        "passed": True,
+                    }
+                ],
+            },
+        ),
+    ],
+)
+def test_quiz_question_rejects_invalid_assistance_contract(field, value):
+    question = {
+        "type": "short_answer",
+        "prompt": "Why?",
+        "answer": "definition",
+        field: value,
+    }
+    with pytest.raises(ContractError):
+        validate_envelope(_envelope("quiz", {"questions": [question]}))
+
+
 @pytest.mark.parametrize(
     "question",
     [

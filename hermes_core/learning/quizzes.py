@@ -16,6 +16,14 @@ from typing import Any, Callable, Dict, List, Optional
 
 from learning.learning_context import LearningExecutionContext
 from learning.code_grader import check_numeric_equivalence, run_python_grading
+from learning.practice_contract import (
+    PracticeContractError,
+    build_grader_provenance,
+    explanation_rubric_hash,
+    validate_explanation_rubric,
+    validate_grader_provenance,
+    validate_hint_ladder,
+)
 
 QUIZ_QUESTION_ITEM_TYPE = "quiz_question"
 QUIZ_ATTEMPT_ACTIVITY = "quiz.attempt"
@@ -229,6 +237,7 @@ class QuizService:
                     question,
                     item_id=iid,
                     artifact_id=artifact_id,
+                    artifact_version=int(artifact.get("version") or 1),
                     now=now,
                 ),
             )
@@ -354,6 +363,7 @@ class QuizService:
         *,
         item_id: str,
         artifact_id: str,
+        artifact_version: int,
         now: str,
     ) -> Dict[str, Any]:
         qtype = question.get("type")
@@ -370,6 +380,7 @@ class QuizService:
             "tags": _clean_tags(question.get("tags")),
             "points": _points(question.get("points")),
             "createdAt": now,
+            "artifact_version": artifact_version,
         }
         if qtype == "true_false":
             state["answer"] = bool(question.get("answer"))
@@ -421,6 +432,27 @@ class QuizService:
                     ],
                 }
             )
+        try:
+            state["grader_provenance"] = build_grader_provenance(
+                state,
+                artifact_id=artifact_id,
+                artifact_version=artifact_version,
+                item_id=item_id,
+            )
+            if "hint_ladder" in question:
+                state["hint_ladder"] = validate_hint_ladder(
+                    question["hint_ladder"]
+                )
+            if "explanation_rubric" in question:
+                rubric = validate_explanation_rubric(
+                    question["explanation_rubric"]
+                )
+                state["explanation_rubric"] = rubric
+                state["explanation_rubric_sha256"] = explanation_rubric_hash(
+                    rubric
+                )
+        except PracticeContractError as exc:
+            raise ValueError(f"invalid Practice contract: {exc}") from exc
         return state
 
     def _question_from_item(self, row: Dict[str, Any], *, include_answers: bool) -> Dict[str, Any]:
@@ -433,6 +465,8 @@ class QuizService:
         if not include_answers:
             out.pop("answer", None)
             out.pop("accepted", None)
+            out.pop("hint_ladder", None)
+            out.pop("explanation_rubric", None)
             if out.get("type") == "code":
                 out.pop("reference", None)
                 out.pop("test_code", None)
@@ -476,6 +510,7 @@ class QuizService:
         gradable = True
         scored = True
         mode = ""
+        sandbox_status = ""
 
         if qtype == "choice":
             options = question.get("options") if isinstance(question.get("options"), list) else []
@@ -515,10 +550,13 @@ class QuizService:
                     part for part in (starter, learner_source) if part
                 )
                 result = run_python_grading(source, _clean_text(question.get("test_code"), MAX_CODE_TEXT))
+                sandbox_status = str(result.get("status") or "failed")
                 correct = result["passed"]
                 failure_summary = result["failure_summary"]
                 failure_kind = _failure_kind(failure_summary)
                 timed_out = result["timed_out"]
+                if sandbox_status in {"timeout", "unavailable"}:
+                    scored = False
             else:
                 gradable = False
                 scored = False
@@ -568,11 +606,29 @@ class QuizService:
                 elif index not in ungraded_steps:
                     ungraded_steps.append(index)
             normalized_response = {"steps": response_detail}
-            scored = graded_components > 0
+            scored = graded_components > 0 and not ungraded_steps
             ungraded = not scored
             correct = scored and failed_components == 0
 
         answer = question.get("answer")
+        provenance = question.get("grader_provenance")
+        try:
+            provenance = validate_grader_provenance(provenance)
+        except PracticeContractError:
+            provenance = build_grader_provenance(
+                question,
+                artifact_id=str(question.get("artifact_id") or ""),
+                artifact_version=int(question.get("artifact_version") or 1),
+                item_id=str(question.get("item_id") or ""),
+            )
+        if timed_out or sandbox_status == "timeout":
+            outcome = "timeout"
+        elif sandbox_status == "unavailable":
+            outcome = "sandbox_failure"
+        elif not gradable or not scored or ungraded:
+            outcome = "ungradable"
+        else:
+            outcome = "correct" if correct else "incorrect"
         earned = points if scored and correct else 0
         return {
             "item_id": question["item_id"],
@@ -589,6 +645,8 @@ class QuizService:
             "ungraded_steps": ungraded_steps,
             "failure_summary": failure_summary,
             "failure_kind": failure_kind,
+            "outcome": outcome,
+            "grader_provenance": provenance,
             "answer": answer,
             "accepted": question.get("accepted") or [],
             "explanation": question.get("explanation") or "",

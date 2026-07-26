@@ -21,6 +21,13 @@ import math
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Mapping
 
+from learning.practice_contract import (
+    PracticeContractError,
+    validate_explanation_rubric,
+    validate_hint_ladder,
+    validate_practice_evaluation_record,
+)
+
 
 # --------------------------------------------------------------------------- #
 # Frozen vocabulary — the ONLY source of these values.
@@ -393,6 +400,13 @@ def _v_quiz(p: Mapping[str, Any]) -> None:
         _req_str(qm, "prompt", ctx)
         _QUIZ_TYPE_VALIDATORS[qtype](qm, ctx)
         _opt_str(qm, "explanation", ctx)
+        try:
+            if "hint_ladder" in qm:
+                validate_hint_ladder(qm["hint_ladder"])
+            if "explanation_rubric" in qm:
+                validate_explanation_rubric(qm["explanation_rubric"])
+        except PracticeContractError as exc:
+            raise ContractError(f"{ctx}: {exc}") from exc
 
 
 def _v_tutoring_note(p: Mapping[str, Any]) -> None:
@@ -409,6 +423,11 @@ def _v_evaluation(p: Mapping[str, Any]) -> None:
     _opt_str_list(p, "observations", "evaluation")
     _opt_str_list(p, "weak_points", "evaluation")
     _opt_str_list(p, "suggestions", "evaluation")
+    if "practice_evaluation" in p:
+        try:
+            validate_practice_evaluation_record(p["practice_evaluation"])
+        except PracticeContractError as exc:
+            raise ContractError(f"evaluation: {exc}") from exc
     refs = p.get("evidence_refs")
     if refs is None:
         return
