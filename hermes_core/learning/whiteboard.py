@@ -783,22 +783,22 @@ class WhiteboardService:
                     "scene_sha256": working["scene_sha256"],
                 }
             )
+            source_ref = {
+                "origin": "whiteboard",
+                "operation": "snapshot",
+                "activity_id": activity_id,
+                "request_sha256": request_sha256,
+                "working_revision": expected,
+            }
+            if tutor_checkpoint_revision is not None:
+                source_ref["tutor_checkpoint_revision"] = tutor_checkpoint_revision
             envelope = validate_envelope(
                 {
                     "version": 1,
                     "kind": "whiteboard_snapshot",
                     "space_id": self.space_id,
                     "title": f"Whiteboard snapshot {revision}",
-                    "source_refs": [
-                        {
-                            "origin": "whiteboard",
-                            "operation": "snapshot",
-                            "activity_id": activity_id,
-                            "request_sha256": request_sha256,
-                            "working_revision": expected,
-                            "tutor_checkpoint_revision": tutor_checkpoint_revision,
-                        }
-                    ],
+                    "source_refs": [source_ref],
                     "payload": payload,
                     "review": {"mode": "deterministic", "status": "passed"},
                 }
