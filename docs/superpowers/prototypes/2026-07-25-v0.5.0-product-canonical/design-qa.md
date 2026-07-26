@@ -383,6 +383,38 @@ rebuild + browser re-verification; see the iteration log.
   registered in `docs/superpowers/plans/2026-07-25-v0.5.0-materiality-vocabulary.md` — the
   prototype alone cannot tell a reader that a dashed border means "carbon copy".
 
+### Iteration 14 — planner review as pencil cards; 书堆 for course materials
+
+- **Planner review.** The existing 0.4.0 interaction (`review_outline` in
+  `hermes_core/tools/user_interaction_tool.py`) hands the whole outline over as one Markdown
+  blob with 通过 / 补充要求 / 自行编辑 — all-or-nothing, nothing manipulable. Replaced with
+  per-card participation: Nana's proposals arrive as **pencil cards** (dashed, lavender, hollow
+  order number, muted text) carrying 落墨 / 改写 / 抽走; only inked cards join the sequence, and
+  inked cards are the only ones that get reorder arrows. Binding is **disabled while any pencil
+  card remains** ("还有 N 张铅笔卡要你过目") — you cannot bind an outline nobody confirmed.
+  「让小娜再拟几条」 adds more proposals, still in pencil, which re-locks binding. This reuses
+  Study's pencil/ink law rather than inventing a second review language, and it gives
+  「内容是小娜制作，项目是用户参与的」 a concrete shape. The Brief gained 「和小娜一起理清」,
+  covering review_outline's 补充要求 path. Nothing on the cards is format-specific.
+- **Dark-theme token fix found while verifying.** Pencil and ink cards were nearly identical in
+  dark (`rgb(59,49,69)` vs `rgb(58,52,64)` — 5/255 on the widest channel), because low-lightness
+  surfaces swallow hue shifts. `--purple-faint` dark went `#3B3145 → #413352`, widening the blue
+  channel delta to 18. This is not a Studio-only fix: `.study-sheet--pencil` uses the same token,
+  so **Study's pencil draft had the same defect in dark mode** and is fixed too.
+- **书堆.** Course materials return as **standing spines** in the Study right rail, with
+  vertical Chinese text (which is how real Chinese spines are set). Measured 30×96 — it stands
+  up. The point is posture: 参考书立着（需要时抽一本），笔记本摊开着（天天写）. Deliberately not
+  a browsable knowledge base — that is the most seductive input-accumulation surface and it
+  fails the delete test. Its Learning Index is a foldout labelled 「这些书里有什么」 with
+  per-entry provenance, matching how Studio's Material Index is treated one layer over.
+  Absent in 杂记本, which has no course materials.
+- Narrow: the review rail is hidden at ≤860px, which would have made the stack unreachable, so
+  the narrow tool bar is now 参考 / 卡片 / 小娜 (dropping to just 小娜 in 杂记本).
+- Verified at 1280×900 and 390×844, light and dark: inking moves a card into the sequence and
+  decrements the counter, discarding removes it, clearing all pencil unlocks binding, a new
+  proposal re-locks it, the stack index opens with provenance, spines stay distinct from the
+  rail in dark, no horizontal overflow. `npm run build` and `npm run test:sites` (4/4) pass.
+
 ## Primary interactions tested
 
 - J1: empty first run → create course → enter Study.

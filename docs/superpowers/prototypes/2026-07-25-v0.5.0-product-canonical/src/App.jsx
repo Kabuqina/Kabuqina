@@ -51,11 +51,13 @@ const COURSE_BOOKS = [
 ];
 
 // 杂记本＝留白：不催、不计数、不安排；归本是安静的可选动作
-// Planner 层：一张卡＝我要说的一件事，素材作为依据挂在它下面
+// Planner 层：一张卡＝我要说的一件事，素材作为依据挂在它下面。
+// 小娜拟的以铅笔出现，落墨后才进入顺序——内容她做，项目你参与。
 const INITIAL_POINTS = [
-  { id: "p1", say: "直接代入会得到 0/0", backing: "教材 §2.3" },
-  { id: "p2", say: "0/0 不是一个数，是“还要继续分析”的信号", backing: "教材 §2.3" },
-  { id: "p3", say: "所以要先化简，再求极限", backing: null },
+  { id: "p1", say: "直接代入会得到 0/0", backing: "教材 §2.3", state: "ink" },
+  { id: "p2", say: "0/0 不是一个数，是“还要继续分析”的信号", backing: "教材 §2.3", state: "ink" },
+  { id: "p3", say: "所以要先化简，再求极限", backing: null, state: "pencil" },
+  { id: "p4", say: "用可约因子的例子走一遍", backing: "教材 §2.3 例题", state: "pencil" },
 ];
 
 const INITIAL_SCRATCH_NOTES = [
@@ -741,9 +743,54 @@ function StudyNotebook({
   );
 }
 
-function ReviewCards({ hasCourse, isScratch, onReview, reviewDone, onAsk }) {
+function ReviewCards({
+  hasCourse,
+  isScratch,
+  onReview,
+  reviewDone,
+  onAsk,
+  onOpenBook,
+  stackIndexOpen,
+  onToggleStackIndex,
+}) {
   return (
-    <aside className="desk-rail desk-rail--review" aria-label="复习卡片与小娜">
+    <aside className="desk-rail desk-rail--review" aria-label="本课参考、卡片与小娜">
+      {/* 书堆：参考书立着（需要时抽一本），笔记本摊开着（天天写）。
+          刻意不是一个可浏览的知识库空间。 */}
+      {!isScratch && hasCourse && (
+        <section className="book-stack">
+          <h2>本课参考</h2>
+          <div className="spines">
+            <button className="book-spine" type="button" onClick={() => onOpenBook("教材 §2.3")}>
+              教材 §2.3
+            </button>
+            <button className="book-spine" type="button" onClick={() => onOpenBook("习题集 p.41")}>
+              习题集 p.41
+            </button>
+            <button
+              className="book-spine book-spine--add"
+              type="button"
+              aria-label="放一本进来"
+              onClick={() => onOpenBook(null)}
+            >
+              ＋
+            </button>
+          </div>
+          {/* Learning Index 与 Studio 的 Material Index 同层，因此同样待遇：
+              贴在书堆上的目录，可翻开核对，不占入口 */}
+          <button className="stack-index" type="button" onClick={onToggleStackIndex}>
+            <AppIcon icon={FileText} size={13} />
+            这些书里有什么
+          </button>
+          {stackIndexOpen && (
+            <ul className="stack-index-list">
+              <li>极限的运算法则 <span>教材 §2.3</span></li>
+              <li>可约因子的例题 <span>教材 §2.3</span></li>
+              <li>未定式练习 6 题 <span>习题集 p.41</span></li>
+            </ul>
+          )}
+        </section>
+      )}
       {!isScratch && (
         <section className="desk-card review-card">
           <h2>
@@ -855,8 +902,17 @@ function StudyDesk(props) {
         onReview={props.onReview}
         reviewDone={props.reviewDone}
         onAsk={props.onAsk}
+        onOpenBook={props.onOpenBook}
+        stackIndexOpen={props.stackIndexOpen}
+        onToggleStackIndex={props.onToggleStackIndex}
       />
       <nav className="narrow-desk-tools" aria-label="窄窗书桌工具">
+        {!isScratch && props.hasCourse && (
+          <button type="button" onClick={() => props.onOpenBook("本课参考")}>
+            <AppIcon icon={Layers3} />
+            参考
+          </button>
+        )}
         {!isScratch && (
           <button type="button" onClick={props.onReview}>
             <AppIcon icon={Inbox} />
@@ -1118,9 +1174,13 @@ function StudioDesk({
   onToast,
   points,
   onMovePoint,
+  onInkPoint,
+  onDropPoint,
+  onAskDraft,
   indexOpen,
   onToggleIndex,
 }) {
+  const pencilCount = points.filter((point) => point.state === "pencil").length;
   return (
     <main className="studio-desk" data-testid="studio-desk">
       {/* 夹子的标签是纵向的：本立着露顶边，夹插着露侧边 */}
@@ -1148,61 +1208,100 @@ function StudioDesk({
                 <div><dt>受众</dt><dd>刚开始学极限的同学</dd></div>
                 <div><dt>完成标准</dt><dd>他们能自己说出 0/0 为什么只是信号</dd></div>
               </dl>
+              <button className="brief-clarify" type="button" onClick={onOpenChat}>
+                <AppIcon icon={Coffee} size={14} />
+                和小娜一起理清
+              </button>
             </header>
 
             <div className="point-stack">
-              {points.map((point, index) => (
-                <article className="point-card" key={point.id}>
-                  <span className="point-order">{index + 1}</span>
-                  <div>
-                    <strong>{point.say}</strong>
-                    <small>
-                      {point.backing
-                        ? `依据：${point.backing}`
-                        : "还没有依据 · 从素材里找一份"}
-                    </small>
-                  </div>
-                  <span className="point-move">
-                    <button
-                      type="button"
-                      aria-label={`把“${point.say}”往前挪`}
-                      disabled={index === 0}
-                      onClick={() => onMovePoint(index, -1)}
-                    >
-                      ↑
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={`把“${point.say}”往后挪`}
-                      disabled={index === points.length - 1}
-                      onClick={() => onMovePoint(index, 1)}
-                    >
-                      ↓
-                    </button>
-                  </span>
-                </article>
-              ))}
-              <button
-                className="point-add"
-                type="button"
-                onClick={() => onToast("原型：新增一张观点卡")}
-              >
-                <AppIcon icon={Plus} size={15} />
-                再加一件要说的事
-              </button>
+              {points.map((point, index) => {
+                const isPencil = point.state === "pencil";
+                return (
+                  <article
+                    className={`point-card ${isPencil ? "point-card--pencil" : ""}`}
+                    key={point.id}
+                  >
+                    <span className="point-order">{index + 1}</span>
+                    <div>
+                      <strong>{point.say}</strong>
+                      <small>
+                        {isPencil
+                          ? "小娜拟的 · 落墨才算数"
+                          : point.backing
+                            ? `依据：${point.backing}`
+                            : "还没有依据 · 从素材里找一份"}
+                      </small>
+                    </div>
+                    {isPencil ? (
+                      <span className="pencil-actions">
+                        <button type="button" onClick={() => onInkPoint(point.id)}>
+                          <AppIcon icon={Check} size={14} />
+                          落墨
+                        </button>
+                        <button type="button" onClick={() => onToast("原型：改写这张卡")}>
+                          改写
+                        </button>
+                        <button type="button" onClick={() => onDropPoint(point.id)}>
+                          抽走
+                        </button>
+                      </span>
+                    ) : (
+                      <span className="point-move">
+                        <button
+                          type="button"
+                          aria-label={`把“${point.say}”往前挪`}
+                          disabled={index === 0}
+                          onClick={() => onMovePoint(index, -1)}
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          aria-label={`把“${point.say}”往后挪`}
+                          disabled={index === points.length - 1}
+                          onClick={() => onMovePoint(index, 1)}
+                        >
+                          ↓
+                        </button>
+                      </span>
+                    )}
+                  </article>
+                );
+              })}
+              <div className="point-stack__foot">
+                <button
+                  className="point-add"
+                  type="button"
+                  onClick={() => onToast("原型：新增一张观点卡")}
+                >
+                  <AppIcon icon={Plus} size={15} />
+                  自己加一件要说的事
+                </button>
+                <button className="point-ask" type="button" onClick={onAskDraft}>
+                  <AppIcon icon={Coffee} size={15} />
+                  让小娜再拟几条
+                </button>
+              </div>
             </div>
 
-            {/* Writer 不是地方，是动作：顺序定了才成件，这时才选格式 */}
+            {/* Writer 不是地方，是动作：顺序定了才成件，这时才选格式。
+                还有铅笔卡就不能装订——不能把一份没确认的大纲成件。 */}
             <footer className="bind-bar">
               <button
                 className="primary-action"
                 type="button"
+                disabled={pencilCount > 0}
                 onClick={() => onToast("原型：这一步才选 PPT / 文档 / 讲义")}
               >
                 按这个顺序成件
                 <AppIcon icon={ArrowRight} />
               </button>
-              <span>形式到这一步才选</span>
+              <span>
+                {pencilCount > 0
+                  ? `还有 ${pencilCount} 张铅笔卡要你过目`
+                  : "形式到这一步才选"}
+              </span>
             </footer>
           </>
         ) : (
@@ -1871,6 +1970,7 @@ export function App() {
   const [filingId, setFilingId] = useState(null);
   const [points, setPoints] = useState(INITIAL_POINTS);
   const [indexOpen, setIndexOpen] = useState(false);
+  const [stackIndexOpen, setStackIndexOpen] = useState(false);
   const [planItems, setPlanItems] = useState(INITIAL_PLAN_ITEMS);
   const [chatKind, setChatKind] = useState("general");
   const [activeChatSession, setActiveChatSession] = useState("new");
@@ -2195,6 +2295,11 @@ export function App() {
             onLearnRewrite={() => setLearnStep("seed")}
             draftSaved={draftSaved && !draftActivated}
             onOpenDraft={openDraftFromActivity}
+            onOpenBook={(title) =>
+              setToast(title ? `原型：抽出${title}` : "原型：放一本参考资料进来")
+            }
+            stackIndexOpen={stackIndexOpen}
+            onToggleStackIndex={() => setStackIndexOpen((open) => !open)}
             onRetryWrongbook={() => {
               setStudyPage("practice");
               setStudyState("practice");
@@ -2232,6 +2337,28 @@ export function App() {
                 next.splice(index + delta, 0, moved);
                 return next;
               });
+            }}
+            onInkPoint={(id) => {
+              setPoints((items) =>
+                items.map((item) => (item.id === id ? { ...item, state: "ink" } : item)),
+              );
+              setToast("已落墨，这一条进入顺序");
+            }}
+            onDropPoint={(id) => {
+              setPoints((items) => items.filter((item) => item.id !== id));
+              setToast("已抽走，没有写进项目");
+            }}
+            onAskDraft={() => {
+              setPoints((items) => [
+                ...items,
+                {
+                  id: `p${Date.now()}`,
+                  say: "结尾留一个让他们自己试的问题",
+                  backing: null,
+                  state: "pencil",
+                },
+              ]);
+              setProductStatus("Studio · 小娜又拟了一条，仍是铅笔，等你过目");
             }}
             indexOpen={indexOpen}
             onToggleIndex={() => setIndexOpen((open) => !open)}

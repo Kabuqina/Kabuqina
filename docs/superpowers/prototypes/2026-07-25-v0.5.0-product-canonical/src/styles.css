@@ -75,7 +75,8 @@
   --purple: #B795CC;
   --purple-dark: #CEB3DE;
   --purple-pale: #473A54;
-  --purple-faint: #3B3145;
+  /* 暗色下低明度会吃掉色相差，铅笔面必须比纸面明显更紫，否则铅笔/落墨分不开 */
+  --purple-faint: #413352;
   --purple-wash: #524360;
   --purple-line: #635378;
   --lavender: #86729B;
@@ -554,6 +555,107 @@ p {
 .desk-card button:hover {
   border-color: var(--lavender);
   background: var(--purple-faint);
+}
+
+/* 书堆：参考书立着，中文书脊本来就竖排 */
+.book-stack {
+  padding: 12px;
+  border: 1px solid var(--line-warm);
+  border-radius: 7px;
+  background: var(--veil-strong);
+  box-shadow: var(--shadow-soft);
+}
+
+.book-stack h2 {
+  display: block;
+  margin: 0 0 9px;
+  color: var(--ink-strong);
+  font-size: 13px;
+}
+
+.spines {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.book-spine {
+  writing-mode: vertical-rl;
+  min-height: 96px;
+  padding: 9px 6px;
+  border: 1px solid var(--manila-line);
+  border-radius: 3px 3px 2px 2px;
+  color: var(--brown-ink);
+  background: var(--manila);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  box-shadow: inset -3px 0 5px -4px rgba(80, 65, 40, 0.6);
+}
+
+.book-spine:nth-child(2) {
+  min-height: 88px;
+  color: var(--purple-dark);
+  border-color: var(--purple-line);
+  background: var(--purple-pale);
+}
+
+.book-spine:hover {
+  transform: translateY(-3px);
+}
+
+.book-spine--add {
+  min-height: 62px;
+  writing-mode: horizontal-tb;
+  align-self: flex-end;
+  padding: 0 7px;
+  border-style: dashed;
+  border-color: var(--line-cool);
+  color: var(--ink-soft);
+  background: transparent;
+  box-shadow: none;
+}
+
+.stack-index {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 9px;
+  padding: 5px 6px;
+  border: 0;
+  border-radius: 5px;
+  color: var(--ink-soft);
+  background: transparent;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.stack-index:hover {
+  color: var(--purple);
+  background: var(--purple-faint);
+}
+
+.stack-index-list {
+  display: grid;
+  gap: 5px;
+  margin: 4px 0 0;
+  padding: 9px;
+  border-radius: 6px;
+  background: var(--paper-soft);
+  list-style: none;
+}
+
+.stack-index-list li {
+  display: grid;
+  gap: 1px;
+  color: var(--ink-mid);
+  font-size: 11px;
+}
+
+.stack-index-list span {
+  color: var(--ink-soft);
+  font-size: 10px;
 }
 
 .review-card .due-number {
@@ -2243,7 +2345,55 @@ p {
   font-size: 13px;
 }
 
-.point-add {
+/* 铅笔卡：小娜拟的，还没算数。虚线＋铅笔色，与 Study 的铅笔草稿同一族 */
+.point-card--pencil {
+  border-style: dashed;
+  border-color: var(--lavender);
+  background: var(--purple-faint);
+  box-shadow: none;
+}
+
+.point-card--pencil .point-order {
+  color: var(--lavender);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--lavender);
+}
+
+.point-card--pencil strong {
+  color: var(--ink-mid);
+}
+
+.pencil-actions {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.pencil-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 1px solid var(--purple-line);
+  border-radius: 6px;
+  color: var(--purple-dark);
+  background: var(--surface);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.pencil-actions button:hover {
+  background: var(--purple-pale);
+}
+
+.point-stack__foot {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+
+.point-add,
+.point-ask {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2257,8 +2407,28 @@ p {
   font-weight: 700;
 }
 
-.point-add:hover {
+.point-add:hover,
+.point-ask:hover {
   border-color: var(--lavender);
+  color: var(--purple);
+  background: var(--purple-faint);
+}
+
+.brief-clarify {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 5px 9px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--ink-soft);
+  background: transparent;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.brief-clarify:hover {
   color: var(--purple);
   background: var(--purple-faint);
 }
