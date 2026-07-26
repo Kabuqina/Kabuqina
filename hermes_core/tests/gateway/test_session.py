@@ -15,6 +15,10 @@ from gateway.session import (
     build_session_key,
     canonical_whatsapp_identifier,
 )
+from gateway.whatsapp_identity import (
+    ensure_canonical_whatsapp_session_dir,
+    whatsapp_session_dir,
+)
 
 # Legacy name preserved for these tests; product renamed the function to
 # canonical_whatsapp_identifier.  Keep the tests referencing the old name
@@ -984,6 +988,25 @@ class TestWhatsAppIdentifierPublicHelpers:
         canonical = canonical_whatsapp_identifier("999999999999999@lid")
         assert canonical == "15551234567"
         assert canonical_whatsapp_identifier("15551234567@s.whatsapp.net") == "15551234567"
+
+    def test_write_path_stays_canonical_when_legacy_path_exists(self, tmp_path, monkeypatch):
+        legacy = tmp_path / "whatsapp" / "session"
+        legacy.mkdir(parents=True)
+        monkeypatch.setenv("KABUQINA_HOME", str(tmp_path))
+
+        assert whatsapp_session_dir() == tmp_path / "platforms" / "whatsapp" / "session"
+
+    def test_sole_legacy_session_is_atomically_migrated(self, tmp_path, monkeypatch):
+        legacy = tmp_path / "whatsapp" / "session"
+        legacy.mkdir(parents=True)
+        (legacy / "creds.json").write_text('{"registered": true}', encoding="utf-8")
+        monkeypatch.setenv("KABUQINA_HOME", str(tmp_path))
+
+        canonical = ensure_canonical_whatsapp_session_dir()
+
+        assert canonical == tmp_path / "platforms" / "whatsapp" / "session"
+        assert (canonical / "creds.json").read_text(encoding="utf-8") == '{"registered": true}'
+        assert not legacy.exists()
 
     def test_canonical_reads_new_profile_session_layout(self, tmp_path, monkeypatch):
         mapping_dir = tmp_path / "platforms" / "whatsapp" / "session"

@@ -71,6 +71,7 @@ export function SettingsLegacyChannels() {
       setCleanup(null);
     } catch (cause) {
       setError(String(cause));
+      setExported(null);
     } finally {
       setBusy(false);
     }
@@ -98,6 +99,10 @@ export function SettingsLegacyChannels() {
       await refresh();
     } catch (cause) {
       setError(String(cause));
+      // Cleanup is bound to one verified filesystem snapshot. Any backend
+      // rejection invalidates that authorization; require a fresh export
+      // instead of letting the user retry a potentially stale snapshot.
+      setExported(null);
     } finally {
       setBusy(false);
     }

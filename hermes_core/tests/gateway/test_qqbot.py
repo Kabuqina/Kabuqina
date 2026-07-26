@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 import sys
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -224,6 +225,27 @@ class TestVoiceAudioDegradation:
 
         assert result is None
         assert not hasattr(adapter, "_convert_raw_to_wav")
+
+    @pytest.mark.asyncio
+    async def test_failed_decoder_removes_partial_wav(self):
+        adapter = self._make_adapter()
+        partial_paths = []
+
+        async def leave_partial(_src_path, wav_path):
+            Path(wav_path).write_bytes(b"partial-wav")
+            partial_paths.append(Path(wav_path))
+            return None
+
+        adapter._convert_silk_to_wav = leave_partial
+        adapter._convert_ffmpeg_to_wav = leave_partial
+
+        result = await adapter._convert_audio_to_wav_file(
+            b"#!SILK_V3\x00payload", "voice.silk"
+        )
+
+        assert result is None
+        assert partial_paths
+        assert all(not path.exists() for path in partial_paths)
 
     @pytest.mark.asyncio
     async def test_untranscribed_voice_is_visible_to_agent(self):

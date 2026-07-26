@@ -106,6 +106,35 @@ class TestAdapterInit:
         adapter = WhatsAppAdapter(config)
         assert adapter._reply_prefix == ""
 
+    def test_default_session_path_migrates_legacy_state(self, tmp_path, monkeypatch):
+        from gateway.platforms.whatsapp import WhatsAppAdapter
+
+        legacy = tmp_path / "whatsapp" / "session"
+        legacy.mkdir(parents=True)
+        (legacy / "creds.json").write_text("keep", encoding="utf-8")
+        monkeypatch.setenv("KABUQINA_HOME", str(tmp_path))
+
+        adapter = WhatsAppAdapter(PlatformConfig(enabled=True))
+
+        assert adapter._session_path == tmp_path / "platforms" / "whatsapp" / "session"
+        assert (adapter._session_path / "creds.json").read_text(encoding="utf-8") == "keep"
+        assert not legacy.exists()
+
+    def test_explicit_session_path_does_not_migrate_legacy_state(self, tmp_path, monkeypatch):
+        from gateway.platforms.whatsapp import WhatsAppAdapter
+
+        legacy = tmp_path / "whatsapp" / "session"
+        legacy.mkdir(parents=True)
+        explicit = tmp_path / "custom-session"
+        monkeypatch.setenv("KABUQINA_HOME", str(tmp_path))
+
+        adapter = WhatsAppAdapter(
+            PlatformConfig(enabled=True, extra={"session_path": str(explicit)})
+        )
+
+        assert adapter._session_path == explicit
+        assert legacy.exists()
+
 
 # ---------------------------------------------------------------------------
 # Config version regression guard

@@ -13427,6 +13427,22 @@
       ]
     },
     {
+      "path": "web/src/advanced/settings/SettingsLegacyChannels.test.tsx",
+      "layer": "web_shell",
+      "edge_types": [
+        "settings_producer",
+        "command_consumer"
+      ],
+      "platform_surfaces": [
+        "discord"
+      ],
+      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
+      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
+      "known_gaps": [
+        "surface_known_gaps.discord"
+      ]
+    },
+    {
       "path": "web/src/chat/desktop-organizer-api.ts",
       "layer": "web_shell",
       "edge_types": [
@@ -22586,8 +22602,7 @@
         "surface": "sms_twilio",
         "primary_role": "identifier",
         "source_paths": [
-          "hermes_core/optional-skills/productivity/telephony/scripts/telephony.py",
-          "tauri/src/legacy_upgrade.rs"
+          "hermes_core/optional-skills/productivity/telephony/scripts/telephony.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -22600,8 +22615,7 @@
         "surface": "sms_twilio",
         "primary_role": "secret",
         "source_paths": [
-          "hermes_core/optional-skills/productivity/telephony/scripts/telephony.py",
-          "tauri/src/legacy_upgrade.rs"
+          "hermes_core/optional-skills/productivity/telephony/scripts/telephony.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -22615,8 +22629,7 @@
         "surface": "sms_twilio",
         "primary_role": "identifier",
         "source_paths": [
-          "hermes_core/optional-skills/productivity/telephony/scripts/telephony.py",
-          "tauri/src/legacy_upgrade.rs"
+          "hermes_core/optional-skills/productivity/telephony/scripts/telephony.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -22629,8 +22642,7 @@
         "surface": "sms_twilio",
         "primary_role": "identifier",
         "source_paths": [
-          "hermes_core/optional-skills/productivity/telephony/scripts/telephony.py",
-          "tauri/src/legacy_upgrade.rs"
+          "hermes_core/optional-skills/productivity/telephony/scripts/telephony.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -24617,9 +24629,9 @@
   },
   "generated_ledger_metadata": {
     "generator": "scripts/audit_v050_platform_manifest.py --refresh-generated-ledgers",
-    "reference_path_count": 529,
+    "reference_path_count": 530,
     "literal_environment_key_count": 520,
-    "dynamic_environment_key_declaration_count": 457,
+    "dynamic_environment_key_declaration_count": 453,
     "environment_key_count": 776,
     "environment_namespace_count": 26,
     "environment_dynamic_template_count": 2,

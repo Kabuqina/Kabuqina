@@ -1243,3 +1243,19 @@ no other removed platform receives a replacement destination.
 The v0.4 source fixture proves this source-level contract. Official installed
 v0.4 → v0.5 update execution, final artifact provenance and uninstall behavior
 remain CTL-G01/Q and are not claimed by C07.
+
+The C06+C07 Gate review tightened that contract before sign-off. Shared
+`TWILIO_*` credentials belong to the retained telephony skill and are never in
+the removed-SMS cleanup allowlist. A cleanup export now authorizes exactly one
+filesystem snapshot: every current cleanup candidate path and SHA-256 must
+match the export immediately before the first mutation, and any added,
+removed, replaced or changed candidate forces a new export. The Web control
+also discards the stale authorization after any cleanup rejection.
+
+WhatsApp's legacy `whatsapp/session` directory is no longer a write fallback.
+If it is the only session tree, adapter initialization atomically renames the
+whole opaque tree to `platforms/whatsapp/session`; if both trees exist, the
+canonical tree is the only bridge write target and the legacy tree remains a
+read-only identity fallback. QQ voice conversion likewise removes both its
+temporary source and any partial generated WAV whenever all real decoders
+fail.

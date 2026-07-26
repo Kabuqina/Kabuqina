@@ -43,12 +43,59 @@ logger = logging.getLogger(__name__)
 # full-width digits / Unicode word chars can't sneak through.
 _SAFE_IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9@.+\-]+$")
 
-from kabuqina_constants import get_kabuqina_dir
+from kabuqina_constants import get_kabuqina_home
 
 
 def whatsapp_session_dir() -> Path:
-    """Resolve the same canonical/legacy session directory as the adapter."""
-    return get_kabuqina_dir("platforms/whatsapp/session", "whatsapp/session")
+    """Return the canonical WhatsApp session write directory."""
+    return get_kabuqina_home() / "platforms" / "whatsapp" / "session"
+
+
+def legacy_whatsapp_session_dir() -> Path:
+    """Return the one-release legacy session directory for read fallback."""
+    return get_kabuqina_home() / "whatsapp" / "session"
+
+
+def ensure_canonical_whatsapp_session_dir() -> Path:
+    """Atomically move a sole legacy session into the canonical layout.
+
+    The bridge must never keep writing to ``whatsapp/session`` merely because
+    that directory exists.  When no canonical directory exists yet, moving the
+    legacy directory preserves the complete opaque bridge state without
+    copying, merging, or deleting individual credential files.  If both paths
+    exist, canonical wins and the legacy directory remains read-only fallback
+    data for identity resolution.
+    """
+    canonical = whatsapp_session_dir()
+    if canonical.exists():
+        return canonical
+
+    legacy = legacy_whatsapp_session_dir()
+    if not legacy.exists():
+        return canonical
+
+    canonical.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        legacy.replace(canonical)
+    except FileNotFoundError:
+        # Another gateway child may have won the same atomic migration.
+        if not canonical.exists():
+            raise
+    except OSError as exc:
+        raise RuntimeError(
+            f"failed to migrate WhatsApp session to {canonical}: {exc}"
+        ) from exc
+    logger.info("migrated legacy WhatsApp session to %s", canonical)
+    return canonical
+
+
+def whatsapp_session_read_dirs() -> tuple[Path, ...]:
+    """Return canonical first, then an existing legacy read-only fallback."""
+    canonical = whatsapp_session_dir()
+    legacy = legacy_whatsapp_session_dir()
+    if legacy.exists() and legacy != canonical:
+        return canonical, legacy
+    return (canonical,)
 
 
 def normalize_whatsapp_identifier(value: str) -> str:
@@ -89,7 +136,6 @@ def expand_whatsapp_aliases(identifier: str) -> Set[str]:
     if not normalized:
         return set()
 
-    session_dir = whatsapp_session_dir()
     resolved: Set[str] = set()
     queue = [normalized]
 
@@ -109,19 +155,20 @@ def expand_whatsapp_aliases(identifier: str) -> Set[str]:
             continue
 
         resolved.add(current)
-        for suffix in ("", "_reverse"):
-            mapping_path = session_dir / f"lid-mapping-{current}{suffix}.json"
-            if not mapping_path.exists():
-                continue
-            try:
-                mapped = normalize_whatsapp_identifier(
-                    json.loads(mapping_path.read_text(encoding="utf-8"))
-                )
-            except (OSError, json.JSONDecodeError) as exc:
-                logger.debug("whatsapp_identity: failed to read %s: %s", mapping_path, exc)
-                continue
-            if mapped and mapped not in resolved:
-                queue.append(mapped)
+        for session_dir in whatsapp_session_read_dirs():
+            for suffix in ("", "_reverse"):
+                mapping_path = session_dir / f"lid-mapping-{current}{suffix}.json"
+                if not mapping_path.exists():
+                    continue
+                try:
+                    mapped = normalize_whatsapp_identifier(
+                        json.loads(mapping_path.read_text(encoding="utf-8"))
+                    )
+                except (OSError, json.JSONDecodeError) as exc:
+                    logger.debug("whatsapp_identity: failed to read %s: %s", mapping_path, exc)
+                    continue
+                if mapped and mapped not in resolved:
+                    queue.append(mapped)
 
     return resolved
 

@@ -177,10 +177,6 @@ pub const REMOVED_ENV_KEYS: &[&str] = &[
     "SMS_WEBHOOK_HOST",
     "SMS_WEBHOOK_PORT",
     "SMS_WEBHOOK_URL",
-    "TWILIO_ACCOUNT_SID",
-    "TWILIO_AUTH_TOKEN",
-    "TWILIO_PHONE_NUMBER",
-    "TWILIO_PHONE_NUMBER_SID",
     "WEBHOOK_ENABLED",
     "WEBHOOK_HOST",
     "WEBHOOK_PATH",
@@ -486,6 +482,21 @@ fn exact_file_candidates(data_dir: &Path, home: &Path) -> Vec<PathBuf> {
             paths.push(profile.join(name));
         }
     }
+    paths
+}
+
+fn cleanup_snapshot_candidates(data_dir: &Path, home: &Path) -> Vec<PathBuf> {
+    let mut paths = exact_file_candidates(data_dir, home);
+    paths.extend([
+        home.join(".env"),
+        home.join("config.yaml"),
+        home.join("gateway.json"),
+        home.join("channel_directory.json"),
+        home.join("pairing").join("_rate_limits.json"),
+        home.join("platforms")
+            .join("pairing")
+            .join("_rate_limits.json"),
+    ]);
     paths
 }
 
@@ -828,6 +839,83 @@ fn verify_export(data_dir: &Path, export_id: &str) -> Result<(), String> {
     {
         return Err("legacy export is incomplete; cleanup remains disabled".to_string());
     }
+
+    // Cleanup is authorized only for the exact filesystem snapshot that was
+    // exported. This catches both modified files and new exact candidates;
+    // otherwise a credential or state file created after export could be
+    // deleted without ever appearing in the backup.
+    let files = payload
+        .get("files")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "legacy export file inventory is malformed".to_string())?;
+    let mut exported_hashes = BTreeMap::new();
+    for file in files {
+        let path = file
+            .get("path")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "legacy export file path is malformed".to_string())?;
+        let sha256 = file
+            .get("sha256")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "legacy export file hash is malformed".to_string())?;
+        if sha256.len() != 64 || !sha256.bytes().all(|b| b.is_ascii_hexdigit()) {
+            return Err("legacy export file hash is malformed".to_string());
+        }
+        if exported_hashes
+            .insert(path.to_string(), sha256.to_ascii_lowercase())
+            .is_some()
+        {
+            return Err("legacy export contains duplicate file paths".to_string());
+        }
+    }
+
+    let home = PathBuf::from(expected_home);
+    let mut current_hashes = BTreeMap::new();
+    let mut seen = BTreeSet::new();
+    for candidate in cleanup_snapshot_candidates(data_dir, &home) {
+        if !seen.insert(candidate.clone()) || !candidate.exists() {
+            continue;
+        }
+        let metadata = std::fs::symlink_metadata(&candidate).map_err(|e| {
+            format!(
+                "inspect current cleanup candidate {}: {e}",
+                candidate.display()
+            )
+        })?;
+        if metadata.file_type().is_symlink() || !metadata.file_type().is_file() {
+            return Err(format!(
+                "legacy data changed after export; export again before cleanup ({})",
+                candidate.display()
+            ));
+        }
+        if metadata.len() > MAX_EXPORT_FILE_BYTES {
+            return Err(format!(
+                "legacy data changed after export; export again before cleanup ({})",
+                candidate.display()
+            ));
+        }
+        let current = std::fs::read(&candidate).map_err(|e| {
+            format!(
+                "read current cleanup candidate {}: {e}",
+                candidate.display()
+            )
+        })?;
+        current_hashes.insert(
+            candidate.display().to_string(),
+            hex::encode(Sha256::digest(&current)),
+        );
+    }
+
+    let expected_hashes: BTreeMap<String, String> = cleanup_snapshot_candidates(data_dir, &home)
+        .into_iter()
+        .filter_map(|candidate| {
+            let path = candidate.display().to_string();
+            exported_hashes.get(&path).cloned().map(|hash| (path, hash))
+        })
+        .collect();
+    if current_hashes != expected_hashes {
+        return Err("legacy data changed after export; export again before cleanup".to_string());
+    }
     Ok(())
 }
 
@@ -1039,7 +1127,7 @@ mod tests {
 
     #[test]
     fn dotenv_cleanup_is_exact_and_qq_upgrade_is_explicit() {
-        let raw = "TELEGRAM_BOT_TOKEN=keep\nDISCORD_BOT_TOKEN=drop\nDISCORD_CUSTOM_KEEP=keep\nQQ_HOME_CHANNEL=old-home\nQQBOT_HOME_CHANNEL_NAME=canonical\nQQ_HOME_CHANNEL_NAME=legacy-name\n";
+        let raw = "TELEGRAM_BOT_TOKEN=keep\nDISCORD_BOT_TOKEN=drop\nDISCORD_CUSTOM_KEEP=keep\nQQ_HOME_CHANNEL=old-home\nQQBOT_HOME_CHANNEL_NAME=canonical\nQQ_HOME_CHANNEL_NAME=legacy-name\nTWILIO_ACCOUNT_SID=telephony-keep\nTWILIO_AUTH_TOKEN=telephony-secret\nTWILIO_PHONE_NUMBER=+15550000000\nTWILIO_PHONE_NUMBER_SID=phone-sid\n";
         let (patched, removed, migrated) = patch_dotenv(raw);
         assert_eq!(removed, 3);
         assert_eq!(migrated, 1);
@@ -1047,8 +1135,50 @@ mod tests {
         assert!(patched.contains("DISCORD_CUSTOM_KEEP=keep"));
         assert!(patched.contains("QQBOT_HOME_CHANNEL=old-home"));
         assert!(patched.contains("QQBOT_HOME_CHANNEL_NAME=canonical"));
+        assert!(patched.contains("TWILIO_ACCOUNT_SID=telephony-keep"));
+        assert!(patched.contains("TWILIO_AUTH_TOKEN=telephony-secret"));
+        assert!(patched.contains("TWILIO_PHONE_NUMBER=+15550000000"));
+        assert!(patched.contains("TWILIO_PHONE_NUMBER_SID=phone-sid"));
         assert!(!patched.contains("DISCORD_BOT_TOKEN="));
         assert!(!patched.contains("QQ_HOME_CHANNEL="));
+    }
+
+    #[test]
+    fn cleanup_rejects_env_changed_after_export_without_modifying_it() {
+        let data_dir = temp_data_dir("changed-env");
+        let home = data_dir.join("kabuqina-home");
+        std::fs::create_dir_all(&home).unwrap();
+        let changed = "DISCORD_BOT_TOKEN=old\nFEISHU_APP_SECRET=added-after-export\n";
+        std::fs::write(home.join(".env"), "DISCORD_BOT_TOKEN=old\n").unwrap();
+        let export = export_for(&data_dir).unwrap();
+        std::fs::write(home.join(".env"), changed).unwrap();
+
+        let error = cleanup_for(&data_dir, &export.export_id, CLEANUP_CONFIRMATION).unwrap_err();
+
+        assert!(error.contains("changed after export"));
+        assert_eq!(std::fs::read_to_string(home.join(".env")).unwrap(), changed);
+        let _ = std::fs::remove_dir_all(data_dir);
+    }
+
+    #[test]
+    fn cleanup_rejects_exact_file_created_after_export() {
+        let data_dir = temp_data_dir("new-exact-file");
+        let home = data_dir.join("kabuqina-home");
+        std::fs::create_dir_all(&home).unwrap();
+        std::fs::write(home.join(".env"), "DISCORD_BOT_TOKEN=old\n").unwrap();
+        let export = export_for(&data_dir).unwrap();
+        let late_file = home.join("feishu_seen_message_ids.json");
+        std::fs::write(&late_file, "late-state").unwrap();
+
+        let error = cleanup_for(&data_dir, &export.export_id, CLEANUP_CONFIRMATION).unwrap_err();
+
+        assert!(error.contains("changed after export"));
+        assert_eq!(std::fs::read_to_string(&late_file).unwrap(), "late-state");
+        assert_eq!(
+            std::fs::read_to_string(home.join(".env")).unwrap(),
+            "DISCORD_BOT_TOKEN=old\n"
+        );
+        let _ = std::fs::remove_dir_all(data_dir);
     }
 
     #[test]

@@ -28,7 +28,8 @@ _IS_WINDOWS = platform.system() == "Windows"
 from pathlib import Path
 from typing import Dict, Optional, Any
 
-from kabuqina_constants import get_kabuqina_dir, get_kabuqina_home
+from kabuqina_constants import get_kabuqina_home
+from gateway.whatsapp_identity import ensure_canonical_whatsapp_session_dir
 
 logger = logging.getLogger(__name__)
 
@@ -202,10 +203,12 @@ class WhatsAppAdapter(BasePlatformAdapter):
         self._node_executable: Optional[str] = resolve_whatsapp_node_executable(
             config.extra.get("node_executable")
         )
-        self._session_path: Path = Path(config.extra.get(
-            "session_path",
-            get_kabuqina_dir("platforms/whatsapp/session", "whatsapp/session")
-        ))
+        configured_session_path = config.extra.get("session_path")
+        self._session_path = (
+            Path(configured_session_path)
+            if configured_session_path
+            else ensure_canonical_whatsapp_session_dir()
+        )
         self._cache_root: Path = get_kabuqina_home() / "cache"
         self._reply_prefix: Optional[str] = config.extra.get("reply_prefix")
         self._dm_policy = str(config.extra.get("dm_policy") or os.getenv("WHATSAPP_DM_POLICY", "open")).strip().lower()

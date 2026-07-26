@@ -1468,22 +1468,26 @@ class QQAdapter(BasePlatformAdapter):
             tmp_src.write(audio_data)
             src_path = tmp_src.name
 
-        wav_path = src_path.rsplit(".", 1)[0] + ".wav"
-
-        # Try pilk first (handles SILK and many other formats)
-        result = await self._convert_silk_to_wav(src_path, wav_path)
-
-        # If pilk failed, try ffmpeg
-        if not result:
-            result = await self._convert_ffmpeg_to_wav(src_path, wav_path)
-
-        # Cleanup source file
+        wav_path = f"{src_path}.converted.wav"
+        result: Optional[str] = None
         try:
-            os.unlink(src_path)
-        except OSError:
-            pass
+            # Try pilk first (handles SILK and many other formats)
+            result = await self._convert_silk_to_wav(src_path, wav_path)
 
-        return result
+            # If pilk failed, try ffmpeg
+            if not result:
+                result = await self._convert_ffmpeg_to_wav(src_path, wav_path)
+            return result
+        finally:
+            try:
+                os.unlink(src_path)
+            except OSError:
+                pass
+            if not result:
+                try:
+                    os.unlink(wav_path)
+                except OSError:
+                    pass
 
     @staticmethod
     def _guess_ext_from_data(data: bytes) -> str:
@@ -1541,6 +1545,10 @@ class QQAdapter(BasePlatformAdapter):
 
         # Try renaming to .silk and converting (pilk checks the extension)
         silk_path = src_path.rsplit(".", 1)[0] + ".silk"
+        if os.path.normcase(os.path.abspath(silk_path)) == os.path.normcase(
+            os.path.abspath(src_path)
+        ):
+            return None
         try:
             import shutil
 
