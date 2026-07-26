@@ -911,6 +911,101 @@ p {
   line-height: 1.5;
 }
 
+/* 目录是这一页的脉络；当前那一节就地展开成本周计划 */
+.course-outline > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--line-warm);
+}
+
+.course-outline > header > span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--ink-strong);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.course-outline > header svg {
+  width: 16px;
+  height: 16px;
+  color: var(--purple);
+}
+
+.course-outline > header small {
+  color: var(--ink-soft);
+  font-size: 11px;
+}
+
+.outline-section {
+  border-left: 2px solid var(--line-warm);
+  padding-left: 12px;
+}
+
+.outline-section[data-state="current"] {
+  border-left-color: var(--purple);
+}
+
+.outline-row {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 8px;
+  text-align: left;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+}
+
+.outline-row:hover {
+  background: var(--purple-faint);
+}
+
+.outline-row--flat,
+.outline-row--flat:hover {
+  background: transparent;
+  cursor: default;
+}
+
+.outline-no {
+  color: var(--ink-soft);
+  font-family: Georgia, serif;
+  font-size: 13px;
+}
+
+.outline-row strong {
+  color: var(--ink-mid);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.outline-row[aria-current] strong {
+  color: var(--ink-strong);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.outline-row small {
+  color: var(--ink-soft);
+  font-size: 10px;
+}
+
+.outline-section[data-state="wrong"] .outline-row small {
+  color: var(--warning);
+  font-weight: 700;
+}
+
+.outline-section .plan-list {
+  margin: 2px 0 14px 8px;
+}
+
 .plan-list {
   display: grid;
   gap: 7px;

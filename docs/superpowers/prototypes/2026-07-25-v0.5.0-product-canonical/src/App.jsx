@@ -132,6 +132,23 @@ const STUDY_PAGES = [
   { id: "evaluate", label: "评估" },
 ];
 
+// 目录来自教材自己的章节结构（小娜整理，非凭空生成），因此有出处。
+// 状态只反映"留下过什么重构痕迹"，绝不显示覆盖率——覆盖率会把"学过多少"伪装成"学会多少"。
+const COURSE_OUTLINE = [
+  { no: "2.1", title: "数列的极限", state: "practiced" },
+  { no: "2.2", title: "函数的极限", state: "practiced" },
+  { no: "2.3", title: "极限的运算法则", state: "current", material: "textbook-2-3" },
+  { no: "2.4", title: "无穷小与无穷大", state: "none" },
+  { no: "2.5", title: "函数的连续性", state: "none" },
+];
+
+const OUTLINE_STATE_LABEL = {
+  practiced: "练过",
+  wrong: "有错题",
+  current: "在学",
+  none: "",
+};
+
 const INITIAL_PLAN_ITEMS = [
   { id: "p1", title: "理解极限与未定式的区别", meta: "本周 · 当前阶段", status: "active" },
   { id: "p2", title: "完成极限基础练习 1–6", meta: "4 / 6 已完成", status: "active" },
@@ -419,38 +436,81 @@ function FlyleafPage({ draftVisible, onInk, onErase }) {
   );
 }
 
-function PlanPage({ items, onUpdate, onContinue }) {
-  const completed = items.filter((item) => item.status === "done").length;
+function PlanPage({ items, onUpdate, onOpenMaterial }) {
   return (
     <div className="lifecycle-page lifecycle-page--plan">
-      <section className="study-sheet">
+      {/* 计划依据目录来做，所以计划长在目录里当前这一节下面，不是另起一块 */}
+      <section className="course-outline">
         <header>
-          <span><Clock3 aria-hidden="true" />本周计划</span>
-          <StatusPill tone="info">{completed} / {items.length} 完成</StatusPill>
+          <span>
+            <Layers3 aria-hidden="true" />
+            教材目录
+          </span>
+          <small>小娜从《高等数学教材.pdf》整理</small>
         </header>
-        <div className="plan-list">
-          {items.map((item) => (
-            <article key={item.id} data-status={item.status}>
-              <span className="plan-state">
-                {item.status === "done" ? <Check aria-hidden="true" /> : <Circle aria-hidden="true" />}
-              </span>
-              <div>
-                <strong>{item.title}</strong>
-                <small>{item.status === "skipped" ? "已调整 · 不计为完成" : item.meta}</small>
-              </div>
-              {item.status === "active" || item.status === "pending" ? (
-                <div className="plan-actions">
-                  <button type="button" onClick={() => onUpdate(item.id, "done")}>完成</button>
-                  <button type="button" onClick={() => onUpdate(item.id, "skipped")}>跳过</button>
-                </div>
+        {COURSE_OUTLINE.map((section) => {
+          const isCurrent = section.state === "current";
+          return (
+            <article className="outline-section" key={section.no} data-state={section.state}>
+              {/* 有材料才做成按钮——不做"看着能点却点不动"的行。
+                  生产里目录抽自教材，每节都对应页码，因此每节都可点。 */}
+              {section.material ? (
+                <button
+                  className="outline-row"
+                  type="button"
+                  aria-current={isCurrent ? "true" : undefined}
+                  onClick={() => onOpenMaterial(section.material)}
+                >
+                  <span className="outline-no">{section.no}</span>
+                  <strong>{section.title}</strong>
+                  <small>{OUTLINE_STATE_LABEL[section.state]}</small>
+                </button>
               ) : (
-                <StatusPill tone={item.status === "done" ? "success" : "prototype"}>
-                  {item.status === "done" ? "已完成" : "已跳过"}
-                </StatusPill>
+                <div className="outline-row outline-row--flat">
+                  <span className="outline-no">{section.no}</span>
+                  <strong>{section.title}</strong>
+                  <small>{OUTLINE_STATE_LABEL[section.state]}</small>
+                </div>
+              )}
+
+              {isCurrent && (
+                <div className="plan-list">
+                  {items.map((item) => (
+                    <article key={item.id} data-status={item.status}>
+                      <span className="plan-state">
+                        {item.status === "done" ? (
+                          <Check aria-hidden="true" />
+                        ) : (
+                          <Circle aria-hidden="true" />
+                        )}
+                      </span>
+                      <div>
+                        <strong>{item.title}</strong>
+                        <small>
+                          {item.status === "skipped" ? "已调整 · 不计为完成" : item.meta}
+                        </small>
+                      </div>
+                      {item.status === "active" || item.status === "pending" ? (
+                        <div className="plan-actions">
+                          <button type="button" onClick={() => onUpdate(item.id, "done")}>
+                            完成
+                          </button>
+                          <button type="button" onClick={() => onUpdate(item.id, "skipped")}>
+                            跳过
+                          </button>
+                        </div>
+                      ) : (
+                        <StatusPill tone={item.status === "done" ? "success" : "prototype"}>
+                          {item.status === "done" ? "已完成" : "已跳过"}
+                        </StatusPill>
+                      )}
+                    </article>
+                  ))}
+                </div>
               )}
             </article>
-          ))}
-        </div>
+          );
+        })}
       </section>
     </div>
   );
@@ -626,6 +686,7 @@ function StudyNotebook({
   draftSaved,
   onOpenDraft,
   onRetryWrongbook,
+  onOpenBook,
   learnStep,
   learnDraft,
   onLearnDraft,
@@ -692,7 +753,7 @@ function StudyNotebook({
           />
         )}
         {studyPage === "plan" && (
-          <PlanPage items={planItems} onUpdate={onUpdatePlan} onContinue={onContinue} />
+          <PlanPage items={planItems} onUpdate={onUpdatePlan} onOpenMaterial={onOpenBook} />
         )}
         {studyPage === "learn" && (
           <LearnPage
