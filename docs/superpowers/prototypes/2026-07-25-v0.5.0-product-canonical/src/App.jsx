@@ -66,6 +66,46 @@ const GRADE_LABELS = {
   easy: "太简单",
 };
 
+// 材料真值。origin 决定可信度来源怎么标：
+// imported = 学生自己导入的（默认路径）；builtin = 产品自带的示例课程（样板，不是内容服务）
+const MATERIALS = {
+  "textbook-2-3": {
+    id: "textbook-2-3",
+    title: "教材 §2.3",
+    subtitle: "极限的运算法则",
+    origin: "imported",
+    from: "高等数学教材.pdf · 第 23 页",
+    body: [
+      "若 lim f(x) 与 lim g(x) 都存在，则和、差、积的极限等于极限的和、差、积；当分母极限不为 0 时，商的极限等于极限的商。",
+      "注意最后一条的前提。若分子与分母的极限同时为 0，运算法则不适用——此时把式子记作 0/0，称为未定式。",
+      "未定式不是一个数值结果，而是一个信号：它说明还需要继续分析。常见的办法是先约去公因子，再求极限。",
+    ],
+  },
+  "workbook-41": {
+    id: "workbook-41",
+    title: "习题集 p.41",
+    subtitle: "未定式练习 6 题",
+    origin: "imported",
+    from: "习题集.pdf · 第 41 页",
+    body: [
+      "1. 求 lim (x² − 1) / (x − 1)，x → 1。",
+      "2. 求 lim (√x − 2) / (x − 4)，x → 4。",
+      "3. 判断：得到 0/0 就说明极限不存在。这句话对吗？为什么？",
+    ],
+  },
+  "practice-feedback": {
+    id: "practice-feedback",
+    title: "当前练习与反馈",
+    subtitle: "练习 3 · 第 2 步",
+    origin: "imported",
+    from: "高等数学 · 我写的答案与页边批注",
+    body: [
+      "我的答案：代入后分子和分母同时为 0，所以需要先变形。",
+      "页边批注：已说清分子分母都趋近 0；还差这句——0/0 是未定式，不是极限值。",
+    ],
+  },
+};
+
 // Planner 层：一张卡＝我要说的一件事，素材作为依据挂在它下面。
 // 小娜拟的以铅笔出现，落墨后才进入顺序——内容她做，项目你参与。
 const INITIAL_POINTS = [
@@ -769,10 +809,10 @@ function ReviewCards({
         <section className="book-stack">
           <h2>参考资料</h2>
           <div className="spines">
-            <button className="book-spine" type="button" onClick={() => onOpenBook("教材 §2.3")}>
+            <button className="book-spine" type="button" onClick={() => onOpenBook("textbook-2-3")}>
               教材 §2.3
             </button>
-            <button className="book-spine" type="button" onClick={() => onOpenBook("习题集 p.41")}>
+            <button className="book-spine" type="button" onClick={() => onOpenBook("workbook-41")}>
               习题集 p.41
             </button>
             <button
@@ -826,6 +866,77 @@ function ReviewCards({
         <strong>碰杯问小娜</strong>
         <small>{hasCourse ? "安静陪着你" : "等你开第一本课程本"}</small>
       </button>
+    </aside>
+  );
+}
+
+// 材料摊开在旁边，不接管页面——与小娜聊天框是同一族"侧开"物件。
+// 原始场景表已定：书只能作为局部呈现形态，不做主界面。
+function MaterialPanel({
+  material,
+  mode,
+  onClose,
+  onNote,
+  citeTargets,
+  citeOpen,
+  onStartCite,
+  onCite,
+  onOpenOriginal,
+}) {
+  const isCopy = mode === "studio";
+  return (
+    <aside className={`material-panel ${isCopy ? "material-panel--copy" : ""}`} aria-label="摊开的材料">
+      <header>
+        <div>
+          <span className="eyebrow">
+            {material.origin === "builtin" ? "产品自带的示例" : "你导入的"}
+            {" · "}
+            {material.from}
+          </span>
+          <h2>{material.title}</h2>
+          <p>{material.subtitle}</p>
+        </div>
+        <button type="button" aria-label="放回去" onClick={onClose}>
+          <AppIcon icon={X} size={18} />
+        </button>
+      </header>
+
+      <div className="material-body">
+        {material.body.map((paragraph, index) => (
+          <p key={index}>{paragraph}</p>
+        ))}
+      </div>
+
+
+      <footer className="material-foot">
+        {isCopy ? (
+          <>
+            {citeOpen ? (
+              <div className="cite-choice">
+                <span>挂到哪一条？</span>
+                {citeTargets.map((point) => (
+                  <button type="button" key={point.id} onClick={() => onCite(point)}>
+                    {point.say}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <button className="primary-action" type="button" onClick={onStartCite}>
+                作为某条的出处
+              </button>
+            )}
+            <button className="material-original" type="button" onClick={onOpenOriginal}>
+              去看原件
+            </button>
+          </>
+        ) : (
+          // 对一段材料唯一能做的事是把它转成自己的话——高亮收藏是反重构的
+          <button className="primary-action" type="button" onClick={onNote}>
+            <AppIcon icon={PencilLine} size={15} />
+            用自己的话记下来
+          </button>
+        )}
+      </footer>
     </aside>
   );
 }
@@ -917,7 +1028,7 @@ function StudyDesk(props) {
       />
       <nav className="narrow-desk-tools" aria-label="窄窗书桌工具">
         {!isScratch && props.hasCourse && (
-          <button type="button" onClick={() => props.onOpenBook("参考资料")}>
+          <button type="button" onClick={() => props.onOpenBook("stack")}>
             <AppIcon icon={Layers3} />
             参考
           </button>
@@ -1188,6 +1299,7 @@ function StudioDesk({
   onAskDraft,
   indexOpen,
   onToggleIndex,
+  onOpenMaterial,
 }) {
   const pencilCount = points.filter((point) => point.state === "pencil").length;
   return (
@@ -1336,13 +1448,22 @@ function StudioDesk({
           </header>
           {connected ? (
             <>
-              <button className="material-slip material-slip--copy" type="button" onClick={onReturnSource}>
+              {/* 点开的是复印件本身；想看原件是面板里的另一个动作 */}
+              <button
+                className="material-slip material-slip--copy"
+                type="button"
+                onClick={() => onOpenMaterial("practice-feedback")}
+              >
                 当前练习与反馈
                 <small>复印件 · 原件在高等数学 · 练习 3</small>
               </button>
-              <button className="material-slip material-slip--copy" type="button" onClick={onReturnSource}>
+              <button
+                className="material-slip material-slip--copy"
+                type="button"
+                onClick={() => onOpenMaterial("textbook-2-3")}
+              >
                 教材 §2.3
-                <small>复印件 · 原件在高等数学 · 练习 3</small>
+                <small>复印件 · 原件在高等数学 · 教材 §2.3</small>
               </button>
               {/* Material Index 不是一个去处，是这堆素材自己的目录 */}
               <button className="pile-index" type="button" onClick={onToggleIndex}>
@@ -1973,6 +2094,8 @@ export function App() {
   const [points, setPoints] = useState(INITIAL_POINTS);
   const [indexOpen, setIndexOpen] = useState(false);
   const [stackIndexOpen, setStackIndexOpen] = useState(false);
+  const [openMaterial, setOpenMaterial] = useState(null);
+  const [citeOpen, setCiteOpen] = useState(false);
   const [planItems, setPlanItems] = useState(INITIAL_PLAN_ITEMS);
   const [chatKind, setChatKind] = useState("general");
   const [activeChatSession, setActiveChatSession] = useState("new");
@@ -2297,9 +2420,18 @@ export function App() {
             onLearnRewrite={() => setLearnStep("seed")}
             draftSaved={draftSaved && !draftActivated}
             onOpenDraft={openDraftFromActivity}
-            onOpenBook={(title) =>
-              setToast(title ? `原型：抽出${title}` : "原型：放一本参考资料进来")
-            }
+            onOpenBook={(id) => {
+              // 窄屏下书堆整条被隐藏，"参考"是唯一入口，得先给一个书架让人挑
+              if (id === "stack") {
+                setOpenMaterial("stack");
+                return;
+              }
+              if (!id || !MATERIALS[id]) {
+                setToast("原型：放一本参考资料进来");
+                return;
+              }
+              setOpenMaterial(id);
+            }}
             stackIndexOpen={stackIndexOpen}
             onToggleStackIndex={() => setStackIndexOpen((open) => !open)}
             onRetryWrongbook={() => {
@@ -2364,6 +2496,10 @@ export function App() {
             }}
             indexOpen={indexOpen}
             onToggleIndex={() => setIndexOpen((open) => !open)}
+            onOpenMaterial={(id) => {
+              setOpenMaterial(id);
+              setCiteOpen(false);
+            }}
           />
         ) : (
           <ChatDesk
@@ -2450,6 +2586,71 @@ export function App() {
         )}
         {overlay === "new-course" && (
           <NewCourseModal onClose={() => setOverlay(null)} onCreate={createCourse} />
+        )}
+        {openMaterial === "stack" && (
+          <aside className="material-panel" aria-label="本课参考">
+            <header>
+              <div>
+                <span className="eyebrow">抽一本出来看</span>
+                <h2>参考资料</h2>
+              </div>
+              <button type="button" aria-label="放回去" onClick={() => setOpenMaterial(null)}>
+                <AppIcon icon={X} size={18} />
+              </button>
+            </header>
+            <div className="material-body">
+              {["textbook-2-3", "workbook-41"].map((id) => (
+                <button
+                  className="shelf-row"
+                  type="button"
+                  key={id}
+                  onClick={() => setOpenMaterial(id)}
+                >
+                  <strong>{MATERIALS[id].title}</strong>
+                  <small>{MATERIALS[id].subtitle}</small>
+                </button>
+              ))}
+            </div>
+          </aside>
+        )}
+        {openMaterial && MATERIALS[openMaterial] && (
+          <MaterialPanel
+            material={MATERIALS[openMaterial]}
+            mode={surface === "studio" ? "studio" : "study"}
+            onClose={() => {
+              setOpenMaterial(null);
+              setCiteOpen(false);
+            }}
+            onNote={() => {
+              setOpenMaterial(null);
+              setSurface("study");
+              setStudyPage("learn");
+              setLearnStep("seed");
+              setToast("材料放回去了，现在用自己的话说一遍");
+            }}
+            citeTargets={points.filter((point) => point.state === "ink")}
+            citeOpen={citeOpen}
+            onStartCite={() => setCiteOpen(true)}
+            onCite={(point) => {
+              setPoints((items) =>
+                items.map((item) =>
+                  item.id === point.id
+                    ? { ...item, backing: MATERIALS[openMaterial].title }
+                    : item,
+                ),
+              );
+              setCiteOpen(false);
+              setOpenMaterial(null);
+              setToast(`已挂到「${point.say}」下面`);
+            }}
+            onOpenOriginal={() => {
+              setOpenMaterial(null);
+              setSurface("study");
+              setStudyPage("practice");
+              setStudyState("practice");
+              setToast("已回到高等数学 · 原件位置");
+            }}
+          />
         )}
         {contextChat && (
           <ContextChatPanel

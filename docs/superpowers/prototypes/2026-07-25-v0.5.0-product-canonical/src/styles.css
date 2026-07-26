@@ -1416,6 +1416,145 @@ p {
   font-weight: 700;
 }
 
+/* 材料摊开在旁边：贴右边缘，工作面留在左侧照常可用。
+   不是弹窗（会盖住对照对象），不是跳页（会离开正在做的事）。 */
+.material-panel {
+  position: absolute;
+  z-index: 36;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: min(420px, 44%);
+  border-left: 1px solid var(--line-warm);
+  background: var(--paper-strong);
+  box-shadow: -14px 0 40px rgba(74, 56, 70, 0.16);
+}
+
+/* Studio 侧看的是复印件，材质跟着复印件走 */
+.material-panel--copy {
+  background: var(--paper-soft);
+  filter: saturate(0.7);
+}
+
+.material-panel > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--line-warm);
+}
+
+.material-panel h2 {
+  margin: 3px 0 2px;
+  color: var(--ink-strong);
+  font-size: 19px;
+}
+
+.material-panel > header p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.material-panel > header button {
+  display: grid;
+  place-items: center;
+  min-width: 32px;
+  min-height: 32px;
+  border: 1px solid var(--line-cool);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.material-body {
+  min-height: 0;
+  overflow: auto;
+  padding: 20px;
+}
+
+.material-body p {
+  margin: 0 0 15px;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.85;
+}
+
+.shelf-row {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 12px 13px;
+  text-align: left;
+  border: 1px solid var(--manila-line);
+  border-left: 4px solid var(--brown-ink);
+  border-radius: 4px;
+  background: var(--manila);
+  font-weight: 700;
+}
+
+.shelf-row small {
+  color: var(--ink-mid);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.material-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 20px;
+  border-top: 1px solid var(--line-warm);
+}
+
+.material-original {
+  border: 0;
+  border-radius: 6px;
+  padding: 6px 8px;
+  color: var(--ink-soft);
+  background: transparent;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.material-original:hover {
+  color: var(--purple);
+  background: var(--purple-faint);
+}
+
+.cite-choice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+
+.cite-choice > span {
+  color: var(--ink-soft);
+  font-size: 11px;
+}
+
+.cite-choice button {
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 5px 9px;
+  border: 1px solid var(--purple-line);
+  border-radius: 6px;
+  color: var(--purple-dark);
+  background: var(--surface);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.cite-choice button:hover {
+  background: var(--purple-pale);
+}
+
 /* 杂记本＝留白：没有分页、没有计划、没有计数，只有一页纸 */
 .notebook--scratch {
   grid-template-rows: minmax(0, 1fr);
@@ -3712,6 +3851,13 @@ label.form-stack > span,
     left: 10px;
     width: auto;
     max-height: calc(100% - 130px);
+  }
+
+  /* 窄屏没有"旁边"可言：材料占满，但仍是可关掉的一层，不是新页面 */
+  .material-panel {
+    left: 0;
+    width: auto;
+    border-left: 0;
   }
 
   .narrow-desk-tools {
