@@ -1509,3 +1509,20 @@ failure. The existing provider response remains exact typed Markdown and has
 no canvas/JS/tool bypass; any later model proposal must enter through this
 versioned command port. No Web, scene, package, bundle or Gateway path changes
 in S-3.
+
+**B-track v0.4 activated-Quiz provenance migration (2026-07-26).** Repeated
+Quiz activation is also the one trusted compatibility seam for v0.4 items that
+were materialized before `artifact_version` and `grader_provenance` existed.
+The service reconstructs the exact normalized v0.4 state from the active
+artifact, preserving `createdAt`, and persists the current deterministic
+provenance only when the complete legacy state matches. Optional current
+hint/rubric fields may be added by that same reconstruction; they are never
+inferred from learner or model output.
+
+The migration is intentionally narrower than the legacy Quiz grading fallback.
+Any truth drift, missing stable creation time, partially present provenance, or
+malformed current provenance remains fail closed for Tutor. The final write is
+an owner/space-coordinated decoded-state compare-and-update transaction; a
+concurrent state change returns a retry error and cannot bless stale truth.
+This adds no learning schema migration, provider call, Web/Gateway surface, or
+bundle mutation.
