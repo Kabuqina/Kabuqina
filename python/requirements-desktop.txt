@@ -59,7 +59,15 @@ cryptography>=43,<47            # Direct retained Weixin/QQ crypto import.
 qrcode>=7.0,<8                  # Retained mainland QR flows (Weixin/QQBot/DingTalk).
 python-telegram-bot[webhooks]>=22.6,<23  # Retained SEA Telegram adapter.
 dingtalk-stream==0.24.3      # Retained mainland Stream transport; supports websockets>=11.0.2.
-alibabacloud-dingtalk>=2.2.42,<3  # Retained DingTalk card/media OpenAPI client.
+alibabacloud-dingtalk==2.2.42  # Retained DingTalk card/media OpenAPI client; matches the core lock.
+# Alibaba publishes the following locked transitive releases as source-only.
+# build_bundle.ps1 builds their pure-Python wheels once into the shared cache,
+# then the cross-target install below remains wheels-only and reproducible.
+alibabacloud-endpoint-util==0.0.4
+alibabacloud-gateway-dingtalk==1.0.2
+alibabacloud-gateway-spi==0.0.3
+alibabacloud-tea==0.4.3
+alibabacloud-credentials-api==1.0.0
 websockets>=15,<17             # Browser/CDP supervisor requires the modern asyncio client API.
 
 # --- Explicitly NOT installed in v1 ---------------------------------------

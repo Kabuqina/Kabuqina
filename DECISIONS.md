@@ -1192,9 +1192,17 @@ before release approval.
 older DingTalk compatibility assumption recorded above: official
 `dingtalk-stream==0.24.3` metadata accepts `websockets>=11.0.2`, the existing
 lock resolves it with `websockets==15.0.1`, and the desktop runtime now directly
-declares the exact Stream SDK plus `alibabacloud-dingtalk>=2.2.42,<3`. The
+declares the exact Stream SDK plus `alibabacloud-dingtalk==2.2.42`. The
 adapter does not publish a connected state until the SDK exposes its live
 WebSocket; task creation alone is not readiness.
+
+Five packages in that locked Alibaba closure are source-only releases. The
+desktop build pins them to the existing lock, builds their `py3-none-any`
+wheels once in a temporary directory, validates the full expected set, and
+atomically publishes the result under the shared machine bundle cache. Runtime
+dependency installation remains `--only-binary` and reuses that wheelhouse;
+pip bootstrap/install failures stop before import verification so an incomplete
+runtime cannot emit a misleading secondary missing-module diagnosis.
 
 The retained WhatsApp bridge now runs on an application-owned Node.js 24.18.0
 Windows x64 executable. Its official archive SHA-256 is pinned at build time;

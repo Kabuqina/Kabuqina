@@ -24,6 +24,35 @@ class BuildBundleConsoleContractTests(unittest.TestCase):
         self.assertLess(text.index(pip_label), text.index(pip_install))
         self.assertLess(text.index(copy_label), text.index(copy_overlays))
 
+    def test_dingtalk_source_only_wheels_are_atomically_cached_and_reused(self):
+        text = (ROOT / "python" / "build_bundle.ps1").read_text(encoding="utf-8")
+
+        for requirement in (
+            "alibabacloud-endpoint-util==0.0.4",
+            "alibabacloud-gateway-dingtalk==1.0.2",
+            "alibabacloud-gateway-spi==0.0.3",
+            "alibabacloud-tea==0.4.3",
+            "alibabacloud-credentials-api==1.0.0",
+        ):
+            self.assertIn(requirement, text)
+
+        build = "& $Py -m pip wheel --no-deps --wheel-dir $dingtalkWheelhouseTemp"
+        validate = "Test-DingTalkWheelhouse -Path $dingtalkWheelhouseTemp"
+        publish = "Move-Item -LiteralPath $dingtalkWheelhouseTemp"
+        self.assertIn("Reusing cached DingTalk pure-Python wheels", text)
+        self.assertIn("--find-links $dingtalkWheelhouse", text)
+        self.assertLess(text.index(build), text.rindex(validate))
+        self.assertLess(text.rindex(validate), text.index(publish))
+
+    def test_failed_pip_install_stops_before_import_verification(self):
+        text = (ROOT / "python" / "build_bundle.ps1").read_text(encoding="utf-8")
+
+        install = "& $Py -m pip install `"
+        fail_fast = "pip dependency install failed"
+        verify = "Verifying pip install (PyYAML / fastapi / uvicorn)"
+        self.assertLess(text.index(install), text.index(fail_fast))
+        self.assertLess(text.index(fail_fast), text.index(verify))
+
     def test_skips_immediate_duplicate_run_before_destructive_cleanup(self):
         text = (ROOT / "python" / "build_bundle.ps1").read_text(encoding="utf-8")
 

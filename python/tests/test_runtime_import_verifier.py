@@ -136,7 +136,7 @@ class RuntimeImportVerifierTests(unittest.TestCase):
         lock = (ROOT / "hermes_core" / "uv.lock").read_text(encoding="utf-8")
 
         self.assertIn("dingtalk-stream==0.24.3", requirements)
-        self.assertIn("alibabacloud-dingtalk>=2.2.42,<3", requirements)
+        self.assertIn("alibabacloud-dingtalk==2.2.42", requirements)
         self.assertIn("websockets>=15,<17", requirements)
         self.assertIn('"dingtalk-stream==0.24.3"', core)
         self.assertIn(

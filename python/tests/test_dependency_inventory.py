@@ -29,7 +29,12 @@ class DependencyInventoryTests(unittest.TestCase):
             "qrcode>=7.0,<8",
             "python-telegram-bot[webhooks]>=22.6,<23",
             "dingtalk-stream==0.24.3",
-            "alibabacloud-dingtalk>=2.2.42,<3",
+            "alibabacloud-dingtalk==2.2.42",
+            "alibabacloud-endpoint-util==0.0.4",
+            "alibabacloud-gateway-dingtalk==1.0.2",
+            "alibabacloud-gateway-spi==0.0.3",
+            "alibabacloud-tea==0.4.3",
+            "alibabacloud-credentials-api==1.0.0",
         ):
             self.assertIn(requirement, requirements)
 

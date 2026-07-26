@@ -343,6 +343,77 @@ Remove-Item -Force -ErrorAction SilentlyContinue `
 
 # ------------------------------------------------------------------ 2. pip
 & $Py -m pip install --upgrade pip wheel | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "pip bootstrap failed (exit $LASTEXITCODE)."
+    exit 4
+}
+
+# The locked Alibaba DingTalk closure contains a handful of pure-Python
+# releases that PyPI publishes only as sdists. The runtime install deliberately
+# uses --only-binary with a cross-target platform, so build these exact wheels
+# once and publish them atomically into the machine-wide bundle cache. A failed
+# wheel build never leaves a directory that a later bundle can mistake for a
+# complete cache.
+$dingtalkWheelRequirements = @(
+    "alibabacloud-endpoint-util==0.0.4",
+    "alibabacloud-gateway-dingtalk==1.0.2",
+    "alibabacloud-gateway-spi==0.0.3",
+    "alibabacloud-tea==0.4.3",
+    "alibabacloud-credentials-api==1.0.0"
+)
+$dingtalkWheelFiles = @(
+    "alibabacloud_endpoint_util-0.0.4-py3-none-any.whl",
+    "alibabacloud_gateway_dingtalk-1.0.2-py3-none-any.whl",
+    "alibabacloud_gateway_spi-0.0.3-py3-none-any.whl",
+    "alibabacloud_tea-0.4.3-py3-none-any.whl",
+    "alibabacloud_credentials_api-1.0.0-py3-none-any.whl"
+)
+$dingtalkWheelhouseRoot = Join-Path $Download "python-wheelhouse"
+$dingtalkWheelhouse = Join-Path $dingtalkWheelhouseRoot "dingtalk-2.2.42-v1"
+
+function Test-DingTalkWheelhouse {
+    param([string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Container)) { return $false }
+    foreach ($wheelFile in $dingtalkWheelFiles) {
+        if (-not (Test-Path -LiteralPath (Join-Path $Path $wheelFile) -PathType Leaf)) {
+            return $false
+        }
+    }
+    return $true
+}
+
+if (Test-DingTalkWheelhouse -Path $dingtalkWheelhouse) {
+    Write-Host "Reusing cached DingTalk pure-Python wheels" -ForegroundColor DarkGray
+} else {
+    New-Item -ItemType Directory -Force -Path $dingtalkWheelhouseRoot | Out-Null
+    $dingtalkWheelhouseTemp = Join-Path $dingtalkWheelhouseRoot (
+        ".dingtalk-2.2.42-v1.tmp-{0}-{1}" -f $PID, [Guid]::NewGuid().ToString("N")
+    )
+    New-Item -ItemType Directory -Force -Path $dingtalkWheelhouseTemp | Out-Null
+    Write-Host "Building cached DingTalk pure-Python wheels..." -ForegroundColor DarkGray
+    & $Py -m pip wheel --no-deps --wheel-dir $dingtalkWheelhouseTemp @dingtalkWheelRequirements
+    $dingtalkWheelExit = $LASTEXITCODE
+    if ($dingtalkWheelExit -ne 0) {
+        Write-Error "DingTalk wheel cache build failed (exit $dingtalkWheelExit); incomplete files remain only in $dingtalkWheelhouseTemp."
+        exit 5
+    }
+    if (-not (Test-DingTalkWheelhouse -Path $dingtalkWheelhouseTemp)) {
+        Write-Error "DingTalk wheel cache validation failed; incomplete files remain only in $dingtalkWheelhouseTemp."
+        exit 6
+    }
+
+    # The target is constructed directly beneath the shared wheel-cache root;
+    # verify that containment before replacing an older incomplete cache.
+    $wheelRootFull = [IO.Path]::GetFullPath($dingtalkWheelhouseRoot).TrimEnd('\', '/')
+    $wheelTargetFull = [IO.Path]::GetFullPath($dingtalkWheelhouse)
+    $wheelRootPrefix = $wheelRootFull + [IO.Path]::DirectorySeparatorChar
+    if (-not $wheelTargetFull.StartsWith($wheelRootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Refusing to replace DingTalk wheel cache outside $wheelRootFull`: $wheelTargetFull"
+    }
+    Remove-BundlePathStrict -Path $wheelTargetFull -Label "DingTalk wheel cache"
+    Move-Item -LiteralPath $dingtalkWheelhouseTemp -Destination $wheelTargetFull
+}
 
 # ------------------------------------------------------------------ 3. Prune the owned core into the bundle
 $bundledCore = Join-Path $Dist "kabuqina"
@@ -689,7 +760,12 @@ Write-Host "[bundle] 5/8 Installing Python dependencies..." -ForegroundColor Cya
     --platform win_amd64 `
     --python-version 3.11 `
     --only-binary=:all: `
+    --find-links $dingtalkWheelhouse `
     -r (Join-Path $PSScriptRoot "requirements-desktop.txt")
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "pip dependency install failed (exit $LASTEXITCODE); bundle verification was not run."
+    exit 10
+}
 
 Write-Host "Verifying pip install (PyYAML / fastapi / uvicorn)..." -ForegroundColor DarkGray
 $verifyScript = Join-Path $PSScriptRoot "tools\verify_bundle_site_packages.py"
