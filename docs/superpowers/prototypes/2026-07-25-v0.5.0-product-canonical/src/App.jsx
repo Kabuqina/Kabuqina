@@ -664,14 +664,14 @@ function StudyNotebook({
         {isPractice && (
           <div className="practice-sheet">
             <span className="eyebrow">练习 3 · 第 2 步</span>
-            <h2>解释为什么不能直接代入</h2>
+            {/* 题目才是这一页的主角；原来那个大标题只是把题目换句话说了一遍 */}
+            <h2 className="practice-question">
+              计算 <span className="formula">lim (x² − 1) / (x − 1)，x → 1</span>
+              。为什么不能把直接代入得到的 0/0 当作答案？
+            </h2>
             <p className="completion-standard">
               <strong>完成标准：</strong>
               说清“得到 0/0”不等于“得到极限值”，并指出下一步。
-            </p>
-            <p>
-              计算 <strong>lim (x² − 1) / (x − 1)，x → 1</strong>。为什么不能把直接代入得到的
-              0/0 当作答案？
             </p>
             {studyState === "returned" && (
               <aside className="margin-note">

@@ -465,6 +465,28 @@ rebuild + browser re-verification; see the iteration log.
   equal heights, KaiTi on the learner's own words, no horizontal overflow. `npm run build` and
   `npm run test:sites` (4/4) pass.
 
+### Iteration 17 — practice page: the question becomes the page
+
+- The page led with 「解释为什么不能直接代入」 at the largest size on screen — a paraphrase of the
+  question sitting below it in body text. It carried nothing the question did not, so it fails
+  the duplication test and it pushed the actual task into third place. Deleted.
+- New order, per owner: **题目 → 完成标准 → 我的答案**. The question is now the h2 (25px desktop,
+  the largest thing on the page), the completion standard follows at 14px as the constraint you
+  check yourself against, then the answer field. Verified the DOM order and that the hierarchy
+  holds in both the draft and feedback states.
+- The formula is set in a serif face (`.formula`, Georgia) so it reads as mathematics rather
+  than emphasis inside a bold heading, and `white-space: nowrap` keeps an expression from
+  breaking mid-formula.
+- **Two specificity defects found while measuring, both mine.** `.practice-question`
+  (0,1,0) was losing to the pre-existing `.practice-sheet h2` (0,2,0), so *none* of the
+  question's declared sizing ever applied — desktop was 28px from the old rule, not the 25px
+  written, and the narrow safety override did nothing. Both rules are now
+  `.practice-sheet h2.practice-question`. Separately, a `font-size: 13px` added to
+  `.completion-standard` was dead for the same reason and has been removed rather than left in.
+- Narrow safety: with the formula set to `nowrap`, a longer expression would burst the measure.
+  At ≤560px the question drops to 19px, taking clearance from 28px to 66px at 390 wide.
+  `npm run build` and `npm run test:sites` (4/4) pass.
+
 ## Primary interactions tested
 
 - J1: empty first run → create course → enter Study.

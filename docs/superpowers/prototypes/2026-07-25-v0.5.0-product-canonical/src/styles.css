@@ -1217,6 +1217,20 @@ p {
   font-size: clamp(22px, 2.3vw, 28px);
 }
 
+/* 题目是这一页最该被看见的东西：先看题，再看完成标准，再写答案。
+   特异性要压过上面的 .practice-sheet h2，否则整条规则不生效。 */
+.practice-sheet h2.practice-question {
+  margin-bottom: 14px;
+  font-size: clamp(20px, 2vw, 25px);
+  line-height: 1.5;
+}
+
+.practice-question .formula {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 0.94em;
+  white-space: nowrap;
+}
+
 .resume-sheet > p,
 .practice-sheet > p {
   color: var(--ink-mid);
@@ -3905,6 +3919,11 @@ label.form-stack > span,
   .resume-sheet h2,
   .practice-sheet h2 {
     font-size: 22px;
+  }
+
+  /* 公式设了 nowrap，窄屏必须留出余量，否则长一点的式子会顶破版心 */
+  .practice-sheet h2.practice-question {
+    font-size: 19px;
   }
 
   .brief-slip {
