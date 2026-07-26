@@ -37,6 +37,9 @@ pub struct CronJobEntry {
     pub schedule: String,
     pub prompt: String,
     pub deliver: String,
+    /// True when the persisted target cannot run in the active product
+    /// profile. The raw target remains visible/editable/deletable.
+    pub delivery_unavailable: bool,
     pub paused: bool,
     pub next_run_at: Option<String>,
     pub last_run_at: Option<String>,
@@ -386,7 +389,42 @@ fn read_goal_projection(data_dir: &std::path::Path, job_id: &str) -> SanitizedGo
     }
 }
 
-fn job_to_entry(job: &serde_json::Value, data_dir: &std::path::Path) -> CronJobEntry {
+fn delivery_is_unavailable(job: &serde_json::Value, product_profile: Option<&str>) -> bool {
+    let Some(profile) = product_profile else {
+        return false;
+    };
+    let deliver = job
+        .get("deliver")
+        .and_then(|v| v.as_str())
+        .unwrap_or("desktop");
+    deliver.split(',').any(|part| {
+        let head = part
+            .trim()
+            .split(':')
+            .next()
+            .unwrap_or("")
+            .to_ascii_lowercase();
+        match head.as_str() {
+            "" | "local" | "desktop" => false,
+            "origin" => job
+                .get("origin")
+                .and_then(|origin| origin.get("platform"))
+                .and_then(|value| value.as_str())
+                .map(|platform| {
+                    !matches!(platform, "local" | "desktop")
+                        && !crate::paths::profile_allows_platform(profile, platform)
+                })
+                .unwrap_or(true),
+            platform => !crate::paths::profile_allows_platform(profile, platform),
+        }
+    })
+}
+
+fn job_to_entry(
+    job: &serde_json::Value,
+    data_dir: &std::path::Path,
+    product_profile: Option<&str>,
+) -> CronJobEntry {
     // ``schedule`` may be a struct (cron/interval/once) or a plain string in
     // older formats. We surface a human-readable summary regardless.
     let schedule_str = match job.get("schedule") {
@@ -427,6 +465,7 @@ fn job_to_entry(job: &serde_json::Value, data_dir: &std::path::Path) -> CronJobE
     } else {
         SanitizedGoalProjection::default()
     };
+    let delivery_unavailable = delivery_is_unavailable(job, product_profile);
 
     CronJobEntry {
         id,
@@ -449,6 +488,7 @@ fn job_to_entry(job: &serde_json::Value, data_dir: &std::path::Path) -> CronJobE
             .and_then(|v| v.as_str())
             .unwrap_or("desktop")
             .to_string(),
+        delivery_unavailable,
         paused: job.get("paused").and_then(|v| v.as_bool()).unwrap_or(false),
         next_run_at: job
             .get("next_run_at")
@@ -526,10 +566,11 @@ fn delete_job_raw(jobs: &mut Vec<serde_json::Value>, job_id: &str) -> Result<(),
 pub fn cmd_cron_list(app: AppHandle) -> Result<CronJobListResponse, String> {
     let jobs_raw = read_jobs_raw(&app)?;
     let data_dir = _data_dir(&app)?;
+    let product_profile = crate::paths::resolve_product_profile(&app);
     let mut active: Vec<CronJobEntry> = Vec::new();
     let mut completed: Vec<CronJobEntry> = Vec::new();
     for job in jobs_raw.iter() {
-        let entry = job_to_entry(job, &data_dir);
+        let entry = job_to_entry(job, &data_dir, Some(&product_profile));
         if entry.state == "completed" {
             completed.push(entry);
         } else {
@@ -722,12 +763,47 @@ mod tests {
             "paused": false
         });
 
-        let entry = job_to_entry(&job, &data_dir);
+        let entry = job_to_entry(&job, &data_dir, None);
 
         assert_eq!(entry.mode, None);
         assert_eq!(entry.prompt, "drink water");
         assert_eq!(entry.goal_status, None);
         assert_eq!(entry.state, "scheduled");
+        let _ = std::fs::remove_dir_all(data_dir);
+    }
+
+    #[test]
+    fn legacy_delivery_is_explained_without_rewriting_target() {
+        let data_dir = temp_data_dir("unsupported-delivery");
+        let removed = serde_json::json!({
+            "id": "removed",
+            "deliver": "feishu:oc_old",
+        });
+        let wrong_profile = serde_json::json!({
+            "id": "wrong-profile",
+            "deliver": "telegram:1",
+        });
+        let retained = serde_json::json!({
+            "id": "retained",
+            "deliver": "weixin:wxid",
+        });
+        let removed_origin = serde_json::json!({
+            "id": "removed-origin",
+            "deliver": "origin",
+            "origin": {"platform": "retired_plugin", "chat_id": "old"},
+        });
+        let missing_origin = serde_json::json!({
+            "id": "missing-origin",
+            "deliver": "origin",
+        });
+
+        let removed_entry = job_to_entry(&removed, &data_dir, Some("mainland_cn"));
+        assert!(removed_entry.delivery_unavailable);
+        assert_eq!(removed_entry.deliver, "feishu:oc_old");
+        assert!(job_to_entry(&wrong_profile, &data_dir, Some("mainland_cn")).delivery_unavailable);
+        assert!(job_to_entry(&removed_origin, &data_dir, Some("mainland_cn")).delivery_unavailable);
+        assert!(job_to_entry(&missing_origin, &data_dir, Some("mainland_cn")).delivery_unavailable);
+        assert!(!job_to_entry(&retained, &data_dir, Some("mainland_cn")).delivery_unavailable);
         let _ = std::fs::remove_dir_all(data_dir);
     }
 
@@ -759,7 +835,7 @@ mod tests {
         )
         .unwrap();
 
-        let entry = job_to_entry(&goal_job(), &data_dir);
+        let entry = job_to_entry(&goal_job(), &data_dir, None);
 
         assert_eq!(entry.mode.as_deref(), Some("goal"));
         assert_eq!(entry.prompt, "");
@@ -787,7 +863,7 @@ mod tests {
         std::fs::create_dir_all(&run_dir).unwrap();
         std::fs::write(run_dir.join("state.json"), "not json").unwrap();
 
-        let entry = job_to_entry(&goal_job(), &data_dir);
+        let entry = job_to_entry(&goal_job(), &data_dir, None);
 
         assert_eq!(entry.goal_status.as_deref(), Some("state_error"));
         assert_eq!(entry.goal_iteration, None);
@@ -819,7 +895,7 @@ mod tests {
         )
         .unwrap();
 
-        let entry = job_to_entry(&goal_job(), &data_dir);
+        let entry = job_to_entry(&goal_job(), &data_dir, None);
 
         assert_eq!(entry.goal_status.as_deref(), Some("state_error"));
         assert_ne!(entry.goal_iteration, Some(99));
@@ -838,7 +914,7 @@ mod tests {
         write_valid_goal_state(&outside_run_dir, "2026-06-27T12:00:00+00:00");
         create_directory_link(&goal_runs_root.join("abc123def456"), &outside_run_dir);
 
-        let entry = job_to_entry(&goal_job(), &data_dir);
+        let entry = job_to_entry(&goal_job(), &data_dir, None);
 
         assert_eq!(entry.goal_status.as_deref(), Some("state_error"));
         assert_eq!(entry.goal_iteration, None);
@@ -855,7 +931,7 @@ mod tests {
             .join("abc123def456");
         write_valid_goal_state(&run_dir, "not-a-timestamp");
 
-        let entry = job_to_entry(&goal_job(), &data_dir);
+        let entry = job_to_entry(&goal_job(), &data_dir, None);
 
         assert_eq!(entry.goal_status.as_deref(), Some("state_error"));
         assert_eq!(entry.goal_updated_at, None);

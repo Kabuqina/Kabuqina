@@ -28,6 +28,7 @@ mod email_env;
 mod email_oauth;
 mod gateway_env_patch;
 mod gateway_supervisor;
+mod legacy_upgrade;
 mod pairing;
 mod paths;
 mod python_supervisor;
@@ -213,6 +214,9 @@ pub fn run() {
             qqbot_qr::cmd_qqbot_qr_cancel,
             gateway_env_patch::cmd_gateway_host_env_get,
             gateway_env_patch::cmd_gateway_host_env_patch,
+            legacy_upgrade::cmd_legacy_channel_inventory,
+            legacy_upgrade::cmd_legacy_channel_export,
+            legacy_upgrade::cmd_legacy_channel_cleanup,
             pairing::cmd_pairing_list,
             pairing::cmd_pairing_approve,
             pairing::cmd_pairing_revoke,

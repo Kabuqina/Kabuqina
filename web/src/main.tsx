@@ -22,7 +22,7 @@ import { QqPage } from "./advanced/pages/QqPage";
 import { WeixinPage } from "./advanced/pages/WeixinPage";
 import { DingTalkPage } from "./advanced/pages/DingTalkPage";
 import { EmailPage } from "./advanced/pages/EmailPage";
-import { PlatformRouteGuard, RetainedPlatformPendingPage } from "./advanced/pages/PlatformRouteGuard";
+import { LegacyPlatformTombstonePage, PlatformRouteGuard, RetainedPlatformPendingPage } from "./advanced/pages/PlatformRouteGuard";
 import { ScheduledTasksPage } from "./advanced/pages/ScheduledTasks";
 import { OverlayWindow } from "./capture/OverlayWindow";
 import { CompanionWindow } from "./companion/CompanionWindow";
@@ -96,6 +96,8 @@ function MainWindowContent() {
           <Route path="/settings/email" element={<PlatformRouteGuard platform="email"><EmailPage /></PlatformRouteGuard>} />
           <Route path="/settings/telegram" element={<PlatformRouteGuard platform="telegram"><RetainedPlatformPendingPage platform="Telegram" /></PlatformRouteGuard>} />
           <Route path="/settings/whatsapp" element={<PlatformRouteGuard platform="whatsapp"><RetainedPlatformPendingPage platform="WhatsApp" /></PlatformRouteGuard>} />
+          <Route path="/settings/feishu" element={<LegacyPlatformTombstonePage platform="Feishu / Lark" />} />
+          <Route path="/settings/wecom" element={<LegacyPlatformTombstonePage platform="WeCom" />} />
           <Route path="/settings/cron" element={<ScheduledTasksPage />} />
           <Route path="/chat" element={<ChatPage />} />
           <Route

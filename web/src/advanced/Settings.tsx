@@ -18,6 +18,7 @@ import { SettingsSharedPrefs } from "./settings/SettingsSharedPrefs";
 import { SettingsLoadPackages } from "./settings/SettingsLoadPackages";
 import { SettingsLlmConfig } from "./settings/SettingsLlmConfig";
 import { SettingsUpdate } from "./settings/SettingsUpdate";
+import { SettingsLegacyChannels } from "./settings/SettingsLegacyChannels";
 
 export interface Status {
   workspace: string;
@@ -166,6 +167,7 @@ export function Settings() {
 
           {tab === "advanced" && (
             <>
+              <SettingsLegacyChannels />
               <SettingsLoadPackages />
               <SettingsSharedPrefs />
             </>

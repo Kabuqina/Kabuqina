@@ -2,7 +2,7 @@
 
 from gateway.config import Platform
 from gateway.delivery import DeliveryTarget
-from gateway.session import SessionSource
+from gateway.session import PersistedPlatformValue, SessionSource
 
 
 class TestParseTargetPlatformChat:
@@ -35,6 +35,15 @@ class TestParseTargetPlatformChat:
         target = DeliveryTarget.parse("origin")
         assert target.platform == Platform.LOCAL
         assert target.is_origin is True
+
+    def test_unknown_historical_origin_never_becomes_local(self):
+        origin = SessionSource.from_dict({"platform": "retired_plugin", "chat_id": "old"})
+        target = DeliveryTarget.parse("origin", origin=origin)
+
+        assert isinstance(target.platform, PersistedPlatformValue)
+        assert target.platform.value == "retired_plugin"
+        assert target.platform != Platform.LOCAL
+        assert target.to_string() == "origin"
 
     def test_unknown_platform(self):
         target = DeliveryTarget.parse("unknown_platform")

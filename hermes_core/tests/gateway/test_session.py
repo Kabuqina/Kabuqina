@@ -7,6 +7,8 @@ from unittest.mock import patch, MagicMock
 from gateway.config import Platform, HomeChannel, GatewayConfig, PlatformConfig
 from gateway.session import (
     SessionSource,
+    SessionEntry,
+    PersistedPlatformValue,
     SessionStore,
     build_session_context,
     build_session_context_prompt,
@@ -21,6 +23,36 @@ normalize_whatsapp_identifier = canonical_whatsapp_identifier
 
 
 class TestSessionSourceRoundtrip:
+    def test_unknown_historical_origin_is_opaque_not_local(self):
+        source = SessionSource.from_dict({
+            "platform": "retired_plugin",
+            "chat_id": "opaque-recipient",
+            "chat_name": "Old room",
+        })
+
+        assert isinstance(source.platform, PersistedPlatformValue)
+        assert source.platform.value == "retired_plugin"
+        assert source.platform != Platform.LOCAL
+        assert source.to_dict()["platform"] == "retired_plugin"
+        assert source.description == "Historical unavailable channel (retired_plugin)"
+
+    def test_unknown_historical_entry_roundtrips_without_enabling_platform(self):
+        payload = {
+            "session_key": "retired_plugin:opaque-recipient",
+            "session_id": "legacy-session",
+            "created_at": "2026-01-01T00:00:00",
+            "updated_at": "2026-01-01T00:00:00",
+            "platform": "retired_plugin",
+            "origin": {"platform": "retired_plugin", "chat_id": "opaque-recipient"},
+        }
+
+        entry = SessionEntry.from_dict(payload)
+
+        assert isinstance(entry.platform, PersistedPlatformValue)
+        assert isinstance(entry.origin.platform, PersistedPlatformValue)
+        assert entry.to_dict()["platform"] == "retired_plugin"
+        assert entry.to_dict()["origin"]["platform"] == "retired_plugin"
+
     def test_full_roundtrip(self):
         source = SessionSource(
             platform=Platform.TELEGRAM,
@@ -89,14 +121,13 @@ class TestSessionSourceRoundtrip:
         assert restored.chat_topic is None
         assert restored.chat_type == "dm"
 
-    def test_unknown_platform_rejected_for_bad_names(self):
-        """Arbitrary platform names are rejected (no accidental enum pollution).
-
-        Only bundled platform plugins (discovered under ``plugins/platforms/``)
-        and runtime-registered plugins get dynamic enum members.
-        """
+    def test_unknown_platform_is_history_only_without_enum_pollution(self):
+        """An old unknown token is readable but cannot become a live Platform."""
+        restored = SessionSource.from_dict({"platform": "nonexistent", "chat_id": "1"})
+        assert isinstance(restored.platform, PersistedPlatformValue)
+        assert restored.platform.value == "nonexistent"
         with pytest.raises(ValueError):
-            SessionSource.from_dict({"platform": "nonexistent", "chat_id": "1"})
+            Platform("nonexistent")
 
 
 class TestSessionSourceDescription:
