@@ -339,14 +339,15 @@ def test_practice_dispatch_grades_python_transcribe_and_derivation(ctx):
         },
     )
 
-    assert result["score"] == 4
-    assert result["maxScore"] == 4
-    assert result["correctCount"] == 2
+    assert result["score"] == 7
+    assert result["maxScore"] == 7
+    assert result["correctCount"] == 3
     assert result["perQuestion"][0]["mode"] == "solve"
     assert result["perQuestion"][1]["mode"] == "transcribe"
     assert result["perQuestion"][2]["ungraded_steps"] == [0]
     assert result["perQuestion"][2]["outcome"] == "ungradable"
-    assert result["perQuestion"][2]["scored"] is False
+    assert result["perQuestion"][2]["scored"] is True
+    assert result["perQuestion"][2]["correct"] is True
     assert result["perQuestion"][3]["ungraded"] is True
     assert result["perQuestion"][3]["gradable"] is False
     assert result["perQuestion"][3]["outcome"] == "ungradable"

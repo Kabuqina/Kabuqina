@@ -606,7 +606,10 @@ class QuizService:
                 elif index not in ungraded_steps:
                     ungraded_steps.append(index)
             normalized_response = {"steps": response_detail}
-            scored = graded_components > 0 and not ungraded_steps
+            # Preserve the v0.4 partial-score contract for already gradable
+            # components.  The new branchable ``outcome`` below still becomes
+            # ``ungradable`` when any required component lacks trusted truth.
+            scored = graded_components > 0
             ungraded = not scored
             correct = scored and failed_components == 0
 
@@ -625,7 +628,7 @@ class QuizService:
             outcome = "timeout"
         elif sandbox_status == "unavailable":
             outcome = "sandbox_failure"
-        elif not gradable or not scored or ungraded:
+        elif not gradable or not scored or ungraded or bool(ungraded_steps):
             outcome = "ungradable"
         else:
             outcome = "correct" if correct else "incorrect"
