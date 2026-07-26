@@ -134,4 +134,3 @@ def test_invalid_second_check_reissues_same_check_with_zero_provider_calls() -> 
     assert result["branch"] == "check_2"
     assert result["remediation_count"] == 1
     assert result["phase"] == "acknowledge"
-

@@ -109,4 +109,3 @@ def test_provider_plan_hash_excludes_credentials_and_is_stable() -> None:
     }
     assert len(plan.plan_hash) == 64
     assert plan.plan_hash == _plan().plan_hash
-
