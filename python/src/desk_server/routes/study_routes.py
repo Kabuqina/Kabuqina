@@ -27,6 +27,8 @@ from learning.learning_store import (
 from learning.operation_coordinator import LearningCoordinationError
 from learning.output_writer import OutputWriter
 from learning.practice_generator import PracticeGenerator
+from learning.practice_contract import PracticeContractError
+from learning.practice_hints import PracticeHintService
 from learning.quizzes import QuizService
 from learning.semantic_review import requires_semantic_review
 from learning.semantic_review import SemanticReviewService
@@ -95,7 +97,7 @@ def _workspace_root() -> Optional[str]:
 def _http_error(exc: Exception) -> HTTPException:
     if isinstance(exc, (TutorConflictError, LearningCoordinationError, TutorRuntimeError)):
         status, code = 409, "study_conflict"
-    elif isinstance(exc, TutorContractError):
+    elif isinstance(exc, (TutorContractError, PracticeContractError)):
         status, code = 400, "study_invalid_request"
     elif isinstance(exc, (ContractError, LearningConflictError)):
         status, code = 409, "study_conflict"
@@ -136,6 +138,7 @@ def _public_quiz_attempt(result: Dict[str, Any]) -> Dict[str, Any]:
                 "item_id", "prompt", "type", "correct", "earned", "points",
                 "explanation", "tags", "mode", "timed_out", "ungraded",
                 "gradable", "scored", "ungraded_steps", "failure_kind",
+                "outcome", "grader_provenance",
             )
             if key in question
         }
@@ -937,6 +940,42 @@ async def study_quiz_generate_practice(artifact_id: str, body: Dict[str, Any]):
                 practice_kind=practice_kind,
             )
     except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+
+@router.post(
+    "/api/desk/study/quizzes/{artifact_id}/questions/{item_id}/hints"
+)
+async def study_practice_hint(
+    artifact_id: str, item_id: str, body: Dict[str, Any]
+):
+    """Return one explicit activated-question hint level with zero model calls."""
+    try:
+        if set(body) != {
+            "schema_version",
+            "space_id",
+            "idempotency_key",
+            "level",
+        }:
+            raise ValueError("hint request fields are invalid")
+        space_id = _required_space_id(body)
+        with _desktop_ctx(space_id=space_id) as ctx:
+            return PracticeHintService(ctx).request_hint(
+                {
+                    "schema_version": body.get("schema_version"),
+                    "artifact_id": artifact_id,
+                    "item_id": item_id,
+                    "idempotency_key": body.get("idempotency_key"),
+                    "level": body.get("level"),
+                }
+            )
+    except (
+        ValueError,
+        KeyError,
+        ContractError,
+        PracticeContractError,
+        LearningConflictError,
+    ) as exc:
         raise _http_error(exc) from exc
 
 

@@ -31,6 +31,9 @@ REQUIRED_IMPORTS = (
     "agent.graph_engine.tutor_nodes",
     "agent.graph_engine.tutor_builder",
     "agent.graph_engine.tutor_engine",
+    "learning.practice_contract",
+    "learning.practice_hints",
+    "learning.practice_evaluation",
 )
 
 

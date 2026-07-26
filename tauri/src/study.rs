@@ -521,6 +521,19 @@ fn quiz_submit_body(space_id: String, responses: Value, item_ids: Option<Vec<Str
     body
 }
 
+fn practice_hint_body(
+    space_id: String,
+    idempotency_key: String,
+    level: String,
+) -> Value {
+    json!({
+        "schema_version": 1,
+        "space_id": space_id,
+        "idempotency_key": idempotency_key,
+        "level": level,
+    })
+}
+
 fn canonical_bundle_bytes(bundle: &Value) -> Result<Vec<u8>, DeskBridgeError> {
     let normalized = canonical_bundle_value(bundle)?;
     serde_json::to_vec(&normalized).map_err(|_| {
@@ -1090,6 +1103,39 @@ pub async fn cmd_study_quiz_generate_practice(
 }
 
 #[tauri::command]
+pub async fn cmd_study_practice_hint(
+    app: AppHandle,
+    space_id: String,
+    artifact_id: String,
+    item_id: String,
+    idempotency_key: String,
+    level: String,
+) -> Result<Value, DeskBridgeError> {
+    validate_structured_id(&space_id)?;
+    validate_structured_id(&artifact_id)?;
+    validate_structured_id(&item_id)?;
+    validate_structured_id(&idempotency_key)?;
+    if !matches!(
+        level.as_str(),
+        "direction" | "next_step" | "scaffold" | "full_solution"
+    ) {
+        return Err(DeskBridgeError::invalid(
+            "study_invalid_request",
+            "invalid hint level",
+        ));
+    }
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::POST,
+        &format!(
+            "/api/desk/study/quizzes/{artifact_id}/questions/{item_id}/hints"
+        ),
+        Some(practice_hint_body(space_id, idempotency_key, level)),
+    )
+    .await
+}
+
+#[tauri::command]
 pub async fn cmd_study_practice_source(
     app: AppHandle,
     space_id: String,
@@ -1192,6 +1238,21 @@ mod tests {
             Some(vec!["question-1".to_string()]),
         );
         assert_eq!(subset["item_ids"], json!(["question-1"]));
+    }
+
+    #[test]
+    fn practice_hint_body_is_versioned_and_secret_free() {
+        let body = practice_hint_body(
+            "space-1".to_string(),
+            "hint-request-1".to_string(),
+            "full_solution".to_string(),
+        );
+        assert_eq!(body["schema_version"], json!(1));
+        assert_eq!(body["space_id"], json!("space-1"));
+        assert_eq!(body["idempotency_key"], json!("hint-request-1"));
+        assert_eq!(body["level"], json!("full_solution"));
+        assert!(body.get("owner_id").is_none());
+        assert!(body.get("provider").is_none());
     }
 
     #[test]

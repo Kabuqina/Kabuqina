@@ -276,6 +276,7 @@ pub fn run() {
             study::cmd_study_quiz_questions,
             study::cmd_study_quiz_submit,
             study::cmd_study_quiz_generate_practice,
+            study::cmd_study_practice_hint,
             study::cmd_study_practice_source,
             study::cmd_study_migrate_quizzes,
             study::cmd_study_migrate_builtin_course,
