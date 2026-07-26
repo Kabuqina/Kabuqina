@@ -6,12 +6,15 @@
 from __future__ import annotations
 
 import copy
-from typing import Any
-
 from agent.graph_engine.tutor_contracts import (
     TutorGraphStateV1,
     classify_learner_control,
     validate_tutor_state,
+)
+from agent.graph_engine.tutor_branch_policy import (
+    TutorBranchPolicyInputV1,
+    TutorCheckSpecV1,
+    apply_tutor_branch_policy,
 )
 from agent.graph_engine.tutor_ports import TutorGraphServices
 from learning.tutor_contract import TutorContractError
@@ -67,15 +70,61 @@ def learner_control_check(
     updated = _advance_node(validate_tutor_state(state))
     updated["phase"] = "acknowledge"
     updated.pop("learner_answer", None)
+    updated.pop("learner_answer_checkpoint_revision", None)
     return updated
 
 
 def acknowledge(
     state: TutorGraphStateV1, *, services: TutorGraphServices
 ) -> TutorGraphStateV1:
-    del services
     updated = _advance_node(validate_tutor_state(state))
     answer = updated.pop("learner_answer", None)
+    answer_revision = updated.pop("learner_answer_checkpoint_revision", None)
+    if updated["tutor_mode"] == "deterministic_practice":
+        if type(answer_revision) is not int:
+            raise TutorContractError("Practice answer revision is missing")
+        check_spec = TutorCheckSpecV1.from_mapping(updated["check_spec"])
+        evaluation, source_status = services.evaluate(
+            updated,
+            answer,
+            checkpoint_revision=answer_revision,
+        )
+        policy_input = TutorBranchPolicyInputV1(
+            check_spec=check_spec,
+            evaluation=evaluation,
+            remediation_count=updated["remediation_count"],
+            source_status=source_status,
+        )
+        resolution = apply_tutor_branch_policy(policy_input)
+        updated["learner_evidence"] = [
+            *updated["learner_evidence"],
+            {
+                "kind": "deterministic_evaluation",
+                "evaluation": evaluation.to_dict(),
+                "resolution": resolution.to_dict(),
+            },
+        ][-2:]
+        if resolution.control_action == "reissue":
+            updated["phase"] = "acknowledge"
+        elif resolution.branch_action == "complete":
+            updated["phase"] = "terminal"
+            updated["terminal"] = {
+                "outcome": "completed",
+                "completion_basis": resolution.completion_basis,
+            }
+        elif resolution.branch_action == "remediate":
+            updated["phase"] = "remediate"
+            updated["branch"] = "check_2"
+            updated["remediation_count"] = 1
+        elif resolution.branch_action == "blocked":
+            updated["phase"] = "terminal"
+            updated["terminal"] = {
+                "outcome": "blocked",
+                "reason_code": resolution.reason_code,
+            }
+        else:
+            raise TutorContractError("Practice branch is unavailable")
+        return validate_tutor_state(updated)
     action = classify_learner_control(updated["branch"], answer)
     updated["learner_evidence"] = [
         *updated["learner_evidence"],
@@ -114,10 +163,11 @@ def complete(
     del services
     updated = _advance_node(validate_tutor_state(state))
     updated["phase"] = "terminal"
-    updated["terminal"] = {
-        "outcome": "completed",
-        "completion_basis": "participation_only",
-    }
+    if "terminal" not in updated:
+        updated["terminal"] = {
+            "outcome": "completed",
+            "completion_basis": "participation_only",
+        }
     return validate_tutor_state(updated)
 
 

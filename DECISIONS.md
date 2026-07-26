@@ -1360,3 +1360,36 @@ Per-scene, activity, space and owner quotas fit within the existing 16 MiB
 learning and 24 MiB composite bundle limits. DOM/SVG plus the already locked
 KaTeX is the v0.5 default; any third-party canvas dependency requires a
 separate license, supply-chain, size and Windows WebView2 gate.
+
+**CTL-B06 L-3 trusted Practice branch runtime (2026-07-26).** A Tutor start
+now has an explicit host-validated mode. Absence of that field remains the
+legacy `participation` contract and preserves the old canonical request
+fingerprint; `deterministic_practice` selects exactly one activated quiz item,
+after which the host constructs and checkpoints the check spec, prompt,
+rubric version/hash and `correct_action=complete`. Clients and model output
+cannot supply expected truth, completion policy or branch decisions.
+
+Tutor grading reuses the same QuizService implementation through a new pure
+single-question seam and records no second `quiz.attempt`. The v1 Tutor adapter
+accepts only total deterministic graders: choice, boolean, short answer and
+code transcription. Sandbox code and derivation graders can return timeout,
+unavailable or ungradable, so they remain ordinary Practice outcomes and are
+not coerced into Tutor correct/incorrect. Expanding this allowlist requires a
+branch contract that represents those non-binary outcomes without treating
+them as learner failure.
+
+Every resume re-verifies the active owner/space source against its pinned
+version and truth hash; missing, inactive, stale or drifted sources terminate
+as `blocked(source_missing)` and never fall back to a model grader. Invalid
+answer shape only reissues the same check with zero provider calls. Incorrect
+answers allow exactly one already-budgeted remediation, then block; correct
+answers complete with `deterministic_correct`. The answer claim durably saves
+the original interrupt revision before execution, so a crash/recover evaluates
+the same identity and fingerprint without replaying a provider call. Exact
+start replay is resolved from the existing run before ephemeral provider or
+source resolution; a different canonical payload conflicts.
+
+This closes the deterministic L-3/Practice-check subphase, not Level-5
+semantic evaluation. B04's semantic result remains a review-only draft seam;
+production wiring still requires its own write-ahead single-physical-attempt
+budget and must not call ordinary retry/fallback-enabled `call_llm()`.

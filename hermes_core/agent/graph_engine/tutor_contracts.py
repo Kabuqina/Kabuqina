@@ -16,6 +16,7 @@ import hashlib
 from typing import Any, Literal, Mapping, TypedDict
 from urllib.parse import parse_qsl, urlsplit
 
+from agent.graph_engine.tutor_branch_policy import TutorCheckSpecV1
 from learning.tutor_contract import (
     LearningActivityKeyV1,
     TutorContractError,
@@ -61,12 +62,16 @@ _ALLOWED_STATE_FIELDS = frozenset(
         "learner_evidence",
         "pending_interrupt",
         "learner_answer",
+        "learner_answer_checkpoint_revision",
         "branch",
         "remediation_count",
         "budget",
         "provider_plan",
         "latest_output",
         "terminal",
+        "tutor_mode",
+        "check_spec",
+        "check_prompt",
     }
 )
 
@@ -83,12 +88,16 @@ class TutorGraphStateV1(TypedDict, total=False):
     learner_evidence: list[dict[str, Any]]
     pending_interrupt: dict[str, Any]
     learner_answer: dict[str, Any]
+    learner_answer_checkpoint_revision: int
     branch: TutorBranch
     remediation_count: int
     budget: dict[str, int]
     provider_plan: dict[str, Any]
     latest_output: dict[str, str]
     terminal: dict[str, Any]
+    tutor_mode: Literal["participation", "deterministic_practice"]
+    check_spec: dict[str, Any]
+    check_prompt: dict[str, Any]
 
 
 def _bounded_text(value: Any, field: str, *, maximum: int = 512) -> str:
@@ -111,7 +120,9 @@ class TutorProviderPlanV1:
         if self.schema_version != 1:
             raise TutorContractError("unsupported provider plan schema_version")
         object.__setattr__(
-            self, "provider_id", _bounded_text(self.provider_id, "provider_id", maximum=128)
+            self,
+            "provider_id",
+            _bounded_text(self.provider_id, "provider_id", maximum=128),
         )
         object.__setattr__(
             self, "model_id", _bounded_text(self.model_id, "model_id", maximum=300)
@@ -122,13 +133,23 @@ class TutorProviderPlanV1:
             self.endpoint_identity, "endpoint_identity", maximum=2_048
         ).rstrip("/")
         parsed = urlsplit(endpoint)
-        secret_query_keys = {"api_key", "apikey", "key", "token", "secret", "access_token"}
+        secret_query_keys = {
+            "api_key",
+            "apikey",
+            "key",
+            "token",
+            "secret",
+            "access_token",
+        }
         if (
             parsed.scheme not in {"http", "https"}
             or not parsed.hostname
             or parsed.username is not None
             or parsed.password is not None
-            or any(key.lower() in secret_query_keys for key, _value in parse_qsl(parsed.query))
+            or any(
+                key.lower() in secret_query_keys
+                for key, _value in parse_qsl(parsed.query)
+            )
         ):
             raise TutorContractError("endpoint_identity must not contain credentials")
         object.__setattr__(self, "endpoint_identity", endpoint)
@@ -189,7 +210,10 @@ class TutorProviderRequestV1:
             or len(self.previous_output) > MAX_TUTOR_OUTPUT_CODEPOINTS
         ):
             raise TutorContractError("provider request previous_output is invalid")
-        if type(self.max_output_tokens) is not int or not 1 <= self.max_output_tokens <= 2_048:
+        if (
+            type(self.max_output_tokens) is not int
+            or not 1 <= self.max_output_tokens <= 2_048
+        ):
             raise TutorContractError("provider request max_output_tokens is invalid")
 
 
@@ -263,12 +287,59 @@ def _validate_budget(value: Any) -> dict[str, int]:
     return result
 
 
+def _validate_practice_prompt(value: Any) -> dict[str, Any]:
+    if not isinstance(value, Mapping) or set(value) != {
+        "schema_version",
+        "template",
+        "message",
+        "options",
+    }:
+        raise TutorContractError("Practice Tutor prompt is invalid")
+    message = value.get("message")
+    options = value.get("options")
+    if (
+        value.get("schema_version") != 1
+        or value.get("template") != "practice-v1"
+        or not isinstance(message, str)
+        or not message
+        or len(message) > 1_200
+        or not isinstance(options, list)
+        or len(options) > 26
+    ):
+        raise TutorContractError("Practice Tutor prompt is invalid")
+    normalized_options: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for option in options:
+        if (
+            not isinstance(option, Mapping)
+            or set(option) != {"id", "label"}
+            or not isinstance(option.get("id"), str)
+            or not option["id"]
+            or len(option["id"]) > 128
+            or option["id"] in seen
+            or not isinstance(option.get("label"), str)
+            or not option["label"]
+            or len(option["label"]) > 600
+        ):
+            raise TutorContractError("Practice Tutor prompt option is invalid")
+        seen.add(option["id"])
+        normalized_options.append({"id": option["id"], "label": option["label"]})
+    return {
+        "schema_version": 1,
+        "template": "practice-v1",
+        "message": message,
+        "options": normalized_options,
+    }
+
+
 def validate_tutor_state(value: Any) -> TutorGraphStateV1:
     if not isinstance(value, Mapping):
         raise TutorContractError("Tutor graph state must be an object")
     unknown = set(value) - set(_ALLOWED_STATE_FIELDS)
     if unknown:
-        raise TutorContractError(f"Tutor graph state contains unknown field: {sorted(unknown)[0]}")
+        raise TutorContractError(
+            f"Tutor graph state contains unknown field: {sorted(unknown)[0]}"
+        )
     if value.get("schema_version") != 1:
         raise TutorContractError("unsupported Tutor state schema_version")
     if value.get("graph_schema_version") != TUTOR_GRAPH_SCHEMA_VERSION:
@@ -281,8 +352,10 @@ def validate_tutor_state(value: Any) -> TutorGraphStateV1:
         raise TutorContractError("Tutor phase is invalid")
     goal = _bounded_text(value.get("goal"), "Tutor goal", maximum=4_000)
     input_refs = value.get("input_refs")
-    if not isinstance(input_refs, list) or len(input_refs) > 16 or not all(
-        isinstance(item, dict) for item in input_refs
+    if (
+        not isinstance(input_refs, list)
+        or len(input_refs) > 16
+        or not all(isinstance(item, dict) for item in input_refs)
     ):
         raise TutorContractError("Tutor input_refs are invalid")
     turns = value.get("turns")
@@ -305,6 +378,18 @@ def validate_tutor_state(value: Any) -> TutorGraphStateV1:
     provider_plan = TutorProviderPlanV1.from_checkpoint_dict(
         value.get("provider_plan")
     ).to_checkpoint_dict()
+    tutor_mode = value.get("tutor_mode", "participation")
+    if tutor_mode not in {"participation", "deterministic_practice"}:
+        raise TutorContractError("Tutor mode is invalid")
+    check_spec: dict[str, Any] | None = None
+    check_prompt: dict[str, Any] | None = None
+    if tutor_mode == "deterministic_practice":
+        check_spec = TutorCheckSpecV1.from_mapping(value.get("check_spec")).to_dict()
+        if check_spec["evaluation_mode"] != "deterministic":
+            raise TutorContractError("Practice Tutor requires deterministic check")
+        check_prompt = _validate_practice_prompt(value.get("check_prompt"))
+    elif "check_spec" in value or "check_prompt" in value:
+        raise TutorContractError("participation Tutor cannot carry Practice truth")
 
     result: TutorGraphStateV1 = {
         "schema_version": 1,
@@ -320,7 +405,11 @@ def validate_tutor_state(value: Any) -> TutorGraphStateV1:
         "remediation_count": remediation_count,
         "budget": budget,
         "provider_plan": provider_plan,
+        "tutor_mode": tutor_mode,
     }
+    if check_spec is not None and check_prompt is not None:
+        result["check_spec"] = check_spec
+        result["check_prompt"] = check_prompt
     for optional in (
         "pending_interrupt",
         "learner_answer",
@@ -332,6 +421,13 @@ def validate_tutor_state(value: Any) -> TutorGraphStateV1:
             if not isinstance(candidate, Mapping):
                 raise TutorContractError(f"Tutor {optional} is invalid")
             result[optional] = copy.deepcopy(dict(candidate))
+    if "learner_answer_checkpoint_revision" in value:
+        answer_revision = value["learner_answer_checkpoint_revision"]
+        if type(answer_revision) is not int or answer_revision < 0:
+            raise TutorContractError("Tutor learner answer revision is invalid")
+        if "learner_answer" not in result:
+            raise TutorContractError("Tutor learner answer revision requires answer")
+        result["learner_answer_checkpoint_revision"] = answer_revision
 
     latest = result.get("latest_output")
     if latest is not None:
@@ -341,15 +437,27 @@ def validate_tutor_state(value: Any) -> TutorGraphStateV1:
         }:
             raise TutorContractError("Tutor latest_output is invalid")
         markdown = latest.get("markdown")
-        if not isinstance(markdown, str) or not markdown or len(markdown) > MAX_TUTOR_OUTPUT_CODEPOINTS:
+        if (
+            not isinstance(markdown, str)
+            or not markdown
+            or len(markdown) > MAX_TUTOR_OUTPUT_CODEPOINTS
+        ):
             raise TutorContractError("Tutor latest_output markdown is invalid")
     terminal = result.get("terminal")
     if terminal is not None:
-        if terminal != {
-            "outcome": "completed",
-            "completion_basis": "participation_only",
-        }:
-            raise TutorContractError("L-2 terminal is invalid")
+        if terminal not in (
+            {
+                "outcome": "completed",
+                "completion_basis": "participation_only",
+            },
+            {
+                "outcome": "completed",
+                "completion_basis": "deterministic_correct",
+            },
+            {"outcome": "blocked", "reason_code": "source_missing"},
+            {"outcome": "blocked", "reason_code": "remediation_exhausted"},
+        ):
+            raise TutorContractError("Tutor terminal is invalid")
         if phase != "terminal":
             raise TutorContractError("Tutor terminal requires terminal phase")
     return copy.deepcopy(result)
@@ -361,36 +469,43 @@ def new_tutor_state(
     goal: str,
     input_refs: tuple[dict[str, Any], ...],
     provider_plan: TutorProviderPlanV1,
+    tutor_mode: Literal["participation", "deterministic_practice"] = "participation",
+    check_spec: TutorCheckSpecV1 | None = None,
+    check_prompt: Mapping[str, Any] | None = None,
 ) -> TutorGraphStateV1:
-    return validate_tutor_state(
-        {
-            "schema_version": 1,
-            "graph_schema_version": TUTOR_GRAPH_SCHEMA_VERSION,
-            "policy_version": TUTOR_POLICY_VERSION,
-            "identity": {
-                "owner_id": key.owner_id,
-                "space_id": key.space_id,
-                "activity_kind": key.activity_kind,
-                "activity_id": key.activity_id,
-            },
-            "phase": "start",
-            "goal": goal,
-            "input_refs": copy.deepcopy(list(input_refs)),
-            "turns": [],
-            "learner_evidence": [],
-            "branch": "check_1",
-            "remediation_count": 0,
-            "budget": {
-                "nodes_used": 0,
-                "attempts_used": 0,
-                "reserved_input_tokens": 0,
-                "reserved_output_tokens": 0,
-                "reserved_wall_ms": 0,
-                "active_elapsed_ms": 0,
-            },
-            "provider_plan": provider_plan.to_checkpoint_dict(),
-        }
-    )
+    state: dict[str, Any] = {
+        "schema_version": 1,
+        "graph_schema_version": TUTOR_GRAPH_SCHEMA_VERSION,
+        "policy_version": TUTOR_POLICY_VERSION,
+        "identity": {
+            "owner_id": key.owner_id,
+            "space_id": key.space_id,
+            "activity_kind": key.activity_kind,
+            "activity_id": key.activity_id,
+        },
+        "phase": "start",
+        "goal": goal,
+        "input_refs": copy.deepcopy(list(input_refs)),
+        "turns": [],
+        "learner_evidence": [],
+        "branch": "check_1",
+        "remediation_count": 0,
+        "budget": {
+            "nodes_used": 0,
+            "attempts_used": 0,
+            "reserved_input_tokens": 0,
+            "reserved_output_tokens": 0,
+            "reserved_wall_ms": 0,
+            "active_elapsed_ms": 0,
+        },
+        "provider_plan": provider_plan.to_checkpoint_dict(),
+        "tutor_mode": tutor_mode,
+    }
+    if check_spec is not None:
+        state["check_spec"] = check_spec.to_dict()
+    if check_prompt is not None:
+        state["check_prompt"] = copy.deepcopy(dict(check_prompt))
+    return validate_tutor_state(state)
 
 
 def classify_learner_control(

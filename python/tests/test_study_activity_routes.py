@@ -19,6 +19,8 @@ for path in (ROOT / "python" / "src", ROOT / "hermes_core"):
 from learning.checkpoint_store import LearningCheckpointV1  # noqa: E402
 from learning.learning_context import LearningExecutionContext  # noqa: E402
 from learning.learning_data_service import CompositeLearningDataService  # noqa: E402
+from learning.output_writer import OutputWriter  # noqa: E402
+from learning.quizzes import QuizService  # noqa: E402
 from learning.tutor_contract import validate_start_request  # noqa: E402
 from agent.graph_engine.tutor_contracts import (  # noqa: E402
     TutorProviderPlanV1,
@@ -68,7 +70,9 @@ class _Provider:
 
     def execute_once(self, reservation, request, *, timeout_s):
         self.calls.append((reservation, request, timeout_s))
-        purpose = "Initial explanation" if request.purpose == "explain" else "Remediation"
+        purpose = (
+            "Initial explanation" if request.purpose == "explain" else "Remediation"
+        )
         return TutorProviderResult(
             markdown=purpose,
             actual_input_tokens=10,
@@ -123,11 +127,20 @@ class StudyActivityRouteTests(unittest.TestCase):
     def _service(self) -> CompositeLearningDataService:
         return CompositeLearningDataService.from_root(self.root)
 
-    def _build_executor(self, runtime_store):
+    def _build_executor(self, runtime_store, learning_store):
+        from learning.tutor_practice import TutorPracticeAdapter
+
         return TutorActivityExecutor(
             runtime_store,
             resolver=_Resolver(),
             provider_factory=lambda _binding: self.provider,
+            practice_adapter_factory=lambda key: TutorPracticeAdapter(
+                LearningExecutionContext(
+                    learning_store,
+                    owner_id=key.owner_id,
+                    space_id=key.space_id,
+                )
+            ),
         )
 
     def _seed(self, *, activity_id: str = "activity-1"):
@@ -206,7 +219,9 @@ class StudyActivityRouteTests(unittest.TestCase):
         )
         self.assertEqual(len(self.provider.calls), 1)
 
-        injected = dict(body, idempotency_key="start-injected", owner_id="desktop:attacker")
+        injected = dict(
+            body, idempotency_key="start-injected", owner_id="desktop:attacker"
+        )
         response = self.client.post(
             "/api/desk/study/activity-runs",
             json=injected,
@@ -217,8 +232,52 @@ class StudyActivityRouteTests(unittest.TestCase):
             response.json()["detail"]["code"],
             "study_activity_invalid_request",
         )
+
+    def test_deterministic_practice_route_uses_learning_store_truth(self):
+        artifact_id, item_id = self._seed_practice()
+        response = self.client.post(
+            "/api/desk/study/activity-runs",
+            json={
+                "schema_version": 1,
+                "space_id": "space-1",
+                "activity_kind": "tutor",
+                "idempotency_key": "practice-start-1",
+                "goal": "Practice trusted arithmetic",
+                "input_refs": [],
+                "tutor_mode": "deterministic_practice",
+                "practice_ref": {
+                    "artifact_id": artifact_id,
+                    "item_id": item_id,
+                },
+            },
+            headers=self.headers(),
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        waiting = response.json()
+        self.assertEqual(waiting["interrupt"]["prompt"]["template"], "practice-v1")
+
+        response = self.client.post(
+            f"/api/desk/study/activity-runs/tutor/{waiting['activity_id']}/resume",
+            json={
+                "schema_version": 1,
+                "space_id": "space-1",
+                "expected_revision": waiting["revision"],
+                "mode": "answer",
+                "interrupt_id": waiting["interrupt"]["interrupt_id"],
+                "answer": {"type": "choice", "selected": ["1"]},
+            },
+            headers=self.headers(),
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["status"], "completed")
+        self.assertEqual(
+            response.json()["terminal"]["completion_basis"],
+            "deterministic_correct",
+        )
+        self.assertEqual(len(self.provider.calls), 1)
+
     def test_unavailable_provider_returns_503_without_creating_run(self):
-        def unavailable(runtime_store):
+        def unavailable(runtime_store, _learning_store):
             return TutorActivityExecutor(runtime_store, resolver=_UnavailableResolver())
 
         with patch(
@@ -245,7 +304,35 @@ class StudyActivityRouteTests(unittest.TestCase):
         finally:
             service.close()
 
-    def test_route_reconciliation_preserves_live_execution_then_interrupts_abandoned(self):
+    def _seed_practice(self):
+        service = self._service()
+        try:
+            ctx = LearningExecutionContext(service.learning_store, OWNER)
+            ctx.create_space(title="Algebra", space_id="space-1")
+            artifact_id = OutputWriter(ctx).write_artifact(
+                kind="quiz",
+                title="Trusted quiz",
+                payload={
+                    "questions": [
+                        {
+                            "type": "choice",
+                            "prompt": "2 + 2 = ?",
+                            "options": ["3", "4"],
+                            "answer": 1,
+                        }
+                    ]
+                },
+            )["artifact_id"]
+            quiz = QuizService(ctx)
+            quiz.activate_quiz(artifact_id)
+            item_id = quiz.list_questions(artifact_id=artifact_id)[0]["item_id"]
+            return artifact_id, item_id
+        finally:
+            service.close()
+
+    def test_route_reconciliation_preserves_live_execution_then_interrupts_abandoned(
+        self,
+    ):
         from desk_server.routes import study_activity_routes
 
         execution_id = "texec_live-route"
@@ -340,9 +427,7 @@ class StudyActivityRouteTests(unittest.TestCase):
         )
         self.assertEqual(cancelled.status_code, 200)
         self.assertEqual(cancelled.json()["status"], "cancelled")
-        self.assertEqual(
-            cancelled.json()["terminal"]["reason_code"], "user_cancelled"
-        )
+        self.assertEqual(cancelled.json()["terminal"]["reason_code"], "user_cancelled")
 
     def test_recover_unknown_pre_b03_checkpoint_fails_closed_without_claim(self):
         request = self._seed()

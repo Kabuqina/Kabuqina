@@ -40,11 +40,25 @@ def _live_execution_snapshot() -> set[str]:
         return set(_LIVE_EXECUTIONS)
 
 
-def _build_tutor_executor(runtime_store: TutorRuntimeStore):
+def _build_tutor_executor(
+    runtime_store: TutorRuntimeStore,
+    learning_store: LearningStore,
+):
     from agent.graph_engine.tutor_engine import TutorActivityExecutor
+    from learning.tutor_practice import TutorPracticeAdapter
+
+    def practice_adapter(key):
+        context = learning_owner.establish_desktop_context(
+            learning_store,
+            space_id=key.space_id,
+        )
+        if context.owner_id != key.owner_id:
+            raise TutorContractError("Tutor owner context mismatch")
+        return TutorPracticeAdapter(context)
 
     return TutorActivityExecutor(
         runtime_store,
+        practice_adapter_factory=practice_adapter,
         execution_started=_execution_started,
         execution_finished=_execution_finished,
     )
@@ -68,9 +82,12 @@ def _desktop_activity_service() -> Iterator[tuple[str, TutorActivityService]]:
         # and interrupts abandoned running segments. Concurrent live requests
         # in this process are preserved by their registered execution_id.
         runtime_store.reconcile_abandoned(owner_id, _live_execution_snapshot())
-        yield owner_id, TutorActivityService(
-            runtime_store,
-            _build_tutor_executor(runtime_store),
+        yield (
+            owner_id,
+            TutorActivityService(
+                runtime_store,
+                _build_tutor_executor(runtime_store, learning_store),
+            ),
         )
     finally:
         if runtime_store is not None:
@@ -82,11 +99,16 @@ def _http_error(exc: Exception) -> HTTPException:
     if isinstance(exc, TutorActivityNotReadyError):
         status, code, message = 503, exc.reason_code, str(exc)
     elif isinstance(exc, TutorActivityNotFoundError) or (
-        isinstance(exc, TutorConflictError)
-        and exc.reason_code == "activity_not_found"
+        isinstance(exc, TutorConflictError) and exc.reason_code == "activity_not_found"
     ):
-        status, code, message = 404, "study_activity_not_found", "Tutor activity was not found"
-    elif isinstance(exc, (TutorConflictError, LearningCoordinationError, TutorRuntimeError)):
+        status, code, message = (
+            404,
+            "study_activity_not_found",
+            "Tutor activity was not found",
+        )
+    elif isinstance(
+        exc, (TutorConflictError, LearningCoordinationError, TutorRuntimeError)
+    ):
         status, code, message = 409, "study_activity_conflict", str(exc)
     elif isinstance(exc, (TutorContractError, ValueError)):
         status, code, message = 400, "study_activity_invalid_request", str(exc)
@@ -136,9 +158,7 @@ async def study_activity_list(
         raise _http_error(exc) from exc
 
 
-@router.get(
-    "/api/desk/study/activity-runs/{activity_kind}/{activity_id}"
-)
+@router.get("/api/desk/study/activity-runs/{activity_kind}/{activity_id}")
 async def study_activity_get(
     activity_kind: str,
     activity_id: str,
@@ -153,9 +173,7 @@ async def study_activity_get(
         raise _http_error(exc) from exc
 
 
-@router.post(
-    "/api/desk/study/activity-runs/{activity_kind}/{activity_id}/resume"
-)
+@router.post("/api/desk/study/activity-runs/{activity_kind}/{activity_id}/resume")
 def study_activity_resume(
     activity_kind: str,
     activity_id: str,
@@ -170,9 +188,7 @@ def study_activity_resume(
         raise _http_error(exc) from exc
 
 
-@router.post(
-    "/api/desk/study/activity-runs/{activity_kind}/{activity_id}/cancel"
-)
+@router.post("/api/desk/study/activity-runs/{activity_kind}/{activity_id}/cancel")
 async def study_activity_cancel(
     activity_kind: str,
     activity_id: str,

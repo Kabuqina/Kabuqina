@@ -18,6 +18,7 @@ from agent.graph_engine.tutor_contracts import (
     new_tutor_state,
     validate_tutor_state,
 )
+from agent.graph_engine.tutor_branch_policy import TutorCheckSpecV1
 from agent.graph_engine.tutor_ports import (
     SingleAttemptTutorProvider,
     TutorGraphRuntimeContext,
@@ -39,13 +40,13 @@ from learning.tutor_contract import (
 from learning.tutor_runtime_store import (
     MAX_ACTIVE_ELAPSED_MS_PER_ACTIVITY,
     MAX_GRAPH_NODES_PER_ACTIVITY,
-    MAX_PROVIDER_ATTEMPTS_PER_ACTIVITY,
     MAX_RESERVED_INPUT_TOKENS_PER_ATTEMPT,
     MAX_RESERVED_OUTPUT_TOKENS_PER_ATTEMPT,
     MAX_RESERVED_WALL_MS_PER_ATTEMPT,
     ProviderAttemptReservationV1,
     TutorRuntimeStore,
 )
+from learning.tutor_practice import TutorPracticeAdapter
 
 
 SEGMENT_WALL_MS = 45_000
@@ -97,6 +98,7 @@ class _RuntimeGraphServices:
         execution_id: str,
         monotonic: Callable[[], float],
         utc_now: Callable[[], str],
+        practice_adapter: TutorPracticeAdapter | None,
     ) -> None:
         self.store = store
         self.key = key
@@ -108,6 +110,7 @@ class _RuntimeGraphServices:
         self.execution_id = execution_id
         self.monotonic = monotonic
         self.utc_now = utc_now
+        self.practice_adapter = practice_adapter
         self.started = monotonic()
         self.base_active_ms = int(state["budget"]["active_elapsed_ms"])
         self.base_nodes = int(state["budget"]["nodes_used"])
@@ -298,7 +301,39 @@ class _RuntimeGraphServices:
         self.last_state = copy.deepcopy(state)
         return result.markdown
 
+    def evaluate(
+        self,
+        state: TutorGraphStateV1,
+        answer: dict[str, Any],
+        *,
+        checkpoint_revision: int,
+    ):
+        if self.practice_adapter is None:
+            raise _TutorExecutionBlocked("source_missing")
+        return self.practice_adapter.evaluate(
+            key=self.key,
+            checkpoint_revision=checkpoint_revision,
+            check_spec=TutorCheckSpecV1.from_mapping(state.get("check_spec")),
+            answer=answer,
+        )
+
     def _interrupt(self, state: TutorGraphStateV1) -> dict[str, Any]:
+        if state["tutor_mode"] == "deterministic_practice":
+            check_spec = TutorCheckSpecV1.from_mapping(state["check_spec"])
+            identity = state["identity"]
+            return {
+                "schema_version": 1,
+                "interrupt_id": f"lint_{uuid.uuid4().hex}",
+                "kind": "learner_check",
+                "owner_id": identity["owner_id"],
+                "space_id": identity["space_id"],
+                "activity_kind": identity["activity_kind"],
+                "activity_id": identity["activity_id"],
+                "checkpoint_revision": self.expected_revision + 1,
+                "prompt": copy.deepcopy(state["check_prompt"]),
+                "expected_input": check_spec.expected_input,
+                "created_at": self.utc_now(),
+            }
         options = [
             {"id": "continue", "label": "Continue"},
         ]
@@ -324,9 +359,7 @@ class _RuntimeGraphServices:
             "created_at": self.utc_now(),
         }
 
-    def after_node(
-        self, node_name: str, state: TutorGraphStateV1
-    ) -> TutorGraphStateV1:
+    def after_node(self, node_name: str, state: TutorGraphStateV1) -> TutorGraphStateV1:
         self._check_nodes(state)
         if node_name == "learner_control_check":
             updated = self._with_elapsed(state)
@@ -345,12 +378,22 @@ class _RuntimeGraphServices:
             return copy.deepcopy(self.last_state)
         if node_name == "complete":
             updated = self._with_elapsed(state)
+            terminal = updated.get("terminal") or {}
+            outcome = terminal.get("outcome")
+            if outcome == "completed":
+                terminal_code = "completed"
+                completion_basis = terminal.get("completion_basis")
+            elif outcome == "blocked":
+                terminal_code = terminal.get("reason_code")
+                completion_basis = None
+            else:
+                raise TutorContractError("Tutor terminal state is missing")
             self.store.commit_terminal(
                 self.key,
                 expected_revision=self.expected_revision,
-                outcome="completed",
-                terminal_code="completed",
-                completion_basis="participation_only",
+                outcome=outcome,
+                terminal_code=terminal_code,
+                completion_basis=completion_basis,
                 remediation_count=updated["remediation_count"],
                 budget_summary=updated["budget"],
             )
@@ -413,6 +456,10 @@ class TutorActivityExecutor:
         utc_now: Callable[[], str] = _utc_now,
         execution_started: Callable[[str], None] = lambda _execution_id: None,
         execution_finished: Callable[[str], None] = lambda _execution_id: None,
+        practice_adapter_factory: Callable[
+            [LearningActivityKeyV1], TutorPracticeAdapter
+        ]
+        | None = None,
     ) -> None:
         self.store = store
         self.resolver = resolver or TutorProviderResolver()
@@ -422,6 +469,7 @@ class TutorActivityExecutor:
         self.utc_now = utc_now
         self.execution_started = execution_started
         self.execution_finished = execution_finished
+        self.practice_adapter_factory = practice_adapter_factory
 
     def _run(
         self,
@@ -433,11 +481,20 @@ class TutorActivityExecutor:
     ) -> LearningActivityRecordV1:
         if record.checkpoint is None:
             raise TutorConflictError("checkpoint_missing")
+        state = validate_tutor_state(record.checkpoint.state)
+        practice_adapter = None
+        if state["tutor_mode"] == "deterministic_practice":
+            if self.practice_adapter_factory is None:
+                raise TutorContractError(
+                    "Practice Tutor adapter is unavailable",
+                    reason_code="source_missing",
+                )
+            practice_adapter = self.practice_adapter_factory(record.key)
         services = _RuntimeGraphServices(
             store=self.store,
             key=record.key,
             expected_revision=record.revision,
-            state=validate_tutor_state(record.checkpoint.state),
+            state=state,
             resolver=self.resolver,
             provider_factory=self.provider_factory,
             binding=binding,
@@ -445,6 +502,7 @@ class TutorActivityExecutor:
             execution_id=execution_id,
             monotonic=self.monotonic,
             utc_now=self.utc_now,
+            practice_adapter=practice_adapter,
         )
         try:
             self.graph.run_segment(record.checkpoint.state, services)
@@ -471,12 +529,27 @@ class TutorActivityExecutor:
     def start(self, request: LearningActivityStartV1) -> LearningActivityRecordV1:
         if request.key.activity_kind != "tutor":
             raise TutorContractError("B03 only executes activity_kind=tutor")
+        existing = self.store.load_idempotent(request)
+        if existing is not None:
+            return existing
         binding = self.resolver.resolve_current()
+        resolved_check = None
+        if request.tutor_mode == "deterministic_practice":
+            if self.practice_adapter_factory is None or request.practice_ref is None:
+                raise TutorContractError(
+                    "Practice Tutor adapter is unavailable",
+                    reason_code="source_missing",
+                )
+            adapter = self.practice_adapter_factory(request.key)
+            resolved_check = adapter.resolve_check(**request.practice_ref)
         state = new_tutor_state(
             request.key,
             goal=request.goal,
             input_refs=request.input_refs,
             provider_plan=binding.plan,
+            tutor_mode=request.tutor_mode,
+            check_spec=(resolved_check.check_spec if resolved_check else None),
+            check_prompt=(resolved_check.prompt if resolved_check else None),
         )
         record, created = self.store.create(
             request,

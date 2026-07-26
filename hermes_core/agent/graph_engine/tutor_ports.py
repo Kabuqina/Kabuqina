@@ -73,7 +73,9 @@ def _load_runtime(requested: str | None) -> Mapping[str, Any]:
         )
     runtime = resolve_runtime_provider(requested=concrete)
     if runtime.get("command"):
-        raise TutorProviderUnavailableError("Command providers are unsupported for Tutor")
+        raise TutorProviderUnavailableError(
+            "Command providers are unsupported for Tutor"
+        )
     return runtime
 
 
@@ -264,7 +266,9 @@ class SingleAttemptTutorProvider:
             or reservation.reserved_output_tokens > 2_048
             or reservation.reserved_wall_ms > 35_000
         ):
-            raise TutorProviderUnavailableError("Provider reservation does not match plan")
+            raise TutorProviderUnavailableError(
+                "Provider reservation does not match plan"
+            )
 
     def execute_once(
         self,
@@ -365,6 +369,14 @@ class TutorGraphServices(Protocol):
     def after_node(
         self, node_name: str, state: TutorGraphStateV1
     ) -> TutorGraphStateV1: ...
+
+    def evaluate(
+        self,
+        state: TutorGraphStateV1,
+        answer: Mapping[str, Any],
+        *,
+        checkpoint_revision: int,
+    ) -> tuple[Any, str]: ...
 
 
 class TutorGraphRuntimeContext(TypedDict):
