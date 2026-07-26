@@ -11,6 +11,7 @@ from agent.graph_engine.tutor_ports import (
 )
 from agent.graph_engine.tutor_contracts import TutorProviderPlanV1, TutorProviderResult
 from learning.tutor_activity import TutorActivityService
+from learning.tutor_contract import TutorConflictError
 from learning.tutor_runtime_store import TutorRuntimeStore
 
 
@@ -250,3 +251,67 @@ def test_segment_provider_timeout_reserves_finalize_headroom(runtime) -> None:
 
     [_reservation, _request, timeout_s] = provider.calls[0]
     assert 0 < timeout_s <= 35
+
+
+def test_less_than_finalize_reserve_blocks_before_attempt(runtime) -> None:
+    class Clock:
+        def __init__(self):
+            self.values = iter([0.0, 0.0, 36.0, 36.0, 36.0])
+
+        def __call__(self):
+            return next(self.values, 36.0)
+
+    provider = _Provider()
+    executor = TutorActivityExecutor(
+        runtime,
+        resolver=_Resolver(),
+        provider_factory=lambda _binding: provider,
+        monotonic=Clock(),
+    )
+    service = TutorActivityService(runtime, executor)
+
+    blocked = service.start("owner-1", _body())
+
+    assert blocked.status == "blocked"
+    assert blocked.terminal["reason_code"] == "budget_exhausted"
+    assert blocked.terminal["budget_summary"]["attempts_used"] == 0
+    assert provider.calls == []
+
+
+def test_waiting_activity_can_cancel_without_another_provider_call(runtime) -> None:
+    provider = _Provider()
+    service = _service(runtime, provider)
+    waiting = service.start("owner-1", _body())
+
+    cancelled = service.cancel(
+        "owner-1",
+        "tutor",
+        waiting.key.activity_id,
+        {
+            "schema_version": 1,
+            "space_id": "space-1",
+            "expected_revision": waiting.revision,
+        },
+    )
+
+    assert cancelled.status == "cancelled"
+    assert cancelled.terminal["reason_code"] == "user_cancelled"
+    assert cancelled.terminal["budget_summary"]["attempts_used"] == 1
+    assert len(provider.calls) == 1
+
+
+def test_stale_duplicate_answer_loses_cas_without_provider_call(runtime) -> None:
+    provider = _Provider()
+    service = _service(runtime, provider)
+    waiting = service.start("owner-1", _body())
+    request = _answer(waiting, "continue")
+
+    completed = service.resume(
+        "owner-1", "tutor", waiting.key.activity_id, request
+    )
+    assert completed.status == "completed"
+
+    with pytest.raises(TutorConflictError) as exc:
+        service.resume("owner-1", "tutor", waiting.key.activity_id, request)
+    assert exc.value.reason_code == "terminal_immutable"
+    assert len(provider.calls) == 1

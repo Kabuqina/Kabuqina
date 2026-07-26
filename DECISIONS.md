@@ -1267,3 +1267,29 @@ canonical tree is the only bridge write target and the legacy tree remains a
 read-only identity fallback. QQ voice conversion likewise removes both its
 temporary source and any partial generated WAV whenever all real decoders
 fail.
+
+**CTL-B03 minimal Tutor runtime (2026-07-26).** Tutor is an explicit trusted-
+desktop activity and never an inferred ordinary Chat mode. L-2 executes through
+an independent checkpointer-free LangGraph topology; the existing Agent graph,
+tool loop, prompts, retries and fallback behavior are unchanged. L-2 completion
+means `participation_only`: the host owns the two learner-control checks and the
+only branches are continue, one bounded explain-again, or deterministic invalid
+re-prompt. Model output cannot assert correctness, mastery, pass/fail or choose
+the branch.
+
+Each activity fixes one secret-free provider/model/API-mode/endpoint plan at
+create. Recover may rebind credentials only to that exact plan; it cannot
+auto-detect a new candidate. Tutor uses a dedicated OpenAI/Anthropic client with
+SDK `max_retries=0`, no application retry and no provider fallback. Every
+physical request requires a committed B02 write-ahead reservation; abandoned
+reservations become `unknown` and are never refunded or reissued. The frozen
+limits remain two attempts per activity (start explanation plus the single
+explain-again), 35 seconds per request, 10 seconds finalize reserve, 45 seconds
+per active segment, 120 seconds active activity time and 14 graph nodes.
+
+The desktop keeps a thread-safe set of live Tutor execution ids. Opening any
+trusted activity service reconciles persisted `running` rows against that set:
+same-process live calls survive, while the first activity request after a
+desktop restart conservatively marks abandoned work interrupted and charges the
+existing B02 recovery budget. Gateway Tutor and Web scene integration remain
+outside B03.
