@@ -1304,3 +1304,35 @@ same-process live calls survive, while the first activity request after a
 desktop restart conservatively marks abandoned work interrupted and charges the
 existing B02 recovery budget. Gateway Tutor and Web scene integration remain
 outside B03.
+
+**CTL-B04 deterministic Practice contracts (2026-07-26).** Activated quiz
+items are the only trusted Practice truth source. Materialization pins a
+versioned grader provenance record and canonical rubric hash; public question
+reads continue to omit answers, executable/reference truth, the full hint
+ladder and explanation rubric. Submit results add a branchable `outcome`
+taxonomy: only deterministic `correct`/`incorrect` may drive later branches,
+while timeout, sandbox failure and ungradable stay distinct. For v0.4
+compatibility, legacy partial `score/correct` fields may still describe the
+components that were deterministically gradable, but any missing required
+truth forces the new outcome to `ungradable` and later graphs must branch on
+that outcome rather than the partial fields.
+
+Practice hints are activated content, not model-generated at request time.
+The four-level ladder permits direct jumps, including an explicit full
+solution, and each item has an eight-request cap. A stable owner/space/item/
+idempotency identity uses a canonical request fingerprint: exact replay
+returns the existing evidence, payload drift conflicts, and concurrent inserts
+share the existing LearningStore coordination fence. Activity evidence stores
+the requested level and content hash but not the hint text. This adds no
+learning schema or migration and performs zero provider calls.
+
+Level-5 semantic evaluation is review-only. Its exact schema contains
+criterion statuses, observations and suggestions, but no pass, correctness,
+score, mastery or branch field. The B04 service writes a bounded durable
+request reservation before invoking an injected evaluator at most once;
+unavailable, exceptional or invalid output remains pending and creates no
+artifact. Valid output creates only an evaluation draft bound to the active
+item and rubric provenance, and still requires the existing user activation
+flow. B04 deliberately ships no production network evaluator: P-2 must first
+provide its own crash-safe write-ahead budget/provider contract and cannot
+reuse ordinary `call_llm()` retry or fallback behavior.
