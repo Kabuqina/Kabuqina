@@ -1070,6 +1070,110 @@ class LearningStore:
         self._execute_write(owner_id, space_id, _op, operation_lease=operation_lease)
         return activity_id
 
+    def insert_bounded_activity_once(
+        self,
+        owner_id: str,
+        space_id: str,
+        *,
+        activity_id: str,
+        activity_type: str,
+        artifact_id: Optional[str],
+        item_id: Optional[str],
+        detail: Dict[str, Any],
+        max_occurrences: int,
+        operation_lease: Optional[OperationLease] = None,
+    ) -> Dict[str, Any]:
+        """Insert one exact idempotent activity under an atomic scope cap.
+
+        The existing v1 activity primary key is the idempotency identity.  A
+        replay must match type, artifact, item, and canonical detail exactly;
+        a mismatched reuse raises :class:`LearningConflictError`.  The
+        occurrence check and insert share the same ``BEGIN IMMEDIATE`` write,
+        so concurrent distinct requests cannot exceed the cap.
+        """
+
+        for value, name in (
+            (owner_id, "owner_id"),
+            (space_id, "space_id"),
+            (activity_id, "activity_id"),
+            (activity_type, "activity_type"),
+        ):
+            _require(value, name)
+        if not isinstance(detail, dict):
+            raise ValueError("detail must be an object")
+        if (
+            isinstance(max_occurrences, bool)
+            or not isinstance(max_occurrences, int)
+            or not 1 <= max_occurrences <= 1_000
+        ):
+            raise ValueError("max_occurrences must be within 1..1000")
+        expected_detail = json.loads(
+            json.dumps(detail, ensure_ascii=False, sort_keys=True)
+        )
+        created_at = _now()
+
+        def _op(conn: sqlite3.Connection) -> Dict[str, Any]:
+            existing = conn.execute(
+                "SELECT activity_type,artifact_id,item_id,detail_json,created_at "
+                "FROM learning_activities WHERE owner_id=? AND space_id=? "
+                "AND activity_id=?",
+                (owner_id, space_id, activity_id),
+            ).fetchone()
+            if existing is not None:
+                persisted_detail = json.loads(existing["detail_json"])
+                comparable = dict(persisted_detail)
+                ordinal = comparable.pop("ordinal", None)
+                if (
+                    existing["activity_type"] != activity_type
+                    or existing["artifact_id"] != artifact_id
+                    or existing["item_id"] != item_id
+                    or comparable != expected_detail
+                    or type(ordinal) is not int
+                ):
+                    raise LearningConflictError("activity idempotency conflict")
+                return {
+                    "activity_id": activity_id,
+                    "created": False,
+                    "ordinal": ordinal,
+                    "created_at": existing["created_at"],
+                }
+
+            occurrence = conn.execute(
+                "SELECT COUNT(*) AS total FROM learning_activities "
+                "WHERE owner_id=? AND space_id=? AND activity_type=? "
+                "AND artifact_id IS ? AND item_id IS ?",
+                (owner_id, space_id, activity_type, artifact_id, item_id),
+            ).fetchone()["total"]
+            if occurrence >= max_occurrences:
+                raise LearningConflictError("activity occurrence limit reached")
+            ordinal = int(occurrence) + 1
+            persisted_detail = {**expected_detail, "ordinal": ordinal}
+            conn.execute(
+                "INSERT INTO learning_activities "
+                "(owner_id,space_id,activity_id,activity_type,artifact_id,item_id,detail_json,created_at) "
+                "VALUES (?,?,?,?,?,?,?,?)",
+                (
+                    owner_id,
+                    space_id,
+                    activity_id,
+                    activity_type,
+                    artifact_id,
+                    item_id,
+                    json.dumps(persisted_detail, ensure_ascii=False, sort_keys=True),
+                    created_at,
+                ),
+            )
+            return {
+                "activity_id": activity_id,
+                "created": True,
+                "ordinal": ordinal,
+                "created_at": created_at,
+            }
+
+        return self._execute_write(
+            owner_id, space_id, _op, operation_lease=operation_lease
+        )
+
     def insert_projection_activity_once(
         self,
         owner_id: str,

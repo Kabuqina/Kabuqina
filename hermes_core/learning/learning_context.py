@@ -204,6 +204,27 @@ class LearningExecutionContext:
             detail=detail,
         )
 
+    def record_bounded_activity_once(
+        self,
+        *,
+        activity_id: str,
+        activity_type: str,
+        artifact_id: Optional[str],
+        item_id: Optional[str],
+        detail: Dict[str, Any],
+        max_occurrences: int,
+    ) -> Dict[str, Any]:
+        return self._store.insert_bounded_activity_once(
+            self._owner_id,
+            self._require_space(),
+            activity_id=activity_id,
+            activity_type=activity_type,
+            artifact_id=artifact_id,
+            item_id=item_id,
+            detail=detail,
+            max_occurrences=max_occurrences,
+        )
+
     def list_activities(self) -> List[Dict[str, Any]]:
         return self._store.list_activities(self._owner_id, self._require_space())
 
