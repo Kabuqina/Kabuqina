@@ -13164,6 +13164,64 @@
       ]
     },
     {
+      "path": "tauri/src/legacy_upgrade.rs",
+      "layer": "rust_shell",
+      "edge_types": [
+        "credential_producer",
+        "process_consumer"
+      ],
+      "platform_surfaces": [
+        "api_server",
+        "bluebubbles",
+        "dingtalk",
+        "discord",
+        "email",
+        "feishu_lark",
+        "home_assistant",
+        "irc_plugin",
+        "local_delivery",
+        "matrix",
+        "mattermost",
+        "qqbot",
+        "signal",
+        "slack",
+        "sms_twilio",
+        "teams_plugin",
+        "telegram",
+        "webhook",
+        "wecom_family",
+        "weixin",
+        "whatsapp",
+        "yuanbao"
+      ],
+      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
+      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
+      "known_gaps": [
+        "surface_known_gaps.api_server",
+        "surface_known_gaps.bluebubbles",
+        "surface_known_gaps.dingtalk",
+        "surface_known_gaps.discord",
+        "surface_known_gaps.email",
+        "surface_known_gaps.feishu_lark",
+        "surface_known_gaps.home_assistant",
+        "surface_known_gaps.irc_plugin",
+        "surface_known_gaps.local_delivery",
+        "surface_known_gaps.matrix",
+        "surface_known_gaps.mattermost",
+        "surface_known_gaps.qqbot",
+        "surface_known_gaps.signal",
+        "surface_known_gaps.slack",
+        "surface_known_gaps.sms_twilio",
+        "surface_known_gaps.teams_plugin",
+        "surface_known_gaps.telegram",
+        "surface_known_gaps.webhook",
+        "surface_known_gaps.wecom_family",
+        "surface_known_gaps.weixin",
+        "surface_known_gaps.whatsapp",
+        "surface_known_gaps.yuanbao"
+      ]
+    },
+    {
       "path": "tauri/src/paths.rs",
       "layer": "rust_shell",
       "edge_types": [
@@ -13979,6 +14037,33 @@
         "known_gaps": []
       },
       {
+        "key": "API_SERVER_CORS_ORIGINS",
+        "surface": "api_server",
+        "primary_role": "network_host_expander",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
+          "Configured URL/host values require fail-closed network-policy validation; key presence is not an allowlist."
+        ]
+      },
+      {
+        "key": "API_SERVER_ENABLED",
+        "surface": "api_server",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
         "key": "API_SERVER_HOME_CHANNEL",
         "surface": "api_server",
         "primary_role": "home_target",
@@ -13998,6 +14083,60 @@
         "primary_role": "home_target",
         "source_paths": [
           "hermes_core/gateway/home_channel.py"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "API_SERVER_HOST",
+        "surface": "api_server",
+        "primary_role": "network_host_expander",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
+          "Configured URL/host values require fail-closed network-policy validation; key presence is not an allowlist."
+        ]
+      },
+      {
+        "key": "API_SERVER_KEY",
+        "surface": "api_server",
+        "primary_role": "secret",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
+          "Gateway secrets currently traverse host/profile .env files; CTL-C07 owns explicit cleanup/export and upgrade safety."
+        ]
+      },
+      {
+        "key": "API_SERVER_MODEL_NAME",
+        "surface": "api_server",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "API_SERVER_PORT",
+        "surface": "api_server",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -14251,13 +14390,40 @@
         "known_gaps": []
       },
       {
+        "key": "BLUEBUBBLES_ALLOWED_USERS",
+        "surface": "bluebubbles",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "BLUEBUBBLES_ALLOW_ALL_USERS",
+        "surface": "bluebubbles",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
         "key": "BLUEBUBBLES_HOME_CHANNEL",
         "surface": "bluebubbles",
         "primary_role": "home_target",
         "source_paths": [
           "hermes_core/gateway/home_channel.py",
           "hermes_core/gateway/run.py",
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -14271,7 +14437,8 @@
         "primary_role": "home_target",
         "source_paths": [
           "hermes_core/gateway/home_channel.py",
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -14285,7 +14452,8 @@
         "primary_role": "secret",
         "source_paths": [
           "hermes_core/kabuqina_cli/config_env.py",
-          "hermes_core/optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py"
+          "hermes_core/optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -14295,11 +14463,25 @@
         ]
       },
       {
+        "key": "BLUEBUBBLES_SEND_READ_RECEIPTS",
+        "surface": "bluebubbles",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
         "key": "BLUEBUBBLES_SERVER",
         "surface": "bluebubbles",
         "primary_role": "non_secret_config",
         "source_paths": [
-          "hermes_core/optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py"
+          "hermes_core/optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -14312,13 +14494,54 @@
         "surface": "bluebubbles",
         "primary_role": "network_host_expander",
         "source_paths": [
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
         "known_gaps": [
           "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
           "Configured URL/host values require fail-closed network-policy validation; key presence is not an allowlist."
+        ]
+      },
+      {
+        "key": "BLUEBUBBLES_WEBHOOK_HOST",
+        "surface": "bluebubbles",
+        "primary_role": "network_host_expander",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
+          "Configured URL/host values require fail-closed network-policy validation; key presence is not an allowlist."
+        ]
+      },
+      {
+        "key": "BLUEBUBBLES_WEBHOOK_PATH",
+        "surface": "bluebubbles",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "BLUEBUBBLES_WEBHOOK_PORT",
+        "surface": "bluebubbles",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
         ]
       },
       {
@@ -14841,12 +15064,170 @@
         ]
       },
       {
+        "key": "DISCORD_ALLOWED_CHANNELS",
+        "surface": "discord",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "DISCORD_ALLOWED_ROLES",
+        "surface": "discord",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "DISCORD_ALLOWED_USERS",
+        "surface": "discord",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "DISCORD_ALLOW_ALL_USERS",
+        "surface": "discord",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "DISCORD_ALLOW_BOTS",
+        "surface": "discord",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "DISCORD_ALLOW_MENTION_EVERYONE",
+        "surface": "discord",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "DISCORD_ALLOW_MENTION_REPLIED_USER",
+        "surface": "discord",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "DISCORD_ALLOW_MENTION_ROLES",
+        "surface": "discord",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "DISCORD_ALLOW_MENTION_USERS",
+        "surface": "discord",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "DISCORD_AUTO_THREAD",
+        "surface": "discord",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "DISCORD_BOT_TOKEN",
+        "surface": "discord",
+        "primary_role": "secret",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
+          "Gateway secrets currently traverse host/profile .env files; CTL-C07 owns explicit cleanup/export and upgrade safety."
+        ]
+      },
+      {
+        "key": "DISCORD_FREE_RESPONSE_CHANNELS",
+        "surface": "discord",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
         "key": "DISCORD_HOME_CHANNEL",
         "surface": "discord",
         "primary_role": "home_target",
         "source_paths": [
           "hermes_core/gateway/home_channel.py",
-          "hermes_core/gateway/run.py"
+          "hermes_core/gateway/run.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -14859,12 +15240,132 @@
         "surface": "discord",
         "primary_role": "home_target",
         "source_paths": [
-          "hermes_core/gateway/home_channel.py"
+          "hermes_core/gateway/home_channel.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
         "known_gaps": [
           "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "DISCORD_IGNORED_CHANNELS",
+        "surface": "discord",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "DISCORD_IGNORE_NO_MENTION",
+        "surface": "discord",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "DISCORD_NO_THREAD_CHANNELS",
+        "surface": "discord",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "DISCORD_PROXY",
+        "surface": "discord",
+        "primary_role": "network_host_expander",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
+          "Configured URL/host values require fail-closed network-policy validation; key presence is not an allowlist."
+        ]
+      },
+      {
+        "key": "DISCORD_REACTIONS",
+        "surface": "discord",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "DISCORD_REPLY_TO_MODE",
+        "surface": "discord",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "DISCORD_REQUIRE_MENTION",
+        "surface": "discord",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "DISCORD_STRICT_MENTION",
+        "surface": "discord",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "DISCORD_TOKEN",
+        "surface": "discord",
+        "primary_role": "secret",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
+          "Gateway secrets currently traverse host/profile .env files; CTL-C07 owns explicit cleanup/export and upgrade safety."
         ]
       },
       {
@@ -15306,12 +15807,133 @@
         ]
       },
       {
+        "key": "FEISHU_ALLOWED_USERS",
+        "surface": "feishu_lark",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "FEISHU_ALLOW_ALL_USERS",
+        "surface": "feishu_lark",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "FEISHU_APP_ID",
+        "surface": "feishu_lark",
+        "primary_role": "identifier",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "FEISHU_APP_SECRET",
+        "surface": "feishu_lark",
+        "primary_role": "secret",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
+          "Gateway secrets currently traverse host/profile .env files; CTL-C07 owns explicit cleanup/export and upgrade safety."
+        ]
+      },
+      {
+        "key": "FEISHU_BOT_NAME",
+        "surface": "feishu_lark",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "FEISHU_CONNECTION_MODE",
+        "surface": "feishu_lark",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "FEISHU_DOMAIN",
+        "surface": "feishu_lark",
+        "primary_role": "network_host_expander",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
+          "Configured URL/host values require fail-closed network-policy validation; key presence is not an allowlist."
+        ]
+      },
+      {
+        "key": "FEISHU_ENCRYPT_KEY",
+        "surface": "feishu_lark",
+        "primary_role": "secret",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
+          "Gateway secrets currently traverse host/profile .env files; CTL-C07 owns explicit cleanup/export and upgrade safety."
+        ]
+      },
+      {
+        "key": "FEISHU_GROUP_POLICY",
+        "surface": "feishu_lark",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
         "key": "FEISHU_HOME_CHANNEL",
         "surface": "feishu_lark",
         "primary_role": "home_target",
         "source_paths": [
           "hermes_core/gateway/home_channel.py",
-          "hermes_core/gateway/run.py"
+          "hermes_core/gateway/run.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -15324,7 +15946,75 @@
         "surface": "feishu_lark",
         "primary_role": "home_target",
         "source_paths": [
-          "hermes_core/gateway/home_channel.py"
+          "hermes_core/gateway/home_channel.py",
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "FEISHU_REACTIONS",
+        "surface": "feishu_lark",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "FEISHU_VERIFICATION_TOKEN",
+        "surface": "feishu_lark",
+        "primary_role": "secret",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
+          "Gateway secrets currently traverse host/profile .env files; CTL-C07 owns explicit cleanup/export and upgrade safety."
+        ]
+      },
+      {
+        "key": "FEISHU_WEBHOOK_HOST",
+        "surface": "feishu_lark",
+        "primary_role": "network_host_expander",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
+          "Configured URL/host values require fail-closed network-policy validation; key presence is not an allowlist."
+        ]
+      },
+      {
+        "key": "FEISHU_WEBHOOK_PATH",
+        "surface": "feishu_lark",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "FEISHU_WEBHOOK_PORT",
+        "surface": "feishu_lark",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -15785,6 +16475,34 @@
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
         "known_gaps": [
+          "Configured URL/host values require fail-closed network-policy validation; key presence is not an allowlist."
+        ]
+      },
+      {
+        "key": "HASS_TOKEN",
+        "surface": "home_assistant",
+        "primary_role": "secret",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
+          "Gateway secrets currently traverse host/profile .env files; CTL-C07 owns explicit cleanup/export and upgrade safety."
+        ]
+      },
+      {
+        "key": "HASS_URL",
+        "surface": "home_assistant",
+        "primary_role": "network_host_expander",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
           "Configured URL/host values require fail-closed network-policy validation; key presence is not an allowlist."
         ]
       },
@@ -17852,7 +18570,8 @@
         "primary_role": "home_target",
         "source_paths": [
           "hermes_core/gateway/home_channel.py",
-          "hermes_core/gateway/run.py"
+          "hermes_core/gateway/run.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -17865,7 +18584,8 @@
         "surface": "home_assistant",
         "primary_role": "home_target",
         "source_paths": [
-          "hermes_core/gateway/home_channel.py"
+          "hermes_core/gateway/home_channel.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -17981,11 +18701,38 @@
         "known_gaps": []
       },
       {
+        "key": "IRC_ALLOWED_USERS",
+        "surface": "irc_plugin",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "IRC_ALLOW_ALL_USERS",
+        "surface": "irc_plugin",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
         "key": "IRC_CHANNEL",
         "surface": "irc_plugin",
         "primary_role": "non_secret_config",
         "source_paths": [
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -17998,7 +18745,8 @@
         "surface": "irc_plugin",
         "primary_role": "non_secret_config",
         "source_paths": [
-          "hermes_core/optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py"
+          "hermes_core/optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -18011,7 +18759,8 @@
         "surface": "irc_plugin",
         "primary_role": "non_secret_config",
         "source_paths": [
-          "hermes_core/optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py"
+          "hermes_core/optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -18024,7 +18773,8 @@
         "surface": "irc_plugin",
         "primary_role": "non_secret_config",
         "source_paths": [
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -18037,7 +18787,8 @@
         "surface": "irc_plugin",
         "primary_role": "secret",
         "source_paths": [
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -18051,7 +18802,8 @@
         "surface": "irc_plugin",
         "primary_role": "non_secret_config",
         "source_paths": [
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -18065,7 +18817,8 @@
         "primary_role": "non_secret_config",
         "source_paths": [
           "hermes_core/kabuqina_cli/config_env.py",
-          "hermes_core/optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py"
+          "hermes_core/optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -18078,7 +18831,8 @@
         "surface": "irc_plugin",
         "primary_role": "secret",
         "source_paths": [
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -18092,7 +18846,8 @@
         "surface": "irc_plugin",
         "primary_role": "non_secret_config",
         "source_paths": [
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -18842,11 +19597,39 @@
         "known_gaps": []
       },
       {
+        "key": "MATRIX_ACCESS_TOKEN",
+        "surface": "matrix",
+        "primary_role": "secret",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
+          "Gateway secrets currently traverse host/profile .env files; CTL-C07 owns explicit cleanup/export and upgrade safety."
+        ]
+      },
+      {
         "key": "MATRIX_ALLOWED_USERS",
         "surface": "matrix",
         "primary_role": "non_secret_config",
         "source_paths": [
-          "hermes_core/optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py"
+          "hermes_core/optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py",
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "MATRIX_ALLOW_ALL_USERS",
+        "surface": "matrix",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -18859,7 +19642,8 @@
         "surface": "matrix",
         "primary_role": "non_secret_config",
         "source_paths": [
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -18872,7 +19656,8 @@
         "surface": "matrix",
         "primary_role": "identifier",
         "source_paths": [
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -18885,7 +19670,21 @@
         "surface": "matrix",
         "primary_role": "non_secret_config",
         "source_paths": [
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "MATRIX_DM_MENTION_THREADS",
+        "surface": "matrix",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -18898,7 +19697,8 @@
         "surface": "matrix",
         "primary_role": "non_secret_config",
         "source_paths": [
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -18911,7 +19711,8 @@
         "surface": "matrix",
         "primary_role": "non_secret_config",
         "source_paths": [
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -18920,11 +19721,26 @@
         ]
       },
       {
+        "key": "MATRIX_HOMESERVER",
+        "surface": "matrix",
+        "primary_role": "network_host_expander",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
+          "Configured URL/host values require fail-closed network-policy validation; key presence is not an allowlist."
+        ]
+      },
+      {
         "key": "MATRIX_HOMESERVER_URL",
         "surface": "matrix",
         "primary_role": "network_host_expander",
         "source_paths": [
-          "hermes_core/optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py"
+          "hermes_core/optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -18939,7 +19755,8 @@
         "primary_role": "home_target",
         "source_paths": [
           "hermes_core/gateway/home_channel.py",
-          "hermes_core/gateway/run.py"
+          "hermes_core/gateway/run.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -18952,7 +19769,8 @@
         "surface": "matrix",
         "primary_role": "home_target",
         "source_paths": [
-          "hermes_core/gateway/home_channel.py"
+          "hermes_core/gateway/home_channel.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -18965,7 +19783,34 @@
         "surface": "matrix",
         "primary_role": "home_target",
         "source_paths": [
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "MATRIX_HOME_ROOM_NAME",
+        "surface": "matrix",
+        "primary_role": "home_target",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "MATRIX_HS",
+        "surface": "matrix",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -18978,7 +19823,8 @@
         "surface": "matrix",
         "primary_role": "secret",
         "source_paths": [
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -18988,11 +19834,39 @@
         ]
       },
       {
+        "key": "MATRIX_PROXY",
+        "surface": "matrix",
+        "primary_role": "network_host_expander",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
+          "Configured URL/host values require fail-closed network-policy validation; key presence is not an allowlist."
+        ]
+      },
+      {
+        "key": "MATRIX_REACTIONS",
+        "surface": "matrix",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
         "key": "MATRIX_RECOVERY_KEY",
         "surface": "matrix",
         "primary_role": "secret",
         "source_paths": [
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -19006,7 +19880,8 @@
         "surface": "matrix",
         "primary_role": "non_secret_config",
         "source_paths": [
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -19019,7 +19894,8 @@
         "surface": "matrix",
         "primary_role": "identifier",
         "source_paths": [
-          "hermes_core/optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py"
+          "hermes_core/optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -19032,7 +19908,21 @@
         "surface": "mattermost",
         "primary_role": "non_secret_config",
         "source_paths": [
-          "hermes_core/optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py"
+          "hermes_core/optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py",
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "MATTERMOST_ALLOW_ALL_USERS",
+        "surface": "mattermost",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -19045,7 +19935,8 @@
         "surface": "mattermost",
         "primary_role": "secret",
         "source_paths": [
-          "hermes_core/optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py"
+          "hermes_core/optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -19055,13 +19946,27 @@
         ]
       },
       {
+        "key": "MATTERMOST_FREE_RESPONSE_CHANNELS",
+        "surface": "mattermost",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
         "key": "MATTERMOST_HOME_CHANNEL",
         "surface": "mattermost",
         "primary_role": "home_target",
         "source_paths": [
           "hermes_core/gateway/home_channel.py",
           "hermes_core/gateway/run.py",
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -19075,7 +19980,8 @@
         "primary_role": "home_target",
         "source_paths": [
           "hermes_core/gateway/home_channel.py",
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -19088,7 +19994,21 @@
         "surface": "mattermost",
         "primary_role": "non_secret_config",
         "source_paths": [
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "MATTERMOST_REQUIRE_MENTION",
+        "surface": "mattermost",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -19101,7 +20021,8 @@
         "surface": "mattermost",
         "primary_role": "identifier",
         "source_paths": [
-          "hermes_core/optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py"
+          "hermes_core/optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -19110,11 +20031,26 @@
         ]
       },
       {
+        "key": "MATTERMOST_TOKEN",
+        "surface": "mattermost",
+        "primary_role": "secret",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
+          "Gateway secrets currently traverse host/profile .env files; CTL-C07 owns explicit cleanup/export and upgrade safety."
+        ]
+      },
+      {
         "key": "MATTERMOST_URL",
         "surface": "mattermost",
         "primary_role": "network_host_expander",
         "source_paths": [
-          "hermes_core/optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py"
+          "hermes_core/optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -19307,7 +20243,8 @@
         "surface": "teams_plugin",
         "primary_role": "non_secret_config",
         "source_paths": [
-          "hermes_core/optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py"
+          "hermes_core/optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -19320,7 +20257,8 @@
         "surface": "teams_plugin",
         "primary_role": "secret",
         "source_paths": [
-          "hermes_core/optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py"
+          "hermes_core/optional-skills/migration/openclaw-migration/scripts/openclaw_to_hermes.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -20147,7 +21085,8 @@
         "surface": "signal",
         "primary_role": "identifier",
         "source_paths": [
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -20160,7 +21099,21 @@
         "surface": "signal",
         "primary_role": "non_secret_config",
         "source_paths": [
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "SIGNAL_ALLOW_ALL_USERS",
+        "surface": "signal",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -20173,7 +21126,8 @@
         "surface": "signal",
         "primary_role": "non_secret_config",
         "source_paths": [
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -20188,7 +21142,8 @@
         "source_paths": [
           "hermes_core/gateway/home_channel.py",
           "hermes_core/gateway/run.py",
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -20202,7 +21157,8 @@
         "primary_role": "home_target",
         "source_paths": [
           "hermes_core/gateway/home_channel.py",
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -20215,7 +21171,8 @@
         "surface": "signal",
         "primary_role": "network_host_expander",
         "source_paths": [
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -20225,11 +21182,64 @@
         ]
       },
       {
+        "key": "SIGNAL_IGNORE_STORIES",
+        "surface": "signal",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "SLACK_ALLOWED_USERS",
+        "surface": "slack",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "SLACK_ALLOW_ALL_USERS",
+        "surface": "slack",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "SLACK_ALLOW_BOTS",
+        "surface": "slack",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
         "key": "SLACK_APP_TOKEN",
         "surface": "slack",
         "primary_role": "secret",
         "source_paths": [
-          "hermes_core/kabuqina_cli/config.py"
+          "hermes_core/kabuqina_cli/config.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -20243,7 +21253,8 @@
         "surface": "slack",
         "primary_role": "secret",
         "source_paths": [
-          "hermes_core/kabuqina_cli/config.py"
+          "hermes_core/kabuqina_cli/config.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -20253,13 +21264,27 @@
         ]
       },
       {
+        "key": "SLACK_FREE_RESPONSE_CHANNELS",
+        "surface": "slack",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
         "key": "SLACK_HOME_CHANNEL",
         "surface": "slack",
         "primary_role": "home_target",
         "source_paths": [
           "hermes_core/gateway/home_channel.py",
           "hermes_core/gateway/run.py",
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -20273,7 +21298,73 @@
         "primary_role": "home_target",
         "source_paths": [
           "hermes_core/gateway/home_channel.py",
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "SLACK_REACTIONS",
+        "surface": "slack",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "SLACK_REQUIRE_MENTION",
+        "surface": "slack",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "SLACK_STRICT_MENTION",
+        "surface": "slack",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "SMS_ALLOWED_USERS",
+        "surface": "sms_twilio",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "SMS_ALLOW_ALL_USERS",
+        "surface": "sms_twilio",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -20288,7 +21379,8 @@
         "source_paths": [
           "hermes_core/gateway/home_channel.py",
           "hermes_core/gateway/run.py",
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -20302,12 +21394,67 @@
         "primary_role": "home_target",
         "source_paths": [
           "hermes_core/gateway/home_channel.py",
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
         "known_gaps": [
           "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "SMS_INSECURE_NO_SIGNATURE",
+        "surface": "sms_twilio",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "SMS_WEBHOOK_HOST",
+        "surface": "sms_twilio",
+        "primary_role": "network_host_expander",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
+          "Configured URL/host values require fail-closed network-policy validation; key presence is not an allowlist."
+        ]
+      },
+      {
+        "key": "SMS_WEBHOOK_PORT",
+        "surface": "sms_twilio",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "SMS_WEBHOOK_URL",
+        "surface": "sms_twilio",
+        "primary_role": "network_host_expander",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
+          "Configured URL/host values require fail-closed network-policy validation; key presence is not an allowlist."
         ]
       },
       {
@@ -21439,7 +22586,8 @@
         "surface": "sms_twilio",
         "primary_role": "identifier",
         "source_paths": [
-          "hermes_core/optional-skills/productivity/telephony/scripts/telephony.py"
+          "hermes_core/optional-skills/productivity/telephony/scripts/telephony.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -21452,7 +22600,8 @@
         "surface": "sms_twilio",
         "primary_role": "secret",
         "source_paths": [
-          "hermes_core/optional-skills/productivity/telephony/scripts/telephony.py"
+          "hermes_core/optional-skills/productivity/telephony/scripts/telephony.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -21466,7 +22615,8 @@
         "surface": "sms_twilio",
         "primary_role": "identifier",
         "source_paths": [
-          "hermes_core/optional-skills/productivity/telephony/scripts/telephony.py"
+          "hermes_core/optional-skills/productivity/telephony/scripts/telephony.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -21479,7 +22629,8 @@
         "surface": "sms_twilio",
         "primary_role": "identifier",
         "source_paths": [
-          "hermes_core/optional-skills/productivity/telephony/scripts/telephony.py"
+          "hermes_core/optional-skills/productivity/telephony/scripts/telephony.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -21759,6 +22910,19 @@
         "known_gaps": []
       },
       {
+        "key": "WEBHOOK_ENABLED",
+        "surface": "webhook",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
         "key": "WEBHOOK_HOME_CHANNEL",
         "surface": "webhook",
         "primary_role": "home_target",
@@ -21786,6 +22950,87 @@
         ]
       },
       {
+        "key": "WEBHOOK_HOST",
+        "surface": "webhook",
+        "primary_role": "network_host_expander",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
+          "Configured URL/host values require fail-closed network-policy validation; key presence is not an allowlist."
+        ]
+      },
+      {
+        "key": "WEBHOOK_PATH",
+        "surface": "webhook",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "WEBHOOK_PORT",
+        "surface": "webhook",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "WEBHOOK_REPLAY_TOLERANCE_SECONDS",
+        "surface": "webhook",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "WEBHOOK_SECRET",
+        "surface": "webhook",
+        "primary_role": "secret",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
+          "Gateway secrets currently traverse host/profile .env files; CTL-C07 owns explicit cleanup/export and upgrade safety."
+        ]
+      },
+      {
+        "key": "WEBHOOK_URL",
+        "surface": "webhook",
+        "primary_role": "network_host_expander",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
+          "Configured URL/host values require fail-closed network-policy validation; key presence is not an allowlist."
+        ]
+      },
+      {
         "key": "WEB_TOOLS_DEBUG",
         "surface": "gateway_kernel",
         "primary_role": "non_secret_config",
@@ -21797,12 +23042,132 @@
         "known_gaps": []
       },
       {
+        "key": "WECOM_ALLOWED_USERS",
+        "surface": "wecom_family",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "WECOM_ALLOW_ALL_USERS",
+        "surface": "wecom_family",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "WECOM_BOT_ID",
+        "surface": "wecom_family",
+        "primary_role": "identifier",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "WECOM_CALLBACK_AGENT_ID",
+        "surface": "wecom_family",
+        "primary_role": "identifier",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "WECOM_CALLBACK_ALLOWED_USERS",
+        "surface": "wecom_family",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "WECOM_CALLBACK_ALLOW_ALL_USERS",
+        "surface": "wecom_family",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "WECOM_CALLBACK_CORP_ID",
+        "surface": "wecom_family",
+        "primary_role": "identifier",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "WECOM_CALLBACK_CORP_SECRET",
+        "surface": "wecom_family",
+        "primary_role": "secret",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
+          "Gateway secrets currently traverse host/profile .env files; CTL-C07 owns explicit cleanup/export and upgrade safety."
+        ]
+      },
+      {
+        "key": "WECOM_CALLBACK_ENCODING_AES_KEY",
+        "surface": "wecom_family",
+        "primary_role": "secret",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
+          "Gateway secrets currently traverse host/profile .env files; CTL-C07 owns explicit cleanup/export and upgrade safety."
+        ]
+      },
+      {
         "key": "WECOM_CALLBACK_HOME_CHANNEL",
         "surface": "wecom_family",
         "primary_role": "home_target",
         "source_paths": [
           "hermes_core/gateway/home_channel.py",
-          "hermes_core/gateway/run.py"
+          "hermes_core/gateway/run.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -21815,7 +23180,75 @@
         "surface": "wecom_family",
         "primary_role": "home_target",
         "source_paths": [
-          "hermes_core/gateway/home_channel.py"
+          "hermes_core/gateway/home_channel.py",
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "WECOM_CALLBACK_HOST",
+        "surface": "wecom_family",
+        "primary_role": "network_host_expander",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
+          "Configured URL/host values require fail-closed network-policy validation; key presence is not an allowlist."
+        ]
+      },
+      {
+        "key": "WECOM_CALLBACK_PORT",
+        "surface": "wecom_family",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "WECOM_CALLBACK_TOKEN",
+        "surface": "wecom_family",
+        "primary_role": "secret",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
+          "Gateway secrets currently traverse host/profile .env files; CTL-C07 owns explicit cleanup/export and upgrade safety."
+        ]
+      },
+      {
+        "key": "WECOM_DM_POLICY",
+        "surface": "wecom_family",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "WECOM_GROUP_POLICY",
+        "surface": "wecom_family",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -21829,7 +23262,8 @@
         "primary_role": "home_target",
         "source_paths": [
           "hermes_core/gateway/home_channel.py",
-          "hermes_core/gateway/run.py"
+          "hermes_core/gateway/run.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -21842,12 +23276,54 @@
         "surface": "wecom_family",
         "primary_role": "home_target",
         "source_paths": [
-          "hermes_core/gateway/home_channel.py"
+          "hermes_core/gateway/home_channel.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
         "known_gaps": [
           "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "WECOM_SECRET",
+        "surface": "wecom_family",
+        "primary_role": "secret",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
+          "Gateway secrets currently traverse host/profile .env files; CTL-C07 owns explicit cleanup/export and upgrade safety."
+        ]
+      },
+      {
+        "key": "WECOM_SETUP_METHOD",
+        "surface": "wecom_family",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "WECOM_WEBSOCKET_URL",
+        "surface": "wecom_family",
+        "primary_role": "network_host_expander",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
+          "Configured URL/host values require fail-closed network-policy validation; key presence is not an allowlist."
         ]
       },
       {
@@ -21901,7 +23377,8 @@
         "surface": "weixin",
         "primary_role": "identifier",
         "source_paths": [
-          "python/src/weixin_qr_worker.py"
+          "python/src/weixin_qr_worker.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "remove_stale_alias",
@@ -21914,7 +23391,8 @@
         "surface": "weixin",
         "primary_role": "secret",
         "source_paths": [
-          "python/src/weixin_qr_worker.py"
+          "python/src/weixin_qr_worker.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "remove_stale_alias",
@@ -22406,13 +23884,160 @@
         "known_gaps": []
       },
       {
+        "key": "YUANBAO_ALLOWED_USERS",
+        "surface": "yuanbao",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "YUANBAO_ALLOW_ALL_USERS",
+        "surface": "yuanbao",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "YUANBAO_API_DOMAIN",
+        "surface": "yuanbao",
+        "primary_role": "network_host_expander",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
+          "Configured URL/host values require fail-closed network-policy validation; key presence is not an allowlist."
+        ]
+      },
+      {
+        "key": "YUANBAO_APP_ID",
+        "surface": "yuanbao",
+        "primary_role": "identifier",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "YUANBAO_APP_KEY",
+        "surface": "yuanbao",
+        "primary_role": "secret",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
+          "Gateway secrets currently traverse host/profile .env files; CTL-C07 owns explicit cleanup/export and upgrade safety."
+        ]
+      },
+      {
+        "key": "YUANBAO_APP_SECRET",
+        "surface": "yuanbao",
+        "primary_role": "secret",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
+          "Gateway secrets currently traverse host/profile .env files; CTL-C07 owns explicit cleanup/export and upgrade safety."
+        ]
+      },
+      {
+        "key": "YUANBAO_BOT_ID",
+        "surface": "yuanbao",
+        "primary_role": "identifier",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "YUANBAO_DM_ALLOW_FROM",
+        "surface": "yuanbao",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "YUANBAO_DM_POLICY",
+        "surface": "yuanbao",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "YUANBAO_GROUP_ALLOW_FROM",
+        "surface": "yuanbao",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "YUANBAO_GROUP_POLICY",
+        "surface": "yuanbao",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
         "key": "YUANBAO_HOME_CHANNEL",
         "surface": "yuanbao",
         "primary_role": "home_target",
         "source_paths": [
           "hermes_core/gateway/home_channel.py",
           "hermes_core/gateway/run.py",
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
@@ -22426,12 +24051,27 @@
         "primary_role": "home_target",
         "source_paths": [
           "hermes_core/gateway/home_channel.py",
-          "hermes_core/kabuqina_cli/config_env.py"
+          "hermes_core/kabuqina_cli/config_env.py",
+          "tauri/src/legacy_upgrade.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "stop_producing_then_explicit_cleanup",
         "known_gaps": [
           "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup."
+        ]
+      },
+      {
+        "key": "YUANBAO_WS_URL",
+        "surface": "yuanbao",
+        "primary_role": "network_host_expander",
+        "source_paths": [
+          "tauri/src/legacy_upgrade.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "stop_producing_then_explicit_cleanup",
+        "known_gaps": [
+          "Removed-surface producers/consumers remain live until CTL-C02/removal; stored values require explicit CTL-C07 cleanup.",
+          "Configured URL/host values require fail-closed network-policy validation; key presence is not an allowlist."
         ]
       },
       {
@@ -22977,10 +24617,10 @@
   },
   "generated_ledger_metadata": {
     "generator": "scripts/audit_v050_platform_manifest.py --refresh-generated-ledgers",
-    "reference_path_count": 528,
+    "reference_path_count": 529,
     "literal_environment_key_count": 520,
-    "dynamic_environment_key_declaration_count": 325,
-    "environment_key_count": 662,
+    "dynamic_environment_key_declaration_count": 457,
+    "environment_key_count": 776,
     "environment_namespace_count": 26,
     "environment_dynamic_template_count": 2,
     "historical_docs_policy": "docs/superpowers history is excluded from the active-doc reference scan; the three authority plans are hash-pinned separately."
