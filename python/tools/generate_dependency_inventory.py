@@ -88,6 +88,25 @@ def _node_inventory(lock_path: Path) -> list[dict[str, Any]]:
     return records
 
 
+def _runtime_components(runtime: Path) -> list[dict[str, Any]]:
+    node_executable = runtime / "node" / "node.exe"
+    node_license = runtime / "node" / "LICENSE"
+    node_version = runtime / "node" / "VERSION"
+    if not node_executable.is_file() or not node_license.is_file() or not node_version.is_file():
+        raise ValueError("bundled Node executable, version, or license missing from runtime")
+    version = node_version.read_text(encoding="ascii").strip().removeprefix("v")
+    if not version:
+        raise ValueError("bundled Node version marker is empty")
+    return [{
+        "name": "node",
+        "version": version,
+        "executable": "node/node.exe",
+        "sha256": _sha256(node_executable),
+        "license_path": "node/LICENSE",
+        "license_sha256": _sha256(node_license),
+    }]
+
+
 def generate(
     runtime: Path,
     requirements_path: Path,
@@ -137,6 +156,7 @@ def generate(
         },
         "python_packages": python_packages,
         "node_packages": node_packages,
+        "runtime_components": _runtime_components(runtime),
     }
 
 

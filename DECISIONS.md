@@ -1187,3 +1187,35 @@ sign-off on 2026-07-26. The existing gyan.dev ffmpeg release URL remains
 rolling and is not digest-pinned; its warning is accepted for the C05
 functional/runtime gate but explicitly remains a G01/Q provenance blocker
 before release approval.
+
+**CTL-C06 retained transport readiness (2026-07-26).** This supersedes the
+older DingTalk compatibility assumption recorded above: official
+`dingtalk-stream==0.24.3` metadata accepts `websockets>=11.0.2`, the existing
+lock resolves it with `websockets==15.0.1`, and the desktop runtime now directly
+declares the exact Stream SDK plus `alibabacloud-dingtalk>=2.2.42,<3`. The
+adapter does not publish a connected state until the SDK exposes its live
+WebSocket; task creation alone is not readiness.
+
+The retained WhatsApp bridge now runs on an application-owned Node.js 24.18.0
+Windows x64 executable. Its official archive SHA-256 is pinned at build time;
+the runtime carries only `node.exe`, the Node license and an exact version
+marker, while npm remains build-time-only. Bridge installation uses that same
+archive's npm, and the reusable cache identity includes the Node version so
+native modules cannot cross ABIs. The dependency inventory hashes the
+executable and license. Adapter, identity and bridge paths resolve the same
+active `KABUQINA_HOME` session/cache locations. The one-release legacy session
+reader remains non-destructive for C07; no session is copied, migrated or
+deleted by C06.
+
+QQ voice input no longer wraps unknown compressed bytes as invented raw PCM.
+It uses QQ ASR, a real SILK/ffmpeg conversion path, or emits the existing
+visible recognition-failure marker. The gateway child resolves the verified
+bundle's `stt-bin/ffmpeg.exe` before an optional developer system fallback.
+The rolling ffmpeg archive provenance remains G01/Q and is not reclassified as
+closed by this behavioral repair.
+
+C06 source/unit readiness does not impersonate external transport proof. A
+single owner `build_bundle.ps1 -Verify` run and profile-isolated real-account
+smoke for all six retained adapters remain explicit pending evidence. Legacy
+credential/profile/session/job/home cleanup remains C07, and installer,
+advisory, redistributed-license and final release approval remain G01/Q.

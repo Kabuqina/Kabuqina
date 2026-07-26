@@ -89,7 +89,7 @@ termux = [
   "kabuqina-agent[honcho]",
   "kabuqina-agent[acp]",
 ]
-dingtalk = ["dingtalk-stream>=0.20,<1", "alibabacloud-dingtalk>=2.0.0", "qrcode>=7.0,<8"]
+dingtalk = ["dingtalk-stream==0.24.3", "alibabacloud-dingtalk>=2.2.42,<3", "qrcode>=7.0,<8"]
 google = [
   # Required by the google-workspace skill (Gmail, Calendar, Drive, Contacts,
   # Sheets, Docs).  Declared here so packagers (Nix, Homebrew) ship them with

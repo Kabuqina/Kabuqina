@@ -21,13 +21,14 @@ import logging
 import os
 import platform
 import re
+import shutil
 import subprocess
 
 _IS_WINDOWS = platform.system() == "Windows"
 from pathlib import Path
 from typing import Dict, Optional, Any
 
-from kabuqina_constants import get_kabuqina_dir
+from kabuqina_constants import get_kabuqina_dir, get_kabuqina_home
 
 logger = logging.getLogger(__name__)
 
@@ -112,16 +113,43 @@ from gateway.platforms.base import (
 )
 
 
-def check_whatsapp_requirements() -> bool:
+def resolve_whatsapp_node_executable(explicit: Optional[str] = None) -> Optional[str]:
+    """Return the bundled Node executable, with system Node as a dev fallback."""
+    candidates: list[Path] = []
+    configured = (
+        str(explicit or "").strip()
+        or os.getenv("KABUQINA_NODE_EXE", "").strip()
+    )
+    if configured:
+        candidates.append(Path(configured).expanduser())
+
+    bundle_root = os.getenv("HERMESDESK_BUNDLE_DIR", "").strip()
+    if bundle_root:
+        candidates.append(Path(bundle_root) / "node" / "node.exe")
+
+    # Bundled layout: runtime/kabuqina/gateway/platforms/whatsapp.py.
+    candidates.append(Path(__file__).resolve().parents[3] / "node" / "node.exe")
+    for candidate in candidates:
+        if candidate.is_file():
+            return str(candidate)
+
+    # Source checkouts may use a developer-installed Node. Verified release
+    # bundles contain runtime/node/node.exe and never reach this fallback.
+    return shutil.which("node")
+
+
+def check_whatsapp_requirements(node_executable: Optional[str] = None) -> bool:
     """
     Check if WhatsApp dependencies are available.
     
     WhatsApp requires a Node.js bridge for most implementations.
     """
-    # Check for Node.js
+    resolved = node_executable or resolve_whatsapp_node_executable()
+    if not resolved:
+        return False
     try:
         result = subprocess.run(
-            ["node", "--version"],
+            [resolved, "--version"],
             capture_output=True,
             text=True,
             timeout=5
@@ -147,6 +175,7 @@ class WhatsAppAdapter(BasePlatformAdapter):
     
     Configuration:
     - bridge_script: Path to the Node.js bridge script
+    - node_executable: Optional development override; desktop uses bundled Node
     - bridge_port: Port for HTTP communication (default: 3000)
     - session_path: Path to store WhatsApp session data
     - dm_policy: "open" | "allowlist" | "disabled" — how DMs are handled (default: "open")
@@ -170,10 +199,14 @@ class WhatsAppAdapter(BasePlatformAdapter):
             "bridge_script",
             str(self._DEFAULT_BRIDGE_DIR / "bridge.js"),
         )
+        self._node_executable: Optional[str] = resolve_whatsapp_node_executable(
+            config.extra.get("node_executable")
+        )
         self._session_path: Path = Path(config.extra.get(
             "session_path",
             get_kabuqina_dir("platforms/whatsapp/session", "whatsapp/session")
         ))
+        self._cache_root: Path = get_kabuqina_home() / "cache"
         self._reply_prefix: Optional[str] = config.extra.get("reply_prefix")
         self._dm_policy = str(config.extra.get("dm_policy") or os.getenv("WHATSAPP_DM_POLICY", "open")).strip().lower()
         self._allow_from = self._coerce_allow_list(config.extra.get("allow_from") or config.extra.get("allowFrom"))
@@ -353,8 +386,12 @@ class WhatsAppAdapter(BasePlatformAdapter):
         
         This launches the Node.js bridge process and waits for it to be ready.
         """
-        if not check_whatsapp_requirements():
-            logger.warning("[%s] Node.js not found. WhatsApp requires Node.js.", self.name)
+        node_executable = getattr(self, "_node_executable", None) or "node"
+        if not check_whatsapp_requirements(node_executable):
+            logger.warning(
+                "[%s] Node.js runtime unavailable. The desktop bundle must contain node/node.exe.",
+                self.name,
+            )
             return False
         
         bridge_path = Path(self._bridge_script)
@@ -434,10 +471,11 @@ class WhatsAppAdapter(BasePlatformAdapter):
 
             self._bridge_process = subprocess.Popen(
                 [
-                    "node",
+                    node_executable,
                     str(bridge_path),
                     "--port", str(self._bridge_port),
                     "--session", str(self._session_path),
+                    "--cache-root", str(getattr(self, "_cache_root", get_kabuqina_home() / "cache")),
                     "--mode", whatsapp_mode,
                 ],
                 stdout=bridge_log_fh,

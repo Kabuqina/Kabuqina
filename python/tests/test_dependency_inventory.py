@@ -28,6 +28,8 @@ class DependencyInventoryTests(unittest.TestCase):
             "cryptography>=43,<47",
             "qrcode>=7.0,<8",
             "python-telegram-bot[webhooks]>=22.6,<23",
+            "dingtalk-stream==0.24.3",
+            "alibabacloud-dingtalk>=2.2.42,<3",
         ):
             self.assertIn(requirement, requirements)
 
@@ -44,6 +46,7 @@ class DependencyInventoryTests(unittest.TestCase):
             "dependencyInventorySha256",
             "desktopRequirementsSha256",
             "whatsappLockSha256",
+            "nodeArchiveSha256",
             "cargoLockSha256",
         ):
             self.assertIn(metadata_field, build)
@@ -97,6 +100,11 @@ class DependencyInventoryTests(unittest.TestCase):
             runtime = root / "runtime"
             dist_info = runtime / "site-packages" / "demo_pkg-1.2.3.dist-info"
             dist_info.mkdir(parents=True)
+            node_dir = runtime / "node"
+            node_dir.mkdir()
+            (node_dir / "node.exe").write_bytes(b"test executable")
+            (node_dir / "LICENSE").write_text("test runtime license\n", encoding="utf-8")
+            (node_dir / "VERSION").write_text("v24.18.0\n", encoding="ascii")
             (dist_info / "METADATA").write_text(
                 "Metadata-Version: 2.4\n"
                 "Name: demo-pkg\n"
@@ -155,6 +163,11 @@ class DependencyInventoryTests(unittest.TestCase):
             inventory["node_packages"][0]["name"],
             "@whiskeysockets/baileys",
         )
+        self.assertEqual(inventory["runtime_components"][0]["name"], "node")
+        self.assertEqual(
+            inventory["runtime_components"][0]["license_path"],
+            "node/LICENSE",
+        )
 
     def test_generator_records_python_and_node_license_metadata(self):
         text = GENERATOR.read_text(encoding="utf-8")
@@ -166,6 +179,8 @@ class DependencyInventoryTests(unittest.TestCase):
             "integrity",
             "desktop_requirements",
             "whatsapp_package_lock",
+            "runtime_components",
+            "license_sha256",
         ):
             self.assertIn(field, text)
 

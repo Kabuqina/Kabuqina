@@ -53,7 +53,9 @@ def _make_adapter():
     adapter.config = MagicMock()
     adapter._bridge_port = 19876
     adapter._bridge_script = "/tmp/test-bridge.js"
+    adapter._node_executable = "C:/runtime/node/node.exe"
     adapter._session_path = Path("/tmp/test-wa-session")
+    adapter._cache_root = Path("/tmp/test-wa-cache")
     adapter._bridge_log_fh = None
     adapter._bridge_log = None
     adapter._bridge_process = None
@@ -71,6 +73,36 @@ def _make_adapter():
     adapter._message_queue = asyncio.Queue()
     adapter._http_session = None
     return adapter
+
+
+class TestNodeRuntimeOwnership:
+    def test_explicit_node_executable_wins(self, tmp_path):
+        from gateway.platforms.whatsapp import resolve_whatsapp_node_executable
+
+        node = tmp_path / "node.exe"
+        node.write_bytes(b"node")
+        assert resolve_whatsapp_node_executable(str(node)) == str(node)
+
+    def test_bundle_dir_node_wins_over_system_path(self, tmp_path, monkeypatch):
+        from gateway.platforms.whatsapp import resolve_whatsapp_node_executable
+
+        node = tmp_path / "node" / "node.exe"
+        node.parent.mkdir()
+        node.write_bytes(b"node")
+        monkeypatch.setenv("HERMESDESK_BUNDLE_DIR", str(tmp_path))
+        monkeypatch.delenv("KABUQINA_NODE_EXE", raising=False)
+        with patch("gateway.platforms.whatsapp.shutil.which", return_value="C:/system/node.exe"):
+            assert resolve_whatsapp_node_executable() == str(node)
+
+    def test_requirement_probe_executes_resolved_node(self):
+        from gateway.platforms.whatsapp import check_whatsapp_requirements
+
+        with patch(
+            "gateway.platforms.whatsapp.subprocess.run",
+            return_value=MagicMock(returncode=0),
+        ) as run:
+            assert check_whatsapp_requirements("C:/runtime/node/node.exe") is True
+        assert run.call_args.args[0] == ["C:/runtime/node/node.exe", "--version"]
 
 
 def _mock_aiohttp(status=200, json_data=None, json_side_effect=None):

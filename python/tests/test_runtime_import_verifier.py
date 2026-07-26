@@ -78,7 +78,14 @@ class RuntimeImportVerifierTests(unittest.TestCase):
             "site-packages/qrcode/__init__.py",
             "site-packages/telegram/__init__.py",
             "site-packages/python_telegram_bot-*.dist-info",
+            "site-packages/dingtalk_stream/__init__.py",
+            "site-packages/dingtalk_stream-0.24.3.dist-info",
+            "site-packages/alibabacloud_dingtalk/__init__.py",
+            "node/node.exe",
+            "node/LICENSE",
+            "node/VERSION",
             "kabuqina/scripts/whatsapp-bridge/bridge.js",
+            "kabuqina/scripts/whatsapp-bridge/runtime_paths.js",
             "kabuqina/scripts/whatsapp-bridge/package-lock.json",
             "node_modules/@whiskeysockets/baileys/package.json",
         ):
@@ -114,22 +121,65 @@ class RuntimeImportVerifierTests(unittest.TestCase):
 
         self.assertNotIn('["npm", "install"', adapter)
         self.assertIn("Bundled WhatsApp bridge dependencies are missing", adapter)
-        self.assertIn("npmCommand.Source ci --omit=dev --no-audit", build_script)
+        self.assertIn("& $npmCommand ci --omit=dev --no-audit", build_script)
         self.assertNotIn("git+ssh://git@github.com", (
             ROOT / "hermes_core" / "scripts" / "whatsapp-bridge" / "package-lock.json"
         ).read_text(encoding="utf-8"))
         self.assertIn("whatsappLockHash", build_script)
         self.assertIn("Reusing cached WhatsApp bridge dependencies", build_script)
 
+    def test_dingtalk_uses_modern_websockets_compatible_sdk(self):
+        requirements = (
+            ROOT / "python" / "requirements-desktop.txt"
+        ).read_text(encoding="utf-8")
+        core = (ROOT / "hermes_core" / "pyproject.toml").read_text(encoding="utf-8")
+        lock = (ROOT / "hermes_core" / "uv.lock").read_text(encoding="utf-8")
+
+        self.assertIn("dingtalk-stream==0.24.3", requirements)
+        self.assertIn("alibabacloud-dingtalk>=2.2.42,<3", requirements)
+        self.assertIn("websockets>=15,<17", requirements)
+        self.assertIn('"dingtalk-stream==0.24.3"', core)
+        self.assertIn(
+            '{ name = "dingtalk-stream", marker = "extra == \'dingtalk\'", specifier = "==0.24.3" }',
+            lock,
+        )
+        self.assertIn(
+            '{ name = "alibabacloud-dingtalk", marker = "extra == \'dingtalk\'", specifier = ">=2.2.42,<3" }',
+            lock,
+        )
+        self.assertNotIn("websockets<13", requirements)
+
+    def test_whatsapp_owns_pinned_node_runtime(self):
+        build_script = (ROOT / "python" / "build_bundle.ps1").read_text(encoding="utf-8")
+        adapter = (
+            ROOT / "hermes_core" / "gateway" / "platforms" / "whatsapp.py"
+        ).read_text(encoding="utf-8")
+        verifier = PROFILE_PLATFORM_VERIFIER.read_text(encoding="utf-8")
+
+        self.assertIn('$NodeVersion = "24.18.0"', build_script)
+        self.assertIn(
+            "0ae68406b42d7725661da979b1403ec9926da205c6770827f33aac9d8f26e821",
+            build_script,
+        )
+        self.assertIn('"node\\node.exe"', build_script)
+        self.assertIn("resolve_whatsapp_node_executable", adapter)
+        self.assertIn('"--cache-root"', adapter)
+        self.assertIn('expected_version != "v24.18.0"', verifier)
+        self.assertIn("actual_version != expected_version", verifier)
+
     def test_whatsapp_cache_is_validated_and_atomically_published(self):
         build_script = (ROOT / "python" / "build_bundle.ps1").read_text(encoding="utf-8")
 
         marker = '$whatsappCompletionMarkerName = ".kabuqina-cache-complete.json"'
-        install = "$npmCommand.Source ci --omit=dev --no-audit --no-fund"
-        validate = "$npmCommand.Source ls --omit=dev --all --json"
+        install = "$npmCommand ci --omit=dev --no-audit --no-fund"
+        validate = "$npmCommand ls --omit=dev --all --json"
         publish = "Move-Item -LiteralPath $whatsappInstallTemp"
         self.assertIn(marker, build_script)
         self.assertIn(".incomplete-$PID-", build_script)
+        self.assertIn('$npmCommand = Join-Path $nodeSourceDir "npm.cmd"', build_script)
+        self.assertIn('$whatsappCacheKey = "$whatsappLockHash-node-$NodeVersion"', build_script)
+        self.assertIn("nodeVersion = $NodeVersion", build_script)
+        self.assertIn("schemaVersion = 2", build_script)
         self.assertIn(install, build_script)
         self.assertIn(validate, build_script)
         self.assertIn("Test-WhatsAppInstallCacheReady", build_script)

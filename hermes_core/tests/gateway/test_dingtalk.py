@@ -308,6 +308,60 @@ class TestConnect:
         assert result is False
 
     @pytest.mark.asyncio
+    async def test_connect_reports_ready_only_after_real_websocket(self, monkeypatch):
+        import gateway.platforms.dingtalk as module
+        from gateway.platforms.dingtalk import DingTalkAdapter
+
+        blocker = asyncio.Event()
+        websocket = SimpleNamespace(close=AsyncMock())
+
+        class FakeClient:
+            def __init__(self, _credential):
+                self.websocket = None
+
+            def register_callback_handler(self, _topic, _handler):
+                return None
+
+            async def start(self):
+                self.websocket = websocket
+                await blocker.wait()
+
+        fake_sdk = SimpleNamespace(
+            Credential=lambda client_id, client_secret: (client_id, client_secret),
+            DingTalkStreamClient=FakeClient,
+            ChatbotMessage=SimpleNamespace(TOPIC="chatbot"),
+        )
+        monkeypatch.setattr(module, "DINGTALK_STREAM_AVAILABLE", True)
+        monkeypatch.setattr(module, "HTTPX_AVAILABLE", True)
+        monkeypatch.setattr(module, "CARD_SDK_AVAILABLE", False)
+        monkeypatch.setattr(module, "dingtalk_stream", fake_sdk)
+        monkeypatch.setattr(module.httpx, "AsyncClient", MagicMock(return_value=AsyncMock()))
+
+        adapter = DingTalkAdapter(PlatformConfig(
+            enabled=True,
+            extra={"client_id": "id", "client_secret": "secret"},
+        ))
+        result = await adapter.connect()
+
+        assert result is True
+        assert adapter._running is True
+        assert adapter._stream_client.websocket is websocket
+        blocker.set()
+        await adapter.disconnect()
+
+    @pytest.mark.asyncio
+    async def test_stream_wait_timeout_is_not_false_green(self, monkeypatch):
+        import gateway.platforms.dingtalk as module
+        from gateway.platforms.dingtalk import DingTalkAdapter
+
+        monkeypatch.setattr(module, "STREAM_CONNECT_TIMEOUT_SECONDS", 0.01)
+        adapter = DingTalkAdapter(PlatformConfig(enabled=True))
+        adapter._stream_client = SimpleNamespace(websocket=None)
+        adapter._stream_task = None
+
+        assert await adapter._wait_for_stream_connection() is False
+
+    @pytest.mark.asyncio
     async def test_disconnect_cleans_up(self):
         from gateway.platforms.dingtalk import DingTalkAdapter
         adapter = DingTalkAdapter(PlatformConfig(enabled=True))

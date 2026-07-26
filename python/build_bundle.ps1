@@ -5,6 +5,7 @@
 #
 # Output: python/dist/runtime/
 #   ├── python/                   <- standalone CPython 3.11 (python.exe etc.)
+#   ├── node/                     <- pinned Node.js runtime for WhatsApp
 #   ├── site-packages/            <- pruned Hermes + its deps
 #   ├── kabuqina/                 <- the owned core, prune-copied in
 #   ├── overlays/                 <- Kabuqina runtime overlays
@@ -134,6 +135,9 @@ function Test-BundleSentinels {
         "BUNDLE_INFO.json",
         "DEPENDENCY_INVENTORY.json",
         "python\python.exe",
+        "node\node.exe",
+        "node\LICENSE",
+        "node\VERSION",
         "kabuqina\run_agent.py",
         "site-packages\yaml\__init__.py",
         "site-packages\fastapi\__init__.py",
@@ -284,6 +288,50 @@ if (-not (Test-Path $Py)) {
 
 Write-Host "Using Python: " (& $Py --version)
 
+# ------------------------------------------------------------------ 1b. Node.js
+# WhatsApp is a retained SEA adapter. Its bridge must not depend on an
+# unversioned system Node installation, so ship the official Windows x64 LTS
+# executable beside the Python runtime. npm is build-time only and is not
+# copied into the signed application payload.
+$NodeVersion = "24.18.0"
+$NodeAsset = "node-v$NodeVersion-win-x64.zip"
+$NodeUrl = "https://nodejs.org/dist/v$NodeVersion/$NodeAsset"
+$NodeSha256 = "0ae68406b42d7725661da979b1403ec9926da205c6770827f33aac9d8f26e821"
+$nodeZip = Join-Path $Download $NodeAsset
+
+if (Test-Path -LiteralPath $nodeZip -PathType Leaf) {
+    $cachedNodeHash = (Get-FileHash -LiteralPath $nodeZip -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($cachedNodeHash -ne $NodeSha256) {
+        Write-Warning "Discarding corrupt cached Node archive: $nodeZip"
+        Remove-Item -Force -LiteralPath $nodeZip
+    }
+}
+if (-not (Test-Path -LiteralPath $nodeZip -PathType Leaf)) {
+    Write-Host "Downloading $NodeUrl"
+    Invoke-WebRequest -Uri $NodeUrl -OutFile $nodeZip -UseBasicParsing
+}
+$actualNodeHash = (Get-FileHash -LiteralPath $nodeZip -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($actualNodeHash -ne $NodeSha256) {
+    throw "SHA-256 mismatch for $nodeZip`n  expected: $NodeSha256`n  actual:   $actualNodeHash"
+}
+
+$nodeExtract = Join-Path $BuildDir "node-runtime"
+Remove-BundlePathStrict -Path $nodeExtract -Label "Node extraction directory"
+New-Item -ItemType Directory -Force -Path $nodeExtract | Out-Null
+Expand-Archive -LiteralPath $nodeZip -DestinationPath $nodeExtract -Force
+$nodeSourceDir = Join-Path $nodeExtract "node-v$NodeVersion-win-x64"
+$nodeDir = Join-Path $Dist "node"
+Remove-BundlePathStrict -Path $nodeDir -Label "bundled Node runtime"
+New-Item -ItemType Directory -Force -Path $nodeDir | Out-Null
+Copy-Item -Force (Join-Path $nodeSourceDir "node.exe") (Join-Path $nodeDir "node.exe")
+Copy-Item -Force (Join-Path $nodeSourceDir "LICENSE") (Join-Path $nodeDir "LICENSE")
+Set-Content -Path (Join-Path $nodeDir "VERSION") -Value "v$NodeVersion" -Encoding ASCII
+$NodeExe = Join-Path $nodeDir "node.exe"
+if ((& $NodeExe --version).Trim() -ne "v$NodeVersion") {
+    throw "Bundled Node version check failed for $NodeExe"
+}
+Write-Host "Using bundled Node: " (& $NodeExe --version)
+
 # Remove the .pth from any prior build before invoking pip.  Python processes
 # the runtime .pth on every startup; after Clear-BundleSitePackages wipes the
 # external site-packages, the "import pywin32_bootstrap" line in the .pth fails
@@ -363,7 +411,8 @@ if (-not (Test-Path -LiteralPath $whatsappLock -PathType Leaf)) {
 }
 $whatsappLockHash = (Get-FileHash -LiteralPath $whatsappLock -Algorithm SHA256).Hash.ToLowerInvariant()
 $whatsappCacheParent = Join-Path $Download "whatsapp-bridge"
-$whatsappInstallCache = Join-Path $whatsappCacheParent $whatsappLockHash
+$whatsappCacheKey = "$whatsappLockHash-node-$NodeVersion"
+$whatsappInstallCache = Join-Path $whatsappCacheParent $whatsappCacheKey
 $whatsappCompletionMarkerName = ".kabuqina-cache-complete.json"
 $whatsappCacheSentinels = @(
     "node_modules\@whiskeysockets\baileys\package.json",
@@ -377,7 +426,9 @@ function Test-WhatsAppInstallCacheReady {
         [Parameter(Mandatory = $true)]
         [string]$Path,
         [Parameter(Mandatory = $true)]
-        [string]$LockHash
+        [string]$LockHash,
+        [Parameter(Mandatory = $true)]
+        [string]$RuntimeNodeVersion
     )
 
     $markerPath = Join-Path $Path $whatsappCompletionMarkerName
@@ -391,8 +442,9 @@ function Test-WhatsAppInstallCacheReady {
         return $false
     }
     if (
-        $marker.schemaVersion -ne 1 -or
+        $marker.schemaVersion -ne 2 -or
         $marker.lockSha256 -ne $LockHash -or
+        $marker.nodeVersion -ne $RuntimeNodeVersion -or
         $marker.validation -ne "npm ls --omit=dev --all"
     ) {
         return $false
@@ -404,11 +456,12 @@ function Test-WhatsAppInstallCacheReady {
 
 New-Item -ItemType Directory -Force -Path $whatsappCacheParent | Out-Null
 $whatsappCacheReady = Test-WhatsAppInstallCacheReady `
-    -Path $whatsappInstallCache -LockHash $whatsappLockHash
+    -Path $whatsappInstallCache -LockHash $whatsappLockHash `
+    -RuntimeNodeVersion $NodeVersion
 if (-not $whatsappCacheReady) {
-    $npmCommand = Get-Command npm.cmd -ErrorAction SilentlyContinue
-    if (-not $npmCommand) {
-        throw "npm.cmd is required to stage the retained WhatsApp bridge dependencies."
+    $npmCommand = Join-Path $nodeSourceDir "npm.cmd"
+    if (-not (Test-Path -LiteralPath $npmCommand -PathType Leaf)) {
+        throw "Pinned Node archive is missing npm.cmd: $npmCommand"
     }
     $whatsappInstallTemp = Join-Path $whatsappCacheParent (
         ".$whatsappLockHash.incomplete-$PID-$([Guid]::NewGuid().ToString('N'))"
@@ -420,7 +473,7 @@ if (-not $whatsappCacheReady) {
         Write-Host "[bundle] Installing locked WhatsApp bridge dependencies (cache miss)..." -ForegroundColor Cyan
         # Install scripts are required by the locked Baileys/sharp payload; the
         # committed lock and HTTPS commit pins are the executable input boundary.
-        & $npmCommand.Source ci --omit=dev --no-audit --no-fund `
+        & $npmCommand ci --omit=dev --no-audit --no-fund `
             --cache (Join-Path $Download "npm") --prefix $whatsappInstallTemp
         if ($LASTEXITCODE -ne 0) {
             throw "Locked WhatsApp bridge dependency install failed."
@@ -429,7 +482,7 @@ if (-not $whatsappCacheReady) {
         # Direct package sentinels are insufficient: npm may have written them
         # before an interrupted transitive install. Validate the complete
         # lock-resolved production tree before publishing any reusable marker.
-        & $npmCommand.Source ls --omit=dev --all --json `
+        & $npmCommand ls --omit=dev --all --json `
             --prefix $whatsappInstallTemp *> $null
         if ($LASTEXITCODE -ne 0) {
             throw "Locked WhatsApp bridge dependency tree validation failed."
@@ -445,8 +498,9 @@ if (-not $whatsappCacheReady) {
         }
 
         @{
-            schemaVersion = 1
+            schemaVersion = 2
             lockSha256 = $whatsappLockHash
+            nodeVersion = $NodeVersion
             validation = "npm ls --omit=dev --all"
         } | ConvertTo-Json | Set-Content -LiteralPath (
             Join-Path $whatsappInstallTemp $whatsappCompletionMarkerName
@@ -456,14 +510,16 @@ if (-not $whatsappCacheReady) {
         # directory rename. Any prior interrupted directory has no valid marker.
         if (Test-Path -LiteralPath $whatsappInstallCache) {
             if (-not (Test-WhatsAppInstallCacheReady `
-                -Path $whatsappInstallCache -LockHash $whatsappLockHash)) {
+                -Path $whatsappInstallCache -LockHash $whatsappLockHash `
+                -RuntimeNodeVersion $NodeVersion)) {
                 Remove-BundlePathStrict `
                     -Path $whatsappInstallCache `
                     -Label "incomplete WhatsApp dependency cache"
             }
         }
         if (-not (Test-WhatsAppInstallCacheReady `
-            -Path $whatsappInstallCache -LockHash $whatsappLockHash)) {
+            -Path $whatsappInstallCache -LockHash $whatsappLockHash `
+            -RuntimeNodeVersion $NodeVersion)) {
             Move-Item -LiteralPath $whatsappInstallTemp `
                 -Destination $whatsappInstallCache -ErrorAction Stop
         }
@@ -473,7 +529,8 @@ if (-not $whatsappCacheReady) {
             -Label "temporary WhatsApp dependency cache"
     }
     $whatsappCacheReady = Test-WhatsAppInstallCacheReady `
-        -Path $whatsappInstallCache -LockHash $whatsappLockHash
+        -Path $whatsappInstallCache -LockHash $whatsappLockHash `
+        -RuntimeNodeVersion $NodeVersion
     if (-not $whatsappCacheReady) {
         throw "Locked WhatsApp bridge dependency cache publication failed."
     }
@@ -972,6 +1029,8 @@ if ($Verify) {
 $info = @{
     pythonVersion              = $PythonVersion
     pbsRelease                 = $PbsRelease
+    nodeVersion                = $NodeVersion
+    nodeArchiveSha256          = $NodeSha256
     builtAt                    = (Get-Date).ToString("o")
     verified                   = [bool]$Verify
     frozenCommit               = "90b304b7c (v2026.4.23 — frozen upstream snapshot)"

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -34,7 +35,15 @@ REQUIRED_RUNTIME_FILES = (
     "site-packages/cryptography/__init__.py",
     "site-packages/qrcode/__init__.py",
     "site-packages/telegram/__init__.py",
+    "site-packages/dingtalk_stream/__init__.py",
+    "site-packages/alibabacloud_dingtalk/__init__.py",
+    "site-packages/alibabacloud_tea_openapi/__init__.py",
+    "site-packages/alibabacloud_tea_util/__init__.py",
+    "node/node.exe",
+    "node/LICENSE",
+    "node/VERSION",
     "kabuqina/scripts/whatsapp-bridge/bridge.js",
+    "kabuqina/scripts/whatsapp-bridge/runtime_paths.js",
     "kabuqina/scripts/whatsapp-bridge/package.json",
     "kabuqina/scripts/whatsapp-bridge/package-lock.json",
     "kabuqina/scripts/whatsapp-bridge/node_modules/@whiskeysockets/baileys/package.json",
@@ -49,6 +58,8 @@ REQUIRED_DISTRIBUTION_GLOBS = (
     "site-packages/cryptography-*.dist-info",
     "site-packages/qrcode-*.dist-info",
     "site-packages/python_telegram_bot-*.dist-info",
+    "site-packages/dingtalk_stream-0.24.3.dist-info",
+    "site-packages/alibabacloud_dingtalk-*.dist-info",
 )
 
 
@@ -102,6 +113,30 @@ def _verify_desktop_child_filter() -> None:
                 os.environ[key] = value
 
 
+def _verify_bundled_node(root: Path) -> None:
+    node = root / "node" / "node.exe"
+    expected_version = (root / "node" / "VERSION").read_text(
+        encoding="ascii"
+    ).strip()
+    result = subprocess.run(
+        [str(node), "--version"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    actual_version = result.stdout.strip()
+    if (
+        result.returncode != 0
+        or expected_version != "v24.18.0"
+        or actual_version != expected_version
+    ):
+        raise RuntimeError(
+            "bundled Node readiness failed: "
+            f"rc={result.returncode} expected={expected_version!r} actual={actual_version!r}"
+        )
+
+
 def main(argv: list[str]) -> int:
     if len(argv) != 2:
         print("usage: verify_profile_platform_imports.py <runtime-root>", file=sys.stderr)
@@ -122,6 +157,7 @@ def main(argv: list[str]) -> int:
             for module in modules:
                 importlib.import_module(module)
         _verify_desktop_child_filter()
+        _verify_bundled_node(root)
     except Exception as exc:
         print(f"retained platform import failed: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 1

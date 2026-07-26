@@ -10,6 +10,7 @@ import tempfile
 import unittest
 from contextlib import contextmanager
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -60,6 +61,16 @@ class V050PlatformManifestTests(unittest.TestCase):
 
     def test_repository_manifest_satisfies_fail_closed_contract(self) -> None:
         self.assertEqual([], audit.validate_contract(self.manifest, ROOT))
+
+    def test_whatsapp_bridge_runtime_sources_are_classified(self) -> None:
+        paths = {record["path"] for record in self.manifest["typed_reference_ledger"]}
+
+        self.assertIn("hermes_core/scripts/whatsapp-bridge/bridge.js", paths)
+        self.assertIn("hermes_core/scripts/whatsapp-bridge/runtime_paths.js", paths)
+        self.assertIn(
+            "hermes_core/scripts/whatsapp-bridge/runtime_paths.test.mjs",
+            paths,
+        )
 
     def test_unknown_platform_is_rejected(self) -> None:
         mutated = copy.deepcopy(self.manifest)
@@ -254,6 +265,29 @@ for key in RUNTIME_ENV_KEYS:
         self.assertNotIn("API", exact_sources)
         self.assertNotIn("SIGNAL", exact_sources)
         self.assertNotIn("HASS_", exact_sources)
+
+    def test_environment_ledgers_share_one_python_ast_pass(self) -> None:
+        files = {
+            "python/src/runtime_env.py": """
+import os
+RUNTIME_ENV_KEYS = {"WHATSAPP_MODE"}
+os.getenv("WHATSAPP_MODE")
+def home_env_key(platform):
+    return f"{platform}_HOME_CHANNEL"
+""",
+        }
+        audit._discover_environment_inventory.cache_clear()
+        original_parse = audit.ast.parse
+        with _tracked_scan_root(files) as scan_root:
+            with mock.patch.object(audit.ast, "parse", wraps=original_parse) as parse:
+                accesses = audit.discover_environment_key_accesses(scan_root)
+                declarations = audit.discover_environment_declarations(scan_root)
+                templates = audit.discover_environment_dynamic_key_templates(scan_root)
+
+        self.assertIn("WHATSAPP_MODE", accesses)
+        self.assertIn("WHATSAPP_MODE", declarations["exact_keys"])
+        self.assertIn("{PLATFORM}_HOME_CHANNEL", templates)
+        self.assertEqual(1, parse.call_count)
 
     def test_unmapped_dynamic_exact_declaration_fails_closed_via_scan(self) -> None:
         files = {

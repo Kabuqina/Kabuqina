@@ -208,6 +208,49 @@ class TestVoiceAttachmentSSRFProtection:
         assert kwargs.get("follow_redirects") is True
         assert kwargs.get("event_hooks", {}).get("response") == [_ssrf_redirect_guard]
 
+
+class TestVoiceAudioDegradation:
+    def _make_adapter(self):
+        from gateway.platforms.qqbot import QQAdapter
+        return QQAdapter(_make_config(app_id="a", client_secret="b"))
+
+    @pytest.mark.asyncio
+    async def test_failed_real_decoders_do_not_fabricate_raw_pcm(self):
+        adapter = self._make_adapter()
+        adapter._convert_silk_to_wav = mock.AsyncMock(return_value=None)
+        adapter._convert_ffmpeg_to_wav = mock.AsyncMock(return_value=None)
+
+        result = await adapter._convert_audio_to_wav_file(b"#!SILK_V3\x00payload", "voice.silk")
+
+        assert result is None
+        assert not hasattr(adapter, "_convert_raw_to_wav")
+
+    @pytest.mark.asyncio
+    async def test_untranscribed_voice_is_visible_to_agent(self):
+        adapter = self._make_adapter()
+        adapter._stt_voice_attachment = mock.AsyncMock(return_value=None)
+
+        result = await adapter._process_attachments([
+            {
+                "content_type": "audio/silk",
+                "url": "https://multimedia.nt.qq.com.cn/voice.silk",
+                "filename": "voice.silk",
+            }
+        ])
+
+        assert result["voice_transcripts"] == ["[Voice] [语音识别失败]"]
+
+    def test_bundled_ffmpeg_is_preferred(self, tmp_path, monkeypatch):
+        from gateway.platforms.qqbot.adapter import _resolve_ffmpeg_executable
+
+        ffmpeg = tmp_path / "stt-bin" / "ffmpeg.exe"
+        ffmpeg.parent.mkdir()
+        ffmpeg.write_bytes(b"ffmpeg")
+        monkeypatch.setenv("HERMESDESK_BUNDLE_DIR", str(tmp_path))
+        monkeypatch.delenv("KABUQINA_FFMPEG_EXE", raising=False)
+
+        assert _resolve_ffmpeg_executable() == str(ffmpeg)
+
 # ---------------------------------------------------------------------------
 # _strip_at_mention
 # ---------------------------------------------------------------------------

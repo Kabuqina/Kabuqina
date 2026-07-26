@@ -212,11 +212,11 @@
     ],
     "qqbot": [
       "Returned gateway WebSocket and media hosts are dynamic and not yet connected to a fail-closed network policy.",
-      "QQ STT keys, pilk and ffmpeg are not yet proven in the desktop bundle.",
+      "QQ STT credentials and real voice transport remain owner smoke; when SILK/ffmpeg conversion is unavailable, the adapter now reports a visible recognition failure instead of fabricating raw PCM.",
       "QQBOT_APP_ID/QQBOT_CLIENT_SECRET are stale desktop host-expansion producers, not adapter aliases."
     ],
     "dingtalk": [
-      "Required SDKs are not installed in the desktop runtime and their websockets constraint conflicts with the current bundle.",
+      "Pinned SDK declarations and modern-websockets import contracts are closed; owner bundle/import and real Stream credentials remain C06 smoke evidence.",
       "Incoming session webhook URLs are ephemeral; bare cron delivery after restart is not reliable.",
       "DINGTALK_WEBHOOK_URL belongs to the shared direct-send path and must be threat-modeled separately from stream credentials."
     ],
@@ -224,9 +224,9 @@
       "Source/profile/Web/desktop dependency truth is closed; real credential and Windows transport smoke remains CTL-C06."
     ],
     "whatsapp": [
-      "C05 stages the locked bridge and forbids runtime npm install, but Node executable ownership and real transport proof remain CTL-C06.",
-      "Adapter, identity reader and Node bridge disagree on canonical profile/session/cache paths.",
-      "WHATSAPP_HOME_CHANNEL is produced but not consistently consumed by config/scheduler."
+      "Pinned bundled Node/bridge ownership is implemented; owner bundle plus real pairing, restart and media transport proof remain C06 smoke evidence.",
+      "Adapter, identity reader and Node bridge now share canonical active-profile session/cache paths; the one-release legacy session fallback remains for C07.",
+      "Generic legacy home-target semantics remain C07; C06 does not invent or silently reroute a WhatsApp default recipient."
     ],
     "email": [
       "Profile spawn, Web route and EMAIL_HOME_ADDRESS producer truth are closed; OAuth/IMAP/SMTP credential smoke remains CTL-C06.",
@@ -1557,7 +1557,7 @@
     },
     {
       "surface": "whatsapp",
-      "runtime_dependency": "Node.js runtime",
+      "runtime_dependency": "pinned Node.js 24.18.0 Windows x64 runtime",
       "dependency_ids": [
         "node-whatsapp-bridge"
       ],
@@ -1602,15 +1602,6 @@
         "node-whatsapp-bridge"
       ],
       "exemption": null
-    },
-    {
-      "surface": "whatsapp",
-      "runtime_dependency": "current adapter runs npm install --silent at runtime when node_modules is missing",
-      "dependency_ids": [],
-      "exemption": {
-        "kind": "behavioral_observation",
-        "reason": "This is an unsafe runtime-install behavior to remove, not an additional package identity."
-      }
     },
     {
       "surface": "email",
@@ -2103,7 +2094,7 @@
         "hermes_core/uv.lock",
         "python/requirements-desktop.txt"
       ],
-      "version_constraint": ">=0.20,<1 in core; intentionally absent from desktop because of websockets compatibility",
+      "version_constraint": "==0.24.3 in core, uv.lock and desktop requirements; upstream metadata requires websockets>=11.0.2",
       "platform_surfaces": [
         "dingtalk"
       ],
@@ -2111,12 +2102,12 @@
         "hermes_core/gateway/platforms/dingtalk.py"
       ],
       "usage_class": "retained_mainland_exclusive",
-      "bundle_presence": "absent in observed stale local runtime",
-      "target_action": "resolve transport/websockets compatibility or mark mainland profile unreleasable",
-      "license_status": "package metadata/license ledger not yet captured; blocks CTL-C06 release readiness",
-      "advisory_status": "fresh advisory scan required after a compatible version/transport is selected",
+      "bundle_presence": "required by the verified-runtime module and exact dist-info contract; owner C06 bundle evidence pending",
+      "target_action": "retain the exact modern-websockets-compatible Stream SDK for the mainland DingTalk adapter",
+      "license_status": "MIT package metadata known; exact installed metadata is emitted in DEPENDENCY_INVENTORY.json",
+      "advisory_status": "fresh advisory scan remains required at G01/Q against the artifact inventory",
       "known_gaps": [
-        "Current SDK dependency conflicts with the modern websockets range needed by Browser/CDP."
+        "Real DingTalk Stream credential/receive/reply smoke and owner verified-bundle import evidence remain pending."
       ]
     },
     {
@@ -2128,7 +2119,7 @@
         "hermes_core/uv.lock",
         "hermes_core/gateway/platforms/dingtalk.py"
       ],
-      "version_constraint": ">=2.0.0 for alibabacloud-dingtalk; Tea transitive set",
+      "version_constraint": ">=2.2.42,<3 for alibabacloud-dingtalk; Tea SDKs remain resolved transitive dependencies",
       "platform_surfaces": [
         "dingtalk"
       ],
@@ -2136,24 +2127,24 @@
         "hermes_core/gateway/platforms/dingtalk.py"
       ],
       "usage_class": "retained_mainland_exclusive",
-      "bundle_presence": "absent in observed stale local runtime",
-      "target_action": "pin and bundle only with the retained DingTalk adapter",
-      "license_status": "DingTalk packages are intentionally absent from the C05 artifact inventory; license ledger is blocked on CTL-C06 version selection",
-      "advisory_status": "fresh advisory scan required after version selection",
+      "bundle_presence": "direct desktop requirement and verified-runtime import contract; owner C06 bundle evidence pending",
+      "target_action": "retain only with the mainland DingTalk adapter and inventory the resolved Tea dependency set",
+      "license_status": "exact installed package/license metadata is emitted in DEPENDENCY_INVENTORY.json for redistribution review",
+      "advisory_status": "fresh advisory scan remains required at G01/Q against the artifact inventory",
       "known_gaps": [
-        "No clean Windows import or runtime smoke evidence."
+        "Owner verified-bundle import and real card/media credential smoke remain pending."
       ]
     },
     {
       "id": "node-whatsapp-bridge",
-      "package": "@whiskeysockets/baileys, express, pino, qrcode-terminal",
+      "package": "Node.js 24.18.0 plus @whiskeysockets/baileys, express, pino and qrcode-terminal",
       "ecosystem": "npm/git",
       "declaration_paths": [
         "hermes_core/scripts/whatsapp-bridge/package.json",
         "hermes_core/scripts/whatsapp-bridge/package-lock.json",
         "python/build_bundle.ps1"
       ],
-      "version_constraint": "Baileys pinned to git commit 01047de; other direct dependencies use lock-resolved ranges",
+      "version_constraint": "official Node.js 24.18.0 Windows x64 archive pinned by SHA-256; Baileys pinned to git commit 01047de; other direct dependencies use lock-resolved ranges",
       "platform_surfaces": [
         "whatsapp"
       ],
@@ -2162,12 +2153,12 @@
         "hermes_core/gateway/platforms/whatsapp.py"
       ],
       "usage_class": "retained_sea_exclusive_external_process",
-      "bundle_presence": "C05 stages bridge source plus lock-resolved node_modules; verified runtime requires all four direct packages",
-      "target_action": "completed for bridge payload: immutable build-time install, lock-hash cache and no runtime npm install",
-      "license_status": "lock contains mixed MIT/BSD/Apache/LGPL metadata; exact Node package metadata is emitted in DEPENDENCY_INVENTORY.json for redistribution review",
+      "bundle_presence": "verified runtime requires node/node.exe, Node LICENSE/VERSION, bridge source, runtime path resolver and all four direct packages",
+      "target_action": "completed locally: pinned bundled executable, same-archive build-time npm, lock-plus-Node-version cache identity and no runtime npm install",
+      "license_status": "bundled Node LICENSE plus exact executable/license hashes and Node package metadata are emitted in DEPENDENCY_INVENTORY.json",
       "advisory_status": "npm audit and pinned git-dependency review remain required at G01/Q against the release lock",
       "known_gaps": [
-        "No bundled/pinned Node executable contract or real WhatsApp transport proof; retained readiness belongs to CTL-C06."
+        "Owner verified-bundle and real WhatsApp pairing/restart/send/media transport proof remain pending."
       ]
     },
     {
@@ -2287,14 +2278,12 @@
       "users": [
         "python/requirements-desktop.txt"
       ],
-      "usage_class": "shared_desktop_transport_with_adapter_conflict",
+      "usage_class": "shared_desktop_transport_compatible_with_retained_dingtalk",
       "bundle_presence": "15.x present in observed stale local runtime",
-      "target_action": "retain modern Browser/CDP requirement; remove Yuanbao users and resolve DingTalk compatibility",
+      "target_action": "retain the modern Browser/CDP range; DingTalk 0.24.3 accepts this shared runtime",
       "license_status": "BSD-3-Clause metadata known; exact installed metadata is emitted in DEPENDENCY_INVENTORY.json",
       "advisory_status": "fresh advisory scan remains required at G01/Q against the artifact inventory",
-      "known_gaps": [
-        "DingTalk retained readiness is blocked until its SDK works with the modern range or uses a separate transport."
-      ]
+      "known_gaps": []
     },
     {
       "id": "py-microsoft-teams-apps",
@@ -2327,7 +2316,7 @@
         "hermes_core/gateway/platforms/qqbot/adapter.py",
         "python/requirements-desktop.txt"
       ],
-      "version_constraint": "optional imports/process discovery; no desktop declaration",
+      "version_constraint": "pilk remains optional; verified desktop runtime supplies the existing pinned ffmpeg binary",
       "platform_surfaces": [
         "qqbot"
       ],
@@ -2335,12 +2324,12 @@
         "hermes_core/gateway/platforms/qqbot/adapter.py"
       ],
       "usage_class": "retained_mainland_optional_media",
-      "bundle_presence": "not proven in observed stale runtime/installer",
-      "target_action": "either bundle with license/advisory evidence or expose an honest degraded audio path",
-      "license_status": "unresolved; blocks claiming full QQ audio support",
-      "advisory_status": "not applicable until a concrete distribution/version is selected",
+      "bundle_presence": "ffmpeg is resolved from the verified runtime stt-bin; pilk is optional and absence is an explicit degraded path",
+      "target_action": "completed locally: use QQ ASR/WAV or a real decoder, otherwise surface recognition failure without fabricated PCM",
+      "license_status": "ffmpeg redistribution provenance remains G01/Q; no optional pilk distribution is claimed",
+      "advisory_status": "ffmpeg provenance/advisory review remains G01/Q; no undeclared pilk package is bundled",
       "known_gaps": [
-        "No Windows wheel/executable/offline degradation evidence."
+        "Real QQ voice receive/transcription degradation smoke remains owner evidence."
       ]
     }
   ],
@@ -2808,7 +2797,8 @@
       },
       "removal_slice": "CTL-C06",
       "verification": [
-        "Production/sandbox QR, DM/group/channel, media and cron smoke"
+        "Production/sandbox QR, DM/group/channel, media and cron smoke",
+        "Unavailable SILK/ffmpeg conversion must remain visibly untranscribed and must not fabricate PCM"
       ]
     },
     {
@@ -2821,7 +2811,7 @@
         "mainland_cn"
       ],
       "decision": "retain",
-      "reason": "Frozen mainland external channel; currently half-supported.",
+      "reason": "Frozen mainland external channel; deterministic SDK/runtime readiness is implemented and real credential smoke remains.",
       "owner": "Retained mainland adapter owner",
       "source_paths": [
         "hermes_core/gateway/platforms/dingtalk.py",
@@ -2866,8 +2856,8 @@
       },
       "removal_slice": "CTL-C06",
       "verification": [
-        "Resolve modern websockets-compatible SDK/transport",
-        "Windows clean bundle/import and real stream smoke",
+        "Pinned dingtalk-stream 0.24.3 with modern websockets-compatible import contract",
+        "Owner Windows clean bundle/import and real stream smoke",
         "Direct webhook host validation and restart cron behavior"
       ]
     },
@@ -2881,7 +2871,7 @@
         "sea"
       ],
       "decision": "retain",
-      "reason": "Frozen SEA external channel; dependency and Web/profile wiring are currently missing.",
+      "reason": "Frozen SEA external channel; dependency and profile wiring are closed and real credential transport smoke remains.",
       "owner": "Retained SEA adapter owner",
       "source_paths": [
         "hermes_core/gateway/platforms/telegram.py",
@@ -2937,7 +2927,7 @@
         "sea"
       ],
       "decision": "retain",
-      "reason": "Frozen SEA external channel; current desktop bundle lacks the bridge and offline dependency chain.",
+      "reason": "Frozen SEA external channel; offline bridge plus pinned Node ownership are implemented and real pairing/transport smoke remains.",
       "owner": "Retained SEA adapter owner",
       "source_paths": [
         "hermes_core/gateway/platforms/whatsapp.py",
@@ -2950,20 +2940,19 @@
         "hermes_core/website/docs/user-guide/messaging/whatsapp.md"
       ],
       "runtime_dependencies": [
-        "Node.js runtime",
+        "pinned Node.js 24.18.0 Windows x64 runtime",
         "git-pinned @whiskeysockets/baileys",
         "express",
         "pino",
         "qrcode-terminal",
-        "platform-specific native npm packages",
-        "current adapter runs npm install --silent at runtime when node_modules is missing"
+        "platform-specific native npm packages"
       ],
       "persisted_data": [
         "platforms/whatsapp/session",
         "legacy whatsapp/session",
         "bridge.log",
-        "legacy HOME/.hermes image/document/audio caches",
-        "bridge HOME fallback may resolve to a literal ~ path"
+        "KABUQINA_HOME/cache/{images,documents,audio}",
+        "legacy whatsapp/session read fallback retained without migration for C07"
       ],
       "network_hosts": [
         "127.0.0.1:<bridge-port>",
@@ -2984,9 +2973,9 @@
       },
       "removal_slice": "CTL-C06",
       "verification": [
-        "Bundle bridge.js, Node and locked dependencies for offline clean install",
+        "Require bridge.js, pinned Node and locked dependencies for offline clean install",
         "Prohibit runtime npm install",
-        "Unify canonical session/cache/home paths and run real pairing/upgrade smoke"
+        "Unify canonical session/cache paths and run owner real pairing/restart/media smoke"
       ]
     },
     {
@@ -2999,7 +2988,7 @@
         "sea"
       ],
       "decision": "retain",
-      "reason": "Frozen SEA external channel; current source exists but SEA spawn and Web routing are incomplete.",
+      "reason": "Frozen SEA external channel; SEA spawn/Web routing are closed and real password/OAuth transport smoke remains.",
       "owner": "Retained SEA adapter owner",
       "source_paths": [
         "hermes_core/gateway/platforms/email.py",
@@ -3046,10 +3035,7 @@
           "EMAIL_HOME_ADDRESS",
           "EMAIL_HOME_ADDRESS_NAME"
         ],
-        "observed_wrong_producers": [
-          "generic /sethome and send-message guidance derive EMAIL_HOME_CHANNEL",
-          "Web gatewayPlatformSettingsRegistry writes SMS_HOME_CHANNEL"
-        ],
+        "observed_wrong_producers": [],
         "compatibility": "Remove SMS/TWILIO prefix pollution; never reinterpret an old SMS target as Email."
       },
       "removal_slice": "CTL-C06",
@@ -5140,6 +5126,51 @@
       ]
     },
     {
+      "path": "hermes_core/scripts/whatsapp-bridge/allowlist.js",
+      "layer": "active_docs",
+      "edge_types": [
+        "documentation_consumer"
+      ],
+      "platform_surfaces": [
+        "whatsapp"
+      ],
+      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
+      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
+      "known_gaps": [
+        "surface_known_gaps.whatsapp"
+      ]
+    },
+    {
+      "path": "hermes_core/scripts/whatsapp-bridge/allowlist.test.mjs",
+      "layer": "tests",
+      "edge_types": [
+        "verification_consumer"
+      ],
+      "platform_surfaces": [
+        "whatsapp"
+      ],
+      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
+      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
+      "known_gaps": [
+        "surface_known_gaps.whatsapp"
+      ]
+    },
+    {
+      "path": "hermes_core/scripts/whatsapp-bridge/bridge.js",
+      "layer": "active_docs",
+      "edge_types": [
+        "documentation_consumer"
+      ],
+      "platform_surfaces": [
+        "whatsapp"
+      ],
+      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
+      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
+      "known_gaps": [
+        "surface_known_gaps.whatsapp"
+      ]
+    },
+    {
       "path": "hermes_core/scripts/whatsapp-bridge/package-lock.json",
       "layer": "dependency_declaration",
       "edge_types": [
@@ -5161,6 +5192,36 @@
       "edge_types": [
         "dependency_producer",
         "license_reference"
+      ],
+      "platform_surfaces": [
+        "whatsapp"
+      ],
+      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
+      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
+      "known_gaps": [
+        "surface_known_gaps.whatsapp"
+      ]
+    },
+    {
+      "path": "hermes_core/scripts/whatsapp-bridge/runtime_paths.js",
+      "layer": "active_docs",
+      "edge_types": [
+        "documentation_consumer"
+      ],
+      "platform_surfaces": [
+        "whatsapp"
+      ],
+      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
+      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
+      "known_gaps": [
+        "surface_known_gaps.whatsapp"
+      ]
+    },
+    {
+      "path": "hermes_core/scripts/whatsapp-bridge/runtime_paths.test.mjs",
+      "layer": "tests",
+      "edge_types": [
+        "verification_consumer"
       ],
       "platform_surfaces": [
         "whatsapp"
@@ -13704,7 +13765,7 @@
         "target_contract": "Retain only for SEA Telegram and preserve bounded cache behavior.",
         "cleanup_mode": "cache-owned bounded cleanup",
         "known_gaps": [
-          "Telegram dependency/runtime is currently absent from desktop."
+          "Owner fresh bundle and real Telegram credential/media smoke remain pending."
         ]
       },
       {
@@ -13713,24 +13774,24 @@
         "path_or_record": "canonical kabuqina-home/platforms/whatsapp/session and legacy kabuqina-home/whatsapp/session",
         "record_kind": "canonical_plus_legacy_directories",
         "sensitivity": "WhatsApp private auth state, keys and LID mappings",
-        "observed_current": "Adapter and identity reader accept canonical/legacy paths; the Node bridge has an additional HOME fallback.",
+        "observed_current": "Adapter, identity reader and Node bridge share the canonical active-profile path; the Python resolver retains a one-release legacy read fallback.",
         "target_contract": "One profile-scoped SEA canonical directory with explicit legacy reader/migration and no runtime network install.",
         "cleanup_mode": "explicit sign-out/clear of both canonical and legacy paths after resolution checks",
         "known_gaps": [
-          "Adapter, identity reader and bridge currently disagree on canonical paths."
+          "Real pairing/restart proof remains owner evidence; destructive legacy cleanup is deferred to C07."
         ]
       },
       {
         "id": "whatsapp-bridge-log-cache",
         "surface": "whatsapp",
-        "path_or_record": "platforms/whatsapp/bridge.log and legacy HOME/.hermes image/document/audio caches",
+        "path_or_record": "platforms/whatsapp/bridge.log and KABUQINA_HOME/cache/{images,documents,audio}",
         "record_kind": "canonical_plus_legacy_files",
         "sensitivity": "transport logs and message attachments",
-        "observed_current": "Bridge logging/cache behavior can escape the intended profile root through HOME fallbacks.",
+        "observed_current": "The adapter passes the active KABUQINA_HOME cache root and the bridge derives typed media subdirectories without a literal tilde or .hermes fallback.",
         "target_contract": "All bridge output remains under the resolved WhatsApp profile with bounded logs/caches.",
         "cleanup_mode": "bounded cache/log cleanup; never delete an unresolved HOME tree",
         "known_gaps": [
-          "Bridge HOME fallback may resolve inconsistently, including a literal tilde path."
+          "Real media download and bounded-cache lifecycle smoke remains owner evidence."
         ]
       },
       {
@@ -15789,6 +15850,8 @@
         "surface": "desktop",
         "primary_role": "non_secret_config",
         "source_paths": [
+          "hermes_core/gateway/platforms/qqbot/adapter.py",
+          "hermes_core/gateway/platforms/whatsapp.py",
           "hermes_core/tools/document/reading.py",
           "hermes_core/tools/ocr_tools.py",
           "python/overlays/desk_system_prompt.py",
@@ -17773,7 +17836,6 @@
           "hermes_core/agent/shell_hooks.py",
           "hermes_core/gateway/runtime_footer.py",
           "hermes_core/kabuqina_constants.py",
-          "hermes_core/scripts/whatsapp-bridge/bridge.js",
           "hermes_core/tools/code_execution_tool.py",
           "hermes_core/tools/environments/local.py",
           "hermes_core/tools/mcp_tool.py"
@@ -18182,6 +18244,17 @@
         "known_gaps": []
       },
       {
+        "key": "KABUQINA_FFMPEG_EXE",
+        "surface": "desktop",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "hermes_core/gateway/platforms/qqbot/adapter.py"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "retain_profile_scoped",
+        "known_gaps": []
+      },
+      {
         "key": "KABUQINA_GATEWAY_PLATFORM",
         "surface": "desktop",
         "primary_role": "non_secret_config",
@@ -18268,6 +18341,17 @@
           "python/src/desktop_config.py",
           "tauri/src/gateway_supervisor.rs",
           "tauri/src/python_supervisor.rs"
+        ],
+        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
+        "target_contract": "retain_profile_scoped",
+        "known_gaps": []
+      },
+      {
+        "key": "KABUQINA_NODE_EXE",
+        "surface": "desktop",
+        "primary_role": "non_secret_config",
+        "source_paths": [
+          "hermes_core/gateway/platforms/whatsapp.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -22891,10 +22975,10 @@
   },
   "generated_ledger_metadata": {
     "generator": "scripts/audit_v050_platform_manifest.py --refresh-generated-ledgers",
-    "reference_path_count": 523,
-    "literal_environment_key_count": 518,
+    "reference_path_count": 528,
+    "literal_environment_key_count": 520,
     "dynamic_environment_key_declaration_count": 325,
-    "environment_key_count": 660,
+    "environment_key_count": 662,
     "environment_namespace_count": 26,
     "environment_dynamic_template_count": 2,
     "historical_docs_policy": "docs/superpowers history is excluded from the active-doc reference scan; the three authority plans are hash-pinned separately."

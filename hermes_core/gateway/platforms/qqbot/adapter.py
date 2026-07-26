@@ -37,6 +37,7 @@ import json
 import logging
 import mimetypes
 import os
+import shutil
 import time
 import uuid
 from datetime import datetime, timezone
@@ -73,6 +74,22 @@ from gateway.platforms.base import (
 from gateway.platforms.helpers import strip_markdown
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_ffmpeg_executable() -> Optional[str]:
+    """Resolve bundled ffmpeg for gateway children, then a dev fallback."""
+    configured = os.getenv("KABUQINA_FFMPEG_EXE", "").strip()
+    if configured and Path(configured).is_file():
+        return configured
+
+    bundle_root = os.getenv("HERMESDESK_BUNDLE_DIR", "").strip()
+    candidates = [Path(bundle_root) / "stt-bin" / "ffmpeg.exe"] if bundle_root else []
+    # Bundled layout: runtime/kabuqina/gateway/platforms/qqbot/adapter.py.
+    candidates.append(Path(__file__).resolve().parents[4] / "stt-bin" / "ffmpeg.exe")
+    for candidate in candidates:
+        if candidate.is_file():
+            return str(candidate)
+    return shutil.which("ffmpeg")
 
 
 class QQCloseError(Exception):
@@ -1460,10 +1477,6 @@ class QQAdapter(BasePlatformAdapter):
         if not result:
             result = await self._convert_ffmpeg_to_wav(src_path, wav_path)
 
-        # If ffmpeg also failed, try writing raw PCM as WAV (last resort)
-        if not result:
-            result = await self._convert_raw_to_wav(audio_data, wav_path)
-
         # Cleanup source file
         try:
             os.unlink(src_path)
@@ -1551,30 +1564,18 @@ class QQAdapter(BasePlatformAdapter):
 
         return None
 
-    async def _convert_raw_to_wav(self, audio_data: bytes, wav_path: str) -> Optional[str]:
-        """Last resort: try writing audio data as raw PCM 16-bit mono 16kHz WAV.
-
-        This will produce garbage if the data isn't raw PCM, but at least
-        the ASR engine won't crash — it'll just return empty.
-        """
-        try:
-            import wave
-
-            with wave.open(wav_path, "w") as wf:
-                wf.setnchannels(1)
-                wf.setsampwidth(2)
-                wf.setframerate(16000)
-                wf.writeframes(audio_data)
-            return wav_path
-        except Exception as exc:
-            logger.debug("[%s] raw PCM fallback failed: %s", self._log_tag, exc)
-            return None
-
     async def _convert_ffmpeg_to_wav(self, src_path: str, wav_path: str) -> Optional[str]:
         """Convert audio file to WAV using ffmpeg."""
+        ffmpeg_executable = _resolve_ffmpeg_executable()
+        if not ffmpeg_executable:
+            logger.warning(
+                "[%s] ffmpeg unavailable; QQ audio remains explicitly untranscribed",
+                self._log_tag,
+            )
+            return None
         try:
             proc = await asyncio.create_subprocess_exec(
-                "ffmpeg",
+                ffmpeg_executable,
                 "-y",
                 "-i",
                 src_path,

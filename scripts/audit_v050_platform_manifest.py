@@ -456,6 +456,7 @@ REFERENCE_SCAN_ROOTS = (
     "hermes_core/tools/",
     "hermes_core/kabuqina_cli/",
     "hermes_core/plugins/platforms/",
+    "hermes_core/scripts/whatsapp-bridge/",
     "hermes_core/tests/",
     "python/src/",
     "python/overlays/",
@@ -808,8 +809,7 @@ def _is_os_environ(node: ast.expr) -> bool:
     ) or (isinstance(node, ast.Name) and node.id == "environ")
 
 
-def _python_environment_accesses(path: Path) -> set[str]:
-    tree = ast.parse(path.read_text(encoding="utf-8", errors="ignore"), filename=str(path))
+def _python_environment_accesses_from_tree(tree: ast.AST) -> set[str]:
     environment_functions = {
         "getenv",
         "get_env_value",
@@ -978,6 +978,11 @@ def _python_environment_accesses(path: Path) -> set[str]:
     return {key for key in keys if re.fullmatch(r"[A-Z][A-Z0-9_]+", key)}
 
 
+def _python_environment_accesses(path: Path) -> set[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8", errors="ignore"), filename=str(path))
+    return _python_environment_accesses_from_tree(tree)
+
+
 def _rust_environment_accesses(text: str) -> set[str]:
     patterns = (
         r"\.env\(\s*\"([A-Z][A-Z0-9_]+)\"",
@@ -1047,8 +1052,9 @@ def _classify_environment_declaration_tokens(
     return exact, namespaces
 
 
-def _python_environment_declarations(path: Path) -> tuple[set[str], set[str]]:
-    tree = ast.parse(path.read_text(encoding="utf-8", errors="ignore"), filename=str(path))
+def _python_environment_declarations_from_tree(
+    tree: ast.AST,
+) -> tuple[set[str], set[str]]:
     exact: set[str] = set()
     namespaces: set[str] = set()
     for node in ast.walk(tree):
@@ -1145,6 +1151,11 @@ def _python_environment_declarations(path: Path) -> tuple[set[str], set[str]]:
     return exact, namespaces
 
 
+def _python_environment_declarations(path: Path) -> tuple[set[str], set[str]]:
+    tree = ast.parse(path.read_text(encoding="utf-8", errors="ignore"), filename=str(path))
+    return _python_environment_declarations_from_tree(tree)
+
+
 def _rust_environment_declarations(text: str) -> tuple[set[str], set[str]]:
     exact: set[str] = set()
     namespaces: set[str] = set()
@@ -1211,10 +1222,9 @@ def _joined_string_suffix(node: ast.JoinedStr) -> tuple[ast.FormattedValue | Non
     return None, suffix
 
 
-def _python_computed_environment_templates(path: Path) -> set[str]:
+def _python_computed_environment_templates_from_tree(tree: ast.AST) -> set[str]:
     """Discover computed keys only when an f-string is in an env-key context."""
 
-    tree = ast.parse(path.read_text(encoding="utf-8", errors="ignore"), filename=str(path))
     parents = {
         child: parent
         for parent in ast.walk(tree)
@@ -1275,22 +1285,71 @@ def _python_computed_environment_templates(path: Path) -> set[str]:
     return templates
 
 
+def _python_computed_environment_templates(path: Path) -> set[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8", errors="ignore"), filename=str(path))
+    return _python_computed_environment_templates_from_tree(tree)
+
+
 @lru_cache(maxsize=None)
+def _discover_environment_inventory(root: Path = ROOT) -> dict[str, dict[str, list[str]]]:
+    """Collect environment accesses/declarations in one repository AST pass."""
+
+    accesses: dict[str, set[str]] = {}
+    exact_declarations: dict[str, set[str]] = {}
+    namespace_declarations: dict[str, set[str]] = {}
+    templates: dict[str, set[str]] = {}
+    for relative in _tracked_files(root):
+        if not _is_environment_scan_path(relative):
+            continue
+        path = root / relative
+        if not path.is_file():
+            continue
+        keys: set[str] = set()
+        exact: set[str] = set()
+        namespaces: set[str] = set()
+        computed_templates: set[str] = set()
+        if path.suffix == ".py":
+            tree = ast.parse(
+                path.read_text(encoding="utf-8", errors="ignore"),
+                filename=str(path),
+            )
+            keys = _python_environment_accesses_from_tree(tree)
+            exact, namespaces = _python_environment_declarations_from_tree(tree)
+            computed_templates = _python_computed_environment_templates_from_tree(tree)
+        elif path.suffix == ".rs":
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            keys = _rust_environment_accesses(text)
+            exact, namespaces = _rust_environment_declarations(text)
+        elif path.suffix in {".ts", ".tsx", ".js", ".mjs"}:
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            keys = _web_environment_accesses(text)
+            exact, namespaces = _web_environment_declarations(text)
+        for key in keys:
+            accesses.setdefault(key, set()).add(relative)
+        for key in exact:
+            exact_declarations.setdefault(key, set()).add(relative)
+        for prefix in namespaces:
+            namespace_declarations.setdefault(prefix, set()).add(relative)
+        for template in computed_templates:
+            templates.setdefault(template, set()).add(relative)
+
+    def freeze(values: dict[str, set[str]]) -> dict[str, list[str]]:
+        return {key: sorted(paths) for key, paths in sorted(values.items())}
+
+    return {
+        "accesses": freeze(accesses),
+        "exact_keys": freeze(exact_declarations),
+        "namespace_prefixes": freeze(namespace_declarations),
+        "dynamic_templates": freeze(templates),
+    }
+
+
 def discover_environment_dynamic_key_templates(
     root: Path = ROOT,
 ) -> dict[str, list[str]]:
     """Find computed environment-key templates before expanding their domain."""
 
-    sources: dict[str, set[str]] = {}
-    for relative in _tracked_files(root):
-        if not _is_environment_scan_path(relative):
-            continue
-        path = root / relative
-        if path.suffix != ".py" or not path.is_file():
-            continue
-        for template in _python_computed_environment_templates(path):
-            sources.setdefault(template, set()).add(relative)
-    return {template: sorted(paths) for template, paths in sorted(sources.items())}
+    return _discover_environment_inventory(root)["dynamic_templates"]
 
 
 def _environment_platform_domain(root: Path) -> list[str]:
@@ -1347,71 +1406,21 @@ def _is_environment_scan_path(relative: str) -> bool:
     return "tests" not in PurePosixPath(relative).parts
 
 
-@lru_cache(maxsize=None)
 def discover_environment_key_accesses(root: Path = ROOT) -> dict[str, list[str]]:
     """Discover literal environment access before applying any surface map."""
 
-    sources: dict[str, set[str]] = {}
-    for relative in _tracked_files(root):
-        if not _is_environment_scan_path(relative):
-            continue
-        path = root / relative
-        if not path.is_file():
-            continue
-        keys: set[str] = set()
-        if path.suffix == ".py":
-            keys = _python_environment_accesses(path)
-        elif path.suffix == ".rs":
-            keys = _rust_environment_accesses(
-                path.read_text(encoding="utf-8", errors="ignore")
-            )
-        elif path.suffix in {".ts", ".tsx", ".js", ".mjs"}:
-            keys = _web_environment_accesses(
-                path.read_text(encoding="utf-8", errors="ignore")
-            )
-        for key in keys:
-            sources.setdefault(key, set()).add(relative)
-    return {key: sorted(paths) for key, paths in sorted(sources.items())}
+    return _discover_environment_inventory(root)["accesses"]
 
 
-@lru_cache(maxsize=None)
 def discover_environment_declarations(
     root: Path = ROOT,
 ) -> dict[str, dict[str, list[str]]]:
     """Discover exact keys and wildcard namespaces from real registration structures."""
 
-    exact_sources: dict[str, set[str]] = {}
-    namespace_sources: dict[str, set[str]] = {}
-    for relative in _tracked_files(root):
-        if not _is_environment_scan_path(relative):
-            continue
-        path = root / relative
-        if not path.is_file():
-            continue
-        if path.suffix == ".py":
-            exact, namespaces = _python_environment_declarations(path)
-        elif path.suffix == ".rs":
-            exact, namespaces = _rust_environment_declarations(
-                path.read_text(encoding="utf-8", errors="ignore")
-            )
-        elif path.suffix in {".ts", ".tsx", ".js", ".mjs"}:
-            exact, namespaces = _web_environment_declarations(
-                path.read_text(encoding="utf-8", errors="ignore")
-            )
-        else:
-            continue
-        for key in exact:
-            exact_sources.setdefault(key, set()).add(relative)
-        for prefix in namespaces:
-            namespace_sources.setdefault(prefix, set()).add(relative)
+    inventory = _discover_environment_inventory(root)
     return {
-        "exact_keys": {
-            key: sorted(paths) for key, paths in sorted(exact_sources.items())
-        },
-        "namespace_prefixes": {
-            prefix: sorted(paths)
-            for prefix, paths in sorted(namespace_sources.items())
-        },
+        "exact_keys": inventory["exact_keys"],
+        "namespace_prefixes": inventory["namespace_prefixes"],
     }
 
 

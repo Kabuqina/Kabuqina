@@ -1,12 +1,12 @@
 """
 DingTalk platform adapter using Stream Mode.
 
-Uses dingtalk-stream SDK (>=0.20) for real-time message reception without webhooks.
+Uses dingtalk-stream SDK 0.24.3 for real-time message reception without webhooks.
 Responses are sent via DingTalk's session webhook (markdown format).
 Supports: text, images, audio, video, rich text, files, and group @mentions.
 
 Requires:
-    pip install "dingtalk-stream>=0.20" httpx
+    pip install "dingtalk-stream==0.24.3" httpx
     DINGTALK_CLIENT_ID and DINGTALK_CLIENT_SECRET env vars
 
 Configuration in config.yaml:
@@ -101,6 +101,7 @@ logger = logging.getLogger(__name__)
 
 MAX_MESSAGE_LENGTH = 20000
 RECONNECT_BACKOFF = [2, 5, 10, 30, 60]
+STREAM_CONNECT_TIMEOUT_SECONDS = 30.0
 _SESSION_WEBHOOKS_MAX = 500
 _DINGTALK_WEBHOOK_RE = re.compile(r'^https://(?:api|oapi)\.dingtalk\.com/')
 
@@ -264,7 +265,7 @@ class DingTalkAdapter(BasePlatformAdapter):
         """Connect to DingTalk via Stream Mode."""
         if not DINGTALK_STREAM_AVAILABLE:
             logger.warning(
-                "[%s] dingtalk-stream not installed. Run: pip install 'dingtalk-stream>=0.20'",
+                "[%s] dingtalk-stream not installed. Run: pip install 'dingtalk-stream==0.24.3'",
                 self.name,
             )
             return False
@@ -314,13 +315,39 @@ class DingTalkAdapter(BasePlatformAdapter):
                 dingtalk_stream.ChatbotMessage.TOPIC, handler
             )
 
+            # The SDK performs credential exchange and WebSocket setup inside
+            # start(). Do not publish a false connected state merely because a
+            # background task was created; wait until the SDK exposes the live
+            # socket or fail startup visibly.
+            self._running = True
             self._stream_task = asyncio.create_task(self._run_stream())
+            if not await self._wait_for_stream_connection():
+                logger.error(
+                    "[%s] Stream connection was not established within %.0fs",
+                    self.name,
+                    STREAM_CONNECT_TIMEOUT_SECONDS,
+                )
+                await self.disconnect()
+                return False
             self._mark_connected()
             logger.info("[%s] Connected via Stream Mode", self.name)
             return True
         except Exception as e:
             logger.error("[%s] Failed to connect: %s", self.name, e)
+            await self.disconnect()
             return False
+
+    async def _wait_for_stream_connection(self) -> bool:
+        """Wait until the SDK has completed its real WebSocket handshake."""
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + STREAM_CONNECT_TIMEOUT_SECONDS
+        while loop.time() < deadline:
+            if getattr(self._stream_client, "websocket", None) is not None:
+                return True
+            if self._stream_task is not None and self._stream_task.done():
+                return False
+            await asyncio.sleep(0.1)
+        return False
 
     async def _run_stream(self) -> None:
         """Run the async stream client with auto-reconnection."""

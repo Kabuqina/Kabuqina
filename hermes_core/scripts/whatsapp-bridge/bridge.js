@@ -15,7 +15,7 @@
  *   GET  /health         - Health check
  *
  * Usage:
- *   node bridge.js --port 3000 --session ~/.kabuqina/whatsapp/session
+ *   node bridge.js --port 3000 --session <KABUQINA_HOME>/platforms/whatsapp/session
  */
 
 import { makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, downloadMediaMessage } from '@whiskeysockets/baileys';
@@ -27,6 +27,7 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync, readdirSync } from 
 import { randomBytes } from 'crypto';
 import qrcode from 'qrcode-terminal';
 import { matchesAllowedUser, parseAllowedUsers } from './allowlist.js';
+import { resolveRuntimePaths } from './runtime_paths.js';
 
 // Parse CLI args
 const args = process.argv.slice(2);
@@ -42,10 +43,11 @@ const WHATSAPP_DEBUG =
   ['1', 'true', 'yes', 'on'].includes(process.env.WHATSAPP_DEBUG.toLowerCase());
 
 const PORT = parseInt(getArg('port', '3000'), 10);
-const SESSION_DIR = getArg('session', path.join(process.env.HOME || '~', '.hermes', 'whatsapp', 'session'));
-const IMAGE_CACHE_DIR = path.join(process.env.HOME || '~', '.hermes', 'image_cache');
-const DOCUMENT_CACHE_DIR = path.join(process.env.HOME || '~', '.hermes', 'document_cache');
-const AUDIO_CACHE_DIR = path.join(process.env.HOME || '~', '.hermes', 'audio_cache');
+const RUNTIME_PATHS = resolveRuntimePaths(getArg('session', ''), getArg('cache-root', ''), process.env);
+const SESSION_DIR = RUNTIME_PATHS.sessionDir;
+const IMAGE_CACHE_DIR = RUNTIME_PATHS.imageCacheDir;
+const DOCUMENT_CACHE_DIR = RUNTIME_PATHS.documentCacheDir;
+const AUDIO_CACHE_DIR = RUNTIME_PATHS.audioCacheDir;
 const PAIR_ONLY = args.includes('--pair-only');
 const WHATSAPP_MODE = getArg('mode', process.env.WHATSAPP_MODE || 'self-chat'); // "bot" or "self-chat"
 const ALLOWED_USERS = parseAllowedUsers(process.env.WHATSAPP_ALLOWED_USERS || '');
