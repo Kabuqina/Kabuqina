@@ -375,6 +375,229 @@ pub async fn cmd_study_activity_cancel(
 }
 
 #[tauri::command]
+pub async fn cmd_study_whiteboards(
+    app: AppHandle,
+    space_id: String,
+    limit: Option<u32>,
+) -> Result<Value, DeskBridgeError> {
+    validate_structured_id(&space_id)?;
+    let limit = limit.unwrap_or(50);
+    if !(1..=50).contains(&limit) {
+        return Err(DeskBridgeError::invalid(
+            "study_invalid_request",
+            "whiteboard limit must be within 1..50",
+        ));
+    }
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::GET,
+        &format!("/api/desk/study/whiteboards?space_id={space_id}&limit={limit}"),
+        None,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_whiteboard_working_get(
+    app: AppHandle,
+    space_id: String,
+    activity_id: String,
+) -> Result<Value, DeskBridgeError> {
+    validate_structured_id(&space_id)?;
+    validate_activity_wire_id(&activity_id)?;
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::GET,
+        &format!("/api/desk/study/whiteboards/working/{activity_id}?space_id={space_id}"),
+        None,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_whiteboard_working_save(
+    app: AppHandle,
+    activity_id: String,
+    body: Value,
+) -> Result<Value, DeskBridgeError> {
+    validate_activity_wire_id(&activity_id)?;
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::PUT,
+        &format!("/api/desk/study/whiteboards/working/{activity_id}"),
+        Some(body),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_whiteboard_working_delete(
+    app: AppHandle,
+    activity_id: String,
+    body: Value,
+) -> Result<Value, DeskBridgeError> {
+    validate_activity_wire_id(&activity_id)?;
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::DELETE,
+        &format!("/api/desk/study/whiteboards/working/{activity_id}"),
+        Some(body),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_whiteboard_snapshots(
+    app: AppHandle,
+    space_id: String,
+    activity_id: String,
+) -> Result<Value, DeskBridgeError> {
+    validate_structured_id(&space_id)?;
+    validate_activity_wire_id(&activity_id)?;
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::GET,
+        &format!("/api/desk/study/whiteboards/working/{activity_id}/snapshots?space_id={space_id}"),
+        None,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_whiteboard_snapshot_create(
+    app: AppHandle,
+    activity_id: String,
+    body: Value,
+) -> Result<Value, DeskBridgeError> {
+    validate_activity_wire_id(&activity_id)?;
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::POST,
+        &format!("/api/desk/study/whiteboards/working/{activity_id}/snapshots"),
+        Some(body),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_whiteboard_snapshot_get(
+    app: AppHandle,
+    space_id: String,
+    artifact_id: String,
+) -> Result<Value, DeskBridgeError> {
+    validate_structured_id(&space_id)?;
+    validate_structured_id(&artifact_id)?;
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::GET,
+        &format!("/api/desk/study/whiteboards/snapshots/{artifact_id}?space_id={space_id}"),
+        None,
+    )
+    .await
+}
+
+async fn whiteboard_snapshot_action(
+    app: &AppHandle,
+    artifact_id: &str,
+    action: &str,
+    method: reqwest::Method,
+    body: Option<Value>,
+) -> Result<Value, DeskBridgeError> {
+    validate_structured_id(artifact_id)?;
+    crate::chat::desk_json_request_structured(
+        app,
+        method,
+        &format!("/api/desk/study/whiteboards/snapshots/{artifact_id}/{action}"),
+        body,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_whiteboard_snapshot_restore(
+    app: AppHandle,
+    artifact_id: String,
+    body: Value,
+) -> Result<Value, DeskBridgeError> {
+    whiteboard_snapshot_action(
+        &app,
+        &artifact_id,
+        "restore",
+        reqwest::Method::POST,
+        Some(body),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_whiteboard_snapshot_attach(
+    app: AppHandle,
+    artifact_id: String,
+    body: Value,
+) -> Result<Value, DeskBridgeError> {
+    whiteboard_snapshot_action(
+        &app,
+        &artifact_id,
+        "attach",
+        reqwest::Method::POST,
+        Some(body),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_whiteboard_snapshot_export(
+    app: AppHandle,
+    space_id: String,
+    artifact_id: String,
+) -> Result<Value, DeskBridgeError> {
+    validate_structured_id(&space_id)?;
+    validate_structured_id(&artifact_id)?;
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::GET,
+        &format!("/api/desk/study/whiteboards/snapshots/{artifact_id}/export?space_id={space_id}"),
+        None,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_whiteboard_snapshot_delete_preview(
+    app: AppHandle,
+    space_id: String,
+    artifact_id: String,
+) -> Result<Value, DeskBridgeError> {
+    validate_structured_id(&space_id)?;
+    validate_structured_id(&artifact_id)?;
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::GET,
+        &format!(
+            "/api/desk/study/whiteboards/snapshots/{artifact_id}/delete-preview?space_id={space_id}"
+        ),
+        None,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_whiteboard_snapshot_delete(
+    app: AppHandle,
+    artifact_id: String,
+    body: Value,
+) -> Result<Value, DeskBridgeError> {
+    validate_structured_id(&artifact_id)?;
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::DELETE,
+        &format!("/api/desk/study/whiteboards/snapshots/{artifact_id}"),
+        Some(body),
+    )
+    .await
+}
+
+#[tauri::command]
 pub async fn cmd_study_data_export(app: AppHandle) -> Result<Value, DeskBridgeError> {
     crate::chat::desk_json_request_structured(
         &app,
@@ -521,11 +744,7 @@ fn quiz_submit_body(space_id: String, responses: Value, item_ids: Option<Vec<Str
     body
 }
 
-fn practice_hint_body(
-    space_id: String,
-    idempotency_key: String,
-    level: String,
-) -> Value {
+fn practice_hint_body(space_id: String, idempotency_key: String, level: String) -> Value {
     json!({
         "schema_version": 1,
         "space_id": space_id,
@@ -1006,7 +1225,10 @@ pub async fn cmd_study_flashcard_review(
     validate_structured_id(&space_id)?;
     validate_structured_id(&item_id)?;
     if !matches!(grade.as_str(), "again" | "hard" | "good" | "easy") {
-        return Err(DeskBridgeError::invalid("study_invalid_request", "invalid review grade"));
+        return Err(DeskBridgeError::invalid(
+            "study_invalid_request",
+            "invalid review grade",
+        ));
     }
     crate::chat::desk_json_request_structured(
         &app,
@@ -1029,17 +1251,15 @@ pub async fn cmd_study_migrate_flashcards(app: AppHandle, deck: Value) -> Result
 }
 
 #[tauri::command]
-pub async fn cmd_study_quizzes(
-    app: AppHandle,
-    space_id: String,
-) -> Result<Value, DeskBridgeError> {
+pub async fn cmd_study_quizzes(app: AppHandle, space_id: String) -> Result<Value, DeskBridgeError> {
     validate_structured_id(&space_id)?;
     crate::chat::desk_json_request_structured(
         &app,
         reqwest::Method::GET,
         &format!("/api/desk/study/quizzes?space_id={space_id}"),
         None,
-    ).await
+    )
+    .await
 }
 
 #[tauri::command]
@@ -1091,7 +1311,10 @@ pub async fn cmd_study_quiz_generate_practice(
     validate_structured_id(&artifact_id)?;
     validate_structured_id(&item_id)?;
     if !matches!(practice_kind.as_str(), "transcribe" | "variant") {
-        return Err(DeskBridgeError::invalid("study_invalid_request", "invalid practice kind"));
+        return Err(DeskBridgeError::invalid(
+            "study_invalid_request",
+            "invalid practice kind",
+        ));
     }
     crate::chat::desk_json_request_structured(
         &app,
@@ -1127,9 +1350,7 @@ pub async fn cmd_study_practice_hint(
     crate::chat::desk_json_request_structured(
         &app,
         reqwest::Method::POST,
-        &format!(
-            "/api/desk/study/quizzes/{artifact_id}/questions/{item_id}/hints"
-        ),
+        &format!("/api/desk/study/quizzes/{artifact_id}/questions/{item_id}/hints"),
         Some(practice_hint_body(space_id, idempotency_key, level)),
     )
     .await

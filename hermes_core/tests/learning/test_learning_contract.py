@@ -44,6 +44,7 @@ def test_kinds_are_exactly_the_v1_set():
             "quiz",
             "tutoring_note",
             "evaluation",
+            "whiteboard_snapshot",
         }
     )
 
@@ -122,6 +123,7 @@ def test_default_review_mode_matches_design_table():
         "quiz": "semantic",
         "tutoring_note": "deterministic",
         "evaluation": "deterministic",
+        "whiteboard_snapshot": "deterministic",
     }
     assert DEFAULT_REVIEW_MODE == expected
     for kind, mode in expected.items():
@@ -219,6 +221,15 @@ VALID_PAYLOADS = {
         "evidence": ["quiz-artifact-42"],
         "weak_points": ["Chain rule"],
         "suggestions": ["Practice composite functions"],
+    },
+    "whiteboard_snapshot": {
+        "schema_version": 1,
+        "activity_id": "activity-1",
+        "lineage_id": "lineage-1",
+        "revision": 1,
+        "parent_artifact_id": None,
+        "scene": {"schema_version": 1, "elements": []},
+        "scene_sha256": "7035e16cfe81bfbf5f16fe9b83d67bc69ccf76e2946e546fe2c456a5866c2837",
     },
 }
 

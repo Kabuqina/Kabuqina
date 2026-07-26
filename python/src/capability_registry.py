@@ -1273,6 +1273,7 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
             "quiz",
             "tutoring_note",
             "evaluation",
+            "whiteboard_snapshot",
         ],
         "pipelines": [
             {

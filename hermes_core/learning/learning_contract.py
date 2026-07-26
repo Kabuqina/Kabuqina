@@ -27,6 +27,11 @@ from learning.practice_contract import (
     validate_hint_ladder,
     validate_practice_evaluation_record,
 )
+from learning.whiteboard_contract import (
+    MAX_WHITEBOARD_SOURCE_REFS,
+    WhiteboardContractError,
+    validate_whiteboard_snapshot_payload,
+)
 
 
 # --------------------------------------------------------------------------- #
@@ -45,6 +50,7 @@ KINDS: frozenset = frozenset(
         "quiz",
         "tutoring_note",
         "evaluation",
+        "whiteboard_snapshot",
     }
 )
 
@@ -75,6 +81,7 @@ DEFAULT_REVIEW_MODE: Dict[str, str] = {
     "quiz": "semantic",
     "tutoring_note": "deterministic",
     "evaluation": "deterministic",
+    "whiteboard_snapshot": "deterministic",
 }
 
 # Size limits — cheap deterministic guards, not policy. Keep generous.
@@ -441,6 +448,13 @@ def _v_evaluation(p: Mapping[str, Any]) -> None:
                 raise ContractError(f"{rctx}: keys and values must be strings")
 
 
+def _v_whiteboard_snapshot(p: Mapping[str, Any]) -> None:
+    try:
+        validate_whiteboard_snapshot_payload(p)
+    except WhiteboardContractError as exc:
+        raise ContractError(f"whiteboard_snapshot: {exc}") from exc
+
+
 _PAYLOAD_VALIDATORS: Dict[str, Callable[[Mapping[str, Any]], None]] = {
     "student_state": _v_student_state,
     "knowledge_base": _v_knowledge_base,
@@ -450,6 +464,7 @@ _PAYLOAD_VALIDATORS: Dict[str, Callable[[Mapping[str, Any]], None]] = {
     "quiz": _v_quiz,
     "tutoring_note": _v_tutoring_note,
     "evaluation": _v_evaluation,
+    "whiteboard_snapshot": _v_whiteboard_snapshot,
 }
 
 # Every kind must have a validator; guards against vocabulary drift.
@@ -619,6 +634,10 @@ def validate_envelope(data: Mapping[str, Any]) -> LearningOutputEnvelope:
         raise ContractError(f"title exceeds {MAX_TITLE_LEN} chars")
 
     source_refs = _validate_source_refs(d.get("source_refs", []))
+    if kind == "whiteboard_snapshot" and len(source_refs) > MAX_WHITEBOARD_SOURCE_REFS:
+        raise ContractError(
+            f"whiteboard_snapshot source_refs exceeds {MAX_WHITEBOARD_SOURCE_REFS} entries"
+        )
 
     payload = d.get("payload")
     if not isinstance(payload, Mapping):

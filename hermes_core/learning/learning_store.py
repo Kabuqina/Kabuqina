@@ -713,6 +713,10 @@ class LearningStore:
             raise ContractError("envelope must be an object")
 
         env = validate_envelope({**envelope, "space_id": space_id})
+        if env.kind == "whiteboard_snapshot":
+            raise ContractError(
+                "whiteboard_snapshot must be written through WhiteboardService"
+            )
         artifact_id = uuid.uuid4().hex
         now = _now()
         env_dict = env.to_dict()
@@ -881,12 +885,16 @@ class LearningStore:
 
         def _op(conn: sqlite3.Connection) -> None:
             row = conn.execute(
-                "SELECT status FROM learning_artifacts "
+                "SELECT status, kind FROM learning_artifacts "
                 "WHERE owner_id = ? AND space_id = ? AND artifact_id = ?",
                 (owner_id, space_id, artifact_id),
             ).fetchone()
             if not row:
                 raise KeyError(f"artifact {artifact_id!r} not found for owner/space")
+            if row["kind"] == "whiteboard_snapshot":
+                raise ContractError(
+                    "whiteboard_snapshot status must be changed through WhiteboardService"
+                )
             current = row["status"]
             if not is_allowed_transition(current, new_status):
                 raise ContractError(
@@ -912,11 +920,15 @@ class LearningStore:
         now = _now()
         def _op(conn: sqlite3.Connection) -> None:
             row = conn.execute(
-                "SELECT envelope_json FROM learning_artifacts WHERE owner_id = ? AND space_id = ? AND artifact_id = ?",
+                "SELECT envelope_json, kind FROM learning_artifacts WHERE owner_id = ? AND space_id = ? AND artifact_id = ?",
                 (owner_id, space_id, artifact_id),
             ).fetchone()
             if not row:
                 raise KeyError(f"artifact {artifact_id!r} not found")
+            if row["kind"] == "whiteboard_snapshot":
+                raise ContractError(
+                    "whiteboard_snapshot review is immutable"
+                )
             envelope = json.loads(row["envelope_json"])
             current_review = envelope.get("review") or {}
             mode = review_mode or current_review.get("mode") or "deterministic"
@@ -945,6 +957,10 @@ class LearningStore:
         _require(space_id, "space_id")
         _require(item_id, "item_id")
         _require(item_type, "item_type")
+        if item_type == "whiteboard_working":
+            raise ContractError(
+                "whiteboard_working must be written through WhiteboardService"
+            )
         state_json = json.dumps(state or {}, ensure_ascii=False)
         now = _now()
 
@@ -1020,6 +1036,15 @@ class LearningStore:
         now = _now()
 
         def _op(conn: sqlite3.Connection) -> None:
+            row = conn.execute(
+                "SELECT item_type FROM learning_items WHERE owner_id=? "
+                "AND space_id=? AND item_id=?",
+                (owner_id, space_id, item_id),
+            ).fetchone()
+            if row is not None and row["item_type"] == "whiteboard_working":
+                raise ContractError(
+                    "whiteboard_working must be written through WhiteboardService"
+                )
             cur = conn.execute(
                 "UPDATE learning_items SET state_json = ?, updated_at = ? "
                 "WHERE owner_id = ? AND space_id = ? AND item_id = ?",
@@ -1046,6 +1071,10 @@ class LearningStore:
         _require(owner_id, "owner_id")
         _require(space_id, "space_id")
         _require(activity_type, "activity_type")
+        if activity_type.startswith("whiteboard."):
+            raise ContractError(
+                "whiteboard activity evidence must be written through WhiteboardService"
+            )
         activity_id = uuid.uuid4().hex
         now = _now()
 
@@ -1099,6 +1128,10 @@ class LearningStore:
             (activity_type, "activity_type"),
         ):
             _require(value, name)
+        if activity_type.startswith("whiteboard."):
+            raise ContractError(
+                "whiteboard activity evidence must be written through WhiteboardService"
+            )
         if not isinstance(detail, dict):
             raise ValueError("detail must be an object")
         if (
@@ -1603,6 +1636,22 @@ class LearningStore:
                 state = row.get("state") or {}
                 if not isinstance(state, dict):
                     raise ValueError("item state must be an object")
+                item_type = _require(row.get("item_type"), "item_type")
+                if item_type == "whiteboard_working":
+                    from learning.whiteboard_contract import (
+                        validate_whiteboard_working_state,
+                        whiteboard_working_item_id,
+                    )
+
+                    state = validate_whiteboard_working_state(state)
+                    if artifact_id is not None:
+                        raise ValueError(
+                            "whiteboard working item must not reference an artifact"
+                        )
+                    if item_id != whiteboard_working_item_id(
+                        owner_id, sid, state["activity_id"]
+                    ):
+                        raise ValueError("whiteboard working item identity is invalid")
                 conn.execute(
                     "INSERT INTO learning_items (owner_id,space_id,item_id,artifact_id,item_type,state_json,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)",
                     (
@@ -1610,7 +1659,7 @@ class LearningStore:
                         sid,
                         item_id,
                         artifact_id,
-                        _require(row.get("item_type"), "item_type"),
+                        item_type,
                         json.dumps(state, ensure_ascii=False),
                         _bundle_timestamp(row, "created_at"),
                         _bundle_timestamp(row, "updated_at"),
@@ -1678,6 +1727,10 @@ class LearningStore:
                     ),
                 )
                 counts["migrations"] += 1
+
+            from learning.whiteboard import validate_whiteboard_persistence
+
+            validate_whiteboard_persistence(conn, owner_id)
 
         self._execute_write(owner_id, "", _op, operation_lease=operation_lease)
         return counts

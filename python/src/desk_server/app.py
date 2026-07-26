@@ -18,6 +18,7 @@ from desk_server.routes import (
     status,
     study_activity_routes,
     study_routes,
+    study_whiteboard_routes,
     voice,
 )
 from kabuqina_cli import __version__
@@ -46,6 +47,7 @@ def create_app() -> FastAPI:
         goal_routes,
         study_routes,
         study_activity_routes,
+        study_whiteboard_routes,
     ):
         app.include_router(mod.router)
 

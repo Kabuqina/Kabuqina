@@ -1442,3 +1442,43 @@ H1 remains enabled and production response stripping remains off until a
 versioned structured consumer is shared by Desktop, Gateway, export and TTS.
 That parity rollout and final H1 removal are separate work owned with the Web
 surface handoff; no current capability claim says raw-block retirement is done.
+
+**CTL-B06 S-2 owner-scoped whiteboard runtime (2026-07-26).** Whiteboard uses
+the existing `learning.db`, cross-process operation coordinator and generic v1
+owner bundle; it adds no schema-v2 table or second database. One reserved
+`whiteboard_working` item represents mutable state per owner/space/activity,
+and immutable `whiteboard_snapshot` Learning Output artifacts form an exact
+parented lineage. Generic artifact/item/status/review/activity mutations reject
+these reserved values; only `WhiteboardService` may write them.
+
+The scene is an exact discriminated union of text, math, line, arrow,
+rectangle and ellipse. Unknown fields/types, floats, external/file/data/blob
+URLs, HTML/SVG, CSS/handlers, executable/plugin content and unsafe KaTeX link/
+HTML commands are rejected. Scenes allow at most 256 elements, 2,000
+codepoints per text/math item, 32,000 content codepoints total and 240 KiB
+canonical JSON; snapshot envelopes are capped at 256 KiB. Quotas are eight
+snapshots/activity, 3 MiB/activity, 4 MiB/space and 8 MiB/owner, checked in the
+same SQLite write transaction as the prospective state.
+
+Working save/restore binds activity, lineage, expected revision, idempotency
+key and canonical request fingerprint under one coordinator/CAS transaction.
+The working item retains the most recent 64 exact request records. A retained
+same-key/same-fingerprint replay returns its original revision; payload drift
+conflicts. Once evicted, an old expected revision can only stale-conflict and
+cannot be treated as a new commit. Deleted activity or snapshot identities
+cannot be recreated, preserving delete replay semantics.
+
+Snapshot creation pins the current validated scene/hash and exact revision-1
+parent. Attach is the sole draft-to-active path and writes bounded hash/id
+evidence. Delete recomputes the descendant and active-attachment closure and
+requires the caller's exact preview list; it then deletes and performs the
+existing secure WAL/VACUUM discipline while the common fence is still held.
+Owner import validates working identity, parent lineage, attach/delete evidence
+and all quotas before commit, so forged or over-cap bundles are zero-write;
+scoped ids survive forced owner remapping and keep idempotency replay valid.
+
+FastAPI source routes plus exact Tauri commands expose list/load/save/snapshot/
+restore/attach/canonical-JSON export/delete without accepting owner, file path,
+renderer or browser truth. There is no Web editor, canvas framework, PNG truth,
+package or bundle change in S-2. S-3 may consume only this validated scene and
+revision seam; S-1/S-4 remain dependency-bound.

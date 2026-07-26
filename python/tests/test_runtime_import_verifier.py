@@ -26,6 +26,7 @@ class RuntimeImportVerifierTests(unittest.TestCase):
             "desk_server",
             "desk_server.routes.study_routes",
             "desk_server.routes.study_activity_routes",
+            "desk_server.routes.study_whiteboard_routes",
             "desk_server.capabilities",
             "product_profile_policy",
             "learning.flashcards",
@@ -43,6 +44,8 @@ class RuntimeImportVerifierTests(unittest.TestCase):
             "learning.practice_contract",
             "learning.practice_hints",
             "learning.practice_evaluation",
+            "learning.whiteboard_contract",
+            "learning.whiteboard",
         ):
             self.assertIn(module, text)
 
