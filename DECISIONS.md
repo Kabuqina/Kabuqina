@@ -1278,3 +1278,251 @@ C-track implementation work package. The six retained-platform real-account
 smokes are a named post-A dependency, not a retroactive PASS and not a reason
 to keep C-track merged code in REVIEW. They must be recorded before G01/Q can
 approve the v0.5 release.
+
+**CTL-B03 minimal Tutor runtime (2026-07-26).** Tutor is an explicit trusted-
+desktop activity and never an inferred ordinary Chat mode. L-2 executes through
+an independent checkpointer-free LangGraph topology; the existing Agent graph,
+tool loop, prompts, retries and fallback behavior are unchanged. L-2 completion
+means `participation_only`: the host owns the two learner-control checks and the
+only branches are continue, one bounded explain-again, or deterministic invalid
+re-prompt. Model output cannot assert correctness, mastery, pass/fail or choose
+the branch.
+
+Each activity fixes one secret-free provider/model/API-mode/endpoint plan at
+create. Recover may rebind credentials only to that exact plan; it cannot
+auto-detect a new candidate. Tutor uses a dedicated OpenAI/Anthropic client with
+SDK `max_retries=0`, no application retry and no provider fallback. Every
+physical request requires a committed B02 write-ahead reservation; abandoned
+reservations become `unknown` and are never refunded or reissued. The frozen
+limits remain two attempts per activity (start explanation plus the single
+explain-again), 35 seconds per request, 10 seconds finalize reserve, 45 seconds
+per active segment, 120 seconds active activity time and 14 graph nodes.
+
+The desktop keeps a thread-safe set of live Tutor execution ids. Opening any
+trusted activity service reconciles persisted `running` rows against that set:
+same-process live calls survive, while the first activity request after a
+desktop restart conservatively marks abandoned work interrupted and charges the
+existing B02 recovery budget. Gateway Tutor and Web scene integration remain
+outside B03.
+
+**CTL-B04 deterministic Practice contracts (2026-07-26).** Activated quiz
+items are the only trusted Practice truth source. Materialization pins a
+versioned grader provenance record and canonical rubric hash; public question
+reads continue to omit answers, executable/reference truth, the full hint
+ladder and explanation rubric. Submit results add a branchable `outcome`
+taxonomy: only deterministic `correct`/`incorrect` may drive later branches,
+while timeout, sandbox failure and ungradable stay distinct. For v0.4
+compatibility, legacy partial `score/correct` fields may still describe the
+components that were deterministically gradable, but any missing required
+truth forces the new outcome to `ungradable` and later graphs must branch on
+that outcome rather than the partial fields.
+
+Practice hints are activated content, not model-generated at request time.
+The four-level ladder permits direct jumps, including an explicit full
+solution, and each item has an eight-request cap. A stable owner/space/item/
+idempotency identity uses a canonical request fingerprint: exact replay
+returns the existing evidence, payload drift conflicts, and concurrent inserts
+share the existing LearningStore coordination fence. Activity evidence stores
+the requested level and content hash but not the hint text. This adds no
+learning schema or migration and performs zero provider calls.
+
+Level-5 semantic evaluation is review-only. Its exact schema contains
+criterion statuses, observations and suggestions, but no pass, correctness,
+score, mastery or branch field. The B04 service writes a bounded durable
+request reservation before invoking an injected evaluator at most once;
+unavailable, exceptional or invalid output remains pending and creates no
+artifact. Valid output creates only an evaluation draft bound to the active
+item and rubric provenance, and still requires the existing user activation
+flow. B04 deliberately ships no production network evaluator: P-2 must first
+provide its own crash-safe write-ahead budget/provider contract and cannot
+reuse ordinary `call_llm()` retry or fallback behavior.
+
+**CTL-B05 S-0 Learning Space functional boundary (2026-07-26).** The
+canonical five-page route and `StudyRepository` remain the only Study
+navigation and data truth. A wide scene may reposition one semantic DOM tree,
+but narrow, 200% zoom, forced-colors, screen-reader, reduced-motion and asset-
+failure modes all use the same complete flat document. Every notebook object
+maps to an existing repository/service action; it owns no scene-only API,
+count, draft lifecycle or checkpoint. The Nana cup remains only a Chat anchor;
+the existing CompanionWindow/fallback remains the sole companion-state
+consumer.
+
+S-1 is not authorized by S-0 completion. It still waits for versioned E2
+context/return/restart and X2 focus/keyboard/dirty/back contracts; prototype,
+copy and production-candidate progress do not substitute for those gates.
+Meanwhile S-2 may consume the frozen independent whiteboard contract. It uses
+existing owner/space learning storage and operation fencing: CAS working state
+in a bounded item plus immutable `whiteboard_snapshot` artifacts, never
+browser-only state, Tutor checkpoint JSON or a second database. Scenes allow
+only bounded text, math and six primitive element types; URLs, images, HTML,
+SVG paths, CSS, JavaScript, plugins and executable content are rejected.
+Per-scene, activity, space and owner quotas fit within the existing 16 MiB
+learning and 24 MiB composite bundle limits. DOM/SVG plus the already locked
+KaTeX is the v0.5 default; any third-party canvas dependency requires a
+separate license, supply-chain, size and Windows WebView2 gate.
+
+**CTL-B06 L-3 trusted Practice branch runtime (2026-07-26).** A Tutor start
+now has an explicit host-validated mode. Absence of that field remains the
+legacy `participation` contract and preserves the old canonical request
+fingerprint; `deterministic_practice` selects exactly one activated quiz item,
+after which the host constructs and checkpoints the check spec, prompt,
+rubric version/hash and `correct_action=complete`. Clients and model output
+cannot supply expected truth, completion policy or branch decisions.
+
+Tutor grading reuses the same QuizService implementation through a new pure
+single-question seam and records no second `quiz.attempt`. The v1 Tutor adapter
+accepts only total deterministic graders: choice, boolean, short answer and
+code transcription. Sandbox code and derivation graders can return timeout,
+unavailable or ungradable, so they remain ordinary Practice outcomes and are
+not coerced into Tutor correct/incorrect. Expanding this allowlist requires a
+branch contract that represents those non-binary outcomes without treating
+them as learner failure.
+
+Every resume re-verifies the active owner/space source against its pinned
+version and truth hash; missing, inactive, stale or drifted sources terminate
+as `blocked(source_missing)` and never fall back to a model grader. Invalid
+answer shape only reissues the same check with zero provider calls. Incorrect
+answers allow exactly one already-budgeted remediation, then block; correct
+answers complete with `deterministic_correct`. The answer claim durably saves
+the original interrupt revision before execution, so a crash/recover evaluates
+the same identity and fingerprint without replaying a provider call. Exact
+start replay is resolved from the existing run before ephemeral provider or
+source resolution; a different canonical payload conflicts.
+
+This closes the deterministic L-3/Practice-check subphase, not Level-5
+semantic evaluation. B04's semantic result remains a review-only draft seam;
+production wiring still requires its own write-ahead single-physical-attempt
+budget and must not call ordinary retry/fallback-enabled `call_llm()`.
+
+**CTL-B06 L-5 active Tutor retention (2026-07-26).** Active Tutor checkpoints
+retain at most two exact typed evaluation/branch records. Those records contain
+grader/rubric provenance, outcome/evidence codes, answer fingerprint and policy
+decision, but their schema rejects raw answers and arbitrary observation text.
+Only an unresolved incorrect branch may additionally carry a current
+`tutor-retention-v1` remediation context. Its learner excerpt is canonical and
+UTF-8 bounded to 2 KiB; a later answer clears the prior context before any new
+decision. Choice excerpts contain selected public option ids, never expected
+answers or rubric truth.
+
+The remediation context is part of the next Tutor provider request, so its
+canonical bytes are included in the existing write-ahead input-token
+reservation before the one permitted physical attempt. Repeated explanation
+and evaluation history continue to collapse deterministically to the last two
+records; compression performs no model call. Terminal commit deliberately
+folds to completion/reason, remediation count and numeric budget and deletes
+the active checkpoint, so neither learner excerpt nor detailed evaluation is
+copied into terminal run/outbox/telemetry.
+
+The existing Tutor provider budget remains independent from B04 semantic
+evaluation's injected one-attempt reservation and the future L-4 post-node
+budget. L-5 adds no semantic or post-node call and does not disguise either
+bucket as Tutor usage; their production wiring remains responsible for their
+own durable counters.
+
+**CTL-B06 L-4 bounded knowledge-point post-node (2026-07-26).** The v2 backend
+baseline is deterministic and makes zero provider calls. It first removes all
+complete legacy `kq-kp` fences and a final unterminated fence, but never parses
+that untrusted legacy JSON as candidate truth. It preserves and hashes the
+clean visible response, analyzes at most 24,000 code points, ignores fenced
+code, and recognizes only explicit Markdown definition lines or level 2-4
+headings with nearby prose. Failure or ordinary prose produces no candidates.
+
+The exact output contains at most five v2 candidates with only `name`, `gist`,
+`source=model` and `confidence=inferred`; candidate fields are bounded and the
+whole metadata projection is capped at 8 KiB. There is no score, pass/fail,
+mastery, branch, auto-capture, store or provider seam. Candidate persistence
+continues to require the existing explicit user capture path. Usage conduct
+metrics reuse the same sanitizer so a truncated final legacy block cannot
+inflate visible-text telemetry.
+
+This decision completes the backend node, not cross-surface rollout. Desktop
+currently needs the legacy payload to render existing chips, and adding an
+unreviewed key to `LegacyRunResult` would change its frozen contract. Therefore
+H1 remains enabled and production response stripping remains off until a
+versioned structured consumer is shared by Desktop, Gateway, export and TTS.
+That parity rollout and final H1 removal are separate work owned with the Web
+surface handoff; no current capability claim says raw-block retirement is done.
+
+**CTL-B06 S-2 owner-scoped whiteboard runtime (2026-07-26).** Whiteboard uses
+the existing `learning.db`, cross-process operation coordinator and generic v1
+owner bundle; it adds no schema-v2 table or second database. One reserved
+`whiteboard_working` item represents mutable state per owner/space/activity,
+and immutable `whiteboard_snapshot` Learning Output artifacts form an exact
+parented lineage. Generic artifact/item/status/review/activity mutations reject
+these reserved values; only `WhiteboardService` may write them.
+
+The scene is an exact discriminated union of text, math, line, arrow,
+rectangle and ellipse. Unknown fields/types, floats, external/file/data/blob
+URLs, HTML/SVG, CSS/handlers, executable/plugin content and unsafe KaTeX link/
+HTML commands are rejected. Scenes allow at most 256 elements, 2,000
+codepoints per text/math item, 32,000 content codepoints total and 240 KiB
+canonical JSON; snapshot envelopes are capped at 256 KiB. Quotas are eight
+snapshots/activity, 3 MiB/activity, 4 MiB/space and 8 MiB/owner, checked in the
+same SQLite write transaction as the prospective state.
+
+Working save/restore binds activity, lineage, expected revision, idempotency
+key and canonical request fingerprint under one coordinator/CAS transaction.
+The working item retains the most recent 64 exact request records. A retained
+same-key/same-fingerprint replay returns its original revision; payload drift
+conflicts. Once evicted, an old expected revision can only stale-conflict and
+cannot be treated as a new commit. Deleted activity or snapshot identities
+cannot be recreated, preserving delete replay semantics.
+
+Snapshot creation pins the current validated scene/hash and exact revision-1
+parent. Attach is the sole draft-to-active path and writes bounded hash/id
+evidence. Delete recomputes the descendant and active-attachment closure and
+requires the caller's exact preview list; it then deletes and performs the
+existing secure WAL/VACUUM discipline while the common fence is still held.
+Owner import validates working identity, parent lineage, attach/delete evidence
+and all quotas before commit, so forged or over-cap bundles are zero-write;
+scoped ids survive forced owner remapping and keep idempotency replay valid.
+
+FastAPI source routes plus exact Tauri commands expose list/load/save/snapshot/
+restore/attach/canonical-JSON export/delete without accepting owner, file path,
+renderer or browser truth. There is no Web editor, canvas framework, PNG truth,
+package or bundle change in S-2. S-3 may consume only this validated scene and
+revision seam; S-1/S-4 remain dependency-bound.
+
+**CTL-B06 S-3 constrained Tutor whiteboard port (2026-07-26).** Tutor
+whiteboard mutation has one dedicated host port and no second activity graph.
+The exact v1 command batch allows at most 32 `put_element`/`delete_element`
+operations. Every element and the complete prospective scene pass the S-2
+allowlist; unknown fields/operations, duplicate targets, missing deletes,
+no-ops, external/executable content and quota overflow are rejected.
+
+Preview is a zero-write operation. Its canonical fingerprint binds the Tutor
+owner/space/activity and checkpoint revision to the whiteboard base/result
+revision, command hash and result scene hash. Apply must echo that fingerprint;
+under the shared cross-process write fence it rechecks both Tutor revision and
+whiteboard CAS before committing only `learning.db`. Exact retries use a
+stable idempotency identity derived from Tutor revision, caller key and command
+hash; command drift cannot replay. The port never advances Tutor checkpoint
+truth, so rejection preserves the whole checkpoint, including a previously
+claimed learner answer.
+
+Snapshot, attach, recover and whiteboard cancel are host-only lifecycle calls
+through the same fence and Tutor identity. Snapshot provenance explicitly pins
+the Tutor checkpoint revision; all operations reuse the Tutor activity id and
+S-2 lineage/evidence paths. Trusted Desktop API/Tauri commands accept no owner
+and return a sanitized readable Tutor output/check fallback on whiteboard
+failure. The existing provider response remains exact typed Markdown and has
+no canvas/JS/tool bypass; any later model proposal must enter through this
+versioned command port. No Web, scene, package, bundle or Gateway path changes
+in S-3.
+
+**B-track v0.4 activated-Quiz provenance migration (2026-07-26).** Repeated
+Quiz activation is also the one trusted compatibility seam for v0.4 items that
+were materialized before `artifact_version` and `grader_provenance` existed.
+The service reconstructs the exact normalized v0.4 state from the active
+artifact, preserving `createdAt`, and persists the current deterministic
+provenance only when the complete legacy state matches. Optional current
+hint/rubric fields may be added by that same reconstruction; they are never
+inferred from learner or model output.
+
+The migration is intentionally narrower than the legacy Quiz grading fallback.
+Any truth drift, missing stable creation time, partially present provenance, or
+malformed current provenance remains fail closed for Tutor. The final write is
+an owner/space-coordinated decoded-state compare-and-update transaction; a
+concurrent state change returns a retry error and cannot bless stale truth.
+This adds no learning schema migration, provider call, Web/Gateway surface, or
+bundle mutation.

@@ -19,11 +19,66 @@ for path in (ROOT / "python" / "src", ROOT / "hermes_core"):
 from learning.checkpoint_store import LearningCheckpointV1  # noqa: E402
 from learning.learning_context import LearningExecutionContext  # noqa: E402
 from learning.learning_data_service import CompositeLearningDataService  # noqa: E402
+from learning.output_writer import OutputWriter  # noqa: E402
+from learning.quizzes import QuizService  # noqa: E402
 from learning.tutor_contract import validate_start_request  # noqa: E402
+from agent.graph_engine.tutor_contracts import (  # noqa: E402
+    TutorProviderPlanV1,
+    TutorProviderResult,
+    new_tutor_state,
+)
+from agent.graph_engine.tutor_engine import TutorActivityExecutor  # noqa: E402
+from agent.graph_engine.tutor_ports import (  # noqa: E402
+    TutorProviderBinding,
+    TutorProviderUnavailableError,
+)
 
 
 OWNER = "desktop:activity-route-owner"
 SECRET = "activity-route-secret"
+
+
+class _Resolver:
+    def __init__(self) -> None:
+        self.binding = TutorProviderBinding(
+            plan=TutorProviderPlanV1(
+                provider_id="custom",
+                model_id="model-1",
+                api_mode="chat_completions",
+                endpoint_identity="https://example.invalid/v1",
+            ),
+            api_key="test-secret",
+        )
+
+    def resolve_current(self):
+        return self.binding
+
+    def bind_saved(self, plan):
+        if plan.plan_hash != self.binding.plan.plan_hash:
+            raise TutorProviderUnavailableError()
+        return self.binding
+
+
+class _UnavailableResolver(_Resolver):
+    def resolve_current(self):
+        raise TutorProviderUnavailableError()
+
+
+class _Provider:
+    def __init__(self) -> None:
+        self.calls = []
+
+    def execute_once(self, reservation, request, *, timeout_s):
+        self.calls.append((reservation, request, timeout_s))
+        purpose = (
+            "Initial explanation" if request.purpose == "explain" else "Remediation"
+        )
+        return TutorProviderResult(
+            markdown=purpose,
+            actual_input_tokens=10,
+            actual_output_tokens=5,
+            actual_latency_ms=20,
+        )
 
 
 class StudyActivityRouteTests(unittest.TestCase):
@@ -51,6 +106,13 @@ class StudyActivityRouteTests(unittest.TestCase):
         self._stack.enter_context(
             patch("learning_owner.desktop_owner_id", return_value=OWNER)
         )
+        self.provider = _Provider()
+        self._stack.enter_context(
+            patch(
+                "desk_server.routes.study_activity_routes._build_tutor_executor",
+                side_effect=self._build_executor,
+            )
+        )
         self.client = TestClient(create_app())
 
     def tearDown(self) -> None:
@@ -64,6 +126,22 @@ class StudyActivityRouteTests(unittest.TestCase):
 
     def _service(self) -> CompositeLearningDataService:
         return CompositeLearningDataService.from_root(self.root)
+
+    def _build_executor(self, runtime_store, learning_store):
+        from learning.tutor_practice import TutorPracticeAdapter
+
+        return TutorActivityExecutor(
+            runtime_store,
+            resolver=_Resolver(),
+            provider_factory=lambda _binding: self.provider,
+            practice_adapter_factory=lambda key: TutorPracticeAdapter(
+                LearningExecutionContext(
+                    learning_store,
+                    owner_id=key.owner_id,
+                    space_id=key.space_id,
+                )
+            ),
+        )
 
     def _seed(self, *, activity_id: str = "activity-1"):
         service = self._service()
@@ -101,7 +179,7 @@ class StudyActivityRouteTests(unittest.TestCase):
         finally:
             service.close()
 
-    def test_start_is_503_and_rejects_public_owner_without_writing(self):
+    def test_start_and_resume_execute_with_host_owner_and_reject_public_owner(self):
         body = {
             "schema_version": 1,
             "space_id": "space-1",
@@ -115,12 +193,35 @@ class StudyActivityRouteTests(unittest.TestCase):
             json=body,
             headers=self.headers(),
         )
-        self.assertEqual(response.status_code, 503)
-        self.assertEqual(
-            response.json()["detail"]["code"], "study_activity_not_ready"
-        )
+        self.assertEqual(response.status_code, 200)
+        waiting = response.json()
+        self.assertEqual(waiting["status"], "waiting_for_learner")
+        self.assertNotIn("owner_id", str(waiting))
+        self.assertEqual(len(self.provider.calls), 1)
 
-        injected = dict(body, owner_id="desktop:attacker")
+        response = self.client.post(
+            f"/api/desk/study/activity-runs/tutor/{waiting['activity_id']}/resume",
+            json={
+                "schema_version": 1,
+                "space_id": "space-1",
+                "expected_revision": waiting["revision"],
+                "mode": "answer",
+                "interrupt_id": waiting["interrupt"]["interrupt_id"],
+                "answer": {"type": "choice", "selected": ["continue"]},
+            },
+            headers=self.headers(),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "completed")
+        self.assertEqual(
+            response.json()["terminal"]["completion_basis"],
+            "participation_only",
+        )
+        self.assertEqual(len(self.provider.calls), 1)
+
+        injected = dict(
+            body, idempotency_key="start-injected", owner_id="desktop:attacker"
+        )
         response = self.client.post(
             "/api/desk/study/activity-runs",
             json=injected,
@@ -131,13 +232,252 @@ class StudyActivityRouteTests(unittest.TestCase):
             response.json()["detail"]["code"],
             "study_activity_invalid_request",
         )
+
+    def test_tutor_whiteboard_preview_apply_and_failure_fallback(self):
         service = self._service()
         try:
-            self.assertEqual(
-                service.runtime_store.list(OWNER, "space-1", "tutor"), []
+            LearningExecutionContext(service.learning_store, OWNER).create_space(
+                title="Algebra", space_id="space-1"
             )
         finally:
             service.close()
+        started = self.client.post(
+            "/api/desk/study/activity-runs",
+            json={
+                "schema_version": 1,
+                "space_id": "space-1",
+                "activity_kind": "tutor",
+                "idempotency_key": "whiteboard-start-1",
+                "goal": "Explain a line",
+                "input_refs": [],
+            },
+            headers=self.headers(),
+        ).json()
+        element = {
+            "element_id": "e1",
+            "type": "text",
+            "x": 10,
+            "y": 20,
+            "tone": "ink",
+            "stroke_width": 1,
+            "width": 240,
+            "height": 50,
+            "content": "A bounded explanation",
+        }
+        command_batch = {
+            "schema_version": 1,
+            "commands": [{"op": "put_element", "element": element}],
+        }
+        common = {
+            "space_id": "space-1",
+            "expected_tutor_revision": started["revision"],
+            "expected_working_revision": 0,
+            "command_batch": command_batch,
+        }
+        base = (
+            f"/api/desk/study/activity-runs/tutor/{started['activity_id']}"
+            "/whiteboard"
+        )
+        preview = self.client.post(
+            f"{base}/preview", json=common, headers=self.headers()
+        )
+        self.assertEqual(preview.status_code, 200, preview.text)
+        applied = self.client.post(
+            f"{base}/apply",
+            json={
+                **common,
+                "preview_sha256": preview.json()["preview_sha256"],
+                "idempotency_key": "apply-1",
+            },
+            headers=self.headers(),
+        )
+        self.assertEqual(applied.status_code, 200, applied.text)
+        self.assertEqual(applied.json()["working"]["revision"], 1)
+
+        rejected = self.client.post(
+            f"{base}/preview",
+            json={
+                **common,
+                "expected_working_revision": 1,
+                "command_batch": {
+                    "schema_version": 1,
+                    "commands": [
+                        {
+                            "op": "put_element",
+                            "element": {**element, "content": "javascript:alert(1)"},
+                        }
+                    ],
+                },
+            },
+            headers=self.headers(),
+        )
+        self.assertEqual(rejected.status_code, 400, rejected.text)
+        fallback = rejected.json()["detail"]["fallback"]
+        self.assertEqual(fallback["tutor_revision"], started["revision"])
+        self.assertEqual(
+            fallback["latest_output"]["markdown"], "Initial explanation"
+        )
+        self.assertEqual(fallback["pending_interrupt"]["kind"], "learner_check")
+        self.assertNotIn("owner_id", str(rejected.json()))
+
+    def test_deterministic_practice_route_uses_learning_store_truth(self):
+        artifact_id, item_id = self._seed_practice()
+        response = self.client.post(
+            "/api/desk/study/activity-runs",
+            json={
+                "schema_version": 1,
+                "space_id": "space-1",
+                "activity_kind": "tutor",
+                "idempotency_key": "practice-start-1",
+                "goal": "Practice trusted arithmetic",
+                "input_refs": [],
+                "tutor_mode": "deterministic_practice",
+                "practice_ref": {
+                    "artifact_id": artifact_id,
+                    "item_id": item_id,
+                },
+            },
+            headers=self.headers(),
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        waiting = response.json()
+        self.assertEqual(waiting["interrupt"]["prompt"]["template"], "practice-v1")
+
+        response = self.client.post(
+            f"/api/desk/study/activity-runs/tutor/{waiting['activity_id']}/resume",
+            json={
+                "schema_version": 1,
+                "space_id": "space-1",
+                "expected_revision": waiting["revision"],
+                "mode": "answer",
+                "interrupt_id": waiting["interrupt"]["interrupt_id"],
+                "answer": {"type": "choice", "selected": ["1"]},
+            },
+            headers=self.headers(),
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["status"], "completed")
+        self.assertEqual(
+            response.json()["terminal"]["completion_basis"],
+            "deterministic_correct",
+        )
+        self.assertEqual(len(self.provider.calls), 1)
+
+    def test_unavailable_provider_returns_503_without_creating_run(self):
+        def unavailable(runtime_store, _learning_store):
+            return TutorActivityExecutor(runtime_store, resolver=_UnavailableResolver())
+
+        with patch(
+            "desk_server.routes.study_activity_routes._build_tutor_executor",
+            side_effect=unavailable,
+        ):
+            response = self.client.post(
+                "/api/desk/study/activity-runs",
+                json={
+                    "schema_version": 1,
+                    "space_id": "space-1",
+                    "activity_kind": "tutor",
+                    "idempotency_key": "unavailable-1",
+                    "goal": "Learn quadratics",
+                    "input_refs": [],
+                },
+                headers=self.headers(),
+            )
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["detail"]["code"], "study_activity_not_ready")
+        service = self._service()
+        try:
+            self.assertEqual(service.runtime_store.list(OWNER, "space-1", "tutor"), [])
+        finally:
+            service.close()
+
+    def _seed_practice(self):
+        service = self._service()
+        try:
+            ctx = LearningExecutionContext(service.learning_store, OWNER)
+            ctx.create_space(title="Algebra", space_id="space-1")
+            artifact_id = OutputWriter(ctx).write_artifact(
+                kind="quiz",
+                title="Trusted quiz",
+                payload={
+                    "questions": [
+                        {
+                            "type": "choice",
+                            "prompt": "2 + 2 = ?",
+                            "options": ["3", "4"],
+                            "answer": 1,
+                        }
+                    ]
+                },
+            )["artifact_id"]
+            quiz = QuizService(ctx)
+            quiz.activate_quiz(artifact_id)
+            item_id = quiz.list_questions(artifact_id=artifact_id)[0]["item_id"]
+            return artifact_id, item_id
+        finally:
+            service.close()
+
+    def test_route_reconciliation_preserves_live_execution_then_interrupts_abandoned(
+        self,
+    ):
+        from desk_server.routes import study_activity_routes
+
+        execution_id = "texec_live-route"
+        service = self._service()
+        try:
+            request = validate_start_request(
+                {
+                    "schema_version": 1,
+                    "space_id": "space-1",
+                    "activity_kind": "tutor",
+                    "idempotency_key": "live-route-1",
+                    "goal": "Learn quadratics",
+                    "input_refs": [],
+                },
+                owner_id=OWNER,
+                activity_id="activity-live",
+            )
+            plan = _Resolver().binding.plan
+            state = new_tutor_state(
+                request.key,
+                goal=request.goal,
+                input_refs=request.input_refs,
+                provider_plan=plan,
+            )
+            service.runtime_store.create(
+                request,
+                LearningCheckpointV1(request.key, 0, "created", state),
+                provider_plan_hash=plan.plan_hash,
+            )
+            service.runtime_store.claim_execution(
+                request.key,
+                expected_revision=0,
+                execution_id=execution_id,
+            )
+        finally:
+            service.close()
+
+        study_activity_routes._execution_started(execution_id)
+        try:
+            live = self.client.get(
+                "/api/desk/study/activity-runs/tutor/activity-live?space_id=space-1",
+                headers=self.headers(),
+            )
+            self.assertEqual(live.status_code, 200)
+            self.assertEqual(live.json()["status"], "running")
+        finally:
+            study_activity_routes._execution_finished(execution_id)
+
+        abandoned = self.client.get(
+            "/api/desk/study/activity-runs/tutor/activity-live?space_id=space-1",
+            headers=self.headers(),
+        )
+        self.assertEqual(abandoned.status_code, 200)
+        self.assertEqual(abandoned.json()["status"], "interrupted")
+        self.assertEqual(
+            abandoned.json()["revision"],
+            live.json()["revision"] + 1,
+        )
 
     def test_get_list_cancel_use_persisted_scoped_truth(self):
         self._seed()
@@ -174,11 +514,9 @@ class StudyActivityRouteTests(unittest.TestCase):
         )
         self.assertEqual(cancelled.status_code, 200)
         self.assertEqual(cancelled.json()["status"], "cancelled")
-        self.assertEqual(
-            cancelled.json()["terminal"]["reason_code"], "user_cancelled"
-        )
+        self.assertEqual(cancelled.json()["terminal"]["reason_code"], "user_cancelled")
 
-    def test_resume_is_503_and_does_not_advance_imported_fixture(self):
+    def test_recover_unknown_pre_b03_checkpoint_fails_closed_without_claim(self):
         request = self._seed()
         response = self.client.post(
             "/api/desk/study/activity-runs/tutor/activity-1/resume",
@@ -190,7 +528,10 @@ class StudyActivityRouteTests(unittest.TestCase):
             },
             headers=self.headers(),
         )
-        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.json()["detail"]["code"], "study_activity_invalid_request"
+        )
         service = self._service()
         try:
             self.assertEqual(service.runtime_store.load(request.key).revision, 0)

@@ -187,6 +187,20 @@ class LearningExecutionContext:
 
     # ── activities + migrations ────────────────────────────────────────── #
 
+    def compare_and_update_item_state(
+        self,
+        item_id: str,
+        expected_state: Dict[str, Any],
+        state: Dict[str, Any],
+    ) -> bool:
+        return self._store.compare_and_update_item_state(
+            self._owner_id,
+            self._require_space(),
+            item_id,
+            expected_state,
+            state,
+        )
+
     def record_activity(
         self,
         *,
@@ -202,6 +216,27 @@ class LearningExecutionContext:
             artifact_id=artifact_id,
             item_id=item_id,
             detail=detail,
+        )
+
+    def record_bounded_activity_once(
+        self,
+        *,
+        activity_id: str,
+        activity_type: str,
+        artifact_id: Optional[str],
+        item_id: Optional[str],
+        detail: Dict[str, Any],
+        max_occurrences: int,
+    ) -> Dict[str, Any]:
+        return self._store.insert_bounded_activity_once(
+            self._owner_id,
+            self._require_space(),
+            activity_id=activity_id,
+            activity_type=activity_type,
+            artifact_id=artifact_id,
+            item_id=item_id,
+            detail=detail,
+            max_occurrences=max_occurrences,
         )
 
     def list_activities(self) -> List[Dict[str, Any]]:

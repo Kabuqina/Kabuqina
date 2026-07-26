@@ -713,6 +713,10 @@ class LearningStore:
             raise ContractError("envelope must be an object")
 
         env = validate_envelope({**envelope, "space_id": space_id})
+        if env.kind == "whiteboard_snapshot":
+            raise ContractError(
+                "whiteboard_snapshot must be written through WhiteboardService"
+            )
         artifact_id = uuid.uuid4().hex
         now = _now()
         env_dict = env.to_dict()
@@ -881,12 +885,16 @@ class LearningStore:
 
         def _op(conn: sqlite3.Connection) -> None:
             row = conn.execute(
-                "SELECT status FROM learning_artifacts "
+                "SELECT status, kind FROM learning_artifacts "
                 "WHERE owner_id = ? AND space_id = ? AND artifact_id = ?",
                 (owner_id, space_id, artifact_id),
             ).fetchone()
             if not row:
                 raise KeyError(f"artifact {artifact_id!r} not found for owner/space")
+            if row["kind"] == "whiteboard_snapshot":
+                raise ContractError(
+                    "whiteboard_snapshot status must be changed through WhiteboardService"
+                )
             current = row["status"]
             if not is_allowed_transition(current, new_status):
                 raise ContractError(
@@ -912,11 +920,15 @@ class LearningStore:
         now = _now()
         def _op(conn: sqlite3.Connection) -> None:
             row = conn.execute(
-                "SELECT envelope_json FROM learning_artifacts WHERE owner_id = ? AND space_id = ? AND artifact_id = ?",
+                "SELECT envelope_json, kind FROM learning_artifacts WHERE owner_id = ? AND space_id = ? AND artifact_id = ?",
                 (owner_id, space_id, artifact_id),
             ).fetchone()
             if not row:
                 raise KeyError(f"artifact {artifact_id!r} not found")
+            if row["kind"] == "whiteboard_snapshot":
+                raise ContractError(
+                    "whiteboard_snapshot review is immutable"
+                )
             envelope = json.loads(row["envelope_json"])
             current_review = envelope.get("review") or {}
             mode = review_mode or current_review.get("mode") or "deterministic"
@@ -945,6 +957,10 @@ class LearningStore:
         _require(space_id, "space_id")
         _require(item_id, "item_id")
         _require(item_type, "item_type")
+        if item_type == "whiteboard_working":
+            raise ContractError(
+                "whiteboard_working must be written through WhiteboardService"
+            )
         state_json = json.dumps(state or {}, ensure_ascii=False)
         now = _now()
 
@@ -1020,6 +1036,15 @@ class LearningStore:
         now = _now()
 
         def _op(conn: sqlite3.Connection) -> None:
+            row = conn.execute(
+                "SELECT item_type FROM learning_items WHERE owner_id=? "
+                "AND space_id=? AND item_id=?",
+                (owner_id, space_id, item_id),
+            ).fetchone()
+            if row is not None and row["item_type"] == "whiteboard_working":
+                raise ContractError(
+                    "whiteboard_working must be written through WhiteboardService"
+                )
             cur = conn.execute(
                 "UPDATE learning_items SET state_json = ?, updated_at = ? "
                 "WHERE owner_id = ? AND space_id = ? AND item_id = ?",
@@ -1031,6 +1056,51 @@ class LearningStore:
         self._execute_write(owner_id, space_id, _op, operation_lease=operation_lease)
 
     # ── activities ─────────────────────────────────────────────────────── #
+
+    def compare_and_update_item_state(
+        self,
+        owner_id: str,
+        space_id: str,
+        item_id: str,
+        expected_state: Dict[str, Any],
+        state: Dict[str, Any],
+        *,
+        operation_lease: Optional[OperationLease] = None,
+    ) -> bool:
+        """Replace one item state only while its decoded state is unchanged."""
+        _require(owner_id, "owner_id")
+        _require(space_id, "space_id")
+        _require(item_id, "item_id")
+        state_json = json.dumps(state or {}, ensure_ascii=False)
+        now = _now()
+
+        def _op(conn: sqlite3.Connection) -> bool:
+            row = conn.execute(
+                "SELECT item_type, state_json FROM learning_items WHERE owner_id=? "
+                "AND space_id=? AND item_id=?",
+                (owner_id, space_id, item_id),
+            ).fetchone()
+            if row is None:
+                raise KeyError(f"item {item_id!r} not found for owner/space")
+            if row["item_type"] == "whiteboard_working":
+                raise ContractError(
+                    "whiteboard_working must be written through WhiteboardService"
+                )
+            if json.loads(row["state_json"] or "{}") != (expected_state or {}):
+                return False
+            conn.execute(
+                "UPDATE learning_items SET state_json = ?, updated_at = ? "
+                "WHERE owner_id = ? AND space_id = ? AND item_id = ?",
+                (state_json, now, owner_id, space_id, item_id),
+            )
+            return True
+
+        return self._execute_write(
+            owner_id,
+            space_id,
+            _op,
+            operation_lease=operation_lease,
+        )
 
     def insert_activity(
         self,
@@ -1046,6 +1116,10 @@ class LearningStore:
         _require(owner_id, "owner_id")
         _require(space_id, "space_id")
         _require(activity_type, "activity_type")
+        if activity_type.startswith("whiteboard."):
+            raise ContractError(
+                "whiteboard activity evidence must be written through WhiteboardService"
+            )
         activity_id = uuid.uuid4().hex
         now = _now()
 
@@ -1069,6 +1143,114 @@ class LearningStore:
 
         self._execute_write(owner_id, space_id, _op, operation_lease=operation_lease)
         return activity_id
+
+    def insert_bounded_activity_once(
+        self,
+        owner_id: str,
+        space_id: str,
+        *,
+        activity_id: str,
+        activity_type: str,
+        artifact_id: Optional[str],
+        item_id: Optional[str],
+        detail: Dict[str, Any],
+        max_occurrences: int,
+        operation_lease: Optional[OperationLease] = None,
+    ) -> Dict[str, Any]:
+        """Insert one exact idempotent activity under an atomic scope cap.
+
+        The existing v1 activity primary key is the idempotency identity.  A
+        replay must match type, artifact, item, and canonical detail exactly;
+        a mismatched reuse raises :class:`LearningConflictError`.  The
+        occurrence check and insert share the same ``BEGIN IMMEDIATE`` write,
+        so concurrent distinct requests cannot exceed the cap.
+        """
+
+        for value, name in (
+            (owner_id, "owner_id"),
+            (space_id, "space_id"),
+            (activity_id, "activity_id"),
+            (activity_type, "activity_type"),
+        ):
+            _require(value, name)
+        if activity_type.startswith("whiteboard."):
+            raise ContractError(
+                "whiteboard activity evidence must be written through WhiteboardService"
+            )
+        if not isinstance(detail, dict):
+            raise ValueError("detail must be an object")
+        if (
+            isinstance(max_occurrences, bool)
+            or not isinstance(max_occurrences, int)
+            or not 1 <= max_occurrences <= 1_000
+        ):
+            raise ValueError("max_occurrences must be within 1..1000")
+        expected_detail = json.loads(
+            json.dumps(detail, ensure_ascii=False, sort_keys=True)
+        )
+        created_at = _now()
+
+        def _op(conn: sqlite3.Connection) -> Dict[str, Any]:
+            existing = conn.execute(
+                "SELECT activity_type,artifact_id,item_id,detail_json,created_at "
+                "FROM learning_activities WHERE owner_id=? AND space_id=? "
+                "AND activity_id=?",
+                (owner_id, space_id, activity_id),
+            ).fetchone()
+            if existing is not None:
+                persisted_detail = json.loads(existing["detail_json"])
+                comparable = dict(persisted_detail)
+                ordinal = comparable.pop("ordinal", None)
+                if (
+                    existing["activity_type"] != activity_type
+                    or existing["artifact_id"] != artifact_id
+                    or existing["item_id"] != item_id
+                    or comparable != expected_detail
+                    or type(ordinal) is not int
+                ):
+                    raise LearningConflictError("activity idempotency conflict")
+                return {
+                    "activity_id": activity_id,
+                    "created": False,
+                    "ordinal": ordinal,
+                    "created_at": existing["created_at"],
+                }
+
+            occurrence = conn.execute(
+                "SELECT COUNT(*) AS total FROM learning_activities "
+                "WHERE owner_id=? AND space_id=? AND activity_type=? "
+                "AND artifact_id IS ? AND item_id IS ?",
+                (owner_id, space_id, activity_type, artifact_id, item_id),
+            ).fetchone()["total"]
+            if occurrence >= max_occurrences:
+                raise LearningConflictError("activity occurrence limit reached")
+            ordinal = int(occurrence) + 1
+            persisted_detail = {**expected_detail, "ordinal": ordinal}
+            conn.execute(
+                "INSERT INTO learning_activities "
+                "(owner_id,space_id,activity_id,activity_type,artifact_id,item_id,detail_json,created_at) "
+                "VALUES (?,?,?,?,?,?,?,?)",
+                (
+                    owner_id,
+                    space_id,
+                    activity_id,
+                    activity_type,
+                    artifact_id,
+                    item_id,
+                    json.dumps(persisted_detail, ensure_ascii=False, sort_keys=True),
+                    created_at,
+                ),
+            )
+            return {
+                "activity_id": activity_id,
+                "created": True,
+                "ordinal": ordinal,
+                "created_at": created_at,
+            }
+
+        return self._execute_write(
+            owner_id, space_id, _op, operation_lease=operation_lease
+        )
 
     def insert_projection_activity_once(
         self,
@@ -1499,6 +1681,22 @@ class LearningStore:
                 state = row.get("state") or {}
                 if not isinstance(state, dict):
                     raise ValueError("item state must be an object")
+                item_type = _require(row.get("item_type"), "item_type")
+                if item_type == "whiteboard_working":
+                    from learning.whiteboard_contract import (
+                        validate_whiteboard_working_state,
+                        whiteboard_working_item_id,
+                    )
+
+                    state = validate_whiteboard_working_state(state)
+                    if artifact_id is not None:
+                        raise ValueError(
+                            "whiteboard working item must not reference an artifact"
+                        )
+                    if item_id != whiteboard_working_item_id(
+                        owner_id, sid, state["activity_id"]
+                    ):
+                        raise ValueError("whiteboard working item identity is invalid")
                 conn.execute(
                     "INSERT INTO learning_items (owner_id,space_id,item_id,artifact_id,item_type,state_json,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)",
                     (
@@ -1506,7 +1704,7 @@ class LearningStore:
                         sid,
                         item_id,
                         artifact_id,
-                        _require(row.get("item_type"), "item_type"),
+                        item_type,
                         json.dumps(state, ensure_ascii=False),
                         _bundle_timestamp(row, "created_at"),
                         _bundle_timestamp(row, "updated_at"),
@@ -1574,6 +1772,10 @@ class LearningStore:
                     ),
                 )
                 counts["migrations"] += 1
+
+            from learning.whiteboard import validate_whiteboard_persistence
+
+            validate_whiteboard_persistence(conn, owner_id)
 
         self._execute_write(owner_id, "", _op, operation_lease=operation_lease)
         return counts

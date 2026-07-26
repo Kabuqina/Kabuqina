@@ -21,6 +21,18 @@ import math
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Mapping
 
+from learning.practice_contract import (
+    PracticeContractError,
+    validate_explanation_rubric,
+    validate_hint_ladder,
+    validate_practice_evaluation_record,
+)
+from learning.whiteboard_contract import (
+    MAX_WHITEBOARD_SOURCE_REFS,
+    WhiteboardContractError,
+    validate_whiteboard_snapshot_payload,
+)
+
 
 # --------------------------------------------------------------------------- #
 # Frozen vocabulary — the ONLY source of these values.
@@ -38,6 +50,7 @@ KINDS: frozenset = frozenset(
         "quiz",
         "tutoring_note",
         "evaluation",
+        "whiteboard_snapshot",
     }
 )
 
@@ -68,6 +81,7 @@ DEFAULT_REVIEW_MODE: Dict[str, str] = {
     "quiz": "semantic",
     "tutoring_note": "deterministic",
     "evaluation": "deterministic",
+    "whiteboard_snapshot": "deterministic",
 }
 
 # Size limits — cheap deterministic guards, not policy. Keep generous.
@@ -393,6 +407,13 @@ def _v_quiz(p: Mapping[str, Any]) -> None:
         _req_str(qm, "prompt", ctx)
         _QUIZ_TYPE_VALIDATORS[qtype](qm, ctx)
         _opt_str(qm, "explanation", ctx)
+        try:
+            if "hint_ladder" in qm:
+                validate_hint_ladder(qm["hint_ladder"])
+            if "explanation_rubric" in qm:
+                validate_explanation_rubric(qm["explanation_rubric"])
+        except PracticeContractError as exc:
+            raise ContractError(f"{ctx}: {exc}") from exc
 
 
 def _v_tutoring_note(p: Mapping[str, Any]) -> None:
@@ -409,6 +430,11 @@ def _v_evaluation(p: Mapping[str, Any]) -> None:
     _opt_str_list(p, "observations", "evaluation")
     _opt_str_list(p, "weak_points", "evaluation")
     _opt_str_list(p, "suggestions", "evaluation")
+    if "practice_evaluation" in p:
+        try:
+            validate_practice_evaluation_record(p["practice_evaluation"])
+        except PracticeContractError as exc:
+            raise ContractError(f"evaluation: {exc}") from exc
     refs = p.get("evidence_refs")
     if refs is None:
         return
@@ -422,6 +448,13 @@ def _v_evaluation(p: Mapping[str, Any]) -> None:
                 raise ContractError(f"{rctx}: keys and values must be strings")
 
 
+def _v_whiteboard_snapshot(p: Mapping[str, Any]) -> None:
+    try:
+        validate_whiteboard_snapshot_payload(p)
+    except WhiteboardContractError as exc:
+        raise ContractError(f"whiteboard_snapshot: {exc}") from exc
+
+
 _PAYLOAD_VALIDATORS: Dict[str, Callable[[Mapping[str, Any]], None]] = {
     "student_state": _v_student_state,
     "knowledge_base": _v_knowledge_base,
@@ -431,6 +464,7 @@ _PAYLOAD_VALIDATORS: Dict[str, Callable[[Mapping[str, Any]], None]] = {
     "quiz": _v_quiz,
     "tutoring_note": _v_tutoring_note,
     "evaluation": _v_evaluation,
+    "whiteboard_snapshot": _v_whiteboard_snapshot,
 }
 
 # Every kind must have a validator; guards against vocabulary drift.
@@ -600,6 +634,10 @@ def validate_envelope(data: Mapping[str, Any]) -> LearningOutputEnvelope:
         raise ContractError(f"title exceeds {MAX_TITLE_LEN} chars")
 
     source_refs = _validate_source_refs(d.get("source_refs", []))
+    if kind == "whiteboard_snapshot" and len(source_refs) > MAX_WHITEBOARD_SOURCE_REFS:
+        raise ContractError(
+            f"whiteboard_snapshot source_refs exceeds {MAX_WHITEBOARD_SOURCE_REFS} entries"
+        )
 
     payload = d.get("payload")
     if not isinstance(payload, Mapping):

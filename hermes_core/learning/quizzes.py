@@ -16,6 +16,14 @@ from typing import Any, Callable, Dict, List, Optional
 
 from learning.learning_context import LearningExecutionContext
 from learning.code_grader import check_numeric_equivalence, run_python_grading
+from learning.practice_contract import (
+    PracticeContractError,
+    build_grader_provenance,
+    explanation_rubric_hash,
+    validate_explanation_rubric,
+    validate_grader_provenance,
+    validate_hint_ladder,
+)
 
 QUIZ_QUESTION_ITEM_TYPE = "quiz_question"
 QUIZ_ATTEMPT_ACTIVITY = "quiz.attempt"
@@ -209,7 +217,7 @@ class QuizService:
             artifact = self._require_quiz(artifact_id)
 
         existing = {
-            row["item_id"]
+            row["item_id"]: row
             for row in self._ctx.list_items(
                 item_type=QUIZ_QUESTION_ITEM_TYPE,
                 artifact_id=artifact_id,
@@ -220,6 +228,12 @@ class QuizService:
         for index, question in enumerate(self._quiz_questions(artifact)):
             iid = _item_id(artifact_id, index)
             if iid in existing:
+                self._backfill_v04_provenance(
+                    existing[iid],
+                    question,
+                    artifact_id=artifact_id,
+                    artifact_version=int(artifact.get("version") or 1),
+                )
                 continue
             self._ctx.upsert_item(
                 item_id=iid,
@@ -229,11 +243,60 @@ class QuizService:
                     question,
                     item_id=iid,
                     artifact_id=artifact_id,
+                    artifact_version=int(artifact.get("version") or 1),
                     now=now,
                 ),
             )
             created += 1
         return {"artifact_id": artifact_id, "status": "active", "materialized": created}
+
+    def _backfill_v04_provenance(
+        self,
+        item: Dict[str, Any],
+        question: Dict[str, Any],
+        *,
+        artifact_id: str,
+        artifact_version: int,
+    ) -> None:
+        """Upgrade an exact v0.4 materialization without guessing grader truth."""
+        current = copy.deepcopy(item.get("state") or {})
+        if "artifact_version" in current or "grader_provenance" in current:
+            # Current or partially modified states are validated by Tutor. Never
+            # turn malformed provenance into trusted truth during activation.
+            return
+
+        created_at = current.get("createdAt")
+        if not isinstance(created_at, str) or not created_at:
+            raise ValueError("legacy quiz item has no stable creation time")
+        upgraded = self._initial_state(
+            question,
+            item_id=str(item["item_id"]),
+            artifact_id=artifact_id,
+            artifact_version=artifact_version,
+            now=created_at,
+        )
+        expected_v04 = copy.deepcopy(upgraded)
+        for field in (
+            "artifact_version",
+            "grader_provenance",
+            "hint_ladder",
+            "explanation_rubric",
+            "explanation_rubric_sha256",
+        ):
+            expected_v04.pop(field, None)
+        if current != expected_v04:
+            raise ValueError(
+                "legacy quiz item does not match the active artifact; "
+                "deterministic provenance was not added"
+            )
+        if not self._ctx.compare_and_update_item_state(
+            str(item["item_id"]),
+            current,
+            upgraded,
+        ):
+            raise ValueError(
+                "legacy quiz item changed during provenance migration; retry activation"
+            )
 
     def reject_quiz(self, artifact_id: str) -> Dict[str, Any]:
         artifact = self._require_quiz(artifact_id)
@@ -255,6 +318,56 @@ class QuizService:
             artifact_id=artifact_id,
         )
         return [self._question_from_item(row, include_answers=include_answers) for row in rows]
+
+    def get_active_question(
+        self,
+        artifact_id: str,
+        item_id: str,
+        *,
+        include_answers: bool = False,
+    ) -> Dict[str, Any]:
+        """Load one activated question without recording learner activity.
+
+        This is the trusted read seam used by Tutor.  Hidden grader truth is
+        returned only when an in-process caller explicitly asks for it; HTTP
+        adapters must continue to use ``list_questions()`` without that flag.
+        """
+        artifact = self._require_quiz(artifact_id)
+        if artifact["status"] != "active":
+            raise ValueError("quiz is not active")
+        matches = [
+            question
+            for question in self.list_questions(
+                artifact_id=artifact_id,
+                include_answers=include_answers,
+            )
+            if question["item_id"] == item_id
+        ]
+        if len(matches) != 1:
+            raise KeyError(f"question {item_id!r} not found in active quiz")
+        return matches[0]
+
+    def grade_active_question(
+        self,
+        artifact_id: str,
+        item_id: str,
+        response: Any,
+    ) -> Dict[str, Any]:
+        """Grade exactly one activated question with no durable side effect."""
+        question = self.get_active_question(
+            artifact_id,
+            item_id,
+            include_answers=True,
+        )
+        return self.grade_question_snapshot(question, response)
+
+    def grade_question_snapshot(
+        self,
+        question: Dict[str, Any],
+        response: Any,
+    ) -> Dict[str, Any]:
+        """Grade one caller-pinned question snapshot without reading or writing."""
+        return self._grade_question(copy.deepcopy(question), response)
 
     def submit_attempt(
         self,
@@ -354,6 +467,7 @@ class QuizService:
         *,
         item_id: str,
         artifact_id: str,
+        artifact_version: int,
         now: str,
     ) -> Dict[str, Any]:
         qtype = question.get("type")
@@ -370,6 +484,7 @@ class QuizService:
             "tags": _clean_tags(question.get("tags")),
             "points": _points(question.get("points")),
             "createdAt": now,
+            "artifact_version": artifact_version,
         }
         if qtype == "true_false":
             state["answer"] = bool(question.get("answer"))
@@ -421,6 +536,27 @@ class QuizService:
                     ],
                 }
             )
+        try:
+            state["grader_provenance"] = build_grader_provenance(
+                state,
+                artifact_id=artifact_id,
+                artifact_version=artifact_version,
+                item_id=item_id,
+            )
+            if "hint_ladder" in question:
+                state["hint_ladder"] = validate_hint_ladder(
+                    question["hint_ladder"]
+                )
+            if "explanation_rubric" in question:
+                rubric = validate_explanation_rubric(
+                    question["explanation_rubric"]
+                )
+                state["explanation_rubric"] = rubric
+                state["explanation_rubric_sha256"] = explanation_rubric_hash(
+                    rubric
+                )
+        except PracticeContractError as exc:
+            raise ValueError(f"invalid Practice contract: {exc}") from exc
         return state
 
     def _question_from_item(self, row: Dict[str, Any], *, include_answers: bool) -> Dict[str, Any]:
@@ -433,6 +569,8 @@ class QuizService:
         if not include_answers:
             out.pop("answer", None)
             out.pop("accepted", None)
+            out.pop("hint_ladder", None)
+            out.pop("explanation_rubric", None)
             if out.get("type") == "code":
                 out.pop("reference", None)
                 out.pop("test_code", None)
@@ -476,6 +614,7 @@ class QuizService:
         gradable = True
         scored = True
         mode = ""
+        sandbox_status = ""
 
         if qtype == "choice":
             options = question.get("options") if isinstance(question.get("options"), list) else []
@@ -515,10 +654,13 @@ class QuizService:
                     part for part in (starter, learner_source) if part
                 )
                 result = run_python_grading(source, _clean_text(question.get("test_code"), MAX_CODE_TEXT))
+                sandbox_status = str(result.get("status") or "failed")
                 correct = result["passed"]
                 failure_summary = result["failure_summary"]
                 failure_kind = _failure_kind(failure_summary)
                 timed_out = result["timed_out"]
+                if sandbox_status in {"timeout", "unavailable"}:
+                    scored = False
             else:
                 gradable = False
                 scored = False
@@ -568,11 +710,32 @@ class QuizService:
                 elif index not in ungraded_steps:
                     ungraded_steps.append(index)
             normalized_response = {"steps": response_detail}
+            # Preserve the v0.4 partial-score contract for already gradable
+            # components.  The new branchable ``outcome`` below still becomes
+            # ``ungradable`` when any required component lacks trusted truth.
             scored = graded_components > 0
             ungraded = not scored
             correct = scored and failed_components == 0
 
         answer = question.get("answer")
+        provenance = question.get("grader_provenance")
+        try:
+            provenance = validate_grader_provenance(provenance)
+        except PracticeContractError:
+            provenance = build_grader_provenance(
+                question,
+                artifact_id=str(question.get("artifact_id") or ""),
+                artifact_version=int(question.get("artifact_version") or 1),
+                item_id=str(question.get("item_id") or ""),
+            )
+        if timed_out or sandbox_status == "timeout":
+            outcome = "timeout"
+        elif sandbox_status == "unavailable":
+            outcome = "sandbox_failure"
+        elif not gradable or not scored or ungraded or bool(ungraded_steps):
+            outcome = "ungradable"
+        else:
+            outcome = "correct" if correct else "incorrect"
         earned = points if scored and correct else 0
         return {
             "item_id": question["item_id"],
@@ -589,6 +752,8 @@ class QuizService:
             "ungraded_steps": ungraded_steps,
             "failure_summary": failure_summary,
             "failure_kind": failure_kind,
+            "outcome": outcome,
+            "grader_provenance": provenance,
             "answer": answer,
             "accepted": question.get("accepted") or [],
             "explanation": question.get("explanation") or "",

@@ -16,6 +16,8 @@ from learning.learning_index import LearningIndex
 from learning.learning_store import LearningStore
 from learning.output_writer import OutputWriter
 from learning.quizzes import QUIZ_ATTEMPT_ACTIVITY, QuizService
+from learning.tutor_contract import TutorContractError
+from learning.tutor_practice import TutorPracticeAdapter
 
 
 T0 = datetime(2026, 1, 1, tzinfo=timezone.utc)
@@ -217,6 +219,38 @@ def test_list_questions_can_include_answers_for_result_views(ctx):
     assert questions[3]["accepted"] == ["GD"]
 
 
+def test_grade_active_question_is_pure_and_uses_the_same_grader(ctx):
+    artifact_id = _draft_quiz(ctx)
+    service = QuizService(ctx, now=lambda: T0)
+    service.activate_quiz(artifact_id)
+    target = service.list_questions()[0]
+
+    result = service.grade_active_question(
+        artifact_id,
+        target["item_id"],
+        {"selected": [1]},
+    )
+
+    assert result["outcome"] == "correct"
+    assert result["grader_provenance"]["source_kind"] == "activated_quiz_item"
+    assert ctx.list_activities() == []
+
+
+def test_get_active_question_rejects_draft_and_cross_artifact_item(ctx):
+    first = _draft_quiz(ctx, title="First")
+    second = _draft_quiz(ctx, title="Second")
+    service = QuizService(ctx, now=lambda: T0)
+    service.activate_quiz(first)
+    first_item = service.list_questions(artifact_id=first)[0]["item_id"]
+
+    with pytest.raises(ValueError, match="not active"):
+        service.get_active_question(second, first_item)
+
+    service.activate_quiz(second)
+    with pytest.raises(KeyError, match="not found"):
+        service.get_active_question(second, first_item)
+
+
 def _practice_payload():
     return {
         "questions": [
@@ -345,8 +379,12 @@ def test_practice_dispatch_grades_python_transcribe_and_derivation(ctx):
     assert result["perQuestion"][0]["mode"] == "solve"
     assert result["perQuestion"][1]["mode"] == "transcribe"
     assert result["perQuestion"][2]["ungraded_steps"] == [0]
+    assert result["perQuestion"][2]["outcome"] == "ungradable"
+    assert result["perQuestion"][2]["scored"] is True
+    assert result["perQuestion"][2]["correct"] is True
     assert result["perQuestion"][3]["ungraded"] is True
     assert result["perQuestion"][3]["gradable"] is False
+    assert result["perQuestion"][3]["outcome"] == "ungradable"
     assert result["weakTags"] == []
 
 
@@ -381,3 +419,188 @@ def test_code_failure_summary_is_ui_only_and_never_projected(ctx):
     assert "failure_summary" not in activity["detail"]["perQuestion"][0]
     snapshot = LearningIndex(ctx).build()
     assert "IGNORE ALL PRIOR INSTRUCTIONS" not in str(snapshot)
+
+
+def test_activation_pins_grader_truth_and_hides_assistance_contracts(ctx):
+    artifact_id = OutputWriter(ctx).write_artifact(
+        kind="quiz",
+        title="Assisted question",
+        payload={
+            "questions": [
+                {
+                    "type": "short_answer",
+                    "prompt": "Why does the step follow?",
+                    "answer": "definition",
+                    "hint_ladder": {
+                        "schema_version": 1,
+                        "direction": "Start from the definition.",
+                        "full_solution": "Apply the definition directly.",
+                    },
+                    "explanation_rubric": {
+                        "schema_version": 1,
+                        "criteria": [
+                            {
+                                "criterion_id": "definition",
+                                "description": "Connect the answer to the definition.",
+                                "tags": ["reasoning"],
+                            }
+                        ],
+                    },
+                }
+            ]
+        },
+    )["artifact_id"]
+    service = QuizService(ctx, now=lambda: T0)
+    service.activate_quiz(artifact_id)
+
+    public = service.list_questions(artifact_id=artifact_id)[0]
+    trusted = service.list_questions(
+        artifact_id=artifact_id, include_answers=True
+    )[0]
+
+    assert "hint_ladder" not in public
+    assert "explanation_rubric" not in public
+    assert trusted["hint_ladder"]["direction"] == "Start from the definition."
+    assert trusted["explanation_rubric"]["criteria"][0]["criterion_id"] == "definition"
+    assert len(trusted["grader_provenance"]["rubric_sha256"]) == 64
+    assert len(trusted["explanation_rubric_sha256"]) == 64
+
+
+def test_submit_result_exposes_pinned_outcome_provenance_without_hidden_truth(ctx):
+    artifact_id = _draft_quiz(ctx)
+    service = QuizService(ctx, now=lambda: T0)
+    service.activate_quiz(artifact_id)
+    item_id = service.list_questions(artifact_id=artifact_id)[0]["item_id"]
+
+    result = service.submit_attempt(
+        artifact_id,
+        {item_id: {"selected": [1]}},
+        item_ids=[item_id],
+    )["perQuestion"][0]
+
+    assert result["outcome"] == "correct"
+    assert result["grader_provenance"]["source_kind"] == "activated_quiz_item"
+    assert result["grader_provenance"]["grader_kind"] == "choice_exact"
+    assert "options" not in result["grader_provenance"]
+
+
+def test_v04_materialized_question_is_backfilled_for_deterministic_tutor(ctx):
+    artifact_id = _draft_quiz(ctx)
+    service = QuizService(ctx, now=lambda: T0)
+    service.activate_quiz(artifact_id)
+    item = ctx.list_items(artifact_id=artifact_id)[0]
+    state = dict(item["state"])
+    state.pop("grader_provenance")
+    state.pop("artifact_version")
+    ctx.update_item_state(item["item_id"], state)
+
+    result = service.activate_quiz(artifact_id)
+    migrated = ctx.list_items(artifact_id=artifact_id)[0]["state"]
+    resolved = TutorPracticeAdapter(ctx).resolve_check(
+        artifact_id=artifact_id,
+        item_id=item["item_id"],
+    )
+
+    assert result["materialized"] == 0
+    assert migrated["createdAt"] == state["createdAt"]
+    assert migrated["artifact_version"] == 1
+    assert migrated["grader_provenance"]["artifact_version"] == 1
+    assert resolved.check_spec.evaluation_mode == "deterministic"
+
+
+def test_v04_backfill_rejects_truth_drift_and_remains_untrusted(ctx):
+    artifact_id = _draft_quiz(ctx)
+    service = QuizService(ctx, now=lambda: T0)
+    service.activate_quiz(artifact_id)
+    item = ctx.list_items(artifact_id=artifact_id)[0]
+    state = dict(item["state"])
+    state.pop("grader_provenance")
+    state.pop("artifact_version")
+    state["prompt"] = "tampered prompt"
+    ctx.update_item_state(item["item_id"], state)
+
+    with pytest.raises(ValueError, match="does not match the active artifact"):
+        service.activate_quiz(artifact_id)
+    with pytest.raises(TutorContractError) as exc_info:
+        TutorPracticeAdapter(ctx).resolve_check(
+            artifact_id=artifact_id,
+            item_id=item["item_id"],
+        )
+
+    assert exc_info.value.reason_code == "source_untrusted"
+    unchanged = ctx.list_items(artifact_id=artifact_id)[0]["state"]
+    assert unchanged["prompt"] == "tampered prompt"
+    assert "grader_provenance" not in unchanged
+
+
+def test_v04_backfill_does_not_repair_partial_provenance(ctx):
+    artifact_id = _draft_quiz(ctx)
+    service = QuizService(ctx, now=lambda: T0)
+    service.activate_quiz(artifact_id)
+    item = ctx.list_items(artifact_id=artifact_id)[0]
+    state = dict(item["state"])
+    state.pop("grader_provenance")
+    ctx.update_item_state(item["item_id"], state)
+
+    assert service.activate_quiz(artifact_id)["materialized"] == 0
+    with pytest.raises(TutorContractError) as exc_info:
+        TutorPracticeAdapter(ctx).resolve_check(
+            artifact_id=artifact_id,
+            item_id=item["item_id"],
+        )
+
+    assert exc_info.value.reason_code == "source_untrusted"
+    assert "grader_provenance" not in ctx.list_items(artifact_id=artifact_id)[0][
+        "state"
+    ]
+
+
+def test_v04_backfill_fails_if_item_changes_before_atomic_write(ctx, monkeypatch):
+    artifact_id = _draft_quiz(ctx)
+    service = QuizService(ctx, now=lambda: T0)
+    service.activate_quiz(artifact_id)
+    item = ctx.list_items(artifact_id=artifact_id)[0]
+    state = dict(item["state"])
+    state.pop("grader_provenance")
+    state.pop("artifact_version")
+    ctx.update_item_state(item["item_id"], state)
+    monkeypatch.setattr(
+        LearningExecutionContext,
+        "compare_and_update_item_state",
+        lambda *_args: False,
+    )
+
+    with pytest.raises(ValueError, match="changed during provenance migration"):
+        service.activate_quiz(artifact_id)
+
+    unchanged = ctx.list_items(artifact_id=artifact_id)[0]["state"]
+    assert "artifact_version" not in unchanged
+    assert "grader_provenance" not in unchanged
+
+
+def test_code_grader_unavailable_is_not_recorded_as_wrong_answer(ctx, monkeypatch):
+    artifact_id = _draft_practice_quiz(ctx)
+    service = QuizService(ctx, now=lambda: T0)
+    service.activate_quiz(artifact_id)
+    item_id = service.list_questions(artifact_id=artifact_id)[0]["item_id"]
+    monkeypatch.setattr(
+        "learning.quizzes.run_python_grading",
+        lambda *_args, **_kwargs: {
+            "status": "unavailable",
+            "passed": False,
+            "failure_summary": "Grader unavailable: OSError",
+            "timed_out": False,
+            "truncated": False,
+        },
+    )
+
+    result = service.submit_attempt(
+        artifact_id,
+        {item_id: {"code": "def add(a, b): return a + b"}},
+        item_ids=[item_id],
+    )
+
+    grade = result["perQuestion"][0]
+    assert grade["outcome"] == "sandbox_failure"
+    assert grade["correct"] is False
+    assert result["weakTags"] == []

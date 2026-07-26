@@ -1,9 +1,9 @@
 # Copyright 2026 Kabuqina Contributors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Phase 3.5 Task 3: enforce LangGraph/LangChain/LangSmith import isolation.
+"""Enforce LangGraph/LangChain/LangSmith import isolation.
 
-Only ``agent/graph_engine/builder.py`` may import from ``langgraph``.
+Only the ordinary Agent and Tutor graph builders may import from ``langgraph``.
 No production file may import from ``langchain`` or ``langsmith``.
 """
 
@@ -69,17 +69,21 @@ def test_configured_import_scan_covers_entire_core():
         "cron/scheduler.py",
         "tools/cronjob_tools.py",
         "agent/graph_engine/builder.py",
+        "agent/graph_engine/tutor_builder.py",
     } <= scanned
 
 
 # ── langgraph-only gate ──────────────────────────────────────────────────
 
-LANGRAPH_ALLOWED = {"agent/graph_engine/builder.py"}
+LANGRAPH_ALLOWED = {
+    "agent/graph_engine/builder.py",
+    "agent/graph_engine/tutor_builder.py",
+}
 FORBIDDEN_PREFIXES = ("langchain", "langsmith")
 
 
-def test_langgraph_imports_only_in_builder():
-    """langgraph imports are allowed ONLY in agent/graph_engine/builder.py."""
+def test_langgraph_imports_only_in_dedicated_builders():
+    """LangGraph imports are allowed only in the two graph builders."""
     violations: list[str] = []
     for py_file in _walk_production_py_files(PRODUCTION_ROOT):
         rel = _relative(py_file)
@@ -91,7 +95,7 @@ def test_langgraph_imports_only_in_builder():
                         + (f" as {symbol}" if symbol else "")
                     )
     assert not violations, (
-        "only agent/graph_engine/builder.py may import langgraph:\n"
+        "only dedicated Agent/Tutor builders may import langgraph:\n"
         + "\n".join(violations)
     )
 
@@ -114,12 +118,12 @@ def test_no_langchain_or_langsmith_imports():
     )
 
 
-def test_langgraph_import_present_in_builder():
-    """builder.py must keep the graph package's sole langgraph import."""
-    py_file = ROOT / "agent" / "graph_engine" / "builder.py"
-    found = False
-    for module, _symbol, _lineno in _extract_imports(py_file):
-        if module == "langgraph" or (module is not None and module.startswith("langgraph.")):
-            found = True
-            break
-    assert found, "agent/graph_engine/builder.py must import langgraph"
+def test_langgraph_import_present_in_dedicated_builders():
+    """Both dedicated builders must retain their direct LangGraph imports."""
+    for relative in sorted(LANGRAPH_ALLOWED):
+        py_file = ROOT / relative
+        found = any(
+            module == "langgraph" or module.startswith("langgraph.")
+            for module, _symbol, _lineno in _extract_imports(py_file)
+        )
+        assert found, f"{relative} must import langgraph"

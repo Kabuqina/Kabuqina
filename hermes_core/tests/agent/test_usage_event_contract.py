@@ -92,6 +92,20 @@ def test_learning_conduct_metrics_capture_text_shape_and_protocol():
     assert metrics.answer_then_teach_covered is True
 
 
+def test_learning_conduct_metrics_strip_unterminated_final_legacy_block():
+    from agent.usage_events import analyze_learning_conduct_text
+
+    metrics = analyze_learning_conduct_text(
+        "解释正文？\n\n```kq-kp\n[{\"name\":\"partial\"}"
+    )
+
+    assert metrics is not None
+    assert metrics.assistant_chars == len("解释正文？")
+    assert metrics.ends_with_check_question is True
+    assert metrics.kq_kp_emitted is True
+    assert metrics.answer_then_teach_covered is True
+
+
 def test_usage_event_can_carry_learning_conduct_metrics():
     from agent.usage_events import analyze_learning_conduct_text
 

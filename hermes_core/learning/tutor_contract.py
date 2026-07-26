@@ -60,6 +60,8 @@ _START_FIELDS = frozenset(
         "idempotency_key",
         "goal",
         "input_refs",
+        "tutor_mode",
+        "practice_ref",
     }
 )
 
@@ -239,6 +241,33 @@ def _normalize_start_body(body: Mapping[str, Any]) -> dict[str, Any]:
         "goal": _nfc(goal),
         "input_refs": list(_normalize_input_refs(request.get("input_refs"))),
     }
+    tutor_mode = request.get("tutor_mode", "participation")
+    if activity_kind != "tutor" and (
+        "tutor_mode" in request or "practice_ref" in request
+    ):
+        raise TutorContractError("Tutor start fields require activity_kind=tutor")
+    if tutor_mode not in {"participation", "deterministic_practice"}:
+        raise TutorContractError("tutor_mode is invalid")
+    if tutor_mode == "deterministic_practice":
+        practice_ref = _require_mapping(request.get("practice_ref"), "practice_ref")
+        _require_exact_fields(
+            practice_ref,
+            frozenset({"artifact_id", "item_id"}),
+            "practice_ref",
+        )
+        normalized["tutor_mode"] = "deterministic_practice"
+        normalized["practice_ref"] = {
+            "artifact_id": _require_opaque_id(
+                practice_ref.get("artifact_id"), "practice_ref.artifact_id"
+            ),
+            "item_id": _require_opaque_id(
+                practice_ref.get("item_id"), "practice_ref.item_id"
+            ),
+        }
+    elif "practice_ref" in request:
+        raise TutorContractError(
+            "practice_ref requires tutor_mode=deterministic_practice"
+        )
     # Validate the normalized representation too; normalization must never grow
     # a request past the wire cap unnoticed.
     _require_request_size(normalized)
@@ -261,7 +290,9 @@ class LearningActivityKeyV1:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "owner_id", _require_owner_id(self.owner_id))
-        object.__setattr__(self, "space_id", _require_opaque_id(self.space_id, "space_id"))
+        object.__setattr__(
+            self, "space_id", _require_opaque_id(self.space_id, "space_id")
+        )
         if self.activity_kind not in ACTIVITY_KINDS:
             raise TutorContractError("activity_kind is invalid")
         object.__setattr__(
@@ -279,6 +310,8 @@ class LearningActivityStartV1:
     goal: str
     input_refs: tuple[dict[str, Any], ...]
     request_fingerprint: str
+    tutor_mode: str = "participation"
+    practice_ref: dict[str, str] | None = None
     schema_version: int = TUTOR_CONTRACT_VERSION
 
     @property
@@ -307,6 +340,8 @@ def validate_start_request(
         goal=normalized["goal"],
         input_refs=tuple(normalized["input_refs"]),
         request_fingerprint=canonical_request_fingerprint(normalized),
+        tutor_mode=normalized.get("tutor_mode", "participation"),
+        practice_ref=normalized.get("practice_ref"),
     )
 
 
@@ -379,7 +414,9 @@ def validate_resume_request(body: Mapping[str, Any]) -> LearningActivityResumeV1
         )
         return LearningActivityResumeV1(
             mode="answer",
-            interrupt_id=_require_opaque_id(request.get("interrupt_id"), "interrupt_id"),
+            interrupt_id=_require_opaque_id(
+                request.get("interrupt_id"), "interrupt_id"
+            ),
             answer=_normalize_answer(request.get("answer")),
             **common,
         )
@@ -482,9 +519,7 @@ class LearningActivitySnapshotV1:
         if self.interrupt is not None:
             result["interrupt"] = self.interrupt.to_public_dict()
         if self.terminal is not None:
-            result["terminal"] = _json_safe_nfc(
-                self.terminal, path="snapshot.terminal"
-            )
+            result["terminal"] = _json_safe_nfc(self.terminal, path="snapshot.terminal")
         return result
 
 

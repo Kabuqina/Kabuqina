@@ -145,12 +145,72 @@ def test_start_fingerprint_preserves_input_ref_order():
     assert canonical_request_fingerprint(first) != canonical_request_fingerprint(second)
 
 
+def test_start_deterministic_practice_selection_is_exact_and_fingerprinted():
+    body = _start(
+        tutor_mode="deterministic_practice",
+        practice_ref={"artifact_id": "quiz-1", "item_id": "quiz-1-0000"},
+    )
+    request = validate_start_request(
+        body,
+        owner_id="owner-1",
+        activity_id="activity-1",
+    )
+
+    assert request.tutor_mode == "deterministic_practice"
+    assert request.practice_ref == {
+        "artifact_id": "quiz-1",
+        "item_id": "quiz-1-0000",
+    }
+    assert request.request_fingerprint != canonical_request_fingerprint(_start())
+
+
+def test_legacy_and_explicit_participation_start_have_the_old_fingerprint():
+    legacy = _start()
+    explicit = _start(tutor_mode="participation")
+
+    assert canonical_request_fingerprint(legacy) == canonical_request_fingerprint(
+        explicit
+    )
+    request = validate_start_request(
+        legacy,
+        owner_id="owner-1",
+        activity_id="activity-1",
+    )
+    assert request.tutor_mode == "participation"
+    assert request.practice_ref is None
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        _start(tutor_mode="deterministic_practice"),
+        _start(practice_ref={"artifact_id": "quiz-1", "item_id": "item-1"}),
+        _start(
+            tutor_mode="deterministic_practice",
+            practice_ref={"artifact_id": "quiz-1", "item_id": "item-1", "answer": "x"},
+        ),
+        _start(tutor_mode="model_grades"),
+        _start(
+            activity_kind="practice",
+            tutor_mode="deterministic_practice",
+            practice_ref={"artifact_id": "quiz-1", "item_id": "item-1"},
+        ),
+    ],
+)
+def test_start_practice_selection_fails_closed(body):
+    with pytest.raises(TutorContractError):
+        validate_start_request(body, owner_id="owner-1", activity_id="activity-1")
+
+
 @pytest.mark.parametrize(
     "body,match",
     [
         (_start(schema_version=2), "schema_version"),
         (_start(goal="x" * 4001), "goal"),
-        (_start(input_refs=[{"kind": "item", "id": f"i-{i}"} for i in range(17)]), "input_refs"),
+        (
+            _start(input_refs=[{"kind": "item", "id": f"i-{i}"} for i in range(17)]),
+            "input_refs",
+        ),
         (_start(extra=True), "unknown field"),
         (_start(input_refs=[{"kind": "other", "id": "x"}]), "input_refs"),
         (_start(input_refs=[{"kind": "source", "id": "x", "sha256": "ABC"}]), "sha256"),
@@ -163,7 +223,9 @@ def test_start_rejects_unknown_version_caps_and_invalid_refs(body, match):
 
 def test_canonical_json_subset_rejects_float_values():
     with pytest.raises(TutorContractError, match="number"):
-        canonical_request_fingerprint(_start(input_refs=[{"kind": "item", "id": "x", "version": 1.5}]))
+        canonical_request_fingerprint(
+            _start(input_refs=[{"kind": "item", "id": "x", "version": 1.5}])
+        )
 
 
 def test_shared_canonical_json_fixture_matches_python_contract():

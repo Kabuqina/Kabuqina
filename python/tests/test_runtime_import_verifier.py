@@ -25,11 +25,28 @@ class RuntimeImportVerifierTests(unittest.TestCase):
         for module in (
             "desk_server",
             "desk_server.routes.study_routes",
+            "desk_server.routes.study_activity_routes",
+            "desk_server.routes.study_whiteboard_routes",
             "desk_server.capabilities",
             "product_profile_policy",
             "learning.flashcards",
             "learning_owner",
             "learning_recovery",
+            "agent.graph_engine.tutor_contracts",
+            "agent.graph_engine.tutor_branch_policy",
+            "agent.graph_engine.tutor_retention",
+            "agent.knowledge_post_node",
+            "learning.tutor_practice",
+            "agent.graph_engine.tutor_ports",
+            "agent.graph_engine.tutor_nodes",
+            "agent.graph_engine.tutor_builder",
+            "agent.graph_engine.tutor_engine",
+            "learning.practice_contract",
+            "learning.practice_hints",
+            "learning.practice_evaluation",
+            "learning.whiteboard_contract",
+            "learning.whiteboard",
+            "learning.tutor_whiteboard",
         ):
             self.assertIn(module, text)
 

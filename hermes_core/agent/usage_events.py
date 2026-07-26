@@ -15,15 +15,12 @@ import logging
 import re
 from typing import Protocol
 
+from agent.knowledge_post_node import strip_legacy_kq_kp_blocks
 from agent.usage_pricing import BillingRoute, CanonicalUsage, CostResult
 
 
 logger = logging.getLogger(__name__)
 _COMPLETE_COST_STATUSES = {"actual", "estimated", "included"}
-_KQ_KP_BLOCK_RE = re.compile(
-    r"^```kq-kp[ \t]*\r?\n([\s\S]*?)^```[ \t]*(?:\r?\n|$)",
-    re.IGNORECASE | re.MULTILINE,
-)
 _CHECK_QUESTION_ENDINGS = ("?", "？")
 
 
@@ -44,8 +41,7 @@ def analyze_learning_conduct_text(text: str | None) -> LearningConductMetrics | 
     if not isinstance(text, str):
         return None
 
-    kq_kp_emitted = bool(_KQ_KP_BLOCK_RE.search(text))
-    visible_text = _KQ_KP_BLOCK_RE.sub("", text).strip()
+    visible_text, kq_kp_emitted = strip_legacy_kq_kp_blocks(text)
     if not visible_text and not kq_kp_emitted:
         return None
 

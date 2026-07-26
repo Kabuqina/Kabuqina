@@ -44,6 +44,7 @@ def test_kinds_are_exactly_the_v1_set():
             "quiz",
             "tutoring_note",
             "evaluation",
+            "whiteboard_snapshot",
         }
     )
 
@@ -122,6 +123,7 @@ def test_default_review_mode_matches_design_table():
         "quiz": "semantic",
         "tutoring_note": "deterministic",
         "evaluation": "deterministic",
+        "whiteboard_snapshot": "deterministic",
     }
     assert DEFAULT_REVIEW_MODE == expected
     for kind, mode in expected.items():
@@ -219,6 +221,15 @@ VALID_PAYLOADS = {
         "evidence": ["quiz-artifact-42"],
         "weak_points": ["Chain rule"],
         "suggestions": ["Practice composite functions"],
+    },
+    "whiteboard_snapshot": {
+        "schema_version": 1,
+        "activity_id": "activity-1",
+        "lineage_id": "lineage-1",
+        "revision": 1,
+        "parent_artifact_id": None,
+        "scene": {"schema_version": 1, "elements": []},
+        "scene_sha256": "7035e16cfe81bfbf5f16fe9b83d67bc69ccf76e2946e546fe2c456a5866c2837",
     },
 }
 
@@ -571,6 +582,72 @@ def test_quiz_short_answer_accepted_list_is_valid():
         )
     )
     assert env.kind == "quiz"
+
+
+def test_quiz_question_accepts_versioned_hint_and_explanation_rubric():
+    question = {
+        "type": "short_answer",
+        "prompt": "Why?",
+        "answer": "definition",
+        "hint_ladder": {
+            "schema_version": 1,
+            "direction": "Start from the definition.",
+            "full_solution": "Apply the definition directly.",
+        },
+        "explanation_rubric": {
+            "schema_version": 1,
+            "criteria": [
+                {
+                    "criterion_id": "definition",
+                    "description": "Connect the result to the definition.",
+                    "tags": ["reasoning"],
+                }
+            ],
+        },
+    }
+
+    envelope = validate_envelope(_envelope("quiz", {"questions": [question]}))
+
+    assert envelope.payload["questions"][0]["hint_ladder"]["direction"]
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("hint_ladder", {"schema_version": 1}),
+        (
+            "hint_ladder",
+            {"schema_version": 1, "direction": "x", "answer": "leak"},
+        ),
+        (
+            "explanation_rubric",
+            {"schema_version": 1, "criteria": []},
+        ),
+        (
+            "explanation_rubric",
+            {
+                "schema_version": 1,
+                "criteria": [
+                    {
+                        "criterion_id": "c1",
+                        "description": "d",
+                        "tags": [],
+                        "passed": True,
+                    }
+                ],
+            },
+        ),
+    ],
+)
+def test_quiz_question_rejects_invalid_assistance_contract(field, value):
+    question = {
+        "type": "short_answer",
+        "prompt": "Why?",
+        "answer": "definition",
+        field: value,
+    }
+    with pytest.raises(ContractError):
+        validate_envelope(_envelope("quiz", {"questions": [question]}))
 
 
 @pytest.mark.parametrize(
