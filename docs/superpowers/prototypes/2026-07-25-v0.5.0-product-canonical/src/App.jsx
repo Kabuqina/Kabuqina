@@ -79,7 +79,8 @@ const INITIAL_SCRATCH_NOTES = [
   {
     id: "s1",
     text: "读到一句：数学里的等号，是在说两个不同的写法，指的是同一个东西。",
-    meta: "昨天 · 来自对话",
+    // 来源行统一为「来源 · 时间」
+    meta: "来自对话 · 昨天",
   },
 ];
 
@@ -342,34 +343,36 @@ function FlyleafPage({ draftVisible, onInk, onErase }) {
           <header>
             <span>
               <PencilLine aria-hidden="true" />
-              铅笔草稿
+              小娜拟的
             </span>
           </header>
           <dl className="flyleaf-rows">
             <div><dt>目标</dt><dd>能解释极限的核心概念，并独立完成基础题。</dd></div>
             <div><dt>偏好</dt><dd>先看一个直观例子，再自己动手推导。</dd></div>
-            <div><dt>约束</dt><dd>工作日每天 45 分钟，不用一次学完。</dd></div>
+            <div><dt>时间</dt><dd>工作日每天 45 分钟，不用一次学完。</dd></div>
           </dl>
           <div className="inline-actions">
             <button className="primary-action" type="button" onClick={onInk}>
               <AppIcon icon={Check} />
-              落墨生效
+              就按这个来
             </button>
-            <button type="button" onClick={onErase}>擦除草稿</button>
+            <button type="button" onClick={onErase}>不用这个</button>
           </div>
         </section>
       )}
+      {/* 上下两块用同一组字段，否则会让人以为确认之后字段会变。
+          当前阶段属于计划页，下一调整属于评估页，都不放在扉页。 */}
       <section className="study-sheet study-sheet--ink">
         <header>
           <span>
             <BookOpen aria-hidden="true" />
-            已落墨
+            我确认过的
           </span>
         </header>
         <dl className="flyleaf-rows">
-          <div><dt>本课目标</dt><dd>理解极限、导数与积分，完成本学期练习。</dd></div>
-          <div><dt>当前阶段</dt><dd>第 2 周 · 极限与未定式</dd></div>
-          <div><dt>下一调整</dt><dd>加“为什么不能直接代入”的解释练习。</dd></div>
+          <div><dt>目标</dt><dd>理解极限、导数与积分，完成本学期练习。</dd></div>
+          <div><dt>偏好</dt><dd>先看例子，再自己推一遍。</dd></div>
+          <div><dt>时间</dt><dd>工作日每天 30 分钟。</dd></div>
         </dl>
       </section>
     </div>
@@ -430,7 +433,7 @@ function LearnPage({
       <section className="learn-concept">
         <span className="concept-index">{LEARN_SEED.index}</span>
         <div>
-          <span className="eyebrow">这一步的知识核 · {LEARN_SEED.source}</span>
+          <span className="eyebrow">这一步要弄懂的 · {LEARN_SEED.source}</span>
           <h3>{LEARN_SEED.core}</h3>
         </div>
       </section>
@@ -481,7 +484,7 @@ function LearnPage({
           <label className="answer-field">
             <span>
               <strong>我的想法</strong>
-              <small>小娜不替你写</small>
+              <small>随便写，不评分</small>
             </span>
             <textarea
               value={draft}
@@ -496,7 +499,7 @@ function LearnPage({
               disabled={!wrote}
               onClick={onContrast}
             >
-              写完了，对照看看
+              和教材对一下
               <AppIcon icon={ArrowRight} />
             </button>
             <button type="button" onClick={onReveal}>
@@ -534,7 +537,7 @@ function EvaluatePage({ onRetry }) {
           <p>来自 6 次练习和 1 次复习</p>
         </section>
         <section>
-          <span>下一调整</span>
+          <span>建议下一步</span>
           <strong>继续练习“解释理由”</strong>
           <p>先修正未定式的表述</p>
         </section>
@@ -544,19 +547,20 @@ function EvaluatePage({ onRetry }) {
           <span><RotateCcw aria-hidden="true" />错题本</span>
           <StatusPill tone="warning">2 项待回访</StatusPill>
         </header>
+        {/* 同一个列表里不给两种动作——用户看不出为什么这题能重做那题不能 */}
         <article className="wrongbook-row">
           <div>
             <strong>0/0 能不能直接作为极限值？</strong>
-            <small>练习 3 · 第 2 步</small>
+            <small>练习 3 · 今天</small>
           </div>
-          <button className="primary-action" type="button" onClick={onRetry}>再试一次</button>
+          <button className="primary-action" type="button" onClick={onRetry}>再做一次</button>
         </article>
         <article className="wrongbook-row">
           <div>
             <strong>什么时候可以先约分再求极限？</strong>
             <small>练习 2 · 昨天</small>
           </div>
-          <button type="button" onClick={onRetry}>打开来源</button>
+          <button type="button" onClick={onRetry}>再做一次</button>
         </article>
       </section>
     </div>
@@ -615,13 +619,15 @@ function StudyNotebook({
       <header className="notebook-header">
         <div>
           <h1>{COURSE.subtitle}</h1>
-          <p>最近保存 {COURSE.savedAt}</p>
+          {/* 不给时间戳：它会引出"那之后我写的呢"，反而制造不安 */}
+          <p>已自动保存</p>
         </div>
+        {/* 书签的作用是回到"我在做的那件事"——事比编号重要，所以内容在主行 */}
         <button className="bookmark-card" type="button" onClick={onContinue}>
           <AppIcon icon={Bookmark} />
           <span>
-            <strong>继续：练习 3 · 第 2 步</strong>
-            <small>解释为什么不能直接代入</small>
+            <strong>解释为什么不能直接代入</strong>
+            <small>接着上次 · 练习 3</small>
           </span>
         </button>
       </header>
@@ -670,7 +676,7 @@ function StudyNotebook({
               。为什么不能把直接代入得到的 0/0 当作答案？
             </h2>
             <p className="completion-standard">
-              <strong>完成标准：</strong>
+              <strong>写到这样就算过了：</strong>
               说清“得到 0/0”不等于“得到极限值”，并指出下一步。
             </p>
             {studyState === "returned" && (
@@ -756,12 +762,12 @@ function ReviewCards({
   onToggleStackIndex,
 }) {
   return (
-    <aside className="desk-rail desk-rail--review" aria-label="本课参考、卡片与小娜">
+    <aside className="desk-rail desk-rail--review" aria-label="参考资料、复习与小娜">
       {/* 书堆：参考书立着（需要时抽一本），笔记本摊开着（天天写）。
           刻意不是一个可浏览的知识库空间。 */}
       {!isScratch && hasCourse && (
         <section className="book-stack">
-          <h2>本课参考</h2>
+          <h2>参考资料</h2>
           <div className="spines">
             <button className="book-spine" type="button" onClick={() => onOpenBook("教材 §2.3")}>
               教材 §2.3
@@ -772,7 +778,8 @@ function ReviewCards({
             <button
               className="book-spine book-spine--add"
               type="button"
-              aria-label="放一本进来"
+              aria-label="放一本资料进来"
+              title="放一本资料进来"
               onClick={() => onOpenBook(null)}
             >
               ＋
@@ -782,7 +789,7 @@ function ReviewCards({
               贴在书堆上的目录，可翻开核对，不占入口 */}
           <button className="stack-index" type="button" onClick={onToggleStackIndex}>
             <AppIcon icon={FileText} size={13} />
-            这些书里有什么
+            小娜从这些书里读到的
           </button>
           {stackIndexOpen && (
             <ul className="stack-index-list">
@@ -797,12 +804,12 @@ function ReviewCards({
         <section className="desk-card review-card">
           <h2>
             <AppIcon icon={Inbox} />
-            本课卡片盒
+            今天要复习
           </h2>
           <strong className="due-number">{reviewDone ? "5" : "6"}</strong>
-          <p>张今日到期 · 不打断当前练习</p>
+          <p>张卡片 · 随时可以停</p>
           <button type="button" onClick={onReview} disabled={!hasCourse}>
-            {reviewDone ? "已复习 1 张" : "到安全节点后复习"}
+            {reviewDone ? "接着复习" : "开始复习"}
           </button>
         </section>
       )}
@@ -864,7 +871,7 @@ function ScratchNotebook({
                   type="button"
                   onClick={() => onStartFiling(note.id)}
                 >
-                  归到某一本
+                  放进课程本
                 </button>
               )}
             </div>
@@ -910,7 +917,7 @@ function StudyDesk(props) {
       />
       <nav className="narrow-desk-tools" aria-label="窄窗书桌工具">
         {!isScratch && props.hasCourse && (
-          <button type="button" onClick={() => props.onOpenBook("本课参考")}>
+          <button type="button" onClick={() => props.onOpenBook("参考资料")}>
             <AppIcon icon={Layers3} />
             参考
           </button>
@@ -1229,7 +1236,7 @@ function StudioDesk({
                       <strong>{point.say}</strong>
                       <small>
                         {isPencil
-                          ? "小娜拟的 · 落墨才算数"
+                          ? "小娜拟的 · 你确认了才算数"
                           : point.backing
                             ? `依据：${point.backing}`
                             : "还没有依据 · 从素材里找一份"}
@@ -1239,7 +1246,7 @@ function StudioDesk({
                       <span className="pencil-actions">
                         <button type="button" onClick={() => onInkPoint(point.id)}>
                           <AppIcon icon={Check} size={14} />
-                          落墨
+                          要这条
                         </button>
                         <button type="button" onClick={() => onToast("原型：改写这张卡")}>
                           改写
@@ -1428,24 +1435,16 @@ function ModalShell({ title, eyebrow, onClose, children, wide = false }) {
   );
 }
 
+// 用户在这一刻只想知道一件事：走了会不会丢东西。不在这里教产品的状态模型。
 function LeavePracticeModal({ destination, onStay, onLeave }) {
   const label = STUDY_PAGES.find((page) => page.id === destination)?.label ?? "其他分页";
   return (
-    <ModalShell title="这一步还有未提交修改" eyebrow="练习 · 离页保护" onClose={onStay}>
-      <p className="modal-lead">
-        你刚修改的答案仍是本页草稿。直接前往“{label}”会放弃这次未提交修改，但不会删除已经保存的练习记录。
-      </p>
-      <aside className="honest-note">
-        <ShieldCheck aria-hidden="true" />
-        <p>
-          <strong>Chat 和 Studio 会保留当前页与草稿。</strong>
-          只有切换课程或生命周期分页时，才需要你决定是否放弃修改。
-        </p>
-      </aside>
+    <ModalShell title="刚改的还没检查" onClose={onStay}>
+      <p className="modal-lead">离开就没了。</p>
       <div className="modal-actions">
-        <button type="button" onClick={onStay}>留在练习</button>
+        <button type="button" onClick={onStay}>留下</button>
         <button className="danger-action" type="button" onClick={onLeave}>
-          放弃修改并前往“{label}”
+          丢掉，去{label}
         </button>
       </div>
     </ModalShell>
@@ -1935,7 +1934,7 @@ function CardReviewModal({ onClose, onGrade }) {
   };
 
   return (
-    <ModalShell title="到安全节点后复习" eyebrow="本课卡片盒" onClose={onClose}>
+    <ModalShell title="今天要复习" onClose={onClose}>
       <section className="flashcard">
         <span>高等数学 · 极限</span>
         <h3>为什么 0/0 不能直接当作极限值？</h3>
@@ -2275,7 +2274,7 @@ export function App() {
             flyleafDraftVisible={flyleafDraftVisible}
             onInkFlyleaf={() => {
               setFlyleafDraftVisible(false);
-              setToast("学习设定已落墨生效");
+              setToast("学习设定已确认");
             }}
             onEraseFlyleaf={() => {
               setFlyleafDraftVisible(false);
@@ -2365,7 +2364,7 @@ export function App() {
               setPoints((items) =>
                 items.map((item) => (item.id === id ? { ...item, state: "ink" } : item)),
               );
-              setToast("已落墨，这一条进入顺序");
+              setToast("已加进顺序");
             }}
             onDropPoint={(id) => {
               setPoints((items) => items.filter((item) => item.id !== id));
@@ -2465,7 +2464,7 @@ export function App() {
               setAnswer(INITIAL_ANSWER);
               setPracticeDirty(false);
               openStudyPage(destination, { bypassGuard: true });
-              setToast(`已放弃未提交修改并前往${STUDY_PAGES.find((page) => page.id === destination)?.label ?? "课程"}页`);
+              setToast("刚才的修改已丢掉");
             }}
           />
         )}
