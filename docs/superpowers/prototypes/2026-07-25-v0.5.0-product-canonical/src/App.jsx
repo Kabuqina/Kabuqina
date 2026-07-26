@@ -51,6 +51,21 @@ const COURSE_BOOKS = [
 ];
 
 // 杂记本＝留白：不催、不计数、不安排；归本是安静的可选动作
+// 后端契约（2026-07-04-study-m2-course-space-flashcards.md）只认这四个值，
+// 无效值保守回落为 again——所以界面文案绝不能直接当评分提交。
+// hard 不再由界面产出：那一档正是被去掉的不可靠自评，改由翻面耗时实测替代。
+const RECALL_GRADES = {
+  recalled: "good",
+  forgot: "again",
+  tooEasy: "easy",
+};
+
+const GRADE_LABELS = {
+  good: "想起来了",
+  again: "没想起来",
+  easy: "太简单",
+};
+
 // Planner 层：一张卡＝我要说的一件事，素材作为依据挂在它下面。
 // 小娜拟的以铅笔出现，落墨后才进入顺序——内容她做，项目你参与。
 const INITIAL_POINTS = [
@@ -89,7 +104,7 @@ const LEARN_SEED = {
   index: "01",
   source: "教材 §2.3",
   core: "0/0 是未定式，不是一个确定的数。",
-  prompt: "先别看解释——用你自己的话说说：为什么代入得到 0/0，还不能算求出了极限？",
+  prompt: "为什么代入得到 0/0，还不能算求出了极限？",
   reference:
     "直接代入只说明原式还需要继续分析。不同函数都可能得到 0/0，但它们的极限可以不同，所以还要继续化简，或者换一种分析方法。",
   contrastHint: "对照看看：你的说法里，点出“不同函数都可能得到 0/0，结果却不同”了吗？",
@@ -365,14 +380,6 @@ function PlanPage({ items, onUpdate, onContinue }) {
   const completed = items.filter((item) => item.status === "done").length;
   return (
     <div className="lifecycle-page lifecycle-page--plan">
-      <button className="plan-bookmark" type="button" onClick={onContinue}>
-        <Bookmark aria-hidden="true" />
-        <span>
-          <strong>继续上次：练习 3 · 第 2 步</strong>
-          <small>解释为什么 0/0 不是极限答案</small>
-        </span>
-        <ArrowRight aria-hidden="true" />
-      </button>
       <section className="study-sheet">
         <header>
           <span><Clock3 aria-hidden="true" />本周计划</span>
@@ -430,30 +437,25 @@ function LearnPage({
 
       {step === "contrast" ? (
         <>
-          <div className="learn-grid">
-            <section className="study-sheet study-sheet--ink">
-              <header>
-                <span>
-                  <PencilLine aria-hidden="true" />
-                  我自己的说法
-                </span>
-              </header>
-              {wrote ? (
-                <p className="own-words">{draft}</p>
-              ) : (
-                <p className="quiet-copy">
-                  这一步你先看了教材。看完再用自己的话说一遍，它才真正长在你身上。
-                </p>
-              )}
-            </section>
+          {/* 这一页的主角就是这两块，所以都给足分量；我的想法为空就留空，不补提示 */}
+          <div className="contrast-pair">
             <section className="study-sheet">
               <header>
                 <span>
                   <FileText aria-hidden="true" />
-                  教材 §2.3 的说法
+                  {LEARN_SEED.source} 的说法
                 </span>
               </header>
-              <p className="quiet-copy">{LEARN_SEED.reference}</p>
+              <p className="reference-words">{LEARN_SEED.reference}</p>
+            </section>
+            <section className="study-sheet study-sheet--ink">
+              <header>
+                <span>
+                  <PencilLine aria-hidden="true" />
+                  我的想法
+                </span>
+              </header>
+              {wrote && <p className="own-words">{draft}</p>}
             </section>
           </div>
           <aside className="margin-note">
@@ -466,7 +468,7 @@ function LearnPage({
           <div className="inline-actions">
             <button className="primary-action" type="button" onClick={onRewrite}>
               <AppIcon icon={PencilLine} />
-              {wrote ? "补一句我的说法" : "现在用自己的话说一遍"}
+              {wrote ? "补一句我的想法" : "写下我的想法"}
             </button>
             <button type="button" onClick={onContinue}>
               去练习中验证
@@ -478,7 +480,7 @@ function LearnPage({
           <p className="reconstruct-prompt">{LEARN_SEED.prompt}</p>
           <label className="answer-field">
             <span>
-              <strong>我自己的说法</strong>
+              <strong>我的想法</strong>
               <small>小娜不替你写</small>
             </span>
             <textarea
@@ -1953,17 +1955,17 @@ function CardReviewModal({ onClose, onGrade }) {
               两个按钮等重——把"想起来了"做成主动作会诱导不诚实的自评，
               调度器拿到的就是垃圾。难度不问，用翻面耗时去量。 */}
           <div className="recall-grid">
-            <button type="button" onClick={() => onGrade("想起来了", thinkingMs.current)}>
+            <button type="button" onClick={() => onGrade(RECALL_GRADES.recalled, thinkingMs.current)}>
               想起来了
             </button>
-            <button type="button" onClick={() => onGrade("没想起来", thinkingMs.current)}>
+            <button type="button" onClick={() => onGrade(RECALL_GRADES.forgot, thinkingMs.current)}>
               没想起来
             </button>
           </div>
           <button
             className="too-easy"
             type="button"
-            onClick={() => onGrade("太简单", thinkingMs.current)}
+            onClick={() => onGrade(RECALL_GRADES.tooEasy, thinkingMs.current)}
           >
             这张太简单了，别再常来
           </button>
@@ -2555,10 +2557,10 @@ export function App() {
             onGrade={(grade, thinkingMs) => {
               setReviewDone(true);
               setOverlay(null);
-              setToast(`已记录：${grade}`);
+              setToast(`已记录：${GRADE_LABELS[grade]}`);
               // 难度是量出来的，不是问出来的；这里只在原型评审栏显示，不进产品界面
               setProductStatus(
-                `Study · 复习记录「${grade}」，翻面耗时 ${(thinkingMs / 1000).toFixed(1)}s（难度信号来自实测，不来自自评）`,
+                `Study · 提交 grade="${grade}"，翻面耗时 ${(thinkingMs / 1000).toFixed(1)}s（难度信号来自实测，不来自自评）`,
               );
             }}
           />

@@ -440,6 +440,31 @@ rebuild + browser re-verification; see the iteration log.
   `.grade-grid` rules (including its narrow override) are deleted. `npm run build` and
   `npm run test:sites` (4/4) pass.
 
+### Iteration 16 — flashcard grade contract; Study copy and contrast pass
+
+- **Caught a latent integration bug.** A background search that finished late surfaced
+  `docs/superpowers/plans/2026-07-04-study-m2-course-space-flashcards.md`: `review_card` accepts
+  exactly `again | hard | good | easy`, and **an invalid grade falls back conservatively to
+  `again`**. Iteration 15 was submitting the Chinese labels verbatim, so wiring it to the real
+  backend would have silently scored *every* card as forgotten. Labels and grades are now
+  separated (`RECALL_GRADES` / `GRADE_LABELS`): the UI says 想起来了, the payload says `good`.
+  `hard` is intentionally never produced — that is the unreliable self-report the redesign
+  removed, and measured reveal time replaces its signal.
+- Plan page: dropped 「继续上次」. It duplicated the notebook header's bookmark, which is the
+  established object for "where you left off" — the plan page does not need a second one.
+- Learn page copy: the prompt's lead-in 「先别看解释——用你自己的话说说：」 is gone (the field
+  below already says whose words these are), and 「我自己的说法」 is now 「我的想法」 throughout,
+  including the return actions (补一句我的想法 / 写下我的想法).
+- Contrast page reworked: the reference sits on the **left** and 我的想法 on the right; both are
+  now `16px` in equal-height panels, since they are the point of the page (previously the
+  reference was `.quiet-copy` at 13px, which undercut it). When 我的想法 is empty the panel is
+  simply **left blank** — the old 「这一步你先看了教材……」 nudge is deleted; an empty panel next to
+  a filled one says it without copy.
+- Removed the now-dead `.plan-bookmark` rules; `.contrast-pair` collapses to one column at
+  ≤860px with its min-height released. Verified at 1280×900 and 390×844: order, empty state,
+  equal heights, KaiTi on the learner's own words, no horizontal overflow. `npm run build` and
+  `npm run test:sites` (4/4) pass.
+
 ## Primary interactions tested
 
 - J1: empty first run → create course → enter Study.

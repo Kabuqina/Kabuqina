@@ -911,33 +911,6 @@ p {
   line-height: 1.5;
 }
 
-.plan-bookmark {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  text-align: left;
-  border: 1px solid var(--manila-line);
-  border-left: 5px solid var(--tan);
-  border-radius: 5px 8px 8px 5px;
-  background: var(--manila);
-}
-
-.plan-bookmark > svg {
-  color: var(--brown-ink);
-}
-
-.plan-bookmark span {
-  display: grid;
-  gap: 3px;
-}
-
-.plan-bookmark small {
-  color: var(--ink-mid);
-  font-size: 11px;
-}
-
 .plan-list {
   display: grid;
   gap: 7px;
@@ -1043,12 +1016,36 @@ p {
   line-height: 1.7;
 }
 
-.own-words {
+/* 对照页的主角是这两块，给足分量；两侧等高，我的想法为空时就是一块空白 */
+.contrast-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.contrast-pair .study-sheet {
+  display: flex;
+  flex-direction: column;
+  min-height: 190px;
+  padding: 18px;
+}
+
+.own-words,
+.reference-words {
   margin: 0;
+  font-size: 16px;
+  line-height: 1.75;
+}
+
+/* 我的想法用楷体——学习者亲手写的字 */
+.own-words {
   color: var(--ink-strong);
   font-family: "KaiTi", "STKaiti", "Segoe UI", sans-serif;
-  font-size: 16px;
-  line-height: 1.7;
+}
+
+.reference-words {
+  color: var(--ink-mid);
 }
 
 .material-call {
@@ -3871,8 +3868,13 @@ label.form-stack > span,
   }
 
   .learn-grid,
+  .contrast-pair,
   .evaluation-summary {
     grid-template-columns: 1fr;
+  }
+
+  .contrast-pair .study-sheet {
+    min-height: 0;
   }
 
   .flyleaf-rows > div,
