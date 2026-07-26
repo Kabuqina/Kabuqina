@@ -1336,3 +1336,27 @@ item and rubric provenance, and still requires the existing user activation
 flow. B04 deliberately ships no production network evaluator: P-2 must first
 provide its own crash-safe write-ahead budget/provider contract and cannot
 reuse ordinary `call_llm()` retry or fallback behavior.
+
+**CTL-B05 S-0 Learning Space functional boundary (2026-07-26).** The
+canonical five-page route and `StudyRepository` remain the only Study
+navigation and data truth. A wide scene may reposition one semantic DOM tree,
+but narrow, 200% zoom, forced-colors, screen-reader, reduced-motion and asset-
+failure modes all use the same complete flat document. Every notebook object
+maps to an existing repository/service action; it owns no scene-only API,
+count, draft lifecycle or checkpoint. The Nana cup remains only a Chat anchor;
+the existing CompanionWindow/fallback remains the sole companion-state
+consumer.
+
+S-1 is not authorized by S-0 completion. It still waits for versioned E2
+context/return/restart and X2 focus/keyboard/dirty/back contracts; prototype,
+copy and production-candidate progress do not substitute for those gates.
+Meanwhile S-2 may consume the frozen independent whiteboard contract. It uses
+existing owner/space learning storage and operation fencing: CAS working state
+in a bounded item plus immutable `whiteboard_snapshot` artifacts, never
+browser-only state, Tutor checkpoint JSON or a second database. Scenes allow
+only bounded text, math and six primitive element types; URLs, images, HTML,
+SVG paths, CSS, JavaScript, plugins and executable content are rejected.
+Per-scene, activity, space and owner quotas fit within the existing 16 MiB
+learning and 24 MiB composite bundle limits. DOM/SVG plus the already locked
+KaTeX is the v0.5 default; any third-party canvas dependency requires a
+separate license, supply-chain, size and Windows WebView2 gate.
