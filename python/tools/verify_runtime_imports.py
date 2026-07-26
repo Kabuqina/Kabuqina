@@ -20,11 +20,17 @@ REQUIRED_IMPORTS = (
     "kabuqina_cli.config",
     "desk_server",
     "desk_server.routes.study_routes",
+    "desk_server.routes.study_activity_routes",
     "desk_server.capabilities",
     "product_profile_policy",
     "learning.flashcards",
     "learning_owner",
     "learning_recovery",
+    "agent.graph_engine.tutor_contracts",
+    "agent.graph_engine.tutor_ports",
+    "agent.graph_engine.tutor_nodes",
+    "agent.graph_engine.tutor_builder",
+    "agent.graph_engine.tutor_engine",
 )
 
 

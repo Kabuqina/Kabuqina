@@ -63,18 +63,18 @@ class LearningCapabilityDriftTests(unittest.TestCase):
         self.assertTrue(status["pipelines"])
         self.assertTrue(all(pipeline["ready"] is False for pipeline in status["pipelines"]))
 
-    def test_tutor_runtime_is_a_separate_not_ready_candidate(self):
+    def test_tutor_runtime_is_a_separate_executable_capability(self):
         from capability_status import build_capability_status
 
         foundation = _learning_capability()
         tutor = _tutor_capability()
-        self.assertEqual(tutor["lifecycle"], "candidate")
+        self.assertEqual(tutor["lifecycle"], "available")
         self.assertEqual(tutor["family"], foundation["family"])
         self.assertNotIn("learning_output_kinds", tutor)
         status = build_capability_status(tutor, {}, enabled_toolsets={"learning"})
-        self.assertEqual(status["status"], "candidate")
+        self.assertEqual(status["status"], "available")
         self.assertTrue(status["pipelines"])
-        self.assertTrue(all(item["ready"] is False for item in status["pipelines"]))
+        self.assertTrue(all(item["ready"] is True for item in status["pipelines"]))
 
     def test_referenced_planner_ids_exist(self):
         from learning.planner_registry import planner_ids

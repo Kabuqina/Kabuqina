@@ -22,6 +22,12 @@ import learning_owner
 router = APIRouter()
 
 
+def _build_tutor_executor(runtime_store: TutorRuntimeStore):
+    from agent.graph_engine.tutor_engine import TutorActivityExecutor
+
+    return TutorActivityExecutor(runtime_store)
+
+
 @contextmanager
 def _desktop_activity_service() -> Iterator[tuple[str, TutorActivityService]]:
     learning_store = LearningStore()
@@ -34,7 +40,10 @@ def _desktop_activity_service() -> Iterator[tuple[str, TutorActivityService]]:
                 learning_store.db_path == default_learning_db_path().resolve()
             ),
         )
-        yield learning_owner.desktop_owner_id(), TutorActivityService(runtime_store)
+        yield learning_owner.desktop_owner_id(), TutorActivityService(
+            runtime_store,
+            _build_tutor_executor(runtime_store),
+        )
     finally:
         if runtime_store is not None:
             runtime_store.close()

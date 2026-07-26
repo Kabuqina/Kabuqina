@@ -1191,17 +1191,17 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
         "id": "student-tutor-runtime",
         "title": "Resumable Tutor runtime",
         "description": (
-            "Persisted Tutor activity lifecycle, learner checkpoints, recovery, "
-            "and deterministic terminal summaries. B02 exposes candidate data "
-            "and API contracts; executable tutoring arrives in a later slice."
+            "Executable L-2 Tutor activities with persisted learner checkpoints, "
+            "single-attempt provider budgets, recovery, one bounded remediation, "
+            "and deterministic participation-only terminal summaries."
         ),
         "category": "learning",
         "family": "student-learning",
-        "lifecycle": "candidate",
+        "lifecycle": "available",
         "agent_hint": (
-            "Tutor activity execution is not available yet. Existing imported "
-            "activity records may be inspected or cancelled through trusted "
-            "desktop controls; do not emulate Tutor runs with ordinary chat."
+            "Tutor runs are explicit trusted-desktop activities. Do not infer Tutor "
+            "intent or emulate Tutor runs with ordinary chat; the host creates and "
+            "resumes the persisted activity through the Study activity API."
         ),
         "tools": [],
         "required_toolsets": [],

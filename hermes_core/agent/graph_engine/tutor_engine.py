@@ -482,6 +482,13 @@ class TutorActivityExecutor:
     def resume(
         self, key: LearningActivityKeyV1, request: LearningActivityResumeV1
     ) -> LearningActivityRecordV1:
+        existing = self.store.load(key)
+        if existing is None:
+            raise TutorConflictError("activity_not_found")
+        if existing.checkpoint is not None:
+            # Fail closed before claiming execution. An unknown/future graph
+            # checkpoint must not be left in a synthetic running state.
+            validate_tutor_state(existing.checkpoint.state)
         execution_id = f"texec_{uuid.uuid4().hex}"
         if request.mode == "answer":
             claimed = self.store.claim_answer(
