@@ -217,6 +217,38 @@ def test_list_questions_can_include_answers_for_result_views(ctx):
     assert questions[3]["accepted"] == ["GD"]
 
 
+def test_grade_active_question_is_pure_and_uses_the_same_grader(ctx):
+    artifact_id = _draft_quiz(ctx)
+    service = QuizService(ctx, now=lambda: T0)
+    service.activate_quiz(artifact_id)
+    target = service.list_questions()[0]
+
+    result = service.grade_active_question(
+        artifact_id,
+        target["item_id"],
+        {"selected": [1]},
+    )
+
+    assert result["outcome"] == "correct"
+    assert result["grader_provenance"]["source_kind"] == "activated_quiz_item"
+    assert ctx.list_activities() == []
+
+
+def test_get_active_question_rejects_draft_and_cross_artifact_item(ctx):
+    first = _draft_quiz(ctx, title="First")
+    second = _draft_quiz(ctx, title="Second")
+    service = QuizService(ctx, now=lambda: T0)
+    service.activate_quiz(first)
+    first_item = service.list_questions(artifact_id=first)[0]["item_id"]
+
+    with pytest.raises(ValueError, match="not active"):
+        service.get_active_question(second, first_item)
+
+    service.activate_quiz(second)
+    with pytest.raises(KeyError, match="not found"):
+        service.get_active_question(second, first_item)
+
+
 def _practice_payload():
     return {
         "questions": [

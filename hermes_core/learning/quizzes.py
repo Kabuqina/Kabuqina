@@ -265,6 +265,56 @@ class QuizService:
         )
         return [self._question_from_item(row, include_answers=include_answers) for row in rows]
 
+    def get_active_question(
+        self,
+        artifact_id: str,
+        item_id: str,
+        *,
+        include_answers: bool = False,
+    ) -> Dict[str, Any]:
+        """Load one activated question without recording learner activity.
+
+        This is the trusted read seam used by Tutor.  Hidden grader truth is
+        returned only when an in-process caller explicitly asks for it; HTTP
+        adapters must continue to use ``list_questions()`` without that flag.
+        """
+        artifact = self._require_quiz(artifact_id)
+        if artifact["status"] != "active":
+            raise ValueError("quiz is not active")
+        matches = [
+            question
+            for question in self.list_questions(
+                artifact_id=artifact_id,
+                include_answers=include_answers,
+            )
+            if question["item_id"] == item_id
+        ]
+        if len(matches) != 1:
+            raise KeyError(f"question {item_id!r} not found in active quiz")
+        return matches[0]
+
+    def grade_active_question(
+        self,
+        artifact_id: str,
+        item_id: str,
+        response: Any,
+    ) -> Dict[str, Any]:
+        """Grade exactly one activated question with no durable side effect."""
+        question = self.get_active_question(
+            artifact_id,
+            item_id,
+            include_answers=True,
+        )
+        return self.grade_question_snapshot(question, response)
+
+    def grade_question_snapshot(
+        self,
+        question: Dict[str, Any],
+        response: Any,
+    ) -> Dict[str, Any]:
+        """Grade one caller-pinned question snapshot without reading or writing."""
+        return self._grade_question(copy.deepcopy(question), response)
+
     def submit_attempt(
         self,
         artifact_id: str,
