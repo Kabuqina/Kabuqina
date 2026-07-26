@@ -1418,3 +1418,27 @@ evaluation's injected one-attempt reservation and the future L-4 post-node
 budget. L-5 adds no semantic or post-node call and does not disguise either
 bucket as Tutor usage; their production wiring remains responsible for their
 own durable counters.
+
+**CTL-B06 L-4 bounded knowledge-point post-node (2026-07-26).** The v2 backend
+baseline is deterministic and makes zero provider calls. It first removes all
+complete legacy `kq-kp` fences and a final unterminated fence, but never parses
+that untrusted legacy JSON as candidate truth. It preserves and hashes the
+clean visible response, analyzes at most 24,000 code points, ignores fenced
+code, and recognizes only explicit Markdown definition lines or level 2-4
+headings with nearby prose. Failure or ordinary prose produces no candidates.
+
+The exact output contains at most five v2 candidates with only `name`, `gist`,
+`source=model` and `confidence=inferred`; candidate fields are bounded and the
+whole metadata projection is capped at 8 KiB. There is no score, pass/fail,
+mastery, branch, auto-capture, store or provider seam. Candidate persistence
+continues to require the existing explicit user capture path. Usage conduct
+metrics reuse the same sanitizer so a truncated final legacy block cannot
+inflate visible-text telemetry.
+
+This decision completes the backend node, not cross-surface rollout. Desktop
+currently needs the legacy payload to render existing chips, and adding an
+unreviewed key to `LegacyRunResult` would change its frozen contract. Therefore
+H1 remains enabled and production response stripping remains off until a
+versioned structured consumer is shared by Desktop, Gateway, export and TTS.
+That parity rollout and final H1 removal are separate work owned with the Web
+surface handoff; no current capability claim says raw-block retirement is done.

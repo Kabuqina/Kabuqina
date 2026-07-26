@@ -34,6 +34,7 @@ class RuntimeImportVerifierTests(unittest.TestCase):
             "agent.graph_engine.tutor_contracts",
             "agent.graph_engine.tutor_branch_policy",
             "agent.graph_engine.tutor_retention",
+            "agent.knowledge_post_node",
             "learning.tutor_practice",
             "agent.graph_engine.tutor_ports",
             "agent.graph_engine.tutor_nodes",
