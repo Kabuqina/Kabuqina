@@ -1222,11 +1222,14 @@ bundle's `stt-bin/ffmpeg.exe` before an optional developer system fallback.
 The rolling ffmpeg archive provenance remains G01/Q and is not reclassified as
 closed by this behavioral repair.
 
-C06 source/unit readiness does not impersonate external transport proof. A
-single owner `build_bundle.ps1 -Verify` run and profile-isolated real-account
-smoke for all six retained adapters remain explicit pending evidence. Legacy
-credential/profile/session/job/home cleanup remains C07, and installer,
-advisory, redistributed-license and final release approval remain G01/Q.
+C06 source/unit readiness does not impersonate external transport proof. The
+single owner `build_bundle.ps1 -Verify` run completed successfully on `main`.
+Profile-isolated real-account smoke for all six retained adapters cannot run
+until the A-track product surface is complete, so the owner explicitly deferred
+that matrix to post-A verification. It does not block the combined C06+C07
+implementation sign-off, but remains mandatory before final release approval.
+Installer, advisory, redistributed-license and final release approval remain
+G01/Q.
 
 **CTL-C07 explicit legacy-channel cleanup (2026-07-26).** v0.4 messaging
 state is never silently mapped to a retained channel. Removed and unknown cron
@@ -1267,6 +1270,14 @@ canonical tree is the only bridge write target and the legacy tree remains a
 read-only identity fallback. QQ voice conversion likewise removes both its
 temporary source and any partial generated WAV whenever all real decoders
 fail.
+
+**CTL-C06+C07 combined sign-off and smoke deferral (2026-07-26).** Independent
+re-review closed all five implementation findings and directly verified the
+successful integrated owner bundle. C06 and C07 are therefore `DONE` as one
+C-track implementation work package. The six retained-platform real-account
+smokes are a named post-A dependency, not a retroactive PASS and not a reason
+to keep C-track merged code in REVIEW. They must be recorded before G01/Q can
+approve the v0.5 release.
 
 **CTL-B03 minimal Tutor runtime (2026-07-26).** Tutor is an explicit trusted-
 desktop activity and never an inferred ordinary Chat mode. L-2 executes through

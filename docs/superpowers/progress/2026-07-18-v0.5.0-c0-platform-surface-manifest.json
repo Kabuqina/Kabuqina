@@ -221,7 +221,7 @@
       "DINGTALK_WEBHOOK_URL belongs to the shared direct-send path and must be threat-modeled separately from stream credentials."
     ],
     "telegram": [
-      "Source/profile/Web/desktop dependency truth is closed; real credential and Windows transport smoke remains CTL-C06."
+      "Source/profile/Web/desktop dependency truth is closed; real credential and Windows transport smoke is deferred to CTL-G01/Q-2 with final-candidate confirmation in Q-3."
     ],
     "whatsapp": [
       "Pinned bundled Node/bridge ownership is implemented; owner bundle plus real pairing, restart and media transport proof remain C06 smoke evidence.",
@@ -1353,7 +1353,7 @@
         "CTL-C01"
       ],
       "scope": "Weixin, QQBot, DingTalk, Telegram, WhatsApp and Email adapter-local readiness, with shared changes queued through the C integrator.",
-      "exit": "SEA does not fall back, DingTalk is installable, WhatsApp is offline-bundled, and all six external channels have profile-isolated Windows smoke evidence."
+      "exit": "SEA does not fall back, DingTalk is installable, and WhatsApp is offline-bundled; profile-isolated real-account Windows smokes are deferred until A-track completion and remain required before release approval."
     },
     {
       "id": "CTL-C07",
@@ -2102,12 +2102,12 @@
         "hermes_core/gateway/platforms/dingtalk.py"
       ],
       "usage_class": "retained_mainland_exclusive",
-      "bundle_presence": "required by the verified-runtime module and exact dist-info contract; owner C06 bundle evidence pending",
+      "bundle_presence": "verified in the 2026-07-26 owner main bundle with exact dingtalk_stream-0.24.3 dist-info and retained-runtime imports",
       "target_action": "retain the exact modern-websockets-compatible Stream SDK for the mainland DingTalk adapter",
       "license_status": "MIT package metadata known; exact installed metadata is emitted in DEPENDENCY_INVENTORY.json",
       "advisory_status": "fresh advisory scan remains required at G01/Q against the artifact inventory",
       "known_gaps": [
-        "Real DingTalk Stream credential/receive/reply smoke and owner verified-bundle import evidence remain pending."
+        "Real DingTalk Stream credential/receive/reply smoke is deferred until A-track completion."
       ]
     },
     {
@@ -2119,7 +2119,7 @@
         "hermes_core/uv.lock",
         "hermes_core/gateway/platforms/dingtalk.py"
       ],
-      "version_constraint": ">=2.2.42,<3 for alibabacloud-dingtalk; Tea SDKs remain resolved transitive dependencies",
+      "version_constraint": "==2.2.42 for alibabacloud-dingtalk; the five source-only Alibaba transitive releases are exact-pinned and built as cached py3-none-any wheels",
       "platform_surfaces": [
         "dingtalk"
       ],
@@ -2127,12 +2127,12 @@
         "hermes_core/gateway/platforms/dingtalk.py"
       ],
       "usage_class": "retained_mainland_exclusive",
-      "bundle_presence": "direct desktop requirement and verified-runtime import contract; owner C06 bundle evidence pending",
+      "bundle_presence": "present and import-verified in the 2026-07-26 owner main bundle; resolved package metadata is recorded in DEPENDENCY_INVENTORY.json",
       "target_action": "retain only with the mainland DingTalk adapter and inventory the resolved Tea dependency set",
       "license_status": "exact installed package/license metadata is emitted in DEPENDENCY_INVENTORY.json for redistribution review",
       "advisory_status": "fresh advisory scan remains required at G01/Q against the artifact inventory",
       "known_gaps": [
-        "Owner verified-bundle import and real card/media credential smoke remain pending."
+        "Real card/media credential smoke is deferred until A-track completion."
       ]
     },
     {
@@ -2158,7 +2158,7 @@
       "license_status": "bundled Node LICENSE plus exact executable/license hashes and Node package metadata are emitted in DEPENDENCY_INVENTORY.json",
       "advisory_status": "npm audit and pinned git-dependency review remain required at G01/Q against the release lock",
       "known_gaps": [
-        "Owner verified-bundle and real WhatsApp pairing/restart/send/media transport proof remain pending."
+        "Real WhatsApp pairing/restart/send/media transport proof is deferred until A-track completion."
       ]
     },
     {
@@ -2179,8 +2179,8 @@
         "python/tests/test_runtime_pruned_verifier.py"
       ],
       "usage_class": "removed_exclusive",
-      "bundle_presence": "absent after source-sync cleanup; fresh verified bundle evidence pending release operator run",
-      "target_action": "source, dependency declarations and lock removal completed; fresh bundle absence remains the C03b review gate",
+      "bundle_presence": "confirmed absent by the verified 2026-07-26 owner main bundle",
+      "target_action": "source, dependency declarations, lock and bundled runtime removal completed",
       "license_status": "lark-oapi removed from the lock; C05 artifact inventory/pruning consumes the removal delta",
       "advisory_status": "record removal delta; no retained runtime justification",
       "known_gaps": [
@@ -2952,7 +2952,7 @@
         "legacy whatsapp/session",
         "bridge.log",
         "KABUQINA_HOME/cache/{images,documents,audio}",
-        "legacy whatsapp/session read fallback retained without migration for C07"
+        "sole legacy whatsapp/session tree atomically migrates to canonical; legacy is read-only fallback only when both trees exist"
       ],
       "network_hosts": [
         "127.0.0.1:<bridge-port>",
@@ -13841,7 +13841,7 @@
         "target_contract": "Retain only for SEA Telegram and preserve bounded cache behavior.",
         "cleanup_mode": "cache-owned bounded cleanup",
         "known_gaps": [
-          "Owner fresh bundle and real Telegram credential/media smoke remain pending."
+          "Real Telegram credential/media smoke is deferred until A-track completion."
         ]
       },
       {
