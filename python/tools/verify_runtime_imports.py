@@ -27,6 +27,7 @@ REQUIRED_IMPORTS = (
     "learning_owner",
     "learning_recovery",
     "agent.graph_engine.tutor_contracts",
+    "agent.graph_engine.tutor_branch_policy",
     "agent.graph_engine.tutor_ports",
     "agent.graph_engine.tutor_nodes",
     "agent.graph_engine.tutor_builder",
