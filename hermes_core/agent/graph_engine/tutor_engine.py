@@ -214,6 +214,12 @@ class _RuntimeGraphServices:
             goal=state["goal"],
             input_refs=tuple(copy.deepcopy(state["input_refs"])),
             previous_output=previous if purpose == "remediate" else None,
+            remediation_context=(
+                copy.deepcopy(state.get("current_remediation"))
+                if purpose == "remediate"
+                and isinstance(state.get("current_remediation"), dict)
+                else None
+            ),
         )
         input_reserve = estimate_tutor_input_tokens(request)
         if input_reserve > MAX_RESERVED_INPUT_TOKENS_PER_ATTEMPT:

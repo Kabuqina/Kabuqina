@@ -90,9 +90,7 @@ def test_control_branch_is_host_deterministic(
     ],
 )
 def test_state_rejects_unknown_versions_caps_and_correctness_fields(mutator) -> None:
-    state = new_tutor_state(
-        _key(), goal="Goal", input_refs=(), provider_plan=_plan()
-    )
+    state = new_tutor_state(_key(), goal="Goal", input_refs=(), provider_plan=_plan())
     mutator(state)
     with pytest.raises(TutorContractError):
         validate_tutor_state(state)
@@ -109,6 +107,16 @@ def test_provider_plan_hash_excludes_credentials_and_is_stable() -> None:
     }
     assert len(plan.plan_hash) == 64
     assert plan.plan_hash == _plan().plan_hash
+
+
+def test_learner_evidence_rejects_raw_answer_or_untyped_records() -> None:
+    state = new_tutor_state(_key(), goal="Goal", input_refs=(), provider_plan=_plan())
+    state["learner_evidence"] = [
+        {"kind": "control", "action": "continue", "raw_answer": "secret"}
+    ]
+
+    with pytest.raises(TutorContractError, match="control evidence"):
+        validate_tutor_state(state)
 
 
 @pytest.mark.parametrize(

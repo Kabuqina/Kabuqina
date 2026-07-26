@@ -16,7 +16,15 @@ import hashlib
 from typing import Any, Literal, Mapping, TypedDict
 from urllib.parse import parse_qsl, urlsplit
 
-from agent.graph_engine.tutor_branch_policy import TutorCheckSpecV1
+from agent.graph_engine.tutor_branch_policy import (
+    DeterministicEvaluationResultV1,
+    TutorBranchResolutionV1,
+    TutorCheckSpecV1,
+)
+from agent.graph_engine.tutor_retention import (
+    MAX_RETAINED_EVIDENCE_BYTES,
+    TutorRemediationContextV1,
+)
 from learning.tutor_contract import (
     LearningActivityKeyV1,
     TutorContractError,
@@ -72,6 +80,7 @@ _ALLOWED_STATE_FIELDS = frozenset(
         "tutor_mode",
         "check_spec",
         "check_prompt",
+        "current_remediation",
     }
 )
 
@@ -98,6 +107,7 @@ class TutorGraphStateV1(TypedDict, total=False):
     tutor_mode: Literal["participation", "deterministic_practice"]
     check_spec: dict[str, Any]
     check_prompt: dict[str, Any]
+    current_remediation: dict[str, Any] | None
 
 
 def _bounded_text(value: Any, field: str, *, maximum: int = 512) -> str:
@@ -196,6 +206,7 @@ class TutorProviderRequestV1:
     goal: str
     input_refs: tuple[dict[str, Any], ...]
     previous_output: str | None = None
+    remediation_context: dict[str, Any] | None = None
     max_output_tokens: int = 2_048
     schema_version: int = 1
 
@@ -210,6 +221,18 @@ class TutorProviderRequestV1:
             or len(self.previous_output) > MAX_TUTOR_OUTPUT_CODEPOINTS
         ):
             raise TutorContractError("provider request previous_output is invalid")
+        if self.remediation_context is not None:
+            normalized = TutorRemediationContextV1.from_mapping(
+                self.remediation_context
+            ).to_dict()
+            object.__setattr__(self, "remediation_context", normalized)
+            if self.purpose != "remediate":
+                raise TutorContractError(
+                    "provider remediation_context requires remediate purpose"
+                )
+        elif self.purpose == "remediate":
+            # Legacy participation remediation has no grader-owned learner error.
+            pass
         if (
             type(self.max_output_tokens) is not int
             or not 1 <= self.max_output_tokens <= 2_048
@@ -332,6 +355,57 @@ def _validate_practice_prompt(value: Any) -> dict[str, Any]:
     }
 
 
+def _validate_learner_evidence(
+    value: list[Any],
+    *,
+    tutor_mode: str,
+    identity: Mapping[str, str],
+    check_spec: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    normalized: list[dict[str, Any]] = []
+    for record in value:
+        if not isinstance(record, Mapping):
+            raise TutorContractError("Tutor learner evidence record is invalid")
+        if record.get("kind") == "control":
+            if (
+                tutor_mode != "participation"
+                or set(record) != {"kind", "action"}
+                or record.get("action") not in {"continue", "explain_again", "invalid"}
+            ):
+                raise TutorContractError("Tutor control evidence is invalid")
+            normalized.append({"kind": "control", "action": record["action"]})
+            continue
+        if (
+            tutor_mode != "deterministic_practice"
+            or set(record) != {"kind", "evaluation", "resolution"}
+            or record.get("kind") != "deterministic_evaluation"
+            or check_spec is None
+        ):
+            raise TutorContractError("Tutor deterministic evidence is invalid")
+        evaluation = DeterministicEvaluationResultV1.from_mapping(
+            record.get("evaluation")
+        )
+        resolution = TutorBranchResolutionV1.from_mapping(record.get("resolution"))
+        if (
+            evaluation.activity_id != identity["activity_id"]
+            or evaluation.activity_kind != identity["activity_kind"]
+            or evaluation.check_id != check_spec["check_id"]
+            or evaluation.rubric_ref
+            != TutorCheckSpecV1.from_mapping(check_spec).rubric_ref
+        ):
+            raise TutorContractError("Tutor deterministic evidence identity is invalid")
+        normalized.append(
+            {
+                "kind": "deterministic_evaluation",
+                "evaluation": evaluation.to_dict(),
+                "resolution": resolution.to_dict(),
+            }
+        )
+    if len(canonical_json_bytes(normalized)) > MAX_RETAINED_EVIDENCE_BYTES:
+        raise TutorContractError("Tutor learner evidence exceeds retention budget")
+    return normalized
+
+
 def validate_tutor_state(value: Any) -> TutorGraphStateV1:
     if not isinstance(value, Mapping):
         raise TutorContractError("Tutor graph state must be an object")
@@ -400,7 +474,12 @@ def validate_tutor_state(value: Any) -> TutorGraphStateV1:
         "goal": goal,
         "input_refs": copy.deepcopy(input_refs),
         "turns": copy.deepcopy(turns),
-        "learner_evidence": copy.deepcopy(evidence),
+        "learner_evidence": _validate_learner_evidence(
+            evidence,
+            tutor_mode=tutor_mode,
+            identity=identity,
+            check_spec=check_spec,
+        ),
         "branch": branch,
         "remediation_count": remediation_count,
         "budget": budget,
@@ -410,6 +489,16 @@ def validate_tutor_state(value: Any) -> TutorGraphStateV1:
     if check_spec is not None and check_prompt is not None:
         result["check_spec"] = check_spec
         result["check_prompt"] = check_prompt
+    if "current_remediation" in value:
+        current_remediation = value["current_remediation"]
+        if current_remediation is None:
+            result["current_remediation"] = None
+        else:
+            result["current_remediation"] = TutorRemediationContextV1.from_mapping(
+                current_remediation
+            ).to_dict()
+            if tutor_mode != "deterministic_practice" or branch != "check_2":
+                raise TutorContractError("Tutor remediation context is out of phase")
     for optional in (
         "pending_interrupt",
         "learner_answer",

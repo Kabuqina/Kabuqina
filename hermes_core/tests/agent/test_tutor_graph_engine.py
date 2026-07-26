@@ -218,6 +218,11 @@ def test_practice_incorrect_remediates_once_then_blocks(runtime, practice_contex
     assert second.status == "waiting_for_learner"
     assert second.latest_output == {"kind": "feedback", "markdown": "remediation"}
     assert [call[1].purpose for call in provider.calls] == ["explain", "remediate"]
+    remediation = provider.calls[1][1].remediation_context
+    assert remediation["branch_reason"] == "deterministic_incorrect"
+    assert remediation["learner_excerpt"] == '{"selected":["0"],"type":"choice"}'
+    checkpoint = runtime.load(second.key).checkpoint.state
+    assert checkpoint["current_remediation"] == remediation
 
     blocked = service.resume(
         "owner-1", "tutor", second.key.activity_id, _answer(second, "0")

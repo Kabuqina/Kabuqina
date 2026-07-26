@@ -187,6 +187,7 @@ def _prompt(request: TutorProviderRequestV1) -> tuple[str, str]:
             "goal": request.goal,
             "input_refs": list(request.input_refs),
             "previous_output": request.previous_output,
+            "remediation_context": request.remediation_context,
         }
     ).decode("utf-8")
     return system, user

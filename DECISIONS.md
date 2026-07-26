@@ -1393,3 +1393,28 @@ This closes the deterministic L-3/Practice-check subphase, not Level-5
 semantic evaluation. B04's semantic result remains a review-only draft seam;
 production wiring still requires its own write-ahead single-physical-attempt
 budget and must not call ordinary retry/fallback-enabled `call_llm()`.
+
+**CTL-B06 L-5 active Tutor retention (2026-07-26).** Active Tutor checkpoints
+retain at most two exact typed evaluation/branch records. Those records contain
+grader/rubric provenance, outcome/evidence codes, answer fingerprint and policy
+decision, but their schema rejects raw answers and arbitrary observation text.
+Only an unresolved incorrect branch may additionally carry a current
+`tutor-retention-v1` remediation context. Its learner excerpt is canonical and
+UTF-8 bounded to 2 KiB; a later answer clears the prior context before any new
+decision. Choice excerpts contain selected public option ids, never expected
+answers or rubric truth.
+
+The remediation context is part of the next Tutor provider request, so its
+canonical bytes are included in the existing write-ahead input-token
+reservation before the one permitted physical attempt. Repeated explanation
+and evaluation history continue to collapse deterministically to the last two
+records; compression performs no model call. Terminal commit deliberately
+folds to completion/reason, remediation count and numeric budget and deletes
+the active checkpoint, so neither learner excerpt nor detailed evaluation is
+copied into terminal run/outbox/telemetry.
+
+The existing Tutor provider budget remains independent from B04 semantic
+evaluation's injected one-attempt reservation and the future L-4 post-node
+budget. L-5 adds no semantic or post-node call and does not disguise either
+bucket as Tutor usage; their production wiring remains responsible for their
+own durable counters.

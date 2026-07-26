@@ -17,6 +17,10 @@ from agent.graph_engine.tutor_branch_policy import (
     apply_tutor_branch_policy,
 )
 from agent.graph_engine.tutor_ports import TutorGraphServices
+from agent.graph_engine.tutor_retention import (
+    build_remediation_context,
+    retain_evaluation_evidence,
+)
 from learning.tutor_contract import TutorContractError
 
 
@@ -96,14 +100,10 @@ def acknowledge(
             source_status=source_status,
         )
         resolution = apply_tutor_branch_policy(policy_input)
-        updated["learner_evidence"] = [
-            *updated["learner_evidence"],
-            {
-                "kind": "deterministic_evaluation",
-                "evaluation": evaluation.to_dict(),
-                "resolution": resolution.to_dict(),
-            },
-        ][-2:]
+        updated["learner_evidence"] = retain_evaluation_evidence(
+            updated["learner_evidence"], evaluation, resolution
+        )
+        updated["current_remediation"] = None
         if resolution.control_action == "reissue":
             updated["phase"] = "acknowledge"
         elif resolution.branch_action == "complete":
@@ -116,6 +116,11 @@ def acknowledge(
             updated["phase"] = "remediate"
             updated["branch"] = "check_2"
             updated["remediation_count"] = 1
+            updated["current_remediation"] = build_remediation_context(
+                evaluation,
+                resolution,
+                answer,
+            ).to_dict()
         elif resolution.branch_action == "blocked":
             updated["phase"] = "terminal"
             updated["terminal"] = {
