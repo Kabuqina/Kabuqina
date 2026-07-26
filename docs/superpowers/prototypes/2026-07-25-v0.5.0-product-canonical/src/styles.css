@@ -1520,7 +1520,7 @@ p {
   right: 0;
   bottom: 0;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   width: min(420px, 44%);
   border-left: 1px solid var(--line-warm);
   background: var(--paper-strong);
@@ -1562,6 +1562,56 @@ p {
   border: 1px solid var(--line-cool);
   border-radius: 6px;
   background: var(--surface);
+}
+
+/* 文件自己的章节：整本都在这儿，点哪节跳哪节 */
+.doc-toc {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line-warm);
+  background: var(--paper-soft);
+  scrollbar-width: none;
+}
+
+.doc-toc::-webkit-scrollbar {
+  display: none;
+}
+
+.doc-toc button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: baseline;
+  gap: 5px;
+  padding: 5px 9px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--ink-mid);
+  background: transparent;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.doc-toc button:hover {
+  background: var(--purple-faint);
+}
+
+.doc-toc button[aria-current] {
+  border-color: var(--purple-line);
+  color: var(--ink-strong);
+  background: var(--surface);
+  font-weight: 700;
+}
+
+.doc-toc button > span {
+  color: var(--ink-soft);
+  font-family: Georgia, serif;
+}
+
+.doc-toc button small {
+  color: var(--ink-soft);
+  font-size: 10px;
 }
 
 .material-body {

@@ -66,45 +66,62 @@ const GRADE_LABELS = {
   easy: "太简单",
 };
 
-// 材料真值。origin 决定可信度来源怎么标：
-// imported = 学生自己导入的（默认路径）；builtin = 产品自带的示例课程（样板，不是内容服务）
-const MATERIALS = {
-  "textbook-2-3": {
-    id: "textbook-2-3",
-    title: "教材 §2.3",
-    subtitle: "极限的运算法则",
+// 书脊＝一个文件（你上传的那一份），不是章节。
+// 章节是文件里的位置，打开文件时跳到那儿——所以"整本"始终看得到。
+// origin：imported = 学生自己导入（默认路径）；builtin = 产品自带示例（样板，非内容服务）
+const DOCUMENTS = {
+  textbook: {
+    id: "textbook",
+    title: "高等数学教材",
+    file: "高等数学教材.pdf",
     origin: "imported",
-    from: "高等数学教材.pdf · 第 23 页",
-    body: [
-      "若 lim f(x) 与 lim g(x) 都存在，则和、差、积的极限等于极限的和、差、积；当分母极限不为 0 时，商的极限等于极限的商。",
-      "注意最后一条的前提。若分子与分母的极限同时为 0，运算法则不适用——此时把式子记作 0/0，称为未定式。",
-      "未定式不是一个数值结果，而是一个信号：它说明还需要继续分析。常见的办法是先约去公因子，再求极限。",
+    pages: 312,
+    toc: [
+      { no: "2.1", title: "数列的极限", page: 18 },
+      { no: "2.2", title: "函数的极限", page: 21 },
+      { no: "2.3", title: "极限的运算法则", page: 23 },
+      { no: "2.4", title: "无穷小与无穷大", page: 27 },
+      { no: "2.5", title: "函数的连续性", page: 31 },
     ],
+    sections: {
+      "2.1": ["数列 {aₙ} 当 n 无限增大时无限接近常数 a，称 a 为该数列的极限。"],
+      "2.2": ["把 n → ∞ 换成 x → x₀，得到函数极限的定义。左右极限都存在且相等，极限才存在。"],
+      "2.3": [
+        "若 lim f(x) 与 lim g(x) 都存在，则和、差、积的极限等于极限的和、差、积；当分母极限不为 0 时，商的极限等于极限的商。",
+        "注意最后一条的前提。若分子与分母的极限同时为 0，运算法则不适用——此时把式子记作 0/0，称为未定式。",
+        "未定式不是一个数值结果，而是一个信号：它说明还需要继续分析。常见的办法是先约去公因子，再求极限。",
+      ],
+      "2.4": ["极限为 0 的变量称为无穷小；绝对值无限增大的称为无穷大。二者互为倒数关系。"],
+      "2.5": ["若 lim f(x) = f(x₀)，称 f 在 x₀ 连续。初等函数在其定义区间内都连续。"],
+    },
   },
-  "workbook-41": {
-    id: "workbook-41",
-    title: "习题集 p.41",
-    subtitle: "未定式练习 6 题",
+  workbook: {
+    id: "workbook",
+    title: "习题集",
+    file: "习题集.pdf",
     origin: "imported",
-    from: "习题集.pdf · 第 41 页",
-    body: [
-      "1. 求 lim (x² − 1) / (x − 1)，x → 1。",
-      "2. 求 lim (√x − 2) / (x − 4)，x → 4。",
-      "3. 判断：得到 0/0 就说明极限不存在。这句话对吗？为什么？",
-    ],
+    pages: 96,
+    toc: [{ no: "p.41", title: "未定式练习", page: 41 }],
+    sections: {
+      "p.41": [
+        "1. 求 lim (x² − 1) / (x − 1)，x → 1。",
+        "2. 求 lim (√x − 2) / (x − 4)，x → 4。",
+        "3. 判断：得到 0/0 就说明极限不存在。这句话对吗？为什么？",
+      ],
+    },
   },
-  "practice-feedback": {
-    id: "practice-feedback",
-    title: "当前练习与反馈",
-    subtitle: "练习 3 · 第 2 步",
-    origin: "imported",
-    from: "高等数学 · 我写的答案与页边批注",
+};
+
+// Studio 手里的是复印件——复印的是文件里的某一节，不是整本书
+const STUDIO_COPIES = [
+  { id: "copy-practice", title: "当前练习与反馈", doc: null, section: null, from: "高等数学 · 练习 3",
     body: [
       "我的答案：代入后分子和分母同时为 0，所以需要先变形。",
       "页边批注：已说清分子分母都趋近 0；还差这句——0/0 是未定式，不是极限值。",
-    ],
-  },
-};
+    ] },
+  { id: "copy-2-3", title: "教材 §2.3 极限的运算法则", doc: "textbook", section: "2.3",
+    from: "高等数学教材.pdf · 第 23 页" },
+];
 
 // Planner 层：一张卡＝我要说的一件事，素材作为依据挂在它下面。
 // 小娜拟的以铅笔出现，落墨后才进入顺序——内容她做，项目你参与。
@@ -134,13 +151,14 @@ const STUDY_PAGES = [
 
 // 目录来自教材自己的章节结构（小娜整理，非凭空生成），因此有出处。
 // 状态只反映"留下过什么重构痕迹"，绝不显示覆盖率——覆盖率会把"学过多少"伪装成"学会多少"。
+// 目录抽自教材，所以每一节都在那份文件里、都能点开跳过去
 const COURSE_OUTLINE = [
   { no: "2.1", title: "数列的极限", state: "practiced" },
-  { no: "2.2", title: "函数的极限", state: "practiced" },
-  { no: "2.3", title: "极限的运算法则", state: "current", material: "textbook-2-3" },
+  { no: "2.2", title: "函数的极限", state: "wrong" },
+  { no: "2.3", title: "极限的运算法则", state: "current" },
   { no: "2.4", title: "无穷小与无穷大", state: "none" },
   { no: "2.5", title: "函数的连续性", state: "none" },
-];
+].map((section) => ({ ...section, material: { doc: "textbook", section: section.no } }));
 
 const OUTLINE_STATE_LABEL = {
   practiced: "练过",
@@ -870,11 +888,12 @@ function ReviewCards({
         <section className="book-stack">
           <h2>参考资料</h2>
           <div className="spines">
-            <button className="book-spine" type="button" onClick={() => onOpenBook("textbook-2-3")}>
-              教材 §2.3
+            {/* 书脊＝一个文件，点开是整本 */}
+            <button className="book-spine" type="button" onClick={() => onOpenBook("textbook")}>
+              高等数学教材
             </button>
-            <button className="book-spine" type="button" onClick={() => onOpenBook("workbook-41")}>
-              习题集 p.41
+            <button className="book-spine" type="button" onClick={() => onOpenBook("workbook")}>
+              习题集
             </button>
             <button
               className="book-spine book-spine--add"
@@ -934,8 +953,10 @@ function ReviewCards({
 // 材料摊开在旁边，不接管页面——与小娜聊天框是同一族"侧开"物件。
 // 原始场景表已定：书只能作为局部呈现形态，不做主界面。
 function MaterialPanel({
-  material,
-  mode,
+  doc,
+  copy,
+  section,
+  onJump,
   onClose,
   onNote,
   citeTargets,
@@ -944,26 +965,48 @@ function MaterialPanel({
   onCite,
   onOpenOriginal,
 }) {
-  const isCopy = mode === "studio";
+  const isCopy = Boolean(copy);
+  // 复印件复印的是文件里的一节；正文取自那一节，取不到就用它自带的
+  const body = isCopy
+    ? copy.body ?? DOCUMENTS[copy.doc].sections[copy.section]
+    : doc.sections[section];
+
   return (
     <aside className={`material-panel ${isCopy ? "material-panel--copy" : ""}`} aria-label="摊开的材料">
       <header>
         <div>
           <span className="eyebrow">
-            {material.origin === "builtin" ? "产品自带的示例" : "你导入的"}
-            {" · "}
-            {material.from}
+            {isCopy
+              ? `复印件 · ${copy.from}`
+              : `${doc.origin === "builtin" ? "产品自带的示例" : "你导入的"} · ${doc.file} · 共 ${doc.pages} 页`}
           </span>
-          <h2>{material.title}</h2>
-          <p>{material.subtitle}</p>
+          <h2>{isCopy ? copy.title : doc.title}</h2>
         </div>
         <button type="button" aria-label="放回去" onClick={onClose}>
           <AppIcon icon={X} size={18} />
         </button>
       </header>
 
+      {/* 整本都在这儿：文件自己的章节，点哪节跳哪节 */}
+      {!isCopy && (
+        <nav className="doc-toc" aria-label="这份文件的章节">
+          {doc.toc.map((entry) => (
+            <button
+              type="button"
+              key={entry.no}
+              aria-current={entry.no === section ? "true" : undefined}
+              onClick={() => onJump(entry.no)}
+            >
+              <span>{entry.no}</span>
+              {entry.title}
+              <small>p.{entry.page}</small>
+            </button>
+          ))}
+        </nav>
+      )}
+
       <div className="material-body">
-        {material.body.map((paragraph, index) => (
+        {body.map((paragraph, index) => (
           <p key={index}>{paragraph}</p>
         ))}
       </div>
@@ -1509,23 +1552,18 @@ function StudioDesk({
           </header>
           {connected ? (
             <>
-              {/* 点开的是复印件本身；想看原件是面板里的另一个动作 */}
-              <button
-                className="material-slip material-slip--copy"
-                type="button"
-                onClick={() => onOpenMaterial("practice-feedback")}
-              >
-                当前练习与反馈
-                <small>复印件 · 原件在高等数学 · 练习 3</small>
-              </button>
-              <button
-                className="material-slip material-slip--copy"
-                type="button"
-                onClick={() => onOpenMaterial("textbook-2-3")}
-              >
-                教材 §2.3
-                <small>复印件 · 原件在高等数学 · 教材 §2.3</small>
-              </button>
+              {/* 复印的是文件里的某一节，不是整本；点开是副本，看原件是面板里的次级动作 */}
+              {STUDIO_COPIES.map((copy) => (
+                <button
+                  className="material-slip material-slip--copy"
+                  type="button"
+                  key={copy.id}
+                  onClick={() => onOpenMaterial(copy.id)}
+                >
+                  {copy.title}
+                  <small>复印件 · 原件在{copy.from}</small>
+                </button>
+              ))}
               {/* Material Index 不是一个去处，是这堆素材自己的目录 */}
               <button className="pile-index" type="button" onClick={onToggleIndex}>
                 <AppIcon icon={FileText} size={14} />
@@ -2481,17 +2519,26 @@ export function App() {
             onLearnRewrite={() => setLearnStep("seed")}
             draftSaved={draftSaved && !draftActivated}
             onOpenDraft={openDraftFromActivity}
-            onOpenBook={(id) => {
-              // 窄屏下书堆整条被隐藏，"参考"是唯一入口，得先给一个书架让人挑
-              if (id === "stack") {
-                setOpenMaterial("stack");
+            // 书脊传文件 id；目录里的节传 {doc, section}，打开文件并跳到那一节
+            onOpenBook={(target) => {
+              if (target === "stack") {
+                // 窄屏书堆整条被隐藏，"参考"是唯一入口，先给一个书架让人挑
+                setOpenMaterial({ kind: "stack" });
                 return;
               }
-              if (!id || !MATERIALS[id]) {
-                setToast("原型：放一本参考资料进来");
+              if (typeof target === "string" && DOCUMENTS[target]) {
+                setOpenMaterial({
+                  kind: "doc",
+                  docId: target,
+                  section: DOCUMENTS[target].toc[0].no,
+                });
                 return;
               }
-              setOpenMaterial(id);
+              if (target?.doc && DOCUMENTS[target.doc]) {
+                setOpenMaterial({ kind: "doc", docId: target.doc, section: target.section });
+                return;
+              }
+              setToast("原型：放一本参考资料进来");
             }}
             stackIndexOpen={stackIndexOpen}
             onToggleStackIndex={() => setStackIndexOpen((open) => !open)}
@@ -2557,8 +2604,8 @@ export function App() {
             }}
             indexOpen={indexOpen}
             onToggleIndex={() => setIndexOpen((open) => !open)}
-            onOpenMaterial={(id) => {
-              setOpenMaterial(id);
+            onOpenMaterial={(copyId) => {
+              setOpenMaterial({ kind: "copy", copyId });
               setCiteOpen(false);
             }}
           />
@@ -2648,7 +2695,7 @@ export function App() {
         {overlay === "new-course" && (
           <NewCourseModal onClose={() => setOverlay(null)} onCreate={createCourse} />
         )}
-        {openMaterial === "stack" && (
+        {openMaterial?.kind === "stack" && (
           <aside className="material-panel" aria-label="本课参考">
             <header>
               <div>
@@ -2660,24 +2707,30 @@ export function App() {
               </button>
             </header>
             <div className="material-body">
-              {["textbook-2-3", "workbook-41"].map((id) => (
+              {Object.values(DOCUMENTS).map((item) => (
                 <button
                   className="shelf-row"
                   type="button"
-                  key={id}
-                  onClick={() => setOpenMaterial(id)}
+                  key={item.id}
+                  onClick={() => setOpenMaterial({ kind: "doc", docId: item.id, section: item.toc[0].no })}
                 >
-                  <strong>{MATERIALS[id].title}</strong>
-                  <small>{MATERIALS[id].subtitle}</small>
+                  <strong>{item.title}</strong>
+                  <small>{item.file} · 共 {item.pages} 页</small>
                 </button>
               ))}
             </div>
           </aside>
         )}
-        {openMaterial && MATERIALS[openMaterial] && (
+        {(openMaterial?.kind === "doc" || openMaterial?.kind === "copy") && (
           <MaterialPanel
-            material={MATERIALS[openMaterial]}
-            mode={surface === "studio" ? "studio" : "study"}
+            doc={openMaterial.kind === "doc" ? DOCUMENTS[openMaterial.docId] : null}
+            copy={
+              openMaterial.kind === "copy"
+                ? STUDIO_COPIES.find((item) => item.id === openMaterial.copyId)
+                : null
+            }
+            section={openMaterial.section}
+            onJump={(no) => setOpenMaterial((current) => ({ ...current, section: no }))}
             onClose={() => {
               setOpenMaterial(null);
               setCiteOpen(false);
@@ -2693,23 +2746,29 @@ export function App() {
             citeOpen={citeOpen}
             onStartCite={() => setCiteOpen(true)}
             onCite={(point) => {
+              const copy = STUDIO_COPIES.find((item) => item.id === openMaterial.copyId);
               setPoints((items) =>
                 items.map((item) =>
-                  item.id === point.id
-                    ? { ...item, backing: MATERIALS[openMaterial].title }
-                    : item,
+                  item.id === point.id ? { ...item, backing: copy.title } : item,
                 ),
               );
               setCiteOpen(false);
               setOpenMaterial(null);
               setToast(`已挂到「${point.say}」下面`);
             }}
+            // 看原件＝回到 Study，把那份文件打开到被复印的那一节
             onOpenOriginal={() => {
-              setOpenMaterial(null);
+              const copy = STUDIO_COPIES.find((item) => item.id === openMaterial.copyId);
               setSurface("study");
-              setStudyPage("practice");
-              setStudyState("practice");
-              setToast("已回到高等数学 · 原件位置");
+              if (copy.doc) {
+                setOpenMaterial({ kind: "doc", docId: copy.doc, section: copy.section });
+                setToast("已打开原件");
+              } else {
+                setOpenMaterial(null);
+                setStudyPage("practice");
+                setStudyState("practice");
+                setToast("已回到高等数学 · 原件位置");
+              }
             }}
           />
         )}
