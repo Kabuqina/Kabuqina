@@ -513,7 +513,7 @@ function LearnPage({
         <button className="draft-row" type="button" onClick={onOpenDraft}>
           <span>
             <strong>“0/0 未定式”辅导笔记</strong>
-            <small>待审核 · 不改变课程真值</small>
+            <small>等你过目 · 还没进课程</small>
           </span>
           <StatusPill tone="warning">草稿</StatusPill>
         </button>
@@ -676,7 +676,7 @@ function StudyNotebook({
               。为什么不能把直接代入得到的 0/0 当作答案？
             </h2>
             <p className="completion-standard">
-              <strong>写到这样就算过了：</strong>
+              <strong>完成标准：</strong>
               说清“得到 0/0”不等于“得到极限值”，并指出下一步。
             </p>
             {studyState === "returned" && (
@@ -1202,25 +1202,17 @@ function StudioDesk({
         )}
         <button className="folder-tab folder-tab--new" type="button" onClick={onNewProject}>
           <AppIcon icon={Plus} size={14} />
-          新建夹
+          新项目
         </button>
       </nav>
 
-      <section className="studio-workspace" aria-label="当前 Studio Project">
+      <section className="studio-workspace" aria-label="当前项目">
         {connected ? (
           <>
             {/* Brief：别在夹子最前面的一张便条，所有排序判断都要回到它 */}
+            {/* 标题本身已含受众与目的，不再另立字段；理清 Brief 走右下角那只杯子 */}
             <header className="brief-slip">
-              <span className="eyebrow">讲给谁 · 要他们明白什么</span>
               <h1>把“0/0 是未定式”讲给刚接触极限的同学</h1>
-              <dl>
-                <div><dt>受众</dt><dd>刚开始学极限的同学</dd></div>
-                <div><dt>完成标准</dt><dd>他们能自己说出 0/0 为什么只是信号</dd></div>
-              </dl>
-              <button className="brief-clarify" type="button" onClick={onOpenChat}>
-                <AppIcon icon={Coffee} size={14} />
-                和小娜一起理清
-              </button>
             </header>
 
             <div className="point-stack">
@@ -1238,8 +1230,8 @@ function StudioDesk({
                         {isPencil
                           ? "小娜拟的 · 你确认了才算数"
                           : point.backing
-                            ? `依据：${point.backing}`
-                            : "还没有依据 · 从素材里找一份"}
+                            ? `出处：${point.backing}`
+                            : "还没有出处"}
                       </small>
                     </div>
                     {isPencil ? (
@@ -1285,7 +1277,7 @@ function StudioDesk({
                   onClick={() => onToast("原型：新增一张观点卡")}
                 >
                   <AppIcon icon={Plus} size={15} />
-                  自己加一件要说的事
+                  自己写一条
                 </button>
                 <button className="point-ask" type="button" onClick={onAskDraft}>
                   <AppIcon icon={Coffee} size={15} />
@@ -1303,25 +1295,24 @@ function StudioDesk({
                 disabled={pencilCount > 0}
                 onClick={() => onToast("原型：这一步才选 PPT / 文档 / 讲义")}
               >
-                按这个顺序成件
+                按这个顺序做出来
                 <AppIcon icon={ArrowRight} />
               </button>
-              <span>
-                {pencilCount > 0
-                  ? `还有 ${pencilCount} 张铅笔卡要你过目`
-                  : "形式到这一步才选"}
-              </span>
+              {/* 只在锁住时说话，并说清怎么解锁；用词与卡片上的按钮一致 */}
+              {pencilCount > 0 && (
+                <span>还有 {pencilCount} 条要你定：要，还是抽走</span>
+              )}
             </footer>
           </>
         ) : (
           <div className="studio-empty">
             <FolderOpen aria-hidden="true" />
             <h2>先说清要讲给谁</h2>
-            <p>夹子从表达目标开始，不从文件格式开始。</p>
+            <p>项目从表达目标开始，不从文件格式开始。</p>
             <div className="inline-actions">
               <button className="primary-action" type="button" onClick={onNewProject}>
                 <AppIcon icon={Plus} />
-                新建夹
+                新项目
               </button>
               <button type="button" onClick={onOpenTransfer}>
                 <AppIcon icon={ArrowLeft} />
@@ -1347,16 +1338,16 @@ function StudioDesk({
             <>
               <button className="material-slip material-slip--copy" type="button" onClick={onReturnSource}>
                 当前练习与反馈
-                <small>复印件 · 原件在高等数学</small>
+                <small>复印件 · 原件在高等数学 · 练习 3</small>
               </button>
               <button className="material-slip material-slip--copy" type="button" onClick={onReturnSource}>
                 教材 §2.3
-                <small>复印件 · 原件在高等数学</small>
+                <small>复印件 · 原件在高等数学 · 练习 3</small>
               </button>
               {/* Material Index 不是一个去处，是这堆素材自己的目录 */}
               <button className="pile-index" type="button" onClick={onToggleIndex}>
                 <AppIcon icon={FileText} size={14} />
-                这堆里有什么
+                小娜从素材里读到的
               </button>
               {indexOpen && (
                 <ul className="pile-index-list">
@@ -1380,7 +1371,7 @@ function StudioDesk({
             <Coffee size={25} aria-hidden="true" />
           </span>
           <strong>碰杯问小娜</strong>
-          <small>{connected ? "一起理这个顺序" : "先聊清讲给谁"}</small>
+          <small>{connected ? "一起理这个项目" : "一起想讲给谁"}</small>
         </button>
       </aside>
     </main>
@@ -1606,20 +1597,19 @@ function StudioTransferModal({ onClose, step, setStep, onAccept, origin }) {
   return (
     <ModalShell
       title={origin === "chat" ? "发送到 Studio" : "从 Study 取素材"}
-      eyebrow="显式跨域连接"
       onClose={onClose}
       wide
     >
       {step === "select" ? (
         <>
           <div className="stepper">
-            <strong>1 选择来源</strong>
-            <span>2 审核快照</span>
-            <span>3 打开 Project</span>
+            <strong>1 选内容</strong>
+            <span>2 看一眼</span>
+            <span>3 取过来</span>
           </div>
           <div className="transfer-grid">
             <section>
-              <h3>从 Study 选择什么</h3>
+              <h3>取哪些</h3>
               {availableSources.map((source) => (
                 <label className="source-choice" key={source}>
                   <input
@@ -1630,17 +1620,14 @@ function StudioTransferModal({ onClose, step, setStep, onAccept, origin }) {
                   <span>
                     <FileText aria-hidden="true" />
                     <strong>{source}</strong>
-                    <small>
-                      {origin === "chat"
-                        ? "普通 Chat · 未绑定课程或项目"
-                        : "高等数学 · Study 真值保持不变"}
-                    </small>
+                    {/* 出处只说出处；"不会动到原件"整屏说一次就够（见底部） */}
+                    <small>{origin === "chat" ? "自由对话 · 昨天" : "高等数学 · 练习 3"}</small>
                   </span>
                 </label>
               ))}
             </section>
             <section>
-              <h3>发送到哪个 Project</h3>
+              <h3>放进哪个项目</h3>
               <label className="source-choice">
                 <input
                   type="radio"
@@ -1651,7 +1638,7 @@ function StudioTransferModal({ onClose, step, setStep, onAccept, origin }) {
                 <span>
                   <FolderOpen aria-hidden="true" />
                   <strong>极限概念分享</strong>
-                  <small>已有 Project · Brief 待澄清</small>
+                  <small>已有的项目 · 还没写清要讲什么</small>
                 </span>
               </label>
               <label className="source-choice">
@@ -1663,8 +1650,8 @@ function StudioTransferModal({ onClose, step, setStep, onAccept, origin }) {
                 />
                 <span>
                   <FolderPlus aria-hidden="true" />
-                  <strong>新建 Project</strong>
-                  <small>只建立项目容器，不预选输出格式</small>
+                  <strong>新项目</strong>
+                  <small>先建个空的，格式以后再选</small>
                 </span>
               </label>
             </section>
@@ -1679,7 +1666,7 @@ function StudioTransferModal({ onClose, step, setStep, onAccept, origin }) {
               disabled={selected.length === 0}
               onClick={() => setStep("review")}
             >
-              审核来源快照
+              看一眼
               <AppIcon icon={ArrowRight} />
             </button>
           </div>
@@ -1687,33 +1674,26 @@ function StudioTransferModal({ onClose, step, setStep, onAccept, origin }) {
       ) : (
         <>
           <div className="stepper">
-            <span>1 已选来源</span>
-            <strong>2 审核快照</strong>
-            <span>3 打开 Project</span>
+            <span>1 选内容</span>
+            <strong>2 看一眼</strong>
+            <span>3 取过来</span>
           </div>
           <section className="snapshot-review">
             <div>
-              <span>来源</span>
+              <span>取这些</span>
               <strong>{selected.join("、")}</strong>
             </div>
             <div>
-              <span>目标</span>
-              <strong>{target === "existing" ? "Studio · 极限概念分享" : "Studio · 新 Project"}</strong>
-            </div>
-            <div>
-              <span>传递方式</span>
-              <strong>只读 SourceSnapshot · 带 revision 与返回位置</strong>
-            </div>
-            <div>
-              <span>写入边界</span>
-              <strong>不修改 Study 原对象，不改变掌握度或计划完成度</strong>
+              <span>放进</span>
+              <strong>{target === "existing" ? "极限概念分享" : "一个新项目"}</strong>
             </div>
           </section>
+          {/* 用户只需要知道两件事：拿走的是什么，会不会动到原件 */}
           <aside className="honest-note">
             <ShieldCheck aria-hidden="true" />
             <p>
-              <strong>这不是“生成 PPT”。</strong>
-              本轮只建立 Study 与 Studio 的领域连接；Studio 内部工作面将在整体布局冻结后设计。
+              <strong>取的是复印件，原件留在高等数学里。</strong>
+              在这边怎么改，都不会动到你的课程。
             </p>
           </aside>
           <div className="modal-actions">
@@ -1721,7 +1701,7 @@ function StudioTransferModal({ onClose, step, setStep, onAccept, origin }) {
               返回修改
             </button>
             <button className="primary-action" type="button" onClick={onAccept}>
-              创建快照并打开 Studio
+              取过来
               <AppIcon icon={ArrowRight} />
             </button>
           </div>
@@ -1777,7 +1757,7 @@ function ActivityPanel({
               </span>
               <span>
                 <strong>Studio · 极限概念分享</strong>
-                <small>{studioConnected ? "来源快照已保存 · Brief 待澄清" : "来源转交等待确认"}</small>
+                <small>{studioConnected ? "素材已取过来 · 还没写清要讲什么" : "素材还没确认取哪些"}</small>
               </span>
               <StatusPill tone={studioConnected ? "info" : "warning"}>
                 {studioConnected ? "可继续" : "待审核"}
@@ -1811,12 +1791,12 @@ function ActivityPanel({
               </span>
               <span>
                 <strong>极限概念分享</strong>
-                <small>Studio Project · 来源 2 项</small>
+                <small>项目 · 素材 2 份</small>
               </span>
               <StatusPill tone="prototype">布局阶段</StatusPill>
             </button>
           ) : (
-            <p className="panel-empty">Studio Project 会与学习活动分开显示。</p>
+            <p className="panel-empty">项目会和学习活动分开显示。</p>
           )}
         </section>
         <button className="recovery-test" type="button" onClick={onOpenRecovery}>
@@ -1853,7 +1833,7 @@ function RecoveryModal({ onClose, onResumeStudy, onResumeStudio }) {
           <span>
             <StatusPill tone="prototype">Studio</StatusPill>
             <strong>极限概念分享</strong>
-            <small>来源快照已保存 · Project 工作面可恢复</small>
+            <small>素材和顺序都在，可以接着做</small>
           </span>
           <ArrowRight aria-hidden="true" />
         </button>
@@ -2337,7 +2317,7 @@ export function App() {
               setStudioConnected(true);
               setTransferStep("done");
               setProductStatus("Studio ready · 已建立空 Project，尚未选择输出形式");
-              setToast("已建立 Studio Project");
+              setToast("已新建项目");
             }}
             onOpenChat={() => {
               setContextChat("studio");
