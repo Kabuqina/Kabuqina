@@ -2437,7 +2437,7 @@
       "owner_status": "accepted",
       "command": "owner runs python/build_bundle.ps1 -Verify on merged main, reviews DEPENDENCY_INVENTORY.json, then G01/Q runs fresh Python/npm/Cargo advisory scans against the recorded hashes",
       "expected": "Retained dependency distributions and notices are complete; removed SDKs are absent; accepted advisories are documented.",
-      "evidence": "docs/superpowers/progress/2026-07-25-v0.5.0-ctl-c05-shared-closeout-evidence.md; source inventory/hash generation implemented, owner artifact and external advisory scans pending",
+      "evidence": "docs/superpowers/progress/2026-07-25-v0.5.0-ctl-c05-shared-closeout-evidence.md; merged-main owner artifact passed with verified=true, Python 165 / Node 167 inventory and runtime/import/STT checks; ffmpeg digest provenance plus external advisory scans remain G01/Q",
       "status": "blocked_with_evidence"
     },
     {

@@ -1173,7 +1173,7 @@ network-dependent runtime installation without claiming that the system Node
 executable or real WhatsApp transport is release-ready; CTL-C06 owns those
 proofs.
 
-Fixed CPython/STT archives and locked bridge dependencies use a shared
+Pinned CPython/Whisper archives and locked bridge dependencies use a shared
 `%LOCALAPPDATA%\Kabuqina\bundle-cache` (or
 `KABUQINA_BUNDLE_CACHE`) so worktrees do not download identical inputs again.
 Every build emits `DEPENDENCY_INVENTORY.json` with the exact installed
@@ -1181,3 +1181,9 @@ Python/Node versions, input hashes and published license metadata. Tauri's
 `Cargo.lock` is tracked from C05 onward so Rust resolution is reproducible;
 fresh external advisory scans and final redistributed-file reconciliation
 remain G01/Q checks against these frozen inputs.
+
+The owner-provided C05 bundle passed on 2026-07-25 and C05 received reviewer
+sign-off on 2026-07-26. The existing gyan.dev ffmpeg release URL remains
+rolling and is not digest-pinned; its warning is accepted for the C05
+functional/runtime gate but explicitly remains a G01/Q provenance blocker
+before release approval.

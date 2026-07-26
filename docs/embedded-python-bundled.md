@@ -16,12 +16,16 @@ After **`git pull`** or changes under **`hermes_core/`**, especially `gateway/`,
 
 ## Shared download cache
 
-Fixed CPython/STT archives and the lock-resolved WhatsApp bridge dependencies
+Pinned CPython/Whisper archives and the lock-resolved WhatsApp bridge dependencies
 are cached under `%LOCALAPPDATA%\Kabuqina\bundle-cache`. The cache is shared by
 all Git worktrees, so changing worktrees does not download the same fixed files
 again. Set `KABUQINA_BUNDLE_CACHE` to an absolute directory to override it.
 An existing worktree-local `python/_download/` is copied into the shared cache
 once without deleting the old files.
+
+The current gyan.dev ffmpeg release URL is rolling and is not yet
+digest-pinned. Its build warning is tracked as a G01/Q supply-chain and release
+provenance item; a successful STT smoke does not prove download authenticity.
 
 WhatsApp dependencies are installed during the build from the committed
 `package-lock.json` and cached by its SHA-256. The desktop runtime never runs
