@@ -137,12 +137,18 @@ pub fn resolve_runtime_dir(app: &AppHandle) -> Result<PathBuf> {
 }
 
 pub fn is_power_user(app: &AppHandle) -> bool {
-    // Off until explicitly enabled. Onboarding (Welcome step) and the Settings
-    // toggle both persist this via `set_power_user_enabled`; we never silently
-    // enable terminal/code-execution for users who skip that choice.
-    matches!(
+    // On by default since v0.5.0 (owner decision 2026-07-27): the two-tier split
+    // stopped paying for itself once the product became Study/Studio. Study has no
+    // entry point that triggers a risky operation at all, Studio needs the full
+    // capability set to make anything, and Chat — the one surface that can still
+    // reach a risky tool — is a much smaller share of use than it was in v0.4.
+    //
+    // This is a *capability default*, not a removal of consent: terminal, code
+    // execution and community skills still confirm per use. Only an explicit
+    // opt-out ("0"/"false") turns the restricted mode back on.
+    !matches!(
         read_setting(app, SETTING_POWER_USER).as_deref(),
-        Some("1" | "true")
+        Some("0" | "false")
     )
 }
 

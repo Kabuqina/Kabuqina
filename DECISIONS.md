@@ -1564,3 +1564,28 @@ Two consequences are tracked in the JIT plan
 the six-platform real-account matrix deferred by CTL-C06 stops being a release
 blocker, and the `sea` profile loses its only distinguishing content, so U-12
 must be re-judged.
+
+## Power mode is the only mode (2026-07-27)
+
+The two-tier power-user split is removed. Capabilities that used to sit behind
+the toggle — terminal, code execution, community skills, workspace relocation —
+are **on by default**. The onboarding opt-in and both toggles (Settings and
+title bar) are gone.
+
+Owner reasoning: the split was designed for a general-purpose desktop agent.
+Under Study/Studio it stopped paying for itself. **Study has no entry point that
+triggers a risky operation at all.** **Studio needs the full capability set** —
+it exists to make things, and a Studio that cannot run code or write files is
+not a creation surface. **Chat** is the one surface that can still reach a risky
+tool, and it is a much smaller share of use than it was in v0.4.
+
+This is a *capability default*, not a removal of consent. Risky actions still
+confirm per use; that gate is untouched. `KABUQINA_POWER_USER` /
+`HERMESDESK_POWER_USER` still exist and are still exported to the Python child
+by `python_supervisor.rs`, so the restricted mode remains reachable — but only
+by explicitly persisting `"0"`/`"false"`, and nothing in the product writes that
+value any more. `paths::is_power_user` inverted accordingly: absent means on.
+
+Removed with it: `web/src/lib/powerUser.ts`, `web/src/lib/useTogglePowerUser.ts`,
+the Welcome step's advanced opt-in, and the `settings.power*` / `welcome.advanced*`
+strings.

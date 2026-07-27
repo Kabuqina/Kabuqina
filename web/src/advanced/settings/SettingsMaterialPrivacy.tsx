@@ -41,11 +41,13 @@ export function SettingsMaterialPrivacy() {
     ? `${preview.provider ?? preview.host ?? ""} · ${preview.model}`.replace(/^ · /, "")
     : (preview?.provider ?? preview?.host ?? null);
 
+  // 键写全名而不是拼 `settings.${key}`：拼出来的键静态扫不到，
+  // 会被"清理死键"的脚本当成无人引用而误删。
   const lines: Array<{ key: string; sends: boolean }> = [
-    { key: "privacyLocalParse", sends: false },
-    { key: "privacyTutorRefs", sends: false },
-    { key: "privacyLocalRecords", sends: false },
-    { key: "privacyChatAttachments", sends: true },
+    { key: "settings.privacyLocalParse", sends: false },
+    { key: "settings.privacyTutorRefs", sends: false },
+    { key: "settings.privacyLocalRecords", sends: false },
+    { key: "settings.privacyChatAttachments", sends: true },
   ];
 
   return (
@@ -64,7 +66,7 @@ export function SettingsMaterialPrivacy() {
                   sends ? "bg-amber-500" : "bg-emerald-500"
                 }`}
               />
-              <span className="text-[var(--kq-color-ink)]">{t(`settings.${key}`)}</span>
+              <span className="text-[var(--kq-color-ink)]">{t(key)}</span>
             </li>
           ))}
         </ul>

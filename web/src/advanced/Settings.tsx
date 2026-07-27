@@ -9,7 +9,6 @@ import { AppScaffold } from "../components/AppScaffold";
 import { BackButton } from "../components/ui/BackButton";
 import { useI18n } from "../lib/i18n";
 import { cn } from "../lib/cn";
-import { useTogglePowerUser } from "../lib/useTogglePowerUser";
 import { useFontSize, useThemeMode } from "../lib/ui-prefs";
 import { SettingsDisplay } from "./settings/SettingsDisplay";
 import { SettingsLearningData, SettingsLearningMigrations } from "./settings/SettingsLearningData";
@@ -45,7 +44,6 @@ export function Settings() {
     : "general";
   const [tab, setTab] = useState<SettingsTab>(initialTab);
   const [status, setStatus] = useState<Status | null>(null);
-  const { powerUser, togglePowerUser } = useTogglePowerUser();
   const { size: fontSize, setSize: setFontSize } = useFontSize();
   const { mode: themeMode, setMode: setThemeMode } = useThemeMode();
 
@@ -135,8 +133,6 @@ export function Settings() {
             <>
               <SettingsDisplay
                 status={status}
-                powerUser={powerUser}
-                onTogglePowerUser={togglePowerUser}
                 fontSize={fontSize}
                 onSetFontSize={setFontSize}
                 themeMode={themeMode}

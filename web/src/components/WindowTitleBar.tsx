@@ -5,17 +5,14 @@ import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Maximize2, Minus, Sparkles, X, Zap } from "lucide-react";
-import { Toggle } from "./ui/Toggle";
+import { Maximize2, Minus, Sparkles, X } from "lucide-react";
 import { useI18n } from "../lib/i18n";
 import { ART_ASSETS } from "../lib/artAssets";
 import { cn } from "../lib/cn";
-import { useTogglePowerUser } from "../lib/useTogglePowerUser";
 
 /** 与系统关闭/最小化/最大化同一行的顶栏；需 `tauri.conf.json` 中 `decorations: false`。 */
 export function WindowTitleBar() {
   const { t } = useI18n();
-  const { powerUser, togglePowerUser } = useTogglePowerUser();
   const location = useLocation();
   const inApp = isTauri();
   const [isMaximized, setIsMaximized] = useState(false);
@@ -131,26 +128,6 @@ export function WindowTitleBar() {
         >
           {capabilitiesLabel}
         </Link>
-        <div
-          className="kq-titlebar-power hermes-titlebar-nodrag ml-0.5 inline-flex items-center gap-1.5 rounded-lg px-2 py-0.5"
-          title={t("settings.powerTitle")}
-        >
-          <Zap
-            className={cn(
-              "h-3.5 w-3.5 shrink-0",
-              powerUser ? "kq-power-icon" : "text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]",
-            )}
-            strokeWidth={2.25}
-            aria-hidden
-          />
-          <span className="hidden text-xs font-medium sm:inline">{t("settings.powerTitle")}</span>
-          <Toggle
-            tone="kabuqina"
-            value={powerUser}
-            onChange={(v) => void togglePowerUser(v)}
-            aria-label={t("settings.powerTitle")}
-          />
-        </div>
         {inApp && (
           <>
             <div className="kq-titlebar-divider" aria-hidden />

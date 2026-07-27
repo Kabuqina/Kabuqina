@@ -587,10 +587,9 @@ assert.doesNotMatch(
   "Power-user toggle should not live in the chat input footer.",
 );
 
-const togglePowerSource = fs.readFileSync(new URL("../lib/useTogglePowerUser.ts", import.meta.url), "utf8");
-assert.match(togglePowerSource, /confirm\([\s\S]*tone:\s*"warning"/);
-assert.doesNotMatch(togglePowerSource, /plugin-dialog/);
-assert.match(titleBarSource, /useTogglePowerUser/);
+// v0.5.0 起不再分权限层（owner 2026-07-27）：能力默认全开，风险动作仍逐次确认。
+// 顶栏与聊天页都不该再出现 power-mode 开关。
+assert.doesNotMatch(titleBarSource, /useTogglePowerUser|powerUser|settings\.powerTitle/);
 assert.match(
   fs.readFileSync(new URL("../main.tsx", import.meta.url), "utf8"),
   /ConfirmDialogHost/,
@@ -602,10 +601,10 @@ assert.match(
   "Session delete should use the in-app confirm dialog.",
 );
 assert.doesNotMatch(chatPageSource, /window\.confirm/);
-assert.match(
+assert.doesNotMatch(
   titleBarSource,
-  /kq-titlebar-power[\s\S]*settings\.powerTitle[\s\S]*togglePowerUser/,
-  "Power-user toggle should sit in the titlebar beside capabilities.",
+  /kq-titlebar-power/,
+  "The power-mode toggle is gone (owner 2026-07-27); capabilities are on by default.",
 );
 
 assert.match(messageListSource, /kq-empty-action\b/);

@@ -10,7 +10,6 @@ import {
   Moon,
   RotateCcw,
   ScrollText,
-  Shield,
   Type,
   Upload,
 } from "lucide-react";
@@ -34,8 +33,6 @@ import { getStudyIaEnabled, setStudyIaEnabled } from "../../study/iaEvents";
 
 interface Props {
   status: Status | null;
-  powerUser: boolean;
-  onTogglePowerUser: (next: boolean) => void;
   fontSize: "small" | "medium" | "large";
   onSetFontSize: (size: "small" | "medium" | "large") => void;
   themeMode: ThemeMode;
@@ -58,8 +55,6 @@ function ipcErr(e: unknown): string {
 
 export function SettingsDisplay({
   status,
-  powerUser,
-  onTogglePowerUser,
   fontSize,
   onSetFontSize,
   themeMode,
@@ -286,19 +281,19 @@ export function SettingsDisplay({
         </div>
       </Section>
 
+      {/* v0.5.0 起不再分权限层（owner 2026-07-27）：路径、打开文件夹、改位置全部常驻。 */}
       <Section
         icon={FolderOpen}
         title={t("settings.secWorkspace")}
-        desc={powerUser ? t("settings.secWorkspaceDescPower") : t("settings.secWorkspaceDescSimple")}
-        action={powerUser ? <Button onClick={() => invoke("cmd_open_workspace")}>{t("settings.openFolder")}</Button> : undefined}
+        desc={t("settings.secWorkspaceDescPower")}
+        action={<Button onClick={() => invoke("cmd_open_workspace")}>{t("settings.openFolder")}</Button>}
       >
-        {powerUser ? (
-          <div className="space-y-3">
-            <p className="w-full break-all font-mono text-xs leading-relaxed text-[var(--kq-color-strong)]">
-              <span className="inline-block max-w-full rounded-md bg-zinc-100 px-2 py-1.5 dark:bg-[var(--kq-glass-bg-subtle)]">
-                {status?.workspace ?? "…"}
-              </span>
-            </p>
+        <p className="w-full break-all font-mono text-xs leading-relaxed text-[var(--kq-color-strong)]">
+          <span className="inline-block max-w-full rounded-md bg-zinc-100 px-2 py-1.5 dark:bg-[var(--kq-glass-bg-subtle)]">
+            {status?.workspace ?? "…"}
+          </span>
+        </p>
+        <div className="mt-3 space-y-3">
             <label className="flex flex-wrap items-center gap-3 text-sm text-[var(--kq-color-ink)] dark:text-[var(--kq-color-ink)]">
               <Toggle
                 value={workspaceMigrateFiles}
@@ -328,11 +323,8 @@ export function SettingsDisplay({
                 {workspaceError}
               </p>
             ) : null}
-          </div>
-        ) : null}
+        </div>
       </Section>
-
-      <Section icon={Shield} title={t("settings.powerTitle")} desc={t("settings.powerDesc")} action={<Toggle value={powerUser} onChange={(v) => onTogglePowerUser(v)} />} />
     </>
   );
 }
