@@ -22,7 +22,6 @@ export function Wizard() {
         <Route path="tts" element={<SectionPlaceholderStep id="tts" />} />
         <Route path="stt" element={<SectionPlaceholderStep id="stt" />} />
         <Route path="terminal" element={<SectionPlaceholderStep id="terminal" />} />
-        <Route path="gateway" element={<SectionPlaceholderStep id="gateway" />} />
         <Route path="tools" element={<SectionPlaceholderStep id="tools" />} />
         <Route path="agent" element={<SectionPlaceholderStep id="agent" />} />
         <Route path="done" element={<Navigate to="/chat" replace state={CHAT_FROM_ONBOARDING_STATE} />} />

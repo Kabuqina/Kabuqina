@@ -5,14 +5,16 @@ import type { SetupMode } from "../lib/store";
 
 /**
  * Shell wizard step ids (same order as post-model sections in
- * `hermes/kabuqina_cli/setup.py` SETUP_SECTIONS: tts, terminal, gateway, tools, agent),
+ * `hermes/kabuqina_cli/setup.py` SETUP_SECTIONS: tts, terminal, tools, agent),
  * with preamble: welcome, brain, pass.
+ *
+ * `gateway` is gone (CTL-C08): the mobile Bot product surface was removed, so
+ * first-run no longer asks the student to configure message channels.
  */
 export const SHELL_WIZARD_STEPS = [
   "welcome",
   "brain",
   "pass",
-  "gateway",
   "tts",
   "stt",
   "terminal",
@@ -26,7 +28,6 @@ const QUICK_STEPS: readonly ShellWizardStepId[] = [
   "welcome",
   "brain",
   "pass",
-  "gateway",
 ] as const;
 
 export function getStepsForMode(setupMode: SetupMode | null): readonly ShellWizardStepId[] {
@@ -43,11 +44,12 @@ export function stepToPath(id: ShellWizardStepId): string {
 }
 
 /**
- * After saving API credentials on `pass`, continue through the Quick Start gateway section.
+ * `pass` is the last Quick Start step (the gateway section it used to lead into is
+ * gone, CTL-C08), so saving credentials finishes first-run and enters chat.
  */
 export function getNextPathAfterPass(setupMode: SetupMode): string {
   void setupMode;
-  return stepToPath("gateway");
+  return "/chat";
 }
 
 export function getIndexInFlow(step: ShellWizardStepId, setupMode: SetupMode | null): number {
@@ -102,7 +104,7 @@ export function getRedirectForInvalidUrlStep(
       pathStep === "tools" ||
     pathStep === "agent"
   ) {
-    return stepToPath("gateway");
+    return stepToPath("pass");
   }
   return null;
 }

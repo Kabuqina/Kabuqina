@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { LlmConfigEditor } from "../../components/LlmConfigEditor";
 import { clearAllowChatWithoutApi } from "../../lib/apiKeyGate";
+import { CHAT_FROM_ONBOARDING_STATE } from "../../lib/chatLocationState";
 import { useI18n } from "../../lib/i18n";
 import { updateDraft, useDraft } from "../../lib/store";
 import { getBackPath, getNextPathAfterPass } from "../flowConfig";
@@ -35,7 +36,8 @@ export function GetAccessPass() {
       /* optional */
     }
     clearAllowChatWithoutApi();
-    nav(getNextPathAfterPass("quick"), { replace: true });
+    // `pass` is now the last first-run step, so this finishes onboarding.
+    nav(getNextPathAfterPass("quick"), { replace: true, state: CHAT_FROM_ONBOARDING_STATE });
   }
 
   return (

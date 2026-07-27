@@ -121,8 +121,13 @@ assert.doesNotMatch(
 assert.match(settingsSource, /role="tablist"/, "Settings should use a tab bar to group its sections.");
 assert.match(
   settingsSource,
-  /settings\.tabGeneral[\s\S]*settings\.tabModel[\s\S]*settings\.tabGateway[\s\S]*settings\.tabAdvanced/,
+  /settings\.tabGeneral[\s\S]*settings\.tabModel[\s\S]*settings\.tabAdvanced/,
   "Settings should group its sections into category tabs instead of one long scroll.",
+);
+assert.doesNotMatch(
+  settingsSource,
+  /settings\.tabGateway|SettingsGateway|useGatewayStatus/,
+  "The mobile Bot settings tab was removed (CTL-C08) and must not come back.",
 );
 assert.doesNotMatch(
   settingsSource,

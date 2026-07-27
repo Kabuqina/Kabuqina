@@ -7,7 +7,7 @@ import { useI18n } from "../../lib/i18n";
 import { getDraftSnapshot, updateDraft, useDraft } from "../../lib/store";
 import { CHAT_FROM_ONBOARDING_STATE } from "../../lib/chatLocationState";
 import { cmdSaveVoiceSetup, type VoiceSetupSection } from "../../lib/voice-setup-api";
-import { CATALOG_BY_SECTION, gatewayCatalogFor } from "../setupCatalog/optionData";
+import { CATALOG_BY_SECTION } from "../setupCatalog/optionData";
 import { SetupOptionsTable } from "../SetupOptionsTable";
 import { getBackPath, getNextPath, getRedirectForInvalidUrlStep, isLastStep } from "../flowConfig";
 import type { PostPassSectionId } from "../setupCatalog/optionTypes";
@@ -17,7 +17,6 @@ import {
   selectionSatisfied,
 } from "../sectionSelection";
 import { WizardFooter, WizardFooterActions, WizardPrimaryButton } from "../wizard-ui";
-import { useProductProfileContract } from "../../lib/productProfileContract";
 
 export type { PostPassSectionId };
 
@@ -61,14 +60,10 @@ export function SectionPlaceholderStep({ id }: { id: PostPassSectionId }) {
   const draft = useDraft();
   const mode = draft.setupMode;
   const redirect = getRedirectForInvalidUrlStep(id, mode);
-  const profileContract = useProductProfileContract();
 
   const next = getNextPath(id, mode);
   const last = isLastStep(id, mode);
-  const catalog = useMemo(
-    () => id === "gateway" ? gatewayCatalogFor(profileContract.visibleGateways) : CATALOG_BY_SECTION[id],
-    [id, profileContract.visibleGateways],
-  );
+  const catalog = CATALOG_BY_SECTION[id];
   const selMode = SECTION_SELECTION_MODE[id];
   const initialSel = useMemo(() => getInitialSectionSelection(id), [id]);
   const rowSel = draft.wizardSelection?.[id] ?? initialSel;
@@ -138,7 +133,7 @@ export function SectionPlaceholderStep({ id }: { id: PostPassSectionId }) {
           items={catalog}
           selectionMode={selMode}
           defaultSelection={initialSel}
-          modalSize={id === "gateway" ? "lg" : "md"}
+          modalSize="md"
         />
         {!canProceed ? (
           <p className="hd-wizard-hint text-amber-800 dark:text-amber-200" role="status">

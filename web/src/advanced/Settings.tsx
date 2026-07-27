@@ -4,15 +4,13 @@
 import { useCallback, useEffect, useState, type ComponentType } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
-import { Cpu, Server, SlidersHorizontal, Wrench } from "lucide-react";
+import { Cpu, SlidersHorizontal, Wrench } from "lucide-react";
 import { AppScaffold } from "../components/AppScaffold";
 import { BackButton } from "../components/ui/BackButton";
 import { useI18n } from "../lib/i18n";
 import { cn } from "../lib/cn";
 import { useTogglePowerUser } from "../lib/useTogglePowerUser";
 import { useFontSize, useThemeMode } from "../lib/ui-prefs";
-import { useGatewayStatus } from "../features/gateway/useGatewayStatus";
-import { SettingsGateway } from "./settings/SettingsGateway";
 import { SettingsDisplay } from "./settings/SettingsDisplay";
 import { SettingsSharedPrefs } from "./settings/SettingsSharedPrefs";
 import { SettingsLoadPackages } from "./settings/SettingsLoadPackages";
@@ -26,10 +24,10 @@ export interface Status {
   pythonRunning: boolean;
 }
 
-type SettingsTab = "general" | "model" | "gateway" | "advanced";
+type SettingsTab = "general" | "model" | "advanced";
 
 function isSettingsTab(value: unknown): value is SettingsTab {
-  return value === "general" || value === "model" || value === "gateway" || value === "advanced";
+  return value === "general" || value === "model" || value === "advanced";
 }
 
 export function Settings() {
@@ -48,7 +46,6 @@ export function Settings() {
   const { powerUser, togglePowerUser } = useTogglePowerUser();
   const { size: fontSize, setSize: setFontSize } = useFontSize();
   const { mode: themeMode, setMode: setThemeMode } = useThemeMode();
-  const gatewayStatus = useGatewayStatus();
 
   const refreshStatus = useCallback(async () => {
     const [workspace, hasSecret, pyStat] = await Promise.all([
@@ -66,14 +63,12 @@ export function Settings() {
   const tabs: Array<{ id: SettingsTab; label: string; icon: ComponentType<{ className?: string }> }> = [
     { id: "general", label: t("settings.tabGeneral"), icon: SlidersHorizontal },
     { id: "model", label: t("settings.tabModel"), icon: Cpu },
-    { id: "gateway", label: t("settings.tabGateway"), icon: Server },
     { id: "advanced", label: t("settings.tabAdvanced"), icon: Wrench },
   ];
 
   const statusDots: Array<{ key: string; on: boolean; label: string }> = [
     { key: "py", on: !!status?.pythonRunning, label: t("settings.pyRunning") },
     { key: "secret", on: !!status?.hasSecret, label: t("settings.hasPass") },
-    { key: "gateway", on: gatewayStatus.running, label: t("settings.gatewayShort") },
   ];
 
   return (
@@ -154,14 +149,6 @@ export function Settings() {
             <SettingsLlmConfig
               hasSecret={!!status?.hasSecret}
               onCredentialChanged={refreshStatus}
-            />
-          )}
-
-          {tab === "gateway" && (
-            <SettingsGateway
-              gatewayStatus={gatewayStatus}
-              onStatusChange={setStatus}
-              status={status}
             />
           )}
 

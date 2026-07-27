@@ -1,37 +1,16 @@
-import type { ReactNode } from "react";
 import { Section } from "../../components/ui/Section";
-import { useProductProfileContract } from "../../lib/productProfileContract";
 import { PlatformPage } from "./PlatformPage";
 import { Button } from "../../components/ui/Button";
 import { useNavigate } from "react-router-dom";
 
-export function PlatformRouteGuard({ platform, children }: { platform: string; children: ReactNode }) {
-  const contract = useProductProfileContract();
-  if (contract.visibleGateways.includes(platform)) return <>{children}</>;
-  return (
-    <PlatformPage title="Channel unavailable">
-      <Section title="Product profile boundary">
-        <p className="text-sm text-[var(--kq-color-muted)]">
-          This channel is not available in the active product profile ({contract.profile}).
-          No configuration or gateway state was created.
-        </p>
-      </Section>
-    </PlatformPage>
-  );
-}
-
-export function RetainedPlatformPendingPage({ platform }: { platform: string }) {
-  return (
-    <PlatformPage title={platform}>
-      <Section title="Retained channel">
-        <p className="text-sm text-[var(--kq-color-muted)]">
-          This channel is retained by the product profile. Its configuration workflow is owned by a later readiness gate.
-        </p>
-      </Section>
-    </PlatformPage>
-  );
-}
-
+/**
+ * Tombstone for every v0.4 Settings channel link. Kept so old deep-links explain
+ * the upgrade instead of dead-ending; it is not a configuration surface.
+ *
+ * As of v0.5.0 (CTL-C08) this covers the mobile Bot channels and email too — the
+ * Bot product surface is gone, and `PlatformRouteGuard` / `RetainedPlatformPendingPage`
+ * went with it since there is no longer a visible-gateway set to guard against.
+ */
 export function LegacyPlatformTombstonePage({ platform }: { platform: string }) {
   const nav = useNavigate();
   return (

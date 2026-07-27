@@ -1,7 +1,7 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-export type PostPassSectionId = "tts" | "stt" | "terminal" | "gateway" | "tools" | "agent";
+export type PostPassSectionId = "tts" | "stt" | "terminal" | "tools" | "agent";
 
 export type LocaleKey = "zh" | "en";
 
@@ -30,9 +30,4 @@ export type SetupCatalogOption = {
    * (User-facing "子流程" = concrete configuration, not a help pop-up.)
    */
   configFields?: OptionConfigField[];
-  /**
-   * Custom modal body instead of generic env fields (e.g. Weixin iLink route C).
-   * If set, `configFields` may be omitted.
-   */
-  configUi?: "weixin_route_c" | "qqbot_route_c";
 };

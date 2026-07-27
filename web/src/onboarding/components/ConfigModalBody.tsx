@@ -1,16 +1,12 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { WeixinQrRouteCBlock } from "../../components/WeixinQrRouteCBlock";
-import { QqbotQrRouteBlock } from "../../components/QqbotQrRouteBlock";
-import { getDraftSnapshot, updateDraft } from "../../lib/store";
 import { useI18n } from "../../lib/i18n";
 import type { LocaleKey, OptionConfigField, SetupCatalogOption } from "../setupCatalog/optionTypes";
-import { pick, getSlice } from "../utils";
+import { pick } from "../utils";
 
 interface Props {
   editing: SetupCatalogOption | null;
-  section: string;
   loc: LocaleKey;
   form: Record<string, string>;
   setForm: React.Dispatch<React.SetStateAction<Record<string, string>>>;
@@ -18,80 +14,10 @@ interface Props {
   onPersist: (option: SetupCatalogOption, next: Record<string, string>) => void;
 }
 
-export function ConfigModalBody({ editing, section, loc, form, setForm, onClose, onPersist }: Props) {
+export function ConfigModalBody({ editing, loc, form, setForm, onClose, onPersist }: Props) {
   const { t } = useI18n();
 
   if (!editing) return null;
-
-  if (editing.configUi === "weixin_route_c") {
-    return (
-      <div className="space-y-4">
-        <p className="text-xs leading-relaxed text-[var(--kq-color-muted)]">{t("settings.weixinLead")}</p>
-        <WeixinQrRouteCBlock
-          key={editing.id}
-          onSuccess={({ accountId }) => {
-            const d = getDraftSnapshot();
-            const w = d.wizardConfig ?? {};
-            const prevSec = w[section] ?? {};
-            const slice = getSlice(w, section, editing.id);
-            updateDraft({
-              wizardConfig: {
-                ...w,
-                [section]: {
-                  ...prevSec,
-                  [editing.id]: { ...slice, WEIXIN_ACCOUNT_ID: accountId },
-                },
-              },
-            });
-          }}
-        />
-        <div className="flex flex-wrap justify-end gap-2 border-t border-[var(--kq-color-border)] pt-4">
-          <button
-            type="button"
-            className="kq-btn-secondary rounded-[var(--radius-shell-lg)] px-4 py-2 text-sm"
-            onClick={onClose}
-          >
-            {t("setupOptions.cancelConfig")}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (editing.configUi === "qqbot_route_c") {
-    return (
-      <div className="space-y-4">
-        <p className="text-xs leading-relaxed text-[var(--kq-color-muted)]">{t("settings.qqLead")}</p>
-        <QqbotQrRouteBlock
-          key={editing.id}
-          onSuccess={({ appId }) => {
-            const d = getDraftSnapshot();
-            const w = d.wizardConfig ?? {};
-            const prevSec = w[section] ?? {};
-            const slice = getSlice(w, section, editing.id);
-            updateDraft({
-              wizardConfig: {
-                ...w,
-                [section]: {
-                  ...prevSec,
-                  [editing.id]: { ...slice, QQ_APP_ID: appId },
-                },
-              },
-            });
-          }}
-        />
-        <div className="flex flex-wrap justify-end gap-2 border-t border-[var(--kq-color-border)] pt-4">
-          <button
-            type="button"
-            className="kq-btn-secondary rounded-[var(--radius-shell-lg)] px-4 py-2 text-sm"
-            onClick={onClose}
-          >
-            {t("setupOptions.cancelConfig")}
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   if (editing.configFields?.length) {
     return (

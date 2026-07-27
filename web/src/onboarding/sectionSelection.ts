@@ -13,7 +13,6 @@ export const SECTION_SELECTION_MODE: Record<PostPassSectionId, PostPassSelection
   tts: "single",
   stt: "single",
   terminal: "single",
-  gateway: "multi",
   tools: "multi",
   agent: "single",
 };
@@ -31,9 +30,6 @@ export function findRecommendedMultiIds(items: SetupCatalogOption[]): string[] {
 export function getInitialSectionSelection(
   section: PostPassSectionId
 ): SectionSelection {
-  if (section === "gateway") {
-    return { kind: "skip" };
-  }
   const items = CATALOG_BY_SECTION[section];
   if (
     section === "tts" ||

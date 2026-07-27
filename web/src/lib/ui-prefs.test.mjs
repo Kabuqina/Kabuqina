@@ -12,6 +12,7 @@ const companionPillSource = fs.readFileSync(
   new URL("../components/CompanionPillScene.tsx", import.meta.url),
   "utf8",
 );
+const artAssetsSource = fs.readFileSync(new URL("./artAssets.ts", import.meta.url), "utf8");
 const mainSource = fs.readFileSync(new URL("../main.tsx", import.meta.url), "utf8");
 
 assert.match(uiPrefsSource, /export type ThemeMode = "system" \| "light" \| "dark"/);
@@ -49,7 +50,9 @@ assert.match(settingsDisplaySource, /validateCustomCompanionImageFile[\s\S]*setC
 assert.match(settingsDisplaySource, /settings\.companionImageReset/);
 
 assert.match(companionPillSource, /useCustomCompanionImage/);
-assert.match(companionPillSource, /customImage \?\? "\/kabuqina_pill_scene\.svg"/);
+// 默认图走换装表（pre-art 接缝），自定义图仍然优先。
+assert.match(companionPillSource, /customImage \?\? ART_ASSETS\.companionPill/);
+assert.match(artAssetsSource, /companionPill:\s*`\/\$\{GENERATED_SCENE_FILENAMES\.companionPill\}`/);
 
 assert.match(
   settingsDisplaySource,

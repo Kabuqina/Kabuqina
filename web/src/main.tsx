@@ -18,11 +18,7 @@ import { Splash } from "./Splash";
 import { ChatPage } from "./chat/ChatPage";
 import { CapabilitiesPage } from "./advanced/pages/CapabilitiesPage";
 import { LoadPackagesPage } from "./advanced/pages/LoadPackagesPage";
-import { QqPage } from "./advanced/pages/QqPage";
-import { WeixinPage } from "./advanced/pages/WeixinPage";
-import { DingTalkPage } from "./advanced/pages/DingTalkPage";
-import { EmailPage } from "./advanced/pages/EmailPage";
-import { LegacyPlatformTombstonePage, PlatformRouteGuard, RetainedPlatformPendingPage } from "./advanced/pages/PlatformRouteGuard";
+import { LegacyPlatformTombstonePage } from "./advanced/pages/PlatformRouteGuard";
 import { ScheduledTasksPage } from "./advanced/pages/ScheduledTasks";
 import { OverlayWindow } from "./capture/OverlayWindow";
 import { CompanionWindow } from "./companion/CompanionWindow";
@@ -90,12 +86,13 @@ function MainWindowContent() {
           <Route path="/settings/load-packages" element={<LoadPackagesPage />} />
           <Route path="/capabilities" element={<CapabilitiesPage />} />
           <Route path="/export" element={<Export />} />
-          <Route path="/settings/qq" element={<PlatformRouteGuard platform="qqbot"><QqPage /></PlatformRouteGuard>} />
-          <Route path="/settings/weixin" element={<PlatformRouteGuard platform="weixin"><WeixinPage /></PlatformRouteGuard>} />
-          <Route path="/settings/dingtalk" element={<PlatformRouteGuard platform="dingtalk"><DingTalkPage /></PlatformRouteGuard>} />
-          <Route path="/settings/email" element={<PlatformRouteGuard platform="email"><EmailPage /></PlatformRouteGuard>} />
-          <Route path="/settings/telegram" element={<PlatformRouteGuard platform="telegram"><RetainedPlatformPendingPage platform="Telegram" /></PlatformRouteGuard>} />
-          <Route path="/settings/whatsapp" element={<PlatformRouteGuard platform="whatsapp"><RetainedPlatformPendingPage platform="WhatsApp" /></PlatformRouteGuard>} />
+          {/* 移动端 Bot 与邮件渠道的产品面已移除（CTL-C08）；旧 v0.4 深链接只进墓碑页解释升级。 */}
+          <Route path="/settings/qq" element={<LegacyPlatformTombstonePage platform="QQ Bot" />} />
+          <Route path="/settings/weixin" element={<LegacyPlatformTombstonePage platform="微信 Bot" />} />
+          <Route path="/settings/dingtalk" element={<LegacyPlatformTombstonePage platform="钉钉 Bot" />} />
+          <Route path="/settings/email" element={<LegacyPlatformTombstonePage platform="Email" />} />
+          <Route path="/settings/telegram" element={<LegacyPlatformTombstonePage platform="Telegram" />} />
+          <Route path="/settings/whatsapp" element={<LegacyPlatformTombstonePage platform="WhatsApp" />} />
           <Route path="/settings/feishu" element={<LegacyPlatformTombstonePage platform="Feishu / Lark" />} />
           <Route path="/settings/wecom" element={<LegacyPlatformTombstonePage platform="WeCom" />} />
           <Route path="/settings/cron" element={<ScheduledTasksPage />} />

@@ -201,58 +201,6 @@ export const CATALOG_TERMINAL: SetupCatalogOption[] = [
   },
 ];
 
-export const CATALOG_GATEWAY: SetupCatalogOption[] = [
-  {
-    id: "qqbot",
-    name: L("QQ", "QQ"),
-    defaultHint: L("扫码绑定机器人", "Scan to bind bot"),
-    configUi: "qqbot_route_c",
-  },
-  {
-    id: "weixin",
-    name: L("微信", "微信"),
-    defaultHint: L("本机路线 C：扫码登录", "Route C: QR login in this app"),
-    configUi: "weixin_route_c",
-  },
-  {
-    id: "dingtalk",
-    name: L("钉钉", "DingTalk"),
-    defaultHint: L("填写应用凭据", "Enter app credentials"),
-    configFields: [
-      F("DINGTALK_CLIENT_ID", L("Client ID", "Client ID"), L("AppKey", "AppKey")),
-      F("DINGTALK_CLIENT_SECRET", L("Client Secret", "Client Secret"), L("AppSecret", "AppSecret"), "password"),
-    ],
-  },
-  {
-    id: "telegram",
-    name: L("Telegram", "Telegram"),
-    defaultHint: L("Bot Token", "Bot token"),
-    configFields: [F("TELEGRAM_BOT_TOKEN", L("Bot Token", "Bot token"), L("BotFather token", "BotFather token"), "password")],
-  },
-  {
-    id: "whatsapp",
-    name: L("WhatsApp", "WhatsApp"),
-    defaultHint: L("启用本机桥", "Enable local bridge"),
-    configFields: [F("WHATSAPP_ENABLED", L("启用", "Enabled"), L("true", "true"))],
-  },
-  {
-    id: "email",
-    name: L("Email", "Email"),
-    defaultHint: L("IMAP / SMTP", "IMAP / SMTP"),
-    configFields: [
-      F("EMAIL_ADDRESS", L("邮箱", "Address"), L("name@example.com", "name@example.com")),
-      F("EMAIL_PASSWORD", L("密码", "Password"), L("应用密码", "App password"), "password"),
-      F("EMAIL_IMAP_HOST", L("IMAP", "IMAP host"), L("imap.example.com", "imap.example.com")),
-      F("EMAIL_SMTP_HOST", L("SMTP", "SMTP host"), L("smtp.example.com", "smtp.example.com")),
-    ],
-  },
-];
-
-export function gatewayCatalogFor(visibleGateways: readonly string[]): SetupCatalogOption[] {
-  const allowed = new Set(visibleGateways);
-  return CATALOG_GATEWAY.filter((item) => allowed.has(item.id));
-}
-
 export const CATALOG_TOOLS: SetupCatalogOption[] = [
   {
     id: "unified",
@@ -356,7 +304,6 @@ export const CATALOG_BY_SECTION: Record<PostPassSectionId, SetupCatalogOption[]>
   tts: CATALOG_TTS,
   stt: CATALOG_STT,
   terminal: CATALOG_TERMINAL,
-  gateway: CATALOG_GATEWAY,
   tools: CATALOG_TOOLS,
   agent: CATALOG_AGENT,
 };

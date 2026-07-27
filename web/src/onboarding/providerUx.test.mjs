@@ -170,13 +170,10 @@ assert.doesNotMatch(stringsSource, /setupMode:|Full setup|设置方式|仔细一
 assert.match(stringsSource, /skipTitle:\s*"跳过"/);
 assert.match(stringsSource, /skipTitle:\s*"Skip"/);
 
-const settingsGatewaySource = fs.readFileSync(new URL("../advanced/settings/SettingsGateway.tsx", import.meta.url), "utf8");
-const expectedGatewayLabels = ["QQ", "微信", "钉钉", "Telegram", "WhatsApp", "Email"];
-for (const label of expectedGatewayLabels) {
-  assert.match(settingsGatewaySource, new RegExp(`label:\\s*"${label}"`));
-}
-const gatewayCatalogSource = optionDataSource.match(/export const CATALOG_GATEWAY[\s\S]*?export const CATALOG_TOOLS/)?.[0] ?? "";
-const gatewayLabels = [...gatewayCatalogSource.matchAll(/name:\s*L\("([^"]+)"/g)].map((match) => match[1]);
-assert.deepEqual(gatewayLabels, expectedGatewayLabels);
-assert.doesNotMatch(gatewayCatalogSource, /飞书|企微|Discord|Slack/);
-assert.match(optionDataSource, /gatewayCatalogFor\(visibleGateways/);
+// 移动端 Bot 与邮件渠道的产品面已移除（CTL-C08）：onboarding 不再有 gateway 段，
+// 首轮引导以 pass 收尾。这里改为负向断言，防止渠道配置悄悄回流到首次运行。
+assert.doesNotMatch(optionDataSource, /CATALOG_GATEWAY|gatewayCatalogFor/);
+assert.doesNotMatch(optionDataSource, /DINGTALK_CLIENT_ID|TELEGRAM_BOT_TOKEN|EMAIL_IMAP_HOST|WHATSAPP_ENABLED/);
+assert.doesNotMatch(flowConfigSource, /"gateway"/);
+assert.doesNotMatch(wizardSource, /path="gateway"/);
+assert.match(flowConfigSource, /return "\/chat";/);

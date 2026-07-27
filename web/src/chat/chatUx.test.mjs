@@ -183,12 +183,15 @@ const assistantAvatarSource = fs.readFileSync(
   new URL("../components/AssistantAvatar.tsx", import.meta.url),
   "utf8",
 );
+const artAssetsSource = fs.readFileSync(new URL("../lib/artAssets.ts", import.meta.url), "utf8");
 assert.match(
   chatMessageSource,
   /<AssistantAvatar/,
   "Assistant messages should render the mascot avatar beside the bubble.",
 );
-assert.match(assistantAvatarSource, /kabuqina_mascot\.svg[\s\S]*kq-assistant-avatar/);
+// 图形走 lib/artAssets.ts 这一个换装接缝（pre-art），不再硬编码路径字面量。
+assert.match(assistantAvatarSource, /ART_ASSETS\.mascot[\s\S]*kq-assistant-avatar/);
+assert.match(artAssetsSource, /mascot:\s*"\/kabuqina_mascot\.svg"/);
 
 assert.doesNotMatch(
   chatMessageSource,
@@ -550,7 +553,7 @@ for (const className of ["kq-titlebar-brand", "kq-titlebar-link", "kq-titlebar-l
 
 assert.match(
   messageListSource,
-  /kabuqina_boot\.svg[\s\S]*kq-empty-title[\s\S]*\u6162\u6162\u6765\uff0c\u5c0f\u5a1c\u966a\u4f60\u6574\u7406\u601d\u8def/,
+  /ART_ASSETS\.boot[\s\S]*kq-empty-title[\s\S]*\u6162\u6162\u6765\uff0c\u5c0f\u5a1c\u966a\u4f60\u6574\u7406\u601d\u8def/,
   "The empty chat state should show the hero asset, the product name title, then the greeting.",
 );
 

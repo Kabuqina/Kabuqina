@@ -7,7 +7,6 @@ import { useI18n } from "../lib/i18n";
 import { cn } from "../lib/cn";
 import { updateDraft, useDraft, type SectionSelection } from "../lib/store";
 import { ConfigModalBody } from "./components/ConfigModalBody";
-import { usePlatformEnvStatus } from "./hooks/usePlatformEnvStatus";
 import type {
   LocaleKey,
   SetupCatalogOption,
@@ -17,7 +16,7 @@ import {
   SECTION_SELECTION_MODE,
   type PostPassSelectionMode,
 } from "./sectionSelection";
-import { pick, getSlice, hasConfigFieldsOrRouteC } from "./utils";
+import { pick, getSlice, hasConfigFields } from "./utils";
 
 type Props = {
   section: string;
@@ -66,8 +65,6 @@ export function SetupOptionsTable({
 
   const [editing, setEditing] = useState<SetupCatalogOption | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
-  const { weixinEnv, qqEnv } = usePlatformEnvStatus(items);
-
   const selRaw = draft.wizardSelection?.[section];
   const sel: SectionSelection | undefined =
     selRaw ?? (selectionMode !== "none" && defaultSelection ? defaultSelection : undefined);
@@ -87,7 +84,7 @@ export function SetupOptionsTable({
   }
 
   function rowAllowsConfig(row: SetupCatalogOption): boolean {
-    if (!hasConfigFieldsOrRouteC(row.configFields, row.configUi)) return false;
+    if (!hasConfigFields(row.configFields)) return false;
     if (isSkip) return false;
     if (selectionMode === "single") return singleId === row.id;
     if (selectionMode === "multi") return multiSet.has(row.id);
@@ -97,12 +94,6 @@ export function SetupOptionsTable({
   function hasAnyValue(optionId: string): boolean {
     const slice = getSlice(wizard, section, optionId);
     return Object.values(slice).some((v) => v.trim().length > 0);
-  }
-
-  function isEnvConfigured(row: SetupCatalogOption): boolean {
-    if (row.configUi === "weixin_route_c") return weixinEnv?.configured ?? false;
-    if (row.configUi === "qqbot_route_c") return qqEnv?.configured ?? false;
-    return false;
   }
 
   function persistForm(option: SetupCatalogOption, next: Record<string, string>) {
@@ -120,8 +111,8 @@ export function SetupOptionsTable({
 
   const hasChoiceUi = selectionMode === "single" || selectionMode === "multi";
   const showSkip = showSkipRow && hasChoiceUi;
-  const skipTitle = section === "gateway" ? t("setupOptions.skipTitle") : t("setupOptions.skipKeepTitle");
-  const skipBody = section === "gateway" ? t("setupOptions.skipBody") : t("setupOptions.skipKeepBody");
+  const skipTitle = t("setupOptions.skipKeepTitle");
+  const skipBody = t("setupOptions.skipKeepBody");
 
   return (
     <div className={cn("space-y-3", className)}>
@@ -180,8 +171,7 @@ export function SetupOptionsTable({
           </thead>
           <tbody>
             {items.map((row) => {
-              const hasFields = hasConfigFieldsOrRouteC(row.configFields, row.configUi);
-              const envOk = isEnvConfigured(row);
+              const hasFields = hasConfigFields(row.configFields);
               return (
                 <tr
                   key={row.id}
@@ -226,11 +216,6 @@ export function SetupOptionsTable({
                       {hasAnyValue(row.id) ? (
                         <span className="text-[0.7rem] text-[var(--kq-color-strong)]">{t("setupOptions.hasPrefill")}</span>
                       ) : null}
-                      {envOk ? (
-                        <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[0.7rem] font-medium text-emerald-800 dark:text-emerald-200">
-                          {t("setupOptions.configured")}
-                        </span>
-                      ) : null}
                     </div>
                   </td>
                   <td className="px-4 py-2.5 align-top text-[var(--kq-color-muted)]">
@@ -270,7 +255,6 @@ export function SetupOptionsTable({
       >
         <ConfigModalBody
           editing={editing}
-          section={section}
           loc={loc}
           form={form}
           setForm={setForm}
