@@ -167,8 +167,9 @@ assert.match(welcomeSource, /updateDraft\(\{\s*setupMode:\s*"quick"[\s\S]*useRec
 assert.match(welcomeSource, /nav\("\/onboarding\/brain"\)/);
 assert.doesNotMatch(flowConfigSource, /FULL_STEPS|setupMode === "full"|stepToPath\("tts"\)/);
 assert.doesNotMatch(stringsSource, /setupMode:|Full setup|设置方式|仔细一点/);
-assert.match(stringsSource, /skipTitle:\s*"跳过"/);
-assert.match(stringsSource, /skipTitle:\s*"Skip"/);
+// gateway 段专用的"跳过"文案随 CTL-C08 一起删了；保留的是"保持默认"这一支。
+assert.match(stringsSource, /skipKeepTitle:/);
+assert.doesNotMatch(stringsSource, /skipTitle:/);
 
 // 移动端 Bot 与邮件渠道的产品面已移除（CTL-C08）：onboarding 不再有 gateway 段，
 // 首轮引导以 pass 收尾。这里改为负向断言，防止渠道配置悄悄回流到首次运行。
