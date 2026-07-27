@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, FolderOpen, MessageCircle, Plus } from "lucide-react";
 import { useI18n } from "../lib/i18n";
+import { GatherFromStudy } from "./GatherFromStudy";
 import type { StudioProject } from "./studio-api";
 
 /**
@@ -24,6 +25,7 @@ export function StudioShell({
   onSelectProject,
   onCreateProject,
   onSaveBrief,
+  onGathered,
   busy,
 }: {
   projects: StudioProject[];
@@ -31,6 +33,7 @@ export function StudioShell({
   onSelectProject: (id: string) => void;
   onCreateProject: () => void;
   onSaveBrief: (projectId: string, brief: string) => void;
+  onGathered?: () => void;
   busy: boolean;
 }) {
   const { t } = useI18n();
@@ -85,7 +88,12 @@ export function StudioShell({
         {/* 中：当前项目的工作面 */}
         <main className="kq-studio-main">
           {current ? (
-            <ProjectDesk project={current} onSaveBrief={onSaveBrief} busy={busy} />
+            <ProjectDesk
+              project={current}
+              onSaveBrief={onSaveBrief}
+              onGathered={onGathered}
+              busy={busy}
+            />
           ) : (
             <div className="kq-studio-empty">
               <h2>{t("studio.emptyTitle")}</h2>
@@ -126,14 +134,17 @@ export function StudioShell({
 function ProjectDesk({
   project,
   onSaveBrief,
+  onGathered,
   busy,
 }: {
   project: StudioProject;
   onSaveBrief: (projectId: string, brief: string) => void;
+  onGathered?: () => void;
   busy: boolean;
 }) {
   const { t } = useI18n();
   const [draft, setDraft] = useState(project.brief);
+  const [gathering, setGathering] = useState(false);
   const dirty = draft.trim() !== project.brief.trim();
 
   return (
@@ -167,12 +178,24 @@ function ProjectDesk({
         <h2>{t("studio.gatherTitle")}</h2>
         <p className="kq-studio-muted">{t("studio.gatherLead")}</p>
         <div className="kq-studio-actions">
-          <button type="button" className="kq-studio-secondary" disabled>
+          <button
+            type="button"
+            className="kq-studio-secondary"
+            onClick={() => setGathering(true)}
+            disabled={busy}
+          >
             {t("studio.gatherCta")}
           </button>
-          <span className="kq-studio-muted">{t("studio.gatherPending")}</span>
         </div>
       </section>
+
+      {gathering ? (
+        <GatherFromStudy
+          projectId={project.id}
+          onClose={() => setGathering(false)}
+          onGathered={() => onGathered?.()}
+        />
+      ) : null}
     </div>
   );
 }

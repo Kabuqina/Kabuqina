@@ -2344,3 +2344,97 @@ html.kq-companion-window #root {
   .kq-studio-empty p,
   .kq-studio-status p { margin: 0; color: var(--kq-color-muted); line-height: 1.6; }
 }
+
+@layer components {
+  /* 取材对话框。预览那一步是 Study↔Studio 合同的核心，所以它占的视觉重量
+     不低于选择步骤——学生必须看清什么会被带走。 */
+  .kq-studio-dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: grid;
+    place-items: center;
+    padding: 1rem;
+    background: rgba(24, 20, 32, 0.42);
+    backdrop-filter: blur(3px);
+  }
+  .kq-studio-dialog {
+    display: grid;
+    gap: 0.75rem;
+    width: min(34rem, 100%);
+    max-height: min(38rem, 90vh);
+    overflow-y: auto;
+    padding: clamp(1rem, 3vw, 1.5rem);
+    border: 1px solid var(--kq-color-border);
+    border-radius: var(--radius-shell-lg);
+    background: var(--kq-color-surface);
+  }
+  .kq-studio-dialog > header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+  .kq-studio-dialog > header h2 { margin: 0; font-size: 1rem; color: var(--kq-color-strong); }
+  .kq-studio-dialog > header button {
+    display: grid;
+    place-items: center;
+    min-width: 2rem;
+    min-height: 2rem;
+    border: 1px solid var(--kq-color-border);
+    border-radius: var(--radius-shell-lg);
+    background: var(--kq-glass-bg-subtle);
+    color: var(--kq-color-ink);
+  }
+  .kq-studio-dialog-error { margin: 0; color: var(--kq-color-muted); font-size: 0.8125rem; line-height: 1.6; }
+  .kq-studio-field { display: grid; gap: 0.3rem; font-size: 0.8125rem; color: var(--kq-color-muted); }
+  .kq-studio-field select {
+    padding: 0.45rem 0.6rem;
+    border: 1px solid var(--kq-color-border);
+    border-radius: var(--radius-shell-lg);
+    background: var(--kq-input-surface);
+    color: var(--kq-color-ink);
+  }
+  .kq-studio-pick-list,
+  .kq-studio-preview-list {
+    display: grid;
+    gap: 0.35rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .kq-studio-pick-list label {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.55rem;
+    padding: 0.5rem 0.6rem;
+    border: 1px solid var(--kq-color-border);
+    border-radius: var(--radius-shell-lg);
+    background: var(--kq-glass-bg-subtle);
+    cursor: pointer;
+  }
+  .kq-studio-pick-list strong,
+  .kq-studio-preview-list strong {
+    display: block;
+    font-size: 0.875rem;
+    color: var(--kq-color-strong);
+  }
+  .kq-studio-pick-list small,
+  .kq-studio-preview-list small { color: var(--kq-color-muted); font-size: 0.75rem; }
+  .kq-studio-preview-list li {
+    padding: 0.5rem 0.6rem;
+    border: 1px solid var(--kq-color-border);
+    border-left: 3px solid var(--kq-color-primary);
+    border-radius: var(--radius-shell-lg);
+    background: var(--kq-glass-bg-subtle);
+  }
+  .kq-studio-readonly-note {
+    margin: 0;
+    padding: 0.5rem 0.6rem;
+    border-radius: var(--radius-shell-lg);
+    background: var(--kq-color-primary-pale);
+    color: var(--kq-color-strong);
+    font-size: 0.8125rem;
+    line-height: 1.6;
+  }
+}

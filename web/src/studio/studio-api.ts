@@ -84,3 +84,20 @@ export function cmdStudioCreateProject(title: string): Promise<StudioProject> {
 export function cmdStudioSaveBrief(projectId: string, brief: string): Promise<StudioProject> {
   return call<StudioProject>("cmd_studio_save_brief", { projectId, brief });
 }
+
+/**
+ * 取材时前端交给后端的**引用**，不是内容本身——由后端读 Study 原对象、生成只读快照，
+ * 前端不搬运正文（架构 §4.2：Studio 引用快照，不拥有也不改写原对象）。
+ */
+export type StudioSourceRef = {
+  kind: "study_artifact";
+  spaceId: string;
+  artifactId: string;
+};
+
+export function cmdStudioGatherSources(
+  projectId: string,
+  refs: StudioSourceRef[],
+): Promise<StudioProject> {
+  return call<StudioProject>("cmd_studio_gather_sources", { projectId, refs });
+}
