@@ -12,6 +12,7 @@ import { cn } from "../lib/cn";
 import { useTogglePowerUser } from "../lib/useTogglePowerUser";
 import { useFontSize, useThemeMode } from "../lib/ui-prefs";
 import { SettingsDisplay } from "./settings/SettingsDisplay";
+import { SettingsLearningData, SettingsLearningMigrations } from "./settings/SettingsLearningData";
 import { SettingsSharedPrefs } from "./settings/SettingsSharedPrefs";
 import { SettingsLoadPackages } from "./settings/SettingsLoadPackages";
 import { SettingsLlmConfig } from "./settings/SettingsLlmConfig";
@@ -141,6 +142,8 @@ export function Settings() {
                 onSetThemeMode={setThemeMode}
                 onWorkspaceChanged={refreshStatus}
               />
+              {/* 学习证据是学生自己的东西，取回与销毁的入口跟着他，不藏在高级模式后面。 */}
+              <SettingsLearningData />
               <SettingsUpdate />
             </>
           )}
@@ -156,6 +159,8 @@ export function Settings() {
             <>
               <SettingsLegacyChannels />
               <SettingsLoadPackages />
+              {/* migration_key 是内部对象名，只在高级模式之后出现。 */}
+              <SettingsLearningMigrations />
               <SettingsSharedPrefs />
             </>
           )}

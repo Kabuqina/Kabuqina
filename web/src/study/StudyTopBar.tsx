@@ -7,7 +7,6 @@ import { useI18n } from "../lib/i18n";
 import type { StudySpaceSummary } from "./repository";
 import { DraftInboxButton } from "./DraftInboxButton";
 import { SpaceSwitcher } from "./SpaceSwitcher";
-import { StudyAdvancedMenu } from "./StudyAdvancedMenu";
 
 export function StudyTopBar(props: {
   spaces: StudySpaceSummary[];
@@ -16,7 +15,6 @@ export function StudyTopBar(props: {
   switchError: boolean;
   onSelectSpace: (spaceId: string) => void;
   onNavigateAway?: (to: string) => void;
-  onOwnerDataReset: () => void;
 }) {
   const { t } = useI18n();
   return (
@@ -32,7 +30,6 @@ export function StudyTopBar(props: {
       />
       <div className="kq-study-topbar-actions">
         <DraftInboxButton />
-        <StudyAdvancedMenu onOwnerDataReset={props.onOwnerDataReset} />
         <Link className="kq-study-top-action" to="/chat" onClick={(event) => { if (props.onNavigateAway) { event.preventDefault(); props.onNavigateAway("/chat"); } }}><MessageCircle aria-hidden /><span>{t("study.askNana")}</span></Link>
       </div>
     </header>

@@ -126,7 +126,6 @@ export function StudyShell({ spaces, spaceId, page, onRevalidate, refreshing = f
             switchError={switchError}
             onSelectSpace={selectSpace}
             onNavigateAway={navigateAway}
-            onOwnerDataReset={() => { onRevalidate?.(); navigate("/study"); }}
           />
           <StudyLifecycleNav spaceId={spaceId} currentPage={page} onNavigate={(nextPage) => navigateAway(studyPath(spaceId, nextPage))} />
           {refreshing ? <p className="kq-study-refresh-status" role="status">{t("study.refreshing")}</p> : null}

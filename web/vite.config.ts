@@ -9,7 +9,8 @@ export default defineConfig({
   plugins: [react(), tailwind()],
   clearScreen: false,
   server: {
-    port: 5173,
+    // 允许外部指定端口（并行开第二个 dev server 时用）；未指定仍是 5173。
+    port: Number(process.env.PORT) || 5173,
     strictPort: true,
   },
   build: {
