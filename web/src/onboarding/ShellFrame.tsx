@@ -5,6 +5,7 @@ import { ReactNode, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import { AppScaffold } from "../components/AppScaffold";
 import { useI18n } from "../lib/i18n";
+import { ART_ASSETS } from "../lib/artAssets";
 import { useDraft } from "../lib/store";
 import { getIndexInFlow, getStepsForMode, slugFromPathname, type ShellWizardStepId } from "./flowConfig";
 
@@ -28,7 +29,7 @@ export function ShellFrame({ children }: { children: ReactNode }) {
       <header className="kq-chat-topbar shrink-0 border-b px-[var(--hd-page-pad-x)] py-3.5">
         <div className="mx-auto flex max-w-[var(--hd-content-max)] items-center justify-between gap-3">
           <div className="flex shrink-0 items-center gap-2">
-            <img src="/kabuqina_mascot.svg" alt="" className="h-7 w-7 shrink-0" draggable={false} />
+            <img src={ART_ASSETS.mascot} alt="" className="h-7 w-7 shrink-0" draggable={false} />
             <span className="hd-wizard-card-title">{t("productName")}</span>
           </div>
           <div className="flex min-w-0 flex-col items-end gap-1.5 sm:flex-row sm:items-center sm:gap-3">

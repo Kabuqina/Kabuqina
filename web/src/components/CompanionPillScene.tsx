@@ -6,6 +6,7 @@
 
 import { cn } from "../lib/cn";
 import { useCustomCompanionImage } from "../lib/ui-prefs";
+import { ART_ASSETS } from "../lib/artAssets";
 
 /** Floating cup-on-coaster pill used in companion window and boot screen. */
 export function CompanionPillScene({ className }: { className?: string }) {
@@ -14,7 +15,7 @@ export function CompanionPillScene({ className }: { className?: string }) {
   return (
     <div className={cn("kq-companion-pill-scene", className)}>
       <img
-        src={customImage ?? "/kabuqina_pill_scene.svg"}
+        src={customImage ?? ART_ASSETS.companionPill}
         alt=""
         className="kq-companion-pill-svg"
         draggable={false}

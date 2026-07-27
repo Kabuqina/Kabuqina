@@ -8,6 +8,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Maximize2, Minus, Sparkles, X, Zap } from "lucide-react";
 import { Toggle } from "./ui/Toggle";
 import { useI18n } from "../lib/i18n";
+import { ART_ASSETS } from "../lib/artAssets";
 import { cn } from "../lib/cn";
 import { useTogglePowerUser } from "../lib/useTogglePowerUser";
 
@@ -95,7 +96,7 @@ export function WindowTitleBar() {
           style={{ borderRadius: "6px", background: "linear-gradient(135deg, #f5effa, #ebe3f2)", boxShadow: "0 1px 3px rgba(90,74,106,0.12)" }}
         >
           <img
-            src="/kabuqina_na_48.png"
+            src={ART_ASSETS.windowIcon}
             alt={t("brand")}
             className="h-[18px] w-[18px] shrink-0 object-contain"
             width={18}

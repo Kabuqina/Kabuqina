@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { useI18n } from "../../lib/i18n";
+import { ART_ASSETS } from "../../lib/artAssets";
 import { updateDraft } from "../../lib/store";
 import { setPowerUser } from "../../lib/powerUser";
 import { Toggle } from "../../components/ui/Toggle";
@@ -32,7 +33,7 @@ export function Welcome() {
     <div className="space-y-10">
       <div className="space-y-4">
         <img
-          src="/kabuqina_mascot.svg"
+          src={ART_ASSETS.mascot}
           alt=""
           className="h-24 w-24 drop-shadow-[0_8px_24px_rgba(90,74,106,0.18)]"
           draggable={false}

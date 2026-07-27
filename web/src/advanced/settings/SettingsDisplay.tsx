@@ -19,6 +19,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { Section } from "../../components/ui/Section";
 import { Button } from "../../components/ui/Button";
 import { Toggle } from "../../components/ui/Toggle";
+import { ART_ASSETS } from "../../lib/artAssets";
 import { cn } from "../../lib/cn";
 import { LanguageToggle } from "../../components/LanguageToggle";
 import {
@@ -250,7 +251,7 @@ export function SettingsDisplay({
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <div className="grid h-28 w-28 shrink-0 place-items-center rounded-[var(--radius-shell-lg)] border border-[var(--kq-color-border)] bg-[var(--kq-color-primary-pale)]/35 p-2 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg-subtle)]">
             <img
-              src={customCompanionImage ?? "/kabuqina_pill_scene.svg"}
+              src={customCompanionImage ?? ART_ASSETS.companionPill}
               alt=""
               className="max-h-full max-w-full object-contain"
               draggable={false}

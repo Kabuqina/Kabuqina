@@ -9,6 +9,7 @@ import { AgentProgress } from "./AgentProgress";
 import { ChatMessage } from "./ChatMessage";
 import { OutlineReviewModal } from "./OutlineReviewModal";
 import { AssistantAvatar } from "../components/AssistantAvatar";
+import { ART_ASSETS } from "../lib/artAssets";
 import { cn } from "../lib/cn";
 import { shouldDisplayAgentProgress, type AgentProgressState } from "./hooks/useAgentProgress";
 import { formatBytes, packageTitle } from "../advanced/settings/loadPackageUi";
@@ -310,7 +311,7 @@ function EmptyState({
               style={{ background: "radial-gradient(circle, rgba(232,223,240,0.5) 0%, transparent 70%)" }}
             />
             <img
-              src="/kabuqina_boot.svg"
+              src={ART_ASSETS.boot}
               alt="Kabuqina chat hero — cup on gingham coaster"
               className="kq-float relative w-48 h-auto select-none"
               style={{ filter: "drop-shadow(0 6px 20px rgba(90,74,106,0.12))", animation: "kq-float 3.4s ease-in-out infinite" }}

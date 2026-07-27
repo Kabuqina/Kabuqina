@@ -3,9 +3,10 @@
 
 import { useI18n } from "../lib/i18n";
 import { cn } from "../lib/cn";
+import { ART_ASSETS } from "../lib/artAssets";
 
 /** Chat assistant avatar — Kabuqina mascot SVG (chat only). */
-export const ASSISTANT_AVATAR_SRC = "/kabuqina_mascot.svg";
+export const ASSISTANT_AVATAR_SRC = ART_ASSETS.mascot;
 
 type Props = {
   className?: string;

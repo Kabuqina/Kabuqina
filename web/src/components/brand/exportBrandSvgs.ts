@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { KabuqinaSceneSvg } from "./KabuqinaSceneSvg";
+import { GENERATED_SCENE_FILENAMES } from "../../lib/artAssets";
 
 const brandDir = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.resolve(brandDir, "../../../public");
@@ -43,8 +44,8 @@ function formatSvgMarkup(markup: string): string {
 
 const heroSvg = `<?xml version="1.0" encoding="UTF-8"?>\n${formatSvgMarkup(heroMarkup)}\n`;
 const pillSvg = `<?xml version="1.0" encoding="UTF-8"?>\n${formatSvgMarkup(pillMarkup)}\n`;
-const heroPath = path.join(publicDir, "kabuqina_hero_scene.svg");
-const pillPath = path.join(publicDir, "kabuqina_pill_scene.svg");
+const heroPath = path.join(publicDir, GENERATED_SCENE_FILENAMES.chatHero);
+const pillPath = path.join(publicDir, GENERATED_SCENE_FILENAMES.companionPill);
 
 writeFileSync(heroPath, heroSvg, "utf8");
 writeFileSync(pillPath, pillSvg, "utf8");
