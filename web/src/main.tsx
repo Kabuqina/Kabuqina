@@ -31,6 +31,7 @@ applyFontSize();
 applyTheme();
 
 const StudyRoute = lazy(() => import("./study/StudyRoute"));
+const StudioRoute = lazy(() => import("./studio/StudioRoute"));
 const DeskScenePreview = import.meta.env.DEV
   ? lazy(() => import("./study/desk/DeskScenePreview"))
   : null;
@@ -100,6 +101,10 @@ function MainWindowContent() {
           <Route
             path="/study/*"
             element={<Suspense fallback={<BootPill />}><StudyRoute /></Suspense>}
+          />
+          <Route
+            path="/studio/*"
+            element={<Suspense fallback={<BootPill />}><StudioRoute /></Suspense>}
           />
           {DeskScenePreview ? (
             <Route

@@ -66,6 +66,8 @@ export function WindowTitleBar() {
   };
 
   const isChat = location.pathname === "/chat";
+  const isStudy = location.pathname.startsWith("/study");
+  const isStudio = location.pathname.startsWith("/studio");
   const isSettings = location.pathname === "/settings";
   const isCapabilities = location.pathname === "/capabilities";
   const settingsLabel = t("chat.openSettings");
@@ -113,6 +115,21 @@ export function WindowTitleBar() {
           title={t("chat.title")}
         >
           {t("chat.title")}
+        </Link>
+        {/* Study 与 Studio 是两个稳定业务空间；Chat/设置/能力是全局工具（架构 §5.5）。 */}
+        <Link
+          to="/study"
+          className={navLinkClass(isStudy)}
+          title={t("studio.studySpace")}
+        >
+          {t("studio.studySpace")}
+        </Link>
+        <Link
+          to="/studio"
+          className={navLinkClass(isStudio)}
+          title={t("studio.title")}
+        >
+          {t("studio.title")}
         </Link>
         <Link
           to="/settings"
