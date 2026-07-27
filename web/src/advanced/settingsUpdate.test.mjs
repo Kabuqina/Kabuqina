@@ -31,8 +31,8 @@ assert.equal(
 assert.deepEqual(
   tauriConfig.plugins.updater.endpoints,
   [
-    "https://kabuqina-installer-1428509047.cos.ap-guangzhou.myqcloud.com/latest.json",
-    "https://github.com/Kabuqina/Kabuqina/releases/latest/download/latest.json",
+    "https://kabuqina-installer-1428509047.cos.ap-guangzhou.myqcloud.com/latest-v2.json",
+    "https://github.com/Kabuqina/Kabuqina/releases/latest/download/latest-v2.json",
   ],
   "Updater should try Tencent COS first and GitHub as fallback.",
 );
