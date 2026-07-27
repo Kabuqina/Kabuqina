@@ -1513,14 +1513,16 @@ p {
 
 /* 材料摊开在旁边：贴右边缘，工作面留在左侧照常可用。
    不是弹窗（会盖住对照对象），不是跳页（会离开正在做的事）。 */
+/* 竖着排：正文吃掉剩下的高度，页眉／目录／底栏各占自己那点。
+   （原先写死四行，底栏一撤行就串位。） */
 .material-panel {
   position: absolute;
   z-index: 36;
   top: 0;
   right: 0;
   bottom: 0;
-  display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  display: flex;
+  flex-direction: column;
   width: min(420px, 44%);
   border-left: 1px solid var(--line-warm);
   background: var(--paper-strong);
@@ -1535,6 +1537,7 @@ p {
 
 .material-panel > header {
   display: flex;
+  flex: none;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
@@ -1564,26 +1567,28 @@ p {
   background: var(--surface);
 }
 
-/* 文件自己的章节：整本都在这儿，点哪节跳哪节 */
+/* 文件自己的章节：整本都在这儿，点哪节跳哪节。
+   折行排，不横向滚——目录被切掉一半就等于没有目录；
+   厚书的目录也不许吃掉正文，超过三行才在自己框里竖着滚。 */
 .doc-toc {
   display: flex;
+  flex: none;
+  flex-wrap: wrap;
   gap: 4px;
-  overflow-x: auto;
+  max-height: 108px;
+  overflow-y: auto;
   padding: 10px 14px;
   border-bottom: 1px solid var(--line-warm);
   background: var(--paper-soft);
-  scrollbar-width: none;
-}
-
-.doc-toc::-webkit-scrollbar {
-  display: none;
 }
 
 .doc-toc button {
   display: inline-flex;
   flex: 0 0 auto;
+  max-width: 100%;
   align-items: baseline;
   gap: 5px;
+  overflow: hidden;
   padding: 5px 9px;
   border: 1px solid transparent;
   border-radius: 6px;
@@ -1615,6 +1620,7 @@ p {
 }
 
 .material-body {
+  flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
   padding: 20px;
@@ -1645,59 +1651,6 @@ p {
   color: var(--ink-mid);
   font-size: 11px;
   font-weight: 400;
-}
-
-.material-foot {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 13px 20px;
-  border-top: 1px solid var(--line-warm);
-}
-
-.material-original {
-  border: 0;
-  border-radius: 6px;
-  padding: 6px 8px;
-  color: var(--ink-soft);
-  background: transparent;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.material-original:hover {
-  color: var(--purple);
-  background: var(--purple-faint);
-}
-
-.cite-choice {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 5px;
-}
-
-.cite-choice > span {
-  color: var(--ink-soft);
-  font-size: 11px;
-}
-
-.cite-choice button {
-  max-width: 190px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  padding: 5px 9px;
-  border: 1px solid var(--purple-line);
-  border-radius: 6px;
-  color: var(--purple-dark);
-  background: var(--surface);
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.cite-choice button:hover {
-  background: var(--purple-pale);
 }
 
 /* 杂记本＝留白：没有分页、没有计划、没有计数，只有一页纸 */

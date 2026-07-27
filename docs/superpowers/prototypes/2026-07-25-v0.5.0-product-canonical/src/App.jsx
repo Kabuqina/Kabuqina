@@ -952,19 +952,7 @@ function ReviewCards({
 
 // 材料摊开在旁边，不接管页面——与小娜聊天框是同一族"侧开"物件。
 // 原始场景表已定：书只能作为局部呈现形态，不做主界面。
-function MaterialPanel({
-  doc,
-  copy,
-  section,
-  onJump,
-  onClose,
-  onNote,
-  citeTargets,
-  citeOpen,
-  onStartCite,
-  onCite,
-  onOpenOriginal,
-}) {
+function MaterialPanel({ doc, copy, section, onJump, onClose }) {
   const isCopy = Boolean(copy);
   // 复印件复印的是文件里的一节；正文取自那一节，取不到就用它自带的
   const body = isCopy
@@ -1005,42 +993,13 @@ function MaterialPanel({
         </nav>
       )}
 
+      {/* 摊开材料只是"在读"，读本身不需要按钮——两域都不渲染底栏，
+          高度全给正文。复印件与原件内容相同，也就无需"去看原件"。 */}
       <div className="material-body">
         {body.map((paragraph, index) => (
           <p key={index}>{paragraph}</p>
         ))}
       </div>
-
-
-      <footer className="material-foot">
-        {isCopy ? (
-          <>
-            {citeOpen ? (
-              <div className="cite-choice">
-                <span>挂到哪一条？</span>
-                {citeTargets.map((point) => (
-                  <button type="button" key={point.id} onClick={() => onCite(point)}>
-                    {point.say}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <button className="primary-action" type="button" onClick={onStartCite}>
-                作为某条的出处
-              </button>
-            )}
-            <button className="material-original" type="button" onClick={onOpenOriginal}>
-              去看原件
-            </button>
-          </>
-        ) : (
-          // 对一段材料唯一能做的事是把它转成自己的话——高亮收藏是反重构的
-          <button className="primary-action" type="button" onClick={onNote}>
-            <AppIcon icon={PencilLine} size={15} />
-            用自己的话记下来
-          </button>
-        )}
-      </footer>
     </aside>
   );
 }
@@ -2194,7 +2153,6 @@ export function App() {
   const [indexOpen, setIndexOpen] = useState(false);
   const [stackIndexOpen, setStackIndexOpen] = useState(false);
   const [openMaterial, setOpenMaterial] = useState(null);
-  const [citeOpen, setCiteOpen] = useState(false);
   const [planItems, setPlanItems] = useState(INITIAL_PLAN_ITEMS);
   const [chatKind, setChatKind] = useState("general");
   const [activeChatSession, setActiveChatSession] = useState("new");
@@ -2604,10 +2562,7 @@ export function App() {
             }}
             indexOpen={indexOpen}
             onToggleIndex={() => setIndexOpen((open) => !open)}
-            onOpenMaterial={(copyId) => {
-              setOpenMaterial({ kind: "copy", copyId });
-              setCiteOpen(false);
-            }}
+            onOpenMaterial={(copyId) => setOpenMaterial({ kind: "copy", copyId })}
           />
         ) : (
           <ChatDesk
@@ -2731,45 +2686,7 @@ export function App() {
             }
             section={openMaterial.section}
             onJump={(no) => setOpenMaterial((current) => ({ ...current, section: no }))}
-            onClose={() => {
-              setOpenMaterial(null);
-              setCiteOpen(false);
-            }}
-            onNote={() => {
-              setOpenMaterial(null);
-              setSurface("study");
-              setStudyPage("learn");
-              setLearnStep("seed");
-              setToast("材料放回去了，现在用自己的话说一遍");
-            }}
-            citeTargets={points.filter((point) => point.state === "ink")}
-            citeOpen={citeOpen}
-            onStartCite={() => setCiteOpen(true)}
-            onCite={(point) => {
-              const copy = STUDIO_COPIES.find((item) => item.id === openMaterial.copyId);
-              setPoints((items) =>
-                items.map((item) =>
-                  item.id === point.id ? { ...item, backing: copy.title } : item,
-                ),
-              );
-              setCiteOpen(false);
-              setOpenMaterial(null);
-              setToast(`已挂到「${point.say}」下面`);
-            }}
-            // 看原件＝回到 Study，把那份文件打开到被复印的那一节
-            onOpenOriginal={() => {
-              const copy = STUDIO_COPIES.find((item) => item.id === openMaterial.copyId);
-              setSurface("study");
-              if (copy.doc) {
-                setOpenMaterial({ kind: "doc", docId: copy.doc, section: copy.section });
-                setToast("已打开原件");
-              } else {
-                setOpenMaterial(null);
-                setStudyPage("practice");
-                setStudyState("practice");
-                setToast("已回到高等数学 · 原件位置");
-              }
-            }}
+            onClose={() => setOpenMaterial(null)}
           />
         )}
         {contextChat && (
