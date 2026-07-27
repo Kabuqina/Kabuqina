@@ -35,6 +35,7 @@ mod python_supervisor;
 mod qq_env;
 mod qqbot_qr;
 mod secrets;
+mod studio;
 mod study;
 mod telegram_env;
 mod tray;
@@ -234,6 +235,10 @@ pub fn run() {
             study::cmd_study_spaces,
             study::cmd_study_space_create,
             study::cmd_study_space_select,
+            studio::cmd_studio_projects,
+            studio::cmd_studio_create_project,
+            studio::cmd_studio_save_brief,
+            studio::cmd_studio_gather_sources,
             study::cmd_study_drafts,
             study::cmd_study_artifact_summaries,
             study::cmd_study_artifact_detail,
@@ -267,6 +272,7 @@ pub fn run() {
             study::cmd_study_whiteboard_snapshot_delete_preview,
             study::cmd_study_whiteboard_snapshot_delete,
             study::cmd_study_data_export,
+            study::cmd_study_token_usage,
             study::cmd_study_data_import,
             study::cmd_study_data_import_file,
             study::cmd_study_prepare_downgrade,

@@ -434,6 +434,95 @@ def test_provider_reservation_settlement_and_terminal_fold_are_atomic(runtime):
     assert caught.value.reason_code == "terminal_immutable"
 
 
+def test_token_usage_aggregates_only_successful_measured_attempts(runtime):
+    request = _request()
+    runtime.create(request, _checkpoint(request))
+    runtime.claim_execution(request.key, expected_revision=0, execution_id="exec-1")
+
+    revision = 1
+    for ordinal, actual in (
+        (1, (8, 12)),
+        (2, (None, None)),
+    ):
+        runtime.reserve_provider_attempt(
+            request.key,
+            expected_revision=revision,
+            reservation=ProviderAttemptReservationV1(
+                attempt_id=f"attempt-{ordinal}",
+                segment_id=f"segment-{ordinal}",
+                ordinal=ordinal,
+                provider_id="provider-1",
+                model_id="model-1",
+                api_mode="chat_completions",
+                reserved_input_tokens=10,
+                reserved_output_tokens=20,
+                reserved_wall_ms=100,
+            ),
+        )
+        revision += 1
+        runtime.settle_provider_attempt(
+            request.key,
+            attempt_id=f"attempt-{ordinal}",
+            expected_revision=revision,
+            status="succeeded",
+            actual_input_tokens=actual[0],
+            actual_output_tokens=actual[1],
+            actual_latency_ms=50,
+        )
+        revision += 1
+
+    failed = _request(activity="activity-2", idempotency="start-2")
+    runtime.create(failed, _checkpoint(failed))
+    runtime.claim_execution(failed.key, expected_revision=0, execution_id="exec-2")
+    runtime.reserve_provider_attempt(
+        failed.key,
+        expected_revision=1,
+        reservation=ProviderAttemptReservationV1(
+            attempt_id="failed-attempt",
+            segment_id="failed-segment",
+            ordinal=1,
+            provider_id="provider-1",
+            model_id="model-1",
+            api_mode="chat_completions",
+            reserved_input_tokens=50,
+            reserved_output_tokens=60,
+            reserved_wall_ms=100,
+        ),
+    )
+    runtime.settle_provider_attempt(
+        failed.key,
+        attempt_id="failed-attempt",
+        expected_revision=2,
+        status="failed",
+        actual_input_tokens=50,
+        actual_output_tokens=60,
+        actual_latency_ms=50,
+    )
+
+    rows = runtime.aggregate_token_usage(
+        "owner-1",
+        starts_at="2000-01-01T00:00:00Z",
+        ends_at="2100-01-01T00:00:00Z",
+    )
+    assert rows == [
+        {
+            "space_id": "space-1",
+            "provider_id": "provider-1",
+            "model_id": "model-1",
+            "succeeded_attempts": 2,
+            "input_measured_attempts": 1,
+            "output_measured_attempts": 1,
+            "input_tokens": 8,
+            "output_tokens": 12,
+        }
+    ]
+    assert runtime.aggregate_token_usage(
+        "owner-1",
+        starts_at="2100-01-01T00:00:00Z",
+        ends_at="2101-01-01T00:00:00Z",
+    ) == []
+
+
 def test_terminal_budget_mismatch_is_zero_write(runtime):
     request = _request()
     runtime.create(request, _checkpoint(request))

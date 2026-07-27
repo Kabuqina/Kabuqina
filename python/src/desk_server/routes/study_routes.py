@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 import asyncio
 from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterator, Optional
 
 from fastapi import APIRouter, HTTPException, Query
@@ -39,6 +40,7 @@ from learning.wrongbook import WrongbookService
 import learning_owner
 from learning_owner import desktop_learning_scope
 from study_review_reminder import StudyReviewReminderService
+import kabuqina_time
 
 router = APIRouter()
 
@@ -218,6 +220,101 @@ def _record_migration_failure(key: str, exc: Exception) -> None:
             )
     except Exception:
         pass
+
+
+def _token_usage_window(window: str) -> tuple[datetime, datetime]:
+    current = kabuqina_time.now()
+    if window == "week":
+        start = current.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(
+            days=current.weekday()
+        )
+    elif window == "month":
+        start = current.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    else:
+        raise ValueError("window must be week or month")
+    return start, current
+
+
+def _utc_timestamp(value: datetime) -> str:
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _token_usage_payload(
+    *,
+    window: str,
+    starts_at: datetime,
+    ends_at: datetime,
+    rows: list[dict[str, Any]],
+    spaces: list[dict[str, Any]],
+) -> dict[str, Any]:
+    titles = {str(space["space_id"]): str(space["title"]) for space in spaces}
+    courses: dict[str, dict[str, Any]] = {}
+    totals = {
+        "inputTokens": 0,
+        "outputTokens": 0,
+        "totalTokens": 0,
+        "succeededAttempts": 0,
+        "inputMeasuredAttempts": 0,
+        "outputMeasuredAttempts": 0,
+        "incomplete": False,
+    }
+
+    for row in rows:
+        space_id = str(row["space_id"])
+        course = courses.setdefault(
+            space_id,
+            {
+                "spaceId": space_id,
+                "title": titles.get(space_id, "Unknown course"),
+                "inputTokens": 0,
+                "outputTokens": 0,
+                "totalTokens": 0,
+                "succeededAttempts": 0,
+                "inputMeasuredAttempts": 0,
+                "outputMeasuredAttempts": 0,
+                "incomplete": False,
+                "models": [],
+            },
+        )
+        input_tokens = int(row["input_tokens"])
+        output_tokens = int(row["output_tokens"])
+        succeeded = int(row["succeeded_attempts"])
+        input_measured = int(row["input_measured_attempts"])
+        output_measured = int(row["output_measured_attempts"])
+        incomplete = input_measured != succeeded or output_measured != succeeded
+        model = {
+            "providerId": str(row["provider_id"]),
+            "modelId": str(row["model_id"]),
+            "inputTokens": input_tokens,
+            "outputTokens": output_tokens,
+            "totalTokens": input_tokens + output_tokens,
+            "succeededAttempts": succeeded,
+            "inputMeasuredAttempts": input_measured,
+            "outputMeasuredAttempts": output_measured,
+            "incomplete": incomplete,
+        }
+        course["models"].append(model)
+        for target in (course, totals):
+            target["inputTokens"] += input_tokens
+            target["outputTokens"] += output_tokens
+            target["totalTokens"] += input_tokens + output_tokens
+            target["succeededAttempts"] += succeeded
+            target["inputMeasuredAttempts"] += input_measured
+            target["outputMeasuredAttempts"] += output_measured
+            target["incomplete"] = bool(target["incomplete"] or incomplete)
+
+    ordered_courses = sorted(
+        courses.values(), key=lambda item: (item["title"].casefold(), item["spaceId"])
+    )
+    for course in ordered_courses:
+        course["models"].sort(key=lambda item: (item["providerId"], item["modelId"]))
+    return {
+        "window": window,
+        "startsAt": _utc_timestamp(starts_at),
+        "endsAt": _utc_timestamp(ends_at),
+        "totals": totals,
+        "courses": ordered_courses,
+    }
 
 
 def _empty_summary_page(*, limit: int, offset: int) -> Dict[str, Any]:
@@ -435,6 +532,28 @@ async def study_data_export():
         with _desktop_data_service() as (owner_id, service):
             return {"bundle": service.export_owner_bundle(owner_id)}
     except Exception as exc:
+        raise _http_error(exc) from exc
+
+
+@router.get("/api/desk/study/token-usage")
+async def study_token_usage(window: str = Query(default="week")):
+    try:
+        starts_at, ends_at = _token_usage_window(window)
+        with _desktop_data_service() as (owner_id, service):
+            rows = service.runtime_store.aggregate_token_usage(
+                owner_id,
+                starts_at=_utc_timestamp(starts_at),
+                ends_at=_utc_timestamp(ends_at),
+            )
+            spaces = service.learning_store.list_spaces(owner_id)
+        return _token_usage_payload(
+            window=window,
+            starts_at=starts_at,
+            ends_at=ends_at,
+            rows=rows,
+            spaces=spaces,
+        )
+    except (ValueError, KeyError, TutorContractError, TutorRuntimeError) as exc:
         raise _http_error(exc) from exc
 
 @router.post("/api/desk/study/data/import")

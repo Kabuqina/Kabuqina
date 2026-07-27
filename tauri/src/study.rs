@@ -699,6 +699,26 @@ pub async fn cmd_study_data_export(app: AppHandle) -> Result<Value, DeskBridgeEr
 }
 
 #[tauri::command]
+pub async fn cmd_study_token_usage(
+    app: AppHandle,
+    window: String,
+) -> Result<Value, DeskBridgeError> {
+    if !matches!(window.as_str(), "week" | "month") {
+        return Err(DeskBridgeError::invalid(
+            "study_invalid_request",
+            "window must be week or month",
+        ));
+    }
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::GET,
+        &format!("/api/desk/study/token-usage?window={window}"),
+        None,
+    )
+    .await
+}
+
+#[tauri::command]
 pub async fn cmd_study_data_import(
     app: AppHandle,
     bundle: Value,

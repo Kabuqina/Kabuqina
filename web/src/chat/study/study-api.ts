@@ -159,6 +159,37 @@ export type StudyLearningBundle = {
   migrations?: unknown[];
 };
 
+export type StudyTokenUsageWindow = "week" | "month";
+
+export type StudyTokenUsageMetrics = {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  succeededAttempts: number;
+  inputMeasuredAttempts: number;
+  outputMeasuredAttempts: number;
+  incomplete: boolean;
+};
+
+export type StudyTokenUsageModel = StudyTokenUsageMetrics & {
+  providerId: string;
+  modelId: string;
+};
+
+export type StudyTokenUsageCourse = StudyTokenUsageMetrics & {
+  spaceId: string;
+  title: string;
+  models: StudyTokenUsageModel[];
+};
+
+export type StudyTokenUsageResponse = {
+  window: StudyTokenUsageWindow;
+  startsAt: string;
+  endsAt: string;
+  totals: StudyTokenUsageMetrics;
+  courses: StudyTokenUsageCourse[];
+};
+
 export type StudyMigrationRecord = {
   migration_key: string;
   status: "done" | "failed";
@@ -412,6 +443,12 @@ export function cmdStudyPlanItemSkip(
 
 export function cmdStudyDataExport(): Promise<{ bundle: StudyLearningBundle }> {
   return invoke("cmd_study_data_export");
+}
+
+export function cmdStudyTokenUsage(
+  window: StudyTokenUsageWindow,
+): Promise<StudyTokenUsageResponse> {
+  return invoke("cmd_study_token_usage", { window });
 }
 
 export function cmdStudyDataImport(bundle: StudyLearningBundle): Promise<{ imported: Record<string, number> }> {
