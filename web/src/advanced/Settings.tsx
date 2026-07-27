@@ -13,6 +13,7 @@ import { useTogglePowerUser } from "../lib/useTogglePowerUser";
 import { useFontSize, useThemeMode } from "../lib/ui-prefs";
 import { SettingsDisplay } from "./settings/SettingsDisplay";
 import { SettingsLearningData, SettingsLearningMigrations } from "./settings/SettingsLearningData";
+import { SettingsMaterialPrivacy } from "./settings/SettingsMaterialPrivacy";
 import { SettingsSharedPrefs } from "./settings/SettingsSharedPrefs";
 import { SettingsLoadPackages } from "./settings/SettingsLoadPackages";
 import { SettingsLlmConfig } from "./settings/SettingsLlmConfig";
@@ -142,6 +143,8 @@ export function Settings() {
                 onSetThemeMode={setThemeMode}
                 onWorkspaceChanged={refreshStatus}
               />
+              {/* 学生导入的是自己的教材：先说清哪些内容离开这台机器，再谈数据搬家。 */}
+              <SettingsMaterialPrivacy />
               {/* 学习证据是学生自己的东西，取回与销毁的入口跟着他，不藏在高级模式后面。 */}
               <SettingsLearningData />
               <SettingsUpdate />
