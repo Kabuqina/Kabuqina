@@ -24,11 +24,13 @@ import { OverlayWindow } from "./capture/OverlayWindow";
 import { CompanionWindow } from "./companion/CompanionWindow";
 import { BrandSvgPreview } from "./components/brand/BrandSvgPreview";
 import { BootPill } from "./components/BootPill";
-import { applyFontSize, applyTheme } from "./lib/ui-prefs";
+import { applyFontSize, applyTheme, watchSystemTheme } from "./lib/ui-prefs";
 import "./index.css";
 
 applyFontSize();
 applyTheme();
+// 「跟随系统」在所有页面都要成立，不只是设置页。
+watchSystemTheme();
 
 const StudyRoute = lazy(() => import("./study/StudyRoute"));
 const StudioRoute = lazy(() => import("./studio/StudioRoute"));

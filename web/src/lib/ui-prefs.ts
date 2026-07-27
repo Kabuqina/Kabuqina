@@ -118,6 +118,26 @@ export function applyTheme(mode?: ThemeMode): ResolvedTheme {
   return resolved;
 }
 
+/**
+ * 让「跟随系统」在整个应用里都成立，而不只是在设置页。
+ *
+ * 之前监听 `prefers-color-scheme` 的代码只在 `useThemeMode()` 里，而那个 hook 只有
+ * 设置页用——于是系统切到深色时，坐在设置页会跟着变，在 Chat / Study / Studio 里
+ * 却一直停在启动时算出的那套配色。应用启动时调一次即可。
+ */
+export function watchSystemTheme(): () => void {
+  if (typeof window === "undefined" || !window.matchMedia) {
+    return () => {};
+  }
+  const mq = window.matchMedia("(prefers-color-scheme: dark)");
+  const sync = () => {
+    // 只有「跟随系统」才响应；显式选了浅色/深色的人不该被系统覆盖。
+    if (getStoredThemeMode() === "system") applyTheme("system");
+  };
+  mq.addEventListener("change", sync);
+  return () => mq.removeEventListener("change", sync);
+}
+
 export function setThemeMode(mode: ThemeMode): ResolvedTheme {
   if (typeof window !== "undefined" && window.localStorage) {
     window.localStorage.setItem(THEME_MODE_KEY, mode);
