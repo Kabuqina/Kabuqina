@@ -3876,6 +3876,11 @@ label.form-stack > span,
   }
 }
 
+/* 窄窗＝用户把主窗口拖窄，不是手机。
+   tauri.conf.json 定了主窗口 minWidth 720 / minHeight 520，拖不到更窄；
+   伴随窗是 87×76 的挂件（companion.rs），不承载这套界面。
+   因此真实区间只有 720–860；曾经存在的 ≤560 一档永不触发，已删除。
+   验证基准：720 × 520。 */
 @media (max-width: 860px) {
   .prototype-page {
     padding: 8px;
@@ -3899,8 +3904,10 @@ label.form-stack > span,
     min-width: 108px;
   }
 
+  /* 最小窗口是 720×520：外壳不能自己就比窗口高，否则永远在滚动。
+     高度让给视口，内部区域各自滚。 */
   .app-frame {
-    min-height: 760px;
+    min-height: 480px;
   }
 
   .app-header {
@@ -3921,7 +3928,7 @@ label.form-stack > span,
   .chat-desk,
   .studio-desk {
     display: block;
-    min-height: 696px;
+    min-height: 400px;
     padding: 12px 10px 66px;
   }
 
@@ -3971,15 +3978,24 @@ label.form-stack > span,
     margin-top: 4px;
   }
 
+  /* 有界高度，内部自己滚——只给 min-height 的话内容会把外壳撑出视口，
+     底部工具条（窄窗下唯一的参考/卡片/小娜入口）会掉到折线下 */
   .notebook,
   .chat-paper,
   .studio-workspace {
-    min-height: 620px;
+    height: min(660px, calc(100vh - 165px));
+    min-height: 300px;
   }
 
+  /* Study 头上多一行书立（37px），扣除量要比另外两域大 */
+  .notebook {
+    height: min(660px, calc(100vh - 205px));
+  }
+
+  /* 输入框必须留在视口内——它掉到折线下就等于打不了字 */
   .chat-paper {
-    height: min(660px, calc(100vh - 240px));
-    min-height: 540px;
+    height: min(660px, calc(100vh - 190px));
+    min-height: 300px;
   }
 
   .chat-history {
@@ -3998,11 +4014,10 @@ label.form-stack > span,
     max-height: calc(100% - 130px);
   }
 
-  /* 窄屏没有"旁边"可言：材料占满，但仍是可关掉的一层，不是新页面 */
+  /* 720 仍然有"旁边"：面板收窄让出笔记本，别把工作面盖掉。
+     （这条原先按手机写成占满，但手机尺寸根本到不了。） */
   .material-panel {
-    left: 0;
-    width: auto;
-    border-left: 0;
+    width: min(340px, 52%);
   }
 
   .narrow-desk-tools {
@@ -4060,250 +4075,6 @@ label.form-stack > span,
   .modal-sheet--wide {
     width: min(680px, 100%);
   }
-}
-
-@media (max-width: 560px) {
-  .prototype-rail {
-    padding: 9px;
-  }
-
-  .prototype-rail__title {
-    margin-bottom: 7px;
-  }
-
-  .prototype-rail__title strong {
-    font-size: 12px;
-  }
-
-  .prototype-rail__title span {
-    font-size: 9px !important;
-  }
-
-  .prototype-status {
-    display: none;
-  }
-
-  .app-header {
-    min-height: 58px;
-  }
-
-  .primary-nav button {
-    padding: 7px 9px;
-    font-size: 12px;
-  }
-
-  .primary-nav button svg {
-    width: 17px;
-    height: 17px;
-  }
-
-  .utility-nav button {
-    padding: 7px;
-  }
-
-  .notebook {
-    min-height: 650px;
-  }
-
-  .notebook-header {
-    display: grid;
-    padding: 15px 13px 10px 25px;
-  }
-
-  .bookmark-card {
-    width: 100%;
-  }
-
-  .notebook-tabs {
-    overflow-x: auto;
-    padding-left: 24px;
-  }
-
-  .notebook-tabs button {
-    flex: 0 0 auto;
-    padding: 0 9px;
-  }
-
-  .notebook-page {
-    padding: 25px 18px 24px 27px;
-  }
-
-  .learn-grid,
-  .contrast-pair,
-  .evaluation-summary {
-    grid-template-columns: 1fr;
-  }
-
-  .contrast-pair .study-sheet {
-    min-height: 0;
-  }
-
-  .flyleaf-rows > div,
-  .activity-timeline li {
-    grid-template-columns: 1fr;
-    gap: 4px;
-  }
-
-  .plan-list article {
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-
-  .plan-actions,
-  .plan-list article > .status-pill {
-    grid-column: 2;
-    justify-self: start;
-  }
-
-  .wrongbook-row {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .learn-concept {
-    grid-template-columns: 1fr;
-  }
-
-  .resume-sheet h2,
-  .practice-sheet h2 {
-    font-size: 22px;
-  }
-
-  /* 公式设了 nowrap，窄屏必须留出余量，否则长一点的式子会顶破版心 */
-  .practice-sheet h2.practice-question {
-    font-size: 19px;
-  }
-
-  .brief-slip {
-    padding: 15px;
-  }
-
-  .point-stack {
-    padding: 16px 14px;
-  }
-
-  .bind-bar {
-    flex-wrap: wrap;
-    padding: 12px 14px;
-  }
-
-  .brief-slip h1,
-  .studio-empty h2 {
-    font-size: 21px;
-  }
-
-  .studio-empty {
-    padding: 38px 18px;
-  }
-
-  .studio-rail--sources {
-    grid-template-columns: 1fr;
-  }
-
-  .chat-paper--minimal .chat-paper__header {
-    gap: 8px;
-    min-height: 56px;
-    padding: 10px 12px;
-  }
-
-  .return-action {
-    padding: 8px 9px;
-    font-size: 12px;
-  }
-
-  .message-list {
-    padding: 17px 12px;
-  }
-
-  .message {
-    width: 94%;
-  }
-
-  .message--user {
-    width: 88%;
-  }
-
-  .message-actions {
-    flex-wrap: wrap;
-  }
-
-  .chat-composer {
-    grid-template-columns: 1fr auto;
-    padding: 10px 12px 16px;
-  }
-
-  .composer-tools {
-    display: none;
-  }
-
-  .modal-backdrop {
-    align-items: end;
-    padding: 0;
-  }
-
-  .modal-sheet,
-  .modal-sheet--wide {
-    width: 100%;
-    max-height: 91%;
-    border-right: 0;
-    border-bottom: 0;
-    border-left: 0;
-    border-radius: 13px 13px 0 0;
-  }
-
-  .modal-sheet > :not(header) {
-    margin-right: 14px;
-    margin-left: 14px;
-  }
-
-  .modal-actions {
-    flex-direction: column-reverse;
-    align-items: stretch;
-  }
-
-  .modal-actions > button {
-    width: 100%;
-  }
-
-  .request-review {
-    grid-template-columns: 1fr;
-  }
-
-  .generation-card {
-    grid-template-columns: 1fr;
-  }
-
-  .result-preview {
-    grid-template-columns: 1fr;
-  }
-
-  .result-preview > aside {
-    grid-template-columns: repeat(5, 1fr);
-  }
-
-  .result-preview > aside button {
-    display: block;
-  }
-
-  .slide-preview {
-    padding: 24px;
-  }
-
-  .recovery-warning {
-    grid-template-columns: auto 1fr;
-  }
-
-  .recovery-warning button {
-    grid-column: 1 / -1;
-  }
-
-  .draft-activation-banner {
-    grid-template-columns: auto 1fr;
-  }
-
-  .draft-activation-banner button {
-    grid-column: 1 / -1;
-  }
-
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -41,6 +41,15 @@
 
 ## Viewport and normalization
 
+> **Corrected 2026-07-27.** Everything below this heading that cites `390 × 844` is stale, and
+> so is every "390 × 844 passed" line in the iteration log. This is a Windows desktop app:
+> `tauri/tauri.conf.json` fixes the main window at 1100 × 760 with **`minWidth: 720`,
+> `minHeight: 520`**, and the only other window is an 87 × 76 always-on-top mascot pill
+> (`tauri/src/companion.rs`), which does not carry this UI. There is no phone target.
+> **The narrow viewport is therefore 720 × 520 — a dragged-narrow desktop window — and the
+> architecture doc's wording (「窄窗」, not 移动端) already said so.** The `≤ 560px` breakpoint
+> was unreachable and has been deleted; `≤ 860px` now serves the real 720–860 band.
+
 - Desktop judgment uses the default in-app browser viewport at device scale factor `1`; the product canvas remains capped at the prototype’s `1280 px` logical width.
 - Responsive judgment uses an explicit `390 × 844` CSS viewport at device scale factor `1`.
 - The frozen Study desk is the visual baseline. Prototype journey controls and browser scrollbars are surrounding review evidence, not part of the product shell.
@@ -486,6 +495,34 @@ rebuild + browser re-verification; see the iteration log.
 - Narrow safety: with the formula set to `nowrap`, a longer expression would burst the measure.
   At ≤560px the question drops to 19px, taking clearance from 28px to 66px at 390 wide.
   `npm run build` and `npm run test:sites` (4/4) pass.
+
+### Iteration 18 — narrow layout retargeted at the real minimum window
+
+- Owner asked what the narrow layout is for. Answer, from the config rather than from habit:
+  the main window is 1100 × 760 with **min 720 × 520**, and the companion is an 87 × 76 mascot
+  pill that carries none of this UI. So "narrow" means a dragged-narrow desktop window, never a
+  phone — and the frozen architecture already said 「窄窗」.
+- **Deleted the `≤ 560px` block entirely (244 lines).** It could never fire: the window will not
+  go below 720. It also still carried rules for the legacy J4 modals deleted days ago. CSS
+  61.7 kB → 58.0 kB.
+- **Retargeted every height that had been sized for a tall phone.** At 720 × 520 the shell alone
+  demanded 760px, so the page scrolled permanently and, worse, the chat composer sat at 781px —
+  below the fold, meaning you could not type without scrolling. `app-frame` 760 → 480,
+  desks 696 → 400, surfaces gained a **bounded** height (`min(660px, calc(100vh − 165px))`)
+  instead of only a min-height, so content scrolls inside the paper rather than pushing the
+  shell past the window. Study subtracts 205px instead of 165 because it carries the bookend row.
+- **Fixed a second phone-shaped assumption:** the material panel had a narrow override making it
+  full-width, written on the reasoning that "a phone has no beside". 720 does have a beside — the
+  override made the panel 702px of a 720px window and buried the notebook. It is now
+  `min(340px, 52%)`, giving 340 : 352 side by side.
+- Verified at **720 × 520** with the prototype-only review rail hidden (it is 159px and does not
+  exist in the product): Study fits with **zero scroll** across all five pages and the narrow tool
+  bar stays in view; Chat fits with the composer at 400px, well inside the fold; Studio still
+  scrolls vertically (911px) but nothing is unreachable — it has no fixed bottom bar and the
+  sources rail simply sits below the work surface. No horizontal overflow anywhere.
+  `npm run build` and `npm run test:sites` (4/4) pass.
+- **Evidence note:** prior iterations' "390 × 844 passed" claims verified a layout no user can
+  reach. They should be read as unverified for the narrow band until re-checked at 720 × 520.
 
 ## Primary interactions tested
 
