@@ -1526,3 +1526,41 @@ an owner/space-coordinated decoded-state compare-and-update transaction; a
 concurrent state change returns a retry error and cannot bless stale truth.
 This adds no learning schema migration, provider call, Web/Gateway surface, or
 bundle mutation.
+
+## Mobile Bot product surface removed (2026-07-27)
+
+The messaging gateway is renamed to what it actually is — **移动端 Bot**
+(微信 Bot / QQ Bot / 钉钉 Bot) — and its **product surface is cut from `main`**.
+This supersedes the "Gateway platforms" profile allowlist above for the desktop
+product; that row still describes what the retained core library contains, not
+what the product ships.
+
+Reason: the Bot fit a pure Chat/CLI agent. v0.5.0 is a Study/Studio learning
+workbench, where learning happens in the course book, the material panel,
+practice and review — none of which a Weixin chat box can drive. Asking a
+student to configure a message ingress is asking them to understand a concept
+unrelated to their task. Email (IMAP/SMTP) goes with it: in code it is the same
+gateway platform mechanism, and "talk to the agent by email" is equally
+displaced.
+
+Scope is the **product surface only** — Web settings/pages/routes/onboarding
+probes, Rust supervisor and QR/env commands, desktop Python policy output,
+bundled Bot SDK dependencies, autostart output. `hermes_core/gateway/`
+(39 files, 35032 lines, 150 referencing test files) is retained: the agent
+runtime that Study itself depends on imports it in three places
+(`gateway.session_context` from `agent/prompt_builder.py` and
+`tools/approval.py`; `gateway.delivery_contract` from `cron/jobs.py`; the
+`kabuqina-gateway` toolset). Deleting the library is a separate slice that must
+untangle those first.
+
+Everything removed is preserved on branch `preserve/mobile-bot-gateway`
+(cut at `21431744`). A mobile Bot may return later to support specific
+operations — photographing a page into a course book, answering a review
+prompt on the phone — but it must then be designed onto Study's import/review
+paths, not revived as message ingress.
+
+Two consequences are tracked in the JIT plan
+(`docs/superpowers/plans/2026-07-27-v0.5.0-ctl-c08-mobile-bot-surface-removal-plan.md`):
+the six-platform real-account matrix deferred by CTL-C06 stops being a release
+blocker, and the `sea` profile loses its only distinguishing content, so U-12
+must be re-judged.
