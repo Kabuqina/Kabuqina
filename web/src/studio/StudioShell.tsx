@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, FolderOpen, MessageCircle, Plus } from "lucide-react";
 import { useI18n } from "../lib/i18n";
 import { GatherFromStudy } from "./GatherFromStudy";
+import { buildStudioChatHandoff, persistPendingStudioHandoff } from "../lib/studioChatHandoff";
 import type { StudioProject } from "./studio-api";
 
 /**
@@ -143,9 +144,20 @@ function ProjectDesk({
   busy: boolean;
 }) {
   const { t } = useI18n();
+  const nav = useNavigate();
   const [draft, setDraft] = useState(project.brief);
   const [gathering, setGathering] = useState(false);
   const dirty = draft.trim() !== project.brief.trim();
+
+  /**
+   * 从项目内进入 Studio Chat（架构 §3.3）。作用域由这次显式转交建立——
+   * 全局 Chat 仍然默认自由会话，不会因为你有项目就自动绑上去（§8.10）。
+   */
+  const askInProject = () => {
+    const handoff = buildStudioChatHandoff(project);
+    persistPendingStudioHandoff(handoff);
+    nav("/chat", { state: { studioHandoff: handoff } });
+  };
 
   return (
     <div className="kq-studio-page">
@@ -185,6 +197,16 @@ function ProjectDesk({
             disabled={busy}
           >
             {t("studio.gatherCta")}
+          </button>
+        </div>
+      </section>
+
+      <section className="kq-studio-card">
+        <h2>{t("studio.chatTitle")}</h2>
+        <p className="kq-studio-muted">{t("studio.chatLead")}</p>
+        <div className="kq-studio-actions">
+          <button type="button" className="kq-studio-secondary" onClick={askInProject}>
+            {t("studio.chatCta")}
           </button>
         </div>
       </section>

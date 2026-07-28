@@ -51,6 +51,17 @@ import {
   type StudyChatHandoff,
 } from "../lib/studyChatHandoff";
 import { StudyChatContextBar } from "./StudyChatContextBar";
+import { StudioChatContextBar } from "./StudioChatContextBar";
+import {
+  bindStudioHandoff,
+  clearPendingStudioHandoff,
+  clearSessionStudioHandoff,
+  getStudioChatHandoffFromLocation,
+  buildStudioChatPrompt,
+  readPendingStudioHandoff,
+  readSessionStudioHandoff,
+  type StudioChatHandoff,
+} from "../lib/studioChatHandoff";
 
 type WorkspaceState = {
   goal: string | null;
@@ -199,6 +210,10 @@ export function ChatPage() {
     () => incomingStudyHandoff ?? readPendingStudyHandoff(),
   );
   const handledStudyHandoffRef = useRef("");
+  const [studioHandoff, setStudioHandoff] = useState<StudioChatHandoff | null>(
+    () => getStudioChatHandoffFromLocation(location.state) ?? readPendingStudioHandoff(),
+  );
+  const handledStudioHandoffRef = useRef("");
   // True when chat is reached without a model configured. We no longer force
   // unconfigured users back to the wizard (onboarding auto-triggers on first
   // launch and Settings covers config) — instead we keep them on chat with the
@@ -323,6 +338,45 @@ export function ChatPage() {
     setActiveSessionId,
     setInput,
   ]);
+
+  // 项目作用域：与课程作用域同形，但回去的地方只有一个，所以不带 focus/step。
+  useEffect(() => {
+    const handoff = getStudioChatHandoffFromLocation(location.state) ?? readPendingStudioHandoff();
+    if (!handoff || listLoading) return;
+    const identity = `${handoff.sessionId}:${handoff.createdAt}`;
+    if (handledStudioHandoffRef.current === identity) return;
+    handledStudioHandoffRef.current = identity;
+    bindStudioHandoff(handoff);
+    setStudioHandoff(handoff);
+    const existing = sessions.some((session) => session.id === handoff.sessionId);
+    if (existing) {
+      onPickSession(handoff.sessionId);
+    } else {
+      onNewChat();
+      setActiveSessionId(handoff.sessionId);
+      persistActiveSessionId(handoff.sessionId);
+    }
+    setInput(getDraftPrompt(location.state) ?? buildStudioChatPrompt(handoff));
+    nav("/chat", { replace: true, state: {} });
+  }, [
+    listLoading,
+    location.state,
+    nav,
+    onNewChat,
+    onPickSession,
+    sessions,
+    setActiveSessionId,
+    setInput,
+  ]);
+
+  useEffect(() => {
+    if (
+      studioHandoff
+      && sessions.some((session) => session.id === studioHandoff.sessionId)
+    ) {
+      clearPendingStudioHandoff();
+    }
+  }, [sessions, studioHandoff]);
 
   useEffect(() => {
     const sessionId = getOpenSessionId(location.state);
@@ -506,6 +560,10 @@ export function ChatPage() {
         clearSessionStudyHandoff(id);
         setStudyHandoff(null);
       }
+      if (studioHandoff?.sessionId === id) {
+        clearSessionStudioHandoff(id);
+        setStudioHandoff(null);
+      }
     } catch (err) {
       console.error(err);
       setSendErr(t("chat.errDelete"));
@@ -513,13 +571,18 @@ export function ChatPage() {
   };
 
   const handleNewChat = useCallback(() => {
+    // 新对话一律回到自由会话（架构 §8.10）：两种作用域都解掉。
     clearPendingStudyHandoff();
     setStudyHandoff(null);
+    clearPendingStudioHandoff();
+    setStudioHandoff(null);
     onNewChat();
   }, [onNewChat]);
 
   const handlePickSession = useCallback((id: string) => {
+    // 作用域只跟着会话走，绝不猜测（§8.3）。
     setStudyHandoff(readSessionStudyHandoff(id));
+    setStudioHandoff(readSessionStudioHandoff(id));
     onPickSession(id);
   }, [onPickSession]);
 
@@ -538,6 +601,17 @@ export function ChatPage() {
       },
     });
   }, [nav, studyHandoff]);
+
+  const returnToStudio = useCallback(() => {
+    if (!studioHandoff) return;
+    nav(studioHandoff.returnTarget.path || studioHandoff.returnTarget.fallbackPath);
+  }, [nav, studioHandoff]);
+
+  const unbindStudioContext = useCallback(() => {
+    if (studioHandoff) clearSessionStudioHandoff(studioHandoff.sessionId);
+    clearPendingStudioHandoff();
+    setStudioHandoff(null);
+  }, [studioHandoff]);
 
   const unbindStudyContext = useCallback(() => {
     if (studyHandoff) clearSessionStudyHandoff(studyHandoff.sessionId);
@@ -627,6 +701,13 @@ export function ChatPage() {
               handoff={studyHandoff}
               onReturn={returnToStudy}
               onUnbind={unbindStudyContext}
+            />
+          ) : null}
+          {studioHandoff ? (
+            <StudioChatContextBar
+              handoff={studioHandoff}
+              onReturn={returnToStudio}
+              onUnbind={unbindStudioContext}
             />
           ) : null}
           <div className="kq-chat-topbar flex h-11 shrink-0 items-center justify-end border-b px-3">
