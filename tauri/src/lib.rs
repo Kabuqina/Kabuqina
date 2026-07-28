@@ -16,7 +16,6 @@
 
 mod approval;
 mod bridge;
-mod capabilities;
 mod capture;
 mod chat;
 mod companion;
@@ -148,8 +147,6 @@ pub fn run() {
             cmd_set_workspace,
             paths::cmd_get_power_user,
             cmd_set_power_user,
-            paths::cmd_get_show_recipe_market,
-            paths::cmd_set_show_recipe_market,
             paths::cmd_set_personality,
             paths::cmd_get_auto_start_gateway,
             paths::cmd_set_auto_start_gateway,
@@ -172,8 +169,6 @@ pub fn run() {
             desktop_organizer::cmd_desktop_organize_preview,
             desktop_organizer::cmd_desktop_organize_apply,
             desktop_organizer::cmd_desktop_organize_undo,
-            capabilities::cmd_capabilities_catalog,
-            capabilities::cmd_capability_skill_detail,
             chat::cmd_chat_send,
             chat::cmd_chat_send_stream,
             chat::cmd_chat_preview,
@@ -717,7 +712,6 @@ async fn bootstrap(app: tauri::AppHandle) -> anyhow::Result<()> {
         // exact path through SpawnConfig/child env.
         let _selected_home = gateway_supervisor::kabuqina_home_path(&data_dir);
         paths::resolve_runtime_dir(&app)?;
-        paths::sync_show_recipe_market_flag(&app)?;
         Ok(())
     })() {
         let msg = format!("{e:#}");

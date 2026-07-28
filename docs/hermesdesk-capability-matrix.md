@@ -11,7 +11,7 @@ This document describes **what the Windows Kabuqina shell actually allows** for 
 | Item | Storage / injection | Notes |
 |------|---------------------|--------|
 | **Power user** | `settings.json` key `hermesdesk.power_user` (`"1"` / `"true"` = on) → child env **`HERMESDESK_POWER_USER=1` or `0`** | `tauri/src/paths.rs`, `tauri/src/python_supervisor.rs` |
-| **Capability catalog role** | Derived in Python by `CapabilityPolicy`: default when power user off, advanced when recipe market discovery is on, power when `HERMESDESK_POWER_USER=1` | Used by `/api/hermesdesk/capabilities` before the shell renders Skills / tools / plugins |
+| **Runtime metadata** | Derived internally from the tool policy, load-package registry, and pipeline definitions | Used for dependency checks and bounded agent self-knowledge; no user-facing catalog |
 | **Workspace folder** | Key `hermesdesk.workspace`; if unset, default **`%USERPROFILE%\Documents\KabuqinaWork`** → **`HERMESDESK_WORKSPACE`** | `paths::ensure_workspace` |
 | **LLM (non-secret)** | `settings.json` → `provider` (e.g. `api_base_url`, `host`, `model`) → **`Kabuqina_*`** env and overlay sync into `config.yaml` | `tauri/src/secrets.rs`, `python/overlays/desktop_llm_config.py` |
 | **API key** | Windows Credential Manager / keyring — **not** in `config.yaml` | `python/overlays/secret_loader.py` (and related) |
@@ -92,16 +92,17 @@ Which tools trigger approval is defined upstream in Hermes (`tools/approval.py` 
 
 ---
 
-## 8. Desktop capability catalog
+## 8. Internal runtime metadata
 
-**Implementation:** Python policy [`python/src/capability_policy.py`](../python/src/capability_policy.py), Hermes API `GET /api/hermesdesk/capabilities`, Tauri IPC proxy, and shell page under `web/src/advanced/pages/CapabilitiesPage.tsx`.
+The former desktop capability catalog was removed from the v0.5 product surface.
+There is no `/capabilities` shell route, capability/skill-detail HTTP endpoint,
+Tauri catalog command, recipe-market visibility role, or catalog UI.
 
-| Area | Behavior |
-|------|----------|
-| **Skills** | Visible entries are filtered server-side. Details include content, linked files, source/trust/risk labels, and whether agent-assisted editing is available. |
-| **Tools/toolsets** | Users can browse enabled and locked toolsets. Power-user-only tools are labelled locked outside `power`; the UI does not directly mutate tool implementation. |
-| **Plugins** | Dashboard plugin manifests are browsed through the same policy. Default users do not see advanced/plugin entries unless policy metadata makes them visible. |
-| **Writes** | Editing Skills or installing recommended Skills/tools/plugins starts a chat draft for the agent. The write boundary remains `skill_manage`, hub install, plugin tooling, and approval prompts. |
+`capability_registry.py` and `capability_status.py` remain internal implementation
+metadata because load-package reverse dependencies, document-generation pipeline
+selection, and the bounded Chat runtime prompt require one authoritative source.
+They do not grant tools or replace `ToolPolicy`, the workspace jail, network
+policy, or per-use approval.
 
 ---
 

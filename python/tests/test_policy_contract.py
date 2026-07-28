@@ -20,7 +20,6 @@ from network_policy import NetworkPolicy
 from tool_policy import ToolPolicy
 from secret_store import SecretStore
 from approval_backend import _auto_approve_workspace_read
-from capability_policy import CapabilityPolicy, ROLE_ADVANCED, ROLE_DEFAULT, ROLE_POWER
 
 
 class TestPathPolicy(unittest.TestCase):
@@ -205,107 +204,6 @@ class TestToolPolicy(unittest.TestCase):
     def test_is_power_user_default(self):
         with patch.dict(os.environ, {}, clear=True):
             self.assertFalse(ToolPolicy.is_power_user())
-
-
-class TestCapabilityPolicy(unittest.TestCase):
-    def test_effective_role(self):
-        self.assertEqual(
-            CapabilityPolicy.effective_role(power_user=False, show_recipe_market=False),
-            ROLE_DEFAULT,
-        )
-        self.assertEqual(
-            CapabilityPolicy.effective_role(power_user=False, show_recipe_market=True),
-            ROLE_ADVANCED,
-        )
-        self.assertEqual(
-            CapabilityPolicy.effective_role(power_user=True, show_recipe_market=False),
-            ROLE_POWER,
-        )
-
-    def test_show_recipe_market_reads_data_file_when_env_is_missing(self):
-        with tempfile.TemporaryDirectory() as data_dir:
-            Path(data_dir, "kabuqina_show_recipe_market.txt").write_text(
-                "1\n", encoding="utf-8"
-            )
-            with patch.dict(
-                os.environ, {"KABUQINA_DATA_DIR": data_dir}, clear=True
-            ):
-                self.assertTrue(CapabilityPolicy._read_show_recipe_market())
-
-    def test_show_recipe_market_explicit_empty_env_beats_data_file(self):
-        with tempfile.TemporaryDirectory() as data_dir:
-            Path(data_dir, "kabuqina_show_recipe_market.txt").write_text(
-                "1\n", encoding="utf-8"
-            )
-            with patch.dict(
-                os.environ,
-                {
-                    "KABUQINA_DATA_DIR": data_dir,
-                    "KABUQINA_SHOW_RECIPE_MARKET": "",
-                },
-                clear=True,
-            ):
-                self.assertFalse(CapabilityPolicy._read_show_recipe_market())
-
-    def test_untagged_skill_is_visible_to_default(self):
-        policy = CapabilityPolicy(ROLE_DEFAULT)
-        visibility = policy.skill_visibility({"name": "built-in"})
-        self.assertTrue(visibility["visible"])
-        self.assertEqual(visibility["roles"], [ROLE_DEFAULT, ROLE_ADVANCED, ROLE_POWER])
-
-    def test_community_skill_defaults_to_power_only(self):
-        policy = CapabilityPolicy(ROLE_DEFAULT)
-        visibility = policy.skill_visibility({"name": "external", "source": "github"})
-        self.assertFalse(visibility["visible"])
-        self.assertEqual(visibility["roles"], [ROLE_POWER])
-
-    def test_metadata_roles_are_respected(self):
-        policy = CapabilityPolicy(ROLE_ADVANCED)
-        visibility = policy.skill_visibility(
-            {
-                "name": "signed-recipe",
-                "metadata": {
-                    "hermesdesk": {
-                        "visibility": {"roles": ["advanced", "power"]},
-                        "trust": "official",
-                        "recommended": True,
-                    }
-                },
-            }
-        )
-        self.assertTrue(visibility["visible"])
-        self.assertTrue(visibility["recommended"])
-        self.assertEqual(visibility["risk"], "medium")
-
-    def test_power_toolsets_are_locked_outside_power(self):
-        policy = CapabilityPolicy(ROLE_DEFAULT)
-        terminal = policy.tool_visibility({"name": "terminal"})
-        web = policy.tool_visibility({"name": "web"})
-        self.assertTrue(terminal["locked"])
-        self.assertEqual(terminal["roles"], [ROLE_POWER])
-        self.assertEqual(web["trust"], "official")
-        self.assertFalse(web["locked"])
-
-    def test_default_product_toolsets_are_visible_to_default_role(self):
-        policy = CapabilityPolicy(ROLE_DEFAULT)
-        for name in ToolPolicy.resolve(power_user=False):
-            with self.subTest(toolset=name):
-                visibility = policy.tool_visibility({"name": name})
-                self.assertIn(ROLE_DEFAULT, visibility["roles"])
-                self.assertFalse(visibility["locked"])
-
-    def test_plugins_default_to_advanced(self):
-        policy = CapabilityPolicy(ROLE_DEFAULT)
-        visibility = policy.plugin_visibility({"name": "example"})
-        self.assertFalse(visibility["visible"])
-        self.assertEqual(visibility["roles"], [ROLE_ADVANCED, ROLE_POWER])
-        self.assertEqual(visibility["trust"], "official")
-
-    def test_bundled_plugin_defaults_to_official_trust(self):
-        policy = CapabilityPolicy(ROLE_ADVANCED)
-        visibility = policy.plugin_visibility({"name": "builtin-plugin", "source": "bundled"})
-        self.assertTrue(visibility["visible"])
-        self.assertEqual(visibility["trust"], "official")
 
 
 class TestSecretStore(unittest.TestCase):

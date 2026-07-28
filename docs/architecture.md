@@ -7,7 +7,7 @@ derived from a frozen [Hermes Agent](https://github.com/NousResearch/hermes-agen
 snapshot. A Tauri 2
 shell (Rust + WebView2) supervises **one long-lived embedded Python 3.11
 process** (`desktop_entrypoint.py`) that runs the sandboxed Kabuqina core
-through `desk_server` on loopback. The WebView2 window runs the **Kabuqina shell** (`web/` — Splash, onboarding, `/chat`, Settings, Capabilities) exclusively; all chat traffic uses `/api/desk/*` proxied through Tauri. Optionally, Tauri supervises a **second** Python child (`python -m gateway.run`) for messaging adapters when credentials exist under `kabuqina-home/.env`. Short-lived QR/token helper scripts may run as extra Python children during onboarding. LLM provider keys live in Windows Credential Manager (DPAPI); config is rooted at **`KABUQINA_HOME`** inside the app data dir (see `desktop_entrypoint.py`). File ops are jailed to a workspace folder and risky tools stay off until **power user** mode.
+through `desk_server` on loopback. The WebView2 window runs the **Kabuqina shell** (`web/` — Splash, onboarding, `/chat`, Study, Studio, Settings) exclusively; all chat traffic uses `/api/desk/*` proxied through Tauri. Optionally, Tauri supervises a **second** Python child (`python -m gateway.run`) for messaging adapters when credentials exist under `kabuqina-home/.env`. Short-lived QR/token helper scripts may run as extra Python children during onboarding. LLM provider keys live in Windows Credential Manager (DPAPI); config is rooted at **`KABUQINA_HOME`** inside the app data dir (see `desktop_entrypoint.py`). File ops are jailed to a workspace folder and risky actions remain behind per-use approval.
 
 ## Process model
 
@@ -60,18 +60,18 @@ The shell chat page calls Tauri **`invoke`** commands implemented in [tauri/src/
 
 Further product notes: [gateway-desk-weixin-strategy.md](gateway-desk-weixin-strategy.md), [gateway-route-c-weixin-validation.md](gateway-route-c-weixin-validation.md).
 
-## Product capability map
+## Internal runtime capability metadata
 
-Kabuqina separates product capabilities from their implementation resources:
+Kabuqina keeps an internal mapping between product behaviors and their implementation resources:
 
-- Capability: user- and agent-facing description of what Nana can do.
+- Runtime capability record: machine-readable dependency and pipeline metadata.
 - Tool/toolset: executable implementation path used by the agent.
 - Load package: large local resource required by one or more capabilities.
 - Skill/plugin: extension source that can contribute capability implementations.
 
-First-party capabilities live in [python/src/capability_registry.py](../python/src/capability_registry.py), and runtime state is computed by [python/src/capability_status.py](../python/src/capability_status.py). Capabilities declare required and optional load packages. The load-package registry owns download, delete, progress, paths, and source URLs. Capability status is recomputed from that registry at runtime, then exposed through `/api/hermesdesk/capabilities` and summarized for the desktop chat prompt by [python/src/capability_prompt.py](../python/src/capability_prompt.py).
+First-party records live in [python/src/capability_registry.py](../python/src/capability_registry.py), and runtime state is computed by [python/src/capability_status.py](../python/src/capability_status.py). Records declare required and optional load packages. The load-package registry owns download, delete, progress, paths, and source URLs. Runtime state is consumed internally by dependency checks and summarized for the desktop chat prompt by [python/src/capability_prompt.py](../python/src/capability_prompt.py).
 
-Settings load-package management remains the storage/cache view. The Capability page is the product view: it shows what a feature does, whether its toolsets and packages are ready, and links back to the full load-package manager for bulk maintenance.
+There is no Capability page, catalog route, role browser, or skill-detail API in v0.5. Settings → Load packages is the only user-facing storage/cache view. Tool availability remains enforced by the tool policy and approval bridge rather than by a browseable catalog.
 
 
 ## Key files
@@ -88,10 +88,10 @@ Settings load-package management remains the storage/cache view. The Capability 
 | [tauri/src/paths.rs](../tauri/src/paths.rs)                             | Workspace + bundle + data dir resolution; settings                                    |
 | [tauri/src/tray.rs](../tauri/src/tray.rs)                               | System tray + menu                                                                    |
 | [python/src/desktop_entrypoint.py](../python/src/desktop_entrypoint.py) | Python entry — overlays, port handshake, boots `desk_server`                       |
-| [python/src/desk_server/](../python/src/desk_server/) | Kabuqina product HTTP API (`/api/desk/*`, sessions, capabilities) — decoupled from upstream dashboard |
+| [python/src/desk_server/](../python/src/desk_server/) | Kabuqina product HTTP API (`/api/desk/*`, sessions) — decoupled from upstream dashboard |
 | [python/src/](../python/src/)                                           | Policy layer (path_policy, secret_store, approval_backend, network_policy, tool_policy, gateway_policy) |
 | [python/overlays/](../python/overlays/)                                 | Runtime monkey-patches wrapping policy objects (to be removed per-policy)               |
-| [web/src/main.tsx](../web/src/main.tsx)                                 | Shell router: Splash, onboarding, `/chat`, `/settings`                               |
+| [web/src/main.tsx](../web/src/main.tsx)                                 | Shell router: Splash, onboarding, `/chat`, Study, Studio, `/settings`                |
 | [web/src/onboarding/](../web/src/onboarding/)                           | Wizard + gateway/setup sections                                                       |
 | [web/src/advanced/Settings.tsx](../web/src/advanced/Settings.tsx)       | Power user, gateway controls, Telegram/QQ/Weixin blocks, proxy                      |
 

@@ -69,9 +69,7 @@ export function WindowTitleBar() {
   const isStudy = location.pathname.startsWith("/study");
   const isStudio = location.pathname.startsWith("/studio");
   const isSettings = location.pathname === "/settings";
-  const isCapabilities = location.pathname === "/capabilities";
   const settingsLabel = t("chat.openSettings");
-  const capabilitiesLabel = t("capabilities.title");
   const navLinkClass = (active: boolean) =>
     cn(
       "kq-titlebar-link hermes-titlebar-nodrag no-underline transition",
@@ -116,7 +114,7 @@ export function WindowTitleBar() {
         >
           {t("chat.title")}
         </Link>
-        {/* Study 与 Studio 是两个稳定业务空间；Chat/设置/能力是全局工具（架构 §5.5）。 */}
+        {/* Study 与 Studio 是两个稳定业务空间；Chat 与设置是全局工具（架构 §5.5）。 */}
         <Link
           to="/study"
           className={navLinkClass(isStudy)}
@@ -137,13 +135,6 @@ export function WindowTitleBar() {
           title={settingsLabel}
         >
           {settingsLabel}
-        </Link>
-        <Link
-          to="/capabilities"
-          className={navLinkClass(isCapabilities)}
-          title={capabilitiesLabel}
-        >
-          {capabilitiesLabel}
         </Link>
         {inApp && (
           <>

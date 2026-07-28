@@ -1674,3 +1674,18 @@ create streaks, completion rates, coverage claims, or badges. Preferences are
 owner-scoped durable data in `learning.db` and participate in Study export,
 import, and owner deletion. Legacy bundles without a preferences section remain
 valid and resolve to safe defaults.
+
+## User-facing capability catalog removed (2026-07-28)
+
+The v0.5 prototype has no Capability destination. The shell therefore removes
+the title-bar entry, `/capabilities` route, catalog UI and translations; the
+Tauri catalog/skill-detail commands and their loopback HTTP routes are removed
+with it. The catalog-only `show_recipe_market` role switch and `CapabilityPolicy`
+are also retired. Settings → Load packages remains the user-facing place to
+download or delete optional local resources.
+
+`capability_registry.py`, `capability_status.py`, and the compact agent prompt
+summary remain as internal implementation metadata. They describe load-package
+dependencies and document-generation pipelines; they are not a product surface
+and do not grant authority. Actual execution remains bounded by `ToolPolicy`,
+the workspace jail, network policy, and per-use approval.

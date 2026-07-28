@@ -95,7 +95,7 @@ capabilities. See ``_build_system_prompt()`` in ``run_agent.py``.
 
 Desktop chat prompts may summarize available and missing product capabilities, but tool execution must still enforce dependency checks server-side. A missing load package must produce a stable error and a user-facing download path; the model must not infer availability from the prompt alone.
 
-The Capability page and prompt summary are disclosure surfaces. The authoritative state is the backend capability status computed from enabled toolsets and the load-package registry.
+The internal prompt summary is a disclosure aid for the agent. There is no user-facing Capability page. The authoritative execution state remains the enabled toolsets, load-package registry, workspace jail, network policy, and approval bridge.
 
 ## L5 — Cross-platform memory filtering
 

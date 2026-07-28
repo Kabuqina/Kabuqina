@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 from xml.etree import ElementTree as ET
 from capability_prompt import build_capability_prompt_summary
-from desk_server.capabilities import get_desk_catalog_payload_cached
+from desk_server.capabilities import get_runtime_capabilities
 from desk_server.interactions import interaction_manager
 log = logging.getLogger(__name__)
 _desk_active_agents: Dict[str, Any] = {}
@@ -500,11 +500,11 @@ def _desk_slash_response(message: str, session_id: str) -> Optional[Dict[str, An
 
 def current_capability_prompt_summary() -> str:
     try:
-        payload = get_desk_catalog_payload_cached()
+        capabilities = get_runtime_capabilities()
     except Exception as exc:
         log.warning("desk chat: capability summary temporarily unavailable: %s", exc)
         return "Current Kabuqina product capabilities:\n- Capability status temporarily unavailable."
-    return build_capability_prompt_summary(list(payload.get("capabilities") or []))
+    return build_capability_prompt_summary(capabilities)
 
 
 def _desk_ephemeral_system_prompt(agent_section: Dict[str, Any]) -> Optional[str]:

@@ -10,7 +10,7 @@ future ``sea`` (Singapore / Malaysia) branch.
 Phase A scope: profile *resolution* only. The profile-aware visibility lists
 (providers, gateways, toolsets, skills, network hosts, bundle/deletion targets)
 are added in Phase B, where the existing policy modules
-(``capability_policy`` / ``tool_policy`` / ``network_policy`` /
+(``tool_policy`` / ``network_policy`` /
 ``gateway_policy`` / ``desk_server.capabilities``) consume this object instead
 of repeating region checks.
 

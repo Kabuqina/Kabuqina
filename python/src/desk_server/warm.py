@@ -38,12 +38,6 @@ def ensure_desk_warmed() -> None:
     except Exception:
         log.exception("desk warm: tool discovery failed")
     _warm_event.set()
-    try:
-        from desk_server.capabilities import invalidate_desk_catalog_cache
-
-        invalidate_desk_catalog_cache()
-    except Exception:
-        pass
     # A full AIAgent construction is expensive only once per Python process.
     # Start it after readiness so onboarding can proceed while imports and SDK
     # setup are primed for the first real turn.

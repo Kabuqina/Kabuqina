@@ -164,7 +164,7 @@ assert.match(
 assert.doesNotMatch(
   sidebarSource,
   /nav\("\/capabilities"\)|t\("capabilities\.title"\)/,
-  "Capability should not be duplicated in the left rail.",
+  "The retired capability catalog should not appear in the left rail.",
 );
 
 assert.match(
@@ -604,7 +604,17 @@ assert.doesNotMatch(chatPageSource, /window\.confirm/);
 assert.doesNotMatch(
   titleBarSource,
   /kq-titlebar-power/,
-  "The power-mode toggle is gone (owner 2026-07-27); capabilities are on by default.",
+  "The retired power-mode toggle should stay out of the title bar.",
+);
+assert.doesNotMatch(
+  titleBarSource,
+  /\/capabilities|capabilities\.title/,
+  "The retired capability catalog should stay out of the title bar.",
+);
+assert.doesNotMatch(
+  fs.readFileSync(new URL("../main.tsx", import.meta.url), "utf8"),
+  /CapabilitiesPage|path="\/capabilities"/,
+  "The retired capability catalog route should not be bundled.",
 );
 
 assert.match(messageListSource, /kq-empty-action\b/);

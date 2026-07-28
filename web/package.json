@@ -20,7 +20,6 @@
     "test:ui-prefs": "node src/lib/ui-prefs.test.mjs",
     "test:gateway-ux": "node src/advanced/gatewayUx.test.mjs",
     "test:legacy-upgrade": "vitest run --config vitest.config.ts src/advanced/settings/SettingsLegacyChannels.test.tsx",
-    "test:capabilities-page": "node src/advanced/capabilitiesPage.test.mjs",
     "test:settings-load-packages": "node src/advanced/settingsLoadPackages.test.mjs",
     "test:settings-update": "node src/advanced/settingsUpdate.test.mjs",
     "test:onboarding-providers": "node src/onboarding/providerUx.test.mjs",

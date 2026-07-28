@@ -12,7 +12,6 @@ use tauri::{AppHandle, Manager};
 
 const SETTING_POWER_USER: &str = "kabuqina.power_user";
 const SETTING_WORKSPACE: &str = "kabuqina.workspace";
-const SETTING_SHOW_RECIPE_MARKET: &str = "kabuqina.show_recipe_market";
 const SETTING_AUTO_GATEWAY: &str = "kabuqina.auto_start_gateway";
 
 #[derive(Debug, Clone, Default, Serialize)]
@@ -152,13 +151,6 @@ pub fn is_power_user(app: &AppHandle) -> bool {
     )
 }
 
-pub fn is_show_recipe_market(app: &AppHandle) -> bool {
-    matches!(
-        read_setting(app, SETTING_SHOW_RECIPE_MARKET).as_deref(),
-        Some("1" | "true")
-    )
-}
-
 /// Gateway startup is manual-only. Older builds may have persisted this setting,
 /// but current builds ignore it so app launch never polls messaging platforms.
 pub fn is_auto_start_gateway(app: &AppHandle) -> bool {
@@ -173,19 +165,6 @@ fn parse_auto_start_gateway_setting(value: Option<&str>) -> bool {
 pub fn set_auto_start_gateway_enabled(app: &AppHandle, enabled: bool) -> Result<(), String> {
     write_setting(app, SETTING_AUTO_GATEWAY, if enabled { "1" } else { "0" })
         .map_err(|e| e.to_string())
-}
-
-/// Mirror the setting into the data dir so embedded Python can read `/api/status` without a process restart.
-pub fn sync_show_recipe_market_flag(app: &AppHandle) -> Result<()> {
-    let dir = ensure_data_dir(app)?;
-    let path = dir.join("kabuqina_show_recipe_market.txt");
-    let bytes: &[u8] = if is_show_recipe_market(app) {
-        b"1\n"
-    } else {
-        b"0\n"
-    };
-    std::fs::write(&path, bytes).with_context(|| format!("writing {}", path.display()))?;
-    Ok(())
 }
 
 fn legacy_setting_key(key: &str) -> Option<String> {
@@ -529,22 +508,6 @@ pub fn cmd_get_power_user(app: AppHandle) -> Result<bool, String> {
 pub fn set_power_user_enabled(app: &AppHandle, enabled: bool) -> Result<(), String> {
     write_setting(app, SETTING_POWER_USER, if enabled { "1" } else { "0" })
         .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn cmd_get_show_recipe_market(app: AppHandle) -> Result<bool, String> {
-    Ok(is_show_recipe_market(&app))
-}
-
-#[tauri::command]
-pub fn cmd_set_show_recipe_market(app: AppHandle, enabled: bool) -> Result<(), String> {
-    write_setting(
-        &app,
-        SETTING_SHOW_RECIPE_MARKET,
-        if enabled { "1" } else { "0" },
-    )
-    .map_err(|e| e.to_string())?;
-    sync_show_recipe_market_flag(&app).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

@@ -22,7 +22,7 @@ REQUIRED_IMPORTS = (
     "desk_server.routes.study_routes",
     "desk_server.routes.study_activity_routes",
     "desk_server.routes.study_whiteboard_routes",
-    "desk_server.capabilities",
+    "desk_server.capabilities",  # internal runtime facts; no user-facing catalog
     "product_profile_policy",
     "learning.flashcards",
     "learning_owner",

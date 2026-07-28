@@ -16,7 +16,6 @@ import { Settings } from "./advanced/Settings";
 import { Export } from "./advanced/Export";
 import { Splash } from "./Splash";
 import { ChatPage } from "./chat/ChatPage";
-import { CapabilitiesPage } from "./advanced/pages/CapabilitiesPage";
 import { LoadPackagesPage } from "./advanced/pages/LoadPackagesPage";
 import { LegacyPlatformTombstonePage } from "./advanced/pages/PlatformRouteGuard";
 import { ScheduledTasksPage } from "./advanced/pages/ScheduledTasks";
@@ -87,7 +86,6 @@ function MainWindowContent() {
           <Route path="/onboarding/*" element={<Wizard />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/settings/load-packages" element={<LoadPackagesPage />} />
-          <Route path="/capabilities" element={<CapabilitiesPage />} />
           <Route path="/export" element={<Export />} />
           {/* 移动端 Bot 与邮件渠道的产品面已移除（CTL-C08）；旧 v0.4 深链接只进墓碑页解释升级。 */}
           <Route path="/settings/qq" element={<LegacyPlatformTombstonePage platform="QQ Bot" />} />

@@ -47,24 +47,22 @@ class TestDeskCapabilityPrompt(unittest.TestCase):
 
         with patch.object(
             chat_core,
-            "get_desk_catalog_payload_cached",
-            return_value={
-                "capabilities": [
-                    {
-                        "id": "document-math",
-                        "title": "Formula extraction and LaTeX",
-                        "status": "missing_package",
-                        "agentHint": "Use for math extraction.",
-                        "requiredLoadPackages": [
-                            {
-                                "id": "docling-codeformula",
-                                "title": "Docling CodeFormula",
-                                "downloaded": False,
-                            }
-                        ],
-                    }
-                ]
-            },
+            "get_runtime_capabilities",
+            return_value=[
+                {
+                    "id": "document-math",
+                    "title": "Formula extraction and LaTeX",
+                    "status": "missing_package",
+                    "agentHint": "Use for math extraction.",
+                    "requiredLoadPackages": [
+                        {
+                            "id": "docling-codeformula",
+                            "title": "Docling CodeFormula",
+                            "downloaded": False,
+                        }
+                    ],
+                }
+            ],
         ):
             summary = chat_core.current_capability_prompt_summary()
 
@@ -74,7 +72,7 @@ class TestDeskCapabilityPrompt(unittest.TestCase):
     def test_capability_prompt_summary_degrades_when_catalog_fails(self):
         from desk_server import chat_core
 
-        with patch.object(chat_core, "get_desk_catalog_payload_cached", side_effect=RuntimeError("catalog offline")):
+        with patch.object(chat_core, "get_runtime_capabilities", side_effect=RuntimeError("runtime facts offline")):
             with self.assertLogs("desk_server.chat_core", level="WARNING"):
                 summary = chat_core.current_capability_prompt_summary()
 
@@ -200,191 +198,24 @@ class TestDeskServerHttp(unittest.TestCase):
         self.assertTrue(data.get("desk_minimal"))
         self.assertIn("desk_warming", data)
 
-    def test_capabilities_requires_auth(self):
-        resp = self.client.get("/api/hermesdesk/capabilities")
-        self.assertEqual(resp.status_code, 401)
-
-    def test_capabilities_with_bridge_secret(self):
+    def test_retired_capability_routes_stay_absent_with_bridge_secret(self):
         secret = "test-bridge-secret"
         with patch.dict(os.environ, {"HERMESDESK_BRIDGE_SECRET": secret}, clear=False):
             from desk_server.app import create_app
             from fastapi.testclient import TestClient
-
             client = TestClient(create_app())
-            resp = client.get(
+            for route in (
+                "/api/kabuqina/capabilities",
                 "/api/hermesdesk/capabilities",
-                headers={"X-HermesDesk-Auth": secret},
-            )
-            # May 500 if tools not discovered; auth must pass first.
-            self.assertNotEqual(resp.status_code, 401)
-
-    def test_capabilities_catalog_includes_product_capabilities(self):
-        secret = "test-bridge-secret"
-        with patch.dict(os.environ, {"HERMESDESK_BRIDGE_SECRET": secret}, clear=False):
-            from desk_server import capabilities as catalog
-            from desk_server.app import create_app
-            from fastapi.testclient import TestClient
-
-            catalog.invalidate_desk_catalog_cache()
-            with patch.object(catalog, "_desk_catalog_skills", return_value=[]):
-                with patch.object(
-                    catalog,
-                    "_desk_catalog_toolsets",
-                    return_value=[{"name": "documents", "enabled": True}],
-                ):
-                    with patch.object(catalog, "_desk_catalog_plugins", return_value=[]):
-                        with patch(
-                            "load_packages.list_load_packages",
-                            return_value=[
-                                {
-                                    "id": "docling-base",
-                                    "title": "Docling base",
-                                    "downloaded": True,
-                                    "sizeMb": 506,
-                                    "job": None,
-                                },
-                                {
-                                    "id": "docling-codeformula",
-                                    "title": "Docling CodeFormula",
-            "downloaded": False,
-            "sizeMb": 500,
-            "job": None,
-        },
-        {
-            "id": "docling-base",
-            "title": "Docling base",
-            "downloaded": True,
-            "sizeMb": 506,
-            "job": None,
-        },
-        {
-            "id": "local-stt-base-q5_1",
-            "title": "Local speech recognition",
-                                    "downloaded": True,
-                                    "sizeMb": 57,
-                                    "job": None,
-                                },
-                            ],
-                        ):
-                            client = TestClient(create_app())
-                            resp = client.get(
-                                "/api/hermesdesk/capabilities",
-                                headers={"X-HermesDesk-Auth": secret},
-                            )
-
-        self.assertEqual(resp.status_code, 200)
-        data = resp.json()
-        items = {item["id"]: item for item in data["capabilities"]}
-        package_ids = {item["id"] for item in data["loadPackages"]}
-        self.assertEqual(items["document-math"]["status"], "missing_package")
-        self.assertEqual(items["voice-local-stt"]["status"], "available")
-        self.assertEqual(items["document-precise-read"]["status"], "available")
-        self.assertIn("reader", items["document-math"]["stages"])
-        self.assertTrue(items["document-math"]["pipelines"])
-        self.assertEqual(
-            items["document-math"]["shortcuts"][0]["entryPipeline"],
-            "docling-math-document-read",
-        )
-        self.assertIn("docling-codeformula", package_ids)
-        self.assertIn("docling-base", package_ids)
-        self.assertIn("local-stt-base-q5_1", package_ids)
-
-    def test_capabilities_catalog_uses_fresh_load_package_status_with_cached_catalog(self):
-        from desk_server import capabilities as catalog
-
-        catalog.invalidate_desk_catalog_cache()
-        packages = [
-            {
-                "id": "docling-codeformula",
-                "title": "Docling CodeFormula",
-                "downloaded": False,
-                "sizeMb": 500,
-                "job": None,
-            },
-            {
-                "id": "docling-base",
-                "title": "Docling base",
-                "downloaded": True,
-                "sizeMb": 506,
-                "job": None,
-            },
-            {
-                "id": "local-stt-base-q5_1",
-                "title": "Local speech recognition",
-                "downloaded": True,
-                "sizeMb": 57,
-                "job": None,
-            },
-        ]
-
-        def package_statuses():
-            return list(packages)
-
-        with patch.object(catalog, "_desk_catalog_skills", return_value=[]):
-            with patch.object(catalog, "_desk_catalog_toolsets", return_value=[{"name": "documents", "enabled": True}]):
-                with patch.object(catalog, "_desk_catalog_plugins", return_value=[]):
-                    with patch("load_packages.list_load_packages", side_effect=package_statuses):
-                        first = catalog.get_desk_catalog_payload_cached()
-                        packages[0] = {**packages[0], "downloaded": True}
-                        second = catalog.get_desk_catalog_payload_cached()
-
-        first_items = {item["id"]: item for item in first["capabilities"]}
-        second_items = {item["id"]: item for item in second["capabilities"]}
-        self.assertEqual(first_items["document-math"]["status"], "missing_package")
-        self.assertEqual(second_items["document-math"]["status"], "available")
-
-    def test_capabilities_catalog_marks_package_error_when_load_package_status_fails(self):
-        from desk_server import capabilities as catalog
-
-        catalog.invalidate_desk_catalog_cache()
-        with patch.object(catalog, "_desk_catalog_skills", return_value=[]):
-            with patch.object(catalog, "_desk_catalog_toolsets", return_value=[{"name": "documents", "enabled": True}]):
-                with patch.object(catalog, "_desk_catalog_plugins", return_value=[]):
-                    with patch("load_packages.list_load_packages", side_effect=RuntimeError("status offline")):
-                        with self.assertLogs("desk_server.capabilities", level="WARNING"):
-                            payload = catalog.get_desk_catalog_payload_cached()
-
-        items = {item["id"]: item for item in payload["capabilities"]}
-        self.assertEqual(items["document-math"]["status"], "package_error")
-        self.assertIn("status offline", items["document-math"]["statusReason"])
-
-    def test_capabilities_catalog_marks_disabled_required_toolset(self):
-        from desk_server import capabilities as catalog
-
-        catalog.invalidate_desk_catalog_cache()
-        with patch.object(catalog, "_desk_catalog_skills", return_value=[]):
-            with patch.object(catalog, "_desk_catalog_toolsets", return_value=[{"name": "documents", "enabled": False}]):
-                with patch.object(catalog, "_desk_catalog_plugins", return_value=[]):
-                    with patch(
-                        "load_packages.list_load_packages",
-                        return_value=[
-                            {
-                                "id": "docling-base",
-                                "title": "Docling base",
-                                "downloaded": True,
-                                "sizeMb": 506,
-                                "job": None,
-                            },
-                            {
-                                "id": "docling-codeformula",
-                                "title": "Docling CodeFormula",
-                                "downloaded": True,
-                                "sizeMb": 500,
-                                "job": None,
-                            },
-                            {
-                                "id": "local-stt-base-q5_1",
-                                "title": "Local speech recognition",
-                                "downloaded": True,
-                                "sizeMb": 57,
-                                "job": None,
-                            },
-                        ],
-                    ):
-                        payload = catalog.get_desk_catalog_payload_cached()
-
-        items = {item["id"]: item for item in payload["capabilities"]}
-        self.assertEqual(items["document-math"]["status"], "disabled_toolset")
+                "/api/kabuqina/skills/example",
+                "/api/hermesdesk/skills/example",
+            ):
+                with self.subTest(route=route):
+                    resp = client.get(
+                        route,
+                        headers={"X-HermesDesk-Auth": secret},
+                    )
+                    self.assertEqual(resp.status_code, 404)
 
     def test_chat_proto_warming_returns_503(self):
         from desk_server import warm
