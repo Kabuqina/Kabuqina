@@ -76,6 +76,21 @@ describe("AppShell", () => {
     expect(document.documentElement.dataset.theme).toBe("light");
   });
 
+  /**
+   * 全窗口只有一条横条：产品面上这条页眉**就是**标题栏，所以它必须是拖拽区，
+   * 而里面每个能点的东西都得是 no-drag——否则点导航会变成拖窗口。
+   */
+  it("is the title bar on product surfaces: draggable, with its controls exempt", () => {
+    renderShell("/study");
+    const header = document.querySelector(".kq-app-header")!;
+    expect(header).toHaveAttribute("data-tauri-drag-region");
+    expect(header).toHaveClass("hermes-titlebar-drag");
+
+    for (const group of [".kq-brand-lockup", ".kq-primary-nav", ".kq-utility-nav"]) {
+      expect(header.querySelector(group)).toHaveClass("hermes-titlebar-nodrag");
+    }
+  });
+
   it("asks the current surface to open Activity instead of navigating away from it", async () => {
     const user = userEvent.setup();
     let asked = 0;

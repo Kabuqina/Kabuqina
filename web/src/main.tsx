@@ -3,7 +3,7 @@
 
 import React, { lazy, Suspense, useEffect } from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { WindowTitleBar } from "./components/WindowTitleBar";
 import { AppShell } from "./shell/AppShell";
@@ -75,12 +75,18 @@ function revealMainWindowAfterShellPaint() {
   };
 }
 
+const SHELL_SURFACES = ["/study", "/studio", "/chat"];
+
 function MainWindowContent() {
+  const location = useLocation();
+  // Study / Studio / Chat 上，那条横条就是 AppShell 的产品页眉，窗口控制长在它右端；
+  // 其余页面（设置、引导、导出、启动页）才需要独立的窗口标题栏。全窗口始终只有一条。
+  const shellOwnsTitleBar = SHELL_SURFACES.some(
+    (path) => location.pathname === path || location.pathname.startsWith(`${path}/`),
+  );
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* 窗口控制条与产品导航是两件事：前者归 WindowTitleBar，
-          后者归 AppShell 的全局页眉（书桌不再自带一条）。 */}
-      <WindowTitleBar />
+      {shellOwnsTitleBar ? null : <WindowTitleBar />}
       <div className="min-h-0 flex-1 overflow-hidden">
         <Routes>
           <Route path="/" element={<Splash />} />
