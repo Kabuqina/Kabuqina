@@ -246,6 +246,268 @@
   --shadow-soft: 0 4px 14px rgba(0, 0, 0, 0.35);
 }
 
+/* ---------------------------------------------------------------------------
+   Chat：单张居中对话纸（S5）
+   真值：canonical 原型 .chat-desk / .chat-paper--minimal / .chat-history。
+   两条侧栏都退场了，留白本身就是这一面的内容。
+   --------------------------------------------------------------------------- */
+
+.kq-chat-desk {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  height: 100%;
+  padding: 14px 18px 16px;
+  gap: 18px;
+}
+
+.kq-chat-paper {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--line-warm);
+  border-radius: 12px;
+  background: var(--paper);
+  box-shadow: 0 14px 40px rgba(77, 60, 96, 0.08);
+}
+
+.kq-chat-paper-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px 10px;
+}
+
+.kq-chat-history-toggle,
+.kq-chat-unbind {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.kq-chat-history-toggle:hover,
+.kq-chat-unbind:hover { color: var(--purple); background: var(--purple-faint); }
+
+.kq-chat-session-title { min-width: 0; flex: 1; }
+
+.kq-chat-session-title h1 {
+  margin: 0;
+  color: var(--ink-strong);
+  font-size: 15px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 来源是低强调标签，不是一个入口。 */
+.kq-chat-session-title span {
+  display: block;
+  color: var(--ink-soft);
+  font-size: 11px;
+}
+
+.kq-chat-head-actions { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+
+.kq-chat-return {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 6px 11px;
+  border: 1px solid var(--line-cool);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.kq-chat-return:hover { border-color: var(--purple-line); background: var(--purple-faint); }
+
+/* --- 历史会话抽屉：收起来，需要时才拉开 --------------------------------- */
+
+.kq-chat-drawer-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  background: var(--veil);
+}
+
+.kq-chat-drawer {
+  position: absolute;
+  z-index: 31;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  width: min(310px, 82%);
+  transform: translateX(-102%);
+  /* 关上就真的不在：只靠 transform 移出屏幕的话，一旦过渡被中断（换标签页、
+     不合成帧），就会留下一块看不见却挡住对话纸的面板。visibility 兜住这一层，
+     延迟到滑出结束再生效，所以关闭动画照旧。 */
+  visibility: hidden;
+  transition: transform 0.22s ease, visibility 0s linear 0.22s;
+  border-right: 1px solid var(--line-warm);
+  background: var(--paper-strong);
+  box-shadow: var(--shadow);
+}
+
+.kq-chat-drawer.is-open {
+  transform: translateX(0);
+  visibility: visible;
+  transition: transform 0.22s ease, visibility 0s;
+}
+
+.kq-chat-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 12px 8px 16px;
+}
+
+.kq-chat-drawer-head h2 { margin: 0; color: var(--ink-strong); font-size: 14px; }
+
+.kq-chat-drawer-head button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.kq-chat-drawer-new {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 12px 8px;
+  min-height: 36px;
+  padding: 8px 11px;
+  border: 1px dashed var(--line-cool);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.kq-chat-drawer-new:hover { border-color: var(--purple-line); background: var(--purple-faint); }
+
+.kq-chat-drawer-list { overflow: auto; padding: 0 8px 8px; }
+
+.kq-chat-drawer-row {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: 9px 34px 9px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.kq-chat-drawer-row:hover { background: var(--purple-faint); }
+.kq-chat-drawer-row.is-active { background: var(--purple-pale); }
+
+.kq-chat-drawer-row strong {
+  color: var(--ink-strong);
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kq-chat-drawer-row > span { color: var(--ink-soft); font-size: 11px; }
+
+.kq-chat-drawer-origin {
+  margin-left: 6px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--purple-pale);
+  color: var(--purple-dark);
+  font-size: 10px;
+}
+
+.kq-chat-drawer-delete {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  translate: 0 -50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  color: var(--ink-soft);
+  opacity: 0;
+}
+
+.kq-chat-drawer-row:hover .kq-chat-drawer-delete,
+.kq-chat-drawer-delete:focus-visible { opacity: 1; }
+.kq-chat-drawer-delete:hover { color: var(--danger); background: var(--danger-bg); }
+
+.kq-chat-drawer-empty { padding: 10px; color: var(--ink-soft); font-size: 12px; }
+
+.kq-chat-drawer-tools {
+  display: grid;
+  gap: 1px;
+  padding: 8px;
+  border-top: 1px solid var(--line-faint);
+}
+
+.kq-chat-drawer-tools button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.kq-chat-drawer-tools button:hover { color: var(--ink-strong); background: var(--purple-faint); }
+
+@media (max-width: 860px) {
+  .kq-chat-desk { padding: 10px 10px 12px; }
+  .kq-chat-paper-head { padding: 10px 12px 8px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kq-chat-drawer,
+  .kq-chat-drawer.is-open { transition: none; }
+}
+
 /* Branded text selection — default browser blue looks off-theme, especially in dark. */
 ::selection {
   background: var(--kq-color-primary-pale);

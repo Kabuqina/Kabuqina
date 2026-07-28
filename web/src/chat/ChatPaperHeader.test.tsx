@@ -1,0 +1,105 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { I18nProvider } from "../lib/i18n";
+import type { StudyChatHandoff } from "../lib/studyChatHandoff";
+import type { StudioChatHandoff } from "../lib/studioChatHandoff";
+import { ChatPaperHeader } from "./ChatPaperHeader";
+
+const studyHandoff: StudyChatHandoff = {
+  version: 1,
+  mode: "study",
+  sessionId: "session-a",
+  spaceId: "space-a",
+  spaceTitle: "高等数学",
+  focusKind: "quiz_step",
+  focusId: "question-2",
+  focusLabel: "练习 · 第 2 步",
+  intent: "explain",
+  originSurface: "study_desk",
+  returnTarget: { path: "/study/space-a/practice", fallbackPath: "/study/space-a", focus: "answer" },
+  revision: 1,
+  question: "为什么还要继续分析？",
+  prompt: "计算极限。",
+  createdAt: "2026-07-24T00:00:00.000Z",
+};
+
+const studioHandoff: StudioChatHandoff = {
+  version: 1,
+  mode: "studio",
+  sessionId: "studio:p1",
+  projectId: "p1",
+  projectTitle: "极限概念分享",
+  brief: "讲给没学过极限的同学",
+  sourceTitles: [],
+  returnTarget: { path: "/studio/p1", fallbackPath: "/studio" },
+  createdAt: "2026-07-24T00:00:00.000Z",
+};
+
+function renderHeader(props: Partial<Parameters<typeof ChatPaperHeader>[0]> = {}) {
+  const handlers = {
+    onOpenHistory: vi.fn(),
+    onReturnStudy: vi.fn(),
+    onReturnStudio: vi.fn(),
+    onUnbindStudy: vi.fn(),
+    onUnbindStudio: vi.fn(),
+  };
+  render(
+    <I18nProvider>
+      <ChatPaperHeader
+        studyHandoff={null}
+        studioHandoff={null}
+        {...handlers}
+        {...props}
+      />
+    </I18nProvider>,
+  );
+  return handlers;
+}
+
+describe("ChatPaperHeader", () => {
+  /**
+   * 从全局入口进来是**自由会话**：标题行上除了历史入口什么都没有，
+   * 不预先摆一个作用域出来（架构 §8.10）。
+   */
+  it("shows nothing but the history entry for a free conversation", () => {
+    renderHeader();
+    expect(screen.getByRole("button", { name: "打开历史会话" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /返回/ })).not.toBeInTheDocument();
+  });
+
+  it("names the bound course and keeps exact return plus explicit unbind", () => {
+    const handlers = renderHeader({ studyHandoff });
+    expect(screen.getByRole("heading", { name: "练习 · 第 2 步" })).toBeInTheDocument();
+    expect(screen.getByText("高等数学")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "返回这一步" }));
+    fireEvent.click(screen.getByRole("button", { name: /解绑来源/ }));
+    expect(handlers.onReturnStudy).toHaveBeenCalledTimes(1);
+    expect(handlers.onUnbindStudy).toHaveBeenCalledTimes(1);
+  });
+
+  it("names the bound project and offers the way back to it", () => {
+    const handlers = renderHeader({ studioHandoff });
+    expect(screen.getByRole("heading", { name: "极限概念分享" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "返回项目" }));
+    fireEvent.click(screen.getByRole("button", { name: /解绑来源/ }));
+    expect(handlers.onReturnStudio).toHaveBeenCalledTimes(1);
+    expect(handlers.onUnbindStudio).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * 选中有来源的会话时只给来源标签和一个返回动作——课程、项目、进度面板
+   * 都不在 Chat 里展开（原型 AGENTS）。
+   */
+  it("does not expand a course, project, or progress panel", () => {
+    renderHeader({ studyHandoff });
+    const head = document.querySelector(".kq-chat-paper-head")!;
+    // 标题行上只有：历史、标题+来源、返回、解绑。
+    expect(head.querySelectorAll("button")).toHaveLength(3);
+  });
+});

@@ -3,7 +3,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Maximize2, PanelRight } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { AppScaffold } from "../components/AppScaffold";
@@ -12,7 +11,8 @@ import { confirm } from "../lib/confirmDialog";
 import { useI18n } from "../lib/i18n";
 import { ChatInput } from "./ChatInput";
 import { ChatMessageList } from "./ChatMessageList";
-import { ChatSidebar } from "./ChatSidebar";
+import { ChatHistoryDrawer } from "./ChatHistoryDrawer";
+import { ChatPaperHeader } from "./ChatPaperHeader";
 import { WorkspacePanel, type WorkspaceItem } from "./WorkspacePanel";
 import { runDesktopOrganize } from "./desktop-organizer-api";
 import {
@@ -34,7 +34,6 @@ import { useSessions } from "./hooks/useSessions";
 import { persistActiveSessionId, useChatState } from "./hooks/useChatState";
 import { useSendMessage } from "./hooks/useSendMessage";
 import { useLoadPackageDownloads } from "./hooks/useLoadPackageDownloads";
-import { useWorkbenchLayout } from "./hooks/useWorkbenchLayout";
 import { useInFlightTurns } from "./inFlightTurns";
 import { type CaptureDonePayload } from "../capture/capture-api";
 import type { AgentProgressState } from "./hooks/useAgentProgress";
@@ -50,8 +49,6 @@ import {
   readSessionStudyHandoff,
   type StudyChatHandoff,
 } from "../lib/studyChatHandoff";
-import { StudyChatContextBar } from "./StudyChatContextBar";
-import { StudioChatContextBar } from "./StudioChatContextBar";
 import {
   bindStudioHandoff,
   clearPendingStudioHandoff,
@@ -204,7 +201,6 @@ export function ChatPage() {
   const { t, locale } = useI18n();
   const nav = useNavigate();
   const location = useLocation();
-  const workbench = useWorkbenchLayout();
   const incomingStudyHandoff = getStudyChatHandoffFromLocation(location.state);
   const [studyHandoff, setStudyHandoff] = useState<StudyChatHandoff | null>(
     () => incomingStudyHandoff ?? readPendingStudyHandoff(),
@@ -219,6 +215,8 @@ export function ChatPage() {
   // launch and Settings covers config) — instead we keep them on chat with the
   // send button disabled and a "configure model" prompt.
   const [needsModelSetup, setNeedsModelSetup] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [workspaceOpen, setWorkspaceOpen] = useState(false);
 
   const { kabuqinaReady, kabuqinaWarming, bootErr } = useKabuqinaReadiness();
   const inFlightTurns = useInFlightTurns();
@@ -619,14 +617,6 @@ export function ChatPage() {
     setStudyHandoff(null);
   }, [studyHandoff]);
 
-  const openWorkspace = () => {
-    if (workbench.focusMode && workbench.rightOpen) {
-      workbench.toggleFocusMode();
-      return;
-    }
-    workbench.toggleRight();
-  };
-
   if (bootErr) {
     return (
       <AppScaffold surface="chat" className="flex h-full flex-col items-center justify-center px-6 text-center">
@@ -680,71 +670,44 @@ export function ChatPage() {
           </button>
         </div>
       </ShellModal>
-      <div className="flex min-h-0 flex-1">
-        <ChatSidebar
+      <div className="kq-chat-desk">
+        <ChatHistoryDrawer
+          open={historyOpen}
           sessions={sessions}
           activeSessionId={activeSessionId}
           loading={listLoading}
-          collapsed={!workbench.leftOpen || workbench.isNarrow}
-          onToggleCollapsed={workbench.toggleLeft}
-          onNewChat={handleNewChat}
+          onClose={() => setHistoryOpen(false)}
+          onNewChat={() => { setHistoryOpen(false); handleNewChat(); }}
+          onSelectSession={(id) => { setHistoryOpen(false); handlePickSession(id); }}
+          onDeleteSession={handleDelete}
           onOpenScheduledTasks={() => nav("/settings/cron", { state: { cronBackTo: "/chat" } })}
           onOpenWorkspace={() => void invoke("cmd_open_workspace")}
           onOrganizeDesktop={handleOrganizeDesktop}
           onExport={() => nav("/export")}
-          onSelectSession={handlePickSession}
-          onDeleteSession={handleDelete}
         />
-        <main className="flex min-w-0 flex-1 flex-col">
-          {studyHandoff ? (
-            <StudyChatContextBar
-              handoff={studyHandoff}
-              onReturn={returnToStudy}
-              onUnbind={unbindStudyContext}
-            />
-          ) : null}
-          {studioHandoff ? (
-            <StudioChatContextBar
-              handoff={studioHandoff}
-              onReturn={returnToStudio}
-              onUnbind={unbindStudioContext}
-            />
-          ) : null}
-          <div className="kq-chat-topbar flex h-11 shrink-0 items-center justify-end border-b px-3">
-            <div className="flex items-center gap-1">
-              {!workbench.showRightPanel && (
-                <button
-                  type="button"
-                  onClick={openWorkspace}
-                  className="kq-soft-icon-btn inline-flex h-8 w-8 items-center justify-center rounded-lg px-0 transition"
-                  aria-label={t("chat.workspaceExpand")}
-                  title={t("chat.workspaceExpand")}
-                >
-                  <PanelRight className="h-4 w-4" />
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={workbench.toggleFocusMode}
-                className="kq-soft-icon-btn inline-flex h-8 w-8 items-center justify-center rounded-lg px-0 transition"
-                aria-label={workbench.focusMode ? t("chat.focusExit") : t("chat.focusEnter")}
-                title={workbench.focusMode ? t("chat.focusExit") : t("chat.focusEnter")}
-              >
-                <Maximize2 className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
+
+        {/* 单张居中对话纸：没有侧栏，没有并列作用域标签页。 */}
+        <section className="kq-chat-paper" aria-label={t("chat.title")}>
+          <ChatPaperHeader
+            studyHandoff={studyHandoff}
+            studioHandoff={studioHandoff}
+            onOpenHistory={() => setHistoryOpen(true)}
+            onReturnStudy={returnToStudy}
+            onReturnStudio={returnToStudio}
+            onUnbindStudy={unbindStudyContext}
+            onUnbindStudio={unbindStudioContext}
+          />
           <ChatMessageList
             messages={messages}
-          sending={sending}
-          sendErr={sendErr}
-          progress={progress}
-          loadPackageDownloads={loadPackageDownloads}
-          pendingInteraction={pendingInteraction}
-          onRespondInteraction={onRespondInteraction}
-          onOpenLoadPackageSettings={() => nav("/settings/load-packages")}
-          onPickSuggestion={setInput}
-        />
+            sending={sending}
+            sendErr={sendErr}
+            progress={progress}
+            loadPackageDownloads={loadPackageDownloads}
+            pendingInteraction={pendingInteraction}
+            onRespondInteraction={onRespondInteraction}
+            onOpenLoadPackageSettings={() => nav("/settings/load-packages")}
+            onPickSuggestion={setInput}
+          />
           <ChatInput
             value={input}
             onChange={setInput}
@@ -756,11 +719,15 @@ export function ChatPage() {
             onStop={onStopAgent}
             needsModelSetup={needsModelSetup}
             onConfigureModel={() => nav("/settings", { state: { settingsTab: "model" } })}
+            onOpenWorkspacePanel={() => setWorkspaceOpen(true)}
           />
-        </main>
-        {workbench.showRightPanel && (
+        </section>
+
+        {/* 工作台面板从常驻侧栏改成按需打开：打开产物、在文件夹中显示、重新生成
+            这些能力只有它有，不能随侧栏一起消失（owner：保留能力，只换布局）。 */}
+        {workspaceOpen && (
           <WorkspacePanel
-            onCollapse={workbench.toggleRight}
+            onCollapse={() => setWorkspaceOpen(false)}
             onStartPrompt={setInput}
             goal={workspace.goal}
             materials={workspace.materials}

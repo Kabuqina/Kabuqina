@@ -31,9 +31,8 @@ async function importTs(relativePath) {
 const { deriveSessionPresentation } = await importTs("./sessionPresentation.ts");
 const { friendlyChatError } = await importTs("./friendlyError.ts");
 const { parseDeskUserContent, DESK_UI_PERSIST_PREFIX } = await importTs("./deskUserContent.ts");
-const { isWorkbenchNarrow } = await importTs("./hooks/workbenchLayoutLogic.ts");
 const useChatStateSource = fs.readFileSync(new URL("./hooks/useChatState.ts", import.meta.url), "utf8");
-const sidebarSource = fs.readFileSync(new URL("./ChatSidebar.tsx", import.meta.url), "utf8");
+const drawerSource = fs.readFileSync(new URL("./ChatHistoryDrawer.tsx", import.meta.url), "utf8");
 const messageListSource = fs.readFileSync(new URL("./ChatMessageList.tsx", import.meta.url), "utf8");
 const outlineReviewModalSource = fs.readFileSync(new URL("./OutlineReviewModal.tsx", import.meta.url), "utf8");
 const chatMessageSource = fs.readFileSync(new URL("./ChatMessage.tsx", import.meta.url), "utf8");
@@ -143,34 +142,16 @@ assert.equal(
   "本机助手返回的内容我没读懂。请重启应用，或重新构建 Python bundle 后再试。",
 );
 
-assert.doesNotMatch(
-  sidebarSource,
-  /data-action-priority="low"[\s\S]*t\("chat\.exportButton"\)|nav\("\/export"\)/,
-  "Export chat should move out of the left rail.",
-);
-
 assert.match(
-  sidebarSource,
-  /collapsed\?: boolean/,
-  "ChatSidebar should accept a collapsed prop.",
-);
-
-assert.match(
-  sidebarSource,
-  /onToggleCollapsed/,
-  "ChatSidebar should expose a left-rail collapse action.",
+  drawerSource,
+  /onExport/,
+  "Export chat should stay reachable from the history drawer.",
 );
 
 assert.doesNotMatch(
-  sidebarSource,
+  drawerSource,
   /nav\("\/capabilities"\)|t\("capabilities\.title"\)/,
-  "The retired capability catalog should not appear in the left rail.",
-);
-
-assert.match(
-  sidebarSource,
-  /onNewChat[\s\S]*onToggleCollapsed/,
-  "The left-rail collapse button should sit after New Chat in the header.",
+  "The retired capability catalog should not appear in the history drawer.",
 );
 
 assert.doesNotMatch(
@@ -203,10 +184,6 @@ const chatPageSource = fs.readFileSync(new URL("./ChatPage.tsx", import.meta.url
 const chatApiSource = fs.readFileSync(new URL("./chat-api.ts", import.meta.url), "utf8");
 const sendMessageSource = fs.readFileSync(new URL("./hooks/useSendMessage.ts", import.meta.url), "utf8");
 const desktopApiSource = fs.readFileSync(new URL("./desktop-organizer-api.ts", import.meta.url), "utf8");
-const workbenchLayoutSource = fs.readFileSync(
-  new URL("./hooks/useWorkbenchLayout.ts", import.meta.url),
-  "utf8",
-);
 const workspacePanelSource = fs.readFileSync(
   new URL("./WorkspacePanel.tsx", import.meta.url),
   "utf8",
@@ -250,16 +227,30 @@ assert.match(
   "Desktop organizing confirmation copy should be localized.",
 );
 
+// S5：Chat 是刻意极简的自由对话空间——单张居中对话纸，两条常驻侧栏都退场。
 assert.match(
   chatPageSource,
-  /useWorkbenchLayout/,
-  "ChatPage should use the workbench layout hook.",
+  /ChatHistoryDrawer[\s\S]*open=\{historyOpen\}/,
+  "ChatPage should keep session history in an on-demand drawer, not a standing rail.",
+);
+
+assert.doesNotMatch(
+  chatPageSource,
+  /ChatSidebar|useWorkbenchLayout|toggleFocusMode/,
+  "The standing left rail and focus-mode toggle are gone: the minimal chat is focus mode.",
+);
+
+// 换布局不等于砍能力：工作台面板改成按需打开，入口挪到 composer 上。
+assert.match(
+  chatPageSource,
+  /WorkspacePanel/,
+  "ChatPage should still be able to open the workspace panel.",
 );
 
 assert.match(
   chatPageSource,
-  /WorkspacePanel/,
-  "ChatPage should render the workspace panel.",
+  /onOpenWorkspacePanel=\{\(\) => setWorkspaceOpen\(true\)\}/,
+  "The workspace panel entry should live on the composer now that the right rail is gone.",
 );
 
 assert.match(
@@ -290,16 +281,36 @@ assert.match(
   "ChatPage should pass live workspace materials, outputs, and active work into WorkspacePanel.",
 );
 
+// 侧栏上那几个工具没有别处可去，收进抽屉底部——不显眼，但都还在。
 assert.match(
-  chatPageSource,
-  /toggleFocusMode/,
-  "ChatPage should expose focus mode controls.",
+  drawerSource,
+  /onOpenScheduledTasks[\s\S]*onOpenWorkspace[\s\S]*onOrganizeDesktop[\s\S]*onExport/,
+  "The drawer should carry the utilities that used to live in the left rail.",
 );
 
 assert.match(
-  sidebarSource,
-  /collapsed \? t\("chat\.leftRailExpand"\) : t\("chat\.leftRailCollapse"\)[\s\S]*PanelLeft/,
-  "The left-rail toggle should remain available in the sidebar and expose an expand action when collapsed (PanelLeft icon, label flips on collapsed).",
+  drawerSource,
+  /kq-chat-drawer-new[\s\S]*chat\.newChat/,
+  "New chat should stay at the top of the drawer.",
+);
+
+assert.match(
+  drawerSource,
+  /deriveSessionPresentation/,
+  "The drawer should reuse the shared session presentation (labels, grouping, reminder log).",
+);
+
+assert.match(
+  drawerSource,
+  /onDeleteSession/,
+  "Deleting a conversation should stay reachable after the rail was retired.",
+);
+
+// 三类会话进同一份列表，来源只用低强调标签辨认，没有并列的作用域标签页。
+assert.match(
+  drawerSource,
+  /kq-chat-drawer-origin/,
+  "Scoped conversations should be marked with a low-emphasis origin tag in the unified list.",
 );
 
 assert.doesNotMatch(
@@ -318,36 +329,6 @@ assert.match(
   desktopApiSource,
   /cmd_desktop_organize_run/,
   "Desktop organizing should call the one-click Tauri command.",
-);
-
-assert.match(
-  workbenchLayoutSource,
-  /WORKBENCH_LAYOUT_KEY\s*=\s*"kabuqina\.workbench\.layout"/,
-  "Workbench layout should persist under a Kabuqina-specific localStorage key.",
-);
-
-assert.match(
-  workbenchLayoutSource,
-  /toggleFocusMode/,
-  "Workbench layout hook should expose a focus mode toggle.",
-);
-
-assert.match(
-  workbenchLayoutSource,
-  /isNarrow/,
-  "Workbench layout hook should track narrow-window behavior.",
-);
-
-assert.equal(
-  isWorkbenchNarrow(706),
-  false,
-  "Windows right-snap width at 125% scaling should still allow expanding workbench sidebars.",
-);
-
-assert.equal(
-  isWorkbenchNarrow(560),
-  true,
-  "Very small windows should still collapse workbench sidebars.",
 );
 
 assert.match(
@@ -426,23 +407,6 @@ assert.doesNotMatch(
   workspacePanelSource,
   /workspace\.otherCommon|cron\.title|workspaceOpenWorkspace|workspaceOrganizeDesktop|chat\.exportButton/,
   "Workspace panel should not keep non-launchpad common actions.",
-);
-
-assert.match(
-  sidebarSource,
-  /workspaceOpenWorkspace[\s\S]*cron\.title[\s\S]*workspaceOrganizeDesktop[\s\S]*chat\.exportButton/,
-  "Chat sidebar should keep common actions below chat history, open workspace first.",
-);
-
-assert.match(
-  sidebarSource,
-  /kq-sidebar-history-scroll[\s\S]*grouped\.map/,
-  "Sidebar chat history should live in its own scroll region.",
-);
-assert.match(
-  sidebarSource,
-  /kq-sidebar-history-scroll[\s\S]*<\/div>\s*<div[\s\S]*kq-sidebar-common-actions[\s\S]*workspaceOpenWorkspace/,
-  "Sidebar common actions should be outside the scrollable history region so history cannot push them down.",
 );
 
 assert.match(
@@ -535,10 +499,25 @@ assert.match(
   "The chat scaffold should use the Kabuqina soft lavender shell.",
 );
 
+// 全窗口只有一条横条：产品面上那条是 AppShell 的页眉，其余页面才用这条标题栏，
+// 且它只剩品牌 + 同一个 WindowControls（S2）。
+assert.doesNotMatch(
+  titleBarSource,
+  /kq-titlebar-nav|kq-titlebar-link|to="\/study"|to="\/chat"/,
+  "The window title bar must not carry a second product navigation.",
+);
+
 assert.match(
   titleBarSource,
-  /grid-cols-\[1fr_auto_1fr\][\s\S]*kq-titlebar-nav[\s\S]*justify-center[\s\S]*kq-titlebar-controls[\s\S]*justify-end/,
-  "The title bar should keep the main navigation centered while window controls stay on the right.",
+  /<WindowControls \/>/,
+  "The window title bar should render the shared window controls.",
+);
+
+const appShellSource = fs.readFileSync(new URL("../shell/AppShell.tsx", import.meta.url), "utf8");
+assert.match(
+  appShellSource,
+  /data-tauri-drag-region[\s\S]*<WindowControls \/>/,
+  "On product surfaces the shell header is the title bar: draggable, with the window controls at its right end.",
 );
 
 assert.match(
@@ -547,7 +526,7 @@ assert.match(
   "The title bar should use the Kabuqina lavender system instead of the default blue/zinc treatment.",
 );
 
-for (const className of ["kq-titlebar-brand", "kq-titlebar-link", "kq-titlebar-link-active", "kq-titlebar-control"]) {
+for (const className of ["kq-titlebar-brand", "kq-titlebar"]) {
   assert.match(titleBarSource, new RegExp(className), `Title bar should include ${className}.`);
 }
 
@@ -555,12 +534,6 @@ assert.match(
   messageListSource,
   /ART_ASSETS\.boot[\s\S]*kq-empty-title[\s\S]*\u6162\u6162\u6765\uff0c\u5c0f\u5a1c\u966a\u4f60\u6574\u7406\u601d\u8def/,
   "The empty chat state should show the hero asset, the product name title, then the greeting.",
-);
-
-assert.match(
-  sidebarSource,
-  /kq-sidebar[\s\S]*kq-new-chat/,
-  "The chat sidebar should use the Kabuqina frosted sidebar and lavender new-chat button.",
 );
 
 assert.match(
@@ -788,12 +761,6 @@ assert.match(
   "Workspace section headings should use a small round dot accent instead of heavy lavender pills.",
 );
 
-assert.match(
-  sidebarSource,
-  /onExport[\s\S]*chat\.exportButton/,
-  "Sidebar common actions should include Export Chat.",
-);
-
 const exportPageSource = fs.readFileSync(new URL("../advanced/Export.tsx", import.meta.url), "utf8");
 const chatExportSource = fs.readFileSync(new URL("./chatExport.ts", import.meta.url), "utf8");
 for (const fn of [
@@ -813,12 +780,6 @@ assert.match(exportPageSource, /\(\["json", "markdown", "text", "pdf"\] as Expor
 assert.match(exportPageSource, /cmd_write_pdf_from_html/);
 assert.match(chatExportSource, /parseDeskUserContent[\s\S]*speaker: labels\.productName/);
 assert.doesNotMatch(chatExportSource, /Hermes|hermesdesk-export/i);
-
-assert.match(
-  sidebarSource,
-  /onOpenWorkspace[\s\S]*kq-color-icon-folder[\s\S]*workspaceOpenWorkspace[\s\S]*onOpenScheduledTasks[\s\S]*kq-color-icon-alarm[\s\S]*cron\.title[\s\S]*onOrganizeDesktop[\s\S]*workspaceOrganizeDesktop[\s\S]*onExport[\s\S]*kq-color-icon-download[\s\S]*chat\.exportButton/,
-  "Sidebar common actions should use colorful icons with open workspace first.",
-);
 
 for (const structureId of ["course_report", "paper_report", "code_defense"]) {
   assert.ok(
@@ -1065,35 +1026,25 @@ assert.doesNotMatch(
 );
 
 assert.match(
-  sidebarSource,
-  /kq-sidebar-group-divided[\s\S]*kq-sidebar-group-label[\s\S]*kq-sidebar-session-label/,
-  "Sidebar history groups should use dividers and stronger group labels.",
+  indexCssSource,
+  /kq-titlebar[\s\S]*kq-window-controls/,
+  "The shell CSS should define the title bar and the shared window controls.",
 );
 
-assert.match(
-  sidebarSource,
-  /REMINDER_SESSION_ID[\s\S]*kq-color-icon-alarm/,
-  "Only the fixed Nana reminder log session should use the colorful alarm icon.",
-);
-
-assert.doesNotMatch(
-  sidebarSource,
-  /kq-reminder-card/,
-  "Scheduled tasks entry should not regress to the old sidebar reminder card.",
-);
-
+// S5：单张居中对话纸 + 按需抽屉，两条常驻侧栏都退场。
 assert.match(
   indexCssSource,
-  /kq-titlebar[\s\S]*kq-titlebar-link-active/,
-  "The chat CSS should define unified titlebar, readable workspace headings, and lavender footer toggle styling.",
+  /\.kq-chat-paper \{[\s\S]*max-width[\s\S]*margin: 0 auto/,
+  "Chat should be one centered conversation paper.",
 );
 
+const windowControlsSource = fs.readFileSync(new URL("../components/WindowControls.tsx", import.meta.url), "utf8");
 assert.match(
-  titleBarSource,
-  /kq-titlebar-nav[\s\S]*kq-titlebar-companion-btn[\s\S]*kq-titlebar-companion-icon/,
-  "The companion sparkle should sit in the centered titlebar nav.",
+  windowControlsSource,
+  /kq-titlebar-companion-btn[\s\S]*kq-titlebar-companion-icon/,
+  "The companion sparkle rides with the window controls, on whichever bar carries them.",
 );
-assert.match(titleBarSource, /onShowCompanion[\s\S]*cmd_show_companion/);
+assert.match(windowControlsSource, /cmd_show_companion/);
 assert.match(indexCssSource, /kq-titlebar-companion-btn/);
 assert.match(indexCssSource, /kq-titlebar-power/);
 assert.match(indexCssSource, /--radius-shell-lg:\s*0\.75rem/);

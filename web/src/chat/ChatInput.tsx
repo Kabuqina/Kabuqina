@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import { ArrowUp, Crop, FolderOpen, Paperclip, Square, X } from "lucide-react";
+import { ArrowUp, Crop, FolderKanban, FolderOpen, Paperclip, Square, X } from "lucide-react";
 import { useI18n } from "../lib/i18n";
 import { cn } from "../lib/cn";
 import { captureFullscreen, showCaptureOverlay } from "../capture/capture-api";
@@ -27,6 +27,11 @@ export interface ChatInputProps {
   needsModelSetup?: boolean;
   /** Open the initialization flow so the user can configure a model. */
   onConfigureModel?: () => void;
+  /**
+   * 打开工作台面板。它从常驻侧栏改成按需打开（S5），但"打开产物 / 在文件夹中显示 /
+   * 重新生成"这些能力只有它有，所以入口挪到 composer 上，不是取消。
+   */
+  onOpenWorkspacePanel?: () => void;
 }
 
 export function ChatInput({
@@ -41,6 +46,7 @@ export function ChatInput({
   onStop,
   needsModelSetup = false,
   onConfigureModel,
+  onOpenWorkspacePanel,
 }: ChatInputProps) {
   const { t } = useI18n();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -343,6 +349,19 @@ export function ChatInput({
 
         <div className="flex items-center justify-between gap-2 px-2 pb-2 pt-0.5">
           <div className="flex items-center gap-1 overflow-visible">
+            {onOpenWorkspacePanel ? (
+              <button
+                type="button"
+                onClick={onOpenWorkspacePanel}
+                className="kq-soft-icon-btn group relative flex h-[34px] w-[34px] items-center justify-center rounded-lg transition active:scale-[0.98] dark:text-[var(--kq-color-muted)] dark:hover:bg-[var(--kq-hover-bg-strong)]"
+                aria-label={t("chat.workspaceExpand")}
+              >
+                <FolderKanban className="h-[17px] w-[17px]" />
+                <span className="pointer-events-none absolute -bottom-9 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-lg bg-white/80 px-3 py-1.5 text-xs font-medium text-zinc-600 opacity-0 shadow-md ring-1 ring-zinc-200/60 backdrop-blur-sm transition-opacity group-hover:opacity-100 dark:bg-[var(--kq-glass-bg)] dark:text-[var(--kq-color-ink)] dark:ring-[var(--kq-color-border)]">
+                  {t("chat.workspaceExpand")}
+                </span>
+              </button>
+            ) : null}
             <div className="relative">
               <button
                 type="button"
@@ -396,6 +415,19 @@ export function ChatInput({
                 {t("chat.attachHint")}
               </span>
             </button>
+            {onOpenWorkspacePanel ? (
+              <button
+                type="button"
+                onClick={onOpenWorkspacePanel}
+                className="kq-soft-icon-btn group relative flex h-[34px] w-[34px] items-center justify-center rounded-lg transition active:scale-[0.98] dark:text-[var(--kq-color-muted)] dark:hover:bg-[var(--kq-hover-bg-strong)]"
+                aria-label={t("chat.workspaceExpand")}
+              >
+                <FolderKanban className="h-[17px] w-[17px]" />
+                <span className="pointer-events-none absolute -bottom-9 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-lg bg-white/80 px-3 py-1.5 text-xs font-medium text-zinc-600 opacity-0 shadow-md ring-1 ring-zinc-200/60 backdrop-blur-sm transition-opacity group-hover:opacity-100 dark:bg-[var(--kq-glass-bg)] dark:text-[var(--kq-color-ink)] dark:ring-[var(--kq-color-border)]">
+                  {t("chat.workspaceExpand")}
+                </span>
+              </button>
+            ) : null}
             <div className="relative">
               <button
                 type="button"
