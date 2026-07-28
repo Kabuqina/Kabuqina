@@ -1589,3 +1589,37 @@ value any more. `paths::is_power_user` inverted accordingly: absent means on.
 Removed with it: `web/src/lib/powerUser.ts`, `web/src/lib/useTogglePowerUser.ts`,
 the Welcome step's advanced opt-in, and the `settings.power*` / `welcome.advanced*`
 strings.
+
+## v0.5 Gateway backend retirement deferred (2026-07-27)
+
+This supersedes the backend-deletion scope in “Mobile Bot product surface
+removed” for v0.5.0. The Web product surface remains removed, but v0.5.0 does
+not physically delete the Rust Gateway supervisor/commands, desktop Python
+Gateway policy and loader, bundled messaging SDK dependencies, or
+`hermes_core/gateway/`.
+
+The release boundary is fail-closed runtime behavior: legacy auto-start values
+are ignored, a desktop-child respawn does not start Gateway, and the desktop
+Agent toolset no longer contains `messaging`. The Gateway-only keep-list is
+retained. Existing credentials, profiles, sessions and jobs are preserved and
+no migration destructively removes them.
+
+Reason: deleting the retained backend now would couple a product-surface cut to
+Cron path ownership, packaging dependencies and agent-runtime imports. That is
+a larger, separately reviewed retirement slice. Local Cron remains a v0.5
+feature and continues to deliver through desktop/chat without requiring a
+mobile channel.
+
+## Studio persistence and Study token accounting (2026-07-27)
+
+Studio owns a separate local `studio/studio.db`. Projects and immutable source
+snapshots live there; Study remains authoritative for learning objects. A
+Study-to-Studio gather resolves every reference before one Studio transaction,
+so a missing or invalid source produces no partial snapshot set. Editing or
+gathering never mutates Study lifecycle, mastery or plan state.
+
+The settings usage counter is explicitly **Study activity token usage**, not
+whole-application usage. It reads successful `tutor_provider_attempts` only,
+groups actual tokens by course/provider/model, and reports whether any
+successful attempt lacks an actual-token measurement. NULL measurements are
+not presented as measured zero values, and no price estimate is derived.

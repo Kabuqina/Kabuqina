@@ -239,6 +239,9 @@ CREATE TABLE IF NOT EXISTS tutor_provider_attempts (
       ON DELETE CASCADE
 );
 
+CREATE INDEX IF NOT EXISTS tutor_provider_attempts_usage_window
+ON tutor_provider_attempts(owner_id, status, completed_at, space_id, provider_id, model_id);
+
 CREATE TABLE IF NOT EXISTS tutor_projection_outbox (
     event_id TEXT PRIMARY KEY,
     owner_id TEXT NOT NULL,
@@ -2101,6 +2104,54 @@ class TutorRuntimeStore:
                     key.as_tuple(),
                 ).fetchall()
             ],
+            operation_lease=operation_lease,
+        )
+
+    def aggregate_token_usage(
+        self,
+        owner_id: str,
+        *,
+        starts_at: str,
+        ends_at: str,
+        operation_lease: OperationLease | None = None,
+    ) -> list[dict[str, Any]]:
+        """Aggregate measured tokens for successful attempts in a UTC window.
+
+        NULL actual-token values remain observable through the measured-attempt
+        counts; they are never silently converted into zero-valued samples.
+        """
+
+        if not isinstance(owner_id, str) or not owner_id.strip():
+            raise TutorContractError("owner_id is required")
+        if not isinstance(starts_at, str) or not starts_at.strip():
+            raise TutorContractError("starts_at is required")
+        if not isinstance(ends_at, str) or not ends_at.strip():
+            raise TutorContractError("ends_at is required")
+
+        def _op(connection: sqlite3.Connection) -> list[dict[str, Any]]:
+            rows = connection.execute(
+                """
+                SELECT space_id, provider_id, model_id,
+                       COUNT(*) AS succeeded_attempts,
+                       COUNT(actual_input_tokens) AS input_measured_attempts,
+                       COUNT(actual_output_tokens) AS output_measured_attempts,
+                       COALESCE(SUM(actual_input_tokens), 0) AS input_tokens,
+                       COALESCE(SUM(actual_output_tokens), 0) AS output_tokens
+                FROM tutor_provider_attempts
+                WHERE owner_id=? AND status='succeeded'
+                  AND completed_at IS NOT NULL
+                  AND completed_at>=? AND completed_at<?
+                GROUP BY space_id, provider_id, model_id
+                ORDER BY space_id, provider_id, model_id
+                """,
+                (owner_id, starts_at, ends_at),
+            ).fetchall()
+            return [dict(row) for row in rows]
+
+        return self._read(
+            owner_id,
+            "",
+            _op,
             operation_lease=operation_lease,
         )
 

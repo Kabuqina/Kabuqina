@@ -83,6 +83,7 @@ export default function StudioRoute() {
         })
       }
       onSaveBrief={(projectId, brief) => run(() => cmdStudioSaveBrief(projectId, brief))}
+      onGathered={load}
       busy={busy}
     />
   );

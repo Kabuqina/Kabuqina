@@ -23,7 +23,6 @@ KEEP_LIST = [
     "math",
     "learning",
     "cronjob",    # scheduled tasks (create-once-approve, then auto-run)
-    "messaging",  # cross-channel message delivery (cron delivery + proactive send)
 ]
 POWER_USER_EXTRA = ["terminal", "code_execution", "moa"]
 GATEWAY_KEEP_LIST = [
