@@ -719,6 +719,111 @@ pub async fn cmd_study_token_usage(
 }
 
 #[tauri::command]
+pub async fn cmd_study_preferences_get(app: AppHandle) -> Result<Value, DeskBridgeError> {
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::GET,
+        "/api/desk/study/preferences",
+        None,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_preferences_put(
+    app: AppHandle,
+    import_read_mode: Option<String>,
+    daily_new_card_limit: Option<u32>,
+    daily_review_card_limit: Option<u32>,
+) -> Result<Value, DeskBridgeError> {
+    if import_read_mode
+        .as_deref()
+        .is_some_and(|mode| !matches!(mode, "auto" | "precise" | "math"))
+    {
+        return Err(DeskBridgeError::invalid(
+            "study_invalid_request",
+            "importReadMode must be auto, precise, or math",
+        ));
+    }
+    if daily_new_card_limit.is_some_and(|value| value > 100) {
+        return Err(DeskBridgeError::invalid(
+            "study_invalid_request",
+            "dailyNewCardLimit must be within 0..100",
+        ));
+    }
+    if daily_review_card_limit.is_some_and(|value| value > 1_000) {
+        return Err(DeskBridgeError::invalid(
+            "study_invalid_request",
+            "dailyReviewCardLimit must be within 0..1000",
+        ));
+    }
+    let mut body = serde_json::Map::new();
+    if let Some(value) = import_read_mode {
+        body.insert("importReadMode".into(), Value::String(value));
+    }
+    if let Some(value) = daily_new_card_limit {
+        body.insert("dailyNewCardLimit".into(), json!(value));
+    }
+    if let Some(value) = daily_review_card_limit {
+        body.insert("dailyReviewCardLimit".into(), json!(value));
+    }
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::PUT,
+        "/api/desk/study/preferences",
+        Some(Value::Object(body)),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_material_read(
+    app: AppHandle,
+    path_str: String,
+    requested_mode: Option<String>,
+    override_limit: Option<bool>,
+    include_content: Option<bool>,
+    page_start: Option<u32>,
+    page_end: Option<u32>,
+) -> Result<Value, DeskBridgeError> {
+    if path_str.trim().is_empty() {
+        return Err(DeskBridgeError::invalid(
+            "study_invalid_request",
+            "material path is required",
+        ));
+    }
+    if requested_mode
+        .as_deref()
+        .is_some_and(|mode| !matches!(mode, "auto" | "precise" | "math"))
+    {
+        return Err(DeskBridgeError::invalid(
+            "study_invalid_request",
+            "requestedMode must be auto, precise, or math",
+        ));
+    }
+    if page_start == Some(0) || page_end == Some(0) {
+        return Err(DeskBridgeError::invalid(
+            "study_invalid_request",
+            "page numbers are 1-based",
+        ));
+    }
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::POST,
+        "/api/desk/study/materials/read",
+        Some(json!({
+            "path": path_str,
+            "requestedMode": requested_mode,
+            "override": override_limit.unwrap_or(false),
+            "includeContent": include_content.unwrap_or(true),
+            "pageStart": page_start,
+            "pageEnd": page_end,
+        })),
+    )
+    .await
+}
+
+#[tauri::command]
 pub async fn cmd_study_data_import(
     app: AppHandle,
     bundle: Value,

@@ -960,6 +960,7 @@ def test_delete_restart_recovery_phase_matrix(tmp_path, crash_phase):
         assert restarted.recover_operations() == 1
         assert restarted.learning_store.export_owner_bundle(owner) == {
             "version": 1,
+            "preferences": [],
             "spaces": [],
             "artifacts": [],
             "items": [],
@@ -1018,6 +1019,7 @@ def test_full_import_restart_rollback_phase_matrix(tmp_path, crash_phase):
         assert restarted.recover_operations() == 1
         assert restarted.learning_store.export_owner_bundle(owner) == {
             "version": 1,
+            "preferences": [],
             "spaces": [],
             "artifacts": [],
             "items": [],

@@ -21,7 +21,14 @@ def test_owner_bundle_roundtrip_and_complete_delete(tmp_path):
 
         target = LearningExecutionContext(store, "target")
         imported = target.import_owner_bundle(bundle)
-        assert imported == {"spaces":1,"artifacts":1,"items":0,"activities":1,"migrations":1}
+        assert imported == {
+            "preferences": 0,
+            "spaces": 1,
+            "artifacts": 1,
+            "items": 0,
+            "activities": 1,
+            "migrations": 1,
+        }
         target.select_space("s")
         assert target.get_artifact(artifact_id)["title"] == "Note"
         assert target.list_activities()[0]["activity_type"] == "note.open"

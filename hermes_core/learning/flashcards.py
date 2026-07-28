@@ -11,8 +11,10 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional
 
+import kabuqina_time
 from learning.learning_context import LearningExecutionContext
 from learning.output_writer import OutputWriter
+from learning.study_preferences import StudyPreferencesService
 
 FLASHCARD_ITEM_TYPE = "flashcard"
 FLASHCARD_CAPTURE_ACTIVITY = "flashcard.capture"
@@ -31,8 +33,8 @@ _GRADE_DELTA = {
 }
 
 
-def _now_utc() -> datetime:
-    return datetime.now(timezone.utc)
+def _now_local() -> datetime:
+    return kabuqina_time.now()
 
 
 def _iso(dt: datetime) -> str:
@@ -119,7 +121,7 @@ class FlashcardService:
         now: Optional[Callable[[], datetime]] = None,
     ):
         self._ctx = context
-        self._now = now or _now_utc
+        self._now = now or _now_local
 
     def activate_deck(self, artifact_id: str) -> Dict[str, Any]:
         artifact = self._require_deck(artifact_id)
@@ -164,6 +166,36 @@ class FlashcardService:
             now = self._now()
             cards = [card for card in cards if self._is_due(card, now)]
         return sorted(cards, key=self._sort_key)
+
+    def daily_queue(self) -> Dict[str, Any]:
+        """Return today's capped due queue for the current course.
+
+        Seen and unseen cards have independent budgets. Completed reviews are
+        subtracted from today's budget, so refreshing cannot reveal another full
+        batch after the first batch is answered.
+        """
+        preferences = StudyPreferencesService(self._ctx).get()
+        progress = self._daily_progress()
+        new_limit = preferences["daily_new_card_limit"]
+        review_limit = preferences["daily_review_card_limit"]
+        remaining_new = max(0, new_limit - progress["new"])
+        remaining_review = max(0, review_limit - progress["review"])
+        due = self.list_cards(due_only=True)
+        fresh = [card for card in due if _is_fresh(card)]
+        reviews = [card for card in due if not _is_fresh(card)]
+        selected_new = fresh[:remaining_new]
+        selected_reviews = reviews[:remaining_review]
+        return {
+            "cards": [*selected_new, *selected_reviews],
+            "queue": {
+                "date": self._now().date().isoformat(),
+                "limits": {"new": new_limit, "review": review_limit},
+                "completedToday": progress,
+                "remaining": {"new": remaining_new, "review": remaining_review},
+                "available": {"new": len(fresh), "review": len(reviews)},
+                "shown": {"new": len(selected_new), "review": len(selected_reviews)},
+            },
+        }
 
     def capture_card(
         self,
@@ -221,6 +253,16 @@ class FlashcardService:
 
     def review_card(self, item_id: str, grade: str) -> Dict[str, Any]:
         card = self._require_card(item_id)
+        queue_kind = "new" if _is_fresh(card) else "review"
+        preferences = StudyPreferencesService(self._ctx).get()
+        progress = self._daily_progress()
+        limit = preferences[
+            "daily_new_card_limit"
+            if queue_kind == "new"
+            else "daily_review_card_limit"
+        ]
+        if progress[queue_kind] >= limit:
+            raise ValueError(f"daily {queue_kind} card limit reached")
         normalized_grade = grade if grade in _GRADE_DELTA else "again"
         updated = self._review_state(card, normalized_grade)
         self._ctx.update_item_state(item_id, updated)
@@ -234,9 +276,31 @@ class FlashcardService:
                 "intervalDays": updated["intervalDays"],
                 "repetitions": updated["repetitions"],
                 "dueAt": updated["dueAt"],
+                "queueKind": queue_kind,
             },
+            occurred_at=_iso(self._now()),
         )
         return {**updated, "grade": normalized_grade}
+
+    def _daily_progress(self) -> Dict[str, int]:
+        now = self._now()
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=timezone.utc)
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        end = start + timedelta(days=1)
+        activities = self._ctx.list_activities_between(
+            activity_type=FLASHCARD_REVIEW_ACTIVITY,
+            created_at_gte=_iso(start),
+            created_at_lt=_iso(end),
+        )
+        progress = {"new": 0, "review": 0}
+        for activity in activities:
+            detail = activity.get("detail") if isinstance(activity, dict) else {}
+            kind = detail.get("queueKind") if isinstance(detail, dict) else None
+            # Legacy same-day activities predate queueKind. Count them as review,
+            # the fail-closed choice for a workload protection feature.
+            progress[kind if kind in progress else "review"] += 1
+        return progress
 
     def _require_deck(self, artifact_id: str) -> Dict[str, Any]:
         artifact = self._ctx.get_artifact(artifact_id)

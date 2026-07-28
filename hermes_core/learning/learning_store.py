@@ -241,6 +241,14 @@ CREATE TABLE IF NOT EXISTS learning_migrations (
     PRIMARY KEY (owner_id, migration_key)
 );
 
+CREATE TABLE IF NOT EXISTS learning_preferences (
+    owner_id                 TEXT NOT NULL PRIMARY KEY,
+    import_read_mode          TEXT NOT NULL DEFAULT 'auto',
+    daily_new_card_limit      INTEGER NOT NULL DEFAULT 20,
+    daily_review_card_limit   INTEGER NOT NULL DEFAULT 100,
+    updated_at                TEXT NOT NULL DEFAULT ''
+);
+
 CREATE TABLE IF NOT EXISTS learning_schema_version (
     version INTEGER NOT NULL DEFAULT 1
 );
@@ -1111,6 +1119,7 @@ class LearningStore:
         artifact_id: Optional[str] = None,
         item_id: Optional[str] = None,
         detail: Optional[Dict[str, Any]] = None,
+        occurred_at: Optional[str] = None,
         operation_lease: Optional[OperationLease] = None,
     ) -> str:
         _require(owner_id, "owner_id")
@@ -1121,7 +1130,13 @@ class LearningStore:
                 "whiteboard activity evidence must be written through WhiteboardService"
             )
         activity_id = uuid.uuid4().hex
-        now = _now()
+        now = occurred_at or _now()
+        if not isinstance(now, str) or not now.strip() or len(now) > 80:
+            raise ValueError("occurred_at must be an ISO timestamp")
+        try:
+            datetime.fromisoformat(now.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise ValueError("occurred_at must be an ISO timestamp") from exc
 
         def _op(conn: sqlite3.Connection) -> None:
             conn.execute(
@@ -1342,6 +1357,86 @@ class LearningStore:
             out.append(d)
         return out
 
+    @_coordinated_read()
+    def list_activities_between(
+        self,
+        owner_id: str,
+        space_id: str,
+        *,
+        activity_type: str,
+        created_at_gte: str,
+        created_at_lt: str,
+        operation_lease: Optional[OperationLease] = None,
+    ) -> List[Dict[str, Any]]:
+        """Return one bounded time window for deterministic daily policies."""
+        _require(owner_id, "owner_id")
+        _require(space_id, "space_id")
+        _require(activity_type, "activity_type")
+        _require(created_at_gte, "created_at_gte")
+        _require(created_at_lt, "created_at_lt")
+        rows = self._conn.execute(
+            "SELECT * FROM learning_activities WHERE owner_id=? AND space_id=? "
+            "AND activity_type=? AND created_at>=? AND created_at<? "
+            "ORDER BY created_at, activity_id",
+            (owner_id, space_id, activity_type, created_at_gte, created_at_lt),
+        ).fetchall()
+        out = []
+        for row in rows:
+            item = dict(row)
+            item["detail"] = json.loads(item.pop("detail_json"))
+            out.append(item)
+        return out
+
+    # ── owner Study preferences ──────────────────────────────────────── #
+
+    @_coordinated_read(owner_wide=True)
+    def get_study_preferences(
+        self,
+        owner_id: str,
+        *,
+        operation_lease: Optional[OperationLease] = None,
+    ) -> Optional[Dict[str, Any]]:
+        _require(owner_id, "owner_id")
+        row = self._conn.execute(
+            "SELECT import_read_mode,daily_new_card_limit,daily_review_card_limit "
+            "FROM learning_preferences WHERE owner_id=?",
+            (owner_id,),
+        ).fetchone()
+        return dict(row) if row else None
+
+    def put_study_preferences(
+        self,
+        owner_id: str,
+        preferences: Dict[str, Any],
+        *,
+        operation_lease: Optional[OperationLease] = None,
+    ) -> None:
+        from learning.study_preferences import normalize_study_preferences
+
+        _require(owner_id, "owner_id")
+        normalized = normalize_study_preferences(preferences)
+        now = _now()
+
+        def _op(conn: sqlite3.Connection) -> None:
+            conn.execute(
+                "INSERT INTO learning_preferences "
+                "(owner_id,import_read_mode,daily_new_card_limit,daily_review_card_limit,updated_at) "
+                "VALUES (?,?,?,?,?) ON CONFLICT(owner_id) DO UPDATE SET "
+                "import_read_mode=excluded.import_read_mode, "
+                "daily_new_card_limit=excluded.daily_new_card_limit, "
+                "daily_review_card_limit=excluded.daily_review_card_limit, "
+                "updated_at=excluded.updated_at",
+                (
+                    owner_id,
+                    normalized["import_read_mode"],
+                    normalized["daily_new_card_limit"],
+                    normalized["daily_review_card_limit"],
+                    now,
+                ),
+            )
+
+        self._execute_write(owner_id, "", _op, operation_lease=operation_lease)
+
     # ── migrations ─────────────────────────────────────────────────────── #
 
     def mark_migration(
@@ -1396,6 +1491,15 @@ class LearningStore:
         """Return a self-contained JSON-safe bundle without repeating owner_id."""
         _require(owner_id, "owner_id")
         tables = {
+            "preferences": (
+                "learning_preferences",
+                (
+                    "import_read_mode",
+                    "daily_new_card_limit",
+                    "daily_review_card_limit",
+                    "updated_at",
+                ),
+            ),
             "spaces": (
                 "learning_spaces",
                 ("space_id", "title", "status", "is_current", "created_at", "updated_at"),
@@ -1449,6 +1553,7 @@ class LearningStore:
 
         def _op(conn: sqlite3.Connection) -> None:
             for table in (
+                "learning_preferences",
                 "learning_activities",
                 "learning_items",
                 "learning_artifacts",
@@ -1550,7 +1655,14 @@ class LearningStore:
             > 16 * 1024 * 1024
         ):
             raise ValueError("learning bundle exceeds 16 MiB")
-        sections = ("spaces", "artifacts", "items", "activities", "migrations")
+        sections = (
+            "preferences",
+            "spaces",
+            "artifacts",
+            "items",
+            "activities",
+            "migrations",
+        )
         rows_by_section: Dict[str, List[Any]] = {}
         for section in sections:
             rows = bundle.get(section, [])
@@ -1561,6 +1673,7 @@ class LearningStore:
 
         def _op(conn: sqlite3.Connection) -> None:
             for table in (
+                "learning_preferences",
                 "learning_spaces",
                 "learning_artifacts",
                 "learning_items",
@@ -1574,6 +1687,40 @@ class LearningStore:
                     raise LearningConflictError(
                         "owner already has learning data; delete it before import"
                     )
+
+            preference_rows = rows_by_section["preferences"]
+            if len(preference_rows) > 1:
+                raise ValueError("bundle may contain at most one study preference row")
+            if preference_rows:
+                from learning.study_preferences import normalize_study_preferences
+
+                row = preference_rows[0]
+                if not isinstance(row, dict):
+                    raise ValueError("bundle study preferences must be an object")
+                normalized = normalize_study_preferences(
+                    {
+                        key: row[key]
+                        for key in (
+                            "import_read_mode",
+                            "daily_new_card_limit",
+                            "daily_review_card_limit",
+                        )
+                        if key in row
+                    }
+                )
+                conn.execute(
+                    "INSERT INTO learning_preferences "
+                    "(owner_id,import_read_mode,daily_new_card_limit,daily_review_card_limit,updated_at) "
+                    "VALUES (?,?,?,?,?)",
+                    (
+                        owner_id,
+                        normalized["import_read_mode"],
+                        normalized["daily_new_card_limit"],
+                        normalized["daily_review_card_limit"],
+                        _bundle_timestamp(row, "updated_at"),
+                    ),
+                )
+                counts["preferences"] += 1
 
             space_ids: set[str] = set()
             current_spaces = 0

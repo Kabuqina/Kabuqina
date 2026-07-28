@@ -215,6 +215,38 @@ export type StudyFlashcard = {
 
 export type StudyFlashcardsResponse = {
   cards: StudyFlashcard[];
+  queue?: StudyDailyReviewQueue | null;
+};
+
+export type StudyDailyReviewQueue = {
+  date: string;
+  limits: { new: number; review: number };
+  completedToday: { new: number; review: number };
+  remaining: { new: number; review: number };
+  available: { new: number; review: number };
+  shown: { new: number; review: number };
+};
+
+export type StudyImportReadMode = "auto" | "precise" | "math";
+
+export type StudyPreferences = {
+  importReadMode: StudyImportReadMode;
+  dailyNewCardLimit: number;
+  dailyReviewCardLimit: number;
+  defaults: {
+    importReadMode: StudyImportReadMode;
+    dailyNewCardLimit: number;
+    dailyReviewCardLimit: number;
+  };
+};
+
+export type StudyMaterialReadResponse = {
+  preferredMode: StudyImportReadMode;
+  requestedMode: StudyImportReadMode;
+  effectiveMode: StudyImportReadMode;
+  limited: boolean;
+  override: boolean;
+  result: Record<string, unknown>;
 };
 
 export type StudyFlashcardCaptureRequest = {
@@ -488,6 +520,27 @@ export function cmdStudyFlashcards(
   dueOnly = false,
 ): Promise<StudyFlashcardsResponse> {
   return invoke("cmd_study_flashcards", { spaceId, dueOnly });
+}
+
+export function cmdStudyPreferencesGet(): Promise<StudyPreferences> {
+  return invoke("cmd_study_preferences_get");
+}
+
+export function cmdStudyPreferencesPut(
+  patch: Partial<Pick<StudyPreferences, "importReadMode" | "dailyNewCardLimit" | "dailyReviewCardLimit">>,
+): Promise<StudyPreferences> {
+  return invoke("cmd_study_preferences_put", patch);
+}
+
+export function cmdStudyMaterialRead(input: {
+  pathStr: string;
+  requestedMode?: StudyImportReadMode;
+  overrideLimit?: boolean;
+  includeContent?: boolean;
+  pageStart?: number;
+  pageEnd?: number;
+}): Promise<StudyMaterialReadResponse> {
+  return invoke("cmd_study_material_read", input);
 }
 
 export function cmdStudyFlashcardCapture(payload: StudyFlashcardCaptureRequest): Promise<StudyCaptureResponse> {

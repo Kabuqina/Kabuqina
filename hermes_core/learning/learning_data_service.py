@@ -31,7 +31,10 @@ def canonical_sha256(value: Any) -> str:
 
 def _learning_counts(bundle: Mapping[str, Any]) -> dict[str, int]:
     counts: dict[str, int] = {}
-    for section in ("spaces", "artifacts", "items", "activities", "migrations"):
+    sections = ["spaces", "artifacts", "items", "activities", "migrations"]
+    if "preferences" in bundle:
+        sections.insert(0, "preferences")
+    for section in sections:
         rows = bundle.get(section)
         if not isinstance(rows, list):
             raise TutorContractError(f"learning_v1.{section} must be an array")
@@ -170,11 +173,23 @@ class CompositeLearningDataService:
         learning = bundle.get("learning_v1")
         runtime = bundle.get("tutor_runtime")
         manifest = bundle.get("manifest")
+        learning_keys = set(learning) if isinstance(learning, Mapping) else set()
+        legacy_learning_keys = {
+            "version",
+            "spaces",
+            "artifacts",
+            "items",
+            "activities",
+            "migrations",
+        }
         if (
             not isinstance(learning, Mapping)
             or learning.get("version") != 1
-            or set(learning)
-            != {"version", "spaces", "artifacts", "items", "activities", "migrations"}
+            or learning_keys
+            not in {
+                frozenset(legacy_learning_keys),
+                frozenset(legacy_learning_keys | {"preferences"}),
+            }
         ):
             raise TutorContractError("learning_v1 section is invalid")
         if not isinstance(runtime, Mapping) or runtime.get("schema_version") != 1:
@@ -212,7 +227,14 @@ class CompositeLearningDataService:
     def _learning_bundle_empty(bundle: Mapping[str, Any]) -> bool:
         return all(
             not bundle.get(section)
-            for section in ("spaces", "artifacts", "items", "activities", "migrations")
+            for section in (
+                "preferences",
+                "spaces",
+                "artifacts",
+                "items",
+                "activities",
+                "migrations",
+            )
         )
 
     def delete_owner_data(self, owner_id: str) -> dict[str, Any]:

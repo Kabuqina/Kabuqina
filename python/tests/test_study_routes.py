@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 from pathlib import Path
@@ -167,6 +168,89 @@ def test_space_routes_create_list_and_select(study_client):
     selected = client.post(f"/api/desk/study/spaces/{sid}/select", headers=_headers())
     assert selected.status_code == 200
     assert selected.json()["space_id"] == sid
+
+
+def test_study_preferences_have_safe_defaults_and_persist_updates(study_client):
+    client, _db_path = study_client
+    defaults = client.get("/api/desk/study/preferences", headers=_headers())
+    assert defaults.status_code == 200
+    assert defaults.json() == {
+        "importReadMode": "auto",
+        "dailyNewCardLimit": 20,
+        "dailyReviewCardLimit": 100,
+        "defaults": {
+            "importReadMode": "auto",
+            "dailyNewCardLimit": 20,
+            "dailyReviewCardLimit": 100,
+        },
+    }
+
+    updated = client.put(
+        "/api/desk/study/preferences",
+        json={
+            "importReadMode": "precise",
+            "dailyNewCardLimit": 12,
+            "dailyReviewCardLimit": 80,
+        },
+        headers=_headers(),
+    )
+    assert updated.status_code == 200
+    assert updated.json()["importReadMode"] == "precise"
+    assert updated.json()["dailyNewCardLimit"] == 12
+    assert client.get(
+        "/api/desk/study/preferences", headers=_headers()
+    ).json()["dailyReviewCardLimit"] == 80
+
+    invalid = client.put(
+        "/api/desk/study/preferences",
+        json={"dailyNewCardLimit": 101},
+        headers=_headers(),
+    )
+    assert invalid.status_code == 400
+
+
+def test_study_material_read_applies_import_only_cap_and_explicit_override(study_client):
+    client, _db_path = study_client
+    client.put(
+        "/api/desk/study/preferences",
+        json={"importReadMode": "auto"},
+        headers=_headers(),
+    )
+    fake_result = json.dumps({"ok": True, "engine": "fake"})
+    with patch(
+        "desk_server.routes.study_routes.pdf_read_precise",
+        return_value=fake_result,
+    ) as reader:
+        limited = client.post(
+            "/api/desk/study/materials/read",
+            json={"path": "course.pdf", "requestedMode": "math"},
+            headers=_headers(),
+        )
+        assert limited.status_code == 200
+        assert limited.json() | {"result": {}} == {
+            "preferredMode": "auto",
+            "requestedMode": "math",
+            "effectiveMode": "auto",
+            "limited": True,
+            "override": False,
+            "result": {},
+        }
+        assert limited.json()["result"] == {"ok": True, "engine": "fake"}
+        assert reader.call_args.kwargs["mode"] == "auto"
+
+        overridden = client.post(
+            "/api/desk/study/materials/read",
+            json={
+                "path": "course.pdf",
+                "requestedMode": "math",
+                "override": True,
+            },
+            headers=_headers(),
+        )
+        assert overridden.status_code == 200
+        assert overridden.json()["effectiveMode"] == "math"
+        assert overridden.json()["limited"] is False
+        assert reader.call_args.kwargs["mode"] == "math"
 
 
 def test_flashcard_draft_activate_and_review_routes(study_client):

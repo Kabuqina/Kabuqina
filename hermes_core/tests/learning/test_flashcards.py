@@ -7,7 +7,7 @@ while recording genuine user activity. Model tools still only create drafts.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -15,6 +15,7 @@ from learning.flashcards import FLASHCARD_REVIEW_ACTIVITY, FlashcardService
 from learning.learning_context import LearningExecutionContext
 from learning.learning_store import LearningStore
 from learning.output_writer import OutputWriter
+from learning.study_preferences import StudyPreferencesService
 
 
 T0 = datetime(2026, 1, 1, tzinfo=timezone.utc)
@@ -112,3 +113,52 @@ def test_due_cards_sort_fresh_before_overdue_reviewed_cards(ctx):
     due = service.list_cards(due_only=True)
 
     assert [card["item_id"] for card in due] == [second["item_id"], first["item_id"]]
+
+
+def test_daily_queue_enforces_separate_new_and_review_budgets_across_refreshes(ctx):
+    payload = {
+        "cards": [
+            {"front": f"q{index}", "back": f"a{index}"}
+            for index in range(4)
+        ]
+    }
+    artifact_id = OutputWriter(ctx).write_artifact(
+        kind="flashcard_deck", title="Daily queue", payload=payload
+    )["artifact_id"]
+    clock = [T0]
+    service = FlashcardService(ctx, now=lambda: clock[0])
+    service.activate_deck(artifact_id)
+    cards = service.list_cards()
+    for card in cards[:2]:
+        ctx.update_item_state(
+            card["item_id"],
+            {
+                **card,
+                "repetitions": 2,
+                "lastReviewedAt": "2025-12-20T00:00:00+00:00",
+                "dueAt": "2025-12-31T00:00:00+00:00",
+            },
+        )
+    StudyPreferencesService(ctx).update(
+        {"daily_new_card_limit": 1, "daily_review_card_limit": 1}
+    )
+
+    first_queue = service.daily_queue()
+    assert first_queue["queue"]["available"] == {"new": 2, "review": 2}
+    assert first_queue["queue"]["shown"] == {"new": 1, "review": 1}
+    fresh = next(card for card in first_queue["cards"] if card["repetitions"] == 0)
+    review = next(card for card in first_queue["cards"] if card["repetitions"] > 0)
+    service.review_card(fresh["item_id"], "good")
+    service.review_card(review["item_id"], "good")
+
+    refreshed = service.daily_queue()
+    assert refreshed["cards"] == []
+    assert refreshed["queue"]["completedToday"] == {"new": 1, "review": 1}
+    remaining_fresh = next(card for card in service.list_cards(due_only=True) if card["repetitions"] == 0)
+    with pytest.raises(ValueError, match="daily new card limit reached"):
+        service.review_card(remaining_fresh["item_id"], "good")
+
+    clock[0] = T0 + timedelta(days=1)
+    next_day = service.daily_queue()
+    assert len(next_day["cards"]) == 2
+    assert next_day["queue"]["completedToday"] == {"new": 0, "review": 0}

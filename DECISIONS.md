@@ -1651,3 +1651,26 @@ change learning state. The single-material import flow remains unchanged.
 `material_alignment` extends the version-1 learning artifact vocabulary without
 bumping the schema version: existing v1 artifacts remain valid and unchanged,
 while the new kind has its own strict payload validator and semantic-review rule.
+
+## Study import-read policy and daily review budgets (2026-07-28)
+
+Study import reading now has an owner preference with the ordered values `auto`,
+`precise`, and `math`. The preference is both the default and the maximum cost
+level for the trusted Study material-read command. A one-shot desktop UI override
+may exceed it after explicit student intent. This policy is deliberately not
+installed in the ordinary Chat document tools: a student asking Chat to inspect
+one page precisely must not be silently downgraded, and a model-authored tool call
+must not be able to manufacture the trusted UI override.
+
+Daily flashcard protection uses two independent owner preferences: 20 new cards
+and 100 review cards by default (allowed ranges 0..100 and 0..1000). Budgets are
+consumed per course and per user-local calendar day by completed reviews, rather
+than by queue fetches, so refreshes do not reset the allowance. The server also
+enforces the limit on direct review writes. A zero value intentionally pauses
+that queue kind for the day.
+
+These controls are workload protection, not learning achievement. They do not
+create streaks, completion rates, coverage claims, or badges. Preferences are
+owner-scoped durable data in `learning.db` and participate in Study export,
+import, and owner deletion. Legacy bundles without a preferences section remain
+valid and resolve to safe defaults.

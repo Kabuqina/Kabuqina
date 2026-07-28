@@ -208,6 +208,7 @@ class LearningExecutionContext:
         artifact_id: Optional[str] = None,
         item_id: Optional[str] = None,
         detail: Optional[Dict[str, Any]] = None,
+        occurred_at: Optional[str] = None,
     ) -> str:
         return self._store.insert_activity(
             self._owner_id,
@@ -216,6 +217,7 @@ class LearningExecutionContext:
             artifact_id=artifact_id,
             item_id=item_id,
             detail=detail,
+            occurred_at=occurred_at,
         )
 
     def record_bounded_activity_once(
@@ -241,6 +243,27 @@ class LearningExecutionContext:
 
     def list_activities(self) -> List[Dict[str, Any]]:
         return self._store.list_activities(self._owner_id, self._require_space())
+
+    def list_activities_between(
+        self,
+        *,
+        activity_type: str,
+        created_at_gte: str,
+        created_at_lt: str,
+    ) -> List[Dict[str, Any]]:
+        return self._store.list_activities_between(
+            self._owner_id,
+            self._require_space(),
+            activity_type=activity_type,
+            created_at_gte=created_at_gte,
+            created_at_lt=created_at_lt,
+        )
+
+    def get_study_preferences(self) -> Optional[Dict[str, Any]]:
+        return self._store.get_study_preferences(self._owner_id)
+
+    def put_study_preferences(self, preferences: Dict[str, Any]) -> None:
+        self._store.put_study_preferences(self._owner_id, preferences)
 
     def activity_summary_page(self, *, limit: int) -> Dict[str, Any]:
         return self._store.activity_summary_page(

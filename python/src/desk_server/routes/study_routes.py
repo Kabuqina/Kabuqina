@@ -5,10 +5,12 @@
 
 from __future__ import annotations
 
-import os
 import asyncio
+import json
+import os
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any, Dict, Iterator, Optional
 
 from fastapi import APIRouter, HTTPException, Query
@@ -34,9 +36,15 @@ from learning.quizzes import QuizService
 from learning.semantic_review import requires_semantic_review
 from learning.semantic_review import SemanticReviewService
 from learning.student_state import LEGACY_CONTEXT_MIGRATION_KEY, StudentStateService
+from learning.study_preferences import (
+    DEFAULT_STUDY_PREFERENCES,
+    StudyPreferencesService,
+    resolve_import_read_mode,
+)
 from learning.tutor_contract import TutorConflictError, TutorContractError
 from learning.tutor_runtime_store import TutorRuntimeError, TutorRuntimeStore
 from learning.wrongbook import WrongbookService
+from tools.document.reading import document_read_precise, pdf_read_precise
 import learning_owner
 from learning_owner import desktop_learning_scope
 from study_review_reminder import StudyReviewReminderService
@@ -125,6 +133,21 @@ def _artifact_ref(artifact: Dict[str, Any]) -> Dict[str, Any]:
         "review": artifact["review"],
         "created_at": artifact["created_at"],
         "updated_at": artifact["updated_at"],
+    }
+
+
+def _study_preferences_payload(preferences: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "importReadMode": preferences["import_read_mode"],
+        "dailyNewCardLimit": preferences["daily_new_card_limit"],
+        "dailyReviewCardLimit": preferences["daily_review_card_limit"],
+        "defaults": {
+            "importReadMode": DEFAULT_STUDY_PREFERENCES["import_read_mode"],
+            "dailyNewCardLimit": DEFAULT_STUDY_PREFERENCES["daily_new_card_limit"],
+            "dailyReviewCardLimit": DEFAULT_STUDY_PREFERENCES[
+                "daily_review_card_limit"
+            ],
+        },
     }
 
 
@@ -500,9 +523,87 @@ async def study_flashcards(
     try:
         with _desktop_ctx(space_id=space_id) as ctx:
             if not ctx.current_space():
-                return {"cards": []}
-            return {"cards": FlashcardService(ctx).list_cards(due_only=due_only)}
+                return {"cards": [], "queue": None} if due_only else {"cards": []}
+            service = FlashcardService(ctx)
+            return service.daily_queue() if due_only else {"cards": service.list_cards()}
     except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+
+@router.get("/api/desk/study/preferences")
+async def study_preferences_get():
+    try:
+        with _desktop_ctx() as ctx:
+            return _study_preferences_payload(StudyPreferencesService(ctx).get())
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+
+@router.put("/api/desk/study/preferences")
+async def study_preferences_put(body: Dict[str, Any]):
+    wire_fields = {
+        "importReadMode": "import_read_mode",
+        "dailyNewCardLimit": "daily_new_card_limit",
+        "dailyReviewCardLimit": "daily_review_card_limit",
+    }
+    unknown = set(body) - set(wire_fields)
+    if unknown:
+        raise _http_error(ValueError(f"unknown study preference: {sorted(unknown)[0]}"))
+    patch = {wire_fields[key]: value for key, value in body.items()}
+    try:
+        with _desktop_ctx() as ctx:
+            updated = StudyPreferencesService(ctx).update(patch)
+            return _study_preferences_payload(updated)
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+
+@router.post("/api/desk/study/materials/read")
+async def study_material_read(body: Dict[str, Any]):
+    """Read one import source under the Study-only default/hard-cap policy.
+
+    Ordinary Chat document tools do not call this route and remain unaffected.
+    ``override`` is trusted desktop UI intent, not a model tool parameter.
+    """
+    path = str(body.get("path") or "").strip()
+    if not path:
+        raise _http_error(ValueError("path is required"))
+    override = body.get("override", False)
+    if type(override) is not bool:
+        raise _http_error(ValueError("override must be a boolean"))
+    include_content = body.get("includeContent", True)
+    if type(include_content) is not bool:
+        raise _http_error(ValueError("includeContent must be a boolean"))
+    try:
+        with _desktop_ctx() as ctx:
+            preferences = StudyPreferencesService(ctx).get()
+            decision = resolve_import_read_mode(
+                preferences["import_read_mode"],
+                body.get("requestedMode"),
+                override=override,
+            )
+        reader = (
+            pdf_read_precise
+            if Path(path).suffix.lower() == ".pdf"
+            else document_read_precise
+        )
+        raw = reader(
+            path=path,
+            mode=decision["effective_mode"],
+            include_content=include_content,
+            page_start=body.get("pageStart"),
+            page_end=body.get("pageEnd"),
+        )
+        result = json.loads(raw)
+        return {
+            "preferredMode": decision["preferred_mode"],
+            "requestedMode": decision["requested_mode"],
+            "effectiveMode": decision["effective_mode"],
+            "limited": decision["limited"],
+            "override": decision["override"],
+            "result": result,
+        }
+    except (ValueError, KeyError, ContractError, json.JSONDecodeError) as exc:
         raise _http_error(exc) from exc
 
 @router.get("/api/desk/study/artifacts/{artifact_id}")
