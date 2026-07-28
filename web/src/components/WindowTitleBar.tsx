@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Maximize2, Minus, Sparkles, X } from "lucide-react";
@@ -13,7 +12,6 @@ import { cn } from "../lib/cn";
 /** 与系统关闭/最小化/最大化同一行的顶栏；需 `tauri.conf.json` 中 `decorations: false`。 */
 export function WindowTitleBar() {
   const { t } = useI18n();
-  const location = useLocation();
   const inApp = isTauri();
   const [isMaximized, setIsMaximized] = useState(false);
 
@@ -65,16 +63,6 @@ export function WindowTitleBar() {
     void invoke("cmd_show_companion");
   };
 
-  const isChat = location.pathname === "/chat";
-  const isStudy = location.pathname.startsWith("/study");
-  const isStudio = location.pathname.startsWith("/studio");
-  const isSettings = location.pathname === "/settings";
-  const settingsLabel = t("chat.openSettings");
-  const navLinkClass = (active: boolean) =>
-    cn(
-      "kq-titlebar-link hermes-titlebar-nodrag no-underline transition",
-      active && "kq-titlebar-link-active",
-    );
 
   return (
     <div
@@ -106,39 +94,11 @@ export function WindowTitleBar() {
         </span>
       </div>
 
+      {/* 产品导航归 AppShell 的全局页眉（架构 §5.1）。这条是**窗口**标题栏：
+          品牌、缩到小娜、以及系统窗口控制——不再并列第二套一级目的地。 */}
       <div className="kq-titlebar-nav col-start-2 flex items-center justify-center gap-1 px-1">
-        <Link
-          to="/chat"
-          className={navLinkClass(isChat)}
-          title={t("chat.title")}
-        >
-          {t("chat.title")}
-        </Link>
-        {/* Study 与 Studio 是两个稳定业务空间；Chat 与设置是全局工具（架构 §5.5）。 */}
-        <Link
-          to="/study"
-          className={navLinkClass(isStudy)}
-          title={t("studio.studySpace")}
-        >
-          {t("studio.studySpace")}
-        </Link>
-        <Link
-          to="/studio"
-          className={navLinkClass(isStudio)}
-          title={t("studio.title")}
-        >
-          {t("studio.title")}
-        </Link>
-        <Link
-          to="/settings"
-          className={navLinkClass(isSettings)}
-          title={settingsLabel}
-        >
-          {settingsLabel}
-        </Link>
         {inApp && (
           <>
-            <div className="kq-titlebar-divider" aria-hidden />
             <button
               type="button"
               onClick={onShowCompanion}

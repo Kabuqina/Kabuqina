@@ -121,6 +121,131 @@
   --kq-inline-code-bg: rgba(155, 139, 181, 0.1);
 }
 
+/* ---------------------------------------------------------------------------
+   v0.5.0 canonical 产品令牌
+   真值：docs/superpowers/prototypes/2026-07-25-v0.5.0-product-canonical/src/styles.css
+
+   令牌名与原型逐字一致（--page / --ink / --paper / --desk / --purple / --manila …），
+   这样原型 CSS 可以逐段搬进来而不必改写变量引用。生产此前没有任何裸名自定义属性
+   （desk.css 用 --c-*，其余用 --kq-* / --hd-*），因此不会撞名。
+
+   上面那套 --kq-* 仍在设置页 / onboarding / companion 上服役，两套并存是过渡态。
+   改动这里之前先读原型 AGENTS.md：两个主题都不允许新增硬编码色值。
+   --------------------------------------------------------------------------- */
+:root {
+  --page: #E8E7EB;
+  --ink: #40354F;
+  --ink-strong: #4D3C60;
+  --ink-mid: #5F5367;
+  --ink-soft: #756983;
+  --purple: #6F4B86;
+  --purple-dark: #563A6D;
+  --purple-pale: #F2EBF6;
+  --purple-faint: #F8F3FA;
+  --purple-wash: #EEE3F2;
+  --purple-line: #D2C2D7;
+  --lavender: #A98CB9;
+  --paper: #FBF8F1;
+  --paper-strong: #FFFDF8;
+  --paper-soft: #FAF7F3;
+  --surface: #FFFFFF;
+  --white: var(--surface);
+  --wash: #EEE9E5;
+  --desk: #E9DFD0;
+  --desk-deep: #DDD0BF;
+  --desk-hi: #EFE9DD;
+  --desk-lo: #E4DACB;
+  /* 白天没有灯光落在桌面上：开灯才有暖斑，所以浅色主题这两个是空的。 */
+  --desk-glow: transparent;
+  --veil: rgba(64, 53, 79, 0.28);
+  --veil-strong: rgba(64, 53, 79, 0.42);
+  --frame-line: #A9A0AA;
+  --line: #D9CFCA;
+  --line-strong: #C8BAC2;
+  --line-warm: #DDD3CB;
+  --line-cool: #D5CBD1;
+  --line-faint: #EEE7E1;
+  --gray: #A49AA6;
+  --manila: #F5EAD8;
+  --manila-hover: #F0DFC5;
+  --manila-line: #DDD0BD;
+  --tan: #C78C70;
+  --brown-ink: #8D604C;
+  --lamp-glow: rgba(255, 193, 116, 0.8);
+  /* 灯亮着的那点暖色；两个主题同一个值，因为灯泡不随环境变色。 */
+  --lamp-lit: #E5A54B;
+  --warning: #A76545;
+  --warning-bg: #FBEDE2;
+  --danger: #873E35;
+  --danger-line: #B56A5F;
+  --danger-bg: #FFF8F6;
+  --success: #3F715B;
+  --success-strong: #355A49;
+  --success-line: #B5CABD;
+  --success-bg: #E9F3ED;
+  --info: #4D678C;
+  --info-ink: #52677E;
+  --info-line: #AABED5;
+  --info-bg: #E9EFF7;
+  --shadow: 0 10px 30px rgba(74, 56, 70, 0.12);
+  --shadow-soft: 0 4px 14px rgba(74, 56, 70, 0.09);
+}
+
+[data-theme="dark"] {
+  --page: #1D1A21;
+  --ink: #E8E2EC;
+  --ink-strong: #F0EAF5;
+  --ink-mid: #C9BFD1;
+  --ink-soft: #A89BB3;
+  --purple: #B795CC;
+  --purple-dark: #CEB3DE;
+  --purple-pale: #473A54;
+  /* 暗色下低明度会吃掉色相差，铅笔面必须比纸面明显更紫，否则铅笔/落墨分不开。 */
+  --purple-faint: #413352;
+  --purple-wash: #524360;
+  --purple-line: #635378;
+  --lavender: #86729B;
+  --paper: #322D36;
+  --paper-strong: #3A3440;
+  --paper-soft: #2B2731;
+  --surface: #403A4A;
+  --wash: #453E4D;
+  --desk: #33291F;
+  --desk-deep: #2A211A;
+  --desk-hi: #3A2F24;
+  --desk-lo: #2B2219;
+  --desk-glow: rgba(255, 193, 116, 0.13);
+  --veil: rgba(38, 33, 44, 0.82);
+  --veil-strong: rgba(46, 40, 52, 0.96);
+  --frame-line: #4E4657;
+  --line: #4C4550;
+  --line-strong: #5D5466;
+  --line-warm: #4A423D;
+  --line-cool: #544C5C;
+  --line-faint: #423B44;
+  --gray: #6F6678;
+  --manila: #493D2D;
+  --manila-hover: #544631;
+  --manila-line: #61503A;
+  --tan: #CF9A7C;
+  --brown-ink: #D9B494;
+  --warning: #D99A72;
+  --warning-bg: #46332A;
+  --danger: #E5A094;
+  --danger-line: #8A564D;
+  --danger-bg: #3E2A27;
+  --success: #8CC2A4;
+  --success-strong: #A5D6BC;
+  --success-line: #435948;
+  --success-bg: #253B30;
+  --info: #93B2D9;
+  --info-ink: #AAC3E0;
+  --info-line: #3D4E66;
+  --info-bg: #273243;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  --shadow-soft: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
 /* Branded text selection — default browser blue looks off-theme, especially in dark. */
 ::selection {
   background: var(--kq-color-primary-pale);

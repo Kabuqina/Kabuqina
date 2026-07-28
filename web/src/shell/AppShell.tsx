@@ -1,0 +1,138 @@
+// Copyright 2026 Kabuqina Contributors
+// SPDX-License-Identifier: Apache-2.0
+
+import { useCallback, useEffect, useState } from "react";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Activity, BookOpen, FolderOpen, LampDesk, MessageCircle, Settings as SettingsIcon } from "lucide-react";
+import { useI18n } from "../lib/i18n";
+import { getStoredThemeMode, resolveTheme, setThemeMode, type ResolvedTheme } from "../lib/ui-prefs";
+import { requestOpenActivity } from "./activityBridge";
+import "./appShell.css";
+
+/**
+ * 全局外壳（架构 §5.1，原型 `AppHeader`）。
+ *
+ * Study 与 Studio 是两个一级目的地；Chat 与 Settings 是工具，台灯是控制件。
+ * 能力目录与网关目的地已经从产品面退场，所以这里只有这几样。
+ *
+ * 桌面窗口自己的标题栏在更外层（`WindowTitleBar`），这一层只负责产品导航，
+ * 不重复画一条窗口控制条。
+ */
+
+type Surface = "study" | "studio" | "chat" | null;
+
+function surfaceOf(pathname: string): Surface {
+  if (pathname.startsWith("/study")) return "study";
+  if (pathname.startsWith("/studio")) return "studio";
+  if (pathname.startsWith("/chat")) return "chat";
+  return null;
+}
+
+/**
+ * 台灯是**开关**，不是三档选择器：桌上那盏灯只有开和关。
+ * 「跟随系统」仍然活着，但它属于设置页那面镜子——在这里点一下就等于
+ * 明确表态，所以从 system 出发时先解析当前实际是哪一档，再翻到另一档。
+ */
+function useLampTheme(): [ResolvedTheme, () => void] {
+  const [resolved, setResolved] = useState<ResolvedTheme>(() => resolveTheme(getStoredThemeMode()));
+
+  useEffect(() => {
+    const sync = () => setResolved(resolveTheme(getStoredThemeMode()));
+    // 设置页那面镜子改了主题，桌上的灯要跟着亮/灭。
+    window.addEventListener("storage", sync);
+    // 与 ui-prefs 同样的守卫：没有 matchMedia 的环境（测试宿主）不该让页眉崩掉。
+    const mq = window.matchMedia?.("(prefers-color-scheme: dark)");
+    mq?.addEventListener("change", sync);
+    return () => {
+      mq?.removeEventListener("change", sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
+
+  // 副作用不能塞进 state updater：StrictMode 下 updater 会跑两次，
+  // 结果是 DOM 翻了而灯没亮。从当前实际解析值算下一档，写完再同步 state。
+  const toggle = useCallback(() => {
+    const next: ResolvedTheme = resolveTheme(getStoredThemeMode()) === "dark" ? "light" : "dark";
+    setThemeMode(next);
+    setResolved(next);
+  }, []);
+
+  return [resolved, toggle];
+}
+
+export function AppShell() {
+  const { t } = useI18n();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const surface = surfaceOf(location.pathname);
+  const [theme, toggleLamp] = useLampTheme();
+
+  return (
+    <div className="kq-app-frame" data-surface={surface ?? undefined}>
+      <header className="kq-app-header">
+        <button className="kq-brand-lockup" type="button" onClick={() => navigate("/study")}>
+          <span className="kq-brand-mark" aria-hidden>K</span>
+          <span>{t("appShell.brand")}</span>
+        </button>
+
+        <nav className="kq-primary-nav" aria-label={t("appShell.primaryNav")}>
+          <button
+            type="button"
+            aria-current={surface === "study" ? "page" : undefined}
+            onClick={() => navigate("/study")}
+          >
+            <BookOpen aria-hidden size={18} />
+            {t("appShell.study")}
+          </button>
+          <button
+            type="button"
+            aria-current={surface === "studio" ? "page" : undefined}
+            onClick={() => navigate("/studio")}
+          >
+            <FolderOpen aria-hidden size={18} />
+            {t("appShell.studio")}
+          </button>
+        </nav>
+
+        <div className="kq-utility-nav">
+          <button
+            type="button"
+            aria-current={surface === "chat" ? "page" : undefined}
+            onClick={() => navigate("/chat")}
+          >
+            <MessageCircle aria-hidden size={18} />
+            <span>{t("appShell.chat")}</span>
+          </button>
+          {/* Activity 的跨域面板属于 S10；当前这颗按钮接到已有真实数据的
+              课程学习动态上，不在 Study 之外空转。 */}
+          <button
+            type="button"
+            onClick={() => {
+              if (surface !== "study") navigate("/study");
+              requestOpenActivity();
+            }}
+          >
+            <Activity aria-hidden size={18} />
+            <span>{t("appShell.activity")}</span>
+          </button>
+          <button
+            type="button"
+            className={`kq-lamp-toggle ${theme === "dark" ? "is-on" : ""}`}
+            aria-label={theme === "dark" ? t("appShell.lampOff") : t("appShell.lampOn")}
+            aria-pressed={theme === "dark"}
+            onClick={toggleLamp}
+          >
+            <LampDesk aria-hidden size={21} />
+          </button>
+          <button type="button" aria-label={t("appShell.settings")} onClick={() => navigate("/settings")}>
+            <SettingsIcon aria-hidden size={21} />
+          </button>
+        </div>
+      </header>
+
+      <div className="kq-app-surface">
+        <Outlet />
+      </div>
+    </div>
+  );
+}

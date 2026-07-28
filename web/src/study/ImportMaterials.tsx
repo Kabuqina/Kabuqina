@@ -25,6 +25,9 @@ type FileState = {
   limited?: boolean;
 };
 
+/** 读完之后 shell 还要接着说的两件事：读进了几份、有几份被压回了偏好档位。 */
+export type StudyImportResult = { paths: string[]; limited: number };
+
 function baseName(path: string): string {
   const parts = path.split(/[\\/]/);
   return parts[parts.length - 1] || path;
@@ -46,7 +49,7 @@ export function ImportMaterials({
   onImported,
 }: {
   onClose: () => void;
-  onImported?: (paths: string[]) => void;
+  onImported?: (result: StudyImportResult) => void;
 }) {
   const { t } = useI18n();
   const [files, setFiles] = useState<FileState[]>([]);
@@ -87,6 +90,9 @@ export function ImportMaterials({
     setBusy(true);
     setFailed(false);
     const done: string[] = [];
+    // 后端把档位压回偏好时要说出来（账本 B-2）。弹窗关掉之后这句话由 shell 接着说。
+    let limited = 0;
+    let anyFailed = false;
     for (const file of files) {
       if (file.status === "done") continue;
       setFiles((cur) => cur.map((f) => (f.path === file.path ? { ...f, status: "reading" } : f)));
@@ -98,6 +104,7 @@ export function ImportMaterials({
           ...(mode && heavier ? { overrideLimit: true } : {}),
         });
         done.push(file.path);
+        if (result.limited) limited += 1;
         setFiles((cur) =>
           cur.map((f) =>
             f.path === file.path
@@ -106,12 +113,18 @@ export function ImportMaterials({
           ),
         );
       } catch {
+        anyFailed = true;
         setFailed(true);
         setFiles((cur) => cur.map((f) => (f.path === file.path ? { ...f, status: "failed" } : f)));
       }
     }
     setBusy(false);
-    if (done.length) onImported?.(done);
+    if (!done.length) return;
+    onImported?.({ paths: done, limited });
+    // 读完就退出：提示落在学生返回的那一页上，不把他留在弹窗里自己关。
+    // 但有读失败的就留下——哪一份没读成功只有这张列表说得清，
+    // 关掉等于把失败悄悄咽了。
+    if (!anyFailed) onClose();
   };
 
   const pending = files.some((f) => f.status === "pending" || f.status === "failed");
@@ -202,9 +215,6 @@ export function ImportMaterials({
           </button>
         </div>
 
-        {files.filter((f) => f.status === "done").length >= 2 ? (
-          <p className="kq-studio-muted">{t("study.importNextAlignment")}</p>
-        ) : null}
       </section>
     </div>
   );

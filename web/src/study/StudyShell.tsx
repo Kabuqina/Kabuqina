@@ -16,6 +16,7 @@ import { useStudyRepository } from "./repositoryContext";
 import { studyPath, type StudyPageSlug } from "./routeModel";
 import { StudyLifecycleNav } from "./StudyLifecycleNav";
 import { StudyTopBar } from "./StudyTopBar";
+import { ImportMaterials, type StudyImportResult } from "./ImportMaterials";
 import { StudyPageOutlet } from "./pages/StudyPageOutlet";
 import { useStudyIa } from "./StudyIaContext";
 import { StudyDeskPage } from "./desk/StudyDeskPage";
@@ -37,6 +38,12 @@ export function StudyShell({ spaces, spaceId, page, onRevalidate, refreshing = f
   const [switching, setSwitching] = useState(false);
   const [switchError, setSwitchError] = useState(false);
   const [practiceDirty, setPracticeDirty] = useState(false);
+  const [importing, setImporting] = useState(false);
+  /**
+   * 导入弹窗读完就退出，提示落在学生返回的那一页上——所以「下一步是分课与目录」
+   * 这句话归 shell 管，不归弹窗管（弹窗那会儿已经关了）。
+   */
+  const [imported, setImported] = useState<StudyImportResult | null>(null);
 
   const confirmPracticeLeave = useCallback(async () => {
     if (!practiceDirty) return true;
@@ -126,8 +133,21 @@ export function StudyShell({ spaces, spaceId, page, onRevalidate, refreshing = f
             switchError={switchError}
             onSelectSpace={selectSpace}
             onNavigateAway={navigateAway}
+            onImport={() => setImporting(true)}
           />
           <StudyLifecycleNav spaceId={spaceId} currentPage={page} onNavigate={(nextPage) => navigateAway(studyPath(spaceId, nextPage))} />
+          {imported && imported.limited > 0 ? (
+            <p className="kq-study-refresh-status" role="status">{t("study.importLimitedSummary")}</p>
+          ) : null}
+          {imported && imported.paths.length >= 2 ? (
+            <p className="kq-study-refresh-status" role="status">{t("study.importNextAlignment")}</p>
+          ) : null}
+          {importing ? (
+            <ImportMaterials
+              onClose={() => setImporting(false)}
+              onImported={setImported}
+            />
+          ) : null}
           {refreshing ? <p className="kq-study-refresh-status" role="status">{t("study.refreshing")}</p> : null}
           {refreshFailed ? (
             <div className="kq-study-refresh-error" role="alert">
@@ -139,7 +159,7 @@ export function StudyShell({ spaces, spaceId, page, onRevalidate, refreshing = f
         </StudyDraftProvider>
       </>
     );
-  }, [navigate, navigateAway, onRevalidate, page, refreshFailed, refreshing, selectSpace, spaceId, spaces.spaces, switchError, switching, t]);
+  }, [imported, importing, navigateAway, onRevalidate, page, refreshFailed, refreshing, selectSpace, spaceId, spaces.spaces, switchError, switching, t]);
 
   return (
     <div

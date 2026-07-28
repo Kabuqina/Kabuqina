@@ -125,12 +125,10 @@ export function StudyDeskPage({
       currentPage="practice"
       onDirtyChange={onDirtyChange}
       onNavigatePage={navigatePage}
-      onOpenChat={() => onNavigateAway("/chat")}
       onOpenChatSession={(sessionId) => onNavigateAway("/chat", { openSessionId: sessionId })}
       onStartCourseChat={startCourseChat}
       onStartCreateChat={startCreateChat}
       onOpenActivity={() => navigatePage("evaluate")}
-      onOpenSettings={() => onNavigateAway("/settings")}
       onSelectSpace={onSelectSpace}
       onOpenMaterials={() => navigatePage("learn")}
       onNewBook={() => onNavigateAway("/chat", {

@@ -3,9 +3,10 @@
 
 import React, { lazy, Suspense, useEffect } from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { WindowTitleBar } from "./components/WindowTitleBar";
+import { AppShell } from "./shell/AppShell";
 import { ApprovalDialogHost } from "./components/ApprovalDialogHost";
 import { ConfirmDialogHost } from "./components/ConfirmDialogHost";
 import { DesktopDeliveryNotifier } from "./components/DesktopDeliveryNotifier";
@@ -75,11 +76,11 @@ function revealMainWindowAfterShellPaint() {
 }
 
 function MainWindowContent() {
-  const location = useLocation();
-  const deskOwnsChrome = /^\/study\/[^/]+\/practice\/?$/.test(location.pathname);
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {deskOwnsChrome ? null : <WindowTitleBar />}
+      {/* 窗口控制条与产品导航是两件事：前者归 WindowTitleBar，
+          后者归 AppShell 的全局页眉（书桌不再自带一条）。 */}
+      <WindowTitleBar />
       <div className="min-h-0 flex-1 overflow-hidden">
         <Routes>
           <Route path="/" element={<Splash />} />
@@ -97,15 +98,19 @@ function MainWindowContent() {
           <Route path="/settings/feishu" element={<LegacyPlatformTombstonePage platform="Feishu / Lark" />} />
           <Route path="/settings/wecom" element={<LegacyPlatformTombstonePage platform="WeCom" />} />
           <Route path="/settings/cron" element={<ScheduledTasksPage />} />
-          <Route path="/chat" element={<ChatPage />} />
-          <Route
-            path="/study/*"
-            element={<Suspense fallback={<BootPill />}><StudyRoute /></Suspense>}
-          />
-          <Route
-            path="/studio/*"
-            element={<Suspense fallback={<BootPill />}><StudioRoute /></Suspense>}
-          />
+          {/* Study / Studio / Chat 共用全局外壳：一级目的地、台灯与设置常驻，
+              各页面不再自己画一条顶栏（架构 §5.1）。 */}
+          <Route element={<AppShell />}>
+            <Route path="/chat" element={<ChatPage />} />
+            <Route
+              path="/study/*"
+              element={<Suspense fallback={<BootPill />}><StudyRoute /></Suspense>}
+            />
+            <Route
+              path="/studio/*"
+              element={<Suspense fallback={<BootPill />}><StudioRoute /></Suspense>}
+            />
+          </Route>
           {DeskScenePreview ? (
             <Route
               path="/__dev/desk"

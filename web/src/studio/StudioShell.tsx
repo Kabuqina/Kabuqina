@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, FolderOpen, MessageCircle, Plus, Trash2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Plus, Trash2 } from "lucide-react";
 import { useI18n } from "../lib/i18n";
 import { GatherFromStudy } from "./GatherFromStudy";
 import { buildStudioChatHandoff, persistPendingStudioHandoff } from "../lib/studioChatHandoff";
@@ -44,23 +44,6 @@ export function StudioShell({
 
   return (
     <div className="kq-studio-shell">
-      <header className="kq-study-topbar">
-        <Link className="kq-study-icon-link" to="/chat" aria-label={t("studio.backToChat")}>
-          <ArrowLeft aria-hidden />
-        </Link>
-        <span className="kq-studio-title">{t("studio.title")}</span>
-        <div className="kq-study-topbar-actions">
-          <Link className="kq-study-top-action" to="/study">
-            <FolderOpen aria-hidden />
-            <span>{t("studio.toStudy")}</span>
-          </Link>
-          <Link className="kq-study-top-action" to="/chat">
-            <MessageCircle aria-hidden />
-            <span>{t("studio.askNana")}</span>
-          </Link>
-        </div>
-      </header>
-
       <div className="kq-studio-body">
         {/* 左：项目册 */}
         <nav className="kq-studio-rail" aria-label={t("studio.projectsLabel")}>

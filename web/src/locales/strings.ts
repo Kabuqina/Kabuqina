@@ -34,6 +34,17 @@ export const MESSAGES = {
     boot: {
       starting: "启动中",
     },
+    appShell: {
+      brand: "卡布奇娜",
+      primaryNav: "一级目的地",
+      study: "课程",
+      studio: "创作",
+      chat: "对话",
+      activity: "动态",
+      settings: "设置",
+      lampOn: "开台灯，进入夜晚",
+      lampOff: "台灯已开，切换回白天",
+    },
     study: {
       loading: "正在打开学习空间…",
       refreshing: "正在同步学习空间…",
@@ -221,6 +232,7 @@ export const MESSAGES = {
       importStart: "开始读取",
       importStartHeavy: "确认并开始（会慢）",
       importHeavyWarning: "这次比你的默认档位更细，要在本机跑模型，厚一点的书可能要几分钟。确认后才会开始。",
+      importLimitedSummary: "有材料按你设置里的默认档位读的，没有跑更重的精读。要改在设置 → 高级里调。",
       importNextAlignment: "读入了两份以上，小娜会先提出怎么分课、以哪一本为目录，等你确认。",
       alignLead: "小娜看了你导入的这些材料，提出下面的分课与对应。每一条都能核对：点开两边看对不对。确认之后才生效。",
       alignSkeleton: "目录来自",
@@ -1058,6 +1070,17 @@ export const MESSAGES = {
     boot: {
       starting: "Starting…",
     },
+    appShell: {
+      brand: "Kabuqina",
+      primaryNav: "Primary destinations",
+      study: "Study",
+      studio: "Studio",
+      chat: "Chat",
+      activity: "Activity",
+      settings: "Settings",
+      lampOn: "Turn the lamp on for night",
+      lampOff: "Lamp is on — switch back to day",
+    },
     study: {
       loading: "Opening your study space…",
       refreshing: "Syncing your study space…",
@@ -1245,6 +1268,7 @@ export const MESSAGES = {
         importStart: "Start reading",
         importStartHeavy: "Confirm and start (slow)",
         importHeavyWarning: "This is closer than your default and runs models on this machine. A thick book can take minutes. Nothing starts until you confirm.",
+        importLimitedSummary: "Some materials were read at your default setting rather than the heavier pass. Change it in Settings → Advanced.",
         importNextAlignment: "With two or more read in, Nana will propose how to group them and which one becomes the outline — for you to confirm.",
         alignLead: "Nana read the materials you imported and proposes the grouping and correspondences below. Every line is checkable — open both sides and see. Nothing takes effect until you confirm.",
         alignSkeleton: "Outline from",

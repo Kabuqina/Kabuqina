@@ -36,12 +36,13 @@ function seed(preferred: "auto" | "precise" | "math" = "auto") {
 
 function renderImport() {
   const onImported = vi.fn();
+  const onClose = vi.fn();
   render(
     <I18nProvider>
-      <ImportMaterials onClose={vi.fn()} onImported={onImported} />
+      <ImportMaterials onClose={onClose} onImported={onImported} />
     </I18nProvider>,
   );
-  return { onImported };
+  return { onImported, onClose };
 }
 
 async function pickTwo(user: ReturnType<typeof userEvent.setup>) {
@@ -132,12 +133,50 @@ describe("ImportMaterials", () => {
     expect(screen.getByText("这份没读成功")).toBeInTheDocument();
   });
 
-  it("points at the alignment step once two are in", async () => {
+  // 读完就退出，「下一步是分课与目录」那句话由 StudyShell 落在学生返回的那一页上。
+  it("closes and reports what was read once everything succeeds", async () => {
     const user = userEvent.setup();
     seed();
-    renderImport();
+    const { onImported, onClose } = renderImport();
     await pickTwo(user);
     await user.click(screen.getByRole("button", { name: /开始读取/ }));
-    expect(await screen.findByText(/小娜会先提出怎么分课/)).toBeInTheDocument();
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(onImported).toHaveBeenCalledWith({
+      paths: ["C:\\books\\高等数学.pdf", "C:\\books\\习题集.pdf"],
+      limited: 0,
+    });
+  });
+
+  it("reports how many reads the backend capped at the preference", async () => {
+    const user = userEvent.setup();
+    seed("auto");
+    mocks.read.mockResolvedValue({
+      preferredMode: "auto", requestedMode: "math", effectiveMode: "auto",
+      limited: true, override: false, result: {},
+    });
+    const { onImported } = renderImport();
+    await pickTwo(user);
+    await user.click(screen.getByRole("button", { name: /开始读取/ }));
+    await waitFor(() => expect(onImported).toHaveBeenCalled());
+    expect(onImported.mock.calls[0][0]).toMatchObject({ limited: 2 });
+  });
+
+  // 有读失败的就别关：哪一份没读成功只有这张列表说得清。
+  it("stays open when any file failed, even though others succeeded", async () => {
+    const user = userEvent.setup();
+    seed();
+    mocks.read
+      .mockResolvedValueOnce({
+        preferredMode: "auto", requestedMode: "auto", effectiveMode: "auto",
+        limited: false, override: false, result: {},
+      })
+      .mockRejectedValueOnce(new Error("boom"));
+    const { onClose } = renderImport();
+    await pickTwo(user);
+    await user.click(screen.getByRole("button", { name: /开始读取/ }));
+
+    expect(await screen.findByText("这份没读成功")).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

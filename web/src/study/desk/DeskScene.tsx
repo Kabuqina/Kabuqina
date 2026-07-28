@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { StudyPageSlug } from "../routeModel";
 import type { DeskAdapter } from "./deskAdapter";
 import { defaultDeskArtAssets, type DeskArtAssets } from "./artAssets";
-import { DeskChrome } from "./DeskChrome";
+import { onOpenActivityRequest } from "../../shell/activityBridge";
 import { DeskActivityPanel } from "./DeskActivityPanel";
 import { DeskCardReview, type DeskCardGrade } from "./DeskCardReview";
 import { DeskCup } from "./DeskCup";
@@ -67,12 +67,10 @@ export interface DeskSceneProps {
   art?: Partial<DeskArtAssets>;
   currentPage?: StudyPageSlug;
   onNavigatePage?: (page: StudyPageSlug) => void;
-  onOpenChat?: () => void;
   onOpenChatSession?: (sessionId: string) => void;
   onStartCourseChat?: (request: DeskCourseChatRequest) => void;
   onStartCreateChat?: (request: DeskCreateChatRequest) => void;
   onOpenActivity?: () => void;
-  onOpenSettings?: () => void;
   onSelectSpace?: (spaceId: string) => void;
   onOpenMaterials?: () => void;
   onReviewCards?: () => void;
@@ -87,12 +85,10 @@ export default function DeskScene({
   art,
   currentPage = "practice",
   onNavigatePage,
-  onOpenChat,
   onOpenChatSession,
   onStartCourseChat,
   onStartCreateChat,
   onOpenActivity,
-  onOpenSettings,
   onSelectSpace,
   onOpenMaterials,
   onReviewCards,
@@ -327,6 +323,9 @@ export default function DeskScene({
     refreshActivities();
   }, [announce, refreshActivities]);
 
+  // 入口搬到了全局页眉（架构 §5.4）；书桌只负责响应。
+  useEffect(() => onOpenActivityRequest(openActivityPanel), [openActivityPanel]);
+
   const openCardReview = useCallback(() => {
     if (!data?.dueCards.length || data.cardsUnavailable) {
       announce(data?.cardsUnavailable ? "复习卡片暂时无法读取。" : "今天没有到期卡片。");
@@ -469,21 +468,10 @@ export default function DeskScene({
     focusAfterPaint(taskSurfaceRef);
   }, [announce, clearSaveTimer, data, deskAdapter, focusAfterPaint, stepIndex]);
 
-  const chrome = (
-    <DeskChrome
-      art={icons}
-      onFutureFeature={announceFutureFeature}
-      onOpenChat={onOpenChat}
-      onOpenActivity={openActivityPanel}
-      onOpenSettings={onOpenSettings}
-    />
-  );
-
   if (!data) {
     return (
       <div className="kq-desk" data-density="overview">
-        {chrome}
-        <div className="kd-canvas">
+          <div className="kd-canvas">
           <main className="kd-desk kd-load-layout">
             <section className="kd-load-card" role={loadError ? "alert" : "status"}>
               <p className="kd-page-kicker">学习书桌</p>
@@ -538,8 +526,7 @@ export default function DeskScene({
   if (invokeOpen) {
     return (
       <div className="kq-desk" data-density="focused">
-        {chrome}
-        <div className="kd-canvas">
+          <div className="kd-canvas">
           <DeskTutorInvoke
             courseName={data.course.name}
             step={step}
@@ -563,8 +550,7 @@ export default function DeskScene({
   if (panel === "work") {
     return (
       <div className="kq-desk" data-density="focused">
-        {chrome}
-        <div className="kd-canvas">
+          <div className="kd-canvas">
           <DeskWorkFolder
             courseName={data.course.name}
             materials={data.materials}
@@ -585,8 +571,7 @@ export default function DeskScene({
   if (panel === "activity") {
     return (
       <div className="kq-desk" data-density="focused">
-        {chrome}
-        <div className="kd-canvas">
+          <div className="kd-canvas">
           <DeskActivityPanel
             activities={data.activities}
             unavailable={data.activitiesUnavailable}
@@ -610,8 +595,7 @@ export default function DeskScene({
   if (panel === "cards" && reviewCardData) {
     return (
       <div className="kq-desk" data-density="focused">
-        {chrome}
-        <div className="kd-canvas">
+          <div className="kd-canvas">
           <DeskCardReview
             card={reviewCardData}
             index={cardIndex}
@@ -629,7 +613,6 @@ export default function DeskScene({
 
   return (
     <div className="kq-desk" data-density={density}>
-      {chrome}
       <div className="kd-canvas">
         <main className="kd-desk">
           <section className="kd-center-stage" aria-label="当前课程笔记本">
