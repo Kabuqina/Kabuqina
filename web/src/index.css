@@ -2543,3 +2543,10 @@ html.kq-companion-window #root {
   .kq-align-primary:disabled,
   .kq-align-secondary:disabled { cursor: not-allowed; opacity: 0.5; }
 }
+
+@layer components {
+  .kq-import-row { display: grid; gap: 0.1rem; }
+  .kq-import-row strong { font-size: 0.875rem; color: var(--kq-color-strong); }
+  .kq-spin { animation: kq-spin 1s linear infinite; }
+  @keyframes kq-spin { to { transform: rotate(360deg); } }
+}

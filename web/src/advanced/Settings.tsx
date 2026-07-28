@@ -13,6 +13,7 @@ import { useFontSize, useThemeMode } from "../lib/ui-prefs";
 import { SettingsDisplay } from "./settings/SettingsDisplay";
 import { SettingsLearningData, SettingsLearningMigrations } from "./settings/SettingsLearningData";
 import { SettingsMaterialPrivacy } from "./settings/SettingsMaterialPrivacy";
+import { SettingsImportReadMode, SettingsReviewLimits } from "./settings/SettingsStudyPreferences";
 import { SettingsSharedPrefs } from "./settings/SettingsSharedPrefs";
 import { SettingsLoadPackages } from "./settings/SettingsLoadPackages";
 import { SettingsLlmConfig } from "./settings/SettingsLlmConfig";
@@ -144,6 +145,8 @@ export function Settings() {
               <SettingsMaterialPrivacy />
               {/* 学习证据是学生自己的东西，取回与销毁的入口跟着他，不藏在高级模式后面。 */}
               <SettingsLearningData />
+              {/* 上限是保护不是成就——不显示连续天数或完成率（账本 B-3 红线）。 */}
+              <SettingsReviewLimits />
               <SettingsUpdate />
             </>
           )}
@@ -162,6 +165,7 @@ export function Settings() {
           {tab === "advanced" && (
             <>
               <SettingsLegacyChannels />
+              <SettingsImportReadMode />
               <SettingsLoadPackages />
               {/* migration_key 是内部对象名，只在高级模式之后出现。 */}
               <SettingsLearningMigrations />
