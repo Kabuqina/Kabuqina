@@ -28,12 +28,13 @@ export function MaterialAlignmentReview({
   envelope,
   onConfirm,
   onReject,
-  busy,
+  busy = false,
 }: {
   envelope: unknown;
-  onConfirm: () => void;
-  onReject: () => void;
-  busy: boolean;
+  /** 省略时不渲染动作行——宿主（如草稿箱）已经有自己的确认/拒绝按钮。 */
+  onConfirm?: () => void;
+  onReject?: () => void;
+  busy?: boolean;
 }) {
   const { t } = useI18n();
   const payload = readMaterialAlignment(envelope);
@@ -73,14 +74,20 @@ export function MaterialAlignmentReview({
         </section>
       ) : null}
 
-      <div className="kq-align-actions">
-        <button type="button" className="kq-align-primary" onClick={onConfirm} disabled={busy}>
-          {t("study.alignConfirm")}
-        </button>
-        <button type="button" className="kq-align-secondary" onClick={onReject} disabled={busy}>
-          {t("study.alignReject")}
-        </button>
-      </div>
+      {onConfirm || onReject ? (
+        <div className="kq-align-actions">
+          {onConfirm ? (
+            <button type="button" className="kq-align-primary" onClick={onConfirm} disabled={busy}>
+              {t("study.alignConfirm")}
+            </button>
+          ) : null}
+          {onReject ? (
+            <button type="button" className="kq-align-secondary" onClick={onReject} disabled={busy}>
+              {t("study.alignReject")}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       <p className="kq-study-muted">{t("study.alignConfirmNote")}</p>
     </div>
   );

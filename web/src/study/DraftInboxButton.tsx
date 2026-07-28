@@ -18,6 +18,7 @@ function pageForKind(kind: string): StudyPageSlug | null {
   if (kind === "student_state") return "flyleaf";
   if (kind === "learning_plan") return "plan";
   if (kind === "knowledge_base" || kind === "resource_pack" || kind === "tutoring_note") return "learn";
+  if (kind === "material_alignment") return "learn";
   if (kind === "flashcard_deck" || kind === "quiz") return "practice";
   if (kind === "evaluation") return "evaluate";
   return null;

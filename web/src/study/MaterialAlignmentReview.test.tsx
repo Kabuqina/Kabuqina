@@ -122,6 +122,19 @@ describe("MaterialAlignmentReview", () => {
     expect(onReject).toHaveBeenCalled();
   });
 
+  it("hides its own action row when the host supplies the buttons", () => {
+    // 草稿箱已有确认/拒绝按钮；这里再渲染一套会出现两组同义按钮。
+    render(
+      <I18nProvider>
+        <MaterialAlignmentReview envelope={{ payload: PAYLOAD }} />
+      </I18nProvider>,
+    );
+    expect(screen.queryByRole("button", { name: "就按这个来" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "不对，重来" })).not.toBeInTheDocument();
+    // 但"确认的是什么"这句话仍然要在。
+    expect(screen.getByText(/确认的是这批分课与对应关系本身/)).toBeInTheDocument();
+  });
+
   it("says so rather than rendering half a proposal", () => {
     renderReview({ payload: { schema_version: 1, materials: [], course_groups: [] } });
     expect(screen.getByRole("alert")).toHaveTextContent("读不出这份对齐提案");
