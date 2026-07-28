@@ -1,14 +1,24 @@
 # Design QA · Kabuqina v0.5.0 Study / Studio 产品重构
 
+> **Current canonical baseline · 2026-07-28.** This is a living QA ledger, not a
+> screenshot catalog. Read evidence in this order: (1) `AGENTS.md` plus the product
+> architecture and materiality vocabulary, (2) current `src/App.jsx` and
+> `src/styles.css`, (3) the latest recorded runtime verification (Iteration 18), and
+> only then (4) older screenshots and comparison sheets. Screenshots that show
+> prominent Chat scope tabs, a Study-side “send to Studio” action, the removed
+> evaluate-page activity log, or a `390 × 844` phone viewport are **historical
+> evidence**, not the v0.5.0 implementation target. They must not be used as visual
+> source of truth without a fresh capture from the current prototype source.
+
 ## Evidence
 
 - Product architecture truth:
   - `D:\project\Kabuqina\docs\superpowers\plans\2026-07-25-v0.5.0-study-studio-product-architecture.md`
-- Frozen visual truth:
+- Frozen visual truth (historical visual baseline; later product decisions override it):
   - `D:\project\Kabuqina\docs\superpowers\prototypes\2026-07-23-v0.5.0-desk-canonical.html`
   - `D:\project\Kabuqina\docs\superpowers\prototypes\2026-07-25-v0.5.0-product-canonical\qa\source-reference-wide.png`
   - `D:\project\Kabuqina\docs\superpowers\prototypes\2026-07-25-v0.5.0-product-canonical\qa\implementation-study-wide.png`
-- Rendered implementation:
+- Rendered implementation (historical captures from the iteration named in each file):
   - `http://127.0.0.1:4174/`
   - `D:\project\Kabuqina\docs\superpowers\prototypes\2026-07-25-v0.5.0-product-canonical\qa\implementation-study-flyleaf-wide.png`
   - `D:\project\Kabuqina\docs\superpowers\prototypes\2026-07-25-v0.5.0-product-canonical\qa\implementation-study-plan-wide.png`
@@ -30,7 +40,7 @@
   - `D:\project\Kabuqina\docs\superpowers\prototypes\2026-07-25-v0.5.0-product-canonical\qa\implementation-studio-chat-wide.png`
   - `D:\project\Kabuqina\docs\superpowers\prototypes\2026-07-25-v0.5.0-product-canonical\qa\implementation-studio-narrow.png`
   - `D:\project\Kabuqina\docs\superpowers\prototypes\2026-07-25-v0.5.0-product-canonical\qa\implementation-studio-narrow-boundary.png`
-- Combined comparison:
+- Combined comparison (historical; do not infer current interaction structure from it):
   - `D:\project\Kabuqina\docs\superpowers\prototypes\2026-07-25-v0.5.0-product-canonical\qa\comparison-study-lifecycle.html`
   - `D:\project\Kabuqina\docs\superpowers\prototypes\2026-07-25-v0.5.0-product-canonical\qa\comparison-study-lifecycle.png`
   - `D:\project\Kabuqina\docs\superpowers\prototypes\2026-07-25-v0.5.0-product-canonical\qa\comparison-chat-minimal-studio-cup.html`
@@ -50,10 +60,10 @@
 > architecture doc's wording (「窄窗」, not 移动端) already said so.** The `≤ 560px` breakpoint
 > was unreachable and has been deleted; `≤ 860px` now serves the real 720–860 band.
 
-- Desktop judgment uses the default in-app browser viewport at device scale factor `1`; the product canvas remains capped at the prototype’s `1280 px` logical width.
-- Responsive judgment uses an explicit `390 × 844` CSS viewport at device scale factor `1`.
+- Wide review uses `1280 × 900` at device scale factor `1`; the production shell defaults to `1100 × 760`.
+- Narrow review uses the real minimum desktop window, `720 × 520`, at device scale factor `1`.
 - The frozen Study desk is the visual baseline. Prototype journey controls and browser scrollbars are surrounding review evidence, not part of the product shell.
-- Wide screenshots compare the same paper, desk, purple accent, border, shadow, type, and icon language. Narrow evidence separately confirms the lower SourceSnapshot and write-boundary rail.
+- Existing `390 × 844` images only document earlier experiments. They do not prove responsive behavior for a reachable Kabuqina window.
 
 ## Product states checked
 
@@ -61,7 +71,7 @@
 - Study plan: active plan, resumable bookmark, completion state, and skip state.
 - Study learn: traceable concept, local course resources, tutoring-note review boundary, and no grading.
 - Study practice: current question, answer draft, check feedback, course Chat handoff, and dirty-leave protection.
-- Study evaluate: bounded assessment, next adjustment, wrongbook retry, source return, and read-only activity log.
+- Study evaluate: bounded assessment, next adjustment, wrongbook retry, and source return; the duplicate read-only activity log is removed.
 - Studio empty: Project is the container; the entry point is an expression goal rather than a file format.
 - Studio connected: Project Brief, audience, goal, undecided format, current stage, SourceSnapshot, and write boundary.
 - Course Chat: bound course, source provenance, and exact return location.
@@ -73,19 +83,23 @@
 
 ## Findings
 
-Iterations 1–4 closed with no remaining P0/P1/P2 findings for their scope. Iteration 5
-(unified-history Chat + Nana context panel) fixed a blocking styling gap and is awaiting
-rebuild + browser re-verification; see the iteration log.
+Iterations 1–18 below are an ordered decision and verification history. “Passed” means
+passed for that iteration's then-current scope; it does not revive UI later removed by a
+newer iteration. Iteration 18 is the current recorded verification floor: `720 × 520`,
+wide desktop, build, and Sites packaging passed. Fresh current-source screenshots for
+the unified-history Chat, both Nana panels, and both lamp themes are still required
+before claiming final visual sign-off.
 
 - Information architecture: Study and Studio are the two business domains. Chat and Activity are cross-domain utility/state layers, not peer content containers.
+- Shell hierarchy: Study and Studio are the primary destinations; Chat and Activity are utilities; the desk lamp and Settings are controls. Capability and gateway destinations are absent from the canonical product surface.
 - Domain semantics: Study owns input, internalization, learning state, and learning evidence. Studio owns output, expression, Projects, versions, and deliverables.
-- Cross-domain connection: Study hands selected sources to Studio through an explicit, reviewed, read-only `SourceSnapshot`; Studio never infers an implicit current course.
+- Cross-domain connection: Studio explicitly pulls selected Study sources through a reviewed, read-only `SourceSnapshot`; Study and course Chat have no outbound Studio action. Free Chat is the only explicit send-to-Studio exception.
 - Studio boundary: the prototype deliberately stops at overall layout, Project container, Brief, sources, stage, and write boundary. It does not pretend that Studio is a PPT generator or prematurely freeze its editor/canvas/tool model.
 - Fonts and typography: Segoe UI / Microsoft YaHei stack, purple hierarchy, wrapping, and label density remain consistent with the frozen Study source.
 - Spacing and materials: the warm desk gradient, ivory paper, compact header, book/project rails, central work surface, borders, radii, and shadows reuse the existing visual system.
 - Colors and icons: Studio uses the established purple family rather than introducing a new domain color. Functional icons remain Lucide; there are no emoji, placeholder illustrations, or custom icon drawings.
 - Copy: “input / output”, Project, SourceSnapshot, current scope, return location, and write boundary are explicit; simulated backend behavior remains honestly labeled.
-- Responsiveness: at `390 × 844`, Study summary cards, wrongbook rows, and logs collapse to one column while the five notebook tabs stay horizontally reachable; Studio moves SourceSnapshot and the write boundary below the Project workspace. Neither domain introduces horizontal page overflow.
+- Responsiveness: at the reachable `720 × 520` minimum, Study and Chat keep their primary actions in view, the material reader stays beside the notebook, and Studio remains vertically scrollable without horizontal overflow.
 - Chat density: removing both side rails and card-like assistant messages gives Chat materially more negative space than Study or Studio without hiding scope, provenance, return, save, or handoff semantics.
 - Accessibility: primary controls use semantic buttons, dialog names, labelled inputs, visible focus treatment, practical targets, and reduced-motion support.
 
@@ -129,7 +143,7 @@ rebuild + browser re-verification; see the iteration log.
   - Post-fix evidence: `qa/implementation-chat-minimal-course-wide.png`, `qa/implementation-chat-minimal-narrow.png`.
 - Final scope controls measure `40 px` high, all three remain reachable, and no horizontal page overflow remains.
 
-### Iteration 5 — unified-history Chat + Nana context panel (styles landed, re-QA pending)
+### Iteration 5 — unified-history Chat + Nana context panel (historical checkpoint)
 
 - Direction change after iteration 4: per the revised architecture (§2.3) and AGENTS.md, full
   Chat must not present ordinary / course / Studio as parallel scope tabs. The fifth-generation
@@ -172,7 +186,7 @@ rebuild + browser re-verification; see the iteration log.
   and both Nana panel states (the review browser pane was not compositing frames, so screenshots
   could not be taken; geometry was verified numerically instead).
 
-### Iteration 6 — desk lamp / dual-theme tokens (implementation landed, owner walkthrough pending)
+### Iteration 6 — desk lamp / dual-theme tokens (historical checkpoint)
 
 - Owner direction: materiality guides design (not deferred to art); the desk lamp from the
   2026-07-07 notebook-ia prototype is confirmed as the light/dark switch.
@@ -530,13 +544,13 @@ rebuild + browser re-verification; see the iteration log.
 - J2: Study → course Chat → exact return to the original answer and learning position.
 - Five-page Study navigation: flyleaf activation, plan completion/skip, learning-to-practice handoff, dirty-practice leave confirmation, and wrongbook retry.
 - J3: general Chat → reviewed course draft → Study activation.
-- J4: Study source selection → SourceSnapshot review → Studio Project → Studio Chat.
+- J4: Studio initiates “从 Study 取素材” → SourceSnapshot review → Studio Project → Studio Chat.
 - J5: restart recovery offers both the Study position and Studio Project.
-- Chat-to-Studio handoff uses the same reviewed SourceSnapshot contract.
+- Free-Chat-to-Studio handoff uses the same reviewed SourceSnapshot contract; course Chat has no outbound Studio action.
 - Studio lower-right Nana anchor → Studio-scoped minimal Chat.
-- Minimal Chat scope switching preserves ordinary save/handoff actions, course exact return, and Studio write boundaries.
+- Unified Chat history switching preserves free-chat save/handoff actions, course exact return, and Studio write boundaries without prominent scope tabs.
 - Escape closes open modal states.
-- Browser walkthrough after the redesign: no console errors.
+- The recorded browser walkthrough after the redesign had no console errors; a fresh current-source capture set is still pending.
 - `npm run build`: passed.
 - `npm run test:sites`: passed.
 
@@ -571,6 +585,8 @@ rebuild + browser re-verification; see the iteration log.
 - [P3] Purge the now-dead CSS left behind by the removed legacy-J4 modals (`folder-tabs`,
   `create-flow`, `generation-card`, `result-*`, `activity-timeline`, etc.).
 
-final result: iteration 5 passed build, packaging tests, and live walkthrough (QA captures
-pending); iteration 6 (lamp + dual-theme tokens) implemented, awaiting owner walkthrough,
-rebuild, and captures
+current result · 2026-07-28: the canonical prototype source contains Iterations 1–18.
+Iteration 18 records passing wide desktop and `720 × 520` verification plus `npm run build`
+and `npm run test:sites` (4/4). Earlier screenshots remain useful as historical visual
+evidence, but the current source still needs a refreshed wide/narrow capture set before
+final visual sign-off.
