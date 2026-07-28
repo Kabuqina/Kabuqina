@@ -104,6 +104,30 @@ def test_project_and_brief_survive_store_restart(studio_client):
     assert listed.json()["projects"][0]["brief"].startswith("Explain limits")
 
 
+def test_delete_project_detaches_scope_without_deleting_chat_history(studio_client):
+    client, _learning_db, _studio_db = studio_client
+    project = _create_project(client)
+
+    deleted = client.delete(
+        f"/api/desk/studio/projects/{project['id']}", headers=_headers()
+    )
+    assert deleted.status_code == 200
+    assert deleted.json() == {
+        "ok": True,
+        "projectId": project["id"],
+        "detachedSessionId": f"studio:{project['id']}",
+        "chatHistoryDeleted": False,
+    }
+    assert client.get(
+        "/api/desk/studio/projects", headers=_headers()
+    ).json() == {"projects": []}
+
+    missing = client.delete(
+        f"/api/desk/studio/projects/{project['id']}", headers=_headers()
+    )
+    assert missing.status_code == 404
+
+
 def test_gather_creates_read_only_study_snapshot(studio_client):
     client, learning_db, _studio_db = studio_client
     artifact_id = _seed_active_artifact(learning_db)

@@ -94,6 +94,59 @@ def _seed_quiz_draft(db_path: Path) -> str:
         store.close()
 
 
+def _material_alignment_payload() -> dict:
+    return {
+        "schema_version": 1,
+        "batch_id": "batch-route",
+        "materials": [
+            {
+                "material_id": "book",
+                "title": "Book",
+                "source_ref": "read:book",
+                "structure": [
+                    {"section_id": "s1", "title": "Limits", "locator": "§1"}
+                ],
+            },
+            {
+                "material_id": "exercises",
+                "title": "Exercises",
+                "source_ref": "read:exercises",
+                "structure": [],
+            },
+        ],
+        "course_groups": [
+            {
+                "group_id": "group-1",
+                "proposed_title": "Calculus",
+                "rationale": "Both materials concern calculus.",
+                "material_ids": ["book", "exercises"],
+                "skeleton": {
+                    "material_id": "book",
+                    "reason": "It has a real chapter structure.",
+                    "role": "explanation",
+                    "role_reason": "It explains the course.",
+                },
+                "attachments": [
+                    {
+                        "material_id": "exercises",
+                        "role": "practice",
+                        "role_reason": "It contains exercises.",
+                        "mappings": [
+                            {
+                                "source_locator": "p.41",
+                                "target_section_id": "s1",
+                                "reason": "The page practices the skeleton section.",
+                            }
+                        ],
+                        "unaligned": [],
+                    }
+                ],
+            }
+        ],
+        "ungrouped": [],
+    }
+
+
 def test_space_routes_create_list_and_select(study_client):
     client, _db_path = study_client
 
@@ -374,6 +427,40 @@ def test_m5_artifact_requires_semantic_approval_before_activation(study_client):
         f"/api/desk/study/artifacts/{artifact_id}/source-audit?space_id=s1", headers=_headers()
     )
     assert audit.json() == {"artifact_id": artifact_id, "source_refs": []}
+
+
+def test_material_alignment_uses_semantic_review_and_trusted_activation(study_client):
+    client, db_path = study_client
+    store = LearningStore(db_path=db_path)
+    try:
+        ctx = LearningExecutionContext(store, owner_id=OWNER)
+        ctx.create_space(title="Calculus", space_id="s1")
+        artifact_id = OutputWriter(ctx).write_artifact(
+            kind="material_alignment",
+            title="Material alignment",
+            payload=_material_alignment_payload(),
+        )["artifact_id"]
+    finally:
+        store.close()
+
+    blocked = client.post(
+        f"/api/desk/study/artifacts/{artifact_id}/activate", headers=_headers()
+    )
+    assert blocked.status_code == 400
+    assert "semantic review" in blocked.json()["detail"]["message"]
+
+    with patch("study_semantic_reviewer.review_artifact_with_model", return_value=True):
+        reviewed = client.post(
+            f"/api/desk/study/artifacts/{artifact_id}/semantic-review",
+            json={"space_id": "s1"},
+            headers=_headers(),
+        )
+    assert reviewed.json()["status"] == "passed"
+    activated = client.post(
+        f"/api/desk/study/artifacts/{artifact_id}/activate", headers=_headers()
+    )
+    assert activated.status_code == 200
+    assert activated.json() == {"artifact_id": artifact_id, "status": "active"}
 
 
 def test_m5_audit_and_review_are_scoped_to_url_space(study_client):

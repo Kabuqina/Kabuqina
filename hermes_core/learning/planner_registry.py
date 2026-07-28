@@ -48,7 +48,17 @@ def build_learning_planner_prompt(learning_index: Optional[Dict[str, Any]] = Non
         "space. Read the index (active artifacts + activities) before planning; "
         "propose typed learning outputs (see allowed kinds) as drafts for review "
         "— never treat unreviewed content as course fact, and never invent "
-        "results the index did not contain."
+        "results the index did not contain.\n"
+        "When the learner imports two or more materials together, use "
+        "learning_material_alignment_propose after reading their real extracted "
+        "structures. First decide whether they belong to one course or several; "
+        "for each proposed course nominate one real material as the directory "
+        "skeleton and explain why, map other section/page ranges only onto section "
+        "ids that actually exist in that skeleton, assign each material an "
+        "explanation/practice/assessment/reference role with a reason, and list "
+        "anything that does not align. Never synthesize a topic tree, hide an "
+        "unaligned material, calculate coverage, or activate the draft yourself. "
+        "For a single imported material, keep the existing single-material flow."
     )
 
 

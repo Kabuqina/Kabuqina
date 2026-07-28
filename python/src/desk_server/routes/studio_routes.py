@@ -29,6 +29,7 @@ _KIND_PAGE = {
     "quiz": "practice",
     "evaluation": "evaluate",
     "learning_plan": "plan",
+    "material_alignment": "learn",
 }
 
 
@@ -161,6 +162,27 @@ async def studio_save_brief(project_id: str, body: dict[str, Any]):
         brief = _body_text(body, "brief", maximum=20_000, allow_empty=True)
         with StudioStore() as store:
             return store.save_brief(project_id, brief)
+    except Exception as exc:
+        raise _error(exc) from exc
+
+
+@router.delete("/api/desk/studio/projects/{project_id}")
+async def studio_delete_project(project_id: str):
+    """Delete Studio-owned state and tell Web which chat scope to detach.
+
+    A project-scoped transcript is still a user's chat history.  Project deletion
+    must not silently erase it; Web converts it back to an ordinary chat session by
+    clearing the returned deterministic handoff id.
+    """
+    try:
+        with StudioStore() as store:
+            store.delete_project(project_id)
+        return {
+            "ok": True,
+            "projectId": project_id,
+            "detachedSessionId": f"studio:{project_id}",
+            "chatHistoryDeleted": False,
+        }
     except Exception as exc:
         raise _error(exc) from exc
 

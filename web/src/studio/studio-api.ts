@@ -47,6 +47,14 @@ export type StudioProject = {
 
 export type StudioProjects = { projects: StudioProject[] };
 
+export type StudioProjectDeletion = {
+  ok: true;
+  projectId: string;
+  /** Clear this local handoff binding; keep the underlying chat transcript. */
+  detachedSessionId: string;
+  chatHistoryDeleted: false;
+};
+
 /** 命令未在后端注册时抛这个，让 UI 显示"尚未接通"而不是报错。 */
 export class StudioNotImplementedError extends Error {
   constructor(command: string) {
@@ -83,6 +91,10 @@ export function cmdStudioCreateProject(title: string): Promise<StudioProject> {
 
 export function cmdStudioSaveBrief(projectId: string, brief: string): Promise<StudioProject> {
   return call<StudioProject>("cmd_studio_save_brief", { projectId, brief });
+}
+
+export function cmdStudioDeleteProject(projectId: string): Promise<StudioProjectDeletion> {
+  return call<StudioProjectDeletion>("cmd_studio_delete_project", { projectId });
 }
 
 /**

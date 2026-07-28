@@ -131,6 +131,24 @@ class StudioStore:
                 raise KeyError(f"studio project {project_id!r} not found")
         return self._require_project(project_id)
 
+    def delete_project(self, project_id: str) -> dict[str, Any]:
+        """Delete one project and its owned snapshots, returning the deleted view.
+
+        Chat transcripts are deliberately outside the Studio store.  The trusted
+        route returns the deterministic Studio session id to the caller so the UI
+        can detach its local project scope without destroying conversation history.
+        """
+        project = self.get_project(project_id)
+        if project is None:
+            raise KeyError(f"studio project {project_id!r} not found")
+        with self._conn:
+            cursor = self._conn.execute(
+                "DELETE FROM studio_projects WHERE id = ?", (project_id,)
+            )
+            if cursor.rowcount != 1:
+                raise KeyError(f"studio project {project_id!r} not found")
+        return project
+
     def add_sources_atomic(
         self, project_id: str, snapshots: Iterable[Mapping[str, Any]]
     ) -> dict[str, Any]:

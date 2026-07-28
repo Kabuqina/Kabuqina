@@ -38,6 +38,12 @@ class TestSessionLifecycle:
     def test_get_nonexistent_session(self, db):
         assert db.get_session("nonexistent") is None
 
+    def test_studio_scoped_session_id_is_an_opaque_persisted_id(self, db):
+        session_id = "studio:0123456789abcdef"
+        assert db.create_session(session_id=session_id, source="desktop") == session_id
+        assert db.resolve_session_id(session_id) == session_id
+        assert db.get_session(session_id)["source"] == "desktop"
+
     def test_end_session(self, db):
         db.create_session(session_id="s1", source="cli")
         db.end_session("s1", end_reason="user_exit")

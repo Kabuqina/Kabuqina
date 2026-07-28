@@ -27,6 +27,10 @@ from learning.practice_contract import (
     validate_hint_ladder,
     validate_practice_evaluation_record,
 )
+from learning.material_alignment_contract import (
+    MaterialAlignmentContractError,
+    validate_material_alignment_payload,
+)
 from learning.whiteboard_contract import (
     MAX_WHITEBOARD_SOURCE_REFS,
     WhiteboardContractError,
@@ -45,6 +49,7 @@ KINDS: frozenset = frozenset(
         "student_state",
         "knowledge_base",
         "learning_plan",
+        "material_alignment",
         "resource_pack",
         "flashcard_deck",
         "quiz",
@@ -76,6 +81,7 @@ DEFAULT_REVIEW_MODE: Dict[str, str] = {
     "student_state": "deterministic",
     "knowledge_base": "semantic",
     "learning_plan": "semantic",
+    "material_alignment": "semantic",
     "resource_pack": "semantic",
     "flashcard_deck": "semantic",
     "quiz": "semantic",
@@ -455,10 +461,18 @@ def _v_whiteboard_snapshot(p: Mapping[str, Any]) -> None:
         raise ContractError(f"whiteboard_snapshot: {exc}") from exc
 
 
+def _v_material_alignment(p: Mapping[str, Any]) -> None:
+    try:
+        validate_material_alignment_payload(p)
+    except MaterialAlignmentContractError as exc:
+        raise ContractError(f"material_alignment: {exc}") from exc
+
+
 _PAYLOAD_VALIDATORS: Dict[str, Callable[[Mapping[str, Any]], None]] = {
     "student_state": _v_student_state,
     "knowledge_base": _v_knowledge_base,
     "learning_plan": _v_learning_plan,
+    "material_alignment": _v_material_alignment,
     "resource_pack": _v_resource_pack,
     "flashcard_deck": _v_flashcard_deck,
     "quiz": _v_quiz,

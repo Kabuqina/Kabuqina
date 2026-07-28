@@ -14,10 +14,12 @@ belong to trusted UI/API or deterministic Gateway commands (M2+).
 
 from __future__ import annotations
 
+import uuid
 from typing import Any, Dict
 
 from tools.registry import registry, tool_error, tool_result
 from learning.learning_contract import KINDS, ContractError
+from learning.material_alignment_contract import MATERIAL_ROLES
 from learning.learning_context import require_active_learning_context
 from learning.learning_index import LearningIndex
 from learning.output_writer import OutputWriter
@@ -104,12 +106,140 @@ ARTIFACT_LIST_SCHEMA = {
     },
 }
 
+_ROLE_SCHEMA = {"type": "string", "enum": sorted(MATERIAL_ROLES)}
+_SECTION_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "section_id": {"type": "string"},
+        "title": {"type": "string"},
+        "locator": {"type": "string"},
+    },
+    "required": ["section_id", "title", "locator"],
+}
+_MAPPING_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "source_locator": {"type": "string"},
+        "target_section_id": {"type": "string"},
+        "reason": {"type": "string"},
+    },
+    "required": ["source_locator", "target_section_id", "reason"],
+}
+_UNALIGNED_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "properties": {
+        "source_locator": {"type": "string"},
+        "reason": {"type": "string"},
+    },
+    "required": ["source_locator", "reason"],
+}
+
+MATERIAL_ALIGNMENT_PROPOSE_SCHEMA = {
+    "name": "learning_material_alignment_propose",
+    "description": (
+        "Create one auditable draft for a batch of 2+ already-read learning materials. "
+        "First group materials by course; nominate one material with real extracted "
+        "sections as each course skeleton; map other source sections/page ranges onto "
+        "those real section ids; assign explanation/practice/assessment/reference roles; "
+        "and list anything that does not align. Never invent skeleton sections, hide a "
+        "material, report alignment percentages, or auto-activate the proposal."
+    ),
+    "parameters": {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "title": {"type": "string", "maxLength": 300},
+            "materials": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 50,
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "material_id": {"type": "string"},
+                        "title": {"type": "string"},
+                        "source_ref": {
+                            "type": "string",
+                            "description": "Auditable path, read_id, URI, or other stable source locator.",
+                        },
+                        "structure": {
+                            "type": "array",
+                            "description": "Real sections extracted from this material; empty when none were found.",
+                            "items": _SECTION_SCHEMA,
+                        },
+                    },
+                    "required": ["material_id", "title", "source_ref", "structure"],
+                },
+            },
+            "course_groups": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 50,
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "proposed_title": {"type": "string"},
+                        "rationale": {"type": "string"},
+                        "skeleton": {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "properties": {
+                                "material_id": {"type": "string"},
+                                "reason": {"type": "string"},
+                                "role": _ROLE_SCHEMA,
+                                "role_reason": {"type": "string"},
+                            },
+                            "required": ["material_id", "reason", "role", "role_reason"],
+                        },
+                        "attachments": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": False,
+                                "properties": {
+                                    "material_id": {"type": "string"},
+                                    "role": _ROLE_SCHEMA,
+                                    "role_reason": {"type": "string"},
+                                    "mappings": {"type": "array", "items": _MAPPING_SCHEMA},
+                                    "unaligned": {"type": "array", "items": _UNALIGNED_SCHEMA},
+                                },
+                                "required": ["material_id", "role", "role_reason", "mappings", "unaligned"],
+                            },
+                        },
+                    },
+                    "required": ["proposed_title", "rationale", "skeleton", "attachments"],
+                },
+            },
+            "ungrouped": {
+                "type": "array",
+                "description": "Materials that cannot yet be assigned to any proposed course; never omit them.",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "material_id": {"type": "string"},
+                        "reason": {"type": "string"},
+                    },
+                    "required": ["material_id", "reason"],
+                },
+            },
+        },
+        "required": ["title", "materials", "course_groups", "ungrouped"],
+    },
+}
+
 LEARNING_TOOL_SCHEMAS = [
     SPACE_LIST_SCHEMA,
     SPACE_CREATE_SCHEMA,
     SPACE_SELECT_SCHEMA,
     INDEX_BUILD_SCHEMA,
     DRAFT_CREATE_SCHEMA,
+    MATERIAL_ALIGNMENT_PROPOSE_SCHEMA,
     ARTIFACT_LIST_SCHEMA,
 ]
 
@@ -207,6 +337,67 @@ def _handle_draft_create(args: dict, **_kwargs) -> str:
     )
 
 
+def _handle_material_alignment_propose(args: dict, **_kwargs) -> str:
+    try:
+        ctx = require_active_learning_context()
+    except LookupError as exc:
+        return tool_error(str(exc))
+    materials = args.get("materials")
+    groups = args.get("course_groups")
+    ungrouped = args.get("ungrouped")
+    if not isinstance(materials, list) or not isinstance(groups, list) or not isinstance(ungrouped, list):
+        return tool_error("materials, course_groups, and ungrouped must be arrays")
+    normalized_groups = []
+    for index, group in enumerate(groups, 1):
+        if not isinstance(group, dict):
+            return tool_error("course_groups must contain objects")
+        skeleton = group.get("skeleton") if isinstance(group.get("skeleton"), dict) else {}
+        attachments = group.get("attachments") if isinstance(group.get("attachments"), list) else []
+        member_ids = [skeleton.get("material_id"), *[
+            item.get("material_id") for item in attachments if isinstance(item, dict)
+        ]]
+        normalized_groups.append(
+            {
+                **group,
+                "group_id": f"group-{index}",
+                "material_ids": member_ids,
+            }
+        )
+    payload = {
+        "schema_version": 1,
+        "batch_id": uuid.uuid4().hex,
+        "materials": materials,
+        "course_groups": normalized_groups,
+        "ungrouped": ungrouped,
+    }
+    source_refs = [
+        {
+            "origin": "material_alignment",
+            "material_id": item.get("material_id", ""),
+            "title": item.get("title", ""),
+            "source_ref": item.get("source_ref", ""),
+        }
+        for item in materials
+        if isinstance(item, dict)
+    ]
+    try:
+        res = OutputWriter(ctx).write_artifact(
+            kind="material_alignment",
+            title=args.get("title", ""),
+            payload=payload,
+            source_refs=source_refs,
+        )
+    except (ContractError, ValueError, KeyError) as exc:
+        return tool_error(str(exc))
+    return tool_result(
+        success=True,
+        artifact_id=res["artifact_id"],
+        version=res["version"],
+        status="draft",
+        review="pending",
+    )
+
+
 def _handle_artifact_list(args: dict, **_kwargs) -> str:
     try:
         ctx = require_active_learning_context()
@@ -280,4 +471,12 @@ registry.register(
     handler=_handle_artifact_list,
     description=ARTIFACT_LIST_SCHEMA["description"],
     emoji="📚",
+)
+registry.register(
+    name="learning_material_alignment_propose",
+    toolset="learning",
+    schema=MATERIAL_ALIGNMENT_PROPOSE_SCHEMA,
+    handler=_handle_material_alignment_propose,
+    description=MATERIAL_ALIGNMENT_PROPOSE_SCHEMA["description"],
+    emoji="🧭",
 )

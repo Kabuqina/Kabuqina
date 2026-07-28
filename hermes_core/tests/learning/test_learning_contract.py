@@ -39,6 +39,7 @@ def test_kinds_are_exactly_the_v1_set():
             "student_state",
             "knowledge_base",
             "learning_plan",
+            "material_alignment",
             "resource_pack",
             "flashcard_deck",
             "quiz",
@@ -118,6 +119,7 @@ def test_default_review_mode_matches_design_table():
         "student_state": "deterministic",
         "knowledge_base": "semantic",
         "learning_plan": "semantic",
+        "material_alignment": "semantic",
         "resource_pack": "semantic",
         "flashcard_deck": "semantic",
         "quiz": "semantic",
@@ -174,6 +176,61 @@ VALID_PAYLOADS = {
                 "tasks": [{"title": "Review functions", "order": 1}],
             }
         ],
+    },
+    "material_alignment": {
+        "schema_version": 1,
+        "batch_id": "batch-1",
+        "materials": [
+            {
+                "material_id": "textbook",
+                "title": "Textbook",
+                "source_ref": "read:textbook",
+                "structure": [
+                    {"section_id": "s2.3", "title": "Limits", "locator": "§2.3"}
+                ],
+            },
+            {
+                "material_id": "workbook",
+                "title": "Workbook",
+                "source_ref": "read:workbook",
+                "structure": [],
+            },
+        ],
+        "course_groups": [
+            {
+                "group_id": "group-1",
+                "proposed_title": "Calculus",
+                "rationale": "Both materials teach the same calculus course.",
+                "material_ids": ["textbook", "workbook"],
+                "skeleton": {
+                    "material_id": "textbook",
+                    "reason": "It has a real chapter structure.",
+                    "role": "explanation",
+                    "role_reason": "It explains the concepts.",
+                },
+                "attachments": [
+                    {
+                        "material_id": "workbook",
+                        "role": "practice",
+                        "role_reason": "It contains exercises.",
+                        "mappings": [
+                            {
+                                "source_locator": "p.41",
+                                "target_section_id": "s2.3",
+                                "reason": "The exercises explicitly practice limits.",
+                            }
+                        ],
+                        "unaligned": [
+                            {
+                                "source_locator": "appendix A",
+                                "reason": "No matching textbook section was found.",
+                            }
+                        ],
+                    }
+                ],
+            }
+        ],
+        "ungrouped": [],
     },
     "resource_pack": {
         "resources": [

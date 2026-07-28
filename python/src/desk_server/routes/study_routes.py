@@ -198,7 +198,7 @@ def _activate_artifact(ctx, artifact: Dict[str, Any]) -> Dict[str, Any]:
         return EvaluationService(ctx).activate_evaluation(artifact_id)
     if kind == "learning_plan":
         return LearningPlanService(ctx).activate_plan(artifact_id)
-    if kind in {"knowledge_base", "resource_pack", "tutoring_note"}:
+    if kind in {"knowledge_base", "material_alignment", "resource_pack", "tutoring_note"}:
         if (
             requires_semantic_review(artifact)
             and artifact.get("review", {}).get("status") != "passed"
@@ -480,7 +480,12 @@ async def study_artifact_reject(artifact_id: str):
                 return EvaluationService(ctx).reject_evaluation(artifact_id)
             if artifact["kind"] == "learning_plan":
                 return LearningPlanService(ctx).reject_plan(artifact_id)
-            if artifact["kind"] in {"knowledge_base", "resource_pack", "tutoring_note"}:
+            if artifact["kind"] in {
+                "knowledge_base",
+                "material_alignment",
+                "resource_pack",
+                "tutoring_note",
+            }:
                 ctx.set_artifact_status(artifact_id, "rejected")
                 return {"artifact_id": artifact_id, "status": "rejected"}
             raise ValueError(f"unsupported artifact kind: {artifact['kind']}")

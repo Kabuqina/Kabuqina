@@ -14,6 +14,59 @@ def _draft(ctx):
         kind="knowledge_base", title="KB", payload={"concepts": [{"term": "x", "explanation": "y"}]}
     )["artifact_id"]
 
+
+def _alignment_payload():
+    return {
+        "schema_version": 1,
+        "batch_id": "b1",
+        "materials": [
+            {
+                "material_id": "book",
+                "title": "Book",
+                "source_ref": "read:book",
+                "structure": [
+                    {"section_id": "s1", "title": "One", "locator": "§1"}
+                ],
+            },
+            {
+                "material_id": "notes",
+                "title": "Notes",
+                "source_ref": "read:notes",
+                "structure": [],
+            },
+        ],
+        "course_groups": [
+            {
+                "group_id": "g1",
+                "proposed_title": "Course",
+                "rationale": "The materials cover the same course.",
+                "material_ids": ["book", "notes"],
+                "skeleton": {
+                    "material_id": "book",
+                    "reason": "It has a real section.",
+                    "role": "explanation",
+                    "role_reason": "It explains the course.",
+                },
+                "attachments": [
+                    {
+                        "material_id": "notes",
+                        "role": "reference",
+                        "role_reason": "They provide supplementary notes.",
+                        "mappings": [
+                            {
+                                "source_locator": "p.1",
+                                "target_section_id": "s1",
+                                "reason": "Both discuss the first section.",
+                            }
+                        ],
+                        "unaligned": [],
+                    }
+                ],
+            }
+        ],
+        "ungrouped": [],
+    }
+
 def test_reviewer_decisions_and_failure_remain_pending(tmp_path):
     store, ctx = _ctx(tmp_path)
     try:
@@ -35,6 +88,7 @@ def test_m5_semantic_kinds_are_all_reviewable(tmp_path):
     try:
         samples = [
             ("knowledge_base", {"concepts": [{"term": "x", "explanation": "y"}]}),
+            ("material_alignment", _alignment_payload()),
             ("resource_pack", {"resources": [{"title": "r", "purpose": "p"}]}),
             ("tutoring_note", {"goal": "g", "hints": ["h"]}),
         ]

@@ -238,6 +238,7 @@ pub fn run() {
             studio::cmd_studio_projects,
             studio::cmd_studio_create_project,
             studio::cmd_studio_save_brief,
+            studio::cmd_studio_delete_project,
             studio::cmd_studio_gather_sources,
             study::cmd_study_drafts,
             study::cmd_study_artifact_summaries,

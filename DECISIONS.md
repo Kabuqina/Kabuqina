@@ -1623,3 +1623,31 @@ whole-application usage. It reads successful `tutor_provider_attempts` only,
 groups actual tokens by course/provider/model, and reports whether any
 successful attempt lacks an actual-token measurement. NULL measurements are
 not presented as measured zero values, and no price estimate is derived.
+
+## Studio deletion and Study material-alignment drafts (2026-07-28)
+
+A Studio project-scoped chat uses the deterministic, opaque session id
+`studio:<project_id>`. Deleting the project removes the Studio project and its
+owned source snapshots, then returns that session id so the Web shell can detach
+its local handoff. It deliberately does **not** delete the user's chat transcript:
+the transcript may remain as ordinary Chat history even though its “return to
+project” affordance is gone.
+
+Multi-material alignment is one atomic `material_alignment` draft artifact, not
+separate skeleton and attachment artifacts. It records the complete batch:
+input materials and their extracted structures, proposed course groups, one real
+material as each group's skeleton, section/range-to-skeleton mappings, stable
+roles (`explanation`, `practice`, `assessment`, `reference`), explicit unaligned
+ranges, and explicit ungrouped materials. One artifact makes a student's single
+confirmation apply to a coherent proposal rather than two independently drifting
+lifecycles.
+
+The backend rejects invented skeleton sections, missing/duplicated materials,
+hidden attachments, and coverage fields. Alignment always requires semantic
+review and student confirmation. Activation confirms the proposal itself; it
+does not create empty course spaces, move records that do not yet exist, or
+change learning state. The single-material import flow remains unchanged.
+
+`material_alignment` extends the version-1 learning artifact vocabulary without
+bumping the schema version: existing v1 artifacts remain valid and unchanged,
+while the new kind has its own strict payload validator and semantic-review rule.

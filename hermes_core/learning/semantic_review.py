@@ -6,7 +6,7 @@ from learning.learning_context import LearningExecutionContext
 Reviewer = Callable[[Dict[str, Any]], Optional[bool]]
 
 def requires_semantic_review(artifact: Dict[str, Any]) -> bool:
-    if artifact.get("kind") in {"knowledge_base", "resource_pack"}:
+    if artifact.get("kind") in {"knowledge_base", "material_alignment", "resource_pack"}:
         return True
     if artifact.get("kind") != "tutoring_note":
         return False

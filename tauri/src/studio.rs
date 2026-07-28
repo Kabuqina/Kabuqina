@@ -86,6 +86,21 @@ pub async fn cmd_studio_save_brief(
 }
 
 #[tauri::command]
+pub async fn cmd_studio_delete_project(
+    app: AppHandle,
+    project_id: String,
+) -> Result<Value, DeskBridgeError> {
+    validate_id(&project_id, "project id")?;
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::DELETE,
+        &format!("/api/desk/studio/projects/{project_id}"),
+        None,
+    )
+    .await
+}
+
+#[tauri::command]
 pub async fn cmd_studio_gather_sources(
     app: AppHandle,
     project_id: String,
@@ -124,6 +139,7 @@ mod tests {
     #[test]
     fn studio_ids_reject_path_injection() {
         assert!(validate_id("project-1", "project id").is_ok());
+        assert!(validate_id("studio:project-1", "session id").is_ok());
         assert!(validate_id("../project", "project id").is_err());
         assert!(validate_id("project/brief", "project id").is_err());
     }

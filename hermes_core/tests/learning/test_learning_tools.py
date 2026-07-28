@@ -25,6 +25,7 @@ EXPECTED_TOOLS = {
     "learning_space_select",
     "learning_index_build",
     "learning_draft_create",
+    "learning_material_alignment_propose",
     "learning_artifact_list",
 }
 
@@ -106,6 +107,76 @@ def test_draft_create_persists_draft(ctx):
         assert out["status"] == "draft"
         got = ctx.get_artifact(out["artifact_id"])
         assert got["status"] == "draft"
+
+
+def test_material_alignment_tool_creates_one_reviewable_batch_draft(ctx):
+    with learning_context_scope(ctx):
+        ctx.create_space(title="Calculus", space_id="s1")
+        out = _result(
+            lt._handle_material_alignment_propose(
+                {
+                    "title": "Calculus material alignment",
+                    "materials": [
+                        {
+                            "material_id": "textbook",
+                            "title": "Textbook",
+                            "source_ref": "read:textbook",
+                            "structure": [
+                                {
+                                    "section_id": "2.3",
+                                    "title": "Limits",
+                                    "locator": "§2.3",
+                                }
+                            ],
+                        },
+                        {
+                            "material_id": "workbook",
+                            "title": "Workbook",
+                            "source_ref": "read:workbook",
+                            "structure": [],
+                        },
+                    ],
+                    "course_groups": [
+                        {
+                            "proposed_title": "Calculus",
+                            "rationale": "Both materials concern calculus.",
+                            "skeleton": {
+                                "material_id": "textbook",
+                                "reason": "It has real numbered chapters.",
+                                "role": "explanation",
+                                "role_reason": "It explains the subject.",
+                            },
+                            "attachments": [
+                                {
+                                    "material_id": "workbook",
+                                    "role": "practice",
+                                    "role_reason": "It contains exercises.",
+                                    "mappings": [
+                                        {
+                                            "source_locator": "p.41",
+                                            "target_section_id": "2.3",
+                                            "reason": "The exercises practice limits.",
+                                        }
+                                    ],
+                                    "unaligned": [],
+                                }
+                            ],
+                        }
+                    ],
+                    "ungrouped": [],
+                }
+            )
+        )
+        artifact = ctx.get_artifact(out["artifact_id"])
+    assert out["success"] is True
+    assert out["status"] == "draft"
+    assert out["review"] == "pending"
+    assert artifact["kind"] == "material_alignment"
+    assert artifact["status"] == "draft"
+    assert artifact["envelope"]["payload"]["course_groups"][0][
+        "material_ids"
+    ] == ["textbook", "workbook"]
+    assert len(artifact["envelope"]["source_refs"]) == 2
 
 
 def test_index_build_tool(ctx):
