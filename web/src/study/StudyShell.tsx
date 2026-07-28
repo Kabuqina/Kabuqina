@@ -14,8 +14,6 @@ import { RequestCoordinator } from "./loadable";
 import type { StudySpaces } from "./repository";
 import { useStudyRepository } from "./repositoryContext";
 import { studyPath, type StudyPageSlug } from "./routeModel";
-import { StudyLifecycleNav } from "./StudyLifecycleNav";
-import { StudyTopBar } from "./StudyTopBar";
 import { ImportMaterials, type StudyImportResult } from "./ImportMaterials";
 import { StudyPageOutlet } from "./pages/StudyPageOutlet";
 import { useStudyIa } from "./StudyIaContext";
@@ -36,7 +34,6 @@ export function StudyShell({ spaces, spaceId, page, onRevalidate, refreshing = f
   const recordIa = useStudyIa();
   const switchRequests = useRef(new RequestCoordinator());
   const [switching, setSwitching] = useState(false);
-  const [switchError, setSwitchError] = useState(false);
   const [practiceDirty, setPracticeDirty] = useState(false);
   const [importing, setImporting] = useState(false);
   /**
@@ -73,7 +70,6 @@ export function StudyShell({ spaces, spaceId, page, onRevalidate, refreshing = f
       if (!approved) return;
       const request = switchRequests.current.begin();
       setSwitching(true);
-      setSwitchError(false);
       void repository.selectSpace(nextSpaceId, request.signal).then(() => {
         if (!switchRequests.current.isCurrent(request.generation)) return;
         setSwitching(false);
@@ -83,7 +79,6 @@ export function StudyShell({ spaces, spaceId, page, onRevalidate, refreshing = f
       }, () => {
         if (!switchRequests.current.isCurrent(request.generation)) return;
         setSwitching(false);
-        setSwitchError(true);
         recordIa({ name: "study.space.switch", action: "switch", success: false });
       });
     });
@@ -110,61 +105,62 @@ export function StudyShell({ spaces, spaceId, page, onRevalidate, refreshing = f
         </main>
       );
     }
-    if (page === "practice") {
-      return (
-        <StudyDraftProvider key={spaceId} spaceId={spaceId}>
-          <StudyDeskPage
-            spaceId={spaceId}
-            spaces={spaces.spaces}
-            onDirtyChange={setPracticeDirty}
-            onNavigateAway={navigateAway}
-            onSelectSpace={selectSpace}
-          />
-        </StudyDraftProvider>
-      );
-    }
-    return (
+    /**
+     * 五个分页共用**同一张书桌**（原型 `StudyDesk`）：书立在上、笔记本在中、
+     * 书堆/复习/杯子在右。练习那一页的正文由书桌自己画（只有它带作答面、
+     * 检查反馈和页边批注）；其余四页把 `StudyPageOutlet` 铺进本子里。
+     *
+     * 所以这里不再按 page 分岔成"书桌 / 非书桌"两套外壳——那正是 0.4 留下的
+     * 割裂：同一门课，翻一页就换一个世界。
+     */
+    const pageBody = page === "practice" ? undefined : (
       <>
-        <StudyDraftProvider key={spaceId} spaceId={spaceId}>
-          <StudyTopBar
-            spaces={spaces.spaces}
-            currentSpaceId={spaceId}
-            switching={switching}
-            switchError={switchError}
-            onSelectSpace={selectSpace}
-            onNavigateAway={navigateAway}
-            onImport={() => setImporting(true)}
-          />
-          <StudyLifecycleNav spaceId={spaceId} currentPage={page} onNavigate={(nextPage) => navigateAway(studyPath(spaceId, nextPage))} />
-          {imported && imported.limited > 0 ? (
-            <p className="kq-study-refresh-status" role="status">{t("study.importLimitedSummary")}</p>
-          ) : null}
-          {imported && imported.paths.length >= 2 ? (
-            <p className="kq-study-refresh-status" role="status">{t("study.importNextAlignment")}</p>
-          ) : null}
-          {importing ? (
-            <ImportMaterials
-              onClose={() => setImporting(false)}
-              onImported={setImported}
-            />
-          ) : null}
-          {refreshing ? <p className="kq-study-refresh-status" role="status">{t("study.refreshing")}</p> : null}
-          {refreshFailed ? (
-            <div className="kq-study-refresh-error" role="alert">
-              <span>{t("study.refreshFailed")}</span>
-              <button type="button" onClick={onRevalidate}>{t("study.retry")}</button>
-            </div>
-          ) : null}
-          <div className="kq-study-page"><StudyPageOutlet spaceId={spaceId} page={page} onPracticeDirtyChange={setPracticeDirty} onPracticeNavigateAway={navigateAway} /></div>
-        </StudyDraftProvider>
+        {imported && imported.limited > 0 ? (
+          <p className="kq-study-refresh-status" role="status">{t("study.importLimitedSummary")}</p>
+        ) : null}
+        {imported && imported.paths.length >= 2 ? (
+          <p className="kq-study-refresh-status" role="status">{t("study.importNextAlignment")}</p>
+        ) : null}
+        {refreshing ? <p className="kq-study-refresh-status" role="status">{t("study.refreshing")}</p> : null}
+        {refreshFailed ? (
+          <div className="kq-study-refresh-error" role="alert">
+            <span>{t("study.refreshFailed")}</span>
+            <button type="button" onClick={onRevalidate}>{t("study.retry")}</button>
+          </div>
+        ) : null}
+        <StudyPageOutlet
+          spaceId={spaceId}
+          page={page}
+          onPracticeDirtyChange={setPracticeDirty}
+          onPracticeNavigateAway={navigateAway}
+        />
       </>
     );
-  }, [imported, importing, navigateAway, onRevalidate, page, refreshFailed, refreshing, selectSpace, spaceId, spaces.spaces, switchError, switching, t]);
+
+    return (
+      <StudyDraftProvider key={spaceId} spaceId={spaceId}>
+        <StudyDeskPage
+          spaceId={spaceId}
+          spaces={spaces.spaces}
+          page={page}
+          pageBody={pageBody}
+          switchingSpace={switching}
+          onDirtyChange={setPracticeDirty}
+          onNavigateAway={navigateAway}
+          onSelectSpace={selectSpace}
+          onImportMaterial={() => setImporting(true)}
+        />
+        {importing ? (
+          <ImportMaterials onClose={() => setImporting(false)} onImported={setImported} />
+        ) : null}
+      </StudyDraftProvider>
+    );
+  }, [imported, importing, navigateAway, onRevalidate, page, refreshFailed, refreshing, selectSpace, spaceId, spaces.spaces, switching, t]);
 
   return (
     <div
       className="kq-study-shell"
-      data-desk={spaceId && page === "practice" ? "true" : undefined}
+      data-desk={spaceId && page ? "true" : undefined}
       data-testid="study-shell"
     >
       {shell}

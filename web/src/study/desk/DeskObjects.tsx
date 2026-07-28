@@ -2,87 +2,109 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { DeskArtAssets } from "./artAssets";
-import type { DeskBookstand, DeskMaterials } from "./types";
+import type { DeskMaterials } from "./types";
 
-export interface DeskObjectsProps {
+/**
+ * 书桌右侧（原型 `ReviewCards`）：书堆 + 今天要复习。杯子是独立物件（`DeskCup`）。
+ *
+ * 书堆的形态是**参考书立着、需要时抽一本**，刻意不是一个可浏览的知识库空间：
+ * 一根书脊＝一个文件（你导入的那一份），不是章节。章节是文件里的位置，
+ * 打开文件时跳到那儿——所以"整本"始终看得到。
+ *
+ * v0.4 的左侧课程栏（书立）已经搬到笔记本上边缘，见 `DeskBookend`。
+ */
+export interface DeskRightObjectsProps {
   art: DeskArtAssets;
-  bookstand: DeskBookstand;
   materials: DeskMaterials;
   dueCount: number;
+  stackIndexOpen: boolean;
+  onToggleStackIndex: () => void;
   onFutureFeature: () => void;
-  onSelectSpace?: (spaceId: string) => void;
   onOpenMaterials?: (materialId?: string) => void;
+  onImportMaterial?: () => void;
   onReviewCards?: () => void;
-  onNewBook?: () => void;
 }
 
-export function DeskLeftObjects({
+export function DeskRightObjects({
   art,
-  bookstand,
   materials,
+  dueCount,
+  stackIndexOpen,
+  onToggleStackIndex,
   onFutureFeature,
-  onSelectSpace,
   onOpenMaterials,
-  onNewBook,
-}: DeskObjectsProps) {
-  const Library = art.library;
-  const Book = art.book;
-  const Plus = art.plus;
+  onImportMaterial,
+  onReviewCards,
+}: DeskRightObjectsProps) {
+  const Archive = art.archive;
   const Layers = art.layers;
+  const Plus = art.plus;
+  const openMaterial = (id: string) => {
+    if (onOpenMaterials) onOpenMaterials(id);
+    else onFutureFeature();
+  };
+
   return (
-    <aside className="kd-left-objects" aria-label="课程与本课材料">
-      <section className="kd-object kd-bookstand">
-        <h2><Library /> {bookstand.title}</h2>
-        <p>{bookstand.hint}</p>
-        <div className="kd-book-row">
-          {bookstand.books.map((book) => (
+    <>
+      <section className="kd-object kd-book-stack">
+        <h2>{materials.title}</h2>
+        <div className="kd-spines">
+          {materials.items.map((item) => (
             <button
-              key={book.id}
+              className="kd-book-spine"
+              key={item.id}
               type="button"
-              aria-current={book.current ? "true" : undefined}
-              aria-disabled={book.current || undefined}
-              onClick={() => {
-                if (book.current) return;
-                if (onSelectSpace) onSelectSpace(book.id);
-                else onFutureFeature();
-              }}
+              title={item.title}
+              onClick={() => openMaterial(item.id)}
             >
-              <Book /> {book.name}
+              {item.title}
             </button>
           ))}
+          <button
+            className="kd-book-spine kd-book-spine--add"
+            type="button"
+            aria-label="放一本资料进来"
+            title="放一本资料进来"
+            onClick={onImportMaterial ?? onFutureFeature}
+          >
+            <Plus />
+          </button>
         </div>
-        <button type="button" onClick={onNewBook ?? onFutureFeature}>
-          <Plus /> {bookstand.newBookLabel}
+        {materials.unavailable ? (
+          <p className="kd-stack-empty" role="status">材料暂时无法读取</p>
+        ) : null}
+        {/* 贴在书堆上的目录：可翻开核对，不占一个入口。 */}
+        {materials.items.length ? (
+          <button
+            className="kd-stack-index"
+            type="button"
+            aria-expanded={stackIndexOpen}
+            onClick={onToggleStackIndex}
+          >
+            <Layers />
+            小娜从这些书里读到的
+          </button>
+        ) : null}
+        {stackIndexOpen ? (
+          <ul className="kd-stack-index-list">
+            {materials.items.map((item) => (
+              <li key={item.id}>
+                {item.title}
+                <span>{item.status}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </section>
+
+      <section className="kd-object kd-card-box">
+        <h2><Archive /> 今天要复习</h2>
+        <div className="kd-due-count">{dueCount}</div>
+        <p>张卡片 · 随时可以停</p>
+        <button type="button" disabled={!dueCount} onClick={onReviewCards ?? onFutureFeature}>
+          {dueCount ? "开始复习" : "今天已复习完"}
         </button>
       </section>
-
-      <section className="kd-object kd-materials">
-        <h2><Layers /> {materials.title}</h2>
-        <p>{materials.hint}</p>
-        <div className="kd-material-list">
-          {materials.items.map((item) => (
-            <button key={item.id} type="button" onClick={() => {
-              if (onOpenMaterials) onOpenMaterials(item.id);
-              else onFutureFeature();
-            }}>{item.title}</button>
-          ))}
-          {!materials.items.length ? <span>{materials.unavailable ? "材料暂时无法读取" : "还没有课程材料"}</span> : null}
-        </div>
-      </section>
-    </aside>
-  );
-}
-
-export function DeskRightObjects({ art, dueCount, onFutureFeature, onReviewCards }: DeskObjectsProps) {
-  const Archive = art.archive;
-  return (
-    <section className="kd-object kd-card-box">
-      <h2><Archive /> 本课卡片盒</h2>
-      <div className="kd-due-count">{dueCount}</div>
-      <p>张今日到期 · 不打断当前练习</p>
-      <button type="button" disabled={!dueCount} onClick={onReviewCards ?? onFutureFeature}>
-        {dueCount ? "到安全节点后复习" : "今天已复习完"}
-      </button>
-    </section>
+    </>
   );
 }

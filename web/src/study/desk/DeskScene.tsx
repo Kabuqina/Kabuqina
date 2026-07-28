@@ -1,7 +1,7 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { StudyPageSlug } from "../routeModel";
 import type { DeskAdapter } from "./deskAdapter";
 import { defaultDeskArtAssets, type DeskArtAssets } from "./artAssets";
@@ -10,10 +10,11 @@ import { DeskActivityPanel } from "./DeskActivityPanel";
 import { DeskCardReview, type DeskCardGrade } from "./DeskCardReview";
 import { DeskCup } from "./DeskCup";
 import { DeskNotebook } from "./DeskNotebook";
-import { DeskLeftObjects, DeskRightObjects } from "./DeskObjects";
+import { DeskBookend } from "./DeskBookend";
+import { DeskRightObjects } from "./DeskObjects";
 import { DeskTutorInvoke, type DeskCourseChatRequest } from "./DeskTutorInvoke";
 import { DeskWorkFolder, type DeskCreateChatRequest } from "./DeskWorkFolder";
-import type { CheckResult, DeskData, DeskDensity, StudyActivity } from "./types";
+import type { CheckResult, DeskBookstand, DeskData, DeskDensity, StudyActivity } from "./types";
 import type { StudyReturnState } from "../../lib/studyChatHandoff";
 import "./desk.css";
 
@@ -66,7 +67,21 @@ export interface DeskSceneProps {
   };
   art?: Partial<DeskArtAssets>;
   currentPage?: StudyPageSlug;
+  /**
+   * 非练习分页的正文。五个分页共用同一本本子，所以书桌不是"练习专用"的——
+   * 扉页 / 计划 / 学习 / 评估 由 `StudyShell` 把 `StudyPageOutlet` 传进来铺在本子里。
+   */
+  pageBody?: ReactNode;
+  /**
+   * 草稿箱（「等你过目」）。原型把待审核的东西归在 Activity 里，S10 会把它搬过去；
+   * 在那之前它安静地待在书桌右栏，**不能因为重排 IA 就把一个能用的功能弄丢**。
+   */
+  draftInbox?: ReactNode;
+  /** 不依赖网络的课程列表：练习数据打不开时，书立与换课仍要能用。 */
+  bookstandFallback?: DeskBookstand & { currentTitle: string };
+  switchingSpace?: boolean;
   onNavigatePage?: (page: StudyPageSlug) => void;
+  onImportMaterial?: () => void;
   onOpenChatSession?: (sessionId: string) => void;
   onStartCourseChat?: (request: DeskCourseChatRequest) => void;
   onStartCreateChat?: (request: DeskCreateChatRequest) => void;
@@ -84,7 +99,12 @@ export default function DeskScene({
   initialSnapshot,
   art,
   currentPage = "practice",
+  pageBody,
+  draftInbox,
+  bookstandFallback,
+  switchingSpace,
   onNavigatePage,
+  onImportMaterial,
   onOpenChatSession,
   onStartCourseChat,
   onStartCreateChat,
@@ -113,6 +133,7 @@ export default function DeskScene({
   const [invokeOpen, setInvokeOpen] = useState(false);
   const [tutorQuestion, setTutorQuestion] = useState("");
   const [panel, setPanel] = useState<"work" | "activity" | "cards" | null>(null);
+  const [stackIndexOpen, setStackIndexOpen] = useState(false);
   const [initialMaterialId, setInitialMaterialId] = useState<string | null>(null);
   const [cardIndex, setCardIndex] = useState(0);
   const [cardPending, setCardPending] = useState(false);
@@ -468,6 +489,75 @@ export default function DeskScene({
     focusAfterPaint(taskSurfaceRef);
   }, [announce, clearSaveTimer, data, deskAdapter, focusAfterPaint, stepIndex]);
 
+  /**
+   * 练习数据打不开时，**只有练习那一页该受影响**。
+   *
+   * `loadDesk` 在这门课还没有可用测验时就会抛错（`no active quiz`）。如果让它决定
+   * 整张书桌在不在，一门刚建、还没出题的课就会连扉页、计划、学习、评估一起打不开——
+   * 那不是诚实，是把一个局部缺失说成全盘不可用。所以在承载其它分页时，书桌照常摊开，
+   * 只是本子里那一页说清练习还没准备好。
+   */
+  if (!data && pageBody && bookstandFallback) {
+    return (
+      <div className="kq-desk" data-density="overview">
+        <div className="kd-canvas">
+          <main className="kd-desk">
+            <DeskBookend
+              art={icons}
+              bookstand={bookstandFallback}
+              disabled={switchingSpace}
+              onSelectSpace={onSelectSpace}
+              onNewBook={onNewBook}
+              onFutureFeature={announceFutureFeature}
+            />
+            <section className="kd-center-stage" aria-label="当前课程笔记本">
+              <DeskNotebook
+                art={icons}
+                course={{ name: bookstandFallback.currentTitle, notebookLabel: "" }}
+                density="overview"
+                activity="ready"
+                answer=""
+                answerStateText=""
+                saveStatusText=""
+                operationError={null}
+                checkResult={null}
+                currentPage={currentPage}
+                pageBody={pageBody}
+                hasNextStep={false}
+                taskSurfaceRef={taskSurfaceRef}
+                answerRef={answerRef}
+                feedbackRef={feedbackRef}
+                onResume={() => undefined}
+                onStartWriting={() => undefined}
+                onAnswerChange={() => undefined}
+                onCheck={() => undefined}
+                onModify={() => undefined}
+                onAskTutor={() => undefined}
+                onNextStep={() => undefined}
+                onNavigatePage={onNavigatePage}
+                onFutureFeature={announceFutureFeature}
+              />
+            </section>
+            <aside className="kd-right-objects" aria-label="参考资料、复习与小娜">
+              {draftInbox ? <div className="kd-rail-drafts">{draftInbox}</div> : null}
+              <DeskRightObjects
+                art={icons}
+                materials={{ title: "参考资料", hint: "", items: [], unavailable: loadError }}
+                dueCount={0}
+                stackIndexOpen={false}
+                onToggleStackIndex={() => undefined}
+                onFutureFeature={announceFutureFeature}
+                onImportMaterial={onImportMaterial}
+              />
+              <DeskCup art={icons} onAskTutor={announceFutureFeature} />
+            </aside>
+          </main>
+        </div>
+        <Announcer announcement={announcement} />
+      </div>
+    );
+  }
+
   if (!data) {
     return (
       <div className="kq-desk" data-density="overview">
@@ -615,6 +705,15 @@ export default function DeskScene({
     <div className="kq-desk" data-density={density}>
       <div className="kd-canvas">
         <main className="kd-desk">
+          {/* 书立在本子的上边缘：换课＝换一本本子（原型 `Bookend`）。 */}
+          <DeskBookend
+            art={icons}
+            bookstand={data.bookstand}
+            disabled={switchingSpace}
+            onSelectSpace={onSelectSpace}
+            onNewBook={onNewBook}
+            onFutureFeature={announceFutureFeature}
+          />
           <section className="kd-center-stage" aria-label="当前课程笔记本">
             <DeskNotebook
               art={icons}
@@ -629,6 +728,7 @@ export default function DeskScene({
               operationError={operationError}
               checkResult={checkResult}
               currentPage={currentPage}
+              pageBody={pageBody}
               hasNextStep={hasNextStep}
               taskSurfaceRef={taskSurfaceRef}
               answerRef={answerRef}
@@ -643,31 +743,39 @@ export default function DeskScene({
               onNavigatePage={onNavigatePage}
               onFutureFeature={announceFutureFeature}
             />
-            <button type="button" className="kd-work-folder" onClick={() => openWorkFolder()}>
-              <icons.folderPlus /> ＋ 制作 / 成果
-            </button>
+            {pageBody ? null : (
+              <button type="button" className="kd-work-folder" onClick={() => openWorkFolder()}>
+                <icons.folderPlus /> ＋ 制作 / 成果
+              </button>
+            )}
           </section>
-          <aside className="kd-right-objects" aria-label="复习卡片与小娜">
+          <aside className="kd-right-objects" aria-label="参考资料、复习与小娜">
+            {draftInbox ? <div className="kd-rail-drafts">{draftInbox}</div> : null}
             <DeskRightObjects
               art={icons}
-              bookstand={data.bookstand}
               materials={data.materials}
               dueCount={data.dueCount}
+              stackIndexOpen={stackIndexOpen}
+              onToggleStackIndex={() => setStackIndexOpen((open) => !open)}
               onFutureFeature={announceFutureFeature}
+              onOpenMaterials={openWorkFolder}
+              onImportMaterial={onImportMaterial}
               onReviewCards={onReviewCards ?? openCardReview}
             />
             <DeskCup art={icons} onAskTutor={() => openTutorInvoke("kd-cup-chat")} />
           </aside>
-          <DeskLeftObjects
-            art={icons}
-            bookstand={data.bookstand}
-            materials={data.materials}
-            dueCount={data.dueCount}
-            onFutureFeature={announceFutureFeature}
-            onSelectSpace={onSelectSpace}
-            onOpenMaterials={openWorkFolder}
-            onNewBook={onNewBook}
-          />
+          {/* 窄窗（720×520）下右栏收起来，三件事退成一条工具条，谁都不藏。 */}
+          <nav className="kd-narrow-tools" aria-label="窄窗书桌工具">
+            <button type="button" onClick={() => openWorkFolder()}>
+              <icons.layers /> 参考
+            </button>
+            <button type="button" onClick={onReviewCards ?? openCardReview}>
+              <icons.archive /> 卡片
+            </button>
+            <button type="button" onClick={() => openTutorInvoke("kd-cup-chat")}>
+              <icons.coffee /> 小娜
+            </button>
+          </nav>
         </main>
       </div>
       <Announcer announcement={announcement} />

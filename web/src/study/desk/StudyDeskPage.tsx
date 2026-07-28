@@ -1,7 +1,7 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   buildStudyChatPrompt,
@@ -13,6 +13,7 @@ import { useStudyRepository } from "../repositoryContext";
 import { studyPath, type StudyPageSlug } from "../routeModel";
 import type { StudySpaceSummary } from "../repository";
 import DeskScene from "./DeskScene";
+import { DraftInboxButton } from "../DraftInboxButton";
 import type { DeskCourseChatRequest } from "./DeskTutorInvoke";
 import type { DeskCreateChatRequest } from "./DeskWorkFolder";
 import { createStudyDeskAdapter } from "./studyDeskAdapter";
@@ -20,15 +21,24 @@ import { createStudyDeskAdapter } from "./studyDeskAdapter";
 export function StudyDeskPage({
   spaceId,
   spaces,
+  page,
+  pageBody,
+  switchingSpace,
   onDirtyChange,
   onNavigateAway,
   onSelectSpace,
+  onImportMaterial,
 }: {
   spaceId: string;
   spaces: StudySpaceSummary[];
+  /** 当前分页；书桌承载全部五页，不再只是练习专用。 */
+  page: StudyPageSlug;
+  pageBody?: ReactNode;
+  switchingSpace?: boolean;
   onDirtyChange: (dirty: boolean) => void;
   onNavigateAway: (to: string, state?: unknown) => void;
   onSelectSpace: (spaceId: string) => void;
+  onImportMaterial?: () => void;
 }) {
   const repository = useStudyRepository();
   const location = useLocation();
@@ -44,8 +54,16 @@ export function StudyDeskPage({
     }),
     [repository, spaceId, spacesKey],
   );
-  const navigatePage = (page: StudyPageSlug) => onNavigateAway(studyPath(spaceId, page));
+  const navigatePage = (nextPage: StudyPageSlug) => onNavigateAway(studyPath(spaceId, nextPage));
   const spaceTitle = spaces.find((space) => space.id === spaceId)?.title || "我的课程";
+  // 课程列表不经网络：练习数据打不开时，书立与换课照样要能用。
+  const bookstandFallback = {
+    title: "我的课程本",
+    hint: "换课就是换一本本子。",
+    books: spaces.map((space) => ({ id: space.id, name: space.title, current: space.id === spaceId })),
+    newBookLabel: "开新本",
+    currentTitle: spaceTitle,
+  };
 
   useEffect(() => {
     if (!returnFocus) return;
@@ -122,8 +140,13 @@ export function StudyDeskPage({
     <DeskScene
       adapter={adapter}
       returnFocus={returnFocus}
-      currentPage="practice"
+      currentPage={page}
+      pageBody={pageBody}
+      draftInbox={<DraftInboxButton />}
+      bookstandFallback={bookstandFallback}
+      switchingSpace={switchingSpace}
       onDirtyChange={onDirtyChange}
+      onImportMaterial={onImportMaterial}
       onNavigatePage={navigatePage}
       onOpenChatSession={(sessionId) => onNavigateAway("/chat", { openSessionId: sessionId })}
       onStartCourseChat={startCourseChat}

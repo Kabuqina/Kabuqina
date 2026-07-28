@@ -186,7 +186,7 @@ describe("DeskScene FE-01 preview", () => {
     const reviewCard = vi.fn().mockResolvedValue(deskFixtureData.dueCards[0]);
     render(<DeskScene adapter={createAdapter({ reviewCard })} />);
     await screen.findByRole("heading", { name: "高等数学 · 极限" });
-    fireEvent.click(screen.getByRole("button", { name: "到安全节点后复习" }));
+    fireEvent.click(screen.getByRole("button", { name: "开始复习" }));
     expect(screen.getByRole("heading", { name: "极限卡片 1" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /显示答案/ }));
     fireEvent.click(screen.getByRole("button", { name: /掌握/ }));

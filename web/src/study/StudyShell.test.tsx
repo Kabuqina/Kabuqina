@@ -109,11 +109,21 @@ describe("StudyShell", () => {
     expect(sink).toHaveBeenCalledTimes(1);
   });
 
-  it("renders lifecycle links and privacy-bounded cross-kind draft counts", async () => {
+  it("puts every lifecycle page in one notebook, with the course books on its edge", async () => {
+    renderShell();
+    // 五个分页共用同一本本子：翻页不换世界。
+    const tabs = await screen.findByRole("navigation", { name: "笔记本分页" });
+    expect(tabs).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "学习" })).toHaveAttribute("aria-current", "page");
+    // 换课＝换一本本子：课程名长在书立的标签上，不在一个下拉里。
+    const bookend = screen.getByRole("navigation", { name: /课程/ });
+    expect(bookend.querySelector('[aria-current="page"]')).toHaveTextContent("Linear Algebra");
+    expect(bookend).toHaveTextContent("Physics");
+  });
+
+  it("keeps the drafts inbox reachable and privacy-bounded after the IA move", async () => {
     const user = userEvent.setup();
     renderShell();
-    expect(screen.getByRole("navigation", { name: "学习阶段" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "学习" })).toHaveAttribute("aria-current", "page");
     const drafts = await screen.findByLabelText("2 个草稿");
     await user.click(drafts.closest("button")!);
     const popover = screen.getByRole("dialog", { name: "草稿箱" });
@@ -158,68 +168,34 @@ describe("StudyShell", () => {
     const user = userEvent.setup();
     const sink = vi.fn();
     renderShell({ selectSpace: vi.fn().mockRejectedValue(new Error("request_failed")) }, {}, sink);
-    await user.click(screen.getByRole("button", { name: /Linear Algebra/ }));
-    await user.click(screen.getByRole("option", { name: "Physics" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("原学习空间已保留");
+    await user.click(await screen.findByRole("button", { name: /Physics/ }));
+    // 换课失败：路由与当前这本都不动。
+    await waitFor(() => expect(sink).toHaveBeenCalledWith({ name: "study.space.switch", action: "switch", success: false }));
     expect(screen.getByTestId("location")).toHaveTextContent("/study/space-a/learn");
     expect(screen.getByRole("heading", { name: "学习" })).toBeInTheDocument();
-    expect(sink).toHaveBeenCalledWith({ name: "study.space.switch", action: "switch", success: false });
   });
 
   it("moves to the selected space while preserving the current lifecycle page", async () => {
     const user = userEvent.setup();
     const sink = vi.fn();
     const repository = renderShell({}, {}, sink);
-    await user.click(screen.getByRole("button", { name: /Linear Algebra/ }));
-    await user.click(screen.getByRole("option", { name: "Physics" }));
+    await user.click(await screen.findByRole("button", { name: /Physics/ }));
     await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/study/space-b/learn"));
     expect(repository.selectSpace).toHaveBeenCalledWith("space-b", expect.any(AbortSignal));
     expect(sink).toHaveBeenCalledWith({ name: "study.space.switch", action: "switch", success: true });
   });
 
-  it("uses a modal presentation in a narrow container and restores trigger focus on Escape", async () => {
-    class NarrowResizeObserver {
-      constructor(private callback: ResizeObserverCallback) {}
-      observe() { this.callback([{ contentRect: { width: 480 } } as ResizeObserverEntry], this as unknown as ResizeObserver); }
-      disconnect() {}
-      unobserve() {}
-    }
-    vi.stubGlobal("ResizeObserver", NarrowResizeObserver);
+  it("switches course books straight from the bookend, with the current one inert", async () => {
     const user = userEvent.setup();
-    renderShell();
-    const trigger = screen.getByRole("button", { name: /Linear Algebra/ });
-    await user.click(trigger);
-    const modal = screen.getByRole("dialog", { name: "切换学习空间" });
-    expect(modal).toHaveAttribute("aria-modal", "true");
-    expect(modal.parentElement).toBe(document.body);
-    expect(modal.closest(".kq-study-topbar")).toBeNull();
-    expect(screen.getByRole("option", { name: "Linear Algebra" })).toBeDisabled();
-    const close = screen.getByRole("button", { name: "取消" });
-    expect(close).toHaveFocus();
-    await user.tab();
-    expect(screen.getByRole("option", { name: "Physics" })).toHaveFocus();
-    await user.tab();
-    expect(screen.getByRole("link", { name: "开新本" })).toHaveFocus();
-    await user.tab();
-    expect(close).toHaveFocus();
-    await user.keyboard("{Escape}");
-    await waitFor(() => expect(trigger).toHaveFocus());
-  });
-
-  it("closes wide popovers when a pointer starts outside", async () => {
-    const user = userEvent.setup();
-    renderShell();
-
-    await user.click(screen.getByRole("button", { name: /Linear Algebra/ }));
-    expect(screen.getByRole("listbox", { name: "切换学习空间" })).toBeInTheDocument();
-    fireEvent.pointerDown(document.body);
-    expect(screen.queryByRole("listbox", { name: "切换学习空间" })).not.toBeInTheDocument();
-
-    const drafts = await screen.findByLabelText("2 个草稿");
-    await user.click(drafts.closest("button")!);
-    expect(screen.getByRole("dialog", { name: "草稿箱" })).toBeInTheDocument();
-    fireEvent.pointerDown(document.body);
-    expect(screen.queryByRole("dialog", { name: "草稿箱" })).not.toBeInTheDocument();
+    const repository = renderShell();
+    const bookend = await screen.findByRole("navigation", { name: /课程/ });
+    const current = screen.getByRole("button", { name: /Linear Algebra/ });
+    // 当前这本与纸面连成一体，点它不该再发一次切换请求。
+    expect(current).toHaveAttribute("aria-current", "page");
+    await user.click(current);
+    expect(repository.selectSpace).not.toHaveBeenCalled();
+    // 「开新本」跟课程标签在同一条边上。
+    expect(bookend).toHaveTextContent("开新本");
   });
 
   it("requires confirmation before a dirty practice changes space or lifecycle page", async () => {

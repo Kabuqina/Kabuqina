@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useMemo } from "react";
+import type { StudyPageSlug } from "../routeModel";
 import type { DeskAdapter } from "./deskAdapter";
 import { completedResult, deskFixtureData, needsRevisionResult } from "./deskFixtures";
 import DeskScene, { type DeskSceneProps } from "./DeskScene";
@@ -17,6 +18,20 @@ function readFixtureParam(): FixtureId | null {
   return value === "d0" || value === "n0" || value === "a1" || value === "f0" || value === "f1"
     ? value
     : null;
+}
+
+const LIFECYCLE_PAGES: StudyPageSlug[] = ["flyleaf", "plan", "learn", "practice", "evaluate"];
+
+/** `?page=` 让书桌承载五页的排版可以逐页看；`?fail=1` 看练习数据打不开时的降级。 */
+function readPageParam(): StudyPageSlug {
+  if (typeof window === "undefined") return "practice";
+  const value = new URLSearchParams(window.location.search).get("page");
+  return LIFECYCLE_PAGES.includes(value as StudyPageSlug) ? (value as StudyPageSlug) : "practice";
+}
+
+function readFailParam(): boolean {
+  if (typeof window === "undefined") return false;
+  return new URLSearchParams(window.location.search).get("fail") === "1";
 }
 
 function delay(ms: number, signal: AbortSignal): Promise<void> {
@@ -37,10 +52,12 @@ function delay(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
-function createFixtureDeskAdapter(latencyMs = 650): DeskAdapter {
+function createFixtureDeskAdapter(latencyMs = 650, fail = false): DeskAdapter {
   return {
     async loadDesk(signal) {
       await delay(latencyMs, signal);
+      // 复刻真实情形：一门还没出题的课，`loadDesk` 会抛 `no active quiz`。
+      if (fail) throw new Error("study desk: no active quiz");
       return deskFixtureData;
     },
     persistDraft() {
@@ -90,7 +107,27 @@ function snapshotFor(fixture: FixtureId | null): DeskSceneProps["initialSnapshot
 }
 
 export default function DeskScenePreview() {
-  const adapter = useMemo(() => createFixtureDeskAdapter(), []);
+  const page = useMemo(readPageParam, []);
+  const fail = useMemo(readFailParam, []);
+  const adapter = useMemo(() => createFixtureDeskAdapter(650, fail), [fail]);
   const initialSnapshot = useMemo(() => snapshotFor(readFixtureParam()), []);
-  return <DeskScene adapter={adapter} initialSnapshot={initialSnapshot} />;
+  const bookstandFallback = useMemo(() => ({
+    ...deskFixtureData.bookstand,
+    currentTitle: deskFixtureData.course.name,
+  }), []);
+  return (
+    <DeskScene
+      adapter={adapter}
+      initialSnapshot={initialSnapshot}
+      currentPage={page}
+      bookstandFallback={bookstandFallback}
+      pageBody={page === "practice" ? undefined : (
+        <section className="kd-overview-copy">
+          <p className="kd-page-kicker">开发预览</p>
+          <h2>{page}</h2>
+          <p>生产里这里是 StudyPageOutlet 铺进来的那一页。</p>
+        </section>
+      )}
+    />
+  );
 }

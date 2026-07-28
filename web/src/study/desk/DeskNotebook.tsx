@@ -1,7 +1,7 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { lazy, Suspense, type RefObject } from "react";
+import { lazy, Suspense, type ReactNode, type RefObject } from "react";
 import type { StudyPageSlug } from "../routeModel";
 import type { DeskArtAssets } from "./artAssets";
 import type {
@@ -23,8 +23,9 @@ const DerivationPracticeSurface = lazy(async () => ({
 export interface DeskNotebookProps {
   art: DeskArtAssets;
   course: DeskCourse;
-  overview: DeskOverview;
-  step: StudyStep;
+  /** 练习专用；没有可用测验时缺席，本子仍然照常打开。 */
+  overview?: DeskOverview;
+  step?: StudyStep;
   density: DeskDensity;
   activity: StudyActivity;
   answer: string;
@@ -33,6 +34,12 @@ export interface DeskNotebookProps {
   operationError: string | null;
   checkResult: CheckResult | null;
   currentPage?: StudyPageSlug;
+  /**
+   * 非练习分页的正文。笔记本的五个分页共用同一本本子（原型 `StudyNotebook`）——
+   * 扉页 / 计划 / 学习 / 评估 由 `StudyPageOutlet` 铺在这里，练习仍由本组件自己画，
+   * 因为只有它带着作答面、检查反馈和页边批注。
+   */
+  pageBody?: ReactNode;
   hasNextStep: boolean;
   taskSurfaceRef: RefObject<HTMLElement | null>;
   answerRef: RefObject<HTMLDivElement | null>;
@@ -215,6 +222,7 @@ export function DeskNotebook({
   operationError,
   checkResult,
   currentPage = "practice",
+  pageBody,
   hasNextStep,
   taskSurfaceRef,
   answerRef,
@@ -250,10 +258,12 @@ export function DeskNotebook({
           <h1>{course.name}</h1>
           <p>{course.notebookLabel}</p>
         </div>
-        <button type="button" className="kd-bookmark-button" onClick={onResume}>
-          <strong><Bookmark /> <span>继续：{step.kicker}</span></strong>
-          <span>{step.title}</span>
-        </button>
+        {step ? (
+          <button type="button" className="kd-bookmark-button" onClick={onResume}>
+            <strong><Bookmark /> <span>继续：{step.kicker}</span></strong>
+            <span>{step.title}</span>
+          </button>
+        ) : null}
       </header>
 
       <nav className="kd-page-tabs" aria-label="笔记本分页">
@@ -276,7 +286,13 @@ export function DeskNotebook({
       </nav>
 
       <div className="kd-page-body">
-        {isOverview ? (
+        {pageBody ?? (!(step && overview) ? (
+          <section className="kd-overview-copy">
+            <p className="kd-page-kicker">练习</p>
+            <h2>这本课程本还没有可练的题</h2>
+            <p>先在学习页读材料，或让小娜按材料出一组练习。其余分页照常可用。</p>
+          </section>
+        ) : isOverview ? (
           <section className="kd-overview-copy">
             <p className="kd-page-kicker">{overview.kicker}</p>
             <h2>{overview.heading}</h2>
@@ -368,15 +384,18 @@ export function DeskNotebook({
               )}
             </div>
           </section>
-        )}
+        ))}
 
-        <details className="kd-reference-fold">
-          <summary>本题参考</summary>
-          <div>
-            <p>{step.referenceSummary}</p>
-            <p><strong>提示：</strong>{step.referenceHint}</p>
-          </div>
-        </details>
+        {/* 「本题参考」是练习那一页的东西；扉页/计划/学习/评估上不该出现。 */}
+        {pageBody || !step ? null : (
+          <details className="kd-reference-fold">
+            <summary>本题参考</summary>
+            <div>
+              <p>{step.referenceSummary}</p>
+              <p><strong>提示：</strong>{step.referenceHint}</p>
+            </div>
+          </details>
+        )}
       </div>
     </article>
   );

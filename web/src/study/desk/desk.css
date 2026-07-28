@@ -121,58 +121,10 @@
 
 .kq-desk .kd-primary:hover:not(:disabled) { background: #59456d; }
 
-/* --- product chrome ---------------------------------------------------- */
-
-.kd-product-chrome {
-  position: relative;
-  z-index: 20;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 20px;
-  padding: 6px 16px;
-  border-bottom: 1px solid var(--c-glass-border);
-  background: var(--c-glass);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, .82), 0 5px 18px rgba(90, 74, 106, .08);
-  backdrop-filter: blur(14px);
-}
-
-.kd-brand,
-.kd-top-nav,
-.kd-utilities,
 .kd-inline-actions {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.kd-brand-mark {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border: 1px solid var(--c-accent-2);
-  border-radius: 50%;
-  background: linear-gradient(145deg, #fff, var(--c-accent-soft));
-  color: var(--c-accent);
-  font-weight: 700;
-}
-
-.kd-brand strong { font-size: 15px; }
-.kd-top-nav { justify-self: center; }
-
-.kd-top-nav button,
-.kd-utilities button {
-  min-height: 34px;
-  padding: 5px 10px;
-  border-color: transparent;
-  background: transparent;
-}
-
-.kd-top-nav button[aria-current="page"] {
-  border-color: rgba(107, 85, 128, .35);
-  background: rgba(255, 255, 255, .9);
-  color: var(--c-accent);
 }
 
 /* --- desk grid ---------------------------------------------------------- */
@@ -183,30 +135,210 @@
   overflow: hidden;
 }
 
+/* 布局真值：canonical 原型 `.desk-scene`。书立在本子上边缘、笔记本在中、
+   书堆/复习/杯子在右。v0.4 的左侧常驻课程栏已退场——课程名长在本子标签上。 */
 .kd-desk {
+  position: relative;
   height: 100%;
   min-height: 0;
   box-sizing: border-box;
   display: grid;
-  grid-template-columns: minmax(150px, 17%) minmax(540px, 1fr) minmax(145px, 16%);
-  gap: 18px;
+  grid-template-columns: minmax(0, 1fr) minmax(145px, 16%);
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas:
+    "bookend review"
+    "notebook review";
+  gap: 0 18px;
   padding: 14px 18px 16px;
   align-items: stretch;
   overflow: hidden;
 }
 
-.kd-left-objects,
 .kd-right-objects {
+  grid-area: review;
   min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   gap: 14px;
 }
 
-.kd-left-objects { grid-column: 1; grid-row: 1; }
-.kd-center-stage { grid-column: 2; grid-row: 1; }
-.kd-right-objects { grid-column: 3; grid-row: 1; }
+.kd-center-stage { grid-area: notebook; min-width: 0; min-height: 0; }
+
+/* --- 书立：换课＝换一本本子（原型 `.bookend`） --------------------------- */
+
+.kd-bookend {
+  grid-area: bookend;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  min-width: 0;
+  overflow-x: auto;
+  /* 右侧留出本子右上角圆角的宽度，而不是依赖滚动条预留槽这种平台相关的偶然值。 */
+  padding-right: 16px;
+  padding-left: 10px;
+  scrollbar-width: none;
+}
+
+.kd-bookend::-webkit-scrollbar { display: none; }
+
+.kd-book-pill {
+  position: relative;
+  z-index: 3;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 15px 8px;
+  border: 1px solid var(--line-warm);
+  border-bottom: 0;
+  border-radius: 9px 9px 0 0;
+  color: var(--ink-soft);
+  background: var(--paper-soft);
+  font-size: 13px;
+  white-space: nowrap;
+  box-shadow: inset 0 -7px 9px -9px rgba(80, 65, 40, 0.45);
+}
+
+.kd-book-pill:hover { color: var(--ink-strong); }
+
+.kd-book-pill-spine {
+  width: 7px;
+  height: 15px;
+  border-radius: 2px;
+  background: var(--lavender);
+  opacity: 0.5;
+}
+
+/* 当前这本与纸面连成一体：压掉下边框，纸和标签是同一张。 */
+.kd-book-pill[aria-current="page"] {
+  margin-bottom: -1px;
+  padding-bottom: 13px;
+  color: var(--ink-strong);
+  background: var(--paper);
+  font-weight: 700;
+  box-shadow: none;
+}
+
+.kd-book-pill[aria-current="page"] .kd-book-pill-spine {
+  background: var(--purple);
+  opacity: 1;
+}
+
+.kd-book-pill--new {
+  border-style: dashed;
+  border-color: var(--line-cool);
+  background: transparent;
+}
+
+.kd-book-pill--new:hover { background: var(--veil); }
+.kd-book-pill:disabled { opacity: 0.55; cursor: default; }
+.kd-book-pill svg { width: 14px; height: 14px; }
+
+/* --- 书堆：参考书立着，需要时抽一本（原型 `.book-stack`） ---------------- */
+
+.kd-book-stack {
+  padding: 12px;
+  border: 1px solid var(--line-warm);
+  border-radius: 7px;
+  background: var(--veil-strong);
+  box-shadow: var(--shadow-soft);
+}
+
+.kd-book-stack h2 {
+  display: block;
+  margin: 0 0 9px;
+  color: var(--ink-strong);
+  font-size: 13px;
+}
+
+.kd-spines { display: flex; align-items: flex-end; gap: 4px; }
+
+/* 一根书脊＝一个文件（你导入的那一份），不是章节。 */
+.kd-book-spine {
+  writing-mode: vertical-rl;
+  min-height: 96px;
+  max-height: 110px;
+  overflow: hidden;
+  padding: 9px 6px;
+  border: 1px solid var(--manila-line);
+  border-radius: 3px 3px 2px 2px;
+  color: var(--brown-ink);
+  background: var(--manila);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  box-shadow: inset -3px 0 5px -4px rgba(80, 65, 40, 0.6);
+}
+
+.kd-book-spine:nth-child(2) {
+  min-height: 88px;
+  color: var(--purple-dark);
+  border-color: var(--purple-line);
+  background: var(--purple-pale);
+}
+
+.kd-book-spine:hover { transform: translateY(-3px); }
+
+.kd-book-spine--add {
+  min-height: 62px;
+  writing-mode: horizontal-tb;
+  align-self: flex-end;
+  padding: 0 7px;
+  border-style: dashed;
+  border-color: var(--line-cool);
+  color: var(--ink-soft);
+  background: transparent;
+  box-shadow: none;
+}
+
+.kd-book-spine--add svg { width: 15px; height: 15px; }
+
+.kd-stack-empty { margin: 8px 0 0; color: var(--ink-soft); font-size: 11px; }
+
+/* 贴在书堆上的目录：可翻开核对，不占一个入口。 */
+.kd-stack-index {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 9px;
+  padding: 5px 6px;
+  border: 0;
+  border-radius: 5px;
+  color: var(--ink-soft);
+  background: transparent;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.kd-stack-index:hover { color: var(--purple); background: var(--purple-faint); }
+.kd-stack-index svg { width: 13px; height: 13px; }
+
+.kd-stack-index-list {
+  display: grid;
+  gap: 5px;
+  margin: 4px 0 0;
+  padding: 9px;
+  border-radius: 6px;
+  background: var(--paper-soft);
+  list-style: none;
+}
+
+.kd-stack-index-list li {
+  display: grid;
+  gap: 1px;
+  color: var(--ink-mid);
+  font-size: 11px;
+}
+
+.kd-stack-index-list span { color: var(--ink-soft); font-size: 10px; }
+
+/* 窄窗工具条：宽屏不出现，右栏收起时它接手（原型 `.narrow-desk-tools`）。 */
+.kd-narrow-tools { display: none; }
 
 .kd-object {
   min-width: 0;
@@ -221,15 +353,6 @@
 
 .kd-object h2 { display: flex; align-items: center; gap: 6px; }
 
-.kd-bookstand {
-  padding: 12px;
-  border-radius: 5px 5px 10px 10px;
-}
-
-.kd-book-row { display: grid; gap: 6px; margin: 10px 0; }
-
-.kd-book-row button,
-.kd-materials button,
 .kd-card-box button {
   width: 100%;
   display: flex;
@@ -238,31 +361,6 @@
   text-align: left;
   background: #f8f7f4;
 }
-
-.kd-book-row button[aria-current="true"] {
-  border-width: 2px;
-  border-left-width: 8px;
-  border-left-color: var(--c-accent);
-  background: var(--c-accent-soft);
-}
-
-.kd-book-row button[aria-disabled="true"] { cursor: default; }
-
-.kd-bookstand > button {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.kd-materials {
-  margin-top: auto;
-  padding: 12px;
-  border-radius: 5px;
-  transform: rotate(-.35deg);
-}
-
-.kd-material-list { display: grid; gap: 6px; }
 
 /* --- notebook ------------------------------------------------------------ */
 
@@ -955,33 +1053,61 @@
 
 /* --- narrow contract (prototype `.is-narrow`, as media query) ------------ */
 
-@media (max-width: 720px) {
+@media (max-width: 860px) {
   .kq-desk {
     grid-template-rows: auto minmax(0, 1fr);
     overflow: auto;
   }
 
-  .kq-desk .kd-product-chrome { grid-template-columns: 1fr auto; }
-  .kq-desk .kd-top-nav { justify-self: start; order: 3; grid-column: 1 / -1; }
-  .kq-desk .kd-utilities { grid-column: 2; justify-self: end; }
-  .kq-desk .kd-brand-copy,
-  .kq-desk .kd-utilities .kd-hide-narrow { display: none; }
-
   .kq-desk .kd-canvas { overflow: visible; }
+  /* 窄窗把右栏收起来，三件事退成底部工具条——谁都不藏，只是换了摆法。 */
   .kq-desk .kd-desk {
     height: auto;
     min-height: auto;
     display: flex;
     flex-direction: column;
     gap: 12px;
-    padding: 14px;
+    padding: 14px 14px 62px;
     overflow: visible;
   }
 
+  .kq-desk .kd-bookend { order: 0; padding-left: 4px; }
   .kq-desk .kd-center-stage { order: 1; display: block; }
-  .kq-desk .kd-right-objects { order: 2; display: grid; grid-template-columns: 1fr 1fr; }
-  .kq-desk .kd-left-objects { order: 3; display: grid; grid-template-columns: 1fr 1fr; }
-  .kq-desk .kd-materials { margin-top: 0; transform: none; }
+  .kq-desk .kd-right-objects { display: none; }
+
+  .kq-desk .kd-narrow-tools {
+    position: fixed;
+    z-index: 12;
+    right: 10px;
+    bottom: 10px;
+    left: 10px;
+    display: flex;
+    gap: 7px;
+    padding: 7px;
+    border: 1px solid var(--line-cool);
+    border-radius: 9px;
+    background: var(--veil-strong);
+    box-shadow: var(--shadow);
+  }
+
+  .kq-desk .kd-narrow-tools button {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 39px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .kq-desk .kd-narrow-tools button:hover {
+    border-color: var(--purple-line);
+    background: var(--purple-faint);
+  }
   .kq-desk .kd-notebook,
   .kq-desk[data-density="overview"] .kd-notebook {
     width: 100%;
