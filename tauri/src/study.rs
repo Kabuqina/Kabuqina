@@ -89,6 +89,56 @@ pub async fn cmd_study_space_select(app: AppHandle, space_id: String) -> Result<
 }
 
 #[tauri::command]
+pub async fn cmd_study_scratch_get(
+    app: AppHandle,
+    space_id: String,
+) -> Result<Value, DeskBridgeError> {
+    validate_structured_id(&space_id)?;
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::GET,
+        &format!("/api/desk/study/spaces/{space_id}/scratch"),
+        None,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_scratch_save_pad(
+    app: AppHandle,
+    space_id: String,
+    pad: String,
+) -> Result<Value, DeskBridgeError> {
+    validate_structured_id(&space_id)?;
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::PUT,
+        &format!("/api/desk/study/spaces/{space_id}/scratch/pad"),
+        Some(json!({"pad": pad})),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_scratch_file_note(
+    app: AppHandle,
+    space_id: String,
+    note_id: String,
+    target_space_id: String,
+) -> Result<Value, DeskBridgeError> {
+    validate_structured_id(&space_id)?;
+    validate_structured_id(&note_id)?;
+    validate_structured_id(&target_space_id)?;
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::POST,
+        &format!("/api/desk/study/spaces/{space_id}/scratch/notes/{note_id}/file"),
+        Some(json!({"target_space_id": target_space_id})),
+    )
+    .await
+}
+
+#[tauri::command]
 pub async fn cmd_study_drafts(
     app: AppHandle,
     kind: Option<String>,

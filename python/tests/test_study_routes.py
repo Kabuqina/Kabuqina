@@ -163,7 +163,8 @@ def test_space_routes_create_list_and_select(study_client):
     listed = client.get("/api/desk/study/spaces", headers=_headers())
     assert listed.status_code == 200
     assert listed.json()["currentSpaceId"] == sid
-    assert [space["title"] for space in listed.json()["spaces"]] == ["Algebra"]
+    assert [space["title"] for space in listed.json()["spaces"]] == ["Algebra", "杂记本"]
+    assert [space["kind"] for space in listed.json()["spaces"]] == ["course", "scratch"]
 
     selected = client.post(f"/api/desk/study/spaces/{sid}/select", headers=_headers())
     assert selected.status_code == 200

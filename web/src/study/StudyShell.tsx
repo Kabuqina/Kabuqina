@@ -71,14 +71,21 @@ export function StudyShell({ spaces, spaceId, page, scratch = false, onRevalidat
     if (switching || nextSpaceId === spaceId) return;
     void confirmPracticeLeave().then((approved) => {
       if (!approved) return;
+      const next = spaces.spaces.find((space) => space.id === nextSpaceId);
+      // 杂记本可以打开，但永远不成为“当前课程”。这样首次种本、重启与课程选择
+      // 都不会被一本无课程的留白抢走；回到课程时仍走权威 select 命令。
+      if (next?.kind === "scratch") {
+        recordIa({ name: "study.space.switch", action: "switch", success: true });
+        navigate(`/study/${encodeURIComponent(nextSpaceId)}`);
+        return;
+      }
       const request = switchRequests.current.begin();
       setSwitching(true);
       void repository.selectSpace(nextSpaceId, request.signal).then(() => {
         if (!switchRequests.current.isCurrent(request.generation)) return;
         setSwitching(false);
         recordIa({ name: "study.space.switch", action: "switch", success: true });
-        const next = spaces.spaces.find((space) => space.id === nextSpaceId);
-        navigate(next?.kind === "scratch" ? `/study/${encodeURIComponent(nextSpaceId)}` : studyPath(nextSpaceId, page));
+        navigate(studyPath(nextSpaceId, page));
         onRevalidate?.();
       }, () => {
         if (!switchRequests.current.isCurrent(request.generation)) return;

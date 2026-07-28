@@ -46,6 +46,11 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 SPACE_STATUSES = frozenset({"active", "archived"})
+SPACE_KINDS = frozenset({"course", "scratch"})
+SCRATCH_PAD_ITEM_ID = "scratch-pad"
+SCRATCH_PAD_ITEM_TYPE = "scratch_pad"
+SCRATCH_NOTE_ITEM_TYPE = "scratch_note"
+MAX_SCRATCH_TEXT_LEN = 20_000
 
 _ACL_LOCK = threading.Lock()
 _ACL_SECURED_ROOTS: set[Path] = set()
@@ -184,6 +189,7 @@ CREATE TABLE IF NOT EXISTS learning_spaces (
     owner_id   TEXT NOT NULL,
     space_id   TEXT NOT NULL,
     title      TEXT NOT NULL DEFAULT '',
+    kind       TEXT NOT NULL DEFAULT 'course',
     status     TEXT NOT NULL DEFAULT 'active',
     is_current INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT '',
@@ -596,19 +602,24 @@ class LearningStore:
         title: str,
         space_id: Optional[str] = None,
         make_current: bool = True,
+        kind: str = "course",
         operation_lease: Optional[OperationLease] = None,
     ) -> str:
         _require(owner_id, "owner_id")
         _require(title, "title")
+        if kind not in SPACE_KINDS:
+            raise ValueError("kind must be course or scratch")
+        if kind == "scratch" and make_current:
+            raise ValueError("scratch space cannot be created as current")
         sid = space_id or uuid.uuid4().hex
         now = _now()
 
         def _op(conn: sqlite3.Connection) -> str:
             conn.execute(
                 "INSERT OR REPLACE INTO learning_spaces "
-                "(owner_id, space_id, title, status, is_current, created_at, updated_at) "
-                "VALUES (?, ?, ?, 'active', 0, ?, ?)",
-                (owner_id, sid, title, now, now),
+                "(owner_id, space_id, title, kind, status, is_current, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, 'active', 0, ?, ?)",
+                (owner_id, sid, title, kind, now, now),
             )
             if make_current:
                 conn.execute(
@@ -668,11 +679,13 @@ class LearningStore:
 
         def _op(conn: sqlite3.Connection) -> None:
             row = conn.execute(
-                "SELECT 1 FROM learning_spaces WHERE owner_id = ? AND space_id = ?",
+                "SELECT kind FROM learning_spaces WHERE owner_id = ? AND space_id = ?",
                 (owner_id, space_id),
             ).fetchone()
             if not row:
                 raise KeyError(f"space {space_id!r} not found for owner")
+            if row["kind"] == "scratch":
+                raise ValueError("scratch space cannot be the current course")
             conn.execute(
                 "UPDATE learning_spaces SET is_current = 0 WHERE owner_id = ?",
                 (owner_id,),
@@ -699,6 +712,227 @@ class LearningStore:
             (owner_id,),
         ).fetchone()
         return row[0] if row else None
+
+    # ── scratch notebook ──────────────────────────────────────────────── #
+
+    def save_scratch_pad(
+        self,
+        owner_id: str,
+        space_id: str,
+        pad: str,
+        *,
+        operation_lease: Optional[OperationLease] = None,
+    ) -> None:
+        _require(owner_id, "owner_id")
+        _require(space_id, "space_id")
+        if not isinstance(pad, str):
+            raise ValueError("pad must be a string")
+        if len(pad) > MAX_SCRATCH_TEXT_LEN:
+            raise ValueError(f"pad exceeds {MAX_SCRATCH_TEXT_LEN} chars")
+        now = _now()
+
+        def _op(conn: sqlite3.Connection) -> None:
+            self._require_space_kind(conn, owner_id, space_id, "scratch")
+            conn.execute(
+                "INSERT INTO learning_items "
+                "(owner_id,space_id,item_id,artifact_id,item_type,state_json,created_at,updated_at) "
+                "VALUES (?,?,?,NULL,?,?,?,?) "
+                "ON CONFLICT(owner_id,space_id,item_id) DO UPDATE SET "
+                "item_type=excluded.item_type,state_json=excluded.state_json,updated_at=excluded.updated_at",
+                (
+                    owner_id,
+                    space_id,
+                    SCRATCH_PAD_ITEM_ID,
+                    SCRATCH_PAD_ITEM_TYPE,
+                    json.dumps({"text": pad}, ensure_ascii=False),
+                    now,
+                    now,
+                ),
+            )
+
+        self._execute_write(owner_id, space_id, _op, operation_lease=operation_lease)
+
+    def add_scratch_note(
+        self,
+        owner_id: str,
+        space_id: str,
+        *,
+        text: str,
+        origin: str,
+        note_id: Optional[str] = None,
+        operation_lease: Optional[OperationLease] = None,
+    ) -> str:
+        _require(owner_id, "owner_id")
+        _require(space_id, "space_id")
+        text = _require(text, "text")
+        origin = _require(origin, "origin")
+        if len(text) > MAX_SCRATCH_TEXT_LEN:
+            raise ValueError(f"text exceeds {MAX_SCRATCH_TEXT_LEN} chars")
+        if len(origin) > 300:
+            raise ValueError("origin exceeds 300 chars")
+        item_id = note_id or uuid.uuid4().hex
+        now = _now()
+
+        def _op(conn: sqlite3.Connection) -> None:
+            self._require_space_kind(conn, owner_id, space_id, "scratch")
+            conn.execute(
+                "INSERT INTO learning_items "
+                "(owner_id,space_id,item_id,artifact_id,item_type,state_json,created_at,updated_at) "
+                "VALUES (?,?,?,NULL,?,?,?,?)",
+                (
+                    owner_id,
+                    space_id,
+                    item_id,
+                    SCRATCH_NOTE_ITEM_TYPE,
+                    json.dumps({"text": text, "origin": origin}, ensure_ascii=False),
+                    now,
+                    now,
+                ),
+            )
+
+        self._execute_write(owner_id, space_id, _op, operation_lease=operation_lease)
+        return item_id
+
+    @_coordinated_read()
+    def get_scratch_page(
+        self,
+        owner_id: str,
+        space_id: str,
+        *,
+        operation_lease: Optional[OperationLease] = None,
+    ) -> Dict[str, Any]:
+        _require(owner_id, "owner_id")
+        _require(space_id, "space_id")
+        self._require_space_kind(self._conn, owner_id, space_id, "scratch")
+        rows = self._conn.execute(
+            "SELECT item_id,item_type,state_json,created_at FROM learning_items "
+            "WHERE owner_id=? AND space_id=? AND item_type IN (?,?) "
+            "ORDER BY created_at,item_id",
+            (owner_id, space_id, SCRATCH_PAD_ITEM_TYPE, SCRATCH_NOTE_ITEM_TYPE),
+        ).fetchall()
+        pad = ""
+        notes: List[Dict[str, Any]] = []
+        for row in rows:
+            state = json.loads(row["state_json"] or "{}")
+            if row["item_type"] == SCRATCH_PAD_ITEM_TYPE:
+                pad = str(state.get("text") or "")
+            else:
+                notes.append(
+                    {
+                        "id": row["item_id"],
+                        "text": str(state.get("text") or ""),
+                        "origin": str(state.get("origin") or ""),
+                        "createdAt": row["created_at"],
+                    }
+                )
+        return {"pad": pad, "notes": notes}
+
+    def file_scratch_note(
+        self,
+        owner_id: str,
+        scratch_space_id: str,
+        note_id: str,
+        target_space_id: str,
+        *,
+        operation_lease: Optional[OperationLease] = None,
+    ) -> Dict[str, Any]:
+        """Atomically turn one scratch note into a reviewable course draft."""
+        _require(owner_id, "owner_id")
+        _require(scratch_space_id, "scratch_space_id")
+        _require(note_id, "note_id")
+        _require(target_space_id, "target_space_id")
+        artifact_id = uuid.uuid4().hex
+        now = _now()
+
+        def _op(conn: sqlite3.Connection) -> Dict[str, Any]:
+            self._require_space_kind(conn, owner_id, scratch_space_id, "scratch")
+            self._require_space_kind(conn, owner_id, target_space_id, "course")
+            row = conn.execute(
+                "SELECT state_json FROM learning_items WHERE owner_id=? AND space_id=? "
+                "AND item_id=? AND item_type=?",
+                (owner_id, scratch_space_id, note_id, SCRATCH_NOTE_ITEM_TYPE),
+            ).fetchone()
+            if not row:
+                raise KeyError(f"scratch note {note_id!r} not found")
+            state = json.loads(row["state_json"] or "{}")
+            text = _require(state.get("text"), "scratch note text")
+            origin = _require(state.get("origin"), "scratch note origin")
+            title = next((line.strip() for line in text.splitlines() if line.strip()), text)
+            title = title[:100]
+            env = validate_envelope(
+                {
+                    "version": 1,
+                    "kind": "knowledge_base",
+                    "space_id": target_space_id,
+                    "title": title,
+                    "source_refs": [
+                        {
+                            "origin": "scratch_notebook",
+                            "source_label": origin,
+                            "scratch_note_id": note_id,
+                        }
+                    ],
+                    "payload": {"concepts": [{"term": title, "explanation": text}]},
+                }
+            )
+            env_dict = env.to_dict()
+            conn.execute(
+                "INSERT INTO learning_artifacts "
+                "(owner_id,space_id,artifact_id,kind,title,version,status,review_mode,"
+                "review_status,envelope_json,source_refs_json,created_at,updated_at) "
+                "VALUES (?,?,?,?,?,1,?,?,?,?,?,?,?)",
+                (
+                    owner_id,
+                    target_space_id,
+                    artifact_id,
+                    env.kind,
+                    env.title,
+                    INITIAL_STATUS,
+                    env.review["mode"],
+                    env.review["status"],
+                    json.dumps(env_dict, ensure_ascii=False),
+                    json.dumps(env.source_refs, ensure_ascii=False),
+                    now,
+                    now,
+                ),
+            )
+            deleted = conn.execute(
+                "DELETE FROM learning_items WHERE owner_id=? AND space_id=? "
+                "AND item_id=? AND item_type=?",
+                (owner_id, scratch_space_id, note_id, SCRATCH_NOTE_ITEM_TYPE),
+            )
+            if deleted.rowcount != 1:
+                raise LearningConflictError("scratch note changed while filing")
+            return {
+                "artifact_id": artifact_id,
+                "space_id": target_space_id,
+                "kind": env.kind,
+                "status": INITIAL_STATUS,
+            }
+
+        result = self._execute_write(
+            owner_id, "", _op, operation_lease=operation_lease
+        )
+        logger.info(
+            "filed scratch note as draft source_space=%s target_space=%s artifact=%s",
+            scratch_space_id,
+            target_space_id,
+            result["artifact_id"],
+        )
+        return result
+
+    @staticmethod
+    def _require_space_kind(
+        conn: sqlite3.Connection, owner_id: str, space_id: str, expected: str
+    ) -> None:
+        row = conn.execute(
+            "SELECT kind FROM learning_spaces WHERE owner_id=? AND space_id=?",
+            (owner_id, space_id),
+        ).fetchone()
+        if not row:
+            raise KeyError(f"space {space_id!r} not found for owner")
+        if row["kind"] != expected:
+            raise ValueError(f"space {space_id!r} is not a {expected} space")
 
     # ── artifacts ──────────────────────────────────────────────────────── #
 
@@ -1502,7 +1736,7 @@ class LearningStore:
             ),
             "spaces": (
                 "learning_spaces",
-                ("space_id", "title", "status", "is_current", "created_at", "updated_at"),
+                ("space_id", "title", "kind", "status", "is_current", "created_at", "updated_at"),
             ),
             "artifacts": (
                 "learning_artifacts",
@@ -1737,6 +1971,9 @@ class LearningStore:
                 status = row.get("status", "active")
                 if not isinstance(status, str) or status not in SPACE_STATUSES:
                     raise ValueError("invalid space status")
+                kind = row.get("kind", "course")
+                if not isinstance(kind, str) or kind not in SPACE_KINDS:
+                    raise ValueError("invalid space kind")
                 raw_current = row.get("is_current", False)
                 if type(raw_current) is bool:
                     is_current = int(raw_current)
@@ -1745,14 +1982,17 @@ class LearningStore:
                 else:
                     raise ValueError("is_current must be a boolean or 0/1")
                 current_spaces += is_current
+                if kind == "scratch" and is_current:
+                    raise ValueError("scratch space cannot be current in an imported bundle")
                 if current_spaces > 1:
                     raise ValueError("bundle may contain at most one current space")
                 conn.execute(
-                    "INSERT INTO learning_spaces (owner_id,space_id,title,status,is_current,created_at,updated_at) VALUES (?,?,?,?,?,?,?)",
+                    "INSERT INTO learning_spaces (owner_id,space_id,title,kind,status,is_current,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)",
                     (
                         owner_id,
                         sid,
                         title,
+                        kind,
                         status,
                         is_current,
                         _bundle_timestamp(row, "created_at"),

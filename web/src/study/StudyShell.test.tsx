@@ -191,6 +191,7 @@ describe("StudyShell", () => {
    * 这条钉住的是分组，不是样式。
    */
   it("keeps the scratch book out of the course group", async () => {
+    const user = userEvent.setup();
     const withScratch = {
       currentSpaceId: "space-a",
       spaces: [
@@ -198,9 +199,10 @@ describe("StudyShell", () => {
         { id: "scratch-1", title: "杂记本", status: "active", isCurrent: false, kind: "scratch" as const },
       ],
     };
+    const repository = makeRepository();
     render(
       <I18nProvider>
-        <StudyRepositoryProvider repository={makeRepository()}>
+        <StudyRepositoryProvider repository={repository}>
           <MemoryRouter initialEntries={["/study/space-a/learn"]}>
             <StudyShell spaces={withScratch} spaceId="space-a" page="learn" />
           </MemoryRouter>
@@ -212,6 +214,9 @@ describe("StudyShell", () => {
     // 顺序：课程们 → 开新本 → （推到最右的）杂记本。
     expect(pills).toEqual(["Linear Algebra", "Physics", "开新本", "杂记本"]);
     expect(bookend.querySelector(".kd-book-pill--scratch")).toHaveTextContent("杂记本");
+    await user.click(screen.getByRole("button", { name: "杂记本" }));
+    // 打开留白不等于切换当前课程；currentSpaceId 仍由最后一本课程拥有。
+    expect(repository.selectSpace).not.toHaveBeenCalled();
   });
 
   it("switches course books straight from the bookend, with the current one inert", async () => {

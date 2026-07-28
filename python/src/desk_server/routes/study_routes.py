@@ -35,6 +35,7 @@ from learning.practice_hints import PracticeHintService
 from learning.quizzes import QuizService
 from learning.semantic_review import requires_semantic_review
 from learning.semantic_review import SemanticReviewService
+from learning.scratch_notebook import ensure_scratch_notebook
 from learning.student_state import LEGACY_CONTEXT_MIGRATION_KEY, StudentStateService
 from learning.study_preferences import (
     DEFAULT_STUDY_PREFERENCES,
@@ -63,10 +64,19 @@ def _desktop_ctx(space_id: Optional[str] = None) -> Iterator[Any]:
     store = LearningStore()
     try:
         with desktop_learning_scope(store, space_id=space_id) as ctx:
-            if space_id and not any(
-                row.get("space_id") == space_id for row in ctx.list_spaces()
-            ):
-                raise KeyError("learning space is unavailable")
+            if space_id:
+                space = next(
+                    (
+                        row
+                        for row in ctx.list_spaces()
+                        if row.get("space_id") == space_id
+                    ),
+                    None,
+                )
+                if space is None:
+                    raise KeyError("learning space is unavailable")
+                if space.get("kind", "course") != "course":
+                    raise ValueError("this Study operation requires a course space")
             yield ctx
     finally:
         store.close()
@@ -188,6 +198,7 @@ def _space_payload(ctx) -> Dict[str, Any]:
             {
                 "space_id": s["space_id"],
                 "title": s["title"],
+                "kind": s.get("kind", "course"),
                 "status": s["status"],
                 "is_current": bool(s["is_current"]),
             }
@@ -408,6 +419,7 @@ def _legacy_cards_to_import(ctx, cards: Any) -> list[Any]:
 @router.get("/api/desk/study/spaces")
 async def study_spaces():
     with _desktop_ctx() as ctx:
+        ensure_scratch_notebook(ctx)
         return _space_payload(ctx)
 
 
@@ -429,6 +441,42 @@ async def study_space_select(space_id: str):
             ctx.select_space(space_id)
             return {"space_id": space_id, **_space_payload(ctx)}
     except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+
+@router.get("/api/desk/study/spaces/{space_id}/scratch")
+async def study_scratch_get(space_id: str):
+    try:
+        with _desktop_ctx() as ctx:
+            return ctx.get_scratch_page(space_id)
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+
+@router.put("/api/desk/study/spaces/{space_id}/scratch/pad")
+async def study_scratch_save_pad(space_id: str, body: Dict[str, Any]):
+    try:
+        pad = body.get("pad")
+        if not isinstance(pad, str):
+            raise ValueError("pad must be a string")
+        with _desktop_ctx() as ctx:
+            ctx.save_scratch_pad(space_id, pad)
+        return {"ok": True}
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+
+@router.post("/api/desk/study/spaces/{space_id}/scratch/notes/{note_id}/file")
+async def study_scratch_file_note(
+    space_id: str, note_id: str, body: Dict[str, Any]
+):
+    try:
+        target_space_id = str(body.get("target_space_id") or "").strip()
+        if not target_space_id:
+            raise ValueError("target_space_id is required")
+        with _desktop_ctx() as ctx:
+            return ctx.file_scratch_note(space_id, note_id, target_space_id)
+    except (ValueError, KeyError, ContractError, LearningConflictError) as exc:
         raise _http_error(exc) from exc
 
 

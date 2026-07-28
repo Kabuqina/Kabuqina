@@ -51,10 +51,12 @@ class LearningExecutionContext:
     # ── spaces ─────────────────────────────────────────────────────────── #
 
     def create_space(
-        self, *, title: str, space_id: Optional[str] = None, make_current: bool = True
+        self, *, title: str, space_id: Optional[str] = None, make_current: bool = True,
+        kind: str = "course",
     ) -> str:
         sid = self._store.create_space(
-            self._owner_id, title=title, space_id=space_id, make_current=make_current
+            self._owner_id, title=title, space_id=space_id,
+            make_current=make_current, kind=kind,
         )
         if make_current:
             object.__setattr__(self, "_space_id", sid)
@@ -69,6 +71,26 @@ class LearningExecutionContext:
 
     def current_space(self) -> Optional[str]:
         return self._space_id or self._store.get_current_space(self._owner_id)
+
+    def get_scratch_page(self, space_id: str) -> Dict[str, Any]:
+        return self._store.get_scratch_page(self._owner_id, space_id)
+
+    def save_scratch_pad(self, space_id: str, pad: str) -> None:
+        self._store.save_scratch_pad(self._owner_id, space_id, pad)
+
+    def add_scratch_note(
+        self, space_id: str, *, text: str, origin: str, note_id: Optional[str] = None
+    ) -> str:
+        return self._store.add_scratch_note(
+            self._owner_id, space_id, text=text, origin=origin, note_id=note_id
+        )
+
+    def file_scratch_note(
+        self, space_id: str, note_id: str, target_space_id: str
+    ) -> Dict[str, Any]:
+        return self._store.file_scratch_note(
+            self._owner_id, space_id, note_id, target_space_id
+        )
 
     def _require_space(self) -> str:
         sid = self.current_space()

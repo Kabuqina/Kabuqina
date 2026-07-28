@@ -1689,3 +1689,23 @@ summary remain as internal implementation metadata. They describe load-package
 dependencies and document-generation pipelines; they are not a product surface
 and do not grant authority. Actual execution remains bounded by `ToolPolicy`,
 the workspace jail, network policy, and per-use approval.
+
+## Study scratch notebook (2026-07-28)
+
+杂记本 is one reserved Study space with `kind=scratch`, not a second database and
+not a course. `learning_spaces.kind` defaults to `course`, so old databases and v1
+bundles remain valid through declarative column reconciliation and import defaults.
+Every owner gets one deterministic scratch space on the first spaces read; it is
+created with `make_current=false`, cannot become the current course, and is rejected
+by ordinary course-scoped Study routes.
+
+The free pad and saved notes use `learning_items` in the scratch space, so they share
+Study persistence, export/import, owner deletion, coordination and ACL behavior.
+Filing a note is one owner-wide SQLite transaction: validate scratch source and course
+target, create a semantic-review `knowledge_base` draft in the target course, then
+remove the source note. Failure rolls the whole transfer back. Filing never activates
+the artifact or changes mastery, plans, cards or activity evidence.
+
+The product contract deliberately exposes no count, pending/unfiled metric, badge,
+search, tags, sorting, recommendation or bulk action. The notebook is 留白, not a
+triage inbox; filing stays quiet and optional.
