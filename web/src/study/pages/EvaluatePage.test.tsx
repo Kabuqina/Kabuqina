@@ -28,6 +28,7 @@ function repository(overrides: Partial<StudyRepository> = {}): StudyRepository {
       weak_points: [], evidence: [], count: 0, returned: 0, limit: 50, truncated: false,
     }),
     loadLatestEvaluation: vi.fn().mockResolvedValue({ evaluation: null }),
+    loadScratch: vi.fn(), saveScratchPad: vi.fn(), fileScratchNote: vi.fn(),
     loadActivities: vi.fn().mockResolvedValue({
       items: [], count: 0, returned: 0, limit: 50, truncated: false,
     }),

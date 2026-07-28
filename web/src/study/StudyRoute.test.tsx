@@ -12,7 +12,7 @@ import StudyRoute, { seedBuiltinCourseOnce } from "./StudyRoute";
 
 const spaces = {
   currentSpaceId: "space-a",
-  spaces: [{ id: "space-a", title: "Linear Algebra", status: "active", isCurrent: true }],
+  spaces: [{ id: "space-a", title: "Linear Algebra", status: "active", isCurrent: true, kind: "course" as const }],
 };
 
 function Location() {
@@ -39,6 +39,7 @@ function renderRoute(path: string, repositoryOverrides: Partial<StudyRepository>
     skipPlanItem: vi.fn(),
     loadWrongbook: vi.fn().mockResolvedValue({ weak_points: [], evidence: [], count: 0, returned: 0, limit: 50, truncated: false }),
     loadLatestEvaluation: vi.fn().mockResolvedValue({ evaluation: null }),
+    loadScratch: vi.fn(), saveScratchPad: vi.fn(), fileScratchNote: vi.fn(),
     loadActivities: vi.fn().mockResolvedValue({ items: [], count: 0, returned: 0, limit: 50, truncated: false }),
     loadPracticeHome: vi.fn().mockResolvedValue({ cards: [], dueCards: [], quizzes: [] }),
     loadQuizQuestions: vi.fn(), reviewFlashcard: vi.fn(),

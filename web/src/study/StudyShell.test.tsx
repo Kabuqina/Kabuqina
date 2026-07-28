@@ -18,8 +18,8 @@ import type { StudyIaSink } from "./iaEvents";
 const spaces = {
   currentSpaceId: "space-a",
   spaces: [
-    { id: "space-a", title: "Linear Algebra", status: "active", isCurrent: true },
-    { id: "space-b", title: "Physics", status: "active", isCurrent: false },
+    { id: "space-a", title: "Linear Algebra", status: "active", isCurrent: true, kind: "course" as const },
+    { id: "space-b", title: "Physics", status: "active", isCurrent: false, kind: "course" as const },
   ],
 };
 
@@ -62,6 +62,7 @@ function makeRepository(repositoryOverrides: Partial<StudyRepository> = {}): Stu
     loadWrongbook: vi.fn(),
     loadLatestEvaluation: vi.fn(),
     loadActivities: vi.fn(),
+    loadScratch: vi.fn(), saveScratchPad: vi.fn(), fileScratchNote: vi.fn(),
     loadPracticeHome: vi.fn(), loadQuizQuestions: vi.fn(), reviewFlashcard: vi.fn(),
     submitQuiz: vi.fn(), generatePracticeDraft: vi.fn(), resolvePracticeSource: vi.fn(),
     ...repositoryOverrides,
@@ -183,6 +184,34 @@ describe("StudyShell", () => {
     await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/study/space-b/learn"));
     expect(repository.selectSpace).toHaveBeenCalledWith("space-b", expect.any(AbortSignal));
     expect(sink).toHaveBeenCalledWith({ name: "study.space.switch", action: "switch", success: true });
+  });
+
+  /**
+   * 杂记本不是课程：它不站在课程那一排里，也不该出现在任何“选一门课”的地方。
+   * 这条钉住的是分组，不是样式。
+   */
+  it("keeps the scratch book out of the course group", async () => {
+    const withScratch = {
+      currentSpaceId: "space-a",
+      spaces: [
+        ...spaces.spaces,
+        { id: "scratch-1", title: "杂记本", status: "active", isCurrent: false, kind: "scratch" as const },
+      ],
+    };
+    render(
+      <I18nProvider>
+        <StudyRepositoryProvider repository={makeRepository()}>
+          <MemoryRouter initialEntries={["/study/space-a/learn"]}>
+            <StudyShell spaces={withScratch} spaceId="space-a" page="learn" />
+          </MemoryRouter>
+        </StudyRepositoryProvider>
+      </I18nProvider>,
+    );
+    const bookend = await screen.findByRole("navigation", { name: /课程/ });
+    const pills = [...bookend.querySelectorAll("button")].map((b) => b.textContent?.trim());
+    // 顺序：课程们 → 开新本 → （推到最右的）杂记本。
+    expect(pills).toEqual(["Linear Algebra", "Physics", "开新本", "杂记本"]);
+    expect(bookend.querySelector(".kd-book-pill--scratch")).toHaveTextContent("杂记本");
   });
 
   it("switches course books straight from the bookend, with the current one inert", async () => {

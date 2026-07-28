@@ -292,11 +292,18 @@ export function createStudyDeskAdapter(options: {
         bookstand: {
           title: "我的课程本",
           hint: "换课就是换一本本子。",
-          books: spaces.map((space) => ({
-            id: space.id,
-            name: space.title,
-            current: space.id === spaceId,
-          })),
+          // 杂记本不是课程，所以不混进这一排——它单独待在书立最右端。
+          books: spaces
+            .filter((space) => space.kind !== "scratch")
+            .map((space) => ({
+              id: space.id,
+              name: space.title,
+              current: space.id === spaceId,
+            })),
+          scratch: (() => {
+            const book = spaces.find((space) => space.kind === "scratch");
+            return book ? { id: book.id, name: book.title, current: false } : null;
+          })(),
           newBookLabel: "开新本",
         },
         materials: {

@@ -54,6 +54,24 @@ export function DeskBookend({
         <Plus />
         {bookstand.newBookLabel}
       </button>
+      {/* 杂记本被推到最右端（margin-left: auto）：它不是课程，不站在课程那一排里。 */}
+      {bookstand.scratch ? (
+        <button
+          className="kd-book-pill kd-book-pill--scratch"
+          type="button"
+          aria-current={bookstand.scratch.current ? "page" : undefined}
+          aria-disabled={bookstand.scratch.current || undefined}
+          disabled={disabled && !bookstand.scratch.current}
+          onClick={() => {
+            if (bookstand.scratch?.current) return;
+            if (onSelectSpace && bookstand.scratch) onSelectSpace(bookstand.scratch.id);
+            else onFutureFeature();
+          }}
+        >
+          <span className="kd-book-pill-spine" aria-hidden="true" />
+          {bookstand.scratch.name}
+        </button>
+      ) : null}
     </nav>
   );
 }

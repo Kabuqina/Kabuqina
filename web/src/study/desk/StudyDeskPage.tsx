@@ -60,7 +60,13 @@ export function StudyDeskPage({
   const bookstandFallback = {
     title: "我的课程本",
     hint: "换课就是换一本本子。",
-    books: spaces.map((space) => ({ id: space.id, name: space.title, current: space.id === spaceId })),
+    books: spaces
+      .filter((space) => space.kind !== "scratch")
+      .map((space) => ({ id: space.id, name: space.title, current: space.id === spaceId })),
+    scratch: (() => {
+      const book = spaces.find((space) => space.kind === "scratch");
+      return book ? { id: book.id, name: book.title, current: false } : null;
+    })(),
     newBookLabel: "开新本",
     currentTitle: spaceTitle,
   };

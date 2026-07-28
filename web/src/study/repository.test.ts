@@ -73,7 +73,8 @@ describe("StudyRepository", () => {
 
     await expect(repository.listSpaces(signal)).resolves.toEqual({
       currentSpaceId: "space-a",
-      spaces: [{ id: "space-a", title: "Linear Algebra", status: "active", isCurrent: true }],
+      // 后端没说 kind 就是课程——不猜（账本 B-12）。
+      spaces: [{ id: "space-a", title: "Linear Algebra", status: "active", isCurrent: true, kind: "course" }],
     });
     await expect(repository.listDrafts("space-b", signal)).resolves.toEqual({
       total: 2,

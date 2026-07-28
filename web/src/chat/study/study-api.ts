@@ -3,11 +3,28 @@
 
 import { invoke } from "@tauri-apps/api/core";
 
+/** 杂记本是一本**不属于任何课程**的本子（账本 B-12）。缺省视作课程，旧库无需迁移。 */
+export type StudySpaceKind = "course" | "scratch";
+
 export type StudySpace = {
   space_id: string;
   title: string;
   status: string;
   is_current: boolean;
+  kind?: StudySpaceKind;
+};
+
+/** 随手写落在杂记本里的一条。`origin` 是给学生看的来源短语，不是 session id。 */
+export type StudyScratchNote = {
+  id: string;
+  text: string;
+  origin: string;
+  createdAt?: string;
+};
+
+export type StudyScratchPage = {
+  pad: string;
+  notes: StudyScratchNote[];
 };
 
 export type StudySpacesResponse = {
@@ -349,6 +366,25 @@ export type StudyPracticeSource = {
 
 export function cmdStudySpaces(): Promise<StudySpacesResponse> {
   return invoke("cmd_study_spaces");
+}
+
+// --- 杂记本（账本 B-12：后端尚未实现，命令落地即亮） ---
+
+export function cmdStudyScratchGet(spaceId: string): Promise<StudyScratchPage> {
+  return invoke("cmd_study_scratch_get", { spaceId });
+}
+
+export function cmdStudyScratchSavePad(spaceId: string, pad: string): Promise<void> {
+  // 随手写就一页纸，全文覆盖，不做增量 diff。
+  return invoke("cmd_study_scratch_save_pad", { spaceId, pad });
+}
+
+export function cmdStudyScratchFileNote(
+  spaceId: string,
+  noteId: string,
+  targetSpaceId: string,
+): Promise<void> {
+  return invoke("cmd_study_scratch_file_note", { spaceId, noteId, targetSpaceId });
 }
 
 export function cmdStudySpaceCreate(title: string): Promise<StudySpacesResponse & { space_id: string }> {

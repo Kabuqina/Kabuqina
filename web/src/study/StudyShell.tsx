@@ -15,14 +15,17 @@ import type { StudySpaces } from "./repository";
 import { useStudyRepository } from "./repositoryContext";
 import { studyPath, type StudyPageSlug } from "./routeModel";
 import { ImportMaterials, type StudyImportResult } from "./ImportMaterials";
+import { ScratchDesk } from "./ScratchDesk";
 import { StudyPageOutlet } from "./pages/StudyPageOutlet";
 import { useStudyIa } from "./StudyIaContext";
 import { StudyDeskPage } from "./desk/StudyDeskPage";
 
-export function StudyShell({ spaces, spaceId, page, onRevalidate, refreshing = false, refreshFailed = false }: {
+export function StudyShell({ spaces, spaceId, page, scratch = false, onRevalidate, refreshing = false, refreshFailed = false }: {
   spaces: StudySpaces;
   spaceId?: string;
   page?: StudyPageSlug;
+  /** 杂记本没有五分页，所以它按 `/study/<id>` 直接摊开（账本 B-12）。 */
+  scratch?: boolean;
   onRevalidate?: () => void;
   refreshing?: boolean;
   refreshFailed?: boolean;
@@ -65,7 +68,7 @@ export function StudyShell({ spaces, spaceId, page, onRevalidate, refreshing = f
   }, [confirmPracticeLeave, navigate]);
 
   const selectSpace = useCallback((nextSpaceId: string) => {
-    if (!page || switching || nextSpaceId === spaceId) return;
+    if (switching || nextSpaceId === spaceId) return;
     void confirmPracticeLeave().then((approved) => {
       if (!approved) return;
       const request = switchRequests.current.begin();
@@ -74,7 +77,8 @@ export function StudyShell({ spaces, spaceId, page, onRevalidate, refreshing = f
         if (!switchRequests.current.isCurrent(request.generation)) return;
         setSwitching(false);
         recordIa({ name: "study.space.switch", action: "switch", success: true });
-        navigate(studyPath(nextSpaceId, page));
+        const next = spaces.spaces.find((space) => space.id === nextSpaceId);
+        navigate(next?.kind === "scratch" ? `/study/${encodeURIComponent(nextSpaceId)}` : studyPath(nextSpaceId, page));
         onRevalidate?.();
       }, () => {
         if (!switchRequests.current.isCurrent(request.generation)) return;
@@ -82,7 +86,7 @@ export function StudyShell({ spaces, spaceId, page, onRevalidate, refreshing = f
         recordIa({ name: "study.space.switch", action: "switch", success: false });
       });
     });
-  }, [confirmPracticeLeave, navigate, onRevalidate, page, recordIa, repository, spaceId, switching]);
+  }, [confirmPracticeLeave, navigate, onRevalidate, page, recordIa, repository, spaceId, spaces.spaces, switching]);
 
   useEffect(() => {
     if (!spaceId || !page) return;
@@ -95,6 +99,20 @@ export function StudyShell({ spaces, spaceId, page, onRevalidate, refreshing = f
   useEffect(() => () => switchRequests.current.cancel(), []);
 
   const shell = useMemo(() => {
+    if (spaceId && scratch) {
+      return (
+        <ScratchDesk
+          spaceId={spaceId}
+          spaces={spaces.spaces}
+          switchingSpace={switching}
+          onSelectSpace={selectSpace}
+          onNewBook={() => navigateAway("/chat", {
+            draftPrompt: "我想开一本新的课程笔记本。请先问我课程名称、学习目标和现有材料，再帮我确认创建请求。",
+          })}
+          onAskNana={() => navigateAway("/chat")}
+        />
+      );
+    }
     if (!spaceId || !page) {
       return (
         <main className="kq-study-empty">
@@ -155,12 +173,12 @@ export function StudyShell({ spaces, spaceId, page, onRevalidate, refreshing = f
         ) : null}
       </StudyDraftProvider>
     );
-  }, [imported, importing, navigateAway, onRevalidate, page, refreshFailed, refreshing, selectSpace, spaceId, spaces.spaces, switching, t]);
+  }, [imported, importing, navigateAway, onRevalidate, page, refreshFailed, refreshing, scratch, selectSpace, spaceId, spaces.spaces, switching, t]);
 
   return (
     <div
       className="kq-study-shell"
-      data-desk={spaceId && page ? "true" : undefined}
+      data-desk={spaceId && (page || scratch) ? "true" : undefined}
       data-testid="study-shell"
     >
       {shell}

@@ -4,6 +4,9 @@
 import { useMemo } from "react";
 import type { StudyPageSlug } from "../routeModel";
 import type { DeskAdapter } from "./deskAdapter";
+import type { StudyRepository, StudySpaceSummary } from "../repository";
+import { StudyRepositoryProvider } from "../repositoryContext";
+import { ScratchDesk } from "../ScratchDesk";
 import { completedResult, deskFixtureData, needsRevisionResult } from "./deskFixtures";
 import DeskScene, { type DeskSceneProps } from "./DeskScene";
 
@@ -27,6 +30,11 @@ function readPageParam(): StudyPageSlug {
   if (typeof window === "undefined") return "practice";
   const value = new URLSearchParams(window.location.search).get("page");
   return LIFECYCLE_PAGES.includes(value as StudyPageSlug) ? (value as StudyPageSlug) : "practice";
+}
+
+function readScratchParam(): boolean {
+  if (typeof window === "undefined") return false;
+  return new URLSearchParams(window.location.search).get("scratch") === "1";
 }
 
 function readFailParam(): boolean {
@@ -106,8 +114,29 @@ function snapshotFor(fixture: FixtureId | null): DeskSceneProps["initialSnapshot
   return { density: "focused" };
 }
 
+/** 杂记本的后端还不存在（账本 B-12），所以预览用一份固定页面看排版与物性。 */
+function scratchPreviewRepository(): StudyRepository {
+  return {
+    loadScratch: async () => ({
+      pad: "",
+      notes: [
+        { id: "s1", text: "读到一句：数学里的等号，是在说两个不同的写法，指的是同一个东西。", origin: "来自对话 · 昨天" },
+      ],
+    }),
+    saveScratchPad: async () => undefined,
+    fileScratchNote: async () => undefined,
+  } as unknown as StudyRepository;
+}
+
+const SCRATCH_PREVIEW_SPACES: StudySpaceSummary[] = [
+  { id: "fixture-calculus", title: "高等数学", status: "active", isCurrent: false, kind: "course" },
+  { id: "fixture-physics", title: "大学物理", status: "active", isCurrent: false, kind: "course" },
+  { id: "fixture-scratch", title: "杂记本", status: "active", isCurrent: true, kind: "scratch" },
+];
+
 export default function DeskScenePreview() {
   const page = useMemo(readPageParam, []);
+  const scratch = useMemo(readScratchParam, []);
   const fail = useMemo(readFailParam, []);
   const adapter = useMemo(() => createFixtureDeskAdapter(650, fail), [fail]);
   const initialSnapshot = useMemo(() => snapshotFor(readFixtureParam()), []);
@@ -115,6 +144,20 @@ export default function DeskScenePreview() {
     ...deskFixtureData.bookstand,
     currentTitle: deskFixtureData.course.name,
   }), []);
+  if (scratch) {
+    return (
+      <StudyRepositoryProvider repository={scratchPreviewRepository()}>
+        <ScratchDesk
+          spaceId="fixture-scratch"
+          spaces={SCRATCH_PREVIEW_SPACES}
+          onSelectSpace={() => undefined}
+          onNewBook={() => undefined}
+          onAskNana={() => undefined}
+        />
+      </StudyRepositoryProvider>
+    );
+  }
+
   return (
     <DeskScene
       adapter={adapter}

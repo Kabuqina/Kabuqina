@@ -28,6 +28,7 @@ function repository(overrides: Partial<StudyRepository> = {}): StudyRepository {
       }],
       knowledgePoints: [],
     }),
+    loadScratch: vi.fn(), saveScratchPad: vi.fn(), fileScratchNote: vi.fn(),
     loadActivities: vi.fn().mockResolvedValue({
       items: [{
         activity_id: "activity-1",
@@ -73,8 +74,8 @@ describe("Study desk adapter", () => {
       repository: source,
       spaceId: "space-a",
       spaces: [
-        { id: "space-a", title: "线性代数", status: "active", isCurrent: true },
-        { id: "space-b", title: "物理", status: "active", isCurrent: false },
+        { id: "space-a", title: "线性代数", status: "active", isCurrent: true, kind: "course" as const },
+        { id: "space-b", title: "物理", status: "active", isCurrent: false, kind: "course" as const },
       ],
     });
     const signal = new AbortController().signal;
@@ -123,7 +124,7 @@ describe("Study desk adapter", () => {
     const adapter = createStudyDeskAdapter({
       repository: repository({ submitQuiz }),
       spaceId: "space-a",
-      spaces: [{ id: "space-a", title: "线性代数", status: "active", isCurrent: true }],
+      spaces: [{ id: "space-a", title: "线性代数", status: "active", isCurrent: true, kind: "course" as const }],
     });
     const signal = new AbortController().signal;
     const learningEvent = vi.fn();
@@ -193,7 +194,7 @@ describe("Study desk adapter", () => {
     const adapter = createStudyDeskAdapter({
       repository: repository({ submitQuiz }),
       spaceId: "space-a",
-      spaces: [{ id: "space-a", title: "线性代数", status: "active", isCurrent: true }],
+      spaces: [{ id: "space-a", title: "线性代数", status: "active", isCurrent: true, kind: "course" as const }],
     });
     const signal = new AbortController().signal;
 
@@ -212,7 +213,7 @@ describe("Study desk adapter", () => {
     const adapter = createStudyDeskAdapter({
       repository: repository(),
       spaceId: "space-a",
-      spaces: [{ id: "space-a", title: "线性代数", status: "active", isCurrent: true }],
+      spaces: [{ id: "space-a", title: "线性代数", status: "active", isCurrent: true, kind: "course" as const }],
     });
     const signal = new AbortController().signal;
     await adapter.loadDesk(signal);

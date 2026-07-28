@@ -25,6 +25,9 @@ import {
   cmdStudyQuizQuestions,
   cmdStudyQuizSubmit,
   cmdStudyQuizzes,
+  cmdStudyScratchFileNote,
+  cmdStudyScratchGet,
+  cmdStudyScratchSavePad,
   cmdStudySpaces,
   cmdStudySpaceSelect,
   cmdStudyStudentState,
@@ -40,6 +43,8 @@ import {
   type StudyPracticeSource,
   type StudyQuizQuestion,
   type StudyQuizResult,
+  type StudyScratchPage,
+  type StudySpaceKind,
   type StudySpacesResponse,
   type StudySourceRef,
   type StudyStudentState,
@@ -55,6 +60,8 @@ export type StudySpaceSummary = {
   title: string;
   status: string;
   isCurrent: boolean;
+  /** 缺省是课程；只有后端明说 `scratch` 才是杂记本（账本 B-12）。 */
+  kind: StudySpaceKind;
 };
 
 export type StudySpaces = {
@@ -164,6 +171,15 @@ export interface StudyRepository {
   loadWrongbook(spaceId: string, signal: AbortSignal): Promise<StudyWrongbookResponse>;
   loadLatestEvaluation(spaceId: string, signal: AbortSignal): Promise<StudyEvaluationSnapshot>;
   loadActivities(spaceId: string, signal: AbortSignal): Promise<StudyActivitiesResponse>;
+  /** 杂记本（账本 B-12）。后端命令尚未存在，调用会失败，界面据此如实显示不可用。 */
+  loadScratch(spaceId: string, signal: AbortSignal): Promise<StudyScratchPage>;
+  saveScratchPad(spaceId: string, pad: string, signal: AbortSignal): Promise<void>;
+  fileScratchNote(
+    spaceId: string,
+    noteId: string,
+    targetSpaceId: string,
+    signal: AbortSignal,
+  ): Promise<void>;
   loadPracticeHome(spaceId: string, signal: AbortSignal): Promise<StudyPracticeHome>;
   loadQuizQuestions(spaceId: string, artifactId: string, signal: AbortSignal): Promise<StudyQuizQuestion[]>;
   reviewFlashcard(
@@ -232,6 +248,9 @@ type StudyCommands = {
   wrongbook: typeof cmdStudyWrongbook;
   evaluations: typeof cmdStudyEvaluations;
   activities: typeof cmdStudyActivities;
+  scratchGet: typeof cmdStudyScratchGet;
+  scratchSavePad: typeof cmdStudyScratchSavePad;
+  scratchFileNote: typeof cmdStudyScratchFileNote;
   flashcards: typeof cmdStudyFlashcards;
   flashcardReview: typeof cmdStudyFlashcardReview;
   quizzes: typeof cmdStudyQuizzes;
@@ -246,6 +265,9 @@ const defaultCommands: StudyCommands = {
   migrateFlashcards: cmdStudyMigrateFlashcards,
   migrateQuizzes: cmdStudyMigrateQuizzes,
   spaces: cmdStudySpaces,
+  scratchGet: cmdStudyScratchGet,
+  scratchSavePad: cmdStudyScratchSavePad,
+  scratchFileNote: cmdStudyScratchFileNote,
   selectSpace: cmdStudySpaceSelect,
   draftSummary: (spaceId) => cmdStudyArtifactSummaries({
     spaceId,
@@ -309,6 +331,8 @@ function mapSpaces(response: StudySpacesResponse): StudySpaces {
     title: space.title,
     status: space.status,
     isCurrent: space.is_current,
+    // 后端没说就是课程——不猜。今天没有任何 space 会报 scratch。
+    kind: space.kind === "scratch" ? ("scratch" as const) : ("course" as const),
   }));
   return {
     currentSpaceId:
@@ -513,6 +537,15 @@ export function createStudyRepository(commands: Partial<StudyCommands> = {}): St
     },
     loadActivities(spaceId, signal) {
       return invokeWithSignal(signal, () => resolved.activities(spaceId));
+    },
+    loadScratch(spaceId, signal) {
+      return invokeWithSignal(signal, () => resolved.scratchGet(spaceId));
+    },
+    saveScratchPad(spaceId, pad, signal) {
+      return invokeWithSignal(signal, () => resolved.scratchSavePad(spaceId, pad));
+    },
+    fileScratchNote(spaceId, noteId, targetSpaceId, signal) {
+      return invokeWithSignal(signal, () => resolved.scratchFileNote(spaceId, noteId, targetSpaceId));
     },
     loadPracticeHome(spaceId, signal) {
       return invokeWithSignal(signal, async () => {

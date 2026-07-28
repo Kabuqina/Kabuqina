@@ -68,6 +68,8 @@ export interface DeskBookstand {
   title: string;
   hint: string;
   books: { id: string; name: string; current: boolean }[];
+  /** 杂记本不是课程，所以离开课程那一组，单独待在书立最右边（Iteration 12）。 */
+  scratch?: { id: string; name: string; current: boolean } | null;
   newBookLabel: string;
 }
 

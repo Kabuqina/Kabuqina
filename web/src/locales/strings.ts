@@ -34,6 +34,16 @@ export const MESSAGES = {
     boot: {
       starting: "启动中",
     },
+    scratch: {
+      title: "杂记本",
+      loading: "正在翻开杂记本…",
+      unavailable: "杂记本还没接好，先不打开它。你的课程本不受影响。",
+      padLabel: "随手写",
+      padPlaceholder: "随便写点什么…",
+      padSaveFailed: "这页没存上。先别关，复制一份再试。",
+      file: "归到某一本",
+      fileCancel: "算了",
+    },
     appShell: {
       brand: "卡布奇娜",
       primaryNav: "一级目的地",
@@ -1069,6 +1079,16 @@ export const MESSAGES = {
     },
     boot: {
       starting: "Starting…",
+    },
+    scratch: {
+      title: "Scraps",
+      loading: "Opening your scrap book…",
+      unavailable: "The scrap book is not wired up yet. Your course books are unaffected.",
+      padLabel: "Write freely",
+      padPlaceholder: "Anything at all…",
+      padSaveFailed: "This page did not save. Copy it somewhere before you close.",
+      file: "File into a book",
+      fileCancel: "Never mind",
     },
     appShell: {
       brand: "Kabuqina",

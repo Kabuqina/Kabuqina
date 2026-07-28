@@ -156,7 +156,24 @@ export default function StudyRoute() {
       </StudyRouteStatus>
     );
   }
-  if (route.kind === "space") return <Navigate to={studyPath(route.spaceId)} replace />;
+  // 杂记本不是课程，没有五分页：它按 `/study/<id>` 直接摊开，不重定向到扉页。
+  const isScratch = retainedSpaces.spaces.some(
+    (space) => space.id === route.spaceId && space.kind === "scratch",
+  );
+  if (route.kind === "space") {
+    return isScratch
+      ? <StudyShell
+          spaces={retainedSpaces}
+          spaceId={route.spaceId}
+          scratch
+          onRevalidate={load}
+          refreshing={spaces.status === "loading"}
+          refreshFailed={spaces.status === "error"}
+        />
+      : <Navigate to={studyPath(route.spaceId)} replace />;
+  }
+  // 手敲 /study/<杂记本>/practice 之类的路径：回到那本本子唯一的一页。
+  if (isScratch) return <Navigate to={`/study/${encodeURIComponent(route.spaceId)}`} replace />;
   return <StudyShell
     spaces={retainedSpaces}
     spaceId={route.spaceId}

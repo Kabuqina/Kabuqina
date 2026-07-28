@@ -183,7 +183,7 @@
 
 .kd-bookend::-webkit-scrollbar { display: none; }
 
-.kd-book-pill {
+.kq-desk .kd-book-pill {
   position: relative;
   z-index: 3;
   display: inline-flex;
@@ -201,9 +201,9 @@
   box-shadow: inset 0 -7px 9px -9px rgba(80, 65, 40, 0.45);
 }
 
-.kd-book-pill:hover { color: var(--ink-strong); }
+.kq-desk .kd-book-pill:hover { color: var(--ink-strong); }
 
-.kd-book-pill-spine {
+.kq-desk .kd-book-pill-spine {
   width: 7px;
   height: 15px;
   border-radius: 2px;
@@ -212,7 +212,7 @@
 }
 
 /* 当前这本与纸面连成一体：压掉下边框，纸和标签是同一张。 */
-.kd-book-pill[aria-current="page"] {
+.kq-desk .kd-book-pill[aria-current="page"] {
   margin-bottom: -1px;
   padding-bottom: 13px;
   color: var(--ink-strong);
@@ -221,20 +221,125 @@
   box-shadow: none;
 }
 
-.kd-book-pill[aria-current="page"] .kd-book-pill-spine {
+.kq-desk .kd-book-pill[aria-current="page"] .kd-book-pill-spine {
   background: var(--purple);
   opacity: 1;
 }
 
-.kd-book-pill--new {
+.kq-desk .kd-book-pill--new {
   border-style: dashed;
   border-color: var(--line-cool);
   background: transparent;
 }
 
-.kd-book-pill--new:hover { background: var(--veil); }
-.kd-book-pill:disabled { opacity: 0.55; cursor: default; }
-.kd-book-pill svg { width: 14px; height: 14px; }
+.kq-desk .kd-book-pill--new:hover { background: var(--veil); }
+
+/* 杂记本＝牛皮纸，一眼与米色的课程本区分开；它离开课程那一组，靠 auto 推到最右端。
+   标签与纸面同色，选中时两者连成一张（Iteration 10）。 */
+.kq-desk .kd-book-pill--scratch {
+  margin-left: auto;
+  border-color: var(--manila-line);
+  background: var(--manila);
+}
+
+.kq-desk .kd-book-pill--scratch[aria-current="page"] {
+  border-color: var(--manila-line);
+  background: var(--manila);
+}
+
+.kq-desk .kd-book-pill--scratch .kd-book-pill-spine,
+.kq-desk .kd-book-pill--scratch[aria-current="page"] .kd-book-pill-spine {
+  background: var(--gray);
+  opacity: 0.6;
+}
+
+/* --- 杂记本：一页纸，什么都不要求你 ------------------------------------- */
+
+.kq-desk .kd-notebook--scratch {
+  border-color: var(--manila-line);
+  background: var(--manila);
+}
+
+.kq-desk .kq-scratch-page {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+  padding: 18px 22px 22px;
+}
+
+/* 学习者自己的手写体：这一页是他的，不是产品的。 */
+.kq-desk .kq-scratch-pad {
+  width: 100%;
+  min-height: 148px;
+  padding: 4px 2px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: KaiTi, STKaiti, "楷体", var(--font-sans);
+  font-size: 17px;
+  line-height: 1.9;
+  resize: vertical;
+}
+
+.kq-desk .kq-scratch-pad:focus-visible { outline: 0; }
+.kq-desk .kq-scratch-pad::placeholder { color: var(--ink-soft); opacity: 0.7; }
+
+.kq-desk .kq-scratch-note {
+  padding: 11px 13px;
+  border: 1px solid var(--manila-line);
+  border-radius: 6px;
+  background: var(--paper-soft);
+}
+
+.kq-desk .kq-scratch-note p {
+  margin: 0 0 8px;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.kq-desk .kq-scratch-note-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: var(--ink-soft);
+  font-size: 11px;
+}
+
+/* 归本是安静的可选动作：低强调，不催，不计数。 */
+.kq-desk .kq-scratch-file,
+.kq-desk .kq-scratch-file-choice button {
+  /* 归本要安静：不套 .kq-desk button 那套 40px 主控件尺寸，但仍是够得着的目标。 */
+  min-height: 28px;
+  border: 0;
+  border-radius: 5px;
+  padding: 4px 8px;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.kq-desk .kq-scratch-file:hover,
+.kq-desk .kq-scratch-file-choice button:hover {
+  color: var(--purple);
+  background: var(--purple-faint);
+}
+
+.kq-desk .kq-scratch-file-choice { display: flex; flex-wrap: wrap; gap: 2px; }
+
+.kq-desk .kq-scratch-status {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+.kq-desk .kd-book-pill:disabled { opacity: 0.55; cursor: default; }
+.kq-desk .kd-book-pill svg { width: 14px; height: 14px; }
 
 /* --- 书堆：参考书立着，需要时抽一本（原型 `.book-stack`） ---------------- */
 
@@ -256,7 +361,7 @@
 .kd-spines { display: flex; align-items: flex-end; gap: 4px; }
 
 /* 一根书脊＝一个文件（你导入的那一份），不是章节。 */
-.kd-book-spine {
+.kq-desk .kd-book-spine {
   writing-mode: vertical-rl;
   min-height: 96px;
   max-height: 110px;
@@ -274,16 +379,16 @@
   box-shadow: inset -3px 0 5px -4px rgba(80, 65, 40, 0.6);
 }
 
-.kd-book-spine:nth-child(2) {
+.kq-desk .kd-book-spine:nth-child(2) {
   min-height: 88px;
   color: var(--purple-dark);
   border-color: var(--purple-line);
   background: var(--purple-pale);
 }
 
-.kd-book-spine:hover { transform: translateY(-3px); }
+.kq-desk .kd-book-spine:hover { transform: translateY(-3px); }
 
-.kd-book-spine--add {
+.kq-desk .kd-book-spine--add {
   min-height: 62px;
   writing-mode: horizontal-tb;
   align-self: flex-end;
@@ -295,12 +400,12 @@
   box-shadow: none;
 }
 
-.kd-book-spine--add svg { width: 15px; height: 15px; }
+.kq-desk .kd-book-spine--add svg { width: 15px; height: 15px; }
 
 .kd-stack-empty { margin: 8px 0 0; color: var(--ink-soft); font-size: 11px; }
 
 /* 贴在书堆上的目录：可翻开核对，不占一个入口。 */
-.kd-stack-index {
+.kq-desk .kd-stack-index {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -315,8 +420,8 @@
   font-weight: 700;
 }
 
-.kd-stack-index:hover { color: var(--purple); background: var(--purple-faint); }
-.kd-stack-index svg { width: 13px; height: 13px; }
+.kq-desk .kd-stack-index:hover { color: var(--purple); background: var(--purple-faint); }
+.kq-desk .kd-stack-index svg { width: 13px; height: 13px; }
 
 .kd-stack-index-list {
   display: grid;

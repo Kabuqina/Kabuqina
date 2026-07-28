@@ -49,10 +49,11 @@ export const deskFixtureData: DeskData = {
       { id: "fixture-calculus", name: "高等数学", current: true },
       { id: "fixture-physics", name: "大学物理", current: false },
     ],
+    scratch: { id: "fixture-scratch", name: "杂记本", current: false },
     newBookLabel: "开新本",
   },
   materials: {
-    title: "本课材料",
+    title: "参考资料",
     hint: "平放在这本高数笔记本旁。",
     items: [
       { id: "material-1", title: "教材 §2.3", kind: "resource_pack", status: "active" },
