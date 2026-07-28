@@ -16,6 +16,7 @@ import { SettingsMaterialPrivacy } from "./settings/SettingsMaterialPrivacy";
 import { SettingsSharedPrefs } from "./settings/SettingsSharedPrefs";
 import { SettingsLoadPackages } from "./settings/SettingsLoadPackages";
 import { SettingsLlmConfig } from "./settings/SettingsLlmConfig";
+import { SettingsTokenUsage } from "./settings/SettingsTokenUsage";
 import { SettingsUpdate } from "./settings/SettingsUpdate";
 import { SettingsLegacyChannels } from "./settings/SettingsLegacyChannels";
 
@@ -148,10 +149,14 @@ export function Settings() {
           )}
 
           {tab === "model" && (
-            <SettingsLlmConfig
-              hasSecret={!!status?.hasSecret}
-              onCredentialChanged={refreshStatus}
-            />
+            <>
+              <SettingsLlmConfig
+                hasSecret={!!status?.hasSecret}
+                onCredentialChanged={refreshStatus}
+              />
+              {/* 只报 token 不折金额——见设置规格 §2.2。 */}
+              <SettingsTokenUsage />
+            </>
           )}
 
           {tab === "advanced" && (
