@@ -6,11 +6,14 @@ import { useI18n } from "../lib/i18n";
 import { RequestCoordinator, type Loadable } from "../study/loadable";
 import {
   cmdStudioCreateProject,
+  cmdStudioDeleteProject,
   cmdStudioProjects,
   cmdStudioSaveBrief,
   StudioNotImplementedError,
   type StudioProject,
 } from "./studio-api";
+import { clearSessionStudioHandoff } from "../lib/studioChatHandoff";
+import { confirm } from "../lib/confirmDialog";
 import { StudioShell } from "./StudioShell";
 
 export default function StudioRoute() {
@@ -84,6 +87,25 @@ export default function StudioRoute() {
       }
       onSaveBrief={(projectId, brief) => run(() => cmdStudioSaveBrief(projectId, brief))}
       onGathered={load}
+      onDeleteProject={(project) => {
+        void (async () => {
+          const ok = await confirm({
+            title: t("studio.deleteConfirmTitle"),
+            message: t("studio.deleteConfirmAsk", { title: project.title }),
+            confirmLabel: t("studio.deleteCta"),
+            cancelLabel: t("dialog.cancel"),
+            tone: "danger",
+          });
+          if (!ok) return;
+          run(async () => {
+            const result = await cmdStudioDeleteProject(project.id);
+            // 项目没了，指向它的作用域也必须解掉，否则 Chat 里留着一个通往死项目的
+            // 「回到项目」按钮（账本 B-8）。对话历史本身由后端保留，不在这里删。
+            clearSessionStudioHandoff(result.detachedSessionId);
+            setCurrentProjectId(null);
+          });
+        })();
+      }}
       busy={busy}
     />
   );

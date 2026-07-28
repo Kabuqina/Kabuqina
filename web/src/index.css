@@ -2438,3 +2438,108 @@ html.kq-companion-window #root {
     line-height: 1.6;
   }
 }
+
+@layer components {
+  /* 破坏性动作不与主动作抢视觉权重（信息原则 §6 规则 5）。 */
+  .kq-studio-card--quiet { background: transparent; border-style: dashed; }
+  .kq-studio-danger {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 2.25rem;
+    padding: 0.35rem 0.8rem;
+    border: 1px solid var(--kq-color-border);
+    border-radius: var(--radius-shell-lg);
+    background: transparent;
+    color: #b4344a;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+  .kq-studio-danger:hover { background: rgba(180, 52, 74, 0.08); }
+  .kq-studio-danger:disabled { cursor: not-allowed; opacity: 0.5; }
+  :root[data-theme="dark"] .kq-studio-danger { color: #f2909f; }
+}
+
+@layer components {
+  /* 多材料对齐的确认界面（架构 §2.1.2）。每条对应都要能被核对，所以
+     "来源 → 骨架某节" 与它的理由同等可读，不把理由压成 tooltip。 */
+  .kq-align-review { display: grid; gap: 1rem; }
+  .kq-align-block {
+    display: grid;
+    gap: 0.6rem;
+    padding: clamp(0.85rem, 2vw, 1.15rem);
+    border: 1px solid var(--kq-color-border);
+    border-radius: var(--radius-shell-lg);
+    background: var(--kq-glass-bg);
+  }
+  .kq-align-block--gap { border-style: dashed; background: transparent; }
+  .kq-align-block > header h3,
+  .kq-align-block > h3 { margin: 0; font-size: 0.9375rem; color: var(--kq-color-strong); }
+  .kq-align-block p { margin: 0; }
+  .kq-align-skeleton {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.6rem 0.7rem;
+    border-radius: var(--radius-shell-lg);
+    background: var(--kq-color-primary-pale);
+  }
+  .kq-align-skeleton > div { display: grid; gap: 0.15rem; }
+  .kq-align-tag {
+    flex-shrink: 0;
+    padding: 0.1rem 0.45rem;
+    border-radius: 999px;
+    background: var(--kq-color-surface);
+    color: var(--kq-color-strong);
+    font-size: 0.7rem;
+    font-weight: 700;
+  }
+  .kq-align-attachment {
+    display: grid;
+    gap: 0.3rem;
+    padding: 0.6rem 0.7rem;
+    border: 1px solid var(--kq-color-border);
+    border-radius: var(--radius-shell-lg);
+  }
+  .kq-align-attachment-head { display: flex; align-items: center; gap: 0.5rem; }
+  .kq-align-attachment-head strong { font-size: 0.875rem; color: var(--kq-color-strong); }
+  .kq-align-mappings,
+  .kq-align-gaps ul,
+  .kq-align-block ul { display: grid; gap: 0.3rem; margin: 0; padding: 0; list-style: none; }
+  .kq-align-mappings li,
+  .kq-align-gaps li,
+  .kq-align-block--gap li { display: grid; gap: 0.1rem; }
+  .kq-align-arrow { font-size: 0.8125rem; color: var(--kq-color-ink); }
+  .kq-align-attachment small,
+  .kq-align-gaps small,
+  .kq-align-block small { color: var(--kq-color-muted); font-size: 0.75rem; line-height: 1.5; }
+  .kq-align-gaps { display: grid; gap: 0.25rem; margin-top: 0.2rem; }
+  .kq-align-gaps > span { color: var(--kq-color-muted); font-size: 0.75rem; font-weight: 700; }
+  .kq-align-more {
+    justify-self: start;
+    padding: 0.15rem 0;
+    border: 0;
+    background: transparent;
+    color: var(--kq-color-primary-dark);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-decoration: underline;
+  }
+  .kq-align-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .kq-align-primary,
+  .kq-align-secondary {
+    min-height: 2.25rem;
+    padding: 0.35rem 0.9rem;
+    border-radius: var(--radius-shell-lg);
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+  .kq-align-primary { border: 0; background: var(--kq-color-primary); color: #fff; }
+  .kq-align-secondary {
+    border: 1px solid var(--kq-color-border);
+    background: transparent;
+    color: var(--kq-color-ink);
+  }
+  .kq-align-primary:disabled,
+  .kq-align-secondary:disabled { cursor: not-allowed; opacity: 0.5; }
+}

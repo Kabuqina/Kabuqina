@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, FolderOpen, MessageCircle, Plus } from "lucide-react";
+import { ArrowLeft, FolderOpen, MessageCircle, Plus, Trash2 } from "lucide-react";
 import { useI18n } from "../lib/i18n";
 import { GatherFromStudy } from "./GatherFromStudy";
 import { buildStudioChatHandoff, persistPendingStudioHandoff } from "../lib/studioChatHandoff";
@@ -27,6 +27,7 @@ export function StudioShell({
   onCreateProject,
   onSaveBrief,
   onGathered,
+  onDeleteProject,
   busy,
 }: {
   projects: StudioProject[];
@@ -35,6 +36,7 @@ export function StudioShell({
   onCreateProject: () => void;
   onSaveBrief: (projectId: string, brief: string) => void;
   onGathered?: () => void;
+  onDeleteProject?: (project: StudioProject) => void;
   busy: boolean;
 }) {
   const { t } = useI18n();
@@ -93,6 +95,7 @@ export function StudioShell({
               project={current}
               onSaveBrief={onSaveBrief}
               onGathered={onGathered}
+              onDeleteProject={onDeleteProject}
               busy={busy}
             />
           ) : (
@@ -136,11 +139,13 @@ function ProjectDesk({
   project,
   onSaveBrief,
   onGathered,
+  onDeleteProject,
   busy,
 }: {
   project: StudioProject;
   onSaveBrief: (projectId: string, brief: string) => void;
   onGathered?: () => void;
+  onDeleteProject?: (project: StudioProject) => void;
   busy: boolean;
 }) {
   const { t } = useI18n();
@@ -210,6 +215,25 @@ function ProjectDesk({
           </button>
         </div>
       </section>
+
+      {onDeleteProject ? (
+        <section className="kq-studio-card kq-studio-card--quiet">
+          <h2>{t("studio.deleteTitle")}</h2>
+          {/* chatHistoryDeleted: false 是后端对用户的承诺，界面必须说出来。 */}
+          <p className="kq-studio-muted">{t("studio.deleteLead")}</p>
+          <div className="kq-studio-actions">
+            <button
+              type="button"
+              className="kq-studio-danger"
+              onClick={() => onDeleteProject(project)}
+              disabled={busy}
+            >
+              <Trash2 aria-hidden />
+              {t("studio.deleteCta")}
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       {gathering ? (
         <GatherFromStudy

@@ -94,6 +94,17 @@ describe("StudioShell", () => {
     expect(sources.getByText("高等数学 · 第 23 页")).toBeInTheDocument();
   });
 
+  it("keeps deletion quiet and promises the chat is kept (B-8)", async () => {
+    const user = userEvent.setup();
+    const onDeleteProject = vi.fn();
+    renderShell([PROJECT], { onDeleteProject });
+
+    // 破坏性动作不与主动作抢权重，但必须说清删掉什么、留下什么。
+    expect(screen.getByText(/对话也会保留/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /删除项目/ }));
+    expect(onDeleteProject).toHaveBeenCalledWith(PROJECT);
+  });
+
   it("explains the empty state instead of showing an empty canvas", () => {
     renderShell([], { currentProjectId: null });
     expect(screen.getByRole("heading", { name: "还没有项目" })).toBeInTheDocument();
