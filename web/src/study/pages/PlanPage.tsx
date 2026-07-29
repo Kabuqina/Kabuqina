@@ -14,7 +14,7 @@ export function PlanPage({ spaceId }: { spaceId: string }) {
   const { t } = useI18n();
   const repository = useStudyRepository();
   const recordIa = useStudyIa();
-  const heading = useRef<HTMLHeadingElement>(null);
+  const pageRegion = useRef<HTMLElement>(null);
   const requests = useRef(new RequestCoordinator());
   const mutations = useRef(new RequestCoordinator());
   const [snapshot, setSnapshot] = useState<Loadable<StudyPlanSnapshot>>({ status: "idle" });
@@ -46,7 +46,7 @@ export function PlanPage({ spaceId }: { spaceId: string }) {
   useEffect(() => {
     const activeRequests = requests.current;
     const activeMutations = mutations.current;
-    heading.current?.focus();
+    pageRegion.current?.focus();
     load();
     const refresh = () => load();
     window.addEventListener(STUDY_LEARNING_EVENT, refresh);
@@ -105,10 +105,14 @@ export function PlanPage({ spaceId }: { spaceId: string }) {
   };
 
   return (
-    <section className="kq-study-content-page" aria-labelledby="study-page-title">
+    <section
+      ref={pageRegion}
+      className="kq-study-content-page"
+      aria-label={t("study.pagePlan")}
+      tabIndex={-1}
+    >
       <header className="kq-study-page-heading">
         <p className="kq-study-placeholder-kicker">{t("study.lifecycle")}</p>
-        <h1 id="study-page-title" ref={heading} tabIndex={-1}>{t("study.pagePlan")}</h1>
         <p>{t("study.planLead")}</p>
       </header>
 

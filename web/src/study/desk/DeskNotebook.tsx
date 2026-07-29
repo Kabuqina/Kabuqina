@@ -6,7 +6,6 @@ import type { StudyPageSlug } from "../routeModel";
 import type { DeskArtAssets } from "./artAssets";
 import type {
   CheckResult,
-  DeskCourse,
   DeskDensity,
   DeskOverview,
   StudyActivity,
@@ -22,7 +21,6 @@ const DerivationPracticeSurface = lazy(async () => ({
 
 export interface DeskNotebookProps {
   art: DeskArtAssets;
-  course: DeskCourse;
   /** 练习专用；没有可用测验时缺席，本子仍然照常打开。 */
   overview?: DeskOverview;
   step?: StudyStep;
@@ -211,7 +209,6 @@ function AnswerSurface({
 
 export function DeskNotebook({
   art,
-  course,
   overview,
   step,
   density,
@@ -254,10 +251,24 @@ export function DeskNotebook({
   return (
     <article className="kd-notebook">
       <header className="kd-notebook-head">
-        <div>
-          <h1>{course.name}</h1>
-          <p>{course.notebookLabel}</p>
-        </div>
+        <nav className="kd-page-tabs" aria-label="笔记本分页">
+          {PAGE_TABS.map(({ label, page }) => (
+            <button
+              key={page}
+              type="button"
+              aria-current={page === currentPage ? "page" : undefined}
+              onClick={
+                page === currentPage
+                  ? undefined
+                  : onNavigatePage
+                    ? () => onNavigatePage(page)
+                    : onFutureFeature
+              }
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
         {step ? (
           <button type="button" className="kd-bookmark-button" onClick={onResume}>
             <strong><Bookmark /> <span>继续：{step.kicker}</span></strong>
@@ -265,25 +276,6 @@ export function DeskNotebook({
           </button>
         ) : null}
       </header>
-
-      <nav className="kd-page-tabs" aria-label="笔记本分页">
-        {PAGE_TABS.map(({ label, page }) => (
-          <button
-            key={page}
-            type="button"
-            aria-current={page === currentPage ? "page" : undefined}
-            onClick={
-              page === currentPage
-                ? undefined
-                : onNavigatePage
-                  ? () => onNavigatePage(page)
-                  : onFutureFeature
-            }
-          >
-            {label}
-          </button>
-        ))}
-      </nav>
 
       <div className="kd-page-body">
         {pageBody ?? (!(step && overview) ? (

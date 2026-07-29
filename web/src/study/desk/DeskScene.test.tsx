@@ -33,7 +33,11 @@ describe("DeskScene FE-01 preview", () => {
       <DeskScene adapter={adapter} onDirtyChange={onDirtyChange} />,
     );
 
-    expect(await screen.findByRole("heading", { name: "高等数学 · 极限" })).toBeInTheDocument();
+    const pageTabs = await screen.findByRole("navigation", { name: "笔记本分页" });
+    const bookmark = screen.getByRole("button", { name: /继续：练习 3 · 第 2 步/ });
+    expect(pageTabs.parentElement).toBe(bookmark.parentElement);
+    expect(screen.queryByRole("heading", { name: "高等数学 · 极限" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /制作 \/ 成果/ })).not.toBeInTheDocument();
     const root = container.querySelector(".kq-desk");
     expect(root).toHaveAttribute("data-density", "overview");
 
@@ -185,7 +189,7 @@ describe("DeskScene FE-01 preview", () => {
   it("reviews due cards through the canonical adapter and returns to the desk", async () => {
     const reviewCard = vi.fn().mockResolvedValue(deskFixtureData.dueCards[0]);
     render(<DeskScene adapter={createAdapter({ reviewCard })} />);
-    await screen.findByRole("heading", { name: "高等数学 · 极限" });
+    await screen.findByRole("button", { name: "开始复习" });
     fireEvent.click(screen.getByRole("button", { name: "开始复习" }));
     expect(screen.getByRole("heading", { name: "极限卡片 1" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /显示答案/ }));

@@ -72,7 +72,7 @@ export function LearnPage({ spaceId }: { spaceId: string }) {
   const { t } = useI18n();
   const repository = useStudyRepository();
   const drafts = useStudyDrafts();
-  const heading = useRef<HTMLHeadingElement>(null);
+  const pageRegion = useRef<HTMLElement>(null);
   const requests = useRef(new RequestCoordinator());
   const [snapshot, setSnapshot] = useState<Loadable<StudyLearnHome>>({ status: "idle" });
   const [selectedId, setSelectedId] = useState("");
@@ -114,7 +114,7 @@ export function LearnPage({ spaceId }: { spaceId: string }) {
 
   useEffect(() => {
     const coordinator = requests.current;
-    heading.current?.focus();
+    pageRegion.current?.focus();
     setSelectedId("");
     setSelectedDraftId("");
     load();
@@ -148,10 +148,14 @@ export function LearnPage({ spaceId }: { spaceId: string }) {
   }), [active]);
 
   return (
-    <section className="kq-study-content-page" aria-labelledby="study-page-title">
+    <section
+      ref={pageRegion}
+      className="kq-study-content-page"
+      aria-label={t("study.pageLearn")}
+      tabIndex={-1}
+    >
       <header className="kq-study-page-heading">
         <p className="kq-study-placeholder-kicker">{t("study.lifecycle")}</p>
-        <h1 id="study-page-title" ref={heading} tabIndex={-1}>{t("study.pageLearn")}</h1>
         <p>{t("study.learnLead")}</p>
       </header>
 

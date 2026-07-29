@@ -2,7 +2,7 @@
    SPDX-License-Identifier: Apache-2.0
 
    全局外壳。真值：canonical 原型 src/styles.css 的 .app-frame / .app-header /
-   .brand-lockup / .primary-nav / .utility-nav / .lamp-toggle。
+   .brand-cluster / .primary-nav / .utility-nav / .lamp-toggle。
 
    与原型的唯一结构差别：生产的窗口高度由 Tauri 决定（1100 × 760，最小 720 × 520），
    所以外壳撑满视口而不是原型里那个固定 min-height 的评审框。 */
@@ -21,7 +21,7 @@
   transition: background-color 0.35s ease;
 }
 
-/* 夜晚：台灯在右上角，暖光从灯的方向落在桌面上。 */
+/* 夜晚：台灯在左侧品牌区，暖光仍从桌面上方铺开。 */
 [data-theme="dark"] .kq-app-frame {
   background:
     radial-gradient(620px 420px at 94% 0%, var(--desk-glow), transparent 62%),
@@ -32,7 +32,7 @@
   position: relative;
   z-index: 20;
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   min-height: 50px;
   /* 右边不留内边距：窗口控制要贴到窗口的角上，这是 Windows 的肌肉记忆。
@@ -42,19 +42,37 @@
   background: var(--veil-strong);
 }
 
-.kq-brand-lockup {
+.kq-brand-cluster {
   justify-self: start;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 4px;
+  min-width: 0;
+}
+
+.kq-brand-lockup,
+.kq-lamp-toggle {
+  display: inline-flex;
+  align-items: center;
   padding: 4px;
   border: 0;
   border-radius: 7px;
   background: transparent;
   color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.kq-brand-lockup {
+  gap: 10px;
   font-size: 14px;
   font-weight: 700;
-  cursor: pointer;
+}
+
+.kq-lamp-toggle {
+  justify-content: center;
+  width: 34px;
+  height: 34px;
 }
 
 .kq-brand-mark {
@@ -83,15 +101,27 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  min-height: 38px;
-  padding: 8px 12px;
   border: 1px solid transparent;
   border-radius: 7px;
   background: transparent;
   color: inherit;
   font: inherit;
-  font-weight: 700;
   cursor: pointer;
+}
+
+/* Study / Studio 是唯一的一级业务入口，尺寸和字重要明确高于右侧工具。 */
+.kq-primary-nav > button {
+  min-height: 40px;
+  padding: 8px 13px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.kq-utility-nav > button {
+  min-height: 34px;
+  padding: 6px 9px;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .kq-primary-nav > button[aria-current="page"] {
@@ -130,7 +160,8 @@
 
 .kq-primary-nav > button:focus-visible,
 .kq-utility-nav > button:focus-visible,
-.kq-brand-lockup:focus-visible {
+.kq-brand-lockup:focus-visible,
+.kq-lamp-toggle:focus-visible {
   outline: 2px solid var(--purple);
   outline-offset: 2px;
 }
@@ -156,7 +187,7 @@
     padding: 0 0 0 10px;
   }
 
-  .kq-brand-lockup > span:not(.kq-brand-mark) {
+  .kq-brand-name {
     display: none;
   }
 
@@ -167,6 +198,10 @@
   .kq-primary-nav > button,
   .kq-utility-nav > button {
     padding: 8px 10px;
+  }
+
+  .kq-brand-cluster {
+    gap: 1px;
   }
 }
 

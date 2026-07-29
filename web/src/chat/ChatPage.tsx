@@ -605,18 +605,6 @@ export function ChatPage() {
     nav(studioHandoff.returnTarget.path || studioHandoff.returnTarget.fallbackPath);
   }, [nav, studioHandoff]);
 
-  const unbindStudioContext = useCallback(() => {
-    if (studioHandoff) clearSessionStudioHandoff(studioHandoff.sessionId);
-    clearPendingStudioHandoff();
-    setStudioHandoff(null);
-  }, [studioHandoff]);
-
-  const unbindStudyContext = useCallback(() => {
-    if (studyHandoff) clearSessionStudyHandoff(studyHandoff.sessionId);
-    clearPendingStudyHandoff();
-    setStudyHandoff(null);
-  }, [studyHandoff]);
-
   if (bootErr) {
     return (
       <AppScaffold surface="chat" className="flex h-full flex-col items-center justify-center px-6 text-center">
@@ -694,8 +682,6 @@ export function ChatPage() {
             onOpenHistory={() => setHistoryOpen(true)}
             onReturnStudy={returnToStudy}
             onReturnStudio={returnToStudio}
-            onUnbindStudy={unbindStudyContext}
-            onUnbindStudio={unbindStudioContext}
           />
           <ChatMessageList
             messages={messages}
@@ -706,7 +692,6 @@ export function ChatPage() {
             pendingInteraction={pendingInteraction}
             onRespondInteraction={onRespondInteraction}
             onOpenLoadPackageSettings={() => nav("/settings/load-packages")}
-            onPickSuggestion={setInput}
           />
           <ChatInput
             value={input}

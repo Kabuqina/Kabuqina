@@ -132,11 +132,12 @@ describe("EvaluatePage", () => {
     expect(screen.queryByText(/错题本是空的/)).not.toBeInTheDocument();
   });
 
-  it("renders three honest empty states and focuses the page heading", async () => {
+  it("renders three honest empty states and focuses the labelled page region", async () => {
     renderPage(repository());
     expect(await screen.findByText(/错题本是空的/)).toBeInTheDocument();
     expect(screen.getByText("还没有生效的评估记录。")).toBeInTheDocument();
     expect(screen.getByText("还没有学习活动。")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "评估" })).toHaveFocus();
+    expect(screen.queryByRole("heading", { name: "评估" })).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "评估" })).toHaveFocus();
   });
 });

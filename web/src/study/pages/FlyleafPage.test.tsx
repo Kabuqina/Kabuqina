@@ -152,10 +152,11 @@ describe("FlyleafPage", () => {
     await waitFor(() => expect(screen.queryByText("小娜拟了一版扉页")).not.toBeInTheDocument());
   });
 
-  it("shows an honest empty state and focuses the page heading", async () => {
+  it("shows an honest empty state and focuses the labelled page region", async () => {
     renderPage(repository());
     expect(await screen.findByRole("heading", { name: "这张扉页还是空白" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "扉页" })).toHaveFocus();
+    expect(screen.queryByRole("heading", { name: "扉页" })).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "扉页" })).toHaveFocus();
     expect(screen.getByRole("link", { name: "问小娜" })).toHaveAttribute("href", "/chat");
   });
 });

@@ -51,7 +51,7 @@ export function FlyleafPage({ spaceId }: { spaceId: string }) {
   const { t } = useI18n();
   const repository = useStudyRepository();
   const drafts = useStudyDrafts();
-  const heading = useRef<HTMLHeadingElement>(null);
+  const pageRegion = useRef<HTMLElement>(null);
   const requests = useRef(new RequestCoordinator());
   const mutations = useRef(new RequestCoordinator());
   const migrationAttempted = useRef("");
@@ -104,7 +104,7 @@ export function FlyleafPage({ spaceId }: { spaceId: string }) {
   useEffect(() => {
     const activeRequests = requests.current;
     const activeMutations = mutations.current;
-    heading.current?.focus();
+    pageRegion.current?.focus();
     load();
     const refresh = () => load();
     window.addEventListener(STUDY_LEARNING_EVENT, refresh);
@@ -143,10 +143,14 @@ export function FlyleafPage({ spaceId }: { spaceId: string }) {
   }, [draftSummary, drafts]);
 
   return (
-    <section className="kq-study-content-page" aria-labelledby="study-page-title">
+    <section
+      ref={pageRegion}
+      className="kq-study-content-page"
+      aria-label={t("study.pageFlyleaf")}
+      tabIndex={-1}
+    >
       <header className="kq-study-page-heading">
         <p className="kq-study-placeholder-kicker">{t("study.lifecycle")}</p>
-        <h1 id="study-page-title" ref={heading} tabIndex={-1}>{t("study.pageFlyleaf")}</h1>
         <p>{t("study.flyleafLead")}</p>
       </header>
 

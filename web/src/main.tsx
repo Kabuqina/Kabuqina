@@ -75,12 +75,12 @@ function revealMainWindowAfterShellPaint() {
   };
 }
 
-const SHELL_SURFACES = ["/study", "/studio", "/chat"];
+const SHELL_SURFACES = ["/study", "/studio", "/chat", "/settings"];
 
 function MainWindowContent() {
   const location = useLocation();
-  // Study / Studio / Chat 上，那条横条就是 AppShell 的产品页眉，窗口控制长在它右端；
-  // 其余页面（设置、引导、导出、启动页）才需要独立的窗口标题栏。全窗口始终只有一条。
+  // Study / Studio / Chat / Settings 上，那条横条就是 AppShell 的产品页眉，窗口控制长在它右端；
+  // 其余页面（引导、导出、启动页）才需要独立的窗口标题栏。全窗口始终只有一条。
   const shellOwnsTitleBar = SHELL_SURFACES.some(
     (path) => location.pathname === path || location.pathname.startsWith(`${path}/`),
   );
@@ -91,23 +91,24 @@ function MainWindowContent() {
         <Routes>
           <Route path="/" element={<Splash />} />
           <Route path="/onboarding/*" element={<Wizard />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/settings/load-packages" element={<LoadPackagesPage />} />
           <Route path="/export" element={<Export />} />
           {/* 移动端 Bot 与邮件渠道的产品面已移除（CTL-C08）；旧 v0.4 深链接只进墓碑页解释升级。 */}
-          <Route path="/settings/qq" element={<LegacyPlatformTombstonePage platform="QQ Bot" />} />
-          <Route path="/settings/weixin" element={<LegacyPlatformTombstonePage platform="微信 Bot" />} />
-          <Route path="/settings/dingtalk" element={<LegacyPlatformTombstonePage platform="钉钉 Bot" />} />
-          <Route path="/settings/email" element={<LegacyPlatformTombstonePage platform="Email" />} />
-          <Route path="/settings/telegram" element={<LegacyPlatformTombstonePage platform="Telegram" />} />
-          <Route path="/settings/whatsapp" element={<LegacyPlatformTombstonePage platform="WhatsApp" />} />
-          <Route path="/settings/feishu" element={<LegacyPlatformTombstonePage platform="Feishu / Lark" />} />
-          <Route path="/settings/wecom" element={<LegacyPlatformTombstonePage platform="WeCom" />} />
-          <Route path="/settings/cron" element={<ScheduledTasksPage />} />
-          {/* Study / Studio / Chat 共用全局外壳：一级目的地、台灯与设置常驻，
+          {/* Study / Studio / Chat / Settings 共用全局外壳：Study / Studio 是一级目的地，
+              台灯留在左侧品牌区，Chat / 进行中 / 设置收在右侧工具区；
               各页面不再自己画一条顶栏（架构 §5.1）。 */}
           <Route element={<AppShell />}>
             <Route path="/chat" element={<ChatPage />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/settings/load-packages" element={<LoadPackagesPage />} />
+            <Route path="/settings/qq" element={<LegacyPlatformTombstonePage platform="QQ Bot" />} />
+            <Route path="/settings/weixin" element={<LegacyPlatformTombstonePage platform="微信 Bot" />} />
+            <Route path="/settings/dingtalk" element={<LegacyPlatformTombstonePage platform="钉钉 Bot" />} />
+            <Route path="/settings/email" element={<LegacyPlatformTombstonePage platform="Email" />} />
+            <Route path="/settings/telegram" element={<LegacyPlatformTombstonePage platform="Telegram" />} />
+            <Route path="/settings/whatsapp" element={<LegacyPlatformTombstonePage platform="WhatsApp" />} />
+            <Route path="/settings/feishu" element={<LegacyPlatformTombstonePage platform="Feishu / Lark" />} />
+            <Route path="/settings/wecom" element={<LegacyPlatformTombstonePage platform="WeCom" />} />
+            <Route path="/settings/cron" element={<ScheduledTasksPage />} />
             <Route
               path="/study/*"
               element={<Suspense fallback={<BootPill />}><StudyRoute /></Suspense>}

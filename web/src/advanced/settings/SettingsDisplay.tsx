@@ -9,7 +9,6 @@ import {
   Languages,
   Moon,
   RotateCcw,
-  ScrollText,
   Type,
   Upload,
 } from "lucide-react";
@@ -29,7 +28,6 @@ import {
   type ThemeMode,
 } from "../../lib/ui-prefs";
 import type { Status } from "../Settings";
-import { getStudyIaEnabled, setStudyIaEnabled } from "../../study/iaEvents";
 
 interface Props {
   status: Status | null;
@@ -71,8 +69,6 @@ export function SettingsDisplay({
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
   const [workspaceNotice, setWorkspaceNotice] = useState<string | null>(null);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
-  const [studyIaEnabled, setStudyIaEnabledState] = useState(getStudyIaEnabled);
-  const [studyIaError, setStudyIaError] = useState(false);
 
   const handleCompanionImagePicked = (file: File | undefined) => {
     if (!file) return;
@@ -211,32 +207,6 @@ export function SettingsDisplay({
       </Section>
 
       <Section icon={Languages} title={t("settings.langTitle")} desc={t("settings.langDesc")} action={<LanguageToggle />} />
-
-      <Section
-        icon={ScrollText}
-        title={t("settings.studyIaTitle")}
-        desc={t("settings.studyIaDesc")}
-        action={(
-          <Toggle
-            value={studyIaEnabled}
-            onChange={(enabled) => {
-              const persisted = setStudyIaEnabled(enabled);
-              setStudyIaEnabledState(enabled ? persisted : false);
-              setStudyIaError(!persisted);
-            }}
-            aria-label={t("settings.studyIaTitle")}
-          />
-        )}
-      >
-        <p className="text-sm leading-relaxed text-[var(--kq-color-muted)]">
-          {studyIaEnabled ? t("settings.studyIaOn") : t("settings.studyIaOff")}
-        </p>
-        {studyIaError ? (
-          <p role="alert" className="text-sm leading-relaxed text-red-600 dark:text-red-400">
-            {t("settings.studyIaSaveError")}
-          </p>
-        ) : null}
-      </Section>
 
       <Section
         icon={ImageIcon}

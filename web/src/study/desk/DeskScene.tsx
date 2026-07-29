@@ -513,7 +513,6 @@ export default function DeskScene({
             <section className="kd-center-stage" aria-label="当前课程笔记本">
               <DeskNotebook
                 art={icons}
-                course={{ name: bookstandFallback.currentTitle, notebookLabel: "" }}
                 density="overview"
                 activity="ready"
                 answer=""
@@ -717,7 +716,6 @@ export default function DeskScene({
           <section className="kd-center-stage" aria-label="当前课程笔记本">
             <DeskNotebook
               art={icons}
-              course={data.course}
               overview={data.overview}
               step={step}
               density={density}
@@ -743,11 +741,6 @@ export default function DeskScene({
               onNavigatePage={onNavigatePage}
               onFutureFeature={announceFutureFeature}
             />
-            {pageBody ? null : (
-              <button type="button" className="kd-work-folder" onClick={() => openWorkFolder()}>
-                <icons.folderPlus /> ＋ 制作 / 成果
-              </button>
-            )}
           </section>
           <aside className="kd-right-objects" aria-label="参考资料、复习与小娜">
             {draftInbox ? <div className="kd-rail-drafts">{draftInbox}</div> : null}

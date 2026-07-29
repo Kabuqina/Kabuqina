@@ -162,7 +162,7 @@ describe("StudyShell", () => {
     expect(await screen.findByText("A PRIVATE BODY")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "test switch" }));
     expect(screen.queryByText("A PRIVATE BODY")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "学习" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "学习" })).toBeInTheDocument();
   });
 
   it("keeps route and data when selecting a space fails", async () => {
@@ -173,7 +173,7 @@ describe("StudyShell", () => {
     // 换课失败：路由与当前这本都不动。
     await waitFor(() => expect(sink).toHaveBeenCalledWith({ name: "study.space.switch", action: "switch", success: false }));
     expect(screen.getByTestId("location")).toHaveTextContent("/study/space-a/learn");
-    expect(screen.getByRole("heading", { name: "学习" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "学习" })).toBeInTheDocument();
   });
 
   it("moves to the selected space while preserving the current lifecycle page", async () => {

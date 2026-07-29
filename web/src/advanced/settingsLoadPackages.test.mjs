@@ -121,7 +121,7 @@ assert.doesNotMatch(
 assert.match(settingsSource, /role="tablist"/, "Settings should use a tab bar to group its sections.");
 assert.match(
   settingsSource,
-  /settings\.tabGeneral[\s\S]*settings\.tabModel[\s\S]*settings\.tabAdvanced/,
+  /settings\.tabGeneral[\s\S]*settings\.tabStudy[\s\S]*settings\.tabModel[\s\S]*settings\.tabAdvanced/,
   "Settings should group its sections into category tabs instead of one long scroll.",
 );
 assert.doesNotMatch(
@@ -135,6 +135,12 @@ assert.doesNotMatch(
   "The tabbed Settings layout should drop the floating scroll-to-top/bottom buttons.",
 );
 assert.match(stringsSource, /tabGeneral:\s*"常规"/);
+assert.match(stringsSource, /tabStudy:\s*"学习"/);
+assert.match(
+  settingsSource,
+  /tab === "study"[\s\S]*SettingsImportReadMode[\s\S]*SettingsReviewLimits[\s\S]*SettingsMaterialPrivacy[\s\S]*SettingsStudyImprovementCounts[\s\S]*SettingsLearningData[\s\S]*SettingsLearningMigrations/,
+  "Study preferences, privacy, local data, and diagnostics should live together in the Study tab.",
+);
 
 assert.match(stringsSource, /loadPackagesTitle/);
 assert.match(stringsSource, /loadPackagesDesktopOnly/);

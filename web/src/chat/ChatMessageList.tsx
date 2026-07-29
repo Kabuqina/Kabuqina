@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useEffect, useRef, useState } from "react";
-import { AlarmClock, BookOpen, Check, FolderOpen, PenLine, Pencil, RefreshCw } from "lucide-react";
+import { BookOpen, Check, Pencil, RefreshCw } from "lucide-react";
 import { useI18n } from "../lib/i18n";
 import type { LoadPackageStatus, PendingAgentInteraction, UiMsg } from "./chat-api";
 import { AgentProgress } from "./AgentProgress";
@@ -24,7 +24,6 @@ interface ChatMessageListProps {
   pendingInteraction?: PendingAgentInteraction | null;
   onRespondInteraction?: (action: string, text?: string, data?: Record<string, unknown>) => Promise<void>;
   onOpenLoadPackageSettings?: () => void;
-  onPickSuggestion?: (prompt: string) => void;
 }
 
 function AssistantStreamShell({ children }: { children: React.ReactNode }) {
@@ -276,95 +275,24 @@ function AgentInteractionCard({
   );
 }
 
-function EmptyState({
-  onPickSuggestion,
-}: {
-  onPickSuggestion?: (prompt: string) => void;
-}) {
-  const { t, locale } = useI18n();
-  const brand = t("brand");
-  const productName = t("productName");
-  const greeting = t("chat.greeting", { name: brand });
-  const greetingParts = greeting.split(brand);
-  const actions =
-    locale === "zh"
-      ? [
-          { label: "陪我复习一会儿", prompt: "陪我复习一会儿，帮我把今天要学的内容拆成小步骤。", icon: BookOpen, iconClass: "kq-color-icon-book" },
-          { label: "整理思路", prompt: "帮我整理一下现在脑子里的想法，先列出重点和下一步。", icon: FolderOpen, iconClass: "kq-color-icon-folder" },
-          { label: "提醒我休息", prompt: "提醒我 30 分钟后休息一下", icon: AlarmClock, iconClass: "kq-color-icon-alarm" },
-          { label: "写一段消息", prompt: "帮我把这段话写得更自然：", icon: PenLine, iconClass: "kq-color-icon-pen" },
-        ]
-      : [
-          { label: "Study with me", prompt: "Study with me for a while and split this into small steps.", icon: BookOpen, iconClass: "kq-color-icon-book" },
-          { label: "Organize thoughts", prompt: "Help me organize my current thoughts into priorities and next steps.", icon: FolderOpen, iconClass: "kq-color-icon-folder" },
-          { label: "Set a reminder", prompt: "Remind me to take a break in 30 minutes", icon: AlarmClock, iconClass: "kq-color-icon-alarm" },
-          { label: "Write a message", prompt: "Make this message sound more natural:", icon: PenLine, iconClass: "kq-color-icon-pen" },
-        ];
+function EmptyState() {
   return (
     <div className="kq-empty-state flex min-h-0 w-full flex-1 flex-col items-center justify-center px-6 py-3 sm:py-7">
-      <div className="flex w-full max-w-xl -translate-y-1 flex-col items-center text-center">
-        <div className="kq-empty-hero mb-2 flex flex-col items-center sm:mb-3">
-          {/* Mascot with soft glow */}
-          <div className="relative mb-1.5">
-            <div
-              className="pointer-events-none absolute left-1/2 top-1/2 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full"
-              style={{ background: "radial-gradient(circle, rgba(232,223,240,0.5) 0%, transparent 70%)" }}
-            />
-            <img
-              src={ART_ASSETS.boot}
-              alt="Kabuqina chat hero — cup on gingham coaster"
-              className="kq-float relative w-48 h-auto select-none"
-              style={{ filter: "drop-shadow(0 6px 20px rgba(90,74,106,0.12))", animation: "kq-float 3.4s ease-in-out infinite" }}
-              width={1280}
-              height={640}
-              decoding="async"
-              draggable={false}
-            />
-          </div>
-          <h1 className="kq-empty-title">{productName}</h1>
-          <div className="mt-2.5 flex items-center gap-2.5 text-sm text-[var(--kq-color-muted)]">
-            <span className="kq-hero-line" aria-hidden />
-            <span className="kq-hero-heart text-xs" aria-hidden>♡</span>
-            <span style={{ letterSpacing: "0.02em" }}>
-              {locale === "zh" ? "慢慢来，小娜陪你整理思路" : `${greetingParts[0]}${brand}${greetingParts[1]}`}
-            </span>
-            <span className="kq-hero-line" aria-hidden />
-          </div>
-        </div>
+      <div className="relative -translate-y-1">
         <div
-          className="mt-7 grid w-full gap-2.5"
-          style={{ gridTemplateColumns: "1fr 1fr", maxWidth: "380px" }}
-          aria-label={t("chat.emptyActionsLabel")}
-        >
-          {actions.map((action, i) => {
-            const Icon = action.icon;
-            return (
-              <button
-                key={action.label}
-                type="button"
-                onClick={() => {
-                  if ("prompt" in action && action.prompt) {
-                    onPickSuggestion?.(action.prompt);
-                  }
-                }}
-                className={cn(
-                  "kq-empty-action kq-fade-up inline-flex h-auto min-w-0 items-center justify-center gap-2 rounded-xl border px-3.5 py-2.5 text-sm font-medium",
-                  "text-[var(--kq-color-ink)] active:scale-[0.99]",
-                  "dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)] dark:text-[var(--kq-color-ink)]",
-                  "dark:hover:border-sky-700 dark:hover:bg-sky-950/40 dark:hover:text-sky-100"
-                )}
-                style={{ animationDelay: `${i * 0.06}s`, animationFillMode: "both" }}
-              >
-                <Icon
-                  className={cn("h-[15px] w-[15px] shrink-0", action.iconClass)}
-                  strokeWidth={2.25}
-                  aria-hidden
-                />
-                <span>{action.label}</span>
-              </button>
-            );
-          })}
-        </div>
+          className="pointer-events-none absolute left-1/2 top-1/2 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full"
+          style={{ background: "radial-gradient(circle, rgba(232,223,240,0.5) 0%, transparent 70%)" }}
+        />
+        <img
+          src={ART_ASSETS.boot}
+          alt="Kabuqina chat hero — cup on gingham coaster"
+          className="kq-float relative h-auto w-48 select-none"
+          style={{ filter: "drop-shadow(0 6px 20px rgba(90,74,106,0.12))", animation: "kq-float 3.4s ease-in-out infinite" }}
+          width={1280}
+          height={640}
+          decoding="async"
+          draggable={false}
+        />
       </div>
     </div>
   );
@@ -379,7 +307,6 @@ export function ChatMessageList({
   pendingInteraction,
   onRespondInteraction,
   onOpenLoadPackageSettings,
-  onPickSuggestion,
 }: ChatMessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -403,7 +330,7 @@ export function ChatMessageList({
       )}
     >
       {isEmpty ? (
-        <EmptyState onPickSuggestion={onPickSuggestion} />
+        <EmptyState />
       ) : (
         <div className="mx-auto max-w-3xl space-y-5 px-4 py-6 sm:space-y-6 sm:px-5">
           {completedMessages.map((m) => (

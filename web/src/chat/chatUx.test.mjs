@@ -532,8 +532,13 @@ for (const className of ["kq-titlebar-brand", "kq-titlebar"]) {
 
 assert.match(
   messageListSource,
-  /ART_ASSETS\.boot[\s\S]*kq-empty-title[\s\S]*\u6162\u6162\u6765\uff0c\u5c0f\u5a1c\u966a\u4f60\u6574\u7406\u601d\u8def/,
-  "The empty chat state should show the hero asset, the product name title, then the greeting.",
+  /ART_ASSETS\.boot[\s\S]*Kabuqina chat hero/,
+  "The empty chat state should keep the companion cup.",
+);
+assert.doesNotMatch(
+  messageListSource,
+  /kq-empty-title|kq-empty-action|\u6162\u6162\u6765\uff0c\u5c0f\u5a1c\u966a\u4f60\u6574\u7406\u601d\u8def|\u966a\u6211\u590d\u4e60\u4e00\u4f1a\u513f|\u6574\u7406\u601d\u8def|\u63d0\u9192\u6211\u4f11\u606f|\u5199\u4e00\u6bb5\u6d88\u606f/,
+  "The simplified empty chat state should not put copy or quick actions between the cup and composer.",
 );
 
 assert.match(
@@ -588,20 +593,6 @@ assert.doesNotMatch(
   fs.readFileSync(new URL("../main.tsx", import.meta.url), "utf8"),
   /CapabilitiesPage|path="\/capabilities"/,
   "The retired capability catalog route should not be bundled.",
-);
-
-assert.match(messageListSource, /kq-empty-action\b/);
-assert.match(messageListSource, /strokeWidth=\{2\.25\}/);
-assert.match(
-  messageListSource,
-  /kq-color-icon-book[\s\S]*kq-color-icon-folder[\s\S]*kq-color-icon-alarm[\s\S]*kq-color-icon-pen/,
-  "Empty-state quick actions should use unified colorful icon strokes.",
-);
-
-assert.match(
-  messageListSource,
-  /gridTemplateColumns: "1fr 1fr"[\s\S]*maxWidth: "380px"/,
-  "Empty-state quick actions use a compact two-column grid capped at 380px so they fit narrow screens.",
 );
 
 assert.match(

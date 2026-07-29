@@ -80,7 +80,7 @@ describe("StudyRoute", () => {
 
   it("fails open when built-in course bootstrap is unavailable", async () => {
     renderRoute("/study/space-a/learn", { seedBuiltinCourse: vi.fn().mockRejectedValue(new Error("offline")) });
-    expect(await screen.findByRole("heading", { name: "学习" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "学习" })).toBeInTheDocument();
   });
 
   it("does not repeat the bootstrap call for the same repository within a session", async () => {
@@ -144,8 +144,9 @@ describe("StudyRoute", () => {
       }),
       loadQuizQuestions,
     });
-    expect(await screen.findByRole("heading", { name: "Linear Algebra" })).toBeInTheDocument();
-    expect(screen.getByText("Vector practice · 1 步")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Linear Algebra" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /继续：练习 · 第 1 \/ 1 步/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "开始“vectors”" })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "笔记本分页" })).toBeInTheDocument();
     expect(loadQuizQuestions).toHaveBeenCalledWith(
       "space-a",
@@ -233,7 +234,7 @@ describe("StudyRoute", () => {
         .mockImplementationOnce(() => refresh.promise)
         .mockResolvedValueOnce(spaces),
     });
-    expect(await screen.findByRole("heading", { name: "学习" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "学习" })).toBeInTheDocument();
 
     await act(async () => { window.dispatchEvent(new Event("study-learning-event")); });
     expect(screen.getByTestId("study-shell")).toBeInTheDocument();
@@ -241,6 +242,6 @@ describe("StudyRoute", () => {
 
     await act(async () => { refresh.reject(new Error("transport")); });
     expect(await screen.findByRole("alert")).toHaveTextContent("当前内容仍可继续查看");
-    expect(screen.getByRole("heading", { name: "学习" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "学习" })).toBeInTheDocument();
   });
 });

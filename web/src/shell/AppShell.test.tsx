@@ -19,8 +19,8 @@ function renderShell(initialPath: string) {
             <Route path="/study" element={<p>study surface</p>} />
             <Route path="/studio" element={<p>studio surface</p>} />
             <Route path="/chat" element={<p>chat surface</p>} />
+            <Route path="/settings" element={<p>settings surface</p>} />
           </Route>
-          <Route path="/settings" element={<p>settings surface</p>} />
         </Routes>
       </MemoryRouter>
     </I18nProvider>,
@@ -55,6 +55,13 @@ describe("AppShell", () => {
     expect(screen.getByRole("button", { name: "课程" })).toBeInTheDocument();
   });
 
+  it("keeps Settings inside the shell and marks its utility entry", () => {
+    renderShell("/settings");
+    expect(screen.getByText("settings surface")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "设置" })).toHaveAttribute("aria-current", "page");
+    expect(document.querySelector(".kq-app-header")).toBeInTheDocument();
+  });
+
   /**
    * 台灯是开关不是三档选择器。回归钉子：副作用一旦写进 state updater，
    * StrictMode 下会跑两次，结果是 DOM 翻了而灯没亮。
@@ -86,9 +93,25 @@ describe("AppShell", () => {
     expect(header).toHaveAttribute("data-tauri-drag-region");
     expect(header).toHaveClass("hermes-titlebar-drag");
 
-    for (const group of [".kq-brand-lockup", ".kq-primary-nav", ".kq-utility-nav"]) {
+    for (const group of [".kq-brand-cluster", ".kq-primary-nav", ".kq-utility-nav"]) {
       expect(header.querySelector(group)).toHaveClass("hermes-titlebar-nodrag");
     }
+  });
+
+  it("keeps the lamp with the brand and only Study and Studio in primary navigation", () => {
+    renderShell("/study");
+    const header = document.querySelector(".kq-app-header")!;
+    const brand = header.querySelector(".kq-brand-cluster")!;
+    const primary = header.querySelector(".kq-primary-nav")!;
+    const utility = header.querySelector(".kq-utility-nav")!;
+
+    expect(brand).toContainElement(screen.getByRole("button", { name: /台灯|开台灯/ }));
+    expect(primary).toContainElement(screen.getByRole("button", { name: "课程" }));
+    expect(primary).toContainElement(screen.getByRole("button", { name: "创作" }));
+    expect(primary).not.toContainElement(screen.getByRole("button", { name: "对话" }));
+    expect(utility).toContainElement(screen.getByRole("button", { name: "对话" }));
+    expect(utility).toContainElement(screen.getByRole("button", { name: "进行中" }));
+    expect(utility).toContainElement(screen.getByRole("button", { name: "设置" }));
   });
 
   it("asks the current surface to open Activity instead of navigating away from it", async () => {
@@ -97,7 +120,7 @@ describe("AppShell", () => {
     const stop = onOpenActivityRequest(() => { asked += 1; });
     renderShell("/study");
 
-    await user.click(screen.getByRole("button", { name: "动态" }));
+    await user.click(screen.getByRole("button", { name: "进行中" }));
     expect(asked).toBe(1);
     expect(screen.getByText("study surface")).toBeInTheDocument();
     stop();

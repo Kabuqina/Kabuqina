@@ -58,7 +58,7 @@ export function EvaluatePage({ spaceId }: { spaceId: string }) {
   const { t } = useI18n();
   const repository = useStudyRepository();
   const recordIa = useStudyIa();
-  const heading = useRef<HTMLHeadingElement>(null);
+  const pageRegion = useRef<HTMLElement>(null);
   const wrongbookOpenSpace = useRef<string | null>(null);
   const wrongbookRequests = useRef(new RequestCoordinator());
   const evaluationRequests = useRef(new RequestCoordinator());
@@ -124,7 +124,7 @@ export function EvaluatePage({ spaceId }: { spaceId: string }) {
     const wrongbookCoordinator = wrongbookRequests.current;
     const evaluationCoordinator = evaluationRequests.current;
     const activityCoordinator = activityRequests.current;
-    heading.current?.focus();
+    pageRegion.current?.focus();
     const loadAll = () => { loadWrongbook(); loadEvaluation(); loadActivities(); };
     loadAll();
     window.addEventListener(STUDY_LEARNING_EVENT, loadAll);
@@ -137,10 +137,14 @@ export function EvaluatePage({ spaceId }: { spaceId: string }) {
   }, [loadActivities, loadEvaluation, loadWrongbook]);
 
   return (
-    <section className="kq-study-content-page" aria-labelledby="study-page-title">
+    <section
+      ref={pageRegion}
+      className="kq-study-content-page"
+      aria-label={t("study.pageEvaluate")}
+      tabIndex={-1}
+    >
       <header className="kq-study-page-heading">
         <p className="kq-study-placeholder-kicker">{t("study.lifecycle")}</p>
-        <h1 id="study-page-title" ref={heading} tabIndex={-1}>{t("study.pageEvaluate")}</h1>
         <p>{t("study.evaluateLead")}</p>
       </header>
 

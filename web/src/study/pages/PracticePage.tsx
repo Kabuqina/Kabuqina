@@ -41,7 +41,7 @@ export function PracticePage({ spaceId, onDirtyChange, onNavigateAway }: { space
   const repository = useStudyRepository();
   const recordIa = useStudyIa();
   const drafts = useStudyDrafts();
-  const heading = useRef<HTMLHeadingElement>(null);
+  const pageRegion = useRef<HTMLElement>(null);
   const requests = useRef(new RequestCoordinator());
   const mutations = useRef(new RequestCoordinator());
   const sourceRequests = useRef(new RequestCoordinator());
@@ -96,7 +96,7 @@ export function PracticePage({ spaceId, onDirtyChange, onNavigateAway }: { space
     const requestCoordinator = requests.current;
     const mutationCoordinator = mutations.current;
     const sourceCoordinator = sourceRequests.current;
-    heading.current?.focus();
+    pageRegion.current?.focus();
     load();
     const refresh = () => load();
     window.addEventListener(STUDY_LEARNING_EVENT, refresh);
@@ -155,7 +155,7 @@ export function PracticePage({ spaceId, onDirtyChange, onNavigateAway }: { space
 
   useEffect(() => {
     if (mode === "home") {
-      heading.current?.focus();
+      pageRegion.current?.focus();
       return;
     }
     const frame = window.requestAnimationFrame(() => document.getElementById("study-practice-surface")?.focus());
@@ -297,10 +297,14 @@ export function PracticePage({ spaceId, onDirtyChange, onNavigateAway }: { space
   const currentQuestion = questions[questionIndex];
 
   return (
-    <section className="kq-study-content-page" aria-labelledby="study-page-title">
+    <section
+      ref={pageRegion}
+      className="kq-study-content-page"
+      aria-label={t("study.pagePractice")}
+      tabIndex={-1}
+    >
       <header className="kq-study-page-heading">
         <p className="kq-study-placeholder-kicker">{t("study.lifecycle")}</p>
-        <h1 id="study-page-title" ref={heading} tabIndex={-1}>{t("study.pagePractice")}</h1>
         <p>{t("study.practiceLead")}</p>
       </header>
 

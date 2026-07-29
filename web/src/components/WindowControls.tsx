@@ -11,7 +11,7 @@ import { useI18n } from "../lib/i18n";
  * 缩到小娜 + 系统窗口控制。
  *
  * 单独抽出来，是因为窗口控制**只能有一处**，而承载它的那条横条会变：
- * 在 Study / Studio / Chat 上是 `AppShell` 的产品页眉，其余页面是
+ * 在 Study / Studio / Chat / Settings 上是 `AppShell` 的产品页眉，其余页面是
  * `WindowTitleBar`。两边渲染同一个组件，不各写一份。
  */
 export function WindowControls() {

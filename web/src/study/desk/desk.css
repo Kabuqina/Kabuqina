@@ -32,7 +32,9 @@
   height: 100%;
   min-height: 0;
   display: grid;
-  grid-template-rows: 50px minmax(0, 1fr);
+  /* AppShell owns the one global 50px header. DeskChrome was removed, so the
+     desk now has a single visual child: let its canvas fill the whole surface. */
+  grid-template-rows: minmax(0, 1fr);
   overflow: hidden;
   background:
     radial-gradient(circle at 9% 5%, rgba(255, 250, 229, .92), transparent 24%),
@@ -473,7 +475,7 @@
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) 38px;
+  grid-template-rows: minmax(0, 1fr);
   position: relative;
 }
 
@@ -483,7 +485,7 @@
   height: 100%;
   min-height: 0;
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   border: 1px solid var(--c-paper-edge);
   border-left-width: 12px;
   border-radius: 8px 13px 13px 8px;
@@ -515,20 +517,21 @@
 
 .kd-notebook-head {
   display: flex;
-  align-items: start;
+  align-items: stretch;
   justify-content: space-between;
   gap: 16px;
-  padding: 13px 18px 9px;
+  min-width: 0;
+  padding: 0 18px;
   border-bottom: 1px solid var(--c-paper-edge);
 }
-
-.kd-notebook-head h1 { margin: 0 0 3px; font-size: 20px; color: var(--c-ink-strong); }
-.kd-notebook-head p { margin: 0; color: var(--c-muted); font-size: 13px; }
 
 .kd-bookmark-button {
   position: relative;
   z-index: 2;
+  flex: 0 0 min(238px, 42%);
+  align-self: center;
   width: min(238px, 42%);
+  margin: 10px 0;
   display: grid;
   gap: 2px;
   text-align: left;
@@ -548,34 +551,44 @@
 
 .kd-page-tabs {
   display: flex;
-  gap: 4px;
-  padding: 0 20px;
-  border-bottom: 1px solid var(--c-paper-edge);
+  flex: 1 1 auto;
+  align-items: stretch;
+  gap: 6px;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 0;
 }
 
 .kd-page-tabs button {
-  min-height: 34px;
-  padding: 5px 10px;
+  min-height: 100%;
+  padding: 8px 14px 4px;
   border: 0;
   border-bottom: 3px solid transparent;
   border-radius: 0;
   background: transparent;
-  font-size: 13px;
+  color: var(--c-ink-strong);
+  font-size: clamp(17px, 1.6vw, 21px);
+  font-weight: 700;
+  letter-spacing: .02em;
 }
 
 .kd-page-tabs button[aria-current="page"] {
   border-bottom-color: var(--c-accent);
   color: var(--c-accent);
-  font-weight: 600;
+  font-weight: 800;
 }
 
 .kd-page-body {
+  min-width: 0;
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 14px;
   padding: 14px 18px 16px;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
 }
 
 .kd-overview-copy {
@@ -815,23 +828,6 @@
 }
 
 .kd-task-actions .kd-primary { min-width: 132px; }
-
-.kd-work-folder {
-  align-self: center;
-  justify-self: center;
-  width: min(72%, 520px);
-  min-height: 38px !important;
-  margin-top: -2px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border-radius: 0 0 8px 8px !important;
-  border-top: 0 !important;
-  background: linear-gradient(180deg, #f8f3ea, #eadcc8) !important;
-  border-color: rgba(212, 176, 128, .56) !important;
-  color: var(--c-ink-strong);
-  text-align: left;
-}
 
 .kd-load-layout {
   grid-template-columns: minmax(0, 1fr);
@@ -1160,7 +1156,7 @@
 
 @media (max-width: 860px) {
   .kq-desk {
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
     overflow: auto;
   }
 
@@ -1221,9 +1217,8 @@
     overflow: visible;
     transform: none;
   }
-  .kq-desk .kd-notebook-head { display: grid; padding: 14px; }
-  .kq-desk .kd-bookmark-button { width: 100%; }
-  .kq-desk .kd-page-tabs { overflow-x: auto; padding: 0 10px; }
+  .kq-desk .kd-notebook-head { padding: 0 12px; }
+  .kq-desk .kd-bookmark-button { flex-basis: min(210px, 42%); width: min(210px, 42%); }
   .kq-desk .kd-page-body { grid-template-columns: 1fr; padding: 14px; overflow: visible; }
   .kq-desk .kd-page-main { overflow: visible; }
   .kq-desk .kd-task-scroll { overflow: visible; padding-right: 0; }
@@ -1236,7 +1231,6 @@
     box-shadow: 0 -8px 18px rgba(90, 74, 106, .12);
   }
   .kq-desk .kd-reference-fold { width: 100%; }
-  .kq-desk .kd-work-folder { width: 90%; }
   .kq-desk .kd-cup-zone { margin-top: 0; justify-items: stretch; }
   .kq-desk .kd-cup-button { width: 100%; min-height: 78px !important; }
   .kq-desk .kd-cup-status { text-align: left; }

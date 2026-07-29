@@ -27,11 +27,14 @@ class RuntimeImportVerifierTests(unittest.TestCase):
             "desk_server.routes.study_routes",
             "desk_server.routes.study_activity_routes",
             "desk_server.routes.study_whiteboard_routes",
+            "desk_server.routes.studio_routes",
             "desk_server.capabilities",
             "product_profile_policy",
             "learning.flashcards",
             "learning_owner",
             "learning_recovery",
+            "studio_store",
+            "study_semantic_reviewer",
             "agent.graph_engine.tutor_contracts",
             "agent.graph_engine.tutor_branch_policy",
             "agent.graph_engine.tutor_retention",
@@ -238,7 +241,9 @@ class RuntimeImportVerifierTests(unittest.TestCase):
         for name in (
             "kabuqina_env.py",
             "learning_recovery.py",
+            "studio_store.py",
             "study_review_reminder.py",
+            "study_semantic_reviewer.py",
         ):
             self.assertIn(f"src\\{name}", build_script)
             self.assertIn(f'"{name}"', sync_script)

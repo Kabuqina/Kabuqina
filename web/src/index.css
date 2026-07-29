@@ -284,7 +284,7 @@
 }
 
 .kq-chat-history-toggle,
-.kq-chat-unbind {
+.kq-chat-context-toggle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -299,7 +299,7 @@
 }
 
 .kq-chat-history-toggle:hover,
-.kq-chat-unbind:hover { color: var(--purple); background: var(--purple-faint); }
+.kq-chat-context-toggle:hover { color: var(--purple); background: var(--purple-faint); }
 
 .kq-chat-session-title { min-width: 0; flex: 1; }
 
@@ -338,6 +338,7 @@
 }
 
 .kq-chat-return:hover { border-color: var(--purple-line); background: var(--purple-faint); }
+.kq-chat-context-restore { margin-right: auto; }
 
 /* --- 历史会话抽屉：收起来，需要时才拉开 --------------------------------- */
 
@@ -693,7 +694,6 @@
 .kq-study-secondary-link { color: var(--kq-study-pencil); text-decoration: underline; text-underline-offset: 0.2rem; }
 .kq-study-content-page { display: grid; gap: 1rem; }
 .kq-study-page-heading { display: grid; gap: 0.45rem; }
-.kq-study-page-heading h1 { font-size: clamp(1.75rem, 5vw, 2.75rem); line-height: 1.1; }
 .kq-study-page-heading > p:last-child { max-width: 48rem; color: var(--kq-study-muted); }
 .kq-study-page-alert,
 .kq-study-page-empty {

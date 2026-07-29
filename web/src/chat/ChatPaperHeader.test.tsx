@@ -43,8 +43,6 @@ function renderHeader(props: Partial<Parameters<typeof ChatPaperHeader>[0]> = {}
     onOpenHistory: vi.fn(),
     onReturnStudy: vi.fn(),
     onReturnStudio: vi.fn(),
-    onUnbindStudy: vi.fn(),
-    onUnbindStudio: vi.fn(),
   };
   render(
     <I18nProvider>
@@ -71,15 +69,21 @@ describe("ChatPaperHeader", () => {
     expect(screen.queryByRole("button", { name: /返回/ })).not.toBeInTheDocument();
   });
 
-  it("names the bound course and keeps exact return plus explicit unbind", () => {
+  it("names the bound course and restores its heading after a reversible hide", () => {
     const handlers = renderHeader({ studyHandoff });
     expect(screen.getByRole("heading", { name: "练习 · 第 2 步" })).toBeInTheDocument();
     expect(screen.getByText("高等数学")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "返回这一步" }));
-    fireEvent.click(screen.getByRole("button", { name: /解绑来源/ }));
     expect(handlers.onReturnStudy).toHaveBeenCalledTimes(1);
-    expect(handlers.onUnbindStudy).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "隐藏上下文标题" }));
+    expect(screen.queryByRole("heading", { name: "练习 · 第 2 步" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "显示上下文标题" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "显示上下文标题" }));
+    expect(screen.getByRole("heading", { name: "练习 · 第 2 步" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "返回这一步" })).toBeInTheDocument();
   });
 
   it("names the bound project and offers the way back to it", () => {
@@ -87,9 +91,7 @@ describe("ChatPaperHeader", () => {
     expect(screen.getByRole("heading", { name: "极限概念分享" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "返回项目" }));
-    fireEvent.click(screen.getByRole("button", { name: /解绑来源/ }));
     expect(handlers.onReturnStudio).toHaveBeenCalledTimes(1);
-    expect(handlers.onUnbindStudio).toHaveBeenCalledTimes(1);
   });
 
   /**
@@ -99,7 +101,7 @@ describe("ChatPaperHeader", () => {
   it("does not expand a course, project, or progress panel", () => {
     renderHeader({ studyHandoff });
     const head = document.querySelector(".kq-chat-paper-head")!;
-    // 标题行上只有：历史、标题+来源、返回、解绑。
+    // 标题行上只有：历史、标题+来源、返回、可逆隐藏。
     expect(head.querySelectorAll("button")).toHaveLength(3);
   });
 });

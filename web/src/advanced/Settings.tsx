@@ -2,11 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCallback, useEffect, useState, type ComponentType } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
-import { Cpu, SlidersHorizontal, Wrench } from "lucide-react";
+import { BookOpen, Cpu, SlidersHorizontal, Wrench } from "lucide-react";
 import { AppScaffold } from "../components/AppScaffold";
-import { BackButton } from "../components/ui/BackButton";
 import { useI18n } from "../lib/i18n";
 import { cn } from "../lib/cn";
 import { useFontSize, useThemeMode } from "../lib/ui-prefs";
@@ -14,6 +13,7 @@ import { SettingsDisplay } from "./settings/SettingsDisplay";
 import { SettingsLearningData, SettingsLearningMigrations } from "./settings/SettingsLearningData";
 import { SettingsMaterialPrivacy } from "./settings/SettingsMaterialPrivacy";
 import { SettingsImportReadMode, SettingsReviewLimits } from "./settings/SettingsStudyPreferences";
+import { SettingsStudyImprovementCounts } from "./settings/SettingsStudyImprovementCounts";
 import { SettingsSharedPrefs } from "./settings/SettingsSharedPrefs";
 import { SettingsLoadPackages } from "./settings/SettingsLoadPackages";
 import { SettingsLlmConfig } from "./settings/SettingsLlmConfig";
@@ -27,15 +27,14 @@ export interface Status {
   pythonRunning: boolean;
 }
 
-type SettingsTab = "general" | "model" | "advanced";
+type SettingsTab = "general" | "study" | "model" | "advanced";
 
 function isSettingsTab(value: unknown): value is SettingsTab {
-  return value === "general" || value === "model" || value === "advanced";
+  return value === "general" || value === "study" || value === "model" || value === "advanced";
 }
 
 export function Settings() {
   const { t } = useI18n();
-  const nav = useNavigate();
   const location = useLocation();
   // Allow deep-linking to a specific tab (e.g. chat's "configure model" prompt
   // routes straight to the model config tab).
@@ -64,6 +63,7 @@ export function Settings() {
 
   const tabs: Array<{ id: SettingsTab; label: string; icon: ComponentType<{ className?: string }> }> = [
     { id: "general", label: t("settings.tabGeneral"), icon: SlidersHorizontal },
+    { id: "study", label: t("settings.tabStudy"), icon: BookOpen },
     { id: "model", label: t("settings.tabModel"), icon: Cpu },
     { id: "advanced", label: t("settings.tabAdvanced"), icon: Wrench },
   ];
@@ -75,16 +75,6 @@ export function Settings() {
 
   return (
     <AppScaffold surface="chat" className="flex h-full min-h-0 flex-col">
-      {/* Sticky glass top bar — same language as the chat shell's topbar. */}
-      <div className="hd-topbar sticky top-0 z-20 flex h-12 shrink-0 items-center gap-2 border-b px-2 sm:px-3">
-        <BackButton onClick={() => nav("/chat")} className="-ml-1">
-          {t("settings.back")}
-        </BackButton>
-        <span className="text-sm font-semibold text-[var(--kq-color-strong)]">
-          {t("settings.title")}
-        </span>
-      </div>
-
       <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto max-w-2xl space-y-5 px-[var(--hd-page-pad-x)] py-7 sm:py-9">
         {t("settings.pageLead") && (
@@ -141,13 +131,21 @@ export function Settings() {
                 onSetThemeMode={setThemeMode}
                 onWorkspaceChanged={refreshStatus}
               />
-              {/* 学生导入的是自己的教材：先说清哪些内容离开这台机器，再谈数据搬家。 */}
-              <SettingsMaterialPrivacy />
-              {/* 学习证据是学生自己的东西，取回与销毁的入口跟着他，不藏在高级模式后面。 */}
-              <SettingsLearningData />
+              <SettingsUpdate />
+            </>
+          )}
+
+          {tab === "study" && (
+            <>
+              <SettingsImportReadMode />
               {/* 上限是保护不是成就——不显示连续天数或完成率（账本 B-3 红线）。 */}
               <SettingsReviewLimits />
-              <SettingsUpdate />
+              {/* 学生导入的是自己的教材：先说清哪些内容离开这台机器，再谈数据搬家。 */}
+              <SettingsMaterialPrivacy />
+              <SettingsStudyImprovementCounts />
+              {/* 学习证据是学生自己的东西，取回、销毁和升级记录集中在学习设置。 */}
+              <SettingsLearningData />
+              <SettingsLearningMigrations />
             </>
           )}
 
@@ -165,10 +163,7 @@ export function Settings() {
           {tab === "advanced" && (
             <>
               <SettingsLegacyChannels />
-              <SettingsImportReadMode />
               <SettingsLoadPackages />
-              {/* migration_key 是内部对象名，只在高级模式之后出现。 */}
-              <SettingsLearningMigrations />
               <SettingsSharedPrefs />
             </>
           )}

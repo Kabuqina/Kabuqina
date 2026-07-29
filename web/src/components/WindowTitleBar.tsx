@@ -7,11 +7,11 @@ import { cn } from "../lib/cn";
 import { WindowControls } from "./WindowControls";
 
 /**
- * 非产品页面（设置、引导、导出、启动页）的窗口标题栏；需 `tauri.conf.json` 中
+ * 非产品页面（引导、导出、启动页）的窗口标题栏；需 `tauri.conf.json` 中
  * `decorations: false`。
  *
- * Study / Studio / Chat **不用这条**——那三个面上，窗口控制长在 `AppShell` 的产品
- * 页眉右端，全窗口只有一条横条。
+ * Study / Studio / Chat / Settings **不用这条**——这些面上，窗口控制长在 `AppShell`
+ * 的产品页眉右端，全窗口只有一条横条。
  */
 export function WindowTitleBar() {
   const { t } = useI18n();

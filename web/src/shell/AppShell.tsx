@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Activity, BookOpen, FolderOpen, LampDesk, MessageCircle, Settings as SettingsIcon } from "lucide-react";
+import { BookOpen, FolderOpen, LampDesk, ListTodo, MessageCircle, Settings as SettingsIcon } from "lucide-react";
 import { useI18n } from "../lib/i18n";
 import { getStoredThemeMode, resolveTheme, setThemeMode, type ResolvedTheme } from "../lib/ui-prefs";
 import { WindowControls } from "../components/WindowControls";
@@ -13,20 +13,22 @@ import "./appShell.css";
 /**
  * 全局外壳（架构 §5.1，原型 `AppHeader`）。
  *
- * Study 与 Studio 是两个一级目的地；Chat 与 Settings 是工具，台灯是控制件。
+ * Study 与 Studio 是两个一级目的地；Chat、进行中与 Settings 是右侧工具。
+ * 台灯属于小娜的品牌人格，所以和 Logo、名称一起留在左侧品牌区。
  * 能力目录与网关目的地已经从产品面退场，所以这里只有这几样。
  *
- * 这条页眉**就是**这三个面上的窗口标题栏：整条可拖拽，最右端是缩到小娜与系统窗口
- * 控制（`WindowControls`）。设置、引导、导出、启动页不走这里，由 `WindowTitleBar`
- * 画一条更矮的。全窗口任何时候都只有一条横条。
+ * 这条页眉**就是**这些产品面上的窗口标题栏：整条可拖拽，最右端是缩到小娜与系统窗口
+ * 控制（`WindowControls`）。引导、导出、启动页不走这里，由 `WindowTitleBar` 画一条
+ * 更矮的。全窗口任何时候都只有一条横条。
  */
 
-type Surface = "study" | "studio" | "chat" | null;
+type Surface = "study" | "studio" | "chat" | "settings" | null;
 
 function surfaceOf(pathname: string): Surface {
   if (pathname.startsWith("/study")) return "study";
   if (pathname.startsWith("/studio")) return "studio";
   if (pathname.startsWith("/chat")) return "chat";
+  if (pathname.startsWith("/settings")) return "settings";
   return null;
 }
 
@@ -74,14 +76,25 @@ export function AppShell() {
       {/* 全窗口只有这一条横条：产品导航在中间，窗口控制在最右端。
           整条是拖拽区，交互件各自 no-drag。 */}
       <header className="kq-app-header hermes-titlebar-drag" data-tauri-drag-region>
-        <button
-          className="kq-brand-lockup hermes-titlebar-nodrag"
-          type="button"
-          onClick={() => navigate("/study")}
-        >
-          <span className="kq-brand-mark" aria-hidden>K</span>
-          <span>{t("appShell.brand")}</span>
-        </button>
+        <div className="kq-brand-cluster hermes-titlebar-nodrag">
+          <button
+            className="kq-brand-lockup"
+            type="button"
+            onClick={() => navigate("/study")}
+          >
+            <span className="kq-brand-mark" aria-hidden>K</span>
+            <span className="kq-brand-name">{t("appShell.brand")}</span>
+          </button>
+          <button
+            type="button"
+            className={`kq-lamp-toggle ${theme === "dark" ? "is-on" : ""}`}
+            aria-label={theme === "dark" ? t("appShell.lampOff") : t("appShell.lampOn")}
+            aria-pressed={theme === "dark"}
+            onClick={toggleLamp}
+          >
+            <LampDesk aria-hidden size={20} />
+          </button>
+        </div>
 
         <nav className="kq-primary-nav hermes-titlebar-nodrag" aria-label={t("appShell.primaryNav")}>
           <button
@@ -120,20 +133,16 @@ export function AppShell() {
               requestOpenActivity();
             }}
           >
-            <Activity aria-hidden size={18} />
+            <ListTodo aria-hidden size={16} />
             <span>{t("appShell.activity")}</span>
           </button>
           <button
             type="button"
-            className={`kq-lamp-toggle ${theme === "dark" ? "is-on" : ""}`}
-            aria-label={theme === "dark" ? t("appShell.lampOff") : t("appShell.lampOn")}
-            aria-pressed={theme === "dark"}
-            onClick={toggleLamp}
+            aria-label={t("appShell.settings")}
+            aria-current={surface === "settings" ? "page" : undefined}
+            onClick={() => navigate("/settings")}
           >
-            <LampDesk aria-hidden size={21} />
-          </button>
-          <button type="button" aria-label={t("appShell.settings")} onClick={() => navigate("/settings")}>
-            <SettingsIcon aria-hidden size={21} />
+            <SettingsIcon aria-hidden size={19} />
           </button>
           {/* 产品控制与窗口控制之间留一道分隔：前者管应用，后者管这扇窗。 */}
           <WindowControls />
