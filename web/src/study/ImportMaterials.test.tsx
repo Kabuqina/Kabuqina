@@ -39,7 +39,7 @@ function renderImport() {
   const onClose = vi.fn();
   render(
     <I18nProvider>
-      <ImportMaterials onClose={onClose} onImported={onImported} />
+      <ImportMaterials spaceId="course-python" onClose={onClose} onImported={onImported} />
     </I18nProvider>,
   );
   return { onImported, onClose };
@@ -55,7 +55,7 @@ describe("ImportMaterials", () => {
   it("says parsing stays on this machine", async () => {
     seed();
     renderImport();
-    expect(await screen.findByText(/解析在你电脑上完成，不为了解析上传/)).toBeInTheDocument();
+    expect(await screen.findByText(/解析在你电脑上完成.*不为了解析上传/)).toBeInTheDocument();
   });
 
   it("omits requestedMode so the backend applies the saved preference", async () => {
@@ -67,7 +67,13 @@ describe("ImportMaterials", () => {
     await user.click(screen.getByRole("button", { name: /开始读取/ }));
     await waitFor(() => expect(mocks.read).toHaveBeenCalledTimes(2));
     // 没显式选档就不传——别把默认值在前端复制一份。
-    expect(mocks.read.mock.calls[0][0]).toEqual({ pathStr: "C:\\books\\高等数学.pdf" });
+    expect(mocks.read.mock.calls[0][0]).toEqual({
+      spaceId: "course-python",
+      pathStr: "C:\\books\\高等数学.pdf",
+      includeContent: false,
+      pageStart: 1,
+      pageEnd: 12,
+    });
     await waitFor(() => expect(onImported).toHaveBeenCalled());
   });
 

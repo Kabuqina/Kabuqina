@@ -42,6 +42,7 @@ import { REMINDER_SESSION_ID } from "./reminderSession";
 import {
   bindStudyHandoff,
   buildStudyChatPrompt,
+  buildStudyNanaPrompt,
   clearPendingStudyHandoff,
   clearSessionStudyHandoff,
   getStudyChatHandoffFromLocation,
@@ -223,6 +224,9 @@ export function ChatPage() {
   const { sessions, listLoading, loadSessions, deleteSession } = useSessions({
     kabuqinaReady: kabuqinaReady && !kabuqinaWarming,
   });
+  const prepareStudyText = useCallback((text: string) => (
+    studyHandoff?.version === 2 ? buildStudyNanaPrompt(studyHandoff, text) : text
+  ), [studyHandoff]);
   const {
     activeSessionId,
     setActiveSessionId,
@@ -265,6 +269,7 @@ export function ChatPage() {
     setSendErr,
     locale,
     inFlightTurns,
+    prepareText: prepareStudyText,
   });
   const loadPackageDownloads = useLoadPackageDownloads(kabuqinaReady && !kabuqinaWarming);
   const workspace = useMemo(
@@ -323,7 +328,7 @@ export function ChatPage() {
       setActiveSessionId(handoff.sessionId);
       persistActiveSessionId(handoff.sessionId);
     }
-    const draft = getDraftPrompt(location.state) ?? buildStudyChatPrompt(handoff);
+    const draft = getDraftPrompt(location.state) ?? (handoff.version === 2 ? "" : buildStudyChatPrompt(handoff));
     setInput(draft);
     nav("/chat", { replace: true, state: {} });
   }, [
@@ -591,7 +596,7 @@ export function ChatPage() {
         studyReturn: {
           version: 1,
           stepId: studyHandoff.focusId,
-          focus: studyHandoff.returnTarget.focus,
+          focus: studyHandoff.returnTarget.focus === "answer" ? "answer" : "notebook",
           ...(studyHandoff.deskSnapshot
             ? { deskSnapshot: studyHandoff.deskSnapshot }
             : {}),

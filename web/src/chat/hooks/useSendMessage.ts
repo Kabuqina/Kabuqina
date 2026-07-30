@@ -46,6 +46,7 @@ export function useSendMessage({
   setSendErr,
   locale,
   inFlightTurns,
+  prepareText,
 }: {
   activeSessionId: string | null;
   setActiveSessionId: (id: string | null) => void;
@@ -57,6 +58,8 @@ export function useSendMessage({
   setSendErr: (err: string | null) => void;
   locale: Locale;
   inFlightTurns?: InFlightTurnsController;
+  /** Hidden page context can be prepended for transport while transcript keeps the learner's own text. */
+  prepareText?: (text: string) => string;
 }) {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -181,6 +184,7 @@ export function useSendMessage({
 
   const onSend = useCallback(async () => {
     const text = input.trim();
+    const requestText = prepareText?.(text) ?? text;
     const atts = pendingAttachments;
     if (sending || (!text && !atts.length)) {
       return;
@@ -435,7 +439,7 @@ export function useSendMessage({
           }
           handleStreamEvent(payload.event);
         });
-        raw = await cmdChatSendStream(requestId, text, sessionForSend, atts.length ? atts : null);
+        raw = await cmdChatSendStream(requestId, requestText, sessionForSend, atts.length ? atts : null);
       } catch (streamErr) {
         unlistenStream?.();
         unlistenStream = null;
@@ -448,7 +452,7 @@ export function useSendMessage({
           }
         } else {
           startFallbackProgressPoll();
-          raw = await cmdChatSend(text, sessionForSend, atts.length ? atts : null);
+          raw = await cmdChatSend(requestText, sessionForSend, atts.length ? atts : null);
         }
       }
       const parsed = parseChatSend(raw);
@@ -532,6 +536,7 @@ export function useSendMessage({
     inFlightTurns,
     mergeProgress,
     stopProgressPoll,
+    prepareText,
   ]);
 
   const onRespondInteraction = useCallback(async (action: string, text?: string, data?: Record<string, unknown>) => {

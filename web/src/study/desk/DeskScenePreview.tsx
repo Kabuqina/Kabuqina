@@ -1,7 +1,10 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import type { MessageRow } from "../../chat/chat-api";
+import type { StudyMaterialReaderResponse } from "../../chat/study/study-api";
+import type { StudyChatHandoffV2 } from "../../lib/studyChatHandoff";
 import type { StudyPageSlug } from "../routeModel";
 import type { DeskAdapter } from "./deskAdapter";
 import type { StudyRepository, StudySpaceSummary } from "../repository";
@@ -9,6 +12,8 @@ import { StudyRepositoryProvider } from "../repositoryContext";
 import { ScratchDesk } from "../ScratchDesk";
 import { completedResult, deskFixtureData, needsRevisionResult } from "./deskFixtures";
 import DeskScene, { type DeskSceneProps } from "./DeskScene";
+import { StudyMaterialReader } from "./StudyMaterialReader";
+import { StudyNanaPanel } from "./StudyNanaPanel";
 
 const COMPLETED_FIXTURE_ANSWER =
   "代入后得到 0/0。0/0 是未定式，不是极限值，所以还需要继续分析并做等价变形。";
@@ -41,6 +46,72 @@ function readFailParam(): boolean {
   if (typeof window === "undefined") return false;
   return new URLSearchParams(window.location.search).get("fail") === "1";
 }
+
+function readPanelParam(): "nana" | "reader" | null {
+  if (typeof window === "undefined") return null;
+  const value = new URLSearchParams(window.location.search).get("panel");
+  return value === "nana" || value === "reader" ? value : null;
+}
+
+function readBookmarkParam(): "draft" | "revision" | "completed" | null {
+  if (typeof window === "undefined") return null;
+  const value = new URLSearchParams(window.location.search).get("bookmark");
+  return value === "draft" || value === "revision" || value === "completed" ? value : null;
+}
+
+function nanaPreviewHandoff(page: StudyPageSlug): StudyChatHandoffV2 {
+  const nanaPage = page === "flyleaf" || page === "plan" || page === "learn" || page === "practice" || page === "evaluate"
+    ? page
+    : "learn";
+  return {
+    version: 2,
+    mode: "study",
+    sessionId: `preview-${nanaPage}`,
+    spaceId: "fixture-calculus",
+    spaceTitle: "高等数学",
+    focusKind: nanaPage,
+    focusId: "limit-core",
+    focusLabel: nanaPage === "practice" ? "极限与未定式 · 当前练习" : "极限与未定式",
+    intent: "collaborate",
+    originSurface: "study_desk",
+    returnTarget: { path: `/study/fixture-calculus/${nanaPage}`, fallbackPath: "/study/fixture-calculus", focus: "limit-core" },
+    revision: 1,
+    nanaContext: {
+      schemaVersion: 1,
+      course: { id: "fixture-calculus", title: "高等数学" },
+      origin: { page: nanaPage, route: `/study/fixture-calculus/${nanaPage}`, focusId: "limit-core", revision: 1 },
+      returnTarget: { path: `/study/fixture-calculus/${nanaPage}`, fallbackPath: "/study/fixture-calculus", focus: "limit-core", revision: 1 },
+      pageContext: { kind: nanaPage },
+      sourceRefs: [{ id: "calculus-textbook", title: "高等数学教材" }],
+    },
+    createdAt: "2026-07-30T09:00:00+08:00",
+  };
+}
+
+const PREVIEW_MESSAGES: MessageRow[] = [
+  { role: "user", content: "为什么 0/0 不能直接当作极限值？" },
+  { role: "assistant", content: "先别急着算。0/0 只说明原式在这里没有给出唯一结果；我们先比较两个会得到不同极限的例子。" },
+];
+
+const PREVIEW_READER: StudyMaterialReaderResponse = {
+  artifactId: "calculus-textbook",
+  title: "高等数学教材",
+  filename: "高等数学.pdf",
+  suffix: ".pdf",
+  totalPages: 342,
+  pageStart: 42,
+  pageEnd: 47,
+  content: "<!-- page:42 -->\n## 1.6 极限存在准则\n\n夹逼准则把一个难以直接处理的函数放在两个具有相同极限的函数之间。\n\n<!-- page:43 -->\n### 两个重要极限\n\n本节只呈现原教材内容；学习页仍停留在当前知识核。",
+  outline: [
+    { id: "chapter-1", title: "第一章 函数、极限与连续", level: 1, page: 1, children: [
+      { id: "section-1-6", title: "1.6 极限存在准则", level: 2, page: 42 },
+      { id: "section-1-7", title: "1.7 无穷小的比较", level: 2, page: 48 },
+    ] },
+    { id: "chapter-2", title: "第二章 导数与微分", level: 1, page: 65 },
+  ],
+  textQuality: "sufficient",
+  warning: "",
+};
 
 function delay(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -140,6 +211,9 @@ export default function DeskScenePreview() {
   const fail = useMemo(readFailParam, []);
   const adapter = useMemo(() => createFixtureDeskAdapter(650, fail), [fail]);
   const initialSnapshot = useMemo(() => snapshotFor(readFixtureParam()), []);
+  const bookmark = useMemo(readBookmarkParam, []);
+  const [panel, setPanel] = useState<"nana" | "reader" | null>(() => readPanelParam());
+  const handoff = useMemo(() => nanaPreviewHandoff(page), [page]);
   const bookstandFallback = useMemo(() => ({
     ...deskFixtureData.bookstand,
     currentTitle: deskFixtureData.course.name,
@@ -159,18 +233,61 @@ export default function DeskScenePreview() {
   }
 
   return (
-    <DeskScene
-      adapter={adapter}
-      initialSnapshot={initialSnapshot}
-      currentPage={page}
-      bookstandFallback={bookstandFallback}
-      pageBody={page === "practice" ? undefined : (
-        <section className="kd-overview-copy">
-          <p className="kd-page-kicker">开发预览</p>
-          <h2>{page}</h2>
-          <p>生产里这里是 StudyPageOutlet 铺进来的那一页。</p>
-        </section>
-      )}
-    />
+    <>
+      <DeskScene
+        adapter={adapter}
+        initialSnapshot={initialSnapshot}
+        currentPage={page}
+        continueTitle={bookmark === "revision"
+          ? "0/0 是什么 · 待修改"
+          : bookmark === "draft"
+            ? "0/0 是什么 · 草稿"
+            : bookmark === "completed"
+              ? "0/0 是什么"
+              : undefined}
+        continueMeta={bookmark === "revision"
+          ? "第一章 · 极限 · 练习 · 待修改"
+          : bookmark === "draft"
+            ? "第一章 · 极限 · 练习 · 草稿未检查"
+            : bookmark === "completed"
+              ? "第一章 · 极限 · 练习 · 已完成"
+              : undefined}
+        bookstandFallback={bookstandFallback}
+        onAskPage={() => setPanel("nana")}
+        onOpenMaterials={() => setPanel("reader")}
+        pageBody={page === "practice" ? undefined : (
+          <section className="kd-overview-copy">
+            <p className="kd-page-kicker">开发预览</p>
+            <h2>{page}</h2>
+            <p>生产里这里是 StudyPageOutlet 铺进来的那一页。</p>
+          </section>
+        )}
+      />
+      {panel === "nana" ? (
+        <StudyNanaPanel
+          handoff={handoff}
+          onClose={() => setPanel(null)}
+          onOpenFull={() => undefined}
+          loadMessages={async () => ({ messages: PREVIEW_MESSAGES })}
+        />
+      ) : null}
+      {panel === "reader" ? (
+        <StudyMaterialReader
+          spaceId="fixture-calculus"
+          artifactId="calculus-textbook"
+          initialPage={42}
+          onClose={() => setPanel(null)}
+          readMaterial={async (_spaceId, _artifactId, pageStart, pageEnd) => {
+            const start = pageStart ?? 42;
+            return {
+              ...PREVIEW_READER,
+              pageStart: start,
+              pageEnd: pageEnd ?? start + 5,
+              content: `<!-- page:${start} -->\n## ${start === 42 ? "1.6 极限存在准则" : `教材第 ${start} 页`}\n\n这是从原文件中读取的正文预览。Study 仍保留在左边，可以随时对照。`,
+            };
+          }}
+        />
+      ) : null}
+    </>
   );
 }

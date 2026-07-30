@@ -1,143 +1,96 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../lib/i18n";
-import { StudyDraftProvider, useStudyDrafts } from "../DraftContext";
-import { StudyRepositoryError, type StudyArtifactDetail, type StudyRepository } from "../repository";
+import type { StudyRepository } from "../repository";
 import { StudyRepositoryProvider } from "../repositoryContext";
 import { LearnPage } from "./LearnPage";
 
-const emptyDrafts = { items: [], total: 0, kindCounts: {}, returned: 0, limit: 50, offset: 0, truncated: false };
-const detail = {
-  artifactId: "knowledge-1",
-  kind: "knowledge_base",
-  title: "Active knowledge",
-  version: 1,
-  status: "active",
-  review: { mode: "deterministic", status: "passed" },
-  envelope: { payload: { concepts: [{ term: "Immediate concept", explanation: "Visible without navigation" }] } },
-} as StudyArtifactDetail;
+const points = [
+  { item_id: "core-1", artifact_id: "deck-1", front: "极限唯一性", gist: "极限若存在则唯一", captured: true as const },
+  { item_id: "core-2", artifact_id: "deck-1", front: "无穷小", gist: "趋于零的量", captured: true as const },
+];
 
-function DetailCacheProbe({ artifactId }: { artifactId: string }) {
-  const drafts = useStudyDrafts();
-  const cached = drafts.details[artifactId];
-  return <output
-    data-testid="detail-cache"
-    data-has-data={String(Boolean(cached && "data" in cached))}
-    data-has-previous={String(Boolean(cached && "previous" in cached))}
-    data-has-envelope={String(JSON.stringify(cached ?? {}).includes("\"envelope\""))}
-  >{cached?.status ?? "missing"}</output>;
+function renderPage(home: Awaited<ReturnType<StudyRepository["loadLearnHome"]>>) {
+  const repository = { loadLearnHome: vi.fn().mockResolvedValue(home) } as unknown as StudyRepository;
+  render(
+    <I18nProvider><StudyRepositoryProvider repository={repository}><MemoryRouter>
+      <LearnPage spaceId="space-a" />
+    </MemoryRouter></StudyRepositoryProvider></I18nProvider>,
+  );
+  return repository;
 }
 
 describe("LearnPage", () => {
-  it("reloads active M5 content immediately after an inline draft activation", async () => {
+  beforeEach(() => localStorage.clear());
+
+  it("shows exactly one knowledge core and preserves each learner draft", async () => {
     const user = userEvent.setup();
-    const listDraftPage = vi.fn()
-      .mockResolvedValueOnce({
-        ...emptyDrafts,
-        items: [{ artifact_id: "knowledge-1", kind: "knowledge_base", title: "Draft knowledge", status: "draft", review: { mode: "deterministic", status: "passed" } }],
-        total: 1,
-        returned: 1,
-        kindCounts: { knowledge_base: 1 },
-      })
-      .mockResolvedValue(emptyDrafts);
-    const loadLearnHome = vi.fn()
-      .mockResolvedValueOnce({ artifacts: [], knowledgePoints: [] })
-      .mockResolvedValue({
-        artifacts: [{ artifact_id: "knowledge-1", kind: "knowledge_base", title: "Active knowledge", status: "active" }],
-        knowledgePoints: [],
-      });
-    const repository = {
-      listDraftPage,
-      loadLearnHome,
-      loadArtifactDetail: vi.fn().mockResolvedValue(detail),
-      setArtifactStatus: vi.fn().mockResolvedValue(undefined),
-      loadSourceAudit: vi.fn(),
-      runSemanticReview: vi.fn(),
-    } as unknown as StudyRepository;
+    renderPage({ artifacts: [], knowledgePoints: points });
 
-    render(
-      <I18nProvider><StudyRepositoryProvider repository={repository}><MemoryRouter>
-        <StudyDraftProvider spaceId="space-a"><LearnPage spaceId="space-a" /></StudyDraftProvider>
-      </MemoryRouter></StudyRepositoryProvider></I18nProvider>,
-    );
-
-    await user.click(await screen.findByRole("button", { name: "Draft knowledge" }));
-    await user.click(await screen.findByRole("button", { name: "落墨" }));
-
-    await waitFor(() => expect(loadLearnHome).toHaveBeenCalledTimes(2));
-    expect(await screen.findByRole("button", { name: "Active knowledge" })).toBeInTheDocument();
-    expect(await screen.findByText("Visible without navigation")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "极限唯一性" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "无穷小" })).not.toBeInTheDocument();
+    await user.type(screen.getByRole("textbox", { name: "我的说法" }), "这是我自己的解释");
+    await user.click(screen.getByRole("button", { name: "和教材对一下" }));
+    await user.click(screen.getByRole("button", { name: /下一个/ }));
+    expect(await screen.findByRole("heading", { name: "无穷小" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "我的说法" })).toHaveValue("");
+    await user.click(screen.getByRole("button", { name: /上一个/ }));
+    expect(screen.getByRole("textbox", { name: "我的说法" })).toHaveValue("这是我自己的解释");
+    expect(screen.getByRole("region", { name: "教材与我的说法对照" })).toBeInTheDocument();
   });
 
-  it("renders an unavailable M5 kind in its own section instead of as an empty state", async () => {
-    const repository = {
-      listDraftPage: vi.fn().mockResolvedValue(emptyDrafts),
-      loadLearnHome: vi.fn().mockResolvedValue({
-        artifacts: [{ artifact_id: "knowledge-1", kind: "knowledge_base", title: "Active knowledge", status: "active" }],
-        knowledgePoints: [],
-        unavailableKinds: ["resource_pack"],
-      }),
-      loadArtifactDetail: vi.fn().mockResolvedValue(detail),
-      loadSourceAudit: vi.fn(),
-    } as unknown as StudyRepository;
-    render(
-      <I18nProvider><StudyRepositoryProvider repository={repository}><MemoryRouter>
-        <StudyDraftProvider spaceId="space-a"><LearnPage spaceId="space-a" /></StudyDraftProvider>
-      </MemoryRouter></StudyRepositoryProvider></I18nProvider>,
-    );
-
-    const resources = (await screen.findByRole("heading", { name: "资源包" })).closest("section")!;
-    expect(within(resources).getByRole("status")).toHaveTextContent("这一部分暂时无法读取");
-    expect(within(resources).queryByText("这一页还没有学习内容")).not.toBeInTheDocument();
-    const knowledge = screen.getByRole("heading", { name: "课程知识库" }).closest("section")!;
-    expect(within(knowledge).getByRole("button", { name: "Active knowledge" })).toBeInTheDocument();
+  it("compares without scoring and switches to Practice on the same core", async () => {
+    const user = userEvent.setup();
+    renderPage({ artifacts: [], knowledgePoints: points });
+    await screen.findByRole("heading", { name: "极限唯一性" });
+    await user.click(screen.getByRole("button", { name: "和教材对一下" }));
+    expect(screen.getByRole("region", { name: "教材与我的说法对照" })).toHaveTextContent("这里不判分");
+    expect(screen.getByRole("link", { name: "去练习这个知识核" })).toHaveAttribute("href", "/study/space-a/practice");
+    await user.click(screen.getByRole("link", { name: "去练习这个知识核" }));
+    expect(JSON.parse(localStorage.getItem("kabuqina.study.location.v1:space-a")!)).toMatchObject({
+      page: "practice",
+      knowledgeCoreId: "core-1",
+    });
   });
 
-  it("refreshes active summaries and removes stale raw data after an audit 404", async () => {
+  it("keeps an empty learner explanation empty when comparison is opened", async () => {
     const user = userEvent.setup();
-    let resolveSummaryRefresh!: (home: { artifacts: []; knowledgePoints: [] }) => void;
-    const loadLearnHome = vi.fn()
-      .mockResolvedValueOnce({
-        artifacts: [{ artifact_id: "knowledge-1", kind: "knowledge_base", title: "Active knowledge", status: "active" }],
-        knowledgePoints: [],
-      })
-      .mockImplementationOnce(() => new Promise<{ artifacts: []; knowledgePoints: [] }>((resolve) => { resolveSummaryRefresh = resolve; }));
-    const loadArtifactDetail = vi.fn().mockResolvedValue(detail);
-    const repository = {
-      listDraftPage: vi.fn().mockResolvedValue(emptyDrafts),
-      loadLearnHome,
-      loadArtifactDetail,
-      loadSourceAudit: vi.fn().mockRejectedValue(new StudyRepositoryError("not-found")),
-    } as unknown as StudyRepository;
-    render(
+    renderPage({ artifacts: [], knowledgePoints: points });
+    await screen.findByRole("heading", { name: "极限唯一性" });
+    await user.click(screen.getByRole("button", { name: "和教材对一下" }));
+
+    const comparison = screen.getByRole("region", { name: "教材与我的说法对照" });
+    expect(comparison).not.toHaveTextContent("还没有写下自己的说法");
+    expect(screen.getByRole("textbox", { name: "我的说法" })).toHaveValue("");
+  });
+
+  it("does not carry a learner explanation into another course with the same core id", async () => {
+    const user = userEvent.setup();
+    const repository = { loadLearnHome: vi.fn().mockResolvedValue({ artifacts: [], knowledgePoints: points }) } as unknown as StudyRepository;
+    const tree = (spaceId: string) => (
       <I18nProvider><StudyRepositoryProvider repository={repository}><MemoryRouter>
-        <StudyDraftProvider spaceId="space-a"><LearnPage spaceId="space-a" /><DetailCacheProbe artifactId="knowledge-1" /></StudyDraftProvider>
-      </MemoryRouter></StudyRepositoryProvider></I18nProvider>,
+        <LearnPage spaceId={spaceId} />
+      </MemoryRouter></StudyRepositoryProvider></I18nProvider>
     );
+    const view = render(tree("space-a"));
 
-    expect(await screen.findByText("Visible without navigation")).toBeInTheDocument();
-    expect(screen.getByTestId("detail-cache")).toHaveTextContent("ready");
-    await user.click(screen.getByRole("button", { name: "高级" }));
-    await user.click(screen.getByRole("button", { name: "查看原始 JSON" }));
-    expect(screen.getByText(/"Immediate concept"/)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "查看来源审计" }));
+    expect(await screen.findByRole("heading", { name: "极限唯一性" })).toBeInTheDocument();
+    await user.type(screen.getByRole("textbox", { name: "我的说法" }), "只属于课程 A");
+    view.rerender(tree("space-b"));
 
-    await waitFor(() => expect(loadLearnHome).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(screen.queryByText(/"Immediate concept"/)).not.toBeInTheDocument());
-    expect(screen.getByRole("button", { name: "Active knowledge" })).toBeInTheDocument();
-    expect(screen.getByTestId("detail-cache")).toHaveTextContent("error");
-    expect(screen.getByTestId("detail-cache")).toHaveAttribute("data-has-data", "false");
-    expect(screen.getByTestId("detail-cache")).toHaveAttribute("data-has-previous", "false");
-    expect(screen.getByTestId("detail-cache")).toHaveAttribute("data-has-envelope", "false");
-    expect(loadArtifactDetail).toHaveBeenCalledOnce();
+    expect(await screen.findByRole("textbox", { name: "我的说法" })).toHaveValue("");
+    expect(localStorage.getItem("kabuqina.study.learn-draft.v1:space-a:core-1")).toContain("只属于课程 A");
+    expect(localStorage.getItem("kabuqina.study.learn-draft.v1:space-b:core-1")).toBeNull();
+  });
 
-    await act(async () => resolveSummaryRefresh({ artifacts: [], knowledgePoints: [] }));
-    await waitFor(() => expect(screen.queryByRole("button", { name: "Active knowledge" })).not.toBeInTheDocument());
-    expect(loadArtifactDetail).toHaveBeenCalledOnce();
+  it("keeps a missing knowledge-core projection honest", async () => {
+    renderPage({ artifacts: [], knowledgePoints: [], unavailable: ["knowledgePoints"] });
+    expect(await screen.findByText(/知识核暂时无法读取/)).toBeInTheDocument();
+    expect(screen.queryByText("课程知识库")).not.toBeInTheDocument();
   });
 });

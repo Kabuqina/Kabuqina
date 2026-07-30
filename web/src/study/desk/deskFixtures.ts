@@ -16,9 +16,7 @@ export const deskFixtureData: DeskData = {
       id: "ex3-step2",
       kicker: "练习 3 · 第 2 步",
       title: "解释为什么不能直接代入",
-      standard: "区分“得到 0/0”与“得到极限值”，并指出下一步需要继续分析。",
       prompt: "计算 lim (x² − 1) / (x − 1)，x → 1。为什么不能把直接代入得到的 0/0 当作答案？",
-      referenceSummary: "直接代入得到未定式时，先识别结构，再选择等价变形。",
       referenceHint: "x² − 1 = (x − 1)(x + 1)",
       initialDraft: "代入后分子和分母同时为 0，所以需要先变形。",
     },
@@ -26,9 +24,7 @@ export const deskFixtureData: DeskData = {
       id: "ex3-step3",
       kicker: "练习 3 · 第 3 步",
       title: "用等价变形求出极限",
-      standard: "写出因式分解，说明约分只在 x≠1 时成立，并得到极限值。",
       prompt: "继续上一步：当 x≠1 时怎样化简 (x² − 1) / (x − 1)，并求出 x → 1 的极限？",
-      referenceSummary: "直接代入得到未定式时，先识别结构，再选择等价变形。",
       referenceHint: "x² − 1 = (x − 1)(x + 1)",
       initialDraft: "",
     },
@@ -73,11 +69,14 @@ export const deskFixtureData: DeskData = {
     back: "先识别未定式，再选择等价变形。",
   })),
   dueCount: 6,
+  knowledgeCores: [],
+  activeKnowledgeCoreIndex: 0,
 };
 
 /** F0 feedback copy, verbatim from the frozen prototype. */
 export const needsRevisionResult: CheckResult = {
   verdict: "needs_revision",
+  annotationKind: "revision",
   goodLabel: "已经说明清楚",
   good: "代入后分子、分母都趋近 0。",
   gap: "说明 0/0 是未定式，不是极限值。",
@@ -87,6 +86,7 @@ export const needsRevisionResult: CheckResult = {
 /** F1 feedback copy, verbatim from the frozen prototype. */
 export const completedResult: CheckResult = {
   verdict: "completed",
+  annotationKind: "confirmed",
   goodLabel: "这一点已经说明清楚",
   good: "你区分了“得到未定式”和“得到极限值”。",
   gap: "",

@@ -128,6 +128,8 @@ export type StudyPlanItem = {
   title: string;
   order: number;
   done_when: string;
+  mode?: "learn" | "practice" | "review";
+  outlineNodeId?: string;
   status: "open" | "completed" | "skipped";
   completedAt: string;
   skippedAt: string;
@@ -264,6 +266,34 @@ export type StudyMaterialReadResponse = {
   limited: boolean;
   override: boolean;
   result: Record<string, unknown>;
+  material?: {
+    artifact_id: string;
+    title: string;
+    status: string;
+    deduplicated: boolean;
+  } | null;
+};
+
+export type StudyMaterialReaderNode = {
+  id?: string;
+  title: string;
+  level?: number;
+  page?: number;
+  children?: StudyMaterialReaderNode[];
+};
+
+export type StudyMaterialReaderResponse = {
+  artifactId: string;
+  title: string;
+  filename: string;
+  suffix: string;
+  totalPages: number;
+  pageStart: number;
+  pageEnd: number;
+  content: string;
+  outline: StudyMaterialReaderNode[];
+  textQuality: string;
+  warning: string;
 };
 
 export type StudyFlashcardCaptureRequest = {
@@ -293,12 +323,17 @@ export type StudyQuizzesResponse = {
 };
 
 export type StudyQuizQuestionType = "choice" | "true_false" | "short_answer" | "code" | "derivation";
+export type StudyExerciseOrigin = "source" | "adapted" | "generated";
+export type StudyExerciseSourceRef = string | Record<string, string | number | boolean | null>;
 
 export type StudyQuizQuestion = {
   item_id: string;
   artifact_id: string;
   type: StudyQuizQuestionType;
   prompt: string;
+  knowledge_core_id?: string;
+  origin?: StudyExerciseOrigin;
+  source_refs?: StudyExerciseSourceRef[];
   options?: string[];
   multiple?: boolean;
   explanation?: string;
@@ -569,6 +604,7 @@ export function cmdStudyPreferencesPut(
 }
 
 export function cmdStudyMaterialRead(input: {
+  spaceId?: string;
   pathStr: string;
   requestedMode?: StudyImportReadMode;
   overrideLimit?: boolean;
@@ -577,6 +613,22 @@ export function cmdStudyMaterialRead(input: {
   pageEnd?: number;
 }): Promise<StudyMaterialReadResponse> {
   return invoke("cmd_study_material_read", input);
+}
+
+export function cmdStudyMaterialOpen(
+  spaceId: string,
+  artifactId: string,
+): Promise<{ opened: true; filename: string }> {
+  return invoke("cmd_study_material_open", { spaceId, artifactId });
+}
+
+export function cmdStudyMaterialReader(
+  spaceId: string,
+  artifactId: string,
+  pageStart = 1,
+  pageEnd = pageStart + 5,
+): Promise<StudyMaterialReaderResponse> {
+  return invoke("cmd_study_material_reader", { spaceId, artifactId, pageStart, pageEnd });
 }
 
 export function cmdStudyFlashcardCapture(payload: StudyFlashcardCaptureRequest): Promise<StudyCaptureResponse> {

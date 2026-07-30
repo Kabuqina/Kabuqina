@@ -14,6 +14,7 @@ import { StudyRepositoryProvider } from "./repositoryContext";
 import { StudyShell } from "./StudyShell";
 import { StudyIaProvider } from "./StudyIaContext";
 import type { StudyIaSink } from "./iaEvents";
+import { readStudyLocation } from "./studyLocation";
 
 const spaces = {
   currentSpaceId: "space-a",
@@ -21,6 +22,14 @@ const spaces = {
     { id: "space-a", title: "Linear Algebra", status: "active", isCurrent: true, kind: "course" as const },
     { id: "space-b", title: "Physics", status: "active", isCurrent: false, kind: "course" as const },
   ],
+};
+
+const vectorCore = {
+  item_id: "core-vectors",
+  artifact_id: "knowledge-vectors",
+  front: "vectors",
+  gist: "A vector has direction and magnitude.",
+  captured: true as const,
 };
 
 function Location() {
@@ -51,9 +60,9 @@ function makeRepository(repositoryOverrides: Partial<StudyRepository> = {}): Stu
         { artifact_id: "draft-quiz", kind: "quiz", title: "Quiz draft", status: "draft" },
       ], total: 2, kindCounts: { flashcard_deck: 1, quiz: 1 }, returned: 2, limit: 50, offset: 0, truncated: false,
     }),
-    loadLearnHome: vi.fn().mockResolvedValue({ artifacts: [], knowledgePoints: [] }),
+    loadLearnHome: vi.fn().mockResolvedValue({ artifacts: [], knowledgePoints: [vectorCore] }),
     loadArtifactDetail: vi.fn(), loadSourceAudit: vi.fn(), runSemanticReview: vi.fn(),
-    loadFlyleaf: vi.fn(),
+    loadFlyleaf: vi.fn(), saveFlyleaf: vi.fn(),
     migrateLegacyContext: vi.fn(),
     setArtifactStatus: vi.fn(),
     loadPlan: vi.fn(),
@@ -133,6 +142,92 @@ describe("StudyShell", () => {
     expect(popover).not.toHaveTextContent("private");
   });
 
+  it("adopts a practice draft and enters its exact knowledge core and question", async () => {
+    const user = userEvent.setup();
+    const draft = {
+      artifact_id: "draft-vector-quiz",
+      kind: "quiz",
+      title: "向量补充练习",
+      status: "draft",
+      review: { mode: "semantic", status: "pending" },
+    };
+    const loadQuizQuestions = vi.fn().mockResolvedValue([{
+      item_id: "draft-vector-quiz-0000",
+      artifact_id: "draft-vector-quiz",
+      type: "short_answer",
+      prompt: "为什么向量既有大小又有方向？",
+      knowledge_core_id: "core-vectors",
+      origin: "generated",
+    }]);
+    const setArtifactStatus = vi.fn().mockResolvedValue(undefined);
+    const repository = makeRepository({
+      listDraftPage: vi.fn().mockResolvedValue({
+        items: [draft], total: 1, kindCounts: { quiz: 1 }, returned: 1, limit: 50, offset: 0, truncated: false,
+      }),
+      loadArtifactDetail: vi.fn().mockResolvedValue({
+        artifactId: "draft-vector-quiz",
+        kind: "quiz",
+        title: "向量补充练习",
+        version: 1,
+        status: "draft",
+        review: { mode: "semantic", status: "pending" },
+        envelope: {
+          payload: {
+            questions: [{
+              type: "short_answer",
+              prompt: "为什么向量既有大小又有方向？",
+              answer: "PRIVATE ANSWER",
+              knowledge_core_id: "core-vectors",
+              origin: "generated",
+            }],
+          },
+        },
+      }),
+      setArtifactStatus,
+      loadQuizQuestions,
+      loadLearnHome: vi.fn().mockResolvedValue({ artifacts: [], knowledgePoints: [vectorCore] }),
+    });
+    function RoutedStudyShell() {
+      const location = useLocation();
+      const page = location.pathname.split("/").at(-1) as "learn" | "practice";
+      return (
+        <>
+          <Location />
+          <StudyShell spaces={spaces} spaceId="space-a" page={page} />
+        </>
+      );
+    }
+    render(
+      <I18nProvider>
+        <StudyRepositoryProvider repository={repository}>
+          <StudyIaProvider sink={vi.fn()}>
+            <MemoryRouter initialEntries={["/study/space-a/learn"]}>
+              <RoutedStudyShell />
+            </MemoryRouter>
+          </StudyIaProvider>
+        </StudyRepositoryProvider>
+      </I18nProvider>,
+    );
+
+    await user.click((await screen.findByLabelText("1 个草稿")).closest("button")!);
+    await user.click(screen.getByRole("button", { name: /向量补充练习/ }));
+    await user.click(await screen.findByRole("button", { name: "采用并开始" }));
+
+    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/study/space-a/practice"));
+    expect(setArtifactStatus).toHaveBeenCalledWith(
+      "space-a", "draft-vector-quiz", "active", expect.any(AbortSignal),
+    );
+    expect(loadQuizQuestions).toHaveBeenCalledWith(
+      "space-a", "draft-vector-quiz", expect.any(AbortSignal),
+    );
+    await waitFor(() => expect(readStudyLocation("space-a")).toMatchObject({
+        page: "practice",
+        knowledgeCoreId: "core-vectors",
+        exerciseId: "draft-vector-quiz-0000",
+        exerciseByCore: { "core-vectors": "draft-vector-quiz-0000" },
+      }));
+  });
+
   it("uses the URL space for drafts when it differs from the backend current space", async () => {
     const listDraftPage = vi.fn().mockResolvedValue({
       items: [{ artifact_id: "draft-quiz", kind: "quiz", title: "Quiz draft", status: "draft" }],
@@ -149,7 +244,7 @@ describe("StudyShell", () => {
     const repository = makeRepository({
       listDraftPage: vi.fn().mockResolvedValue({ items: [], total: 0, kindCounts: {}, returned: 0, limit: 50, offset: 0, truncated: false }),
       loadLearnHome: vi.fn().mockImplementation((spaceId: string) => spaceId === "space-a"
-        ? Promise.resolve({ artifacts: [{ artifact_id: "artifact-a", kind: "knowledge_base", title: "A knowledge", status: "active" }], knowledgePoints: [] })
+        ? Promise.resolve({ artifacts: [], knowledgePoints: [{ ...vectorCore, item_id: "core-a", front: "A TERM", gist: "A PRIVATE BODY" }] })
         : new Promise(() => undefined)),
       loadArtifactDetail: vi.fn().mockResolvedValue({ artifactId: "artifact-a", kind: "knowledge_base", title: "A knowledge", version: 1, status: "active", review: {}, envelope: { payload: { concepts: [{ term: "A TERM", explanation: "A PRIVATE BODY" }] } } }),
     });
@@ -163,6 +258,46 @@ describe("StudyShell", () => {
     await user.click(screen.getByRole("button", { name: "test switch" }));
     expect(screen.queryByText("A PRIVATE BODY")).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: "学习" })).toBeInTheDocument();
+  });
+
+  it("ignores a late response from the course that was just closed", async () => {
+    const user = userEvent.setup();
+    let resolveOldCourse!: (value: { artifacts: never[]; knowledgePoints: Array<typeof vectorCore> }) => void;
+    const oldCourse = new Promise<{ artifacts: never[]; knowledgePoints: Array<typeof vectorCore> }>((resolve) => {
+      resolveOldCourse = resolve;
+    });
+    const repository = makeRepository({
+      listDraftPage: vi.fn().mockResolvedValue({ items: [], total: 0, kindCounts: {}, returned: 0, limit: 50, offset: 0, truncated: false }),
+      loadLearnHome: vi.fn().mockImplementation((spaceId: string) => spaceId === "space-a"
+        ? oldCourse
+        : Promise.resolve({
+          artifacts: [],
+          knowledgePoints: [{ ...vectorCore, item_id: "core-b", front: "B TERM", gist: "B COURSE BODY" }],
+        })),
+    });
+    function Harness() {
+      const [spaceId, setSpaceId] = useState("space-a");
+      return (
+        <MemoryRouter>
+          <button type="button" onClick={() => setSpaceId("space-b")}>close course A</button>
+          <StudyRepositoryProvider repository={repository}>
+            <StudyShell spaces={spaces} spaceId={spaceId} page="learn" />
+          </StudyRepositoryProvider>
+        </MemoryRouter>
+      );
+    }
+    render(<I18nProvider><Harness /></I18nProvider>);
+
+    await waitFor(() => expect(repository.loadLearnHome).toHaveBeenCalledWith("space-a", expect.any(AbortSignal)));
+    await user.click(screen.getByRole("button", { name: "close course A" }));
+    expect(await screen.findByText("B COURSE BODY")).toBeInTheDocument();
+
+    await act(async () => resolveOldCourse({
+      artifacts: [],
+      knowledgePoints: [{ ...vectorCore, item_id: "core-a", front: "A TERM", gist: "A COURSE BODY" }],
+    }));
+    expect(screen.queryByText("A COURSE BODY")).not.toBeInTheDocument();
+    expect(screen.getByText("B COURSE BODY")).toBeInTheDocument();
   });
 
   it("keeps route and data when selecting a space fails", async () => {
@@ -241,7 +376,7 @@ describe("StudyShell", () => {
         }],
       }),
       loadQuizQuestions: vi.fn().mockResolvedValue([{
-        item_id: "question-1", artifact_id: "quiz-1", type: "choice", prompt: "Pick one", options: ["A", "B"],
+        item_id: "question-1", artifact_id: "quiz-1", type: "choice", prompt: "Pick one", options: ["A", "B"], tags: ["vectors"],
       }]),
     }, { page: "practice" });
     await user.click(await screen.findByRole("button", { name: /继续这一步/ }));
@@ -279,23 +414,31 @@ describe("StudyShell", () => {
     }, { page: "practice" });
 
     fireEvent.click(await screen.findByRole("button", { name: "碰杯问小娜" }));
-    expect(screen.getByRole("heading", { name: "结合当前这一步问小娜" })).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("我卡在哪里？"), {
+    expect(await screen.findByRole("heading", { name: "问小娜" })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("发送消息"), {
       target: { value: "先提示我应该检查哪个定义。" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "开始提问" }));
+    fireEvent.click(screen.getByRole("button", { name: "在完整 Chat 中打开" }));
 
     await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/chat"));
     const locationState = JSON.parse(screen.getByTestId("location-state").textContent || "{}");
     expect(locationState.studyHandoff).toMatchObject({
-      version: 1,
+      version: 2,
       spaceId: "space-a",
       spaceTitle: "Linear Algebra",
       focusId: "question-1",
-      question: "先提示我应该检查哪个定义。",
+      focusKind: "practice",
       returnTarget: { path: "/study/space-a/practice", focus: "answer" },
+      nanaContext: {
+        origin: { page: "practice", knowledgeCoreId: "core-vectors", exerciseId: "question-1" },
+        pageContext: {
+          kind: "practice",
+          knowledgeCore: { id: "core-vectors", title: "vectors" },
+          exercise: { id: "question-1", prompt: "Explain the vector length" },
+        },
+      },
     });
-    expect(locationState.draftPrompt).toContain("我的问题：先提示我应该检查哪个定义。");
+    expect(locationState.draftPrompt).toBe("先提示我应该检查哪个定义。");
     expect(readPendingStudyHandoff()).toMatchObject({
       spaceId: "space-a",
       focusId: "question-1",

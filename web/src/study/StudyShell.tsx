@@ -165,6 +165,7 @@ export function StudyShell({ spaces, spaceId, page, scratch = false, onRevalidat
     return (
       <StudyDraftProvider key={spaceId} spaceId={spaceId}>
         <StudyDeskPage
+          key={`${spaceId}:${imported?.paths.join("|") ?? ""}`}
           spaceId={spaceId}
           spaces={spaces.spaces}
           page={page}
@@ -176,7 +177,14 @@ export function StudyShell({ spaces, spaceId, page, scratch = false, onRevalidat
           onImportMaterial={() => setImporting(true)}
         />
         {importing ? (
-          <ImportMaterials onClose={() => setImporting(false)} onImported={setImported} />
+          <ImportMaterials
+            spaceId={spaceId}
+            onClose={() => setImporting(false)}
+            onImported={(result) => {
+              setImported(result);
+              onRevalidate?.();
+            }}
+          />
         ) : null}
       </StudyDraftProvider>
     );

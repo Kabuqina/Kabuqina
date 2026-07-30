@@ -4,7 +4,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { StrictMode } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../lib/i18n";
 import type { StudyRepository } from "./repository";
 import { StudyRepositoryProvider } from "./repositoryContext";
@@ -14,6 +14,16 @@ const spaces = {
   currentSpaceId: "space-a",
   spaces: [{ id: "space-a", title: "Linear Algebra", status: "active", isCurrent: true, kind: "course" as const }],
 };
+
+const vectorCore = {
+  item_id: "core-vectors",
+  artifact_id: "knowledge-vectors",
+  front: "vectors",
+  gist: "A vector has direction and magnitude.",
+  captured: true as const,
+};
+
+beforeEach(() => localStorage.clear());
 
 function Location() {
   return <output data-testid="location">{useLocation().pathname}</output>;
@@ -29,9 +39,9 @@ function renderRoute(path: string, repositoryOverrides: Partial<StudyRepository>
     selectSpace: vi.fn().mockResolvedValue(spaces),
     listDrafts: vi.fn().mockResolvedValue({ total: 0, kindCounts: {} }),
     listDraftPage: vi.fn().mockResolvedValue({ items: [], total: 0, kindCounts: {}, returned: 0, limit: 50, offset: 0, truncated: false }),
-    loadLearnHome: vi.fn().mockResolvedValue({ artifacts: [], knowledgePoints: [] }),
+    loadLearnHome: vi.fn().mockResolvedValue({ artifacts: [], knowledgePoints: [vectorCore] }),
     loadArtifactDetail: vi.fn(), loadSourceAudit: vi.fn(), runSemanticReview: vi.fn(),
-    loadFlyleaf: vi.fn().mockResolvedValue({ active: null, draft: null }),
+    loadFlyleaf: vi.fn().mockResolvedValue({ active: null, draft: null }), saveFlyleaf: vi.fn(),
     migrateLegacyContext: vi.fn().mockResolvedValue(false),
     setArtifactStatus: vi.fn().mockResolvedValue(undefined),
     loadPlan: vi.fn().mockResolvedValue({ plan: null, items: [] }),
@@ -145,7 +155,7 @@ describe("StudyRoute", () => {
       loadQuizQuestions,
     });
     expect(await screen.findByRole("button", { name: "Linear Algebra" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /继续：练习 · 第 1 \/ 1 步/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /继续：vectors/ })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "开始“vectors”" })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "笔记本分页" })).toBeInTheDocument();
     expect(loadQuizQuestions).toHaveBeenCalledWith(
@@ -208,9 +218,9 @@ describe("StudyRoute", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "检查这一步" }));
 
-    expect(await screen.findByRole("heading", { name: "页边批注 · 本步完成" })).toBeInTheDocument();
+    expect(await screen.findByRole("complementary", { name: /小娜批注：/ })).toBeInTheDocument();
     await waitFor(() => expect(listSpaces).toHaveBeenCalledTimes(2));
-    expect(screen.getByRole("heading", { name: "页边批注 · 本步完成" })).toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: /小娜批注：/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "返回练习总览" })).toBeInTheDocument();
     expect(loadQuizQuestions).toHaveBeenCalledTimes(1);
   });

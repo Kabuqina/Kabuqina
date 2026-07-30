@@ -27,7 +27,6 @@ export interface DeskNotebookProps {
   density: DeskDensity;
   activity: StudyActivity;
   answer: string;
-  answerStateText: string;
   saveStatusText: string;
   operationError: string | null;
   checkResult: CheckResult | null;
@@ -35,9 +34,16 @@ export interface DeskNotebookProps {
   /**
    * 非练习分页的正文。笔记本的五个分页共用同一本本子（原型 `StudyNotebook`）——
    * 扉页 / 计划 / 学习 / 评估 由 `StudyPageOutlet` 铺在这里，练习仍由本组件自己画，
-   * 因为只有它带着作答面、检查反馈和页边批注。
+   * 因为只有它带着作答面、检查反馈和小娜批注。
    */
   pageBody?: ReactNode;
+  continueTitle?: string;
+  continueMeta?: string;
+  pageNotice?: string;
+  knowledgeCoreTitle?: string;
+  knowledgeCoreIndex?: number;
+  knowledgeCoreTotal?: number;
+  hasPreviousStep?: boolean;
   hasNextStep: boolean;
   taskSurfaceRef: RefObject<HTMLElement | null>;
   answerRef: RefObject<HTMLDivElement | null>;
@@ -46,9 +52,12 @@ export interface DeskNotebookProps {
   onStartWriting: () => void;
   onAnswerChange: (value: string) => void;
   onCheck: () => void;
-  onModify: () => void;
-  onAskTutor: () => void;
+  onSaveAnswer: () => void;
+  onPreviousStep?: () => void;
   onNextStep: () => void;
+  onPreviousKnowledgeCore?: () => void;
+  onNextKnowledgeCore?: () => void;
+  onBackToLearn?: () => void;
   onNavigatePage?: (page: StudyPageSlug) => void;
   onFutureFeature: () => void;
 }
@@ -207,6 +216,29 @@ function AnswerSurface({
   );
 }
 
+function resolveMarginAnnotation(result: CheckResult): {
+  kind: "confirmed" | "revision" | "next_step";
+  label: string;
+  body: string;
+} {
+  const kind = result.annotationKind
+    ?? (result.verdict === "completed" ? "confirmed" : result.gap ? "revision" : "next_step");
+  if (kind === "confirmed") {
+    return { kind, label: result.goodLabel || "已经说明清楚", body: result.good };
+  }
+  if (kind === "next_step") {
+    return { kind, label: "接下来试试", body: result.next || result.gap };
+  }
+  return { kind, label: "还差一步", body: result.gap || result.next };
+}
+
+function exerciseOriginLabel(step: StudyStep): string | null {
+  if (step.origin === "source") return "资料原题";
+  if (step.origin === "adapted") return "根据资料改编";
+  if (step.origin === "generated") return "小娜生成";
+  return null;
+}
+
 export function DeskNotebook({
   art,
   overview,
@@ -214,12 +246,18 @@ export function DeskNotebook({
   density,
   activity,
   answer,
-  answerStateText,
   saveStatusText,
   operationError,
   checkResult,
   currentPage = "practice",
   pageBody,
+  continueTitle,
+  continueMeta,
+  pageNotice,
+  knowledgeCoreTitle,
+  knowledgeCoreIndex = 0,
+  knowledgeCoreTotal = 0,
+  hasPreviousStep = false,
   hasNextStep,
   taskSurfaceRef,
   answerRef,
@@ -228,9 +266,12 @@ export function DeskNotebook({
   onStartWriting,
   onAnswerChange,
   onCheck,
-  onModify,
-  onAskTutor,
+  onSaveAnswer,
+  onPreviousStep,
   onNextStep,
+  onPreviousKnowledgeCore,
+  onNextKnowledgeCore,
+  onBackToLearn,
   onNavigatePage,
   onFutureFeature,
 }: DeskNotebookProps) {
@@ -238,15 +279,15 @@ export function DeskNotebook({
   const ArrowRight = art.arrowRight;
   const Check = art.check;
   const Circle = art.circle;
-  const Coffee = art.coffee;
   const CircleCheck = art.circleCheck;
   const CircleDot = art.circleDot;
 
   const isOverview = density === "overview";
   const hasDraft = answer.trim() !== "";
-  const readOnly = activity !== "dirty";
+  const readOnly = activity !== "dirty" && activity !== "needs_revision";
   const showFeedback =
     (activity === "needs_revision" || activity === "completed") && checkResult !== null;
+  const marginAnnotation = checkResult ? resolveMarginAnnotation(checkResult) : null;
 
   return (
     <article className="kd-notebook">
@@ -269,20 +310,30 @@ export function DeskNotebook({
             </button>
           ))}
         </nav>
-        {step ? (
+        {continueTitle ? (
           <button type="button" className="kd-bookmark-button" onClick={onResume}>
-            <strong><Bookmark /> <span>继续：{step.kicker}</span></strong>
-            <span>{step.title}</span>
+            <strong><Bookmark /> <span>继续：{continueTitle}</span></strong>
+            <span>{continueMeta || "当前学习现场"}</span>
           </button>
         ) : null}
       </header>
 
       <div className="kd-page-body">
+        {pageNotice ? <p className="kd-recovery-notice" role="status">{pageNotice}</p> : null}
         {pageBody ?? (!(step && overview) ? (
           <section className="kd-overview-copy">
-            <p className="kd-page-kicker">练习</p>
-            <h2>这本课程本还没有可练的题</h2>
-            <p>先在学习页读材料，或让小娜按材料出一组练习。其余分页照常可用。</p>
+            <p className="kd-page-kicker">当前知识核的练习</p>
+            <h2>{knowledgeCoreTitle ? `“${knowledgeCoreTitle}”还没有可用练习` : "当前范围还没有知识核"}</h2>
+            <p>{knowledgeCoreTitle ? "仍停留在这一步，不会偷换到别的知识核。可以回学习，或请小娜基于材料拟一组待审核练习。" : "先在计划页确认范围，再整理这一段的知识核。"}</p>
+            <div className="kd-inline-actions">
+              {onBackToLearn ? <button type="button" className="kd-primary" onClick={onBackToLearn}>回到这个知识核的学习页</button> : null}
+            </div>
+            {knowledgeCoreTitle ? (
+              <nav className="kd-core-navigation" aria-label="知识核导航">
+                <button type="button" disabled={knowledgeCoreIndex === 0} onClick={onPreviousKnowledgeCore}>上一个知识核</button>
+                <button type="button" disabled={knowledgeCoreIndex + 1 >= knowledgeCoreTotal} onClick={onNextKnowledgeCore}>下一个知识核</button>
+              </nav>
+            ) : null}
           </section>
         ) : isOverview ? (
           <section className="kd-overview-copy">
@@ -303,14 +354,26 @@ export function DeskNotebook({
         ) : (
           <section className="kd-page-main" tabIndex={-1} ref={taskSurfaceRef}>
             <div className="kd-task-scroll">
+              {knowledgeCoreTitle ? (
+                <div className="kd-core-context">
+                  <div>
+                    <p>正在练习这个知识核</p>
+                    <strong>{knowledgeCoreTitle}</strong>
+                  </div>
+                  <span>{knowledgeCoreIndex + 1} / {knowledgeCoreTotal}</span>
+                </div>
+              ) : null}
               <p className="kd-page-kicker">{step.kicker}</p>
-              <h2 className="kd-task-title">{step.title}</h2>
-              <p className="kd-standard"><strong>完成标准：</strong>{step.standard}</p>
-              <p className="kd-prompt">{step.prompt}</p>
+              {exerciseOriginLabel(step) ? (
+                <p className="kd-exercise-origin" data-origin={step.origin}>
+                  <strong>{exerciseOriginLabel(step)}</strong>
+                  {step.sourceLabel ? <span>{step.sourceLabel}</span> : null}
+                </p>
+              ) : null}
+              <h2 className="kd-practice-question">{step.prompt}</h2>
 
               <div className="kd-answer-label">
                 <strong id="kd-answer-heading">我的答案</strong>
-                <span>{answerStateText}</span>
               </div>
               <AnswerSurface
                 step={step}
@@ -322,27 +385,21 @@ export function DeskNotebook({
               <p className="kd-save-status" role="status">{saveStatusText}</p>
               {operationError ? <p className="kd-operation-error" role="alert">{operationError}</p> : null}
 
-              {showFeedback && (
-                <div className="kd-feedback" tabIndex={-1} ref={feedbackRef}>
-                  <h3>{activity === "completed" ? "页边批注 · 本步完成" : "页边批注 · 需要修改"}</h3>
+              {showFeedback && marginAnnotation ? (
+                <aside
+                  className="kd-feedback"
+                  data-annotation={marginAnnotation.kind}
+                  aria-label={`小娜批注：${marginAnnotation.label}`}
+                  tabIndex={-1}
+                  ref={feedbackRef}
+                >
+                  <h3>小娜批注</h3>
                   <div className="kd-feedback-row">
-                    <Check />
-                    <p><strong>{checkResult.goodLabel}</strong>{checkResult.good}</p>
+                    {marginAnnotation.kind === "confirmed" ? <Check /> : marginAnnotation.kind === "revision" ? <Circle /> : <ArrowRight />}
+                    <p><strong>{marginAnnotation.label}</strong>{marginAnnotation.body}</p>
                   </div>
-                  {activity === "needs_revision" && (
-                    <>
-                      <div className="kd-feedback-row">
-                        <Circle />
-                        <p><strong>还差一步</strong>{checkResult.gap}</p>
-                      </div>
-                      <div className="kd-feedback-row">
-                        <ArrowRight />
-                        <p><strong>接下来试试</strong>{checkResult.next}</p>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
+                </aside>
+              ) : null}
             </div>
 
             <div className="kd-inline-actions kd-task-actions">
@@ -362,29 +419,43 @@ export function DeskNotebook({
                 </button>
               )}
               {activity === "needs_revision" && (
-                <>
-                  <button type="button" className="kd-primary" onClick={onModify}>修改答案</button>
-                  <button id="kd-inline-chat" type="button" onClick={onAskTutor}>
-                    <Coffee /> 让小娜陪我补这一步
-                  </button>
-                </>
+                <button type="button" className="kd-primary" onClick={onSaveAnswer}>保存答案</button>
               )}
               {activity === "completed" && (
                 <button type="button" className="kd-primary" onClick={onNextStep}>
                   {hasNextStep ? "继续下一步" : "返回练习总览"}
                 </button>
               )}
+              {onBackToLearn ? <button type="button" onClick={onBackToLearn}>回学习</button> : null}
             </div>
+            {hasPreviousStep || hasNextStep ? (
+              <nav className="kd-question-navigation" aria-label="当前知识核题目导航">
+                <span>本知识核的题目</span>
+                <div>
+                  <button type="button" disabled={!hasPreviousStep || activity === "checking"} onClick={onPreviousStep}>上一题</button>
+                  <button type="button" disabled={!hasNextStep || activity === "checking"} onClick={onNextStep}>下一题</button>
+                </div>
+              </nav>
+            ) : null}
+            {knowledgeCoreTitle ? (
+              <nav className="kd-core-navigation" aria-label="知识核导航">
+                <button type="button" disabled={knowledgeCoreIndex === 0} onClick={onPreviousKnowledgeCore}>
+                  上一个知识核
+                </button>
+                <button type="button" disabled={knowledgeCoreIndex + 1 >= knowledgeCoreTotal} onClick={onNextKnowledgeCore}>
+                  下一个知识核
+                </button>
+              </nav>
+            ) : null}
           </section>
         ))}
 
-        {/* 「本题参考」是练习那一页的东西；扉页/计划/学习/评估上不该出现。 */}
+        {/* 提示只是当前题的一条线索；不用摘要复述题目，也不能泄露答案。 */}
         {pageBody || !step ? null : (
           <details className="kd-reference-fold">
-            <summary>本题参考</summary>
+            <summary>提示</summary>
             <div>
-              <p>{step.referenceSummary}</p>
-              <p><strong>提示：</strong>{step.referenceHint}</p>
+              <p>{step.referenceHint}</p>
             </div>
           </details>
         )}

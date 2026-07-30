@@ -5,8 +5,9 @@
 // scope-ledger, production code MUST model these as independent dimensions and
 // MUST NOT copy the prototype's single phase enum.
 
-import type { StudyQuizQuestionType } from "../../chat/study/study-api";
+import type { StudyExerciseOrigin, StudyQuizQuestionType } from "../../chat/study/study-api";
 import type { StudyFlashcard } from "../../chat/study/study-api";
+import type { StudyKnowledgePoint } from "../../chat/study/study-api";
 
 /** Spatial density of the desk. `overview` = D0 desk overview; `focused` = N0+ notebook focus. */
 export type DeskDensity = "overview" | "focused";
@@ -28,13 +29,19 @@ export interface StudyStep {
   /** e.g. "练习 3 · 第 2 步". */
   kicker: string;
   title: string;
-  /** Completion standard shown above the prompt (without the "完成标准：" prefix). */
-  standard: string;
   prompt: string;
-  referenceSummary: string;
+  /** Intrinsic provenance; mistake revisits restore this same question rather than changing it. */
+  origin?: StudyExerciseOrigin;
+  /** Short, student-visible material locator. */
+  sourceLabel?: string;
+  /** A short clue only. It must not contain the answer or a worked explanation. */
   referenceHint: string;
   /** Draft restored when the student returns to this step. */
   initialDraft: string;
+  /** Recovery-only UI state for this exact question; canonical evidence remains in Study activities. */
+  initialActivity?: Exclude<StudyActivity, "checking">;
+  /** The last bounded annotation restored with `initialActivity`. */
+  initialCheckResult?: CheckResult | null;
   options?: string[];
   multiple?: boolean;
   language?: string;
@@ -48,6 +55,8 @@ export interface StudyStep {
 
 export interface CheckResult {
   verdict: "needs_revision" | "completed";
+  /** The single Nana annotation chosen for this check. */
+  annotationKind?: "confirmed" | "revision" | "next_step";
   /** Strong lead of the good row: "已经说明清楚" or "这一点已经说明清楚". */
   goodLabel: string;
   good: string;
@@ -105,4 +114,7 @@ export interface DeskData {
   dueCards: StudyFlashcard[];
   cardsUnavailable?: boolean;
   dueCount: number;
+  /** One shared knowledge-core cursor powers both Learn and Practice. */
+  knowledgeCores: StudyKnowledgePoint[];
+  activeKnowledgeCoreIndex: number;
 }

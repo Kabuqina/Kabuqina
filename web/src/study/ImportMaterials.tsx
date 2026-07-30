@@ -23,6 +23,7 @@ type FileState = {
   /** 后端实际用的档位；被偏好上限压下来时与请求档位不同。 */
   effectiveMode?: StudyImportReadMode;
   limited?: boolean;
+  error?: string;
 };
 
 /** 读完之后 shell 还要接着说的两件事：读进了几份、有几份被压回了偏好档位。 */
@@ -45,9 +46,11 @@ function baseName(path: string): string {
  *   不确认的话后端会降到偏好档位并以 `limited` 明示，不会静默把 CPU 推理跑起来。
  */
 export function ImportMaterials({
+  spaceId,
   onClose,
   onImported,
 }: {
+  spaceId: string;
   onClose: () => void;
   onImported?: (result: StudyImportResult) => void;
 }) {
@@ -97,8 +100,14 @@ export function ImportMaterials({
       if (file.status === "done") continue;
       setFiles((cur) => cur.map((f) => (f.path === file.path ? { ...f, status: "reading" } : f)));
       try {
+        const isPdf = file.path.toLocaleLowerCase().endsWith(".pdf");
         const result = await cmdStudyMaterialRead({
+          spaceId,
           pathStr: file.path,
+          // 建课先读结构页并留下 read-cache；正文在阅读器中按页读取。
+          // 这避免一本 300 页教材把桌面接口同步占住几分钟。
+          includeContent: false,
+          ...(isPdf ? { pageStart: 1, pageEnd: chosen === "math" ? 2 : 12 } : {}),
           // 没显式选档就不传，让后端用偏好——别把默认值在前端复制一份。
           ...(mode ? { requestedMode: mode } : {}),
           ...(mode && heavier ? { overrideLimit: true } : {}),
@@ -112,10 +121,17 @@ export function ImportMaterials({
               : f,
           ),
         );
-      } catch {
+      } catch (error) {
         anyFailed = true;
         setFailed(true);
-        setFiles((cur) => cur.map((f) => (f.path === file.path ? { ...f, status: "failed" } : f)));
+        const detail = error && typeof error === "object" && "detail" in error
+          ? String((error as { detail?: unknown }).detail || "")
+          : error instanceof Error
+            ? error.message
+            : "";
+        setFiles((cur) => cur.map((f) => (
+          f.path === file.path ? { ...f, status: "failed", error: detail } : f
+        )));
       }
     }
     setBusy(false);
@@ -169,6 +185,7 @@ export function ImportMaterials({
                         )
                       : null}
                   </small>
+                  {file.status === "failed" && file.error ? <small>{file.error}</small> : null}
                 </span>
               </li>
             ))}

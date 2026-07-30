@@ -180,13 +180,81 @@ describe("StudyRepository", () => {
       { artifact_id: "newer", kind: "learning_plan", title: "New", status: "active", updated_at: "2026-02-01" },
     ] });
     const planItems = vi.fn().mockResolvedValue({ items: [{ item_id: "next" }] });
-    const repository = createStudyRepository({ learningPlans, planItems });
+    const activeM5Summaries = vi.fn().mockResolvedValue({
+      items: [], count: 0, counts: {}, kind_counts: {}, returned: 0, limit: 100, offset: 0, truncated: false,
+    });
+    const repository = createStudyRepository({ learningPlans, planItems, activeM5Summaries });
 
     await expect(repository.loadPlan("space-b", new AbortController().signal)).resolves.toMatchObject({
       plan: { artifact_id: "newer" },
       items: [{ item_id: "next" }],
+      outline: [],
+      structureStatus: "unknown",
     });
     expect(planItems).toHaveBeenCalledWith("space-b", "newer");
+  });
+
+  it("projects a real embedded material outline into the plan snapshot", async () => {
+    const activeM5Summaries = vi.fn().mockResolvedValue({
+      items: [{ artifact_id: "book-1", kind: "resource_pack", title: "Python 教材", status: "active" }],
+      count: 1, counts: {}, kind_counts: { resource_pack: 1 }, returned: 1, limit: 100, offset: 0, truncated: false,
+    });
+    const artifactDetail = vi.fn().mockResolvedValue({ artifact: {
+      artifact_id: "book-1", kind: "resource_pack", title: "Python 教材", version: 1, status: "active",
+      envelope: { payload: { outline: [{ id: "chapter-1", title: "第一章", level: 1, page: 9, children: [
+        { id: "section-1", title: "1.1 基础", level: 2, page: 10, children: [] },
+      ] }] } },
+    } });
+    const repository = createStudyRepository({
+      learningPlans: vi.fn().mockResolvedValue({ plans: [] }),
+      activeM5Summaries,
+      artifactDetail,
+    });
+
+    await expect(repository.loadPlan("space-b", new AbortController().signal)).resolves.toMatchObject({
+      plan: null,
+      outlineSourceTitle: "Python 教材",
+      outlineSourceArtifactId: "book-1",
+      structureStatus: "reliable",
+      outline: [{ title: "第一章", level: 1, page: 9, children: [{ title: "1.1 基础", level: 2, page: 10 }] }],
+    });
+  });
+
+  it("flattens deeper source nodes into level three without losing their source path", async () => {
+    const activeM5Summaries = vi.fn().mockResolvedValue({
+      items: [{ artifact_id: "book-deep", kind: "resource_pack", title: "微积分教材", status: "active" }],
+      count: 1, counts: {}, kind_counts: { resource_pack: 1 }, returned: 1, limit: 100, offset: 0, truncated: false,
+    });
+    const artifactDetail = vi.fn().mockResolvedValue({ artifact: {
+      artifact_id: "book-deep", kind: "resource_pack", title: "微积分教材", version: 1, status: "active",
+      envelope: { payload: { outline: [{ id: "chapter", title: "第一章", children: [{
+        id: "section", title: "1.1 极限", children: [{
+          id: "topic", title: "定义", page: 12, children: [{
+            id: "example", title: "例题", page: 14, children: [{ id: "note", title: "注意", page: 15 }],
+          }],
+        }],
+      }] }] } },
+    } });
+    const repository = createStudyRepository({
+      learningPlans: vi.fn().mockResolvedValue({ plans: [] }),
+      activeM5Summaries,
+      artifactDetail,
+    });
+
+    const snapshot = await repository.loadPlan("space-b", new AbortController().signal);
+    const levelThree = snapshot.outline[0].children[0].children;
+    expect(levelThree).toHaveLength(3);
+    expect(levelThree.map((node) => [node.id, node.level, node.page])).toEqual([
+      ["topic", 3, 12],
+      ["example", 3, 14],
+      ["note", 3, 15],
+    ]);
+    expect(levelThree[2]).toMatchObject({
+      sourceArtifactId: "book-deep",
+      sourceTitle: "微积分教材",
+      sourcePath: "第一章 › 1.1 极限 › 定义 › 例题 › 注意",
+      children: [],
+    });
   });
 
   it("uses the server-bounded evaluation projection without a detail round trip", async () => {

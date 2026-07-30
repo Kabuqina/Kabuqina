@@ -2,9 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import type {
-  StudyActivitiesResponse,
   StudyWrongbookResponse,
 } from "../../chat/study/study-api";
 import { useI18n } from "../../lib/i18n";
@@ -15,6 +14,7 @@ import { studyPath } from "../routeModel";
 import { STUDY_LEARNING_EVENT } from "../learningEvent";
 import { studyIaCountBucket } from "../iaEvents";
 import { useStudyIa } from "../StudyIaContext";
+import { degradeStudyLocation, selectKnowledgeCore } from "../studyLocation";
 
 function retained<T>(state: Loadable<T>): T | undefined {
   if (state.status === "ready") return state.data;
@@ -58,14 +58,16 @@ export function EvaluatePage({ spaceId }: { spaceId: string }) {
   const { t } = useI18n();
   const repository = useStudyRepository();
   const recordIa = useStudyIa();
+  const navigate = useNavigate();
   const pageRegion = useRef<HTMLElement>(null);
   const wrongbookOpenSpace = useRef<string | null>(null);
   const wrongbookRequests = useRef(new RequestCoordinator());
   const evaluationRequests = useRef(new RequestCoordinator());
-  const activityRequests = useRef(new RequestCoordinator());
+  const returnRequests = useRef(new RequestCoordinator());
   const [wrongbook, setWrongbook] = useState<Loadable<StudyWrongbookResponse>>({ status: "idle" });
   const [evaluation, setEvaluation] = useState<Loadable<StudyEvaluationSnapshot>>({ status: "idle" });
-  const [activities, setActivities] = useState<Loadable<StudyActivitiesResponse>>({ status: "idle" });
+  const [returnPending, setReturnPending] = useState(false);
+  const [returnError, setReturnError] = useState(false);
 
   const loadWrongbook = useCallback(() => {
     const request = wrongbookRequests.current.begin();
@@ -111,30 +113,47 @@ export function EvaluatePage({ spaceId }: { spaceId: string }) {
     );
   }, [repository, spaceId]);
 
-  const loadActivities = useCallback(() => {
-    const request = activityRequests.current.begin();
-    setActivities((current) => ({ status: "loading", ...(retained(current) ? { previous: retained(current) } : {}) }));
-    void repository.loadActivities(spaceId, request.signal).then(
-      (data) => { if (activityRequests.current.isCurrent(request.generation)) setActivities({ status: "ready", data }); },
-      (error) => { if (activityRequests.current.isCurrent(request.generation)) setActivities((current) => ({ status: "error", error, ...(retained(current) ? { previous: retained(current) } : {}) })); },
-    );
-  }, [repository, spaceId]);
-
   useEffect(() => {
     const wrongbookCoordinator = wrongbookRequests.current;
     const evaluationCoordinator = evaluationRequests.current;
-    const activityCoordinator = activityRequests.current;
+    const returnCoordinator = returnRequests.current;
     pageRegion.current?.focus();
-    const loadAll = () => { loadWrongbook(); loadEvaluation(); loadActivities(); };
+    const loadAll = () => { loadWrongbook(); loadEvaluation(); };
     loadAll();
     window.addEventListener(STUDY_LEARNING_EVENT, loadAll);
     return () => {
       window.removeEventListener(STUDY_LEARNING_EVENT, loadAll);
       wrongbookCoordinator.cancel();
       evaluationCoordinator.cancel();
-      activityCoordinator.cancel();
+      returnCoordinator.cancel();
     };
-  }, [loadActivities, loadEvaluation, loadWrongbook]);
+  }, [loadEvaluation, loadWrongbook]);
+
+  const returnToLearning = (knowledgeCoreId: string, outlineNodeId?: string) => {
+    if (returnPending) return;
+    const request = returnRequests.current.begin();
+    setReturnPending(true);
+    setReturnError(false);
+    void repository.loadLearnHome(spaceId, request.signal).then(
+      (home) => {
+        if (!returnRequests.current.isCurrent(request.generation)) return;
+        setReturnPending(false);
+        const point = home.knowledgePoints.find((candidate) => candidate.item_id === knowledgeCoreId);
+        if (!point) {
+          degradeStudyLocation(spaceId);
+          navigate(studyPath(spaceId, "plan"));
+          return;
+        }
+        selectKnowledgeCore(spaceId, point, "learn", { outlineNodeId });
+        navigate(studyPath(spaceId, "learn"));
+      },
+      () => {
+        if (!returnRequests.current.isCurrent(request.generation)) return;
+        setReturnPending(false);
+        setReturnError(true);
+      },
+    );
+  };
 
   return (
     <section
@@ -144,8 +163,8 @@ export function EvaluatePage({ spaceId }: { spaceId: string }) {
       tabIndex={-1}
     >
       <header className="kq-study-page-heading">
-        <p className="kq-study-placeholder-kicker">{t("study.lifecycle")}</p>
-        <p>{t("study.evaluateLead")}</p>
+        <p className="kq-study-placeholder-kicker">证据与调整</p>
+        <p>只看最近可靠证据说明了什么，以及下一步回到哪里。</p>
       </header>
 
       <section className="kq-study-evaluate-section" aria-labelledby="wrongbook-title">
@@ -183,34 +202,40 @@ export function EvaluatePage({ spaceId }: { spaceId: string }) {
           {(data) => data.evaluation ? (
             <div className="kq-study-evaluation-note">
               <h3>{data.evaluation.title}</h3>
-              <ul>{data.evaluation.observations.map((value) => <li key={value}>{value}</li>)}</ul>
-              {data.evaluation.suggestions.length ? (
-                <><h4>{t("study.evaluationSuggestions")}</h4><ul>{data.evaluation.suggestions.map((value) => <li key={value}>{value}</li>)}</ul></>
-              ) : null}
+              {(data.evaluation.evidence_refs ?? []).length ? (
+                <>
+                  <p className="kq-study-evidence-note">依据：{Math.min(data.evaluation.evidence_refs?.length ?? 0, 12)} 条已绑定记录</p>
+                  <ul>{data.evaluation.observations.map((value) => <li key={value}>{value}</li>)}</ul>
+                  {data.evaluation.suggestions.length ? (
+                    <><h4>{t("study.evaluationSuggestions")}</h4><ul>{data.evaluation.suggestions.map((value) => <li key={value}>{value}</li>)}</ul></>
+                  ) : null}
+                  <div className="kq-study-inline-actions">
+                    {data.evaluation.evidence_refs?.find((ref) => ref.activity_id)?.activity_id ? (
+                      <Link to={`${studyPath(spaceId, "practice")}?source=wrongbook&activityId=${encodeURIComponent(data.evaluation.evidence_refs.find((ref) => ref.activity_id)!.activity_id)}`}>
+                        回到这条练习
+                      </Link>
+                    ) : null}
+                    {data.evaluation.evidence_refs?.find((ref) => ref.knowledge_core_id)?.knowledge_core_id ? (
+                      <button
+                        type="button"
+                        disabled={returnPending}
+                        onClick={() => {
+                          const ref = data.evaluation!.evidence_refs!.find((candidate) => candidate.knowledge_core_id)!;
+                          returnToLearning(ref.knowledge_core_id, ref.outline_node_id);
+                        }}
+                      >
+                        {returnPending ? "正在返回…" : "回学习"}
+                      </button>
+                    ) : null}
+                  </div>
+                  {returnError ? <p className="kq-study-page-error" role="alert">暂时无法定位这条学习证据，当前页面已保留。</p> : null}
+                </>
+              ) : <p className="kq-study-page-alert">这条评估还没有可追溯证据，暂不用于调整。</p>}
             </div>
           ) : <p>{t("study.latestEvaluationEmpty")}</p>}
         </SectionState>
       </section>
 
-      <section className="kq-study-evaluate-section" aria-labelledby="activity-title">
-        <h2 id="activity-title">{t("study.activityTitle")}</h2>
-        <p className="kq-study-muted">{t("study.activityLead")}</p>
-        <SectionState state={activities} retry={loadActivities} empty={<p>{t("study.activityEmpty")}</p>}>
-          {(data) => data.items.length ? (
-            <>
-              <ol className="kq-study-activity-list">
-                {data.items.map((item) => (
-                  <li key={item.activity_id}>
-                    <time dateTime={item.created_at}>{shortTime(item.created_at)}</time>
-                    <span>{t("study.activityEvent", { type: item.activity_type })}</span>
-                  </li>
-                ))}
-              </ol>
-              {data.truncated ? <p className="kq-study-muted">{t("study.listTruncated", { count: data.returned, total: data.count })}</p> : null}
-            </>
-          ) : <p>{t("study.activityEmpty")}</p>}
-        </SectionState>
-      </section>
     </section>
   );
 }

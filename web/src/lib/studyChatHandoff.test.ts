@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   bindStudyHandoff,
   buildStudyChatPrompt,
+  buildStudyNanaPrompt,
   clearSessionStudyHandoff,
   getStudyReturnState,
   parseStudyChatHandoff,
@@ -12,10 +13,11 @@ import {
   readPendingStudyHandoff,
   readSessionStudyHandoff,
   resolveStudyChatSessionId,
-  type StudyChatHandoff,
+  type StudyChatHandoffV1,
+  type StudyChatHandoffV2,
 } from "./studyChatHandoff";
 
-function fixture(overrides: Partial<StudyChatHandoff> = {}): StudyChatHandoff {
+function fixture(overrides: Partial<StudyChatHandoffV1> = {}): StudyChatHandoffV1 {
   return {
     version: 1,
     mode: "study",
@@ -92,6 +94,72 @@ describe("study Chat handoff contract", () => {
     expect(prompt).toContain("我的当前答案：直接代入是 0/0。");
     expect(prompt).toContain("我的问题：为什么 0/0 不是答案？");
     expect(prompt).toContain("不要直接替我改写答案");
+  });
+
+  it("parses a page-discriminated v2 handoff and keeps the learner input separate", () => {
+    const handoff: StudyChatHandoffV2 = {
+      version: 2,
+      mode: "study",
+      sessionId: "session-v2",
+      spaceId: "space-a",
+      spaceTitle: "高等数学",
+      focusKind: "learn",
+      focusId: "core-1",
+      focusLabel: "极限唯一性",
+      intent: "collaborate",
+      originSurface: "study_desk",
+      returnTarget: { path: "/study/space-a/learn", fallbackPath: "/study/space-a/flyleaf", focus: "learner-draft" },
+      revision: 1,
+      nanaContext: {
+        schemaVersion: 1,
+        course: { id: "space-a", title: "高等数学" },
+        origin: { page: "learn", route: "/study/space-a/learn", focusId: "core-1", knowledgeCoreId: "core-1", revision: 1 },
+        returnTarget: { path: "/study/space-a/learn", fallbackPath: "/study/space-a/flyleaf", focus: "learner-draft", revision: 1 },
+        pageContext: { kind: "learn", knowledgeCore: { id: "core-1", title: "极限唯一性", keyStatement: "极限若存在则唯一" }, learnerDraft: "我的说法", comparisonStage: "drafted" },
+        sourceRefs: [{ id: "source-1", title: "教材 2.3", excerpt: "极限若存在则唯一" }],
+      },
+      createdAt: "2026-07-29T08:00:00.000Z",
+    };
+    expect(parseStudyChatHandoff(handoff)).toEqual(handoff);
+    const prompt = buildStudyNanaPrompt(handoff, "给我一个反例，先别讲完");
+    expect(prompt).toContain("不得代写 learnerDraft");
+    expect(prompt).toContain("给我一个反例，先别讲完");
+    expect(prompt).toContain('"kind":"learn"');
+  });
+
+  it("fails closed when a v2 origin page disagrees with its page context", () => {
+    const invalid = {
+      version: 2, mode: "study", sessionId: "s", spaceId: "space-a", spaceTitle: "课程",
+      focusKind: "learn", focusId: "core-1", focusLabel: "核心", intent: "collaborate",
+      originSurface: "study_desk", returnTarget: { path: "/study/space-a/learn", fallbackPath: "/study/space-a/flyleaf", focus: "draft" },
+      revision: 1, createdAt: "2026-07-29T08:00:00.000Z",
+      nanaContext: {
+        schemaVersion: 1, course: { id: "space-a", title: "课程" },
+        origin: { page: "learn", route: "/study/space-a/learn", focusId: "core-1", revision: 1 },
+        returnTarget: { path: "/study/space-a/learn", fallbackPath: "/study/space-a/flyleaf", focus: "draft", revision: 1 },
+        pageContext: { kind: "plan" }, sourceRefs: [],
+      },
+    };
+    expect(parseStudyChatHandoff(invalid)).toBeNull();
+  });
+
+  it("fails closed when a v2 context crosses courses or return targets", () => {
+    const valid = {
+      version: 2, mode: "study", sessionId: "s", spaceId: "space-a", spaceTitle: "课程 A",
+      focusKind: "plan", focusId: "plan:space-a", focusLabel: "当前计划", intent: "collaborate",
+      originSurface: "study_desk", returnTarget: { path: "/study/space-a/plan", fallbackPath: "/study/space-a/flyleaf", focus: "plan:space-a" },
+      revision: 1, createdAt: "2026-07-29T08:00:00.000Z",
+      nanaContext: {
+        schemaVersion: 1, course: { id: "space-b", title: "课程 A" },
+        origin: { page: "plan", route: "/study/space-a/plan", focusId: "plan:space-a", revision: 1 },
+        returnTarget: { path: "/study/space-a/plan", fallbackPath: "/study/space-a/flyleaf", focus: "plan:space-a", revision: 1 },
+        pageContext: { kind: "plan" }, sourceRefs: [],
+      },
+    };
+    expect(parseStudyChatHandoff(valid)).toBeNull();
+    valid.nanaContext.course.id = "space-a";
+    valid.nanaContext.returnTarget.path = "/study/space-a/learn";
+    expect(parseStudyChatHandoff(valid)).toBeNull();
   });
 
   it("parses exact-return focus state and rejects malformed state", () => {

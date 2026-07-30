@@ -31,6 +31,7 @@ import {
   cmdStudySpaces,
   cmdStudySpaceSelect,
   cmdStudyStudentState,
+  cmdStudyStudentStatePut,
   cmdStudyWrongbook,
   type StudyActivitiesResponse,
   type StudyArtifactSummary,
@@ -48,6 +49,7 @@ import {
   type StudySpacesResponse,
   type StudySourceRef,
   type StudyStudentState,
+  type StudyStudentStatePayload,
   type StudyWrongbookResponse,
 } from "../chat/study/study-api";
 import {
@@ -109,9 +111,24 @@ export type StudyFlyleafSnapshot = {
   active: StudyStudentState | null;
 };
 
+export type StudyOutlineNode = {
+  id: string;
+  title: string;
+  level: 1 | 2 | 3;
+  page?: number;
+  sourceArtifactId?: string;
+  sourceTitle?: string;
+  sourcePath?: string;
+  children: StudyOutlineNode[];
+};
+
 export type StudyPlanSnapshot = {
   plan: StudyArtifactSummary | null;
   items: StudyPlanItem[];
+  outline: StudyOutlineNode[];
+  outlineSourceArtifactId: string;
+  outlineSourceTitle: string;
+  structureStatus: "reliable" | "missing" | "unknown";
 };
 
 export type StudyEvaluationSnapshot = {
@@ -158,6 +175,11 @@ export interface StudyRepository {
     signal: AbortSignal,
   ): Promise<"pending" | "passed" | "failed">;
   loadFlyleaf(spaceId: string, signal: AbortSignal): Promise<StudyFlyleafSnapshot>;
+  saveFlyleaf(
+    spaceId: string,
+    state: StudyStudentStatePayload,
+    signal: AbortSignal,
+  ): Promise<StudyStudentState>;
   migrateLegacyContext(spaceId: string, context: unknown, signal: AbortSignal): Promise<boolean>;
   setArtifactStatus(
     spaceId: string,
@@ -240,6 +262,7 @@ type StudyCommands = {
   artifactSemanticReview: typeof cmdStudyArtifactSemanticReview;
   knowledgePoints: typeof cmdStudyKnowledgePoints;
   studentState: typeof cmdStudyStudentState;
+  studentStatePut: typeof cmdStudyStudentStatePut;
   migrateContext: typeof cmdStudyMigrateContext;
   learningPlans: typeof cmdStudyLearningPlans;
   planItems: typeof cmdStudyPlanItems;
@@ -292,6 +315,7 @@ const defaultCommands: StudyCommands = {
   artifactSemanticReview: cmdStudyArtifactSemanticReview,
   knowledgePoints: cmdStudyKnowledgePoints,
   studentState: cmdStudyStudentState,
+  studentStatePut: cmdStudyStudentStatePut,
   migrateContext: cmdStudyMigrateContext,
   learningPlans: cmdStudyLearningPlans,
   planItems: cmdStudyPlanItems,
@@ -415,6 +439,50 @@ function mapArtifactDetail(response: Awaited<ReturnType<typeof cmdStudyArtifactD
   };
 }
 
+type OutlineBudget = { remaining: number; generated: number };
+
+function mapOutlineNodes(
+  value: unknown,
+  source: { artifactId: string; title: string },
+  depth = 1,
+  ancestors: string[] = [],
+  budget: OutlineBudget = { remaining: 300, generated: 0 },
+): StudyOutlineNode[] {
+  if (!Array.isArray(value) || depth > 3 || budget.remaining <= 0) return [];
+  const nodes: StudyOutlineNode[] = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry) || budget.remaining <= 0) continue;
+    const row = entry as Record<string, unknown>;
+    const title = typeof row.title === "string" ? row.title.trim().slice(0, 500) : "";
+    if (!title) continue;
+    budget.remaining -= 1;
+    budget.generated += 1;
+    const id = typeof row.id === "string" && row.id.trim()
+      ? row.id.trim().slice(0, 256)
+      : `outline-${depth}-${budget.generated}`;
+    const page = Number.isInteger(row.page) && (row.page as number) > 0
+      ? row.page as number
+      : undefined;
+    const sourcePath = [...ancestors, title];
+    nodes.push({
+      id,
+      title,
+      level: depth as 1 | 2 | 3,
+      ...(page ? { page } : {}),
+      sourceArtifactId: source.artifactId,
+      sourceTitle: source.title,
+      sourcePath: sourcePath.join(" › "),
+      children: depth < 3
+        ? mapOutlineNodes(row.children, source, depth + 1, sourcePath, budget)
+        : [],
+    });
+    if (depth === 3) {
+      nodes.push(...mapOutlineNodes(row.children, source, 3, sourcePath, budget));
+    }
+  }
+  return nodes;
+}
+
 export function createStudyRepository(commands: Partial<StudyCommands> = {}): StudyRepository {
   const resolved = { ...defaultCommands, ...commands };
   return {
@@ -498,6 +566,12 @@ export function createStudyRepository(commands: Partial<StudyCommands> = {}): St
         };
       });
     },
+    async saveFlyleaf(spaceId, state, signal) {
+      return (await invokeWithSignal(
+        signal,
+        () => resolved.studentStatePut(spaceId, state),
+      )).state;
+    },
     async migrateLegacyContext(spaceId, context, signal) {
       const response = await invokeWithSignal(
         signal,
@@ -513,12 +587,42 @@ export function createStudyRepository(commands: Partial<StudyCommands> = {}): St
     },
     async loadPlan(spaceId, signal) {
       return invokeWithSignal(signal, async () => {
-        const response = await resolved.learningPlans(spaceId);
+        const [response, materialResponse] = await Promise.all([
+          resolved.learningPlans(spaceId),
+          resolved.activeM5Summaries(spaceId, "resource_pack"),
+        ]);
         const plan = newestArtifact(response.plans);
         const items = plan
           ? (await resolved.planItems(spaceId, plan.artifact_id)).items
           : [];
-        return { plan, items };
+        const materialDetails = await Promise.allSettled(
+          [...materialResponse.items]
+            .sort((a, b) => `${b.updated_at ?? ""}`.localeCompare(`${a.updated_at ?? ""}`))
+            .slice(0, 20)
+            .map((material) => resolved.artifactDetail(spaceId, material.artifact_id)),
+        );
+        let outline: StudyOutlineNode[] = [];
+        let outlineSourceArtifactId = "";
+        let outlineSourceTitle = "";
+        let structureStatus: StudyPlanSnapshot["structureStatus"] = materialResponse.items.length ? "missing" : "unknown";
+        for (const result of materialDetails) {
+          if (result.status !== "fulfilled") continue;
+          const detail = mapArtifactDetail(result.value);
+          const payload = detail.envelope.payload;
+          const candidate = mapOutlineNodes(
+            payload && typeof payload === "object" && !Array.isArray(payload)
+              ? (payload as Record<string, unknown>).outline
+              : undefined,
+            { artifactId: detail.artifactId, title: detail.title },
+          );
+          if (!candidate.length) continue;
+          outline = candidate;
+          outlineSourceArtifactId = detail.artifactId;
+          outlineSourceTitle = detail.title;
+          structureStatus = "reliable";
+          break;
+        }
+        return { plan, items, outline, outlineSourceArtifactId, outlineSourceTitle, structureStatus };
       });
     },
     completePlanItem(spaceId, itemId, signal) {

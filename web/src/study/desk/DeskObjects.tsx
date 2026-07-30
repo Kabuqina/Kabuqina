@@ -21,6 +21,7 @@ export interface DeskRightObjectsProps {
   onToggleStackIndex: () => void;
   onFutureFeature: () => void;
   onOpenMaterials?: (materialId?: string) => void;
+  onRemoveMaterial?: (materialId: string, title: string) => void;
   onImportMaterial?: () => void;
   onReviewCards?: () => void;
 }
@@ -33,6 +34,7 @@ export function DeskRightObjects({
   onToggleStackIndex,
   onFutureFeature,
   onOpenMaterials,
+  onRemoveMaterial,
   onImportMaterial,
   onReviewCards,
 }: DeskRightObjectsProps) {
@@ -89,8 +91,18 @@ export function DeskRightObjects({
           <ul className="kd-stack-index-list">
             {materials.items.map((item) => (
               <li key={item.id}>
-                {item.title}
+                <span className="kd-stack-index-title">{item.title}</span>
                 <span>{item.status}</span>
+                {onRemoveMaterial ? (
+                  <button
+                    type="button"
+                    className="kd-stack-remove"
+                    aria-label={`从本课移出 ${item.title}`}
+                    onClick={() => onRemoveMaterial(item.id, item.title)}
+                  >
+                    移出
+                  </button>
+                ) : null}
               </li>
             ))}
           </ul>

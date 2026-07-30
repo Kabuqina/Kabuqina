@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { StudyFlashcard } from "../../chat/study/study-api";
-import type { CheckResult, DeskActivityRecord, DeskData } from "./types";
+import type { CheckResult, DeskActivityRecord, DeskData, StudyActivity } from "./types";
 
 /**
  * Seam between the desk UI and its data source. Production supplies the Study
@@ -22,4 +22,6 @@ export interface DeskAdapter {
   ): Promise<StudyFlashcard>;
   loadActivities?(signal: AbortSignal): Promise<DeskActivityRecord[]>;
   markCurrentStep?(stepId: string): void;
+  /** Keep the single automatic continue bookmark aligned with safe practice-state changes. */
+  markPracticeState?(stepId: string, activity: StudyActivity, checkResult?: CheckResult | null): void;
 }

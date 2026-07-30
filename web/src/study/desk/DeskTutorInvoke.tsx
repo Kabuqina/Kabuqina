@@ -54,7 +54,7 @@ export function DeskTutorInvoke({
         <p>她会带上你正在看的题、当前答案和检查反馈，但不会替你改写答案。</p>
         <div className="kd-context-preview">
           <strong>{courseName} · {step.kicker}</strong>
-          <span>返回位置：我的答案与页边批注</span>
+          <span>返回位置：我的答案与小娜批注</span>
         </div>
         <dl className="kd-context-detail">
           <div>

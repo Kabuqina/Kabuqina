@@ -39,7 +39,7 @@ function repository(overrides: Partial<StudyRepository> = {}): StudyRepository {
     listDraftPage: vi.fn().mockResolvedValue({ items: [], total: 0, kindCounts: {}, returned: 0, limit: 50, offset: 0, truncated: false }),
     loadLearnHome: vi.fn().mockResolvedValue({ artifacts: [], knowledgePoints: [] }),
     loadArtifactDetail: vi.fn(), loadSourceAudit: vi.fn(), runSemanticReview: vi.fn(),
-    loadFlyleaf: vi.fn(), migrateLegacyContext: vi.fn(), setArtifactStatus: vi.fn(),
+    loadFlyleaf: vi.fn(), saveFlyleaf: vi.fn(), migrateLegacyContext: vi.fn(), setArtifactStatus: vi.fn(),
     loadPlan: vi.fn(), completePlanItem: vi.fn(), skipPlanItem: vi.fn(),
     loadWrongbook: vi.fn(), loadLatestEvaluation: vi.fn(), loadActivities: vi.fn(),
     loadScratch: vi.fn(), saveScratchPad: vi.fn(), fileScratchNote: vi.fn(),

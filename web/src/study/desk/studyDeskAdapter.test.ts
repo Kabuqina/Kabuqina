@@ -5,7 +5,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { StudyQuizResult } from "../../chat/study/study-api";
 import type { StudyRepository } from "../repository";
 import { STUDY_LEARNING_EVENT } from "../learningEvent";
-import { createStudyDeskAdapter } from "./studyDeskAdapter";
+import { readStudyLocation, selectKnowledgeCore } from "../studyLocation";
+import { createStudyDeskAdapter, resolveWrongbookPracticeTarget } from "./studyDeskAdapter";
 
 function repository(overrides: Partial<StudyRepository> = {}): StudyRepository {
   return {
@@ -26,7 +27,10 @@ function repository(overrides: Partial<StudyRepository> = {}): StudyRepository {
         title: "向量讲义",
         status: "active",
       }],
-      knowledgePoints: [],
+      knowledgePoints: [
+        { item_id: "core-vector", artifact_id: "deck-1", front: "向量", gist: "有大小和方向的量", captured: true },
+        { item_id: "core-length", artifact_id: "deck-1", front: "模长", gist: "向量的长度", captured: true },
+      ],
     }),
     loadScratch: vi.fn(), saveScratchPad: vi.fn(), fileScratchNote: vi.fn(),
     loadActivities: vi.fn().mockResolvedValue({
@@ -68,6 +72,41 @@ describe("Study desk adapter", () => {
     localStorage.clear();
   });
 
+  it("resolves a wrongbook activity back to its exact question and knowledge core", async () => {
+    const source = repository({
+      resolvePracticeSource: vi.fn().mockResolvedValue({ artifact_id: "quiz-1", item_ids: ["question-2"] }),
+    });
+
+    await expect(resolveWrongbookPracticeTarget(
+      source,
+      "space-a",
+      "attempt-1",
+      new AbortController().signal,
+    )).resolves.toMatchObject({
+      status: "resolved",
+      point: { item_id: "core-length" },
+      exerciseId: "question-2",
+    });
+    expect(source.resolvePracticeSource).toHaveBeenCalledWith("space-a", "attempt-1", expect.any(AbortSignal));
+  });
+
+  it("does not substitute another knowledge core when a wrongbook question no longer maps", async () => {
+    const source = repository({
+      resolvePracticeSource: vi.fn().mockResolvedValue({ artifact_id: "quiz-1", item_ids: ["question-2"] }),
+      loadLearnHome: vi.fn().mockResolvedValue({
+        artifacts: [],
+        knowledgePoints: [{ item_id: "core-vector", artifact_id: "deck-1", front: "向量", gist: "大小与方向", captured: true }],
+      }),
+    });
+
+    await expect(resolveWrongbookPracticeTarget(
+      source,
+      "space-a",
+      "attempt-1",
+      new AbortController().signal,
+    )).resolves.toEqual({ status: "core_missing" });
+  });
+
   it("maps the canonical Study practice source into the desk and restores its local recovery draft", async () => {
     const source = repository();
     const adapter = createStudyDeskAdapter({
@@ -81,7 +120,7 @@ describe("Study desk adapter", () => {
     const signal = new AbortController().signal;
 
     const first = await adapter.loadDesk(signal);
-    expect(first.course).toEqual({ name: "线性代数", notebookLabel: "向量检查 · 2 步" });
+    expect(first.course).toEqual({ name: "线性代数", notebookLabel: "向量 · 1 题" });
     expect(first.steps[0]).toMatchObject({
       id: "question-1",
       artifactId: "quiz-1",
@@ -98,7 +137,195 @@ describe("Study desk adapter", () => {
     const restored = await adapter.loadDesk(signal);
     expect(restored.initialStepIndex).toBe(0);
     expect(restored.steps[0].initialDraft).toBe("[1]");
+    expect(restored.steps[0].initialActivity).toBe("dirty");
     expect(restored.overview.heading).toContain("继续");
+  });
+
+  it("uses the shared knowledge-core cursor and never substitutes another core's question", async () => {
+    const lengthCore = {
+      item_id: "core-length",
+      artifact_id: "deck-1",
+      front: "模长",
+      gist: "向量的长度",
+      captured: true as const,
+    };
+    selectKnowledgeCore("space-a", lengthCore, "learn");
+    const adapter = createStudyDeskAdapter({
+      repository: repository(),
+      spaceId: "space-a",
+      spaces: [{ id: "space-a", title: "线性代数", status: "active", isCurrent: true, kind: "course" as const }],
+    });
+
+    const desk = await adapter.loadDesk(new AbortController().signal);
+    expect(desk.activeKnowledgeCoreIndex).toBe(1);
+    expect(desk.steps.map((step) => step.id)).toEqual(["question-2"]);
+    expect(readStudyLocation("space-a")).toMatchObject({
+      page: "practice",
+      knowledgeCoreId: "core-length",
+    });
+  });
+
+  it("prefers stable core ids and orders active exercises by honest provenance", async () => {
+    const source = repository({
+      loadPracticeHome: vi.fn().mockResolvedValue({
+        cards: [],
+        dueCards: [],
+        quizzes: [
+          { artifact_id: "quiz-adapted", kind: "quiz", title: "改编", status: "active" },
+          { artifact_id: "quiz-source", kind: "quiz", title: "原题", status: "active" },
+          { artifact_id: "quiz-generated", kind: "quiz", title: "生成", status: "active" },
+          { artifact_id: "quiz-legacy", kind: "quiz", title: "旧题", status: "active" },
+        ],
+      }),
+      loadQuizQuestions: vi.fn().mockImplementation((_spaceId: string, artifactId: string) => Promise.resolve({
+        "quiz-adapted": [{
+          item_id: "adapted-1", artifact_id: artifactId, type: "short_answer", prompt: "改编题",
+          knowledge_core_id: "core-vector", origin: "adapted", tags: ["完全不同的旧标签"],
+          source_refs: [{ title: "线性代数", locator: "第 18 页" }],
+        }],
+        "quiz-source": [{
+          item_id: "source-1", artifact_id: artifactId, type: "short_answer", prompt: "资料题",
+          knowledge_core_id: "core-vector", origin: "source",
+          source_refs: [{ title: "线性代数", section: "向量", page: 17 }],
+        }],
+        "quiz-generated": [
+          {
+            item_id: "generated-1", artifact_id: artifactId, type: "short_answer", prompt: "补充题",
+            knowledge_core_id: "core-vector", origin: "generated",
+          },
+          {
+            item_id: "wrong-core", artifact_id: artifactId, type: "short_answer", prompt: "别的知识核",
+            knowledge_core_id: "core-length", origin: "generated", tags: ["向量"],
+          },
+        ],
+        "quiz-legacy": [{
+          item_id: "legacy-1", artifact_id: artifactId, type: "short_answer", prompt: "兼容旧题", tags: ["向量"],
+        }],
+      }[artifactId] ?? [])),
+    });
+    const adapter = createStudyDeskAdapter({
+      repository: source,
+      spaceId: "space-a",
+      spaces: [{ id: "space-a", title: "线性代数", status: "active", isCurrent: true, kind: "course" as const }],
+    });
+
+    const desk = await adapter.loadDesk(new AbortController().signal);
+
+    expect(desk.steps.map((step) => step.id)).toEqual([
+      "source-1",
+      "adapted-1",
+      "generated-1",
+      "legacy-1",
+    ]);
+    expect(desk.steps[0]).toMatchObject({
+      origin: "source",
+      sourceLabel: "线性代数 · 向量 · 第 17 页",
+    });
+    expect(desk.steps[1]).toMatchObject({
+      origin: "adapted",
+      sourceLabel: "线性代数 · 第 18 页",
+    });
+  });
+
+  it("submits a question to the quiz artifact that actually owns it", async () => {
+    const submitQuiz = vi.fn().mockResolvedValue({
+      activity_id: "activity-second",
+      score: 1,
+      maxScore: 1,
+      percent: 100,
+      correctCount: 1,
+      total: 1,
+      weakTags: [],
+      perQuestion: [{
+        item_id: "question-second",
+        prompt: "解释向量方向",
+        type: "short_answer",
+        correct: true,
+        earned: 1,
+        points: 1,
+        explanation: "已经说明方向。",
+      }],
+    } satisfies StudyQuizResult);
+    const source = repository({
+      loadPracticeHome: vi.fn().mockResolvedValue({
+        cards: [],
+        dueCards: [],
+        quizzes: [
+          { artifact_id: "quiz-first", kind: "quiz", title: "第一份", status: "active" },
+          { artifact_id: "quiz-second", kind: "quiz", title: "第二份", status: "active" },
+        ],
+      }),
+      loadQuizQuestions: vi.fn().mockImplementation((_spaceId: string, artifactId: string) => Promise.resolve(
+        artifactId === "quiz-second"
+          ? [{
+            item_id: "question-second",
+            artifact_id: "quiz-second",
+            type: "short_answer",
+            prompt: "解释向量方向",
+            knowledge_core_id: "core-vector",
+            origin: "generated",
+          }]
+          : [],
+      )),
+      submitQuiz,
+    });
+    const adapter = createStudyDeskAdapter({
+      repository: source,
+      spaceId: "space-a",
+      spaces: [{ id: "space-a", title: "线性代数", status: "active", isCurrent: true, kind: "course" as const }],
+    });
+    const signal = new AbortController().signal;
+
+    await adapter.loadDesk(signal);
+    await adapter.checkAnswer("question-second", "向量有确定方向", signal);
+
+    expect(submitQuiz).toHaveBeenCalledWith(
+      "space-a",
+      "quiz-second",
+      { "question-second": { text: "向量有确定方向" } },
+      signal,
+      ["question-second"],
+    );
+  });
+
+  it("keeps an honest empty practice state when the current core has no question", async () => {
+    const emptyCore = {
+      item_id: "core-empty",
+      artifact_id: "deck-1",
+      front: "方向角",
+      gist: "向量与坐标轴的夹角",
+      captured: true as const,
+    };
+    selectKnowledgeCore("space-a", emptyCore, "practice");
+    const source = repository({
+      loadLearnHome: vi.fn().mockResolvedValue({ artifacts: [], knowledgePoints: [emptyCore] }),
+    });
+    const adapter = createStudyDeskAdapter({
+      repository: source,
+      spaceId: "space-a",
+      spaces: [{ id: "space-a", title: "线性代数", status: "active", isCurrent: true, kind: "course" as const }],
+    });
+
+    const desk = await adapter.loadDesk(new AbortController().signal);
+    expect(desk.steps).toEqual([]);
+    expect(desk.overview.body).toContain("还没有可用练习");
+    expect(readStudyLocation("space-a")?.knowledgeCoreId).toBe("core-empty");
+  });
+
+  it("updates the automatic bookmark when a practice draft changes state", async () => {
+    const adapter = createStudyDeskAdapter({
+      repository: repository(),
+      spaceId: "space-a",
+      spaces: [{ id: "space-a", title: "线性代数", status: "active", isCurrent: true, kind: "course" as const }],
+    });
+    await adapter.loadDesk(new AbortController().signal);
+
+    adapter.markPracticeState?.("question-1", "dirty");
+    expect(readStudyLocation("space-a")).toMatchObject({
+      knowledgeCoreId: "core-vector",
+      exerciseId: "question-1",
+      activity: "dirty",
+    });
   });
 
   it("checks and records only the current question through the existing Study repository", async () => {
@@ -134,6 +361,7 @@ describe("Study desk adapter", () => {
     await adapter.saveDraft("question-1", "[0]", signal);
     await expect(adapter.checkAnswer("question-1", "[0]", signal)).resolves.toEqual({
       verdict: "completed",
+      annotationKind: "confirmed",
       goodLabel: "这一点已经说明清楚",
       good: "长度为 1。",
       gap: "",
@@ -148,8 +376,16 @@ describe("Study desk adapter", () => {
     );
     expect(learningEvent).toHaveBeenCalledOnce();
     const restored = await adapter.loadDesk(signal);
-    expect(restored.steps[0].initialDraft).toBe("");
-    expect(restored.overview.heading).not.toContain("继续");
+    expect(restored.steps[0]).toMatchObject({
+      initialDraft: "[0]",
+      initialActivity: "completed",
+      initialCheckResult: {
+        verdict: "completed",
+        annotationKind: "confirmed",
+        good: "长度为 1。",
+      },
+    });
+    expect(restored.overview.heading).toContain("继续");
     window.removeEventListener(STUDY_LEARNING_EVENT, learningEvent);
   });
 
@@ -206,6 +442,8 @@ describe("Study desk adapter", () => {
 
     const restored = await adapter.loadDesk(signal);
     expect(restored.steps[0].initialDraft).toBe("[1]");
+    expect(restored.steps[0].initialActivity).toBe("needs_revision");
+    expect(restored.steps[0].initialCheckResult).toMatchObject({ verdict: "needs_revision" });
     expect(restored.overview.heading).toContain("继续");
   });
 
@@ -226,5 +464,22 @@ describe("Study desk adapter", () => {
       "draft recovery storage unavailable",
     );
     setItem.mockRestore();
+  });
+
+  it("does not restore an answer draft from another course", async () => {
+    const source = repository();
+    const spaces = [
+      { id: "space-a", title: "线性代数", status: "active", isCurrent: true, kind: "course" as const },
+      { id: "space-b", title: "大学物理", status: "active", isCurrent: false, kind: "course" as const },
+    ];
+    const first = createStudyDeskAdapter({ repository: source, spaceId: "space-a", spaces });
+    const second = createStudyDeskAdapter({ repository: source, spaceId: "space-b", spaces });
+    const signal = new AbortController().signal;
+
+    await first.loadDesk(signal);
+    await first.saveDraft("question-1", "只属于课程 A", signal);
+    const otherCourse = await second.loadDesk(signal);
+
+    expect(otherCourse.steps[0].initialDraft).toBe("");
   });
 });

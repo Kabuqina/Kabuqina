@@ -24,6 +24,8 @@ interface ChatMessageListProps {
   pendingInteraction?: PendingAgentInteraction | null;
   onRespondInteraction?: (action: string, text?: string, data?: Record<string, unknown>) => Promise<void>;
   onOpenLoadPackageSettings?: () => void;
+  compact?: boolean;
+  emptyLabel?: string;
 }
 
 function AssistantStreamShell({ children }: { children: React.ReactNode }) {
@@ -275,6 +277,106 @@ function AgentInteractionCard({
   );
 }
 
+function AgentTextInteractionCard({
+  interaction,
+  onRespond,
+}: {
+  interaction: PendingAgentInteraction;
+  onRespond?: (action: string, text?: string, data?: Record<string, unknown>) => Promise<void>;
+}) {
+  const [answer, setAnswer] = useState("");
+  const [busy, setBusy] = useState(false);
+  const submit = async () => {
+    const value = answer.trim();
+    if (!onRespond || busy || !value) return;
+    setBusy(true);
+    try {
+      await onRespond("submit", value);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <AssistantStreamShell>
+      <form
+        className="kq-chat-bubble-assistant rounded-2xl rounded-tl-sm px-4 py-3 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg-subtle)]"
+        onSubmit={(event) => { event.preventDefault(); void submit(); }}
+      >
+        <label className="block text-sm font-semibold text-[var(--kq-color-strong)]" htmlFor={`interaction-${interaction.id}`}>
+          {interaction.question || "小娜需要你补充一点信息"}
+        </label>
+        <textarea
+          id={`interaction-${interaction.id}`}
+          value={answer}
+          onChange={(event) => setAnswer(event.currentTarget.value)}
+          className="mt-3 min-h-28 w-full rounded-lg border border-[#e8e0ed] bg-white/80 p-3 text-sm text-[var(--kq-color-strong)]"
+          placeholder="在这里回答小娜"
+          autoFocus
+        />
+        <div className="mt-3 flex justify-end">
+          <button type="submit" disabled={busy || !answer.trim()} className="kq-quick-action rounded-lg px-3 py-2 text-sm">
+            {busy ? "正在提交…" : "提交回答"}
+          </button>
+        </div>
+      </form>
+    </AssistantStreamShell>
+  );
+}
+
+function AgentChoiceInteractionCard({
+  interaction,
+  onRespond,
+}: {
+  interaction: PendingAgentInteraction;
+  onRespond?: (action: string, text?: string, data?: Record<string, unknown>) => Promise<void>;
+}) {
+  const [otherOpen, setOtherOpen] = useState(false);
+  const [other, setOther] = useState("");
+  const [busy, setBusy] = useState(false);
+  const submit = async (value: string) => {
+    const answer = value.trim();
+    if (!onRespond || busy || !answer) return;
+    setBusy(true);
+    try {
+      await onRespond("submit", answer);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <AssistantStreamShell>
+      <div className="kq-chat-bubble-assistant rounded-2xl rounded-tl-sm px-4 py-3 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg-subtle)]">
+        <p className="text-sm font-semibold text-[var(--kq-color-strong)]">{interaction.question || "请选择"}</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {interaction.choices.map((choice) => (
+            <button key={choice} type="button" disabled={busy} onClick={() => void submit(choice)} className="kq-quick-action rounded-lg px-3 py-2 text-sm">
+              {choice}
+            </button>
+          ))}
+          <button type="button" disabled={busy} onClick={() => setOtherOpen(true)} className="kq-quick-action rounded-lg px-3 py-2 text-sm">
+            其他回答
+          </button>
+        </div>
+        {otherOpen ? (
+          <form className="mt-3" onSubmit={(event) => { event.preventDefault(); void submit(other); }}>
+            <label className="sr-only" htmlFor={`interaction-other-${interaction.id}`}>其他回答</label>
+            <textarea
+              id={`interaction-other-${interaction.id}`}
+              value={other}
+              onChange={(event) => setOther(event.currentTarget.value)}
+              className="min-h-24 w-full rounded-lg border border-[#e8e0ed] bg-white/80 p-3 text-sm text-[var(--kq-color-strong)]"
+              autoFocus
+            />
+            <div className="mt-2 flex justify-end">
+              <button type="submit" disabled={busy || !other.trim()} className="kq-quick-action rounded-lg px-3 py-2 text-sm">提交回答</button>
+            </div>
+          </form>
+        ) : null}
+      </div>
+    </AssistantStreamShell>
+  );
+}
+
 function EmptyState() {
   return (
     <div className="kq-empty-state flex min-h-0 w-full flex-1 flex-col items-center justify-center px-6 py-3 sm:py-7">
@@ -307,12 +409,16 @@ export function ChatMessageList({
   pendingInteraction,
   onRespondInteraction,
   onOpenLoadPackageSettings,
+  compact = false,
+  emptyLabel,
 }: ChatMessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     requestAnimationFrame(() => {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      if (typeof bottomRef.current?.scrollIntoView === "function") {
+        bottomRef.current.scrollIntoView({ behavior: "smooth" });
+      }
     });
   }, [messages, sending, progress?.nextSeq, progress?.status, pendingInteraction?.id]);
 
@@ -326,13 +432,21 @@ export function ChatMessageList({
     <div
       className={cn(
         "kq-chat-scroll min-h-0 flex-1 overflow-y-auto",
+        compact && "kq-chat-scroll--compact",
         isEmpty && "flex min-h-0 flex-col"
       )}
     >
       {isEmpty ? (
-        <EmptyState />
+        compact ? (
+          <div className="kq-chat-compact-empty">
+            <p>{emptyLabel || "从此刻卡住的地方开始问。"}</p>
+          </div>
+        ) : <EmptyState />
       ) : (
-        <div className="mx-auto max-w-3xl space-y-5 px-4 py-6 sm:space-y-6 sm:px-5">
+        <div className={cn(
+          "mx-auto max-w-3xl space-y-5 px-4 py-6 sm:space-y-6 sm:px-5",
+          compact && "kq-chat-compact-messages",
+        )}>
           {completedMessages.map((m) => (
             <ChatMessage
               key={m.id}
@@ -367,6 +481,10 @@ export function ChatMessageList({
                 </AssistantStreamShell>
                 <OutlineReviewModal interaction={pendingInteraction} onRespond={onRespondInteraction} />
               </>
+            ) : pendingInteraction.kind === "text" ? (
+              <AgentTextInteractionCard interaction={pendingInteraction} onRespond={onRespondInteraction} />
+            ) : pendingInteraction.kind === "choice" ? (
+              <AgentChoiceInteractionCard interaction={pendingInteraction} onRespond={onRespondInteraction} />
             ) : (
               <AgentInteractionCard interaction={pendingInteraction} onRespond={onRespondInteraction} />
             )

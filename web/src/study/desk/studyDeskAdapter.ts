@@ -6,6 +6,13 @@ import type {
   StudyQuizQuestion,
 } from "../../chat/study/study-api";
 import { STUDY_LEARNING_EVENT } from "../learningEvent";
+import {
+  readStudyLocation,
+  resolveKnowledgeCore,
+  selectKnowledgeCore,
+  updateStudyExercise,
+  updateStudyPracticeState,
+} from "../studyLocation";
 import type {
   StudyRepository,
   StudySpaceSummary,
@@ -19,7 +26,13 @@ type StoredDeskDraft = {
   version: 1;
   currentStepId?: string;
   answers: Record<string, string>;
+  stepStates: Record<string, StoredStepState>;
   updatedAt: string;
+};
+
+type StoredStepState = {
+  activity: Exclude<import("./types").StudyActivity, "checking">;
+  checkResult?: CheckResult;
 };
 
 function abortError(): DOMException {
@@ -34,6 +47,7 @@ function readStoredDraft(spaceId: string, artifactId: string): StoredDeskDraft {
   const empty: StoredDeskDraft = {
     version: 1,
     answers: {},
+    stepStates: {},
     updatedAt: new Date(0).toISOString(),
   };
   if (typeof window === "undefined") return empty;
@@ -58,11 +72,43 @@ function readStoredDraft(spaceId: string, artifactId: string): StoredDeskDraft {
         Object.entries(parsed.answers)
           .filter((entry): entry is [string, string] => typeof entry[1] === "string"),
       ),
+      stepStates: readStoredStepStates(parsed.stepStates),
       updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : empty.updatedAt,
     };
   } catch {
     return empty;
   }
+}
+
+function isCheckResult(value: unknown): value is CheckResult {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const candidate = value as Partial<CheckResult>;
+  return (candidate.verdict === "needs_revision" || candidate.verdict === "completed")
+    && (candidate.annotationKind === undefined
+      || candidate.annotationKind === "confirmed"
+      || candidate.annotationKind === "revision"
+      || candidate.annotationKind === "next_step")
+    && typeof candidate.goodLabel === "string"
+    && typeof candidate.good === "string"
+    && typeof candidate.gap === "string"
+    && typeof candidate.next === "string";
+}
+
+function readStoredStepStates(value: unknown): Record<string, StoredStepState> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const states: Record<string, StoredStepState> = {};
+  for (const [stepId, raw] of Object.entries(value)) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
+    const candidate = raw as { activity?: unknown; checkResult?: unknown };
+    if (!(["ready", "dirty", "needs_revision", "completed"] as unknown[]).includes(candidate.activity)) continue;
+    const activity = candidate.activity as StoredStepState["activity"];
+    const checkResult = isCheckResult(candidate.checkResult) ? candidate.checkResult : undefined;
+    states[stepId] = {
+      activity,
+      ...((activity === "needs_revision" || activity === "completed") && checkResult ? { checkResult } : {}),
+    };
+  }
+  return states;
 }
 
 function writeStoredDraft(
@@ -79,23 +125,12 @@ function writeStoredDraft(
   }
 }
 
-function stepStandard(question: StudyQuizQuestion): string {
-  if (question.type === "choice") {
-    return question.multiple
-      ? "选出所有符合题意的答案，再检查这一步。"
-      : "选出最符合题意的答案，再检查这一步。";
-  }
-  if (question.type === "true_false") return "判断陈述是否成立，再检查这一步。";
-  if (question.type === "code") return "保留可运行的代码答案，再检查这一小步。";
-  if (question.type === "derivation") return "写下缺失的推导与理由，再检查这一小步。";
-  return "用自己的话写下答案，再检查这一小步。";
-}
-
 function mapStep(
   question: StudyQuizQuestion,
   index: number,
   total: number,
   initialDraft: string,
+  initialState?: StoredStepState,
 ): StudyStep {
   const topic = question.tags?.[0] || "当前练习";
   return {
@@ -104,13 +139,15 @@ function mapStep(
     answerKind: question.type,
     kicker: `练习 · 第 ${index + 1} / ${total} 步`,
     title: `${topic} · 第 ${index + 1} 步`,
-    standard: stepStandard(question),
     prompt: question.prompt,
-    referenceSummary: "先独立完成当前一步；需要时再展开这张参考折页。",
+    origin: question.origin,
+    sourceLabel: questionSourceLabel(question),
     referenceHint: question.tags?.length
       ? `回想：${question.tags.join(" · ")}`
       : "从题干中的关键词开始。",
     initialDraft,
+    initialActivity: initialState?.activity ?? (initialDraft ? "dirty" : "ready"),
+    initialCheckResult: initialState?.checkResult ?? null,
     options: question.options,
     multiple: question.multiple,
     language: question.language,
@@ -157,6 +194,7 @@ function mapCheckResult(grade: StudyQuizPerQuestion): CheckResult {
   if (grade.correct) {
     return {
       verdict: "completed",
+      annotationKind: "confirmed",
       goodLabel: "这一点已经说明清楚",
       good: grade.explanation || "这一步的答案成立，学习证据已经保存。",
       gap: "",
@@ -166,6 +204,7 @@ function mapCheckResult(grade: StudyQuizPerQuestion): CheckResult {
   const needsHumanCheck = grade.ungraded || grade.gradable === false;
   return {
     verdict: "needs_revision",
+    annotationKind: needsHumanCheck ? "next_step" : "revision",
     goodLabel: needsHumanCheck ? "答案已经保留" : "已经完成作答",
     good: needsHumanCheck
       ? "这类答案需要进一步检查，原答案仍留在纸页上。"
@@ -188,6 +227,79 @@ function mapActivities(items: Awaited<ReturnType<StudyRepository["loadActivities
   }));
 }
 
+function normalized(value: string): string {
+  return value.trim().toLocaleLowerCase().replace(/\s+/g, "");
+}
+
+function questionSourceLabel(question: StudyQuizQuestion): string | undefined {
+  const ref = question.source_refs?.[0];
+  if (typeof ref === "string") return ref.trim().slice(0, 240) || undefined;
+  if (!ref || typeof ref !== "object") return undefined;
+  const text = (key: string) => {
+    const value = ref[key];
+    return typeof value === "string" || typeof value === "number"
+      ? String(value).trim()
+      : "";
+  };
+  const title = text("title") || text("material_title") || text("source_label");
+  const section = text("section") || text("section_title");
+  const locator = text("locator") || text("source_ref") || (text("page") ? `第 ${text("page")} 页` : "");
+  const label = [title, section, locator].filter(Boolean).join(" · ");
+  return label.slice(0, 240) || undefined;
+}
+
+function exerciseOriginRank(question: StudyQuizQuestion): number {
+  return question.origin === "source"
+    ? 0
+    : question.origin === "adapted"
+      ? 1
+      : question.origin === "generated"
+        ? 2
+        : 3;
+}
+
+export function questionBelongsToKnowledgeCore(
+  question: StudyQuizQuestion,
+  title: string,
+  knowledgeCoreId?: string,
+): boolean {
+  if (question.knowledge_core_id) {
+    return Boolean(knowledgeCoreId) && question.knowledge_core_id === knowledgeCoreId;
+  }
+  const core = normalized(title);
+  if (!core) return false;
+  return (question.tags ?? []).some((tag) => {
+    const value = normalized(tag);
+    return value === core || (value.length >= 2 && (value.includes(core) || core.includes(value)));
+  });
+}
+
+export async function resolveWrongbookPracticeTarget(
+  repository: StudyRepository,
+  spaceId: string,
+  activityId: string,
+  signal: AbortSignal,
+): Promise<{
+  status: "resolved";
+  point: import("../../chat/study/study-api").StudyKnowledgePoint;
+  exerciseId: string;
+} | { status: "question_missing" | "core_missing" }> {
+  const source = await repository.resolvePracticeSource(spaceId, activityId, signal);
+  const [questions, home] = await Promise.all([
+    repository.loadQuizQuestions(spaceId, source.artifact_id, signal),
+    repository.loadLearnHome(spaceId, signal),
+  ]);
+  const question = source.item_ids
+    .map((itemId) => questions.find((candidate) => candidate.item_id === itemId))
+    .find((candidate): candidate is StudyQuizQuestion => Boolean(candidate));
+  if (!question) return { status: "question_missing" };
+  const point = home.knowledgePoints.find((candidate) => (
+    questionBelongsToKnowledgeCore(question, candidate.front, candidate.item_id)
+  ));
+  if (!point) return { status: "core_missing" };
+  return { status: "resolved", point, exerciseId: question.item_id };
+}
+
 export function createStudyDeskAdapter(options: {
   repository: StudyRepository;
   spaceId: string;
@@ -196,6 +308,7 @@ export function createStudyDeskAdapter(options: {
   const { repository, spaceId, spaces } = options;
   let artifactId = "";
   let questionsById = new Map<string, StudyQuizQuestion>();
+  let activeKnowledgeCore: import("../../chat/study/study-api").StudyKnowledgePoint | null = null;
 
   const updateStored = (
     stepId: string,
@@ -214,34 +327,41 @@ export function createStudyDeskAdapter(options: {
       answers: { ...current.answers, [stepId]: answer },
     }));
   };
-  const clearSubmittedAnswer = (stepId: string) => {
-    try {
-      updateStored(stepId, (current) => {
-        const answers = { ...current.answers };
-        delete answers[stepId];
-        return { ...current, answers };
-      });
-    } catch {
-      // The attempt is already canonical backend evidence. A recovery-cache
-      // cleanup failure must not turn success into a retry that duplicates it.
-    }
+  const storeStepState = (
+    stepId: string,
+    activity: import("./types").StudyActivity,
+    checkResult?: CheckResult | null,
+  ) => {
+    const recoverableActivity = activity === "checking" ? "dirty" : activity;
+    updateStored(stepId, (current) => ({
+      ...current,
+      stepStates: {
+        ...current.stepStates,
+        [stepId]: {
+          activity: recoverableActivity,
+          ...((recoverableActivity === "needs_revision" || recoverableActivity === "completed") && checkResult
+            ? { checkResult }
+            : {}),
+        },
+      },
+    }));
   };
 
   return {
     async loadDesk(signal) {
       const home = await repository.loadPracticeHome(spaceId, signal);
       if (signal.aborted) throw abortError();
-      const quiz = home.quizzes[0];
-      if (!quiz) throw new Error("study desk: no active quiz");
+      const quiz = home.quizzes[0] ?? null;
       const [questionsResult, learnResult, activitiesResult] = await Promise.allSettled([
-        repository.loadQuizQuestions(spaceId, quiz.artifact_id, signal),
+        Promise.all(home.quizzes.map((candidate) => (
+          repository.loadQuizQuestions(spaceId, candidate.artifact_id, signal)
+        ))).then((groups) => groups.flat()),
         repository.loadLearnHome(spaceId, signal),
         repository.loadActivities(spaceId, signal),
       ]);
       if (signal.aborted) throw abortError();
       if (questionsResult.status !== "fulfilled") throw questionsResult.reason;
-      const questions = questionsResult.value;
-      if (!questions.length) throw new Error("study desk: active quiz has no questions");
+      const allQuestions = questionsResult.value;
       const learn = learnResult.status === "fulfilled" && learnResult.value?.artifacts
         ? learnResult.value
         : null;
@@ -249,34 +369,63 @@ export function createStudyDeskAdapter(options: {
         ? activitiesResult.value
         : null;
 
-      artifactId = quiz.artifact_id;
+      const cores = learn?.knowledgePoints ?? [];
+      const resolvedCore = resolveKnowledgeCore(spaceId, cores);
+      const activeCoreIndex = resolvedCore?.index ?? 0;
+      const activeCore = resolvedCore?.point ?? null;
+      if (activeCore) selectKnowledgeCore(spaceId, activeCore, "practice");
+      activeKnowledgeCore = activeCore;
+      const questions = activeCore
+        ? allQuestions
+          .filter((question) => questionBelongsToKnowledgeCore(
+            question,
+            activeCore.front,
+            activeCore.item_id,
+          ))
+          .sort((left, right) => exerciseOriginRank(left) - exerciseOriginRank(right))
+        : [];
+
+      artifactId = quiz?.artifact_id ?? "";
       questionsById = new Map(questions.map((question) => [question.item_id, question]));
       const stored = readStoredDraft(spaceId, artifactId);
+      const locationExerciseId = activeCore
+        ? readStudyLocation(spaceId)?.exerciseByCore[activeCore.item_id] ?? stored.currentStepId
+        : undefined;
       const initialStepIndex = Math.max(
         0,
-        questions.findIndex((question) => question.item_id === stored.currentStepId),
+        questions.findIndex((question) => question.item_id === locationExerciseId),
       );
       const currentQuestion = questions[initialStepIndex] ?? questions[0];
-      const currentTopic = currentQuestion.tags?.[0] || currentQuestion.prompt;
+      const currentTopic = activeCore?.front ?? currentQuestion?.tags?.[0] ?? currentQuestion?.prompt ?? "当前知识核";
 
       const data: DeskData = {
         course: {
           name: spaces.find((space) => space.id === spaceId)?.title || "我的课程",
-          notebookLabel: `${quiz.title} · ${questions.length} 步`,
+          notebookLabel: activeCore
+            ? `${activeCore.front} · ${questions.length} 题`
+            : `${quiz?.title ?? "当前课程"} · 尚无知识核`,
         },
         steps: questions.map((question, index) => (
-          mapStep(question, index, questions.length, stored.answers[question.item_id] ?? "")
+          mapStep(
+            question,
+            index,
+            questions.length,
+            stored.answers[question.item_id] ?? "",
+            stored.stepStates[question.item_id],
+          )
         )),
         initialStepIndex,
         overview: {
-          kicker: stored.currentStepId ? "继续上次学习" : "今天的当前练习",
-          heading: stored.answers[currentQuestion.item_id]
+          kicker: stored.currentStepId ? "继续上次学习" : "当前知识核的练习",
+          heading: currentQuestion && stored.answers[currentQuestion.item_id]
             ? `从“${currentTopic}”继续`
             : `开始“${currentTopic}”`,
-          body: stored.answers[currentQuestion.item_id]
+          body: currentQuestion && stored.answers[currentQuestion.item_id]
             ? "你的草稿仍在原来的纸页上，可以从这里继续检查。"
-            : "先完成当前一步；复习卡片会等到安全节点再出现。",
-          resume: [
+            : currentQuestion
+              ? "先完成当前一道题；切回学习页时仍停留在这个知识核。"
+              : "这一步还没有可用练习。你可以先回学习，或请小娜基于材料拟一份待审核练习。",
+          resume: currentQuestion ? [
             {
               icon: stored.answers[currentQuestion.item_id] ? "circleCheck" : "circleDot",
               text: stored.answers[currentQuestion.item_id]
@@ -287,7 +436,7 @@ export function createStudyDeskAdapter(options: {
               icon: "circleDot",
               text: `待完成：${currentQuestion.prompt}`,
             },
-          ],
+          ] : [],
         },
         bookstand: {
           title: "我的课程本",
@@ -308,10 +457,10 @@ export function createStudyDeskAdapter(options: {
         },
         materials: {
           title: "本课材料",
-          hint: learn?.artifacts.length
-            ? "选择材料后，可以带着明确来源请小娜协助制作。"
-            : "还没有可选材料；先在学习页整理课程资料。",
-          items: (learn?.artifacts ?? []).slice(0, 8).map((item) => ({
+          hint: (learn?.artifacts ?? []).some((item) => item.kind === "resource_pack")
+            ? "抽一本出来看；阅读位置不会改变课程进度。"
+            : "还没有参考资料，可以先放一本进来。",
+          items: (learn?.artifacts ?? []).filter((item) => item.kind === "resource_pack").slice(0, 8).map((item) => ({
             id: item.artifact_id,
             title: item.title,
             kind: item.kind,
@@ -324,6 +473,8 @@ export function createStudyDeskAdapter(options: {
         dueCards: home.dueCards,
         cardsUnavailable: home.unavailable?.includes("cards"),
         dueCount: home.dueCards.length,
+        knowledgeCores: cores,
+        activeKnowledgeCoreIndex: activeCoreIndex,
       };
       return data;
     },
@@ -339,10 +490,11 @@ export function createStudyDeskAdapter(options: {
 
     async checkAnswer(stepId, answer, signal) {
       const question = questionsById.get(stepId);
-      if (!question || !artifactId) throw new Error("study desk: step is not loaded");
+      const questionArtifactId = question?.artifact_id || artifactId;
+      if (!question || !questionArtifactId) throw new Error("study desk: step is not loaded");
       const result = await repository.submitQuiz(
         spaceId,
-        artifactId,
+        questionArtifactId,
         { [stepId]: decodeResponse(question, answer) },
         signal,
         [stepId],
@@ -351,7 +503,12 @@ export function createStudyDeskAdapter(options: {
       const grade = result.perQuestion.find((item) => item.item_id === stepId);
       if (!grade) throw new Error("study desk: grader omitted the current step");
       const checkResult = mapCheckResult(grade);
-      if (checkResult.verdict === "completed") clearSubmittedAnswer(stepId);
+      try {
+        storeStepState(stepId, checkResult.verdict, checkResult);
+      } catch {
+        // The backend attempt is already canonical evidence. Recovery metadata
+        // must never turn a successful check into a duplicate submission.
+      }
       window.dispatchEvent(new Event(STUDY_LEARNING_EVENT));
       return checkResult;
     },
@@ -372,9 +529,20 @@ export function createStudyDeskAdapter(options: {
     markCurrentStep(stepId) {
       try {
         updateStored(stepId, (current) => current);
+        if (activeKnowledgeCore) updateStudyExercise(spaceId, activeKnowledgeCore, stepId);
       } catch {
         // A bookmark is recovery metadata only; unavailable browser storage
         // must never prevent the canonical Study exercise from opening.
+      }
+    },
+
+    markPracticeState(stepId, activity, checkResult) {
+      try {
+        storeStepState(stepId, activity, checkResult);
+        if (activeKnowledgeCore) updateStudyPracticeState(spaceId, activeKnowledgeCore, stepId, activity);
+      } catch {
+        // Continue metadata remains recoverable projection only. Canonical
+        // answer/check state is never allowed to fail because storage is full.
       }
     },
   };

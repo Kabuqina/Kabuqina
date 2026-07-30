@@ -14,6 +14,13 @@ import type { Loadable } from "./loadable";
 import type { StudyArtifactDetail } from "./repository";
 import { studyPath, type StudyPageSlug } from "./routeModel";
 
+const EXTERNAL_REVIEW_KINDS = new Set([
+  "knowledge_base",
+  "material_alignment",
+  "resource_pack",
+  "tutoring_note",
+]);
+
 function pageForKind(kind: string): StudyPageSlug | null {
   if (kind === "student_state") return "flyleaf";
   if (kind === "learning_plan") return "plan";
@@ -42,7 +49,64 @@ function detailData(detail: Loadable<StudyArtifactDetail> | undefined): StudyArt
   return detail.status === "loading" || detail.status === "error" ? detail.previous : undefined;
 }
 
-export function DraftInboxButton() {
+function boundedText(value: unknown, limit = 800): string {
+  return typeof value === "string" ? value.trim().slice(0, limit) : "";
+}
+
+function questionSourceLabel(value: unknown): string {
+  if (typeof value === "string") return boundedText(value, 240);
+  if (!value || typeof value !== "object" || Array.isArray(value)) return "";
+  const ref = value as Record<string, unknown>;
+  const field = (key: string) => {
+    const next = ref[key];
+    return typeof next === "string" || typeof next === "number" ? String(next).trim() : "";
+  };
+  return [
+    field("title") || field("material_title") || field("source_label"),
+    field("section") || field("section_title"),
+    field("locator") || field("source_ref") || (field("page") ? `第 ${field("page")} 页` : ""),
+  ].filter(Boolean).join(" · ").slice(0, 240);
+}
+
+function QuizDraftPreview({ detail }: { detail: StudyArtifactDetail }) {
+  const payload = detail.envelope.payload;
+  const questions = payload && typeof payload === "object" && !Array.isArray(payload)
+    ? (payload as { questions?: unknown }).questions
+    : undefined;
+  const safeQuestions = Array.isArray(questions)
+    ? questions.filter((question): question is Record<string, unknown> => (
+      Boolean(question) && typeof question === "object" && !Array.isArray(question)
+    )).slice(0, 6)
+    : [];
+  if (!safeQuestions.length) return <p className="kq-study-draft-preview">这份练习草稿暂时无法预览。</p>;
+  return (
+    <div className="kq-study-quiz-draft-preview" aria-label="练习草稿预览">
+      {safeQuestions.map((question, index) => {
+        const origin = question.origin === "source"
+          ? "资料原题"
+          : question.origin === "adapted"
+            ? "根据资料改编"
+            : question.origin === "generated"
+              ? "小娜生成"
+              : "练习草稿";
+        const refs = Array.isArray(question.source_refs) ? question.source_refs : [];
+        const source = questionSourceLabel(refs[0]);
+        return (
+          <article key={`${index}:${boundedText(question.prompt, 120)}`}>
+            <p><strong>{origin}</strong>{source ? <span>{source}</span> : null}</p>
+            <h4>{boundedText(question.prompt) || "未命名题目"}</h4>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
+export function DraftInboxButton({
+  onActivated,
+}: {
+  onActivated?: (item: StudyArtifactSummary, detail: StudyArtifactDetail) => void | Promise<void>;
+} = {}) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const controller = useStudyDrafts();
@@ -70,7 +134,12 @@ export function DraftInboxButton() {
   const openedDetail = detailData(detail);
   const action = selected ? controller.actions[selected.artifact_id] : undefined;
   const actionError = selected ? controller.actionErrors[selected.artifact_id] : undefined;
-  const needsReview = openedDetail?.review.mode === "semantic" && openedDetail.review.status !== "passed";
+  const needsReview = Boolean(
+    openedDetail
+    && EXTERNAL_REVIEW_KINDS.has(openedDetail.kind)
+    && openedDetail.review.mode === "semantic"
+    && openedDetail.review.status !== "passed",
+  );
 
   const closeDialog = useCallback(() => {
     setOpen(false);
@@ -127,6 +196,20 @@ export function DraftInboxButton() {
     const last = focusable[focusable.length - 1];
     if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
     if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  };
+
+  const activateSelected = async () => {
+    if (!selected || !openedDetail) return;
+    const activated = await controller.activate(selected.artifact_id);
+    if (!activated) return;
+    if (selected.kind !== "quiz") return;
+    closeDialog();
+    if (onActivated) {
+      await onActivated(selected, openedDetail);
+      return;
+    }
+    const destination = pageForKind(selected.kind);
+    if (destination) navigate(studyPath(controller.spaceId, destination));
   };
 
   return (
@@ -194,7 +277,9 @@ export function DraftInboxButton() {
                   <>
                     <h3>{openedDetail.title}</h3>
                     <p className="kq-study-muted">{kindLabel(selected.kind, t)} · {openedDetail.review.status ?? selected.status}</p>
-                    {openedDetail.kind === "knowledge_base" || openedDetail.kind === "resource_pack" || openedDetail.kind === "tutoring_note"
+                    {openedDetail.kind === "quiz"
+                      ? <QuizDraftPreview detail={openedDetail} />
+                      : openedDetail.kind === "knowledge_base" || openedDetail.kind === "resource_pack" || openedDetail.kind === "tutoring_note"
                       ? <LearnArtifactContent detail={openedDetail} />
                       : <p className="kq-study-draft-preview">{t("study.draftDetailPrivate")}</p>}
                     <ArtifactAdvancedPanel spaceId={controller.spaceId} detail={openedDetail} onArtifactStale={() => controller.invalidateArtifact(openedDetail.artifactId)} />
@@ -202,8 +287,8 @@ export function DraftInboxButton() {
                     {actionError ? <p className="kq-study-page-error" role="alert">{t("study.draftActionFailed")}</p> : null}
                     <div className="kq-study-inline-actions">
                       {needsReview ? <button data-study-focus type="button" disabled={Boolean(action)} onClick={() => controller.review(selected.artifact_id)}>{action === "review" ? t("study.draftReviewing") : t("study.draftRetryReview")}</button> : null}
-                      <button data-study-focus type="button" disabled={Boolean(action) || Boolean(needsReview)} onClick={() => controller.activate(selected.artifact_id)}>{t("study.flyleafInk")}</button>
-                      <button data-study-focus type="button" disabled={Boolean(action)} onClick={() => controller.reject(selected.artifact_id)}>{t("study.flyleafErase")}</button>
+                      <button data-study-focus type="button" disabled={Boolean(action) || Boolean(needsReview)} onClick={() => { void activateSelected(); }}>{selected.kind === "quiz" ? t("study.practiceDraftAdopt") : t("study.flyleafInk")}</button>
+                      <button data-study-focus type="button" disabled={Boolean(action)} onClick={() => controller.reject(selected.artifact_id)}>{selected.kind === "quiz" ? t("study.practiceDraftReject") : t("study.flyleafErase")}</button>
                       {pageForKind(selected.kind) ? <button data-study-focus type="button" onClick={() => { navigate(studyPath(controller.spaceId, pageForKind(selected.kind)!)); closeDialog(); }}>{t("study.draftOpenPage")}</button> : null}
                     </div>
                   </>

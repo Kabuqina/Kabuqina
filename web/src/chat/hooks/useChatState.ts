@@ -14,6 +14,7 @@ import { REMINDER_SESSION_ID } from "../reminderSession";
 import type { LoadSessionsOptions } from "./useSessions";
 import { mergeInFlightMessages, messageContentToString } from "../inFlightTurnUtils";
 import type { InFlightTurnsController } from "../inFlightTurns";
+import { visibleStudyUserInput } from "../../lib/studyChatHandoff";
 
 const LAST_SESSION_KEY = "kabuqina.shell.chat.lastSessionId";
 const LEGACY_LAST_SESSION_KEY = "hermesdesk.shell.chat.lastSessionId";
@@ -34,7 +35,7 @@ function rowsToUiMessages(rows: MessageRow[], sessionModel: string): UiMsg[] {
     let attachments: UiMsg["attachments"];
     if (role === "user") {
       const parsed = parseDeskUserContent(m.content);
-      text = parsed.text;
+      text = visibleStudyUserInput(parsed.text);
       attachments = parsed.attachments;
       if (!text && !attachments?.length) {
         continue;

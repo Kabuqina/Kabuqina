@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { StudyPageSlug } from "../routeModel";
+import type { StudyKnowledgePoint } from "../../chat/study/study-api";
 import type { DeskAdapter } from "./deskAdapter";
 import { defaultDeskArtAssets, type DeskArtAssets } from "./artAssets";
 import { onOpenActivityRequest } from "../../shell/activityBridge";
@@ -12,7 +13,7 @@ import { DeskCup } from "./DeskCup";
 import { DeskNotebook } from "./DeskNotebook";
 import { DeskBookend } from "./DeskBookend";
 import { DeskRightObjects } from "./DeskObjects";
-import { DeskTutorInvoke, type DeskCourseChatRequest } from "./DeskTutorInvoke";
+import type { DeskCourseChatRequest } from "./DeskTutorInvoke";
 import { DeskWorkFolder, type DeskCreateChatRequest } from "./DeskWorkFolder";
 import type { CheckResult, DeskBookstand, DeskData, DeskDensity, StudyActivity } from "./types";
 import type { StudyReturnState } from "../../lib/studyChatHandoff";
@@ -87,11 +88,19 @@ export interface DeskSceneProps {
   onStartCreateChat?: (request: DeskCreateChatRequest) => void;
   onOpenActivity?: () => void;
   onSelectSpace?: (spaceId: string) => void;
-  onOpenMaterials?: () => void;
+  onOpenMaterials?: (materialId?: string) => void;
+  onRemoveMaterial?: (materialId: string, title: string) => void;
   onReviewCards?: () => void;
   onNewBook?: () => void;
   onDirtyChange?: (dirty: boolean) => void;
   returnFocus?: StudyReturnState | null;
+  continueTitle?: string;
+  continueMeta?: string;
+  pageNotice?: string;
+  onResumeLocation?: () => void;
+  onChangeKnowledgeCore?: (point: StudyKnowledgePoint, index: number) => void;
+  onBackToLearn?: () => void;
+  onAskPage?: (request?: DeskCourseChatRequest) => void;
 }
 
 export default function DeskScene({
@@ -111,10 +120,18 @@ export default function DeskScene({
   onOpenActivity,
   onSelectSpace,
   onOpenMaterials,
+  onRemoveMaterial,
   onReviewCards,
   onNewBook,
   onDirtyChange,
   returnFocus,
+  continueTitle,
+  continueMeta,
+  pageNotice,
+  onResumeLocation,
+  onChangeKnowledgeCore,
+  onBackToLearn,
+  onAskPage,
 }: DeskSceneProps) {
   const deskAdapter = adapter;
   const icons = useMemo<DeskArtAssets>(() => ({ ...defaultDeskArtAssets, ...art }), [art]);
@@ -130,8 +147,6 @@ export default function DeskScene({
   const [saving, setSaving] = useState(false);
   const [operationError, setOperationError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState<Announcement | null>(null);
-  const [invokeOpen, setInvokeOpen] = useState(false);
-  const [tutorQuestion, setTutorQuestion] = useState("");
   const [panel, setPanel] = useState<"work" | "activity" | "cards" | null>(null);
   const [stackIndexOpen, setStackIndexOpen] = useState(false);
   const [initialMaterialId, setInitialMaterialId] = useState<string | null>(null);
@@ -151,7 +166,6 @@ export default function DeskScene({
   const activityControllerRef = useRef<AbortController | null>(null);
   const saveGenerationRef = useRef(0);
   const announcementIdRef = useRef(0);
-  const tutorInvokerIdRef = useRef("kd-cup-chat");
   const returnFocusHandledRef = useRef(false);
 
   const announce = useCallback((text: string) => {
@@ -181,7 +195,7 @@ export default function DeskScene({
     saveTimerRef.current = null;
   }, []);
 
-  const saveDraft = useCallback(async (stepId: string, value: string) => {
+  const saveDraft = useCallback(async (stepId: string, value: string): Promise<boolean> => {
     saveControllerRef.current?.abort();
     const controller = new AbortController();
     saveControllerRef.current = controller;
@@ -189,13 +203,15 @@ export default function DeskScene({
     setSaving(true);
     try {
       await deskAdapter.saveDraft(stepId, value, controller.signal);
-      if (generation !== saveGenerationRef.current || controller.signal.aborted) return;
+      if (generation !== saveGenerationRef.current || controller.signal.aborted) return false;
       setSaving(false);
       setOperationError(null);
+      return true;
     } catch (error) {
-      if (generation !== saveGenerationRef.current || isAbortError(error)) return;
+      if (generation !== saveGenerationRef.current || isAbortError(error)) return false;
       setSaving(false);
       setOperationError("草稿暂时没有保存成功，请稍后再试。");
+      return false;
     }
   }, [deskAdapter]);
 
@@ -215,7 +231,12 @@ export default function DeskScene({
       );
       const step = deskData.steps[initialIndex];
       if (!step) {
-        setLoadError(true);
+        setData(deskData);
+        setStepIndex(0);
+        setDensity("overview");
+        setActivity("ready");
+        setAnswer("");
+        setCheckResult(null);
         return;
       }
       setData(deskData);
@@ -224,9 +245,9 @@ export default function DeskScene({
 
       const returnedSnapshot = requestedIndex >= 0 ? returnFocus?.deskSnapshot : undefined;
       setDensity(returnFocus && requestedIndex >= 0 ? "focused" : initialSnapshot?.density ?? "overview");
-      setActivity(returnedSnapshot?.activity ?? initialSnapshot?.activity ?? "ready");
+      setActivity(returnedSnapshot?.activity ?? initialSnapshot?.activity ?? step.initialActivity ?? "ready");
       setAnswer(returnedSnapshot?.answer ?? initialSnapshot?.answer ?? step.initialDraft);
-      setCheckResult(returnedSnapshot?.checkResult ?? initialSnapshot?.checkResult ?? null);
+      setCheckResult(returnedSnapshot?.checkResult ?? initialSnapshot?.checkResult ?? step.initialCheckResult ?? null);
       if (returnFocus && requestedIndex >= 0 && !returnFocusHandledRef.current) {
         returnFocusHandledRef.current = true;
         requestAnimationFrame(() => {
@@ -280,26 +301,35 @@ export default function DeskScene({
   const announceFutureFeature = useCallback(() => announce(FUTURE_FEATURE_MESSAGE), [announce]);
   const announceFutureChat = useCallback(() => announce(FUTURE_CHAT_MESSAGE), [announce]);
 
-  const openTutorInvoke = useCallback((invokerId: string) => {
+  const openTutorInvoke = useCallback((_invokerId: string) => {
+    if (currentPage !== "practice" || !data?.steps[stepIndex]) {
+      if (onAskPage) onAskPage();
+      else announce("当前页面的课程上下文还没有准备好。");
+      return;
+    }
     if (activity === "checking") {
       announce("请等这一步检查完成后再问小娜。");
       return;
     }
-    tutorInvokerIdRef.current = invokerId;
-    setTutorQuestion(
-      activity === "needs_revision"
-        ? "我想继续自己完成，但还不确定应该先检查哪里。请先给我一个提示。"
-        : "请结合当前这一步，先给我一个可以自己继续尝试的提示。",
-    );
-    setInvokeOpen(true);
-    announce("已打开课程提问卡；确认问题后进入同一课程对话。");
-  }, [activity, announce]);
-
-  const cancelTutorInvoke = useCallback(() => {
-    setInvokeOpen(false);
-    announce("已回到原来的学习位置。");
-    requestAnimationFrame(() => document.getElementById(tutorInvokerIdRef.current)?.focus());
-  }, [announce]);
+    const step = data.steps[stepIndex];
+    const feedback = checkResult
+      ? [checkResult.good, checkResult.gap, checkResult.next].filter(Boolean).join(" ")
+      : "";
+    const request: DeskCourseChatRequest = {
+      focusId: step.id,
+      focusLabel: step.kicker,
+      prompt: step.prompt,
+      answer,
+      feedback,
+      question: "",
+      activity,
+      checkResult,
+    };
+    if (onAskPage) onAskPage(request);
+    else if (onStartCourseChat) onStartCourseChat(request);
+    else announceFutureChat();
+    announce("小娜已在当前学习页旁边展开。");
+  }, [activity, announce, announceFutureChat, answer, checkResult, currentPage, data, onAskPage, onStartCourseChat, stepIndex]);
 
   const closePanel = useCallback(() => {
     cardControllerRef.current?.abort();
@@ -399,20 +429,30 @@ export default function DeskScene({
   const handleStartWriting = useCallback(() => {
     setActivity("dirty");
     setOperationError(null);
+    const stepId = data?.steps[stepIndex]?.id;
+    if (stepId) deskAdapter.markPracticeState?.(stepId, "dirty");
     announce("可以继续写这一步。");
     focusAnswerAfterPaint();
-  }, [announce, focusAnswerAfterPaint]);
+  }, [announce, data, deskAdapter, focusAnswerAfterPaint, stepIndex]);
 
   const handleAnswerChange = useCallback((value: string) => {
+    const isRevisingCheckedAnswer = activity === "needs_revision" && checkResult !== null;
     setAnswer(value);
-    setActivity("dirty");
-    setCheckResult(null);
+    if (!isRevisingCheckedAnswer) {
+      setActivity("dirty");
+      setCheckResult(null);
+    }
     setOperationError(null);
     clearSaveTimer();
     const stepId = data?.steps[stepIndex]?.id;
     if (!stepId) return;
     try {
       deskAdapter.persistDraft?.(stepId, value);
+      deskAdapter.markPracticeState?.(
+        stepId,
+        isRevisingCheckedAnswer ? "needs_revision" : "dirty",
+        isRevisingCheckedAnswer ? checkResult : null,
+      );
     } catch {
       setOperationError("草稿暂时没有保存成功，请稍后再试。");
     }
@@ -420,7 +460,7 @@ export default function DeskScene({
       saveTimerRef.current = null;
       void saveDraft(stepId, value);
     }, SAVE_DEBOUNCE_MS);
-  }, [clearSaveTimer, data, deskAdapter, saveDraft, stepIndex]);
+  }, [activity, checkResult, clearSaveTimer, data, deskAdapter, saveDraft, stepIndex]);
 
   const handleCheck = useCallback(() => {
     const step = data?.steps[stepIndex];
@@ -433,6 +473,7 @@ export default function DeskScene({
     checkControllerRef.current = controller;
     setSaving(true);
     setActivity("checking");
+    deskAdapter.markPracticeState?.(step.id, "checking");
     setOperationError(null);
     announce("正在检查这一步。");
 
@@ -445,27 +486,77 @@ export default function DeskScene({
         if (controller.signal.aborted) return;
         setCheckResult(result);
         setActivity(result.verdict);
+        deskAdapter.markPracticeState?.(step.id, result.verdict, result);
         announce(result.verdict === "completed" ? "本步完成。" : "需要修改：还差一步。");
         focusAfterPaint(feedbackRef);
       } catch (error) {
         if (controller.signal.aborted || isAbortError(error)) return;
         setSaving(false);
         setActivity("dirty");
+        deskAdapter.markPracticeState?.(step.id, "dirty");
         setOperationError("暂时无法检查这一步；原答案仍在纸页上，请稍后再试。");
         announce("检查没有完成，答案仍在原位。");
       }
     })();
   }, [activity, announce, answer, clearSaveTimer, data, deskAdapter, focusAfterPaint, stepIndex]);
 
-  const handleModify = useCallback(() => {
-    setActivity("dirty");
+  const handleSaveAnswer = useCallback(() => {
+    const stepId = data?.steps[stepIndex]?.id;
+    if (!stepId || saving) return;
+    clearSaveTimer();
+    void saveDraft(stepId, answer).then((saved) => {
+      if (!saved) return;
+      setActivity("dirty");
+      setCheckResult(null);
+      deskAdapter.markPracticeState?.(stepId, "dirty");
+      announce("答案已保存，可以再次检查。");
+      focusAnswerAfterPaint();
+    });
+  }, [answer, announce, clearSaveTimer, data, deskAdapter, focusAnswerAfterPaint, saveDraft, saving, stepIndex]);
+
+  const moveToStep = useCallback((nextIndex: number) => {
+    if (!data || activity === "checking") return;
+    const current = data.steps[stepIndex];
+    const next = data.steps[nextIndex];
+    if (!current || !next || nextIndex === stepIndex) return;
+    clearSaveTimer();
+    saveControllerRef.current?.abort();
+    saveGenerationRef.current += 1;
+    try {
+      deskAdapter.persistDraft?.(current.id, answer);
+      deskAdapter.markPracticeState?.(current.id, activity, checkResult);
+    } catch {
+      setOperationError("草稿暂时没有保存成功，请稍后再试。");
+      return;
+    }
+    setData((existing) => existing ? {
+      ...existing,
+      steps: existing.steps.map((candidate, index) => index === stepIndex ? {
+        ...candidate,
+        initialDraft: answer,
+        initialActivity: activity,
+        initialCheckResult: checkResult,
+      } : candidate),
+    } : existing);
+    setStepIndex(nextIndex);
+    setDensity("focused");
+    setActivity(next.initialActivity ?? (next.initialDraft ? "dirty" : "ready"));
+    setAnswer(next.initialDraft);
+    setCheckResult(next.initialCheckResult ?? null);
+    setSaving(false);
     setOperationError(null);
-    announce("继续修改原答案。");
-    focusAnswerAfterPaint();
-  }, [announce, focusAnswerAfterPaint]);
+    deskAdapter.markCurrentStep?.(next.id);
+    announce(`已进入${stepSpeech(next.kicker)}。`);
+    focusAfterPaint(taskSurfaceRef);
+  }, [activity, announce, answer, checkResult, clearSaveTimer, data, deskAdapter, focusAfterPaint, stepIndex]);
+
+  const handlePreviousStep = useCallback(() => {
+    if (stepIndex <= 0) return;
+    moveToStep(stepIndex - 1);
+  }, [moveToStep, stepIndex]);
 
   const handleNextStep = useCallback(() => {
-    if (!data) return;
+    if (!data || activity === "checking") return;
     if (stepIndex + 1 >= data.steps.length) {
       setDensity("overview");
       setActivity("ready");
@@ -473,21 +564,8 @@ export default function DeskScene({
       announce("本练习已完成，回到练习总览。");
       return;
     }
-    const nextIndex = stepIndex + 1;
-    const next = data.steps[nextIndex];
-    clearSaveTimer();
-    saveControllerRef.current?.abort();
-    setStepIndex(nextIndex);
-    setDensity("focused");
-    setActivity("ready");
-    setAnswer(next.initialDraft);
-    setCheckResult(null);
-    setSaving(false);
-    setOperationError(null);
-    deskAdapter.markCurrentStep?.(next.id);
-    announce(`已进入${stepSpeech(next.kicker)}。`);
-    focusAfterPaint(taskSurfaceRef);
-  }, [announce, clearSaveTimer, data, deskAdapter, focusAfterPaint, stepIndex]);
+    moveToStep(stepIndex + 1);
+  }, [activity, announce, data, moveToStep, stepIndex]);
 
   /**
    * 练习数据打不开时，**只有练习那一页该受影响**。
@@ -516,12 +594,12 @@ export default function DeskScene({
                 density="overview"
                 activity="ready"
                 answer=""
-                answerStateText=""
                 saveStatusText=""
                 operationError={null}
                 checkResult={null}
                 currentPage={currentPage}
                 pageBody={pageBody}
+                hasPreviousStep={false}
                 hasNextStep={false}
                 taskSurfaceRef={taskSurfaceRef}
                 answerRef={answerRef}
@@ -530,8 +608,8 @@ export default function DeskScene({
                 onStartWriting={() => undefined}
                 onAnswerChange={() => undefined}
                 onCheck={() => undefined}
-                onModify={() => undefined}
-                onAskTutor={() => undefined}
+                onSaveAnswer={() => undefined}
+                onPreviousStep={() => undefined}
                 onNextStep={() => undefined}
                 onNavigatePage={onNavigatePage}
                 onFutureFeature={announceFutureFeature}
@@ -590,51 +668,16 @@ export default function DeskScene({
   const step = data.steps[stepIndex];
   const hasDraft = answer.trim() !== "";
   const hasNextStep = stepIndex + 1 < data.steps.length;
-  const answerStateText =
-    activity === "completed"
-      ? "已落墨"
-      : activity === "checking"
-        ? "保持原答案"
-        : activity === "dirty" || activity === "needs_revision"
-          ? "我的草稿"
-          : hasDraft
-            ? "已保存的草稿"
-            : "尚未开始";
-
   const saveStatusText =
     activity === "checking"
       ? "正在检查这一步…答案仍留在原位"
       : activity === "completed"
         ? "本步学习证据已保存"
-        : activity === "dirty" && saving
+        : (activity === "dirty" || activity === "needs_revision") && saving
           ? "正在保存草稿…"
           : !hasDraft && activity === "ready"
             ? "这一步还没有草稿"
             : "草稿已保存在这本笔记本中";
-
-  if (invokeOpen) {
-    return (
-      <div className="kq-desk" data-density="focused">
-          <div className="kd-canvas">
-          <DeskTutorInvoke
-            courseName={data.course.name}
-            step={step}
-            answer={answer}
-            activity={activity === "checking" ? "dirty" : activity}
-            checkResult={checkResult}
-            question={tutorQuestion}
-            onQuestionChange={setTutorQuestion}
-            onSubmit={(request) => {
-              if (onStartCourseChat) onStartCourseChat(request);
-              else announceFutureChat();
-            }}
-            onCancel={cancelTutorInvoke}
-          />
-        </div>
-        <Announcer announcement={announcement} />
-      </div>
-    );
-  }
 
   if (panel === "work") {
     return (
@@ -645,7 +688,7 @@ export default function DeskScene({
             materials={data.materials}
             initialSourceId={initialMaterialId}
             onCreate={(request) => {
-              if (onStartCreateChat) onStartCreateChat({ ...request, focusId: step.id });
+              if (onStartCreateChat) onStartCreateChat({ ...request, focusId: step?.id ?? `course:${currentPage}` });
               else announceFutureChat();
             }}
             onOpenMaterials={onOpenMaterials}
@@ -721,23 +764,42 @@ export default function DeskScene({
               density={density}
               activity={activity}
               answer={answer}
-              answerStateText={answerStateText}
               saveStatusText={saveStatusText}
               operationError={operationError}
               checkResult={checkResult}
               currentPage={currentPage}
               pageBody={pageBody}
+              continueTitle={continueTitle ?? data.knowledgeCores[data.activeKnowledgeCoreIndex]?.front ?? step?.title}
+              continueMeta={continueMeta ?? (data.knowledgeCores.length ? "当前知识核 · 练习" : step?.kicker)}
+              pageNotice={pageNotice}
+              knowledgeCoreTitle={data.knowledgeCores[data.activeKnowledgeCoreIndex]?.front}
+              knowledgeCoreIndex={data.activeKnowledgeCoreIndex}
+              knowledgeCoreTotal={data.knowledgeCores.length}
+              hasPreviousStep={stepIndex > 0}
               hasNextStep={hasNextStep}
               taskSurfaceRef={taskSurfaceRef}
               answerRef={answerRef}
               feedbackRef={feedbackRef}
-              onResume={handleResume}
+              onResume={currentPage === "practice" ? handleResume : onResumeLocation ?? handleResume}
               onStartWriting={handleStartWriting}
               onAnswerChange={handleAnswerChange}
               onCheck={handleCheck}
-              onModify={handleModify}
-              onAskTutor={() => openTutorInvoke("kd-inline-chat")}
+              onSaveAnswer={handleSaveAnswer}
+              onPreviousStep={handlePreviousStep}
               onNextStep={handleNextStep}
+              onPreviousKnowledgeCore={data.activeKnowledgeCoreIndex > 0 && onChangeKnowledgeCore
+                ? () => onChangeKnowledgeCore(
+                    data.knowledgeCores[data.activeKnowledgeCoreIndex - 1],
+                    data.activeKnowledgeCoreIndex - 1,
+                  )
+                : undefined}
+              onNextKnowledgeCore={data.activeKnowledgeCoreIndex + 1 < data.knowledgeCores.length && onChangeKnowledgeCore
+                ? () => onChangeKnowledgeCore(
+                    data.knowledgeCores[data.activeKnowledgeCoreIndex + 1],
+                    data.activeKnowledgeCoreIndex + 1,
+                  )
+                : undefined}
+              onBackToLearn={onBackToLearn}
               onNavigatePage={onNavigatePage}
               onFutureFeature={announceFutureFeature}
             />
@@ -751,7 +813,8 @@ export default function DeskScene({
               stackIndexOpen={stackIndexOpen}
               onToggleStackIndex={() => setStackIndexOpen((open) => !open)}
               onFutureFeature={announceFutureFeature}
-              onOpenMaterials={openWorkFolder}
+              onOpenMaterials={onOpenMaterials ?? openWorkFolder}
+              onRemoveMaterial={onRemoveMaterial}
               onImportMaterial={onImportMaterial}
               onReviewCards={onReviewCards ?? openCardReview}
             />
@@ -759,7 +822,10 @@ export default function DeskScene({
           </aside>
           {/* 窄窗（720×520）下右栏收起来，三件事退成一条工具条，谁都不藏。 */}
           <nav className="kd-narrow-tools" aria-label="窄窗书桌工具">
-            <button type="button" onClick={() => openWorkFolder()}>
+            <button
+              type="button"
+              onClick={() => (onOpenMaterials ?? openWorkFolder)(data.materials.items[0]?.id)}
+            >
               <icons.layers /> 参考
             </button>
             <button type="button" onClick={onReviewCards ?? openCardReview}>
