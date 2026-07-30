@@ -5,11 +5,47 @@
 
 import json
 import os
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from tools.deliverable_contract import slide_layout_set, slide_type_set
 from tools.registry import tool_error
+
+
+# Exact files that a trusted host UI has authorized for this read request.
+# This is deliberately separate from power-user mode: it never grants access
+# to a parent directory and ContextVar state follows asyncio.to_thread without
+# becoming a process-wide permission.
+_TEMPORARY_DOCUMENT_READ_PATHS: ContextVar[tuple[Path, ...]] = ContextVar(
+    "kabuqina_temporary_document_read_paths",
+    default=(),
+)
+
+
+def _normalized_read_path(path: str | os.PathLike) -> Path:
+    try:
+        return Path(path).expanduser().resolve()
+    except OSError:
+        return Path(os.path.realpath(os.path.abspath(os.fspath(path))))
+
+
+@contextmanager
+def temporary_document_read_access(path: str | os.PathLike) -> Iterator[Path]:
+    """Authorize one exact host-selected file for the current read context."""
+    selected = _normalized_read_path(path)
+    token = _TEMPORARY_DOCUMENT_READ_PATHS.set(
+        (*_TEMPORARY_DOCUMENT_READ_PATHS.get(), selected)
+    )
+    try:
+        yield selected
+    finally:
+        _TEMPORARY_DOCUMENT_READ_PATHS.reset(token)
+
+
+def _has_temporary_document_read_access(path: Path) -> bool:
+    return _normalized_read_path(path) in _TEMPORARY_DOCUMENT_READ_PATHS.get()
 
 
 def _text(value: Any, default: str = "") -> str:
@@ -129,7 +165,10 @@ def _validate_read_path(document_path: Path, original_path: str, label: str) -> 
             resolved = document_path.resolve()
         except OSError:
             resolved = document_path
-        if _is_outside_workspace(resolved, workspace):
+        if (
+            _is_outside_workspace(resolved, workspace)
+            and not _has_temporary_document_read_access(resolved)
+        ):
             return tool_error(
                 f"{label} path is outside the Kabuqina workspace ({workspace}): {original_path}",
                 code="outside_workspace",

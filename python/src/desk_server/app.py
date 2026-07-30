@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from desk_server.auth import install_middleware
 from desk_server.routes import (
+    activity_routes,
     chat,
     export,
     goal_routes,
@@ -37,6 +38,7 @@ def create_app() -> FastAPI:
     install_middleware(app)
 
     for mod in (
+        activity_routes,
         status,
         chat,
         sessions,

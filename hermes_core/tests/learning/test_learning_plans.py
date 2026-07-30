@@ -39,8 +39,19 @@ def _draft(ctx, title="Plan"):
                 {
                     "title": "Refresh basics",
                     "tasks": [
-                        {"title": "Review factor pairs", "order": 1, "done_when": "Can list pairs"},
-                        {"title": "Do mixed drill", "order": 2, "done_when": "Score at least 80%"},
+                        {
+                            "title": "Review factor pairs",
+                            "order": 1,
+                            "done_when": "Can list pairs",
+                            "mode": "learn",
+                            "outline_node_id": "section-factors",
+                        },
+                        {
+                            "title": "Do mixed drill",
+                            "order": 2,
+                            "done_when": "Score at least 80%",
+                            "mode": "practice",
+                        },
                     ],
                 }
             ],
@@ -66,6 +77,8 @@ def test_activate_plan_archives_previous_and_materializes_stable_items(ctx):
     items = service.list_plan_items(artifact_id=second)
     assert [item["item_id"] for item in items] == [f"{second}-0000", f"{second}-0001"]
     assert [item["title"] for item in items] == ["Review factor pairs", "Do mixed drill"]
+    assert [item["mode"] for item in items] == ["learn", "practice"]
+    assert items[0]["outlineNodeId"] == "section-factors"
     assert all(item["status"] == "open" for item in items)
     assert service.activate_plan(second)["materialized"] == 0
 

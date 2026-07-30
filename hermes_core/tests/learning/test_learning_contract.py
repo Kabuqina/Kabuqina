@@ -426,6 +426,55 @@ def test_learning_plan_requires_phases():
         validate_envelope(_envelope("learning_plan", {"goals": ["x"]}))
 
 
+def test_learning_plan_accepts_bounded_action_mode_and_outline_binding():
+    env = validate_envelope(
+        _envelope(
+            "learning_plan",
+            {
+                "phases": [{
+                    "title": "Limits",
+                    "tasks": [{
+                        "title": "Try a limit problem",
+                        "mode": "practice",
+                        "outline_node_id": "section-limits",
+                    }],
+                }],
+            },
+        )
+    )
+    assert env.payload["phases"][0]["tasks"][0]["mode"] == "practice"
+
+
+def test_learning_plan_rejects_unknown_action_mode():
+    with pytest.raises(ContractError, match="mode"):
+        validate_envelope(
+            _envelope(
+                "learning_plan",
+                {
+                    "phases": [{
+                        "title": "Limits",
+                        "tasks": [{"title": "Do it", "mode": "watch"}],
+                    }],
+                },
+            )
+        )
+
+
+def test_learning_plan_rejects_non_string_action_mode():
+    with pytest.raises(ContractError, match="mode"):
+        validate_envelope(
+            _envelope(
+                "learning_plan",
+                {
+                    "phases": [{
+                        "title": "Limits",
+                        "tasks": [{"title": "Do it", "mode": ["practice"]}],
+                    }],
+                },
+            )
+        )
+
+
 def test_resource_pack_requires_purpose():
     with pytest.raises(ContractError):
         validate_envelope(
@@ -639,6 +688,67 @@ def test_quiz_short_answer_accepted_list_is_valid():
         )
     )
     assert env.kind == "quiz"
+
+
+def test_quiz_question_accepts_stable_core_and_source_provenance():
+    question = {
+        "type": "short_answer",
+        "prompt": "Explain the limit.",
+        "answer": "factor first",
+        "knowledge_core_id": "core-limit-001",
+        "origin": "source",
+        "source_refs": [
+            {
+                "material_id": "book-1",
+                "title": "Calculus",
+                "locator": "section 2.3, p. 41",
+            }
+        ],
+    }
+
+    envelope = validate_envelope(_envelope("quiz", {"questions": [question]}))
+
+    assert envelope.payload["questions"][0]["knowledge_core_id"] == "core-limit-001"
+    assert envelope.payload["questions"][0]["origin"] == "source"
+
+
+@pytest.mark.parametrize("origin", ["source", "adapted", "generated"])
+def test_provenance_marked_quiz_question_requires_knowledge_core(origin):
+    question = {
+        "type": "short_answer",
+        "prompt": "Explain the limit.",
+        "answer": "factor first",
+        "origin": origin,
+        **({"source_refs": ["book-1#p41"]} if origin != "generated" else {}),
+    }
+    with pytest.raises(ContractError, match="knowledge_core_id"):
+        validate_envelope(_envelope("quiz", {"questions": [question]}))
+
+
+@pytest.mark.parametrize("origin", ["source", "adapted"])
+def test_material_based_quiz_question_requires_a_source_ref(origin):
+    question = {
+        "type": "short_answer",
+        "prompt": "Explain the limit.",
+        "answer": "factor first",
+        "knowledge_core_id": "core-limit-001",
+        "origin": origin,
+        "source_refs": [],
+    }
+    with pytest.raises(ContractError, match="source ref"):
+        validate_envelope(_envelope("quiz", {"questions": [question]}))
+
+
+def test_quiz_question_rejects_unknown_exercise_origin():
+    question = {
+        "type": "short_answer",
+        "prompt": "Explain the limit.",
+        "answer": "factor first",
+        "knowledge_core_id": "core-limit-001",
+        "origin": "textbook-ish",
+    }
+    with pytest.raises(ContractError, match="origin"):
+        validate_envelope(_envelope("quiz", {"questions": [question]}))
 
 
 def test_quiz_question_accepts_versioned_hint_and_explanation_rubric():

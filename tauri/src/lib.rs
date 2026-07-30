@@ -14,6 +14,7 @@
 //! All business logic lives in Python. This crate is a thin process
 //! supervisor + secret/safety boundary.
 
+mod activity;
 mod approval;
 mod bridge;
 mod capture;
@@ -132,6 +133,7 @@ pub fn run() {
         .manage(state)
         .manage(capture::CaptureState::default())
         .invoke_handler(tauri::generate_handler![
+            activity::cmd_activity_records,
             secrets::cmd_save_secret,
             secrets::cmd_has_secret,
             secrets::cmd_llm_config_preview,
@@ -245,6 +247,9 @@ pub fn run() {
             study::cmd_study_artifact_source_audit,
             study::cmd_study_artifact_semantic_review,
             study::cmd_study_knowledge_points,
+            study::cmd_study_learning_map_get,
+            study::cmd_study_location_get,
+            study::cmd_study_location_put,
             study::cmd_study_wrongbook,
             study::cmd_study_activities,
             study::cmd_study_activity_start,
@@ -275,6 +280,8 @@ pub fn run() {
             study::cmd_study_preferences_get,
             study::cmd_study_preferences_put,
             study::cmd_study_material_read,
+            study::cmd_study_material_open,
+            study::cmd_study_material_reader,
             study::cmd_study_data_import,
             study::cmd_study_data_import_file,
             study::cmd_study_prepare_downgrade,

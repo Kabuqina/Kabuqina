@@ -108,10 +108,12 @@ QUIZ_QUESTION_TYPES: frozenset = frozenset(
     {"choice", "true_false", "short_answer", "code", "derivation"}
 )
 CODE_QUESTION_MODES: frozenset = frozenset({"solve", "transcribe", "variant"})
+LEARNING_PLAN_ACTION_MODES: frozenset = frozenset({"learn", "practice", "review"})
 DERIVATION_QUESTION_MODES: frozenset = frozenset({"solve", "transcribe"})
 DERIVATION_CHECKS: frozenset = frozenset(
     {"numeric-equivalence", "normalized-match"}
 )
+EXERCISE_ORIGINS: frozenset = frozenset({"source", "adapted", "generated"})
 
 
 class ContractError(ValueError):
@@ -252,6 +254,13 @@ def _v_learning_plan(p: Mapping[str, Any]) -> None:
             if "order" in tm and not isinstance(tm["order"], int):
                 raise ContractError(f"{tctx}: 'order' must be an integer")
             _opt_str(tm, "done_when", tctx)
+            _opt_str(tm, "outline_node_id", tctx)
+            _opt_str(tm, "mode", tctx)
+            if "mode" in tm and tm["mode"] not in LEARNING_PLAN_ACTION_MODES:
+                raise ContractError(
+                    f"{tctx}: 'mode' must be one of "
+                    f"{sorted(LEARNING_PLAN_ACTION_MODES)!r}"
+                )
 
 
 def _v_resource_pack(p: Mapping[str, Any]) -> None:
@@ -411,6 +420,26 @@ def _v_quiz(p: Mapping[str, Any]) -> None:
                 f"expected one of {sorted(QUIZ_QUESTION_TYPES)}"
             )
         _req_str(qm, "prompt", ctx)
+        _opt_str(qm, "knowledge_core_id", ctx)
+        _opt_str(qm, "origin", ctx)
+        origin = qm.get("origin")
+        if origin is not None:
+            if origin not in EXERCISE_ORIGINS:
+                raise ContractError(
+                    f"{ctx}: 'origin' must be one of {sorted(EXERCISE_ORIGINS)}"
+                )
+            if not isinstance(qm.get("knowledge_core_id"), str) or not qm["knowledge_core_id"].strip():
+                raise ContractError(
+                    f"{ctx}: provenance-marked question needs 'knowledge_core_id'"
+                )
+        if "source_refs" in qm:
+            refs = _validate_source_refs(qm["source_refs"])
+            if origin in {"source", "adapted"} and not refs:
+                raise ContractError(
+                    f"{ctx}: {origin} question needs at least one source ref"
+                )
+        elif origin in {"source", "adapted"}:
+            raise ContractError(f"{ctx}: {origin} question needs 'source_refs'")
         _QUIZ_TYPE_VALIDATORS[qtype](qm, ctx)
         _opt_str(qm, "explanation", ctx)
         try:

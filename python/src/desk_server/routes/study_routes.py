@@ -20,6 +20,7 @@ from learning.evaluations import EvaluationService
 from learning.flashcards import FlashcardService
 from learning.learning_contract import ContractError, LIFECYCLE_STATUSES
 from learning.learning_plans import LearningPlanService
+from learning.learning_map import LearningMapService
 from learning.learning_data_service import CompositeLearningDataService
 from learning.lifecycle import ArtifactLifecycleService
 from learning.learning_store import (
@@ -45,7 +46,9 @@ from learning.study_preferences import (
 from learning.tutor_contract import TutorConflictError, TutorContractError
 from learning.tutor_runtime_store import TutorRuntimeError, TutorRuntimeStore
 from learning.wrongbook import WrongbookService
+from tools.document.common import temporary_document_read_access
 from tools.document.reading import document_read_precise, pdf_read_precise
+from path_policy import temporary_read_access
 import learning_owner
 from learning_owner import desktop_learning_scope
 from study_review_reminder import StudyReviewReminderService
@@ -606,6 +609,102 @@ async def study_preferences_put(body: Dict[str, Any]):
         raise _http_error(exc) from exc
 
 
+def _normalized_material_path(path: str) -> str:
+    return os.path.normcase(os.path.abspath(path)).casefold()
+
+
+def _register_imported_material(
+    space_id: str,
+    path: str,
+    read_result: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Attach one user-owned source file without inventing course content.
+
+    The current book-spine projection reads active resource-pack summaries, so
+    a single imported file is represented as a one-resource pack with explicit
+    local provenance. No generated outline, knowledge core, or exercise is
+    created or activated here.
+    """
+    normalized_path = _normalized_material_path(path)
+    source_path = os.path.abspath(path)
+    filename = Path(source_path).name
+    title = Path(filename).stem or filename
+    with _desktop_ctx(space_id=space_id) as ctx:
+        replace_pending_artifact_id = ""
+        extracted_outline = read_result.get("outline")
+        has_reliable_outline = isinstance(extracted_outline, list) and bool(extracted_outline)
+        for existing in ctx.list_artifacts(kind="resource_pack"):
+            if existing.get("status") not in {"draft", "active"}:
+                continue
+            refs = existing.get("envelope", {}).get("source_refs") or []
+            for ref in refs:
+                if not isinstance(ref, dict) or ref.get("origin") != "imported":
+                    continue
+                existing_path = str(ref.get("path") or "")
+                if existing_path and _normalized_material_path(existing_path) == normalized_path:
+                    if (
+                        has_reliable_outline
+                        and ref.get("structure_status") != "reliable"
+                    ):
+                        replace_pending_artifact_id = str(existing["artifact_id"])
+                        break
+                    return {
+                        "artifact_id": existing["artifact_id"],
+                        "title": existing["title"],
+                        "status": existing["status"],
+                        "deduplicated": True,
+                    }
+            if replace_pending_artifact_id:
+                break
+
+        if replace_pending_artifact_id:
+            existing = ctx.get_artifact(replace_pending_artifact_id)
+            if existing and existing.get("status") == "active":
+                ctx.set_artifact_status(replace_pending_artifact_id, "archived")
+            elif existing and existing.get("status") == "draft":
+                ctx.set_artifact_status(replace_pending_artifact_id, "rejected")
+
+        source_ref = {
+            "origin": "imported",
+            # Import only establishes the source. A reliable extracted outline
+            # or a user-confirmed inferred outline is a later, reviewable step.
+            "structure_status": "reliable" if has_reliable_outline else "missing",
+            "structure_origin": "embedded_pdf_outline" if has_reliable_outline else "none",
+            "source_label": filename,
+            "path": source_path,
+            "filename": filename,
+            "suffix": Path(filename).suffix.lower(),
+            "read_id": str(read_result.get("read_id") or ""),
+            "pages": int(read_result.get("total_pages") or read_result.get("pages") or 0),
+            "engine": str(read_result.get("engine") or ""),
+        }
+        artifact = ctx.put_artifact(
+            kind="resource_pack",
+            title=title,
+            payload={
+                "resources": [
+                    {
+                        "title": filename,
+                        "purpose": "学生导入的课程原始材料",
+                        "credibility": "原始文件；内容未经小娜改写",
+                    }
+                ],
+                "outline": extracted_outline if has_reliable_outline else [],
+            },
+            source_refs=[source_ref],
+            # Trusted desktop import: only the existence and provenance of the
+            # learner's file are accepted, never generated semantic claims.
+            review={"mode": "semantic", "status": "passed"},
+        )
+        ctx.set_artifact_status(artifact["artifact_id"], "active")
+        return {
+            "artifact_id": artifact["artifact_id"],
+            "title": title,
+            "status": "active",
+            "deduplicated": False,
+        }
+
+
 @router.post("/api/desk/study/materials/read")
 async def study_material_read(body: Dict[str, Any]):
     """Read one import source under the Study-only default/hard-cap policy.
@@ -622,6 +721,7 @@ async def study_material_read(body: Dict[str, Any]):
     include_content = body.get("includeContent", True)
     if type(include_content) is not bool:
         raise _http_error(ValueError("includeContent must be a boolean"))
+    space_id = str(body.get("spaceId") or "").strip() or None
     try:
         with _desktop_ctx() as ctx:
             preferences = StudyPreferencesService(ctx).get()
@@ -635,15 +735,30 @@ async def study_material_read(body: Dict[str, Any]):
             if Path(path).suffix.lower() == ".pdf"
             else document_read_precise
         )
-        raw = reader(
-            path=path,
-            mode=decision["effective_mode"],
-            include_content=include_content,
-            page_start=body.get("pageStart"),
-            page_end=body.get("pageEnd"),
-        )
+        # Document conversion is synchronous and can take tens of seconds on a
+        # large textbook. Running it on the FastAPI event loop made every other
+        # desk endpoint appear frozen while Study displayed only "reading".
+        # The OS picker is the user's explicit approval to read this one file.
+        # Keep that exception exact, read-only and request-scoped; never widen
+        # the workspace jail to the selected file's parent directory.
+        with temporary_document_read_access(path):
+            with temporary_read_access(path):
+                raw = await asyncio.to_thread(
+                    reader,
+                    path=path,
+                    mode=decision["effective_mode"],
+                    include_content=include_content,
+                    page_start=body.get("pageStart"),
+                    page_end=body.get("pageEnd"),
+                )
         result = json.loads(raw)
-        return {
+        if result.get("ok") is not True:
+            detail = str(result.get("error") or result.get("detail") or "material read failed")
+            raise ValueError(detail)
+        material = None
+        if space_id:
+            material = _register_imported_material(space_id, path, result)
+        response = {
             "preferredMode": decision["preferred_mode"],
             "requestedMode": decision["requested_mode"],
             "effectiveMode": decision["effective_mode"],
@@ -651,7 +766,81 @@ async def study_material_read(body: Dict[str, Any]):
             "override": decision["override"],
             "result": result,
         }
+        if material is not None:
+            response["material"] = material
+        return response
     except (ValueError, KeyError, ContractError, json.JSONDecodeError) as exc:
+        raise _http_error(exc) from exc
+
+
+def _reader_source(artifact: Dict[str, Any]) -> tuple[Path, Dict[str, Any]]:
+    if artifact.get("kind") != "resource_pack":
+        raise ValueError("material reader requires an imported resource")
+    refs = artifact.get("envelope", {}).get("source_refs") or []
+    for ref in refs:
+        if not isinstance(ref, dict) or ref.get("origin") != "imported":
+            continue
+        path = Path(str(ref.get("path") or "")).expanduser()
+        if path.is_file():
+            return path, ref
+    raise FileNotFoundError("the imported material file is no longer available")
+
+
+@router.post("/api/desk/study/materials/{artifact_id}/reader")
+async def study_material_reader(artifact_id: str, body: Dict[str, Any]):
+    """Read a bounded page window from a trusted imported material artifact.
+
+    The webview supplies only an artifact id and page range. The local path is
+    resolved from the learner-owned artifact record so a compromised frontend
+    cannot turn the reader into an arbitrary filesystem endpoint.
+    """
+    try:
+        # Tauri commands use camelCase at the webview boundary while the
+        # Python Study routes otherwise use snake_case request bodies. Accept
+        # both spellings here without widening the route's authority.
+        space_id = str(body.get("space_id") or body.get("spaceId") or "").strip()
+        if not space_id:
+            raise ValueError("space_id is required")
+        page_start = int(body.get("pageStart") or 1)
+        page_end = int(body.get("pageEnd") or page_start + 5)
+        if page_start < 1 or page_end < page_start or page_end - page_start > 11:
+            raise ValueError("reader page range must be 1-based and contain at most 12 pages")
+        with _desktop_ctx(space_id=space_id) as ctx:
+            artifact = _require_artifact(ctx, artifact_id)
+            path, source_ref = _reader_source(artifact)
+            payload = artifact.get("envelope", {}).get("payload") or {}
+            outline = payload.get("outline") if isinstance(payload, dict) else []
+
+        reader = pdf_read_precise if path.suffix.lower() == ".pdf" else document_read_precise
+        kwargs: Dict[str, Any] = {
+            "path": str(path),
+            "mode": "fast",
+            "include_content": True,
+        }
+        if path.suffix.lower() == ".pdf":
+            kwargs.update(page_start=page_start, page_end=page_end)
+        with temporary_document_read_access(path):
+            with temporary_read_access(path):
+                raw = await asyncio.to_thread(reader, **kwargs)
+        result = json.loads(raw)
+        if result.get("ok") is not True:
+            raise ValueError(str(result.get("error") or result.get("detail") or "material reader failed"))
+
+        content = str(result.get("content") or "")
+        return {
+            "artifactId": artifact_id,
+            "title": str(artifact.get("title") or path.stem),
+            "filename": path.name,
+            "suffix": path.suffix.lower(),
+            "totalPages": int(result.get("total_pages") or source_ref.get("pages") or 1),
+            "pageStart": int(result.get("page_start") or 1),
+            "pageEnd": int(result.get("page_end") or result.get("pages") or 1),
+            "content": content[:120_000],
+            "outline": outline if isinstance(outline, list) else [],
+            "textQuality": str(result.get("text_quality") or "unknown"),
+            "warning": str(result.get("warning") or ""),
+        }
+    except (ValueError, KeyError, FileNotFoundError, ContractError, json.JSONDecodeError) as exc:
         raise _http_error(exc) from exc
 
 @router.get("/api/desk/study/artifacts/{artifact_id}")
@@ -894,7 +1083,9 @@ async def study_knowledge_points(
                 if not source:
                     continue
                 item = {
-                    "item_id": str(card.get("item_id") or ""),
+                    "item_id": str(
+                        source.get("knowledge_core_id") or card.get("item_id") or ""
+                    ),
                     "artifact_id": str(card.get("artifact_id") or ""),
                     "front": str(card.get("front") or ""),
                     "gist": str(card.get("back") or ""),
@@ -914,6 +1105,66 @@ async def study_knowledge_points(
                 "truncated": count > len(page),
             }
     except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
+
+@router.get("/api/desk/study/learning-map")
+async def study_learning_map(space_id: str = Query(...)):
+    """Return the versioned Course map derived from confirmed Study truth."""
+    try:
+        with _desktop_ctx(space_id=space_id) as ctx:
+            return LearningMapService(ctx).get_map()
+    except (ValueError, KeyError, ContractError, LearningConflictError) as exc:
+        raise _http_error(exc) from exc
+
+
+@router.get("/api/desk/study/location")
+async def study_location_get(space_id: str = Query(...)):
+    """Return the server-owned shared Course cursor, or null for a new Course."""
+    try:
+        with _desktop_ctx(space_id=space_id) as ctx:
+            return LearningMapService(ctx).get_location()
+    except (ValueError, KeyError, ContractError, LearningConflictError) as exc:
+        raise _http_error(exc) from exc
+
+
+@router.put("/api/desk/study/location")
+async def study_location_put(body: Dict[str, Any]):
+    allowed = {
+        "spaceId",
+        "expectedRevision",
+        "expectedMapRevision",
+        "page",
+        "knowledgeCoreId",
+        "exerciseId",
+    }
+    if not isinstance(body, dict) or set(body) - allowed:
+        raise _http_error(ValueError("location request fields are invalid"))
+    expected_revision = body.get("expectedRevision")
+    if type(expected_revision) is not int or expected_revision < 0:
+        raise _http_error(
+            ValueError("expectedRevision must be a non-negative integer")
+        )
+    expected_map_revision = body.get("expectedMapRevision")
+    if expected_map_revision is not None and (
+        type(expected_map_revision) is not int or expected_map_revision < 1
+    ):
+        raise _http_error(
+            ValueError("expectedMapRevision must be a positive integer")
+        )
+    space_id = str(body.get("spaceId") or "").strip()
+    if not space_id:
+        raise _http_error(ValueError("spaceId is required"))
+    try:
+        with _desktop_ctx(space_id=space_id) as ctx:
+            return LearningMapService(ctx).put_location(
+                expected_revision=expected_revision,
+                expected_map_revision=expected_map_revision,
+                page=str(body.get("page") or "").strip(),
+                knowledge_core_id=body.get("knowledgeCoreId"),
+                exercise_id=body.get("exerciseId"),
+            )
+    except (ValueError, KeyError, ContractError, LearningConflictError) as exc:
         raise _http_error(exc) from exc
 
 

@@ -61,11 +61,27 @@ class PracticeGenerator:
             }
 
         title, question_payload, self_checked = candidate
+        source_refs = [
+            ref for ref in (question.get("source_refs") or [])
+            if isinstance(ref, (str, dict))
+        ][:199]
+        knowledge_core_id = _text(question.get("knowledge_core_id"), 200)
+        if knowledge_core_id and source_refs:
+            # A deterministic transformation is still an adapted question, not
+            # a material original. Keep the exact core and material lineage.
+            question_payload.update({
+                "knowledge_core_id": knowledge_core_id,
+                "origin": "adapted",
+                "source_refs": source_refs,
+            })
         written = OutputWriter(self._ctx).write_artifact(
             kind="quiz",
             title=title,
             payload={"questions": [question_payload]},
-            source_refs=[{"origin": PRACTICE_SOURCE_ORIGIN, "item_id": item_id}],
+            source_refs=[
+                {"origin": PRACTICE_SOURCE_ORIGIN, "item_id": item_id},
+                *source_refs,
+            ],
         )
         return {
             "generated": True,

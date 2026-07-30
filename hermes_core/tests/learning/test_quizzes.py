@@ -102,6 +102,45 @@ def test_activate_quiz_materializes_questions_as_items(ctx):
     assert all("accepted" not in question for question in questions)
 
 
+def test_activate_quiz_preserves_public_core_and_source_provenance(ctx):
+    artifact_id = OutputWriter(ctx).write_artifact(
+        kind="quiz",
+        title="Material exercise",
+        payload={
+            "questions": [
+                {
+                    "type": "short_answer",
+                    "prompt": "Why is 0/0 not the limit?",
+                    "answer": "It is indeterminate.",
+                    "knowledge_core_id": "core-limit-001",
+                    "origin": "source",
+                    "source_refs": [
+                        {
+                            "material_id": "book-1",
+                            "title": "Calculus",
+                            "locator": "section 2.3, p. 41",
+                        }
+                    ],
+                }
+            ]
+        },
+    )["artifact_id"]
+
+    QuizService(ctx, now=lambda: T0).activate_quiz(artifact_id)
+    question = QuizService(ctx).list_questions(artifact_id=artifact_id)[0]
+
+    assert question["knowledge_core_id"] == "core-limit-001"
+    assert question["origin"] == "source"
+    assert question["source_refs"] == [
+        {
+            "material_id": "book-1",
+            "title": "Calculus",
+            "locator": "section 2.3, p. 41",
+        }
+    ]
+    assert "answer" not in question
+
+
 def test_reject_quiz_does_not_materialize_questions(ctx):
     artifact_id = _draft_quiz(ctx)
     service = QuizService(ctx, now=lambda: T0)

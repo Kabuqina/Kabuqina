@@ -3,6 +3,7 @@
 
 """Unit tests for policy objects (no Hermes import chain needed)."""
 
+import asyncio
 import os
 import sys
 import tempfile
@@ -15,7 +16,7 @@ _src = str(Path(__file__).resolve().parent.parent / "src")
 if _src not in sys.path:
     sys.path.insert(0, _src)
 
-from path_policy import PathPolicy, PathPolicyError, _HOST_PREFS_FILENAME
+from path_policy import PathPolicy, PathPolicyError, _HOST_PREFS_FILENAME, temporary_read_access
 from network_policy import NetworkPolicy
 from tool_policy import ToolPolicy
 from secret_store import SecretStore
@@ -51,6 +52,25 @@ class TestPathPolicy(unittest.TestCase):
     def test_block_escaped_path(self):
         with self.assertRaises(PathPolicyError):
             self.policy.enforce(Path(os.sep) / "etc" / "passwd", write=True)
+
+    def test_temporary_read_access_is_exact_read_only_and_scoped(self):
+        selected = Path(tempfile.gettempdir()).parent / "outside" / "course.pdf"
+        with self.assertRaises(PathPolicyError):
+            self.policy.enforce(selected, write=False)
+
+        with temporary_read_access(selected):
+            self.assertEqual(self.policy.enforce(selected, write=False), selected)
+            self.assertEqual(
+                asyncio.run(asyncio.to_thread(self.policy.enforce, selected, write=False)),
+                selected,
+            )
+            with self.assertRaises(PathPolicyError):
+                self.policy.enforce(selected.parent / "other.pdf", write=False)
+            with self.assertRaises(PathPolicyError):
+                self.policy.enforce(selected, write=True)
+
+        with self.assertRaises(PathPolicyError):
+            self.policy.enforce(selected, write=False)
 
     def test_read_only_on_write_extra(self):
         result = self.policy.enforce(self.write_dir / "out.txt", write=False)

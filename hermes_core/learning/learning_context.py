@@ -223,6 +223,23 @@ class LearningExecutionContext:
             state,
         )
 
+    def compare_and_put_item_state_revision(
+        self,
+        *,
+        item_id: str,
+        item_type: str,
+        expected_revision: int,
+        state: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        return self._store.compare_and_put_item_state_revision(
+            self._owner_id,
+            self._require_space(),
+            item_id=item_id,
+            item_type=item_type,
+            expected_revision=expected_revision,
+            state=state,
+        )
+
     def record_activity(
         self,
         *,

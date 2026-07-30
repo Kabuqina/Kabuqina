@@ -601,20 +601,79 @@ def _read_with_docling_impl(
     }
 
 
-def _read_pdf_with_pypdf(pdf_path: Path) -> Dict[str, Any]:
+def _read_pdf_outline(reader: Any) -> List[Dict[str, Any]]:
+    """Extract the PDF's own bookmark tree without asking a model to invent one."""
+    raw = getattr(reader, "outline", None)
+    if not isinstance(raw, list):
+        return []
+    sequence = 0
+    remaining = 1000
+
+    def walk(items: List[Any], depth: int) -> List[Dict[str, Any]]:
+        nonlocal sequence, remaining
+        nodes: List[Dict[str, Any]] = []
+        for item in items:
+            if remaining <= 0:
+                break
+            if isinstance(item, list):
+                children = walk(item, depth + 1)
+                if nodes and children:
+                    nodes[-1]["children"] = children
+                elif children:
+                    nodes.extend(children)
+                continue
+            title = str(getattr(item, "title", "") or "").strip()
+            if not title:
+                continue
+            sequence += 1
+            remaining -= 1
+            page = None
+            try:
+                page_index = reader.get_destination_page_number(item)
+                if isinstance(page_index, int) and page_index >= 0:
+                    page = page_index + 1
+            except Exception:
+                pass
+            nodes.append({
+                "id": f"pdf-outline-{sequence}",
+                "title": title[:500],
+                "level": min(depth, 3),
+                **({"page": page} if page is not None else {}),
+            })
+        return nodes
+
+    return walk(raw, 1)
+
+
+def _read_pdf_with_pypdf(
+    pdf_path: Path,
+    page_range: Optional[Tuple[int, int]] = None,
+) -> Dict[str, Any]:
     from pypdf import PdfReader
 
     reader = PdfReader(str(pdf_path))
+    total_pages = len(reader.pages)
+    start, end = page_range or (1, total_pages)
+    start = min(start, total_pages + 1)
+    end = min(end, total_pages)
     chunks: List[str] = []
-    for idx, page in enumerate(reader.pages, 1):
+    for idx in range(start, end + 1):
+        page = reader.pages[idx - 1]
         text = page.extract_text() or ""
         chunks.append(f"<!-- page:{idx} -->\n{text}".strip())
+    outline = _read_pdf_outline(reader)
     return {
         "ok": True,
         "engine": "pypdf",
         "mode": "fallback",
         "path": str(pdf_path),
-        "pages": len(reader.pages),
+        "pages": max(0, end - start + 1),
+        "total_pages": total_pages,
+        "page_start": start,
+        "page_end": end,
+        "structure_status": "reliable" if outline else "missing",
+        "structure_origin": "embedded_pdf_outline" if outline else "none",
+        "outline": outline,
         "content": "\n\n".join(chunks).strip(),
         "warning": "Used text-only pypdf fallback because Docling could not parse this PDF.",
     }
@@ -739,6 +798,13 @@ def _pdf_fast_text_is_sufficient(payload: Dict[str, Any]) -> bool:
     """
     content = str(payload.get("content") or "").strip()
     if len(content) < 200:
+        return False
+    # Some born-digital Chinese PDFs expose broken character maps. pypdf then
+    # returns plenty of text, but most glyphs are U+FFFD replacement characters.
+    # Counting characters alone used to classify that mojibake as a successful
+    # fast read, preventing Docling from getting a chance to recover the page.
+    replacement_count = content.count("\ufffd")
+    if replacement_count >= max(8, len(content) // 100):
         return False
     pages = int(payload.get("pages") or 0)
     if pages > 0 and (len(content) / pages) < 40:
@@ -897,26 +963,42 @@ def _read_document_precise_payload(
     if math_guard is not None:
         return math_guard
 
-    # Fast text-first for PDFs in auto/fast mode: a text-based paper/report
-    # extracts in well under a second with pypdf, versus minutes of Docling
-    # layout inference on CPU. Scanned/sparse PDFs fail the sufficiency guard
-    # and fall through to Docling. precise/math modes always use Docling.
+    # Fast text-first for PDFs in auto/fast mode. This mode is a latency
+    # promise: it must never silently escalate to Docling's CPU-heavy layout
+    # pipeline. Sparse/scanned text is returned as weak so Study can offer an
+    # explicit precise retry. precise/math modes always use Docling.
     if suffix == ".pdf" and _docling_profile_for_mode(mode) == "fast":
         try:
-            fast = _read_pdf_with_pypdf(document_path)
-        except Exception:
-            fast = None
-        if fast is not None and _pdf_fast_text_is_sufficient(fast):
-            fast["mode"] = mode
-            fast["engine"] = "pypdf"
-            fast["warning"] = (
-                "Fast text-only PDF read (pypdf) — chosen for speed, not a Docling "
-                "failure. For layout, tables, or formula extraction, re-read with "
-                "mode=precise or mode=math."
+            fast = (
+                _read_pdf_with_pypdf(document_path, page_range)
+                if page_range is not None
+                else _read_pdf_with_pypdf(document_path)
             )
-            return _finalize_read_payload(fast, document_path, include_content=include_content)
+        except Exception as exc:
+            return _error_payload(
+                f"Fast PDF read failed: {exc}",
+                ok=False,
+                code="pdf_fast_read_failed",
+                hint="Check that the file still exists, or explicitly retry with precise mode.",
+            )
+        sufficient = _pdf_fast_text_is_sufficient(fast)
+        fast["mode"] = mode
+        fast["engine"] = "pypdf"
+        fast["text_quality"] = "sufficient" if sufficient else "weak"
+        fast["warning"] = (
+            "Fast text-only PDF read (pypdf) — chosen for speed, not a Docling "
+            "failure. For layout, tables, or formula extraction, re-read with "
+            "mode=precise or mode=math."
+            if sufficient
+            else "Fast read found little reliable text. The file was kept as a course "
+            "source; explicitly retry with precise mode if OCR or layout recovery is needed."
+        )
+        return _finalize_read_payload(fast, document_path, include_content=include_content)
 
-    if _should_try_lightweight_first(suffix, mode):
+    # PDF already had its guarded pypdf attempt above. Re-running the same
+    # fallback here used to bypass the sparse/mojibake guard and incorrectly
+    # report success instead of falling through to Docling.
+    if suffix != ".pdf" and _should_try_lightweight_first(suffix, mode):
         try:
             fallback = _read_with_fallback(document_path)
             if fallback is not None:
@@ -943,7 +1025,11 @@ def _read_document_precise_payload(
                 )
 
     try:
-        fallback = _read_with_fallback(document_path)
+        fallback = (
+            _read_pdf_with_pypdf(document_path, page_range)
+            if suffix == ".pdf" and page_range is not None
+            else _read_with_fallback(document_path)
+        )
         if fallback is not None:
             return _finalize_read_payload(
                 _attach_docling_error(fallback, docling_error),

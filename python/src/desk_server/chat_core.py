@@ -543,6 +543,7 @@ def _desk_learning_ephemeral_prompt(
             "item_id": str(current_item.get("item_id") or "")[:160],
             "title": str(current_item.get("title") or "")[:300],
             "done_when": str(current_item.get("done_when") or "")[:300],
+            "mode": str(current_item.get("mode") or "learn")[:40],
             "status": str(current_item.get("status") or "")[:40],
         }
     payload = {

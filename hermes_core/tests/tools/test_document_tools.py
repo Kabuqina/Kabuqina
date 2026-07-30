@@ -93,6 +93,32 @@ def test_validate_read_path_allows_outside_workspace_for_power_user(tmp_path, mo
     assert json.loads(write_rejected).get("code") == "outside_workspace"
 
 
+def test_validate_read_path_allows_only_exact_temporary_host_selection(
+    tmp_path, monkeypatch
+):
+    from tools.document.common import temporary_document_read_access
+    from tools.document_tools import _validate_read_path
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    outside = tmp_path / "books" / "course.pdf"
+    sibling = tmp_path / "books" / "answers.pdf"
+    outside.parent.mkdir()
+    outside.write_bytes(b"%PDF-1.4\n")
+    sibling.write_bytes(b"%PDF-1.4\n")
+
+    monkeypatch.delenv("HERMESDESK_POWER_USER", raising=False)
+    monkeypatch.setenv("HERMESDESK_WORKSPACE", str(workspace))
+
+    with temporary_document_read_access(outside):
+        assert _validate_read_path(outside, str(outside), "PDF") is None
+        rejected_sibling = _validate_read_path(sibling, str(sibling), "PDF")
+        assert json.loads(rejected_sibling).get("code") == "outside_workspace"
+
+    rejected_after = _validate_read_path(outside, str(outside), "PDF")
+    assert json.loads(rejected_after).get("code") == "outside_workspace"
+
+
 def test_pdf_read_precise_math_rejects_large_pdf_without_page_range(tmp_path, monkeypatch):
     from tools import document_tools
 
@@ -1004,7 +1030,7 @@ def test_pdf_fast_text_path_skips_docling_for_text_pdf(tmp_path, monkeypatch):
     assert "Fast text-only PDF read" in result["warning"]
 
 
-def test_pdf_fast_text_path_falls_through_to_docling_for_scanned_pdf(tmp_path, monkeypatch):
+def test_pdf_fast_text_path_returns_weak_without_docling_for_scanned_pdf(tmp_path, monkeypatch):
     import tools.document_tools as document_tools
 
     pdf = tmp_path / "scan.pdf"
@@ -1014,16 +1040,70 @@ def test_pdf_fast_text_path_falls_through_to_docling_for_scanned_pdf(tmp_path, m
         "_read_pdf_with_pypdf",
         lambda p: {"ok": True, "engine": "pypdf", "pages": 5, "content": "   "},
     )
-    monkeypatch.setattr(
-        reading,
-        "_read_with_docling",
-        lambda p, mode: {"ok": True, "engine": "docling", "mode": mode, "path": str(p), "pages": 5, "content": "Docling layout text"},
-    )
+    monkeypatch.setattr(reading, "_read_with_docling", lambda *_: (_ for _ in ()).throw(AssertionError("fast mode must not run Docling")))
 
     result = json.loads(document_tools.document_read_precise(path=str(pdf), mode="auto"))
 
     assert result["ok"] is True
-    assert result["engine"] == "docling"
+    assert result["engine"] == "pypdf"
+    assert result["text_quality"] == "weak"
+
+
+def test_pdf_fast_text_path_returns_weak_for_replacement_character_mojibake(
+    tmp_path, monkeypatch
+):
+    import tools.document_tools as document_tools
+
+    pdf = tmp_path / "broken-cmap.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    monkeypatch.setattr(
+        reading,
+        "_read_pdf_with_pypdf",
+        lambda p: {
+            "ok": True,
+            "engine": "pypdf",
+            "pages": 2,
+            "content": ("\ufffd\ufffd Python \ufffd\ufffd\ufffd " * 100),
+        },
+    )
+    monkeypatch.setattr(reading, "_read_with_docling", lambda *_: (_ for _ in ()).throw(AssertionError("fast mode must not run Docling")))
+
+    result = json.loads(document_tools.document_read_precise(path=str(pdf), mode="auto"))
+
+    assert result["ok"] is True
+    assert result["engine"] == "pypdf"
+    assert result["text_quality"] == "weak"
+
+
+def test_pdf_fast_page_range_is_forwarded_to_pypdf(tmp_path, monkeypatch):
+    import tools.document_tools as document_tools
+
+    pdf = tmp_path / "book.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    seen = []
+
+    def _read_range(path, page_range):
+        seen.append(page_range)
+        return {
+            "ok": True,
+            "engine": "pypdf",
+            "pages": 12,
+            "total_pages": 342,
+            "content": "目录正文 " * 400,
+            "path": str(path),
+        }
+
+    monkeypatch.setattr(reading, "_read_pdf_with_pypdf", _read_range)
+
+    result = json.loads(
+        document_tools.document_read_precise(
+            path=str(pdf), mode="auto", page_start=1, page_end=12
+        )
+    )
+
+    assert seen == [(1, 12)]
+    assert result["pages"] == 12
+    assert result["total_pages"] == 342
 
 
 def test_pdf_precise_mode_still_uses_docling(tmp_path, monkeypatch):
@@ -1064,8 +1144,41 @@ def test_pdf_read_precise_falls_back_to_pypdf(tmp_path):
     assert result["engine"] in {"docling", "pypdf"}
     assert result["pages"] == 1
     if result["engine"] == "pypdf":
-        assert "Docling" in result["warning"]
-        assert "docling_error" in result
+        assert result["text_quality"] == "weak"
+        assert "precise mode" in result["warning"]
+        assert "docling_error" not in result
+
+
+def test_fast_pdf_read_extracts_the_real_embedded_outline(tmp_path):
+    from pypdf import PdfWriter
+    from tools.document_tools import pdf_read_precise
+
+    pdf = tmp_path / "outlined.pdf"
+    writer = PdfWriter()
+    writer.add_blank_page(width=72, height=72)
+    writer.add_blank_page(width=72, height=72)
+    chapter = writer.add_outline_item("第一章 基础", 0)
+    writer.add_outline_item("1.1 第一步", 1, parent=chapter)
+    with pdf.open("wb") as f:
+        writer.write(f)
+
+    result = json.loads(pdf_read_precise(path=str(pdf), mode="auto"))
+
+    assert result["engine"] == "pypdf"
+    assert result["structure_status"] == "reliable"
+    assert result["structure_origin"] == "embedded_pdf_outline"
+    assert result["outline"] == [{
+        "id": "pdf-outline-1",
+        "title": "第一章 基础",
+        "level": 1,
+        "page": 1,
+        "children": [{
+            "id": "pdf-outline-2",
+            "title": "1.1 第一步",
+            "level": 2,
+            "page": 2,
+        }],
+    }]
 
 
 def test_docling_converter_is_cached(monkeypatch):

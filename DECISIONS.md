@@ -1709,3 +1709,60 @@ the artifact or changes mastery, plans, cards or activity evidence.
 The product contract deliberately exposes no count, pending/unfiled metric, badge,
 search, tags, sorting, recommendation or bulk action. The notebook is 留白, not a
 triage inbox; filing stays quiet and optional.
+
+## Study plan action modes and outline binding (2026-07-30)
+
+A learning-plan task may declare `mode=learn|practice|review` and an optional
+`outline_node_id`. The mode controls which Study page opens; `review` deliberately
+opens Practice because it is a practice-source distinction, not a sixth Study page.
+Old tasks without a mode remain compatible and open Learn.
+
+The outline binding points only to a real imported material node. It does not turn a
+knowledge core into a fourth directory level. Source outlines remain at most three
+visible levels; deeper real nodes are projected as level-three siblings with their
+full source path retained for recognition and audit.
+
+## Study exercise identity and provenance (2026-07-30)
+
+Quiz questions may carry the optional, backward-compatible fields
+`knowledge_core_id`, `origin=source|adapted|generated`, and bounded `source_refs`.
+Once a question declares an origin it must declare the exact knowledge core;
+material originals and adaptations must also retain a real source locator. These
+fields are materialized with the active question and are public practice metadata,
+while answers and grading contracts remain hidden.
+
+Deterministic variants preserve the source question's exact core and material
+lineage but change the origin to `adapted`; they remain drafts until a trusted user
+activation. Web selects an explicit `knowledge_core_id` by exact equality and never
+falls back to title/tag guessing after an explicit mismatch. Legacy questions that
+predate these fields retain the conservative tag fallback only in legacy reading
+surfaces; the revisioned Course map does not manufacture a core link for them.
+Within one core, active questions are ordered as source,
+adapted, generated, then legacy; an existing wrong-answer location still restores
+that exact question ahead of the default order.
+
+## Revisioned Study map and read-only global Activity (2026-07-30)
+
+Each Course has one deterministic learning-map projection, not a second copy of
+textbook content. Its visible outline comes only from an active confirmed material
+skeleton or reliable imported outline; inferred structure is labeled
+`inferred_confirmed`, requires bounded source-and-locator evidence on every node,
+and cannot enter the map while still a proposal. The main outline is capped at
+three levels. Knowledge cores come from trusted `kq-kp` captures, and exercises
+join the map only through exact active `knowledge_core_id` links. Missing links
+remain empty rather than falling back to tags, titles, or whole quizzes.
+
+The map content hash/revision and shared Course location are reserved
+`learning_items`. This intentionally reuses Study ownership, ACL, coordination,
+backup/restore, and deletion instead of adding another database. Location writes
+use revision CAS in one SQLite transaction. A map change either preserves the same
+stable ids or marks the location `stale` with an explicit removed-core/exercise
+reason; it never silently redirects the learner to another core.
+
+Global Activity is a read-only desktop projection over Tutor runtime rows and
+Studio projects. Tutor status is normalized for the product surface, abandoned
+running executions are reconciled on restart, and domain resume/cancel commands
+remain the only mutation path. A Studio project is a recoverable scene
+(`project_scene` / `recoverable`), never a fabricated background run. Records use
+stable ids and deterministic return/fallback targets; completed Tutor history is
+bounded to the most recent 20 records by default.

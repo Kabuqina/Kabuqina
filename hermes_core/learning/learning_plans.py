@@ -117,6 +117,12 @@ class LearningPlanService:
                 item_index += 1
                 if iid in existing:
                     continue
+                task_mode = _clean(task.get("mode")) if isinstance(task, dict) else ""
+                if task_mode not in {"learn", "practice", "review"}:
+                    task_mode = "learn"
+                outline_node_id = (
+                    _clean(task.get("outline_node_id")) if isinstance(task, dict) else ""
+                )
                 state = {
                     "artifact_id": artifact_id,
                     "phaseIndex": phase_index,
@@ -129,6 +135,8 @@ class LearningPlanService:
                     "done_when": _clean(task.get("done_when"))
                     if isinstance(task, dict)
                     else "",
+                    "mode": task_mode,
+                    "outlineNodeId": outline_node_id,
                     "status": "open",
                     "completedAt": "",
                     "skippedAt": "",

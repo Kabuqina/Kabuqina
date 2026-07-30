@@ -12,8 +12,10 @@ from __future__ import annotations
 
 import os
 import os.path
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Iterator
 
 
 # Sentinel file that bots must never write to.
@@ -21,6 +23,25 @@ _HOST_PREFS_FILENAME = "_host_prefs.md"
 
 # Windows NUL device — libraries (e.g. Docling/RapidOCR) probe or redirect to it during init.
 _WIN_NULL_DEVICE_NAMES = frozenset({"nul"})
+
+# Exact, read-only paths explicitly chosen through a trusted desktop file
+# picker. ContextVar keeps the exception scoped to one request and is copied by
+# ``asyncio.to_thread``; it never becomes a process-wide directory allowlist.
+_TEMPORARY_READ_PATHS: ContextVar[tuple[Path, ...]] = ContextVar(
+    "kabuqina_temporary_read_paths",
+    default=(),
+)
+
+
+@contextmanager
+def temporary_read_access(path: str | os.PathLike) -> Iterator[Path]:
+    """Allow one exact user-selected file to be read for this call context."""
+    selected = PathPolicy._norm(path)
+    token = _TEMPORARY_READ_PATHS.set((*_TEMPORARY_READ_PATHS.get(), selected))
+    try:
+        yield selected
+    finally:
+        _TEMPORARY_READ_PATHS.reset(token)
 
 
 def _windows_device_basename(path: str | bytes | os.PathLike) -> str | None:
@@ -86,6 +107,9 @@ class PathPolicy:
             return Path("NUL")
 
         p = self._norm(path)
+
+        if not write and p in _TEMPORARY_READ_PATHS.get():
+            return p
 
         # Gateway children must never write to _host_prefs.md (host-only file).
         if write and p.name == _HOST_PREFS_FILENAME and self._check_gateway_child():

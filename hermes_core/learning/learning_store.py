@@ -1344,6 +1344,75 @@ class LearningStore:
             operation_lease=operation_lease,
         )
 
+    def compare_and_put_item_state_revision(
+        self,
+        owner_id: str,
+        space_id: str,
+        *,
+        item_id: str,
+        item_type: str,
+        expected_revision: int,
+        state: Dict[str, Any],
+        operation_lease: Optional[OperationLease] = None,
+    ) -> Dict[str, Any]:
+        """Create or replace one reserved item with revision-based CAS.
+
+        Course location and projection metadata are ordinary owner/space scoped
+        learning items so they automatically follow the existing backup,
+        restore, and deletion contracts.  Their writes still need a small
+        atomic primitive: comparing decoded state in application code leaves a
+        race between the read and write, while ``BEGIN IMMEDIATE`` lets SQLite
+        enforce the expected revision in one transaction.
+        """
+        _require(owner_id, "owner_id")
+        _require(space_id, "space_id")
+        _require(item_id, "item_id")
+        _require(item_type, "item_type")
+        if type(expected_revision) is not int or expected_revision < 0:
+            raise ValueError("expected_revision must be a non-negative integer")
+        if not isinstance(state, dict):
+            raise ValueError("state must be an object")
+        next_revision = state.get("revision")
+        if type(next_revision) is not int or next_revision != expected_revision + 1:
+            raise ValueError("state revision must equal expected_revision + 1")
+        state_json = json.dumps(state, ensure_ascii=False)
+        now = _now()
+
+        def _op(conn: sqlite3.Connection) -> Dict[str, Any]:
+            row = conn.execute(
+                "SELECT item_type,state_json,created_at FROM learning_items "
+                "WHERE owner_id=? AND space_id=? AND item_id=?",
+                (owner_id, space_id, item_id),
+            ).fetchone()
+            if row is None:
+                if expected_revision != 0:
+                    raise LearningConflictError("stale_revision")
+                conn.execute(
+                    "INSERT INTO learning_items "
+                    "(owner_id,space_id,item_id,artifact_id,item_type,state_json,created_at,updated_at) "
+                    "VALUES (?,?,?,NULL,?,?,?,?)",
+                    (owner_id, space_id, item_id, item_type, state_json, now, now),
+                )
+                return dict(state)
+            if row["item_type"] != item_type:
+                raise LearningConflictError("reserved_item_type_mismatch")
+            current = json.loads(row["state_json"] or "{}")
+            if current.get("revision") != expected_revision:
+                raise LearningConflictError("stale_revision")
+            conn.execute(
+                "UPDATE learning_items SET state_json=?,updated_at=? "
+                "WHERE owner_id=? AND space_id=? AND item_id=?",
+                (state_json, now, owner_id, space_id, item_id),
+            )
+            return dict(state)
+
+        return self._execute_write(
+            owner_id,
+            space_id,
+            _op,
+            operation_lease=operation_lease,
+        )
+
     def insert_activity(
         self,
         owner_id: str,

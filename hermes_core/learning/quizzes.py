@@ -80,6 +80,16 @@ def _clean_tags(value: Any) -> List[str]:
     return _clean_str_list(value, 40, MAX_TAGS)
 
 
+def _clean_source_refs(value: Any) -> List[Any]:
+    """Copy bounded public source locators from the validated quiz payload."""
+    if not isinstance(value, list):
+        return []
+    return copy.deepcopy([
+        ref for ref in value[:16]
+        if isinstance(ref, (str, dict))
+    ])
+
+
 def _points(value: Any) -> int:
     try:
         n = int(value)
@@ -282,6 +292,9 @@ class QuizService:
             "hint_ladder",
             "explanation_rubric",
             "explanation_rubric_sha256",
+            "knowledge_core_id",
+            "origin",
+            "source_refs",
         ):
             expected_v04.pop(field, None)
         if current != expected_v04:
@@ -486,6 +499,15 @@ class QuizService:
             "createdAt": now,
             "artifact_version": artifact_version,
         }
+        knowledge_core_id = _clean_text(question.get("knowledge_core_id"), 200)
+        origin = _clean_text(question.get("origin"), 40).casefold()
+        source_refs = _clean_source_refs(question.get("source_refs"))
+        if knowledge_core_id:
+            state["knowledge_core_id"] = knowledge_core_id
+        if origin:
+            state["origin"] = origin
+        if source_refs:
+            state["source_refs"] = source_refs
         if qtype == "true_false":
             state["answer"] = bool(question.get("answer"))
         if qtype == "choice":

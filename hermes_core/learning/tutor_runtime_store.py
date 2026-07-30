@@ -2086,6 +2086,45 @@ class TutorRuntimeStore:
             operation_lease=operation_lease,
         )
 
+    def list_owner_projection_runs(
+        self,
+        owner_id: str,
+        *,
+        statuses: set[str] | None = None,
+        limit: int = 300,
+        operation_lease: OperationLease | None = None,
+    ) -> list[dict[str, Any]]:
+        """Return owner-wide lifecycle metadata for a read-only global view.
+
+        This deliberately returns run rows rather than checkpoint state.  The
+        global Activity surface may project persisted status, label, revision,
+        and scope, but it must continue to use the domain resume/cancel commands
+        for mutation and checkpoint validation.
+        """
+        if statuses is not None:
+            if not isinstance(statuses, set) or not statuses.issubset(ACTIVITY_STATUSES):
+                raise TutorContractError("activity statuses are invalid")
+        if type(limit) is not int or not 1 <= limit <= 500:
+            raise TutorContractError("limit must be within 1..500")
+
+        def _op(connection: sqlite3.Connection) -> list[dict[str, Any]]:
+            sql = "SELECT * FROM tutor_activity_runs WHERE owner_id=?"
+            params: list[Any] = [owner_id]
+            if statuses:
+                placeholders = ",".join("?" for _ in statuses)
+                sql += f" AND status IN ({placeholders})"
+                params.extend(sorted(statuses))
+            sql += " ORDER BY updated_at DESC,activity_id DESC LIMIT ?"
+            params.append(limit)
+            return [dict(row) for row in connection.execute(sql, params).fetchall()]
+
+        return self._read(
+            owner_id,
+            "",
+            _op,
+            operation_lease=operation_lease,
+        )
+
     def list_attempts(
         self,
         key: LearningActivityKeyV1,

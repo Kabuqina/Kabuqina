@@ -24,6 +24,7 @@ from learning.learning_context import LearningExecutionContext  # noqa: E402
 from learning.learning_store import LearningStore  # noqa: E402
 from learning.output_writer import OutputWriter  # noqa: E402
 from learning.flashcards import FlashcardService  # noqa: E402
+from learning.quizzes import QuizService  # noqa: E402
 
 
 OWNER = "desktop:test-owner"
@@ -80,6 +81,11 @@ def _seed_quiz_draft(db_path: Path) -> str:
                         "answer": 1,
                         "tags": ["arithmetic"],
                         "points": 2,
+                        "knowledge_core_id": "core-arithmetic",
+                        "origin": "source",
+                        "source_refs": [
+                            {"material_id": "book-1", "title": "Algebra", "locator": "p. 12"}
+                        ],
                     },
                     {
                         "type": "short_answer",
@@ -254,6 +260,200 @@ def test_study_material_read_applies_import_only_cap_and_explicit_override(study
         assert reader.call_args.kwargs["mode"] == "math"
 
 
+def test_study_material_read_rejects_tool_level_failure(study_client):
+    client, _db_path = study_client
+    with patch(
+        "desk_server.routes.study_routes.pdf_read_precise",
+        return_value=json.dumps({"ok": False, "error": "broken character map"}),
+    ):
+        response = client.post(
+            "/api/desk/study/materials/read",
+            json={"path": "course.pdf"},
+            headers=_headers(),
+        )
+
+    assert response.status_code == 400
+    assert "broken character map" in response.json()["detail"]["message"]
+
+
+def test_study_material_read_registers_and_deduplicates_course_source(study_client):
+    client, _db_path = study_client
+    created = client.post(
+        "/api/desk/study/spaces",
+        json={"title": "Python 程序设计", "space_id": "python-course"},
+        headers=_headers(),
+    )
+    assert created.status_code == 200
+    fake_result = json.dumps({
+        "ok": True,
+        "engine": "docling",
+        "read_id": "read-python-book",
+        "pages": 12,
+        "total_pages": 342,
+        "structure_status": "reliable",
+        "structure_origin": "embedded_pdf_outline",
+        "outline": [{
+            "id": "pdf-outline-1",
+            "title": "第1章 计算机和程序",
+            "level": 1,
+            "page": 9,
+            "children": [],
+        }],
+        "content": "",
+    })
+    request = {
+        "spaceId": "python-course",
+        "path": r"D:\books\Python程序设计.pdf",
+        "includeContent": False,
+        "pageStart": 1,
+        "pageEnd": 12,
+    }
+    with patch(
+        "desk_server.routes.study_routes.pdf_read_precise",
+        return_value=fake_result,
+    ):
+        first = client.post(
+            "/api/desk/study/materials/read", json=request, headers=_headers()
+        )
+        second = client.post(
+            "/api/desk/study/materials/read", json=request, headers=_headers()
+        )
+
+    assert first.status_code == 200
+    assert first.json()["material"] | {"artifact_id": "ignored"} == {
+        "artifact_id": "ignored",
+        "title": "Python程序设计",
+        "status": "active",
+        "deduplicated": False,
+    }
+    assert second.status_code == 200
+    assert second.json()["material"]["artifact_id"] == first.json()["material"]["artifact_id"]
+    assert second.json()["material"]["deduplicated"] is True
+
+    materials = client.get(
+        "/api/desk/study/artifacts"
+        "?space_id=python-course&kind=resource_pack&status=active",
+        headers=_headers(),
+    )
+    assert materials.status_code == 200
+    assert materials.json()["count"] == 1
+    artifact_id = materials.json()["items"][0]["artifact_id"]
+    detail = client.get(
+        f"/api/desk/study/artifacts/{artifact_id}?space_id=python-course",
+        headers=_headers(),
+    )
+    source = detail.json()["artifact"]["envelope"]["source_refs"][0]
+    assert source["origin"] == "imported"
+    assert source["structure_status"] == "reliable"
+    assert source["structure_origin"] == "embedded_pdf_outline"
+    assert source["pages"] == 342
+    assert source["read_id"] == "read-python-book"
+    assert detail.json()["artifact"]["envelope"]["payload"]["outline"][0]["title"] == "第1章 计算机和程序"
+
+
+def test_study_material_reader_resolves_trusted_artifact_and_reads_bounded_pages(study_client, tmp_path):
+    client, _db_path = study_client
+    assert client.post(
+        "/api/desk/study/spaces",
+        json={"title": "Reader course", "space_id": "reader-course"},
+        headers=_headers(),
+    ).status_code == 200
+    source = tmp_path / "reader.pdf"
+    source.write_bytes(b"%PDF-1.4\n")
+    imported = json.dumps({
+        "ok": True,
+        "engine": "pypdf",
+        "read_id": "reader-source",
+        "total_pages": 42,
+        "outline": [{"id": "chapter-1", "title": "第一章", "level": 1, "page": 7}],
+    })
+    with patch("desk_server.routes.study_routes.pdf_read_precise", return_value=imported):
+        response = client.post(
+            "/api/desk/study/materials/read",
+            json={"spaceId": "reader-course", "path": str(source), "requestedMode": "auto"},
+            headers=_headers(),
+        )
+    artifact_id = response.json()["material"]["artifact_id"]
+
+    page_result = json.dumps({
+        "ok": True,
+        "engine": "pypdf",
+        "total_pages": 42,
+        "page_start": 7,
+        "page_end": 12,
+        "content": "<!-- page:7 -->\n第一章正文",
+        "text_quality": "sufficient",
+    })
+    with patch("desk_server.routes.study_routes.pdf_read_precise", return_value=page_result) as reader:
+        opened = client.post(
+            f"/api/desk/study/materials/{artifact_id}/reader",
+            json={"spaceId": "reader-course", "pageStart": 7, "pageEnd": 12},
+            headers=_headers(),
+        )
+
+    assert opened.status_code == 200, opened.text
+    assert opened.json()["filename"] == "reader.pdf"
+    assert opened.json()["pageStart"] == 7
+    assert opened.json()["totalPages"] == 42
+    assert opened.json()["outline"][0]["title"] == "第一章"
+    assert "第一章正文" in opened.json()["content"]
+    assert reader.call_args.kwargs["path"] == str(source)
+    assert reader.call_args.kwargs["page_start"] == 7
+    assert reader.call_args.kwargs["page_end"] == 12
+
+    too_large = client.post(
+        f"/api/desk/study/materials/{artifact_id}/reader",
+        json={"spaceId": "reader-course", "pageStart": 1, "pageEnd": 20},
+        headers=_headers(),
+    )
+    assert too_large.status_code == 400
+
+
+def test_study_material_reread_replaces_pending_structure_with_real_outline(study_client):
+    client, _db_path = study_client
+    assert client.post(
+        "/api/desk/study/spaces",
+        json={"title": "Outline upgrade", "space_id": "outline-upgrade"},
+        headers=_headers(),
+    ).status_code == 200
+    request = {
+        "spaceId": "outline-upgrade",
+        "path": r"D:\books\course.pdf",
+        "includeContent": False,
+        "pageStart": 1,
+        "pageEnd": 12,
+    }
+    without_outline = json.dumps({
+        "ok": True, "engine": "pypdf", "read_id": "read-weak",
+        "pages": 12, "total_pages": 100, "outline": [],
+    })
+    with_outline = json.dumps({
+        "ok": True, "engine": "pypdf", "read_id": "read-strong",
+        "pages": 12, "total_pages": 100,
+        "outline": [{"id": "chapter-1", "title": "Chapter 1", "level": 1, "page": 8}],
+    })
+    with patch("desk_server.routes.study_routes.pdf_read_precise", return_value=without_outline):
+        first = client.post("/api/desk/study/materials/read", json=request, headers=_headers())
+    with patch("desk_server.routes.study_routes.pdf_read_precise", return_value=with_outline):
+        upgraded = client.post("/api/desk/study/materials/read", json=request, headers=_headers())
+
+    assert first.status_code == 200
+    assert upgraded.status_code == 200
+    assert upgraded.json()["material"]["artifact_id"] != first.json()["material"]["artifact_id"]
+    assert upgraded.json()["material"]["deduplicated"] is False
+    active = client.get(
+        "/api/desk/study/artifacts?space_id=outline-upgrade&kind=resource_pack&status=active",
+        headers=_headers(),
+    ).json()["items"]
+    assert len(active) == 1
+    detail = client.get(
+        f"/api/desk/study/artifacts/{active[0]['artifact_id']}?space_id=outline-upgrade",
+        headers=_headers(),
+    ).json()["artifact"]
+    assert detail["envelope"]["source_refs"][0]["structure_status"] == "reliable"
+    assert detail["envelope"]["payload"]["outline"][0]["title"] == "Chapter 1"
+
+
 def test_flashcard_draft_activate_and_review_routes(study_client):
     client, db_path = study_client
     artifact_id = _seed_draft(db_path)
@@ -364,6 +564,11 @@ def test_quiz_draft_activate_questions_and_submit_routes(study_client):
     rows = questions.json()["questions"]
     assert [row["prompt"] for row in rows] == ["2+2?", "Optimizer abbreviated GD?"]
     assert all("answer" not in row for row in rows)
+    assert rows[0]["knowledge_core_id"] == "core-arithmetic"
+    assert rows[0]["origin"] == "source"
+    assert rows[0]["source_refs"] == [
+        {"material_id": "book-1", "title": "Algebra", "locator": "p. 12"}
+    ]
 
     submitted = client.post(
         f"/api/desk/study/quizzes/{artifact_id}/submit",
@@ -616,6 +821,108 @@ def test_knowledge_points_projection_uses_trusted_source_ref(study_client):
     }
     assert payload["items"][0]["item_id"] and payload["items"][0]["artifact_id"]
     assert "private" not in str(payload)
+
+
+def test_learning_map_and_shared_location_routes_use_revision_cas(study_client):
+    client, db_path = study_client
+    store = LearningStore(db_path=db_path)
+    try:
+        ctx = LearningExecutionContext(store, owner_id=OWNER)
+        ctx.create_space(title="Calculus", space_id="map-course")
+        resource = ctx.put_artifact(
+            kind="resource_pack",
+            title="Calculus",
+            payload={
+                "resources": [{"title": "Book", "purpose": "Primary"}],
+                "outline": [
+                    {"id": "limits", "title": "Limits", "locator": "§1"}
+                ],
+            },
+            source_refs=[
+                {
+                    "origin": "imported",
+                    "structure_status": "reliable",
+                    "structure_origin": "embedded_pdf_outline",
+                    "source_label": "Book",
+                }
+            ],
+            review={"mode": "semantic", "status": "passed"},
+        )
+        ctx.set_artifact_status(resource["artifact_id"], "active")
+        FlashcardService(ctx).capture_card(
+            front="Limit uniqueness",
+            back="A limit is unique.",
+            source_refs=[
+                {
+                    "origin": "kq-kp",
+                    "knowledge_core_id": "core-limit",
+                    "outline_node_id": "limits",
+                }
+            ],
+        )
+        quiz_id = OutputWriter(ctx).write_artifact(
+            kind="quiz",
+            title="Limit exercise",
+            payload={
+                "questions": [
+                    {
+                        "type": "short_answer",
+                        "prompt": "State uniqueness.",
+                        "answer": "A limit is unique.",
+                        "knowledge_core_id": "core-limit",
+                        "origin": "source",
+                        "source_refs": [{"material_id": "book", "locator": "§1"}],
+                    }
+                ]
+            },
+        )["artifact_id"]
+        QuizService(ctx).activate_quiz(quiz_id)
+        exercise_id = QuizService(ctx).list_questions(artifact_id=quiz_id)[0]["item_id"]
+    finally:
+        store.close()
+
+    learning_map = client.get(
+        "/api/desk/study/learning-map?space_id=map-course", headers=_headers()
+    )
+    assert learning_map.status_code == 200
+    assert learning_map.json()["revision"] == 1
+    assert learning_map.json()["knowledgeCores"][0]["id"] == "core-limit"
+    assert learning_map.json()["exerciseLinks"][0]["exerciseId"] == exercise_id
+
+    empty = client.get(
+        "/api/desk/study/location?space_id=map-course", headers=_headers()
+    )
+    assert empty.status_code == 200 and empty.json() is None
+    saved = client.put(
+        "/api/desk/study/location",
+        json={
+            "spaceId": "map-course",
+            "expectedRevision": 0,
+            "expectedMapRevision": 1,
+            "page": "practice",
+            "knowledgeCoreId": "core-limit",
+            "exerciseId": exercise_id,
+        },
+        headers=_headers(),
+    )
+    assert saved.status_code == 200
+    assert saved.json()["revision"] == 1
+    assert saved.json()["exerciseByCore"] == {
+        "core-limit": exercise_id
+    }
+
+    conflict = client.put(
+        "/api/desk/study/location",
+        json={
+            "spaceId": "map-course",
+            "expectedRevision": 0,
+            "page": "learn",
+            "knowledgeCoreId": "core-limit",
+        },
+        headers=_headers(),
+    )
+    assert conflict.status_code == 409
+    assert conflict.json()["detail"]["code"] == "study_conflict"
 
 
 def test_legacy_quiz_migration_is_idempotent(study_client):

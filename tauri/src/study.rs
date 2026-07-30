@@ -282,6 +282,91 @@ pub async fn cmd_study_knowledge_points(
     .await
 }
 
+fn validate_learning_wire_id(id: &str) -> Result<(), DeskBridgeError> {
+    let valid = !id.is_empty()
+        && id.len() <= 200
+        && id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b':' | b'-'));
+    if valid {
+        Ok(())
+    } else {
+        Err(DeskBridgeError::invalid(
+            "study_invalid_request",
+            "invalid learning item id",
+        ))
+    }
+}
+
+#[tauri::command]
+pub async fn cmd_study_learning_map_get(
+    app: AppHandle,
+    space_id: String,
+) -> Result<Value, DeskBridgeError> {
+    validate_structured_id(&space_id)?;
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::GET,
+        &format!("/api/desk/study/learning-map?space_id={space_id}"),
+        None,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_location_get(
+    app: AppHandle,
+    space_id: String,
+) -> Result<Value, DeskBridgeError> {
+    validate_structured_id(&space_id)?;
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::GET,
+        &format!("/api/desk/study/location?space_id={space_id}"),
+        None,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_location_put(
+    app: AppHandle,
+    space_id: String,
+    expected_revision: u64,
+    expected_map_revision: Option<u64>,
+    page: String,
+    knowledge_core_id: Option<String>,
+    exercise_id: Option<String>,
+) -> Result<Value, DeskBridgeError> {
+    validate_structured_id(&space_id)?;
+    if !matches!(page.as_str(), "plan" | "learn" | "practice") {
+        return Err(DeskBridgeError::invalid(
+            "study_invalid_request",
+            "page must be plan, learn, or practice",
+        ));
+    }
+    if let Some(value) = knowledge_core_id.as_deref() {
+        validate_learning_wire_id(value)?;
+    }
+    if let Some(value) = exercise_id.as_deref() {
+        validate_learning_wire_id(value)?;
+    }
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::PUT,
+        "/api/desk/study/location",
+        Some(json!({
+            "spaceId": space_id,
+            "expectedRevision": expected_revision,
+            "expectedMapRevision": expected_map_revision,
+            "page": page,
+            "knowledgeCoreId": knowledge_core_id,
+            "exerciseId": exercise_id,
+        })),
+    )
+    .await
+}
+
 #[tauri::command]
 pub async fn cmd_study_wrongbook(
     app: AppHandle,
@@ -829,6 +914,7 @@ pub async fn cmd_study_preferences_put(
 #[tauri::command]
 pub async fn cmd_study_material_read(
     app: AppHandle,
+    space_id: Option<String>,
     path_str: String,
     requested_mode: Option<String>,
     override_limit: Option<bool>,
@@ -857,17 +943,158 @@ pub async fn cmd_study_material_read(
             "page numbers are 1-based",
         ));
     }
+    if let Some(space_id) = space_id.as_deref() {
+        validate_structured_id(space_id)?;
+    }
     crate::chat::desk_json_request_structured(
         &app,
         reqwest::Method::POST,
         "/api/desk/study/materials/read",
         Some(json!({
             "path": path_str,
+            "spaceId": space_id,
             "requestedMode": requested_mode,
             "override": override_limit.unwrap_or(false),
             "includeContent": include_content.unwrap_or(true),
             "pageStart": page_start,
             "pageEnd": page_end,
+        })),
+    )
+    .await
+}
+
+fn imported_material_path(detail: &Value) -> Result<PathBuf, DeskBridgeError> {
+    let refs = detail
+        .pointer("/artifact/envelope/source_refs")
+        .and_then(Value::as_array)
+        .ok_or_else(|| {
+            DeskBridgeError::invalid(
+                "study_material_not_imported",
+                "this material does not reference an imported local file",
+            )
+        })?;
+    let raw_path = refs
+        .iter()
+        .find(|source| source.get("origin").and_then(Value::as_str) == Some("imported"))
+        .and_then(|source| source.get("path"))
+        .and_then(Value::as_str)
+        .filter(|path| !path.trim().is_empty())
+        .ok_or_else(|| {
+            DeskBridgeError::invalid(
+                "study_material_not_imported",
+                "this material does not reference an imported local file",
+            )
+        })?;
+    let path = std::fs::canonicalize(PathBuf::from(raw_path)).map_err(|error| {
+        DeskBridgeError::new(
+            Some(404),
+            "study_material_file_missing",
+            format!("the imported material is no longer available: {error}"),
+        )
+    })?;
+    if !path.is_file() {
+        return Err(DeskBridgeError::invalid(
+            "study_material_file_invalid",
+            "the imported material path is not a file",
+        ));
+    }
+    let supported = path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| {
+            matches!(
+                extension.to_ascii_lowercase().as_str(),
+                "pdf"
+                    | "docx"
+                    | "pptx"
+                    | "xlsx"
+                    | "md"
+                    | "html"
+                    | "csv"
+                    | "png"
+                    | "jpg"
+                    | "jpeg"
+                    | "webp"
+            )
+        });
+    if !supported {
+        return Err(DeskBridgeError::invalid(
+            "study_material_file_invalid",
+            "the imported material type is not supported",
+        ));
+    }
+    Ok(path)
+}
+
+/// Open a learner-imported source with its Windows default reader.
+///
+/// Unlike the generic path opener, this command may open a file outside the
+/// workspace because the path was selected explicitly in the Study import
+/// dialog. It therefore resolves the path from the trusted artifact record
+/// instead of accepting an arbitrary path from the webview.
+#[tauri::command]
+pub async fn cmd_study_material_open(
+    app: AppHandle,
+    space_id: String,
+    artifact_id: String,
+) -> Result<Value, DeskBridgeError> {
+    use tauri_plugin_opener::OpenerExt;
+
+    validate_structured_id(&space_id)?;
+    validate_structured_id(&artifact_id)?;
+    let detail = crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::GET,
+        &format!("/api/desk/study/artifacts/{artifact_id}?space_id={space_id}"),
+        None,
+    )
+    .await?;
+    let path = imported_material_path(&detail)?;
+    app.opener()
+        .open_path(path.to_string_lossy(), None::<&str>)
+        .map_err(|error| {
+            DeskBridgeError::new(
+                None,
+                "study_material_open_failed",
+                format!("could not open the imported material: {error}"),
+            )
+        })?;
+    Ok(json!({
+        "opened": true,
+        "filename": path.file_name().and_then(|name| name.to_str()).unwrap_or_default(),
+    }))
+}
+
+/// Read a bounded window from an imported Study material inside the app.
+///
+/// The Python service resolves the local path from the trusted artifact. The
+/// webview never supplies or receives an arbitrary filesystem path.
+#[tauri::command]
+pub async fn cmd_study_material_reader(
+    app: AppHandle,
+    space_id: String,
+    artifact_id: String,
+    page_start: Option<u32>,
+    page_end: Option<u32>,
+) -> Result<Value, DeskBridgeError> {
+    validate_structured_id(&space_id)?;
+    validate_structured_id(&artifact_id)?;
+    let start = page_start.unwrap_or(1);
+    let end = page_end.unwrap_or_else(|| start.saturating_add(5));
+    if start == 0 || end < start || end.saturating_sub(start) > 11 {
+        return Err(DeskBridgeError::invalid(
+            "study_invalid_request",
+            "reader page range must be 1-based and contain at most 12 pages",
+        ));
+    }
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::POST,
+        &format!("/api/desk/study/materials/{artifact_id}/reader"),
+        Some(json!({
+            "spaceId": space_id,
+            "pageStart": start,
+            "pageEnd": end,
         })),
     )
     .await
@@ -1699,6 +1926,48 @@ mod tests {
         assert_eq!(error.status, Some(400));
         assert_eq!(error.code, "invalid_study_id");
         assert_eq!(error.detail, "invalid study id");
+    }
+
+    #[test]
+    fn learning_wire_ids_allow_opaque_dotted_ids_but_not_path_injection() {
+        assert!(validate_learning_wire_id("core-2.3").is_ok());
+        assert!(validate_learning_wire_id("quiz:section_1.question-2").is_ok());
+        assert!(validate_learning_wire_id("../core").is_err());
+        assert!(validate_learning_wire_id("core/question").is_err());
+    }
+
+    #[test]
+    fn imported_material_path_accepts_only_registered_supported_files() {
+        let root = import_test_root("material-open");
+        let pdf = root.join("Python程序设计.pdf");
+        std::fs::write(&pdf, b"%PDF-1.4\n").unwrap();
+        let detail = json!({
+            "artifact": {
+                "envelope": {
+                    "source_refs": [{
+                        "origin": "imported",
+                        "path": pdf.display().to_string(),
+                    }]
+                }
+            }
+        });
+
+        assert_eq!(
+            imported_material_path(&detail).unwrap(),
+            std::fs::canonicalize(&pdf).unwrap()
+        );
+
+        let untrusted = json!({
+            "artifact": {
+                "envelope": {
+                    "source_refs": [{"origin": "generated", "path": pdf.display().to_string()}]
+                }
+            }
+        });
+        assert_eq!(
+            imported_material_path(&untrusted).unwrap_err().code,
+            "study_material_not_imported"
+        );
     }
 
     #[test]

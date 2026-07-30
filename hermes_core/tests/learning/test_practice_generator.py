@@ -22,7 +22,12 @@ def ctx(tmp_path):
         store.close()
 
 
-def _active_code_quiz(ctx, *, reference="def add(a, b):\n    return a + b"):
+def _active_code_quiz(
+    ctx,
+    *,
+    reference="def add(a, b):\n    return a + b",
+    with_provenance=False,
+):
     question = {
         "type": "code",
         "prompt": "Implement add",
@@ -35,6 +40,14 @@ def _active_code_quiz(ctx, *, reference="def add(a, b):\n    return a + b"):
     }
     if reference is not None:
         question["reference"] = reference
+    if with_provenance:
+        question.update({
+            "knowledge_core_id": "core-functions",
+            "origin": "source",
+            "source_refs": [
+                {"material_id": "book-1", "title": "Python", "locator": "chapter 3, p. 52"}
+            ],
+        })
     artifact_id = OutputWriter(ctx).write_artifact(
         kind="quiz",
         title="Add",
@@ -91,6 +104,23 @@ def test_python_variant_alpha_renames_and_self_checks_before_draft_write(ctx):
         {generated_item["item_id"]: {"code": "def add_variant(a, b):\n    return a + b"}},
     )
     assert result["score"] == 2
+
+
+def test_template_variant_keeps_core_and_material_lineage_as_adapted_draft(ctx):
+    source_id, item_id = _active_code_quiz(ctx, with_provenance=True)
+
+    generated = PracticeGenerator(ctx).generate(
+        artifact_id=source_id, item_id=item_id, practice_kind="variant"
+    )
+
+    draft = ctx.get_artifact(generated["artifact_id"])
+    question = draft["envelope"]["payload"]["questions"][0]
+    assert draft["status"] == "draft"
+    assert question["knowledge_core_id"] == "core-functions"
+    assert question["origin"] == "adapted"
+    assert question["source_refs"] == [
+        {"material_id": "book-1", "title": "Python", "locator": "chapter 3, p. 52"}
+    ]
 
 
 def test_template_gap_returns_model_fallback_without_creating_draft(ctx):

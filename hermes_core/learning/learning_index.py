@@ -108,6 +108,8 @@ def _safe_plan_item(item: Dict[str, Any]) -> Dict[str, Any]:
         "taskIndex": item.get("taskIndex") if isinstance(item.get("taskIndex"), int) else 0,
         "title": str(item.get("title") or "").strip()[:800],
         "done_when": str(item.get("done_when") or "").strip()[:800],
+        "mode": str(item.get("mode") or "learn")[:40],
+        "outlineNodeId": str(item.get("outlineNodeId") or "")[:160],
         "status": str(item.get("status") or "open")[:40],
         "completedAt": str(item.get("completedAt") or "")[:80],
         "skippedAt": str(item.get("skippedAt") or "")[:80],
