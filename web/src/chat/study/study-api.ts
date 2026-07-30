@@ -83,6 +83,58 @@ export type StudyKnowledgePointsResponse = {
   truncated: boolean;
 };
 
+export type StudyLearningMapOutlineNode = {
+  id: string;
+  parentId: string | null;
+  title: string;
+  order: number;
+  depth: 1 | 2 | 3;
+  origin: "extracted" | "inferred_confirmed";
+  sourceRef: Record<string, StudySourceScalar>;
+  locator: string;
+};
+
+export type StudyLearningMapCore = {
+  id: string;
+  itemId: string;
+  artifactId: string;
+  front: string;
+  gist: string;
+  captured: true;
+  outlineNodeId: string | null;
+  order: number;
+};
+
+export type StudyLearningMapExercise = {
+  knowledgeCoreId: string;
+  quizArtifactId: string;
+  exerciseId: string;
+  origin: StudyExerciseOrigin;
+  sourceRefs: StudyExerciseSourceRef[];
+  order: number;
+};
+
+export type StudyLearningMap = {
+  revision: number;
+  outlineStatus: "ready" | "weak" | "missing";
+  outlineNodes: StudyLearningMapOutlineNode[];
+  knowledgeCores: StudyLearningMapCore[];
+  exerciseLinks: StudyLearningMapExercise[];
+};
+
+export type StudySharedLocation = {
+  revision: number;
+  mapRevision: number;
+  page: "plan" | "learn" | "practice";
+  knowledgeCoreId: string | null;
+  outlineNodeId: string | null;
+  exerciseId: string | null;
+  exerciseByCore: Record<string, string>;
+  stale: boolean;
+  staleReason?: string;
+  updatedAt: string;
+};
+
 export type StudyWrongbookEvidence = {
   activity_id: string;
   artifact_id: string;
@@ -478,6 +530,25 @@ export function cmdStudyKnowledgePoints(
   limit = 50,
 ): Promise<StudyKnowledgePointsResponse> {
   return invoke("cmd_study_knowledge_points", { spaceId, limit });
+}
+
+export function cmdStudyLearningMapGet(spaceId: string): Promise<StudyLearningMap> {
+  return invoke("cmd_study_learning_map_get", { spaceId });
+}
+
+export function cmdStudyLocationGet(spaceId: string): Promise<StudySharedLocation | null> {
+  return invoke("cmd_study_location_get", { spaceId });
+}
+
+export function cmdStudyLocationPut(input: {
+  spaceId: string;
+  expectedRevision: number;
+  expectedMapRevision?: number;
+  page: "plan" | "learn" | "practice";
+  knowledgeCoreId?: string;
+  exerciseId?: string;
+}): Promise<StudySharedLocation> {
+  return invoke("cmd_study_location_put", input);
 }
 
 export function cmdStudyWrongbook(spaceId: string, limit = 50): Promise<StudyWrongbookResponse> {

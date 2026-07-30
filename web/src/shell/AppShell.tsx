@@ -8,6 +8,8 @@ import { useI18n } from "../lib/i18n";
 import { getStoredThemeMode, resolveTheme, setThemeMode, type ResolvedTheme } from "../lib/ui-prefs";
 import { WindowControls } from "../components/WindowControls";
 import { requestOpenActivity } from "./activityBridge";
+import { onOpenActivityRequest } from "./activityBridge";
+import { ActivityPanel } from "./ActivityPanel";
 import "./appShell.css";
 
 /**
@@ -70,6 +72,9 @@ export function AppShell() {
   const location = useLocation();
   const surface = surfaceOf(location.pathname);
   const [theme, toggleLamp] = useLampTheme();
+  const [activityOpen, setActivityOpen] = useState(false);
+
+  useEffect(() => onOpenActivityRequest(() => setActivityOpen(true)), []);
 
   return (
     <div className="kq-app-frame" data-surface={surface ?? undefined}>
@@ -124,14 +129,11 @@ export function AppShell() {
             <MessageCircle aria-hidden size={18} />
             <span>{t("appShell.chat")}</span>
           </button>
-          {/* Activity 的跨域面板属于 S10；当前这颗按钮接到已有真实数据的
-              课程学习动态上，不在 Study 之外空转。 */}
           <button
             type="button"
-            onClick={() => {
-              if (surface !== "study") navigate("/study");
-              requestOpenActivity();
-            }}
+            aria-expanded={activityOpen}
+            aria-controls="kq-global-activity"
+            onClick={() => requestOpenActivity()}
           >
             <ListTodo aria-hidden size={16} />
             <span>{t("appShell.activity")}</span>
@@ -148,6 +150,15 @@ export function AppShell() {
           <WindowControls />
         </div>
       </header>
+
+      <ActivityPanel
+        open={activityOpen}
+        onClose={() => setActivityOpen(false)}
+        onReturn={(target) => {
+          setActivityOpen(false);
+          navigate(target);
+        }}
+      />
 
       <div className="kq-app-surface">
         <Outlet />

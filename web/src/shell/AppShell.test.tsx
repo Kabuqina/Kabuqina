@@ -4,11 +4,15 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../lib/i18n";
 import { THEME_MODE_KEY } from "../lib/ui-prefs";
 import { AppShell } from "./AppShell";
 import { onOpenActivityRequest } from "./activityBridge";
+
+vi.mock("./activityApi", () => ({
+  cmdActivityRecords: vi.fn().mockResolvedValue({ items: [], count: 0, limit: 100 }),
+}));
 
 function renderShell(initialPath: string) {
   return render(
@@ -114,7 +118,7 @@ describe("AppShell", () => {
     expect(utility).toContainElement(screen.getByRole("button", { name: "设置" }));
   });
 
-  it("asks the current surface to open Activity instead of navigating away from it", async () => {
+  it("opens the global Activity panel without navigating away from the current surface", async () => {
     const user = userEvent.setup();
     let asked = 0;
     const stop = onOpenActivityRequest(() => { asked += 1; });
@@ -122,6 +126,7 @@ describe("AppShell", () => {
 
     await user.click(screen.getByRole("button", { name: "进行中" }));
     expect(asked).toBe(1);
+    expect(await screen.findByRole("dialog", { name: "进行中" })).toBeInTheDocument();
     expect(screen.getByText("study surface")).toBeInTheDocument();
     stop();
   });

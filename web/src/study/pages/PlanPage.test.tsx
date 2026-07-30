@@ -80,8 +80,10 @@ describe("PlanPage", () => {
 
     const action = (await screen.findByRole("heading", { name: "Next task" })).closest("li")!;
     await user.click(within(action).getByRole("button", { name: "开始" }));
-    expect(localStorage.getItem("kabuqina.study.location.v1:space-b")).toContain('"planItemId":"next"');
-    expect(screen.getByRole("status", { name: "current route" })).toHaveTextContent("/study/space-b/learn");
+    await waitFor(() => {
+      expect(localStorage.getItem("kabuqina.study.location.v1:space-b")).toContain('"planItemId":"next"');
+      expect(screen.getByRole("status", { name: "current route" })).toHaveTextContent("/study/space-b/learn");
+    });
   });
 
   it("opens practice and preserves the source-outline binding for a practice action", async () => {

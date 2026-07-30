@@ -360,6 +360,38 @@ describe("StudyRepository", () => {
     });
   });
 
+  it("uses the revisioned learning map for cores and the three-level plan outline", async () => {
+    const learningMap = vi.fn().mockResolvedValue({
+      revision: 4,
+      outlineStatus: "ready",
+      outlineNodes: [
+        { id: "chapter-1", parentId: null, title: "第一章", order: 0, depth: 1, origin: "extracted", sourceRef: { artifactId: "material-1", sourceLabel: "教材" }, locator: "page:1" },
+        { id: "section-1", parentId: "chapter-1", title: "极限", order: 1, depth: 2, origin: "extracted", sourceRef: { artifactId: "material-1", sourceLabel: "教材" }, locator: "page:8" },
+      ],
+      knowledgeCores: [
+        { id: "core-limit", itemId: "card-1", artifactId: "deck-1", front: "极限唯一性", gist: "若存在则唯一", captured: true, outlineNodeId: "section-1", order: 0 },
+      ],
+      exerciseLinks: [],
+    });
+    const repository = createStudyRepository({
+      learningMap,
+      knowledgePoints: vi.fn().mockRejectedValue(new Error("legacy unavailable")),
+      activeM5Summaries: vi.fn().mockResolvedValue({ items: [], count: 0, counts: {}, kind_counts: {}, returned: 0, limit: 100, offset: 0, truncated: false }),
+      learningPlans: vi.fn().mockResolvedValue({ plans: [] }),
+    });
+    const signal = new AbortController().signal;
+
+    await expect(repository.loadLearnHome("space-b", signal)).resolves.toMatchObject({
+      knowledgePoints: [{ item_id: "core-limit", front: "极限唯一性" }],
+      learningMap: { revision: 4 },
+    });
+    await expect(repository.loadPlan("space-b", signal)).resolves.toMatchObject({
+      structureStatus: "reliable",
+      outlineSourceArtifactId: "material-1",
+      outline: [{ id: "chapter-1", children: [{ id: "section-1", sourcePath: "第一章 › 极限" }] }],
+    });
+  });
+
   it("maps only stable error prefixes", () => {
     expect(normalizeRepositoryError("invalid study id").code).toBe("invalid");
     expect(normalizeRepositoryError("space_not_found: hidden detail").code).toBe("not-found");

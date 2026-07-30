@@ -12,6 +12,9 @@ import {
   cmdStudyFlashcardReview,
   cmdStudyFlashcards,
   cmdStudyLearningPlans,
+  cmdStudyLearningMapGet,
+  cmdStudyLocationGet,
+  cmdStudyLocationPut,
   cmdStudyKnowledgePoints,
   cmdStudyMigrateContext,
   cmdStudyMigrateBuiltinCourse,
@@ -39,6 +42,8 @@ import {
   type StudyEvaluationProjection,
   type StudyFlashcard,
   type StudyKnowledgePoint,
+  type StudyLearningMap,
+  type StudySharedLocation,
   type StudyPlanItem,
   type StudyPracticeResponse,
   type StudyPracticeSource,
@@ -91,6 +96,7 @@ export type StudyM5Kind = "knowledge_base" | "resource_pack" | "tutoring_note";
 export type StudyLearnHome = {
   artifacts: StudyArtifactSummary[];
   knowledgePoints: StudyKnowledgePoint[];
+  learningMap?: StudyLearningMap;
   unavailable?: Array<"knowledgePoints">;
   unavailableKinds?: StudyM5Kind[];
 };
@@ -167,6 +173,19 @@ export interface StudyRepository {
   listDrafts(spaceId: string, signal: AbortSignal): Promise<StudyDraftInbox>;
   listDraftPage(spaceId: string, limit: number, offset: number, signal: AbortSignal): Promise<StudyDraftPage>;
   loadLearnHome(spaceId: string, signal: AbortSignal): Promise<StudyLearnHome>;
+  loadLearningMap?(spaceId: string, signal: AbortSignal): Promise<StudyLearningMap>;
+  loadSharedLocation?(spaceId: string, signal: AbortSignal): Promise<StudySharedLocation | null>;
+  saveSharedLocation?(
+    input: {
+      spaceId: string;
+      expectedRevision: number;
+      expectedMapRevision?: number;
+      page: "plan" | "learn" | "practice";
+      knowledgeCoreId?: string;
+      exerciseId?: string;
+    },
+    signal: AbortSignal,
+  ): Promise<StudySharedLocation>;
   loadArtifactDetail(spaceId: string, artifactId: string, signal: AbortSignal): Promise<StudyArtifactDetail>;
   loadSourceAudit(spaceId: string, artifactId: string, signal: AbortSignal): Promise<StudySourceRef[]>;
   runSemanticReview(
@@ -261,6 +280,9 @@ type StudyCommands = {
   artifactSourceAudit: typeof cmdStudyArtifactSourceAudit;
   artifactSemanticReview: typeof cmdStudyArtifactSemanticReview;
   knowledgePoints: typeof cmdStudyKnowledgePoints;
+  learningMap: typeof cmdStudyLearningMapGet;
+  locationGet: typeof cmdStudyLocationGet;
+  locationPut: typeof cmdStudyLocationPut;
   studentState: typeof cmdStudyStudentState;
   studentStatePut: typeof cmdStudyStudentStatePut;
   migrateContext: typeof cmdStudyMigrateContext;
@@ -314,6 +336,9 @@ const defaultCommands: StudyCommands = {
   artifactSourceAudit: cmdStudyArtifactSourceAudit,
   artifactSemanticReview: cmdStudyArtifactSemanticReview,
   knowledgePoints: cmdStudyKnowledgePoints,
+  learningMap: cmdStudyLearningMapGet,
+  locationGet: cmdStudyLocationGet,
+  locationPut: cmdStudyLocationPut,
   studentState: cmdStudyStudentState,
   studentStatePut: cmdStudyStudentStatePut,
   migrateContext: cmdStudyMigrateContext,
@@ -483,6 +508,43 @@ function mapOutlineNodes(
   return nodes;
 }
 
+function mapLearningOutline(map: StudyLearningMap): StudyOutlineNode[] {
+  const ordered = [...map.outlineNodes].sort((left, right) => left.order - right.order);
+  const byId = new Map<string, StudyOutlineNode>();
+  for (const item of ordered) {
+    const pageMatch = /^page:(\d+)$/.exec(item.locator);
+    const artifactId = typeof item.sourceRef.artifactId === "string" ? item.sourceRef.artifactId : undefined;
+    const sourceTitle = typeof item.sourceRef.sourceLabel === "string" ? item.sourceRef.sourceLabel : undefined;
+    byId.set(item.id, {
+      id: item.id,
+      title: item.title,
+      level: item.depth,
+      ...(pageMatch ? { page: Number(pageMatch[1]) } : {}),
+      ...(artifactId ? { sourceArtifactId: artifactId } : {}),
+      ...(sourceTitle ? { sourceTitle } : {}),
+      sourcePath: item.title,
+      children: [],
+    });
+  }
+  const roots: StudyOutlineNode[] = [];
+  for (const item of ordered) {
+    const node = byId.get(item.id);
+    if (!node) continue;
+    const parent = item.parentId ? byId.get(item.parentId) : undefined;
+    if (parent) parent.children.push(node);
+    else roots.push(node);
+  }
+  const setPaths = (nodes: StudyOutlineNode[], ancestors: string[] = []) => {
+    for (const node of nodes) {
+      const path = [...ancestors, node.title];
+      node.sourcePath = path.join(" › ");
+      setPaths(node.children, path);
+    }
+  };
+  setPaths(roots);
+  return roots;
+}
+
 export function createStudyRepository(commands: Partial<StudyCommands> = {}): StudyRepository {
   const resolved = { ...defaultCommands, ...commands };
   return {
@@ -514,8 +576,12 @@ export function createStudyRepository(commands: Partial<StudyCommands> = {}): St
     async loadLearnHome(spaceId, signal) {
       return invokeWithSignal(signal, async () => {
         const kinds: StudyM5Kind[] = ["knowledge_base", "resource_pack", "tutoring_note"];
-        const [artifactResults, knowledgePointsResult] = await Promise.all([
+        const [artifactResults, learningMapResult, knowledgePointsResult] = await Promise.all([
           Promise.allSettled(kinds.map((kind) => resolved.activeM5Summaries(spaceId, kind))),
+          Promise.resolve(resolved.learningMap(spaceId)).then(
+            (value) => ({ status: "fulfilled" as const, value }),
+            (reason) => ({ status: "rejected" as const, reason }),
+          ),
           Promise.resolve(resolved.knowledgePoints(spaceId)).then(
             (value) => ({ status: "fulfilled" as const, value }),
             (reason) => ({ status: "rejected" as const, reason }),
@@ -524,24 +590,48 @@ export function createStudyRepository(commands: Partial<StudyCommands> = {}): St
         const fulfilledArtifacts = artifactResults.filter(
           (result): result is PromiseFulfilledResult<StudyDraftsResponse> => result.status === "fulfilled",
         );
-        if (!fulfilledArtifacts.length && knowledgePointsResult.status === "rejected") {
+        if (!fulfilledArtifacts.length
+          && learningMapResult.status === "rejected"
+          && knowledgePointsResult.status === "rejected") {
           throw artifactResults.find((result): result is PromiseRejectedResult => result.status === "rejected")?.reason
+            ?? learningMapResult.reason
             ?? knowledgePointsResult.reason;
         }
         const unavailableKinds = kinds.filter(
           (_kind, index) => artifactResults[index].status === "rejected",
         );
         const unavailable: Array<"knowledgePoints"> = [];
-        if (knowledgePointsResult.status !== "fulfilled") unavailable.push("knowledgePoints");
+        if (learningMapResult.status !== "fulfilled" && knowledgePointsResult.status !== "fulfilled") {
+          unavailable.push("knowledgePoints");
+        }
+        const mapPoints: StudyKnowledgePoint[] = learningMapResult.status === "fulfilled"
+          ? learningMapResult.value.knowledgeCores.map((core) => ({
+            item_id: core.id,
+            artifact_id: core.artifactId,
+            front: core.front,
+            gist: core.gist,
+            captured: true,
+          }))
+          : [];
         return {
           artifacts: fulfilledArtifacts.flatMap((result) => result.value.items),
-          knowledgePoints: knowledgePointsResult.status === "fulfilled"
-            ? knowledgePointsResult.value.items
-            : [],
+          knowledgePoints: learningMapResult.status === "fulfilled"
+            ? mapPoints
+            : knowledgePointsResult.status === "fulfilled" ? knowledgePointsResult.value.items : [],
+          ...(learningMapResult.status === "fulfilled" ? { learningMap: learningMapResult.value } : {}),
           ...(unavailable.length ? { unavailable } : {}),
           ...(unavailableKinds.length ? { unavailableKinds } : {}),
         };
       });
+    },
+    loadLearningMap(spaceId, signal) {
+      return invokeWithSignal(signal, () => resolved.learningMap(spaceId));
+    },
+    loadSharedLocation(spaceId, signal) {
+      return invokeWithSignal(signal, () => resolved.locationGet(spaceId));
+    },
+    saveSharedLocation(input, signal) {
+      return invokeWithSignal(signal, () => resolved.locationPut(input));
     },
     async loadArtifactDetail(spaceId, artifactId, signal) {
       return mapArtifactDetail(await invokeWithSignal(
@@ -587,24 +677,38 @@ export function createStudyRepository(commands: Partial<StudyCommands> = {}): St
     },
     async loadPlan(spaceId, signal) {
       return invokeWithSignal(signal, async () => {
-        const [response, materialResponse] = await Promise.all([
+        const [response, materialResponse, mapResult] = await Promise.all([
           resolved.learningPlans(spaceId),
           resolved.activeM5Summaries(spaceId, "resource_pack"),
+          Promise.resolve(resolved.learningMap(spaceId)).then(
+            (value) => ({ status: "fulfilled" as const, value }),
+            (reason) => ({ status: "rejected" as const, reason }),
+          ),
         ]);
         const plan = newestArtifact(response.plans);
         const items = plan
           ? (await resolved.planItems(spaceId, plan.artifact_id)).items
           : [];
+        let outline: StudyOutlineNode[] = [];
+        let outlineSourceArtifactId = "";
+        let outlineSourceTitle = "";
+        let structureStatus: StudyPlanSnapshot["structureStatus"] = materialResponse.items.length ? "missing" : "unknown";
+        if (mapResult.status === "fulfilled") {
+          outline = mapLearningOutline(mapResult.value);
+          const first = outline[0];
+          outlineSourceArtifactId = first?.sourceArtifactId ?? "";
+          outlineSourceTitle = first?.sourceTitle ?? "";
+          structureStatus = mapResult.value.outlineStatus === "ready"
+            ? "reliable"
+            : mapResult.value.outlineStatus === "missing" ? "missing" : "unknown";
+          return { plan, items, outline, outlineSourceArtifactId, outlineSourceTitle, structureStatus };
+        }
         const materialDetails = await Promise.allSettled(
           [...materialResponse.items]
             .sort((a, b) => `${b.updated_at ?? ""}`.localeCompare(`${a.updated_at ?? ""}`))
             .slice(0, 20)
             .map((material) => resolved.artifactDetail(spaceId, material.artifact_id)),
         );
-        let outline: StudyOutlineNode[] = [];
-        let outlineSourceArtifactId = "";
-        let outlineSourceTitle = "";
-        let structureStatus: StudyPlanSnapshot["structureStatus"] = materialResponse.items.length ? "missing" : "unknown";
         for (const result of materialDetails) {
           if (result.status !== "fulfilled") continue;
           const detail = mapArtifactDetail(result.value);

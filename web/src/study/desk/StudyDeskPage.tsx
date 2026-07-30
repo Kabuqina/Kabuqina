@@ -32,6 +32,7 @@ import {
 import { cmdStudyArtifactStatus, type StudyKnowledgePoint } from "../../chat/study/study-api";
 import { StudyNanaPanel } from "./StudyNanaPanel";
 import { StudyMaterialReader } from "./StudyMaterialReader";
+import { useStudyLocationSync } from "../studyLocationSync";
 
 function outlineForNana(nodes: StudyOutlineNode[], remaining = { value: 80 }): Array<Record<string, unknown>> {
   const output: Array<Record<string, unknown>> = [];
@@ -71,6 +72,7 @@ export function StudyDeskPage({
   onImportMaterial?: () => void;
 }) {
   const repository = useStudyRepository();
+  useStudyLocationSync(repository, spaceId);
   const location = useLocation();
   const navigate = useNavigate();
   const returnFocusRef = useRef(getStudyReturnState(location.state));

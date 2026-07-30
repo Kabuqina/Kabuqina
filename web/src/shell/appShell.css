@@ -181,6 +181,158 @@
   overflow: auto;
 }
 
+.kq-activity-scrim {
+  position: fixed;
+  z-index: 60;
+  inset: 50px 0 0;
+  display: flex;
+  justify-content: flex-end;
+  background: color-mix(in srgb, var(--ink) 18%, transparent);
+}
+
+.kq-activity-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-content: start;
+  gap: 16px;
+  width: min(430px, calc(100vw - 32px));
+  height: 100%;
+  padding: 22px;
+  overflow: hidden;
+  border-left: 1px solid var(--line-cool);
+  background: var(--surface);
+  box-shadow: -16px 0 40px rgba(53, 39, 61, 0.14);
+}
+
+.kq-activity-panel > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.kq-activity-panel > header p,
+.kq-activity-panel > header h2,
+.kq-activity-empty p,
+.kq-activity-empty span {
+  margin: 0;
+}
+
+.kq-activity-panel > header p {
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.kq-activity-panel > header h2 {
+  margin-top: 3px;
+  font-family: Georgia, serif;
+  font-size: 24px;
+}
+
+.kq-activity-panel button {
+  border: 1px solid var(--line-cool);
+  border-radius: 9px;
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.kq-activity-panel > header button {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+}
+
+.kq-activity-panel > header svg,
+.kq-activity-error svg {
+  width: 17px;
+  height: 17px;
+}
+
+.kq-global-activity-list {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-height: 0;
+  margin: 0;
+  padding: 0 3px 16px 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.kq-global-activity-list li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line-cool);
+  border-radius: 12px;
+  background: var(--paper);
+}
+
+.kq-global-activity-domain {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  color: var(--ink-soft);
+  font-size: 11px;
+}
+
+.kq-global-activity-domain svg {
+  width: 18px;
+  height: 18px;
+}
+
+.kq-global-activity-list li > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.kq-global-activity-list strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kq-global-activity-status,
+.kq-global-activity-list time,
+.kq-activity-empty span {
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.kq-global-activity-list li[data-status="running"] .kq-global-activity-status,
+.kq-global-activity-list li[data-status="waiting"] .kq-global-activity-status,
+.kq-global-activity-list li[data-status="interrupted"] .kq-global-activity-status {
+  color: var(--purple);
+}
+
+.kq-global-activity-list li > button,
+.kq-activity-error button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 7px 10px;
+  font-weight: 700;
+}
+
+.kq-activity-error,
+.kq-activity-empty {
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid var(--line-cool);
+  border-radius: 12px;
+  background: var(--paper);
+}
+
 /* 720px 是真实最小窗口宽度：Chat 文字收起来，图标留着。 */
 @media (max-width: 860px) {
   .kq-app-header {
@@ -202,6 +354,15 @@
 
   .kq-brand-cluster {
     gap: 1px;
+  }
+
+  .kq-global-activity-list li {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .kq-global-activity-list li > button {
+    grid-column: 2;
+    justify-self: start;
   }
 }
 

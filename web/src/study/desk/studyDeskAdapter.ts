@@ -375,14 +375,24 @@ export function createStudyDeskAdapter(options: {
       const activeCore = resolvedCore?.point ?? null;
       if (activeCore) selectKnowledgeCore(spaceId, activeCore, "practice");
       activeKnowledgeCore = activeCore;
+      const mapLinks = activeCore && learn?.learningMap
+        ? learn.learningMap.exerciseLinks
+          .filter((link) => link.knowledgeCoreId === activeCore.item_id)
+          .sort((left, right) => left.order - right.order)
+        : null;
+      const mapOrder = new Map(mapLinks?.map((link, index) => [
+        `${link.quizArtifactId}:${link.exerciseId}`,
+        index,
+      ]));
       const questions = activeCore
         ? allQuestions
-          .filter((question) => questionBelongsToKnowledgeCore(
-            question,
-            activeCore.front,
-            activeCore.item_id,
-          ))
-          .sort((left, right) => exerciseOriginRank(left) - exerciseOriginRank(right))
+          .filter((question) => mapLinks
+            ? mapOrder.has(`${question.artifact_id}:${question.item_id}`)
+            : questionBelongsToKnowledgeCore(question, activeCore.front, activeCore.item_id))
+          .sort((left, right) => mapLinks
+            ? (mapOrder.get(`${left.artifact_id}:${left.item_id}`) ?? Number.MAX_SAFE_INTEGER)
+              - (mapOrder.get(`${right.artifact_id}:${right.item_id}`) ?? Number.MAX_SAFE_INTEGER)
+            : exerciseOriginRank(left) - exerciseOriginRank(right))
         : [];
 
       artifactId = quiz?.artifact_id ?? "";
