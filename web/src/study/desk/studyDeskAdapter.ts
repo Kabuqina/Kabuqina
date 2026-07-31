@@ -410,10 +410,10 @@ export function createStudyDeskAdapter(options: {
 
       const data: DeskData = {
         course: {
-          name: spaces.find((space) => space.id === spaceId)?.title || "我的课程",
+          name: spaces.find((space) => space.id === spaceId)?.title || "我的本子",
           notebookLabel: activeCore
             ? `${activeCore.front} · ${questions.length} 题`
-            : `${quiz?.title ?? "当前课程"} · 尚无知识核`,
+            : `${quiz?.title ?? "当前本子"} · 尚无知识核`,
         },
         steps: questions.map((question, index) => (
           mapStep(
@@ -449,7 +449,7 @@ export function createStudyDeskAdapter(options: {
           ] : [],
         },
         bookstand: {
-          title: "我的课程本",
+          title: "我的本子",
           hint: "换课就是换一本本子。",
           // 杂记本不是课程，所以不混进这一排——它单独待在书立最右端。
           books: spaces
@@ -466,10 +466,10 @@ export function createStudyDeskAdapter(options: {
           newBookLabel: "开新本",
         },
         materials: {
-          title: "本课材料",
+          title: "知识源",
           hint: (learn?.artifacts ?? []).some((item) => item.kind === "resource_pack")
-            ? "抽一本出来看；阅读位置不会改变课程进度。"
-            : "还没有参考资料，可以先放一本进来。",
+            ? "抽一本出来看；阅读位置不会改变学习进度。"
+            : "还没有知识源，可以先添加一份。",
           items: (learn?.artifacts ?? []).filter((item) => item.kind === "resource_pack").slice(0, 8).map((item) => ({
             id: item.artifact_id,
             title: item.title,

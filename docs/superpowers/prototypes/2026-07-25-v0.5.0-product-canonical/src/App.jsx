@@ -798,15 +798,6 @@ function StudyNotebook({
               <strong>完成标准：</strong>
               说清“得到 0/0”不等于“得到极限值”，并指出下一步。
             </p>
-            {studyState === "returned" && (
-              <aside className="margin-note">
-                <Coffee aria-hidden="true" />
-                <div>
-                  <strong>小娜留在页边</strong>
-                  <p>试试把“未定式”这个词，放进你原来那句话里。</p>
-                </div>
-              </aside>
-            )}
             <label className="answer-field">
               <span>
                 <strong>我的答案</strong>
@@ -825,13 +816,6 @@ function StudyNotebook({
                 </header>
                 <div className="feedback-grid">
                   <p>
-                    <Check size={16} aria-hidden="true" />
-                    <span>
-                      <strong>已说清</strong>
-                      代入后分子、分母都趋近 0。
-                    </span>
-                  </p>
-                  <p>
                     <Circle size={16} aria-hidden="true" />
                     <span>
                       <strong>还差这句</strong>
@@ -841,7 +825,7 @@ function StudyNotebook({
                 </div>
                 <div className="inline-actions">
                   <button className="primary-action" type="button" onClick={onCheck}>
-                    修改答案
+                    保存答案
                   </button>
                   <button type="button" onClick={onAsk}>
                     <AppIcon icon={Coffee} />

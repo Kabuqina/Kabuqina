@@ -31,12 +31,20 @@ describe("DeskScene FE-01 preview", () => {
     const adapter = createAdapter({ markPracticeState });
     const onDirtyChange = vi.fn();
     const { container } = render(
-      <DeskScene adapter={adapter} onDirtyChange={onDirtyChange} />,
+      <DeskScene
+        adapter={adapter}
+        continueTitle="解释为什么不能直接代入"
+        continueMeta="极限 · 练习"
+        onDirtyChange={onDirtyChange}
+      />,
     );
 
     const pageTabs = await screen.findByRole("navigation", { name: "笔记本分页" });
     const bookmark = screen.getByRole("button", { name: /继续：解释为什么不能直接代入/ });
     expect(pageTabs.parentElement).toBe(bookmark.parentElement);
+    expect(bookmark).toHaveTextContent("继续");
+    expect(bookmark).not.toHaveTextContent("解释为什么不能直接代入");
+    expect(bookmark).not.toHaveTextContent("极限 · 练习");
     expect(screen.queryByRole("heading", { name: "高等数学 · 极限" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /制作 \/ 成果/ })).not.toBeInTheDocument();
     const root = container.querySelector(".kq-desk");
@@ -89,6 +97,32 @@ describe("DeskScene FE-01 preview", () => {
   it("shows a bounded recovery notice inside the notebook", async () => {
     render(<DeskScene adapter={createAdapter()} pageNotice="已回到这条证据对应的知识核和题目。" />);
     expect((await screen.findByText("已回到这条证据对应的知识核和题目。")).closest('[role="status"]')).not.toBeNull();
+  });
+
+  it("keeps a blank non-interactive bookmark when no content is associated", async () => {
+    const { container } = render(<DeskScene adapter={createAdapter()} />);
+
+    await screen.findByRole("navigation", { name: "笔记本分页" });
+    expect(container.querySelector(".kd-bookmark-button.is-empty")).not.toBeNull();
+    expect(screen.queryByRole("button", { name: /^继续：/ })).not.toBeInTheDocument();
+  });
+
+  it("labels a plan-level bookmark as a start instead of pretending learning already began", async () => {
+    render(
+      <DeskScene
+        adapter={createAdapter()}
+        currentPage="plan"
+        continueTitle="阅读《迭代器与生成器》讲义"
+        continueMeta="阶段一：迭代与惰性求值 · 计划"
+        continueLabel="从这里开始"
+      />,
+    );
+
+    const bookmark = await screen.findByRole("button", {
+      name: /从这里开始：阅读《迭代器与生成器》讲义/,
+    });
+    expect(bookmark).toHaveTextContent("开始");
+    expect(bookmark).not.toHaveTextContent("阅读《迭代器与生成器》讲义");
   });
 
   it("keeps load failures private and retries the same notebook", async () => {
@@ -157,15 +191,31 @@ describe("DeskScene FE-01 preview", () => {
     expect(screen.getByText("《高等数学》 · 2.3 极限 · 第 41 页")).toBeInTheDocument();
   });
 
-  it("offers course-only removal from the expanded material index", async () => {
-    const onRemoveMaterial = vi.fn();
-    render(<DeskScene adapter={createAdapter()} onRemoveMaterial={onRemoveMaterial} />);
+  it("uses one stable knowledge-source rail while desk data is loading", async () => {
+    let resolveDesk!: (data: typeof deskFixtureData) => void;
+    const pendingDesk = new Promise<typeof deskFixtureData>((resolve) => {
+      resolveDesk = resolve;
+    });
+    render(
+      <DeskScene
+        adapter={createAdapter({ loadDesk: vi.fn().mockReturnValue(pendingDesk) })}
+        currentPage="learn"
+        pageBody={<div>学习页正文</div>}
+        bookstandFallback={{ ...deskFixtureData.bookstand, currentTitle: deskFixtureData.course.name }}
+      />,
+    );
 
-    await screen.findByRole("navigation", { name: "笔记本分页" });
-    fireEvent.click(screen.getByRole("button", { name: "小娜从这些书里读到的" }));
-    fireEvent.click(screen.getByRole("button", { name: "从本课移出 教材 §2.3" }));
+    const sourceRail = screen.getByRole("heading", { name: "知识源" }).closest("section");
+    expect(sourceRail).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByText("正在整理知识源…")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "添加知识源" })).not.toBeInTheDocument();
+    expect(screen.queryByText("参考资料")).not.toBeInTheDocument();
 
-    expect(onRemoveMaterial).toHaveBeenCalledWith("material-1", "教材 §2.3");
+    resolveDesk(deskFixtureData);
+
+    expect(await screen.findByRole("button", { name: "教材 §2.3" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "知识源" }).closest("section")).not.toHaveAttribute("aria-busy");
+    expect(screen.queryByText("正在整理知识源…")).not.toBeInTheDocument();
   });
 
   it("supports deterministic completed-state capture and advances to the next step", async () => {

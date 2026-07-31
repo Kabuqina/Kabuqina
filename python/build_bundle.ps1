@@ -844,6 +844,7 @@ Copy-Item -Force (Join-Path $PSScriptRoot "src\messaging_policy.py") (Join-Path 
 Copy-Item -Force (Join-Path $PSScriptRoot "src\kabuqina_env.py") (Join-Path $Dist "kabuqina_env.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\learning_owner.py") (Join-Path $Dist "learning_owner.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\learning_recovery.py") (Join-Path $Dist "learning_recovery.py")
+Copy-Item -Force (Join-Path $PSScriptRoot "src\activity_projection.py") (Join-Path $Dist "activity_projection.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\studio_store.py") (Join-Path $Dist "studio_store.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\study_review_reminder.py") (Join-Path $Dist "study_review_reminder.py")
 Copy-Item -Force (Join-Path $PSScriptRoot "src\study_semantic_reviewer.py") (Join-Path $Dist "study_semantic_reviewer.py")

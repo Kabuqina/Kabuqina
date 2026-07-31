@@ -5,7 +5,6 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "reac
 import { Navigate, useNavigate } from "react-router-dom";
 import { useI18n } from "../../lib/i18n";
 import { getDraftSnapshot, updateDraft, useDraft } from "../../lib/store";
-import { CHAT_FROM_ONBOARDING_STATE } from "../../lib/chatLocationState";
 import { cmdSaveVoiceSetup, type VoiceSetupSection } from "../../lib/voice-setup-api";
 import { CATALOG_BY_SECTION } from "../setupCatalog/optionData";
 import { SetupOptionsTable } from "../SetupOptionsTable";
@@ -159,10 +158,9 @@ export function SectionPlaceholderStep({ id }: { id: PostPassSectionId }) {
                   if (!canProceed) return;
                   const ok = await persistVoiceSection();
                   if (!ok) return;
-                  // Avoid clearDraft() here: it clears setupMode and this step re-renders
-                  // `<Navigate to …/mode>` before `/chat` is applied. ChatPage clears draft
-                  // when it receives CHAT_FROM_ONBOARDING_STATE.
-                  nav("/chat", { replace: true, state: CHAT_FROM_ONBOARDING_STATE });
+                  // The dedicated completion route clears the draft only after
+                  // this guarded setup step has been left.
+                  nav("/onboarding/done", { replace: true });
                 }}
               >
                 {saving ? t("setupOptions.saving") : t("onboarding.finishToChat")}

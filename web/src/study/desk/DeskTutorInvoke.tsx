@@ -49,7 +49,7 @@ export function DeskTutorInvoke({
   return (
     <main className="kd-invoke-layout">
       <section className="kd-invoke-card" aria-labelledby="kd-invoke-title">
-        <p className="kd-page-kicker">课程对话</p>
+        <p className="kd-page-kicker">本子对话</p>
         <h1 id="kd-invoke-title">结合当前这一步问小娜</h1>
         <p>她会带上你正在看的题、当前答案和检查反馈，但不会替你改写答案。</p>
         <div className="kd-context-preview">

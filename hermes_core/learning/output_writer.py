@@ -106,7 +106,7 @@ class OutputWriter:
         return res
 
     def transition_artifact(self, artifact_id: str, new_status: str) -> None:
-        """Trusted lifecycle transition (activate/reject/archive).
+        """Trusted lifecycle transition (activate/reject/archive/delete).
 
         Never exposed as a model tool. Delegates to the context, which enforces
         the contract's allowed transitions and owner/space scoping.

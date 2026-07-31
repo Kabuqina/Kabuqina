@@ -1,7 +1,7 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-/** User chose “configure API later” on the pass step; allows opening /chat without a saved key until they configure. */
+/** User chose “configure API later”; allows entering Study and opening Chat before a key is configured. */
 const STORAGE_KEY = "kabuqina.allow_chat_without_api";
 const LEGACY_STORAGE_KEY = "hermesdesk.allow_chat_without_api";
 

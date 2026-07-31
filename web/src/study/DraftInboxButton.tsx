@@ -4,7 +4,7 @@
 import { Inbox, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useI18n } from "../lib/i18n";
 import { type StudyArtifactSummary } from "../chat/study/study-api";
 import { ArtifactAdvancedPanel } from "./ArtifactAdvancedPanel";
@@ -13,11 +13,14 @@ import { LearnArtifactContent } from "./LearnArtifactContent";
 import type { Loadable } from "./loadable";
 import type { StudyArtifactDetail } from "./repository";
 import { studyPath, type StudyPageSlug } from "./routeModel";
+import { onStudyDraftRequest } from "./studyDraftRequest";
+import { requestStudyMaterial } from "./studyMaterialRequest";
 
 const EXTERNAL_REVIEW_KINDS = new Set([
   "knowledge_base",
   "material_alignment",
   "resource_pack",
+  "flashcard_deck",
   "tutoring_note",
 ]);
 
@@ -102,6 +105,74 @@ function QuizDraftPreview({ detail }: { detail: StudyArtifactDetail }) {
   );
 }
 
+function courseCoreCards(detail: StudyArtifactDetail): Record<string, unknown>[] {
+  if (detail.kind !== "flashcard_deck") return [];
+  const payload = detail.envelope.payload;
+  const cards = payload && typeof payload === "object" && !Array.isArray(payload)
+    ? (payload as { cards?: unknown }).cards
+    : undefined;
+  return Array.isArray(cards)
+    ? cards.filter((card): card is Record<string, unknown> => (
+      Boolean(card)
+      && typeof card === "object"
+      && !Array.isArray(card)
+      && typeof (card as Record<string, unknown>).knowledge_core_id === "string"
+    )).slice(0, 30)
+    : [];
+}
+
+function sourceTarget(value: unknown): { artifactId: string; page?: number } | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const ref = value as Record<string, unknown>;
+  const artifactId = [ref.artifactId, ref.artifact_id, ref.material_id]
+    .find((candidate) => typeof candidate === "string" && candidate.trim());
+  if (typeof artifactId !== "string") return null;
+  const directPage = Number(ref.page ?? ref.pageStart ?? ref.page_start);
+  const locator = typeof ref.locator === "string" ? ref.locator : "";
+  const locatorPage = Number(locator.match(/\d+/)?.[0]);
+  const page = Number.isInteger(directPage) && directPage > 0
+    ? directPage
+    : Number.isInteger(locatorPage) && locatorPage > 0 ? locatorPage : undefined;
+  return { artifactId, ...(page ? { page } : {}) };
+}
+
+function KnowledgeCoreDraftPreview({
+  detail,
+  onOpenSource,
+}: {
+  detail: StudyArtifactDetail;
+  onOpenSource: (target: { artifactId: string; page?: number }) => void;
+}) {
+  const cards = courseCoreCards(detail);
+  if (!cards.length) return <p className="kq-study-draft-preview">这份卡片草稿暂时无法预览。</p>;
+  return (
+    <div className="kq-study-quiz-draft-preview" aria-label="知识核草稿预览">
+      {cards.map((card, index) => {
+        const refs = Array.isArray(card.source_refs) ? card.source_refs : [];
+        const source = questionSourceLabel(refs[0]);
+        const target = sourceTarget(refs[0]);
+        return (
+          <article key={`${index}:${boundedText(card.front, 120)}`}>
+            <p>
+              <strong>学习知识核</strong>
+              {source && target ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenSource(target)}
+                >
+                  {source}
+                </button>
+              ) : source ? <span>{source}</span> : null}
+            </p>
+            <h4>{boundedText(card.front) || "未命名知识核"}</h4>
+            <p>{boundedText(card.back) || "暂时没有关键说明"}</p>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
 export function DraftInboxButton({
   onActivated,
 }: {
@@ -109,10 +180,12 @@ export function DraftInboxButton({
 } = {}) {
   const { t } = useI18n();
   const navigate = useNavigate();
+  const location = useLocation();
   const controller = useStudyDrafts();
   const trigger = useRef<HTMLButtonElement>(null);
   const dialog = useRef<HTMLDivElement>(null);
   const close = useRef<HTMLButtonElement>(null);
+  const requestedId = useRef("");
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState("all");
   const [selectedId, setSelectedId] = useState("");
@@ -145,6 +218,26 @@ export function DraftInboxButton({
     setOpen(false);
     requestAnimationFrame(() => trigger.current?.focus());
   }, []);
+
+  useEffect(() => onStudyDraftRequest((request) => {
+    if (request.spaceId !== controller.spaceId) return;
+    requestedId.current = request.artifactId;
+    setKind("all");
+    setSelectedId(request.artifactId);
+    setOpen(true);
+    controller.refresh();
+  }), [controller]);
+
+  useEffect(() => {
+    const artifactId = new URLSearchParams(location.search).get("draft")?.trim();
+    if (!artifactId) return;
+    requestedId.current = artifactId;
+    setKind("all");
+    setSelectedId(artifactId);
+    setOpen(true);
+    controller.refresh();
+    navigate(location.pathname, { replace: true });
+  }, [controller, location.pathname, location.search, navigate]);
 
   useEffect(() => {
     if (!open) return;
@@ -179,8 +272,18 @@ export function DraftInboxButton({
   }, [controller, open, selected]);
 
   useEffect(() => {
-    if (selectedId && !items.some((item) => item.artifact_id === selectedId)) setSelectedId("");
-  }, [items, selectedId]);
+    if (requestedId.current && items.some((item) => item.artifact_id === requestedId.current)) {
+      setSelectedId(requestedId.current);
+      requestedId.current = "";
+      return;
+    }
+    if (
+      selectedId
+      && !requestedId.current
+      && controller.snapshot.status === "ready"
+      && !items.some((item) => item.artifact_id === selectedId)
+    ) setSelectedId("");
+  }, [controller.snapshot.status, items, selectedId]);
 
   const onKeyDown = (event: React.KeyboardEvent) => {
     if (event.key === "Escape") {
@@ -202,13 +305,14 @@ export function DraftInboxButton({
     if (!selected || !openedDetail) return;
     const activated = await controller.activate(selected.artifact_id);
     if (!activated) return;
-    if (selected.kind !== "quiz") return;
+    const isCourseCoreDeck = courseCoreCards(openedDetail).length > 0;
+    if (selected.kind !== "quiz" && !isCourseCoreDeck) return;
     closeDialog();
-    if (onActivated) {
+    if (selected.kind === "quiz" && onActivated) {
       await onActivated(selected, openedDetail);
       return;
     }
-    const destination = pageForKind(selected.kind);
+    const destination = isCourseCoreDeck ? "learn" : pageForKind(selected.kind);
     if (destination) navigate(studyPath(controller.spaceId, destination));
   };
 
@@ -279,6 +383,16 @@ export function DraftInboxButton({
                     <p className="kq-study-muted">{kindLabel(selected.kind, t)} · {openedDetail.review.status ?? selected.status}</p>
                     {openedDetail.kind === "quiz"
                       ? <QuizDraftPreview detail={openedDetail} />
+                      : openedDetail.kind === "flashcard_deck"
+                      ? (
+                        <KnowledgeCoreDraftPreview
+                          detail={openedDetail}
+                          onOpenSource={(target) => {
+                            closeDialog();
+                            requestStudyMaterial({ spaceId: controller.spaceId, ...target });
+                          }}
+                        />
+                      )
                       : openedDetail.kind === "knowledge_base" || openedDetail.kind === "resource_pack" || openedDetail.kind === "tutoring_note"
                       ? <LearnArtifactContent detail={openedDetail} />
                       : <p className="kq-study-draft-preview">{t("study.draftDetailPrivate")}</p>}
@@ -287,7 +401,7 @@ export function DraftInboxButton({
                     {actionError ? <p className="kq-study-page-error" role="alert">{t("study.draftActionFailed")}</p> : null}
                     <div className="kq-study-inline-actions">
                       {needsReview ? <button data-study-focus type="button" disabled={Boolean(action)} onClick={() => controller.review(selected.artifact_id)}>{action === "review" ? t("study.draftReviewing") : t("study.draftRetryReview")}</button> : null}
-                      <button data-study-focus type="button" disabled={Boolean(action) || Boolean(needsReview)} onClick={() => { void activateSelected(); }}>{selected.kind === "quiz" ? t("study.practiceDraftAdopt") : t("study.flyleafInk")}</button>
+                      <button data-study-focus type="button" disabled={Boolean(action) || Boolean(needsReview)} onClick={() => { void activateSelected(); }}>{selected.kind === "quiz" ? t("study.practiceDraftAdopt") : courseCoreCards(openedDetail).length ? "采用知识核" : t("study.flyleafInk")}</button>
                       <button data-study-focus type="button" disabled={Boolean(action)} onClick={() => controller.reject(selected.artifact_id)}>{selected.kind === "quiz" ? t("study.practiceDraftReject") : t("study.flyleafErase")}</button>
                       {pageForKind(selected.kind) ? <button data-study-focus type="button" onClick={() => { navigate(studyPath(controller.spaceId, pageForKind(selected.kind)!)); closeDialog(); }}>{t("study.draftOpenPage")}</button> : null}
                     </div>

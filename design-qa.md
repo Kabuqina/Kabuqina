@@ -251,3 +251,181 @@ Control status:
 - 最终插画、材质精修和克制动效不在 FE-03；现有 DOM/CSS surface 已可直接接入这些资产。
 
 final result: pre-art frontend implementation passed author verification; durable commit and independent acceptance remain required
+
+---
+
+## FE-04 Study 小娜与材料阅读器 — 2026-07-30
+
+### Comparison target
+
+- Canonical source: `docs/superpowers/prototypes/2026-07-25-v0.5.0-product-canonical`.
+- React preview: `/__dev/desk?fixture=f1&page=practice&panel=nana` and
+  `/__dev/desk?fixture=f1&page=learn&panel=reader`.
+- Same browser and same `1440 × 900` state comparisons were made for both the canonical source and React preview.
+
+### Findings and fixes
+
+- [P1, fixed] The first implementation made the lightweight Nana surface a full-height reader-shaped panel. It now matches the canonical cup behavior: a bounded paper panel at the lower page edge, while the current notebook remains visible and usable.
+- The material reader keeps the canonical full-height right-side form, wrapped file directory, independent body scroll and notebook-visible relationship.
+- Cup opening never sends automatically. Its transcript, streaming, clarification cards and session id are shared with full Chat; an unsent draft survives closing and is handed to full Chat.
+- The reader resolves the local file from a trusted Study artifact, reads bounded windows, supports directory/page navigation and stores position per file without changing the learning cursor.
+- The in-app browser exposed a minimum `1280 × 720` viewport despite a requested `720 × 520` override. Wide visual comparison passed; exact native minimum-window review remains part of the owner's visual pass and S11.
+- Browser console contained no error or warning during the compared states.
+
+### Verification
+
+- Web production build: passed.
+- Focused Study/Chat component tests: `5 files / 23 tests` passed after the final layout correction.
+- Desktop Study route tests: `19 passed`.
+- Rust `cargo check`: passed after the existing Tauri build-directory lock cleared. The separate temporary check had exhausted disk space while scanning bundled runtime resources; its exact temporary target was removed afterward.
+
+final result: passed for S6/S9 implementation; exact 720 × 520 remains under S11
+
+---
+
+## FE-05 Study S3B 共享位置与继续书签 — 2026-07-30
+
+### Comparison target
+
+- Source visual truth: `docs/superpowers/prototypes/2026-07-25-v0.5.0-product-canonical`, live Study notebook header and its two-line continue bookmark.
+- Implementation: `/__dev/desk?fixture=f0&page=practice&bookmark=revision`.
+- In-app browser comparison at the same desktop viewport (`1280 × 720`, device scale 1); source and implementation captures were emitted together. The focused region was the notebook header containing the five page labels and bookmark because S3B does not change body layout or assets.
+
+### Findings and comparison history
+
+- [P2, fixed] First capture showed `继续：继续修改：0/0 是什么`. The state projection had included a verb already supplied by the notebook component, causing duplicated hierarchy and a longer first line.
+- Fix: state-specific main copy is now `知识核 · 草稿/待修改/检查中`; the second line carries outline range, mode and state. Post-fix capture shows `继续：0/0 是什么 · 待修改` above `第一章 · 极限 · 练习 · 待修改`, with the five labels unchanged and no overlap.
+- Typography, spacing, colors, paper/shadow tokens, icons and content density continue to use the existing canonical desk components. No image or brand asset changed.
+- The implementation keeps the canonical warm bordered bookmark and right-aligned placement. Its state copy is intentionally more explicit than the static prototype because it projects real recovery state.
+
+### Verification
+
+- Full Web suite: `46 files / 226 tests` passed.
+- Production Web build and fixture-leakage gate: passed.
+- Focused S3B contracts cover cross-page shared core, per-core exercise recovery, honest no-exercise state, course isolation, stale-core degradation and bookmark state updates.
+
+final result: passed
+
+---
+
+## FE-06 Study 练习页文案与批注收敛 — 2026-07-30
+
+### Comparison target
+
+- Source visual truth: `docs/superpowers/prototypes/2026-07-25-v0.5.0-product-canonical`,
+  J2 的练习检查状态，并应用本次 owner override（题目直接作为标题、单条页边批注、保存答案）。
+- Source capture: `artifacts/design-qa/study-practice-revision-source.png`.
+- Implementation capture: `artifacts/design-qa/study-practice-revision-implementation.png`.
+- Combined comparison: `artifacts/design-qa/study-practice-revision-comparison.png`.
+- Viewport/state: both captures use `1280 × 720` CSS px, device scale `1.25`, and
+  `1600 × 900` PNG pixels; both show the same exercise and `needs_revision` state.
+
+### Findings and comparison history
+
+- [P1, fixed] The implementation still led with the legacy paraphrase
+  `解释为什么不能直接代入`, pushing the real question below the completion standard. The
+  paraphrase is no longer rendered; the complete exercise prompt is now the only H2, followed by
+  `完成标准` and `我的答案`.
+- [P1, fixed] The prior feedback surface simultaneously rendered `已经说明清楚`, `还差一步`
+  and `接下来试试`. It now renders exactly one annotation selected by the check result. Completed,
+  revision and next-step states remain distinct contract values, but only the current one is visible.
+- [P1, fixed] `修改答案` described an unlock action rather than the user's intended commit. In a
+  revision state the answer remains editable; `保存答案` flushes the current draft, then exposes
+  `检查这一步`. Saving does not submit, grade or mark the exercise correct.
+- [P2, fixed] The canonical source still had a second `小娜留在页边` note above the answer in the
+  same state. It was removed so the single `页边批注` remains the only feedback object.
+- Fonts/typography: the question is the largest exercise-page text and retains the canonical display
+  hierarchy. Spacing/layout: question → standard → answer → one annotation remains readable without
+  overflow at the compared viewport. Colors/tokens and icons stay on the existing Shell desk system.
+  No raster, logo or decorative asset changed. Copy now matches the owner decision.
+- Focused-region evidence was required because the decisive differences are all inside the exercise
+  body; the combined image compares that region at identical CSS size and density. The production
+  Shell intentionally omits the older prototype's duplicate course heading and retains the existing
+  right-side reader and review objects.
+
+### Interaction and verification
+
+- Edited the answer while `needs_revision`; the chosen margin annotation stayed visible.
+- Activated `保存答案`; the draft persisted and the UI moved to `检查这一步` without grading.
+- In-app browser console errors/warnings: none.
+- Full Web component suite: `46 files / 227 tests` passed with two workers.
+- Web production build and fixture-leakage gate: passed.
+- Canonical prototype build: passed.
+
+final result: passed
+
+---
+
+## FE-07 Study 练习页提示收敛 — 2026-07-30
+
+### Comparison target
+
+- Source visual truth: `docs/superpowers/prototypes/2026-07-25-v0.5.0-product-canonical`,
+  combined with the owner override that the auxiliary fold is named `提示` and contains only one clue.
+- Source capture: `artifacts/design-qa/study-practice-revision-source.png`.
+- Implementation capture: `artifacts/design-qa/study-practice-hint-implementation.png`.
+- Combined comparison: `artifacts/design-qa/study-practice-hint-comparison.png`.
+- Implementation viewport/state: `1280 × 720` CSS px, device scale `1.25`, `1280 × 720`
+  PNG capture, practice page in `needs_revision` with the hint expanded.
+
+### Findings and fixes
+
+- [P1, fixed] The answer block repeated the state as `我的草稿` beside `我的答案`. The answer
+  block now has one stable heading, `我的答案`; persistence remains communicated by the existing
+  status line below the editor.
+- [P1, fixed] `本题参考` implied a solution or explanatory reference. It is now `提示`, and its
+  expanded body contains exactly one short clue: `x² − 1 = (x − 1)(x + 1)`.
+- [P1, fixed] The data contract no longer carries a reference summary. Real exercises project a
+  short tag-based clue (or a neutral keyword fallback) and never expose the worked explanation,
+  answer or rubric through this fold.
+- Typography, paper tokens, spacing and the existing right-side fold placement remain within the
+  established Shell/Study desk system. No visual asset changed.
+
+### Interaction and verification
+
+- In-app browser: `我的草稿` count `0`, `提示` count `1`, `本题参考` count `0`.
+- Expanded `提示`: concise clue count `1`; worked-explanation count `0`.
+- Browser console errors/warnings: none (Vite debug and React development-info messages only).
+- Focused Study desk tests: `2 files / 19 tests` passed.
+- Previously flaky Nana panel test rerun in isolation: `1 file / 1 test` passed.
+- Web production build and fixture-leakage gate: passed.
+
+final result: passed
+
+---
+
+## FE-08 Study 练习页去考核化与单一求助入口 — 2026-07-30
+
+### Comparison target
+
+- Source visual truth: `docs/superpowers/prototypes/2026-07-25-v0.5.0-product-canonical`,
+  with owner overrides: remove the completion-standard block, rename the feedback heading to
+  `小娜批注`, and keep `碰杯问小娜` as the only Nana entry on the practice page.
+- Source capture: `artifacts/design-qa/study-practice-revision-source.png`.
+- Implementation capture: `artifacts/design-qa/study-practice-clean-answer-implementation.png`.
+- Combined comparison: `artifacts/design-qa/study-practice-clean-answer-comparison.png`.
+- Viewport/state: `1280 × 720` CSS px at device scale `1.25`, practice `needs_revision` state.
+
+### Findings and fixes
+
+- [P1, fixed] The assessment-like `完成标准` block sat between a single exercise and its answer.
+  It has been removed from rendering, the front-end `StudyStep` contract, fixture projection,
+  adapter projection and CSS; grading metadata remains internal to the checker.
+- [P1, fixed] The generic heading `页边批注` is now `小娜批注`, including its accessible name
+  and Chat-return location copy, so the feedback has a clear speaker.
+- [P1, fixed] `让小娜陪我补这一步` duplicated the desk cup. The inline button and notebook prop
+  were removed; `碰杯问小娜` remains visible and successfully opens the Nana surface with the
+  current exercise, answer and feedback context.
+- The result reads as question → answer → Nana annotation, with no empty space left by the removed
+  standard and no second conversation action competing with save/check.
+
+### Interaction and verification
+
+- In-app browser counts: completion standard `0`, old annotation heading `0`, `小娜批注` `1`,
+  inline tutor action `0`, cup entry `1`.
+- Activated `碰杯问小娜`; the Nana panel opened and retained the current practice context.
+- Browser console errors/warnings: none (Vite debug and React development-info messages only).
+- Focused Study desk tests: `2 files / 19 tests` passed.
+- Web production build and fixture-leakage gate: passed.
+
+final result: passed

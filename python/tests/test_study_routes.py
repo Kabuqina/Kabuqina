@@ -9,7 +9,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -22,6 +22,10 @@ for p in (SRC_DIR, CORE_DIR):
 
 from learning.learning_context import LearningExecutionContext  # noqa: E402
 from learning.learning_store import LearningStore  # noqa: E402
+from learning.learning_plans import (  # noqa: E402
+    LEARNING_PLAN_ITEM_TYPE,
+    LearningPlanService,
+)
 from learning.output_writer import OutputWriter  # noqa: E402
 from learning.flashcards import FlashcardService  # noqa: E402
 from learning.quizzes import QuizService  # noqa: E402
@@ -94,6 +98,63 @@ def _seed_quiz_draft(db_path: Path) -> str:
                         "accepted": ["GD"],
                         "tags": ["optimization"],
                     },
+                ]
+            },
+        )["artifact_id"]
+    finally:
+        store.close()
+
+
+def _seed_course_core_draft(db_path: Path) -> str:
+    store = LearningStore(db_path=db_path)
+    try:
+        ctx = LearningExecutionContext(store, owner_id=OWNER)
+        ctx.create_space(title="Algebra", space_id="s1")
+        resource = ctx.put_artifact(
+            kind="resource_pack",
+            title="Algebra material",
+            payload={
+                "resources": [{"title": "Algebra.pdf", "purpose": "Primary"}],
+                "outline": [
+                    {
+                        "id": "section-equations",
+                        "title": "Linear equations",
+                        "locator": "p. 12",
+                    }
+                ],
+            },
+            source_refs=[
+                {
+                    "origin": "imported",
+                    "structure_status": "reliable",
+                    "structure_origin": "embedded_pdf_outline",
+                    "source_label": "Algebra.pdf",
+                }
+            ],
+            review={"mode": "semantic", "status": "passed"},
+        )
+        ctx.set_artifact_status(resource["artifact_id"], "active")
+        return OutputWriter(ctx).write_artifact(
+            kind="flashcard_deck",
+            title="Linear equation cores",
+            payload={
+                "cards": [
+                    {
+                        "front": "Linear equation",
+                        "back": "An equation whose unknown has degree one.",
+                        "knowledge_core_id": "core-linear-equation",
+                        "outline_node_id": "section-equations",
+                        "order": 0,
+                        "source_refs": [
+                            {
+                                "origin": "kq-kp",
+                                "material_id": "material-algebra",
+                                "locator": "p. 12",
+                                "knowledge_core_id": "core-linear-equation",
+                                "outline_node_id": "section-equations",
+                            }
+                        ],
+                    }
                 ]
             },
         )["artifact_id"]
@@ -352,7 +413,7 @@ def test_study_material_read_registers_and_deduplicates_course_source(study_clie
 
 
 def test_study_material_reader_resolves_trusted_artifact_and_reads_bounded_pages(study_client, tmp_path):
-    client, _db_path = study_client
+    client, db_path = study_client
     assert client.post(
         "/api/desk/study/spaces",
         json={"title": "Reader course", "space_id": "reader-course"},
@@ -407,6 +468,82 @@ def test_study_material_reader_resolves_trusted_artifact_and_reads_bounded_pages
         headers=_headers(),
     )
     assert too_large.status_code == 400
+
+    store = LearningStore(db_path=db_path)
+    try:
+        ctx = LearningExecutionContext(
+            store, owner_id=OWNER, space_id="reader-course"
+        )
+        plan_id = OutputWriter(ctx).write_artifact(
+            kind="learning_plan",
+            title="Python学习计划",
+            source_refs=[
+                {
+                    "origin": "imported",
+                    "artifact_id": artifact_id,
+                    "source_label": "reader.pdf",
+                }
+            ],
+            payload={
+                "phases": [
+                    {
+                        "title": "第一阶段",
+                        "tasks": [{"title": "阅读第一章", "order": 0}],
+                    }
+                ]
+            },
+        )["artifact_id"]
+        ctx.set_artifact_status(plan_id, "active")
+        activity_id = ctx.record_activity(
+            activity_type="plan.started",
+            artifact_id=plan_id,
+            detail={"source_artifact_id": artifact_id},
+        )
+    finally:
+        store.close()
+
+    deleted = client.delete(
+        f"/api/desk/study/materials/{artifact_id}?space_id=reader-course",
+        headers=_headers(),
+    )
+    assert deleted.status_code == 200, deleted.text
+    assert deleted.json() == {"artifact_id": artifact_id, "status": "deleted"}
+
+    store = LearningStore(db_path=db_path)
+    try:
+        ctx = LearningExecutionContext(
+            store, owner_id=OWNER, space_id="reader-course"
+        )
+        tombstone = ctx.get_artifact(artifact_id)
+        assert tombstone is not None
+        assert tombstone["status"] == "deleted"
+        assert tombstone["envelope"]["source_refs"][0]["path"] == str(source)
+
+        retained_plan = ctx.get_artifact(plan_id)
+        assert retained_plan is not None
+        assert retained_plan["status"] == "active"
+        assert retained_plan["envelope"]["source_refs"][0]["artifact_id"] == artifact_id
+        assert any(
+            row["activity_id"] == activity_id
+            for row in ctx.list_activities()
+        )
+    finally:
+        store.close()
+
+    assert source.is_file(), "knowledge-source deletion must not delete the original file"
+    active_sources = client.get(
+        "/api/desk/study/artifacts?space_id=reader-course&kind=resource_pack&status=active",
+        headers=_headers(),
+    )
+    assert active_sources.status_code == 200
+    assert active_sources.json()["items"] == []
+
+    source_audit = client.get(
+        f"/api/desk/study/artifacts/{plan_id}/source-audit?space_id=reader-course",
+        headers=_headers(),
+    )
+    assert source_audit.status_code == 200
+    assert source_audit.json()["source_refs"][0]["source_status"] == "deleted"
 
 
 def test_study_material_reread_replaces_pending_structure_with_real_outline(study_client):
@@ -488,6 +625,41 @@ def test_flashcard_draft_activate_and_review_routes(study_client):
     assert reviewed.status_code == 200
     assert reviewed.json()["grade"] == "good"
     assert reviewed.json()["repetitions"] == 1
+
+
+def test_course_core_deck_requires_review_before_activation(study_client):
+    client, db_path = study_client
+    artifact_id = _seed_course_core_draft(db_path)
+
+    blocked = client.post(
+        f"/api/desk/study/artifacts/{artifact_id}/activate",
+        headers=_headers(),
+    )
+    assert blocked.status_code == 400
+    assert "semantic review" in blocked.json()["detail"]["message"]
+
+    store = LearningStore(db_path=db_path)
+    try:
+        ctx = LearningExecutionContext(store, owner_id=OWNER, space_id="s1")
+        ctx.set_artifact_review(artifact_id, "passed")
+    finally:
+        store.close()
+
+    activated = client.post(
+        f"/api/desk/study/artifacts/{artifact_id}/activate",
+        headers=_headers(),
+    )
+    assert activated.status_code == 200
+    assert activated.json()["materialized"] == 1
+    learning_map = client.get(
+        "/api/desk/study/learning-map?space_id=s1", headers=_headers()
+    ).json()
+    assert learning_map["knowledgeCores"][0]["id"] == "core-linear-equation"
+    location = client.get(
+        "/api/desk/study/location?space_id=s1", headers=_headers()
+    ).json()
+    assert location["page"] == "learn"
+    assert location["knowledgeCoreId"] == "core-linear-equation"
 
 
 def test_reject_route_keeps_draft_out_of_practice(study_client):
@@ -923,6 +1095,98 @@ def test_learning_map_and_shared_location_routes_use_revision_cas(study_client):
     )
     assert conflict.status_code == 409
     assert conflict.json()["detail"]["code"] == "study_conflict"
+
+
+def test_plan_items_route_repairs_legacy_binding_and_enqueues_once(study_client):
+    client, db_path = study_client
+    store = LearningStore(db_path=db_path)
+    try:
+        ctx = LearningExecutionContext(store, owner_id=OWNER)
+        ctx.create_space(title="Algebra", space_id="s1")
+        resource = ctx.put_artifact(
+            kind="resource_pack",
+            title="Algebra material",
+            payload={
+                "resources": [{"title": "Algebra.pdf", "purpose": "Primary"}],
+                "outline": [
+                    {
+                        "id": "section-equations",
+                        "title": "Linear equations",
+                        "locator": "p. 12",
+                    }
+                ],
+            },
+            source_refs=[
+                {
+                    "origin": "imported",
+                    "structure_status": "reliable",
+                    "structure_origin": "embedded_pdf_outline",
+                    "source_label": "Algebra.pdf",
+                }
+            ],
+            review={"mode": "semantic", "status": "passed"},
+        )
+        ctx.set_artifact_status(resource["artifact_id"], "active")
+        artifact_id = OutputWriter(ctx).write_artifact(
+            kind="learning_plan",
+            title="Legacy Web plan",
+            payload={
+                "phases": [
+                    {
+                        "title": "Foundations",
+                        "tasks": [
+                            {
+                                "title": "Read equations",
+                                "mode": "learn",
+                                "outlineNodeId": "section-equations",
+                            }
+                        ],
+                    }
+                ]
+            },
+        )["artifact_id"]
+        service = LearningPlanService(ctx)
+        service.activate_plan(artifact_id)
+        row = ctx.list_items(
+            item_type=LEARNING_PLAN_ITEM_TYPE, artifact_id=artifact_id
+        )[0]
+        state = dict(row["state"])
+        state["outlineNodeId"] = ""
+        ctx.update_item_state(row["item_id"], state)
+    finally:
+        store.close()
+
+    runner = MagicMock()
+    runner.enqueue.return_value = {
+        "run_id": "run-repaired",
+        "outline_node_id": "section-equations",
+        "status": "queued",
+    }
+    with patch(
+        "desk_server.knowledge_core_compile_runner.get_knowledge_core_compile_runner",
+        return_value=runner,
+    ):
+        repaired = client.get(
+            f"/api/desk/study/learning-plans/{artifact_id}/items?space_id=s1",
+            headers=_headers(),
+        )
+        unchanged = client.get(
+            f"/api/desk/study/learning-plans/{artifact_id}/items?space_id=s1",
+            headers=_headers(),
+        )
+
+    assert repaired.status_code == 200
+    assert repaired.json()["items"][0]["outlineNodeId"] == "section-equations"
+    assert repaired.json()["compilationRuns"] == [
+        {
+            "runId": "run-repaired",
+            "outlineNodeId": "section-equations",
+            "status": "queued",
+        }
+    ]
+    assert unchanged.status_code == 200
+    assert "compilationRuns" not in unchanged.json()
+    runner.enqueue.assert_called_once()
 
 
 def test_legacy_quiz_migration_is_idempotent(study_client):

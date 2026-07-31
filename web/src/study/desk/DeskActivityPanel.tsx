@@ -74,7 +74,7 @@ export function DeskActivityPanel({
         <header className="kd-panel-heading">
           <div>
             <p className="kd-page-kicker">学习动态</p>
-            <h1 id="kd-activity-title" ref={heading} tabIndex={-1}>这本课程最近发生了什么</h1>
+            <h1 id="kd-activity-title" ref={heading} tabIndex={-1}>这本本子最近发生了什么</h1>
             <p>这里只显示 Study 仓库已经记录的学习证据。</p>
           </div>
           <button type="button" onClick={onClose}>回到书桌</button>
@@ -99,15 +99,15 @@ export function DeskActivityPanel({
             ))}
           </ol>
         ) : !loading && !error && !unavailable ? (
-          <div className="kd-honest-state"><p>这本课程还没有学习动态。完成一道题或复习一张卡片后，记录会出现在这里。</p></div>
+          <div className="kd-honest-state"><p>这本本子还没有学习动态。完成一道题或复习一张卡片后，记录会出现在这里。</p></div>
         ) : null}
         {loading && activities.length ? <p role="status">正在刷新学习动态…</p> : null}
         <section className="kd-recent-chats" aria-labelledby="kd-recent-chat-title">
-          <h2 id="kd-recent-chat-title">本课对话</h2>
-          {chatState.status === "loading" && !chatState.items.length ? <p role="status">正在读取课程对话…</p> : null}
+          <h2 id="kd-recent-chat-title">本子对话</h2>
+          {chatState.status === "loading" && !chatState.items.length ? <p role="status">正在读取本子对话…</p> : null}
           {chatState.status === "error" && !chatState.items.length ? (
             <div className="kd-honest-state" role="alert">
-              <p>课程对话暂时无法读取。Study 学习记录仍可正常使用。</p>
+              <p>本子对话暂时无法读取。Study 学习记录仍可正常使用。</p>
               <button type="button" onClick={loadChats}>重试</button>
             </div>
           ) : null}
@@ -116,14 +116,14 @@ export function DeskActivityPanel({
               {chatState.items.map((session) => (
                 <li key={session.id}>
                   <button type="button" onClick={() => onOpenChatSession?.(session.id)}>
-                    <strong>{session.title || session.preview || "课程对话"}</strong>
+                    <strong>{session.title || session.preview || "本子对话"}</strong>
                     <span>{session.message_count ?? 0} 条消息</span>
                   </button>
                 </li>
               ))}
             </ul>
           ) : chatState.status === "ready" ? (
-            <p>还没有与这本课程绑定的对话。普通聊天不会被自动归入本课。</p>
+            <p>还没有与这本本子绑定的对话。普通聊天不会被自动归入这里。</p>
           ) : null}
           {chatState.status === "error" && chatState.items.length ? <button type="button" onClick={loadChats}>刷新失败，再试一次</button> : null}
         </section>

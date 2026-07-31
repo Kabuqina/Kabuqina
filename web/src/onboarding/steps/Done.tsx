@@ -24,9 +24,9 @@ export function Done() {
     }
   }
 
-  function openChat() {
+  function openStudy() {
     clearDraft();
-    nav("/chat", { replace: true });
+    nav("/study", { replace: true });
   }
 
   return (
@@ -47,7 +47,7 @@ export function Done() {
       </div>
 
       <button
-        onClick={openChat}
+        onClick={openStudy}
         className="kq-btn-primary w-full rounded-[var(--radius-shell-lg)] px-6 py-4 text-base font-medium transition hover:opacity-95"
       >
         {t("done.cta")}

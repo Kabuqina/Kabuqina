@@ -21,7 +21,6 @@ export interface DeskRightObjectsProps {
   onToggleStackIndex: () => void;
   onFutureFeature: () => void;
   onOpenMaterials?: (materialId?: string) => void;
-  onRemoveMaterial?: (materialId: string, title: string) => void;
   onImportMaterial?: () => void;
   onReviewCards?: () => void;
 }
@@ -34,7 +33,6 @@ export function DeskRightObjects({
   onToggleStackIndex,
   onFutureFeature,
   onOpenMaterials,
-  onRemoveMaterial,
   onImportMaterial,
   onReviewCards,
 }: DeskRightObjectsProps) {
@@ -48,31 +46,45 @@ export function DeskRightObjects({
 
   return (
     <>
-      <section className="kd-object kd-book-stack">
-        <h2>{materials.title}</h2>
+      <section
+        className="kd-object kd-book-stack"
+        aria-busy={materials.loading || undefined}
+      >
+        <h2>知识源</h2>
         <div className="kd-spines">
-          {materials.items.map((item) => (
-            <button
-              className="kd-book-spine"
-              key={item.id}
-              type="button"
-              title={item.title}
-              onClick={() => openMaterial(item.id)}
-            >
-              {item.title}
-            </button>
-          ))}
-          <button
-            className="kd-book-spine kd-book-spine--add"
-            type="button"
-            aria-label="放一本资料进来"
-            title="放一本资料进来"
-            onClick={onImportMaterial ?? onFutureFeature}
-          >
-            <Plus />
-          </button>
+          {materials.loading ? (
+            <>
+              <span className="kd-book-spine kd-book-spine--loading" aria-hidden="true" />
+              <span className="kd-book-spine kd-book-spine--loading" aria-hidden="true" />
+            </>
+          ) : (
+            <>
+              {materials.items.map((item) => (
+                <button
+                  className="kd-book-spine"
+                  key={item.id}
+                  type="button"
+                  title={item.title}
+                  onClick={() => openMaterial(item.id)}
+                >
+                  {item.title}
+                </button>
+              ))}
+              <button
+                className="kd-book-spine kd-book-spine--add"
+                type="button"
+                aria-label="添加知识源"
+                title="添加知识源"
+                onClick={onImportMaterial ?? onFutureFeature}
+              >
+                <Plus />
+              </button>
+            </>
+          )}
         </div>
-        {materials.unavailable ? (
+        {materials.loading ? (
+          <p className="kd-stack-empty" role="status">正在整理知识源…</p>
+        ) : materials.unavailable ? (
           <p className="kd-stack-empty" role="status">材料暂时无法读取</p>
         ) : null}
         {/* 贴在书堆上的目录：可翻开核对，不占一个入口。 */}
@@ -93,16 +105,6 @@ export function DeskRightObjects({
               <li key={item.id}>
                 <span className="kd-stack-index-title">{item.title}</span>
                 <span>{item.status}</span>
-                {onRemoveMaterial ? (
-                  <button
-                    type="button"
-                    className="kd-stack-remove"
-                    aria-label={`从本课移出 ${item.title}`}
-                    onClick={() => onRemoveMaterial(item.id, item.title)}
-                  >
-                    移出
-                  </button>
-                ) : null}
               </li>
             ))}
           </ul>

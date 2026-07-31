@@ -14,6 +14,7 @@ import { PracticePage } from "./PracticePage";
 import { StudyPageOutlet } from "./StudyPageOutlet";
 import { StudyIaProvider } from "../StudyIaContext";
 import type { StudyIaSink } from "../iaEvents";
+import { onStudyNanaRequest } from "../studyNanaRequest";
 
 const card: StudyFlashcard = {
   item_id: "card-1", artifact_id: "deck-1", front: "Front side", back: "Back side",
@@ -59,6 +60,117 @@ function renderPage(repo: StudyRepository, entry = "/study/space-b/practice", pr
 }
 
 describe("PracticePage", () => {
+  it("does not borrow general exercises when there is no current knowledge core", async () => {
+    renderPage(repository({
+      loadPracticeHome: vi.fn().mockResolvedValue({
+        ...home,
+        learningMap: {
+          revision: 1,
+          outlineStatus: "ready",
+          outlineNodes: [],
+          knowledgeCores: [],
+          exerciseLinks: [],
+        },
+        location: null,
+      }),
+    }));
+
+    expect(await screen.findByRole("heading", { name: "先选择要练习的知识核" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Vectors quiz" })).not.toBeInTheDocument();
+  });
+
+  it("uses a constrained prepare-practice action for the current core", async () => {
+    const user = userEvent.setup();
+    const nanaRequest = vi.fn();
+    const stopListening = onStudyNanaRequest(nanaRequest);
+    renderPage(repository({
+      loadPracticeHome: vi.fn().mockResolvedValue({
+        ...home,
+        learningMap: {
+          revision: 1,
+          outlineStatus: "ready",
+          outlineNodes: [],
+          knowledgeCores: [{
+            id: "core-1",
+            itemId: "card-1",
+            artifactId: "deck-1",
+            front: "向量定义",
+            gist: "大小与方向",
+            captured: true,
+            outlineNodeId: "section-vector",
+            order: 0,
+          }],
+          exerciseLinks: [],
+        },
+        location: {
+          revision: 1,
+          mapRevision: 1,
+          page: "practice",
+          knowledgeCoreId: "core-1",
+          outlineNodeId: "section-vector",
+          planItemId: null,
+          planOutlineNodeId: "section-vector",
+          exerciseId: null,
+          exerciseByCore: {},
+          stale: false,
+          updatedAt: "2026-07-31T00:00:00Z",
+        },
+      }),
+    }));
+
+    await user.click(await screen.findByRole("button", { name: "准备练习" }));
+    expect(nanaRequest).toHaveBeenCalledWith(expect.objectContaining({
+      page: "practice",
+      knowledgeCoreId: "core-1",
+      focusLabel: "向量定义",
+    }));
+    stopListening();
+  });
+
+  it("opens only the exercise linked to the shared current knowledge core", async () => {
+    const linkedQuestion: StudyQuizQuestion = {
+      item_id: "question-core-2",
+      artifact_id: "quiz-1",
+      type: "short_answer",
+      prompt: "Explain the current core",
+    };
+    const loadQuizQuestions = vi.fn().mockResolvedValue([
+      { ...linkedQuestion, item_id: "question-other", prompt: "Unrelated question" },
+      linkedQuestion,
+    ]);
+    renderPage(repository({
+      loadPracticeHome: vi.fn().mockResolvedValue({
+        ...home,
+        learningMap: {
+          revision: 3,
+          outlineStatus: "ready",
+          outlineNodes: [],
+          knowledgeCores: [{
+            id: "core-2", itemId: "card-2", artifactId: "deck-1",
+            front: "Current core", gist: "One idea", captured: true,
+            outlineNodeId: "section-2", order: 0,
+          }],
+          exerciseLinks: [{
+            knowledgeCoreId: "core-2", quizArtifactId: "quiz-1",
+            exerciseId: "question-core-2", origin: "source", sourceRefs: [], order: 0,
+          }],
+        },
+        location: {
+          revision: 1, mapRevision: 3, page: "practice",
+          knowledgeCoreId: "core-2", outlineNodeId: "section-2",
+          planItemId: "plan-item-2", planOutlineNodeId: "section-2",
+          exerciseId: null, exerciseByCore: {}, stale: false,
+          updatedAt: "2026-07-31T00:00:00Z",
+        },
+      }),
+      loadQuizQuestions,
+    }));
+
+    expect(await screen.findByRole("heading", { name: "Explain the current core" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Unrelated question" })).not.toBeInTheDocument();
+    expect(loadQuizQuestions).toHaveBeenCalledWith("space-b", "quiz-1", expect.any(AbortSignal));
+  });
+
   it("reviews a due card with focus-scoped keyboard shortcuts", async () => {
     const user = userEvent.setup();
     const sink = vi.fn();

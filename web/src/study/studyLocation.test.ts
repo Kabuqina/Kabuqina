@@ -7,6 +7,7 @@ import {
   readStudyLocation,
   resolveKnowledgeCore,
   selectKnowledgeCore,
+  selectPlanItem,
   studyContinueMeta,
   studyContinueTitle,
   switchStudyMode,
@@ -33,6 +34,23 @@ describe("Study location", () => {
       knowledgeCoreId: "core-2",
       knowledgeCoreTitle: "无穷小",
     });
+  });
+
+  it("uses an active plan item as an honest start bookmark before learning begins", () => {
+    const location = selectPlanItem("course-a", {
+      itemId: "plan-1",
+      title: "阅读《迭代器与生成器》讲义",
+      phaseTitle: "阶段一：迭代与惰性求值",
+    });
+
+    expect(location).toMatchObject({
+      page: "plan",
+      planItemId: "plan-1",
+      planItemTitle: "阅读《迭代器与生成器》讲义",
+      outlineLabel: "阶段一：迭代与惰性求值",
+    });
+    expect(studyContinueTitle(location)).toBe("阅读《迭代器与生成器》讲义");
+    expect(studyContinueMeta(location)).toBe("阶段一：迭代与惰性求值 · 计划");
   });
 
   it("remembers the most recent exercise independently for each core", () => {

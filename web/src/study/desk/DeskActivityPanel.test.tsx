@@ -81,7 +81,7 @@ describe("DeskActivityPanel", () => {
         onClose={vi.fn()}
       />,
     );
-    expect(await screen.findByRole("alert")).toHaveTextContent("课程对话暂时无法读取");
+    expect(await screen.findByRole("alert")).toHaveTextContent("本子对话暂时无法读取");
     fireEvent.click(screen.getByRole("button", { name: "重试" }));
     expect(getSessions).toHaveBeenCalledTimes(2);
   });

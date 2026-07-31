@@ -337,6 +337,7 @@ pub async fn cmd_study_location_put(
     page: String,
     knowledge_core_id: Option<String>,
     exercise_id: Option<String>,
+    plan_item_id: Option<String>,
 ) -> Result<Value, DeskBridgeError> {
     validate_structured_id(&space_id)?;
     if !matches!(page.as_str(), "plan" | "learn" | "practice") {
@@ -351,6 +352,9 @@ pub async fn cmd_study_location_put(
     if let Some(value) = exercise_id.as_deref() {
         validate_learning_wire_id(value)?;
     }
+    if let Some(value) = plan_item_id.as_deref() {
+        validate_learning_wire_id(value)?;
+    }
     crate::chat::desk_json_request_structured(
         &app,
         reqwest::Method::PUT,
@@ -362,6 +366,7 @@ pub async fn cmd_study_location_put(
             "page": page,
             "knowledgeCoreId": knowledge_core_id,
             "exerciseId": exercise_id,
+            "planItemId": plan_item_id,
         })),
     )
     .await
@@ -1096,6 +1101,27 @@ pub async fn cmd_study_material_reader(
             "pageStart": start,
             "pageEnd": end,
         })),
+    )
+    .await
+}
+
+/// Soft-delete an imported Study material from the current knowledge source.
+///
+/// The backend retains an explicit tombstone and every derived learning
+/// artifact. This command never deletes the original file from disk.
+#[tauri::command]
+pub async fn cmd_study_material_delete(
+    app: AppHandle,
+    space_id: String,
+    artifact_id: String,
+) -> Result<Value, DeskBridgeError> {
+    validate_structured_id(&space_id)?;
+    validate_structured_id(&artifact_id)?;
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::DELETE,
+        &format!("/api/desk/study/materials/{artifact_id}?space_id={space_id}"),
+        None,
     )
     .await
 }

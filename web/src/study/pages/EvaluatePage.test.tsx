@@ -186,11 +186,13 @@ describe("EvaluatePage", () => {
     expect(localStorage.getItem("kabuqina.study.location.v1:space-b")).toBeNull();
   });
 
-  it("renders two honest evidence empty states and focuses the labelled page region", async () => {
+  it("merges the zero-evidence regions into one actionable page empty state", async () => {
     renderPage(repository());
-    expect(await screen.findByText(/错题本是空的/)).toBeInTheDocument();
-    expect(screen.getByText("还没有生效的评估记录。")).toBeInTheDocument();
-    expect(screen.queryByText("还没有学习活动。")).not.toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "还没有可以评估的练习证据" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "去练习" })).toHaveAttribute("href", "/study/space-b/practice");
+    expect(screen.getByRole("link", { name: "回到学习" })).toHaveAttribute("href", "/study/space-b/learn");
+    expect(screen.queryByText(/错题本是空的/)).not.toBeInTheDocument();
+    expect(screen.queryByText("还没有生效的评估记录。")).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "评估" })).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: "评估" })).toHaveFocus();
   });

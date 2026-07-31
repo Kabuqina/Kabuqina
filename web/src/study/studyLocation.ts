@@ -19,6 +19,7 @@ export type StudyLocation = {
   outlineLabel?: string;
   outlineNodeId?: string;
   planItemId?: string;
+  planItemTitle?: string;
   exerciseId?: string;
   exerciseByCore: Record<string, string>;
   activity?: StudyContinueActivity;
@@ -82,6 +83,7 @@ export function parseStudyLocation(value: unknown, courseId: string): StudyLocat
     ...(shortText(candidate.outlineLabel) ? { outlineLabel: shortText(candidate.outlineLabel) } : {}),
     ...(shortText(candidate.outlineNodeId, 256) ? { outlineNodeId: shortText(candidate.outlineNodeId, 256) } : {}),
     ...(shortText(candidate.planItemId, 256) ? { planItemId: shortText(candidate.planItemId, 256) } : {}),
+    ...(shortText(candidate.planItemTitle) ? { planItemTitle: shortText(candidate.planItemTitle) } : {}),
     ...(shortText(candidate.exerciseId, 256) ? { exerciseId: shortText(candidate.exerciseId, 256) } : {}),
     exerciseByCore: exercises,
     ...(candidate.activity === "ready"
@@ -167,6 +169,41 @@ export function selectKnowledgeCore(
   return next;
 }
 
+export function selectPlanItem(
+  courseId: string,
+  item: {
+    itemId: string;
+    title: string;
+    phaseTitle?: string;
+    outlineNodeId?: string;
+  },
+): StudyLocation {
+  const current = readStudyLocation(courseId);
+  const next: StudyLocation = {
+    version: 1,
+    courseId,
+    page: "plan",
+    planItemId: item.itemId,
+    planItemTitle: item.title,
+    ...(item.phaseTitle ? { outlineLabel: item.phaseTitle } : {}),
+    ...(item.outlineNodeId ? { outlineNodeId: item.outlineNodeId } : {}),
+    exerciseByCore: current?.exerciseByCore ?? {},
+    updatedAt: new Date().toISOString(),
+  };
+  if (
+    current?.page === next.page
+    && current.planItemId === next.planItemId
+    && current.planItemTitle === next.planItemTitle
+    && current.outlineLabel === next.outlineLabel
+    && current.outlineNodeId === next.outlineNodeId
+    && JSON.stringify(current.exerciseByCore) === JSON.stringify(next.exerciseByCore)
+  ) {
+    return current;
+  }
+  writeStudyLocation(next);
+  return next;
+}
+
 export function updateStudyExercise(
   courseId: string,
   point: StudyKnowledgePoint,
@@ -229,6 +266,7 @@ export function degradeStudyLocation(courseId: string): StudyLocation | null {
     ...(current.outlineLabel ? { outlineLabel: current.outlineLabel } : {}),
     ...(current.outlineNodeId ? { outlineNodeId: current.outlineNodeId } : {}),
     ...(current.planItemId ? { planItemId: current.planItemId } : {}),
+    ...(current.planItemTitle ? { planItemTitle: current.planItemTitle } : {}),
     exerciseByCore: current.exerciseByCore,
     updatedAt: new Date().toISOString(),
   };
@@ -237,7 +275,7 @@ export function degradeStudyLocation(courseId: string): StudyLocation | null {
 }
 
 export function studyContinueTitle(location: StudyLocation): string {
-  if (location.page === "plan") return location.outlineLabel || "当前学习计划";
+  if (location.page === "plan") return location.planItemTitle || location.outlineLabel || "当前学习计划";
   const title = location.knowledgeCoreTitle || "当前知识核";
   if (location.page === "learn") return title;
   if (location.activity === "needs_revision") return `${title} · 待修改`;

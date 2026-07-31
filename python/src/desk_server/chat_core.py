@@ -715,6 +715,7 @@ def _desk_chat_run_in_thread(
         )
     try:
         from learning.learning_store import LearningStore
+        from learning.material_reader_port import learning_material_reader_scope
         from learning.output_writer import learning_created_callback_scope
         from learning_owner import desktop_learning_scope
 
@@ -728,21 +729,40 @@ def _desk_chat_run_in_thread(
         store = LearningStore()
         try:
             created_callback = _emit_learning_created if progress_event_callback else None
-            with desktop_learning_scope(store) as learning_ctx, learning_created_callback_scope(created_callback):
-                _desk_refresh_learning_ephemeral_prompt(agent, learning_ctx)
-                if persist_user_message is not None:
-                    result = agent.run_conversation(
-                        user_message=user_message,
-                        conversation_history=history,
-                        task_id=session_id,
-                        persist_user_message=persist_user_message,
+            with desktop_learning_scope(store) as learning_ctx:
+                def _read_course_material(
+                    artifact_id: str, page_start: int, page_end: int
+                ) -> Dict[str, Any]:
+                    from desk_server.routes.study_routes import (
+                        _read_material_artifact_window,
                     )
-                else:
-                    result = agent.run_conversation(
-                        user_message=user_message,
-                        conversation_history=history,
-                        task_id=session_id,
+
+                    artifact = learning_ctx.get_artifact(artifact_id)
+                    if not artifact:
+                        raise KeyError("material artifact is unavailable")
+                    return _read_material_artifact_window(
+                        artifact,
+                        page_start=page_start,
+                        page_end=page_end,
                     )
+
+                with learning_created_callback_scope(
+                    created_callback
+                ), learning_material_reader_scope(_read_course_material):
+                    _desk_refresh_learning_ephemeral_prompt(agent, learning_ctx)
+                    if persist_user_message is not None:
+                        result = agent.run_conversation(
+                            user_message=user_message,
+                            conversation_history=history,
+                            task_id=session_id,
+                            persist_user_message=persist_user_message,
+                        )
+                    else:
+                        result = agent.run_conversation(
+                            user_message=user_message,
+                            conversation_history=history,
+                            task_id=session_id,
+                        )
         finally:
             store.close()
         return {

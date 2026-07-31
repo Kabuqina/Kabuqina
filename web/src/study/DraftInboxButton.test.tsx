@@ -10,6 +10,7 @@ import { DraftInboxButton } from "./DraftInboxButton";
 import { StudyDraftProvider } from "./DraftContext";
 import type { StudyRepository } from "./repository";
 import { StudyRepositoryProvider } from "./repositoryContext";
+import { onStudyMaterialRequest } from "./studyMaterialRequest";
 
 describe("DraftInboxButton", () => {
   it("owns pagination and restores trigger focus after Escape", async () => {
@@ -117,5 +118,83 @@ describe("DraftInboxButton", () => {
     expect(runSemanticReview).not.toHaveBeenCalled();
     expect(onActivated).toHaveBeenCalledWith(draft, detail);
     expect(screen.queryByRole("dialog", { name: "草稿箱" })).not.toBeInTheDocument();
+  });
+
+  it("previews reviewed course knowledge cores with bounded material locations before adoption", async () => {
+    const user = userEvent.setup();
+    const materialRequest = vi.fn();
+    const stopListening = onStudyMaterialRequest(materialRequest);
+    const draft = {
+      artifact_id: "draft-cores",
+      kind: "flashcard_deck",
+      title: "极限知识核",
+      status: "draft",
+      review: { mode: "semantic", status: "passed" },
+    };
+    const detail = {
+      artifactId: "draft-cores",
+      kind: "flashcard_deck",
+      title: "极限知识核",
+      version: 1,
+      status: "draft",
+      review: { mode: "semantic", status: "passed" },
+      envelope: {
+        payload: {
+          cards: [{
+            front: "极限的唯一性",
+            back: "函数在同一点的极限若存在，则只能有一个。",
+            knowledge_core_id: "core-limit",
+            outline_node_id: "section-limits",
+            order: 0,
+            source_refs: [{
+              origin: "kq-kp",
+              material_id: "book-1",
+              title: "高等数学",
+              locator: "第 41 页",
+              knowledge_core_id: "core-limit",
+              outline_node_id: "section-limits",
+            }],
+          }],
+        },
+      },
+    };
+    const setArtifactStatus = vi.fn().mockResolvedValue(undefined);
+    const repository = {
+      listDraftPage: vi.fn().mockResolvedValue({
+        items: [draft], total: 1, kindCounts: { flashcard_deck: 1 }, returned: 1, limit: 50, offset: 0, truncated: false,
+      }),
+      loadArtifactDetail: vi.fn().mockResolvedValue(detail),
+      setArtifactStatus,
+    } as unknown as StudyRepository;
+    render(
+      <I18nProvider><StudyRepositoryProvider repository={repository}><MemoryRouter>
+        <StudyDraftProvider spaceId="space-a"><DraftInboxButton /></StudyDraftProvider>
+      </MemoryRouter></StudyRepositoryProvider></I18nProvider>,
+    );
+
+    await user.click((await screen.findByLabelText("1 个草稿")).closest("button")!);
+    await user.click(screen.getByRole("button", { name: /极限知识核/ }));
+    expect(await screen.findByRole("heading", { name: "极限的唯一性" })).toBeInTheDocument();
+    expect(screen.getByText("函数在同一点的极限若存在，则只能有一个。")).toBeInTheDocument();
+    expect(screen.getByText("高等数学 · 第 41 页")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "高等数学 · 第 41 页" }));
+    expect(materialRequest).toHaveBeenCalledWith({
+      spaceId: "space-a",
+      artifactId: "book-1",
+      page: 41,
+    });
+    expect(screen.queryByRole("dialog", { name: "草稿箱" })).not.toBeInTheDocument();
+
+    await user.click((await screen.findByLabelText("1 个草稿")).closest("button")!);
+    await user.click(screen.getByRole("button", { name: /极限知识核/ }));
+    await screen.findByRole("heading", { name: "极限的唯一性" });
+
+    await user.click(screen.getByRole("button", { name: "采用知识核" }));
+
+    await waitFor(() => expect(setArtifactStatus).toHaveBeenCalledWith(
+      "space-a", "draft-cores", "active", expect.any(AbortSignal),
+    ));
+    expect(screen.queryByRole("dialog", { name: "草稿箱" })).not.toBeInTheDocument();
+    stopListening();
   });
 });

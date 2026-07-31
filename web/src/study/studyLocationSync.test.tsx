@@ -27,6 +27,8 @@ const serverLocation: StudySharedLocation = {
   page: "practice",
   knowledgeCoreId: "core-2",
   outlineNodeId: null,
+  planItemId: "plan-2",
+  planOutlineNodeId: null,
   exerciseId: "question-2",
   exerciseByCore: { "core-2": "question-2" },
   stale: false,
@@ -54,6 +56,7 @@ describe("Study server location sync", () => {
       knowledgeCoreId: "core-2",
       knowledgeCoreTitle: "无穷小",
       exerciseId: "question-2",
+      planItemId: "plan-2",
     }));
     expect(repository.saveSharedLocation).not.toHaveBeenCalled();
   });
@@ -64,6 +67,7 @@ describe("Study server location sync", () => {
       revision: 4,
       page: input.page,
       knowledgeCoreId: input.knowledgeCoreId,
+      planItemId: input.planItemId ?? null,
       exerciseId: input.exerciseId ?? null,
       exerciseByCore: {},
     }));
@@ -77,7 +81,7 @@ describe("Study server location sync", () => {
 
     selectKnowledgeCore("course-a", {
       item_id: "core-1", artifact_id: "deck-1", front: "极限唯一性", gist: "若存在则唯一", captured: true,
-    }, "learn");
+    }, "learn", { planItemId: "plan-1" });
 
     await waitFor(() => expect(saveSharedLocation).toHaveBeenCalledWith({
       spaceId: "course-a",
@@ -85,6 +89,7 @@ describe("Study server location sync", () => {
       expectedMapRevision: 7,
       page: "learn",
       knowledgeCoreId: "core-1",
+      planItemId: "plan-1",
     }, expect.any(AbortSignal)));
   });
 });

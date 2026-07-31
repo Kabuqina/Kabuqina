@@ -23,6 +23,37 @@ def ctx(tmp_path):
     store = LearningStore(db_path=tmp_path / "learning.db")
     context = LearningExecutionContext(store, owner_id="owner-A")
     context.create_space(title="Algebra", space_id="s1")
+    resource = context.put_artifact(
+        kind="resource_pack",
+        title="Algebra source",
+        payload={
+            "resources": [{"title": "Algebra.pdf", "purpose": "Primary"}],
+            "outline": [
+                {
+                    "id": "chapter-basics",
+                    "title": "Basics",
+                    "locator": "ch. 1",
+                    "children": [
+                        {
+                            "id": "section-factors",
+                            "title": "Factors",
+                            "locator": "§1.1",
+                        }
+                    ],
+                }
+            ],
+        },
+        source_refs=[
+            {
+                "origin": "imported",
+                "structure_status": "reliable",
+                "structure_origin": "embedded_pdf_outline",
+                "source_label": "Algebra.pdf",
+            }
+        ],
+        review={"mode": "semantic", "status": "passed"},
+    )
+    context.set_artifact_status(resource["artifact_id"], "active")
     try:
         yield context
     finally:
@@ -120,3 +151,122 @@ def test_reject_plan_does_not_materialize_items(ctx):
 
     assert service.reject_plan(artifact_id)["status"] == "rejected"
     assert ctx.list_items(item_type=LEARNING_PLAN_ITEM_TYPE) == []
+
+
+def test_unknown_outline_binding_keeps_plan_in_draft(ctx):
+    artifact_id = OutputWriter(ctx).write_artifact(
+        kind="learning_plan",
+        title="Invented scope",
+        payload={
+            "phases": [
+                {
+                    "title": "Phase",
+                    "tasks": [
+                        {
+                            "title": "Task",
+                            "mode": "learn",
+                            "outline_node_id": "invented-section",
+                        }
+                    ],
+                }
+            ]
+        },
+    )["artifact_id"]
+
+    with pytest.raises(ValueError, match="unavailable outline nodes"):
+        _service(ctx).activate_plan(artifact_id)
+    assert ctx.get_artifact(artifact_id)["status"] == "draft"
+
+
+def test_camel_case_outline_binding_materializes_and_compiles(ctx):
+    artifact_id = OutputWriter(ctx).write_artifact(
+        kind="learning_plan",
+        title="Legacy Web plan",
+        payload={
+            "phases": [
+                {
+                    "title": "Phase",
+                    "tasks": [
+                        {
+                            "title": "Read factors",
+                            "mode": "learn",
+                            "outlineNodeId": "section-factors",
+                        }
+                    ],
+                }
+            ]
+        },
+    )["artifact_id"]
+    service = _service(ctx)
+
+    service.activate_plan(artifact_id)
+
+    item = service.list_plan_items(artifact_id=artifact_id)[0]
+    assert item["outlineNodeId"] == "section-factors"
+    assert service.compilation_intents(artifact_id)[0]["outline_node_id"] == "section-factors"
+
+
+def test_reconcile_restores_lost_binding_without_changing_progress(ctx):
+    artifact_id = OutputWriter(ctx).write_artifact(
+        kind="learning_plan",
+        title="Legacy activated plan",
+        payload={
+            "phases": [
+                {
+                    "title": "Phase",
+                    "tasks": [
+                        {
+                            "title": "Read factors",
+                            "mode": "learn",
+                            "outlineNodeId": "section-factors",
+                        }
+                    ],
+                }
+            ]
+        },
+    )["artifact_id"]
+    service = _service(ctx)
+    service.activate_plan(artifact_id)
+    row = ctx.list_items(
+        item_type=LEARNING_PLAN_ITEM_TYPE, artifact_id=artifact_id
+    )[0]
+    legacy_state = dict(row["state"])
+    legacy_state.update(
+        {
+            "outlineNodeId": "",
+            "status": "completed",
+            "note": "learner progress must survive",
+        }
+    )
+    ctx.update_item_state(row["item_id"], legacy_state)
+
+    assert service.reconcile_plan_items(artifact_id) == {"created": 0, "repaired": 1}
+
+    repaired = service.list_plan_items(artifact_id=artifact_id)[0]
+    assert repaired["outlineNodeId"] == "section-factors"
+    assert repaired["status"] == "completed"
+    assert repaired["note"] == "learner progress must survive"
+
+
+def test_unknown_camel_case_outline_binding_keeps_plan_in_draft(ctx):
+    artifact_id = OutputWriter(ctx).write_artifact(
+        kind="learning_plan",
+        title="Invented legacy scope",
+        payload={
+            "phases": [
+                {
+                    "title": "Phase",
+                    "tasks": [
+                        {
+                            "title": "Task",
+                            "outlineNodeId": "invented-section",
+                        }
+                    ],
+                }
+            ]
+        },
+    )["artifact_id"]
+
+    with pytest.raises(ValueError, match="unavailable outline nodes"):
+        _service(ctx).activate_plan(artifact_id)
+    assert ctx.get_artifact(artifact_id)["status"] == "draft"

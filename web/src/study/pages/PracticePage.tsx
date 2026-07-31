@@ -8,10 +8,13 @@ import type { StudyArtifactSummary, StudyFlashcard, StudyQuizQuestion, StudyQuiz
 import { useStudyDrafts } from "../DraftContext";
 import { STUDY_LEARNING_EVENT } from "../learningEvent";
 import { RequestCoordinator, type Loadable } from "../loadable";
+import { deriveStudyRequestState } from "../pageState";
 import type { StudyPracticeHome } from "../repository";
 import { useStudyRepository } from "../repositoryContext";
+import { updateStudyExercise } from "../studyLocation";
 import { studyIaCountBucket } from "../iaEvents";
 import { useStudyIa } from "../StudyIaContext";
+import { requestStudyNana } from "../studyNanaRequest";
 
 const CodePracticeSurface = lazy(async () => ({ default: (await import("./CodePracticeSurface")).CodePracticeSurface }));
 const DerivationPracticeSurface = lazy(async () => ({ default: (await import("./DerivationPracticeSurface")).DerivationPracticeSurface }));
@@ -28,11 +31,8 @@ const GRADES: Array<{ grade: Grade; key: "practiceAgain" | "practiceHard" | "pra
 ];
 
 function practiceDrafts(snapshot: ReturnType<typeof useStudyDrafts>["snapshot"]): StudyArtifactSummary[] {
-  const data = snapshot.status === "ready"
-    ? snapshot.data
-    : snapshot.status === "loading" || snapshot.status === "error"
-      ? snapshot.previous
-      : undefined;
+  const requestState = deriveStudyRequestState(snapshot);
+  const data = requestState.data;
   return (data?.items ?? []).filter((draft) => draft.kind === "flashcard_deck" || draft.kind === "quiz");
 }
 
@@ -59,16 +59,16 @@ export function PracticePage({ spaceId, onDirtyChange, onNavigateAway }: { space
   const [pending, setPending] = useState(false);
   const [actionError, setActionError] = useState("");
   const [generationNotice, setGenerationNotice] = useState<"draft" | "fallback" | null>(null);
+  const [linkedCoreTitle, setLinkedCoreTitle] = useState("");
+  const [hasCurrentCore, setHasCurrentCore] = useState(false);
+  const [linkedCoreMissing, setLinkedCoreMissing] = useState(false);
   const dirty = mode === "quiz" && result === null && Object.keys(responses).length > 0;
   const sourceActivityId = new URLSearchParams(location.search).get("source") === "wrongbook"
     ? new URLSearchParams(location.search).get("activityId")
     : null;
 
-  const data = snapshot.status === "ready"
-    ? snapshot.data
-    : snapshot.status === "loading" || snapshot.status === "error"
-      ? snapshot.previous
-      : undefined;
+  const requestState = deriveStudyRequestState(snapshot);
+  const data = requestState.data;
   const pageDrafts = practiceDrafts(drafts.snapshot);
 
   const load = useCallback(() => {
@@ -78,19 +78,71 @@ export function PracticePage({ spaceId, onDirtyChange, onNavigateAway }: { space
       ...(current.status === "ready" ? { previous: current.data } : {}),
       ...(current.status === "error" && current.previous ? { previous: current.previous } : {}),
     }));
-    void repository.loadPracticeHome(spaceId, request.signal).then(
-      (next) => {
-        if (requests.current.isCurrent(request.generation)) setSnapshot({ status: "ready", data: next });
-      },
-      (error) => {
+    void (async () => {
+      const next = await repository.loadPracticeHome(spaceId, request.signal);
+      if (!requests.current.isCurrent(request.generation)) return;
+      setSnapshot({ status: "ready", data: next });
+      if (sourceActivityId) return;
+      const coreId = next.location?.page === "practice"
+        ? next.location.knowledgeCoreId
+        : null;
+      const core = coreId
+        ? next.learningMap?.knowledgeCores.find((candidate) => candidate.id === coreId)
+        : undefined;
+      if (!core) {
+        setLinkedCoreTitle("");
+        setHasCurrentCore(false);
+        setLinkedCoreMissing(false);
+        return;
+      }
+      setLinkedCoreTitle(core.front);
+      setHasCurrentCore(true);
+      const links = next.learningMap?.exerciseLinks.filter(
+        (candidate) => candidate.knowledgeCoreId === core.id,
+      ) ?? [];
+      const link = links.find((candidate) => candidate.exerciseId === next.location?.exerciseId)
+        ?? links[0];
+      if (!link) {
+        setLinkedCoreMissing(true);
+        setMode("home");
+        return;
+      }
+      const linkedQuestions = await repository.loadQuizQuestions(
+        spaceId,
+        link.quizArtifactId,
+        request.signal,
+      );
+      if (!requests.current.isCurrent(request.generation)) return;
+      const question = linkedQuestions.find((candidate) => candidate.item_id === link.exerciseId);
+      if (!question) {
+        setLinkedCoreMissing(true);
+        setMode("home");
+        return;
+      }
+      setLinkedCoreMissing(false);
+      setQuizId(link.quizArtifactId);
+      setQuestions([question]);
+      setQuestionIndex(0);
+      setResponses({});
+      setResult(null);
+      setMode("quiz");
+      if (next.location?.exerciseId !== link.exerciseId) {
+        updateStudyExercise(spaceId, {
+          item_id: core.id,
+          artifact_id: core.artifactId,
+          front: core.front,
+          gist: core.gist,
+          captured: true,
+        }, link.exerciseId);
+      }
+    })().catch((error) => {
         if (!requests.current.isCurrent(request.generation)) return;
         setSnapshot((current) => ({
           status: "error", error,
           ...(current.status === "loading" && current.previous ? { previous: current.previous } : {}),
         }));
-      },
-    );
-  }, [repository, spaceId]);
+      });
+  }, [repository, sourceActivityId, spaceId]);
 
   useEffect(() => {
     const requestCoordinator = requests.current;
@@ -295,6 +347,17 @@ export function PracticePage({ spaceId, onDirtyChange, onNavigateAway }: { space
 
   const currentCard = queue[cardIndex];
   const currentQuestion = questions[questionIndex];
+  const prepareCurrentCorePractice = () => {
+    if (!linkedCoreTitle) return;
+    requestStudyNana({
+      spaceId,
+      page: "practice",
+      focusId: data?.location?.knowledgeCoreId || "current-knowledge-core",
+      focusLabel: linkedCoreTitle,
+      ...(data?.location?.knowledgeCoreId ? { knowledgeCoreId: data.location.knowledgeCoreId } : {}),
+      initialPrompt: `为“${linkedCoreTitle}”准备练习：先查找当前知识核来源范围内的资料原题；没有合适原题时，再形成待采用的补充题。不要借用其他知识核的题，也不要自动采用生成题。`,
+    });
+  };
 
   return (
     <section
@@ -308,13 +371,35 @@ export function PracticePage({ spaceId, onDirtyChange, onNavigateAway }: { space
         <p>{t("study.practiceLead")}</p>
       </header>
 
-      {snapshot.status === "loading" && !data ? <p role="status">{t("study.pageLoading")}</p> : null}
-      {snapshot.status === "error" && !data ? <PageError retry={load} /> : null}
-      {snapshot.status === "error" && data ? <div className="kq-study-page-alert" role="alert"><span>{t("study.pageStale")}</span><button type="button" onClick={load}>{t("study.retry")}</button></div> : null}
+      {requestState.phase === "loading" && !data ? <p role="status">{t("study.pageLoading")}</p> : null}
+      {requestState.phase === "error" && !data ? <PageError retry={load} /> : null}
+      {requestState.refreshErrorWithData ? <div className="kq-study-page-alert" role="alert"><span>{t("study.pageStale")}</span><button type="button" onClick={load}>{t("study.retry")}</button></div> : null}
       {mode === "home" && actionError ? <p role="alert" className="kq-study-page-error">{actionError}</p> : null}
       {generationNotice ? <div className="kq-study-page-alert" role="status"><span>{t(generationNotice === "draft" ? "study.practiceDraftCreated" : "study.practiceGenerationFallback")}</span>{generationNotice === "fallback" ? <Link to="/chat" onClick={(event) => { if (onNavigateAway) { event.preventDefault(); onNavigateAway("/chat"); } }}>{t("study.backToChat")}</Link> : null}</div> : null}
 
-      {mode === "home" && data ? (
+      {mode === "home" && data?.learningMap && !hasCurrentCore ? (
+        <div className="kq-study-page-empty">
+          <h2>先选择要练习的知识核</h2>
+          <p>练习不会借用其他学习范围的题目。</p>
+          <div className="kq-study-inline-actions">
+            <Link className="kq-study-primary-link" to={`/study/${encodeURIComponent(spaceId)}/learn`}>回到学习</Link>
+            <Link className="kq-study-secondary-link" to={`/study/${encodeURIComponent(spaceId)}/plan`}>回到计划</Link>
+          </div>
+        </div>
+      ) : null}
+
+      {mode === "home" && data && linkedCoreMissing ? (
+        <div className="kq-study-page-empty">
+          <h2>这一步还没有可用练习</h2>
+          <p>系统会优先从知识源中选择合适题目；没有合适原题时，再生成待采用的补充题。</p>
+          <div className="kq-study-inline-actions">
+            <button type="button" className="kq-study-primary-link" onClick={prepareCurrentCorePractice}>准备练习</button>
+            <Link className="kq-study-secondary-link" to={`/study/${encodeURIComponent(spaceId)}/learn`}>回到学习</Link>
+          </div>
+        </div>
+      ) : null}
+
+      {mode === "home" && data && !linkedCoreMissing && (!data.learningMap || hasCurrentCore) ? (
         <div className="kq-study-practice-home">
           <article className="kq-study-practice-card">
             <p>{t("study.practiceCardsKicker")}</p>

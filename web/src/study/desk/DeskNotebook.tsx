@@ -39,6 +39,7 @@ export interface DeskNotebookProps {
   pageBody?: ReactNode;
   continueTitle?: string;
   continueMeta?: string;
+  continueLabel?: string;
   pageNotice?: string;
   knowledgeCoreTitle?: string;
   knowledgeCoreIndex?: number;
@@ -253,6 +254,7 @@ export function DeskNotebook({
   pageBody,
   continueTitle,
   continueMeta,
+  continueLabel = "继续",
   pageNotice,
   knowledgeCoreTitle,
   knowledgeCoreIndex = 0,
@@ -311,11 +313,16 @@ export function DeskNotebook({
           ))}
         </nav>
         {continueTitle ? (
-          <button type="button" className="kd-bookmark-button" onClick={onResume}>
-            <strong><Bookmark /> <span>继续：{continueTitle}</span></strong>
-            <span>{continueMeta || "当前学习现场"}</span>
+          <button
+            type="button"
+            className="kd-bookmark-button"
+            aria-label={`${continueLabel}：${continueTitle}${continueMeta ? `，${continueMeta}` : ""}`}
+            onClick={onResume}
+          >
+            <Bookmark aria-hidden />
+            <span>{continueLabel === "从这里开始" ? "开始" : "继续"}</span>
           </button>
-        ) : null}
+        ) : <span className="kd-bookmark-button is-empty" aria-hidden="true" />}
       </header>
 
       <div className="kd-page-body">

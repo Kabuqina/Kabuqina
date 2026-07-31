@@ -52,7 +52,7 @@ def test_kinds_are_exactly_the_v1_set():
 
 def test_lifecycle_vocabulary_is_frozen():
     assert LIFECYCLE_STATUSES == frozenset(
-        {"draft", "active", "rejected", "archived"}
+        {"draft", "active", "rejected", "archived", "deleted"}
     )
     assert INITIAL_STATUS == "draft"
 
@@ -82,13 +82,19 @@ def test_allowed_transitions_are_exactly_the_design_set():
             ("draft", "active"),
             ("draft", "rejected"),
             ("active", "archived"),
+            ("active", "deleted"),
         }
     )
 
 
 @pytest.mark.parametrize(
     "src,dst",
-    [("draft", "active"), ("draft", "rejected"), ("active", "archived")],
+    [
+        ("draft", "active"),
+        ("draft", "rejected"),
+        ("active", "archived"),
+        ("active", "deleted"),
+    ],
 )
 def test_is_allowed_transition_accepts_valid(src, dst):
     assert is_allowed_transition(src, dst) is True
@@ -103,6 +109,7 @@ def test_is_allowed_transition_accepts_valid(src, dst):
         ("rejected", "active"),   # rejected is terminal
         ("draft", "draft"),       # no self-loop
         ("active", "rejected"),   # rejection only from draft
+        ("deleted", "active"),    # deleted is an explicit terminal tombstone
         ("draft", "bogus"),       # unknown status
     ],
 )
@@ -414,6 +421,75 @@ def test_flashcard_empty_deck_rejected():
         validate_envelope(_envelope("flashcard_deck", {"cards": []}))
 
 
+def test_flashcard_deck_accepts_bounded_course_knowledge_core_metadata():
+    card = {
+        "front": "极限的唯一性",
+        "back": "函数在同一点的极限若存在，则只能有一个。",
+        "knowledge_core_id": "core-limit-uniqueness",
+        "outline_node_id": "section-1-1",
+        "order": 0,
+        "source_refs": [
+            {
+                "origin": "kq-kp",
+                "material_id": "material-calculus",
+                "locator": "p. 18",
+                "knowledge_core_id": "core-limit-uniqueness",
+                "outline_node_id": "section-1-1",
+            }
+        ],
+    }
+
+    env = validate_envelope(
+        _envelope("flashcard_deck", {"cards": [card]})
+    )
+
+    assert env.payload["cards"][0] == card
+
+
+@pytest.mark.parametrize(
+    "patch,match",
+    [
+        ({"outline_node_id": ""}, "outline_node_id"),
+        ({"order": -1}, "order"),
+        ({"source_refs": []}, "source_refs"),
+        (
+            {
+                "source_refs": [
+                    {
+                        "origin": "kq-kp",
+                        "material_id": "material-calculus",
+                        "locator": "p. 18",
+                        "knowledge_core_id": "different-core",
+                        "outline_node_id": "section-1-1",
+                    }
+                ]
+            },
+            "knowledge_core_id",
+        ),
+    ],
+)
+def test_course_knowledge_core_metadata_is_all_or_nothing(patch, match):
+    card = {
+        "front": "极限的唯一性",
+        "back": "函数在同一点的极限若存在，则只能有一个。",
+        "knowledge_core_id": "core-limit-uniqueness",
+        "outline_node_id": "section-1-1",
+        "order": 0,
+        "source_refs": [
+            {
+                "origin": "kq-kp",
+                "material_id": "material-calculus",
+                "locator": "p. 18",
+                "knowledge_core_id": "core-limit-uniqueness",
+                "outline_node_id": "section-1-1",
+            }
+        ],
+        **patch,
+    }
+    with pytest.raises(ContractError, match=match):
+        validate_envelope(_envelope("flashcard_deck", {"cards": [card]}))
+
+
 def test_knowledge_base_missing_explanation_rejected():
     with pytest.raises(ContractError):
         validate_envelope(
@@ -443,6 +519,43 @@ def test_learning_plan_accepts_bounded_action_mode_and_outline_binding():
         )
     )
     assert env.payload["phases"][0]["tasks"][0]["mode"] == "practice"
+
+
+def test_learning_plan_accepts_legacy_camel_case_outline_binding():
+    env = validate_envelope(
+        _envelope(
+            "learning_plan",
+            {
+                "phases": [{
+                    "title": "Limits",
+                    "tasks": [{
+                        "title": "Read limits",
+                        "outlineNodeId": "section-limits",
+                    }],
+                }],
+            },
+        )
+    )
+    assert env.payload["phases"][0]["tasks"][0]["outlineNodeId"] == "section-limits"
+
+
+def test_learning_plan_rejects_conflicting_outline_binding_aliases():
+    with pytest.raises(ContractError, match="must match"):
+        validate_envelope(
+            _envelope(
+                "learning_plan",
+                {
+                    "phases": [{
+                        "title": "Limits",
+                        "tasks": [{
+                            "title": "Read limits",
+                            "outline_node_id": "section-limits",
+                            "outlineNodeId": "different-section",
+                        }],
+                    }],
+                },
+            )
+        )
 
 
 def test_learning_plan_rejects_unknown_action_mode():

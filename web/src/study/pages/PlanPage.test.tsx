@@ -6,13 +6,15 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../lib/i18n";
-import type { StudyPlanItem } from "../../chat/study/study-api";
+import type { KnowledgeCoreCompilationRun, StudyPlanItem } from "../../chat/study/study-api";
 import type { StudyRepository } from "../repository";
 import { StudyRepositoryProvider } from "../repositoryContext";
 import { PlanPage } from "./PlanPage";
 import { StudyIaProvider } from "../StudyIaContext";
 import { StudyDraftProvider } from "../DraftContext";
 import type { StudyIaSink } from "../iaEvents";
+import { onStudyNanaRequest } from "../studyNanaRequest";
+import { onStudyDraftRequest } from "../studyDraftRequest";
 
 function repository(overrides: Partial<StudyRepository> = {}): StudyRepository {
   return {
@@ -61,38 +63,371 @@ const plan = {
   updated_at: "2026-07-11T00:00:00Z",
 };
 
+const emptyMap = {
+  revision: 3,
+  outlineStatus: "ready" as const,
+  outlineNodes: [],
+  knowledgeCores: [],
+  exerciseLinks: [],
+};
+
+function compilation(
+  overrides: Partial<KnowledgeCoreCompilationRun> = {},
+): KnowledgeCoreCompilationRun {
+  return {
+    runId: "run-1",
+    spaceId: "space-b",
+    outlineNodeId: "section-vector",
+    planItemId: "vector",
+    trigger: "start_learning",
+    status: "queued",
+    sourceFingerprint: "source-1",
+    policyVersion: "v1",
+    draftArtifactId: null,
+    reasonCode: null,
+    sourceWindows: [],
+    createdAt: "2026-07-31T00:00:00Z",
+    updatedAt: "2026-07-31T00:00:00Z",
+    ...overrides,
+  };
+}
+
 describe("PlanPage", () => {
+  it("presents plan progress and one focused next action before the directory", async () => {
+    renderPage(repository({
+      loadPlan: vi.fn().mockResolvedValue({
+        plan,
+        items: [
+          item({ item_id: "done", title: "已学内容", status: "completed" }),
+          item({ item_id: "next", title: "理解向量", order: 2, outlineNodeId: "section-vector" }),
+          item({ item_id: "skipped", title: "暂不学习", order: 3, status: "skipped" }),
+        ],
+        outline: [{ id: "section-vector", title: "向量", level: 2, children: [] }],
+      }),
+    }));
+
+    const overview = await screen.findByRole("region", { name: "Physics plan" });
+    expect(within(overview).getByText("1 项完成")).toBeInTheDocument();
+    expect(within(overview).getByText("1 项待学习")).toBeInTheDocument();
+    expect(within(overview).getByText("1 项已调整")).toBeInTheDocument();
+    expect(within(overview).getByText("理解向量")).toBeInTheDocument();
+    expect(within(overview).getByRole("button", { name: "开始学习" })).toBeEnabled();
+    expect(within(overview).getByRole("progressbar")).toHaveAttribute("aria-valuenow", "1");
+    expect(within(overview).getByRole("progressbar")).toHaveAttribute("aria-valuemax", "3");
+  });
+
+  it("lets the learner select a later directory action without changing progress", async () => {
+    const user = userEvent.setup();
+    renderPage(repository({
+      loadPlan: vi.fn().mockResolvedValue({
+        plan,
+        items: [
+          item({ item_id: "first", title: "第一项", outlineNodeId: "section-vector" }),
+          item({ item_id: "later", title: "稍后学习", order: 2, outlineNodeId: "section-vector" }),
+        ],
+        outline: [{ id: "section-vector", title: "向量", level: 2, children: [] }],
+      }),
+    }));
+
+    const overview = await screen.findByRole("region", { name: "Physics plan" });
+    expect(within(overview).getByText("第一项")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "选择：稍后学习" }));
+    expect(within(overview).getByText("稍后学习")).toBeInTheDocument();
+    expect(within(overview).getByText("已选择")).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "current route" })).toHaveTextContent("/");
+  });
+
   it("starts an open action at the current knowledge core and creates the continue bookmark", async () => {
     const user = userEvent.setup();
     localStorage.clear();
     renderPage(repository({
-      loadLearnHome: vi.fn().mockResolvedValue({ artifacts: [], knowledgePoints: [{
-        item_id: "core-1", artifact_id: "deck-1", front: "向量定义", gist: "大小与方向", captured: true,
-      }] }),
+      loadLearnHome: vi.fn().mockResolvedValue({
+        artifacts: [],
+        knowledgePoints: [{
+          item_id: "core-1", artifact_id: "deck-1", front: "向量定义", gist: "大小与方向", captured: true,
+        }],
+        learningMap: {
+          revision: 1,
+          outlineStatus: "ready",
+          outlineNodes: [],
+          knowledgeCores: [{
+            id: "core-1", itemId: "card-1", artifactId: "deck-1", front: "向量定义",
+            gist: "大小与方向", captured: true, outlineNodeId: "section-vector", order: 0,
+          }],
+          exerciseLinks: [],
+        },
+      }),
       loadPlan: vi.fn().mockResolvedValue({
       plan,
       items: [
         item({ item_id: "done", title: "Done", status: "completed" }),
-        item({ item_id: "next", title: "Next task", taskIndex: 1, order: 2 }),
+        item({ item_id: "next", title: "Next task", taskIndex: 1, order: 2, outlineNodeId: "section-vector" }),
       ],
+      outline: [{ id: "section-vector", title: "向量", level: 2, children: [] }],
       }),
     }));
 
-    const action = (await screen.findByRole("heading", { name: "Next task" })).closest("li")!;
-    await user.click(within(action).getByRole("button", { name: "开始" }));
+    await screen.findByRole("heading", { name: "Next task" });
+    await user.click(screen.getByRole("button", { name: "开始学习" }));
     await waitFor(() => {
       expect(localStorage.getItem("kabuqina.study.location.v1:space-b")).toContain('"planItemId":"next"');
       expect(screen.getByRole("status", { name: "current route" })).toHaveTextContent("/study/space-b/learn");
     });
   });
 
+  it("shows the server-owned current action instead of treating the first open item as progress", async () => {
+    renderPage(repository({
+      loadPlan: vi.fn().mockResolvedValue({
+        plan,
+        items: [
+          item({ item_id: "first", title: "First open task" }),
+          item({ item_id: "active", title: "Actual current task", taskIndex: 1, order: 2 }),
+        ],
+        location: {
+          revision: 2, mapRevision: 1, page: "learn", knowledgeCoreId: "core-1",
+          outlineNodeId: "section-vector", planItemId: "active", exerciseId: null,
+          planOutlineNodeId: "section-vector", exerciseByCore: {}, stale: false,
+          updatedAt: "2026-07-31T00:00:00Z",
+        },
+      }),
+    }));
+
+    const action = (await screen.findByRole("heading", { name: "Actual current task" })).closest("li")!;
+    expect(action).toHaveTextContent("正在进行");
+    expect(screen.queryByText("材料来源目录尚未整理完成时，只显示已确认的行动阶段；不会把行动名称伪装成教材目录。")).not.toBeInTheDocument();
+    expect(screen.queryByText("下一行动")).not.toBeInTheDocument();
+    expect(document.querySelector(".kq-study-plan-summary")).toBeNull();
+  });
+
+  it("does not start an outlined action with an unrelated course core", async () => {
+    const user = userEvent.setup();
+    renderPage(repository({
+      loadLearnHome: vi.fn().mockResolvedValue({
+        artifacts: [],
+        knowledgePoints: [{
+          item_id: "core-other", artifact_id: "deck-1", front: "矩阵", gist: "线性变换", captured: true,
+        }],
+        learningMap: {
+          revision: 1,
+          outlineStatus: "ready",
+          outlineNodes: [],
+          knowledgeCores: [{
+            id: "core-other", itemId: "card-other", artifactId: "deck-1", front: "矩阵",
+            gist: "线性变换", captured: true, outlineNodeId: "section-matrix", order: 0,
+          }],
+          exerciseLinks: [],
+        },
+      }),
+      loadPlan: vi.fn().mockResolvedValue({
+        plan,
+        outline: [{ id: "section-vector", title: "向量", level: 2, children: [] }],
+        items: [item({ item_id: "vector", title: "学习向量", outlineNodeId: "section-vector" })],
+      }),
+    }));
+
+    await user.click(await screen.findByRole("button", { name: "开始学习" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("还没有已采用的知识核");
+    expect(screen.getByRole("status", { name: "current route" })).not.toHaveTextContent("/learn");
+  });
+
+  it("keeps an unbound legacy plan item on the plan page instead of opening Nana", async () => {
+    const user = userEvent.setup();
+    const nanaRequest = vi.fn();
+    const stopListening = onStudyNanaRequest(nanaRequest);
+    renderPage(repository({
+      loadPlan: vi.fn().mockResolvedValue({
+        plan,
+        items: [item({ item_id: "legacy", title: "旧计划行动" })],
+        outline: [{ id: "section-vector", title: "向量", level: 2, children: [] }],
+        learningMap: emptyMap,
+      }),
+      loadLearnHome: vi.fn().mockResolvedValue({ artifacts: [], knowledgePoints: [], learningMap: emptyMap }),
+    }));
+
+    await user.click(await screen.findByRole("button", { name: "补充知识源" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("暂时不能自动整理知识核");
+    expect(nanaRequest).not.toHaveBeenCalled();
+    expect(screen.getByRole("status", { name: "current route" })).toHaveTextContent("/");
+    stopListening();
+  });
+
+  it("starts knowledge-core compilation for an outlined action without opening Nana", async () => {
+    const user = userEvent.setup();
+    const createKnowledgeCoreCompilation = vi.fn().mockResolvedValue(compilation());
+    const nanaRequest = vi.fn();
+    const stopListening = onStudyNanaRequest(nanaRequest);
+    renderPage(repository({
+      loadPlan: vi.fn().mockResolvedValue({
+        plan,
+        items: [item({ item_id: "vector", title: "学习向量", outlineNodeId: "section-vector" })],
+        outline: [{ id: "section-vector", title: "向量", level: 2, children: [] }],
+        learningMap: emptyMap,
+      }),
+      loadLearnHome: vi.fn().mockResolvedValue({
+        artifacts: [],
+        knowledgePoints: [],
+        learningMap: emptyMap,
+      }),
+      listKnowledgeCoreCompilations: vi.fn().mockResolvedValue([]),
+      createKnowledgeCoreCompilation,
+    }));
+
+    await user.click(await screen.findByRole("button", { name: "开始学习" }));
+    await waitFor(() => expect(createKnowledgeCoreCompilation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        spaceId: "space-b",
+        outlineNodeId: "section-vector",
+        planItemId: "vector",
+        trigger: "start_learning",
+        expectedMapRevision: 3,
+        priority: 10,
+      }),
+      expect.any(AbortSignal),
+    ));
+    expect(nanaRequest).not.toHaveBeenCalled();
+    expect((await screen.findAllByText(/正在从知识源整理/)).length).toBeGreaterThan(0);
+    stopListening();
+  });
+
+  it("shows a running compilation without starting another one", async () => {
+    const createKnowledgeCoreCompilation = vi.fn();
+    renderPage(repository({
+      loadPlan: vi.fn().mockResolvedValue({
+        plan,
+        items: [item({ item_id: "vector", title: "学习向量", outlineNodeId: "section-vector" })],
+        outline: [{ id: "section-vector", title: "向量", level: 2, children: [] }],
+        learningMap: emptyMap,
+      }),
+      listKnowledgeCoreCompilations: vi.fn().mockResolvedValue([compilation({ status: "generating" })]),
+      createKnowledgeCoreCompilation,
+    }));
+
+    expect(await screen.findByRole("button", { name: "正在准备" })).toBeDisabled();
+    expect(screen.getByText("正在从知识源准备这一项。")).toBeInTheDocument();
+    expect(createKnowledgeCoreCompilation).not.toHaveBeenCalled();
+  });
+
+  it("cancels a running compilation without presenting it as completed", async () => {
+    const user = userEvent.setup();
+    const cancelKnowledgeCoreCompilation = vi.fn().mockResolvedValue(
+      compilation({ status: "cancelled" }),
+    );
+    renderPage(repository({
+      loadPlan: vi.fn().mockResolvedValue({
+        plan,
+        items: [item({ item_id: "vector", title: "学习向量", outlineNodeId: "section-vector" })],
+        outline: [{ id: "section-vector", title: "向量", level: 2, children: [] }],
+        learningMap: emptyMap,
+      }),
+      listKnowledgeCoreCompilations: vi.fn().mockResolvedValue([compilation({ status: "generating" })]),
+      cancelKnowledgeCoreCompilation,
+    }));
+
+    await user.click(await screen.findByRole("button", { name: "取消准备" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "重新准备" })).toBeEnabled());
+    expect(screen.getByText(/准备已暂停/)).toBeInTheDocument();
+    expect(cancelKnowledgeCoreCompilation).toHaveBeenCalledWith(
+      "space-b",
+      "run-1",
+      expect.any(AbortSignal),
+    );
+  });
+
+  it("creates a new run when restarting a cancelled compilation", async () => {
+    const user = userEvent.setup();
+    const createKnowledgeCoreCompilation = vi.fn().mockResolvedValue(compilation({ runId: "run-2" }));
+    renderPage(repository({
+      loadPlan: vi.fn().mockResolvedValue({
+        plan,
+        items: [item({ item_id: "vector", title: "学习向量", outlineNodeId: "section-vector" })],
+        outline: [{ id: "section-vector", title: "向量", level: 2, children: [] }],
+        learningMap: emptyMap,
+      }),
+      listKnowledgeCoreCompilations: vi.fn().mockResolvedValue([compilation({ status: "cancelled" })]),
+      createKnowledgeCoreCompilation,
+    }));
+
+    await user.click(await screen.findByRole("button", { name: "重新准备" }));
+    await waitFor(() => expect(createKnowledgeCoreCompilation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        idempotencyKey: expect.stringContaining("restart:vector:3:run-1"),
+      }),
+      expect.any(AbortSignal),
+    ));
+  });
+
+  it("opens the exact generated knowledge-core draft from the plan node", async () => {
+    const user = userEvent.setup();
+    const draftRequest = vi.fn();
+    const stopListening = onStudyDraftRequest(draftRequest);
+    renderPage(repository({
+      loadPlan: vi.fn().mockResolvedValue({
+        plan,
+        items: [item({ item_id: "vector", title: "学习向量", outlineNodeId: "section-vector" })],
+        outline: [{ id: "section-vector", title: "向量", level: 2, children: [] }],
+        learningMap: emptyMap,
+      }),
+      listKnowledgeCoreCompilations: vi.fn().mockResolvedValue([
+        compilation({ status: "draft_ready", draftArtifactId: "deck-draft-1" }),
+      ]),
+    }));
+
+    await user.click(await screen.findByRole("button", { name: "查看知识核草稿" }));
+    expect(draftRequest).toHaveBeenCalledWith({
+      spaceId: "space-b",
+      artifactId: "deck-draft-1",
+    });
+    stopListening();
+  });
+
+  it("offers structured recovery and retries a failed compilation", async () => {
+    const user = userEvent.setup();
+    const retryKnowledgeCoreCompilation = vi.fn().mockResolvedValue(
+      compilation({ status: "queued", reasonCode: null }),
+    );
+    renderPage(repository({
+      loadPlan: vi.fn().mockResolvedValue({
+        plan,
+        items: [item({ item_id: "vector", title: "学习向量", outlineNodeId: "section-vector" })],
+        outline: [{ id: "section-vector", title: "向量", level: 2, children: [] }],
+        learningMap: emptyMap,
+      }),
+      listKnowledgeCoreCompilations: vi.fn().mockResolvedValue([
+        compilation({ status: "needs_source", reasonCode: "source_text_unavailable" }),
+      ]),
+      retryKnowledgeCoreCompilation,
+    }));
+
+    expect(await screen.findByRole("button", { name: "查看知识源" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "问小娜" })).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "再试一次" }));
+    expect(retryKnowledgeCoreCompilation).toHaveBeenCalledWith(
+      "space-b",
+      "run-1",
+      expect.any(AbortSignal),
+    );
+  });
+
   it("opens practice and preserves the source-outline binding for a practice action", async () => {
     const user = userEvent.setup();
     localStorage.clear();
     renderPage(repository({
-      loadLearnHome: vi.fn().mockResolvedValue({ artifacts: [], knowledgePoints: [{
-        item_id: "core-1", artifact_id: "deck-1", front: "向量定义", gist: "大小与方向", captured: true,
-      }] }),
+      loadLearnHome: vi.fn().mockResolvedValue({
+        artifacts: [],
+        knowledgePoints: [{
+          item_id: "core-1", artifact_id: "deck-1", front: "向量定义", gist: "大小与方向", captured: true,
+        }],
+        learningMap: {
+          revision: 1,
+          outlineStatus: "ready",
+          outlineNodes: [],
+          knowledgeCores: [{
+            id: "core-1", itemId: "card-1", artifactId: "deck-1", front: "向量定义",
+            gist: "大小与方向", captured: true, outlineNodeId: "section-vector", order: 0,
+          }],
+          exerciseLinks: [],
+        },
+      }),
       loadPlan: vi.fn().mockResolvedValue({
         plan,
         outline: [{
@@ -111,14 +446,16 @@ describe("PlanPage", () => {
       }),
     }));
 
-    const outlineActions = await screen.findByRole("region", { name: "1.1 向量的行动" });
+    const outlineActions = await screen.findByRole("region", { name: "1.1 向量的学习安排" });
     expect(within(outlineActions).getByRole("heading", { name: "做一道向量题" })).toBeInTheDocument();
     expect(screen.getAllByRole("heading", { name: "做一道向量题" })).toHaveLength(1);
     const action = (await screen.findByRole("heading", { name: "做一道向量题" })).closest("li")!;
     expect(within(action).getByText("练习")).toBeInTheDocument();
-    await user.click(within(action).getByRole("button", { name: "开始" }));
+    await user.click(screen.getByRole("button", { name: "开始练习" }));
 
-    expect(screen.getByRole("status", { name: "current route" })).toHaveTextContent("/study/space-b/practice");
+    await waitFor(() => {
+      expect(screen.getByRole("status", { name: "current route" })).toHaveTextContent("/study/space-b/practice");
+    });
     expect(JSON.parse(localStorage.getItem("kabuqina.study.location.v1:space-b")!)).toMatchObject({
       page: "practice",
       planItemId: "practice-next",
@@ -139,7 +476,11 @@ describe("PlanPage", () => {
 
     await user.click(await screen.findByRole("button", { name: "完成" }));
     expect(completePlanItem).toHaveBeenCalledWith("space-b", "next", expect.any(AbortSignal));
-    await waitFor(() => expect(screen.getByText("已完成")).toBeInTheDocument());
+    await waitFor(() => {
+      const item = screen.getByRole("heading", { name: "Next task" }).closest("li");
+      expect(item).not.toBeNull();
+      expect(within(item as HTMLElement).getAllByText("已完成")).not.toHaveLength(0);
+    });
   });
 
   it("keeps the open item when a mutation fails", async () => {
@@ -170,21 +511,193 @@ describe("PlanPage", () => {
     }));
 
     await user.click(await screen.findByRole("button", { name: "跳过" }));
-    await waitFor(() => expect(screen.getByText("已跳过")).toBeInTheDocument());
+    await waitFor(() => {
+      const item = screen.getByRole("heading", { name: "Next task" }).closest("li");
+      expect(item).not.toBeNull();
+      expect(within(item as HTMLElement).getAllByText("已跳过")).not.toHaveLength(0);
+    });
     expect(skipPlanItem).toHaveBeenCalledWith("space-b", "next", expect.any(AbortSignal));
     expect(completePlanItem).not.toHaveBeenCalled();
   });
 
-  it("renders an honest empty state", async () => {
-    renderPage(repository());
-    expect(await screen.findByRole("heading", { name: "还没有生效的学习计划" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "问小娜" })).toBeEnabled();
+  it("surfaces a newer plan draft while a legacy plan is active", async () => {
+    const user = userEvent.setup();
+    const draftRequest = vi.fn();
+    const stopListening = onStudyDraftRequest(draftRequest);
+    renderPage(repository({
+      loadPlan: vi.fn().mockResolvedValue({
+        plan,
+        items: [item({ item_id: "legacy", title: "旧计划行动" })],
+      }),
+      listDraftPage: vi.fn().mockResolvedValue({
+        items: [{
+          artifact_id: "bound-plan-draft",
+          kind: "learning_plan",
+          title: "目录绑定版学习计划",
+          status: "draft",
+        }],
+        total: 1,
+        kindCounts: { learning_plan: 1 },
+        returned: 1,
+        limit: 50,
+        offset: 0,
+        truncated: false,
+      }),
+    }));
+
+    expect(await screen.findByText("有一份新的学习计划草稿")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "查看并采用" }));
+    expect(draftRequest).toHaveBeenCalledWith({
+      spaceId: "space-b",
+      artifactId: "bound-plan-draft",
+    });
+    stopListening();
   });
 
-  it("shows a generated plan draft on the plan page and activates it after review", async () => {
+  it("renders an honest empty state", async () => {
+    const nanaRequest = vi.fn();
+    const stopListening = onStudyNanaRequest(nanaRequest);
     const user = userEvent.setup();
-    const runSemanticReview = vi.fn().mockResolvedValue("passed");
-    const setArtifactStatus = vi.fn().mockResolvedValue(undefined);
+    renderPage(repository({
+      loadLearnHome: vi.fn().mockResolvedValue({
+        artifacts: [{ artifact_id: "source-1", kind: "resource_pack", title: "Python.pdf", status: "active" }],
+        knowledgePoints: [],
+      }),
+    }));
+    expect(await screen.findByRole("heading", { name: "还没有学习计划" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "+ 学习计划" }));
+    expect(nanaRequest).toHaveBeenCalledWith(expect.objectContaining({
+      spaceId: "space-b",
+      page: "plan",
+      focusId: "new-learning-plan:source-1",
+      selectedSource: { id: "source-1", title: "Python.pdf" },
+      autoSend: true,
+    }));
+    stopListening();
+  });
+
+  it("asks the learner to choose one file when several knowledge sources exist", async () => {
+    const nanaRequest = vi.fn();
+    const stopListening = onStudyNanaRequest(nanaRequest);
+    const user = userEvent.setup();
+    renderPage(repository({
+      loadLearnHome: vi.fn().mockResolvedValue({
+        artifacts: [
+          { artifact_id: "source-a", kind: "resource_pack", title: "教材.pdf", status: "active" },
+          { artifact_id: "source-b", kind: "resource_pack", title: "讲义.pdf", status: "active" },
+        ],
+        knowledgePoints: [],
+      }),
+    }));
+
+    await user.click(await screen.findByRole("button", { name: "+ 学习计划" }));
+    expect(await screen.findByRole("heading", { name: "选择生成计划的知识源" })).toBeInTheDocument();
+    expect(nanaRequest).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "讲义.pdf" }));
+    expect(nanaRequest).toHaveBeenCalledWith(expect.objectContaining({
+      selectedSource: { id: "source-b", title: "讲义.pdf" },
+      autoSend: true,
+    }));
+    stopListening();
+  });
+
+  it("never flashes a draft before the canonical active-plan request resolves", async () => {
+    let resolvePlan!: (value: unknown) => void;
+    const loadPlan = vi.fn().mockReturnValue(new Promise((resolve) => { resolvePlan = resolve; }));
+    const listDraftPage = vi.fn().mockResolvedValue({
+      items: [{ artifact_id: "stale-draft", kind: "learning_plan", title: "不该闪现的草稿", status: "draft" }],
+      total: 1, kindCounts: { learning_plan: 1 }, returned: 1, limit: 50, offset: 0, truncated: false,
+    });
+    renderPage(repository({ loadPlan, listDraftPage }));
+
+    await waitFor(() => expect(listDraftPage).toHaveBeenCalled());
+    expect(screen.queryByRole("heading", { name: "不该闪现的草稿" })).not.toBeInTheDocument();
+    resolvePlan({
+      plan,
+      items: [item({ item_id: "formal-task", title: "正式计划行动", phaseTitle: "第一阶段" })],
+      outline: [],
+      outlineSourceArtifactId: "",
+      outlineSourceTitle: "",
+      structureStatus: "reliable",
+    });
+    expect(await screen.findByRole("heading", { name: "正式计划行动" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "不该闪现的草稿" })).not.toBeInTheDocument();
+  });
+
+  it("offers material import before plan generation when the course has no source", async () => {
+    const user = userEvent.setup();
+    const importButton = document.createElement("button");
+    importButton.setAttribute("aria-label", "添加知识源");
+    const imported = vi.fn();
+    importButton.addEventListener("click", imported);
+    document.body.appendChild(importButton);
+    renderPage(repository({
+      loadPlan: vi.fn().mockResolvedValue({
+        plan: null,
+        items: [],
+        hasKnowledgeSources: false,
+        outline: [],
+        outlineSourceArtifactId: "",
+        outlineSourceTitle: "",
+        structureStatus: "unknown",
+      }),
+    }));
+
+    expect(await screen.findByRole("heading", { name: "先放入知识源" })).toBeInTheDocument();
+    await user.click(screen.getAllByRole("button", { name: "添加知识源" })[1]);
+    expect(imported).toHaveBeenCalledTimes(1);
+    importButton.remove();
+  });
+
+  it("offers upload when plan creation finds no knowledge-source files", async () => {
+    const user = userEvent.setup();
+    const importButton = document.createElement("button");
+    importButton.setAttribute("aria-label", "添加知识源");
+    const imported = vi.fn();
+    importButton.addEventListener("click", imported);
+    document.body.appendChild(importButton);
+    renderPage(repository({
+      loadPlan: vi.fn().mockResolvedValue({
+        plan: null,
+        items: [],
+        hasKnowledgeSources: true,
+        outline: [],
+        outlineSourceArtifactId: "",
+        outlineSourceTitle: "",
+        structureStatus: "unknown",
+      }),
+      loadLearnHome: vi.fn().mockResolvedValue({ artifacts: [], knowledgePoints: [] }),
+    }));
+
+    await user.click(await screen.findByRole("button", { name: "+ 学习计划" }));
+    expect(await screen.findByRole("heading", { name: "知识源里还没有文件" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "上传资料" }));
+    expect(imported).toHaveBeenCalledTimes(1);
+    importButton.remove();
+  });
+
+  it("shows the draft as the plan until adoption, then replaces it with the active plan", async () => {
+    const user = userEvent.setup();
+    localStorage.clear();
+    let finishActivation!: () => void;
+    const setArtifactStatus = vi.fn().mockReturnValue(new Promise<void>((resolve) => { finishActivation = resolve; }));
+    const loadPlan = vi.fn()
+      .mockResolvedValueOnce({
+        plan: null,
+        items: [],
+        outline: [],
+        outlineSourceArtifactId: "",
+        outlineSourceTitle: "",
+        structureStatus: "reliable",
+      })
+      .mockResolvedValue({
+        plan,
+        items: [item({ item_id: "active-task", title: "理解变量", phaseTitle: "第一阶段", outlineNodeId: "section-variables" })],
+        outline: [{ id: "section-variables", title: "变量", level: 2, children: [] }],
+        outlineSourceArtifactId: "",
+        outlineSourceTitle: "",
+        structureStatus: "reliable",
+      });
     renderPage(repository({
       listDraftPage: vi.fn().mockResolvedValue({
         items: [{ artifact_id: "draft-plan", kind: "learning_plan", title: "Python 学习计划", status: "draft", review: { mode: "semantic", status: "pending" } }],
@@ -195,17 +708,32 @@ describe("PlanPage", () => {
         review: { mode: "semantic", status: "pending" },
         envelope: { payload: { phases: [{ title: "第一阶段", tasks: [{ title: "理解变量", done_when: "能解释赋值" }] }] } },
       }),
-      runSemanticReview,
+      loadPlan,
       setArtifactStatus,
     }));
 
-    expect(await screen.findByRole("heading", { name: "小娜推荐学习计划" })).toBeInTheDocument();
-    expect(screen.queryByText("范围与下一行动")).not.toBeInTheDocument();
-    expect(screen.queryByText("小娜拟的计划 · 待确认")).not.toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Python 学习计划" })).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "理解变量" })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "检查并采用" }));
-
-    await waitFor(() => expect(runSemanticReview).toHaveBeenCalledWith("space-b", "draft-plan", expect.any(AbortSignal)));
-    await waitFor(() => expect(setArtifactStatus).toHaveBeenCalledWith("space-b", "draft-plan", "active", expect.any(AbortSignal)));
+    expect(screen.queryByRole("button", { name: "学习" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "采用计划" }));
+    expect(await screen.findByText("正在采用学习计划…")).toBeInTheDocument();
+    expect(screen.queryByText("这份计划尚未生效。确认后才会成为正式计划。")).not.toBeInTheDocument();
+    finishActivation();
+    await waitFor(() => expect(setArtifactStatus).toHaveBeenCalledWith(
+      "space-b",
+      "draft-plan",
+      "active",
+      expect.any(AbortSignal),
+    ));
+    await waitFor(() => expect(screen.getByRole("button", { name: "开始学习" })).toBeEnabled());
+    await waitFor(() => expect(JSON.parse(localStorage.getItem("kabuqina.study.location.v1:space-b")!)).toMatchObject({
+      page: "plan",
+      planItemId: "active-task",
+      planItemTitle: "理解变量",
+      outlineLabel: "第一阶段",
+    }));
+    expect(screen.queryByText("正在进行")).not.toBeInTheDocument();
+    expect(screen.queryByText("这份计划尚未生效。确认后才会成为正式计划。")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "采用计划" })).not.toBeInTheDocument();
   });
 });

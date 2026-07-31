@@ -62,7 +62,17 @@ def build_learning_planner_prompt(learning_index: Optional[Dict[str, Any]] = Non
         "explanation/practice/assessment/reference role with a reason, and list "
         "anything that does not align. Never synthesize a topic tree, hide an "
         "unaligned material, calculate coverage, or activate the draft yourself. "
-        "For a single imported material, keep the existing single-material flow."
+        "For a single imported material, keep the existing single-material flow.\n"
+        "When asked to organize a course for Study, list active resource_pack "
+        "artifacts and use learning_material_read in bounded page windows. Draft "
+        "course knowledge cores as a flashcard_deck, not as ordinary review cards. "
+        "Every card must include knowledge_core_id, the exact real outline_node_id, "
+        "a stable non-negative order, and card-level source_refs containing origin "
+        "kq-kp, the material artifact id, a bounded page/section locator, and the "
+        "same knowledge_core_id and outline_node_id. Use front for the one thing "
+        "to understand and back for its self-contained key statement. Never invent "
+        "an outline id, omit the locator, activate the draft, or claim the whole "
+        "course was covered when only bounded windows were read."
     )
 
 

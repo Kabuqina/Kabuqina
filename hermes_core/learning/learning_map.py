@@ -27,6 +27,7 @@ MAP_META_ITEM_TYPE = "course_learning_map_meta"
 LOCATION_ITEM_ID = "__course_location_v1__"
 LOCATION_ITEM_TYPE = "course_location"
 LOCATION_PAGES = frozenset({"plan", "learn", "practice"})
+LEARNING_PLAN_ITEM_TYPE = "learning_plan_item"
 MAX_OUTLINE_NODES = 600
 MAX_KNOWLEDGE_CORES = 500
 MAX_EXERCISE_LINKS = 2_000
@@ -295,20 +296,36 @@ class LearningMapService:
             artifact = self._ctx.get_artifact(_text(card.get("artifact_id"), 200))
             if not artifact or artifact.get("status") != "active":
                 continue
+            card_refs = [
+                item
+                for item in (card.get("source_refs") or [])
+                if isinstance(item, Mapping)
+            ]
             source = next(
-                (item for item in _source_refs(artifact) if item.get("origin") == "kq-kp"),
+                (
+                    item
+                    for item in [*card_refs, *_source_refs(artifact)]
+                    if item.get("origin") == "kq-kp"
+                ),
                 None,
             )
             if source is None:
                 continue
-            core_id = _text(source.get("knowledge_core_id"), 200) or _text(card.get("item_id"), 200)
+            core_id = (
+                _text(card.get("knowledge_core_id"), 200)
+                or _text(source.get("knowledge_core_id"), 200)
+                or _text(card.get("item_id"), 200)
+            )
             if not core_id or core_id in seen:
                 continue
             seen.add(core_id)
             outline_node_id = _text(
-                source.get("outline_node_id") or source.get("outlineNodeId"), 200
+                card.get("outline_node_id")
+                or source.get("outline_node_id")
+                or source.get("outlineNodeId"),
+                200,
             )
-            declared_order = source.get("order")
+            declared_order = card.get("order", source.get("order"))
             cores.append(
                 {
                     "id": core_id,
@@ -319,6 +336,7 @@ class LearningMapService:
                     "captured": True,
                     "outlineNodeId": outline_node_id if outline_node_id in outline_ids else None,
                     "order": declared_order if type(declared_order) is int else len(cores),
+                    "sourceRefs": copy.deepcopy(card_refs or [source]),
                 }
             )
             if len(cores) >= MAX_KNOWLEDGE_CORES:
@@ -418,8 +436,23 @@ class LearningMapService:
         self._reconcile_location(result)
         return result
 
-    @staticmethod
-    def _location_invalid_reason(location: Mapping[str, Any], learning_map: Mapping[str, Any]) -> str:
+    def _plan_item(self, plan_item_id: str) -> tuple[dict[str, Any], dict[str, Any]] | None:
+        rows = [
+            row
+            for row in self._ctx.list_items(item_type=LEARNING_PLAN_ITEM_TYPE)
+            if row["item_id"] == plan_item_id
+        ]
+        if not rows:
+            return None
+        row = rows[0]
+        artifact = self._ctx.get_artifact(str(row.get("artifact_id") or ""))
+        return (row, artifact) if artifact else None
+
+    def _location_invalid_reason(
+        self,
+        location: Mapping[str, Any],
+        learning_map: Mapping[str, Any],
+    ) -> str:
         core_ids = {item["id"] for item in learning_map["knowledgeCores"]}
         links = {
             (item["knowledgeCoreId"], item["exerciseId"])
@@ -433,13 +466,27 @@ class LearningMapService:
             for core_id, exercise_id in exercises.items():
                 if (str(core_id), str(exercise_id)) not in links:
                     return "exercise_removed"
+        plan_item_id = _text(location.get("planItemId"), 200)
+        if plan_item_id:
+            found = self._plan_item(plan_item_id)
+            if not found:
+                return "plan_item_removed"
+            row, artifact = found
+            state = dict(row.get("state") or {})
+            if artifact.get("status") != "active" or state.get("status") != "open":
+                return "plan_item_closed"
         return ""
 
     def _reconcile_location(self, learning_map: Mapping[str, Any]) -> None:
         current = self._reserved_state(LOCATION_ITEM_TYPE)
-        if not current or current.get("mapRevision") == learning_map["revision"]:
+        if not current:
             return
         reason = self._location_invalid_reason(current, learning_map)
+        same_map = current.get("mapRevision") == learning_map["revision"]
+        same_stale = bool(current.get("stale")) == bool(reason)
+        same_reason = (current.get("staleReason") or "") == reason
+        if same_map and same_stale and same_reason:
+            return
         expected = int(current.get("revision") or 0)
         next_state = {
             **current,
@@ -475,6 +522,7 @@ class LearningMapService:
         page: str,
         knowledge_core_id: str | None = None,
         exercise_id: str | None = None,
+        plan_item_id: str | None = None,
         expected_map_revision: int | None = None,
     ) -> dict[str, Any]:
         if page not in LOCATION_PAGES:
@@ -495,6 +543,36 @@ class LearningMapService:
         }
         if selected_exercise and (core_id, selected_exercise) not in link_pairs:
             raise LearningConflictError("exercise_not_linked_to_knowledge_core")
+        selected_plan_item = _text(plan_item_id, 200)
+        plan_outline = ""
+        if selected_plan_item:
+            found = self._plan_item(selected_plan_item)
+            if not found:
+                raise LearningConflictError("plan_item_unavailable")
+            plan_row, plan_artifact = found
+            plan_state = dict(plan_row.get("state") or {})
+            if (
+                plan_artifact.get("status") != "active"
+                or plan_state.get("status") != "open"
+            ):
+                raise LearningConflictError("plan_item_unavailable")
+            plan_outline = _text(plan_state.get("outlineNodeId"), 200)
+            core_outline = _text(cores.get(core_id, {}).get("outlineNodeId"), 200)
+            if plan_outline and core_outline and plan_outline != core_outline:
+                outline_by_id = {
+                    str(node.get("id") or ""): node
+                    for node in learning_map["outlineNodes"]
+                }
+                cursor = outline_by_id.get(core_outline)
+                within_scope = False
+                while cursor:
+                    parent_id = _text(cursor.get("parentId"), 200)
+                    if parent_id == plan_outline:
+                        within_scope = True
+                        break
+                    cursor = outline_by_id.get(parent_id)
+                if not within_scope:
+                    raise LearningConflictError("plan_item_knowledge_core_mismatch")
 
         current = self._reserved_state(LOCATION_ITEM_TYPE)
         current_revision = int(current.get("revision") or 0) if current else 0
@@ -511,6 +589,8 @@ class LearningMapService:
             "page": page,
             "knowledgeCoreId": core_id or None,
             "outlineNodeId": core.get("outlineNodeId") if core else None,
+            "planItemId": selected_plan_item or None,
+            "planOutlineNodeId": plan_outline or None,
             "exerciseId": selected_exercise or remembered,
             "exerciseByCore": exercise_by_core,
             "stale": False,

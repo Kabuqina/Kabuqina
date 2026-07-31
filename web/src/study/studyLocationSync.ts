@@ -36,7 +36,10 @@ function localProjection(
     } : {}),
     ...(previous?.outlineLabel ? { outlineLabel: previous.outlineLabel } : {}),
     ...(server.outlineNodeId ? { outlineNodeId: server.outlineNodeId } : {}),
-    ...(previous?.planItemId ? { planItemId: previous.planItemId } : {}),
+    ...(server.planItemId ? { planItemId: server.planItemId } : {}),
+    ...(previous?.planItemId === server.planItemId && previous.planItemTitle
+      ? { planItemTitle: previous.planItemTitle }
+      : {}),
     ...(page !== "plan" && server.exerciseId ? { exerciseId: server.exerciseId } : {}),
     exerciseByCore: server.exerciseByCore ?? {},
     ...(page === "practice"
@@ -55,6 +58,7 @@ function wireLocation(location: StudyLocation) {
     ...(location.page !== "plan" && location.exerciseId
       ? { exerciseId: location.exerciseId }
       : {}),
+    ...(location.planItemId ? { planItemId: location.planItemId } : {}),
   };
 }
 

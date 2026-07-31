@@ -53,7 +53,7 @@ export function DeskWorkFolder({
           <div>
             <p className="kd-page-kicker">工作夹</p>
             <h1 id="kd-work-folder-title" ref={heading} tabIndex={-1}>制作 / 成果</h1>
-            <p>{courseName} · 这里先确认来源和目标，再进入课程对话。</p>
+            <p>{courseName} · 这里先确认来源和目标，再进入本子对话。</p>
           </div>
           <button type="button" onClick={onClose}>回到书桌</button>
         </header>
@@ -63,7 +63,7 @@ export function DeskWorkFolder({
         </div>
         {tab === "create" ? (
           <div className="kd-work-create" role="tabpanel">
-            <h2>选择要带入对话的本课材料</h2>
+            <h2>选择要带入对话的知识源</h2>
             {materials.unavailable ? (
               <div className="kd-honest-state" role="status">
                 <p>材料暂时无法读取。书桌没有替你猜选来源。</p>
@@ -91,7 +91,7 @@ export function DeskWorkFolder({
               </div>
             ) : (
               <div className="kd-honest-state">
-                <p>本课还没有材料。先整理材料，再开始制作。</p>
+                <p>这本本子还没有材料。先整理材料，再开始制作。</p>
                 {onOpenMaterials ? <button type="button" onClick={onOpenMaterials}>去整理材料</button> : null}
               </div>
             )}
@@ -105,7 +105,7 @@ export function DeskWorkFolder({
                 focusId: `course-create:${sources.map((source) => source.id).sort().join(",")}`,
                 focusLabel: "工作夹 · 制作",
                 question: request.trim(),
-                prompt: `基于所选课程材料协助学生制作；课程：${courseName}`,
+                prompt: `基于所选学习材料协助学生制作；本子：${courseName}`,
                 selectedSources: sources,
               })}
             >
@@ -115,7 +115,7 @@ export function DeskWorkFolder({
         ) : (
           <div className="kd-honest-state" role="tabpanel">
             <h2>成果会在可核验后出现在这里</h2>
-            <p>当前版本没有可靠的课程成果索引，因此不会把普通聊天文件猜成成果。已保存的课程产物接入结构化索引后会在这里显示。</p>
+            <p>当前版本没有可靠的学习成果索引，因此不会把普通聊天文件猜成成果。已保存的本子产物接入结构化索引后会在这里显示。</p>
           </div>
         )}
       </section>

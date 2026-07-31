@@ -61,4 +61,22 @@ describe("StudyNanaPanel", () => {
     await user.click(screen.getByRole("button", { name: /在完整 Chat 中打开/ }));
     expect(onOpenFull).toHaveBeenCalledWith(handoff, "给我一个反例，但先别直接解释完");
   });
+
+  it("prefills a scoped preparation request when Plan opens a missing knowledge core", async () => {
+    render(
+      <I18nProvider>
+        <StudyNanaPanel
+          handoff={{ ...handoff, focusKind: "plan", focusId: "chapter-6", focusLabel: "第6章：定义函数" }}
+          initialPrompt="请基于知识源，为“第6章：定义函数”整理知识核草稿。"
+          onClose={() => undefined}
+          onOpenFull={() => undefined}
+          loadMessages={async () => ({ messages: [] })}
+        />
+      </I18nProvider>,
+    );
+
+    expect(await screen.findByRole("textbox", { name: "发送消息" })).toHaveValue(
+      "请基于知识源，为“第6章：定义函数”整理知识核草稿。",
+    );
+  });
 });

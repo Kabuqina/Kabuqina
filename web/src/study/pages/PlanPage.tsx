@@ -1,20 +1,42 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import type { StudyPlanItem } from "../../chat/study/study-api";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import type {
+  KnowledgeCoreCompilationRun,
+  StudyArtifactSummary,
+  StudyPlanItem,
+} from "../../chat/study/study-api";
 import { useI18n } from "../../lib/i18n";
 import { RequestCoordinator, type Loadable } from "../loadable";
+import { deriveStudyRequestState } from "../pageState";
 import { STUDY_LEARNING_EVENT } from "../learningEvent";
-import type { StudyArtifactDetail, StudyOutlineNode, StudyPlanSnapshot } from "../repository";
+import type { StudyLearnHome, StudyOutlineNode, StudyPlanSnapshot } from "../repository";
 import { useStudyRepository } from "../repositoryContext";
 import { useStudyDrafts } from "../DraftContext";
-import { resolveKnowledgeCore, selectKnowledgeCore } from "../studyLocation";
+import { readStudyLocation, selectKnowledgeCore, selectPlanItem } from "../studyLocation";
 import { studyPath } from "../routeModel";
+import { requestStudyNana } from "../studyNanaRequest";
+import { requestStudyDraft } from "../studyDraftRequest";
+import { requestStudyMaterial } from "../studyMaterialRequest";
 
 type PlanActionMode = "learn" | "practice" | "review";
-type PlanDraftPhase = { title: string; tasks: Array<{ title: string; doneWhen: string; mode: PlanActionMode }> };
+type PlanDraftTask = {
+  title: string;
+  doneWhen: string;
+  mode: PlanActionMode;
+};
+type PlanDraftPhase = { title: string; tasks: PlanDraftTask[] };
+type PlanSource = Pick<StudyArtifactSummary, "artifact_id" | "title">;
+type CompilationUiState = "active" | "draft" | "running" | "blocked" | "cancelled" | "idle";
+
+const RUNNING_COMPILATION_STATUSES = new Set([
+  "queued",
+  "reading",
+  "generating",
+  "validating",
+]);
 
 function planMode(value: unknown): PlanActionMode {
   return value === "practice" || value === "review" ? value : "learn";
@@ -26,13 +48,7 @@ function planModeLabel(mode: PlanActionMode): string {
   return "学习";
 }
 
-function draftDetailData(value: Loadable<StudyArtifactDetail> | undefined): StudyArtifactDetail | null {
-  if (value?.status === "ready") return value.data;
-  if (value?.status === "loading" || value?.status === "error") return value.previous ?? null;
-  return null;
-}
-
-function planDraftPhases(detail: StudyArtifactDetail | null): PlanDraftPhase[] {
+function planDraftPhases(detail: ReturnType<typeof draftDetailData>): PlanDraftPhase[] {
   const payload = detail?.envelope.payload;
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) return [];
   const phases = (payload as Record<string, unknown>).phases;
@@ -57,6 +73,12 @@ function planDraftPhases(detail: StudyArtifactDetail | null): PlanDraftPhase[] {
   });
 }
 
+function draftDetailData(value: ReturnType<typeof useStudyDrafts>["details"][string] | undefined) {
+  if (value?.status === "ready") return value.data;
+  if (value?.status === "loading" || value?.status === "error") return value.previous ?? null;
+  return null;
+}
+
 function outlineNodeIds(nodes: StudyOutlineNode[], result = new Set<string>()): Set<string> {
   nodes.forEach((node) => {
     result.add(node.id);
@@ -65,37 +87,180 @@ function outlineNodeIds(nodes: StudyOutlineNode[], result = new Set<string>()): 
   return result;
 }
 
+function outlineScopeIds(nodes: StudyOutlineNode[], targetId: string): Set<string> {
+  const addBranch = (node: StudyOutlineNode, result: Set<string>) => {
+    result.add(node.id);
+    node.children.forEach((child) => addBranch(child, result));
+  };
+  for (const node of nodes) {
+    if (node.id === targetId) {
+      const result = new Set<string>();
+      addBranch(node, result);
+      return result;
+    }
+    const nested = outlineScopeIds(node.children, targetId);
+    if (nested.size) return nested;
+  }
+  return new Set([targetId]);
+}
+
+function firstKnowledgeCoreForItem(
+  home: StudyLearnHome,
+  item: StudyPlanItem,
+  outline: StudyOutlineNode[],
+) {
+  if (!item.outlineNodeId) return undefined;
+  return firstKnowledgeCoreForOutline(home, item.outlineNodeId, outline);
+}
+
+function firstKnowledgeCoreForOutline(
+  home: StudyLearnHome,
+  outlineNodeId: string,
+  outline: StudyOutlineNode[],
+) {
+  if (!home.learningMap) return undefined;
+  const scope = outlineScopeIds(outline, outlineNodeId);
+  const core = home.learningMap.knowledgeCores.find(
+    (candidate) => Boolean(candidate.outlineNodeId && scope.has(candidate.outlineNodeId)),
+  );
+  return core
+    ? home.knowledgePoints.find((point) => point.item_id === core.id)
+    : undefined;
+}
+
+function findOutlineNode(nodes: StudyOutlineNode[], id: string): StudyOutlineNode | undefined {
+  for (const node of nodes) {
+    if (node.id === id) return node;
+    const nested = findOutlineNode(node.children, id);
+    if (nested) return nested;
+  }
+  return undefined;
+}
+
+function latestCompilation(
+  runs: KnowledgeCoreCompilationRun[],
+  outlineNodeId?: string,
+): KnowledgeCoreCompilationRun | undefined {
+  if (!outlineNodeId) return undefined;
+  return [...runs]
+    .filter((run) => run.outlineNodeId === outlineNodeId)
+    .sort((a, b) => `${b.updatedAt}:${b.runId}`.localeCompare(`${a.updatedAt}:${a.runId}`))[0];
+}
+
+function compilationState(
+  hasActiveCore: boolean,
+  run: KnowledgeCoreCompilationRun | undefined,
+): CompilationUiState {
+  if (hasActiveCore) return "active";
+  if (run?.status === "draft_ready" && run.draftArtifactId) return "draft";
+  if (run && RUNNING_COMPILATION_STATUSES.has(run.status)) return "running";
+  if (run?.status === "needs_source" || run?.status === "failed") return "blocked";
+  if (run?.status === "cancelled") return "cancelled";
+  return "idle";
+}
+
+function compilationReason(run: KnowledgeCoreCompilationRun): string {
+  switch (run.reasonCode) {
+    case "outline_locator_missing":
+      return "这个目录还没有可定位的资料范围。";
+    case "primary_material_unavailable":
+      return "主要知识源目前不可用。";
+    case "source_range_empty":
+    case "source_text_unavailable":
+      return "这一段资料暂时没有读到可用正文。";
+    case "model_unavailable":
+      return "整理知识核所需的模型目前不可用。";
+    case "process_restarted":
+      return "上次整理因应用重启而中断。";
+    default:
+      return "这次知识核整理没有完成。";
+  }
+}
+
+function planItemStateLabel(item: StudyPlanItem): string {
+  if (item.status === "completed") return "已完成";
+  if (item.status === "skipped") return "已跳过";
+  return "待学习";
+}
+
+function branchActions(node: StudyOutlineNode, actions: StudyPlanItem[]): StudyPlanItem[] {
+  const scope = outlineScopeIds([node], node.id);
+  return actions.filter((item) => Boolean(item.outlineNodeId && scope.has(item.outlineNodeId)));
+}
+
+function outlineStateLabel(
+  node: StudyOutlineNode,
+  actions: StudyPlanItem[],
+  currentItemId?: string,
+  nextItemId?: string,
+): string {
+  const scoped = branchActions(node, actions);
+  if (currentItemId && scoped.some((item) => item.item_id === currentItemId)) return "进行中";
+  if (nextItemId && scoped.some((item) => item.item_id === nextItemId)) return "下一项";
+  if (scoped.length && scoped.every((item) => item.status === "completed")) return "已完成";
+  if (scoped.some((item) => item.status === "open")) return "待学习";
+  if (scoped.length) return "已调整";
+  return "";
+}
+
 function OutlineBranch({
   nodes,
   actions,
   renderAction,
+  currentItemId,
+  nextItemId,
+  onOpenNode,
 }: {
   nodes: StudyOutlineNode[];
   actions: StudyPlanItem[];
   renderAction: (item: StudyPlanItem) => ReactNode;
+  currentItemId?: string;
+  nextItemId?: string;
+  onOpenNode: (node: StudyOutlineNode) => void;
 }) {
   return (
-    <ol className="kq-study-plan-items kq-study-outline-list">
+    <ol className="kq-study-outline-tree">
       {nodes.map((node) => {
         const nodeActions = actions.filter((item) => item.outlineNodeId === node.id);
+        const stateLabel = outlineStateLabel(node, actions, currentItemId, nextItemId);
         return (
-        <li key={node.id}>
-          <div className="kq-study-plan-item-copy">
-            <h3>{node.title}</h3>
-            {node.page || (node.level === 3 && node.sourcePath && node.sourcePath !== node.title) ? (
-              <p>{[
-                node.page ? `第 ${node.page} 页` : "",
-                node.level === 3 && node.sourcePath !== node.title ? node.sourcePath : "",
-              ].filter(Boolean).join(" · ")}</p>
-            ) : null}
+        <li
+          key={node.id}
+          className={`kq-study-outline-node is-level-${node.level}`}
+          data-state={stateLabel || undefined}
+        >
+          <div className="kq-study-outline-row">
+            <span className="kq-study-outline-marker" aria-hidden="true" />
+            <div>
+              <h3>
+                {node.sourceArtifactId ? (
+                  <button type="button" onClick={() => onOpenNode(node)}>{node.title}</button>
+                ) : node.title}
+              </h3>
+              {node.page || (node.level === 3 && node.sourcePath && node.sourcePath !== node.title) ? (
+                <p>{[
+                  node.page ? `第 ${node.page} 页` : "",
+                  node.level === 3 && node.sourcePath !== node.title ? node.sourcePath : "",
+                ].filter(Boolean).join(" · ")}</p>
+              ) : null}
+            </div>
+            {stateLabel ? <span className="kq-study-outline-state">{stateLabel}</span> : null}
           </div>
           {nodeActions.length ? (
-            <section className="kq-study-outline-actions" aria-label={`${node.title}的行动`}>
-              <p>本节行动</p>
+            <section className="kq-study-outline-actions" aria-label={`${node.title}的学习安排`}>
               <ol className="kq-study-plan-items">{nodeActions.map(renderAction)}</ol>
             </section>
           ) : null}
-          {node.children.length ? <OutlineBranch nodes={node.children} actions={actions} renderAction={renderAction} /> : null}
+          {node.children.length ? (
+            <OutlineBranch
+              nodes={node.children}
+              actions={actions}
+              renderAction={renderAction}
+              currentItemId={currentItemId}
+              nextItemId={nextItemId}
+              onOpenNode={onOpenNode}
+            />
+          ) : null}
         </li>
         );
       })}
@@ -108,15 +273,37 @@ export function PlanPage({ spaceId }: { spaceId: string }) {
   const repository = useStudyRepository();
   const drafts = useStudyDrafts();
   const navigate = useNavigate();
+  const location = useLocation();
   const pageRegion = useRef<HTMLElement>(null);
   const requests = useRef(new RequestCoordinator());
+  const compilationRequests = useRef(new RequestCoordinator());
+  const sourceRequests = useRef(new RequestCoordinator());
   const mutations = useRef(new RequestCoordinator());
+  const readyDrafts = useRef(new Set<string>());
   const [snapshot, setSnapshot] = useState<Loadable<StudyPlanSnapshot>>({ status: "idle" });
+  const [compilationRuns, setCompilationRuns] = useState<KnowledgeCoreCompilationRun[]>([]);
   const [pendingItem, setPendingItem] = useState("");
   const [mutationError, setMutationError] = useState("");
   const [pendingStart, setPendingStart] = useState("");
-  const [pendingDraft, setPendingDraft] = useState<"confirm" | "reject" | "">("");
-  const [draftError, setDraftError] = useState("");
+  const [corePreparationNotice, setCorePreparationNotice] = useState("");
+  const [pendingPlanDraftAction, setPendingPlanDraftAction] = useState<"activate" | "reject" | "">("");
+  const [planDraftError, setPlanDraftError] = useState("");
+  const [adoptedPlanDraftId, setAdoptedPlanDraftId] = useState("");
+  const [sourceState, setSourceState] = useState<"idle" | "loading" | "empty" | "error">("idle");
+  const [sourceChoices, setSourceChoices] = useState<PlanSource[]>([]);
+  const [generatingSource, setGeneratingSource] = useState<PlanSource | null>(null);
+  const [selectedItemId, setSelectedItemId] = useState("");
+
+  const loadCompilations = useCallback(() => {
+    if (!repository.listKnowledgeCoreCompilations) return;
+    const request = compilationRequests.current.begin();
+    void repository.listKnowledgeCoreCompilations(spaceId, undefined, request.signal).then(
+      (runs) => {
+        if (compilationRequests.current.isCurrent(request.generation)) setCompilationRuns(runs);
+      },
+      () => undefined,
+    );
+  }, [repository, spaceId]);
 
   const load = useCallback(() => {
     const request = requests.current.begin();
@@ -142,87 +329,156 @@ export function PlanPage({ spaceId }: { spaceId: string }) {
 
   useEffect(() => {
     const activeRequests = requests.current;
+    const activeCompilationRequests = compilationRequests.current;
+    const activeSourceRequests = sourceRequests.current;
     const activeMutations = mutations.current;
     pageRegion.current?.focus();
     load();
-    const refresh = () => load();
+    loadCompilations();
+    const refresh = () => {
+      load();
+      loadCompilations();
+    };
     window.addEventListener(STUDY_LEARNING_EVENT, refresh);
     return () => {
       window.removeEventListener(STUDY_LEARNING_EVENT, refresh);
       activeRequests.cancel();
+      activeCompilationRequests.cancel();
+      activeSourceRequests.cancel();
       activeMutations.cancel();
     };
-  }, [load]);
+  }, [load, loadCompilations]);
 
-  const data = snapshot.status === "ready"
-    ? snapshot.data
-    : snapshot.status === "loading" || snapshot.status === "error"
-      ? snapshot.previous
-      : undefined;
-  const items = data?.items ?? [];
+  const requestState = deriveStudyRequestState(snapshot);
+  const data = requestState.data;
+  const items = useMemo(() => data?.items ?? [], [data?.items]);
   const draftItems = drafts.snapshot.status === "ready"
     ? drafts.snapshot.data.items
     : drafts.snapshot.status === "loading" || drafts.snapshot.status === "error"
       ? drafts.snapshot.previous?.items ?? []
       : [];
+  const draftsResolved = drafts.snapshot.status === "ready"
+    || ((drafts.snapshot.status === "loading" || drafts.snapshot.status === "error") && Boolean(drafts.snapshot.previous));
+  const draftsUnavailable = drafts.snapshot.status === "error" && !drafts.snapshot.previous;
   const planDraft = [...draftItems]
-    .filter((item) => item.kind === "learning_plan")
+    .filter((item) => item.kind === "learning_plan" && item.artifact_id !== adoptedPlanDraftId)
     .sort((a, b) => `${b.updated_at ?? ""}:${b.artifact_id}`.localeCompare(`${a.updated_at ?? ""}:${a.artifact_id}`))[0] ?? null;
   const planDraftDetail = planDraft ? draftDetailData(drafts.details[planDraft.artifact_id]) : null;
   const draftPhases = planDraftPhases(planDraftDetail);
-  const currentItem = items.find((item) => item.status === "open") ?? null;
-  const phases = [...new Set(items.map((item) => item.phaseTitle || data?.plan?.title || "当前范围"))];
+  const waitingForPlanState = Boolean(data && !data.plan && (!draftsResolved || adoptedPlanDraftId));
+  const currentItem = data?.location?.page !== "plan" && data?.location?.planItemId
+    ? items.find((item) => item.item_id === data.location?.planItemId && item.status === "open") ?? null
+    : null;
+  const nextItem = items.find((item) => item.status === "open") ?? null;
+  const selectedItem = selectedItemId
+    ? items.find((item) => item.item_id === selectedItemId && item.status === "open") ?? null
+    : null;
+  const focusItem = selectedItem ?? currentItem ?? nextItem;
+  const completedCount = items.filter((item) => item.status === "completed").length;
+  const skippedCount = items.filter((item) => item.status === "skipped").length;
+  const openCount = items.filter((item) => item.status === "open").length;
+  const progressWidth = items.length ? `${Math.round((completedCount / items.length) * 100)}%` : "0%";
   const boundOutlineIds = outlineNodeIds(data?.outline ?? []);
   const unboundItems = items.filter((item) => !item.outlineNodeId || !boundOutlineIds.has(item.outlineNodeId));
-  const unboundPhases = [...new Set(unboundItems.map((item) => item.phaseTitle || data?.plan?.title || "当前范围"))];
 
   useEffect(() => {
-    if (planDraft) drafts.openDetail(planDraft.artifact_id);
-  }, [drafts, planDraft]);
+    if (selectedItemId && !items.some((item) => item.item_id === selectedItemId && item.status === "open")) {
+      setSelectedItemId("");
+    }
+  }, [items, selectedItemId]);
 
-  const confirmPlanDraft = () => {
-    if (!planDraft || !planDraftDetail || pendingDraft) return;
-    const request = mutations.current.begin();
-    setPendingDraft("confirm");
-    setDraftError("");
-    void (async () => {
-      let reviewStatus = planDraftDetail.review.status;
-      if (planDraftDetail.review.mode === "semantic" && reviewStatus !== "passed") {
-        reviewStatus = await repository.runSemanticReview(spaceId, planDraft.artifact_id, request.signal);
+  useEffect(() => {
+    if (!compilationRuns.some((run) => RUNNING_COMPILATION_STATUSES.has(run.status))) return;
+    const timer = window.setTimeout(loadCompilations, 1_500);
+    return () => window.clearTimeout(timer);
+  }, [compilationRuns, loadCompilations]);
+
+  useEffect(() => {
+    if (!data?.plan || !nextItem) return;
+    if (data.location && data.location.page !== "plan") return;
+    const local = readStudyLocation(spaceId);
+    if (local && local.page !== "plan") return;
+    const candidate = data.location?.planItemId
+      ? items.find((item) => item.item_id === data.location?.planItemId && item.status === "open") ?? nextItem
+      : nextItem;
+    selectPlanItem(spaceId, {
+      itemId: candidate.item_id,
+      title: candidate.title,
+      ...(candidate.phaseTitle ? { phaseTitle: candidate.phaseTitle } : {}),
+      ...(candidate.outlineNodeId ? { outlineNodeId: candidate.outlineNodeId } : {}),
+    });
+  }, [data?.location, data?.plan, items, nextItem, spaceId]);
+
+  useEffect(() => {
+    if (!data || !location.hash) return;
+    let targetId = "";
+    try {
+      targetId = decodeURIComponent(location.hash.slice(1));
+    } catch {
+      return;
+    }
+    if (!targetId.startsWith("study-plan-item-")) return;
+    const target = document.getElementById(targetId);
+    if (!target) return;
+    target.scrollIntoView?.({ block: "center" });
+    target.focus();
+  }, [data, location.hash]);
+
+  useEffect(() => {
+    const newlyReady = compilationRuns.filter(
+      (run) => run.status === "draft_ready"
+        && run.draftArtifactId
+        && !readyDrafts.current.has(run.draftArtifactId),
+    );
+    if (!newlyReady.length) return;
+    newlyReady.forEach((run) => readyDrafts.current.add(run.draftArtifactId!));
+    drafts.refresh();
+  }, [compilationRuns, drafts]);
+
+  useEffect(() => {
+    if (planDraft && data && !data.plan) drafts.openDetail(planDraft.artifact_id);
+  }, [data, drafts, planDraft]);
+
+  useEffect(() => {
+    if (planDraft) setGeneratingSource(null);
+  }, [planDraft]);
+
+  const decidePlanDraft = (action: "activate" | "reject") => {
+    if (!planDraft || pendingPlanDraftAction) return;
+    setPendingPlanDraftAction(action);
+    setPlanDraftError("");
+    if (action === "activate") setAdoptedPlanDraftId(planDraft.artifact_id);
+    const operation = action === "activate"
+      ? drafts.activate(planDraft.artifact_id)
+      : drafts.reject(planDraft.artifact_id);
+    void operation.then((applied) => {
+      if (!applied) {
+        setPendingPlanDraftAction("");
+        if (action === "activate") setAdoptedPlanDraftId("");
+        setPlanDraftError(action === "activate" ? "暂时不能采用这份计划，草稿仍然保留。" : "暂时不能放弃这份计划，草稿仍然保留。");
+        return;
       }
-      if (reviewStatus !== "passed") throw new Error("plan review did not pass");
-      await repository.setArtifactStatus(spaceId, planDraft.artifact_id, "active", request.signal);
-      if (!mutations.current.isCurrent(request.generation)) return;
-      setPendingDraft("");
-      window.dispatchEvent(new Event(STUDY_LEARNING_EVENT));
+      setPendingPlanDraftAction("");
       load();
-    })().catch(() => {
-      if (!mutations.current.isCurrent(request.generation)) return;
-      setPendingDraft("");
-      setDraftError("这份计划还没有通过内容检查，已继续保留在草稿中。");
     });
   };
 
-  const rejectPlanDraft = () => {
-    if (!planDraft || pendingDraft) return;
-    const request = mutations.current.begin();
-    setPendingDraft("reject");
-    setDraftError("");
-    void repository.setArtifactStatus(spaceId, planDraft.artifact_id, "rejected", request.signal).then(
-      () => {
-        if (!mutations.current.isCurrent(request.generation)) return;
-        setPendingDraft("");
-        window.dispatchEvent(new Event(STUDY_LEARNING_EVENT));
-      },
-      () => {
-        if (!mutations.current.isCurrent(request.generation)) return;
-        setPendingDraft("");
-        setDraftError("暂时不能处理这份计划，草稿仍然保留。");
-      },
+  const mergeCompilationRun = (next: KnowledgeCoreCompilationRun) => {
+    setCompilationRuns((current) => [
+      next,
+      ...current.filter((run) => run.runId !== next.runId),
+    ]);
+  };
+
+  const itemHasActiveCore = (item: StudyPlanItem): boolean => {
+    if (!item.outlineNodeId || !data?.learningMap) return false;
+    const scope = outlineScopeIds(data.outline, item.outlineNodeId);
+    return data.learningMap.knowledgeCores.some(
+      (core) => Boolean(core.outlineNodeId && scope.has(core.outlineNodeId)),
     );
   };
 
-  const startItem = (item: StudyPlanItem) => {
+  const openActiveItem = (item: StudyPlanItem) => {
     if (pendingStart) return;
     const request = mutations.current.begin();
     setPendingStart(item.item_id);
@@ -230,14 +486,25 @@ export function PlanPage({ spaceId }: { spaceId: string }) {
     void repository.loadLearnHome(spaceId, request.signal).then(
       (home) => {
         if (!mutations.current.isCurrent(request.generation)) return;
-        const resolved = resolveKnowledgeCore(spaceId, home.knowledgePoints);
+        const point = firstKnowledgeCoreForItem(home, item, data?.outline ?? []);
         setPendingStart("");
-        if (!resolved) {
-          setMutationError(item.item_id);
+        if (!point) {
+          if (
+            item.outlineNodeId
+            && home.learningMap
+            && repository.createKnowledgeCoreCompilation
+          ) {
+            createCompilation(item, home.learningMap.revision);
+          } else if (!item.outlineNodeId) {
+            setMutationError(`no-outline:${item.item_id}`);
+            setCorePreparationNotice(`“${item.title}”还没有关联到知识源目录，不能可靠地自动整理知识核。`);
+          } else {
+            setMutationError(`no-core:${item.item_id}`);
+          }
           return;
         }
         const targetPage = planMode(item.mode) === "learn" ? "learn" : "practice";
-        selectKnowledgeCore(spaceId, resolved.point, targetPage, {
+        selectKnowledgeCore(spaceId, point, targetPage, {
           planItemId: item.item_id,
           outlineLabel: item.phaseTitle,
           outlineNodeId: item.outlineNodeId,
@@ -250,6 +517,225 @@ export function PlanPage({ spaceId }: { spaceId: string }) {
         setMutationError(item.item_id);
       },
     );
+  };
+
+  const createCompilation = (
+    item: StudyPlanItem,
+    mapRevision = data?.learningMap?.revision,
+    idempotencyKey = `start:${item.item_id}:${mapRevision}`.slice(0, 200),
+  ) => {
+    if (
+      pendingStart
+      || !item.outlineNodeId
+      || mapRevision === undefined
+      || !repository.createKnowledgeCoreCompilation
+    ) return;
+    const request = mutations.current.begin();
+    setPendingStart(item.item_id);
+    setMutationError("");
+    setCorePreparationNotice(`正在从知识源整理“${item.title}”的知识核。你可以留在这里，也可以稍后从“进行中”回来。`);
+    void repository.createKnowledgeCoreCompilation({
+      spaceId,
+      outlineNodeId: item.outlineNodeId,
+      planItemId: item.item_id,
+      trigger: "start_learning",
+      expectedMapRevision: mapRevision,
+      idempotencyKey,
+      priority: 10,
+    }, request.signal).then(
+      (run) => {
+        if (!mutations.current.isCurrent(request.generation)) return;
+        setPendingStart("");
+        mergeCompilationRun(run);
+      },
+      () => {
+        if (!mutations.current.isCurrent(request.generation)) return;
+        setPendingStart("");
+        setMutationError(item.item_id);
+        setCorePreparationNotice("暂时没有开始整理。计划和已有知识核都没有改变。");
+        load();
+        loadCompilations();
+      },
+    );
+  };
+
+  const retryCompilation = (item: StudyPlanItem, run: KnowledgeCoreCompilationRun) => {
+    if (pendingStart || !repository.retryKnowledgeCoreCompilation) return;
+    const request = mutations.current.begin();
+    setPendingStart(item.item_id);
+    setMutationError("");
+    void repository.retryKnowledgeCoreCompilation(spaceId, run.runId, request.signal).then(
+      (next) => {
+        if (!mutations.current.isCurrent(request.generation)) return;
+        setPendingStart("");
+        mergeCompilationRun(next);
+        setCorePreparationNotice(`正在重新整理“${item.title}”的知识核。`);
+      },
+      () => {
+        if (!mutations.current.isCurrent(request.generation)) return;
+        setPendingStart("");
+        setMutationError(item.item_id);
+      },
+    );
+  };
+
+  const cancelCompilation = (item: StudyPlanItem, run: KnowledgeCoreCompilationRun) => {
+    if (pendingStart || !repository.cancelKnowledgeCoreCompilation) return;
+    const request = mutations.current.begin();
+    setPendingStart(item.item_id);
+    setMutationError("");
+    void repository.cancelKnowledgeCoreCompilation(spaceId, run.runId, request.signal).then(
+      (next) => {
+        if (!mutations.current.isCurrent(request.generation)) return;
+        setPendingStart("");
+        mergeCompilationRun(next);
+        setCorePreparationNotice(`已取消整理“${item.title}”。`);
+      },
+      () => {
+        if (!mutations.current.isCurrent(request.generation)) return;
+        setPendingStart("");
+        setMutationError(item.item_id);
+      },
+    );
+  };
+
+  const openCompilationSource = (
+    item: StudyPlanItem,
+    run: KnowledgeCoreCompilationRun | undefined,
+  ) => {
+    const window = run?.sourceWindows[0];
+    if (window) {
+      requestStudyMaterial({
+        spaceId,
+        artifactId: window.artifactId,
+        page: window.pageStart,
+      });
+      return;
+    }
+    const node = item.outlineNodeId
+      ? findOutlineNode(data?.outline ?? [], item.outlineNodeId)
+      : undefined;
+    const artifactId = node?.sourceArtifactId || data?.outlineSourceArtifactId;
+    if (artifactId) {
+      requestStudyMaterial({
+        spaceId,
+        artifactId,
+        ...(node?.page ? { page: node.page } : {}),
+      });
+      return;
+    }
+    setCorePreparationNotice("这段目录还没有可打开的知识源，请先从右侧书立补充或重新读取资料。");
+  };
+
+  const openOutlineNode = (node: StudyOutlineNode) => {
+    const artifactId = node.sourceArtifactId || data?.outlineSourceArtifactId;
+    if (!artifactId) return;
+    requestStudyMaterial({
+      spaceId,
+      artifactId,
+      ...(node.page ? { page: node.page } : {}),
+    });
+  };
+
+  const askNanaAboutCompilation = (item: StudyPlanItem, run?: KnowledgeCoreCompilationRun) => {
+    const focusLabel = item.title || item.phaseTitle || "当前目录范围";
+    requestStudyNana({
+      spaceId,
+      page: "plan",
+      focusId: item.outlineNodeId || item.item_id,
+      focusLabel,
+      ...(item.outlineNodeId ? { outlineNodeId: item.outlineNodeId } : {}),
+      initialPrompt: run
+        ? `为“${focusLabel}”整理知识核时遇到“${run.reasonCode || "compilation_failed"}”。请先帮我判断知识源或设置缺了什么，不要虚构知识核。`
+        : `“${focusLabel}”还没有绑定到可靠目录节点。请先帮我核对计划与知识源目录的对应关系，不要直接虚构知识核。`,
+    });
+  };
+
+  const beginPlanGeneration = (source: PlanSource) => {
+    setSourceChoices([]);
+    setSourceState("idle");
+    setGeneratingSource(source);
+    requestStudyNana({
+      spaceId,
+      page: "plan",
+      focusId: `new-learning-plan:${source.artifact_id}`,
+      focusLabel: `用《${source.title}》生成学习计划`,
+      selectedSource: { id: source.artifact_id, title: source.title },
+      autoSend: true,
+      initialPrompt: `请只基于我选择的知识源《${source.title}》和已经确认的学习设定，生成一份待采用的学习计划草稿。计划必须保留真实来源，不要自动采用，也不要把推断结构说成原文件目录。`,
+    });
+  };
+
+  const createPlanDraft = () => {
+    if (sourceState === "loading") return;
+    const request = sourceRequests.current.begin();
+    setSourceState("loading");
+    setSourceChoices([]);
+    void repository.loadLearnHome(spaceId, request.signal).then(
+      (home) => {
+        if (!sourceRequests.current.isCurrent(request.generation)) return;
+        if (home.unavailableKinds?.includes("resource_pack")) {
+          setSourceState("error");
+          return;
+        }
+        const sources = home.artifacts
+          .filter((artifact) => artifact.kind === "resource_pack" && artifact.status === "active")
+          .filter((artifact, index, all) => all.findIndex((item) => item.artifact_id === artifact.artifact_id) === index)
+          .map((artifact) => ({ artifact_id: artifact.artifact_id, title: artifact.title }));
+        if (!sources.length) {
+          setSourceState("empty");
+          return;
+        }
+        if (sources.length === 1) {
+          beginPlanGeneration(sources[0]);
+          return;
+        }
+        setSourceState("idle");
+        setSourceChoices(sources);
+      },
+      () => {
+        if (sourceRequests.current.isCurrent(request.generation)) setSourceState("error");
+      },
+    );
+  };
+
+  const addKnowledgeSource = () => {
+    document.querySelector<HTMLButtonElement>('button[aria-label="添加知识源"]')?.click();
+  };
+
+  const startItem = (item: StudyPlanItem) => {
+    if (!item.outlineNodeId) {
+      setMutationError(`no-outline:${item.item_id}`);
+      setCorePreparationNotice(`“${item.title}”还没有关联到知识源目录，不能可靠地自动整理知识核。`);
+      return;
+    }
+    const run = latestCompilation(compilationRuns, item.outlineNodeId);
+    const state = compilationState(itemHasActiveCore(item), run);
+    if (state === "active") {
+      openActiveItem(item);
+      return;
+    }
+    if (state === "draft" && run?.draftArtifactId) {
+      requestStudyDraft({ spaceId, artifactId: run.draftArtifactId });
+      return;
+    }
+    if (state === "running") {
+      setCorePreparationNotice(`“${item.title}”的知识核还在整理，完成后会进入草稿箱等待采用。`);
+      return;
+    }
+    if (state === "blocked" && run) {
+      retryCompilation(item, run);
+      return;
+    }
+    if (state === "cancelled" && run) {
+      createCompilation(
+        item,
+        data?.learningMap?.revision,
+        `restart:${item.item_id}:${data?.learningMap?.revision}:${run.runId}`.slice(0, 200),
+      );
+      return;
+    }
+    openActiveItem(item);
   };
 
   const updateItem = (itemId: string, action: "complete" | "skip") => {
@@ -284,36 +770,109 @@ export function PlanPage({ spaceId }: { spaceId: string }) {
     );
   };
 
-  const renderPlanItem = (item: StudyPlanItem) => (
-    <li
-      id={`study-plan-item-${item.item_id}`}
-      key={item.item_id}
-      tabIndex={-1}
-      className={`is-${item.status}`}
-    >
-      <div className="kq-study-plan-item-copy">
-        <span>{item.phaseTitle}</span>
-        <h3>{item.title}</h3>
+  const focusRun = latestCompilation(compilationRuns, focusItem?.outlineNodeId);
+  const focusCoreState = focusItem
+    ? compilationState(itemHasActiveCore(focusItem), focusRun)
+    : "idle";
+  const focusMode = planMode(focusItem?.mode);
+  const focusNeedsOutline = Boolean(focusItem && !focusItem.outlineNodeId);
+  const focusActionLabel = !focusItem
+    ? ""
+    : pendingStart === focusItem.item_id
+      ? focusCoreState === "blocked" ? "正在重试…" : "正在准备…"
+      : focusNeedsOutline
+        ? "补充知识源"
+        : focusCoreState === "draft"
+          ? "查看知识核草稿"
+          : focusCoreState === "running"
+            ? "正在准备"
+            : focusCoreState === "cancelled"
+              ? "重新准备"
+              : focusCoreState === "blocked"
+                ? "再试一次"
+                : currentItem?.item_id === focusItem.item_id
+                  ? `继续${planModeLabel(focusMode)}`
+                  : `开始${planModeLabel(focusMode)}`;
+
+  const compilationLabel = (item: StudyPlanItem): string => {
+    if (item.status !== "open") return "";
+    const run = latestCompilation(compilationRuns, item.outlineNodeId);
+    const state = compilationState(itemHasActiveCore(item), run);
+    if (!item.outlineNodeId) return "需要补充知识源";
+    if (state === "active") return "可以开始";
+    if (state === "draft") return "知识核待采用";
+    if (state === "running") return "正在准备";
+    if (state === "blocked") return "需要处理";
+    if (state === "cancelled") return "已暂停";
+    return "";
+  };
+
+  const renderPlanItem = (item: StudyPlanItem) => {
+    const run = latestCompilation(compilationRuns, item.outlineNodeId);
+    const coreState = compilationState(itemHasActiveCore(item), run);
+    const needsOutline = item.status === "open" && !item.outlineNodeId;
+    const isCurrent = currentItem?.item_id === item.item_id;
+    const isNext = !currentItem && nextItem?.item_id === item.item_id;
+    const isSelected = focusItem?.item_id === item.item_id;
+    const copy = (
+      <>
         <span className="kq-study-plan-mode">{planModeLabel(planMode(item.mode))}</span>
-        {item.done_when ? <p>{t("study.planDoneWhen", { value: item.done_when })}</p> : null}
-        {item.note ? <p>{item.note}</p> : null}
-      </div>
-      {item.status === "open" ? (
-        <div className="kq-study-inline-actions">
-          <button type="button" disabled={Boolean(pendingStart)} onClick={() => startItem(item)}>
-            {pendingStart === item.item_id ? "正在打开…" : "开始"}
+        <span className="kq-study-plan-item-title" role="heading" aria-level={3}>{item.title}</span>
+        <small>
+          {isCurrent ? "正在进行" : isNext ? "下一项" : planItemStateLabel(item)}
+          {compilationLabel(item) ? ` · ${compilationLabel(item)}` : ""}
+        </small>
+      </>
+    );
+    return (
+      <li
+        id={`study-plan-item-${item.item_id}`}
+        key={item.item_id}
+        tabIndex={-1}
+        className={`is-${item.status}${isCurrent ? " is-current" : ""}${isNext ? " is-next" : ""}${isSelected ? " is-selected" : ""}`}
+      >
+        <span className="kq-study-plan-item-marker" aria-hidden="true" />
+        {item.status === "open" ? (
+          <button
+            type="button"
+            className="kq-study-plan-item-select"
+            aria-label={`选择：${item.title}`}
+            aria-pressed={isSelected}
+            onClick={() => setSelectedItemId(item.item_id)}
+          >
+            {copy}
           </button>
-          <button type="button" disabled={pendingItem === item.item_id} onClick={() => updateItem(item.item_id, "complete")}>
-            {t("study.planComplete")}
-          </button>
-          <button type="button" disabled={pendingItem === item.item_id} onClick={() => updateItem(item.item_id, "skip")}>
-            {t("study.planSkip")}
-          </button>
+        ) : <div className="kq-study-plan-item-select">{copy}</div>}
+        <div className="kq-study-plan-item-secondary">
+          {item.status === "open" ? (
+            <details>
+              <summary>更多</summary>
+              <div className="kq-study-plan-item-menu">
+                {item.done_when ? <p>{t("study.planDoneWhen", { value: item.done_when })}</p> : null}
+                {item.note ? <p>{item.note}</p> : null}
+                {!isSelected && coreState === "blocked" && run ? <p>{compilationReason(run)}</p> : null}
+                {!isSelected && coreState === "blocked" ? <button type="button" onClick={() => openCompilationSource(item, run)}>查看知识源</button> : null}
+                {!isSelected && coreState === "blocked" && run?.reasonCode === "model_unavailable" ? <button type="button" onClick={() => navigate("/settings")}>检查模型设置</button> : null}
+                {!isSelected && coreState === "blocked" ? <button type="button" onClick={() => askNanaAboutCompilation(item, run)}>问小娜</button> : null}
+                {needsOutline && planDraft ? <button type="button" onClick={() => requestStudyDraft({ spaceId, artifactId: planDraft.artifact_id })}>查看新计划草稿</button> : null}
+                {needsOutline ? <button type="button" onClick={() => askNanaAboutCompilation(item)}>请小娜补充来源</button> : null}
+                {!isSelected && coreState === "running" && run && repository.cancelKnowledgeCoreCompilation ? <button type="button" disabled={Boolean(pendingStart)} onClick={() => cancelCompilation(item, run)}>取消准备</button> : null}
+                <button type="button" disabled={pendingItem === item.item_id} onClick={() => updateItem(item.item_id, "complete")}>{t("study.planComplete")}</button>
+                <button type="button" disabled={pendingItem === item.item_id} onClick={() => updateItem(item.item_id, "skip")}>{t("study.planSkip")}</button>
+              </div>
+            </details>
+          ) : <strong>{item.status === "completed" ? t("study.planCompleted") : t("study.planSkipped")}</strong>}
         </div>
-      ) : <strong>{item.status === "completed" ? t("study.planCompleted") : t("study.planSkipped")}</strong>}
-      {mutationError === item.item_id ? <p className="kq-study-page-error" role="alert">{t("study.planMutationFailed")}</p> : null}
-    </li>
-  );
+        {mutationError === item.item_id ? <p className="kq-study-page-error" role="alert">{t("study.planMutationFailed")}</p> : null}
+        {mutationError === `no-outline:${item.item_id}` ? (
+          <p className="kq-study-page-error" role="alert">这项行动还没有绑定可靠目录节点，暂时不能自动整理知识核。</p>
+        ) : null}
+        {mutationError === `no-core:${item.item_id}` ? (
+          <p className="kq-study-page-error" role="alert">这个目录范围还没有已采用的知识核。</p>
+        ) : null}
+      </li>
+    );
+  };
 
   return (
     <section
@@ -322,43 +881,63 @@ export function PlanPage({ spaceId }: { spaceId: string }) {
       aria-label={t("study.pagePlan")}
       tabIndex={-1}
     >
-      {snapshot.status === "loading" && !data ? <p role="status">{t("study.pageLoading")}</p> : null}
-      {snapshot.status === "error" && !data ? (
+      {requestState.phase === "loading" && !data ? <p role="status">{t("study.pageLoading")}</p> : null}
+      {requestState.phase === "error" && !data ? (
         <div className="kq-study-page-alert" role="alert">
           <p>{t("study.pageLoadFailed")}</p>
           <button type="button" onClick={load}>{t("study.retry")}</button>
           <Link to="/chat">{t("study.backToChat")}</Link>
         </div>
       ) : null}
-      {snapshot.status === "error" && data ? (
+      {requestState.refreshErrorWithData ? (
         <div className="kq-study-page-alert" role="alert">
           <span>{t("study.pageStale")}</span>
           <button type="button" onClick={load}>{t("study.retry")}</button>
         </div>
       ) : null}
-
-      {data?.outline?.length ? (
-        <section className="kq-study-plan-phase" aria-labelledby="study-source-outline">
-          <p className="kq-study-placeholder-kicker">课程目录</p>
-          <h2 id="study-source-outline">{data.outlineSourceTitle || "课程材料"}</h2>
-          <p className="kq-study-plan-source-note">来自文件自身的目录结构；计划页最多展示三级。</p>
-          <OutlineBranch nodes={data.outline} actions={items} renderAction={renderPlanItem} />
-        </section>
+      {waitingForPlanState ? <p role="status">{adoptedPlanDraftId ? "正在采用学习计划…" : "正在打开学习计划…"}</p> : null}
+      {data && !data.plan && draftsUnavailable ? (
+        <div className="kq-study-page-alert" role="alert">
+          <span>暂时无法确认是否有计划草稿。</span>
+          <button type="button" onClick={drafts.refresh}>{t("study.retry")}</button>
+        </div>
+      ) : null}
+      {corePreparationNotice ? (
+        <p className="kq-study-page-alert" role="status">{corePreparationNotice}</p>
       ) : null}
 
-      {planDraft ? (
-        <article className="kq-study-plan-phase" aria-labelledby="study-plan-draft-title">
-          <h2 id="study-plan-draft-title">小娜推荐学习计划</h2>
+      {planDraft && data?.plan && draftsResolved ? (
+        <article className="kq-study-page-alert" aria-labelledby="study-replacement-plan-title">
+          <div>
+            <strong id="study-replacement-plan-title">有一份新的学习计划草稿</strong>
+            <p>{planDraft.title}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => requestStudyDraft({ spaceId, artifactId: planDraft.artifact_id })}
+          >
+            查看并采用
+          </button>
+        </article>
+      ) : null}
+
+      {planDraft && data && !data.plan && draftsResolved && !adoptedPlanDraftId ? (
+        <article className="kq-study-plan-phase kq-study-plan-draft-preview" aria-labelledby="study-plan-draft-title">
+          <header>
+            <p className="kq-study-placeholder-kicker">待采用</p>
+            <h2 id="study-plan-draft-title">{planDraft.title || "学习计划草稿"}</h2>
+            <p>这份计划尚未生效。确认后才会成为正式计划。</p>
+          </header>
           {!planDraftDetail ? <p role="status">正在打开计划草稿…</p> : null}
           {draftPhases.map((phase) => (
             <section key={phase.title}>
               <h3>{phase.title}</h3>
               <ol className="kq-study-plan-items">
-                {phase.tasks.map((task) => (
-                  <li key={`${phase.title}:${task.title}`}>
+                {phase.tasks.map((task, taskIndex) => (
+                  <li key={`${phase.title}:${task.title}:${taskIndex}`}>
                     <div className="kq-study-plan-item-copy">
-                      <h3>{task.title}</h3>
                       <span>{planModeLabel(task.mode)}</span>
+                      <h3>{task.title}</h3>
                       {task.doneWhen ? <p>做到：{task.doneWhen}</p> : null}
                     </div>
                   </li>
@@ -366,47 +945,157 @@ export function PlanPage({ spaceId }: { spaceId: string }) {
               </ol>
             </section>
           ))}
-          {draftError ? <p className="kq-study-page-error" role="alert">{draftError}</p> : null}
+          {planDraftError ? <p className="kq-study-page-error" role="alert">{planDraftError}</p> : null}
           <div className="kq-study-inline-actions">
-            <button type="button" disabled={!planDraftDetail || Boolean(pendingDraft)} onClick={confirmPlanDraft}>
-              {pendingDraft === "confirm" ? "正在检查…" : planDraftDetail?.review.status === "passed" ? "采用这个计划" : "检查并采用"}
+            <button type="button" disabled={!planDraftDetail || Boolean(pendingPlanDraftAction)} onClick={() => decidePlanDraft("activate")}>
+              {pendingPlanDraftAction === "activate" ? "正在采用…" : "采用计划"}
             </button>
-            <button type="button" disabled={Boolean(pendingDraft)} onClick={rejectPlanDraft}>
-              {pendingDraft === "reject" ? "正在处理…" : "不采用"}
+            <button type="button" disabled={Boolean(pendingPlanDraftAction)} onClick={() => decidePlanDraft("reject")}>
+              {pendingPlanDraftAction === "reject" ? "正在处理…" : "不采用"}
             </button>
           </div>
         </article>
       ) : null}
 
       {data?.plan ? (
-        <>
-          <article className="kq-study-plan-summary">
+        <section className="kq-study-plan-overview" aria-labelledby="study-active-plan-title">
+          <header>
             <div>
-              <p>当前行动范围</p>
-              <h2>{currentItem?.phaseTitle || phases.at(-1) || data.plan.title}</h2>
-              <span className="kq-study-muted">{data.plan.title}</span>
+              <p className="kq-study-placeholder-kicker">当前计划</p>
+              <h2 id="study-active-plan-title">{data.plan.title}</h2>
             </div>
-            {!currentItem ? <span className="kq-study-muted">{t("study.planAllDone")}</span> : null}
-          </article>
+            <p className="kq-study-plan-counts">
+              <span>{completedCount} 项完成</span>
+              <span>{openCount} 项待学习</span>
+              {skippedCount ? <span>{skippedCount} 项已调整</span> : null}
+            </p>
+          </header>
+          <div
+            className="kq-study-plan-progress"
+            role="progressbar"
+            aria-label="计划完成进度"
+            aria-valuemin={0}
+            aria-valuemax={items.length}
+            aria-valuenow={completedCount}
+          >
+            <span style={{ width: progressWidth }} />
+          </div>
+          {focusItem ? (
+            <div className="kq-study-plan-focus">
+              <div>
+                <span>{selectedItem ? "已选择" : currentItem ? "正在进行" : "下一项"}</span>
+                <strong>{focusItem.title}</strong>
+                <small>{focusItem.phaseTitle}{focusItem.outlineNodeId ? " · 已关联知识源" : " · 需要补充知识源"}</small>
+                {focusCoreState === "draft" ? <p>知识核草稿已经准备好，采用后即可开始。</p> : null}
+                {focusCoreState === "running" ? <p role="status">正在从知识源准备这一项。</p> : null}
+                {focusCoreState === "blocked" && focusRun ? <p>{compilationReason(focusRun)}</p> : null}
+                {focusCoreState === "cancelled" ? <p>准备已暂停；需要时可以重新开始。</p> : null}
+              </div>
+              <div className="kq-study-plan-focus-actions">
+                <button
+                  type="button"
+                  className="kq-study-primary-link"
+                  disabled={Boolean(pendingStart) || focusCoreState === "running"}
+                  onClick={() => startItem(focusItem)}
+                >
+                  {focusActionLabel}
+                </button>
+                {focusCoreState === "blocked" ? <button type="button" onClick={() => openCompilationSource(focusItem, focusRun)}>查看知识源</button> : null}
+                {focusCoreState === "blocked" ? <button type="button" onClick={() => askNanaAboutCompilation(focusItem, focusRun)}>问小娜</button> : null}
+                {focusCoreState === "running" && focusRun && repository.cancelKnowledgeCoreCompilation ? (
+                  <button type="button" disabled={Boolean(pendingStart)} onClick={() => cancelCompilation(focusItem, focusRun)}>取消准备</button>
+                ) : null}
+              </div>
+            </div>
+          ) : (
+            <p className="kq-study-plan-finished">这份计划里的行动已经处理完，可以到评估页看看下一步。</p>
+          )}
+        </section>
+      ) : null}
 
-          <p className="kq-study-plan-source-note">材料来源目录尚未整理完成时，只显示已确认的行动阶段；不会把行动名称伪装成教材目录。</p>
+      {data?.plan && data.outline?.length ? (
+        <section className="kq-study-plan-outline" aria-labelledby="study-source-outline">
+          <header className="kq-study-plan-outline-heading">
+            <div>
+              <p className="kq-study-placeholder-kicker">学习目录</p>
+              <h2 id="study-source-outline">计划安排</h2>
+            </div>
+            {data.outlineSourceTitle ? <span>知识源 · {data.outlineSourceTitle}</span> : null}
+          </header>
+          <OutlineBranch
+            nodes={data.outline}
+            actions={items}
+            renderAction={renderPlanItem}
+            currentItemId={currentItem?.item_id}
+            nextItemId={!currentItem ? nextItem?.item_id : undefined}
+            onOpenNode={openOutlineNode}
+          />
+        </section>
+      ) : null}
 
-          {unboundPhases.map((phase) => (
-            <section key={phase} className="kq-study-plan-phase" aria-labelledby={`study-phase-${encodeURIComponent(phase)}`}>
-              <h2 id={`study-phase-${encodeURIComponent(phase)}`}>{phase}</h2>
-              <ol className="kq-study-plan-items">
-              {unboundItems.filter((item) => (item.phaseTitle || data.plan?.title || "当前范围") === phase).map(renderPlanItem)}
-              </ol>
+      {data?.plan ? (
+        <>
+          {unboundItems.length ? (
+            <section className="kq-study-plan-unbound" aria-labelledby="study-unbound-plan-items">
+              <header>
+                <div>
+                  <p className="kq-study-placeholder-kicker">需要补充</p>
+                  <h2 id="study-unbound-plan-items">还没有可靠来源的安排</h2>
+                </div>
+                <p>这些行动暂时不会生成知识核；补充知识源后再继续。</p>
+              </header>
+              <ol className="kq-study-plan-items">{unboundItems.map(renderPlanItem)}</ol>
             </section>
-          ))}
+          ) : null}
+          {!nextItem ? <p className="kq-study-plan-source-note">{t("study.planAllDone")}</p> : null}
         </>
       ) : null}
 
-      {data && !data.plan && !planDraft ? (
+      {data && !data.plan && draftsResolved && !planDraft && !adoptedPlanDraftId ? (
         <div className="kq-study-page-empty">
-          <h2>{t("study.planEmptyTitle")}</h2>
-          <p>{t("study.planEmptyBody")}</p>
-          <button type="button" className="kq-study-primary-link" onClick={() => document.getElementById("kd-cup-chat")?.click()}>{t("study.askNana")}</button>
+          {sourceChoices.length > 1 ? (
+            <>
+              <h2>选择生成计划的知识源</h2>
+              <p>这本本子里有 {sourceChoices.length} 份文件。请选择一份作为这次计划的依据。</p>
+              <ul className="kq-study-plan-source-choices">
+                {sourceChoices.map((source) => (
+                  <li key={source.artifact_id}>
+                    <button type="button" onClick={() => beginPlanGeneration(source)}>{source.title}</button>
+                  </li>
+                ))}
+              </ul>
+              <button type="button" className="kq-study-secondary-link" onClick={() => setSourceChoices([])}>返回</button>
+            </>
+          ) : generatingSource ? (
+            <>
+              <h2>正在拟定学习计划</h2>
+              <p>正在根据《{generatingSource.title}》生成待采用的计划草稿。</p>
+            </>
+          ) : sourceState === "empty" ? (
+            <>
+              <h2>知识源里还没有文件</h2>
+              <p>先上传教材、讲义或习题集，再用它生成学习计划。</p>
+              <button type="button" className="kq-study-primary-link" onClick={addKnowledgeSource}>上传资料</button>
+            </>
+          ) : data.hasKnowledgeSources === false ? (
+            <>
+              <h2>先放入知识源</h2>
+              <p>计划需要依据真实材料安排；添加教材、讲义或习题集后再开始。</p>
+              <div className="kq-study-inline-actions">
+                <button type="button" className="kq-study-primary-link" onClick={addKnowledgeSource}>添加知识源</button>
+                <button type="button" className="kq-study-secondary-link" onClick={() => document.getElementById("kd-cup-chat")?.click()}>问小娜</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <h2>还没有学习计划</h2>
+              <p>知识源已经准备好了，可以据此安排接下来的学习与练习。</p>
+              <button type="button" className="kq-study-primary-link" disabled={sourceState === "loading"} onClick={createPlanDraft}>
+                {sourceState === "loading" ? "正在读取知识源…" : "+ 学习计划"}
+              </button>
+              {sourceState === "error" ? <p className="kq-study-page-error" role="alert">暂时没有读到可用于生成计划的知识源文件。</p> : null}
+            </>
+          )}
         </div>
       ) : null}
     </section>

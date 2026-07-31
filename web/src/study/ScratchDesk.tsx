@@ -38,7 +38,7 @@ export function ScratchDesk({
   const courses = spaces.filter((space) => space.kind !== "scratch");
   const scratch = spaces.find((space) => space.kind === "scratch");
   const bookstand: DeskBookstand = {
-    title: "我的课程本",
+    title: "我的本子",
     hint: "换课就是换一本本子。",
     books: courses.map((space) => ({ id: space.id, name: space.title, current: false })),
     newBookLabel: "开新本",

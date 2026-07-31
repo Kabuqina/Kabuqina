@@ -8,6 +8,7 @@ import type {
 } from "../../chat/study/study-api";
 import { useI18n } from "../../lib/i18n";
 import { RequestCoordinator, type Loadable } from "../loadable";
+import { deriveStudyRequestState } from "../pageState";
 import type { StudyEvaluationSnapshot } from "../repository";
 import { useStudyRepository } from "../repositoryContext";
 import { studyPath } from "../routeModel";
@@ -17,9 +18,7 @@ import { useStudyIa } from "../StudyIaContext";
 import { degradeStudyLocation, selectKnowledgeCore } from "../studyLocation";
 
 function retained<T>(state: Loadable<T>): T | undefined {
-  if (state.status === "ready") return state.data;
-  if (state.status === "loading" || state.status === "error") return state.previous;
-  return undefined;
+  return deriveStudyRequestState(state).data;
 }
 
 function SectionState<T>({ state, retry, empty, children }: {
@@ -68,6 +67,13 @@ export function EvaluatePage({ spaceId }: { spaceId: string }) {
   const [evaluation, setEvaluation] = useState<Loadable<StudyEvaluationSnapshot>>({ status: "idle" });
   const [returnPending, setReturnPending] = useState(false);
   const [returnError, setReturnError] = useState(false);
+  const wrongbookData = retained(wrongbook);
+  const evaluationData = retained(evaluation);
+  const zeroEvidence = wrongbook.status === "ready"
+    && evaluation.status === "ready"
+    && !wrongbookData?.evidence.length
+    && !wrongbookData?.weak_points.length
+    && !evaluationData?.evaluation;
 
   const loadWrongbook = useCallback(() => {
     const request = wrongbookRequests.current.begin();
@@ -167,6 +173,17 @@ export function EvaluatePage({ spaceId }: { spaceId: string }) {
         <p>只看最近可靠证据说明了什么，以及下一步回到哪里。</p>
       </header>
 
+      {zeroEvidence ? (
+        <div className="kq-study-page-empty">
+          <h2>还没有可以评估的练习证据</h2>
+          <p>完成一次可检查的练习后，这里会保留需要回访的证据和调整建议。</p>
+          <div className="kq-study-inline-actions">
+            <Link className="kq-study-primary-link" to={studyPath(spaceId, "practice")}>去练习</Link>
+            <Link className="kq-study-secondary-link" to={studyPath(spaceId, "learn")}>回到学习</Link>
+          </div>
+        </div>
+      ) : (
+      <>
       <section className="kq-study-evaluate-section" aria-labelledby="wrongbook-title">
         <h2 id="wrongbook-title">{t("study.wrongbookTitle")}</h2>
         <SectionState state={wrongbook} retry={loadWrongbook} empty={<p>{t("study.wrongbookEmpty")}</p>}>
@@ -235,6 +252,8 @@ export function EvaluatePage({ spaceId }: { spaceId: string }) {
           ) : <p>{t("study.latestEvaluationEmpty")}</p>}
         </SectionState>
       </section>
+      </>
+      )}
 
     </section>
   );

@@ -585,8 +585,19 @@ before claiming final visual sign-off.
 - [P3] Purge the now-dead CSS left behind by the removed legacy-J4 modals (`folder-tabs`,
   `create-flow`, `generation-card`, `result-*`, `activity-timeline`, etc.).
 
-current result · 2026-07-28: the canonical prototype source contains Iterations 1–18.
+### Iteration 19 — practice feedback is one margin decision
+
+- Owner override keeps the Iteration 17 order but removes the remaining duplicate feedback. The
+  separate `小娜留在页边` note is gone; the checked state now contains one `页边批注` object.
+- The result shows one selected judgment instead of stacking all three possible templates. The
+  current captured state is `还差一步`; production also supports `已经说明清楚` and
+  `接下来试试`, one at a time.
+- The revision action is now `保存答案`. Saving preserves the learner's draft and remains separate
+  from `检查这一步`; it does not imply submission or correctness.
+- Canonical prototype build passed after the source update.
+
+current result · 2026-07-30: the canonical prototype source contains Iterations 1–19.
 Iteration 18 records passing wide desktop and `720 × 520` verification plus `npm run build`
 and `npm run test:sites` (4/4). Earlier screenshots remain useful as historical visual
-evidence, but the current source still needs a refreshed wide/narrow capture set before
-final visual sign-off.
+evidence. Iteration 19 adds a refreshed `1280 × 720` source/implementation comparison for the
+practice revision state; the owner still owns final native-window visual sign-off.

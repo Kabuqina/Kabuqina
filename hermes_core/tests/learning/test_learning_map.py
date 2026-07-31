@@ -7,6 +7,7 @@ import pytest
 from learning.flashcards import FlashcardService
 from learning.learning_context import LearningExecutionContext
 from learning.learning_map import LearningMapService
+from learning.learning_plans import LearningPlanService
 from learning.learning_store import LearningConflictError, LearningStore
 from learning.output_writer import OutputWriter
 from learning.quizzes import QuizService
@@ -149,6 +150,15 @@ def test_map_uses_confirmed_outline_and_only_explicit_exercise_links(ctx):
             "captured": True,
             "outlineNodeId": "section-1-1-a",
             "order": 0,
+            "sourceRefs": [
+                {
+                    "origin": "kq-kp",
+                    "confidence": "confirmed",
+                    "knowledge_core_id": "core-limit",
+                    "outline_node_id": "section-1-1-a",
+                    "order": 4,
+                }
+            ],
         }
     ]
     assert learning_map["exerciseLinks"] == [
@@ -166,6 +176,72 @@ def test_map_uses_confirmed_outline_and_only_explicit_exercise_links(ctx):
             ],
             "order": 0,
         }
+    ]
+
+
+def test_map_materializes_multiple_course_cores_from_one_reviewed_deck(ctx):
+    _active_resource(
+        ctx,
+        outline=[
+            {
+                "id": "chapter-1",
+                "title": "Limits",
+                "locator": "§1",
+                "children": [
+                    {
+                        "id": "section-1-1",
+                        "title": "Limit laws",
+                        "locator": "pp. 18-21",
+                    }
+                ],
+            }
+        ],
+    )
+    cards = []
+    for order, (core_id, front, locator) in enumerate(
+        [
+            ("core-limit-unique", "Limit uniqueness", "p. 18"),
+            ("core-limit-sum", "Sum law", "p. 20"),
+        ]
+    ):
+        cards.append(
+            {
+                "front": front,
+                "back": f"The key statement for {front}.",
+                "knowledge_core_id": core_id,
+                "outline_node_id": "section-1-1",
+                "order": order,
+                "source_refs": [
+                    {
+                        "origin": "kq-kp",
+                        "material_id": "calculus-pdf",
+                        "locator": locator,
+                        "knowledge_core_id": core_id,
+                        "outline_node_id": "section-1-1",
+                    }
+                ],
+            }
+        )
+    deck_id = OutputWriter(ctx).write_artifact(
+        kind="flashcard_deck",
+        title="Limit knowledge cores",
+        payload={"cards": cards},
+    )["artifact_id"]
+    FlashcardService(ctx).activate_deck(deck_id)
+
+    cores = LearningMapService(ctx).get_map()["knowledgeCores"]
+
+    assert [core["id"] for core in cores] == [
+        "core-limit-unique",
+        "core-limit-sum",
+    ]
+    assert [core["outlineNodeId"] for core in cores] == [
+        "section-1-1",
+        "section-1-1",
+    ]
+    assert [core["sourceRefs"][0]["locator"] for core in cores] == [
+        "p. 18",
+        "p. 20",
     ]
 
 
@@ -235,6 +311,8 @@ def test_location_is_revisioned_exported_and_stales_when_link_disappears(ctx):
         "page": "practice",
         "knowledgeCoreId": "core-limit",
         "outlineNodeId": "section-1-1-a",
+        "planItemId": None,
+        "planOutlineNodeId": None,
         "exerciseId": question_id,
         "exerciseByCore": {"core-limit": question_id},
         "stale": False,
@@ -263,3 +341,47 @@ def test_location_is_revisioned_exported_and_stales_when_link_disappears(ctx):
         if row["item_id"].startswith("__course_")
     }
     assert reserved_types == {"course_learning_map_meta", "course_location"}
+
+
+def test_location_binds_an_open_plan_range_to_a_descendant_core(ctx):
+    _seed_vertical_slice(ctx)
+    plan_id = OutputWriter(ctx).write_artifact(
+        kind="learning_plan",
+        title="Limits plan",
+        payload={
+            "goals": ["Understand limits"],
+            "phases": [
+                {
+                    "title": "Limit laws",
+                    "tasks": [
+                        {
+                            "title": "Learn uniqueness",
+                            "order": 1,
+                            "done_when": "Can explain uniqueness",
+                            "mode": "learn",
+                            "outline_node_id": "section-1-1",
+                        }
+                    ],
+                }
+            ],
+        },
+    )["artifact_id"]
+    plans = LearningPlanService(ctx)
+    plans.activate_plan(plan_id)
+    item = plans.list_plan_items(artifact_id=plan_id)[0]
+    service = LearningMapService(ctx)
+
+    location = service.put_location(
+        expected_revision=0,
+        page="learn",
+        knowledge_core_id="core-limit",
+        plan_item_id=item["item_id"],
+    )
+
+    assert location["planItemId"] == item["item_id"]
+    assert location["outlineNodeId"] == "section-1-1-a"
+    assert location["planOutlineNodeId"] == "section-1-1"
+    plans.complete_item(item["item_id"])
+    stale = service.get_location()
+    assert stale["stale"] is True
+    assert stale["staleReason"] == "plan_item_closed"

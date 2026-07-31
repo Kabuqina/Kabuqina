@@ -45,11 +45,11 @@ export function stepToPath(id: ShellWizardStepId): string {
 
 /**
  * `pass` is the last Quick Start step (the gateway section it used to lead into is
- * gone, CTL-C08), so saving credentials finishes first-run and enters chat.
+ * gone, CTL-C08), so saving credentials finishes first-run and enters Study.
  */
 export function getNextPathAfterPass(setupMode: SetupMode): string {
   void setupMode;
-  return "/chat";
+  return "/onboarding/done";
 }
 
 export function getIndexInFlow(step: ShellWizardStepId, setupMode: SetupMode | null): number {
@@ -59,7 +59,7 @@ export function getIndexInFlow(step: ShellWizardStepId, setupMode: SetupMode | n
 }
 
 export function getBackPath(current: ShellWizardStepId, setupMode: SetupMode | null): string | null {
-  if (current === "welcome") return "/chat";
+  if (current === "welcome") return "/study";
   const list = getStepsForMode(setupMode);
   const i = list.indexOf(current);
   if (i <= 0) return null;

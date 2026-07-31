@@ -11,6 +11,16 @@ export type GlobalActivityStatus =
   | "completed"
   | "recoverable";
 
+export type KnowledgeCoreActivitySourceStatus =
+  | "queued"
+  | "reading"
+  | "generating"
+  | "validating"
+  | "draft_ready"
+  | "needs_source"
+  | "failed"
+  | "cancelled";
+
 export type GlobalActivityRecord = {
   id: string;
   domain: "study" | "studio";
@@ -25,6 +35,12 @@ export type GlobalActivityRecord = {
   canRetry: boolean;
   targetAvailable: boolean;
   revision?: number;
+  sourceStatus?: KnowledgeCoreActivitySourceStatus;
+  compilationRunId?: string;
+  outlineNodeId?: string;
+  planItemId?: string | null;
+  draftArtifactId?: string | null;
+  reasonCode?: string | null;
 };
 
 export type GlobalActivityResponse = {

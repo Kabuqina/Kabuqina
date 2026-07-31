@@ -30,6 +30,13 @@ def _item_id(artifact_id: str, index: int) -> str:
     return f"{artifact_id}-{index:04d}"
 
 
+def _task_outline_node_id(task: Any) -> str:
+    """Read the canonical binding plus the legacy Web/model camelCase alias."""
+    if not isinstance(task, dict):
+        return ""
+    return _clean(task.get("outline_node_id")) or _clean(task.get("outlineNodeId"))
+
+
 class LearningPlanService:
     def __init__(
         self,
@@ -42,6 +49,7 @@ class LearningPlanService:
 
     def activate_plan(self, artifact_id: str) -> Dict[str, Any]:
         artifact = self._require_plan(artifact_id)
+        self._validate_outline_bindings(artifact)
         for active in self._ctx.list_artifacts(
             kind="learning_plan", status="active"
         ):
@@ -57,11 +65,54 @@ class LearningPlanService:
             "materialized": created,
         }
 
+    def reconcile_plan_items(self, artifact_id: str) -> Dict[str, int]:
+        """Repair materialized plan items from their immutable active plan.
+
+        This is intentionally narrow: it creates missing rows and restores only
+        a non-empty outline binding from the plan artifact. Learner progress and
+        notes in existing item state are preserved.
+        """
+        artifact = self._require_plan(artifact_id)
+        if artifact.get("status") != "active":
+            raise ValueError("only an active learning plan can be reconciled")
+        self._validate_outline_bindings(artifact)
+        created, repaired = self._reconcile_items(artifact)
+        return {"created": created, "repaired": repaired}
+
     def reject_plan(self, artifact_id: str) -> Dict[str, Any]:
         artifact = self._require_plan(artifact_id)
         if artifact["status"] != "rejected":
             self._ctx.set_artifact_status(artifact_id, "rejected")
         return {"artifact_id": artifact_id, "status": "rejected"}
+
+    def _validate_outline_bindings(self, artifact: Dict[str, Any]) -> None:
+        payload = artifact.get("envelope", {}).get("payload", {})
+        phases = payload.get("phases") if isinstance(payload, dict) else []
+        bound_ids = {
+            _task_outline_node_id(task)
+            for phase in (phases if isinstance(phases, list) else [])
+            for task in (
+                phase.get("tasks")
+                if isinstance(phase, dict) and isinstance(phase.get("tasks"), list)
+                else []
+            )
+            if isinstance(task, dict) and _task_outline_node_id(task)
+        }
+        if not bound_ids:
+            return
+        # Import locally so the map projection can inspect plan items without a
+        # module cycle while activation still validates current Course truth.
+        from learning.learning_map import LearningMapService
+
+        outline_ids = {
+            node["id"] for node in LearningMapService(self._ctx).get_map()["outlineNodes"]
+        }
+        unknown = sorted(bound_ids - outline_ids)
+        if unknown:
+            raise ValueError(
+                "learning plan references unavailable outline nodes: "
+                + ", ".join(unknown[:10])
+            )
 
     def list_plans(self, *, status: Optional[str] = None) -> List[Dict[str, Any]]:
         return self._ctx.list_artifacts(kind="learning_plan", status=status)
@@ -125,9 +176,13 @@ class LearningPlanService:
         return artifact
 
     def _materialize_items(self, artifact: Dict[str, Any]) -> int:
+        created, _ = self._reconcile_items(artifact)
+        return created
+
+    def _reconcile_items(self, artifact: Dict[str, Any]) -> tuple[int, int]:
         artifact_id = artifact["artifact_id"]
         existing = {
-            row["item_id"]
+            row["item_id"]: row
             for row in self._ctx.list_items(
                 item_type=LEARNING_PLAN_ITEM_TYPE, artifact_id=artifact_id
             )
@@ -135,6 +190,7 @@ class LearningPlanService:
         payload = artifact.get("envelope", {}).get("payload", {})
         phases = payload.get("phases") if isinstance(payload, dict) else []
         created = 0
+        repaired = 0
         item_index = 0
         now = _iso(self._now())
         for phase_index, phase in enumerate(phases if isinstance(phases, list) else []):
@@ -142,14 +198,21 @@ class LearningPlanService:
             for task_index, task in enumerate(tasks if isinstance(tasks, list) else []):
                 iid = _item_id(artifact_id, item_index)
                 item_index += 1
-                if iid in existing:
-                    continue
                 task_mode = _clean(task.get("mode")) if isinstance(task, dict) else ""
                 if task_mode not in {"learn", "practice", "review"}:
                     task_mode = "learn"
-                outline_node_id = (
-                    _clean(task.get("outline_node_id")) if isinstance(task, dict) else ""
-                )
+                outline_node_id = _task_outline_node_id(task)
+                current = existing.get(iid)
+                if current is not None:
+                    current_state = dict(current.get("state") or {})
+                    if (
+                        outline_node_id
+                        and not _clean(current_state.get("outlineNodeId"))
+                    ):
+                        current_state["outlineNodeId"] = outline_node_id
+                        self._ctx.update_item_state(iid, current_state)
+                        repaired += 1
+                    continue
                 state = {
                     "artifact_id": artifact_id,
                     "phaseIndex": phase_index,
@@ -177,7 +240,7 @@ class LearningPlanService:
                     state=state,
                 )
                 created += 1
-        return created
+        return created, repaired
 
     def _mark_item(
         self, item_id: str, status: str, activity_type: str, note: str

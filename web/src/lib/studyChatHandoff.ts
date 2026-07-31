@@ -90,9 +90,9 @@ export const STUDY_NANA_STARTERS: Record<StudyNanaPage, readonly string[]> = {
     "根据我刚才说的内容，帮我拟一版",
   ],
   plan: [
+    "为当前目录范围整理一组可审核的知识核草稿",
     "按我今天的时间，帮我调整接下来三步",
     "这一节应该先理解还是先练习？",
-    "我想跳过这一项，会漏掉什么？",
   ],
   learn: [
     "我卡在这句话是什么意思",
@@ -458,7 +458,7 @@ export function buildStudyChatPrompt(handoff: StudyChatHandoff): string {
   if (handoff.version === 2) return buildStudyNanaPrompt(handoff, "");
   const lines = [
     "【当前学习上下文】",
-    `课程：${handoff.spaceTitle}`,
+    `本子：${handoff.spaceTitle}`,
     `位置：${handoff.focusLabel}`,
     `当前题目：${handoff.prompt}`,
   ];
@@ -478,7 +478,7 @@ export function buildStudyChatPrompt(handoff: StudyChatHandoff): string {
 
 const PAGE_POLICIES: Record<StudyNanaPage, string> = {
   flyleaf: "帮助用户把目标、偏好和时间约束说清楚。用户是作者；建议不自动生效，不推断能力、阶段或弱点。",
-  plan: "依据 sourceOutline 中可定位的真实材料目录帮助拟定下一行动；可以按用户请求创建待确认的 learning_plan 草稿，但不得自动激活。计划项不是知识核。若 structureStatus 不是 reliable，不得凭常识伪造原书目录，应明确先补做有页码证据的目录整理。",
+  plan: "依据 sourceOutline 中可定位的真实材料目录帮助拟定下一行动；如果 pageContext.selectedSource 存在，只能以该文件及对应 sourceRefs 为本次计划依据。可以按用户请求创建待确认的 learning_plan 草稿，但不得自动激活。计划项不是知识核。若用户明确要求从某个目录范围开始学习而该范围还没有知识核，可以读取该真实目录节点对应的有界材料窗口，创建待审核的 flashcard_deck 知识核草稿；每张 card 必须保留真实 outline_node_id、knowledge_core_id 和可定位 source_refs，不得自动激活。若 structureStatus 不是 reliable，不得凭常识伪造原书目录，也不得把推断的行动阶段称为原文件目录。",
   learn: "围绕当前知识核提供最小帮助、差异观察或反例。不得代写 learnerDraft，不评分，不移动知识核。",
   practice: "结合当前题、答案版本和反馈给最小提示。不得改写或提交答案，不自行判定完成，不换题或换知识核。若 exercise 为空且用户明确要求补题，只能创建 quiz 草稿：每道题必须写入 pageContext.knowledgeCore.id 作为 knowledge_core_id，写入 origin=generated，并保留给定 sourceRefs；不得自动激活、作答或生成证据。",
   evaluate: "只依据给定证据解释最近表现并提出待确认调整。不得贴固定标签，不重复活动日志，不自动改计划。",

@@ -22,6 +22,7 @@ from learning.learning_contract import KINDS, ContractError
 from learning.material_alignment_contract import MATERIAL_ROLES
 from learning.learning_context import require_active_learning_context
 from learning.learning_index import LearningIndex
+from learning.material_reader_port import read_learning_material
 from learning.output_writer import OutputWriter
 
 # Statuses a model may enumerate — never the terminal rejected/archived states.
@@ -103,6 +104,25 @@ ARTIFACT_LIST_SCHEMA = {
             "status": {"type": "string", "enum": list(_MODEL_VISIBLE_STATUSES)},
             "kind": {"type": "string", "enum": _KIND_ENUM},
         },
+    },
+}
+
+MATERIAL_READ_SCHEMA = {
+    "name": "learning_material_read",
+    "description": (
+        "Read one bounded page window from an active material in the current "
+        "course by artifact id. Use returned real outline ids and locators when "
+        "drafting course knowledge cores or plans."
+    ),
+    "parameters": {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "artifact_id": {"type": "string", "maxLength": 200},
+            "page_start": {"type": "integer", "minimum": 1},
+            "page_end": {"type": "integer", "minimum": 1},
+        },
+        "required": ["artifact_id", "page_start", "page_end"],
     },
 }
 
@@ -239,6 +259,7 @@ LEARNING_TOOL_SCHEMAS = [
     SPACE_SELECT_SCHEMA,
     INDEX_BUILD_SCHEMA,
     DRAFT_CREATE_SCHEMA,
+    MATERIAL_READ_SCHEMA,
     MATERIAL_ALIGNMENT_PROPOSE_SCHEMA,
     ARTIFACT_LIST_SCHEMA,
 ]
@@ -418,6 +439,26 @@ def _handle_artifact_list(args: dict, **_kwargs) -> str:
     return tool_result(success=True, artifacts=[_artifact_ref(a) for a in rows])
 
 
+def _handle_material_read(args: dict, **_kwargs) -> str:
+    try:
+        require_active_learning_context()
+        artifact_id = str(args.get("artifact_id") or "").strip()
+        page_start = int(args.get("page_start") or 0)
+        page_end = int(args.get("page_end") or 0)
+        if not artifact_id:
+            raise ValueError("artifact_id is required")
+        if page_start < 1 or page_end < page_start or page_end - page_start > 11:
+            raise ValueError(
+                "material page window must be 1-based and contain at most 12 pages"
+            )
+        material = read_learning_material(
+            artifact_id, page_start=page_start, page_end=page_end
+        )
+    except (LookupError, ValueError, KeyError) as exc:
+        return tool_error(str(exc))
+    return tool_result(success=True, material=material)
+
+
 # --------------------------------------------------------------------------- #
 # Registration — opt-in toolset "learning" (not a default/core toolset).
 # Explicit top-level registry.register(...) calls so tool auto-discovery
@@ -471,6 +512,14 @@ registry.register(
     handler=_handle_artifact_list,
     description=ARTIFACT_LIST_SCHEMA["description"],
     emoji="📚",
+)
+registry.register(
+    name="learning_material_read",
+    toolset="learning",
+    schema=MATERIAL_READ_SCHEMA,
+    handler=_handle_material_read,
+    description=MATERIAL_READ_SCHEMA["description"],
+    emoji="📖",
 )
 registry.register(
     name="learning_material_alignment_propose",

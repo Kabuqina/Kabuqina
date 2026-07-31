@@ -29,10 +29,15 @@ import {
   switchStudyMode,
   type StudyLocation,
 } from "../studyLocation";
-import { cmdStudyArtifactStatus, type StudyKnowledgePoint } from "../../chat/study/study-api";
+import { type StudyKnowledgePoint } from "../../chat/study/study-api";
 import { StudyNanaPanel } from "./StudyNanaPanel";
 import { StudyMaterialReader } from "./StudyMaterialReader";
 import { useStudyLocationSync } from "../studyLocationSync";
+import {
+  onStudyNanaRequest,
+  type StudyNanaRequest,
+} from "../studyNanaRequest";
+import { onStudyMaterialRequest } from "../studyMaterialRequest";
 
 function outlineForNana(nodes: StudyOutlineNode[], remaining = { value: 80 }): Array<Record<string, unknown>> {
   const output: Array<Record<string, unknown>> = [];
@@ -83,10 +88,14 @@ export function StudyDeskPage({
     loading: boolean;
     error: boolean;
     handoff: StudyChatHandoffV2 | null;
+    initialPrompt?: string;
+    autoSend?: boolean;
   } | null>(null);
   const [readerMaterialId, setReaderMaterialId] = useState<string | null>(null);
+  const [readerInitialPage, setReaderInitialPage] = useState<number | undefined>();
   const [recoveryNotice, setRecoveryNotice] = useState("");
   const nanaGenerationRef = useRef(0);
+  const startPageChatRef = useRef<(request: StudyNanaRequest) => void>(() => undefined);
   const spacesKey = JSON.stringify(spaces);
   const adapter = useMemo(
     () => createStudyDeskAdapter({
@@ -101,21 +110,21 @@ export function StudyDeskPage({
     if (!artifactId) return;
     nanaGenerationRef.current += 1;
     setNanaPanel(null);
+    setReaderInitialPage(undefined);
     setReaderMaterialId(artifactId);
   };
-  const removeMaterial = (artifactId: string, title: string) => {
-    const confirmed = window.confirm(
-      `要把“${title}”从本课移出吗？\n\n只会移除课程引用，不会删除电脑上的原文件。`,
-    );
-    if (!confirmed) return;
-    void cmdStudyArtifactStatus(spaceId, artifactId, "archived")
-      .then(() => setAdapterGeneration((generation) => generation + 1))
-      .catch(() => window.alert("这份资料暂时没有移出，请稍后重试。原文件没有被改动。"));
-  };
-  const spaceTitle = spaces.find((space) => space.id === spaceId)?.title || "我的课程";
+
+  useEffect(() => onStudyMaterialRequest((request) => {
+    if (request.spaceId !== spaceId) return;
+    nanaGenerationRef.current += 1;
+    setNanaPanel(null);
+    setReaderInitialPage(request.page);
+    setReaderMaterialId(request.artifactId);
+  }), [spaceId]);
+  const spaceTitle = spaces.find((space) => space.id === spaceId)?.title || "我的本子";
   // 课程列表不经网络：练习数据打不开时，书立与换课照样要能用。
   const bookstandFallback = {
-    title: "我的课程本",
+    title: "我的本子",
     hint: "换课就是换一本本子。",
     books: spaces
       .filter((space) => space.kind !== "scratch")
@@ -165,7 +174,7 @@ export function StudyDeskPage({
           setRecoveryNotice("已回到这条证据对应的知识核和题目。");
           setAdapterGeneration((generation) => generation + 1);
         } else if (readStudyLocation(spaceId)?.knowledgeCoreId) {
-          setRecoveryNotice("原题已经不可用，已留在当前知识核。课程记录没有改变。");
+          setRecoveryNotice("原题已经不可用，已留在当前知识核。学习记录没有改变。");
         } else {
           setRecoveryNotice("");
           onNavigateAway(studyPath(spaceId, "plan"));
@@ -175,7 +184,7 @@ export function StudyDeskPage({
       },
       () => {
         if (controller.signal.aborted) return;
-        setRecoveryNotice("暂时无法恢复原题，已留在当前知识核。课程记录没有改变。");
+        setRecoveryNotice("暂时无法恢复原题，已留在当前知识核。学习记录没有改变。");
         navigate(studyPath(spaceId, "practice"), { replace: true });
       },
     );
@@ -274,28 +283,38 @@ export function StudyDeskPage({
     });
   };
 
-  const startPageChat = async (practiceRequest?: DeskCourseChatRequest) => {
+  const startPageChat = async (
+    practiceRequest?: DeskCourseChatRequest,
+    scopedRequest?: StudyNanaRequest,
+  ) => {
     if (practiceRequest) {
       startCourseChat(practiceRequest);
       return;
     }
     const generation = ++nanaGenerationRef.current;
     setReaderMaterialId(null);
-    setNanaPanel({ loading: true, error: false, handoff: null });
+    setNanaPanel({
+      loading: true,
+      error: false,
+      handoff: null,
+      ...(scopedRequest?.initialPrompt ? { initialPrompt: scopedRequest.initialPrompt } : {}),
+      ...(scopedRequest?.autoSend ? { autoSend: true } : {}),
+    });
     const nanaPage = page as StudyNanaPage;
     const route = studyPath(spaceId, page);
-    const focusId = (page === "learn" || page === "practice") && continueLocation?.knowledgeCoreId
-      ? continueLocation.knowledgeCoreId
-      : `${page}:${spaceId}`;
-    const focusLabel = page === "flyleaf"
-      ? "课程目标与约束"
+    const focusId = scopedRequest?.focusId
+      ?? ((page === "learn" || page === "practice") && continueLocation?.knowledgeCoreId
+        ? continueLocation.knowledgeCoreId
+        : `${page}:${spaceId}`);
+    const focusLabel = scopedRequest?.focusLabel ?? (page === "flyleaf"
+      ? "目标与约束"
       : page === "plan"
         ? "当前学习计划"
         : page === "learn"
           ? continueLocation?.knowledgeCoreTitle ?? "当前知识核"
           : page === "evaluate"
             ? "最近评估与回访"
-            : continueLocation?.knowledgeCoreTitle ?? "当前知识核的练习";
+            : continueLocation?.knowledgeCoreTitle ?? "当前知识核的练习");
     try {
       const signal = new AbortController().signal;
       let pageContext: Record<string, unknown> & { kind: StudyNanaPage };
@@ -319,8 +338,8 @@ export function StudyDeskPage({
       const sourceOutline = plan.outline ?? [];
       pageContext = {
         kind: "plan",
-        outlinePath: [],
-        currentNodeId: sourceOutline[0]?.id ?? "source-outline-unavailable",
+        outlinePath: scopedRequest?.focusLabel ? [scopedRequest.focusLabel] : [],
+        currentNodeId: scopedRequest?.outlineNodeId ?? sourceOutline[0]?.id ?? "source-outline-unavailable",
         structureStatus: plan.structureStatus ?? "unknown",
         sourceOutline: outlineForNana(sourceOutline),
         planItems: plan.items.slice(0, 12).map((item) => ({
@@ -329,9 +348,12 @@ export function StudyDeskPage({
           mode: item.mode ?? "learn",
           status: item.status,
         })),
+        ...(scopedRequest?.selectedSource ? { selectedSource: scopedRequest.selectedSource } : {}),
       };
-      if (plan.outlineSourceArtifactId) {
-        sourceRefs = [{ id: plan.outlineSourceArtifactId, title: plan.outlineSourceTitle || "课程目录来源" }];
+      if (scopedRequest?.selectedSource) {
+        sourceRefs = [{ id: scopedRequest.selectedSource.id, title: scopedRequest.selectedSource.title }];
+      } else if (plan.outlineSourceArtifactId) {
+        sourceRefs = [{ id: plan.outlineSourceArtifactId, title: plan.outlineSourceTitle || "目录来源" }];
       }
     } else if (page === "learn") {
       const home = await repository.loadLearnHome(spaceId, signal);
@@ -415,14 +437,35 @@ export function StudyDeskPage({
       createdAt: new Date().toISOString(),
       };
       if (nanaGenerationRef.current === generation) {
-        setNanaPanel({ loading: false, error: false, handoff });
+        setNanaPanel({
+          loading: false,
+          error: false,
+          handoff,
+          ...(scopedRequest?.initialPrompt ? { initialPrompt: scopedRequest.initialPrompt } : {}),
+          ...(scopedRequest?.autoSend ? { autoSend: true } : {}),
+        });
       }
     } catch {
       if (nanaGenerationRef.current === generation) {
-        setNanaPanel({ loading: false, error: true, handoff: null });
+        setNanaPanel({
+          loading: false,
+          error: true,
+          handoff: null,
+          ...(scopedRequest?.initialPrompt ? { initialPrompt: scopedRequest.initialPrompt } : {}),
+          ...(scopedRequest?.autoSend ? { autoSend: true } : {}),
+        });
       }
     }
   };
+
+  startPageChatRef.current = (request) => {
+    void startPageChat(undefined, request);
+  };
+
+  useEffect(() => onStudyNanaRequest((request) => {
+    if (request.spaceId !== spaceId || request.page !== page) return;
+    startPageChatRef.current(request);
+  }), [page, spaceId]);
 
   const enterActivatedPracticeDraft = async (artifactId: string) => {
     const controller = new AbortController();
@@ -475,6 +518,7 @@ export function StudyDeskPage({
       pageBody={pageBody}
       continueTitle={continueLocation ? studyContinueTitle(continueLocation) : undefined}
       continueMeta={continueLocation ? studyContinueMeta(continueLocation) : undefined}
+      continueLabel={continueLocation?.page === "plan" ? "从这里开始" : "继续"}
       pageNotice={recoveryNotice}
       draftInbox={<DraftInboxButton onActivated={(item) => enterActivatedPracticeDraft(item.artifact_id)} />}
       bookstandFallback={bookstandFallback}
@@ -484,7 +528,19 @@ export function StudyDeskPage({
       onNavigatePage={navigatePage}
       onResumeLocation={() => {
         if (!continueLocation) return;
-        onNavigateAway(studyPath(spaceId, continueLocation.page));
+        const targetPath = studyPath(spaceId, continueLocation.page);
+        if (continueLocation.page !== "plan" || !continueLocation.planItemId) {
+          onNavigateAway(targetPath);
+          return;
+        }
+        const targetId = `study-plan-item-${continueLocation.planItemId}`;
+        if (page === "plan") {
+          const target = document.getElementById(targetId);
+          target?.scrollIntoView?.({ block: "center" });
+          target?.focus();
+          return;
+        }
+        onNavigateAway(`${targetPath}#${encodeURIComponent(targetId)}`);
       }}
       onChangeKnowledgeCore={(point) => {
         selectKnowledgeCore(spaceId, point, "practice");
@@ -501,9 +557,8 @@ export function StudyDeskPage({
       onOpenActivity={() => navigatePage("evaluate")}
       onSelectSpace={onSelectSpace}
       onOpenMaterials={openMaterial}
-      onRemoveMaterial={removeMaterial}
       onNewBook={() => onNavigateAway("/chat", {
-        draftPrompt: "我想开一本新的课程笔记本。请先问我课程名称、学习目标和现有材料，再帮我确认创建请求。",
+        draftPrompt: "我想开一本新的学习本。请先问我本子名称、学习目标和现有材料，再帮我确认创建请求。",
       })}
       />
       {nanaPanel ? (
@@ -511,6 +566,8 @@ export function StudyDeskPage({
           handoff={nanaPanel.handoff}
           loading={nanaPanel.loading}
           contextError={nanaPanel.error}
+          initialPrompt={nanaPanel.initialPrompt}
+          autoSend={nanaPanel.autoSend}
           onClose={() => {
             nanaGenerationRef.current += 1;
             setNanaPanel(null);
@@ -524,10 +581,12 @@ export function StudyDeskPage({
       ) : null}
       {readerMaterialId ? (
         <StudyMaterialReader
-          key={`${spaceId}:${readerMaterialId}`}
+          key={`${spaceId}:${readerMaterialId}:${readerInitialPage ?? "saved"}`}
           spaceId={spaceId}
           artifactId={readerMaterialId}
+          initialPage={readerInitialPage}
           onClose={() => setReaderMaterialId(null)}
+          onDeleted={() => setAdapterGeneration((generation) => generation + 1)}
         />
       ) : null}
     </>

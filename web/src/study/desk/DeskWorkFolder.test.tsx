@@ -47,6 +47,6 @@ describe("DeskWorkFolder", () => {
       />,
     );
     fireEvent.click(screen.getByRole("tab", { name: "成果" }));
-    expect(screen.getByText(/没有可靠的课程成果索引/)).toBeInTheDocument();
+    expect(screen.getByText(/没有可靠的学习成果索引/)).toBeInTheDocument();
   });
 });

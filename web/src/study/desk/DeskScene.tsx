@@ -21,7 +21,7 @@ import "./desk.css";
 
 const SAVE_DEBOUNCE_MS = 260;
 const FUTURE_FEATURE_MESSAGE = "该功能将在后续版本开放。";
-const FUTURE_CHAT_MESSAGE = "课程对话将在后续版本开放。";
+const FUTURE_CHAT_MESSAGE = "本子对话将在后续版本开放。";
 
 function stepSpeech(kicker: string): string {
   return kicker.replace(/ · /g, " ");
@@ -89,13 +89,13 @@ export interface DeskSceneProps {
   onOpenActivity?: () => void;
   onSelectSpace?: (spaceId: string) => void;
   onOpenMaterials?: (materialId?: string) => void;
-  onRemoveMaterial?: (materialId: string, title: string) => void;
   onReviewCards?: () => void;
   onNewBook?: () => void;
   onDirtyChange?: (dirty: boolean) => void;
   returnFocus?: StudyReturnState | null;
   continueTitle?: string;
   continueMeta?: string;
+  continueLabel?: string;
   pageNotice?: string;
   onResumeLocation?: () => void;
   onChangeKnowledgeCore?: (point: StudyKnowledgePoint, index: number) => void;
@@ -120,13 +120,13 @@ export default function DeskScene({
   onOpenActivity,
   onSelectSpace,
   onOpenMaterials,
-  onRemoveMaterial,
   onReviewCards,
   onNewBook,
   onDirtyChange,
   returnFocus,
   continueTitle,
   continueMeta,
+  continueLabel,
   pageNotice,
   onResumeLocation,
   onChangeKnowledgeCore,
@@ -304,7 +304,7 @@ export default function DeskScene({
   const openTutorInvoke = useCallback((_invokerId: string) => {
     if (currentPage !== "practice" || !data?.steps[stepIndex]) {
       if (onAskPage) onAskPage();
-      else announce("当前页面的课程上下文还没有准备好。");
+      else announce("当前页面的本子上下文还没有准备好。");
       return;
     }
     if (activity === "checking") {
@@ -370,7 +370,7 @@ export default function DeskScene({
 
   const openActivityPanel = useCallback(() => {
     setPanel("activity");
-    announce("已打开这本课程的学习动态。");
+    announce("已打开这本本子的学习动态。");
     refreshActivities();
   }, [announce, refreshActivities]);
 
@@ -588,7 +588,7 @@ export default function DeskScene({
               onNewBook={onNewBook}
               onFutureFeature={announceFutureFeature}
             />
-            <section className="kd-center-stage" aria-label="当前课程笔记本">
+            <section className="kd-center-stage" aria-label="当前学习本">
               <DeskNotebook
                 art={icons}
                 density="overview"
@@ -599,12 +599,15 @@ export default function DeskScene({
                 checkResult={null}
                 currentPage={currentPage}
                 pageBody={pageBody}
+                continueTitle={continueTitle}
+                continueMeta={continueMeta}
+                continueLabel={continueLabel}
                 hasPreviousStep={false}
                 hasNextStep={false}
                 taskSurfaceRef={taskSurfaceRef}
                 answerRef={answerRef}
                 feedbackRef={feedbackRef}
-                onResume={() => undefined}
+                onResume={onResumeLocation ?? (() => undefined)}
                 onStartWriting={() => undefined}
                 onAnswerChange={() => undefined}
                 onCheck={() => undefined}
@@ -615,11 +618,17 @@ export default function DeskScene({
                 onFutureFeature={announceFutureFeature}
               />
             </section>
-            <aside className="kd-right-objects" aria-label="参考资料、复习与小娜">
+            <aside className="kd-right-objects" aria-label="知识源、复习与小娜">
               {draftInbox ? <div className="kd-rail-drafts">{draftInbox}</div> : null}
               <DeskRightObjects
                 art={icons}
-                materials={{ title: "参考资料", hint: "", items: [], unavailable: loadError }}
+                materials={{
+                  title: "知识源",
+                  hint: "",
+                  items: [],
+                  loading: !loadError,
+                  unavailable: loadError,
+                }}
                 dueCount={0}
                 stackIndexOpen={false}
                 onToggleStackIndex={() => undefined}
@@ -645,7 +654,7 @@ export default function DeskScene({
               <h1>{loadError ? "这本笔记本暂时没有打开" : "正在打开你的笔记本…"}</h1>
               <p>
                 {loadError
-                  ? "课程与草稿都没有被改动。可以再试一次。"
+                  ? "本子与草稿都没有被改动。可以再试一次。"
                   : "正在整理当前练习和上次留下的草稿。"}
               </p>
               {loadError ? (
@@ -756,7 +765,7 @@ export default function DeskScene({
             onNewBook={onNewBook}
             onFutureFeature={announceFutureFeature}
           />
-          <section className="kd-center-stage" aria-label="当前课程笔记本">
+          <section className="kd-center-stage" aria-label="当前学习本">
             <DeskNotebook
               art={icons}
               overview={data.overview}
@@ -769,8 +778,9 @@ export default function DeskScene({
               checkResult={checkResult}
               currentPage={currentPage}
               pageBody={pageBody}
-              continueTitle={continueTitle ?? data.knowledgeCores[data.activeKnowledgeCoreIndex]?.front ?? step?.title}
-              continueMeta={continueMeta ?? (data.knowledgeCores.length ? "当前知识核 · 练习" : step?.kicker)}
+              continueTitle={continueTitle}
+              continueMeta={continueMeta}
+              continueLabel={continueLabel}
               pageNotice={pageNotice}
               knowledgeCoreTitle={data.knowledgeCores[data.activeKnowledgeCoreIndex]?.front}
               knowledgeCoreIndex={data.activeKnowledgeCoreIndex}
@@ -804,7 +814,7 @@ export default function DeskScene({
               onFutureFeature={announceFutureFeature}
             />
           </section>
-          <aside className="kd-right-objects" aria-label="参考资料、复习与小娜">
+          <aside className="kd-right-objects" aria-label="知识源、复习与小娜">
             {draftInbox ? <div className="kd-rail-drafts">{draftInbox}</div> : null}
             <DeskRightObjects
               art={icons}
@@ -814,7 +824,6 @@ export default function DeskScene({
               onToggleStackIndex={() => setStackIndexOpen((open) => !open)}
               onFutureFeature={announceFutureFeature}
               onOpenMaterials={onOpenMaterials ?? openWorkFolder}
-              onRemoveMaterial={onRemoveMaterial}
               onImportMaterial={onImportMaterial}
               onReviewCards={onReviewCards ?? openCardReview}
             />
@@ -826,7 +835,7 @@ export default function DeskScene({
               type="button"
               onClick={() => (onOpenMaterials ?? openWorkFolder)(data.materials.items[0]?.id)}
             >
-              <icons.layers /> 参考
+              <icons.layers /> 知识源
             </button>
             <button type="button" onClick={onReviewCards ?? openCardReview}>
               <icons.archive /> 卡片

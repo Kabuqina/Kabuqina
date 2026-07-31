@@ -126,7 +126,7 @@ describe("StudyShell", () => {
     expect(tabs).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "学习" })).toHaveAttribute("aria-current", "page");
     // 换课＝换一本本子：课程名长在书立的标签上，不在一个下拉里。
-    const bookend = screen.getByRole("navigation", { name: /课程/ });
+    const bookend = screen.getByRole("navigation", { name: /本子/ });
     expect(bookend.querySelector('[aria-current="page"]')).toHaveTextContent("Linear Algebra");
     expect(bookend).toHaveTextContent("Physics");
   });
@@ -344,7 +344,7 @@ describe("StudyShell", () => {
         </StudyRepositoryProvider>
       </I18nProvider>,
     );
-    const bookend = await screen.findByRole("navigation", { name: /课程/ });
+    const bookend = await screen.findByRole("navigation", { name: /本子/ });
     const pills = [...bookend.querySelectorAll("button")].map((b) => b.textContent?.trim());
     // 顺序：课程们 → 开新本 → （推到最右的）杂记本。
     expect(pills).toEqual(["Linear Algebra", "Physics", "开新本", "杂记本"]);
@@ -357,7 +357,7 @@ describe("StudyShell", () => {
   it("switches course books straight from the bookend, with the current one inert", async () => {
     const user = userEvent.setup();
     const repository = renderShell();
-    const bookend = await screen.findByRole("navigation", { name: /课程/ });
+    const bookend = await screen.findByRole("navigation", { name: /本子/ });
     const current = screen.getByRole("button", { name: /Linear Algebra/ });
     // 当前这本与纸面连成一体，点它不该再发一次切换请求。
     expect(current).toHaveAttribute("aria-current", "page");

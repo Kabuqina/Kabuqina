@@ -60,15 +60,18 @@ KINDS: frozenset = frozenset(
 )
 
 # Artifact lifecycle. AI content starts at ``draft``; trust-boundary transitions
-# (activate/reject/archive) are enforced by the Output Writer / trusted callers,
+# (activate/reject/archive/delete) are enforced by the Output Writer / trusted callers,
 # never by a model tool.
-LIFECYCLE_STATUSES: frozenset = frozenset({"draft", "active", "rejected", "archived"})
+LIFECYCLE_STATUSES: frozenset = frozenset(
+    {"draft", "active", "rejected", "archived", "deleted"}
+)
 INITIAL_STATUS: str = "draft"
 ALLOWED_TRANSITIONS: frozenset = frozenset(
     {
         ("draft", "active"),
         ("draft", "rejected"),
         ("active", "archived"),
+        ("active", "deleted"),
     }
 )
 
@@ -255,6 +258,15 @@ def _v_learning_plan(p: Mapping[str, Any]) -> None:
                 raise ContractError(f"{tctx}: 'order' must be an integer")
             _opt_str(tm, "done_when", tctx)
             _opt_str(tm, "outline_node_id", tctx)
+            _opt_str(tm, "outlineNodeId", tctx)
+            if (
+                "outline_node_id" in tm
+                and "outlineNodeId" in tm
+                and tm["outline_node_id"].strip() != tm["outlineNodeId"].strip()
+            ):
+                raise ContractError(
+                    f"{tctx}: 'outline_node_id' and 'outlineNodeId' must match"
+                )
             _opt_str(tm, "mode", tctx)
             if "mode" in tm and tm["mode"] not in LEARNING_PLAN_ACTION_MODES:
                 raise ContractError(
@@ -281,6 +293,44 @@ def _v_flashcard_deck(p: Mapping[str, Any]) -> None:
         _req_str(cm, "front", ctx)
         _req_str(cm, "back", ctx)
         _opt_str_list(cm, "tags", ctx)
+        core_fields = {
+            "knowledge_core_id",
+            "outline_node_id",
+            "order",
+            "source_refs",
+        }
+        if not core_fields.intersection(cm):
+            continue
+        core_id = _req_str(cm, "knowledge_core_id", ctx)
+        outline_node_id = _req_str(cm, "outline_node_id", ctx)
+        order = cm.get("order")
+        if type(order) is not int or order < 0:
+            raise ContractError(f"{ctx}: 'order' must be a non-negative integer")
+        refs = _validate_source_refs(cm.get("source_refs"))
+        if not refs:
+            raise ContractError(f"{ctx}: 'source_refs' must be a non-empty list")
+        matching_ref = next(
+            (
+                ref
+                for ref in refs
+                if isinstance(ref, dict)
+                and ref.get("origin") == "kq-kp"
+                and ref.get("knowledge_core_id") == core_id
+                and ref.get("outline_node_id") == outline_node_id
+                and isinstance(ref.get("locator"), str)
+                and ref["locator"].strip()
+                and any(
+                    isinstance(ref.get(key), str) and ref[key].strip()
+                    for key in ("material_id", "artifact_id", "source_artifact_id")
+                )
+            ),
+            None,
+        )
+        if matching_ref is None:
+            raise ContractError(
+                f"{ctx}: 'source_refs' must contain matching kq-kp "
+                "knowledge_core_id, outline_node_id, material and locator"
+            )
 
 
 def _v_quiz_choice(q: Mapping[str, Any], ctx: str) -> None:

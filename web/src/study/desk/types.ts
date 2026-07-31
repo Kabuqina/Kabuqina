@@ -18,7 +18,7 @@ export type StudyActivity = "ready" | "dirty" | "checking" | "needs_revision" | 
 export interface DeskCourse {
   /** Notebook cover title, e.g. "高等数学 · 极限". */
   name: string;
-  /** Sub-line under the cover title, e.g. "我的课程笔记本 · 最近保存 13:42". */
+  /** Sub-line under the cover title, e.g. "我的本子 · 最近保存 13:42". */
   notebookLabel: string;
 }
 
@@ -91,6 +91,8 @@ export interface DeskMaterials {
     kind: string;
     status: string;
   }>;
+  /** The desk is still resolving sources; do not present this as an empty notebook. */
+  loading?: boolean;
   unavailable?: boolean;
 }
 

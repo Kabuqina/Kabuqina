@@ -9,7 +9,7 @@ import type { CheckResult, DeskData } from "./types";
 export const deskFixtureData: DeskData = {
   course: {
     name: "高等数学 · 极限",
-    notebookLabel: "我的课程笔记本 · 最近保存 13:42",
+    notebookLabel: "我的本子 · 最近保存 13:42",
   },
   steps: [
     {
@@ -39,8 +39,8 @@ export const deskFixtureData: DeskData = {
     ],
   },
   bookstand: {
-    title: "我的课程本",
-    hint: "换课就是换一本本子。",
+    title: "我的本子",
+    hint: "换学习主题就是换一本本子。",
     books: [
       { id: "fixture-calculus", name: "高等数学", current: true },
       { id: "fixture-physics", name: "大学物理", current: false },
@@ -49,7 +49,7 @@ export const deskFixtureData: DeskData = {
     newBookLabel: "开新本",
   },
   materials: {
-    title: "参考资料",
+    title: "知识源",
     hint: "平放在这本高数笔记本旁。",
     items: [
       { id: "material-1", title: "教材 §2.3", kind: "resource_pack", status: "active" },

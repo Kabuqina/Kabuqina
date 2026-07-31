@@ -404,6 +404,32 @@
 
 .kq-desk .kd-book-spine--add svg { width: 15px; height: 15px; }
 
+.kq-desk .kd-book-spine--loading {
+  width: 26px;
+  min-height: 96px;
+  border-color: var(--line-cool);
+  background:
+    linear-gradient(
+      105deg,
+      var(--purple-pale) 25%,
+      var(--veil-strong) 42%,
+      var(--purple-pale) 60%
+    );
+  background-size: 220% 100%;
+  box-shadow: none;
+  animation: kd-source-loading 1.2s ease-in-out infinite;
+}
+
+.kq-desk .kd-book-spine--loading:nth-child(2) {
+  min-height: 88px;
+  animation-delay: 120ms;
+}
+
+@keyframes kd-source-loading {
+  from { background-position: 100% 0; }
+  to { background-position: -120% 0; }
+}
+
 .kd-stack-empty { margin: 8px 0 0; color: var(--ink-soft); font-size: 11px; }
 
 /* 贴在书堆上的目录：可翻开核对，不占一个入口。 */
@@ -449,25 +475,6 @@
   color: var(--c-ink) !important;
   font-size: 11px !important;
   overflow-wrap: anywhere;
-}
-
-.kd-stack-remove {
-  grid-column: 2;
-  grid-row: 1 / span 2;
-  align-self: center;
-  border: 0;
-  padding: 0.16rem 0.38rem;
-  background: transparent;
-  color: var(--c-muted);
-  font: inherit;
-  text-decoration: underline;
-  text-underline-offset: 0.16em;
-  cursor: pointer;
-}
-
-.kd-stack-remove:hover,
-.kd-stack-remove:focus-visible {
-  color: var(--c-ink-strong);
 }
 
 .kd-stack-index-list span { color: var(--ink-soft); font-size: 10px; }
@@ -556,26 +563,30 @@
 .kd-bookmark-button {
   position: relative;
   z-index: 2;
-  flex: 0 0 min(238px, 42%);
+  flex: 0 0 104px;
   align-self: center;
-  width: min(238px, 42%);
+  width: 104px;
   margin: 10px 0;
-  display: grid;
-  gap: 2px;
-  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
   border-radius: 4px 4px 8px 8px !important;
   border-top-width: 5px !important;
   background: linear-gradient(180deg, #f7eedf, #ecdbc2) !important;
   border-color: rgba(168, 71, 47, .34) !important;
 }
 
-.kd-bookmark-button > span { font-size: 13px; color: var(--c-muted); }
-.kd-bookmark-button strong {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+.kd-bookmark-button > span { color: var(--c-ink-strong); font-size: 14px; font-weight: 800; }
+.kd-bookmark-button.is-empty {
+  min-height: 58px;
+  box-sizing: border-box;
+  border: 1px solid rgba(168, 71, 47, .34);
+  border-top-width: 5px;
+  padding: 7px 12px;
+  pointer-events: none;
 }
-.kd-bookmark-button strong span { font-size: inherit; color: inherit; }
 
 .kd-page-tabs {
   display: flex;
@@ -1297,8 +1308,16 @@
   line-height: 1.15;
 }
 
+.kq-study-side-panel__actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
 .kq-desk .kq-study-side-panel__close,
-.kq-study-side-panel__close {
+.kq-study-side-panel__close,
+.kq-desk .kq-study-side-panel__delete,
+.kq-study-side-panel__delete {
   width: 34px;
   height: 34px;
   min-height: 34px;
@@ -1312,7 +1331,17 @@
   color: var(--ink);
 }
 
-.kq-study-side-panel__close svg { width: 17px; height: 17px; }
+.kq-study-side-panel__delete {
+  color: var(--muted);
+}
+
+.kq-study-side-panel__delete:hover,
+.kq-study-side-panel__delete:focus-visible {
+  color: var(--danger, #9b3d35);
+}
+
+.kq-study-side-panel__close svg,
+.kq-study-side-panel__delete svg { width: 17px; height: 17px; }
 
 .kq-study-nana-scope {
   margin: 0;
@@ -1616,7 +1645,7 @@
     transform: none;
   }
   .kq-desk .kd-notebook-head { padding: 0 12px; }
-  .kq-desk .kd-bookmark-button { flex-basis: min(210px, 42%); width: min(210px, 42%); }
+  .kq-desk .kd-bookmark-button { flex-basis: 104px; width: 104px; }
   .kq-desk .kd-page-body { grid-template-columns: 1fr; padding: 14px; overflow: visible; }
   .kq-desk .kd-page-main { overflow: visible; }
   .kq-desk .kd-task-scroll { overflow: visible; padding-right: 0; }

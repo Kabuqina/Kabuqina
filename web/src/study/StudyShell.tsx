@@ -114,7 +114,7 @@ export function StudyShell({ spaces, spaceId, page, scratch = false, onRevalidat
           switchingSpace={switching}
           onSelectSpace={selectSpace}
           onNewBook={() => navigateAway("/chat", {
-            draftPrompt: "我想开一本新的课程笔记本。请先问我课程名称、学习目标和现有材料，再帮我确认创建请求。",
+            draftPrompt: "我想开一本新的学习本。请先问我本子名称、学习目标和现有材料，再帮我确认创建请求。",
           })}
           onAskNana={() => navigateAway("/chat")}
         />

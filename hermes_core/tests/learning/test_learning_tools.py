@@ -16,6 +16,7 @@ from learning.learning_context import (
     LearningExecutionContext,
     learning_context_scope,
 )
+from learning.material_reader_port import learning_material_reader_scope
 import tools.learning_tools as lt
 
 
@@ -25,6 +26,7 @@ EXPECTED_TOOLS = {
     "learning_space_select",
     "learning_index_build",
     "learning_draft_create",
+    "learning_material_read",
     "learning_material_alignment_propose",
     "learning_artifact_list",
 }
@@ -227,6 +229,50 @@ def test_artifact_list_returns_draft_and_active(ctx):
     ids = {x["artifact_id"] for x in out["artifacts"]}
     assert d["artifact_id"] in ids and a["artifact_id"] in ids
     assert arch["artifact_id"] not in ids
+
+
+def test_material_read_uses_injected_bounded_artifact_port(ctx):
+    calls = []
+
+    def reader(artifact_id, page_start, page_end):
+        calls.append((artifact_id, page_start, page_end))
+        return {
+            "artifactId": artifact_id,
+            "pageStart": page_start,
+            "pageEnd": page_end,
+            "content": "## Limits",
+            "outline": [{"id": "section-limits", "title": "Limits"}],
+        }
+
+    with learning_context_scope(ctx), learning_material_reader_scope(reader):
+        ctx.create_space(title="Calculus", space_id="s1")
+        out = _result(
+            lt._handle_material_read(
+                {"artifact_id": "material-1", "page_start": 12, "page_end": 18}
+            )
+        )
+
+    assert out["success"] is True
+    assert out["material"]["content"] == "## Limits"
+    assert calls == [("material-1", 12, 18)]
+
+
+def test_material_read_rejects_unbounded_or_uninjected_reads(ctx):
+    with learning_context_scope(ctx):
+        ctx.create_space(title="Calculus", space_id="s1")
+        too_large = _result(
+            lt._handle_material_read(
+                {"artifact_id": "material-1", "page_start": 1, "page_end": 13}
+            )
+        )
+        unavailable = _result(
+            lt._handle_material_read(
+                {"artifact_id": "material-1", "page_start": 1, "page_end": 2}
+            )
+        )
+
+    assert too_large.get("success") is not True
+    assert unavailable.get("success") is not True
 
 
 def test_artifact_list_without_selected_space_returns_error(ctx):

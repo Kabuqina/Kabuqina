@@ -31,6 +31,7 @@ $pyFiles = @(
     "kabuqina_env.py",
     "learning_owner.py",
     "learning_recovery.py",
+    "activity_projection.py",
     "studio_store.py",
     "study_review_reminder.py",
     "study_semantic_reviewer.py",

@@ -27,7 +27,46 @@ const labels: Record<GlobalActivityRecord["status"], string> = {
 
 function safeTarget(record: GlobalActivityRecord): string {
   const target = record.targetAvailable ? record.returnTarget : record.fallbackTarget;
-  return target.startsWith("/") && !target.startsWith("//") ? target : "/study";
+  if (!target.startsWith("/") || target.startsWith("//")) return "/study";
+  if (
+    record.kind === "knowledge_core_compilation"
+    && record.sourceStatus === "draft_ready"
+    && record.draftArtifactId
+  ) {
+    const separator = target.includes("?") ? "&" : "?";
+    return `${target}${separator}draft=${encodeURIComponent(record.draftArtifactId)}`;
+  }
+  return target;
+}
+
+function activityLabel(record: GlobalActivityRecord): string {
+  if (record.kind !== "knowledge_core_compilation") return labels[record.status];
+  switch (record.sourceStatus) {
+    case "queued":
+    case "reading":
+    case "generating":
+    case "validating":
+      return "正在整理知识核";
+    case "draft_ready":
+      return "知识核待采用";
+    case "needs_source":
+      return "等待知识源";
+    case "failed":
+      return "整理未完成";
+    case "cancelled":
+      return "已取消";
+    default:
+      return labels[record.status];
+  }
+}
+
+function activityAction(record: GlobalActivityRecord): string {
+  if (record.kind !== "knowledge_core_compilation") {
+    return record.canResume ? "继续" : "回到现场";
+  }
+  if (record.sourceStatus === "draft_ready") return "查看草稿";
+  if (record.sourceStatus === "needs_source" || record.sourceStatus === "failed") return "处理";
+  return "查看";
 }
 
 export function ActivityPanel({ open, onClose, onReturn, load = cmdActivityRecords }: ActivityPanelProps) {
@@ -94,7 +133,7 @@ export function ActivityPanel({ open, onClose, onReturn, load = cmdActivityRecor
         {state.status === "ready" && !items.length ? (
           <div className="kq-activity-empty">
             <p>现在没有需要接续的现场。</p>
-            <span>开始一门课程或打开一个创作项目后，它会出现在这里。</span>
+            <span>开始一本学习本或打开一个创作项目后，它会出现在这里。</span>
           </div>
         ) : null}
         {items.length ? (
@@ -105,12 +144,12 @@ export function ActivityPanel({ open, onClose, onReturn, load = cmdActivityRecor
                 <li key={item.id} data-status={item.status}>
                   <span className="kq-global-activity-domain"><DomainIcon aria-hidden />{item.domain === "study" ? "Study" : "Studio"}</span>
                   <div>
-                    <span className="kq-global-activity-status">{labels[item.status]}</span>
+                    <span className="kq-global-activity-status">{activityLabel(item)}</span>
                     <strong>{item.title}</strong>
                     {item.updatedAt ? <time dateTime={item.updatedAt}>{new Date(item.updatedAt).toLocaleString()}</time> : null}
                   </div>
                   <button type="button" onClick={() => onReturn(safeTarget(item))}>
-                    {item.canResume ? "继续" : "回到现场"}
+                    {activityAction(item)}
                   </button>
                 </li>
               );

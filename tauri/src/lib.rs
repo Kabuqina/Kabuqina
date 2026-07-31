@@ -282,6 +282,7 @@ pub fn run() {
             study::cmd_study_material_read,
             study::cmd_study_material_open,
             study::cmd_study_material_reader,
+            study::cmd_study_material_delete,
             study::cmd_study_data_import,
             study::cmd_study_data_import_file,
             study::cmd_study_prepare_downgrade,

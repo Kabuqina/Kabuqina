@@ -213,7 +213,9 @@ File Writer 继续生成 PPTX、PDF、HTML、DOCX 等文件。Output Writer 负�
 2. 从运行时上下文注入 owner，拒绝模型传入 owner id。
 3. 写入 `learning.db`，生成 artifact id 和版本。
 4. 将 AI 内容保存为 `draft`。
-5. 执行允许的状态转换：`draft → active/rejected`、`active → archived`。
+5. 执行允许的状态转换：`draft → active/rejected`、`active → archived`；导入的
+   `resource_pack` 还可由可信宿主执行 `active → deleted` 软删除。`deleted` 是显式墓碑，
+   不级联删除或清空任何派生 artifact、item、activity 与来源引用。
 6. 发出产物事件，供桌面端或 Gateway 展示。
 7. 对真实用户行为直接写入 activity/item 状态，不伪装成 AI artifact。
 

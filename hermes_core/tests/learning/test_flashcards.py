@@ -65,6 +65,40 @@ def test_activate_deck_materializes_flashcards_as_items(ctx):
     assert all(card["dueAt"] == T0.isoformat() for card in cards)
 
 
+def test_activate_deck_preserves_per_card_course_core_provenance(ctx):
+    source_ref = {
+        "origin": "kq-kp",
+        "material_id": "material-algebra",
+        "locator": "p. 12",
+        "knowledge_core_id": "core-linear-equation",
+        "outline_node_id": "section-equations",
+    }
+    artifact_id = OutputWriter(ctx).write_artifact(
+        kind="flashcard_deck",
+        title="Linear equations",
+        payload={
+            "cards": [
+                {
+                    "front": "Linear equation",
+                    "back": "An equation whose unknown has degree one.",
+                    "knowledge_core_id": "core-linear-equation",
+                    "outline_node_id": "section-equations",
+                    "order": 3,
+                    "source_refs": [source_ref],
+                }
+            ]
+        },
+    )["artifact_id"]
+
+    FlashcardService(ctx, now=lambda: T0).activate_deck(artifact_id)
+
+    card = FlashcardService(ctx, now=lambda: T0).list_cards()[0]
+    assert card["knowledge_core_id"] == "core-linear-equation"
+    assert card["outline_node_id"] == "section-equations"
+    assert card["order"] == 3
+    assert card["source_refs"] == [source_ref]
+
+
 def test_reject_deck_does_not_materialize_cards(ctx):
     artifact_id = _draft_deck(ctx)
     service = FlashcardService(ctx, now=lambda: T0)

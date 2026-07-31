@@ -1,11 +1,12 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import ChatMarkdown from "../../chat/ChatMarkdown";
 import {
   cmdStudyMaterialReader,
+  cmdStudyMaterialDelete,
   type StudyMaterialReaderNode,
   type StudyMaterialReaderResponse,
 } from "../../chat/study/study-api";
@@ -14,6 +15,7 @@ const READER_POSITION_PREFIX = "kabuqina.study.material-reader.v1";
 const PAGE_WINDOW = 6;
 
 type ReaderCommand = typeof cmdStudyMaterialReader;
+type DeleteCommand = typeof cmdStudyMaterialDelete;
 
 function positionKey(spaceId: string, artifactId: string): string {
   return `${READER_POSITION_PREFIX}:${spaceId}:${artifactId}`;
@@ -98,17 +100,23 @@ export function StudyMaterialReader({
   initialPage,
   onClose,
   readMaterial = cmdStudyMaterialReader,
+  deleteMaterial = cmdStudyMaterialDelete,
+  onDeleted,
 }: {
   spaceId: string;
   artifactId: string;
   initialPage?: number;
   onClose: () => void;
   readMaterial?: ReaderCommand;
+  deleteMaterial?: DeleteCommand;
+  onDeleted?: () => void;
 }) {
   const [requestedPage, setRequestedPage] = useState(() => initialPage ?? readPosition(spaceId, artifactId));
   const [data, setData] = useState<StudyMaterialReaderResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
   const loadGenerationRef = useRef(0);
   const initialRequestedPageRef = useRef(requestedPage);
@@ -156,6 +164,30 @@ export function StudyMaterialReader({
   const currentEnd = data?.pageEnd ?? currentStart;
   const totalPages = Math.max(1, data?.totalPages ?? currentEnd);
 
+  const deleteSource = async () => {
+    const title = data?.title || "这份资料";
+    const confirmed = window.confirm(
+      `从知识源中删除“${title}”？\n\n已经生成的计划、学习内容和练习记录会保留。电脑上的原文件不会删除。`,
+    );
+    if (!confirmed) return;
+    setDeleting(true);
+    setDeleteError(false);
+    try {
+      await deleteMaterial(spaceId, artifactId);
+      try {
+        window.localStorage.removeItem(positionKey(spaceId, artifactId));
+      } catch {
+        // Reading position is recovery metadata only.
+      }
+      onDeleted?.();
+      onClose();
+    } catch {
+      setDeleteError(true);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <aside className="kq-study-side-panel kq-study-material-reader" aria-label="摊开的材料">
       <header className="kq-study-side-panel__header">
@@ -163,12 +195,28 @@ export function StudyMaterialReader({
           <span className="kq-study-side-panel__eyebrow">
             {data ? `你导入的 · ${data.filename} · 共 ${data.totalPages} 页` : "正在抽出这本资料"}
           </span>
-          <h2>{data?.title || "课程材料"}</h2>
+          <h2>{data?.title || "学习材料"}</h2>
         </div>
-        <button type="button" className="kq-study-side-panel__close" aria-label="放回去" onClick={onClose}>
-          <X aria-hidden />
-        </button>
+        <div className="kq-study-side-panel__actions">
+          <button
+            type="button"
+            className="kq-study-side-panel__delete"
+            aria-label="删除这份知识源"
+            title="从知识源删除"
+            disabled={deleting}
+            onClick={() => { void deleteSource(); }}
+          >
+            <Trash2 aria-hidden />
+          </button>
+          <button type="button" className="kq-study-side-panel__close" aria-label="放回去" onClick={onClose}>
+            <X aria-hidden />
+          </button>
+        </div>
       </header>
+
+      {deleteError ? (
+        <p className="kq-study-side-panel__alert" role="alert">暂时无法删除，资料和学习内容都没有改变。</p>
+      ) : null}
 
       {data?.outline?.length ? (
         <nav className="kq-material-toc" aria-label="这份文件的章节">

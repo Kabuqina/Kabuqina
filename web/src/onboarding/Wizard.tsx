@@ -1,13 +1,19 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
+import { useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
-import { CHAT_FROM_ONBOARDING_STATE } from "../lib/chatLocationState";
+import { clearDraft } from "../lib/store";
 import { Welcome } from "./steps/Welcome";
 import { PickBrain } from "./steps/PickBrain";
 import { GetAccessPass } from "./steps/GetAccessPass";
 import { SectionPlaceholderStep } from "./steps/SectionPlaceholderStep";
 import { ShellFrame } from "./ShellFrame";
+
+function FinishOnboarding() {
+  useEffect(() => clearDraft(), []);
+  return <Navigate to="/study" replace />;
+}
 
 /**
  * Shell setup wizard. First-run setup now follows the Quick Start path directly.
@@ -24,7 +30,7 @@ export function Wizard() {
         <Route path="terminal" element={<SectionPlaceholderStep id="terminal" />} />
         <Route path="tools" element={<SectionPlaceholderStep id="tools" />} />
         <Route path="agent" element={<SectionPlaceholderStep id="agent" />} />
-        <Route path="done" element={<Navigate to="/chat" replace state={CHAT_FROM_ONBOARDING_STATE} />} />
+        <Route path="done" element={<FinishOnboarding />} />
         <Route path="*" element={<Navigate to="welcome" replace />} />
       </Routes>
     </ShellFrame>

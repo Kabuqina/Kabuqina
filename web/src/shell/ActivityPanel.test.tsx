@@ -53,4 +53,66 @@ describe("ActivityPanel", () => {
     expect(alert).not.toHaveTextContent("owner_id");
     expect(alert).not.toHaveTextContent("sqlite");
   });
+
+  it("labels a compiled draft as waiting for adoption", async () => {
+    const user = userEvent.setup();
+    const onReturn = vi.fn();
+    render(<ActivityPanel
+      open
+      onClose={vi.fn()}
+      onReturn={onReturn}
+      load={vi.fn().mockResolvedValue({
+        items: [{
+          id: "study:knowledge-core:run-1",
+          domain: "study",
+          kind: "knowledge_core_compilation",
+          status: "completed",
+          sourceStatus: "draft_ready",
+          title: "向量 · 知识核",
+          updatedAt: "2026-07-31T08:00:00Z",
+          returnTarget: "/study/course-a/plan",
+          fallbackTarget: "/study",
+          canResume: false,
+          canRetry: false,
+          targetAvailable: true,
+          draftArtifactId: "draft-1",
+        }],
+        count: 1,
+        limit: 100,
+      })}
+    />);
+
+    expect(await screen.findByText("知识核待采用")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "查看草稿" }));
+    expect(onReturn).toHaveBeenCalledWith("/study/course-a/plan?draft=draft-1");
+  });
+
+  it("does not present a cancelled compilation as completed", async () => {
+    render(<ActivityPanel
+      open
+      onClose={vi.fn()}
+      onReturn={vi.fn()}
+      load={vi.fn().mockResolvedValue({
+        items: [{
+          id: "study:knowledge-core:run-cancelled",
+          domain: "study",
+          kind: "knowledge_core_compilation",
+          status: "completed",
+          sourceStatus: "cancelled",
+          title: "向量 · 知识核",
+          updatedAt: "2026-07-31T08:00:00Z",
+          returnTarget: "/study/course-a/plan",
+          fallbackTarget: "/study",
+          canResume: false,
+          canRetry: false,
+          targetAvailable: true,
+        }],
+        count: 1,
+        limit: 100,
+      })}
+    />);
+
+    expect(await screen.findByText("已取消")).toBeInTheDocument();
+    expect(screen.queryByText("最近完成")).not.toBeInTheDocument();
+  });
 });

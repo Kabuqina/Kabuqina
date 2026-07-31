@@ -1116,7 +1116,7 @@ class LearningStore:
     ) -> None:
         """Enforce an allowed lifecycle transition on an owned artifact.
 
-        Trusted-caller operation (activate/reject/archive) — never exposed as a
+        Trusted-caller operation (activate/reject/archive/delete) — never exposed as a
         model tool. Raises :class:`KeyError` if the artifact is not owned/scoped,
         :class:`ContractError` on an illegal transition.
         """

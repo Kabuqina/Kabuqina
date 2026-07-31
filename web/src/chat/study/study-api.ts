@@ -103,6 +103,7 @@ export type StudyLearningMapCore = {
   captured: true;
   outlineNodeId: string | null;
   order: number;
+  sourceRefs?: StudySourceRef[];
 };
 
 export type StudyLearningMapExercise = {
@@ -122,12 +123,72 @@ export type StudyLearningMap = {
   exerciseLinks: StudyLearningMapExercise[];
 };
 
+export type KnowledgeCoreCompilationTrigger =
+  | "plan_activated"
+  | "start_learning"
+  | "prefetch"
+  | "retry";
+
+export type KnowledgeCoreCompilationStatus =
+  | "queued"
+  | "reading"
+  | "generating"
+  | "validating"
+  | "draft_ready"
+  | "needs_source"
+  | "failed"
+  | "cancelled";
+
+export type KnowledgeCoreCompilationRequest = {
+  spaceId: string;
+  outlineNodeId: string;
+  planItemId?: string;
+  trigger: KnowledgeCoreCompilationTrigger;
+  expectedMapRevision: number;
+  idempotencyKey: string;
+  priority?: number;
+};
+
+export type KnowledgeCoreCompilationSourceWindow = {
+  id: string;
+  artifactId: string;
+  sourceTitle: string;
+  sourceRole: string;
+  pageStart: number;
+  pageEnd: number;
+  locator: string;
+  contentFingerprint: string;
+};
+
+export type KnowledgeCoreCompilationRun = {
+  runId: string;
+  spaceId: string;
+  outlineNodeId: string;
+  planItemId: string | null;
+  trigger: KnowledgeCoreCompilationTrigger;
+  status: KnowledgeCoreCompilationStatus;
+  sourceFingerprint: string;
+  policyVersion: string;
+  draftArtifactId: string | null;
+  reasonCode: string | null;
+  sourceWindows: KnowledgeCoreCompilationSourceWindow[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type KnowledgeCoreCompilationListResponse = {
+  items: KnowledgeCoreCompilationRun[];
+  count: number;
+};
+
 export type StudySharedLocation = {
   revision: number;
   mapRevision: number;
   page: "plan" | "learn" | "practice";
   knowledgeCoreId: string | null;
   outlineNodeId: string | null;
+  planItemId: string | null;
+  planOutlineNodeId: string | null;
   exerciseId: string | null;
   exerciseByCore: Record<string, string>;
   stale: boolean;
@@ -536,6 +597,40 @@ export function cmdStudyLearningMapGet(spaceId: string): Promise<StudyLearningMa
   return invoke("cmd_study_learning_map_get", { spaceId });
 }
 
+export function cmdStudyKnowledgeCoreCompilationCreate(
+  body: KnowledgeCoreCompilationRequest,
+): Promise<KnowledgeCoreCompilationRun> {
+  return invoke("cmd_study_knowledge_core_compilation_create", { body });
+}
+
+export function cmdStudyKnowledgeCoreCompilationList(
+  spaceId: string,
+  outlineNodeId?: string,
+): Promise<KnowledgeCoreCompilationListResponse> {
+  return invoke("cmd_study_knowledge_core_compilation_list", { spaceId, outlineNodeId });
+}
+
+export function cmdStudyKnowledgeCoreCompilationGet(
+  spaceId: string,
+  runId: string,
+): Promise<KnowledgeCoreCompilationRun> {
+  return invoke("cmd_study_knowledge_core_compilation_get", { spaceId, runId });
+}
+
+export function cmdStudyKnowledgeCoreCompilationRetry(
+  spaceId: string,
+  runId: string,
+): Promise<KnowledgeCoreCompilationRun> {
+  return invoke("cmd_study_knowledge_core_compilation_retry", { spaceId, runId });
+}
+
+export function cmdStudyKnowledgeCoreCompilationCancel(
+  spaceId: string,
+  runId: string,
+): Promise<KnowledgeCoreCompilationRun> {
+  return invoke("cmd_study_knowledge_core_compilation_cancel", { spaceId, runId });
+}
+
 export function cmdStudyLocationGet(spaceId: string): Promise<StudySharedLocation | null> {
   return invoke("cmd_study_location_get", { spaceId });
 }
@@ -547,6 +642,7 @@ export function cmdStudyLocationPut(input: {
   page: "plan" | "learn" | "practice";
   knowledgeCoreId?: string;
   exerciseId?: string;
+  planItemId?: string;
 }): Promise<StudySharedLocation> {
   return invoke("cmd_study_location_put", input);
 }
@@ -700,6 +796,13 @@ export function cmdStudyMaterialReader(
   pageEnd = pageStart + 5,
 ): Promise<StudyMaterialReaderResponse> {
   return invoke("cmd_study_material_reader", { spaceId, artifactId, pageStart, pageEnd });
+}
+
+export function cmdStudyMaterialDelete(
+  spaceId: string,
+  artifactId: string,
+): Promise<{ artifact_id: string; status: "deleted" }> {
+  return invoke("cmd_study_material_delete", { spaceId, artifactId });
 }
 
 export function cmdStudyFlashcardCapture(payload: StudyFlashcardCaptureRequest): Promise<StudyCaptureResponse> {

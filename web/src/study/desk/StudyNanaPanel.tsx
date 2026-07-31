@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ArrowUpRight, Send, Square, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChatMessageList } from "../../chat/ChatMessageList";
 import {
   cmdGetSessionMessages,
@@ -67,6 +67,8 @@ export function StudyNanaPanel({
   handoff,
   loading = false,
   contextError = false,
+  initialPrompt = "",
+  autoSend = false,
   onClose,
   onOpenFull,
   loadMessages = cmdGetSessionMessages,
@@ -74,6 +76,8 @@ export function StudyNanaPanel({
   handoff: StudyChatHandoffV2 | null;
   loading?: boolean;
   contextError?: boolean;
+  initialPrompt?: string;
+  autoSend?: boolean;
   onClose: () => void;
   onOpenFull: (handoff: StudyChatHandoffV2, draft: string) => void;
   loadMessages?: LoadMessages;
@@ -85,6 +89,7 @@ export function StudyNanaPanel({
   const [sendErr, setSendErr] = useState<string | null>(null);
   const [needsModelSetup, setNeedsModelSetup] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const autoSendKeyRef = useRef("");
   const loadSessions = useCallback(async () => undefined, []);
   const prepareText = useCallback(
     (value: string) => handoff ? buildStudyNanaPrompt(handoff, value) : value,
@@ -116,7 +121,7 @@ export function StudyNanaPanel({
     if (!handoff) return;
     bindStudyHandoff(handoff);
     setActiveSessionId(handoff.sessionId);
-    setInput(readDraft(handoff.sessionId));
+    setInput(autoSend ? initialPrompt : readDraft(handoff.sessionId) || initialPrompt);
     setHistoryLoading(true);
     let alive = true;
     void loadMessages(handoff.sessionId)
@@ -131,7 +136,16 @@ export function StudyNanaPanel({
         if (alive) setHistoryLoading(false);
       });
     return () => { alive = false; };
-  }, [handoff, loadMessages, setInput]);
+  }, [autoSend, handoff, initialPrompt, loadMessages, setInput]);
+
+  useEffect(() => {
+    const prompt = initialPrompt.trim();
+    if (!autoSend || !handoff || loading || historyLoading || sending || !prompt || input.trim() !== prompt) return;
+    const key = `${handoff.sessionId}:${prompt}`;
+    if (autoSendKeyRef.current === key) return;
+    autoSendKeyRef.current = key;
+    void onSend();
+  }, [autoSend, handoff, historyLoading, initialPrompt, input, loading, onSend, sending]);
 
   useEffect(() => {
     if (handoff) writeDraft(handoff.sessionId, input);
@@ -166,7 +180,7 @@ export function StudyNanaPanel({
         {handoff ? `${handoff.spaceTitle} · ${handoff.focusLabel}` : "正在拿起当前这一页…"}
       </p>
 
-      {loading || historyLoading ? <p className="kq-study-side-panel__status" role="status">正在接上这门课的对话…</p> : null}
+      {loading || historyLoading ? <p className="kq-study-side-panel__status" role="status">正在接上这本本子的对话…</p> : null}
       {contextError ? (
         <p className="kq-study-side-panel__alert" role="alert">
           当前页面内容暂时没有读到。为了不猜测，小娜不会自动发送问题；你仍可以在完整 Chat 中继续。
@@ -183,7 +197,7 @@ export function StudyNanaPanel({
 
       <ChatMessageList
         compact
-        emptyLabel="带着当前这一页问，不必重新交代课程和位置。"
+        emptyLabel="带着当前这一页问，不必重新交代本子和位置。"
         messages={messages}
         sending={sending}
         sendErr={sendErr}
@@ -193,7 +207,7 @@ export function StudyNanaPanel({
       />
 
       {needsModelSetup ? (
-        <p className="kq-study-side-panel__alert" role="alert">请先在设置中配置模型，再继续这次课程对话。</p>
+        <p className="kq-study-side-panel__alert" role="alert">请先在设置中配置模型，再继续这次本子对话。</p>
       ) : null}
 
       <form

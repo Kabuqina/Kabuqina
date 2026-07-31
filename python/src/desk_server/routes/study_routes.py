@@ -226,7 +226,47 @@ def _require_artifact(ctx, artifact_id: str) -> Dict[str, Any]:
 def _activate_artifact(ctx, artifact: Dict[str, Any]) -> Dict[str, Any]:
     artifact_id, kind = artifact["artifact_id"], artifact["kind"]
     if kind == "flashcard_deck":
-        return FlashcardService(ctx).activate_deck(artifact_id)
+        payload = artifact.get("envelope", {}).get("payload") or {}
+        cards = payload.get("cards") if isinstance(payload, dict) else []
+        is_course_core_deck = any(
+            isinstance(card, dict) and card.get("knowledge_core_id")
+            for card in (cards or [])
+        )
+        if (
+            is_course_core_deck
+            and artifact.get("review", {}).get("status") != "passed"
+        ):
+            raise ValueError(
+                "course knowledge cores require semantic review before activation"
+            )
+        if is_course_core_deck:
+            before = LearningMapService(ctx).get_map()
+            outline_ids = {node["id"] for node in before["outlineNodes"]}
+            unknown = sorted(
+                {
+                    str(card.get("outline_node_id") or "").strip()
+                    for card in cards
+                    if isinstance(card, dict) and card.get("knowledge_core_id")
+                }
+                - outline_ids
+            )
+            if unknown:
+                raise ValueError(
+                    "course knowledge cores reference unavailable outline nodes: "
+                    + ", ".join(unknown[:10])
+                )
+        result = FlashcardService(ctx).activate_deck(artifact_id)
+        if is_course_core_deck:
+            service = LearningMapService(ctx)
+            learning_map = service.get_map()
+            if service.get_location() is None and learning_map["knowledgeCores"]:
+                service.put_location(
+                    expected_revision=0,
+                    expected_map_revision=learning_map["revision"],
+                    page="learn",
+                    knowledge_core_id=learning_map["knowledgeCores"][0]["id"],
+                )
+        return result
     if kind == "quiz":
         return QuizService(ctx).activate_quiz(artifact_id)
     if kind == "student_state":
@@ -234,6 +274,11 @@ def _activate_artifact(ctx, artifact: Dict[str, Any]) -> Dict[str, Any]:
     if kind == "evaluation":
         return EvaluationService(ctx).activate_evaluation(artifact_id)
     if kind == "learning_plan":
+        if (
+            requires_semantic_review(artifact)
+            and artifact.get("review", {}).get("status") != "passed"
+        ):
+            raise ValueError("semantic review must be approved before activation")
         return LearningPlanService(ctx).activate_plan(artifact_id)
     if kind in {"knowledge_base", "material_alignment", "resource_pack", "tutoring_note"}:
         if (
@@ -375,6 +420,31 @@ def _source_refs_from_body(body: Dict[str, Any]) -> list[Dict[str, str]]:
         if isinstance(value, str) and value.strip():
             ref[key] = value.strip()
     return [ref] if ref else []
+
+
+def _source_refs_with_status(ctx, refs: Any) -> list[Any]:
+    """Project a referenced artifact's explicit status without mutating history."""
+    if not isinstance(refs, list):
+        return []
+    projected: list[Any] = []
+    for raw in refs:
+        if not isinstance(raw, dict):
+            projected.append(raw)
+            continue
+        ref = dict(raw)
+        target_id = next(
+            (
+                str(ref.get(key) or "").strip()
+                for key in ("source_artifact_id", "artifact_id", "material_id")
+                if str(ref.get(key) or "").strip()
+            ),
+            "",
+        )
+        target = ctx.get_artifact(target_id) if target_id else None
+        if target is not None:
+            ref["source_status"] = str(target.get("status") or "")
+        projected.append(ref)
+    return projected
 
 
 def _clean_text(value: Any) -> str:
@@ -934,45 +1004,45 @@ async def study_material_reader(artifact_id: str, body: Dict[str, Any]):
             raise ValueError("space_id is required")
         page_start = int(body.get("pageStart") or 1)
         page_end = int(body.get("pageEnd") or page_start + 5)
-        if page_start < 1 or page_end < page_start or page_end - page_start > 11:
-            raise ValueError("reader page range must be 1-based and contain at most 12 pages")
         with _desktop_ctx(space_id=space_id) as ctx:
             artifact = _require_artifact(ctx, artifact_id)
-            path, source_ref = _reader_source(artifact)
-            payload = artifact.get("envelope", {}).get("payload") or {}
-            outline = payload.get("outline") if isinstance(payload, dict) else []
-
-        reader = pdf_read_precise if path.suffix.lower() == ".pdf" else document_read_precise
-        kwargs: Dict[str, Any] = {
-            "path": str(path),
-            "mode": "fast",
-            "include_content": True,
-        }
-        if path.suffix.lower() == ".pdf":
-            kwargs.update(page_start=page_start, page_end=page_end)
-        with temporary_document_read_access(path):
-            with temporary_read_access(path):
-                raw = await asyncio.to_thread(reader, **kwargs)
-        result = json.loads(raw)
-        if result.get("ok") is not True:
-            raise ValueError(str(result.get("error") or result.get("detail") or "material reader failed"))
-
-        content = str(result.get("content") or "")
-        return {
-            "artifactId": artifact_id,
-            "title": str(artifact.get("title") or path.stem),
-            "filename": path.name,
-            "suffix": path.suffix.lower(),
-            "totalPages": int(result.get("total_pages") or source_ref.get("pages") or 1),
-            "pageStart": int(result.get("page_start") or 1),
-            "pageEnd": int(result.get("page_end") or result.get("pages") or 1),
-            "content": content[:120_000],
-            "outline": outline if isinstance(outline, list) else [],
-            "textQuality": str(result.get("text_quality") or "unknown"),
-            "warning": str(result.get("warning") or ""),
-        }
+        return await asyncio.to_thread(
+            _read_material_artifact_window,
+            artifact,
+            page_start=page_start,
+            page_end=page_end,
+        )
     except (ValueError, KeyError, FileNotFoundError, ContractError, json.JSONDecodeError) as exc:
         raise _http_error(exc) from exc
+
+
+@router.delete("/api/desk/study/materials/{artifact_id}")
+async def study_material_delete(artifact_id: str, space_id: str = Query(...)):
+    """Soft-delete one imported knowledge source without cascading.
+
+    The source artifact remains as an explicit ``deleted`` tombstone so plans,
+    generated learning content, practice, activities, and their source refs keep
+    stable identities. The original filesystem path is never removed here.
+    """
+    try:
+        with _desktop_ctx(space_id=space_id) as ctx:
+            artifact = _require_artifact(ctx, artifact_id)
+            if artifact.get("kind") != "resource_pack":
+                raise ValueError("only an imported knowledge source can be deleted")
+            if artifact.get("status") == "deleted":
+                return {"artifact_id": artifact_id, "status": "deleted"}
+            if artifact.get("status") != "active":
+                raise ValueError("only an active knowledge source can be deleted")
+            ctx.set_artifact_status(artifact_id, "deleted")
+            ctx.record_activity(
+                activity_type="resource.deleted",
+                artifact_id=artifact_id,
+                detail={"retained_derived_content": True},
+            )
+            return {"artifact_id": artifact_id, "status": "deleted"}
+    except (ValueError, KeyError, ContractError) as exc:
+        raise _http_error(exc) from exc
+
 
 @router.get("/api/desk/study/artifacts/{artifact_id}")
 async def study_artifact_detail(
@@ -1162,7 +1232,11 @@ async def study_source_audit(
     try:
         with _desktop_ctx(space_id=space_id) as ctx:
             artifact = _require_artifact(ctx, artifact_id)
-            return {"artifact_id": artifact_id, "source_refs": artifact["envelope"].get("source_refs") or []}
+            refs = artifact["envelope"].get("source_refs") or []
+            return {
+                "artifact_id": artifact_id,
+                "source_refs": _source_refs_with_status(ctx, refs),
+            }
     except (ValueError, KeyError, ContractError) as exc:
         raise _http_error(exc) from exc
 
@@ -1204,6 +1278,10 @@ async def study_knowledge_points(
                 if not artifact:
                     continue
                 refs = artifact.get("envelope", {}).get("source_refs") or []
+                card_refs = [
+                    ref for ref in (card.get("source_refs") or [])
+                    if isinstance(ref, dict)
+                ]
                 source = next(
                     (
                         ref for ref in refs
@@ -1211,11 +1289,18 @@ async def study_knowledge_points(
                     ),
                     None,
                 )
+                source = next(
+                    (ref for ref in card_refs if ref.get("origin") == "kq-kp"),
+                    source,
+                )
                 if not source:
                     continue
                 item = {
                     "item_id": str(
-                        source.get("knowledge_core_id") or card.get("item_id") or ""
+                        card.get("knowledge_core_id")
+                        or source.get("knowledge_core_id")
+                        or card.get("item_id")
+                        or ""
                     ),
                     "artifact_id": str(card.get("artifact_id") or ""),
                     "front": str(card.get("front") or ""),
@@ -1268,6 +1353,7 @@ async def study_location_put(body: Dict[str, Any]):
         "page",
         "knowledgeCoreId",
         "exerciseId",
+        "planItemId",
     }
     if not isinstance(body, dict) or set(body) - allowed:
         raise _http_error(ValueError("location request fields are invalid"))
@@ -1294,6 +1380,7 @@ async def study_location_put(body: Dict[str, Any]):
                 page=str(body.get("page") or "").strip(),
                 knowledge_core_id=body.get("knowledgeCoreId"),
                 exercise_id=body.get("exerciseId"),
+                plan_item_id=body.get("planItemId"),
             )
     except (ValueError, KeyError, ContractError, LearningConflictError) as exc:
         raise _http_error(exc) from exc
@@ -1404,15 +1491,32 @@ async def study_learning_plan_items(
     artifact_id: str, space_id: str = Query(...)
 ):
     try:
+        compilation_intents: list[dict[str, Any]] = []
+        valid_item_ids: set[str] = set()
+        recovered = 0
         with _desktop_ctx(space_id=space_id) as ctx:
             artifact = _require_artifact(ctx, artifact_id)
             if artifact["kind"] != "learning_plan":
                 raise ValueError("artifact is not a learning_plan")
-            return {
-                "items": LearningPlanService(ctx).list_plan_items(
-                    artifact_id=artifact_id
+            service = LearningPlanService(ctx)
+            if artifact.get("status") == "active":
+                reconciliation = service.reconcile_plan_items(artifact_id)
+                recovered = reconciliation["created"] + reconciliation["repaired"]
+            items = service.list_plan_items(artifact_id=artifact_id)
+            if recovered:
+                compilation_intents, valid_item_ids = _progression_compilation_intents(
+                    ctx, artifact_id
                 )
-            }
+        result: Dict[str, Any] = {"items": items}
+        if recovered:
+            result.update(
+                _enqueue_knowledge_core_intents(
+                    compilation_intents,
+                    space_id=space_id,
+                    valid_plan_item_ids=valid_item_ids,
+                )
+            )
+        return result
     except (ValueError, KeyError, ContractError) as exc:
         raise _http_error(exc) from exc
 

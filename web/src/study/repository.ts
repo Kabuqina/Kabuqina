@@ -3,6 +3,7 @@
 
 import {
   cmdStudyActivities,
+  cmdStudyArtifactActivate,
   cmdStudyArtifactDetail,
   cmdStudyArtifactSemanticReview,
   cmdStudyArtifactSourceAudit,
@@ -16,6 +17,11 @@ import {
   cmdStudyLocationGet,
   cmdStudyLocationPut,
   cmdStudyKnowledgePoints,
+  cmdStudyKnowledgeCoreCompilationCancel,
+  cmdStudyKnowledgeCoreCompilationCreate,
+  cmdStudyKnowledgeCoreCompilationGet,
+  cmdStudyKnowledgeCoreCompilationList,
+  cmdStudyKnowledgeCoreCompilationRetry,
   cmdStudyMigrateContext,
   cmdStudyMigrateBuiltinCourse,
   cmdStudyMigrateFlashcards,
@@ -42,6 +48,8 @@ import {
   type StudyEvaluationProjection,
   type StudyFlashcard,
   type StudyKnowledgePoint,
+  type KnowledgeCoreCompilationRequest,
+  type KnowledgeCoreCompilationRun,
   type StudyLearningMap,
   type StudySharedLocation,
   type StudyPlanItem,
@@ -97,6 +105,7 @@ export type StudyLearnHome = {
   artifacts: StudyArtifactSummary[];
   knowledgePoints: StudyKnowledgePoint[];
   learningMap?: StudyLearningMap;
+  location?: StudySharedLocation | null;
   unavailable?: Array<"knowledgePoints">;
   unavailableKinds?: StudyM5Kind[];
 };
@@ -131,6 +140,10 @@ export type StudyOutlineNode = {
 export type StudyPlanSnapshot = {
   plan: StudyArtifactSummary | null;
   items: StudyPlanItem[];
+  hasKnowledgeSources?: boolean;
+  location?: StudySharedLocation | null;
+  learningMap?: StudyLearningMap;
+  compilationRuns?: KnowledgeCoreCompilationRun[];
   outline: StudyOutlineNode[];
   outlineSourceArtifactId: string;
   outlineSourceTitle: string;
@@ -145,6 +158,8 @@ export type StudyPracticeHome = {
   cards: StudyFlashcard[];
   dueCards: StudyFlashcard[];
   quizzes: StudyArtifactSummary[];
+  learningMap?: StudyLearningMap;
+  location?: StudySharedLocation | null;
   unavailable?: Array<"cards" | "quizzes">;
 };
 
@@ -183,6 +198,7 @@ export interface StudyRepository {
       page: "plan" | "learn" | "practice";
       knowledgeCoreId?: string;
       exerciseId?: string;
+      planItemId?: string;
     },
     signal: AbortSignal,
   ): Promise<StudySharedLocation>;
@@ -206,6 +222,30 @@ export interface StudyRepository {
     status: "active" | "rejected" | "archived",
     signal: AbortSignal,
   ): Promise<void>;
+  listKnowledgeCoreCompilations?(
+    spaceId: string,
+    outlineNodeId: string | undefined,
+    signal: AbortSignal,
+  ): Promise<KnowledgeCoreCompilationRun[]>;
+  createKnowledgeCoreCompilation?(
+    request: KnowledgeCoreCompilationRequest,
+    signal: AbortSignal,
+  ): Promise<KnowledgeCoreCompilationRun>;
+  getKnowledgeCoreCompilation?(
+    spaceId: string,
+    runId: string,
+    signal: AbortSignal,
+  ): Promise<KnowledgeCoreCompilationRun>;
+  retryKnowledgeCoreCompilation?(
+    spaceId: string,
+    runId: string,
+    signal: AbortSignal,
+  ): Promise<KnowledgeCoreCompilationRun>;
+  cancelKnowledgeCoreCompilation?(
+    spaceId: string,
+    runId: string,
+    signal: AbortSignal,
+  ): Promise<KnowledgeCoreCompilationRun>;
   loadPlan(spaceId: string, signal: AbortSignal): Promise<StudyPlanSnapshot>;
   completePlanItem(spaceId: string, itemId: string, signal: AbortSignal): Promise<StudyPlanItem>;
   skipPlanItem(spaceId: string, itemId: string, signal: AbortSignal): Promise<StudyPlanItem>;
@@ -276,10 +316,16 @@ type StudyCommands = {
   drafts: (spaceId: string, limit: number, offset: number) => Promise<StudyDraftsResponse>;
   activeM5Summaries: (spaceId: string, kind: StudyM5Kind) => Promise<StudyDraftsResponse>;
   artifactDetail: (spaceId: string, artifactId: string) => ReturnType<typeof cmdStudyArtifactDetail>;
+  artifactActivate: typeof cmdStudyArtifactActivate;
   artifactStatus: typeof cmdStudyArtifactStatus;
   artifactSourceAudit: typeof cmdStudyArtifactSourceAudit;
   artifactSemanticReview: typeof cmdStudyArtifactSemanticReview;
   knowledgePoints: typeof cmdStudyKnowledgePoints;
+  knowledgeCoreCompilationCreate: typeof cmdStudyKnowledgeCoreCompilationCreate;
+  knowledgeCoreCompilationList: typeof cmdStudyKnowledgeCoreCompilationList;
+  knowledgeCoreCompilationGet: typeof cmdStudyKnowledgeCoreCompilationGet;
+  knowledgeCoreCompilationRetry: typeof cmdStudyKnowledgeCoreCompilationRetry;
+  knowledgeCoreCompilationCancel: typeof cmdStudyKnowledgeCoreCompilationCancel;
   learningMap: typeof cmdStudyLearningMapGet;
   locationGet: typeof cmdStudyLocationGet;
   locationPut: typeof cmdStudyLocationPut;
@@ -332,10 +378,16 @@ const defaultCommands: StudyCommands = {
     limit: 100,
   }),
   artifactDetail: cmdStudyArtifactDetail,
+  artifactActivate: cmdStudyArtifactActivate,
   artifactStatus: cmdStudyArtifactStatus,
   artifactSourceAudit: cmdStudyArtifactSourceAudit,
   artifactSemanticReview: cmdStudyArtifactSemanticReview,
   knowledgePoints: cmdStudyKnowledgePoints,
+  knowledgeCoreCompilationCreate: cmdStudyKnowledgeCoreCompilationCreate,
+  knowledgeCoreCompilationList: cmdStudyKnowledgeCoreCompilationList,
+  knowledgeCoreCompilationGet: cmdStudyKnowledgeCoreCompilationGet,
+  knowledgeCoreCompilationRetry: cmdStudyKnowledgeCoreCompilationRetry,
+  knowledgeCoreCompilationCancel: cmdStudyKnowledgeCoreCompilationCancel,
   learningMap: cmdStudyLearningMapGet,
   locationGet: cmdStudyLocationGet,
   locationPut: cmdStudyLocationPut,
@@ -576,13 +628,17 @@ export function createStudyRepository(commands: Partial<StudyCommands> = {}): St
     async loadLearnHome(spaceId, signal) {
       return invokeWithSignal(signal, async () => {
         const kinds: StudyM5Kind[] = ["knowledge_base", "resource_pack", "tutoring_note"];
-        const [artifactResults, learningMapResult, knowledgePointsResult] = await Promise.all([
+        const [artifactResults, learningMapResult, knowledgePointsResult, locationResult] = await Promise.all([
           Promise.allSettled(kinds.map((kind) => resolved.activeM5Summaries(spaceId, kind))),
           Promise.resolve(resolved.learningMap(spaceId)).then(
             (value) => ({ status: "fulfilled" as const, value }),
             (reason) => ({ status: "rejected" as const, reason }),
           ),
           Promise.resolve(resolved.knowledgePoints(spaceId)).then(
+            (value) => ({ status: "fulfilled" as const, value }),
+            (reason) => ({ status: "rejected" as const, reason }),
+          ),
+          Promise.resolve(resolved.locationGet(spaceId)).then(
             (value) => ({ status: "fulfilled" as const, value }),
             (reason) => ({ status: "rejected" as const, reason }),
           ),
@@ -619,6 +675,7 @@ export function createStudyRepository(commands: Partial<StudyCommands> = {}): St
             ? mapPoints
             : knowledgePointsResult.status === "fulfilled" ? knowledgePointsResult.value.items : [],
           ...(learningMapResult.status === "fulfilled" ? { learningMap: learningMapResult.value } : {}),
+          ...(locationResult.status === "fulfilled" ? { location: locationResult.value } : {}),
           ...(unavailable.length ? { unavailable } : {}),
           ...(unavailableKinds.length ? { unavailableKinds } : {}),
         };
@@ -672,15 +729,51 @@ export function createStudyRepository(commands: Partial<StudyCommands> = {}): St
     async setArtifactStatus(spaceId, artifactId, status, signal) {
       await invokeWithSignal(
         signal,
-        () => resolved.artifactStatus(spaceId, artifactId, status),
+        () => status === "active"
+          ? resolved.artifactActivate(artifactId)
+          : resolved.artifactStatus(spaceId, artifactId, status),
+      );
+    },
+    async listKnowledgeCoreCompilations(spaceId, outlineNodeId, signal) {
+      return (await invokeWithSignal(
+        signal,
+        () => resolved.knowledgeCoreCompilationList(spaceId, outlineNodeId),
+      )).items;
+    },
+    createKnowledgeCoreCompilation(request, signal) {
+      return invokeWithSignal(
+        signal,
+        () => resolved.knowledgeCoreCompilationCreate(request),
+      );
+    },
+    getKnowledgeCoreCompilation(spaceId, runId, signal) {
+      return invokeWithSignal(
+        signal,
+        () => resolved.knowledgeCoreCompilationGet(spaceId, runId),
+      );
+    },
+    retryKnowledgeCoreCompilation(spaceId, runId, signal) {
+      return invokeWithSignal(
+        signal,
+        () => resolved.knowledgeCoreCompilationRetry(spaceId, runId),
+      );
+    },
+    cancelKnowledgeCoreCompilation(spaceId, runId, signal) {
+      return invokeWithSignal(
+        signal,
+        () => resolved.knowledgeCoreCompilationCancel(spaceId, runId),
       );
     },
     async loadPlan(spaceId, signal) {
       return invokeWithSignal(signal, async () => {
-        const [response, materialResponse, mapResult] = await Promise.all([
+        const [response, materialResponse, mapResult, locationResult] = await Promise.all([
           resolved.learningPlans(spaceId),
           resolved.activeM5Summaries(spaceId, "resource_pack"),
           Promise.resolve(resolved.learningMap(spaceId)).then(
+            (value) => ({ status: "fulfilled" as const, value }),
+            (reason) => ({ status: "rejected" as const, reason }),
+          ),
+          Promise.resolve(resolved.locationGet(spaceId)).then(
             (value) => ({ status: "fulfilled" as const, value }),
             (reason) => ({ status: "rejected" as const, reason }),
           ),
@@ -701,7 +794,17 @@ export function createStudyRepository(commands: Partial<StudyCommands> = {}): St
           structureStatus = mapResult.value.outlineStatus === "ready"
             ? "reliable"
             : mapResult.value.outlineStatus === "missing" ? "missing" : "unknown";
-          return { plan, items, outline, outlineSourceArtifactId, outlineSourceTitle, structureStatus };
+          return {
+            plan,
+            items,
+            hasKnowledgeSources: materialResponse.items.length > 0,
+            location: locationResult.status === "fulfilled" ? locationResult.value : null,
+            learningMap: mapResult.value,
+            outline,
+            outlineSourceArtifactId,
+            outlineSourceTitle,
+            structureStatus,
+          };
         }
         const materialDetails = await Promise.allSettled(
           [...materialResponse.items]
@@ -726,7 +829,16 @@ export function createStudyRepository(commands: Partial<StudyCommands> = {}): St
           structureStatus = "reliable";
           break;
         }
-        return { plan, items, outline, outlineSourceArtifactId, outlineSourceTitle, structureStatus };
+        return {
+          plan,
+          items,
+          hasKnowledgeSources: materialResponse.items.length > 0,
+          location: locationResult.status === "fulfilled" ? locationResult.value : null,
+          outline,
+          outlineSourceArtifactId,
+          outlineSourceTitle,
+          structureStatus,
+        };
       });
     },
     completePlanItem(spaceId, itemId, signal) {
@@ -757,10 +869,12 @@ export function createStudyRepository(commands: Partial<StudyCommands> = {}): St
     },
     loadPracticeHome(spaceId, signal) {
       return invokeWithSignal(signal, async () => {
-        const [cardsResult, dueCardsResult, quizzesResult] = await Promise.allSettled([
+        const [cardsResult, dueCardsResult, quizzesResult, learningMapResult, locationResult] = await Promise.allSettled([
           resolved.flashcards(spaceId, false),
           resolved.flashcards(spaceId, true),
           resolved.quizzes(spaceId),
+          resolved.learningMap(spaceId),
+          resolved.locationGet(spaceId),
         ]);
         const unavailable: Array<"cards" | "quizzes"> = [];
         if (cardsResult.status !== "fulfilled" || dueCardsResult.status !== "fulfilled") unavailable.push("cards");
@@ -774,6 +888,8 @@ export function createStudyRepository(commands: Partial<StudyCommands> = {}): St
           cards: cardsResult.status === "fulfilled" ? cardsResult.value.cards : [],
           dueCards: dueCardsResult.status === "fulfilled" ? dueCardsResult.value.cards : [],
           quizzes: quizzesResult.status === "fulfilled" ? quizzesResult.value.quizzes : [],
+          ...(learningMapResult.status === "fulfilled" ? { learningMap: learningMapResult.value } : {}),
+          ...(locationResult.status === "fulfilled" ? { location: locationResult.value } : {}),
           ...(unavailable.length ? { unavailable } : {}),
         };
       });

@@ -45,7 +45,7 @@ describe("AppShell", () => {
   it("marks the current surface so Study and Studio read as the two destinations", () => {
     renderShell("/studio");
     expect(screen.getByRole("button", { name: "创作" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("button", { name: "课程" })).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("button", { name: "学习" })).not.toHaveAttribute("aria-current");
   });
 
   it("keeps the shell around every product surface", async () => {
@@ -56,7 +56,7 @@ describe("AppShell", () => {
     await user.click(screen.getByRole("button", { name: "对话" }));
     expect(screen.getByText("chat surface")).toBeInTheDocument();
     // 换目的地不等于换外壳：页眉一直在。
-    expect(screen.getByRole("button", { name: "课程" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "学习" })).toBeInTheDocument();
   });
 
   it("keeps Settings inside the shell and marks its utility entry", () => {
@@ -110,7 +110,7 @@ describe("AppShell", () => {
     const utility = header.querySelector(".kq-utility-nav")!;
 
     expect(brand).toContainElement(screen.getByRole("button", { name: /台灯|开台灯/ }));
-    expect(primary).toContainElement(screen.getByRole("button", { name: "课程" }));
+    expect(primary).toContainElement(screen.getByRole("button", { name: "学习" }));
     expect(primary).toContainElement(screen.getByRole("button", { name: "创作" }));
     expect(primary).not.toContainElement(screen.getByRole("button", { name: "对话" }));
     expect(utility).toContainElement(screen.getByRole("button", { name: "对话" }));

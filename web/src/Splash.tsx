@@ -11,8 +11,8 @@ import { useI18n } from "./lib/i18n";
 import { clearAllowChatWithoutApi, getAllowChatWithoutApi } from "./lib/apiKeyGate";
 
 /**
- * App entry: saved API key → chat (after Hermes ready). No key but user chose
- * “configure later” on pass step → chat (after Hermes ready). Otherwise → onboarding.
+ * App entry: saved API key → Study (after Hermes ready). No key but user chose
+ * “configure later” on pass step → Study (after Hermes ready). Otherwise → onboarding.
  */
 export function Splash() {
   const { t } = useI18n();
@@ -26,8 +26,8 @@ export function Splash() {
         if (cancelled) {
           return;
         }
-        const goChat = has || getAllowChatWithoutApi();
-        if (goChat) {
+        const goStudy = has || getAllowChatWithoutApi();
+        if (goStudy) {
           if (has) {
             clearAllowChatWithoutApi();
           }
@@ -35,7 +35,7 @@ export function Splash() {
           if (cancelled) {
             return;
           }
-          nav("/chat", { replace: true });
+          nav("/study", { replace: true });
           return;
         }
         nav("/onboarding/welcome", { replace: true });

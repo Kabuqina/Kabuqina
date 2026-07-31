@@ -324,7 +324,7 @@ class FlashcardService:
         artifact_id: str,
         now: str,
     ) -> Dict[str, Any]:
-        return {
+        state = {
             "item_id": item_id,
             "artifact_id": artifact_id,
             "front": _clean_text(card.get("front")),
@@ -339,6 +339,16 @@ class FlashcardService:
             "dueAt": now,
             "lastReviewedAt": "",
         }
+        if isinstance(card.get("knowledge_core_id"), str):
+            state["knowledge_core_id"] = _clean_text(card["knowledge_core_id"], 200)
+            state["outline_node_id"] = _clean_text(card.get("outline_node_id"), 200)
+            state["order"] = max(0, int(card.get("order") or 0))
+            state["source_refs"] = [
+                dict(ref)
+                for ref in (card.get("source_refs") or [])
+                if isinstance(ref, dict)
+            ]
+        return state
 
     def _card_from_item(self, row: Dict[str, Any]) -> Dict[str, Any]:
         state = dict(row.get("state") or {})
