@@ -11,6 +11,9 @@ from typing import Iterator
 from fastapi import APIRouter, HTTPException, Query
 
 from activity_projection import ActivityProjectionService, normalize_statuses
+from learning.knowledge_core_compilation_store import (
+    KnowledgeCoreCompilationStore,
+)
 from learning.learning_store import LearningStore, default_learning_db_path
 from learning.tutor_contract import TutorContractError
 from learning.tutor_runtime_store import TutorRuntimeStore
@@ -25,6 +28,7 @@ router = APIRouter()
 def _activity_projection() -> Iterator[ActivityProjectionService]:
     learning_store = LearningStore()
     runtime_store: TutorRuntimeStore | None = None
+    compilation_store: KnowledgeCoreCompilationStore | None = None
     studio_store: StudioStore | None = None
     try:
         runtime_store = TutorRuntimeStore(
@@ -33,6 +37,9 @@ def _activity_projection() -> Iterator[ActivityProjectionService]:
             secure_permissions=(
                 learning_store.db_path == default_learning_db_path().resolve()
             ),
+        )
+        compilation_store = KnowledgeCoreCompilationStore(
+            learning_store.db_path.parent / "knowledge_core_compilations.db"
         )
         studio_store = StudioStore()
         owner_id = learning_owner.desktop_owner_id()
@@ -49,12 +56,15 @@ def _activity_projection() -> Iterator[ActivityProjectionService]:
             learning_store=learning_store,
             runtime_store=runtime_store,
             studio_store=studio_store,
+            compilation_store=compilation_store,
         )
     finally:
         if studio_store is not None:
             studio_store.close()
         if runtime_store is not None:
             runtime_store.close()
+        if compilation_store is not None:
+            compilation_store.close()
         learning_store.close()
 
 

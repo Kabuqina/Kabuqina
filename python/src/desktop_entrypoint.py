@@ -465,6 +465,18 @@ def main() -> int:
     _learning_recovery_runner = LearningRecoveryRunner()
     _learning_recovery_runner.start()
 
+    # Knowledge-core compilation is a separate, bounded background runtime.
+    # Startup recovery fails abandoned model-owned stages and safely resumes
+    # queued work; it never creates a Chat session or learning evidence.
+    try:
+        from desk_server.knowledge_core_compile_runner import (
+            start_knowledge_core_compile_runner,
+        )
+
+        start_knowledge_core_compile_runner()
+    except Exception:
+        log.exception("failed to start knowledge-core compiler runner")
+
     # 1b. Eager-load real ``gateway.session_context`` so ``tools/approval`` + terminal
     #     use ContextVar state (not a stale stub left in sys.modules).
     try:

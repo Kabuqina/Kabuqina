@@ -19,6 +19,9 @@ for path in (ROOT / "python" / "src", ROOT / "hermes_core"):
 
 from learning.checkpoint_store import LearningCheckpointV1  # noqa: E402
 from learning.learning_context import LearningExecutionContext  # noqa: E402
+from learning.knowledge_core_compilation_store import (  # noqa: E402
+    KnowledgeCoreCompilationStore,
+)
 from learning.learning_store import LearningStore  # noqa: E402
 from learning.tutor_contract import validate_start_request  # noqa: E402
 from learning.tutor_runtime_store import TutorRuntimeStore  # noqa: E402
@@ -150,3 +153,55 @@ def test_global_activity_rejects_unknown_public_status(activity_client):
     )
     assert response.status_code == 400
     assert response.json()["detail"]["code"] == "activity_invalid_request"
+
+
+def test_global_activity_projects_retryable_knowledge_core_compilation(
+    activity_client,
+):
+    client, learning_db = activity_client
+    learning_store = LearningStore(learning_db)
+    try:
+        context = LearningExecutionContext(learning_store, OWNER)
+        context.create_space(title="Calculus", space_id="course-calculus")
+    finally:
+        learning_store.close()
+    runtime = KnowledgeCoreCompilationStore(
+        learning_db.parent / "knowledge_core_compilations.db"
+    )
+    try:
+        run, _created = runtime.create_or_reuse(
+            OWNER,
+            {
+                "space_id": "course-calculus",
+                "outline_node_id": "limits",
+                "trigger": "start_learning",
+                "expected_map_revision": 1,
+                "idempotency_key": "compile-limits",
+            },
+            source_fingerprint="1" * 64,
+            compilation_key="2" * 64,
+            initial_status="needs_source",
+            reason_code="outline_locator_missing",
+        )
+    finally:
+        runtime.close()
+
+    response = client.get("/api/desk/activity", headers=_headers())
+
+    assert response.status_code == 200
+    item = next(
+        row
+        for row in response.json()["items"]
+        if row["kind"] == "knowledge_core_compilation"
+    )
+    assert item["id"] == (
+        f"study:knowledge_core_compilation:{run['run_id']}"
+    )
+    assert item["status"] == "waiting"
+    assert item["canRetry"] is True
+    assert item["canResume"] is False
+    assert item["outlineNodeId"] == "limits"
+    assert item["reasonCode"] == "outline_locator_missing"
+    assert item["returnTarget"] == (
+        "/study/course-calculus/plan?outlineNodeId=limits"
+    )

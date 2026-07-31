@@ -532,11 +532,99 @@ async def study_artifact_summaries(
 @router.post("/api/desk/study/artifacts/{artifact_id}/activate")
 async def study_artifact_activate(artifact_id: str):
     try:
+        compilation_intents = []
+        active_plan_item_ids: set[str] = set()
+        compilation_space_id = ""
+        activated_learning_plan = False
         with _desktop_ctx() as ctx:
             artifact = _require_artifact(ctx, artifact_id)
-            return _activate_artifact(ctx, artifact)
+            result = _activate_artifact(ctx, artifact)
+            if artifact["kind"] == "learning_plan":
+                activated_learning_plan = True
+                service = LearningPlanService(ctx)
+                map_revision = LearningMapService(ctx).get_map()["revision"]
+                compilation_space_id = str(ctx.current_space() or "")
+                active_plan_item_ids = {
+                    str(item["item_id"])
+                    for item in service.list_plan_items(artifact_id=artifact_id)
+                }
+                compilation_intents = [
+                    {
+                        **intent,
+                        "expected_map_revision": map_revision,
+                        "idempotency_key": (
+                            f"plan:{artifact_id}:{intent['plan_item_id']}:"
+                            f"{map_revision}:{intent['trigger']}"
+                        ),
+                    }
+                    for intent in service.compilation_intents(artifact_id)
+                ]
+        if activated_learning_plan:
+            result.update(
+                _enqueue_knowledge_core_intents(
+                    compilation_intents,
+                    space_id=compilation_space_id,
+                    valid_plan_item_ids=active_plan_item_ids,
+                )
+            )
+        return result
     except (ValueError, KeyError, ContractError) as exc:
         raise _http_error(exc) from exc
+
+
+def _enqueue_knowledge_core_intents(
+    intents: list[dict[str, Any]],
+    *,
+    space_id: str,
+    valid_plan_item_ids: set[str],
+) -> dict[str, Any]:
+    """Persist scheduling decisions without waiting for model execution."""
+    from desk_server.knowledge_core_compile_runner import (
+        get_knowledge_core_compile_runner,
+    )
+
+    runner = get_knowledge_core_compile_runner()
+    runner.cancel_stale_prefetch(space_id, valid_plan_item_ids)
+    runs = []
+    failed = False
+    for raw_intent in intents:
+        intent = dict(raw_intent)
+        priority = int(intent.pop("priority"))
+        try:
+            runs.append(runner.enqueue(intent, priority=priority))
+        except Exception:
+            failed = True
+    result: dict[str, Any] = {
+        "compilationRuns": [
+            {
+                "runId": run["run_id"],
+                "outlineNodeId": run["outline_node_id"],
+                "status": run["status"],
+            }
+            for run in runs
+        ]
+    }
+    if failed:
+        result["compilationEnqueueFailed"] = True
+    return result
+
+
+def _progression_compilation_intents(
+    ctx, artifact_id: str
+) -> tuple[list[dict[str, Any]], set[str]]:
+    service = LearningPlanService(ctx)
+    map_revision = LearningMapService(ctx).get_map()["revision"]
+    items = service.list_plan_items(artifact_id=artifact_id)
+    intents = []
+    for intent in service.compilation_intents(artifact_id):
+        intent = dict(intent)
+        intent["trigger"] = "prefetch"
+        intent["expected_map_revision"] = map_revision
+        intent["idempotency_key"] = (
+            f"progress:{artifact_id}:{intent['plan_item_id']}:{map_revision}"
+        )
+        intents.append(intent)
+    return intents, {str(item["item_id"]) for item in items}
 
 
 @router.post("/api/desk/study/artifacts/{artifact_id}/reject")
@@ -776,6 +864,8 @@ async def study_material_read(body: Dict[str, Any]):
 def _reader_source(artifact: Dict[str, Any]) -> tuple[Path, Dict[str, Any]]:
     if artifact.get("kind") != "resource_pack":
         raise ValueError("material reader requires an imported resource")
+    if artifact.get("status") != "active":
+        raise ValueError("material reader requires an active imported resource")
     refs = artifact.get("envelope", {}).get("source_refs") or []
     for ref in refs:
         if not isinstance(ref, dict) or ref.get("origin") != "imported":
@@ -784,6 +874,47 @@ def _reader_source(artifact: Dict[str, Any]) -> tuple[Path, Dict[str, Any]]:
         if path.is_file():
             return path, ref
     raise FileNotFoundError("the imported material file is no longer available")
+
+
+def _read_material_artifact_window(
+    artifact: Dict[str, Any], *, page_start: int, page_end: int
+) -> Dict[str, Any]:
+    if page_start < 1 or page_end < page_start or page_end - page_start > 11:
+        raise ValueError(
+            "reader page range must be 1-based and contain at most 12 pages"
+        )
+    path, source_ref = _reader_source(artifact)
+    payload = artifact.get("envelope", {}).get("payload") or {}
+    outline = payload.get("outline") if isinstance(payload, dict) else []
+    reader = pdf_read_precise if path.suffix.lower() == ".pdf" else document_read_precise
+    kwargs: Dict[str, Any] = {
+        "path": str(path),
+        "mode": "fast",
+        "include_content": True,
+    }
+    if path.suffix.lower() == ".pdf":
+        kwargs.update(page_start=page_start, page_end=page_end)
+    with temporary_document_read_access(path):
+        with temporary_read_access(path):
+            raw = reader(**kwargs)
+    result = json.loads(raw)
+    if result.get("ok") is not True:
+        raise ValueError(
+            str(result.get("error") or result.get("detail") or "material reader failed")
+        )
+    return {
+        "artifactId": str(artifact.get("artifact_id") or ""),
+        "title": str(artifact.get("title") or path.stem),
+        "filename": path.name,
+        "suffix": path.suffix.lower(),
+        "totalPages": int(result.get("total_pages") or source_ref.get("pages") or 1),
+        "pageStart": int(result.get("page_start") or 1),
+        "pageEnd": int(result.get("page_end") or result.get("pages") or 1),
+        "content": str(result.get("content") or "")[:120_000],
+        "outline": outline if isinstance(outline, list) else [],
+        "textQuality": str(result.get("text_quality") or "unknown"),
+        "warning": str(result.get("warning") or ""),
+    }
 
 
 @router.post("/api/desk/study/materials/{artifact_id}/reader")
@@ -1291,9 +1422,20 @@ async def study_learning_plan_item_complete(item_id: str, body: Dict[str, Any]):
     try:
         space_id = _required_space_id(body)
         with _desktop_ctx(space_id=space_id) as ctx:
-            return LearningPlanService(ctx).complete_item(
+            result = LearningPlanService(ctx).complete_item(
                 item_id, note=str(body.get("note") or "")
             )
+            intents, valid_item_ids = _progression_compilation_intents(
+                ctx, result["artifact_id"]
+            )
+        result.update(
+            _enqueue_knowledge_core_intents(
+                intents,
+                space_id=space_id,
+                valid_plan_item_ids=valid_item_ids,
+            )
+        )
+        return result
     except (ValueError, KeyError, ContractError) as exc:
         raise _http_error(exc) from exc
 
@@ -1303,9 +1445,20 @@ async def study_learning_plan_item_skip(item_id: str, body: Dict[str, Any]):
     try:
         space_id = _required_space_id(body)
         with _desktop_ctx(space_id=space_id) as ctx:
-            return LearningPlanService(ctx).skip_item(
+            result = LearningPlanService(ctx).skip_item(
                 item_id, note=str(body.get("note") or "")
             )
+            intents, valid_item_ids = _progression_compilation_intents(
+                ctx, result["artifact_id"]
+            )
+        result.update(
+            _enqueue_knowledge_core_intents(
+                intents,
+                space_id=space_id,
+                valid_plan_item_ids=valid_item_ids,
+            )
+        )
+        return result
     except (ValueError, KeyError, ContractError) as exc:
         raise _http_error(exc) from exc
 

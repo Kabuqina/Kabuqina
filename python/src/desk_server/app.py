@@ -13,6 +13,7 @@ from desk_server.routes import (
     chat,
     export,
     goal_routes,
+    knowledge_core_compilation_routes,
     load_packages,
     sessions,
     status,
@@ -39,6 +40,7 @@ def create_app() -> FastAPI:
 
     for mod in (
         activity_routes,
+        knowledge_core_compilation_routes,
         status,
         chat,
         sessions,

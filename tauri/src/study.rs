@@ -1626,6 +1626,111 @@ pub async fn cmd_study_plan_item_skip(
 }
 
 #[tauri::command]
+pub async fn cmd_study_knowledge_core_compilation_create(
+    app: AppHandle,
+    body: Value,
+) -> Result<Value, DeskBridgeError> {
+    let object = body.as_object().ok_or_else(|| {
+        DeskBridgeError::invalid(
+            "study_compilation_invalid_request",
+            "compilation request must be an object",
+        )
+    })?;
+    for key in ["spaceId", "outlineNodeId", "idempotencyKey"] {
+        let value = object.get(key).and_then(Value::as_str).ok_or_else(|| {
+            DeskBridgeError::invalid(
+                "study_compilation_invalid_request",
+                format!("{key} is required"),
+            )
+        })?;
+        validate_structured_id(value)?;
+    }
+    if let Some(value) = object.get("planItemId") {
+        let value = value.as_str().ok_or_else(|| {
+            DeskBridgeError::invalid(
+                "study_compilation_invalid_request",
+                "planItemId must be a string",
+            )
+        })?;
+        validate_structured_id(value)?;
+    }
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::POST,
+        "/api/desk/study/knowledge-core-compilations",
+        Some(body),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_knowledge_core_compilation_list(
+    app: AppHandle,
+    space_id: String,
+    outline_node_id: Option<String>,
+) -> Result<Value, DeskBridgeError> {
+    validate_structured_id(&space_id)?;
+    let mut path = format!("/api/desk/study/knowledge-core-compilations?space_id={space_id}");
+    if let Some(outline_node_id) = outline_node_id {
+        validate_structured_id(&outline_node_id)?;
+        path.push_str("&outline_node_id=");
+        path.push_str(&outline_node_id);
+    }
+    crate::chat::desk_json_request_structured(&app, reqwest::Method::GET, &path, None).await
+}
+
+#[tauri::command]
+pub async fn cmd_study_knowledge_core_compilation_get(
+    app: AppHandle,
+    space_id: String,
+    run_id: String,
+) -> Result<Value, DeskBridgeError> {
+    validate_structured_id(&space_id)?;
+    validate_structured_id(&run_id)?;
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::GET,
+        &format!("/api/desk/study/knowledge-core-compilations/{run_id}?space_id={space_id}"),
+        None,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_knowledge_core_compilation_retry(
+    app: AppHandle,
+    space_id: String,
+    run_id: String,
+) -> Result<Value, DeskBridgeError> {
+    validate_structured_id(&space_id)?;
+    validate_structured_id(&run_id)?;
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::POST,
+        &format!("/api/desk/study/knowledge-core-compilations/{run_id}/retry"),
+        Some(json!({"spaceId": space_id})),
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn cmd_study_knowledge_core_compilation_cancel(
+    app: AppHandle,
+    space_id: String,
+    run_id: String,
+) -> Result<Value, DeskBridgeError> {
+    validate_structured_id(&space_id)?;
+    validate_structured_id(&run_id)?;
+    crate::chat::desk_json_request_structured(
+        &app,
+        reqwest::Method::POST,
+        &format!("/api/desk/study/knowledge-core-compilations/{run_id}/cancel"),
+        Some(json!({"spaceId": space_id})),
+    )
+    .await
+}
+
+#[tauri::command]
 pub async fn cmd_study_review_reminder_get(app: AppHandle) -> Result<Value, String> {
     crate::chat::desk_json_request(
         &app,

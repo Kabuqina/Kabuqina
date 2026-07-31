@@ -9,6 +9,9 @@ from typing import Any, Iterable
 from urllib.parse import quote, urlencode
 
 from learning.learning_context import LearningExecutionContext
+from learning.knowledge_core_compilation_store import (
+    KnowledgeCoreCompilationStore,
+)
 from learning.learning_map import LearningMapService
 from learning.learning_store import LearningStore
 from learning.tutor_runtime_store import TutorRuntimeStore
@@ -28,6 +31,17 @@ _STATUS_MAP = {
     "blocked": "failed",
     "cancelled": "completed",
     "completed": "completed",
+}
+
+_COMPILATION_STATUS_MAP = {
+    "queued": "waiting",
+    "reading": "running",
+    "generating": "running",
+    "validating": "running",
+    "draft_ready": "completed",
+    "needs_source": "waiting",
+    "failed": "failed",
+    "cancelled": "completed",
 }
 
 
@@ -50,11 +64,13 @@ class ActivityProjectionService:
         learning_store: LearningStore,
         runtime_store: TutorRuntimeStore,
         studio_store: StudioStore,
+        compilation_store: KnowledgeCoreCompilationStore | None = None,
     ) -> None:
         self.owner_id = owner_id
         self.learning_store = learning_store
         self.runtime_store = runtime_store
         self.studio_store = studio_store
+        self.compilation_store = compilation_store
 
     def _study_target(
         self, space_id: str, space_exists: bool
@@ -158,13 +174,78 @@ class ActivityProjectionService:
             for project in self.studio_store.list_projects()
         ]
 
+    def _compilation_records(self) -> list[dict[str, Any]]:
+        if self.compilation_store is None:
+            return []
+        spaces = {
+            str(item["space_id"]): item
+            for item in self.learning_store.list_spaces(self.owner_id)
+            if item.get("kind", "course") == "course"
+        }
+        records: list[dict[str, Any]] = []
+        for run in self.compilation_store.list_runs(self.owner_id, limit=500):
+            source_status = str(run.get("status") or "")
+            public_status = _COMPILATION_STATUS_MAP.get(source_status)
+            if public_status is None:
+                continue
+            space_id = str(run.get("space_id") or "")
+            outline_node_id = str(run.get("outline_node_id") or "")
+            space = spaces.get(space_id)
+            fallback = "/study"
+            target = fallback
+            if space is not None:
+                target = f"/study/{quote(space_id, safe='')}/plan"
+                if outline_node_id:
+                    target += "?" + urlencode(
+                        {"outlineNodeId": outline_node_id}
+                    )
+            course_title = (
+                str(space.get("title") or space_id) if space else "已移除的课程"
+            )
+            records.append(
+                {
+                    "id": (
+                        "study:knowledge_core_compilation:"
+                        + str(run.get("run_id") or "")
+                    ),
+                    "domain": "study",
+                    "kind": "knowledge_core_compilation",
+                    "status": public_status,
+                    "title": f"{course_title} · 整理知识核",
+                    "scopeTitle": course_title,
+                    "updatedAt": str(run.get("updated_at") or ""),
+                    "returnTarget": target,
+                    "fallbackTarget": fallback,
+                    "canResume": False,
+                    "canRetry": source_status in {"failed", "needs_source"},
+                    "revision": 0,
+                    "spaceId": space_id,
+                    "activityId": str(run.get("run_id") or ""),
+                    "activityKind": "knowledge_core_compilation",
+                    "sourceStatus": source_status,
+                    "targetAvailable": space is not None,
+                    "compilationRunId": str(run.get("run_id") or ""),
+                    "outlineNodeId": outline_node_id,
+                    "planItemId": str(run.get("plan_item_id") or "") or None,
+                    "draftArtifactId": (
+                        str(run.get("draft_artifact_id") or "") or None
+                    ),
+                    "reasonCode": str(run.get("reason_code") or "") or None,
+                }
+            )
+        return records
+
     def list_records(
         self, *, statuses: set[str] | None = None, limit: int = 100
     ) -> dict[str, Any]:
         if type(limit) is not int or not 1 <= limit <= 100:
             raise ValueError("limit must be within 1..100")
         normalized = normalize_statuses(statuses)
-        items = [*self._study_records(), *self._studio_records()]
+        items = [
+            *self._study_records(),
+            *self._compilation_records(),
+            *self._studio_records(),
+        ]
         if normalized is not None:
             items = [item for item in items if item["status"] in normalized]
         items.sort(key=lambda item: (item["updatedAt"], item["id"]), reverse=True)

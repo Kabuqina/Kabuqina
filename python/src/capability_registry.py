@@ -1233,6 +1233,50 @@ _CAPABILITIES: tuple[dict[str, Any], ...] = (
         ],
     },
     {
+        "id": "student-knowledge-core-compiler",
+        "title": "Knowledge core compiler",
+        "description": (
+            "Bounded, source-grounded compilation of one outline node into a "
+            "reviewable flashcard-deck draft with durable progress and retry."
+        ),
+        "category": "learning",
+        "family": "student-learning",
+        "lifecycle": "available",
+        "agent_hint": (
+            "This is a trusted non-dialog desktop runtime. It receives only bounded "
+            "reader windows, has no tools or chat history, and writes drafts that "
+            "must pass semantic review before activation."
+        ),
+        "tools": [],
+        "required_toolsets": [],
+        "pipelines": [
+            {
+                "id": "knowledge-core-compiler-v1",
+                "primary": True,
+                "stages": ["reader", "planner", "writer"],
+                "steps": [
+                    {
+                        "id": "read-bounded-outline-source",
+                        "stage": "reader",
+                        "outputs": ["source_windows", "source_fingerprints"],
+                    },
+                    {
+                        "id": "compile-tool-free-candidates",
+                        "stage": "planner",
+                        "inputs": ["source_windows"],
+                        "outputs": ["knowledge_core_candidates"],
+                    },
+                    {
+                        "id": "write-reviewable-core-draft",
+                        "stage": "writer",
+                        "inputs": ["knowledge_core_candidates"],
+                        "outputs": ["flashcard_deck_draft"],
+                    },
+                ],
+            }
+        ],
+    },
+    {
         # STUDY learning foundation (M1). References the learning Planner id and
         # learning artifact kinds by STABLE ID only — no prompt/schema is
         # duplicated here; the drift test in tests/test_capability_registry_learning.py

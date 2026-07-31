@@ -1792,3 +1792,27 @@ Studio resumes as a separately scoped v0.6 product slice with its own interactio
 contract and acceptance plan. Until that scope is approved, existing Studio
 screens and backend contracts are implementation assets, not evidence that Studio
 is shipped.
+
+## Study knowledge-core compiler is a non-dialog runtime (2026-07-31)
+
+Knowledge-core production is a durable Study compilation run, not a Chat or Tutor
+activity. Runs live in a separate SQLite store with explicit queued, reader, model,
+validation, draft-ready, needs-source, failed and cancelled states. They are projected
+read-only into global Activity but never count as learning evidence, completion or
+mastery. Startup fails abandoned model-owned stages with a retryable reason and safely
+resubmits queued work.
+
+The compiler accepts only a Course, real outline node, optional active plan item,
+expected map revision and idempotency key. The host resolves artifacts and paths. Core
+scope planning uses real page locators, at most 12 pages per window and 48 pages per
+run. Auxiliary sources are eligible only through an active material-alignment mapping
+to that exact outline node; unaligned materials are not searched. The model turn has
+no tools, transcript or session persistence, and its source-window IDs and fingerprints
+are validated before the host supplies stable knowledge-core IDs and provenance.
+
+Compilation writes one semantic-review `flashcard_deck` draft and never activates it.
+The active learning map therefore changes only through the existing user activation
+boundary. Adopting a learning plan queues only the current and next open `learn` nodes;
+plan progress fills the next prefetch slot, while replacing a plan cancels only stale
+prefetch work that has not started. Existing active cores and matching usable drafts
+are reused instead of being regenerated.

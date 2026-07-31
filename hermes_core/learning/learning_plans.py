@@ -81,6 +81,33 @@ class LearningPlanService:
             for row in rows
         ]
 
+    def compilation_intents(self, artifact_id: str) -> List[Dict[str, Any]]:
+        """Return the current and next open ``learn`` actions after activation.
+
+        This is a pure core scheduling decision.  The desktop host owns enqueue
+        and model execution, so activation itself never waits on a provider.
+        """
+        artifact = self._require_plan(artifact_id)
+        if artifact.get("status") != "active":
+            return []
+        learn_items = [
+            item
+            for item in self.list_plan_items(artifact_id=artifact_id)
+            if item.get("status") == "open"
+            and item.get("mode", "learn") == "learn"
+            and _clean(item.get("outlineNodeId"))
+        ][:2]
+        return [
+            {
+                "space_id": self._ctx.current_space(),
+                "outline_node_id": item["outlineNodeId"],
+                "plan_item_id": item["item_id"],
+                "trigger": "plan_activated" if index == 0 else "prefetch",
+                "priority": 10 if index == 0 else 0,
+            }
+            for index, item in enumerate(learn_items)
+        ]
+
     def complete_item(self, item_id: str, *, note: str = "") -> Dict[str, Any]:
         return self._mark_item(
             item_id, "completed", PLAN_ITEM_COMPLETE_ACTIVITY, note
