@@ -49,7 +49,10 @@
   --tan: #C78C70;
   --brown-ink: #8D604C;
   --lamp-glow: rgba(255, 193, 116, 0.8);
-  --warning: #A76545;
+  /* 灯亮着的那点暖色；两个主题同值，因为灯泡不随环境变色 */
+  --lamp-lit: #E5A54B;
+  /* #A76545 对 --warning-bg 只有 3.99:1，不足 AA；压深到 4.68:1 */
+  --warning: #9A5A3C;
   --warning-bg: #FBEDE2;
   --danger: #873E35;
   --danger-line: #B56A5F;
@@ -312,7 +315,7 @@ p {
 }
 
 .lamp-toggle.is-on svg {
-  color: #E5A54B;
+  color: var(--lamp-lit);
   filter: drop-shadow(0 0 7px var(--lamp-glow));
 }
 
