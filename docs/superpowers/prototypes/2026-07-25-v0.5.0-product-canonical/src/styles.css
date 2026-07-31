@@ -32,9 +32,10 @@
   --desk-deep: #DDD0BF;
   --desk-hi: #EFE9DD;
   --desk-lo: #E4DACB;
-  --desk-glow: var(--desk-glow);
-  --veil: var(--veil);
-  --veil-strong: var(--veil-strong);
+  /* 白天没有灯光落在桌面上：开灯才有暖斑，所以浅色这个是空的 */
+  --desk-glow: transparent;
+  --veil: rgba(64, 53, 79, 0.28);
+  --veil-strong: rgba(64, 53, 79, 0.42);
   --frame-line: #A9A0AA;
   --line: #D9CFCA;
   --line-strong: #C8BAC2;
