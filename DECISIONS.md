@@ -1766,3 +1766,29 @@ remain the only mutation path. A Studio project is a recoverable scene
 (`project_scene` / `recoverable`), never a fabricated background run. Records use
 stable ids and deterministic return/fallback targets; completed Tutor history is
 bounded to the most recent 20 records by default.
+
+## Studio deferred from v0.5.0 product scope (2026-07-31)
+
+v0.5.0 is a Study-first release. Studio is not a release deliverable and must not
+consume the remaining v0.5.0 implementation, integration, QA, or release-blocking
+budget. The global navigation keeps a Studio destination so the long-term product
+shape remains legible, but that destination opens a small non-interactive
+"开发中" surface instead of the current partial project workspace.
+
+The user-facing message is:
+
+> Studio 正在开发中
+>
+> 小娜正在准备一个把灵感变成作品的空间。当前版本请先使用 Study 专注学习。
+
+Existing Studio backend, persistence, source-snapshot, session, and Activity
+projection code is retained as dormant groundwork. It is not deleted, migrated,
+or expanded for v0.5.0. v0.5.0 UI must not expose project creation, editing,
+gathering, Studio Chat, Studio recovery targets, or a Free Chat-to-Studio
+handoff. Global Activity may keep reading the existing cross-domain backend
+contract, but the v0.5.0 product surface shows Study records only.
+
+Studio resumes as a separately scoped v0.6 product slice with its own interaction
+contract and acceptance plan. Until that scope is approved, existing Studio
+screens and backend contracts are implementation assets, not evidence that Studio
+is shipped.
