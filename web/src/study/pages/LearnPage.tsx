@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, BookOpen, Coffee, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, Bookmark, Coffee, Eye, EyeOff, Lightbulb } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { KnowledgeCoreCompilationRun, StudyKnowledgePoint } from "../../chat/study/study-api";
 import { useI18n } from "../../lib/i18n";
@@ -301,6 +301,28 @@ export function LearnPage({ spaceId }: { spaceId: string }) {
           <span>知识核整理状态暂时无法读取；当前学习范围没有改变。</span>
           <button type="button" onClick={loadCompilations}>{t("study.retry")}</button>
         </div>
+      ) : null}
+      {point ? (
+        <nav className="kq-study-core-index" aria-label="这一节的知识点">
+          <span className="kq-study-core-index-label"><Lightbulb aria-hidden /> 知识点</span>
+          <div>
+            {points.map((candidate, index) => {
+              const current = index === coreIndex;
+              return (
+                <button
+                  key={candidate.item_id}
+                  type="button"
+                  className={current ? "is-current" : undefined}
+                  aria-current={current ? "step" : undefined}
+                  onClick={() => moveTo(index)}
+                >
+                  <Bookmark aria-hidden />
+                  {candidate.front}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
       ) : null}
       {point ? coreCard(point) : data && !data.unavailable?.includes("knowledgePoints") && compilationRunning ? (
         <div className="kq-study-page-empty">

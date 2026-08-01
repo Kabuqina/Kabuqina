@@ -47,6 +47,22 @@ describe("LearnPage", () => {
     expect(screen.getByRole("region", { name: "教材与我的说法对照" })).toBeInTheDocument();
   });
 
+  it("shows the scoped knowledge-core sequence as a compact selectable index", async () => {
+    const user = userEvent.setup();
+    renderPage({ artifacts: [], knowledgePoints: points });
+
+    const index = await screen.findByRole("navigation", { name: "这一节的知识点" });
+    const first = screen.getByRole("button", { name: "极限唯一性" });
+    const second = screen.getByRole("button", { name: "无穷小" });
+    expect(index).toContainElement(first);
+    expect(index).toContainElement(second);
+    expect(first).toHaveAttribute("aria-current", "step");
+
+    await user.click(second);
+    expect(second).toHaveAttribute("aria-current", "step");
+    expect(await screen.findByRole("heading", { name: "无穷小" })).toBeInTheDocument();
+  });
+
   it("keeps previous and next navigation inside the active plan outline range", async () => {
     renderPage({
       artifacts: [],
