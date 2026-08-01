@@ -34,8 +34,10 @@
   --desk-lo: #E4DACB;
   /* 白天没有灯光落在桌面上：开灯才有暖斑，所以浅色这个是空的 */
   --desk-glow: transparent;
-  --veil: rgba(64, 53, 79, 0.28);
-  --veil-strong: rgba(64, 53, 79, 0.42);
+  /* 纱＝浮在桌面上的浅色半透明面板（书堆盒、素材堆、窄屏工具条）。
+     浅色主题必须是「近白」，不是「压暗」——压暗会让上面的小字掉到 1.83:1。 */
+  --veil: rgba(255, 255, 255, 0.78);
+  --veil-strong: rgba(255, 253, 248, 0.96);
   --frame-line: #A9A0AA;
   --line: #D9CFCA;
   --line-strong: #C8BAC2;
