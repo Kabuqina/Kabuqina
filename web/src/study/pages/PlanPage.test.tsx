@@ -576,6 +576,43 @@ describe("PlanPage", () => {
     stopListening();
   });
 
+  it("retains the active plan when its action projection is temporarily unavailable", async () => {
+    const loadPlan = vi.fn().mockResolvedValue({
+      plan,
+      items: [],
+      unavailable: ["items"],
+      outline: [],
+      outlineSourceArtifactId: "",
+      outlineSourceTitle: "",
+      structureStatus: "unknown",
+    });
+    renderPage(repository({ loadPlan }));
+
+    expect(await screen.findByRole("heading", { name: "Physics plan" })).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("行动进度暂时无法读取");
+    expect(screen.queryByText("这份计划里的行动已经处理完")).not.toBeInTheDocument();
+    expect(screen.queryByText(/0 项完成/)).not.toBeInTheDocument();
+  });
+
+  it("keeps the plan readable without guessing when compiler status is unavailable", async () => {
+    renderPage(repository({
+      loadPlan: vi.fn().mockResolvedValue({
+        plan,
+        items: [item({ item_id: "learn-vector", title: "理解向量", outlineNodeId: "section-vector" })],
+        outline: [{ id: "section-vector", title: "向量", level: 1, children: [] }],
+        outlineSourceArtifactId: "source-1",
+        outlineSourceTitle: "线性代数",
+        structureStatus: "reliable",
+        learningMap: emptyMap,
+      }),
+      listKnowledgeCoreCompilations: vi.fn().mockRejectedValue(new Error("offline")),
+    }));
+
+    expect(await screen.findByRole("heading", { name: "Physics plan" })).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("知识核准备状态暂时无法读取");
+    expect(screen.getByRole("button", { name: "状态暂不可用" })).toBeDisabled();
+  });
+
   it("asks the learner to choose one file when several knowledge sources exist", async () => {
     const nanaRequest = vi.fn();
     const stopListening = onStudyNanaRequest(nanaRequest);

@@ -248,6 +248,26 @@ def test_reconcile_restores_lost_binding_without_changing_progress(ctx):
     assert repaired["note"] == "learner progress must survive"
 
 
+def test_reconcile_keeps_active_plan_readable_while_outline_is_unavailable(ctx):
+    artifact_id = _draft(ctx, "Accepted before source re-index")
+    service = _service(ctx)
+    service.activate_plan(artifact_id)
+    resource = ctx.list_artifacts(kind="resource_pack", status="active")[0]
+    row = ctx.list_items(
+        item_type=LEARNING_PLAN_ITEM_TYPE, artifact_id=artifact_id
+    )[0]
+    state = dict(row["state"])
+    state["outlineNodeId"] = ""
+    ctx.update_item_state(row["item_id"], state)
+
+    ctx.set_artifact_status(resource["artifact_id"], "archived")
+
+    assert service.reconcile_plan_items(artifact_id) == {"created": 0, "repaired": 0}
+    degraded = service.list_plan_items(artifact_id=artifact_id)[0]
+    assert degraded["outlineNodeId"] == ""
+    assert degraded["status"] == "open"
+
+
 def test_unknown_camel_case_outline_binding_keeps_plan_in_draft(ctx):
     artifact_id = OutputWriter(ctx).write_artifact(
         kind="learning_plan",

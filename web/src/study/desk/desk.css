@@ -1199,8 +1199,20 @@
 
 .kd-grade-row {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+}
+
+.kd-grade-row > button { min-height: 44px; }
+
+.kd-too-easy {
+  justify-self: center;
+  margin-top: 10px;
+  border: 0;
+  background: transparent;
+  color: var(--c-muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 /* --- right objects: card box + cup --------------------------------------- */
@@ -1668,7 +1680,6 @@
   .kq-desk .kd-panel-card { max-height: none; padding: 20px; }
   .kq-desk .kd-panel-heading { flex-direction: column; gap: 12px; }
   .kq-desk .kd-source-list { grid-template-columns: 1fr; }
-  .kq-desk .kd-grade-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (prefers-reduced-motion: reduce) {

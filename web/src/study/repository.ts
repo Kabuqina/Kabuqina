@@ -141,6 +141,8 @@ export type StudyPlanSnapshot = {
   plan: StudyArtifactSummary | null;
   items: StudyPlanItem[];
   hasKnowledgeSources?: boolean;
+  /** Optional projections fail independently; the active plan remains readable. */
+  unavailable?: Array<"items" | "knowledgeSources" | "learningMap">;
   location?: StudySharedLocation | null;
   learningMap?: StudyLearningMap;
   compilationRuns?: KnowledgeCoreCompilationRun[];
@@ -766,9 +768,12 @@ export function createStudyRepository(commands: Partial<StudyCommands> = {}): St
     },
     async loadPlan(spaceId, signal) {
       return invokeWithSignal(signal, async () => {
-        const [response, materialResponse, mapResult, locationResult] = await Promise.all([
+        const [response, materialResult, mapResult, locationResult] = await Promise.all([
           resolved.learningPlans(spaceId),
-          resolved.activeM5Summaries(spaceId, "resource_pack"),
+          Promise.resolve(resolved.activeM5Summaries(spaceId, "resource_pack")).then(
+            (value) => ({ status: "fulfilled" as const, value }),
+            (reason) => ({ status: "rejected" as const, reason }),
+          ),
           Promise.resolve(resolved.learningMap(spaceId)).then(
             (value) => ({ status: "fulfilled" as const, value }),
             (reason) => ({ status: "rejected" as const, reason }),
@@ -778,14 +783,23 @@ export function createStudyRepository(commands: Partial<StudyCommands> = {}): St
             (reason) => ({ status: "rejected" as const, reason }),
           ),
         ]);
+        const unavailable: NonNullable<StudyPlanSnapshot["unavailable"]> = [];
+        if (materialResult.status === "rejected") unavailable.push("knowledgeSources");
+        if (mapResult.status === "rejected") unavailable.push("learningMap");
+        const materialResponse = materialResult.status === "fulfilled" ? materialResult.value : null;
         const plan = newestArtifact(response.plans);
-        const items = plan
-          ? (await resolved.planItems(spaceId, plan.artifact_id)).items
-          : [];
+        const itemResult = plan
+          ? await Promise.resolve(resolved.planItems(spaceId, plan.artifact_id)).then(
+              (value) => ({ status: "fulfilled" as const, value }),
+              (reason) => ({ status: "rejected" as const, reason }),
+            )
+          : { status: "fulfilled" as const, value: { items: [] as StudyPlanItem[] } };
+        if (itemResult.status === "rejected") unavailable.push("items");
+        const items = itemResult.status === "fulfilled" ? itemResult.value.items : [];
         let outline: StudyOutlineNode[] = [];
         let outlineSourceArtifactId = "";
         let outlineSourceTitle = "";
-        let structureStatus: StudyPlanSnapshot["structureStatus"] = materialResponse.items.length ? "missing" : "unknown";
+        let structureStatus: StudyPlanSnapshot["structureStatus"] = materialResponse?.items.length ? "missing" : "unknown";
         if (mapResult.status === "fulfilled") {
           outline = mapLearningOutline(mapResult.value);
           const first = outline[0];
@@ -797,7 +811,8 @@ export function createStudyRepository(commands: Partial<StudyCommands> = {}): St
           return {
             plan,
             items,
-            hasKnowledgeSources: materialResponse.items.length > 0,
+            ...(materialResponse ? { hasKnowledgeSources: materialResponse.items.length > 0 } : {}),
+            ...(unavailable.length ? { unavailable } : {}),
             location: locationResult.status === "fulfilled" ? locationResult.value : null,
             learningMap: mapResult.value,
             outline,
@@ -807,7 +822,7 @@ export function createStudyRepository(commands: Partial<StudyCommands> = {}): St
           };
         }
         const materialDetails = await Promise.allSettled(
-          [...materialResponse.items]
+          [...(materialResponse?.items ?? [])]
             .sort((a, b) => `${b.updated_at ?? ""}`.localeCompare(`${a.updated_at ?? ""}`))
             .slice(0, 20)
             .map((material) => resolved.artifactDetail(spaceId, material.artifact_id)),
@@ -832,7 +847,8 @@ export function createStudyRepository(commands: Partial<StudyCommands> = {}): St
         return {
           plan,
           items,
-          hasKnowledgeSources: materialResponse.items.length > 0,
+          ...(materialResponse ? { hasKnowledgeSources: materialResponse.items.length > 0 } : {}),
+          ...(unavailable.length ? { unavailable } : {}),
           location: locationResult.status === "fulfilled" ? locationResult.value : null,
           outline,
           outlineSourceArtifactId,

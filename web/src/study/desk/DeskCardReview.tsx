@@ -4,13 +4,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { StudyFlashcard } from "../../chat/study/study-api";
 
-export type DeskCardGrade = "again" | "hard" | "good" | "easy";
+export type DeskCardGrade = "again" | "good" | "easy";
 
-const GRADES: Array<{ grade: DeskCardGrade; key: string; label: string }> = [
-  { grade: "again", key: "1", label: "再来" },
-  { grade: "hard", key: "2", label: "困难" },
-  { grade: "good", key: "3", label: "掌握" },
-  { grade: "easy", key: "4", label: "轻松" },
+const RECALL_GRADES: Array<{ grade: "again" | "good"; key: string; label: string }> = [
+  { grade: "good", key: "1", label: "想起来了" },
+  { grade: "again", key: "2", label: "没想起来" },
 ];
 
 export function DeskCardReview({
@@ -44,7 +42,7 @@ export function DeskCardReview({
       setRevealed(true);
       return;
     }
-    const grade = GRADES.find((item) => item.key === event.key)?.grade;
+    const grade = RECALL_GRADES.find((item) => item.key === event.key)?.grade;
     if (revealed && grade) {
       event.preventDefault();
       onGrade(grade);
@@ -63,13 +61,21 @@ export function DeskCardReview({
         {revealed ? (
           <>
             <div className="kd-card-answer"><strong>答案</strong><p>{card.back}</p>{card.hint ? <small>{card.hint}</small> : null}</div>
-            <div className="kd-grade-row">
-              {GRADES.map((item) => (
+            <div className="kd-grade-row" aria-label="回忆结果">
+              {RECALL_GRADES.map((item) => (
                 <button type="button" key={item.grade} disabled={pending} onClick={() => onGrade(item.grade)}>
                   <kbd>{item.key}</kbd>{item.label}
                 </button>
               ))}
             </div>
+            <button
+              type="button"
+              className="kd-too-easy"
+              disabled={pending}
+              onClick={() => onGrade("easy")}
+            >
+              这张太简单了，别再常来
+            </button>
           </>
         ) : (
           <button type="button" className="kd-primary" onClick={() => setRevealed(true)}>显示答案 <kbd>Space</kbd></button>

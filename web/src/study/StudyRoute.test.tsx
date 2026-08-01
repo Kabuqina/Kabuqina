@@ -133,6 +133,21 @@ describe("StudyRoute", () => {
     expect(screen.queryByRole("navigation", { name: "学习阶段" })).not.toBeInTheDocument();
   });
 
+  it("keeps a deferred scratch space out of Study routing", async () => {
+    renderRoute("/study/scratch-1", {
+      listSpaces: vi.fn().mockResolvedValue({
+        currentSpaceId: "scratch-1",
+        spaces: [
+          { id: "space-a", title: "Linear Algebra", status: "active", isCurrent: false, kind: "course" },
+          { id: "scratch-1", title: "杂记本", status: "active", isCurrent: true, kind: "scratch" },
+        ],
+      }),
+    });
+
+    expect(await screen.findByRole("heading")).toHaveTextContent("无法打开这个学习空间");
+    expect(screen.queryByText("杂记本")).not.toBeInTheDocument();
+  });
+
   it("renders the practice page from its URL-scoped repository data", async () => {
     const loadQuizQuestions = vi.fn().mockResolvedValue([{
       item_id: "question-1",

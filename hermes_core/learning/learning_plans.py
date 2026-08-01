@@ -69,14 +69,27 @@ class LearningPlanService:
         """Repair materialized plan items from their immutable active plan.
 
         This is intentionally narrow: it creates missing rows and restores only
-        a non-empty outline binding from the plan artifact. Learner progress and
-        notes in existing item state are preserved.
+        a non-empty, currently available outline binding from the plan artifact.
+        An already-active plan may outlive a source re-index or outline revision;
+        that compatibility state must not make the plan unreadable. Learner
+        progress and notes in existing item state are preserved.
         """
         artifact = self._require_plan(artifact_id)
         if artifact.get("status") != "active":
             raise ValueError("only an active learning plan can be reconciled")
-        self._validate_outline_bindings(artifact)
-        created, repaired = self._reconcile_items(artifact)
+        # Activation is the strict trust boundary. Reconciliation is a read-time
+        # compatibility repair for plans that were already accepted, so stale or
+        # temporarily unavailable outline ids degrade to an unbound item until
+        # the learning map exposes that id again.
+        from learning.learning_map import LearningMapService
+
+        available_outline_ids = {
+            node["id"]
+            for node in LearningMapService(self._ctx).get_map()["outlineNodes"]
+        }
+        created, repaired = self._reconcile_items(
+            artifact, available_outline_ids=available_outline_ids
+        )
         return {"created": created, "repaired": repaired}
 
     def reject_plan(self, artifact_id: str) -> Dict[str, Any]:
@@ -179,7 +192,12 @@ class LearningPlanService:
         created, _ = self._reconcile_items(artifact)
         return created
 
-    def _reconcile_items(self, artifact: Dict[str, Any]) -> tuple[int, int]:
+    def _reconcile_items(
+        self,
+        artifact: Dict[str, Any],
+        *,
+        available_outline_ids: Optional[set[str]] = None,
+    ) -> tuple[int, int]:
         artifact_id = artifact["artifact_id"]
         existing = {
             row["item_id"]: row
@@ -201,7 +219,13 @@ class LearningPlanService:
                 task_mode = _clean(task.get("mode")) if isinstance(task, dict) else ""
                 if task_mode not in {"learn", "practice", "review"}:
                     task_mode = "learn"
-                outline_node_id = _task_outline_node_id(task)
+                declared_outline_node_id = _task_outline_node_id(task)
+                outline_node_id = (
+                    declared_outline_node_id
+                    if available_outline_ids is None
+                    or declared_outline_node_id in available_outline_ids
+                    else ""
+                )
                 current = existing.get(iid)
                 if current is not None:
                     current_state = dict(current.get("state") or {})

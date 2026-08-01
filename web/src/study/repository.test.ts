@@ -194,6 +194,25 @@ describe("StudyRepository", () => {
     expect(planItems).toHaveBeenCalledWith("space-b", "newer");
   });
 
+  it("keeps the active plan readable when optional plan projections fail", async () => {
+    const repository = createStudyRepository({
+      learningPlans: vi.fn().mockResolvedValue({ plans: [
+        { artifact_id: "plan-1", kind: "learning_plan", title: "Still readable", status: "active", updated_at: "2026-02-01" },
+      ] }),
+      planItems: vi.fn().mockRejectedValue(new Error("items unavailable")),
+      activeM5Summaries: vi.fn().mockRejectedValue(new Error("sources unavailable")),
+      learningMap: vi.fn().mockRejectedValue(new Error("map unavailable")),
+      locationGet: vi.fn().mockRejectedValue(new Error("location unavailable")),
+    });
+
+    await expect(repository.loadPlan("space-b", new AbortController().signal)).resolves.toMatchObject({
+      plan: { artifact_id: "plan-1", title: "Still readable" },
+      items: [],
+      outline: [],
+      unavailable: ["knowledgeSources", "learningMap", "items"],
+    });
+  });
+
   it("projects a real embedded material outline into the plan snapshot", async () => {
     const activeM5Summaries = vi.fn().mockResolvedValue({
       items: [{ artifact_id: "book-1", kind: "resource_pack", title: "Python 教材", status: "active" }],

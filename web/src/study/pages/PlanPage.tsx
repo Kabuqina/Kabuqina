@@ -281,7 +281,7 @@ export function PlanPage({ spaceId }: { spaceId: string }) {
   const mutations = useRef(new RequestCoordinator());
   const readyDrafts = useRef(new Set<string>());
   const [snapshot, setSnapshot] = useState<Loadable<StudyPlanSnapshot>>({ status: "idle" });
-  const [compilationRuns, setCompilationRuns] = useState<KnowledgeCoreCompilationRun[]>([]);
+  const [compilationSnapshot, setCompilationSnapshot] = useState<Loadable<KnowledgeCoreCompilationRun[]>>({ status: "idle" });
   const [pendingItem, setPendingItem] = useState("");
   const [mutationError, setMutationError] = useState("");
   const [pendingStart, setPendingStart] = useState("");
@@ -295,13 +295,27 @@ export function PlanPage({ spaceId }: { spaceId: string }) {
   const [selectedItemId, setSelectedItemId] = useState("");
 
   const loadCompilations = useCallback(() => {
-    if (!repository.listKnowledgeCoreCompilations) return;
+    if (!repository.listKnowledgeCoreCompilations) {
+      setCompilationSnapshot({ status: "ready", data: [] });
+      return;
+    }
     const request = compilationRequests.current.begin();
+    setCompilationSnapshot((current) => ({
+      status: "loading",
+      ...(deriveStudyRequestState(current).data ? { previous: deriveStudyRequestState(current).data } : {}),
+    }));
     void repository.listKnowledgeCoreCompilations(spaceId, undefined, request.signal).then(
       (runs) => {
-        if (compilationRequests.current.isCurrent(request.generation)) setCompilationRuns(runs);
+        if (compilationRequests.current.isCurrent(request.generation)) setCompilationSnapshot({ status: "ready", data: runs });
       },
-      () => undefined,
+      (error) => {
+        if (!compilationRequests.current.isCurrent(request.generation)) return;
+        setCompilationSnapshot((current) => ({
+          status: "error",
+          error,
+          ...(deriveStudyRequestState(current).data ? { previous: deriveStudyRequestState(current).data } : {}),
+        }));
+      },
     );
   }, [repository, spaceId]);
 
@@ -351,6 +365,15 @@ export function PlanPage({ spaceId }: { spaceId: string }) {
 
   const requestState = deriveStudyRequestState(snapshot);
   const data = requestState.data;
+  const compilationRequestState = deriveStudyRequestState(compilationSnapshot);
+  const compilationRuns = useMemo(
+    () => compilationRequestState.data ?? [],
+    [compilationRequestState.data],
+  );
+  const compilationStatusUnavailable = compilationRequestState.phase === "error" && !compilationRequestState.data;
+  const itemsUnavailable = Boolean(data?.unavailable?.includes("items"));
+  const knowledgeSourcesUnavailable = Boolean(data?.unavailable?.includes("knowledgeSources"));
+  const learningMapUnavailable = Boolean(data?.unavailable?.includes("learningMap"));
   const items = useMemo(() => data?.items ?? [], [data?.items]);
   const draftItems = drafts.snapshot.status === "ready"
     ? drafts.snapshot.data.items
@@ -379,7 +402,9 @@ export function PlanPage({ spaceId }: { spaceId: string }) {
   const openCount = items.filter((item) => item.status === "open").length;
   const progressWidth = items.length ? `${Math.round((completedCount / items.length) * 100)}%` : "0%";
   const boundOutlineIds = outlineNodeIds(data?.outline ?? []);
-  const unboundItems = items.filter((item) => !item.outlineNodeId || !boundOutlineIds.has(item.outlineNodeId));
+  const unboundItems = learningMapUnavailable
+    ? []
+    : items.filter((item) => !item.outlineNodeId || !boundOutlineIds.has(item.outlineNodeId));
 
   useEffect(() => {
     if (selectedItemId && !items.some((item) => item.item_id === selectedItemId && item.status === "open")) {
@@ -464,10 +489,13 @@ export function PlanPage({ spaceId }: { spaceId: string }) {
   };
 
   const mergeCompilationRun = (next: KnowledgeCoreCompilationRun) => {
-    setCompilationRuns((current) => [
-      next,
-      ...current.filter((run) => run.runId !== next.runId),
-    ]);
+    setCompilationSnapshot((current) => {
+      const runs = deriveStudyRequestState(current).data ?? [];
+      return {
+        status: "ready",
+        data: [next, ...runs.filter((run) => run.runId !== next.runId)],
+      };
+    });
   };
 
   const itemHasActiveCore = (item: StudyPlanItem): boolean => {
@@ -778,6 +806,8 @@ export function PlanPage({ spaceId }: { spaceId: string }) {
   const focusNeedsOutline = Boolean(focusItem && !focusItem.outlineNodeId);
   const focusActionLabel = !focusItem
     ? ""
+    : compilationStatusUnavailable && !itemHasActiveCore(focusItem)
+      ? "状态暂不可用"
     : pendingStart === focusItem.item_id
       ? focusCoreState === "blocked" ? "正在重试…" : "正在准备…"
       : focusNeedsOutline
@@ -895,6 +925,30 @@ export function PlanPage({ spaceId }: { spaceId: string }) {
           <button type="button" onClick={load}>{t("study.retry")}</button>
         </div>
       ) : null}
+      {data?.plan && itemsUnavailable ? (
+        <div className="kq-study-page-alert" role="alert">
+          <span>学习计划已经打开，但行动进度暂时无法读取。</span>
+          <button type="button" onClick={load}>{t("study.retry")}</button>
+        </div>
+      ) : null}
+      {data?.plan && learningMapUnavailable ? (
+        <div className="kq-study-page-alert" role="alert">
+          <span>计划仍可查看；目录与知识核关联正在等待重新读取。</span>
+          <button type="button" onClick={load}>{t("study.retry")}</button>
+        </div>
+      ) : null}
+      {data?.plan && compilationStatusUnavailable ? (
+        <div className="kq-study-page-alert" role="alert">
+          <span>知识核准备状态暂时无法读取；计划与行动进度仍可查看。</span>
+          <button type="button" onClick={loadCompilations}>{t("study.retry")}</button>
+        </div>
+      ) : null}
+      {!data?.plan && knowledgeSourcesUnavailable ? (
+        <div className="kq-study-page-alert" role="alert">
+          <span>暂时无法确认知识源状态，已有计划和草稿没有改变。</span>
+          <button type="button" onClick={load}>{t("study.retry")}</button>
+        </div>
+      ) : null}
       {waitingForPlanState ? <p role="status">{adoptedPlanDraftId ? "正在采用学习计划…" : "正在打开学习计划…"}</p> : null}
       {data && !data.plan && draftsUnavailable ? (
         <div className="kq-study-page-alert" role="alert">
@@ -964,13 +1018,13 @@ export function PlanPage({ spaceId }: { spaceId: string }) {
               <p className="kq-study-placeholder-kicker">当前计划</p>
               <h2 id="study-active-plan-title">{data.plan.title}</h2>
             </div>
-            <p className="kq-study-plan-counts">
+            {!itemsUnavailable ? <p className="kq-study-plan-counts">
               <span>{completedCount} 项完成</span>
               <span>{openCount} 项待学习</span>
               {skippedCount ? <span>{skippedCount} 项已调整</span> : null}
-            </p>
+            </p> : null}
           </header>
-          <div
+          {!itemsUnavailable ? <div
             className="kq-study-plan-progress"
             role="progressbar"
             aria-label="计划完成进度"
@@ -979,8 +1033,8 @@ export function PlanPage({ spaceId }: { spaceId: string }) {
             aria-valuenow={completedCount}
           >
             <span style={{ width: progressWidth }} />
-          </div>
-          {focusItem ? (
+          </div> : null}
+          {!itemsUnavailable && focusItem ? (
             <div className="kq-study-plan-focus">
               <div>
                 <span>{selectedItem ? "已选择" : currentItem ? "正在进行" : "下一项"}</span>
@@ -995,7 +1049,7 @@ export function PlanPage({ spaceId }: { spaceId: string }) {
                 <button
                   type="button"
                   className="kq-study-primary-link"
-                  disabled={Boolean(pendingStart) || focusCoreState === "running"}
+                  disabled={Boolean(pendingStart) || focusCoreState === "running" || (compilationStatusUnavailable && !itemHasActiveCore(focusItem))}
                   onClick={() => startItem(focusItem)}
                 >
                   {focusActionLabel}
@@ -1007,9 +1061,9 @@ export function PlanPage({ spaceId }: { spaceId: string }) {
                 ) : null}
               </div>
             </div>
-          ) : (
+          ) : !itemsUnavailable ? (
             <p className="kq-study-plan-finished">这份计划里的行动已经处理完，可以到评估页看看下一步。</p>
-          )}
+          ) : null}
         </section>
       ) : null}
 
@@ -1047,7 +1101,7 @@ export function PlanPage({ spaceId }: { spaceId: string }) {
               <ol className="kq-study-plan-items">{unboundItems.map(renderPlanItem)}</ol>
             </section>
           ) : null}
-          {!nextItem ? <p className="kq-study-plan-source-note">{t("study.planAllDone")}</p> : null}
+          {!itemsUnavailable && !nextItem ? <p className="kq-study-plan-source-note">{t("study.planAllDone")}</p> : null}
         </>
       ) : null}
 

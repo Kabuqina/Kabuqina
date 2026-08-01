@@ -417,7 +417,11 @@ describe("DeskScene FE-01 preview", () => {
     fireEvent.click(screen.getByRole("button", { name: "开始复习" }));
     expect(screen.getByRole("heading", { name: "极限卡片 1" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /显示答案/ }));
-    fireEvent.click(screen.getByRole("button", { name: /掌握/ }));
+    expect(screen.getByRole("button", { name: /想起来了/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /没想起来/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /这张太简单了，别再常来/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /困难|掌握|轻松|再来/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /想起来了/ }));
     await waitFor(() => expect(reviewCard).toHaveBeenCalledWith(
       "card-1",
       "good",

@@ -158,4 +158,22 @@ describe("LearnPage", () => {
     expect(await screen.findByRole("heading", { name: "正在整理这一节" })).toBeInTheDocument();
     expect(screen.queryByText(/还没有知识核/)).not.toBeInTheDocument();
   });
+
+  it("keeps a compiler-status failure local instead of inventing an empty core state", async () => {
+    renderPage({
+      artifacts: [],
+      knowledgePoints: [],
+      location: {
+        revision: 1, mapRevision: 1, page: "learn", knowledgeCoreId: null,
+        outlineNodeId: "section-a", planItemId: "plan-a", planOutlineNodeId: "section-a",
+        exerciseId: null, exerciseByCore: {}, stale: false,
+        updatedAt: "2026-07-31T00:00:00Z",
+      },
+    }, {
+      listKnowledgeCoreCompilations: vi.fn().mockRejectedValue(new Error("offline")),
+    });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("知识核整理状态暂时无法读取");
+    expect(screen.queryByRole("heading", { name: "这一节还没有采用的知识核" })).not.toBeInTheDocument();
+  });
 });

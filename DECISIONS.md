@@ -1817,3 +1817,17 @@ boundary. Adopting a learning plan queues only the current and next open `learn`
 plan progress fills the next prefetch slot, while replacing a plan cancels only stale
 prefetch work that has not started. Existing active cores and matching usable drafts
 are reused instead of being regenerated.
+
+## Active Study plans survive temporary outline loss (2026-08-01)
+
+Plan activation remains the strict trust boundary: every declared outline binding
+must exist in the current Course map before a new plan can become active. Reading an
+already-active plan is a compatibility boundary instead. Source re-indexing, outline
+revision, or migration may temporarily remove a previously accepted node, and that
+must not make the whole Plan page unreadable.
+
+Read-time reconciliation therefore creates or repairs only bindings that are present
+in the current map. Unavailable bindings degrade to an unbound plan item while learner
+status and notes remain intact. If the same stable node returns later, reconciliation
+may restore the missing binding. Compilation is never enqueued for a degraded,
+unbound item.

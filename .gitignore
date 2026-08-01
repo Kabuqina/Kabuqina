@@ -57,6 +57,8 @@ windows-port-report.txt
 /.test-output/
 /hermes_core/.test-output/
 /outputs/
+/artifacts/
+/tmp/
 /python/tests/_tmp_hermes_home/
 /assets/ppt/visual-masters/*/outputs/
 

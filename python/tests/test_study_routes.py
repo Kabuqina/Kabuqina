@@ -1189,6 +1189,77 @@ def test_plan_items_route_repairs_legacy_binding_and_enqueues_once(study_client)
     runner.enqueue.assert_called_once()
 
 
+def test_plan_items_route_keeps_active_plan_readable_during_source_reindex(study_client):
+    client, db_path = study_client
+    store = LearningStore(db_path=db_path)
+    try:
+        ctx = LearningExecutionContext(store, owner_id=OWNER)
+        ctx.create_space(title="Algebra", space_id="s1")
+        resource = ctx.put_artifact(
+            kind="resource_pack",
+            title="Algebra material",
+            payload={
+                "resources": [{"title": "Algebra.pdf", "purpose": "Primary"}],
+                "outline": [
+                    {
+                        "id": "section-equations",
+                        "title": "Linear equations",
+                        "locator": "p. 12",
+                    }
+                ],
+            },
+            source_refs=[
+                {
+                    "origin": "imported",
+                    "structure_status": "reliable",
+                    "structure_origin": "embedded_pdf_outline",
+                    "source_label": "Algebra.pdf",
+                }
+            ],
+            review={"mode": "semantic", "status": "passed"},
+        )
+        ctx.set_artifact_status(resource["artifact_id"], "active")
+        artifact_id = OutputWriter(ctx).write_artifact(
+            kind="learning_plan",
+            title="Accepted plan",
+            payload={
+                "phases": [
+                    {
+                        "title": "Foundations",
+                        "tasks": [
+                            {
+                                "title": "Read equations",
+                                "mode": "learn",
+                                "outline_node_id": "section-equations",
+                            }
+                        ],
+                    }
+                ]
+            },
+        )["artifact_id"]
+        service = LearningPlanService(ctx)
+        service.activate_plan(artifact_id)
+        row = ctx.list_items(
+            item_type=LEARNING_PLAN_ITEM_TYPE, artifact_id=artifact_id
+        )[0]
+        state = dict(row["state"])
+        state["outlineNodeId"] = ""
+        ctx.update_item_state(row["item_id"], state)
+        ctx.set_artifact_status(resource["artifact_id"], "archived")
+    finally:
+        store.close()
+
+    response = client.get(
+        f"/api/desk/study/learning-plans/{artifact_id}/items?space_id=s1",
+        headers=_headers(),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["items"][0]["title"] == "Read equations"
+    assert response.json()["items"][0]["outlineNodeId"] == ""
+    assert "compilationRuns" not in response.json()
+
+
 def test_legacy_quiz_migration_is_idempotent(study_client):
     client, _db_path = study_client
     payload = {

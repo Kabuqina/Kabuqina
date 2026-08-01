@@ -171,6 +171,40 @@ describe("PracticePage", () => {
     expect(loadQuizQuestions).toHaveBeenCalledWith("space-b", "quiz-1", expect.any(AbortSignal));
   });
 
+  it("keeps the practice home and current core when a linked question cannot be read", async () => {
+    renderPage(repository({
+      loadPracticeHome: vi.fn().mockResolvedValue({
+        ...home,
+        learningMap: {
+          revision: 3,
+          outlineStatus: "ready",
+          outlineNodes: [],
+          knowledgeCores: [{
+            id: "core-2", itemId: "card-2", artifactId: "deck-1",
+            front: "Current core", gist: "One idea", captured: true,
+            outlineNodeId: "section-2", order: 0,
+          }],
+          exerciseLinks: [{
+            knowledgeCoreId: "core-2", quizArtifactId: "quiz-1",
+            exerciseId: "question-core-2", origin: "source", sourceRefs: [], order: 0,
+          }],
+        },
+        location: {
+          revision: 1, mapRevision: 3, page: "practice",
+          knowledgeCoreId: "core-2", outlineNodeId: "section-2",
+          planItemId: "plan-item-2", planOutlineNodeId: "section-2",
+          exerciseId: null, exerciseByCore: {}, stale: false,
+          updatedAt: "2026-07-31T00:00:00Z",
+        },
+      }),
+      loadQuizQuestions: vi.fn().mockRejectedValue(new Error("question unavailable")),
+    }));
+
+    expect(await screen.findByRole("heading", { name: "这一步的练习暂时没有准备好" })).toBeInTheDocument();
+    expect(screen.getByText("当前知识核仍然保留，没有改用其他学习范围的题目。")).toBeInTheDocument();
+    expect(screen.queryByText("这一页暂时无法读取。")).not.toBeInTheDocument();
+  });
+
   it("reviews a due card with focus-scoped keyboard shortcuts", async () => {
     const user = userEvent.setup();
     const sink = vi.fn();
@@ -183,9 +217,12 @@ describe("PracticePage", () => {
     surface!.focus();
     fireEvent.keyDown(surface!, { key: " " });
     expect(screen.getByText("Back side")).toBeInTheDocument();
-    fireEvent.keyDown(surface!, { key: "3", repeat: true });
+    expect(screen.getByRole("button", { name: "想起来了" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "没想起来" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /困难|良好|轻松|再来/ })).not.toBeInTheDocument();
+    fireEvent.keyDown(surface!, { key: "1", repeat: true });
     expect(reviewFlashcard).not.toHaveBeenCalled();
-    fireEvent.keyDown(surface!, { key: "3" });
+    fireEvent.keyDown(surface!, { key: "1" });
 
     await waitFor(() => expect(reviewFlashcard).toHaveBeenCalledWith(
       "space-b", "card-1", "good", expect.any(AbortSignal),

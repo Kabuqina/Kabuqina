@@ -20,14 +20,12 @@ const CodePracticeSurface = lazy(async () => ({ default: (await import("./CodePr
 const DerivationPracticeSurface = lazy(async () => ({ default: (await import("./DerivationPracticeSurface")).DerivationPracticeSurface }));
 
 type Mode = "home" | "cards" | "quiz" | "result";
-type Grade = "again" | "hard" | "good" | "easy";
+type Grade = "again" | "good" | "easy";
 type Responses = Record<string, Record<string, unknown>>;
 
-const GRADES: Array<{ grade: Grade; key: "practiceAgain" | "practiceHard" | "practiceGood" | "practiceEasy" }> = [
-  { grade: "again", key: "practiceAgain" },
-  { grade: "hard", key: "practiceHard" },
-  { grade: "good", key: "practiceGood" },
-  { grade: "easy", key: "practiceEasy" },
+const RECALL_GRADES: Array<{ grade: "again" | "good"; key: "practiceForgot" | "practiceRecalled" }> = [
+  { grade: "good", key: "practiceRecalled" },
+  { grade: "again", key: "practiceForgot" },
 ];
 
 function practiceDrafts(snapshot: ReturnType<typeof useStudyDrafts>["snapshot"]): StudyArtifactSummary[] {
@@ -62,6 +60,7 @@ export function PracticePage({ spaceId, onDirtyChange, onNavigateAway }: { space
   const [linkedCoreTitle, setLinkedCoreTitle] = useState("");
   const [hasCurrentCore, setHasCurrentCore] = useState(false);
   const [linkedCoreMissing, setLinkedCoreMissing] = useState(false);
+  const [linkedPracticeError, setLinkedPracticeError] = useState(false);
   const dirty = mode === "quiz" && result === null && Object.keys(responses).length > 0;
   const sourceActivityId = new URLSearchParams(location.search).get("source") === "wrongbook"
     ? new URLSearchParams(location.search).get("activityId")
@@ -82,6 +81,7 @@ export function PracticePage({ spaceId, onDirtyChange, onNavigateAway }: { space
       const next = await repository.loadPracticeHome(spaceId, request.signal);
       if (!requests.current.isCurrent(request.generation)) return;
       setSnapshot({ status: "ready", data: next });
+      setLinkedPracticeError(false);
       if (sourceActivityId) return;
       const coreId = next.location?.page === "practice"
         ? next.location.knowledgeCoreId
@@ -93,6 +93,7 @@ export function PracticePage({ spaceId, onDirtyChange, onNavigateAway }: { space
         setLinkedCoreTitle("");
         setHasCurrentCore(false);
         setLinkedCoreMissing(false);
+        setLinkedPracticeError(false);
         return;
       }
       setLinkedCoreTitle(core.front);
@@ -107,11 +108,20 @@ export function PracticePage({ spaceId, onDirtyChange, onNavigateAway }: { space
         setMode("home");
         return;
       }
-      const linkedQuestions = await repository.loadQuizQuestions(
-        spaceId,
-        link.quizArtifactId,
-        request.signal,
-      );
+      let linkedQuestions: StudyQuizQuestion[];
+      try {
+        linkedQuestions = await repository.loadQuizQuestions(
+          spaceId,
+          link.quizArtifactId,
+          request.signal,
+        );
+      } catch {
+        if (!requests.current.isCurrent(request.generation)) return;
+        setLinkedPracticeError(true);
+        setLinkedCoreMissing(false);
+        setMode("home");
+        return;
+      }
       if (!requests.current.isCurrent(request.generation)) return;
       const question = linkedQuestions.find((candidate) => candidate.item_id === link.exerciseId);
       if (!question) {
@@ -120,6 +130,7 @@ export function PracticePage({ spaceId, onDirtyChange, onNavigateAway }: { space
         return;
       }
       setLinkedCoreMissing(false);
+      setLinkedPracticeError(false);
       setQuizId(link.quizArtifactId);
       setQuestions([question]);
       setQuestionIndex(0);
@@ -399,7 +410,18 @@ export function PracticePage({ spaceId, onDirtyChange, onNavigateAway }: { space
         </div>
       ) : null}
 
-      {mode === "home" && data && !linkedCoreMissing && (!data.learningMap || hasCurrentCore) ? (
+      {mode === "home" && data && linkedPracticeError ? (
+        <div className="kq-study-page-empty">
+          <h2>这一步的练习暂时没有准备好</h2>
+          <p>当前知识核仍然保留，没有改用其他学习范围的题目。</p>
+          <div className="kq-study-inline-actions">
+            <button type="button" className="kq-study-primary-link" onClick={load}>重新准备</button>
+            <Link className="kq-study-secondary-link" to={`/study/${encodeURIComponent(spaceId)}/learn`}>回到学习</Link>
+          </div>
+        </div>
+      ) : null}
+
+      {mode === "home" && data && !linkedCoreMissing && !linkedPracticeError && (!data.learningMap || hasCurrentCore) ? (
         <div className="kq-study-practice-home">
           <article className="kq-study-practice-card">
             <p>{t("study.practiceCardsKicker")}</p>
@@ -432,10 +454,10 @@ function Flashcard({ card, index, total, revealed, pending, error, onReveal, onG
   const onKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
     if (event.repeat || event.target !== event.currentTarget || document.activeElement !== event.currentTarget || pending) return;
     if (event.key === " ") { event.preventDefault(); if (!revealed) onReveal(); return; }
-    const grade = ({ "1": "again", "2": "hard", "3": "good", "4": "easy" } as const)[event.key];
+    const grade = ({ "1": "good", "2": "again" } as const)[event.key];
     if (revealed && grade) { event.preventDefault(); onGrade(grade); }
   };
-  return <article id="study-practice-surface" className="kq-study-practice-surface" tabIndex={0} onKeyDown={onKeyDown}><p>{t("study.practiceProgress", { current: index + 1, total })}</p><h2>{card.front}</h2>{revealed ? <><p className="kq-study-practice-answer">{card.back}</p>{card.hint ? <p>{card.hint}</p> : null}<div className="kq-study-inline-actions">{GRADES.map(({ grade, key }) => <button key={grade} type="button" disabled={pending} onClick={() => onGrade(grade)}>{t(`study.${key}`)}</button>)}</div></> : <button type="button" className="kq-study-primary-link" onClick={onReveal}>{t("study.practiceReveal")}</button>}{error ? <p role="alert" className="kq-study-page-error">{error}</p> : null}<button type="button" onClick={onExit}>{t("study.practiceExit")}</button></article>;
+  return <article id="study-practice-surface" className="kq-study-practice-surface" tabIndex={0} onKeyDown={onKeyDown}><p>{t("study.practiceProgress", { current: index + 1, total })}</p><h2>{card.front}</h2>{revealed ? <><p className="kq-study-practice-answer">{card.back}</p>{card.hint ? <p>{card.hint}</p> : null}<div className="kq-study-recall-grid" aria-label={t("study.practiceRecallResult")}>{RECALL_GRADES.map(({ grade, key }) => <button key={grade} type="button" disabled={pending} onClick={() => onGrade(grade)}>{t(`study.${key}`)}</button>)}</div><button type="button" className="kq-study-too-easy" disabled={pending} onClick={() => onGrade("easy")}>{t("study.practiceTooEasy")}</button></> : <button type="button" className="kq-study-primary-link" onClick={onReveal}>{t("study.practiceReveal")}</button>}{error ? <p role="alert" className="kq-study-page-error">{error}</p> : null}<button type="button" onClick={onExit}>{t("study.practiceExit")}</button></article>;
 }
 
 function QuizQuestion({ question, index, total, response, pending, error, onResponse, onPrevious, onNext, onSubmit, onGenerate }: { question: StudyQuizQuestion; index: number; total: number; response: Record<string, unknown>; pending: boolean; error: string; onResponse: (itemId: string, response: Record<string, unknown>) => void; onPrevious: () => void; onNext: () => void; onSubmit: () => void; onGenerate: (itemId: string, kind: "transcribe" | "variant") => void }) {

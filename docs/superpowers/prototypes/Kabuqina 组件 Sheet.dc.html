@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+:root{
+--page:#E8E7EB; --ink:#40354F; --ink-strong:#4D3C60; --ink-mid:#5F5367; --ink-soft:#756983;
+--purple:#6F4B86; --purple-dark:#563A6D; --purple-pale:#F2EBF6; --purple-faint:#F8F3FA;
+--purple-wash:#EEE3F2; --purple-line:#D2C2D7; --lavender:#A98CB9;
+--paper:#FBF8F1; --paper-strong:#FFFDF8; --paper-soft:#FAF7F3; --surface:#FFFFFF; --wash:#EEE9E5;
+--desk:#E9DFD0; --desk-deep:#DDD0BF; --desk-hi:#EFE9DD; --desk-lo:#E4DACB;
+--desk-glow:transparent; --veil:rgba(64,53,79,.28); --veil-strong:rgba(64,53,79,.42);
+--frame-line:#A9A0AA; --line:#D9CFCA; --line-strong:#C8BAC2;
+--line-warm:#DDD3CB; --line-cool:#D5CBD1; --line-faint:#EEE7E1; --gray:#A49AA6;
+--manila:#F5EAD8; --manila-hover:#F0DFC5; --manila-line:#DDD0BD; --tan:#C78C70; --brown-ink:#8D604C;
+--lamp-glow:rgba(255,193,116,.8); --lamp-lit:#E5A54B;
+--warning:#9A5A3C; --warning-bg:#FBEDE2;
+--danger:#873E35; --danger-line:#B56A5F; --danger-bg:#FFF8F6;
+--success:#3F715B; --success-strong:#355A49; --success-line:#B5CABD; --success-bg:#E9F3ED;
+--info:#4D678C; --info-ink:#52677E; --info-line:#AABED5; --info-bg:#E9EFF7;
+--shadow:0 10px 30px rgba(74,56,70,.12); --shadow-soft:0 4px 14px rgba(74,56,70,.09);
+--desk-noise:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2"/><feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.02 0"/></filter><rect width="180" height="180" filter="url(%23n)"/></svg>');
+}
+[data-theme="dark"]{
+--page:#1D1A21; --ink:#E8E2EC; --ink-strong:#F0EAF5; --ink-mid:#C9BFD1; --ink-soft:#A89BB3;
+--purple:#B795CC; --purple-dark:#CEB3DE; --purple-pale:#473A54; --purple-faint:#413352;
+--purple-wash:#524360; --purple-line:#635378; --lavender:#86729B;
+--paper:#322D36; --paper-strong:#3A3440; --paper-soft:#2B2731; --surface:#403A4A; --wash:#453E4D;
+--desk:#33291F; --desk-deep:#2A211A; --desk-hi:#3A2F24; --desk-lo:#2B2219;
+--desk-glow:rgba(255,193,116,.13); --veil:rgba(38,33,44,.82); --veil-strong:rgba(46,40,52,.96);
+--frame-line:#4E4657; --line:#4C4550; --line-strong:#5D5466;
+--line-warm:#4A423D; --line-cool:#544C5C; --line-faint:#423B44; --gray:#6F6678;
+--manila:#493D2D; --manila-hover:#544631; --manila-line:#61503A; --tan:#CF9A7C; --brown-ink:#D9B494;
+--warning:#D99A72; --warning-bg:#46332A;
+--danger:#E5A094; --danger-line:#8A564D; --danger-bg:#3E2A27;
+--success:#8CC2A4; --success-strong:#A5D6BC; --success-line:#435948; --success-bg:#253B30;
+--info:#93B2D9; --info-ink:#AAC3E0; --info-line:#3D4E66; --info-bg:#273243;
+--shadow:0 10px 30px rgba(0,0,0,.45); --shadow-soft:0 4px 14px rgba(0,0,0,.35);
+--desk-noise:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2"/><feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.025 0"/></filter><rect width="180" height="180" filter="url(%23n)"/></svg>');
+}
+html,body{margin:0;padding:0;background:var(--desk);}
+*{box-sizing:border-box;}
+button,input,textarea{font:inherit;color:inherit;}
+a{color:var(--purple);text-decoration:underline;text-underline-offset:2px;}
+a:hover{color:var(--purple-dark);}
+@keyframes kqSkel{0%{opacity:.5}50%{opacity:1}100%{opacity:.5}}
+[data-skel]{animation:kqSkel 1.4s ease-in-out infinite;}
+@media (prefers-reduced-motion: reduce){[data-skel]{animation:none;}}
+[data-flat] *{box-shadow:none !important;backdrop-filter:none !important;text-shadow:none !important;}
+[data-notes="off"] [data-tokennote]{display:none !important;}
+</style>
+</helmet>
+<div style="position:relative;min-height:100%;background:linear-gradient(180deg,var(--desk-hi) 0%,var(--desk) 55%,var(--desk-lo) 100%);color:var(--ink);font-family:'Segoe UI','Microsoft YaHei UI','Microsoft YaHei',system-ui,sans-serif;font-size:14px;line-height:1.6;padding:30px 100px 130px 34px;overflow:hidden;">
+
+  <div style="position:absolute;inset:0;background-image:radial-gradient(620px 420px at 94% 0%,var(--desk-glow),transparent 62%),var(--desk-noise);background-repeat:no-repeat,repeat;pointer-events:none;"></div>
+
+  <!-- 台灯：桌上唯一光源，右上角 -->
+  <div style="position:absolute;top:24px;right:38px;z-index:6;display:flex;flex-direction:column;align-items:center;gap:5px;">
+    <button type="button" onClick="{{ toggleTheme }}" title="开关台灯（明暗切换）" style="width:74px;height:74px;display:grid;place-items:center;border:0;border-radius:50%;background:transparent;cursor:pointer;padding:0;">
+      <sc-if value="{{ isDark }}" hint-placeholder-val="{{ true }}">
+        <svg width="66" height="66" viewBox="0 0 48 48" fill="none" stroke="var(--lamp-lit)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 8px var(--lamp-glow));">
+          <path d="M29 42.5H43.5"></path>
+          <path d="M36.2 39.5V42.5"></path>
+          <path d="M36.2 39.5L28.4 22.6"></path>
+          <circle cx="27.3" cy="21.2" r="2.1"></circle>
+          <path d="M26 19.6L18.6 11.4"></path>
+          <path d="M15.6 8.2L5 17.4L14.2 26.4L20.4 13.2Z"></path>
+          <path d="M5 17.4L14.2 26.4"></path>
+          <path d="M6.6 19.4L2.2 23.8"></path>
+          <path d="M9.6 22.4L5.2 26.8"></path>
+          <path d="M12.6 25.4L8.2 29.8"></path>
+        </svg>
+      </sc-if>
+      <sc-if value="{{ isLight }}" hint-placeholder-val="{{ false }}">
+        <svg width="66" height="66" viewBox="0 0 48 48" fill="none" stroke="var(--ink-soft)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M29 42.5H43.5"></path>
+          <path d="M36.2 39.5V42.5"></path>
+          <path d="M36.2 39.5L28.4 22.6"></path>
+          <circle cx="27.3" cy="21.2" r="2.1"></circle>
+          <path d="M26 19.6L18.6 11.4"></path>
+          <path d="M15.6 8.2L5 17.4L14.2 26.4L20.4 13.2Z"></path>
+          <path d="M5 17.4L14.2 26.4"></path>
+        </svg>
+      </sc-if>
+    </button>
+    <div style="font-size:11px;color:var(--ink-strong);font-weight:700;">{{ themeLabel }}</div>
+  </div>
+
+  <div style="position:relative;z-index:2;max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:42px;">
+
+    <!-- 桌沿：题头 -->
+    <header style="padding:8px 150px 0 2px;display:flex;flex-direction:column;gap:10px;">
+      <div style="font-size:11px;letter-spacing:.2em;color:var(--ink-mid);">KABUQINA · v0.5.0 · 一张书桌</div>
+      <h1 style="margin:0;font-size:34px;font-weight:700;color:var(--ink-strong);letter-spacing:.01em;line-height:1.2;">桌上的每一件东西</h1>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start;">
+        <div style="max-width:430px;padding:12px 15px;border:1px solid var(--line-warm);border-radius:5px;background:var(--paper-soft);color:var(--ink-soft);font-size:12px;line-height:1.7;box-shadow:var(--shadow-soft);transform:rotate(-.4deg);text-wrap:pretty;">
+          令牌已冻结并通过 WCAG 校验。这张 sheet 只做呈现，不做配色探索。<br>纸片上的等宽字是该物件所用的令牌名，可直接并回代码库。
+        </div>
+        <div style="max-width:300px;padding:12px 15px;border:1px solid var(--line-warm);border-radius:5px;background:var(--paper-soft);color:var(--ink-soft);font-size:11px;line-height:1.7;font-family:Consolas,'SFMono-Regular',monospace;box-shadow:var(--shadow-soft);transform:rotate(.5deg);">
+桌面 linear-gradient(180deg,<br>&nbsp;&nbsp;--desk-hi, --desk 55%, --desk-lo)<br>+ --desk-noise（新增 · 内联 SVG feTurbulence<br>&nbsp;&nbsp;baseFrequency .9 · α .02，禁位图）<br>暗色加 radial-gradient(620px 420px<br>&nbsp;&nbsp;at 94% 0%, --desk-glow, transparent 62%)
+        </div>
+      </div>
+    </header>
+
+    <!-- 桌面主区：课程本 + 书堆 -->
+    <section style="display:flex;flex-direction:column;gap:16px;">
+      <div style="display:flex;align-items:center;gap:11px;">
+        <span style="font-size:12px;letter-spacing:.14em;font-weight:700;color:var(--ink-strong);">摊开着的 · 课程本</span>
+        <span style="flex:1;height:1px;background:var(--frame-line);opacity:.45;"></span>
+        <span style="font-size:11px;color:var(--ink-mid);">★ 横向标签 · 书立 · 象牙纸</span>
+      </div>
+      <div style="display:grid;grid-template-columns:minmax(0,1.72fr) minmax(230px,.72fr);gap:24px;align-items:start;">
+
+        <div style="display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:flex-end;gap:5px;padding-left:18px;position:relative;z-index:3;">
+            <div style="display:inline-flex;align-items:center;gap:7px;padding:7px 15px 8px;border:1px solid var(--line-warm);border-bottom:0;border-radius:9px 9px 0 0;color:var(--ink-soft);background:var(--paper-soft);font-size:13px;white-space:nowrap;box-shadow:inset 0 -7px 9px -9px rgba(80,65,40,.45);cursor:pointer;" style-hover="color:var(--ink-strong);"><span style="width:7px;height:15px;border-radius:2px;background:var(--lavender);opacity:.5;"></span>线性代数</div>
+            <div style="display:inline-flex;align-items:center;gap:7px;padding:7px 15px 13px;margin-bottom:-1px;border:1px solid var(--line-warm);border-bottom:0;border-radius:9px 9px 0 0;color:var(--ink-strong);background:var(--paper);font-size:13px;font-weight:700;white-space:nowrap;cursor:pointer;"><span style="width:7px;height:15px;border-radius:2px;background:var(--purple);"></span>狭义相对论</div>
+            <div style="display:inline-flex;align-items:center;gap:7px;padding:7px 15px 8px;border:1px dashed var(--line-cool);border-bottom:0;border-radius:9px 9px 0 0;color:var(--ink-soft);background:transparent;font-size:13px;white-space:nowrap;cursor:pointer;">＋ 新课</div>
+            <div style="margin-left:auto;display:inline-flex;align-items:center;gap:7px;padding:7px 15px 8px;border:1px solid var(--manila-line);border-bottom:0;border-radius:9px 9px 0 0;color:var(--brown-ink);background:var(--manila);font-size:13px;white-space:nowrap;cursor:pointer;"><span style="width:7px;height:15px;border-radius:2px;background:var(--gray);opacity:.6;"></span>杂记本</div>
+          </div>
+          <div style="position:relative;z-index:2;border:1px solid var(--line-warm);border-radius:0 12px 12px 12px;background:var(--paper);box-shadow:var(--shadow);overflow:hidden;">
+            <div style="padding:24px 28px 26px 34px;border-left:2px solid var(--line-faint);display:flex;flex-direction:column;gap:14px;">
+              <div>
+                <div style="font-size:19px;font-weight:700;color:var(--ink-strong);">第 4 节 · 时间膨胀</div>
+                <div style="margin-top:4px;font-size:12px;color:var(--ink-soft);">象牙纸 · 装订成册 · 页序固定</div>
+              </div>
+              <div style="height:1px;background:var(--line-faint);"></div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+                <div>
+                  <div style="font-size:11px;letter-spacing:.1em;color:var(--ink-soft);margin-bottom:6px;">我自己的说法</div>
+                  <div style="font-family:KaiTi,STKaiti,serif;font-size:16px;color:var(--ink);line-height:1.8;">动得越快，自己的钟走得越慢——慢的是"我的"时间，不是所有人的。</div>
+                </div>
+                <div>
+                  <div style="font-size:11px;letter-spacing:.1em;color:var(--ink-soft);margin-bottom:6px;">教材的说法</div>
+                  <div style="font-size:13px;color:var(--ink-mid);line-height:1.8;">相对于观察者运动的时钟，其时间间隔按 γ 因子放大。</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div data-tokennote="1" style="align-self:flex-start;margin:12px 0 0 26px;padding:10px 13px;border:1px solid var(--line-warm);border-radius:5px;background:var(--paper-soft);color:var(--ink-soft);font-size:11px;line-height:1.7;font-family:Consolas,'SFMono-Regular',monospace;box-shadow:var(--shadow-soft);transform:rotate(-.5deg);">当前标签 background === var(--paper) · margin-bottom:-1px<br>未选 --paper-soft ｜ 杂记本 --manila（不是课程）｜ 楷体只给学习者亲手写的字</div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="padding:14px;border:1px solid var(--line-warm);border-radius:8px;background:var(--veil-strong);box-shadow:var(--shadow-soft);">
+            <div style="font-size:13px;font-weight:700;color:var(--ink-strong);margin-bottom:10px;">★ 书脊 · 参考书立着</div>
+            <div style="display:flex;align-items:flex-end;gap:4px;">
+              <div style="writing-mode:vertical-rl;min-height:96px;padding:9px 6px;border:1px solid var(--manila-line);border-radius:3px 3px 2px 2px;color:var(--brown-ink);background:var(--manila);font-size:12px;font-weight:700;letter-spacing:.04em;box-shadow:inset -3px 0 5px -4px rgba(80,65,40,.6);cursor:pointer;" style-hover="transform:translateY(-3px);">费曼物理学讲义</div>
+              <div style="writing-mode:vertical-rl;min-height:88px;padding:9px 6px;border:1px solid var(--purple-line);border-radius:3px 3px 2px 2px;color:var(--purple-dark);background:var(--purple-pale);font-size:12px;font-weight:700;letter-spacing:.04em;cursor:pointer;" style-hover="transform:translateY(-3px);">狭义相对论导论</div>
+              <div style="writing-mode:vertical-rl;min-height:96px;padding:9px 6px;border:1px solid var(--manila-line);border-radius:3px 3px 2px 2px;color:var(--brown-ink);background:var(--manila);font-size:12px;font-weight:700;letter-spacing:.04em;box-shadow:inset -3px 0 5px -4px rgba(80,65,40,.6);cursor:pointer;" style-hover="transform:translateY(-3px);">课堂录音转写</div>
+              <div style="min-height:62px;align-self:flex-end;display:grid;place-items:center;padding:0 9px;border:1px dashed var(--line-cool);border-radius:3px;color:var(--ink-soft);background:transparent;font-size:12px;cursor:pointer;">＋</div>
+            </div>
+          </div>
+          <div data-tokennote="1" style="padding:10px 13px;border:1px solid var(--line-warm);border-radius:5px;background:var(--paper-soft);color:var(--ink-soft);font-size:11px;line-height:1.7;font-family:Consolas,'SFMono-Regular',monospace;box-shadow:var(--shadow-soft);transform:rotate(.6deg);">writing-mode:vertical-rl · 约 30×96<br>--manila / --manila-line / --brown-ink<br>新增用虚线（尚未生效）</div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 工作夹 + 散在桌上的卡片 -->
+    <section style="display:flex;flex-direction:column;gap:16px;">
+      <div style="display:flex;align-items:center;gap:11px;">
+        <span style="font-size:12px;letter-spacing:.14em;font-weight:700;color:var(--ink-strong);">插在架上的 · 工作夹</span>
+        <span style="flex:1;height:1px;background:var(--frame-line);opacity:.45;"></span>
+        <span style="font-size:11px;color:var(--ink-mid);">★ 纵向标签 · 牛皮纸 · 散页可重排</span>
+      </div>
+      <div style="display:grid;grid-template-columns:minmax(0,1.15fr) minmax(320px,1fr);gap:24px;align-items:start;">
+
+        <div style="display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:stretch;">
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;padding-top:18px;position:relative;z-index:3;">
+              <div style="display:inline-flex;align-items:center;gap:8px;padding:9px 8px 9px 13px;border:1px solid var(--line-warm);border-right:0;border-radius:9px 0 0 9px;color:var(--ink-soft);background:var(--paper-soft);font-size:13px;white-space:nowrap;box-shadow:inset -7px 0 9px -9px rgba(80,65,40,.45);cursor:pointer;" style-hover="color:var(--ink-strong);"><span style="width:4px;height:20px;border-radius:2px;background:var(--lavender);opacity:.6;"></span>期末讲稿</div>
+              <div style="display:inline-flex;align-items:center;gap:8px;padding:9px 14px 9px 13px;margin-right:-1px;border:1px solid var(--line-warm);border-right:0;border-radius:9px 0 0 9px;color:var(--ink-strong);background:var(--paper);font-size:13px;font-weight:700;white-space:nowrap;cursor:pointer;"><span style="width:4px;height:20px;border-radius:2px;background:var(--purple);"></span>组会汇报</div>
+              <div style="display:inline-flex;align-items:center;gap:8px;padding:9px 8px 9px 13px;border:1px dashed var(--line-cool);border-right:0;border-radius:9px 0 0 9px;color:var(--ink-soft);background:transparent;font-size:13px;font-weight:700;white-space:nowrap;cursor:pointer;">＋ 新夹</div>
+            </div>
+            <div style="flex:1;min-width:0;position:relative;z-index:2;border:1px solid var(--line-warm);border-radius:0 12px 12px 0;background:var(--paper);box-shadow:var(--shadow);overflow:hidden;">
+              <div style="padding:18px 24px 15px;border-bottom:1px solid var(--line-warm);background:var(--paper-strong);">
+                <div style="font-size:17px;font-weight:700;color:var(--ink-strong);line-height:1.35;">组会汇报 · 15 分钟</div>
+                <div style="margin-top:3px;font-size:11px;color:var(--ink-soft);">Brief 便条 · 别在夹子最前面，所有排序判断都回到它</div>
+              </div>
+              <div style="padding:16px 24px 20px;display:flex;flex-direction:column;gap:9px;">
+                <div style="display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:13px;padding:12px 14px;border:1px solid var(--line-cool);border-radius:7px;background:var(--paper-strong);box-shadow:0 2px 8px rgba(82,61,74,.05);">
+                  <div style="display:grid;place-items:center;width:25px;height:25px;border-radius:13px;color:var(--purple-dark);background:var(--purple-pale);font-size:12px;font-weight:800;">1</div>
+                  <div><strong style="display:block;color:var(--ink-strong);font-size:14px;line-height:1.5;font-weight:700;">为什么同时性会失效</strong><small style="display:block;margin-top:2px;color:var(--ink-soft);font-size:11px;">已落墨 · 已进入正式顺序</small></div>
+                </div>
+                <div style="display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;padding:12px 14px;border:1px dashed var(--lavender);border-radius:7px;background:var(--purple-faint);">
+                  <div style="display:grid;place-items:center;width:25px;height:25px;border-radius:13px;color:var(--lavender);background:transparent;box-shadow:inset 0 0 0 1px var(--lavender);font-size:12px;font-weight:800;">2</div>
+                  <div><strong style="display:block;color:var(--ink-mid);font-size:14px;line-height:1.5;font-weight:700;">时间膨胀的直觉解释</strong><small style="display:block;margin-top:2px;color:var(--ink-soft);font-size:11px;">小娜拟的 · 落墨才算数</small></div>
+                  <div style="display:inline-flex;gap:4px;">
+                    <button type="button" style="min-height:30px;padding:5px 9px;border:1px solid var(--purple-line);border-radius:6px;color:var(--purple-dark);background:var(--surface);font-size:11px;font-weight:700;white-space:nowrap;cursor:pointer;" style-hover="background:var(--purple-pale);">落墨</button>
+                    <button type="button" style="min-height:30px;padding:5px 9px;border:1px solid var(--purple-line);border-radius:6px;color:var(--purple-dark);background:var(--surface);font-size:11px;font-weight:700;white-space:nowrap;cursor:pointer;" style-hover="background:var(--purple-pale);">抽走</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div data-tokennote="1" style="align-self:flex-start;margin:12px 0 0 60px;padding:10px 13px;border:1px solid var(--line-warm);border-radius:5px;background:var(--paper-soft);color:var(--ink-soft);font-size:11px;line-height:1.7;font-family:Consolas,'SFMono-Regular',monospace;box-shadow:var(--shadow-soft);transform:rotate(.4deg);">当前标签 background === var(--paper) · margin-right:-1px · 圆角朝左<br>★ 铅笔卡 dashed + --lavender + --purple-faint + 空心序号<br>★ 落墨卡 solid + --line-cool + --paper-strong + --purple-pale 实心序号</div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <div style="display:flex;align-items:center;gap:11px;">
+            <span style="font-size:12px;letter-spacing:.14em;font-weight:700;color:var(--ink-strong);">★ 复印件</span>
+            <span style="flex:1;height:1px;background:var(--frame-line);opacity:.45;"></span>
+          </div>
+          <div style="display:flex;gap:20px;align-items:flex-start;">
+            <div style="flex:1;padding:14px 16px;border:1px solid var(--line-cool);border-radius:7px;background:var(--paper-strong);box-shadow:var(--shadow-soft);transform:rotate(-.7deg);">
+              <strong style="display:block;color:var(--ink-strong);font-size:14px;">原件</strong>
+              <small style="display:block;margin-top:4px;color:var(--ink-soft);font-size:11px;line-height:1.6;">在课程本里 · 学习真值永远留在本子里</small>
+            </div>
+            <div style="flex:1;padding:14px 16px;border:1px solid var(--line-cool);border-radius:7px;background:var(--paper-strong);filter:saturate(.55);box-shadow:3px 3px 0 -1px var(--wash);transform:rotate(.9deg);">
+              <strong style="display:block;color:var(--ink-strong);font-size:14px;">复印件</strong>
+              <small style="display:block;margin-top:4px;color:var(--ink-soft);font-size:11px;line-height:1.6;">截至取用那一刻的一份 · 改这张不动原件</small>
+            </div>
+          </div>
+          <div data-tokennote="1" style="padding:10px 13px;border:1px solid var(--line-warm);border-radius:5px;background:var(--paper-soft);color:var(--ink-soft);font-size:11px;line-height:1.7;font-family:Consolas,'SFMono-Regular',monospace;box-shadow:var(--shadow-soft);transform:rotate(-.5deg);">filter:saturate(.55) · box-shadow:3px 3px 0 -1px var(--wash)<br>实线边 —— 虚线是铅笔家族专用，此处绝不可用</div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 抽屉：通用控件 -->
+    <section style="display:flex;flex-direction:column;gap:16px;">
+      <div style="display:flex;align-items:center;gap:11px;">
+        <span style="font-size:12px;letter-spacing:.14em;font-weight:700;color:var(--ink-strong);">抽屉里的 · 通用件</span>
+        <span style="flex:1;height:1px;background:var(--frame-line);opacity:.45;"></span>
+        <span style="font-size:11px;color:var(--ink-mid);">不承担物性语义，只求好用</span>
+      </div>
+      <div style="border:1px solid var(--line-warm);border-radius:12px;background:linear-gradient(180deg,var(--desk-lo) 0%,var(--desk-deep) 100%);box-shadow:inset 0 3px 10px -6px rgba(60,44,28,.55), var(--shadow-soft);padding:22px;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:22px;">
+
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="font-size:12px;font-weight:700;color:var(--ink-strong);letter-spacing:.05em;">按钮</div>
+          <div style="display:flex;flex-wrap:wrap;gap:9px;align-items:center;">
+            <button type="button" style="min-height:36px;padding:8px 18px;border:1px solid var(--purple);border-radius:7px;background:var(--purple);color:#FFFFFF;font-size:13px;font-weight:700;white-space:nowrap;cursor:pointer;" style-hover="background:var(--purple-dark);border-color:var(--purple-dark);">开始学习</button>
+            <button type="button" style="min-height:36px;padding:8px 18px;border:1px solid var(--line-cool);border-radius:7px;background:var(--surface);color:var(--ink-strong);font-size:13px;font-weight:700;white-space:nowrap;cursor:pointer;" style-hover="border-color:var(--lavender);background:var(--purple-faint);">稍后再说</button>
+            <button type="button" style="min-height:36px;padding:8px 18px;border:1px solid var(--danger-line);border-radius:7px;background:var(--danger-bg);color:var(--danger);font-size:13px;font-weight:700;white-space:nowrap;cursor:pointer;" style-hover="border-color:var(--danger);">删除本子</button>
+            <button type="button" disabled="{{ true }}" style="min-height:36px;padding:8px 18px;border:1px solid var(--purple);border-radius:7px;background:var(--purple);color:#FFFFFF;font-size:13px;font-weight:700;white-space:nowrap;opacity:.55;cursor:not-allowed;">已归档</button>
+          </div>
+          <div data-tokennote="1" style="padding:9px 12px;border:1px solid var(--line-warm);border-radius:5px;background:var(--paper-soft);color:var(--ink-soft);font-size:11px;line-height:1.7;font-family:Consolas,'SFMono-Regular',monospace;">主 --purple → hover --purple-dark<br>次 --surface + --line-cool<br>危险 --danger / --danger-line / --danger-bg<br>禁用 opacity .55 · not-allowed</div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="font-size:12px;font-weight:700;color:var(--ink-strong);letter-spacing:.05em;">输入 · 焦点环</div>
+          <input type="text" value="狭义相对论" readonly="{{ true }}" style="width:100%;min-height:38px;padding:8px 12px;border:1px solid var(--line-cool);border-radius:7px;background:var(--surface);color:var(--ink);font-size:13px;outline:none;" style-focus="box-shadow:0 0 0 3px #fff, 0 0 0 6px #6F4B86;" />
+          <textarea rows="2" readonly="{{ true }}" style="width:100%;padding:9px 12px;border:1px solid var(--line-cool);border-radius:7px;background:var(--surface);color:var(--ink);font-size:13px;resize:none;outline:none;" style-focus="box-shadow:0 0 0 3px #fff, 0 0 0 6px #6F4B86;">把这一节讲给我听，用我听得懂的话。</textarea>
+          <button type="button" style="align-self:flex-start;min-height:36px;padding:8px 16px;border:1px solid var(--line-cool);border-radius:7px;background:var(--surface);color:var(--ink-strong);font-size:13px;font-weight:700;box-shadow:0 0 0 3px #fff, 0 0 0 6px #6F4B86;cursor:pointer;">常驻焦点环</button>
+          <div data-tokennote="1" style="padding:9px 12px;border:1px solid var(--line-warm);border-radius:5px;background:var(--paper-soft);color:var(--ink-soft);font-size:11px;line-height:1.7;font-family:Consolas,'SFMono-Regular',monospace;">--surface · --line-cool · --ink<br>focus 双层：0 0 0 3px #fff, 0 0 0 6px #6F4B86</div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="font-size:12px;font-weight:700;color:var(--ink-strong);letter-spacing:.05em;">状态标签 · 骨架屏</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;">
+            <span style="display:inline-flex;align-items:center;padding:4px 11px;border-radius:99px;background:var(--warning-bg);color:var(--warning);font-size:12px;font-weight:700;white-space:nowrap;">待复习 3 节</span>
+            <span style="display:inline-flex;align-items:center;padding:4px 11px;border-radius:99px;background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger-line);font-size:12px;font-weight:700;white-space:nowrap;">同步失败</span>
+            <span style="display:inline-flex;align-items:center;padding:4px 11px;border-radius:99px;background:var(--success-bg);color:var(--success);font-size:12px;font-weight:700;white-space:nowrap;">已掌握</span>
+            <span style="display:inline-flex;align-items:center;padding:4px 11px;border-radius:99px;background:var(--info-bg);color:var(--info);font-size:12px;font-weight:700;white-space:nowrap;">小娜整理中</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;padding:13px;border:1px solid var(--line-warm);border-radius:8px;background:var(--paper);">
+            <div data-skel="1" style="height:13px;width:62%;border-radius:4px;background:var(--wash);"></div>
+            <div data-skel="1" style="height:11px;width:100%;border-radius:4px;background:var(--wash);"></div>
+            <div data-skel="1" style="height:11px;width:84%;border-radius:4px;background:var(--wash);"></div>
+          </div>
+          <div data-tokennote="1" style="padding:9px 12px;border:1px solid var(--line-warm);border-radius:5px;background:var(--paper-soft);color:var(--ink-soft);font-size:11px;line-height:1.7;font-family:Consolas,'SFMono-Regular',monospace;">warning / danger / success / info + 各自 *-bg<br>骨架 --wash on --paper · reduced-motion 下不闪</div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 样张 -->
+    <section style="display:flex;flex-direction:column;gap:16px;">
+      <div style="display:flex;align-items:center;gap:11px;">
+        <span style="font-size:12px;letter-spacing:.14em;font-weight:700;color:var(--ink-strong);">摊在桌角的 · 纸样与线样</span>
+        <span style="flex:1;height:1px;background:var(--frame-line);opacity:.45;"></span>
+        <span style="font-size:11px;color:var(--ink-mid);">层级基准 · 关掉阴影后仍须成立</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:24px;align-items:start;">
+
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:11px;">
+            <div style="border:1px solid var(--line-warm);border-radius:8px;background:var(--paper-soft);padding:16px 10px;text-align:center;transform:rotate(-.6deg);"><div style="font-size:12px;font-weight:700;color:var(--ink-strong);">压低</div><div style="font-size:10px;color:var(--ink-soft);font-family:Consolas,monospace;margin-top:4px;">--paper-soft</div></div>
+            <div style="border:1px solid var(--line-warm);border-radius:8px;background:var(--paper);padding:16px 10px;text-align:center;box-shadow:var(--shadow-soft);"><div style="font-size:12px;font-weight:700;color:var(--ink-strong);">纸面</div><div style="font-size:10px;color:var(--ink-soft);font-family:Consolas,monospace;margin-top:4px;">--paper</div></div>
+            <div style="border:1px solid var(--line-warm);border-radius:8px;background:var(--paper-strong);padding:16px 10px;text-align:center;box-shadow:var(--shadow);transform:rotate(.7deg);"><div style="font-size:12px;font-weight:700;color:var(--ink-strong);">浮起</div><div style="font-size:10px;color:var(--ink-soft);font-family:Consolas,monospace;margin-top:4px;">--paper-strong</div></div>
+          </div>
+          <div style="display:flex;gap:11px;">
+            <div style="flex:1;border:1px solid var(--manila-line);border-radius:8px;background:var(--manila);color:var(--brown-ink);padding:14px 10px;text-align:center;font-size:12px;font-weight:700;">牛皮纸 · 非课程<div style="font-size:10px;font-weight:400;font-family:Consolas,monospace;margin-top:4px;">--manila / --brown-ink</div></div>
+            <div style="flex:1;border:1px solid var(--line-warm);border-radius:8px;background:var(--paper);color:var(--ink-strong);padding:14px 10px;text-align:center;font-size:12px;font-weight:700;">象牙纸 · 课程<div style="font-size:10px;font-weight:400;font-family:Consolas,monospace;margin-top:4px;">--paper / --ink-strong</div></div>
+          </div>
+          <div style="display:flex;gap:11px;">
+            <div style="flex:1;border:1px dashed var(--lavender);border-radius:8px;background:var(--purple-faint);padding:14px 10px;text-align:center;font-size:12px;font-weight:700;color:var(--ink-mid);">铅笔面 · 未生效<div style="font-size:10px;font-weight:400;font-family:Consolas,monospace;margin-top:4px;">--purple-faint</div></div>
+            <div style="flex:1;border:1px solid var(--line-cool);border-radius:8px;background:var(--paper-strong);padding:14px 10px;text-align:center;font-size:12px;font-weight:700;color:var(--ink-strong);">落墨面 · 已确认<div style="font-size:10px;font-weight:400;font-family:Consolas,monospace;margin-top:4px;">--paper-strong</div></div>
+          </div>
+          <div data-tokennote="1" style="padding:10px 13px;border:1px solid var(--line-warm);border-radius:5px;background:var(--paper-soft);color:var(--ink-soft);font-size:11px;line-height:1.7;font-family:Consolas,'SFMono-Regular',monospace;box-shadow:var(--shadow-soft);transform:rotate(.4deg);">材质区别的是「是不是课程」，不是好看。<br>暗色下铅笔面与落墨面靠色相差承担：蓝通道差 18。</div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="border:1px solid var(--line-strong);border-radius:8px;overflow:hidden;background:var(--paper);box-shadow:var(--shadow-soft);">
+            <div style="padding:12px 15px;border-bottom:1px solid var(--line-warm);display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--ink);"><span>纸与纸之间</span><span style="color:var(--ink-soft);font-family:Consolas,monospace;font-size:11px;">--line-warm</span></div>
+            <div style="padding:12px 15px;border-bottom:1px solid var(--line-cool);display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--ink);"><span>控件描边</span><span style="color:var(--ink-soft);font-family:Consolas,monospace;font-size:11px;">--line-cool</span></div>
+            <div style="padding:12px 15px;border-bottom:1px solid var(--line-faint);display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--ink);"><span>极弱分隔</span><span style="color:var(--ink-soft);font-family:Consolas,monospace;font-size:11px;">--line-faint</span></div>
+            <div style="padding:12px 15px;display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--ink);"><span>结构边（本框）</span><span style="color:var(--ink-soft);font-family:Consolas,monospace;font-size:11px;">--line-strong</span></div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:11px;">
+            <div style="border:1px solid var(--line-warm);border-radius:8px;overflow:hidden;background:var(--paper);">
+              <div style="padding:15px;background:var(--paper-soft);color:var(--ink-soft);font-size:13px;">次要说明文字</div>
+              <div style="padding:8px 11px;border-top:1px solid var(--line-faint);font-size:10px;color:var(--ink-soft);font-family:Consolas,monospace;display:flex;justify-content:space-between;gap:6px;"><span>ink-soft / paper-soft</span><strong style="color:var(--ink-strong);">4.79</strong></div>
+            </div>
+            <div style="border:1px solid var(--line-warm);border-radius:8px;overflow:hidden;background:var(--paper);">
+              <div style="padding:15px;background:var(--manila);color:var(--brown-ink);font-size:13px;">牛皮纸上的棕墨</div>
+              <div style="padding:8px 11px;border-top:1px solid var(--line-faint);font-size:10px;color:var(--ink-soft);font-family:Consolas,monospace;display:flex;justify-content:space-between;gap:6px;"><span>brown-ink / manila</span><strong style="color:var(--ink-strong);">4.51</strong></div>
+            </div>
+            <div style="border:1px solid var(--line-warm);border-radius:8px;overflow:hidden;background:var(--paper);">
+              <div style="padding:15px;background:var(--warning-bg);color:var(--warning);font-size:13px;">还没复习过</div>
+              <div style="padding:8px 11px;border-top:1px solid var(--line-faint);font-size:10px;color:var(--ink-soft);font-family:Consolas,monospace;display:flex;justify-content:space-between;gap:6px;"><span>warning / warning-bg</span><strong style="color:var(--ink-strong);">4.69</strong></div>
+            </div>
+          </div>
+          <div data-tokennote="1" style="padding:10px 13px;border:1px solid var(--line-warm);border-radius:5px;background:var(--paper-soft);color:var(--ink-soft);font-size:11px;line-height:1.7;font-family:Consolas,'SFMono-Regular',monospace;box-shadow:var(--shadow-soft);transform:rotate(-.4deg);">这三处对比度已无余量，调浅即不达标。</div>
+        </div>
+
+      </div>
+    </section>
+
+  </div>
+
+  <!-- 小娜杯：右下角锚点，随时在但不抢主视觉 -->
+  <div style="position:fixed;right:26px;bottom:26px;z-index:20;display:flex;align-items:center;gap:10px;">
+    <div title="小娜 · 占位形状（正式品牌美术属另一轨）" style="width:54px;height:54px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--line-cool);background:var(--paper-strong);box-shadow:var(--shadow);cursor:pointer;" style-hover="border-color:var(--lavender);background:var(--purple-faint);">
+      <svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="var(--brown-ink)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h12v6.5A4.5 4.5 0 0 1 11.5 19h-3A4.5 4.5 0 0 1 4 14.5V8Z"></path><path d="M16 9.5h1.6a2.4 2.4 0 0 1 0 4.8H16"></path><path d="M3 21.2h14"></path></svg>
+    </div>
+  </div>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light'|'dark'&quot;,&quot;section&quot;:&quot;预览&quot;},&quot;flat&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;验收&quot;},&quot;showTokens&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;验收&quot;}}">
+class Component extends DCLogic {
+  state = { theme: null };
+  get theme() { return this.state.theme ?? this.props.theme ?? 'light'; }
+  componentDidMount() { this.sync(); }
+  componentDidUpdate() { this.sync(); }
+  sync() {
+    const r = document.documentElement;
+    r.setAttribute('data-theme', this.theme);
+    if (this.props.flat) r.setAttribute('data-flat', ''); else r.removeAttribute('data-flat');
+    r.setAttribute('data-notes', this.props.showTokens === false ? 'off' : 'on');
+  }
+  renderVals() {
+    const dark = this.theme === 'dark';
+    return {
+      isDark: dark,
+      isLight: !dark,
+      themeLabel: dark ? '灯亮着' : '灯关着',
+      toggleTheme: () => this.setState({ theme: dark ? 'light' : 'dark' })
+    };
+  }
+}
+</script>
+</body>
+</html>

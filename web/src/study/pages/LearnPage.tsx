@@ -22,7 +22,7 @@ const DRAFT_PREFIX = "kabuqina.study.learn-draft.v1";
 
 type LearnDraft = { version: 1; text: string; compared: boolean; updatedAt: string };
 
-function retained(state: Loadable<StudyLearnHome>): StudyLearnHome | undefined {
+function retained<T>(state: Loadable<T>): T | undefined {
   return deriveStudyRequestState(state).data;
 }
 
@@ -78,8 +78,9 @@ export function LearnPage({ spaceId }: { spaceId: string }) {
   const pageRegion = useRef<HTMLElement>(null);
   const requests = useRef(new RequestCoordinator());
   const compilationRequests = useRef(new RequestCoordinator());
+  const compilationScope = useRef("");
   const [snapshot, setSnapshot] = useState<Loadable<StudyLearnHome>>({ status: "idle" });
-  const [compilationRuns, setCompilationRuns] = useState<KnowledgeCoreCompilationRun[]>([]);
+  const [compilationSnapshot, setCompilationSnapshot] = useState<Loadable<KnowledgeCoreCompilationRun[]>>({ status: "idle" });
   const [coreIndex, setCoreIndex] = useState<number | null>(null);
   const [draft, setDraft] = useState<LearnDraft | null>(null);
   const [saveFailed, setSaveFailed] = useState(false);
@@ -131,15 +132,29 @@ export function LearnPage({ spaceId }: { spaceId: string }) {
   const outlineNodeId = data?.location?.planOutlineNodeId || data?.location?.outlineNodeId || "";
   const loadCompilations = useCallback(() => {
     if (!outlineNodeId || !repository.listKnowledgeCoreCompilations) {
-      setCompilationRuns([]);
+      compilationScope.current = "";
+      setCompilationSnapshot({ status: "ready", data: [] });
       return;
     }
     const request = compilationRequests.current.begin();
+    const sameScope = compilationScope.current === outlineNodeId;
+    compilationScope.current = outlineNodeId;
+    setCompilationSnapshot((current) => ({
+      status: "loading",
+      ...(sameScope && retained(current) ? { previous: retained(current) } : {}),
+    }));
     void repository.listKnowledgeCoreCompilations(spaceId, outlineNodeId, request.signal).then(
       (runs) => {
-        if (compilationRequests.current.isCurrent(request.generation)) setCompilationRuns(runs);
+        if (compilationRequests.current.isCurrent(request.generation)) setCompilationSnapshot({ status: "ready", data: runs });
       },
-      () => undefined,
+      (error) => {
+        if (!compilationRequests.current.isCurrent(request.generation)) return;
+        setCompilationSnapshot((current) => ({
+          status: "error",
+          error,
+          ...(retained(current) ? { previous: retained(current) } : {}),
+        }));
+      },
     );
   }, [outlineNodeId, repository, spaceId]);
 
@@ -148,6 +163,8 @@ export function LearnPage({ spaceId }: { spaceId: string }) {
     loadCompilations();
   }, [loadCompilations, point]);
 
+  const compilationState = deriveStudyRequestState(compilationSnapshot);
+  const compilationRuns = compilationState.data ?? [];
   const latestCompilation = [...compilationRuns]
     .sort((a, b) => `${b.updatedAt}:${b.runId}`.localeCompare(`${a.updatedAt}:${a.runId}`))[0];
   const compilationRunning = latestCompilation
@@ -279,6 +296,12 @@ export function LearnPage({ spaceId }: { spaceId: string }) {
           <button type="button" onClick={load}>{t("study.retry")}</button>
         </div>
       ) : null}
+      {!point && outlineNodeId && compilationState.phase === "error" && !compilationState.data ? (
+        <div className="kq-study-page-alert" role="alert">
+          <span>知识核整理状态暂时无法读取；当前学习范围没有改变。</span>
+          <button type="button" onClick={loadCompilations}>{t("study.retry")}</button>
+        </div>
+      ) : null}
       {point ? coreCard(point) : data && !data.unavailable?.includes("knowledgePoints") && compilationRunning ? (
         <div className="kq-study-page-empty">
           <h2>正在整理这一节</h2>
@@ -299,7 +322,12 @@ export function LearnPage({ spaceId }: { spaceId: string }) {
           <p>回到计划页处理当前目录节点；不会跳到其他学习范围。</p>
           <Link className="kq-study-primary-link" to={studyPath(spaceId, "plan")}>{latestCompilation.status === "needs_source" ? "指定知识源" : "重新整理"}</Link>
         </div>
-      ) : data && !data.unavailable?.includes("knowledgePoints") ? (
+      ) : data && !data.unavailable?.includes("knowledgePoints") && outlineNodeId && ["initial", "loading"].includes(compilationState.phase) && !compilationState.data ? (
+        <div className="kq-study-page-empty" role="status">
+          <h2>正在确认这一节</h2>
+          <p>正在读取当前目录范围的知识核状态。</p>
+        </div>
+      ) : data && !data.unavailable?.includes("knowledgePoints") && !(outlineNodeId && compilationState.phase === "error" && !compilationState.data) ? (
         <div className="kq-study-page-empty">
           <h2>{outlineNodeId ? "这一节还没有采用的知识核" : "先确定学习范围"}</h2>
           <p>{outlineNodeId ? "回到计划页整理或采用这一节的知识核。" : "学习页一次只处理一个知识核。先在计划页选择这一段要学什么。"}</p>
