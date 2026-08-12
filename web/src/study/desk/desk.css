@@ -8,26 +8,30 @@
    class contract is expressed here as `@media (max-width: 720px)`. */
 
 .kq-desk {
-  --c-desk-a: #efe9dd;
-  --c-desk: #e8dfd2;
-  --c-desk-b: #e4dacb;
-  --c-desk-line: #d4c6b2;
-  --c-paper: #fbf8f1;
-  --c-paper-edge: #e7e0d2;
-  --c-ink-strong: #49385e;
-  --c-ink: #5a4a6a;
-  --c-pencil: #7d61a0;
-  --c-muted: #7a6494;
-  --c-accent: #6b5580;
-  --c-accent-2: #8f75a8;
-  --c-accent-soft: #f5effa;
-  --c-warm: #d4b080;
-  --c-warn: #a8472f;
-  --c-card: #fff;
-  --c-glass: rgba(255, 255, 255, .72);
-  --c-glass-border: rgba(232, 224, 237, .86);
-  --c-shadow-near: 0 2px 6px rgba(90, 74, 106, .10);
-  --c-shadow-far: 0 14px 34px rgba(90, 74, 106, .08);
+  /* --c-* 曾是书桌自带的一套色，与 v0.5.0 canonical 令牌并存，值还不一样
+     （三个不同的紫、两种墨），同屏打架。现全部改为 canonical 的别名：
+     引用点不动，颜色归一，且暗色主题自动跟随。新代码请直接用 canonical 名。
+     真值见 specs/2026-08-01-v0.5.0-v1-visual-token-spec.md */
+  --c-desk-a: var(--desk-hi);
+  --c-desk: var(--desk);
+  --c-desk-b: var(--desk-lo);
+  --c-desk-line: var(--manila-line);
+  --c-paper: var(--paper);
+  --c-paper-edge: var(--line-warm);
+  --c-ink-strong: var(--ink-strong);
+  --c-ink: var(--ink);
+  --c-pencil: var(--lavender);
+  --c-muted: var(--ink-soft);
+  --c-accent: var(--purple);
+  --c-accent-2: var(--lavender);
+  --c-accent-soft: var(--purple-faint);
+  --c-warm: var(--tan);
+  --c-warn: var(--warning);
+  --c-card: var(--surface);
+  --c-glass: var(--veil);
+  --c-glass-border: var(--line-cool);
+  --c-shadow-near: var(--shadow-soft);
+  --c-shadow-far: var(--shadow);
   --c-noise: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxODAiIGhlaWdodD0iMTgwIj48ZmlsdGVyIGlkPSJuIj48ZmVUdXJidWxlbmNlIHR5cGU9ImZyYWN0YWxOb2lzZSIgYmFzZUZyZXF1ZW5jeT0iMC45IiBudW1PY3RhdmVzPSIyIi8+PGZlQ29sb3JNYXRyaXggdmFsdWVzPSIwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwIDAgMCAwLjAzNSAwIi8+PC9maWx0ZXI+PHJlY3Qgd2lkdGg9IjE4MCIgaGVpZ2h0PSIxODAiIGZpbHRlcj0idXJsKCNuKSIvPjwvc3ZnPg==');
   height: 100%;
   min-height: 0;
@@ -36,8 +40,10 @@
      desk now has a single visual child: let its canvas fill the whole surface. */
   grid-template-rows: minmax(0, 1fr);
   overflow: hidden;
+  /* 暖斑是台灯打在桌面上的光，所以锚在灯所在的右上角，且白天（浅色）为空——
+     不开灯就没有光斑。之前硬编码在左上角，没有光源解释得了它。 */
   background:
-    radial-gradient(circle at 9% 5%, rgba(255, 250, 229, .92), transparent 24%),
+    radial-gradient(620px 420px at 94% 0%, var(--desk-glow), transparent 62%),
     linear-gradient(180deg, var(--c-desk-a) 0%, var(--c-desk) 55%, var(--c-desk-b) 100%);
   color: var(--c-ink);
   font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
@@ -74,7 +80,7 @@
 
 .kq-desk button {
   min-height: 40px;
-  border: 1px solid rgba(107, 85, 128, .42);
+  border: 1px solid color-mix(in srgb, var(--purple) 42%, transparent);
   border-radius: 8px;
   background: var(--c-paper);
   color: var(--c-ink-strong);
@@ -85,7 +91,7 @@
   font-weight: 600;
 }
 
-.kq-desk button:hover:not(:disabled) { background: #eeeeef; }
+.kq-desk button:hover:not(:disabled) { background: var(--wash); }
 
 .kq-desk button:disabled {
   cursor: not-allowed;
@@ -106,9 +112,9 @@
   width: 100%;
   min-height: 68px;
   resize: vertical;
-  border: 1px solid rgba(107, 85, 128, .48);
+  border: 1px solid color-mix(in srgb, var(--purple) 48%, transparent);
   border-radius: 4px;
-  background: #fffefb;
+  background: var(--paper-strong);
   color: var(--c-ink-strong);
   padding: 10px 12px;
   font: inherit;
@@ -116,12 +122,12 @@
 
 .kq-desk .kd-primary {
   background: linear-gradient(135deg, var(--c-accent), var(--c-accent-2));
-  color: #fff;
+  color: var(--surface);
   border-color: var(--c-accent);
-  box-shadow: 0 4px 12px rgba(90, 74, 106, .20);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--ink) 20%, transparent);
 }
 
-.kq-desk .kd-primary:hover:not(:disabled) { background: #59456d; }
+.kq-desk .kd-primary:hover:not(:disabled) { background: var(--purple-dark); }
 
 .kd-inline-actions {
   display: flex;
@@ -485,7 +491,7 @@
 .kd-object {
   min-width: 0;
   border: 1px solid var(--c-paper-edge);
-  background: rgba(255, 255, 255, .88);
+  background: var(--veil);
   box-shadow: var(--c-shadow-near), var(--c-shadow-far);
 }
 
@@ -501,7 +507,7 @@
   align-items: center;
   gap: 8px;
   text-align: left;
-  background: #f8f7f4;
+  background: var(--paper-soft);
 }
 
 /* --- notebook ------------------------------------------------------------ */
@@ -526,7 +532,7 @@
   border-radius: 8px 13px 13px 8px;
   background: var(--c-paper);
   background-image: var(--c-noise);
-  box-shadow: 0 2px 5px rgba(90, 74, 106, .18), 9px 13px 26px rgba(90, 74, 106, .14);
+  box-shadow: 0 2px 5px color-mix(in srgb, var(--ink) 18%, transparent), 9px 13px 26px color-mix(in srgb, var(--ink) 14%, transparent);
   overflow: hidden;
   transition: transform 180ms ease, width 180ms ease;
 }
@@ -545,8 +551,8 @@
   inset: 0 auto 0 7px;
   z-index: 4;
   width: 1px;
-  background: rgba(143, 117, 168, .26);
-  box-shadow: 5px 0 0 rgba(143, 117, 168, .08);
+  background: color-mix(in srgb, var(--lavender) 26%, transparent);
+  box-shadow: 5px 0 0 color-mix(in srgb, var(--lavender) 8%, transparent);
   pointer-events: none;
 }
 
@@ -574,15 +580,15 @@
   text-align: center;
   border-radius: 4px 4px 8px 8px !important;
   border-top-width: 5px !important;
-  background: linear-gradient(180deg, #f7eedf, #ecdbc2) !important;
-  border-color: rgba(168, 71, 47, .34) !important;
+  background: linear-gradient(180deg, var(--manila), var(--manila-hover)) !important;
+  border-color: color-mix(in srgb, var(--warning) 34%, transparent) !important;
 }
 
 .kd-bookmark-button > span { color: var(--c-ink-strong); font-size: 14px; font-weight: 800; }
 .kd-bookmark-button.is-empty {
   min-height: 58px;
   box-sizing: border-box;
-  border: 1px solid rgba(168, 71, 47, .34);
+  border: 1px solid color-mix(in srgb, var(--warning) 34%, transparent);
   border-top-width: 5px;
   padding: 7px 12px;
   pointer-events: none;
@@ -756,7 +762,7 @@
   font-family: "KaiTi", "STKaiti", "Segoe UI", sans-serif;
   font-size: 17px;
   line-height: 1.65;
-  box-shadow: inset 0 1px 3px rgba(90, 74, 106, .08);
+  box-shadow: inset 0 1px 3px color-mix(in srgb, var(--ink) 8%, transparent);
 }
 
 .kd-answer-surface {
@@ -775,7 +781,7 @@
   align-items: center;
   gap: 9px;
   text-align: left;
-  background: #fffefb;
+  background: var(--paper-strong);
 }
 
 .kd-answer-options button > span {
@@ -783,7 +789,7 @@
   place-items: center;
   width: 24px;
   height: 24px;
-  border: 1px solid rgba(107, 85, 128, .34);
+  border: 1px solid color-mix(in srgb, var(--purple) 34%, transparent);
   border-radius: 50%;
   color: var(--c-muted);
   font-size: 12px;
@@ -798,7 +804,7 @@
 .kd-answer-options button[aria-pressed="true"] > span {
   border-color: var(--c-accent);
   background: var(--c-accent);
-  color: #fff;
+  color: var(--surface);
 }
 
 .kd-answer-binary {
@@ -813,9 +819,9 @@
 .kd-answer-editor,
 .kd-answer-derivation {
   padding: 10px;
-  border: 1px solid rgba(107, 85, 128, .34);
+  border: 1px solid color-mix(in srgb, var(--purple) 34%, transparent);
   border-radius: 5px;
-  background: #fffefb;
+  background: var(--paper-strong);
 }
 
 .kd-answer-editor[data-readonly="true"] {
@@ -829,7 +835,7 @@
 }
 
 .kd-answer-editor .kq-study-code-editor {
-  border-color: rgba(107, 85, 128, .34);
+  border-color: color-mix(in srgb, var(--purple) 34%, transparent);
   border-radius: 4px;
 }
 
@@ -859,7 +865,7 @@
   margin: -5px 0 14px;
   padding: 8px 10px;
   border-left: 3px solid var(--c-warn);
-  background: #fff2ee;
+  background: var(--danger-bg);
   color: var(--c-warn);
   font-size: 13px;
 }
@@ -869,7 +875,7 @@
   width: 150px;
   padding: 0;
   border: 1px solid var(--c-paper-edge);
-  background: #fffdf8;
+  background: var(--paper-strong);
   box-shadow: var(--c-shadow-near);
 }
 
@@ -885,14 +891,14 @@
 .kd-feedback {
   margin-top: 14px;
   padding: 14px;
-  border: 1px solid rgba(107, 85, 128, .32);
+  border: 1px solid color-mix(in srgb, var(--purple) 32%, transparent);
   border-left-width: 4px;
   border-left-color: var(--c-accent);
-  background: linear-gradient(180deg, #fff, var(--c-accent-soft));
+  background: linear-gradient(180deg, var(--surface), var(--purple-faint));
   color: var(--c-ink);
 }
 
-.kd-feedback[data-annotation="confirmed"] { border-left-color: #56775f; }
+.kd-feedback[data-annotation="confirmed"] { border-left-color: var(--success); }
 .kd-feedback[data-annotation="revision"] { border-left-color: var(--c-warn); }
 .kd-feedback[data-annotation="next_step"] { border-left-color: var(--c-accent); }
 
@@ -903,7 +909,7 @@
   grid-template-columns: 22px 1fr;
   gap: 8px;
   padding: 8px 0;
-  border-top: 1px solid rgba(107, 85, 128, .16);
+  border-top: 1px solid color-mix(in srgb, var(--purple) 16%, transparent);
   font-size: 14px;
 }
 
@@ -1025,7 +1031,7 @@
 }
 
 .kd-invoke-card textarea:focus-visible {
-  outline: 3px solid rgba(107, 85, 128, .26);
+  outline: 3px solid color-mix(in srgb, var(--purple) 26%, transparent);
   outline-offset: 2px;
 }
 
@@ -1078,7 +1084,7 @@
 .kd-panel-tabs [aria-selected="true"] {
   background: var(--c-accent);
   border-color: var(--c-accent);
-  color: #fff;
+  color: var(--surface);
 }
 
 .kd-work-create {
@@ -1115,7 +1121,7 @@
 .kd-source-list small { color: var(--c-muted); }
 
 .kd-honest-state {
-  border: 1px dashed rgba(107, 85, 128, .35);
+  border: 1px dashed color-mix(in srgb, var(--purple) 35%, transparent);
   border-radius: 10px;
   padding: 18px;
   background: rgba(255, 255, 255, .56);
@@ -1178,7 +1184,7 @@
 .kd-review-card > .kd-primary { min-width: 180px; }
 .kd-review-card kbd {
   margin-right: 7px;
-  border: 1px solid rgba(107, 85, 128, .28);
+  border: 1px solid color-mix(in srgb, var(--purple) 28%, transparent);
   border-radius: 4px;
   padding: 1px 5px;
   background: rgba(255, 255, 255, .7);
@@ -1221,7 +1227,7 @@
   padding: 13px;
   border-radius: 8px 8px 14px 14px;
   background:
-    linear-gradient(90deg, transparent 10px, rgba(143, 117, 168, .12) 10px 11px, transparent 11px),
+    linear-gradient(90deg, transparent 10px, color-mix(in srgb, var(--lavender) 12%, transparent) 10px 11px, transparent 11px),
     rgba(255, 255, 255, .9);
 }
 
@@ -1244,8 +1250,8 @@
   border-radius: 42px 42px 12px 12px !important;
   background:
     radial-gradient(ellipse at 50% 22%, #f7ead7 0 22%, #e8cfa8 23% 31%, transparent 32%),
-    linear-gradient(180deg, #fff, #f4edf8 76%) !important;
-  box-shadow: 0 2px 5px rgba(90, 74, 106, .18), 7px 11px 22px rgba(90, 74, 106, .14);
+    linear-gradient(180deg, var(--surface), var(--purple-pale) 76%) !important;
+  box-shadow: 0 2px 5px color-mix(in srgb, var(--ink) 18%, transparent), 7px 11px 22px color-mix(in srgb, var(--ink) 14%, transparent);
   color: var(--c-accent);
   font-weight: 600;
   transition: transform 160ms ease, box-shadow 160ms ease;
@@ -1255,7 +1261,7 @@
 
 .kd-cup-button:hover:not(:disabled) {
   transform: translateY(-3px);
-  box-shadow: 0 3px 6px rgba(90, 74, 106, .2), 9px 15px 26px rgba(90, 74, 106, .18);
+  box-shadow: 0 3px 6px color-mix(in srgb, var(--ink) 20%, transparent), 9px 15px 26px color-mix(in srgb, var(--ink) 18%, transparent);
 }
 
 .kd-cup-status { min-height: 20px; color: var(--c-muted); font-size: 13px; font-weight: 600; text-align: right; }
@@ -1667,7 +1673,7 @@
     margin: 8px -8px -8px;
     padding: 10px 8px 8px;
     background: rgba(251, 248, 241, .96);
-    box-shadow: 0 -8px 18px rgba(90, 74, 106, .12);
+    box-shadow: 0 -8px 18px color-mix(in srgb, var(--ink) 12%, transparent);
   }
   .kq-desk .kd-reference-fold { width: 100%; }
   .kq-desk .kd-cup-zone { margin-top: 0; justify-items: stretch; }
