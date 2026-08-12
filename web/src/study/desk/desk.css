@@ -40,8 +40,10 @@
      desk now has a single visual child: let its canvas fill the whole surface. */
   grid-template-rows: minmax(0, 1fr);
   overflow: hidden;
-  /* 暖斑是台灯打在桌面上的光，所以锚在灯所在的右上角，且白天（浅色）为空——
-     不开灯就没有光斑。之前硬编码在左上角，没有光源解释得了它。 */
+  /* 夜里的桌面暖光。台灯开关按钮在左上品牌区，但这束光不必从那个图标发出——
+     按钮是「开关灯」的控件，桌面暖光是独立的环境光（选项 B：两者解耦）。
+     落在右上纸张浮起处，像夜里一盏看不见的灯照着桌面。白天（浅色）--desk-glow
+     为空，不开灯就没有光斑。 */
   background:
     radial-gradient(620px 420px at 94% 0%, var(--desk-glow), transparent 62%),
     linear-gradient(180deg, var(--c-desk-a) 0%, var(--c-desk) 55%, var(--c-desk-b) 100%);
