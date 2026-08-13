@@ -93,9 +93,8 @@ function MainWindowContent() {
           <Route path="/onboarding/*" element={<Wizard />} />
           <Route path="/export" element={<Export />} />
           {/* 移动端 Bot 与邮件渠道的产品面已移除（CTL-C08）；旧 v0.4 深链接只进墓碑页解释升级。 */}
-          {/* Study / Studio / Chat / Settings 共用全局外壳：Study / Studio 是一级目的地，
-              台灯留在左侧品牌区，Chat / 进行中 / 设置收在右侧工具区；
-              各页面不再自己画一条顶栏（架构 §5.1）。 */}
+          {/* Study / Chat / Settings 共用全局外壳：台灯与对话/进行中站在横条最左，
+              品牌在正中，设置与窗口控制在右侧工具区；各页面不再自己画一条顶栏（架构 §5.1）。 */}
           <Route element={<AppShell />}>
             <Route path="/chat" element={<ChatPage />} />
             <Route path="/settings" element={<Settings />} />

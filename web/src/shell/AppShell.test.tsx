@@ -41,9 +41,11 @@ afterEach(() => {
 });
 
 describe("AppShell", () => {
-  it("marks Study as the current surface (Studio has been cut)", () => {
+  it("keeps Study as the only first-class destination (Studio has been cut)", () => {
     renderShell("/study");
-    expect(screen.getByRole("button", { name: "学习" })).toHaveAttribute("aria-current", "page");
+    // 主界面上右上给的是「去 Chat」的门；「学习」只在 Chat 面上作为回 Study 的门出现。
+    expect(screen.getByRole("button", { name: "对话" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "学习" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "创作" })).not.toBeInTheDocument();
   });
 
@@ -96,24 +98,24 @@ describe("AppShell", () => {
     expect(header).toHaveAttribute("data-tauri-drag-region");
     expect(header).toHaveClass("hermes-titlebar-drag");
 
-    for (const group of [".kq-brand-cluster", ".kq-primary-nav", ".kq-utility-nav"]) {
+    for (const group of [".kq-left-cluster", ".kq-brand-lockup", ".kq-utility-nav"]) {
       expect(header.querySelector(group)).toHaveClass("hermes-titlebar-nodrag");
     }
   });
 
-  it("keeps the lamp with the brand and only Study in primary navigation", () => {
+  it("keeps the lamp, chat and activity on the left with the brand centered", () => {
     renderShell("/study");
     const header = document.querySelector(".kq-app-header")!;
-    const brand = header.querySelector(".kq-brand-cluster")!;
-    const primary = header.querySelector(".kq-primary-nav")!;
+    const left = header.querySelector(".kq-left-cluster")!;
+    const brand = header.querySelector(".kq-brand-lockup")!;
     const utility = header.querySelector(".kq-utility-nav")!;
 
-    expect(brand).toContainElement(screen.getByRole("button", { name: /台灯|开台灯/ }));
-    expect(primary).toContainElement(screen.getByRole("button", { name: "学习" }));
+    expect(left).toContainElement(screen.getByRole("button", { name: /台灯|开台灯/ }));
+    // /study 表面上，左侧第一颗工具钮是「去 Chat」的门。
+    expect(left).toContainElement(screen.getByRole("button", { name: "对话" }));
+    expect(left).toContainElement(screen.getByRole("button", { name: "进行中" }));
+    expect(brand).toHaveTextContent("卡布奇娜");
     expect(screen.queryByRole("button", { name: "创作" })).not.toBeInTheDocument();
-    expect(primary).not.toContainElement(screen.getByRole("button", { name: "对话" }));
-    expect(utility).toContainElement(screen.getByRole("button", { name: "对话" }));
-    expect(utility).toContainElement(screen.getByRole("button", { name: "进行中" }));
     expect(utility).toContainElement(screen.getByRole("button", { name: "设置" }));
   });
 

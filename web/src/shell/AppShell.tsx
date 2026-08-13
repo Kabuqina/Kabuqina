@@ -15,8 +15,8 @@ import "./appShell.css";
 /**
  * 全局外壳（架构 §5.1，原型 `AppHeader`）。
  *
- * Study 是唯一的一级目的地；Chat、进行中与 Settings 是右侧工具。（Studio 已砍）
- * 台灯属于小娜的品牌人格，所以和 Logo、名称一起留在左侧品牌区。
+ * Study 是唯一的一级目的地；Chat、进行中站在台灯右边，Settings 是右侧工具。（Studio 已砍）
+ * 台灯属于小娜的品牌人格，横条最左端是台灯与对话/进行中；Logo 与名称在正中。
  * 能力目录与网关目的地已经从产品面退场，所以这里只有这几样。
  *
  * 这条页眉**就是**这些产品面上的窗口标题栏：整条可拖拽，最右端是缩到小娜与系统窗口
@@ -77,18 +77,11 @@ export function AppShell() {
 
   return (
     <div className="kq-app-frame" data-surface={surface ?? undefined}>
-      {/* 全窗口只有这一条横条：产品导航在中间，窗口控制在最右端。
-          整条是拖拽区，交互件各自 no-drag。 */}
+      {/* 全窗口只有这一条横条：台灯与对话/进行中站在左侧，品牌在正中，
+          设置与窗口控制在右侧。整条是拖拽区，交互件各自 no-drag。 */}
       <header className="kq-app-header hermes-titlebar-drag" data-tauri-drag-region>
-        <div className="kq-brand-cluster hermes-titlebar-nodrag">
-          <button
-            className="kq-brand-lockup"
-            type="button"
-            onClick={() => navigate("/study")}
-          >
-            <span className="kq-brand-mark" aria-hidden>K</span>
-            <span className="kq-brand-name">{t("appShell.brand")}</span>
-          </button>
+        <div className="kq-left-cluster hermes-titlebar-nodrag">
+          {/* 台灯属于小娜的品牌人格，但它自己站在最左端——桌面上最靠边的东西。 */}
           <button
             type="button"
             className={`kq-lamp-toggle ${theme === "dark" ? "is-on" : ""}`}
@@ -98,38 +91,50 @@ export function AppShell() {
           >
             <LampDesk aria-hidden size={20} />
           </button>
+          <div className="kq-left-tools">
+            {/* Study 是主界面：不给它一个常驻的一级按钮（K 徽标已经回主界面）。
+                左侧这个入口按所在面切换——在 Chat 上它是「回 Study」的门，
+                在别处它是「去 Chat」的门。一个按钮，两个方向。 */}
+            {surface === "chat" ? (
+              <button
+                type="button"
+                onClick={() => navigate("/study")}
+              >
+                <BookOpen aria-hidden size={18} />
+                <span>{t("appShell.study")}</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => navigate("/chat")}
+              >
+                <MessageCircle aria-hidden size={18} />
+                <span>{t("appShell.chat")}</span>
+              </button>
+            )}
+            <button
+              type="button"
+              aria-expanded={activityOpen}
+              aria-controls="kq-global-activity"
+              onClick={() => requestOpenActivity()}
+            >
+              <ListTodo aria-hidden size={16} />
+              <span>{t("appShell.activity")}</span>
+            </button>
+          </div>
         </div>
 
+        {/* 品牌 lockup 是 grid 的中间列，两侧 1fr 对称，所以它水平居中。 */}
+        <button
+          className="kq-brand-lockup hermes-titlebar-nodrag"
+          type="button"
+          onClick={() => navigate("/study")}
+        >
+          <span className="kq-brand-mark" aria-hidden>K</span>
+          <span className="kq-brand-name">{t("appShell.brand")}</span>
+        </button>
+
         <div className="kq-utility-nav hermes-titlebar-nodrag">
-          {/* Study 是主界面：不给它一个常驻的一级按钮（K 徽标已经回主界面）。
-              右上这个入口按所在面切换——在 Chat 上它是「回 Study」的门，
-              在别处它是「去 Chat」的门。一个按钮，两个方向。 */}
-          {surface === "chat" ? (
-            <button
-              type="button"
-              onClick={() => navigate("/study")}
-            >
-              <BookOpen aria-hidden size={18} />
-              <span>{t("appShell.study")}</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => navigate("/chat")}
-            >
-              <MessageCircle aria-hidden size={18} />
-              <span>{t("appShell.chat")}</span>
-            </button>
-          )}
-          <button
-            type="button"
-            aria-expanded={activityOpen}
-            aria-controls="kq-global-activity"
-            onClick={() => requestOpenActivity()}
-          >
-            <ListTodo aria-hidden size={16} />
-            <span>{t("appShell.activity")}</span>
-          </button>
           <button
             type="button"
             aria-label={t("appShell.settings")}

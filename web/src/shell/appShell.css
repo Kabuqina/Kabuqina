@@ -37,17 +37,26 @@
   padding: 0 0 0 16px;
   /* 整个窗口是一张书桌：导航栏不是压在桌上的另一块板，而是桌面的上边缘。
      不给它不透明底、不给分隔线——让 .kq-app-frame 的桌面渐变直接透上来，
-     K/台灯/学习/对话/设置 像是摆在桌面上方的一排东西。 */
+     台灯/品牌/工具像是摆在桌面上方的一排东西。 */
   background: transparent;
   border-bottom: 0;
 }
 
-.kq-brand-cluster {
+/* 三列：台灯与左侧工具贴最左、品牌居中、设置/窗口控制贴最右。
+   grid 的 auto 列宽度＝内容宽度，两侧 1fr 平分剩余，所以 lockup 精确居中。 */
+.kq-left-cluster {
   justify-self: start;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   min-width: 0;
+}
+
+/* 台灯右边的一组左工具（对话 / 进行中）。 */
+.kq-left-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .kq-brand-lockup,
@@ -64,6 +73,7 @@
 }
 
 .kq-brand-lockup {
+  justify-self: center;
   gap: 10px;
   font-size: 14px;
   font-weight: 700;
@@ -88,7 +98,6 @@
   font-size: 15px;
 }
 
-.kq-primary-nav,
 .kq-utility-nav {
   display: flex;
   align-items: center;
@@ -96,7 +105,7 @@
 }
 
 /* 只作用于直接子元素：`.kq-window-controls` 里的窗口控制自有尺寸。 */
-.kq-primary-nav > button,
+.kq-left-tools > button,
 .kq-utility-nav > button {
   display: inline-flex;
   align-items: center;
@@ -107,27 +116,10 @@
   color: inherit;
   font: inherit;
   cursor: pointer;
-}
-
-/* Study / Studio 是唯一的一级业务入口，尺寸和字重要明确高于右侧工具。 */
-.kq-primary-nav > button {
-  min-height: 40px;
-  padding: 8px 13px;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.kq-utility-nav > button {
   min-height: 34px;
   padding: 6px 9px;
   font-size: 13px;
   font-weight: 600;
-}
-
-.kq-primary-nav > button[aria-current="page"] {
-  border-color: var(--line-cool);
-  background: var(--surface);
-  box-shadow: 0 2px 8px rgba(66, 50, 66, 0.06);
 }
 
 .kq-utility-nav {
@@ -147,18 +139,19 @@
   padding-right: 16px;
 }
 
+.kq-left-tools > button[aria-current="page"],
 .kq-utility-nav > button[aria-current="page"] {
   border-color: var(--line-cool);
   color: var(--purple);
   background: var(--surface);
 }
 
-.kq-primary-nav > button:hover,
+.kq-left-tools > button:hover,
 .kq-utility-nav > button:hover {
   background: var(--purple-faint);
 }
 
-.kq-primary-nav > button:focus-visible,
+.kq-left-tools > button:focus-visible,
 .kq-utility-nav > button:focus-visible,
 .kq-brand-lockup:focus-visible,
 .kq-lamp-toggle:focus-visible {
@@ -343,17 +336,18 @@
     display: none;
   }
 
+  .kq-left-tools > button > span,
   .kq-utility-nav > button > span {
     display: none;
   }
 
-  .kq-primary-nav > button,
+  .kq-left-tools > button,
   .kq-utility-nav > button {
     padding: 8px 10px;
   }
 
-  .kq-brand-cluster {
-    gap: 1px;
+  .kq-left-cluster {
+    gap: 4px;
   }
 
   .kq-global-activity-list li {
