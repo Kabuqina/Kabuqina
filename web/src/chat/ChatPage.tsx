@@ -1,7 +1,7 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -13,7 +13,6 @@ import { ChatInput } from "./ChatInput";
 import { ChatMessageList } from "./ChatMessageList";
 import { ChatHistoryDrawer } from "./ChatHistoryDrawer";
 import { ChatPaperHeader } from "./ChatPaperHeader";
-import { WorkspacePanel, type WorkspaceItem } from "./WorkspacePanel";
 import { runDesktopOrganize } from "./desktop-organizer-api";
 import {
   armPendingChatSecretGateBypass,
@@ -36,8 +35,6 @@ import { useSendMessage } from "./hooks/useSendMessage";
 import { useLoadPackageDownloads } from "./hooks/useLoadPackageDownloads";
 import { useInFlightTurns } from "./inFlightTurns";
 import { type CaptureDonePayload } from "../capture/capture-api";
-import type { AgentProgressState } from "./hooks/useAgentProgress";
-import type { DeskAttachmentPayload, UiMsg } from "./chat-api";
 import { REMINDER_SESSION_ID } from "./reminderSession";
 import {
   bindStudyHandoff,
@@ -51,142 +48,6 @@ import {
   type StudyChatHandoff,
 } from "../lib/studyChatHandoff";
 
-type WorkspaceState = {
-  goal: string | null;
-  materials: WorkspaceItem[];
-  outputs: WorkspaceItem[];
-  activeTool: string | null;
-};
-
-const FILE_PATH_RE = /[A-Za-z]:\\[^\r\n`"'<>|]*?\.(?:docx?|xlsx?|pptx?|pdf|md|txt|csv|png|jpe?g|gif|webp|zip|json|html?|py|ts|tsx|js|jsx)\b/gi;
-const ATTACHMENT_LINE_RE = /^📎\s*(.+)$/gm;
-
-function compactText(text: string, max = 120): string {
-  const oneLine = text.replace(/\s+/g, " ").trim();
-  return oneLine.length > max ? `${oneLine.slice(0, max - 3)}...` : oneLine;
-}
-
-function fileLabel(pathOrName: string): string {
-  return pathOrName.split(/[\\/]/).pop()?.trim() || pathOrName.trim();
-}
-
-function pushUnique(items: WorkspaceItem[], seen: Map<string, number>, item: WorkspaceItem) {
-  const key = `${item.label}\n${item.detail ?? ""}`.toLocaleLowerCase();
-  const existing = seen.get(key);
-  if (existing !== undefined) {
-    // Same file surfaced by more than one source — if any source says it is still
-    // mid-write (pending), the merged item stays pending so we never enable Open
-    // on a half-written file.
-    if (item.pending) items[existing].pending = true;
-    return;
-  }
-  seen.set(key, items.length);
-  items.push(item);
-}
-
-function extractPaths(text: string): string[] {
-  return Array.from(text.matchAll(FILE_PATH_RE), (m) => m[0].trim());
-}
-
-function extractAttachmentNames(text: string): string[] {
-  return Array.from(text.matchAll(ATTACHMENT_LINE_RE), (m) => m[1]?.trim()).filter(
-    (name): name is string => Boolean(name),
-  );
-}
-
-function buildWorkspaceState(
-  messages: UiMsg[],
-  pendingAttachments: DeskAttachmentPayload[],
-  progress: AgentProgressState | null,
-  sending: boolean,
-): WorkspaceState {
-  const materialSeen = new Map<string, number>();
-  const outputSeen = new Map<string, number>();
-  const materials: WorkspaceItem[] = [];
-  const outputs: WorkspaceItem[] = [];
-
-  // While a turn is in flight, its file is still being written. We only gate the
-  // deliverable produced by the current turn — surfaced via live progress steps
-  // and the streaming (last) assistant message — so finished files from earlier
-  // turns stay openable.
-  let lastAssistantIdx = -1;
-  messages.forEach((message, idx) => {
-    if (message.role !== "user") lastAssistantIdx = idx;
-  });
-
-  for (const att of pendingAttachments) {
-    pushUnique(materials, materialSeen, {
-      id: `pending-${att.name}`,
-      label: att.name,
-      detail: att.mime || "pending",
-    });
-  }
-
-  messages.forEach((message, idx) => {
-    if (message.role === "user") {
-      for (const att of message.attachments ?? []) {
-        pushUnique(materials, materialSeen, {
-          id: `sent-attachment-${att.name}`,
-          label: att.name,
-          detail: att.mime || "attached",
-        });
-      }
-      for (const name of extractAttachmentNames(message.text)) {
-        pushUnique(materials, materialSeen, {
-          id: `sent-attachment-${name}`,
-          label: name,
-          detail: "attached",
-        });
-      }
-      for (const path of extractPaths(message.text)) {
-        pushUnique(materials, materialSeen, {
-          id: `material-${path}`,
-          label: fileLabel(path),
-          detail: path,
-        });
-      }
-    } else {
-      const pending = sending && idx === lastAssistantIdx;
-      for (const path of extractPaths(message.text)) {
-        pushUnique(outputs, outputSeen, {
-          id: `output-${path}`,
-          label: fileLabel(path),
-          detail: path,
-          pending,
-        });
-      }
-    }
-  });
-
-  for (const step of progress?.steps ?? []) {
-    if (!step.preview) continue;
-    for (const path of extractPaths(step.preview)) {
-      pushUnique(outputs, outputSeen, {
-        id: `progress-output-${step.seq}-${path}`,
-        label: fileLabel(path),
-        detail: path,
-        pending: sending,
-      });
-    }
-  }
-
-  const latestUser = [...messages].reverse().find((m) => m.role === "user");
-  const goal = latestUser
-    ? compactText(
-        latestUser.text
-          .split(/\r?\n/)
-          .find((line) => {
-            const trimmed = line.trim();
-            return trimmed && !trimmed.startsWith("📎");
-          }) || latestUser.text,
-      )
-    : null;
-
-  const runningStep = progress ? [...progress.steps].reverse().find((step) => step.running) : undefined;
-  const activeTool = progress?.current_tool ?? runningStep?.tool ?? null;
-
-  return { goal, materials: materials.slice(0, 8), outputs: outputs.slice(-8), activeTool };
-}
 
 export function ChatPage() {
   const { t, locale } = useI18n();
@@ -203,7 +64,6 @@ export function ChatPage() {
   // send button disabled and a "configure model" prompt.
   const [needsModelSetup, setNeedsModelSetup] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [workspaceOpen, setWorkspaceOpen] = useState(false);
 
   const { kabuqinaReady, kabuqinaWarming, bootErr } = useKabuqinaReadiness();
   const inFlightTurns = useInFlightTurns();
@@ -258,10 +118,6 @@ export function ChatPage() {
     prepareText: prepareStudyText,
   });
   const loadPackageDownloads = useLoadPackageDownloads(kabuqinaReady && !kabuqinaWarming);
-  const workspace = useMemo(
-    () => buildWorkspaceState(messages, pendingAttachments, progress, sending),
-    [messages, pendingAttachments, progress, sending],
-  );
 
   useEffect(() => {
     if (
@@ -643,23 +499,11 @@ export function ChatPage() {
             onStop={onStopAgent}
             needsModelSetup={needsModelSetup}
             onConfigureModel={() => nav("/settings", { state: { settingsTab: "model" } })}
-            onOpenWorkspacePanel={() => setWorkspaceOpen(true)}
           />
         </section>
 
-        {/* 工作台面板从常驻侧栏改成按需打开：打开产物、在文件夹中显示、重新生成
-            这些能力只有它有，不能随侧栏一起消失（owner：保留能力，只换布局）。 */}
-        {workspaceOpen && (
-          <WorkspacePanel
-            onCollapse={() => setWorkspaceOpen(false)}
-            onStartPrompt={setInput}
-            goal={workspace.goal}
-            materials={workspace.materials}
-            outputs={workspace.outputs}
-            activeTool={workspace.activeTool}
-            busy={sending}
-          />
-        )}
+        {/* Report/工作台入口已从 Chat 砍掉（v0.5.0 聚焦 Study）。WorkspacePanel 及其
+            PPT 渲染链（pptx/）作为休眠资产保留在树里，产品面不再挂载它。 */}
       </div>
     </AppScaffold>
   );
