@@ -133,7 +133,7 @@ describe("StudyRoute", () => {
     expect(screen.queryByRole("navigation", { name: "学习阶段" })).not.toBeInTheDocument();
   });
 
-  it("keeps a deferred scratch space out of Study routing", async () => {
+  it("spreads a scratch space open on its own desk, without a flyleaf redirect", async () => {
     renderRoute("/study/scratch-1", {
       listSpaces: vi.fn().mockResolvedValue({
         currentSpaceId: "scratch-1",
@@ -142,10 +142,12 @@ describe("StudyRoute", () => {
           { id: "scratch-1", title: "杂记本", status: "active", isCurrent: true, kind: "scratch" },
         ],
       }),
+      loadScratch: vi.fn().mockResolvedValue({ pad: "", notes: [] }),
     });
 
-    expect(await screen.findByRole("heading")).toHaveTextContent("无法打开这个学习空间");
-    expect(screen.queryByText("杂记本")).not.toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "杂记本" })).toBeInTheDocument();
+    expect(document.querySelector('[data-scratch="true"]')).not.toBeNull();
+    expect(screen.queryByText("无法打开这个学习空间")).not.toBeInTheDocument();
   });
 
   it("renders the practice page from its URL-scoped repository data", async () => {

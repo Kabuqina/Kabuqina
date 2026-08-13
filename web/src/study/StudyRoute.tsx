@@ -122,15 +122,7 @@ export default function StudyRoute() {
     );
   }
 
-  const retained = spaces.status === "ready" ? spaces.data : spaces.previous!;
-  // 杂记本不属于当前 Study 五页交付；旧数据保留，但不进入前端导航或路由。
-  const courseSpaces = retained.spaces.filter((space) => space.kind !== "scratch");
-  const retainedSpaces: StudySpaces = {
-    spaces: courseSpaces,
-    currentSpaceId: courseSpaces.some((space) => space.id === retained.currentSpaceId)
-      ? retained.currentSpaceId
-      : courseSpaces.find((space) => space.isCurrent)?.id ?? courseSpaces[0]?.id ?? null,
-  };
+  const retainedSpaces = spaces.status === "ready" ? spaces.data : spaces.previous!;
   const route = parseStudyPath(location.pathname);
   if (route.kind === "not-found") {
     const fallbackId = route.spaceId && retainedSpaces.spaces.some((space) => space.id === route.spaceId)
@@ -165,7 +157,24 @@ export default function StudyRoute() {
     );
   }
   if (route.kind === "space") {
-    return <Navigate to={studyPath(route.spaceId)} replace />;
+    // 杂记本不是课程，没有五分页：它按 `/study/<id>` 直接摊开，不重定向到扉页。
+    const isScratch = retainedSpaces.spaces.some(
+      (space) => space.id === route.spaceId && space.kind === "scratch",
+    );
+    return isScratch
+      ? <StudyShell
+          spaces={retainedSpaces}
+          spaceId={route.spaceId}
+          scratch
+          onRevalidate={load}
+          refreshing={spaces.status === "loading"}
+          refreshFailed={spaces.status === "error"}
+        />
+      : <Navigate to={studyPath(route.spaceId)} replace />;
+  }
+  // 手敲 /study/<杂记本>/practice 之类的路径：回到那本本子唯一的一页。
+  if (retainedSpaces.spaces.some((space) => space.id === route.spaceId && space.kind === "scratch")) {
+    return <Navigate to={`/study/${encodeURIComponent(route.spaceId)}`} replace />;
   }
   return <StudyShell
     spaces={retainedSpaces}
