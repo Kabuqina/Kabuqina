@@ -1,6 +1,13 @@
 # STUDY 四层学习管线设计
 
-**日期：** 2026-07-01（2026-07-02 评审修订；2026-07-04 M3 收口）
+> **收敛批注（2026-08-13）：四层框架现在只服务 Study。** Studio 与 Report 已从产品砍掉，
+> 原本并行的**交付路径**（`Read → Material Index → Deliverable Planner → File Writer`，
+> 产 PPT/文档）随之退场——其后端作为休眠资产保留（见 `DECISIONS.md` 2026-08-13）。本文
+> 定义的**学习路径**（`Read / Student State / Activity → Learning Index → Learning
+> Planner → Output Writer`）是产品现在唯一在用的一条，仍然生效。文中凡对比或引用交付路径
+> 之处，读作"当年为对照而写的另一条路径，现已退场"。
+
+**日期：** 2026-07-01（2026-07-02 评审修订；2026-07-04 M3 收口；2026-08-13 收敛为 Study 单路径）
 
 **状态：** 已确认，M1-M4 已收口，M5 待实施
 
