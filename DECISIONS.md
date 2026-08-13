@@ -1713,8 +1713,9 @@ triage inbox; filing stays quiet and optional.
 
 ## Study plan action modes and outline binding (2026-07-30)
 
-A learning-plan task may declare `mode=learn|practice|review` and an optional
-`outline_node_id`. The mode controls which Study page opens; `review` deliberately
+A learning-plan draft task may declare `mode=learn|practice|review` and an optional
+`outline_node_id` while it is being prepared (activation requirements were tightened
+on 2026-08-03; see below). The mode controls which Study page opens; `review` deliberately
 opens Practice because it is a practice-source distinction, not a sixth Study page.
 Old tasks without a mode remain compatible and open Learn.
 
@@ -1768,7 +1769,44 @@ remain the only mutation path. A Studio project is a recoverable scene
 stable ids and deterministic return/fallback targets; completed Tutor history is
 bounded to the most recent 20 records by default.
 
-## Studio deferred from v0.5.0 product scope (2026-07-31)
+## Studio and Report cut from the product; pipeline serves Study only (2026-08-13)
+
+**Supersedes "Studio deferred from v0.5.0 product scope (2026-07-31)" below.**
+Studio is no longer deferred — it is cut. The reasoning is scope, not schedule:
+Studio (and Report) is what a general-purpose agent already does well — take
+materials, produce a deliverable. Study is the part that is not replaceable:
+helping someone actually learn. The product is Study.
+
+**Product surface (done in frontend, commit 697a84f2):** Studio is removed from
+the UI entirely — no `web/src/studio/`, no Studio nav destination (Study is the
+only primary destination), no Chat→Studio handoff. `/studio` redirects to
+`/study`. Report — the `WorkspacePanel` PPT/deliverable launchpad in Chat — is
+cut from the product surface as well; its frontend removal is a separate slice
+still pending.
+
+**Four-layer pipeline now serves Study only.** The framework had two paths:
+- Deliverable path: `Read → Material Index → Deliverable Planner → File Writer`
+  (produced Report's PPT/DOCX/HTML/PDF). **This path is the Studio/Report side
+  and is retired from the product.**
+- Learning path: `Read / Student State / Activity → Learning Index → Learning
+  Planner → Output Writer`. **This is the only path the product now uses.**
+
+**Backend kept dormant, on purpose.** The deliverable-path backend
+(`material_index`, deliverable planner, the `pdf_write` / `html_write` /
+`docx_write` document writers and their `document-report-*` pipelines) and the
+Studio backend (`studio.db`, source snapshots, cross-domain Activity projection)
+stay in the tree as groundwork, not deleted. Removing them buys the v0.5.0
+product nothing and would disturb contracts the codebase still compiles against.
+`activityApi`'s `domain` type still admits `"studio"` because the retained
+projection may still emit it; the Activity panel filters to Study records only.
+
+The earlier decisions that describe the deliverable pipeline as a shipped product
+capability (Pipeline shape / HTML / DOCX writer, 2026-06-12; the README REPORT
+entrance and "报告生成" capability row) record real history and are left in place,
+but are no longer the current product truth: those writers are dormant
+groundwork, and the pipeline the product runs is the learning path.
+
+## Studio deferred from v0.5.0 product scope (2026-07-31) [SUPERSEDED]
 
 v0.5.0 is a Study-first release. Studio is not a release deliverable and must not
 consume the remaining v0.5.0 implementation, integration, QA, or release-blocking
@@ -1831,3 +1869,23 @@ in the current map. Unavailable bindings degrade to an unbound plan item while l
 status and notes remain intact. If the same stable node returns later, reconciliation
 may restore the missing binding. Compilation is never enqueued for a degraded,
 unbound item.
+
+## Every newly activated Study plan action is source-bound (2026-08-03)
+
+Learning-plan drafts may remain incomplete while they are being generated or
+reviewed, so the v1 artifact contract continues to accept a missing
+`outline_node_id`. Activation is stricter: every learn, practice, and review action
+must name an exact node that exists in the current Course map. If no reliable
+outline is available, or even one action is unbound, the draft stays a draft.
+
+This separates two facts that the product previously conflated. A plan can be
+proposed from a whole material, but it cannot become the learner's current plan
+until every action is traceable to the material directory scope it teaches or
+exercises. Unsupported aspirations belong in the draft's gap explanation, not in
+an active plan. The learning-planner prompt follows the same rule and must omit an
+unsupported action rather than inventing a node or silently leaving it unbound.
+
+Existing active plans remain readable under the 2026-08-01 compatibility rule:
+progress is never deleted merely because an old action is unbound. Web labels those
+legacy actions as `待关联目录`; it does not call them missing knowledge sources and
+does not present them as startable knowledge-core work.
