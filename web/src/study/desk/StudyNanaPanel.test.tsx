@@ -1,8 +1,7 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../lib/i18n";
 import type { StudyChatHandoffV2 } from "../../lib/studyChatHandoff";
@@ -36,7 +35,6 @@ describe("StudyNanaPanel", () => {
   beforeEach(() => window.localStorage.clear());
 
   it("shares the scoped transcript while keeping hidden context out of sight", async () => {
-    const user = userEvent.setup();
     const onOpenFull = vi.fn();
     render(
       <I18nProvider>
@@ -56,9 +54,11 @@ describe("StudyNanaPanel", () => {
 
     expect(await screen.findByText("我卡在 yield。")).toBeInTheDocument();
     expect(screen.queryByText(/隐藏上下文/)).not.toBeInTheDocument();
-    await user.type(screen.getByRole("textbox", { name: "发送消息" }), "给我一个反例，但先别直接解释完");
+    fireEvent.change(screen.getByRole("textbox", { name: "发送消息" }), {
+      target: { value: "给我一个反例，但先别直接解释完" },
+    });
     expect(screen.getByRole("textbox", { name: "发送消息" })).toHaveValue("给我一个反例，但先别直接解释完");
-    await user.click(screen.getByRole("button", { name: /在完整 Chat 中打开/ }));
+    fireEvent.click(screen.getByRole("button", { name: /在完整 Chat 中打开/ }));
     expect(onOpenFull).toHaveBeenCalledWith(handoff, "给我一个反例，但先别直接解释完");
   });
 

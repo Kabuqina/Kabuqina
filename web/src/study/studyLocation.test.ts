@@ -7,6 +7,7 @@ import {
   readStudyLocation,
   resolveKnowledgeCore,
   selectKnowledgeCore,
+  selectOutlineScope,
   selectPlanItem,
   studyContinueMeta,
   studyContinueTitle,
@@ -51,6 +52,20 @@ describe("Study location", () => {
     });
     expect(studyContinueTitle(location)).toBe("阅读《迭代器与生成器》讲义");
     expect(studyContinueMeta(location)).toBe("阶段一：迭代与惰性求值 · 计划");
+  });
+
+  it("can enter learning from a source-outline node without a plan-item binding", () => {
+    const location = selectOutlineScope("course-a", {
+      title: "第 1 章 · 极限",
+      outlineNodeId: "outline-1",
+    });
+
+    expect(location).toMatchObject({
+      page: "plan",
+      outlineLabel: "第 1 章 · 极限",
+      outlineNodeId: "outline-1",
+    });
+    expect(location.planItemId).toBeUndefined();
   });
 
   it("remembers the most recent exercise independently for each core", () => {

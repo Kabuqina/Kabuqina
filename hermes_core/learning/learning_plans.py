@@ -101,18 +101,21 @@ class LearningPlanService:
     def _validate_outline_bindings(self, artifact: Dict[str, Any]) -> None:
         payload = artifact.get("envelope", {}).get("payload", {})
         phases = payload.get("phases") if isinstance(payload, dict) else []
-        bound_ids = {
-            _task_outline_node_id(task)
+        tasks = [
+            task
             for phase in (phases if isinstance(phases, list) else [])
             for task in (
                 phase.get("tasks")
                 if isinstance(phase, dict) and isinstance(phase.get("tasks"), list)
                 else []
             )
-            if isinstance(task, dict) and _task_outline_node_id(task)
+            if isinstance(task, dict)
+        ]
+        bound_ids = {
+            _task_outline_node_id(task)
+            for task in tasks
+            if _task_outline_node_id(task)
         }
-        if not bound_ids:
-            return
         # Import locally so the map projection can inspect plan items without a
         # module cycle while activation still validates current Course truth.
         from learning.learning_map import LearningMapService
@@ -120,6 +123,20 @@ class LearningPlanService:
         outline_ids = {
             node["id"] for node in LearningMapService(self._ctx).get_map()["outlineNodes"]
         }
+        if tasks and not outline_ids:
+            raise ValueError(
+                "learning plan requires an available source outline before activation"
+            )
+        unbound = [
+            _clean(task.get("title"), 120) or "untitled task"
+            for task in tasks
+            if not _task_outline_node_id(task)
+        ]
+        if unbound:
+            raise ValueError(
+                "learning plan tasks require outline bindings before activation: "
+                + ", ".join(unbound[:10])
+            )
         unknown = sorted(bound_ids - outline_ids)
         if unknown:
             raise ValueError(

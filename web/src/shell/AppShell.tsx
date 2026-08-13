@@ -100,26 +100,27 @@ export function AppShell() {
           </button>
         </div>
 
-        <nav className="kq-primary-nav hermes-titlebar-nodrag" aria-label={t("appShell.primaryNav")}>
-          <button
-            type="button"
-            aria-current={surface === "study" ? "page" : undefined}
-            onClick={() => navigate("/study")}
-          >
-            <BookOpen aria-hidden size={18} />
-            {t("appShell.study")}
-          </button>
-        </nav>
-
         <div className="kq-utility-nav hermes-titlebar-nodrag">
-          <button
-            type="button"
-            aria-current={surface === "chat" ? "page" : undefined}
-            onClick={() => navigate("/chat")}
-          >
-            <MessageCircle aria-hidden size={18} />
-            <span>{t("appShell.chat")}</span>
-          </button>
+          {/* Study 是主界面：不给它一个常驻的一级按钮（K 徽标已经回主界面）。
+              右上这个入口按所在面切换——在 Chat 上它是「回 Study」的门，
+              在别处它是「去 Chat」的门。一个按钮，两个方向。 */}
+          {surface === "chat" ? (
+            <button
+              type="button"
+              onClick={() => navigate("/study")}
+            >
+              <BookOpen aria-hidden size={18} />
+              <span>{t("appShell.study")}</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => navigate("/chat")}
+            >
+              <MessageCircle aria-hidden size={18} />
+              <span>{t("appShell.chat")}</span>
+            </button>
+          )}
           <button
             type="button"
             aria-expanded={activityOpen}

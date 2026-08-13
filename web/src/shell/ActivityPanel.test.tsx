@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ActivityPanel } from "./ActivityPanel";
 
 describe("ActivityPanel", () => {
-  it("renders real cross-domain records and returns through bounded targets", async () => {
+  it("shows only Study records and returns through bounded targets", async () => {
     const user = userEvent.setup();
     const onReturn = vi.fn();
     render(<ActivityPanel
@@ -35,9 +35,32 @@ describe("ActivityPanel", () => {
     />);
 
     expect(await screen.findByText("高等数学 · 等待回答")).toBeInTheDocument();
-    expect(screen.getByText("课程讲义")).toBeInTheDocument();
+    expect(screen.queryByText("课程讲义")).not.toBeInTheDocument();
+    expect(screen.queryByText("Studio")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "继续" }));
     expect(onReturn).toHaveBeenCalledWith("/study/course-a/learn");
+  });
+
+  it("treats a Studio-only projection as an empty Study surface", async () => {
+    render(<ActivityPanel
+      open
+      onClose={vi.fn()}
+      onReturn={vi.fn()}
+      load={vi.fn().mockResolvedValue({
+        items: [{
+          id: "studio:project:p-1", domain: "studio", kind: "project_scene", status: "recoverable",
+          title: "课程讲义", updatedAt: "2026-07-30T07:00:00Z",
+          returnTarget: "/studio/p-1", fallbackTarget: "/studio",
+          canResume: false, canRetry: false, targetAvailable: true,
+        }],
+        count: 1,
+        limit: 100,
+      })}
+    />);
+
+    expect(await screen.findByText("现在没有需要接续的现场。")).toBeInTheDocument();
+    expect(screen.queryByText("课程讲义")).not.toBeInTheDocument();
+    expect(screen.getByText("开始一本学习本后，需要接续的内容会出现在这里。")).toBeInTheDocument();
   });
 
   it("does not expose backend details when the projection fails", async () => {

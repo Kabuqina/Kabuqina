@@ -315,8 +315,10 @@ def _learning_plan() -> Dict[str, Any]:
                     "title": "阶段一：迭代与惰性求值",
                     "tasks": [
                         {"title": "阅读《迭代器与生成器》讲义", "order": 1, "mode": "learn",
+                         "outline_node_id": "python-advanced-iterators",
                          "done_when": "能手写迭代器协议与生成器"},
                         {"title": "运行并修改 iterators_generators.py", "order": 2, "mode": "practice",
+                         "outline_node_id": "python-advanced-iterators",
                          "done_when": "能用生成器处理无限序列"},
                     ],
                 },
@@ -324,8 +326,10 @@ def _learning_plan() -> Dict[str, Any]:
                     "title": "阶段二：装饰器与上下文管理器",
                     "tasks": [
                         {"title": "实现一个带参数的装饰器", "order": 1, "mode": "practice",
+                         "outline_node_id": "python-advanced-decorators",
                          "done_when": "正确使用 functools.wraps"},
                         {"title": "用 contextlib 写一个上下文管理器", "order": 2, "mode": "practice",
+                         "outline_node_id": "python-advanced-context-managers",
                          "done_when": "异常路径下资源仍被释放"},
                     ],
                 },
@@ -333,8 +337,10 @@ def _learning_plan() -> Dict[str, Any]:
                     "title": "阶段三：并发与元编程",
                     "tasks": [
                         {"title": "对比线程/进程/asyncio 的适用场景", "order": 1, "mode": "learn",
+                         "outline_node_id": "python-advanced-concurrency",
                          "done_when": "能解释 GIL 对 CPU 密集任务的影响"},
                         {"title": "用描述符实现属性校验", "order": 2, "mode": "practice",
+                         "outline_node_id": "python-advanced-metaprogramming",
                          "done_when": "非法赋值抛出 ValueError"},
                     ],
                 },
@@ -391,6 +397,13 @@ def _resource_pack() -> Dict[str, Any]:
                 {"title": "讲义：元编程", "purpose": "了解描述符与元类的适用边界"},
                 {"title": "代码：iterators_generators.py / decorators.py / asyncio_demo.py",
                  "purpose": "可运行示例，配合讲义练习"},
+            ],
+            "outline": [
+                {"id": "python-advanced-iterators", "title": "迭代器与生成器", "locator": "01-iterators-generators.md"},
+                {"id": "python-advanced-decorators", "title": "装饰器与闭包", "locator": "02-decorators-closures.md"},
+                {"id": "python-advanced-context-managers", "title": "上下文管理器", "locator": "03-context-managers.md"},
+                {"id": "python-advanced-concurrency", "title": "并发与 asyncio", "locator": "04-concurrency-asyncio.md"},
+                {"id": "python-advanced-metaprogramming", "title": "元编程", "locator": "05-metaprogramming.md"},
             ],
         },
     }

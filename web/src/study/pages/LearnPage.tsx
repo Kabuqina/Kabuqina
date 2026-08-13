@@ -11,8 +11,10 @@ import { deriveStudyRequestState } from "../pageState";
 import type { StudyLearnHome } from "../repository";
 import { useStudyRepository } from "../repositoryContext";
 import { studyPath } from "../routeModel";
+import { STUDY_LEARNING_EVENT } from "../learningEvent";
 import { requestStudyDraft } from "../studyDraftRequest";
 import {
+  readStudyLocation,
   resolveKnowledgeCore,
   selectKnowledgeCore,
   switchStudyMode,
@@ -26,8 +28,8 @@ function retained<T>(state: Loadable<T>): T | undefined {
   return deriveStudyRequestState(state).data;
 }
 
-function scopedKnowledgePoints(home: StudyLearnHome): StudyKnowledgePoint[] {
-  const scopeId = home.location?.planOutlineNodeId;
+function scopedKnowledgePoints(home: StudyLearnHome, requestedScopeId = ""): StudyKnowledgePoint[] {
+  const scopeId = requestedScopeId || home.location?.planOutlineNodeId || "";
   if (!scopeId || !home.learningMap) return home.knowledgePoints;
   const nodes = new Map(home.learningMap.outlineNodes.map((node) => [node.id, node]));
   const withinScope = (outlineNodeId: string | null) => {
@@ -78,14 +80,23 @@ export function LearnPage({ spaceId }: { spaceId: string }) {
   const pageRegion = useRef<HTMLElement>(null);
   const requests = useRef(new RequestCoordinator());
   const compilationRequests = useRef(new RequestCoordinator());
+  const compilationMutations = useRef(new RequestCoordinator());
   const compilationScope = useRef("");
+  const attemptedCompilations = useRef(new Set<string>());
   const [snapshot, setSnapshot] = useState<Loadable<StudyLearnHome>>({ status: "idle" });
   const [compilationSnapshot, setCompilationSnapshot] = useState<Loadable<KnowledgeCoreCompilationRun[]>>({ status: "idle" });
+  const [compilationMutation, setCompilationMutation] = useState<"idle" | "starting" | "retrying" | "error">("idle");
   const [coreIndex, setCoreIndex] = useState<number | null>(null);
   const [draft, setDraft] = useState<LearnDraft | null>(null);
   const [saveFailed, setSaveFailed] = useState(false);
   const data = retained(snapshot);
-  const points = useMemo(() => data ? scopedKnowledgePoints(data) : [], [data]);
+  const localLocation = readStudyLocation(spaceId);
+  const outlineNodeId = localLocation?.outlineNodeId
+    || data?.location?.planOutlineNodeId
+    || data?.location?.outlineNodeId
+    || "";
+  const planItemId = localLocation?.planItemId || data?.location?.planItemId || "";
+  const points = useMemo(() => data ? scopedKnowledgePoints(data, outlineNodeId) : [], [data, outlineNodeId]);
   const point = coreIndex === null ? null : points[coreIndex] ?? null;
 
   const load = useCallback(() => {
@@ -98,7 +109,11 @@ export function LearnPage({ spaceId }: { spaceId: string }) {
       (next) => {
         if (!requests.current.isCurrent(request.generation)) return;
         setSnapshot({ status: "ready", data: next });
-        const nextPoints = scopedKnowledgePoints(next);
+        const requestedScopeId = readStudyLocation(spaceId)?.outlineNodeId
+          || next.location?.planOutlineNodeId
+          || next.location?.outlineNodeId
+          || "";
+        const nextPoints = scopedKnowledgePoints(next, requestedScopeId);
         const resolved = resolveKnowledgeCore(spaceId, nextPoints);
         if (resolved) {
           setCoreIndex(resolved.index);
@@ -121,15 +136,18 @@ export function LearnPage({ spaceId }: { spaceId: string }) {
   useEffect(() => {
     const coordinator = requests.current;
     const compilationCoordinator = compilationRequests.current;
+    const compilationMutationCoordinator = compilationMutations.current;
     pageRegion.current?.focus();
     load();
+    const refresh = () => load();
+    window.addEventListener(STUDY_LEARNING_EVENT, refresh);
     return () => {
       coordinator.cancel();
       compilationCoordinator.cancel();
+      compilationMutationCoordinator.cancel();
+      window.removeEventListener(STUDY_LEARNING_EVENT, refresh);
     };
   }, [load]);
-
-  const outlineNodeId = data?.location?.planOutlineNodeId || data?.location?.outlineNodeId || "";
   const loadCompilations = useCallback(() => {
     if (!outlineNodeId || !repository.listKnowledgeCoreCompilations) {
       compilationScope.current = "";
@@ -164,11 +182,93 @@ export function LearnPage({ spaceId }: { spaceId: string }) {
   }, [loadCompilations, point]);
 
   const compilationState = deriveStudyRequestState(compilationSnapshot);
-  const compilationRuns = compilationState.data ?? [];
-  const latestCompilation = [...compilationRuns]
-    .sort((a, b) => `${b.updatedAt}:${b.runId}`.localeCompare(`${a.updatedAt}:${a.runId}`))[0];
+  const latestCompilation = useMemo(() => [...(compilationState.data ?? [])]
+    .sort((a, b) => `${b.updatedAt}:${b.runId}`.localeCompare(`${a.updatedAt}:${a.runId}`))[0], [compilationState.data]);
   const compilationRunning = latestCompilation
     && ["queued", "reading", "generating", "validating"].includes(latestCompilation.status);
+
+  const mergeCompilation = useCallback((run: KnowledgeCoreCompilationRun) => {
+    setCompilationSnapshot((current) => {
+      const runs = deriveStudyRequestState(current).data ?? [];
+      return {
+        status: "ready",
+        data: [run, ...runs.filter((candidate) => candidate.runId !== run.runId)],
+      };
+    });
+  }, []);
+
+  const createCompilation = useCallback((kind: "automatic" | "manual") => {
+    if (!outlineNodeId || !data?.learningMap || !repository.createKnowledgeCoreCompilation) return;
+    const request = compilationMutations.current.begin();
+    setCompilationMutation("starting");
+    const scopeKey = planItemId || outlineNodeId;
+    void repository.createKnowledgeCoreCompilation({
+      spaceId,
+      outlineNodeId,
+      ...(planItemId ? { planItemId } : {}),
+      trigger: "start_learning",
+      expectedMapRevision: data.learningMap.revision,
+      idempotencyKey: `${kind}:learn:${scopeKey}:${data.learningMap.revision}`.slice(0, 200),
+      priority: 10,
+    }, request.signal).then(
+      (run) => {
+        if (!compilationMutations.current.isCurrent(request.generation)) return;
+        setCompilationMutation("idle");
+        mergeCompilation(run);
+      },
+      () => {
+        if (!compilationMutations.current.isCurrent(request.generation)) return;
+        setCompilationMutation("error");
+      },
+    );
+  }, [data?.learningMap, mergeCompilation, outlineNodeId, planItemId, repository, spaceId]);
+
+  const retryCompilation = useCallback(() => {
+    if (!latestCompilation || !repository.retryKnowledgeCoreCompilation) {
+      createCompilation("manual");
+      return;
+    }
+    const request = compilationMutations.current.begin();
+    setCompilationMutation("retrying");
+    void repository.retryKnowledgeCoreCompilation(spaceId, latestCompilation.runId, request.signal).then(
+      (run) => {
+        if (!compilationMutations.current.isCurrent(request.generation)) return;
+        setCompilationMutation("idle");
+        mergeCompilation(run);
+      },
+      () => {
+        if (!compilationMutations.current.isCurrent(request.generation)) return;
+        setCompilationMutation("error");
+      },
+    );
+  }, [createCompilation, latestCompilation, mergeCompilation, repository, spaceId]);
+
+  useEffect(() => {
+    if (
+      point
+      || !outlineNodeId
+      || !data?.learningMap
+      || compilationState.phase !== "ready"
+      || latestCompilation
+      || compilationMutation !== "idle"
+      || !repository.createKnowledgeCoreCompilation
+    ) return;
+    const key = `${spaceId}:${outlineNodeId}:${planItemId}:${data.learningMap.revision}`;
+    if (attemptedCompilations.current.has(key)) return;
+    attemptedCompilations.current.add(key);
+    createCompilation("automatic");
+  }, [
+    compilationMutation,
+    compilationState.phase,
+    createCompilation,
+    data?.learningMap,
+    latestCompilation,
+    outlineNodeId,
+    planItemId,
+    point,
+    repository.createKnowledgeCoreCompilation,
+    spaceId,
+  ]);
 
   useEffect(() => {
     if (!compilationRunning) return;
@@ -325,34 +425,47 @@ export function LearnPage({ spaceId }: { spaceId: string }) {
         </nav>
       ) : null}
       {point ? coreCard(point) : data && !data.unavailable?.includes("knowledgePoints") && compilationRunning ? (
-        <div className="kq-study-page-empty">
-          <h2>正在整理这一节</h2>
-          <p>{outlineNodeId ? "当前目录范围的知识核正在从真实知识源整理。" : "当前学习范围正在整理。"}</p>
-          <Link className="kq-study-primary-link" to={studyPath(spaceId, "plan")}>查看进行中</Link>
+        <div className="kq-study-page-empty" role="status">
+          <h2>正在准备学习内容</h2>
+          <p>小娜正在后台阅读这一段知识源并整理知识核，完成后会在这里继续。</p>
+        </div>
+      ) : data && !data.unavailable?.includes("knowledgePoints") && compilationMutation === "starting" ? (
+        <div className="kq-study-page-empty" role="status">
+          <h2>正在准备学习内容</h2>
+          <p>正在启动后台整理，不需要打开对话。</p>
         </div>
       ) : data && !data.unavailable?.includes("knowledgePoints") && latestCompilation?.status === "draft_ready" && latestCompilation.draftArtifactId ? (
         <div className="kq-study-page-empty">
-          <h2>这一节的知识核已经整理好</h2>
+          <h2>学习内容已经准备好</h2>
+          <p>采用后会直接显示这一段的知识核。</p>
           <button type="button" className="kq-study-primary-link" onClick={() => requestStudyDraft({
             spaceId,
             artifactId: latestCompilation.draftArtifactId!,
-          })}>查看知识核</button>
+          })}>查看并采用</button>
         </div>
       ) : data && !data.unavailable?.includes("knowledgePoints") && latestCompilation && ["needs_source", "failed", "cancelled"].includes(latestCompilation.status) ? (
         <div className="kq-study-page-empty">
-          <h2>{latestCompilation.status === "needs_source" ? "这部分还缺少可定位的知识源" : latestCompilation.status === "cancelled" ? "已经取消整理这一节" : "这部分暂时没有整理出可靠知识核"}</h2>
-          <p>回到计划页处理当前目录节点；不会跳到其他学习范围。</p>
-          <Link className="kq-study-primary-link" to={studyPath(spaceId, "plan")}>{latestCompilation.status === "needs_source" ? "指定知识源" : "重新整理"}</Link>
+          <h2>{latestCompilation.status === "needs_source" ? "这部分知识源暂时无法读取" : "暂时没有准备好学习内容"}</h2>
+          <p>当前目录没有改变，可以直接在这里重新尝试。</p>
+          <button type="button" className="kq-study-primary-link" disabled={compilationMutation === "retrying"} onClick={retryCompilation}>
+            {compilationMutation === "retrying" ? "正在重试…" : "重试"}
+          </button>
+        </div>
+      ) : data && !data.unavailable?.includes("knowledgePoints") && compilationMutation === "error" ? (
+        <div className="kq-study-page-empty" role="alert">
+          <h2>暂时没有启动学习内容整理</h2>
+          <p>当前目录没有改变，可以直接重试。</p>
+          <button type="button" className="kq-study-primary-link" onClick={() => createCompilation("manual")}>重试</button>
         </div>
       ) : data && !data.unavailable?.includes("knowledgePoints") && outlineNodeId && ["initial", "loading"].includes(compilationState.phase) && !compilationState.data ? (
         <div className="kq-study-page-empty" role="status">
-          <h2>正在确认这一节</h2>
-          <p>正在读取当前目录范围的知识核状态。</p>
+          <h2>正在打开这一节</h2>
+          <p>正在确认已有学习内容。</p>
         </div>
       ) : data && !data.unavailable?.includes("knowledgePoints") && !(outlineNodeId && compilationState.phase === "error" && !compilationState.data) ? (
         <div className="kq-study-page-empty">
-          <h2>{outlineNodeId ? "这一节还没有采用的知识核" : "先确定学习范围"}</h2>
-          <p>{outlineNodeId ? "回到计划页整理或采用这一节的知识核。" : "学习页一次只处理一个知识核。先在计划页选择这一段要学什么。"}</p>
+          <h2>{outlineNodeId ? "正在准备这一节" : "先选择要学习的目录"}</h2>
+          <p>{outlineNodeId ? "学习内容会在这里自动准备。" : "从计划页选择一个目录条目后，会直接回到这里学习。"}</p>
           <Link className="kq-study-primary-link" to={studyPath(spaceId, "plan")}>回到计划</Link>
         </div>
       ) : null}

@@ -171,8 +171,63 @@ describe("LearnPage", () => {
       }]),
     });
 
-    expect(await screen.findByRole("heading", { name: "正在整理这一节" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "正在准备学习内容" })).toBeInTheDocument();
     expect(screen.queryByText(/还没有知识核/)).not.toBeInTheDocument();
+  });
+
+  it("starts knowledge-core preparation on the learning page without opening chat", async () => {
+    localStorage.setItem("kabuqina.study.location.v1:space-a", JSON.stringify({
+      version: 1,
+      courseId: "space-a",
+      page: "plan",
+      planItemId: "plan-a",
+      planItemTitle: "学习极限",
+      outlineNodeId: "section-a",
+      exerciseByCore: {},
+      updatedAt: "2026-08-03T00:00:00Z",
+    }));
+    const createKnowledgeCoreCompilation = vi.fn().mockResolvedValue({
+      runId: "run-1",
+      spaceId: "space-a",
+      outlineNodeId: "section-a",
+      planItemId: "plan-a",
+      trigger: "start_learning",
+      status: "queued",
+      sourceFingerprint: "source",
+      policyVersion: "v1",
+      draftArtifactId: null,
+      reasonCode: null,
+      sourceWindows: [],
+      createdAt: "2026-08-03T00:00:00Z",
+      updatedAt: "2026-08-03T00:00:00Z",
+    });
+    renderPage({
+      artifacts: [],
+      knowledgePoints: [],
+      learningMap: {
+        revision: 4,
+        outlineStatus: "ready",
+        outlineNodes: [{
+          id: "section-a", parentId: null, title: "极限", order: 0, depth: 1,
+          origin: "extracted", sourceRef: { artifact_id: "source-1", page: 1 }, locator: "第一章",
+        }],
+        knowledgeCores: [],
+        exerciseLinks: [],
+      },
+    }, {
+      listKnowledgeCoreCompilations: vi.fn().mockResolvedValue([]),
+      createKnowledgeCoreCompilation,
+    });
+
+    await screen.findByRole("heading", { name: "正在准备学习内容" });
+    expect(createKnowledgeCoreCompilation).toHaveBeenCalledWith(expect.objectContaining({
+      spaceId: "space-a",
+      outlineNodeId: "section-a",
+      planItemId: "plan-a",
+      trigger: "start_learning",
+      expectedMapRevision: 4,
+      priority: 10,
+    }), expect.any(AbortSignal));
   });
 
   it("keeps a compiler-status failure local instead of inventing an empty core state", async () => {

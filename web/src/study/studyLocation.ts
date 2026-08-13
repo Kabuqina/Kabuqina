@@ -204,6 +204,33 @@ export function selectPlanItem(
   return next;
 }
 
+export function selectOutlineScope(
+  courseId: string,
+  item: { title: string; outlineNodeId: string },
+): StudyLocation {
+  const current = readStudyLocation(courseId);
+  const next: StudyLocation = {
+    version: 1,
+    courseId,
+    page: "plan",
+    outlineLabel: item.title,
+    outlineNodeId: item.outlineNodeId,
+    exerciseByCore: current?.exerciseByCore ?? {},
+    updatedAt: new Date().toISOString(),
+  };
+  if (
+    current?.page === "plan"
+    && !current.planItemId
+    && current.outlineLabel === next.outlineLabel
+    && current.outlineNodeId === next.outlineNodeId
+    && JSON.stringify(current.exerciseByCore) === JSON.stringify(next.exerciseByCore)
+  ) {
+    return current;
+  }
+  writeStudyLocation(next);
+  return next;
+}
+
 export function updateStudyExercise(
   courseId: string,
   point: StudyKnowledgePoint,

@@ -205,10 +205,47 @@ def test_index_projects_active_state_evaluations_plan_and_due_cards(env):
         payload={"observations": ["Missed primes"], "weak_points": ["Prime numbers"]},
     )["artifact_id"]
     EvaluationService(ctx).activate_evaluation(evaluation_id)
+    source_id = writer.write_artifact(
+        kind="resource_pack",
+        title="Algebra source",
+        payload={
+            "resources": [{"title": "Algebra.pdf", "purpose": "Primary"}],
+            "outline": [
+                {
+                    "id": "section-primes",
+                    "title": "Prime numbers",
+                    "locator": "p. 12",
+                }
+            ],
+        },
+        source_refs=[
+            {
+                "origin": "imported",
+                "structure_status": "reliable",
+                "structure_origin": "embedded_pdf_outline",
+                "source_label": "Algebra.pdf",
+            }
+        ],
+    )["artifact_id"]
+    ctx.set_artifact_review(source_id, "passed")
+    ctx.set_artifact_status(source_id, "active")
     plan_id = writer.write_artifact(
         kind="learning_plan",
         title="Plan",
-        payload={"phases": [{"title": "P1", "tasks": [{"title": "Drill", "order": 1}]}]},
+        payload={
+            "phases": [
+                {
+                    "title": "P1",
+                    "tasks": [
+                        {
+                            "title": "Drill",
+                            "order": 1,
+                            "outline_node_id": "section-primes",
+                        }
+                    ],
+                }
+            ]
+        },
     )["artifact_id"]
     LearningPlanService(ctx).activate_plan(plan_id)
     FlashcardService(

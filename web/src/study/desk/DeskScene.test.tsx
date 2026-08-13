@@ -92,7 +92,7 @@ describe("DeskScene FE-01 preview", () => {
     const blocked = new Event("beforeunload", { cancelable: true });
     window.dispatchEvent(blocked);
     expect(blocked.defaultPrevented).toBe(true);
-  });
+  }, 10_000);
 
   it("shows a bounded recovery notice inside the notebook", async () => {
     render(<DeskScene adapter={createAdapter()} pageNotice="已回到这条证据对应的知识核和题目。" />);

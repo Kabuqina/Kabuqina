@@ -53,6 +53,7 @@ function item(overrides: Partial<StudyPlanItem>): StudyPlanItem {
   return {
     item_id: "item-1", artifact_id: "plan-1", phaseIndex: 0, phaseTitle: "Phase one",
     taskIndex: 0, title: "Read", order: 1, done_when: "Explain it", status: "open",
+    outlineNodeId: "section-vector",
     completedAt: "", skippedAt: "", note: "", createdAt: "2026-07-11T00:00:00Z",
     ...overrides,
   };
@@ -93,7 +94,7 @@ function compilation(
 }
 
 describe("PlanPage", () => {
-  it("presents plan progress and one focused next action before the directory", async () => {
+  it("keeps plan actions inside the source directory without a separate current-plan summary", async () => {
     renderPage(repository({
       loadPlan: vi.fn().mockResolvedValue({
         plan,
@@ -106,18 +107,16 @@ describe("PlanPage", () => {
       }),
     }));
 
-    const overview = await screen.findByRole("region", { name: "Physics plan" });
-    expect(within(overview).getByText("1 项完成")).toBeInTheDocument();
-    expect(within(overview).getByText("1 项待学习")).toBeInTheDocument();
-    expect(within(overview).getByText("1 项已调整")).toBeInTheDocument();
-    expect(within(overview).getByText("理解向量")).toBeInTheDocument();
-    expect(within(overview).getByRole("button", { name: "开始学习" })).toBeEnabled();
-    expect(within(overview).getByRole("progressbar")).toHaveAttribute("aria-valuenow", "1");
-    expect(within(overview).getByRole("progressbar")).toHaveAttribute("aria-valuemax", "3");
+    expect(await screen.findByRole("heading", { name: "计划安排" })).toBeInTheDocument();
+    expect(screen.queryByText("当前计划")).not.toBeInTheDocument();
+    expect(screen.queryByText("Physics plan")).not.toBeInTheDocument();
+    const nextItem = screen.getByRole("heading", { name: "理解向量" }).closest("li");
+    expect(nextItem).not.toBeNull();
+    expect(within(nextItem as HTMLElement).getByRole("button", { name: "开始学习" })).toBeEnabled();
+    expect(screen.queryByRole("progressbar", { name: "计划完成进度" })).not.toBeInTheDocument();
   });
 
-  it("lets the learner select a later directory action without changing progress", async () => {
-    const user = userEvent.setup();
+  it("puts a start action directly on every open directory item", async () => {
     renderPage(repository({
       loadPlan: vi.fn().mockResolvedValue({
         plan,
@@ -129,11 +128,9 @@ describe("PlanPage", () => {
       }),
     }));
 
-    const overview = await screen.findByRole("region", { name: "Physics plan" });
-    expect(within(overview).getByText("第一项")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "选择：稍后学习" }));
-    expect(within(overview).getByText("稍后学习")).toBeInTheDocument();
-    expect(within(overview).getByText("已选择")).toBeInTheDocument();
+    const laterItem = (await screen.findByRole("heading", { name: "稍后学习" })).closest("li");
+    expect(laterItem).not.toBeNull();
+    expect(within(laterItem as HTMLElement).getByRole("button", { name: "开始学习" })).toBeEnabled();
     expect(screen.getByRole("status", { name: "current route" })).toHaveTextContent("/");
   });
 
@@ -199,7 +196,7 @@ describe("PlanPage", () => {
     expect(document.querySelector(".kq-study-plan-summary")).toBeNull();
   });
 
-  it("does not start an outlined action with an unrelated course core", async () => {
+  it("enters the learning page without requiring the plan page to inspect knowledge cores", async () => {
     const user = userEvent.setup();
     renderPage(repository({
       loadLearnHome: vi.fn().mockResolvedValue({
@@ -226,32 +223,41 @@ describe("PlanPage", () => {
     }));
 
     await user.click(await screen.findByRole("button", { name: "开始学习" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("还没有已采用的知识核");
-    expect(screen.getByRole("status", { name: "current route" })).not.toHaveTextContent("/learn");
+    expect(screen.getByRole("status", { name: "current route" })).toHaveTextContent("/study/space-b/learn");
+    expect(screen.queryByText(/知识核/)).not.toBeInTheDocument();
   });
 
-  it("keeps an unbound legacy plan item on the plan page instead of opening Nana", async () => {
+  it("does not expose legacy directory-binding repair as a learner task", async () => {
+    localStorage.clear();
     const user = userEvent.setup();
     const nanaRequest = vi.fn();
     const stopListening = onStudyNanaRequest(nanaRequest);
     renderPage(repository({
       loadPlan: vi.fn().mockResolvedValue({
         plan,
-        items: [item({ item_id: "legacy", title: "旧计划行动" })],
+        items: [item({ item_id: "legacy", title: "旧计划行动", outlineNodeId: undefined })],
         outline: [{ id: "section-vector", title: "向量", level: 2, children: [] }],
         learningMap: emptyMap,
       }),
       loadLearnHome: vi.fn().mockResolvedValue({ artifacts: [], knowledgePoints: [], learningMap: emptyMap }),
     }));
 
-    await user.click(await screen.findByRole("button", { name: "补充知识源" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("暂时不能自动整理知识核");
+    expect(await screen.findByRole("heading", { name: "计划安排" })).toBeInTheDocument();
+    expect(screen.queryByText(/关联目录/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "旧计划行动" })).not.toBeInTheDocument();
     expect(nanaRequest).not.toHaveBeenCalled();
-    expect(screen.getByRole("status", { name: "current route" })).toHaveTextContent("/");
+    await user.click(screen.getByRole("button", { name: "学习" }));
+    expect(screen.getByRole("status", { name: "current route" })).toHaveTextContent("/study/space-b/learn");
+    expect(JSON.parse(localStorage.getItem("kabuqina.study.location.v1:space-b")!)).toMatchObject({
+      page: "plan",
+      outlineLabel: "向量",
+      outlineNodeId: "section-vector",
+    });
+    expect(JSON.parse(localStorage.getItem("kabuqina.study.location.v1:space-b")!)).not.toHaveProperty("planItemId");
     stopListening();
   });
 
-  it("starts knowledge-core compilation for an outlined action without opening Nana", async () => {
+  it("leaves knowledge-core compilation to the learning page", async () => {
     const user = userEvent.setup();
     const createKnowledgeCoreCompilation = vi.fn().mockResolvedValue(compilation());
     const nanaRequest = vi.fn();
@@ -273,23 +279,13 @@ describe("PlanPage", () => {
     }));
 
     await user.click(await screen.findByRole("button", { name: "开始学习" }));
-    await waitFor(() => expect(createKnowledgeCoreCompilation).toHaveBeenCalledWith(
-      expect.objectContaining({
-        spaceId: "space-b",
-        outlineNodeId: "section-vector",
-        planItemId: "vector",
-        trigger: "start_learning",
-        expectedMapRevision: 3,
-        priority: 10,
-      }),
-      expect.any(AbortSignal),
-    ));
+    expect(screen.getByRole("status", { name: "current route" })).toHaveTextContent("/study/space-b/learn");
+    expect(createKnowledgeCoreCompilation).not.toHaveBeenCalled();
     expect(nanaRequest).not.toHaveBeenCalled();
-    expect((await screen.findAllByText(/正在从知识源整理/)).length).toBeGreaterThan(0);
     stopListening();
   });
 
-  it("shows a running compilation without starting another one", async () => {
+  it("does not expose a running compiler state on the plan page", async () => {
     const createKnowledgeCoreCompilation = vi.fn();
     renderPage(repository({
       loadPlan: vi.fn().mockResolvedValue({
@@ -302,13 +298,12 @@ describe("PlanPage", () => {
       createKnowledgeCoreCompilation,
     }));
 
-    expect(await screen.findByRole("button", { name: "正在准备" })).toBeDisabled();
-    expect(screen.getByText("正在从知识源准备这一项。")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "开始学习" })).toBeEnabled();
+    expect(screen.queryByText(/正在准备/)).not.toBeInTheDocument();
     expect(createKnowledgeCoreCompilation).not.toHaveBeenCalled();
   });
 
-  it("cancels a running compilation without presenting it as completed", async () => {
-    const user = userEvent.setup();
+  it("does not put compiler cancellation controls in the plan directory", async () => {
     const cancelKnowledgeCoreCompilation = vi.fn().mockResolvedValue(
       compilation({ status: "cancelled" }),
     );
@@ -323,18 +318,12 @@ describe("PlanPage", () => {
       cancelKnowledgeCoreCompilation,
     }));
 
-    await user.click(await screen.findByRole("button", { name: "取消准备" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "重新准备" })).toBeEnabled());
-    expect(screen.getByText(/准备已暂停/)).toBeInTheDocument();
-    expect(cancelKnowledgeCoreCompilation).toHaveBeenCalledWith(
-      "space-b",
-      "run-1",
-      expect.any(AbortSignal),
-    );
+    expect(await screen.findByRole("button", { name: "开始学习" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "取消准备" })).not.toBeInTheDocument();
+    expect(cancelKnowledgeCoreCompilation).not.toHaveBeenCalled();
   });
 
-  it("creates a new run when restarting a cancelled compilation", async () => {
-    const user = userEvent.setup();
+  it("does not put compiler restart controls in the plan directory", async () => {
     const createKnowledgeCoreCompilation = vi.fn().mockResolvedValue(compilation({ runId: "run-2" }));
     renderPage(repository({
       loadPlan: vi.fn().mockResolvedValue({
@@ -347,17 +336,12 @@ describe("PlanPage", () => {
       createKnowledgeCoreCompilation,
     }));
 
-    await user.click(await screen.findByRole("button", { name: "重新准备" }));
-    await waitFor(() => expect(createKnowledgeCoreCompilation).toHaveBeenCalledWith(
-      expect.objectContaining({
-        idempotencyKey: expect.stringContaining("restart:vector:3:run-1"),
-      }),
-      expect.any(AbortSignal),
-    ));
+    expect(await screen.findByRole("button", { name: "开始学习" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "重新准备" })).not.toBeInTheDocument();
+    expect(createKnowledgeCoreCompilation).not.toHaveBeenCalled();
   });
 
-  it("opens the exact generated knowledge-core draft from the plan node", async () => {
-    const user = userEvent.setup();
+  it("does not open generated knowledge-core drafts from the plan directory", async () => {
     const draftRequest = vi.fn();
     const stopListening = onStudyDraftRequest(draftRequest);
     renderPage(repository({
@@ -372,16 +356,13 @@ describe("PlanPage", () => {
       ]),
     }));
 
-    await user.click(await screen.findByRole("button", { name: "查看知识核草稿" }));
-    expect(draftRequest).toHaveBeenCalledWith({
-      spaceId: "space-b",
-      artifactId: "deck-draft-1",
-    });
+    expect(await screen.findByRole("button", { name: "开始学习" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "查看知识核草稿" })).not.toBeInTheDocument();
+    expect(draftRequest).not.toHaveBeenCalled();
     stopListening();
   });
 
-  it("offers structured recovery and retries a failed compilation", async () => {
-    const user = userEvent.setup();
+  it("leaves compiler recovery on the learning page", async () => {
     const retryKnowledgeCoreCompilation = vi.fn().mockResolvedValue(
       compilation({ status: "queued", reasonCode: null }),
     );
@@ -398,17 +379,12 @@ describe("PlanPage", () => {
       retryKnowledgeCoreCompilation,
     }));
 
-    expect(await screen.findByRole("button", { name: "查看知识源" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "问小娜" })).toBeEnabled();
-    await user.click(screen.getByRole("button", { name: "再试一次" }));
-    expect(retryKnowledgeCoreCompilation).toHaveBeenCalledWith(
-      "space-b",
-      "run-1",
-      expect.any(AbortSignal),
-    );
+    expect(await screen.findByRole("button", { name: "开始学习" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "再试一次" })).not.toBeInTheDocument();
+    expect(retryKnowledgeCoreCompilation).not.toHaveBeenCalled();
   });
 
-  it("opens practice and preserves the source-outline binding for a practice action", async () => {
+  it("opens learning first even when a later plan action is practice", async () => {
     const user = userEvent.setup();
     localStorage.clear();
     renderPage(repository({
@@ -451,16 +427,15 @@ describe("PlanPage", () => {
     expect(screen.getAllByRole("heading", { name: "做一道向量题" })).toHaveLength(1);
     const action = (await screen.findByRole("heading", { name: "做一道向量题" })).closest("li")!;
     expect(within(action).getByText("练习")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "开始练习" }));
+    await user.click(screen.getByRole("button", { name: "开始学习" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("status", { name: "current route" })).toHaveTextContent("/study/space-b/practice");
+      expect(screen.getByRole("status", { name: "current route" })).toHaveTextContent("/study/space-b/learn");
     });
     expect(JSON.parse(localStorage.getItem("kabuqina.study.location.v1:space-b")!)).toMatchObject({
-      page: "practice",
+      page: "plan",
       planItemId: "practice-next",
       outlineNodeId: "section-vector",
-      knowledgeCoreId: "core-1",
     });
   });
 
@@ -588,13 +563,13 @@ describe("PlanPage", () => {
     });
     renderPage(repository({ loadPlan }));
 
-    expect(await screen.findByRole("heading", { name: "Physics plan" })).toBeInTheDocument();
-    expect(screen.getByRole("alert")).toHaveTextContent("行动进度暂时无法读取");
+    expect(await screen.findByRole("alert")).toHaveTextContent("行动进度暂时无法读取");
+    expect(screen.queryByText("当前计划")).not.toBeInTheDocument();
     expect(screen.queryByText("这份计划里的行动已经处理完")).not.toBeInTheDocument();
     expect(screen.queryByText(/0 项完成/)).not.toBeInTheDocument();
   });
 
-  it("keeps the plan readable without guessing when compiler status is unavailable", async () => {
+  it("does not couple plan-directory readability to compiler status", async () => {
     renderPage(repository({
       loadPlan: vi.fn().mockResolvedValue({
         plan,
@@ -608,9 +583,9 @@ describe("PlanPage", () => {
       listKnowledgeCoreCompilations: vi.fn().mockRejectedValue(new Error("offline")),
     }));
 
-    expect(await screen.findByRole("heading", { name: "Physics plan" })).toBeInTheDocument();
-    expect(await screen.findByRole("alert")).toHaveTextContent("知识核准备状态暂时无法读取");
-    expect(screen.getByRole("button", { name: "状态暂不可用" })).toBeDisabled();
+    expect(await screen.findByRole("heading", { name: "理解向量" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "开始学习" })).toBeEnabled();
+    expect(screen.queryByText(/知识核准备状态/)).not.toBeInTheDocument();
   });
 
   it("asks the learner to choose one file when several knowledge sources exist", async () => {

@@ -132,7 +132,7 @@ describe("MaterialAlignmentReview", () => {
     expect(screen.queryByRole("button", { name: "就按这个来" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "不对，重来" })).not.toBeInTheDocument();
     // 但"确认的是什么"这句话仍然要在。
-    expect(screen.getByText(/确认的是这批分课与对应关系本身/)).toBeInTheDocument();
+    expect(screen.getByText(/确认的是这批分本与对应关系本身/)).toBeInTheDocument();
   });
 
   it("says so rather than rendering half a proposal", () => {

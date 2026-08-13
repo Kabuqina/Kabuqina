@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BookOpen, FolderOpen, RotateCw, X } from "lucide-react";
+import { BookOpen, RotateCw, X } from "lucide-react";
 import {
   cmdActivityRecords,
   type GlobalActivityRecord,
@@ -106,7 +106,12 @@ export function ActivityPanel({ open, onClose, onReturn, load = cmdActivityRecor
   }, [onClose, open, refresh]);
 
   if (!open) return null;
-  const items = state.status === "ready" ? state.data.items : [];
+  // v0.5.0 is Study-first. The backend deliberately retains cross-domain
+  // projection data for v0.6, but the current product surface must not expose
+  // dormant Studio scenes as something the learner can resume.
+  const items = state.status === "ready"
+    ? state.data.items.filter((item) => item.domain === "study")
+    : [];
 
   return (
     <div className="kq-activity-scrim" role="presentation" onMouseDown={(event) => {
@@ -115,7 +120,7 @@ export function ActivityPanel({ open, onClose, onReturn, load = cmdActivityRecor
       <aside id="kq-global-activity" className="kq-activity-panel" role="dialog" aria-modal="true" aria-labelledby="kq-activity-heading">
         <header>
           <div>
-            <p>跨域现场</p>
+            <p>学习现场</p>
             <h2 id="kq-activity-heading">进行中</h2>
           </div>
           <button ref={closeButton} type="button" aria-label="关闭进行中" onClick={onClose}>
@@ -133,16 +138,15 @@ export function ActivityPanel({ open, onClose, onReturn, load = cmdActivityRecor
         {state.status === "ready" && !items.length ? (
           <div className="kq-activity-empty">
             <p>现在没有需要接续的现场。</p>
-            <span>开始一本学习本或打开一个创作项目后，它会出现在这里。</span>
+            <span>开始一本学习本后，需要接续的内容会出现在这里。</span>
           </div>
         ) : null}
         {items.length ? (
           <ol className="kq-global-activity-list">
             {items.map((item) => {
-              const DomainIcon = item.domain === "study" ? BookOpen : FolderOpen;
               return (
                 <li key={item.id} data-status={item.status}>
-                  <span className="kq-global-activity-domain"><DomainIcon aria-hidden />{item.domain === "study" ? "Study" : "Studio"}</span>
+                  <span className="kq-global-activity-domain"><BookOpen aria-hidden />学习</span>
                   <div>
                     <span className="kq-global-activity-status">{activityLabel(item)}</span>
                     <strong>{item.title}</strong>

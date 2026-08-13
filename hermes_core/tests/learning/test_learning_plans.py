@@ -82,6 +82,7 @@ def _draft(ctx, title="Plan"):
                             "order": 2,
                             "done_when": "Score at least 80%",
                             "mode": "practice",
+                            "outline_node_id": "section-factors",
                         },
                     ],
                 }
@@ -174,6 +175,32 @@ def test_unknown_outline_binding_keeps_plan_in_draft(ctx):
     )["artifact_id"]
 
     with pytest.raises(ValueError, match="unavailable outline nodes"):
+        _service(ctx).activate_plan(artifact_id)
+    assert ctx.get_artifact(artifact_id)["status"] == "draft"
+
+
+def test_unbound_tasks_keep_plan_in_draft(ctx):
+    artifact_id = OutputWriter(ctx).write_artifact(
+        kind="learning_plan",
+        title="Partially bound plan",
+        payload={
+            "phases": [
+                {
+                    "title": "Phase",
+                    "tasks": [
+                        {
+                            "title": "Read factors",
+                            "mode": "learn",
+                            "outline_node_id": "section-factors",
+                        },
+                        {"title": "Unscoped drill", "mode": "practice"},
+                    ],
+                }
+            ]
+        },
+    )["artifact_id"]
+
+    with pytest.raises(ValueError, match="require outline bindings"):
         _service(ctx).activate_plan(artifact_id)
     assert ctx.get_artifact(artifact_id)["status"] == "draft"
 
