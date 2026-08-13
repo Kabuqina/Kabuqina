@@ -2691,19 +2691,24 @@
   }
   /* Settings cards: same glass + radius language as the chat composer/bubbles,
      so the settings surface reads as part of the chat aesthetic. */
+  /* 组件 Sheet 的物件语言：桌上的纸是不透明的象牙纸，桌面从纸的四周露出，
+     不是透过纸。所以设置卡＝实心 --paper + 暖木描边 + soft 投影（原为半透明玻璃）。 */
   .hd-setting-card {
-    border: 1px solid var(--kq-glass-border);
-    border-radius: 1.125rem;
-    background: var(--kq-glass-bg);
-    box-shadow: var(--kq-shadow-card);
-    backdrop-filter: blur(14px);
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    border: 1px solid var(--line-warm);
+    border-radius: 0.75rem;
+    background: var(--paper);
+    box-shadow: var(--shadow-soft);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
   }
   .hd-setting-card:hover {
-    border-color: rgba(184, 169, 201, 0.55);
+    border-color: var(--purple-line);
+    box-shadow: var(--shadow);
   }
-  [data-theme="dark"] .hd-setting-card:hover {
-    border-color: rgba(155, 139, 181, 0.4);
+  /* Sheet 的签名双层焦点环（象牙纸白晕 + 紫环），只在键盘聚焦时出现。 */
+  .hd-setting-card :focus-visible,
+  .hd-topbar button:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--paper-strong), 0 0 0 6px var(--purple);
   }
   /* Sticky glass header bar — mirrors .kq-chat-topbar for non-chat pages. */
   .hd-topbar {
