@@ -43,14 +43,14 @@ describe("DraftInboxButton", () => {
 
     const trigger = (await screen.findByLabelText("2 个草稿")).closest("button")!;
     await user.click(trigger);
-    expect(screen.getByRole("dialog", { name: "草稿箱" })).toHaveTextContent("First draft");
+    expect(screen.getByRole("dialog", { name: "草稿" })).toHaveTextContent("First draft");
     await user.click(screen.getByRole("button", { name: "加载更多" }));
     expect(await screen.findByText("Second draft")).toBeInTheDocument();
     expect(listDraftPage).toHaveBeenLastCalledWith("space-a", 50, 1, expect.any(AbortSignal));
 
     await user.keyboard("{Escape}");
     await waitFor(() => expect(trigger).toHaveFocus());
-    expect(screen.queryByRole("dialog", { name: "草稿箱" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "草稿" })).not.toBeInTheDocument();
   });
 
   it("previews only safe quiz fields and lets the learner adopt a pending quiz draft", async () => {
@@ -117,7 +117,7 @@ describe("DraftInboxButton", () => {
     ));
     expect(runSemanticReview).not.toHaveBeenCalled();
     expect(onActivated).toHaveBeenCalledWith(draft, detail);
-    expect(screen.queryByRole("dialog", { name: "草稿箱" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "草稿" })).not.toBeInTheDocument();
   });
 
   it("previews reviewed course knowledge cores with bounded material locations before adoption", async () => {
@@ -183,7 +183,7 @@ describe("DraftInboxButton", () => {
       artifactId: "book-1",
       page: 41,
     });
-    expect(screen.queryByRole("dialog", { name: "草稿箱" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "草稿" })).not.toBeInTheDocument();
 
     await user.click((await screen.findByLabelText("1 个草稿")).closest("button")!);
     await user.click(screen.getByRole("button", { name: /极限知识核/ }));
@@ -194,7 +194,7 @@ describe("DraftInboxButton", () => {
     await waitFor(() => expect(setArtifactStatus).toHaveBeenCalledWith(
       "space-a", "draft-cores", "active", expect.any(AbortSignal),
     ));
-    expect(screen.queryByRole("dialog", { name: "草稿箱" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "草稿" })).not.toBeInTheDocument();
     stopListening();
   });
 });

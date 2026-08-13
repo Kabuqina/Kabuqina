@@ -1,7 +1,7 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { Inbox, X } from "lucide-react";
+import { FileStack, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -318,18 +318,23 @@ export function DraftInboxButton({
 
   return (
     <>
-      <button
-        ref={trigger}
-        type="button"
-        className="kq-study-top-action"
-        aria-expanded={open}
-        aria-haspopup="dialog"
-        onClick={() => setOpen(true)}
-      >
-        <Inbox aria-hidden />
-        <span>{t("study.drafts")}</span>
-        <span className="kq-study-count" aria-label={t("study.draftCount", { count: total })}>{displayCount}</span>
-      </button>
+      {/* 降权（v0.5.0）：没有待采用的草稿时，这颗触发钮根本不渲染——它不再是
+          常驻的「收件箱」。但整个组件保持挂载：Activity 的「查看草稿」深链和
+          onStudyDraftRequest 事件仍要能把复核对话框拉起来（open 时也渲染触发钮）。 */}
+      {total > 0 || open ? (
+        <button
+          ref={trigger}
+          type="button"
+          className="kq-study-top-action"
+          aria-expanded={open}
+          aria-haspopup="dialog"
+          onClick={() => setOpen(true)}
+        >
+          <FileStack aria-hidden />
+          <span>{t("study.drafts")}</span>
+          <span className="kq-study-count" aria-label={t("study.draftCount", { count: total })}>{displayCount}</span>
+        </button>
+      ) : null}
       {open ? createPortal(
         <div className="kq-study-dialog-backdrop kq-study-draft-backdrop" role="presentation" onPointerDown={(event) => { if (event.target === event.currentTarget) closeDialog(); }}>
           <section

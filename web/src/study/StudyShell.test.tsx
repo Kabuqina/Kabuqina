@@ -136,7 +136,7 @@ describe("StudyShell", () => {
     renderShell();
     const drafts = await screen.findByLabelText("2 个草稿");
     await user.click(drafts.closest("button")!);
-    const popover = screen.getByRole("dialog", { name: "草稿箱" });
+    const popover = screen.getByRole("dialog", { name: "草稿" });
     expect(popover).toHaveTextContent("Deck draft");
     expect(popover).toHaveTextContent("Quiz draft");
     expect(popover).not.toHaveTextContent("private");
