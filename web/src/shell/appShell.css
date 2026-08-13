@@ -7,6 +7,8 @@
    与原型的唯一结构差别：生产的窗口高度由 Tauri 决定（1100 × 760，最小 720 × 520），
    所以外壳撑满视口而不是原型里那个固定 min-height 的评审框。 */
 
+/* 整个窗口是一张书桌：噪点纹理 + 右上角暖斑 + 暖木渐变，三层叠在一起。
+   导航栏与内容区都透明，桌面从上到下不间断。 */
 .kq-app-frame {
   position: relative;
   display: grid;
@@ -15,17 +17,12 @@
   min-height: 0;
   overflow: hidden;
   color: var(--ink);
-  background:
-    radial-gradient(circle at 9% 5%, var(--desk-glow), transparent 24%),
-    linear-gradient(180deg, var(--desk-hi) 0%, var(--desk) 55%, var(--desk-lo) 100%);
-  transition: background-color 0.35s ease;
-}
-
-/* 夜晚：台灯在左侧品牌区，暖光仍从桌面上方铺开。 */
-[data-theme="dark"] .kq-app-frame {
-  background:
+  background-image:
     radial-gradient(620px 420px at 94% 0%, var(--desk-glow), transparent 62%),
+    var(--desk-noise),
     linear-gradient(180deg, var(--desk-hi) 0%, var(--desk) 55%, var(--desk-lo) 100%);
+  background-repeat: no-repeat, repeat, no-repeat;
+  transition: background-color 0.35s ease;
 }
 
 .kq-app-header {
@@ -38,8 +35,11 @@
   /* 右边不留内边距：窗口控制要贴到窗口的角上，这是 Windows 的肌肉记忆。
      产品控件自己的内边距由 .kq-utility-nav 的 gap 给。 */
   padding: 0 0 0 16px;
-  border-bottom: 1px solid var(--line-warm);
-  background: var(--veil-strong);
+  /* 整个窗口是一张书桌：导航栏不是压在桌上的另一块板，而是桌面的上边缘。
+     不给它不透明底、不给分隔线——让 .kq-app-frame 的桌面渐变直接透上来，
+     K/台灯/学习/对话/设置 像是摆在桌面上方的一排东西。 */
+  background: transparent;
+  border-bottom: 0;
 }
 
 .kq-brand-cluster {
@@ -187,7 +187,7 @@
   inset: 50px 0 0;
   display: flex;
   justify-content: flex-end;
-  background: color-mix(in srgb, var(--ink) 18%, transparent);
+  background: var(--scrim);
 }
 
 .kq-activity-panel {
