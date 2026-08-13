@@ -10,6 +10,7 @@ import { WindowControls } from "../components/WindowControls";
 import { requestOpenActivity } from "./activityBridge";
 import { onOpenActivityRequest } from "./activityBridge";
 import { ActivityPanel } from "./ActivityPanel";
+import { useActivityBadge } from "./useActivityBadge";
 import "./appShell.css";
 
 /**
@@ -72,6 +73,7 @@ export function AppShell() {
   const surface = surfaceOf(location.pathname);
   const [theme, toggleLamp] = useLampTheme();
   const [activityOpen, setActivityOpen] = useState(false);
+  const { count: activityCount, refresh: refreshActivity } = useActivityBadge();
 
   useEffect(() => onOpenActivityRequest(() => setActivityOpen(true)), []);
 
@@ -112,15 +114,21 @@ export function AppShell() {
                 <span>{t("appShell.chat")}</span>
               </button>
             )}
-            <button
-              type="button"
-              aria-expanded={activityOpen}
-              aria-controls="kq-global-activity"
-              onClick={() => requestOpenActivity()}
-            >
-              <ListTodo aria-hidden size={16} />
-              <span>{t("appShell.activity")}</span>
-            </button>
+            {/* 进行中按需出现：只有真有活着的学习现场才冒出来（v0.5.0 降权）。
+                空的时候整颗按钮消失，零占用；有活儿时带一个数字角标。 */}
+            {activityCount > 0 ? (
+              <button
+                type="button"
+                className="kq-activity-entry"
+                aria-expanded={activityOpen}
+                aria-controls="kq-global-activity"
+                onClick={() => requestOpenActivity()}
+              >
+                <ListTodo aria-hidden size={16} />
+                <span>{t("appShell.activity")}</span>
+                <span className="kq-activity-badge" aria-hidden>{activityCount}</span>
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -150,9 +158,14 @@ export function AppShell() {
 
       <ActivityPanel
         open={activityOpen}
-        onClose={() => setActivityOpen(false)}
+        onClose={() => {
+          setActivityOpen(false);
+          // 关面板时重数一遍：用户可能刚把某个现场处理掉，角标要立刻跟上。
+          refreshActivity();
+        }}
         onReturn={(target) => {
           setActivityOpen(false);
+          refreshActivity();
           navigate(target);
         }}
       />
