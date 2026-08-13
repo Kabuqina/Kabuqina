@@ -55,19 +55,19 @@
   --kq-shadow-card: 0 4px 16px rgba(90, 74, 106, 0.08);
   --kq-shadow-chat: 0 2px 10px rgba(90, 74, 106, 0.07);
   --kq-chat-column-max: 40rem;
+  /* 聊天纸面：暖白纸调 + 右上一点暖光，和书桌同一个世界（原为冷紫灰）。 */
   --kq-chat-pane-bg:
-    radial-gradient(ellipse 80% 50% at 30% 10%, rgba(232, 223, 240, 0.18), transparent 50%),
-    radial-gradient(ellipse 60% 40% at 75% 15%, rgba(212, 165, 116, 0.06), transparent 45%),
-    linear-gradient(180deg, #faf8fb 0%, #f8f5f9 40%, #faf7f8 100%);
-  --kq-glass-bg: rgba(255, 255, 255, 0.82);
-  --kq-glass-bg-subtle: rgba(255, 255, 255, 0.72);
-  --kq-glass-border: rgba(232, 224, 237, 0.86);
+    radial-gradient(ellipse 70% 45% at 78% 8%, rgba(212, 165, 116, 0.08), transparent 50%),
+    linear-gradient(180deg, #FDFBF6 0%, #FBF8F1 45%, #F8F3EA 100%);
+  --kq-glass-bg: rgba(251, 248, 241, 0.82);
+  --kq-glass-bg-subtle: rgba(251, 248, 241, 0.72);
+  --kq-glass-border: rgba(221, 211, 203, 0.86);
   --kq-hover-bg: rgba(232, 223, 240, 0.52);
   --kq-hover-bg-strong: rgba(232, 223, 240, 0.82);
   --kq-titlebar-bg: rgba(255, 253, 254, 0.94);
   --kq-sidebar-bg: rgba(250, 248, 251, 0.6);
-  --kq-topbar-bg: rgba(255, 255, 255, 0.52);
-  --kq-input-surface: rgba(255, 255, 255, 0.92);
+  --kq-topbar-bg: rgba(251, 248, 241, 0.55);
+  --kq-input-surface: rgba(251, 248, 241, 0.92);
   --kq-bubble-user-bg: linear-gradient(135deg, #efe4f0, #f7edf4);
   --kq-inline-code-bg: rgba(232, 223, 240, 0.72);
 }
@@ -99,14 +99,14 @@
   --kq-shadow-soft: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.03);
   --kq-shadow-card: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.04);
   --kq-shadow-chat: 0 2px 10px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.025);
+  /* 暗色聊天纸面：暖棕黑 + 一点琥珀微光，替掉冷紫黑，和暗色书桌同世界。 */
   --kq-chat-pane-bg:
-    radial-gradient(ellipse 120% 60% at 50% 0%, rgba(120, 100, 160, 0.06) 0%, transparent 60%),
-    radial-gradient(ellipse 80% 50% at 50% 45%, rgba(139, 125, 180, 0.03) 0%, transparent 55%),
-    linear-gradient(180deg, #0f0c14 0%, #0c0a10 50%, #0e0b12 100%);
+    radial-gradient(ellipse 120% 60% at 50% 0%, rgba(180, 140, 90, 0.05) 0%, transparent 60%),
+    linear-gradient(180deg, #17120D 0%, #120E0A 50%, #15100B 100%);
   /* Glass: lifted off the void so cards/sections read as distinct surfaces in
      dark instead of melting into the background. */
-  --kq-glass-bg: rgba(30, 27, 40, 0.72);
-  --kq-glass-bg-subtle: rgba(26, 23, 36, 0.6);
+  --kq-glass-bg: rgba(44, 36, 28, 0.72);
+  --kq-glass-bg-subtle: rgba(38, 31, 24, 0.6);
   --kq-glass-border: rgba(255, 255, 255, 0.1);
   /* Hover: brand-tinted glow instead of gray wash */
   --kq-hover-bg: rgba(155, 139, 181, 0.08);
@@ -114,8 +114,8 @@
   /* Bars: fade into the void */
   --kq-titlebar-bg: rgba(15, 12, 20, 0.85);
   --kq-sidebar-bg: rgba(15, 12, 20, 0.72);
-  --kq-topbar-bg: rgba(18, 15, 26, 0.62);
-  --kq-input-surface: rgba(22, 20, 32, 0.8);
+  --kq-topbar-bg: rgba(26, 21, 15, 0.62);
+  --kq-input-surface: rgba(34, 28, 21, 0.8);
   /* Bubble: subtle brand tint */
   --kq-bubble-user-bg: linear-gradient(135deg, rgba(107, 85, 128, 0.35) 0%, rgba(80, 65, 105, 0.28) 100%);
   --kq-inline-code-bg: rgba(155, 139, 181, 0.1);
