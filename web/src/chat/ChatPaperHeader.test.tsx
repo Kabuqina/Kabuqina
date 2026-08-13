@@ -5,7 +5,6 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../lib/i18n";
 import type { StudyChatHandoff } from "../lib/studyChatHandoff";
-import type { StudioChatHandoff } from "../lib/studioChatHandoff";
 import { ChatPaperHeader } from "./ChatPaperHeader";
 
 const studyHandoff: StudyChatHandoff = {
@@ -26,29 +25,15 @@ const studyHandoff: StudyChatHandoff = {
   createdAt: "2026-07-24T00:00:00.000Z",
 };
 
-const studioHandoff: StudioChatHandoff = {
-  version: 1,
-  mode: "studio",
-  sessionId: "studio:p1",
-  projectId: "p1",
-  projectTitle: "极限概念分享",
-  brief: "讲给没学过极限的同学",
-  sourceTitles: [],
-  returnTarget: { path: "/studio/p1", fallbackPath: "/studio" },
-  createdAt: "2026-07-24T00:00:00.000Z",
-};
-
 function renderHeader(props: Partial<Parameters<typeof ChatPaperHeader>[0]> = {}) {
   const handlers = {
     onOpenHistory: vi.fn(),
     onReturnStudy: vi.fn(),
-    onReturnStudio: vi.fn(),
   };
   render(
     <I18nProvider>
       <ChatPaperHeader
         studyHandoff={null}
-        studioHandoff={null}
         {...handlers}
         {...props}
       />
@@ -84,14 +69,6 @@ describe("ChatPaperHeader", () => {
     fireEvent.click(screen.getByRole("button", { name: "显示上下文标题" }));
     expect(screen.getByRole("heading", { name: "练习 · 第 2 步" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "返回这一步" })).toBeInTheDocument();
-  });
-
-  it("names the bound project and offers the way back to it", () => {
-    const handlers = renderHeader({ studioHandoff });
-    expect(screen.getByRole("heading", { name: "极限概念分享" })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "返回项目" }));
-    expect(handlers.onReturnStudio).toHaveBeenCalledTimes(1);
   });
 
   /**

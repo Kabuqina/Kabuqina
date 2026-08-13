@@ -21,7 +21,6 @@ function renderShell(initialPath: string) {
         <Routes>
           <Route element={<AppShell />}>
             <Route path="/study" element={<p>study surface</p>} />
-            <Route path="/studio" element={<p>studio surface</p>} />
             <Route path="/chat" element={<p>chat surface</p>} />
             <Route path="/settings" element={<p>settings surface</p>} />
           </Route>
@@ -42,10 +41,10 @@ afterEach(() => {
 });
 
 describe("AppShell", () => {
-  it("marks the current surface so Study and Studio read as the two destinations", () => {
-    renderShell("/studio");
-    expect(screen.getByRole("button", { name: "创作" })).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("button", { name: "学习" })).not.toHaveAttribute("aria-current");
+  it("marks Study as the current surface (Studio has been cut)", () => {
+    renderShell("/study");
+    expect(screen.getByRole("button", { name: "学习" })).toHaveAttribute("aria-current", "page");
+    expect(screen.queryByRole("button", { name: "创作" })).not.toBeInTheDocument();
   });
 
   it("keeps the shell around every product surface", async () => {
@@ -102,7 +101,7 @@ describe("AppShell", () => {
     }
   });
 
-  it("keeps the lamp with the brand and only Study and Studio in primary navigation", () => {
+  it("keeps the lamp with the brand and only Study in primary navigation", () => {
     renderShell("/study");
     const header = document.querySelector(".kq-app-header")!;
     const brand = header.querySelector(".kq-brand-cluster")!;
@@ -111,7 +110,7 @@ describe("AppShell", () => {
 
     expect(brand).toContainElement(screen.getByRole("button", { name: /台灯|开台灯/ }));
     expect(primary).toContainElement(screen.getByRole("button", { name: "学习" }));
-    expect(primary).toContainElement(screen.getByRole("button", { name: "创作" }));
+    expect(screen.queryByRole("button", { name: "创作" })).not.toBeInTheDocument();
     expect(primary).not.toContainElement(screen.getByRole("button", { name: "对话" }));
     expect(utility).toContainElement(screen.getByRole("button", { name: "对话" }));
     expect(utility).toContainElement(screen.getByRole("button", { name: "进行中" }));

@@ -6,23 +6,11 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { WindowTitleBar } from "./components/WindowTitleBar";
-import { AppShell } from "./shell/AppShell";
 import { ApprovalDialogHost } from "./components/ApprovalDialogHost";
 import { ConfirmDialogHost } from "./components/ConfirmDialogHost";
 import { DesktopDeliveryNotifier } from "./components/DesktopDeliveryNotifier";
 import { DesktopDeliveryPoller } from "./components/DesktopDeliveryPoller";
 import { I18nProvider } from "./lib/i18n";
-import { Wizard } from "./onboarding/Wizard";
-import { Settings } from "./advanced/Settings";
-import { Export } from "./advanced/Export";
-import { Splash } from "./Splash";
-import { ChatPage } from "./chat/ChatPage";
-import { LoadPackagesPage } from "./advanced/pages/LoadPackagesPage";
-import { LegacyPlatformTombstonePage } from "./advanced/pages/PlatformRouteGuard";
-import { ScheduledTasksPage } from "./advanced/pages/ScheduledTasks";
-import { OverlayWindow } from "./capture/OverlayWindow";
-import { CompanionWindow } from "./companion/CompanionWindow";
-import { BrandSvgPreview } from "./components/brand/BrandSvgPreview";
 import { BootPill } from "./components/BootPill";
 import { applyFontSize, applyTheme, watchSystemTheme } from "./lib/ui-prefs";
 import "./index.css";
@@ -32,8 +20,19 @@ applyTheme();
 // 「跟随系统」在所有页面都要成立，不只是设置页。
 watchSystemTheme();
 
+const AppShell = lazy(async () => ({ default: (await import("./shell/AppShell")).AppShell }));
+const Splash = lazy(async () => ({ default: (await import("./Splash")).Splash }));
+const Wizard = lazy(async () => ({ default: (await import("./onboarding/Wizard")).Wizard }));
+const Export = lazy(async () => ({ default: (await import("./advanced/Export")).Export }));
+const ChatPage = lazy(async () => ({ default: (await import("./chat/ChatPage")).ChatPage }));
+const Settings = lazy(async () => ({ default: (await import("./advanced/Settings")).Settings }));
+const LoadPackagesPage = lazy(async () => ({ default: (await import("./advanced/pages/LoadPackagesPage")).LoadPackagesPage }));
+const LegacyPlatformTombstonePage = lazy(async () => ({ default: (await import("./advanced/pages/PlatformRouteGuard")).LegacyPlatformTombstonePage }));
+const ScheduledTasksPage = lazy(async () => ({ default: (await import("./advanced/pages/ScheduledTasks")).ScheduledTasksPage }));
+const OverlayWindow = lazy(async () => ({ default: (await import("./capture/OverlayWindow")).OverlayWindow }));
+const CompanionWindow = lazy(async () => ({ default: (await import("./companion/CompanionWindow")).CompanionWindow }));
+const BrandSvgPreview = lazy(async () => ({ default: (await import("./components/brand/BrandSvgPreview")).BrandSvgPreview }));
 const StudyRoute = lazy(() => import("./study/StudyRoute"));
-const StudioRoute = lazy(() => import("./studio/StudioRoute"));
 const DeskScenePreview = import.meta.env.DEV
   ? lazy(() => import("./study/desk/DeskScenePreview"))
   : null;
@@ -75,7 +74,7 @@ function revealMainWindowAfterShellPaint() {
   };
 }
 
-const SHELL_SURFACES = ["/study", "/studio", "/chat", "/settings"];
+const SHELL_SURFACES = ["/study", "/chat", "/settings"];
 
 function MainWindowContent() {
   const location = useLocation();
@@ -88,7 +87,8 @@ function MainWindowContent() {
     <div className="flex h-full min-h-0 flex-col">
       {shellOwnsTitleBar ? null : <WindowTitleBar />}
       <div className="min-h-0 flex-1 overflow-hidden">
-        <Routes>
+        <Suspense fallback={<BootPill />}>
+          <Routes>
           <Route path="/" element={<Splash />} />
           <Route path="/onboarding/*" element={<Wizard />} />
           <Route path="/export" element={<Export />} />
@@ -113,10 +113,9 @@ function MainWindowContent() {
               path="/study/*"
               element={<Suspense fallback={<BootPill />}><StudyRoute /></Suspense>}
             />
-            <Route
-              path="/studio/*"
-              element={<Suspense fallback={<BootPill />}><StudioRoute /></Suspense>}
-            />
+            {/* Studio 已从产品中砍掉（聚焦 Study）：/studio 重定向到 /study，
+                旧链接不至于落到空白路由。 */}
+            <Route path="/studio/*" element={<Navigate to="/study" replace />} />
           </Route>
           {DeskScenePreview ? (
             <Route
@@ -126,7 +125,8 @@ function MainWindowContent() {
           ) : null}
           <Route path="/brand-svg-preview" element={<BrandSvgPreview />} />
           <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+          </Routes>
+        </Suspense>
         <DesktopDeliveryNotifier />
         <ApprovalDialogHost />
         <ConfirmDialogHost />
@@ -151,7 +151,7 @@ function MainWindowShell() {
 if (windowLabel === "capture-overlay") {
   ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
-      <OverlayWindow />
+      <Suspense fallback={<BootPill />}><OverlayWindow /></Suspense>
     </React.StrictMode>,
   );
 } else if (windowLabel === "companion") {
@@ -159,7 +159,7 @@ if (windowLabel === "capture-overlay") {
   ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
       <I18nProvider>
-        <CompanionWindow />
+        <Suspense fallback={<BootPill />}><CompanionWindow /></Suspense>
       </I18nProvider>
     </React.StrictMode>,
   );

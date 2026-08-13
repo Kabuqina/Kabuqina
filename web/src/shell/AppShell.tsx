@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { BookOpen, FolderOpen, LampDesk, ListTodo, MessageCircle, Settings as SettingsIcon } from "lucide-react";
+import { BookOpen, LampDesk, ListTodo, MessageCircle, Settings as SettingsIcon } from "lucide-react";
 import { useI18n } from "../lib/i18n";
 import { getStoredThemeMode, resolveTheme, setThemeMode, type ResolvedTheme } from "../lib/ui-prefs";
 import { WindowControls } from "../components/WindowControls";
@@ -15,7 +15,7 @@ import "./appShell.css";
 /**
  * 全局外壳（架构 §5.1，原型 `AppHeader`）。
  *
- * Study 与 Studio 是两个一级目的地；Chat、进行中与 Settings 是右侧工具。
+ * Study 是唯一的一级目的地；Chat、进行中与 Settings 是右侧工具。（Studio 已砍）
  * 台灯属于小娜的品牌人格，所以和 Logo、名称一起留在左侧品牌区。
  * 能力目录与网关目的地已经从产品面退场，所以这里只有这几样。
  *
@@ -24,11 +24,10 @@ import "./appShell.css";
  * 更矮的。全窗口任何时候都只有一条横条。
  */
 
-type Surface = "study" | "studio" | "chat" | "settings" | null;
+type Surface = "study" | "chat" | "settings" | null;
 
 function surfaceOf(pathname: string): Surface {
   if (pathname.startsWith("/study")) return "study";
-  if (pathname.startsWith("/studio")) return "studio";
   if (pathname.startsWith("/chat")) return "chat";
   if (pathname.startsWith("/settings")) return "settings";
   return null;
@@ -109,14 +108,6 @@ export function AppShell() {
           >
             <BookOpen aria-hidden size={18} />
             {t("appShell.study")}
-          </button>
-          <button
-            type="button"
-            aria-current={surface === "studio" ? "page" : undefined}
-            onClick={() => navigate("/studio")}
-          >
-            <FolderOpen aria-hidden size={18} />
-            {t("appShell.studio")}
           </button>
         </nav>
 

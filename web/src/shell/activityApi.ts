@@ -23,6 +23,9 @@ export type KnowledgeCoreActivitySourceStatus =
 
 export type GlobalActivityRecord = {
   id: string;
+  // Studio 已从产品砍掉，但后端跨域投影契约仍作为休眠资产保留，可能返回
+  // domain==="studio" 的旧记录。类型如实反映后端会投什么；产品面只显示 study
+  // （ActivityPanel 过滤），不在此处收窄类型，否则运行时数据会与类型不符。
   domain: "study" | "studio";
   kind: string;
   status: GlobalActivityStatus;

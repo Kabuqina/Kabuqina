@@ -7,7 +7,6 @@ import { useI18n } from "../lib/i18n";
 import { cn } from "../lib/cn";
 import type { SessionRow } from "./chat-api";
 import { deriveSessionPresentation } from "./sessionPresentation";
-import { readSessionStudioHandoff, type StudioChatHandoff } from "../lib/studioChatHandoff";
 import { readSessionStudyHandoff, type StudyChatHandoff } from "../lib/studyChatHandoff";
 
 /**
@@ -154,7 +153,5 @@ export function ChatHistoryDrawer({
 function sessionOrigin(sessionId: string, t: (key: string) => string): string | null {
   const study: StudyChatHandoff | null = readSessionStudyHandoff(sessionId);
   if (study) return study.spaceTitle || t("appShell.study");
-  const studio: StudioChatHandoff | null = readSessionStudioHandoff(sessionId);
-  if (studio) return studio.projectTitle || t("appShell.studio");
   return null;
 }

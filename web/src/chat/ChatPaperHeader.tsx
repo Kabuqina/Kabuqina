@@ -4,30 +4,25 @@
 import { useState } from "react";
 import { ArrowLeft, Clock3, PanelTopClose, PanelTopOpen } from "lucide-react";
 import { useI18n } from "../lib/i18n";
-import type { StudioChatHandoff } from "../lib/studioChatHandoff";
 import type { StudyChatHandoff } from "../lib/studyChatHandoff";
 
 /**
  * 对话纸的标题行（原型 `ChatPaper.__header`）。
  *
- * 选中一条有来源的会话时，**只显示来源标签和一个返回动作**——不展开课程面板、
- * 项目面板或进度面板。那些属于 Study 和 Studio 自己，Chat 只是横跨两者的交互层。
+ * 选中一条有来源的会话时，**只显示来源标签和一个返回动作**——不展开课程面板
+ * 或进度面板。那属于 Study 自己，Chat 只是横跨其上的交互层。
  *
  * 标题可以暂时收起，但收起不能破坏会话来源。折叠态始终留下恢复入口，
- * 因而 Study / Studio 的精确返回能力不会因为一次界面整理而丢失。
+ * 因而 Study 的精确返回能力不会因为一次界面整理而丢失。
  */
 export function ChatPaperHeader({
   studyHandoff,
-  studioHandoff,
   onOpenHistory,
   onReturnStudy,
-  onReturnStudio,
 }: {
   studyHandoff: StudyChatHandoff | null;
-  studioHandoff: StudioChatHandoff | null;
   onOpenHistory: () => void;
   onReturnStudy: () => void;
-  onReturnStudio: () => void;
 }) {
   const { t } = useI18n();
   const [collapsedContextId, setCollapsedContextId] = useState<string | null>(null);
@@ -39,15 +34,7 @@ export function ChatPaperHeader({
         onReturn: onReturnStudy,
         returnLabel: t("chat.returnToStep"),
       }
-    : studioHandoff
-      ? {
-          id: `studio:${studioHandoff.sessionId}`,
-          title: studioHandoff.projectTitle,
-          origin: t("appShell.studio"),
-          onReturn: onReturnStudio,
-          returnLabel: t("chat.returnToProject"),
-        }
-      : null;
+    : null;
   const contextCollapsed = Boolean(bound && collapsedContextId === bound.id);
 
   return (
