@@ -387,9 +387,14 @@
      延迟到滑出结束再生效，所以关闭动画照旧。 */
   visibility: hidden;
   transition: transform 0.22s ease, visibility 0s linear 0.22s;
-  border-right: 1px solid var(--line-warm);
-  background: var(--paper-strong);
-  box-shadow: var(--shadow);
+  /* 从桌子边缘拉开的抽屉（组件 Sheet「抽屉里的·通用件」用的就是这个材质）：
+     内壁是深一档的木头，开口处一道内投影做出挖空的深度；里面放着用过的对话纸。 */
+  border-right: 1px solid var(--desk-deep);
+  background: linear-gradient(180deg, var(--desk-lo) 0%, var(--desk-deep) 100%);
+  box-shadow:
+    inset 0 4px 12px -6px rgba(60, 44, 28, 0.65),
+    inset -6px 0 14px -10px rgba(60, 44, 28, 0.5),
+    var(--shadow);
 }
 
 .kq-chat-drawer.is-open {
@@ -416,46 +421,75 @@
   border: 0;
   border-radius: 7px;
   background: transparent;
-  color: var(--ink-soft);
+  /* 木头底上要用 --ink，不是 --ink-soft。 */
+  color: var(--ink);
   cursor: pointer;
 }
 
+/* 抽一张新纸：虚线＝还没落墨的东西（Sheet 里虚线是铅笔家族专用，用在「＋新」上）。
+   木头底上虚线要压深一档才看得见。 */
 .kq-chat-drawer-new {
   display: flex;
   align-items: center;
   gap: 7px;
-  margin: 0 12px 8px;
+  margin: 0 10px 8px;
   min-height: 36px;
   padding: 8px 11px;
-  border: 1px dashed var(--line-cool);
+  /* 紫虚线在木头上是 3.21:1（过非文字 3:1 门槛），--brown-ink 只有 2.48 不达标；
+     顺带让品牌紫在抽屉里露一次脸。 */
+  border: 1px dashed var(--purple);
   border-radius: 8px;
   background: transparent;
-  color: var(--ink);
+  color: var(--ink-strong);
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
 }
 
-.kq-chat-drawer-new:hover { border-color: var(--purple-line); background: var(--purple-faint); }
+.kq-chat-drawer-new:hover { border-style: solid; border-color: var(--purple); background: var(--paper); }
 
-.kq-chat-drawer-list { overflow: auto; padding: 0 8px 8px; }
+.kq-chat-drawer-list { display: grid; align-content: start; gap: 6px; overflow: auto; padding: 0 10px 10px; }
 
+/* 抽屉里放的是用过的对话纸：每条会话是一张躺在木头上的小纸片。 */
 .kq-chat-drawer-row {
   position: relative;
   display: grid;
   gap: 2px;
   width: 100%;
-  padding: 9px 34px 9px 10px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
+  padding: 9px 34px 9px 12px;
+  border: 1px solid var(--line-warm);
+  border-radius: 7px;
+  background: var(--paper);
+  box-shadow: var(--shadow-soft);
   color: inherit;
   text-align: left;
   cursor: pointer;
+  transition: transform 0.14s ease, box-shadow 0.14s ease;
 }
 
-.kq-chat-drawer-row:hover { background: var(--purple-faint); }
-.kq-chat-drawer-row.is-active { background: var(--purple-pale); }
+/* 抽出来一点点＝正要拿它。 */
+.kq-chat-drawer-row:hover {
+  transform: translateX(2px);
+  box-shadow: var(--shadow);
+}
+
+/* 当前这张：最亮的纸 + 左边一道紫书脊（与 Sheet 的当前标签同一个母题）。 */
+.kq-chat-drawer-row.is-active {
+  background: var(--paper-strong);
+  border-color: var(--purple-line);
+  padding-left: 15px;
+}
+
+.kq-chat-drawer-row.is-active::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 5px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--purple);
+}
 
 .kq-chat-drawer-row strong {
   color: var(--ink-strong);
@@ -496,13 +530,15 @@
 .kq-chat-drawer-delete:focus-visible { opacity: 1; }
 .kq-chat-drawer-delete:hover { color: var(--danger); background: var(--danger-bg); }
 
-.kq-chat-drawer-empty { padding: 10px; color: var(--ink-soft); font-size: 12px; }
+/* 同样在木头底上：用 --ink 才够对比。 */
+.kq-chat-drawer-empty { padding: 10px; color: var(--ink); font-size: 12px; }
 
+/* 抽屉底部的工具：木头上的发丝线看不见，用深一档的木色刻一道。 */
 .kq-chat-drawer-tools {
   display: grid;
   gap: 1px;
   padding: 8px;
-  border-top: 1px solid var(--line-faint);
+  border-top: 1px solid var(--desk-deep);
 }
 
 .kq-chat-drawer-tools button {
@@ -514,13 +550,14 @@
   border: 0;
   border-radius: 7px;
   background: transparent;
-  color: var(--ink-soft);
+  /* 木头底比纸暗：--ink-soft 在这里只有 2.4:1，必须用 --ink（5.3:1）。 */
+  color: var(--ink);
   font-size: 12px;
   text-align: left;
   cursor: pointer;
 }
 
-.kq-chat-drawer-tools button:hover { color: var(--ink-strong); background: var(--purple-faint); }
+.kq-chat-drawer-tools button:hover { color: var(--ink-strong); background: var(--paper); }
 
 @media (max-width: 860px) {
   .kq-chat-desk { padding: 10px 10px 12px; }
