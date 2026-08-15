@@ -49,37 +49,34 @@ export function ChatPaperHeader({
         <Clock3 aria-hidden size={18} />
       </button>
 
-      {bound && contextCollapsed ? (
-        <button
-          type="button"
-          className="kq-chat-return kq-chat-context-restore"
-          aria-expanded="false"
-          onClick={() => setCollapsedContextId(null)}
-        >
-          <PanelTopOpen aria-hidden size={16} />
-          {t("chat.contextShow")}
-        </button>
-      ) : bound ? (
+      {bound ? (
         <>
-          <div id="kq-chat-session-context" className="kq-chat-session-title">
+          {/* 收起时留在 DOM 里只加 hidden：位置不塌、aria-controls 始终指向真实元素。 */}
+          <div id="kq-chat-session-context" className="kq-chat-session-title" hidden={contextCollapsed}>
             <h1>{bound.title}</h1>
             <span>{bound.origin}</span>
           </div>
           <div className="kq-chat-head-actions">
-            <button type="button" className="kq-chat-return" onClick={bound.onReturn}>
-              <ArrowLeft aria-hidden size={16} />
-              {bound.returnLabel}
-            </button>
+            {contextCollapsed ? null : (
+              <button type="button" className="kq-chat-return" onClick={bound.onReturn}>
+                <ArrowLeft aria-hidden size={16} />
+                {bound.returnLabel}
+              </button>
+            )}
+            {/* 一个开关，不是两个按钮：收起/展开都用这颗，位置固定在最右、始终纯图标。
+                原来收起态换成了左侧一颗带文字的按钮，控件会跳位、繁简也不一致。 */}
             <button
               type="button"
               className="kq-chat-context-toggle"
-              aria-label={t("chat.contextHide")}
-              title={t("chat.contextHide")}
+              aria-label={contextCollapsed ? t("chat.contextShow") : t("chat.contextHide")}
+              title={contextCollapsed ? t("chat.contextShow") : t("chat.contextHide")}
               aria-controls="kq-chat-session-context"
-              aria-expanded="true"
-              onClick={() => setCollapsedContextId(bound.id)}
+              aria-expanded={!contextCollapsed}
+              onClick={() => setCollapsedContextId(contextCollapsed ? null : bound.id)}
             >
-              <PanelTopClose aria-hidden size={15} />
+              {contextCollapsed
+                ? <PanelTopOpen aria-hidden size={15} />
+                : <PanelTopClose aria-hidden size={15} />}
             </button>
           </div>
         </>

@@ -343,7 +343,8 @@
   font-size: 11px;
 }
 
-.kq-chat-head-actions { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+/* margin-left:auto 顶住右边缘：标题收起后它也不会滑回左边，开关始终在同一处。 */
+.kq-chat-head-actions { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; margin-left: auto; }
 
 .kq-chat-return {
   display: inline-flex;
@@ -361,7 +362,6 @@
 }
 
 .kq-chat-return:hover { border-color: var(--purple-line); background: var(--purple-faint); }
-.kq-chat-context-restore { margin-right: auto; }
 
 /* --- 历史会话抽屉：收起来，需要时才拉开 --------------------------------- */
 

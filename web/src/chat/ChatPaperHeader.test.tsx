@@ -72,6 +72,28 @@ describe("ChatPaperHeader", () => {
   });
 
   /**
+   * 收起/展开是**同一颗开关**：位置固定在标题行最右端，两态都只有图标。
+   * 回归钉子——原来收起后会变成左侧一颗带文字的按钮，控件跳位、繁简也不一致。
+   */
+  it("keeps one icon-only toggle anchored in the same place in both states", () => {
+    renderHeader({ studyHandoff });
+    const actions = () => document.querySelector(".kq-chat-head-actions")!;
+
+    const hide = screen.getByRole("button", { name: "隐藏上下文标题" });
+    expect(actions()).toContainElement(hide);
+    expect(hide).toHaveTextContent("");
+
+    fireEvent.click(hide);
+
+    const show = screen.getByRole("button", { name: "显示上下文标题" });
+    // 同一个容器、同一个位置，仍然没有文字。
+    expect(actions()).toContainElement(show);
+    expect(show).toHaveTextContent("");
+    // 标题行上不会另外冒出一颗恢复按钮。
+    expect(screen.getAllByRole("button", { name: /上下文标题/ })).toHaveLength(1);
+  });
+
+  /**
    * 选中有来源的会话时只给来源标签和一个返回动作——课程、项目、进度面板
    * 都不在 Chat 里展开（原型 AGENTS）。
    */
