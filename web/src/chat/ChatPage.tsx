@@ -13,7 +13,6 @@ import { ChatInput } from "./ChatInput";
 import { ChatMessageList } from "./ChatMessageList";
 import { ChatHistoryDrawer } from "./ChatHistoryDrawer";
 import { ChatPaperHeader } from "./ChatPaperHeader";
-import { runDesktopOrganize } from "./desktop-organizer-api";
 import {
   armPendingChatSecretGateBypass,
   armPendingOpenReminderSession,
@@ -294,62 +293,6 @@ export function ChatPage() {
     };
   }, [activeSessionId, kabuqinaReady, kabuqinaWarming, loadSessions, refreshActiveThread]);
 
-  const handleOrganizeDesktop = useCallback(async () => {
-    const ok = await confirm({
-      title: t("desktopOrganizer.confirmTitle"),
-      message: t("desktopOrganizer.confirmBody"),
-      confirmLabel: t("desktopOrganizer.confirmApply"),
-      cancelLabel: t("desktopOrganizer.confirmCancel"),
-      tone: "warning",
-    });
-    if (!ok) return;
-
-    const now = Date.now();
-    const pendingId = `desktop-organizer-assistant-${now}`;
-
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: `desktop-organizer-user-${now}`,
-        role: "user" as const,
-        text: t("desktopOrganizer.userAction"),
-        timestamp: now / 1000,
-      },
-      {
-        id: pendingId,
-        role: "assistant" as const,
-        text: t("desktopOrganizer.running"),
-        timestamp: now / 1000,
-      },
-    ]);
-
-    try {
-      const result = await runDesktopOrganize(locale);
-      setMessages((prev) =>
-        prev.map((message) =>
-          message.id === pendingId
-            ? {
-                ...message,
-                text: result.message || t("desktopOrganizer.doneOneClick", { count: result.movedCount }),
-              }
-            : message,
-        ),
-      );
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e || "");
-      setMessages((prev) =>
-        prev.map((message) =>
-          message.id === pendingId
-            ? {
-                ...message,
-                text: t("desktopOrganizer.runFailed", { msg }),
-              }
-            : message,
-        ),
-      );
-    }
-  }, [locale, setMessages, t]);
-
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const ok = await confirm({
@@ -467,7 +410,6 @@ export function ChatPage() {
           onDeleteSession={handleDelete}
           onOpenScheduledTasks={() => nav("/settings/cron", { state: { cronBackTo: "/chat" } })}
           onOpenWorkspace={() => void invoke("cmd_open_workspace")}
-          onOrganizeDesktop={handleOrganizeDesktop}
           onExport={() => nav("/export")}
         />
 

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useEffect, useRef } from "react";
-import { AlarmClock, Download, FolderKanban, FolderOpen, Plus, Trash2, X } from "lucide-react";
+import { AlarmClock, Download, FolderOpen, Plus, Trash2, X } from "lucide-react";
 import { useI18n } from "../lib/i18n";
 import { cn } from "../lib/cn";
 import type { SessionRow } from "./chat-api";
@@ -30,7 +30,6 @@ export function ChatHistoryDrawer({
   onDeleteSession,
   onOpenScheduledTasks,
   onOpenWorkspace,
-  onOrganizeDesktop,
   onExport,
 }: {
   open: boolean;
@@ -43,7 +42,6 @@ export function ChatHistoryDrawer({
   onDeleteSession: (id: string, e: React.MouseEvent) => void;
   onOpenScheduledTasks: () => void;
   onOpenWorkspace: () => void;
-  onOrganizeDesktop: () => void;
   onExport: () => void;
 }) {
   const { t, locale } = useI18n();
@@ -136,9 +134,6 @@ export function ChatHistoryDrawer({
           </button>
           <button type="button" onClick={onOpenWorkspace}>
             <FolderOpen aria-hidden size={15} />{t("chat.openWorkspace")}
-          </button>
-          <button type="button" onClick={onOrganizeDesktop}>
-            <FolderKanban aria-hidden size={15} />{t("desktopOrganizer.title")}
           </button>
           <button type="button" onClick={onExport}>
             <Download aria-hidden size={15} />{t("chat.exportChat")}

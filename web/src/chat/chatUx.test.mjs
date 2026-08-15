@@ -183,7 +183,6 @@ assert.doesNotMatch(
 const chatPageSource = fs.readFileSync(new URL("./ChatPage.tsx", import.meta.url), "utf8");
 const chatApiSource = fs.readFileSync(new URL("./chat-api.ts", import.meta.url), "utf8");
 const sendMessageSource = fs.readFileSync(new URL("./hooks/useSendMessage.ts", import.meta.url), "utf8");
-const desktopApiSource = fs.readFileSync(new URL("./desktop-organizer-api.ts", import.meta.url), "utf8");
 const workspacePanelSource = fs.readFileSync(
   new URL("./WorkspacePanel.tsx", import.meta.url),
   "utf8",
@@ -209,22 +208,12 @@ const stringsSource = fs.readFileSync(new URL("../locales/strings.ts", import.me
 assert.match(indexCssSource, /kq-assistant-avatar-image[\s\S]*object-fit:\s*contain/);
 assert.match(indexCssSource, /kq-assistant-avatar-image[\s\S]*drop-shadow/);
 
-assert.match(
+/* 「整理 Windows 桌面」已从产品面砍掉（前端砍净，Tauri 命令留休眠），
+   原来钉在这里的三条断言随之移除。 */
+assert.doesNotMatch(
   chatPageSource,
-  /handleOrganizeDesktop[\s\S]*role: "user"[\s\S]*desktopOrganizer\.userAction[\s\S]*role: "assistant"/,
-  "Confirmed desktop organizing should add a visible user action and assistant result to chat.",
-);
-
-assert.match(
-  chatPageSource,
-  /handleOrganizeDesktop[\s\S]*const ok = await confirm\(\{[\s\S]*desktopOrganizer\.confirmTitle[\s\S]*desktopOrganizer\.confirmBody[\s\S]*desktopOrganizer\.confirmApply[\s\S]*desktopOrganizer\.confirmCancel[\s\S]*tone: "warning"[\s\S]*if \(!ok\) return;[\s\S]*setMessages[\s\S]*runDesktopOrganize\(locale\)/,
-  "Desktop organizing must show the shared confirmation dialog before transcript updates or cmd_desktop_organize_run.",
-);
-
-assert.match(
-  stringsSource,
-  /confirmTitle:[\s\S]*confirmBody:[\s\S]*confirmApply:[\s\S]*confirmCancel:/,
-  "Desktop organizing confirmation copy should be localized.",
+  /handleOrganizeDesktop|runDesktopOrganize|desktopOrganizer\./,
+  "Desktop organizing was cut from the product surface; chat must not reintroduce it.",
 );
 
 // S5：Chat 是刻意极简的自由对话空间——单张居中对话纸，两条常驻侧栏都退场。
@@ -240,17 +229,12 @@ assert.doesNotMatch(
   "The standing left rail and focus-mode toggle are gone: the minimal chat is focus mode.",
 );
 
-// 换布局不等于砍能力：工作台面板改成按需打开，入口挪到 composer 上。
-assert.match(
+/* WorkspacePanel（Report 发射台）已随 Studio/Report 一起从 Chat 产品面移除，
+   组件文件留作休眠资产。原来钉「入口在 composer 上」的两条断言随之反向。 */
+assert.doesNotMatch(
   chatPageSource,
-  /WorkspacePanel/,
-  "ChatPage should still be able to open the workspace panel.",
-);
-
-assert.match(
-  chatPageSource,
-  /onOpenWorkspacePanel=\{\(\) => setWorkspaceOpen\(true\)\}/,
-  "The workspace panel entry should live on the composer now that the right rail is gone.",
+  /<WorkspacePanel|onOpenWorkspacePanel|setWorkspaceOpen/,
+  "The workspace panel was cut from chat; it must not come back on the composer.",
 );
 
 assert.match(
@@ -269,22 +253,18 @@ assert.match(
   "The math section is titled 数学与代码 inside STUDY.",
 );
 
-assert.match(
+/* 面板下线后，ChatPage 里那条派生链（buildWorkspaceState / extractPaths / …）
+   一并删除，所以这里不再断言它存在，只钉住它不会回来。 */
+assert.doesNotMatch(
   chatPageSource,
-  /buildWorkspaceState[\s\S]*messages[\s\S]*pendingAttachments[\s\S]*progress/,
-  "ChatPage should derive workspace state from messages, attachments, and agent progress.",
-);
-
-assert.match(
-  chatPageSource,
-  /materials=\{workspace\.materials\}[\s\S]*outputs=\{workspace\.outputs\}[\s\S]*activeTool=\{workspace\.activeTool\}/,
-  "ChatPage should pass live workspace materials, outputs, and active work into WorkspacePanel.",
+  /buildWorkspaceState|extractAttachmentNames|activeTool=\{workspace\./,
+  "The workspace-state derivation was removed with the panel; it must not return.",
 );
 
 // 侧栏上那几个工具没有别处可去，收进抽屉底部——不显眼，但都还在。
 assert.match(
   drawerSource,
-  /onOpenScheduledTasks[\s\S]*onOpenWorkspace[\s\S]*onOrganizeDesktop[\s\S]*onExport/,
+  /onOpenScheduledTasks[\s\S]*onOpenWorkspace[\s\S]*onExport/,
   "The drawer should carry the utilities that used to live in the left rail.",
 );
 
@@ -317,18 +297,6 @@ assert.doesNotMatch(
   chatPageSource,
   /chat\.activeWork/,
   "The center header should not render the redundant active-work label.",
-);
-
-assert.doesNotMatch(
-  chatPageSource,
-  /DesktopOrganizerModal|desktopOrganizerOpen|setDesktopOrganizerOpen/,
-  "Desktop organizing should reuse the shared confirm dialog, not the removed organizer preview modal flow.",
-);
-
-assert.match(
-  desktopApiSource,
-  /cmd_desktop_organize_run/,
-  "Desktop organizing should call the one-click Tauri command.",
 );
 
 assert.match(
@@ -429,16 +397,8 @@ assert.match(
   /disabled=\{disabled\}/,
   "Deliverable actions should stay disabled while a turn is still in flight.",
 );
-assert.match(
-  chatPageSource,
-  /busy=\{sending\}/,
-  "ChatPage should gate deliverable actions on whether 小娜 is still replying.",
-);
-assert.match(
-  chatPageSource,
-  /const pending = sending && idx === lastAssistantIdx[\s\S]*pending: sending/,
-  "Only the in-flight turn's deliverable should be marked pending; finished files stay ready.",
-);
+/* busy/pending 这两条钉的是 ChatPage 往面板传的 props；面板下线后 ChatPage 侧
+   已无此逻辑（面板文件自身的断言仍在下面保留，它还是休眠资产）。 */
 assert.match(
   workspacePanelSource,
   /disabled=\{busy && Boolean\(item\.pending\)\}/,
@@ -728,11 +688,7 @@ assert.match(
   "New chat sends should persist the generated session id before route changes can unmount ChatPage.",
 );
 
-assert.match(
-  chatPageSource,
-  /message\.attachments[\s\S]*att\.mime/,
-  "Workspace state should also recognize image attachments stored on user messages.",
-);
+/* 同上：这条钉的是已删除的 workspace 派生链里对图片附件的识别。 */
 
 assert.match(
   workspacePanelSource,
