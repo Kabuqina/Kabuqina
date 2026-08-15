@@ -16,14 +16,14 @@ To regenerate from a single high-res PNG:
 
 ```powershell
 cargo install tauri-cli --version "^2" --locked
-cargo tauri icon ..\web\public\kabuqina_na_256.png
+cargo tauri icon ..\web\public\kabuqina_qi_256.png
 ```
 
 That command writes all the variants above into this folder. After regenerating,
 copy the Na tray asset again (the CLI overwrites `tray.png` with a generic resize):
 
 ```powershell
-Copy-Item -Force ..\web\public\kabuqina_na_32.png .\tray.png
+Copy-Item -Force ..\web\public\kabuqina_qi_32.png .\tray.png
 ```
 
 Until real branding lands, the build will fail because no icons are

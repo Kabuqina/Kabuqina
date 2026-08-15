@@ -4,7 +4,7 @@
 """Generate neutral placeholder brand assets (Tier 2 unbranded default).
 
 Writes every brand-asset filename the app consumes — a plain grey mug with no
-face and a rounded-square "N" tile — so a public clone builds and runs without
+face and a rounded-square "Q" tile — so a public clone builds and runs without
 access to the private artwork repository. Official builds overlay the real
 Kabuqina artwork on top of these files; see
 docs/superpowers/plans/2026-07-11-brand-asset-tier2-overlay-plan.md.
@@ -19,7 +19,7 @@ Usage (from repo root):
 Then regenerate the Tauri icon set from the placeholder source:
 
     cd tauri; cargo tauri icon icons/_icon-1024.png
-    Copy-Item -Force ..\\web\\public\\kabuqina_na_32.png .\\icons\\tray.png
+    Copy-Item -Force ..\\web\\public\\kabuqina_qi_32.png .\\icons\\tray.png
 """
 
 from __future__ import annotations
@@ -47,7 +47,7 @@ GREY = {
     "tile_text": (245, 245, 245),
 }
 
-NA_SIZES = (16, 32, 48, 128, 256)
+MARK_SIZES = (16, 32, 48, 128, 256)
 MASCOT_SIZES = (64, 128, 256, 512)
 
 
@@ -129,7 +129,7 @@ def _load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
 
 
 def _render_tile_png(size: int) -> Image.Image:
-    """Rounded-square greyscale tile with a centered N — the placeholder app mark."""
+    """Rounded-square greyscale tile with a centered Q — the placeholder app mark."""
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     base = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     px = base.load()
@@ -146,10 +146,10 @@ def _render_tile_png(size: int) -> Image.Image:
 
     draw = ImageDraw.Draw(img)
     font = _load_font(max(8, round(size * 0.58)))
-    bbox = draw.textbbox((0, 0), "N", font=font)
+    bbox = draw.textbbox((0, 0), "Q", font=font)
     tx = (size - (bbox[2] - bbox[0])) / 2 - bbox[0]
     ty = (size - (bbox[3] - bbox[1])) / 2 - bbox[1]
-    draw.text((tx, ty), "N", font=font, fill=GREY["tile_text"])
+    draw.text((tx, ty), "Q", font=font, fill=GREY["tile_text"])
     return img
 
 
@@ -167,11 +167,11 @@ def write_outputs() -> None:
     for size in MASCOT_SIZES:
         _render_mug_png(size).save(WEB_PUBLIC / f"kabuqina_mascot_{size}.png", optimize=True)
 
-    tiles = [_render_tile_png(size) for size in NA_SIZES]
-    for size, tile in zip(NA_SIZES, tiles):
-        tile.save(WEB_PUBLIC / f"kabuqina_na_{size}.png", optimize=True)
-    tiles[-1].save(WEB_PUBLIC / "kabuqina_na.ico", format="ICO",
-                   sizes=[(s, s) for s in NA_SIZES], append_images=tiles[:-1])
+    tiles = [_render_tile_png(size) for size in MARK_SIZES]
+    for size, tile in zip(MARK_SIZES, tiles):
+        tile.save(WEB_PUBLIC / f"kabuqina_qi_{size}.png", optimize=True)
+    tiles[-1].save(WEB_PUBLIC / "kabuqina_qi.ico", format="ICO",
+                   sizes=[(s, s) for s in MARK_SIZES], append_images=tiles[:-1])
     _render_tile_png(1024).save(TAURI_ICONS / "_icon-1024.png", optimize=True)
 
     coasters = (
@@ -198,7 +198,7 @@ def write_outputs() -> None:
 
     print(f"Placeholder assets written to {WEB_PUBLIC} and {TAURI_ICONS / '_icon-1024.png'}")
     print("Next: cd tauri; cargo tauri icon icons/_icon-1024.png; then copy "
-          "web/public/kabuqina_na_32.png over tauri/icons/tray.png")
+          "web/public/kabuqina_qi_32.png over tauri/icons/tray.png")
 
 
 def main() -> int:

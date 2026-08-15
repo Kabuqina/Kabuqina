@@ -149,8 +149,8 @@ cd python; python -m unittest discover -s tests -p "test_*.py" -v; cd ..
 # Lint web/
 cd web; npm run lint
 
-# 重新生成 Tauri icons（source PNG: web/public/kabuqina_na_256.png）
-cd tauri; cargo tauri icon ..\web\public\kabuqina_na_256.png
+# 重新生成 Tauri icons（source PNG: web/public/kabuqina_qi_256.png）
+cd tauri; cargo tauri icon ..\web\public\kabuqina_qi_256.png
 ```
 
 ## Windows 特有注意事项
@@ -338,8 +338,8 @@ cd python; python -m unittest discover -s tests -p "test_*.py" -v; cd ..
 # Lint web/
 cd web; npm run lint
 
-# Regenerate Tauri icons (source PNG: web/public/kabuqina_na_256.png)
-cd tauri; cargo tauri icon ..\web\public\kabuqina_na_256.png
+# Regenerate Tauri icons (source PNG: web/public/kabuqina_qi_256.png)
+cd tauri; cargo tauri icon ..\web\public\kabuqina_qi_256.png
 ```
 
 ## Windows-specific gotchas

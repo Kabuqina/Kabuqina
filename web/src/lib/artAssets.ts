@@ -56,7 +56,7 @@ export const ART_ASSETS = {
    * 窗口标题栏图标。现状：48px 位图。
    * 换装契约：需同时提供 16/32/48 三档，标题栏按 DPI 取用。
    */
-  windowIcon: "/kabuqina_na_48.png",
+  windowIcon: "/kabuqina_qi_48.png",
 } as const;
 
 export type ArtAssetName = keyof typeof ART_ASSETS;
