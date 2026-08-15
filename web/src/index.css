@@ -151,10 +151,12 @@
   --surface: #FFFFFF;
   --white: var(--surface);
   --wash: #EEE9E5;
-  --desk: #E9DFD0;
-  --desk-deep: #DDD0BF;
-  --desk-hi: #EFE9DD;
-  --desk-lo: #E4DACB;
+  /* 桌面压深成真正的暖木色：原来的 #EFE9DD 太浅（≈91% 亮度），和象牙纸几乎同亮，
+     东西浮不起来。压深后 paper/desk 对比从 1.14 拉到 ~1.35，纸卡明确坐在桌面之上。 */
+  --desk: #D5C4A7;
+  --desk-deep: #C1AE8E;
+  --desk-hi: #DFD0B6;
+  --desk-lo: #CBB99B;
   /* 桌面纹理：极淡的 SVG feTurbulence 噪点，让整片桌面是一张桌子而不是一块色板。
      内联 data-URI，禁位图（美术计划）。铺在桌面渐变之上，关掉后层级仍成立。 */
   --desk-noise: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2"/><feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.02 0"/></filter><rect width="180" height="180" filter="url(%23n)"/></svg>');
@@ -2700,6 +2702,21 @@
   .hd-topbar button:focus-visible {
     outline: none;
     box-shadow: 0 0 0 3px var(--paper-strong), 0 0 0 6px var(--purple);
+  }
+  /* 品牌紫更多露脸：每张设置卡标题前一道 Sheet 式的紫色小竖条。 */
+  .hd-setting-card h2 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .hd-setting-card h2::before {
+    content: "";
+    flex: 0 0 auto;
+    width: 3px;
+    align-self: stretch;
+    min-height: 0.95em;
+    border-radius: 2px;
+    background: var(--purple);
   }
   /* Sticky glass header bar — mirrors .kq-chat-topbar for non-chat pages. */
   .hd-topbar {
