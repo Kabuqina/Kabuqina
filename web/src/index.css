@@ -1516,7 +1516,7 @@
   }
   .kq-new-chat {
     border-radius: 0.75rem;
-    background: linear-gradient(135deg, var(--kq-color-primary-deep), var(--kq-color-primary-dark));
+    background: var(--purple);
     color: #fff;
     box-shadow: 0 4px 14px rgba(73, 56, 94, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.12);
   }
@@ -1751,10 +1751,13 @@
     color: var(--kq-color-warm);
   }
   .kq-send-button {
-    background: linear-gradient(135deg, var(--kq-color-primary-deep), var(--kq-color-primary-dark));
+    background: var(--purple);
     color: #fff;
     box-shadow: 0 4px 14px rgba(73, 56, 94, 0.2);
     transition: all 0.18s ease;
+  }
+  .kq-send-button:hover:not(:disabled) {
+    background: var(--purple-dark);
   }
   .kq-send-button:disabled {
     background: rgba(232, 224, 237, 0.6);
@@ -2143,7 +2146,7 @@
     transform: scale(0.98);
   }
   .kq-companion-context-primary {
-    background: linear-gradient(135deg, var(--kq-color-primary-deep), var(--kq-color-primary-dark));
+    background: var(--purple);
     color: #fff;
   }
   .kq-companion-context-secondary {
@@ -2601,29 +2604,26 @@
   }
   /* Shared Kabuqina controls (app-wide, not chat-only) */
   .kq-btn-primary {
-    background: linear-gradient(135deg, var(--kq-color-primary-deep), var(--kq-color-primary-dark));
+    background: var(--purple);
     color: #fff;
     box-shadow: 0 8px 20px rgba(73, 56, 94, 0.25);
   }
   .kq-btn-primary:hover {
-    filter: brightness(1.04);
+    background: var(--purple-dark);
   }
   .kq-btn-primary:active {
     transform: scale(0.98);
   }
+  /* 次按钮＝Sheet 规格：象牙白 --surface + 冷线 --line-cool，hover 淡紫面 + 薰衣草边。 */
   .kq-btn-secondary {
-    border: 1px solid var(--kq-glass-border);
-    background: var(--kq-glass-bg);
-    color: var(--kq-color-ink);
-    box-shadow: var(--kq-shadow-chat);
+    border: 1px solid var(--line-cool);
+    background: var(--surface);
+    color: var(--ink-strong);
   }
   .kq-btn-secondary:hover {
-    border-color: rgba(184, 169, 201, 0.66);
-    background: var(--kq-hover-bg-strong);
-    color: var(--kq-color-strong);
-  }
-  [data-theme="dark"] .kq-btn-secondary:hover {
-    border-color: rgba(155, 139, 181, 0.45);
+    border-color: var(--lavender);
+    background: var(--purple-faint);
+    color: var(--ink-strong);
   }
   .kq-btn-ghost {
     color: var(--kq-color-muted);
@@ -2645,19 +2645,14 @@
   }
   .hd-input {
     @apply w-full rounded-lg px-3 py-2 text-sm transition outline-none;
-    border: 1px solid var(--kq-glass-border);
-    background: var(--kq-input-surface);
-    color: var(--kq-color-ink);
+    border: 1px solid var(--line-cool);
+    background: var(--surface);
+    color: var(--ink);
   }
+  /* Sheet 的签名双层焦点环，和其它控件一致（明暗两态由令牌自适应）。 */
   .hd-input:focus {
-    border-color: var(--kq-color-primary);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--kq-color-primary) 22%, transparent);
-  }
-  [data-theme="dark"] .hd-input:focus {
-    border-color: rgba(155, 139, 181, 0.4);
-    box-shadow:
-      0 0 0 3px rgba(155, 139, 181, 0.08),
-      0 0 20px rgba(155, 139, 181, 0.04);
+    border-color: var(--purple);
+    box-shadow: 0 0 0 3px var(--paper-strong), 0 0 0 6px var(--purple);
   }
   .hd-input.font-mono {
     font-family: var(--font-mono), ui-monospace, monospace;
@@ -2810,7 +2805,7 @@
   }
   .hd-btn-segment-active {
     @apply text-white shadow-sm;
-    background: linear-gradient(135deg, var(--kq-color-primary-deep), var(--kq-color-primary-dark));
+    background: var(--purple);
   }
   .hd-btn-segment-idle {
     @apply bg-transparent;
