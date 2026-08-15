@@ -1578,14 +1578,11 @@
     box-shadow: var(--kq-shadow-chat);
     backdrop-filter: blur(14px);
   }
+  /* 助手气泡＝小娜写在纸上的一段话：不透明象牙纸 + 暖木边（原为冷白玻璃）。 */
   .kq-chat-bubble-assistant {
-    border: 1px solid var(--kq-glass-border);
-    background: rgba(255, 255, 255, 0.88);
-    box-shadow: 0 2px 12px rgba(90, 74, 106, 0.06);
-    backdrop-filter: blur(14px);
-  }
-  [data-theme="dark"] .kq-chat-bubble-assistant {
-    background: var(--kq-glass-bg);
+    border: 1px solid var(--line-warm);
+    background: var(--paper);
+    box-shadow: var(--shadow-soft);
   }
   .kq-empty-action {
     box-shadow: var(--kq-shadow-chat);
@@ -1660,19 +1657,18 @@
   .kq-user-image-preview img {
     border-radius: 0.82rem 0.82rem 0 0;
   }
+  /* 输入区＝桌上的书写面：象牙白 --surface（原为冷白半透明）。 */
   .kq-composer {
     border-radius: 1.125rem;
-    box-shadow: var(--kq-shadow-card);
+    box-shadow: var(--shadow-soft);
     overflow: hidden;
     transition: all 0.2s ease;
-    background: rgba(255, 255, 255, 0.9);
+    background: var(--surface);
   }
-  [data-theme="dark"] .kq-composer {
-    background: rgba(22, 20, 32, 0.85);
-  }
+  /* 聚焦时给 Sheet 的签名双层环，和设置控件一致。 */
   .kq-composer:focus-within {
-    box-shadow: 0 4px 24px rgba(90, 74, 106, 0.1), 0 0 0 3px rgba(184, 169, 201, 0.12);
-    border-color: rgba(184, 169, 201, 0.7);
+    box-shadow: 0 0 0 3px var(--paper-strong), 0 0 0 6px var(--purple);
+    border-color: var(--purple);
   }
   .kq-input-area {
     padding: 0.625rem 1rem 0.875rem;
