@@ -389,11 +389,20 @@
   transition: transform 0.22s ease, visibility 0s linear 0.22s;
   /* 从桌子边缘拉开的抽屉（组件 Sheet「抽屉里的·通用件」用的就是这个材质）：
      内壁是深一档的木头，开口处一道内投影做出挖空的深度；里面放着用过的对话纸。 */
-  border-right: 1px solid var(--desk-deep);
-  background: linear-gradient(180deg, var(--desk-lo) 0%, var(--desk-deep) 100%);
+  border-right: 1px solid var(--brown-ink);
+  /* 抽屉内壁照不到光：比桌面深一档、往棕里走，纸放进去才跳得出来；
+     再铺一层桌面噪点，木头才是材质而不是一块死平的色。 */
+  background-image:
+    var(--desk-noise),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--desk-deep) 94%, var(--brown-ink)) 0%,
+      color-mix(in srgb, var(--desk-deep) 84%, var(--brown-ink)) 100%
+    );
+  background-repeat: repeat, no-repeat;
   box-shadow:
-    inset 0 4px 12px -6px rgba(60, 44, 28, 0.65),
-    inset -6px 0 14px -10px rgba(60, 44, 28, 0.5),
+    inset 0 5px 14px -6px rgba(45, 30, 18, 0.75),
+    inset -7px 0 16px -10px rgba(45, 30, 18, 0.6),
     var(--shadow);
 }
 
@@ -410,7 +419,8 @@
   padding: 14px 12px 8px 16px;
 }
 
-.kq-chat-drawer-head h2 { margin: 0; color: var(--ink-strong); font-size: 14px; }
+/* 木头底上用 --ink（4.63）：--ink-strong 更浅，只有 4.0，不达标。 */
+.kq-chat-drawer-head h2 { margin: 0; color: var(--ink); font-size: 14px; }
 
 .kq-chat-drawer-head button {
   display: inline-flex;
@@ -435,12 +445,12 @@
   margin: 0 10px 8px;
   min-height: 36px;
   padding: 8px 11px;
-  /* 紫虚线在木头上是 3.21:1（过非文字 3:1 门槛），--brown-ink 只有 2.48 不达标；
-     顺带让品牌紫在抽屉里露一次脸。 */
-  border: 1px dashed var(--purple);
+  /* 木头底上：--purple 只有 2.81 不过 3:1，--purple-dark 是 3.82；
+     文字用 --ink（4.63），--ink-strong 反而更浅只有 4.0，不达标。 */
+  border: 1px dashed var(--purple-dark);
   border-radius: 8px;
   background: transparent;
-  color: var(--ink-strong);
+  color: var(--ink);
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
@@ -448,46 +458,60 @@
 
 .kq-chat-drawer-new:hover { border-style: solid; border-color: var(--purple); background: var(--paper); }
 
-.kq-chat-drawer-list { display: grid; align-content: start; gap: 6px; overflow: auto; padding: 0 10px 10px; }
+/* 归档的纸是一叠压在一起的，不是带间距的卡片列表：gap 归零，纸与纸之间只留一道边。 */
+.kq-chat-drawer-list {
+  display: grid;
+  align-content: start;
+  gap: 0;
+  overflow: auto;
+  padding: 0 10px 10px;
+  /* 整叠一起浮在木头上，而不是每张各自带影 */
+  filter: drop-shadow(0 6px 14px rgba(60, 44, 28, 0.28));
+}
 
-/* 抽屉里放的是用过的对话纸：每条会话是一张躺在木头上的小纸片。 */
+/* 一张归档的对话纸：薄、方、彼此压着。 */
 .kq-chat-drawer-row {
   position: relative;
   display: grid;
-  gap: 2px;
+  gap: 1px;
   width: 100%;
-  padding: 9px 34px 9px 12px;
+  padding: 8px 34px 8px 12px;
   border: 1px solid var(--line-warm);
-  border-radius: 7px;
+  border-bottom: 0;
+  border-radius: 0;
   background: var(--paper);
-  box-shadow: var(--shadow-soft);
   color: inherit;
   text-align: left;
   cursor: pointer;
-  transition: transform 0.14s ease, box-shadow 0.14s ease;
+  transition: transform 0.14s ease, background 0.14s ease;
 }
 
-/* 抽出来一点点＝正要拿它。 */
+/* 只有整叠的最上/最下两张收圆角，中间是齐的——这才像一叠纸。 */
+.kq-chat-drawer-row:first-of-type { border-radius: 5px 5px 0 0; }
+.kq-chat-drawer-row:last-of-type {
+  border-bottom: 1px solid var(--line-warm);
+  border-radius: 0 0 5px 5px;
+}
+
+/* 从叠里抽出来一点＝正要拿它。 */
 .kq-chat-drawer-row:hover {
-  transform: translateX(2px);
-  box-shadow: var(--shadow);
+  transform: translateX(4px);
+  background: var(--paper-strong);
 }
 
 /* 当前这张：最亮的纸 + 左边一道紫书脊（与 Sheet 的当前标签同一个母题）。 */
 .kq-chat-drawer-row.is-active {
   background: var(--paper-strong);
-  border-color: var(--purple-line);
   padding-left: 15px;
 }
 
 .kq-chat-drawer-row.is-active::before {
   content: "";
   position: absolute;
-  top: 8px;
-  bottom: 8px;
-  left: 5px;
+  top: 0;
+  bottom: 0;
+  left: 0;
   width: 3px;
-  border-radius: 2px;
   background: var(--purple);
 }
 
