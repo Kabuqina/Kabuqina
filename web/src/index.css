@@ -154,6 +154,9 @@
   /* 桌面纹理：极淡的 SVG feTurbulence 噪点，让整片桌面是一张桌子而不是一块色板。
      内联 data-URI，禁位图（美术计划）。铺在桌面渐变之上，关掉后层级仍成立。 */
   --desk-noise: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2"/><feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.02 0"/></filter><rect width="180" height="180" filter="url(%23n)"/></svg>');
+  /* 抽屉内壁＝比桌面更深的一档木头。浅色下由 --desk-deep 往 --brown-ink 调深。 */
+  --drawer-hi: color-mix(in srgb, var(--desk-deep) 94%, var(--brown-ink));
+  --drawer-lo: color-mix(in srgb, var(--desk-deep) 84%, var(--brown-ink));
   /* 白天没有灯光落在桌面上：开灯才有暖斑，所以浅色主题这两个是空的。 */
   --desk-glow: transparent;
   /* 纱＝浮在桌面上的浅色半透明面板（标题栏、书堆盒、窄窗工具条）。
@@ -200,7 +203,7 @@
   --ink: #E8E2EC;
   --ink-strong: #F0EAF5;
   --ink-mid: #C9BFD1;
-  --ink-soft: #A89BB3;
+  --ink-soft: #C4B9CD;
   --purple: #B795CC;
   --purple-dark: #CEB3DE;
   --purple-pale: #473A54;
@@ -209,28 +212,37 @@
   --purple-wash: #524360;
   --purple-line: #635378;
   --lavender: #86729B;
-  --paper: #322D36;
-  --paper-strong: #3A3440;
-  --paper-soft: #2B2731;
-  --surface: #403A4A;
-  --wash: #453E4D;
-  --desk: #33291F;
-  --desk-deep: #2A211A;
-  --desk-hi: #3A2F24;
-  --desk-lo: #2B2219;
+  /* 暗色的桌与纸原本几乎同亮（纸/桌 1.03，只靠色相勉强分开），东西浮不起来。
+     这里压深整族桌木、同时把纸抬起来，拉到 1.49——和浅色的 1.43 同一个量级。
+     暗色没有浅色那种张力：桌上的字是浅色的，桌越深字越清楚（ink/桌 12.9）。
+     纸抬高后 --ink-soft 与整族 --line-* 会糊，所以一并按「保持各自相对纸的
+     原有对比」反解重定，不是随手调亮。 */
+  --paper: #40394B;
+  --paper-strong: #4A4359;
+  --paper-soft: #373144;
+  --surface: #4E4760;
+  --wash: #4A4358;
+  --desk: #211B14;
+  --desk-deep: #1A150F;
+  --desk-hi: #261E16;
+  --desk-lo: #1C1610;
   /* 暗色桌面纹理：噪点用白色微微提亮（深桌上压暗看不见），略强一档 */
   --desk-noise: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2"/><feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.025 0"/></filter><rect width="180" height="180" filter="url(%23n)"/></svg>');
+  /* 暗色不能沿用浅色那个 color-mix：暗色的 --brown-ink 是浅棕（#D9B494），
+     越混越亮，抽屉内壁会比桌面还亮——方向正好反了。这里直接给两档更深的值。 */
+  --drawer-hi: #1D1710;
+  --drawer-lo: #141009;
   --desk-glow: rgba(255, 193, 116, 0.13);
-  --veil: rgba(38, 33, 44, 0.82);
-  --veil-strong: rgba(46, 40, 52, 0.96);
+  --veil: rgba(49, 42, 61, 0.82);
+  --veil-strong: rgba(59, 51, 72, 0.96);
   /* 暗色下遮罩要压得更狠，否则和本来就暗的底分不开 */
   --scrim: rgba(0, 0, 0, 0.55);
-  --frame-line: #4E4657;
-  --line: #4C4550;
-  --line-strong: #5D5466;
-  --line-warm: #4A423D;
-  --line-cool: #544C5C;
-  --line-faint: #423B44;
+  --frame-line: #5B5266;
+  --line: #5A515E;
+  --line-strong: #6B6075;
+  --line-warm: #584E49;
+  --line-cool: #62586B;
+  --line-faint: #504752;
   --gray: #6F6678;
   --manila: #493D2D;
   --manila-hover: #544631;
@@ -391,11 +403,7 @@
      再铺一层桌面噪点，木头才是材质而不是一块死平的色。 */
   background-image:
     var(--desk-noise),
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--desk-deep) 94%, var(--brown-ink)) 0%,
-      color-mix(in srgb, var(--desk-deep) 84%, var(--brown-ink)) 100%
-    );
+    linear-gradient(180deg, var(--drawer-hi) 0%, var(--drawer-lo) 100%);
   background-repeat: repeat, no-repeat;
   box-shadow:
     inset 0 5px 14px -6px rgba(45, 30, 18, 0.75),
