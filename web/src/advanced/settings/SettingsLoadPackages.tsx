@@ -46,7 +46,12 @@ export function SettingsLoadPackages() {
     <Section icon={Package} title={t("settings.loadPackagesTitle")} desc={t("settings.loadPackagesDesc")}>
       <div className="space-y-3 text-sm text-[var(--kq-color-ink)] dark:text-[var(--kq-color-ink)]">
         {loading ? (
-          <p className="text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">{t("settings.loadPackagesChecking")}</p>
+          /* 骨架照着读完后的两行摘要排，数据落位时版面不跳。 */
+          <div className="space-y-2" role="status" aria-busy="true">
+            <span className="sr-only">{t("settings.loadPackagesChecking")}</span>
+            <div className="kq-skeleton h-5 w-48" />
+            <div className="kq-skeleton h-3.5 w-32" />
+          </div>
         ) : (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0 space-y-1">

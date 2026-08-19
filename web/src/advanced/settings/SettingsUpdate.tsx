@@ -25,6 +25,20 @@ type UpdateState =
   | "ready"
   | "error";
 
+/**
+ * 每个更新状态的芯片：语气取组件 Sheet 的四组语义色（外加一个中性档），
+ * 标签是可扫读的一两个词。idle 没有状态可报——那一栏本来就是说明文字，
+ * 不该硬塞一颗药丸，所以它没有条目。
+ */
+const UPDATE_CHIP: Partial<Record<UpdateState, { tone: string; label: string }>> = {
+  checking: { tone: "neutral", label: "settings.updateStatusChecking" },
+  downloading: { tone: "neutral", label: "settings.updateStatusDownloading" },
+  upToDate: { tone: "success", label: "settings.updateStatusUpToDate" },
+  available: { tone: "info", label: "settings.updateStatusAvailable" },
+  ready: { tone: "success", label: "settings.updateStatusReady" },
+  error: { tone: "danger", label: "settings.updateStatusError" },
+};
+
 function errText(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
@@ -77,25 +91,32 @@ export function SettingsUpdate() {
   }, [checkNow]);
 
   const busy = state === "checking" || state === "downloading";
+  const chip = UPDATE_CHIP[state];
   const progressText = formatUpdateProgress(progress);
 
   return (
     <Section icon={Download} title={t("settings.updateTitle")} desc={t("settings.updateDesc")}>
       <div className="space-y-3">
-        <div className="rounded-md border border-[var(--kq-color-border)] bg-white/45 px-3 py-2 text-sm leading-relaxed text-[var(--kq-color-ink)] dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg)] dark:text-[var(--kq-color-ink)]">
-          {state === "idle" && t("settings.updateIdle")}
-          {state === "checking" && t("settings.updateChecking")}
-          {state === "upToDate" && t("settings.updateUpToDate")}
-          {state === "available" && update
-            ? t("settings.updateAvailable", {
-                current: update.currentVersion,
-                next: update.version,
-              })
-            : null}
-          {state === "downloading" &&
-            t("settings.updateDownloading", { progress: progressText || t("settings.updateProgressUnknown") })}
-          {state === "ready" && t("settings.updateReady")}
-          {state === "error" && t("settings.updateError")}
+        {/* 芯片报状态（可扫读），下面那行留原来的整句作说明。 */}
+        <div className="space-y-2" role="status">
+          {chip ? (
+            <span className={`kq-chip kq-chip--${chip.tone}`}>{t(chip.label)}</span>
+          ) : null}
+          <p className="text-sm leading-relaxed text-[var(--kq-color-ink)]">
+            {state === "idle" && t("settings.updateIdle")}
+            {state === "checking" && t("settings.updateChecking")}
+            {state === "upToDate" && t("settings.updateUpToDate")}
+            {state === "available" && update
+              ? t("settings.updateAvailable", {
+                  current: update.currentVersion,
+                  next: update.version,
+                })
+              : null}
+            {state === "downloading" &&
+              t("settings.updateDownloading", { progress: progressText || t("settings.updateProgressUnknown") })}
+            {state === "ready" && t("settings.updateReady")}
+            {state === "error" && t("settings.updateError")}
+          </p>
         </div>
 
         {update?.body && state === "available" ? (

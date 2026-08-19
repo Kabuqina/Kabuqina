@@ -33,12 +33,15 @@
   --hd-card-gap: 1.25rem; /* 20px between setting cards */
   --hd-content-max: 44rem;
   /* Semantic (soft) */
-  --hd-success-bg: oklch(0.95 0.04 150);
-  --hd-success-fg: oklch(0.35 0.12 150);
-  --hd-error-bg: oklch(0.96 0.03 25);
-  --hd-error-fg: oklch(0.4 0.16 25);
-  --hd-info-bg: oklch(0.95 0.04 250);
-  --hd-info-fg: oklch(0.4 0.12 250);
+  /* 语义色接到组件 Sheet 那套（暖色、且已做过对比度校验：纸样上标注
+     success/danger/info/warning 三处「已无余量」）。原来是一套平行的 oklch
+     通用红绿蓝，和桌面世界不同族。别名写在这里，明暗自动跟随。 */
+  --hd-success-bg: var(--success-bg);
+  --hd-success-fg: var(--success);
+  --hd-error-bg: var(--danger-bg);
+  --hd-error-fg: var(--danger);
+  --hd-info-bg: var(--info-bg);
+  --hd-info-fg: var(--info);
   /* Kabuqina soft companion palette */
   --kq-color-ink: #5A4A6A;
   --kq-color-muted: #8B7D9A;
@@ -73,12 +76,6 @@
 
 [data-theme="dark"] {
   color-scheme: dark;
-  --hd-success-bg: oklch(0.28 0.06 150);
-  --hd-success-fg: oklch(0.78 0.1 150);
-  --hd-error-bg: oklch(0.3 0.05 25);
-  --hd-error-fg: oklch(0.82 0.08 25);
-  --hd-info-bg: oklch(0.28 0.06 250);
-  --hd-info-fg: oklch(0.78 0.1 250);
   /* Typography: tighter contrast ladder for dark ambience.
      muted is bumped lighter than the surface would suggest — it carries most
      secondary text AND icon color, and #7a7088 sat too close to the void. */
@@ -2774,6 +2771,80 @@
     outline: none;
     box-shadow: 0 0 0 3px var(--paper-strong), 0 0 0 6px var(--purple);
   }
+  /* ── 状态芯片（组件 Sheet「状态标签」） ──────────────────────────────
+     一颗药丸：*-bg 作底、同名前景作字，12px/700。四种语气对应四组已校验的
+     语义色。危险那颗额外描一道 --danger-line——Sheet 里只有它有边，是刻意的
+     加重，不要抹平。 */
+  .kq-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 4px 11px;
+    border: 1px solid transparent;
+    border-radius: 99px;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.4;
+    white-space: nowrap;
+  }
+  .kq-chip svg { width: 13px; height: 13px; }
+  .kq-chip--warning { background: var(--warning-bg); color: var(--warning); }
+  .kq-chip--danger {
+    border-color: var(--danger-line);
+    background: var(--danger-bg);
+    color: var(--danger);
+  }
+  .kq-chip--success { background: var(--success-bg); color: var(--success); }
+  .kq-chip--info { background: var(--info-bg); color: var(--info); }
+  /* 中性：没有语气的进行态（"正在检查…"），不该借用 info 的蓝。 */
+  .kq-chip--neutral { background: var(--wash); color: var(--ink-mid); }
+
+  /* ── 状态横幅 ──────────────────────────────────────────────────────
+     和芯片同一族语义色，只是块更大：*-bg 作底、同名前景作字、*-line 描边。
+     warning 家族没有 -line 令牌（Sheet 也没有），所以就地由它自己两色调出
+     一道柔线，而不是另发明一个硬编码色。 */
+  .kq-banner { border: 1px solid transparent; }
+  .kq-banner--success {
+    border-color: var(--success-line);
+    background: var(--success-bg);
+    color: var(--success);
+  }
+  .kq-banner--warning {
+    border-color: color-mix(in srgb, var(--warning) 42%, var(--warning-bg));
+    background: var(--warning-bg);
+    color: var(--warning);
+  }
+  .kq-banner--info {
+    border-color: var(--info-line);
+    background: var(--info-bg);
+    color: var(--info);
+  }
+  .kq-banner--error {
+    border-color: var(--danger-line);
+    background: var(--danger-bg);
+    color: var(--danger);
+  }
+  .kq-banner--neutral {
+    border-color: var(--line-warm);
+    background: var(--paper-soft);
+    color: var(--ink);
+  }
+
+  /* ── 骨架屏（组件 Sheet「骨架屏」） ────────────────────────────────
+     --wash 铺在纸面上，1.4s 呼吸。Sheet 明确要求 reduced-motion 下不闪。 */
+  @keyframes kq-skeleton-breathe {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+  .kq-skeleton {
+    border-radius: 4px;
+    background: var(--wash);
+    animation: kq-skeleton-breathe 1.4s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .kq-skeleton { animation: none; }
+  }
+
   /* 品牌紫更多露脸：每张设置卡标题前一道 Sheet 式的紫色小竖条。 */
   .hd-setting-card h2 {
     display: flex;

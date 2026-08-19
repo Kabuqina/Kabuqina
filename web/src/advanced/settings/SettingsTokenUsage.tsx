@@ -71,9 +71,17 @@ export function SettingsTokenUsage() {
         </div>
 
         {state === "loading" ? (
-          <p className="text-sm text-[var(--kq-color-muted)]" role="status">
-            {t("settings.usageLoading")}
-          </p>
+          /* 骨架照着读完后的形状排：一个大数字 + 一行明细 + 两条清单，
+             这样数据落位时版面不跳。文字仍留给读屏器。 */
+          <div className="space-y-3" role="status" aria-busy="true">
+            <span className="sr-only">{t("settings.usageLoading")}</span>
+            <div className="kq-skeleton h-7 w-32" />
+            <div className="kq-skeleton h-4 w-3/5" />
+            <div className="space-y-2 border-t border-[var(--kq-color-border)] pt-3">
+              <div className="kq-skeleton h-4 w-4/5" />
+              <div className="kq-skeleton h-4 w-2/3" />
+            </div>
+          </div>
         ) : null}
 
         {state === "error" ? (
