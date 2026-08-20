@@ -122,7 +122,7 @@ export function SettingsLegacyChannels() {
         {!inventory ? (
           <p className="text-[var(--kq-color-muted)]">{t("settings.legacyChannelsScanning")}</p>
         ) : !hasHistory ? (
-          <p className="text-emerald-700 dark:text-emerald-400">{t("settings.legacyChannelsClean")}</p>
+          <p className="text-[var(--success)]">{t("settings.legacyChannelsClean")}</p>
         ) : (
           <>
             <dl className="grid gap-2 sm:grid-cols-2">
@@ -138,12 +138,12 @@ export function SettingsLegacyChannels() {
               </p>
             ) : null}
             {inventory.legacyJobs.length > 0 ? (
-              <p className="text-amber-700 dark:text-amber-400">
+              <p className="text-[var(--warning)]">
                 {t("settings.legacyJobsRetained", { count: inventory.legacyJobs.length })}
               </p>
             ) : null}
             {inventory.legacySessionOrigins > 0 ? (
-              <p className="text-amber-700 dark:text-amber-400">
+              <p className="text-[var(--warning)]">
                 {t("settings.legacySessionsRetained", { count: inventory.legacySessionOrigins })}
               </p>
             ) : null}
@@ -156,7 +156,7 @@ export function SettingsLegacyChannels() {
         )}
 
         {exported ? (
-          <div className="rounded-[var(--radius-shell-lg)] border border-emerald-300 bg-emerald-50/70 p-3 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/20 dark:text-emerald-300">
+          <div className="kq-banner kq-banner--success rounded-[var(--radius-shell-lg)] p-3">
             <p>{t("settings.legacyExportReady", { count: exported.exportedFiles })}</p>
             <p className="mt-1 break-all font-mono text-[0.7rem]">{exported.path}</p>
             {exported.skippedOversizeFiles.length > 0 ? (
@@ -167,7 +167,7 @@ export function SettingsLegacyChannels() {
           </div>
         ) : null}
         {cleanup ? (
-          <p role="status" className="text-emerald-700 dark:text-emerald-400">
+          <p role="status" className="text-[var(--success)]">
             {t("settings.legacyCleanupDone", {
               count: cleanup.removedEnvKeys + cleanup.removedFiles + cleanup.removedConfigPlatforms + cleanup.removedChannelPlatforms,
             })}

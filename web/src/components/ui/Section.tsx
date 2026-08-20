@@ -4,6 +4,10 @@
 import type { LucideIcon } from "lucide-react";
 
 type Props = {
+  /**
+   * @deprecated 设计稿 4a 去掉了图标井：设置纸里靠发丝线分节，不再每项配一个图标。
+   * 保留这个 prop 只是为了不改动十几个调用点，它不再渲染任何东西。
+   */
   icon?: LucideIcon;
   title: string;
   desc?: string;
@@ -12,36 +16,24 @@ type Props = {
   action?: React.ReactNode;
 };
 
-export function Section({ icon: Icon, title, desc, children, className, action }: Props) {
+/**
+ * 设置纸里的一节。
+ *
+ * 原来每一节是一张 `.hd-setting-card`——纸上再放卡＝双层容器，而且六张等重的卡
+ * 排成一列，字体/主题/语言各占一整张只为装一个分段控件（设计稿 4a 的诊断）。
+ * 现在它是纸上的一行：上边一道发丝线分节，没有卡底、没有边框投影、没有图标井。
+ */
+export function Section({ title, desc, children, className, action }: Props) {
   return (
-    <section
-      className={`hd-setting-card p-5 sm:p-6 ${className ?? ""}`}
-    >
-      <div className="flex items-start gap-3.5">
-        {Icon && (
-          <div className="kq-icon-well mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-[var(--radius-shell-lg)]">
-            <Icon className="size-[1.125rem]" strokeWidth={2} />
-          </div>
-        )}
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <h2 className="text-[0.9375rem] font-semibold leading-5 text-[var(--kq-color-strong)] dark:text-[var(--kq-color-strong)]">
-                {title}
-              </h2>
-              {desc && (
-                <p className="mt-1 text-sm leading-relaxed text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">
-                  {desc}
-                </p>
-              )}
-            </div>
-            {action && (
-              <div className="mt-0.5 shrink-0">{action}</div>
-            )}
-          </div>
+    <section className={`kq-set-row ${className ?? ""}`}>
+      <div className="kq-set-row-head">
+        <div className="kq-set-row-copy">
+          <h2>{title}</h2>
+          {desc && <p>{desc}</p>}
         </div>
+        {action && <div className="kq-set-row-action">{action}</div>}
       </div>
-      {children && <div className="mt-5">{children}</div>}
+      {children && <div className="kq-set-row-body">{children}</div>}
     </section>
   );
 }

@@ -68,59 +68,58 @@ export function Settings() {
     { id: "advanced", label: t("settings.tabAdvanced"), icon: Wrench },
   ];
 
+  // 芯片报的是状态本身，所以两个状态各有自己的说法，而不是一句问句配「是/否」。
+  const pyOn = !!status?.pythonRunning;
+  const secretOn = !!status?.hasSecret;
   const statusDots: Array<{ key: string; on: boolean; label: string }> = [
-    { key: "py", on: !!status?.pythonRunning, label: t("settings.pyRunning") },
-    { key: "secret", on: !!status?.hasSecret, label: t("settings.hasPass") },
+    { key: "py", on: pyOn, label: t(pyOn ? "settings.pyRunningOn" : "settings.pyRunningOff") },
+    { key: "secret", on: secretOn, label: t(secretOn ? "settings.hasPassOn" : "settings.hasPassOff") },
   ];
 
   return (
     <AppScaffold surface="chat" className="flex h-full min-h-0 flex-col">
-      <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto max-w-2xl space-y-5 px-[var(--hd-page-pad-x)] py-7 sm:py-9">
-        {t("settings.pageLead") && (
-          <p className="max-w-xl text-sm leading-relaxed text-[var(--kq-color-muted)]">
-            {t("settings.pageLead")}
-          </p>
-        )}
-
-        {/* Compact health strip — relevant on every tab, so it stays above the tabs. */}
-        <div className="hd-setting-card flex flex-wrap gap-x-5 gap-y-2 px-4 py-3 text-sm text-[var(--kq-color-ink)]">
-          {statusDots.map((dot) => (
-            <div key={dot.key} className="flex items-center gap-2">
-              <span className={cn("inline-block h-2 w-2 rounded-full", dot.on ? "bg-emerald-500" : "bg-[var(--kq-color-primary)]/35")} />
-              <span>{dot.label}</span>
-              <span className="font-medium text-[var(--kq-color-strong)]">
-                {dot.on ? t("settings.yes") : t("settings.no")}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        {/* Category tabs keep each view short instead of one long scroll. */}
-        <div
-          role="tablist"
-          className="inline-flex w-full rounded-2xl border border-[var(--kq-color-border)] bg-[var(--kq-color-primary-pale)]/45 p-1 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg-subtle)]"
-        >
-          {tabs.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={tab === id}
-              onClick={() => setTab(id)}
-              className={cn(
-                "flex min-h-[2.25rem] flex-1 items-center justify-center gap-1.5 rounded-xl px-2 py-1.5 text-sm font-medium transition",
-                "active:scale-[0.98]",
-                tab === id ? "hd-btn-segment-active shadow-sm" : "hd-btn-segment-idle",
+      {/* 设置和 Chat 一样是桌上的一张纸：同宽、同圆角、同叠纸投影、同抽屉脸（4a）。 */}
+      <div className="kq-chat-desk">
+        <div className="kq-drawer-face" aria-hidden />
+        <section className="kq-chat-paper kq-settings-paper">
+          {/* 纸质页眉：标题 + 健康芯片 + 一句说明，接着是下划线式标签页。
+              健康状态原来是标签页上方一条绿点「是/否」，像调试输出。 */}
+          <header className="kq-set-head">
+            <div className="kq-set-head-row">
+              <h1>{t("settings.title")}</h1>
+              {statusDots.map((dot) => (
+                <span
+                  key={dot.key}
+                  className={cn("kq-chip", dot.on ? "kq-chip--success" : "kq-chip--neutral")}
+                >
+                  <span className="kq-set-health-dot" aria-hidden />
+                  {dot.label}
+                </span>
+              ))}
+              {t("settings.pageLead") && (
+                <span className="kq-set-head-lead">{t("settings.pageLead")}</span>
               )}
-            >
-              <Icon className="h-4 w-4" />
-              {label}
-            </button>
-          ))}
-        </div>
+            </div>
 
-        <div className="space-y-5">
+            {/* 下划线式标签页：不再是一条药丸分段条压在暖纸上。 */}
+            <div role="tablist" className="kq-set-tabs">
+              {tabs.map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === id}
+                  onClick={() => setTab(id)}
+                >
+                  <Icon className="h-4 w-4" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </header>
+
+        <div className="kq-set-body">
+        <div>
           {tab === "general" && (
             <>
               <SettingsDisplay
@@ -168,7 +167,8 @@ export function Settings() {
             </>
           )}
         </div>
-      </div>
+        </div>
+        </section>
       </div>
     </AppScaffold>
   );

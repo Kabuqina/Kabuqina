@@ -149,7 +149,7 @@ export function SettingsDisplay({
   return (
     <>
       <Section icon={Type} title={t("settings.fontTitle")} desc={t("settings.fontDesc")}>
-        <div className="inline-flex w-full max-w-md rounded-2xl border border-[var(--kq-color-border)] bg-[var(--kq-color-primary-pale)]/45 p-1 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg-subtle)] sm:w-auto">
+        <div className="kq-segment inline-flex w-full max-w-md p-1 sm:w-auto">
           {(
             [
               { id: "small" as const, label: t("settings.fontSmall") },
@@ -178,7 +178,7 @@ export function SettingsDisplay({
       </Section>
 
       <Section icon={Moon} title={t("settings.themeTitle")} desc={t("settings.themeDesc")}>
-        <div className="inline-flex w-full max-w-md rounded-2xl border border-[var(--kq-color-border)] bg-[var(--kq-color-primary-pale)]/45 p-1 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg-subtle)] sm:w-auto">
+        <div className="kq-segment inline-flex w-full max-w-md p-1 sm:w-auto">
           {(
             [
               { id: "system" as const, label: t("settings.themeSystem") },
@@ -214,7 +214,7 @@ export function SettingsDisplay({
         desc={t("settings.companionImageDesc")}
       >
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          <div className="grid h-28 w-28 shrink-0 place-items-center rounded-[var(--radius-shell-lg)] border border-[var(--kq-color-border)] bg-[var(--kq-color-primary-pale)]/35 p-2 dark:border-[var(--kq-color-border)] dark:bg-[var(--kq-glass-bg-subtle)]">
+          <div className="kq-thumb-well grid h-28 w-28 shrink-0 place-items-center p-2">
             <img
               src={customCompanionImage ?? ART_ASSETS.companionPill}
               alt=""
@@ -227,7 +227,7 @@ export function SettingsDisplay({
               {t("settings.companionImageSpec")}
             </p>
             {companionImageError ? (
-              <p className="text-sm leading-relaxed text-red-600 dark:text-red-400">
+              <p className="text-sm leading-relaxed text-[var(--danger)]">
                 {companionImageError}
               </p>
             ) : null}
@@ -259,7 +259,7 @@ export function SettingsDisplay({
         action={<Button onClick={() => invoke("cmd_open_workspace")}>{t("settings.openFolder")}</Button>}
       >
         <p className="w-full break-all font-mono text-xs leading-relaxed text-[var(--kq-color-strong)]">
-          <span className="inline-block max-w-full rounded-md bg-zinc-100 px-2 py-1.5 dark:bg-[var(--kq-glass-bg-subtle)]">
+          <span className="kq-path-chip inline-block max-w-full px-2 py-1.5">
             {status?.workspace ?? "…"}
           </span>
         </p>
@@ -284,12 +284,12 @@ export function SettingsDisplay({
               </Button>
             </div>
             {workspaceNotice ? (
-              <p className="text-sm leading-relaxed text-emerald-700 dark:text-emerald-300">
+              <p className="text-sm leading-relaxed text-[var(--success)]">
                 {workspaceNotice}
               </p>
             ) : null}
             {workspaceError ? (
-              <p className="text-sm leading-relaxed text-red-600 dark:text-red-400">
+              <p className="text-sm leading-relaxed text-[var(--danger)]">
                 {workspaceError}
               </p>
             ) : null}

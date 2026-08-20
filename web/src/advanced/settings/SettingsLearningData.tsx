@@ -113,12 +113,12 @@ export function SettingsLearningData({ onDataReset }: { onDataReset?: () => void
     <Section icon={Database} title={t("study.advancedData")} desc={t("study.advancedDataLead")}>
       <div className="space-y-5">
         {failure ? (
-          <p className="text-sm leading-relaxed text-red-600 dark:text-red-400" role="alert">
+          <p className="text-sm leading-relaxed text-[var(--danger)]" role="alert">
             {t(failure === "conflict" ? "study.advancedImportConflict" : "study.advancedActionFailed")}
           </p>
         ) : null}
         {done ? (
-          <p className="text-sm leading-relaxed text-emerald-700 dark:text-emerald-300" role="status">
+          <p className="text-sm leading-relaxed text-[var(--success)]" role="status">
             {t(
               done === "export"
                 ? "study.advancedExportDone"
@@ -177,7 +177,7 @@ export function SettingsLearningData({ onDataReset }: { onDataReset?: () => void
             variant="secondary"
             disabled={busy || deletePhrase !== DELETE_PHRASE}
             onClick={deleteAll}
-            className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+            className="text-[var(--danger)] hover:opacity-80"
           >
             {pending === "delete" ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
             {t("study.advancedDeleteConfirm")}
@@ -207,7 +207,7 @@ export function SettingsLearningMigrations() {
     <Section icon={History} title={t("study.advancedMigrations")} desc={t("settings.migrationsDesc")}>
       <div className="space-y-3">
         {failed ? (
-          <p className="text-sm leading-relaxed text-red-600 dark:text-red-400" role="alert">
+          <p className="text-sm leading-relaxed text-[var(--danger)]" role="alert">
             {t("study.advancedActionFailed")}
           </p>
         ) : null}

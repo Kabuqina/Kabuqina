@@ -63,7 +63,7 @@ export function SettingsMaterialPrivacy() {
               <span
                 aria-hidden
                 className={`mt-1.5 inline-block size-1.5 shrink-0 rounded-full ${
-                  sends ? "bg-amber-500" : "bg-emerald-500"
+                  sends ? "bg-[var(--warning)]" : "bg-[var(--success)]"
                 }`}
               />
               <span className="text-[var(--kq-color-ink)]">{t(key)}</span>

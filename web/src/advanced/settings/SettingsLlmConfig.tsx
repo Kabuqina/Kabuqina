@@ -74,7 +74,7 @@ export function SettingsLlmConfig({ hasSecret, onCredentialChanged }: Props) {
             variant="secondary"
             disabled={clearing}
             onClick={() => void handleClear()}
-            className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+            className="text-[var(--danger)] hover:opacity-80"
           >
             {clearing ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -86,12 +86,12 @@ export function SettingsLlmConfig({ hasSecret, onCredentialChanged }: Props) {
         </div>
       ) : null}
       {cleared ? (
-        <p className="mt-3 text-sm text-emerald-600 dark:text-emerald-400">
+        <p className="mt-3 text-sm text-[var(--success)]">
           {t("settings.llmConfigCleared")}
         </p>
       ) : null}
       {error ? (
-        <p className="mt-3 text-sm text-red-600 dark:text-red-400" role="alert">
+        <p className="mt-3 text-sm text-[var(--danger)]" role="alert">
           {error}
         </p>
       ) : null}
