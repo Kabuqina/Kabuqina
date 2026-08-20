@@ -485,6 +485,8 @@ export function ChatInput({
                 <Square className="h-3.5 w-3.5 fill-current" />
               </button>
             )}
+            {/* 按键提示降级成发送键左侧的小字：占位符腾出来说能做什么。 */}
+            <span className="kq-chat-key-hint" aria-hidden>{t("chat.keyHint")}</span>
             <button
               type="button"
               onClick={() => void onSend()}

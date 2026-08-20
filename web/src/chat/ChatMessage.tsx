@@ -282,20 +282,15 @@ function AssistantMessageFooter({
   const { t } = useI18n();
   const name = t("brand");
   return (
-    <div className="mt-2 flex w-full min-w-0 flex-wrap items-center justify-end gap-2 border-t border-[var(--kq-glass-border)] pt-1.5 text-[11px]">
-      <div className="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-x-1 gap-y-1 font-mono text-[var(--kq-color-muted)] sm:gap-x-1.5">
-        <span className="shrink-0 min-w-0 break-all sm:break-normal">
-          {model?.trim() ? `${name}(${model.trim()})` : name}
-        </span>
-        <span className="text-[var(--kq-color-muted)]/50" aria-hidden>
-          ·
-        </span>
+    /* 尾行安静下来：常态只留一个极小的模型名（头像已经说了是谁，不再重复「小娜」），
+       朗读/复制收成图标、悬停或键盘聚焦才显现。去掉 border-top——它把每个气泡
+       切成了两半。 */
+    <div className="kq-msg-foot">
+      <span className="kq-msg-model">{model?.trim() || name}</span>
+      <span className="kq-msg-foot-actions">
         <SpeakButton text={text} />
-        <span className="text-[var(--kq-color-muted)]/50" aria-hidden>
-          ·
-        </span>
         <MessageCopyButton text={text} />
-      </div>
+      </span>
     </div>
   );
 }

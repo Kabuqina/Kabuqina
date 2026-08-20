@@ -399,6 +399,8 @@ export function ChatPage() {
         </div>
       </ShellModal>
       <div className="kq-chat-desk">
+        {/* 收起状态下仍然露出的抽屉脸：纯装饰，入口还是页眉那颗按钮。 */}
+        <div className="kq-drawer-face" aria-hidden />
         <ChatHistoryDrawer
           open={historyOpen}
           sessions={sessions}

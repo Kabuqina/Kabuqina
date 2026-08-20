@@ -2,9 +2,31 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useState } from "react";
-import { ArrowLeft, Clock3, PanelTopClose, PanelTopOpen } from "lucide-react";
+import { ArrowLeft, BookOpen, Clock3, PanelLeftOpen, PanelTopClose, PanelTopOpen } from "lucide-react";
 import { useI18n } from "../lib/i18n";
 import type { StudyChatHandoff } from "../lib/studyChatHandoff";
+
+/**
+ * 这段对话是什么时候的——原来界面上完全看不出来。今天的显示为「今天 HH:MM」，
+ * 更早的显示日期。时间戳解析不了就不渲染，不猜。
+ */
+function formatStarted(
+  createdAt: string | undefined,
+  t: (key: string, vars?: Record<string, string>) => string,
+): { iso: string; label: string } | null {
+  if (!createdAt) return null;
+  const at = new Date(createdAt);
+  if (Number.isNaN(at.getTime())) return null;
+  const time = at.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hour12: false });
+  const now = new Date();
+  const sameDay = at.getFullYear() === now.getFullYear()
+    && at.getMonth() === now.getMonth()
+    && at.getDate() === now.getDate();
+  const label = sameDay
+    ? t("chat.startedToday", { time })
+    : `${at.toLocaleDateString(undefined, { month: "2-digit", day: "2-digit" })} ${time}`;
+  return { iso: at.toISOString(), label };
+}
 
 /**
  * 对话纸的标题行（原型 `ChatPaper.__header`）。
@@ -33,6 +55,7 @@ export function ChatPaperHeader({
         origin: studyHandoff.spaceTitle,
         onReturn: onReturnStudy,
         returnLabel: t("chat.returnToStep"),
+        startedAt: formatStarted(studyHandoff.createdAt, t),
       }
     : null;
   const contextCollapsed = Boolean(bound && collapsedContextId === bound.id);
@@ -46,15 +69,24 @@ export function ChatPaperHeader({
         title={t("chat.historyOpen")}
         onClick={onOpenHistory}
       >
-        <Clock3 aria-hidden size={18} />
+        <PanelLeftOpen aria-hidden size={18} />
       </button>
 
       {bound ? (
         <>
-          {/* 收起时留在 DOM 里只加 hidden：位置不塌、aria-controls 始终指向真实元素。 */}
-          <div id="kq-chat-session-context" className="kq-chat-session-title" hidden={contextCollapsed}>
-            <h1>{bound.title}</h1>
-            <span>{bound.origin}</span>
+          {/* 第一行的元信息：课程名做成薄纸标签（manila 三件套）+ 这段对话的时间。
+              标题不再挤在这一行——它在第二行独占一行。 */}
+          <div className="kq-chat-head-meta" hidden={contextCollapsed}>
+            <span className="kq-chat-course-tag">
+              <BookOpen aria-hidden size={12} />
+              {bound.origin}
+            </span>
+            {bound.startedAt ? (
+              <time className="kq-chat-head-time" dateTime={bound.startedAt.iso}>
+                <Clock3 aria-hidden size={12} />
+                {bound.startedAt.label}
+              </time>
+            ) : null}
           </div>
           <div className="kq-chat-head-actions">
             {contextCollapsed ? null : (
@@ -79,6 +111,10 @@ export function ChatPaperHeader({
                 : <PanelTopClose aria-hidden size={15} />}
             </button>
           </div>
+          {/* 第二行：标题独占一行，不再省略号截断。 */}
+          <h1 id="kq-chat-session-context" className="kq-chat-session-title" hidden={contextCollapsed}>
+            {bound.title}
+          </h1>
         </>
       ) : null}
     </header>

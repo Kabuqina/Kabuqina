@@ -128,35 +128,51 @@
    --------------------------------------------------------------------------- */
 :root {
   --page: #E8E7EB;
-  --ink: #40354F;
-  --ink-strong: #4D3C60;
+  --ink: #43334A;
+  --ink-strong: #4E3454;
   --ink-mid: #5F5367;
-  --ink-soft: #756983;
-  --purple: #6F4B86;
-  --purple-dark: #563A6D;
-  --purple-pale: #F2EBF6;
+  --ink-soft: #7A6675;
+  --purple: #6E4370;
+  --purple-dark: #57315A;
+  --purple-pale: #F4EAF1;
   --purple-faint: #F8F3FA;
   --purple-wash: #EEE3F2;
-  --purple-line: #D2C2D7;
+  --purple-line: #DCC9D6;
   --lavender: #A98CB9;
-  --paper: #FBF8F1;
-  --paper-strong: #FFFDF8;
-  --paper-soft: #FAF7F3;
+  --paper: #FBF7F4;
+  --paper-strong: #FFFCFA;
+  --paper-soft: #FBF7F4;
   --surface: #FFFFFF;
   --white: var(--surface);
   --wash: #EEE9E5;
   /* 桌面压深成真正的暖木色：原来的 #EFE9DD 太浅（≈91% 亮度），和象牙纸几乎同亮，
      东西浮不起来。压深后 paper/desk 对比从 1.14 拉到 ~1.35，纸卡明确坐在桌面之上。 */
-  --desk: #D5C4A7;
-  --desk-deep: #C1AE8E;
-  --desk-hi: #DFD0B6;
-  --desk-lo: #CBB99B;
+  --desk: #D0B7A8;
+  --desk-deep: #B89C8B;
+  --desk-hi: #DCC7B9;
+  --desk-lo: #C3A897;
   /* 桌面纹理：极淡的 SVG feTurbulence 噪点，让整片桌面是一张桌子而不是一块色板。
      内联 data-URI，禁位图（美术计划）。铺在桌面渐变之上，关掉后层级仍成立。 */
   --desk-noise: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2"/><feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.02 0"/></filter><rect width="180" height="180" filter="url(%23n)"/></svg>');
   /* 抽屉内壁＝比桌面更深的一档木头。浅色下由 --desk-deep 往 --brown-ink 调深。 */
-  --drawer-hi: color-mix(in srgb, var(--desk-deep) 94%, var(--brown-ink));
-  --drawer-lo: color-mix(in srgb, var(--desk-deep) 84%, var(--brown-ink));
+  /* 抽屉井壁的三个停点：开口(最深) → 22% 略亮 → 底部最深。
+     设计稿 §3 的公式把 22% 写成了 --drawer-face，但那是下面那道「抽屉脸」的颜色，
+     照字面写会在井壁上横一条亮棕带；这里按设计稿实际渲染的效果走。 */
+  --drawer-mouth: #6B4335;
+  --drawer-hi: #7A5044;
+  --drawer-lo: #5C382D;
+  /* 抽屉收起时露出的那道 22px 抽屉脸 + 拉手。 */
+  --drawer-face: #A87863;
+  --drawer-pull: #C89A85;
+  /* 井壁上的墨。注意：不能用 --paper / --ink——它们在两个主题间翻转，
+     暗色的 --paper 是深色面（#40394B），当文字压在近黑井壁上只有 1.78。
+     这一对在两个主题都是暖白，方向不会反。 */
+  --drawer-ink: #F8ECE4;
+  --drawer-ink-soft: #E8D6C8;
+  /* 抽屉那层遮罩是方向性的：单色读作「盖了层膜」，从抽屉向右衰减才读作
+     「抽屉挡住了光」。--scrim 留给需要单色的浮层。 */
+  --scrim-drawer: linear-gradient(90deg,
+    rgba(74, 40, 34, 0.42) 0%, rgba(74, 40, 34, 0.26) 34%, rgba(74, 40, 34, 0.18) 100%);
   /* 白天没有灯光落在桌面上：开灯才有暖斑，所以浅色主题这两个是空的。 */
   --desk-glow: transparent;
   /* 纱＝浮在桌面上的浅色半透明面板（标题栏、书堆盒、窄窗工具条）。
@@ -164,13 +180,13 @@
   --veil: rgba(255, 255, 255, 0.78);
   --veil-strong: rgba(255, 253, 248, 0.96);
   /* 遮罩＝抽屉/浮层背后压住内容的那一层，与纱相反，必须是暗的 */
-  --scrim: rgba(64, 53, 79, 0.28);
+  --scrim: rgba(74, 40, 34, 0.30);
   --frame-line: #A9A0AA;
   --line: #D9CFCA;
   --line-strong: #C8BAC2;
-  --line-warm: #DDD3CB;
+  --line-warm: #E9DBD2;
   --line-cool: #D5CBD1;
-  --line-faint: #EEE7E1;
+  --line-faint: #F0E5DD;
   --gray: #A49AA6;
   --manila: #F5EAD8;
   --manila-hover: #F0DFC5;
@@ -194,8 +210,8 @@
   --info-ink: #52677E;
   --info-line: #AABED5;
   --info-bg: #E9EFF7;
-  --shadow: 0 10px 30px rgba(74, 56, 70, 0.12);
-  --shadow-soft: 0 4px 14px rgba(74, 56, 70, 0.09);
+  --shadow: 0 10px 30px rgba(88, 54, 60, 0.14);
+  --shadow-soft: 0 4px 14px rgba(88, 54, 60, 0.10);
 }
 
 [data-theme="dark"] {
@@ -222,21 +238,28 @@
   --paper-soft: #373144;
   --surface: #4E4760;
   --wash: #4A4358;
-  --desk: #211B14;
-  --desk-deep: #1A150F;
-  --desk-hi: #261E16;
-  --desk-lo: #1C1610;
+  --desk: #251715;
+  --desk-deep: #1D1210;
+  --desk-hi: #2E1E1B;
+  --desk-lo: #1F1412;
   /* 暗色桌面纹理：噪点用白色微微提亮（深桌上压暗看不见），略强一档 */
   --desk-noise: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2"/><feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.025 0"/></filter><rect width="180" height="180" filter="url(%23n)"/></svg>');
   /* 暗色不能沿用浅色那个 color-mix：暗色的 --brown-ink 是浅棕（#D9B494），
      越混越亮，抽屉内壁会比桌面还亮——方向正好反了。这里直接给两档更深的值。 */
-  --drawer-hi: #1D1710;
-  --drawer-lo: #141009;
-  --desk-glow: rgba(255, 193, 116, 0.13);
+  --drawer-mouth: #0D0706;
+  --drawer-hi: #120A09;
+  --drawer-lo: #080504;
+  --drawer-face: #4E2E24;
+  --drawer-pull: #7A4C3E;
+  --drawer-ink: #EBD5C9;
+  --drawer-ink-soft: #E0C4B8;
+  --scrim-drawer: linear-gradient(90deg,
+    rgba(18, 6, 4, 0.42) 0%, rgba(18, 6, 4, 0.32) 34%, rgba(18, 6, 4, 0.26) 100%);
+  --desk-glow: rgba(255, 170, 140, 0.13);
   --veil: rgba(49, 42, 61, 0.82);
   --veil-strong: rgba(59, 51, 72, 0.96);
   /* 暗色下遮罩要压得更狠，否则和本来就暗的底分不开 */
-  --scrim: rgba(0, 0, 0, 0.55);
+  --scrim: rgba(18, 6, 4, 0.42);
   --frame-line: #5B5266;
   --line: #5A515E;
   --line-strong: #6B6075;
@@ -279,8 +302,53 @@
   display: flex;
   min-height: 0;
   height: 100%;
-  padding: 18px 26px 26px;
+  /* 左边多让 40px 出来给抽屉脸。 */
+  padding: 20px 30px 26px 40px;
   gap: 18px;
+}
+
+/* 抽屉收起时仍然露出的那道 22px 抽屉脸——「抽屉」这个隐喻唯一需要的提示，
+   也顺带把左侧那一大片空桌面收掉。纯装饰：aria-hidden + 点击穿透，
+   真正的展开入口still是页眉上那颗按钮。 */
+.kq-drawer-face {
+  position: absolute;
+  z-index: 5;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 22px;
+  pointer-events: none;
+  background-image:
+    var(--desk-noise),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--drawer-face) 88%, #FFFFFF) 0%,
+      var(--drawer-face) 50%,
+      color-mix(in srgb, var(--drawer-face) 88%, #000000) 100%
+    );
+  background-repeat: repeat, no-repeat;
+  box-shadow:
+    inset -1px 0 0 rgba(255, 228, 212, 0.34),
+    2px 0 10px rgba(74, 40, 34, 0.28);
+}
+
+/* 拉手 */
+.kq-drawer-face::after {
+  content: "";
+  position: absolute;
+  inset-inline-start: 6px;
+  inset-block-start: 50%;
+  width: 10px;
+  height: 64px;
+  margin-block-start: -32px;
+  border-radius: 5px;
+  background: linear-gradient(
+    180deg,
+    var(--drawer-pull) 0%,
+    color-mix(in srgb, var(--drawer-pull) 80%, #000000) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 236, 224, 0.5),
+    0 2px 5px rgba(60, 28, 22, 0.4);
 }
 
 /* 对话纸＝桌上的拍纸簿（物化词汇表：象牙纸用于「课程本内页、对话纸」）。
@@ -290,7 +358,7 @@
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   width: 100%;
-  max-width: 760px;
+  max-width: 880px;
   margin: 0 auto;
   min-width: 0;
   min-height: 0;
@@ -308,11 +376,61 @@
     0 14px 32px rgba(77, 60, 96, 0.18);
 }
 
+/* 两层页眉：第一行是元信息 + 动作，第二行标题独占。
+   原来课程名、标题、返回、折叠键全挤在一行，标题被压到 15px 且随时省略号。 */
 .kq-chat-paper-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 16px 22px 12px;
+  border-bottom: 1px solid var(--line-faint);
+}
+
+.kq-chat-head-meta {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px 20px 10px;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* 课程名＝一张薄纸标签，用现成的牛皮纸三件套。 */
+.kq-chat-course-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 3px 9px;
+  border: 1px solid var(--manila-line);
+  border-radius: 5px;
+  background: var(--manila);
+  color: var(--brown-ink);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kq-chat-head-time {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  color: var(--ink-soft);
+  font: 400 11px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+/* 标题落到第二行，横跨整行。 */
+.kq-chat-paper-head > h1.kq-chat-session-title {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--ink-strong);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .kq-chat-history-toggle,
@@ -332,25 +450,6 @@
 
 .kq-chat-history-toggle:hover,
 .kq-chat-context-toggle:hover { color: var(--purple); background: var(--purple-faint); }
-
-.kq-chat-session-title { min-width: 0; flex: 1; }
-
-.kq-chat-session-title h1 {
-  margin: 0;
-  color: var(--ink-strong);
-  font-size: 15px;
-  font-weight: 700;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* 来源是低强调标签，不是一个入口。 */
-.kq-chat-session-title span {
-  display: block;
-  color: var(--ink-soft);
-  font-size: 11px;
-}
 
 /* margin-left:auto 顶住右边缘：标题收起后它也不会滑回左边，开关始终在同一处。 */
 .kq-chat-head-actions { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; margin-left: auto; }
@@ -374,11 +473,13 @@
 
 /* --- 历史会话抽屉：收起来，需要时才拉开 --------------------------------- */
 
+/* 抽屉那层遮罩走方向性渐变：从抽屉侧向右衰减，读作「抽屉挡住了光」
+   而不是「盖了一层膜」。 */
 .kq-chat-drawer-scrim {
   position: absolute;
   inset: 0;
   z-index: 30;
-  background: var(--scrim);
+  background: var(--scrim-drawer);
 }
 
 .kq-chat-drawer {
@@ -398,17 +499,19 @@
   transition: transform 0.22s ease, visibility 0s linear 0.22s;
   /* 从桌子边缘拉开的抽屉（组件 Sheet「抽屉里的·通用件」用的就是这个材质）：
      内壁是深一档的木头，开口处一道内投影做出挖空的深度；里面放着用过的对话纸。 */
-  border-right: 1px solid var(--brown-ink);
-  /* 抽屉内壁照不到光：比桌面深一档、往棕里走，纸放进去才跳得出来；
-     再铺一层桌面噪点，木头才是材质而不是一块死平的色。 */
+  border-right: 1px solid var(--drawer-lo);
+  /* 挖进桌面的一个洞：开口处最深，22% 处一道略亮的木面，往下再沉。
+     上沿一道高光 + 右侧一道抽屉唇，让「厚度」读得出来。 */
   background-image:
     var(--desk-noise),
-    linear-gradient(180deg, var(--drawer-hi) 0%, var(--drawer-lo) 100%);
-  background-repeat: repeat, no-repeat;
+    linear-gradient(180deg, rgba(255, 226, 206, 0.1) 0%, transparent 30%),
+    linear-gradient(180deg, var(--drawer-mouth) 0%, var(--drawer-hi) 22%, var(--drawer-lo) 100%);
+  background-repeat: repeat, no-repeat, no-repeat;
   box-shadow:
-    inset 0 5px 14px -6px rgba(45, 30, 18, 0.75),
-    inset -7px 0 16px -10px rgba(45, 30, 18, 0.6),
-    var(--shadow);
+    inset 0 8px 20px -6px rgba(34, 16, 12, 0.8),
+    inset -9px 0 22px -12px rgba(34, 16, 12, 0.7),
+    inset -1px 0 0 rgba(255, 224, 204, 0.18),
+    0 16px 38px rgba(60, 30, 26, 0.42);
 }
 
 .kq-chat-drawer.is-open {
@@ -424,8 +527,8 @@
   padding: 14px 12px 8px 16px;
 }
 
-/* 木头底上用 --ink（4.63）：--ink-strong 更浅，只有 4.0，不达标。 */
-.kq-chat-drawer-head h2 { margin: 0; color: var(--ink); font-size: 14px; }
+/* 井壁压深后木上文字必须翻成浅色墨——深紫墨在这上面完全不够对比。 */
+.kq-chat-drawer-head h2 { margin: 0; color: var(--drawer-ink); font-size: 14px; }
 
 .kq-chat-drawer-head button {
   display: inline-flex;
@@ -436,8 +539,7 @@
   border: 0;
   border-radius: 7px;
   background: transparent;
-  /* 木头底上要用 --ink，不是 --ink-soft。 */
-  color: var(--ink);
+  color: var(--drawer-ink-soft);
   cursor: pointer;
 }
 
@@ -450,18 +552,19 @@
   margin: 0 10px 8px;
   min-height: 36px;
   padding: 8px 11px;
-  /* 木头底上：--purple 只有 2.81 不过 3:1，--purple-dark 是 3.82；
-     文字用 --ink（4.63），--ink-strong 反而更浅只有 4.0，不达标。 */
-  border: 1px dashed var(--purple-dark);
+  /* 不用品牌紫描边：紫画在裸木上是全屏最刺眼的一处，而虚线本身
+     已经表达了「还没落墨」。改用木族色。 */
+  /* 拉手色本身在井壁上只有 2.7:1（不过非文字 3:1），往墨色调一档到 3.5+/4.8+。 */
+  border: 1px dashed color-mix(in srgb, var(--drawer-pull) 70%, var(--drawer-ink));
   border-radius: 8px;
-  background: transparent;
-  color: var(--ink);
+  background: rgba(255, 240, 230, 0.06);
+  color: var(--drawer-ink);
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
 }
 
-.kq-chat-drawer-new:hover { border-style: solid; border-color: var(--purple); background: var(--paper); }
+.kq-chat-drawer-new:hover { border-style: solid; border-color: var(--drawer-pull); background: rgba(255, 240, 230, 0.12); }
 
 /* 归档的纸是一叠压在一起的，不是带间距的卡片列表：gap 归零，纸与纸之间只留一道边。 */
 .kq-chat-drawer-list {
@@ -471,7 +574,7 @@
   overflow: auto;
   padding: 0 10px 10px;
   /* 整叠一起浮在木头上，而不是每张各自带影 */
-  filter: drop-shadow(0 6px 14px rgba(60, 44, 28, 0.28));
+  filter: drop-shadow(0 8px 18px rgba(38, 18, 14, 0.5));
 }
 
 /* 一张归档的对话纸：薄、方、彼此压着。 */
@@ -559,8 +662,7 @@
 .kq-chat-drawer-delete:focus-visible { opacity: 1; }
 .kq-chat-drawer-delete:hover { color: var(--danger); background: var(--danger-bg); }
 
-/* 同样在木头底上：用 --ink 才够对比。 */
-.kq-chat-drawer-empty { padding: 10px; color: var(--ink); font-size: 12px; }
+.kq-chat-drawer-empty { padding: 10px; color: var(--drawer-ink-soft); font-size: 12px; }
 
 /* 抽屉底部的工具：木头上的发丝线看不见，用深一档的木色刻一道。 */
 .kq-chat-drawer-tools {
@@ -579,17 +681,18 @@
   border: 0;
   border-radius: 7px;
   background: transparent;
-  /* 木头底比纸暗：--ink-soft 在这里只有 2.4:1，必须用 --ink（5.3:1）。 */
-  color: var(--ink);
+  color: var(--drawer-ink-soft);
   font-size: 12px;
   text-align: left;
   cursor: pointer;
 }
 
-.kq-chat-drawer-tools button:hover { color: var(--ink-strong); background: var(--paper); }
+.kq-chat-drawer-tools button:hover { color: var(--drawer-ink); background: rgba(255, 240, 230, 0.1); }
 
 @media (max-width: 860px) {
   .kq-chat-desk { padding: 10px 10px 12px; }
+  /* 窄窗放不下抽屉脸，收掉。 */
+  .kq-drawer-face { display: none; }
   .kq-chat-paper-head { padding: 10px 12px 8px; }
 }
 
@@ -1735,8 +1838,62 @@
   .kq-user-image-preview img {
     border-radius: 0.82rem 0.82rem 0 0;
   }
+  /* ── 消息尾行 ───────────────────────────────────────────────────────
+     常态只有一个极小的模型名；朗读/复制是图标，悬停或键盘聚焦才显现。
+     键盘可达靠 :focus-within，所以不是「只能鼠标用」。 */
+  .kq-msg-foot {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+  }
+  .kq-msg-model {
+    min-width: 0;
+    overflow: hidden;
+    /* 设计稿给的是 color-mix(--ink-soft 55%, --paper)，实测只有 2.3:1——
+       这是「哪个模型回答的」这类信息文字，不是装饰，不能低于 AA。
+       用 --ink-soft 本档：5.16/4.99，视觉上依然远比正文安静。 */
+    color: var(--ink-soft);
+    font: 400 10.5px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .kq-msg-foot-actions {
+    display: inline-flex;
+    gap: 2px;
+    margin-left: auto;
+    opacity: 0;
+    transition: opacity 0.12s ease;
+  }
+  .kq-chat-bubble-assistant:hover .kq-msg-foot-actions,
+  .kq-chat-bubble-assistant:focus-within .kq-msg-foot-actions {
+    opacity: 1;
+  }
+  /* 收成 26px 图标钮：文字标签留给读屏器（aria-label 已经有），视觉上收掉。 */
+  .kq-msg-foot-actions button {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    gap: 0;
+    border-radius: 7px;
+    background: var(--paper-soft);
+    color: var(--ink-soft);
+  }
+  .kq-msg-foot-actions button > span { display: none; }
+  /* 暗色下 --purple 压在 --purple-pale 上只有 4.09；--purple-dark 是同族里
+     对比更强的那档（浅色更深、暗色更浅），两个主题都过 AA。 */
+  .kq-msg-foot-actions button:hover { background: var(--purple-pale); color: var(--purple-dark); }
+  /* 触屏没有悬停：直接常显，否则动作够不到。 */
+  @media (hover: none) {
+    .kq-msg-foot-actions { opacity: 1; }
+  }
+
   /* 输入区＝桌上的书写面：象牙白 --surface（原为冷白半透明）。 */
   .kq-composer {
+    /* 纯白无边的框在暖纸上边界不清。 */
+    border: 1px solid var(--line-faint);
     border-radius: 1.125rem;
     box-shadow: var(--shadow-soft);
     overflow: hidden;
@@ -1827,6 +1984,14 @@
   }
   .kq-power-icon {
     color: var(--kq-color-warm);
+  }
+  /* 发送键左侧的按键提示，比正文再淡一档。 */
+  .kq-chat-key-hint {
+    flex: 0 0 auto;
+    /* 同上：按键提示实测 3.07:1，改用 --ink-soft（5.27/4.66）。 */
+    color: var(--ink-soft);
+    font: 400 10.5px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+    white-space: nowrap;
   }
   .kq-send-button {
     background: var(--purple);
