@@ -11,7 +11,8 @@ assert.match(
   "Cup handle should extend farther right than the original CSS geometry.",
 );
 
-assert.match(tokenSource, /handle: "#b79fcd"/, "Cup handle should be a stronger lavender.");
+assert.match(tokenSource, /handle: "#9ca3af"/, "Competition cup handle should use the neutral gray palette.");
+assert.match(tokenSource, /center: "#d9d9d9"/, "Competition cup fill should use the neutral gray palette.");
 assert.match(tokenSource, /line: "#8f75a8"/, "Coaster grid lines should read slightly deeper.");
 assert.match(tokenSource, /lineOpacity: 0\.75/, "Coaster grid should read clearly without overpowering.");
 assert.match(tokenSource, /borderOpacity: 0\.77/, "Coaster border should separate from the page background.");
