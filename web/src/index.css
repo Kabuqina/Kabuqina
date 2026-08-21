@@ -172,6 +172,15 @@
   /* 压在品牌紫填充上的字。不能写死 #fff：暗色的 --purple 是浅紫（#B795CC），
      白字在上面只有 2.57。这个令牌两个主题各自给对的那一侧。 */
   --on-purple: #FFFDF8;
+  /* 木头上的墨。横条与抽屉脸不是纸，用纸上的紫墨（--ink）画在木上就是割裂的
+     那一处。只在这两个地方用。 */
+  --desk-ink: #55362D;
+  --desk-ink-soft: #7C5A4C;
+  /* 木上的悬停是「擦亮一块」，不是贴一张紫纸；缝是木纹缝，不是冷分隔线。
+     这两个也得分主题给值，所以一并做成令牌。 */
+  --desk-wipe: rgba(255, 247, 242, 0.55);
+  --desk-seam: rgba(74, 40, 34, 0.18);
+  --desk-joint: inset 0 -1px 0 rgba(255, 246, 240, 0.5), 0 1px 0 rgba(74, 40, 34, 0.12);
   /* 抽屉那层遮罩是方向性的：单色读作「盖了层膜」，从抽屉向右衰减才读作
      「抽屉挡住了光」。--scrim 留给需要单色的浮层。 */
   --scrim-drawer: linear-gradient(90deg,
@@ -257,6 +266,11 @@
   --drawer-ink: #EBD5C9;
   --drawer-ink-soft: #E0C4B8;
   --on-purple: #241C2E;
+  --desk-ink: #EFDCD1;
+  --desk-ink-soft: #B58F7E;
+  --desk-wipe: rgba(255, 230, 215, 0.07);
+  --desk-seam: rgba(255, 214, 190, 0.16);
+  --desk-joint: inset 0 -1px 0 rgba(255, 214, 190, 0.14), 0 1px 0 rgba(0, 0, 0, 0.35);
   --scrim-drawer: linear-gradient(90deg,
     rgba(18, 6, 4, 0.42) 0%, rgba(18, 6, 4, 0.32) 34%, rgba(18, 6, 4, 0.26) 100%);
   --desk-glow: rgba(255, 170, 140, 0.13);

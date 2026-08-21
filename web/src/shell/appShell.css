@@ -40,6 +40,11 @@
      台灯/品牌/工具像是摆在桌面上方的一排东西。 */
   background: transparent;
   border-bottom: 0;
+  /* 横条与台面之间的交代：底沿一道亮边 + 下方一道暖影。这不是 UI 分隔线，
+     是后挡板与台面的接缝——纸的叠影才有地方落。 */
+  box-shadow: var(--desk-joint);
+  /* 木头上的墨：横条上的字与图标不用纸上的紫墨。 */
+  color: var(--desk-ink);
 }
 
 /* 三列：台灯与左侧工具贴最左、品牌居中、设置/窗口控制贴最右。
@@ -67,7 +72,7 @@
   border: 0;
   border-radius: 7px;
   background: transparent;
-  color: inherit;
+  color: var(--desk-ink);
   font: inherit;
   cursor: pointer;
 }
@@ -79,10 +84,13 @@
   font-weight: 700;
 }
 
+/* 台灯是这条横条上唯一的开关，值得比两个标签更重的手感；也是唯一允许发光的东西。 */
 .kq-lamp-toggle {
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 42px;
+  height: 42px;
+  /* 灭＝木色，不是紫色。 */
+  color: var(--desk-ink-soft);
 }
 
 .kq-brand-mark {
@@ -90,10 +98,15 @@
   place-items: center;
   width: 34px;
   height: 34px;
-  border: 1px solid var(--lavender);
+  /* 嵌进木头的骨白圆片：纸色底 + 暖木描边 + 一道内阴影。紫只留给字母本身——
+     原来是 --purple-faint 填色 + --lavender 描边直接贴在裸木上，全屏第二刺眼。 */
+  /* 圆片描边比木纹缝再实一档，否则骨白片浮不出来；字母用 --purple-dark——
+     暗色的 --purple 是浅紫，压在这片纸上只有 3.66。 */
+  border: 1px solid color-mix(in srgb, var(--desk-ink) 28%, transparent);
   border-radius: 50%;
-  color: var(--purple);
-  background: var(--purple-faint);
+  color: var(--purple-dark);
+  background: var(--paper-strong);
+  box-shadow: inset 0 1px 2px rgba(74, 40, 34, 0.16);
   font-family: Georgia, serif;
   font-size: 15px;
 }
@@ -113,7 +126,7 @@
   border: 1px solid transparent;
   border-radius: 7px;
   background: transparent;
-  color: inherit;
+  color: var(--desk-ink);
   font: inherit;
   cursor: pointer;
   min-height: 34px;
@@ -126,11 +139,28 @@
   justify-self: end;
 }
 
-/* 产品控件与窗口控件之间的分隔线：左边管应用，右边管这扇窗。 */
+/* 纯图标的工具钮比带文字的标签淡一档（设计稿：图标 --desk-ink-soft、标签 --desk-ink）。 */
+.kq-utility-nav > button {
+  color: var(--desk-ink-soft);
+}
+
+/* 窗口控制也站在木头上——但只改横条里的这一组：WindowTitleBar 那条更矮的
+   用在引导/导出/启动页，不在木面上，不能跟着走。 */
+.kq-app-header .kq-titlebar-control {
+  color: var(--desk-ink-soft);
+}
+
+.kq-app-header .kq-titlebar-control:hover {
+  background: var(--desk-wipe);
+  color: var(--desk-ink);
+}
+
+/* 产品控件与窗口控件之间的一道木纹缝：左边管应用，右边管这扇窗。
+   原来是 --line-cool，一道冷线划在木头上。 */
 .kq-utility-nav .kq-window-controls {
   margin-left: 4px;
   padding-left: 2px;
-  border-left: 1px solid var(--line-cool);
+  border-left: 1px solid var(--desk-seam);
 }
 
 /* 浏览器里没有窗口可控，`WindowControls` 什么都不渲染——这时右边界要把
@@ -139,16 +169,18 @@
   padding-right: 16px;
 }
 
+/* 选中＝木头上摆了一小片真纸，和下面那张大纸同族。 */
 .kq-left-tools > button[aria-current="page"],
 .kq-utility-nav > button[aria-current="page"] {
-  border-color: var(--line-cool);
-  color: var(--purple);
-  background: var(--surface);
+  border-color: var(--line-warm);
+  color: var(--desk-ink);
+  background: var(--paper);
 }
 
+/* 悬停＝把木头擦亮一块，不是贴一张紫纸。 */
 .kq-left-tools > button:hover,
 .kq-utility-nav > button:hover {
-  background: var(--purple-faint);
+  background: var(--desk-wipe);
 }
 
 /* 进行中的数字角标：一颗紫色小药丸，跟在「进行中」标签后面。
