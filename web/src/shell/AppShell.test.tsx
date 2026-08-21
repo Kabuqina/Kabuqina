@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../lib/i18n";
 import { THEME_MODE_KEY } from "../lib/ui-prefs";
 import { AppShell } from "./AppShell";
-import { onOpenActivityRequest } from "./activityBridge";
+import { requestOpenActivity } from "./activityBridge";
 import { cmdActivityRecords } from "./activityApi";
 
 vi.mock("./activityApi", () => ({
@@ -16,14 +16,6 @@ vi.mock("./activityApi", () => ({
 }));
 
 const mockRecords = vi.mocked(cmdActivityRecords);
-
-// 一条「还活着」的学习现场：进行中角标就是靠这种记录点亮的。
-const liveRecord = {
-  id: "study:tutor:run-1", domain: "study", kind: "tutor", status: "waiting",
-  title: "高等数学 · 等待回答", updatedAt: "2026-07-30T08:00:00Z",
-  returnTarget: "/study/course-a/learn", fallbackTarget: "/study",
-  canResume: true, canRetry: false, targetAvailable: true,
-} as const;
 
 function renderShell(initialPath: string) {
   return render(
@@ -43,7 +35,7 @@ function renderShell(initialPath: string) {
 
 beforeEach(() => {
   window.localStorage.setItem(THEME_MODE_KEY, "light");
-  // 缺省：没有活着的现场，进行中按钮不该出现。个别用例再覆盖成有活儿。
+  // 面板打开时会去拉一次记录，给它一个空结果。
   mockRecords.mockReset().mockResolvedValue({ items: [], count: 0, limit: 100 });
 });
 
@@ -54,11 +46,11 @@ afterEach(() => {
 });
 
 describe("AppShell", () => {
-  it("keeps Study as the only first-class destination (Studio has been cut)", () => {
+  it("keeps both destinations on the bar and marks the current one", () => {
     renderShell("/study");
-    // 主界面上右上给的是「去 Chat」的门；「学习」只在 Chat 面上作为回 Study 的门出现。
-    expect(screen.getByRole("button", { name: "对话" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "学习" })).not.toBeInTheDocument();
+    // 设计稿 5：自习与对话始终都在，当前那个是木头上的一小片纸。
+    expect(screen.getByRole("button", { name: "学习" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("button", { name: "对话" })).not.toHaveAttribute("aria-current");
     expect(screen.queryByRole("button", { name: "创作" })).not.toBeInTheDocument();
   });
 
@@ -124,7 +116,7 @@ describe("AppShell", () => {
     const utility = header.querySelector(".kq-utility-nav")!;
 
     expect(left).toContainElement(screen.getByRole("button", { name: /台灯|开台灯/ }));
-    // /study 表面上，左侧第一颗工具钮是「去 Chat」的门。
+    expect(left).toContainElement(screen.getByRole("button", { name: "学习" }));
     expect(left).toContainElement(screen.getByRole("button", { name: "对话" }));
     expect(brand).toHaveTextContent("卡布奇娜");
     expect(screen.queryByRole("button", { name: "创作" })).not.toBeInTheDocument();
@@ -132,35 +124,19 @@ describe("AppShell", () => {
   });
 
   /**
-   * v0.5.0 降权：Activity 缩成一个多数时间为空的「接续现场」托盘，不再常驻顶栏。
-   * 没有活着的现场时，进行中这颗按钮根本不渲染——零占用。
+   * 设计稿 5：横条上不该有第二处会跳数字的东西，所以「进行中」连同它的计数角标
+   * 从横条撤走，入口搬进 Chat 的抽屉。面板本身仍然由外壳持有。
    */
-  it("hides the Activity entry when there is no live study work", async () => {
+  it("no longer carries the Activity entry on the bar", () => {
     renderShell("/study");
-    // 等一次拉取落地（缺省 mock 是空的），确认按钮始终没出现。
-    await waitFor(() => expect(mockRecords).toHaveBeenCalled());
     expect(screen.queryByRole("button", { name: "进行中" })).not.toBeInTheDocument();
   });
 
-  it("surfaces the Activity entry with a count only when work is live", async () => {
-    mockRecords.mockResolvedValue({ items: [liveRecord], count: 1, limit: 100 });
+  it("still owns the Activity panel, opened through the shared bridge", async () => {
     renderShell("/study");
-
-    const entry = await screen.findByRole("button", { name: "进行中" });
-    expect(entry).toHaveTextContent("1");
-  });
-
-  it("opens the global Activity panel without navigating away from the current surface", async () => {
-    mockRecords.mockResolvedValue({ items: [liveRecord], count: 1, limit: 100 });
-    const user = userEvent.setup();
-    let asked = 0;
-    const stop = onOpenActivityRequest(() => { asked += 1; });
-    renderShell("/study");
-
-    await user.click(await screen.findByRole("button", { name: "进行中" }));
-    expect(asked).toBe(1);
+    // 抽屉里那颗按钮走的就是这条桥。
+    requestOpenActivity();
     expect(await screen.findByRole("dialog", { name: "进行中" })).toBeInTheDocument();
     expect(screen.getByText("study surface")).toBeInTheDocument();
-    stop();
   });
 });

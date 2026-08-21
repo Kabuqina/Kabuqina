@@ -12,6 +12,7 @@ import { useI18n } from "../lib/i18n";
 import { ChatInput } from "./ChatInput";
 import { ChatMessageList } from "./ChatMessageList";
 import { ChatHistoryDrawer } from "./ChatHistoryDrawer";
+import { requestOpenActivity } from "../shell/activityBridge";
 import { ChatPaperHeader } from "./ChatPaperHeader";
 import {
   armPendingChatSecretGateBypass,
@@ -410,6 +411,7 @@ export function ChatPage() {
           onNewChat={() => { setHistoryOpen(false); handleNewChat(); }}
           onSelectSession={(id) => { setHistoryOpen(false); handlePickSession(id); }}
           onDeleteSession={handleDelete}
+          onOpenActivity={() => requestOpenActivity()}
           onOpenScheduledTasks={() => nav("/settings/cron", { state: { cronBackTo: "/chat" } })}
           onOpenWorkspace={() => void invoke("cmd_open_workspace")}
           onExport={() => nav("/export")}

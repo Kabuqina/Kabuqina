@@ -3,21 +3,20 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { BookOpen, LampDesk, ListTodo, MessageCircle, Settings as SettingsIcon } from "lucide-react";
+import { BookOpen, LampDesk, MessageCircle, Settings as SettingsIcon } from "lucide-react";
 import { useI18n } from "../lib/i18n";
 import { getStoredThemeMode, resolveTheme, setThemeMode, type ResolvedTheme } from "../lib/ui-prefs";
 import { WindowControls } from "../components/WindowControls";
-import { requestOpenActivity } from "./activityBridge";
 import { onOpenActivityRequest } from "./activityBridge";
 import { ActivityPanel } from "./ActivityPanel";
-import { useActivityBadge } from "./useActivityBadge";
 import "./appShell.css";
 
 /**
  * 全局外壳（架构 §5.1，原型 `AppHeader`）。
  *
- * Study 是唯一的一级目的地；Chat、进行中站在台灯右边，Settings 是右侧工具。（Studio 已砍）
- * 台灯属于小娜的品牌人格，横条最左端是台灯与对话/进行中；Logo 与名称在正中。
+ * 自习与对话两个目的地始终都在，站在台灯右边；Settings 是右侧工具。（Studio 已砍）
+ * 台灯属于小娜的品牌人格，横条最左端是它；Logo 与名称在正中。
+ * 「进行中」不在这条横条上——它搬进了 Chat 的抽屉：横条上不该有第二处会跳数字的东西。
  * 能力目录与网关目的地已经从产品面退场，所以这里只有这几样。
  *
  * 这条页眉**就是**这些产品面上的窗口标题栏：整条可拖拽，最右端是缩到小娜与系统窗口
@@ -73,13 +72,12 @@ export function AppShell() {
   const surface = surfaceOf(location.pathname);
   const [theme, toggleLamp] = useLampTheme();
   const [activityOpen, setActivityOpen] = useState(false);
-  const { count: activityCount, refresh: refreshActivity } = useActivityBadge();
 
   useEffect(() => onOpenActivityRequest(() => setActivityOpen(true)), []);
 
   return (
     <div className="kq-app-frame" data-surface={surface ?? undefined}>
-      {/* 全窗口只有这一条横条：台灯与对话/进行中站在左侧，品牌在正中，
+      {/* 全窗口只有这一条横条：台灯与两个目的地在左侧，品牌在正中，
           设置与窗口控制在右侧。整条是拖拽区，交互件各自 no-drag。 */}
       <header className="kq-app-header hermes-titlebar-drag" data-tauri-drag-region>
         <div className="kq-left-cluster hermes-titlebar-nodrag">
@@ -94,41 +92,24 @@ export function AppShell() {
             <LampDesk aria-hidden size={20} />
           </button>
           <div className="kq-left-tools">
-            {/* Study 是主界面：不给它一个常驻的一级按钮（K 徽标已经回主界面）。
-                左侧这个入口按所在面切换——在 Chat 上它是「回 Study」的门，
-                在别处它是「去 Chat」的门。一个按钮，两个方向。 */}
-            {surface === "chat" ? (
-              <button
-                type="button"
-                onClick={() => navigate("/study")}
-              >
-                <BookOpen aria-hidden size={18} />
-                <span>{t("appShell.study")}</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => navigate("/chat")}
-              >
-                <MessageCircle aria-hidden size={18} />
-                <span>{t("appShell.chat")}</span>
-              </button>
-            )}
-            {/* 进行中按需出现：只有真有活着的学习现场才冒出来（v0.5.0 降权）。
-                空的时候整颗按钮消失，零占用；有活儿时带一个数字角标。 */}
-            {activityCount > 0 ? (
-              <button
-                type="button"
-                className="kq-activity-entry"
-                aria-expanded={activityOpen}
-                aria-controls="kq-global-activity"
-                onClick={() => requestOpenActivity()}
-              >
-                <ListTodo aria-hidden size={16} />
-                <span>{t("appShell.activity")}</span>
-                <span className="kq-activity-badge" aria-hidden>{activityCount}</span>
-              </button>
-            ) : null}
+            {/* 两个目的地始终都在（设计稿 5）：当前那个是木头上摆的一小片纸，
+                另一个是擦亮的一块木头。原来是一颗按所在面切换的按钮。 */}
+            <button
+              type="button"
+              aria-current={surface === "study" ? "page" : undefined}
+              onClick={() => navigate("/study")}
+            >
+              <BookOpen aria-hidden size={18} />
+              <span>{t("appShell.study")}</span>
+            </button>
+            <button
+              type="button"
+              aria-current={surface === "chat" ? "page" : undefined}
+              onClick={() => navigate("/chat")}
+            >
+              <MessageCircle aria-hidden size={18} />
+              <span>{t("appShell.chat")}</span>
+            </button>
           </div>
         </div>
 
@@ -158,14 +139,9 @@ export function AppShell() {
 
       <ActivityPanel
         open={activityOpen}
-        onClose={() => {
-          setActivityOpen(false);
-          // 关面板时重数一遍：用户可能刚把某个现场处理掉，角标要立刻跟上。
-          refreshActivity();
-        }}
+        onClose={() => setActivityOpen(false)}
         onReturn={(target) => {
           setActivityOpen(false);
-          refreshActivity();
           navigate(target);
         }}
       />

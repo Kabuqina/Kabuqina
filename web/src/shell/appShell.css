@@ -183,21 +183,6 @@
   background: var(--desk-wipe);
 }
 
-/* 进行中的数字角标：一颗紫色小药丸，跟在「进行中」标签后面。
-   它自己就是这颗按钮存在的理由（没活儿按钮根本不渲染），所以给足存在感。 */
-.kq-activity-badge {
-  display: inline-grid;
-  place-items: center;
-  min-width: 17px;
-  height: 17px;
-  padding: 0 5px;
-  border-radius: 999px;
-  background: var(--purple);
-  color: var(--paper);
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1;
-}
 
 .kq-left-tools > button:focus-visible,
 .kq-utility-nav > button:focus-visible,
@@ -384,8 +369,7 @@
     display: none;
   }
 
-  /* 窄窗只收文字标签，进行中的数字角标留着——没它这颗按钮就没意义了。 */
-  .kq-left-tools > button > span:not(.kq-activity-badge),
+  .kq-left-tools > button > span,
   .kq-utility-nav > button > span {
     display: none;
   }

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useEffect, useRef } from "react";
-import { AlarmClock, Download, FolderOpen, Plus, Trash2, X } from "lucide-react";
+import { AlarmClock, Download, FolderOpen, ListTodo, Plus, Trash2, X } from "lucide-react";
 import { useI18n } from "../lib/i18n";
 import { cn } from "../lib/cn";
 import type { SessionRow } from "./chat-api";
@@ -28,6 +28,7 @@ export function ChatHistoryDrawer({
   onNewChat,
   onSelectSession,
   onDeleteSession,
+  onOpenActivity,
   onOpenScheduledTasks,
   onOpenWorkspace,
   onExport,
@@ -40,6 +41,7 @@ export function ChatHistoryDrawer({
   onNewChat: () => void;
   onSelectSession: (id: string) => void;
   onDeleteSession: (id: string, e: React.MouseEvent) => void;
+  onOpenActivity: () => void;
   onOpenScheduledTasks: () => void;
   onOpenWorkspace: () => void;
   onExport: () => void;
@@ -129,6 +131,10 @@ export function ChatHistoryDrawer({
 
         {/* 原来长在侧栏上的工具：不显眼，但都还在。 */}
         <div className="kq-chat-drawer-tools">
+          {/* 进行中搬到这里：横条上不该有第二处会跳数字的东西（设计稿 5）。 */}
+          <button type="button" onClick={onOpenActivity}>
+            <ListTodo aria-hidden size={15} />{t("appShell.activity")}
+          </button>
           <button type="button" onClick={onOpenScheduledTasks}>
             <AlarmClock aria-hidden size={15} />{t("chat.scheduledTasks")}
           </button>
