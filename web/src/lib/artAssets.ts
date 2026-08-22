@@ -33,18 +33,21 @@ export const ART_ASSETS = {
   mascot: "/kabuqina_mascot.svg",
 
   /**
-   * 缩小后的常驻挂件场景（杯子 + 杯垫）。学生可自定义替换，
+   * 缩小后的常驻桌宠。学生可自定义替换，
    * 契约见设置里的 `settings.companionImageSpec`：PNG/WebP/SVG，≤1MB，
    * 画布约 620×548 或接近正方形，建议透明背景。
-   * 现状：由 `KabuqinaSceneSvg` 渲染生成（`npm run export:brand`）。
+   * 默认使用体素系统组合导出的杯子 + 杯垫 + 蒸汽版本。
    */
-  companionPill: `/${GENERATED_SCENE_FILENAMES.companionPill}`,
+  companionPill: "/kabuqina_voxel_appicon_steam.svg",
 
   /**
    * Chat 空态大图。现状：同上由 `KabuqinaSceneSvg` 生成，当前无调用点——
    * 保留为已生成资源，接入前不占位。
    */
   chatHero: `/${GENERATED_SCENE_FILENAMES.chatHero}`,
+
+  /** Chat 空白状态中央的体素应用图标，使用设计导出的 SVG。 */
+  chatEmptyCup: "/kabuqina_export_appicon.svg",
 
   /**
    * 启动态图形（BootPill 与 chat 首屏）。
@@ -57,6 +60,28 @@ export const ART_ASSETS = {
    * 换装契约：需同时提供 16/32/48 三档，标题栏按 DPI 取用。
    */
   windowIcon: "/kabuqina_qi_48.png",
+
+  /**
+   * 「缩到小娜」按钮图标。源自 Minecraft 风格系统的 kq-cup 档，
+   * 在标题栏中按 28×28px 展示，不额外套底板。
+   */
+  companionButton: "/kabuqina_voxel_cup.svg",
+
+  /** Chat 助手消息头像，使用带杯垫的体素 kq-appicon SVG。 */
+  assistantAvatar: "/kabuqina_export_appicon.svg",
+  assistantAvatarNight: "/kabuqina_voxel_appicon_night.svg",
+
+  /**
+   * 注册字标「卡布Qi娜」。**不是产品名**——正文里的产品名是「卡布奇娜」，
+   * 字标中间那两个拉丁字母就是杯口那个 Q，两者不要互相看齐。
+   *
+   * 字形是注册的：不许重排、不许换字重、不许用系统字体现拼。能动的只有墨色，
+   * 所以白天与夜晚是两个文件，而不是一张图套 filter——套滤镜会连字形边缘一起脏。
+   * 现状：设计稿导出的 452×96 透明 PNG（横条按 15px 高用，@3x 仍有余量）。
+   * 换装契约：透明背景、高度基准 96px、宽高比约 4.7:1，两档必须同尺寸同基线。
+   */
+  wordmark: "/kabuqina_wordmark_accent.png",
+  wordmarkNight: "/kabuqina_wordmark_night.png",
 } as const;
 
 export type ArtAssetName = keyof typeof ART_ASSETS;

@@ -32,9 +32,9 @@
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   min-height: 50px;
-  /* 右边不留内边距：窗口控制要贴到窗口的角上，这是 Windows 的肌肉记忆。
-     产品控件自己的内边距由 .kq-utility-nav 的 gap 给。 */
-  padding: 0 0 0 16px;
+  /* 设计稿第四轮 4a：左 12 右 8。台灯从贴边的方块改成留缝的槽，关闭那颗也不再
+     顶死窗角——整条横条现在两端都留呼吸，窗控自成一组而不是钉在边框上。 */
+  padding: 0 8px 0 12px;
   /* 整个窗口是一张书桌：导航栏不是压在桌上的另一块板，而是桌面的上边缘。
      不给它不透明底、不给分隔线——让 .kq-app-frame 的桌面渐变直接透上来，
      台灯/品牌/工具像是摆在桌面上方的一排东西。 */
@@ -77,82 +77,99 @@
   cursor: pointer;
 }
 
+/* 正中只有注册字标，没有图形 mark（设计稿第四轮 4a）：横条上已经有五件体素物件，
+   再摆一只小娜杯就成了「图标堆」，而字标本身已经带着杯口那个 Q。 */
 .kq-brand-lockup {
   justify-self: center;
-  gap: 10px;
+  padding: 4px 10px;
   font-size: 14px;
   font-weight: 700;
 }
 
-/* 台灯是这条横条上唯一的开关，值得比两个标签更重的手感；也是唯一允许发光的东西。 */
+/* 字标是注册字形的位图，高度是它唯一的尺寸契约——宽度必须 auto，压一个死宽度
+   就是在改注册标识的字距。横条上其余字走 --desk-ink，字标不参与：它自带墨色。 */
+.kq-brand-name {
+  display: block;
+  height: 15px;
+  width: auto;
+}
+
+/* 台灯是这条横条上唯一的开关，值得比两个标签更重的手感；也是唯一允许发光的东西。
+   38px 的槽（原来 42）：第四轮把它从「贴边的大方块」收成留缝的槽。 */
 .kq-lamp-toggle {
   justify-content: center;
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
   /* 灭＝木色，不是紫色。 */
   color: var(--desk-ink-soft);
 }
 
-.kq-brand-mark {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  /* 嵌进木头的骨白圆片：纸色底 + 暖木描边 + 一道内阴影。紫只留给字母本身——
-     原来是 --purple-faint 填色 + --lavender 描边直接贴在裸木上，全屏第二刺眼。 */
-  /* 圆片描边比木纹缝再实一档，否则骨白片浮不出来；字母用 --purple-dark——
-     暗色的 --purple 是浅紫，压在这片纸上只有 3.66。 */
-  border: 1px solid color-mix(in srgb, var(--desk-ink) 28%, transparent);
-  border-radius: 50%;
-  color: var(--purple-dark);
-  background: var(--paper-strong);
-  box-shadow: inset 0 1px 2px rgba(74, 40, 34, 0.16);
-  font-family: Georgia, serif;
-  font-size: 15px;
+/* 台灯与两个目的地之间的一道缝：左边是主题开关，右边是去哪儿。
+   挂在 .kq-left-tools 上而不是 .kq-left-cluster 上——伪元素只能排在首尾，
+   这道缝要的是「灯之后、目的地之前」。 */
+.kq-left-tools::before {
+  content: "";
+  width: 1px;
+  height: 18px;
+  margin: 0 4px 0 0;
+  background: var(--desk-seam);
 }
 
+/* 图形 mark 是摆在木头上的一件东西（小娜杯本身），不再是嵌进木头的骨白圆片。
+   物件自带光照与描边，再套一层纸色圆片就成了「图标里的图标」；34px 的占位宽高留着，
+   横条的三列布局不因为换了 mark 而位移。 */
 .kq-utility-nav {
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
-/* 只作用于直接子元素：`.kq-window-controls` 里的窗口控制自有尺寸。 */
+/* 学习 / 对话 / 设置是同一种胶囊：34px 高、8px 圆角、1px 边（设计稿 4a）。
+   高度写死而不是 min-height——图标各有各的高，靠 min-height 会让某一颗比邻居高两像素。
+   只作用于直接子元素：`.kq-window-controls` 里的窗口控制自有尺寸。 */
 .kq-left-tools > button,
 .kq-utility-nav > button {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 7px;
+  height: 34px;
+  padding: 0 10px;
   border: 1px solid transparent;
-  border-radius: 7px;
+  border-radius: 8px;
   background: transparent;
-  color: var(--desk-ink);
+  color: var(--ink);
   font: inherit;
   cursor: pointer;
-  min-height: 34px;
-  padding: 6px 9px;
   font-size: 13px;
   font-weight: 600;
+}
+
+/* 设置只有图标，是颗正方的胶囊，不跟着文字撑宽。 */
+.kq-utility-nav > button {
+  width: 34px;
+  padding: 0;
 }
 
 .kq-utility-nav {
   justify-self: end;
 }
 
-/* 纯图标的工具钮比带文字的标签淡一档（设计稿：图标 --desk-ink-soft、标签 --desk-ink）。 */
-.kq-utility-nav > button {
-  color: var(--desk-ink-soft);
+
+/* 胶囊高度写死 34 之后，比它高的物件（气泡 22、齿轮盘）直接溢出，不缩放：
+   缩放会打破 crispEdges 赖以成立的像素对齐，方块边缘立刻发糊。 */
+.kq-left-tools > button > svg,
+.kq-utility-nav > button > svg {
+  overflow: visible;
 }
 
-/* 窗口控制也站在木头上——但只改横条里的这一组：WindowTitleBar 那条更矮的
-   用在引导/导出/启动页，不在木面上，不能跟着走。 */
-.kq-app-header .kq-titlebar-control {
-  color: var(--desk-ink-soft);
-}
-
+/* 窗控的形状、墨色、星星底板都在 index.css 的 .kq-titlebar-* 里，AppShell 与
+   启动/预览页的简版标题栏共用一套。这里只补木头上不一样的那件事：
+   悬停是把木头擦亮一块，不是铺一层冷灰。 */
 .kq-app-header .kq-titlebar-control:hover {
   background: var(--desk-wipe);
-  color: var(--desk-ink);
+  color: var(--ink);
 }
 
 /* 产品控件与窗口控件之间的一道木纹缝：左边管应用，右边管这扇窗。
@@ -163,18 +180,18 @@
   border-left: 1px solid var(--desk-seam);
 }
 
-/* 浏览器里没有窗口可控，`WindowControls` 什么都不渲染——这时右边界要把
-   贴边的内边距补回来，免得设置那颗齿轮顶在窗口边上。 */
+/* 浏览器里没有窗口可控，`WindowControls` 什么都不渲染——这时右边界再宽一点，
+   免得设置那颗齿轮离窗口边太近。 */
 .kq-app-header:not(:has(.kq-window-controls)) {
   padding-right: 16px;
 }
 
-/* 选中＝木头上摆了一小片真纸，和下面那张大纸同族。 */
+/* 选中＝木头上摆了一小片真纸，和下面那张大纸同族。**只有选中态才有底和边**。 */
 .kq-left-tools > button[aria-current="page"],
 .kq-utility-nav > button[aria-current="page"] {
-  border-color: var(--line-warm);
-  color: var(--desk-ink);
-  background: var(--paper);
+  border-color: var(--nav-pill-line);
+  color: var(--ink);
+  background: var(--nav-pill-fill);
 }
 
 /* 悬停＝把木头擦亮一块，不是贴一张紫纸。 */
@@ -193,11 +210,11 @@
 }
 
 .kq-lamp-toggle svg {
-  transition: color 0.35s ease, filter 0.35s ease;
+  transition: filter 0.35s ease;
 }
 
+/* 灯亮不是「图标变黄」——灯泡那几格已经换成火把橙的材质了，这里只补桌面上的暖斑。 */
 .kq-lamp-toggle.is-on svg {
-  color: var(--lamp-lit);
   filter: drop-shadow(0 0 7px var(--lamp-glow));
 }
 
@@ -207,12 +224,14 @@
   overflow: auto;
 }
 
+/* 抽屉从**窗体下方**升起，不从左侧滑出。桌上的抽屉就在桌沿下面；从左边推出来的
+   那道竖条读作侧栏，而这个外壳没有侧栏，全窗口只有一条横条。 */
 .kq-activity-scrim {
   position: fixed;
   z-index: 60;
   inset: 50px 0 0;
   display: flex;
-  justify-content: flex-end;
+  align-items: flex-end;
   background: var(--scrim);
 }
 
@@ -221,13 +240,16 @@
   grid-template-rows: auto minmax(0, 1fr);
   align-content: start;
   gap: 16px;
-  width: min(430px, calc(100vw - 32px));
-  height: 100%;
+  /* 高度让内容说了算，但不许顶到横条：上面始终留一截桌面，说明它是「拉开的一格」
+     而不是换了一整页。 */
+  width: 100%;
+  height: min(430px, 100%);
   padding: 22px;
   overflow: hidden;
-  border-left: 1px solid var(--line-cool);
+  border-top: 1px solid var(--line-cool);
+  border-radius: 14px 14px 0 0;
   background: var(--surface);
-  box-shadow: -16px 0 40px rgba(53, 39, 61, 0.14);
+  box-shadow: 0 -16px 40px rgba(53, 39, 61, 0.14);
 }
 
 .kq-activity-panel > header {

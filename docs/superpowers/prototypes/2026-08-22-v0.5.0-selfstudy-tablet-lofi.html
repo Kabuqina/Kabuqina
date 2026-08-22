@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>自习模块 · 平板端布局与交互原型</title>
+<style>
+:root{
+  --ink:#43334A; --ink-strong:#4E3454; --ink-mid:#5F5367; --ink-soft:#7A6675;
+  --purple:#6E4370; --purple-pale:#F4EAF1; --purple-faint:#F8F3FA; --purple-line:#DCC9D6;
+  --paper:#FBF7F4; --paper-strong:#FFFCFA; --surface:#fff;
+  --desk:#D0B7A8; --desk-hi:#DCC7B9; --desk-lo:#C3A897; --desk-ink:#55362D;
+  --line:#D9CFCA; --line-strong:#C8BAC2; --line-warm:#E9DBD2; --line-faint:#F0E5DD;
+  --manila:#F5EAD8; --manila-line:#DDD0BD; --tan:#C78C70;
+  --warning:#9A5A3C; --warning-bg:#FBEDE2;
+  --shadow:0 14px 40px rgba(88,54,60,.18); --shadow-soft:0 4px 14px rgba(88,54,60,.10);
+  --tap:56px;          /* 平板立在桌上，一手拿笔一手戳 —— 比手机的 44 再放大 */
+  --tap-min:44px;
+}
+*{box-sizing:border-box}
+body{margin:0;padding:26px 18px 60px;font:14px/1.55 "Segoe UI","Microsoft YaHei",sans-serif;
+  color:var(--ink);background:linear-gradient(180deg,var(--desk-hi),var(--desk) 55%,var(--desk-lo));min-height:100vh}
+h1,h2,h3,h4{margin:0}
+.wrap{max-width:1500px;margin:0 auto}
+.hd{color:var(--desk-ink);margin-bottom:16px}
+.hd h1{font-size:19px}
+.hd p{margin:6px 0 0;font-size:13px;opacity:.85;max-width:82ch}
+.hd code{font:12px ui-monospace,Consolas,monospace;background:rgba(255,252,250,.7);padding:1px 5px;border-radius:4px}
+.ctl{display:flex;gap:8px;margin:14px 0 18px;flex-wrap:wrap}
+.ctl button{min-height:var(--tap-min);padding:0 16px;border-radius:10px;border:1px solid rgba(85,54,45,.25);
+  background:rgba(255,252,250,.85);font:inherit;font-size:13px;color:var(--desk-ink);cursor:pointer}
+.ctl button[aria-pressed=true]{background:var(--purple);color:#fff;border-color:var(--purple);font-weight:600}
+.stage{display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap}
+
+/* ── 平板机身 ── */
+.pad{background:#2A2024;border-radius:22px;padding:14px;box-shadow:var(--shadow);flex:0 0 auto;
+  transition:width .2s}
+.pad.land{width:1010px}
+.pad.port{width:660px}
+.screen{background:var(--paper);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+.land .screen{height:700px}
+.port .screen{height:880px}
+
+/* ── 顶栏：标签 + 自习主题 ── */
+.top{display:flex;align-items:stretch;background:var(--manila);border-bottom:1px solid var(--manila-line);flex:0 0 auto}
+.tabs{display:flex;flex:1}
+.tab{min-height:var(--tap);padding:0 22px;border:0;background:transparent;font:inherit;font-size:15px;
+  color:var(--ink-soft);cursor:pointer;border-bottom:3px solid transparent}
+.tab[aria-selected=true]{background:var(--paper);color:var(--ink-strong);font-weight:600;border-bottom-color:var(--purple)}
+.topic{display:flex;align-items:center;gap:10px;padding:0 20px;font-size:13px;color:var(--desk-ink);
+  border-left:1px solid var(--manila-line)}
+.topic b{font-size:14px;color:var(--ink-strong)}
+.slug{font:11px ui-monospace,Consolas,monospace;color:var(--ink-soft);background:var(--paper);
+  padding:5px 16px;border-bottom:1px solid var(--line-faint);flex:0 0 auto}
+
+/* ── 主区：两栏（横屏）／堆叠（竖屏） ── */
+.main{flex:1;display:grid;gap:0;min-height:0}
+.land .main{grid-template-columns:1.12fr 1fr}
+.port .main{grid-template-rows:1fr auto}
+.col{padding:22px 24px;overflow:auto;min-height:0}
+.col-b{background:var(--paper-strong);border-left:1px solid var(--line-faint)}
+.port .col-b{border-left:0;border-top:1px solid var(--line-faint);max-height:44%}
+.colhd{font-size:11px;letter-spacing:.1em;color:var(--ink-soft);margin-bottom:12px;
+  display:flex;align-items:center;gap:8px}
+.colhd::after{content:"";flex:1;height:1px;background:var(--line-faint)}
+
+/* 学 */
+.modes{display:inline-flex;background:var(--purple-pale);border-radius:999px;padding:4px;margin-bottom:18px}
+.modes button{min-height:var(--tap-min);min-width:88px;padding:0 22px;border:0;border-radius:999px;
+  background:transparent;font:inherit;font-size:15px;color:var(--ink-soft);cursor:pointer}
+.modes button[aria-pressed=true]{background:var(--surface);color:var(--ink-strong);font-weight:600;box-shadow:var(--shadow-soft)}
+.core h3{font-size:24px;line-height:1.4;color:var(--ink-strong);margin-bottom:10px}
+.core p{margin:0;color:var(--ink-mid);font-size:15px;line-height:1.75}
+.src{display:inline-flex;font-size:12px;padding:4px 10px;border-radius:999px;margin-top:14px;
+  background:var(--purple-pale);color:var(--purple);border:1px solid var(--purple-line)}
+.next{margin-top:20px;background:var(--purple-faint);border:1px solid var(--purple-line);border-radius:12px;padding:18px}
+.next .lab{font-size:12px;color:var(--purple);letter-spacing:.08em;margin-bottom:6px}
+.next strong{display:block;font-size:18px;line-height:1.5;color:var(--ink-strong);font-weight:600}
+.next .hint{margin-top:10px;font-size:13px;color:var(--ink-soft)}
+
+/* 练 */
+.q .no{font-size:12px;color:var(--ink-soft);letter-spacing:.08em;margin-bottom:14px}
+.q .stem{font-size:30px;line-height:1.8;color:var(--ink-strong);padding:20px 0;
+  border-top:1px solid var(--line-faint);border-bottom:1px solid var(--line-faint)}
+.q .todo{margin-top:16px;font-size:15px;color:var(--ink-mid)}
+.tie{margin-top:16px;font-size:12.5px;color:var(--ink-soft)}
+.tie b{color:var(--purple);font-weight:600}
+
+/* 副栏：与纸的往返 */
+.empty{border:2px dashed var(--line-strong);border-radius:14px;padding:26px 20px;text-align:center;
+  color:var(--ink-soft);font-size:14px;line-height:1.8}
+.empty .big{display:block;font-size:40px;margin-bottom:10px;opacity:.5}
+.empty button{margin-top:16px;min-height:var(--tap);padding:0 26px;border-radius:12px;border:1px solid var(--purple);
+  background:var(--purple);color:#fff;font:inherit;font-size:15px;font-weight:600;cursor:pointer}
+.shot{background:#EFE7E0;border:1px solid var(--line-warm);border-radius:12px;height:190px;position:relative;
+  display:flex;align-items:flex-end;justify-content:center;color:var(--ink-soft);font-size:12px;margin-bottom:14px}
+.shot .crop{position:absolute;inset:16px 26px 26px 20px;border:2px dashed var(--purple);border-radius:8px}
+.shot span{margin-bottom:10px;position:relative}
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.tool{min-height:var(--tap-min);padding:0 16px;border:1px solid var(--line);background:var(--surface);
+  border-radius:10px;font:inherit;font-size:13px;cursor:pointer;color:var(--ink)}
+.meta{font:11px ui-monospace,Consolas,monospace;color:var(--ink-soft);margin-bottom:14px}
+.band{display:inline-block;font-size:12px;padding:4px 11px;border-radius:999px;
+  background:var(--warning-bg);color:var(--warning);border:1px solid #E7CDB9;margin-bottom:12px}
+.lines{border:1px solid var(--line-warm);border-radius:12px;overflow:hidden;margin-bottom:14px;background:var(--surface)}
+/* 转写行在平板上是可点的（回指左栏），所以它本身就是命中区：≥44px + 明确可点 */
+.ln{display:flex;gap:12px;padding:13px 14px;font-size:14px;border-bottom:1px solid var(--line-faint);
+  cursor:pointer;transition:background .12s}
+.ln:hover{background:var(--purple-faint)}
+.ln:last-child{border-bottom:0}
+.ln i{font-style:normal;color:var(--ink-soft);flex:0 0 24px}
+.ln.bad{background:var(--warning-bg);color:var(--warning)}
+.ln.here{background:var(--purple-faint);box-shadow:inset 3px 0 0 var(--purple)}
+.stack{display:grid;gap:10px}
+.stack button{min-height:var(--tap);border-radius:12px;border:1px solid var(--line);background:var(--surface);
+  font:inherit;font-size:14.5px;cursor:pointer;color:var(--ink);padding:0 16px}
+.stack button.key{background:var(--purple);color:#fff;border-color:var(--purple);font-weight:600}
+.said{background:var(--purple-faint);border:1px solid var(--purple-line);border-radius:12px;padding:18px;margin-bottom:14px}
+.said .lab{font-size:12px;color:var(--purple);letter-spacing:.08em;margin-bottom:6px}
+.said p{margin:0;font-size:15px;line-height:1.75;color:var(--ink-strong)}
+.escape{width:100%;min-height:var(--tap-min);border:1px dashed var(--line-strong);background:transparent;
+  border-radius:10px;font:inherit;font-size:13px;color:var(--ink-soft);cursor:pointer;margin-top:10px}
+
+/* 表单（扉页） */
+.field{margin-bottom:18px;max-width:520px}
+.field label{display:block;font-size:13px;color:var(--ink-soft);margin-bottom:6px}
+.field input{width:100%;min-height:var(--tap);border:1px solid var(--line);border-radius:12px;
+  padding:0 16px;font:inherit;font-size:16px;background:var(--surface);color:var(--ink)}
+.row{display:flex;gap:12px;align-items:flex-start;background:var(--surface);border:1px solid var(--line-warm);
+  border-radius:12px;padding:16px;margin-bottom:11px;max-width:640px}
+.row .t{flex:1}
+.row .t b{display:block;font-size:15px;color:var(--ink-strong);font-weight:600;margin-bottom:2px}
+.row .t span{font-size:13px;color:var(--ink-soft)}
+.pill{font-size:11px;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.p-paper{background:var(--manila);color:var(--desk-ink);border:1px solid var(--manila-line)}
+.p-app{background:var(--purple-faint);color:var(--purple);border:1px solid var(--purple-line)}
+.note{font-size:13px;color:var(--ink-soft);background:var(--manila);border:1px dashed var(--manila-line);
+  border-radius:12px;padding:14px;margin-top:16px;line-height:1.7;max-width:640px}
+.addbtn{min-height:var(--tap);padding:0 22px;border:1px dashed var(--line-strong);background:transparent;
+  border-radius:12px;font:inherit;font-size:14px;color:var(--ink-soft);cursor:pointer}
+
+/* ── 下沿动作条：靠右加重（立在桌上时，惯用手从右下进） ── */
+.dock{flex:0 0 auto;display:flex;justify-content:flex-end;gap:12px;padding:14px 24px;
+  background:var(--paper-strong);border-top:1px solid var(--line-faint)}
+.dock button{min-height:var(--tap);padding:0 30px;border-radius:12px;font:inherit;font-size:15.5px;cursor:pointer}
+.b-primary{background:var(--purple);color:#fff;border:1px solid var(--purple);font-weight:600;min-width:190px}
+.b-second{background:var(--surface);color:var(--ink-strong);border:1px solid var(--line);min-width:140px}
+
+/* ── 说明栏 ── */
+.notes{flex:1;min-width:310px;color:var(--desk-ink)}
+.nbox{background:rgba(255,252,250,.92);border:1px solid var(--line-warm);border-radius:12px;padding:15px 17px;margin-bottom:12px}
+.nbox h4{font-size:13px;margin-bottom:9px;color:var(--ink-strong)}
+.nbox ul{margin:0;padding-left:18px;font-size:13px;color:var(--ink-mid)}
+.nbox li{margin-bottom:7px}
+.nbox code{font:11px ui-monospace,Consolas,monospace;background:var(--purple-faint);padding:1px 5px;border-radius:4px;color:var(--purple)}
+.key-pt{border-left:3px solid var(--tan);padding-left:11px}
+.paperbit{background:var(--manila);border:1px solid var(--manila-line);border-radius:12px;padding:15px 17px;
+  font-size:13px;color:var(--desk-ink);line-height:1.75}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="hd">
+  <h1>自习模块 · 平板端布局与交互原型</h1>
+  <p>沿用现有前端框架（React + 现有 <code>web/src/study/</code> 路由与 canonical 视觉令牌），只改自习模块。
+     功能集与手机低保真原型一致，本稿只解决<b>布局与交互</b>。</p>
+</div>
+
+<div class="ctl">
+  <button id="bl" aria-pressed="true">横屏 1010</button>
+  <button id="bp" aria-pressed="false">竖屏 660</button>
+  <span style="flex:1"></span>
+  <button id="reset">重置右栏</button>
+</div>
+
+<div class="stage">
+  <div class="pad land" id="pad">
+    <div class="screen">
+      <div class="top">
+        <div class="tabs" role="tablist">
+          <button class="tab" role="tab" aria-selected="true" data-s="notebook">摊开的本子</button>
+          <button class="tab" role="tab" aria-selected="false" data-s="cards">卡片盒</button>
+          <button class="tab" role="tab" aria-selected="false" data-s="flyleaf">扉页</button>
+          <button class="tab" role="tab" aria-selected="false" data-s="materials">材料</button>
+        </div>
+        <div class="topic">自习主题<b>不定积分 · 换元法</b></div>
+      </div>
+      <div class="slug" id="slug">/study/jifen-01/notebook</div>
+      <div class="main" id="main"></div>
+      <div class="dock" id="dock"></div>
+    </div>
+  </div>
+
+  <div class="notes">
+    <div class="nbox">
+      <h4 style="color:var(--tan)">平板真正值得拿的东西：对照变成并排</h4>
+      <ul>
+        <li class="key-pt"><b>手机上「对照讲评」是时序</b>——浮层盖住题目，你先看题、再看讲评，靠记忆对上。</li>
+        <li class="key-pt"><b>平板上它是空间</b>——左栏是「这一件事」，右栏是「纸上来的」。你写的和她说的同屏，
+            眼睛左右移动就能对，这才配叫<b>对照</b>。整条拍照流程因此<b>从浮层改成常驻右栏</b>，左栏全程不被遮。</li>
+        <li class="key-pt"><b>转写行可点回指</b>——点右栏某一行，左栏对应的知识点高亮。手机上没有这个动作的空间。</li>
+      </ul>
+    </div>
+    <div class="nbox">
+      <h4>姿势决定了尺寸，不是屏幕大小</h4>
+      <ul>
+        <li>自习时两手在纸上写字，<b>平板是立在桌上的，不是端在手里的</b>。所以「拇指可达」这条在平板上要重新解释。</li>
+        <li>立着时的要求是<b>远看清、一戳中</b>：正文放到 15–30px，命中区从 44 提到 <code>56px</code>，
+            主动作最小宽度 190px。</li>
+        <li>只有<b>拿起来拍照</b>那一刻回到手持姿势——所以拍照这一步的按钮做得最大，且落在右下角。</li>
+        <li>动作条<b>靠右加重</b>而不是等宽铺满：立着的平板，惯用手是从右下角进的。</li>
+      </ul>
+    </div>
+    <div class="nbox">
+      <h4>竖屏是同一套语义</h4>
+      <ul>
+        <li>切竖屏：两栏改上下堆叠，右栏退到下方且限高 44%，左栏仍然完整可见——<b>不降级成浮层</b>。</li>
+        <li>信息架构、动作集、slug 全部不变（R7 / R8 的窄宽等价要求）。</li>
+      </ul>
+    </div>
+    <div class="paperbit">
+      <b>屏幕里仍然没有纸。</b><br>
+      左栏给完讲解或题目就把人推回纸上；右栏在他停笔或写完时才有内容。
+      右栏的空态不是留白，是一句邀请加一个大按钮——因为那正是他刚放下笔、抬头看屏幕的时刻。
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+var cur = 'notebook';
+var mode = 'learn';
+var editing = false;
+var step = 0;          // 右栏：0 空 · 1 已拍待裁 · 2 转写 · 3 讲评/下一步 · 4 完整答案 · 5 三态确认
+var focusLine = null;  // 点转写行 → 左栏回指
+
+/* ═══ 左栏 ═══ */
+function leftLearn(){
+  var hl = focusLine === 2 ? ' style="background:var(--purple-pale);border-radius:6px;padding:2px 6px"' : '';
+  return [
+    '<div class="modes">',
+      '<button aria-pressed="', mode==='learn', '" data-m="learn">学</button>',
+      '<button aria-pressed="', mode==='practice', '" data-m="practice">练</button>',
+    '</div>',
+    '<div class="colhd">这一步要弄懂的</div>',
+    '<div class="core">',
+      '<h3>换元积分：为什么可以把 dx 换成 du</h3>',
+      '<p>不是"设 u 等于某个式子"这个动作本身，而是它背后凭什么成立——',
+      '<span', hl, '>微分之间的对应关系</span>。</p>',
+      '<span class="src">小娜讲解 · 通识，非教材原文</span>',
+      '<div class="next"><div class="lab">下一步</div>',
+        '<strong>拿草稿纸，把 ∫2x·cos(x²)dx 的换元过程写出来</strong>',
+        '<div class="hint">写到哪一步卡住，就拍那一步。不用写完。</div>',
+      '</div>',
+    '</div>'
+  ].join('');
+}
+function leftPractice(){
+  var hl = focusLine === 2 ? ' style="background:var(--purple-pale);border-radius:6px;padding:2px 6px"' : '';
+  return [
+    '<div class="modes">',
+      '<button aria-pressed="', mode==='learn', '" data-m="learn">学</button>',
+      '<button aria-pressed="', mode==='practice', '" data-m="practice">练</button>',
+    '</div>',
+    '<div class="colhd">这一道</div>',
+    '<div class="q">',
+      '<div class="no">第 2 题 · 共 5 题</div>',
+      '<div class="stem">求 ∫ 3x² · sin(x³) dx</div>',
+      '<div class="todo">到草稿纸上做。写完拍给我看，我对着你的步骤讲。</div>',
+      '<div class="tie">同一个知识核：<b', hl, '>换元积分的微分对应</b>　·　切回「学」不换这件事</div>',
+    '</div>'
+  ].join('');
+}
+function leftFlyleaf(){
+  var ro = editing ? '' : ' readonly';
+  return [
+    '<div class="colhd">这次自习学什么</div>',
+    '<div class="field"><label>自习主题</label><input value="不定积分 · 换元法"', ro, '></div>',
+    '<div class="field"><label>当前范围</label><input value="同济第七版 第四章 4.1–4.3"', ro, '></div>',
+    '<div class="field"><label>这段时间想达成</label><input value="能自己认出该用哪种换元"', ro, '></div>',
+    '<div class="note">', editing
+      ? '这三行也可以让小娜问着你填——开自习的主路径是对话，表单只是编辑态（R1）。'
+      : '开一次自习只要这三行，<b>不需要导入任何文件</b>——纸质教材本来就导不进来（R1）。',
+    '</div>'
+  ].join('');
+}
+function leftCards(){
+  return [
+    '<div class="colhd">今天要复习</div>',
+    '<div class="row"><div class="t"><b>换元积分的适用条件</b><span>到期 · 上次「想起来了」是 6 天前</span></div><span class="pill p-app">卡片</span></div>',
+    '<div class="row"><div class="t"><b>∫x·e^(x²)dx 第 2 步把系数丢了</b><span>你拍的 · 8 月 20 日 · 待重做</span></div><span class="pill p-paper">纸上错题</span></div>',
+    '<div class="row"><div class="t"><b>分部积分的 u、dv 怎么选</b><span>到期 · 新卡</span></div><span class="pill p-app">卡片</span></div>',
+    '<div class="row"><div class="t"><b>三角换元记错了对应边</b><span>app 内测验 · 待重做</span></div><span class="pill p-app">app 错题</span></div>',
+    '<div class="note">纸上来的错题和 app 内的错题在同一个队列里排，不分两栏（R5）。</div>'
+  ].join('');
+}
+function leftMaterials(){
+  return [
+    '<div class="colhd">这次自习手边有什么</div>',
+    '<div class="row"><div class="t"><b>教材 P.86–P.92</b><span>你拍的书页 · 3 张 · 可被引用</span></div><span class="pill p-paper">photographed</span></div>',
+    '<div class="row"><div class="t"><b>习题课讲义.pdf</b><span>你导入的 · 12 页</span></div><span class="pill p-app">imported</span></div>',
+    '<button class="addbtn" data-act="shoot">＋ 拍一页书 / 放一份材料进来</button>',
+    '<div class="note">没拍过、没导过的地方，她只按通识讲并标成「小娜讲解」，不会说"书上写了什么"（R1）。<br>',
+    '扉页是<b>这次自习的意图</b>，材料是<b>手边的东西</b>，两件事。</div>'
+  ].join('');
+}
+
+/* ═══ 右栏：与纸的往返 ═══ */
+function rightPane(){
+  if (cur === 'cards')     return sideNote('复习时右栏收起', '卡片盒是一次一张的节奏，右栏此时不承载对照。');
+  if (cur === 'flyleaf')   return sideNote('扉页没有右栏内容', '扉页是编辑面，不是采集面——拍书页归「材料」。');
+  if (cur === 'materials') return sideNote('材料的预览位', '选中一份材料时，这里放它的缩略与来源，不做全文阅读器。');
+
+  if (step === 0) return [
+    '<div class="colhd">纸上来的</div>',
+    '<div class="empty"><span class="big">📄</span>',
+      mode === 'learn'
+        ? '现在轮到纸了。<br>写到哪一步卡住，就拍那一步。'
+        : '现在轮到纸了。<br>写完拍给我看，我对着你的步骤讲。',
+      '<br><button data-act="shoot">拍一张</button>',
+    '</div>'
+  ].join('');
+
+  if (step === 1) return [
+    '<div class="colhd">裁到答题区</div>',
+    '<div class="shot"><div class="crop"></div><span>你的草稿纸</span></div>',
+    '<div class="tools"><button class="tool">旋转</button><button class="tool">重裁</button><button class="tool">转灰度（可撤销）</button></div>',
+    '<div class="meta">3024×4032 → 1280×960 ／ 约 1.1k image tokens</div>',
+    '<div class="stack"><button class="key" data-act="go2">就这样，看一下</button></div>'
+  ].join('');
+
+  if (step === 2) return [
+    '<div class="colhd">我读到的是这样</div>',
+    '<span class="band">置信度：medium</span>',
+    '<div class="lines" id="lines">',
+      lineRow(1, '∫ 3x² · sin(x³) dx', ''),
+      lineRow(2, '令 u = x³，du = 3x² dx', ''),
+      lineRow(3, '= ∫ sin(u) du', ''),
+      lineRow(4, '这一行右半看不清（有划改）——没有猜', 'bad'),
+    '</div>',
+    '<div class="stack">',
+      '<button class="key" data-act="go3">对，就是这样</button>',
+      '<button data-act="go1">重拍这张</button>',
+      '<button data-act="go2">读错了，换更细的档再读一次</button>',
+    '</div>',
+    '<div class="note" style="margin-top:14px">点任意一行，左栏会高亮它对应的那件事——平板才有的回指动作。</div>'
+  ].join('');
+
+  if (step === 3) return [
+    '<div class="colhd">下一步</div>',
+    '<div class="said"><div class="lab">你停在第 4 行 · 往哪想</div>',
+      '<p>第 3 行你已经把式子化成 ∫sin(u)du 了。现在问自己一句：<b>什么函数求导之后是 sin(u)？</b>',
+      '注意符号，想出来就写第 5 行，别急着换回 x。</p></div>',
+    '<div class="stack"><button data-act="back0">回纸上继续</button></div>',
+    '<button class="escape" data-act="go4">我不想推了，直接给我答案</button>'
+  ].join('');
+
+  if (step === 4) return [
+    '<div class="colhd">完整答案</div>',
+    '<div class="said"><p>∫3x²·sin(x³)dx = −cos(x³) + C</p></div>',
+    '<div class="note" style="margin:0 0 14px">这题建立在三个知识点上：换元的微分对应、sin 的原函数与负号、换回原变量。<b>你跳过的是第一个。</b></div>',
+    '<div class="stack"><button class="key" data-act="go5">加进复习队列</button></div>'
+  ].join('');
+
+  return [
+    '<div class="colhd">这道算做错了吗</div>',
+    '<div class="said"><div class="lab">她看到的 · 待确认讲评，不是判分</div>',
+      '<p>第 4 行之后没有换回原变量 x，而且 sin 的原函数漏了负号。</p></div>',
+    '<div class="stack">',
+      '<button class="key" data-act="wrong">确实做错　→ 进错题本</button>',
+      '<button data-act="back0">其实做对了</button>',
+      '<button data-act="go1">看不清，重拍</button>',
+    '</div>'
+  ].join('');
+}
+function lineRow(n, txt, cls){
+  var here = focusLine === n ? ' here' : '';
+  return '<div class="ln ' + cls + here + '" data-line="' + n + '">' +
+         '<i>' + n + '</i><span>' + txt + '</span></div>';
+}
+function sideNote(h, b){
+  return '<div class="colhd">' + h + '</div><div class="note" style="margin-top:0">' + b + '</div>';
+}
+
+/* ═══ 下沿 ═══ */
+var DOCKS = {
+  'notebook:learn':    [['b-second','问小娜','ask'],['b-primary','拍一张','shoot']],
+  'notebook:practice': [['b-second','问小娜','ask'],['b-primary','下一题','next']],
+  'cards':             [['b-second','问小娜','ask'],['b-primary','开始复习','ask']],
+  'flyleaf:read':      [['b-second','问小娜','ask'],['b-primary','修改','edit']],
+  'flyleaf:edit':      [['b-second','取消','cancel'],['b-primary','保存','save']],
+  'materials':         [['b-second','问小娜','ask'],['b-primary','拍一张','shoot']]
+};
+function dockKey(){
+  if (cur === 'notebook') return 'notebook:' + mode;
+  if (cur === 'flyleaf')  return 'flyleaf:' + (editing ? 'edit' : 'read');
+  return cur;
+}
+
+/* ═══ 渲染 ═══ */
+var LEFT = { notebook:null, cards:leftCards, flyleaf:leftFlyleaf, materials:leftMaterials };
+
+function draw(){
+  var left = cur === 'notebook' ? (mode === 'learn' ? leftLearn() : leftPractice()) : LEFT[cur]();
+  var html = '<div class="col col-a">' + left + '</div>' +
+             '<div class="col col-b">' + rightPane() + '</div>';
+  var dock = DOCKS[dockKey()].map(function(b){
+    return '<button class="' + b[0] + '" data-act="' + b[2] + '">' + b[1] + '</button>';
+  }).join('');
+  document.getElementById('main').innerHTML = html;
+  document.getElementById('dock').innerHTML = dock;
+  document.getElementById('slug').textContent = '/study/jifen-01/' + cur;
+  bind();
+}
+
+function bind(){
+  document.querySelectorAll('.modes button').forEach(function(b){
+    b.onclick = function(){ mode = b.dataset.m; step = 0; focusLine = null; draw(); };
+  });
+  document.querySelectorAll('.ln').forEach(function(l){
+    l.onclick = function(){
+      var n = +l.dataset.line;
+      focusLine = (focusLine === n) ? null : n;
+      draw();
+    };
+  });
+  document.querySelectorAll('[data-act]').forEach(function(el){
+    el.onclick = function(){
+      var a = el.dataset.act;
+      if (a === 'shoot'){ if (cur !== 'notebook'){ cur = 'notebook'; syncTabs(); } step = 1; }
+      else if (a === 'go1') step = 1;
+      else if (a === 'go2') step = 2;
+      else if (a === 'go3') step = mode === 'learn' ? 3 : 5;
+      else if (a === 'go4') step = 4;
+      else if (a === 'go5') step = 5;
+      else if (a === 'back0'){ step = 0; focusLine = null; }
+      else if (a === 'wrong'){ step = 0; focusLine = null; cur = 'cards'; syncTabs(); }
+      else if (a === 'edit')  editing = true;
+      else if (a === 'cancel' || a === 'save') editing = false;
+      else if (a === 'next'){ alert('下一题：同一知识核的下一道，不换知识核'); return; }
+      else { alert('问小娜：沿用现有会话与精确返回，不在本原型展开'); return; }
+      draw();
+    };
+  });
+}
+function syncTabs(){
+  document.querySelectorAll('.tab').forEach(function(x){ x.setAttribute('aria-selected', x.dataset.s === cur); });
+}
+document.querySelectorAll('.tab').forEach(function(t){
+  t.onclick = function(){ cur = t.dataset.s; syncTabs(); draw(); };
+});
+document.getElementById('bl').onclick = function(){
+  document.getElementById('pad').className = 'pad land';
+  this.setAttribute('aria-pressed','true'); document.getElementById('bp').setAttribute('aria-pressed','false');
+};
+document.getElementById('bp').onclick = function(){
+  document.getElementById('pad').className = 'pad port';
+  this.setAttribute('aria-pressed','true'); document.getElementById('bl').setAttribute('aria-pressed','false');
+};
+document.getElementById('reset').onclick = function(){ step = 0; focusLine = null; draw(); };
+draw();
+</script>
+</body>
+</html>

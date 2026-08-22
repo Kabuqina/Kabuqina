@@ -82,3 +82,9 @@ tauri/_icons_new/
 
 # Regenerable PPT render QA scratch (emitted by the renderer smoke test)
 /samples/
+
+# Minecraft 风格素材的设计导出包（Claude Design 项目 `Kabuqina Voxel Assets` 的产物）。
+# 不进库：几何真值在 web/src/components/voxel/ 的 TS 里，导出包只是同一份美术的
+# 位图/矢量快照，两边都留会漂。要核对时从设计项目重新导。
+/Minecraft风格系统设计方案/
+/Minecraft风格系统设计方案.zip

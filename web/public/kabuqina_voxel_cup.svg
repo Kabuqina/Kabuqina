@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132 132" role="img" aria-label="Placeholder mug (kabuqina_voxel_cup.svg)">
+  <title>Placeholder mug (kabuqina_voxel_cup.svg)</title>
+  <defs>
+    <linearGradient id="kabuqina_voxel_cup_mugGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#dedede"/>
+      <stop offset="100%" stop-color="#bcbcbc"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(13.20 23.76) scale(1.0560)">
+  <path d="M 74 44 C 92 46 92 64 74 66" fill="none" stroke="#a6a6a6"
+        stroke-width="4" stroke-linecap="round"/>
+  <path d="M 24 30 L 24 70 Q 24 82 36 82 L 64 82 Q 76 82 76 70 L 76 30 Z"
+        fill="url(#kabuqina_voxel_cup_mugGrad)" stroke="#8a8a8a" stroke-width="1"/>
+  <rect x="20" y="22" width="60" height="12" rx="6" fill="#ececec"
+        stroke="#8a8a8a" stroke-width="0.8"/>
+  </g>
+</svg>

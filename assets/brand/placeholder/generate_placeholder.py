@@ -102,6 +102,27 @@ def _scene_body(prefix: str, view_w: float, view_h: float) -> str:
   </g>"""
 
 
+def _standalone_mug_body(prefix: str, view_w: float, view_h: float, *, steam: bool = False) -> str:
+    """Centered generic mug for compact avatar/window-action placeholders."""
+    mug_scale = min(view_w, view_h) / 125
+    mug_x = view_w / 2 - 50 * mug_scale
+    mug_y = view_h / 2 - 50 * mug_scale + view_h * 0.08
+    defs, shapes = _mug_svg_group(prefix)
+    steam_shape = ""
+    if steam:
+        cx = view_w / 2
+        steam_shape = f"""
+  <path d="M {cx - 13:.2f} {view_h * 0.24:.2f} Q {cx - 20:.2f} {view_h * 0.16:.2f} {cx - 11:.2f} {view_h * 0.10:.2f}"
+        fill="none" stroke="{GREY['handle']}" stroke-width="3" stroke-linecap="round"/>
+  <path d="M {cx + 9:.2f} {view_h * 0.23:.2f} Q {cx + 17:.2f} {view_h * 0.15:.2f} {cx + 8:.2f} {view_h * 0.08:.2f}"
+        fill="none" stroke="{GREY['handle']}" stroke-width="3" stroke-linecap="round"/>"""
+    return f"""
+  <defs>{defs}
+  </defs>{steam_shape}
+  <g transform="translate({mug_x:.2f} {mug_y:.2f}) scale({mug_scale:.4f})">{shapes}
+  </g>"""
+
+
 # ── PNG pieces (Pillow) ────────────────────────────────────────────────── #
 
 def _render_mug_png(size: int) -> Image.Image:
@@ -153,6 +174,21 @@ def _render_tile_png(size: int) -> Image.Image:
     return img
 
 
+def _render_wordmark_png(*, dark: bool) -> Image.Image:
+    """Plain system-font placeholder; deliberately not the registered wordmark."""
+    width, height = 452, 96
+    img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    font = _load_font(52)
+    label = "KABUQINA"
+    bbox = draw.textbbox((0, 0), label, font=font)
+    x = (width - (bbox[2] - bbox[0])) / 2 - bbox[0]
+    y = (height - (bbox[3] - bbox[1])) / 2 - bbox[1]
+    fill = (205, 205, 205, 255) if dark else (92, 92, 92, 255)
+    draw.text((x, y), label, font=font, fill=fill)
+    return img
+
+
 # ── outputs ────────────────────────────────────────────────────────────── #
 
 def write_outputs() -> None:
@@ -195,6 +231,39 @@ def write_outputs() -> None:
             _svg(w, h, label, _scene_body(prefix, w, h), background=background),
             encoding="utf-8",
         )
+
+    # Voxel-era mascot filenames still receive deliberately flat, generic mug
+    # placeholders. The real voxel artwork lives only in the private overlay.
+    app_icons = (
+        "kabuqina_export_appicon.svg",
+        "kabuqina_voxel_appicon.svg",
+        "kabuqina_voxel_appicon_chunky.svg",
+        "kabuqina_voxel_appicon_chunky_night.svg",
+        "kabuqina_voxel_appicon_night.svg",
+        "kabuqina_voxel_appicon_steam.svg",
+    )
+    for name in app_icons:
+        label = f"Placeholder mug app icon ({name})"
+        prefix = name.removesuffix(".svg") + "_"
+        (WEB_PUBLIC / name).write_text(
+            _svg(188, 188, label, _scene_body(prefix, 188, 188)), encoding="utf-8"
+        )
+
+    cup_icons = (
+        ("kabuqina_voxel_cup.svg", False),
+        ("kabuqina_voxel_cup_steam.svg", True),
+    )
+    for name, steam in cup_icons:
+        label = f"Placeholder mug ({name})"
+        prefix = name.removesuffix(".svg") + "_"
+        (WEB_PUBLIC / name).write_text(
+            _svg(132, 132, label, _standalone_mug_body(prefix, 132, 132, steam=steam)),
+            encoding="utf-8",
+        )
+
+    _render_mug_png(128).save(WEB_PUBLIC / "kabuqina_voxel_appicon_128.png", optimize=True)
+    _render_wordmark_png(dark=False).save(WEB_PUBLIC / "kabuqina_wordmark_accent.png", optimize=True)
+    _render_wordmark_png(dark=True).save(WEB_PUBLIC / "kabuqina_wordmark_night.png", optimize=True)
 
     print(f"Placeholder assets written to {WEB_PUBLIC} and {TAURI_ICONS / '_icon-1024.png'}")
     print("Next: cd tauri; cargo tauri icon icons/_icon-1024.png; then copy "

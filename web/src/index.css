@@ -181,9 +181,10 @@
   --desk-wipe: rgba(255, 247, 242, 0.55);
   --desk-seam: rgba(74, 40, 34, 0.18);
   --desk-joint: inset 0 -1px 0 rgba(255, 246, 240, 0.5), 0 1px 0 rgba(74, 40, 34, 0.12);
-  /* 抽屉那层遮罩是方向性的：单色读作「盖了层膜」，从抽屉向右衰减才读作
-     「抽屉挡住了光」。--scrim 留给需要单色的浮层。 */
-  --scrim-drawer: linear-gradient(90deg,
+  /* 抽屉那层遮罩是方向性的：单色读作「盖了层膜」，从抽屉往上衰减才读作
+     「抽屉挡住了光」。0deg＝第一档落在底边，也就是抽屉那一侧。
+     --scrim 留给需要单色的浮层。 */
+  --scrim-drawer: linear-gradient(0deg,
     rgba(74, 40, 34, 0.42) 0%, rgba(74, 40, 34, 0.26) 34%, rgba(74, 40, 34, 0.18) 100%);
   /* 白天没有灯光落在桌面上：开灯才有暖斑，所以浅色主题这两个是空的。 */
   --desk-glow: transparent;
@@ -224,6 +225,11 @@
   --info-bg: #E9EFF7;
   --shadow: 0 10px 30px rgba(88, 54, 60, 0.14);
   --shadow-soft: 0 4px 14px rgba(88, 54, 60, 0.10);
+
+  /* 导航栏的胶囊（设计稿第四轮 4a）：学习/对话/设置统一成一种形状，
+     **只有选中态才有底和边**。原来选中态是实心紫块，和木色横条打架。 */
+  --nav-pill-line: #D9C7E3;
+  --nav-pill-fill: color-mix(in srgb, var(--paper) 92%, transparent);
 }
 
 [data-theme="dark"] {
@@ -271,7 +277,7 @@
   --desk-wipe: rgba(255, 230, 215, 0.07);
   --desk-seam: rgba(255, 214, 190, 0.16);
   --desk-joint: inset 0 -1px 0 rgba(255, 214, 190, 0.14), 0 1px 0 rgba(0, 0, 0, 0.35);
-  --scrim-drawer: linear-gradient(90deg,
+  --scrim-drawer: linear-gradient(0deg,
     rgba(18, 6, 4, 0.42) 0%, rgba(18, 6, 4, 0.32) 34%, rgba(18, 6, 4, 0.26) 100%);
   --desk-glow: rgba(255, 170, 140, 0.13);
   --veil: rgba(49, 42, 61, 0.82);
@@ -305,6 +311,26 @@
   --info-bg: #273243;
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
   --shadow-soft: 0 4px 14px rgba(0, 0, 0, 0.35);
+  --nav-pill-line: #635378;
+
+  /* 体素物件的暗色补光。
+     物件不该因为屋里关了灯就换材质——瓷是瓷、拿铁是拿铁，所以这里只抬那几档
+     会整个掉进黑木头里的深色：紫金属和紫书皮，外加齿轮的石头。其余材质本来就浅，
+     压在 --desk(#251715) 上读得清清楚楚，一律不动。
+     浅色值是 voxelRender.ts 里 VOXEL_MATERIALS 的字面值（同时也是导出 SVG 的值），
+     这里只写覆盖档，不要在这里再抄一份浅色。 */
+  --vx-metal-t: #A98CB9;
+  --vx-metal-l: #86729B;
+  --vx-metal-r: #6A5680;
+  --vx-metal-deep-t: #8F75A8;
+  --vx-metal-deep-l: #6E5A85;
+  --vx-metal-deep-r: #55446A;
+  --vx-book-t: #B795CC;
+  --vx-book-l: #8F6FA8;
+  --vx-book-r: #6E5286;
+  --vx-stone-t: #B4AEB2;
+  --vx-stone-l: #969094;
+  --vx-stone-r: #746E72;
 }
 
 /* ---------------------------------------------------------------------------
@@ -320,8 +346,8 @@
   display: flex;
   min-height: 0;
   height: 100%;
-  /* 左边多让 40px 出来给抽屉脸。 */
-  padding: 20px 30px 26px 40px;
+  /* 下边多让 40px 出来给抽屉脸（22px 的脸 + 18px 的缝）。 */
+  padding: 20px 30px 40px;
   gap: 18px;
 }
 
@@ -331,9 +357,9 @@
 .kq-drawer-face {
   position: absolute;
   z-index: 5;
-  inset-block: 0;
-  inset-inline-start: 0;
-  width: 22px;
+  inset-inline: 0;
+  inset-block-end: 0;
+  height: 22px;
   pointer-events: none;
   background-image:
     var(--desk-noise),
@@ -344,20 +370,21 @@
       color-mix(in srgb, var(--drawer-face) 88%, #000000) 100%
     );
   background-repeat: repeat, no-repeat;
+  /* 高光落在朝着桌面的那条边（现在是上沿），投影往上打到桌面上。 */
   box-shadow:
-    inset -1px 0 0 rgba(255, 228, 212, 0.34),
-    2px 0 10px rgba(74, 40, 34, 0.28);
+    inset 0 1px 0 rgba(255, 228, 212, 0.34),
+    0 -2px 10px rgba(74, 40, 34, 0.28);
 }
 
 /* 拉手 */
 .kq-drawer-face::after {
   content: "";
   position: absolute;
-  inset-inline-start: 6px;
-  inset-block-start: 50%;
-  width: 10px;
-  height: 64px;
-  margin-block-start: -32px;
+  inset-block-start: 6px;
+  inset-inline-start: 50%;
+  width: 64px;
+  height: 10px;
+  margin-inline-start: -32px;
   border-radius: 5px;
   background: linear-gradient(
     180deg,
@@ -392,6 +419,47 @@
     0 8px 0 -2px var(--line-faint),
     /* 整叠离开桌面 */
     0 14px 32px rgba(77, 60, 96, 0.18);
+}
+
+/* 引导、导出与定时任务沿用当前窗口里的「桌面 + 一张纸」框架。
+   它们只有纸内页眉和正文，不再各自叠一条玻璃导航栏。 */
+.kq-utility-paper {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.kq-utility-paper-head {
+  display: flex;
+  min-height: 52px;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 22px;
+  border-bottom: 1px solid var(--line-faint);
+}
+
+.kq-utility-paper-head > h1 {
+  margin: 0;
+  color: var(--ink-strong);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.kq-utility-paper-body {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 24px 24px 28px;
+}
+
+.kq-export-body {
+  display: flex;
+  overflow: hidden;
+}
+
+.kq-onboarding-paper {
+  max-width: 760px;
+}
+
+.kq-onboarding-progress {
+  justify-content: space-between;
 }
 
 /* 两层页眉：第一行是元信息 + 动作，第二行标题独占。
@@ -500,16 +568,18 @@
   background: var(--scrim-drawer);
 }
 
+/* 抽屉从**桌沿下方**拉出来，不从左边推出来：桌子的抽屉就在桌面下面，
+   而这一面根本没有侧栏——从左缘滑出的那道竖条会被读成侧栏回来了。 */
 .kq-chat-drawer {
   position: absolute;
   z-index: 31;
-  top: 0;
-  bottom: 0;
   left: 0;
+  right: 0;
+  bottom: 0;
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
-  width: min(310px, 82%);
-  transform: translateX(-102%);
+  height: min(320px, 72%);
+  transform: translateY(102%);
   /* 关上就真的不在：只靠 transform 移出屏幕的话，一旦过渡被中断（换标签页、
      不合成帧），就会留下一块看不见却挡住对话纸的面板。visibility 兜住这一层，
      延迟到滑出结束再生效，所以关闭动画照旧。 */
@@ -517,23 +587,31 @@
   transition: transform 0.22s ease, visibility 0s linear 0.22s;
   /* 从桌子边缘拉开的抽屉（组件 Sheet「抽屉里的·通用件」用的就是这个材质）：
      内壁是深一档的木头，开口处一道内投影做出挖空的深度；里面放着用过的对话纸。 */
-  border-right: 1px solid var(--drawer-lo);
-  /* 挖进桌面的一个洞：开口处最深，22% 处一道略亮的木面，往下再沉。
-     上沿一道高光 + 右侧一道抽屉唇，让「厚度」读得出来。 */
+  border-top: 1px solid var(--drawer-lo);
+  /* 挖进桌面的一个洞：开口在上沿，那里最深，22% 处一道略亮的木面，往下再沉——
+     所以这两道渐变的方向不用改，改的是「哪条边是开口」。 */
   background-image:
     var(--desk-noise),
     linear-gradient(180deg, rgba(255, 226, 206, 0.1) 0%, transparent 30%),
     linear-gradient(180deg, var(--drawer-mouth) 0%, var(--drawer-hi) 22%, var(--drawer-lo) 100%);
   background-repeat: repeat, no-repeat, no-repeat;
+  /* 开口处的深影在上，抽屉唇改到下沿，整块的投影往上打到桌面上。 */
   box-shadow:
     inset 0 8px 20px -6px rgba(34, 16, 12, 0.8),
-    inset -9px 0 22px -12px rgba(34, 16, 12, 0.7),
-    inset -1px 0 0 rgba(255, 224, 204, 0.18),
-    0 16px 38px rgba(60, 30, 26, 0.42);
+    inset 0 -9px 22px -12px rgba(34, 16, 12, 0.7),
+    inset 0 -1px 0 rgba(255, 224, 204, 0.18),
+    0 -16px 38px rgba(60, 30, 26, 0.42);
+}
+
+/* 满宽的抽屉，但里面那叠纸跟着对话纸对齐——1280px 宽的一行摘要没法读，
+   而且抽屉里的纸和桌上的纸本来就该是同一叠。 */
+.kq-chat-drawer > * {
+  width: min(880px, 100%);
+  justify-self: center;
 }
 
 .kq-chat-drawer.is-open {
-  transform: translateX(0);
+  transform: translateY(0);
   visibility: visible;
   transition: transform 0.22s ease, visibility 0s;
 }
@@ -709,9 +787,11 @@
 
 @media (max-width: 860px) {
   .kq-chat-desk { padding: 10px 10px 12px; }
-  /* 窄窗放不下抽屉脸，收掉。 */
+  /* 窄窗匀不出这 22px，收掉抽屉脸；入口还是页眉上那颗按钮。 */
   .kq-drawer-face { display: none; }
   .kq-chat-paper-head { padding: 10px 12px 8px; }
+  .kq-utility-paper-head { padding-inline: 12px; }
+  .kq-utility-paper-body { padding: 18px 14px 20px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1568,25 +1648,28 @@
     color: var(--kq-color-strong);
     letter-spacing: 0.03em;
   }
-  /* 窗口控制在两条横条上长得一样：产品页眉（Study/Studio/Chat）与
-     窗口标题栏（其余页面）渲染同一个 WindowControls。 */
+  /* AppShell 页眉与启动/预览页的简版标题栏渲染同一个 WindowControls。 */
   .kq-window-controls {
     display: inline-flex;
     flex: 0 0 auto;
     align-items: center;
     gap: 0.125rem;
   }
+  /* 第四轮窗体设计：30px 槽、7px 圆角、--purple-dark 的墨。
+     AppShell 与启动/预览页的简版标题栏共用，用户不该看见窗控换了个样子。
+     字形是 `PixelGlyph`，2 单位笔画，
+     所以墨色比原来那档 --kq-color-muted 要实一级才压得住。 */
   .kq-titlebar-control {
     display: inline-flex;
-    height: 34px;
-    width: 34px;
+    height: 30px;
+    width: 30px;
     flex-shrink: 0;
     align-items: center;
     justify-content: center;
     border: none;
-    border-radius: 0.375rem;
+    border-radius: 7px;
     background: transparent;
-    color: var(--kq-color-muted);
+    color: var(--purple-dark);
     cursor: default;
     transition: all 0.15s ease;
   }
@@ -1604,33 +1687,35 @@
     background: rgba(220, 38, 38, 0.9);
     color: #FFFFFF;
   }
+  /* 应用按钮与窗口按钮分成两组：左边管应用，右边管这扇窗。 */
   .kq-titlebar-divider {
     width: 1px;
-    height: 14px;
+    height: 18px;
     background: rgba(184, 169, 201, 0.35);
-    margin: 0 8px;
+    margin: 0 4px;
   }
+  /* 「缩到小娜」直接展示 32px 应用图标。按钮保留交互热区，但不再套视觉容器。 */
   .kq-titlebar-companion-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    height: 28px;
-    width: 28px;
+    height: 32px;
+    width: 32px;
+    padding: 0;
     border: none;
-    border-radius: 8px;
     background: transparent;
-    color: var(--kq-color-warm);
+    box-shadow: none;
     cursor: default;
     transition: all 0.15s ease;
   }
   .kq-titlebar-companion-btn:hover {
-    background: var(--kq-hover-bg);
+    background: transparent;
+    filter: brightness(1.08);
   }
   .kq-titlebar-companion-icon {
-    width: 15px;
-    height: 15px;
-    stroke: var(--kq-color-warm);
-    fill: none;
+    display: block;
+    width: 28px;
+    height: 28px;
   }
   .kq-sidebar {
     border-color: var(--kq-glass-border);
@@ -2044,8 +2129,8 @@
   }
   .kq-assistant-avatar {
     flex: 0 0 auto;
-    width: 2.125rem;
-    height: 2.125rem;
+    width: 3rem;
+    height: 3rem;
     display: grid;
     place-items: center;
     margin-top: 0.125rem;
@@ -2055,12 +2140,21 @@
     overflow: hidden;
   }
   .kq-assistant-avatar-image {
-    width: 1.75rem;
-    height: 1.75rem;
+    width: 3rem;
+    height: 3rem;
     object-fit: contain;
     background: transparent;
     filter: none;
     user-select: none;
+  }
+  .kq-assistant-avatar-image--night {
+    display: none;
+  }
+  [data-theme="dark"] .kq-assistant-avatar-image--day {
+    display: none;
+  }
+  [data-theme="dark"] .kq-assistant-avatar-image--night {
+    display: block;
   }
   /* ── Kabuqina mascot (CSS rendering) ─────────────────────────────────
      The .kq-companion-cup* rules below express the Kabuqina coffee-cup
@@ -2320,15 +2414,17 @@
   }
   .kq-companion-pill-scene {
     position: relative;
-    width: 6.2rem;
-    height: 6.15rem;
+    display: grid;
+    align-items: end;
+    width: 5rem;
+    height: 5.56rem;
     animation: kq-companion-pill-float 3.4s ease-in-out infinite;
     will-change: transform;
   }
   .kq-companion-pill-svg {
     display: block;
-    width: 100%;
-    height: 100%;
+    width: 5rem;
+    height: 4.96rem;
     object-fit: contain;
     pointer-events: none;
     user-select: none;
@@ -2425,7 +2521,7 @@
       transform: translateY(0);
     }
     50% {
-      transform: translateY(-0.32rem);
+      transform: translateY(-0.26rem);
     }
   }
   @media (prefers-reduced-motion: reduce) {

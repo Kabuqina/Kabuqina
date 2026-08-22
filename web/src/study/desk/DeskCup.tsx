@@ -2,14 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { DeskArtAssets } from "./artAssets";
+import { ART_ASSETS } from "../../lib/artAssets";
 
 export interface DeskCupProps {
   art: DeskArtAssets;
   onAskTutor: () => void;
 }
 
-export function DeskCup({ art, onAskTutor }: DeskCupProps) {
-  const Coffee = art.coffee;
+export function DeskCup({ art: _art, onAskTutor }: DeskCupProps) {
   return (
     <div className="kd-cup-zone">
       <button
@@ -19,10 +19,9 @@ export function DeskCup({ art, onAskTutor }: DeskCupProps) {
         aria-controls="kd-invoke-card"
         onClick={onAskTutor}
       >
-        <Coffee />
+        <img className="kd-cup-button__mascot" src={ART_ASSETS.companionPill} alt="" />
         <span>碰杯问小娜</span>
       </button>
-      <span className="kd-cup-status">安静陪着你</span>
     </div>
   );
 }

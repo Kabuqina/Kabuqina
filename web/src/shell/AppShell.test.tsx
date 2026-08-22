@@ -6,6 +6,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../lib/i18n";
+import { ART_ASSETS } from "../lib/artAssets";
 import { THEME_MODE_KEY } from "../lib/ui-prefs";
 import { AppShell } from "./AppShell";
 import { requestOpenActivity } from "./activityBridge";
@@ -93,6 +94,17 @@ describe("AppShell", () => {
     expect(document.documentElement.dataset.theme).toBe("light");
   });
 
+  it("swaps the wordmark for its night ink when the lamp goes on", async () => {
+    const user = userEvent.setup();
+    renderShell("/study");
+    const wordmark = () => document.querySelector("img.kq-brand-name")!;
+    // 字标的墨色是烘在图里的，所以换的是文件——套 filter 会把注册字形的边缘弄脏。
+    expect(wordmark()).toHaveAttribute("src", ART_ASSETS.wordmark);
+
+    await user.click(screen.getByRole("button", { name: /台灯|开台灯/ }));
+    await waitFor(() => expect(wordmark()).toHaveAttribute("src", ART_ASSETS.wordmarkNight));
+  });
+
   /**
    * 全窗口只有一条横条：产品面上这条页眉**就是**标题栏，所以它必须是拖拽区，
    * 而里面每个能点的东西都得是 no-drag——否则点导航会变成拖窗口。
@@ -118,7 +130,10 @@ describe("AppShell", () => {
     expect(left).toContainElement(screen.getByRole("button", { name: /台灯|开台灯/ }));
     expect(left).toContainElement(screen.getByRole("button", { name: "学习" }));
     expect(left).toContainElement(screen.getByRole("button", { name: "对话" }));
-    expect(brand).toHaveTextContent("卡布奇娜");
+    // 正中那件是注册字标的位图（alt 是「卡布Qi娜」，不是产品名「卡布奇娜」），
+    // 不是用系统字体拼出来的文字——拼出来的 Qi 字面和墨色都对不上注册字形。
+    expect(brand.querySelector("img.kq-brand-name")).toHaveAttribute("alt", "卡布Qi娜");
+    expect(brand).not.toHaveTextContent("卡布");
     expect(screen.queryByRole("button", { name: "创作" })).not.toBeInTheDocument();
     expect(utility).toContainElement(screen.getByRole("button", { name: "设置" }));
   });

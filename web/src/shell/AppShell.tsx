@@ -3,7 +3,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { BookOpen, LampDesk, MessageCircle, Settings as SettingsIcon } from "lucide-react";
+import { VoxelIcon } from "../components/voxel/VoxelIcon";
+import { ART_ASSETS } from "../lib/artAssets";
 import { useI18n } from "../lib/i18n";
 import { getStoredThemeMode, resolveTheme, setThemeMode, type ResolvedTheme } from "../lib/ui-prefs";
 import { WindowControls } from "../components/WindowControls";
@@ -19,16 +20,16 @@ import "./appShell.css";
  * 「进行中」不在这条横条上——它搬进了 Chat 的抽屉：横条上不该有第二处会跳数字的东西。
  * 能力目录与网关目的地已经从产品面退场，所以这里只有这几样。
  *
- * 这条页眉**就是**这些产品面上的窗口标题栏：整条可拖拽，最右端是缩到小娜与系统窗口
- * 控制（`WindowControls`）。引导、导出、启动页不走这里，由 `WindowTitleBar` 画一条
- * 更矮的。全窗口任何时候都只有一条横条。
+ * 这条页眉**就是**产品面与辅助流程的窗口标题栏：整条可拖拽，最右端是缩到小娜与
+ * 系统窗口控制（`WindowControls`）。只有启动页和独立预览页使用较矮的
+ * `WindowTitleBar`。全窗口任何时候都只有一条横条。
  */
 
 type Surface = "study" | "chat" | "settings" | null;
 
 function surfaceOf(pathname: string): Surface {
   if (pathname.startsWith("/study")) return "study";
-  if (pathname.startsWith("/chat")) return "chat";
+  if (pathname.startsWith("/chat") || pathname.startsWith("/export")) return "chat";
   if (pathname.startsWith("/settings")) return "settings";
   return null;
 }
@@ -89,7 +90,9 @@ export function AppShell() {
             aria-pressed={theme === "dark"}
             onClick={toggleLamp}
           >
-            <LampDesk aria-hidden size={20} />
+            {/* 灯是**物件**不是字形：亮/灭换的是灯泡材质（玻璃 ↔ 火把橙），
+                不是给同一个线条图标换颜色。 */}
+            <VoxelIcon art={theme === "dark" ? "lampLit" : "lamp"} size={30} />
           </button>
           <div className="kq-left-tools">
             {/* 两个目的地始终都在（设计稿 5）：当前那个是木头上摆的一小片纸，
@@ -99,7 +102,7 @@ export function AppShell() {
               aria-current={surface === "study" ? "page" : undefined}
               onClick={() => navigate("/study")}
             >
-              <BookOpen aria-hidden size={18} />
+              <VoxelIcon art="study" size={22} />
               <span>{t("appShell.study")}</span>
             </button>
             <button
@@ -107,7 +110,7 @@ export function AppShell() {
               aria-current={surface === "chat" ? "page" : undefined}
               onClick={() => navigate("/chat")}
             >
-              <MessageCircle aria-hidden size={18} />
+              <VoxelIcon art="chat" size={22} />
               <span>{t("appShell.chat")}</span>
             </button>
           </div>
@@ -119,8 +122,15 @@ export function AppShell() {
           type="button"
           onClick={() => navigate("/study")}
         >
-          <span className="kq-brand-mark" aria-hidden>K</span>
-          <span className="kq-brand-name">{t("appShell.brand")}</span>
+          {/* 正中只有注册字标，没有图形 mark（设计稿第四轮 4a）——横条上已经有五件
+              体素物件，再摆一只小娜杯就成了图标堆；字标自己带着杯口那个 Q。
+              字标是注册字形的位图，不是文字：Qi 那两个字母的字面与墨色都在图里，
+              系统字体拼不出来。白天/夜晚换的是文件，不是滤镜。 */}
+          <img
+            className="kq-brand-name"
+            src={theme === "dark" ? ART_ASSETS.wordmarkNight : ART_ASSETS.wordmark}
+            alt={t("appShell.brand")}
+          />
         </button>
 
         <div className="kq-utility-nav hermes-titlebar-nodrag">
@@ -130,7 +140,7 @@ export function AppShell() {
             aria-current={surface === "settings" ? "page" : undefined}
             onClick={() => navigate("/settings")}
           >
-            <SettingsIcon aria-hidden size={19} />
+            <VoxelIcon art="settings" size={28} />
           </button>
           {/* 产品控制与窗口控制之间留一道分隔：前者管应用，后者管这扇窗。 */}
           <WindowControls />

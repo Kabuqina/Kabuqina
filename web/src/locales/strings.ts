@@ -45,7 +45,10 @@ export const MESSAGES = {
       fileCancel: "算了",
     },
     appShell: {
-      brand: "卡布奇娜",
+      // 横条正中那件字标是**图**（见 ART_ASSETS.wordmark），这里只是它的 alt。
+      // 字标写作「卡布Qi娜」，中间两个拉丁字母就是杯口那个 Q；正文里的产品名仍然是
+      // 「卡布奇娜」（见 productName）。两者不是同一样东西，别为了统一改哪边。
+      brand: "卡布Qi娜",
       primaryNav: "一级目的地",
       study: "学习",
       studio: "创作",

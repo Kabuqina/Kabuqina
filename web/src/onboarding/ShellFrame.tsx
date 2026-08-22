@@ -5,7 +5,6 @@ import { ReactNode, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import { AppScaffold } from "../components/AppScaffold";
 import { useI18n } from "../lib/i18n";
-import { ART_ASSETS } from "../lib/artAssets";
 import { useDraft } from "../lib/store";
 import { getIndexInFlow, getStepsForMode, slugFromPathname, type ShellWizardStepId } from "./flowConfig";
 
@@ -25,26 +24,22 @@ export function ShellFrame({ children }: { children: ReactNode }) {
   });
 
   return (
-    <AppScaffold className="flex h-full w-full flex-col">
-      <header className="kq-chat-topbar shrink-0 border-b px-[var(--hd-page-pad-x)] py-3.5">
-        <div className="mx-auto flex max-w-[var(--hd-content-max)] items-center justify-between gap-3">
-          <div className="flex shrink-0 items-center gap-2">
-            <img src={ART_ASSETS.mascot} alt="" className="h-7 w-7 shrink-0" draggable={false} />
-            <span className="hd-wizard-card-title">{t("productName")}</span>
-          </div>
-          <div className="flex min-w-0 flex-col items-end gap-1.5 sm:flex-row sm:items-center sm:gap-3">
+    <AppScaffold className="flex h-full min-h-0 w-full flex-col">
+      <div className="kq-chat-desk">
+        <section className="kq-chat-paper kq-utility-paper kq-onboarding-paper">
+          <header className="kq-utility-paper-head kq-onboarding-progress">
             <p className="hd-wizard-progress truncate" aria-live="polite">
               {progressText}
             </p>
             <ProgressDots index={idx} total={stepList.length} />
-          </div>
-        </div>
-      </header>
-      <main className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-[var(--hd-content-max)] space-y-[var(--hd-stack-gap)] px-[var(--hd-page-pad-x)] py-10 sm:py-12">
-          {children}
-        </div>
-      </main>
+          </header>
+          <main className="kq-utility-paper-body">
+            <div className="mx-auto max-w-[var(--hd-content-max)] space-y-[var(--hd-stack-gap)]">
+              {children}
+            </div>
+          </main>
+        </section>
+      </div>
     </AppScaffold>
   );
 }

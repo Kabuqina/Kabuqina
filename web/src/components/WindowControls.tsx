@@ -4,8 +4,9 @@
 import { useEffect, useState } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Maximize2, Minus, Sparkles, X } from "lucide-react";
 import { useI18n } from "../lib/i18n";
+import { ART_ASSETS } from "../lib/artAssets";
+import { PixelGlyph } from "./voxel/PixelGlyph";
 
 /**
  * 缩到小娜 + 系统窗口控制。
@@ -13,6 +14,10 @@ import { useI18n } from "../lib/i18n";
  * 单独抽出来，是因为窗口控制**只能有一处**，而承载它的那条横条会变：
  * 在 Study / Studio / Chat / Settings 上是 `AppShell` 的产品页眉，其余页面是
  * `WindowTitleBar`。两边渲染同一个组件，不各写一份。
+ *
+ * 字形是 16 网格上的平面像素件（`PixelGlyph`），不是 lucide 也不做等轴：产品页眉上
+ * 满是体素方块，lucide 那几根发丝摆在旁边太轻；而窗口控制是系统 chrome，
+ * 立体化又会和内容争视觉——所以走「同样的硬边、留在正面」。
  */
 export function WindowControls() {
   const { t } = useI18n();
@@ -54,7 +59,8 @@ export function WindowControls() {
         title={t("companion.show")}
         aria-label={t("companion.show")}
       >
-        <Sparkles className="kq-titlebar-companion-icon" strokeWidth={2} aria-hidden />
+        {/* 使用设计导出的 kq-cup，按 28px 展示；按钮只提供点击语义，不再画额外底板。 */}
+        <img className="kq-titlebar-companion-icon" src={ART_ASSETS.companionButton} alt="" />
       </button>
       <div className="kq-titlebar-divider" aria-hidden />
       <button
@@ -64,7 +70,7 @@ export function WindowControls() {
         title={t("shell.minimize")}
         aria-label={t("shell.minimize")}
       >
-        <Minus className="h-3.5 w-3.5" strokeWidth={2.25} />
+        <PixelGlyph name="minimize" size={11} />
       </button>
       <button
         type="button"
@@ -73,7 +79,7 @@ export function WindowControls() {
         title={isMaximized ? t("shell.restore") : t("shell.maximize")}
         aria-label={isMaximized ? t("shell.restore") : t("shell.maximize")}
       >
-        <Maximize2 className="h-3.5 w-3.5" strokeWidth={2.2} />
+        <PixelGlyph name="maximize" size={11} />
       </button>
       <button
         type="button"
@@ -83,7 +89,7 @@ export function WindowControls() {
         title={t("shell.close")}
         aria-label={t("shell.close")}
       >
-        <X className="h-3.5 w-3.5" strokeWidth={2.25} />
+        <PixelGlyph name="close" size={11} />
       </button>
     </div>
   );

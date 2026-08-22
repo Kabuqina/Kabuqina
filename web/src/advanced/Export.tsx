@@ -2,11 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import { AppScaffold } from "../components/AppScaffold";
-import { BackButton } from "../components/ui/BackButton";
 import { useI18n } from "../lib/i18n";
 import {
   buildExportHtml,
@@ -27,7 +25,6 @@ import {
 
 export function Export() {
   const { t, locale } = useI18n();
-  const nav = useNavigate();
 
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -150,14 +147,14 @@ export function Export() {
 
   return (
     <AppScaffold surface="chat" className="flex h-full min-h-0 flex-col">
-      <div className="hd-topbar sticky top-0 z-20 flex h-12 shrink-0 items-center gap-2 border-b px-2 sm:px-3">
-        <BackButton onClick={() => nav("/chat")} className="-ml-1">
-          {t("export.back")}
-        </BackButton>
-        <span className="text-sm font-semibold text-[var(--kq-color-strong)]">{t("export.title")}</span>
-      </div>
-      <div className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col px-[var(--hd-page-pad-x)]">
-        <div className="shrink-0 space-y-4 pt-7 sm:pt-8">
+      <div className="kq-chat-desk">
+        <section className="kq-chat-paper kq-utility-paper" aria-labelledby="export-page-title">
+          <header className="kq-utility-paper-head">
+            <h1 id="export-page-title">{t("export.title")}</h1>
+          </header>
+          <div className="kq-utility-paper-body kq-export-body">
+            <div className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col">
+              <div className="shrink-0 space-y-4">
         <p className="max-w-xl text-sm leading-relaxed text-[var(--kq-color-muted)]">
           {t("export.lead")}
         </p>
@@ -213,9 +210,9 @@ export function Export() {
             {t("export.selected", { count: selected.size })}
           </span>
         </div>
-        </div>
+              </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto py-3">
+              <div className="min-h-0 flex-1 overflow-y-auto py-3">
         {loading && (
           <p className="text-sm text-[var(--kq-color-muted)] py-8 text-center">
             {t("export.loading")}
@@ -262,9 +259,9 @@ export function Export() {
             })}
           </div>
         )}
-        </div>
+              </div>
 
-        <div className="shrink-0 border-t border-[var(--kq-color-border)] py-4">
+              <div className="shrink-0 border-t border-[var(--kq-color-border)] pt-4">
           <button
             type="button"
             disabled={selected.size === 0 || exporting}
@@ -273,7 +270,10 @@ export function Export() {
           >
             {exporting ? "…" : t("export.exportBtn")}
           </button>
-        </div>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
     </AppScaffold>
   );

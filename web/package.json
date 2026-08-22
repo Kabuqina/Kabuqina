@@ -25,6 +25,7 @@
     "test:onboarding-providers": "node src/onboarding/providerUx.test.mjs",
     "test:companion-ux": "node src/companion/companionUx.test.mjs",
     "export:brand-svgs": "npx vite-node src/components/brand/exportBrandSvgs.ts",
+    "export:voxel-icons": "npx vite-node src/components/voxel/exportVoxelIcons.ts",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -74,12 +74,12 @@ function revealMainWindowAfterShellPaint() {
   };
 }
 
-const SHELL_SURFACES = ["/study", "/chat", "/settings"];
+const SHELL_SURFACES = ["/study", "/chat", "/settings", "/onboarding", "/export"];
 
 function MainWindowContent() {
   const location = useLocation();
-  // Study / Studio / Chat / Settings 上，那条横条就是 AppShell 的产品页眉，窗口控制长在它右端；
-  // 其余页面（引导、导出、启动页）才需要独立的窗口标题栏。全窗口始终只有一条。
+  // AppShell 覆盖所有产品页与辅助流程，那条横条就是窗口标题栏，窗口控制长在它右端；
+  // 只有启动页与独立预览页使用较矮的 WindowTitleBar。全窗口始终只有一条。
   const shellOwnsTitleBar = SHELL_SURFACES.some(
     (path) => location.pathname === path || location.pathname.startsWith(`${path}/`),
   );
@@ -90,12 +90,12 @@ function MainWindowContent() {
         <Suspense fallback={<BootPill />}>
           <Routes>
           <Route path="/" element={<Splash />} />
-          <Route path="/onboarding/*" element={<Wizard />} />
-          <Route path="/export" element={<Export />} />
           {/* 移动端 Bot 与邮件渠道的产品面已移除（CTL-C08）；旧 v0.4 深链接只进墓碑页解释升级。 */}
-          {/* Study / Chat / Settings 共用全局外壳：台灯与对话/进行中站在横条最左，
+          {/* 产品页与辅助流程共用全局外壳：台灯与学习/对话站在横条最左，
               品牌在正中，设置与窗口控制在右侧工具区；各页面不再自己画一条顶栏（架构 §5.1）。 */}
           <Route element={<AppShell />}>
+            <Route path="/onboarding/*" element={<Wizard />} />
+            <Route path="/export" element={<Export />} />
             <Route path="/chat" element={<ChatPage />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/settings/load-packages" element={<LoadPackagesPage />} />

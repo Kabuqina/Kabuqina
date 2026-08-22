@@ -17,9 +17,9 @@ import {
 
 /** Pixels²: move more than sqrt(this) before we call `startDragging`, so plain double‑clicks open main. */
 const COMPACT_DRAG_SQ_THRESHOLD = 7 * 7;
-/** Match `.kq-companion-pill-scene` (6.2rem × 6.15rem). */
-const PILL_REM_W = 6.2;
-const PILL_REM_H = 6.15;
+/** Match `.kq-companion-pill-scene` (5rem × 5.56rem); extra height protects the floating art from top-edge clipping. */
+const PILL_REM_W = 5;
+const PILL_REM_H = 5.56;
 const MENU_REM_W = 20.25;
 const MENU_REM_H = 8.75;
 

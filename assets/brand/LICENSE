@@ -17,7 +17,7 @@ repository, including but not limited to:
   historical copies under Na_logo/ and web/public/ in this repository's git
   history remain covered
 - Brand asset generator scripts (generate_mascot.py,
-  generate_mascot_scenes.py, generate_na_mark.py) — now in the private
+  generate_mascot_scenes.py, generate_qi_mark.py) — now in the private
   repository's masters/ tree; historical copies under Na_logo/ remain
   covered, including their geometry, palette definitions, export parameters,
   and generated output

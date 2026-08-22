@@ -2,12 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useEffect, useState, useCallback } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { confirm } from "../../lib/confirmDialog";
 import { AppScaffold } from "../../components/AppScaffold";
-import { BackButton } from "../../components/ui/BackButton";
 import { Button } from "../../components/ui/Button";
 import { Toggle } from "../../components/ui/Toggle";
 import { formatCronDateTime, formatCronSchedule } from "../../lib/formatCronTime";
@@ -76,19 +74,8 @@ function goalErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function cronBackTarget(state: unknown): string | null {
-  if (typeof state !== "object" || state === null) return null;
-  const raw = (state as { cronBackTo?: unknown }).cronBackTo;
-  return typeof raw === "string" && raw ? raw : null;
-}
-
 export function ScheduledTasksPage() {
-  const nav = useNavigate();
-  const location = useLocation();
   const { t, locale } = useI18n();
-  const cronBackTo = cronBackTarget(location.state);
-  const backPath = cronBackTo === "/chat" ? "/chat" : "/settings";
-  const backLabel = cronBackTo === "/chat" ? t("onboarding.backToChat") : t("settings.backToSettings");
   const [jobs, setJobs] = useState<CronJobEntry[]>([]);
   const [completed, setCompleted] = useState<CronJobEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -448,12 +435,13 @@ export function ScheduledTasksPage() {
 
   return (
     <AppScaffold surface="chat" className="flex h-full min-h-0 flex-col">
-      <div className="hd-topbar sticky top-0 z-20 flex h-12 shrink-0 items-center gap-2 border-b px-2 sm:px-3">
-        <BackButton onClick={() => nav(backPath)} className="-ml-1">{backLabel}</BackButton>
-        <span className="text-sm font-semibold text-[var(--kq-color-strong)]">{t("cron.title")}</span>
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto max-w-2xl space-y-5 px-[var(--hd-page-pad-x)] py-7 sm:py-9">
+      <div className="kq-chat-desk">
+        <section className="kq-chat-paper kq-utility-paper" aria-labelledby="cron-page-title">
+          <header className="kq-utility-paper-head">
+            <h1 id="cron-page-title">{t("cron.title")}</h1>
+          </header>
+          <div className="kq-utility-paper-body">
+            <div className="mx-auto max-w-2xl space-y-5">
         <div>
           <p className="max-w-xl text-sm leading-relaxed text-[var(--kq-color-muted)]">
             {t("cron.lead")}
@@ -541,7 +529,9 @@ export function ScheduledTasksPage() {
             )}
           </>
         )}
-      </div>
+            </div>
+          </div>
+        </section>
       </div>
     </AppScaffold>
   );

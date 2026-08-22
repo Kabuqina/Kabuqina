@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>v0.5.0 自习 MVP · 低保真原型</title>
+<style>
+:root{
+  --ink:#43334A; --ink-strong:#4E3454; --ink-mid:#5F5367; --ink-soft:#7A6675;
+  --purple:#6E4370; --purple-pale:#F4EAF1; --purple-faint:#F8F3FA; --purple-line:#DCC9D6;
+  --lavender:#A98CB9; --paper:#FBF7F4; --paper-strong:#FFFCFA; --surface:#fff;
+  --desk:#D0B7A8; --desk-hi:#DCC7B9; --desk-lo:#C3A897; --desk-ink:#55362D;
+  --line:#D9CFCA; --line-strong:#C8BAC2; --line-warm:#E9DBD2; --line-faint:#F0E5DD;
+  --manila:#F5EAD8; --manila-line:#DDD0BD; --tan:#C78C70;
+  --warning:#9A5A3C; --warning-bg:#FBEDE2;
+  --shadow:0 10px 30px rgba(88,54,60,.14); --shadow-soft:0 4px 14px rgba(88,54,60,.10);
+  --tap:44px;
+}
+*{box-sizing:border-box}
+body{margin:0;padding:28px 16px 56px;font:14px/1.55 "Segoe UI","Microsoft YaHei",sans-serif;
+  color:var(--ink);background:linear-gradient(180deg,var(--desk-hi),var(--desk) 55%,var(--desk-lo));min-height:100vh}
+h1,h2,h3,h4{margin:0}
+.wrap{max-width:1180px;margin:0 auto}
+.hd{color:var(--desk-ink);margin-bottom:18px}
+.hd h1{font-size:19px;letter-spacing:.02em}
+.hd p{margin:6px 0 0;font-size:13px;opacity:.85;max-width:74ch}
+.hd code{font:12px ui-monospace,Consolas,monospace;background:rgba(255,252,250,.7);padding:1px 5px;border-radius:4px}
+.stage{display:flex;gap:26px;align-items:flex-start;flex-wrap:wrap}
+
+.pad{width:430px;flex:0 0 430px;background:#2A2024;border-radius:26px;padding:12px;
+  box-shadow:var(--shadow),0 2px 0 rgba(255,255,255,.12) inset}
+.screen{background:var(--paper);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;height:730px}
+
+.tabs{display:flex;background:var(--manila);border-bottom:1px solid var(--manila-line);flex:0 0 auto}
+.tab{flex:1;min-height:var(--tap);border:0;background:transparent;font:inherit;font-size:12.5px;
+  color:var(--ink-soft);cursor:pointer;padding:10px 2px;border-bottom:2px solid transparent}
+.tab[aria-selected=true]{background:var(--paper);color:var(--ink-strong);font-weight:600;border-bottom-color:var(--purple)}
+.slug{flex:0 0 auto;font:11px ui-monospace,Consolas,monospace;color:var(--ink-soft);
+  background:var(--paper);padding:5px 12px;border-bottom:1px solid var(--line-faint)}
+.body{flex:1;overflow:auto;padding:16px 16px 8px}
+
+.dock{flex:0 0 auto;display:flex;gap:10px;padding:10px 12px 14px;background:var(--paper-strong);
+  border-top:1px solid var(--line-faint)}
+.dock button{flex:1;min-height:var(--tap);border-radius:12px;font:inherit;font-size:14px;cursor:pointer}
+.b-primary{background:var(--purple);color:#fff;border:1px solid var(--purple)}
+.b-second{background:var(--surface);color:var(--ink-strong);border:1px solid var(--line)}
+
+.kicker{font-size:11px;letter-spacing:.08em;color:var(--ink-soft);margin-bottom:5px}
+.core{background:var(--surface);border:1px solid var(--line-warm);border-radius:12px;padding:14px;box-shadow:var(--shadow-soft)}
+.core h3{font-size:16px;color:var(--ink-strong);margin-bottom:6px}
+.core p{margin:0;color:var(--ink-mid);font-size:13px}
+.next{margin-top:12px;background:var(--purple-faint);border:1px solid var(--purple-line);border-radius:10px;padding:12px}
+.next .lab{font-size:11px;color:var(--purple);letter-spacing:.06em;margin-bottom:4px}
+.next strong{display:block;font-size:14px;color:var(--ink-strong);font-weight:600}
+.hint{margin-top:10px;font-size:12px;color:var(--ink-soft)}
+
+.modes{display:inline-flex;background:var(--purple-pale);border-radius:999px;padding:3px;margin-bottom:12px}
+/* R8：命中区 ≥44px —— 这个开关最初做成 34px，是原型自己踩的坑，留注防止再犯 */
+.modes button{min-height:var(--tap);min-width:64px;padding:0 18px;border:0;border-radius:999px;background:transparent;
+  font:inherit;font-size:13px;color:var(--ink-soft);cursor:pointer}
+.modes button[aria-pressed=true]{background:var(--surface);color:var(--ink-strong);font-weight:600;box-shadow:var(--shadow-soft)}
+
+/* 练：题目纸 */
+.q{background:var(--surface);border:1px solid var(--line-warm);border-radius:12px;padding:16px;box-shadow:var(--shadow-soft)}
+.q .no{font-size:11px;color:var(--ink-soft);letter-spacing:.06em;margin-bottom:8px}
+.q .stem{font-size:17px;color:var(--ink-strong);line-height:1.9;padding:12px 0;
+  border-top:1px solid var(--line-faint);border-bottom:1px solid var(--line-faint)}
+.q .todo{margin-top:12px;font-size:13px;color:var(--ink-mid)}
+.q .shoot{width:100%;min-height:var(--tap);margin-top:12px;border-radius:10px;border:1px solid var(--purple);
+  background:var(--purple-faint);color:var(--purple);font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
+.tie{margin-top:10px;font-size:11.5px;color:var(--ink-soft);display:flex;align-items:center;gap:6px}
+.tie b{color:var(--purple);font-weight:600}
+
+.src{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:3px 8px;border-radius:999px;margin-top:10px}
+.src-nana{background:var(--purple-pale);color:var(--purple);border:1px solid var(--purple-line)}
+
+.row{display:flex;gap:10px;align-items:flex-start;background:var(--surface);border:1px solid var(--line-warm);
+  border-radius:10px;padding:11px;margin-bottom:9px}
+.row .t{flex:1}
+.row .t b{display:block;font-size:13px;color:var(--ink-strong);font-weight:600}
+.row .t span{font-size:12px;color:var(--ink-soft)}
+.pill{font-size:10px;padding:2px 7px;border-radius:999px;white-space:nowrap}
+.p-paper{background:var(--manila);color:var(--desk-ink);border:1px solid var(--manila-line)}
+.p-app{background:var(--purple-faint);color:var(--purple);border:1px solid var(--purple-line)}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:12px;color:var(--ink-soft);margin-bottom:4px}
+.field input{width:100%;min-height:var(--tap);border:1px solid var(--line);border-radius:10px;
+  padding:0 12px;font:inherit;background:var(--surface);color:var(--ink)}
+.note{font-size:12px;color:var(--ink-soft);background:var(--manila);border:1px dashed var(--manila-line);
+  border-radius:10px;padding:10px;margin-top:12px;line-height:1.6}
+.addbtn{width:100%;min-height:var(--tap);margin-top:4px;border:1px dashed var(--line-strong);background:transparent;
+  border-radius:10px;font:inherit;font-size:13px;color:var(--ink-soft);cursor:pointer}
+
+.sheet{position:absolute;inset:0;background:rgba(42,32,36,.42);display:none;align-items:flex-end}
+.sheet.on{display:flex}
+.card{background:var(--paper-strong);width:100%;border-radius:16px 16px 0 0;padding:16px;max-height:90%;overflow:auto}
+.card h4{font-size:14px;color:var(--ink-strong);margin-bottom:3px}
+.card .sub{font-size:12px;color:var(--ink-soft);margin-bottom:12px}
+.paths{display:grid;gap:8px}
+.path{display:flex;gap:10px;align-items:center;min-height:var(--tap);border:1px solid var(--line);
+  background:var(--surface);border-radius:10px;padding:0 12px;font:inherit;font-size:13px;cursor:pointer;width:100%;color:var(--ink);text-align:left}
+.shot{background:#EFE7E0;border:1px solid var(--line-warm);border-radius:10px;height:132px;
+  display:flex;align-items:flex-end;justify-content:center;color:var(--ink-soft);font-size:12px;margin-bottom:10px;position:relative}
+.shot .crop{position:absolute;inset:14px 22px 22px 16px;border:2px dashed var(--purple);border-radius:6px}
+.shot span{margin-bottom:8px;position:relative}
+.tools{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.tool{min-height:var(--tap);padding:0 14px;border:1px solid var(--line);background:var(--surface);
+  border-radius:8px;font:inherit;font-size:12px;cursor:pointer;color:var(--ink)}
+.meta{font:11px ui-monospace,Consolas,monospace;color:var(--ink-soft);margin-bottom:10px}
+.lines{border:1px solid var(--line-warm);border-radius:10px;overflow:hidden;margin-bottom:10px}
+.ln{display:flex;gap:9px;padding:8px 10px;font-size:12px;border-bottom:1px solid var(--line-faint);background:var(--surface)}
+.ln:last-child{border-bottom:0}
+.ln i{font-style:normal;color:var(--ink-soft);flex:0 0 22px}
+.ln.bad{background:var(--warning-bg);color:var(--warning)}
+.band{display:inline-block;font-size:11px;padding:3px 9px;border-radius:999px;
+  background:var(--warning-bg);color:var(--warning);border:1px solid #E7CDB9;margin-bottom:10px}
+.three{display:grid;gap:8px;margin-bottom:4px}
+.three button{min-height:var(--tap);border-radius:10px;border:1px solid var(--line);background:var(--surface);
+  font:inherit;font-size:13px;cursor:pointer;color:var(--ink)}
+.three button.key{background:var(--purple);color:#fff;border-color:var(--purple)}
+.step-out{background:var(--purple-faint);border:1px solid var(--purple-line);border-radius:10px;padding:12px;margin-bottom:10px}
+.step-out .lab{font-size:11px;color:var(--purple);margin-bottom:4px;letter-spacing:.06em}
+.step-out p{margin:0;font-size:13px;color:var(--ink-strong)}
+.escape{width:100%;min-height:var(--tap);border:1px dashed var(--line-strong);background:transparent;
+  border-radius:10px;font:inherit;font-size:12px;color:var(--ink-soft);cursor:pointer}
+.close{width:100%;min-height:var(--tap);margin-top:8px;border:0;background:transparent;font:inherit;
+  font-size:13px;color:var(--ink-soft);cursor:pointer}
+
+.notes{flex:1;min-width:300px;color:var(--desk-ink)}
+.nbox{background:rgba(255,252,250,.9);border:1px solid var(--line-warm);border-radius:12px;padding:14px 16px;margin-bottom:12px}
+.nbox h4{font-size:13px;margin-bottom:8px;color:var(--ink-strong)}
+.nbox ul{margin:0;padding-left:18px;font-size:13px;color:var(--ink-mid)}
+.nbox li{margin-bottom:6px}
+.nbox code{font:11px ui-monospace,Consolas,monospace;background:var(--purple-faint);padding:1px 5px;border-radius:4px;color:var(--purple)}
+.chg{border-left:3px solid var(--tan);padding-left:10px}
+.paperbit{background:var(--manila);border:1px solid var(--manila-line);border-radius:12px;padding:14px 16px;
+  font-size:13px;color:var(--desk-ink);line-height:1.7}
+.pos{position:relative;flex:1;display:flex;flex-direction:column;min-height:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="hd">
+  <h1>v0.5.0 自习 MVP · 低保真原型</h1>
+  <p><b>产品为学生在自习时提供辅导。</b>照 <code>2026-08-20-v0.5.0-study-mvp-requirements.md</code> 画，
+     窄布局为主布局，命中区 ≥44px，主动作下沿锚定。切「学 / 练」看下沿两个按钮如何换；点「拍一张」走完整卡壳流程。</p>
+</div>
+
+<div class="stage">
+  <div class="pad">
+    <div class="screen">
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" aria-selected="true" data-s="notebook">摊开的本子</button>
+        <button class="tab" role="tab" aria-selected="false" data-s="cards">卡片盒</button>
+        <button class="tab" role="tab" aria-selected="false" data-s="flyleaf">扉页</button>
+        <button class="tab" role="tab" aria-selected="false" data-s="materials">材料</button>
+      </div>
+      <div class="slug" id="slug">/study/jifen-01/notebook</div>
+      <div class="pos">
+        <div class="body" id="body"></div>
+        <div class="dock" id="dock"></div>
+        <div class="sheet" id="sheet"><div class="card" id="card"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="notes">
+    <div class="nbox">
+      <h4 style="color:var(--tan)">本轮按你的意见改了三处</h4>
+      <ul>
+        <li class="chg"><b>练 = 一道题。</b>不再是空的练习壳，直接生成一道同知识核的题；下沿换成
+            <b>问小娜</b>（左）＋<b>下一题</b>（右）。「拍给我看」移进题目纸里，因为它属于这道题，不属于全局。</li>
+        <li class="chg"><b>扉页与材料拆开。</b>现在是四个标签，slug 相应变成
+            <code>notebook</code> / <code>cards</code> / <code>flyleaf</code> / <code>materials</code>。</li>
+        <li class="chg"><b>改叫自习。</b>「课程」→「自习主题」，模块名从学习改为自习，定位落到"学生自习时的辅导"。</li>
+      </ul>
+    </div>
+    <div class="nbox">
+      <h4>仍在验证的合同</h4>
+      <ul>
+        <li><b>学 / 练共享同一个知识核</b>——切模式不换题目所属的那件事，题目纸上那行灰字标着它（R2）。</li>
+        <li><b>转写合同可见</b>——行序保留、看不清的明说不猜、置信度三档，给「重拍 / 升档 / 我来确认」三条路（§2.4）。</li>
+        <li><b>讲评不是判分</b>——三态确认固定，只有「确实做错」进错题草稿（R4）。</li>
+        <li><b>两种可信度不混</b>——「小娜讲解」与「你拍的书页」分开标（R1）。</li>
+        <li><b>「拍一张」≠ 相机</b>——选图 / 粘贴 / 拖入三条路，摄像头是检测到才出现的加成（R3）。</li>
+      </ul>
+    </div>
+    <div class="paperbit">
+      <b>桌上还有一样东西这个屏幕里没有：纸。</b><br>
+      S3「到纸上做」是产品故意不在场的一段。学模式把人推回纸上，练模式给完题也把人推回纸上，
+      屏幕只在他停笔（S4）和写完（S5）时才接手。
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+var cur = 'notebook';
+var mode = 'learn';
+var editingFlyleaf = false;
+
+var LEARN = [
+  '<div class="kicker">这一步要弄懂的</div>',
+  '<div class="core">',
+  '<h3>换元积分：为什么可以把 dx 换成 du</h3>',
+  '<p>不是"设 u 等于某个式子"这个动作本身，而是它背后凭什么成立——微分之间的对应关系。</p>',
+  '<span class="src src-nana">小娜讲解 · 通识，非教材原文</span>',
+  '<div class="next"><div class="lab">下一步</div>',
+  '<strong>拿草稿纸，把 ∫2x·cos(x²)dx 的换元过程写出来</strong>',
+  '<div class="hint">写到哪一步卡住，就拍那一步。不用写完。</div></div>',
+  '</div>',
+  '<div class="note">这一面不铺开知识核列表，也不铺开资料列表——一次只有一件事和一个下一步。</div>'
+].join('');
+
+var PRACTICE = [
+  '<div class="q">',
+  '<div class="no">第 2 题 · 共 5 题</div>',
+  '<div class="stem">求 ∫ 3x² · sin(x³) dx</div>',
+  '<div class="todo">到草稿纸上做。写完拍给我看，我对着你的步骤讲。</div>',
+  '<button class="shoot" onclick="openSheet(1)">写完了，拍给我看</button>',
+  '<div class="tie">同一个知识核：<b>换元积分的微分对应</b>　·　切回「学」不会换题所属的这件事</div>',
+  '</div>',
+  '<div class="note">题不是随机来的，是围绕当前知识核出的。做不出来先按「问小娜」，不要直接翻答案。</div>'
+].join('');
+
+var S = {
+  cards: [
+    '<div class="kicker">今天要复习</div>',
+    '<div class="row"><div class="t"><b>换元积分的适用条件</b><span>到期 · 上次「想起来了」是 6 天前</span></div><span class="pill p-app">卡片</span></div>',
+    '<div class="row"><div class="t"><b>∫x·e^(x²)dx 第 2 步把系数丢了</b><span>你拍的 · 8 月 20 日 · 待重做</span></div><span class="pill p-paper">纸上错题</span></div>',
+    '<div class="row"><div class="t"><b>分部积分的 u、dv 怎么选</b><span>到期 · 新卡</span></div><span class="pill p-app">卡片</span></div>',
+    '<div class="row"><div class="t"><b>三角换元记错了对应边</b><span>app 内测验 · 待重做</span></div><span class="pill p-app">app 错题</span></div>',
+    '<div class="note">纸上来的错题和 app 内的错题在同一个队列里排，不分两栏（R5）。<br>薄弱点只影响这里的排序，不单独渲染成报告。</div>'
+  ].join(''),
+
+  materials: [
+    '<div class="kicker">这次自习手边有什么</div>',
+    '<div class="row"><div class="t"><b>教材 P.86–P.92</b><span>你拍的书页 · 3 张 · 可被引用</span></div><span class="pill p-paper">photographed</span></div>',
+    '<div class="row"><div class="t"><b>习题课讲义.pdf</b><span>你导入的 · 12 页</span></div><span class="pill p-app">imported</span></div>',
+    '<button class="addbtn" onclick="openSheet(1)">＋ 拍一页书 / 放一份材料进来</button>',
+    '<div class="note">没拍过、没导过的地方，她只会按通识讲，并标成「小娜讲解」——不会说"书上写了什么"（R1）。<br>材料从扉页里拆出来了：扉页是<b>这次自习的意图</b>，材料是<b>手边的东西</b>，两件事。</div>'
+  ].join('')
+};
+
+/* 扉页是编辑面，不是采集面：它的下沿是 修改 / 保存，没有「拍一张」。
+   拍书页属于「材料」面。 */
+var FLYLEAF = function(editing){
+  var ro = editing ? '' : ' readonly';
+  return [
+    '<div class="kicker">这次自习学什么</div>',
+    '<div class="field"><label>自习主题</label><input value="不定积分 · 换元法"' + ro + '></div>',
+    '<div class="field"><label>当前范围</label><input value="同济第七版 第四章 4.1–4.3"' + ro + '></div>',
+    '<div class="field"><label>这段时间想达成</label><input value="能自己认出该用哪种换元"' + ro + '></div>',
+    editing
+      ? '<div class="note">这三行也可以让小娜问着你填——R1 说过，开自习的主路径是对话，表单只是编辑态。</div>'
+      : '<div class="note">开一次自习只要这三行，<b>不需要导入任何文件</b>——纸质教材本来就导不进来（R1）。<br>MVP 的扉页只留「目标」一行，偏好与约束推到 P1。</div>'
+  ].join('');
+};
+
+var DOCKS = {
+  'notebook:learn': [['b-second','问小娜','ask'],['b-primary','拍一张','shoot']],
+  'notebook:practice': [['b-second','问小娜','ask'],['b-primary','下一题','next']],
+  'cards': [['b-second','问小娜','ask'],['b-primary','开始复习','ask']],
+  'flyleaf:read': [['b-second','问小娜','ask'],['b-primary','修改','edit']],
+  'flyleaf:edit': [['b-second','取消','cancel'],['b-primary','保存','save']],
+  'materials': [['b-second','问小娜','ask'],['b-primary','拍一张','shoot']]
+};
+
+function dockKey(){
+  if (cur === 'notebook') return 'notebook:' + mode;
+  if (cur === 'flyleaf') return 'flyleaf:' + (editingFlyleaf ? 'edit' : 'read');
+  return cur;
+}
+
+function drawDock(){
+  var key = dockKey();
+  var html = DOCKS[key].map(function(b){
+    return '<button class="' + b[0] + '" data-act="' + b[2] + '">' + b[1] + '</button>';
+  }).join('');
+  var d = document.getElementById('dock');
+  d.innerHTML = html;
+  d.querySelectorAll('button').forEach(function(btn){
+    btn.onclick = function(){
+      var a = btn.dataset.act;
+      if (a === 'shoot') openSheet(1);
+      else if (a === 'next') alert('下一题：同一知识核的下一道，不换知识核');
+      else if (a === 'edit') { editingFlyleaf = true; draw(); }
+      else if (a === 'cancel') { editingFlyleaf = false; draw(); }
+      else if (a === 'save') { editingFlyleaf = false; draw(); }
+      else alert('问小娜：沿用现有会话与精确返回，不在本原型展开');
+    };
+  });
+}
+
+function drawBody(){
+  if (cur === 'notebook'){
+    document.getElementById('body').innerHTML =
+      '<div class="modes">' +
+      '<button aria-pressed="' + (mode==='learn') + '" data-m="learn">学</button>' +
+      '<button aria-pressed="' + (mode==='practice') + '" data-m="practice">练</button>' +
+      '</div>' + (mode === 'learn' ? LEARN : PRACTICE);
+    document.querySelectorAll('.modes button').forEach(function(b){
+      b.onclick = function(){ mode = b.dataset.m; draw(); };
+    });
+  } else {
+    document.getElementById('body').innerHTML = S[cur];
+  }
+}
+
+function draw(){
+  S.flyleaf = FLYLEAF(editingFlyleaf);   // 扉页随读/编辑态重建，其余面是静态串
+  drawBody();
+  drawDock();
+  document.getElementById('slug').textContent = '/study/jifen-01/' + cur;
+}
+
+document.querySelectorAll('.tab').forEach(function(t){
+  t.onclick = function(){
+    document.querySelectorAll('.tab').forEach(function(x){ x.setAttribute('aria-selected', x === t); });
+    cur = t.dataset.s; draw();
+  };
+});
+
+var C = {
+1: [
+  '<h4>拍一张</h4><div class="sub">选一条路把图放进来。Windows 上三条都做，摄像头是可选加成。</div>',
+  '<div class="paths">',
+  '<button class="path" onclick="openSheet(2)">📁　选一张图</button>',
+  '<button class="path" onclick="openSheet(2)">📋　粘贴截图（Ctrl+V）</button>',
+  '<button class="path" onclick="openSheet(2)">⤵️　把图拖进来</button>',
+  '<button class="path" style="opacity:.55" onclick="openSheet(2)">📷　用摄像头拍（检测到时才出现）</button>',
+  '</div><button class="close" onclick="shut()">取消</button>'
+].join(''),
+
+2: [
+  '<h4>裁到答题区</h4><div class="sub">压到最长边约 1280px 再上传——分辨率直接决定成本。</div>',
+  '<div class="shot"><div class="crop"></div><span>你的草稿纸</span></div>',
+  '<div class="tools"><button class="tool">旋转</button><button class="tool">重裁</button><button class="tool">转灰度（可撤销）</button></div>',
+  '<div class="meta">3024×4032 → 1280×960 ／ 约 1.1k image tokens</div>',
+  '<div class="three"><button class="key" onclick="openSheet(3)">就这样，看一下</button></div>',
+  '<button class="close" onclick="shut()">取消</button>'
+].join(''),
+
+3: [
+  '<h4>我读到的是这样</h4><div class="sub">先让你核对，再讲评。读不出的地方不会猜。</div>',
+  '<span class="band">置信度：medium</span>',
+  '<div class="lines">',
+  '<div class="ln"><i>1</i><span>∫ 3x² · sin(x³) dx</span></div>',
+  '<div class="ln"><i>2</i><span>令 u = x³，du = 3x² dx</span></div>',
+  '<div class="ln"><i>3</i><span>= ∫ sin(u) du</span></div>',
+  '<div class="ln bad"><i>4</i><span>这一行右半看不清（有划改）——没有猜</span></div>',
+  '</div>',
+  '<div class="three">',
+  '<button class="key" onclick="openSheet(4)">对，就是这样</button>',
+  '<button onclick="openSheet(2)">重拍这张</button>',
+  '<button onclick="openSheet(3)">读错了，换更细的档再读一次</button>',
+  '</div><button class="close" onclick="shut()">取消</button>'
+].join(''),
+
+4: [
+  '<h4>下一步</h4><div class="sub">你停在第 4 行。这里只推一步，不给整题答案。</div>',
+  '<div class="step-out"><div class="lab">往哪想</div>',
+  '<p>第 3 行你已经把式子化成 ∫sin(u)du 了。现在问自己一句：<b>什么函数求导之后是 sin(u)？</b>注意符号，想出来就写第 5 行，别急着换回 x。</p></div>',
+  '<button class="escape" onclick="openSheet(5)">我不想推了，直接给我答案</button>',
+  '<button class="close" onclick="shut()">回纸上继续</button>'
+].join(''),
+
+5: [
+  '<h4>完整答案</h4><div class="sub">要就完整给，不为了逼你学而故意难用。</div>',
+  '<div class="step-out"><p>∫3x²·sin(x³)dx = −cos(x³) + C</p></div>',
+  '<div class="note" style="margin:0 0 10px">这题建立在三个知识点上：换元的微分对应、sin 的原函数与负号、换回原变量。<b>你跳过的是第一个。</b></div>',
+  '<div class="three"><button class="key" onclick="openSheet(6)">加进复习队列</button></div>',
+  '<button class="close" onclick="shut()">先不用</button>'
+].join(''),
+
+6: [
+  '<h4>这道算做错了吗？</h4><div class="sub">她给的是待确认讲评，不是判分。对错由你说了算。</div>',
+  '<div class="step-out"><div class="lab">她看到的</div>',
+  '<p>第 4 行之后没有换回原变量 x，而且 sin 的原函数漏了负号。</p></div>',
+  '<div class="three">',
+  '<button class="key" onclick="done()">确实做错　→ 进错题本</button>',
+  '<button onclick="shut()">其实做对了</button>',
+  '<button onclick="openSheet(2)">看不清，重拍</button>',
+  '</div><button class="close" onclick="shut()">以后再说</button>'
+].join('')
+};
+
+function openSheet(n){
+  document.getElementById('card').innerHTML = C[n];
+  document.getElementById('sheet').classList.add('on');
+}
+function shut(){ document.getElementById('sheet').classList.remove('on'); }
+function done(){ shut(); document.querySelector('.tab[data-s=cards]').click(); }
+draw();
+</script>
+</body>
+</html>

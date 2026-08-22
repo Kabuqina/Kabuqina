@@ -5,8 +5,9 @@ import { useI18n } from "../lib/i18n";
 import { cn } from "../lib/cn";
 import { ART_ASSETS } from "../lib/artAssets";
 
-/** Chat assistant avatar — Kabuqina mascot SVG (chat only). */
-export const ASSISTANT_AVATAR_SRC = ART_ASSETS.mascot;
+/** Chat assistant avatar — voxel cup-on-coaster app icon (chat only). */
+export const ASSISTANT_AVATAR_SRC = ART_ASSETS.assistantAvatar;
+export const ASSISTANT_AVATAR_NIGHT_SRC = ART_ASSETS.assistantAvatarNight;
 
 type Props = {
   className?: string;
@@ -25,9 +26,18 @@ export function AssistantAvatar({ className, labeled = true }: Props) {
       <img
         src={ASSISTANT_AVATAR_SRC}
         alt=""
-        className="kq-assistant-avatar-image"
-        width={46}
-        height={46}
+        className="kq-assistant-avatar-image kq-assistant-avatar-image--day"
+        width={48}
+        height={48}
+        decoding="async"
+        draggable={false}
+      />
+      <img
+        src={ASSISTANT_AVATAR_NIGHT_SRC}
+        alt=""
+        className="kq-assistant-avatar-image kq-assistant-avatar-image--night"
+        width={48}
+        height={48}
         decoding="async"
         draggable={false}
       />

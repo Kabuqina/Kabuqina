@@ -386,12 +386,12 @@ function EmptyState() {
           style={{ background: "radial-gradient(circle, rgba(232,223,240,0.5) 0%, transparent 70%)" }}
         />
         <img
-          src={ART_ASSETS.boot}
-          alt="Kabuqina chat hero — cup on gingham coaster"
-          className="kq-float relative h-auto w-48 select-none"
+          src={ART_ASSETS.chatEmptyCup}
+          alt="Kabuqina voxel app icon"
+          className="kq-float relative h-auto w-24 select-none"
           style={{ filter: "drop-shadow(0 6px 20px rgba(90,74,106,0.12))", animation: "kq-float 3.4s ease-in-out infinite" }}
-          width={1280}
-          height={640}
+          width={128}
+          height={128}
           decoding="async"
           draggable={false}
         />

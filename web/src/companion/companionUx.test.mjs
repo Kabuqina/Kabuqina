@@ -31,8 +31,8 @@ assert.doesNotMatch(
 
 assert.match(
   companionSource,
-  /PILL_REM_W = 6\.2[\s\S]*PILL_REM_H = 6\.15/,
-  "Pill window size should track the pill scene (cup + compact mat).",
+  /PILL_REM_W = 5[\s\S]*PILL_REM_H = 5\.56/,
+  "Pill window size should include top headroom for the floating scene.",
 );
 assert.match(
   companionSource,

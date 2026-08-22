@@ -988,8 +988,8 @@ assert.match(
 const windowControlsSource = fs.readFileSync(new URL("../components/WindowControls.tsx", import.meta.url), "utf8");
 assert.match(
   windowControlsSource,
-  /kq-titlebar-companion-btn[\s\S]*kq-titlebar-companion-icon/,
-  "The companion sparkle rides with the window controls, on whichever bar carries them.",
+  /kq-titlebar-companion-btn[\s\S]*VoxelIcon art="appIcon"/,
+  "Shrink-to-Nana wears the app icon itself, on whichever bar carries the window controls.",
 );
 assert.match(windowControlsSource, /cmd_show_companion/);
 assert.match(indexCssSource, /kq-titlebar-companion-btn/);
