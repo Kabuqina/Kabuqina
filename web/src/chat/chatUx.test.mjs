@@ -171,8 +171,11 @@ assert.match(
   "Assistant messages should render the mascot avatar beside the bubble.",
 );
 // 图形走 lib/artAssets.ts 这一个换装接缝（pre-art），不再硬编码路径字面量。
-assert.match(assistantAvatarSource, /ART_ASSETS\.mascot[\s\S]*kq-assistant-avatar/);
-assert.match(artAssetsSource, /mascot:\s*"\/kabuqina_mascot\.svg"/);
+// 头像换成了小娜杯本身，并且分白天/夜间两档——钉的是「走接缝」，不是某个具体文件名。
+assert.match(assistantAvatarSource, /ART_ASSETS\.assistantAvatar[\s\S]*kq-assistant-avatar/);
+assert.match(assistantAvatarSource, /ART_ASSETS\.assistantAvatarNight/);
+assert.match(artAssetsSource, /assistantAvatar:\s*"\//);
+assert.doesNotMatch(assistantAvatarSource, /src=\{?"\/kabuqina/);
 
 assert.doesNotMatch(
   chatMessageSource,
@@ -522,7 +525,7 @@ for (const className of ["kq-titlebar-brand", "kq-titlebar"]) {
 
 assert.match(
   messageListSource,
-  /ART_ASSETS\.boot[\s\S]*Kabuqina chat hero/,
+  /ART_ASSETS\.chatEmptyCup/,
   "The empty chat state should keep the companion cup.",
 );
 assert.doesNotMatch(

@@ -1,7 +1,7 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../lib/i18n";
 import { SettingsDisplay } from "./SettingsDisplay";
@@ -12,34 +12,36 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({ open: mocks.open }));
 
 afterEach(() => vi.clearAllMocks());
 
-const STATUS = { workspace: "C:\\Users\\X13\\kabuqina-home", hasSecret: true, pythonRunning: true };
-
 function renderDisplay() {
   return render(
     <I18nProvider>
       <SettingsDisplay
-        status={STATUS}
         fontSize="medium"
         onSetFontSize={vi.fn()}
         themeMode="system"
         onSetThemeMode={vi.fn()}
-        onWorkspaceChanged={vi.fn()}
       />
     </I18nProvider>,
   );
 }
 
 describe("SettingsDisplay", () => {
-  // v0.5.0 起不再分权限层（owner 2026-07-27）：工作区的全部控件对所有人常驻。
-  it("shows the workspace path, folder button and change controls to everyone", () => {
+  /** 这一面只管「看起来怎么样」：字体、主题、语言、桌面宠物外观。 */
+  it("carries the four appearance sections", () => {
     renderDisplay();
-    // 「恢复默认」在这一页出现两次（桌面宠物一个、工作区一个），所以按区块取。
-    const workspace = screen.getByText(STATUS.workspace).closest("section");
-    expect(workspace).not.toBeNull();
-    const inWorkspace = within(workspace as HTMLElement);
-    expect(inWorkspace.getByRole("button", { name: "打开文件夹" })).toBeInTheDocument();
-    expect(inWorkspace.getByRole("button", { name: /选择工作区/ })).toBeInTheDocument();
-    expect(inWorkspace.getByRole("button", { name: /恢复默认/ })).toBeInTheDocument();
+    for (const title of ["界面字体", "外观主题", "显示语言", "桌面宠物外观"]) {
+      expect(screen.getByText(title)).toBeInTheDocument();
+    }
+  });
+
+  /**
+   * MVP 简化时工作区整块从设置页撤走了（`d10127d9`），不是搬到别的标签页——
+   * 现在整个 `advanced/` 下都没有第二处入口。钉住它不会悄悄回来。
+   */
+  it("no longer carries the workspace block", () => {
+    renderDisplay();
+    expect(screen.queryByRole("button", { name: "打开文件夹" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /选择工作区/ })).not.toBeInTheDocument();
   });
 
   it("no longer renders a power-mode switch", () => {
