@@ -12,7 +12,7 @@
     },
     "beforeBuildCommand": {
       "cwd": "../web",
-      "script": "npm ci && npm run build && pwsh -NoProfile -ExecutionPolicy Bypass -File ..\\scripts\\check_updater_release.ps1"
+      "script": "npm ci && npm run build && pwsh -NoProfile -ExecutionPolicy Bypass -File ..\\scripts\\check_release.ps1"
     }
   },
   "app": {
@@ -45,7 +45,6 @@
   },
   "bundle": {
     "active": true,
-    "createUpdaterArtifacts": true,
     "targets": ["nsis"],
     "publisher": "Kabuqina Contributors",
     "category": "Productivity",
@@ -74,17 +73,6 @@
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
       "timestampUrl": "http://timestamp.sectigo.com"
-    }
-  },
-  "plugins": {
-    "updater": {
-      "active": true,
-      "endpoints": [
-        "https://kabuqina-installer-1428509047.cos.ap-guangzhou.myqcloud.com/latest-v2.json",
-        "https://github.com/Kabuqina/Kabuqina/releases/latest/download/latest-v2.json"
-      ],
-      "dialog": false,
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDI1QjAyOUYxNkM5NjMwRTIKUldUaU1KWnM4U213Slo0emh5dE5oN3FWQjVsMHF0UWxyTWhkMlRWQjgzMEVTaHIyNDZPVFl5b0oK"
     }
   }
 }

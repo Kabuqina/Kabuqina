@@ -4,25 +4,19 @@
 import { useCallback, useEffect, useState, type ComponentType } from "react";
 import { useLocation } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
-import { BookOpen, Cpu, SlidersHorizontal, Wrench } from "lucide-react";
+import { BookOpen, Cpu, Package, SlidersHorizontal } from "lucide-react";
 import { AppScaffold } from "../components/AppScaffold";
 import { useI18n } from "../lib/i18n";
 import { cn } from "../lib/cn";
 import { useFontSize, useThemeMode } from "../lib/ui-prefs";
 import { SettingsDisplay } from "./settings/SettingsDisplay";
-import { SettingsLearningData, SettingsLearningMigrations } from "./settings/SettingsLearningData";
-import { SettingsMaterialPrivacy } from "./settings/SettingsMaterialPrivacy";
 import { SettingsImportReadMode, SettingsReviewLimits } from "./settings/SettingsStudyPreferences";
-import { SettingsStudyImprovementCounts } from "./settings/SettingsStudyImprovementCounts";
 import { SettingsSharedPrefs } from "./settings/SettingsSharedPrefs";
 import { SettingsLoadPackages } from "./settings/SettingsLoadPackages";
 import { SettingsLlmConfig } from "./settings/SettingsLlmConfig";
 import { SettingsTokenUsage } from "./settings/SettingsTokenUsage";
-import { SettingsUpdate } from "./settings/SettingsUpdate";
-import { SettingsLegacyChannels } from "./settings/SettingsLegacyChannels";
 
 export interface Status {
-  workspace: string;
   hasSecret: boolean;
   pythonRunning: boolean;
 }
@@ -49,12 +43,11 @@ export function Settings() {
   const { mode: themeMode, setMode: setThemeMode } = useThemeMode();
 
   const refreshStatus = useCallback(async () => {
-    const [workspace, hasSecret, pyStat] = await Promise.all([
-      invoke<string>("cmd_workspace_path"),
+    const [hasSecret, pyStat] = await Promise.all([
       invoke<boolean>("cmd_has_secret"),
       invoke<{ running: boolean }>("cmd_python_status"),
     ]);
-    setStatus({ workspace, hasSecret, pythonRunning: pyStat.running });
+    setStatus({ hasSecret, pythonRunning: pyStat.running });
   }, []);
 
   useEffect(() => {
@@ -65,7 +58,7 @@ export function Settings() {
     { id: "general", label: t("settings.tabGeneral"), icon: SlidersHorizontal },
     { id: "study", label: t("settings.tabStudy"), icon: BookOpen },
     { id: "model", label: t("settings.tabModel"), icon: Cpu },
-    { id: "advanced", label: t("settings.tabAdvanced"), icon: Wrench },
+    { id: "advanced", label: t("settings.tabAdvanced"), icon: Package },
   ];
 
   // 芯片报的是状态本身，所以两个状态各有自己的说法，而不是一句问句配「是/否」。
@@ -123,28 +116,19 @@ export function Settings() {
           {tab === "general" && (
             <>
               <SettingsDisplay
-                status={status}
                 fontSize={fontSize}
                 onSetFontSize={setFontSize}
                 themeMode={themeMode}
                 onSetThemeMode={setThemeMode}
-                onWorkspaceChanged={refreshStatus}
               />
-              <SettingsUpdate />
+              <SettingsSharedPrefs />
             </>
           )}
 
           {tab === "study" && (
             <>
               <SettingsImportReadMode />
-              {/* 上限是保护不是成就——不显示连续天数或完成率（账本 B-3 红线）。 */}
               <SettingsReviewLimits />
-              {/* 学生导入的是自己的教材：先说清哪些内容离开这台机器，再谈数据搬家。 */}
-              <SettingsMaterialPrivacy />
-              <SettingsStudyImprovementCounts />
-              {/* 学习证据是学生自己的东西，取回、销毁和升级记录集中在学习设置。 */}
-              <SettingsLearningData />
-              <SettingsLearningMigrations />
             </>
           )}
 
@@ -160,11 +144,7 @@ export function Settings() {
           )}
 
           {tab === "advanced" && (
-            <>
-              <SettingsLegacyChannels />
-              <SettingsLoadPackages />
-              <SettingsSharedPrefs />
-            </>
+            <SettingsLoadPackages />
           )}
         </div>
         </div>

@@ -23,8 +23,6 @@ tauri              = { version = "2", features = ["protocol-asset", "tray-icon",
 tauri-plugin-shell = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
-tauri-plugin-updater = "2"
-tauri-plugin-process = "2"
 tauri-plugin-single-instance = "2"
 keyring             = { version = "3", features = ["windows-native"] }  # Windows Credential Manager via DPAPI
 tauri-plugin-os    = "2"

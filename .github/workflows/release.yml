@@ -19,19 +19,9 @@ jobs:
         with:
           ref: ${{ inputs.release_tag }}
 
-      - name: Verify updater release configuration
+      - name: Verify release configuration
         shell: pwsh
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_UPDATER_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_UPDATER_PRIVATE_KEY_PASSWORD }}
-        run: |
-          ./scripts/check_updater_release.ps1 -ExpectedVersion "${{ inputs.release_tag }}"
-          if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY)) {
-            throw "GitHub secret TAURI_UPDATER_PRIVATE_KEY is missing"
-          }
-          if ([string]::IsNullOrWhiteSpace($env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD)) {
-            throw "GitHub secret TAURI_UPDATER_PRIVATE_KEY_PASSWORD is missing"
-          }
+        run: ./scripts/check_release.ps1 -ExpectedVersion "${{ inputs.release_tag }}"
 
       - uses: actions/setup-node@v4
         with: { node-version: "20" }
@@ -68,18 +58,11 @@ jobs:
             Select-String -Pattern "Cert Hash\(sha1\):").Line.Split(":")[1].Trim()
           "WIN_CERT_THUMBPRINT=$thumb" >> $env:GITHUB_ENV
 
-      - name: Build signed NSIS
+      - name: Build NSIS
         working-directory: tauri
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_UPDATER_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_UPDATER_PRIVATE_KEY_PASSWORD }}
         run: |
           cargo install tauri-cli --version "^2" --locked
           cargo tauri build
-
-      - name: Generate updater manifest (latest-v2.json)
-        shell: pwsh
-        run: ./scripts/make_updater_manifest.ps1 -Version "${{ inputs.release_tag }}"
 
       - name: Upload to release
         uses: softprops/action-gh-release@v3
@@ -90,6 +73,3 @@ jobs:
           draft: true
           files: |
             tauri/target/release/bundle/nsis/*-setup.exe
-            tauri/target/release/bundle/nsis/*-setup.nsis.zip
-            tauri/target/release/bundle/nsis/*-setup.nsis.zip.sig
-            latest-v2.json

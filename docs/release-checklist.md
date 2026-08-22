@@ -16,7 +16,7 @@
 
 - [ ] [tauri/tauri.conf.json](../tauri/tauri.conf.json)：根级 `version`
 - [ ] [tauri/Cargo.toml](../tauri/Cargo.toml)：`package.version`（与上面对齐）
-- [ ] [web/package.json](../web/package.json)、[web/package-lock.json](../web/package-lock.json) 版本一致；运行 `scripts/check_updater_release.ps1 -ExpectedVersion vX.Y.Z`
+- [ ] [web/package.json](../web/package.json)、[web/package-lock.json](../web/package-lock.json) 版本一致；运行 `scripts/check_release.ps1 -ExpectedVersion vX.Y.Z`
 - [ ] [docs/releases](releases/) 下存在与 tag 同名的 `vX.Y.Z.md` Release Note；官方产物由 owner 应用私有 Tier 2 品牌 overlay 后在本机构建，tag 不自动构建公开仓库中的无品牌 placeholder 版本
 - [ ] `identifier`：**`com.kabuqina.app`** — 不要随意修改；与用户数据 `%LOCALAPPDATA%\com.kabuqina.app\` 绑定
 - [ ] **`productName`**：保持 **ASCII**（如 `Kabuqina`），否则 WiX `light.exe` 可能无法生成 `.msi`（中文输出路径会失败）
@@ -30,27 +30,11 @@
 
 仓库约定顺序：[AGENTS.md](../AGENTS.md)「构建流程」一节。
 
-官方签名构建前，在当前交互式 PowerShell 中临时设置 Tauri 签名变量；密码通过
-安全提示输入，不写入命令历史：
-
-```powershell
-$env:TAURI_SIGNING_PRIVATE_KEY = Get-Content -Raw -LiteralPath "C:\Users\X13\.tauri\Kabuqina-updater-v2.key"
-$signingPassword = Read-Host "Updater key password" -AsSecureString
-$env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = [System.Net.NetworkCredential]::new("", $signingPassword).Password
-Remove-Variable signingPassword
-```
-
 1. [ ] **`.\scripts\apply-brand-overlay.ps1 -Apply`**（官方发行版；`KABUQINA_BRAND_DIR` 指向私有品牌仓库；真实资产只进入工作树，绝不提交）
 2. [ ] **`.\python\build_bundle.ps1 -Verify`**（canonical Kabuqina runtime；不含上游 SPA）
 3. [ ] **`cd web` → `npm ci` → `npm run build`**
 4. [ ] **`cd tauri` → `cargo tauri build`**（`bundle.targets` 含 **nsis**；完整 bundle ~2GB 超出 WiX MSI 单 cab 上限，故用 NSIS）
 5. [ ] 保存产物后运行 **`.\scripts\apply-brand-overlay.ps1 -Restore`** 和 **`-Check`**，确认真实品牌资产未留在待提交工作树
-
-构建结束后清理当前 shell 中的签名变量：
-
-```powershell
-Remove-Item Env:TAURI_SIGNING_PRIVATE_KEY, Env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD
-```
 
 ---
 
@@ -120,12 +104,8 @@ Splash 路由逻辑见 `web/src/Splash.tsx`：有密钥或允许「稍后配置�
 
 ## 8. 发布物与对外说明
 
-- [ ] **腾讯 COS 主源**：上传同版本 **`*-setup.exe`**、**`*-setup.nsis.zip`**、**`*-setup.nsis.zip.sig`**，并将 COS 版 manifest 上传为 **`latest-v2.json`**；不得用新 key 的 manifest 覆盖旧 `latest.json`
-- [ ] **GitHub Draft Release**：从 owner 本机官方品牌构建附上 **`*-setup.exe`**、**`*-setup.nsis.zip`**、**`*-setup.nsis.zip.sig`**、**`latest-v2.json`**（GitHub 版 manifest）；完成安装冒烟、覆盖升级和 COS 同步后再 Publish
-- [ ] **Updater key**：`tauri/tauri.conf.json#plugins.updater.pubkey` 与本次签名私钥匹配；加密私钥至少有两份独立备份，密码单独保存在密码管理器，GitHub secrets 不是唯一备份
-- [ ] **Updater key 恢复演练**：从备份恢复 key，在干净 shell 中使用保存的密码成功生成 `*-setup.nsis.zip.sig`；记录通过结果但不记录秘密
-- [ ] **Updater endpoint smoke**：发布前手动打开 COS `latest-v2.json` 与 GitHub `latest-v2.json`，确认两者版本一致、URL 可下载、signature 非空；应用内更新应优先命中 COS
-- [ ] **v0.4 信任链切换**：Release Note 明确 v0.2/v0.3 用户需手工安装 v0.4 一次；覆盖安装保留 app data；v0.5（或更高的受控测试版本）验证新链自动升级
+- [ ] **GitHub Draft Release**：从 owner 本机官方品牌构建附上 **`*-setup.exe`**；完成安装冒烟和覆盖安装测试后再 Publish
+- [ ] **手工覆盖安装**：若面向旧版 Windows 用户，Release Note 给出下载安装包的方式，并验证覆盖安装保留 app data
 - [ ] **校验和 / 签名说明**写入 Release Note（按需）
 - [ ] [README.md](../README.md) 或其它对外文档若写死 NSIS 文件名，与当前 `productName` / 架构后缀一致
 

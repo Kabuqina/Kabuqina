@@ -4,19 +4,14 @@
 import { useRef, useState } from "react";
 import { useI18n } from "../../lib/i18n";
 import {
-  FolderOpen,
   ImageIcon,
   Languages,
   Moon,
-  RotateCcw,
   Type,
   Upload,
 } from "lucide-react";
-import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
 import { Section } from "../../components/ui/Section";
 import { Button } from "../../components/ui/Button";
-import { Toggle } from "../../components/ui/Toggle";
 import { ART_ASSETS } from "../../lib/artAssets";
 import { cn } from "../../lib/cn";
 import { LanguageToggle } from "../../components/LanguageToggle";
@@ -27,37 +22,19 @@ import {
   validateCustomCompanionImageFile,
   type ThemeMode,
 } from "../../lib/ui-prefs";
-import type { Status } from "../Settings";
 
 interface Props {
-  status: Status | null;
   fontSize: "small" | "medium" | "large";
   onSetFontSize: (size: "small" | "medium" | "large") => void;
   themeMode: ThemeMode;
   onSetThemeMode: (mode: ThemeMode) => void;
-  onWorkspaceChanged: () => void | Promise<void>;
-}
-
-type WorkspaceUpdateResult = {
-  workspace: string;
-  migrated: boolean;
-  copiedFiles: number;
-  copiedDirs: number;
-  conflicts: number;
-  skippedEntries: number;
-};
-
-function ipcErr(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
 }
 
 export function SettingsDisplay({
-  status,
   fontSize,
   onSetFontSize,
   themeMode,
   onSetThemeMode,
-  onWorkspaceChanged,
 }: Props) {
   const { t } = useI18n();
   const companionImageInputRef = useRef<HTMLInputElement>(null);
@@ -65,10 +42,6 @@ export function SettingsDisplay({
     getCustomCompanionImage
   );
   const [companionImageError, setCompanionImageError] = useState<string | null>(null);
-  const [workspaceMigrateFiles, setWorkspaceMigrateFiles] = useState(true);
-  const [workspaceBusy, setWorkspaceBusy] = useState(false);
-  const [workspaceNotice, setWorkspaceNotice] = useState<string | null>(null);
-  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
 
   const handleCompanionImagePicked = (file: File | undefined) => {
     if (!file) return;
@@ -105,45 +78,6 @@ export function SettingsDisplay({
     if (companionImageInputRef.current) {
       companionImageInputRef.current.value = "";
     }
-  };
-
-  const applyWorkspace = async (path: string) => {
-    setWorkspaceBusy(true);
-    setWorkspaceNotice(null);
-    setWorkspaceError(null);
-    try {
-      const result = await invoke<WorkspaceUpdateResult>("cmd_set_workspace", {
-        path,
-        migrateFiles: workspaceMigrateFiles,
-      });
-      setWorkspaceNotice(
-        result.migrated
-          ? t("settings.workspaceChangedMigrated", {
-              files: result.copiedFiles,
-              conflicts: result.conflicts,
-            })
-          : t("settings.workspaceChanged")
-      );
-      await onWorkspaceChanged();
-    } catch (e) {
-      setWorkspaceError(t("settings.workspaceChangeFailed", { msg: ipcErr(e) }));
-    } finally {
-      setWorkspaceBusy(false);
-    }
-  };
-
-  const chooseWorkspace = async () => {
-    const selected = await open({
-      directory: true,
-      multiple: false,
-      title: t("settings.workspaceChooseTitle"),
-    });
-    if (!selected || Array.isArray(selected)) return;
-    await applyWorkspace(selected);
-  };
-
-  const resetWorkspace = async () => {
-    await applyWorkspace("");
   };
 
   return (
@@ -248,51 +182,6 @@ export function SettingsDisplay({
               </Button>
             </div>
           </div>
-        </div>
-      </Section>
-
-      {/* v0.5.0 起不再分权限层（owner 2026-07-27）：路径、打开文件夹、改位置全部常驻。 */}
-      <Section
-        icon={FolderOpen}
-        title={t("settings.secWorkspace")}
-        desc={t("settings.secWorkspaceDescPower")}
-        action={<Button onClick={() => invoke("cmd_open_workspace")}>{t("settings.openFolder")}</Button>}
-      >
-        <p className="w-full break-all font-mono text-xs leading-relaxed text-[var(--kq-color-strong)]">
-          <span className="kq-path-chip inline-block max-w-full px-2 py-1.5">
-            {status?.workspace ?? "…"}
-          </span>
-        </p>
-        <div className="mt-3 space-y-3">
-            <label className="flex flex-wrap items-center gap-3 text-sm text-[var(--kq-color-ink)] dark:text-[var(--kq-color-ink)]">
-              <Toggle
-                value={workspaceMigrateFiles}
-                onChange={setWorkspaceMigrateFiles}
-                disabled={workspaceBusy}
-                aria-label={t("settings.workspaceMigrateFiles")}
-              />
-              <span>{t("settings.workspaceMigrateFiles")}</span>
-            </label>
-            <div className="flex flex-wrap gap-2">
-              <Button onClick={() => void chooseWorkspace()} disabled={workspaceBusy}>
-                <FolderOpen className="h-4 w-4" aria-hidden />
-                {workspaceBusy ? t("settings.workspaceChanging") : t("settings.workspaceChoose")}
-              </Button>
-              <Button variant="secondary" onClick={() => void resetWorkspace()} disabled={workspaceBusy}>
-                <RotateCcw className="h-4 w-4" aria-hidden />
-                {t("settings.workspaceResetDefault")}
-              </Button>
-            </div>
-            {workspaceNotice ? (
-              <p className="text-sm leading-relaxed text-[var(--success)]">
-                {workspaceNotice}
-              </p>
-            ) : null}
-            {workspaceError ? (
-              <p className="text-sm leading-relaxed text-[var(--danger)]">
-                {workspaceError}
-              </p>
-            ) : null}
         </div>
       </Section>
     </>

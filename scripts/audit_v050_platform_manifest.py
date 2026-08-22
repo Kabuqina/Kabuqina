@@ -3402,10 +3402,7 @@ def validate_local_artifacts(
         )
 
     installer = baseline.get("installer", {})
-    for path_key, size_key, hash_key in (
-        ("path", "size_bytes", "sha256"),
-        ("updater_zip_path", "updater_zip_size_bytes", "updater_zip_sha256"),
-    ):
+    for path_key, size_key, hash_key in (("path", "size_bytes", "sha256"),):
         path = root / installer.get(path_key, "")
         if not path.is_file():
             errors.append(f"recorded installer artifact is missing: {path}")

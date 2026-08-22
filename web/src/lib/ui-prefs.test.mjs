@@ -54,20 +54,4 @@ assert.match(companionPillSource, /useCustomCompanionImage/);
 assert.match(companionPillSource, /customImage \?\? ART_ASSETS\.companionPill/);
 assert.match(artAssetsSource, /companionPill:\s*`\/\$\{GENERATED_SCENE_FILENAMES\.companionPill\}`/);
 
-assert.match(
-  settingsDisplaySource,
-  /open\(\{[\s\S]*directory:\s*true[\s\S]*multiple:\s*false/,
-  "Workspace settings should use the system directory picker.",
-);
-assert.match(
-  settingsDisplaySource,
-  /cmd_set_workspace[\s\S]*migrateFiles/,
-  "Workspace settings should persist custom workspace selection with optional migration.",
-);
-assert.match(
-  settingsDisplaySource,
-  /workspaceMigrateFiles[\s\S]*workspaceChoose[\s\S]*workspaceResetDefault/,
-  "Workspace settings should expose migration, choose, and reset controls.",
-);
-
 console.log("ui-prefs.test.mjs: ok");

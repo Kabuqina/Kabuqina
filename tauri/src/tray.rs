@@ -8,7 +8,7 @@ use tauri::{
     image::Image,
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
-    App, Emitter, Manager, WindowEvent,
+    App, Manager, WindowEvent,
 };
 
 /// Closing the main window hides to tray instead of destroying the webview.
@@ -38,12 +38,11 @@ pub fn install(app: &mut App) -> Result<()> {
         None::<&str>,
     )?;
     let companion = MenuItem::with_id(&handle, "companion", "Show Nana pill", true, None::<&str>)?;
-    let updates = MenuItem::with_id(&handle, "updates", "Check for updates", true, None::<&str>)?;
     let sep = PredefinedMenuItem::separator(&handle)?;
     let quit = MenuItem::with_id(&handle, "quit", "Quit", true, None::<&str>)?;
     let menu = Menu::with_items(
         &handle,
-        &[&show, &companion, &workspace, &updates, &sep, &quit],
+        &[&show, &companion, &workspace, &sep, &quit],
     )?;
 
     let icon = Image::from_bytes(include_bytes!("../icons/tray.png"))?;
@@ -69,12 +68,6 @@ pub fn install(app: &mut App) -> Result<()> {
                         }
                     }
                 });
-            }
-            "updates" => {
-                crate::companion::focus_main_window(&app);
-                if let Err(e) = app.emit("app-update-check-requested", ()) {
-                    log::warn!("emit update check request failed: {e}");
-                }
             }
             "quit" => app.exit(0),
             _ => {}

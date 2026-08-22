@@ -1,7 +1,5 @@
 import { Section } from "../../components/ui/Section";
 import { PlatformPage } from "./PlatformPage";
-import { Button } from "../../components/ui/Button";
-import { useNavigate } from "react-router-dom";
 
 /**
  * Tombstone for every v0.4 Settings channel link. Kept so old deep-links explain
@@ -12,7 +10,6 @@ import { useNavigate } from "react-router-dom";
  * went with it since there is no longer a visible-gateway set to guard against.
  */
 export function LegacyPlatformTombstonePage({ platform }: { platform: string }) {
-  const nav = useNavigate();
   return (
     <PlatformPage title={`${platform} is no longer available`}>
       <Section title="Historical channel data">
@@ -22,10 +19,7 @@ export function LegacyPlatformTombstonePage({ platform }: { platform: string }) 
             redirect this channel to another platform, and old scheduled targets remain visible
             as unsupported delivery records.
           </p>
-          <p>Export any historical data before using the explicit cleanup control.</p>
-          <Button type="button" variant="secondary" onClick={() => nav("/settings", { state: { settingsTab: "advanced" } })}>
-            Open legacy data controls
-          </Button>
+          <p>Historical channel controls are no longer part of Settings.</p>
         </div>
       </Section>
     </PlatformPage>

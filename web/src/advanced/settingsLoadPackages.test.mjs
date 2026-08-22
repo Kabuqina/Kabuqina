@@ -136,10 +136,26 @@ assert.doesNotMatch(
 );
 assert.match(stringsSource, /tabGeneral:\s*"常规"/);
 assert.match(stringsSource, /tabStudy:\s*"学习"/);
+assert.match(stringsSource, /tabAdvanced:\s*"加载包"/);
 assert.match(
   settingsSource,
-  /tab === "study"[\s\S]*SettingsImportReadMode[\s\S]*SettingsReviewLimits[\s\S]*SettingsMaterialPrivacy[\s\S]*SettingsStudyImprovementCounts[\s\S]*SettingsLearningData[\s\S]*SettingsLearningMigrations/,
-  "Study preferences, privacy, local data, and diagnostics should live together in the Study tab.",
+  /tab === "general"[\s\S]*SettingsDisplay[\s\S]*SettingsSharedPrefs/,
+  "Shared preferences should live in General.",
+);
+assert.match(
+  settingsSource,
+  /tab === "advanced"[\s\S]*SettingsLoadPackages/,
+  "The Load packages tab should only mount package management.",
+);
+assert.match(
+  settingsSource,
+  /tab === "study"[\s\S]*SettingsImportReadMode[\s\S]*SettingsReviewLimits/,
+  "Study should keep only direct user learning controls.",
+);
+assert.doesNotMatch(
+  settingsSource,
+  /SettingsMaterialPrivacy|SettingsStudyImprovementCounts|SettingsLearningData|SettingsLearningMigrations/,
+  "MVP Settings should not expose privacy diagnostics, improvement counters, or data migrations.",
 );
 
 assert.match(stringsSource, /loadPackagesTitle/);

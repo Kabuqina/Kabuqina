@@ -11,7 +11,7 @@
 #   ├── overlays/                 <- Kabuqina runtime overlays
 #   ├── desktop_entrypoint.py     <- Tauri spawns this
 #   ├── weixin_qr_worker.py       <- optional Route C Weixin QR child
-#   └── BUNDLE_INFO.json          <- versions + hashes for the updater
+#   └── BUNDLE_INFO.json          <- bundled runtime versions + hashes
 #
 # Usage:
 #   .\python\build_bundle.ps1                # build
