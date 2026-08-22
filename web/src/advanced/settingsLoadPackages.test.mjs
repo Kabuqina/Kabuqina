@@ -11,10 +11,6 @@ const loadPackageUiSource = fs.readFileSync(new URL("./settings/loadPackageUi.ts
 const chatApiSource = fs.readFileSync(new URL("../chat/chat-api.ts", import.meta.url), "utf8");
 const stringsSource = fs.readFileSync(new URL("../locales/strings.ts", import.meta.url), "utf8");
 const mainSource = fs.readFileSync(new URL("../main.tsx", import.meta.url), "utf8");
-const loadPackagesPageSource = fs.readFileSync(
-  new URL("./pages/LoadPackagesPage.tsx", import.meta.url),
-  "utf8",
-);
 const approvalDialogSource = fs.readFileSync(new URL("../components/ApprovalDialogHost.tsx", import.meta.url), "utf8");
 const chatMessageListSource = fs.readFileSync(new URL("../chat/ChatMessageList.tsx", import.meta.url), "utf8");
 const loadPackageDownloadsSource = fs.readFileSync(
@@ -35,23 +31,18 @@ assert.doesNotMatch(
 );
 assert.match(
   loadPackagesSource,
-  /settings\.loadPackagesOpen/,
-  "Settings should show a compact entry point for the dedicated load-package page.",
+  /cmdLoadPackages[\s\S]*packages\.map[\s\S]*job/,
+  "The Settings tab should render package management and job progress directly.",
 );
 assert.match(
   mainSource,
-  /\/settings\/load-packages[\s\S]*LoadPackagesPage/,
-  "The app router should expose a dedicated load-package settings page.",
+  /\/settings\/load-packages[\s\S]*Navigate[\s\S]*settingsTab:\s*"advanced"/,
+  "The old nested URL should redirect to the single Load packages tab.",
 );
 assert.match(
-  loadPackagesPageSource,
-  /cmdLoadPackages[\s\S]*packages\.map[\s\S]*job/,
-  "The dedicated load-package page should render packages and job progress returned by the generic API.",
-);
-assert.match(
-  loadPackagesPageSource,
+  loadPackagesSource,
   /job\.status !== "running" && job\.status !== "error"/,
-  "The dedicated load-package page should hide stale 100% progress bars after a package is installed.",
+  "The load-package manager should hide stale 100% progress bars after installation.",
 );
 assert.match(
   chatApiSource,
@@ -64,14 +55,14 @@ assert.match(
   "The web load-package type should expose real, agent-visible, workspace index, and source path metadata.",
 );
 assert.match(
-  loadPackagesPageSource,
+  loadPackagesSource,
   /usedByCapabilities[\s\S]*settings\.loadPackageUsedBy/,
-  "The load-package page should show which product capabilities use each package.",
+  "The load-package manager should show which product capabilities use each package.",
 );
 assert.doesNotMatch(
-  loadPackagesPageSource,
+  loadPackagesSource,
   /settings\.loadPackageRealPath|settings\.loadPackageAgentPath|settings\.loadPackageWorkspaceIndexPath/,
-  "The dedicated load-package page should NOT expose raw filesystem paths to users.",
+  "The load-package manager should NOT expose raw filesystem paths to users.",
 );
 assert.match(
   chatMessageListSource,
@@ -160,7 +151,6 @@ assert.doesNotMatch(
 
 assert.match(stringsSource, /loadPackagesTitle/);
 assert.match(stringsSource, /loadPackagesDesktopOnly/);
-assert.match(stringsSource, /loadPackagesOpen/);
 assert.match(stringsSource, /loadPackageProgress/);
 assert.match(stringsSource, /loadPackageUsedBy/);
 assert.match(stringsSource, /modelDownloadTitle:\s*"需要下载 \{\{name\}\}"/);

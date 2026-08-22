@@ -1,22 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 188 188" role="img" aria-label="Placeholder mug app icon (kabuqina_voxel_appicon_chunky.svg)">
-  <title>Placeholder mug app icon (kabuqina_voxel_appicon_chunky.svg)</title>
-  <defs>
-    <linearGradient id="kabuqina_voxel_appicon_chunky_mugGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#dedede"/>
-      <stop offset="100%" stop-color="#bcbcbc"/>
-    </linearGradient>
-  </defs>
-  <rect x="35.72" y="93.40" width="116.56" height="83.92"
-        rx="23.31" fill="#ededed" stroke="#cfcfcf" stroke-width="2"/>
-  <ellipse cx="94.00" cy="165.44" rx="52.64" ry="8.46"
-           fill="rgba(0, 0, 0, 0.12)"/>
-  <g transform="translate(21.69 54.09) scale(1.4462)">
-  <path d="M 74 44 C 92 46 92 64 74 66" fill="none" stroke="#a6a6a6"
-        stroke-width="4" stroke-linecap="round"/>
-  <path d="M 24 30 L 24 70 Q 24 82 36 82 L 64 82 Q 76 82 76 70 L 76 30 Z"
-        fill="url(#kabuqina_voxel_appicon_chunky_mugGrad)" stroke="#8a8a8a" stroke-width="1"/>
-  <rect x="20" y="22" width="60" height="12" rx="6" fill="#ececec"
-        stroke="#8a8a8a" stroke-width="0.8"/>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-90.00 -52.00 188.00 188.00" width="512" height="512" shape-rendering="crispEdges" role="img" aria-label="Kabuqina app icon, chunky tier for 32px and below">
+<title>Kabuqina app icon, chunky tier for 32px and below</title>
+<polygon points="0.00,16.00 96.00,64.00 8.00,108.00 -88.00,60.00" fill="#F5EFFA" opacity="1" stroke="#3B2A22" stroke-width="0.7"/>
+<polygon points="-88.00,60.00 8.00,108.00 8.00,116.00 -88.00,68.00" fill="#EAE1F1" opacity="1" stroke="#3B2A22" stroke-width="0.7"/>
+<polygon points="8.00,108.00 96.00,64.00 96.00,72.00 8.00,116.00" fill="#D6C9E2" opacity="1" stroke="#3B2A22" stroke-width="0.7"/>
+<polygon points="0.00,-32.00 64.00,0.00 0.00,32.00 -64.00,0.00" fill="#FFFCFA" opacity="1" stroke="#3B2A22" stroke-width="0.7"/>
+<polygon points="-64.00,0.00 0.00,32.00 0.00,88.00 -64.00,56.00" fill="#F3EDE7" opacity="1" stroke="#3B2A22" stroke-width="0.7"/>
+<polygon points="0.00,32.00 64.00,0.00 64.00,56.00 0.00,88.00" fill="#DDD0C6" opacity="1" stroke="#3B2A22" stroke-width="0.7"/>
+<polygon points="48.00,16.00 64.00,24.00 32.00,40.00 16.00,32.00" fill="#CDBEDD" opacity="1" stroke="#3B2A22" stroke-width="0.7"/>
+<polygon points="16.00,32.00 32.00,40.00 32.00,72.00 16.00,64.00" fill="#B79FCD" opacity="1" stroke="#3B2A22" stroke-width="0.7"/>
+<polygon points="32.00,40.00 64.00,24.00 64.00,56.00 32.00,72.00" fill="#8F75A8" opacity="1" stroke="#3B2A22" stroke-width="0.7"/>
+<polygon points="0.00,-32.00 48.00,-8.00 0.00,16.00 -48.00,-8.00" fill="#E8CFA8" opacity="1" stroke="#3B2A22" stroke-width="0.7"/>
+<polygon points="-48.00,-8.00 0.00,16.00 0.00,24.00 -48.00,0.00" fill="#D8B689" opacity="1" stroke="#3B2A22" stroke-width="0.7"/>
+<polygon points="0.00,16.00 48.00,-8.00 48.00,0.00 0.00,24.00" fill="#B8926A" opacity="1" stroke="#3B2A22" stroke-width="0.7"/>
 </svg>

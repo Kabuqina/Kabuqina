@@ -26,7 +26,6 @@ const Wizard = lazy(async () => ({ default: (await import("./onboarding/Wizard")
 const Export = lazy(async () => ({ default: (await import("./advanced/Export")).Export }));
 const ChatPage = lazy(async () => ({ default: (await import("./chat/ChatPage")).ChatPage }));
 const Settings = lazy(async () => ({ default: (await import("./advanced/Settings")).Settings }));
-const LoadPackagesPage = lazy(async () => ({ default: (await import("./advanced/pages/LoadPackagesPage")).LoadPackagesPage }));
 const LegacyPlatformTombstonePage = lazy(async () => ({ default: (await import("./advanced/pages/PlatformRouteGuard")).LegacyPlatformTombstonePage }));
 const ScheduledTasksPage = lazy(async () => ({ default: (await import("./advanced/pages/ScheduledTasks")).ScheduledTasksPage }));
 const OverlayWindow = lazy(async () => ({ default: (await import("./capture/OverlayWindow")).OverlayWindow }));
@@ -98,7 +97,7 @@ function MainWindowContent() {
             <Route path="/export" element={<Export />} />
             <Route path="/chat" element={<ChatPage />} />
             <Route path="/settings" element={<Settings />} />
-            <Route path="/settings/load-packages" element={<LoadPackagesPage />} />
+            <Route path="/settings/load-packages" element={<Navigate to="/settings" replace state={{ settingsTab: "advanced" }} />} />
             <Route path="/settings/qq" element={<LegacyPlatformTombstonePage platform="QQ Bot" />} />
             <Route path="/settings/weixin" element={<LegacyPlatformTombstonePage platform="微信 Bot" />} />
             <Route path="/settings/dingtalk" element={<LegacyPlatformTombstonePage platform="钉钉 Bot" />} />

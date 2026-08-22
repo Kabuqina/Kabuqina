@@ -1,6 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 909.5 673.67" role="img" aria-label="Placeholder hero coaster">
-  <title>Placeholder hero coaster</title>
-  <rect x="151.60" y="118.57" width="606.30" height="436.54"
-        rx="121.26" fill="#ededed" stroke="#cfcfcf" stroke-width="2"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 909.50 673.67" role="img" aria-label="Kabuqina hero gingham coaster">
+  <title>Kabuqina hero gingham coaster</title>
+  <defs>
+    <pattern id="coasterGingham" width="82.00" height="82.00" patternUnits="userSpaceOnUse">
+      <rect width="82.00" height="82.00" fill="#faf6ff"/>
+      <path d="M 0 0 H 82.00" stroke="rgba(184, 169, 201, 0.32)" stroke-width="1"/>
+      <path d="M 0 0 V 82.00" stroke="rgba(184, 169, 201, 0.32)" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <g transform="translate(454.75 336.83) rotate(-10.00) scale(1 0.5592)">
+    <rect x="-267.50" y="-267.50" width="535.00" height="535.00" rx="115.00"
+          fill="url(#gingham)" stroke="rgba(184, 169, 201, 0.42)" stroke-width="1"/>
+  </g>
 </svg>

@@ -1,16 +1,36 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Placeholder mug">
-  <title>Placeholder mug</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Kabuqina mascot">
+  <title>Kabuqina mascot</title>
   <defs>
-    <linearGradient id="mugGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#dedede"/>
-      <stop offset="100%" stop-color="#bcbcbc"/>
+    <linearGradient id="bodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="45%" stop-color="#f5f0eb"/>
+      <stop offset="100%" stop-color="#e8ddd4"/>
     </linearGradient>
+    <linearGradient id="rimGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f0e6dc"/>
+    </linearGradient>
+    <radialGradient id="latteGrad" cx="50%" cy="32%" rx="46%" ry="58%">
+      <stop offset="0%" stop-color="#f5e6d0"/>
+      <stop offset="35%" stop-color="#e8cfa8"/>
+      <stop offset="68%" stop-color="#d4b080"/>
+      <stop offset="100%" stop-color="#b8926a"/>
+    </radialGradient>
   </defs>
-  <path d="M 74 44 C 92 46 92 64 74 66" fill="none" stroke="#a6a6a6"
-        stroke-width="4" stroke-linecap="round"/>
-  <path d="M 24 30 L 24 70 Q 24 82 36 82 L 64 82 Q 76 82 76 70 L 76 30 Z"
-        fill="url(#mugGrad)" stroke="#8a8a8a" stroke-width="1"/>
-  <rect x="20" y="22" width="60" height="12" rx="6" fill="#ececec"
-        stroke="#8a8a8a" stroke-width="0.8"/>
+  <path d="M 68.00 41.32 C 95.30 43.48 95.30 66.52 68.00 68.68" fill="none" stroke="#c8b8d8" stroke-width="3.50"
+        stroke-linecap="round"/>
+  <path d="M 14.00 27.00 L 14.00 55.00 Q 14.00 86.00 45.00 86.00 L 50.50 86.00 Q 81.50 86.00 81.50 55.00 L 81.50 27.00 Z" fill="url(#bodyGrad)" stroke="#6b5580"
+        stroke-opacity="0.32" stroke-width="0.35"/>
+  <rect x="11.50" y="16.00" width="72.50" height="21.00" rx="10.50"
+        fill="url(#rimGrad)" stroke="#6b5580" stroke-opacity="0.24"
+        stroke-width="0.3"/>
+  <ellipse cx="47.75" cy="34.67"
+           rx="28.35" ry="5.31" fill="url(#latteGrad)"/>
+  <ellipse cx="21.00" cy="66.00" rx="7.00" ry="4.00"
+           fill="#c495a0" fill-opacity="0.32"/>
+  <ellipse cx="56.50" cy="66.00" rx="7.00" ry="4.00"
+           fill="#c495a0" fill-opacity="0.32"/>
+  <circle cx="31.50" cy="55.50" r="2.50" fill="#8b7d9a"/>
+  <circle cx="40.25" cy="55.50" r="2.50" fill="#8b7d9a"/>
 </svg>

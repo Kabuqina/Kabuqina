@@ -1,6 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 674.9 488.28" role="img" aria-label="Placeholder pill coaster">
-  <title>Placeholder pill coaster</title>
-  <rect x="117.72" y="85.94" width="439.45" height="316.41"
-        rx="87.89" fill="#ededed" stroke="#cfcfcf" stroke-width="2"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 674.90 488.28" role="img" aria-label="Kabuqina pill gingham coaster">
+  <title>Kabuqina pill gingham coaster</title>
+  <defs>
+    <pattern id="coasterGingham" width="60.00" height="60.00" patternUnits="userSpaceOnUse">
+      <rect width="60.00" height="60.00" fill="#faf6ff"/>
+      <path d="M 0 0 H 60.00" stroke="rgba(184, 169, 201, 0.32)" stroke-width="1"/>
+      <path d="M 0 0 V 60.00" stroke="rgba(184, 169, 201, 0.32)" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <g transform="translate(337.45 244.14) rotate(-10.00) scale(1 0.5299)">
+    <rect x="-198.50" y="-198.50" width="397.00" height="397.00" rx="83.00"
+          fill="url(#gingham)" stroke="rgba(184, 169, 201, 0.42)" stroke-width="1"/>
+  </g>
 </svg>

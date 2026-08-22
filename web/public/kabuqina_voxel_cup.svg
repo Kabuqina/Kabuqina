@@ -1,18 +1,33 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132 132" role="img" aria-label="Placeholder mug (kabuqina_voxel_cup.svg)">
-  <title>Placeholder mug (kabuqina_voxel_cup.svg)</title>
-  <defs>
-    <linearGradient id="kabuqina_voxel_cup_mugGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#dedede"/>
-      <stop offset="100%" stop-color="#bcbcbc"/>
-    </linearGradient>
-  </defs>
-  <g transform="translate(13.20 23.76) scale(1.0560)">
-  <path d="M 74 44 C 92 46 92 64 74 66" fill="none" stroke="#a6a6a6"
-        stroke-width="4" stroke-linecap="round"/>
-  <path d="M 24 30 L 24 70 Q 24 82 36 82 L 64 82 Q 76 82 76 70 L 76 30 Z"
-        fill="url(#kabuqina_voxel_cup_mugGrad)" stroke="#8a8a8a" stroke-width="1"/>
-  <rect x="20" y="22" width="60" height="12" rx="6" fill="#ececec"
-        stroke="#8a8a8a" stroke-width="0.8"/>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-66.00 -34.00 132.00 132.00" shape-rendering="crispEdges">
+  <polygon points="0.00,-24.00 64.00,8.00 0.00,40.00 -64.00,8.00" fill="#FFFCFA" stroke="#3B2A22" stroke-width="0.7"></polygon>
+  <polygon points="-64.00,8.00 0.00,40.00 0.00,96.00 -64.00,64.00" fill="#F3EDE7" stroke="#3B2A22" stroke-width="0.7"></polygon>
+  <polygon points="0.00,40.00 64.00,8.00 64.00,64.00 0.00,96.00" fill="#DDD0C6" stroke="#3B2A22" stroke-width="0.7"></polygon>
+  <polygon points="0.00,-32.00 8.00,-28.00 -56.00,4.00 -64.00,0.00" fill="#FFFCFA" stroke="#3B2A22" stroke-width="0.7"></polygon>
+  <polygon points="-64.00,0.00 -56.00,4.00 -56.00,12.00 -64.00,8.00" fill="#F3EDE7" stroke="#3B2A22" stroke-width="0.7"></polygon>
+  <polygon points="-56.00,4.00 8.00,-28.00 8.00,-20.00 -56.00,12.00" fill="#DDD0C6" stroke="#3B2A22" stroke-width="0.7"></polygon>
+  <polygon points="8.00,-28.00 56.00,-4.00 48.00,0.00 0.00,-24.00" fill="#FFFCFA" stroke="#3B2A22" stroke-width="0.7"></polygon>
+  <polygon points="0.00,-24.00 48.00,0.00 48.00,8.00 0.00,-16.00" fill="#F3EDE7" stroke="#3B2A22" stroke-width="0.7"></polygon>
+  <polygon points="48.00,0.00 56.00,-4.00 56.00,4.00 48.00,8.00" fill="#DDD0C6" stroke="#3B2A22" stroke-width="0.7"></polygon>
+  <polygon points="48.00,40.00 64.00,48.00 40.00,60.00 24.00,52.00" fill="#CDBEDD" stroke="#3B2A22" stroke-width="0.7"></polygon>
+  <polygon points="24.00,52.00 40.00,60.00 40.00,68.00 24.00,60.00" fill="#B79FCD" stroke="#3B2A22" stroke-width="0.7"></polygon>
+  <polygon points="40.00,60.00 64.00,48.00 64.00,56.00 40.00,68.00" fill="#8F75A8" stroke="#3B2A22" stroke-width="0.7"></polygon>
+  <polygon points="0.00,-24.00 48.00,0.00 0.00,24.00 -48.00,0.00" fill="#E8CFA8" stroke="#3B2A22" stroke-width="0.7"></polygon>
+  <polygon points="-48.00,0.00 0.00,24.00 0.00,32.00 -48.00,8.00" fill="#D8B689" stroke="#3B2A22" stroke-width="0.7"></polygon>
+  <polygon points="0.00,24.00 48.00,0.00 48.00,8.00 0.00,32.00" fill="#B8926A" stroke="#3B2A22" stroke-width="0.7"></polygon>
+  <polygon points="56.00,28.00 64.00,32.00 40.00,44.00 32.00,40.00" fill="#CDBEDD" stroke="#3B2A22" stroke-width="0.7"></polygon>
+  <polygon points="32.00,40.00 40.00,44.00 40.00,60.00 32.00,56.00" fill="#B79FCD" stroke="#3B2A22" stroke-width="0.7"></polygon>
+  <polygon points="40.00,44.00 64.00,32.00 64.00,48.00 40.00,60.00" fill="#8F75A8" stroke="#3B2A22" stroke-width="0.7"></polygon>
+  <polygon points="48.00,16.00 64.00,24.00 40.00,36.00 24.00,28.00" fill="#CDBEDD" stroke="#3B2A22" stroke-width="0.7"></polygon>
+  <polygon points="24.00,28.00 40.00,36.00 40.00,44.00 24.00,36.00" fill="#B79FCD" stroke="#3B2A22" stroke-width="0.7"></polygon>
+  <polygon points="40.00,36.00 64.00,24.00 64.00,32.00 40.00,44.00" fill="#8F75A8" stroke="#3B2A22" stroke-width="0.7"></polygon>
+  <polygon points="56.00,-4.00 64.00,0.00 0.00,32.00 -8.00,28.00" fill="#FFFCFA" stroke="#3B2A22" stroke-width="0.7"></polygon>
+  <polygon points="-8.00,28.00 0.00,32.00 0.00,40.00 -8.00,36.00" fill="#F3EDE7" stroke="#3B2A22" stroke-width="0.7"></polygon>
+  <polygon points="0.00,32.00 64.00,0.00 64.00,8.00 0.00,40.00" fill="#DDD0C6" stroke="#3B2A22" stroke-width="0.7"></polygon>
+  <polygon points="-48.00,0.00 0.00,24.00 -8.00,28.00 -56.00,4.00" fill="#FFFCFA" stroke="#3B2A22" stroke-width="0.7"></polygon>
+  <polygon points="-56.00,4.00 -8.00,28.00 -8.00,36.00 -56.00,12.00" fill="#F3EDE7" stroke="#3B2A22" stroke-width="0.7"></polygon>
+  <polygon points="-8.00,28.00 0.00,24.00 0.00,32.00 -8.00,36.00" fill="#DDD0C6" stroke="#3B2A22" stroke-width="0.7"></polygon>
+  <polygon points="-51.20,35.20 -41.60,40.00 -41.60,49.60 -51.20,44.80" fill="#43334A"></polygon>
+  <polygon points="-22.40,49.60 -12.80,54.40 -12.80,64.00 -22.40,59.20" fill="#43334A"></polygon>
+  <polygon points="-60.80,44.00 -51.20,48.80 -51.20,54.40 -60.80,49.60" fill="#C495A0" opacity="0.7"></polygon>
+  <polygon points="-12.80,68.00 -3.20,72.80 -3.20,78.40 -12.80,73.60" fill="#C495A0" opacity="0.7"></polygon>
 </svg>

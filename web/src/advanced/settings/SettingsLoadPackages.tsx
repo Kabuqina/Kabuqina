@@ -2,32 +2,80 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { ArrowRight, Package } from "lucide-react";
-import { useI18n } from "../../lib/i18n";
+import { Download, Package, RefreshCw, Trash2 } from "lucide-react";
 import { Section } from "../../components/ui/Section";
 import { Button } from "../../components/ui/Button";
 import { StatusBanner } from "../../components/ui/StatusBanner";
-import { cmdLoadPackages, type LoadPackageStatus } from "../../chat/chat-api";
-import { activeLoadPackageDownloads, formatBytes, loadPackageError } from "./loadPackageUi";
+import { confirm } from "../../lib/confirmDialog";
+import { useI18n } from "../../lib/i18n";
+import {
+  cmdLoadPackageDelete,
+  cmdLoadPackageDownload,
+  cmdLoadPackages,
+  type LoadPackageStatus,
+} from "../../chat/chat-api";
+import {
+  activeLoadPackageDownloads,
+  formatBytes,
+  loadPackageError,
+  packageDescription,
+  packageTitle,
+} from "./loadPackageUi";
+
+function phaseLabel(phase: string | undefined, t: (path: string) => string): string {
+  if (!phase) return "";
+  const key = `settings.loadPackagePhase.${phase}`;
+  const value = t(key);
+  return value === key ? phase : value;
+}
+
+function ProgressBar({ pkg }: { pkg: LoadPackageStatus }) {
+  const { t } = useI18n();
+  const job = pkg.job;
+  if (!job || (job.status !== "running" && job.status !== "error")) return null;
+  const total = job.totalBytes || pkg.sizeMb * 1024 * 1024;
+  const downloaded = job.downloadedBytes || 0;
+  const percent = job.percent ?? (total ? Math.floor(downloaded * 100 / total) : 0);
+
+  return (
+    <div className="mt-3 space-y-1.5">
+      <div className="h-2 overflow-hidden rounded-full bg-[var(--kq-hover-bg-strong)]">
+        <div
+          className="h-full rounded-full bg-[var(--kq-color-primary)] transition-[width]"
+          style={{ width: `${Math.max(4, Math.min(100, percent))}%` }}
+        />
+      </div>
+      <div className="flex flex-wrap justify-between gap-2 text-xs text-[var(--kq-color-muted)]">
+        <span>{t("settings.loadPackageProgress", { phase: phaseLabel(job.phase, t), percent: String(percent) })}</span>
+        <span>{formatBytes(downloaded)} / {formatBytes(total)}</span>
+      </div>
+      {job.source ? (
+        <p className="text-xs text-[var(--kq-color-muted)]">
+          {t("settings.loadPackageSource", { source: job.source })}
+        </p>
+      ) : null}
+      {job.status === "error" && job.error ? <StatusBanner variant="error" title={job.error} /> : null}
+    </div>
+  );
+}
 
 export function SettingsLoadPackages() {
   const { t } = useI18n();
-  const nav = useNavigate();
   const [packages, setPackages] = useState<LoadPackageStatus[]>([]);
   const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const refresh = useCallback(async (options: { quiet?: boolean } = {}) => {
+    if (!options.quiet) setLoading(true);
     try {
       const next = await cmdLoadPackages();
       setPackages(next.packages);
+      setError(null);
     } catch (e) {
       setError(loadPackageError(e, t));
     } finally {
-      setLoading(false);
+      if (!options.quiet) setLoading(false);
     }
   }, [t]);
 
@@ -35,46 +83,115 @@ export function SettingsLoadPackages() {
     void refresh();
   }, [refresh]);
 
-  const summary = useMemo(() => {
-    const installed = packages.filter((pkg) => pkg.downloaded).length;
-    const running = activeLoadPackageDownloads(packages).length;
-    const totalSize = packages.reduce((sum, pkg) => sum + (pkg.downloaded ? pkg.size : 0), 0);
-    return { installed, running, totalSize };
-  }, [packages]);
+  const running = useMemo(() => activeLoadPackageDownloads(packages), [packages]);
+  useEffect(() => {
+    if (running.length === 0) return;
+    const timer = window.setInterval(() => void refresh({ quiet: true }), 1000);
+    return () => window.clearInterval(timer);
+  }, [refresh, running.length]);
+
+  const handleDownload = useCallback(async (pkg: LoadPackageStatus) => {
+    setBusyId(pkg.id);
+    setError(null);
+    try {
+      const updated = await cmdLoadPackageDownload(pkg.id);
+      setPackages((current) => current.map((item) => item.id === updated.id ? updated : item));
+      void refresh({ quiet: true });
+    } catch (e) {
+      setError(t("settings.loadPackageDownloadFailed", { msg: loadPackageError(e, t) }));
+    } finally {
+      setBusyId(null);
+    }
+  }, [refresh, t]);
+
+  const handleDelete = useCallback(async (pkg: LoadPackageStatus) => {
+    const title = packageTitle(pkg, t);
+    const ok = await confirm({
+      title: t("settings.loadPackageDeleteTitle", { name: title }),
+      message: t("settings.loadPackageDeleteAsk", { name: title }),
+      confirmLabel: t("dialog.delete"),
+      cancelLabel: t("dialog.cancel"),
+      tone: "warning",
+    });
+    if (!ok) return;
+
+    setBusyId(pkg.id);
+    setError(null);
+    try {
+      await cmdLoadPackageDelete(pkg.id);
+      await refresh({ quiet: true });
+    } catch (e) {
+      setError(t("settings.loadPackageDeleteFailed", { msg: loadPackageError(e, t) }));
+    } finally {
+      setBusyId(null);
+    }
+  }, [refresh, t]);
 
   return (
-    <Section icon={Package} title={t("settings.loadPackagesTitle")} desc={t("settings.loadPackagesDesc")}>
-      <div className="space-y-3 text-sm text-[var(--kq-color-ink)] dark:text-[var(--kq-color-ink)]">
-        {loading ? (
-          /* 骨架照着读完后的两行摘要排，数据落位时版面不跳。 */
-          <div className="space-y-2" role="status" aria-busy="true">
-            <span className="sr-only">{t("settings.loadPackagesChecking")}</span>
-            <div className="kq-skeleton h-5 w-48" />
-            <div className="kq-skeleton h-3.5 w-32" />
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0 space-y-1">
-              <p className="font-medium text-[var(--kq-color-strong)] dark:text-[var(--kq-color-strong)]">
-                {t("settings.loadPackagesSummary", {
-                  installed: String(summary.installed),
-                  total: String(packages.length),
-                })}
-              </p>
-              <p className="text-xs text-[var(--kq-color-muted)] dark:text-[var(--kq-color-muted)]">
-                {summary.running > 0
-                  ? t("settings.loadPackagesRunning", { count: String(summary.running) })
-                  : t("settings.loadPackagesDisk", { size: formatBytes(summary.totalSize) })}
-              </p>
-            </div>
-            <Button onClick={() => nav("/settings/load-packages")}>
-              {t("settings.loadPackagesOpen")}
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </div>
-        )}
-        {error ? <StatusBanner variant="error" title={error} /> : null}
-      </div>
+    <Section icon={Package} title={t("settings.loadPackagesTitle")} desc={t("settings.loadPackagesPageLead")}>
+      {loading ? (
+        <p className="text-sm text-[var(--kq-color-muted)]">{t("settings.loadPackagesChecking")}</p>
+      ) : (
+        <div className="space-y-3">
+          {packages.map((pkg) => {
+            const installed = pkg.downloaded;
+            const busy = busyId === pkg.id;
+            const runningJob = pkg.job?.status === "running";
+            return (
+              <div key={pkg.id} className="hd-setting-card p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                      <h2 className="text-sm font-semibold text-[var(--kq-color-strong)]">
+                        {packageTitle(pkg, t)}
+                      </h2>
+                      <span className="inline-flex items-center gap-1.5 text-xs text-[var(--kq-color-muted)]">
+                        <span className={`inline-block h-2 w-2 rounded-full ${installed ? "bg-emerald-500" : runningJob ? "bg-sky-500" : "bg-[var(--kq-color-primary)]/35"}`} />
+                        {runningJob ? phaseLabel(pkg.job?.phase, t) : installed ? t("settings.loadPackageInstalled") : t("settings.loadPackageNotInstalled")}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm leading-relaxed text-[var(--kq-color-muted)]">
+                      {packageDescription(pkg, t)}
+                    </p>
+                    <p className="mt-2 break-all text-xs text-[var(--kq-color-muted)]">
+                      {installed
+                        ? t("settings.loadPackageSize", { size: formatBytes(pkg.size) })
+                        : t("settings.loadPackageExpectedSize", { size: String(pkg.sizeMb) })}
+                    </p>
+                    {pkg.usedByCapabilities?.length ? (
+                      <p className="mt-1 text-xs text-[var(--kq-color-muted)]">
+                        {t("settings.loadPackageUsedBy", {
+                          names: pkg.usedByCapabilities.map((item) => item.title || item.id).join("、"),
+                        })}
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <div className="flex shrink-0 flex-wrap gap-2">
+                    <Button size="sm" onClick={() => void handleDownload(pkg)} disabled={!!busyId || runningJob}>
+                      {installed ? <RefreshCw className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
+                      {busy || runningJob
+                        ? t("settings.loadPackageWorking")
+                        : installed
+                          ? t("settings.loadPackageRedownload")
+                          : t("settings.loadPackageDownload")}
+                    </Button>
+                    {installed ? (
+                      <Button size="sm" variant="ghost" onClick={() => void handleDelete(pkg)} disabled={!!busyId || runningJob}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                        {t("settings.loadPackageDelete")}
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+                <ProgressBar pkg={pkg} />
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {error ? <StatusBanner variant="error" title={error} /> : null}
     </Section>
   );
 }

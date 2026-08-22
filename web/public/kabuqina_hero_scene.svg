@@ -1,22 +1,104 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 775 685" role="img" aria-label="Placeholder hero scene">
-  <title>Placeholder hero scene</title>
-  <defs>
-    <linearGradient id="kabuqina_hero_scene_mugGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#dedede"/>
-      <stop offset="100%" stop-color="#bcbcbc"/>
-    </linearGradient>
-  </defs>
-  <rect x="175.15" y="340.31" width="424.70" height="305.78"
-        rx="84.94" fill="#ededed" stroke="#cfcfcf" stroke-width="2"/>
-  <ellipse cx="387.50" cy="602.80" rx="191.80" ry="30.82"
-           fill="rgba(0, 0, 0, 0.12)"/>
-  <g transform="translate(124.04 197.07) scale(5.2692)">
-  <path d="M 74 44 C 92 46 92 64 74 66" fill="none" stroke="#a6a6a6"
-        stroke-width="4" stroke-linecap="round"/>
-  <path d="M 24 30 L 24 70 Q 24 82 36 82 L 64 82 Q 76 82 76 70 L 76 30 Z"
-        fill="url(#kabuqina_hero_scene_mugGrad)" stroke="#8a8a8a" stroke-width="1"/>
-  <rect x="20" y="22" width="60" height="12" rx="6" fill="#ececec"
-        stroke="#8a8a8a" stroke-width="0.8"/>
-  </g>
+<svg viewBox="0 0 775 685" role="img" aria-label="Kabuqina chat hero — cup on gingham coaster" xmlns="http://www.w3.org/2000/svg">
+<title>Kabuqina chat hero — cup on gingham coaster</title>
+<ellipse cx="387.5" cy="635" rx="230" ry="35" fill="#5a4a6a" fill-opacity="0.18">
+</ellipse>
+<g transform="translate(120 270.5)">
+<g transform="translate(0 99.5)">
+<defs>
+<pattern id="kq-coaster-_R_4_-gingham" width="82" height="82" patternUnits="userSpaceOnUse">
+<rect width="82" height="82" fill="#f5effa">
+</rect>
+<path d="M 0 0 H 82" stroke="#8f75a8" stroke-opacity="0.75" stroke-width="1.4">
+</path>
+<path d="M 0 0 V 82" stroke="#8f75a8" stroke-opacity="0.75" stroke-width="1.4">
+</path>
+<path d="M 0 41 H 82" stroke="#8f75a8" stroke-opacity="0.43499999999999994" stroke-width="1.15">
+</path>
+<path d="M 41 0 V 82" stroke="#8f75a8" stroke-opacity="0.43499999999999994" stroke-width="1.15">
+</path>
+</pattern>
+</defs>
+
+<g transform="translate(267.5 139.1) rotate(-7) scale(1 0.52)">
+<rect x="-267.5" y="-267.5" width="535" height="535" rx="115" fill="url(#kq-coaster-_R_4_-gingham)" stroke="#8f75a8" stroke-opacity="0.77" stroke-width="1.05">
+</rect>
+</g>
+
+</g>
+
+</g>
+
+<ellipse cx="388" cy="547.7" rx="124" ry="21" fill="#49385e" fill-opacity="0.38">
+</ellipse>
+<g transform="translate(197 204) scale(4)">
+<g>
+<defs>
+<linearGradient id="kq-cup-_R_6_-body" x1="0%" y1="0%" x2="100%" y2="100%">
+<stop offset="0%" stop-color="#ffffff">
+</stop>
+<stop offset="45%" stop-color="#f5f0eb">
+</stop>
+<stop offset="100%" stop-color="#e8ddd4">
+</stop>
+</linearGradient>
+<linearGradient id="kq-cup-_R_6_-rim" x1="0%" y1="0%" x2="0%" y2="100%">
+<stop offset="0%" stop-color="#ffffff">
+</stop>
+<stop offset="100%" stop-color="#f0e6dc">
+</stop>
+</linearGradient>
+<radialGradient id="kq-cup-_R_6_-latte" cx="50%" cy="32%" rx="46%" ry="58%">
+<stop offset="0%" stop-color="#f5e6d0">
+</stop>
+<stop offset="35%" stop-color="#e8cfa8">
+</stop>
+<stop offset="68%" stop-color="#d4b080">
+</stop>
+<stop offset="100%" stop-color="#b8926a">
+</stop>
+</radialGradient>
+<filter id="kq-cup-_R_6_-shadow" x="-18%" y="-18%" width="136%" height="138%">
+<feDropShadow dx="0" dy="2" stdDeviation="1.8" flood-color="#5a4a6a" flood-opacity="0.12">
+</feDropShadow>
+</filter>
+<filter id="kq-cup-_R_6_-steam" x="-20%" y="-20%" width="140%" height="140%">
+<feGaussianBlur stdDeviation="0.45">
+</feGaussianBlur>
+</filter>
+</defs>
+
+<g opacity="0.88" filter="url(#kq-cup-_R_6_-steam)">
+<path d="M 31 17 C 25 9 36 5 30 -3" fill="none" stroke="#ffffff" stroke-opacity="0.66" stroke-width="5" stroke-linecap="round">
+</path>
+<path d="M 51 18 C 45 10 57 6 51 -2" fill="none" stroke="#ffffff" stroke-opacity="0.58" stroke-width="4.4" stroke-linecap="round">
+</path>
+<path d="M 69 17 C 63 9 75 5 69 -4" fill="none" stroke="#ffffff" stroke-opacity="0.62" stroke-width="4.8" stroke-linecap="round">
+</path>
+</g>
+
+<g>
+<path d="M 70 41.32 C 99 43.2 99 66.8 70 69.2" fill="none" stroke="#b79fcd" stroke-width="4.1" stroke-linecap="round">
+</path>
+<path d="M 14 27 L 14 55 Q 14 86 45 86 L 50.5 86 Q 81.5 86 81.5 55 L 81.5 27 Z" fill="url(#kq-cup-_R_6_-body)" stroke="#6b5580" stroke-opacity="0.32" stroke-width="0.35">
+</path>
+<rect x="11.5" y="16" width="72.5" height="21" rx="10.5" fill="url(#kq-cup-_R_6_-rim)" stroke="#6b5580" stroke-opacity="0.24" stroke-width="0.3">
+</rect>
+<ellipse cx="47.75" cy="34.21" rx="28.35" ry="5.31" fill="url(#kq-cup-_R_6_-latte)">
+</ellipse>
+<ellipse cx="21" cy="66" rx="7" ry="4" fill="#c495a0" fill-opacity="0.32">
+</ellipse>
+<ellipse cx="56.5" cy="66" rx="7" ry="4" fill="#c495a0" fill-opacity="0.32">
+</ellipse>
+<circle cx="31.5" cy="55.5" r="2.5" fill="#8b7d9a">
+</circle>
+<circle cx="40.25" cy="55.5" r="2.5" fill="#8b7d9a">
+</circle>
+</g>
+
+</g>
+
+</g>
+
 </svg>
+
