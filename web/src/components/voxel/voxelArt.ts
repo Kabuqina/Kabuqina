@@ -182,6 +182,19 @@ const appFace: Decal[] = cupFace.map((d) => [d[0], d[1] + 1, d[2], d[3] + 1, d[4
 const appChunky: Box[] = coaster.concat(cupChunky);
 const appChunkyLit: Box[] = coaster.concat(litLatte(cupChunky));
 
+/**
+ * 抽屉拉手：屉上**唯一**的等轴件。
+ *
+ * 它是「可以抓住往外拉」的那个物件，所以必须有体积；屉里其余全是平面墨迹——
+ * 屉壁本身已经承担了纵深，再叠一堆立体图标就打架了。
+ * 横木条 + 两颗铆钉座，装在抽屉脸正中。
+ */
+const pullBoxes: Box[] = [
+  [2, 0, 6, 12, 3, 4, "woodDeep"],
+  [1, 1, 5, 2, 2, 6, "metalDeep"],
+  [13, 1, 5, 2, 2, 6, "metalDeep"],
+];
+
 export type VoxelArtName =
   | "lamp"
   | "lampLit"
@@ -192,7 +205,8 @@ export type VoxelArtName =
   | "settings"
   | "appIcon"
   | "appIconSteaming"
-  | "appIconNight";
+  | "appIconNight"
+  | "drawerPull";
 
 function build(name: VoxelArtName, small: boolean, flat: boolean): VoxelArt {
   const base: ItemOptions = flat ? { stroke: true, flat: true } : THICK;
@@ -220,6 +234,9 @@ function build(name: VoxelArtName, small: boolean, flat: boolean): VoxelArt {
       return small ? voxelItem(appChunky, base) : voxelItem(appDetailSteaming, withDecals(appFace));
     case "appIconNight":
       return small ? voxelItem(appChunkyLit, base) : voxelItem(appDetailLit, withDecals(appFace));
+    // 拉手只有一档：统共三块，没什么可再简化的。
+    case "drawerPull":
+      return voxelItem(pullBoxes, base);
   }
 }
 

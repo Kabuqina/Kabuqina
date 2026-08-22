@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useState } from "react";
-import { ArrowLeft, BookOpen, Clock3, PanelLeftOpen, PanelTopClose, PanelTopOpen } from "lucide-react";
+import { ArrowLeft, BookOpen, Clock3 } from "lucide-react";
+import { PixelGlyph } from "../components/voxel/PixelGlyph";
 import { useI18n } from "../lib/i18n";
 import type { StudyChatHandoff } from "../lib/studyChatHandoff";
 
@@ -36,14 +37,20 @@ function formatStarted(
  *
  * 标题可以暂时收起，但收起不能破坏会话来源。折叠态始终留下恢复入口，
  * 因而 Study 的精确返回能力不会因为一次界面整理而丢失。
+ *
+ * **第一列是「新对话」**（设计稿第五轮 5a）。抽屉是归档，开一张新纸是桌面动作——
+ * 不该要求先拉开抽屉才能开始新对话。原来占着这一列的历史入口撤掉了：它是抽屉拉手
+ * 的第二个入口，图形（`PanelLeftOpen`）在抽屉搬到下方之后还在说「侧栏」。
+ * 第三列归当前会话的上下文动作（返回步骤 / 收起上下文）——有来源的会话里那两颗
+ * 必然占位，新对话放那儿会被挤走，所以它只能在第一列。
  */
 export function ChatPaperHeader({
   studyHandoff,
-  onOpenHistory,
+  onNewChat,
   onReturnStudy,
 }: {
   studyHandoff: StudyChatHandoff | null;
-  onOpenHistory: () => void;
+  onNewChat: () => void;
   onReturnStudy: () => void;
 }) {
   const { t } = useI18n();
@@ -62,14 +69,10 @@ export function ChatPaperHeader({
 
   return (
     <header className="kq-chat-paper-head">
-      <button
-        type="button"
-        className="kq-chat-history-toggle"
-        aria-label={t("chat.historyOpen")}
-        title={t("chat.historyOpen")}
-        onClick={onOpenHistory}
-      >
-        <PanelLeftOpen aria-hidden size={18} />
+      {/* 虚线边＝还没落墨的东西（Sheet 里虚线是铅笔家族专用）。 */}
+      <button type="button" className="kq-chat-new" onClick={onNewChat}>
+        <PixelGlyph name="plus" size={14} />
+        {t("chat.newChat")}
       </button>
 
       {bound ? (
@@ -106,9 +109,7 @@ export function ChatPaperHeader({
               aria-expanded={!contextCollapsed}
               onClick={() => setCollapsedContextId(contextCollapsed ? null : bound.id)}
             >
-              {contextCollapsed
-                ? <PanelTopOpen aria-hidden size={15} />
-                : <PanelTopClose aria-hidden size={15} />}
+              <PixelGlyph name={contextCollapsed ? "contextShow" : "contextHide"} size={15} />
             </button>
           </div>
           {/* 第二行：标题独占一行，不再省略号截断。 */}

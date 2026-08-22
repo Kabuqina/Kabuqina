@@ -400,20 +400,18 @@ export function ChatPage() {
         </div>
       </ShellModal>
       <div className="kq-chat-desk">
-        {/* 收起状态下仍然露出的抽屉脸：纯装饰，入口还是页眉那颗按钮。 */}
-        <div className="kq-drawer-face" aria-hidden />
+        {/* 抽屉自带抽屉脸与拉手，收起态它自己就露在桌沿下——这里不再另摆一块装饰。 */}
         <ChatHistoryDrawer
           open={historyOpen}
           sessions={sessions}
           activeSessionId={activeSessionId}
           loading={listLoading}
+          onOpen={() => setHistoryOpen(true)}
           onClose={() => setHistoryOpen(false)}
-          onNewChat={() => { setHistoryOpen(false); handleNewChat(); }}
           onSelectSession={(id) => { setHistoryOpen(false); handlePickSession(id); }}
           onDeleteSession={handleDelete}
           onOpenActivity={() => requestOpenActivity()}
           onOpenScheduledTasks={() => nav("/settings/cron", { state: { cronBackTo: "/chat" } })}
-          onOpenWorkspace={() => void invoke("cmd_open_workspace")}
           onExport={() => nav("/export")}
         />
 
@@ -421,7 +419,7 @@ export function ChatPage() {
         <section className="kq-chat-paper" aria-label={t("chat.title")}>
           <ChatPaperHeader
             studyHandoff={studyHandoff}
-            onOpenHistory={() => setHistoryOpen(true)}
+            onNewChat={() => { setHistoryOpen(false); handleNewChat(); }}
             onReturnStudy={returnToStudy}
           />
           <ChatMessageList
@@ -432,7 +430,7 @@ export function ChatPage() {
             loadPackageDownloads={loadPackageDownloads}
             pendingInteraction={pendingInteraction}
             onRespondInteraction={onRespondInteraction}
-            onOpenLoadPackageSettings={() => nav("/settings/load-packages")}
+            onOpenLoadPackageSettings={() => nav("/settings", { state: { settingsTab: "advanced" } })}
           />
           <ChatInput
             value={input}

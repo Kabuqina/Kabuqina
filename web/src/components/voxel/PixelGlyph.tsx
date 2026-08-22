@@ -45,10 +45,54 @@ const CLOSE: GlyphCell[] = [
   [2, 12, 2, 2],
 ];
 
+/* ── 抽屉里的字形 ──
+   屉壁已经承担了纵深，所以屉里除了拉手全是平面墨迹；工具原来是 lucide 发丝，
+   压在深木壁上太轻，换成同一 16 网格、2 单位笔画的像素件。 */
+
+/** 开一张新纸。 */
+const PLUS: GlyphCell[] = [[7, 2, 2, 12], [2, 7, 12, 2]];
+
+/** 进行中：三条待办，每条一个方点 + 一道横线。 */
+const LIST_TODO: GlyphCell[] = [
+  [2, 2, 2, 2], [6, 2, 8, 2],
+  [2, 7, 2, 2], [6, 7, 8, 2],
+  [2, 12, 2, 2], [6, 12, 8, 2],
+];
+
+/** 定时任务：闹钟＝钟体 + 两只脚 + 两颗铃铛 + 指针。 */
+const ALARM: GlyphCell[] = [
+  [6, 1, 4, 2], [4, 3, 8, 2], [2, 5, 2, 6], [12, 5, 2, 6],
+  [4, 11, 8, 2], [6, 13, 4, 2],
+  [7, 5, 2, 4], [9, 8, 2, 2],
+  [1, 1, 2, 2], [13, 1, 2, 2],
+];
+
+/** 导出：一支向下的箭头落在托底上。 */
+const DOWNLOAD: GlyphCell[] = [
+  [7, 2, 2, 6], [4, 7, 2, 2], [10, 7, 2, 2], [6, 9, 4, 2], [2, 12, 12, 2],
+];
+
+/**
+ * 收起 / 展开上下文标题：同一个外框，横条在顶＝收起，在中＝展开。
+ * 顶那档照 `PanelTopClose` 来；展开那档设计稿没画，按同一构型把横条下移两格。
+ */
+const CONTEXT_HIDE: GlyphCell[] = [
+  [2, 2, 12, 2], [2, 12, 12, 2], [2, 4, 2, 8], [12, 4, 2, 8], [4, 6, 8, 2],
+];
+const CONTEXT_SHOW: GlyphCell[] = [
+  [2, 2, 12, 2], [2, 12, 12, 2], [2, 4, 2, 8], [12, 4, 2, 8], [4, 8, 8, 2],
+];
+
 const GLYPHS = {
   minimize: MINIMIZE,
   maximize: MAXIMIZE,
   close: CLOSE,
+  plus: PLUS,
+  listTodo: LIST_TODO,
+  alarm: ALARM,
+  download: DOWNLOAD,
+  contextHide: CONTEXT_HIDE,
+  contextShow: CONTEXT_SHOW,
 } as const;
 
 export type PixelGlyphName = keyof typeof GLYPHS;

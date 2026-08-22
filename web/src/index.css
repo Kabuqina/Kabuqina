@@ -163,6 +163,9 @@
   --drawer-lo: #5C382D;
   /* 抽屉收起时露出的那道 22px 抽屉脸 + 拉手。 */
   --drawer-face: #A87863;
+  --drawer-face-mid: #96674F;
+  --drawer-face-lo: #7C5140;
+  --drawer-edge: #4A2C22;
   --drawer-pull: #C89A85;
   /* 井壁上的墨。注意：不能用 --paper / --ink——它们在两个主题间翻转，
      暗色的 --paper 是深色面（#40394B），当文字压在近黑井壁上只有 1.78。
@@ -228,6 +231,11 @@
 
   /* 导航栏的胶囊（设计稿第四轮 4a）：学习/对话/设置统一成一种形状，
      **只有选中态才有底和边**。原来选中态是实心紫块，和木色横条打架。 */
+  /* 抽屉的两个几何常量（两个主题共用，它们不是颜色）：
+     抽屉脸的高度＝收起态露在桌沿下的那一条；行高钉死，纸叠才不会被视口切开。 */
+  --drawer-face-h: 44px;
+  --drawer-row-h: 60px;
+
   --nav-pill-line: #D9C7E3;
   --nav-pill-fill: color-mix(in srgb, var(--paper) 92%, transparent);
 }
@@ -268,6 +276,9 @@
   --drawer-hi: #120A09;
   --drawer-lo: #080504;
   --drawer-face: #4E2E24;
+  --drawer-face-mid: #452921;
+  --drawer-face-lo: #35201A;
+  --drawer-edge: #200F0B;
   --drawer-pull: #7A4C3E;
   --drawer-ink: #EBD5C9;
   --drawer-ink-soft: #E0C4B8;
@@ -346,8 +357,10 @@
   display: flex;
   min-height: 0;
   height: 100%;
-  /* 下边多让 40px 出来给抽屉脸（22px 的脸 + 18px 的缝）。 */
-  padding: 20px 30px 40px;
+  /* 下边让出抽屉脸的高度 + 一道缝：收起态那条脸就压在这块留白上。 */
+  padding: 20px 30px calc(var(--drawer-face-h) + 14px);
+  /* 收起态屉体挂在桌面下方，必须裁掉——否则它会把外层撑出一条滚动。 */
+  overflow: hidden;
   gap: 18px;
 }
 
@@ -519,7 +532,6 @@
   overflow-wrap: anywhere;
 }
 
-.kq-chat-history-toggle,
 .kq-chat-context-toggle {
   display: inline-flex;
   align-items: center;
@@ -534,8 +546,29 @@
   cursor: pointer;
 }
 
-.kq-chat-history-toggle:hover,
 .kq-chat-context-toggle:hover { color: var(--purple); background: var(--purple-faint); }
+
+/* 开一张新纸：虚线＝还没落墨的东西（Sheet 里虚线是铅笔家族专用）。
+   它在纸头第一列，因为开新对话是桌面动作——不该要求先拉开抽屉。 */
+.kq-chat-new {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+  height: 30px;
+  padding: 0 11px;
+  border: 1px dashed var(--lavender);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--purple-dark);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.kq-chat-new:hover { border-style: solid; background: var(--purple-faint); }
 
 /* margin-left:auto 顶住右边缘：标题收起后它也不会滑回左边，开关始终在同一处。 */
 .kq-chat-head-actions { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; margin-left: auto; }
@@ -570,159 +603,167 @@
 
 /* 抽屉从**桌沿下方**拉出来，不从左边推出来：桌子的抽屉就在桌面下面，
    而这一面根本没有侧栏——从左缘滑出的那道竖条会被读成侧栏回来了。 */
+/* 抽屉是**真的被拉出来的一只屉**，不是贴在底边的一块深色面板。
+   三条轨道：上沿的桌沿断面 / 屉里 / 抽屉脸——两端都有实体，中间那段才读作「屉里」。
+
+   高度由内容定，不要由容器倒推。原来写 `min(320px, 72%)`，滚动视口的高度就成了
+   「屉高减掉其余轨道」的**余数**；余数不可能正好等于行高的整数倍，所以总有一行被
+   从字当中切开——调渐隐、调屉高都只是换个位置切。现在反过来定：行高钉死、
+   视口写成整数倍行高，屉高 auto 由三条轨道相加得出。 */
 .kq-chat-drawer {
   position: absolute;
   z-index: 31;
   left: 0;
   right: 0;
-  bottom: 0;
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
-  height: min(320px, 72%);
-  transform: translateY(102%);
-  /* 关上就真的不在：只靠 transform 移出屏幕的话，一旦过渡被中断（换标签页、
-     不合成帧），就会留下一块看不见却挡住对话纸的面板。visibility 兜住这一层，
-     延迟到滑出结束再生效，所以关闭动画照旧。 */
-  visibility: hidden;
-  transition: transform 0.22s ease, visibility 0s linear 0.22s;
-  /* 从桌子边缘拉开的抽屉（组件 Sheet「抽屉里的·通用件」用的就是这个材质）：
-     内壁是深一档的木头，开口处一道内投影做出挖空的深度；里面放着用过的对话纸。 */
-  border-top: 1px solid var(--drawer-lo);
-  /* 挖进桌面的一个洞：开口在上沿，那里最深，22% 处一道略亮的木面，往下再沉——
-     所以这两道渐变的方向不用改，改的是「哪条边是开口」。 */
+  grid-template-rows: auto auto;
+  /* 坐在抽屉脸上面，收起时整个滑到脸的背后去（脸自己不动，见 .kq-chat-drawer-pull）。 */
+  bottom: var(--drawer-face-h);
+  transform: translateY(calc(100% + var(--drawer-face-h)));
+  transition: transform 0.22s ease;
+  border-top: 1px solid var(--drawer-edge);
+  /* 挖进桌面的一个洞：开口在上沿那里最深，往下先亮一档再沉下去。 */
   background-image:
     var(--desk-noise),
-    linear-gradient(180deg, rgba(255, 226, 206, 0.1) 0%, transparent 30%),
-    linear-gradient(180deg, var(--drawer-mouth) 0%, var(--drawer-hi) 22%, var(--drawer-lo) 100%);
-  background-repeat: repeat, no-repeat, no-repeat;
-  /* 开口处的深影在上，抽屉唇改到下沿，整块的投影往上打到桌面上。 */
+    linear-gradient(180deg, var(--drawer-mouth) 0%, var(--drawer-hi) 14%, var(--drawer-lo) 100%);
+  background-repeat: repeat, no-repeat;
   box-shadow:
-    inset 0 8px 20px -6px rgba(34, 16, 12, 0.8),
-    inset 0 -9px 22px -12px rgba(34, 16, 12, 0.7),
-    inset 0 -1px 0 rgba(255, 224, 204, 0.18),
-    0 -16px 38px rgba(60, 30, 26, 0.42);
-}
-
-/* 满宽的抽屉，但里面那叠纸跟着对话纸对齐——1280px 宽的一行摘要没法读，
-   而且抽屉里的纸和桌上的纸本来就该是同一叠。 */
-.kq-chat-drawer > * {
-  width: min(880px, 100%);
-  justify-self: center;
+    inset 0 10px 22px -8px rgba(28, 12, 9, 0.9),
+    0 -18px 40px rgba(60, 30, 26, 0.45);
 }
 
 .kq-chat-drawer.is-open {
   transform: translateY(0);
-  visibility: visible;
-  transition: transform 0.22s ease, visibility 0s;
 }
 
-.kq-chat-drawer-head {
+/* 桌沿的断面：屉拉开后露出来的那点木头厚度。没有它，屉体上缘就只是一条凭空的线。 */
+.kq-chat-drawer-lip {
+  height: 9px;
+  background: linear-gradient(180deg, var(--drawer-pull) 0%, var(--drawer-face) 55%, var(--drawer-edge) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 228, 208, 0.5);
+}
+
+/* 屉宽而矮，所以中间一道隔板分成左右两格：一条横穿全屏的摘要读起来很费劲，
+   工具再横铺一行就更浪费高度。左格纸叠、右格工具单列。 */
+.kq-chat-drawer-body {
+  box-sizing: border-box;
+  width: min(1080px, 100%);
+  justify-self: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 1px 268px;
+  gap: 16px;
+  padding: 12px 16px 14px;
+}
+
+.kq-chat-drawer-stack {
+  display: grid;
+  grid-template-rows: auto auto;
+  gap: 8px;
+  min-width: 0;
+}
+
+.kq-chat-drawer-stack > header,
+.kq-chat-drawer-tools > header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 14px 12px 8px 16px;
+  gap: 9px;
+  min-height: 30px;
 }
+
+.kq-chat-drawer-tools > header { justify-content: space-between; }
 
 /* 井壁压深后木上文字必须翻成浅色墨——深紫墨在这上面完全不够对比。 */
-.kq-chat-drawer-head h2 { margin: 0; color: var(--drawer-ink); font-size: 14px; }
-
-.kq-chat-drawer-head button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--drawer-ink-soft);
-  cursor: pointer;
-}
-
-/* 抽一张新纸：虚线＝还没落墨的东西（Sheet 里虚线是铅笔家族专用，用在「＋新」上）。
-   木头底上虚线要压深一档才看得见。 */
-.kq-chat-drawer-new {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin: 0 10px 8px;
-  min-height: 36px;
-  padding: 8px 11px;
-  /* 不用品牌紫描边：紫画在裸木上是全屏最刺眼的一处，而虚线本身
-     已经表达了「还没落墨」。改用木族色。 */
-  /* 拉手色本身在井壁上只有 2.7:1（不过非文字 3:1），往墨色调一档到 3.5+/4.8+。 */
-  border: 1px dashed color-mix(in srgb, var(--drawer-pull) 70%, var(--drawer-ink));
-  border-radius: 8px;
-  background: rgba(255, 240, 230, 0.06);
+.kq-chat-drawer-stack > header strong {
   color: var(--drawer-ink);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
-  cursor: pointer;
 }
 
-.kq-chat-drawer-new:hover { border-style: solid; border-color: var(--drawer-pull); background: rgba(255, 240, 230, 0.12); }
+.kq-chat-drawer-tools > header strong {
+  color: var(--drawer-ink-soft);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
 
-/* 归档的纸是一叠压在一起的，不是带间距的卡片列表：gap 归零，纸与纸之间只留一道边。 */
+.kq-chat-drawer-count {
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: rgba(248, 236, 228, 0.14);
+  color: var(--drawer-ink-soft);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* 隔板不是装饰：真实抽屉里就是靠隔板分区的。上下两端渐隐，读作嵌在屉里的一片木板。 */
+.kq-chat-drawer-split {
+  background: linear-gradient(180deg,
+    rgba(28, 12, 9, 0) 0%, rgba(28, 12, 9, 0.55) 22%,
+    rgba(28, 12, 9, 0.55) 82%, rgba(28, 12, 9, 0) 100%);
+  box-shadow: 1px 0 0 rgba(255, 224, 204, 0.14);
+}
+
+/* 整叠一起浮在木头上，而不是每张各自带影。 */
 .kq-chat-drawer-list {
-  display: grid;
-  align-content: start;
-  gap: 0;
-  overflow: auto;
-  padding: 0 10px 10px;
-  /* 整叠一起浮在木头上，而不是每张各自带影 */
-  filter: drop-shadow(0 8px 18px rgba(38, 18, 14, 0.5));
+  position: relative;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 10px 22px rgba(28, 12, 9, 0.5), 0 0 0 1px rgba(28, 12, 9, 0.35);
 }
 
-/* 一张归档的对话纸：薄、方、彼此压着。 */
+/* 正好三行。这个高度只能是 --drawer-row-h 的整数倍，否则最下面那行又会被切开。 */
+.kq-chat-drawer-scroll {
+  height: calc(var(--drawer-row-h) * 3);
+  overflow-y: auto;
+  background: var(--paper-soft);
+}
+
+/* 纸叠下缘的渐隐：告诉你下面还有，但它盖在整行之上，不负责「切」。 */
+.kq-chat-drawer-list::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 22px;
+  pointer-events: none;
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--paper-soft) 0%, transparent) 0%,
+    color-mix(in srgb, var(--paper-soft) 96%, transparent) 100%);
+}
+
+/* 一张归档的对话纸：薄、方、彼此压着。高度钉死，纸叠才不会被视口从字当中切开。 */
 .kq-chat-drawer-row {
   position: relative;
+  box-sizing: border-box;
   display: grid;
-  gap: 1px;
+  align-content: center;
+  gap: 3px;
   width: 100%;
-  padding: 8px 34px 8px 12px;
-  border: 1px solid var(--line-warm);
-  border-bottom: 0;
-  border-radius: 0;
+  height: var(--drawer-row-h);
+  padding: 0 34px 0 13px;
+  border: 0;
+  border-bottom: 1px solid var(--line-warm);
   background: var(--paper);
   color: inherit;
   text-align: left;
   cursor: pointer;
-  transition: transform 0.14s ease, background 0.14s ease;
-}
-
-/* 只有整叠的最上/最下两张收圆角，中间是齐的——这才像一叠纸。 */
-.kq-chat-drawer-row:first-of-type { border-radius: 5px 5px 0 0; }
-.kq-chat-drawer-row:last-of-type {
-  border-bottom: 1px solid var(--line-warm);
-  border-radius: 0 0 5px 5px;
-}
-
-/* 从叠里抽出来一点＝正要拿它。 */
-.kq-chat-drawer-row:hover {
-  transform: translateX(4px);
-  background: var(--paper-strong);
+  transition: background 0.14s ease;
 }
 
 /* 当前这张：最亮的纸 + 左边一道紫书脊（与 Sheet 的当前标签同一个母题）。 */
 .kq-chat-drawer-row.is-active {
   background: var(--paper-strong);
-  padding-left: 15px;
+  box-shadow: inset 3px 0 0 var(--purple);
 }
 
-.kq-chat-drawer-row.is-active::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 3px;
-  background: var(--purple);
-}
+.kq-chat-drawer-row:hover { background: var(--paper-strong); }
 
 .kq-chat-drawer-row strong {
   color: var(--ink-strong);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
+  line-height: 1.3;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -738,6 +779,7 @@
   color: var(--purple-dark);
   font-size: 10px;
 }
+
 
 .kq-chat-drawer-delete {
   position: absolute;
@@ -763,27 +805,77 @@
 /* 抽屉底部的工具：木头上的发丝线看不见，用深一档的木色刻一道。 */
 .kq-chat-drawer-tools {
   display: grid;
-  gap: 1px;
-  padding: 8px;
-  border-top: 1px solid var(--desk-deep);
+  grid-template-rows: auto 1fr;
+  gap: 8px;
+  min-width: 0;
 }
 
-.kq-chat-drawer-tools button {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 32px;
-  padding: 6px 10px;
-  border: 0;
+.kq-chat-drawer-tools > header button {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(248, 236, 228, 0.16);
   border-radius: 7px;
   background: transparent;
-  color: var(--drawer-ink-soft);
-  font-size: 12px;
-  text-align: left;
+  color: var(--drawer-ink);
   cursor: pointer;
 }
 
-.kq-chat-drawer-tools button:hover { color: var(--drawer-ink); background: rgba(255, 240, 230, 0.1); }
+.kq-chat-drawer-toollist {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.kq-chat-drawer-toollist button {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid rgba(248, 236, 228, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 240, 230, 0.06);
+  color: var(--drawer-ink);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.kq-chat-drawer-toollist button:hover,
+.kq-chat-drawer-tools > header button:hover { background: rgba(255, 240, 230, 0.14); }
+
+/* 抽屉脸：收起态露在桌沿下的那一条。它**就是**开关——拉手是唯一入口，
+   所以整条是一颗真按钮（键盘可达、带 aria-label），不是一块可点的木头。 */
+.kq-chat-drawer-pull {
+  position: absolute;
+  z-index: 32;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  place-items: center;
+  height: var(--drawer-face-h);
+  border-top: 1px solid var(--drawer-edge);
+  padding: 0;
+  border: 0;
+  background: linear-gradient(180deg, var(--drawer-face) 0%, var(--drawer-face-mid) 62%, var(--drawer-face-lo) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 232, 214, 0.45),
+    inset 0 -3px 8px rgba(40, 18, 12, 0.5);
+  cursor: pointer;
+}
+
+.kq-chat-drawer-pull svg { overflow: visible; }
+
+.kq-chat-drawer-pull:focus-visible {
+  outline: 2px solid var(--lamp-lit);
+  outline-offset: -4px;
+}
+
 
 @media (max-width: 860px) {
   .kq-chat-desk { padding: 10px 10px 12px; }

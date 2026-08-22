@@ -21,6 +21,7 @@ export type MaterialName =
   | "latte"
   | "handle"
   | "manila"
+  | "woodDeep"
   | "book"
   | "coaster"
   | "stone"
@@ -53,6 +54,7 @@ export const VOXEL_MATERIALS: Record<MaterialName, Material> = {
   latte: { t: "#E8CFA8", l: "#D8B689", r: "#B8926A" },
   handle: { t: "#CDBEDD", l: "#B79FCD", r: "#8F75A8" },
   manila: { t: "#F5EAD8", l: "#E4D6BF", r: "#C7B79C" },
+  woodDeep: { t: "#B89C8B", l: "#9C8070", r: "#7C6152" },
   book: { t: "#8E6A94", l: "#6E4370", r: "#50294F" },
   coaster: { t: "#F5EFFA", l: "#EAE1F1", r: "#D6C9E2" },
   stone: { t: "#9A9498", l: "#807A7E", r: "#645F63" },

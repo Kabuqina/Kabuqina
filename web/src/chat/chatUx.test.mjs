@@ -261,17 +261,47 @@ assert.doesNotMatch(
   "The workspace-state derivation was removed with the panel; it must not return.",
 );
 
-// 侧栏上那几个工具没有别处可去，收进抽屉底部——不显眼，但都还在。
+// 会话相关工具收进抽屉底部；工作区入口不属于 Chat MVP。
 assert.match(
   drawerSource,
-  /onOpenScheduledTasks[\s\S]*onOpenWorkspace[\s\S]*onExport/,
-  "The drawer should carry the utilities that used to live in the left rail.",
+  /onOpenScheduledTasks[\s\S]*onExport/,
+  "The drawer should carry the remaining chat utilities.",
+);
+assert.doesNotMatch(drawerSource, /onOpenWorkspace|chat\.openWorkspace/);
+
+/* 第五轮：开新对话是**桌面动作**，搬到纸头第一列——不该要求先拉开抽屉。
+   抽屉是归档，屉里不再有这颗按钮。 */
+const paperHeaderSource = fs.readFileSync(new URL("./ChatPaperHeader.tsx", import.meta.url), "utf8");
+assert.match(
+  paperHeaderSource,
+  /kq-chat-new[\s\S]*chat\.newChat/,
+  "New chat belongs on the paper header, not inside the archive drawer.",
+);
+assert.doesNotMatch(drawerSource, /chat\.newChat|onNewChat/);
+
+/* 拉手是拉开抽屉的唯一入口，而且必须是真按钮：纸头那颗历史入口（PanelLeftOpen，
+   侧栏语义）在抽屉搬到下方后已经撤掉。 */
+assert.match(
+  drawerSource,
+  /kq-chat-drawer-pull[\s\S]*aria-label[\s\S]*chat\.historyOpen/,
+  "The drawer pull must be a labelled button — the only way to open the drawer.",
+);
+/* 注释里还留着「原来那颗用的是 PanelLeftOpen」的来龙去脉，所以钉的是控件本身，不是这个词。 */
+assert.doesNotMatch(paperHeaderSource, /kq-chat-history-toggle|onOpenHistory|<PanelLeftOpen/);
+
+/* 屉宽而矮，中间一道隔板分成左右两格：左格纸叠、右格工具。 */
+assert.match(
+  drawerSource,
+  /kq-chat-drawer-stack[\s\S]*kq-chat-drawer-split[\s\S]*kq-chat-drawer-tools/,
+  "The drawer is divided into a paper stack and a tools column.",
 );
 
+/* 行高与视口都钉死，纸叠才不会被从字当中切开——余数高度是那道老 bug 的根因。 */
+assert.match(indexCssSource, /--drawer-row-h:\s*60px/);
 assert.match(
-  drawerSource,
-  /kq-chat-drawer-new[\s\S]*chat\.newChat/,
-  "New chat should stay at the top of the drawer.",
+  indexCssSource,
+  /\.kq-chat-drawer-scroll \{[\s\S]*height: calc\(var\(--drawer-row-h\) \* 3\)/,
+  "The stack viewport must be a whole number of rows, not a leftover.",
 );
 
 assert.match(
@@ -373,7 +403,7 @@ assert.match(
 
 assert.doesNotMatch(
   workspacePanelSource,
-  /workspace\.otherCommon|cron\.title|workspaceOpenWorkspace|workspaceOrganizeDesktop|chat\.exportButton/,
+  /workspace\.otherCommon|cron\.title|workspaceOrganizeDesktop|chat\.exportButton/,
   "Workspace panel should not keep non-launchpad common actions.",
 );
 
@@ -986,10 +1016,12 @@ assert.match(
 );
 
 const windowControlsSource = fs.readFileSync(new URL("../components/WindowControls.tsx", import.meta.url), "utf8");
+/* 「缩到小娜」穿的是小娜杯本身（现由 ART_ASSETS.companionButton 提供设计导出的
+   kq-cup），不是一颗抽象字形——这颗按钮做的事就是「把这扇窗收成那个小东西」。 */
 assert.match(
   windowControlsSource,
-  /kq-titlebar-companion-btn[\s\S]*VoxelIcon art="appIcon"/,
-  "Shrink-to-Nana wears the app icon itself, on whichever bar carries the window controls.",
+  /kq-titlebar-companion-btn[\s\S]*ART_ASSETS\.companionButton/,
+  "Shrink-to-Nana wears the cup itself, on whichever bar carries the window controls.",
 );
 assert.match(windowControlsSource, /cmd_show_companion/);
 assert.match(indexCssSource, /kq-titlebar-companion-btn/);

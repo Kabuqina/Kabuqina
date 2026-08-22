@@ -27,7 +27,7 @@ const studyHandoff: StudyChatHandoff = {
 
 function renderHeader(props: Partial<Parameters<typeof ChatPaperHeader>[0]> = {}) {
   const handlers = {
-    onOpenHistory: vi.fn(),
+    onNewChat: vi.fn(),
     onReturnStudy: vi.fn(),
   };
   render(
@@ -44,14 +44,28 @@ function renderHeader(props: Partial<Parameters<typeof ChatPaperHeader>[0]> = {}
 
 describe("ChatPaperHeader", () => {
   /**
-   * 从全局入口进来是**自由会话**：标题行上除了历史入口什么都没有，
+   * 从全局入口进来是**自由会话**：标题行上除了「新对话」什么都没有，
    * 不预先摆一个作用域出来（架构 §8.10）。
+   *
+   * 历史入口不在这里了——它是抽屉拉手的第二个入口，第五轮撤掉；
+   * 「打开历史会话」这个名字现在挂在 `ChatHistoryDrawer` 的拉手上。
    */
-  it("shows nothing but the history entry for a free conversation", () => {
-    renderHeader();
-    expect(screen.getByRole("button", { name: "打开历史会话" })).toBeInTheDocument();
+  it("shows nothing but the new-chat action for a free conversation", () => {
+    const handlers = renderHeader();
+    const newChat = screen.getByRole("button", { name: "新对话" });
+    expect(newChat).toBeInTheDocument();
+    fireEvent.click(newChat);
+    expect(handlers.onNewChat).toHaveBeenCalledTimes(1);
+
+    expect(screen.queryByRole("button", { name: "打开历史会话" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /返回/ })).not.toBeInTheDocument();
+  });
+
+  /** 开新对话是桌面动作，任何会话下都够得着——包括绑着课程的那种。 */
+  it("keeps the new-chat action reachable inside a bound conversation", () => {
+    renderHeader({ studyHandoff });
+    expect(screen.getByRole("button", { name: "新对话" })).toBeInTheDocument();
   });
 
   it("names the bound course and restores its heading after a reversible hide", () => {
