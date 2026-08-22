@@ -8043,6 +8043,7 @@
       ],
       "platform_surfaces": [
         "home_assistant",
+        "local_delivery",
         "matrix",
         "signal",
         "telegram"
@@ -8051,6 +8052,7 @@
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
         "surface_known_gaps.home_assistant",
+        "surface_known_gaps.local_delivery",
         "surface_known_gaps.matrix",
         "surface_known_gaps.signal",
         "surface_known_gaps.telegram"
@@ -13306,69 +13308,6 @@
       ]
     },
     {
-      "path": "web/src/advanced/gatewayUx.test.mjs",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "email"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.email"
-      ]
-    },
-    {
-      "path": "web/src/advanced/pages/DingTalkPage.tsx",
-      "layer": "web_shell",
-      "edge_types": [
-        "settings_producer",
-        "command_consumer"
-      ],
-      "platform_surfaces": [
-        "dingtalk"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.dingtalk"
-      ]
-    },
-    {
-      "path": "web/src/advanced/pages/EmailPage.tsx",
-      "layer": "web_shell",
-      "edge_types": [
-        "settings_producer",
-        "command_consumer"
-      ],
-      "platform_surfaces": [
-        "email"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.email"
-      ]
-    },
-    {
-      "path": "web/src/advanced/pages/QqPage.tsx",
-      "layer": "web_shell",
-      "edge_types": [
-        "settings_producer",
-        "command_consumer"
-      ],
-      "platform_surfaces": [
-        "qqbot"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.qqbot"
-      ]
-    },
-    {
       "path": "web/src/advanced/pages/ScheduledTasks.tsx",
       "layer": "web_shell",
       "edge_types": [
@@ -13385,48 +13324,6 @@
       ]
     },
     {
-      "path": "web/src/advanced/pages/WeixinPage.tsx",
-      "layer": "web_shell",
-      "edge_types": [
-        "settings_producer",
-        "command_consumer"
-      ],
-      "platform_surfaces": [
-        "weixin"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.weixin"
-      ]
-    },
-    {
-      "path": "web/src/advanced/settings/SettingsGateway.tsx",
-      "layer": "web_shell",
-      "edge_types": [
-        "settings_producer",
-        "command_consumer"
-      ],
-      "platform_surfaces": [
-        "dingtalk",
-        "email",
-        "qqbot",
-        "telegram",
-        "weixin",
-        "whatsapp"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.dingtalk",
-        "surface_known_gaps.email",
-        "surface_known_gaps.qqbot",
-        "surface_known_gaps.telegram",
-        "surface_known_gaps.weixin",
-        "surface_known_gaps.whatsapp"
-      ]
-    },
-    {
       "path": "web/src/advanced/settings/SettingsLegacyChannels.test.tsx",
       "layer": "web_shell",
       "edge_types": [
@@ -13440,22 +13337,6 @@
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
         "surface_known_gaps.discord"
-      ]
-    },
-    {
-      "path": "web/src/chat/desktop-organizer-api.ts",
-      "layer": "web_shell",
-      "edge_types": [
-        "settings_producer",
-        "command_consumer"
-      ],
-      "platform_surfaces": [
-        "local_delivery"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.local_delivery"
       ]
     },
     {
@@ -13507,57 +13388,19 @@
       ]
     },
     {
-      "path": "web/src/components/QqbotQrRouteBlock.tsx",
+      "path": "web/src/index.css",
       "layer": "web_shell",
       "edge_types": [
         "settings_producer",
         "command_consumer"
       ],
       "platform_surfaces": [
-        "qqbot"
+        "matrix"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.qqbot"
-      ]
-    },
-    {
-      "path": "web/src/components/WeixinQrRouteCBlock.tsx",
-      "layer": "web_shell",
-      "edge_types": [
-        "settings_producer",
-        "command_consumer"
-      ],
-      "platform_surfaces": [
-        "weixin"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.weixin"
-      ]
-    },
-    {
-      "path": "web/src/lib/gatewayPlatformSettingsRegistry.ts",
-      "layer": "web_shell",
-      "edge_types": [
-        "settings_producer",
-        "command_consumer"
-      ],
-      "platform_surfaces": [
-        "dingtalk",
-        "email",
-        "qqbot",
-        "weixin"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.dingtalk",
-        "surface_known_gaps.email",
-        "surface_known_gaps.qqbot",
-        "surface_known_gaps.weixin"
+        "surface_known_gaps.matrix"
       ]
     },
     {
@@ -13568,42 +13411,19 @@
         "command_consumer"
       ],
       "platform_surfaces": [
-        "dingtalk",
         "email",
         "qqbot",
         "telegram",
         "wecom_family",
-        "weixin",
         "whatsapp"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.dingtalk",
         "surface_known_gaps.email",
         "surface_known_gaps.qqbot",
         "surface_known_gaps.telegram",
         "surface_known_gaps.wecom_family",
-        "surface_known_gaps.weixin",
-        "surface_known_gaps.whatsapp"
-      ]
-    },
-    {
-      "path": "web/src/onboarding/providerUx.test.mjs",
-      "layer": "tests",
-      "edge_types": [
-        "verification_consumer"
-      ],
-      "platform_surfaces": [
-        "email",
-        "telegram",
-        "whatsapp"
-      ],
-      "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
-      "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
-      "known_gaps": [
-        "surface_known_gaps.email",
-        "surface_known_gaps.telegram",
         "surface_known_gaps.whatsapp"
       ]
     },
@@ -13615,24 +13435,12 @@
         "command_consumer"
       ],
       "platform_surfaces": [
-        "dingtalk",
-        "email",
-        "local_delivery",
-        "qqbot",
-        "telegram",
-        "weixin",
-        "whatsapp"
+        "local_delivery"
       ],
       "observed_current": "Tracked source/reference contains a literal platform id, exact platform-prefixed key, adapter path, dependency declaration, test, active documentation, or license edge.",
       "target_contract": "Retained references must be reachable only from their exact profile; removed references leave live runtime/build/UI at their removal slice, while historical superpowers records remain outside this active-doc ledger.",
       "known_gaps": [
-        "surface_known_gaps.dingtalk",
-        "surface_known_gaps.email",
-        "surface_known_gaps.local_delivery",
-        "surface_known_gaps.qqbot",
-        "surface_known_gaps.telegram",
-        "surface_known_gaps.weixin",
-        "surface_known_gaps.whatsapp"
+        "surface_known_gaps.local_delivery"
       ]
     }
   ],
@@ -14950,8 +14758,7 @@
         "source_paths": [
           "hermes_core/gateway/config.py",
           "hermes_core/gateway/platforms/dingtalk.py",
-          "hermes_core/gateway/run.py",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "hermes_core/gateway/run.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -14962,8 +14769,7 @@
         "surface": "dingtalk",
         "primary_role": "non_secret_config",
         "source_paths": [
-          "hermes_core/gateway/run.py",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "hermes_core/gateway/run.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -15022,8 +14828,7 @@
           "hermes_core/gateway/config.py",
           "hermes_core/gateway/home_channel.py",
           "hermes_core/gateway/run.py",
-          "hermes_core/kabuqina_cli/config_env.py",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "hermes_core/kabuqina_cli/config_env.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -15501,8 +15306,7 @@
         "primary_role": "non_secret_config",
         "source_paths": [
           "hermes_core/gateway/run.py",
-          "tauri/src/email_env.rs",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "tauri/src/email_env.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -15527,8 +15331,7 @@
         "source_paths": [
           "hermes_core/gateway/config.py",
           "hermes_core/gateway/platforms/email.py",
-          "tauri/src/email_env.rs",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "tauri/src/email_env.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -15541,8 +15344,7 @@
         "source_paths": [
           "hermes_core/cron/scheduler.py",
           "hermes_core/gateway/config.py",
-          "tauri/src/email_env.rs",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "tauri/src/email_env.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -15619,8 +15421,7 @@
           "hermes_core/gateway/config.py",
           "hermes_core/gateway/platforms/email.py",
           "hermes_core/tools/send_message_tool.py",
-          "tauri/src/email_env.rs",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "tauri/src/email_env.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -15636,8 +15437,7 @@
           "hermes_core/gateway/config.py",
           "hermes_core/gateway/platforms/email.py",
           "hermes_core/tools/send_message_tool.py",
-          "tauri/src/email_env.rs",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "tauri/src/email_env.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -15650,8 +15450,7 @@
         "source_paths": [
           "hermes_core/gateway/platforms/email.py",
           "hermes_core/tools/send_message_tool.py",
-          "tauri/src/email_env.rs",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "tauri/src/email_env.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -15667,8 +15466,7 @@
           "hermes_core/gateway/config.py",
           "hermes_core/gateway/platforms/email.py",
           "hermes_core/tools/send_message_tool.py",
-          "tauri/src/email_env.rs",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "tauri/src/email_env.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -15683,8 +15481,7 @@
         "source_paths": [
           "hermes_core/gateway/platforms/email.py",
           "hermes_core/tools/send_message_tool.py",
-          "tauri/src/email_env.rs",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "tauri/src/email_env.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -15697,8 +15494,7 @@
         "source_paths": [
           "hermes_core/gateway/platforms/email.py",
           "hermes_core/tools/send_message_tool.py",
-          "tauri/src/email_env.rs",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "tauri/src/email_env.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -15711,8 +15507,7 @@
         "source_paths": [
           "hermes_core/gateway/platforms/email.py",
           "hermes_core/tools/send_message_tool.py",
-          "tauri/src/email_env.rs",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "tauri/src/email_env.rs"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -18964,7 +18759,6 @@
         "primary_role": "non_secret_config",
         "source_paths": [
           "hermes_core/tools/document/reading.py",
-          "python/src/capability_policy.py",
           "python/src/desktop_config.py",
           "python/src/desktop_entrypoint.py",
           "python/src/load_packages.py",
@@ -19171,7 +18965,6 @@
         "primary_role": "non_secret_config",
         "source_paths": [
           "python/src/approval_backend.py",
-          "python/src/capability_policy.py",
           "python/src/desktop_config.py",
           "python/src/messaging_policy.py",
           "python/src/tool_policy.py",
@@ -19263,17 +19056,6 @@
         "known_gaps": [
           "Configured URL/host values require fail-closed network-policy validation; key presence is not an allowlist."
         ]
-      },
-      {
-        "key": "KABUQINA_SHOW_RECIPE_MARKET",
-        "surface": "desktop",
-        "primary_role": "non_secret_config",
-        "source_paths": [
-          "python/src/capability_policy.py"
-        ],
-        "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
-        "target_contract": "retain_profile_scoped",
-        "known_gaps": []
       },
       {
         "key": "KABUQINA_TIMEZONE",
@@ -20786,8 +20568,7 @@
           "hermes_core/gateway/run.py",
           "hermes_core/kabuqina_cli/config_env.py",
           "hermes_core/kabuqina_cli/config_env_schema.py",
-          "python/src/qqbot_qr_worker.py",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "python/src/qqbot_qr_worker.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -20816,8 +20597,7 @@
           "hermes_core/gateway/run.py",
           "hermes_core/kabuqina_cli/config_env.py",
           "hermes_core/kabuqina_cli/config_env_schema.py",
-          "python/src/qqbot_qr_worker.py",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "python/src/qqbot_qr_worker.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -20831,8 +20611,7 @@
           "hermes_core/gateway/run.py",
           "hermes_core/kabuqina_cli/config_env.py",
           "hermes_core/kabuqina_cli/config_env_schema.py",
-          "python/src/qqbot_qr_worker.py",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "python/src/qqbot_qr_worker.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -20885,8 +20664,7 @@
           "hermes_core/gateway/config.py",
           "hermes_core/gateway/run.py",
           "hermes_core/kabuqina_cli/config_env.py",
-          "hermes_core/kabuqina_cli/config_env_schema.py",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "hermes_core/kabuqina_cli/config_env_schema.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -20897,8 +20675,7 @@
         "surface": "qqbot",
         "primary_role": "non_secret_config",
         "source_paths": [
-          "hermes_core/gateway/config.py",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "hermes_core/gateway/config.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -20940,8 +20717,7 @@
         "primary_role": "non_secret_config",
         "source_paths": [
           "hermes_core/gateway/config.py",
-          "hermes_core/kabuqina_cli/config_env.py",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "hermes_core/kabuqina_cli/config_env.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -20966,8 +20742,7 @@
         "primary_role": "non_secret_config",
         "source_paths": [
           "hermes_core/gateway/config.py",
-          "hermes_core/kabuqina_cli/config_env_schema.py",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "hermes_core/kabuqina_cli/config_env_schema.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -23364,8 +23139,7 @@
           "hermes_core/gateway/platforms/weixin.py",
           "hermes_core/gateway/run.py",
           "hermes_core/kabuqina_cli/config_env.py",
-          "python/src/weixin_qr_worker.py",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "python/src/weixin_qr_worker.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -23441,8 +23215,7 @@
           "hermes_core/kabuqina_cli/config_env.py",
           "hermes_core/tools/send_message_tool.py",
           "python/src/gateway_env_loader.py",
-          "python/src/weixin_qr_worker.py",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "python/src/weixin_qr_worker.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -23458,8 +23231,7 @@
           "hermes_core/gateway/config.py",
           "hermes_core/gateway/platforms/weixin.py",
           "hermes_core/kabuqina_cli/config_env.py",
-          "python/src/weixin_qr_worker.py",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "python/src/weixin_qr_worker.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -23473,8 +23245,7 @@
           "hermes_core/gateway/config.py",
           "hermes_core/gateway/platforms/weixin.py",
           "hermes_core/kabuqina_cli/config_env.py",
-          "python/src/weixin_qr_worker.py",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "python/src/weixin_qr_worker.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -23488,8 +23259,7 @@
           "hermes_core/gateway/config.py",
           "hermes_core/gateway/platforms/weixin.py",
           "hermes_core/kabuqina_cli/config_env.py",
-          "python/src/weixin_qr_worker.py",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "python/src/weixin_qr_worker.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -23506,8 +23276,7 @@
           "hermes_core/gateway/run.py",
           "hermes_core/kabuqina_cli/config_env.py",
           "hermes_core/tools/send_message_tool.py",
-          "python/src/weixin_qr_worker.py",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "python/src/weixin_qr_worker.py"
         ],
         "observed_current": "Literal environment access or structured exact-key declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_profile_scoped",
@@ -24176,8 +23945,7 @@
         "pattern": "DINGTALK_*",
         "surface": "dingtalk",
         "source_paths": [
-          "tauri/src/gateway_supervisor.rs",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "tauri/src/gateway_supervisor.rs"
         ],
         "observed_current": "Structured wildcard environment namespace declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_declared_namespace_boundary",
@@ -24190,8 +23958,7 @@
         "pattern": "EMAIL_*",
         "surface": "email",
         "source_paths": [
-          "tauri/src/gateway_supervisor.rs",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "tauri/src/gateway_supervisor.rs"
         ],
         "observed_current": "Structured wildcard environment namespace declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_declared_namespace_boundary",
@@ -24321,8 +24088,7 @@
         "pattern": "QQBOT_*",
         "surface": "qqbot",
         "source_paths": [
-          "tauri/src/gateway_supervisor.rs",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "tauri/src/gateway_supervisor.rs"
         ],
         "observed_current": "Structured wildcard environment namespace declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_declared_namespace_boundary",
@@ -24335,8 +24101,7 @@
         "pattern": "QQ_*",
         "surface": "qqbot",
         "source_paths": [
-          "tauri/src/gateway_supervisor.rs",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "tauri/src/gateway_supervisor.rs"
         ],
         "observed_current": "Structured wildcard environment namespace declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_declared_namespace_boundary",
@@ -24362,8 +24127,7 @@
         "pattern": "TELEGRAM_*",
         "surface": "telegram",
         "source_paths": [
-          "tauri/src/gateway_supervisor.rs",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "tauri/src/gateway_supervisor.rs"
         ],
         "observed_current": "Structured wildcard environment namespace declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_declared_namespace_boundary",
@@ -24454,8 +24218,7 @@
         "pattern": "WEIXIN_*",
         "surface": "weixin",
         "source_paths": [
-          "tauri/src/gateway_supervisor.rs",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "tauri/src/gateway_supervisor.rs"
         ],
         "observed_current": "Structured wildcard environment namespace declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_declared_namespace_boundary",
@@ -24468,8 +24231,7 @@
         "pattern": "WHATSAPP_*",
         "surface": "whatsapp",
         "source_paths": [
-          "tauri/src/gateway_supervisor.rs",
-          "web/src/lib/gatewayPlatformSettingsRegistry.ts"
+          "tauri/src/gateway_supervisor.rs"
         ],
         "observed_current": "Structured wildcard environment namespace declaration discovered in the listed tracked runtime paths.",
         "target_contract": "retain_declared_namespace_boundary",
@@ -24629,10 +24391,10 @@
   },
   "generated_ledger_metadata": {
     "generator": "scripts/audit_v050_platform_manifest.py --refresh-generated-ledgers",
-    "reference_path_count": 530,
-    "literal_environment_key_count": 520,
-    "dynamic_environment_key_declaration_count": 453,
-    "environment_key_count": 776,
+    "reference_path_count": 520,
+    "literal_environment_key_count": 519,
+    "dynamic_environment_key_declaration_count": 452,
+    "environment_key_count": 775,
     "environment_namespace_count": 26,
     "environment_dynamic_template_count": 2,
     "historical_docs_policy": "docs/superpowers history is excluded from the active-doc reference scan; the three authority plans are hash-pinned separately."
