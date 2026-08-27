@@ -6,6 +6,7 @@
 //! Endpoints, all protected by per-launch random tokens in the path:
 //!
 //!   GET  /secret/<token>              -> body = the API key text/plain (one shot)
+//!   GET  /vision-secret/<token>       -> body = the independent vision key
 //!   POST /approval/<token>            -> three dialog types: shell / messaging / cron
 //!   POST /desktop-delivery/<token>    -> receive desktop delivery (cron / send_message to "desktop")
 //!   GET  /shell-chat/<token>          -> redirect Tauri webview to shell /chat
@@ -50,6 +51,7 @@ fn shell_chat_redirect_target(app: &AppHandle) -> String {
 pub struct Bridge {
     pub addr: SocketAddr,
     pub secret_url: String,
+    pub vision_secret_url: String,
     pub approval_url: String,
     pub desktop_delivery_url: String,
     /// Shared with Python `HERMESDESK_BRIDGE_SECRET` for `X-Kabuqina-Auth` on Hermes `/api/*`.
@@ -59,6 +61,7 @@ pub struct Bridge {
 #[derive(Clone)]
 struct State {
     secret_token: String,
+    vision_secret_token: String,
     approval_token: String,
     desktop_delivery_token: String,
     /// Same as ``HERMESDESK_BRIDGE_SECRET`` / ``X-Kabuqina-Auth``
@@ -88,12 +91,14 @@ pub async fn spawn(
     let addr = listener.local_addr()?;
 
     let secret_token = random_token();
+    let vision_secret_token = random_token();
     let approval_token = random_token();
     let desktop_delivery_token = random_token();
     let desk_auth_token = random_token();
 
     let state = Arc::new(State {
         secret_token: secret_token.clone(),
+        vision_secret_token: vision_secret_token.clone(),
         approval_token: approval_token.clone(),
         desktop_delivery_token: desktop_delivery_token.clone(),
         desk_auth_token: desk_auth_token.clone(),
@@ -103,6 +108,7 @@ pub async fn spawn(
     });
 
     let secret_url = format!("http://{addr}/secret/{secret_token}");
+    let vision_secret_url = format!("http://{addr}/vision-secret/{vision_secret_token}");
     let approval_url = format!("http://{addr}/approval/{approval_token}");
     let desktop_delivery_url = format!("http://{addr}/desktop-delivery/{desktop_delivery_token}");
 
@@ -111,6 +117,7 @@ pub async fn spawn(
     Ok(Bridge {
         addr,
         secret_url,
+        vision_secret_url,
         approval_url,
         desktop_delivery_url,
         desk_auth_token,
@@ -192,7 +199,8 @@ async fn handle_conn(mut stream: TcpStream, st: Arc<State>) -> std::io::Result<(
         }
     }
 
-    log::info!("bridge req: {method} {path}");
+    // Never write per-launch bearer tokens to logs.
+    log::info!("bridge req: {method} {}", bridge_route_label(path));
 
     // GET /shell-chat/<token>
     if method == "GET" && path.starts_with("/shell-chat/") {
@@ -219,6 +227,22 @@ async fn handle_conn(mut stream: TcpStream, st: Arc<State>) -> std::io::Result<(
         .await;
     }
 
+    // GET /vision-secret/<token>. This URL is intentionally independent from
+    // the main-model secret URL so neither credential can authorize the other.
+    // Python reads it once during process bootstrap; the endpoint remains
+    // available for supervised child restarts within the same desktop launch.
+    if method == "GET" && path == format!("/vision-secret/{}", st.vision_secret_token) {
+        let body = crate::secrets::read_current_vision_secret(&st.app).unwrap_or_default();
+        return write_response(
+            &mut stream,
+            200,
+            "OK",
+            "text/plain; charset=utf-8",
+            body.into_bytes(),
+        )
+        .await;
+    }
+
     // POST /approval/<token>  — shell / messaging / cron
     if method == "POST" && path == format!("/approval/{}", st.approval_token) {
         return handle_approval(&mut stream, &st, &buf, header_end, content_length).await;
@@ -230,6 +254,22 @@ async fn handle_conn(mut stream: TcpStream, st: Arc<State>) -> std::io::Result<(
     }
 
     write_status(&mut stream, 404, "Not Found").await
+}
+
+fn bridge_route_label(path: &str) -> &'static str {
+    if path.starts_with("/vision-secret/") {
+        "/vision-secret/<redacted>"
+    } else if path.starts_with("/secret/") {
+        "/secret/<redacted>"
+    } else if path.starts_with("/approval/") {
+        "/approval/<redacted>"
+    } else if path.starts_with("/desktop-delivery/") {
+        "/desktop-delivery/<redacted>"
+    } else if path.starts_with("/shell-chat/") {
+        "/shell-chat/<redacted>"
+    } else {
+        "/unknown"
+    }
 }
 
 // ------------------------------------------------------------------
@@ -588,4 +628,31 @@ async fn ask_user_to_approve_model_download(
         package_title,
     )
     .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{bridge_route_label, random_token};
+
+    #[test]
+    fn main_and_vision_tokens_are_independent() {
+        let main = random_token();
+        let vision = random_token();
+        assert_eq!(main.len(), 64);
+        assert_eq!(vision.len(), 64);
+        assert_ne!(main, vision);
+    }
+
+    #[test]
+    fn bridge_logs_never_include_secret_tokens() {
+        assert_eq!(
+            bridge_route_label("/vision-secret/sensitive"),
+            "/vision-secret/<redacted>"
+        );
+        assert_eq!(
+            bridge_route_label("/secret/sensitive"),
+            "/secret/<redacted>"
+        );
+        assert_eq!(bridge_route_label("/other/sensitive"), "/unknown");
+    }
 }

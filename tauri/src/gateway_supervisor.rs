@@ -782,6 +782,18 @@ impl GatewaySupervisor {
                 cfg.inference_provider.as_deref().unwrap_or(""),
             )
             .env("HERMESDESK_SECRET_URL", &cfg.secret_url)
+            .env("HERMESDESK_VISION_SECRET_URL", &cfg.vision_secret_url)
+            .env("HERMESDESK_VISION_PROVIDER", &cfg.vision_provider)
+            .env("HERMESDESK_VISION_HOST", &cfg.vision_host)
+            .env(
+                "HERMESDESK_VISION_API_BASE_URL",
+                cfg.vision_api_base_url.as_deref().unwrap_or(""),
+            )
+            .env("HERMESDESK_VISION_MODEL", &cfg.vision_model)
+            .env(
+                "HERMESDESK_VISION_CONFIGURED",
+                if cfg.vision_configured { "1" } else { "0" },
+            )
             .env("HERMESDESK_APPROVAL_URL", &cfg.approval_url)
             .env("HERMESDESK_BRIDGE_SECRET", &cfg.desk_auth_token)
             .env("HERMESDESK_SHELL_CHAT_URL", &cfg.shell_chat_back_url)
@@ -801,6 +813,8 @@ impl GatewaySupervisor {
             .env_remove("GROQ_API_KEY")
             .env_remove("GOOGLE_API_KEY")
             .env_remove("XAI_API_KEY")
+            .env_remove("KABUQINA_VISION_API_KEY")
+            .env_remove("HERMESDESK_VISION_API_KEY")
             .env_remove("OPENAI_BASE_URL")
             .env_remove("HERMES_INFERENCE_PROVIDER")
             .env(
@@ -832,6 +846,18 @@ impl GatewaySupervisor {
                 cfg.inference_provider.as_deref().unwrap_or(""),
             )
             .env("KABUQINA_SECRET_URL", &cfg.secret_url)
+            .env("KABUQINA_VISION_SECRET_URL", &cfg.vision_secret_url)
+            .env("KABUQINA_VISION_PROVIDER", &cfg.vision_provider)
+            .env("KABUQINA_VISION_HOST", &cfg.vision_host)
+            .env(
+                "KABUQINA_VISION_API_BASE_URL",
+                cfg.vision_api_base_url.as_deref().unwrap_or(""),
+            )
+            .env("KABUQINA_VISION_MODEL", &cfg.vision_model)
+            .env(
+                "KABUQINA_VISION_CONFIGURED",
+                if cfg.vision_configured { "1" } else { "0" },
+            )
             .env("KABUQINA_APPROVAL_URL", &cfg.approval_url)
             .env("KABUQINA_BRIDGE_SECRET", &cfg.desk_auth_token)
             .env("KABUQINA_SHELL_CHAT_URL", &cfg.shell_chat_back_url)

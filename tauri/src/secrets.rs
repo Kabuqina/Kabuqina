@@ -37,6 +37,19 @@ pub struct ProviderConfig {
     pub api_mode: Option<String>,
 }
 
+/// Independent multimodal provider configuration for Study capture.
+///
+/// The API key is stored under the Credential Manager account
+/// `vision:<provider>` and is never allowed to fall back to the main LLM key.
+#[derive(Serialize, Deserialize, Clone, Debug, Default, PartialEq, Eq)]
+pub struct VisionProviderConfig {
+    pub provider: String,
+    pub host: String,
+    pub model: String,
+    #[serde(default)]
+    pub api_base_url: Option<String>,
+}
+
 const VENDOR_LLM_DISABLED: &str = "kabuqina.vendor_llm_disabled";
 const LEGACY_VENDOR_LLM_DISABLED: &str = "hermesdesk.vendor_llm_disabled";
 
@@ -137,6 +150,49 @@ fn validate_provider_config_for_save(cfg: &mut ProviderConfig, secret: &str) -> 
     Ok(())
 }
 
+fn validate_vision_provider_name(provider: &str) -> Result<(), String> {
+    let valid = !provider.is_empty()
+        && provider.len() <= 64
+        && provider
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'));
+    if valid {
+        Ok(())
+    } else {
+        Err("vision provider is invalid".into())
+    }
+}
+
+fn normalize_vision_config(
+    cfg: &mut VisionProviderConfig,
+    secret: Option<&str>,
+) -> Result<(), String> {
+    cfg.provider = cfg.provider.trim().to_ascii_lowercase();
+    cfg.host = cfg.host.trim().to_ascii_lowercase();
+    cfg.model = cfg.model.trim().to_string();
+    cfg.api_base_url = cfg
+        .api_base_url
+        .as_ref()
+        .map(|value| value.trim().trim_end_matches('/').to_string())
+        .filter(|value| !value.is_empty());
+    validate_vision_provider_name(&cfg.provider)?;
+    if cfg.model.is_empty() || cfg.model.len() > 200 {
+        return Err("vision model must be set and no longer than 200 characters".into());
+    }
+
+    let mut provider_cfg = ProviderConfig {
+        provider: cfg.provider.clone(),
+        host: cfg.host.clone(),
+        model: Some(cfg.model.clone()),
+        api_base_url: cfg.api_base_url.clone(),
+        api_mode: None,
+    };
+    validate_provider_config_for_save(&mut provider_cfg, secret.unwrap_or("configured"))?;
+    cfg.host = provider_cfg.host;
+    cfg.api_base_url = provider_cfg.api_base_url;
+    Ok(())
+}
+
 fn read_bool_setting(app: &AppHandle, key: &str) -> Option<bool> {
     let Some(f) = settings_file(app).ok() else {
         return None;
@@ -220,10 +276,11 @@ mod tests {
     use super::{
         bool_setting_value, clear_provider_secrets_with, clear_provider_state_with,
         credential_migration_message, keyring_service_candidates,
-        normalize_credential_delete_result, provider_api_key_env,
+        normalize_credential_delete_result, normalize_vision_config, provider_api_key_env,
         read_and_migrate_provider_secret_with, select_provider_secret_with,
-        validate_provider_config_for_save, CopyForwardStatus, ProviderConfig, SecretOrigin,
-        LEGACY_SERVICE, LEGACY_VENDOR_LLM_DISABLED, SERVICE, VENDOR_LLM_DISABLED,
+        validate_provider_config_for_save, vision_account, CopyForwardStatus, ProviderConfig,
+        SecretOrigin, VisionProviderConfig, LEGACY_SERVICE, LEGACY_VENDOR_LLM_DISABLED, SERVICE,
+        VENDOR_LLM_DISABLED,
     };
 
     fn custom_config(api_mode: Option<&str>) -> ProviderConfig {
@@ -562,6 +619,43 @@ mod tests {
         )
         .is_ok());
     }
+
+    #[test]
+    fn vision_config_is_normalized_and_uses_separate_account() {
+        let mut cfg = VisionProviderConfig {
+            provider: " Alibaba ".into(),
+            host: " DashScope.AliYunCS.com ".into(),
+            model: " qwen-vl-max ".into(),
+            api_base_url: Some("https://dashscope.aliyuncs.com/compatible-mode/v1/".into()),
+        };
+        normalize_vision_config(&mut cfg, Some("vision-secret")).unwrap();
+        assert_eq!(cfg.provider, "alibaba");
+        assert_eq!(cfg.host, "dashscope.aliyuncs.com");
+        assert_eq!(cfg.model, "qwen-vl-max");
+        assert_eq!(vision_account(&cfg.provider).unwrap(), "vision:alibaba");
+        assert_ne!(vision_account(&cfg.provider).unwrap(), cfg.provider);
+    }
+
+    #[test]
+    fn vision_config_rejects_loopback_control_chars_and_missing_model() {
+        let mut loopback = VisionProviderConfig {
+            provider: "custom".into(),
+            host: "127.0.0.1".into(),
+            model: "vision".into(),
+            api_base_url: Some("http://127.0.0.1:11434/v1".into()),
+        };
+        assert!(normalize_vision_config(&mut loopback, Some("secret")).is_err());
+
+        let mut injected = VisionProviderConfig {
+            provider: "openai".into(),
+            host: "api.openai.com".into(),
+            model: "gpt-4o".into(),
+            api_base_url: Some("https://api.openai.com/v1".into()),
+        };
+        assert!(normalize_vision_config(&mut injected, Some("secret\nEVIL=1")).is_err());
+        injected.model.clear();
+        assert!(normalize_vision_config(&mut injected, None).is_err());
+    }
 }
 
 /// Keyring entry only (bridge may still fall back to compile-time vendor key).
@@ -578,6 +672,28 @@ pub struct LlmSpawnParams {
     pub api_mode: Option<String>,
     pub hermes_model: Option<String>,
     pub inference_provider: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct VisionSpawnParams {
+    pub provider: String,
+    pub vision_host: String,
+    pub api_base_url: Option<String>,
+    pub model: String,
+    pub configured: bool,
+}
+
+pub fn resolve_vision_spawn_params(app: &AppHandle) -> VisionSpawnParams {
+    let Some(cfg) = read_vision_provider_cfg(app) else {
+        return VisionSpawnParams::default();
+    };
+    VisionSpawnParams {
+        provider: cfg.provider,
+        vision_host: cfg.host,
+        api_base_url: cfg.api_base_url,
+        model: cfg.model,
+        configured: read_current_vision_secret(app).is_some(),
+    }
 }
 
 pub fn resolve_llm_spawn_params(app: &AppHandle) -> LlmSpawnParams {
@@ -676,6 +792,37 @@ fn clear_provider_cfg(app: &AppHandle) -> Result<()> {
         obj.remove("provider");
     }
     std::fs::write(&f, serde_json::to_vec_pretty(&v)?)?;
+    Ok(())
+}
+
+fn read_vision_provider_cfg(app: &AppHandle) -> Option<VisionProviderConfig> {
+    let file = settings_file(app).ok()?;
+    let raw = std::fs::read_to_string(file).ok()?;
+    let value: serde_json::Value = serde_json::from_str(&raw).ok()?;
+    serde_json::from_value(value.get("vision_provider")?.clone()).ok()
+}
+
+fn write_vision_provider_cfg(app: &AppHandle, cfg: &VisionProviderConfig) -> Result<()> {
+    let file = settings_file(app)?;
+    let mut value: serde_json::Value = std::fs::read_to_string(&file)
+        .ok()
+        .and_then(|raw| serde_json::from_str(&raw).ok())
+        .unwrap_or_else(|| serde_json::json!({}));
+    value["vision_provider"] = serde_json::to_value(cfg)?;
+    std::fs::write(&file, serde_json::to_vec_pretty(&value)?)?;
+    Ok(())
+}
+
+fn clear_vision_provider_cfg(app: &AppHandle) -> Result<()> {
+    let file = settings_file(app)?;
+    let mut value: serde_json::Value = std::fs::read_to_string(&file)
+        .ok()
+        .and_then(|raw| serde_json::from_str(&raw).ok())
+        .unwrap_or_else(|| serde_json::json!({}));
+    if let Some(object) = value.as_object_mut() {
+        object.remove("vision_provider");
+    }
+    std::fs::write(&file, serde_json::to_vec_pretty(&value)?)?;
     Ok(())
 }
 
@@ -806,6 +953,30 @@ fn entry_for(provider: &str) -> Result<keyring::Entry, String> {
     entry_for_service(SERVICE, provider)
 }
 
+fn vision_account(provider: &str) -> Result<String, String> {
+    validate_vision_provider_name(provider)?;
+    Ok(format!("vision:{provider}"))
+}
+
+fn vision_entry(provider: &str) -> Result<keyring::Entry, String> {
+    entry_for_service(SERVICE, &vision_account(provider)?)
+}
+
+pub fn read_current_vision_secret(app: &AppHandle) -> Option<String> {
+    let cfg = read_vision_provider_cfg(app)?;
+    match vision_entry(&cfg.provider).ok()?.get_password() {
+        Ok(secret) if !secret.trim().is_empty() => Some(secret),
+        Ok(_) | Err(keyring::Error::NoEntry) => None,
+        Err(error) => {
+            log::warn!(
+                "cannot read vision credential for provider {}: {error}",
+                cfg.provider
+            );
+            None
+        }
+    }
+}
+
 /// Read the canonical credential first. A legacy-only credential is copied to
 /// the current service before being returned; failures never log the secret.
 fn read_provider_secret(provider: &str) -> Option<String> {
@@ -871,6 +1042,75 @@ pub struct LlmConfigPreview {
     pub model: Option<String>,
     pub api_base_url: Option<String>,
     pub api_mode: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct VisionConfigPreview {
+    pub has_secret: bool,
+    pub provider: Option<String>,
+    pub host: Option<String>,
+    pub model: Option<String>,
+    pub api_base_url: Option<String>,
+}
+
+#[tauri::command]
+pub async fn cmd_vision_config_preview(app: AppHandle) -> Result<VisionConfigPreview, String> {
+    let cfg = read_vision_provider_cfg(&app);
+    Ok(VisionConfigPreview {
+        has_secret: read_current_vision_secret(&app).is_some(),
+        provider: cfg.as_ref().map(|value| value.provider.clone()),
+        host: cfg.as_ref().map(|value| value.host.clone()),
+        model: cfg.as_ref().map(|value| value.model.clone()),
+        api_base_url: cfg.and_then(|value| value.api_base_url),
+    })
+}
+
+#[tauri::command]
+pub async fn cmd_save_vision_secret(
+    app: AppHandle,
+    mut cfg: VisionProviderConfig,
+    secret: String,
+) -> Result<(), String> {
+    normalize_vision_config(&mut cfg, Some(&secret))?;
+    vision_entry(&cfg.provider)?
+        .set_password(secret.trim())
+        .map_err(|error| error.to_string())?;
+    write_vision_provider_cfg(&app, &cfg).map_err(|error| error.to_string())?;
+    crate::schedule_embedded_hermes_respawn(app);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn cmd_update_vision_config(
+    app: AppHandle,
+    mut cfg: VisionProviderConfig,
+    secret: Option<String>,
+) -> Result<(), String> {
+    normalize_vision_config(&mut cfg, secret.as_deref())?;
+    if let Some(secret) = secret {
+        vision_entry(&cfg.provider)?
+            .set_password(secret.trim())
+            .map_err(|error| error.to_string())?;
+    }
+    write_vision_provider_cfg(&app, &cfg).map_err(|error| error.to_string())?;
+    crate::schedule_embedded_hermes_respawn(app);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn cmd_has_vision_secret(app: AppHandle) -> Result<bool, String> {
+    Ok(read_current_vision_secret(&app).is_some())
+}
+
+#[tauri::command]
+pub async fn cmd_clear_vision_secret(app: AppHandle) -> Result<(), String> {
+    if let Some(cfg) = read_vision_provider_cfg(&app) {
+        normalize_credential_delete_result(vision_entry(&cfg.provider)?.delete_credential())?;
+    }
+    clear_vision_provider_cfg(&app).map_err(|error| error.to_string())?;
+    crate::schedule_embedded_hermes_respawn(app);
+    Ok(())
 }
 
 #[tauri::command]

@@ -37,6 +37,7 @@ mod qqbot_qr;
 mod secrets;
 mod studio;
 mod study;
+mod study_capture;
 mod telegram_env;
 mod tray;
 mod validation;
@@ -73,6 +74,7 @@ pub struct AppState {
     pub bridge_addr: Arc<Mutex<Option<std::net::SocketAddr>>>,
     /// Cached from `bridge::Bridge` for respawning Python without a second `bridge::spawn`.
     pub bridge_secret_url: Arc<Mutex<Option<String>>>,
+    pub bridge_vision_secret_url: Arc<Mutex<Option<String>>>,
     pub bridge_approval_url: Arc<Mutex<Option<String>>>,
     pub bridge_desktop_delivery_url: Arc<Mutex<Option<String>>>,
     /// Pending desktop delivery messages (Python cron → frontend).
@@ -107,6 +109,7 @@ pub fn run() {
         qqbot_qr_child: Arc::new(Mutex::new(None)),
         bridge_addr: bridge_addr.clone(),
         bridge_secret_url: Arc::new(Mutex::new(None)),
+        bridge_vision_secret_url: Arc::new(Mutex::new(None)),
         bridge_approval_url: Arc::new(Mutex::new(None)),
         bridge_desktop_delivery_url: Arc::new(Mutex::new(None)),
         desktop_messages: Arc::new(tokio::sync::Mutex::new(Vec::new())),
@@ -137,6 +140,11 @@ pub fn run() {
             secrets::cmd_llm_config_preview,
             secrets::cmd_update_llm_config,
             secrets::cmd_clear_secret,
+            secrets::cmd_vision_config_preview,
+            secrets::cmd_save_vision_secret,
+            secrets::cmd_update_vision_config,
+            secrets::cmd_has_vision_secret,
+            secrets::cmd_clear_vision_secret,
             secrets::cmd_validate_endpoint,
             python_supervisor::cmd_python_status,
             paths::cmd_workspace_path,
@@ -317,6 +325,12 @@ pub fn run() {
             study::cmd_study_practice_source,
             study::cmd_study_migrate_quizzes,
             study::cmd_study_migrate_builtin_course,
+            study_capture::cmd_study_capture_stage_upload,
+            study_capture::cmd_study_capture_stage_camera,
+            study_capture::cmd_study_capture_normalize,
+            study_capture::cmd_study_capture_transcribe,
+            study_capture::cmd_study_capture_confirm,
+            study_capture::cmd_study_capture_abandon,
             capture::cmd_capture_region,
             capture::cmd_capture_fullscreen,
             capture::cmd_show_capture_overlay,
@@ -391,6 +405,12 @@ async fn resolve_spawn_config_for_children(
         .await
         .clone()
         .ok_or_else(|| "bridge not initialised (secret URL)".to_string())?;
+    let vision_secret_url = state
+        .bridge_vision_secret_url
+        .lock()
+        .await
+        .clone()
+        .ok_or_else(|| "bridge not initialised (vision secret URL)".to_string())?;
     let approval_url = state
         .bridge_approval_url
         .lock()
@@ -421,6 +441,7 @@ async fn resolve_spawn_config_for_children(
     let data_dir = paths::ensure_data_dir(app).map_err(|e| e.to_string())?;
     let kabuqina_home = gateway_supervisor::kabuqina_home_path(&data_dir);
     let llm = secrets::resolve_llm_spawn_params(app);
+    let vision = secrets::resolve_vision_spawn_params(app);
     let power_user = paths::is_power_user(app);
     let shell_chat_back_url = format!(
         "http://127.0.0.1:{}/shell-chat/{}",
@@ -442,6 +463,7 @@ async fn resolve_spawn_config_for_children(
         kabuqina_home,
         workspace,
         secret_url,
+        vision_secret_url,
         approval_url,
         desktop_delivery_url,
         desk_auth_token: desk_token,
@@ -452,6 +474,11 @@ async fn resolve_spawn_config_for_children(
         api_mode: llm.api_mode,
         hermes_model: llm.hermes_model,
         inference_provider: llm.inference_provider,
+        vision_provider: vision.provider,
+        vision_host: vision.vision_host,
+        vision_api_base_url: vision.api_base_url,
+        vision_model: vision.model,
+        vision_configured: vision.configured,
         power_user,
         product_profile: paths::resolve_product_profile(app),
         api_key,
@@ -759,6 +786,7 @@ async fn bootstrap(app: tauri::AppHandle) -> anyhow::Result<()> {
         *state.bridge_addr.lock().await = Some(bridge.addr);
         *state.desk_auth_token.lock().await = Some(bridge.desk_auth_token.clone());
         *state.bridge_secret_url.lock().await = Some(bridge.secret_url.clone());
+        *state.bridge_vision_secret_url.lock().await = Some(bridge.vision_secret_url.clone());
         *state.bridge_approval_url.lock().await = Some(bridge.approval_url.clone());
         *state.bridge_desktop_delivery_url.lock().await = Some(bridge.desktop_delivery_url.clone());
     }

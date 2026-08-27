@@ -19,6 +19,7 @@ pub struct SpawnConfig {
     pub kabuqina_home: PathBuf,
     pub workspace: PathBuf,
     pub secret_url: String,
+    pub vision_secret_url: String,
     pub approval_url: String,
     pub desktop_delivery_url: String,
     /// Must match Tauri `X-Kabuqina-Auth` header for shell → Hermes HTTP.
@@ -31,6 +32,11 @@ pub struct SpawnConfig {
     pub api_mode: Option<String>,
     pub hermes_model: Option<String>,
     pub inference_provider: Option<String>,
+    pub vision_provider: String,
+    pub vision_host: String,
+    pub vision_api_base_url: Option<String>,
+    pub vision_model: String,
+    pub vision_configured: bool,
     pub power_user: bool,
     /// Active region product profile ("mainland_cn" | "sea"). Injected into the
     /// Python child as KABUQINA_PRODUCT_PROFILE; consumed by ProductProfilePolicy.
@@ -94,6 +100,18 @@ impl Supervisor {
                 cfg.inference_provider.as_deref().unwrap_or(""),
             )
             .env("HERMESDESK_SECRET_URL", &cfg.secret_url)
+            .env("HERMESDESK_VISION_SECRET_URL", &cfg.vision_secret_url)
+            .env("HERMESDESK_VISION_PROVIDER", &cfg.vision_provider)
+            .env("HERMESDESK_VISION_HOST", &cfg.vision_host)
+            .env(
+                "HERMESDESK_VISION_API_BASE_URL",
+                cfg.vision_api_base_url.as_deref().unwrap_or(""),
+            )
+            .env("HERMESDESK_VISION_MODEL", &cfg.vision_model)
+            .env(
+                "HERMESDESK_VISION_CONFIGURED",
+                if cfg.vision_configured { "1" } else { "0" },
+            )
             .env("HERMESDESK_APPROVAL_URL", &cfg.approval_url)
             .env("HERMESDESK_DESKTOP_DELIVERY_URL", &cfg.desktop_delivery_url)
             .env("HERMESDESK_BRIDGE_SECRET", &cfg.desk_auth_token)
@@ -130,6 +148,8 @@ impl Supervisor {
             .env_remove("DEEPSEEK_API_KEY")
             .env_remove("ANTHROPIC_API_KEY")
             .env_remove("OPENROUTER_API_KEY")
+            .env_remove("KABUQINA_VISION_API_KEY")
+            .env_remove("HERMESDESK_VISION_API_KEY")
             // CRITICAL: strip every proxy var the user's shell may have set.
             // Otherwise Python's urllib / httpx will route our loopback
             // bridge call (http://127.0.0.1:PORT/...) through the user's
@@ -171,6 +191,18 @@ impl Supervisor {
                 cfg.inference_provider.as_deref().unwrap_or(""),
             )
             .env("KABUQINA_SECRET_URL", &cfg.secret_url)
+            .env("KABUQINA_VISION_SECRET_URL", &cfg.vision_secret_url)
+            .env("KABUQINA_VISION_PROVIDER", &cfg.vision_provider)
+            .env("KABUQINA_VISION_HOST", &cfg.vision_host)
+            .env(
+                "KABUQINA_VISION_API_BASE_URL",
+                cfg.vision_api_base_url.as_deref().unwrap_or(""),
+            )
+            .env("KABUQINA_VISION_MODEL", &cfg.vision_model)
+            .env(
+                "KABUQINA_VISION_CONFIGURED",
+                if cfg.vision_configured { "1" } else { "0" },
+            )
             .env("KABUQINA_APPROVAL_URL", &cfg.approval_url)
             .env("KABUQINA_DESKTOP_DELIVERY_URL", &cfg.desktop_delivery_url)
             .env("KABUQINA_SHELL_CHAT_URL", &cfg.shell_chat_back_url)
