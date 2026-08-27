@@ -1713,3 +1713,182 @@
     animation-iteration-count: 1 !important;
   }
 }
+
+/* --- v0.5.0 two-page notebook spread ------------------------------------- */
+
+.kq-desk .kd-notebook-head {
+  align-items: center;
+  gap: 12px;
+  padding: 0 18px;
+}
+
+.kq-desk .kd-notebook-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 56px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 0;
+  background: var(--manila);
+  color: var(--ink-soft);
+  font-size: 11px;
+  letter-spacing: .1em;
+  text-align: left;
+}
+
+.kq-desk .kd-notebook-title:hover {
+  background: var(--manila-hover, #F0DFC5);
+  color: var(--ink-strong);
+}
+
+.kq-desk .kd-notebook-title strong {
+  color: var(--ink-strong);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kq-desk .kd-notebook-flip {
+  margin-left: auto;
+  font-size: 12px;
+  letter-spacing: normal;
+  color: var(--ink-soft);
+}
+
+.kd-notebook-body {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  padding: 14px 18px 16px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+}
+
+.kd-spread {
+  grid-column: 1;
+  display: grid;
+  min-height: 0;
+  grid-template-columns: 1.08fr 1fr;
+  gap: 0;
+}
+
+.kd-page {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 20px 22px;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+}
+
+.kd-page-l {
+  border-right: 1px solid var(--line-warm);
+}
+
+.kd-page-r {
+  background: var(--paper-strong);
+  box-shadow: inset 14px 0 22px -18px var(--desk-seam);
+}
+
+.kq-desk .kd-modes {
+  display: inline-flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--purple-pale);
+}
+
+.kq-desk .kd-modes button {
+  min-height: 44px;
+  min-width: 84px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.kq-desk .kd-modes button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--ink-strong);
+  box-shadow: var(--shadow-soft);
+}
+
+.kd-page-note {
+  padding: 18px;
+  border: 1px dashed var(--manila-line);
+  border-radius: 12px;
+  background: var(--manila);
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.kd-page-note p { margin: 0 0 10px; }
+.kd-page-note p:last-child { margin-bottom: 0; }
+
+@media (max-width: 720px) {
+  .kq-desk .kd-notebook-head { padding: 0 12px; }
+  .kq-desk .kd-notebook-title { min-height: 52px; padding: 0 12px; }
+  .kq-desk .kd-notebook-title strong { font-size: 15px; }
+  .kd-notebook-body { grid-template-columns: 1fr; padding: 14px; overflow: visible; }
+  .kd-spread { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+  .kd-page { overflow: visible; }
+  .kd-page-l { border-right: 0; border-bottom: 1px solid var(--line-warm); padding: 16px 14px; }
+  .kd-page-r { box-shadow: inset 0 14px 22px -18px var(--desk-seam); padding: 16px 14px; }
+  .kq-desk .kd-page-main { overflow: visible; }
+  .kq-desk .kd-task-scroll { overflow: visible; padding-right: 0; }
+}
+
+/* --- v0.5.0 surface overlays: cards/bookend cover the mounted notebook --- */
+
+.kd-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: color-mix(in srgb, var(--ink) 24%, transparent);
+  overflow: auto;
+}
+
+.kd-overlay .kd-panel-layout {
+  min-height: 100%;
+}
+
+@media (max-width: 720px) {
+  .kd-overlay .kd-panel-layout { padding: 14px; }
+  .kd-overlay .kd-panel-card { max-height: none; }
+}
+
+/* --- v0.5.0 capture flow: right page "纸上来的" --- */
+
+.kd-capture { display: block; }
+.kd-capture-empty p { margin: 0 0 12px; line-height: 1.7; }
+.kd-capture-sources { display: grid; gap: 10px; margin: 12px 0; }
+.kd-capture-sources button {
+  display: flex; flex-direction: column; gap: 4px; align-items: flex-start;
+  min-height: 56px; padding: 12px 14px; text-align: left;
+  border: 1px solid var(--line-warm); border-radius: 10px; background: var(--paper);
+}
+.kd-capture-sources button span { color: var(--c-muted, var(--ink-soft)); font-size: 13px; }
+.kd-capture-note { color: var(--ink-soft); font-size: 13px; line-height: 1.6; }
+.kd-capture-preview {
+  display: grid; place-items: center; min-height: 140px; margin: 10px 0;
+  border: 1px dashed var(--line-warm); border-radius: 10px; color: var(--ink-soft);
+}
+.kd-capture-lines { margin: 10px 0; padding-inline-start: 20px; line-height: 1.8; }
+.kd-capture-lines li[data-unreadable] { color: var(--ink-soft); font-style: italic; }
+.kd-capture-escape { margin-top: 14px; color: var(--ink-soft); text-decoration: underline; }
+.kd-capture button { min-height: 44px; }

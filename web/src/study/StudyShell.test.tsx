@@ -1,7 +1,7 @@
 // Copyright 2026 Kabuqina Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { StrictMode, useState } from "react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
@@ -121,10 +121,10 @@ describe("StudyShell", () => {
 
   it("puts every lifecycle page in one notebook, with the course books on its edge", async () => {
     renderShell();
-    // 五个分页共用同一本本子：翻页不换世界。
-    const tabs = await screen.findByRole("navigation", { name: "笔记本分页" });
-    expect(tabs).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "学习" })).toHaveAttribute("aria-current", "page");
+    // 五个分页共用同一本本子：学/练原地切换长在左页，翻页不换世界。
+    const modes = await screen.findByRole("group", { name: "学习模式" });
+    expect(modes).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "学" })).toHaveAttribute("aria-pressed", "true");
     // 换课＝换一本本子：课程名长在书立的标签上，不在一个下拉里。
     const bookend = screen.getByRole("navigation", { name: /本子/ });
     expect(bookend.querySelector('[aria-current="page"]')).toHaveTextContent("Linear Algebra");
@@ -213,7 +213,7 @@ describe("StudyShell", () => {
     await user.click(screen.getByRole("button", { name: /向量补充练习/ }));
     await user.click(await screen.findByRole("button", { name: "采用并开始" }));
 
-    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/study/space-a/practice"));
+    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/study/space-a/notebook"));
     expect(setArtifactStatus).toHaveBeenCalledWith(
       "space-a", "draft-vector-quiz", "active", expect.any(AbortSignal),
     );
@@ -316,7 +316,7 @@ describe("StudyShell", () => {
     const sink = vi.fn();
     const repository = renderShell({}, {}, sink);
     await user.click(await screen.findByRole("button", { name: /Physics/ }));
-    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/study/space-b/learn"));
+    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/study/space-b/notebook"));
     expect(repository.selectSpace).toHaveBeenCalledWith("space-b", expect.any(AbortSignal));
     expect(sink).toHaveBeenCalledWith({ name: "study.space.switch", action: "switch", success: true });
   });
@@ -358,7 +358,7 @@ describe("StudyShell", () => {
     const user = userEvent.setup();
     const repository = renderShell();
     const bookend = await screen.findByRole("navigation", { name: /本子/ });
-    const current = screen.getByRole("button", { name: /Linear Algebra/ });
+    const current = within(bookend).getByRole("button", { name: /Linear Algebra/ });
     // 当前这本与纸面连成一体，点它不该再发一次切换请求。
     expect(current).toHaveAttribute("aria-current", "page");
     await user.click(current);
@@ -389,10 +389,10 @@ describe("StudyShell", () => {
     expect(repository.selectSpace).not.toHaveBeenCalled();
     expect(screen.getByTestId("location")).toHaveTextContent("/study/space-a/practice");
 
-    await user.click(screen.getByRole("button", { name: "评估" }));
+    await user.click(screen.getByRole("button", { name: /自习主题/ }));
     expect(getConfirmSnapshot()?.message).toContain("尚未完成的答案");
     await act(async () => answerConfirm(true));
-    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/study/space-a/evaluate"));
+    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/study/space-a/notebook"));
   });
 
   it("opens a reviewed course Chat handoff instead of a bare route jump", async () => {
@@ -428,7 +428,7 @@ describe("StudyShell", () => {
       spaceTitle: "Linear Algebra",
       focusId: "question-1",
       focusKind: "practice",
-      returnTarget: { path: "/study/space-a/practice", focus: "answer" },
+      returnTarget: { path: "/study/space-a/notebook?mode=practice", focus: "answer" },
       nanaContext: {
         origin: { page: "practice", knowledgeCoreId: "core-vectors", exerciseId: "question-1" },
         pageContext: {

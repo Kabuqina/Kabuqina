@@ -146,7 +146,7 @@ function text(value: unknown, max: number, allowEmpty = false): string | null {
 function validStudyPath(value: unknown): value is string {
   return typeof value === "string"
     && value.length <= 512
-    && /^\/study\/[^/?#]+(?:\/(?:flyleaf|plan|learn|practice|evaluate))?\/?(?:[?#].*)?$/.test(value);
+    && /^\/study\/[^/?#]+(?:\/(?:notebook|cards|bookend|flyleaf|plan|learn|practice|evaluate))?\/?(?:[?#].*)?$/.test(value);
 }
 
 function validSource(value: unknown): value is { id: string; title: string; kind: string } {

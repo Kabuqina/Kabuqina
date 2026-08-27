@@ -168,7 +168,7 @@ describe("PlanPage", () => {
     await user.click(screen.getByRole("button", { name: "开始学习" }));
     await waitFor(() => {
       expect(localStorage.getItem("kabuqina.study.location.v1:space-b")).toContain('"planItemId":"next"');
-      expect(screen.getByRole("status", { name: "current route" })).toHaveTextContent("/study/space-b/learn");
+      expect(screen.getByRole("status", { name: "current route" })).toHaveTextContent("/study/space-b/notebook");
     });
   });
 
@@ -223,7 +223,7 @@ describe("PlanPage", () => {
     }));
 
     await user.click(await screen.findByRole("button", { name: "开始学习" }));
-    expect(screen.getByRole("status", { name: "current route" })).toHaveTextContent("/study/space-b/learn");
+    expect(screen.getByRole("status", { name: "current route" })).toHaveTextContent("/study/space-b/notebook");
     expect(screen.queryByText(/知识核/)).not.toBeInTheDocument();
   });
 
@@ -247,7 +247,7 @@ describe("PlanPage", () => {
     expect(screen.queryByRole("heading", { name: "旧计划行动" })).not.toBeInTheDocument();
     expect(nanaRequest).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: "学习" }));
-    expect(screen.getByRole("status", { name: "current route" })).toHaveTextContent("/study/space-b/learn");
+    expect(screen.getByRole("status", { name: "current route" })).toHaveTextContent("/study/space-b/notebook");
     expect(JSON.parse(localStorage.getItem("kabuqina.study.location.v1:space-b")!)).toMatchObject({
       page: "plan",
       outlineLabel: "向量",
@@ -279,7 +279,7 @@ describe("PlanPage", () => {
     }));
 
     await user.click(await screen.findByRole("button", { name: "开始学习" }));
-    expect(screen.getByRole("status", { name: "current route" })).toHaveTextContent("/study/space-b/learn");
+    expect(screen.getByRole("status", { name: "current route" })).toHaveTextContent("/study/space-b/notebook");
     expect(createKnowledgeCoreCompilation).not.toHaveBeenCalled();
     expect(nanaRequest).not.toHaveBeenCalled();
     stopListening();
@@ -430,7 +430,7 @@ describe("PlanPage", () => {
     await user.click(screen.getByRole("button", { name: "开始学习" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("status", { name: "current route" })).toHaveTextContent("/study/space-b/learn");
+      expect(screen.getByRole("status", { name: "current route" })).toHaveTextContent("/study/space-b/notebook");
     });
     expect(JSON.parse(localStorage.getItem("kabuqina.study.location.v1:space-b")!)).toMatchObject({
       page: "plan",

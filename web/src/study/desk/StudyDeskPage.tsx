@@ -12,7 +12,7 @@ import {
   type StudyNanaPage,
 } from "../../lib/studyChatHandoff";
 import { useStudyRepository } from "../repositoryContext";
-import { studyPath, type StudyPageSlug } from "../routeModel";
+import { studyPath, type StudyPageSlug, type StudySurfaceSlug } from "../routeModel";
 import type { StudyOutlineNode, StudySpaceSummary } from "../repository";
 import DeskScene from "./DeskScene";
 import { DraftInboxButton } from "../DraftInboxButton";
@@ -31,6 +31,7 @@ import {
 } from "../studyLocation";
 import { type StudyKnowledgePoint } from "../../chat/study/study-api";
 import { StudyNanaPanel } from "./StudyNanaPanel";
+import { StudyCaptureFlow } from "../capture/StudyCaptureFlow";
 import { StudyMaterialReader } from "./StudyMaterialReader";
 import { useStudyLocationSync } from "../studyLocationSync";
 import {
@@ -58,6 +59,9 @@ export function StudyDeskPage({
   spaceId,
   spaces,
   page,
+  surface,
+  mode = "practice",
+  flyleafOpen = false,
   pageBody,
   switchingSpace,
   onDirtyChange,
@@ -69,6 +73,12 @@ export function StudyDeskPage({
   spaces: StudySpaceSummary[];
   /** 当前分页；书桌承载全部五页，不再只是练习专用。 */
   page: StudyPageSlug;
+  /** v0.5.0 canonical surface. */
+  surface?: StudySurfaceSlug;
+  /** Notebook work mode. */
+  mode?: "learn" | "practice";
+  /** Whether the flyleaf first page is open. */
+  flyleafOpen?: boolean;
   pageBody?: ReactNode;
   switchingSpace?: boolean;
   onDirtyChange: (dirty: boolean) => void;
@@ -106,6 +116,14 @@ export function StudyDeskPage({
     [repository, spaceId, spacesKey],
   );
   const navigatePage = (nextPage: StudyPageSlug) => onNavigateAway(studyPath(spaceId, nextPage));
+  // 学/练原地切换与扉页翻页都只是换 URL（同一本本子）；离开时仍走 onNavigateAway
+  // 的脏练习确认，未保存的答案不会被静默丢掉。
+  const changeMode = (nextMode: "learn" | "practice") => {
+    if (nextMode === mode) return;
+    switchStudyMode(spaceId, nextMode);
+    navigatePage(nextMode);
+  };
+  const toggleFlyleaf = () => navigatePage(flyleafOpen ? mode : "flyleaf");
   const openMaterial = (artifactId?: string) => {
     if (!artifactId) return;
     nanaGenerationRef.current += 1;
@@ -515,7 +533,14 @@ export function StudyDeskPage({
       adapter={adapter}
       returnFocus={returnFocus}
       currentPage={page}
+      surface={surface}
+      mode={mode}
+      flyleafOpen={flyleafOpen}
+      spaceTitle={spaces.find((space) => space.id === spaceId)?.title || "我的本子"}
       pageBody={pageBody}
+      rightPage={surface === "notebook" && !flyleafOpen ? (
+        <StudyCaptureFlow purpose={mode === "practice" ? "review" : "stuck"} />
+      ) : undefined}
       continueTitle={continueLocation ? studyContinueTitle(continueLocation) : undefined}
       continueMeta={continueLocation ? studyContinueMeta(continueLocation) : undefined}
       continueLabel={continueLocation?.page === "plan" ? "从这里开始" : "继续"}
@@ -526,6 +551,8 @@ export function StudyDeskPage({
       onDirtyChange={onDirtyChange}
       onImportMaterial={onImportMaterial}
       onNavigatePage={navigatePage}
+      onModeChange={changeMode}
+      onToggleFlyleaf={toggleFlyleaf}
       onResumeLocation={() => {
         if (!continueLocation) return;
         const targetPath = studyPath(spaceId, continueLocation.page);

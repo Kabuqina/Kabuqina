@@ -199,7 +199,7 @@ export function EvaluatePage({ spaceId }: { spaceId: string }) {
                       <time dateTime={item.created_at}>{shortTime(item.created_at)}</time>
                     </div>
                     <Link
-                      to={`${studyPath(spaceId, "practice")}?source=wrongbook&activityId=${encodeURIComponent(item.activity_id)}`}
+                      to={studyPath(spaceId, "practice", `?source=wrongbook&activityId=${encodeURIComponent(item.activity_id)}`)}
                       onClick={() => recordIa({ name: "study.wrongbook.retry", page: "evaluate", action: "retry" })}
                     >
                       {t("study.wrongbookRetry")}
@@ -228,7 +228,7 @@ export function EvaluatePage({ spaceId }: { spaceId: string }) {
                   ) : null}
                   <div className="kq-study-inline-actions">
                     {data.evaluation.evidence_refs?.find((ref) => ref.activity_id)?.activity_id ? (
-                      <Link to={`${studyPath(spaceId, "practice")}?source=wrongbook&activityId=${encodeURIComponent(data.evaluation.evidence_refs.find((ref) => ref.activity_id)!.activity_id)}`}>
+                      <Link to={studyPath(spaceId, "practice", `?source=wrongbook&activityId=${encodeURIComponent(data.evaluation.evidence_refs.find((ref) => ref.activity_id)!.activity_id)}`)}>
                         回到这条练习
                       </Link>
                     ) : null}

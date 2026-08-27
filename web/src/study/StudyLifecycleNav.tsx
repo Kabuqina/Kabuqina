@@ -3,9 +3,9 @@
 
 import { NavLink } from "react-router-dom";
 import { useI18n } from "../lib/i18n";
-import { PAGE_SLUGS, studyPath, type StudyPageSlug } from "./routeModel";
+import { LEGACY_PAGE_SLUGS, studyPath, type StudyLegacyPageSlug, type StudyPageSlug } from "./routeModel";
 
-const PAGE_KEYS: Record<StudyPageSlug, string> = {
+const PAGE_KEYS: Record<StudyLegacyPageSlug, string> = {
   flyleaf: "study.pageFlyleaf",
   plan: "study.pagePlan",
   learn: "study.pageLearn",
@@ -14,14 +14,14 @@ const PAGE_KEYS: Record<StudyPageSlug, string> = {
 };
 
 export function pageLabelKey(page: StudyPageSlug): string {
-  return PAGE_KEYS[page];
+  return PAGE_KEYS[page as StudyLegacyPageSlug] ?? "study.pagePractice";
 }
 
 export function StudyLifecycleNav({ spaceId, currentPage, onNavigate }: { spaceId: string; currentPage?: StudyPageSlug; onNavigate?: (page: StudyPageSlug) => void }) {
   const { t } = useI18n();
   return (
     <nav className="kq-study-lifecycle" aria-label={t("study.lifecycle")}>
-      {PAGE_SLUGS.map((page) => (
+      {LEGACY_PAGE_SLUGS.map((page) => (
         <NavLink
           key={page}
           to={studyPath(spaceId, page)}

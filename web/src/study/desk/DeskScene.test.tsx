@@ -39,9 +39,9 @@ describe("DeskScene FE-01 preview", () => {
       />,
     );
 
-    const pageTabs = await screen.findByRole("navigation", { name: "笔记本分页" });
+    const titleButton = await screen.findByRole("button", { name: /自习主题/ });
     const bookmark = screen.getByRole("button", { name: /继续：解释为什么不能直接代入/ });
-    expect(pageTabs.parentElement).toBe(bookmark.parentElement);
+    expect(titleButton.parentElement).toBe(bookmark.parentElement);
     expect(bookmark).toHaveTextContent("继续");
     expect(bookmark).not.toHaveTextContent("解释为什么不能直接代入");
     expect(bookmark).not.toHaveTextContent("极限 · 练习");
@@ -102,7 +102,7 @@ describe("DeskScene FE-01 preview", () => {
   it("keeps a blank non-interactive bookmark when no content is associated", async () => {
     const { container } = render(<DeskScene adapter={createAdapter()} />);
 
-    await screen.findByRole("navigation", { name: "笔记本分页" });
+    await screen.findByRole("group", { name: "学习模式" });
     expect(container.querySelector(".kd-bookmark-button.is-empty")).not.toBeNull();
     expect(screen.queryByRole("button", { name: /^继续：/ })).not.toBeInTheDocument();
   });
@@ -137,7 +137,7 @@ describe("DeskScene FE-01 preview", () => {
     expect(alert).not.toHaveTextContent("artifact-secret");
 
     fireEvent.click(screen.getByRole("button", { name: "再试一次" }));
-    expect(await screen.findByRole("navigation", { name: "笔记本分页" })).toBeInTheDocument();
+    expect(await screen.findByRole("group", { name: "学习模式" })).toBeInTheDocument();
     expect(loadDesk).toHaveBeenCalledTimes(2);
   });
 
@@ -145,7 +145,7 @@ describe("DeskScene FE-01 preview", () => {
     const onOpenMaterials = vi.fn();
     render(<DeskScene adapter={createAdapter()} onOpenMaterials={onOpenMaterials} />);
 
-    await screen.findByRole("navigation", { name: "笔记本分页" });
+    await screen.findByRole("group", { name: "学习模式" });
     fireEvent.click(screen.getByRole("button", { name: "教材 §2.3" }));
 
     expect(onOpenMaterials).toHaveBeenCalledWith("material-1");
@@ -428,5 +428,39 @@ describe("DeskScene FE-01 preview", () => {
       expect.any(AbortSignal),
     ));
     expect(await screen.findByRole("heading", { name: "极限卡片 2" })).toBeInTheDocument();
+  });
+
+  it("opens the card box as an overlay on /cards, keeping the notebook mounted", async () => {
+    render(<DeskScene adapter={createAdapter()} surface="cards" currentPage="practice" />);
+    // 卡片盒自动打开，本子（模式切换）仍在后面挂着。
+    expect(await screen.findByRole("heading", { name: "极限卡片 1" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "学习模式" })).toBeInTheDocument();
+  });
+
+  it("closes the /cards overlay back to the notebook surface", async () => {
+    const onNavigatePage = vi.fn();
+    render(<DeskScene adapter={createAdapter()} surface="cards" currentPage="practice" onNavigatePage={onNavigatePage} />);
+    await screen.findByRole("heading", { name: "极限卡片 1" });
+    fireEvent.click(screen.getByRole("button", { name: "结束复习" }));
+    await waitFor(() => expect(onNavigatePage).toHaveBeenCalledWith("notebook"));
+  });
+
+  it("lays plan content over the notebook on /bookend instead of replacing it", async () => {
+    const onNavigatePage = vi.fn();
+    render(
+      <DeskScene
+        adapter={createAdapter()}
+        surface="bookend"
+        currentPage="plan"
+        pageBody={<p>计划正文</p>}
+        onNavigatePage={onNavigatePage}
+      />,
+    );
+    expect(await screen.findByText("计划正文")).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "书立" })).toBeInTheDocument();
+    // 本子仍在：模式切换没有被面板换掉。
+    expect(screen.getByRole("group", { name: "学习模式" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "回到本子" }));
+    await waitFor(() => expect(onNavigatePage).toHaveBeenCalledWith("notebook"));
   });
 });

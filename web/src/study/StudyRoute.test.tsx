@@ -26,7 +26,8 @@ const vectorCore = {
 beforeEach(() => localStorage.clear());
 
 function Location() {
-  return <output data-testid="location">{useLocation().pathname}</output>;
+  const { pathname, search } = useLocation();
+  return <output data-testid="location">{pathname}{search}</output>;
 }
 
 function renderRoute(path: string, repositoryOverrides: Partial<StudyRepository> = {}, strict = false) {
@@ -83,13 +84,13 @@ function deferred<T>() {
 describe("StudyRoute", () => {
   it("owns the idempotent built-in course bootstrap and refreshes after a fresh seed", async () => {
     const seedBuiltinCourse = vi.fn().mockResolvedValue(true);
-    const repository = renderRoute("/study/space-a/learn", { seedBuiltinCourse });
+    const repository = renderRoute("/study/space-a/notebook?mode=learn", { seedBuiltinCourse });
     await waitFor(() => expect(seedBuiltinCourse).toHaveBeenCalledWith(expect.any(AbortSignal)));
     await waitFor(() => expect(repository.listSpaces).toHaveBeenCalledTimes(2));
   });
 
   it("fails open when built-in course bootstrap is unavailable", async () => {
-    renderRoute("/study/space-a/learn", { seedBuiltinCourse: vi.fn().mockRejectedValue(new Error("offline")) });
+    renderRoute("/study/space-a/notebook?mode=learn", { seedBuiltinCourse: vi.fn().mockRejectedValue(new Error("offline")) });
     expect(await screen.findByRole("region", { name: "学习" })).toBeInTheDocument();
   });
 
@@ -105,7 +106,7 @@ describe("StudyRoute", () => {
     const seed = deferred<boolean>();
     const seedBuiltinCourse = vi.fn().mockImplementation(() => seed.promise);
     const listSpaces = vi.fn().mockResolvedValue(spaces);
-    renderRoute("/study/space-a/learn", { seedBuiltinCourse, listSpaces }, true);
+    renderRoute("/study/space-a/notebook?mode=learn", { seedBuiltinCourse, listSpaces }, true);
 
     await waitFor(() => expect(seedBuiltinCourse).toHaveBeenCalledTimes(1));
     expect(seedBuiltinCourse.mock.calls[0][0]).toBeInstanceOf(AbortSignal);
@@ -115,14 +116,25 @@ describe("StudyRoute", () => {
     expect(seedBuiltinCourse.mock.calls[0][0].aborted).toBe(false);
   });
 
-  it("canonicalizes the root to the current flyleaf", async () => {
+  it("canonicalizes the root to the current notebook surface", async () => {
     renderRoute("/study");
-    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/study/space-a/flyleaf"));
+    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/study/space-a/notebook"));
   });
 
-  it("canonicalizes a space-only URL to its flyleaf", async () => {
+  it("canonicalizes a space-only URL to the notebook surface", async () => {
     renderRoute("/study/space-a");
-    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/study/space-a/flyleaf"));
+    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/study/space-a/notebook"));
+  });
+
+  it.each([
+    ["/study/space-a/flyleaf", "/study/space-a/notebook?view=flyleaf"],
+    ["/study/space-a/plan", "/study/space-a/bookend?view=plan"],
+    ["/study/space-a/learn", "/study/space-a/notebook?mode=learn"],
+    ["/study/space-a/practice", "/study/space-a/notebook?mode=practice"],
+    ["/study/space-a/evaluate", "/study/space-a/bookend?view=evaluate"],
+  ])("redirects legacy %s to %s", async (legacy, canonical) => {
+    renderRoute(legacy);
+    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent(canonical));
   });
 
   it("renders the empty notebook state when no spaces exist", async () => {
@@ -133,7 +145,7 @@ describe("StudyRoute", () => {
     expect(screen.queryByRole("navigation", { name: "学习阶段" })).not.toBeInTheDocument();
   });
 
-  it("spreads a scratch space open on its own desk, without a flyleaf redirect", async () => {
+  it("spreads a scratch space open on its own desk, without a surface redirect", async () => {
     renderRoute("/study/scratch-1", {
       listSpaces: vi.fn().mockResolvedValue({
         currentSpaceId: "scratch-1",
@@ -158,7 +170,7 @@ describe("StudyRoute", () => {
       prompt: "Explain the vector length",
       tags: ["vectors"],
     }]);
-    renderRoute("/study/space-a/practice", {
+    renderRoute("/study/space-a/notebook?mode=practice", {
       loadPracticeHome: vi.fn().mockResolvedValue({
         cards: [],
         dueCards: [],
@@ -174,7 +186,7 @@ describe("StudyRoute", () => {
     expect(await screen.findByRole("button", { name: "Linear Algebra" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /继续：vectors/ })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "开始“vectors”" })).toBeInTheDocument();
-    expect(screen.getByRole("navigation", { name: "笔记本分页" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "学习模式" })).toBeInTheDocument();
     expect(loadQuizQuestions).toHaveBeenCalledWith(
       "space-a",
       "quiz-1",
@@ -212,7 +224,7 @@ describe("StudyRoute", () => {
         explanation: "Length is one.",
       }],
     });
-    renderRoute("/study/space-a/practice", {
+    renderRoute("/study/space-a/notebook?mode=practice", {
       listSpaces,
       loadPracticeHome: vi.fn().mockResolvedValue({
         cards: [],
@@ -255,7 +267,7 @@ describe("StudyRoute", () => {
 
   it("retains the active shell and data when a refresh fails", async () => {
     const refresh = deferred<typeof spaces>();
-    renderRoute("/study/space-a/learn", {
+    renderRoute("/study/space-a/notebook?mode=learn", {
       listSpaces: vi.fn()
         .mockResolvedValueOnce(spaces)
         .mockImplementationOnce(() => refresh.promise)

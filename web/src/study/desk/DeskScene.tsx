@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import type { StudyPageSlug } from "../routeModel";
+import type { StudyPageSlug, StudySurfaceSlug } from "../routeModel";
 import type { StudyKnowledgePoint } from "../../chat/study/study-api";
 import type { DeskAdapter } from "./deskAdapter";
 import { defaultDeskArtAssets, type DeskArtAssets } from "./artAssets";
@@ -68,6 +68,18 @@ export interface DeskSceneProps {
   };
   art?: Partial<DeskArtAssets>;
   currentPage?: StudyPageSlug;
+  /** v0.5.0 canonical surface. Used by the new three-surface IA. */
+  surface?: StudySurfaceSlug;
+  /** Notebook work mode. */
+  mode?: "learn" | "practice";
+  /** Whether the flyleaf first page is open. */
+  flyleafOpen?: boolean;
+  /** Notebook cover title. */
+  spaceTitle?: string;
+  /** Right-page content rendered inside the notebook. */
+  rightPage?: ReactNode;
+  onModeChange?: (mode: "learn" | "practice") => void;
+  onToggleFlyleaf?: () => void;
   /**
    * 非练习分页的正文。五个分页共用同一本本子，所以书桌不是"练习专用"的——
    * 扉页 / 计划 / 学习 / 评估 由 `StudyShell` 把 `StudyPageOutlet` 传进来铺在本子里。
@@ -108,6 +120,13 @@ export default function DeskScene({
   initialSnapshot,
   art,
   currentPage = "practice",
+  surface,
+  mode = "practice",
+  flyleafOpen = false,
+  spaceTitle,
+  rightPage,
+  onModeChange,
+  onToggleFlyleaf,
   pageBody,
   draftInbox,
   bookstandFallback,
@@ -148,6 +167,10 @@ export default function DeskScene({
   const [operationError, setOperationError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState<Announcement | null>(null);
   const [panel, setPanel] = useState<"work" | "activity" | "cards" | null>(null);
+  /** true 表示 cards 面板由 /cards 路由自动打开（关闭时要回到 notebook，而不是仅收起）。 */
+  const cardsFromSurfaceRef = useRef(false);
+  /** 记录已自动打开过面板的 surface，避免关闭后（路由尚未跳转）被 effect 重新打开。 */
+  const surfaceAutoOpenedRef = useRef<string | null>(null);
   const [stackIndexOpen, setStackIndexOpen] = useState(false);
   const [initialMaterialId, setInitialMaterialId] = useState<string | null>(null);
   const [cardIndex, setCardIndex] = useState(0);
@@ -336,9 +359,11 @@ export default function DeskScene({
     setCardPending(false);
     setCardError(null);
     setPanel(null);
+    // cards/bookend 作为 surface 打开时，收起 = 回到笔记本工作态（保留本子上下文）。
+    if (surface === "cards" || surface === "bookend") onNavigatePage?.("notebook");
     announce("已回到书桌。");
     requestAnimationFrame(() => document.getElementById("kd-notebook-surface")?.focus());
-  }, [announce]);
+  }, [announce, onNavigatePage, surface]);
 
   const openWorkFolder = useCallback((materialId?: string) => {
     setInitialMaterialId(materialId ?? null);
@@ -387,6 +412,18 @@ export default function DeskScene({
     setPanel("cards");
     announce(`开始复习，共 ${data.dueCards.length} 张到期卡片。`);
   }, [announce, data]);
+
+  // `/cards` 是可深链的桌面状态：数据就绪后自动打开卡片盒覆盖面板，
+  // 本子仍在面板后面保持挂载。关闭面板即回到 notebook（见 closePanel）。
+  // `/bookend` 的计划/评估正文由下方 `bookendOverlay` 直接盖在本子上，不走 panel state。
+  useEffect(() => {
+    if (!data || panel !== null || surface !== "cards") return;
+    if (surfaceAutoOpenedRef.current === surface) return;
+    if (!data.dueCards.length || data.cardsUnavailable) return;
+    surfaceAutoOpenedRef.current = surface;
+    cardsFromSurfaceRef.current = true;
+    openCardReview();
+  }, [data, openCardReview, panel, surface]);
 
   const reviewCard = useCallback((grade: DeskCardGrade) => {
     const card = data?.dueCards[cardIndex];
@@ -598,7 +635,12 @@ export default function DeskScene({
                 operationError={null}
                 checkResult={null}
                 currentPage={currentPage}
+                surface={surface}
+                mode={mode}
+                flyleafOpen={flyleafOpen}
+                spaceTitle={spaceTitle ?? bookstandFallback.currentTitle}
                 pageBody={pageBody}
+                rightPage={rightPage}
                 continueTitle={continueTitle}
                 continueMeta={continueMeta}
                 continueLabel={continueLabel}
@@ -615,6 +657,8 @@ export default function DeskScene({
                 onPreviousStep={() => undefined}
                 onNextStep={() => undefined}
                 onNavigatePage={onNavigatePage}
+                onModeChange={onModeChange}
+                onToggleFlyleaf={onToggleFlyleaf}
                 onFutureFeature={announceFutureFeature}
               />
             </section>
@@ -688,72 +732,67 @@ export default function DeskScene({
             ? "这一步还没有草稿"
             : "草稿已保存在这本笔记本中";
 
-  if (panel === "work") {
-    return (
-      <div className="kq-desk" data-density="focused">
-          <div className="kd-canvas">
-          <DeskWorkFolder
-            courseName={data.course.name}
-            materials={data.materials}
-            initialSourceId={initialMaterialId}
-            onCreate={(request) => {
-              if (onStartCreateChat) onStartCreateChat({ ...request, focusId: step?.id ?? `course:${currentPage}` });
-              else announceFutureChat();
-            }}
-            onOpenMaterials={onOpenMaterials}
-            onClose={closePanel}
-          />
-        </div>
-        <Announcer announcement={announcement} />
-      </div>
-    );
-  }
-
-  if (panel === "activity") {
-    return (
-      <div className="kq-desk" data-density="focused">
-          <div className="kd-canvas">
-          <DeskActivityPanel
-            activities={data.activities}
-            unavailable={data.activitiesUnavailable}
-            loading={activityLoading}
-            error={activityLoadError}
-            spaceId={data.bookstand.books.find((book) => book.current)?.id ?? ""}
-            onOpenFull={onOpenActivity}
-            onOpenChatSession={onOpenChatSession}
-            onRetryStudy={() => {
-              refreshActivities();
-            }}
-            onClose={closePanel}
-          />
-        </div>
-        <Announcer announcement={announcement} />
-      </div>
-    );
-  }
-
   const reviewCardData = data.dueCards[cardIndex];
-  if (panel === "cards" && reviewCardData) {
-    return (
-      <div className="kq-desk" data-density="focused">
-          <div className="kd-canvas">
-          <DeskCardReview
-            card={reviewCardData}
-            index={cardIndex}
-            total={data.dueCards.length}
-            pending={cardPending}
-            error={cardError}
-            onGrade={reviewCard}
-            onClose={closePanel}
-          />
+  // `/bookend`：计划/评估盖在本子上的一层，关掉就回到本子工作态——本子上下文不卸挂载。
+  const bookendOverlay = surface === "bookend" && pageBody ? (
+    <div className="kd-overlay" role="presentation">
+      <div className="kd-panel-layout" role="dialog" aria-label="书立">
+        <div className="kd-panel-card">
+          <div className="kd-panel-heading">
+            <button type="button" onClick={closePanel}>回到本子</button>
+          </div>
+          {pageBody}
         </div>
-        <Announcer announcement={announcement} />
       </div>
-    );
-  }
+    </div>
+  ) : null;
+  // 覆盖面板不再顶掉整张书桌：本子保持挂载，面板只是盖在上面的一层。
+  const panelOverlay = panel === "work" ? (
+    <div className="kd-overlay" role="presentation">
+      <DeskWorkFolder
+        courseName={data.course.name}
+        materials={data.materials}
+        initialSourceId={initialMaterialId}
+        onCreate={(request) => {
+          if (onStartCreateChat) onStartCreateChat({ ...request, focusId: step?.id ?? `course:${currentPage}` });
+          else announceFutureChat();
+        }}
+        onOpenMaterials={onOpenMaterials}
+        onClose={closePanel}
+      />
+    </div>
+  ) : panel === "activity" ? (
+    <div className="kd-overlay" role="presentation">
+      <DeskActivityPanel
+        activities={data.activities}
+        unavailable={data.activitiesUnavailable}
+        loading={activityLoading}
+        error={activityLoadError}
+        spaceId={data.bookstand.books.find((book) => book.current)?.id ?? ""}
+        onOpenFull={onOpenActivity}
+        onOpenChatSession={onOpenChatSession}
+        onRetryStudy={() => {
+          refreshActivities();
+        }}
+        onClose={closePanel}
+      />
+    </div>
+  ) : panel === "cards" && reviewCardData ? (
+    <div className="kd-overlay" role="presentation">
+      <DeskCardReview
+        card={reviewCardData}
+        index={cardIndex}
+        total={data.dueCards.length}
+        pending={cardPending}
+        error={cardError}
+        onGrade={reviewCard}
+        onClose={closePanel}
+      />
+    </div>
+  ) : null;
 
   return (
-    <div className="kq-desk" data-density={density}>
+    <div className="kq-desk" data-density={density} data-surface={surface}>
       <div className="kd-canvas">
         <main className="kd-desk">
           {/* 书立在本子的上边缘：换课＝换一本本子（原型 `Bookend`）。 */}
@@ -777,7 +816,12 @@ export default function DeskScene({
               operationError={operationError}
               checkResult={checkResult}
               currentPage={currentPage}
-              pageBody={pageBody}
+              surface={surface}
+              mode={mode}
+              flyleafOpen={flyleafOpen}
+              spaceTitle={spaceTitle ?? data.course.name}
+              pageBody={surface === "bookend" ? undefined : pageBody}
+              rightPage={rightPage}
               continueTitle={continueTitle}
               continueMeta={continueMeta}
               continueLabel={continueLabel}
@@ -811,6 +855,8 @@ export default function DeskScene({
                 : undefined}
               onBackToLearn={onBackToLearn}
               onNavigatePage={onNavigatePage}
+              onModeChange={onModeChange}
+              onToggleFlyleaf={onToggleFlyleaf}
               onFutureFeature={announceFutureFeature}
             />
           </section>
@@ -845,6 +891,8 @@ export default function DeskScene({
             </button>
           </nav>
         </main>
+        {panelOverlay}
+        {bookendOverlay}
       </div>
       <Announcer announcement={announcement} />
     </div>

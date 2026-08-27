@@ -99,7 +99,7 @@ describe("LearnPage", () => {
     await screen.findByRole("heading", { name: "极限唯一性" });
     await user.click(screen.getByRole("button", { name: "和教材对一下" }));
     expect(screen.getByRole("region", { name: "教材与我的说法对照" })).toHaveTextContent("这里不判分");
-    expect(screen.getByRole("link", { name: "去练习这个知识核" })).toHaveAttribute("href", "/study/space-a/practice");
+    expect(screen.getByRole("link", { name: "去练习这个知识核" })).toHaveAttribute("href", "/study/space-a/notebook?mode=practice");
     await user.click(screen.getByRole("link", { name: "去练习这个知识核" }));
     expect(JSON.parse(localStorage.getItem("kabuqina.study.location.v1:space-a")!)).toMatchObject({
       page: "practice",

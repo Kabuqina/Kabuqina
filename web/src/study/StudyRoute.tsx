@@ -7,7 +7,7 @@ import { useI18n } from "../lib/i18n";
 import { RequestCoordinator, type Loadable } from "./loadable";
 import { useStudyRepository } from "./repositoryContext";
 import type { StudyRepository, StudySpaces } from "./repository";
-import { parseStudyPath, studyPath } from "./routeModel";
+import { legacyToCanonical, parseStudyPath, studyPath } from "./routeModel";
 import { StudyShell } from "./StudyShell";
 import { StudyRouteStatus } from "./StudyRouteStatus";
 import { STUDY_LEARNING_EVENT } from "./learningEvent";
@@ -156,30 +156,41 @@ export default function StudyRoute() {
       </StudyRouteStatus>
     );
   }
-  if (route.kind === "space") {
-    // 杂记本不是课程，没有五分页：它按 `/study/<id>` 直接摊开，不重定向到扉页。
-    const isScratch = retainedSpaces.spaces.some(
-      (space) => space.id === route.spaceId && space.kind === "scratch",
-    );
-    return isScratch
-      ? <StudyShell
-          spaces={retainedSpaces}
-          spaceId={route.spaceId}
-          scratch
-          onRevalidate={load}
-          refreshing={spaces.status === "loading"}
-          refreshFailed={spaces.status === "error"}
-        />
-      : <Navigate to={studyPath(route.spaceId)} replace />;
-  }
-  // 手敲 /study/<杂记本>/practice 之类的路径：回到那本本子唯一的一页。
-  if (retainedSpaces.spaces.some((space) => space.id === route.spaceId && space.kind === "scratch")) {
+
+  const isScratch = retainedSpaces.spaces.some(
+    (space) => space.id === route.spaceId && space.kind === "scratch",
+  );
+
+  // 杂记本按 `/study/<id>` 直接摊开；任何更深的路径都回到它唯一的一页。
+  if (isScratch) {
+    if (route.kind === "space") {
+      return <StudyShell
+        spaces={retainedSpaces}
+        spaceId={route.spaceId}
+        scratch
+        onRevalidate={load}
+        refreshing={spaces.status === "loading"}
+        refreshFailed={spaces.status === "error"}
+      />;
+    }
     return <Navigate to={`/study/${encodeURIComponent(route.spaceId)}`} replace />;
   }
+
+  // Legacy /study/<id>/<old-page> redirects to the canonical surface with search params.
+  if (route.kind === "legacy") {
+    const { pathname, search } = legacyToCanonical(route.spaceId, route.page);
+    return <Navigate to={`${pathname}${search}${location.search ? (search ? "&" : "?") + location.search.slice(1) : ""}`} replace />;
+  }
+
+  if (route.kind === "space") {
+    // 普通课程只写 spaceId 时进入默认 surface：notebook。
+    return <Navigate to={studyPath(route.spaceId)} replace />;
+  }
+
   return <StudyShell
     spaces={retainedSpaces}
     spaceId={route.spaceId}
-    page={route.page}
+    surface={route.surface}
     onRevalidate={load}
     refreshing={spaces.status === "loading"}
     refreshFailed={spaces.status === "error"}

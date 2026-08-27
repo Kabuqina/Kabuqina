@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { lazy, Suspense, type ReactNode, type RefObject } from "react";
-import type { StudyPageSlug } from "../routeModel";
+import type { StudyPageSlug, StudySurfaceSlug } from "../routeModel";
 import type { DeskArtAssets } from "./artAssets";
 import type {
   CheckResult,
@@ -19,6 +19,8 @@ const DerivationPracticeSurface = lazy(async () => ({
   default: (await import("../pages/DerivationPracticeSurface")).DerivationPracticeSurface,
 }));
 
+export type NotebookMode = "learn" | "practice";
+
 export interface DeskNotebookProps {
   art: DeskArtAssets;
   /** 练习专用；没有可用测验时缺席，本子仍然照常打开。 */
@@ -31,12 +33,22 @@ export interface DeskNotebookProps {
   operationError: string | null;
   checkResult: CheckResult | null;
   currentPage?: StudyPageSlug;
+  /** v0.5.0 canonical surface. */
+  surface?: StudySurfaceSlug;
+  /** Notebook work mode: learn or practice. */
+  mode?: NotebookMode;
+  /** Whether the flyleaf (first page) is open. */
+  flyleafOpen?: boolean;
+  /** Title shown on the notebook cover label. */
+  spaceTitle?: string;
   /**
    * 非练习分页的正文。笔记本的五个分页共用同一本本子（原型 `StudyNotebook`）——
    * 扉页 / 计划 / 学习 / 评估 由 `StudyPageOutlet` 铺在这里，练习仍由本组件自己画，
    * 因为只有它带着作答面、检查反馈和小娜批注。
    */
   pageBody?: ReactNode;
+  /** Right-page content: paper capture flow, empty state, or flyleaf back note. */
+  rightPage?: ReactNode;
   continueTitle?: string;
   continueMeta?: string;
   continueLabel?: string;
@@ -60,16 +72,10 @@ export interface DeskNotebookProps {
   onNextKnowledgeCore?: () => void;
   onBackToLearn?: () => void;
   onNavigatePage?: (page: StudyPageSlug) => void;
+  onModeChange?: (mode: NotebookMode) => void;
+  onToggleFlyleaf?: () => void;
   onFutureFeature: () => void;
 }
-
-const PAGE_TABS: ReadonlyArray<{ label: string; page: StudyPageSlug }> = [
-  { label: "扉页", page: "flyleaf" },
-  { label: "计划", page: "plan" },
-  { label: "学习", page: "learn" },
-  { label: "练习", page: "practice" },
-  { label: "评估", page: "evaluate" },
-];
 
 function readChoice(answer: string): number[] {
   try {
@@ -240,6 +246,27 @@ function exerciseOriginLabel(step: StudyStep): string | null {
   return null;
 }
 
+function ModeSwitch({ mode, onModeChange }: { mode: NotebookMode; onModeChange?: (mode: NotebookMode) => void }) {
+  return (
+    <div className="kd-modes" role="group" aria-label="学习模式">
+      <button
+        type="button"
+        aria-pressed={mode === "learn"}
+        onClick={() => onModeChange?.("learn")}
+      >
+        学
+      </button>
+      <button
+        type="button"
+        aria-pressed={mode === "practice"}
+        onClick={() => onModeChange?.("practice")}
+      >
+        练
+      </button>
+    </div>
+  );
+}
+
 export function DeskNotebook({
   art,
   overview,
@@ -250,8 +277,12 @@ export function DeskNotebook({
   saveStatusText,
   operationError,
   checkResult,
-  currentPage = "practice",
+  surface = "notebook",
+  mode = "practice",
+  flyleafOpen = false,
+  spaceTitle = "我的本子",
   pageBody,
+  rightPage,
   continueTitle,
   continueMeta,
   continueLabel = "继续",
@@ -274,7 +305,8 @@ export function DeskNotebook({
   onPreviousKnowledgeCore,
   onNextKnowledgeCore,
   onBackToLearn,
-  onNavigatePage,
+  onModeChange,
+  onToggleFlyleaf,
   onFutureFeature,
 }: DeskNotebookProps) {
   const Bookmark = art.bookmark;
@@ -291,27 +323,161 @@ export function DeskNotebook({
     (activity === "needs_revision" || activity === "completed") && checkResult !== null;
   const marginAnnotation = checkResult ? resolveMarginAnnotation(checkResult) : null;
 
-  return (
-    <article className="kd-notebook">
-      <header className="kd-notebook-head">
-        <nav className="kd-page-tabs" aria-label="笔记本分页">
-          {PAGE_TABS.map(({ label, page }) => (
-            <button
-              key={page}
-              type="button"
-              aria-current={page === currentPage ? "page" : undefined}
-              onClick={
-                page === currentPage
-                  ? undefined
-                  : onNavigatePage
-                    ? () => onNavigatePage(page)
-                    : onFutureFeature
-              }
-            >
-              {label}
-            </button>
-          ))}
+  const practiceContent = !(step && overview) ? (
+    <section className="kd-overview-copy">
+      <p className="kd-page-kicker">当前知识核的练习</p>
+      <h2>{knowledgeCoreTitle ? `“${knowledgeCoreTitle}”还没有可用练习` : "当前范围还没有知识核"}</h2>
+      <p>{knowledgeCoreTitle ? "仍停留在这一步，不会偷换到别的知识核。可以回学习，或请小娜基于材料拟一组待审核练习。" : "先在计划页确认范围，再整理这一段的知识核。"}</p>
+      <div className="kd-inline-actions">
+        {onBackToLearn ? <button type="button" className="kd-primary" onClick={onBackToLearn}>回到这个知识核的学习页</button> : null}
+      </div>
+      {knowledgeCoreTitle ? (
+        <nav className="kd-core-navigation" aria-label="知识核导航">
+          <button type="button" disabled={knowledgeCoreIndex === 0} onClick={onPreviousKnowledgeCore}>上一个知识核</button>
+          <button type="button" disabled={knowledgeCoreIndex + 1 >= knowledgeCoreTotal} onClick={onNextKnowledgeCore}>下一个知识核</button>
         </nav>
+      ) : null}
+    </section>
+  ) : isOverview ? (
+    <section className="kd-overview-copy">
+      <p className="kd-page-kicker">{overview.kicker}</p>
+      <h2>{overview.heading}</h2>
+      <p>{overview.body}</p>
+      <ul className="kd-resume-list">
+        {overview.resume.map((item) => (
+          <li key={item.text}>
+            {item.icon === "circleCheck" ? <CircleCheck /> : <CircleDot />} {item.text}
+          </li>
+        ))}
+      </ul>
+      <button type="button" className="kd-primary" onClick={onResume}>
+        继续这一步 <ArrowRight />
+      </button>
+    </section>
+  ) : (
+    <section className="kd-page-main" tabIndex={-1} ref={taskSurfaceRef}>
+      <div className="kd-task-scroll">
+        {knowledgeCoreTitle ? (
+          <div className="kd-core-context">
+            <div>
+              <p>正在练习这个知识核</p>
+              <strong>{knowledgeCoreTitle}</strong>
+            </div>
+            <span>{knowledgeCoreIndex + 1} / {knowledgeCoreTotal}</span>
+          </div>
+        ) : null}
+        <p className="kd-page-kicker">{step.kicker}</p>
+        {exerciseOriginLabel(step) ? (
+          <p className="kd-exercise-origin" data-origin={step.origin}>
+            <strong>{exerciseOriginLabel(step)}</strong>
+            {step.sourceLabel ? <span>{step.sourceLabel}</span> : null}
+          </p>
+        ) : null}
+        <h2 className="kd-practice-question">{step.prompt}</h2>
+
+        <div className="kd-answer-label">
+          <strong id="kd-answer-heading">我的答案</strong>
+        </div>
+        <AnswerSurface
+          step={step}
+          answer={answer}
+          readOnly={readOnly}
+          answerRef={answerRef}
+          onAnswerChange={onAnswerChange}
+        />
+        <p className="kd-save-status" role="status">{saveStatusText}</p>
+        {operationError ? <p className="kd-operation-error" role="alert">{operationError}</p> : null}
+
+        {showFeedback && marginAnnotation ? (
+          <aside
+            className="kd-feedback"
+            data-annotation={marginAnnotation.kind}
+            aria-label={`小娜批注：${marginAnnotation.label}`}
+            tabIndex={-1}
+            ref={feedbackRef}
+          >
+            <h3>小娜批注</h3>
+            <div className="kd-feedback-row">
+              {marginAnnotation.kind === "confirmed" ? <Check /> : marginAnnotation.kind === "revision" ? <Circle /> : <ArrowRight />}
+              <p><strong>{marginAnnotation.label}</strong>{marginAnnotation.body}</p>
+            </div>
+          </aside>
+        ) : null}
+      </div>
+
+      <div className="kd-inline-actions kd-task-actions">
+        {activity === "ready" && (
+          <button type="button" className="kd-primary" onClick={onStartWriting}>
+            {hasDraft ? "继续作答" : "开始作答"}
+          </button>
+        )}
+        {(activity === "dirty" || activity === "checking") && (
+          <button
+            type="button"
+            className="kd-primary"
+            disabled={activity === "checking"}
+            onClick={onCheck}
+          >
+            {activity === "checking" ? "正在检查…" : "检查这一步"}
+          </button>
+        )}
+        {activity === "needs_revision" && (
+          <button type="button" className="kd-primary" onClick={onSaveAnswer}>保存答案</button>
+        )}
+        {activity === "completed" && (
+          <button type="button" className="kd-primary" onClick={onNextStep}>
+            {hasNextStep ? "继续下一步" : "返回练习总览"}
+          </button>
+        )}
+        {onBackToLearn ? <button type="button" onClick={onBackToLearn}>回学习</button> : null}
+      </div>
+      {hasPreviousStep || hasNextStep ? (
+        <nav className="kd-question-navigation" aria-label="当前知识核题目导航">
+          <span>本知识核的题目</span>
+          <div>
+            <button type="button" disabled={!hasPreviousStep || activity === "checking"} onClick={onPreviousStep}>上一题</button>
+            <button type="button" disabled={!hasNextStep || activity === "checking"} onClick={onNextStep}>下一题</button>
+          </div>
+        </nav>
+      ) : null}
+      {knowledgeCoreTitle ? (
+        <nav className="kd-core-navigation" aria-label="知识核导航">
+          <button type="button" disabled={knowledgeCoreIndex === 0} onClick={onPreviousKnowledgeCore}>
+            上一个知识核
+          </button>
+          <button type="button" disabled={knowledgeCoreIndex + 1 >= knowledgeCoreTotal} onClick={onNextKnowledgeCore}>
+            下一个知识核
+          </button>
+        </nav>
+      ) : null}
+    </section>
+  );
+
+  const leftContent = flyleafOpen
+    ? pageBody
+    : pageBody ?? practiceContent;
+
+  const rightContent = flyleafOpen ? (
+    <div className="kd-page-note">
+      <p className="kd-page-kicker">扉页背面</p>
+      <p>翻到扉页时右页空着——这一刻不是在做题，没有"纸上来的"要对照。</p>
+      <p>改完点右下「保存」，或点页眉「回到这一页」翻回去。</p>
+    </div>
+  ) : rightPage;
+
+  return (
+    <article className="kd-notebook" data-surface={surface} data-mode={mode} data-flyleaf={flyleafOpen || undefined}>
+      <header className="kd-notebook-head">
+        <button
+          type="button"
+          className="kd-notebook-title"
+          onClick={onToggleFlyleaf ?? onFutureFeature}
+          aria-expanded={flyleafOpen}
+        >
+          <span className="kd-notebook-label">自习主题</span>
+          <strong>{spaceTitle}</strong>
+          <span className="kd-notebook-flip">{flyleafOpen ? "◂ 回到这一页" : "翻到扉页 ▸"}</span>
+        </button>
         {continueTitle ? (
           <button
             type="button"
@@ -325,140 +491,20 @@ export function DeskNotebook({
         ) : <span className="kd-bookmark-button is-empty" aria-hidden="true" />}
       </header>
 
-      <div className="kd-page-body">
+      <div className="kd-notebook-body">
         {pageNotice ? <p className="kd-recovery-notice" role="status">{pageNotice}</p> : null}
-        {pageBody ?? (!(step && overview) ? (
-          <section className="kd-overview-copy">
-            <p className="kd-page-kicker">当前知识核的练习</p>
-            <h2>{knowledgeCoreTitle ? `“${knowledgeCoreTitle}”还没有可用练习` : "当前范围还没有知识核"}</h2>
-            <p>{knowledgeCoreTitle ? "仍停留在这一步，不会偷换到别的知识核。可以回学习，或请小娜基于材料拟一组待审核练习。" : "先在计划页确认范围，再整理这一段的知识核。"}</p>
-            <div className="kd-inline-actions">
-              {onBackToLearn ? <button type="button" className="kd-primary" onClick={onBackToLearn}>回到这个知识核的学习页</button> : null}
-            </div>
-            {knowledgeCoreTitle ? (
-              <nav className="kd-core-navigation" aria-label="知识核导航">
-                <button type="button" disabled={knowledgeCoreIndex === 0} onClick={onPreviousKnowledgeCore}>上一个知识核</button>
-                <button type="button" disabled={knowledgeCoreIndex + 1 >= knowledgeCoreTotal} onClick={onNextKnowledgeCore}>下一个知识核</button>
-              </nav>
-            ) : null}
-          </section>
-        ) : isOverview ? (
-          <section className="kd-overview-copy">
-            <p className="kd-page-kicker">{overview.kicker}</p>
-            <h2>{overview.heading}</h2>
-            <p>{overview.body}</p>
-            <ul className="kd-resume-list">
-              {overview.resume.map((item) => (
-                <li key={item.text}>
-                  {item.icon === "circleCheck" ? <CircleCheck /> : <CircleDot />} {item.text}
-                </li>
-              ))}
-            </ul>
-            <button type="button" className="kd-primary" onClick={onResume}>
-              继续这一步 <ArrowRight />
-            </button>
-          </section>
-        ) : (
-          <section className="kd-page-main" tabIndex={-1} ref={taskSurfaceRef}>
-            <div className="kd-task-scroll">
-              {knowledgeCoreTitle ? (
-                <div className="kd-core-context">
-                  <div>
-                    <p>正在练习这个知识核</p>
-                    <strong>{knowledgeCoreTitle}</strong>
-                  </div>
-                  <span>{knowledgeCoreIndex + 1} / {knowledgeCoreTotal}</span>
-                </div>
-              ) : null}
-              <p className="kd-page-kicker">{step.kicker}</p>
-              {exerciseOriginLabel(step) ? (
-                <p className="kd-exercise-origin" data-origin={step.origin}>
-                  <strong>{exerciseOriginLabel(step)}</strong>
-                  {step.sourceLabel ? <span>{step.sourceLabel}</span> : null}
-                </p>
-              ) : null}
-              <h2 className="kd-practice-question">{step.prompt}</h2>
-
-              <div className="kd-answer-label">
-                <strong id="kd-answer-heading">我的答案</strong>
-              </div>
-              <AnswerSurface
-                step={step}
-                answer={answer}
-                readOnly={readOnly}
-                answerRef={answerRef}
-                onAnswerChange={onAnswerChange}
-              />
-              <p className="kd-save-status" role="status">{saveStatusText}</p>
-              {operationError ? <p className="kd-operation-error" role="alert">{operationError}</p> : null}
-
-              {showFeedback && marginAnnotation ? (
-                <aside
-                  className="kd-feedback"
-                  data-annotation={marginAnnotation.kind}
-                  aria-label={`小娜批注：${marginAnnotation.label}`}
-                  tabIndex={-1}
-                  ref={feedbackRef}
-                >
-                  <h3>小娜批注</h3>
-                  <div className="kd-feedback-row">
-                    {marginAnnotation.kind === "confirmed" ? <Check /> : marginAnnotation.kind === "revision" ? <Circle /> : <ArrowRight />}
-                    <p><strong>{marginAnnotation.label}</strong>{marginAnnotation.body}</p>
-                  </div>
-                </aside>
-              ) : null}
-            </div>
-
-            <div className="kd-inline-actions kd-task-actions">
-              {activity === "ready" && (
-                <button type="button" className="kd-primary" onClick={onStartWriting}>
-                  {hasDraft ? "继续作答" : "开始作答"}
-                </button>
-              )}
-              {(activity === "dirty" || activity === "checking") && (
-                <button
-                  type="button"
-                  className="kd-primary"
-                  disabled={activity === "checking"}
-                  onClick={onCheck}
-                >
-                  {activity === "checking" ? "正在检查…" : "检查这一步"}
-                </button>
-              )}
-              {activity === "needs_revision" && (
-                <button type="button" className="kd-primary" onClick={onSaveAnswer}>保存答案</button>
-              )}
-              {activity === "completed" && (
-                <button type="button" className="kd-primary" onClick={onNextStep}>
-                  {hasNextStep ? "继续下一步" : "返回练习总览"}
-                </button>
-              )}
-              {onBackToLearn ? <button type="button" onClick={onBackToLearn}>回学习</button> : null}
-            </div>
-            {hasPreviousStep || hasNextStep ? (
-              <nav className="kd-question-navigation" aria-label="当前知识核题目导航">
-                <span>本知识核的题目</span>
-                <div>
-                  <button type="button" disabled={!hasPreviousStep || activity === "checking"} onClick={onPreviousStep}>上一题</button>
-                  <button type="button" disabled={!hasNextStep || activity === "checking"} onClick={onNextStep}>下一题</button>
-                </div>
-              </nav>
-            ) : null}
-            {knowledgeCoreTitle ? (
-              <nav className="kd-core-navigation" aria-label="知识核导航">
-                <button type="button" disabled={knowledgeCoreIndex === 0} onClick={onPreviousKnowledgeCore}>
-                  上一个知识核
-                </button>
-                <button type="button" disabled={knowledgeCoreIndex + 1 >= knowledgeCoreTotal} onClick={onNextKnowledgeCore}>
-                  下一个知识核
-                </button>
-              </nav>
-            ) : null}
-          </section>
-        ))}
+        <div className="kd-spread">
+          <div className="kd-page kd-page-l">
+            {!flyleafOpen && <ModeSwitch mode={mode} onModeChange={onModeChange} />}
+            {leftContent}
+          </div>
+          <div className="kd-page kd-page-r">
+            {rightContent}
+          </div>
+        </div>
 
         {/* 提示只是当前题的一条线索；不用摘要复述题目，也不能泄露答案。 */}
-        {pageBody || !step ? null : (
+        {flyleafOpen || pageBody || !step ? null : (
           <details className="kd-reference-fold">
             <summary>提示</summary>
             <div>

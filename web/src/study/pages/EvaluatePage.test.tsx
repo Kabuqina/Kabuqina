@@ -93,7 +93,7 @@ describe("EvaluatePage", () => {
     expect(loadActivities).not.toHaveBeenCalled();
     expect(screen.queryByText(/SECRET/)).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "再试一次" })).toHaveAttribute(
-      "href", "/study/space-b/practice?source=wrongbook&activityId=activity-opaque",
+      "href", "/study/space-b/notebook?mode=practice&source=wrongbook&activityId=activity-opaque",
     );
     expect(screen.getByRole("link", { name: "再试一次" }).getAttribute("href")).not.toContain("vectors");
     await waitFor(() => expect(sink).toHaveBeenCalledWith({
@@ -148,7 +148,7 @@ describe("EvaluatePage", () => {
     }));
 
     await user.click(await screen.findByRole("button", { name: "回学习" }));
-    await waitFor(() => expect(screen.getByRole("status", { name: "current route" })).toHaveTextContent("/study/space-b/learn"));
+    await waitFor(() => expect(screen.getByRole("status", { name: "current route" })).toHaveTextContent("/study/space-b/notebook"));
     expect(JSON.parse(localStorage.getItem("kabuqina.study.location.v1:space-b")!)).toMatchObject({
       page: "learn",
       knowledgeCoreId: "core-vector",
@@ -182,15 +182,15 @@ describe("EvaluatePage", () => {
     }));
 
     await user.click(await screen.findByRole("button", { name: "回学习" }));
-    await waitFor(() => expect(screen.getByRole("status", { name: "current route" })).toHaveTextContent("/study/space-b/plan"));
+    await waitFor(() => expect(screen.getByRole("status", { name: "current route" })).toHaveTextContent("/study/space-b/bookend"));
     expect(localStorage.getItem("kabuqina.study.location.v1:space-b")).toBeNull();
   });
 
   it("merges the zero-evidence regions into one actionable page empty state", async () => {
     renderPage(repository());
     expect(await screen.findByRole("heading", { name: "还没有可以评估的练习证据" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "去练习" })).toHaveAttribute("href", "/study/space-b/practice");
-    expect(screen.getByRole("link", { name: "回到学习" })).toHaveAttribute("href", "/study/space-b/learn");
+    expect(screen.getByRole("link", { name: "去练习" })).toHaveAttribute("href", "/study/space-b/notebook?mode=practice");
+    expect(screen.getByRole("link", { name: "回到学习" })).toHaveAttribute("href", "/study/space-b/notebook?mode=learn");
     expect(screen.queryByText(/错题本是空的/)).not.toBeInTheDocument();
     expect(screen.queryByText("还没有生效的评估记录。")).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "评估" })).not.toBeInTheDocument();

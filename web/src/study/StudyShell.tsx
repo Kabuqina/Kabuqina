@@ -13,17 +13,42 @@ import { StudyDraftProvider } from "./DraftContext";
 import { RequestCoordinator } from "./loadable";
 import type { StudySpaces } from "./repository";
 import { useStudyRepository } from "./repositoryContext";
-import { studyPath, type StudyPageSlug } from "./routeModel";
+import { studyPath, type StudyLegacyPageSlug, type StudySurfaceSlug } from "./routeModel";
 import { ImportMaterials, type StudyImportResult } from "./ImportMaterials";
 import { ScratchDesk } from "./ScratchDesk";
 import { StudyPageOutlet } from "./pages/StudyPageOutlet";
 import { useStudyIa } from "./StudyIaContext";
 import { StudyDeskPage } from "./desk/StudyDeskPage";
 
-export function StudyShell({ spaces, spaceId, page, scratch = false, onRevalidate, refreshing = false, refreshFailed = false }: {
+/**
+ * Derive a legacy page key from the canonical surface so existing page-scoped
+ * outlets and analytics keep working during the v0.5.0 transition.
+ */
+function surfaceToPage(surface: StudySurfaceSlug, search: string): StudyLegacyPageSlug {
+  const params = new URLSearchParams(search);
+  if (surface === "notebook") {
+    const view = params.get("view");
+    if (view === "flyleaf") return "flyleaf";
+    const mode = params.get("mode");
+    if (mode === "learn") return "learn";
+    return "practice";
+  }
+  if (surface === "bookend") {
+    const view = params.get("view");
+    if (view === "evaluate") return "evaluate";
+    return "plan";
+  }
+  // cards surface still renders the notebook underneath; practice is the default work state.
+  return "practice";
+}
+
+export function StudyShell({ spaces, spaceId, surface, page: pageProp, scratch = false, onRevalidate, refreshing = false, refreshFailed = false }: {
   spaces: StudySpaces;
   spaceId?: string;
-  page?: StudyPageSlug;
+  /** v0.5.0 canonical surface. Takes precedence over `page` when both are provided. */
+  surface?: StudySurfaceSlug;
+  /** Legacy page prop, kept for compatibility during the transition. */
+  page?: StudyLegacyPageSlug;
   /** 杂记本没有五分页，所以它按 `/study/<id>` 直接摊开（账本 B-12）。 */
   scratch?: boolean;
   onRevalidate?: () => void;
@@ -44,6 +69,23 @@ export function StudyShell({ spaces, spaceId, page, scratch = false, onRevalidat
    * 这句话归 shell 管，不归弹窗管（弹窗那会儿已经关了）。
    */
   const [imported, setImported] = useState<StudyImportResult | null>(null);
+
+  const page = useMemo<StudyLegacyPageSlug | undefined>(
+    () => pageProp ?? (surface ? surfaceToPage(surface, location.search) : undefined),
+    [location.search, pageProp, surface],
+  );
+
+  // `page` 已是单一事实来源（surface+search 或 legacy prop 都已归一到它）：
+  // learn↔practice 是本子内的原地模式切换，flyleaf 是本子的第一页子态。
+  const notebookParams = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return {
+      mode: (page === "learn" ? "learn" : "practice") as "learn" | "practice",
+      flyleafOpen: page === "flyleaf",
+      capture: params.get("capture") ?? null,
+      purpose: params.get("purpose") ?? null,
+    };
+  }, [location.search, page]);
 
   const confirmPracticeLeave = useCallback(async () => {
     if (!practiceDirty) return true;
@@ -169,6 +211,9 @@ export function StudyShell({ spaces, spaceId, page, scratch = false, onRevalidat
           spaceId={spaceId}
           spaces={spaces.spaces}
           page={page}
+          surface={surface}
+          mode={notebookParams.mode}
+          flyleafOpen={notebookParams.flyleafOpen}
           pageBody={pageBody}
           switchingSpace={switching}
           onDirtyChange={setPracticeDirty}
@@ -188,12 +233,12 @@ export function StudyShell({ spaces, spaceId, page, scratch = false, onRevalidat
         ) : null}
       </StudyDraftProvider>
     );
-  }, [imported, importing, navigateAway, onRevalidate, page, refreshFailed, refreshing, scratch, selectSpace, spaceId, spaces.spaces, switching, t]);
+  }, [imported, importing, navigateAway, notebookParams, onRevalidate, page, refreshFailed, refreshing, scratch, selectSpace, spaceId, spaces.spaces, surface, switching, t]);
 
   return (
     <div
       className="kq-study-shell"
-      data-desk={spaceId && (page || scratch) ? "true" : undefined}
+      data-desk={spaceId && (surface || page || scratch) ? "true" : undefined}
       data-testid="study-shell"
     >
       {shell}
