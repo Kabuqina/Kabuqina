@@ -183,7 +183,33 @@
      这两个也得分主题给值，所以一并做成令牌。 */
   --desk-wipe: rgba(255, 247, 242, 0.55);
   --desk-seam: rgba(74, 40, 34, 0.18);
-  --desk-joint: inset 0 -1px 0 rgba(255, 246, 240, 0.5), 0 1px 0 rgba(74, 40, 34, 0.12);
+  /* 桌沿是**断面**，不是折痕。
+     原来那道 `inset 0 -1px 0 亮` + `0 1px 0 暗` 是一条亮线紧贴一条暗线——那正是纸
+     被折过的签名，折痕两侧仍是同一个平面，所以整张桌子读作一张折起来的纸。
+     换成四段带：台面最后 3px → 圆棱高光 4px → 前立面 9px → 底暗影 5px。
+     桌沿 / 抽屉口 / 抽屉脸现在是同一族断面，只是厚度递减：21 / 9 / 44。 */
+  --desk-edge-top-a: #E4D2C4;
+  --desk-edge-top-b: #D9C3B3;
+  --desk-edge-bevel-a: #F2E2D4;
+  --desk-edge-bevel-b: #E8D2C0;
+  --desk-edge-face-a: #B08D75;
+  --desk-edge-face-b: #94705B;
+  --desk-edge-foot-a: #7A5946;
+  --desk-edge-foot-b: #6B4A38;
+  --desk-edge-lip: rgba(255, 246, 238, 0.7);
+  --desk-edge-cast: rgba(60, 30, 26, 0.5);
+
+  /* 台面的透视：远端（贴桌沿）偏亮、近端偏暗，外加一层竖木纹。
+     木纹本身不透视，但配着亮度梯度足够读作平铺开的台面。 */
+  --desk-grain: repeating-linear-gradient(90deg,
+    rgba(122, 89, 70, 0.09) 0px, rgba(122, 89, 70, 0.09) 1px, transparent 1px, transparent 26px);
+  --desk-under-edge: linear-gradient(180deg,
+    rgba(74, 44, 34, 0.30) 0px, rgba(74, 44, 34, 0.06) 34px, transparent 78px);
+  --desk-plane: radial-gradient(150% 80% at 50% 0%, #D9C3B3 0%, #CBAF9E 46%, #B3947F 100%);
+
+  /* 纸落在桌上：一道落影 + 一道接触影。两道分开是关键——
+     只有大落影会飘，只有小接触影会平。 */
+  --paper-drop: 0 14px 26px -10px rgba(60, 30, 26, 0.55), 0 2px 3px rgba(60, 30, 26, 0.3);
   /* 抽屉那层遮罩是方向性的：单色读作「盖了层膜」，从抽屉往上衰减才读作
      「抽屉挡住了光」。0deg＝第一档落在底边，也就是抽屉那一侧。
      --scrim 留给需要单色的浮层。 */
@@ -287,7 +313,25 @@
   --desk-ink-soft: #B58F7E;
   --desk-wipe: rgba(255, 230, 215, 0.07);
   --desk-seam: rgba(255, 214, 190, 0.16);
-  --desk-joint: inset 0 -1px 0 rgba(255, 214, 190, 0.14), 0 1px 0 rgba(0, 0, 0, 0.35);
+  --desk-edge-top-a: #33231F;
+  --desk-edge-top-b: #2B1D19;
+  --desk-edge-bevel-a: #402E27;
+  --desk-edge-bevel-b: #33231E;
+  --desk-edge-face-a: #1E1310;
+  --desk-edge-face-b: #170E0C;
+  --desk-edge-foot-a: #120B09;
+  --desk-edge-foot-b: #0B0605;
+  --desk-edge-lip: rgba(255, 214, 190, 0.16);
+  --desk-edge-cast: rgba(0, 0, 0, 0.55);
+
+  /* 暗色下木纹要用浅墨：深色纹压在深木上等于没有。 */
+  --desk-grain: repeating-linear-gradient(90deg,
+    rgba(255, 214, 190, 0.05) 0px, rgba(255, 214, 190, 0.05) 1px, transparent 1px, transparent 26px);
+  --desk-under-edge: linear-gradient(180deg,
+    rgba(0, 0, 0, 0.45) 0px, rgba(0, 0, 0, 0.12) 34px, transparent 78px);
+  --desk-plane: radial-gradient(150% 80% at 50% 0%, #2E1E1B 0%, #241715 46%, #1A100E 100%);
+
+  --paper-drop: 0 14px 26px -10px rgba(0, 0, 0, 0.6), 0 2px 3px rgba(0, 0, 0, 0.45);
   --scrim-drawer: linear-gradient(0deg,
     rgba(18, 6, 4, 0.42) 0%, rgba(18, 6, 4, 0.32) 34%, rgba(18, 6, 4, 0.26) 100%);
   --desk-glow: rgba(255, 170, 140, 0.13);
@@ -430,8 +474,8 @@
     0 4px 0 -1px var(--line-faint),
     0 7px 0 -2px var(--paper-soft),
     0 8px 0 -2px var(--line-faint),
-    /* 整叠离开桌面 */
-    0 14px 32px rgba(77, 60, 96, 0.18);
+    /* 整叠落在桌上：一道落影 + 一道接触影，两道分开才既不飘也不平。 */
+    var(--paper-drop);
 }
 
 /* 引导、导出与定时任务沿用当前窗口里的「桌面 + 一张纸」框架。

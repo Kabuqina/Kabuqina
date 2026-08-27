@@ -40,11 +40,33 @@
      台灯/品牌/工具像是摆在桌面上方的一排东西。 */
   background: transparent;
   border-bottom: 0;
-  /* 横条与台面之间的交代：底沿一道亮边 + 下方一道暖影。这不是 UI 分隔线，
-     是后挡板与台面的接缝——纸的叠影才有地方落。 */
-  box-shadow: var(--desk-joint);
+  /* 横条与台面之间的交代交给 ::after 那道断面，这里不再压一条折痕。 */
   /* 木头上的墨：横条上的字与图标不用纸上的紫墨。 */
   color: var(--desk-ink);
+}
+
+/* 桌沿的断面（设计稿第六轮 6a）。
+   横条本身**不动**——它就是桌木渐变。一开始把它压深成暗紫当「后墙」是没人要的重设计，
+   而且那个深底会把 #57315A 的窗控（1.01:1）和台灯剪影（1.29–1.83:1）全吃掉，
+   等于把前几轮的对比度修复又推翻一次。纵深来自断面自己的四段明暗，不靠背景压深来衬。
+
+   它挂在横条下沿、盖住台面最上面 21px，所以必须 pointer-events:none——
+   底下那 21px 是内容区，不能被一条装饰吃掉点击。 */
+.kq-app-header::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 21px;
+  pointer-events: none;
+  background-image: linear-gradient(180deg,
+    var(--desk-edge-top-a) 0px, var(--desk-edge-top-b) 3px,
+    var(--desk-edge-bevel-a) 3px, var(--desk-edge-bevel-b) 7px,
+    var(--desk-edge-face-a) 7px, var(--desk-edge-face-b) 16px,
+    var(--desk-edge-foot-a) 16px, var(--desk-edge-foot-b) 21px);
+  box-shadow: 0 3px 7px -2px var(--desk-edge-cast), inset 0 1px 0 var(--desk-edge-lip);
 }
 
 /* 三列：台灯与左侧工具贴最左、品牌居中、设置/窗口控制贴最右。
@@ -218,10 +240,14 @@
   filter: drop-shadow(0 0 7px var(--lamp-glow));
 }
 
+/* 台面：桌沿之下那一整片。远端（贴着桌沿）偏亮、近端偏暗，读作平铺开去的桌面；
+   最上面一道是桌沿投下来的影，木纹 26px 一道。 */
 .kq-app-surface {
   position: relative;
   min-height: 0;
   overflow: auto;
+  background-image: var(--desk-grain), var(--desk-under-edge), var(--desk-plane);
+  background-repeat: repeat, no-repeat, no-repeat;
 }
 
 /* 抽屉从**窗体下方**升起，不从左侧滑出。桌上的抽屉就在桌沿下面；从左边推出来的
