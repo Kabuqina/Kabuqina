@@ -1,7 +1,7 @@
 # v0.5.0 Study 平板低保真原型审查
 
-日期：2026-08-24  
-审查对象：`docs/superpowers/prototypes/2026-08-22-v0.5.0-selfstudy-tablet-lofi.html`  
+日期：2026-08-24
+审查对象：`docs/superpowers/prototypes/2026-08-22-v0.5.0-selfstudy-tablet-lofi.html`
 对照需求：`docs/superpowers/plans/2026-08-20-v0.5.0-study-mvp-requirements.md`
 
 ## 结论
