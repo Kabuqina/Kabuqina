@@ -35,7 +35,13 @@ DEFAULT_ALLOW: set[str] = {
 class NetworkPolicy:
     """Check whether an outbound URL is on the allowlist."""
 
-    def __init__(self, *, llm_host: str = "", extra_hosts: str = "") -> None:
+    def __init__(
+        self,
+        *,
+        llm_host: str = "",
+        vision_host: str = "",
+        extra_hosts: str = "",
+    ) -> None:
         self._allow = set(DEFAULT_ALLOW)
         # Seed the active product profile's default provider hosts (e.g. the
         # retained China LLM providers for mainland_cn) so switching providers
@@ -46,7 +52,7 @@ class NetworkPolicy:
             self._allow.update(ProductProfilePolicy.default_network_hosts())
         except Exception:  # pragma: no cover - keep allowlist usable if import fails
             pass
-        for v in (llm_host, extra_hosts):
+        for v in (llm_host, vision_host, extra_hosts):
             for h in v.split(","):
                 h = h.strip().lower()
                 if h:

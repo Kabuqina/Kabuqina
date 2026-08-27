@@ -19,6 +19,7 @@ from desk_server.routes import (
     status,
     studio_routes,
     study_activity_routes,
+    study_capture_routes,
     study_routes,
     study_whiteboard_routes,
     voice,
@@ -50,6 +51,7 @@ def create_app() -> FastAPI:
         goal_routes,
         studio_routes,
         study_routes,
+        study_capture_routes,
         study_activity_routes,
         study_whiteboard_routes,
     ):

@@ -44,9 +44,16 @@ class SecretStore:
     """One-shot fetch of the LLM API key from the Tauri loopback bridge."""
 
     def fetch(self) -> str | None:
-        url = os.environ.pop("HERMESDESK_SECRET_URL", None)
+        url = os.environ.pop("KABUQINA_SECRET_URL", None) or os.environ.pop(
+            "HERMESDESK_SECRET_URL", None
+        )
+        os.environ.pop("HERMESDESK_SECRET_URL", None)
         provider = os.environ.get("HERMESDESK_PROVIDER", "").lower()
-        log.info("secret_loader: url=%r provider=%r", url, provider)
+        log.info(
+            "secret_loader: handshake=%s provider=%r",
+            "present" if url else "missing",
+            provider,
+        )
         if not url or not provider:
             log.info("no secret handshake URL; assuming dev mode (env-provided keys)")
             return None
@@ -78,4 +85,51 @@ class SecretStore:
         if inf:
             os.environ["HERMES_INFERENCE_PROVIDER"] = inf
 
+        return secret
+
+    def fetch_vision(self) -> str | None:
+        """Fetch the separately-vaulted Study vision key into one private env.
+
+        The key deliberately does not enter a provider's ordinary ``*_API_KEY``
+        variable because the main and vision providers may be identical while
+        using different accounts. Study passes it explicitly to the provider
+        router.
+        """
+
+        url = os.environ.pop("KABUQINA_VISION_SECRET_URL", None) or os.environ.pop(
+            "HERMESDESK_VISION_SECRET_URL", None
+        )
+        os.environ.pop("HERMESDESK_VISION_SECRET_URL", None)
+        provider = (
+            os.environ.get("KABUQINA_VISION_PROVIDER")
+            or os.environ.get("HERMESDESK_VISION_PROVIDER")
+            or ""
+        ).strip().lower()
+        configured = (
+            os.environ.get("KABUQINA_VISION_CONFIGURED")
+            or os.environ.get("HERMESDESK_VISION_CONFIGURED")
+            or "0"
+        ) == "1"
+        log.info(
+            "vision_secret_loader: handshake=%s provider=%r configured=%s",
+            "present" if url else "missing",
+            provider,
+            configured,
+        )
+        os.environ.pop("KABUQINA_VISION_API_KEY", None)
+        if not configured:
+            return None
+        if not url or not provider:
+            raise SystemExit(2)
+        try:
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            with opener.open(url, timeout=5) as response:  # nosec - loopback
+                secret = response.read().decode("utf-8").strip()
+        except Exception:
+            log.exception("failed to fetch vision secret from Tauri")
+            raise SystemExit(2)
+        if not secret:
+            raise SystemExit(2)
+        os.environ["KABUQINA_VISION_API_KEY"] = secret
+        log.info("independent vision secret loaded (provider=%s)", provider)
         return secret

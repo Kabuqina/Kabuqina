@@ -9,7 +9,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 # Add python/src to path for test-time imports
 _src = str(Path(__file__).resolve().parent.parent / "src")
@@ -142,6 +142,13 @@ class TestNetworkPolicy(unittest.TestCase):
     def test_allows_extra_host(self):
         self.policy.check_url("https://example.com/data")
 
+    def test_allows_independent_vision_host(self):
+        policy = NetworkPolicy(
+            llm_host="api.deepseek.com", vision_host="dashscope.aliyuncs.com"
+        )
+        policy.check_url("https://api.deepseek.com/v1/chat/completions")
+        policy.check_url("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions")
+
     def test_blocks_unknown_host(self):
         with self.assertRaises(PermissionError):
             self.policy.check_url("https://evil.example.com/data")
@@ -248,6 +255,43 @@ class TestSecretStore(unittest.TestCase):
         self.assertEqual(_PROVIDER_ENV["kimi-coding-cn"], "KIMI_CN_API_KEY")
         self.assertEqual(_PROVIDER_ENV["minimax"], "MINIMAX_API_KEY")
         self.assertEqual(_PROVIDER_ENV["minimax-cn"], "MINIMAX_CN_API_KEY")
+
+    def test_vision_secret_is_separate_from_main_provider_env(self):
+        response = MagicMock()
+        response.read.return_value = b"vision-only-secret"
+        context = MagicMock()
+        context.__enter__.return_value = response
+        opener = MagicMock()
+        opener.open.return_value = context
+        env = {
+            "KABUQINA_VISION_SECRET_URL": "http://127.0.0.1:1234/vision-secret/token",
+            "KABUQINA_VISION_PROVIDER": "openai",
+            "KABUQINA_VISION_CONFIGURED": "1",
+            "OPENAI_API_KEY": "main-secret",
+        }
+        with patch.dict(os.environ, env, clear=True), patch(
+            "secret_store.urllib.request.build_opener", return_value=opener
+        ):
+            result = SecretStore().fetch_vision()
+            self.assertEqual(result, "vision-only-secret")
+            self.assertEqual(os.environ["KABUQINA_VISION_API_KEY"], "vision-only-secret")
+            self.assertEqual(os.environ["OPENAI_API_KEY"], "main-secret")
+            self.assertNotIn("KABUQINA_VISION_SECRET_URL", os.environ)
+
+    def test_unconfigured_vision_does_not_fetch_or_reuse_main_secret(self):
+        env = {
+            "KABUQINA_VISION_SECRET_URL": "http://127.0.0.1:1234/vision-secret/token",
+            "KABUQINA_VISION_PROVIDER": "openai",
+            "KABUQINA_VISION_CONFIGURED": "0",
+            "OPENAI_API_KEY": "main-secret",
+            "KABUQINA_VISION_API_KEY": "stale",
+        }
+        with patch.dict(os.environ, env, clear=True), patch(
+            "secret_store.urllib.request.build_opener"
+        ) as build_opener:
+            self.assertIsNone(SecretStore().fetch_vision())
+            build_opener.assert_not_called()
+            self.assertNotIn("KABUQINA_VISION_API_KEY", os.environ)
 
 
 class TestApprovalBackendPolicy(unittest.TestCase):

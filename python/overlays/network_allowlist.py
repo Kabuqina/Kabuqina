@@ -73,6 +73,10 @@ def install() -> None:
     _net_open = os.environ.get("HERMESDESK_NET_OPEN") == "1"
     _policy = NetworkPolicy(
         llm_host=os.environ.get("HERMESDESK_LLM_HOST", ""),
+        vision_host=(
+            os.environ.get("KABUQINA_VISION_HOST")
+            or os.environ.get("HERMESDESK_VISION_HOST", "")
+        ),
         extra_hosts=os.environ.get("HERMESDESK_EXTRA_HOSTS", ""),
     )
     try:

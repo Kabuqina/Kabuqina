@@ -51,6 +51,7 @@ def _install_secret_store() -> None:
         from secret_store import SecretStore  # type: ignore[import-untyped]
     store = SecretStore()
     store.fetch()
+    store.fetch_vision()
 
 
 def apply_all() -> None:

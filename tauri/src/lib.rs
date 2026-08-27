@@ -329,6 +329,8 @@ pub fn run() {
             study_capture::cmd_study_capture_stage_camera,
             study_capture::cmd_study_capture_normalize,
             study_capture::cmd_study_capture_transcribe,
+            study_capture::cmd_study_capture_assistance,
+            study_capture::cmd_study_capture_review,
             study_capture::cmd_study_capture_confirm,
             study_capture::cmd_study_capture_abandon,
             capture::cmd_capture_region,

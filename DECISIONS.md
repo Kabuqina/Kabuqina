@@ -1889,3 +1889,26 @@ Existing active plans remain readable under the 2026-08-01 compatibility rule:
 progress is never deleted merely because an old action is unbound. Web labels those
 legacy actions as `待关联目录`; it does not call them missing knowledge sources and
 does not present them as startable knowledge-core work.
+
+## Photographed Study work has a one-vision-call trust boundary (2026-08-28)
+
+Study photo capture uses exact version-1 contracts for the capture session, canonical
+crop transform, structured transcription, assistance and review draft. The normalized
+image crosses the independent vision-provider boundary once. Later hints, full answers
+and review receive only the validated transcription JSON; unknown fields, malformed
+coordinates, question mismatch and unsupported claims around critical unreadable regions
+fail closed.
+
+The vision provider has its own Credential Manager secret, provider, model, base URL and
+network allowlist host. It is never copied into the main conversation provider's API-key
+environment variable. The desktop child fetches it through the loopback secret bridge.
+Gateway children do not install that overlay and do not receive the independent Study
+vision credential; photographed-work capture is a desktop-only surface.
+
+Temporary media stays under the desktop app-data capture root. A `wrong` confirmation
+atomically promotes the normalized image to managed media; `correct`, `unreadable` and
+abandonment remove temporary media without creating learning evidence. Confirmed paper
+mistakes use `external_wrongbook` items and `external_wrongbook.confirmed` activities in
+the existing `learning.db`, keyed deterministically by `capture_id`. The shared wrongbook
+projection and retry resolver merge these entries with existing quiz attempts; no second
+wrongbook database is introduced.

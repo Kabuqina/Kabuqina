@@ -5,6 +5,10 @@ from __future__ import annotations
 from typing import Any, Dict
 
 from learning.evaluations import EvaluationService
+from learning.external_wrongbook import (
+    EXTERNAL_WRONGBOOK_ACTIVITY_TYPE,
+    EXTERNAL_WRONGBOOK_ITEM_TYPE,
+)
 from learning.learning_context import LearningExecutionContext
 
 MAX_WRONGBOOK_ATTEMPTS = 100
@@ -65,13 +69,50 @@ class WrongbookService:
                     "weak_tags": tags,
                 }
             )
+        external = []
+        for row in self._ctx.list_items(item_type=EXTERNAL_WRONGBOOK_ITEM_TYPE):
+            state = row.get("state") if isinstance(row.get("state"), dict) else {}
+            if state.get("status") == "active":
+                external.append(row)
+        for row in external:
+            state = row["state"]
+            raw_points = state.get("knowledge_points")
+            points = (
+                [str(value)[:200] for value in raw_points[:50] if isinstance(value, str)]
+                if isinstance(raw_points, list)
+                else []
+            )
+            for point in points:
+                if point and point.casefold() not in seen:
+                    seen.add(point.casefold())
+                    weak.append(point)
+            capture_id = str(state.get("capture_id") or "")
+            evidence.append(
+                {
+                    "activity_id": f"external-wrongbook-confirmed:{capture_id}",
+                    "artifact_id": "",
+                    "item_id": row["item_id"],
+                    "activity_type": EXTERNAL_WRONGBOOK_ACTIVITY_TYPE,
+                    "created_at": row["created_at"],
+                    "capture_id": capture_id,
+                    "media_id": str(state.get("media_id") or ""),
+                    "question_text": str(state.get("question_text") or "")[:2_000],
+                    "knowledge_points": points,
+                }
+            )
+        evidence.sort(
+            key=lambda item: (str(item.get("created_at") or ""), item["activity_id"]),
+            reverse=True,
+        )
+        total = attempts["count"] + len(external)
+        evidence = evidence[:limit]
         return {
             "weak_points": weak[:100],
             "evidence": evidence,
-            "count": attempts["count"],
+            "count": total,
             "returned": len(evidence),
             "limit": limit,
-            "truncated": attempts["count"] > len(evidence),
+            "truncated": total > len(evidence),
         }
 
     def retry_target(self, activity_id: str) -> Dict[str, Any]:
@@ -82,7 +123,33 @@ class WrongbookService:
         """
         row = self._ctx.quiz_attempt_by_id(activity_id)
         if not row:
-            raise KeyError(f"quiz attempt {activity_id!r} not found")
+            prefix = "external-wrongbook-confirmed:"
+            if activity_id.startswith(prefix):
+                capture_id = activity_id[len(prefix) :]
+                wanted = f"external-wrongbook:{capture_id}"
+                external = next(
+                    (
+                        item
+                        for item in self._ctx.list_items(
+                            item_type=EXTERNAL_WRONGBOOK_ITEM_TYPE
+                        )
+                        if item.get("item_id") == wanted
+                    ),
+                    None,
+                )
+                state = (
+                    external.get("state")
+                    if external and isinstance(external.get("state"), dict)
+                    else {}
+                )
+                if state.get("status") == "active":
+                    return {
+                        "source_kind": "external_wrongbook",
+                        "capture_id": capture_id,
+                        "item_ids": [wanted],
+                        "media_id": str(state.get("media_id") or ""),
+                    }
+            raise KeyError(f"wrongbook activity {activity_id!r} not found")
         artifact_id = str(row.get("artifact_id") or "").strip()
         artifact = self._ctx.get_artifact(artifact_id) if artifact_id else None
         if not artifact or artifact.get("kind") != "quiz" or artifact.get("status") != "active":

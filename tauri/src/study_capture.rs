@@ -535,14 +535,37 @@ pub async fn cmd_study_capture_transcribe(
 }
 
 #[tauri::command]
+pub async fn cmd_study_capture_assistance(
+    app: AppHandle,
+    capture_id: String,
+    body: Value,
+) -> Result<Value, DeskBridgeError> {
+    capture_action(&app, &capture_id, "assistance", body).await
+}
+
+#[tauri::command]
+pub async fn cmd_study_capture_review(
+    app: AppHandle,
+    capture_id: String,
+    body: Value,
+) -> Result<Value, DeskBridgeError> {
+    capture_action(&app, &capture_id, "review", body).await
+}
+
+#[tauri::command]
 pub async fn cmd_study_capture_confirm(
     app: AppHandle,
     capture_id: String,
     body: Value,
 ) -> Result<Value, DeskBridgeError> {
     let result = capture_action(&app, &capture_id, "confirm", body).await?;
-    if let Ok(data_dir) = crate::paths::ensure_data_dir(&app) {
-        let _ = std::fs::remove_dir_all(temp_capture_dir(&data_dir, &capture_id));
+    if matches!(
+        result.get("status").and_then(Value::as_str),
+        Some("confirmed" | "abandoned")
+    ) {
+        if let Ok(data_dir) = crate::paths::ensure_data_dir(&app) {
+            let _ = std::fs::remove_dir_all(temp_capture_dir(&data_dir, &capture_id));
+        }
     }
     Ok(result)
 }
